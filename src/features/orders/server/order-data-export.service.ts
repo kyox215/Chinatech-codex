@@ -7,12 +7,15 @@ import {
   ORDER_DATA_PARSER_VERSION,
   ORDER_DATA_MAX_REPAIR_ITEM_ROWS,
   ORDER_DATA_TEMPLATE_VERSION,
+  PREVIOUS_ORDER_DATA_TEMPLATE_VERSION,
 } from "@/features/orders/model/order-data-contract";
+import { isOrderDataWorkbookV3ExportEnabledForStore } from "@/features/orders/server/order-phase4-feature";
 import { assertOrderDataAccess } from "@/features/orders/server/order-data-access";
 import {
   completeExportBatch,
   createExportBatch,
   listOrderDataExportRows,
+  listOrderDataOperationHistory,
   listOrderExternalRefs,
   relationRecord,
   type OrderDataDbRow,
@@ -23,7 +26,12 @@ import {
   workbookDownloadHeaders,
   type WorkbookDataRow,
 } from "@/features/orders/server/order-data-workbook";
-import type { AuditActor, CustomerStats, FaultPriceItem } from "@/lib/repairdesk/types";
+import type {
+  AuditActor,
+  CustomerStats,
+  FactSelectionV2,
+  FaultPriceItem,
+} from "@/lib/repairdesk/types";
 import { writeAuditLog } from "@/server/audit";
 
 const MAX_CUSTOMER_STATS_ROWS = 10_000;
@@ -37,13 +45,16 @@ export async function downloadOrderDataTemplate(input: {
     "order:import_preview",
     input.expectedStoreId,
   );
-  const bytes = await buildOrderDataWorkbook({ kind: "template" });
+  const templateVersion = isOrderDataWorkbookV3ExportEnabledForStore(storeId)
+    ? ORDER_DATA_TEMPLATE_VERSION
+    : PREVIOUS_ORDER_DATA_TEMPLATE_VERSION;
+  const bytes = await buildOrderDataWorkbook({ kind: "template", templateVersion });
   await writeAuditLog({
     actor: input.actor,
     action: "download_template",
     entityType: "order_data",
-    entityId: ORDER_DATA_TEMPLATE_VERSION,
-    metadata: { template_version: ORDER_DATA_TEMPLATE_VERSION, store_id: storeId },
+    entityId: templateVersion,
+    metadata: { template_version: templateVersion, store_id: storeId },
   });
   return fileResult(bytes, `repairdesk-order-template-${dateStamp()}.xlsx`);
 }
@@ -54,10 +65,13 @@ export async function exportOrderData(input: { expectedStoreId: string; actor: A
     "order:export",
     input.expectedStoreId,
   );
+  const templateVersion = isOrderDataWorkbookV3ExportEnabledForStore(storeId)
+    ? ORDER_DATA_TEMPLATE_VERSION
+    : PREVIOUS_ORDER_DATA_TEMPLATE_VERSION;
   const batch = await createExportBatch({
     storeId,
     actorId,
-    templateVersion: ORDER_DATA_TEMPLATE_VERSION,
+    templateVersion,
     parserVersion: ORDER_DATA_PARSER_VERSION,
   });
   const rows = await listOrderDataExportRows(storeId);
@@ -65,7 +79,24 @@ export async function exportOrderData(input: { expectedStoreId: string; actor: A
     storeId,
     rows.map((row) => String(row.id)),
   );
-  const workbookRows = rows.map((row) => exportOrderRow(row, refs.get(String(row.id))));
+  const workbookRows = rows.map((row) =>
+    exportOrderRow(row, refs.get(String(row.id)), templateVersion),
+  );
+  const publicNoById = new Map(rows.map((row) => [String(row.id), String(row.public_no)]));
+  const history =
+    templateVersion === ORDER_DATA_TEMPLATE_VERSION
+      ? await listOrderDataOperationHistory(storeId)
+      : [];
+  const historyRows: WorkbookDataRow[] = history
+    .filter((event) => publicNoById.has(event.order_id))
+    .map((event) => ({
+      order_id: event.order_id,
+      public_no: publicNoById.get(event.order_id),
+      event_type: event.event_type,
+      operator_name: event.operator_name,
+      created_at: event.created_at,
+      summary: typeof event.payload?.action === "string" ? event.payload.action : event.event_type,
+    }));
   const repairRows: WorkbookDataRow[] = [];
   for (const row of rows) {
     const nextRows = exportRepairItemRows(row, refs.get(String(row.id)));
@@ -81,6 +112,8 @@ export async function exportOrderData(input: { expectedStoreId: string; actor: A
     exportBatchId: batch.id,
     orderRows: workbookRows,
     repairItemRows: repairRows,
+    operationHistoryRows: templateVersion === ORDER_DATA_TEMPLATE_VERSION ? historyRows : undefined,
+    templateVersion,
   });
   const fileHash = sha256(bytes);
   await completeExportBatch({ batchId: batch.id, storeId, fileHash, rowCount: rows.length });
@@ -90,9 +123,10 @@ export async function exportOrderData(input: { expectedStoreId: string; actor: A
     entityType: "order_data_batch",
     entityId: batch.id,
     metadata: {
-      template_version: ORDER_DATA_TEMPLATE_VERSION,
+      template_version: templateVersion,
       row_count: rows.length,
       repair_item_count: repairRows.length,
+      operation_history_count: historyRows.length,
       file_hash: fileHash,
     },
   });
@@ -148,12 +182,13 @@ export async function exportCustomerStats(input: { expectedStoreId: string; acto
 
 function exportOrderRow(
   row: OrderDataDbRow,
-  externalRef?: { sourceSystem: string; externalRecordId: string },
+  externalRef: { sourceSystem: string; externalRecordId: string } | undefined,
+  templateVersion = ORDER_DATA_TEMPLATE_VERSION,
 ): WorkbookDataRow {
   const customer = relationRecord(row.customer);
   const device = relationRecord(row.device);
   return {
-    template_version: ORDER_DATA_TEMPLATE_VERSION,
+    template_version: templateVersion,
     import_action: "update",
     order_id: String(row.id),
     public_no: String(row.public_no),
@@ -180,6 +215,9 @@ function exportOrderRow(
     device_model: stringValue(device?.model),
     device_imei: stringValue(device?.serial_or_imei),
     device_notes: stringValue(device?.device_notes),
+    ...selectionColumns("intake_intent", row.intake_intent_selection),
+    ...selectionColumns("reported_symptom", row.reported_symptoms_selection),
+    ...selectionColumns("diagnostic_finding", row.diagnostic_findings_selection),
     issue_description: stringValue(row.issue_description),
     diagnosis_result: stringValue(row.diagnosis_result),
     internal_tag: stringValue(row.internal_tag),
@@ -211,12 +249,25 @@ function exportRepairItemRows(
       public_no: String(row.public_no),
       source_system: externalRef?.sourceSystem,
       external_record_id: externalRef?.externalRecordId,
+      line_id: fault.line_id,
+      catalog_key: fault.catalog_key,
       sequence: index + 1,
       name: fault.name,
       price: Number(fault.price),
       note: fault.note,
     }),
   );
+}
+
+function selectionColumns(prefix: string, raw: unknown): WorkbookDataRow {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const selection = raw as FactSelectionV2;
+  if (!Array.isArray(selection.codes)) return {};
+  return {
+    [`${prefix}_codes`]: selection.codes.join(","),
+    [`${prefix}_other_note`]: selection.other_note,
+    [`${prefix}_catalog_revision`]: selection.catalog_revision,
+  };
 }
 
 function fileResult(bytes: Buffer, fileName: string) {

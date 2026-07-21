@@ -1,6 +1,8 @@
+import type { FactSelectionV2 } from "@/lib/repairdesk/types";
+
 export const ORDER_FACT_CATALOG_REVISION = "order-facts-2026-07-21.v1";
 
-export type OrderFactField = "reported_symptom" | "diagnostic_finding";
+export type OrderFactField = "intake_intent" | "reported_symptom" | "diagnostic_finding";
 
 export type OrderFactOption = {
   code: string;
@@ -8,6 +10,13 @@ export type OrderFactOption = {
   legacyText: string;
   requiresNote?: boolean;
 };
+
+export const intakeIntentOptions: readonly OrderFactOption[] = [
+  option("known_problem", "问题明确", "客户已说明明确问题"),
+  option("pending_diagnosis", "问题未知，需检测", "客户暂不确定具体问题，需要门店检测"),
+  option("customer_cannot_describe", "客户无法描述", "客户无法准确描述问题，需要门店检测"),
+  option("diagnostic_only", "仅检测", "客户本次仅委托检测，暂未确认维修"),
+];
 
 export const reportedSymptomOptions: readonly OrderFactOption[] = [
   option("will_not_power_on", "无法开机", "无法开机"),
@@ -38,6 +47,11 @@ const factConfigs: Record<
   OrderFactField,
   { label: string; prefix: string; options: readonly OrderFactOption[] }
 > = {
+  intake_intent: {
+    label: "接单意图",
+    prefix: "接单意图：",
+    options: intakeIntentOptions,
+  },
   reported_symptom: {
     label: "客户症状",
     prefix: "客户症状：",
@@ -52,6 +66,69 @@ const factConfigs: Record<
 
 export function getOrderFactConfig(field: OrderFactField) {
   return factConfigs[field];
+}
+
+export function buildFactSelection({
+  field,
+  codes,
+  otherNote,
+  catalogRevision = ORDER_FACT_CATALOG_REVISION,
+}: {
+  field: OrderFactField;
+  codes: string[];
+  otherNote?: string;
+  catalogRevision?: string;
+}): FactSelectionV2 | undefined {
+  if (!codes.length) return undefined;
+  validateFactSelection({
+    schema_version: 2,
+    field,
+    codes: codes as [string, ...string[]],
+    ...(otherNote?.trim() ? { other_note: normalizeFactNote(otherNote) } : {}),
+    catalog_revision: catalogRevision,
+  });
+  return {
+    schema_version: 2,
+    field,
+    codes: [...codes] as [string, ...string[]],
+    ...(otherNote?.trim() ? { other_note: normalizeFactNote(otherNote) } : {}),
+    catalog_revision: catalogRevision,
+  };
+}
+
+export function validateFactSelection(selection: FactSelectionV2) {
+  const config = factConfigs[selection.field];
+  if (!config || selection.schema_version !== 2) throw new Error("结构化点选字段无效");
+  if (selection.catalog_revision !== ORDER_FACT_CATALOG_REVISION) {
+    throw new Error("点选目录已更新，请刷新后重新确认");
+  }
+  const max = selection.field === "intake_intent" ? 1 : 20;
+  if (selection.codes.length < 1 || selection.codes.length > max) {
+    throw new Error(
+      selection.field === "intake_intent" ? "接单意图必须选择一项" : "点选内容数量无效",
+    );
+  }
+  if (new Set(selection.codes).size !== selection.codes.length) throw new Error("点选内容不能重复");
+  for (const code of selection.codes) {
+    if (!config.options.some((option) => option.code === code)) {
+      throw new Error("点选内容已停用或不可用，请重新确认");
+    }
+  }
+  const hasOther = selection.codes.includes("other");
+  const note = normalizeFactNote(selection.other_note ?? "");
+  if (hasOther && !note) throw new Error("请填写其他内容");
+  if (!hasOther && note) throw new Error("只有选择其他内容时才能填写补充说明");
+  if (note.length > 500) throw new Error("其他内容不能超过 500 个字符");
+  return selection;
+}
+
+export function intakeIntentCodeForMode(
+  mode: "reported" | "unknown" | "cannot_describe" | "diagnostic_only",
+) {
+  if (mode === "unknown") return "pending_diagnosis";
+  if (mode === "cannot_describe") return "customer_cannot_describe";
+  if (mode === "diagnostic_only") return "diagnostic_only";
+  return "known_problem";
 }
 
 export function buildFactCompatibilityText({

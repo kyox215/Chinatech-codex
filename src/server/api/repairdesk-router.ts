@@ -24,6 +24,7 @@ import {
   type OrderReasonCatalogRequest,
 } from "@/features/orders/server/order-reason-registry";
 import { assertOrderPresetReasonWorkflowEnabledForStore } from "@/features/orders/server/order-preset-reason-feature";
+import { assertOrderRelatedOrderV2EnabledForStore } from "@/features/orders/server/order-phase4-feature";
 import { getProfitCenter } from "@/features/profit/server/profit.repository";
 import { assertCanReadProfitCenter } from "@/features/profit/server/profit-feature";
 import { exportCostReport } from "@/features/profit/server/cost-export.service";
@@ -90,11 +91,13 @@ import {
   recordPayment,
   reopenOrder,
   reopenOrderWithSelection,
+  recordReworkDispositionWithSelection,
   reorderOrderWorkflowStatuses,
   sendApprovalRequest,
   sendNotification,
   sendWhatsappNotification,
   setOrderWorkflowStatusEnabled,
+  startReworkReviewWithSelection,
   transitionOrder,
   updateOrderWorkflowStatus,
   updateOrderWorkflowTransitions,
@@ -376,6 +379,7 @@ import {
   paymentBodySchema,
   reopenOrderBodySchema,
   reopenOrderV2BodySchema,
+  recordReworkDispositionV2BodySchema,
   storeCreateBodySchema,
   storeLifecyclePreflightBodySchema,
   storeLifecycleOperationStatusBodySchema,
@@ -395,6 +399,7 @@ import {
   storeMemberPermissionUpdateBodySchema,
   storeMemberRoleUpdateBodySchema,
   storeSettingsUpdateBodySchema,
+  startReworkReviewV2BodySchema,
   supplierArchiveBodySchema,
   supplierCreateBodySchema,
   supplierUpdateBodySchema,
@@ -415,6 +420,7 @@ const supabaseSource = {
   correctInitialDepositWithSelection,
   correctTerminalOrder,
   correctTerminalOrderWithSelection,
+  recordReworkDispositionWithSelection,
   completeCustomerFollowup,
   acceptStoreInvitation,
   approveOnboardingRequest,
@@ -432,6 +438,7 @@ const supabaseSource = {
   createKioskDevicePairing,
   createKioskSession,
   createOrder,
+  startReworkReviewWithSelection,
   createOrderWorkflowStatus,
   createSupplier,
   createStore,
@@ -2188,6 +2195,48 @@ export async function handleRepairDeskPost(
           ),
         );
       }
+      case "order/rework/start-v2": {
+        const { source_order_id: sourceOrderId, input } = startReworkReviewV2BodySchema.parse(body);
+        assertOrderPresetReasonWorkflowEnabledForStore(actor.storeId);
+        assertOrderRelatedOrderV2EnabledForStore(actor.storeId);
+        assertReworkReviewStartPermission(actor);
+        const resolved = resolveOrderReasonSelection("rework.triage", input.triage_selection);
+        const result = await api.startReworkReviewWithSelection(
+          sourceOrderId,
+          {
+            expectedSourceUpdatedAt: input.expected_source_updated_at,
+            idempotencyKey: input.idempotency_key,
+            triageSelection: resolved.storedSelection,
+            triageLegacyText: resolved.legacyText,
+          },
+          actor,
+        );
+        queueRealtimeBroadcast(actor, realtimeBroadcasts.orderCreated);
+        return ok(result);
+      }
+      case "order/rework/disposition-v2": {
+        const { related_order_id: relatedOrderId, input } =
+          recordReworkDispositionV2BodySchema.parse(body);
+        assertOrderPresetReasonWorkflowEnabledForStore(actor.storeId);
+        assertOrderRelatedOrderV2EnabledForStore(actor.storeId);
+        assertReworkDispositionPermission(actor);
+        const resolved = resolveOrderReasonSelection(
+          "rework.disposition",
+          input.disposition_selection,
+        );
+        const result = await api.recordReworkDispositionWithSelection(
+          relatedOrderId,
+          {
+            expectedRelatedUpdatedAt: input.expected_related_updated_at,
+            idempotencyKey: input.idempotency_key,
+            dispositionSelection: resolved.storedSelection,
+            dispositionLegacyText: resolved.legacyText,
+          },
+          actor,
+        );
+        queueRealtimeBroadcast(actor, realtimeBroadcasts.orderUpdated);
+        return ok(result);
+      }
       case "order/patch": {
         const { id, input } = patchOrderBodySchema.parse(body);
         assertOrderPatchPermission(actor, input);
@@ -3154,6 +3203,23 @@ export function assertOrderCreatePermission(actor: AuditActor, input?: CreateOrd
   if (input?.assignee_membership_id) assertRepairDeskPermission(actor, "order:assign");
 }
 
+export function assertReworkReviewStartPermission(actor: AuditActor) {
+  const role = actor.storeRole ?? actor.role;
+  if (!actor.isSystem && (!role || !["owner", "manager", "sales", "technician"].includes(role))) {
+    throw new ForbiddenError("当前角色不能开始售后复检");
+  }
+  assertOrderCreatePermission(actor);
+  assertOrderScopedPermission(actor, "order:update_intake");
+}
+
+export function assertReworkDispositionPermission(actor: AuditActor) {
+  const role = actor.storeRole ?? actor.role;
+  if (!actor.isSystem && (!role || !["owner", "manager", "technician"].includes(role))) {
+    throw new ForbiddenError("当前角色不能决定返修处置");
+  }
+  assertOrderScopedPermission(actor, "order:update_repair");
+}
+
 export function assertOrderUpdatePermission(actor: AuditActor, _input: UpdateOrderInput) {
   for (const action of resolveOrderUpdatePermissionActions(_input)) {
     assertOrderScopedPermission(actor, action);
@@ -3373,6 +3439,7 @@ export function resolveOrderPatchPermissionActions(input: PatchOrderInput): Perm
   if (hasOwnField(input.changes, "assignee_membership_id")) actions.add("order:assign");
   const repairFields = new Set([
     "diagnosis_result",
+    "diagnostic_findings_selection",
     "device_notes",
     "device_unlock",
     "internal_tag",
@@ -3398,6 +3465,7 @@ function hasFullOrderRepairFields(input: UpdateOrderInput) {
   return [
     "device_notes",
     "diagnosis_result",
+    "diagnostic_findings_selection",
     "device_unlock",
     "internal_tag",
     "warranty_text",

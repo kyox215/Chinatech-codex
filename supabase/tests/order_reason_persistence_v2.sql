@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(47);
+select no_plan();
 
 select ok(
   to_regprocedure('public.repairdesk_reason_selection_v2_is_valid(jsonb,text)') is not null,
@@ -86,16 +86,20 @@ select ok(
 select has_column('public', 'repair_orders', 'intake_intent_selection', 'order stores intake intent');
 select has_column('public', 'repair_orders', 'reported_symptoms_selection', 'order stores reported symptoms');
 select has_column('public', 'repair_orders', 'diagnostic_findings_selection', 'order stores diagnostic findings');
-select has_column('public', 'repair_orders', 'repair_line_items_selection', 'order stores repair line item selection');
-
 select has_table('public', 'repair_order_episodes', 'repair episode table exists');
 select has_table('public', 'repair_order_relations', 'related order table exists');
 select has_table('public', 'repairdesk_related_order_operations', 'related order idempotency ledger exists');
+select has_table('public', 'repairdesk_rework_disposition_operations', 'rework disposition idempotency ledger exists');
 select ok((select relrowsecurity from pg_class where oid = 'public.repair_order_episodes'::regclass), 'repair episodes have RLS');
 select ok((select relrowsecurity from pg_class where oid = 'public.repair_order_relations'::regclass), 'order relations have RLS');
 select ok((select relrowsecurity from pg_class where oid = 'public.repairdesk_related_order_operations'::regclass), 'related operation ledger has RLS');
-select ok(not has_function_privilege('authenticated', to_regprocedure('public.repairdesk_create_related_order_v2(uuid,uuid,uuid,uuid,text,jsonb,text,jsonb,text,jsonb,text)'), 'execute'), 'authenticated cannot create related order directly');
-select ok(has_function_privilege('service_role', to_regprocedure('public.repairdesk_create_related_order_v2(uuid,uuid,uuid,uuid,text,jsonb,text,jsonb,text,jsonb,text)'), 'execute'), 'service role can create related order');
+select ok(not has_function_privilege('authenticated', to_regprocedure('public.repairdesk_create_related_order_v2(uuid,uuid,uuid,timestamptz,uuid,text,jsonb,text)'), 'execute'), 'authenticated cannot create related order directly');
+select ok(has_function_privilege('service_role', to_regprocedure('public.repairdesk_create_related_order_v2(uuid,uuid,uuid,timestamptz,uuid,text,jsonb,text)'), 'execute'), 'service role can create related order');
+select ok(to_regprocedure('public.repairdesk_record_rework_disposition_v2(uuid,uuid,uuid,timestamptz,uuid,text,jsonb,text)') is not null, 'rework disposition coordinator exists');
+select ok(not has_function_privilege('authenticated', to_regprocedure('public.repairdesk_record_rework_disposition_v2(uuid,uuid,uuid,timestamptz,uuid,text,jsonb,text)'), 'execute'), 'authenticated cannot record disposition directly');
+select ok(has_function_privilege('service_role', to_regprocedure('public.repairdesk_record_rework_disposition_v2(uuid,uuid,uuid,timestamptz,uuid,text,jsonb,text)'), 'execute'), 'service role can record disposition');
+select ok(to_regprocedure('public.repairdesk_apply_order_data_batch_v3(uuid,uuid,uuid,text,text)') is not null, 'workbook v3 apply coordinator exists');
+select ok(to_regprocedure('public.repairdesk_rollback_order_data_batch_v3(uuid,uuid,uuid,text,text)') is not null, 'workbook v3 rollback coordinator exists');
 select ok(exists (select 1 from pg_constraint where conrelid = 'public.repair_order_episodes'::regclass and conname = 'repair_order_episodes_source_store_fkey'), 'episode source is same-store constrained');
 select ok(exists (select 1 from pg_constraint where conrelid = 'public.repair_order_episodes'::regclass and conname = 'repair_order_episodes_active_store_fkey'), 'episode active order is same-store constrained');
 select ok(exists (select 1 from pg_constraint where conrelid = 'public.repair_order_relations'::regclass and conname = 'repair_order_relations_source_store_fkey'), 'relation source is same-store constrained');
@@ -103,6 +107,7 @@ select ok(exists (select 1 from pg_constraint where conrelid = 'public.repair_or
 select ok(not has_table_privilege('service_role', 'public.repair_order_episodes', 'delete'), 'service role cannot delete repair episodes');
 select ok(not has_table_privilege('service_role', 'public.repair_order_relations', 'delete'), 'service role cannot delete order relations');
 select ok(not has_table_privilege('service_role', 'public.repairdesk_related_order_operations', 'delete'), 'service role cannot delete related operation evidence');
+select ok(not has_table_privilege('service_role', 'public.repairdesk_rework_disposition_operations', 'delete'), 'service role cannot delete disposition operation evidence');
 
 select * from finish();
 rollback;

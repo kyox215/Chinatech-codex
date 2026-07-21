@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -97,9 +98,11 @@ import {
   publishOrderQuote,
   confirmOrderQuoteSent,
   recordPayment,
+  recordReworkDispositionV2,
   sendWhatsappNotification,
   transitionOrder,
   transitionOrderV2,
+  startReworkReviewV2,
   updateOrderCustody,
   uploadOrderAttachment,
   type UpdateOrderInput,
@@ -294,6 +297,7 @@ export function OrderDetailScreen({
   surface?: "page" | "dialog";
   onClose?: () => void;
 }) {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
@@ -532,6 +536,43 @@ export function OrderDetailScreen({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const startReworkReview = useMutation({
+    mutationFn: (triageSelection: BusinessReasonSelectionV2) => {
+      if (!data) throw new Error("工单未加载");
+      return startReworkReviewV2(id, {
+        expected_source_updated_at: data.order.updated_at,
+        idempotency_key: crypto.randomUUID(),
+        triage_selection: triageSelection,
+      });
+    },
+    onSuccess: (result) => {
+      toast.success("已建立售后复检子单，原完结工单保持不变");
+      invalidate();
+      router.push(`/orders/${result.related_order_id}`);
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const recordReworkDisposition = useMutation({
+    mutationFn: (dispositionSelection: BusinessReasonSelectionV2) => {
+      if (!data) throw new Error("工单未加载");
+      return recordReworkDispositionV2(id, {
+        expected_related_updated_at: data.order.updated_at,
+        idempotency_key: crypto.randomUUID(),
+        disposition_selection: dispositionSelection,
+      });
+    },
+    onSuccess: (result) => {
+      toast.success(
+        result.episode_status === "open"
+          ? "已保存复检判断，待进一步检测后再确认归属"
+          : "已确认返修处置并更新关联类型",
+      );
+      invalidate();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const cancelledReturn = useMutation({
     mutationFn: () => {
       if (!data) throw new Error("工单未加载");
@@ -671,7 +712,12 @@ export function OrderDetailScreen({
   });
 
   const faultUpdate = useMutation({
-    mutationFn: (changes: Pick<PatchOrderChanges, "issue_description" | "diagnosis_result">) => {
+    mutationFn: (
+      changes: Pick<
+        PatchOrderChanges,
+        "issue_description" | "diagnosis_result" | "diagnostic_findings_selection"
+      >,
+    ) => {
       if (!data) throw new Error("工单未加载");
       return patchOrder(id, {
         expected_updated_at: data.order.updated_at,
@@ -687,13 +733,14 @@ export function OrderDetailScreen({
   const quotePublish = useMutation({
     mutationFn: (input: {
       idempotencyKey: string;
+      expectedUpdatedAt?: string;
       diagnosisResult: string;
       faultPrices: OrderDetail["order"]["fault_prices"];
       priceException?: Parameters<typeof publishOrderQuote>[1]["price_exception"];
     }) => {
       if (!data) throw new Error("工单未加载");
       return publishOrderQuote(id, {
-        expected_updated_at: data.order.updated_at,
+        expected_updated_at: input.expectedUpdatedAt ?? data.order.updated_at,
         idempotency_key: input.idempotencyKey,
         diagnosis_result: input.diagnosisResult,
         fault_prices: input.faultPrices,
@@ -1384,11 +1431,21 @@ export function OrderDetailScreen({
               <OrderTerminalActions detail={data} workflow={workflow} onCompleted={invalidate} />
               <ReworkDispositionCard
                 detail={data}
-                pending={faultUpdate.isPending}
-                onSave={(diagnosisResult) =>
+                pending={
+                  faultUpdate.isPending ||
+                  startReworkReview.isPending ||
+                  recordReworkDisposition.isPending
+                }
+                onLegacySave={(diagnosisResult) =>
                   faultUpdate
                     .mutateAsync({ diagnosis_result: diagnosisResult })
                     .then(() => undefined)
+                }
+                onStartReview={(selection) =>
+                  startReworkReview.mutateAsync(selection).then(() => undefined)
+                }
+                onRecordDisposition={(selection) =>
+                  recordReworkDisposition.mutateAsync(selection).then(() => undefined)
                 }
               />
             </div>
@@ -1652,11 +1709,21 @@ export function OrderDetailScreen({
             {surface !== "dialog" || safeDesktopDetailView === "overview" ? (
               <ReworkDispositionCard
                 detail={data}
-                pending={faultUpdate.isPending}
-                onSave={(diagnosisResult) =>
+                pending={
+                  faultUpdate.isPending ||
+                  startReworkReview.isPending ||
+                  recordReworkDisposition.isPending
+                }
+                onLegacySave={(diagnosisResult) =>
                   faultUpdate
                     .mutateAsync({ diagnosis_result: diagnosisResult })
                     .then(() => undefined)
+                }
+                onStartReview={(selection) =>
+                  startReworkReview.mutateAsync(selection).then(() => undefined)
+                }
+                onRecordDisposition={(selection) =>
+                  recordReworkDisposition.mutateAsync(selection).then(() => undefined)
                 }
               />
             ) : null}
@@ -1919,11 +1986,28 @@ export function OrderDetailScreen({
           order={order}
           capabilities={data.capabilities}
           isPending={quotePublish.isPending || faultUpdate.isPending}
-          onSaveDiagnosis={async (diagnosisResult) => {
-            await faultUpdate.mutateAsync({ diagnosis_result: diagnosisResult });
+          onSaveDiagnosis={async (diagnosisResult, diagnosticSelection) => {
+            await faultUpdate.mutateAsync({
+              diagnosis_result: diagnosisResult,
+              diagnostic_findings_selection: diagnosticSelection,
+            });
           }}
           onPublish={async (input) => {
-            await quotePublish.mutateAsync(input);
+            let expectedUpdatedAt = order.updated_at;
+            if (
+              JSON.stringify(input.diagnosticSelection ?? null) !==
+              JSON.stringify(order.diagnostic_findings_selection ?? null)
+            ) {
+              const patched = await patchOrder(id, {
+                expected_updated_at: expectedUpdatedAt,
+                changes: {
+                  diagnosis_result: input.diagnosisResult,
+                  diagnostic_findings_selection: input.diagnosticSelection,
+                },
+              });
+              expectedUpdatedAt = patched.updated_at;
+            }
+            await quotePublish.mutateAsync({ ...input, expectedUpdatedAt });
           }}
         />
       ) : null}

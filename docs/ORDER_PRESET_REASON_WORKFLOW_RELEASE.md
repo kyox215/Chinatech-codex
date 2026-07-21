@@ -1,6 +1,6 @@
 # Order preset reason workflow release
 
-Status: application Phase 1/2 implemented; Phase 3/4 expand-only migrations validated locally and withheld from production.
+Status: Phase 1/2 application flow shipped; Phase 3/4 product, API, migration and workbook v3 implementation validated and approved for the controlled ChinaTech production rollout.
 
 ## Outcome
 
@@ -30,35 +30,43 @@ The application keeps the existing human-readable reason fields for old clients,
 - `visualViewport` keyboard metrics, safe-area padding and action-dock coordination.
 - Pending operations block overlay dismissal; dirty selections require discard confirmation.
 
-## Data boundary
+## Phase 3/4 data boundary
 
-The production application release applies no database migration and performs no historical backfill.
+The approved release applies two expand-only migrations and performs no historical classification or backfill. Existing legacy text remains authoritative for historical rows; new structured columns stay nullable.
 
-Structured JSON is written only into an existing atomic event payload for normal transitions and approval decisions. Terminal correction/reopen/void, initial-deposit correction and non-default warranty continue to persist legacy text through their current production paths. The dedicated initial-deposit v1 RPC already exists in production; its v2 structured wrapper remains disabled.
-
-Two additive candidates are included but must not be pushed while the migration-history gate is red:
+The two production migrations are:
 
 - `20260721155031_order_reason_persistence_v2.sql`: nullable terminal/deposit snapshots, workflow-edge reason policy and explicitly named service-role-only v2 RPCs.
 - `20260721155054_order_structured_facts_related_orders_v2.sql`: nullable fact projections, same-store repair episodes/relations and atomic related-order command.
 
-Both candidates replayed successfully on an isolated RepairDesk schema snapshot. `supabase/tests/order_reason_persistence_v2.sql` passed 47/47 validator, ACL, RLS and same-store structure assertions. This is development evidence, not production-apply approval. The linked project still has material remote-only migration history and therefore remains `NO-GO` for `supabase db push`.
+Before production apply, the exact production schema and public data were dumped and restored into an isolated PostgreSQL 17 database. Both migrations replayed on that restored snapshot. Contract, related-order runtime and workbook v3 apply/rollback pgTAP suites passed. The linked dry-run resolved to exactly these two pending versions; historical statement-token differences are recorded but are not rewritten.
 
-The following remain separate Owner-approved phases:
+The approved runtime contract is:
 
-- production application of the two candidate migrations;
-- server/UI activation of persisted fact projections and atomic related-order creation;
-- workbook v3 structured round-trip and read-only operation-history sheet;
-- any historical classification/backfill (the default remains null/legacy text).
+- completed source orders are immutable during after-sales intake;
+- starting after-sales review creates an independent zero-finance rework child, relation and episode in one transaction;
+- disposition requires a saved diagnosis and updates the server-owned relation type without trusting client identity/status/finance fields;
+- terminal/deposit structured snapshots store catalog identity and note presence without copying the private note body into audit metadata;
+- workbook v3 writes structured selections atomically and rolls them back atomically; its operation-history sheet is read-only and never stages event payloads;
+- historical rows are not reverse-classified and there is no production backfill in this release.
 
 ## Rollout flags
 
-All three gates must be satisfied. Any missing, `0`, `true` or malformed value is off.
+Every gate is exact-value and fail-closed. Any missing, `0`, `true` or malformed value is off. Server features also require the current store id in the matching allowlist.
 
 ```env
 NEXT_PUBLIC_ORDER_PRESET_REASON_WORKFLOW_ENABLED=0
 ORDER_PRESET_REASON_WORKFLOW_ENABLED=0
 ORDER_PRESET_REASON_WORKFLOW_STORE_ALLOWLIST=
 ORDER_REASON_PERSISTENCE_V2_ENABLED=0
+NEXT_PUBLIC_ORDER_STRUCTURED_FACTS_V2_ENABLED=0
+ORDER_STRUCTURED_FACTS_V2_ENABLED=0
+ORDER_STRUCTURED_FACTS_V2_STORE_ALLOWLIST=
+ORDER_RELATED_ORDER_V2_ENABLED=0
+ORDER_RELATED_ORDER_V2_STORE_ALLOWLIST=
+ORDER_DATA_WORKBOOK_V3_EXPORT_ENABLED=0
+ORDER_DATA_WORKBOOK_V3_IMPORT_ENABLED=0
+ORDER_DATA_WORKBOOK_V3_STORE_ALLOWLIST=
 ```
 
 - The public flag selects the preset UI. It is build-time and requires a redeploy when changed.
@@ -67,21 +75,26 @@ ORDER_REASON_PERSISTENCE_V2_ENABLED=0
 - With the UI flag off, the complete legacy free-text field remains available and API calls use legacy endpoints.
 - With the UI flag on but server/store gate closed, v2 writes fail closed with `ORDER_PRESET_REASON_WORKFLOW_DISABLED`.
 - `ORDER_REASON_PERSISTENCE_V2_ENABLED=1` is a second server-only gate. It must stay `0` until the Phase 3 migration is applied and verified; otherwise terminal and deposit commands continue through v1 RPCs with resolved legacy text.
+- `NEXT_PUBLIC_ORDER_STRUCTURED_FACTS_V2_ENABLED=1` blocks offline create so a structured selection cannot be silently downgraded; it is build-time and requires redeploy.
+- Structured facts, related orders, workbook export and workbook import have separate server flags so each surface can be paused without dropping schema objects.
+- Workbook v3 import is enabled only after v3 export/download and preview validation pass for the ChinaTech canary.
 
 Recommended canary order:
 
-1. Deploy all flags off, including structured persistence.
-2. Verify legacy transition, approval and terminal actions.
-3. Enable the public and server flags for a preview deployment with one test store in the allowlist.
-4. Verify stale revision, permission denial, idempotent replay and legacy text parity.
-5. Enable only the Chinatech store in production and observe before adding another store.
-6. Do not enable structured persistence as part of the application canary; it has a separate database change window.
+1. Deploy the Phase 3/4 application artifact with all new flags off and verify the legacy health path.
+2. Apply `20260721155031`, verify its columns, RPCs, ACLs and unchanged row counts.
+3. Apply `20260721155054`, verify its tables, RLS, grants, RPCs and unchanged source-order counts.
+4. Enable preset reasons, reason persistence, structured facts and related orders only for ChinaTech.
+5. Enable workbook v3 export for ChinaTech and verify export plus read-only history.
+6. Enable workbook v3 import for ChinaTech only after preview/apply/rollback smoke; observe errors before any additional store.
 
 ## Import, export and offline compatibility
 
-- Current workbook version remains `repairdesk-order-data-v2`; v1 and v2 are legacy-text contracts.
+- `repairdesk-order-data-v3` is the latest contract; v1 and v2 remain accepted legacy-text contracts.
 - The exported `定金` column is read-only. Any changed imported value is rejected with guidance to use the dedicated correction flow and choose a reason.
-- Workbook v3 is not emitted until structured projections are live. It must add current selection columns and a separate read-only operation-history sheet; imported history must never overwrite events or audit evidence.
+- Workbook v3 adds code/revision groups for intake intent, reported symptoms and diagnostic findings, stable repair-line identity, and a separate read-only operation-history sheet. Imported history never overwrites events or audit evidence.
+- A partial v3 structured group, stale catalog revision or unknown code is rejected rather than guessed.
+- A v1/v2 text edit that would drift from an existing structured selection is rejected with guidance to use v3.
 - Legacy text is never reverse-guessed into a code.
 - Offline draft schema v2 stores customer-symptom codes and catalog revision locally. A stale revision marks the draft/outbox as review-required and blocks automatic sync.
 
@@ -118,10 +131,11 @@ The catalog response exposes staff labels and note requirements but not server l
 
 ## Rollback
 
-1. Set the public and server flags to `0` and redeploy.
+1. Set the related-order and workbook import flags to `0` first; if needed set all Phase 3/4 public and server flags to `0` and redeploy.
 2. Leave already-written event snapshots intact; do not delete or rewrite audit evidence.
 3. Continue through the v1 endpoints and legacy free-text fields.
 4. If a catalog revision caused an incident, publish a forward revision after fixing it; do not silently reinterpret an old code.
+5. Leave additive schema, relations, episodes and audit evidence in place. Do not drop tables or rewrite history as an application rollback.
 
 ## Release evidence required
 

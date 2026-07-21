@@ -5,6 +5,8 @@ import {
   extractOrderDataApplyFailureCode,
   OrderDataApplyRepositoryError,
 } from "@/features/orders/model/order-data-errors";
+import { ORDER_DATA_TEMPLATE_VERSION } from "@/features/orders/model/order-data-contract";
+import { isOrderDataWorkbookV3ImportEnabledForStore } from "@/features/orders/server/order-phase4-feature";
 
 const ORDER_DATA_SELECT = `
   id,
@@ -23,6 +25,9 @@ const ORDER_DATA_SELECT = `
   device_id,
   issue_description,
   diagnosis_result,
+  intake_intent_selection,
+  reported_symptoms_selection,
+  diagnostic_findings_selection,
   quotation_amount,
   deposit_amount,
   balance_amount,
@@ -92,6 +97,23 @@ export async function listOrderDataExportRows(storeId: string) {
     if (batch.length < EXPORT_PAGE_SIZE) return rows;
   }
   throw new Error(`工单数量超过 ${MAX_EXPORT_ROWS} 条同步导出限制，请联系管理员`);
+}
+
+export async function listOrderDataOperationHistory(storeId: string, limit = 5_000) {
+  const { data, error } = await getSupabaseAdmin()
+    .from("order_events")
+    .select("order_id,event_type,operator_name,created_at,payload")
+    .eq("store_id", storeId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  failOrderData(error, "读取工单操作历史失败");
+  return (data ?? []) as Array<{
+    order_id: string;
+    event_type: string;
+    operator_name?: string | null;
+    created_at: string;
+    payload?: Record<string, unknown> | null;
+  }>;
 }
 
 export async function listOrderExternalRefs(storeId: string, orderIds: string[]) {
@@ -329,7 +351,23 @@ export async function applyImportBatch(input: {
   actor: AuditActor;
   storeId: string;
 }) {
-  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_apply_order_data_batch", {
+  const supabase = getSupabaseAdmin();
+  const { data: batch, error: batchError } = await supabase
+    .from("order_data_batches")
+    .select("template_version")
+    .eq("id", input.batchId)
+    .eq("store_id", input.storeId)
+    .maybeSingle();
+  failOrderData(batchError, "读取工单导入批次失败");
+  if (!batch) throw new OrderDataApplyRepositoryError("batch_not_found");
+  const isV3 = String(batch.template_version) === ORDER_DATA_TEMPLATE_VERSION;
+  if (isV3 && !isOrderDataWorkbookV3ImportEnabledForStore(input.storeId)) {
+    throw new Error("工作簿 v3 导入已暂停，请重新预览或联系店主");
+  }
+  const rpcName = isV3
+    ? "repairdesk_apply_order_data_batch_v3"
+    : "repairdesk_apply_order_data_batch";
+  const { data, error } = await supabase.rpc(rpcName, {
     p_batch_id: input.batchId,
     p_store_id: input.storeId,
     p_actor_id: input.actor.id,

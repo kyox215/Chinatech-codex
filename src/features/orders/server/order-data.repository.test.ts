@@ -90,6 +90,10 @@ describe("order data batch repository", () => {
   });
 
   it("keeps allowlisted Apply recovery codes structured without exposing RPC details", async () => {
+    const batchQuery = fluentQuery(
+      { data: { template_version: "repairdesk-order-data-v2" }, error: null },
+      "maybeSingle",
+    );
     const rpc = vi.fn().mockResolvedValue({
       data: null,
       error: {
@@ -97,7 +101,7 @@ describe("order data batch repository", () => {
         message: "batch_not_applicable: private schema and row details",
       },
     });
-    mocks.getSupabaseAdmin.mockReturnValue({ rpc });
+    mocks.getSupabaseAdmin.mockReturnValue({ from: vi.fn(() => batchQuery), rpc });
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     const error = await applyImportBatch({
@@ -122,19 +126,21 @@ describe("order data batch repository", () => {
   });
 });
 
-function fluentQuery(result: unknown, terminal: "limit" | "in") {
+function fluentQuery(result: unknown, terminal: "limit" | "in" | "maybeSingle") {
   const query = {
     select: vi.fn(),
     eq: vi.fn(),
     order: vi.fn(),
     limit: vi.fn(),
     in: vi.fn(),
+    maybeSingle: vi.fn(),
   };
   query.select.mockReturnValue(query);
   query.eq.mockReturnValue(query);
   query.order.mockReturnValue(query);
   query.limit.mockReturnValue(query);
   query.in.mockReturnValue(query);
+  query.maybeSingle.mockReturnValue(query);
   query[terminal].mockResolvedValue(result);
   return query;
 }

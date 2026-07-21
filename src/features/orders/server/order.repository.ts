@@ -17,6 +17,7 @@ import type {
   CreateOrderInput,
   DeviceSnapshot,
   DeviceCustodyStatus,
+  FactSelectionV2,
   OrderDetail,
   OrderCapabilities,
   OrderListFilters,
@@ -46,6 +47,7 @@ import type {
   PatchOrderInput,
   PatchOrderResult,
   RepairDeskOptions,
+  ReworkRelatedOrderResult,
   ReopenOrderInput,
   Supplier,
   UpdateOrderInput,
@@ -55,6 +57,11 @@ import type {
 } from "@/lib/repairdesk/types";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { isOrderReasonPersistenceV2EnabledForStore } from "@/features/orders/server/order-preset-reason-feature";
+import {
+  isOrderRelatedOrderV2EnabledForStore,
+  isOrderStructuredFactsV2EnabledForStore,
+} from "@/features/orders/server/order-phase4-feature";
+import { validateFactSelection } from "@/features/orders/model/order-fact-catalog";
 import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unlock";
 import {
   DEVICE_CUSTODY_WITH_CUSTOMER,
@@ -708,6 +715,18 @@ export function projectOrderCapabilities(
     canCollectPayment: isOrderPaymentCollectible(order) && permitted("payment:collect"),
     canCorrectInitialDeposit,
     canTransition: routine && permitted("order:transition"),
+    canStartAfterSalesReview:
+      !voided &&
+      order.status === "completed" &&
+      isOrderRelatedOrderV2EnabledForStore(actor?.storeId) &&
+      permitted("order:create") &&
+      permitted("order:update_intake"),
+    canDecideReworkDisposition:
+      !voided &&
+      order.status === "rework" &&
+      Boolean(order.original_order_id) &&
+      isOrderRelatedOrderV2EnabledForStore(actor?.storeId) &&
+      permitted("order:update_repair"),
     canConfirmCancelledReturn:
       !voided &&
       isOrderCancelledState(order) &&
@@ -2745,6 +2764,9 @@ const OPTIONAL_ORDER_WRITE_FIELDS = [
   "voided_by",
   "void_reason",
   "deleted_at",
+  "intake_intent_selection",
+  "reported_symptoms_selection",
+  "diagnostic_findings_selection",
 ] as const;
 
 function stripOptionalOrderWriteFields(row: DbRecord) {
@@ -3114,6 +3136,9 @@ const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
   device_notes: "设备备注",
   issue_description: "故障描述",
   diagnosis_result: "诊断结果",
+  intake_intent_selection: "接单意图",
+  reported_symptoms_selection: "客户症状点选",
+  diagnostic_findings_selection: "检测发现点选",
   internal_tag: "内部标签",
   accessory_notes: "随附物品",
   device_unlock: "手机密码",
@@ -3294,6 +3319,16 @@ export async function updateOrder(
   if (!customerName || !customerPhone) throw new Error("客户姓名和手机号不能为空");
   if (!deviceBrand || !deviceModel) throw new Error("设备品牌和型号不能为空");
   if (!issueDescription) throw new Error("故障描述不能为空");
+  const structuredFactsEnabled = isOrderStructuredFactsV2EnabledForStore(storeId);
+  const intakeIntent = structuredFactsEnabled
+    ? validatedFactSelection(input.intake_intent_selection, "intake_intent")
+    : undefined;
+  const reportedSymptoms = structuredFactsEnabled
+    ? validatedFactSelection(input.reported_symptoms_selection, "reported_symptom")
+    : undefined;
+  const diagnosticFindings = structuredFactsEnabled
+    ? validatedFactSelection(input.diagnostic_findings_selection, "diagnostic_finding")
+    : undefined;
 
   const validFaults = normalizeFaultPriceInput(input.fault_prices);
   const quotation = validFaults.reduce((sum, item) => sum + item.price, 0);
@@ -3378,6 +3413,13 @@ export async function updateOrder(
     update: {
       issue_description: issueDescription,
       diagnosis_result: input.diagnosis_result?.trim() || null,
+      ...(structuredFactsEnabled
+        ? {
+            intake_intent_selection: intakeIntent ?? null,
+            reported_symptoms_selection: reportedSymptoms ?? null,
+            diagnostic_findings_selection: diagnosticFindings ?? null,
+          }
+        : {}),
       internal_tag: tagInput.internalTag || null,
       accessory_notes: tagInput.accessoryNotes || null,
       ...(deviceUnlock
@@ -3586,6 +3628,27 @@ export async function patchOrder(
         throw new Error("质保期限必须是 0 到 36 个月的整数");
       }
       orderUpdate.warranty_months = months;
+      continue;
+    }
+
+    if (
+      field === "intake_intent_selection" ||
+      field === "reported_symptoms_selection" ||
+      field === "diagnostic_findings_selection"
+    ) {
+      if (!isOrderStructuredFactsV2EnabledForStore(storeId)) {
+        throw new ForbiddenError("结构化点选尚未对当前门店开放");
+      }
+      const expectedField =
+        field === "intake_intent_selection"
+          ? "intake_intent"
+          : field === "reported_symptoms_selection"
+            ? "reported_symptom"
+            : "diagnostic_finding";
+      orderUpdate[field] =
+        rawValue === null
+          ? null
+          : validatedFactSelection(rawValue as FactSelectionV2, expectedField);
       continue;
     }
 
@@ -4058,6 +4121,15 @@ export async function sendApprovalRequest(
   });
 }
 
+function validatedFactSelection(
+  selection: FactSelectionV2 | null | undefined,
+  expectedField: FactSelectionV2["field"],
+) {
+  if (!selection) return undefined;
+  if (selection.field !== expectedField) throw new Error("结构化点选字段与当前操作不一致");
+  return validateFactSelection(selection);
+}
+
 export async function createOrder(
   input: CreateOrderInput,
   operator: string | AuditActor = "前台",
@@ -4074,6 +4146,13 @@ export async function createOrder(
     throw new ForbiddenError("当前角色无权分配工单负责人");
   }
   if (!input.issue_description.trim()) throw new Error("故障描述不能为空");
+  const structuredFactsEnabled = isOrderStructuredFactsV2EnabledForStore(storeId);
+  const intakeIntent = structuredFactsEnabled
+    ? validatedFactSelection(input.intake_intent_selection, "intake_intent")
+    : undefined;
+  const reportedSymptoms = structuredFactsEnabled
+    ? validatedFactSelection(input.reported_symptoms_selection, "reported_symptom")
+    : undefined;
   const deviceCustodyStatus = input.device_custody_status ?? DEVICE_CUSTODY_WITH_SHOP;
 
   const validFaults = normalizeFaultPriceInput(input.fault_prices, { generateLineIds: true });
@@ -4152,7 +4231,7 @@ export async function createOrder(
     accessoryNotes: input.accessory_notes,
   });
   const { data: atomicResultData, error: atomicResultError } = await supabase.rpc(
-    "repairdesk_create_order_v2",
+    structuredFactsEnabled ? "repairdesk_create_order_v3" : "repairdesk_create_order_v2",
     {
       p_store_id: storeId,
       p_actor_id: actorId,
@@ -4185,6 +4264,8 @@ export async function createOrder(
           parts_status: canonicalDefaults.parts_status,
           notify_status: canonicalDefaults.notify_status,
           issue_description: input.issue_description.trim(),
+          ...(intakeIntent ? { intake_intent_selection: intakeIntent } : {}),
+          ...(reportedSymptoms ? { reported_symptoms_selection: reportedSymptoms } : {}),
           quotation_amount: quotation,
           deposit_amount: deposit,
           balance_amount: balance,
@@ -4243,6 +4324,139 @@ export async function createOrder(
     );
   }
   throw orderCustomerIdentityFailure(atomicCode);
+}
+
+function reworkRelatedOrderFailure(code: string): never {
+  const messages: Record<string, string> = {
+    actor_forbidden: "当前账号没有执行该售后操作的权限",
+    source_order_not_found: "原工单不存在",
+    source_order_voided: "原工单已作废，不能开始售后复检",
+    source_order_not_terminal: "只有已完成工单可以开始售后复检",
+    source_identity_missing: "原工单缺少客户或设备关联",
+    stale_source_order: "原工单已更新，请刷新后重新确认",
+    open_rework_episode_exists: "该工单已有进行中的售后复检",
+    active_order_not_found: "返修工单不存在",
+    active_order_voided: "返修工单已作废",
+    stale_active_order: "返修工单已更新，请刷新后重新确认",
+    active_order_not_rework: "当前工单不是有效的售后复检子单",
+    open_rework_episode_not_found: "当前返修工单没有开放的售后复检",
+    diagnosis_required: "请先记录检测结论，再选择返修处置",
+    invalid_rework_selection: "返修点选已失效，请刷新后重新选择",
+    invalid_rework_disposition: "返修处置选项无效",
+    idempotency_conflict: "该操作标识已用于不同请求，请刷新后重试",
+  };
+  const error = new Error(messages[code] ?? "售后复检操作失败") as Error & {
+    status: number;
+    code: string;
+  };
+  error.status = code === "actor_forbidden" ? 403 : code.includes("not_found") ? 404 : 409;
+  error.code = code.toUpperCase();
+  throw error;
+}
+
+function reworkRelatedOrderResult(data: unknown): ReworkRelatedOrderResult {
+  if (!data || typeof data !== "object") throw new Error("数据库返回的售后复检结果无效");
+  const row = data as Record<string, unknown>;
+  if (row.ok !== true) reworkRelatedOrderFailure(requiredString(row.code));
+  const replayed = row.replayed === true;
+  return {
+    ok: true,
+    code: replayed ? "idempotent_replay" : row.code === "recorded" ? "recorded" : "created",
+    source_order_id: requiredString(row.source_order_id),
+    related_order_id: requiredString(row.related_order_id),
+    episode_id: requiredString(row.episode_id),
+    relation_id: maybeString(row.relation_id),
+    relation_type:
+      row.relation_type === "warranty_rework" ||
+      row.relation_type === "related_new_fault" ||
+      row.relation_type === "followup"
+        ? row.relation_type
+        : undefined,
+    episode_status:
+      row.episode_status === "open" || row.episode_status === "decided"
+        ? row.episode_status
+        : undefined,
+    related_updated_at: maybeString(row.related_updated_at),
+    replayed,
+  };
+}
+
+export async function startReworkReviewWithSelection(
+  sourceOrderId: string,
+  input: {
+    expectedSourceUpdatedAt: string;
+    idempotencyKey: string;
+    triageSelection: StoredBusinessReasonSelectionV2;
+    triageLegacyText: string;
+  },
+  actor: AuditActor,
+): Promise<ReworkRelatedOrderResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  if (!isOrderRelatedOrderV2EnabledForStore(storeId)) {
+    throw new ForbiddenError("关联售后复检尚未对当前门店开放");
+  }
+  const requestHash = createHash("sha256")
+    .update(
+      JSON.stringify({
+        action: "start_rework_review_v2",
+        source_order_id: sourceOrderId,
+        expected_source_updated_at: input.expectedSourceUpdatedAt,
+        triage_selection: input.triageSelection,
+        triage_legacy_text: input.triageLegacyText.trim(),
+      }),
+    )
+    .digest("hex");
+  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_create_related_order_v2", {
+    p_store_id: storeId,
+    p_source_order_id: sourceOrderId,
+    p_actor_id: terminalActorId(actor),
+    p_expected_source_updated_at: input.expectedSourceUpdatedAt,
+    p_operation_id: input.idempotencyKey,
+    p_request_hash: requestHash,
+    p_triage_selection: input.triageSelection,
+    p_triage_legacy_text: input.triageLegacyText.trim(),
+  });
+  fail(error, "开始售后复检失败");
+  return reworkRelatedOrderResult(data);
+}
+
+export async function recordReworkDispositionWithSelection(
+  relatedOrderId: string,
+  input: {
+    expectedRelatedUpdatedAt: string;
+    idempotencyKey: string;
+    dispositionSelection: StoredBusinessReasonSelectionV2;
+    dispositionLegacyText: string;
+  },
+  actor: AuditActor,
+): Promise<ReworkRelatedOrderResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  if (!isOrderRelatedOrderV2EnabledForStore(storeId)) {
+    throw new ForbiddenError("关联售后复检尚未对当前门店开放");
+  }
+  const requestHash = createHash("sha256")
+    .update(
+      JSON.stringify({
+        action: "record_rework_disposition_v2",
+        related_order_id: relatedOrderId,
+        expected_related_updated_at: input.expectedRelatedUpdatedAt,
+        disposition_selection: input.dispositionSelection,
+        disposition_legacy_text: input.dispositionLegacyText.trim(),
+      }),
+    )
+    .digest("hex");
+  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_record_rework_disposition_v2", {
+    p_store_id: storeId,
+    p_active_order_id: relatedOrderId,
+    p_actor_id: terminalActorId(actor),
+    p_expected_active_updated_at: input.expectedRelatedUpdatedAt,
+    p_operation_id: input.idempotencyKey,
+    p_request_hash: requestHash,
+    p_disposition_selection: input.dispositionSelection,
+    p_disposition_legacy_text: input.dispositionLegacyText.trim(),
+  });
+  fail(error, "保存返修检测处置失败");
+  return reworkRelatedOrderResult(data);
 }
 
 export async function getOrderCreateOperationStatus(

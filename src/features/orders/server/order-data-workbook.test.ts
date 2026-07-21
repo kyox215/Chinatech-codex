@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   LEGACY_ORDER_DATA_TEMPLATE_VERSION,
   ORDER_DATA_TEMPLATE_VERSION,
+  PREVIOUS_ORDER_DATA_TEMPLATE_VERSION,
 } from "@/features/orders/model/order-data-contract";
 
 import { buildOrderDataWorkbook, parseOrderDataWorkbook } from "./order-data-workbook";
@@ -65,14 +66,16 @@ describe("order data workbook", () => {
   });
 
   it("continues to parse legacy v1 workbooks without custody columns", async () => {
-    const bytes = await buildOrderDataWorkbook({ kind: "template" });
+    const bytes = await buildOrderDataWorkbook({
+      kind: "template",
+      templateVersion: LEGACY_ORDER_DATA_TEMPLATE_VERSION,
+    });
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(Uint8Array.from(bytes).buffer);
     const orderSheet = workbook.getWorksheet("工单");
     const metadataSheet = workbook.getWorksheet("_元数据");
     if (!orderSheet || !metadataSheet) throw new Error("missing workbook sheets");
 
-    orderSheet.spliceColumns(9, 2);
     orderSheet.getCell("A2").value = LEGACY_ORDER_DATA_TEMPLATE_VERSION;
     orderSheet.getCell("B2").value = "create";
     metadataSheet.getCell("B1").value = LEGACY_ORDER_DATA_TEMPLATE_VERSION;
@@ -87,6 +90,33 @@ describe("order data workbook", () => {
     expect(parsed.templateVersion).toBe(LEGACY_ORDER_DATA_TEMPLATE_VERSION);
     expect(parsed.orderRows[0]).not.toHaveProperty("设备保管枚举");
     expect(parsed.orderRows[0]).not.toHaveProperty("设备保管状态");
+  });
+
+  it("continues to parse v2 workbooks and treats v3 operation history as read-only", async () => {
+    const v2Bytes = await buildOrderDataWorkbook({
+      kind: "template",
+      templateVersion: PREVIOUS_ORDER_DATA_TEMPLATE_VERSION,
+    });
+    const v2 = await parseOrderDataWorkbook({ bytes: v2Bytes, fileName: "v2.xlsx", mimeType });
+    expect(v2.templateVersion).toBe(PREVIOUS_ORDER_DATA_TEMPLATE_VERSION);
+    expect(v2.orderRows).toEqual([]);
+
+    const v3Bytes = await buildOrderDataWorkbook({
+      kind: "export",
+      operationHistoryRows: [
+        {
+          order_id: "order-1",
+          public_no: "R0000001",
+          event_type: "note",
+          operator_name: "老板",
+          created_at: "2026-07-21T10:00:00.000Z",
+          summary: "tampered-but-never-staged",
+        },
+      ],
+    });
+    const v3 = await parseOrderDataWorkbook({ bytes: v3Bytes, fileName: "v3.xlsx", mimeType });
+    expect(v3.operationHistoryRows?.[0]?.["操作摘要"]).toBe("tampered-but-never-staged");
+    expect(v3.orderRows).toEqual([]);
   });
 
   it("rejects formula cells from uploaded workbooks", async () => {

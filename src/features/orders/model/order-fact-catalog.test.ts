@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildFactCompatibilityText,
+  buildFactSelection,
   diagnosticFindingOptions,
+  intakeIntentCodeForMode,
   ORDER_FACT_CATALOG_REVISION,
   reportedSymptomOptions,
+  validateFactSelection,
 } from "./order-fact-catalog";
 
 describe("order fact catalog compatibility composer", () => {
@@ -56,5 +59,57 @@ describe("order fact catalog compatibility composer", () => {
         clearExistingSelection: true,
       }),
     ).toBe("客户原话保留");
+  });
+});
+
+describe("order fact catalog", () => {
+  it("builds a stable structured selection", () => {
+    expect(
+      buildFactSelection({
+        field: "reported_symptom",
+        codes: ["screen_damaged", "other"],
+        otherNote: "偶发闪屏",
+      }),
+    ).toEqual({
+      schema_version: 2,
+      field: "reported_symptom",
+      codes: ["screen_damaged", "other"],
+      other_note: "偶发闪屏",
+      catalog_revision: ORDER_FACT_CATALOG_REVISION,
+    });
+  });
+
+  it("rejects stale, duplicate, and incomplete selections", () => {
+    expect(() =>
+      validateFactSelection({
+        schema_version: 2,
+        field: "reported_symptom",
+        codes: ["screen_damaged", "screen_damaged"],
+        catalog_revision: ORDER_FACT_CATALOG_REVISION,
+      }),
+    ).toThrow("不能重复");
+    expect(() =>
+      validateFactSelection({
+        schema_version: 2,
+        field: "reported_symptom",
+        codes: ["other"],
+        catalog_revision: ORDER_FACT_CATALOG_REVISION,
+      }),
+    ).toThrow("填写其他内容");
+    expect(() =>
+      validateFactSelection({
+        schema_version: 2,
+        field: "intake_intent",
+        codes: ["known_problem"],
+        catalog_revision: "stale",
+      }),
+    ).toThrow("目录已更新");
+  });
+
+  it("maps each intake mode to one catalog code", () => {
+    expect(intakeIntentCodeForMode("reported")).toBe("known_problem");
+    expect(intakeIntentCodeForMode("unknown")).toBe("pending_diagnosis");
+    expect(intakeIntentCodeForMode("cannot_describe")).toBe("customer_cannot_describe");
+    expect(intakeIntentCodeForMode("diagnostic_only")).toBe("diagnostic_only");
   });
 });

@@ -89,7 +89,11 @@ import {
   isIntakeQuotePaused,
   resolveIntakeQuoteDraft,
 } from "@/features/orders/model/order-diagnosis-quote";
-import { buildFactCompatibilityText } from "@/features/orders/model/order-fact-catalog";
+import {
+  buildFactCompatibilityText,
+  buildFactSelection,
+  intakeIntentCodeForMode,
+} from "@/features/orders/model/order-fact-catalog";
 import type { NewOrderPrefill } from "@/features/orders/model/new-order-intent";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { CACHE_TIMES } from "@/lib/query-performance";
@@ -453,6 +457,9 @@ export function NewOrderScreen({
         throw new Error("默认成本尚未成功读取，请重试后再创建工单");
       }
       if (typeof navigator !== "undefined" && !navigator.onLine) {
+        if (process.env.NEXT_PUBLIC_ORDER_STRUCTURED_FACTS_V2_ENABLED === "1") {
+          throw new Error("结构化接单上线后暂不允许离线建单，请恢复网络后提交，避免点选内容丢失");
+        }
         if (identityResolution.mode !== "auto") {
           throw new Error("客户身份确认需要联网完成，请恢复网络后重试");
         }
@@ -489,6 +496,19 @@ export function NewOrderScreen({
           otherNote: form.reportedSymptomOtherNote,
           catalogRevision: form.reportedSymptomCatalogRevision,
         }),
+        intake_intent_selection: buildFactSelection({
+          field: "intake_intent",
+          codes: [intakeIntentCodeForMode(form.issueCaptureMode)],
+        }),
+        reported_symptoms_selection:
+          form.issueCaptureMode === "reported"
+            ? buildFactSelection({
+                field: "reported_symptom",
+                codes: form.reportedSymptomCodes,
+                otherNote: form.reportedSymptomOtherNote,
+                catalogRevision: form.reportedSymptomCatalogRevision,
+              })
+            : undefined,
         accessory_notes: form.accessoryNotes || undefined,
         warranty_text: form.warrantyText || undefined,
         warranty_months: form.warrantyMonths,

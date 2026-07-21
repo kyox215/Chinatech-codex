@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
 import { Buffer } from "node:buffer";
 
-import { ORDER_DATA_PARSER_VERSION } from "@/features/orders/model/order-data-contract";
+import {
+  ORDER_DATA_PARSER_VERSION,
+  ORDER_DATA_TEMPLATE_VERSION,
+} from "@/features/orders/model/order-data-contract";
+import { isOrderDataWorkbookV3ImportEnabledForStore } from "@/features/orders/server/order-phase4-feature";
 import { OrderDataApplyRepositoryError } from "@/features/orders/model/order-data-errors";
 import { assertOrderDataAccess } from "@/features/orders/server/order-data-access";
 import {
@@ -67,6 +71,12 @@ export async function previewOrderDataImport(input: {
     fileName: input.fileName,
     mimeType: input.mimeType,
   });
+  if (
+    parsed.templateVersion === ORDER_DATA_TEMPLATE_VERSION &&
+    !isOrderDataWorkbookV3ImportEnabledForStore(storeId)
+  ) {
+    throw new Error("工作簿 v3 导入尚未对当前门店开放，请使用 v2 模板或联系店主");
+  }
   const rawRows = toKeyedOrderRows(parsed);
   if (rawRows.length === 0) throw new Error("工单工作表没有可导入的数据行");
 
@@ -99,6 +109,7 @@ export async function previewOrderDataImport(input: {
     repairItemRows: parsed.repairItemRows,
     mode: input.mode,
     candidates,
+    templateVersion: parsed.templateVersion,
   });
   const payloadHash = sha256(Buffer.from(JSON.stringify(normalized.stagedRows)));
   const fileHash = sha256(input.bytes);
@@ -123,6 +134,7 @@ export async function previewOrderDataImport(input: {
       template_version: parsed.templateVersion,
       mode: input.mode,
       file_hash: fileHash,
+      operation_history_rows_ignored: (parsed.operationHistoryRows ?? []).length,
       payload_hash: payloadHash,
       ...normalized.summary,
     },

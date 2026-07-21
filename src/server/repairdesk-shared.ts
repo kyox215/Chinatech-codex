@@ -23,6 +23,7 @@ import type {
   Device,
   DeviceSnapshot,
   FaultPriceItem,
+  FactSelectionV2,
   MessageLog,
   OrderAttachment,
   OrderEvent,
@@ -125,6 +126,9 @@ const ORDER_LIST_BASE_COLUMNS = `
 
 const ORDER_LIST_CANONICAL_COLUMNS = `
   assignee_membership_id,
+  intake_intent_selection,
+  reported_symptoms_selection,
+  diagnostic_findings_selection,
   device_custody_status,
   workflow_status,
   exception_status,
@@ -510,6 +514,9 @@ export function orderFromRow(row: DbRecord): RepairOrder {
     device_id: requiredString(row.device_id),
     issue_description: requiredString(row.issue_description),
     diagnosis_result: maybeString(row.diagnosis_result),
+    intake_intent_selection: factSelectionFromRow(row.intake_intent_selection),
+    reported_symptoms_selection: factSelectionFromRow(row.reported_symptoms_selection),
+    diagnostic_findings_selection: factSelectionFromRow(row.diagnostic_findings_selection),
     quotation_amount: money(row.quotation_amount),
     deposit_amount: money(row.deposit_amount),
     balance_amount: balanceAmount,
@@ -563,6 +570,22 @@ export function orderFromRow(row: DbRecord): RepairOrder {
     created_at: requiredString(row.created_at),
     updated_at: requiredString(row.updated_at),
   };
+}
+
+function factSelectionFromRow(value: unknown): FactSelectionV2 | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const row = value as Record<string, unknown>;
+  if (
+    row.schema_version !== 2 ||
+    !["intake_intent", "reported_symptom", "diagnostic_finding"].includes(String(row.field)) ||
+    !Array.isArray(row.codes) ||
+    row.codes.length === 0 ||
+    !row.codes.every((code) => typeof code === "string") ||
+    typeof row.catalog_revision !== "string"
+  ) {
+    return undefined;
+  }
+  return value as FactSelectionV2;
 }
 
 export function decorate(row: DbRecord): OrderListItem {

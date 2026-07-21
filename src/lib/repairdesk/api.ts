@@ -32,6 +32,7 @@ import type {
   Customer,
   Device,
   DeviceCustodyStatus,
+  FactSelectionV2,
   CustomerIntakeCandidate,
   DashboardSummary,
   DashboardSummaryInput,
@@ -67,6 +68,8 @@ import type {
   OrderAttachmentUploadResult,
   OrderNotifyStatus,
   OrderCapabilities,
+  RecordReworkDispositionV2Input,
+  ReworkRelatedOrderResult,
   OrderPartsStatus,
   OrderPaymentStatus,
   OrderTerminalOperationResult,
@@ -96,6 +99,7 @@ import type {
   ConfirmOrderQuoteSentResult,
   ReopenOrderInput,
   ReopenOrderV2Input,
+  StartReworkReviewV2Input,
   BatchTransitionResult,
   CustomerCreateInput,
   CustomerDetail,
@@ -254,12 +258,15 @@ export type {
   DeviceUnlockInput,
   DeviceUnlockMethod,
   DeviceCustodyStatus,
+  FactSelectionV2,
   FaultPriceItem,
   MessageLog,
   OrderDetail,
   OrderCostHistoryResult,
   OrderCreateOperationStatus,
   OrderCapabilities,
+  RecordReworkDispositionV2Input,
+  ReworkRelatedOrderResult,
   OrderLineCostsResult,
   OrderEvent,
   OrderApprovalFlowStatus,
@@ -316,6 +323,7 @@ export type {
   ConfirmOrderQuoteSentResult,
   ReopenOrderInput,
   ReopenOrderV2Input,
+  StartReworkReviewV2Input,
   BatchTransitionResult,
   CustomerCreateInput,
   AccountProfileUpdateInput,
@@ -1195,6 +1203,26 @@ export async function transitionOrderV2(
     reason_selection: opts.reasonSelection,
     expected_updated_at: opts.expectedUpdatedAt,
     idempotency_key: opts.idempotencyKey,
+  });
+}
+
+export async function startReworkReviewV2(
+  sourceOrderId: string,
+  input: StartReworkReviewV2Input,
+): Promise<ReworkRelatedOrderResult> {
+  return postJson<ReworkRelatedOrderResult>("order/rework/start-v2", {
+    source_order_id: sourceOrderId,
+    input,
+  });
+}
+
+export async function recordReworkDispositionV2(
+  relatedOrderId: string,
+  input: RecordReworkDispositionV2Input,
+): Promise<ReworkRelatedOrderResult> {
+  return postJson<ReworkRelatedOrderResult>("order/rework/disposition-v2", {
+    related_order_id: relatedOrderId,
+    input,
   });
 }
 

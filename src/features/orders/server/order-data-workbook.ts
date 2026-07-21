@@ -11,8 +11,13 @@ import {
   ORDER_DATA_PARSER_VERSION,
   ORDER_DATA_TEMPLATE_VERSION,
   LEGACY_ORDER_DATA_TEMPLATE_VERSION,
+  PREVIOUS_ORDER_DATA_TEMPLATE_VERSION,
   allowedOrderDataSheetNames,
   legacyOrderDataHeaders,
+  previousOrderDataHeaders,
+  previousRepairItemHeaders,
+  operationHistoryColumns,
+  operationHistoryHeaders,
   orderDataColumns,
   orderDataHeaders,
   repairItemColumns,
@@ -34,6 +39,7 @@ export interface ParsedOrderDataWorkbook {
   exportBatchId?: string;
   orderRows: Record<string, string>[];
   repairItemRows: Record<string, string>[];
+  operationHistoryRows?: Record<string, string>[];
 }
 
 export async function buildOrderDataWorkbook(input: {
@@ -41,7 +47,25 @@ export async function buildOrderDataWorkbook(input: {
   exportBatchId?: string;
   orderRows?: WorkbookDataRow[];
   repairItemRows?: WorkbookDataRow[];
+  operationHistoryRows?: WorkbookDataRow[];
+  templateVersion?: string;
 }) {
+  const templateVersion = input.templateVersion ?? ORDER_DATA_TEMPLATE_VERSION;
+  const selectedOrderColumns =
+    templateVersion === ORDER_DATA_TEMPLATE_VERSION
+      ? orderDataColumns
+      : orderDataColumns.filter((column) =>
+          (templateVersion === LEGACY_ORDER_DATA_TEMPLATE_VERSION
+            ? legacyOrderDataHeaders
+            : previousOrderDataHeaders
+          ).includes(column.header as never),
+        );
+  const selectedRepairColumns =
+    templateVersion === ORDER_DATA_TEMPLATE_VERSION
+      ? repairItemColumns
+      : repairItemColumns.filter((column) =>
+          (previousRepairItemHeaders as readonly string[]).includes(column.header),
+        );
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "RepairDesk";
   workbook.created = new Date();
@@ -54,7 +78,7 @@ export async function buildOrderDataWorkbook(input: {
   });
   setColumns(
     orderSheet,
-    orderDataColumns.map((column) => ({
+    selectedOrderColumns.map((column) => ({
       header: column.header,
       key: column.key,
       width: columnWidth(column.header),
@@ -64,16 +88,16 @@ export async function buildOrderDataWorkbook(input: {
   styleDataSheet(orderSheet);
   orderSheet.autoFilter = {
     from: { row: 1, column: 1 },
-    to: { row: Math.max(1, orderSheet.rowCount), column: orderDataColumns.length },
+    to: { row: Math.max(1, orderSheet.rowCount), column: selectedOrderColumns.length },
   };
-  applyOrderValidations(orderSheet);
+  applyOrderValidations(orderSheet, selectedOrderColumns);
 
   const repairSheet = workbook.addWorksheet("维修项目", {
     views: [{ state: "frozen", ySplit: 1 }],
   });
   setColumns(
     repairSheet,
-    repairItemColumns.map((column) => ({
+    selectedRepairColumns.map((column) => ({
       header: column.header,
       key: column.key,
       width: columnWidth(column.header),
@@ -82,10 +106,27 @@ export async function buildOrderDataWorkbook(input: {
   for (const row of input.repairItemRows ?? []) appendSafeRow(repairSheet, row);
   styleDataSheet(repairSheet);
 
+  if (input.operationHistoryRows) {
+    const historySheet = workbook.addWorksheet("操作历史", {
+      views: [{ state: "frozen", ySplit: 1 }],
+    });
+    setColumns(
+      historySheet,
+      operationHistoryColumns.map((column) => ({
+        header: column.header,
+        key: column.key,
+        width: columnWidth(column.header),
+      })),
+    );
+    for (const row of input.operationHistoryRows) appendSafeRow(historySheet, row);
+    styleDataSheet(historySheet);
+    historySheet.eachRow((row) => row.eachCell((cell) => (cell.protection = { locked: true })));
+  }
+
   addFieldGuideSheet(workbook);
   addEnumSheet(workbook);
   addExampleSheet(workbook);
-  addMetadataSheet(workbook, input.exportBatchId);
+  addMetadataSheet(workbook, input.exportBatchId, templateVersion);
 
   const bytes = await workbook.xlsx.writeBuffer();
   return checkedWorkbookBuffer(bytes);
@@ -167,19 +208,18 @@ export async function parseOrderDataWorkbook(input: {
   const orderSheet = workbook.getWorksheet("工单");
   if (!orderSheet) throw new Error("缺少“工单”工作表");
   const repairSheet = workbook.getWorksheet("维修项目");
+  const historySheet = workbook.getWorksheet("操作历史");
   const metadataSheet = workbook.getWorksheet("_元数据");
 
   const metadata = metadataSheet ? readMetadata(metadataSheet) : new Map<string, string>();
   const declaredTemplateVersion = metadata.get("template_version");
   const expectedOrderHeaders = resolveOrderDataHeaders(orderSheet, declaredTemplateVersion);
   const orderRows = readSheetRows(orderSheet, expectedOrderHeaders, ORDER_DATA_MAX_ROWS);
-  const repairItemRows = repairSheet
-    ? readSheetRows(repairSheet, repairItemHeaders, ORDER_DATA_MAX_REPAIR_ITEM_ROWS)
-    : [];
   const rowVersion = orderRows.find((row) => row["数据版本"])?.["数据版本"];
   const templateVersion = declaredTemplateVersion || rowVersion || "";
   if (
     templateVersion !== ORDER_DATA_TEMPLATE_VERSION &&
+    templateVersion !== PREVIOUS_ORDER_DATA_TEMPLATE_VERSION &&
     templateVersion !== LEGACY_ORDER_DATA_TEMPLATE_VERSION
   ) {
     throw new Error("模板版本不匹配，请重新下载最新模板");
@@ -187,6 +227,18 @@ export async function parseOrderDataWorkbook(input: {
   if (declaredTemplateVersion && rowVersion && declaredTemplateVersion !== rowVersion) {
     throw new Error("工作簿数据版本与元数据不一致");
   }
+  const repairItemRows = repairSheet
+    ? readSheetRows(
+        repairSheet,
+        templateVersion === ORDER_DATA_TEMPLATE_VERSION
+          ? repairItemHeaders
+          : previousRepairItemHeaders,
+        ORDER_DATA_MAX_REPAIR_ITEM_ROWS,
+      )
+    : [];
+  const operationHistoryRows = historySheet
+    ? readSheetRows(historySheet, operationHistoryHeaders, ORDER_DATA_MAX_REPAIR_ITEM_ROWS)
+    : [];
 
   return {
     templateVersion,
@@ -194,6 +246,7 @@ export async function parseOrderDataWorkbook(input: {
     exportBatchId: metadata.get("export_batch_id") || undefined,
     orderRows,
     repairItemRows,
+    operationHistoryRows,
   };
 }
 
@@ -365,10 +418,14 @@ function readSheetRows(worksheet: Worksheet, expectedHeaders: readonly string[],
 function resolveOrderDataHeaders(worksheet: Worksheet, declaredTemplateVersion?: string) {
   const headers = readHeaderRow(worksheet.getRow(1));
   if (declaredTemplateVersion === ORDER_DATA_TEMPLATE_VERSION) return orderDataHeaders;
+  if (declaredTemplateVersion === PREVIOUS_ORDER_DATA_TEMPLATE_VERSION) {
+    return previousOrderDataHeaders;
+  }
   if (declaredTemplateVersion === LEGACY_ORDER_DATA_TEMPLATE_VERSION) {
     return legacyOrderDataHeaders;
   }
   if (headersMatch(headers, orderDataHeaders)) return orderDataHeaders;
+  if (headersMatch(headers, previousOrderDataHeaders)) return previousOrderDataHeaders;
   if (headersMatch(headers, legacyOrderDataHeaders)) return legacyOrderDataHeaders;
   return orderDataHeaders;
 }
@@ -518,21 +575,26 @@ function addExampleSheet(workbook: ExcelJS.Workbook) {
   styleDataSheet(sheet);
 }
 
-function addMetadataSheet(workbook: ExcelJS.Workbook, exportBatchId?: string) {
+function addMetadataSheet(
+  workbook: ExcelJS.Workbook,
+  exportBatchId?: string,
+  templateVersion = ORDER_DATA_TEMPLATE_VERSION,
+) {
   const sheet = workbook.addWorksheet("_元数据");
   sheet.state = "veryHidden";
-  sheet.addRow(["template_version", ORDER_DATA_TEMPLATE_VERSION]);
+  sheet.addRow(["template_version", templateVersion]);
   sheet.addRow(["parser_version", ORDER_DATA_PARSER_VERSION]);
   if (exportBatchId) sheet.addRow(["export_batch_id", exportBatchId]);
 }
 
-function applyOrderValidations(worksheet: Worksheet) {
-  const actionColumn = orderDataColumns.findIndex((column) => column.key === "import_action") + 1;
-  const typeColumn = orderDataColumns.findIndex((column) => column.key === "order_type") + 1;
-  const custodyColumn =
-    orderDataColumns.findIndex((column) => column.key === "device_custody_status") + 1;
-  const warrantyColumn =
-    orderDataColumns.findIndex((column) => column.key === "warranty_months") + 1;
+function applyOrderValidations(
+  worksheet: Worksheet,
+  columns: readonly (typeof orderDataColumns)[number][] = orderDataColumns,
+) {
+  const actionColumn = columns.findIndex((column) => column.key === "import_action") + 1;
+  const typeColumn = columns.findIndex((column) => column.key === "order_type") + 1;
+  const custodyColumn = columns.findIndex((column) => column.key === "device_custody_status") + 1;
+  const warrantyColumn = columns.findIndex((column) => column.key === "warranty_months") + 1;
   for (let row = 2; row <= ORDER_DATA_MAX_ROWS + 1; row += 1) {
     worksheet.getCell(row, actionColumn).dataValidation = {
       type: "list",
@@ -544,11 +606,13 @@ function applyOrderValidations(worksheet: Worksheet) {
       allowBlank: true,
       formulae: ["'枚举值'!$B$2:$B$3"],
     };
-    worksheet.getCell(row, custodyColumn).dataValidation = {
-      type: "list",
-      allowBlank: true,
-      formulae: ["'枚举值'!$C$2:$C$3"],
-    };
+    if (custodyColumn > 0) {
+      worksheet.getCell(row, custodyColumn).dataValidation = {
+        type: "list",
+        allowBlank: true,
+        formulae: ["'枚举值'!$C$2:$C$3"],
+      };
+    }
     worksheet.getCell(row, warrantyColumn).dataValidation = {
       type: "list",
       allowBlank: true,

@@ -32,11 +32,13 @@ import { componentOverlay } from "@/lib/component-patterns";
 import { OrderFactPicker } from "@/features/orders/components/order-fact-picker";
 import {
   buildFactCompatibilityText,
+  buildFactSelection,
   ORDER_FACT_CATALOG_REVISION,
 } from "@/features/orders/model/order-fact-catalog";
 import { formatMoney } from "@/lib/money";
 import type {
   FaultPriceItem,
+  FactSelectionV2,
   OrderCapabilities,
   QuotePriceException,
   RepairOrder,
@@ -58,12 +60,16 @@ export interface DiagnosisQuoteDialogProps {
   capabilities?: OrderCapabilities;
   isPending?: boolean;
   onOpenChange: (open: boolean) => void;
-  onSaveDiagnosis: (diagnosisResult: string) => Promise<unknown>;
+  onSaveDiagnosis: (
+    diagnosisResult: string,
+    diagnosticSelection: FactSelectionV2 | null | undefined,
+  ) => Promise<unknown>;
   onPublish: (input: {
     idempotencyKey: string;
     diagnosisResult: string;
     faultPrices: FaultPriceItem[];
     priceException?: QuotePriceException;
+    diagnosticSelection: FactSelectionV2 | null | undefined;
   }) => Promise<unknown>;
 }
 
@@ -94,9 +100,11 @@ export function DiagnosisQuoteDialog({
   useEffect(() => {
     if (!open) return;
     setDiagnosis(order.diagnosis_result ?? "");
-    setDiagnosticCodes([]);
-    setDiagnosticOtherNote("");
-    setDiagnosticCatalogRevision(ORDER_FACT_CATALOG_REVISION);
+    setDiagnosticCodes(order.diagnostic_findings_selection?.codes ?? []);
+    setDiagnosticOtherNote(order.diagnostic_findings_selection?.other_note ?? "");
+    setDiagnosticCatalogRevision(
+      order.diagnostic_findings_selection?.catalog_revision ?? ORDER_FACT_CATALOG_REVISION,
+    );
     setDiagnosticSelectionTouched(false);
     setRows(rowsFromOrder(order));
     setExceptionKind("");
@@ -140,6 +148,24 @@ export function DiagnosisQuoteDialog({
     hasZeroPrice && exceptionKind
       ? { kind: exceptionKind, reason: exceptionReason.trim() }
       : undefined;
+  const diagnosticSelection = useMemo(
+    () =>
+      diagnosticSelectionTouched
+        ? (buildFactSelection({
+            field: "diagnostic_finding",
+            codes: diagnosticCodes,
+            otherNote: diagnosticOtherNote,
+            catalogRevision: diagnosticCatalogRevision,
+          }) ?? null)
+        : order.diagnostic_findings_selection,
+    [
+      diagnosticCatalogRevision,
+      diagnosticCodes,
+      diagnosticOtherNote,
+      diagnosticSelectionTouched,
+      order.diagnostic_findings_selection,
+    ],
+  );
   const readiness = getQuoteDraftReadiness({
     diagnosisResult: diagnosisWithFacts,
     faultPrices,
@@ -160,6 +186,7 @@ export function DiagnosisQuoteDialog({
           diagnosisResult: diagnosisWithFacts,
           faultPrices,
           priceException,
+          diagnosticSelection,
         });
         onOpenChange(false);
         return;
@@ -169,7 +196,7 @@ export function DiagnosisQuoteDialog({
         setLocalError("请填写检测结论");
         return;
       }
-      await onSaveDiagnosis(diagnosisWithFacts);
+      await onSaveDiagnosis(diagnosisWithFacts, diagnosticSelection);
       onOpenChange(false);
     } catch (error) {
       setLocalError(error instanceof Error ? error.message : "保存失败，请重试");

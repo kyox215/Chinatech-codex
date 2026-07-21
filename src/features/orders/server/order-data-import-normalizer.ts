@@ -1,9 +1,11 @@
 import {
   ORDER_DATA_CLEAR_VALUE,
+  ORDER_DATA_TEMPLATE_VERSION,
   clearableOrderDataKeys,
   editableOrderDataKeys,
   type OrderDataColumnKey,
 } from "@/features/orders/model/order-data-contract";
+import { buildFactSelection } from "@/features/orders/model/order-fact-catalog";
 import {
   externalRefKey,
   relationRecord,
@@ -46,6 +48,14 @@ const headerToKey: Record<string, OrderDataColumnKey> = {
   设备型号: "device_model",
   IMEI或序列号: "device_imei",
   设备备注: "device_notes",
+  接单意图代码: "intake_intent_codes",
+  接单意图目录版本: "intake_intent_catalog_revision",
+  客户症状代码: "reported_symptom_codes",
+  客户症状其他说明: "reported_symptom_other_note",
+  客户症状目录版本: "reported_symptom_catalog_revision",
+  检测发现代码: "diagnostic_finding_codes",
+  检测发现其他说明: "diagnostic_finding_other_note",
+  检测发现目录版本: "diagnostic_finding_catalog_revision",
   故障描述: "issue_description",
   诊断结果: "diagnosis_result",
   内部标签: "internal_tag",
@@ -74,6 +84,14 @@ const editableFieldLabels: Partial<Record<OrderDataColumnKey, string>> = {
   device_model: "设备型号",
   device_imei: "IMEI或序列号",
   device_notes: "设备备注",
+  intake_intent_codes: "接单意图代码",
+  intake_intent_catalog_revision: "接单意图目录版本",
+  reported_symptom_codes: "客户症状代码",
+  reported_symptom_other_note: "客户症状其他说明",
+  reported_symptom_catalog_revision: "客户症状目录版本",
+  diagnostic_finding_codes: "检测发现代码",
+  diagnostic_finding_other_note: "检测发现其他说明",
+  diagnostic_finding_catalog_revision: "检测发现目录版本",
   issue_description: "故障描述",
   diagnosis_result: "诊断结果",
   internal_tag: "内部标签",
@@ -101,6 +119,7 @@ export function normalizeOrderDataRows(input: {
   repairItemRows: Record<string, string>[];
   mode: OrderDataImportMode;
   candidates: OrderDataCandidates;
+  templateVersion?: string;
 }) {
   const repairItems = parseRepairItems(input.repairItemRows);
   const previewRows: OrderDataImportPreviewRow[] = [];
@@ -129,6 +148,25 @@ export function normalizeOrderDataRows(input: {
     }
 
     const normalizedData = normalizeEditableData(raw, action, issues.errors);
+    normalizeStructuredFactGroups(raw, normalizedData, issues.errors);
+    if (matched && input.templateVersion !== ORDER_DATA_TEMPLATE_VERSION) {
+      if (normalizedData.issue_description !== undefined && matched.reported_symptoms_selection) {
+        addIssue(
+          issues.errors,
+          "structured_selection_requires_v3",
+          "该工单已有结构化客户症状；修改故障描述必须使用工作簿 v3",
+          "故障描述",
+        );
+      }
+      if (normalizedData.diagnosis_result !== undefined && matched.diagnostic_findings_selection) {
+        addIssue(
+          issues.errors,
+          "structured_selection_requires_v3",
+          "该工单已有结构化检测发现；修改诊断结果必须使用工作簿 v3",
+          "诊断结果",
+        );
+      }
+    }
     validateReadOnlyDeposit(raw, action, matched, issues.errors);
     const rowRepairItems = collectRepairItemsForOrderRow(raw, repairItems);
     if (rowRepairItems) normalizedData.fault_prices = rowRepairItems;
@@ -264,7 +302,18 @@ function normalizeEditableData(
   errors: OrderDataImportIssue[],
 ) {
   const result: Record<string, unknown> = {};
+  const structuredKeys = new Set([
+    "intake_intent_codes",
+    "intake_intent_catalog_revision",
+    "reported_symptom_codes",
+    "reported_symptom_other_note",
+    "reported_symptom_catalog_revision",
+    "diagnostic_finding_codes",
+    "diagnostic_finding_other_note",
+    "diagnostic_finding_catalog_revision",
+  ]);
   for (const key of editableOrderDataKeys) {
+    if (structuredKeys.has(key)) continue;
     if (key === "order_type" && action !== "create") continue;
     const value = raw[key]?.trim() ?? "";
     if (!value) continue;
@@ -329,6 +378,72 @@ function normalizeEditableData(
   return result;
 }
 
+function normalizeStructuredFactGroups(
+  raw: Record<string, string>,
+  result: Record<string, unknown>,
+  errors: OrderDataImportIssue[],
+) {
+  const groups = [
+    {
+      field: "intake_intent" as const,
+      target: "intake_intent_selection",
+      codes: "intake_intent_codes",
+      note: undefined,
+      revision: "intake_intent_catalog_revision",
+      label: "接单意图",
+    },
+    {
+      field: "reported_symptom" as const,
+      target: "reported_symptoms_selection",
+      codes: "reported_symptom_codes",
+      note: "reported_symptom_other_note",
+      revision: "reported_symptom_catalog_revision",
+      label: "客户症状",
+    },
+    {
+      field: "diagnostic_finding" as const,
+      target: "diagnostic_findings_selection",
+      codes: "diagnostic_finding_codes",
+      note: "diagnostic_finding_other_note",
+      revision: "diagnostic_finding_catalog_revision",
+      label: "检测发现",
+    },
+  ];
+  for (const group of groups) {
+    const codesText = raw[group.codes]?.trim() ?? "";
+    const revision = raw[group.revision]?.trim() ?? "";
+    const note = group.note ? (raw[group.note]?.trim() ?? "") : "";
+    if (!codesText && !revision && !note) continue;
+    if (!codesText || !revision) {
+      addIssue(
+        errors,
+        "incomplete_fact_selection",
+        `${group.label}代码与目录版本必须同时填写`,
+        group.label,
+      );
+      continue;
+    }
+    try {
+      result[group.target] = buildFactSelection({
+        field: group.field,
+        codes: codesText
+          .split(",")
+          .map((code) => code.trim())
+          .filter(Boolean),
+        otherNote: note,
+        catalogRevision: revision,
+      });
+    } catch (error) {
+      addIssue(
+        errors,
+        "invalid_fact_selection",
+        error instanceof Error ? error.message : `${group.label}点选无效`,
+        group.label,
+      );
+    }
+  }
+}
+
 function validateCreateData(
   data: Record<string, unknown>,
   raw: Record<string, string>,
@@ -375,6 +490,8 @@ function parseRepairItems(rows: Record<string, string>[]) {
       rowNumber: Number(row.__row_number || 0) || index + 2,
       consumed: false,
       item: {
+        ...(row["项目行ID"] ? { line_id: row["项目行ID"] } : {}),
+        ...(row["项目目录代码"] ? { catalog_key: row["项目目录代码"] } : {}),
         name,
         price,
         currency_code: "EUR",
@@ -473,6 +590,9 @@ function removeUnchangedFields(data: Record<string, unknown>, current: OrderData
     device_custody_status: current.device_custody_status ?? null,
     issue_description: current.issue_description,
     diagnosis_result: current.diagnosis_result ?? null,
+    intake_intent_selection: current.intake_intent_selection ?? null,
+    reported_symptoms_selection: current.reported_symptoms_selection ?? null,
+    diagnostic_findings_selection: current.diagnostic_findings_selection ?? null,
     internal_tag: current.internal_tag ?? null,
     accessory_notes: current.accessory_notes ?? null,
     warranty_text: current.warranty_text ?? null,

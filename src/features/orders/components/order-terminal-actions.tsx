@@ -79,9 +79,10 @@ export function OrderTerminalActions({
         (status) =>
           status.enabled &&
           status.code !== order.status &&
+          !(capabilities?.canStartAfterSalesReview && status.code === "rework") &&
           !["done", "cancelled", "custom"].includes(status.bucket),
       ),
-    [order.status, workflow?.statuses],
+    [capabilities?.canStartAfterSalesReview, order.status, workflow?.statuses],
   );
   const validationError = useMemo(
     () =>

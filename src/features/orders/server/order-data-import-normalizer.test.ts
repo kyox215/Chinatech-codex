@@ -153,6 +153,115 @@ describe("order data custody normalization", () => {
   });
 });
 
+describe("order data workbook v3 structured facts", () => {
+  it("stages complete fact groups and repair line identities", () => {
+    const current = existingOrder();
+    const candidates = {
+      ...emptyCandidates,
+      byId: new Map([[current.id, current]]),
+      byPublicNo: new Map([[current.public_no, current]]),
+    };
+    const result = normalizeOrderDataRows({
+      rawRows: [
+        {
+          __row_number: "2",
+          import_action: "update",
+          order_id: current.id,
+          public_no: current.public_no,
+          expected_updated_at: current.updated_at,
+          intake_intent_codes: "known_problem",
+          intake_intent_catalog_revision: "order-facts-2026-07-21.v1",
+          reported_symptom_codes: "screen_damaged,other",
+          reported_symptom_other_note: "偶发闪屏",
+          reported_symptom_catalog_revision: "order-facts-2026-07-21.v1",
+        },
+      ],
+      repairItemRows: [
+        {
+          __row_number: "2",
+          工单ID: current.id,
+          项目行ID: "line-1",
+          项目目录代码: "screen-replacement",
+          项目名称: "屏幕更换",
+          金额: "99",
+        },
+      ],
+      mode: "update_only",
+      candidates,
+      templateVersion: "repairdesk-order-data-v3",
+    });
+
+    expect(result.previewRows[0].status).toBe("ready");
+    expect(result.stagedRows[0].normalized_data).toMatchObject({
+      intake_intent_selection: {
+        field: "intake_intent",
+        codes: ["known_problem"],
+      },
+      reported_symptoms_selection: {
+        field: "reported_symptom",
+        codes: ["screen_damaged", "other"],
+        other_note: "偶发闪屏",
+      },
+      fault_prices: [
+        expect.objectContaining({ line_id: "line-1", catalog_key: "screen-replacement" }),
+      ],
+    });
+  });
+
+  it("rejects partial v3 groups and legacy text edits that would drift structured facts", () => {
+    const current = existingOrder({
+      reported_symptoms_selection: {
+        schema_version: 2,
+        field: "reported_symptom",
+        codes: ["screen_damaged"],
+        catalog_revision: "order-facts-2026-07-21.v1",
+      },
+    });
+    const candidates = {
+      ...emptyCandidates,
+      byId: new Map([[current.id, current]]),
+      byPublicNo: new Map([[current.public_no, current]]),
+    };
+    const partial = normalizeOrderDataRows({
+      rawRows: [
+        {
+          __row_number: "2",
+          import_action: "update",
+          order_id: current.id,
+          expected_updated_at: current.updated_at,
+          reported_symptom_codes: "screen_damaged",
+        },
+      ],
+      repairItemRows: [],
+      mode: "update_only",
+      candidates,
+      templateVersion: "repairdesk-order-data-v3",
+    });
+    const legacyDrift = normalizeOrderDataRows({
+      rawRows: [
+        {
+          __row_number: "2",
+          import_action: "update",
+          order_id: current.id,
+          expected_updated_at: current.updated_at,
+          issue_description: "改写后的纯文本",
+        },
+      ],
+      repairItemRows: [],
+      mode: "update_only",
+      candidates,
+      templateVersion: "repairdesk-order-data-v2",
+    });
+
+    expect(partial.previewRows[0].errors).toContainEqual(
+      expect.objectContaining({ code: "incomplete_fact_selection" }),
+    );
+    expect(legacyDrift.previewRows[0].errors).toContainEqual(
+      expect.objectContaining({ code: "structured_selection_requires_v3" }),
+    );
+  });
+});
+
 describe("order data import normalizer capacity", () => {
   it(
     "indexes the maximum 10,000 order and 50,000 repair-item contract without quadratic scans",

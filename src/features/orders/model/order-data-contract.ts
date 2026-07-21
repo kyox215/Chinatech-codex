@@ -1,6 +1,7 @@
 export const LEGACY_ORDER_DATA_TEMPLATE_VERSION = "repairdesk-order-data-v1";
-export const ORDER_DATA_TEMPLATE_VERSION = "repairdesk-order-data-v2";
-export const ORDER_DATA_PARSER_VERSION = "1.0.0";
+export const PREVIOUS_ORDER_DATA_TEMPLATE_VERSION = "repairdesk-order-data-v2";
+export const ORDER_DATA_TEMPLATE_VERSION = "repairdesk-order-data-v3";
+export const ORDER_DATA_PARSER_VERSION = "1.1.0";
 export const ORDER_DATA_CLEAR_VALUE = "__CLEAR__";
 export const ORDER_DATA_MAX_FILE_BYTES = 4 * 1024 * 1024;
 export const ORDER_DATA_MAX_ROWS = 10_000;
@@ -91,6 +92,54 @@ export const orderDataColumns = [
     mode: "clearable",
     description: "可用 __CLEAR__ 清空",
   },
+  {
+    key: "intake_intent_codes",
+    header: "接单意图代码",
+    mode: "editable",
+    description: "v3 点选代码；单选，多个代码使用英文逗号分隔",
+  },
+  {
+    key: "intake_intent_catalog_revision",
+    header: "接单意图目录版本",
+    mode: "editable",
+    description: "与接单意图代码同时填写；空白组表示保留原值",
+  },
+  {
+    key: "reported_symptom_codes",
+    header: "客户症状代码",
+    mode: "editable",
+    description: "v3 点选代码；多个代码使用英文逗号分隔",
+  },
+  {
+    key: "reported_symptom_other_note",
+    header: "客户症状其他说明",
+    mode: "editable",
+    description: "仅代码包含 other 时填写",
+  },
+  {
+    key: "reported_symptom_catalog_revision",
+    header: "客户症状目录版本",
+    mode: "editable",
+    description: "与客户症状代码同时填写；空白组表示保留原值",
+  },
+  {
+    key: "diagnostic_finding_codes",
+    header: "检测发现代码",
+    mode: "editable",
+    description: "v3 点选代码；多个代码使用英文逗号分隔",
+  },
+  {
+    key: "diagnostic_finding_other_note",
+    header: "检测发现其他说明",
+    mode: "editable",
+    description: "仅代码包含 other 时填写",
+  },
+  {
+    key: "diagnostic_finding_catalog_revision",
+    header: "检测发现目录版本",
+    mode: "editable",
+    description: "与检测发现代码同时填写；空白组表示保留原值",
+  },
   { key: "issue_description", header: "故障描述", mode: "editable", description: "新建时必填" },
   {
     key: "diagnosis_result",
@@ -158,7 +207,20 @@ export const orderDataColumns = [
 export type OrderDataColumnKey = (typeof orderDataColumns)[number]["key"];
 
 export const orderDataHeaders = orderDataColumns.map((column) => column.header);
-export const legacyOrderDataHeaders = orderDataHeaders.filter(
+const structuredFactHeaders = new Set([
+  "接单意图代码",
+  "接单意图目录版本",
+  "客户症状代码",
+  "客户症状其他说明",
+  "客户症状目录版本",
+  "检测发现代码",
+  "检测发现其他说明",
+  "检测发现目录版本",
+]);
+export const previousOrderDataHeaders = orderDataHeaders.filter(
+  (header) => !structuredFactHeaders.has(header),
+);
+export const legacyOrderDataHeaders = previousOrderDataHeaders.filter(
   (header) => header !== "设备保管枚举" && header !== "设备保管状态",
 );
 
@@ -167,6 +229,8 @@ export const repairItemColumns = [
   { key: "public_no", header: "工单编号" },
   { key: "source_system", header: "外部来源" },
   { key: "external_record_id", header: "外部记录ID" },
+  { key: "line_id", header: "项目行ID" },
+  { key: "catalog_key", header: "项目目录代码" },
   { key: "sequence", header: "项目序号" },
   { key: "name", header: "项目名称" },
   { key: "price", header: "金额" },
@@ -174,6 +238,19 @@ export const repairItemColumns = [
 ] as const;
 
 export const repairItemHeaders = repairItemColumns.map((column) => column.header);
+export const previousRepairItemHeaders = repairItemHeaders.filter(
+  (header) => header !== "项目行ID" && header !== "项目目录代码",
+);
+
+export const operationHistoryColumns = [
+  { key: "order_id", header: "工单ID" },
+  { key: "public_no", header: "工单编号" },
+  { key: "event_type", header: "操作类型" },
+  { key: "operator_name", header: "操作人" },
+  { key: "created_at", header: "操作时间" },
+  { key: "summary", header: "操作摘要" },
+] as const;
+export const operationHistoryHeaders = operationHistoryColumns.map((column) => column.header);
 
 export const allowedOrderDataSheetNames = new Set([
   "工单",
@@ -181,6 +258,7 @@ export const allowedOrderDataSheetNames = new Set([
   "字段说明",
   "枚举值",
   "示例",
+  "操作历史",
   "_元数据",
 ]);
 
@@ -193,6 +271,14 @@ export const editableOrderDataKeys = new Set<OrderDataColumnKey>([
   "device_model",
   "device_imei",
   "device_notes",
+  "intake_intent_codes",
+  "intake_intent_catalog_revision",
+  "reported_symptom_codes",
+  "reported_symptom_other_note",
+  "reported_symptom_catalog_revision",
+  "diagnostic_finding_codes",
+  "diagnostic_finding_other_note",
+  "diagnostic_finding_catalog_revision",
   "issue_description",
   "diagnosis_result",
   "internal_tag",

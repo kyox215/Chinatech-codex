@@ -35,6 +35,7 @@ import type {
   ConfirmOrderQuoteSentResult,
   PaymentResult,
   RepairOrder,
+  ReworkRelatedOrderResult,
   ReopenOrderInput,
   UpdateOrderCustodyInput,
   UpdateOrderInput,
@@ -92,6 +93,7 @@ import {
 } from "@/lib/mock/state";
 import { getMockSupplier } from "@/features/suppliers/testing/mock-api";
 import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
+import { validateFactSelection } from "@/features/orders/model/order-fact-catalog";
 import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
 import { ForbiddenError } from "@/server/auth-context";
 import { can } from "@/server/permissions";
@@ -686,6 +688,13 @@ export async function getOrder(id: string, _actor?: AuditActor) {
         !o.approval_confirmed_at &&
         o.balance_amount === o.quotation_amount - o.deposit_amount,
       canTransition: !terminal && !voided,
+      canStartAfterSalesReview:
+        !voided && o.status === "completed" && process.env.ORDER_RELATED_ORDER_V2_ENABLED === "1",
+      canDecideReworkDisposition:
+        !voided &&
+        o.status === "rework" &&
+        Boolean(o.original_order_id) &&
+        process.env.ORDER_RELATED_ORDER_V2_ENABLED === "1",
       canConfirmCancelledReturn:
         !voided &&
         isOrderCancelledState(orderView) &&
@@ -1378,6 +1387,9 @@ const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
   device_notes: "设备备注",
   issue_description: "故障描述",
   diagnosis_result: "诊断结果",
+  intake_intent_selection: "接单意图",
+  reported_symptoms_selection: "客户症状",
+  diagnostic_findings_selection: "检测发现",
   internal_tag: "内部标签",
   accessory_notes: "随附物品",
   device_unlock: "手机密码",
@@ -1539,6 +1551,10 @@ export async function updateOrder(
 
   o.issue_description = issueDescription;
   o.diagnosis_result = input.diagnosis_result?.trim() || undefined;
+  const factOrder = o as RepairOrder;
+  factOrder.intake_intent_selection = input.intake_intent_selection ?? undefined;
+  factOrder.reported_symptoms_selection = input.reported_symptoms_selection ?? undefined;
+  factOrder.diagnostic_findings_selection = input.diagnostic_findings_selection ?? undefined;
   o.internal_tag = tagInput.internalTag;
   o.accessory_notes = tagInput.accessoryNotes;
   if (deviceUnlock) {
@@ -1676,6 +1692,25 @@ export async function patchOrder(
         throw new Error("质保期限必须是 0 到 36 个月的整数");
       }
       o.warranty_months = months;
+      continue;
+    }
+    if (
+      field === "intake_intent_selection" ||
+      field === "reported_symptoms_selection" ||
+      field === "diagnostic_findings_selection"
+    ) {
+      const selection =
+        rawValue === null
+          ? undefined
+          : validateFactSelection(
+              rawValue as NonNullable<typeof rawValue> & {
+                schema_version: 2;
+                field: "intake_intent" | "reported_symptom" | "diagnostic_finding";
+                codes: [string, ...string[]];
+                catalog_revision: string;
+              },
+            );
+      (o as RepairOrder)[field] = selection;
       continue;
     }
     if (typeof rawValue !== "string") throw new Error(`${PATCH_FIELD_LABELS[field]}格式不正确`);
@@ -2788,6 +2823,8 @@ export async function createOrder(
     customer_identity_snapshot_source: customerSnapshotSource,
     device_id: device.id,
     issue_description: input.issue_description,
+    intake_intent_selection: input.intake_intent_selection,
+    reported_symptoms_selection: input.reported_symptoms_selection,
     quotation_amount: quotation,
     deposit_amount: deposit,
     balance_amount: balance,
@@ -2836,6 +2873,198 @@ export async function createOrder(
     created_at: now,
   });
   return { id };
+}
+
+export async function startReworkReviewWithSelection(
+  sourceOrderId: string,
+  input: {
+    expectedSourceUpdatedAt: string;
+    idempotencyKey: string;
+    triageSelection: StoredBusinessReasonSelectionV2;
+    triageLegacyText: string;
+  },
+  actor: AuditActor,
+): Promise<ReworkRelatedOrderResult> {
+  const replay = extraEvents.find(
+    (event) =>
+      event.event_type === "note" &&
+      event.payload.action === "rework_review_started" &&
+      event.payload.idempotency_key === input.idempotencyKey,
+  );
+  if (replay) {
+    const relatedOrderId = String(replay.payload.related_order_id ?? "");
+    return {
+      ok: true,
+      code: "idempotent_replay",
+      source_order_id: sourceOrderId,
+      related_order_id: relatedOrderId,
+      episode_id: String(replay.payload.episode_id ?? ""),
+      relation_id: String(replay.payload.relation_id ?? ""),
+      relation_type: "followup",
+      episode_status: "open",
+      related_updated_at: orders.find((order) => order.id === relatedOrderId)?.updated_at,
+      replayed: true,
+    };
+  }
+  const source = orders.find((order) => order.id === sourceOrderId);
+  if (!source) throw new Error("原工单不存在");
+  if (source.updated_at !== input.expectedSourceUpdatedAt) {
+    throw new Error("原工单已更新，请刷新后重新确认");
+  }
+  if (source.record_state === "voided" || source.deleted_at) throw new Error("原工单已作废");
+  if (source.status !== "completed") throw new Error("只有已完成工单可以开始售后复检");
+  if (!source.customer_id || !source.device_id) throw new Error("原工单缺少客户或设备关联");
+  if (
+    orders.some(
+      (order) =>
+        order.original_order_id === sourceOrderId &&
+        order.status === "rework" &&
+        order.record_state !== "voided" &&
+        !order.deleted_at,
+    )
+  ) {
+    throw new Error("该工单已有进行中的售后复检");
+  }
+
+  const now = new Date().toISOString();
+  const relatedOrderId = mockId("ord_rework");
+  const episodeId = mockId("episode");
+  const relationId = mockId("relation");
+  const related: RepairOrder = {
+    ...source,
+    id: relatedOrderId,
+    public_no: `R${(2026000 + orders.length + 1).toString().padStart(7, "0")}`,
+    status: "rework",
+    legacy_status: "rework",
+    workflow_status: "intake",
+    exception_status: "rework",
+    original_order_id: source.id,
+    issue_description: input.triageLegacyText.trim(),
+    diagnosis_result: "",
+    quotation_amount: 0,
+    deposit_amount: 0,
+    balance_amount: 0,
+    is_paid: false,
+    payment_status: "unpaid",
+    approval_status: "pending",
+    approval_flow_status: "not_required",
+    fault_prices: [],
+    intake_intent_selection: undefined,
+    reported_symptoms_selection: undefined,
+    diagnostic_findings_selection: undefined,
+    completed_at: undefined,
+    delivered_at: undefined,
+    deleted_at: undefined,
+    record_state: "active",
+    technician_name: operatorName(actor),
+    created_at: now,
+    updated_at: now,
+  };
+  orders.unshift(related);
+  extraEvents.unshift({
+    id: mockId("evt_rework_start"),
+    order_id: source.id,
+    event_type: "note",
+    payload: {
+      action: "rework_review_started",
+      idempotency_key: input.idempotencyKey,
+      related_order_id: relatedOrderId,
+      episode_id: episodeId,
+      relation_id: relationId,
+      selection: input.triageSelection,
+    },
+    operator_name: operatorName(actor),
+    created_at: now,
+  });
+  return {
+    ok: true,
+    code: "created",
+    source_order_id: source.id,
+    related_order_id: relatedOrderId,
+    episode_id: episodeId,
+    relation_id: relationId,
+    relation_type: "followup",
+    episode_status: "open",
+    related_updated_at: now,
+    replayed: false,
+  };
+}
+
+export async function recordReworkDispositionWithSelection(
+  relatedOrderId: string,
+  input: {
+    expectedRelatedUpdatedAt: string;
+    idempotencyKey: string;
+    dispositionSelection: StoredBusinessReasonSelectionV2;
+    dispositionLegacyText: string;
+  },
+  actor: AuditActor,
+): Promise<ReworkRelatedOrderResult> {
+  const related = orders.find((order) => order.id === relatedOrderId);
+  if (!related) throw new Error("返修工单不存在");
+  if (related.updated_at !== input.expectedRelatedUpdatedAt) {
+    throw new Error("返修工单已更新，请刷新后重新确认");
+  }
+  if (related.status !== "rework" || !related.original_order_id) {
+    throw new Error("当前工单不是有效的售后复检子单");
+  }
+  if (!related.diagnosis_result?.trim()) throw new Error("请先记录检测结论，再选择返修处置");
+  const replay = extraEvents.find(
+    (event) =>
+      event.event_type === "note" &&
+      event.payload.action === "rework_disposition_recorded" &&
+      event.payload.idempotency_key === input.idempotencyKey,
+  );
+  const relationType =
+    input.dispositionSelection.primary_code === "warranty_original_item"
+      ? "warranty_rework"
+      : input.dispositionSelection.primary_code === "unable_to_determine"
+        ? "followup"
+        : "related_new_fault";
+  if (replay) {
+    return {
+      ok: true,
+      code: "idempotent_replay",
+      source_order_id: related.original_order_id,
+      related_order_id: related.id,
+      episode_id: String(replay.payload.episode_id ?? ""),
+      relation_id: String(replay.payload.relation_id ?? ""),
+      relation_type: relationType,
+      episode_status: relationType === "followup" ? "open" : "decided",
+      related_updated_at: related.updated_at,
+      replayed: true,
+    };
+  }
+  const now = new Date().toISOString();
+  const episodeId = mockId("episode");
+  const relationId = mockId("relation");
+  extraEvents.unshift({
+    id: mockId("evt_rework_disposition"),
+    order_id: related.id,
+    event_type: "note",
+    payload: {
+      action: "rework_disposition_recorded",
+      idempotency_key: input.idempotencyKey,
+      episode_id: episodeId,
+      relation_id: relationId,
+      relation_type: relationType,
+      selection: input.dispositionSelection,
+    },
+    operator_name: operatorName(actor),
+    created_at: now,
+  });
+  return {
+    ok: true,
+    code: "recorded",
+    source_order_id: related.original_order_id,
+    related_order_id: related.id,
+    episode_id: episodeId,
+    relation_id: relationId,
+    relation_type: relationType,
+    episode_status: relationType === "followup" ? "open" : "decided",
+    related_updated_at: related.updated_at,
+    replayed: false,
+  };
 }
 
 export async function getOrderCreateOperationStatus(

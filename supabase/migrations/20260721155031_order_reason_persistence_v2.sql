@@ -41,6 +41,31 @@ revoke all on function public.repairdesk_reason_selection_v2_is_valid(jsonb, tex
 grant execute on function public.repairdesk_reason_selection_v2_is_valid(jsonb, text)
   to service_role;
 
+create or replace function public.repairdesk_reason_selection_v2_audit_metadata(
+  p_selection jsonb
+)
+returns jsonb
+language sql
+immutable
+security invoker
+set search_path = ''
+as $$
+  select jsonb_strip_nulls(jsonb_build_object(
+    'schema_version', p_selection -> 'schema_version',
+    'kind', p_selection -> 'kind',
+    'context', p_selection -> 'context',
+    'primary_code', p_selection -> 'primary_code',
+    'detail_codes', p_selection -> 'detail_codes',
+    'catalog_revision', p_selection -> 'catalog_revision',
+    'has_note', coalesce(char_length(btrim(p_selection ->> 'note')) > 0, false)
+  ));
+$$;
+
+revoke all on function public.repairdesk_reason_selection_v2_audit_metadata(jsonb)
+  from public, anon, authenticated;
+grant execute on function public.repairdesk_reason_selection_v2_audit_metadata(jsonb)
+  to service_role;
+
 alter table public.order_terminal_operations
   add column if not exists reason_selection jsonb;
 
@@ -80,6 +105,10 @@ alter table public.order_initial_deposit_corrections
 alter table public.order_initial_deposit_corrections
   validate constraint order_initial_deposit_reason_selection_v2_check;
 
+revoke insert, update, delete on table public.order_terminal_operations
+  from anon, authenticated;
+revoke insert, update, delete on table public.order_initial_deposit_corrections
+  from anon, authenticated;
 grant update (reason_selection) on table public.order_terminal_operations to service_role;
 grant update (reason_selection) on table public.order_initial_deposit_corrections to service_role;
 
@@ -139,7 +168,9 @@ begin
      or public.repairdesk_reason_selection_v2_is_valid(
        p_reason_selection,
        v_expected_context
-     ) is not true then
+     ) is not true
+     or btrim(coalesce(p_reason, '')) is distinct from
+        btrim(coalesce(p_reason_selection #>> '{internal_snapshot,text}', '')) then
     return jsonb_build_object('ok', false, 'code', 'invalid_reason_selection');
   end if;
 
@@ -190,7 +221,12 @@ begin
   get diagnostics v_row_count = row_count;
   if v_row_count <> 1 then raise exception 'terminal event snapshot invariant failed'; end if;
   update public.audit_logs
-     set metadata = jsonb_set(coalesce(metadata, '{}'::jsonb), '{reason_selection}', p_reason_selection, true)
+     set metadata = jsonb_set(
+       coalesce(metadata, '{}'::jsonb),
+       '{reason_selection}',
+       public.repairdesk_reason_selection_v2_audit_metadata(p_reason_selection),
+       true
+     )
    where store_id = p_store_id
      and entity_type = 'repair_order'
      and entity_id = p_order_id::text
@@ -314,7 +350,9 @@ begin
   if public.repairdesk_reason_selection_v2_is_valid(
     p_reason_selection,
     'finance.initial_deposit_correction'
-  ) is not true then
+  ) is not true
+     or btrim(coalesce(p_reason, '')) is distinct from
+        btrim(coalesce(p_reason_selection #>> '{internal_snapshot,text}', '')) then
     return jsonb_build_object('ok', false, 'code', 'invalid_reason_selection');
   end if;
   perform pg_catalog.pg_advisory_xact_lock(
@@ -360,7 +398,12 @@ begin
   get diagnostics v_row_count = row_count;
   if v_row_count <> 1 then raise exception 'deposit event snapshot invariant failed'; end if;
   update public.audit_logs
-     set metadata = jsonb_set(coalesce(metadata, '{}'::jsonb), '{reason_selection}', p_reason_selection, true)
+     set metadata = jsonb_set(
+       coalesce(metadata, '{}'::jsonb),
+       '{reason_selection}',
+       public.repairdesk_reason_selection_v2_audit_metadata(p_reason_selection),
+       true
+     )
    where store_id = p_store_id
      and entity_type = 'repair_order'
      and entity_id = p_order_id::text

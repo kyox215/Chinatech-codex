@@ -32,6 +32,8 @@ import { supplierInputSchema } from "@/features/suppliers/model/supplier-input-c
 import type {
   AccountProfileUpdateInput,
   CreateOrderInput,
+  FactSelectionV2,
+  RecordReworkDispositionV2Input,
   CustomerCreateInput,
   CustomerDeviceInput,
   CustomerFollowupInput,
@@ -72,6 +74,7 @@ import type {
   ConfirmOrderQuoteSentInput,
   ReopenOrderInput,
   ReopenOrderV2Input,
+  StartReworkReviewV2Input,
   StoreCreateInput,
   StoreInvitationDecisionInput,
   StoreInviteLinkCreateInput,
@@ -142,6 +145,34 @@ export const businessReasonSelectionV2Schema = z
       });
     }
   }) satisfies z.ZodType<BusinessReasonSelectionV2>;
+
+export const factSelectionV2Schema = z
+  .object({
+    schema_version: z.literal(2),
+    field: z.enum(["intake_intent", "reported_symptom", "diagnostic_finding"]),
+    codes: z.tuple([reasonCodeSchema]).rest(reasonCodeSchema),
+    other_note: z.string().max(500).optional(),
+    catalog_revision: z.string().trim().min(1).max(160),
+  })
+  .strict()
+  .superRefine((selection, context) => {
+    if (selection.codes.length > 20) {
+      context.addIssue({ code: "custom", path: ["codes"], message: "选择项最多 20 个" });
+    }
+    if (new Set(selection.codes).size !== selection.codes.length) {
+      context.addIssue({ code: "custom", path: ["codes"], message: "点选内容不能重复" });
+    }
+    if (selection.field === "intake_intent" && selection.codes.length !== 1) {
+      context.addIssue({ code: "custom", path: ["codes"], message: "接单意图必须选择一项" });
+    }
+    if (selection.codes.includes("other") !== Boolean(selection.other_note?.trim())) {
+      context.addIssue({
+        code: "custom",
+        path: ["other_note"],
+        message: "其他说明必须与 other 选项同时提交",
+      });
+    }
+  }) as z.ZodType<FactSelectionV2>;
 // The JSON boundary may receive form-like numeric strings, but every consumer sees
 // only the validated number/undefined output. Empty strings keep omission semantics.
 const optionalNonnegativeInteger = z.preprocess((value) => {
@@ -657,6 +688,8 @@ export const createOrderSchema = z
     order_type: repairOrderTypeSchema,
     status: repairOrderStatusSchema,
     issue_description: z.string(),
+    intake_intent_selection: factSelectionV2Schema.optional(),
+    reported_symptoms_selection: factSelectionV2Schema.optional(),
     internal_tag: optionalText,
     accessory_notes: optionalText,
     device_custody_status: deviceCustodyStatusSchema.optional(),
@@ -717,6 +750,9 @@ export const updateOrderInputSchema = z
     device_notes: optionalText,
     issue_description: z.string(),
     diagnosis_result: optionalText,
+    intake_intent_selection: factSelectionV2Schema.nullable().optional(),
+    reported_symptoms_selection: factSelectionV2Schema.nullable().optional(),
+    diagnostic_findings_selection: factSelectionV2Schema.nullable().optional(),
     internal_tag: optionalText,
     accessory_notes: optionalText,
     device_unlock: deviceUnlockInputSchema.optional(),
@@ -743,6 +779,9 @@ export const patchOrderChangesSchema = z
     device_notes: optionalText,
     issue_description: optionalText,
     diagnosis_result: optionalText,
+    intake_intent_selection: factSelectionV2Schema.nullable().optional(),
+    reported_symptoms_selection: factSelectionV2Schema.nullable().optional(),
+    diagnostic_findings_selection: factSelectionV2Schema.nullable().optional(),
     internal_tag: optionalText,
     accessory_notes: optionalText,
     device_unlock: deviceUnlockInputSchema.optional(),
@@ -1362,6 +1401,36 @@ export const correctInitialDepositV2BodySchema = z
   .object({
     id: z.string().min(1, "缺少 id"),
     input: correctInitialDepositV2InputSchema,
+  })
+  .strict();
+
+export const startReworkReviewV2InputSchema = z
+  .object({
+    expected_source_updated_at: z.string().min(1, "缺少原工单版本时间"),
+    idempotency_key: z.string().uuid("售后复检操作标识无效"),
+    triage_selection: businessReasonSelectionV2Schema,
+  })
+  .strict() satisfies z.ZodType<StartReworkReviewV2Input>;
+
+export const startReworkReviewV2BodySchema = z
+  .object({
+    source_order_id: z.string().uuid("原工单 ID 无效"),
+    input: startReworkReviewV2InputSchema,
+  })
+  .strict();
+
+export const recordReworkDispositionV2InputSchema = z
+  .object({
+    expected_related_updated_at: z.string().min(1, "缺少返修工单版本时间"),
+    idempotency_key: z.string().uuid("返修处置操作标识无效"),
+    disposition_selection: businessReasonSelectionV2Schema,
+  })
+  .strict() satisfies z.ZodType<RecordReworkDispositionV2Input>;
+
+export const recordReworkDispositionV2BodySchema = z
+  .object({
+    related_order_id: z.string().uuid("返修工单 ID 无效"),
+    input: recordReworkDispositionV2InputSchema,
   })
   .strict();
 

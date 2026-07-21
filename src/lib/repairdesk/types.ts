@@ -742,6 +742,9 @@ export interface RepairOrder {
   device_id: string;
   issue_description: string;
   diagnosis_result?: string;
+  intake_intent_selection?: FactSelectionV2 | null;
+  reported_symptoms_selection?: FactSelectionV2 | null;
+  diagnostic_findings_selection?: FactSelectionV2 | null;
   quotation_amount: number;
   deposit_amount: number;
   balance_amount: number;
@@ -1228,6 +1231,8 @@ export type OrderCapabilityKey =
   | "collectPayment"
   | "correctInitialDeposit"
   | "transition"
+  | "startAfterSalesReview"
+  | "decideReworkDisposition"
   | "confirmCancelledReturn"
   | "correct"
   | "reopen"
@@ -1242,6 +1247,8 @@ export interface OrderCapabilities {
   canCollectPayment: boolean;
   canCorrectInitialDeposit: boolean;
   canTransition: boolean;
+  canStartAfterSalesReview?: boolean;
+  canDecideReworkDisposition?: boolean;
   canConfirmCancelledReturn: boolean;
   canCreateKioskSession: boolean;
   canCorrect: boolean;
@@ -1396,6 +1403,8 @@ export interface CreateOrderInput {
   order_type: RepairOrderType;
   status: RepairOrderStatus;
   issue_description: string;
+  intake_intent_selection?: FactSelectionV2;
+  reported_symptoms_selection?: FactSelectionV2;
   internal_tag?: string;
   accessory_notes?: string;
   device_custody_status?: DeviceCustodyStatus;
@@ -1421,6 +1430,9 @@ export interface UpdateOrderInput {
   device_notes?: string;
   issue_description: string;
   diagnosis_result?: string;
+  intake_intent_selection?: FactSelectionV2 | null;
+  reported_symptoms_selection?: FactSelectionV2 | null;
+  diagnostic_findings_selection?: FactSelectionV2 | null;
   internal_tag?: string;
   accessory_notes?: string;
   device_unlock?: DeviceUnlockInput;
@@ -1440,6 +1452,9 @@ export interface PatchOrderChanges {
   device_notes?: string;
   issue_description?: string;
   diagnosis_result?: string;
+  intake_intent_selection?: FactSelectionV2 | null;
+  reported_symptoms_selection?: FactSelectionV2 | null;
+  diagnostic_findings_selection?: FactSelectionV2 | null;
   internal_tag?: string;
   accessory_notes?: string;
   device_unlock?: DeviceUnlockInput;
@@ -1484,6 +1499,16 @@ export type BusinessReasonSelectionV2 =
       catalog_revision: string;
     };
 
+export type FactSelectionField = "intake_intent" | "reported_symptom" | "diagnostic_finding";
+
+export type FactSelectionV2 = {
+  schema_version: 2;
+  field: FactSelectionField;
+  codes: [string, ...string[]];
+  other_note?: string;
+  catalog_revision: string;
+};
+
 export type StoredBusinessReasonSelectionV2 = BusinessReasonSelectionV2 & {
   context: string;
   internal_snapshot: {
@@ -1492,6 +1517,31 @@ export type StoredBusinessReasonSelectionV2 = BusinessReasonSelectionV2 & {
     text: string;
   };
 };
+
+export interface StartReworkReviewV2Input {
+  expected_source_updated_at: string;
+  idempotency_key: string;
+  triage_selection: BusinessReasonSelectionV2;
+}
+
+export interface RecordReworkDispositionV2Input {
+  expected_related_updated_at: string;
+  idempotency_key: string;
+  disposition_selection: BusinessReasonSelectionV2;
+}
+
+export interface ReworkRelatedOrderResult {
+  ok: true;
+  code: "created" | "recorded" | "idempotent_replay";
+  source_order_id: string;
+  related_order_id: string;
+  episode_id: string;
+  relation_id?: string;
+  relation_type?: "warranty_rework" | "related_new_fault" | "followup";
+  episode_status?: "open" | "decided";
+  related_updated_at?: string;
+  replayed: boolean;
+}
 
 export interface CorrectTerminalOrderInput {
   expected_updated_at: string;
