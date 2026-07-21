@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260721-005-new-order-blank-name-safari-transition"
 title: "新客户姓名可空与Safari建单后流转修复"
-status: "active"
+status: "closed"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["API", "FE", "FLOW", "QA"]
 created_at: "2026-07-21T15:46:35Z"
-updated_at: "2026-07-21T15:49:41Z"
+updated_at: "2026-07-21T16:09:25Z"
+closed_at: "2026-07-21T16:09:25Z"
 ---
 # Task — 新客户姓名可空与Safari建单后流转修复
 

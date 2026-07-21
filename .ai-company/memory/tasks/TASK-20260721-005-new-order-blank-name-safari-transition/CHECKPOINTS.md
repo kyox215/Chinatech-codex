@@ -28,3 +28,20 @@
 - **Evidence:**
   - commit 59965462；origin/codex/new-order-blank-name-safari；2170 tests passed；WebKit 2 passed；build passed
 - **Recorded by:** IntegrationLead
+## 2026-07-21T16:09:25Z — 生产发布完成：迁移20260721150000已应用并与远端历史一致；main更新至5ef50d37；Vercel部署dpl_DEpqXVXUQUktAJ2hNBNmLjqkJAtc为READY并绑定chinatech.in；登录页200，近10分钟无错误日志。
+
+- **Phase:** released
+- **Completed/current state:** 生产发布完成：迁移20260721150000已应用并与远端历史一致；main更新至5ef50d37；Vercel部署dpl_DEpqXVXUQUktAJ2hNBNmLjqkJAtc为READY并绑定chinatech.in；登录页200，近10分钟无错误日志。
+- **Next:** 关闭任务；如出现空姓名建单或Safari流转异常，按部署ID回查并前滚修复。
+- **Decision:** 发布门通过；无新增长期部门规则，经验保留在任务MEMORY_DELTA，暂不提升为组织标准。
+- **Blocker:** 无。
+- **Evidence:**
+  - Supabase remote up to date；Vercel READY；https://www.chinatech.in/login HTTP 200；production error logs none
+- **Recorded by:** IntegrationLead
+## 2026-07-21T16:09:25Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** 新客户姓名可空与Safari建单后即时流转修复已完成并部署生产。
+- **Residual risks:** 未用真实生产客户创建测试工单，避免污染业务数据；已由WebKit回归、数据库迁移历史和线上健康检查覆盖。
+- **Follow-up:** 老板可在Safari用空姓名创建一张真实工单并立即流转，作为业务侧抽查。
+- **Closed by:** IntegrationLead
