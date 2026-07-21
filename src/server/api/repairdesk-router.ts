@@ -261,6 +261,7 @@ import {
 } from "@/features/settings/model/store-settings-errors";
 import type {
   AuditActor,
+  CustomerIntakeSearchInput,
   CreateInventoryIntakeInput,
   CreateOrderInput,
   InventoryItemStatus,
@@ -2467,9 +2468,11 @@ export async function handleRepairDeskPost(
         return ok(await api.searchCustomers(q, limit, actor));
       }
       case "customers/intake-search": {
-        const { q, limit, deviceLimit } = customerIntakeSearchBodySchema.parse(body);
+        const input = customerIntakeSearchBodySchema.parse(body);
         assertCustomerDetailReadPermission(actor);
-        return ok(await api.searchCustomerIntakeCandidates(q, limit, deviceLimit, actor));
+        return ok(
+          await api.searchCustomerIntakeCandidates(input as CustomerIntakeSearchInput, actor),
+        );
       }
       case "customers/devices": {
         const { customerId } = customerIdBodySchema.parse(body);

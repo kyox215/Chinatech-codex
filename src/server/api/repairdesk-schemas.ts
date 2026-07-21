@@ -1351,11 +1351,29 @@ export const customerSearchBodySchema = z.object({
   limit: z.coerce.number().int().positive().max(12).default(8),
 });
 
-export const customerIntakeSearchBodySchema = z.object({
-  q: z.string().max(80).default(""),
-  limit: z.coerce.number().int().positive().max(12).default(8),
-  deviceLimit: z.coerce.number().int().positive().max(8).default(4),
-});
+export const customerIntakeSearchBodySchema = z
+  .object({
+    q: z.string().max(80).optional(),
+    phone: z.string().max(80).optional(),
+    name: z.string().max(80).optional(),
+    phoneMatchMode: z.enum(["progressive", "exact"]).optional(),
+    limit: z.coerce.number().int().positive().max(12).default(8),
+    deviceLimit: z.coerce.number().int().positive().max(8).default(4),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    if (input.q === undefined) return;
+    if (
+      input.phone !== undefined ||
+      input.name !== undefined ||
+      input.phoneMatchMode !== undefined
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "旧版 q 不能与 phone、name 或 phoneMatchMode 混用",
+      });
+    }
+  });
 
 const customerInputBaseSchema = z
   .object({

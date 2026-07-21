@@ -17,6 +17,7 @@ import {
   createOrderSchema,
   correctTerminalOrderInputSchema,
   customerListPageInputSchema,
+  customerIntakeSearchBodySchema,
   customerSearchBodySchema,
   dashboardPrioritySummaryInputSchema,
   dashboardSummaryInputSchema,
@@ -702,6 +703,33 @@ describe("repairdesk API schemas", () => {
   it("applies customer search defaults", () => {
     expect(customerSearchBodySchema.parse({})).toEqual({ q: "", limit: 8 });
     expect(() => customerSearchBodySchema.parse({ q: "333", limit: 13 })).toThrow();
+  });
+
+  it("keeps legacy and structured customer intake searches mutually exclusive", () => {
+    expect(customerIntakeSearchBodySchema.parse({ q: "333" })).toEqual({
+      q: "333",
+      limit: 8,
+      deviceLimit: 4,
+    });
+    expect(
+      customerIntakeSearchBodySchema.parse({
+        phone: "3335719865",
+        name: "Alessio",
+        phoneMatchMode: "exact",
+      }),
+    ).toEqual({
+      phone: "3335719865",
+      name: "Alessio",
+      phoneMatchMode: "exact",
+      limit: 8,
+      deviceLimit: 4,
+    });
+    expect(customerIntakeSearchBodySchema.parse({})).toEqual({ limit: 8, deviceLimit: 4 });
+    expect(() => customerIntakeSearchBodySchema.parse({ q: "333", phone: "333" })).toThrow();
+    expect(() => customerIntakeSearchBodySchema.parse({ q: "Al", name: "Al" })).toThrow();
+    expect(() =>
+      customerIntakeSearchBodySchema.parse({ phone: "333", unexpected: true }),
+    ).toThrow();
   });
 
   it("coerces and caps customer page input", () => {

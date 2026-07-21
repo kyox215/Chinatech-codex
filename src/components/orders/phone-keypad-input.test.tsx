@@ -98,7 +98,7 @@ describe("PhoneKeypadInput", () => {
     const { container } = render(<PhoneKeypadHarness desktopVirtualKeyboardEnabled />);
 
     expect(container.querySelector('[data-phone-native-input="true"]')).toBeNull();
-    await user.click(screen.getByRole("button", { name: "客户电话号码" }));
+    await user.click(screen.getByRole("combobox", { name: "客户电话号码" }));
     expect(await screen.findByRole("group", { name: "客户电话号码 虚拟数字键盘" })).toBeVisible();
   });
 });

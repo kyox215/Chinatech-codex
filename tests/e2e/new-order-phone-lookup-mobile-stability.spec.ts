@@ -48,7 +48,7 @@ test("new order phone lookup stays anchored after the first mobile digit", async
   await phoneKeypad.locator('[data-phone-keypad-key="3"]').click();
   await page.waitForTimeout(220);
 
-  await expect(page.getByRole("listbox", { name: "客户电话搜索结果" })).toHaveCount(0);
+  await expect(page.getByRole("listbox", { name: "客户匹配结果" })).toHaveCount(0);
 
   const afterFirstDigitBox = await phoneTrigger.boundingBox();
   expect(afterFirstDigitBox).not.toBeNull();
@@ -60,7 +60,7 @@ test("new order phone lookup stays anchored after the first mobile digit", async
 
   await phoneKeypad.locator('[data-phone-keypad-key="4"]').click();
   await phoneKeypad.locator('[data-phone-keypad-key="5"]').click();
-  await expect(page.getByRole("listbox", { name: "客户电话搜索结果" })).toBeVisible();
+  await expect(page.getByRole("listbox", { name: "客户匹配结果" })).toBeVisible();
   await expectNoPageOverflow(page);
 
   await page.screenshot({

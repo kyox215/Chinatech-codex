@@ -8,6 +8,7 @@ import type {
   CustomerFollowupInput,
   CustomerHistoryDeviceCandidate,
   CustomerIntakeCandidate,
+  CustomerIntakeSearchInput,
   CustomerListFilters,
   CustomerListItem,
   CustomerListPageInput,
@@ -21,6 +22,13 @@ import type {
   OrderListItem,
 } from "@/lib/repairdesk/types";
 import { buildCustomerOrderFinanceSummary } from "@/features/customers/model/customer-order-state";
+import {
+  compareCustomerIntakeMatches,
+  getCustomerIntakeNameMatchKind,
+  getCustomerIntakePhoneMatchKind,
+  normalizeCustomerIntakeSearch,
+  type NormalizedCustomerIntakeSearch,
+} from "@/features/customers/model/customer-intake-search";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { can } from "@/server/permissions";
 import { projectOrderListItemForActor } from "@/features/orders/server/order.repository";
@@ -141,17 +149,22 @@ export async function searchCustomers(
 }
 
 export async function searchCustomerIntakeCandidates(
-  q: string,
-  limit = 6,
-  deviceLimit = 4,
+  input: CustomerIntakeSearchInput,
   actor?: AuditActor,
 ): Promise<CustomerIntakeCandidate[]> {
-  const customers = await searchCustomers(q, limit, actor);
-  if (!customers.length) return [];
+  const normalized = normalizeCustomerIntakeSearch(input);
+  const matches =
+    normalized.kind === "legacy"
+      ? (await searchCustomers(normalized.query, normalized.limit, actor)).map((customer) => ({
+          customer,
+          exactMatch: isExactCustomerIntakeMatch(customer, normalized.query),
+        }))
+      : await searchStructuredCustomerIntakeMatches(normalized, actor);
+  if (!matches.length) return [];
 
   const storeId = requireStoreIdFromActor(actor);
-  const customerIds = customers.map((customer) => customer.id);
-  const resultDeviceLimit = Math.min(8, Math.max(1, Math.floor(Number(deviceLimit) || 4)));
+  const customerIds = matches.map((match) => match.customer.id);
+  const resultDeviceLimit = normalized.deviceLimit;
   const supabase = getSupabaseAdmin();
   const [{ data: deviceRows, error: deviceError }, { data: orderRows, error: orderError }] =
     await Promise.all([
@@ -211,13 +224,95 @@ export async function searchCustomerIntakeCandidates(
     });
   }
 
-  return customers.map((customer) => ({
-    customer,
-    exactMatch: isExactCustomerIntakeMatch(customer, q),
-    historyDevices: [...(byCustomer.get(customer.id)?.values() ?? [])]
+  return matches.map((match) => ({
+    ...match,
+    historyDevices: [...(byCustomer.get(match.customer.id)?.values() ?? [])]
       .sort(compareHistoryDeviceCandidates)
       .slice(0, resultDeviceLimit),
   }));
+}
+
+async function searchStructuredCustomerIntakeMatches(
+  input: NormalizedCustomerIntakeSearch,
+  actor?: AuditActor,
+): Promise<Array<Omit<CustomerIntakeCandidate, "historyDevices">>> {
+  const storeId = requireStoreIdFromActor(actor);
+  if (input.phoneRaw && input.phoneRaw.length < 3) return [];
+  if (!input.phoneRaw && input.normalizedName.length < 2) return [];
+
+  const supabase = getSupabaseAdmin();
+  const selectFields = "id,name,phone_e164,phone_raw,contact_phones,updated_at";
+  const queryLimit = input.limit * 2;
+  const queries = input.phoneRaw
+    ? [
+        supabase
+          .from("customers")
+          .select(selectFields)
+          .eq("store_id", storeId)
+          .eq("phone_raw", input.phoneRaw)
+          .limit(input.limit),
+        ...(input.phoneMatchMode === "progressive"
+          ? [
+              supabase
+                .from("customers")
+                .select(selectFields)
+                .eq("store_id", storeId)
+                .ilike("phone_raw", `${input.phoneRaw}%`)
+                .order("updated_at", { ascending: false })
+                .limit(queryLimit),
+              supabase
+                .from("customers")
+                .select(selectFields)
+                .eq("store_id", storeId)
+                .ilike("phone_raw", `%${input.phoneRaw}%`)
+                .order("updated_at", { ascending: false })
+                .limit(queryLimit),
+            ]
+          : []),
+        supabase
+          .from("customers")
+          .select(selectFields)
+          .eq("store_id", storeId)
+          .order("updated_at", { ascending: false })
+          .limit(80),
+      ]
+    : [
+        supabase
+          .from("customers")
+          .select(selectFields)
+          .eq("store_id", storeId)
+          .ilike("name", `%${input.name}%`)
+          .order("updated_at", { ascending: false })
+          .limit(queryLimit),
+      ];
+
+  const settled = await Promise.all(queries);
+  const rows: DbRecord[] = [];
+  for (const result of settled) {
+    fail(result.error, "搜索客户失败");
+    rows.push(...(((result.data ?? []) as DbRecord[]) ?? []));
+  }
+
+  const unique = new Map<string, Omit<CustomerIntakeCandidate, "historyDevices">>();
+  for (const row of rows) {
+    const customer = customerFromRow(row);
+    if (!customer) continue;
+    const phoneMatchKind = input.phoneRaw
+      ? (getCustomerIntakePhoneMatchKind(customer, input.phoneRaw, input.phoneMatchMode) ??
+        undefined)
+      : undefined;
+    if (input.phoneRaw && !phoneMatchKind) continue;
+    const nameMatchKind = getCustomerIntakeNameMatchKind(customer.name, input.normalizedName);
+    if (!input.phoneRaw && nameMatchKind === "none") continue;
+    unique.set(customer.id, {
+      customer,
+      exactMatch: phoneMatchKind === "exact_primary" || phoneMatchKind === "exact_alternate",
+      phoneMatchKind,
+      nameMatchKind,
+    });
+  }
+
+  return [...unique.values()].sort(compareCustomerIntakeMatches).slice(0, input.limit);
 }
 
 function isExactCustomerIntakeMatch(customer: Customer, q: string) {

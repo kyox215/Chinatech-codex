@@ -46,9 +46,46 @@ export interface CustomerHistoryDeviceCandidate {
   order_public_no?: string;
 }
 
+export type CustomerIntakePhoneMatchMode = "progressive" | "exact";
+
+export type CustomerIntakePhoneMatchKind =
+  | "exact_primary"
+  | "exact_alternate"
+  | "prefix_primary"
+  | "partial_primary"
+  | "partial_alternate";
+
+export type CustomerIntakeNameMatchKind = "exact" | "prefix" | "contains" | "none";
+
+export type CustomerIntakeSearchInput =
+  | {
+      q?: string;
+      phone?: never;
+      name?: never;
+      phoneMatchMode?: never;
+      limit?: number;
+      deviceLimit?: number;
+    }
+  | {
+      q?: never;
+      phone?: string;
+      name?: string;
+      phoneMatchMode?: CustomerIntakePhoneMatchMode;
+      limit?: number;
+      deviceLimit?: number;
+    };
+
+export type CustomerIntakeNewCustomerPolicy =
+  | "allowed"
+  | "requires_shared_phone_confirmation"
+  | "blocked_missing_name"
+  | "blocked_exact_duplicate";
+
 export interface CustomerIntakeCandidate {
   customer: Customer;
   exactMatch: boolean;
+  phoneMatchKind?: CustomerIntakePhoneMatchKind;
+  nameMatchKind?: CustomerIntakeNameMatchKind;
   historyDevices: CustomerHistoryDeviceCandidate[];
 }
 

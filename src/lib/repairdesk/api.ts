@@ -21,6 +21,8 @@ import type {
   Device,
   DeviceCustodyStatus,
   CustomerIntakeCandidate,
+  CustomerIntakeNewCustomerPolicy,
+  CustomerIntakeSearchInput,
   DashboardSummary,
   DashboardSummaryInput,
   OrderDetail,
@@ -229,6 +231,8 @@ export type {
   Customer,
   CustomerHistoryDeviceCandidate,
   CustomerIntakeCandidate,
+  CustomerIntakeNewCustomerPolicy,
+  CustomerIntakeSearchInput,
   DashboardSummary,
   DashboardSummaryInput,
   Device,
@@ -1212,16 +1216,22 @@ export async function searchCustomers(q: string, limit = 6): Promise<Customer[]>
   return postJson<Customer[]>("customers/search", { q, limit });
 }
 
-export async function searchCustomerIntakeCandidates(
+export function searchCustomerIntakeCandidates(
+  input: CustomerIntakeSearchInput,
+): Promise<CustomerIntakeCandidate[]>;
+export function searchCustomerIntakeCandidates(
   q: string,
+  limit?: number,
+  deviceLimit?: number,
+): Promise<CustomerIntakeCandidate[]>;
+export async function searchCustomerIntakeCandidates(
+  inputOrQuery: CustomerIntakeSearchInput | string,
   limit = 6,
   deviceLimit = 4,
 ): Promise<CustomerIntakeCandidate[]> {
-  return postJson<CustomerIntakeCandidate[]>("customers/intake-search", {
-    q,
-    limit,
-    deviceLimit,
-  });
+  const body =
+    typeof inputOrQuery === "string" ? { q: inputOrQuery, limit, deviceLimit } : inputOrQuery;
+  return postJson<CustomerIntakeCandidate[]>("customers/intake-search", body);
 }
 
 export async function getCustomerDevices(customerId: string): Promise<Device[]> {

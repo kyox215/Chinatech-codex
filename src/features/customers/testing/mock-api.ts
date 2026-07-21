@@ -7,6 +7,7 @@ import type {
   CustomerFollowupInput,
   CustomerHistoryDeviceCandidate,
   CustomerIntakeCandidate,
+  CustomerIntakeSearchInput,
   CustomerListFilters,
   CustomerListItem,
   CustomerListPageInput,
@@ -21,6 +22,12 @@ import type {
 } from "@/lib/repairdesk/types";
 import { listOrders } from "@/features/orders/testing/mock-api";
 import { buildCustomerOrderFinanceSummary } from "@/features/customers/model/customer-order-state";
+import {
+  compareCustomerIntakeMatches,
+  getCustomerIntakeNameMatchKind,
+  getCustomerIntakePhoneMatchKind,
+  normalizeCustomerIntakeSearch,
+} from "@/features/customers/model/customer-intake-search";
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
 import {
   customerFollowups,
@@ -67,19 +74,48 @@ export async function searchCustomers(
 }
 
 export async function searchCustomerIntakeCandidates(
-  q: string,
-  limit = 6,
-  deviceLimit = 4,
+  input: CustomerIntakeSearchInput,
   _actor?: AuditActor,
 ): Promise<CustomerIntakeCandidate[]> {
-  const matches = await searchCustomers(q, limit, _actor);
-  const resultDeviceLimit = Math.min(8, Math.max(1, Math.floor(Number(deviceLimit) || 4)));
-  return matches.map((customer) => ({
-    customer,
-    exactMatch: isExactCustomerIntakeMatch(customer, q),
-    historyDevices: buildHistoryDeviceCandidates(customer.id)
+  const normalized = normalizeCustomerIntakeSearch(input);
+  const matches: Array<Omit<CustomerIntakeCandidate, "historyDevices">> =
+    normalized.kind === "legacy"
+      ? (await searchCustomers(normalized.query, normalized.limit, _actor)).map((customer) => ({
+          customer,
+          exactMatch: isExactCustomerIntakeMatch(customer, normalized.query),
+        }))
+      : customers
+          .flatMap((customer) => {
+            const phoneMatchKind = normalized.phoneRaw
+              ? (getCustomerIntakePhoneMatchKind(
+                  customer,
+                  normalized.phoneRaw,
+                  normalized.phoneMatchMode,
+                ) ?? undefined)
+              : undefined;
+            const nameMatchKind = getCustomerIntakeNameMatchKind(
+              customer.name,
+              normalized.normalizedName,
+            );
+            if (normalized.phoneRaw && !phoneMatchKind) return [];
+            if (!normalized.phoneRaw && nameMatchKind === "none") return [];
+            return [
+              {
+                customer,
+                exactMatch:
+                  phoneMatchKind === "exact_primary" || phoneMatchKind === "exact_alternate",
+                phoneMatchKind,
+                nameMatchKind,
+              } satisfies Omit<CustomerIntakeCandidate, "historyDevices">,
+            ];
+          })
+          .sort(compareCustomerIntakeMatches)
+          .slice(0, normalized.limit);
+  return matches.map((match) => ({
+    ...match,
+    historyDevices: buildHistoryDeviceCandidates(match.customer.id)
       .sort(compareHistoryDeviceCandidates)
-      .slice(0, resultDeviceLimit),
+      .slice(0, normalized.deviceLimit),
   }));
 }
 

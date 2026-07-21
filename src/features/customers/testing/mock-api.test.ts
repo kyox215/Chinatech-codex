@@ -124,7 +124,11 @@ describe("customer mock api search", () => {
     const customer = all.customers.find((item) => item.device_count > 0);
     expect(customer).toBeDefined();
 
-    const candidates = await searchCustomerIntakeCandidates(customer!.phone_raw, 4, 2);
+    const candidates = await searchCustomerIntakeCandidates({
+      q: customer!.phone_raw,
+      limit: 4,
+      deviceLimit: 2,
+    });
     const match = candidates.find((candidate) => candidate.customer.id === customer!.id);
     expect(match).toBeDefined();
     expect(match!.exactMatch).toBe(true);
@@ -136,5 +140,36 @@ describe("customer mock api search", () => {
       [device.brand, device.model, device.serial_or_imei].join("|").toLowerCase(),
     );
     expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("uses phone as a hard filter while name only ranks same-phone customers", async () => {
+    const all = await listCustomers();
+    const phoneCustomer = all.customers[0]!;
+    const differentPhoneSameName = all.customers.find(
+      (customer) =>
+        customer.id !== phoneCustomer.id && customer.phone_raw !== phoneCustomer.phone_raw,
+    )!;
+
+    const candidates = await searchCustomerIntakeCandidates({
+      phone: phoneCustomer.phone_raw,
+      name: differentPhoneSameName.name,
+      phoneMatchMode: "exact",
+      limit: 8,
+      deviceLimit: 2,
+    });
+
+    expect(candidates.some((candidate) => candidate.customer.id === phoneCustomer.id)).toBe(true);
+    expect(
+      candidates.every(
+        (candidate) =>
+          candidate.customer.phone_raw === phoneCustomer.phone_raw ||
+          candidate.customer.contact_phones.some(
+            (phone) => phone.replace(/\D/g, "") === phoneCustomer.phone_raw,
+          ),
+      ),
+    ).toBe(true);
+    expect(
+      candidates.some((candidate) => candidate.customer.id === differentPhoneSameName.id),
+    ).toBe(false);
   });
 });

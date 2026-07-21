@@ -44,7 +44,7 @@ test("new order mobile inputs use virtual phone and money keypads", async ({ pag
   await phoneKeypad.locator('[data-phone-keypad-key="3"]').click();
   await phoneKeypad.locator('[data-phone-keypad-key="3"]').click();
   await expect(phoneTrigger).toContainText("+39333");
-  await expect(customerSection.locator('[data-customer-intake-results="phone"]')).toBeVisible();
+  await expect(customerSection.locator('[data-customer-identity-results="true"]')).toBeVisible();
 
   await phoneKeypad.screenshot({
     path: `${screenshotDir}/phone-keypad-${testInfo.project.name}.png`,
@@ -57,10 +57,8 @@ test("new order mobile inputs use virtual phone and money keypads", async ({ pag
   const nameInput = customerSection.locator('input[placeholder="搜索客户姓名（可选）"]').first();
   await expect(nameInput).toBeVisible();
   await nameInput.fill("12");
-  await expect(page.getByRole("listbox", { name: "客户姓名搜索结果" })).toHaveCount(0);
-  await expect(
-    customerSection.getByText("电话和姓名分开实时搜索；电话栏只接收号码，姓名栏只匹配客户姓名"),
-  ).toBeVisible();
+  await expect(page.getByRole("listbox", { name: "客户匹配结果" })).toHaveCount(1);
+  await expect(customerSection.getByText(/姓名仅排序同号结果/)).toBeVisible();
 
   await expect(deviceSection.locator('input[inputmode="numeric"]').first()).toBeVisible();
   await expect(quotationSection.locator('input[inputmode="decimal"]').first()).toHaveCount(0);

@@ -41,10 +41,11 @@ test("matched customer results render as a full-width compact mobile panel", asy
     await phoneKeypad.locator(`[data-phone-keypad-key="${digit}"]`).click();
   }
 
-  const resultsPanel = customerSection.locator('[data-customer-intake-results="phone"]');
+  const resultsPanel = customerSection.locator('[data-customer-identity-results="true"]');
   await expect(resultsPanel).toBeVisible();
-  await expect(customerSection.getByText("Apple iPhone 15")).toBeVisible();
-  await expect(customerSection.getByText("Apple iphone 13")).toBeVisible();
+  await expect(customerSection.getByText("客户 3335719865")).toBeVisible();
+  await expect(customerSection.getByText("Apple iPhone 15")).toHaveCount(0);
+  await expect(customerSection.getByRole("listbox", { name: "客户匹配结果" })).toHaveCount(1);
   await expectNoPageOverflow(page);
   await expectPanelUsesMobileWidth(customerSection, resultsPanel);
 
@@ -65,9 +66,12 @@ async function mockCustomerIntakeSearch(page: Page) {
               id: "customer-3335719865",
               name: "客户 3335719865",
               phone_e164: "3335719865",
+              phone_raw: "3335719865",
               contact_phones: [],
             },
             exactMatch: true,
+            phoneMatchKind: "exact_primary",
+            nameMatchKind: "none",
             historyDevices: [
               {
                 id: "history-iphone-15",

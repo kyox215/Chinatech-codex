@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { Check, ChevronDown, ScanLine, Search, Smartphone, Store, UserRound } from "lucide-react";
+import { Check, ChevronDown, ScanLine, Smartphone, Store, UserRound } from "lucide-react";
 
 import { ImeiScannerField } from "@/components/imei-scanner-field";
 import {
@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DeviceUnlockEditor } from "@/features/orders/components/device-unlock-fields";
 import { OrderWorkspaceSectionHeader } from "@/features/orders/components/order-workspace-primitives";
-import { CustomerIntakeLookup } from "@/features/orders/forms/customer-intake-lookup";
+import { CustomerIdentityLookup } from "@/features/orders/forms/customer-intake-lookup";
 import {
   brandSuggestions,
   deviceModelSuggestionsForBrand,
@@ -27,7 +27,11 @@ import {
   deviceCustodyLabels,
 } from "@/features/orders/model/device-custody";
 import type { DeviceCustodyStatus } from "@/lib/repairdesk/types";
-import type { CustomerHistoryDeviceCandidate, CustomerIntakeCandidate } from "@/lib/repairdesk/api";
+import type {
+  CustomerHistoryDeviceCandidate,
+  CustomerIntakeCandidate,
+  CustomerIntakeNewCustomerPolicy,
+} from "@/lib/repairdesk/api";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { useTouchSafeDropdownTrigger } from "@/shared/lib/touch-safe-dropdown-trigger";
@@ -41,10 +45,7 @@ type NewOrderCustomerDeviceBaseProps = {
 type NewOrderCustomerSectionProps = NewOrderCustomerDeviceBaseProps & {
   onClearCustomerContext: () => void;
   onPickCustomer: (candidate: CustomerIntakeCandidate) => void | Promise<void>;
-  onPickHistoryDevice: (
-    candidate: CustomerIntakeCandidate,
-    device: CustomerHistoryDeviceCandidate,
-  ) => void | Promise<void>;
+  onNewCustomerIntentChange?: (intent: CustomerIntakeNewCustomerPolicy | null) => void;
 };
 
 type NewOrderDeviceSectionProps = NewOrderCustomerDeviceBaseProps & {
@@ -63,7 +64,7 @@ export function NewOrderCustomerDeviceSection({
   historyDevices,
   onClearCustomerContext,
   onPickCustomer,
-  onPickHistoryDevice,
+  onNewCustomerIntentChange,
   onSelectHistoryDevice,
   surface = "page",
 }: NewOrderCustomerDeviceSectionProps) {
@@ -74,7 +75,7 @@ export function NewOrderCustomerDeviceSection({
         setForm={setForm}
         onClearCustomerContext={onClearCustomerContext}
         onPickCustomer={onPickCustomer}
-        onPickHistoryDevice={onPickHistoryDevice}
+        onNewCustomerIntentChange={onNewCustomerIntentChange}
         surface={surface}
       />
       <NewOrderDeviceInfoSection
@@ -94,74 +95,58 @@ export function NewOrderCustomerSection({
   setForm,
   onClearCustomerContext,
   onPickCustomer,
-  onPickHistoryDevice,
+  onNewCustomerIntentChange,
   surface = "page",
 }: NewOrderCustomerSectionProps) {
   const shellClass = getShellClass(surface);
 
   return (
-    <section data-new-order-section="customer" className={cn(shellClass, "space-y-1.5")}>
+    <section
+      data-new-order-section="customer"
+      data-new-order-field="customer-phone"
+      className={cn(shellClass, "space-y-1.5")}
+    >
       <OrderWorkspaceSectionHeader
         icon={UserRound}
         title="客户信息"
         description="电话优先匹配客户档案"
         className="mb-1.5"
       />
-      <div className="grid min-w-0 gap-1.5">
-        <div data-new-order-field="customer-phone">
-          <CustomerIntakeLookup
-            mode="phone"
-            resultsPlacement="inline"
-            fieldLabel="电话"
-            fieldRequired
-            fieldLeading={<Search className="size-3.5" />}
-            fieldTrailing={<UserRound className="size-3.5 text-primary" />}
-            value={form.customerPhone}
-            selectedCustomerId={form.customerId}
-            selectedDeviceId={form.deviceId}
-            className={visualInputClass}
-            containerClassName="relative h-9 w-full min-w-0 overflow-hidden"
-            placeholder="输入电话号码"
-            onChange={(customerPhone) => {
-              onClearCustomerContext();
-              setForm({
-                ...form,
-                customerPhone,
-                customerId: undefined,
-                deviceId: undefined,
-              });
-            }}
-            onPickCustomer={onPickCustomer}
-            onPickHistoryDevice={onPickHistoryDevice}
-          />
-        </div>
-        <CustomerIntakeLookup
-          mode="name"
-          resultsPlacement="inline"
-          fieldLabel="姓名"
-          fieldLeading={<UserRound className="size-3.5" />}
-          value={form.customerName}
-          selectedCustomerId={form.customerId}
-          selectedDeviceId={form.deviceId}
-          className={visualInputClass}
-          containerClassName="relative h-9 w-full min-w-0 overflow-hidden"
-          placeholder="搜索客户姓名（可选）"
-          onChange={(customerName) => {
-            onClearCustomerContext();
-            setForm({
-              ...form,
-              customerName,
-              customerId: undefined,
-              deviceId: undefined,
-            });
-          }}
-          onPickCustomer={onPickCustomer}
-          onPickHistoryDevice={onPickHistoryDevice}
-        />
-      </div>
-      <p className="mt-1 rounded-lg bg-primary/5 px-2 py-1 text-[9px] leading-3 text-primary">
-        电话和姓名分开实时搜索；电话栏只接收号码，姓名栏只匹配客户姓名
-      </p>
+      <CustomerIdentityLookup
+        phone={form.customerPhone}
+        name={form.customerName}
+        selectedCustomerId={form.customerId}
+        inputClassName={visualInputClass}
+        inputContainerClassName="relative h-9 w-full min-w-0 overflow-hidden"
+        onPhoneChange={(customerPhone) => {
+          onClearCustomerContext();
+          setForm((current) => ({
+            ...current,
+            customerPhone,
+            customerId: undefined,
+            deviceId: undefined,
+          }));
+        }}
+        onNameChange={(customerName) => {
+          onClearCustomerContext();
+          setForm((current) => ({
+            ...current,
+            customerName,
+            customerId: undefined,
+            deviceId: undefined,
+          }));
+        }}
+        onPickCustomer={onPickCustomer}
+        onNewCustomerIntentChange={onNewCustomerIntentChange}
+        onClearCustomerSelection={() => {
+          onClearCustomerContext();
+          setForm((current) => ({
+            ...current,
+            customerId: undefined,
+            deviceId: undefined,
+          }));
+        }}
+      />
     </section>
   );
 }

@@ -7,6 +7,7 @@ import {
   fetchCustomerRows,
   listCustomers,
   listCustomersPage,
+  searchCustomerIntakeCandidates,
   sendCustomerMessage,
   upsertCustomerDevice,
 } from "./customer.repository";
@@ -223,6 +224,38 @@ describe("customer repository tenant write boundaries", () => {
   });
 });
 
+describe("customer intake structured search", () => {
+  beforeEach(() => {
+    mocks.supabase.from.mockReset();
+    mocks.supabase.rpc.mockReset();
+  });
+
+  it("never adds a name query when a phone is present", async () => {
+    const queries: ReturnType<typeof createSupabaseQuery>[] = [];
+    mocks.supabase.from.mockImplementation(() => {
+      const query = createSupabaseQuery({ data: [], error: null });
+      queries.push(query);
+      return query;
+    });
+
+    await expect(
+      searchCustomerIntakeCandidates(
+        { phone: "3335719865", name: "Alessio", phoneMatchMode: "progressive" },
+        ownerActor(),
+      ),
+    ).resolves.toEqual([]);
+
+    expect(queries.length).toBeGreaterThan(0);
+    expect(queries.flatMap((query) => query.ilike.mock.calls)).not.toContainEqual([
+      "name",
+      expect.any(String),
+    ]);
+    expect(
+      queries.every((query) => query.eq.mock.calls.some((call) => call[0] === "store_id")),
+    ).toBe(true);
+  });
+});
+
 describe("customer v3 pagination compatibility", () => {
   beforeEach(() => {
     mocks.supabase.from.mockReset();
@@ -339,8 +372,9 @@ function createSupabaseQuery(result: { data: unknown; error: unknown }) {
   const query = {
     ...result,
     select: vi.fn(() => query),
-    eq: vi.fn(() => query),
+    eq: vi.fn((_column: string, _value: unknown) => query),
     in: vi.fn(() => query),
+    ilike: vi.fn((_column: string, _value: unknown) => query),
     order: vi.fn(() => query),
     range: vi.fn(() => result),
     limit: vi.fn(() => result),

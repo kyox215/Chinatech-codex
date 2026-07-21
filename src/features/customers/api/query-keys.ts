@@ -1,4 +1,8 @@
-import type { CustomerListFilters, CustomerListPageInput } from "@/lib/repairdesk/api";
+import type {
+  CustomerIntakeSearchInput,
+  CustomerListFilters,
+  CustomerListPageInput,
+} from "@/lib/repairdesk/api";
 import { storeQueryScope } from "@/shared/lib/store-query-scope";
 
 export const customersKeys = {
@@ -12,15 +16,8 @@ export const customersKeys = {
     [...customersKeys.all, "detail", id, ...storeQueryScope(storeId)] as const,
   search: (query: string, limit = 6, storeId?: string | null) =>
     [...customersKeys.all, "search", ...storeQueryScope(storeId), query, limit] as const,
-  intakeSearch: (query: string, limit = 6, deviceLimit = 4, storeId?: string | null) =>
-    [
-      ...customersKeys.all,
-      "intake-search",
-      ...storeQueryScope(storeId),
-      query,
-      limit,
-      deviceLimit,
-    ] as const,
+  intakeSearch: (input: CustomerIntakeSearchInput, storeId?: string | null) =>
+    [...customersKeys.all, "intake-search", ...storeQueryScope(storeId), input] as const,
   devices: (customerId: string, storeId?: string | null) =>
     [...customersKeys.all, "devices", customerId, ...storeQueryScope(storeId)] as const,
 };

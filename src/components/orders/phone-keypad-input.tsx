@@ -38,6 +38,7 @@ export interface PhoneKeypadInputProps {
   ariaExpanded?: boolean;
   ariaActiveDescendant?: string;
   onOpenChange?: (open: boolean) => void;
+  onCandidateKeyDown?: (event: KeyboardEvent<HTMLInputElement | HTMLButtonElement>) => void;
 }
 
 export function PhoneKeypadInput({
@@ -54,6 +55,7 @@ export function PhoneKeypadInput({
   ariaExpanded,
   ariaActiveDescendant,
   onOpenChange,
+  onCandidateKeyDown,
 }: PhoneKeypadInputProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => normalizePhoneKeypadDraft(value));
@@ -88,6 +90,15 @@ export function PhoneKeypadInput({
   };
 
   const handlePhysicalKey = (event: KeyboardEvent<HTMLButtonElement>) => {
+    onCandidateKeyDown?.(event);
+    if (event.key === "Escape") {
+      setOpenState(false);
+      return;
+    }
+    if (event.defaultPrevented) {
+      if (event.key === "Enter") setOpenState(false);
+      return;
+    }
     if (/^\d$/.test(event.key)) {
       event.preventDefault();
       updateDraft(event.key as PhoneKeypadKey);
@@ -134,6 +145,7 @@ export function PhoneKeypadInput({
         onFocus={() => onOpenChange?.(true)}
         onBlur={() => onOpenChange?.(false)}
         onKeyDown={(event) => {
+          onCandidateKeyDown?.(event);
           if (event.key === "Escape") onOpenChange?.(false);
         }}
       />
@@ -145,6 +157,8 @@ export function PhoneKeypadInput({
       <button
         ref={triggerRef}
         type="button"
+        role="combobox"
+        aria-autocomplete="list"
         data-phone-keypad-trigger="true"
         aria-label={ariaLabel}
         aria-controls={ariaControls}

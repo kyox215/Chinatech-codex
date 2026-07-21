@@ -11,10 +11,34 @@ Production approval: granted by Owner on 2026-07-21
 - Staff must explicitly use an existing customer or confirm a distinct customer sharing the phone number.
 - New orders keep customer name/phone snapshots; legacy rows are compatibility-backfilled from the current profile.
 - Bare Enter no longer selects the first name-search result.
+- Customer intake search accepts either the legacy `{ q }` request or a structured
+  `{ phone, name, phoneMatchMode }` request. The two forms cannot be mixed.
+- When both phone and name are present, phone is the hard candidate filter. Name only ranks
+  or labels same-phone candidates; a similar name with a different phone is never returned.
+- The new-order form renders one candidate list and keeps an explicit "create with the current
+  details" action after a settled, trustworthy lookup. Historical devices remain below the
+  customer selection flow instead of being nested inside every candidate row.
 
 The create route does not fall back to the legacy multi-write path. If the migration is missing, it returns `ORDER_CREATE_MIGRATION_REQUIRED` and performs no business writes.
 
-## Release order
+The structured intake-search change is application-only. It does not add or alter database
+schema, RPCs, RLS policies or grants, and must not change the existing identity-conflict
+challenge at order creation time.
+
+## Lookup-only release order (TASK-010)
+
+This customer lookup deployment does not run a database migration.
+
+1. Verify the existing order-customer identity migration is already present in production.
+2. Do **not** run `supabase db push` for this lookup-only change.
+3. Deploy the application build.
+4. Run the read-only phone-only, name-only and phone-plus-name lookup smoke checks with synthetic data.
+5. Monitor identity conflicts and order-create transaction errors without logging raw customer identity.
+
+If the existing identity migration is missing, stop the lookup deployment and use the separately
+approved foundation release process below. Do not silently apply it as part of TASK-010.
+
+## Initial atomic identity foundation release order
 
 1. Obtain Owner approval for the production database change and deployment window.
 2. Record current migration history and confirm an additive, forward-fix rollback path.
@@ -23,19 +47,26 @@ The create route does not fall back to the legacy multi-write path. If the migra
 5. Deploy the application.
 6. Run the smoke matrix below with synthetic customers only.
 
-Do not deploy the application before the migration: order reads now select the snapshot columns and order creation intentionally fails closed without the RPC.
+For an environment that has never received the foundation release, do not deploy identity-aware
+application code before the migration: order reads select the snapshot columns and order creation
+intentionally fails closed without the RPC.
 
 ## Smoke matrix
 
-| Scenario | Expected result |
-|---|---|
-| new phone + name | one customer, one device, one order, one creation event |
-| same phone + same normalized name | existing customer reused; name unchanged |
-| same phone + different name | HTTP 409; customer/device/order/event counts unchanged |
-| choose existing customer | one atomic order; order snapshot equals selected customer |
-| confirm shared phone | distinct customer and correctly linked order; original customer unchanged |
-| repeat the same operation ID and hash | same order returned with replay marker |
-| same operation ID with a different hash | `idempotency_conflict` |
+| Scenario                                | Expected result                                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------------------ |
+| new phone + name                        | one customer, one device, one order, one creation event                              |
+| same phone + same normalized name       | existing customer reused; name unchanged                                             |
+| same phone + different name             | HTTP 409; customer/device/order/event counts unchanged                               |
+| choose existing customer                | one atomic order; order snapshot equals selected customer                            |
+| confirm shared phone                    | distinct customer and correctly linked order; original customer unchanged            |
+| repeat the same operation ID and hash   | same order returned with replay marker                                               |
+| same operation ID with a different hash | `idempotency_conflict`                                                               |
+| phone only                              | phone candidates are shown                                                           |
+| name only                               | name candidates are shown                                                            |
+| phone + different name                  | same-phone candidate remains with a warning; different-phone name matches are absent |
+| settled lookup                          | exactly one candidate list and an explicit create-new action are available           |
+| lookup error or offline                 | create-new is not presented as a verified no-match result                            |
 
 Validate counts only within the synthetic store/test IDs. Do not include real customer names or phone numbers in release evidence.
 

@@ -39,6 +39,7 @@ import type {
   CustomerDetail,
   CustomerHistoryDeviceCandidate,
   CustomerIntakeCandidate,
+  CustomerIntakeNewCustomerPolicy,
   FaultPriceItem,
 } from "@/lib/repairdesk/api";
 import type { CustomerIdentityResolution } from "@/lib/repairdesk/types";
@@ -47,6 +48,7 @@ import {
   NewOrderDeviceUnlockSection,
   NewOrderCustomerSection,
 } from "@/features/orders/forms/new-order-customer-device-section";
+import { customerIntakePolicyBlocksSubmit } from "@/features/customers/model/customer-intake-search";
 import { NewOrderFaultDiagnosisSection } from "@/features/orders/forms/new-order-fault-diagnosis-section";
 import { NewOrderQuotationSection } from "@/features/orders/forms/new-order-quotation-section";
 import { NewOrderSubmitBar } from "@/features/orders/forms/new-order-submit-bar";
@@ -114,6 +116,8 @@ export function NewOrderScreen({
   const [historyDevices, setHistoryDevices] = useState<CustomerHistoryDeviceCandidate[]>([]);
   const [discardDraftDialogOpen, setDiscardDraftDialogOpen] = useState(false);
   const [identityConflict, setIdentityConflict] = useState<NewOrderIdentityConflict | null>(null);
+  const [customerIdentityIntent, setCustomerIdentityIntent] =
+    useState<CustomerIntakeNewCustomerPolicy | null>(null);
   const [sharedPhoneConfirmOpen, setSharedPhoneConfirmOpen] = useState(false);
   const [createRecovery, setCreateRecovery] = useState<NewOrderCreateRecoveryState>({
     state: "idle",
@@ -288,6 +292,7 @@ export function NewOrderScreen({
   }, []);
 
   const handlePickCustomer = useCallback((candidate: CustomerIntakeCandidate) => {
+    setCustomerIdentityIntent(null);
     const customerName = customerNameForNewOrder(candidate.customer);
     const customerLabel = customerLabelForNewOrder(candidate.customer);
     setHistoryDevices(candidate.historyDevices);
@@ -308,26 +313,6 @@ export function NewOrderScreen({
         : `已选择客户 ${customerLabel}`,
     );
   }, []);
-
-  const handlePickHistoryDevice = useCallback(
-    (candidate: CustomerIntakeCandidate, device: CustomerHistoryDeviceCandidate) => {
-      const customerName = customerNameForNewOrder(candidate.customer);
-      setHistoryDevices(candidate.historyDevices);
-      setForm((current) => ({
-        ...current,
-        customerId: candidate.customer.id,
-        customerName,
-        customerPhone: candidate.customer.phone_e164,
-        deviceId: device.source === "customer_device" ? device.device_id : undefined,
-        brand: device.brand,
-        model: device.model,
-        imei: device.serial_or_imei,
-        deviceNotes: device.device_notes ?? "",
-      }));
-      toast.success(`已带入 ${device.brand} ${device.model}`);
-    },
-    [],
-  );
 
   useEffect(() => {
     const customerId = prefill?.customerId;
@@ -535,6 +520,7 @@ export function NewOrderScreen({
     selectedCreateStatus &&
     deviceCustodyBlocksStatus(selectedCreateStatus.code, selectedCreateStatus.bucket),
   );
+  const customerIdentityCreationBlocked = customerIntakePolicyBlocksSubmit(customerIdentityIntent);
   const valid =
     form.deviceCustodyStatus !== null &&
     form.customerPhone.trim() &&
@@ -544,6 +530,7 @@ export function NewOrderScreen({
     activeDeposit <= activeTotal &&
     !custodyStatusBlocked &&
     !costDefaultsBlocked &&
+    !customerIdentityCreationBlocked &&
     (!warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) ||
       form.warrantyChangeReason.trim());
   const missingItems = getNewOrderMissingItems({
@@ -552,6 +539,7 @@ export function NewOrderScreen({
     defaultWarrantyMonths,
     custodyStatusBlocked,
     costDefaultsBlocked,
+    customerIdentityCreationBlocked,
   });
 
   const patchFault = (index: number, patch: Partial<FaultPriceItem>) => {
@@ -576,6 +564,7 @@ export function NewOrderScreen({
     if (!restored) return;
     setForm(restored.form);
     setHistoryDevices([]);
+    setCustomerIdentityIntent(null);
     toast.success("已恢复本机草稿");
   }, [offlineDraft]);
 
@@ -604,7 +593,9 @@ export function NewOrderScreen({
         ? "暂时无法确认创建结果，请使用页面提示打开工单或客户列表检查，避免重复创建。"
         : create.isPending
           ? "正在提交工单，请保持页面打开。"
-          : undefined;
+          : customerIdentityCreationBlocked
+            ? "客户身份尚未解决，请先使用已有客户，或修改资料后重新确认。"
+            : undefined;
   const guardSnapshotRef = useRef({
     surface,
     offlineDraft,
@@ -756,19 +747,21 @@ export function NewOrderScreen({
             toast.error(
               form.deviceCustodyStatus === null
                 ? "请确认设备是否留店"
-                : quoteActive && form.deposit > total
-                  ? "定金不能超过订单总金额"
-                  : form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER &&
-                      selectedCreateStatus &&
-                      deviceCustodyBlocksStatus(
-                        selectedCreateStatus.code,
-                        selectedCreateStatus.bucket,
-                      )
-                    ? "设备未留店，不能直接进入检测、维修或取机状态"
-                    : warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) &&
-                        !form.warrantyChangeReason.trim()
-                      ? "非默认质保需要填写原因"
-                      : "请补全必填字段",
+                : customerIdentityCreationBlocked
+                  ? "请先使用已有客户，或修改姓名、电话后重新确认客户身份"
+                  : quoteActive && form.deposit > total
+                    ? "定金不能超过订单总金额"
+                    : form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER &&
+                        selectedCreateStatus &&
+                        deviceCustodyBlocksStatus(
+                          selectedCreateStatus.code,
+                          selectedCreateStatus.bucket,
+                        )
+                      ? "设备未留店，不能直接进入检测、维修或取机状态"
+                      : warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) &&
+                          !form.warrantyChangeReason.trim()
+                        ? "非默认质保需要填写原因"
+                        : "请补全必填字段",
             );
             return;
           }
@@ -860,11 +853,12 @@ export function NewOrderScreen({
               onClearCustomerContext={() => {
                 setHistoryDevices([]);
                 setIdentityConflict(null);
+                setCustomerIdentityIntent(null);
                 setSharedPhoneConfirmOpen(false);
                 createOperationIdRef.current = null;
               }}
               onPickCustomer={handlePickCustomer}
-              onPickHistoryDevice={handlePickHistoryDevice}
+              onNewCustomerIntentChange={setCustomerIdentityIntent}
               surface={surface}
             />
             <NewOrderDeviceInfoSection
@@ -1160,15 +1154,18 @@ function getNewOrderMissingItems({
   defaultWarrantyMonths,
   custodyStatusBlocked,
   costDefaultsBlocked,
+  customerIdentityCreationBlocked,
 }: {
   form: NewOrderFormState;
   total: number;
   defaultWarrantyMonths: number;
   custodyStatusBlocked: boolean;
   costDefaultsBlocked: boolean;
+  customerIdentityCreationBlocked: boolean;
 }): NewOrderMissingItem[] {
   const items: Array<NewOrderMissingItem | null> = [
     !form.customerPhone.trim() ? { label: "客户电话", target: "customer-phone" } : null,
+    customerIdentityCreationBlocked ? { label: "客户身份需处理", target: "customer-phone" } : null,
     form.deviceCustodyStatus === null ? { label: "设备保管", target: "device-custody" } : null,
     !form.brand.trim() ? { label: "设备品牌", target: "device-brand" } : null,
     !form.model.trim() ? { label: "设备型号", target: "device-model" } : null,

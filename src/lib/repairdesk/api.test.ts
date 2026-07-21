@@ -18,6 +18,7 @@ import {
   RepairDeskApiError,
   runAiInventoryVisionRecognition,
   runAiOrderAssistantTurn,
+  searchCustomerIntakeCandidates,
   returnKioskSession,
   previewOrderDataImport,
   updateStoreSettings,
@@ -54,6 +55,45 @@ describe("repairdesk api client", () => {
       total: 3,
       inProgress: 2,
     });
+  });
+
+  it("posts structured intake identity fields while preserving the legacy overload", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ data: [] }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await searchCustomerIntakeCandidates({
+      phone: "3335719865",
+      name: "Alessio",
+      phoneMatchMode: "progressive",
+      limit: 8,
+      deviceLimit: 4,
+    });
+    await searchCustomerIntakeCandidates("333", 6, 2);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "/api/repairdesk/customers/intake-search",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          phone: "3335719865",
+          name: "Alessio",
+          phoneMatchMode: "progressive",
+          limit: 8,
+          deviceLimit: 4,
+        }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "/api/repairdesk/customers/intake-search",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ q: "333", limit: 6, deviceLimit: 2 }),
+      }),
+    );
   });
 
   it("uses private AI capability and turn endpoints without caller-controlled scope", async () => {
