@@ -8,6 +8,7 @@ import type {
   UpdateInventoryItemInput,
 } from "@/lib/repairdesk/types";
 import type { StoreOutputIdentity } from "@/entities/store/model/store-output-identity";
+import { resolveWhatsappPhone } from "@/shared/lib/whatsapp-phone";
 
 import { estimateAppleMarketPricing, type AppleMarketPricingSuggestion } from "./apple-price-guide";
 import {
@@ -1083,11 +1084,8 @@ export function buildWhatsappQuoteMessage(
 }
 
 export function normalizeWhatsappPhone(phone: string) {
-  const digits = phone.replace(/\D/g, "");
-  if (digits.startsWith("00")) return digits.slice(2);
-  if (digits.startsWith("39")) return digits;
-  if (digits.length >= 8) return `39${digits}`;
-  return "";
+  const resolution = resolveWhatsappPhone(phone);
+  return resolution.valid ? resolution.waDigits : "";
 }
 
 export function validateBuybackIntake(

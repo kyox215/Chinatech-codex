@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildOrderWhatsappMessage,
+  buildWhatsAppUrl,
   getDefaultOrderWhatsappTemplateKind,
   getOrderWhatsappTransition,
   orderWhatsappTemplateOptions,
@@ -11,6 +12,14 @@ import { translateFaultName } from "@/features/orders/model/order-italian";
 import { getOrder, listOrders } from "@/features/orders/testing/mock-api";
 
 describe("order WhatsApp message templates", () => {
+  it("uses Italy for local numbers and preserves explicit international prefixes", () => {
+    expect(buildWhatsAppUrl("380 151 2196", "Ciao")).toBe("https://wa.me/393801512196?text=Ciao");
+    expect(buildWhatsAppUrl("+380 50 123 4567", "Ciao")).toBe(
+      "https://wa.me/380501234567?text=Ciao",
+    );
+    expect(buildWhatsAppUrl("+380 1512196", "Ciao")).toBe("");
+  });
+
   it("builds editable Italian messages for every order template", async () => {
     const [order] = await listOrders();
     const detail = await getOrder(order.id);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { CountryCode } from "libphonenumber-js/max";
 import { Send } from "lucide-react";
 import { toast } from "sonner";
 
@@ -37,6 +38,8 @@ import {
 import { getOrderContactPhoneOptions } from "@/features/orders/model/order-contact-phones";
 import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
 import type { StoreOutputIdentity } from "@/entities/store/model/store-output-identity";
+import { WhatsappRecipientEditor } from "@/shared/ui/whatsapp-recipient-editor";
+import { inferWhatsappCountry, resolveWhatsappPhone } from "@/shared/lib/whatsapp-phone";
 
 export function NotifyDialog({
   open,
@@ -91,9 +94,13 @@ export function NotifyDialog({
     }),
   );
   const [phone, setPhone] = useState(defaultPhone);
+  const [phoneCountry, setPhoneCountry] = useState<CountryCode>(() =>
+    inferWhatsappCountry(defaultPhone),
+  );
   const [whatsappOpened, setWhatsappOpened] = useState(false);
   const [confirmationId, setConfirmationId] = useState(() => crypto.randomUUID());
-  const canOpenWhatsApp = Boolean(phone.replace(/\D/g, ""));
+  const phoneResolution = resolveWhatsappPhone(phone, phoneCountry);
+  const canOpenWhatsApp = phoneResolution.valid;
   const transitionTo = getOrderWhatsappTransition(effectiveStatus, templateKind);
   const approvalQuoteBlocked = templateKind === "approval_request" && !approvalQuoteReady;
 
@@ -109,6 +116,7 @@ export function NotifyDialog({
       }),
     );
     setPhone(nextPhone);
+    setPhoneCountry(inferWhatsappCountry(nextPhone));
     setWhatsappOpened(false);
     setConfirmationId(crypto.randomUUID());
   }, [data, effectiveStatus, open, orderUrl, storeIdentity]);
@@ -127,6 +135,11 @@ export function NotifyDialog({
     setBody((current) => replaceOrderWhatsappRecipientPhone(current, nextPhone));
     setWhatsappOpened(false);
     setConfirmationId(crypto.randomUUID());
+  };
+
+  const selectPhone = (nextPhone: string) => {
+    setPhoneCountry(inferWhatsappCountry(nextPhone));
+    updatePhone(nextPhone);
   };
 
   return (
@@ -176,7 +189,7 @@ export function NotifyDialog({
                 <Select
                   value={phone}
                   disabled={!storeIdentity.canOutput}
-                  onValueChange={updatePhone}
+                  onValueChange={selectPhone}
                 >
                   <SelectTrigger className="mt-1 h-8 font-mono text-xs">
                     <SelectValue />
@@ -189,12 +202,21 @@ export function NotifyDialog({
                     ))}
                   </SelectContent>
                 </Select>
-              ) : (
-                <div className="mt-1 flex h-8 min-w-0 items-center truncate rounded-md border bg-surface-muted px-2 font-mono text-xs">
-                  {phone || "缺少电话号码"}
-                </div>
-              )}
+              ) : null}
             </div>
+          </div>
+          <div className="mt-2">
+            <WhatsappRecipientEditor
+              id="notify-whatsapp-phone"
+              phone={phone}
+              country={phoneCountry}
+              disabled={!storeIdentity.canOutput}
+              onPhoneChange={updatePhone}
+              onCountryChange={(country, nextPhone) => {
+                setPhoneCountry(country);
+                updatePhone(nextPhone);
+              }}
+            />
           </div>
           {transitionTo && (
             <div className="mt-2 rounded-md border border-status-warn-foreground/20 bg-status-warn px-2 py-1.5 text-xs text-status-warn-foreground">
@@ -262,7 +284,11 @@ export function NotifyDialog({
                   toast.error("客户电话号码不可用于 WhatsApp");
                   return;
                 }
-                window.open(url, "_blank", "noopener,noreferrer");
+                const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
+                if (!openedWindow) {
+                  toast.error("浏览器阻止了 WhatsApp 新窗口，请允许弹窗后重试");
+                  return;
+                }
                 setWhatsappOpened(true);
                 return;
               }
@@ -275,7 +301,7 @@ export function NotifyDialog({
                 idempotencyKey: confirmationId,
                 body: body.trim(),
                 templateKind,
-                recipientPhone: phone.trim() || undefined,
+                recipientPhone: phoneResolution.valid ? phoneResolution.e164 : undefined,
                 transitionTo,
               });
               onOpenChange(false);

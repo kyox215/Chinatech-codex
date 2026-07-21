@@ -83,6 +83,7 @@ import {
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { buildWhatsappUrl } from "@/shared/lib/whatsapp-phone";
 import {
   decideOrderApproval,
   confirmCancelledOrderReturn,
@@ -5598,8 +5599,7 @@ function PhotoPlaceholder({ label }: { label: string }) {
 }
 
 function getWhatsappHref(phone: string) {
-  const normalized = normalizePhoneDigits(phone);
-  return normalized ? `https://wa.me/${normalized}` : "#";
+  return buildWhatsappUrl(phone) || "#";
 }
 
 function normalizePhoneDigits(value: string) {

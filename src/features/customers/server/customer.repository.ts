@@ -25,6 +25,7 @@ import { getSupabaseAdmin } from "@/server/supabase";
 import { can } from "@/server/permissions";
 import { projectOrderListItemForActor } from "@/features/orders/server/order.repository";
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
+import { resolveWhatsappPhone } from "@/shared/lib/whatsapp-phone";
 import {
   type DbRecord,
   customerFromRow,
@@ -1369,6 +1370,10 @@ export async function sendCustomerMessage(
   await assertCustomerBelongsToStore(supabase, storeId, customerId);
   if (input.order_id) {
     await assertOrderBelongsToCustomerInStore(supabase, storeId, customerId, input.order_id);
+  }
+  if (input.channel === "whatsapp") {
+    const recipient = resolveWhatsappPhone(input.recipient_phone ?? "");
+    if (!recipient.valid) throw new Error(recipient.message);
   }
   const { error: insertError } = await insertCustomerInteraction(supabase, {
     id,

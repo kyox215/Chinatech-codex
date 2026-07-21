@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { CountryCode } from "libphonenumber-js/max";
 import { Send } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,6 +32,8 @@ import {
   buildWhatsAppUrl,
   replaceOrderWhatsappRecipientPhone,
 } from "@/features/orders/model/order-message-templates";
+import { WhatsappRecipientEditor } from "@/shared/ui/whatsapp-recipient-editor";
+import { inferWhatsappCountry, resolveWhatsappPhone } from "@/shared/lib/whatsapp-phone";
 
 export function ApprovalRequestDialog({
   open,
@@ -66,8 +69,12 @@ export function ApprovalRequestDialog({
     }),
   );
   const [phone, setPhone] = useState(defaultPhone);
+  const [phoneCountry, setPhoneCountry] = useState<CountryCode>(() =>
+    inferWhatsappCountry(defaultPhone),
+  );
   const [whatsappOpened, setWhatsappOpened] = useState(false);
-  const canOpenWhatsApp = Boolean(phone.replace(/\D/g, ""));
+  const phoneResolution = resolveWhatsappPhone(phone, phoneCountry);
+  const canOpenWhatsApp = phoneResolution.valid;
 
   useEffect(() => {
     if (!open) return;
@@ -79,6 +86,7 @@ export function ApprovalRequestDialog({
       }),
     );
     setPhone(nextPhone);
+    setPhoneCountry(inferWhatsappCountry(nextPhone));
     setWhatsappOpened(false);
   }, [data, open, orderUrl, storeIdentity]);
 
@@ -86,6 +94,11 @@ export function ApprovalRequestDialog({
     setPhone(nextPhone);
     setBody((current) => replaceOrderWhatsappRecipientPhone(current, nextPhone));
     setWhatsappOpened(false);
+  };
+
+  const selectPhone = (nextPhone: string) => {
+    setPhoneCountry(inferWhatsappCountry(nextPhone));
+    updatePhone(nextPhone);
   };
 
   return (
@@ -112,7 +125,7 @@ export function ApprovalRequestDialog({
           <div className="grid min-w-0 gap-1.5 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2 text-xs text-muted-foreground sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
             <span className="font-medium text-foreground">WhatsApp</span>
             {phoneOptions.length > 1 ? (
-              <Select value={phone} disabled={!storeIdentity.canOutput} onValueChange={updatePhone}>
+              <Select value={phone} disabled={!storeIdentity.canOutput} onValueChange={selectPhone}>
                 <SelectTrigger className="h-8 w-full font-mono text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -124,11 +137,20 @@ export function ApprovalRequestDialog({
                   ))}
                 </SelectContent>
               </Select>
-            ) : (
-              <span className="min-w-0 truncate rounded-md border bg-card px-2 py-1.5 font-mono">
-                {phone || "缺少电话号码"}
-              </span>
-            )}
+            ) : null}
+          </div>
+          <div className="mt-2">
+            <WhatsappRecipientEditor
+              id="approval-whatsapp-phone"
+              phone={phone}
+              country={phoneCountry}
+              disabled={!storeIdentity.canOutput}
+              onPhoneChange={updatePhone}
+              onCountryChange={(country, nextPhone) => {
+                setPhoneCountry(country);
+                updatePhone(nextPhone);
+              }}
+            />
           </div>
           <div className="mt-2">
             <div className="mb-1 text-xs font-medium text-muted-foreground">审批消息内容</div>
@@ -167,11 +189,18 @@ export function ApprovalRequestDialog({
                 return;
               }
               if (!whatsappOpened) {
-                window.open(url, "_blank", "noopener,noreferrer");
+                const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
+                if (!openedWindow) {
+                  toast.error("浏览器阻止了 WhatsApp 新窗口，请允许弹窗后重试");
+                  return;
+                }
                 setWhatsappOpened(true);
                 return;
               }
-              await onConfirm({ body: body.trim(), recipientPhone: phone.trim() || undefined });
+              await onConfirm({
+                body: body.trim(),
+                recipientPhone: phoneResolution.valid ? phoneResolution.e164 : undefined,
+              });
               onOpenChange(false);
             }}
           >

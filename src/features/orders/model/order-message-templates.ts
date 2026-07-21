@@ -8,6 +8,7 @@ import {
   translatePrintableText,
 } from "@/features/orders/model/order-italian";
 import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
+import { buildWhatsappUrl } from "@/shared/lib/whatsapp-phone";
 
 export const orderWhatsappTemplateOptions: {
   kind: OrderWhatsappTemplateKind;
@@ -46,9 +47,7 @@ export function getOrderWhatsappTransition(
 }
 
 export function buildWhatsAppUrl(phone: string, body: string) {
-  const digits = phone.replace(/\D/g, "");
-  if (!digits) return "";
-  return `https://wa.me/${digits}?text=${encodeURIComponent(body)}`;
+  return buildWhatsappUrl(phone, body);
 }
 
 export function buildOrderWhatsappMessage(

@@ -84,6 +84,7 @@ import {
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { cn } from "@/lib/utils";
+import { buildWhatsappUrl } from "@/shared/lib/whatsapp-phone";
 
 type WorkflowNextAction = NonNullable<ReturnType<typeof getWorkflowNextActions>["primary"]>;
 
@@ -155,6 +156,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
   });
 
   const order = data?.order;
+  const whatsappHref = order ? buildWhatsappUrl(order.customer_phone) : "";
   const cancelled = order ? isOrderCancelledForPayment(order) : false;
   const canTransition = data?.capabilities?.canTransition === true;
   const voided = order?.record_state === "voided" || Boolean(order?.deleted_at);
@@ -547,17 +549,22 @@ export function OrderTaskScreen({ id }: { id: string }) {
                 </a>
               </Button>
               <Button
-                asChild
+                asChild={Boolean(whatsappHref)}
                 variant="outline"
                 className="h-10 gap-1 rounded-xl md:h-9 md:rounded-lg"
+                disabled={!whatsappHref}
               >
-                <a
-                  href={`https://wa.me/${order.customer_phone.replace(/\D/g, "")}`}
-                  target="_blank"
-                >
-                  <MessageCircle className="size-4" />
-                  普通聊天
-                </a>
+                {whatsappHref ? (
+                  <a href={whatsappHref} target="_blank" rel="noreferrer">
+                    <MessageCircle className="size-4" />
+                    普通聊天
+                  </a>
+                ) : (
+                  <span>
+                    <MessageCircle className="size-4" />
+                    号码无效
+                  </span>
+                )}
               </Button>
               <Button
                 asChild

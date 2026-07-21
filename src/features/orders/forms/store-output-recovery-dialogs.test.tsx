@@ -61,7 +61,7 @@ describe("order customer-output recovery dialogs", () => {
     });
     const onConfirm = vi.fn().mockResolvedValue(undefined);
     const onOpenChange = vi.fn();
-    const openWhatsApp = vi.spyOn(window, "open").mockImplementation(() => null);
+    const openWhatsApp = vi.spyOn(window, "open").mockImplementation(() => ({}) as Window);
 
     render(
       <NotifyDialog
@@ -141,7 +141,7 @@ describe("order customer-output recovery dialogs", () => {
     });
     const onConfirm = vi.fn().mockResolvedValue(undefined);
     const onOpenChange = vi.fn();
-    const openWhatsApp = vi.spyOn(window, "open").mockImplementation(() => null);
+    const openWhatsApp = vi.spyOn(window, "open").mockImplementation(() => ({}) as Window);
 
     render(
       <ApprovalRequestDialog
