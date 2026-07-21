@@ -1,5 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
   DashboardSummary,
@@ -16,9 +16,21 @@ import {
   patchOrderReadCaches,
   restoreOrderReadCaches,
   snapshotOrderReadCaches,
+  synchronizeCreatedOrderNavigation,
 } from "./cache-sync";
 
+const getOrderMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/repairdesk/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/repairdesk/api")>()),
+  getOrder: getOrderMock,
+}));
+
 describe("order cache sync", () => {
+  beforeEach(() => {
+    getOrderMock.mockReset();
+  });
+
   it("invalidates customer lists and details when an order-derived aggregate changes", () => {
     const queryClient = new QueryClient();
     queryClient.setQueryData(customersKeys.list({}, storeId), { items: [] });
@@ -30,6 +42,21 @@ describe("order cache sync", () => {
     expect(
       queryClient.getQueryState(customersKeys.detail("customer-1", storeId))?.isInvalidated,
     ).toBe(true);
+  });
+
+  it("warms the new order detail before navigation after scoped cache refreshes", async () => {
+    const queryClient = new QueryClient();
+    const detail = makeDetail(makeOrder({ id: "order-new", updated_at: "fresh-version" }));
+    getOrderMock.mockResolvedValue(detail);
+    queryClient.setQueryData(ordersKeys.workflow(storeId), { statuses: [], transitions: [] });
+    queryClient.setQueryData(ordersKeys.options(storeId), { suppliers: [] });
+
+    await synchronizeCreatedOrderNavigation(queryClient, "order-new", storeId);
+
+    expect(getOrderMock).toHaveBeenCalledOnce();
+    expect(queryClient.getQueryData(ordersKeys.detail("order-new", storeId))).toEqual(detail);
+    expect(queryClient.getQueryState(ordersKeys.workflow(storeId))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(ordersKeys.options(storeId))?.isInvalidated).toBe(true);
   });
 
   it("patches order rows without optimistically reordering the derived dashboard priority", () => {

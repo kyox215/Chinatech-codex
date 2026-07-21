@@ -10,6 +10,10 @@ const migration = readFileSync(
   ),
   "utf8",
 );
+const blankNameMigration = readFileSync(
+  join(process.cwd(), "supabase/migrations/20260721150000_allow_blank_order_customer_name.sql"),
+  "utf8",
+);
 
 describe("order customer identity atomic migration", () => {
   it("keeps order creation transactional and service-role-only", () => {
@@ -36,5 +40,12 @@ describe("order customer identity atomic migration", () => {
     expect(migration).toContain("customer_phone_snapshot");
     expect(migration).toContain("customer_identity_snapshot_source");
     expect(migration).toContain("backfilled_current_profile");
+  });
+
+  it("removes only the new-customer blank-name rejection in a forward migration", () => {
+    expect(blankNameMigration).toContain("pg_get_functiondef");
+    expect(blankNameMigration).toContain("v_required_name_guard");
+    expect(blankNameMigration).toContain("replace(v_definition, v_required_name_guard, '')");
+    expect(blankNameMigration).toContain("expected customer_name_required guard was not found");
   });
 });

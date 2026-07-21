@@ -3,7 +3,7 @@ import { mkdirSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
-const screenshotDir = "screenshots/TASK-20260718-095500-order-create-navigation-release";
+const screenshotDir = "screenshots/TASK-20260721-005-new-order-blank-name-safari-transition";
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for order creation navigation checks.");
 
@@ -22,6 +22,21 @@ test("direct new-order page opens the canonical order detail after creation", as
   await expect(page).toHaveURL(/\/orders\/ord_1$/);
   await expect(page.locator('[data-order-detail-root="true"]')).toBeVisible();
   await expect(page.locator('[data-new-order-root="true"]')).toHaveCount(0);
+
+  const flowButton = page
+    .locator('[data-order-action-dock="true"]')
+    .getByRole("button", { name: "流转" });
+  await expect(flowButton).toBeEnabled();
+  await flowButton.click();
+  const transitionPanel = page.locator('[data-order-desktop-transition-panel="true"]');
+  await expect(transitionPanel).toBeVisible();
+  await transitionPanel.scrollIntoViewIfNeeded();
+
+  mkdirSync(screenshotDir, { recursive: true });
+  await page.screenshot({
+    path: `${screenshotDir}/safari-created-order-transition-ready.png`,
+    fullPage: false,
+  });
 });
 
 test("order-list dialog opens the canonical order detail after creation", async ({ page }) => {
