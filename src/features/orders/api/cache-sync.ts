@@ -11,6 +11,7 @@ import type {
 import { customersKeys } from "@/features/customers/api/query-keys";
 
 import { ordersKeys } from "./query-keys";
+import { orderDetailQueryOptions } from "./query-options";
 
 export const ordersQueueSummaryCachePrefix = [...ordersKeys.all, "queue-summary"] as const;
 export const ordersListPageCachePrefix = [...ordersKeys.lists(), "page"] as const;
@@ -101,6 +102,27 @@ export function invalidateOrderReadCaches(queryClient: QueryClient, orderId?: st
   void queryClient.invalidateQueries({ queryKey: customersKeys.all });
   if (orderId) {
     void queryClient.invalidateQueries({ queryKey: orderDetailCachePrefix(orderId) });
+  }
+}
+
+export async function synchronizeCreatedOrderNavigation(
+  queryClient: QueryClient,
+  orderId: string,
+  storeId?: string | null,
+) {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ordersQueueSummaryCachePrefix }),
+    queryClient.invalidateQueries({ queryKey: ordersDashboardSummaryCachePrefix }),
+    queryClient.invalidateQueries({ queryKey: ordersKeys.lists() }),
+    queryClient.invalidateQueries({ queryKey: ordersKeys.stats() }),
+    queryClient.invalidateQueries({ queryKey: customersKeys.all }),
+    queryClient.invalidateQueries({ queryKey: orderDetailCachePrefix(orderId) }),
+    queryClient.invalidateQueries({ queryKey: ordersKeys.workflow(storeId) }),
+    queryClient.invalidateQueries({ queryKey: ordersKeys.options(storeId) }),
+  ]);
+
+  if (storeId) {
+    await queryClient.fetchQuery(orderDetailQueryOptions(orderId, storeId));
   }
 }
 
