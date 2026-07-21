@@ -1,5 +1,11 @@
 # PROJECT MEMORY
 
+## 2026-07-21 bounded initial-deposit correction
+
+- Owner-approved production rule: Sales may correct an eligible order's initial deposit; technicians may do so only for orders assigned to their active membership. This does not grant technicians collection, adjustment, refund, override, or aggregate-finance access.
+- The dedicated versioned/idempotent service-role RPC is store-scoped and writes immutable correction history, an order event, and an audit log. It fails closed after quote approval/send activity, any payment-ledger history, terminal/void state, stale version, inconsistent finance totals, or a deposit above quotation.
+- Production migration `20260721133000_order_initial_deposit_correction.sql` and Vercel deployment `dpl_BiJXkZY5hpCFeJRbcFYQzn4cEwXj` are applied/READY. Source is preserved on `codex/order-deposit-correction`; authenticated order-page smoke remains login-gated.
+
 - Project ID: chinatech-repairdesk
 - Owner: Hexiang Huang / 鹤祥
 - Version: 2

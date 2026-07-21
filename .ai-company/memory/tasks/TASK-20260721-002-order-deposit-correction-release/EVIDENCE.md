@@ -7,3 +7,4 @@
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.
 - `2026-07-21T12:17:56Z` `76f09eb408` — Targeted Vitest: 5 files, 146 tests passed; npm typecheck passed; npm lint passed; production build passed; Supabase dry-run would push only 20260721133000_order_initial_deposit_correction.sql.
+- `2026-07-21T12:45:58Z` `6d31fd1887` — Commit history through 676fc6d8 on origin/codex/order-deposit-correction; 146/146 focused tests; typecheck/lint/build pass; full suite 2163/2170 with 7 unrelated existing UI failures; Supabase migration list parity; Vercel READY; production login page screenshot at artifacts/deposit-production-login.png.
