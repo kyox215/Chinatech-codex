@@ -27,4 +27,8 @@ describe("WhatsApp phone resolution", () => {
   it("builds a digits-only click-to-chat URL", () => {
     expect(buildWhatsappUrl("380 151 2196", "Ciao")).toBe("https://wa.me/393801512196?text=Ciao");
   });
+
+  it("keeps an Italian 329 mobile number under +39 instead of treating it as +32", () => {
+    expect(buildWhatsappUrl("329 267 3820")).toBe("https://wa.me/393292673820");
+  });
 });
