@@ -18,3 +18,13 @@
 - **Evidence:**
   - supabase db push --dry-run仅列出20260721150000；WebKit 2项通过；截图screenshots/TASK-20260721-005-new-order-blank-name-safari-transition/safari-created-order-transition-ready.png
 - **Recorded by:** IntegrationLead
+## 2026-07-21T15:49:41Z — 代码、迁移、全量质量门与WebKit验收均通过；提交59965462已推送远端修复分支。
+
+- **Phase:** release-blocked
+- **Completed/current state:** 代码、迁移、全量质量门与WebKit验收均通过；提交59965462已推送远端修复分支。
+- **Next:** 等待老板明确批准本次生产Supabase迁移；批准后依次db push、验证迁移历史、快进main并检查Vercel生产部署。
+- **Decision:** 不绕过生产迁移审批门，应用发布保持暂停。
+- **Blocker:** 生产Supabase迁移需老板针对本次变更明确批准。
+- **Evidence:**
+  - commit 59965462；origin/codex/new-order-blank-name-safari；2170 tests passed；WebKit 2 passed；build passed
+- **Recorded by:** IntegrationLead

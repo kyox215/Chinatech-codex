@@ -13,3 +13,4 @@
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.
 - `2026-07-21T15:46:35Z` `9a24bd55b6` — supabase db push --dry-run仅列出20260721150000；WebKit 2项通过；截图screenshots/TASK-20260721-005-new-order-blank-name-safari-transition/safari-created-order-transition-ready.png
+- `2026-07-21T15:49:41Z` `abeea3b303` — commit 59965462；origin/codex/new-order-blank-name-safari；2170 tests passed；WebKit 2 passed；build passed

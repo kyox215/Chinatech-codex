@@ -2,12 +2,12 @@
 schema_version: 1
 current_task_id: "TASK-20260721-005-new-order-blank-name-safari-transition"
 status: "active"
-phase: "pre-release"
+phase: "release-blocked"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-21T15:46:35Z"
+last_checkpoint_at: "2026-07-21T15:49:41Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,7 +19,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-已完成空姓名前向迁移与建单后缓存同步；全量2170测试、lint、typecheck、build及WebKit建单后立即打开流转面板验证通过。
+代码、迁移、全量质量门与WebKit验收均通过；提交59965462已推送远端修复分支。
 
 ## Blocking decisions
 
@@ -27,7 +27,7 @@ last_rehydrated_at: null
 
 ## Next action
 
-复核差异后提交，先应用数据库迁移，再发布应用并执行生产只读验证。
+等待老板明确批准本次生产Supabase迁移；批准后依次db push、验证迁移历史、快进main并检查Vercel生产部署。
 
 ## Resume protocol
 
