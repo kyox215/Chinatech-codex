@@ -9,6 +9,8 @@ import type { RepairOrderStatus } from "@/lib/mock/enums";
 import { CURRENCY_CODE, normalizePositiveCentAmount } from "@/lib/money";
 import type {
   AuditActor,
+  CorrectInitialDepositInput,
+  CorrectInitialDepositResult,
   CorrectTerminalOrderInput,
   CreateOrderInput,
   DeviceSnapshot,
@@ -635,6 +637,17 @@ export function projectOrderCapabilities(
     hasVisibleFinancialEvidence ||
     Boolean(options.hasPaymentLedgerEvidence) ||
     Boolean(options.paymentLedgerCheckFailed);
+  const approvalTouched =
+    order.approval_status === "approved" ||
+    order.approval_status === "rejected" ||
+    order.approval_flow_status === "waiting_customer" ||
+    Boolean(order.approval_sent_at) ||
+    Boolean(order.approval_confirmed_at);
+  const initialDepositCorrectionBlocked =
+    approvalTouched ||
+    Boolean(options.hasPaymentLedgerEvidence) ||
+    Boolean(options.paymentLedgerCheckFailed) ||
+    balanceAmount !== quotationAmount - depositAmount;
   const blockedReasons: OrderCapabilities["blockedReasons"] = {};
 
   if (voided) {
@@ -642,6 +655,7 @@ export function projectOrderCapabilities(
       "editIntake",
       "editRepair",
       "adjustFinance",
+      "correctInitialDeposit",
       "prepareQuote",
       "sendQuote",
       "collectPayment",
@@ -657,12 +671,18 @@ export function projectOrderCapabilities(
     blockedReasons.editIntake = "已结束工单请使用“纠正记录”";
     blockedReasons.editRepair = "已结束工单请使用“纠正记录”";
     blockedReasons.adjustFinance = "终态财务只能通过后续冲销/退款流程处理";
+    blockedReasons.correctInitialDeposit = "终态工单不能更正初始定金";
     blockedReasons.prepareQuote = "已结束工单请先按审计流程重新打开";
     blockedReasons.sendQuote = "已结束工单不能发送新报价";
     blockedReasons.transition = "已结束工单请使用“重新打开”";
   }
   if (isOrderCancelledForPayment(order) && !voided) {
     blockedReasons.collectPayment = "已取消工单的余额仅保留为历史，不能登记收款";
+  }
+  if (routine && initialDepositCorrectionBlocked) {
+    blockedReasons.correctInitialDeposit = approvalTouched
+      ? "报价已发送或已确认，不能直接更正初始定金"
+      : "该工单已有付款记录或金额需要核对，不能直接更正初始定金";
   }
   if (permitted("order:void") && hasFinancialEvidence) {
     blockedReasons.void = "存在财务记录或金额异常，必须先完成核对与冲销/退款";
@@ -672,6 +692,11 @@ export function projectOrderCapabilities(
     canEditIntake: routine && permitted("order:update_intake"),
     canEditRepair: routine && permitted("order:update_repair"),
     canAdjustFinance: routine && permitted("payment:adjust"),
+    canCorrectInitialDeposit:
+      routine &&
+      !initialDepositCorrectionBlocked &&
+      !order.finance_redacted &&
+      permitted("payment:correct_initial_deposit"),
     canPrepareQuote: routine && permitted("order:quote_prepare"),
     canSendQuote: routine && permitted("order:quote_prepare") && permitted("customer:message"),
     canCollectPayment: isOrderPaymentCollectible(order) && permitted("payment:collect"),
@@ -2151,6 +2176,64 @@ export async function recordPayment(
     is_paid: Boolean(result.is_paid),
     updated_at: requiredString(result.updated_at) || undefined,
   };
+}
+
+export async function correctInitialDeposit(
+  id: string,
+  input: CorrectInitialDepositInput,
+  actor: AuditActor,
+): Promise<CorrectInitialDepositResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  if (!actor.id) throw new Error("更正定金需要已登录员工身份");
+
+  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_correct_initial_deposit", {
+    p_store_id: storeId,
+    p_order_id: id,
+    p_actor_id: actor.id,
+    p_expected_updated_at: input.expected_updated_at,
+    p_idempotency_key: input.idempotency_key,
+    p_deposit_amount: input.deposit_amount,
+    p_reason: input.reason.trim(),
+  });
+  fail(error, "更正定金失败");
+
+  if (!data || typeof data !== "object") throw new Error("更正定金失败：数据库返回无效");
+  const result = data as Record<string, unknown>;
+  if (result.ok !== true) {
+    throw new Error(initialDepositCorrectionFailureMessage(requiredString(result.code)));
+  }
+
+  return {
+    ok: true,
+    code: result.code === "idempotent_replay" ? "idempotent_replay" : "recorded",
+    correction_id: requiredString(result.correction_id) || undefined,
+    deposit_amount: money(result.deposit_amount),
+    balance: money(result.balance),
+    is_paid: Boolean(result.is_paid),
+    updated_at: requiredString(result.updated_at),
+  };
+}
+
+function initialDepositCorrectionFailureMessage(code: string) {
+  const messages: Record<string, string> = {
+    actor_forbidden: "当前员工没有更正此工单定金的权限",
+    invalid_target: "工单目标无效",
+    invalid_idempotency_key: "定金更正操作标识无效",
+    missing_expected_version: "缺少工单版本时间",
+    invalid_amount: "定金必须是大于或等于 0、最多两位小数的金额",
+    invalid_reason: "请填写 5 到 240 个字符的更正原因",
+    idempotency_conflict: "该更正操作标识已用于不同请求，请刷新后重试",
+    order_not_found: "工单不存在",
+    order_voided: "已作废或删除的工单不能更正定金",
+    order_terminal: "已结束工单不能更正初始定金",
+    stale_version: "工单已被更新，请刷新后再试",
+    deposit_exceeds_quote: "定金不能超过总报价",
+    no_change: "新定金与当前金额相同",
+    payment_history_exists: "已有后续收款记录，不能再更正初始定金",
+    approval_already_touched: "报价已发送或已确认，不能直接更正初始定金",
+    finance_invariant_mismatch: "工单金额记录需要先由负责人核对",
+  };
+  return messages[code] ?? "更正定金失败";
 }
 
 function paymentFailureMessage(code: string) {

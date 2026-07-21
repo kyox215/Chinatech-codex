@@ -1,6 +1,8 @@
 import { CURRENCY_CODE, normalizePositiveCentAmount } from "@/lib/money";
 import type {
   AuditActor,
+  CorrectInitialDepositInput,
+  CorrectInitialDepositResult,
   CorrectTerminalOrderInput,
   CreateOrderInput,
   OrderListFilters,
@@ -162,6 +164,10 @@ function assertMockRoutineMutationAllowed(order: RepairOrder) {
 const mockStoreId = "00000000-0000-0000-0000-000000000001";
 let extraAttachments: OrderAttachment[] = [];
 const paymentOperations = new Map<string, { fingerprint: string; result: PaymentResult }>();
+const initialDepositCorrectionOperations = new Map<
+  string,
+  { fingerprint: string; result: CorrectInitialDepositResult }
+>();
 const terminalOperations = new Map<
   string,
   { fingerprint: string; result: OrderTerminalOperationResult }
@@ -656,6 +662,14 @@ export async function getOrder(id: string, _actor?: AuditActor) {
       canEditIntake: !terminal && !voided,
       canEditRepair: !terminal && !voided,
       canAdjustFinance: !terminal && !voided,
+      canCorrectInitialDeposit:
+        !terminal &&
+        !voided &&
+        (!_actor ||
+          _actor.isSystem ||
+          can(_actor, "payment:correct_initial_deposit", {
+            scopeSatisfied: kioskScopeSatisfied,
+          })),
       canPrepareQuote:
         !terminal && !voided && (!_actor || _actor.isSystem || can(_actor, "order:quote_prepare")),
       canSendQuote:
@@ -1750,6 +1764,113 @@ export async function patchOrderFinance(
   });
 
   return { ok: true, updated_at: now };
+}
+
+export async function correctInitialDeposit(
+  id: string,
+  input: CorrectInitialDepositInput,
+  operator: MockOperator = "前台",
+): Promise<CorrectInitialDepositResult> {
+  const order = orders.find((item) => item.id === id);
+  if (!order) throw new Error("工单不存在");
+  if (typeof operator !== "string") {
+    const role = operator.storeRole ?? operator.role;
+    const scopeSatisfied =
+      role === "technician" &&
+      Boolean(
+        operator.activeMembershipId &&
+          order.assignee_membership_id === operator.activeMembershipId,
+      );
+    if (!can(operator, "payment:correct_initial_deposit", { scopeSatisfied })) {
+      throw new ForbiddenError("当前员工没有更正此工单定金的权限");
+    }
+  }
+  const fingerprint = JSON.stringify({
+    id,
+    expectedUpdatedAt: input.expected_updated_at,
+    depositAmount: input.deposit_amount,
+    reason: input.reason.trim(),
+    actor: typeof operator === "string" ? operator : operator.id,
+  });
+  const existingOperation = initialDepositCorrectionOperations.get(input.idempotency_key);
+  if (existingOperation) {
+    if (existingOperation.fingerprint !== fingerprint) {
+      throw new Error("该更正操作标识已用于不同请求，请刷新后重试");
+    }
+    return { ...existingOperation.result, code: "idempotent_replay" };
+  }
+  assertMockRoutineMutationAllowed(order);
+  if (order.updated_at !== input.expected_updated_at) {
+    throw new Error("工单已被更新，请刷新后再试");
+  }
+  const deposit = Number(input.deposit_amount);
+  if (
+    !Number.isFinite(deposit) ||
+    deposit < 0 ||
+    Math.abs(deposit * 100 - Math.round(deposit * 100)) > 1e-7
+  ) {
+    throw new Error("定金必须是大于或等于 0、最多两位小数的金额");
+  }
+  if (deposit > order.quotation_amount) throw new Error("定金不能超过总报价");
+  if (order.balance_amount !== order.quotation_amount - order.deposit_amount) {
+    throw new Error("已有后续收款记录或金额需要先由负责人核对");
+  }
+  const reason = input.reason.trim();
+  if (reason.length < 5 || reason.length > 240) {
+    throw new Error("请填写 5 到 240 个字符的更正原因");
+  }
+  if (
+    order.approval_status === "approved" ||
+    order.approval_status === "rejected" ||
+    order.approval_flow_status === "waiting_customer" ||
+    order.approval_sent_at ||
+    order.approval_confirmed_at
+  ) {
+    throw new Error("报价已发送或已确认，不能直接更正初始定金");
+  }
+  if (deposit === order.deposit_amount) throw new Error("新定金与当前金额相同");
+
+  const beforeDeposit = order.deposit_amount;
+  const beforeBalance = order.balance_amount;
+  const nextBalance = Math.max(0, order.quotation_amount - deposit);
+  const now = new Date().toISOString();
+  order.deposit_amount = deposit;
+  order.balance_amount = nextBalance;
+  order.is_paid = nextBalance === 0;
+  order.payment_status = paymentStatusFromMoney({
+    isPaid: order.is_paid,
+    depositAmount: deposit,
+    balanceAmount: nextBalance,
+  });
+  order.updated_at = now;
+  const correctionId = `deposit_correction_${Date.now()}`;
+  extraEvents.unshift({
+    id: correctionId,
+    order_id: id,
+    event_type: "note",
+    payload: {
+      action: "initial_deposit_corrected",
+      before_deposit_amount: beforeDeposit,
+      deposit_amount: deposit,
+      before_balance_amount: beforeBalance,
+      balance_amount: nextBalance,
+      reason,
+      currency_code: CURRENCY_CODE,
+    },
+    operator_name: operatorName(operator),
+    created_at: now,
+  });
+  const result: CorrectInitialDepositResult = {
+    ok: true,
+    code: "recorded",
+    correction_id: correctionId,
+    deposit_amount: deposit,
+    balance: nextBalance,
+    is_paid: order.is_paid,
+    updated_at: now,
+  };
+  initialDepositCorrectionOperations.set(input.idempotency_key, { fingerprint, result });
+  return result;
 }
 
 function readMockTerminalRequest(

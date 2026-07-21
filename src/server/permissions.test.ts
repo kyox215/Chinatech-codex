@@ -98,6 +98,22 @@ describe("server permission matrix", () => {
     expect(can(actor("sales"), "order:create")).toBe(true);
     expect(can(actor("sales"), "payment:collect")).toBe(true);
     expect(can(actor("sales"), "payment:adjust")).toBe(false);
+    expect(can(actor("sales"), "payment:correct_initial_deposit")).toBe(true);
+  });
+
+  it("allows bounded initial-deposit correction without widening other payment powers", () => {
+    expect(can(actor("owner"), "payment:correct_initial_deposit")).toBe(true);
+    expect(can(actor("manager"), "payment:correct_initial_deposit")).toBe(true);
+    expect(
+      can(actor("technician"), "payment:correct_initial_deposit", { scopeSatisfied: true }),
+    ).toBe(true);
+    expect(
+      can(actor("technician"), "payment:correct_initial_deposit", { scopeSatisfied: false }),
+    ).toBe(false);
+    expect(can(actor("technician"), "payment:collect", { scopeSatisfied: true })).toBe(false);
+    expect(can(actor("viewer"), "payment:correct_initial_deposit", { scopeSatisfied: true })).toBe(
+      false,
+    );
   });
 
   it("allows only owner, manager and sales to publish quotes without making it grantable", () => {

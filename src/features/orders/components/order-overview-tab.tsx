@@ -123,6 +123,8 @@ export function OrderOverviewTab({
   canEditIntake = false,
   canEditRepair = false,
   canAdjustFinance = false,
+  canCorrectInitialDeposit = false,
+  onCorrectInitialDeposit,
   activeStoreId,
   canReadInternalCosts = false,
   canManageInternalCosts = false,
@@ -161,6 +163,8 @@ export function OrderOverviewTab({
   canEditIntake?: boolean;
   canEditRepair?: boolean;
   canAdjustFinance?: boolean;
+  canCorrectInitialDeposit?: boolean;
+  onCorrectInitialDeposit?: () => void;
   activeStoreId?: string;
   canReadInternalCosts?: boolean;
   canManageInternalCosts?: boolean;
@@ -272,6 +276,8 @@ export function OrderOverviewTab({
             financeError={financeError}
             onFinanceDraftChange={onFinanceDraftChange}
             canAdjustFinance={canAdjustFinance}
+            canCorrectInitialDeposit={canCorrectInitialDeposit}
+            onCorrectInitialDeposit={onCorrectInitialDeposit}
             surface={surface}
           />
         </div>
@@ -796,6 +802,8 @@ function OrderOverviewFinancePanel({
   financeError,
   onFinanceDraftChange,
   canAdjustFinance,
+  canCorrectInitialDeposit,
+  onCorrectInitialDeposit,
   surface,
 }: {
   order: OrderDetail["order"];
@@ -804,6 +812,8 @@ function OrderOverviewFinancePanel({
   financeError?: string;
   onFinanceDraftChange?: (draft: FinanceDraftState) => void;
   canAdjustFinance: boolean;
+  canCorrectInitialDeposit: boolean;
+  onCorrectInitialDeposit?: () => void;
   surface: DetailSurface;
 }) {
   const dense = surface === "dialog";
@@ -844,7 +854,23 @@ function OrderOverviewFinancePanel({
 
   return (
     <DetailPanel surface={surface} dataPanel="finance">
-      <PanelHeader title="报价处理" editing={canEditFinance} />
+      <PanelHeader
+        title="报价处理"
+        editing={canEditFinance}
+        action={
+          !canEditFinance && canCorrectInitialDeposit && onCorrectInitialDeposit ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-[11px]"
+              onClick={onCorrectInitialDeposit}
+            >
+              更正定金
+            </Button>
+          ) : undefined
+        }
+      />
       <div className={cn("min-w-0", dense ? "space-y-1.5" : "space-y-2 sm:space-y-3")}>
         {financeRedacted ? (
           <div className="grid min-h-16 place-items-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 text-xs font-medium text-muted-foreground">

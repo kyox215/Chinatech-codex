@@ -15,6 +15,7 @@ import {
   batchTransitionBodySchema,
   buybackFinalizeInputSchema,
   createOrderSchema,
+  correctInitialDepositBodySchema,
   correctTerminalOrderInputSchema,
   customerListPageInputSchema,
   customerSearchBodySchema,
@@ -667,6 +668,49 @@ describe("repairdesk API schemas", () => {
     expect(paymentBodySchema.parse({ ...payment, amount: 0.57 }).amount).toBe(0.57);
     expect(() => paymentBodySchema.parse({ ...payment, idempotency_key: "retry-1" })).toThrow();
     expect(() => paymentBodySchema.parse({ ...payment, amount: 25.555 })).toThrow();
+  });
+
+  it("validates a strict initial-deposit correction command", () => {
+    const command = {
+      id: "R1",
+      input: {
+        expected_updated_at: "2026-07-21T13:30:00.000Z",
+        idempotency_key: "00000000-0000-4000-8000-000000000121",
+        deposit_amount: "25.50",
+        reason: "建单时现金定金录入错误",
+      },
+    };
+    expect(correctInitialDepositBodySchema.parse(command).input.deposit_amount).toBe(25.5);
+    expect(() =>
+      correctInitialDepositBodySchema.parse({
+        ...command,
+        input: { ...command.input, deposit_amount: 25.555 },
+      }),
+    ).toThrow();
+    expect(() =>
+      correctInitialDepositBodySchema.parse({
+        ...command,
+        input: { ...command.input, deposit_amount: -1 },
+      }),
+    ).toThrow();
+    expect(() =>
+      correctInitialDepositBodySchema.parse({
+        ...command,
+        input: { ...command.input, deposit_amount: Number.POSITIVE_INFINITY },
+      }),
+    ).toThrow();
+    expect(() =>
+      correctInitialDepositBodySchema.parse({
+        ...command,
+        input: { ...command.input, reason: "错了" },
+      }),
+    ).toThrow();
+    expect(() =>
+      correctInitialDepositBodySchema.parse({
+        ...command,
+        input: { ...command.input, balance_amount: 0 },
+      }),
+    ).toThrow();
   });
 
   it("applies customer search defaults", () => {
