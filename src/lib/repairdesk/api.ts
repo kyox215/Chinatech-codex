@@ -24,6 +24,8 @@ import type {
 import type {
   AccountProfileUpdateInput,
   BusinessReasonSelectionV2,
+  CorrectInitialDepositResult,
+  CorrectInitialDepositV2Input,
   CorrectTerminalOrderInput,
   CorrectTerminalOrderV2Input,
   CreateOrderInput,
@@ -238,6 +240,8 @@ export type {
 export type {
   ApprovedStoreRole,
   BusinessReasonSelectionV2,
+  CorrectInitialDepositResult,
+  CorrectInitialDepositV2Input,
   CorrectTerminalOrderInput,
   CorrectTerminalOrderV2Input,
   CreateOrderInput,
@@ -1524,6 +1528,19 @@ export async function patchOrderFinance(
   input: PatchOrderFinanceInput,
 ): Promise<PatchOrderResult> {
   return postJson<PatchOrderResult>("order/finance", { id, input });
+}
+
+export async function correctInitialDepositV2(
+  id: string,
+  input: CorrectInitialDepositV2Input,
+): Promise<CorrectInitialDepositResult> {
+  if (!isOrderPresetReasonUiEnabled()) {
+    throw new Error("初始定金更正点选流程尚未启用");
+  }
+  return postJson<CorrectInitialDepositResult>("order/correct-initial-deposit-v2", {
+    id,
+    input,
+  });
 }
 
 export async function publishOrderQuote(

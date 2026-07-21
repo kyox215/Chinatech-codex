@@ -53,4 +53,19 @@ describe("order reason catalog", () => {
     expect(serialized).not.toContain("退款");
     expect(serialized).not.toContain("支付方式");
   });
+
+  it("separates rework intake triage from technician disposition", () => {
+    expect(getOrderReasonCatalog("transition.rework").options.map((entry) => entry.code)).toEqual([
+      "suspected_same_issue",
+      "new_symptom",
+      "uncertain",
+    ]);
+    expect(getOrderReasonCatalog("rework.disposition").options.map((entry) => entry.code)).toEqual([
+      "warranty_original_item",
+      "unrelated_new_fault",
+      "customer_damage",
+      "warranty_expired",
+      "unable_to_determine",
+    ]);
+  });
 });

@@ -65,6 +65,7 @@ import type {
   OrderWhatsappTemplateKind,
   CorrectTerminalOrderInput,
   CorrectTerminalOrderV2Input,
+  CorrectInitialDepositV2Input,
   PatchOrderFinanceInput,
   PatchOrderInput,
   PublishOrderQuoteInput,
@@ -1343,6 +1344,25 @@ export const voidOrderV2InputSchema = z
 
 export const voidOrderV2BodySchema = z
   .object({ id: z.string().min(1, "缺少 id"), input: voidOrderV2InputSchema })
+  .strict();
+
+export const correctInitialDepositV2InputSchema = z
+  .object({
+    expected_updated_at: z.string().min(1, "缺少版本时间"),
+    idempotency_key: z.string().uuid("定金更正操作标识无效"),
+    deposit_amount: z.coerce
+      .number()
+      .nonnegative("定金不能为负数")
+      .refine((value) => Math.round(value * 100) === value * 100, "定金最多保留两位小数"),
+    reason_selection: businessReasonSelectionV2Schema,
+  })
+  .strict() satisfies z.ZodType<CorrectInitialDepositV2Input>;
+
+export const correctInitialDepositV2BodySchema = z
+  .object({
+    id: z.string().min(1, "缺少 id"),
+    input: correctInitialDepositV2InputSchema,
+  })
   .strict();
 
 export const transitionOrderBodySchema = z.object({

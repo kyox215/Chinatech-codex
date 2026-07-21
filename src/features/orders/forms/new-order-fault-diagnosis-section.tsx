@@ -23,6 +23,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { OrderWorkspaceSectionHeader } from "@/features/orders/components/order-workspace-primitives";
+import { OrderFactPicker } from "@/features/orders/components/order-fact-picker";
 import type { NewOrderFormState } from "@/features/orders/model/new-order-form";
 import {
   issueDescriptionForIntake,
@@ -86,6 +87,23 @@ export function NewOrderFaultDiagnosisSection({
         />
 
         <IssueModeControl value={form.issueCaptureMode} onChange={updateMode} />
+
+        {form.issueCaptureMode === "reported" ? (
+          <OrderFactPicker
+            field="reported_symptom"
+            codes={form.reportedSymptomCodes}
+            otherNote={form.reportedSymptomOtherNote}
+            catalogRevision={form.reportedSymptomCatalogRevision}
+            onChange={(selection) =>
+              setForm((current) => ({
+                ...current,
+                reportedSymptomCodes: selection.codes,
+                reportedSymptomOtherNote: selection.otherNote,
+                reportedSymptomCatalogRevision: selection.catalogRevision,
+              }))
+            }
+          />
+        ) : null}
 
         <div className="grid min-h-9 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1">
           <p

@@ -3,6 +3,7 @@ type OrderPresetReasonFeatureEnvironment = {
   REPAIRDESK_E2E_BUSINESS_DESKTOP?: string;
   ORDER_PRESET_REASON_WORKFLOW_ENABLED?: string;
   ORDER_PRESET_REASON_WORKFLOW_STORE_ALLOWLIST?: string;
+  ORDER_REASON_PERSISTENCE_V2_ENABLED?: string;
 };
 
 export function isOrderPresetReasonWorkflowEnabledForStore(
@@ -32,4 +33,14 @@ export function assertOrderPresetReasonWorkflowEnabledForStore(storeId: string |
   error.status = 403;
   error.code = "ORDER_PRESET_REASON_WORKFLOW_DISABLED";
   throw error;
+}
+
+export function isOrderReasonPersistenceV2EnabledForStore(
+  storeId: string | undefined,
+  env: OrderPresetReasonFeatureEnvironment = process.env as OrderPresetReasonFeatureEnvironment,
+) {
+  return (
+    env.ORDER_REASON_PERSISTENCE_V2_ENABLED === "1" &&
+    isOrderPresetReasonWorkflowEnabledForStore(storeId, env)
+  );
 }

@@ -129,6 +129,7 @@ export function normalizeOrderDataRows(input: {
     }
 
     const normalizedData = normalizeEditableData(raw, action, issues.errors);
+    validateReadOnlyDeposit(raw, action, matched, issues.errors);
     const rowRepairItems = collectRepairItemsForOrderRow(raw, repairItems);
     if (rowRepairItems) normalizedData.fault_prices = rowRepairItems;
     else if (action === "create") normalizedData.fault_prices = [];
@@ -296,12 +297,6 @@ function normalizeEditableData(
       if (!Number.isInteger(months) || !ALLOWED_WARRANTY_MONTHS.has(months)) {
         addIssue(errors, "invalid_warranty", "质保月数只能是 0、3、6、12 或 24", "质保月数");
       } else result.warranty_months = months;
-      continue;
-    }
-    if (key === "deposit_amount") {
-      const amount = parseMoney(value);
-      if (amount === undefined) addIssue(errors, "invalid_deposit", "定金必须是非负金额", "定金");
-      else result.deposit_amount = amount;
       continue;
     }
     if (key === "order_type") {
@@ -520,6 +515,31 @@ function validateUpdateFinance(
   if (!Number.isFinite(quotation) || !Number.isFinite(deposit) || deposit > quotation) {
     addIssue(errors, "deposit_exceeds_quote", "定金不能超过维修项目总额", "定金");
   }
+}
+
+function validateReadOnlyDeposit(
+  raw: Record<string, string>,
+  action: "create" | "update" | "skip",
+  current: OrderDataDbRow | undefined,
+  errors: OrderDataImportIssue[],
+) {
+  const value = raw.deposit_amount?.trim();
+  if (!value || action === "skip") return;
+  const amount = parseMoney(value);
+  if (amount === undefined) {
+    addIssue(errors, "invalid_deposit", "定金必须是非负金额", "定金");
+    return;
+  }
+  const currentAmount = action === "create" ? 0 : Number(current?.deposit_amount ?? 0);
+  if (amount === currentAmount) return;
+  addIssue(
+    errors,
+    "initial_deposit_requires_order_screen",
+    action === "create"
+      ? "批量建单不接收初始定金；请先建单，再在工单详情使用“更正定金”并选择原因"
+      : "导入不能改写定金；请在工单详情使用“更正定金”并选择原因",
+    "定金",
+  );
 }
 
 function comparableFaultPrices(value: unknown) {

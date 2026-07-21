@@ -8,6 +8,8 @@ export type OrderReasonContext =
   | "transition.unfixed_pickup"
   | "transition.mail_in"
   | "transition.rework"
+  | "rework.triage"
+  | "rework.disposition"
   | "approval.reject"
   | "finance.initial_deposit_correction"
   | "warranty.zero"
@@ -179,28 +181,83 @@ const catalogs: Record<OrderReasonContext, OrderReasonCatalog> = {
       option(
         "suspected_same_issue",
         "疑似原故障复发",
-        "客户反馈与原维修现象相近。",
-        "客户反馈疑似原故障复发，转入返修复检。",
+        "客户反馈与原维修现象相近；此时不判定免费保修。",
+        "返修接收判断：疑似原故障复发，转入复检，尚未判定保修或费用。",
       ),
       option(
         "new_symptom",
-        "出现新现象",
-        "先复检是否与原维修有关。",
-        "客户反馈出现新的异常现象，转入返修复检并等待判定。",
+        "出现新症状",
+        "先复检是否与原维修有关；此时不自动建立新单。",
+        "返修接收判断：客户反馈出现新症状，转入复检，尚未判定与原维修的关系。",
       ),
       option(
-        "closed_too_early",
-        "状态可能误结案",
-        "工单可能在工作完成前被结案。",
-        "工单状态可能误结案，重新打开核查。",
+        "uncertain",
+        "暂时无法判断",
+        "先记录客户反馈，等待技师检测后再处置。",
+        "返修接收判断：当前无法判断是否与原维修有关，转入复检等待检测结论。",
+      ),
+    ],
+  ),
+  "rework.triage": catalog(
+    "rework.triage",
+    "选择返修接收判断",
+    "这里只记录接收时的初步分类，不承诺免费、保修或建立新单。",
+    [
+      option(
+        "suspected_same_issue",
+        "疑似原故障复发",
+        "客户反馈与原维修现象相近。",
+        "返修接收判断：疑似原故障复发，尚未判定保修或费用。",
       ),
       option(
-        "missed_followup",
-        "仍有遗漏处理",
-        "结案后发现仍有事项需要继续。",
-        "仍有遗漏事项需要继续处理，重新打开工单。",
+        "new_symptom",
+        "出现新症状",
+        "客户反馈与原维修不同的新现象。",
+        "返修接收判断：客户反馈出现新症状，尚未判定与原维修的关系。",
       ),
-      otherOption,
+      option(
+        "uncertain",
+        "暂时无法判断",
+        "等待技师检测后再决定。",
+        "返修接收判断：当前无法判断，等待检测结论。",
+      ),
+    ],
+  ),
+  "rework.disposition": catalog(
+    "rework.disposition",
+    "选择检测后处置",
+    "处置必须基于已经记录的检测结论；当前阶段只写兼容摘要，不自动建立关联新单。",
+    [
+      option(
+        "warranty_original_item",
+        "原项目保修",
+        "确认属于原维修项目的保修处理。",
+        "返修检测处置：判定为原维修项目保修处理。",
+      ),
+      option(
+        "unrelated_new_fault",
+        "无关新故障",
+        "与原维修无直接关系，需要独立报价；关联新单功能尚未启用。",
+        "返修检测处置：判定为无关新故障，需要独立报价；当前未自动建立关联新单。",
+      ),
+      option(
+        "customer_damage",
+        "人为或外力损坏",
+        "检测证据显示新的外力、进液或不当使用。",
+        "返修检测处置：检测显示人为、外力或不当使用造成的新损坏。",
+      ),
+      option(
+        "warranty_expired",
+        "已超过保修期",
+        "与原项目有关但已超出承诺期限。",
+        "返修检测处置：相关项目已超过保修期限，需要重新确认方案。",
+      ),
+      option(
+        "unable_to_determine",
+        "仍无法判定",
+        "现有检测证据不足，继续保留待确认。",
+        "返修检测处置：现有证据仍不足，暂无法判定责任与费用。",
+      ),
     ],
   ),
   "approval.reject": catalog(

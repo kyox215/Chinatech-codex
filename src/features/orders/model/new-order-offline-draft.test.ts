@@ -359,6 +359,30 @@ describe("new order offline draft mapping", () => {
     expect(restored.form.deviceCustodyStatus).toBeNull();
     expect(restored.custodyNeedsConfirmation).toBe(true);
   });
+
+  it("round-trips fact catalog revision and preserves retired codes for review", async () => {
+    const service = createRepairDeskOfflineOrderService({
+      store: createRepairDeskOfflineMemoryStore(),
+      scope: { storeId: "store_1", userId: "user_1" },
+      now: () => "2026-07-21T12:00:00.000Z",
+      idFactory: () => "id_fact_draft",
+    });
+    const input = buildNewOrderOfflineDraftInput({
+      form: makeForm({
+        issue: "无法正常使用",
+        reportedSymptomCodes: ["will_not_charge"],
+        reportedSymptomCatalogRevision: "retired-revision",
+      }),
+    });
+    expect(input.draftPayload.draftSchemaVersion).toBe(2);
+    const saved = await service.saveDraft(input);
+    expect(saved.ok).toBe(true);
+    if (!saved.ok) return;
+
+    const restored = restoreNewOrderFormFromOfflineDraft(saved.value);
+    expect(restored.form.reportedSymptomCodes).toEqual(["will_not_charge"]);
+    expect(restored.form.reportedSymptomCatalogRevision).toBe("retired-revision");
+  });
 });
 
 function makeForm(patch: Partial<NewOrderFormState>): NewOrderFormState {

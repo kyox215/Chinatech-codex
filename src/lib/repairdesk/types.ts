@@ -1226,6 +1226,7 @@ export type OrderCapabilityKey =
   | "prepareQuote"
   | "sendQuote"
   | "collectPayment"
+  | "correctInitialDeposit"
   | "transition"
   | "confirmCancelledReturn"
   | "correct"
@@ -1239,6 +1240,7 @@ export interface OrderCapabilities {
   canPrepareQuote: boolean;
   canSendQuote: boolean;
   canCollectPayment: boolean;
+  canCorrectInitialDeposit: boolean;
   canTransition: boolean;
   canConfirmCancelledReturn: boolean;
   canCreateKioskSession: boolean;
@@ -1540,6 +1542,24 @@ export interface OrderTerminalOperationResult {
   order_id: string;
   status: RepairOrderStatus;
   record_state: "active" | "voided";
+  updated_at: string;
+  replayed: boolean;
+}
+
+export interface CorrectInitialDepositV2Input {
+  expected_updated_at: string;
+  idempotency_key: string;
+  deposit_amount: number;
+  reason_selection: BusinessReasonSelectionV2;
+}
+
+export interface CorrectInitialDepositResult {
+  ok: true;
+  code: "recorded" | "idempotent_replay";
+  correction_id: string;
+  deposit_amount: number;
+  balance: number;
+  is_paid: boolean;
   updated_at: string;
   replayed: boolean;
 }

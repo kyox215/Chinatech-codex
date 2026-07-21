@@ -2,6 +2,8 @@ export {
   batchTransition,
   confirmCancelledOrderReturn,
   correctTerminalOrder,
+  correctTerminalOrderWithSelection,
+  correctInitialDepositWithSelection,
   createOrder,
   decideOrderApproval,
   getOrder,
@@ -15,6 +17,7 @@ export {
   patchOrderFinance,
   recordPayment,
   reopenOrder,
+  reopenOrderWithSelection,
   uploadOrderAttachment,
   createOrderWorkflowStatus,
   reorderOrderWorkflowStatuses,
@@ -28,6 +31,7 @@ export {
   updateOrderWorkflowTransitions,
   updateOrder,
   voidOrder,
+  voidOrderWithSelection,
 } from "./order.repository";
 
 export { confirmOrderQuoteSent, publishOrderQuote } from "./order-quote.repository";

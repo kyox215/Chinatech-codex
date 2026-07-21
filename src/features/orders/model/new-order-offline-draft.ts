@@ -16,6 +16,9 @@ import {
   issueDescriptionForIntake,
   resolveIntakeQuoteDraft,
 } from "./order-diagnosis-quote";
+import { buildFactCompatibilityText, ORDER_FACT_CATALOG_REVISION } from "./order-fact-catalog";
+
+export const NEW_ORDER_OFFLINE_DRAFT_SCHEMA_VERSION = 2 as const;
 
 export type NewOrderOfflineDraftRestoreResult = {
   form: NewOrderFormState;
@@ -66,8 +69,24 @@ export function buildNewOrderOfflineDraftPayload(
     deposit: form.deposit,
   });
   const quotedPriceCents = moneyToCents(activeQuote.total);
+  const baseIssueDescription =
+    form.issueCaptureMode === "reported"
+      ? form.issue.trim()
+      : issueDescriptionForIntake(form.issueCaptureMode, form.issue);
+  const issueDescription =
+    form.reportedSymptomCodes.length > 0 &&
+    form.reportedSymptomCatalogRevision !== ORDER_FACT_CATALOG_REVISION
+      ? baseIssueDescription
+      : buildFactCompatibilityText({
+          existingText: baseIssueDescription,
+          field: "reported_symptom",
+          codes: form.issueCaptureMode === "reported" ? form.reportedSymptomCodes : [],
+          otherNote: form.reportedSymptomOtherNote,
+          catalogRevision: form.reportedSymptomCatalogRevision,
+        });
 
   return {
+    draftSchemaVersion: NEW_ORDER_OFFLINE_DRAFT_SCHEMA_VERSION,
     orderType: form.type,
     orderStatus: form.status,
     customerName: form.customerName.trim(),
@@ -78,10 +97,10 @@ export function buildNewOrderOfflineDraftPayload(
     deviceCustody: form.deviceCustodyStatus,
     imei: form.imei.trim(),
     issueMode: form.issueCaptureMode,
-    issueDescription:
-      form.issueCaptureMode === "reported"
-        ? form.issue.trim()
-        : issueDescriptionForIntake(form.issueCaptureMode, form.issue),
+    issueDescription,
+    reportedSymptomCodes: form.reportedSymptomCodes,
+    reportedSymptomOtherNote: form.reportedSymptomOtherNote.trim(),
+    reportedSymptomCatalogRevision: form.reportedSymptomCatalogRevision,
     ...(isIntakeQuotePaused(form.issueCaptureMode) && form.issue.trim()
       ? { reportedIssueDraft: form.issue.trim() }
       : {}),
@@ -131,6 +150,10 @@ export function buildNewOrderOfflineRelationshipPlan(
         ? "new_customer_device_local"
         : "order_snapshot_only";
 
+  const staleFactCatalog =
+    form.reportedSymptomCodes.length > 0 &&
+    form.reportedSymptomCatalogRevision !== ORDER_FACT_CATALOG_REVISION;
+
   return {
     customerLinkMode,
     customerLinkDraft: form.customerId
@@ -157,6 +180,7 @@ export function buildNewOrderOfflineRelationshipPlan(
               : {}),
             snapshot: deviceSnapshot,
           },
+    ...(staleFactCatalog ? { requiresReview: true, reviewReason: "fact_catalog_stale" } : {}),
   };
 }
 
@@ -196,6 +220,10 @@ export function restoreNewOrderFormFromOfflineDraft(
       issue: isIntakeQuotePaused(issueCaptureMode)
         ? (readString(payload.reportedIssueDraft) ?? "")
         : (readString(payload.issueDescription) ?? ""),
+      reportedSymptomCodes: readStringArray(payload.reportedSymptomCodes),
+      reportedSymptomOtherNote: readString(payload.reportedSymptomOtherNote) ?? "",
+      reportedSymptomCatalogRevision:
+        readString(payload.reportedSymptomCatalogRevision) ?? ORDER_FACT_CATALOG_REVISION,
       accessoryNotes: readString(payload.accessoryNotes) ?? "",
       warrantyText: readString(warrantyDraft.text) ?? initialNewOrderForm.warrantyText,
       warrantyMonths: readNumber(warrantyDraft.months) ?? initialNewOrderForm.warrantyMonths,
@@ -241,6 +269,8 @@ export function isNewOrderFormWorthOfflineAutosave(form: NewOrderFormState): boo
     form.imei.trim() ||
     form.issueCaptureMode !== initialNewOrderForm.issueCaptureMode ||
     form.issue.trim() ||
+    form.reportedSymptomCodes.length > 0 ||
+    form.reportedSymptomOtherNote.trim() ||
     form.accessoryNotes.trim() ||
     form.warrantyChangeReason.trim() ||
     normalizeMoneyNumber(form.deposit) > 0 ||
@@ -295,6 +325,11 @@ function readRecord(value: unknown): Record<string, unknown> {
 
 function readString(value: unknown) {
   return typeof value === "string" ? value : undefined;
+}
+
+function readStringArray(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
 }
 
 function readNumber(value: unknown) {

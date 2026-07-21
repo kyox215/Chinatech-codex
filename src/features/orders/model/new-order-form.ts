@@ -4,6 +4,7 @@ import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type { DeviceCustodyStatus, DeviceUnlockInput } from "@/lib/repairdesk/types";
 
 import type { IssueCaptureMode } from "./order-diagnosis-quote";
+import { ORDER_FACT_CATALOG_REVISION } from "./order-fact-catalog";
 
 export interface NewOrderFormState {
   type: "quick_repair" | "dropoff_repair";
@@ -20,6 +21,9 @@ export interface NewOrderFormState {
   deviceUnlock: DeviceUnlockInput;
   issueCaptureMode: IssueCaptureMode;
   issue: string;
+  reportedSymptomCodes: string[];
+  reportedSymptomOtherNote: string;
+  reportedSymptomCatalogRevision: string;
   internalTag: string;
   accessoryNotes: string;
   warrantyText: string;
@@ -42,6 +46,9 @@ export const initialNewOrderForm: NewOrderFormState = {
   deviceUnlock: { method: "none" },
   issueCaptureMode: "reported",
   issue: "",
+  reportedSymptomCodes: [],
+  reportedSymptomOtherNote: "",
+  reportedSymptomCatalogRevision: ORDER_FACT_CATALOG_REVISION,
   internalTag: "",
   accessoryNotes: "",
   warrantyText: "6个月",

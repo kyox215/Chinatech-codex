@@ -2,7 +2,9 @@ import { CURRENCY_CODE, normalizePositiveCentAmount } from "@/lib/money";
 import type {
   AuditActor,
   BusinessReasonSelectionV2,
+  CorrectInitialDepositResult,
   CorrectTerminalOrderInput,
+  StoredBusinessReasonSelectionV2,
   CreateOrderInput,
   OrderListFilters,
   OrderListItem,
@@ -170,6 +172,10 @@ const paymentOperations = new Map<string, { fingerprint: string; result: Payment
 const terminalOperations = new Map<
   string,
   { fingerprint: string; result: OrderTerminalOperationResult }
+>();
+const initialDepositCorrections = new Map<
+  string,
+  { fingerprint: string; result: CorrectInitialDepositResult }
 >();
 let workflowStatuses: OrderWorkflowStatus[] = repairOrderStatus.map((code, index) => ({
   id: `mock-status-${code}`,
@@ -670,6 +676,15 @@ export async function getOrder(id: string, _actor?: AuditActor) {
           _actor.isSystem ||
           (can(_actor, "order:quote_prepare") && can(_actor, "customer:message"))),
       canCollectPayment: isOrderPaymentCollectible(orderView),
+      canCorrectInitialDeposit:
+        !terminal &&
+        !voided &&
+        o.approval_status !== "approved" &&
+        o.approval_status !== "rejected" &&
+        o.approval_flow_status !== "waiting_customer" &&
+        !o.approval_sent_at &&
+        !o.approval_confirmed_at &&
+        o.balance_amount === o.quotation_amount - o.deposit_amount,
       canTransition: !terminal && !voided,
       canConfirmCancelledReturn:
         !voided &&
@@ -1473,9 +1488,13 @@ export async function updateOrder(
       ...(item.note?.trim() ? { note: item.note.trim() } : {}),
     }));
   const quotation = validFaults.reduce((sum, item) => sum + item.price, 0);
-  const deposit = Number(input.deposit_amount ?? 0);
+  const deposit =
+    input.deposit_amount === undefined ? o.deposit_amount : Number(input.deposit_amount);
   if (!Number.isFinite(deposit) || deposit < 0) throw new Error("押金不能为负数");
   if (deposit > quotation) throw new Error("押金不能超过总报价");
+  if (deposit !== o.deposit_amount) {
+    throw new Error("初始定金必须使用“更正初始定金”操作并选择原因");
+  }
 
   const paidAmount = Math.max(0, o.quotation_amount - o.deposit_amount - o.balance_amount);
   const nextBalance = Math.max(0, quotation - deposit - paidAmount);
@@ -1752,9 +1771,13 @@ export async function patchOrderFinance(
 
   const validFaults = normalizeFaultPriceInput(input.fault_prices);
   const quotation = validFaults.reduce((sum, item) => sum + item.price, 0);
-  const deposit = Number(input.deposit_amount ?? 0);
+  const deposit =
+    input.deposit_amount === undefined ? o.deposit_amount : Number(input.deposit_amount);
   if (!Number.isFinite(deposit) || deposit < 0) throw new Error("押金不能为负数");
   if (deposit > quotation) throw new Error("押金不能超过总报价");
+  if (deposit !== o.deposit_amount) {
+    throw new Error("初始定金必须使用“更正初始定金”操作并选择原因");
+  }
 
   const paidAmount = Math.max(0, o.quotation_amount - o.deposit_amount - o.balance_amount);
   const nextBalance = Math.max(0, quotation - deposit - paidAmount);
@@ -1907,6 +1930,18 @@ export async function correctTerminalOrder(
   return saveMockTerminalResult(input.idempotency_key, request.fingerprint!, order);
 }
 
+export async function correctTerminalOrderWithSelection(
+  id: string,
+  input: Omit<CorrectTerminalOrderInput, "reason"> & {
+    reason: string;
+    reasonSelection: StoredBusinessReasonSelectionV2;
+  },
+  operator: MockOperator = "前台",
+) {
+  const { reasonSelection: _reasonSelection, ...legacyInput } = input;
+  return correctTerminalOrder(id, legacyInput, operator);
+}
+
 export async function reopenOrder(
   id: string,
   input: ReopenOrderInput,
@@ -1938,6 +1973,18 @@ export async function reopenOrder(
   return saveMockTerminalResult(input.idempotency_key, request.fingerprint!, order);
 }
 
+export async function reopenOrderWithSelection(
+  id: string,
+  input: Omit<ReopenOrderInput, "reason"> & {
+    reason: string;
+    reasonSelection: StoredBusinessReasonSelectionV2;
+  },
+  operator: MockOperator = "前台",
+) {
+  const { reasonSelection: _reasonSelection, ...legacyInput } = input;
+  return reopenOrder(id, legacyInput, operator);
+}
+
 export async function voidOrder(
   id: string,
   input: VoidOrderInput,
@@ -1965,6 +2012,96 @@ export async function voidOrder(
     created_at: now,
   });
   return saveMockTerminalResult(input.idempotency_key, request.fingerprint!, order);
+}
+
+export async function voidOrderWithSelection(
+  id: string,
+  input: Omit<VoidOrderInput, "reason"> & {
+    reason: string;
+    reasonSelection: StoredBusinessReasonSelectionV2;
+  },
+  operator: MockOperator = "前台",
+) {
+  const { reasonSelection: _reasonSelection, ...legacyInput } = input;
+  return voidOrder(id, legacyInput, operator);
+}
+
+export async function correctInitialDepositWithSelection(
+  id: string,
+  input: {
+    expected_updated_at: string;
+    idempotency_key: string;
+    deposit_amount: number;
+    reason: string;
+    reasonSelection: StoredBusinessReasonSelectionV2;
+  },
+  operator: MockOperator = "前台",
+): Promise<CorrectInitialDepositResult> {
+  const amount = Number(input.deposit_amount);
+  if (!Number.isFinite(amount) || amount < 0 || Math.round(amount * 100) !== amount * 100) {
+    throw new Error("定金必须是非负且最多两位小数的金额");
+  }
+  const fingerprint = JSON.stringify({ id, ...input, operator: operatorName(operator) });
+  const existing = initialDepositCorrections.get(input.idempotency_key);
+  if (existing) {
+    if (existing.fingerprint !== fingerprint) throw new Error("该更正标识已用于不同请求");
+    return { ...existing.result, code: "idempotent_replay", replayed: true };
+  }
+  const order = orders.find((item) => item.id === id);
+  if (!order) throw new Error("工单不存在");
+  assertMockRoutineMutationAllowed(order);
+  if (order.updated_at !== input.expected_updated_at) throw new Error("工单已被更新，请刷新后再试");
+  if (amount > order.quotation_amount) throw new Error("定金不能超过当前报价");
+  if (
+    order.approval_status === "approved" ||
+    order.approval_status === "rejected" ||
+    order.approval_flow_status === "waiting_customer" ||
+    order.approval_sent_at ||
+    order.approval_confirmed_at
+  ) {
+    throw new Error("报价审批已经开始，不能再更正初始定金");
+  }
+  if (order.balance_amount !== order.quotation_amount - order.deposit_amount) {
+    throw new Error("已有后续收款或财务记录，请改用支付账本调整流程");
+  }
+  if (amount === order.deposit_amount) throw new Error("初始定金没有变化");
+  const depositBefore = order.deposit_amount;
+  const balanceBefore = order.balance_amount;
+  const now = new Date().toISOString();
+  order.deposit_amount = amount;
+  order.balance_amount = order.quotation_amount - amount;
+  order.is_paid = order.balance_amount === 0;
+  order.payment_status = order.is_paid ? "paid" : amount > 0 ? "partial" : "unpaid";
+  order.updated_at = now;
+  extraEvents.unshift({
+    id: `evt_deposit_correction_${input.idempotency_key}`,
+    order_id: id,
+    event_type: "payment",
+    payload: {
+      action: "initial_deposit_corrected",
+      correction_id: input.idempotency_key,
+      deposit_before: depositBefore,
+      deposit_after: amount,
+      balance_before: balanceBefore,
+      balance_after: order.balance_amount,
+      reason: input.reason,
+      reason_selection: input.reasonSelection,
+    },
+    operator_name: operatorName(operator),
+    created_at: now,
+  });
+  const result: CorrectInitialDepositResult = {
+    ok: true,
+    code: "recorded",
+    correction_id: input.idempotency_key,
+    deposit_amount: amount,
+    balance: order.balance_amount,
+    is_paid: order.is_paid,
+    updated_at: now,
+    replayed: false,
+  };
+  initialDepositCorrections.set(input.idempotency_key, { fingerprint, result });
+  return result;
 }
 
 // POST /api/orders/[id]/notify

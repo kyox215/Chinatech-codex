@@ -12,6 +12,7 @@ import type {
   AuditActor,
   BusinessReasonSelectionV2,
   StoredBusinessReasonSelectionV2,
+  CorrectInitialDepositResult,
   CorrectTerminalOrderInput,
   CreateOrderInput,
   DeviceSnapshot,
@@ -53,6 +54,7 @@ import type {
   WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
 import { getSupabaseAdmin } from "@/server/supabase";
+import { isOrderReasonPersistenceV2EnabledForStore } from "@/features/orders/server/order-preset-reason-feature";
 import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unlock";
 import {
   DEVICE_CUSTODY_WITH_CUSTOMER,
@@ -638,6 +640,21 @@ export function projectOrderCapabilities(
     hasVisibleFinancialEvidence ||
     Boolean(options.hasPaymentLedgerEvidence) ||
     Boolean(options.paymentLedgerCheckFailed);
+  const approvalAlreadyTouched =
+    order.approval_status === "approved" ||
+    order.approval_status === "rejected" ||
+    order.approval_flow_status === "waiting_customer" ||
+    Boolean(order.approval_sent_at) ||
+    Boolean(order.approval_confirmed_at);
+  const initialDepositFinanceInvariant =
+    balanceAmount === Math.max(0, quotationAmount - depositAmount);
+  const canCorrectInitialDeposit =
+    routine &&
+    permitted("payment:adjust") &&
+    !approvalAlreadyTouched &&
+    !options.hasPaymentLedgerEvidence &&
+    !options.paymentLedgerCheckFailed &&
+    initialDepositFinanceInvariant;
   const blockedReasons: OrderCapabilities["blockedReasons"] = {};
 
   if (voided) {
@@ -648,6 +665,7 @@ export function projectOrderCapabilities(
       "prepareQuote",
       "sendQuote",
       "collectPayment",
+      "correctInitialDeposit",
       "transition",
       "confirmCancelledReturn",
       "correct",
@@ -663,12 +681,22 @@ export function projectOrderCapabilities(
     blockedReasons.prepareQuote = "已结束工单请先按审计流程重新打开";
     blockedReasons.sendQuote = "已结束工单不能发送新报价";
     blockedReasons.transition = "已结束工单请使用“重新打开”";
+    blockedReasons.correctInitialDeposit = "已结束工单不能更正初始定金";
   }
   if (isOrderCancelledForPayment(order) && !voided) {
     blockedReasons.collectPayment = "已取消工单的余额仅保留为历史，不能登记收款";
   }
   if (permitted("order:void") && hasFinancialEvidence) {
     blockedReasons.void = "存在财务记录或金额异常，必须先完成核对与冲销/退款";
+  }
+  if (!canCorrectInitialDeposit && !blockedReasons.correctInitialDeposit) {
+    blockedReasons.correctInitialDeposit = approvalAlreadyTouched
+      ? "报价审批已经开始，不能再更正初始定金"
+      : options.hasPaymentLedgerEvidence
+        ? "已有后续收款记录，请使用支付账本调整流程"
+        : options.paymentLedgerCheckFailed || !initialDepositFinanceInvariant
+          ? "财务记录需要先核对，暂不能更正初始定金"
+          : "当前账号没有更正初始定金的权限";
   }
 
   return {
@@ -678,6 +706,7 @@ export function projectOrderCapabilities(
     canPrepareQuote: routine && permitted("order:quote_prepare"),
     canSendQuote: routine && permitted("order:quote_prepare") && permitted("customer:message"),
     canCollectPayment: isOrderPaymentCollectible(order) && permitted("payment:collect"),
+    canCorrectInitialDeposit,
     canTransition: routine && permitted("order:transition"),
     canConfirmCancelledReturn:
       !voided &&
@@ -2327,6 +2356,33 @@ export async function correctTerminalOrder(
   return terminalOperationResult(data);
 }
 
+export async function correctTerminalOrderWithSelection(
+  id: string,
+  input: Omit<CorrectTerminalOrderInput, "reason"> & {
+    reason: string;
+    reasonSelection: StoredBusinessReasonSelectionV2;
+  },
+  actor: AuditActor,
+): Promise<OrderTerminalOperationResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  if (!isOrderReasonPersistenceV2EnabledForStore(storeId)) {
+    const { reasonSelection: _reasonSelection, ...legacyInput } = input;
+    return correctTerminalOrder(id, legacyInput, actor);
+  }
+  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_correct_terminal_order_v2", {
+    p_store_id: storeId,
+    p_order_id: id,
+    p_actor_id: terminalActorId(actor),
+    p_expected_updated_at: input.expected_updated_at,
+    p_idempotency_key: input.idempotency_key,
+    p_changes: input.changes,
+    p_reason: input.reason.trim(),
+    p_reason_selection: input.reasonSelection,
+  });
+  fail(error, "纠正已结束工单失败");
+  return terminalOperationResult(data);
+}
+
 export async function reopenOrder(
   id: string,
   input: ReopenOrderInput,
@@ -2341,6 +2397,36 @@ export async function reopenOrder(
     p_idempotency_key: input.idempotency_key,
     p_to_status: input.to_status,
     p_reason: input.reason.trim(),
+  });
+  if (error?.message.includes("physical-work reopen requires shop custody")) {
+    throw new Error("设备当前未留店；请先重开到接待或报价阶段，再确认收机后进入维修流程");
+  }
+  fail(error, "重新打开工单失败");
+  return terminalOperationResult(data);
+}
+
+export async function reopenOrderWithSelection(
+  id: string,
+  input: Omit<ReopenOrderInput, "reason"> & {
+    reason: string;
+    reasonSelection: StoredBusinessReasonSelectionV2;
+  },
+  actor: AuditActor,
+): Promise<OrderTerminalOperationResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  if (!isOrderReasonPersistenceV2EnabledForStore(storeId)) {
+    const { reasonSelection: _reasonSelection, ...legacyInput } = input;
+    return reopenOrder(id, legacyInput, actor);
+  }
+  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_reopen_terminal_order_v2", {
+    p_store_id: storeId,
+    p_order_id: id,
+    p_actor_id: terminalActorId(actor),
+    p_expected_updated_at: input.expected_updated_at,
+    p_idempotency_key: input.idempotency_key,
+    p_to_status: input.to_status,
+    p_reason: input.reason.trim(),
+    p_reason_selection: input.reasonSelection,
   });
   if (error?.message.includes("physical-work reopen requires shop custody")) {
     throw new Error("设备当前未留店；请先重开到接待或报价阶段，再确认收机后进入维修流程");
@@ -2372,6 +2458,112 @@ export async function voidOrder(
   }
   fail(error, "作废工单失败");
   return terminalOperationResult(data);
+}
+
+export async function voidOrderWithSelection(
+  id: string,
+  input: Omit<VoidOrderInput, "reason"> & {
+    reason: string;
+    reasonSelection: StoredBusinessReasonSelectionV2;
+  },
+  actor: AuditActor,
+): Promise<OrderTerminalOperationResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  if (!isOrderReasonPersistenceV2EnabledForStore(storeId)) {
+    const { reasonSelection: _reasonSelection, ...legacyInput } = input;
+    return voidOrder(id, legacyInput, actor);
+  }
+  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_void_order_v2", {
+    p_store_id: storeId,
+    p_order_id: id,
+    p_actor_id: terminalActorId(actor),
+    p_expected_updated_at: input.expected_updated_at,
+    p_idempotency_key: input.idempotency_key,
+    p_reason: input.reason.trim(),
+    p_reason_selection: input.reasonSelection,
+    p_confirm_public_no: input.confirm_public_no.trim(),
+  });
+  if (error?.message.includes("custody status must be confirmed before void")) {
+    throw new Error("作废前必须先确认设备由门店还是客人保管");
+  }
+  if (error?.message.includes("shop-held device must be returned before void")) {
+    throw new Error("设备仍由门店保管，必须先完成退还才能作废工单");
+  }
+  fail(error, "作废工单失败");
+  return terminalOperationResult(data);
+}
+
+function initialDepositCorrectionResult(data: unknown): CorrectInitialDepositResult {
+  if (!data || typeof data !== "object") {
+    throw new OrderTerminalOperationError("数据库返回无效", "INVALID_RESPONSE", 500);
+  }
+  const row = data as Record<string, unknown>;
+  if (row.ok !== true) {
+    const code = requiredString(row.code);
+    const messages: Record<string, string> = {
+      actor_forbidden: "当前员工没有更正初始定金的权限",
+      invalid_amount: "定金必须是非负且最多两位小数的金额",
+      invalid_reason: "请选择定金更正原因",
+      invalid_reason_selection: "定金更正原因已失效，请刷新后重新选择",
+      idempotency_conflict: "该更正标识已用于不同请求，请刷新后重试",
+      order_not_found: "工单不存在",
+      order_terminal: "已结束工单不能更正初始定金",
+      order_voided: "已作废工单不能更正初始定金",
+      stale_version: "工单已被更新，请刷新后再试",
+      deposit_exceeds_quote: "定金不能超过当前报价",
+      approval_already_touched: "报价审批已经开始，不能再更正初始定金",
+      payment_history_exists: "已有后续收款记录，请改用支付账本调整流程",
+      finance_invariant_mismatch: "当前财务记录需要先核对，不能直接更正初始定金",
+      no_change: "初始定金没有变化",
+    };
+    const status = code === "actor_forbidden" ? 403 : code === "order_not_found" ? 404 : 409;
+    throw new OrderTerminalOperationError(
+      messages[code] ?? "更正初始定金失败",
+      code.toUpperCase(),
+      status,
+    );
+  }
+  const code = row.code === "idempotent_replay" ? "idempotent_replay" : "recorded";
+  return {
+    ok: true,
+    code,
+    correction_id: requiredString(row.correction_id),
+    deposit_amount: money(row.deposit_amount),
+    balance: money(row.balance),
+    is_paid: Boolean(row.is_paid),
+    updated_at: requiredString(row.updated_at),
+    replayed: code === "idempotent_replay",
+  };
+}
+
+export async function correctInitialDepositWithSelection(
+  id: string,
+  input: {
+    expected_updated_at: string;
+    idempotency_key: string;
+    deposit_amount: number;
+    reason: string;
+    reasonSelection: StoredBusinessReasonSelectionV2;
+  },
+  actor: AuditActor,
+): Promise<CorrectInitialDepositResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  const rpcName = isOrderReasonPersistenceV2EnabledForStore(storeId)
+    ? "repairdesk_correct_initial_deposit_v2"
+    : "repairdesk_correct_initial_deposit";
+  const args: Record<string, unknown> = {
+    p_store_id: storeId,
+    p_order_id: id,
+    p_actor_id: terminalActorId(actor),
+    p_expected_updated_at: input.expected_updated_at,
+    p_idempotency_key: input.idempotency_key,
+    p_deposit_amount: input.deposit_amount,
+    p_reason: input.reason.trim(),
+  };
+  if (rpcName.endsWith("_v2")) args.p_reason_selection = input.reasonSelection;
+  const { data, error } = await getSupabaseAdmin().rpc(rpcName, args);
+  fail(error, "更正初始定金失败");
+  return initialDepositCorrectionResult(data);
 }
 
 type SupabaseAdmin = ReturnType<typeof getSupabaseAdmin>;
@@ -3105,9 +3297,6 @@ export async function updateOrder(
 
   const validFaults = normalizeFaultPriceInput(input.fault_prices);
   const quotation = validFaults.reduce((sum, item) => sum + item.price, 0);
-  const deposit = Number(input.deposit_amount ?? 0);
-  if (!Number.isFinite(deposit) || deposit < 0) throw new Error("押金不能为负数");
-  if (deposit > quotation) throw new Error("押金不能超过总报价");
 
   const supabase = getSupabaseAdmin();
   const accessRow = await readOrderCustodyRow(supabase, storeId, id, requestActor, "读取工单失败");
@@ -3142,6 +3331,12 @@ export async function updateOrder(
 
   const oldQuotation = money(currentRow.quotation_amount);
   const oldDeposit = money(currentRow.deposit_amount);
+  const deposit = input.deposit_amount === undefined ? oldDeposit : Number(input.deposit_amount);
+  if (!Number.isFinite(deposit) || deposit < 0) throw new Error("押金不能为负数");
+  if (deposit > quotation) throw new Error("押金不能超过总报价");
+  if (deposit !== oldDeposit) {
+    throw new Error("初始定金必须使用“更正初始定金”操作并选择原因");
+  }
   const oldBalance = money(currentRow.balance_amount);
   const paidAmount = Math.max(0, oldQuotation - oldDeposit - oldBalance);
   const nextBalance = Math.max(0, quotation - deposit - paidAmount);
@@ -3547,6 +3742,9 @@ export async function patchOrderFinance(
 
   const oldQuotation = money(currentRow.quotation_amount);
   const oldDeposit = money(currentRow.deposit_amount);
+  if (deposit !== oldDeposit) {
+    throw new Error("初始定金必须使用“更正初始定金”操作并选择原因");
+  }
   const oldBalance = money(currentRow.balance_amount);
   const paidAmount = Math.max(0, oldQuotation - oldDeposit - oldBalance);
   const nextBalance = Math.max(0, quotation - deposit - paidAmount);

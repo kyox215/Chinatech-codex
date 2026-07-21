@@ -62,6 +62,7 @@ export type RepairDeskOfflineOrderService = {
 
 const defaultDraftTtlMs = 1000 * 60 * 60 * 24 * 14;
 const allowedOrderDraftPayloadKeys = new Set([
+  "draftSchemaVersion",
   "accessoryNotes",
   "accessory_notes",
   "customerEmail",
@@ -107,6 +108,9 @@ const allowedOrderDraftPayloadKeys = new Set([
   "repairItems",
   "repair_items",
   "reportedIssueDraft",
+  "reportedSymptomCodes",
+  "reportedSymptomOtherNote",
+  "reportedSymptomCatalogRevision",
   "serialNumber",
   "serial_number",
   "status",
@@ -114,9 +118,13 @@ const allowedOrderDraftPayloadKeys = new Set([
   "warranty_draft",
 ]);
 const localOnlyOrderDraftPayloadKeys = new Set([
+  "draftSchemaVersion",
   "pausedDepositAmountCents",
   "pausedRepairItems",
   "reportedIssueDraft",
+  "reportedSymptomCodes",
+  "reportedSymptomOtherNote",
+  "reportedSymptomCatalogRevision",
 ]);
 const allowedCustomerSnapshotKeys = new Set([
   "customerId",
@@ -198,6 +206,8 @@ export function createRepairDeskOfflineOrderService({
         customerLinkDraft: input.relationshipPlan.customerLinkDraft,
         deviceLinkMode: input.relationshipPlan.deviceLinkMode,
         deviceLinkDraft: input.relationshipPlan.deviceLinkDraft,
+        requiresReview: input.relationshipPlan.requiresReview,
+        reviewReason: input.relationshipPlan.reviewReason,
         hasSensitiveVaultEntry: input.hasSensitiveVaultEntry ?? false,
         attachmentStagingIds: input.attachmentStagingIds ?? [],
         createdAt: existing.value?.createdAt ?? timestamp,
@@ -364,6 +374,8 @@ function buildOutboxEntry({
       customerLinkDraft: draft.customerLinkDraft,
       deviceLinkMode: draft.deviceLinkMode,
       deviceLinkDraft: draft.deviceLinkDraft,
+      requiresReview: draft.requiresReview,
+      reviewReason: draft.reviewReason,
     },
     baseUpdatedAt: draft.baseUpdatedAt,
     createdAtLocal: nowIso,
@@ -392,6 +404,7 @@ function outboxStatusForDraft(
 
 function relationshipNeedsReview(draft: RepairDeskOfflineOrderDraft) {
   return (
+    draft.requiresReview === true ||
     draft.customerLinkMode === "unknown_needs_review" ||
     draft.deviceLinkMode === "unknown_device_needs_review"
   );

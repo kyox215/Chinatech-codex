@@ -5,6 +5,7 @@ import { orders as mockOrders } from "@/lib/mock/state";
 import { createMockSupplier, resetMockSuppliers } from "@/features/suppliers/testing/mock-api";
 import {
   confirmCancelledOrderReturn,
+  correctInitialDepositWithSelection,
   correctTerminalOrder,
   createOrderWorkflowStatus,
   createOrder,
@@ -1517,9 +1518,17 @@ describe("mock order inline editing workflow", () => {
     expect(after.events.filter((event) => event.event_type === "payment")).toHaveLength(0);
   });
 
-  it("updates finance only through the finance patch flow", async () => {
+  it("keeps initial deposit out of finance patch and uses the dedicated correction flow", async () => {
     const id = await createMockOrder();
     const before = await getOrder(id);
+
+    await expect(
+      patchOrderFinance(id, {
+        expected_updated_at: before.order.updated_at,
+        fault_prices: [{ name: "屏幕", price: 100 }],
+        deposit_amount: 30,
+      }),
+    ).rejects.toThrow("更正初始定金");
 
     await patchOrderFinance(id, {
       expected_updated_at: before.order.updated_at,
@@ -1527,7 +1536,26 @@ describe("mock order inline editing workflow", () => {
         { name: "屏幕", price: 100 },
         { name: "电池", price: 50 },
       ],
+    });
+
+    const afterQuote = await getOrder(id);
+    await correctInitialDepositWithSelection(id, {
+      expected_updated_at: afterQuote.order.updated_at,
+      idempotency_key: crypto.randomUUID(),
       deposit_amount: 30,
+      reason: "建单时定金金额录入错误。",
+      reasonSelection: {
+        schema_version: 2,
+        kind: "preset",
+        primary_code: "amount_entry_error",
+        catalog_revision: "test.v1",
+        context: "finance.initial_deposit_correction",
+        internal_snapshot: {
+          locale: "zh-CN",
+          labels: ["金额录入错误"],
+          text: "建单时定金金额录入错误。",
+        },
+      },
     });
 
     const after = await getOrder(id);
@@ -1541,9 +1569,12 @@ describe("mock order inline editing workflow", () => {
     expect(financeEvent?.payload).toMatchObject({
       action: "order_finance_updated",
       quotation_amount: 150,
-      deposit_amount: 30,
-      balance_amount: 120,
+      deposit_amount: 20,
+      balance_amount: 130,
     });
+    expect(after.events.some((event) => event.payload.action === "initial_deposit_corrected")).toBe(
+      true,
+    );
   });
 
   it("invalidates previous customer approval when finance changes", async () => {

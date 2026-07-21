@@ -281,3 +281,5 @@ export default function ExamplePage() {
 An order detail or task page owns a single action-overlay coordinator. While any transition, approval, terminal, notification, payment, custody, camera, preview or timeline surface is open, the page-level fixed action dock must not render.
 
 Reason-required actions use a fixed header/footer and one scrolling body. Mobile sizing follows `window.visualViewport`; desktop content remains within the real viewport at 200% zoom. The page must preserve the complete legacy free-text path while the preset workflow feature flag is off.
+
+Order intake/edit/detail pages must keep customer symptoms, diagnostic findings and repair/quote items as distinct form sections. Initial-deposit correction is a dedicated capability-gated action, not a generic editable amount. Rework pages must show triage before disposition and state explicitly when persisted episode/related-order creation is not enabled.

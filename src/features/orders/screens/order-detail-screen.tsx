@@ -86,6 +86,7 @@ import { toast } from "sonner";
 import {
   decideOrderApprovalV2,
   confirmCancelledOrderReturn,
+  correctInitialDepositV2,
   createKioskSession,
   getRepairDeskOptions,
   getStoreSettings,
@@ -141,6 +142,7 @@ import {
 } from "@/features/orders/model/order-edit-save";
 import { OrderPhotoPreviewDialog } from "@/features/orders/components/order-photo-preview-dialog";
 import { OrderTerminalActions } from "@/features/orders/components/order-terminal-actions";
+import { ReworkDispositionCard } from "@/features/orders/components/rework-disposition-card";
 import { OrderInternalCostCard } from "@/features/orders/components/order-internal-cost-card";
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
 import { OrderReasonField } from "@/features/orders/components/order-reason-field";
@@ -167,6 +169,7 @@ import {
 import { CancelDialog } from "@/features/orders/forms/cancel-dialog";
 import { NotifyDialog } from "@/features/orders/forms/notify-dialog";
 import { PaymentDialog } from "@/features/orders/forms/payment-dialog";
+import { InitialDepositCorrectionDialog } from "@/features/orders/forms/initial-deposit-correction-dialog";
 import { buildEditForm, inferOrderPaidAmount } from "@/features/orders/model/edit-order-form";
 import {
   deviceUnlockInputFromOrder,
@@ -302,6 +305,7 @@ export function OrderDetailScreen({
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [diagnosisQuoteOpen, setDiagnosisQuoteOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [initialDepositCorrectionOpen, setInitialDepositCorrectionOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelledReturnOpen, setCancelledReturnOpen] = useState(false);
   const [custodyDialogTarget, setCustodyDialogTarget] = useState<DeviceCustodyStatus | null>(null);
@@ -329,6 +333,7 @@ export function OrderDetailScreen({
     notifyOpen ||
     diagnosisQuoteOpen ||
     payOpen ||
+    initialDepositCorrectionOpen ||
     cancelOpen ||
     cancelledReturnOpen ||
     custodyDialogTarget !== null ||
@@ -755,6 +760,24 @@ export function OrderDetailScreen({
       setMobileFinanceSaveError(message);
       toast.error(message);
     },
+  });
+
+  const initialDepositCorrection = useMutation({
+    mutationFn: (input: { depositAmount: number; reasonSelection: BusinessReasonSelectionV2 }) => {
+      if (!data) throw new Error("工单未加载");
+      return correctInitialDepositV2(id, {
+        expected_updated_at: data.order.updated_at,
+        idempotency_key: crypto.randomUUID(),
+        deposit_amount: input.depositAmount,
+        reason_selection: input.reasonSelection,
+      });
+    },
+    onSuccess: () => {
+      toast.success("初始定金已更正，并保留了原金额与原因记录");
+      setInitialDepositCorrectionOpen(false);
+      invalidate();
+    },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   const quoteSentConfirmation = useMutation({
@@ -1329,12 +1352,18 @@ export function OrderDetailScreen({
           storeSettings={storeSettings}
           workflow={workflow}
           topNotice={
-            <OrderTerminalActions
-              detail={data}
-              workflow={workflow}
-              onCompleted={invalidate}
-              className="mb-2"
-            />
+            <div className="space-y-2">
+              <OrderTerminalActions detail={data} workflow={workflow} onCompleted={invalidate} />
+              <ReworkDispositionCard
+                detail={data}
+                pending={faultUpdate.isPending}
+                onSave={(diagnosisResult) =>
+                  faultUpdate
+                    .mutateAsync({ diagnosis_result: diagnosisResult })
+                    .then(() => undefined)
+                }
+              />
+            </div>
           }
           transitionPending={transition.isPending}
           actionOverlayOpen={orderActionOverlayOpen}
@@ -1385,6 +1414,9 @@ export function OrderDetailScreen({
           }}
           financePending={financeUpdate.isPending}
           canAdjustFinance={Boolean(data.capabilities?.canAdjustFinance)}
+          canCorrectInitialDeposit={Boolean(data.capabilities?.canCorrectInitialDeposit)}
+          initialDepositBlockedReason={data.capabilities?.blockedReasons?.correctInitialDeposit}
+          onCorrectInitialDeposit={() => setInitialDepositCorrectionOpen(true)}
           onNotify={() => setNotifyOpen(true)}
           onApprovalDecision={() => setApprovalDecisionOpen(true)}
           approvalDecisionAvailable={canDecideApproval}
@@ -1561,6 +1593,37 @@ export function OrderDetailScreen({
                   {data.capabilities?.canPrepareQuote ? "打开检测报价" : "记录检测结论"}
                 </Button>
               </section>
+            ) : null}
+            {(surface !== "dialog" || safeDesktopDetailView === "overview") &&
+            data.capabilities?.canCorrectInitialDeposit ? (
+              <section className="flex min-w-0 items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] px-3 py-2">
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold">初始定金记录</div>
+                  <div className="truncate text-[11px] text-muted-foreground">
+                    当前 {formatMoney(order.deposit_amount)}；只更正建单值，不处理退款或后续收款
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 shrink-0 text-xs"
+                  onClick={() => setInitialDepositCorrectionOpen(true)}
+                >
+                  更正初始定金
+                </Button>
+              </section>
+            ) : null}
+            {surface !== "dialog" || safeDesktopDetailView === "overview" ? (
+              <ReworkDispositionCard
+                detail={data}
+                pending={faultUpdate.isPending}
+                onSave={(diagnosisResult) =>
+                  faultUpdate
+                    .mutateAsync({ diagnosis_result: diagnosisResult })
+                    .then(() => undefined)
+                }
+              />
             ) : null}
             {surface !== "dialog" || safeDesktopDetailView === "overview" ? (
               <section
@@ -1841,6 +1904,24 @@ export function OrderDetailScreen({
             await recordPayment(id, amount, method, order.updated_at, idempotencyKey);
             toast.success(`已收款 ${formatMoney(amount)}`);
             invalidate();
+          }}
+        />
+      ) : null}
+      {!order.finance_redacted ? (
+        <InitialDepositCorrectionDialog
+          open={initialDepositCorrectionOpen}
+          order={order}
+          pending={initialDepositCorrection.isPending}
+          blockedReason={
+            data.capabilities?.canCorrectInitialDeposit
+              ? undefined
+              : data.capabilities?.blockedReasons?.correctInitialDeposit
+          }
+          onOpenChange={(open) => {
+            if (!initialDepositCorrection.isPending) setInitialDepositCorrectionOpen(open);
+          }}
+          onConfirm={async (input) => {
+            await initialDepositCorrection.mutateAsync(input);
           }}
         />
       ) : null}
@@ -2992,6 +3073,9 @@ function MobileOrderDetailView({
   onFinanceSave,
   financePending,
   canAdjustFinance,
+  canCorrectInitialDeposit,
+  initialDepositBlockedReason,
+  onCorrectInitialDeposit,
   onNotify,
   onApprovalDecision,
   approvalDecisionAvailable,
@@ -3049,6 +3133,9 @@ function MobileOrderDetailView({
   onFinanceSave: () => Promise<boolean>;
   financePending: boolean;
   canAdjustFinance: boolean;
+  canCorrectInitialDeposit: boolean;
+  initialDepositBlockedReason?: string;
+  onCorrectInitialDeposit: () => void;
   onNotify: () => void;
   onApprovalDecision: () => void;
   approvalDecisionAvailable: boolean;
@@ -3587,7 +3674,23 @@ function MobileOrderDetailView({
           </section>
 
           <section className={mobileDetailCardClass}>
-            <MobileSectionTitle icon={WalletCards} title="支付信息" />
+            <MobileSectionTitle
+              icon={WalletCards}
+              title="支付信息"
+              action={
+                canCorrectInitialDeposit ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 rounded-md px-1.5 text-[10px]"
+                    onClick={onCorrectInitialDeposit}
+                  >
+                    更正定金
+                  </Button>
+                ) : undefined
+              }
+            />
             <MobilePaymentSummary
               total={order.quotation_amount}
               deposit={order.deposit_amount}
@@ -3595,6 +3698,11 @@ function MobileOrderDetailView({
               cancelled={cancelled}
               className="mt-1.5"
             />
+            {!canCorrectInitialDeposit && initialDepositBlockedReason?.includes("支付账本") ? (
+              <p className="mt-1 text-[9px] leading-3 text-muted-foreground">
+                初始定金已锁定；后续金额请从收款记录处理。
+              </p>
+            ) : null}
           </section>
         </div>
       )}
@@ -5267,19 +5375,17 @@ function MobileFinanceEditor({
             <MoneyText amount={normalized.balance} className="font-semibold" />
           </div>
         </div>
-        <label className="grid min-w-0 gap-0.5 text-[10px] text-muted-foreground">
-          <span>押金</span>
-          <MobileDenseFinanceInput
-            value={draft.depositText}
-            onValueChange={(value) => onChange({ ...draft, depositText: value })}
-            disabled={pending}
-            placeholder="0"
-            inputMode="decimal"
-            align="right"
-            mono
-          />
-        </label>
+        <div className="grid min-w-0 gap-0.5 text-[10px] text-muted-foreground">
+          <span>初始定金</span>
+          <div className="flex h-7 min-w-0 items-center justify-end rounded-md bg-[var(--surface-panel-muted)] px-2 font-mono text-foreground">
+            {draft.depositText || "0"}
+          </div>
+        </div>
       </div>
+
+      <p className="text-[9px] leading-3 text-muted-foreground">
+        初始定金需从“支付信息 → 更正定金”单独修改并选择原因。
+      </p>
 
       {normalized.error || saveError ? (
         <p className="rounded-md bg-status-danger px-2 py-1 text-[10px] leading-3 text-status-danger-foreground">

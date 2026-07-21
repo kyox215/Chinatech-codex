@@ -1845,15 +1845,12 @@ function FinanceInlineEditor({
           <Plus className="mr-1 size-3" />
           添加项目
         </Button>
-        <label className="grid min-w-0 gap-0.5 text-[10px] leading-3 text-muted-foreground">
-          <span>定金</span>
-          <MoneyDraftField
-            ariaLabel="定金"
-            value={draft.depositText}
-            placeholder="0"
-            onChange={(value) => onChange({ ...draft, depositText: value })}
-          />
-        </label>
+        <div className="grid min-w-0 gap-0.5 text-[10px] leading-3 text-muted-foreground">
+          <span>初始定金（单独更正）</span>
+          <div className="flex h-7 min-w-0 items-center justify-end rounded-md bg-card/60 px-2 font-mono text-foreground">
+            {draft.depositText || "0"}
+          </div>
+        </div>
       </div>
 
       {message ? (

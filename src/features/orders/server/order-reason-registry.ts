@@ -75,7 +75,7 @@ function deriveAuthorizedContext(input: {
       if (capabilities?.canTransition !== true) return deny();
       return "approval.reject";
     case "initial_deposit_correction":
-      if (capabilities?.canAdjustFinance !== true) return deny();
+      if (capabilities?.canCorrectInitialDeposit !== true) return deny();
       return "finance.initial_deposit_correction";
     case "warranty": {
       if (capabilities?.canEditRepair !== true) return deny();

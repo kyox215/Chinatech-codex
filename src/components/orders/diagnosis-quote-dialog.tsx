@@ -29,6 +29,11 @@ import {
   quoteReadinessLabel,
 } from "@/features/orders/model/order-diagnosis-quote";
 import { componentOverlay } from "@/lib/component-patterns";
+import { OrderFactPicker } from "@/features/orders/components/order-fact-picker";
+import {
+  buildFactCompatibilityText,
+  ORDER_FACT_CATALOG_REVISION,
+} from "@/features/orders/model/order-fact-catalog";
 import { formatMoney } from "@/lib/money";
 import type {
   FaultPriceItem,
@@ -72,6 +77,12 @@ export function DiagnosisQuoteDialog({
   onPublish,
 }: DiagnosisQuoteDialogProps) {
   const [diagnosis, setDiagnosis] = useState(order.diagnosis_result ?? "");
+  const [diagnosticCodes, setDiagnosticCodes] = useState<string[]>([]);
+  const [diagnosticOtherNote, setDiagnosticOtherNote] = useState("");
+  const [diagnosticCatalogRevision, setDiagnosticCatalogRevision] = useState(
+    ORDER_FACT_CATALOG_REVISION,
+  );
+  const [diagnosticSelectionTouched, setDiagnosticSelectionTouched] = useState(false);
   const [rows, setRows] = useState<QuoteDraftRow[]>(() => rowsFromOrder(order));
   const [exceptionKind, setExceptionKind] = useState<QuotePriceException["kind"] | "">("");
   const [exceptionReason, setExceptionReason] = useState("");
@@ -83,6 +94,10 @@ export function DiagnosisQuoteDialog({
   useEffect(() => {
     if (!open) return;
     setDiagnosis(order.diagnosis_result ?? "");
+    setDiagnosticCodes([]);
+    setDiagnosticOtherNote("");
+    setDiagnosticCatalogRevision(ORDER_FACT_CATALOG_REVISION);
+    setDiagnosticSelectionTouched(false);
     setRows(rowsFromOrder(order));
     setExceptionKind("");
     setExceptionReason("");
@@ -103,12 +118,30 @@ export function DiagnosisQuoteDialog({
     [rows],
   );
   const hasZeroPrice = faultPrices.some((item) => item.price === 0);
+  const diagnosisWithFacts = useMemo(
+    () =>
+      buildFactCompatibilityText({
+        existingText: diagnosis,
+        field: "diagnostic_finding",
+        codes: diagnosticCodes,
+        otherNote: diagnosticOtherNote,
+        catalogRevision: diagnosticCatalogRevision,
+        clearExistingSelection: diagnosticSelectionTouched,
+      }),
+    [
+      diagnosis,
+      diagnosticCatalogRevision,
+      diagnosticCodes,
+      diagnosticOtherNote,
+      diagnosticSelectionTouched,
+    ],
+  );
   const priceException =
     hasZeroPrice && exceptionKind
       ? { kind: exceptionKind, reason: exceptionReason.trim() }
       : undefined;
   const readiness = getQuoteDraftReadiness({
-    diagnosisResult: diagnosis,
+    diagnosisResult: diagnosisWithFacts,
     faultPrices,
     depositAmount: order.deposit_amount,
     priceException,
@@ -124,7 +157,7 @@ export function DiagnosisQuoteDialog({
         }
         await onPublish({
           idempotencyKey: publishIdempotencyKey,
-          diagnosisResult: diagnosis.trim(),
+          diagnosisResult: diagnosisWithFacts,
           faultPrices,
           priceException,
         });
@@ -132,11 +165,11 @@ export function DiagnosisQuoteDialog({
         return;
       }
       if (!canEditDiagnosis) return;
-      if (!diagnosis.trim()) {
+      if (!diagnosisWithFacts) {
         setLocalError("请填写检测结论");
         return;
       }
-      await onSaveDiagnosis(diagnosis.trim());
+      await onSaveDiagnosis(diagnosisWithFacts);
       onOpenChange(false);
     } catch (error) {
       setLocalError(error instanceof Error ? error.message : "保存失败，请重试");
@@ -170,8 +203,21 @@ export function DiagnosisQuoteDialog({
                 {order.issue_description || "客户未提供故障描述"}
               </div>
               <div className="mt-3 space-y-1">
+                <OrderFactPicker
+                  field="diagnostic_finding"
+                  codes={diagnosticCodes}
+                  otherNote={diagnosticOtherNote}
+                  catalogRevision={diagnosticCatalogRevision}
+                  disabled={!canEditDiagnosis || isPending}
+                  onChange={(selection) => {
+                    setDiagnosticSelectionTouched(true);
+                    setDiagnosticCodes(selection.codes);
+                    setDiagnosticOtherNote(selection.otherNote);
+                    setDiagnosticCatalogRevision(selection.catalogRevision);
+                  }}
+                />
                 <Label htmlFor="diagnosis-quote-result" className="text-xs font-semibold">
-                  检测结论
+                  补充检测说明（可选）
                 </Label>
                 <Textarea
                   id="diagnosis-quote-result"
@@ -181,7 +227,7 @@ export function DiagnosisQuoteDialog({
                   maxLength={8000}
                   rows={8}
                   onChange={(event) => setDiagnosis(event.target.value)}
-                  placeholder="例如：检测确认电池健康度过低，屏幕与主板功能正常"
+                  placeholder="只有预设选项未覆盖时再补充说明"
                   className="min-h-40 resize-y text-base md:text-sm"
                 />
               </div>

@@ -405,3 +405,5 @@ Order actions that require a business reason must reuse the order-domain primiti
 - `componentOverlay.actionContent`, `actionBody` and `actionFooter` are the shared layout contract.
 
 High-risk actions must start with no selected reason. The component may display legacy free text only when the rollout flag is off; it must not create a hidden default or turn a catalog error into `Other`.
+
+Structured order facts use `OrderFactPicker`, not the action-reason registry. Customer symptoms, technician findings and repair/quote items have separate code identities even when their visual chips are similar. Choices are multi-select, at least 44px high, and only `Other` opens a note. A stale or retired code must remain visible as review-required until the user explicitly clears and reselects it.

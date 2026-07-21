@@ -14,6 +14,7 @@ const capabilities = {
   canPrepareQuote: true,
   canSendQuote: true,
   canCollectPayment: true,
+  canCorrectInitialDeposit: true,
   canTransition: true,
   canConfirmCancelledReturn: true,
   canCreateKioskSession: true,

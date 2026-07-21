@@ -22,12 +22,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { AccessoryNotesPicker } from "@/features/orders/components/accessory-notes-picker";
+import { OrderFactPicker } from "@/features/orders/components/order-fact-picker";
 import { DeviceUnlockEditor } from "@/features/orders/components/device-unlock-fields";
 import { WarrantyPicker } from "@/features/orders/components/warranty-picker";
 import { createOrderLineId } from "@/entities/order/model/order-line-identity";
 import { CustomerPhoneLookup } from "@/features/orders/forms/customer-phone-lookup";
 import { EditField } from "@/features/orders/forms/edit-field";
 import { buildEditForm, inferOrderPaidAmount } from "@/features/orders/model/edit-order-form";
+import {
+  buildFactCompatibilityText,
+  ORDER_FACT_CATALOG_REVISION,
+} from "@/features/orders/model/order-fact-catalog";
 import { warrantyReasonRequired } from "@/features/orders/model/order-warranty";
 import { componentOverlay } from "@/lib/component-patterns";
 import { formatMoney } from "@/lib/money";
@@ -48,9 +53,19 @@ export function EditOrderDialog({
   onSave: (input: UpdateOrderInput) => Promise<unknown>;
 }) {
   const [form, setForm] = useState<UpdateOrderInput>(() => buildEditForm(data));
+  const [reportedSymptomCodes, setReportedSymptomCodes] = useState<string[]>([]);
+  const [reportedSymptomOtherNote, setReportedSymptomOtherNote] = useState("");
+  const [diagnosticCodes, setDiagnosticCodes] = useState<string[]>([]);
+  const [diagnosticOtherNote, setDiagnosticOtherNote] = useState("");
 
   useEffect(() => {
-    if (open) setForm(buildEditForm(data));
+    if (open) {
+      setForm(buildEditForm(data));
+      setReportedSymptomCodes([]);
+      setReportedSymptomOtherNote("");
+      setDiagnosticCodes([]);
+      setDiagnosticOtherNote("");
+    }
   }, [data, open]);
 
   const quotation = useMemo(
@@ -163,7 +178,7 @@ export function EditOrderDialog({
             <h4 className="mb-3 text-sm font-semibold">故障与诊断</h4>
             <div className="min-w-0 space-y-3">
               <div>
-                <div className="mb-2 text-xs text-muted-foreground">维修故障选项</div>
+                <div className="mb-2 text-xs text-muted-foreground">维修/报价项目</div>
                 <FaultDiagnosisPicker
                   selected={selectedFaults}
                   onChange={(faults) =>
@@ -171,6 +186,26 @@ export function EditOrderDialog({
                   }
                 />
               </div>
+              <OrderFactPicker
+                field="reported_symptom"
+                codes={reportedSymptomCodes}
+                otherNote={reportedSymptomOtherNote}
+                onChange={(selection) => {
+                  setReportedSymptomCodes(selection.codes);
+                  setReportedSymptomOtherNote(selection.otherNote);
+                  setForm((current) => ({
+                    ...current,
+                    issue_description: buildFactCompatibilityText({
+                      existingText: current.issue_description,
+                      field: "reported_symptom",
+                      codes: selection.codes,
+                      otherNote: selection.otherNote,
+                      catalogRevision: selection.catalogRevision,
+                      clearExistingSelection: true,
+                    }),
+                  }));
+                }}
+              />
               <EditField label="故障描述" required>
                 <Textarea
                   rows={3}
@@ -178,6 +213,27 @@ export function EditOrderDialog({
                   onChange={(event) => setForm({ ...form, issue_description: event.target.value })}
                 />
               </EditField>
+              <OrderFactPicker
+                field="diagnostic_finding"
+                codes={diagnosticCodes}
+                otherNote={diagnosticOtherNote}
+                catalogRevision={ORDER_FACT_CATALOG_REVISION}
+                onChange={(selection) => {
+                  setDiagnosticCodes(selection.codes);
+                  setDiagnosticOtherNote(selection.otherNote);
+                  setForm((current) => ({
+                    ...current,
+                    diagnosis_result: buildFactCompatibilityText({
+                      existingText: current.diagnosis_result ?? "",
+                      field: "diagnostic_finding",
+                      codes: selection.codes,
+                      otherNote: selection.otherNote,
+                      catalogRevision: selection.catalogRevision,
+                      clearExistingSelection: true,
+                    }),
+                  }));
+                }}
+              />
               <EditField label="诊断结果">
                 <Textarea
                   rows={3}
@@ -292,12 +348,11 @@ export function EditOrderDialog({
               </Button>
             </div>
             <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-3">
-              <EditField label="押金">
-                <MoneyKeypadInput
-                  ariaLabel="押金"
+              <EditField label="初始定金（单独更正）">
+                <Input
                   value={moneyDraftValue(Number(form.deposit_amount ?? 0))}
-                  onChange={(value) => setForm({ ...form, deposit_amount: parseMoneyDraft(value) })}
-                  triggerClassName="font-mono"
+                  readOnly
+                  className="bg-surface-muted font-mono"
                 />
               </EditField>
               <EditField label="已付金额">

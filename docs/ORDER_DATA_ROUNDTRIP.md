@@ -2,7 +2,7 @@
 
 Status: local hardening implemented; final Apply remains release-gated
 Owner: RepairDesk Integration Lead
-Last updated: 2026-07-13
+Last updated: 2026-07-21
 
 ## 范围
 
@@ -30,7 +30,7 @@ Last updated: 2026-07-13
 
 ## 工作簿合同
 
-模板版本为 `repairdesk-order-data-v1`，包含：
+当前模板版本为 `repairdesk-order-data-v2`，解析器继续兼容 v1。v1/v2 都是 legacy-text 合同，包含：
 
 - `工单`：一行一张工单。
 - `维修项目`：一行一个维修项目，通过工单 ID、工单号或稳定外部记录 ID 关联。
@@ -61,9 +61,12 @@ Last updated: 2026-07-13
 - `版本时间` 与当前 `updated_at` 不一致时标记冲突，不静默覆盖。
 - 新增必须填写稳定的 `外部来源 + 外部记录ID`；重复导入同一外部记录不会重复创建。
 - 状态、技师、已付金额、余额和付款状态为只读字段。
-- 维修项目或定金变化时按已收款金额重新计算报价与余额，不覆盖既有付款流水。
+- `定金` 为只读快照。导入值与当前值不同会整行拒绝，并引导在工单详情使用“更正定金”选择原因；批量建单也不接收非零初始定金。
+- 维修项目变化会重新校验报价与当前定金，不覆盖既有付款流水。
 - 已进入报价审批或维修报价流程的财务字段不允许从表格覆盖，必须回到工单页面处理。
 - 预览存在错误行时，整批不能应用。
+
+计划中的 `repairdesk-order-data-v3` 只会在结构化事实迁移和读取优先级上线后发布。v3 必须保存 context/code/revision 与 legacy text，并新增只读“操作历史”工作表；操作历史、事件和审计行不得通过导入覆盖。旧文本导入保持 selection 为 null/legacy，不反向猜测 code。
 
 ## 文件安全
 

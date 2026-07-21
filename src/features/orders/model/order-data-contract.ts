@@ -122,7 +122,12 @@ export const orderDataColumns = [
     mode: "editable",
     description: "0、3、6、12 或 24",
   },
-  { key: "deposit_amount", header: "定金", mode: "editable", description: "不能超过维修项目总额" },
+  {
+    key: "deposit_amount",
+    header: "定金",
+    mode: "readonly",
+    description: "只读；更正请在工单详情使用“更正定金”并选择原因",
+  },
   {
     key: "quotation_amount",
     header: "总报价",
@@ -194,7 +199,6 @@ export const editableOrderDataKeys = new Set<OrderDataColumnKey>([
   "accessory_notes",
   "warranty_text",
   "warranty_months",
-  "deposit_amount",
 ]);
 
 export const clearableOrderDataKeys = new Set<OrderDataColumnKey>([

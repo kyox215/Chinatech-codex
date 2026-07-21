@@ -18,6 +18,7 @@ import {
   createOrderSchema,
   correctTerminalOrderInputSchema,
   correctTerminalOrderV2InputSchema,
+  correctInitialDepositV2InputSchema,
   customerListPageInputSchema,
   customerSearchBodySchema,
   dashboardPrioritySummaryInputSchema,
@@ -1055,6 +1056,27 @@ describe("repairdesk API schemas", () => {
         confirm_public_no: "R1",
       }).confirm_public_no,
     ).toBe("R1");
+  });
+
+  it("keeps initial deposit correction amount and structured reason separate", () => {
+    const input = {
+      expected_updated_at: "2026-07-21T12:00:00.000Z",
+      idempotency_key: "00000000-0000-4000-8000-000000000905",
+      deposit_amount: 25.5,
+      reason_selection: {
+        schema_version: 2 as const,
+        kind: "preset" as const,
+        primary_code: "entered_too_high",
+        catalog_revision: "order-reasons-2026-07-21.v1",
+      },
+    };
+    expect(correctInitialDepositV2InputSchema.parse(input).deposit_amount).toBe(25.5);
+    expect(() =>
+      correctInitialDepositV2InputSchema.parse({ ...input, reason: "手写原因" }),
+    ).toThrow();
+    expect(() =>
+      correctInitialDepositV2InputSchema.parse({ ...input, deposit_amount: 25.555 }),
+    ).toThrow("定金最多保留两位小数");
   });
 
   it("validates approval status from the canonical runtime enum", () => {

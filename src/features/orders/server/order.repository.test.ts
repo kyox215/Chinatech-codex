@@ -226,6 +226,19 @@ describe("order repository role projection", () => {
     ).toBe(false);
   });
 
+  it("offers initial deposit correction only before approval and later payment evidence", () => {
+    expect(projectOrderCapabilities(order(), actor("owner")).canCorrectInitialDeposit).toBe(true);
+    expect(
+      projectOrderCapabilities(order({ approval_flow_status: "waiting_customer" }), actor("owner"))
+        .canCorrectInitialDeposit,
+    ).toBe(false);
+    const withLedger = projectOrderCapabilities(order(), actor("owner"), {
+      hasPaymentLedgerEvidence: true,
+    });
+    expect(withLedger.canCorrectInitialDeposit).toBe(false);
+    expect(withLedger.blockedReasons?.correctInitialDeposit).toContain("支付账本");
+  });
+
   it.each([
     { label: "legacy cancelled", changes: { status: "cancelled" as const } },
     {

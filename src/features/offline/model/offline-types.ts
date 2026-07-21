@@ -113,6 +113,8 @@ export type RepairDeskOfflineOrderDraft = {
   customerLinkDraft?: RepairDeskOfflineCustomerLinkDraft;
   deviceLinkMode: RepairDeskOfflineDeviceLinkMode;
   deviceLinkDraft?: RepairDeskOfflineDeviceLinkDraft;
+  requiresReview?: boolean;
+  reviewReason?: string;
   hasSensitiveVaultEntry: boolean;
   attachmentStagingIds: string[];
   createdAt: string;

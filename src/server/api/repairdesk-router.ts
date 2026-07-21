@@ -70,7 +70,9 @@ import { statusGroups } from "@/lib/mock/enums";
 import {
   batchTransition,
   confirmCancelledOrderReturn,
+  correctInitialDepositWithSelection,
   correctTerminalOrder,
+  correctTerminalOrderWithSelection,
   createOrderWorkflowStatus,
   createOrder,
   decideOrderApproval,
@@ -87,6 +89,7 @@ import {
   confirmOrderQuoteSent,
   recordPayment,
   reopenOrder,
+  reopenOrderWithSelection,
   reorderOrderWorkflowStatuses,
   sendApprovalRequest,
   sendNotification,
@@ -97,6 +100,7 @@ import {
   updateOrderWorkflowTransitions,
   updateOrder,
   voidOrder,
+  voidOrderWithSelection,
   updateOrderCustody,
   uploadOrderAttachment,
 } from "@/features/orders/server/order.service";
@@ -300,6 +304,7 @@ import {
   confirmCancelledOrderReturnBodySchema,
   correctTerminalOrderBodySchema,
   correctTerminalOrderV2BodySchema,
+  correctInitialDepositV2BodySchema,
   orderCreateOperationStatusSchema,
   createOrderSchema,
   customerCreateBodySchema,
@@ -407,7 +412,9 @@ const supabaseSource = {
   acceptKioskSession,
   batchTransition,
   confirmCancelledOrderReturn,
+  correctInitialDepositWithSelection,
   correctTerminalOrder,
+  correctTerminalOrderWithSelection,
   completeCustomerFollowup,
   acceptStoreInvitation,
   approveOnboardingRequest,
@@ -493,6 +500,7 @@ const supabaseSource = {
   recordInventoryTransaction,
   recordPayment,
   reopenOrder,
+  reopenOrderWithSelection,
   reorderOrderWorkflowStatuses,
   renderMessageTemplatePreview,
   resetMessageTemplate,
@@ -529,6 +537,7 @@ const supabaseSource = {
   allocateOrderPart,
   releaseOrderPart,
   voidOrder,
+  voidOrderWithSelection,
   updateOrderCustody,
   updateOrderWorkflowStatus,
   updateOrderWorkflowTransitions,
@@ -2270,7 +2279,15 @@ export async function handleRepairDeskPost(
           await runWithRealtime(
             actor,
             () =>
-              api.correctTerminalOrder(id, { ...legacyInput, reason: resolved.legacyText }, actor),
+              api.correctTerminalOrderWithSelection(
+                id,
+                {
+                  ...legacyInput,
+                  reason: resolved.legacyText,
+                  reasonSelection: resolved.storedSelection,
+                },
+                actor,
+              ),
             realtimeBroadcasts.orderUpdated,
           ),
         );
@@ -2295,7 +2312,16 @@ export async function handleRepairDeskPost(
         return ok(
           await runWithRealtime(
             actor,
-            () => api.reopenOrder(id, { ...legacyInput, reason: resolved.legacyText }, actor),
+            () =>
+              api.reopenOrderWithSelection(
+                id,
+                {
+                  ...legacyInput,
+                  reason: resolved.legacyText,
+                  reasonSelection: resolved.storedSelection,
+                },
+                actor,
+              ),
             realtimeBroadcasts.orderTransitioned,
           ),
         );
@@ -2320,7 +2346,42 @@ export async function handleRepairDeskPost(
         return ok(
           await runWithRealtime(
             actor,
-            () => api.voidOrder(id, { ...legacyInput, reason: resolved.legacyText }, actor),
+            () =>
+              api.voidOrderWithSelection(
+                id,
+                {
+                  ...legacyInput,
+                  reason: resolved.legacyText,
+                  reasonSelection: resolved.storedSelection,
+                },
+                actor,
+              ),
+            realtimeBroadcasts.orderUpdated,
+          ),
+        );
+      }
+      case "order/correct-initial-deposit-v2": {
+        const { id, input } = correctInitialDepositV2BodySchema.parse(body);
+        assertOrderPresetReasonWorkflowEnabledForStore(actor.storeId);
+        assertRepairDeskPermission(actor, "payment:adjust");
+        const resolved = resolveOrderReasonSelection(
+          "finance.initial_deposit_correction",
+          input.reason_selection,
+        );
+        const { reason_selection: _selection, ...legacyInput } = input;
+        return ok(
+          await runWithRealtime(
+            actor,
+            () =>
+              api.correctInitialDepositWithSelection(
+                id,
+                {
+                  ...legacyInput,
+                  reason: resolved.legacyText,
+                  reasonSelection: resolved.storedSelection,
+                },
+                actor,
+              ),
             realtimeBroadcasts.orderUpdated,
           ),
         );

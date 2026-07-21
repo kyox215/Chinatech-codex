@@ -3,7 +3,7 @@
 Status: active
 Owner: Hexiang Huang / 鹤祥
 Scope: current Next.js RepairDesk customer finance projection, routine order edits, terminal correction/reopen, cancelled custody confirmation and Owner safe void
-Last reviewed: 2026-07-17 CEST
+Last reviewed: 2026-07-21 CEST
 Source task: `TASK-20260716-003-customer-finance-order-correction-plan`
 
 ## 1. Authority
@@ -48,6 +48,8 @@ The UI consumes these capabilities and does not infer authorization from role st
 Correction, reopen, void and cancelled-custody confirmation use dedicated atomic commands. Each command enforces store scope, actor membership/role, allowed fields, row lock, expected `updated_at`, request idempotency key, reason or confirmation text, and one transaction for the order, terminal-operation record, timeline event and audit record.
 
 Generic update and batch-import paths cannot mutate protected terminal/voided fields. Voided rows are immutable and retain ledger, events, attachments, messages and audit evidence.
+
+Initial deposit is also excluded from generic edit, finance patch and workbook update paths. Before approval and before any payment-ledger evidence, an authorized actor may use the dedicated initial-deposit correction command. It requires expected version, idempotency key, amount invariants and a preset reason. Once approval or payment history exists, the UI hides this correction and directs accounting changes to the payment ledger; payment method, refund and later receipts are never modeled as an initial-deposit correction.
 
 ## 5. Payment boundary
 

@@ -402,7 +402,7 @@ describe("order data import preview", () => {
     expect(mocks.createImportBatch).not.toHaveBeenCalled();
   });
 
-  it("rejects a deposit that exceeds the effective quotation during preview", async () => {
+  it("routes any imported deposit change to the dedicated correction flow", async () => {
     const order = {
       ...existingOrder(),
       quotation_amount: 100,
@@ -443,7 +443,49 @@ describe("order data import preview", () => {
 
     expect(preview.summary.invalid).toBe(1);
     expect(preview.rows[0].errors).toContainEqual(
-      expect.objectContaining({ code: "deposit_exceeds_quote" }),
+      expect.objectContaining({ code: "initial_deposit_requires_order_screen" }),
+    );
+  });
+
+  it("rejects a non-zero initial deposit in batch create", async () => {
+    mocks.parseOrderDataWorkbook.mockResolvedValue({
+      templateVersion: "repairdesk-order-data-v2",
+      orderRows: [
+        {
+          __row_number: "2",
+          数据版本: "repairdesk-order-data-v2",
+          导入动作: "create",
+          外部来源: "seatable",
+          外部记录ID: "deposit-create-1",
+          订单类型: "dropoff_repair",
+          客户姓名: "Luigi",
+          客户电话: "+39 333 123 4567",
+          设备品牌: "Apple",
+          设备型号: "iPhone",
+          故障描述: "No power",
+          定金: "20",
+        },
+      ],
+      repairItemRows: [],
+    });
+    mocks.loadOrderDataCandidates.mockResolvedValue({
+      byId: new Map(),
+      byPublicNo: new Map(),
+      byExternalRef: new Map(),
+      customersByPhoneRaw: new Map(),
+    });
+
+    const preview = await previewOrderDataImport({
+      actor,
+      expectedStoreId: storeId,
+      mode: "create_and_update",
+      fileName: "orders.xlsx",
+      bytes: Buffer.from("xlsx"),
+    });
+
+    expect(preview.summary.invalid).toBe(1);
+    expect(preview.rows[0].errors).toContainEqual(
+      expect.objectContaining({ code: "initial_deposit_requires_order_screen" }),
     );
   });
 

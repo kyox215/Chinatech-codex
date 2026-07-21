@@ -1,10 +1,10 @@
 # Order preset reason workflow release
 
-Status: application compatibility layer implemented; database expansion phases intentionally deferred.
+Status: application Phase 1/2 implemented; Phase 3/4 expand-only migrations validated locally and withheld from production.
 
 ## Outcome
 
-This release reduces required typing in order intake, status transitions, approval rejection, warranty changes, terminal corrections, reopening and voiding. It also removes the overlap between action overlays and the page action dock.
+This release reduces required typing in order intake, diagnosis, status transitions, approval rejection, warranty changes, initial-deposit correction, terminal corrections, reopening, voiding and rework review. It also removes the overlap between action overlays and the page action dock.
 
 The application keeps the existing human-readable reason fields for old clients, printing and timeline rendering. New v2 commands submit stable codes; the server resolves those codes to legacy text and rejects stale revisions.
 
@@ -20,6 +20,11 @@ The application keeps the existing human-readable reason fields for old clients,
 - Terminal operations resolve selections to existing legacy RPC text without claiming structured terminal persistence.
 - Non-default warranty choices use preset reasons while retaining the legacy reason field.
 - Intake intent choices: known problem, pending diagnosis, customer cannot describe, and diagnostic only.
+- Separate multi-select catalogs for customer-reported symptoms and technician findings; repair/quote items remain a third identity.
+- A dedicated initial-deposit correction dialog with money keypad, preset reason and capability-based blocking after approval or payment evidence.
+- Generic order edit, finance patch and workbook import cannot rewrite the initial deposit.
+- Rework triage and post-diagnosis disposition are separate; triage never promises free warranty and the compatibility phase never claims a related order was created.
+- Offline create drafts persist schema version and fact catalog revision; stale or retired choices are preserved and sent to review rather than silently remapped.
 - WhatsApp templates are read-only previews by default; manual editing is behind `Custom message`.
 - A shared responsive action overlay with one scrolling body and a non-scrolling footer.
 - `visualViewport` keyboard metrics, safe-area padding and action-dock coordination.
@@ -27,17 +32,23 @@ The application keeps the existing human-readable reason fields for old clients,
 
 ## Data boundary
 
-This release applies no database migration and performs no historical backfill.
+The production application release applies no database migration and performs no historical backfill.
 
-Structured JSON is written only into an existing atomic event payload for normal transitions and approval decisions. Terminal correction/reopen/void and non-default warranty continue to persist legacy text through their current paths. Initial-deposit structured persistence remains outside this release because the required additive migration and dedicated v2 RPC have not passed the database gate.
+Structured JSON is written only into an existing atomic event payload for normal transitions and approval decisions. Terminal correction/reopen/void, initial-deposit correction and non-default warranty continue to persist legacy text through their current production paths. The dedicated initial-deposit v1 RPC already exists in production; its v2 structured wrapper remains disabled.
+
+Two additive candidates are included but must not be pushed while the migration-history gate is red:
+
+- `20260721155031_order_reason_persistence_v2.sql`: nullable terminal/deposit snapshots, workflow-edge reason policy and explicitly named service-role-only v2 RPCs.
+- `20260721155054_order_structured_facts_related_orders_v2.sql`: nullable fact projections, same-store repair episodes/relations and atomic related-order command.
+
+Both candidates replayed successfully on an isolated RepairDesk schema snapshot. `supabase/tests/order_reason_persistence_v2.sql` passed 47/47 validator, ACL, RLS and same-store structure assertions. This is development evidence, not production-apply approval. The linked project still has material remote-only migration history and therefore remains `NO-GO` for `supabase db push`.
 
 The following remain separate Owner-approved phases:
 
-- terminal/deposit/custody structured columns and dedicated v2 RPCs;
-- workflow-edge reason policy tables;
-- persisted intake, symptom, diagnosis and repair-item identities;
-- repair episode, warranty claim and related-order data models;
-- import/export v3 and offline structured-selection conflict resolution.
+- production application of the two candidate migrations;
+- server/UI activation of persisted fact projections and atomic related-order creation;
+- workbook v3 structured round-trip and read-only operation-history sheet;
+- any historical classification/backfill (the default remains null/legacy text).
 
 ## Rollout flags
 
@@ -47,6 +58,7 @@ All three gates must be satisfied. Any missing, `0`, `true` or malformed value i
 NEXT_PUBLIC_ORDER_PRESET_REASON_WORKFLOW_ENABLED=0
 ORDER_PRESET_REASON_WORKFLOW_ENABLED=0
 ORDER_PRESET_REASON_WORKFLOW_STORE_ALLOWLIST=
+ORDER_REASON_PERSISTENCE_V2_ENABLED=0
 ```
 
 - The public flag selects the preset UI. It is build-time and requires a redeploy when changed.
@@ -54,14 +66,24 @@ ORDER_PRESET_REASON_WORKFLOW_STORE_ALLOWLIST=
 - The server allowlist must contain the current actor store id exactly.
 - With the UI flag off, the complete legacy free-text field remains available and API calls use legacy endpoints.
 - With the UI flag on but server/store gate closed, v2 writes fail closed with `ORDER_PRESET_REASON_WORKFLOW_DISABLED`.
+- `ORDER_REASON_PERSISTENCE_V2_ENABLED=1` is a second server-only gate. It must stay `0` until the Phase 3 migration is applied and verified; otherwise terminal and deposit commands continue through v1 RPCs with resolved legacy text.
 
 Recommended canary order:
 
-1. Deploy all flags off.
+1. Deploy all flags off, including structured persistence.
 2. Verify legacy transition, approval and terminal actions.
 3. Enable the public and server flags for a preview deployment with one test store in the allowlist.
 4. Verify stale revision, permission denial, idempotent replay and legacy text parity.
 5. Enable only the Chinatech store in production and observe before adding another store.
+6. Do not enable structured persistence as part of the application canary; it has a separate database change window.
+
+## Import, export and offline compatibility
+
+- Current workbook version remains `repairdesk-order-data-v2`; v1 and v2 are legacy-text contracts.
+- The exported `定金` column is read-only. Any changed imported value is rejected with guidance to use the dedicated correction flow and choose a reason.
+- Workbook v3 is not emitted until structured projections are live. It must add current selection columns and a separate read-only operation-history sheet; imported history must never overwrite events or audit evidence.
+- Legacy text is never reverse-guessed into a code.
+- Offline draft schema v2 stores customer-symptom codes and catalog revision locally. A stale revision marks the draft/outbox as review-required and blocks automatic sync.
 
 ## Catalog contract
 

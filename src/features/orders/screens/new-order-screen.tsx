@@ -90,6 +90,7 @@ import {
   isIntakeQuotePaused,
   resolveIntakeQuoteDraft,
 } from "@/features/orders/model/order-diagnosis-quote";
+import { buildFactCompatibilityText } from "@/features/orders/model/order-fact-catalog";
 import type { NewOrderPrefill } from "@/features/orders/model/new-order-intent";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { CACHE_TIMES } from "@/lib/query-performance";
@@ -482,7 +483,13 @@ export function NewOrderScreen({
         device_model: form.model,
         device_imei: form.imei,
         device_custody_status: custodyStatus,
-        issue_description: issueDescriptionForIntake(form.issueCaptureMode, form.issue),
+        issue_description: buildFactCompatibilityText({
+          existingText: issueDescriptionForIntake(form.issueCaptureMode, form.issue),
+          field: "reported_symptom",
+          codes: form.issueCaptureMode === "reported" ? form.reportedSymptomCodes : [],
+          otherNote: form.reportedSymptomOtherNote,
+          catalogRevision: form.reportedSymptomCatalogRevision,
+        }),
         accessory_notes: form.accessoryNotes || undefined,
         warranty_text: form.warrantyText || undefined,
         warranty_months: form.warrantyMonths,
