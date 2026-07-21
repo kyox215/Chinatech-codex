@@ -113,9 +113,27 @@ must not be rewritten merely to make local files appear aligned. Production
 application still requires a separate approved window with backup/restore
 evidence and post-apply checks.
 
-1. Reconcile every local/remote Supabase migration entry and prove the recovery
+### Production capacity baseline (read-only, 2026-07-21)
+
+Aggregate-only queries against the linked project returned:
+
+| Table / payload | Rows | Current footprint |
+|---|---:|---:|
+| `repair_orders` | 6,373 | 27,549,696 bytes total relation size |
+| `order_events` | 6,730 | 5,242,880 bytes total relation size |
+| `order_terminal_operations` | 5 | 98,304 bytes total relation size |
+| `order_initial_deposit_corrections` | 0 | 65,536 bytes total relation size |
+| `order_events.payload` | 6,730 non-null | 457 bytes average, 738 bytes maximum, 3,074,548 bytes total |
+
+The candidate `reason_selection` columns are absent, as expected before Phase
+3. No customer fields or event payload contents were selected. This baseline
+shows a small current write volume, but it is not a substitute for backup and
+restore proof.
+
+1. Reconcile the 19 historical statement differences and prove the recovery
    baseline without rewriting production history blindly.
-2. Record production table/JSONB capacity, backup and restore evidence.
+2. Preserve the recorded table/JSONB capacity baseline and add backup/restore
+   evidence for the approved migration window.
 3. Obtain separate Owner approval for the Phase 3 migration/RPC window and the
    Phase 4 product/data model.
 4. Apply additive candidates through a dry-run-reviewed release procedure.
