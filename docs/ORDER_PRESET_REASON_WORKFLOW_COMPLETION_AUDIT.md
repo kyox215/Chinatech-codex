@@ -1,168 +1,107 @@
 # Order preset reason workflow completion audit
 
-Status: **CONDITIONAL — application released; full v2 data plan not closed**
+Status: **PRODUCTION COMPLETE — Phase 3/4 active for ChinaTech**
 
-Audited source: `codex/order-preset-workflow-v2` at `497a1161` plus the audit-only
-test added after that commit.
+Audited source: `codex/order-preset-workflow-v2` at application commit
+`8aa73281` (closeout documentation may be newer).
 
-Production application: `dpl_F6nKW8p8Kz77CvFXcZF2c8yZ2hQh`, READY at
-`https://www.chinatech.in`.
+Production application: `dpl_9t5bqcUejKML8txztxeTHCNS1YFT`, READY at
+`https://www.chinatech.in` and `https://chinatech.in`.
+
+Production database: Supabase project `xluzcoduqsdvjoouqhkc`; migrations
+`20260721155031` and `20260721155054` are applied and recorded.
 
 ## Decision
 
-The released application satisfies the no-migration compatibility scope and the
-Phase 2 interaction scope. It must not yet be described as the complete Phase
-3/4 rollout because the linked production migration history is still unsafe,
-structured persistence is intentionally disabled, and the Phase 4 workbook and
-related-order application paths are not activated.
+The Owner-approved Phase 3/4 scope is released. Structured intake, reported-fault
+and diagnostic selections, immutable-source related rework orders, structured
+disposition, and workbook v3 import/export are active for the ChinaTech store.
+Legacy workbook v1/v2 reads and v1 API behavior remain compatible.
 
-`ORDER_REASON_PERSISTENCE_V2_ENABLED` must remain `0` until the data gate below
-is approved and verified.
+The completed source order remains immutable. Starting after-sales reinspection
+creates a separate zero-finance child through a dedicated, idempotent,
+service-role-only RPC. The child records the episode/relation; it never rewrites
+the completed source into a rework state.
 
 ## Requirement-to-evidence matrix
 
-| Plan requirement | Result | Authoritative evidence |
+| Requirement | Result | Authoritative evidence |
 |---|---|---|
-| Versioned, server-owned reason catalog and command-derived context | PASS | `order-reason-registry.ts`, registry/feature/contract tests |
-| Action, business reason, fact, evidence channel and customer message remain distinct | PASS | reason/fact catalogs, strict schemas, message templates and release documentation |
-| Cancel, unfixed pickup, mail-in, approval rejection, warranty, terminal and initial-deposit flows use preset confirmation | PASS | application components, repository adapters, 2210 unit/integration tests and browser flows |
-| High-risk actions have no default reason and `Other` alone requires a note | PASS | reason-field tests, registry tests and keyboard browser check |
-| Legacy text, v1 RPC and old client compatibility remain available | PASS | v1/v2 repository branches, feature flags and parity tests |
-| Mobile/desktop overlay keeps CTA reachable and removes visible page dock | PASS | Chromium completion matrix, transition-scroll and visual-overflow suites |
-| 360×640, 390×844, 430×932, 844×390, 768×1024, 1024×768, 1280×800, 1366×768 and 1440×900 | PASS (automated) | `visual-overflow.spec.ts`, `order-transition-scroll.spec.ts`, `order-preset-completion-matrix.spec.ts` |
-| Desktop 200% zoom layout | PASS (automated approximation) | 512×384 CSS-pixel equivalent of 1024×768; not a substitute for manual browser zoom |
-| Reduced motion, forced colors and keyboard radio selection | PASS (automated) | completion matrix keyboard/forced-colors test |
-| WebKit scrolling, Other input and focus return | PASS (engine) | 3/3 WebKit transition-scroll tests |
-| Physical iOS Safari and Android Chrome keyboard/safe-area/rotation/back gesture | MISSING | no physical-device session was available; Playwright evidence is explicitly insufficient in the plan |
-| VoiceOver + Safari and NVDA + Chrome manual record | MISSING | no assisted-technology session was recorded |
-| Initial deposit cannot be rewritten through generic edit/import | PASS | dedicated correction dialog, service/repository guards and import tests |
-| Rework triage and disposition are separate and do not promise free warranty | PASS | catalogs, `ReworkDispositionCard` and browser evidence |
-| Phase 3 additive terminal/deposit selection and v2 RPCs | PASS as candidate | `20260721155031_order_reason_persistence_v2.sql`; isolated pgTAP |
-| Phase 4 structured facts, repair episodes and atomic related-order RPC | PASS as candidate schema only | `20260721155054_order_structured_facts_related_orders_v2.sql`; isolated pgTAP |
-| Apply Phase 3/4 to production and enable persisted selection | BLOCKED | linked history has 19 historical statement differences; dry-run only, no production push |
-| Workbook v3 structured round-trip and read-only operation history | NOT IMPLEMENTED | current workbook remains `repairdesk-order-data-v2` by documented design |
-| Application reads/writes Phase 4 fact projections and creates related orders | NOT IMPLEMENTED | migration/RPC candidate exists, but no approved activation path is exposed |
-| Offline stale/retired selections enter review without silent remapping | PASS for current create draft | offline schema v2 and stale-review tests; full Phase 4 round-trip waits for production projections |
-| WhatsApp number validation using `libphonenumber-js/max` | NOT APPROVED | no dependency was added; current implementation may claim only weaker structural validation |
-| Production application smoke and error scan | PASS | `/orders` and manifest return 200; deployment error/5xx scans were empty |
+| Preset reasons and structured facts replace routine free typing | PASS | versioned catalogs, strict command schemas, application components and 2,218 passing Vitest tests |
+| CTA remains reachable without bottom-dock overlap | PASS | responsive overlays, focused Phase 4 Playwright contract and screenshot |
+| Structured reason persistence | PASS — production | `20260721155031_order_reason_persistence_v2.sql`; production ACL/constraint post-check |
+| Structured facts, episodes and related-order creation | PASS — production | `20260721155054_order_structured_facts_related_orders_v2.sql`; production RLS/RPC/column post-check |
+| Original completed order remains unchanged | PASS | dedicated related-order RPC contract and 15/15 restored-snapshot runtime tests |
+| Workbook v3 structured round-trip and read-only history | PASS — production | v3 export/import implementation and 6/6 restored-snapshot apply/rollback tests |
+| Workbook v1/v2 compatibility | PASS | normalizers, compatibility tests and independent v3 flags |
+| Initial deposit cannot be rewritten through generic edit/import | PASS | dedicated correction workflow, service/repository guards and import tests |
+| High-risk commands have no unsafe default; `Other` requires a note | PASS | catalog, field and keyboard contract tests |
+| RLS, direct-DML revocation and service-only RPC boundary | PASS — production | post-apply catalog/ACL checks; 4 new tables RLS-enabled and 5 Phase 4 RPCs service-only |
+| Store-scoped rollout and fail-closed apply | PASS | exact ChinaTech allowlists, including `ORDER_DATA_APPLY_STORE_ALLOWLIST` |
+| Production application and error scan | PASS | final deployment READY, `/login` HTTP 200, recent error log scan empty |
+| Physical iOS/Android and VoiceOver/NVDA manual record | NOT RECORDED | automated Chromium/WebKit, viewport and keyboard coverage exists; no physical-device or assistive-technology session was available |
 
 ## Executed evidence
 
 - `npm run lint`: PASS.
 - `npm run typecheck`: PASS.
-- `npx vitest run`: 339 files, 2210 tests PASS.
-- `tests/e2e/order-preset-phase2.spec.ts`, `order-transition-scroll.spec.ts`
-  and `visual-overflow.spec.ts`: 13/13 Chromium PASS.
-- `tests/e2e/order-preset-completion-matrix.spec.ts`: 5/5 Chromium PASS.
-- `tests/e2e/order-transition-scroll.spec.ts`: 3/3 WebKit PASS.
-- `supabase/tests/order_reason_persistence_v2.sql`: 47/47 isolated pgTAP PASS.
-- Linked Supabase migration dry run: PASS; exactly 2 candidate migrations, 0
-  production writes.
-- Vercel preview `dpl_55ToJj9rJoVvpUZCLzGYn523YSQC`: READY and smoked.
-- Vercel production `dpl_F6nKW8p8Kz77CvFXcZF2c8yZ2hQh`: READY and aliased.
+- `npx vitest run`: 340 files, 2,218 tests PASS.
+- `npm run build`: PASS with the production build.
+- `tests/e2e/order-related-workflow-phase4.spec.ts`: PASS; the dialog has no
+  text box, its preset selection enables `建立复检单`, and there is no horizontal
+  overflow or dock obstruction.
+- Restored production snapshot: Phase 3 pgTAP 53/53 PASS; related rework runtime
+  15/15 PASS; workbook v3 apply/rollback 6/6 PASS.
+- Final linked migration dry-run after apply: `Remote database is up to date`.
+- Production database observation: 6,376 orders; 0 new episode, relation,
+  related-operation or disposition-operation rows from the release procedure.
+- Production deployment `dpl_9t5bqcUejKML8txztxeTHCNS1YFT`: READY; both
+  production aliases active; `/login` 200; 15-minute error scan empty.
 
-The legacy print-count assertion in `order-desktop-ui-audit.spec.ts` remains an
-unrelated existing test debt and is not used as proof for this release.
+The migration/release procedure intentionally created no business order, child
+order, workbook apply operation or disposition record in production. The order
+count increased from the earlier 6,373 baseline to 6,376 before the Phase 3
+post-check; neither additive migration writes `repair_orders`, so these are
+concurrent store activity and were not modified by this release.
 
-## Documentation impact matrix
+## Recovery evidence
 
-| Reader | Authoritative document | Sync result |
-|---|---|---|
-| Store staff / support | `ORDER_PRESET_REASON_WORKFLOW_RELEASE.md` | Updated with enabled compatibility behavior, feature flags and rollback |
-| UI developers / QA | `UI_PAGE_GENERATION_DECLARATION.md`, `COMPONENT_GENERATION_DECLARATION.md`, `REPAIROS_MOBILE_DETAIL_STANDARD.md`, `RESPONSIVE_DENSITY_PLAN.md` | Updated with overlay, dock, focus, viewport and preset-field requirements |
-| Import/export operators | `ORDER_DATA_ROUNDTRIP.md` | Correctly retains workbook v2 limits; v3 is explicitly pending |
-| Lifecycle / finance maintainers | `ORDER_LIFECYCLE_CORRECTION_STANDARD.md` | Updated for dedicated initial-deposit correction and structured reason boundary |
-| Release / data owners | this completion audit | Records deployment, migration dry run, unresolved history drift, approval gates and rollback |
+Fresh pre-change logical backups were created with owner-only file permissions
+and successfully restored into an isolated PostgreSQL 17 database before the
+production window:
 
-No public documentation contains credentials, production connection strings,
-customer records or message bodies. The missing workbook v3 and production data
-runbook remain open deliverables rather than being documented as shipped.
+- schema: `/private/tmp/repairdesk-pre-phase34-20260721-schema.sql`
+  (`edf62e9eed645863c23e7fb3dd39091ede476ba8e12ba29c25ca0dba71caf8af`)
+- public data: `/private/tmp/repairdesk-pre-phase34-20260721-public-data.sql`
+  (`1557f1f527261a4c67e4805b6dbbc969b26f70a5f36ceca000d9da234cefae8d`)
 
-## Data gate required for full completion
+The initial broader dump containing internal/auth schemas was deleted after the
+public-only backup succeeded. No credentials or customer payloads are included
+in this audit.
 
-### Linked-history provenance audit (read-only, 2026-07-21)
+## Production feature boundary
 
-- `supabase migration list --linked` from the mixed primary checkout initially
-  reported 24 remote-only versions. The isolated release branch already
-  contains those versions after its latest `main` reconciliation.
-- `supabase migration fetch --linked --yes` was executed only in an isolated
-  temporary directory. It fetched 99 remote statements and did not write to the
-  repository or production database.
-- Release-branch version history is now linear: all 99 remote versions are
-  present locally, with only the two intended Phase 3/4 candidates
-  (`20260721155031`, `20260721155054`) present locally but not remotely.
-- The 24 initially missing versions all have historical Git provenance and
-  match their fetched remote statements after blank-line normalization (24/24,
-  0 differences, 0 missing sources).
-- A whole-history comparison found 80/99 fetched statements equivalent after
-  whitespace normalization and 19/99 with token-level differences. The drift
-  includes the historical baseline and older order/customer/employee
-  migrations, so version alignment alone is not sufficient recovery proof.
-- This establishes filename/version lineage, but it does **not** prove an exact
-  rebuild, current backup, restore drill, migration dry run, or permission/RLS
-  behavior after application.
-- No `supabase migration repair`, `supabase db push`, DDL, DML or production
-  history rewrite was executed.
-- `supabase db push --linked --dry-run --yes`, run against the isolated fetched
-  history plus the two candidates, completed successfully and listed exactly
-  `20260721155031` and `20260721155054` as the migrations that would be pushed.
+The client/server structured workflows, related-order commands and workbook v3
+are enabled only for store `5248dda1-2b32-46cd-8ed0-d15386a9e8ed` where a store
+allowlist applies. Workbook apply is additionally guarded by
+`ORDER_DATA_APPLY_STORE_ALLOWLIST`; enabling its global switch therefore does
+not expose legacy v1/v2 apply to other stores. Workbook export remains
+owner-only.
 
-The 19 historical statement differences must be reconciled as immutable
-provenance or safe forward migrations; previously applied production history
-must not be rewritten merely to make local files appear aligned. Production
-application still requires a separate approved window with backup/restore
-evidence and post-apply checks.
+Rollback is non-destructive and staged: disable the public/server workflow,
+related-order, v3 import and data-apply flags, then redeploy. The additive
+columns/tables and old API paths may remain in place. Schema rollback should be
+considered only for a confirmed database incident because removing additive
+objects would be more destructive than flag rollback.
 
-### Production capacity baseline (read-only, 2026-07-21)
+## Residual evidence gap
 
-Aggregate-only queries against the linked project returned:
+No authenticated in-app-browser production session was available for a live
+business-write smoke test, and the release intentionally did not create test
+orders in production. The final UI evidence is therefore a deterministic local
+Playwright flow backed by live production migration/ACL/HTTP/log observations
+and restored-snapshot transactional tests. Physical-device and screen-reader
+acceptance remain follow-up QA evidence, not an undisclosed production blocker.
 
-| Table / payload | Rows | Current footprint |
-|---|---:|---:|
-| `repair_orders` | 6,373 | 27,549,696 bytes total relation size |
-| `order_events` | 6,730 | 5,242,880 bytes total relation size |
-| `order_terminal_operations` | 5 | 98,304 bytes total relation size |
-| `order_initial_deposit_corrections` | 0 | 65,536 bytes total relation size |
-| `order_events.payload` | 6,730 non-null | 457 bytes average, 738 bytes maximum, 3,074,548 bytes total |
-
-The candidate `reason_selection` columns are absent, as expected before Phase
-3. No customer fields or event payload contents were selected. This baseline
-shows a small current write volume, but it is not a substitute for backup and
-restore proof.
-
-1. Reconcile the 19 historical statement differences and prove the recovery
-   baseline without rewriting production history blindly.
-2. Preserve the recorded table/JSONB capacity baseline and add backup/restore
-   evidence for the approved migration window.
-3. Obtain separate Owner approval for the Phase 3 migration/RPC window and the
-   Phase 4 product/data model.
-4. Apply additive candidates through a dry-run-reviewed release procedure.
-5. Verify RLS, grants, same-store constraints, v1/v2 parity, idempotent replay,
-   and event/special-operation/audit consistency against the linked project.
-6. Add and activate application reads/writes for fact projections and related
-   order creation, then ship workbook v3 with a read-only operation-history
-   sheet.
-7. Run physical iOS/Android and screen-reader acceptance before declaring the
-   entire v2 plan PASS.
-
-## Reproduction
-
-```bash
-npm run lint
-npm run typecheck
-npx vitest run
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:3107 \
-  PLAYWRIGHT_REUSE_EXISTING_SERVER=1 \
-  REPAIRDESK_E2E_BUSINESS_DESKTOP=1 \
-  REPAIRDESK_E2E_ORDER_PRESET_COMPLETION=1 \
-  NEXT_PUBLIC_ORDER_PRESET_REASON_WORKFLOW_ENABLED=1 \
-  ORDER_PRESET_REASON_WORKFLOW_ENABLED=1 \
-  npx playwright test --workers=1 \
-  tests/e2e/order-preset-completion-matrix.spec.ts
-```
-
-## Rollback boundary
-
-The released application remains safely reversible by disabling the public and
-server preset-workflow flags and redeploying. No production schema, historical
-reason, event or audit record was changed by this application release.
+Visual evidence:
+`/private/tmp/repairdesk-phase4-screens/desktop-related-rework-triage-1280x800.png`.
