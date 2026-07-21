@@ -44,3 +44,22 @@
 - **Evidence:**
   - Release candidate before amend=791f42a3a20c732772825b9b99a0abfad5b0610f; origin/main=d796feca69d12ef9884baaae7bf690b4c5202e16; lint=pass; typecheck=pass; vitest=331 files/2163 tests pass; build=pass; Playwright=3 pass; git diff check=pass
 - **Recorded by:** CEO-Orchestrator
+
+## 2026-07-21T10:41:54Z — 生产发布和首轮观察完成
+
+- **Phase:** closed
+- **Completed/current state:** PR #4 已合并；`origin/main`、Vercel 生产源提交与发布记录均指向 `50a7b11988ad8e3802968e60af5a16ace9ac6ad7`。生产部署 `dpl_B4LJKbocAtak3CpoB4e2Ayct5t8r` 为 `READY`，`chinatech.in` 与 `www.chinatech.in` 别名无错误。
+- **Verification:** 认证后的生产 `/orders` 页面没有名为 `筛选` 的按钮（0），搜索框、扫码和新建工单按钮各 1 个，队列及显示范围控件保留；页面 `scrollWidth=clientWidth=1437`，无水平溢出。
+- **Observation:** Vercel 构建完成且无构建错误；针对 `/orders` 的运行时错误聚合为空，精确部署最近 30 分钟的 error/fatal 日志为空。
+- **Decision:** 发布成功，不触发回滚；预发布回滚基线 `dpl_63vFKJhMDrHh5zGQxsdcVKurEGBZ` 保留为审计记录。该一次性 UI 删除不提升为部门规则、组织能力或权限变化。
+- **Evidence:** PR `https://github.com/kyox215/Chinatech-codex/pull/4`; production screenshot `/private/tmp/repairdesk-orders-remove-filter-20260721/test-results/production-orders-filter-removed-20260721.png`; `RELEASE.md`; `QUALITY_GATE.md`.
+- **Recorded by:** CEO-Orchestrator
+## 2026-07-21T10:43:39Z — PR #4 已合并并完成生产发布；Vercel 精确部署 READY，认证后的 /orders 页面无筛选按钮且主要工具保留，初始构建与运行时错误观察为空。
+
+- **Phase:** closed
+- **Completed/current state:** PR #4 已合并并完成生产发布；Vercel 精确部署 READY，认证后的 /orders 页面无筛选按钮且主要工具保留，初始构建与运行时错误观察为空。
+- **Next:** 无常规后续；仅在筛选入口回归、主要工具缺失或出现与本发布相关的生产错误时重新开启任务。
+- **Decision:** 发布成功且不回滚；不激活本任务，以保留并发 store-purge 的 ACTIVE_CONTEXT。一次性 UI 变更不升级为长期部门规则或能力权限。
+- **Evidence:**
+  - origin/main=50a7b11988ad8e3802968e60af5a16ace9ac6ad7; deployment=dpl_B4LJKbocAtak3CpoB4e2Ayct5t8r READY; production DOM and screenshot verified; agents:check pass; task release records updated.
+- **Recorded by:** CEO-Orchestrator

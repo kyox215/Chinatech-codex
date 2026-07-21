@@ -45,3 +45,15 @@
 ## Concurrent-main note
 
 The current `main` already contains the separately governed store-purge code and its migration file. This release neither adds nor applies that migration and must preserve its existing task memory and production state without claiming approval for any store-purge database action.
+
+## Release outcome
+
+- Pull request: `https://github.com/kyox215/Chinatech-codex/pull/4` (merged).
+- Feature commit: `44e9ebce4fe047d5d0085f78f458526ff9690802`.
+- Squash merge / production source: `50a7b11988ad8e3802968e60af5a16ace9ac6ad7`.
+- Preview deployment: `dpl_4hjeFJv2Xy4q6yGKyAqRViTigQ31` (`READY`).
+- Production deployment: `dpl_B4LJKbocAtak3CpoB4e2Ayct5t8r` (`READY`), aliased to `chinatech.in` and `www.chinatech.in` without alias errors.
+- Authenticated smoke: `/orders` loaded; redundant filter button count 0; search, scan, and new-order controls present; queues and display-range controls preserved; no horizontal overflow.
+- Initial observation: build completed without error events; `/orders` runtime error clusters none; deployment error/fatal runtime logs none in the selected 30-minute window.
+- Screenshot: `/private/tmp/repairdesk-orders-remove-filter-20260721/test-results/production-orders-filter-removed-20260721.png`.
+- Rollback: not triggered.
