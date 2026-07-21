@@ -734,11 +734,21 @@ describe("repairdesk API schemas", () => {
         body: "Messaggio",
         template_kind: "pickup_ready",
         transition_to: "notified",
+        recipient_phone: "380 151 2196",
       }),
     ).toMatchObject({
       template_kind: "pickup_ready",
       transition_to: "notified",
+      recipient_phone: "+393801512196",
     });
+    expect(() =>
+      whatsappNotificationBodySchema.parse({
+        id: "R1",
+        body: "Messaggio",
+        template_kind: "pickup_ready",
+        recipient_phone: "+380 1512196",
+      }),
+    ).toThrow();
   });
 
   it("validates store invite link creation and redemption payloads", () => {

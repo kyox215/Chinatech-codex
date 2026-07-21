@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { CountryCode } from "libphonenumber-js/max";
 import { Check, ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,12 @@ import { componentOverlay } from "@/lib/component-patterns";
 import type { CustomerDetail, CustomerMessageInput } from "@/lib/repairdesk/api";
 import { normalizePhoneRaw, uniqueContactPhones } from "@/shared/lib/phone";
 import type { StoreOutputIdentity } from "@/entities/store/model/store-output-identity";
+import { WhatsappRecipientEditor } from "@/shared/ui/whatsapp-recipient-editor";
+import {
+  buildWhatsappUrl,
+  inferWhatsappCountry,
+  resolveWhatsappPhone,
+} from "@/shared/lib/whatsapp-phone";
 
 const customerMessageChannels = [
   { value: "whatsapp", label: "WhatsApp" },
@@ -63,6 +70,9 @@ export function CustomerMessageDialog({
   );
   const phoneOptions = customerPhoneOptions(data);
   const [phone, setPhone] = useState(phoneOptions[0] ?? "");
+  const [phoneCountry, setPhoneCountry] = useState<CountryCode>(() =>
+    inferWhatsappCountry(phoneOptions[0] ?? ""),
+  );
   const [body, setBody] = useState(() => buildCustomerMessage(data, appOrigin, storeIdentity));
   const [channelOpened, setChannelOpened] = useState(false);
   const [channelOpenError, setChannelOpenError] = useState(false);
@@ -70,11 +80,18 @@ export function CustomerMessageDialog({
     if (open) {
       setChannel(data.customer.preferred_channel ?? "whatsapp");
       setPhone(customerPhoneOptions(data)[0] ?? "");
+      setPhoneCountry(inferWhatsappCountry(customerPhoneOptions(data)[0] ?? ""));
       setBody(buildCustomerMessage(data, appOrigin, storeIdentity));
       setChannelOpened(false);
       setChannelOpenError(false);
     }
   }, [data, open, appOrigin, storeIdentity]);
+  const phoneResolution = resolveWhatsappPhone(phone, phoneCountry);
+  const updatePhone = (nextPhone: string) => {
+    setPhone(nextPhone);
+    setChannelOpened(false);
+    setChannelOpenError(false);
+  };
   return (
     <Dialog
       open={open}
@@ -125,9 +142,8 @@ export function CustomerMessageDialog({
               value={phone}
               disabled={!storeIdentity.canOutput}
               onValueChange={(value) => {
-                setPhone(value);
-                setChannelOpened(false);
-                setChannelOpenError(false);
+                setPhoneCountry(inferWhatsappCountry(value));
+                updatePhone(value);
               }}
             >
               <SelectTrigger className="h-8 min-w-0 font-mono text-xs sm:h-9">
@@ -141,11 +157,24 @@ export function CustomerMessageDialog({
                 ))}
               </SelectContent>
             </Select>
-          ) : (
+          ) : channel === "sms" ? (
             <div className="flex h-8 items-center truncate rounded-md border border-[var(--border-panel)] bg-surface-muted px-3 font-mono text-xs text-muted-foreground sm:h-9">
               {phone || "缺少电话号码"}
             </div>
-          )}
+          ) : null}
+          {channel === "whatsapp" ? (
+            <WhatsappRecipientEditor
+              id="customer-message-whatsapp-phone"
+              phone={phone}
+              country={phoneCountry}
+              disabled={!storeIdentity.canOutput}
+              onPhoneChange={updatePhone}
+              onCountryChange={(country, nextPhone) => {
+                setPhoneCountry(country);
+                updatePhone(nextPhone);
+              }}
+            />
+          ) : null}
           <Textarea
             aria-label="客户消息内容"
             value={body}
@@ -179,16 +208,33 @@ export function CustomerMessageDialog({
             取消
           </Button>
           {channelOpened ? (
-            <Button disabled={busy} onClick={() => onConfirm({ channel, body: body.trim() })}>
+            <Button
+              disabled={busy}
+              onClick={() =>
+                onConfirm({
+                  channel,
+                  body: body.trim(),
+                  recipient_phone:
+                    channel === "whatsapp" && phoneResolution.valid
+                      ? phoneResolution.e164
+                      : undefined,
+                })
+              }
+            >
               <Check className="mr-1.5 size-3.5" /> 我已发送，记录联系
             </Button>
           ) : (
             <Button
-              disabled={busy || !storeIdentity.canOutput || !phone || !body.trim()}
+              disabled={
+                busy ||
+                !storeIdentity.canOutput ||
+                !body.trim() ||
+                (channel === "whatsapp" ? !phoneResolution.valid : !phone)
+              }
               onClick={() => {
                 const url =
                   channel === "whatsapp"
-                    ? whatsAppUrl(phone, body.trim())
+                    ? buildWhatsappUrl(phone, body.trim(), phoneCountry)
                     : smsUrl(phone, body.trim());
                 if (!url) return;
                 const opened = window.open(url, "_blank");
@@ -247,12 +293,6 @@ export function buildCustomerMessage(
   ]
     .filter((line): line is string => line !== null)
     .join("\n");
-}
-
-function whatsAppUrl(phone: string, body: string) {
-  const digits = phone.replace(/\D/g, "");
-  if (!digits) return "";
-  return `https://wa.me/${digits}?text=${encodeURIComponent(body)}`;
 }
 
 function smsUrl(phone: string, body: string) {

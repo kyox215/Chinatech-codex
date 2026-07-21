@@ -7,11 +7,7 @@ import { PhoneText } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-
-function digitsOnly(phone: string) {
-  const digits = phone.replace(/\D/g, "");
-  return digits.startsWith("00") ? digits.slice(2) : digits;
-}
+import { buildWhatsappUrl } from "@/shared/lib/whatsapp-phone";
 
 export function PhoneContactMenu({
   phone,
@@ -24,7 +20,7 @@ export function PhoneContactMenu({
 }) {
   const normalized = phone?.trim() ?? "";
   if (!normalized) return <span className="text-muted-foreground">—</span>;
-  const whatsapp = digitsOnly(normalized);
+  const whatsappHref = buildWhatsappUrl(normalized);
 
   return (
     <Popover>
@@ -59,10 +55,22 @@ export function PhoneContactMenu({
               <Smartphone className="size-3.5" /> 发送短信
             </a>
           </Button>
-          <Button asChild variant="ghost" size="sm" className="justify-start gap-2">
-            <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer">
-              <MessageSquare className="size-3.5" /> WhatsApp
-            </a>
+          <Button
+            asChild={Boolean(whatsappHref)}
+            variant="ghost"
+            size="sm"
+            className="justify-start gap-2"
+            disabled={!whatsappHref}
+          >
+            {whatsappHref ? (
+              <a href={whatsappHref} target="_blank" rel="noreferrer">
+                <MessageSquare className="size-3.5" /> WhatsApp
+              </a>
+            ) : (
+              <span>
+                <MessageSquare className="size-3.5" /> WhatsApp（号码无效）
+              </span>
+            )}
           </Button>
           <Button
             type="button"

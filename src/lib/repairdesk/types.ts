@@ -1541,6 +1541,7 @@ export interface CustomerMessageInput {
   channel: "whatsapp" | "sms";
   body: string;
   order_id?: string;
+  recipient_phone?: string;
 }
 
 export interface RepairDeskOptions {

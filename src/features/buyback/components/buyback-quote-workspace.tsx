@@ -24,6 +24,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
+import { buildWhatsappUrl } from "@/shared/lib/whatsapp-phone";
 
 import { MoneyText } from "@/components/orders/badges";
 import { Badge } from "@/components/ui/badge";
@@ -496,7 +497,12 @@ export function BuybackQuoteWorkspace({
       return;
     }
     const message = buildWhatsappQuoteMessage(draft, result, storeIdentity);
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener");
+    const url = buildWhatsappUrl(draft.customer_phone, message);
+    if (!url) {
+      toast.error("请检查客户 WhatsApp 电话及国家区号");
+      return;
+    }
+    window.open(url, "_blank", "noopener");
   }
 
   function rejectQuoteAndClose() {

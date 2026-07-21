@@ -29,6 +29,7 @@ import { storePermissionActions } from "@/entities/staff/model/store-permission-
 import { repairServiceCatalogItems, resolveRepairServiceCatalogItem } from "@/entities/order";
 import { storeSettingsSectionUpdateSchema } from "@/features/settings/model/store-settings-update-contract";
 import { supplierInputSchema } from "@/features/suppliers/model/supplier-input-contract";
+import { resolveWhatsappPhone } from "@/shared/lib/whatsapp-phone";
 import type {
   AccountProfileUpdateInput,
   CreateOrderInput,
@@ -90,6 +91,18 @@ import type {
 } from "@/lib/repairdesk/api";
 
 const optionalText = z.string().optional();
+const whatsappRecipientPhoneSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .transform((value, context) => {
+    const resolution = resolveWhatsappPhone(value);
+    if (!resolution.valid) {
+      context.addIssue({ code: "custom", message: resolution.message });
+      return z.NEVER;
+    }
+    return resolution.e164;
+  });
 // The JSON boundary may receive form-like numeric strings, but every consumer sees
 // only the validated number/undefined output. Empty strings keep omission semantics.
 const optionalNonnegativeInteger = z.preprocess((value) => {
@@ -1313,13 +1326,13 @@ export const whatsappNotificationBodySchema = z.object({
   body: z.string(),
   template_kind: orderWhatsappTemplateKindSchema,
   transition_to: repairOrderStatusSchema.optional(),
-  recipient_phone: optionalText,
+  recipient_phone: whatsappRecipientPhoneSchema.optional(),
 });
 
 export const approvalRequestBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
   body: z.string(),
-  recipient_phone: optionalText,
+  recipient_phone: whatsappRecipientPhoneSchema.optional(),
 });
 
 export const approvalDecisionBodySchema = z.object({
@@ -1420,6 +1433,7 @@ export const customerMessageInputSchema = z
     channel: z.enum(["whatsapp", "sms"]),
     body: z.string(),
     order_id: optionalText,
+    recipient_phone: whatsappRecipientPhoneSchema.optional(),
   })
   .passthrough() satisfies z.ZodType<CustomerMessageInput>;
 

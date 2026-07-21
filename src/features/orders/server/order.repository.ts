@@ -8,6 +8,7 @@ import {
 } from "@/lib/mock/workflow";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import { CURRENCY_CODE, normalizePositiveCentAmount } from "@/lib/money";
+import { resolveWhatsappPhone } from "@/shared/lib/whatsapp-phone";
 import type {
   AuditActor,
   CorrectTerminalOrderInput,
@@ -3602,7 +3603,7 @@ async function writeWhatsappMessage({
   markApprovalPending?: boolean;
 }): Promise<WhatsappNotificationResult> {
   const message = body.trim();
-  const cleanRecipientPhone = recipientPhone?.trim();
+  const requestedRecipientPhone = recipientPhone?.trim();
   if (!id) throw new Error("工单 ID 不能为空");
   if (!message) throw new Error("通知内容不能为空");
 
@@ -3612,6 +3613,13 @@ async function writeWhatsappMessage({
 
   const current = await readOrderCustodyRow(supabase, storeId, id, actor, "读取工单失败");
   assertOrderRecordNotVoided(current);
+  const recipientResolution = requestedRecipientPhone
+    ? resolveWhatsappPhone(requestedRecipientPhone)
+    : undefined;
+  if (recipientResolution && !recipientResolution.valid) {
+    throw new Error(recipientResolution.message);
+  }
+  const cleanRecipientPhone = recipientResolution?.valid ? recipientResolution.e164 : undefined;
   const from = current.status as RepairOrderStatus;
   let statusChanged = false;
   let to: RepairOrderStatus | undefined;
