@@ -314,6 +314,10 @@ export function OrderDetailScreen({
   const cancelledReturnTriggerRef = useRef<HTMLElement | null>(null);
   const [approvalDecisionOpen, setApprovalDecisionOpen] = useState(false);
   const [desktopTransitionOpen, setDesktopTransitionOpen] = useState(false);
+  const desktopDetailScrollRef = useRef<HTMLDivElement | null>(null);
+  const desktopTransitionPanelRef = useRef<HTMLDivElement | null>(null);
+  const desktopTransitionTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const desktopTransitionScrollTopRef = useRef(0);
   const [desktopPhotoCaptureOpen, setDesktopPhotoCaptureOpen] = useState(false);
   const [desktopDetailView, setDesktopDetailView] = useState<DesktopDetailView>("overview");
   const [desktopRecordsView, setDesktopRecordsView] = useState<DesktopRecordsView>("key-info");
@@ -376,6 +380,30 @@ export function OrderDetailScreen({
     setDesktopRecordsView("key-info");
     setDesktopCostsVisited(false);
   }, [id]);
+
+  useEffect(() => {
+    if (!desktopTransitionOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      desktopTransitionPanelRef.current?.scrollIntoView({ block: "nearest" });
+      desktopTransitionPanelRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [desktopTransitionOpen]);
+
+  const changeDesktopTransitionOpen = useCallback((nextOpen: boolean) => {
+    if (nextOpen) {
+      desktopTransitionScrollTopRef.current = desktopDetailScrollRef.current?.scrollTop ?? 0;
+      setDesktopTransitionOpen(true);
+      return;
+    }
+    setDesktopTransitionOpen(false);
+    window.requestAnimationFrame(() => {
+      if (desktopDetailScrollRef.current) {
+        desktopDetailScrollRef.current.scrollTop = desktopTransitionScrollTopRef.current;
+      }
+      desktopTransitionTriggerRef.current?.focus();
+    });
+  }, []);
 
   const changeDesktopDetailView = useCallback((view: DesktopDetailView) => {
     if (view === "costs") setDesktopCostsVisited(true);
@@ -1555,7 +1583,14 @@ export function OrderDetailScreen({
           </div>
         ) : null}
 
-        <div className={cn("min-w-0", surface === "dialog" && "min-h-0 flex-1 overflow-y-auto")}>
+        <div
+          ref={desktopDetailScrollRef}
+          data-order-detail-scroll={surface === "dialog" ? "true" : undefined}
+          className={cn(
+            "min-w-0",
+            surface === "dialog" && "min-h-0 flex-1 overflow-y-auto overscroll-contain",
+          )}
+        >
           <motion.div
             data-order-desktop-single-workspace="true"
             variants={stagger(0.05)}
@@ -1785,34 +1820,37 @@ export function OrderDetailScreen({
                 />
               </div>
             )}
+            <AnimatePresence initial={false}>
+              {desktopTransitionOpen ? (
+                <motion.div
+                  key="desktop-transition-panel"
+                  data-order-desktop-transition-panel="true"
+                  variants={fadeUp}
+                  initial="hidden"
+                  animate="show"
+                  exit={{ opacity: 0, y: 4 }}
+                  className="mt-2 min-w-0 scroll-mb-3"
+                  ref={desktopTransitionPanelRef}
+                  role="region"
+                  aria-label="状态流转"
+                  tabIndex={-1}
+                >
+                  <DesktopStatusTransitionPanel
+                    order={order}
+                    statusLabel={getWorkflowStatusLabel(workflow, order.status)}
+                    currentStage={desktopCurrentStage}
+                    actions={desktopStatusActions}
+                    pending={transition.isPending}
+                    onOpenChange={changeDesktopTransitionOpen}
+                    onTransition={(to, reason, reasonSelection) =>
+                      transition.mutate({ to, reason, reasonSelection })
+                    }
+                  />
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </motion.div>
         </div>
-
-        <AnimatePresence initial={false}>
-          {desktopTransitionOpen ? (
-            <motion.div
-              key="desktop-transition-panel"
-              data-order-desktop-transition-panel="true"
-              variants={fadeUp}
-              initial="hidden"
-              animate="show"
-              exit={{ opacity: 0, y: 4 }}
-              className="mt-2 min-w-0"
-            >
-              <DesktopStatusTransitionPanel
-                order={order}
-                statusLabel={getWorkflowStatusLabel(workflow, order.status)}
-                currentStage={desktopCurrentStage}
-                actions={desktopStatusActions}
-                pending={transition.isPending}
-                onOpenChange={setDesktopTransitionOpen}
-                onTransition={(to, reason, reasonSelection) =>
-                  transition.mutate({ to, reason, reasonSelection })
-                }
-              />
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
 
         {!isVoided && !desktopTransitionOpen && !orderActionOverlayOpen ? (
           <OrderDetailActionDock
@@ -1821,7 +1859,8 @@ export function OrderDetailScreen({
             financeDraft={financeDraft}
             onApprovalDecision={() => setApprovalDecisionOpen(true)}
             approvalDecisionAvailable={canDecideApproval}
-            onFlow={() => setDesktopTransitionOpen((open) => !open)}
+            onFlow={() => changeDesktopTransitionOpen(!desktopTransitionOpen)}
+            flowButtonRef={desktopTransitionTriggerRef}
             flowDisabled={transition.isPending || desktopStatusActions.length === 0}
             onPay={() => setPayOpen(true)}
             paymentDisabled={!canCollectPayment}
@@ -4682,6 +4721,7 @@ function DesktopStatusTransitionPanel({
       </header>
       <StatusTransitionPanelBody
         open
+        scrollMode="parent"
         order={order}
         statusLabel={statusLabel}
         currentStage={currentStage}
@@ -4696,6 +4736,7 @@ function DesktopStatusTransitionPanel({
 
 function StatusTransitionPanelBody({
   open,
+  scrollMode = "self",
   order,
   statusLabel,
   currentStage,
@@ -4705,6 +4746,7 @@ function StatusTransitionPanelBody({
   onTransition,
 }: {
   open: boolean;
+  scrollMode?: "parent" | "self";
   order: OrderDetail["order"];
   statusLabel: string;
   currentStage: OrderTaskStage;
@@ -4744,8 +4786,9 @@ function StatusTransitionPanelBody({
 
   return (
     <div
+      data-order-transition-scroll-body={scrollMode === "self" ? "true" : undefined}
       className={cn(
-        componentOverlay.body,
+        scrollMode === "self" ? componentOverlay.body : "min-w-0 overflow-visible",
         "space-y-2 pt-3 [scroll-padding-bottom:calc(env(safe-area-inset-bottom)+5rem)] lg:px-0 lg:pb-0",
       )}
     >
@@ -4928,6 +4971,7 @@ function MobileStatusTransitionSheet({
   ) => void;
 }) {
   const viewport = useVisualViewportMetrics(open);
+  const availableHeight = Math.max(1, viewport.height - 8);
   const requestOpenChange = (nextOpen: boolean) => {
     if (!nextOpen && pending) return;
     onOpenChange(nextOpen);
@@ -4939,40 +4983,36 @@ function MobileStatusTransitionSheet({
     <Sheet open={open} onOpenChange={requestOpenChange}>
       <SheetContent
         side="bottom"
-        className="max-h-[calc(100svh-16px)] rounded-t-xl p-0 sm:mx-auto sm:max-w-xl"
+        className="grid grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-t-xl p-0 sm:mx-auto sm:max-w-xl"
         style={{
           bottom: viewport.keyboardInset,
-          maxHeight: Math.max(240, viewport.height - 8),
+          height: availableHeight,
+          maxHeight: availableHeight,
         }}
         onEscapeKeyDown={preventPendingClose}
         onPointerDownOutside={preventPendingClose}
         onInteractOutside={preventPendingClose}
       >
-        <div
-          className="flex min-w-0 flex-col overflow-hidden"
-          style={{ maxHeight: Math.max(240, viewport.height - 8) }}
-        >
-          <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
-            <SheetTitle className="flex items-center gap-2 text-base">
-              <Clock3 className="size-4 text-primary" />
-              状态流转
-            </SheetTitle>
-            <SheetDescription>
-              当前：{currentStage.label} · {statusLabel}。
-              {"可手动选择任一启用状态，确认后会写入时间线。"}
-            </SheetDescription>
-          </SheetHeader>
-          <StatusTransitionPanelBody
-            open={open}
-            order={order}
-            statusLabel={statusLabel}
-            currentStage={currentStage}
-            actions={actions}
-            pending={pending}
-            onOpenChange={requestOpenChange}
-            onTransition={onTransition}
-          />
-        </div>
+        <SheetHeader className="shrink-0 border-b border-[var(--border-panel)] px-4 py-3 text-left">
+          <SheetTitle className="flex items-center gap-2 text-base">
+            <Clock3 className="size-4 text-primary" />
+            状态流转
+          </SheetTitle>
+          <SheetDescription>
+            当前：{currentStage.label} · {statusLabel}。
+            {"可手动选择任一启用状态，确认后会写入时间线。"}
+          </SheetDescription>
+        </SheetHeader>
+        <StatusTransitionPanelBody
+          open={open}
+          order={order}
+          statusLabel={statusLabel}
+          currentStage={currentStage}
+          actions={actions}
+          pending={pending}
+          onOpenChange={requestOpenChange}
+          onTransition={onTransition}
+        />
       </SheetContent>
     </Sheet>
   );

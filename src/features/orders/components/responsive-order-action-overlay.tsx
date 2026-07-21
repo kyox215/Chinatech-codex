@@ -53,6 +53,8 @@ export function ResponsiveOrderActionOverlay({
 }) {
   const desktop = useDesktopActionSurface();
   const viewport = useVisualViewportMetrics(open);
+  const desktopMaxHeight = Math.max(1, viewport.height - 24);
+  const mobileMaxHeight = Math.max(1, viewport.height - 8);
   const requestOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       onOpenChange(true);
@@ -73,25 +75,29 @@ export function ResponsiveOrderActionOverlay({
         <DialogContent
           {...dataProps}
           className={cn(
-            "grid w-[min(760px,calc(100vw-24px))] max-w-[calc(100vw-24px)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0",
+            "w-[min(760px,calc(100vw-24px))] max-w-[calc(100vw-24px)] p-0",
             componentOverlay.actionContent,
             contentClassName,
           )}
           style={{
             top: viewport.offsetTop + viewport.height / 2,
-            maxHeight: Math.max(240, viewport.height - 24),
+            maxHeight: desktopMaxHeight,
           }}
           onEscapeKeyDown={preventPendingClose}
           onPointerDownOutside={preventPendingClose}
           onInteractOutside={preventPendingClose}
           aria-busy={pending}
         >
-          <DialogHeader className="border-b border-[var(--border-panel)] px-4 py-3 pr-12 text-left">
+          <DialogHeader className="shrink-0 border-b border-[var(--border-panel)] px-4 py-3 pr-12 text-left">
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
-          <div className={componentOverlay.actionBody}>{children}</div>
-          <DialogFooter className={componentOverlay.actionFooter}>{footer}</DialogFooter>
+          <div data-order-action-scroll-body="true" className={componentOverlay.actionBody}>
+            {children}
+          </div>
+          <DialogFooter className={cn(componentOverlay.actionFooter, "shrink-0")}>
+            {footer}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     );
@@ -103,14 +109,14 @@ export function ResponsiveOrderActionOverlay({
         {...dataProps}
         side="bottom"
         className={cn(
-          "grid grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-t-[var(--radius-lg)] p-0",
+          "rounded-t-[var(--radius-lg)] p-0",
           componentOverlay.actionContent,
           contentClassName,
         )}
         style={
           {
             bottom: viewport.keyboardInset,
-            maxHeight: Math.max(240, viewport.height - 8),
+            maxHeight: mobileMaxHeight,
             "--rd-visual-viewport-height": `${viewport.height}px`,
             "--rd-overlay-keyboard-inset": `${viewport.keyboardInset}px`,
           } as CSSProperties
@@ -120,12 +126,14 @@ export function ResponsiveOrderActionOverlay({
         onInteractOutside={preventPendingClose}
         aria-busy={pending}
       >
-        <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
+        <SheetHeader className="shrink-0 border-b border-[var(--border-panel)] px-4 py-3 text-left">
           <SheetTitle>{title}</SheetTitle>
           <SheetDescription>{description}</SheetDescription>
         </SheetHeader>
-        <div className={componentOverlay.actionBody}>{children}</div>
-        <SheetFooter className="border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
+        <div data-order-action-scroll-body="true" className={componentOverlay.actionBody}>
+          {children}
+        </div>
+        <SheetFooter className="shrink-0 border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
           {footer}
         </SheetFooter>
       </SheetContent>

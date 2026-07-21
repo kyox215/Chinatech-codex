@@ -402,6 +402,7 @@ export function OrderDetailActionDock({
   onApprovalDecision,
   approvalDecisionAvailable = false,
   onFlow,
+  flowButtonRef,
   flowDisabled = false,
   onPay,
   paymentDisabled = false,
@@ -416,6 +417,7 @@ export function OrderDetailActionDock({
   onApprovalDecision?: () => void;
   approvalDecisionAvailable?: boolean;
   onFlow: () => void;
+  flowButtonRef?: React.Ref<HTMLButtonElement>;
   flowDisabled?: boolean;
   onPay: () => void;
   paymentDisabled?: boolean;
@@ -531,6 +533,7 @@ export function OrderDetailActionDock({
               WhatsApp
             </Button>
             <Button
+              ref={flowButtonRef}
               type="button"
               size="sm"
               variant={flowPrimary ? "default" : "outline"}

@@ -128,10 +128,9 @@ export const componentOverlay = {
     "max-h-[calc(100svh-4rem)] overflow-hidden rounded-t-[var(--radius-lg)] px-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3",
   popoverContent:
     "max-w-[calc(100vw-24px)] border-[var(--border-panel)] bg-popover text-popover-foreground shadow-[var(--shadow-overlay)]",
-  actionContent:
-    "grid grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden bg-[var(--surface-workspace-strong)]",
+  actionContent: "flex min-h-0 flex-col gap-0 overflow-hidden bg-[var(--surface-workspace-strong)]",
   actionBody:
-    "min-h-0 min-w-0 overflow-y-auto overscroll-contain p-3 [scroll-padding-bottom:calc(env(safe-area-inset-bottom)+5rem)] sm:p-4",
+    "min-h-0 min-w-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain p-3 [scroll-padding-bottom:calc(env(safe-area-inset-bottom)+5rem)] [-webkit-overflow-scrolling:touch] sm:p-4",
   actionFooter:
     "border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-4 py-3",
   header: "space-y-1.5",

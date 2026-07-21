@@ -172,6 +172,7 @@ export function OrderReasonField({
             其他原因（必填）
           </span>
           <Textarea
+            data-order-other-reason="true"
             value={value.note}
             disabled={disabled}
             maxLength={500}

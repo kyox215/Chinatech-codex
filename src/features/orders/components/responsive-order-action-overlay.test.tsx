@@ -73,8 +73,22 @@ describe("ResponsiveOrderActionOverlay", () => {
 
     const overlay = document.querySelector('[data-test-order-overlay="true"]');
     expect(overlay).toHaveStyle({ bottom: "344px", maxHeight: "492px" });
+    expect(document.querySelector('[data-order-action-scroll-body="true"]')).not.toBeNull();
     expect(screen.getByRole("button", { name: "确认" })).toBeVisible();
     expect(container).not.toBeNull();
+  });
+
+  it("never forces the sheet beyond an extremely short visual viewport", () => {
+    render(<Harness />);
+    const viewport = window.visualViewport as VisualViewport;
+    Object.defineProperty(viewport, "height", { configurable: true, value: 180 });
+
+    act(() => {
+      listeners.get("resize")?.forEach((listener) => listener(new Event("resize")));
+    });
+
+    const overlay = document.querySelector('[data-test-order-overlay="true"]');
+    expect(overlay).toHaveStyle({ bottom: "664px", maxHeight: "172px" });
   });
 
   it("cannot close through the overlay close control while submitting", async () => {

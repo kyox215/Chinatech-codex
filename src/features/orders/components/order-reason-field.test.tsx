@@ -58,6 +58,7 @@ describe("OrderReasonField", () => {
     await user.click(screen.getByRole("button", { name: /查看全部/ }));
     await user.click(screen.getByText("其他原因"));
     const note = screen.getByRole("textbox", { name: "其他原因（必填）" });
+    expect(note).toHaveAttribute("data-order-other-reason", "true");
     await user.type(note, "需要特殊处理");
 
     expect(screen.getByTestId("selection")).toHaveTextContent("other|需要特殊处理");
