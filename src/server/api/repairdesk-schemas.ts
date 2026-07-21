@@ -62,6 +62,7 @@ import type {
   OrderAttachmentUploadInput,
   OrderWhatsappTemplateKind,
   CorrectTerminalOrderInput,
+  CorrectInitialDepositInput,
   PatchOrderFinanceInput,
   PatchOrderInput,
   PublishOrderQuoteInput,
@@ -713,6 +714,32 @@ export const patchOrderFinanceBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
   input: patchOrderFinanceInputSchema,
 });
+
+const nonNegativeCentAmountSchema = z.coerce
+  .number()
+  .finite("定金金额无效")
+  .nonnegative("定金不能为负数")
+  .refine(
+    (value) =>
+      Number.isSafeInteger(Math.round(value * 100)) &&
+      Math.abs(value * 100 - Math.round(value * 100)) < 1e-7,
+    "定金金额最多保留两位小数",
+  )
+  .transform((value) => Math.round(value * 100) / 100);
+
+export const correctInitialDepositBodySchema = z
+  .object({
+    id: z.string().min(1, "缺少 id"),
+    input: z
+      .object({
+        expected_updated_at: z.string().min(1, "缺少版本时间"),
+        idempotency_key: z.string().uuid("定金更正操作标识无效"),
+        deposit_amount: nonNegativeCentAmountSchema,
+        reason: z.string().trim().min(5, "更正原因至少需要 5 个字符").max(240),
+      })
+      .strict() satisfies z.ZodType<CorrectInitialDepositInput>,
+  })
+  .strict();
 
 const quoteMoneySchema = z
   .number()

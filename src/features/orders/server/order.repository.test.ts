@@ -207,6 +207,24 @@ describe("order repository role projection", () => {
     ).toBe(false);
   });
 
+  it("projects initial-deposit correction for sales and assigned technicians only", () => {
+    expect(projectOrderCapabilities(order(), actor("sales")).canCorrectInitialDeposit).toBe(true);
+    expect(projectOrderCapabilities(order(), actor("technician")).canCorrectInitialDeposit).toBe(
+      true,
+    );
+    expect(
+      projectOrderCapabilities(
+        order({ assignee_membership_id: "membership_other" }),
+        actor("technician"),
+      ).canCorrectInitialDeposit,
+    ).toBe(false);
+    expect(projectOrderCapabilities(order(), actor("viewer")).canCorrectInitialDeposit).toBe(false);
+    expect(
+      projectOrderCapabilities(order({ workflow_bucket: "done" }), actor("sales"))
+        .canCorrectInitialDeposit,
+    ).toBe(false);
+  });
+
   it("offers cancelled return only when the store still holds the device", () => {
     expect(
       projectOrderCapabilities(

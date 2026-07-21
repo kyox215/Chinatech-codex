@@ -16,6 +16,8 @@ import type {
 import type {
   AccountProfileUpdateInput,
   CorrectTerminalOrderInput,
+  CorrectInitialDepositInput,
+  CorrectInitialDepositResult,
   CreateOrderInput,
   Customer,
   Device,
@@ -225,6 +227,8 @@ export type {
 export type {
   ApprovedStoreRole,
   CorrectTerminalOrderInput,
+  CorrectInitialDepositInput,
+  CorrectInitialDepositResult,
   CreateOrderInput,
   Customer,
   CustomerHistoryDeviceCandidate,
@@ -1438,6 +1442,13 @@ export async function patchOrderFinance(
   input: PatchOrderFinanceInput,
 ): Promise<PatchOrderResult> {
   return postJson<PatchOrderResult>("order/finance", { id, input });
+}
+
+export async function correctInitialDeposit(
+  id: string,
+  input: CorrectInitialDepositInput,
+): Promise<CorrectInitialDepositResult> {
+  return postJson<CorrectInitialDepositResult>("order/initial-deposit/correct", { id, input });
 }
 
 export async function publishOrderQuote(

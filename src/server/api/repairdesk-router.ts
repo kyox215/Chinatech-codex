@@ -65,6 +65,7 @@ import {
   batchTransition,
   confirmCancelledOrderReturn,
   correctTerminalOrder,
+  correctInitialDeposit,
   createOrderWorkflowStatus,
   createOrder,
   decideOrderApproval,
@@ -272,6 +273,7 @@ import type {
   OrderLineCostsResult,
   OrderStats,
   PatchOrderFinanceInput,
+  CorrectInitialDepositInput,
   PatchOrderInput,
   ProfitCenterResult,
   PublishOrderQuoteInput,
@@ -292,6 +294,7 @@ import {
   batchTransitionBodySchema,
   confirmCancelledOrderReturnBodySchema,
   correctTerminalOrderBodySchema,
+  correctInitialDepositBodySchema,
   orderCreateOperationStatusSchema,
   createOrderSchema,
   customerCreateBodySchema,
@@ -476,6 +479,7 @@ const supabaseSource = {
   listStoreMembers,
   patchOrder,
   patchOrderFinance,
+  correctInitialDeposit,
   publishOrderQuote,
   confirmOrderQuoteSent,
   recordInventoryCheck,
@@ -2165,6 +2169,17 @@ export async function handleRepairDeskPost(
           ),
         );
       }
+      case "order/initial-deposit/correct": {
+        const { id, input } = correctInitialDepositBodySchema.parse(body);
+        assertOrderInitialDepositCorrectionPermission(actor, input);
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.correctInitialDeposit(id, input, actor),
+            realtimeBroadcasts.orderUpdated,
+          ),
+        );
+      }
       case "order/publish-quote": {
         const { id, input } = publishOrderQuoteBodySchema.parse(body);
         assertOrderQuotePreparePermission(actor, input);
@@ -2935,6 +2950,13 @@ export function assertOrderCustodyPermission(actor: AuditActor, _input: UpdateOr
 
 export function assertOrderFinancePermission(actor: AuditActor, _input: PatchOrderFinanceInput) {
   assertRepairDeskPermission(actor, "payment:adjust");
+}
+
+export function assertOrderInitialDepositCorrectionPermission(
+  actor: AuditActor,
+  _input: CorrectInitialDepositInput,
+) {
+  assertOrderScopedPermission(actor, "payment:correct_initial_deposit");
 }
 
 export function assertOrderQuotePreparePermission(

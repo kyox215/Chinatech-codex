@@ -4,6 +4,7 @@ export {
   batchTransition,
   confirmCancelledOrderReturn,
   correctTerminalOrder,
+  correctInitialDeposit,
   createOrder,
   getOrderCreateOperationStatus,
   createOrderWorkflowStatus,

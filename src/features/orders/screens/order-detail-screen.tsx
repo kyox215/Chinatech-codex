@@ -86,6 +86,7 @@ import { toast } from "sonner";
 import {
   decideOrderApproval,
   confirmCancelledOrderReturn,
+  correctInitialDeposit,
   createKioskSession,
   getRepairDeskOptions,
   getStoreSettings,
@@ -161,6 +162,7 @@ import {
 import { CancelDialog } from "@/features/orders/forms/cancel-dialog";
 import { NotifyDialog } from "@/features/orders/forms/notify-dialog";
 import { PaymentDialog } from "@/features/orders/forms/payment-dialog";
+import { InitialDepositCorrectionDialog } from "@/features/orders/forms/initial-deposit-correction-dialog";
 import { buildEditForm, inferOrderPaidAmount } from "@/features/orders/model/edit-order-form";
 import {
   deviceUnlockInputFromOrder,
@@ -286,6 +288,7 @@ export function OrderDetailScreen({
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [diagnosisQuoteOpen, setDiagnosisQuoteOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [depositCorrectionOpen, setDepositCorrectionOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelledReturnOpen, setCancelledReturnOpen] = useState(false);
   const [custodyDialogTarget, setCustodyDialogTarget] = useState<DeviceCustodyStatus | null>(null);
@@ -719,6 +722,24 @@ export function OrderDetailScreen({
       setMobileFinanceSaveError(message);
       toast.error(message);
     },
+  });
+
+  const initialDepositCorrection = useMutation({
+    mutationFn: (input: { depositAmount: number; reason: string; idempotencyKey: string }) => {
+      if (!data) throw new Error("工单未加载");
+      return correctInitialDeposit(id, {
+        expected_updated_at: data.order.updated_at,
+        idempotency_key: input.idempotencyKey,
+        deposit_amount: input.depositAmount,
+        reason: input.reason,
+      });
+    },
+    onSuccess: () => {
+      setDepositCorrectionOpen(false);
+      toast.success("初始定金已更正");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const quoteSentConfirmation = useMutation({
@@ -1339,6 +1360,8 @@ export function OrderDetailScreen({
           }}
           financePending={financeUpdate.isPending}
           canAdjustFinance={Boolean(data.capabilities?.canAdjustFinance)}
+          canCorrectInitialDeposit={Boolean(data.capabilities?.canCorrectInitialDeposit)}
+          onCorrectInitialDeposit={() => setDepositCorrectionOpen(true)}
           onNotify={() => setNotifyOpen(true)}
           onApprovalDecision={() => setApprovalDecisionOpen(true)}
           approvalDecisionAvailable={canDecideApproval}
@@ -1542,6 +1565,8 @@ export function OrderDetailScreen({
                   canEditIntake={Boolean(data.capabilities?.canEditIntake)}
                   canEditRepair={Boolean(data.capabilities?.canEditRepair)}
                   canAdjustFinance={Boolean(data.capabilities?.canAdjustFinance)}
+                  canCorrectInitialDeposit={Boolean(data.capabilities?.canCorrectInitialDeposit)}
+                  onCorrectInitialDeposit={() => setDepositCorrectionOpen(true)}
                   activeStoreId={activeStoreId}
                   canReadInternalCosts={Boolean(data.capabilities?.canReadInternalCosts)}
                   canManageInternalCosts={Boolean(data.capabilities?.canManageInternalCosts)}
@@ -1793,6 +1818,18 @@ export function OrderDetailScreen({
             await recordPayment(id, amount, method, order.updated_at, idempotencyKey);
             toast.success(`已收款 ${formatMoney(amount)}`);
             invalidate();
+          }}
+        />
+      ) : null}
+      {data.capabilities?.canCorrectInitialDeposit && !order.finance_redacted ? (
+        <InitialDepositCorrectionDialog
+          open={depositCorrectionOpen}
+          onOpenChange={setDepositCorrectionOpen}
+          quotation={order.quotation_amount}
+          currentDeposit={order.deposit_amount}
+          pending={initialDepositCorrection.isPending}
+          onConfirm={async (depositAmount, reason, idempotencyKey) => {
+            await initialDepositCorrection.mutateAsync({ depositAmount, reason, idempotencyKey });
           }}
         />
       ) : null}
@@ -2965,6 +3002,8 @@ function MobileOrderDetailView({
   onFinanceSave,
   financePending,
   canAdjustFinance,
+  canCorrectInitialDeposit,
+  onCorrectInitialDeposit,
   onNotify,
   onApprovalDecision,
   approvalDecisionAvailable,
@@ -3017,6 +3056,8 @@ function MobileOrderDetailView({
   onFinanceSave: () => Promise<boolean>;
   financePending: boolean;
   canAdjustFinance: boolean;
+  canCorrectInitialDeposit: boolean;
+  onCorrectInitialDeposit: () => void;
   onNotify: () => void;
   onApprovalDecision: () => void;
   approvalDecisionAvailable: boolean;
@@ -3550,7 +3591,24 @@ function MobileOrderDetailView({
           </section>
 
           <section className={mobileDetailCardClass}>
-            <MobileSectionTitle icon={WalletCards} title="支付信息" />
+            <MobileSectionTitle
+              icon={WalletCards}
+              title="支付信息"
+              action={
+                canCorrectInitialDeposit ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-1.5 text-[10px]"
+                    disabled={financeEditing || financePending}
+                    onClick={onCorrectInitialDeposit}
+                  >
+                    更正定金
+                  </Button>
+                ) : undefined
+              }
+            />
             <MobilePaymentSummary
               total={order.quotation_amount}
               deposit={order.deposit_amount}

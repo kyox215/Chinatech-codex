@@ -1,6 +1,7 @@
 export {
   batchTransition,
   confirmCancelledOrderReturn,
+  correctInitialDeposit,
   correctTerminalOrder,
   createOrder,
   decideOrderApproval,

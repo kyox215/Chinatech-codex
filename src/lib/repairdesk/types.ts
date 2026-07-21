@@ -1208,6 +1208,7 @@ export type OrderCapabilityKey =
   | "editIntake"
   | "editRepair"
   | "adjustFinance"
+  | "correctInitialDeposit"
   | "prepareQuote"
   | "sendQuote"
   | "collectPayment"
@@ -1221,6 +1222,7 @@ export interface OrderCapabilities {
   canEditIntake: boolean;
   canEditRepair: boolean;
   canAdjustFinance: boolean;
+  canCorrectInitialDeposit: boolean;
   canPrepareQuote: boolean;
   canSendQuote: boolean;
   canCollectPayment: boolean;
@@ -1432,6 +1434,23 @@ export interface PatchOrderFinanceInput {
   expected_updated_at: string;
   fault_prices: FaultPriceItem[];
   deposit_amount?: number;
+}
+
+export interface CorrectInitialDepositInput {
+  expected_updated_at: string;
+  idempotency_key: string;
+  deposit_amount: number;
+  reason: string;
+}
+
+export interface CorrectInitialDepositResult {
+  ok: true;
+  code: "recorded" | "idempotent_replay";
+  correction_id?: string;
+  deposit_amount: number;
+  balance: number;
+  is_paid: boolean;
+  updated_at: string;
 }
 
 export interface PatchOrderResult {
