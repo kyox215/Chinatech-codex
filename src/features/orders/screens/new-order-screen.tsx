@@ -70,7 +70,6 @@ import {
   deviceCustodyBlocksStatus,
   normalizeUnlockForCustody,
 } from "@/features/orders/model/device-custody";
-import { customersKeys } from "@/features/customers/api/query-keys";
 import { isRepairDeskOfflineSyncEnabled } from "@/features/offline/model/offline-sync-feature";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { orderWorkflowQueryOptions } from "@/features/orders/api/query-options";
@@ -83,7 +82,7 @@ import {
   updateNewOrderCostDraft,
   type NewOrderCostDraft,
 } from "@/features/orders/model/order-cost-draft";
-import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
+import { synchronizeCreatedOrderNavigation } from "@/features/orders/api/cache-sync";
 import { getWorkflowStatuses } from "@/features/orders/model/order-workflow";
 import {
   issueDescriptionForIntake,
@@ -399,23 +398,23 @@ export function NewOrderScreen({
   }, [prefill?.customerId, prefill?.deviceId, prefill?.identifier, prefill?.key]);
 
   const completeOnlineOrderCreated = useCallback(
-    (id: string, options: { recovered?: boolean; replayed?: boolean } = {}) => {
+    async (id: string, options: { recovered?: boolean; replayed?: boolean } = {}) => {
       createOperationIdRef.current = null;
       setIdentityConflict(null);
       setSharedPhoneConfirmOpen(false);
       setCreateRecovery({ state: "idle" });
       void offlineDraft.discardCurrentDraft();
-      invalidateOrderReadCaches(queryClient, id);
-      queryClient.invalidateQueries({ queryKey: ordersKeys.options() });
-      queryClient.invalidateQueries({ queryKey: customersKeys.all });
       toast.success(options.recovered || options.replayed ? "已确认工单已创建" : "工单已创建");
+      await synchronizeCreatedOrderNavigation(queryClient, id, activeStoreId).catch(
+        () => undefined,
+      );
       if (onCreated) {
         onCreated(id);
       } else {
         router.push(`/orders/${id}`);
       }
     },
-    [offlineDraft, onCreated, queryClient, router],
+    [activeStoreId, offlineDraft, onCreated, queryClient, router],
   );
 
   const confirmCreateOperation = useCallback(
@@ -426,7 +425,7 @@ export function NewOrderScreen({
           if (attempt > 0) await waitForCreateOperationConfirmAttempt(attempt);
           const status = await getOrderCreateOperationStatus(operationId, { timeoutMs: 8_000 });
           if (status.status === "created") {
-            completeOnlineOrderCreated(status.id, { recovered: true });
+            await completeOnlineOrderCreated(status.id, { recovered: true });
             return;
           }
         }
@@ -505,7 +504,7 @@ export function NewOrderScreen({
         }
         return;
       }
-      completeOnlineOrderCreated(result.id, { replayed: result.replayed });
+      void completeOnlineOrderCreated(result.id, { replayed: result.replayed });
     },
     onError: (error: Error) => {
       if (

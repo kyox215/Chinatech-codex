@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(21);
 
 select has_table('public', 'repairdesk_order_create_operations', 'order-create idempotency ledger exists');
 select has_table('public', 'repairdesk_customer_identity_challenges', 'identity challenge table exists');
@@ -151,6 +151,53 @@ select is((select count(*) from public.order_events where store_id = '00000000-0
 select is((select name from public.customers where id = '00000000-0000-4000-8000-000000000902'), 'Existing Customer', 'existing customer is never silently renamed');
 select is((select customer_name_snapshot from public.repair_orders where store_id = '00000000-0000-4000-8000-000000000900'), 'Existing Customer', 'order stores confirmed customer snapshot');
 select is((select customer_identity_snapshot_source from public.repair_orders where store_id = '00000000-0000-4000-8000-000000000900'), 'selected', 'snapshot records identity resolution source');
+
+set local role service_role;
+insert into identity_test_values values (
+  'blank-name',
+  public.repairdesk_create_order_v2(
+    '00000000-0000-4000-8000-000000000900',
+    '00000000-0000-4000-8000-000000000901',
+    '00000000-0000-4000-8000-000000000904',
+    repeat('b', 64),
+    jsonb_build_object(
+      'customer_name', '',
+      'customer_phone', '+390000000904',
+      'phone_raw', '390000000904',
+      'phone_e164', '+390000000904',
+      'contact_phones', '[]'::jsonb,
+      'customer_identity_resolution', jsonb_build_object('mode', 'auto'),
+      'device_brand', 'Apple',
+      'device_model', 'iPhone Blank Name',
+      'device_imei', '',
+      'order', jsonb_build_object(
+        'order_type', 'quick_repair',
+        'status', 'new',
+        'workflow_status', 'intake',
+        'payment_status', 'unpaid',
+        'approval_flow_status', 'not_required',
+        'parts_status', 'not_required',
+        'notify_status', 'not_sent',
+        'issue_description', 'Blank customer name test',
+        'quotation_amount', 0,
+        'deposit_amount', 0,
+        'balance_amount', 0,
+        'is_paid', false,
+        'technician_name', 'Identity Owner',
+        'device_custody_status', 'with_shop',
+        'warranty_text', '6个月',
+        'warranty_months', 6,
+        'fault_prices', '[]'::jsonb,
+        'operator_name', 'Identity Owner'
+      )
+    )
+  )
+);
+reset role;
+
+select is((select payload->>'code' from identity_test_values where label = 'blank-name'), 'created', 'blank-name customer creates an order');
+select is((select name from public.customers where phone_raw = '390000000904'), '', 'new customer keeps a blank name');
+select is((select customer_name_snapshot from public.repair_orders where customer_phone_snapshot = '+390000000904'), '', 'order keeps the blank customer name snapshot');
 
 select * from finish();
 rollback;

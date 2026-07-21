@@ -1,13 +1,13 @@
 ---
 schema_version: 1
-current_task_id: "TASK-20260720-003-store-self-service-purge"
+current_task_id: "TASK-20260721-005-new-order-blank-name-safari-transition"
 status: "active"
-phase: "review"
-task_class: "T3"
-risk_level: "R4"
-autonomy_level: "L1"
+phase: "pre-release"
+task_class: "T2"
+risk_level: "R2"
+autonomy_level: "L2"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-20T23:17:55Z"
+last_checkpoint_at: "2026-07-21T15:46:35Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -15,11 +15,11 @@ last_rehydrated_at: null
 
 ## Current objective
 
-**空测试店铺永久删除与用户自助删除流程**
+**新客户姓名可空与Safari建单后流转修复**
 
 ## Current state
 
-功能分支已以非强制方式推送到 origin/codex/store-self-service-purge，远端与本地均为 943d77c0；未合并 main、未部署、未应用迁移、未执行删除。
+已完成空姓名前向迁移与建单后缓存同步；全量2170测试、lint、typecheck、build及WebKit建单后立即打开流转面板验证通过。
 
 ## Blocking decisions
 
@@ -27,11 +27,11 @@ last_rehydrated_at: null
 
 ## Next action
 
-保持生产 NO-GO；如继续进入 main 审查，先完成 disposable DB 双会话证明、加密 sink、隔离恢复、runner 与桌面/移动可视证据，并单独取得生产阶段批准。
+复核差异后提交，先应用数据库迁移，再发布应用并执行生产只读验证。
 
 ## Resume protocol
 
 1. Read `AGENTS.md`, `PROJECT_MEMORY.md`, and `OPEN_CONFLICTS.md`.
-2. Read `.ai-company/memory/tasks/TASK-20260720-003-store-self-service-purge/TASK.md` and latest checkpoint.
+2. Read `.ai-company/memory/tasks/TASK-20260721-005-new-order-blank-name-safari-transition/TASK.md` and latest checkpoint.
 3. Inspect current Git/workspace state before changing files.
 4. Reclassify if scope, target environment, or risk changed.
