@@ -9,7 +9,7 @@ autonomy_level: "L2"
 owner: "Hexiang Huang"
 departments: ["Engineering", "Product", "QA", "Release", "Security"]
 created_at: "2026-07-21T12:17:46Z"
-updated_at: "2026-07-21T12:46:14Z"
+updated_at: "2026-07-21T12:47:24Z"
 closed_at: "2026-07-21T12:46:14Z"
 ---
 # Task — Deploy bounded initial deposit correction

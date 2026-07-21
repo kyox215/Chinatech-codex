@@ -35,3 +35,13 @@
 - **Residual risks:** Authenticated order-detail visual smoke was not executed because the browser had no production login; full suite retains seven unrelated existing UI failures.
 - **Follow-up:** Owner or authorized staff should confirm the button/dialog once with Sales and once with an assigned Technician during normal use; reopen only if live behavior differs.
 - **Closed by:** RepairDesk Integration Lead
+## 2026-07-21T12:47:24Z — Conditional closeout records, screenshot evidence and long-term project/department/capability memory were committed and pushed. Production database migration and Vercel deployment remain live and verified READY.
+
+- **Phase:** final-handoff
+- **Completed/current state:** Conditional closeout records, screenshot evidence and long-term project/department/capability memory were committed and pushed. Production database migration and Vercel deployment remain live and verified READY.
+- **Next:** No agent action remains. Owner may perform the login-gated Sales/assigned-Technician visual smoke during normal use.
+- **Decision:** Task remains conditional only for authenticated visual smoke; no code, database or deployment rollback is indicated.
+- **Blocker:** Production order-detail screenshot requires an authorized logged-in staff session.
+- **Evidence:**
+  - origin/codex/order-deposit-correction contains source and closeout commits; production Vercel dpl_BiJXkZY5hpCFeJRbcFYQzn4cEwXj READY; migration 20260721133000 present remotely; AI Company validation 13/13 checks with zero warnings/errors.
+- **Recorded by:** RepairDesk Integration Lead
