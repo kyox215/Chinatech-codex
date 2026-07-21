@@ -1,4 +1,5 @@
 import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
 
 import {
   ORDER_STATUS_ALLOWED_FOR_CREATE,
@@ -123,7 +124,6 @@ import {
   hasOrderAmountAnomaly,
   resolveRepairServiceCatalogItem,
 } from "@/entities/order";
-import { applyCreateOrderCostInputs } from "@/features/orders/server/order-cost.repository";
 import {
   isOrderCostsEnabled,
   isPartsProcurementEnabled,
@@ -2184,6 +2184,39 @@ export class OrderTerminalOperationError extends Error {
   }
 }
 
+export class OrderCustomerIdentityError extends Error {
+  constructor(
+    message: string,
+    readonly code: string,
+    readonly status: number,
+    readonly details?: Record<string, unknown>,
+  ) {
+    super(message);
+    this.name = "OrderCustomerIdentityError";
+  }
+}
+
+function orderCustomerIdentityFailure(code: string) {
+  const messages: Record<string, string> = {
+    actor_forbidden: "当前员工没有创建工单权限",
+    idempotency_conflict: "本次创建标识已用于不同请求，请刷新后重试",
+    invalid_customer_phone: "客户手机号格式不正确",
+    customer_name_required: "新客户姓名不能为空",
+    customer_not_found: "所选客户不存在或已变更",
+    identity_challenge_invalid: "客户身份确认已失效，请重新检查",
+    identity_challenge_stale: "客户资料已发生变化，请重新检查",
+    identity_resolution_invalid: "客户身份确认选项无效",
+    device_customer_mismatch: "设备不属于本次确认的客户",
+    invalid_device: "设备品牌和型号不能为空",
+  };
+  const status = code === "actor_forbidden" ? 403 : code.includes("not_found") ? 404 : 409;
+  return new OrderCustomerIdentityError(
+    messages[code] ?? "创建工单失败，请重新检查客户资料",
+    code,
+    status,
+  );
+}
+
 function terminalOperationFailure(code: string, details?: Record<string, unknown>) {
   const messages: Record<string, string> = {
     actor_forbidden: "当前员工没有执行该操作的权限",
@@ -3808,7 +3841,7 @@ export async function createOrder(
   const requestActor = typeof operator === "string" ? undefined : operator;
   const storeId = requireStoreIdFromActor(requestActor);
   const operatorName = operatorNameFromActor(operator);
-  const operationId = input.operation_id?.trim();
+  const operationId = input.operation_id?.trim() || crypto.randomUUID();
   if (
     input.assignee_membership_id &&
     !requestActor?.isSystem &&
@@ -3866,123 +3899,23 @@ export async function createOrder(
   );
   const actorId = typeof operator === "string" ? undefined : operator.id;
 
-  let customerId = input.customer_id;
-  let customerContactPhones: string[] = [];
-  if (customerId) {
-    const { data, error } = await supabase
-      .from("customers")
-      .select("id,phone_raw,contact_phones")
-      .eq("store_id", storeId)
-      .eq("id", customerId)
-      .single();
-    fail(error, "读取客户失败");
-    const row = data as DbRecord;
-    const existingPhones = stringArray(row.contact_phones);
-    const phoneBook = input.customer_phone?.trim()
-      ? normalizePhoneBook(input.customer_phone, existingPhones)
-      : undefined;
-    const primaryRaw = phoneBook?.primaryRaw || requiredString(row.phone_raw);
-    customerContactPhones = phoneBook
-      ? mergeContactPhones(existingPhones, phoneBook.contacts, primaryRaw)
-      : existingPhones;
-    if (phoneBook && contactPhonesChanged(existingPhones, customerContactPhones)) {
-      const { error: updateError } = await supabase
-        .from("customers")
-        .update({ contact_phones: customerContactPhones, updated_at: now })
-        .eq("store_id", storeId)
-        .eq("id", customerId);
-      fail(updateError, "更新客户备用号码失败");
-    }
-  } else {
-    const name = input.customer_name?.trim();
-    const phone = input.customer_phone?.trim();
-    if (!phone) throw new Error("客户手机号不能为空");
-    const phoneBook = normalizePhoneBook(phone);
-    const raw = phoneBook.primaryRaw;
-    if (!raw) throw new Error("手机号格式不正确");
-    const { data: existing, error: existingError } = await supabase
-      .from("customers")
-      .select("id,contact_phones")
-      .eq("store_id", storeId)
-      .eq("phone_raw", raw)
-      .maybeSingle();
-    fail(existingError, "查找手机号客户失败");
-    if (existing) {
-      customerId = requiredString((existing as DbRecord).id);
-      const existingPhones = stringArray((existing as DbRecord).contact_phones);
-      customerContactPhones = mergeContactPhones(existingPhones, phoneBook.contacts, raw);
-      if (contactPhonesChanged(existingPhones, customerContactPhones)) {
-        const { error: updateError } = await supabase
-          .from("customers")
-          .update({ contact_phones: customerContactPhones, updated_at: now })
-          .eq("store_id", storeId)
-          .eq("id", customerId);
-        fail(updateError, "更新客户备用号码失败");
-      }
-    } else {
-      customerId = crypto.randomUUID();
-      const { error } = await supabase.from("customers").insert({
-        id: customerId,
-        store_id: storeId,
-        name: name ?? "",
-        phone_e164: phoneBook.primary,
-        phone_raw: raw,
-        contact_phones: phoneBook.contacts,
-        consent_marketing: false,
-        consent_sms: true,
-        preferred_channel: "whatsapp",
-        language: "it",
-        created_at: now,
-        updated_at: now,
-      });
-      fail(error, "创建客户失败");
-      customerContactPhones = phoneBook.contacts;
-    }
-  }
-
-  let deviceId = input.device_id;
-  let deviceSnapshot: DeviceSnapshot;
-  if (deviceId) {
-    const { data, error } = await supabase
-      .from("devices")
-      .select("*")
-      .eq("store_id", storeId)
-      .eq("id", deviceId)
-      .single();
-    fail(error, "读取设备失败");
-    const device = deviceFromRow(data);
-    if (!device) throw new Error("读取设备失败");
-    if (device.customer_id !== customerId) {
-      throw new Error("设备不属于当前客户");
-    }
-    deviceSnapshot = snapshotFromDevice(device);
-  } else {
-    const brand = input.device_brand?.trim();
-    const model = input.device_model?.trim();
-    if (!brand || !model) throw new Error("设备品牌和型号不能为空");
-    deviceId = crypto.randomUUID();
-    const deviceNotes = input.device_notes?.trim() || undefined;
-    const { error } = await supabase.from("devices").insert({
-      id: deviceId,
-      store_id: storeId,
-      customer_id: customerId,
-      brand,
-      model,
-      serial_or_imei: input.device_imei?.trim() ?? "",
-      device_notes: deviceNotes || null,
-      created_at: now,
-      updated_at: now,
-    });
-    fail(error, "创建设备失败");
-    deviceSnapshot = {
-      brand,
-      model,
-      serial_or_imei: input.device_imei?.trim() ?? "",
-      ...(deviceNotes ? { device_notes: deviceNotes } : {}),
-    };
-  }
-
-  const id = crypto.randomUUID();
+  if (!actorId)
+    throw new OrderCustomerIdentityError("缺少当前操作人员身份", "actor_forbidden", 403);
+  const phoneBook = input.customer_phone?.trim()
+    ? normalizePhoneBook(input.customer_phone)
+    : undefined;
+  const requestHash = createHash("sha256")
+    .update(
+      JSON.stringify({
+        ...input,
+        operation_id: operationId,
+        customer_identity_resolution: undefined,
+      }),
+    )
+    .digest("hex");
+  const deviceUnlock = normalizeDeviceUnlockInput(
+    normalizeUnlockForCustody(deviceCustodyStatus, input.device_unlock),
+  );
   const balance = Math.max(0, quotation - deposit);
   const workflowStatus = canonicalWorkflowStatusFromBucket(initialStatus.bucket, status);
   const canonicalDefaults = deriveCanonicalUpdateFromLegacyStatus(
@@ -3994,129 +3927,98 @@ export async function createOrder(
     internalTag: input.internal_tag,
     accessoryNotes: input.accessory_notes,
   });
-  const deviceUnlock = normalizeDeviceUnlockInput(
-    normalizeUnlockForCustody(deviceCustodyStatus, input.device_unlock),
-  );
-  const orderRowBase: DbRecord = {
-    id,
-    store_id: storeId,
-    order_type: input.order_type,
-    status,
-    workflow_status: workflowStatus,
-    exception_status: canonicalDefaults.exception_status,
-    payment_status: paymentStatusFromMoney({
-      isPaid: balance === 0,
-      depositAmount: deposit,
-      balanceAmount: balance,
-    }),
-    approval_flow_status: canonicalDefaults.approval_flow_status,
-    parts_status: canonicalDefaults.parts_status,
-    notify_status: canonicalDefaults.notify_status,
-    customer_id: customerId,
-    device_id: deviceId,
-    issue_description: input.issue_description.trim(),
-    quotation_amount: quotation,
-    deposit_amount: deposit,
-    balance_amount: balance,
-    currency_code: CURRENCY_CODE,
-    is_paid: balance === 0,
-    approval_status: "pending",
-    technician_name: technicianName,
-    assignee_membership_id: assignee?.id ?? null,
-    internal_tag: tagInput.internalTag || null,
-    accessory_notes: tagInput.accessoryNotes || null,
-    device_custody_status: deviceCustodyStatus,
-    device_unlock_method: deviceUnlock.method,
-    device_unlock_value: deviceUnlock.value,
-    device_unlock_pattern: deviceUnlock.pattern,
-    warranty_text: warranty.warranty_text,
-    warranty_months: warranty.warranty_months,
-    warranty_change_reason: warranty.warranty_change_reason ?? null,
-    warranty_changed_by: warrantyChangedFromDefault ? (actorId ?? null) : null,
-    warranty_changed_at: warrantyChangedFromDefault ? now : null,
-    contact_phones: customerContactPhones,
-    fault_prices: validFaults,
-    device_snapshot: deviceSnapshot,
-    created_at: now,
-    updated_at: now,
-  };
-
-  let inserted: DbRecord | undefined;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      inserted = await insertOrderRow({
-        supabase,
-        context: "创建工单失败",
-        row: {
-          ...orderRowBase,
-          public_no: await generateRepairOrderPublicNo(supabase, attempt),
+  const { data: atomicResultData, error: atomicResultError } = await supabase.rpc(
+    "repairdesk_create_order_v2",
+    {
+      p_store_id: storeId,
+      p_actor_id: actorId,
+      p_operation_id: operationId,
+      p_request_hash: requestHash,
+      p_payload: {
+        customer_id: input.customer_id?.trim() || null,
+        customer_name: input.customer_name?.trim() || "",
+        customer_phone: input.customer_phone?.trim() || "",
+        phone_raw: phoneBook?.primaryRaw || "",
+        phone_e164: phoneBook?.primary || "",
+        contact_phones: phoneBook?.contacts ?? [],
+        customer_identity_resolution: input.customer_identity_resolution ?? { mode: "auto" },
+        device_id: input.device_id?.trim() || null,
+        device_brand: input.device_brand?.trim() || "",
+        device_model: input.device_model?.trim() || "",
+        device_imei: input.device_imei?.trim() || "",
+        device_notes: input.device_notes?.trim() || "",
+        order: {
+          order_type: input.order_type,
+          status,
+          workflow_status: workflowStatus,
+          exception_status: canonicalDefaults.exception_status,
+          payment_status: paymentStatusFromMoney({
+            isPaid: balance === 0,
+            depositAmount: deposit,
+            balanceAmount: balance,
+          }),
+          approval_flow_status: canonicalDefaults.approval_flow_status,
+          parts_status: canonicalDefaults.parts_status,
+          notify_status: canonicalDefaults.notify_status,
+          issue_description: input.issue_description.trim(),
+          quotation_amount: quotation,
+          deposit_amount: deposit,
+          balance_amount: balance,
+          is_paid: balance === 0,
+          technician_name: technicianName,
+          assignee_membership_id: assignee?.id ?? null,
+          internal_tag: tagInput.internalTag || null,
+          accessory_notes: tagInput.accessoryNotes || null,
+          device_custody_status: deviceCustodyStatus,
+          device_unlock_method: deviceUnlock.method,
+          device_unlock_value: deviceUnlock.value ?? null,
+          device_unlock_pattern: deviceUnlock.pattern ?? null,
+          warranty_text: warranty.warranty_text,
+          warranty_months: warranty.warranty_months,
+          warranty_change_reason: warranty.warranty_change_reason ?? null,
+          warranty_changed_by: warrantyChangedFromDefault ? actorId : null,
+          warranty_changed_at: warrantyChangedFromDefault ? now : null,
+          fault_prices: validFaults,
+          cost_inputs: (input.cost_inputs ?? [])
+            .filter((item) => item.mode !== "default")
+            .map((item) => ({
+              line_id: item.line_id,
+              mode: item.mode,
+              ...(item.mode === "manual" ? { amount: item.amount } : {}),
+            })),
+          operator_name: operatorName,
         },
-      });
-      break;
-    } catch (error) {
-      if (!isRepairOrderPublicNoInsertError(error) || attempt === 2) {
-        if (isRepairOrderPublicNoInsertError(error)) {
-          throw new Error("创建工单失败：工单编号生成失败，请重试或联系管理员");
-        }
-        throw error;
-      }
-    }
-  }
-
-  if (!inserted) {
-    throw new Error("创建工单失败：工单编号生成失败，请重试或联系管理员");
-  }
-
-  const orderId = requiredString(inserted.id);
-  if (input.cost_inputs !== undefined) {
-    try {
-      await applyCreateOrderCostInputs(
-        orderId,
-        input.cost_inputs,
-        requestActor ?? { displayName: operatorName },
-      );
-    } catch (error) {
-      const { error: rollbackError } = await supabase
-        .from("repair_orders")
-        .delete()
-        .eq("store_id", storeId)
-        .eq("id", orderId);
-      if (rollbackError) {
-        throw new Error("保存新工单成本失败，且工单回滚失败，请立即联系管理员");
-      }
-      throw error;
-    }
-  }
-  const { error: eventError } = await supabase.from("order_events").insert({
-    id: crypto.randomUUID(),
-    store_id: storeId,
-    order_id: orderId,
-    event_type: "created",
-    payload: {
-      type: input.order_type,
-      ...(operationId ? { operation_id: operationId } : {}),
-      device_custody_status: deviceCustodyStatus,
-      device_unlock_method: deviceUnlock.method,
-      warranty_months: warranty.warranty_months,
-      warranty_text: warranty.warranty_text,
-      warranty_change_reason: warranty.warranty_change_reason ?? null,
+      },
     },
-    operator_name: operatorName,
-    created_at: now,
-  });
-  if (eventError) {
-    const { error: rollbackError } = await supabase
-      .from("repair_orders")
-      .delete()
-      .eq("store_id", storeId)
-      .eq("id", orderId);
-    if (rollbackError) {
-      throw new Error("写入创建时间线失败，且工单回滚失败，请立即联系管理员");
-    }
-    fail(eventError, "写入创建时间线失败");
+  );
+  if (atomicResultError) {
+    const migrationMissing = ["PGRST202", "42883"].includes(atomicResultError.code ?? "");
+    throw new OrderCustomerIdentityError(
+      migrationMissing
+        ? "工单原子创建迁移尚未应用，已阻止旧流程继续写入"
+        : "创建工单事务失败，请重试",
+      migrationMissing ? "ORDER_CREATE_MIGRATION_REQUIRED" : "ORDER_CREATE_TRANSACTION_FAILED",
+      503,
+    );
   }
-
-  return { id: orderId };
+  const atomicResult = (atomicResultData ?? {}) as Record<string, unknown>;
+  if (atomicResult.ok === true && typeof atomicResult.id === "string") {
+    return { id: atomicResult.id, replayed: atomicResult.replayed === true };
+  }
+  const atomicCode = typeof atomicResult.code === "string" ? atomicResult.code : "unknown";
+  if (atomicCode === "customer_identity_conflict") {
+    throw new OrderCustomerIdentityError(
+      "电话号码与客户姓名不一致",
+      "CUSTOMER_IDENTITY_CONFLICT",
+      409,
+      {
+        conflictToken: atomicResult.conflictToken,
+        allowedResolutions: atomicResult.allowedResolutions,
+        candidates: atomicResult.candidates,
+      },
+    );
+  }
+  throw orderCustomerIdentityFailure(atomicCode);
 }
 
 export async function getOrderCreateOperationStatus(

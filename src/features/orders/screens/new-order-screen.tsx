@@ -33,6 +33,7 @@ import {
   getStoreContext,
   getStoreFaultCostDefaults,
   isRepairDeskRequestTimeoutError,
+  RepairDeskApiError,
 } from "@/lib/repairdesk/api";
 import type {
   CustomerDetail,
@@ -40,6 +41,7 @@ import type {
   CustomerIntakeCandidate,
   FaultPriceItem,
 } from "@/lib/repairdesk/api";
+import type { CustomerIdentityResolution } from "@/lib/repairdesk/types";
 import {
   NewOrderDeviceInfoSection,
   NewOrderDeviceUnlockSection,
@@ -112,6 +114,8 @@ export function NewOrderScreen({
   const [isOnline, setIsOnline] = useState(true);
   const [historyDevices, setHistoryDevices] = useState<CustomerHistoryDeviceCandidate[]>([]);
   const [discardDraftDialogOpen, setDiscardDraftDialogOpen] = useState(false);
+  const [identityConflict, setIdentityConflict] = useState<NewOrderIdentityConflict | null>(null);
+  const [sharedPhoneConfirmOpen, setSharedPhoneConfirmOpen] = useState(false);
   const [createRecovery, setCreateRecovery] = useState<NewOrderCreateRecoveryState>({
     state: "idle",
   });
@@ -397,6 +401,8 @@ export function NewOrderScreen({
   const completeOnlineOrderCreated = useCallback(
     (id: string, options: { recovered?: boolean; replayed?: boolean } = {}) => {
       createOperationIdRef.current = null;
+      setIdentityConflict(null);
+      setSharedPhoneConfirmOpen(false);
       setCreateRecovery({ state: "idle" });
       void offlineDraft.discardCurrentDraft();
       invalidateOrderReadCaches(queryClient, id);
@@ -434,7 +440,9 @@ export function NewOrderScreen({
   );
 
   const create = useMutation({
-    mutationFn: async (): Promise<
+    mutationFn: async (
+      identityResolution: CustomerIdentityResolution = { mode: "auto" },
+    ): Promise<
       | { kind: "online"; id: string; replayed?: boolean }
       | { kind: "offline_queued"; operationId: string }
     > => {
@@ -444,6 +452,9 @@ export function NewOrderScreen({
         throw new Error("默认成本尚未成功读取，请重试后再创建工单");
       }
       if (typeof navigator !== "undefined" && !navigator.onLine) {
+        if (identityResolution.mode !== "auto") {
+          throw new Error("客户身份确认需要联网完成，请恢复网络后重试");
+        }
         if (canManageOrderCosts && Object.values(costDrafts).some((draft) => draft.touched)) {
           throw new Error("内部成本仅支持联网保存；请恢复网络后创建，或清除本次成本修改");
         }
@@ -464,6 +475,7 @@ export function NewOrderScreen({
         customer_id: form.customerId,
         customer_name: customerNameValueForCreateOrder(form),
         customer_phone: form.customerPhone,
+        customer_identity_resolution: identityResolution,
         device_id: form.deviceId,
         device_brand: form.brand,
         device_model: form.model,
@@ -496,6 +508,18 @@ export function NewOrderScreen({
       completeOnlineOrderCreated(result.id, { replayed: result.replayed });
     },
     onError: (error: Error) => {
+      if (
+        error instanceof RepairDeskApiError &&
+        error.status === 409 &&
+        error.code === "CUSTOMER_IDENTITY_CONFLICT"
+      ) {
+        const conflict = readNewOrderIdentityConflict(error.details);
+        if (conflict) {
+          setIdentityConflict(conflict);
+          setCreateRecovery({ state: "idle" });
+          return;
+        }
+      }
       if (isRepairDeskRequestTimeoutError(error) && createOperationIdRef.current) {
         toast.message("创建请求仍在确认中，请不要重复提交");
         void confirmCreateOperation(createOperationIdRef.current);
@@ -749,7 +773,8 @@ export function NewOrderScreen({
             );
             return;
           }
-          create.mutate();
+          setIdentityConflict(null);
+          create.mutate({ mode: "auto" });
         }}
         className={cn(
           "min-w-0 pb-32 sm:pb-20",
@@ -833,7 +858,12 @@ export function NewOrderScreen({
             <NewOrderCustomerSection
               form={form}
               setForm={setForm}
-              onClearCustomerContext={() => setHistoryDevices([])}
+              onClearCustomerContext={() => {
+                setHistoryDevices([]);
+                setIdentityConflict(null);
+                setSharedPhoneConfirmOpen(false);
+                createOperationIdRef.current = null;
+              }}
               onPickCustomer={handlePickCustomer}
               onPickHistoryDevice={handlePickHistoryDevice}
               surface={surface}
@@ -913,8 +943,111 @@ export function NewOrderScreen({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog
+        open={Boolean(identityConflict) && !sharedPhoneConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open && !sharedPhoneConfirmOpen) {
+            setIdentityConflict(null);
+            createOperationIdRef.current = null;
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认这张工单属于哪位客户</AlertDialogTitle>
+            <AlertDialogDescription>
+              电话号码已关联其他客户，但本次填写了不同姓名。未确认前不会创建工单、设备或修改客户资料。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="grid gap-2">
+            {identityConflict?.candidates.map((candidate) => (
+              <Button
+                key={candidate.customerId}
+                type="button"
+                variant="outline"
+                disabled={create.isPending}
+                onClick={() => {
+                  if (!identityConflict) return;
+                  create.mutate({
+                    mode: "use_existing",
+                    customer_id: candidate.customerId,
+                    conflict_token: identityConflict.conflictToken,
+                  });
+                }}
+              >
+                使用已有客户：{candidate.displayName || "未命名客户"}
+              </Button>
+            ))}
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={create.isPending}
+              onClick={() => setSharedPhoneConfirmOpen(true)}
+            >
+              这是另一位客户（共用电话）
+            </Button>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>返回检查</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={sharedPhoneConfirmOpen} onOpenChange={setSharedPhoneConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认创建独立客户</AlertDialogTitle>
+            <AlertDialogDescription>
+              将保留当前填写的姓名，并创建一位共用此电话号码的独立客户。已有客户资料不会被改名。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>返回</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={create.isPending}
+              onClick={() => {
+                if (!identityConflict) return;
+                create.mutate({
+                  mode: "create_distinct_shared_phone",
+                  conflict_token: identityConflict.conflictToken,
+                  reason: "other",
+                });
+              }}
+            >
+              确认独立创建
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
+}
+
+type NewOrderIdentityConflict = {
+  conflictToken: string;
+  candidates: Array<{ customerId: string; displayName: string }>;
+};
+
+function readNewOrderIdentityConflict(
+  details: Record<string, unknown> | undefined,
+): NewOrderIdentityConflict | null {
+  const conflictToken = typeof details?.conflictToken === "string" ? details.conflictToken : "";
+  const candidates = Array.isArray(details?.candidates)
+    ? details.candidates.flatMap((candidate) => {
+        if (!candidate || typeof candidate !== "object") return [];
+        const value = candidate as Record<string, unknown>;
+        return typeof value.customerId === "string"
+          ? [
+              {
+                customerId: value.customerId,
+                displayName: typeof value.displayName === "string" ? value.displayName : "",
+              },
+            ]
+          : [];
+      })
+    : [];
+  return conflictToken && candidates.length ? { conflictToken, candidates } : null;
 }
 
 function getCreateOrderErrorMessage(error: Error) {

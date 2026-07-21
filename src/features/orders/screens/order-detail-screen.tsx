@@ -3053,7 +3053,12 @@ function MobileOrderDetailView({
     ? { primary: undefined, secondary: [] }
     : getWorkflowNextActions(workflow, order.status);
   const phone = customer?.phone_e164 || order.customer_phone;
-  const rawCustomerName = (customer?.name || order.customer_name || "").trim();
+  const rawCustomerName = (
+    order.customer_name_snapshot ||
+    customer?.name ||
+    order.customer_name ||
+    ""
+  ).trim();
   const customerDisplayName =
     rawCustomerName && normalizePhoneDigits(rawCustomerName) !== normalizePhoneDigits(phone)
       ? rawCustomerName

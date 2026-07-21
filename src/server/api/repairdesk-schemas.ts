@@ -572,6 +572,24 @@ const deviceUnlockInputSchema = z.discriminatedUnion("method", [
     .strict(),
 ]);
 
+const customerIdentityResolutionSchema = z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("auto") }).strict(),
+  z
+    .object({
+      mode: z.literal("use_existing"),
+      customer_id: z.string().min(1),
+      conflict_token: z.string().uuid(),
+    })
+    .strict(),
+  z
+    .object({
+      mode: z.literal("create_distinct_shared_phone"),
+      conflict_token: z.string().uuid(),
+      reason: z.enum(["family", "business", "other"]),
+    })
+    .strict(),
+]);
+
 export const createOrderSchema = z
   .object({
     customer_id: optionalText,
@@ -579,6 +597,7 @@ export const createOrderSchema = z
     operation_id: z.string().uuid().optional(),
     customer_name: optionalText,
     customer_phone: optionalText,
+    customer_identity_resolution: customerIdentityResolutionSchema.optional(),
     device_brand: optionalText,
     device_model: optionalText,
     device_imei: optionalDeviceImeiText,

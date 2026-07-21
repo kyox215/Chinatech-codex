@@ -2463,6 +2463,8 @@ export async function createOrder(
   }
 
   let customer = input.customer_id ? getCustomer(input.customer_id) : undefined;
+  let customerSnapshotSource: NonNullable<RepairOrder["customer_identity_snapshot_source"]> =
+    customer ? "selected" : "created";
   if (input.customer_id && !customer) throw new Error("读取客户失败");
   let customerContactPhones = customer?.contact_phones ?? [];
   if (customer && input.customer_phone?.trim()) {
@@ -2482,7 +2484,37 @@ export async function createOrder(
     const phoneBook = normalizePhoneBook(input.customer_phone);
     const raw = phoneBook.primaryRaw;
     if (!raw) throw new Error("手机号格式不正确");
-    customer = customers.find((item) => item.phone_raw === raw);
+    const phoneCandidates = customers.filter((item) => item.phone_raw === raw);
+    const resolution = input.customer_identity_resolution ?? { mode: "auto" as const };
+    const normalizedName = input.customer_name?.trim().toLocaleLowerCase("it-IT") ?? "";
+    if (resolution.mode === "use_existing") {
+      customer = phoneCandidates.find((item) => item.id === resolution.customer_id);
+      if (!customer) throw new Error("客户身份确认已失效，请重新检查");
+      customerSnapshotSource = "selected";
+    } else if (resolution.mode === "create_distinct_shared_phone") {
+      customer = undefined;
+      customerSnapshotSource = "shared_phone";
+    } else if (
+      phoneCandidates.length === 1 &&
+      (!normalizedName ||
+        phoneCandidates[0]?.name.trim().toLocaleLowerCase("it-IT") === normalizedName)
+    ) {
+      customer = phoneCandidates[0];
+      customerSnapshotSource = "selected";
+    } else if (phoneCandidates.length > 0) {
+      throw Object.assign(new Error("电话号码与客户姓名不一致"), {
+        status: 409,
+        code: "CUSTOMER_IDENTITY_CONFLICT",
+        details: {
+          conflictToken: crypto.randomUUID(),
+          allowedResolutions: ["use_existing", "create_distinct_shared_phone"],
+          candidates: phoneCandidates.map((item) => ({
+            customerId: item.id,
+            displayName: item.name,
+          })),
+        },
+      });
+    }
     if (!customer) {
       customer = {
         id: mockId("cus_new"),
@@ -2566,6 +2598,9 @@ export async function createOrder(
     parts_status: partsStatusFromLegacyStatus(status),
     notify_status: notifyStatusFromLegacyStatus(status),
     customer_id: customer.id,
+    customer_name_snapshot: customer.name,
+    customer_phone_snapshot: customer.phone_e164,
+    customer_identity_snapshot_source: customerSnapshotSource,
     device_id: device.id,
     issue_description: input.issue_description,
     quotation_amount: quotation,

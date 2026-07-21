@@ -88,6 +88,9 @@ const ORDER_LIST_BASE_COLUMNS = `
   order_type,
   status,
   customer_id,
+  customer_name_snapshot,
+  customer_phone_snapshot,
+  customer_identity_snapshot_source,
   device_id,
   issue_description,
   diagnosis_result,
@@ -495,6 +498,15 @@ export function orderFromRow(row: DbRecord): RepairOrder {
       notifyStatusFromLegacyStatus(status),
     workflow_bucket: maybeString(row.workflow_bucket) as RepairOrder["workflow_bucket"],
     customer_id: requiredString(row.customer_id),
+    customer_name_snapshot: maybeString(row.customer_name_snapshot),
+    customer_phone_snapshot: maybeString(row.customer_phone_snapshot),
+    customer_identity_snapshot_source:
+      row.customer_identity_snapshot_source === "created" ||
+      row.customer_identity_snapshot_source === "selected" ||
+      row.customer_identity_snapshot_source === "shared_phone" ||
+      row.customer_identity_snapshot_source === "backfilled_current_profile"
+        ? row.customer_identity_snapshot_source
+        : undefined,
     device_id: requiredString(row.device_id),
     issue_description: requiredString(row.issue_description),
     diagnosis_result: maybeString(row.diagnosis_result),
@@ -563,8 +575,8 @@ export function decorate(row: DbRecord): OrderListItem {
 
   return {
     ...order,
-    customer_name: customer?.name ?? "-",
-    customer_phone: customer?.phone_e164 ?? "",
+    customer_name: order.customer_name_snapshot ?? customer?.name ?? "-",
+    customer_phone: order.customer_phone_snapshot ?? customer?.phone_e164 ?? "",
     device_label: deviceLabel || "-",
     device_imei: snapshot?.serial_or_imei ?? device?.serial_or_imei ?? "",
     supplier_name: supplier?.name,

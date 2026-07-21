@@ -64,6 +64,36 @@ import {
 } from "./repairdesk-schemas";
 
 describe("repairdesk API schemas", () => {
+  it("accepts only explicit customer identity conflict resolutions", () => {
+    const base = {
+      operation_id: "00000000-0000-4000-8000-000000000801",
+      customer_name: "Cliente Due",
+      customer_phone: "+39000000000",
+      device_brand: "Apple",
+      device_model: "iPhone",
+      order_type: "quick_repair" as const,
+      status: "new" as const,
+      issue_description: "display",
+      fault_prices: [],
+    };
+    expect(
+      createOrderSchema.parse({
+        ...base,
+        customer_identity_resolution: {
+          mode: "use_existing",
+          customer_id: "customer-1",
+          conflict_token: "00000000-0000-4000-8000-000000000802",
+        },
+      }).customer_identity_resolution,
+    ).toMatchObject({ mode: "use_existing", customer_id: "customer-1" });
+    expect(() =>
+      createOrderSchema.parse({
+        ...base,
+        customer_identity_resolution: { mode: "create_distinct_shared_phone" },
+      }),
+    ).toThrow();
+  });
+
   it("trims an optional new-store print address and bounds its length", () => {
     expect(
       storeCreateInputSchema.parse({

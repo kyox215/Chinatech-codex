@@ -1112,14 +1112,14 @@ describe("mock order inline editing workflow", () => {
 
   it("replaces backup phones during full order edits", async () => {
     const id = await createMockOrder({
-      customer_phone: "+39 366 100 200 / +39 366 300 400",
+      customer_phone: "+39 366 120 230 / +39 366 320 430",
     });
     const before = await getOrder(id);
 
     await updateOrder(id, {
       expected_updated_at: before.order.updated_at,
       customer_name: before.order.customer_name,
-      customer_phone: "+39 366 100 200 / +39 366 500 600",
+      customer_phone: "+39 366 120 230 / +39 366 520 630",
       device_brand: before.order.device_snapshot?.brand ?? "Apple",
       device_model: before.order.device_snapshot?.model ?? "iPhone",
       device_imei: before.order.device_imei,
@@ -1134,8 +1134,8 @@ describe("mock order inline editing workflow", () => {
     });
 
     const after = await getOrder(id);
-    expect(after.order.customer_phone).toBe("+39 366 100 200");
-    expect(after.order.contact_phones).toEqual(["+39 366 500 600"]);
+    expect(after.order.customer_phone).toBe("+39 366 120 230");
+    expect(after.order.contact_phones).toEqual(["+39 366 520 630"]);
   });
 
   it("patches ordinary fields and rejects stale versions", async () => {

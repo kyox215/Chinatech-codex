@@ -98,9 +98,32 @@ describe("customer lookup mobile stability", () => {
       expect(apiMocks.searchCustomerIntakeCandidates).toHaveBeenCalledWith("Al", 8, 4);
     });
   });
+
+  it("does not select the first customer on bare Enter", async () => {
+    const user = userEvent.setup();
+    const onPickCustomer = vi.fn();
+    apiMocks.searchCustomerIntakeCandidates.mockResolvedValue([makeIntakeCandidate()]);
+
+    renderWithClient(<CustomerIntakeLookupHarness mode="name" onPickCustomer={onPickCustomer} />);
+    const input = screen.getByRole("combobox");
+    await user.type(input, "Al");
+    expect(await screen.findByRole("option")).toBeInTheDocument();
+
+    await user.keyboard("{Enter}");
+    expect(onPickCustomer).not.toHaveBeenCalled();
+
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(onPickCustomer).toHaveBeenCalledTimes(1);
+  });
 });
 
-function CustomerIntakeLookupHarness({ mode = "phone" }: { mode?: "phone" | "name" }) {
+function CustomerIntakeLookupHarness({
+  mode = "phone",
+  onPickCustomer = () => undefined,
+}: {
+  mode?: "phone" | "name";
+  onPickCustomer?: () => void;
+}) {
   const [value, setValue] = useState("");
 
   return (
@@ -108,10 +131,26 @@ function CustomerIntakeLookupHarness({ mode = "phone" }: { mode?: "phone" | "nam
       mode={mode}
       value={value}
       onChange={setValue}
-      onPickCustomer={() => undefined}
+      onPickCustomer={onPickCustomer}
       onPickHistoryDevice={() => undefined}
     />
   );
+}
+
+function makeIntakeCandidate() {
+  return {
+    customer: {
+      id: "customer-1",
+      name: "Alice",
+      phone_e164: "+39000000000",
+      phone_raw: "0000000000",
+      contact_phones: [],
+      consent_marketing: false,
+      consent_sms: true,
+    },
+    exactMatch: true,
+    historyDevices: [],
+  };
 }
 
 function CustomerPhoneLookupHarness() {

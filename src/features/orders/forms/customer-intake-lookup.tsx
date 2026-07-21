@@ -71,7 +71,7 @@ export function CustomerIntakeLookup({
   const listboxId = useId();
   const [focused, setFocused] = useState(false);
   const [open, setOpen] = useState(false);
-  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
   const query = mode === "phone" ? normalizePhoneKeypadDraft(value) : value.trim();
   const rawPhone = primaryPhoneRaw(query);
   const nameHasDigits = mode === "name" && /\d/.test(query);
@@ -99,14 +99,16 @@ export function CustomerIntakeLookup({
   const queryError = candidateQuery.error instanceof Error ? candidateQuery.error.message : "";
   const resultCount = data.length;
   const activeDescendant =
-    open && resultCount > 0 ? `${listboxId}-option-${highlightedIndex}` : undefined;
+    open && resultCount > 0 && highlightedIndex !== null
+      ? `${listboxId}-option-${highlightedIndex}`
+      : undefined;
 
   useEffect(() => {
     setOpen(resultsPlacement === "inline" ? searchEnabled : focused && searchEnabled);
   }, [focused, resultsPlacement, searchEnabled]);
 
   useEffect(() => {
-    setHighlightedIndex(0);
+    setHighlightedIndex(null);
   }, [debouncedQuery, data.length]);
 
   const pickCustomer = (candidate: CustomerIntakeCandidate) => {
@@ -184,17 +186,20 @@ export function CustomerIntakeLookup({
             event.preventDefault();
             setOpen(searchEnabled);
             setHighlightedIndex((index) =>
-              resultCount ? Math.min(resultCount - 1, index + 1) : 0,
+              resultCount ? (index === null ? 0 : Math.min(resultCount - 1, index + 1)) : null,
             );
             return;
           }
           if (event.key === "ArrowUp") {
             event.preventDefault();
-            setHighlightedIndex((index) => (resultCount ? Math.max(0, index - 1) : 0));
+            setHighlightedIndex((index) =>
+              resultCount ? (index === null ? resultCount - 1 : Math.max(0, index - 1)) : null,
+            );
             return;
           }
           if (event.key === "Enter" && open && resultCount > 0) {
             event.preventDefault();
+            if (highlightedIndex === null) return;
             const candidate = data[highlightedIndex];
             if (candidate) pickCustomer(candidate);
           }
@@ -311,7 +316,7 @@ function CustomerIntakeResults({
   isSearching: boolean;
   queryError: string;
   data: CustomerIntakeCandidate[];
-  highlightedIndex: number;
+  highlightedIndex: number | null;
   selectedCustomerId?: string;
   selectedDeviceId?: string;
   onHighlight: (index: number) => void;
@@ -399,7 +404,7 @@ function CustomerIntakeCandidateCard({
     <div
       id={`${listboxId}-option-${index}`}
       role="option"
-      aria-selected={highlighted}
+      aria-selected={selected}
       className={cn(
         "mb-1 rounded-lg border border-[var(--border-panel)] bg-card p-1 shadow-[var(--shadow-card)] last:mb-0",
         highlighted && "ring-1 ring-primary/25",

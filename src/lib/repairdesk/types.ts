@@ -732,6 +732,13 @@ export interface RepairOrder {
   notify_status?: OrderNotifyStatus;
   workflow_bucket?: OrderWorkflowBucket;
   customer_id: string;
+  customer_name_snapshot?: string;
+  customer_phone_snapshot?: string;
+  customer_identity_snapshot_source?:
+    | "created"
+    | "selected"
+    | "shared_phone"
+    | "backfilled_current_profile";
   device_id: string;
   issue_description: string;
   diagnosis_result?: string;
@@ -1356,12 +1363,22 @@ export interface CustomerDetail {
   };
 }
 
+export type CustomerIdentityResolution =
+  | { mode: "auto" }
+  | { mode: "use_existing"; customer_id: string; conflict_token: string }
+  | {
+      mode: "create_distinct_shared_phone";
+      conflict_token: string;
+      reason: "family" | "business" | "other";
+    };
+
 export interface CreateOrderInput {
   operation_id?: string;
   customer_id?: string;
   device_id?: string;
   customer_name?: string;
   customer_phone?: string;
+  customer_identity_resolution?: CustomerIdentityResolution;
   device_brand?: string;
   device_model?: string;
   device_imei?: string;

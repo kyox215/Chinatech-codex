@@ -1809,7 +1809,10 @@ export async function handleRepairDeskPost(
             entityType: "repair_order",
             entityId: result.id,
             after: asRecord(result),
-            metadata: { input: asRecord(body) },
+            metadata: {
+              operationId: input.operation_id,
+              customerIdentityResolution: input.customer_identity_resolution?.mode ?? "auto",
+            },
           });
           queueRealtimeBroadcast(actor, realtimeBroadcasts.orderCreated);
         }
