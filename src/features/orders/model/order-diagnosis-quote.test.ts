@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  CANNOT_DESCRIBE_ISSUE_DESCRIPTION,
+  DIAGNOSTIC_ONLY_ISSUE_DESCRIPTION,
   UNKNOWN_ISSUE_DESCRIPTION,
   getQuoteDraftReadiness,
   getQuoteNotificationReadiness,
@@ -15,6 +17,21 @@ describe("unknown issue intake", () => {
     expect(inferIssueCaptureModeForLegacyDraft(UNKNOWN_ISSUE_DESCRIPTION)).toBe("unknown");
   });
 
+  it("keeps cannot-describe and diagnostic-only as distinct no-typing intake intents", () => {
+    expect(issueDescriptionForIntake("cannot_describe", "ignored")).toBe(
+      CANNOT_DESCRIBE_ISSUE_DESCRIPTION,
+    );
+    expect(issueDescriptionForIntake("diagnostic_only", "ignored")).toBe(
+      DIAGNOSTIC_ONLY_ISSUE_DESCRIPTION,
+    );
+    expect(inferIssueCaptureModeForLegacyDraft(CANNOT_DESCRIBE_ISSUE_DESCRIPTION)).toBe(
+      "cannot_describe",
+    );
+    expect(inferIssueCaptureModeForLegacyDraft(DIAGNOSTIC_ONLY_ISSUE_DESCRIPTION)).toBe(
+      "diagnostic_only",
+    );
+  });
+
   it("requires and preserves the customer's reported symptom when the problem is known", () => {
     expect(issueDescriptionForIntake("reported", "  掉电很快  ")).toBe("掉电很快");
     expect(() => issueDescriptionForIntake("reported", "  ")).toThrow("请填写客户描述的故障现象");
@@ -25,6 +42,14 @@ describe("unknown issue intake", () => {
     expect(
       resolveIntakeQuoteDraft({
         mode: "unknown",
+        items: draftItems,
+        total: 59,
+        deposit: 20,
+      }),
+    ).toEqual({ items: [], total: 0, deposit: 0 });
+    expect(
+      resolveIntakeQuoteDraft({
+        mode: "diagnostic_only",
         items: draftItems,
         total: 59,
         deposit: 20,

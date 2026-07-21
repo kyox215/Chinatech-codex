@@ -170,18 +170,18 @@ import { brandGradientStyle, pageShell, repairOs, surfaces } from "@/lib/ui-patt
 
 `src/lib/ui-patterns.ts` 已提供以下声明：
 
-| 导出                 | 用途                                                               |
-| -------------------- | ------------------------------------------------------------------ |
-| `pageShell`          | 页面最大宽度、padding、详情/表单/列表容器                          |
+| 导出                 | 用途                                                                 |
+| -------------------- | -------------------------------------------------------------------- |
+| `pageShell`          | 页面最大宽度、padding、详情/表单/列表容器                            |
 | `pageHeader`         | 对象详情、表单或特殊工作区标题；列表/管理模块正文禁止用它重复 AppBar |
-| `surfaces`           | `glass-card`、toolbar、sticky action、empty、popover               |
-| `controls`           | 品牌按钮、搜索框、分段按钮                                         |
-| `dataDisplay`        | KPI grid、chart grid、table、mobile cards、number                  |
-| `formLayout`         | form stack、section、grid、field、label                            |
-| `repairOs`           | RepairOS Compact 移动页、Floating Card、KPI、chips、高密度业务卡片 |
-| `stateBlocks`        | skeleton/error/empty/muted help                                    |
-| `iconSizes`          | 统一图标尺寸                                                       |
-| `brandGradientStyle` | 品牌渐变 style 对象                                                |
+| `surfaces`           | `glass-card`、toolbar、sticky action、empty、popover                 |
+| `controls`           | 品牌按钮、搜索框、分段按钮                                           |
+| `dataDisplay`        | KPI grid、chart grid、table、mobile cards、number                    |
+| `formLayout`         | form stack、section、grid、field、label                              |
+| `repairOs`           | RepairOS Compact 移动页、Floating Card、KPI、chips、高密度业务卡片   |
+| `stateBlocks`        | skeleton/error/empty/muted help                                      |
+| `iconSizes`          | 统一图标尺寸                                                         |
+| `brandGradientStyle` | 品牌渐变 style 对象                                                  |
 
 列表 / 管理页示例：
 
@@ -275,3 +275,9 @@ export default function ExamplePage() {
 - 是否暗色默认可读，亮色主题不丢边框和层级。
 - 是否同步导航和命令面板。
 - 是否通过 lint/build。
+
+## 10. Order action overlay coordination
+
+An order detail or task page owns a single action-overlay coordinator. While any transition, approval, terminal, notification, payment, custody, camera, preview or timeline surface is open, the page-level fixed action dock must not render.
+
+Reason-required actions use a fixed header/footer and one scrolling body. Mobile sizing follows `window.visualViewport`; desktop content remains within the real viewport at 200% zoom. The page must preserve the complete legacy free-text path while the preset workflow feature flag is off.

@@ -60,6 +60,12 @@ describe("NewOrderFaultDiagnosisSection", () => {
     expect(screen.getByTestId("form-state")).toHaveTextContent('"deposit":20');
     expect(screen.getByTestId("form-state")).toHaveTextContent('"name":"更换电池"');
 
+    await user.click(within(section).getByRole("button", { name: "仅检测" }));
+    expect(within(section).getByText("客户本次仅要求检测，暂不授权维修")).toBeInTheDocument();
+    expect(screen.getByTestId("form-state")).toHaveTextContent(
+      '"issueCaptureMode":"diagnostic_only"',
+    );
+
     await user.click(within(section).getByRole("button", { name: "编辑客户报障" }));
     const unknownDialog = await screen.findByRole("dialog", { name: "编辑客户报障" });
     await user.click(within(unknownDialog).getByRole("button", { name: "问题明确" }));

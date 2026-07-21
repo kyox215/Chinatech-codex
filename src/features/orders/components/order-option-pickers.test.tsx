@@ -141,17 +141,24 @@ describe("order option pickers", () => {
     await user.keyboard("{Escape}");
   });
 
-  it("uses a select for warranty and preserves the required non-default reason", async () => {
+  it("uses a select and point-pick reasons for non-default warranty", async () => {
     const user = userEvent.setup();
     render(<WarrantyHarness />);
 
     await user.click(screen.getByRole("combobox"));
     await user.click(await screen.findByRole("option", { name: "12个月" }));
 
-    expect(screen.getByPlaceholderText("请输入非默认质保原因")).toBeInTheDocument();
+    expect(screen.getByText("选择延长质保原因")).toBeInTheDocument();
     expect(screen.getByTestId("warranty-value")).toHaveTextContent("12|12个月|");
 
-    await user.type(screen.getByPlaceholderText("请输入非默认质保原因"), "客户购买延保");
+    await user.click(screen.getByText("门店特别承诺"));
+    expect(screen.getByTestId("warranty-value")).toHaveTextContent(
+      "12|12个月|门店对本次维修提供特别延长质保。",
+    );
+
+    await user.click(screen.getByText("其他原因"));
+    const otherReason = screen.getByRole("textbox", { name: "其他原因（必填）" });
+    await user.type(otherReason, "客户购买延保");
 
     expect(screen.getByTestId("warranty-value")).toHaveTextContent("12|12个月|客户购买延保");
   });

@@ -87,6 +87,7 @@ import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { getWorkflowStatuses } from "@/features/orders/model/order-workflow";
 import {
   issueDescriptionForIntake,
+  isIntakeQuotePaused,
   resolveIntakeQuoteDraft,
 } from "@/features/orders/model/order-diagnosis-quote";
 import type { NewOrderPrefill } from "@/features/orders/model/new-order-intent";
@@ -249,7 +250,7 @@ export function NewOrderScreen({
     () => validFaultDrafts.reduce((sum, item) => sum + (Number(item.price) || 0), 0),
     [validFaultDrafts],
   );
-  const quoteActive = form.issueCaptureMode !== "unknown";
+  const quoteActive = !isIntakeQuotePaused(form.issueCaptureMode);
   const activeQuote = resolveIntakeQuoteDraft({
     mode: form.issueCaptureMode,
     items: validFaultDrafts,
@@ -541,7 +542,7 @@ export function NewOrderScreen({
     form.customerPhone.trim() &&
     form.brand.trim() &&
     form.model.trim() &&
-    (form.issueCaptureMode === "unknown" || Boolean(form.issue.trim())) &&
+    (isIntakeQuotePaused(form.issueCaptureMode) || Boolean(form.issue.trim())) &&
     activeDeposit <= activeTotal &&
     !custodyStatusBlocked &&
     !costDefaultsBlocked &&
@@ -1173,10 +1174,10 @@ function getNewOrderMissingItems({
     form.deviceCustodyStatus === null ? { label: "设备保管", target: "device-custody" } : null,
     !form.brand.trim() ? { label: "设备品牌", target: "device-brand" } : null,
     !form.model.trim() ? { label: "设备型号", target: "device-model" } : null,
-    form.issueCaptureMode !== "unknown" && !form.issue.trim()
+    !isIntakeQuotePaused(form.issueCaptureMode) && !form.issue.trim()
       ? { label: "故障描述", target: "customer-report-edit" }
       : null,
-    form.issueCaptureMode !== "unknown" && form.deposit > total
+    !isIntakeQuotePaused(form.issueCaptureMode) && form.deposit > total
       ? { label: "定金不能超过总额", target: "deposit" }
       : null,
     custodyStatusBlocked ? { label: "创建阶段与保管方式冲突", target: "create-status" } : null,

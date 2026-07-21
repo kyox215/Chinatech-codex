@@ -17,8 +17,18 @@ describe("order transition reason presets", () => {
     const config = getOrderTransitionReasonConfig("unfixed_pickup");
 
     expect(config?.title).toContain("未修取机");
-    expect(config?.presets.map((preset) => preset.label)).toContain("维修风险过高");
-    expect(getDefaultOrderTransitionReason("unfixed_pickup")).toContain("客户确认");
+    expect(config?.presets.map((preset) => preset.label)).toContain("风险不可接受");
+    expect(getDefaultOrderTransitionReason("unfixed_pickup")).toBe("");
+  });
+
+  it("does not claim unrecorded quote or customer acknowledgement facts", () => {
+    const serialized = JSON.stringify([
+      getOrderTransitionReasonConfig("mail_in_progress"),
+      getOrderTransitionReasonConfig("unfixed_pickup"),
+    ]);
+
+    expect(serialized).not.toContain("已报价");
+    expect(serialized).not.toContain("客户已知悉");
   });
 
   it("does not require unknown custom statuses to define presets", () => {

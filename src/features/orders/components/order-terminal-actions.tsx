@@ -7,14 +7,6 @@ import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -24,21 +16,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { OrderReasonField } from "@/features/orders/components/order-reason-field";
+import { ResponsiveOrderActionOverlay } from "@/features/orders/components/responsive-order-action-overlay";
 import {
-  correctTerminalOrder,
+  buildBusinessReasonSelection,
+  createEmptyOrderReasonDraft,
+  getOrderReasonCatalog,
+  getOrderReasonLegacyPreview,
+  type OrderReasonCatalog,
+  type OrderReasonDraft,
+} from "@/features/orders/model/order-reason-catalog";
+import {
+  correctTerminalOrderV2,
   RepairDeskApiError,
-  reopenOrder,
-  voidOrder,
+  reopenOrderV2,
+  voidOrderV2,
   type CorrectTerminalOrderInput,
   type OrderCapabilities,
   type OrderDetail,
@@ -68,13 +61,18 @@ export function OrderTerminalActions({
   const order = detail.order;
   const capabilities = detail.capabilities;
   const [mode, setMode] = useState<TerminalMode | null>(null);
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState<OrderReasonDraft>(createEmptyOrderReasonDraft);
   const [confirmation, setConfirmation] = useState("");
   const [targetStatus, setTargetStatus] = useState<RepairOrderStatus>("diagnosing");
   const [mutationError, setMutationError] = useState("");
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
   const [correction, setCorrection] = useState(() => buildTerminalCorrectionDraft(order));
-  const isMobile = useIsMobile();
+  const reasonCatalog = mode ? getOrderReasonCatalog(`terminal.${mode}`) : undefined;
+  const reasonSelection = useMemo(
+    () => (reasonCatalog ? buildBusinessReasonSelection(reasonCatalog, reason) : undefined),
+    [reason, reasonCatalog],
+  );
+  const reasonPreview = reasonCatalog ? getOrderReasonLegacyPreview(reasonCatalog, reason) : "";
   const reopenTargets = useMemo(
     () =>
       (workflow?.statuses ?? []).filter(
@@ -90,43 +88,52 @@ export function OrderTerminalActions({
       terminalFormError({
         mode,
         order,
-        reason,
+        reasonSelectionReady: Boolean(reasonSelection),
+        reasonPreview,
         confirmation,
         correction,
         targetStatus,
         reopenTargets,
       }),
-    [confirmation, correction, mode, order, reason, reopenTargets, targetStatus],
+    [
+      confirmation,
+      correction,
+      mode,
+      order,
+      reasonPreview,
+      reasonSelection,
+      reopenTargets,
+      targetStatus,
+    ],
   );
 
   const mutation = useMutation({
     mutationFn: async () => {
       if (!mode) throw new Error("请选择操作");
       if (validationError) throw new Error(validationError);
-      const cleanReason = reason.trim();
-      if (cleanReason.length < 5) throw new Error("原因至少需要 5 个字符");
+      if (!reasonSelection) throw new Error("请选择操作原因");
       if (mode === "correct") {
-        const changes = buildTerminalCorrectionChanges(order, correction, cleanReason);
+        const changes = buildTerminalCorrectionChanges(order, correction, reasonPreview);
         if (!Object.keys(changes).length) throw new Error("没有需要纠正的内容");
-        return correctTerminalOrder(order.id, {
+        return correctTerminalOrderV2(order.id, {
           expected_updated_at: order.updated_at,
           idempotency_key: idempotencyKey,
-          reason: cleanReason,
+          reason_selection: reasonSelection,
           changes,
         });
       }
       if (mode === "reopen") {
-        return reopenOrder(order.id, {
+        return reopenOrderV2(order.id, {
           expected_updated_at: order.updated_at,
           idempotency_key: idempotencyKey,
-          reason: cleanReason,
+          reason_selection: reasonSelection,
           to_status: targetStatus,
         });
       }
-      return voidOrder(order.id, {
+      return voidOrderV2(order.id, {
         expected_updated_at: order.updated_at,
         idempotency_key: idempotencyKey,
-        reason: cleanReason,
+        reason_selection: reasonSelection,
         confirm_public_no: confirmation,
       });
     },
@@ -161,7 +168,7 @@ export function OrderTerminalActions({
   function open(nextMode: TerminalMode) {
     if (mutation.isPending) return;
     setMode(nextMode);
-    setReason("");
+    setReason(createEmptyOrderReasonDraft());
     setConfirmation("");
     setMutationError("");
     setIdempotencyKey(crypto.randomUUID());
@@ -171,38 +178,46 @@ export function OrderTerminalActions({
     setTargetStatus(preferred?.code ?? "");
   }
 
-  const body = mode ? (
-    <TerminalActionForm
-      mode={mode}
-      order={order}
-      capabilities={capabilities}
-      reason={reason}
-      onReasonChange={(value) => {
-        setReason(value);
-        setMutationError("");
-      }}
-      confirmation={confirmation}
-      onConfirmationChange={(value) => {
-        setConfirmation(value);
-        setMutationError("");
-      }}
-      correction={correction}
-      onCorrectionChange={(value) => {
-        setCorrection(value);
-        setMutationError("");
-      }}
-      targetStatus={targetStatus}
-      onTargetStatusChange={(value) => {
-        setTargetStatus(value);
-        setMutationError("");
-      }}
-      reopenTargets={reopenTargets}
-    />
-  ) : null;
+  const body =
+    mode && reasonCatalog ? (
+      <TerminalActionForm
+        mode={mode}
+        order={order}
+        capabilities={capabilities}
+        reasonCatalog={reasonCatalog}
+        reason={reason}
+        onReasonChange={(value) => {
+          setReason(value);
+          setMutationError("");
+        }}
+        confirmation={confirmation}
+        onConfirmationChange={(value) => {
+          setConfirmation(value);
+          setMutationError("");
+        }}
+        correction={correction}
+        onCorrectionChange={(value) => {
+          setCorrection(value);
+          setMutationError("");
+        }}
+        targetStatus={targetStatus}
+        onTargetStatusChange={(value) => {
+          setTargetStatus(value);
+          setMutationError("");
+        }}
+        reopenTargets={reopenTargets}
+      />
+    ) : null;
   const visibleError = mutationError || validationError;
+  const reasonDirty = Boolean(reason.primaryCode || reason.note);
+  const closeMode = () => {
+    if (mutation.isPending) return;
+    if (reasonDirty && !window.confirm("当前选择尚未提交，确定放弃吗？")) return;
+    setMode(null);
+  };
   const footer = (
     <>
-      <Button variant="outline" disabled={mutation.isPending} onClick={() => setMode(null)}>
+      <Button variant="outline" disabled={mutation.isPending} onClick={closeMode}>
         取消
       </Button>
       <Button
@@ -284,58 +299,28 @@ export function OrderTerminalActions({
         ) : null}
       </section>
 
-      {isMobile ? (
-        <Sheet
-          open={Boolean(mode)}
-          onOpenChange={(openState) => {
-            if (!openState && !mutation.isPending) setMode(null);
-          }}
-        >
-          <SheetContent
-            side="bottom"
-            className="max-h-[calc(100svh-24px)] overflow-y-auto rounded-t-xl"
+      <ResponsiveOrderActionOverlay
+        open={Boolean(mode)}
+        pending={mutation.isPending}
+        dirty={reasonDirty}
+        onOpenChange={(openState) => {
+          if (!openState) setMode(null);
+        }}
+        title={dialogTitle(mode)}
+        description={dialogDescription(mode, order.public_no)}
+        footer={footer}
+        dataAttribute="data-order-terminal-action-overlay"
+      >
+        {body}
+        {visibleError ? (
+          <p
+            className="mt-2 rounded-md bg-status-danger px-2 py-1.5 text-xs text-status-danger-foreground"
+            role="alert"
           >
-            <SheetHeader className="text-left">
-              <SheetTitle>{dialogTitle(mode)}</SheetTitle>
-              <SheetDescription>{dialogDescription(mode, order.public_no)}</SheetDescription>
-            </SheetHeader>
-            {body}
-            {visibleError ? (
-              <p
-                className="mt-2 rounded-md bg-status-danger px-2 py-1.5 text-xs text-status-danger-foreground"
-                role="alert"
-              >
-                {visibleError}
-              </p>
-            ) : null}
-            <SheetFooter className="mt-4 gap-2">{footer}</SheetFooter>
-          </SheetContent>
-        </Sheet>
-      ) : (
-        <Dialog
-          open={Boolean(mode)}
-          onOpenChange={(openState) => {
-            if (!openState && !mutation.isPending) setMode(null);
-          }}
-        >
-          <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
-            <DialogHeader>
-              <DialogTitle>{dialogTitle(mode)}</DialogTitle>
-              <DialogDescription>{dialogDescription(mode, order.public_no)}</DialogDescription>
-            </DialogHeader>
-            {body}
-            {visibleError ? (
-              <p
-                className="rounded-md bg-status-danger px-2 py-1.5 text-xs text-status-danger-foreground"
-                role="alert"
-              >
-                {visibleError}
-              </p>
-            ) : null}
-            <DialogFooter>{footer}</DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+            {visibleError}
+          </p>
+        ) : null}
+      </ResponsiveOrderActionOverlay>
     </>
   );
 }
@@ -345,6 +330,7 @@ type CorrectionDraft = ReturnType<typeof buildTerminalCorrectionDraft>;
 function TerminalActionForm({
   mode,
   order,
+  reasonCatalog,
   reason,
   onReasonChange,
   confirmation,
@@ -358,8 +344,9 @@ function TerminalActionForm({
   mode: TerminalMode;
   order: OrderDetail["order"];
   capabilities?: OrderCapabilities;
-  reason: string;
-  onReasonChange: (value: string) => void;
+  reasonCatalog: OrderReasonCatalog;
+  reason: OrderReasonDraft;
+  onReasonChange: (value: OrderReasonDraft) => void;
   confirmation: string;
   onConfirmationChange: (value: string) => void;
   correction: CorrectionDraft;
@@ -485,17 +472,7 @@ function TerminalActionForm({
           </p>
         </Field>
       ) : null}
-      <Field id="terminal-operation-reason" label="操作原因（必填）">
-        <Textarea
-          id="terminal-operation-reason"
-          value={reason}
-          onChange={(event) => onReasonChange(event.target.value)}
-          minLength={5}
-          maxLength={1000}
-          autoFocus
-          placeholder="至少 5 个字符，说明为什么需要本次操作"
-        />
-      </Field>
+      <OrderReasonField catalog={reasonCatalog} value={reason} onChange={onReasonChange} compact />
     </div>
   );
 }
@@ -570,7 +547,8 @@ function terminalWarrantyMonths(order: OrderDetail["order"]) {
 function terminalFormError({
   mode,
   order,
-  reason,
+  reasonSelectionReady,
+  reasonPreview,
   confirmation,
   correction,
   targetStatus,
@@ -578,18 +556,19 @@ function terminalFormError({
 }: {
   mode: TerminalMode | null;
   order: OrderDetail["order"];
-  reason: string;
+  reasonSelectionReady: boolean;
+  reasonPreview: string;
   confirmation: string;
   correction: CorrectionDraft;
   targetStatus: RepairOrderStatus;
   reopenTargets: OrderWorkflow["statuses"];
 }) {
   if (!mode) return undefined;
-  if (reason.trim().length < 5) return "原因至少需要 5 个字符";
+  if (!reasonSelectionReady) return "请选择操作原因";
   if (mode === "correct") {
     if (!correction.issue_description.trim()) return "故障描述不能为空";
     try {
-      if (!Object.keys(buildTerminalCorrectionChanges(order, correction, reason)).length) {
+      if (!Object.keys(buildTerminalCorrectionChanges(order, correction, reasonPreview)).length) {
         return "没有需要纠正的内容";
       }
     } catch (error) {

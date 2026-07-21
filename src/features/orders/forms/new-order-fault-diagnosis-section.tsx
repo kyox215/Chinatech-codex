@@ -24,7 +24,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { OrderWorkspaceSectionHeader } from "@/features/orders/components/order-workspace-primitives";
 import type { NewOrderFormState } from "@/features/orders/model/new-order-form";
-import type { IssueCaptureMode } from "@/features/orders/model/order-diagnosis-quote";
+import {
+  issueDescriptionForIntake,
+  type IssueCaptureMode,
+} from "@/features/orders/model/order-diagnosis-quote";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { componentOverlay } from "@/lib/component-patterns";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
@@ -51,9 +54,9 @@ export function NewOrderFaultDiagnosisSection({
         ),
   );
   const summary =
-    form.issueCaptureMode === "unknown"
-      ? "客户暂时无法确认具体故障，需检测"
-      : form.issue.trim() || "尚未填写客户描述";
+    form.issueCaptureMode === "reported"
+      ? form.issue.trim() || "尚未填写客户描述"
+      : issueDescriptionForIntake(form.issueCaptureMode, form.issue).replace(/。$/, "");
   const updateMode = (issueCaptureMode: IssueCaptureMode) => {
     setForm((current) => ({ ...current, issueCaptureMode }));
   };
@@ -77,7 +80,7 @@ export function NewOrderFaultDiagnosisSection({
           className="mb-0.5"
           action={
             <span className="rounded-full bg-primary/5 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-primary">
-              {form.issueCaptureMode === "unknown" ? "待检测" : "问题明确"}
+              {issueModeLabel(form.issueCaptureMode)}
             </span>
           }
         />
@@ -156,7 +159,7 @@ function IssueModeControl({
 }) {
   return (
     <div
-      className="grid grid-cols-2 gap-1 rounded-lg bg-[var(--surface-panel-muted)] p-1"
+      className="grid grid-cols-2 gap-1 rounded-lg bg-[var(--surface-panel-muted)] p-1 sm:grid-cols-4"
       role="group"
       aria-label="客户问题是否明确"
     >
@@ -180,6 +183,26 @@ function IssueModeControl({
       >
         问题未知，需检测
       </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant={value === "cannot_describe" ? "default" : "ghost"}
+        className="h-8 rounded-md text-[11px]"
+        aria-pressed={value === "cannot_describe"}
+        onClick={() => onChange("cannot_describe")}
+      >
+        客户无法描述
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant={value === "diagnostic_only" ? "default" : "ghost"}
+        className="h-8 rounded-md text-[11px]"
+        aria-pressed={value === "diagnostic_only"}
+        onClick={() => onChange("diagnostic_only")}
+      >
+        仅检测
+      </Button>
     </div>
   );
 }
@@ -202,9 +225,10 @@ function CustomerReportEditor({
       <IssueModeControl value={form.issueCaptureMode} onChange={onModeChange} />
 
       <div className="h-[132px] min-h-0">
-        {form.issueCaptureMode === "unknown" ? (
+        {form.issueCaptureMode !== "reported" ? (
           <div className="grid h-full content-center rounded-xl border border-primary/15 bg-primary/5 px-3 py-3 text-xs leading-5 text-foreground">
-            工单会记录“客户暂时无法确认具体故障，需检测”。已经填写的客户描述和报价草稿会保留，切回“问题明确”后可继续编辑。
+            工单会记录“{issueDescriptionForIntake(form.issueCaptureMode, form.issue)}
+            ”已经填写的客户描述和报价草稿会保留，切回“问题明确”后可继续编辑。
           </div>
         ) : (
           <div className="min-w-0 space-y-1">
@@ -252,4 +276,11 @@ function CustomerReportEditor({
       </SheetFooter>
     </div>
   );
+}
+
+function issueModeLabel(mode: IssueCaptureMode) {
+  if (mode === "unknown") return "待检测";
+  if (mode === "cannot_describe") return "无法描述";
+  if (mode === "diagnostic_only") return "仅检测";
+  return "问题明确";
 }

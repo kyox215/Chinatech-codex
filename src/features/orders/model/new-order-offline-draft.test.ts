@@ -271,6 +271,21 @@ describe("new order offline draft mapping", () => {
     ]);
   });
 
+  it("round trips diagnostic-only as a separate paused intake intent", () => {
+    const form = makeForm({
+      issueCaptureMode: "diagnostic_only",
+      issue: "保留但不提交的客户原话",
+      deposit: 20,
+    });
+    const payload = buildNewOrderOfflineDraftPayload(form);
+    expect(payload).toMatchObject({
+      issueMode: "diagnostic_only",
+      issueDescription: "客户本次仅要求检测，暂不授权维修。",
+      reportedIssueDraft: "保留但不提交的客户原话",
+      depositAmountCents: 0,
+    });
+  });
+
   it("restores a legacy unknown draft without the new paused fields", async () => {
     const service = createRepairDeskOfflineOrderService({
       store: createRepairDeskOfflineMemoryStore(),

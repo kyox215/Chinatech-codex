@@ -10,6 +10,8 @@ import type { RepairOrderStatus } from "@/lib/mock/enums";
 import { CURRENCY_CODE, normalizePositiveCentAmount } from "@/lib/money";
 import type {
   AuditActor,
+  BusinessReasonSelectionV2,
+  StoredBusinessReasonSelectionV2,
   CorrectTerminalOrderInput,
   CreateOrderInput,
   DeviceSnapshot,
@@ -68,6 +70,7 @@ import {
   isOrderPaymentCollectible,
 } from "@/features/orders/model/order-payment-state";
 import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
+import { resolveOrderTransitionReasonSelection } from "@/features/orders/server/order-reason-registry";
 import {
   approvalFlowStatusFromLegacyStatus,
   notifyStatusFromLegacyStatus,
@@ -1649,6 +1652,7 @@ export async function transitionOrder(
   to: RepairOrderStatus,
   opts: {
     reason?: string;
+    reasonSelection?: BusinessReasonSelectionV2;
     expectedUpdatedAt?: string;
     idempotencyKey?: string;
     operator?: string | AuditActor;
@@ -1671,7 +1675,10 @@ export async function transitionOrder(
     throw new Error("状态流转必须使用具体工单状态，不能使用主流程分组");
   }
   const legacyTo = to;
-  const cleanReason = opts.reason?.trim();
+  const resolvedReason = opts.reasonSelection
+    ? resolveOrderTransitionReasonSelection({ from, to: legacyTo, selection: opts.reasonSelection })
+    : undefined;
+  const cleanReason = resolvedReason?.legacyText ?? opts.reason?.trim();
 
   const validation = await validateManualOrderTransitionTarget(supabase, storeId, from, to);
   if (!validation.ok) throw new Error(validation.reason ?? "状态流转不合法");
@@ -1732,6 +1739,11 @@ export async function transitionOrder(
       workflow_from: workflowFrom,
       workflow_to: workflowTo,
       reason: cleanReason,
+      ...(resolvedReason
+        ? {
+            reason_selection: resolvedReason.storedSelection,
+          }
+        : {}),
       ...(legacyTo === "completed" || validation.bucket === "done"
         ? {
             handover_confirmed: currentCustodyStatus === DEVICE_CUSTODY_WITH_SHOP,
@@ -1998,9 +2010,15 @@ export async function batchTransition(
 const APPROVAL_APPROVED_TARGETS = ["repairing", "parts_ordered", "mail_in_progress"] as const;
 const APPROVAL_REJECTED_TARGETS = ["unfixed_pickup", "cancelled"] as const;
 
+type OrderApprovalDecisionExecutionInput = OrderApprovalDecisionInput & {
+  expected_updated_at?: string;
+  idempotency_key?: string;
+  reason_selection?: StoredBusinessReasonSelectionV2;
+};
+
 export async function decideOrderApproval(
   id: string,
-  input: OrderApprovalDecisionInput,
+  input: OrderApprovalDecisionExecutionInput,
   operator: string | AuditActor = "前台",
 ): Promise<OrderApprovalDecisionResult> {
   const storeId = requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
@@ -2076,7 +2094,6 @@ export async function decideOrderApproval(
     id,
     storeId,
     actor,
-    expectedUpdatedAt: requiredString(currentRow.updated_at),
     update,
     eventType: "approval_result",
     eventPayload: {
@@ -2085,6 +2102,14 @@ export async function decideOrderApproval(
       to: target,
       reason: cleanReason,
       approval_flow_status: input.decision,
+      ...(input.reason_selection
+        ? {
+            reason_selection: {
+              ...input.reason_selection,
+              context: "approval.reject",
+            },
+          }
+        : {}),
       ...(target === "cancelled"
         ? {
             custody_outcome:
@@ -2096,7 +2121,8 @@ export async function decideOrderApproval(
           }
         : {}),
     },
-    idempotencyKey: crypto.randomUUID(),
+    idempotencyKey: input.idempotency_key ?? crypto.randomUUID(),
+    expectedUpdatedAt: input.expected_updated_at ?? requiredString(currentRow.updated_at),
     context: "更新客户审批结果失败",
   });
 

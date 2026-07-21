@@ -11,8 +11,9 @@ import { ensureOrderLineId } from "@/entities/order/model/order-line-identity";
 import { isDeviceCustodyStatus } from "./device-custody";
 import { initialNewOrderForm, type NewOrderFormState } from "./new-order-form";
 import {
-  UNKNOWN_ISSUE_DESCRIPTION,
   inferIssueCaptureModeForLegacyDraft,
+  isIntakeQuotePaused,
+  issueDescriptionForIntake,
   resolveIntakeQuoteDraft,
 } from "./order-diagnosis-quote";
 
@@ -78,14 +79,16 @@ export function buildNewOrderOfflineDraftPayload(
     imei: form.imei.trim(),
     issueMode: form.issueCaptureMode,
     issueDescription:
-      form.issueCaptureMode === "unknown" ? UNKNOWN_ISSUE_DESCRIPTION : form.issue.trim(),
-    ...(form.issueCaptureMode === "unknown" && form.issue.trim()
+      form.issueCaptureMode === "reported"
+        ? form.issue.trim()
+        : issueDescriptionForIntake(form.issueCaptureMode, form.issue),
+    ...(isIntakeQuotePaused(form.issueCaptureMode) && form.issue.trim()
       ? { reportedIssueDraft: form.issue.trim() }
       : {}),
-    ...(form.issueCaptureMode === "unknown" && serializedRepairItems.length
+    ...(isIntakeQuotePaused(form.issueCaptureMode) && serializedRepairItems.length
       ? { pausedRepairItems: serializedRepairItems }
       : {}),
-    ...(form.issueCaptureMode === "unknown" && form.deposit > 0
+    ...(isIntakeQuotePaused(form.issueCaptureMode) && form.deposit > 0
       ? { pausedDepositAmountCents: moneyToCents(form.deposit) }
       : {}),
     accessoryNotes: form.accessoryNotes.trim(),
@@ -190,23 +193,20 @@ export function restoreNewOrderFormFromOfflineDraft(
       imei: readString(payload.imei) ?? "",
       deviceCustodyStatus: restoredCustody,
       issueCaptureMode,
-      issue:
-        issueCaptureMode === "unknown"
-          ? (readString(payload.reportedIssueDraft) ?? "")
-          : (readString(payload.issueDescription) ?? ""),
+      issue: isIntakeQuotePaused(issueCaptureMode)
+        ? (readString(payload.reportedIssueDraft) ?? "")
+        : (readString(payload.issueDescription) ?? ""),
       accessoryNotes: readString(payload.accessoryNotes) ?? "",
       warrantyText: readString(warrantyDraft.text) ?? initialNewOrderForm.warrantyText,
       warrantyMonths: readNumber(warrantyDraft.months) ?? initialNewOrderForm.warrantyMonths,
       warrantyChangeReason: readString(warrantyDraft.changeReason) ?? "",
-      deposit:
-        issueCaptureMode === "unknown"
-          ? centsToMoney(
-              readNumber(payload.pausedDepositAmountCents) ??
-                readNumber(payload.depositAmountCents),
-            )
-          : centsToMoney(readNumber(payload.depositAmountCents)),
+      deposit: isIntakeQuotePaused(issueCaptureMode)
+        ? centsToMoney(
+            readNumber(payload.pausedDepositAmountCents) ?? readNumber(payload.depositAmountCents),
+          )
+        : centsToMoney(readNumber(payload.depositAmountCents)),
       faults:
-        issueCaptureMode === "unknown" && pausedRepairItems.length
+        isIntakeQuotePaused(issueCaptureMode) && pausedRepairItems.length
           ? pausedRepairItems
           : restoredFaults,
       deviceUnlock: { method: "none" },
@@ -220,7 +220,14 @@ export function restoreNewOrderFormFromOfflineDraft(
 }
 
 function readIssueCaptureMode(value: unknown, legacyDescription: unknown) {
-  if (value === "reported" || value === "unknown") return value;
+  if (
+    value === "reported" ||
+    value === "unknown" ||
+    value === "cannot_describe" ||
+    value === "diagnostic_only"
+  ) {
+    return value;
+  }
   return inferIssueCaptureModeForLegacyDraft(readString(legacyDescription));
 }
 

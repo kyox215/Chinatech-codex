@@ -18,6 +18,12 @@ import { getAiAssistantUsageSummary } from "@/features/ai-assistant/server/usage
 import { getMockAiAssistantUsageSummary } from "@/features/ai-assistant/testing/mock-usage";
 import { runAiInventoryVisionRecognition } from "@/features/ai-assistant/server/vision-assistant.service";
 import { getDashboardPrioritySummary } from "@/features/dashboard/server/dashboard-summary.service";
+import {
+  getActorScopedOrderReasonCatalog,
+  resolveOrderReasonSelection,
+  type OrderReasonCatalogRequest,
+} from "@/features/orders/server/order-reason-registry";
+import { assertOrderPresetReasonWorkflowEnabledForStore } from "@/features/orders/server/order-preset-reason-feature";
 import { getProfitCenter } from "@/features/profit/server/profit.repository";
 import { assertCanReadProfitCenter } from "@/features/profit/server/profit-feature";
 import { exportCostReport } from "@/features/profit/server/cost-export.service";
@@ -288,10 +294,12 @@ import type {
 import {
   accountProfileUpdateBodySchema,
   approvalDecisionBodySchema,
+  approvalDecisionV2BodySchema,
   approvalRequestBodySchema,
   batchTransitionBodySchema,
   confirmCancelledOrderReturnBodySchema,
   correctTerminalOrderBodySchema,
+  correctTerminalOrderV2BodySchema,
   orderCreateOperationStatusSchema,
   createOrderSchema,
   customerCreateBodySchema,
@@ -362,6 +370,7 @@ import {
   confirmOrderQuoteSentBodySchema,
   paymentBodySchema,
   reopenOrderBodySchema,
+  reopenOrderV2BodySchema,
   storeCreateBodySchema,
   storeLifecyclePreflightBodySchema,
   storeLifecycleOperationStatusBodySchema,
@@ -386,8 +395,10 @@ import {
   supplierUpdateBodySchema,
   storeSwitchBodySchema,
   transitionOrderBodySchema,
+  transitionOrderV2BodySchema,
   updateOrderBodySchema,
   voidOrderBodySchema,
+  voidOrderV2BodySchema,
   updateOrderCustodyBodySchema,
   whatsappNotificationBodySchema,
 } from "./repairdesk-schemas";
@@ -1433,6 +1444,31 @@ export async function handleRepairDeskGet(path: string, searchParams?: URLSearch
       case "order-stats":
         assertOrderListPermission(actor);
         return ok(await api.getOrderStats(actor));
+      case "order/reason-catalog": {
+        assertOrderPresetReasonWorkflowEnabledForStore(actor.storeId);
+        const orderId = z.string().trim().min(1).max(128).parse(searchParams?.get("order_id"));
+        const action = z
+          .enum([
+            "transition",
+            "approval_reject",
+            "initial_deposit_correction",
+            "warranty",
+            "terminal_correct",
+            "terminal_reopen",
+            "terminal_void",
+          ])
+          .parse(searchParams?.get("action"));
+        const request = parseOrderReasonCatalogRequest(action, searchParams);
+        assertOrderDetailReadPermission(actor);
+        const detail = await api.getOrder(orderId, actor);
+        return ok(
+          getActorScopedOrderReasonCatalog({
+            orderStatus: detail.order.status,
+            capabilities: detail.capabilities,
+            request,
+          }),
+        );
+      }
       case "order-workflow":
         return ok(await api.listOrderWorkflow(actor));
       case "options":
@@ -1480,6 +1516,29 @@ export async function handleRepairDeskGet(path: string, searchParams?: URLSearch
   } catch (error) {
     return fail(error);
   }
+}
+
+function parseOrderReasonCatalogRequest(
+  action: OrderReasonCatalogRequest["action"],
+  searchParams?: URLSearchParams,
+): OrderReasonCatalogRequest {
+  if (action === "transition") {
+    const target = z
+      .enum(["cancelled", "unfixed_pickup", "mail_in_progress", "rework"])
+      .parse(searchParams?.get("target"));
+    return { action, target };
+  }
+  if (action === "warranty") {
+    const fromMonths = z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(60)
+      .parse(searchParams?.get("from_months"));
+    const toMonths = z.coerce.number().int().min(0).max(60).parse(searchParams?.get("to_months"));
+    return { action, fromMonths, toMonths };
+  }
+  return { action };
 }
 
 export function getRepairDeskPostActor(path: string) {
@@ -2201,6 +2260,21 @@ export async function handleRepairDeskPost(
           ),
         );
       }
+      case "order/correct-terminal-v2": {
+        const { id, input } = correctTerminalOrderV2BodySchema.parse(body);
+        assertOrderPresetReasonWorkflowEnabledForStore(actor.storeId);
+        assertRepairDeskPermission(actor, "order:correct");
+        const resolved = resolveOrderReasonSelection("terminal.correct", input.reason_selection);
+        const { reason_selection: _selection, ...legacyInput } = input;
+        return ok(
+          await runWithRealtime(
+            actor,
+            () =>
+              api.correctTerminalOrder(id, { ...legacyInput, reason: resolved.legacyText }, actor),
+            realtimeBroadcasts.orderUpdated,
+          ),
+        );
+      }
       case "order/reopen": {
         const { id, input } = reopenOrderBodySchema.parse(body);
         assertRepairDeskPermission(actor, "order:reopen");
@@ -2212,6 +2286,20 @@ export async function handleRepairDeskPost(
           ),
         );
       }
+      case "order/reopen-v2": {
+        const { id, input } = reopenOrderV2BodySchema.parse(body);
+        assertOrderPresetReasonWorkflowEnabledForStore(actor.storeId);
+        assertRepairDeskPermission(actor, "order:reopen");
+        const resolved = resolveOrderReasonSelection("terminal.reopen", input.reason_selection);
+        const { reason_selection: _selection, ...legacyInput } = input;
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.reopenOrder(id, { ...legacyInput, reason: resolved.legacyText }, actor),
+            realtimeBroadcasts.orderTransitioned,
+          ),
+        );
+      }
       case "order/void": {
         const { id, input } = voidOrderBodySchema.parse(body);
         assertRepairDeskPermission(actor, "order:void");
@@ -2219,6 +2307,20 @@ export async function handleRepairDeskPost(
           await runWithRealtime(
             actor,
             () => api.voidOrder(id, input, actor),
+            realtimeBroadcasts.orderUpdated,
+          ),
+        );
+      }
+      case "order/void-v2": {
+        const { id, input } = voidOrderV2BodySchema.parse(body);
+        assertOrderPresetReasonWorkflowEnabledForStore(actor.storeId);
+        assertRepairDeskPermission(actor, "order:void");
+        const resolved = resolveOrderReasonSelection("terminal.void", input.reason_selection);
+        const { reason_selection: _selection, ...legacyInput } = input;
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.voidOrder(id, { ...legacyInput, reason: resolved.legacyText }, actor),
             realtimeBroadcasts.orderUpdated,
           ),
         );
@@ -2258,6 +2360,44 @@ export async function handleRepairDeskPost(
             () =>
               api.transitionOrder(id, to, {
                 reason,
+                expectedUpdatedAt: expected_updated_at,
+                idempotencyKey: idempotency_key,
+                operator: actor,
+              }),
+            realtimeBroadcasts.orderTransitioned,
+          ),
+        );
+      }
+      case "order/transition-v2": {
+        const { id, to, reason_selection, expected_updated_at, idempotency_key } =
+          transitionOrderV2BodySchema.parse(body);
+        assertOrderPresetReasonWorkflowEnabledForStore(actor.storeId);
+        if (to === "quoted") {
+          throw routeConflict(
+            "USE_PUBLISH_QUOTE",
+            "进入已报价阶段必须使用“发布报价”，以校验诊断、金额和版本",
+          );
+        }
+        assertOrderTransitionPermission(actor);
+        return ok(
+          await auditGeneric(
+            actor,
+            "transitioned_with_reason_selection",
+            "repair_order",
+            id,
+            {
+              to,
+              reason_selection: {
+                schema_version: 2,
+                primary_code: reason_selection.primary_code,
+                detail_codes: reason_selection.detail_codes ?? [],
+                catalog_revision: reason_selection.catalog_revision,
+                has_note: Boolean(reason_selection.note?.trim()),
+              },
+            },
+            () =>
+              api.transitionOrder(id, to, {
+                reasonSelection: reason_selection,
                 expectedUpdatedAt: expected_updated_at,
                 idempotencyKey: idempotency_key,
                 operator: actor,
@@ -2457,6 +2597,39 @@ export async function handleRepairDeskPost(
             id,
             input,
             () => api.decideOrderApproval(id, input, actor),
+            realtimeBroadcasts.orderUpdated,
+          ),
+        );
+      }
+      case "order/approval-decision-v2": {
+        const { id, input } = approvalDecisionV2BodySchema.parse(body);
+        assertOrderPresetReasonWorkflowEnabledForStore(actor.storeId);
+        assertOrderTransitionPermission(actor);
+        const resolved = input.reason_selection
+          ? resolveOrderReasonSelection("approval.reject", input.reason_selection)
+          : undefined;
+        const executionInput = {
+          decision: input.decision,
+          next_status: input.next_status,
+          reason: resolved?.legacyText,
+          expected_updated_at: input.expected_updated_at,
+          idempotency_key: input.idempotency_key,
+          reason_selection: resolved?.storedSelection,
+        };
+        return ok(
+          await auditGeneric(
+            actor,
+            "update_with_reason_selection",
+            "repair_order_approval",
+            id,
+            {
+              decision: input.decision,
+              next_status: input.next_status,
+              expected_updated_at: input.expected_updated_at,
+              idempotency_key: input.idempotency_key,
+              ...(resolved ? { reason_selection: resolved.auditMetadata } : {}),
+            },
+            () => api.decideOrderApproval(id, executionInput, actor),
             realtimeBroadcasts.orderUpdated,
           ),
         );

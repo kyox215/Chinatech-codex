@@ -67,6 +67,7 @@ export function ApprovalRequestDialog({
   );
   const [phone, setPhone] = useState(defaultPhone);
   const [whatsappOpened, setWhatsappOpened] = useState(false);
+  const [customizing, setCustomizing] = useState(false);
   const canOpenWhatsApp = Boolean(phone.replace(/\D/g, ""));
 
   useEffect(() => {
@@ -80,6 +81,7 @@ export function ApprovalRequestDialog({
     );
     setPhone(nextPhone);
     setWhatsappOpened(false);
+    setCustomizing(false);
   }, [data, open, orderUrl, storeIdentity]);
 
   const updatePhone = (nextPhone: string) => {
@@ -130,19 +132,51 @@ export function ApprovalRequestDialog({
               </span>
             )}
           </div>
-          <div className="mt-2">
-            <div className="mb-1 text-xs font-medium text-muted-foreground">审批消息内容</div>
-            <Textarea
-              aria-label="审批消息内容"
-              rows={10}
-              value={body}
-              disabled={!storeIdentity.canOutput}
-              onChange={(event) => {
-                setBody(event.target.value);
-                setWhatsappOpened(false);
-              }}
-              className="min-h-[260px] resize-none font-mono text-xs leading-relaxed"
-            />
+          <div className="mt-2 space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs font-medium text-muted-foreground">审批消息内容</div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-[10px]"
+                disabled={!storeIdentity.canOutput}
+                onClick={() => {
+                  if (customizing) {
+                    setBody(
+                      buildOrderWhatsappMessage(data, "approval_request", orderUrl, {
+                        recipientPhone: phone,
+                        storeIdentity,
+                      }),
+                    );
+                  }
+                  setCustomizing((current) => !current);
+                  setWhatsappOpened(false);
+                }}
+              >
+                {customizing ? "恢复模板" : "自定义消息"}
+              </Button>
+            </div>
+            {customizing ? (
+              <Textarea
+                aria-label="审批消息内容"
+                rows={10}
+                value={body}
+                disabled={!storeIdentity.canOutput}
+                onChange={(event) => {
+                  setBody(event.target.value);
+                  setWhatsappOpened(false);
+                }}
+                className="min-h-[260px] resize-none font-mono text-xs leading-relaxed"
+              />
+            ) : (
+              <pre
+                data-order-message-preview="true"
+                className="min-h-[180px] whitespace-pre-wrap rounded-lg border border-[var(--border-panel)] bg-card p-3 font-mono text-xs leading-relaxed"
+              >
+                {body}
+              </pre>
+            )}
           </div>
           {whatsappOpened ? (
             <div

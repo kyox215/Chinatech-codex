@@ -40,13 +40,13 @@ Last reviewed: 2026-06-19 CEST by `TASK-20260619-021`
 必须复用：
 
 ```tsx
-repairOs.mobileFloatingPage
-repairOs.mobileFloatingHeaderShell
-repairOs.mobileFloatingHeaderCard
-repairOs.mobileFloatingHeaderNav
-repairOs.mobileFloatingHeaderBody
-repairOs.mobileInfoCard
-repairOs.mobileInfoCardMuted
+repairOs.mobileFloatingPage;
+repairOs.mobileFloatingHeaderShell;
+repairOs.mobileFloatingHeaderCard;
+repairOs.mobileFloatingHeaderNav;
+repairOs.mobileFloatingHeaderBody;
+repairOs.mobileInfoCard;
+repairOs.mobileInfoCardMuted;
 ```
 
 顶部卡高度是动态内容，不允许用固定 `padding-top` 猜高度。实现时必须测量顶部卡真实高度，并通过 `--repair-os-mobile-floating-offset` 或等价机制给正文让位。
@@ -65,15 +65,15 @@ repairOs.mobileInfoCardMuted
 
 尺寸规则：
 
-| 元素 | 默认规格 |
-| --- | --- |
-| 顶部卡外壳 | `max-w-[430px]`、`rounded-xl`、`border-[var(--border-panel)]`、`bg-card/95`、`shadow-[var(--shadow-card)]` |
-| 导航列 | 左侧 `32px`，中间 `minmax(0,1fr)`，右侧 `auto` |
-| 返回/打印/更多按钮 | `size-8 rounded-lg`，图标 `size-4` 到 `size-[18px]` |
-| 页面标题 | `text-xs font-semibold leading-4` |
-| 状态上下文 | `text-[9px] leading-3 text-muted-foreground` |
-| 主编号 | `font-mono text-[12px] font-semibold leading-4 text-primary` |
-| 辅助 badge | `text-[10px]`，最多 3 个，超长必须截断 |
+| 元素               | 默认规格                                                                                                   |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| 顶部卡外壳         | `max-w-[430px]`、`rounded-xl`、`border-[var(--border-panel)]`、`bg-card/95`、`shadow-[var(--shadow-card)]` |
+| 导航列             | 左侧 `32px`，中间 `minmax(0,1fr)`，右侧 `auto`                                                             |
+| 返回/打印/更多按钮 | `size-8 rounded-lg`，图标 `size-4` 到 `size-[18px]`                                                        |
+| 页面标题           | `text-xs font-semibold leading-4`                                                                          |
+| 状态上下文         | `text-[9px] leading-3 text-muted-foreground`                                                               |
+| 主编号             | `font-mono text-[12px] font-semibold leading-4 text-primary`                                               |
+| 辅助 badge         | `text-[10px]`，最多 3 个，超长必须截断                                                                     |
 
 主流程只表达 `接单 / 检测报价 / 维修处理 / 通知取机 / 收款完成`。底层 `workflow_status` 可以继续保留收机、检测、报价、配件、维修、取机、结案等兼容状态，移动 UI 通过 `order-simple-flow.ts` 聚合展示。邮寄中、外修、通知状态、审批状态、异常状态都属于辅助状态标签或独立处理面板。
 
@@ -115,19 +115,19 @@ min-w-0 overflow-hidden
 
 订单详情页的字体密度是后续移动详情页的基准。
 
-| 用途 | 字号 / 行高 |
-| --- | --- |
-| 顶部标题 | `text-xs leading-4` |
-| 顶部上下文、辅助说明 | `text-[9px] leading-3` |
-| 顶部主编号 | `font-mono text-[12px] leading-4` |
-| 卡片标题 | `text-[11px] font-semibold leading-4` |
-| 字段标签 | `text-[9px]` 到 `text-[10px]` |
-| 字段值 | `text-[11px] font-medium leading-4` |
-| 普通正文 | `text-xs leading-4` |
-| 备注/说明 | `text-[10px] leading-3/4` |
-| 小 pill/badge | `text-[9px]` 到 `text-[10px]` |
-| 金额行 | `text-[10px]` 到 `text-[11px]` + `font-mono tabular-nums` |
-| 底部主动作 | `text-xs`、按钮高度 `h-9` |
+| 用途                 | 字号 / 行高                                               |
+| -------------------- | --------------------------------------------------------- |
+| 顶部标题             | `text-xs leading-4`                                       |
+| 顶部上下文、辅助说明 | `text-[9px] leading-3`                                    |
+| 顶部主编号           | `font-mono text-[12px] leading-4`                         |
+| 卡片标题             | `text-[11px] font-semibold leading-4`                     |
+| 字段标签             | `text-[9px]` 到 `text-[10px]`                             |
+| 字段值               | `text-[11px] font-medium leading-4`                       |
+| 普通正文             | `text-xs leading-4`                                       |
+| 备注/说明            | `text-[10px] leading-3/4`                                 |
+| 小 pill/badge        | `text-[9px]` 到 `text-[10px]`                             |
+| 金额行               | `text-[10px]` 到 `text-[11px]` + `font-mono tabular-nums` |
+| 底部主动作           | `text-xs`、按钮高度 `h-9`                                 |
 
 图标尺寸：
 
@@ -161,13 +161,13 @@ min-w-0 overflow-hidden
 
 ### 5.1 语义色使用边界
 
-| 语义 | 用法 |
-| --- | --- |
+| 语义            | 用法                                             |
+| --------------- | ------------------------------------------------ |
 | Primary / brand | 当前主流程、选中状态、主编号、主 CTA、下一步链接 |
-| Success | WhatsApp、已完成、已收款、可继续的正向状态 |
-| Warn | 待审批、未收款、超时、需要确认 |
-| Danger | 取消、错误、尾款风险、拒绝、 destructive action |
-| Muted | 普通字段、历史说明、次级分组、空值 |
+| Success         | WhatsApp、已完成、已收款、可继续的正向状态       |
+| Warn            | 待审批、未收款、超时、需要确认                   |
+| Danger          | 取消、错误、尾款风险、拒绝、 destructive action  |
+| Muted           | 普通字段、历史说明、次级分组、空值               |
 
 卡片本身保持中性。不要用大面积蓝、绿、红去表达业务对象；颜色只落在小 badge、关键金额、当前节点、主按钮和风险提示上。
 
@@ -253,12 +253,12 @@ min-w-0 overflow-hidden
 
 新增或改动移动详情页时至少检查：
 
-| Viewport | 验收 |
-| --- | --- |
-| 390px | 无横向溢出，顶部卡不遮挡第一张正文卡，底部操作条不盖住主要内容 |
-| 430px | 顶部卡和正文卡左右边缘对齐，间距 6-10px |
-| 640px-767px | 仍使用移动宽度体系，不出现顶部窄、正文宽的割裂 |
-| 768px+ | 按页面声明进入平板/桌面布局，不保留移动 fixed 顶部 |
+| Viewport    | 验收                                                           |
+| ----------- | -------------------------------------------------------------- |
+| 390px       | 无横向溢出，顶部卡不遮挡第一张正文卡，底部操作条不盖住主要内容 |
+| 430px       | 顶部卡和正文卡左右边缘对齐，间距 6-10px                        |
+| 640px-767px | 仍使用移动宽度体系，不出现顶部窄、正文宽的割裂                 |
+| 768px+      | 按页面声明进入平板/桌面布局，不保留移动 fixed 顶部             |
 
 必须满足：
 
@@ -288,3 +288,12 @@ document.documentElement.scrollWidth <= window.innerWidth
 8. 扫码、拍照、附件、状态流转、历史记录是否通过 API 和时间线闭环。
 9. 底部操作条是否只保留当前页面最高频动作。
 10. 390px、430px、768px 是否无横向溢出，且没有卡片遮挡。
+
+## 13. 键盘与动作弹层
+
+- 需要原因、审批、终态纠正等动作统一使用 `ResponsiveOrderActionOverlay`。
+- 弹层正文是唯一滚动区；标题和确认按钮不能进入正文滚动区。
+- 监听 `visualViewport.resize/scroll`，软键盘打开后 footer 必须仍位于真实可见区域。
+- footer 使用 `env(safe-area-inset-bottom)`，正文保留足够 `scroll-padding-bottom`。
+- 打开任一动作弹层、状态 Sheet、历史、相机或照片预览时，移动底部操作条必须卸载，不能仅降低 z-index。
+- pending 时禁止 Esc、点击遮罩或下滑关闭；已修改未提交时先确认放弃。

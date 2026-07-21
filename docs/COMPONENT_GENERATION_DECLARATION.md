@@ -394,3 +394,14 @@ export function ExampleDialog({ open, isPending, onOpenChange, onSubmit }: Examp
 - 图标、按钮、弹窗符合 a11y。
 - 未引入新的数据访问越界。
 - `npm run lint` 通过；涉及构建面时 `npm run build` 通过。
+
+## 15. Order action reason components
+
+Order actions that require a business reason must reuse the order-domain primitives instead of adding a page-local textarea:
+
+- `OrderReasonField` renders the versioned preset choices and exposes free text only for `Other`.
+- `ResponsiveOrderActionOverlay` owns the mobile Sheet/desktop Dialog switch, visual viewport sizing, pending close protection and fixed footer.
+- `OrderActionReview` displays the final action, target and selected staff-facing summary before submission.
+- `componentOverlay.actionContent`, `actionBody` and `actionFooter` are the shared layout contract.
+
+High-risk actions must start with no selected reason. The component may display legacy free text only when the rollout flag is off; it must not create a hidden default or turn a catalog error into `Other`.

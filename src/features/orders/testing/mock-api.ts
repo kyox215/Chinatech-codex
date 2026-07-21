@@ -1,6 +1,7 @@
 import { CURRENCY_CODE, normalizePositiveCentAmount } from "@/lib/money";
 import type {
   AuditActor,
+  BusinessReasonSelectionV2,
   CorrectTerminalOrderInput,
   CreateOrderInput,
   OrderListFilters,
@@ -49,6 +50,10 @@ import {
   normalizeUnlockForCustody,
 } from "@/features/orders/model/device-custody";
 import { isOrderArchivedForQueue } from "@/features/orders/model/order-list-visibility";
+import {
+  resolveOrderReasonSelection,
+  resolveOrderTransitionReasonSelection,
+} from "@/features/orders/server/order-reason-registry";
 import {
   isOrderCancelled,
   isOrderCancelledState,
@@ -824,6 +829,7 @@ export async function transitionOrder(
   to: RepairOrderStatus,
   opts: {
     reason?: string;
+    reasonSelection?: BusinessReasonSelectionV2;
     expectedUpdatedAt?: string;
     idempotencyKey?: string;
     operator?: MockOperator;
@@ -849,7 +855,14 @@ export async function transitionOrder(
   const workflowFrom = o.workflow_status ?? workflowStatusFromLegacyStatus(o.status);
   const workflowTo = workflowStatusFromLegacyStatus(to);
   const legacyTo = to;
-  const cleanReason = opts.reason?.trim();
+  const resolvedReason = opts.reasonSelection
+    ? resolveOrderTransitionReasonSelection({
+        from: o.status,
+        to: legacyTo,
+        selection: opts.reasonSelection,
+      })
+    : undefined;
+  const cleanReason = resolvedReason?.legacyText ?? opts.reason?.trim();
   const targetDefinition = workflowStatuses.find((status) => status.code === legacyTo);
   const requiresPhysicalCustody =
     deviceCustodyBlocksStatus(legacyTo) ||
@@ -916,6 +929,11 @@ export async function transitionOrder(
       workflow_from: workflowFrom,
       workflow_to: workflowTo,
       reason: cleanReason,
+      ...(resolvedReason
+        ? {
+            reason_selection: resolvedReason.storedSelection,
+          }
+        : {}),
       ...(legacyTo === "completed"
         ? {
             handover_confirmed: Boolean(o.delivered_at),
@@ -1098,17 +1116,41 @@ function buildMockTransitionDiagnosisResult(current: string | undefined, reason:
 const APPROVAL_APPROVED_TARGETS = ["repairing", "parts_ordered", "mail_in_progress"] as const;
 const APPROVAL_REJECTED_TARGETS = ["unfixed_pickup", "cancelled"] as const;
 
+type MockOrderApprovalDecisionExecutionInput = OrderApprovalDecisionInput & {
+  expected_updated_at?: string;
+  idempotency_key?: string;
+  reason_selection?: BusinessReasonSelectionV2;
+};
+
 export async function decideOrderApproval(
   id: string,
-  input: OrderApprovalDecisionInput,
+  input: MockOrderApprovalDecisionExecutionInput,
   operator: MockOperator = "前台",
 ): Promise<OrderApprovalDecisionResult> {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
+  if (
+    input.idempotency_key &&
+    extraEvents.some((event) => event.payload.idempotency_key === input.idempotency_key)
+  ) {
+    return {
+      ok: true,
+      decision: input.decision,
+      from: o.status,
+      to: o.status,
+      approval_flow_status: input.decision,
+    };
+  }
+  if (input.expected_updated_at && input.expected_updated_at !== o.updated_at) {
+    throw new Error("工单已被更新，请刷新后重试");
+  }
   const from = o.status;
   const currentApprovalFlow =
     o.approval_flow_status ?? approvalFlowStatusFromLegacyStatus(o.status, o.approval_status);
-  const cleanReason = input.reason?.trim();
+  const resolvedReason = input.reason_selection
+    ? resolveOrderReasonSelection("approval.reject", input.reason_selection)
+    : undefined;
+  const cleanReason = resolvedReason?.legacyText ?? input.reason?.trim();
   if (
     currentApprovalFlow !== "waiting_customer" &&
     !(from === "quoted" && o.approval_status === "pending")
@@ -1195,6 +1237,11 @@ export async function decideOrderApproval(
       to: target,
       reason: cleanReason,
       approval_flow_status: input.decision,
+      ...(resolvedReason
+        ? {
+            reason_selection: resolvedReason.storedSelection,
+          }
+        : {}),
       ...(target === "cancelled"
         ? {
             custody_outcome:
@@ -1205,6 +1252,7 @@ export async function decideOrderApproval(
                 : "awaiting_return",
           }
         : {}),
+      idempotency_key: input.idempotency_key,
     },
     operator_name: operatorName(operator),
     created_at: now,

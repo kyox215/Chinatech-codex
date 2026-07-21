@@ -29,15 +29,9 @@ import {
 } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
 import { DiagnosisQuoteDialog } from "@/components/orders/diagnosis-quote-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { OrderActionReview } from "@/features/orders/components/order-action-review";
+import { ResponsiveOrderActionOverlay } from "@/features/orders/components/responsive-order-action-overlay";
 import { OrderWorkflowProgress } from "@/features/orders/components/order-workflow-progress";
 import {
   RepairOrderPrintSheet,
@@ -65,10 +59,15 @@ import {
   DEVICE_CUSTODY_WITH_SHOP,
   deviceCustodyAllowsStatus,
 } from "@/features/orders/model/device-custody";
+import { getOrderTransitionReasonConfig } from "@/features/orders/model/order-transition-reasons";
 import {
-  getDefaultOrderTransitionReason,
-  getOrderTransitionReasonConfig,
-} from "@/features/orders/model/order-transition-reasons";
+  buildBusinessReasonSelection,
+  createEmptyOrderReasonDraft,
+  getOrderReasonCatalog,
+  getOrderTransitionReasonContext,
+  isOrderReasonDraftComplete,
+  type OrderReasonDraft,
+} from "@/features/orders/model/order-reason-catalog";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
@@ -80,7 +79,9 @@ import {
   patchOrder,
   publishOrderQuote,
   transitionOrder,
+  transitionOrderV2,
 } from "@/lib/repairdesk/api";
+import type { BusinessReasonSelectionV2 } from "@/lib/repairdesk/types";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { cn } from "@/lib/utils";
@@ -95,7 +96,9 @@ export function OrderTaskScreen({ id }: { id: string }) {
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
   const [transitionAction, setTransitionAction] = useState<WorkflowNextAction | null>(null);
-  const [transitionReason, setTransitionReason] = useState("");
+  const [transitionReason, setTransitionReason] = useState<OrderReasonDraft>(
+    createEmptyOrderReasonDraft,
+  );
   const [diagnosisQuoteOpen, setDiagnosisQuoteOpen] = useState(false);
   const [customerStatusUrl, setCustomerStatusUrl] = useState("");
   const [printPreparing, setPrintPreparing] = useState(false);
@@ -199,8 +202,19 @@ export function OrderTaskScreen({ id }: { id: string }) {
   };
 
   const transition = useMutation({
-    mutationFn: (input: { to: RepairOrderStatus; reason?: string }) => {
+    mutationFn: (input: {
+      to: RepairOrderStatus;
+      reason?: string;
+      reasonSelection?: BusinessReasonSelectionV2;
+    }) => {
       if (!order) throw new Error("工单未加载");
+      if (input.reasonSelection) {
+        return transitionOrderV2(id, input.to, {
+          reasonSelection: input.reasonSelection,
+          expectedUpdatedAt: order.updated_at,
+          idempotencyKey: crypto.randomUUID(),
+        });
+      }
       return transitionOrder(id, input.to, {
         reason: input.reason,
         expectedUpdatedAt: order.updated_at,
@@ -210,7 +224,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
     onSuccess: () => {
       toast.success("任务阶段已更新");
       setTransitionAction(null);
-      setTransitionReason("");
+      setTransitionReason(createEmptyOrderReasonDraft());
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -347,7 +361,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
   const openTransitionAction = (action: WorkflowNextAction) => {
     if (!canTransition || cancelled || voided) return;
     setTransitionAction(action);
-    setTransitionReason(getDefaultOrderTransitionReason(action.to));
+    setTransitionReason(createEmptyOrderReasonDraft());
   };
 
   return (
@@ -609,17 +623,24 @@ export function OrderTaskScreen({ id }: { id: string }) {
         onOpenChange={(open) => {
           if (open) return;
           setTransitionAction(null);
-          setTransitionReason("");
+          setTransitionReason(createEmptyOrderReasonDraft());
         }}
         onConfirm={() => {
           if (!transitionAction) return;
-          const config = getOrderTransitionReasonConfig(transitionAction.to);
-          const reason = transitionReason.trim();
-          if (config?.required && !reason) {
-            toast.error("请先填写处理原因。");
+          const context = getOrderTransitionReasonContext(transitionAction.to);
+          if (!context) {
+            transition.mutate({ to: transitionAction.to });
             return;
           }
-          transition.mutate({ to: transitionAction.to, reason: reason || undefined });
+          const selection = buildBusinessReasonSelection(
+            getOrderReasonCatalog(context),
+            transitionReason,
+          );
+          if (!selection) {
+            toast.error("请先选择处理原因。");
+            return;
+          }
+          transition.mutate({ to: transitionAction.to, reasonSelection: selection });
         }}
       />
       {data.capabilities?.canEditRepair || data.capabilities?.canPrepareQuote ? (
@@ -787,68 +808,39 @@ function TaskTransitionDialog({
   };
   statusLabel: string;
   action: WorkflowNextAction | null;
-  reason: string;
+  reason: OrderReasonDraft;
   pending: boolean;
-  onReasonChange: (reason: string) => void;
+  onReasonChange: (reason: OrderReasonDraft) => void;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
 }) {
-  const config = action ? getOrderTransitionReasonConfig(action.to) : undefined;
-  const canConfirm = Boolean(action) && (!config?.required || Boolean(reason.trim()));
+  const context = action ? getOrderTransitionReasonContext(action.to) : undefined;
+  const catalog = context ? getOrderReasonCatalog(context) : undefined;
+  const canConfirm = Boolean(action) && (!catalog || isOrderReasonDraftComplete(catalog, reason));
+
+  const impact =
+    action?.to === "completed" && order.device_custody_status === DEVICE_CUSTODY_WITH_CUSTOMER
+      ? order.delivered_at
+        ? "设备此前已交还客户；确认后只会行政结案，不会新增设备交付时间。"
+        : "设备从未由门店保管；确认后只会行政结案，不会记录设备交付时间。"
+      : "确认后会写入工单时间线；客户通知、收款和附件仍通过各自入口记录。";
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        data-order-task-transition-dialog="true"
-        className="grid max-h-[calc(100svh-24px)] w-[min(760px,calc(100vw-24px))] max-w-[calc(100vw-24px)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-0"
-      >
-        <DialogHeader className="border-b border-[var(--border-panel)] px-4 py-3 pr-12 text-left">
-          <DialogTitle className="flex min-w-0 items-center gap-2 text-base">
-            <Clock3 className="size-4 text-primary" />
-            任务状态推进
-          </DialogTitle>
-          <DialogDescription className="truncate">
-            {order.public_no} · {order.device_label || "-"} · {order.customer_name || "-"}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="grid min-h-0 min-w-0 gap-3 overflow-y-auto p-4 md:grid-cols-[minmax(220px,0.58fr)_minmax(0,1fr)]">
-          <section className="min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3">
-            <p className="text-[10px] leading-3 text-muted-foreground">当前状态</p>
-            <p className="mt-1 truncate text-sm font-semibold">{statusLabel}</p>
-            <div className="my-3 h-px bg-[var(--border-panel)]" />
-            <p className="text-[10px] leading-3 text-muted-foreground">准备推进</p>
-            <p className="mt-1 truncate text-sm font-semibold text-primary">
-              {action?.label ?? "未选择"}
-            </p>
-            <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
-              {action?.to === "completed" &&
-              order.device_custody_status === DEVICE_CUSTODY_WITH_CUSTOMER
-                ? order.delivered_at
-                  ? "设备此前已交还客户；确认后只会行政结案，不会新增设备交付时间。"
-                  : "设备从未由门店保管；确认后只会行政结案，不会记录设备交付时间。"
-                : "确认后会写入工单时间线；客户通知、收款和附件仍通过各自入口记录。"}
-            </p>
-          </section>
-
-          <section className="min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-3">
-            {action ? (
-              <OrderTransitionReasonSelector
-                target={action.to}
-                value={reason}
-                onChange={onReasonChange}
-                disabled={pending}
-                compact
-              />
-            ) : (
-              <div className="rounded-lg border border-dashed border-[var(--border-panel)] px-3 py-6 text-center text-xs text-muted-foreground">
-                请选择一个下一步状态。
-              </div>
-            )}
-          </section>
-        </div>
-
-        <DialogFooter className="border-t border-[var(--border-panel)] px-4 py-3">
+    <ResponsiveOrderActionOverlay
+      open={open}
+      pending={pending}
+      dirty={Boolean(reason.primaryCode || reason.note)}
+      onOpenChange={onOpenChange}
+      title={
+        <span className="flex min-w-0 items-center gap-2 text-base">
+          <Clock3 className="size-4 text-primary" />
+          任务状态推进
+        </span>
+      }
+      description={`${order.public_no} · ${order.device_label || "-"} · ${order.customer_name || "-"}`}
+      dataAttribute="data-order-task-transition-dialog"
+      footer={
+        <>
           <Button
             type="button"
             variant="outline"
@@ -860,9 +852,32 @@ function TaskTransitionDialog({
           <Button type="button" disabled={pending || !canConfirm} onClick={onConfirm}>
             {pending ? "推进中..." : "确认推进"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(220px,0.58fr)_minmax(0,1fr)]">
+        <OrderActionReview
+          currentLabel={statusLabel}
+          targetLabel={action?.label ?? "未选择"}
+          impact={impact}
+        />
+        <section className="min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-3">
+          {action ? (
+            <OrderTransitionReasonSelector
+              target={action.to}
+              value={reason}
+              onChange={onReasonChange}
+              disabled={pending}
+              compact
+            />
+          ) : (
+            <div className="rounded-lg border border-dashed border-[var(--border-panel)] px-3 py-6 text-center text-xs text-muted-foreground">
+              请选择一个下一步状态。
+            </div>
+          )}
+        </section>
+      </div>
+    </ResponsiveOrderActionOverlay>
   );
 }
 

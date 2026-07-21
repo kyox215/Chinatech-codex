@@ -1,4 +1,12 @@
 import type { RepairOrderStatus } from "@/lib/mock/enums";
+import {
+  getOrderReasonCatalog,
+  getOrderReasonLegacyPreview,
+  getOrderTransitionReasonContext,
+  type OrderReasonContext,
+  type ActorScopedOrderReasonCatalog,
+} from "@/features/orders/model/order-reason-catalog";
+import { isOrderPresetReasonUiEnabled } from "@/features/orders/model/order-preset-reason-feature";
 import type {
   AiAssistantCapabilities,
   AiAssistantRequest,
@@ -15,7 +23,9 @@ import type {
 } from "@/features/offline/server/offline-sync-contract";
 import type {
   AccountProfileUpdateInput,
+  BusinessReasonSelectionV2,
   CorrectTerminalOrderInput,
+  CorrectTerminalOrderV2Input,
   CreateOrderInput,
   Customer,
   Device,
@@ -49,6 +59,7 @@ import type {
   OrderDataImportMode,
   OrderDataImportPreview,
   OrderApprovalDecisionInput,
+  OrderApprovalDecisionV2Input,
   OrderApprovalDecisionResult,
   OrderAttachmentUploadInput,
   OrderAttachmentUploadResult,
@@ -82,6 +93,7 @@ import type {
   ConfirmOrderQuoteSentInput,
   ConfirmOrderQuoteSentResult,
   ReopenOrderInput,
+  ReopenOrderV2Input,
   BatchTransitionResult,
   CustomerCreateInput,
   CustomerDetail,
@@ -174,6 +186,7 @@ import type {
   UpdateOrderLineCostsRequest,
   UpdateStoreFaultCostDefaultsRequest,
   VoidOrderInput,
+  VoidOrderV2Input,
   UpdateOrderCustodyInput,
   UpdateInventoryItemInput,
   WhatsappNotificationResult,
@@ -224,7 +237,9 @@ export type {
 
 export type {
   ApprovedStoreRole,
+  BusinessReasonSelectionV2,
   CorrectTerminalOrderInput,
+  CorrectTerminalOrderV2Input,
   CreateOrderInput,
   Customer,
   CustomerHistoryDeviceCandidate,
@@ -267,6 +282,7 @@ export type {
   OrderDataImportMode,
   OrderDataImportPreview,
   OrderApprovalDecisionInput,
+  OrderApprovalDecisionV2Input,
   OrderApprovalDecisionResult,
   OrderAttachment,
   OrderAttachmentKind,
@@ -295,6 +311,7 @@ export type {
   ConfirmOrderQuoteSentInput,
   ConfirmOrderQuoteSentResult,
   ReopenOrderInput,
+  ReopenOrderV2Input,
   BatchTransitionResult,
   CustomerCreateInput,
   AccountProfileUpdateInput,
@@ -409,6 +426,7 @@ export type {
   UpdateOrderLineCostsRequest,
   UpdateStoreFaultCostDefaultsRequest,
   VoidOrderInput,
+  VoidOrderV2Input,
   UpdateOrderCustodyInput,
   UpdateInventoryItemInput,
   WhatsappNotificationResult,
@@ -1059,6 +1077,31 @@ export async function getOrderStats(options?: RepairDeskRequestOptions): Promise
   return requestJson<OrderStats>("order-stats", {}, options);
 }
 
+export async function getOrderReasonCatalogForOrder(
+  orderId: string,
+  request:
+    | { action: "transition"; target: RepairOrderStatus }
+    | { action: "approval_reject" }
+    | { action: "initial_deposit_correction" }
+    | { action: "warranty"; fromMonths: number; toMonths: number }
+    | { action: "terminal_correct" }
+    | { action: "terminal_reopen" }
+    | { action: "terminal_void" },
+  options?: RepairDeskRequestOptions,
+): Promise<ActorScopedOrderReasonCatalog> {
+  const params = new URLSearchParams({ order_id: orderId, action: request.action });
+  if (request.action === "transition") params.set("target", request.target);
+  if (request.action === "warranty") {
+    params.set("from_months", String(request.fromMonths));
+    params.set("to_months", String(request.toMonths));
+  }
+  return requestJson<ActorScopedOrderReasonCatalog>(
+    `order/reason-catalog?${params.toString()}`,
+    {},
+    options,
+  );
+}
+
 export async function getDashboardSummary(
   input: DashboardSummaryInput = {},
   options?: RepairDeskRequestOptions,
@@ -1119,6 +1162,33 @@ export async function transitionOrder(
     id,
     to,
     reason: opts.reason,
+    expected_updated_at: opts.expectedUpdatedAt,
+    idempotency_key: opts.idempotencyKey,
+  });
+}
+
+export async function transitionOrderV2(
+  id: string,
+  to: RepairOrderStatus,
+  opts: {
+    reasonSelection: BusinessReasonSelectionV2;
+    expectedUpdatedAt: string;
+    idempotencyKey: string;
+  },
+) {
+  if (!isOrderPresetReasonUiEnabled()) {
+    const context = getOrderTransitionReasonContext(to);
+    if (!context) throw new Error("当前状态不支持原因说明");
+    return transitionOrder(id, to, {
+      reason: legacyReasonForSelection(context, opts.reasonSelection),
+      expectedUpdatedAt: opts.expectedUpdatedAt,
+      idempotencyKey: opts.idempotencyKey,
+    });
+  }
+  return postJson("order/transition-v2", {
+    id,
+    to,
+    reason_selection: opts.reasonSelection,
     expected_updated_at: opts.expectedUpdatedAt,
     idempotency_key: opts.idempotencyKey,
   });
@@ -1199,6 +1269,22 @@ export async function decideOrderApproval(
   input: OrderApprovalDecisionInput,
 ): Promise<OrderApprovalDecisionResult> {
   return postJson<OrderApprovalDecisionResult>("order/approval-decision", { id, input });
+}
+
+export async function decideOrderApprovalV2(
+  id: string,
+  input: OrderApprovalDecisionV2Input,
+): Promise<OrderApprovalDecisionResult> {
+  if (!isOrderPresetReasonUiEnabled()) {
+    return decideOrderApproval(id, {
+      decision: input.decision,
+      next_status: input.next_status,
+      reason: input.reason_selection
+        ? legacyReasonForSelection("approval.reject", input.reason_selection)
+        : undefined,
+    });
+  }
+  return postJson<OrderApprovalDecisionResult>("order/approval-decision-v2", { id, input });
 }
 
 export async function uploadOrderAttachment(
@@ -1461,6 +1547,20 @@ export async function correctTerminalOrder(
   return postJson<OrderTerminalOperationResult>("order/correct-terminal", { id, input });
 }
 
+export async function correctTerminalOrderV2(
+  id: string,
+  input: CorrectTerminalOrderV2Input,
+): Promise<OrderTerminalOperationResult> {
+  if (!isOrderPresetReasonUiEnabled()) {
+    const { reason_selection: selection, ...legacyInput } = input;
+    return correctTerminalOrder(id, {
+      ...legacyInput,
+      reason: legacyReasonForSelection("terminal.correct", selection),
+    });
+  }
+  return postJson<OrderTerminalOperationResult>("order/correct-terminal-v2", { id, input });
+}
+
 export async function reopenOrder(
   id: string,
   input: ReopenOrderInput,
@@ -1468,11 +1568,52 @@ export async function reopenOrder(
   return postJson<OrderTerminalOperationResult>("order/reopen", { id, input });
 }
 
+export async function reopenOrderV2(
+  id: string,
+  input: ReopenOrderV2Input,
+): Promise<OrderTerminalOperationResult> {
+  if (!isOrderPresetReasonUiEnabled()) {
+    const { reason_selection: selection, ...legacyInput } = input;
+    return reopenOrder(id, {
+      ...legacyInput,
+      reason: legacyReasonForSelection("terminal.reopen", selection),
+    });
+  }
+  return postJson<OrderTerminalOperationResult>("order/reopen-v2", { id, input });
+}
+
 export async function voidOrder(
   id: string,
   input: VoidOrderInput,
 ): Promise<OrderTerminalOperationResult> {
   return postJson<OrderTerminalOperationResult>("order/void", { id, input });
+}
+
+export async function voidOrderV2(
+  id: string,
+  input: VoidOrderV2Input,
+): Promise<OrderTerminalOperationResult> {
+  if (!isOrderPresetReasonUiEnabled()) {
+    const { reason_selection: selection, ...legacyInput } = input;
+    return voidOrder(id, {
+      ...legacyInput,
+      reason: legacyReasonForSelection("terminal.void", selection),
+    });
+  }
+  return postJson<OrderTerminalOperationResult>("order/void-v2", { id, input });
+}
+
+function legacyReasonForSelection(
+  context: OrderReasonContext,
+  selection: BusinessReasonSelectionV2,
+) {
+  const catalog = getOrderReasonCatalog(context);
+  const reason = getOrderReasonLegacyPreview(catalog, {
+    primaryCode: selection.primary_code,
+    note: selection.note ?? "",
+  });
+  if (!reason) throw new Error("请填写处理说明");
+  return reason;
 }
 
 export async function getRepairDeskOptions(

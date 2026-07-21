@@ -84,7 +84,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
-  decideOrderApproval,
+  decideOrderApprovalV2,
   confirmCancelledOrderReturn,
   createKioskSession,
   getRepairDeskOptions,
@@ -98,6 +98,7 @@ import {
   recordPayment,
   sendWhatsappNotification,
   transitionOrder,
+  transitionOrderV2,
   updateOrderCustody,
   uploadOrderAttachment,
   type UpdateOrderInput,
@@ -142,6 +143,11 @@ import { OrderPhotoPreviewDialog } from "@/features/orders/components/order-phot
 import { OrderTerminalActions } from "@/features/orders/components/order-terminal-actions";
 import { OrderInternalCostCard } from "@/features/orders/components/order-internal-cost-card";
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
+import { OrderReasonField } from "@/features/orders/components/order-reason-field";
+import {
+  ResponsiveOrderActionOverlay,
+  useVisualViewportMetrics,
+} from "@/features/orders/components/responsive-order-action-overlay";
 import {
   useEditOrderOfflineAutosave,
   type EditOrderOfflineAutosaveState,
@@ -177,10 +183,15 @@ import {
   isOrderPaymentCollectible,
 } from "@/features/orders/model/order-payment-state";
 import { resolveOrderDetailPrimaryAction } from "@/features/orders/model/order-detail-primary-action";
+import { getOrderTransitionReasonConfig } from "@/features/orders/model/order-transition-reasons";
 import {
-  getDefaultOrderTransitionReason,
-  getOrderTransitionReasonConfig,
-} from "@/features/orders/model/order-transition-reasons";
+  buildBusinessReasonSelection,
+  createEmptyOrderReasonDraft,
+  getOrderReasonCatalog,
+  getOrderTransitionReasonContext,
+  isOrderReasonDraftComplete,
+  type OrderReasonDraft,
+} from "@/features/orders/model/order-reason-catalog";
 import {
   appendFaultDescriptionItems,
   countMissingFaultDescriptionItems,
@@ -236,7 +247,8 @@ import { fadeUp, stagger } from "@/lib/motion";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import type {
-  OrderApprovalDecisionInput,
+  BusinessReasonSelectionV2,
+  OrderApprovalDecisionV2Input,
   OrderAttachment,
   OrderAttachmentUploadInput,
   OrderDetail,
@@ -253,6 +265,10 @@ import type {
 
 type WorkflowTransitionAction = ReturnType<typeof getWorkflowTransitionActions>[number];
 type DesktopDetailView = "overview" | "records" | "photos" | "costs";
+type OrderApprovalDecisionDraft = Pick<
+  OrderApprovalDecisionV2Input,
+  "decision" | "next_status" | "reason_selection"
+>;
 type DesktopRecordsView = "key-info" | "messages" | "timeline";
 const imeiOcrImageAccept =
   "image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif";
@@ -309,6 +325,15 @@ export function OrderDetailScreen({
   const [financeDraft, setFinanceDraft] = useState<FinanceDraftState>(() =>
     createFinanceDraftState([], 0),
   );
+  const orderActionOverlayOpen =
+    notifyOpen ||
+    diagnosisQuoteOpen ||
+    payOpen ||
+    cancelOpen ||
+    cancelledReturnOpen ||
+    custodyDialogTarget !== null ||
+    approvalDecisionOpen ||
+    desktopPhotoCaptureOpen;
   const editSaveInFlightRef = useRef(false);
   const requestPrint = usePrintLifecycle(
     () => {
@@ -448,8 +473,19 @@ export function OrderDetailScreen({
   }, [activeStoreId]);
 
   const transition = useMutation({
-    mutationFn: (vars: { to: RepairOrderStatus; reason?: string }) => {
+    mutationFn: (vars: {
+      to: RepairOrderStatus;
+      reason?: string;
+      reasonSelection?: BusinessReasonSelectionV2;
+    }) => {
       if (!data) throw new Error("工单未加载");
+      if (vars.reasonSelection) {
+        return transitionOrderV2(id, vars.to, {
+          reasonSelection: vars.reasonSelection,
+          expectedUpdatedAt: data.order.updated_at,
+          idempotencyKey: crypto.randomUUID(),
+        });
+      }
       return transitionOrder(id, vars.to, {
         reason: vars.reason,
         expectedUpdatedAt: data.order.updated_at,
@@ -739,7 +775,14 @@ export function OrderDetailScreen({
   });
 
   const approvalDecision = useMutation({
-    mutationFn: (input: OrderApprovalDecisionInput) => decideOrderApproval(id, input),
+    mutationFn: (input: OrderApprovalDecisionDraft) => {
+      if (!data) throw new Error("工单未加载");
+      return decideOrderApprovalV2(id, {
+        ...input,
+        expected_updated_at: data.order.updated_at,
+        idempotency_key: crypto.randomUUID(),
+      });
+    },
     onSuccess: (result) => {
       toast.success(
         result.decision === "approved"
@@ -1294,7 +1337,10 @@ export function OrderDetailScreen({
             />
           }
           transitionPending={transition.isPending}
-          onTransition={(to, reason) => transition.mutate({ to, reason })}
+          actionOverlayOpen={orderActionOverlayOpen}
+          onTransition={(to, reason, reasonSelection) =>
+            transition.mutate({ to, reason, reasonSelection })
+          }
           onImeiSave={async (imei) => {
             await quickImeiUpdate.mutateAsync(imei);
           }}
@@ -1697,13 +1743,15 @@ export function OrderDetailScreen({
                 actions={desktopStatusActions}
                 pending={transition.isPending}
                 onOpenChange={setDesktopTransitionOpen}
-                onTransition={(to, reason) => transition.mutate({ to, reason })}
+                onTransition={(to, reason, reasonSelection) =>
+                  transition.mutate({ to, reason, reasonSelection })
+                }
               />
             </motion.div>
           ) : null}
         </AnimatePresence>
 
-        {!isVoided ? (
+        {!isVoided && !desktopTransitionOpen && !orderActionOverlayOpen ? (
           <OrderDetailActionDock
             order={order}
             isEditing={isEditing}
@@ -1799,8 +1847,8 @@ export function OrderDetailScreen({
       <CancelDialog
         open={cancelOpen}
         onOpenChange={setCancelOpen}
-        onConfirm={async (reason) => {
-          await transition.mutateAsync({ to: "cancelled", reason });
+        onConfirm={async (reasonSelection) => {
+          await transition.mutateAsync({ to: "cancelled", reasonSelection });
         }}
       />
       <OrderCustodyChangeOverlay
@@ -2619,23 +2667,24 @@ function ApprovalDecisionSheet({
   order: OrderDetail["order"];
   pending: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (input: OrderApprovalDecisionInput) => Promise<unknown>;
+  onConfirm: (input: OrderApprovalDecisionDraft) => Promise<unknown>;
 }) {
   const custodyStatus = deviceCustodyStatusFromOrder(order);
   const custodyReady = custodyStatus === DEVICE_CUSTODY_WITH_SHOP;
-  const [decision, setDecision] = useState<OrderApprovalDecisionInput["decision"]>("approved");
+  const [decision, setDecision] = useState<OrderApprovalDecisionDraft["decision"]>("approved");
   const [approvedNext, setApprovedNext] = useState<RepairOrderStatus>(
     custodyReady ? getDefaultApprovedNextStatus(order) : "parts_ordered",
   );
   const [rejectedNext, setRejectedNext] = useState<RepairOrderStatus>(
     custodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER ? "cancelled" : "unfixed_pickup",
   );
-  const [reason, setReason] = useState("");
+  const rejectionCatalog = getOrderReasonCatalog("approval.reject");
+  const [reason, setReason] = useState<OrderReasonDraft>(createEmptyOrderReasonDraft);
+  const reasonSelection = buildBusinessReasonSelection(rejectionCatalog, reason);
   const nextStatus = decision === "approved" ? approvedNext : rejectedNext;
   const canSubmit =
     deviceCustodyAllowsStatus(custodyStatus, nextStatus) &&
-    (decision === "approved" || Boolean(reason.trim()));
-  const isDesktop = useDesktopActionSurface();
+    (decision === "approved" || Boolean(reasonSelection));
 
   useEffect(() => {
     if (!open) return;
@@ -2644,11 +2693,11 @@ function ApprovalDecisionSheet({
     setRejectedNext(
       custodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER ? "cancelled" : "unfixed_pickup",
     );
-    setReason("");
+    setReason(createEmptyOrderReasonDraft());
   }, [custodyReady, custodyStatus, open, order]);
 
   const body = (
-    <div className={cn(componentOverlay.body, "space-y-2 pt-3 lg:px-0 lg:pb-0")}>
+    <div className="space-y-2">
       <section
         className={cn(
           componentOverlay.flatSection,
@@ -2666,7 +2715,10 @@ function ApprovalDecisionSheet({
                   : "border-[var(--border-panel)] bg-[var(--surface-panel)]",
               )}
               disabled={pending}
-              onClick={() => setDecision("approved")}
+              onClick={() => {
+                setDecision("approved");
+                setReason(createEmptyOrderReasonDraft());
+              }}
             >
               <span className="block text-xs font-semibold">客户同意</span>
               <span className="mt-0.5 block truncate text-[10px] opacity-75">
@@ -2732,20 +2784,19 @@ function ApprovalDecisionSheet({
         </div>
 
         <div className="space-y-2">
-          <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
-            {decision === "approved" ? "备注" : "拒绝原因"}
-            <Textarea
+          {decision === "rejected" ? (
+            <OrderReasonField
+              catalog={rejectionCatalog}
               value={reason}
-              onChange={(event) => setReason(event.target.value)}
+              onChange={setReason}
               disabled={pending}
-              className="min-h-20 resize-none rounded-lg text-xs lg:min-h-[104px]"
-              placeholder={
-                decision === "approved"
-                  ? "例如：客户 WhatsApp 确认同意报价。"
-                  : "例如：维修风险过高，客户确认不继续维修并取回设备。"
-              }
+              compact
             />
-          </label>
+          ) : (
+            <p className="rounded-lg border border-status-success-foreground/20 bg-status-success/45 px-2.5 py-2 text-[11px] leading-5 text-status-success-foreground">
+              客户同意无需重复填写原因；确认渠道与客户消息继续通过独立沟通记录保存。
+            </p>
+          )}
 
           <p className="rounded-lg bg-[var(--surface-panel-muted)] px-2.5 py-2 text-[10px] leading-4 text-muted-foreground">
             审批结果会写入时间线；客户消息保持为独立沟通记录。
@@ -2776,7 +2827,9 @@ function ApprovalDecisionSheet({
           await onConfirm({
             decision,
             next_status: nextStatus,
-            reason: reason.trim() || undefined,
+            ...(decision === "rejected" && reasonSelection
+              ? { reason_selection: reasonSelection }
+              : {}),
           });
         }}
       >
@@ -2785,52 +2838,25 @@ function ApprovalDecisionSheet({
     </>
   );
 
-  if (isDesktop) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent
-          data-order-desktop-approval-dialog="true"
-          className={cn(componentOverlay.modalLg, "max-h-[calc(100svh-32px)] overflow-y-auto p-4")}
-        >
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <MessageCircle className="size-4 text-primary" />
-              客户审批处理
-            </DialogTitle>
-            <DialogDescription>
-              {order.public_no} · 记录客户对当前报价的同意或拒绝，并推进到对应处理状态。
-            </DialogDescription>
-          </DialogHeader>
-          {body}
-          <DialogFooter className="gap-2 sm:gap-2">{footer}</DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="bottom"
-        className="max-h-[calc(100svh-24px)] rounded-t-xl p-0 sm:mx-auto sm:max-w-xl"
-      >
-        <div className="flex max-h-[calc(100svh-24px)] min-w-0 flex-col overflow-hidden">
-          <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
-            <SheetTitle className="flex items-center gap-2 text-base">
-              <MessageCircle className="size-4 text-primary" />
-              客户审批处理
-            </SheetTitle>
-            <SheetDescription>
-              {order.public_no} · 记录客户对当前报价的同意或拒绝，并推进到对应处理状态。
-            </SheetDescription>
-          </SheetHeader>
-          {body}
-          <SheetFooter className={cn(componentOverlay.footer, "px-3 pb-3 sm:px-4")}>
-            {footer}
-          </SheetFooter>
-        </div>
-      </SheetContent>
-    </Sheet>
+    <ResponsiveOrderActionOverlay
+      open={open}
+      pending={pending}
+      dirty={decision === "rejected" && Boolean(reason.primaryCode || reason.note)}
+      onOpenChange={onOpenChange}
+      title={
+        <span className="flex items-center gap-2 text-base">
+          <MessageCircle className="size-4 text-primary" />
+          客户审批处理
+        </span>
+      }
+      description={`${order.public_no} · 记录客户对当前报价的同意或拒绝，并推进到对应处理状态。`}
+      footer={footer}
+      contentClassName="w-[min(860px,calc(100vw-24px))]"
+      dataAttribute="data-order-approval-overlay"
+    >
+      {body}
+    </ResponsiveOrderActionOverlay>
   );
 }
 
@@ -2948,6 +2974,7 @@ function MobileOrderDetailView({
   workflow,
   topNotice,
   transitionPending,
+  actionOverlayOpen,
   onTransition,
   onImeiSave,
   imeiPending,
@@ -2998,7 +3025,12 @@ function MobileOrderDetailView({
   workflow?: OrderWorkflow;
   topNotice?: ReactNode;
   transitionPending: boolean;
-  onTransition: (to: RepairOrderStatus, reason?: string) => void;
+  actionOverlayOpen: boolean;
+  onTransition: (
+    to: RepairOrderStatus,
+    reason?: string,
+    reasonSelection?: BusinessReasonSelectionV2,
+  ) => void;
   onImeiSave: (imei: string) => Promise<void>;
   imeiPending: boolean;
   onFaultSave: (
@@ -3632,8 +3664,16 @@ function MobileOrderDetailView({
         onOpenChange={setTimelineOpen}
       />
 
-      {!isVoided ? (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-panel)] bg-background/95 px-2.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1.5 shadow-[0_-10px_30px_color-mix(in_oklch,var(--foreground)_10%,transparent)] backdrop-blur-xl md:hidden">
+      {!isVoided &&
+      !actionOverlayOpen &&
+      !statusSheetOpen &&
+      !timelineOpen &&
+      !photoCaptureOpen &&
+      !photoPreviewId ? (
+        <div
+          data-order-mobile-action-dock="true"
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-panel)] bg-background/95 px-2.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1.5 shadow-[0_-10px_30px_color-mix(in_oklch,var(--foreground)_10%,transparent)] backdrop-blur-xl md:hidden"
+        >
           <div className="mx-auto grid max-w-[430px] grid-cols-[1.25fr_1fr_1fr] gap-1.5">
             <Button
               className="h-9 rounded-xl border-0 text-xs text-primary-foreground"
@@ -4502,7 +4542,11 @@ function DesktopStatusTransitionPanel({
   actions: WorkflowTransitionAction[];
   pending: boolean;
   onOpenChange: (open: boolean) => void;
-  onTransition: (to: RepairOrderStatus, reason?: string) => void;
+  onTransition: (
+    to: RepairOrderStatus,
+    reason?: string,
+    reasonSelection?: BusinessReasonSelectionV2,
+  ) => void;
 }) {
   return (
     <section className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-card/95 p-2.5 shadow-sm">
@@ -4559,18 +4603,23 @@ function StatusTransitionPanelBody({
   actions: WorkflowTransitionAction[];
   pending: boolean;
   onOpenChange: (open: boolean) => void;
-  onTransition: (to: RepairOrderStatus, reason?: string) => void;
+  onTransition: (
+    to: RepairOrderStatus,
+    reason?: string,
+    reasonSelection?: BusinessReasonSelectionV2,
+  ) => void;
 }) {
   const hasCommunicationStatus = actions.some((action) => isCommunicationStatus(action.to));
   const [reasonAction, setReasonAction] = useState<WorkflowTransitionAction | null>(null);
-  const [reasonDraft, setReasonDraft] = useState("");
-  const reasonConfig = reasonAction ? getOrderTransitionReasonConfig(reasonAction.to) : undefined;
-  const canConfirmReason = !reasonConfig?.required || Boolean(reasonDraft.trim());
+  const [reasonDraft, setReasonDraft] = useState<OrderReasonDraft>(createEmptyOrderReasonDraft);
+  const reasonContext = reasonAction ? getOrderTransitionReasonContext(reasonAction.to) : undefined;
+  const reasonCatalog = reasonContext ? getOrderReasonCatalog(reasonContext) : undefined;
+  const canConfirmReason = !reasonCatalog || isOrderReasonDraftComplete(reasonCatalog, reasonDraft);
 
   useEffect(() => {
     if (!open) {
       setReasonAction(null);
-      setReasonDraft("");
+      setReasonDraft(createEmptyOrderReasonDraft());
     }
   }, [open]);
 
@@ -4578,7 +4627,7 @@ function StatusTransitionPanelBody({
     const config = getOrderTransitionReasonConfig(action.to);
     if (config || action.to === "completed") {
       setReasonAction(action);
-      setReasonDraft(getDefaultOrderTransitionReason(action.to));
+      setReasonDraft(createEmptyOrderReasonDraft());
       return;
     }
     onOpenChange(false);
@@ -4586,7 +4635,12 @@ function StatusTransitionPanelBody({
   };
 
   return (
-    <div className={cn(componentOverlay.body, "space-y-2 pt-3 lg:px-0 lg:pb-0")}>
+    <div
+      className={cn(
+        componentOverlay.body,
+        "space-y-2 pt-3 [scroll-padding-bottom:calc(env(safe-area-inset-bottom)+5rem)] lg:px-0 lg:pb-0",
+      )}
+    >
       <div
         className={cn(
           "grid min-w-0 gap-2",
@@ -4639,7 +4693,7 @@ function StatusTransitionPanelBody({
                 disabled={pending}
                 onClick={() => {
                   setReasonAction(null);
-                  setReasonDraft("");
+                  setReasonDraft(createEmptyOrderReasonDraft());
                 }}
               >
                 返回
@@ -4650,10 +4704,12 @@ function StatusTransitionPanelBody({
                 className="h-8 rounded-lg text-xs"
                 disabled={pending || !canConfirmReason}
                 onClick={() => {
-                  const reason = reasonDraft.trim();
-                  if (reasonConfig?.required && !reason) return;
+                  const reasonSelection = reasonCatalog
+                    ? buildBusinessReasonSelection(reasonCatalog, reasonDraft)
+                    : undefined;
+                  if (reasonCatalog && !reasonSelection) return;
                   onOpenChange(false);
-                  onTransition(reasonAction.to, reason || undefined);
+                  onTransition(reasonAction.to, undefined, reasonSelection);
                 }}
               >
                 确认流转
@@ -4757,15 +4813,37 @@ function MobileStatusTransitionSheet({
   actions: WorkflowTransitionAction[];
   pending: boolean;
   onOpenChange: (open: boolean) => void;
-  onTransition: (to: RepairOrderStatus, reason?: string) => void;
+  onTransition: (
+    to: RepairOrderStatus,
+    reason?: string,
+    reasonSelection?: BusinessReasonSelectionV2,
+  ) => void;
 }) {
+  const viewport = useVisualViewportMetrics(open);
+  const requestOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && pending) return;
+    onOpenChange(nextOpen);
+  };
+  const preventPendingClose = (event: Event) => {
+    if (pending) event.preventDefault();
+  };
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={requestOpenChange}>
       <SheetContent
         side="bottom"
         className="max-h-[calc(100svh-16px)] rounded-t-xl p-0 sm:mx-auto sm:max-w-xl"
+        style={{
+          bottom: viewport.keyboardInset,
+          maxHeight: Math.max(240, viewport.height - 8),
+        }}
+        onEscapeKeyDown={preventPendingClose}
+        onPointerDownOutside={preventPendingClose}
+        onInteractOutside={preventPendingClose}
       >
-        <div className="flex max-h-[calc(100svh-16px)] min-w-0 flex-col overflow-hidden">
+        <div
+          className="flex min-w-0 flex-col overflow-hidden"
+          style={{ maxHeight: Math.max(240, viewport.height - 8) }}
+        >
           <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
             <SheetTitle className="flex items-center gap-2 text-base">
               <Clock3 className="size-4 text-primary" />
@@ -4783,7 +4861,7 @@ function MobileStatusTransitionSheet({
             currentStage={currentStage}
             actions={actions}
             pending={pending}
-            onOpenChange={onOpenChange}
+            onOpenChange={requestOpenChange}
             onTransition={onTransition}
           />
         </div>

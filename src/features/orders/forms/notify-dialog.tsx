@@ -92,6 +92,7 @@ export function NotifyDialog({
   );
   const [phone, setPhone] = useState(defaultPhone);
   const [whatsappOpened, setWhatsappOpened] = useState(false);
+  const [customizing, setCustomizing] = useState(false);
   const [confirmationId, setConfirmationId] = useState(() => crypto.randomUUID());
   const canOpenWhatsApp = Boolean(phone.replace(/\D/g, ""));
   const transitionTo = getOrderWhatsappTransition(effectiveStatus, templateKind);
@@ -110,6 +111,7 @@ export function NotifyDialog({
     );
     setPhone(nextPhone);
     setWhatsappOpened(false);
+    setCustomizing(false);
     setConfirmationId(crypto.randomUUID());
   }, [data, effectiveStatus, open, orderUrl, storeIdentity]);
 
@@ -119,6 +121,7 @@ export function NotifyDialog({
       buildOrderWhatsappMessage(data, kind, orderUrl, { recipientPhone: phone, storeIdentity }),
     );
     setWhatsappOpened(false);
+    setCustomizing(false);
     setConfirmationId(crypto.randomUUID());
   };
 
@@ -214,20 +217,53 @@ export function NotifyDialog({
               WhatsApp 已打开。请确认消息确实发送后，再点击“我已发送”。
             </div>
           ) : null}
-          <div className="mt-2">
-            <Label className="text-xs">通知内容</Label>
-            <Textarea
-              aria-label="通知内容"
-              rows={10}
-              value={body}
-              disabled={!storeIdentity.canOutput}
-              onChange={(e) => {
-                setBody(e.target.value);
-                setWhatsappOpened(false);
-                setConfirmationId(crypto.randomUUID());
-              }}
-              className="mt-1 min-h-[260px] resize-none font-mono text-xs leading-relaxed"
-            />
+          <div className="mt-2 space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-xs">通知内容</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-[10px]"
+                disabled={!storeIdentity.canOutput}
+                onClick={() => {
+                  if (customizing) {
+                    setBody(
+                      buildOrderWhatsappMessage(data, templateKind, orderUrl, {
+                        recipientPhone: phone,
+                        storeIdentity,
+                      }),
+                    );
+                  }
+                  setCustomizing((current) => !current);
+                  setWhatsappOpened(false);
+                  setConfirmationId(crypto.randomUUID());
+                }}
+              >
+                {customizing ? "恢复模板" : "自定义消息"}
+              </Button>
+            </div>
+            {customizing ? (
+              <Textarea
+                aria-label="通知内容"
+                rows={10}
+                value={body}
+                disabled={!storeIdentity.canOutput}
+                onChange={(e) => {
+                  setBody(e.target.value);
+                  setWhatsappOpened(false);
+                  setConfirmationId(crypto.randomUUID());
+                }}
+                className="min-h-[260px] resize-none font-mono text-xs leading-relaxed"
+              />
+            ) : (
+              <pre
+                data-order-message-preview="true"
+                className="min-h-[180px] whitespace-pre-wrap rounded-lg border border-[var(--border-panel)] bg-card p-3 font-mono text-xs leading-relaxed"
+              >
+                {body}
+              </pre>
+            )}
           </div>
         </div>
         <DialogFooter className="border-t border-[var(--border-panel)] px-4 py-3 sm:gap-2">

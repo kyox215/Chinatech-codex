@@ -924,6 +924,14 @@ export interface OrderApprovalDecisionInput {
   reason?: string;
 }
 
+export interface OrderApprovalDecisionV2Input {
+  decision: "approved" | "rejected";
+  next_status?: RepairOrderStatus;
+  reason_selection?: BusinessReasonSelectionV2;
+  expected_updated_at: string;
+  idempotency_key: string;
+}
+
 export interface OrderApprovalDecisionResult {
   ok: boolean;
   decision: "approved" | "rejected";
@@ -1456,6 +1464,33 @@ export interface PatchOrderResult {
   updated_at: string;
 }
 
+export type BusinessReasonSelectionV2 =
+  | {
+      schema_version: 2;
+      kind: "preset";
+      primary_code: string;
+      detail_codes?: string[];
+      note?: string;
+      catalog_revision: string;
+    }
+  | {
+      schema_version: 2;
+      kind: "other";
+      primary_code: "other";
+      detail_codes?: string[];
+      note: string;
+      catalog_revision: string;
+    };
+
+export type StoredBusinessReasonSelectionV2 = BusinessReasonSelectionV2 & {
+  context: string;
+  internal_snapshot: {
+    locale: "zh-CN";
+    labels: string[];
+    text: string;
+  };
+};
+
 export interface CorrectTerminalOrderInput {
   expected_updated_at: string;
   idempotency_key: string;
@@ -1472,6 +1507,10 @@ export interface CorrectTerminalOrderInput {
   >;
 }
 
+export interface CorrectTerminalOrderV2Input extends Omit<CorrectTerminalOrderInput, "reason"> {
+  reason_selection: BusinessReasonSelectionV2;
+}
+
 export interface ReopenOrderInput {
   expected_updated_at: string;
   idempotency_key: string;
@@ -1479,11 +1518,19 @@ export interface ReopenOrderInput {
   to_status: RepairOrderStatus;
 }
 
+export interface ReopenOrderV2Input extends Omit<ReopenOrderInput, "reason"> {
+  reason_selection: BusinessReasonSelectionV2;
+}
+
 export interface VoidOrderInput {
   expected_updated_at: string;
   idempotency_key: string;
   reason: string;
   confirm_public_no: string;
+}
+
+export interface VoidOrderV2Input extends Omit<VoidOrderInput, "reason"> {
+  reason_selection: BusinessReasonSelectionV2;
 }
 
 export interface OrderTerminalOperationResult {

@@ -585,3 +585,10 @@ expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLess
 - 弹窗、Dropdown、Popover 不超出 viewport。
 - lint、typecheck、test、build 通过。
 - 截图保存到 `screenshots/responsive-density/<page>/` 用于对比。
+
+## Order workflow overlay addendum
+
+- Validate action overlays at 390, 430, 768, 1024, 1280 and 1440 widths.
+- At 1024px and 200% zoom, the action footer must remain visible without overlapping the page action dock.
+- Mobile `Other` input must be tested with a reduced `visualViewport.height`, non-zero `offsetTop` and safe-area inset.
+- The viewport must contain only one fixed bottom action surface at a time.

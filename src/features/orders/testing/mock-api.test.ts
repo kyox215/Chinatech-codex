@@ -874,6 +874,45 @@ describe("mock order WhatsApp notification workflow", () => {
     expect(detail.order.cancel_reason).toBe("客户拒绝报价并取消维修。");
     expect(detail.order.approval_status).toBe("rejected");
   });
+
+  it("records a normalized v2 rejection snapshot and replays its idempotency key", async () => {
+    const id = await createMockOrder();
+    await transitionOrder(id, "diagnosing");
+    await transitionOrder(id, "quoted");
+    await sendApprovalRequest(id, "Preventivo da confermare.");
+    const before = await getOrder(id);
+    const input = {
+      decision: "rejected" as const,
+      next_status: "cancelled" as const,
+      reason: "客户认为报价过高，拒绝本次维修方案。",
+      reason_selection: {
+        schema_version: 2 as const,
+        kind: "preset" as const,
+        primary_code: "price_too_high",
+        catalog_revision: "order-reasons-2026-07-21.v1",
+      },
+      expected_updated_at: before.order.updated_at,
+      idempotency_key: "00000000-0000-4000-8000-000000000905",
+    };
+
+    await decideOrderApproval(id, input);
+    await decideOrderApproval(id, input);
+
+    const detail = await getOrder(id);
+    const matchingEvents = detail.events.filter(
+      (event) => event.payload.idempotency_key === input.idempotency_key,
+    );
+    expect(matchingEvents).toHaveLength(1);
+    expect(matchingEvents[0]?.payload.reason_selection).toMatchObject({
+      context: "approval.reject",
+      primary_code: "price_too_high",
+      internal_snapshot: {
+        locale: "zh-CN",
+        labels: ["报价过高"],
+        text: "客户认为报价过高，拒绝本次维修方案。",
+      },
+    });
+  });
 });
 
 describe("mock order inline editing workflow", () => {

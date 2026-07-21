@@ -1,8 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AlertCircle } from "lucide-react";
 
-import { Input } from "@/components/ui/input";
+import { OrderReasonField } from "@/features/orders/components/order-reason-field";
 import {
   Select,
   SelectContent,
@@ -17,6 +18,12 @@ import {
   parseWarrantyMonths,
   warrantyReasonRequired,
 } from "@/features/orders/model/order-warranty";
+import {
+  createEmptyOrderReasonDraft,
+  getOrderReasonCatalog,
+  getOrderReasonLegacyPreview,
+  getWarrantyReasonContext,
+} from "@/features/orders/model/order-reason-catalog";
 import { cn } from "@/lib/utils";
 
 export type WarrantyDraftValue = {
@@ -64,6 +71,7 @@ export function WarrantyPicker({
   triggerClassName,
   contentClassName,
   reasonFieldTarget,
+  originalMonths,
 }: {
   valueMonths?: number | null;
   valueText?: string | null;
@@ -75,6 +83,7 @@ export function WarrantyPicker({
   triggerClassName?: string;
   contentClassName?: string;
   reasonFieldTarget?: string;
+  originalMonths?: number;
 }) {
   const quiet = appearance === "quiet";
   const normalizedDefault = normalizeWarrantyMonths(defaultMonths);
@@ -83,6 +92,28 @@ export function WarrantyPicker({
       ? normalizeWarrantyMonths(valueMonths, normalizedDefault)
       : parseWarrantyMonths(valueText, normalizedDefault);
   const needsReason = warrantyReasonRequired(months, normalizedDefault);
+  const baselineMonths = normalizeWarrantyMonths(originalMonths ?? normalizedDefault);
+  const reasonContext = needsReason ? getWarrantyReasonContext(baselineMonths, months) : undefined;
+  const reasonCatalog = reasonContext ? getOrderReasonCatalog(reasonContext) : undefined;
+  const [reasonDraft, setReasonDraft] = useState(createEmptyOrderReasonDraft);
+
+  useEffect(() => {
+    if (!reasonCatalog) {
+      setReasonDraft(createEmptyOrderReasonDraft());
+      return;
+    }
+    const cleanReason = reason?.trim() ?? "";
+    if (!cleanReason) {
+      setReasonDraft((current) =>
+        current.primaryCode === "other" ? current : createEmptyOrderReasonDraft(),
+      );
+      return;
+    }
+    const preset = reasonCatalog.options.find((entry) => entry.legacyText === cleanReason);
+    setReasonDraft(
+      preset ? { primaryCode: preset.code, note: "" } : { primaryCode: "other", note: cleanReason },
+    );
+  }, [reason, reasonCatalog]);
 
   const updateMonths = (nextMonths: number) => {
     const normalized = normalizeWarrantyMonths(nextMonths, normalizedDefault);
@@ -90,7 +121,7 @@ export function WarrantyPicker({
       warranty_months: normalized,
       warranty_text: formatWarrantyText(normalized),
       warranty_change_reason: warrantyReasonRequired(normalized, normalizedDefault)
-        ? reason?.trim() || ""
+        ? ""
         : undefined,
     });
   };
@@ -134,18 +165,19 @@ export function WarrantyPicker({
       </Select>
       {needsReason && (
         <div className="space-y-1">
-          <Input
-            data-new-order-field={reasonFieldTarget}
-            value={reason ?? ""}
-            onChange={(event) => updateReason(event.target.value)}
-            placeholder="请输入非默认质保原因"
-            className={cn(
-              "h-8 text-xs",
-              compact && "h-7",
-              quiet &&
-                "!h-6 !rounded-none !border-0 !border-b !border-transparent !bg-transparent !px-0 !py-0 !shadow-none focus-visible:!border-primary/45 focus-visible:!ring-0",
-            )}
-          />
+          {reasonCatalog ? (
+            <div data-new-order-field={reasonFieldTarget}>
+              <OrderReasonField
+                catalog={reasonCatalog}
+                value={reasonDraft}
+                onChange={(nextDraft) => {
+                  setReasonDraft(nextDraft);
+                  updateReason(getOrderReasonLegacyPreview(reasonCatalog, nextDraft));
+                }}
+                compact
+              />
+            </div>
+          ) : null}
           <p className="flex items-center gap-1 text-[11px] text-status-warn-foreground">
             <AlertCircle className="size-3 shrink-0" />
             非默认质保会记录原因、员工和时间。

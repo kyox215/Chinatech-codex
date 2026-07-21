@@ -1,8 +1,10 @@
 import type { FaultPriceItem, QuotePriceException } from "@/lib/repairdesk/types";
 
 export const UNKNOWN_ISSUE_DESCRIPTION = "客户暂时无法确认具体故障，需检测。";
+export const CANNOT_DESCRIBE_ISSUE_DESCRIPTION = "客户目前无法清楚描述故障现象，待门店检测确认。";
+export const DIAGNOSTIC_ONLY_ISSUE_DESCRIPTION = "客户本次仅要求检测，暂不授权维修。";
 
-export type IssueCaptureMode = "reported" | "unknown";
+export type IssueCaptureMode = "reported" | "unknown" | "cannot_describe" | "diagnostic_only";
 
 export type QuoteReadinessCode =
   | "diagnosis"
@@ -28,6 +30,8 @@ export interface QuoteReadiness {
 
 export function issueDescriptionForIntake(mode: IssueCaptureMode, issue: string) {
   if (mode === "unknown") return UNKNOWN_ISSUE_DESCRIPTION;
+  if (mode === "cannot_describe") return CANNOT_DESCRIBE_ISSUE_DESCRIPTION;
+  if (mode === "diagnostic_only") return DIAGNOSTIC_ONLY_ISSUE_DESCRIPTION;
   const normalized = issue.trim();
   if (!normalized) throw new Error("请填写客户描述的故障现象");
   return normalized;
@@ -44,7 +48,7 @@ export function resolveIntakeQuoteDraft<T>({
   total: number;
   deposit: number;
 }) {
-  if (mode === "unknown") {
+  if (isIntakeQuotePaused(mode)) {
     return { items: [] as T[], total: 0, deposit: 0 };
   }
   return { items, total, deposit };
@@ -54,7 +58,15 @@ export function resolveIntakeQuoteDraft<T>({
 // presentation-only compatibility heuristic; server workflow rules must never
 // infer business state from localized display copy.
 export function inferIssueCaptureModeForLegacyDraft(issue?: string | null): IssueCaptureMode {
-  return issue?.trim() === UNKNOWN_ISSUE_DESCRIPTION ? "unknown" : "reported";
+  const normalized = issue?.trim();
+  if (normalized === UNKNOWN_ISSUE_DESCRIPTION) return "unknown";
+  if (normalized === CANNOT_DESCRIBE_ISSUE_DESCRIPTION) return "cannot_describe";
+  if (normalized === DIAGNOSTIC_ONLY_ISSUE_DESCRIPTION) return "diagnostic_only";
+  return "reported";
+}
+
+export function isIntakeQuotePaused(mode: IssueCaptureMode) {
+  return mode !== "reported";
 }
 
 export function getQuoteDraftReadiness(input: QuoteDraftReadinessInput): QuoteReadiness {

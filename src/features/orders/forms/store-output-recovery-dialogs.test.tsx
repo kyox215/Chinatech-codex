@@ -42,7 +42,8 @@ describe("order customer-output recovery dialogs", () => {
     expect(recoveryLink).toHaveAttribute("target", "_blank");
     expect(recoveryLink.getAttribute("href")).not.toMatch(/store-private|private-order/);
     expect(screen.getByRole("button", { name: "打开 WhatsApp" })).toBeDisabled();
-    expect(screen.getByRole("textbox", { name: "通知内容" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "自定义消息" })).toBeDisabled();
+    expect(document.querySelector('[data-order-message-preview="true"]')).toBeInTheDocument();
   });
 
   it("opens WhatsApp without writing, then records only after explicit sent confirmation", async () => {
@@ -76,6 +77,10 @@ describe("order customer-output recovery dialogs", () => {
         onConfirm={onConfirm}
       />,
     );
+
+    expect(screen.queryByRole("textbox", { name: "通知内容" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "自定义消息" }));
+    expect(screen.getByRole("textbox", { name: "通知内容" })).toBeEnabled();
 
     await user.click(screen.getByRole("button", { name: "打开 WhatsApp" }));
 
@@ -122,7 +127,8 @@ describe("order customer-output recovery dialogs", () => {
       "/settings?section=notifications",
     );
     expect(screen.getByRole("button", { name: "打开 WhatsApp" })).toBeDisabled();
-    expect(screen.getByRole("textbox", { name: "审批消息内容" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "自定义消息" })).toBeDisabled();
+    expect(document.querySelector('[data-order-message-preview="true"]')).toBeInTheDocument();
   });
 
   it("does not record an approval request until the operator confirms it was sent", async () => {

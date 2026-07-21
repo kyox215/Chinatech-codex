@@ -12,10 +12,12 @@ import { repairServiceCatalogItems } from "@/entities/order";
 
 import {
   approvalStatusSchema,
+  approvalDecisionV2BodySchema,
   batchTransitionBodySchema,
   buybackFinalizeInputSchema,
   createOrderSchema,
   correctTerminalOrderInputSchema,
+  correctTerminalOrderV2InputSchema,
   customerListPageInputSchema,
   customerSearchBodySchema,
   dashboardPrioritySummaryInputSchema,
@@ -58,6 +60,8 @@ import {
   storeFaultCostDefaultsUpdateBodySchema,
   supplierCreateBodySchema,
   transitionOrderBodySchema,
+  transitionOrderV2BodySchema,
+  voidOrderV2InputSchema,
   updateOrderCustodyBodySchema,
   updateOrderInputSchema,
   whatsappNotificationBodySchema,
@@ -960,6 +964,97 @@ describe("repairdesk API schemas", () => {
       expect(() => transitionOrderBodySchema.parse({ id: "R1", to: status })).toThrow();
       expect(() => batchTransitionBodySchema.parse({ ids: ["R1"], to: status })).toThrow();
     }
+  });
+
+  it("accepts only a strict structured reason on the v2 transition endpoint", () => {
+    const command = {
+      id: "R1",
+      to: "cancelled",
+      expected_updated_at: "2026-07-21T12:00:00.000Z",
+      idempotency_key: "00000000-0000-4000-8000-000000000901",
+      reason_selection: {
+        schema_version: 2,
+        kind: "preset",
+        primary_code: "customer_cancelled",
+        catalog_revision: "order-reasons-2026-07-21.v1",
+      },
+    } as const;
+
+    expect(transitionOrderV2BodySchema.parse(command).reason_selection.primary_code).toBe(
+      "customer_cancelled",
+    );
+    expect(() => transitionOrderV2BodySchema.parse({ ...command, reason: "客户端文字" })).toThrow();
+    expect(() =>
+      transitionOrderV2BodySchema.parse({
+        ...command,
+        reason_selection: {
+          ...command.reason_selection,
+          detail_codes: ["duplicate_order", "duplicate_order"],
+        },
+      }),
+    ).toThrow("附加原因不能重复");
+  });
+
+  it("separates approval decision from rejection reason on the v2 endpoint", () => {
+    const base = {
+      id: "R1",
+      input: {
+        decision: "rejected" as const,
+        next_status: "unfixed_pickup",
+        expected_updated_at: "2026-07-21T12:00:00.000Z",
+        idempotency_key: "00000000-0000-4000-8000-000000000902",
+      },
+    };
+    const reasonSelection = {
+      schema_version: 2 as const,
+      kind: "preset" as const,
+      primary_code: "price_too_high",
+      catalog_revision: "order-reasons-2026-07-21.v1",
+    };
+
+    expect(() => approvalDecisionV2BodySchema.parse(base)).toThrow("需要选择原因");
+    expect(
+      approvalDecisionV2BodySchema.parse({
+        ...base,
+        input: { ...base.input, reason_selection: reasonSelection },
+      }).input.reason_selection?.primary_code,
+    ).toBe("price_too_high");
+    expect(() =>
+      approvalDecisionV2BodySchema.parse({
+        ...base,
+        input: { ...base.input, decision: "approved", reason_selection: reasonSelection },
+      }),
+    ).toThrow("不应提交拒绝原因");
+  });
+
+  it("keeps terminal v2 commands strict and free of browser-provided legacy text", () => {
+    const selection = {
+      schema_version: 2 as const,
+      kind: "preset" as const,
+      primary_code: "record_inaccurate",
+      catalog_revision: "order-reasons-2026-07-21.v1",
+    };
+    const correctInput = {
+      expected_updated_at: "2026-07-21T12:00:00.000Z",
+      idempotency_key: "00000000-0000-4000-8000-000000000903",
+      reason_selection: selection,
+      changes: { internal_tag: "已核对" },
+    };
+
+    expect(
+      correctTerminalOrderV2InputSchema.parse(correctInput).reason_selection.primary_code,
+    ).toBe("record_inaccurate");
+    expect(() =>
+      correctTerminalOrderV2InputSchema.parse({ ...correctInput, reason: "客户端原因" }),
+    ).toThrow();
+    expect(
+      voidOrderV2InputSchema.parse({
+        expected_updated_at: correctInput.expected_updated_at,
+        idempotency_key: "00000000-0000-4000-8000-000000000904",
+        reason_selection: { ...selection, primary_code: "duplicate_order" },
+        confirm_public_no: "R1",
+      }).confirm_public_no,
+    ).toBe("R1");
   });
 
   it("validates approval status from the canonical runtime enum", () => {

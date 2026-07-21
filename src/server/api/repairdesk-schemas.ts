@@ -42,6 +42,7 @@ import type {
   CustomerUpdateInput,
   CreateInventoryIntakeInput,
   BuybackFinalizeInput,
+  BusinessReasonSelectionV2,
   InventoryAttachmentUploadInput,
   InventoryItemStatus,
   InventoryListFilters,
@@ -59,14 +60,17 @@ import type {
   OrderWorkflowStatusUpdateInput,
   OrderWorkflowTransitionsUpdateInput,
   OrderApprovalDecisionInput,
+  OrderApprovalDecisionV2Input,
   OrderAttachmentUploadInput,
   OrderWhatsappTemplateKind,
   CorrectTerminalOrderInput,
+  CorrectTerminalOrderV2Input,
   PatchOrderFinanceInput,
   PatchOrderInput,
   PublishOrderQuoteInput,
   ConfirmOrderQuoteSentInput,
   ReopenOrderInput,
+  ReopenOrderV2Input,
   StoreCreateInput,
   StoreInvitationDecisionInput,
   StoreInviteLinkCreateInput,
@@ -86,10 +90,57 @@ import type {
   UpdateInventoryItemInput,
   UpdateOrderInput,
   VoidOrderInput,
+  VoidOrderV2Input,
   UpdateOrderCustodyInput,
 } from "@/lib/repairdesk/api";
 
 const optionalText = z.string().optional();
+
+const reasonCodeSchema = z
+  .string()
+  .trim()
+  .min(1, "原因代码不能为空")
+  .max(80, "原因代码过长")
+  .regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/, "原因代码格式无效");
+
+export const businessReasonSelectionV2Schema = z
+  .discriminatedUnion("kind", [
+    z
+      .object({
+        schema_version: z.literal(2),
+        kind: z.literal("preset"),
+        primary_code: reasonCodeSchema.refine((value) => value !== "other", {
+          message: "其他原因必须使用 other 类型",
+        }),
+        detail_codes: z.array(reasonCodeSchema).max(3, "附加原因最多 3 项").optional(),
+        note: z.string().max(500, "补充说明不能超过 500 个字符").optional(),
+        catalog_revision: z.string().trim().min(1).max(80),
+      })
+      .strict(),
+    z
+      .object({
+        schema_version: z.literal(2),
+        kind: z.literal("other"),
+        primary_code: z.literal("other"),
+        detail_codes: z.array(reasonCodeSchema).max(3, "附加原因最多 3 项").optional(),
+        note: z.string().trim().min(1, "请填写其他原因").max(500, "其他原因不能超过 500 个字符"),
+        catalog_revision: z.string().trim().min(1).max(80),
+      })
+      .strict(),
+  ])
+  .superRefine((selection, context) => {
+    const detailCodes = selection.detail_codes ?? [];
+    if (new Set(detailCodes).size !== detailCodes.length) {
+      context.addIssue({ code: "custom", path: ["detail_codes"], message: "附加原因不能重复" });
+    }
+    if (detailCodes.includes(selection.primary_code)) {
+      context.addIssue({
+        code: "custom",
+        path: ["detail_codes"],
+        message: "主原因不能重复出现在附加原因中",
+      });
+    }
+  }) satisfies z.ZodType<BusinessReasonSelectionV2>;
 // The JSON boundary may receive form-like numeric strings, but every consumer sees
 // only the validated number/undefined output. Empty strings keep omission semantics.
 const optionalNonnegativeInteger = z.preprocess((value) => {
@@ -1229,6 +1280,19 @@ export const correctTerminalOrderBodySchema = z
   })
   .strict();
 
+export const correctTerminalOrderV2InputSchema = z
+  .object({
+    expected_updated_at: z.string().min(1, "缺少版本时间"),
+    idempotency_key: z.string().uuid("纠正操作标识无效"),
+    reason_selection: businessReasonSelectionV2Schema,
+    changes: correctTerminalChangesSchema,
+  })
+  .strict() satisfies z.ZodType<CorrectTerminalOrderV2Input>;
+
+export const correctTerminalOrderV2BodySchema = z
+  .object({ id: z.string().min(1, "缺少 id"), input: correctTerminalOrderV2InputSchema })
+  .strict();
+
 export const reopenOrderInputSchema = z
   .object({
     expected_updated_at: z.string().min(1, "缺少版本时间"),
@@ -1240,6 +1304,19 @@ export const reopenOrderInputSchema = z
 
 export const reopenOrderBodySchema = z
   .object({ id: z.string().min(1, "缺少 id"), input: reopenOrderInputSchema })
+  .strict();
+
+export const reopenOrderV2InputSchema = z
+  .object({
+    expected_updated_at: z.string().min(1, "缺少版本时间"),
+    idempotency_key: z.string().uuid("重新打开操作标识无效"),
+    reason_selection: businessReasonSelectionV2Schema,
+    to_status: repairOrderStatusSchema,
+  })
+  .strict() satisfies z.ZodType<ReopenOrderV2Input>;
+
+export const reopenOrderV2BodySchema = z
+  .object({ id: z.string().min(1, "缺少 id"), input: reopenOrderV2InputSchema })
   .strict();
 
 export const voidOrderInputSchema = z
@@ -1255,6 +1332,19 @@ export const voidOrderBodySchema = z
   .object({ id: z.string().min(1, "缺少 id"), input: voidOrderInputSchema })
   .strict();
 
+export const voidOrderV2InputSchema = z
+  .object({
+    expected_updated_at: z.string().min(1, "缺少版本时间"),
+    idempotency_key: z.string().uuid("作废操作标识无效"),
+    reason_selection: businessReasonSelectionV2Schema,
+    confirm_public_no: z.string().trim().min(1, "请输入工单号确认"),
+  })
+  .strict() satisfies z.ZodType<VoidOrderV2Input>;
+
+export const voidOrderV2BodySchema = z
+  .object({ id: z.string().min(1, "缺少 id"), input: voidOrderV2InputSchema })
+  .strict();
+
 export const transitionOrderBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
   to: repairOrderStatusSchema,
@@ -1262,6 +1352,16 @@ export const transitionOrderBodySchema = z.object({
   expected_updated_at: z.string().min(1, "缺少版本时间").optional(),
   idempotency_key: z.string().uuid("状态操作标识无效").optional(),
 });
+
+export const transitionOrderV2BodySchema = z
+  .object({
+    id: z.string().min(1, "缺少 id"),
+    to: repairOrderStatusSchema,
+    reason_selection: businessReasonSelectionV2Schema,
+    expected_updated_at: z.string().min(1, "缺少版本时间"),
+    idempotency_key: z.string().uuid("状态操作标识无效"),
+  })
+  .strict();
 
 export const confirmCancelledOrderReturnBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
@@ -1332,6 +1432,37 @@ export const approvalDecisionBodySchema = z.object({
     })
     .strict() satisfies z.ZodType<OrderApprovalDecisionInput>,
 });
+
+export const approvalDecisionV2BodySchema = z
+  .object({
+    id: z.string().min(1, "缺少 id"),
+    input: z
+      .object({
+        decision: z.enum(["approved", "rejected"]),
+        next_status: repairOrderStatusSchema.optional(),
+        reason_selection: businessReasonSelectionV2Schema.optional(),
+        expected_updated_at: z.string().min(1, "缺少版本时间"),
+        idempotency_key: z.string().uuid("审批操作标识无效"),
+      })
+      .strict()
+      .superRefine((input, context) => {
+        if (input.decision === "rejected" && !input.reason_selection) {
+          context.addIssue({
+            code: "custom",
+            path: ["reason_selection"],
+            message: "客户拒绝报价需要选择原因",
+          });
+        }
+        if (input.decision === "approved" && input.reason_selection) {
+          context.addIssue({
+            code: "custom",
+            path: ["reason_selection"],
+            message: "客户同意不应提交拒绝原因",
+          });
+        }
+      }) satisfies z.ZodType<OrderApprovalDecisionV2Input>,
+  })
+  .strict();
 
 export const customerSearchBodySchema = z.object({
   q: z.string().max(80).default(""),

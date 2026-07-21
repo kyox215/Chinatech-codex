@@ -1,19 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
+import { ResponsiveOrderActionOverlay } from "@/features/orders/components/responsive-order-action-overlay";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { getDefaultOrderTransitionReason } from "@/features/orders/model/order-transition-reasons";
-import { componentOverlay } from "@/lib/component-patterns";
+  buildBusinessReasonSelection,
+  createEmptyOrderReasonDraft,
+  getOrderReasonCatalog,
+} from "@/features/orders/model/order-reason-catalog";
+import type { BusinessReasonSelectionV2 } from "@/lib/repairdesk/types";
 
 export function CancelDialog({
   open,
@@ -22,46 +19,42 @@ export function CancelDialog({
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onConfirm: (reason: string) => Promise<void>;
+  onConfirm: (reasonSelection: BusinessReasonSelectionV2) => Promise<void>;
 }) {
-  const [reason, setReason] = useState(() => getDefaultOrderTransitionReason("cancelled"));
+  const catalog = getOrderReasonCatalog("transition.cancel");
+  const [reason, setReason] = useState(createEmptyOrderReasonDraft);
   const [busy, setBusy] = useState(false);
+  const selection = useMemo(() => buildBusinessReasonSelection(catalog, reason), [catalog, reason]);
 
   useEffect(() => {
-    if (open) setReason(getDefaultOrderTransitionReason("cancelled"));
+    if (open) setReason(createEmptyOrderReasonDraft());
   }, [open]);
 
+  const dirty = Boolean(reason.primaryCode || reason.note);
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className={`${componentOverlay.modalSm} grid max-h-[calc(100svh-24px)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0`}
-      >
-        <DialogHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
-          <DialogTitle>取消工单</DialogTitle>
-          <DialogDescription className="text-xs">
-            选择一个常见原因，也可以改成更准确的说明。
-          </DialogDescription>
-        </DialogHeader>
-        <div className="min-h-0 overflow-y-auto p-3 sm:p-4">
-          <OrderTransitionReasonSelector
-            target="cancelled"
-            value={reason}
-            onChange={setReason}
-            disabled={busy}
-            compact
-          />
-        </div>
-        <DialogFooter className="border-t border-[var(--border-panel)] px-4 py-3 sm:gap-2">
+    <ResponsiveOrderActionOverlay
+      open={open}
+      pending={busy}
+      dirty={dirty}
+      onOpenChange={onOpenChange}
+      title="取消工单"
+      description="选择实际原因；只有“其他原因”需要填写说明。"
+      contentClassName="w-[min(520px,calc(100vw-24px))]"
+      dataAttribute="data-order-cancel-overlay"
+      footer={
+        <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             返回
           </Button>
           <Button
             variant="destructive"
-            disabled={busy || !reason.trim()}
+            disabled={busy || !selection}
             onClick={async () => {
+              if (!selection) return;
               setBusy(true);
               try {
-                await onConfirm(reason.trim());
+                await onConfirm(selection);
                 onOpenChange(false);
               } finally {
                 setBusy(false);
@@ -70,8 +63,16 @@ export function CancelDialog({
           >
             确认取消
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <OrderTransitionReasonSelector
+        target="cancelled"
+        value={reason}
+        onChange={setReason}
+        disabled={busy}
+        compact
+      />
+    </ResponsiveOrderActionOverlay>
   );
 }

@@ -5,6 +5,7 @@ import { Plus, ReceiptText, ShieldCheck, Trash2 } from "lucide-react";
 
 import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
 import { FaultDiagnosisPicker } from "@/components/orders/fault-diagnosis-picker";
+import { isIntakeQuotePaused } from "@/features/orders/model/order-diagnosis-quote";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -97,10 +98,10 @@ export function NewOrderQuotationSection({
     form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER
       ? createStatuses.filter((status) => !deviceCustodyBlocksStatus(status.code, status.bucket))
       : createStatuses;
-  const quoteModeNote =
-    form.issueCaptureMode === "unknown"
-      ? "待检测模式：报价草稿会保留，但本次创建不会提交报价项目或定金。"
-      : "可在接单时先报价，也可以保留为空，检测后再发布正式报价。";
+  const quotePaused = isIntakeQuotePaused(form.issueCaptureMode);
+  const quoteModeNote = quotePaused
+    ? "待检测模式：报价草稿会保留，但本次创建不会提交报价项目或定金。"
+    : "可在接单时先报价，也可以保留为空，检测后再发布正式报价。";
   const hasCatalogCostLines = form.faults.some((item) => Boolean(item.catalog_key));
 
   return (
@@ -116,7 +117,7 @@ export function NewOrderQuotationSection({
         className="mb-1"
         action={
           <span className="rounded-full bg-primary/5 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-primary">
-            {form.issueCaptureMode === "unknown" ? "报价暂停" : `${form.faults.length} 项`}
+            {quotePaused ? "报价暂停" : `${form.faults.length} 项`}
           </span>
         }
       />
@@ -129,7 +130,7 @@ export function NewOrderQuotationSection({
           id="new-order-quote-mode-note"
           className={cn(
             "mb-1.5 flex h-9 min-w-0 items-center overflow-hidden rounded-lg border px-2 py-1 text-[10px] leading-4",
-            form.issueCaptureMode === "unknown"
+            quotePaused
               ? "border-primary/20 bg-primary/5 text-foreground"
               : "border-[var(--border-panel)] bg-card text-muted-foreground",
           )}
@@ -142,7 +143,7 @@ export function NewOrderQuotationSection({
         </div>
 
         <fieldset
-          disabled={form.issueCaptureMode === "unknown"}
+          disabled={quotePaused}
           className="min-w-0 space-y-1.5 disabled:opacity-60"
           aria-describedby="new-order-quote-mode-note"
         >
@@ -342,7 +343,7 @@ export function NewOrderQuotationSection({
                 onChange={(value) => setForm({ ...form, deposit: parseMoneyDraft(value) })}
                 triggerClassName={cn(controlClass, "h-9 px-2 font-mono")}
                 placeholder="0"
-                disabled={form.issueCaptureMode === "unknown"}
+                disabled={quotePaused}
               />
             </FormItem>
           </div>
