@@ -22,7 +22,7 @@ function queueButton(page: Page, label: string) {
   return page.getByRole("button", { name: new RegExp(`^${label} \\d+ 条$`) });
 }
 
-test("uses the compact responsive queue header without the mobile funnel", async ({
+test("uses the compact responsive queue header without the redundant filter entry", async ({
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 320, height: 844 });
@@ -63,7 +63,7 @@ test("uses the compact responsive queue header without the mobile funnel", async
   });
 
   await page.setViewportSize({ width: 768, height: 1024 });
-  await expect(page.getByRole("button", { name: "筛选", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "筛选", exact: true })).toHaveCount(0);
   await expectNoOverflow(page);
   await page.screenshot({
     path: testInfo.outputPath("orders-768-desktop-toolbar.png"),
@@ -71,10 +71,10 @@ test("uses the compact responsive queue header without the mobile funnel", async
   });
 
   await page.setViewportSize({ width: 1440, height: 900 });
-  await expect(page.getByRole("button", { name: "筛选", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "筛选", exact: true })).toHaveCount(0);
   await expectNoOverflow(page);
   await page.screenshot({
-    path: testInfo.outputPath("orders-1440-desktop-filter.png"),
+    path: testInfo.outputPath("orders-1440-desktop-toolbar.png"),
     clip: { x: 0, y: 0, width: 1440, height: 330 },
   });
 });

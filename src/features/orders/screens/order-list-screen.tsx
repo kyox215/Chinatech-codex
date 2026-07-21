@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type SetStateAction,
   type SyntheticEvent,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -34,7 +33,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,10 +57,7 @@ import { OrderSearchFeedback } from "@/features/orders/components/order-search-f
 import { OrderListSkeleton } from "@/features/orders/components/order-list-skeleton";
 import { OrderListViewMode } from "@/features/orders/components/order-list-view-mode";
 import { OrderListTransitionFeedback } from "@/features/orders/components/order-list-transition-feedback";
-import {
-  FiltersPanel,
-  OrderStatusFilterControls,
-} from "@/features/orders/components/order-list-filters";
+import { OrderStatusFilterControls } from "@/features/orders/components/order-list-filters";
 import { MobileOrdersFloatingHeader } from "@/features/orders/components/order-list-mobile-header";
 import {
   ScanSearchButton,
@@ -207,7 +202,6 @@ export function OrderListScreen() {
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const [newOrderSessionKey, setNewOrderSessionKey] = useState(0);
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const mobileHeaderCleanupRef = useRef<() => void>(() => undefined);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
   const [isOnline, setIsOnline] = useState(true);
@@ -449,13 +443,6 @@ export function OrderListScreen() {
     setPage(selection.page);
     setSelected([]);
   }, []);
-  const setFiltersWhenOnline = useCallback(
-    (update: SetStateAction<OrderListFilters>) => {
-      if (!isOnline) return;
-      setFilters(update);
-    },
-    [isOnline],
-  );
   const activePendingListIntent =
     pendingListIntent?.requestHash === queueRequestHash ? pendingListIntent : null;
   const listTransitionPending = Boolean(activePendingListIntent);
@@ -829,12 +816,6 @@ export function OrderListScreen() {
     });
   };
 
-  const resetWorkflowFilters = () => {
-    if (!isOnline) return;
-    setStatusGroup("all");
-    setStatusCode("all");
-  };
-
   const handleStatusGroupChange = (nextGroup: string) => {
     const nextStatusGroup = nextGroup as "all" | OrderQueueGroup;
     const nextFilters = {
@@ -1202,31 +1183,6 @@ export function OrderListScreen() {
             className="h-9 gap-1.5 border-border/60 bg-surface/60 backdrop-blur"
             iconClassName="size-3.5"
           />
-          <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-            <SheetTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!isOnline}
-                className="h-9 gap-1.5 border-border/60 bg-surface/60 backdrop-blur"
-              >
-                <Filter className="size-3.5" /> 筛选
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-full max-w-sm p-0">
-              <SheetHeader className="sr-only">
-                <SheetTitle>筛选</SheetTitle>
-              </SheetHeader>
-              <FiltersPanel
-                filters={filters}
-                setFilters={setFiltersWhenOnline}
-                options={options}
-                statuses={workflowStatuses}
-                onClose={() => setMobileFiltersOpen(false)}
-                onStatusFilterChange={resetWorkflowFilters}
-              />
-            </SheetContent>
-          </Sheet>
           <Button
             type="button"
             data-order-list-new-button="true"
