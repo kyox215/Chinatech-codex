@@ -1450,7 +1450,7 @@ async function storePermissionsFromActor(
     inventoryV2UiEnabled: isInventoryV2UiEnabledForStore(actor.storeId),
     inventoryV2CommandsEnabled: isInventoryV2CommandEnabledForStore(actor.storeId),
     canManageOrderData,
-    canApplyOrderData: canManageOrderData && isOrderDataApplyEnabled(),
+    canApplyOrderData: canManageOrderData && isOrderDataApplyEnabled(actor.storeId),
     canSearchOrderArchive: can(actor, "order:archive_search"),
     canBrowseOrderArchive: can(actor, "order:archive_browse"),
     canReadOrderFinance: can(actor, "finance:order_read"),
@@ -1708,7 +1708,7 @@ async function orderDataAccessFromActor(
   }
 
   if (options.primaryOwnerOverride === true) {
-    const canApply = isOrderDataApplyEnabled();
+    const canApply = isOrderDataApplyEnabled(actor.storeId);
     return {
       code: canApply ? "available" : "available_export_only",
       can_export: true,
@@ -1721,7 +1721,7 @@ async function orderDataAccessFromActor(
     return { code: ownerAccess.reason, can_export: false, can_apply: false };
   }
 
-  const canApply = isOrderDataApplyEnabled();
+  const canApply = isOrderDataApplyEnabled(actor.storeId);
   return {
     code: canApply ? "available" : "available_export_only",
     can_export: true,

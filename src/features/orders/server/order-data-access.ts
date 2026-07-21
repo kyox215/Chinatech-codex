@@ -15,7 +15,7 @@ export async function assertOrderDataAccess(
   if (!isOrderDataExportEnabled()) {
     throw new ForbiddenError("工单数据功能当前已暂停");
   }
-  if (permission === "order:import_apply" && !isOrderDataApplyEnabled()) {
+  if (permission === "order:import_apply" && !isOrderDataApplyEnabled(expectedStoreId)) {
     throw new ForbiddenError("工单导入应用当前已暂停");
   }
   assertPermission(actor, permission);

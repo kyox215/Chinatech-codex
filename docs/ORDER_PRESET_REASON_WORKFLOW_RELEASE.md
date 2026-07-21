@@ -67,6 +67,7 @@ ORDER_RELATED_ORDER_V2_STORE_ALLOWLIST=
 ORDER_DATA_WORKBOOK_V3_EXPORT_ENABLED=0
 ORDER_DATA_WORKBOOK_V3_IMPORT_ENABLED=0
 ORDER_DATA_WORKBOOK_V3_STORE_ALLOWLIST=
+ORDER_DATA_APPLY_STORE_ALLOWLIST=
 ```
 
 - The public flag selects the preset UI. It is build-time and requires a redeploy when changed.
@@ -78,6 +79,7 @@ ORDER_DATA_WORKBOOK_V3_STORE_ALLOWLIST=
 - `NEXT_PUBLIC_ORDER_STRUCTURED_FACTS_V2_ENABLED=1` blocks offline create so a structured selection cannot be silently downgraded; it is build-time and requires redeploy.
 - Structured facts, related orders, workbook export and workbook import have separate server flags so each surface can be paused without dropping schema objects.
 - Workbook v3 import is enabled only after v3 export/download and preview validation pass for the ChinaTech canary.
+- Import apply additionally requires `ORDER_DATA_APPLY_ENABLED=1` and the store id in `ORDER_DATA_APPLY_STORE_ALLOWLIST`; the global apply flag alone never opens another store.
 
 Recommended canary order:
 

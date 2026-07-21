@@ -510,6 +510,7 @@ describe("store repository access request boundaries", () => {
   it("creates an independent private store with an active owner membership", async () => {
     vi.stubEnv("ORDER_DATA_EXPORT_ENABLED", "1");
     vi.stubEnv("ORDER_DATA_APPLY_ENABLED", "1");
+    vi.stubEnv("ORDER_DATA_APPLY_STORE_ALLOWLIST", "store_1,store_new");
     const createRateLimitQuery = createSupabaseQuery({ data: null, error: null, count: 0 });
     const slugQuery = createSupabaseQuery({ data: null, error: null });
     const storeInsertQuery = createSupabaseQuery({

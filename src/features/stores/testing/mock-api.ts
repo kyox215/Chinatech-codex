@@ -480,7 +480,7 @@ function context(actor?: AuditActor): StoreContext {
     isOrderDataExportEnabled() &&
     scopedActor.storeRole === "owner" &&
     scopedActor.id === primaryOwnerUserId;
-  const canApplyOrderData = canManageOrderData && isOrderDataApplyEnabled();
+  const canApplyOrderData = canManageOrderData && isOrderDataApplyEnabled(activeStoreId);
   const orderDataAccess: NonNullable<StoreContext["orderDataAccess"]> = !isOrderDataExportEnabled()
     ? { code: "feature_disabled", can_export: false, can_apply: false }
     : scopedActor.storeRole !== "owner"

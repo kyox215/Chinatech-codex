@@ -9,6 +9,7 @@ describe("store mock api invitation parity", () => {
     vi.resetModules();
     vi.stubEnv("ORDER_DATA_EXPORT_ENABLED", "1");
     vi.stubEnv("ORDER_DATA_APPLY_ENABLED", "1");
+    vi.stubEnv("ORDER_DATA_APPLY_STORE_ALLOWLIST", "00000000-0000-0000-0000-000000000001");
     api = await import("./mock-api");
   });
 

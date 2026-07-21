@@ -62,6 +62,7 @@ describe("order data import preview", () => {
     vi.clearAllMocks();
     vi.stubEnv("ORDER_DATA_EXPORT_ENABLED", "1");
     vi.stubEnv("ORDER_DATA_APPLY_ENABLED", "1");
+    vi.stubEnv("ORDER_DATA_APPLY_STORE_ALLOWLIST", storeId);
     mocks.assertPrimaryStoreOwner.mockResolvedValue({ actorId: actor.id, storeId });
     mocks.assertValidExportBatch.mockResolvedValue(undefined);
     mocks.listOrderDataBatchSummaries.mockResolvedValue({ items: [], hasMore: false });
