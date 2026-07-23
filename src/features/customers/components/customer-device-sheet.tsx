@@ -31,6 +31,10 @@ import { componentOverlay } from "@/lib/component-patterns";
 import type { Device } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
 import { RepairOsBadge, RepairOsInfoTile } from "@/shared/ui";
+import {
+  buildNewOrderWorkspaceHref,
+  buildOrderDetailWorkspaceHref,
+} from "@/features/orders/model/order-workspace-intent";
 
 export interface CustomerDeviceSheetProps {
   item?: CustomerDeviceWorkbenchItem;
@@ -201,13 +205,23 @@ export function CustomerDeviceSheet({
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-1.5 sm:flex sm:w-full sm:justify-end">
             {primaryOrder ? (
               <Button asChild size="sm" className="h-9 gap-1.5 text-xs">
-                <Link href={`/orders/${primaryOrder.order.id}`}>
+                <Link
+                  href={buildOrderDetailWorkspaceHref(primaryOrder.order.id, {
+                    source: "customer",
+                  })}
+                >
                   <ExternalLink className="size-3.5" /> {primaryActionLabel}
                 </Link>
               </Button>
             ) : (
               <Button asChild size="sm" className="h-9 gap-1.5 text-xs">
-                <Link href={`/orders/new?customerId=${customerId}&deviceId=${device.id}`}>
+                <Link
+                  href={buildNewOrderWorkspaceHref({
+                    source: "customer",
+                    customerId,
+                    deviceId: device.id,
+                  })}
+                >
                   <Wrench className="size-3.5" /> {primaryActionLabel}
                 </Link>
               </Button>
@@ -294,7 +308,7 @@ function DeviceHistoryRow({ item }: { item: CustomerDeviceWorkbenchItem["orderIt
 
   return (
     <Link
-      href={`/orders/${item.order.id}`}
+      href={buildOrderDetailWorkspaceHref(item.order.id, { source: "customer" })}
       aria-label={`查看工单 ${item.order.public_no} ${item.order.issue_description}`}
       className={cn(
         "grid min-w-0 gap-1 rounded-xl border border-[var(--border-panel)] bg-card px-2.5 py-2 transition-colors hover:bg-accent/40",

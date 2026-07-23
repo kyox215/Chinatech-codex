@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   getOrder: vi.fn(),
   transitionOrder: vi.fn(),
   getAiAssistantUsageSummary: vi.fn(),
+  getOnboardingStatus: vi.fn(),
+  getStoreContext: vi.fn(),
   writeAiAssistantAudit: vi.fn(),
   writeAuditLog: vi.fn(),
 }));
@@ -56,6 +58,16 @@ vi.mock("@/features/ai-assistant/server/audit", async (importOriginal) => ({
   writeAiAssistantAudit: mocks.writeAiAssistantAudit,
 }));
 
+vi.mock("@/features/platform/server/platform.service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/platform/server/platform.service")>()),
+  getOnboardingStatus: mocks.getOnboardingStatus,
+}));
+
+vi.mock("@/features/stores/server/store.service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/stores/server/store.service")>()),
+  getStoreContext: mocks.getStoreContext,
+}));
+
 import { handleRepairDeskGet, handleRepairDeskPost } from "./repairdesk-router";
 
 describe("AI assistant BFF routes", () => {
@@ -72,6 +84,20 @@ describe("AI assistant BFF routes", () => {
     });
     mocks.transitionOrder.mockResolvedValue({ ok: true });
     mocks.getAiAssistantUsageSummary.mockResolvedValue(usageSummary());
+    mocks.getOnboardingStatus.mockResolvedValue({
+      userId: owner.id,
+      displayName: owner.displayName,
+      isPlatformAdmin: false,
+      activeStore: { id: owner.storeId, name: "ChinaTech", role: "owner" },
+      stores: [],
+      requests: [],
+      availableStores: [],
+    });
+    mocks.getStoreContext.mockResolvedValue({
+      activeStore: { id: owner.storeId, name: "ChinaTech", role: "owner" },
+      stores: [],
+      permissions: {},
+    });
   });
 
   afterEach(() => vi.unstubAllEnvs());
@@ -88,6 +114,23 @@ describe("AI assistant BFF routes", () => {
         canUseVisionIntake: false,
         canApplyInventoryDraft: false,
         reason: "feature_off",
+      },
+    });
+  });
+
+  it("bootstraps shell identity and AI capability with one actor resolution", async () => {
+    const response = await handleRepairDeskGet("shell/bootstrap");
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("private, no-store, max-age=0");
+    expect(mocks.getRequestActor).toHaveBeenCalledOnce();
+    expect(mocks.getOnboardingStatus).toHaveBeenCalledWith(owner);
+    expect(mocks.getStoreContext).toHaveBeenCalledWith(owner);
+    await expect(response.json()).resolves.toMatchObject({
+      data: {
+        onboarding: { userId: owner.id },
+        storeContext: { activeStore: { id: owner.storeId } },
+        aiCapabilities: { canUseOrderAssistant: false, reason: "feature_off" },
       },
     });
   });
@@ -162,7 +205,7 @@ describe("AI assistant BFF routes", () => {
       parts_status: null,
       matched_reasons: ["活跃工单", "未付款"],
       allowed_actions: [],
-      href: "/orders/order-sensitive",
+      href: "/orders?workspace=order-detail&orderId=order-sensitive&source=ai-assistant",
     });
     expect(JSON.stringify(body)).not.toContain("SECRET-SENTINEL");
     expect(JSON.stringify(body)).not.toContain("999");

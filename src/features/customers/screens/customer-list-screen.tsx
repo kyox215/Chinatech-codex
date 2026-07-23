@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -37,7 +37,6 @@ import {
 } from "@/features/customers/components/customer-list-items";
 import { CustomerListSkeleton } from "@/features/customers/components/customer-list-skeleton";
 import { CustomerFilters } from "@/features/customers/forms/customer-filters";
-import { CustomerFormDialog } from "@/features/customers/forms/customer-form-dialog";
 import {
   applyCustomerQuickGroup,
   buildCustomerQuickGroupChips,
@@ -52,7 +51,6 @@ import {
   serializeCustomerListUrlState,
   type CustomerQuickGroup,
 } from "@/features/customers/model/customer-list";
-import { CustomerDetailScreen } from "@/features/customers/screens/customer-detail-screen";
 import {
   ScanSearchButton,
   consumeScanSearchIntent,
@@ -77,6 +75,16 @@ import { cn } from "@/lib/utils";
 
 const CUSTOMER_SEARCH_DEBOUNCE_MS = 280;
 const MANAGED_LIST_PARAMS = ["q", "group", "work", "tags", "marketing", "followup", "page"];
+const CustomerFormDialog = lazy(() =>
+  import("@/features/customers/forms/customer-form-dialog").then((module) => ({
+    default: module.CustomerFormDialog,
+  })),
+);
+const CustomerDetailScreen = lazy(() =>
+  import("@/features/customers/screens/customer-detail-screen").then((module) => ({
+    default: module.CustomerDetailScreen,
+  })),
+);
 
 function useDebouncedValue<T>(value: T, delay: number) {
   const [debounced, setDebounced] = useState(value);
@@ -520,14 +528,18 @@ export function CustomerListScreen() {
         </>
       )}
 
-      <CustomerFormDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        title="新建客户"
-        busy={create.isPending}
-        initial={defaultCustomerForm}
-        onSave={(input) => create.mutateAsync(input)}
-      />
+      {createOpen ? (
+        <Suspense fallback={null}>
+          <CustomerFormDialog
+            open={createOpen}
+            onOpenChange={setCreateOpen}
+            title="新建客户"
+            busy={create.isPending}
+            initial={defaultCustomerForm}
+            onSave={(input) => create.mutateAsync(input)}
+          />
+        </Suspense>
+      ) : null}
       <Dialog open={Boolean(previewCustomerId)} onOpenChange={(open) => !open && closePreview()}>
         <DialogContent showCloseButton={false} className={componentOverlay.detailWorkspace}>
           <DialogHeader className="sr-only">
@@ -535,7 +547,19 @@ export function CustomerListScreen() {
             <DialogDescription>查看客户资料、设备、历史工单和回访记录。</DialogDescription>
           </DialogHeader>
           {previewCustomerId ? (
-            <CustomerDetailScreen id={previewCustomerId} surface="dialog" onClose={closePreview} />
+            <Suspense
+              fallback={
+                <div className="grid min-h-48 place-items-center text-muted-foreground">
+                  <LoaderCircle className="size-5 animate-spin" aria-label="正在加载客户详情" />
+                </div>
+              }
+            >
+              <CustomerDetailScreen
+                id={previewCustomerId}
+                surface="dialog"
+                onClose={closePreview}
+              />
+            </Suspense>
           ) : null}
         </DialogContent>
       </Dialog>

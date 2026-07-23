@@ -6,6 +6,8 @@ Last verified: 2026-07-20 CEST
 
 This document is the authoritative product, security and operations contract for the QR printed on customer repair tickets.
 
+Shell startup, role-separated print capability and disabled-recovery behavior also follow [`STARTUP_PERFORMANCE_AND_PRINT_READINESS_DECLARATION.md`](./STARTUP_PERFORMANCE_AND_PRINT_READINESS_DECLARATION.md).
+
 ## User contract
 
 - Every standard or batch-printed repair ticket has exactly one smart QR for that order.
@@ -51,6 +53,8 @@ Migration: `supabase/migrations/20260720190759_repair_order_customer_status_link
 ## Print lifecycle
 
 - Single, task and batch print actions prepare links before mounting print DOM or calling `window.print()`.
+- The order list and detail surfaces disable printing before issuance when the QR feature is off, store output identity is incomplete, or the order is void/deleted. The UI must state the exact reason and expose a recovery path; it must not rely on a generic disabled icon.
+- Single-print capability is separate from batch-print/export capability. Manager and sales roles may print an authorized single order without receiving batch export rights; technician printing remains subject to server-side assignment checks.
 - Link issuance is all-or-nothing for a batch. Missing or failed links stop printing and show an operator-visible error.
 - Issuance atomically revokes older active links, inserts exactly one new hash-only link per order and writes the audit record. Any failure rolls the full database transaction back and printing remains blocked.
 - The print lifecycle ignores a second click while preparation/printing is active and always releases state after `afterprint`, focus return, timeout or preparation failure.

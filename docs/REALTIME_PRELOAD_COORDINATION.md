@@ -2,6 +2,8 @@
 
 Status: implemented; the Owner approved a simultaneous all-store production release on 2026-07-23.
 
+Normative startup and print gate: [`STARTUP_PERFORMANCE_AND_PRINT_READINESS_DECLARATION.md`](./STARTUP_PERFORMANCE_AND_PRINT_READINESS_DECLARATION.md).
+
 ## Runtime Model
 
 `QueryFreshnessCoordinator` is the single cache-consistency boundary for intelligent preload,
@@ -22,15 +24,19 @@ All business data remains in the in-memory TanStack Query cache.
 | Manual refresh during preload             | Route through the coordinator, cancel stale work, and immediately refetch active queries.            |
 | Realtime event during optimistic mutation | Hold the active refetch until mutation settlement; never restore a snapshot whose epoch is old.      |
 | Reconnect or long background resume       | Mark affected domains stale and run one catch-up refresh.                                            |
-| Visible order workspace every 30 seconds  | Read only the store/domain revision; refresh order queries only when the version changed.             |
+| Visible order workspace every 30 seconds  | Read only the store/domain revision; refresh order queries only when the version changed.            |
 | Store switch or sign-out                  | Cancel old requests before cache removal; clear event/epoch state and ignore old-store events.       |
 
 ## Preload Policy
 
-Preloading starts only after an authenticated active-store context exists. The startup critical phase
-warms the default order queue and customer page first, with at most two requests in flight. Secondary
-targets run during browser idle time after that critical phase. Data Saver, `2g`, and `slow-2g`
-connections stop after the two critical targets; offline clients do not preload.
+Preloading starts only after an authenticated active-store context exists. Workspace home routes
+(`/`, `/orders`, `/customers`, `/inventory`, and `/settings`) treat every cross-domain target as
+startup-owned and do not run background workspace preloads. This keeps the active page's primary
+query free from database and network contention. Nested workflow/detail routes may still warm likely
+next workspaces, with at most two requests in flight; secondary targets run during browser idle time.
+Data Saver, `2g`, and `slow-2g` connections stop after the first two eligible targets; offline clients
+do not preload. The order target always uses the same `orders/queue-summary` query factory as the
+order workspace, never the legacy list-page cache key.
 
 Once the order workspace is mounted, its single store-scoped scheduler warms at most the first two
 visible order details on a normal connection and one on `3g`, always with detail concurrency limited
@@ -56,11 +62,16 @@ and ordinary screen queries continue to work.
 
 ## Authority Bootstrap And Shell Stability
 
-The app shell stays mounted while the initial `stores/context` permission snapshot replaces the
-fail-closed `no-permissions` bootstrap state. This prevents an already opened Sidebar, menu, or quick
-action from being destroyed during first-load authority hydration. After the first stable authority
-snapshot, a real store, membership, role, or permission fingerprint change still remounts the guarded
-children and the store-shell hook clears authority-sensitive query state.
+The initial workspace authority snapshot comes from private `shell/bootstrap`. The endpoint resolves
+the request actor once, then projects onboarding, store context, AI capability, and the non-secret
+customer-status QR readiness flag from that same actor snapshot. The legacy `onboarding/status`,
+`stores/context`, and `ai/capabilities` endpoints remain available for compatibility and rollback.
+
+Bootstrap is used only for cold hydration. The narrower `stores/context` request remains the 15-second
+authority monitor, so polling does not repeatedly read onboarding and AI capability data. A real store,
+membership, role, or permission fingerprint change still clears authority-sensitive query state.
+Authorization failures clear bootstrap and tenant caches before paint; the client only falls back to
+legacy startup endpoints when an older server explicitly returns 404, 405, or 501.
 
 ## Realtime Policy
 

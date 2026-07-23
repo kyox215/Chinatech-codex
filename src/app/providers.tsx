@@ -13,7 +13,6 @@ import { NavigationGuardProvider } from "@/components/navigation-guard-provider"
 import { PwaServiceWorker } from "@/components/pwa-service-worker";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
-import { ScanSearchSheet } from "@/features/capture";
 import { AiAssistantWorkspaceProvider } from "@/features/ai-assistant";
 import { AppPreloadBridge } from "@/features/preload";
 import { RealtimeAppBridge } from "@/features/realtime";
@@ -23,6 +22,10 @@ import { appShell } from "@/lib/ui-patterns";
 
 const CommandPalette = dynamic(
   () => import("@/components/command-palette").then((module) => module.CommandPalette),
+  { ssr: false },
+);
+const ScanSearchSheet = dynamic(
+  () => import("@/features/capture").then((module) => module.ScanSearchSheet),
   { ssr: false },
 );
 
@@ -81,7 +84,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
                     onOpenScanner={() => setScannerOpen(true)}
                   />
                 ) : null}
-                <ScanSearchSheet open={scannerOpen} onOpenChange={setScannerOpen} scope="global" />
+                {scannerOpen ? (
+                  <ScanSearchSheet open onOpenChange={setScannerOpen} scope="global" />
+                ) : null}
                 <Toaster />
               </AiAssistantWorkspaceProvider>
             </AppPreloadBridge>

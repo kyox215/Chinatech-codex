@@ -61,6 +61,8 @@ export function DesktopOrderQueueRow({
   onCheckedChange,
   onPrint,
   canPrint = true,
+  printDisabledReason,
+  onOpenPrintRecovery,
   onStopInteraction,
   suppliers,
 }: {
@@ -74,6 +76,8 @@ export function DesktopOrderQueueRow({
   onCheckedChange: (checked: boolean) => void;
   onPrint: () => void;
   canPrint?: boolean;
+  printDisabledReason?: string;
+  onOpenPrintRecovery?: () => void;
   onStopInteraction: (event: SyntheticEvent) => void;
   suppliers: Supplier[];
 }) {
@@ -366,9 +370,16 @@ export function DesktopOrderQueueRow({
             {canPrint ? (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onPrint}>
+                <DropdownMenuItem
+                  onClick={printDisabledReason ? undefined : onPrint}
+                  disabled={Boolean(printDisabledReason)}
+                  title={printDisabledReason}
+                >
                   <Printer className="mr-2 size-3.5" /> 打印
                 </DropdownMenuItem>
+                {printDisabledReason && onOpenPrintRecovery ? (
+                  <DropdownMenuItem onClick={onOpenPrintRecovery}>查看打印设置</DropdownMenuItem>
+                ) : null}
               </>
             ) : null}
           </DropdownMenuContent>

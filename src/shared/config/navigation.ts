@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
+import { buildNewOrderWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
 
 export type RepairDeskModuleId =
   | "dashboard"
@@ -71,7 +72,7 @@ export const newOrderShellAction: RepairDeskShellAction = {
   shortLabel: "新建",
   description: "快速进入接单流程",
   icon: ClipboardPlus,
-  href: "/orders/new",
+  href: buildNewOrderWorkspaceHref({ source: "unknown" }),
   eventName: REPAIRDESK_NEW_ORDER_EVENT,
   eventPathname: "/orders",
 };

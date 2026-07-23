@@ -20,10 +20,11 @@ import {
   getWorkspaceNavItems,
 } from "@/shared/config/navigation";
 import { useNavigationGuard } from "@/components/navigation-guard-provider";
+import { createNewOrderSessionId } from "@/features/orders/model/new-order-intent";
 import {
-  buildNewOrderHref,
-  createNewOrderSessionId,
-} from "@/features/orders/model/new-order-intent";
+  buildNewOrderWorkspaceHref,
+  buildOrderDetailWorkspaceHref,
+} from "@/features/orders/model/order-workspace-intent";
 
 export function CommandPalette({
   open,
@@ -47,8 +48,8 @@ export function CommandPalette({
   const go = async (to: string) => {
     onOpenChange(false);
     const href =
-      to === "/orders/new"
-        ? buildNewOrderHref({ source: "command", sessionId: createNewOrderSessionId() })
+      to === "/orders/new" || to.startsWith("/orders?workspace=new-order")
+        ? buildNewOrderWorkspaceHref({ source: "command", sessionId: createNewOrderSessionId() })
         : to;
     const outcome = await runGuardedTransition({
       kind: "route",
@@ -63,7 +64,7 @@ export function CommandPalette({
     const outcome = await runGuardedTransition({
       kind: "route",
       label: "打开工单",
-      run: () => router.push(`/orders/${id}`),
+      run: () => router.push(buildOrderDetailWorkspaceHref(id, { source: "command" })),
     });
     if (outcome.status === "ignored" || outcome.status === "failed") onOpenChange(true);
   };

@@ -52,6 +52,7 @@ import { brandGradientStyle, controls, layoutGuards, repairOs } from "@/lib/ui-p
 import { componentOverlay } from "@/lib/component-patterns";
 import { OrderMobileCard } from "@/features/orders/components/order-list-items";
 import { OrderListPrintSheet } from "@/features/orders/components/order-list-print-sheet";
+import { NewOrderDialog } from "@/features/orders/components/new-order-dialog";
 import { DesktopOrderQueueRow } from "@/features/orders/components/order-list-desktop-row";
 import { orderQueueDesktopGrid } from "@/features/orders/components/order-list-layout";
 import { OrderResultGroupHeader } from "@/features/orders/components/order-result-group-header";
@@ -125,12 +126,12 @@ import { StoreShellUnavailableState } from "@/features/stores/components/store-s
 import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { cn } from "@/lib/utils";
-
-const LazyNewOrderScreen = lazy(() =>
-  import("@/features/orders/screens/new-order-screen").then((module) => ({
-    default: module.NewOrderScreen,
-  })),
-);
+import type { NewOrderPrefill } from "@/features/orders/model/new-order-intent";
+import {
+  buildOrderDetailWorkspaceHref,
+  clearOrderWorkspaceIntentHref,
+  parseOrderWorkspaceIntent,
+} from "@/features/orders/model/order-workspace-intent";
 
 const LazyOrderDetailScreen = lazy(() =>
   import("@/features/orders/screens/order-detail-screen").then((module) => ({
@@ -147,6 +148,8 @@ const emptyOrderOptions = {
     canManageSuppliers: false,
     canSearchOrderArchive: false,
     canBrowseOrderArchive: false,
+    canPrintSingleOrders: false,
+    canBatchPrintOrders: false,
     canExportOrders: false,
     canBatchTransitionOrders: false,
   },
@@ -220,6 +223,9 @@ export function OrderListScreen() {
   const [customerStatusUrls, setCustomerStatusUrls] = useState<Record<string, string>>({});
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   const [newOrderOpen, setNewOrderOpen] = useState(false);
+  const [newOrderPrefill, setNewOrderPrefill] = useState<NewOrderPrefill>();
+  const previousNewOrderOpenRef = useRef(false);
+  const previousDetailOrderIdRef = useRef<string | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [newOrderSessionKey, setNewOrderSessionKey] = useState(0);
   const mobileHeaderCleanupRef = useRef<() => void>(() => undefined);
@@ -229,8 +235,17 @@ export function OrderListScreen() {
   const [isOnline, setIsOnline] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const searchParamsKey = searchParams.toString();
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
+  const workspaceIntent = useMemo(
+    () => parseOrderWorkspaceIntent(new URLSearchParams(searchParamsKey)),
+    [searchParamsKey],
+  );
+  const clearWorkspaceIntent = useCallback(() => {
+    const href = clearOrderWorkspaceIntentHref({ toString: () => searchParamsKey });
+    window.history.replaceState(window.history.state, "", href);
+  }, [searchParamsKey]);
   const aiAssistant = useAiAssistantWorkspace();
   const activeStoreId = shell.activeStore?.id;
   const canLoadOrderData = Boolean(activeStoreId) && !shell.isRefreshing;
@@ -311,6 +326,32 @@ export function OrderListScreen() {
   }, [isOnline, searchParams]);
 
   useEffect(() => {
+    if (!workspaceIntent) return;
+    if (workspaceIntent.kind === "new-order") {
+      setDetailOrderId(null);
+      setNewOrderPrefill(workspaceIntent.prefill);
+      setNewOrderSessionKey((current) => current + 1);
+      setNewOrderOpen(true);
+      return;
+    }
+    setNewOrderOpen(false);
+    setNewOrderPrefill(undefined);
+    setDetailOrderId(workspaceIntent.orderId);
+  }, [workspaceIntent]);
+
+  useEffect(() => {
+    const wasOpen = previousNewOrderOpenRef.current;
+    previousNewOrderOpenRef.current = newOrderOpen;
+    if (wasOpen && !newOrderOpen) clearWorkspaceIntent();
+  }, [clearWorkspaceIntent, newOrderOpen]);
+
+  useEffect(() => {
+    const previousId = previousDetailOrderIdRef.current;
+    previousDetailOrderIdRef.current = detailOrderId;
+    if (previousId && !detailOrderId) clearWorkspaceIntent();
+  }, [clearWorkspaceIntent, detailOrderId]);
+
+  useEffect(() => {
     const applyIntent = (value: string) => {
       if (!value) return;
       setFilters((current) => ({ ...current, search: value, searchScope: "current" }));
@@ -387,8 +428,15 @@ export function OrderListScreen() {
   const canBrowseOrderArchive = options.permissions.canBrowseOrderArchive === true;
   const canSearchOrderArchive = options.permissions.canSearchOrderArchive === true;
   const canExportOrders = options.permissions.canExportOrders === true;
+  const canPrintSingleOrders = options.permissions.canPrintSingleOrders === true;
+  const canBatchPrintOrders = options.permissions.canBatchPrintOrders === true;
   const canBatchTransitionOrders = options.permissions.canBatchTransitionOrders === true;
   const canUseBulkActions = canExportOrders || canBatchTransitionOrders;
+  const singlePrintDisabledReason = !storeOutputIdentity.canOutput
+    ? (storeOutputIdentity.blockReason ?? "请先补齐当前店铺资料后再打印")
+    : shell.customerStatusQrEnabled === false
+      ? "客户工单二维码功能尚未启用，请联系店主或系统管理员"
+      : undefined;
   useEffect(() => {
     if (!canUseBulkActions) setSelected([]);
   }, [canUseBulkActions]);
@@ -971,6 +1019,7 @@ export function OrderListScreen() {
       toast.info("接单窗口已打开");
       return;
     }
+    setNewOrderPrefill(undefined);
     setNewOrderSessionKey((current) => current + 1);
     setNewOrderOpen(true);
   }, [newOrderOpen]);
@@ -987,6 +1036,10 @@ export function OrderListScreen() {
     }
     if (!storeOutputIdentity.canOutput) {
       toast.error(storeOutputIdentity.blockReason ?? "请先补齐当前店铺资料后再打印");
+      return;
+    }
+    if (shell.customerStatusQrEnabled === false) {
+      toast.error("客户工单二维码功能尚未启用，请联系店主或系统管理员");
       return;
     }
     const outcome = await requestPrint(async () => {
@@ -1006,8 +1059,21 @@ export function OrderListScreen() {
   };
   const handleNewOrderCreated = (id: string) => {
     setNewOrderOpen(false);
+    setNewOrderPrefill(undefined);
     invalidate();
-    router.push(`/orders/${id}`);
+    setDetailOrderId(id);
+    router.replace(buildOrderDetailWorkspaceHref(id, { source: "orders" }));
+  };
+
+  const handleNewOrderOpenChange = (open: boolean) => {
+    setNewOrderOpen(open);
+    if (open) return;
+    setNewOrderPrefill(undefined);
+  };
+
+  const handleDetailOpenChange = (open: boolean) => {
+    if (open) return;
+    setDetailOrderId(null);
   };
 
   const stopRowClick = (event: SyntheticEvent) => {
@@ -1635,7 +1701,9 @@ export function OrderListScreen() {
                                   )
                                 }
                                 onPrint={() => void printRows([order])}
-                                canPrint={canExportOrders}
+                                canPrint={canPrintSingleOrders}
+                                printDisabledReason={singlePrintDisabledReason}
+                                onOpenPrintRecovery={() => openDetail(order.id)}
                                 onStopInteraction={stopRowClick}
                                 suppliers={visibleSuppliers}
                               />
@@ -1745,17 +1813,26 @@ export function OrderListScreen() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : null}
-              {canExportOrders ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5"
-                  onClick={() =>
-                    void printRows(data.filter((order) => selected.includes(order.id)))
-                  }
-                >
-                  <Printer className="size-3.5" /> 打印
-                </Button>
+              {canBatchPrintOrders ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    disabled={Boolean(singlePrintDisabledReason)}
+                    title={singlePrintDisabledReason}
+                    onClick={() =>
+                      void printRows(data.filter((order) => selected.includes(order.id)))
+                    }
+                  >
+                    <Printer className="size-3.5" /> 打印
+                  </Button>
+                  {singlePrintDisabledReason && selected[0] ? (
+                    <Button size="sm" variant="ghost" onClick={() => openDetail(selected[0])}>
+                      查看打印设置
+                    </Button>
+                  ) : null}
+                </>
               ) : null}
             </div>
           </motion.div>
@@ -1767,35 +1844,14 @@ export function OrderListScreen() {
         activeStore={shell.activeStore}
         customerStatusUrls={customerStatusUrls}
       />
-      <Dialog open={newOrderOpen} onOpenChange={setNewOrderOpen}>
-        <DialogContent showCloseButton={false} className={componentOverlay.formWorkspace}>
-          <DialogHeader className="sr-only">
-            <DialogTitle>新建维修工单</DialogTitle>
-            <DialogDescription>在弹窗中填写客户、设备、故障与报价信息。</DialogDescription>
-          </DialogHeader>
-          {newOrderOpen ? (
-            <Suspense
-              fallback={
-                <div className="flex h-full min-h-[20rem] items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                  <span role="status">正在准备新建工单</span>
-                </div>
-              }
-            >
-              <LazyNewOrderScreen
-                key={newOrderSessionKey}
-                surface="dialog"
-                onCancel={() => setNewOrderOpen(false)}
-                onCreated={handleNewOrderCreated}
-              />
-            </Suspense>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-      <Dialog
-        open={Boolean(detailOrderId)}
-        onOpenChange={(open) => !open && setDetailOrderId(null)}
-      >
+      <NewOrderDialog
+        open={newOrderOpen}
+        sessionKey={newOrderSessionKey}
+        prefill={newOrderPrefill}
+        onOpenChange={handleNewOrderOpenChange}
+        onCreated={handleNewOrderCreated}
+      />
+      <Dialog open={Boolean(detailOrderId)} onOpenChange={handleDetailOpenChange}>
         <DialogContent
           data-order-detail-dialog-shell="true"
           showCloseButton={false}
@@ -1808,13 +1864,16 @@ export function OrderListScreen() {
           {detailOrderId && (
             <Suspense
               fallback={
-                <OrderDetailSkeleton surface="dialog" onClose={() => setDetailOrderId(null)} />
+                <OrderDetailSkeleton
+                  surface="dialog"
+                  onClose={() => handleDetailOpenChange(false)}
+                />
               }
             >
               <LazyOrderDetailScreen
                 id={detailOrderId}
                 surface="dialog"
-                onClose={() => setDetailOrderId(null)}
+                onClose={() => handleDetailOpenChange(false)}
               />
             </Suspense>
           )}

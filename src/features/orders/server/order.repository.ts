@@ -4087,6 +4087,8 @@ export async function getRepairDeskOptions(actor?: AuditActor): Promise<RepairDe
   fail(techError, "读取技师失败");
   fail(assigneeError, "读取工单负责人失败");
 
+  const { canPrintSingleOrders, canBatchPrintOrders } = projectOrderPrintPermissions(actor);
+
   return {
     suppliers: ((supplierResult.data ?? []) as DbRecord[])
       .map(supplierFromRow)
@@ -4117,11 +4119,24 @@ export async function getRepairDeskOptions(actor?: AuditActor): Promise<RepairDe
       canReadOrderFinance: can(actor, "finance:order_read"),
       canReadAggregateFinance: can(actor, "finance:aggregate_read"),
       canReadProfit: can(actor, "finance:profit_read"),
-      canExportOrders: can(actor, "order:export"),
+      canPrintSingleOrders,
+      canBatchPrintOrders,
+      canExportOrders: canBatchPrintOrders,
       canBatchTransitionOrders: can(actor, "order:batch_transition"),
       canAssignOrders,
     },
   };
+}
+
+export function projectOrderPrintPermissions(actor?: AuditActor) {
+  const actorRole = actor?.storeRole ?? actor?.role;
+  const canPrintSingleOrders =
+    actorRole !== "viewer" &&
+    can(actor, "order:detail", {
+      scopeSatisfied: actorRole === "technician" ? Boolean(actor?.activeMembershipId) : false,
+    });
+  const canBatchPrintOrders = can(actor, "order:export");
+  return { canPrintSingleOrders, canBatchPrintOrders };
 }
 
 async function isOrderAssignmentSupported(supabase: SupabaseAdmin, storeId: string) {

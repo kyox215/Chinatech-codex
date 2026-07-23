@@ -322,7 +322,7 @@ export const aiOrderCardSchema = z
       .nullable(),
     matched_reasons: z.array(z.string().trim().min(1).max(120)).max(8),
     allowed_actions: z.array(aiOrderInlineActionCandidateSchema).max(3),
-    href: z.string().startsWith("/orders/"),
+    href: z.string().regex(/^\/orders(?:\/|\?)/),
   })
   .strict();
 export type AiOrderCard = z.infer<typeof aiOrderCardSchema>;

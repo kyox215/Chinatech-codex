@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { customerListPageQueryOptions } from "@/features/customers/api";
 import { inventorySummaryQueryOptions } from "@/features/inventory";
 import { storeSettingsQueryOptions } from "@/features/messages";
-import { orderListPageQueryOptions, orderWorkflowQueryOptions } from "@/features/orders/api";
+import { orderQueueSummaryQueryOptions, orderWorkflowQueryOptions } from "@/features/orders/api";
 import { useRealtimeSync } from "@/features/realtime";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
@@ -67,7 +67,7 @@ export function AppPreloadBridge({ children = null }: { children?: ReactNode }) 
 
     const runTarget = (target: RepairDeskPreloadTarget) => {
       if (target === "orders") {
-        const options = orderListPageQueryOptions(undefined, storeId);
+        const options = orderQueueSummaryQueryOptions(undefined, storeId);
         return coordinator.prefetch({
           group: "orders.all",
           queryKey: options.queryKey,

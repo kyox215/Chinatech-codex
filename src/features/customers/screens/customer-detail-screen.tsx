@@ -21,6 +21,7 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { customersKeys } from "@/features/customers/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
+import { buildNewOrderWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import {
@@ -650,7 +651,12 @@ function CustomerMobileActionBar({
           className={cn("h-10 gap-1.5", controls.brandButton)}
           style={brandGradientStyle}
         >
-          <Link href={`/orders/new?customerId=${customerId}`}>
+          <Link
+            href={buildNewOrderWorkspaceHref({
+              source: "customer",
+              customerId,
+            })}
+          >
             <Wrench className="size-4" /> 新建工单
           </Link>
         </Button>
@@ -724,7 +730,12 @@ function CustomerDesktopSummaryRail({
             className={cn("h-8 gap-1.5 text-xs", controls.brandButton)}
             style={brandGradientStyle}
           >
-            <Link href={`/orders/new?customerId=${customer.id}`}>
+            <Link
+              href={buildNewOrderWorkspaceHref({
+                source: "customer",
+                customerId: customer.id,
+              })}
+            >
               <Wrench className="size-3.5" /> 工单
             </Link>
           </Button>

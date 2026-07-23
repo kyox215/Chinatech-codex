@@ -11,7 +11,7 @@ describe("parseBarcodePayload", () => {
   it("recognizes internal order links", () => {
     expect(
       parseBarcodePayload("https://example.com/orders/order_123", "https://example.com").targetHref,
-    ).toBe("/orders/order_123");
+    ).toBe("/orders?workspace=order-detail&orderId=order_123&source=scanner");
   });
 
   it("recognizes internal order task links", () => {

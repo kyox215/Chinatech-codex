@@ -29,6 +29,8 @@
 
 ## Active task index
 
+- [TASK-20260723-004-startup-bootstrap-print-implementation](tasks/TASK-20260723-004-startup-bootstrap-print-implementation/TASK.md): Conditionally closed local option-B implementation for one-request Shell bootstrap, cross-domain startup preload suppression, authority-cache isolation and role-separated print readiness/recovery. Full local gates and independent QA pass; commit/push/deploy remain pending because concurrent TASK-005/TASK-006 changes share the worktree.
+
 - [TASK-20260720-003-smart-print-qr](tasks/TASK-20260720-003-smart-print-qr/TASK.md): Closed production release restoring one smart QR per standard/batch repair ticket, with privacy-minimized customer status, authorized staff resolution, UUID-bound atomic link lifecycle, abuse controls, exact database/main/Vercel proof and fail-closed print preparation. Physical Safari + HP + phone scan remains the owner device check.
 
 - [TASK-20260720-006-ai-ledger-fence-hotfix](tasks/TASK-20260720-006-ai-ledger-fence-hotfix/TASK.md): Production repair is live and observed: exact migration `20260720065246`, one non-PII order-text canary at 130 micro-USD and 15 minutes / 16 zero-threshold polls passed. Closeout is conditional only because the remote hotfix branch must still enter `main` before the next database release.

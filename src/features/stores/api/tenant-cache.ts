@@ -1,5 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 
+import { aiAssistantKeys } from "@/features/ai-assistant/api";
 import { customersKeys } from "@/features/customers/api/query-keys";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
@@ -36,12 +37,14 @@ export function clearAuthorityLostQueryCache(queryClient: QueryClient) {
   }
 
   clearCachedQueryData(queryClient, storesKeys.context);
+  clearCachedQueryData(queryClient, storesKeys.bootstrap);
   clearCachedQueryData(queryClient, platformKeys.onboardingStatus);
 }
 
 export async function refreshStoreContextQueries(queryClient: QueryClient) {
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: storesKeys.context }),
+    queryClient.invalidateQueries({ queryKey: storesKeys.bootstrap }),
     queryClient.invalidateQueries({ queryKey: platformKeys.onboardingStatus }),
   ]);
 }
@@ -60,6 +63,8 @@ const tenantScopedQueryRoots = [
   messageSettingsKeys.store,
   messageSettingsKeys.templates,
   messageSettingsKeys.all,
+  aiAssistantKeys.all,
+  storesKeys.bootstrap,
   storesKeys.context,
   storesKeys.members,
   storesKeys.accessRequests,
@@ -74,6 +79,7 @@ const authoritySensitiveQueryRoots = [
   suppliersKeys.all,
   messageSettingsKeys.store,
   messageSettingsKeys.templates,
+  aiAssistantKeys.all,
   storesKeys.members,
   storesKeys.accessRequests,
 ] as const;

@@ -48,6 +48,7 @@ export function OrderHero({
   order,
   onPrint,
   printDisabled = false,
+  printDisabledReason,
   onRevokeCustomerStatusLinks,
   customerStatusRevokePending = false,
   onCancel,
@@ -72,6 +73,7 @@ export function OrderHero({
   order: OrderDetail["order"];
   onPrint: () => void;
   printDisabled?: boolean;
+  printDisabledReason?: string;
   onRevokeCustomerStatusLinks?: () => void;
   customerStatusRevokePending?: boolean;
   onCancel: () => void;
@@ -138,7 +140,8 @@ export function OrderHero({
         className="size-7"
         disabled={printDisabled}
         onClick={onPrint}
-        aria-label={printDisabled ? "请先补齐店铺资料后打印" : "打印"}
+        aria-label={printDisabled ? (printDisabledReason ?? "当前工单暂不可打印") : "打印"}
+        title={printDisabled ? (printDisabledReason ?? "当前工单暂不可打印") : "打印"}
       >
         <Printer className="size-4" />
       </Button>

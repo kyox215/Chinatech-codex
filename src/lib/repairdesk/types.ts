@@ -1607,6 +1607,8 @@ export interface RepairDeskOptions {
     canAllocatePartsCosts?: boolean;
     canReadCostCurrencies?: boolean;
     canManageCostCurrencies?: boolean;
+    canPrintSingleOrders?: boolean;
+    canBatchPrintOrders?: boolean;
     canExportOrders?: boolean;
     canBatchTransitionOrders?: boolean;
     canAssignOrders?: boolean;
@@ -2046,6 +2048,7 @@ export interface StoreRestoreProof {
 }
 
 export interface StoreContext {
+  customerStatusQrEnabled?: boolean;
   activeStore?: ActorStoreMembership;
   stores: ActorStoreMembership[];
   recoveryStores?: ActorStoreMembership[];

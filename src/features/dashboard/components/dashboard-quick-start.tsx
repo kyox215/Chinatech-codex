@@ -9,17 +9,15 @@ import { Button } from "@/components/ui/button";
 import { RepairOsBusinessCard, RepairOsSectionHeader } from "@/shared/ui";
 import { brandGradientStyle, controls, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
-import {
-  buildNewOrderHref,
-  createNewOrderSessionId,
-} from "@/features/orders/model/new-order-intent";
+import { createNewOrderSessionId } from "@/features/orders/model/new-order-intent";
+import { buildNewOrderWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
 
 const quickStartActions = [
   {
     id: "new-order",
     label: "快速接单",
     description: "客户维修 · 新建工单",
-    href: "/orders/new",
+    href: buildNewOrderWorkspaceHref({ source: "dashboard" }),
     icon: ClipboardPlus,
     primary: true,
   },
@@ -40,14 +38,23 @@ const quickStartActions = [
   primary: boolean;
 }>;
 
-export function DashboardDesktopQuickStart() {
+export function DashboardDesktopQuickStart({ onCreateOrder }: { onCreateOrder?: () => void }) {
   const router = useRouter();
   const startNewOrder = (event: MouseEvent<HTMLAnchorElement>) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
       return;
     }
     event.preventDefault();
-    router.push(buildNewOrderHref({ source: "dashboard", sessionId: createNewOrderSessionId() }));
+    if (onCreateOrder) {
+      onCreateOrder();
+      return;
+    }
+    router.push(
+      buildNewOrderWorkspaceHref({
+        source: "dashboard",
+        sessionId: createNewOrderSessionId(),
+      }),
+    );
   };
   return (
     <div
@@ -83,14 +90,23 @@ export function DashboardDesktopQuickStart() {
   );
 }
 
-export function DashboardMobileQuickStart() {
+export function DashboardMobileQuickStart({ onCreateOrder }: { onCreateOrder?: () => void }) {
   const router = useRouter();
   const startNewOrder = (event: MouseEvent<HTMLAnchorElement>) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
       return;
     }
     event.preventDefault();
-    router.push(buildNewOrderHref({ source: "dashboard", sessionId: createNewOrderSessionId() }));
+    if (onCreateOrder) {
+      onCreateOrder();
+      return;
+    }
+    router.push(
+      buildNewOrderWorkspaceHref({
+        source: "dashboard",
+        sessionId: createNewOrderSessionId(),
+      }),
+    );
   };
   return (
     <section

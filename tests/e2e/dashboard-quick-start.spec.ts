@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
+const evidenceDir = "screenshots/TASK-20260723-005-dashboard-quick-order-dialog";
 
 const viewports = [
   { width: 390, height: 844 },
@@ -11,6 +12,29 @@ const viewports = [
 ] as const;
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for dashboard handoff checks.");
+
+for (const viewport of [
+  { width: 390, height: 844 },
+  { width: 1440, height: 900 },
+]) {
+  test(`dashboard quick intake opens the shared dialog at ${viewport.width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await gotoReady(page, "/");
+
+    await page.locator('[data-dashboard-quick-start="new-order"]:visible').click();
+    await expect(page).toHaveURL(/\/$/);
+    const dialog = page.locator('[data-new-order-dialog="true"]');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator('[data-new-order-root="true"]')).toBeVisible();
+    await expectNoPageOverflow(page);
+    await page.screenshot({
+      path: `${evidenceDir}/dashboard-quick-order-dialog-${viewport.width}.png`,
+      fullPage: false,
+    });
+  });
+}
 
 for (const viewport of viewports) {
   test(`dashboard handoff is direct and overflow-safe at ${viewport.width}px`, async ({ page }) => {
@@ -25,7 +49,7 @@ for (const viewport of viewports) {
     const buyback = page.locator('[data-dashboard-quick-start="buyback-quote"]:visible');
     await expect(intake).toHaveCount(1);
     await expect(buyback).toHaveCount(1);
-    await expect(intake).toHaveAttribute("href", "/orders/new");
+    await expect(intake).toHaveAttribute("href", "/orders?workspace=new-order&source=dashboard");
     await expect(buyback).toHaveAttribute("href", "/buyback?new=1");
 
     const firstPriority = page.locator('[data-ui="dashboard-priority-card"]').first();
@@ -54,10 +78,20 @@ for (const viewport of viewports) {
     await expectNoPageOverflow(page);
 
     await intake.click();
-    await expect(page).toHaveURL(/\/orders\/new\?.*intakeSession=/);
-    await expect(page.locator('[data-new-order-root="true"]')).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+    const newOrderDialog = page.locator('[data-new-order-dialog="true"]');
+    await expect(newOrderDialog).toBeVisible();
+    await expect(newOrderDialog.locator('[data-new-order-root="true"]')).toBeVisible();
+    const closeDialogButton = newOrderDialog.getByRole("button", {
+      name: "关闭新建维修工单",
+    });
+    if (await closeDialogButton.isVisible()) {
+      await closeDialogButton.click();
+    } else {
+      await newOrderDialog.getByRole("button", { name: "返回工单" }).click();
+    }
+    await expect(newOrderDialog).toHaveCount(0);
 
-    await gotoReady(page, "/");
     await page.locator('[data-dashboard-quick-start="buyback-quote"]:visible').click();
     await expect(page).toHaveURL(/\/buyback\?new=1$/);
     const buybackDialog = page.getByRole("dialog");

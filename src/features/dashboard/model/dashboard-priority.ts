@@ -1,6 +1,7 @@
 import { isOrderArchivedForQueue } from "@/features/orders/model/order-list-visibility";
 import { getOrderQueueGroup } from "@/features/orders/model/order-queue-classification";
 import { getOrderTaskGuidance, getOrderTaskUrl } from "@/features/orders/model/order-task-flow";
+import { buildOrderDetailWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
 import type {
   DashboardPriorityCoverage,
   DashboardPriorityItem,
@@ -354,7 +355,7 @@ function toPriorityItem(
       label: candidate.actionLabel ?? guidance.nextAction,
       href: getOrderTaskUrl(order.id),
     },
-    detailHref: `/orders/${order.id}`,
+    detailHref: buildOrderDetailWorkspaceHref(order.id, { source: "dashboard" }),
   };
 }
 

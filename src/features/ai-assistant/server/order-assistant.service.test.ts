@@ -1053,7 +1053,7 @@ describe("order assistant service", () => {
           public_no: "R2026001",
           customer_hint: "M*** R***",
           device_label: "Apple iPhone",
-          href: "/orders/order-1",
+          href: "/orders?workspace=order-detail&orderId=order-1&source=ai-assistant",
         },
       ],
     });

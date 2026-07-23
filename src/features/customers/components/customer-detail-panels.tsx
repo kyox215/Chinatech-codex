@@ -25,6 +25,7 @@ import type { CustomerDetail, Device } from "@/lib/repairdesk/api";
 import { RepairOsSectionHeader } from "@/shared/ui";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { buildOrderDetailWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
 
 const customerDetailSectionClass = cn(repairOs.mobileInfoCard, "sm:p-2.5 md:rounded-2xl md:p-3");
 const customerDetailSectionTitleClass = "text-[11px] leading-4 sm:text-sm";
@@ -215,7 +216,7 @@ export function CustomerOrdersPanel({
                 >
                   <td className="px-3 py-2">
                     <Link
-                      href={`/orders/${item.order.id}`}
+                      href={buildOrderDetailWorkspaceHref(item.order.id, { source: "customer" })}
                       className="block truncate font-mono text-xs font-semibold text-primary hover:underline"
                     >
                       {item.order.public_no}
@@ -295,7 +296,13 @@ export function CustomerOrdersPanel({
                       </Button>
                     ) : (
                       <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-[11px]">
-                        <Link href={`/orders/${item.order.id}`}>查看</Link>
+                        <Link
+                          href={buildOrderDetailWorkspaceHref(item.order.id, {
+                            source: "customer",
+                          })}
+                        >
+                          查看
+                        </Link>
                       </Button>
                     )}
                   </td>

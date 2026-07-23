@@ -10,6 +10,7 @@ import {
   getOrderCreateOperationStatus,
   getOrderQueueSummary,
   getOrderStats,
+  getShellBootstrap,
   getStoreContext,
   isRepairDeskAuthorizationError,
   listAvailableKioskDevices,
@@ -158,6 +159,47 @@ describe("repairdesk api client", () => {
         body: JSON.stringify({ message: "查询订单", locale: "zh-CN" }),
         signal: expect.any(AbortSignal),
       }),
+    );
+  });
+
+  it("loads the atomic shell bootstrap contract from one private endpoint", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            data: {
+              onboarding: {
+                userId: "user-1",
+                displayName: "Owner",
+                isPlatformAdmin: false,
+                stores: [],
+                requests: [],
+                availableStores: [],
+              },
+              storeContext: { stores: [] },
+              aiCapabilities: {
+                canUseOrderAssistant: false,
+                canUseOrderInlineActions: false,
+                canUseVisionIntake: false,
+                canApplyInventoryDraft: false,
+                reason: "feature_off",
+              },
+              generatedAt: "2026-07-23T16:00:00.000Z",
+            },
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getShellBootstrap()).resolves.toMatchObject({
+      onboarding: { userId: "user-1" },
+      storeContext: { stores: [] },
+      aiCapabilities: { reason: "feature_off" },
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/repairdesk/shell/bootstrap",
+      expect.objectContaining({ headers: { "content-type": "application/json" } }),
     );
   });
 

@@ -48,6 +48,7 @@ import type {
   ProfitPeriodSummary,
 } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
+import { buildOrderDetailWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
 import { RepairOsListScaffold } from "@/shared/ui";
 
 const FALLBACK_TIMEZONE = "Europe/Rome";
@@ -257,7 +258,7 @@ function OrderDrilldown({ orders }: { orders: ProfitOrderDrilldownItem[] }) {
               <TableCell>
                 <Link
                   className="font-mono text-xs font-semibold text-primary hover:underline"
-                  href={`/orders/${order.order_id}`}
+                  href={buildOrderDetailWorkspaceHref(order.order_id, { source: "profit" })}
                 >
                   {order.public_no}
                 </Link>

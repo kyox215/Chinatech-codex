@@ -12,6 +12,10 @@ import type {
   CustomerOrderWorkbenchItem,
 } from "@/features/customers/model/customer-workbench";
 import { isCustomerOrderCancelled } from "@/features/customers/model/customer-order-state";
+import {
+  buildNewOrderWorkspaceHref,
+  buildOrderDetailWorkspaceHref,
+} from "@/features/orders/model/order-workspace-intent";
 import { RepairOsBadge, RepairOsBusinessCard, RepairOsInfoTile } from "@/shared/ui";
 
 const customerTagPriority = new Map([
@@ -170,7 +174,7 @@ export function CustomerDeviceCard({
         <div className="rounded-lg border border-[var(--border-panel)] bg-card/60 px-2 py-1.5">
           <div className="flex min-w-0 items-center justify-between gap-2">
             <Link
-              href={`/orders/${latestOrder.order.id}`}
+              href={buildOrderDetailWorkspaceHref(latestOrder.order.id, { source: "customer" })}
               className="truncate font-mono text-[10px] font-semibold text-primary hover:underline"
               onClick={stopCardClick}
             >
@@ -218,7 +222,11 @@ export function CustomerDeviceCard({
       <div className="flex flex-wrap gap-1.5">
         <Button asChild size="sm" variant="outline" className="h-8 gap-1.5">
           <Link
-            href={`/orders/new?customerId=${customerId}&deviceId=${device.id}`}
+            href={buildNewOrderWorkspaceHref({
+              source: "customer",
+              customerId,
+              deviceId: device.id,
+            })}
             onClick={stopCardClick}
           >
             <Wrench className="size-3.5" /> 新建工单
@@ -291,7 +299,7 @@ export function CustomerOrderRow({
     >
       <div className="min-w-0 flex-1">
         <Link
-          href={`/orders/${order.id}`}
+          href={buildOrderDetailWorkspaceHref(order.id, { source: "customer" })}
           className="block truncate font-mono text-[11px] font-medium leading-4 text-primary hover:underline sm:text-xs"
         >
           {order.public_no}
@@ -360,7 +368,7 @@ export function CustomerWorkbenchOrderRow({
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <Link
-            href={`/orders/${order.id}`}
+            href={buildOrderDetailWorkspaceHref(order.id, { source: "customer" })}
             className="block truncate font-mono text-[11px] font-medium leading-4 text-primary hover:underline sm:text-xs"
           >
             {order.public_no}

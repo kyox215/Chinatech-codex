@@ -12,6 +12,7 @@ import {
   type AiOrderToolCall,
 } from "@/features/ai-assistant/model/contracts";
 import { deviceLabelMatchesSearch } from "@/entities/order";
+import { buildOrderDetailWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
 import {
   writeAiAssistantAudit,
   bucketAiAssistantLatency,
@@ -782,7 +783,7 @@ export function toAiOrderCard(
     parts_status: order.parts_status ?? null,
     matched_reasons: (options.appliedFilters ?? []).map((filter) => filter.value).slice(0, 8),
     allowed_actions: allowedInlineActions(order, Boolean(options.canUseInlineActions)),
-    href: `/orders/${encodeURIComponent(order.id)}`,
+    href: buildOrderDetailWorkspaceHref(order.id, { source: "ai-assistant" }),
   };
 }
 

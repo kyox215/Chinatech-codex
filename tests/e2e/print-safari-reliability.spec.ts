@@ -328,7 +328,7 @@ for (const viewport of [
   { width: 390, height: 844 },
   { width: 1440, height: 900 },
 ]) {
-  test(`dirty back navigation releases Safari click interception at ${viewport.width}px`, async ({
+  test(`dashboard intake dialog releases Safari click interception at ${viewport.width}px`, async ({
     page,
     browserName,
   }) => {
@@ -337,15 +337,11 @@ for (const viewport of [
     await gotoReady(page, "/");
 
     await page.locator('[data-dashboard-quick-start="new-order"]:visible').click();
-    await expect(page).toHaveURL(/\/orders\/new\?.*intakeSession=/);
-    const firstSession = new URL(page.url()).searchParams.get("intakeSession");
-    await page.getByPlaceholder("例如 iPhone 13").fill("Safari retry test");
-
-    await page.evaluate(() => window.history.back());
-    const guard = page.getByRole("alertdialog");
-    await expect(guard).toBeVisible();
-    await guard.getByRole("button", { name: "放弃修改" }).click();
-    await expect(page).toHaveURL(/\/$/);
+    const firstDialog = page.locator('[data-new-order-dialog="true"]');
+    await expect(firstDialog).toBeVisible();
+    await firstDialog.getByPlaceholder("例如 iPhone 13").fill("Safari retry test");
+    await firstDialog.getByRole("button", { name: "关闭新建维修工单" }).click();
+    await expect(firstDialog).toHaveCount(0);
 
     const immediateState = await page.evaluate(() => {
       const intake = Array.from(
@@ -367,9 +363,10 @@ for (const viewport of [
     expect(immediateState.hitTarget).toBe(true);
 
     await page.mouse.click(immediateState.center.x, immediateState.center.y);
-    await expect(page).toHaveURL(/\/orders\/new\?.*intakeSession=/);
-    expect(new URL(page.url()).searchParams.get("intakeSession")).not.toBe(firstSession);
-    await expect(page.locator('[data-new-order-root="true"]')).toBeVisible();
+    const secondDialog = page.locator('[data-new-order-dialog="true"]');
+    await expect(secondDialog).toBeVisible();
+    await expect(secondDialog.getByPlaceholder("例如 iPhone 13")).toHaveValue("");
+    await expect(secondDialog.locator('[data-new-order-root="true"]')).toBeVisible();
     await page.screenshot({
       path: `${evidenceDir}/second-intake-${browserName}-${viewport.width}.png`,
       fullPage: false,

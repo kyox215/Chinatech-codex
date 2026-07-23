@@ -39,7 +39,9 @@ test("direct new-order page opens the canonical order detail after creation", as
   });
 });
 
-test("order-list dialog opens the canonical order detail after creation", async ({ page }) => {
+test("order-list dialog continues in the canonical order workspace after creation", async ({
+  page,
+}) => {
   mkdirSync(screenshotDir, { recursive: true });
   await stubSuccessfulOrderCreation(page, "ord_1");
 
@@ -53,10 +55,10 @@ test("order-list dialog opens the canonical order detail after creation", async 
   await completeRequiredOrderFields(page, "3457000102");
   await page.getByRole("button", { name: "创建工单" }).click();
 
-  await expect(page).toHaveURL(/\/orders\/ord_1$/);
+  await expect(page).toHaveURL(/\/orders\?workspace=order-detail&orderId=ord_1&source=orders$/);
   await expect(page.locator('[data-order-detail-root="true"]')).toBeVisible();
   await expect(page.locator('[data-new-order-root="true"]')).toHaveCount(0);
-  await expect(page.locator('[data-order-detail-dialog-shell="true"]')).toHaveCount(0);
+  await expect(page.locator('[data-order-detail-dialog-shell="true"]')).toBeVisible();
 
   await page.screenshot({
     path: `${screenshotDir}/order-create-navigation-detail-desktop.png`,
@@ -68,11 +70,10 @@ async function completeRequiredOrderFields(page: Page, phone: string) {
   const form = page.locator('[data-new-order-form="true"]');
   await expect(form).toBeVisible();
 
-  await form.locator('[data-new-order-field="customer-phone"] input:visible').fill(phone);
+  await form.getByRole("combobox", { name: "客户电话号码", exact: true }).fill(phone);
   await form.getByRole("button", { name: /设备留店/ }).click();
   await form.getByPlaceholder("选择品牌").fill("Apple");
   await form.getByPlaceholder("例如 iPhone 13").fill("iPhone 13");
-  await form.getByRole("button", { name: "问题未知，需检测" }).click();
 
   await expect(form.getByRole("button", { name: "创建工单" })).toBeEnabled();
 }

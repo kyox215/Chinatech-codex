@@ -18,6 +18,7 @@ import { getAiAssistantUsageSummary } from "@/features/ai-assistant/server/usage
 import { getMockAiAssistantUsageSummary } from "@/features/ai-assistant/testing/mock-usage";
 import { runAiInventoryVisionRecognition } from "@/features/ai-assistant/server/vision-assistant.service";
 import { getDashboardPrioritySummary } from "@/features/dashboard/server/dashboard-summary.service";
+import { isCustomerStatusQrEnabled } from "@/features/customer-status/server/customer-status.service";
 import { getProfitCenter } from "@/features/profit/server/profit.repository";
 import { assertCanReadProfitCenter } from "@/features/profit/server/profit-feature";
 import { exportCostReport } from "@/features/profit/server/cost-export.service";
@@ -900,6 +901,8 @@ async function source() {
         canReadCostCurrencies: true,
         canManageCostCurrencies: true,
         canExportOrders: true,
+        canPrintSingleOrders: true,
+        canBatchPrintOrders: true,
         canBatchTransitionOrders: true,
         canAssignOrders: true,
       },
@@ -1440,6 +1443,21 @@ export async function handleRepairDeskGet(path: string, searchParams?: URLSearch
     }
     const api = await source();
     switch (path) {
+      case "shell/bootstrap": {
+        const [onboarding, storeContext] = await Promise.all([
+          api.getOnboardingStatus(actor),
+          api.getStoreContext(actor),
+        ]);
+        return ok({
+          onboarding,
+          storeContext: {
+            ...storeContext,
+            customerStatusQrEnabled: isCustomerStatusQrEnabled(),
+          },
+          aiCapabilities: getAiAssistantCapabilities(actor),
+          generatedAt: new Date().toISOString(),
+        });
+      }
       case "onboarding/status":
         return ok(await api.getOnboardingStatus(actor));
       case "ai/usage":
@@ -2889,12 +2907,18 @@ function allowsLifecycleControlPost(path: string) {
 }
 
 function allowsLifecycleControlGet(path: string) {
-  return path === "stores/context" || path === "onboarding/status" || path.startsWith("platform/");
+  return (
+    path === "shell/bootstrap" ||
+    path === "stores/context" ||
+    path === "onboarding/status" ||
+    path.startsWith("platform/")
+  );
 }
 
 export function allowsPendingStore(path: string, method: "GET" | "POST") {
   if (method === "GET") {
     return (
+      path === "shell/bootstrap" ||
       path === "stores/context" ||
       path === "onboarding/status" ||
       path === "platform/onboarding/requests"

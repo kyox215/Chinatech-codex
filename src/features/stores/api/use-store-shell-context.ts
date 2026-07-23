@@ -4,12 +4,18 @@ import { useLayoutEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  getAiAssistantCapabilities,
   getOnboardingStatus,
+  getShellBootstrap,
   getStoreContext,
   isRepairDeskAuthorizationError,
+  RepairDeskApiError,
 } from "@/lib/repairdesk/api";
+import { aiAssistantKeys } from "@/features/ai-assistant/api";
+import type { AiAssistantCapabilities } from "@/features/ai-assistant/model/contracts";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { storesKeys } from "@/features/stores/api/query-keys";
+import type { ShellBootstrap } from "@/features/stores/model/shell-bootstrap";
 import {
   resolveStoreShellContext,
   type StoreShellContextSnapshot,
@@ -28,42 +34,61 @@ export function useStoreShellContext({
   retry?: () => Promise<void>;
 } {
   const queryClient = useQueryClient();
-  const onboardingQuery = useQuery({
-    queryKey: platformKeys.onboardingStatus,
-    queryFn: ({ signal }) => getOnboardingStatus({ signal }),
+  const bootstrapQuery = useQuery({
+    queryKey: storesKeys.bootstrap,
+    queryFn: async ({ signal }) => {
+      const bootstrap = await loadShellBootstrap(signal);
+      queryClient.setQueryData(platformKeys.onboardingStatus, bootstrap.onboarding);
+      queryClient.setQueryData(storesKeys.context, bootstrap.storeContext);
+      queryClient.setQueryData(
+        aiAssistantKeys.capabilities(bootstrap.storeContext.activeStore?.id),
+        bootstrap.aiCapabilities,
+      );
+      return bootstrap;
+    },
     retry: false,
     staleTime: CACHE_TIMES.shell,
   });
+  const onboardingQuery = useQuery({
+    queryKey: platformKeys.onboardingStatus,
+    queryFn: ({ signal }) => getOnboardingStatus({ signal }),
+    enabled: bootstrapQuery.isSuccess,
+    retry: false,
+    staleTime: CACHE_TIMES.shell,
+    refetchOnMount: false,
+  });
 
-  const hasActiveStore = Boolean(onboardingQuery.data?.activeStore);
   const storeContextQuery = useQuery({
     queryKey: storesKeys.context,
     queryFn: ({ signal }) => getStoreContext({ signal }),
-    enabled: onboardingQuery.isSuccess,
+    enabled: bootstrapQuery.isSuccess && onboardingQuery.isSuccess,
     retry: false,
-    // This hook is mounted by many screens; only the top-level bridge owns polling.
+    // Bootstrap owns cold-start hydration; the top-level bridge keeps the narrower authority poll.
     staleTime: monitorAuthority ? 15_000 : CACHE_TIMES.shell,
-    refetchInterval: monitorAuthority && hasActiveStore ? 15_000 : false,
+    refetchInterval:
+      monitorAuthority && Boolean(onboardingQuery.data?.activeStore) ? 15_000 : false,
     refetchIntervalInBackground: false,
-    refetchOnMount: monitorAuthority ? "always" : true,
+    refetchOnMount: false,
     refetchOnReconnect: monitorAuthority ? "always" : false,
     refetchOnWindowFocus: monitorAuthority ? "always" : false,
   });
   const authorityLost =
+    isRepairDeskAuthorizationError(bootstrapQuery.error) ||
     isRepairDeskAuthorizationError(onboardingQuery.error) ||
     isRepairDeskAuthorizationError(storeContextQuery.error);
   const shellContext = resolveStoreShellContext({
     onboardingStatus: onboardingQuery.data,
     storeContext: storeContextQuery.data,
-    onboardingLoading: onboardingQuery.isLoading,
-    storeContextLoading: storeContextQuery.isLoading,
-    onboardingError: onboardingQuery.isError,
-    storeContextError: storeContextQuery.isError,
+    onboardingLoading: bootstrapQuery.isLoading || onboardingQuery.isLoading,
+    storeContextLoading: bootstrapQuery.isLoading || storeContextQuery.isLoading,
+    onboardingError: bootstrapQuery.isError || onboardingQuery.isError,
+    storeContextError: bootstrapQuery.isError || storeContextQuery.isError,
     authorityLost,
   });
   const authorityFingerprint = shellContext.authorityFingerprint;
 
   useLayoutEffect(() => {
+    if (shellContext.isLoading) return;
     const previous = authorityFingerprintByQueryClient.get(queryClient);
     authorityFingerprintByQueryClient.set(queryClient, authorityFingerprint);
     if (authorityLost) {
@@ -72,13 +97,42 @@ export function useStoreShellContext({
     }
     if (!previous || previous === authorityFingerprint) return;
     void clearAuthoritySensitiveQueryCache(queryClient);
-  }, [authorityFingerprint, authorityLost, queryClient]);
+  }, [authorityFingerprint, authorityLost, queryClient, shellContext.isLoading]);
 
   return {
     ...shellContext,
     retry: async () => {
-      await onboardingQuery.refetch();
-      if (onboardingQuery.isSuccess) await storeContextQuery.refetch();
+      await bootstrapQuery.refetch();
     },
+  };
+}
+
+async function loadShellBootstrap(signal?: AbortSignal): Promise<ShellBootstrap> {
+  try {
+    return await getShellBootstrap({ signal });
+  } catch (error) {
+    if (!isMissingBootstrapEndpoint(error)) throw error;
+    const [onboarding, storeContext] = await Promise.all([
+      getOnboardingStatus({ signal }),
+      getStoreContext({ signal }),
+    ]);
+    const aiCapabilities = storeContext.activeStore
+      ? await getAiAssistantCapabilities({ signal })
+      : disabledAiCapabilities();
+    return { onboarding, storeContext, aiCapabilities, generatedAt: new Date().toISOString() };
+  }
+}
+
+function isMissingBootstrapEndpoint(error: unknown) {
+  return error instanceof RepairDeskApiError && [404, 405, 501].includes(error.status);
+}
+
+function disabledAiCapabilities(): AiAssistantCapabilities {
+  return {
+    canUseOrderAssistant: false,
+    canUseOrderInlineActions: false,
+    canUseVisionIntake: false,
+    canApplyInventoryDraft: false,
+    reason: "feature_off",
   };
 }

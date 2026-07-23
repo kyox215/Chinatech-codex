@@ -2,6 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
 
 import { customersKeys } from "@/features/customers/api/query-keys";
+import { aiAssistantKeys } from "@/features/ai-assistant/api";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
@@ -41,6 +42,8 @@ describe("tenant cache helpers", () => {
     queryClient.setQueryData(storesKeys.membersScoped("store_1"), [{ id: "member_a" }]);
     queryClient.setQueryData(storesKeys.accessRequestsScoped("store_1"), [{ id: "request_a" }]);
     queryClient.setQueryData(platformKeys.onboardingStatus, { activeStore: { id: "store_1" } });
+    queryClient.setQueryData(storesKeys.bootstrap, { activeStore: { id: "store_1" } });
+    queryClient.setQueryData(aiAssistantKeys.capabilities("store_1"), { stale: true });
 
     await applySwitchedStoreContext(queryClient, nextContext);
 
@@ -58,6 +61,8 @@ describe("tenant cache helpers", () => {
     expect(queryClient.getQueryData(storesKeys.membersScoped("store_1"))).toBeUndefined();
     expect(queryClient.getQueryData(storesKeys.accessRequestsScoped("store_1"))).toBeUndefined();
     expect(queryClient.getQueryData(platformKeys.onboardingStatus)).toBeUndefined();
+    expect(queryClient.getQueryData(storesKeys.bootstrap)).toBeUndefined();
+    expect(queryClient.getQueryData(aiAssistantKeys.capabilities("store_1"))).toBeUndefined();
   });
 
   it("removes authority-sensitive data after a role or grant change", async () => {
@@ -70,6 +75,8 @@ describe("tenant cache helpers", () => {
     queryClient.setQueryData(storesKeys.membersScoped("store_1"), [{ id: "member_a" }]);
     queryClient.setQueryData(storesKeys.accessRequestsScoped("store_1"), [{ id: "request_a" }]);
     queryClient.setQueryData(storesKeys.context, { activeStore: { id: "store_1" } });
+    queryClient.setQueryData(storesKeys.bootstrap, { activeStore: { id: "store_1" } });
+    queryClient.setQueryData(aiAssistantKeys.capabilities("store_1"), { stale: true });
 
     await clearAuthoritySensitiveQueryCache(queryClient);
 
@@ -83,6 +90,10 @@ describe("tenant cache helpers", () => {
     expect(queryClient.getQueryData(storesKeys.context)).toEqual({
       activeStore: { id: "store_1" },
     });
+    expect(queryClient.getQueryData(storesKeys.bootstrap)).toEqual({
+      activeStore: { id: "store_1" },
+    });
+    expect(queryClient.getQueryData(aiAssistantKeys.capabilities("store_1"))).toBeUndefined();
   });
 
   it("drops tenant data and stale authority sources after a 401 or 403", () => {
@@ -98,6 +109,8 @@ describe("tenant cache helpers", () => {
     queryClient.setQueryData(platformKeys.onboardingStatus, {
       activeStore: { id: "store_1" },
     });
+    queryClient.setQueryData(storesKeys.bootstrap, { activeStore: { id: "store_1" } });
+    queryClient.setQueryData(aiAssistantKeys.capabilities("store_1"), { stale: true });
 
     clearAuthorityLostQueryCache(queryClient);
 
@@ -110,5 +123,7 @@ describe("tenant cache helpers", () => {
     expect(queryClient.getQueryData(storesKeys.accessRequestsScoped("store_1"))).toBeUndefined();
     expect(queryClient.getQueryData(storesKeys.context)).toBeUndefined();
     expect(queryClient.getQueryData(platformKeys.onboardingStatus)).toBeUndefined();
+    expect(queryClient.getQueryData(storesKeys.bootstrap)).toBeUndefined();
+    expect(queryClient.getQueryData(aiAssistantKeys.capabilities("store_1"))).toBeUndefined();
   });
 });

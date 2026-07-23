@@ -144,7 +144,7 @@ describe("dashboard priority", () => {
       assigneeState: "assigned",
       isMine: true,
       action: { href: "/orders/mine/task" },
-      detailHref: "/orders/mine",
+      detailHref: "/orders?workspace=order-detail&orderId=mine&source=dashboard",
     });
     expect(summary.items[1]).toMatchObject({
       assigneeLabel: "未分配",

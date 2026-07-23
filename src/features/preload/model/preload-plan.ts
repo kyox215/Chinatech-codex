@@ -8,11 +8,14 @@ export const repairDeskPreloadTargets = [
 
 export type RepairDeskPreloadTarget = (typeof repairDeskPreloadTargets)[number];
 
+const allStartupTargets = [...repairDeskPreloadTargets];
+
 const ownedTargetsByWorkspaceHome: Record<string, readonly RepairDeskPreloadTarget[]> = {
-  "/orders": ["orders", "workflow", "settings", "customers", "inventory"],
-  "/customers": ["customers"],
-  "/inventory": ["inventory"],
-  "/settings": ["settings"],
+  "/": allStartupTargets,
+  "/orders": allStartupTargets,
+  "/customers": allStartupTargets,
+  "/inventory": allStartupTargets,
+  "/settings": allStartupTargets,
 };
 
 const targetPriorityByWorkspace: Record<string, readonly RepairDeskPreloadTarget[]> = {

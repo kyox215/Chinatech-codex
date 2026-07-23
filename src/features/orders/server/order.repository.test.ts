@@ -11,6 +11,7 @@ import {
   listOrdersPage,
   patchOrder,
   projectOrderDetailForActor,
+  projectOrderPrintPermissions,
   projectOrderCapabilities,
   projectOrderListItemForActor,
   recordPayment,
@@ -87,6 +88,22 @@ describe("order repository tenant storage boundaries", () => {
 });
 
 describe("order repository role projection", () => {
+  it.each([
+    ["owner", true, true],
+    ["manager", true, false],
+    ["sales", true, false],
+    ["technician", true, false],
+    ["viewer", false, false],
+  ] as const)(
+    "projects single and batch print separately for %s",
+    (role, canPrintSingleOrders, canBatchPrintOrders) => {
+      expect(projectOrderPrintPermissions(actor(role))).toEqual({
+        canPrintSingleOrders,
+        canBatchPrintOrders,
+      });
+    },
+  );
+
   it("keeps full order fields for owner", () => {
     const projected = projectOrderListItemForActor(order(), actor("owner"));
 

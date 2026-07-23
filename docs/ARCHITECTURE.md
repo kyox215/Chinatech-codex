@@ -76,6 +76,8 @@ src/
 - See `docs/REALTIME_PRELOAD_COORDINATION.md` for the conflict matrix, flags, security boundary, and
   production activation gate.
 - `docs/REALTIME_DATA_CONSISTENCY_DECLARATION.md` is the normative contract for future features.
+- `docs/STARTUP_PERFORMANCE_AND_PRINT_READINESS_DECLARATION.md` is the normative gate for shell
+  bootstrap, startup request ownership, tenant cache cleanup, print capability and disabled recovery.
 
 ### AI Assistant Cost Governance
 

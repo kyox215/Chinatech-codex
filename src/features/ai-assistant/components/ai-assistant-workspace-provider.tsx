@@ -5,8 +5,10 @@ import {
   useCallback,
   useContext,
   useEffect,
+  lazy,
   useMemo,
   useState,
+  Suspense,
   type ReactNode,
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,7 +19,6 @@ import {
   aiAssistantUsageQueryOptions,
 } from "@/features/ai-assistant/api";
 import type { AiAssistantCapabilities } from "@/features/ai-assistant/model/contracts";
-import { AiAssistantSheet } from "@/features/ai-assistant/components/ai-assistant-sheet";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 
 type AiAssistantWorkspaceContextValue = {
@@ -27,6 +28,11 @@ type AiAssistantWorkspaceContextValue = {
 };
 
 const AiAssistantWorkspaceContext = createContext<AiAssistantWorkspaceContextValue | null>(null);
+const AiAssistantSheet = lazy(() =>
+  import("@/features/ai-assistant/components/ai-assistant-sheet").then((module) => ({
+    default: module.AiAssistantSheet,
+  })),
+);
 
 export function AiAssistantWorkspaceProvider({ children }: { children: ReactNode }) {
   const shell = useStoreShellContext();
@@ -69,22 +75,26 @@ export function AiAssistantWorkspaceProvider({ children }: { children: ReactNode
   return (
     <AiAssistantWorkspaceContext.Provider value={value}>
       {children}
-      <AiAssistantSheet
-        key={shell.authorityFingerprint}
-        open={open}
-        onOpenChange={setOpen}
-        capabilities={capabilitiesQuery.data}
-        capabilitiesLoading={capabilitiesQuery.isLoading}
-        capabilitiesError={capabilitiesQuery.isError}
-        onRetryCapabilities={() => void capabilitiesQuery.refetch()}
-        canReadUsage={canReadAiUsage}
-        usage={usageQuery.data}
-        usageLoading={usageQuery.isLoading}
-        usageError={usageQuery.isError}
-        onRetryUsage={() => void usageQuery.refetch()}
-        onModelUsageChanged={refreshAiUsage}
-        storeKey={shell.authorityFingerprint}
-      />
+      {open ? (
+        <Suspense fallback={null}>
+          <AiAssistantSheet
+            key={shell.authorityFingerprint}
+            open={open}
+            onOpenChange={setOpen}
+            capabilities={capabilitiesQuery.data}
+            capabilitiesLoading={capabilitiesQuery.isLoading}
+            capabilitiesError={capabilitiesQuery.isError}
+            onRetryCapabilities={() => void capabilitiesQuery.refetch()}
+            canReadUsage={canReadAiUsage}
+            usage={usageQuery.data}
+            usageLoading={usageQuery.isLoading}
+            usageError={usageQuery.isError}
+            onRetryUsage={() => void usageQuery.refetch()}
+            onModelUsageChanged={refreshAiUsage}
+            storeKey={shell.authorityFingerprint}
+          />
+        </Suspense>
+      ) : null}
     </AiAssistantWorkspaceContext.Provider>
   );
 }

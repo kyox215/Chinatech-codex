@@ -14,6 +14,7 @@ import type {
   RepairDeskOfflineHandlerResult,
   RepairDeskOfflineOrderCreateSyncInput,
 } from "@/features/offline/server/offline-sync-contract";
+import type { ShellBootstrap } from "@/features/stores/model/shell-bootstrap";
 import type {
   AccountProfileUpdateInput,
   CorrectTerminalOrderInput,
@@ -615,6 +616,12 @@ export async function archiveSupplier(id: string): Promise<Supplier> {
 
 export async function getStoreContext(options?: RepairDeskRequestOptions): Promise<StoreContext> {
   return requestJson<StoreContext>("stores/context", {}, options);
+}
+
+export async function getShellBootstrap(
+  options?: RepairDeskRequestOptions,
+): Promise<ShellBootstrap> {
+  return requestJson<ShellBootstrap>("shell/bootstrap", {}, options);
 }
 
 export async function getOnboardingStatus(

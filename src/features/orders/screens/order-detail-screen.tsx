@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 
 import { ImeiScannerField, normalizeImeiIdentifier } from "@/components/imei-scanner-field";
+import { StoreOutputIdentityRecovery } from "@/components/store/store-output-identity-recovery";
 import { DeviceCustodyBadge, MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
 import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
 import { DiagnosisQuoteDialog } from "@/components/orders/diagnosis-quote-dialog";
@@ -1088,10 +1089,18 @@ export function OrderDetailScreen({
   const isVoided = order.record_state === "voided" || Boolean(order.deleted_at);
   const cancelled = isOrderCancelledState(order);
   const isTerminalOrder = isOrderTerminalState(order);
-  const canPrintCustomerDocument = canPrintRepairOrderCustomerDocument(
-    order,
-    storeOutputIdentity.canOutput,
-  );
+  const canPrintCustomerDocument =
+    shell.customerStatusQrEnabled !== false &&
+    canPrintRepairOrderCustomerDocument(order, storeOutputIdentity.canOutput);
+  const printDisabledReason = printPreparing
+    ? "正在准备打印内容"
+    : isVoided
+      ? "作废或删除的工单不能打印"
+      : shell.customerStatusQrEnabled === false
+        ? "客户工单二维码功能尚未启用，请联系店主或系统管理员"
+        : storeOutputIdentity.canOutput
+          ? undefined
+          : storeOutputIdentity.blockReason;
   const printCustomerDocument = async () => {
     if (!canPrintCustomerDocument) {
       toast.error(storeOutputIdentity.blockReason ?? "客户工单尚未准备好");
@@ -1381,6 +1390,7 @@ export function OrderDetailScreen({
           primaryAction={desktopPrimaryAction}
           onPrint={() => void printCustomerDocument()}
           printDisabled={!canPrintCustomerDocument || printPreparing}
+          printDisabledReason={printDisabledReason}
           onRevokeCustomerStatusLinks={
             canRevokeCustomerStatusLinks ? () => void revokePrintedCustomerStatusLinks() : undefined
           }
@@ -1447,10 +1457,29 @@ export function OrderDetailScreen({
         )}
       >
         <div className={cn("relative z-20", detailWorkspace.orderDetailContent)}>
+          {!storeOutputIdentity.canOutput ? (
+            <StoreOutputIdentityRecovery
+              identity={storeOutputIdentity}
+              canReadSettings={shell.permissions?.canReadStoreSettings === true}
+              canUpdateSettings={shell.permissions?.canUpdateStoreSettings === true}
+              onRetrySettings={() => storeSettingsQuery.refetch()}
+              onReloadStoreContext={shell.retry}
+              className="mb-2"
+            />
+          ) : null}
+          {shell.customerStatusQrEnabled === false ? (
+            <div
+              role="alert"
+              className="mb-2 rounded-lg border border-status-warn-foreground/30 bg-status-warn/10 px-3 py-2 text-xs leading-5 text-status-warn-foreground"
+            >
+              客户工单二维码功能尚未启用，因此暂时不能打印。请联系店主或系统管理员完成服务配置。
+            </div>
+          ) : null}
           <OrderHero
             order={order}
             onPrint={() => void printCustomerDocument()}
             printDisabled={!canPrintCustomerDocument || printPreparing}
+            printDisabledReason={printDisabledReason}
             onRevokeCustomerStatusLinks={
               canRevokeCustomerStatusLinks
                 ? () => void revokePrintedCustomerStatusLinks()
@@ -3064,6 +3093,7 @@ function MobileOrderDetailView({
   primaryAction,
   onPrint,
   printDisabled,
+  printDisabledReason,
   onRevokeCustomerStatusLinks,
   customerStatusRevokePending,
   onCancel,
@@ -3117,6 +3147,7 @@ function MobileOrderDetailView({
   primaryAction: OrderDetailPrimaryAction;
   onPrint: () => void;
   printDisabled: boolean;
+  printDisabledReason?: string;
   onRevokeCustomerStatusLinks?: () => void;
   customerStatusRevokePending: boolean;
   onCancel: () => void;
@@ -3311,6 +3342,7 @@ function MobileOrderDetailView({
         onHeightChange={handleFloatingHeaderHeight}
         onPrint={onPrint}
         printDisabled={printDisabled}
+        printDisabledReason={printDisabledReason}
         onRevokeCustomerStatusLinks={onRevokeCustomerStatusLinks}
         customerStatusRevokePending={customerStatusRevokePending}
         onCancel={onCancel}
@@ -4946,6 +4978,7 @@ function MobileStickyWorkflowHeader({
   onHeightChange,
   onPrint,
   printDisabled,
+  printDisabledReason,
   onRevokeCustomerStatusLinks,
   customerStatusRevokePending,
   onCancel,
@@ -4959,6 +4992,7 @@ function MobileStickyWorkflowHeader({
   onHeightChange?: (height: number) => void;
   onPrint: () => void;
   printDisabled: boolean;
+  printDisabledReason?: string;
   onRevokeCustomerStatusLinks?: () => void;
   customerStatusRevokePending: boolean;
   onCancel: () => void;
@@ -5025,7 +5059,10 @@ function MobileStickyWorkflowHeader({
               variant="ghost"
               size="icon"
               className="size-11 rounded-lg"
-              aria-label="打印工单"
+              aria-label={
+                printDisabled ? (printDisabledReason ?? "当前工单暂不可打印") : "打印工单"
+              }
+              title={printDisabled ? (printDisabledReason ?? "当前工单暂不可打印") : "打印工单"}
               disabled={printDisabled}
               onClick={onPrint}
             >

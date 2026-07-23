@@ -30,6 +30,9 @@ Use these rules when generating or editing pages in this repository.
 - Read `docs/ARCHITECTURE.md` before large feature work or refactors.
 - Read `docs/REALTIME_DATA_CONSISTENCY_DECLARATION.md` before adding or changing business mutations,
   React Query cache keys, cross-device synchronization, or store-scoped realtime behavior.
+- Read `docs/STARTUP_PERFORMANCE_AND_PRINT_READINESS_DECLARATION.md` before changing app-shell startup,
+  global providers, preload ownership, tenant/authority cache clearing, order print permissions,
+  print readiness, or print recovery behavior.
 - Read `docs/RESPONSIVE_DENSITY_PLAN.md` before changing layouts, tables, dialogs, lists, or mobile behavior.
 - Mobile detail/task/workflow pages must follow RepairOS Floating Card language from `docs/REPAIROS_COMPACT_ARCHITECTURE.md`: use `repairOs.mobileFloatingPage`, `repairOs.mobileFloatingHeader*`, and `repairOs.mobileInfoCard` instead of hand-written fixed top bars or full-width divider headers.
 - Read `docs/REPAIROS_MOBILE_DETAIL_STANDARD.md` before creating or changing mobile detail, task, quote, capture, payment, or workflow pages. The current mobile order detail page is the visual source of truth for typography, card density, color emphasis, finance editing, scan/photo entry, history, and bottom actions.

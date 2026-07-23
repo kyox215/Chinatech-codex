@@ -1,3 +1,5 @@
+import { buildOrderDetailWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
+
 export type CapturePayloadKind =
   | "order_link"
   | "customer_link"
@@ -262,7 +264,7 @@ function parseInternalLink(raw: string, origin: string): CapturePayload | null {
       raw,
       value: orderMatch[1],
       label: "工单链接",
-      targetHref: `/orders/${orderMatch[1]}`,
+      targetHref: buildOrderDetailWorkspaceHref(orderMatch[1], { source: "scanner" }),
     };
   }
 
@@ -314,7 +316,7 @@ function parsePrefixedPayload(raw: string): CapturePayload | null {
       raw,
       value,
       label: "工单编号",
-      targetHref: `/orders/${encodeURIComponent(value)}`,
+      targetHref: buildOrderDetailWorkspaceHref(value, { source: "scanner" }),
     };
   }
 

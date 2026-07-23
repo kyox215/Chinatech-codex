@@ -109,6 +109,36 @@ describe("order detail preload intent", () => {
     expect(directLink).toHaveAttribute("href", "/orders/order-1");
     expect(onOpen).not.toHaveBeenCalled();
   });
+
+  it("explains a disabled single print action and offers the recovery entry", async () => {
+    const user = userEvent.setup();
+    const onPrint = vi.fn();
+    const onOpenPrintRecovery = vi.fn();
+    render(
+      <DesktopOrderQueueRow
+        order={makeOrder()}
+        checked={false}
+        onOpen={vi.fn()}
+        onCheckedChange={vi.fn()}
+        onPrint={onPrint}
+        canPrint
+        printDisabledReason="请先补齐当前店铺资料后再打印"
+        onOpenPrintRecovery={onOpenPrintRecovery}
+        onStopInteraction={(event) => event.stopPropagation()}
+        suppliers={[]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "更多工单操作" }));
+    expect(await screen.findByRole("menuitem", { name: "打印" })).toHaveAttribute(
+      "title",
+      "请先补齐当前店铺资料后再打印",
+    );
+    await user.click(screen.getByRole("menuitem", { name: "查看打印设置" }));
+
+    expect(onPrint).not.toHaveBeenCalled();
+    expect(onOpenPrintRecovery).toHaveBeenCalledOnce();
+  });
 });
 
 describe("desktop order customer identity", () => {

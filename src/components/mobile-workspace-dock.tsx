@@ -28,10 +28,8 @@ import { runRepairDeskShellAction } from "@/shared/lib/shell-actions";
 import { cn } from "@/lib/utils";
 import { useNavigationGuard } from "@/components/navigation-guard-provider";
 import { useAiAssistantWorkspace } from "@/features/ai-assistant";
-import {
-  buildNewOrderHref,
-  createNewOrderSessionId,
-} from "@/features/orders/model/new-order-intent";
+import { createNewOrderSessionId } from "@/features/orders/model/new-order-intent";
+import { buildNewOrderWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
 
 interface MobileWorkspaceDockProps {
   onOpenCommand: () => void;
@@ -76,8 +74,11 @@ function MobileWorkspaceDockContent({
       pathname,
       push: (href) => {
         const target =
-          href === "/orders/new"
-            ? buildNewOrderHref({ source: "mobile", sessionId: createNewOrderSessionId() })
+          action.id === "new-order"
+            ? buildNewOrderWorkspaceHref({
+                source: "mobile",
+                sessionId: createNewOrderSessionId(),
+              })
             : href;
         return runGuardedTransition({
           kind: "route",

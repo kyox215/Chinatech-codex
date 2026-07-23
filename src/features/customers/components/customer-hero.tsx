@@ -12,6 +12,7 @@ import { brandGradientStyle, controls, pageHeader, repairOs } from "@/lib/ui-pat
 import type { CustomerDetail } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
 import { uniqueContactPhones } from "@/shared/lib/phone";
+import { buildNewOrderWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
 
 export function CustomerHero({
   data,
@@ -71,7 +72,12 @@ export function CustomerHero({
             className={cn("h-8 gap-1.5 sm:h-9", controls.brandButton)}
             style={brandGradientStyle}
           >
-            <Link href={`/orders/new?customerId=${customer.id}`}>
+            <Link
+              href={buildNewOrderWorkspaceHref({
+                source: "customer",
+                customerId: customer.id,
+              })}
+            >
               <Wrench className="size-4" /> 新建工单
             </Link>
           </Button>

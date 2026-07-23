@@ -15,6 +15,7 @@ export interface StoreShellContextSnapshot {
   displayName?: string;
   activeStore?: ActorStoreMembership;
   permissions?: StoreContext["permissions"];
+  customerStatusQrEnabled?: boolean;
   authorityFingerprint: string;
   stores: ActorStoreMembership[];
   recoveryStores?: ActorStoreMembership[];
@@ -93,6 +94,7 @@ export function resolveStoreShellContext({
     displayName: onboardingStatus?.displayName,
     activeStore,
     permissions: authorityLost ? undefined : storeContext?.permissions,
+    customerStatusQrEnabled: authorityLost ? undefined : storeContext?.customerStatusQrEnabled,
     authorityFingerprint,
     stores,
     recoveryStores,
