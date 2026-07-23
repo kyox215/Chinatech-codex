@@ -17,7 +17,7 @@ async function expectNoPageOverflow(page: Page) {
 
 test("uses full RepairOS skeletons instead of route loading text", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.route("**/api/repairdesk/orders/list-page", async (route) => {
+  await page.route("**/api/repairdesk/orders/queue-summary", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 700));
     await route.continue();
   });
@@ -31,7 +31,7 @@ test("uses full RepairOS skeletons instead of route loading text", async ({ page
   });
   await expect(page.locator('[data-order-mobile-list="true"]')).toBeVisible();
 
-  await page.unroute("**/api/repairdesk/orders/list-page");
+  await page.unroute("**/api/repairdesk/orders/queue-summary");
   await page.route("**/api/repairdesk/customers/list-page", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 700));
     await route.continue();
@@ -65,7 +65,7 @@ test("keeps a real back action in the cold mobile detail frame", async ({ page }
   await expect(page.locator('[data-mobile-order-page="true"]')).toBeVisible();
 });
 
-test("warms two order details and reuses the first request when the dialog opens", async ({
+test("loads order details on intent and reuses the request when the dialog opens", async ({
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -79,19 +79,18 @@ test("warms two order details and reuses the first request when the dialog opens
   await page.goto("/orders");
   const firstRow = page.locator('[data-order-row="true"]').first();
   await expect(firstRow).toBeVisible();
-  await expect.poll(() => detailRequests.length).toBe(2);
   await page.waitForTimeout(700);
-  expect(detailRequests).toHaveLength(2);
+  expect(detailRequests).toHaveLength(0);
 
   await firstRow.click();
   await expect(page.locator('[data-order-detail-dialog-shell="true"]')).toBeVisible();
   await expect(page.locator('[data-order-detail-root="true"]')).toBeVisible();
   await page.waitForTimeout(400);
-  expect(detailRequests).toHaveLength(2);
+  expect(detailRequests).toHaveLength(1);
   await expectNoPageOverflow(page);
 
   await page.screenshot({
-    path: testInfo.outputPath("desktop-preloaded-order-detail.png"),
+    path: testInfo.outputPath("desktop-intent-loaded-order-detail.png"),
     fullPage: false,
   });
 });
@@ -123,9 +122,7 @@ test("keeps customer rows visible while a filtered result refreshes", async ({
   await expect(page.locator("main tbody tr").first()).toContainText("王");
 });
 
-test("preloads the customer workspace once and reuses it during SPA navigation", async ({
-  page,
-}, testInfo) => {
+test("defers the customer workspace until SPA navigation", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const customerRequests: string[] = [];
   const orderRequests: string[] = [];
@@ -136,7 +133,10 @@ test("preloads the customer workspace once and reuses it during SPA navigation",
     ) {
       customerRequests.push(request.url());
     }
-    if (request.method() === "POST" && request.url().includes("/api/repairdesk/orders/list-page")) {
+    if (
+      request.method() === "POST" &&
+      request.url().includes("/api/repairdesk/orders/queue-summary")
+    ) {
       orderRequests.push(request.url());
     }
   });
@@ -144,7 +144,8 @@ test("preloads the customer workspace once and reuses it during SPA navigation",
   await page.goto("/orders");
   await expect(page.locator('[data-order-desktop-list="true"]')).toBeVisible();
   await expect.poll(() => orderRequests.length).toBe(1);
-  await expect.poll(() => customerRequests.length).toBe(1);
+  await page.waitForTimeout(700);
+  expect(customerRequests).toHaveLength(0);
   await expect(page.locator("[data-realtime-sync-state]:visible")).toHaveCount(1);
 
   const customerLink = page.locator('[data-sidebar="sidebar"] a[href="/customers"]');
@@ -152,11 +153,14 @@ test("preloads the customer workspace once and reuses it during SPA navigation",
   await customerLink.click();
   await expect(page).toHaveURL(/\/customers$/);
   await expect(page.locator("main table")).toBeVisible();
-  await expect.poll(() => customerRequests.length).toBe(1);
+  await expect.poll(() => customerRequests.length).toBeGreaterThanOrEqual(1);
+  const customerRequestsAfterNavigation = customerRequests.length;
+  await page.waitForTimeout(700);
+  expect(customerRequests).toHaveLength(customerRequestsAfterNavigation);
   await expectNoPageOverflow(page);
 
   await page.screenshot({
-    path: testInfo.outputPath("desktop-customer-warm-navigation.png"),
+    path: testInfo.outputPath("desktop-customer-on-demand-navigation.png"),
     clip: { x: 0, y: 0, width: 1440, height: 780 },
   });
 });

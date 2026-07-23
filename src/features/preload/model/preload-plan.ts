@@ -9,7 +9,7 @@ export const repairDeskPreloadTargets = [
 export type RepairDeskPreloadTarget = (typeof repairDeskPreloadTargets)[number];
 
 const ownedTargetsByWorkspaceHome: Record<string, readonly RepairDeskPreloadTarget[]> = {
-  "/orders": ["orders", "workflow", "settings"],
+  "/orders": ["orders", "workflow", "settings", "customers", "inventory"],
   "/customers": ["customers"],
   "/inventory": ["inventory"],
   "/settings": ["settings"],

@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -70,8 +72,7 @@ import {
   OrdersErrorState,
   PaginationBar,
 } from "@/features/orders/components/order-list-states";
-import { OrderDetailScreen } from "@/features/orders/screens/order-detail-screen";
-import { NewOrderScreen } from "@/features/orders/screens/new-order-screen";
+import { OrderDetailSkeleton } from "@/features/orders/components/order-detail-skeleton";
 import { batchTransition, type OrderListFilters, type OrderListItem } from "@/lib/repairdesk/api";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type { OrderListPageInput, OrderListView, OrderQueueGroup } from "@/lib/repairdesk/types";
@@ -106,13 +107,10 @@ import { ordersKeys } from "@/features/orders/api/query-keys";
 import {
   ORDER_QUEUE_PAGE_SIZE,
   orderDetailQueryOptions,
-  orderListPageQueryOptions,
-  orderOptionsQueryOptions,
-  orderWorkflowQueryOptions,
+  orderQueueSummaryQueryOptions,
 } from "@/features/orders/api/query-options";
 import {
   BoundedPreloadScheduler,
-  getOrderDetailAutomaticPreloadLimit,
   ORDER_DETAIL_PRELOAD_GC_TIME,
 } from "@/features/preload/model/order-detail-preload";
 import { isRepairDeskPreloadEnabled } from "@/features/preload/model/preload-plan";
@@ -127,6 +125,18 @@ import { StoreShellUnavailableState } from "@/features/stores/components/store-s
 import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { cn } from "@/lib/utils";
+
+const LazyNewOrderScreen = lazy(() =>
+  import("@/features/orders/screens/new-order-screen").then((module) => ({
+    default: module.NewOrderScreen,
+  })),
+);
+
+const LazyOrderDetailScreen = lazy(() =>
+  import("@/features/orders/screens/order-detail-screen").then((module) => ({
+    default: module.OrderDetailScreen,
+  })),
+);
 
 const emptyOrderOptions = {
   suppliers: [],
@@ -329,7 +339,7 @@ export function OrderListScreen() {
   const queueRequestHash = useMemo(() => orderListRequestHash(queueInput), [queueInput]);
 
   const {
-    data: listResult,
+    data: queueSummary,
     isPending: listIsPending,
     isFetching,
     isPlaceholderData,
@@ -337,18 +347,15 @@ export function OrderListScreen() {
     error: listError,
     refetch: refetchOrders,
   } = useQuery({
-    ...orderListPageQueryOptions(queueInput, activeStoreId),
+    ...orderQueueSummaryQueryOptions(queueInput, activeStoreId),
     enabled: canLoadOrderData,
     placeholderData: keepPreviousData,
   });
-  const { data: workflow, isError: workflowIsError } = useQuery({
-    ...orderWorkflowQueryOptions(activeStoreId),
-    enabled: canLoadOrderData,
-  });
-  const { data: orderOptions, isError: optionsIsError } = useQuery({
-    ...orderOptionsQueryOptions(activeStoreId),
-    enabled: canLoadOrderData,
-  });
+  const listResult = queueSummary?.list;
+  const workflow = queueSummary?.workflow;
+  const orderOptions = queueSummary?.options;
+  const workflowIsError = Boolean(queueSummary?.partialErrors?.workflow);
+  const optionsIsError = Boolean(queueSummary?.partialErrors?.options);
   const storeSettingsQuery = useQuery({
     ...storeSettingsQueryOptions(activeStoreId),
     enabled: canLoadOrderData,
@@ -739,21 +746,6 @@ export function OrderListScreen() {
   useEffect(() => {
     return () => detailPreloadScheduler.clear();
   }, [detailPreloadScheduler]);
-
-  useEffect(() => {
-    if (!data.length || isPlaceholderData || typeof navigator === "undefined") return;
-    const connection = (
-      navigator as Navigator & {
-        connection?: { effectiveType?: string; saveData?: boolean };
-      }
-    ).connection;
-    const limit = getOrderDetailAutomaticPreloadLimit({
-      online: navigator.onLine,
-      effectiveType: connection?.effectiveType,
-      saveData: connection?.saveData,
-    });
-    data.slice(0, limit).forEach((order) => scheduleOrderDetailPrefetch(order.id, "background"));
-  }, [data, isPlaceholderData, scheduleOrderDetailPrefetch]);
 
   const invalidate = (orderId?: string) => {
     invalidateOrderReadCaches(queryClient, orderId);
@@ -1781,12 +1773,23 @@ export function OrderListScreen() {
             <DialogTitle>新建维修工单</DialogTitle>
             <DialogDescription>在弹窗中填写客户、设备、故障与报价信息。</DialogDescription>
           </DialogHeader>
-          <NewOrderScreen
-            key={newOrderSessionKey}
-            surface="dialog"
-            onCancel={() => setNewOrderOpen(false)}
-            onCreated={handleNewOrderCreated}
-          />
+          {newOrderOpen ? (
+            <Suspense
+              fallback={
+                <div className="flex h-full min-h-[20rem] items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+                  <span role="status">正在准备新建工单</span>
+                </div>
+              }
+            >
+              <LazyNewOrderScreen
+                key={newOrderSessionKey}
+                surface="dialog"
+                onCancel={() => setNewOrderOpen(false)}
+                onCreated={handleNewOrderCreated}
+              />
+            </Suspense>
+          ) : null}
         </DialogContent>
       </Dialog>
       <Dialog
@@ -1803,11 +1806,17 @@ export function OrderListScreen() {
             <DialogDescription>在弹窗中查看和处理当前工单详情。</DialogDescription>
           </DialogHeader>
           {detailOrderId && (
-            <OrderDetailScreen
-              id={detailOrderId}
-              surface="dialog"
-              onClose={() => setDetailOrderId(null)}
-            />
+            <Suspense
+              fallback={
+                <OrderDetailSkeleton surface="dialog" onClose={() => setDetailOrderId(null)} />
+              }
+            >
+              <LazyOrderDetailScreen
+                id={detailOrderId}
+                surface="dialog"
+                onClose={() => setDetailOrderId(null)}
+              />
+            </Suspense>
           )}
         </DialogContent>
       </Dialog>

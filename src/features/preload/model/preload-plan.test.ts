@@ -25,7 +25,8 @@ describe("preload plan", () => {
     expect(isRepairDeskPreloadTargetOwnedByWorkspaceHome("/orders", "orders")).toBe(true);
     expect(isRepairDeskPreloadTargetOwnedByWorkspaceHome("/orders/", "workflow")).toBe(true);
     expect(isRepairDeskPreloadTargetOwnedByWorkspaceHome("/orders", "settings")).toBe(true);
-    expect(isRepairDeskPreloadTargetOwnedByWorkspaceHome("/orders", "customers")).toBe(false);
+    expect(isRepairDeskPreloadTargetOwnedByWorkspaceHome("/orders", "customers")).toBe(true);
+    expect(isRepairDeskPreloadTargetOwnedByWorkspaceHome("/orders", "inventory")).toBe(true);
     expect(isRepairDeskPreloadTargetOwnedByWorkspaceHome("/orders/order-1", "orders")).toBe(false);
   });
 
