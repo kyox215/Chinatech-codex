@@ -53,3 +53,10 @@
 - **Evidence:**
   - npm run agents:check; npm run lint; npm run typecheck; npm run test -- --reporter=dot; npm run build; Playwright dashboard/workspace/create navigation; Chromium/WebKit print-safari-reliability; git diff --check
 - **Recorded by:** IntegrationLead
+## 2026-07-23T22:02:56Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** Shell bootstrap、首屏预加载收敛、打印权限与准备度诊断、概览共享接单弹窗和全站工单工作区入口已完成集成验证，业务提交 274dc50f 已推送 main，Vercel 生产部署 dpl_Gx8EapZ7xGaF6QmewhU3R9YSutYW Ready，生产登录边界与共享弹窗冒烟通过。
+- **Residual risks:** Safari 原生系统打印预览与门店 HP 实体纸张仍需实机验收；由 TASK-007 跟踪，不影响已验证的权限、准备度和自动化打印路径。
+- **Follow-up:** 继续 TASK-007 的只读打印审计与 Safari/HP 实机验收；若发现裁切或二维码实扫失败，另立最小修复并沿用 STARTUP_PERFORMANCE_AND_PRINT_READINESS_DECLARATION.md 的发布门禁。
+- **Closed by:** IntegrationLead

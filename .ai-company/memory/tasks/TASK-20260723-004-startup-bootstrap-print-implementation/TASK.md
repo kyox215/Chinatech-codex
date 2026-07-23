@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260723-004-startup-bootstrap-print-implementation"
 title: "启动性能方案B与打印可用性实施"
-status: "conditional"
+status: "closed"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["API", "DOC", "FE", "QA", "SEC"]
 created_at: "2026-07-23T20:11:40Z"
-updated_at: "2026-07-23T21:52:52Z"
+updated_at: "2026-07-23T22:02:56Z"
+closed_at: "2026-07-23T22:02:56Z"
 ---
 # Task — 启动性能方案B与打印可用性实施
 
