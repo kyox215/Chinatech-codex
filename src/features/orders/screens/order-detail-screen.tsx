@@ -31,6 +31,7 @@ import {
   Plus,
   Printer,
   ReceiptText,
+  RefreshCw,
   Save,
   ScanLine,
   Send,
@@ -38,6 +39,7 @@ import {
   Store,
   TabletSmartphone,
   Trash2,
+  TriangleAlert,
   UserRound,
   WalletCards,
   X,
@@ -140,6 +142,7 @@ import {
   executeOrderEditSavePlan,
   OrderEditSaveExecutionError,
 } from "@/features/orders/model/order-edit-save";
+import { hasOrderEditRemoteConflict } from "@/features/orders/model/order-edit-conflict";
 import { OrderPhotoPreviewDialog } from "@/features/orders/components/order-photo-preview-dialog";
 import { OrderTerminalActions } from "@/features/orders/components/order-terminal-actions";
 import { OrderInternalCostCard } from "@/features/orders/components/order-internal-cost-card";
@@ -850,15 +853,30 @@ export function OrderDetailScreen({
   const editFinanceChanged = Boolean(
     editSavePlan?.financeChange || editSavePlanState.error || invalidFinanceDraftChanged,
   );
+  const hasLocalEditChanges = Boolean(editSavePlan?.steps.length || editFinanceChanged);
+  const editServerVersionChanged = Boolean(
+    isEditing &&
+    editBaseline?.expected_updated_at &&
+    data?.order.updated_at &&
+    editBaseline.expected_updated_at !== data.order.updated_at,
+  );
+  const remoteEditConflict = hasOrderEditRemoteConflict({
+    baselineUpdatedAt: editBaseline?.expected_updated_at,
+    currentUpdatedAt: data?.order.updated_at,
+    hasLocalChanges: hasLocalEditChanges,
+    isEditing,
+  });
   const editValidationError = useMemo(
     () =>
-      editSavePlanState.error ??
-      getEditValidationError(editDraft, {
-        routineChanges: editSavePlan?.routineChanges ?? {},
-        financeChanged: editFinanceChanged,
-        financeError: editFinance?.error,
-        defaultWarrantyMonths,
-      }),
+      remoteEditConflict
+        ? "这张工单已在另一台设备更新，请先载入最新版本再保存。"
+        : (editSavePlanState.error ??
+          getEditValidationError(editDraft, {
+            routineChanges: editSavePlan?.routineChanges ?? {},
+            financeChanged: editFinanceChanged,
+            financeError: editFinance?.error,
+            defaultWarrantyMonths,
+          })),
     [
       defaultWarrantyMonths,
       editDraft,
@@ -866,6 +884,7 @@ export function OrderDetailScreen({
       editFinanceChanged,
       editSavePlan?.routineChanges,
       editSavePlanState.error,
+      remoteEditConflict,
     ],
   );
   const editCanSave = Boolean(
@@ -907,6 +926,35 @@ export function OrderDetailScreen({
       setFinanceDraft(createFinanceDraftState(draft.fault_prices, draft.deposit_amount ?? 0));
     }
   }, [data, defaultWarrantyMonths, discardCurrentEditOfflineDraft]);
+
+  const loadLatestEditVersion = useCallback(async () => {
+    if (!data) return;
+    await discardCurrentEditOfflineDraft();
+    const latestDraft = buildEditForm(data, defaultWarrantyMonths);
+    setEditBaseline(latestDraft);
+    setEditDraft(latestDraft);
+    setFinanceDraft(
+      createFinanceDraftState(latestDraft.fault_prices, latestDraft.deposit_amount ?? 0),
+    );
+    toast.success("已载入服务器最新版本");
+  }, [data, defaultWarrantyMonths, discardCurrentEditOfflineDraft]);
+
+  useEffect(() => {
+    if (!data || !editServerVersionChanged || hasLocalEditChanges) return;
+    void discardCurrentEditOfflineDraft();
+    const latestDraft = buildEditForm(data, defaultWarrantyMonths);
+    setEditBaseline(latestDraft);
+    setEditDraft(latestDraft);
+    setFinanceDraft(
+      createFinanceDraftState(latestDraft.fault_prices, latestDraft.deposit_amount ?? 0),
+    );
+  }, [
+    data,
+    defaultWarrantyMonths,
+    discardCurrentEditOfflineDraft,
+    editServerVersionChanged,
+    hasLocalEditChanges,
+  ]);
 
   const showDesktopRecords = useCallback(() => {
     setDesktopDetailView("records");
@@ -1495,6 +1543,33 @@ export function OrderDetailScreen({
               onRestore={() => void restoreEditOfflineDraft()}
               onDiscard={() => void discardEditOfflinePrompt()}
             />
+            {remoteEditConflict ? (
+              <section
+                role="alert"
+                data-order-edit-remote-conflict="true"
+                className="flex min-w-0 flex-col gap-2 rounded-[var(--radius-lg)] border border-status-warn-foreground/30 bg-status-warn/20 px-3 py-2.5 text-status-warn-foreground sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex min-w-0 items-start gap-2">
+                  <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold">另一台设备已更新这张工单</div>
+                    <p className="mt-0.5 text-[11px] leading-4 opacity-80">
+                      为避免覆盖，当前保存已暂停。载入最新版本会替换本页尚未保存的修改。
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 shrink-0 border-status-warn-foreground/30 bg-background px-2.5 text-xs text-status-warn-foreground hover:bg-status-warn/15"
+                  onClick={() => void loadLatestEditVersion()}
+                >
+                  <RefreshCw className="mr-1 size-3.5" aria-hidden="true" />
+                  载入最新版本
+                </Button>
+              </section>
+            ) : null}
             {surface !== "dialog" && canOpenDiagnosisQuote ? (
               <section className="flex min-w-0 items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-primary/20 bg-primary/5 px-3 py-2">
                 <div className="min-w-0">

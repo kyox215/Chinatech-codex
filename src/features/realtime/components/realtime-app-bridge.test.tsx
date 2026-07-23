@@ -7,7 +7,11 @@ import type { RepairDeskRealtimeChannel, RepairDeskRealtimeClient } from "../api
 import type { StoreShellContextSnapshot } from "@/features/stores/model/store-shell-context";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 
-import { RealtimeAppBridge } from "./realtime-app-bridge";
+import { RealtimeAppBridge, getRepairDeskForegroundReconcileDomains } from "./realtime-app-bridge";
+
+vi.mock("next/navigation", () => ({
+  usePathname: vi.fn(() => "/orders"),
+}));
 
 vi.mock("@/features/stores/api/use-store-shell-context", () => ({
   useStoreShellContext: vi.fn(),
@@ -109,6 +113,13 @@ describe("RealtimeAppBridge", () => {
 
     await waitFor(() => expect(onMount).toHaveBeenCalledTimes(2));
     expect(onUnmount).toHaveBeenCalledOnce();
+  });
+
+  it("limits the 30-second foreground reconcile to order routes", () => {
+    expect(getRepairDeskForegroundReconcileDomains("/orders")).toEqual(["orders"]);
+    expect(getRepairDeskForegroundReconcileDomains("/orders/order-id")).toEqual(["orders"]);
+    expect(getRepairDeskForegroundReconcileDomains("/customers")).toEqual([]);
+    expect(getRepairDeskForegroundReconcileDomains(null)).toEqual([]);
   });
 });
 

@@ -28,6 +28,8 @@ Use these rules when generating or editing pages in this repository.
 - Keep `src/app/*` thin: route files should import `features/*/screens` and avoid business logic.
 - Put new order/customer business UI under `src/features/*`, shared pure helpers under `src/shared/lib`, and cross-feature entity rules under `src/entities/*`.
 - Read `docs/ARCHITECTURE.md` before large feature work or refactors.
+- Read `docs/REALTIME_DATA_CONSISTENCY_DECLARATION.md` before adding or changing business mutations,
+  React Query cache keys, cross-device synchronization, or store-scoped realtime behavior.
 - Read `docs/RESPONSIVE_DENSITY_PLAN.md` before changing layouts, tables, dialogs, lists, or mobile behavior.
 - Mobile detail/task/workflow pages must follow RepairOS Floating Card language from `docs/REPAIROS_COMPACT_ARCHITECTURE.md`: use `repairOs.mobileFloatingPage`, `repairOs.mobileFloatingHeader*`, and `repairOs.mobileInfoCard` instead of hand-written fixed top bars or full-width divider headers.
 - Read `docs/REPAIROS_MOBILE_DETAIL_STANDARD.md` before creating or changing mobile detail, task, quote, capture, payment, or workflow pages. The current mobile order detail page is the visual source of truth for typography, card density, color emphasis, finance editing, scan/photo entry, history, and bottom actions.

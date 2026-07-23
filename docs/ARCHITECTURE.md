@@ -68,8 +68,14 @@ src/
   an active store is available.
 - Realtime invalidation always wins over an older preload result; manual refresh and optimistic
   rollback use the same coordinator.
+- Private metadata-only Broadcast is the fast path. A server-owned store/domain revision sentinel is
+  the durable consistency path: visible order routes read only that small version every 30 seconds
+  and refresh business queries only when it changes.
+- Order writes and order child-table writes bump the revision in the same database transaction.
+  Version-locked edits remain fail-closed and show a proactive conflict before saving.
 - See `docs/REALTIME_PRELOAD_COORDINATION.md` for the conflict matrix, flags, security boundary, and
   production activation gate.
+- `docs/REALTIME_DATA_CONSISTENCY_DECLARATION.md` is the normative contract for future features.
 
 ### AI Assistant Cost Governance
 

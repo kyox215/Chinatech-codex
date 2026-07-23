@@ -8,6 +8,7 @@ Last reviewed: 2026-06-19 CEST by `TASK-20260619-021`
 > 目标：后续新增页面、重构页面、让 AI 生成页面时，必须复用同一套布局、组件、数据和交互契约，避免页面风格漂移。
 >
 > 可执行页面声明在 `src/lib/ui-patterns.ts`；组件生成声明见 [`COMPONENT_GENERATION_DECLARATION.md`](./COMPONENT_GENERATION_DECLARATION.md)；视觉令牌唯一来源在 `src/styles.css`；业务组件优先复用 `src/components/*`。
+> 涉及业务查询、写入或跨设备刷新时，还必须遵守 [`REALTIME_DATA_CONSISTENCY_DECLARATION.md`](./REALTIME_DATA_CONSISTENCY_DECLARATION.md)。
 
 ## 1. 当前 UI 架构分析
 

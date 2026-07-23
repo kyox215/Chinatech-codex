@@ -36,7 +36,7 @@ import { handleRepairDeskPost } from "./repairdesk-router";
 describe("order custody route", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("writes a redacted audit record and invalidates order/customer readers", async () => {
+  it("writes a redacted audit record and leaves order broadcasts to the database trigger", async () => {
     const requestActor = actor("owner");
     const input = validInput();
     const response = await handleRepairDeskPost(
@@ -61,14 +61,7 @@ describe("order custody route", () => {
         },
       }),
     );
-    expect(mocks.queueRealtime).toHaveBeenCalledWith(
-      expect.objectContaining({
-        storeId: "store_1",
-        domain: "orders",
-        mutation: "updated",
-        queryGroups: ["orders.all", "customers.all"],
-      }),
-    );
+    expect(mocks.queueRealtime).not.toHaveBeenCalled();
   });
 
   it("rejects viewers and technicians without active order scope before mutation", async () => {

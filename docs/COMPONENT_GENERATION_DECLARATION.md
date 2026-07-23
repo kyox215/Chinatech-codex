@@ -8,6 +8,7 @@ Last reviewed: 2026-07-12 CEST by `TASK-20260712-002-mobile-interaction-click-re
 > 本声明专门约束“新增可复用组件如何设计、生成、命名、落盘、验收”。
 >
 > 页面级规则见 [`UI_PAGE_GENERATION_DECLARATION.md`](./UI_PAGE_GENERATION_DECLARATION.md)。组件级可执行 class 声明见 `src/lib/component-patterns.ts`。
+> 会读取或修改业务数据的容器组件还必须遵守 [`REALTIME_DATA_CONSISTENCY_DECLARATION.md`](./REALTIME_DATA_CONSISTENCY_DECLARATION.md)。
 
 ## 1. 组件生成目标
 

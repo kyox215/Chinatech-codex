@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -7,13 +7,17 @@ import type {
   RepairDeskRealtimeClient,
 } from "@/features/realtime/api/realtime-client";
 
-import { RealtimeSyncProvider } from "./realtime-sync-provider";
+import {
+  REPAIRDESK_FOREGROUND_RECONCILE_INTERVAL_MS,
+  RealtimeSyncProvider,
+} from "./realtime-sync-provider";
 import { useRealtimeSync } from "./realtime-sync-context";
 
 const storeId = "5248dda1-2b32-46cd-8ed0-d15386a9e8ed";
 const otherStoreId = "d0693ca5-cb0f-4506-9d1d-40d6ff69e779";
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -157,24 +161,175 @@ describe("RealtimeSyncProvider", () => {
       ),
     );
   });
+
+  it("refreshes the visible order workspace only when the 30-second revision changes", async () => {
+    vi.useFakeTimers();
+    const client = createMockRealtimeClient();
+    const { queryClient, invalidateQueries } = createTestQueryClient();
+    const revisionLoader = vi
+      .fn()
+      .mockResolvedValueOnce({ revisions: { orders: "7" } })
+      .mockResolvedValueOnce({ revisions: { orders: "8" } });
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+
+    renderProvider({
+      client,
+      domains: ["orders"],
+      enabled: true,
+      foregroundReconcileDomains: ["orders"],
+      queryClient,
+      revisionCheckEnabled: true,
+      revisionLoader,
+      storeId,
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(revisionLoader).toHaveBeenCalledOnce();
+    expect(invalidateQueries).not.toHaveBeenCalled();
+
+    await act(async () => {
+      vi.advanceTimersByTime(REPAIRDESK_FOREGROUND_RECONCILE_INTERVAL_MS);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+      await Promise.resolve();
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ["orders"], refetchType: "active" }),
+      { cancelRefetch: true },
+    );
+  });
+
+  it("does not refresh business queries when the 30-second revision is unchanged", async () => {
+    vi.useFakeTimers();
+    const client = createMockRealtimeClient();
+    const { queryClient, invalidateQueries } = createTestQueryClient();
+    const revisionLoader = vi.fn().mockResolvedValue({ revisions: { orders: "7" } });
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+
+    renderProvider({
+      client,
+      enabled: true,
+      foregroundReconcileDomains: ["orders"],
+      queryClient,
+      revisionCheckEnabled: true,
+      revisionLoader,
+      storeId,
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      vi.advanceTimersByTime(REPAIRDESK_FOREGROUND_RECONCILE_INTERVAL_MS);
+      await Promise.resolve();
+    });
+
+    expect(revisionLoader).toHaveBeenCalledTimes(2);
+    expect(invalidateQueries).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { visibility: "hidden" as const, online: true, label: "hidden" },
+    { visibility: "visible" as const, online: false, label: "offline" },
+  ])("pauses revision checks while $label", async ({ visibility, online }) => {
+    vi.useFakeTimers();
+    const client = createMockRealtimeClient();
+    const { queryClient } = createTestQueryClient();
+    const revisionLoader = vi.fn().mockResolvedValue({ revisions: { orders: "7" } });
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue(visibility);
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(online);
+
+    renderProvider({
+      client,
+      enabled: true,
+      foregroundReconcileDomains: ["orders"],
+      queryClient,
+      revisionCheckEnabled: true,
+      revisionLoader,
+      storeId,
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(REPAIRDESK_FOREGROUND_RECONCILE_INTERVAL_MS * 2);
+      await Promise.resolve();
+    });
+
+    expect(revisionLoader).not.toHaveBeenCalled();
+  });
+
+  it("aborts an in-flight revision check and clears its interval on unmount", async () => {
+    vi.useFakeTimers();
+    const client = createMockRealtimeClient();
+    const { queryClient, invalidateQueries } = createTestQueryClient();
+    let requestSignal: AbortSignal | undefined;
+    const revisionLoader: NonNullable<RealtimeSyncProviderPropsForTest["revisionLoader"]> = vi.fn(
+      (_domains, options) => {
+        requestSignal = options?.signal;
+        return new Promise<{ revisions: { orders: string } }>(() => undefined);
+      },
+    );
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+
+    const view = renderProvider({
+      client,
+      enabled: true,
+      foregroundReconcileDomains: ["orders"],
+      queryClient,
+      revisionCheckEnabled: true,
+      revisionLoader,
+      storeId,
+    });
+    await act(async () => Promise.resolve());
+
+    expect(requestSignal?.aborted).toBe(false);
+    view.unmount();
+    expect(requestSignal?.aborted).toBe(true);
+
+    await act(async () => {
+      vi.advanceTimersByTime(REPAIRDESK_FOREGROUND_RECONCILE_INTERVAL_MS * 2);
+      await Promise.resolve();
+    });
+    expect(revisionLoader).toHaveBeenCalledOnce();
+    expect(invalidateQueries).not.toHaveBeenCalled();
+  });
 });
 
 function renderProvider({
   client,
   domains,
   enabled,
+  foregroundReconcileDomains,
   queryClient,
+  revisionCheckEnabled,
+  revisionLoader,
   storeId,
 }: {
   client: RepairDeskRealtimeClient;
   domains?: RealtimeSyncProviderPropsForTest["domains"];
   enabled: boolean;
+  foregroundReconcileDomains?: RealtimeSyncProviderPropsForTest["foregroundReconcileDomains"];
   queryClient: QueryClient;
+  revisionCheckEnabled?: RealtimeSyncProviderPropsForTest["revisionCheckEnabled"];
+  revisionLoader?: RealtimeSyncProviderPropsForTest["revisionLoader"];
   storeId: string | null;
 }) {
   return render(
     <QueryClientProvider client={queryClient}>
-      <RealtimeSyncProvider client={client} domains={domains} enabled={enabled} storeId={storeId}>
+      <RealtimeSyncProvider
+        client={client}
+        domains={domains}
+        enabled={enabled}
+        foregroundReconcileDomains={foregroundReconcileDomains}
+        revisionCheckEnabled={revisionCheckEnabled}
+        revisionLoader={revisionLoader}
+        storeId={storeId}
+      >
         <div data-testid="child" />
         <SyncStateProbe />
       </RealtimeSyncProvider>

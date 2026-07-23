@@ -1,4 +1,5 @@
 import type { RepairOrderStatus } from "@/lib/mock/enums";
+import type { RepairDeskRealtimeDomain } from "@/features/realtime/model/realtime-events";
 import type {
   AiAssistantCapabilities,
   AiAssistantRequest,
@@ -1043,6 +1044,13 @@ export async function listOrders(
   options?: RepairDeskRequestOptions,
 ): Promise<OrderListItem[]> {
   return postJson<OrderListItem[]>("orders/list", filters, options);
+}
+
+export async function getRepairDeskDomainRevisions(
+  domains: readonly RepairDeskRealtimeDomain[],
+  options?: RepairDeskRequestOptions,
+): Promise<{ revisions: Partial<Record<RepairDeskRealtimeDomain, string>> }> {
+  return postJson("realtime/revisions", { domains }, options);
 }
 
 export async function listOrdersPage(

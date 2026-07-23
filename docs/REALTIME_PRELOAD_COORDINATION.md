@@ -1,6 +1,6 @@
 # Realtime And Preload Coordination
 
-Status: implemented in application code; production Realtime activation remains approval-gated.
+Status: implemented; the Owner approved a simultaneous all-store production release on 2026-07-23.
 
 ## Runtime Model
 
@@ -22,6 +22,7 @@ All business data remains in the in-memory TanStack Query cache.
 | Manual refresh during preload             | Route through the coordinator, cancel stale work, and immediately refetch active queries.            |
 | Realtime event during optimistic mutation | Hold the active refetch until mutation settlement; never restore a snapshot whose epoch is old.      |
 | Reconnect or long background resume       | Mark affected domains stale and run one catch-up refresh.                                            |
+| Visible order workspace every 30 seconds  | Read only the store/domain revision; refresh order queries only when the version changed.             |
 | Store switch or sign-out                  | Cancel old requests before cache removal; clear event/epoch state and ignore old-store events.       |
 
 ## Preload Policy
@@ -69,16 +70,23 @@ the desktop app bar and mobile order header. `SUBSCRIBED` after an error trigger
 state becomes `synced` and then `live`.
 
 Application code remains default-off unless `NEXT_PUBLIC_REPAIRDESK_REALTIME_ENABLED=1`; server
-broadcast remains default-off unless `REPAIRDESK_REALTIME_BROADCAST_ENABLED=1`. Enabling these in
-production still requires the approved private-channel authorization migration, Dashboard
-private-only verification, and the project Database Application Gate. A `main` code push alone does
-not authorize or activate those production changes.
+broadcast remains default-off unless `REPAIRDESK_REALTIME_BROADCAST_ENABLED=1`. The independent
+`NEXT_PUBLIC_REPAIRDESK_REVISION_CHECK_ENABLED=1` switch enables a visible-and-online 30-second
+version comparison on order routes. The comparison transfers only store-scoped domain/version
+metadata and does not refetch business data when unchanged.
+
+The 2026-07-23 release is approved for simultaneous activation across all stores. Production still
+requires the private-channel authorization migration, Dashboard private-only verification, linked
+database dry-run, tests, and a GO decision immediately before the flags are enabled. Global rollback
+sets the three switches to `0`; private-channel RLS hardening remains in place.
 
 ## Verification
 
 - Coordinator tests cover stale preload rejection, burst coalescing, store isolation, and optimistic
   rollback protection.
 - Provider tests cover auth-before-subscribe and reconnect catch-up state transitions.
+- Provider tests independently cover visible/hidden/offline 30-second checks, unchanged revisions,
+  changed revisions, and cleanup.
 - App-bridge tests cover stable first authority hydration and later permission-change remounts.
 - Tenant tests cover cancellation before old-store cache removal.
 - Detail scheduler tests cover priority, deduplication, cancellation, network limits, and single-request

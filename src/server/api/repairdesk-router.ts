@@ -257,6 +257,11 @@ import {
   queueRepairDeskRealtimeBroadcast,
   type RepairDeskRealtimeMutationBroadcast,
 } from "@/features/realtime/server/realtime-broadcast";
+import { getRepairDeskDomainRevisions } from "@/features/realtime/server/domain-revision.repository";
+import {
+  repairDeskRealtimeDomains,
+  type RepairDeskRealtimeDomain,
+} from "@/features/realtime/model/realtime-events";
 import { getStoreSettingsValidationFieldErrors } from "@/features/settings/model/store-settings-update-contract";
 import {
   SETTINGS_ERROR_CODES,
@@ -456,6 +461,7 @@ const supabaseSource = {
   getOrderCreateOperationStatus,
   getOrderStats,
   getRepairDeskOptions,
+  getRepairDeskDomainRevisions,
   getStoreContext,
   getStoreSettings,
   getAiAssistantUsageSummary,
@@ -709,6 +715,9 @@ async function source() {
   };
   return {
     ...mock,
+    getRepairDeskDomainRevisions: async (domains: readonly RepairDeskRealtimeDomain[]) => ({
+      revisions: Object.fromEntries(domains.map((domain) => [domain, "0"])),
+    }),
     getAiAssistantUsageSummary: async () => getMockAiAssistantUsageSummary(),
     exportCostReport: async (input: CostExportInput, actor: AuditActor) =>
       exportCostReport(input, actor, async () => ({
@@ -1700,6 +1709,19 @@ export async function handleRepairDeskPost(
       case "orders/list":
         assertOrderListPermission(actor);
         return ok(await api.listOrders(orderListFiltersSchema.parse(body), actor));
+      case "realtime/revisions": {
+        const { domains } = z
+          .object({
+            domains: z.array(z.enum(repairDeskRealtimeDomains)).min(1).max(4),
+          })
+          .strict()
+          .parse(body);
+        if (domains.some((domain) => domain !== "orders")) {
+          throw new ForbiddenError("当前同步版本接口仅开放订单域");
+        }
+        assertOrderListPermission(actor);
+        return ok(await api.getRepairDeskDomainRevisions(domains, actor));
+      }
       case "orders/list-page":
         assertOrderListPermission(actor);
         return ok(await api.listOrdersPage(orderListPageInputSchema.parse(body), actor));
@@ -3243,6 +3265,9 @@ function queueRealtimeBroadcast(
   realtime?: RepairDeskRealtimeMutationBroadcast,
 ) {
   if (!realtime || !actor.storeId) return;
+  // Order-domain invalidations are emitted transactionally by the database trigger.
+  // Keeping a second app-server sender would create distinct duplicate events.
+  if (realtime.domain === "orders") return;
   queueRepairDeskRealtimeBroadcast({ storeId: actor.storeId, ...realtime });
 }
 

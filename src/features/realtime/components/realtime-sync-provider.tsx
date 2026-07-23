@@ -12,7 +12,9 @@ import type {
   RepairDeskRealtimeDomain,
   RepairDeskRealtimeEvent,
 } from "@/features/realtime/model/realtime-events";
+import { repairDeskRealtimeDomains } from "@/features/realtime/model/realtime-events";
 import { QueryFreshnessCoordinator } from "@/features/realtime/model/query-freshness-coordinator";
+import { getRepairDeskDomainRevisions } from "@/lib/repairdesk/api";
 
 import type { RepairDeskRealtimeClient } from "../api/realtime-client";
 import { useRepairDeskRealtime } from "../api/use-repairdesk-realtime";
@@ -23,21 +25,38 @@ export type RealtimeSyncProviderProps = {
   client?: RepairDeskRealtimeClient;
   domains?: readonly RepairDeskRealtimeDomain[];
   enabled?: boolean;
+  foregroundReconcileDomains?: readonly RepairDeskRealtimeDomain[];
+  revisionCheckEnabled?: boolean;
+  revisionLoader?: typeof getRepairDeskDomainRevisions;
   storeId?: string | null;
 };
+
+export const REPAIRDESK_FOREGROUND_RECONCILE_INTERVAL_MS = 30_000;
 
 export function RealtimeSyncProvider({
   children = null,
   client,
   domains,
   enabled,
+  foregroundReconcileDomains,
+  revisionCheckEnabled = false,
+  revisionLoader = getRepairDeskDomainRevisions,
   storeId,
 }: RealtimeSyncProviderProps) {
   const queryClient = useQueryClient();
   const resolvedEnabled = enabled ?? isRepairDeskRealtimeEnabled();
   const domainList = useMemo(() => getRepairDeskRealtimeDomains(domains), [domains]);
   const expectedDomainsKey = domainList.join("|");
+  const foregroundReconcileDomainsKey = (foregroundReconcileDomains ?? []).join("|");
+  const foregroundReconcileDomainList = useMemo(
+    () =>
+      repairDeskRealtimeDomains.filter((domain) => foregroundReconcileDomains?.includes(domain)),
+    // The joined key keeps this list stable when callers recreate an equivalent array.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [foregroundReconcileDomainsKey],
+  );
   const statusByDomainRef = useRef(new Map<RepairDeskRealtimeDomain, RepairDeskRealtimeStatus>());
+  const foregroundRevisionRef = useRef(new Map<RepairDeskRealtimeDomain, string>());
   const hiddenAtRef = useRef<number | null>(null);
   const recoveryPendingRef = useRef(false);
   const syncedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -119,11 +138,12 @@ export function RealtimeSyncProvider({
 
   useEffect(() => {
     coordinator.setStore(storeId);
+    foregroundRevisionRef.current.clear();
     statusByDomainRef.current.clear();
     recoveryPendingRef.current = false;
     if (!resolvedEnabled || !storeId) setConnectionState("disabled");
     else setConnectionState("connecting");
-  }, [coordinator, expectedDomainsKey, resolvedEnabled, storeId]);
+  }, [coordinator, expectedDomainsKey, foregroundReconcileDomainsKey, resolvedEnabled, storeId]);
 
   useEffect(() => {
     const handleOffline = () => {
@@ -155,6 +175,60 @@ export function RealtimeSyncProvider({
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [coordinator, domainList, resolvedEnabled, startRecovery, storeId]);
+
+  useEffect(() => {
+    if (!revisionCheckEnabled || !storeId || foregroundReconcileDomainList.length === 0) return;
+
+    let disposed = false;
+    let inFlight = false;
+    let abortController: AbortController | null = null;
+    const reconcileVisibleDomains = async () => {
+      if (disposed || inFlight || document.visibilityState !== "visible" || !navigator.onLine) {
+        return;
+      }
+      inFlight = true;
+      abortController = new AbortController();
+      try {
+        const { revisions } = await revisionLoader(foregroundReconcileDomainList, {
+          signal: abortController.signal,
+          timeoutMs: 10_000,
+        });
+        if (disposed) return;
+        foregroundReconcileDomainList.forEach((domain) => {
+          const nextRevision = revisions[domain];
+          if (nextRevision === undefined) return;
+          const previousRevision = foregroundRevisionRef.current.get(domain);
+          foregroundRevisionRef.current.set(domain, nextRevision);
+          if (previousRevision !== undefined && previousRevision !== nextRevision) {
+            coordinator.markDomainDirty(domain);
+          }
+        });
+      } catch {
+        // Realtime remains the primary path. A later lightweight check retries automatically.
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    void reconcileVisibleDomains();
+    const intervalId = window.setInterval(
+      () => void reconcileVisibleDomains(),
+      REPAIRDESK_FOREGROUND_RECONCILE_INTERVAL_MS,
+    );
+
+    return () => {
+      disposed = true;
+      abortController?.abort();
+      window.clearInterval(intervalId);
+    };
+  }, [
+    coordinator,
+    foregroundReconcileDomainList,
+    foregroundReconcileDomainsKey,
+    revisionCheckEnabled,
+    revisionLoader,
+    storeId,
+  ]);
 
   useEffect(
     () => () => {

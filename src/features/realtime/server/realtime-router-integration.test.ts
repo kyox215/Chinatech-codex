@@ -92,7 +92,7 @@ describe("repairdesk router realtime integration", () => {
     vi.unstubAllEnvs();
   });
 
-  it("queues realtime metadata only after a successful audited mutation", async () => {
+  it("leaves successful order invalidation to the single database trigger owner", async () => {
     const operationId = "00000000-0000-4000-8000-000000000903";
     const response = await handleRepairDeskPost("orders/create", {
       operation_id: operationId,
@@ -107,12 +107,7 @@ describe("repairdesk router realtime integration", () => {
       expect.objectContaining({ operation_id: operationId }),
       expect.objectContaining({ storeId }),
     );
-    expect(mocks.queueRepairDeskRealtimeBroadcast).toHaveBeenCalledWith({
-      storeId,
-      domain: "orders",
-      mutation: "created",
-      queryGroups: ["orders.all", "customers.all"],
-    });
+    expect(mocks.queueRepairDeskRealtimeBroadcast).not.toHaveBeenCalled();
   });
 
   it("does not queue realtime metadata when the mutation fails", async () => {
@@ -127,6 +122,21 @@ describe("repairdesk router realtime integration", () => {
 
     expect(response.status).toBe(400);
     expect(mocks.queueRepairDeskRealtimeBroadcast).not.toHaveBeenCalled();
+  });
+
+  it("serves only the authorized order-domain revision contract", async () => {
+    const orderRevision = await handleRepairDeskPost("realtime/revisions", {
+      domains: ["orders"],
+    });
+    expect(orderRevision.status).toBe(200);
+    await expect(orderRevision.json()).resolves.toEqual({
+      data: { revisions: { orders: "0" } },
+    });
+
+    const unsupportedDomain = await handleRepairDeskPost("realtime/revisions", {
+      domains: ["customers"],
+    });
+    expect(unsupportedDomain.status).toBe(403);
   });
 
   it("does not write duplicate audit or realtime events for an idempotent create replay", async () => {

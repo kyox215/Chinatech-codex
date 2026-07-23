@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 
 import type { RepairDeskRealtimeClient } from "@/features/realtime/api/realtime-client";
 import type { RepairDeskRealtimeDomain } from "@/features/realtime/model/realtime-events";
@@ -13,6 +14,7 @@ export type RealtimeAppBridgeProps = {
   client?: RepairDeskRealtimeClient;
   domains?: readonly RepairDeskRealtimeDomain[];
   enabled?: boolean;
+  revisionCheckEnabled?: boolean;
 };
 
 export function RealtimeAppBridge({
@@ -20,7 +22,9 @@ export function RealtimeAppBridge({
   client,
   domains,
   enabled,
+  revisionCheckEnabled,
 }: RealtimeAppBridgeProps) {
+  const pathname = usePathname();
   const shell = useStoreShellContext({ monitorAuthority: true });
   const storeId = shell.activeStore?.status === "active" ? shell.activeStore.id : null;
   const [authorityBoundaryKey, setAuthorityBoundaryKey] = useState("authority-bootstrap");
@@ -37,8 +41,23 @@ export function RealtimeAppBridge({
   }, [shell.authorityFingerprint, shell.isLoading, shell.isRefreshing]);
 
   return (
-    <RealtimeSyncProvider client={client} domains={domains} enabled={enabled} storeId={storeId}>
+    <RealtimeSyncProvider
+      client={client}
+      domains={domains}
+      enabled={enabled}
+      foregroundReconcileDomains={getRepairDeskForegroundReconcileDomains(pathname)}
+      revisionCheckEnabled={
+        revisionCheckEnabled ?? process.env.NEXT_PUBLIC_REPAIRDESK_REVISION_CHECK_ENABLED === "1"
+      }
+      storeId={storeId}
+    >
       <Fragment key={authorityBoundaryKey}>{children}</Fragment>
     </RealtimeSyncProvider>
   );
+}
+
+export function getRepairDeskForegroundReconcileDomains(
+  pathname?: string | null,
+): readonly RepairDeskRealtimeDomain[] {
+  return pathname === "/orders" || pathname?.startsWith("/orders/") ? ["orders"] : [];
 }
