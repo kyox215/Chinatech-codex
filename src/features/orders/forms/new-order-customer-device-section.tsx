@@ -56,7 +56,7 @@ type NewOrderDeviceSectionProps = NewOrderCustomerDeviceBaseProps & {
 type NewOrderCustomerDeviceSectionProps = NewOrderCustomerSectionProps & NewOrderDeviceSectionProps;
 
 const visualInputClass =
-  "absolute left-0 top-0 h-12 w-[133.333%] origin-top-left scale-75 border-0 bg-transparent px-0 py-0 font-sans text-base leading-[3rem] text-foreground shadow-none placeholder:text-base placeholder:text-muted-foreground/55 focus-visible:ring-0 md:static md:h-8 md:w-full md:scale-100 md:text-[13px] md:leading-8 md:placeholder:text-[13px]";
+  "h-11 w-full border-0 bg-transparent px-0 py-0 font-sans text-base leading-11 text-foreground shadow-none placeholder:text-base placeholder:text-muted-foreground/55 focus-visible:ring-0 sm:h-11 sm:text-base lg:h-8 lg:text-[13px] lg:leading-8 lg:placeholder:text-[13px]";
 
 export function NewOrderCustomerDeviceSection({
   form,
@@ -117,7 +117,7 @@ export function NewOrderCustomerSection({
         name={form.customerName}
         selectedCustomerId={form.customerId}
         inputClassName={visualInputClass}
-        inputContainerClassName="relative h-9 w-full min-w-0 overflow-hidden"
+        inputContainerClassName="relative h-11 w-full min-w-0 overflow-hidden lg:h-9"
         onPhoneChange={(customerPhone) => {
           onClearCustomerContext();
           setForm((current) => ({
@@ -188,7 +188,7 @@ export function NewOrderDeviceInfoSection({
       <OrderWorkspaceSectionHeader
         icon={Smartphone}
         title="设备信息"
-        description="先确认设备是否留店，再录入识别信息"
+        description="记录设备资料与当前保管方"
         className="mb-1.5"
       />
       <NewOrderDeviceCustodySelector form={form} setForm={setForm} />
@@ -316,38 +316,26 @@ export function NewOrderDeviceUnlockSection({
       <OrderWorkspaceSectionHeader
         icon={Smartphone}
         title="手机密码"
-        description={
-          form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER
-            ? "设备未留店也可登记，后续交还不会自动清除"
-            : "设备留店时可登记，默认隐藏"
-        }
+        description="可选；留店或未留店都可以登记，默认隐藏"
         className="mb-1.5"
       />
       <div className="rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)]">
-        {form.deviceCustodyStatus === null ? (
-          <p className="rounded-lg bg-status-warn/45 px-2 py-2 text-[10px] font-medium leading-4 text-status-warn-foreground">
-            请先确认设备是留在店内，还是由客人自行保管。
-          </p>
-        ) : (
-          <>
-            <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
-              <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground">
-                手机密码
-              </Label>
-              <span className="shrink-0 text-[9px] font-medium leading-3 text-muted-foreground">
-                默认隐藏
-              </span>
-            </div>
-            <DeviceUnlockEditor
-              value={form.deviceUnlock}
-              onChange={(deviceUnlock) => setForm({ ...form, deviceUnlock })}
-              compact
-            />
-            <p className="mt-1 rounded-lg bg-status-warn/45 px-2 py-1 text-[9px] leading-3 text-status-warn-foreground">
-              本机草稿不保存手机密码、PIN 或图案；在线创建工单时会正常保存。
-            </p>
-          </>
-        )}
+        <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
+          <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground">
+            手机密码
+          </Label>
+          <span className="shrink-0 text-[9px] font-medium leading-3 text-muted-foreground">
+            默认隐藏
+          </span>
+        </div>
+        <DeviceUnlockEditor
+          value={form.deviceUnlock}
+          onChange={(deviceUnlock) => setForm({ ...form, deviceUnlock })}
+          compact
+        />
+        <p className="mt-1 rounded-lg bg-status-warn/45 px-2 py-1 text-[9px] leading-3 text-status-warn-foreground">
+          本机草稿不保存手机密码、PIN 或图案；在线创建工单时会正常保存。
+        </p>
       </div>
     </section>
   );
@@ -364,12 +352,12 @@ function NewOrderDeviceCustodySelector({
   }> = [
     {
       value: DEVICE_CUSTODY_WITH_SHOP,
-      description: "设备交给门店，可登记解锁信息",
+      description: "当前由门店保管，仅作记录",
       icon: Store,
     },
     {
       value: DEVICE_CUSTODY_WITH_CUSTOMER,
-      description: "客人带走设备，解锁信息仍可保留",
+      description: "当前由客户保管，仅作记录",
       icon: UserRound,
     },
   ];
@@ -381,7 +369,7 @@ function NewOrderDeviceCustodySelector({
       aria-required="true"
     >
       <legend className="text-[10.5px] font-semibold leading-4 text-muted-foreground">
-        设备保管 <span className="text-destructive">*</span>
+        设备保管状态 <span className="text-destructive">*</span>
       </legend>
       <div className="grid min-w-0 grid-cols-2 gap-1.5">
         {options.map((option) => {
@@ -402,7 +390,6 @@ function NewOrderDeviceCustodySelector({
                 setForm((current) => ({
                   ...current,
                   deviceCustodyStatus: option.value,
-                  deviceUnlock: current.deviceUnlock,
                 }))
               }
             >
@@ -422,12 +409,7 @@ function NewOrderDeviceCustodySelector({
       </div>
       {form.deviceCustodyStatus === null ? (
         <p className="rounded-lg bg-status-warn/45 px-2 py-1 text-[9px] leading-3 text-status-warn-foreground">
-          必须主动确认设备由门店还是客户保管；系统不会替你默认选择。
-        </p>
-      ) : null}
-      {form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER && form.accessoryNotes.trim() ? (
-        <p className="rounded-lg bg-primary/5 px-2 py-1 text-[9px] leading-3 text-primary">
-          已填写随附物品。请确认只有这些物品留在门店，设备仍由客人保管。
+          请选择当前设备保管状态。
         </p>
       ) : null}
     </fieldset>
@@ -474,7 +456,7 @@ function DensePillField({
       </Label>
       <div
         className={cn(
-          "grid h-9 min-w-0 items-center gap-1.5 overflow-hidden",
+          "grid h-11 min-w-0 items-center gap-1.5 overflow-hidden lg:h-9",
           leading ? "grid-cols-[1rem_minmax(0,1fr)]" : "grid-cols-1",
         )}
       >
@@ -521,7 +503,7 @@ function DenseOptionMenu({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors [touch-action:pan-y] hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="grid size-11 place-items-center rounded-lg text-muted-foreground transition-colors [touch-action:pan-y] hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:size-8"
           aria-label={`选择${label}`}
           {...touchSafeTrigger}
         >
@@ -564,7 +546,7 @@ function DenseOptionMenu({
 
 function DenseScannerBlock({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="rd-new-order-field grid min-h-10 min-w-0 grid-cols-[3.25rem_minmax(0,1fr)] items-center gap-1.5 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1 shadow-[var(--shadow-card)]">
+    <div className="rd-new-order-field grid min-h-11 min-w-0 grid-cols-[3.25rem_minmax(0,1fr)] items-center gap-1.5 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1 shadow-[var(--shadow-card)] lg:min-h-10">
       <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground">
         {label}
       </Label>

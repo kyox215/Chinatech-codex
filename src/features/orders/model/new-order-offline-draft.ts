@@ -10,11 +10,6 @@ import { ensureOrderLineId } from "@/entities/order/model/order-line-identity";
 
 import { isDeviceCustodyStatus } from "./device-custody";
 import { initialNewOrderForm, type NewOrderFormState } from "./new-order-form";
-import {
-  UNKNOWN_ISSUE_DESCRIPTION,
-  inferIssueCaptureModeForLegacyDraft,
-  resolveIntakeQuoteDraft,
-} from "./order-diagnosis-quote";
 
 export type NewOrderOfflineDraftRestoreResult = {
   form: NewOrderFormState;
@@ -58,13 +53,7 @@ export function buildNewOrderOfflineDraftPayload(
     (sum, item) => sum + normalizeMoneyNumber(item.price),
     0,
   );
-  const activeQuote = resolveIntakeQuoteDraft({
-    mode: form.issueCaptureMode,
-    items: serializedRepairItems,
-    total: serializedQuoteTotal,
-    deposit: form.deposit,
-  });
-  const quotedPriceCents = moneyToCents(activeQuote.total);
+  const quotedPriceCents = moneyToCents(serializedQuoteTotal);
 
   return {
     orderType: form.type,
@@ -76,27 +65,16 @@ export function buildNewOrderOfflineDraftPayload(
     deviceNotes: form.deviceNotes.trim(),
     deviceCustody: form.deviceCustodyStatus,
     imei: form.imei.trim(),
-    issueMode: form.issueCaptureMode,
-    issueDescription:
-      form.issueCaptureMode === "unknown" ? UNKNOWN_ISSUE_DESCRIPTION : form.issue.trim(),
-    ...(form.issueCaptureMode === "unknown" && form.issue.trim()
-      ? { reportedIssueDraft: form.issue.trim() }
-      : {}),
-    ...(form.issueCaptureMode === "unknown" && serializedRepairItems.length
-      ? { pausedRepairItems: serializedRepairItems }
-      : {}),
-    ...(form.issueCaptureMode === "unknown" && form.deposit > 0
-      ? { pausedDepositAmountCents: moneyToCents(form.deposit) }
-      : {}),
+    issueDescription: "",
     accessoryNotes: form.accessoryNotes.trim(),
     warrantyDraft: {
       text: form.warrantyText.trim(),
       months: normalizeInteger(form.warrantyMonths),
       changeReason: form.warrantyChangeReason.trim(),
     },
-    depositAmountCents: moneyToCents(activeQuote.deposit),
+    depositAmountCents: moneyToCents(form.deposit),
     quotedPriceCents,
-    repairItems: activeQuote.items,
+    repairItems: serializedRepairItems,
   };
 }
 
@@ -162,7 +140,6 @@ export function restoreNewOrderFormFromOfflineDraft(
 ): NewOrderOfflineDraftRestoreResult {
   const payload = draft.draftPayload;
   const warrantyDraft = readRecord(payload.warrantyDraft);
-  const issueCaptureMode = readIssueCaptureMode(payload.issueMode, payload.issueDescription);
   const restoredFaults = readRepairItems(payload.repairItems);
   const pausedRepairItems = readRepairItems(payload.pausedRepairItems);
   const restoredCustody = readDeviceCustodyStatus(payload.deviceCustody);
@@ -189,26 +166,14 @@ export function restoreNewOrderFormFromOfflineDraft(
       model: readString(payload.deviceModel) ?? "",
       imei: readString(payload.imei) ?? "",
       deviceCustodyStatus: restoredCustody,
-      issueCaptureMode,
-      issue:
-        issueCaptureMode === "unknown"
-          ? (readString(payload.reportedIssueDraft) ?? "")
-          : (readString(payload.issueDescription) ?? ""),
       accessoryNotes: readString(payload.accessoryNotes) ?? "",
       warrantyText: readString(warrantyDraft.text) ?? initialNewOrderForm.warrantyText,
       warrantyMonths: readNumber(warrantyDraft.months) ?? initialNewOrderForm.warrantyMonths,
       warrantyChangeReason: readString(warrantyDraft.changeReason) ?? "",
-      deposit:
-        issueCaptureMode === "unknown"
-          ? centsToMoney(
-              readNumber(payload.pausedDepositAmountCents) ??
-                readNumber(payload.depositAmountCents),
-            )
-          : centsToMoney(readNumber(payload.depositAmountCents)),
-      faults:
-        issueCaptureMode === "unknown" && pausedRepairItems.length
-          ? pausedRepairItems
-          : restoredFaults,
+      deposit: centsToMoney(
+        readNumber(payload.pausedDepositAmountCents) ?? readNumber(payload.depositAmountCents),
+      ),
+      faults: pausedRepairItems.length > 0 ? pausedRepairItems : restoredFaults,
       deviceUnlock: { method: "none" },
     },
     sensitiveUnlockNeedsReentry: draft.hasSensitiveVaultEntry,
@@ -219,11 +184,6 @@ export function restoreNewOrderFormFromOfflineDraft(
   };
 }
 
-function readIssueCaptureMode(value: unknown, legacyDescription: unknown) {
-  if (value === "reported" || value === "unknown") return value;
-  return inferIssueCaptureModeForLegacyDraft(readString(legacyDescription));
-}
-
 export function isNewOrderFormWorthOfflineAutosave(form: NewOrderFormState): boolean {
   return Boolean(
     form.deviceCustodyStatus !== initialNewOrderForm.deviceCustodyStatus ||
@@ -232,8 +192,6 @@ export function isNewOrderFormWorthOfflineAutosave(form: NewOrderFormState): boo
     form.brand.trim() ||
     form.model.trim() ||
     form.imei.trim() ||
-    form.issueCaptureMode !== initialNewOrderForm.issueCaptureMode ||
-    form.issue.trim() ||
     form.accessoryNotes.trim() ||
     form.warrantyChangeReason.trim() ||
     normalizeMoneyNumber(form.deposit) > 0 ||

@@ -521,6 +521,25 @@ describe("repairdesk API schemas", () => {
     expect(() => orderListPageInputSchema.parse({ pageSize: 101 })).toThrow();
   });
 
+  it("bounds every order-list filter and rejects invalid time zones or unknown keys", () => {
+    expect(
+      orderListFiltersSchema.parse({
+        deviceSearch: "iPhone 15",
+        dateField: "completed_at",
+        dateFrom: "2026-07-01",
+        dateTo: "2026-07-31",
+        dateTimeZone: "Europe/Rome",
+        repairServiceGroups: ["display", "battery"],
+        completedOnly: true,
+        sortDateField: "completed_at",
+      }),
+    ).toMatchObject({ dateTimeZone: "Europe/Rome", completedOnly: true });
+    expect(() => orderListFiltersSchema.parse({ deviceSearch: "x".repeat(129) })).toThrow();
+    expect(() => orderListFiltersSchema.parse({ dateFrom: "01/07/2026" })).toThrow();
+    expect(() => orderListFiltersSchema.parse({ dateTimeZone: "Invalid/Nowhere" })).toThrow();
+    expect(() => orderListFiltersSchema.parse({ unknownFilter: "value" })).toThrow();
+  });
+
   it("accepts an optional ISO version for inventory quality-check CAS", () => {
     expect(
       inventoryQualityCheckInputSchema.parse({

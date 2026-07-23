@@ -279,10 +279,10 @@ function FaultCategoryButton({
         className={cn(
           "grid min-w-0 overflow-hidden border text-left transition-colors",
           compact && quiet
-            ? "min-h-10 grid-cols-[minmax(0,1fr)_2rem] rounded-lg"
+            ? "min-h-11 grid-cols-[minmax(0,1fr)_2.75rem] rounded-lg lg:min-h-10 lg:grid-cols-[minmax(0,1fr)_2rem]"
             : compact
-              ? "min-h-9 grid-cols-[minmax(0,1fr)_2rem] rounded-lg"
-              : "min-h-10 grid-cols-[minmax(0,1fr)_2rem] rounded-lg",
+              ? "min-h-11 grid-cols-[minmax(0,1fr)_2.75rem] rounded-lg lg:min-h-9 lg:grid-cols-[minmax(0,1fr)_2rem]"
+              : "min-h-11 grid-cols-[minmax(0,1fr)_2.75rem] rounded-lg lg:min-h-10 lg:grid-cols-[minmax(0,1fr)_2rem]",
           quiet
             ? active.length
               ? "border-primary/35 bg-primary/10 text-primary ring-1 ring-inset ring-primary/10"
@@ -299,10 +299,10 @@ function FaultCategoryButton({
           className={cn(
             "flex min-w-0 items-center text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             compact && quiet
-              ? "min-h-10 gap-1.5 px-2 py-1.5"
+              ? "min-h-11 gap-1.5 px-2 py-1.5 lg:min-h-10"
               : compact
-                ? "min-h-9 gap-1.5 px-1.5 py-1"
-                : "min-h-10 gap-1.5 px-2 py-1.5",
+                ? "min-h-11 gap-1.5 px-1.5 py-1 lg:min-h-9"
+                : "min-h-11 gap-1.5 px-2 py-1.5 lg:min-h-10",
           )}
         >
           <Icon
@@ -340,7 +340,7 @@ function FaultCategoryButton({
             type="button"
             aria-label={`展开${group.label}细分选项`}
             className={cn(
-              "grid h-full min-w-8 place-items-center border-l border-[var(--border-panel)] text-muted-foreground transition-colors [touch-action:pan-y] hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              "grid h-full min-w-11 place-items-center border-l border-[var(--border-panel)] text-muted-foreground transition-colors [touch-action:pan-y] hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:min-w-8",
               quiet && "border-[var(--border-panel)] hover:bg-accent/30",
               active.length && "border-primary/20 text-primary/70 hover:text-primary",
             )}

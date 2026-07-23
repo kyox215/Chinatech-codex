@@ -55,6 +55,7 @@ export function OrderWorkspaceMoneyStrip({
   compact = false,
   variant = "status",
   cancelled = false,
+  depositControl,
 }: {
   total: number;
   deposit: number;
@@ -64,6 +65,7 @@ export function OrderWorkspaceMoneyStrip({
   compact?: boolean;
   variant?: OrderWorkspaceMoneyStripVariant;
   cancelled?: boolean;
+  depositControl?: ReactNode;
 }) {
   const financeVariant = variant === "finance";
   const totalTone: OrderWorkspaceMoneyTone = financeVariant
@@ -97,14 +99,38 @@ export function OrderWorkspaceMoneyStrip({
         emphasizeTone={financeVariant}
         className={itemClassName}
       />
-      <OrderWorkspaceMoneyTile
-        label="定金"
-        amount={deposit}
-        tone={depositTone}
-        compact={compact}
-        emphasizeTone={financeVariant}
-        className={itemClassName}
-      />
+      {depositControl ? (
+        <div
+          data-new-order-field="deposit"
+          className={cn(
+            "min-w-0 rounded-lg border px-1.5 py-1",
+            moneyToneClass[depositTone],
+            compact && "rounded-md px-2 py-1",
+            financeVariant &&
+              "shadow-[inset_0_1px_0_color-mix(in_oklch,currentColor_12%,transparent)]",
+            itemClassName,
+          )}
+        >
+          <div
+            className={cn(
+              "truncate font-semibold leading-3",
+              compact ? "text-[10px]" : "text-[9px]",
+            )}
+          >
+            定金
+          </div>
+          <div className="mt-0.5 min-w-0">{depositControl}</div>
+        </div>
+      ) : (
+        <OrderWorkspaceMoneyTile
+          label="定金"
+          amount={deposit}
+          tone={depositTone}
+          compact={compact}
+          emphasizeTone={financeVariant}
+          className={itemClassName}
+        />
+      )}
       <OrderWorkspaceMoneyTile
         label={cancelled ? "取消时余额" : "尾款"}
         amount={balance}

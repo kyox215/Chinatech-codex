@@ -71,6 +71,8 @@ export function PaginationBar({
   total,
   visible,
   onPageChange,
+  pageSizeOptions = [20, 50],
+  onPageSizeChange,
 }: {
   page: number;
   pageCount: number;
@@ -78,6 +80,8 @@ export function PaginationBar({
   total: number;
   visible: number;
   onPageChange: (page: number) => void;
+  pageSizeOptions?: number[];
+  onPageSizeChange?: (pageSize: number) => void;
 }) {
   const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const end = Math.min(total, (page - 1) * pageSize + visible);
@@ -87,11 +91,28 @@ export function PaginationBar({
       <span>
         显示 {start}-{end} / {total}
       </span>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {onPageSizeChange ? (
+          <label className="flex min-h-11 items-center gap-1.5">
+            <span>每页</span>
+            <select
+              value={pageSize}
+              className="h-11 rounded-lg border border-input bg-background px-2 text-sm text-foreground"
+              aria-label="每页显示工单数量"
+              onChange={(event) => onPageSizeChange(Number(event.target.value))}
+            >
+              {pageSizeOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option} 条
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <Button
           variant="outline"
           size="sm"
-          className="h-8"
+          className="h-11"
           disabled={page <= 1}
           onClick={() => onPageChange(Math.max(1, page - 1))}
         >
@@ -103,7 +124,7 @@ export function PaginationBar({
         <Button
           variant="outline"
           size="sm"
-          className="h-8"
+          className="h-11"
           disabled={page >= pageCount}
           onClick={() => onPageChange(Math.min(pageCount, page + 1))}
         >

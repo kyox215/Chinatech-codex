@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CircleAlert, LockKeyhole, Save } from "lucide-react";
+import { CircleAlert, LockKeyhole, PencilLine, Save } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -32,12 +32,14 @@ export function OrderInternalCostCard({
   faultPrices,
   canManage,
   canAllocatePartsCosts = false,
+  onRepairQuoteLines,
 }: {
   orderId: string;
   storeId: string;
   faultPrices: FaultPriceItem[];
   canManage: boolean;
   canAllocatePartsCosts?: boolean;
+  onRepairQuoteLines?: () => void;
 }) {
   const queryClient = useQueryClient();
   const queryKey = [...ordersKeys.detail(orderId, storeId), "internal-costs"] as const;
@@ -222,10 +224,24 @@ export function OrderInternalCostCard({
       </div>
 
       {result.unidentified_line_count > 0 ? (
-        <div className="flex gap-1.5 rounded-lg bg-status-warn/35 px-2 py-1.5 text-[10px] text-status-warn-foreground">
-          <CircleAlert className="mt-0.5 size-3 shrink-0" />
-          旧报价中有 {result.unidentified_line_count}{" "}
-          个项目尚无稳定标识；重新保存报价后才能录入成本。
+        <div className="grid gap-2 rounded-lg bg-status-warn/35 px-2 py-1.5 text-[10px] text-status-warn-foreground sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <span className="flex gap-1.5">
+            <CircleAlert className="mt-0.5 size-3 shrink-0" />
+            旧报价中有 {result.unidentified_line_count} 个项目尚无稳定标识；
+            {onRepairQuoteLines
+              ? "重新保存报价后才能录入成本。"
+              : "当前工单或账号不可编辑报价，请由有权人员通过更正流程处理。"}
+          </span>
+          {onRepairQuoteLines ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 bg-background lg:h-9"
+              onClick={onRepairQuoteLines}
+            >
+              <PencilLine className="mr-1.5 size-3.5" /> 修复报价项目
+            </Button>
+          ) : null}
         </div>
       ) : null}
 
@@ -287,7 +303,7 @@ export function OrderInternalCostCard({
                     autoComplete="off"
                     placeholder="留空"
                     aria-label={`${item.name} 内部成本`}
-                    className="h-8 bg-[var(--surface-panel-muted)] px-2 text-right font-mono text-sm"
+                    className="h-11 bg-[var(--surface-panel-muted)] px-2 text-right font-mono text-sm lg:h-8"
                     onChange={(event) =>
                       setDraftState((current) =>
                         current
@@ -322,7 +338,7 @@ export function OrderInternalCostCard({
           <Button
             type="button"
             size="sm"
-            className="h-8 text-xs"
+            className="h-11 text-xs lg:h-8"
             disabled={save.isPending || !isDirty || isConflict || !isOnline}
             onClick={() => save.mutate()}
           >

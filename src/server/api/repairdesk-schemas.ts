@@ -335,11 +335,12 @@ export const customerIdBodySchema = z.object({
 
 export const orderListFiltersSchema = z
   .object({
-    search: optionalText,
-    deviceSearch: optionalText,
+    search: z.string().trim().max(128).optional(),
+    searchScope: z.enum(["current", "archive_exact"]).optional(),
+    deviceSearch: z.string().trim().max(128).optional(),
     view: z.enum(["active", "archive", "all"]).optional(),
-    statuses: z.array(repairOrderStatusSchema).optional(),
-    workflowStatuses: z.array(canonicalWorkflowStatusSchema).optional(),
+    statuses: z.array(repairOrderStatusSchema).max(32).optional(),
+    workflowStatuses: z.array(canonicalWorkflowStatusSchema).max(32).optional(),
     queueGroups: z
       .array(
         z.enum([
@@ -351,19 +352,65 @@ export const orderListFiltersSchema = z
           "repaired_notified",
         ]),
       )
+      .max(16)
       .optional(),
-    exceptionStatuses: z.array(orderExceptionStatusSchema).optional(),
-    paymentStatuses: z.array(orderPaymentStatusSchema).optional(),
-    partsStatuses: z.array(orderPartsStatusSchema).optional(),
-    approvalFlowStatuses: z.array(orderApprovalFlowStatusSchema).optional(),
-    types: z.array(repairOrderTypeSchema).optional(),
-    technicians: z.array(z.string()).optional(),
-    supplierIds: z.array(z.string()).optional(),
+    exceptionStatuses: z.array(orderExceptionStatusSchema).max(16).optional(),
+    paymentStatuses: z.array(orderPaymentStatusSchema).max(16).optional(),
+    partsStatuses: z.array(orderPartsStatusSchema).max(16).optional(),
+    approvalFlowStatuses: z.array(orderApprovalFlowStatusSchema).max(16).optional(),
+    types: z.array(repairOrderTypeSchema).max(8).optional(),
+    technicians: z.array(z.string().max(128)).max(32).optional(),
+    supplierIds: z.array(z.string().max(128)).max(32).optional(),
     paid: z.enum(["all", "paid", "unpaid"]).optional(),
     overdue: z.enum(["approval", "pickup", "any"]).optional(),
     financialReview: z.enum(["amount_anomaly"]).optional(),
+    dateField: z.enum(["created_at", "updated_at", "completed_at"]).optional(),
+    dateFrom: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    dateTo: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    dateTimeZone: z
+      .string()
+      .trim()
+      .min(1)
+      .max(64)
+      .regex(/^[A-Za-z_+-]+(?:\/[A-Za-z0-9_+-]+)*$/)
+      .refine((timeZone) => {
+        try {
+          new Intl.DateTimeFormat("en", { timeZone }).format(0);
+          return true;
+        } catch {
+          return false;
+        }
+      }, "时区无效")
+      .optional(),
+    repairServiceGroups: z
+      .array(
+        z.enum([
+          "display",
+          "battery",
+          "charging",
+          "camera",
+          "liquid",
+          "mainboard",
+          "system",
+          "back-cover",
+          "face",
+          "speaker",
+          "microphone",
+          "button",
+        ]),
+      )
+      .max(12)
+      .optional(),
+    completedOnly: z.boolean().optional(),
+    sortDateField: z.enum(["created_at", "updated_at", "completed_at"]).optional(),
   })
-  .passthrough() satisfies z.ZodType<OrderListFilters>;
+  .strict() satisfies z.ZodType<OrderListFilters>;
 
 export const orderListPageInputSchema = orderListFiltersSchema.extend({
   page: z.coerce.number().int().positive().optional(),

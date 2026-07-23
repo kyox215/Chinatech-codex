@@ -163,7 +163,10 @@ function normalizeOrderEditFinance(input: UpdateOrderInput) {
 }
 
 function financeSignature(change: ReturnType<typeof normalizeOrderEditFinance>) {
-  return JSON.stringify(change);
+  return JSON.stringify({
+    ...change,
+    faultPrices: change.faultPrices.map(({ line_id: _lineId, ...item }) => item),
+  });
 }
 
 function requireFinanceChange(plan: OrderEditSavePlan) {

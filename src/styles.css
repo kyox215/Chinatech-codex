@@ -288,12 +288,14 @@
     display: none !important;
   }
 
-  @media (max-width: 767px) {
+  @media (max-width: 1023px) {
     body[data-order-detail-active="true"] [data-app-bar="true"],
     body[data-mobile-workspace-active="true"] [data-app-bar="true"] {
       display: none !important;
     }
+  }
 
+  @media (max-width: 767px) {
     /*
      * iOS Safari/Chrome automatically zooms the page when focusing editable
      * controls below 16px. Business screens can still render dense labels and
@@ -725,6 +727,20 @@
     padding-top: 1mm;
     color: #555;
     font-size: 5.6pt;
+  }
+}
+
+/* Hide the desktop shell during the first 768-1023 render before the drawer hook settles. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .rd-compact-workspace-desktop-sidebar {
+    display: none !important;
+  }
+}
+
+/* Keep an uncontrolled 1024-1279 workspace at its final width before hydration settles. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  [data-sidebar-controlled="false"][data-sidebar-viewport-ready="false"] {
+    --sidebar-width: var(--sidebar-width-icon) !important;
   }
 }
 

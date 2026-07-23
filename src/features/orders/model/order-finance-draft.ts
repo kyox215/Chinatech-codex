@@ -33,7 +33,7 @@ export function financeDraftFromPrices(
   opts: { zeroAsEmpty?: boolean } = {},
 ): FinanceFaultDraft[] {
   return faultPrices.map((item) => ({
-    ...(item.line_id ? { line_id: item.line_id } : {}),
+    line_id: ensureOrderLineId(item.line_id),
     ...(item.catalog_key ? { catalog_key: item.catalog_key } : {}),
     name: item.name,
     priceText: opts.zeroAsEmpty && Number(item.price) === 0 ? "" : moneyDraftText(item.price),
@@ -77,7 +77,7 @@ export function normalizeFinanceDraft(
     }
 
     faultPrices.push({
-      ...(item.line_id ? { line_id: item.line_id } : {}),
+      line_id: ensureOrderLineId(item.line_id),
       ...(item.catalog_key ? { catalog_key: item.catalog_key } : {}),
       name,
       price: parsedPrice.value,

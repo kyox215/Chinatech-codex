@@ -636,7 +636,7 @@ export function ImeiScannerField({
           className={cn(
             "font-mono",
             compact &&
-              "h-8 min-w-0 text-[13px] placeholder:text-[13px] md:text-[13px] md:placeholder:text-[13px]",
+              "h-11 min-w-0 text-base placeholder:text-base lg:h-8 lg:text-[13px] lg:placeholder:text-[13px]",
             compact && quiet && "border-0 bg-transparent px-0 shadow-none focus-visible:ring-0",
           )}
         />
@@ -646,7 +646,7 @@ export function ImeiScannerField({
           size="icon"
           className={cn(
             "shrink-0",
-            compact && "size-8",
+            compact && "size-11 lg:size-8",
             quiet && "rounded-lg bg-[var(--surface-panel-muted)] text-foreground",
           )}
           onClick={() => setScannerOpen(true)}
@@ -661,7 +661,7 @@ export function ImeiScannerField({
             size="icon"
             className={cn(
               "shrink-0",
-              compact && "size-8",
+              compact && "size-11 lg:size-8",
               quiet && "rounded-lg bg-[var(--surface-panel-muted)] text-foreground",
             )}
             onClick={async () => {
@@ -681,7 +681,7 @@ export function ImeiScannerField({
           type="button"
           variant="ghost"
           size="icon"
-          className={cn("shrink-0", compact && "size-8")}
+          className={cn("shrink-0", compact && "size-11 lg:size-8")}
           onClick={() => commitValue("", "clear")}
           disabled={!value}
           aria-label="清空 IMEI"

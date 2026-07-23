@@ -37,31 +37,22 @@ for (const viewport of viewports) {
     const customer = page.locator('[data-new-order-section="customer"]');
     const device = page.locator('[data-new-order-section="device-info"]');
     const quote = page.locator('[data-new-order-section="quotation"]');
-    const report = page.locator('[data-new-order-section="fault-diagnosis"]');
     const unlock = page.locator('[data-new-order-section="device-unlock"]');
-    for (const locator of [workspace, customer, device, quote, report, unlock]) {
+    const settings = page.locator('[data-new-order-section="settings"]');
+    for (const locator of [workspace, customer, device, quote, unlock, settings]) {
       await expect(locator).toBeVisible();
     }
+    await expect(page.locator('[data-new-order-section="fault-diagnosis"]')).toHaveCount(0);
+    await expect(unlock.locator('[data-device-unlock-editor="true"]')).toBeVisible();
+    await expect(quote.locator('[data-new-order-field="deposit"]')).toHaveCount(1);
+    await expect(quote.getByText("报价暂停")).toHaveCount(0);
 
     await expectNoHorizontalOverflow(page, workspace);
     await expectDomAndVisualOrder(
       page,
-      { customer, device, quote, report, unlock },
+      { customer, device, quote, unlock, settings },
       viewport.width,
     );
-
-    const quoteBefore = await rect(quote);
-    const reportBefore = await rect(report);
-    await report.getByRole("button", { name: "问题未知，需检测" }).click();
-    await expect(report.getByText("客户暂时无法确认具体故障，需检测")).toBeVisible();
-    await expect(quote.getByText("报价暂停")).toBeVisible();
-    await expect(quote.getByText(/待检测模式：报价草稿会保留/)).toBeVisible();
-
-    const quoteAfter = await rect(quote);
-    const reportAfter = await rect(report);
-    expectRectStable(quoteBefore, quoteAfter, "quotation");
-    expectRectStable(reportBefore, reportAfter, "customer report");
-    await expectNoHorizontalOverflow(page, workspace);
 
     await resetWorkspaceScroll(page);
     await page.screenshot({
@@ -91,13 +82,13 @@ async function expectDomAndVisualOrder(
     customer: Locator;
     device: Locator;
     quote: Locator;
-    report: Locator;
     unlock: Locator;
+    settings: Locator;
   },
   width: number,
 ) {
   const domOrder = await page.locator('[data-new-order-form="true"]').evaluate((form) => {
-    const names = ["quotation", "fault-diagnosis", "device-unlock"];
+    const names = ["quotation", "device-unlock"];
     return names.map((name) => {
       const target = form.querySelector<HTMLElement>(`[data-new-order-section="${name}"]`);
       if (!target) throw new Error(`Missing ${name}`);
@@ -105,39 +96,33 @@ async function expectDomAndVisualOrder(
     });
   });
   expect(domOrder[0]).toBeLessThan(domOrder[1]);
-  expect(domOrder[1]).toBeLessThan(domOrder[2]);
 
   const customerRect = await rect(sections.customer);
   const deviceRect = await rect(sections.device);
   const quoteRect = await rect(sections.quote);
-  const reportRect = await rect(sections.report);
   const unlockRect = await rect(sections.unlock);
-
-  if (width >= 1280) {
-    expect(quoteRect.x).toBeGreaterThan(customerRect.x);
-    expect(reportRect.x).toBeGreaterThan(quoteRect.x);
-    expect(Math.abs(customerRect.y - quoteRect.y)).toBeLessThanOrEqual(1);
-    expect(Math.abs(quoteRect.y - reportRect.y)).toBeLessThanOrEqual(1);
-    expect(Math.abs(reportRect.x - unlockRect.x)).toBeLessThanOrEqual(1);
-    expect(unlockRect.y - (reportRect.y + reportRect.height)).toBeGreaterThanOrEqual(8);
-    expect(unlockRect.y - (reportRect.y + reportRect.height)).toBeLessThanOrEqual(16);
-    return;
-  }
+  const settingsRect = await rect(sections.settings);
 
   if (width >= 1024) {
     expect(quoteRect.x).toBeGreaterThan(customerRect.x);
-    expect(Math.abs(quoteRect.x - reportRect.x)).toBeLessThanOrEqual(1);
-    expect(Math.abs(reportRect.x - unlockRect.x)).toBeLessThanOrEqual(1);
-    expect(reportRect.y - (quoteRect.y + quoteRect.height)).toBeGreaterThanOrEqual(8);
-    expect(reportRect.y - (quoteRect.y + quoteRect.height)).toBeLessThanOrEqual(16);
-    expect(unlockRect.y - (reportRect.y + reportRect.height)).toBeGreaterThanOrEqual(8);
-    expect(unlockRect.y - (reportRect.y + reportRect.height)).toBeLessThanOrEqual(16);
+    expect(unlockRect.x).toBeGreaterThan(quoteRect.x);
+    expect(Math.abs(customerRect.y - quoteRect.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(customerRect.y - unlockRect.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(unlockRect.x - settingsRect.x)).toBeLessThanOrEqual(1);
+    expect(settingsRect.y).toBeGreaterThanOrEqual(unlockRect.y + unlockRect.height);
+    return;
+  }
+
+  if (width >= 768) {
+    expect(quoteRect.x).toBeGreaterThan(customerRect.x);
+    expect(Math.abs(customerRect.y - quoteRect.y)).toBeLessThanOrEqual(16);
+    expect(Math.abs(customerRect.x - unlockRect.x)).toBeLessThanOrEqual(1);
+    expect(unlockRect.y).toBeGreaterThanOrEqual(deviceRect.y + deviceRect.height);
     return;
   }
 
   expect(quoteRect.y).toBeGreaterThanOrEqual(deviceRect.y + deviceRect.height);
-  expect(reportRect.y).toBeGreaterThanOrEqual(quoteRect.y + quoteRect.height);
-  expect(unlockRect.y).toBeGreaterThanOrEqual(reportRect.y + reportRect.height);
+  expect(unlockRect.y).toBeGreaterThanOrEqual(quoteRect.y + quoteRect.height);
 }
 
 async function expectNoHorizontalOverflow(page: Page, workspace: Locator) {
@@ -166,14 +151,4 @@ async function rect(locator: Locator) {
       height: box.height,
     };
   });
-}
-
-function expectRectStable(
-  before: { x: number; y: number; width: number; height: number },
-  after: { x: number; y: number; width: number; height: number },
-  label: string,
-) {
-  for (const key of ["x", "y", "width", "height"] as const) {
-    expect(Math.abs(before[key] - after[key]), `${label} ${key} changed`).toBeLessThanOrEqual(1);
-  }
 }

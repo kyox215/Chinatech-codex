@@ -66,21 +66,26 @@ describe("order detail preload intent", () => {
   it("prefetches a mobile order link on focus and pointer down, then cancels on focus out", () => {
     const onPrefetch = vi.fn();
     const onCancelPrefetch = vi.fn();
+    const onOpenIntent = vi.fn();
     render(
       <OrderMobileCard
         order={makeOrder()}
         onPrefetch={onPrefetch}
         onCancelPrefetch={onCancelPrefetch}
+        onOpenIntent={onOpenIntent}
       />,
     );
 
     const links = screen.getAllByRole("link");
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAccessibleName(/工单 R2026001.*Cliente Test.*Apple iPhone/);
     fireEvent.focus(links[0]);
     fireEvent.pointerDown(links[0], { button: 0, pointerType: "touch" });
     fireEvent.blur(links[0]);
 
     expect(onPrefetch).toHaveBeenCalledTimes(2);
     expect(onCancelPrefetch).toHaveBeenCalledTimes(1);
+    expect(onOpenIntent).toHaveBeenCalledTimes(1);
   });
 
   it("exposes a native detail link from the desktop row action menu", async () => {

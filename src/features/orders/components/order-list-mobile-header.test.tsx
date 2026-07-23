@@ -61,6 +61,7 @@ function renderHeader({
         onSearchSubmit={vi.fn()}
         onSearchClear={vi.fn()}
         scanAction={<button aria-label="扫码搜索">扫码</button>}
+        filterAction={<button aria-label="筛选订单">筛选</button>}
         viewModeControl={<div>范围切换</div>}
       />
     </SidebarProvider>,
@@ -69,23 +70,25 @@ function renderHeader({
 }
 
 describe("MobileOrdersFloatingHeader", () => {
-  it("keeps scan and all seven queues while removing the mobile funnel and queue chip", () => {
+  it("keeps scan, filter and all seven queues in the touch-first header", () => {
     const { container, onGroupChange } = renderHeader();
 
     expect(screen.getByRole("button", { name: "扫码搜索" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "筛选订单" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "筛选订单" })).toBeInTheDocument();
     expect(screen.queryByText(/队列：/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "等待客户取机 42 条" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "第 7 阶段：等待客户取机，42 条" }),
+    ).toBeInTheDocument();
 
     const queueGroup = screen.getByRole("group", { name: "待处理状态" });
     expect(queueGroup).toHaveClass("grid-cols-2", "min-[360px]:grid-cols-3");
-    expect(screen.getByRole("button", { name: "全部任务 174 条" })).toHaveClass(
+    expect(screen.getByRole("button", { name: "第 1 阶段：全部任务，174 条" })).toHaveClass(
       "col-span-2",
       "min-[360px]:col-span-3",
     );
     expect(container.querySelectorAll('[aria-label$=" 条"]')).toHaveLength(7);
 
-    fireEvent.click(screen.getByRole("button", { name: "等待配件 24 条" }));
+    fireEvent.click(screen.getByRole("button", { name: "第 3 阶段：等待配件，24 条" }));
     expect(onGroupChange).toHaveBeenCalledWith("ordered");
   });
 
@@ -93,7 +96,7 @@ describe("MobileOrdersFloatingHeader", () => {
     renderHeader({ pendingGroupValue: "ordered" });
 
     expect(screen.getByText("正在加载等待配件…")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "等待配件 24 条" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "第 3 阶段：等待配件，24 条" })).toHaveAttribute(
       "aria-busy",
       "true",
     );
@@ -102,8 +105,8 @@ describe("MobileOrdersFloatingHeader", () => {
   it("disables queue and search changes while the list is offline", () => {
     const { onGroupChange } = renderHeader({ interactionDisabled: true });
 
-    expect(screen.getByRole("textbox", { name: "搜索订单、客户或手机" })).toBeDisabled();
-    const ordered = screen.getByRole("button", { name: "等待配件 24 条" });
+    expect(screen.getByRole("textbox", { name: "搜索工单、客户、电话或 IMEI" })).toBeDisabled();
+    const ordered = screen.getByRole("button", { name: "第 3 阶段：等待配件，24 条" });
     expect(ordered).toBeDisabled();
     fireEvent.click(ordered);
     expect(onGroupChange).not.toHaveBeenCalled();

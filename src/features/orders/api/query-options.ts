@@ -13,7 +13,7 @@ import { CACHE_TIMES } from "@/lib/query-performance";
 
 import { ordersKeys } from "./query-keys";
 
-export const ORDER_QUEUE_PAGE_SIZE = 50;
+export const ORDER_QUEUE_PAGE_SIZE = 20;
 
 export const defaultOrderQueueSummaryInput: OrderQueueSummaryInput = {
   page: 1,

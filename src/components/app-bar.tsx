@@ -65,7 +65,7 @@ export function AppBar({
       )}
     >
       <div className="flex h-full w-full min-w-0 items-center gap-2 px-3 md:px-5">
-        <SidebarTrigger className="size-10 shrink-0 rounded-xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] md:size-9 md:rounded-md md:border-0 md:bg-transparent md:shadow-none" />
+        <SidebarTrigger className="size-11 shrink-0 rounded-xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] lg:size-9 lg:rounded-md lg:border-0 lg:bg-transparent lg:shadow-none" />
 
         <div className="min-w-0 flex-1 md:hidden">
           <p

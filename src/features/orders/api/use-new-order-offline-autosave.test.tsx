@@ -1,6 +1,6 @@
 import { act, render, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createRepairDeskOfflineOrderService } from "@/features/offline/model/offline-order-service";
 import { createRepairDeskOfflineMemoryStore } from "@/features/offline/model/offline-store";
@@ -29,7 +29,6 @@ describe("useNewOrderOfflineAutosave", () => {
           customerPhone: "+393331112222",
           brand: "Apple",
           model: "iPhone 13",
-          issue: "Schermo rotto",
           deviceUnlock: { method: "pin", value: "001258" },
         })}
         onValue={(value) => {
@@ -48,7 +47,7 @@ describe("useNewOrderOfflineAutosave", () => {
       customerPhone: "+393331112222",
       deviceBrand: "Apple",
       deviceModel: "iPhone 13",
-      issueDescription: "Schermo rotto",
+      issueDescription: "",
     });
     expect(drafts.ok && drafts.value[0]?.hasSensitiveVaultEntry).toBe(true);
     expect(JSON.stringify(drafts.ok && drafts.value[0])).not.toContain("001258");
@@ -72,6 +71,33 @@ describe("useNewOrderOfflineAutosave", () => {
 
     await waitFor(() => expect(latest?.state).toBe("unavailable"));
     expect(latest?.errorMessage).toContain("无法使用本机草稿");
+  });
+
+  it("times out a stalled preflight and succeeds after retry", async () => {
+    const harness = createServiceHarness();
+    const healthCheck = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise(() => undefined))
+      .mockImplementation(() => harness.service.healthCheck());
+    const service = { ...harness.service, healthCheck };
+    let latest: HookValue | undefined;
+
+    render(
+      <AutosaveHarness
+        form={initialNewOrderForm}
+        onValue={(value) => {
+          latest = value;
+        }}
+        preflightTimeoutMs={20}
+        serviceFactory={() => service}
+      />,
+    );
+
+    await waitFor(() => expect(latest?.state).toBe("error"));
+    expect(latest?.errorMessage).toContain("超时");
+    act(() => requireHook(latest).retryPreflight());
+    await waitFor(() => expect(latest?.state).toBe("ready"));
+    expect(healthCheck).toHaveBeenCalledTimes(2);
   });
 
   it("restores and discards prompted local drafts by scope", async () => {
@@ -141,7 +167,6 @@ describe("useNewOrderOfflineAutosave", () => {
           customerPhone: "+393331112222",
           brand: "Apple",
           model: "iPhone 13",
-          issue: "Schermo rotto",
           deviceCustodyStatus: "with_customer",
         })}
         onValue={(value) => {
@@ -176,7 +201,6 @@ describe("useNewOrderOfflineAutosave", () => {
             customerPhone: "+393331112222",
             brand: "Apple",
             model: "iPhone 13",
-            issue: "Schermo rotto",
             deviceCustodyStatus,
             deviceUnlock: { method: "pin", value: "001258" },
           })}
@@ -208,15 +232,18 @@ function AutosaveHarness({
   form,
   onValue,
   serviceFactory,
+  preflightTimeoutMs,
 }: {
   form: NewOrderFormState;
   onValue: (value: ReturnType<typeof useNewOrderOfflineAutosave>) => void;
   serviceFactory: Parameters<typeof useNewOrderOfflineAutosave>[0]["serviceFactory"];
+  preflightTimeoutMs?: number;
 }) {
   const value = useNewOrderOfflineAutosave({
     form,
     scope,
     debounceMs: 0,
+    preflightTimeoutMs,
     serviceFactory,
   });
   useEffect(() => {

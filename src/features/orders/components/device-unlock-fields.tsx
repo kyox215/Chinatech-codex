@@ -110,7 +110,7 @@ export function DeviceUnlockEditor({
             type="button"
             data-device-unlock-method={item}
             className={cn(
-              "h-8 min-w-0 rounded-lg border border-[var(--border-panel)] px-2 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              "h-11 min-w-0 rounded-lg border border-[var(--border-panel)] px-2 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:h-8",
               method === item
                 ? "bg-primary text-primary-foreground"
                 : "bg-card text-muted-foreground hover:bg-accent/50 hover:text-foreground",
@@ -133,7 +133,7 @@ export function DeviceUnlockEditor({
             inputMode="text"
             maxLength={80}
             autoComplete="off"
-            className="h-9 rounded-lg bg-card text-base md:text-sm"
+            className="h-11 rounded-lg bg-card text-base md:text-sm lg:h-9"
             placeholder="例如 password / 客户提示"
             onChange={(event) => {
               onChange({ method: "text", value: event.target.value });
@@ -214,7 +214,7 @@ export function DeviceUnlockViewer({
           data-device-unlock-reveal="true"
           variant="ghost"
           size="sm"
-          className="h-6 shrink-0 gap-1 rounded-md px-1.5 text-[10px]"
+          className="h-11 shrink-0 gap-1 rounded-md px-2 text-[10px] lg:h-6 lg:px-1.5"
           onClick={() => setRevealed((value) => !value)}
         >
           {revealed ? <EyeOff className="size-3" /> : <Eye className="size-3" />}
@@ -344,7 +344,7 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
           autoComplete="off"
           maxLength={16}
           value={pin}
-          className="h-9 rounded-lg bg-card text-base font-mono tracking-wide md:text-sm"
+          className="h-11 rounded-lg bg-card text-base font-mono tracking-wide md:text-sm lg:h-9"
           placeholder="输入数字 PIN"
           onChange={(event) => {
             const next = event.target.value.replace(/\D/g, "").slice(0, 16);
@@ -359,7 +359,7 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
             type="button"
             aria-label="数字 PIN"
             aria-expanded={open}
-            className="flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-input bg-card px-3 text-left text-base outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring md:text-sm"
+            className="flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-input bg-card px-3 text-left text-base outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring md:text-sm lg:h-9"
             onClick={() => setOpen(true)}
             onKeyDown={handleDisplayKeyDown}
           >
@@ -402,7 +402,7 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
                     key={digit}
                     type="button"
                     data-device-unlock-pin-digit={digit}
-                    className="h-10 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-base font-semibold tabular-nums transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45"
+                    className="h-11 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-base font-semibold tabular-nums transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45 lg:h-10"
                     disabled={pin.length >= 16}
                     onClick={() => appendDigit(digit)}
                   >
@@ -412,7 +412,7 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
                 <button
                   type="button"
                   data-device-unlock-pin-clear="true"
-                  className="h-10 rounded-lg border border-[var(--border-panel)] bg-card text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45"
+                  className="h-11 rounded-lg border border-[var(--border-panel)] bg-card text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45 lg:h-10"
                   disabled={!pin}
                   onClick={clearPin}
                 >
@@ -421,7 +421,7 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
                 <button
                   type="button"
                   data-device-unlock-pin-digit="0"
-                  className="h-10 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-base font-semibold tabular-nums transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45"
+                  className="h-11 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-base font-semibold tabular-nums transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45 lg:h-10"
                   disabled={pin.length >= 16}
                   onClick={() => appendDigit("0")}
                 >
@@ -431,7 +431,7 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
                   type="button"
                   data-device-unlock-pin-backspace="true"
                   aria-label="退格"
-                  className="grid h-10 place-items-center rounded-lg border border-[var(--border-panel)] bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45"
+                  className="grid h-11 place-items-center rounded-lg border border-[var(--border-panel)] bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45 lg:h-10"
                   disabled={!pin}
                   onClick={removeLastDigit}
                 >
@@ -441,7 +441,7 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
               <Button
                 type="button"
                 size="sm"
-                className="mt-1.5 h-10 w-full rounded-lg text-xs font-semibold"
+                className="mt-1.5 h-11 w-full rounded-lg text-xs font-semibold lg:h-10"
                 onClick={() => setOpen(false)}
                 data-device-unlock-pin-done="true"
               >
@@ -571,7 +571,7 @@ function PatternLockInput({
         </div>
         <button
           type="button"
-          className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-[10px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="inline-flex h-11 shrink-0 items-center gap-1 rounded-md px-2 text-[10px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground lg:h-6 lg:px-1.5"
           onClick={clearPattern}
         >
           <X className="size-3" />
@@ -579,7 +579,7 @@ function PatternLockInput({
         </button>
       </div>
       <div
-        className="relative mx-auto grid size-[132px] touch-none grid-cols-3 place-content-center gap-3"
+        className="relative mx-auto grid size-[156px] touch-none grid-cols-3 place-content-center gap-3 lg:size-[132px]"
         onPointerDown={startDrawing}
         onPointerMove={continueDrawing}
         onPointerUp={stopDrawing}
@@ -599,7 +599,7 @@ function PatternLockInput({
               type="button"
               data-device-unlock-pattern-point={point}
               className={cn(
-                "relative z-10 grid size-9 place-items-center rounded-full border font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                "relative z-10 grid size-11 place-items-center rounded-full border font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:size-9",
                 selected && stepNumber >= 100 ? "text-[9px]" : "text-xs",
                 selected
                   ? "border-primary bg-primary text-primary-foreground"

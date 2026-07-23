@@ -63,6 +63,7 @@ import {
 } from "@/features/orders/model/device-custody";
 import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
 import {
+  deriveOrderFinancialState,
   isOrderCancelled,
   isOrderCancelledState,
   isOrderCancelledForPayment,
@@ -90,6 +91,10 @@ import {
   normalizeGeneratedRepairOrderPublicNo,
 } from "@/features/orders/model/order-public-no";
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
+import {
+  canRunExactArchiveOrderSearch,
+  classifyOrderSearchQuery,
+} from "@/features/orders/model/order-search-query";
 import {
   ORDER_SELECT,
   REPAIR_ORDER_CUSTOMER_EMBED,
@@ -186,7 +191,7 @@ function scopeOrderRowsForActor<T extends DbRecord>(rows: T[], actor?: AuditActo
   });
 }
 
-type ActorOrderListFilters = OrderListFilters & { archiveSearchExact?: boolean };
+type ActorOrderListFilters = OrderListFilters;
 
 function canSearchOrderArchive(actor?: AuditActor) {
   return can(actor, "order:archive_search", {
@@ -194,17 +199,8 @@ function canSearchOrderArchive(actor?: AuditActor) {
   });
 }
 
-function isSpecificArchiveIdentifier(value: string | undefined) {
-  const query = value?.trim() ?? "";
-  if (!query) return false;
-  const normalizedPhone = normalizePhoneRaw(query);
-  if (normalizedPhone.length >= 6) return true;
-  return query.replace(/\s+/g, "").length >= 4;
-}
-
 function resolveOrderListView(filters: OrderListFilters, actor?: AuditActor) {
   const requestedView = filters.view ?? "active";
-  const hasSearch = Boolean(filters.search?.trim());
 
   if (requestedView !== "active") {
     if (!can(actor, "order:archive_browse")) {
@@ -212,7 +208,11 @@ function resolveOrderListView(filters: OrderListFilters, actor?: AuditActor) {
     }
     return requestedView;
   }
-  if (hasSearch && isSpecificArchiveIdentifier(filters.search) && canSearchOrderArchive(actor)) {
+  if (filters.searchScope === "archive_exact") {
+    if (!canRunExactArchiveOrderSearch(filters.search)) return "active" as const;
+    if (!canSearchOrderArchive(actor)) {
+      throw new ForbiddenError("当前角色无权精确搜索历史工单");
+    }
     return "all" as const;
   }
   return requestedView;
@@ -227,17 +227,9 @@ function filtersForActor(filters: OrderListFilters, actor?: AuditActor): ActorOr
     throw new ForbiddenError("当前角色无权查看整店金额复核结果");
   }
   const canReadSuppliers = can(actor, "supplier:read");
-  const canBrowseArchive = can(actor, "order:archive_browse");
-  const archiveSearchExact = Boolean(
-    filters.search?.trim() &&
-    !canBrowseArchive &&
-    isSpecificArchiveIdentifier(filters.search) &&
-    canSearchOrderArchive(actor),
-  );
   return {
     ...filtersForSupplierAccess(filters, canReadSuppliers),
     view: resolveOrderListView(filters, actor),
-    archiveSearchExact,
   };
 }
 
@@ -248,13 +240,16 @@ function filterOrders(rows: OrderListItem[], filters: ActorOrderListFilters = {}
   if (view === "archive") result = result.filter(isOrderArchivedForQueue);
   const q = filters.search?.trim().toLowerCase();
   if (q) {
+    const queryKind = classifyOrderSearchQuery(q);
+    const phoneQuery = queryKind === "phone";
     result = result.filter((o) => {
-      if (filters.archiveSearchExact && isOrderArchivedForQueue(o)) {
+      if (filters.searchScope === "archive_exact" && isOrderArchivedForQueue(o)) {
         const normalizedQueryPhone = normalizePhoneRaw(q);
         return (
           o.public_no.toLowerCase() === q ||
           o.device_imei.toLowerCase() === q ||
-          (normalizedQueryPhone.length >= 6 &&
+          (phoneQuery &&
+            normalizedQueryPhone.length >= 6 &&
             [o.customer_phone, ...o.contact_phones].some(
               (phone) => normalizePhoneRaw(phone) === normalizedQueryPhone,
             ))
@@ -263,8 +258,8 @@ function filterOrders(rows: OrderListItem[], filters: ActorOrderListFilters = {}
       return (
         o.public_no.toLowerCase().includes(q) ||
         o.customer_name.toLowerCase().includes(q) ||
-        phoneMatches(o.customer_phone, q) ||
-        o.contact_phones.some((phone) => phoneMatches(phone, q)) ||
+        (phoneQuery && phoneMatches(o.customer_phone, q)) ||
+        (phoneQuery && o.contact_phones.some((phone) => phoneMatches(phone, q))) ||
         o.device_imei.toLowerCase().includes(q) ||
         o.device_label.toLowerCase().includes(q)
       );
@@ -323,9 +318,12 @@ function filterOrders(rows: OrderListItem[], filters: ActorOrderListFilters = {}
     result = result.filter((o) => o.supplier_id && filters.supplierIds!.includes(o.supplier_id));
   }
   if (filters.paid && filters.paid !== "all") {
-    result = result.filter(
-      (o) => !isOrderCancelledForPayment(o) && (filters.paid === "paid" ? o.is_paid : !o.is_paid),
-    );
+    result = result.filter((o) => {
+      const financialState = deriveOrderFinancialState(o);
+      return filters.paid === "paid"
+        ? financialState.settlement === "settled" || financialState.settlement === "zero_charge"
+        : financialState.collectible;
+    });
   }
   if (filters.overdue) {
     result = result.filter(
@@ -1152,7 +1150,7 @@ function deriveOrderStatsFromRows(rows: OrderListItem[]): OrderStats {
       (order) =>
         (order.workflow_status ?? workflowStatusFromLegacyStatus(order.status)) !== "closed",
     ).length,
-    unpaid: rows.filter((order) => !order.is_paid).length,
+    unpaid: rows.filter((order) => deriveOrderFinancialState(order).collectible).length,
     approvalOverdue: rows.filter((order) => order.approval_overdue).length,
     pickupOverdue: rows.filter((order) => order.pickup_overdue).length,
   };
@@ -1166,7 +1164,7 @@ export async function listOrders(
   const safeFilters = filtersForActor(filters, actor);
   const rows = scopeOrderRowsForActor(await fetchOrderRows(storeId), actor).map(decorate);
   const filtered = filterOrders(rows, safeFilters);
-  const bounded = safeFilters.archiveSearchExact ? filtered.slice(0, 20) : filtered;
+  const bounded = safeFilters.searchScope === "archive_exact" ? filtered.slice(0, 20) : filtered;
   return bounded.map((order) => projectOrderListItemForActor(order, actor));
 }
 
@@ -1178,6 +1176,7 @@ export async function listOrdersPage(
   const { page, pageSize } = normalizePageInput(input);
   const filters: OrderListFilters = {
     search: input.search,
+    searchScope: input.searchScope,
     deviceSearch: input.deviceSearch,
     view: input.view,
     statuses: input.statuses,
@@ -1212,14 +1211,14 @@ export async function listOrdersPage(
         });
   const rows = scopeOrderRowsForActor(indexRows, actor).map(decorate);
   const filtered = filterOrders(rows, safeFilters);
-  const bounded = safeFilters.archiveSearchExact ? filtered.slice(0, 20) : filtered;
+  const bounded = safeFilters.searchScope === "archive_exact" ? filtered.slice(0, 20) : filtered;
   const workflowCounts = countWorkflowRows(
     filterOrders(rows, filtersForWorkflowCounts(safeFilters)),
   );
   const queueCounts = countOrderQueueGroups(filterOrders(rows, filtersForQueueCounts(safeFilters)));
   const resultGroupCounts = countOrderResultGroups(bounded);
-  const effectivePage = safeFilters.archiveSearchExact ? 1 : page;
-  const effectivePageSize = safeFilters.archiveSearchExact ? 20 : pageSize;
+  const effectivePage = safeFilters.searchScope === "archive_exact" ? 1 : page;
+  const effectivePageSize = safeFilters.searchScope === "archive_exact" ? 20 : pageSize;
   const start = (effectivePage - 1) * effectivePageSize;
   const pageIndexRows = bounded.slice(start, start + effectivePageSize);
   const pageIds = pageIndexRows.map((order) => order.id);
@@ -1238,9 +1237,10 @@ export async function listOrdersPage(
     total: bounded.length,
     page: effectivePage,
     pageSize: effectivePageSize,
-    pageCount: safeFilters.archiveSearchExact
-      ? 1
-      : Math.max(1, Math.ceil(bounded.length / effectivePageSize)),
+    pageCount:
+      safeFilters.searchScope === "archive_exact"
+        ? 1
+        : Math.max(1, Math.ceil(bounded.length / effectivePageSize)),
     workflowCounts,
     queueCounts,
     resultGroupCounts,
@@ -3078,7 +3078,7 @@ export async function updateOrder(
   if (!deviceBrand || !deviceModel) throw new Error("设备品牌和型号不能为空");
   if (!issueDescription) throw new Error("故障描述不能为空");
 
-  const validFaults = normalizeFaultPriceInput(input.fault_prices);
+  const validFaults = normalizeFaultPriceInput(input.fault_prices, { generateLineIds: true });
   const quotation = validFaults.reduce((sum, item) => sum + item.price, 0);
   const deposit = Number(input.deposit_amount ?? 0);
   if (!Number.isFinite(deposit) || deposit < 0) throw new Error("押金不能为负数");
@@ -3496,7 +3496,7 @@ export async function patchOrderFinance(
   if (!id) throw new Error("工单 ID 不能为空");
   if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
 
-  const validFaults = normalizeFaultPriceInput(input.fault_prices);
+  const validFaults = normalizeFaultPriceInput(input.fault_prices, { generateLineIds: true });
   const quotation = validFaults.reduce((sum, item) => sum + item.price, 0);
   const deposit = Number(input.deposit_amount ?? 0);
   if (!Number.isFinite(deposit) || deposit < 0) throw new Error("押金不能为负数");
@@ -3857,7 +3857,6 @@ export async function createOrder(
   ) {
     throw new ForbiddenError("当前角色无权分配工单负责人");
   }
-  if (!input.issue_description.trim()) throw new Error("故障描述不能为空");
   const deviceCustodyStatus = input.device_custody_status ?? DEVICE_CUSTODY_WITH_SHOP;
 
   const validFaults = normalizeFaultPriceInput(input.fault_prices, { generateLineIds: true });
@@ -3884,15 +3883,6 @@ export async function createOrder(
   const technicianName = assignee?.displayName.trim() || operatorName.trim() || "前台";
   const initialStatus = await resolveInitialOrderStatus(supabase, storeId, input.status);
   const status = initialStatus.code;
-  if (
-    deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER &&
-    (deviceCustodyBlocksStatus(status) ||
-      initialStatus.bucket === "diagnosing" ||
-      initialStatus.bucket === "repair" ||
-      initialStatus.bucket === "pickup")
-  ) {
-    throw new Error("设备未留店时不能以诊断、维修或待取机状态创建工单");
-  }
   const now = new Date().toISOString();
   const defaultWarrantyMonths = await readDefaultOrderWarrantyMonths(supabase, storeId);
   const warranty = normalizeWarrantyPayload({
@@ -4122,7 +4112,7 @@ export async function getRepairDeskOptions(actor?: AuditActor): Promise<RepairDe
       canAssignSuppliers: can(actor, "supplier:assign"),
       canManageSuppliers: can(actor, "supplier:manage"),
       canReadInventory: can(actor, "inventory:read"),
-      canSearchOrderArchive: can(actor, "order:archive_search"),
+      canSearchOrderArchive: canSearchOrderArchive(actor),
       canBrowseOrderArchive: can(actor, "order:archive_browse"),
       canReadOrderFinance: can(actor, "finance:order_read"),
       canReadAggregateFinance: can(actor, "finance:aggregate_read"),

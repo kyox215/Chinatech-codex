@@ -14,7 +14,10 @@ import {
 import { DeviceCustodyBadge, MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
 import { DeviceUnlockListBadge } from "@/features/orders/components/device-unlock-fields";
 import { OrderQueueStageBadge } from "@/features/orders/components/order-queue-stage-badge";
-import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
+import {
+  deriveOrderFinancialState,
+  isOrderCancelledForPayment,
+} from "@/features/orders/model/order-payment-state";
 import { orderExceptionMeta } from "@/features/orders/model/canonical-order-status";
 import {
   getOrderTaskGuidance,
@@ -31,20 +34,24 @@ import { formatOrderListDate, formatOrderRelativeDate } from "@/features/orders/
 
 export interface OrderMobileCardProps {
   order: OrderListItem;
+  detailHref?: string;
   suppliers?: Supplier[];
   onPrefetch?: () => void;
   onCancelPrefetch?: () => void;
+  onOpenIntent?: () => void;
 }
 
 export function OrderMobileCard({
   order,
+  detailHref = `/orders/${order.id}`,
   suppliers = [],
   onPrefetch,
   onCancelPrefetch,
+  onOpenIntent,
 }: OrderMobileCardProps) {
   const hoverTimerRef = useRef<number | null>(null);
-  const detailHref = `/orders/${order.id}`;
   const cancelled = isOrderCancelledForPayment(order);
+  const financialState = deriveOrderFinancialState(order);
   const workflowStatus = getOrderWorkflowStatus(order);
   const exceptionStatus = order.exception_status;
   const hasOverdueException = !cancelled && Boolean(order.approval_overdue || order.pickup_overdue);
@@ -65,24 +72,16 @@ export function OrderMobileCard({
   const issueLabel = order.issue_description || "待补充故障描述";
   const createdDate = formatOrderListDate(order.created_at);
   const relativeCreatedDate = formatOrderRelativeDate(order.created_at);
-  const paymentLabel = order.finance_redacted
-    ? "金额受限"
-    : cancelled
-      ? "已取消"
-      : order.is_paid
-        ? "已结清"
-        : order.deposit_amount > 0
-          ? "已付押金"
-          : "未收款";
-  const paymentStatusClass = order.finance_redacted
-    ? "bg-muted text-muted-foreground"
-    : cancelled
-      ? "bg-muted text-muted-foreground"
-      : order.is_paid
-        ? "bg-status-success text-status-success-foreground"
-        : order.deposit_amount > 0
-          ? "bg-status-warn text-status-warn-foreground"
-          : "bg-status-danger text-status-danger-foreground";
+  const paymentLabel = financialState.label;
+  const paymentStatusClass =
+    financialState.settlement === "settled" || financialState.settlement === "zero_charge"
+      ? "bg-status-success text-status-success-foreground"
+      : financialState.settlement === "partial"
+        ? "bg-status-warn text-status-warn-foreground"
+        : financialState.settlement === "unpaid"
+          ? "bg-status-danger text-status-danger-foreground"
+          : "bg-muted text-muted-foreground";
+  const detailAccessibleName = `工单 ${order.public_no}，${customerLabel}，${deviceLabel}，${currentStageLabel}，${paymentLabel}`;
   const paymentTotalClass =
     !cancelled && order.balance_amount > 0 ? "text-status-danger-foreground" : "text-foreground";
   const paymentBalanceClass =
@@ -117,6 +116,7 @@ export function OrderMobileCard({
   const handlePointerDownCapture = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.button !== 0 || !isOrderDetailLink(event.target)) return;
     clearHoverTimer();
+    onOpenIntent?.();
     onPrefetch?.();
   };
   const handleFocusCapture = (event: FocusEvent<HTMLElement>) => {
@@ -133,6 +133,7 @@ export function OrderMobileCard({
 
   return (
     <article
+      data-order-id={order.id}
       className={cn(
         repairOs.mobileInfoCard,
         "group relative touch-manipulation select-none overflow-hidden",
@@ -146,8 +147,14 @@ export function OrderMobileCard({
       onFocusCapture={handleFocusCapture}
       onBlurCapture={handleBlurCapture}
     >
+      <Link
+        href={detailHref}
+        className="absolute inset-0 z-10 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        aria-label={detailAccessibleName}
+        onClick={onOpenIntent}
+      />
       <div className="space-y-1 px-2.5 py-1.5 transition-colors group-hover:bg-accent/10 group-active:bg-accent/20">
-        <Link href={detailHref} className="block">
+        <div>
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
             <div className="flex min-w-0 items-start gap-1.5 rounded-md px-0.5 text-[10px] leading-3 text-muted-foreground">
               <span className="grid size-5 shrink-0 place-items-center rounded bg-primary/10 text-primary">
@@ -167,6 +174,9 @@ export function OrderMobileCard({
             </div>
 
             <div className="flex min-w-[88px] shrink-0 flex-col items-end gap-1">
+              <p className="max-w-[108px] truncate font-mono text-[10px] font-semibold leading-3 text-primary">
+                {order.public_no}
+              </p>
               <OrderQueueStageBadge order={order} className="max-w-[108px]" />
               <p className="max-w-[72px] truncate text-right text-[10px] font-semibold leading-3 text-muted-foreground">
                 {order.technician_name || "未分配"}
@@ -195,11 +205,11 @@ export function OrderMobileCard({
               ) : null}
             </div>
           </div>
-        </Link>
+        </div>
 
         <div className="min-w-0 rounded-lg bg-surface-muted/70 px-2 py-1.5">
           <div className="flex min-w-0 items-center gap-1.5">
-            <Link href={detailHref} className="flex min-w-0 flex-1 items-center gap-1.5">
+            <div className="flex min-w-0 flex-1 items-center gap-1.5">
               <Smartphone className="size-3 shrink-0 text-muted-foreground" />
               <p className="truncate text-[12px] font-semibold leading-4 text-foreground">
                 {deviceLabel}
@@ -214,11 +224,11 @@ export function OrderMobileCard({
                   +{extraFaultCount}
                 </span>
               ) : null}
-            </Link>
+            </div>
             {supplierControl}
           </div>
 
-          <Link href={detailHref} className="block">
+          <div>
             <p className="truncate text-[10px] leading-3 text-muted-foreground">{issueLabel}</p>
 
             <div className="mt-0.5 flex min-w-0 items-center gap-1 overflow-hidden text-[9px] leading-3">
@@ -238,10 +248,10 @@ export function OrderMobileCard({
                 </span>
               ) : null}
             </div>
-          </Link>
+          </div>
         </div>
 
-        <Link href={detailHref} className="block">
+        <div>
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2 border-t border-[var(--border-panel)] pt-1">
             <MobileWorkflowStrip
               workflowStatus={workflowStatus}
@@ -291,15 +301,12 @@ export function OrderMobileCard({
               )}
             </div>
           </div>
-        </Link>
+        </div>
 
         {hasOverdueException ? (
-          <Link
-            href={`/orders/${order.id}`}
-            className="block rounded-md bg-status-danger/10 px-2 py-1 text-[10px] font-medium leading-3 text-status-danger-foreground"
-          >
+          <div className="rounded-md bg-status-danger/10 px-2 py-1 text-[10px] font-medium leading-3 text-status-danger-foreground">
             当前工单存在超期风险，请优先跟进客户确认或取机。
-          </Link>
+          </div>
         ) : null}
       </div>
     </article>

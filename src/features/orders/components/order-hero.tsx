@@ -37,7 +37,10 @@ import {
 } from "@/features/orders/model/order-task-flow";
 import { formatOrderDateTime } from "@/features/orders/model/order-date";
 import { getOrderSideStatusBadges } from "@/features/orders/model/order-side-statuses";
-import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
+import {
+  deriveOrderFinancialState,
+  isOrderCancelledForPayment,
+} from "@/features/orders/model/order-payment-state";
 import { detailWorkspace } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
@@ -107,6 +110,7 @@ export function OrderHero({
     gridTemplateColumns: `repeat(${orderTaskStages.length}, minmax(0, 1fr))`,
   };
   const showFinanceReadiness = !order.finance_redacted && !isOrderCancelledForPayment(order);
+  const financialState = deriveOrderFinancialState(order);
   const readiness = [
     { label: "客户电话", done: Boolean(order.customer_phone?.trim()) },
     { label: "设备型号", done: Boolean(order.device_label?.trim()) },
@@ -115,7 +119,11 @@ export function OrderHero({
           { label: "维修报价", done: order.fault_prices.length > 0 || order.quotation_amount > 0 },
           {
             label: "尾款",
-            done: order.is_paid || order.balance_amount <= 0 || activeStage.key !== "pickup",
+            done:
+              financialState.settlement === "settled" ||
+              financialState.settlement === "zero_charge" ||
+              financialState.settlement === "refunded" ||
+              activeStage.key !== "pickup",
           },
         ]
       : []),

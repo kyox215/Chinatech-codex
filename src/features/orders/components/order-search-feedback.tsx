@@ -1,6 +1,13 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, LoaderCircle, RefreshCw, Search } from "lucide-react";
+import {
+  AlertTriangle,
+  Archive,
+  CheckCircle2,
+  LoaderCircle,
+  RefreshCw,
+  Search,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { orderQueueGroups } from "@/features/orders/model/order-queue-classification";
@@ -17,6 +24,9 @@ export function OrderSearchFeedback({
   total,
   resultGroupCounts,
   canSearchArchive,
+  archiveSearchAvailable = false,
+  archiveSearchActive = false,
+  onArchiveSearchChange,
   onRetry,
   compact = false,
 }: {
@@ -29,6 +39,9 @@ export function OrderSearchFeedback({
   total: number;
   resultGroupCounts?: Record<OrderResultGroup, number>;
   canSearchArchive: boolean;
+  archiveSearchAvailable?: boolean;
+  archiveSearchActive?: boolean;
+  onArchiveSearchChange?: (active: boolean) => void;
   onRetry: () => void;
   compact?: boolean;
 }) {
@@ -82,12 +95,25 @@ export function OrderSearchFeedback({
           </>
         ) : (
           <>
-            “{committedValue}”找到 {total} 条
+            {archiveSearchActive ? "历史精确搜索" : "当前范围"}“{committedValue}”找到 {total} 条
             {resultGroupCounts ? ` · 待办 ${activeCount} · 历史 ${historyCount}` : ""}
             {canSearchArchive ? "" : " · 历史结果按权限显示"}
           </>
         )}
       </span>
+
+      {!busy && !hasError && canSearchArchive && archiveSearchAvailable && onArchiveSearchChange ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 shrink-0 gap-1 px-2 text-[11px]"
+          onClick={() => onArchiveSearchChange(!archiveSearchActive)}
+        >
+          <Archive className="size-3" />
+          {archiveSearchActive ? "返回当前范围" : "精确查历史"}
+        </Button>
+      ) : null}
 
       {hasError ? (
         <Button

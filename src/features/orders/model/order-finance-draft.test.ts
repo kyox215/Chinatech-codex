@@ -158,6 +158,26 @@ describe("order finance draft", () => {
     ]);
   });
 
+  it("repairs missing line identities once and keeps them stable across saves", () => {
+    const firstDraft = createFinanceDraftState(
+      [
+        { name: "屏幕", price: 80, catalog_key: "display:main" },
+        { name: "屏幕", price: 20 },
+      ],
+      0,
+    );
+    const firstSave = normalizeFinanceDraft(firstDraft, 0);
+    const firstIds = firstSave.faultPrices.map((item) => item.line_id);
+
+    expect(firstIds).toHaveLength(2);
+    expect(new Set(firstIds).size).toBe(2);
+    expect(firstSave.faultPrices[0]).toMatchObject({ catalog_key: "display:main" });
+
+    const reordered = createFinanceDraftState([...firstSave.faultPrices].reverse(), 0);
+    const secondSave = normalizeFinanceDraft(reordered, 0);
+    expect(secondSave.faultPrices.map((item) => item.line_id)).toEqual([...firstIds].reverse());
+  });
+
   it("rejects deposit above quotation", () => {
     expect(
       normalizeFinanceDraft(

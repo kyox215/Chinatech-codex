@@ -1,45 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  UNKNOWN_ISSUE_DESCRIPTION,
-  getQuoteDraftReadiness,
-  getQuoteNotificationReadiness,
-  inferIssueCaptureModeForLegacyDraft,
-  issueDescriptionForIntake,
-  resolveIntakeQuoteDraft,
-} from "./order-diagnosis-quote";
-
-describe("unknown issue intake", () => {
-  it("stores an explicit pending-diagnosis description without a fake quote row", () => {
-    expect(issueDescriptionForIntake("unknown", "ignored")).toBe(UNKNOWN_ISSUE_DESCRIPTION);
-    expect(inferIssueCaptureModeForLegacyDraft(UNKNOWN_ISSUE_DESCRIPTION)).toBe("unknown");
-  });
-
-  it("requires and preserves the customer's reported symptom when the problem is known", () => {
-    expect(issueDescriptionForIntake("reported", "  掉电很快  ")).toBe("掉电很快");
-    expect(() => issueDescriptionForIntake("reported", "  ")).toThrow("请填写客户描述的故障现象");
-  });
-
-  it("keeps paused quote drafts out of unknown-intake submissions", () => {
-    const draftItems = [{ name: "更换电池", price: 59 }];
-    expect(
-      resolveIntakeQuoteDraft({
-        mode: "unknown",
-        items: draftItems,
-        total: 59,
-        deposit: 20,
-      }),
-    ).toEqual({ items: [], total: 0, deposit: 0 });
-    expect(
-      resolveIntakeQuoteDraft({
-        mode: "reported",
-        items: draftItems,
-        total: 59,
-        deposit: 20,
-      }),
-    ).toEqual({ items: draftItems, total: 59, deposit: 20 });
-  });
-});
+import { getQuoteDraftReadiness, getQuoteNotificationReadiness } from "./order-diagnosis-quote";
 
 describe("quote readiness", () => {
   const readyInput = {

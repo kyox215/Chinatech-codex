@@ -67,7 +67,10 @@ import {
   normalizeFinanceDraft,
   type FinanceDraftState,
 } from "@/features/orders/model/order-finance-draft";
-import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
+import {
+  deriveOrderFinancialState,
+  isOrderCancelledForPayment,
+} from "@/features/orders/model/order-payment-state";
 import type { OrderDetailPrimaryAction } from "@/features/orders/model/order-detail-primary-action";
 import { fadeUp } from "@/lib/motion";
 import { detailWorkspace } from "@/lib/ui-patterns";
@@ -127,6 +130,7 @@ export function OrderOverviewTab({
   canReadInternalCosts = false,
   canManageInternalCosts = false,
   canAllocatePartsCosts = false,
+  onRepairQuoteLines,
   defaultWarrantyMonths = 6,
   onQuickImeiSave,
   quickImeiPending = false,
@@ -165,6 +169,7 @@ export function OrderOverviewTab({
   canReadInternalCosts?: boolean;
   canManageInternalCosts?: boolean;
   canAllocatePartsCosts?: boolean;
+  onRepairQuoteLines?: () => void;
   defaultWarrantyMonths?: number;
   onQuickImeiSave?: (imei: string) => void | Promise<void>;
   quickImeiPending?: boolean;
@@ -310,6 +315,7 @@ export function OrderOverviewTab({
           faultPrices={order.fault_prices}
           canManage={canManageInternalCosts}
           canAllocatePartsCosts={canAllocatePartsCosts}
+          onRepairQuoteLines={onRepairQuoteLines}
         />
       ) : null}
     </motion.div>
@@ -432,18 +438,26 @@ export function OrderDetailActionDock({
     () => normalizeFinanceDraft(financeDraft, paidAmount),
     [financeDraft, paidAmount],
   );
+  const financialState = deriveOrderFinancialState(
+    isEditing
+      ? {
+          ...order,
+          quotation_amount: normalizedDraft.quotation,
+          deposit_amount: normalizedDraft.deposit,
+          balance_amount: normalizedDraft.balance,
+        }
+      : order,
+  );
   const display = isEditing
     ? {
         quotation: normalizedDraft.quotation,
         deposit: normalizedDraft.deposit,
         balance: normalizedDraft.balance,
-        isPaid: normalizedDraft.balance === 0,
       }
     : {
         quotation: order.quotation_amount,
         deposit: order.deposit_amount,
         balance: order.balance_amount,
-        isPaid: order.is_paid,
       };
   const flowActionLabel = approvalDecisionAvailable ? "审批处理" : "流转";
   const notifyPrimary = primaryAction === "notify";
@@ -490,13 +504,14 @@ export function OrderDetailActionDock({
                 <span className="inline-flex min-w-0 items-center gap-1 font-medium">
                   {cancelled ? (
                     "已取消"
-                  ) : display.isPaid ? (
+                  ) : financialState.settlement === "settled" ||
+                    financialState.settlement === "zero_charge" ? (
                     <>
                       <CheckCircle2 className="size-3 text-status-success-foreground" />
                       已结清
                     </>
                   ) : (
-                    "未结清"
+                    financialState.label
                   )}
                 </span>
                 <span className="truncate">
@@ -561,8 +576,7 @@ export function OrderDetailActionDock({
                 isEditing ||
                 paymentDisabled ||
                 cancelled ||
-                display.isPaid ||
-                display.balance <= 0
+                !financialState.collectible
               }
               onClick={onPay}
             >
@@ -830,6 +844,12 @@ function OrderOverviewFinancePanel({
           deposit: order.deposit_amount,
           balance: order.balance_amount,
         };
+  const financialState = deriveOrderFinancialState({
+    ...order,
+    quotation_amount: display.quotation,
+    deposit_amount: display.deposit,
+    balance_amount: display.balance,
+  });
 
   if (order.finance_redacted) {
     return (
@@ -864,20 +884,21 @@ function OrderOverviewFinancePanel({
           <span
             className={cn(
               "rounded-md border px-1.5 py-0.5 text-[10px] font-medium",
-              cancelled
+              financialState.settlement === "cancelled"
                 ? "border-[var(--border-panel)] bg-muted text-muted-foreground"
-                : order.is_paid
-                  ? "border-status-success-foreground/25 bg-status-success text-status-success-foreground"
-                  : "border-status-warn-foreground/25 bg-status-warn text-status-warn-foreground",
+                : financialState.settlement === "refunded" || financialState.settlement === "review"
+                  ? "border-[var(--border-panel)] bg-muted text-muted-foreground"
+                  : financialState.settlement === "settled" ||
+                      financialState.settlement === "zero_charge"
+                    ? "border-status-success-foreground/25 bg-status-success text-status-success-foreground"
+                    : "border-status-warn-foreground/25 bg-status-warn text-status-warn-foreground",
             )}
           >
             {financeRedacted
               ? "财务信息受限"
-              : cancelled
+              : financialState.settlement === "cancelled"
                 ? "已取消 · 取消时余额不计入待收"
-                : order.is_paid
-                  ? "已结清"
-                  : "待收款"}
+                : financialState.label}
           </span>
         </div>
 

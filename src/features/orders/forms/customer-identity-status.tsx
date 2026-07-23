@@ -47,12 +47,12 @@ export function CustomerIdentitySummary({
         </div>
       </div>
       <div className="mt-2 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-1">
-        <Button type="button" variant="outline" className="min-h-10" onClick={onAction}>
+        <Button type="button" variant="outline" className="min-h-11 lg:min-h-10" onClick={onAction}>
           <ArrowLeft className="mr-1.5 size-3.5" />
           {actionLabel}
         </Button>
         {primaryAction ? (
-          <Button type="button" className="min-h-10" onClick={primaryAction.onClick}>
+          <Button type="button" className="min-h-11 lg:min-h-10" onClick={primaryAction.onClick}>
             <Check className="mr-1.5 size-3.5" />
             {primaryAction.label}
           </Button>

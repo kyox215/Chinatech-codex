@@ -177,7 +177,13 @@ describe("order repository role projection", () => {
       actor("owner"),
     );
     const customDone = projectOrderCapabilities(
-      order({ status: "repairing", workflow_status: "repair", workflow_bucket: "done" }),
+      order({
+        status: "repairing",
+        workflow_status: "repair",
+        workflow_bucket: "done",
+        approval_status: "approved",
+        approval_flow_status: "not_required",
+      }),
       actor("owner"),
     );
 
@@ -546,7 +552,7 @@ describe("order repository database pagination", () => {
           orderRow({ id: "paid_active", public_no: "R-ACTIVE", is_paid: true }),
           orderRow({
             id: "paid_closed",
-            public_no: "R-ARCHIVE",
+            public_no: "R2027029",
             status: "completed",
             workflow_status: "closed",
             is_paid: true,
@@ -606,7 +612,7 @@ describe("order repository database pagination", () => {
         data: [
           orderRow({
             id: "unpaid_closed",
-            public_no: "R-ARCHIVE",
+            public_no: "R2027029",
             status: "completed",
             workflow_status: "closed",
             is_paid: false,
@@ -619,13 +625,18 @@ describe("order repository database pagination", () => {
       }),
     );
 
-    const search = await listOrdersPage({ search: "R-ARCHIVE" }, actor("technician"));
+    const currentSearch = await listOrdersPage({ search: "R2027029" }, actor("technician"));
+    expect(currentSearch.items).toEqual([]);
+    const search = await listOrdersPage(
+      { search: "R2027029", searchScope: "archive_exact" },
+      actor("technician"),
+    );
     expect(search.items).toHaveLength(1);
     expect(search.resultGroupCounts.completed).toBe(1);
     expect(Object.hasOwn(search.items[0] ?? {}, "quotation_amount")).toBe(false);
     expect(search.items[0]?.finance_redacted).toBe(true);
     const groupedSearch = await listOrdersPage(
-      { search: "R-ARCHIVE", queueGroups: ["processing"] },
+      { search: "R2027029", searchScope: "archive_exact", queueGroups: ["processing"] },
       actor("technician"),
     );
     expect(groupedSearch.items).toEqual([]);

@@ -3,17 +3,17 @@
 > [历史导出 / Snapshot]
 > 本文档保留为早期 TanStack Start 工单模块复刻材料，不是当前 RepairDesk 实施权威。
 > 当前项目规则以 `AGENTS.md`、`docs/project-charter.md`、`docs/UI_PAGE_GENERATION_DECLARATION.md`、`docs/REPAIROS_MOBILE_DETAIL_STANDARD.md` 和 `.ai-company/memory/PROJECT_MEMORY.md` 为准：路由使用 Next.js App Router `src/app/`，任务记忆使用 `.ai-company/memory/tasks/`，RepairOS 当前规则优先于本文档。
-> Last reviewed: 2026-07-17 by `TASK-20260717-004-order-diagnosis-quote-implementation`.
+> Last reviewed: 2026-07-22 by `TASK-20260722-002-orders-audit-remediation-implementation`.
 
-## Current addendum: 未知故障、检测与正式报价（2026-07-17）
+## Current addendum: 新建接单、检测与正式报价（2026-07-22）
 
-本节是当前 Next.js RepairDesk 的实施合同，在“接单时未知问题、检测后报价及 WhatsApp 人工通知”范围内优先于本文后续的历史 Snapshot。
+本节是当前 Next.js RepairDesk 的实施合同，在“新建接单、检测后报价及 WhatsApp 人工通知”范围内优先于本文后续的历史 Snapshot。
 
 ### 接单语义
 
-- 新建工单必须显式选择“问题明确”或“问题未知，需检测”。未知模式使用统一客户可见描述“客户暂时无法确认具体故障，需检测。”，不根据自由文本反推业务模式。
-- 未知模式不得生成空名称或零元的假报价，不得收取未确认项目的定金；客户原始报障、技师检测结论和收费项目分别存入 `issue_description`、`diagnosis_result` 与 `fault_prices`。
-- 离线草稿和 outbox 必须保存显式 `issueMode`；同步白名单不得因为安全字段过滤而丢失该模式。
+- 新建页不再收集“问题明确 / 问题未知”模式或客户报障原话；`issue_description` 仅保留为空字符串的兼容字段，不得从报价项目推导客户原话。
+- 新建时可直接填写报价项目与定金，也可全部留空后创建；两者不受设备保管状态影响。技师检测结论继续写入 `diagnosis_result`，正式收费项目继续写入 `fault_prices`。
+- 新离线草稿和 outbox 不再写 `issueMode`、`reportedIssueDraft`、`pausedRepairItems` 或 `pausedDepositAmountCents`。未过期历史草稿仍可读取 `paused*` 字段，并在恢复时升级成普通报价与定金。
 
 ### 角色与交接
 
@@ -73,7 +73,7 @@
 
 ### 新建和解锁隐私
 
-- 新建页在设备信息区显示“已留店 / 未留店（客户带回）”双选项，默认已留店但不隐藏默认。
+- 新建页在设备信息区显示“设备留店 / 设备未留店”双选项并要求员工主动确认；该值只记录当前保管方，不过滤初始状态或控制其他新建字段。
 - 选择未留店不会清除当前已输入的密码、PIN 或图案；密码选项和值只在员工手动清空时才清除。
 - 客户持有或已归还客户时，服务端继续保存已登记解锁信息，但明文只在有 `unlock:read` 权限的订单详情中返回；列表页只允许展示密码类型提示。
 - “随附物品”与设备保管状态完全独立。

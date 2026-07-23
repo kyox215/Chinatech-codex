@@ -24,7 +24,6 @@ describe("new order customer name helpers", () => {
 
   it("requires the operator to confirm who holds the device", () => {
     expect(initialNewOrderForm.deviceCustodyStatus).toBeNull();
-    expect(initialNewOrderForm.issueCaptureMode).toBe("reported");
   });
 
   it("treats generated phone-only customer names as blank", () => {

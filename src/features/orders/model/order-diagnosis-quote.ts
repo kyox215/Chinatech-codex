@@ -1,9 +1,5 @@
 import type { FaultPriceItem, QuotePriceException } from "@/lib/repairdesk/types";
 
-export const UNKNOWN_ISSUE_DESCRIPTION = "客户暂时无法确认具体故障，需检测。";
-
-export type IssueCaptureMode = "reported" | "unknown";
-
 export type QuoteReadinessCode =
   | "diagnosis"
   | "items"
@@ -24,37 +20,6 @@ export interface QuoteReadiness {
   ready: boolean;
   missing: QuoteReadinessCode[];
   quotationAmount: number;
-}
-
-export function issueDescriptionForIntake(mode: IssueCaptureMode, issue: string) {
-  if (mode === "unknown") return UNKNOWN_ISSUE_DESCRIPTION;
-  const normalized = issue.trim();
-  if (!normalized) throw new Error("请填写客户描述的故障现象");
-  return normalized;
-}
-
-export function resolveIntakeQuoteDraft<T>({
-  mode,
-  items,
-  total,
-  deposit,
-}: {
-  mode: IssueCaptureMode;
-  items: T[];
-  total: number;
-  deposit: number;
-}) {
-  if (mode === "unknown") {
-    return { items: [] as T[], total: 0, deposit: 0 };
-  }
-  return { items, total, deposit };
-}
-
-// Legacy drafts did not persist a separate capture-mode field. Keep this as a
-// presentation-only compatibility heuristic; server workflow rules must never
-// infer business state from localized display copy.
-export function inferIssueCaptureModeForLegacyDraft(issue?: string | null): IssueCaptureMode {
-  return issue?.trim() === UNKNOWN_ISSUE_DESCRIPTION ? "unknown" : "reported";
 }
 
 export function getQuoteDraftReadiness(input: QuoteDraftReadinessInput): QuoteReadiness {

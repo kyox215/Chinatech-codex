@@ -96,6 +96,12 @@ import {
   orderResultGroupMeta,
 } from "@/features/orders/model/order-list-grouping";
 import { useOrderSearchInput } from "@/features/orders/model/use-order-search-input";
+import { canRunExactArchiveOrderSearch } from "@/features/orders/model/order-search-query";
+import {
+  readOrderListRouteState,
+  type OrderListRouteStateV1,
+  writeOrderListRouteState,
+} from "@/features/orders/model/order-list-route-state";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import {
   ORDER_QUEUE_PAGE_SIZE,
@@ -156,6 +162,7 @@ type OrderListSelection = {
   statusCode: string;
   filters: OrderListFilters;
   page: number;
+  pageSize: number;
 };
 
 type OrderListIntent = {
@@ -174,7 +181,7 @@ function orderListInputForSelection(selection: OrderListSelection): OrderListPag
     queueGroups:
       selection.statusGroup === "all" ? selection.filters.queueGroups : [selection.statusGroup],
     page: selection.page,
-    pageSize: ORDER_QUEUE_PAGE_SIZE,
+    pageSize: selection.pageSize,
   };
 }
 
@@ -187,6 +194,7 @@ export function OrderListScreen() {
   const [statusCode, setStatusCode] = useState<string>("all");
   const [filters, setFilters] = useState<OrderListFilters>({});
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(ORDER_QUEUE_PAGE_SIZE);
   const [pendingListIntent, setPendingListIntent] = useState<OrderListIntent | null>(null);
   const [failedListIntent, setFailedListIntent] = useState<OrderListIntent | null>(null);
   const listIntentSequenceRef = useRef(0);
@@ -195,14 +203,18 @@ export function OrderListScreen() {
     statusCode: "all",
     filters: {},
     page: 1,
+    pageSize: ORDER_QUEUE_PAGE_SIZE,
   });
   const [selected, setSelected] = useState<string[]>([]);
   const [printOrders, setPrintOrders] = useState<OrderListItem[]>([]);
   const [customerStatusUrls, setCustomerStatusUrls] = useState<Record<string, string>>({});
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   const [newOrderOpen, setNewOrderOpen] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [newOrderSessionKey, setNewOrderSessionKey] = useState(0);
   const mobileHeaderCleanupRef = useRef<() => void>(() => undefined);
+  const restoredListIdentityRef = useRef("");
+  const pendingScrollRestoreRef = useRef<{ scrollY: number; anchorOrderId?: string } | null>(null);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
   const [isOnline, setIsOnline] = useState(true);
   const router = useRouter();
@@ -222,7 +234,9 @@ export function OrderListScreen() {
       setFailedListIntent(null);
       const nextSearch = value || undefined;
       setFilters((current) =>
-        current.search === nextSearch ? current : { ...current, search: nextSearch },
+        current.search === nextSearch && current.searchScope !== "archive_exact"
+          ? current
+          : { ...current, search: nextSearch, searchScope: "current" },
       );
       setPage(1);
     },
@@ -282,14 +296,14 @@ export function OrderListScreen() {
   useEffect(() => {
     const query = searchParams.get("q");
     if (!isOnline || !query) return;
-    setFilters((current) => (current.search === query ? current : { ...current, search: query }));
+    setFilters((current) => ({ ...current, search: query, searchScope: "current" }));
     setPage(1);
   }, [isOnline, searchParams]);
 
   useEffect(() => {
     const applyIntent = (value: string) => {
       if (!value) return;
-      setFilters((current) => (current.search === value ? current : { ...current, search: value }));
+      setFilters((current) => ({ ...current, search: value, searchScope: "current" }));
       setPage(1);
     };
 
@@ -305,8 +319,8 @@ export function OrderListScreen() {
   }, [filters, statusGroup]);
 
   const currentSelection = useMemo<OrderListSelection>(
-    () => ({ statusGroup, statusCode, filters, page }),
-    [filters, page, statusCode, statusGroup],
+    () => ({ statusGroup, statusCode, filters, page, pageSize }),
+    [filters, page, pageSize, statusCode, statusGroup],
   );
   const queueInput = useMemo(
     () => orderListInputForSelection(currentSelection),
@@ -391,6 +405,76 @@ export function OrderListScreen() {
   const groupedData = useMemo(() => groupOrderListItems(data), [data]);
   const totalOrders = listResult?.total ?? 0;
   const pageCount = listResult?.pageCount ?? 1;
+  const persistListContext = useCallback(
+    (anchorOrderId?: string) => {
+      if (!activeStoreId || !shell.userId || typeof window === "undefined") return;
+      const routeState: OrderListRouteStateV1 = {
+        version: 1,
+        storeId: activeStoreId,
+        userId: shell.userId,
+        savedAt: Date.now(),
+        statusGroup,
+        statusCode,
+        filters,
+        page,
+        pageSize,
+        scrollY: window.scrollY,
+        anchorOrderId,
+      };
+      writeOrderListRouteState(window.sessionStorage, routeState);
+      window.history.replaceState(
+        { ...window.history.state, repairdeskOrderListContext: routeState },
+        "",
+      );
+    },
+    [activeStoreId, filters, page, pageSize, shell.userId, statusCode, statusGroup],
+  );
+
+  useEffect(() => {
+    if (!activeStoreId || !shell.userId || typeof window === "undefined") return;
+    const identityKey = `${activeStoreId}:${shell.userId}`;
+    if (restoredListIdentityRef.current === identityKey) return;
+    restoredListIdentityRef.current = identityKey;
+    if (searchParams.get("q")?.trim()) return;
+    const historyRouteState = window.history.state?.repairdeskOrderListContext as
+      | OrderListRouteStateV1
+      | undefined;
+    if (historyRouteState) writeOrderListRouteState(undefined, historyRouteState);
+    const restored = readOrderListRouteState(window.sessionStorage, {
+      storeId: activeStoreId,
+      userId: shell.userId,
+    });
+    if (!restored) return;
+    setStatusGroup(restored.statusGroup);
+    setStatusCode(restored.statusCode);
+    setFilters(restored.filters);
+    setPage(restored.page);
+    setPageSize(restored.pageSize);
+    pendingScrollRestoreRef.current = {
+      scrollY: restored.scrollY,
+      anchorOrderId: restored.anchorOrderId,
+    };
+  }, [activeStoreId, searchParams, shell.userId]);
+
+  useEffect(() => {
+    if (!activeStoreId || !shell.userId || typeof window === "undefined") return;
+    const timer = window.setTimeout(() => persistListContext(), 180);
+    return () => window.clearTimeout(timer);
+  }, [activeStoreId, persistListContext, shell.userId]);
+
+  useEffect(() => {
+    const pending = pendingScrollRestoreRef.current;
+    if (!pending || !data.length || isFetching) return;
+    pendingScrollRestoreRef.current = null;
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: pending.scrollY, behavior: "auto" });
+      if (!pending.anchorOrderId) return;
+      const anchor = document.querySelector<HTMLElement>(
+        `[data-order-id="${CSS.escape(pending.anchorOrderId)}"] a[href^="/orders/"]`,
+      );
+      anchor?.focus({ preventScroll: true });
+    });
+  }, [data.length, isFetching]);
   const resultGroupCounts = listResult?.resultGroupCounts ?? createOrderResultGroupCounts();
   const statusGroups = useMemo(() => {
     const activeView = (filters.view ?? "active") === "active";
@@ -441,6 +525,7 @@ export function OrderListScreen() {
     setStatusCode(selection.statusCode);
     setFilters(selection.filters);
     setPage(selection.page);
+    setPageSize(selection.pageSize);
     setSelected([]);
   }, []);
   const activePendingListIntent =
@@ -510,7 +595,10 @@ export function OrderListScreen() {
     if (filters.search?.trim()) {
       chips.push({
         key: "search",
-        label: `搜索：${filters.search}${canSearchOrderArchive ? "（含历史）" : ""}`,
+        label:
+          filters.searchScope === "archive_exact"
+            ? `历史精确搜索：${filters.search}`
+            : `当前范围搜索：${filters.search}`,
       });
     }
     if (filters.view && filters.view !== "active") {
@@ -588,7 +676,6 @@ export function OrderListScreen() {
     return chips;
   }, [
     canReadSuppliers,
-    canSearchOrderArchive,
     filters,
     statusCode,
     statusGroup,
@@ -760,6 +847,14 @@ export function OrderListScreen() {
     setPage(1);
   };
 
+  const updateMobileFilters = (patch: Partial<OrderListFilters>) => {
+    if (!isOnline) return;
+    setPendingListIntent(null);
+    setFailedListIntent(null);
+    setFilters((current) => ({ ...current, ...patch }));
+    setPage(1);
+  };
+
   const removeFilterChip = (key: string) => {
     if (!isOnline) return;
     if (key === "phase") {
@@ -773,7 +868,7 @@ export function OrderListScreen() {
     }
     setFilters((current) => {
       if (key === "view") return { ...current, view: "active" };
-      if (key === "search") return { ...current, search: undefined };
+      if (key === "search") return { ...current, search: undefined, searchScope: "current" };
       if (key === "paid") return { ...current, paid: undefined };
       if (key === "overdue") return { ...current, overdue: undefined };
       if (key.startsWith("status:")) {
@@ -832,6 +927,7 @@ export function OrderListScreen() {
         statusCode: "all",
         filters: nextFilters,
         page: 1,
+        pageSize,
       },
       kind: "queue",
       key: nextStatusGroup,
@@ -937,6 +1033,19 @@ export function OrderListScreen() {
   const applyScanSearch = (value: string) => {
     searchInput.commitNow(value);
   };
+  const rememberListContext = (anchorOrderId: string) => {
+    persistListContext(anchorOrderId);
+  };
+  const archiveSearchAvailable = canRunExactArchiveOrderSearch(searchInput.committedValue);
+  const archiveSearchActive = filters.searchScope === "archive_exact";
+  const changeArchiveSearchScope = (active: boolean) => {
+    if (!isOnline || !searchInput.committedValue.trim()) return;
+    setFilters((current) => ({
+      ...current,
+      searchScope: active ? "archive_exact" : "current",
+    }));
+    setPage(1);
+  };
   const orderListView = filters.view ?? "active";
   const changeOrderListView = (view: OrderListView) => {
     const label = view === "active" ? "待处理订单" : view === "archive" ? "历史订单" : "全部订单";
@@ -946,6 +1055,7 @@ export function OrderListScreen() {
         statusCode: "all",
         filters: { ...filters, view, queueGroups: undefined },
         page: 1,
+        pageSize,
       },
       kind: "view",
       key: view,
@@ -958,6 +1068,14 @@ export function OrderListScreen() {
       kind: "page",
       key: String(nextPage),
       label: `第 ${nextPage} 页`,
+    });
+  };
+  const changeOrderListPageSize = (nextPageSize: number) => {
+    beginListIntent({
+      requested: { ...currentSelection, page: 1, pageSize: nextPageSize },
+      kind: "page",
+      key: `size-${nextPageSize}`,
+      label: `每页 ${nextPageSize} 条`,
     });
   };
   const retryFailedListIntent = () => {
@@ -1005,6 +1123,7 @@ export function OrderListScreen() {
           : undefined
       }
     >
+      <h1 className="sr-only">维修工单</h1>
       <MobileOrdersFloatingHeader
         headerRef={setMobileHeaderRef}
         groups={statusGroupItems}
@@ -1022,7 +1141,7 @@ export function OrderListScreen() {
               type="button"
               variant="outline"
               size="icon"
-              className="size-10 rounded-xl border-primary/30 bg-primary/10 text-primary"
+              className="size-11 rounded-xl border-primary/30 bg-primary/10 text-primary"
               aria-label="打开 RepairDesk AI 小助手"
               data-ai-assistant-trigger="mobile-orders"
               onClick={aiAssistant.openAssistant}
@@ -1042,9 +1161,26 @@ export function OrderListScreen() {
             scope="orders"
             disabled={!isOnline}
             onSearch={applyScanSearch}
-            className="size-10 rounded-xl bg-card"
+            className="size-11 rounded-xl bg-card"
             iconClassName="size-3.5"
           />
+        }
+        filterAction={
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="relative size-11 rounded-xl bg-card"
+            aria-label={`筛选订单${mobileHiddenFilterCount ? `，已应用 ${mobileHiddenFilterCount} 项` : ""}`}
+            onClick={() => setMobileFiltersOpen(true)}
+          >
+            <Filter className="size-4" aria-hidden="true" />
+            {mobileHiddenFilterCount ? (
+              <span className="absolute -right-1 -top-1 grid min-h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[9px] font-semibold text-primary-foreground">
+                {mobileHiddenFilterCount}
+              </span>
+            ) : null}
+          </Button>
         }
         viewModeControl={
           <OrderListViewMode
@@ -1057,6 +1193,131 @@ export function OrderListScreen() {
         }
       />
 
+      <Dialog open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+        <DialogContent className="max-h-[min(82svh,680px)] w-[calc(100%-1.5rem)] max-w-lg overflow-y-auto rounded-2xl p-4">
+          <DialogHeader>
+            <DialogTitle>筛选维修工单</DialogTitle>
+            <DialogDescription>筛选只改变当前订单列表，不会修改任何工单。</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-semibold">工单类型</legend>
+              <div className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    ["quick_repair", "快修"],
+                    ["dropoff_repair", "送修"],
+                  ] as const
+                ).map(([value, label]) => {
+                  const active = filters.types?.includes(value) ?? false;
+                  return (
+                    <Button
+                      key={value}
+                      type="button"
+                      variant={active ? "default" : "outline"}
+                      className="h-11"
+                      aria-pressed={active}
+                      onClick={() => updateMobileFilters({ types: active ? undefined : [value] })}
+                    >
+                      {label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </fieldset>
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-semibold">付款状态</legend>
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    [undefined, "全部"],
+                    ["unpaid", "待收款"],
+                    ["paid", "已结清"],
+                  ] as const
+                ).map(([value, label]) => {
+                  const active = (filters.paid ?? undefined) === value;
+                  return (
+                    <Button
+                      key={value ?? "all"}
+                      type="button"
+                      variant={active ? "default" : "outline"}
+                      className="h-11 px-2"
+                      aria-pressed={active}
+                      onClick={() => updateMobileFilters({ paid: value })}
+                    >
+                      {label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </fieldset>
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-semibold">需要优先处理</legend>
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    [undefined, "不限"],
+                    ["approval", "报价超期"],
+                    ["pickup", "取机超期"],
+                  ] as const
+                ).map(([value, label]) => {
+                  const active = (filters.overdue ?? undefined) === value;
+                  return (
+                    <Button
+                      key={value ?? "all"}
+                      type="button"
+                      variant={active ? "default" : "outline"}
+                      className="h-11 px-2"
+                      aria-pressed={active}
+                      onClick={() => updateMobileFilters({ overdue: value })}
+                    >
+                      {label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </fieldset>
+            {options.technicians.length ? (
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-semibold">负责人</legend>
+                <div className="flex flex-wrap gap-2">
+                  {options.technicians.map((technician) => {
+                    const active = filters.technicians?.includes(technician) ?? false;
+                    return (
+                      <Button
+                        key={technician}
+                        type="button"
+                        variant={active ? "default" : "outline"}
+                        className="min-h-11"
+                        aria-pressed={active}
+                        onClick={() =>
+                          updateMobileFilters({ technicians: active ? undefined : [technician] })
+                        }
+                      >
+                        {technician}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            ) : null}
+            <div className="grid grid-cols-2 gap-2 border-t border-[var(--border-panel)] pt-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11"
+                onClick={clearMobileHiddenFilters}
+              >
+                清除高级筛选
+              </Button>
+              <Button type="button" className="h-11" onClick={() => setMobileFiltersOpen(false)}>
+                查看结果
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <OrderListTransitionFeedback
         pendingLabel={activePendingListIntent?.label}
         offlineMessage={!isOnline ? "当前离线，显示最近数据。" : undefined}
@@ -1068,7 +1329,7 @@ export function OrderListScreen() {
       />
 
       {isOnline && !listTransitionPending && !failedListIntent ? (
-        <div className="md:hidden">
+        <div className="lg:hidden">
           <OrderSearchFeedback
             compact
             draftValue={searchInput.draftValue}
@@ -1080,13 +1341,16 @@ export function OrderListScreen() {
             total={totalOrders}
             resultGroupCounts={listResult?.resultGroupCounts}
             canSearchArchive={canSearchOrderArchive}
+            archiveSearchAvailable={archiveSearchAvailable}
+            archiveSearchActive={archiveSearchActive}
+            onArchiveSearchChange={changeArchiveSearchScope}
             onRetry={() => void refetchOrders()}
           />
         </div>
       ) : null}
 
       {mobileHiddenFilterCount > 0 ? (
-        <div className="mb-2 flex items-center gap-2 rounded-lg border border-border/60 bg-surface/70 px-3 py-2 text-xs text-muted-foreground md:hidden">
+        <div className="mb-2 flex items-center gap-2 rounded-lg border border-border/60 bg-surface/70 px-3 py-2 text-xs text-muted-foreground lg:hidden">
           <Filter className="size-3.5 shrink-0" aria-hidden="true" />
           <span className="min-w-0 flex-1">已应用 {mobileHiddenFilterCount} 项高级筛选</span>
           <Button
@@ -1103,7 +1367,7 @@ export function OrderListScreen() {
       ) : null}
 
       {workflowIsError || optionsIsError ? (
-        <div className="mb-2 flex min-w-0 items-center gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground md:hidden">
+        <div className="mb-2 flex min-w-0 items-center gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground lg:hidden">
           <AlertTriangle className="size-3.5 shrink-0" />
           <span className="min-w-0 flex-1 truncate">
             {workflowIsError ? workflowErrorMessage : optionsErrorMessage}
@@ -1116,7 +1380,7 @@ export function OrderListScreen() {
         data-order-desktop-unified-toolbar="true"
         className={cn(
           repairOs.mobileInfoCard,
-          "mb-3 mt-3 hidden min-w-0 flex-col gap-2 p-2.5 md:flex",
+          "mb-3 mt-3 hidden min-w-0 flex-col gap-2 p-2.5 lg:flex",
         )}
       >
         <OrderStatusFilterControls
@@ -1205,6 +1469,9 @@ export function OrderListScreen() {
             total={totalOrders}
             resultGroupCounts={listResult?.resultGroupCounts}
             canSearchArchive={canSearchOrderArchive}
+            archiveSearchAvailable={archiveSearchAvailable}
+            archiveSearchActive={archiveSearchActive}
+            onArchiveSearchChange={changeArchiveSearchScope}
             onRetry={() => void refetchOrders()}
           />
         ) : null}
@@ -1405,14 +1672,16 @@ export function OrderListScreen() {
                     totalCount={resultGroupCounts[section.group]}
                     oldestCreatedAt={section.items[0].created_at}
                   />
-                  <div className="space-y-1.5" role="list">
+                  <div className="grid gap-1.5 md:grid-cols-2" role="list">
                     {section.items.map((order) => (
-                      <div key={order.id} role="listitem">
+                      <div key={order.id} role="listitem" data-order-id={order.id}>
                         <OrderMobileCard
                           order={order}
+                          detailHref={`/orders/${order.id}?from=orders`}
                           onPrefetch={() => scheduleOrderDetailPrefetch(order.id, "intent")}
                           onCancelPrefetch={() => cancelOrderDetailPrefetch(order.id)}
                           suppliers={visibleSuppliers}
+                          onOpenIntent={() => rememberListContext(order.id)}
                         />
                       </div>
                     ))}
@@ -1423,10 +1692,12 @@ export function OrderListScreen() {
             <PaginationBar
               page={page}
               pageCount={pageCount}
-              pageSize={ORDER_QUEUE_PAGE_SIZE}
+              pageSize={pageSize}
+              pageSizeOptions={[20, 50]}
               total={totalOrders}
               visible={data.length}
               onPageChange={changeOrderListPage}
+              onPageSizeChange={changeOrderListPageSize}
             />
           </>
         )}

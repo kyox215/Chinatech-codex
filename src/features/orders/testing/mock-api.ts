@@ -40,6 +40,7 @@ import type {
 } from "@/lib/repairdesk/types";
 import { repairOrderStatus, statusMeta, type RepairOrderStatus } from "@/lib/mock/enums";
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
+import { classifyOrderSearchQuery } from "@/features/orders/model/order-search-query";
 import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unlock";
 import {
   DEVICE_CUSTODY_WITH_CUSTOMER,
@@ -50,6 +51,7 @@ import {
 } from "@/features/orders/model/device-custody";
 import { isOrderArchivedForQueue } from "@/features/orders/model/order-list-visibility";
 import {
+  deriveOrderFinancialState,
   isOrderCancelled,
   isOrderCancelledState,
   isOrderCancelledForPayment,
@@ -324,19 +326,32 @@ export async function listOrders(
   }
   let result = orders.map(decorate);
   const q = filters.search?.trim().toLowerCase();
-  const view = q ? "all" : (filters.view ?? "active");
+  const view = filters.searchScope === "archive_exact" ? "all" : (filters.view ?? "active");
   if (view === "active") result = result.filter((order) => !isOrderArchivedForQueue(order));
   if (view === "archive") result = result.filter(isOrderArchivedForQueue);
   if (q) {
-    result = result.filter(
-      (o) =>
+    const phoneQuery = classifyOrderSearchQuery(q) === "phone";
+    result = result.filter((o) => {
+      if (filters.searchScope === "archive_exact" && isOrderArchivedForQueue(o)) {
+        const normalizedPhone = normalizePhoneRaw(q);
+        return (
+          o.public_no.toLowerCase() === q ||
+          o.device_imei.toLowerCase() === q ||
+          (phoneQuery &&
+            [o.customer_phone, ...o.contact_phones].some(
+              (phone) => normalizePhoneRaw(phone) === normalizedPhone,
+            ))
+        );
+      }
+      return (
         o.public_no.toLowerCase().includes(q) ||
         o.customer_name.toLowerCase().includes(q) ||
-        phoneMatches(o.customer_phone, q) ||
-        o.contact_phones.some((phone) => phoneMatches(phone, q)) ||
+        (phoneQuery && phoneMatches(o.customer_phone, q)) ||
+        (phoneQuery && o.contact_phones.some((phone) => phoneMatches(phone, q))) ||
         o.device_imei.toLowerCase().includes(q) ||
-        o.device_label.toLowerCase().includes(q),
-    );
+        o.device_label.toLowerCase().includes(q)
+      );
+    });
   }
   const deviceSearch = filters.deviceSearch?.trim();
   if (deviceSearch) {
@@ -391,9 +406,12 @@ export async function listOrders(
     result = result.filter((o) => o.supplier_id && filters.supplierIds!.includes(o.supplier_id));
   }
   if (filters.paid && filters.paid !== "all") {
-    result = result.filter(
-      (o) => !isOrderCancelledForPayment(o) && (filters.paid === "paid" ? o.is_paid : !o.is_paid),
-    );
+    result = result.filter((o) => {
+      const financialState = deriveOrderFinancialState(o);
+      return filters.paid === "paid"
+        ? financialState.settlement === "settled" || financialState.settlement === "zero_charge"
+        : financialState.collectible;
+    });
   }
   if (filters.overdue) {
     result = result.filter(
@@ -465,7 +483,7 @@ export async function getOrderStats(_actor?: AuditActor) {
         "repairing",
       ].includes(o.status),
     ).length,
-    unpaid: activeOrders.filter((o) => !o.is_paid).length,
+    unpaid: activeOrders.filter((o) => deriveOrderFinancialState(o).collectible).length,
     approvalOverdue: activeOrders.filter(isApprovalOverdue).length,
     pickupOverdue: activeOrders.filter(isPickupOverdue).length,
   };
@@ -2448,19 +2466,8 @@ export async function createOrder(
     throw new Error("自定义状态尚未绑定主流程阶段，当前不能用于新建工单");
   }
   const status = resolvedStatus.code;
-  if (!input.issue_description.trim()) throw new Error("故障描述不能为空");
   if (input.device_id && !input.customer_id) throw new Error("选择现有设备时必须同时选择客户");
   const deviceCustodyStatus = input.device_custody_status ?? DEVICE_CUSTODY_WITH_SHOP;
-  const initialStatus = workflowStatuses.find((item) => item.code === status);
-  if (
-    deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER &&
-    (deviceCustodyBlocksStatus(status) ||
-      initialStatus?.bucket === "diagnosing" ||
-      initialStatus?.bucket === "repair" ||
-      initialStatus?.bucket === "pickup")
-  ) {
-    throw new Error("设备未留店时不能以诊断、维修或待取机状态创建工单");
-  }
 
   let customer = input.customer_id ? getCustomer(input.customer_id) : undefined;
   let customerSnapshotSource: NonNullable<RepairOrder["customer_identity_snapshot_source"]> =

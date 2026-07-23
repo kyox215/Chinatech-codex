@@ -28,7 +28,6 @@ describe("queued offline order create integration", () => {
           customerPhone: "+393331112222",
           brand: "Apple",
           model: "iPhone 13",
-          issue: "Schermo rotto",
           deviceCustodyStatus: "with_customer",
           faults: [
             {

@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -17,6 +18,7 @@ import {
   Camera,
   Calendar,
   Check,
+  CheckCircle2,
   Clock3,
   CreditCard,
   FileText,
@@ -83,7 +85,6 @@ import {
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { buildWhatsappUrl } from "@/shared/lib/whatsapp-phone";
 import {
   decideOrderApproval,
   confirmCancelledOrderReturn,
@@ -175,9 +176,13 @@ import {
 } from "@/features/orders/model/order-finance-draft";
 import {
   isOrderCancelledState,
+  isOrderTerminalState,
   isOrderPaymentCollectible,
 } from "@/features/orders/model/order-payment-state";
-import { resolveOrderDetailPrimaryAction } from "@/features/orders/model/order-detail-primary-action";
+import {
+  resolveOrderDetailPrimaryAction,
+  type OrderDetailPrimaryAction,
+} from "@/features/orders/model/order-detail-primary-action";
 import {
   getDefaultOrderTransitionReason,
   getOrderTransitionReasonConfig,
@@ -247,7 +252,6 @@ import type {
   PatchOrderChanges,
   DeviceUnlockInput,
   DeviceCustodyStatus,
-  StoreRole,
   StoreSettings,
   Supplier,
 } from "@/lib/repairdesk/types";
@@ -1035,6 +1039,7 @@ export function OrderDetailScreen({
   const { order, customer, device, supplier, events, messages } = data;
   const isVoided = order.record_state === "voided" || Boolean(order.deleted_at);
   const cancelled = isOrderCancelledState(order);
+  const isTerminalOrder = isOrderTerminalState(order);
   const canPrintCustomerDocument = canPrintRepairOrderCustomerDocument(
     order,
     storeOutputIdentity.canOutput,
@@ -1146,9 +1151,10 @@ export function OrderDetailScreen({
     order.device_snapshot?.serial_or_imei || order.device_imei || device?.serial_or_imei || "";
   const deviceNotes = order.device_snapshot?.device_notes || device?.device_notes;
   const accessoryNotes = order.accessory_notes;
-  const canUpdateCustody = Boolean(shell.activeStore?.role && shell.activeStore.role !== "viewer");
-  const canCorrectTerminalCustody =
-    shell.activeStore?.role === "owner" || shell.activeStore?.role === "manager";
+  const canUpdateCustody = Boolean(
+    data.capabilities?.canEditIntake || data.capabilities?.canCorrect,
+  );
+  const canCorrectTerminalCustody = data.capabilities?.canCorrect === true;
   const custodyTerminal =
     order.status === "completed" ||
     cancelled ||
@@ -1220,7 +1226,8 @@ export function OrderDetailScreen({
         order={order}
         events={events}
         workflowBucket={getWorkflowStatus(workflow, order.status)?.bucket}
-        role={shell.activeStore?.role}
+        canUpdate={canUpdateCustody}
+        canCorrectTerminal={canCorrectTerminalCustody}
         pending={custodyUpdate.isPending || cancelledReturn.isPending}
         onRequestChange={(target) => {
           custodyTriggerRef.current =
@@ -1249,35 +1256,12 @@ export function OrderDetailScreen({
           : cn(detailWorkspace.root, "flex h-full flex-col"),
       )}
     >
+      <h1 className="sr-only">订单详情</h1>
       {surface === "page" ? (
-        <div className="hidden md:block">{renderCustodyPanel()}</div>
+        <div className="hidden lg:block">{renderCustodyPanel()}</div>
       ) : (
         renderCustodyPanel()
       )}
-      {surface === "page" ? (
-        canOpenDiagnosisQuote ? (
-          <section className={cn(repairOs.mobileInfoCard, "mb-2 md:hidden")}>
-            <div className="flex min-w-0 items-center justify-between gap-2">
-              <div className="min-w-0">
-                <div className="text-[11px] font-semibold">检测与正式报价</div>
-                <div className="truncate text-[10px] text-muted-foreground">
-                  {order.diagnosis_result
-                    ? "已记录检测结论，可继续完善报价"
-                    : "检测后补充问题并发布报价"}
-                </div>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 shrink-0 text-xs"
-                onClick={() => setDiagnosisQuoteOpen(true)}
-              >
-                {data.capabilities?.canPrepareQuote ? "检测与报价" : "记录检测"}
-              </Button>
-            </div>
-          </section>
-        ) : null
-      ) : null}
       {surface === "page" ? (
         <MobileOrderDetailView
           data={data}
@@ -1346,6 +1330,7 @@ export function OrderDetailScreen({
           whatsappDisabled={mobileFinanceEditing || financeUpdate.isPending || !canNotify}
           onPay={() => setPayOpen(true)}
           paymentDisabled={!canCollectPayment}
+          primaryAction={desktopPrimaryAction}
           onPrint={() => void printCustomerDocument()}
           printDisabled={!canPrintCustomerDocument || printPreparing}
           onRevokeCustomerStatusLinks={
@@ -1379,23 +1364,36 @@ export function OrderDetailScreen({
               : undefined
           }
           custodyPanel={renderCustodyPanel()}
-          className="md:hidden"
+          className="lg:hidden"
         />
       ) : null}
       {surface === "page" && data.capabilities?.canReadInternalCosts && activeStoreId ? (
-        <div className="md:hidden">
+        <div className="lg:hidden">
           <OrderInternalCostCard
             orderId={order.id}
             storeId={activeStoreId}
             faultPrices={order.fault_prices}
             canManage={Boolean(data.capabilities.canManageInternalCosts)}
             canAllocatePartsCosts={Boolean(data.capabilities.canAllocatePartsCosts)}
+            onRepairQuoteLines={
+              data.capabilities?.canAdjustFinance && !isVoided && !isTerminalOrder
+                ? () => {
+                    setMobileFinanceEditing(true);
+                    window.requestAnimationFrame(() => {
+                      document.getElementById("mobile-order-quote")?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center",
+                      });
+                    });
+                  }
+                : undefined
+            }
           />
         </div>
       ) : null}
       <div
         className={cn(
-          surface === "page" && "hidden md:block",
+          surface === "page" && "hidden lg:block",
           surface === "dialog" &&
             "flex min-h-0 flex-1 flex-col overflow-hidden p-2 sm:p-2.5 md:p-3",
         )}
@@ -1547,6 +1545,11 @@ export function OrderDetailScreen({
                   canReadInternalCosts={Boolean(data.capabilities?.canReadInternalCosts)}
                   canManageInternalCosts={Boolean(data.capabilities?.canManageInternalCosts)}
                   canAllocatePartsCosts={Boolean(data.capabilities?.canAllocatePartsCosts)}
+                  onRepairQuoteLines={
+                    data.capabilities?.canAdjustFinance && !isVoided && !isTerminalOrder
+                      ? startEditing
+                      : undefined
+                  }
                   defaultWarrantyMonths={defaultWarrantyMonths}
                   onQuickImeiSave={
                     data.capabilities?.canEditIntake
@@ -1646,6 +1649,11 @@ export function OrderDetailScreen({
                       faultPrices={order.fault_prices}
                       canManage={Boolean(data.capabilities?.canManageInternalCosts)}
                       canAllocatePartsCosts={Boolean(data.capabilities?.canAllocatePartsCosts)}
+                      onRepairQuoteLines={
+                        data.capabilities?.canAdjustFinance && !isVoided && !isTerminalOrder
+                          ? startEditing
+                          : undefined
+                      }
                     />
                   </section>
                 ) : null}
@@ -2042,7 +2050,8 @@ function OrderDeviceCustodyCard({
   order,
   events,
   workflowBucket,
-  role,
+  canUpdate,
+  canCorrectTerminal,
   pending,
   onRequestChange,
   onConfirmCancelledReturn,
@@ -2051,7 +2060,8 @@ function OrderDeviceCustodyCard({
   order: OrderDetail["order"];
   events: OrderEvent[];
   workflowBucket?: string;
-  role?: StoreRole;
+  canUpdate: boolean;
+  canCorrectTerminal: boolean;
   pending: boolean;
   onRequestChange: (target: DeviceCustodyStatus) => void;
   onConfirmCancelledReturn: () => void;
@@ -2065,8 +2075,7 @@ function OrderDeviceCustodyCard({
     cancelled ||
     workflowBucket === "done" ||
     (workflowBucket === undefined && order.workflow_status === "closed");
-  const canUpdate = Boolean(role && role !== "viewer" && !isVoided);
-  const canCorrectTerminal = role === "owner" || role === "manager";
+  const canUpdateResolved = canUpdate && !isVoided;
   const latestHandoff = getLatestCustodyHandoff(events);
   const description =
     status === DEVICE_CUSTODY_WITH_SHOP
@@ -2088,7 +2097,7 @@ function OrderDeviceCustodyCard({
       exceptionStatus: order.exception_status,
       workflowBucket,
     });
-  if (status === null && canUpdate && (!isTerminal || canCorrectTerminal)) {
+  if (status === null && canUpdateResolved && (!isTerminal || canCorrectTerminal)) {
     actions.push(
       ...([DEVICE_CUSTODY_WITH_SHOP, DEVICE_CUSTODY_WITH_CUSTOMER] as const)
         .filter(allowsTarget)
@@ -2098,7 +2107,7 @@ function OrderDeviceCustodyCard({
             type="button"
             size="sm"
             variant="outline"
-            className="h-8 text-xs"
+            className="h-11 text-xs"
             disabled={pending}
             onClick={() => onRequestChange(target)}
           >
@@ -2106,13 +2115,18 @@ function OrderDeviceCustodyCard({
           </Button>
         )),
     );
-  } else if (cancelled && status === DEVICE_CUSTODY_WITH_SHOP && !order.delivered_at && canUpdate) {
+  } else if (
+    cancelled &&
+    status === DEVICE_CUSTODY_WITH_SHOP &&
+    !order.delivered_at &&
+    canUpdateResolved
+  ) {
     actions.push(
       <Button
         key="cancelled-return"
         type="button"
         size="sm"
-        className="h-8 text-xs"
+        className="h-11 text-xs"
         disabled={pending}
         onClick={onConfirmCancelledReturn}
       >
@@ -2120,7 +2134,7 @@ function OrderDeviceCustodyCard({
         确认已退还
       </Button>,
     );
-  } else if (!isTerminal && canUpdate && status) {
+  } else if (!isTerminal && canUpdateResolved && status) {
     const target =
       status === DEVICE_CUSTODY_WITH_SHOP ? DEVICE_CUSTODY_WITH_CUSTOMER : DEVICE_CUSTODY_WITH_SHOP;
     if (allowsTarget(target))
@@ -2130,14 +2144,14 @@ function OrderDeviceCustodyCard({
           type="button"
           size="sm"
           variant="outline"
-          className="h-8 text-xs"
+          className="h-11 text-xs"
           disabled={pending}
           onClick={() => onRequestChange(target)}
         >
           {target === DEVICE_CUSTODY_WITH_SHOP ? "确认收机" : "确认交还客人"}
         </Button>,
       );
-  } else if (isTerminal && canCorrectTerminal && canUpdate && status) {
+  } else if (isTerminal && canCorrectTerminal && canUpdateResolved && status) {
     const target =
       status === DEVICE_CUSTODY_WITH_SHOP ? DEVICE_CUSTODY_WITH_CUSTOMER : DEVICE_CUSTODY_WITH_SHOP;
     if (allowsTarget(target)) {
@@ -2147,7 +2161,7 @@ function OrderDeviceCustodyCard({
           type="button"
           size="sm"
           variant="outline"
-          className="h-8 text-xs"
+          className="h-11 text-xs"
           disabled={pending}
           onClick={() => onRequestChange(target)}
         >
@@ -2972,6 +2986,7 @@ function MobileOrderDetailView({
   whatsappDisabled,
   onPay,
   paymentDisabled,
+  primaryAction,
   onPrint,
   printDisabled,
   onRevokeCustomerStatusLinks,
@@ -3024,6 +3039,7 @@ function MobileOrderDetailView({
   whatsappDisabled: boolean;
   onPay: () => void;
   paymentDisabled: boolean;
+  primaryAction: OrderDetailPrimaryAction;
   onPrint: () => void;
   printDisabled: boolean;
   onRevokeCustomerStatusLinks?: () => void;
@@ -3064,7 +3080,6 @@ function MobileOrderDetailView({
     rawCustomerName && normalizePhoneDigits(rawCustomerName) !== normalizePhoneDigits(phone)
       ? rawCustomerName
       : "未命名客户";
-  const whatsappHref = getWhatsappHref(phone);
   const paidAmount = inferOrderPaidAmount(order);
   const currentStage = cancelled
     ? getOrderTaskGuidance(order).stage
@@ -3078,6 +3093,7 @@ function MobileOrderDetailView({
   const [photoPreviewId, setPhotoPreviewId] = useState<string | null>(null);
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [statusSheetOpen, setStatusSheetOpen] = useState(false);
+  const [assignmentEditing, setAssignmentEditing] = useState(false);
   const [floatingHeaderOffset, setFloatingHeaderOffset] = useState(
     "calc(env(safe-area-inset-top) + 10.75rem)",
   );
@@ -3112,6 +3128,79 @@ function MobileOrderDetailView({
   const hasMobileSupplierManagement = Boolean(
     partsSupplier || supplierOptions.length || onPartsSupplierChange,
   );
+  const availableMobileActions = (
+    [
+      approvalDecisionAvailable ? "approval" : null,
+      !whatsappDisabled ? "notify" : null,
+      statusActions.length > 0 && !transitionPending ? "flow" : null,
+      !paymentDisabled && isOrderPaymentCollectible(order) ? "payment" : null,
+    ] as OrderDetailPrimaryAction[]
+  ).filter((action): action is Exclude<OrderDetailPrimaryAction, null> => Boolean(action));
+  const mobilePrimaryAction =
+    primaryAction && availableMobileActions.includes(primaryAction)
+      ? primaryAction
+      : (availableMobileActions[0] ?? null);
+  const mobileDockActions = mobilePrimaryAction
+    ? [
+        mobilePrimaryAction,
+        ...availableMobileActions.filter((action) => action !== mobilePrimaryAction).slice(0, 2),
+      ]
+    : [];
+
+  const renderMobileDockAction = (
+    action: Exclude<OrderDetailPrimaryAction, null>,
+    primary: boolean,
+  ) => {
+    const commonProps = {
+      className: cn(
+        "h-11 min-w-0 rounded-xl text-xs",
+        primary && "flex-[1.25] border-0 text-primary-foreground",
+        !primary && "flex-1",
+      ),
+      style: primary ? ({ background: "var(--gradient-brand)" } as CSSProperties) : undefined,
+    };
+    if (action === "approval") {
+      return (
+        <Button key={action} {...commonProps} onClick={onApprovalDecision}>
+          <CheckCircle2 className="mr-1 size-3.5" /> 审批报价
+        </Button>
+      );
+    }
+    if (action === "notify") {
+      return (
+        <Button
+          key={action}
+          variant={primary ? "default" : "outline"}
+          {...commonProps}
+          onClick={onNotify}
+        >
+          <Send className="mr-1 size-3.5" /> WhatsApp
+        </Button>
+      );
+    }
+    if (action === "flow") {
+      return (
+        <Button
+          key={action}
+          variant={primary ? "default" : "outline"}
+          {...commonProps}
+          onClick={() => setStatusSheetOpen(true)}
+        >
+          <Clock3 className="mr-1 size-3.5" /> 流转
+        </Button>
+      );
+    }
+    return (
+      <Button
+        key={action}
+        variant={primary ? "default" : "outline"}
+        {...commonProps}
+        onClick={onPay}
+      >
+        <CreditCard className="mr-1 size-3.5" /> 收款
+      </Button>
+    );
+  };
 
   useEffect(() => {
     if (!photoPreviewId) return;
@@ -3158,22 +3247,10 @@ function MobileOrderDetailView({
 
       {approvalDecisionAvailable ? (
         <section className={cn(mobileDetailCardClass, "border-primary/25 bg-primary/5")}>
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-            <div className="min-w-0">
-              <MobileSectionTitle icon={MessageCircle} title="客户审批" />
-              <p className="mt-0.5 truncate text-[10px] leading-3 text-muted-foreground">
-                报价已发送或待确认，请记录客户同意/拒绝后的真实处理结果。
-              </p>
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              className="h-8 rounded-lg px-2 text-[11px]"
-              onClick={onApprovalDecision}
-            >
-              审批处理
-            </Button>
-          </div>
+          <MobileSectionTitle icon={MessageCircle} title="客户审批" />
+          <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">
+            报价已发送或待确认；页面底部的主操作用于记录客户同意或拒绝。
+          </p>
         </section>
       ) : null}
 
@@ -3193,66 +3270,95 @@ function MobileOrderDetailView({
 
       {onAssigneeChange || hasMobileSupplierManagement ? (
         <section className={mobileDetailCardClass}>
-          <div
-            className={cn(
-              "grid min-w-0 gap-1.5",
-              onAssigneeChange && hasMobileSupplierManagement
-                ? "grid-cols-1 min-[380px]:grid-cols-2"
-                : "grid-cols-1",
-            )}
-          >
-            {onAssigneeChange ? (
-              <div className="min-w-0">
-                <MobileSectionTitle icon={UserRound} title="负责人" />
-                <div className="mt-1">
-                  <Select
-                    value={order.assignee_membership_id ?? "unassigned"}
-                    onValueChange={(value) =>
-                      onAssigneeChange(value === "unassigned" ? null : value)
-                    }
-                    disabled={assigneePending}
-                  >
-                    <SelectTrigger className="h-8 min-w-0 rounded-md px-2 text-[11px]">
-                      <SelectValue placeholder={order.technician_name || "未分配"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unassigned">未分配</SelectItem>
-                      {assigneeOptions.map((option) => (
-                        <SelectItem key={option.id} value={option.id}>
-                          {option.display_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            ) : null}
-
-            {hasMobileSupplierManagement ? (
-              <div className="min-w-0">
-                <MobileSectionTitle icon={PackageSearch} title="配件供应商" />
-                <div className="mt-1 min-w-0">
-                  {onPartsSupplierChange ? (
-                    <OrderSupplierPicker
-                      supplier={partsSupplier}
-                      suppliers={supplierOptions}
-                      isUpdating={partsSupplierPending}
-                      onChange={onPartsSupplierChange}
-                      mode="sheet"
-                      size="compact"
-                    />
-                  ) : partsSupplier ? (
-                    <div className="inline-flex max-w-full items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary">
-                      <PackageSearch className="size-3 shrink-0" />
-                      <span className="truncate">
-                        {partsSupplier.short_name || partsSupplier.name}
-                      </span>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
+          <div className="mb-1.5 flex min-w-0 items-center justify-between gap-2">
+            <MobileSectionTitle icon={UserRound} title="人员与供应商" />
+            {onAssigneeChange || onPartsSupplierChange ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 rounded-lg px-3 text-[11px] lg:h-8"
+                aria-expanded={assignmentEditing}
+                onClick={() => setAssignmentEditing((editing) => !editing)}
+              >
+                {assignmentEditing ? "完成" : "调整"}
+              </Button>
             ) : null}
           </div>
+          {!assignmentEditing ? (
+            <div className="grid min-w-0 grid-cols-2 gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-2 text-[11px]">
+              <div className="min-w-0">
+                <span className="text-[9px] text-muted-foreground">负责人</span>
+                <p className="truncate font-semibold">{order.technician_name || "未分配"}</p>
+              </div>
+              <div className="min-w-0">
+                <span className="text-[9px] text-muted-foreground">配件供应商</span>
+                <p className="truncate font-semibold">
+                  {partsSupplier?.short_name || partsSupplier?.name || "未选择"}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div
+              className={cn(
+                "grid min-w-0 gap-1.5",
+                onAssigneeChange && hasMobileSupplierManagement
+                  ? "grid-cols-1 min-[380px]:grid-cols-2"
+                  : "grid-cols-1",
+              )}
+            >
+              {onAssigneeChange ? (
+                <div className="min-w-0">
+                  <MobileSectionTitle icon={UserRound} title="负责人" />
+                  <div className="mt-1">
+                    <Select
+                      value={order.assignee_membership_id ?? "unassigned"}
+                      onValueChange={(value) =>
+                        onAssigneeChange(value === "unassigned" ? null : value)
+                      }
+                      disabled={assigneePending}
+                    >
+                      <SelectTrigger className="h-11 min-w-0 rounded-md px-2 text-[11px] lg:h-8">
+                        <SelectValue placeholder={order.technician_name || "未分配"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unassigned">未分配</SelectItem>
+                        {assigneeOptions.map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.display_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              ) : null}
+
+              {hasMobileSupplierManagement ? (
+                <div className="min-w-0">
+                  <MobileSectionTitle icon={PackageSearch} title="配件供应商" />
+                  <div className="mt-1 min-w-0">
+                    {onPartsSupplierChange ? (
+                      <OrderSupplierPicker
+                        supplier={partsSupplier}
+                        suppliers={supplierOptions}
+                        isUpdating={partsSupplierPending}
+                        onChange={onPartsSupplierChange}
+                        mode="sheet"
+                        size="compact"
+                      />
+                    ) : partsSupplier ? (
+                      <div className="inline-flex max-w-full items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary">
+                        <PackageSearch className="size-3 shrink-0" />
+                        <span className="truncate">
+                          {partsSupplier.short_name || partsSupplier.name}
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
           {hasMobileSupplierManagement ? (
             <p className="mt-1 truncate text-[9px] leading-3 text-muted-foreground">
               供应商只读取当前店铺设置。
@@ -3263,6 +3369,10 @@ function MobileOrderDetailView({
 
       <button
         type="button"
+        aria-expanded={timelineOpen}
+        aria-controls="mobile-order-timeline"
+        aria-haspopup="dialog"
+        aria-label={`查看全部历史记录，共 ${events.length} 条`}
         className={cn(
           mobileDetailCardClass,
           "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 text-left transition-colors active:bg-[var(--surface-panel-muted)]",
@@ -3306,33 +3416,16 @@ function MobileOrderDetailView({
               </span>
             </div>
           ) : null}
-          <div className="mt-1.5 grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-1">
+          <div className="mt-1.5 grid min-w-0 grid-cols-1 gap-1">
             <Button
               asChild
               variant="outline"
               size="sm"
-              className="h-9 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5"
+              className="h-11 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5"
             >
               <a href={`tel:${phone}`} aria-label="拨打电话" title="拨打电话">
                 <Phone className="shrink-0" />
                 <span className="min-w-0 truncate">电话</span>
-              </a>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="h-9 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold text-status-success-foreground [&_svg]:size-3.5"
-            >
-              <a
-                href={whatsappHref}
-                target="_blank"
-                rel="noreferrer"
-                aria-label="WhatsApp"
-                title="WhatsApp"
-              >
-                <MessageCircle className="shrink-0" />
-                <span className="min-w-0 truncate">WhatsApp</span>
               </a>
             </Button>
             {onRequestKioskSignature ? (
@@ -3340,7 +3433,7 @@ function MobileOrderDetailView({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="col-span-2 h-9 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5"
+                className="col-span-2 h-11 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5"
                 disabled={!kioskSignatureAvailable || kioskSignaturePending}
                 onClick={onRequestKioskSignature}
               >
@@ -3369,7 +3462,7 @@ function MobileOrderDetailView({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-8 rounded-lg px-2 text-[11px]"
+                      className="h-11 min-w-11 rounded-lg px-2 text-[11px]"
                       onClick={() => setDeviceUnlockEditing(true)}
                     >
                       密码
@@ -3380,7 +3473,7 @@ function MobileOrderDetailView({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-8 rounded-lg px-2 text-[11px]"
+                      className="h-11 min-w-11 rounded-lg px-2 text-[11px]"
                       onClick={() => {
                         setImeiDraft(deviceImei);
                         setImeiEditing(true);
@@ -3435,7 +3528,7 @@ function MobileOrderDetailView({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-6 rounded-md px-1.5 text-[10px]"
+                className="h-11 min-w-11 rounded-lg px-2 text-[11px]"
                 onClick={() => setFaultEditing(true)}
               >
                 编辑
@@ -3490,7 +3583,10 @@ function MobileOrderDetailView({
         </section>
       ) : (
         <div className="grid min-w-0 grid-cols-2 gap-1.5">
-          <section className={cn(mobileDetailCardClass, financeEditing && "col-span-2")}>
+          <section
+            id="mobile-order-quote"
+            className={cn(mobileDetailCardClass, financeEditing && "col-span-2")}
+          >
             <MobileSectionTitle
               icon={ReceiptText}
               title="维修项目与报价"
@@ -3500,7 +3596,7 @@ function MobileOrderDetailView({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-6 rounded-md px-1.5 text-[10px]"
+                    className="h-11 min-w-11 rounded-lg px-2 text-[11px]"
                     onClick={() => onFinanceEditingChange(!financeEditing)}
                   >
                     {financeEditing ? "收起" : "编辑"}
@@ -3578,18 +3674,16 @@ function MobileOrderDetailView({
               onOpen={() => setPhotoPreviewId(attachment.id)}
             />
           ))}
-          {photoAttachments.length === 0 ? (
-            <>
-              <PhotoPlaceholder label="正面" />
-              <PhotoPlaceholder label="背面" />
-            </>
-          ) : photoAttachments.length === 1 ? (
+          {photoAttachments.length === 0 ? null : photoAttachments.length === 1 ? (
             <PhotoPlaceholder label="补充" />
           ) : null}
           {!isVoided ? (
             <button
               type="button"
-              className="grid h-14 place-items-center rounded-lg border border-dashed border-primary/35 bg-primary/5 text-[10px] font-medium text-primary disabled:opacity-60"
+              className={cn(
+                "grid min-h-14 place-items-center rounded-lg border border-dashed border-primary/35 bg-primary/5 text-[10px] font-medium text-primary disabled:opacity-60",
+                photoAttachments.length === 0 && "col-span-3 min-h-20",
+              )}
               disabled={attachmentUploadPending}
               onClick={() => setPhotoCaptureOpen(true)}
             >
@@ -3633,40 +3727,12 @@ function MobileOrderDetailView({
         onOpenChange={setTimelineOpen}
       />
 
-      {!isVoided ? (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-panel)] bg-background/95 px-2.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1.5 shadow-[0_-10px_30px_color-mix(in_oklch,var(--foreground)_10%,transparent)] backdrop-blur-xl md:hidden">
-          <div className="mx-auto grid max-w-[430px] grid-cols-[1.25fr_1fr_1fr] gap-1.5">
-            <Button
-              className="h-9 rounded-xl border-0 text-xs text-primary-foreground"
-              style={{ background: "var(--gradient-brand)" }}
-              disabled={whatsappDisabled}
-              onClick={onNotify}
-            >
-              <Send className="mr-1 size-3.5" /> WhatsApp
-            </Button>
-            <Button
-              variant="outline"
-              className="h-9 rounded-xl text-xs"
-              disabled={financeEditing || statusActions.length === 0 || transitionPending}
-              onClick={() => setStatusSheetOpen(true)}
-            >
-              <Clock3 className="mr-1 size-3.5" /> 流转
-            </Button>
-            <Button
-              variant="outline"
-              className="h-9 rounded-xl text-xs"
-              disabled={
-                financeEditing ||
-                paymentDisabled ||
-                cancelled ||
-                order.finance_redacted ||
-                order.is_paid ||
-                order.balance_amount <= 0
-              }
-              onClick={onPay}
-            >
-              <CreditCard className="mr-1 size-3.5" /> {cancelled ? "不可收款" : "收款"}
-            </Button>
+      {!isVoided && mobileDockActions.length ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-panel)] bg-background/95 px-2.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1.5 shadow-[0_-10px_30px_color-mix(in_oklch,var(--foreground)_10%,transparent)] backdrop-blur-xl lg:hidden">
+          <div className="mx-auto flex max-w-3xl gap-2">
+            {mobileDockActions.map((action) =>
+              renderMobileDockAction(action, action === mobilePrimaryAction),
+            )}
           </div>
         </div>
       ) : null}
@@ -3734,6 +3800,7 @@ function MobileTimelineSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
+        id="mobile-order-timeline"
         side="bottom"
         className="max-h-[calc(100svh-16px)] rounded-t-xl p-0 sm:mx-auto sm:max-w-xl"
       >
@@ -4169,6 +4236,7 @@ function DeviceUnlockEditSheet({
             <Button
               type="button"
               variant="outline"
+              className="h-11 lg:h-9"
               disabled={pending}
               onClick={() => onOpenChange(false)}
             >
@@ -4176,6 +4244,7 @@ function DeviceUnlockEditSheet({
             </Button>
             <Button
               type="button"
+              className="h-11 lg:h-9"
               disabled={pending || Boolean(validationError)}
               onClick={() => void save()}
             >
@@ -4820,6 +4889,9 @@ function MobileStickyWorkflowHeader({
   onCancel: () => void;
   canCancel: boolean;
 }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const openedFromOrdersList = searchParams.get("from") === "orders";
   const shellRef = useRef<HTMLDivElement | null>(null);
   const cancelled = isOrderCancelledState(order);
   const statusLabel = cancelled ? "已取消" : getWorkflowStatusLabel(workflow, order.status);
@@ -4853,8 +4925,16 @@ function MobileStickyWorkflowHeader({
     >
       <section className={repairOs.mobileFloatingHeaderCard}>
         <header className={repairOs.mobileFloatingHeaderNav}>
-          <Button asChild variant="ghost" size="icon" className="size-8 rounded-lg">
-            <Link href="/orders" aria-label="返回工单列表">
+          <Button asChild variant="ghost" size="icon" className="size-11 rounded-lg">
+            <Link
+              href="/orders"
+              aria-label="返回工单列表"
+              onClick={(event) => {
+                if (!openedFromOrdersList) return;
+                event.preventDefault();
+                router.replace("/orders");
+              }}
+            >
               <ArrowLeft className="size-4" />
             </Link>
           </Button>
@@ -4869,7 +4949,7 @@ function MobileStickyWorkflowHeader({
               type="button"
               variant="ghost"
               size="icon"
-              className="size-8 rounded-lg"
+              className="size-11 rounded-lg"
               aria-label="打印工单"
               disabled={printDisabled}
               onClick={onPrint}
@@ -4881,7 +4961,7 @@ function MobileStickyWorkflowHeader({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-8 rounded-lg"
+                  className="size-11 rounded-lg"
                   aria-label="更多操作"
                 >
                   <MoreVertical className="size-4" />
@@ -5596,10 +5676,6 @@ function PhotoPlaceholder({ label }: { label: string }) {
       </span>
     </div>
   );
-}
-
-function getWhatsappHref(phone: string) {
-  return buildWhatsappUrl(phone) || "#";
 }
 
 function normalizePhoneDigits(value: string) {

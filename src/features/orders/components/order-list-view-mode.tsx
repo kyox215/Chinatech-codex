@@ -46,7 +46,7 @@ export function OrderListViewMode({
             disabled={disabled}
             size="sm"
             variant={active ? "default" : "ghost"}
-            className={cn("h-7 gap-1 px-2 text-xs", compact && "h-6 min-w-0 px-1.5 text-[10px]")}
+            className={cn("h-9 gap-1 px-2 text-xs", compact && "h-11 min-w-0 px-1.5 text-[10px]")}
             aria-pressed={active}
             title={option.label}
             onClick={() => onChange(option.value)}

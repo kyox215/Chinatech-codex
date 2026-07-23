@@ -49,7 +49,6 @@ import {
   NewOrderCustomerSection,
 } from "@/features/orders/forms/new-order-customer-device-section";
 import { customerIntakePolicyBlocksSubmit } from "@/features/customers/model/customer-intake-search";
-import { NewOrderFaultDiagnosisSection } from "@/features/orders/forms/new-order-fault-diagnosis-section";
 import { NewOrderQuotationSection } from "@/features/orders/forms/new-order-quotation-section";
 import { NewOrderSubmitBar } from "@/features/orders/forms/new-order-submit-bar";
 import { OrderWorkspaceMoneyStrip } from "@/features/orders/components/order-workspace-primitives";
@@ -67,11 +66,7 @@ import {
   type NewOrderFormState,
 } from "@/features/orders/model/new-order-form";
 import { formatWarrantyText, warrantyReasonRequired } from "@/features/orders/model/order-warranty";
-import {
-  DEVICE_CUSTODY_WITH_CUSTOMER,
-  deviceCustodyBlocksStatus,
-  normalizeUnlockForCustody,
-} from "@/features/orders/model/device-custody";
+import { normalizeUnlockForCustody } from "@/features/orders/model/device-custody";
 import { isRepairDeskOfflineSyncEnabled } from "@/features/offline/model/offline-sync-feature";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { orderWorkflowQueryOptions } from "@/features/orders/api/query-options";
@@ -86,10 +81,6 @@ import {
 } from "@/features/orders/model/order-cost-draft";
 import { synchronizeCreatedOrderNavigation } from "@/features/orders/api/cache-sync";
 import { getWorkflowStatuses } from "@/features/orders/model/order-workflow";
-import {
-  issueDescriptionForIntake,
-  resolveIntakeQuoteDraft,
-} from "@/features/orders/model/order-diagnosis-quote";
 import type { NewOrderPrefill } from "@/features/orders/model/new-order-intent";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { CACHE_TIMES } from "@/lib/query-performance";
@@ -119,6 +110,8 @@ export function NewOrderScreen({
   const [customerIdentityIntent, setCustomerIdentityIntent] =
     useState<CustomerIntakeNewCustomerPolicy | null>(null);
   const [sharedPhoneConfirmOpen, setSharedPhoneConfirmOpen] = useState(false);
+  const [submitValidationMessage, setSubmitValidationMessage] = useState("");
+  const [validationAttempted, setValidationAttempted] = useState(false);
   const [createRecovery, setCreateRecovery] = useState<NewOrderCreateRecoveryState>({
     state: "idle",
   });
@@ -230,20 +223,6 @@ export function NewOrderScreen({
     );
   }, [createStatuses, defaultCreateStatus]);
 
-  useEffect(() => {
-    if (form.deviceCustodyStatus !== DEVICE_CUSTODY_WITH_CUSTOMER) return;
-    setForm((current) => {
-      const selected = createStatuses.find((status) => status.code === current.status);
-      if (!selected || !deviceCustodyBlocksStatus(selected.code, selected.bucket)) {
-        return current;
-      }
-      const fallback = createStatuses.find(
-        (status) => !deviceCustodyBlocksStatus(status.code, status.bucket),
-      );
-      return fallback ? { ...current, status: fallback.code } : current;
-    });
-  }, [createStatuses, form.deviceCustodyStatus]);
-
   const validFaultDrafts = useMemo(
     () => form.faults.filter((item) => item.name.trim()),
     [form.faults],
@@ -252,17 +231,10 @@ export function NewOrderScreen({
     () => validFaultDrafts.reduce((sum, item) => sum + (Number(item.price) || 0), 0),
     [validFaultDrafts],
   );
-  const quoteActive = form.issueCaptureMode !== "unknown";
-  const activeQuote = resolveIntakeQuoteDraft({
-    mode: form.issueCaptureMode,
-    items: validFaultDrafts,
-    total,
-    deposit: form.deposit,
-  });
-  const activeTotal = activeQuote.total;
-  const activeDeposit = activeQuote.deposit;
+  const activeTotal = total;
+  const activeDeposit = form.deposit;
   const draftFaultPrices = useMemo(() => toFaultPriceItems(validFaultDrafts), [validFaultDrafts]);
-  const validFaultPrices = quoteActive ? draftFaultPrices : [];
+  const validFaultPrices = draftFaultPrices;
   const hasCatalogCostLines = validFaultPrices.some((item) => Boolean(item.catalog_key));
   const costDefaultsBlocked =
     canManageOrderCosts &&
@@ -465,7 +437,7 @@ export function NewOrderScreen({
         device_model: form.model,
         device_imei: form.imei,
         device_custody_status: custodyStatus,
-        issue_description: issueDescriptionForIntake(form.issueCaptureMode, form.issue),
+        issue_description: "",
         accessory_notes: form.accessoryNotes || undefined,
         warranty_text: form.warrantyText || undefined,
         warranty_months: form.warrantyMonths,
@@ -515,32 +487,40 @@ export function NewOrderScreen({
     },
   });
 
-  const custodyStatusBlocked = Boolean(
-    form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER &&
-    selectedCreateStatus &&
-    deviceCustodyBlocksStatus(selectedCreateStatus.code, selectedCreateStatus.bucket),
-  );
   const customerIdentityCreationBlocked = customerIntakePolicyBlocksSubmit(customerIdentityIntent);
   const valid =
     form.deviceCustodyStatus !== null &&
     form.customerPhone.trim() &&
     form.brand.trim() &&
     form.model.trim() &&
-    (form.issueCaptureMode === "unknown" || Boolean(form.issue.trim())) &&
     activeDeposit <= activeTotal &&
-    !custodyStatusBlocked &&
     !costDefaultsBlocked &&
     !customerIdentityCreationBlocked &&
     (!warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) ||
       form.warrantyChangeReason.trim());
-  const missingItems = getNewOrderMissingItems({
-    form,
-    total,
-    defaultWarrantyMonths,
-    custodyStatusBlocked,
-    costDefaultsBlocked,
-    customerIdentityCreationBlocked,
-  });
+  const missingItems = useMemo(
+    () =>
+      getNewOrderMissingItems({
+        form,
+        total,
+        defaultWarrantyMonths,
+        costDefaultsBlocked,
+        customerIdentityCreationBlocked,
+      }),
+    [costDefaultsBlocked, customerIdentityCreationBlocked, defaultWarrantyMonths, form, total],
+  );
+
+  useEffect(() => {
+    if (valid) {
+      setSubmitValidationMessage("");
+      setValidationAttempted(false);
+    }
+  }, [valid]);
+
+  useEffect(() => {
+    if (!validationAttempted) return;
+    return syncNewOrderValidationAria(missingItems, "new-order-validation-summary");
+  }, [missingItems, validationAttempted]);
 
   const patchFault = (index: number, patch: Partial<FaultPriceItem>) => {
     const next = [...form.faults];
@@ -705,7 +685,10 @@ export function NewOrderScreen({
       className={cn(
         layoutGuards.noPageOverflow,
         surface === "dialog"
-          ? cn(detailWorkspace.root, "max-h-[calc(100svh-16px)] sm:max-h-[calc(100svh-32px)]")
+          ? cn(
+              detailWorkspace.root,
+              "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] sm:h-[calc(100svh-32px)] sm:max-h-[calc(100svh-32px)]",
+            )
           : "mx-auto w-full min-w-0 max-w-[430px] overflow-x-hidden px-2 sm:max-w-2xl md:max-w-7xl md:px-5 md:pt-3 lg:px-6",
       )}
       style={
@@ -716,6 +699,7 @@ export function NewOrderScreen({
           : undefined
       }
     >
+      <h1 className="sr-only">新建维修工单</h1>
       {surface === "page" ? (
         <NewOrderMobileHeader
           operatorName={operatorName}
@@ -744,24 +728,27 @@ export function NewOrderScreen({
             return;
           }
           if (!valid) {
+            const normalizedMissingItems = missingItems.length
+              ? missingItems
+              : [fallbackNewOrderMissingItem];
+            setValidationAttempted(true);
+            setSubmitValidationMessage(
+              `无法创建工单，共有 ${normalizedMissingItems.length} 项需要处理：${normalizedMissingItems
+                .map((item) => item.label)
+                .join("、")}`,
+            );
+            focusNewOrderMissingItem(normalizedMissingItems[0]);
             toast.error(
               form.deviceCustodyStatus === null
                 ? "请确认设备是否留店"
                 : customerIdentityCreationBlocked
                   ? "请先使用已有客户，或修改姓名、电话后重新确认客户身份"
-                  : quoteActive && form.deposit > total
+                  : form.deposit > total
                     ? "定金不能超过订单总金额"
-                    : form.deviceCustodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER &&
-                        selectedCreateStatus &&
-                        deviceCustodyBlocksStatus(
-                          selectedCreateStatus.code,
-                          selectedCreateStatus.bucket,
-                        )
-                      ? "设备未留店，不能直接进入检测、维修或取机状态"
-                      : warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) &&
-                          !form.warrantyChangeReason.trim()
-                        ? "非默认质保需要填写原因"
-                        : "请补全必填字段",
+                    : warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) &&
+                        !form.warrantyChangeReason.trim()
+                      ? "非默认质保需要填写原因"
+                      : "请补全必填字段",
             );
             return;
           }
@@ -773,14 +760,17 @@ export function NewOrderScreen({
           surface === "page" &&
             cn(
               repairOs.mobileFloatingPage,
-              "scroll-pb-[calc(env(safe-area-inset-bottom)+12rem)] pb-[calc(env(safe-area-inset-bottom)+12rem)] md:pb-20 md:pt-0",
+              "scroll-pb-[calc(env(safe-area-inset-bottom)+12rem)] pb-[calc(env(safe-area-inset-bottom)+12rem)] md:pb-20 lg:pt-0",
             ),
           surface === "dialog" &&
-            "max-h-[calc(100svh-16px)] overflow-y-auto p-2 pb-[calc(env(safe-area-inset-bottom)+9rem)] pt-3 sm:max-h-[calc(100svh-32px)] sm:p-3 sm:pt-3 md:p-4 md:pt-3",
+            "h-full max-h-[calc(100svh-16px)] overflow-y-auto p-2 pb-[calc(env(safe-area-inset-bottom)+9rem)] pt-3 sm:max-h-[calc(100svh-32px)] sm:p-3 sm:pt-3 md:p-4 md:pt-3 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden lg:pb-3",
         )}
       >
+        <p id="new-order-validation-summary" className="sr-only" role="alert" aria-live="assertive">
+          {submitValidationMessage}
+        </p>
         {surface === "page" ? (
-          <div className="mb-2 hidden min-w-0 justify-end gap-2 md:flex md:mb-3">
+          <div className="mb-2 hidden min-w-0 justify-end gap-2 lg:flex lg:mb-3">
             <Button variant="outline" size="icon" className="size-9 shrink-0 rounded-full" asChild>
               <Link href="/orders" aria-label="关闭">
                 <X className="size-4" />
@@ -823,10 +813,21 @@ export function NewOrderScreen({
         ) : null}
 
         {offlineDraft.state === "error" || offlineDraft.state === "unavailable" ? (
-          <NewOrderOfflineInlineNotice
-            tone="warning"
-            message={offlineDraft.errorMessage ?? "本机草稿暂不可用，请不要刷新页面。"}
-          />
+          <div className="mb-2 grid gap-2 rounded-xl bg-status-warn px-2.5 py-2 md:mb-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+            <NewOrderOfflineInlineNotice
+              tone="warning"
+              className="mb-0 bg-transparent p-0"
+              message={offlineDraft.errorMessage ?? "本机草稿暂不可用，请不要刷新页面。"}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 bg-background"
+              onClick={offlineDraft.retryPreflight}
+            >
+              <RotateCcw className="mr-1.5 size-4" /> 重新检查
+            </Button>
+          </div>
         ) : null}
 
         {createRecovery.state !== "idle" ? (
@@ -841,12 +842,13 @@ export function NewOrderScreen({
         <div
           data-new-order-workspace-grid="true"
           className={cn(
-            "grid min-w-0 items-start gap-1.5 sm:gap-2 md:gap-3 lg:grid-cols-2",
-            "xl:grid-cols-[minmax(260px,0.9fr)_minmax(360px,1.18fr)_minmax(240px,0.82fr)]",
-            "2xl:grid-cols-[minmax(300px,0.88fr)_minmax(430px,1.18fr)_minmax(280px,0.82fr)]",
+            "grid min-w-0 items-start gap-1.5 sm:gap-2 md:grid-cols-[minmax(280px,0.85fr)_minmax(420px,1.35fr)] md:gap-3",
+            "lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.34fr)_minmax(0,0.8fr)] lg:overflow-hidden",
+            surface === "dialog" &&
+              "xl:grid-cols-[minmax(320px,0.9fr)_minmax(500px,1.4fr)_minmax(280px,0.8fr)]",
           )}
         >
-          <div className="grid min-w-0 gap-1.5 sm:gap-3 lg:col-start-1 lg:row-start-1">
+          <div className="grid min-w-0 content-start gap-1.5 sm:gap-3 md:col-start-1 md:row-start-1 lg:row-span-2 lg:min-h-0 lg:overflow-y-auto lg:pr-0.5">
             <NewOrderCustomerSection
               form={form}
               setForm={setForm}
@@ -870,38 +872,33 @@ export function NewOrderScreen({
             />
           </div>
 
-          <div className="contents lg:col-start-2 lg:row-start-1 lg:grid lg:min-w-0 lg:content-start lg:gap-3 xl:contents">
-            <div className="min-w-0 xl:col-start-2 xl:row-start-1">
-              <NewOrderQuotationSection
-                form={form}
-                setForm={setForm}
-                total={total}
-                operatorName={operatorName}
-                operatorRole={operatorRole}
-                onPatchFault={patchFault}
-                onAddCustomFault={addCustomFault}
-                canManageOrderCosts={canManageOrderCosts}
-                costDrafts={costDrafts}
-                costDefaultsPending={costDefaultsQuery.isPending && canManageOrderCosts}
-                costDefaultsError={costDefaultsQuery.isError && canManageOrderCosts}
-                isOnline={isOnline}
-                onRetryCostDefaults={() => void costDefaultsQuery.refetch()}
-                onCostDraftChange={(lineId, text) =>
-                  setCostDrafts((current) => ({
-                    ...current,
-                    [lineId]: updateNewOrderCostDraft(text),
-                  }))
-                }
-                createStatuses={createStatuses}
-                defaultWarrantyMonths={defaultWarrantyMonths}
-                surface={surface}
-              />
-            </div>
+          <NewOrderQuotationSection
+            form={form}
+            setForm={setForm}
+            total={total}
+            operatorName={operatorName}
+            operatorRole={operatorRole}
+            onPatchFault={patchFault}
+            onAddCustomFault={addCustomFault}
+            canManageOrderCosts={canManageOrderCosts}
+            costDrafts={costDrafts}
+            costDefaultsPending={costDefaultsQuery.isPending && canManageOrderCosts}
+            costDefaultsError={costDefaultsQuery.isError && canManageOrderCosts}
+            isOnline={isOnline}
+            onRetryCostDefaults={() => void costDefaultsQuery.refetch()}
+            onCostDraftChange={(lineId, text) =>
+              setCostDrafts((current) => ({
+                ...current,
+                [lineId]: updateNewOrderCostDraft(text),
+              }))
+            }
+            createStatuses={createStatuses}
+            defaultWarrantyMonths={defaultWarrantyMonths}
+            surface={surface}
+          />
 
-            <div className="grid min-w-0 content-start gap-1.5 sm:gap-3 xl:col-start-3 xl:row-start-1">
-              <NewOrderFaultDiagnosisSection form={form} setForm={setForm} surface={surface} />
-              <NewOrderDeviceUnlockSection form={form} setForm={setForm} surface={surface} />
-            </div>
+          <div className="grid min-w-0 content-start gap-1.5 sm:gap-3 md:col-start-1 md:row-start-2 lg:col-start-3 lg:row-start-1">
+            <NewOrderDeviceUnlockSection form={form} setForm={setForm} surface={surface} />
           </div>
         </div>
 
@@ -912,6 +909,7 @@ export function NewOrderScreen({
           custodyStatus={form.deviceCustodyStatus}
           onCancel={onCancel}
           surface={surface}
+          validationSummaryId="new-order-validation-summary"
         />
       </form>
 
@@ -924,9 +922,9 @@ export function NewOrderScreen({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel className="h-11 lg:h-9">取消</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90 lg:h-9"
               onClick={() => {
                 void handleDiscardOfflineDraft();
               }}
@@ -959,6 +957,7 @@ export function NewOrderScreen({
                 key={candidate.customerId}
                 type="button"
                 variant="outline"
+                className="h-11 lg:h-9"
                 disabled={create.isPending}
                 onClick={() => {
                   if (!identityConflict) return;
@@ -975,6 +974,7 @@ export function NewOrderScreen({
             <Button
               type="button"
               variant="secondary"
+              className="h-11 lg:h-9"
               disabled={create.isPending}
               onClick={() => setSharedPhoneConfirmOpen(true)}
             >
@@ -982,7 +982,7 @@ export function NewOrderScreen({
             </Button>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>返回检查</AlertDialogCancel>
+            <AlertDialogCancel className="h-11 lg:h-9">返回检查</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -996,8 +996,9 @@ export function NewOrderScreen({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>返回</AlertDialogCancel>
+            <AlertDialogCancel className="h-11 lg:h-9">返回</AlertDialogCancel>
             <AlertDialogAction
+              className="h-11 lg:h-9"
               disabled={create.isPending}
               onClick={() => {
                 if (!identityConflict) return;
@@ -1104,7 +1105,7 @@ function NewOrderCreateRecoveryCard({
         </p>
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <Button type="button" size="sm" className="h-8 rounded-xl text-xs" asChild>
+        <Button type="button" size="sm" className="h-11 rounded-xl text-xs lg:h-8" asChild>
           <Link href="/orders">
             <ClipboardList className="mr-1.5 size-3.5" />
             查看工单列表
@@ -1114,7 +1115,7 @@ function NewOrderCreateRecoveryCard({
           type="button"
           variant="outline"
           size="sm"
-          className="h-8 rounded-xl border-status-warn/70 bg-background/80 text-xs"
+          className="h-11 rounded-xl border-status-warn/70 bg-background/80 text-xs lg:h-8"
           asChild
         >
           <Link href="/customers">打开客户列表</Link>
@@ -1123,7 +1124,7 @@ function NewOrderCreateRecoveryCard({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-8 rounded-xl text-xs"
+          className="h-11 rounded-xl text-xs lg:h-8"
           disabled={confirming}
           onClick={onRetry}
         >
@@ -1144,42 +1145,159 @@ type NewOrderOfflineStatusSummary = {
 };
 
 type NewOrderMissingItem = {
+  code: string;
+  fieldId: string;
+  sectionId: "customer" | "device" | "diagnosis" | "quotation" | "service";
   label: string;
   target: string;
 };
+
+const fallbackNewOrderMissingItem: NewOrderMissingItem = {
+  code: "required",
+  fieldId: "customerPhone",
+  sectionId: "customer",
+  label: "必填资料",
+  target: "customer-phone",
+};
+
+const validationFocusableSelector =
+  "input:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex='0']";
+
+function syncNewOrderValidationAria(items: NewOrderMissingItem[], summaryId: string) {
+  const clear = () => {
+    document
+      .querySelectorAll<HTMLElement>("[data-new-order-validation-invalid='true']")
+      .forEach((element) => {
+        element.removeAttribute("aria-invalid");
+        const previous = element.dataset.newOrderValidationPreviousDescribedby;
+        if (previous) element.setAttribute("aria-describedby", previous);
+        else element.removeAttribute("aria-describedby");
+        delete element.dataset.newOrderValidationInvalid;
+        delete element.dataset.newOrderValidationPreviousDescribedby;
+      });
+  };
+
+  clear();
+  for (const item of items) {
+    const field = document.querySelector<HTMLElement>(`[data-new-order-field="${item.target}"]`);
+    if (!field) continue;
+    const focusable = field.matches(validationFocusableSelector)
+      ? field
+      : field.querySelector<HTMLElement>(validationFocusableSelector);
+    if (!focusable) continue;
+    if (focusable.dataset.newOrderValidationInvalid === "true") continue;
+    const previous = focusable.getAttribute("aria-describedby") ?? "";
+    focusable.dataset.newOrderValidationInvalid = "true";
+    focusable.dataset.newOrderValidationPreviousDescribedby = previous;
+    focusable.setAttribute("aria-invalid", "true");
+    focusable.setAttribute(
+      "aria-describedby",
+      Array.from(new Set([...previous.split(/\s+/).filter(Boolean), summaryId])).join(" "),
+    );
+  }
+  return clear;
+}
+
+function focusNewOrderMissingItem(item: NewOrderMissingItem | undefined) {
+  if (!item) return;
+  const target = document.querySelector<HTMLElement>(`[data-new-order-field="${item.target}"]`);
+  if (!target) return;
+  target.scrollIntoView({ behavior: "smooth", block: "center" });
+  window.setTimeout(() => {
+    const focusable = target.matches(validationFocusableSelector)
+      ? target
+      : target.querySelector<HTMLElement>(validationFocusableSelector);
+    focusable?.focus({ preventScroll: true });
+    if (item.target === "customer-report-edit") focusable?.click();
+  }, 250);
+}
 
 function getNewOrderMissingItems({
   form,
   total,
   defaultWarrantyMonths,
-  custodyStatusBlocked,
   costDefaultsBlocked,
   customerIdentityCreationBlocked,
 }: {
   form: NewOrderFormState;
   total: number;
   defaultWarrantyMonths: number;
-  custodyStatusBlocked: boolean;
   costDefaultsBlocked: boolean;
   customerIdentityCreationBlocked: boolean;
 }): NewOrderMissingItem[] {
   const items: Array<NewOrderMissingItem | null> = [
-    !form.customerPhone.trim() ? { label: "客户电话", target: "customer-phone" } : null,
-    customerIdentityCreationBlocked ? { label: "客户身份需处理", target: "customer-phone" } : null,
-    form.deviceCustodyStatus === null ? { label: "设备保管", target: "device-custody" } : null,
-    !form.brand.trim() ? { label: "设备品牌", target: "device-brand" } : null,
-    !form.model.trim() ? { label: "设备型号", target: "device-model" } : null,
-    form.issueCaptureMode !== "unknown" && !form.issue.trim()
-      ? { label: "故障描述", target: "customer-report-edit" }
+    !form.customerPhone.trim()
+      ? {
+          code: "required",
+          fieldId: "customerPhone",
+          sectionId: "customer",
+          label: "客户电话",
+          target: "customer-phone",
+        }
       : null,
-    form.issueCaptureMode !== "unknown" && form.deposit > total
-      ? { label: "定金不能超过总额", target: "deposit" }
+    customerIdentityCreationBlocked
+      ? {
+          code: "identity_conflict",
+          fieldId: "customerPhone",
+          sectionId: "customer",
+          label: "客户身份需处理",
+          target: "customer-phone",
+        }
       : null,
-    custodyStatusBlocked ? { label: "创建阶段与保管方式冲突", target: "create-status" } : null,
-    costDefaultsBlocked ? { label: "默认成本尚未读取", target: "quotation" } : null,
+    form.deviceCustodyStatus === null
+      ? {
+          code: "required",
+          fieldId: "deviceCustodyStatus",
+          sectionId: "device",
+          label: "设备保管",
+          target: "device-custody",
+        }
+      : null,
+    !form.brand.trim()
+      ? {
+          code: "required",
+          fieldId: "brand",
+          sectionId: "device",
+          label: "设备品牌",
+          target: "device-brand",
+        }
+      : null,
+    !form.model.trim()
+      ? {
+          code: "required",
+          fieldId: "model",
+          sectionId: "device",
+          label: "设备型号",
+          target: "device-model",
+        }
+      : null,
+    form.deposit > total
+      ? {
+          code: "deposit_exceeds_total",
+          fieldId: "deposit",
+          sectionId: "quotation",
+          label: "定金不能超过总额",
+          target: "deposit",
+        }
+      : null,
+    costDefaultsBlocked
+      ? {
+          code: "cost_defaults_pending",
+          fieldId: "faults",
+          sectionId: "quotation",
+          label: "默认成本尚未读取",
+          target: "quotation",
+        }
+      : null,
     warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) &&
     !form.warrantyChangeReason.trim()
-      ? { label: "质保变更原因", target: "warranty-reason" }
+      ? {
+          code: "warranty_reason_required",
+          fieldId: "warrantyChangeReason",
+          sectionId: "quotation",
+          label: "质保变更原因",
+          target: "warranty-reason",
+        }
       : null,
   ];
 
@@ -1208,28 +1326,11 @@ function NewOrderDesktopHeader({
   onClose?: () => void;
 }) {
   const balance = Math.max(0, total - deposit);
-  const focusMissingItem = (item: NewOrderMissingItem) => {
-    const target = document.querySelector<HTMLElement>(`[data-new-order-field="${item.target}"]`);
-    if (!target) return;
-    target.scrollIntoView({ behavior: "smooth", block: "center" });
-    window.setTimeout(() => {
-      const focusable = target.matches(
-        "input:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex='0']",
-      )
-        ? target
-        : target.querySelector<HTMLElement>(
-            "input:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex='0']",
-          );
-      focusable?.focus({ preventScroll: true });
-      if (item.target === "customer-report-edit") focusable?.click();
-    }, 250);
-  };
-
   return (
     <section
       data-new-order-desktop-header="true"
       className={cn(
-        "relative mb-3 hidden min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-3 shadow-none md:grid md:grid-cols-[minmax(180px,0.8fr)_minmax(280px,1.2fr)] md:items-center md:gap-3 xl:grid-cols-[minmax(220px,0.75fr)_minmax(340px,1fr)_minmax(330px,1.05fr)]",
+        "relative mb-3 hidden min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-3 shadow-none lg:grid lg:grid-cols-[minmax(180px,0.8fr)_minmax(280px,1.2fr)] lg:items-center lg:gap-3 xl:grid-cols-[minmax(220px,0.75fr)_minmax(340px,1fr)_minmax(330px,1.05fr)]",
         surface === "page" && "shadow-[var(--shadow-workspace)]",
         surface === "dialog" && onClose && "pr-12",
       )}
@@ -1251,7 +1352,7 @@ function NewOrderDesktopHeader({
         <div className="text-[11px] font-medium leading-4 text-muted-foreground">
           {surface === "dialog" ? "弹窗录入" : "工作台录入"}
         </div>
-        <h1 className="truncate text-lg font-semibold leading-6">新建维修工单</h1>
+        <p className="truncate text-lg font-semibold leading-6">新建维修工单</p>
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
           <span className="truncate">{operatorName}</span>
           <span className="size-1 rounded-full bg-muted-foreground/35" />
@@ -1283,15 +1384,12 @@ function NewOrderDesktopHeader({
           </p>
         ) : (
           <div data-new-order-missing-items="true" className="flex min-w-0 flex-wrap gap-1.5">
-            {(missingItems.length
-              ? missingItems
-              : [{ label: "必填资料", target: "customer-phone" }]
-            ).map((item) => (
+            {(missingItems.length ? missingItems : [fallbackNewOrderMissingItem]).map((item) => (
               <button
                 key={`${item.target}-${item.label}`}
                 type="button"
-                className="inline-flex h-7 items-center rounded-md border border-status-warn-foreground/20 bg-background px-2 text-[10px] font-medium text-status-warn-foreground transition-colors hover:bg-status-warn/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                onClick={() => focusMissingItem(item)}
+                className="inline-flex h-11 items-center rounded-md border border-status-warn-foreground/20 bg-background px-2 text-[10px] font-medium text-status-warn-foreground transition-colors hover:bg-status-warn/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:h-7"
+                onClick={() => focusNewOrderMissingItem(item)}
               >
                 补充：{item.label}
               </button>
@@ -1506,9 +1604,20 @@ function NewOrderMobileHeader({
   onHeightChange?: (height: number) => void;
 }) {
   const shellRef = useRef<HTMLDivElement | null>(null);
+  const [missingExpanded, setMissingExpanded] = useState(false);
+  const missingSummary = missingItems.length
+    ? `${missingItems
+        .slice(0, 3)
+        .map((item) => item.label)
+        .join("、")}${missingItems.length > 3 ? `，另有 ${missingItems.length - 3} 项` : ""}`
+    : "必填资料";
   const helperText = valid
     ? `资料已补全，创建后进入「${statusLabel}」。`
-    : `还差：${missingItems.map((item) => item.label).join("、") || "必填资料"}`;
+    : `还差：${missingSummary}`;
+
+  useEffect(() => {
+    if (valid) setMissingExpanded(false);
+  }, [valid]);
 
   useEffect(() => {
     const node = shellRef.current;
@@ -1533,12 +1642,12 @@ function NewOrderMobileHeader({
     <div ref={shellRef} className={repairOs.mobileFloatingHeaderShell}>
       <section className={cn(repairOs.mobileFloatingHeaderCard, "px-2.5 pb-2")}>
         <header className={repairOs.mobileFloatingHeaderNav}>
-          <SidebarTrigger className="size-7 rounded-lg border border-[var(--border-panel)] bg-card shadow-none" />
+          <SidebarTrigger className="size-11 rounded-lg border border-[var(--border-panel)] bg-card shadow-none" />
           <div className="min-w-0 text-center">
             <p className="truncate text-xs font-semibold leading-4">新建工单</p>
             <p className="truncate text-[9px] leading-3 text-muted-foreground">{operatorName}</p>
           </div>
-          <Button asChild variant="ghost" size="icon" className="size-7 rounded-lg">
+          <Button asChild variant="ghost" size="icon" className="size-11 rounded-lg">
             <Link href="/orders" aria-label="返回工单列表">
               <X className="size-4" />
             </Link>
@@ -1575,9 +1684,43 @@ function NewOrderMobileHeader({
               )}
             />
             <span className="min-w-0 flex-1">
-              <span className="line-clamp-2">{helperText}</span>
+              <span>{helperText}</span>
             </span>
           </div>
+          {!valid && missingItems.length > 0 ? (
+            <div className="mt-1.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-11 w-full justify-between rounded-lg px-2 text-[10px] font-semibold"
+                aria-expanded={missingExpanded}
+                aria-controls="new-order-mobile-missing-list"
+                onClick={() => setMissingExpanded((expanded) => !expanded)}
+              >
+                <span>{missingExpanded ? "收起缺失清单" : "查看完整缺失清单"}</span>
+                <span>{missingItems.length} 项</span>
+              </Button>
+              {missingExpanded ? (
+                <ul
+                  id="new-order-mobile-missing-list"
+                  className="mt-1 grid max-h-52 gap-1 overflow-y-auto rounded-lg bg-[var(--surface-panel-muted)] p-1.5 text-[10px]"
+                >
+                  {missingItems.map((item) => (
+                    <li key={`${item.code}-${item.fieldId}`}>
+                      <button
+                        type="button"
+                        className="min-h-11 w-full rounded-md px-2 text-left font-medium text-status-warn-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={() => focusNewOrderMissingItem(item)}
+                      >
+                        补充：{item.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
           <NewOrderOfflineStatusLine status={offlineStatus} compact className="mt-1" />
         </div>
       </section>
@@ -1644,7 +1787,7 @@ function NewOrderOfflineRestoreCard({
       data-new-order-offline-restore-card="true"
       className={cn(
         repairOs.mobileInfoCard,
-        "mb-2 grid min-w-0 gap-2 p-2.5 md:mb-3 md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:p-3 md:shadow-none",
+        "mb-2 grid min-w-0 gap-2 p-2.5 md:mb-3 md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:p-3 md:shadow-none lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-3 lg:px-3 lg:py-2",
       )}
     >
       <div className="min-w-0">
@@ -1652,7 +1795,7 @@ function NewOrderOfflineRestoreCard({
           <RotateCcw className="size-3.5 shrink-0 text-primary" />
           <span className="truncate">发现本机草稿</span>
         </div>
-        <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+        <p className="mt-1 text-[10px] leading-4 text-muted-foreground lg:truncate">
           这个草稿只保存在此设备，尚未创建系统工单。上次本机保存：
           {formatOfflineDraftTime(prompt.updatedAt)}。
         </p>
@@ -1663,7 +1806,12 @@ function NewOrderOfflineRestoreCard({
         ) : null}
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <Button type="button" size="sm" className="h-8 rounded-xl text-xs" onClick={onRestore}>
+        <Button
+          type="button"
+          size="sm"
+          className="h-11 rounded-xl text-xs lg:h-8"
+          onClick={onRestore}
+        >
           <RotateCcw className="mr-1.5 size-3.5" />
           恢复本机草稿
         </Button>
@@ -1671,7 +1819,7 @@ function NewOrderOfflineRestoreCard({
           type="button"
           variant="outline"
           size="sm"
-          className="h-8 rounded-xl text-xs"
+          className="h-11 rounded-xl text-xs lg:h-8"
           onClick={onDiscard}
         >
           <Trash2 className="mr-1.5 size-3.5" />
@@ -1685,9 +1833,11 @@ function NewOrderOfflineRestoreCard({
 function NewOrderOfflineInlineNotice({
   tone,
   message,
+  className,
 }: {
   tone: "success" | "warning";
   message: string;
+  className?: string;
 }) {
   const isWarning = tone === "warning";
   return (
@@ -1700,6 +1850,7 @@ function NewOrderOfflineInlineNotice({
         isWarning
           ? "bg-status-warn text-status-warn-foreground"
           : "bg-status-success/45 text-status-success-foreground",
+        className,
       )}
     >
       {message}

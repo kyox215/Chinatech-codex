@@ -722,14 +722,7 @@ async function openAndExpectNewOrderWorkspace(page: Page, width: number) {
     page.locator('[data-new-order-section="device-info"]').getByText("设备信息"),
     "新建工单设备信息标题",
   );
-  await expectFirstVisible(
-    page.locator('[data-new-order-section="fault-diagnosis"]'),
-    "新建工单故障与诊断区",
-  );
-  await expectFirstVisible(
-    page.locator('[data-new-order-section="fault-diagnosis"]').getByText("客户报障"),
-    "新建工单客户报障标题",
-  );
+  await expect(page.locator('[data-new-order-section="fault-diagnosis"]')).toHaveCount(0);
   await expectFirstVisible(
     page.locator('[data-new-order-section="quotation"]'),
     "新建工单报价处理区",
@@ -738,6 +731,13 @@ async function openAndExpectNewOrderWorkspace(page: Page, width: number) {
     page.locator('[data-new-order-section="quotation"]').getByText("报价处理"),
     "新建工单报价处理标题",
   );
+  await expectFirstVisible(
+    page.locator('[data-new-order-section="device-unlock"]'),
+    "新建工单手机密码区",
+  );
+  await expect(
+    page.locator('[data-new-order-section="quotation"] [data-new-order-field="deposit"]'),
+  ).toHaveCount(1);
   const newOrderMoneyStrip = page.locator(
     '[data-new-order-header-finance="true"] [data-order-workspace-money-strip="true"]',
   );

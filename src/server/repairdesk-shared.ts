@@ -313,9 +313,16 @@ function faultPrices(value: unknown): FaultPriceItem[] {
       const price = money(row.price);
       if (!name) return undefined;
       const note = maybeString(row.note);
-      return note
-        ? { name, price, currency_code: CURRENCY_CODE, note }
-        : { name, price, currency_code: CURRENCY_CODE };
+      const lineId = maybeString(row.line_id);
+      const catalogKey = maybeString(row.catalog_key);
+      return {
+        ...(lineId ? { line_id: lineId } : {}),
+        ...(catalogKey ? { catalog_key: catalogKey } : {}),
+        name,
+        price,
+        currency_code: CURRENCY_CODE,
+        ...(note ? { note } : {}),
+      };
     })
     .filter((item): item is FaultPriceItem => item !== undefined);
 }

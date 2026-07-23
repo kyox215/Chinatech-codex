@@ -42,6 +42,7 @@ export type UseNewOrderOfflineAutosaveOptions = {
   scope?: RepairDeskOfflineScope | null;
   enabled?: boolean;
   debounceMs?: number;
+  preflightTimeoutMs?: number;
   serviceFactory?: (scope: RepairDeskOfflineScope) => RepairDeskOfflineOrderService;
 };
 
@@ -50,6 +51,7 @@ export function useNewOrderOfflineAutosave({
   scope,
   enabled = true,
   debounceMs = 1200,
+  preflightTimeoutMs = 3000,
   serviceFactory = createIndexedDbOrderService,
 }: UseNewOrderOfflineAutosaveOptions) {
   const [state, setState] = useState<NewOrderOfflineAutosaveState>(
@@ -59,6 +61,7 @@ export function useNewOrderOfflineAutosave({
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [draftPrompt, setDraftPrompt] = useState<NewOrderOfflineDraftPrompt | null>(null);
   const [pendingRestoreNotice, setPendingRestoreNotice] = useState<string | null>(null);
+  const [preflightAttempt, setPreflightAttempt] = useState(0);
   const latestFormRef = useRef(form);
   const currentDraftIdRef = useRef<string | undefined>(undefined);
   const lastSavedFingerprintRef = useRef<string | undefined>(undefined);
@@ -93,36 +96,65 @@ export function useNewOrderOfflineAutosave({
     }
 
     setState("checking");
-    service.healthCheck().then(async (health) => {
-      if (!active) return;
-      if (!health.ok || !health.value.available) {
-        storageAvailableRef.current = false;
-        setState("unavailable");
-        setErrorMessage(formatOfflineStorageError(!health.ok ? health.error : health.value.error));
-        return;
-      }
+    void (async () => {
+      try {
+        const health = await withTimeout(
+          service.healthCheck(),
+          preflightTimeoutMs,
+          "检查本机草稿超时，请重试",
+        );
+        if (!active) return;
+        if (!health.ok || !health.value.available) {
+          storageAvailableRef.current = false;
+          setState("unavailable");
+          setErrorMessage(
+            formatOfflineStorageError(!health.ok ? health.error : health.value.error),
+          );
+          return;
+        }
 
-      storageAvailableRef.current = true;
-      setState("ready");
-      const drafts = await service.listLocalDrafts();
-      if (!active || !drafts.ok) return;
-      const newest = drafts.value
-        .filter((draft) => draft.mode === "create")
-        .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
-      if (!newest) return;
-      setDraftPrompt({
-        localDraftId: newest.localDraftId,
-        updatedAt: newest.updatedAt,
-        relationshipNeedsReview:
-          newest.customerLinkMode === "unknown_needs_review" ||
-          newest.deviceLinkMode === "unknown_device_needs_review",
-      });
-    });
+        const drafts = await withTimeout(
+          service.listLocalDrafts(),
+          preflightTimeoutMs,
+          "读取本机草稿超时，请重试",
+        );
+        if (!active) return;
+        if (!drafts.ok) {
+          storageAvailableRef.current = false;
+          setState("error");
+          setErrorMessage(formatOfflineStorageError(drafts.error));
+          return;
+        }
+
+        storageAvailableRef.current = true;
+        setState("ready");
+        const newest = drafts.value
+          .filter((draft) => draft.mode === "create")
+          .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
+        if (!newest) return;
+        setDraftPrompt({
+          localDraftId: newest.localDraftId,
+          updatedAt: newest.updatedAt,
+          relationshipNeedsReview:
+            newest.customerLinkMode === "unknown_needs_review" ||
+            newest.deviceLinkMode === "unknown_device_needs_review",
+        });
+      } catch (error) {
+        if (!active) return;
+        storageAvailableRef.current = false;
+        setState("error");
+        setErrorMessage(error instanceof Error ? error.message : "检查本机草稿失败，请重试");
+      }
+    })();
 
     return () => {
       active = false;
     };
-  }, [service]);
+  }, [preflightAttempt, preflightTimeoutMs, service]);
+
+  const retryPreflight = useCallback(() => {
+    setPreflightAttempt((attempt) => attempt + 1);
+  }, []);
 
   const saveNow = useCallback(async () => {
     const currentForm = latestFormRef.current;
@@ -317,7 +349,24 @@ export function useNewOrderOfflineAutosave({
     discardPromptDraft,
     discardCurrentDraft,
     queueCurrentDraftForSync,
+    retryPreflight,
   };
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeout);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
 }
 
 function createIndexedDbOrderService(scope: RepairDeskOfflineScope) {

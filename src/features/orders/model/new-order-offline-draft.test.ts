@@ -24,7 +24,6 @@ describe("new order offline draft mapping", () => {
       brand: "Apple",
       model: "iPhone 13",
       imei: "356789012345678",
-      issue: "Schermo rotto",
       deposit: 20,
     });
 
@@ -196,7 +195,6 @@ describe("new order offline draft mapping", () => {
         customerPhone: "+393331112222",
         brand: "Apple",
         model: "iPhone 13",
-        issue: "Battery",
         accessoryNotes: "Cover",
         warrantyText: "12个月",
         warrantyMonths: 12,
@@ -213,7 +211,7 @@ describe("new order offline draft mapping", () => {
       customerPhone: "+393331112222",
       deviceBrand: "Apple",
       deviceModel: "iPhone 13",
-      issueDescription: "Battery",
+      issueDescription: "",
       accessoryNotes: "Cover",
       warrantyDraft: {
         text: "12个月",
@@ -224,10 +222,8 @@ describe("new order offline draft mapping", () => {
     });
   });
 
-  it("round trips paused customer and quote drafts without syncing them in unknown mode", async () => {
+  it("stores active quote and deposit fields without writing retired issue-mode fields", async () => {
     const form = makeForm({
-      issueCaptureMode: "unknown",
-      issue: "掉电很快",
       faults: [
         {
           key: "battery:main",
@@ -242,15 +238,15 @@ describe("new order offline draft mapping", () => {
     });
     const payload = buildNewOrderOfflineDraftPayload(form);
     expect(payload).toMatchObject({
-      issueMode: "unknown",
-      issueDescription: "客户暂时无法确认具体故障，需检测。",
-      reportedIssueDraft: "掉电很快",
-      pausedRepairItems: [{ name: "更换电池", price: 59 }],
-      pausedDepositAmountCents: 2000,
-      repairItems: [],
-      quotedPriceCents: 0,
-      depositAmountCents: 0,
+      issueDescription: "",
+      repairItems: [{ name: "更换电池", price: 59 }],
+      quotedPriceCents: 5900,
+      depositAmountCents: 2000,
     });
+    expect(payload).not.toHaveProperty("issueMode");
+    expect(payload).not.toHaveProperty("reportedIssueDraft");
+    expect(payload).not.toHaveProperty("pausedRepairItems");
+    expect(payload).not.toHaveProperty("pausedDepositAmountCents");
 
     const service = createRepairDeskOfflineOrderService({
       store: createRepairDeskOfflineMemoryStore(),
@@ -263,15 +259,13 @@ describe("new order offline draft mapping", () => {
     if (!saved.ok) return;
 
     const restored = restoreNewOrderFormFromOfflineDraft(saved.value);
-    expect(restored.form.issueCaptureMode).toBe("unknown");
-    expect(restored.form.issue).toBe("掉电很快");
     expect(restored.form.deposit).toBe(20);
     expect(restored.form.faults).toEqual([
       expect.objectContaining({ name: "更换电池", price: 59 }),
     ]);
   });
 
-  it("restores a legacy unknown draft without the new paused fields", async () => {
+  it("upgrades a legacy paused quote and deposit into the active form", async () => {
     const service = createRepairDeskOfflineOrderService({
       store: createRepairDeskOfflineMemoryStore(),
       scope: { storeId: "store_1", userId: "user_1" },
@@ -280,29 +274,40 @@ describe("new order offline draft mapping", () => {
     });
     const saved = await service.saveDraft(
       buildNewOrderOfflineDraftInput({
-        form: makeForm({
-          issueCaptureMode: "unknown",
-          issue: "旧版不会保存的客户原话",
-          deposit: 20,
-        }),
+        form: makeForm({ customerPhone: "+393331112222" }),
       }),
     );
     expect(saved.ok).toBe(true);
     if (!saved.ok) return;
 
-    const legacyPayload = { ...saved.value.draftPayload };
-    delete legacyPayload.reportedIssueDraft;
-    delete legacyPayload.pausedRepairItems;
-    delete legacyPayload.pausedDepositAmountCents;
+    const legacyPayload = {
+      ...saved.value.draftPayload,
+      issueMode: "unknown",
+      reportedIssueDraft: "旧版客户原话",
+      repairItems: [],
+      quotedPriceCents: 0,
+      depositAmountCents: 0,
+      pausedRepairItems: [
+        {
+          key: "battery:main",
+          categoryKey: "battery",
+          categoryLabel: "电池",
+          name: "更换电池",
+          price: 59,
+          note: "Sostituzione batteria",
+        },
+      ],
+      pausedDepositAmountCents: 2000,
+    };
 
     const restored = restoreNewOrderFormFromOfflineDraft({
       ...saved.value,
       draftPayload: legacyPayload,
     });
-    expect(restored.form.issueCaptureMode).toBe("unknown");
-    expect(restored.form.issue).toBe("");
-    expect(restored.form.faults).toEqual([]);
-    expect(restored.form.deposit).toBe(0);
+    expect(restored.form.faults).toEqual([
+      expect.objectContaining({ name: "更换电池", price: 59 }),
+    ]);
+    expect(restored.form.deposit).toBe(20);
   });
 
   it("keeps a customer-held PIN re-entry marker without persisting the PIN", () => {

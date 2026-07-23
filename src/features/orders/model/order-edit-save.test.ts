@@ -125,7 +125,7 @@ describe("order edit save orchestration", () => {
 
     expect(saveRoutine).toHaveBeenCalledWith("version-1", { customer_name: "Mario Rossi" });
     expect(saveFinance).toHaveBeenCalledWith("version-2", {
-      faultPrices: [{ name: "屏幕", price: 85 }],
+      faultPrices: [{ line_id: expect.any(String), name: "屏幕", price: 85 }],
       depositAmount: 0,
     });
   });

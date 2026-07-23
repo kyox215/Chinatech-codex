@@ -15,6 +15,7 @@ export function NewOrderSubmitBar({
   custodyStatus,
   onCancel,
   surface = "page",
+  validationSummaryId,
 }: {
   valid: boolean;
   pending: boolean;
@@ -22,6 +23,7 @@ export function NewOrderSubmitBar({
   custodyStatus: DeviceCustodyStatus | null;
   onCancel?: () => void;
   surface?: "page" | "dialog";
+  validationSummaryId?: string;
 }) {
   const isDialog = surface === "dialog";
 
@@ -45,7 +47,7 @@ export function NewOrderSubmitBar({
             variant="ghost"
             size="sm"
             type="button"
-            className="hidden h-8 gap-1.5 rounded-xl text-xs md:inline-flex"
+            className="hidden h-11 gap-1.5 rounded-xl text-xs md:inline-flex lg:h-8"
             onClick={onCancel}
           >
             <ArrowLeft className="size-3.5" /> 返回工单
@@ -55,7 +57,7 @@ export function NewOrderSubmitBar({
             variant="ghost"
             size="sm"
             type="button"
-            className="hidden h-8 gap-1.5 rounded-xl text-xs md:inline-flex"
+            className="hidden h-11 gap-1.5 rounded-xl text-xs md:inline-flex lg:h-8"
             asChild
           >
             <Link href="/orders">
@@ -81,8 +83,10 @@ export function NewOrderSubmitBar({
         <div className="contents md:flex md:min-w-0 md:items-center">
           <Button
             type="submit"
-            disabled={!valid || pending}
-            className="h-11 w-full shrink-0 gap-1.5 rounded-xl border-0 px-4 text-sm font-semibold text-primary-foreground md:h-10 md:w-auto"
+            disabled={pending}
+            aria-disabled={!valid || pending}
+            aria-describedby={!valid ? validationSummaryId : undefined}
+            className="h-11 w-full shrink-0 gap-1.5 rounded-xl border-0 px-4 text-sm font-semibold text-primary-foreground md:w-auto lg:h-10"
             style={{ background: "var(--gradient-brand)" }}
           >
             <Banknote className="size-3.5" />

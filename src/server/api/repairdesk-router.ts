@@ -249,7 +249,10 @@ import {
 } from "@/server/permissions";
 import { writeAuditLog } from "@/server/audit";
 import { resolveRepairDeskSourceMode } from "@/server/repairdesk-source-mode";
-import { isRepairDeskE2eAuthBypassEnabled } from "@/shared/lib/e2e-auth-bypass";
+import {
+  isRepairDeskE2eAuthBypassEnabled,
+  isRepairDeskE2eSystemActor,
+} from "@/shared/lib/e2e-auth-bypass";
 import {
   queueRepairDeskRealtimeBroadcast,
   type RepairDeskRealtimeMutationBroadcast,
@@ -1196,6 +1199,8 @@ async function source() {
       updateMockSupplier(id, input, actor),
     getOnboardingStatus: async (actor: Awaited<ReturnType<typeof getRequestActor>>) => {
       const context = await mock.getStoreContext(actor);
+      const mockUserId =
+        actor.id ?? (isRepairDeskE2eSystemActor(actor) ? "repairdesk-e2e-system" : undefined);
       const activeStore = actor.storeId
         ? {
             id: actor.storeId,
@@ -1206,7 +1211,7 @@ async function source() {
           }
         : context.activeStore;
       return {
-        userId: actor.id,
+        userId: mockUserId,
         email: actor.email,
         emailVerified: actor.emailVerified === true,
         displayName: actor.displayName,
@@ -1253,6 +1258,8 @@ async function source() {
       actor: Awaited<ReturnType<typeof getRequestActor>>,
     ) => {
       const context = await mock.getStoreContext(actor);
+      const mockUserId =
+        actor.id ?? (isRepairDeskE2eSystemActor(actor) ? "repairdesk-e2e-system" : undefined);
       const activeStore = actor.storeId
         ? {
             id: actor.storeId,
@@ -1263,7 +1270,7 @@ async function source() {
           }
         : context.activeStore;
       return {
-        userId: actor.id,
+        userId: mockUserId,
         email: actor.email,
         emailVerified: actor.emailVerified === true,
         displayName: input.display_name.trim() || actor.displayName,

@@ -971,6 +971,7 @@ export interface OrderApprovalDecisionResult {
 
 export interface OrderListFilters {
   search?: string;
+  searchScope?: "current" | "archive_exact";
   deviceSearch?: string;
   view?: OrderListView;
   statuses?: RepairOrderStatus[];

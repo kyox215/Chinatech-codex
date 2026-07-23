@@ -3,8 +3,6 @@ import { createOrderLineId } from "@/entities/order/model/order-line-identity";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type { DeviceCustodyStatus, DeviceUnlockInput } from "@/lib/repairdesk/types";
 
-import type { IssueCaptureMode } from "./order-diagnosis-quote";
-
 export interface NewOrderFormState {
   type: "quick_repair" | "dropoff_repair";
   status: RepairOrderStatus;
@@ -18,8 +16,6 @@ export interface NewOrderFormState {
   deviceNotes: string;
   deviceCustodyStatus: DeviceCustodyStatus | null;
   deviceUnlock: DeviceUnlockInput;
-  issueCaptureMode: IssueCaptureMode;
-  issue: string;
   internalTag: string;
   accessoryNotes: string;
   warrantyText: string;
@@ -40,8 +36,6 @@ export const initialNewOrderForm: NewOrderFormState = {
   deviceNotes: "",
   deviceCustodyStatus: null,
   deviceUnlock: { method: "none" },
-  issueCaptureMode: "reported",
-  issue: "",
   internalTag: "",
   accessoryNotes: "",
   warrantyText: "6个月",

@@ -1,19 +1,30 @@
 import * as React from "react";
 
-const MOBILE_BREAKPOINT = 768;
+export const MOBILE_BREAKPOINT = 768;
+export const COMPACT_WORKSPACE_BREAKPOINT = 1024;
 
-export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined);
+function useViewportBelow(breakpoint: number) {
+  const [matches, setMatches] = React.useState<boolean | undefined>(undefined);
 
   React.useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+    const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
     const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+      setMatches(window.innerWidth < breakpoint);
     };
     mql.addEventListener("change", onChange);
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    onChange();
     return () => mql.removeEventListener("change", onChange);
-  }, []);
+  }, [breakpoint]);
 
-  return !!isMobile;
+  return !!matches;
+}
+
+export function useIsMobile() {
+  return useViewportBelow(MOBILE_BREAKPOINT);
+}
+
+// Touch-first iPad widths use the drawer shell without changing the meaning of "mobile"
+// for existing high-risk consumers such as store lifecycle actions.
+export function useIsCompactWorkspace() {
+  return useViewportBelow(COMPACT_WORKSPACE_BREAKPOINT);
 }

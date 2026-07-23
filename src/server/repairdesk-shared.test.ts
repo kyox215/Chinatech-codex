@@ -13,6 +13,7 @@ import {
   REPAIR_ORDER_DEVICE_EMBED,
   REPAIR_ORDER_PARTS_SUPPLIER_EMBED,
   REPAIR_ORDER_SUPPLIER_EMBED,
+  orderFromRow,
 } from "@/server/repairdesk-shared";
 
 describe("repairdesk shared Supabase selects", () => {
@@ -78,5 +79,30 @@ describe("repairdesk shared Supabase selects", () => {
       expect(source).not.toMatch(/device:devices\(/);
       expect(source).not.toMatch(/supplier:suppliers\(/);
     }
+  });
+
+  it("preserves quote line and catalog identities when reading an order", () => {
+    const parsed = orderFromRow({
+      id: "order-1",
+      status: "repairing",
+      fault_prices: [
+        {
+          line_id: "00000000-0000-4000-8000-000000000201",
+          catalog_key: "display:main",
+          name: "屏幕",
+          price: 80,
+        },
+      ],
+    });
+
+    expect(parsed.fault_prices).toEqual([
+      {
+        line_id: "00000000-0000-4000-8000-000000000201",
+        catalog_key: "display:main",
+        name: "屏幕",
+        price: 80,
+        currency_code: "EUR",
+      },
+    ]);
   });
 });

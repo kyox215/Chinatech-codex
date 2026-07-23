@@ -28,7 +28,10 @@ import {
 } from "@/components/orders/badges";
 import { DeviceUnlockListBadge } from "@/features/orders/components/device-unlock-fields";
 import { OrderQueueStageBadge } from "@/features/orders/components/order-queue-stage-badge";
-import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
+import {
+  deriveOrderFinancialState,
+  isOrderCancelledForPayment,
+} from "@/features/orders/model/order-payment-state";
 import { fadeUp } from "@/lib/motion";
 import { brandGradientStyle } from "@/lib/ui-patterns";
 import type { OrderListItem, OrderWorkflow } from "@/lib/repairdesk/api";
@@ -77,6 +80,7 @@ export function DesktopOrderQueueRow({
   const hoverTimerRef = useRef<number | null>(null);
   const exceptionStatus = order.exception_status;
   const cancelled = isOrderCancelledForPayment(order);
+  const financialState = deriveOrderFinancialState(order);
   const guidance = getOrderTaskGuidance(order);
   const next = cancelled
     ? { primary: undefined, secondary: [] }
@@ -84,24 +88,15 @@ export function DesktopOrderQueueRow({
   const hasOverdueException = !cancelled && Boolean(order.approval_overdue || order.pickup_overdue);
   const createdDate = formatOrderListDate(order.created_at);
   const relativeCreatedDate = formatOrderRelativeDate(order.created_at);
-  const paymentLabel = order.finance_redacted
-    ? "金额受限"
-    : cancelled
-      ? "已取消"
-      : order.is_paid
-        ? "已结清"
-        : order.deposit_amount > 0
-          ? "已付押金"
-          : "未收款";
-  const paymentClass = order.finance_redacted
-    ? "text-muted-foreground"
-    : cancelled
-      ? "text-muted-foreground"
-      : order.is_paid
-        ? "text-status-success-foreground"
-        : order.deposit_amount > 0
-          ? "text-status-warn-foreground"
-          : "text-status-danger-foreground";
+  const paymentLabel = financialState.label;
+  const paymentClass =
+    financialState.settlement === "settled" || financialState.settlement === "zero_charge"
+      ? "text-status-success-foreground"
+      : financialState.settlement === "partial"
+        ? "text-status-warn-foreground"
+        : financialState.settlement === "unpaid"
+          ? "text-status-danger-foreground"
+          : "text-muted-foreground";
   const primaryRepair = order.fault_prices[0];
   const extraRepairCount = Math.max(0, order.fault_prices.length - 1);
   const allNextActions = [next.primary, ...next.secondary].filter(

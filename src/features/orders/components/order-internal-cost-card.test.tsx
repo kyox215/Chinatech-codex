@@ -80,9 +80,29 @@ describe("OrderInternalCostCard", () => {
     expect(apiMocks.getPartsProcurement).not.toHaveBeenCalled();
     expect(screen.queryByText("配件批次联动")).not.toBeInTheDocument();
   });
+
+  it("offers the guarded quote-line repair action for unidentified legacy lines", async () => {
+    const user = userEvent.setup();
+    const onRepairQuoteLines = vi.fn();
+    apiMocks.getOrderLineCosts.mockResolvedValueOnce(costResult({ unidentifiedLineCount: 1 }));
+
+    renderCard({ onRepairQuoteLines });
+
+    await user.click(await screen.findByRole("button", { name: "修复报价项目" }));
+    expect(onRepairQuoteLines).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the legacy-line repair action hidden without an authorized handler", async () => {
+    apiMocks.getOrderLineCosts.mockResolvedValueOnce(costResult({ unidentifiedLineCount: 1 }));
+
+    renderCard();
+
+    expect(await screen.findByText(/当前工单或账号不可编辑报价/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "修复报价项目" })).not.toBeInTheDocument();
+  });
 });
 
-function renderCard() {
+function renderCard({ onRepairQuoteLines }: { onRepairQuoteLines?: () => void } = {}) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -96,18 +116,27 @@ function renderCard() {
         storeId={storeId}
         faultPrices={[{ line_id: lineId, name: "屏幕", price: 90 }]}
         canManage
+        onRepairQuoteLines={onRepairQuoteLines}
       />
     </QueryClientProvider>,
   );
   return { ...result, queryClient };
 }
 
-function costResult({ version = 1, amount = 15 }: { version?: number; amount?: number } = {}) {
+function costResult({
+  version = 1,
+  amount = 15,
+  unidentifiedLineCount = 0,
+}: {
+  version?: number;
+  amount?: number;
+  unidentifiedLineCount?: number;
+} = {}) {
   return {
     order_id: orderId,
     version,
     currency_code: "EUR",
-    unidentified_line_count: 0,
+    unidentified_line_count: unidentifiedLineCount,
     items: [
       {
         line_id: lineId,
