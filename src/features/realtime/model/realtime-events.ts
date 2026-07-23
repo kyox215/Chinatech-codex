@@ -88,6 +88,9 @@ export const repairDeskRealtimeSensitiveKeys = [
 ] as const;
 
 const allowedTopLevelKeys = new Set([
+  // realtime.send() injects transport metadata into the stored Broadcast
+  // payload. Application deduplication continues to use eventId.
+  "id",
   "schemaVersion",
   "eventId",
   "emittedAt",

@@ -45,6 +45,29 @@ describe("RepairDesk realtime event contract", () => {
     ).toBe(false);
   });
 
+  it("accepts the transport id injected by Supabase realtime.send", () => {
+    expect(
+      parseRepairDeskRealtimeEvent({
+        id: "supabase-transport-message-id",
+        schemaVersion: 1,
+        eventId: "evt_transport_1",
+        emittedAt: "2026-07-23T07:24:58.622Z",
+        storeId,
+        domain: "orders",
+        mutation: "updated",
+        queryGroups: ["orders.all"],
+      }),
+    ).toEqual({
+      schemaVersion: 1,
+      eventId: "evt_transport_1",
+      emittedAt: "2026-07-23T07:24:58.622Z",
+      storeId,
+      domain: "orders",
+      mutation: "updated",
+      queryGroups: ["orders.all"],
+    });
+  });
+
   it("rejects broad-channel payloads with identifiers or customer PII", () => {
     expect(
       parseRepairDeskRealtimeEvent({
