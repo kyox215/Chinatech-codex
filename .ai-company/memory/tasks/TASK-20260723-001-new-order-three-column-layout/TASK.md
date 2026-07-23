@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260723-001-new-order-three-column-layout"
 title: "新建订单真实组件三列单屏布局"
-status: "implemented-local-preview"
+status: "released"
 task_class: "T2"
 risk_level: "R1"
 autonomy_level: "L2-local"
 owner: "CEO-Orchestrator"
 departments: ["UX", "FE", "QA"]
 created_at: "2026-07-23T00:00:00+02:00"
-updated_at: "2026-07-23T00:27:06Z"
+updated_at: "2026-07-23T00:50:48Z"
 ---
 # 目标
 
