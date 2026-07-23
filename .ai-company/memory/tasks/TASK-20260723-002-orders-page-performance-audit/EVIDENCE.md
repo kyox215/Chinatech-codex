@@ -14,6 +14,9 @@
 | E-010 | tests | application regression suite remains green | `npm run lint`; `npm run typecheck`; `npm run test`; `npm run build` | lint/typecheck pass; 341 files and 2272 tests pass; production build pass | 2026-07-23T14:48:00Z | IntegrationLead |
 | E-011 | browser | no automatic detail request; first dialog intent performs one request and reuses it | controlled Chromium E2E | pass; screenshot `test-results/realtime-preload-coordinat-38081-quest-when-the-dialog-opens-chromium/desktop-intent-loaded-order-detail.png` | 2026-07-23T14:54:00Z | IntegrationLead |
 | E-012 | browser | customer workspace is not requested before leaving `/orders` | controlled Chromium E2E | pass; requests start only after SPA navigation | 2026-07-23T14:52:00Z | IntegrationLead |
+| E-013 | release | business commit reached remote main | `git push origin main` | `0fe2b317..983716d6 main -> main` | 2026-07-23T13:06:00Z | IntegrationLead |
+| E-014 | deployment | Vercel production build completed and aliases promoted | `vercel inspect www.chinatech.in --format=json` | deployment `dpl_6mggisCHSW14gjbK4HB785FB5m1S`, READY | 2026-07-23T13:09:00Z | IntegrationLead |
+| E-015 | production | production order/login boundary is healthy with no immediate error logs | production curl checks; `vercel logs --no-follow --since 10m --level error` | HTTP 200 after expected auth redirect; no error logs found | 2026-07-23T13:10:00Z | IntegrationLead |
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.

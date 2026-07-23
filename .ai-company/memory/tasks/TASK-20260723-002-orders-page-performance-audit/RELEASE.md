@@ -23,6 +23,16 @@
 - Success: deployment reports Ready, production domain responds, `/orders` reaches the expected authentication or application boundary, and no immediate deployment errors are present.
 - Observation window: inspect deployment/build state and production HTTP response immediately after Ready.
 
+## Production result
+
+- Business commit: `983716d6` (`perf(orders): streamline workspace startup`) pushed to `origin/main`.
+- Vercel deployment: `dpl_6mggisCHSW14gjbK4HB785FB5m1S`.
+- State: `READY`; target `production`.
+- Aliases verified: `www.chinatech.in`, `chinatech.in`, and the Git-main production alias all point to this deployment.
+- HTTP: unauthenticated `/orders` redirects to the expected login boundary and completes with HTTP 200; `/login` returns HTTP 200.
+- Runtime observation: no deployment error logs found in the immediate ten-minute window.
+- Database: no migration or production data command executed.
+
 ## Rollback
 
 - Trigger: failed build, production 5xx, broken order list, permission/store isolation regression, or unavailable new/detail dialog.

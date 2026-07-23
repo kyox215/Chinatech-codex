@@ -9,7 +9,7 @@ autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["API", "DATA", "FE", "QA"]
 created_at: "2026-07-23T12:32:51Z"
-updated_at: "2026-07-23T13:05:00Z"
+updated_at: "2026-07-23T16:36:24Z"
 ---
 # Task — 订单页面加载性能诊断与 B 方案分阶段优化
 
@@ -49,7 +49,7 @@ updated_at: "2026-07-23T13:05:00Z"
 - [x] `/orders` 首屏停止跨域预载客户、库存和前两条工单详情，保留 hover/focus/click 意图预取
 - [x] 列表、workflow、options 复用已有 `orders/queue-summary`，由一次 actor 解析聚合读取
 - [x] lint、typecheck、全量单测、生产 build 与定向浏览器回归通过
-- [ ] 应用提交推送 `main`，Vercel 生产部署 Ready 且真实入口通过健康检查
+- [x] 应用提交推送 `main`，Vercel 生产部署 Ready 且真实入口通过健康检查
 - [ ] 数据库侧分页 RPC 完成等价性、双租户、1001+ 数据量和 EXPLAIN 验证后另行批准上线
 
 ## Facts, assumptions, and unknowns
