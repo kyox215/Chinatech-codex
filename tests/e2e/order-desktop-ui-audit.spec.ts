@@ -114,7 +114,10 @@ test.describe("order desktop UI audit", () => {
         "aria-selected",
         "true",
       );
-      await expect(detail.locator('[data-order-panel="key-info"]')).toHaveCount(0);
+      await expectFirstVisible(
+        detail.locator('[data-order-panel="key-info"]'),
+        "工单详情补充信息卡",
+      );
       await expectFirstVisible(detail.getByText("客户信息"), "工单客户信息卡");
       await expectFirstVisible(detail.getByText("设备与故障"), "工单设备与故障卡");
       await expectFirstVisible(detail.getByText("报价处理"), "工单报价处理卡");
@@ -131,6 +134,10 @@ test.describe("order desktop UI audit", () => {
       await expectFirstVisible(
         detail.locator('[data-order-detail-main-grid="true"]'),
         "工单桌面主网格",
+      );
+      await expect(detail.locator('[data-order-detail-main-grid="true"]')).toHaveAttribute(
+        "data-order-detail-layout",
+        "new-order-aligned",
       );
       await expect(detail.locator('[data-order-detail-secondary-grid="true"]')).toHaveCount(0);
       const overviewColumns = await detail
@@ -514,7 +521,7 @@ async function expectDesktopQueueGrid(locator: Locator, label: string, width: nu
 }
 
 function detailDialogWidthBounds(width: number) {
-  const expectedWidth = Math.min(1040, width - 32);
+  const expectedWidth = Math.min(1400, width - 32);
   return { minWidth: expectedWidth - 1, maxWidth: expectedWidth + 1 };
 }
 
@@ -570,14 +577,12 @@ async function expectDesktopPanelsReadable(detail: Locator, width: number) {
     const financeWidth = await detail
       .locator('[data-order-panel="finance"]')
       .evaluate((element) => Math.round(element.getBoundingClientRect().width));
-    expect(customerWidth, `客户信息卡避免横向拉伸 at ${width}px`).toBeLessThanOrEqual(262);
-    expect(deviceWidth, `设备信息卡保持主工作列 at ${width}px`).toBeLessThanOrEqual(450);
-    expect(financeWidth, `报价处理卡避免横向拉伸 at ${width}px`).toBeLessThanOrEqual(292);
+    expect(customerWidth, `客户信息卡保持左侧工作列 at ${width}px`).toBeLessThanOrEqual(380);
+    expect(deviceWidth, `设备信息卡保持左侧工作列 at ${width}px`).toBeLessThanOrEqual(380);
+    expect(financeWidth, `报价处理卡保持主工作列 at ${width}px`).toBeLessThanOrEqual(560);
 
     const overviewBoxes = await detail
-      .locator(
-        '[data-order-detail-main-grid="true"] > [data-order-panel="customer"], [data-order-detail-main-grid="true"] > [data-order-panel="device"], [data-order-detail-main-grid="true"] > [data-order-panel="finance"]',
-      )
+      .locator('[data-order-detail-main-grid="true"] [data-order-detail-column]')
       .evaluateAll((elements) =>
         elements
           .filter((element) => {
@@ -592,18 +597,12 @@ async function expectDesktopPanelsReadable(detail: Locator, width: number) {
             };
           }),
       );
-    expect(overviewBoxes, `工单概览卡数量 at ${width}px`).toHaveLength(3);
+    expect(overviewBoxes, `工单概览工作列数量 at ${width}px`).toHaveLength(3);
     expect(
       Math.max(...overviewBoxes.map((box) => box.top)) -
         Math.min(...overviewBoxes.map((box) => box.top)),
-      `工单概览卡顶部对齐 at ${width}px`,
+      `工单概览工作列顶部对齐 at ${width}px`,
     ).toBeLessThanOrEqual(1);
-    expect(
-      Math.max(...overviewBoxes.map((box) => box.bottom)) -
-        Math.min(...overviewBoxes.map((box) => box.bottom)),
-      `工单概览卡底部对齐 at ${width}px`,
-    ).toBeLessThanOrEqual(1);
-
     const tabsWidth = await detail
       .locator('[data-order-detail-view-switcher="true"]')
       .evaluate((element) => Math.round(element.getBoundingClientRect().width));

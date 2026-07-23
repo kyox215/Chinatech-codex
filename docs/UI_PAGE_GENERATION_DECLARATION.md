@@ -126,7 +126,7 @@ import { brandGradientStyle, pageShell, repairOs, surfaces } from "@/lib/ui-patt
 4. 主内容：信息卡、报价卡、客户/设备卡。
 5. 侧栏：操作、历史、元数据。
 
-复杂业务详情以弹窗打开时必须使用沉浸式工作面结构。工单详情弹窗使用固定工作面尺寸，切换 Tab 不改变 Dialog 外壳宽高；Hero 和 Tabs 固定在上方，内容区独立滚动。桌面概览区使用 `detailWorkspace.orderDetailGrid`，保持“客户信息 / 设备故障 / 报价处理”三列同屏；移动和平板按声明自动降列，不在业务组件里手写大尺寸 Dialog grid class。
+复杂业务详情以弹窗打开时必须使用沉浸式工作面结构。工单详情弹窗使用固定工作面尺寸，切换 Tab 不改变 Dialog 外壳宽高；Hero 和 Tabs 固定在上方，内容区独立滚动。iPad/桌面概览区使用 `detailWorkspace.orderDetailGrid`，与新建订单保持一致的“客户与设备 / 报价处理 / 详情补充”工作台；手机继续使用既有移动详情结构。不得在业务组件里手写大尺寸 Dialog grid class。
 
 移动端详情页必须遵守 [`REPAIROS_MOBILE_DETAIL_STANDARD.md`](./REPAIROS_MOBILE_DETAIL_STANDARD.md)：顶部悬浮工作卡动态测量高度并给正文让位；正文第一张卡与顶部保持 6-10px 间距；卡片标题、字段、金额和操作按钮字号按订单详情页执行；维修项目与报价、支付信息、历史记录、扫码/拍照入口都必须走同一套数据与交互边界。
 

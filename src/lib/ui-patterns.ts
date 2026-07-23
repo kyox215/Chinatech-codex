@@ -61,7 +61,7 @@ export const overlayShell = {
   detailWorkspace:
     "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:h-[calc(100svh-32px)] sm:max-h-[calc(100svh-32px)] sm:w-[min(1400px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
   orderDetailWorkspace:
-    "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:h-[min(720px,calc(100svh-32px))] sm:max-h-[calc(100svh-32px)] sm:w-[min(1040px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
+    "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:h-[min(760px,calc(100svh-32px))] sm:max-h-[calc(100svh-32px)] sm:w-[min(1400px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
   formWorkspace:
     "max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] overflow-hidden border-transparent bg-transparent p-0 shadow-none sm:max-h-[calc(100svh-32px)] sm:w-[min(1400px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
 } as const;
@@ -78,12 +78,17 @@ export const detailWorkspace = {
   flatPanelMuted:
     "min-w-0 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2.5 shadow-none sm:p-3",
   compactDetailGrid: "grid min-w-0 gap-2 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]",
-  orderDetailContent: "mx-auto w-full min-w-0 max-w-[1000px]",
+  orderDetailContent: "mx-auto w-full min-w-0 max-w-[1320px]",
   orderDetailReadable: "mx-auto w-full min-w-0 max-w-[920px]",
   orderDetailControlGrid:
     "grid min-w-0 items-stretch gap-2 sm:gap-3 md:grid-cols-[repeat(2,minmax(0,1fr))]",
   orderDetailGrid:
-    "items-stretch lg:grid-cols-[minmax(210px,260px)_minmax(340px,1fr)_minmax(240px,290px)]",
+    "items-start md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.35fr)] lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.34fr)_minmax(0,0.8fr)] xl:grid-cols-[minmax(320px,0.9fr)_minmax(500px,1.4fr)_minmax(280px,0.8fr)]",
+  orderDetailCoreColumn:
+    "grid min-w-0 content-start gap-2 md:col-start-1 md:row-start-1 lg:row-span-2",
+  orderDetailFinanceColumn: "min-w-0 md:col-start-2 md:row-start-1 md:row-span-2 lg:col-start-2",
+  orderDetailSideColumn:
+    "grid min-w-0 content-start gap-2 md:col-start-1 md:row-start-2 lg:col-start-3 lg:row-start-1",
   orderDetailSecondaryGrid:
     "lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.78fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(400px,1.28fr)_minmax(280px,0.92fr)]",
 } as const;

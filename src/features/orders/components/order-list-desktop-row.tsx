@@ -107,6 +107,7 @@ export function DesktopOrderQueueRow({
   const stageIndex = orderTaskStageIndex[guidance.stage.key] ?? 0;
   const stageStep = stageIndex + 1;
   const partsSupplier = suppliers.find((supplier) => supplier.id === order.parts_supplier_id);
+  const customerName = getCustomerDisplayName(order.customer_name, order.customer_phone);
 
   const clearHoverTimer = () => {
     if (hoverTimerRef.current === null) return;
@@ -227,19 +228,14 @@ export function DesktopOrderQueueRow({
         </div>
       </div>
 
-      <div className="min-w-0 px-2 py-1.5">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span
-            className="shrink-0 truncate font-mono text-[11px] font-semibold leading-4 text-primary"
-            title={order.public_no}
-          >
-            {order.public_no}
-          </span>
-          <span className="min-w-0 truncate font-semibold leading-4" title={order.customer_name}>
-            {order.customer_name || "-"}
-          </span>
+      <div className="min-w-0 px-2 py-1.5" data-order-customer-identity="true">
+        <PhoneText
+          value={order.customer_phone}
+          className="block truncate text-[11px] font-semibold leading-4 text-foreground"
+        />
+        <div className="truncate text-[11px] leading-4 text-muted-foreground" title={customerName}>
+          {customerName}
         </div>
-        <PhoneText value={order.customer_phone} className="block truncate text-[11px] leading-4" />
         <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
           <span
             className="min-w-0 truncate text-[10px] leading-4 text-muted-foreground"
@@ -380,4 +376,20 @@ export function DesktopOrderQueueRow({
       </div>
     </motion.div>
   );
+}
+
+function getCustomerDisplayName(
+  customerName: string | null | undefined,
+  customerPhone: string | null | undefined,
+) {
+  const trimmedName = customerName?.trim() || "";
+  const normalizedName = normalizeComparable(trimmedName);
+  if (!trimmedName || (normalizedName && normalizedName === normalizeComparable(customerPhone))) {
+    return "未填写姓名";
+  }
+  return trimmedName;
+}
+
+function normalizeComparable(value: string | null | undefined) {
+  return (value ?? "").replace(/\D/g, "");
 }

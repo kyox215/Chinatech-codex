@@ -1595,7 +1595,7 @@ export function OrderListScreen() {
                     ) : null}
                   </label>
                   <div className="min-w-0 px-2 py-1.5">阶段 / 下一步</div>
-                  <div className="min-w-0 px-2 py-1.5">工单 / 客户</div>
+                  <div className="min-w-0 px-2 py-1.5">客户</div>
                   <div className="min-w-0 px-2 py-1.5">设备 / 故障</div>
                   <div className="px-2 py-1.5 text-right">金额 / 风险</div>
                   <div className="px-2 py-1.5">负责人 / 时间</div>

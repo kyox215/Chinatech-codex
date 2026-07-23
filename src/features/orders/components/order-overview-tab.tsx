@@ -197,6 +197,45 @@ export function OrderOverviewTab({
       : null;
   const intakeEdit = canEditIntake ? edit : null;
   const repairEdit = canEditRepair ? edit : null;
+  const customerPanel = (
+    <CustomerPanel
+      order={order}
+      customer={customer}
+      edit={intakeEdit}
+      surface={surface}
+      onRequestKioskSignature={onRequestKioskSignature}
+      kioskSignaturePending={kioskSignaturePending}
+      kioskSignatureAvailable={kioskSignatureAvailable}
+      signatureAttachments={signatureAttachments}
+    />
+  );
+  const devicePanel = (
+    <DeviceIssuePanel
+      order={order}
+      deviceBrand={deviceBrand}
+      deviceModel={deviceModel}
+      deviceImei={deviceImei}
+      deviceNotes={deviceNotes}
+      accessoryNotes={accessoryNotes}
+      defaultWarrantyMonths={defaultWarrantyMonths}
+      onQuickImeiSave={onQuickImeiSave}
+      quickImeiPending={quickImeiPending}
+      intakeEdit={intakeEdit}
+      repairEdit={repairEdit}
+      surface={surface}
+    />
+  );
+  const financePanel = (
+    <OrderOverviewFinancePanel
+      order={order}
+      isEditing={Boolean(edit)}
+      financeDraft={financeDraft}
+      financeError={financeError}
+      onFinanceDraftChange={onFinanceDraftChange}
+      canAdjustFinance={canAdjustFinance}
+      surface={surface}
+    />
+  );
 
   return (
     <motion.div
@@ -237,49 +276,49 @@ export function OrderOverviewTab({
           />
         ) : null}
 
-        <div
-          data-order-detail-main-grid="true"
-          className={cn(
-            "grid min-w-0 items-stretch gap-2 md:grid-cols-2",
-            surface === "dialog"
-              ? detailWorkspace.orderDetailGrid
-              : "lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(400px,1.28fr)_minmax(280px,0.92fr)]",
-          )}
-        >
-          <CustomerPanel
-            order={order}
-            customer={customer}
-            edit={intakeEdit}
-            surface={surface}
-            onRequestKioskSignature={onRequestKioskSignature}
-            kioskSignaturePending={kioskSignaturePending}
-            kioskSignatureAvailable={kioskSignatureAvailable}
-            signatureAttachments={signatureAttachments}
-          />
-          <DeviceIssuePanel
-            order={order}
-            deviceBrand={deviceBrand}
-            deviceModel={deviceModel}
-            deviceImei={deviceImei}
-            deviceNotes={deviceNotes}
-            accessoryNotes={accessoryNotes}
-            defaultWarrantyMonths={defaultWarrantyMonths}
-            onQuickImeiSave={onQuickImeiSave}
-            quickImeiPending={quickImeiPending}
-            intakeEdit={intakeEdit}
-            repairEdit={repairEdit}
-            surface={surface}
-          />
-          <OrderOverviewFinancePanel
-            order={order}
-            isEditing={Boolean(edit)}
-            financeDraft={financeDraft}
-            financeError={financeError}
-            onFinanceDraftChange={onFinanceDraftChange}
-            canAdjustFinance={canAdjustFinance}
-            surface={surface}
-          />
-        </div>
+        {surface === "dialog" ? (
+          <div
+            data-order-detail-main-grid="true"
+            data-order-detail-layout="new-order-aligned"
+            className={cn("grid min-w-0 gap-2", detailWorkspace.orderDetailGrid)}
+          >
+            <div
+              data-order-detail-column="customer-device"
+              className={detailWorkspace.orderDetailCoreColumn}
+            >
+              {customerPanel}
+              {devicePanel}
+            </div>
+            <div
+              data-order-detail-column="quote"
+              className={detailWorkspace.orderDetailFinanceColumn}
+            >
+              {financePanel}
+            </div>
+            <div
+              data-order-detail-column="detail"
+              className={detailWorkspace.orderDetailSideColumn}
+            >
+              <OrderKeyInfoCard order={order} supplier={supplier} surface={surface} />
+              <DesktopRecordsSummaryPanel
+                events={events}
+                messages={messages}
+                workflow={workflow}
+                surface={surface}
+                onShowRecords={onShowRecords}
+              />
+            </div>
+          </div>
+        ) : (
+          <div
+            data-order-detail-main-grid="true"
+            className="grid min-w-0 items-stretch gap-2 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(400px,1.28fr)_minmax(280px,0.92fr)]"
+          >
+            {customerPanel}
+            {devicePanel}
+            {financePanel}
+          </div>
+        )}
         {surface !== "dialog" ? (
           <div
             data-order-detail-secondary-grid="true"

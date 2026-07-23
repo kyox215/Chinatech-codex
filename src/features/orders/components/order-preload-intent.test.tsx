@@ -111,6 +111,51 @@ describe("order detail preload intent", () => {
   });
 });
 
+describe("desktop order customer identity", () => {
+  it("shows the customer phone and name without rendering the public order number", () => {
+    render(
+      <DesktopOrderQueueRow
+        order={makeOrder()}
+        checked={false}
+        onOpen={vi.fn()}
+        onCheckedChange={vi.fn()}
+        onPrint={vi.fn()}
+        onStopInteraction={(event) => event.stopPropagation()}
+        suppliers={[]}
+      />,
+    );
+
+    const identity = document.querySelector('[data-order-customer-identity="true"]');
+    expect(identity).not.toBeNull();
+    expect(identity).toHaveTextContent("+390000000");
+    expect(identity).toHaveTextContent("Cliente Test");
+    expect(identity).not.toHaveTextContent("R2026001");
+  });
+
+  it("does not repeat a phone number stored as the customer name", () => {
+    render(
+      <DesktopOrderQueueRow
+        order={makeOrder({
+          customer_name: "389 027 2038",
+          customer_phone: "3890272038",
+        })}
+        checked={false}
+        onOpen={vi.fn()}
+        onCheckedChange={vi.fn()}
+        onPrint={vi.fn()}
+        onStopInteraction={(event) => event.stopPropagation()}
+        suppliers={[]}
+      />,
+    );
+
+    const identity = document.querySelector('[data-order-customer-identity="true"]');
+    expect(identity).not.toBeNull();
+    expect(identity).toHaveTextContent("3890272038");
+    expect(identity).toHaveTextContent("未填写姓名");
+    expect(identity).not.toHaveTextContent("389 027 2038");
+  });
+});
+
 function makeOrder(overrides: Partial<OrderListItem> = {}): OrderListItem {
   return {
     id: "order-1",
