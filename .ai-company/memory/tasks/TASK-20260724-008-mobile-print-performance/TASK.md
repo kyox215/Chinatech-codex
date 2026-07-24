@@ -9,7 +9,7 @@ autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["FLOW", "ARCH", "FE", "API", "UX", "QA", "DOC", "INT"]
 created_at: "2026-07-24T14:06:01Z"
-updated_at: "2026-07-24T18:03:13Z"
+updated_at: "2026-07-24T18:46:00Z"
 ---
 # Task — 移动端稳定打印与两秒固定PDF性能优化
 
@@ -34,7 +34,7 @@ updated_at: "2026-07-24T18:03:13Z"
 
 - 不改变订单业务状态机、付款、客户公开查询权限或二维码安全模型。
 - 不新增付费外部服务，不执行数据库迁移，不修改生产数据。
-- 本轮不自动推送或部署；生产发布需要老板另行明确批准。
+- 老板已于 2026-07-24 明确批准将本任务修复集成到 `main` 并部署 Vercel 生产；不包含数据库迁移或生产数据写入。
 
 ## Hard constraints
 
@@ -66,7 +66,7 @@ updated_at: "2026-07-24T18:03:13Z"
 ## Decision and approval points
 
 - 老板已批准方案 B 的本地实施。
-- 推送 main、生产部署或新增生产基础设施仍需另行明确批准。
+- 推送 `main` 与本次 Vercel 生产部署已获批准；新增生产基础设施仍需另行明确批准。
 
 ## Work packages
 
