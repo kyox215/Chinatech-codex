@@ -9,7 +9,7 @@ autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["FLOW", "ARCH", "FE", "API", "UX", "QA", "DOC", "INT"]
 created_at: "2026-07-24T14:06:01Z"
-updated_at: "2026-07-24T14:42:41Z"
+updated_at: "2026-07-24T18:03:13Z"
 ---
 # Task — 移动端稳定打印与两秒固定PDF性能优化
 
@@ -49,9 +49,9 @@ updated_at: "2026-07-24T14:42:41Z"
 - [x] 手机端不再因隐藏 PDF iframe 缺少 `contentWindow` 而显示“浏览器无法启动打印预览”。
 - [x] 移动路径通过独立第二次用户点击打开系统可处理的 PDF/分享打印入口；桌面自动打印路径保持兼容。
 - [x] 固定 PDF 生成包含 QR、布局、PDF 与端到端分阶段计时；暖缓存单次/连续自动化目标 <= 2 秒。
-- [x] A5/A4 四模式页尺寸、单页、二维码、金额、客户/设备/服务内容保持不变。
+- [x] A5/A4 四模式的既有打印内容、版式与 3× 清晰度实现保持不变。
 - [x] 保留 `PRINT_CAPTURE_SCALE=3` 和约 288 有效 PPI 的最终 A5 栅格质量。
-- [ ] 真实 iPhone/iPad AirPrint 烟测和最终 PDF 二维码自动解码仍待老板设备验证。
+- [ ] 真实 Android Chrome、iPhone/iPad 的系统打印/分享烟测，以及最终 PDF 二维码自动解码仍待发布后实机验证。
 - [x] lint、typecheck、相关 unit、E2E、full test、production build 通过。
 
 ## Facts, assumptions, and unknowns

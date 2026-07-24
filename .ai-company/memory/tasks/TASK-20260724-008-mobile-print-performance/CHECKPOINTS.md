@@ -22,3 +22,11 @@
 - **Next:** 在真实iPhone/iPad打开订单，选择A5横向，点击打印或分享PDF，验证打印、取消后重试与二维码扫描；随后由老板决定是否提交推送main并部署。
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-24T18:03:13Z — 移动端显式PDF交付修复已重放到最新main并形成本地提交2553cab6；生成锁定、44px触控、下载文案、打开PDF失败恢复已补齐；lint/typecheck、357文件2370测试、production build、打印E2E通过。
+
+- **Phase:** implementation
+- **Completed/current state:** 移动端显式PDF交付修复已重放到最新main并形成本地提交2553cab6；生成锁定、44px触控、下载文案、打开PDF失败恢复已补齐；lint/typecheck、357文件2370测试、production build、打印E2E通过。
+- **Next:** 等待老板单独批准推送部署；发布后执行真实Android Chrome系统菜单、取消重试、查看/下载和二维码解码烟测。
+- **Decision:** 移动端使用Web Share优先并保留查看/下载回退，桌面继续iframe自动打印；不降低3x质量，不新增服务端PDF存储。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator
