@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { mkdir, writeFile } from "node:fs/promises";
 import { PDFDocument } from "pdf-lib";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
@@ -275,8 +276,104 @@ test("fixed PDF prints all four modes from the current page without a visible po
     expect(document.getPageCount()).toBe(1);
     expect(document.getPage(0).getWidth()).toBeCloseTo(mode.width, 3);
     expect(document.getPage(0).getHeight()).toBeCloseTo(mode.height, 3);
+    if (index === 0) {
+      const optimizedEvidenceDir = "screenshots/TASK-20260724-007-in-page-pdf-print";
+      await mkdir(optimizedEvidenceDir, { recursive: true });
+      await writeFile(`${optimizedEvidenceDir}/optimized-a5.pdf`, Uint8Array.from(bytes));
+    }
   }
 });
+
+for (const mobileWidth of [390, 430] as const) {
+  test(`mobile order detail uses the optimized current-page fixed PDF flow at ${mobileWidth}px`, async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await page.addInitScript(() => {
+      const originalCreateObjectURL = URL.createObjectURL.bind(URL);
+      URL.createObjectURL = (object) => {
+        if (object instanceof Blob && object.type === "application/pdf") {
+          (window as Window & { __repairDeskPdfBlob?: Blob }).__repairDeskPdfBlob = object;
+        }
+        return originalCreateObjectURL(object);
+      };
+      const originalAppendChild = Element.prototype.appendChild;
+      Element.prototype.appendChild = function <T extends Node>(node: T): T {
+        const result = originalAppendChild.call(this, node) as T;
+        if (node instanceof HTMLIFrameElement && node.dataset.repairdeskPdfPrint === "true") {
+          const printWindow = node.contentWindow;
+          if (printWindow) {
+            Object.defineProperty(printWindow, "focus", {
+              configurable: true,
+              value: () => undefined,
+            });
+            Object.defineProperty(printWindow, "print", {
+              configurable: true,
+              value: () => printWindow.dispatchEvent(new Event("afterprint")),
+            });
+            queueMicrotask(() => node.dispatchEvent(new Event("load")));
+          }
+        }
+        return result;
+      };
+    });
+    await page.setViewportSize({ width: mobileWidth, height: 844 });
+    let qrIssueCount = 0;
+    await page.route("**/api/repairdesk/customer-status-links/issue", async (route) => {
+      qrIssueCount += 1;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const body = route.request().postDataJSON() as { order_ids?: string[] };
+      const orderIds = Array.isArray(body.order_ids) ? body.order_ids : [];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          links: orderIds.map((orderId) => ({
+            order_id: orderId,
+            url: `https://www.chinatech.in/r#${"M".repeat(43)}`,
+            expires_at: "2027-12-31T23:59:59.000Z",
+          })),
+        }),
+      });
+    });
+
+    await gotoReady(page, "/orders");
+    await ensureOutputIdentityReady(page);
+    await gotoReady(page, "/orders");
+    await page.locator('[data-order-mobile-list="true"] a[href^="/orders/"]').first().click();
+    await expect(page).toHaveURL(/\/orders\/[^/?]+/);
+
+    let popupCount = 0;
+    page.on("popup", () => {
+      popupCount += 1;
+    });
+    await page.getByRole("button", { name: "打印工单" }).click();
+    await expect(page.getByRole("button", { name: "A5 横向" })).toBeVisible();
+    await page.screenshot({
+      path: `screenshots/TASK-20260724-007-in-page-pdf-print/mobile-print-options-${mobileWidth}.png`,
+      fullPage: true,
+    });
+    await page.getByRole("button", { name: "A5 横向" }).click();
+    await expect(page.getByText("正在准备订单二维码…")).toBeVisible();
+    await expect(page.getByText("打印预览已打开")).toBeVisible({ timeout: 30_000 });
+
+    expect(qrIssueCount).toBe(1);
+    expect(popupCount).toBe(0);
+    await expect(page.locator('[data-repairdesk-pdf-print="true"]')).toHaveCount(0);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+    const bytes = await page.evaluate(async () => {
+      const blob = (window as Window & { __repairDeskPdfBlob?: Blob }).__repairDeskPdfBlob;
+      if (!blob) throw new Error("Fixed PDF blob missing");
+      return Array.from(new Uint8Array(await blob.arrayBuffer()));
+    });
+    const pdfDocument = await PDFDocument.load(Uint8Array.from(bytes));
+    expect(pdfDocument.getPageCount()).toBe(1);
+    expect(pdfDocument.getPage(0).getWidth()).toBeCloseTo(595.2756, 3);
+    expect(pdfDocument.getPage(0).getHeight()).toBeCloseTo(419.5276, 3);
+  });
+}
 
 test("public customer status keeps the fragment token out of URLs and app shell", async ({
   page,

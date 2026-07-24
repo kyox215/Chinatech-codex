@@ -9,6 +9,9 @@ const MM_TO_PT = 72 / 25.4;
 const A5_LANDSCAPE = [210 * MM_TO_PT, 148 * MM_TO_PT] as const;
 const A4_PORTRAIT = [210 * MM_TO_PT, 297 * MM_TO_PT] as const;
 const A4_LANDSCAPE = [297 * MM_TO_PT, 210 * MM_TO_PT] as const;
+// Keep the established high-resolution print contract. Performance work must
+// optimize conversion and reuse without trading away text or QR sharpness.
+const PRINT_CAPTURE_SCALE = 3;
 const TICKET = {
   x: 6 * MM_TO_PT,
   top: 6 * MM_TO_PT,
@@ -35,12 +38,13 @@ export async function createFixedOrderPdf(paperMode: PrintPaperMode) {
 
       const canvas = await html2canvas(target, {
         backgroundColor: "#ffffff",
-        scale: 3,
+        scale: PRINT_CAPTURE_SCALE,
         logging: false,
         useCORS: true,
       });
-      const dataUrl = canvas.toDataURL("image/png");
-      const image = await pdf.embedPng(dataUrl);
+      const image = await pdf.embedPng(await canvasToPngBytes(canvas));
+      canvas.width = 0;
+      canvas.height = 0;
       const pageSize = getPageSize(paperMode);
       const page = pdf.addPage([...pageSize]);
       const placements = getTicketPlacements(paperMode, pageSize[1]);
@@ -190,6 +194,7 @@ async function createPrintSandbox() {
 }
 
 function collectPrintCss() {
+  if (printCssCache !== null) return printCssCache;
   const rules: string[] = [];
   for (const sheet of Array.from(document.styleSheets)) {
     try {
@@ -198,7 +203,20 @@ function collectPrintCss() {
       // Cross-origin font styles are not required for the Arial print contract.
     }
   }
-  return rules.join("\n");
+  printCssCache = rules.join("\n");
+  return printCssCache;
+}
+
+let printCssCache: string | null = null;
+
+async function canvasToPngBytes(canvas: HTMLCanvasElement) {
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((value) => {
+      if (value) resolve(value);
+      else reject(new Error("无法压缩打印图像，请重试"));
+    }, "image/png");
+  });
+  return new Uint8Array(await blob.arrayBuffer());
 }
 
 function collectRule(rule: CSSRule, output: string[]) {
