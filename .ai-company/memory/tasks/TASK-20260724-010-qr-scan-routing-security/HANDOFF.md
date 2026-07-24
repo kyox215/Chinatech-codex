@@ -1,5 +1,5 @@
 # Handoff
 
-Release candidate is fully verified in `/private/tmp/repairdesk-qr-scan-routing-security` on `codex/qr-scan-routing-security`.
+Task is closed. Commit `5ac58f61` is on `main`; production deployment `dpl_GCgyDGC4GjLgBywtkmU7RuHBEfco` is Ready and production smoke is clean.
 
-Remaining: commit, fast-forward push to `main`, wait for production deployment, and run non-PII production smoke checks.
+No required follow-up remains. Preserve the sensitive QR parser, centralized search sanitizer, history-state E2E assertion and `/r` generation/abort tests in future changes.

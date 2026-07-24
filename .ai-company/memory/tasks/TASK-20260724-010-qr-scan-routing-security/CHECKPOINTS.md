@@ -24,3 +24,28 @@
 - **Evidence:**
   - .ai-company/memory/tasks/TASK-20260724-010-qr-scan-routing-security/EVIDENCE.md
 - **Recorded by:** IntegrationLead
+
+## 2026-07-24T17:14:00Z — production released
+
+- Commit `5ac58f61` fast-forward pushed to `main`.
+- Vercel production deployment `dpl_GCgyDGC4GjLgBywtkmU7RuHBEfco` reached Ready.
+- Aliases include `www.chinatech.in` and `chinatech.in`.
+- Production smoke: `/r` 200 with no-store/no-referrer/noindex headers; anonymous `/orders` 307 to login; synthetic invalid token returns safe 404.
+- Deployment error log scan since release returned zero entries.
+- Task closed with no migration, production data mutation, secret handling or rollback action.
+## 2026-07-24T17:15:41Z — main 5ac58f61 已部署，生产别名 Ready，公开与授权边界 smoke 通过且错误日志为零
+
+- **Phase:** closed
+- **Completed/current state:** main 5ac58f61 已部署，生产别名 Ready，公开与授权边界 smoke 通过且错误日志为零
+- **Next:** 任务关闭，无必需后续；未来改扫码/订单搜索时保留 bearer fail-closed 回归
+- **Decision:** 生产发布通过，保留集中 sanitizer、完整文档 /r 跳转与 generation/abort
+- **Evidence:**
+  - .ai-company/memory/tasks/TASK-20260724-010-qr-scan-routing-security/EVIDENCE.md
+- **Recorded by:** IntegrationLead
+## 2026-07-24T17:15:41Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** 二维码扫码按登录身份安全分流，bearer 不进入通用搜索/缓存/存储；main 与 Vercel 生产发布完成
+- **Residual risks:** 外部主动把 secret 放入顶层 ?q= 时初始文档请求仍会到达边缘；正式二维码使用 fragment，不经过该路径
+- **Follow-up:** 无必需后续；新增扫码或搜索入口必须复用统一 sanitizer
+- **Closed by:** IntegrationLead

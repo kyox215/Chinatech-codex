@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260724-010-qr-scan-routing-security"
 title: "维修工单二维码扫码分流与凭据保护修复"
-status: "in_progress"
+status: "closed"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["FRONTEND", "SEC", "QA", "DOCS", "RELEASE"]
 created_at: "2026-07-24T15:18:00Z"
-updated_at: "2026-07-24T17:08:16Z"
+updated_at: "2026-07-24T17:15:41Z"
+closed_at: "2026-07-24T17:15:41Z"
 ---
 # Objective
 
@@ -39,6 +40,7 @@ updated_at: "2026-07-24T17:08:16Z"
 
 # Current state
 
-- 实现与发布前验证完成，等待提交、main 推送和生产部署。
+- 实现、验证、main 推送和生产部署完成。
 - 无数据库迁移、无权限模型变化、无生产数据写入。
 - 安全 Reviewer 最终 PASS：P0/P1/P2 均无未关闭项。
+- Release commit `5ac58f61`；Vercel deployment `dpl_GCgyDGC4GjLgBywtkmU7RuHBEfco` Ready。

@@ -22,4 +22,15 @@ Both show the dedicated repair QR result, masked sensitive link, one “查看�
 
 - No migration, dependency, lockfile, public DTO or server authorization file changed.
 - Pre-push remote `main`: `7a57ab0ac282928ac94811072ccfd630c7a7311d`.
+
+## Production release
+
+- Main commit: `5ac58f61`.
+- Vercel deployment: `dpl_GCgyDGC4GjLgBywtkmU7RuHBEfco`, target Production, state Ready.
+- Production aliases: `www.chinatech.in`, `chinatech.in`.
+- `/r`: HTTP 200 with `cache-control: private, no-cache, no-store`, `referrer-policy: no-referrer`, `x-robots-tag: noindex`.
+- Anonymous `/orders`: HTTP 307 to `/login?next=%2Forders`.
+- Synthetic invalid customer-status token: safe `LINK_UNAVAILABLE`, HTTP 404.
+- Vercel error logs for the new deployment since release: zero entries.
 - `2026-07-24T17:08:16Z` `fec6bf067c` — .ai-company/memory/tasks/TASK-20260724-010-qr-scan-routing-security/EVIDENCE.md
+- `2026-07-24T17:15:41Z` `fec6bf067c` — .ai-company/memory/tasks/TASK-20260724-010-qr-scan-routing-security/EVIDENCE.md
