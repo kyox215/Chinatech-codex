@@ -122,7 +122,7 @@ import {
 } from "@/features/preload/model/order-detail-preload";
 import { isRepairDeskPreloadEnabled } from "@/features/preload/model/preload-plan";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
-import { usePrintLifecycle } from "@/features/print/hooks/use-print-lifecycle";
+import { useFixedOrderPdfPrint } from "@/features/orders/print/use-fixed-order-pdf-print";
 import { issueCustomerStatusLinks } from "@/features/customer-status/api/customer-status-client";
 import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
@@ -410,7 +410,7 @@ export function OrderListScreen() {
     enabled: canLoadOrderData,
   });
   const storeSettings = storeSettingsQuery.data;
-  const requestPrint = usePrintLifecycle(
+  const requestPrint = useFixedOrderPdfPrint(
     () => {
       setPrintOrders([]);
       setCustomerStatusUrls({});
@@ -1032,13 +1032,17 @@ export function OrderListScreen() {
     rememberOrderPrintPaperMode(paperMode);
     setPrintPaperMode(paperMode);
     setPrintPaperDialogOpen(false);
-    const outcome = await requestPrint(async () => {
-      setPrintOrders(rows);
-      setCustomerStatusUrls({});
-      const links = await issueCustomerStatusLinks(rows.map((order) => order.id));
-      if (links.length !== rows.length) throw new Error("部分订单二维码准备失败，请重试");
-      setCustomerStatusUrls(Object.fromEntries(links.map((link) => [link.order_id, link.url])));
-    });
+    const outcome = await requestPrint(
+      paperMode,
+      rows.length === 1 ? `${rows[0].public_no}.pdf` : `repair-orders-${rows.length}.pdf`,
+      async () => {
+        setPrintOrders(rows);
+        setCustomerStatusUrls({});
+        const links = await issueCustomerStatusLinks(rows.map((order) => order.id));
+        if (links.length !== rows.length) throw new Error("部分订单二维码准备失败，请重试");
+        setCustomerStatusUrls(Object.fromEntries(links.map((link) => [link.order_id, link.url])));
+      },
+    );
     if (outcome === "busy") toast.info("打印预览已打开，请先完成或取消当前打印");
   };
   const openDetail = (id: string) => {

@@ -39,7 +39,9 @@ export function OrderPrintPaperDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>选择打印纸张</DialogTitle>
-          <DialogDescription>工单内容和排版完全相同，只改变纸张承载方式。</DialogDescription>
+          <DialogDescription>
+            将生成固定尺寸 PDF；工单内容和排版完全相同，只改变纸张承载方式。
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-2 sm:grid-cols-2">
           <Button

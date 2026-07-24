@@ -1,25 +1,25 @@
 ---
 schema_version: 1
-current_task_id: "TASK-20260724-005-a5-order-print"
-status: "closed"
-phase: "closed"
+current_task_id: "TASK-20260724-006-fixed-pdf-print"
+status: "active"
+phase: "release"
 task_class: "T3"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-24T11:31:00Z"
-checkpoint_required: false
+last_checkpoint_at: "2026-07-24T12:58:00Z"
+checkpoint_required: true
 last_rehydrated_at: null
 ---
 # Active Context
 
 ## Current objective
 
-**A5 工单打印与 A4 对半裁切**
+**固定尺寸 PDF 工单打印**
 
 ## Current state
 
-提交 `eea6d341` 已推送 main，并部署到 Vercel Production `dpl_FmHbbr7AaRGff5hB4A6bfiP6bt9W`；生产域名别名就绪，未登录访问 `/orders` 正确跳转登录。
+浏览器端固定 PDF 实现与证据完成：A5 210×148mm、A4 210×297mm 各 1 页，现有工单 DOM 以 3×图像嵌入 PDF，避免打印驱动重排。lint、typecheck、相关单测、Chromium E2E、production build 和生产依赖审计通过，等待提交与部署。
 
 ## Blocking decisions
 
@@ -27,11 +27,11 @@ last_rehydrated_at: null
 
 ## Next action
 
-Owner 使用门店 Windows 与 iPhone/iPad 的实际打印机分别验证 A5 与 A4 对半模式，并扫描实体票据二维码。
+形成精确提交，推送 main，部署 Vercel Production并进行线上冒烟；随后由 Owner 实机打印和扫码。
 
 ## Resume protocol
 
 1. Read `AGENTS.md`, `PROJECT_MEMORY.md`, and `OPEN_CONFLICTS.md`.
-2. Read `.ai-company/memory/tasks/TASK-20260724-005-a5-order-print/TASK.md` and latest checkpoint.
+2. Read `.ai-company/memory/tasks/TASK-20260724-006-fixed-pdf-print/TASK.md` and latest checkpoint.
 3. Inspect current Git/workspace state before changing files.
 4. Reclassify if scope, target environment, or risk changed.

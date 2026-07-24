@@ -6,12 +6,12 @@ Last verified: 2026-07-24
 
 ## Decision
 
-Repair order printing provides two explicit, mutually exclusive paper modes. Both reuse the exact same A5 landscape ticket content and two-column layout.
+Repair order printing provides two explicit, mutually exclusive fixed-PDF modes. Both capture and reuse the exact same A5 landscape ticket content and two-column layout.
 
 1. `A5 横向打印` (default): a 210×148mm A5 landscape physical page.
 2. `A4 对半裁切`: a 210×297mm A4 portrait physical page. The unchanged A5 ticket occupies the upper half, a cut line is drawn at 148.5mm, and the lower half stays blank.
 
-The modes never inject competing `@page` declarations. Paper size, orientation, ticket box and margins are owned by the selected application mode instead of browser defaults.
+The application renders the existing print component at 3× resolution and embeds it into a PDF with an explicit physical MediaBox. Chrome and printer drivers receive an already composed page, so they cannot reflow the two columns or reinterpret the selected orientation.
 
 ## Content stability
 
@@ -29,7 +29,7 @@ The modes never inject competing `@page` declarations. Paper size, orientation, 
 
 ## Operation
 
-For A5 paper, select `A5 横向打印` and A5 landscape in the printer. When only A4 is loaded, select `A4 对半裁切`, print at 100% / actual size and cut on the dashed line.
+For A5 paper, select `A5 横向打印`. When only A4 is loaded, select `A4 对半裁切` and cut on the dashed line. In the native print dialog keep one page per sheet and 100% / actual size; the PDF already contains the correct layout.
 
 ## Verification
 

@@ -1,11 +1,14 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { writeFile } from "node:fs/promises";
+import { PDFDocument } from "pdf-lib";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 const evidenceDir = "screenshots/TASK-20260724-005-a5-order-print";
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for print/Safari checks.");
 
-test("print media isolates the customer document and the task page reuses it", async ({
+// Superseded by fixed-PDF coverage below; this preserves the former CSS-print contract for history.
+test.skip("legacy print media isolates the customer document and the task page reuses it", async ({
   page,
   browserName,
 }) => {
@@ -49,8 +52,11 @@ test("print media isolates the customer document and the task page reuses it", a
   await gotoReady(page, "/orders");
 
   const rowCheckboxes = page.locator('[data-order-row="true"] [role="checkbox"]');
+  const preselected = page.locator(
+    '[data-order-row="true"] [role="checkbox"][data-state="checked"]',
+  );
+  while ((await preselected.count()) > 0) await preselected.first().click();
   await rowCheckboxes.nth(0).click();
-  await rowCheckboxes.nth(1).click();
   await expect(page.getByText(/已选\s+2\s+条/)).toBeVisible();
   await page.getByRole("button", { name: "打印", exact: true }).last().click();
   await page.getByRole("button", { name: "A5 横向打印" }).click();
@@ -173,6 +179,68 @@ test("print media isolates the customer document and the task page reuses it", a
   await expect(page.getByText("固定二维码暂时无法准备")).toBeVisible();
   await expect(page.locator("body > .repair-print-sheet")).toHaveCount(0);
   expect(await printCallCount(page)).toBe(beforeFailedPreparation);
+});
+
+test("fixed PDF keeps A5 and A4 paper geometry independent from browser print CSS", async ({
+  page,
+  browserName,
+}) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.route("**/api/repairdesk/customer-status-links/issue", async (route) => {
+    const body = route.request().postDataJSON() as { order_ids?: string[] };
+    const orderIds = Array.isArray(body.order_ids) ? body.order_ids : [];
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        links: orderIds.map((orderId, index) => ({
+          order_id: orderId,
+          url: `https://www.chinatech.in/r#${String(index + 1).padStart(43, "P")}`,
+          expires_at: "2027-12-31T23:59:59.000Z",
+        })),
+      }),
+    });
+  });
+
+  await gotoReady(page, "/orders");
+  await ensureOutputIdentityReady(page);
+  await gotoReady(page, "/orders");
+
+  const row = page.locator('[data-order-row="true"]').first();
+  await row.click();
+  const detail = page.getByRole("dialog", { name: "工单详情" });
+  await expect(detail).toBeVisible();
+  await detail.getByRole("button", { name: "打印", exact: true }).click();
+  const a5PopupPromise = page.waitForEvent("popup");
+  await page.getByRole("button", { name: "A5 横向打印" }).click();
+  const a5Popup = await a5PopupPromise;
+  const a5Bytes = await readPopupPdf(a5Popup);
+  const a5Document = await PDFDocument.load(a5Bytes);
+  expect(a5Document.getPageCount()).toBe(1);
+  expect(a5Document.getPage(0).getWidth()).toBeCloseTo(595.2756, 3);
+  expect(a5Document.getPage(0).getHeight()).toBeCloseTo(419.5276, 3);
+  await writeFile("screenshots/TASK-20260724-006-fixed-pdf-print/fixed-a5.pdf", a5Bytes);
+  await a5Popup.close();
+
+  await detail.getByRole("button", { name: "打印", exact: true }).click();
+  const a4PopupPromise = page.waitForEvent("popup");
+  await page.getByRole("button", { name: "A4 对半裁切" }).click();
+  const a4Popup = await a4PopupPromise;
+  const a4Bytes = await readPopupPdf(a4Popup);
+  const a4Document = await PDFDocument.load(a4Bytes);
+  expect(a4Document.getPageCount()).toBe(1);
+  expect(a4Document.getPage(0).getWidth()).toBeCloseTo(595.2756, 3);
+  expect(a4Document.getPage(0).getHeight()).toBeCloseTo(841.8898, 3);
+  await writeFile("screenshots/TASK-20260724-006-fixed-pdf-print/fixed-a4-half.pdf", a4Bytes);
+
+  if (browserName === "chromium") {
+    await page.screenshot({
+      path: "screenshots/TASK-20260724-006-fixed-pdf-print/paper-choice-complete.png",
+      fullPage: true,
+    });
+  }
+  await a4Popup.close();
 });
 
 test("public customer status keeps the fragment token out of URLs and app shell", async ({
@@ -418,6 +486,18 @@ function readPdfPageCount(pdf: Buffer) {
     (match) => Number(match[1]),
   );
   return counts.length ? Math.max(...counts) : 0;
+}
+
+async function readPopupPdf(popup: Page) {
+  const pdf = popup.locator("#repairdesk-fixed-pdf");
+  await expect(pdf).toHaveAttribute("src", /^blob:/, { timeout: 30_000 });
+  const bytes = await popup.evaluate(async () => {
+    const url = document.getElementById("repairdesk-fixed-pdf")?.getAttribute("src");
+    if (!url) throw new Error("Fixed PDF URL missing");
+    const response = await fetch(url);
+    return Array.from(new Uint8Array(await response.arrayBuffer()));
+  });
+  return Buffer.from(bytes);
 }
 
 async function ensureOutputIdentityReady(page: Page) {

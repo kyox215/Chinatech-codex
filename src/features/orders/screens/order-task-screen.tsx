@@ -52,7 +52,7 @@ import type { PrintPaperMode } from "@/features/orders/components/print-portal";
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { issueCustomerStatusLinks } from "@/features/customer-status/api/customer-status-client";
-import { usePrintLifecycle } from "@/features/print/hooks/use-print-lifecycle";
+import { useFixedOrderPdfPrint } from "@/features/orders/print/use-fixed-order-pdf-print";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { orderExceptionMeta } from "@/features/orders/model/canonical-order-status";
 import {
@@ -107,7 +107,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
   const [printPreparing, setPrintPreparing] = useState(false);
   const [printPaperDialogOpen, setPrintPaperDialogOpen] = useState(false);
   const [printPaperMode, setPrintPaperMode] = useState<PrintPaperMode>(readOrderPrintPaperMode);
-  const requestPrint = usePrintLifecycle(
+  const requestPrint = useFixedOrderPdfPrint(
     () => {
       setCustomerStatusUrl("");
       setPrintPreparing(false);
@@ -160,7 +160,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
     rememberOrderPrintPaperMode(paperMode);
     setPrintPaperMode(paperMode);
     setPrintPaperDialogOpen(false);
-    const outcome = await requestPrint(async () => {
+    const outcome = await requestPrint(paperMode, `${order.public_no}.pdf`, async () => {
       setPrintPreparing(true);
       try {
         setCustomerStatusUrl("");

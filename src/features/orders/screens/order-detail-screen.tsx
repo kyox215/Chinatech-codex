@@ -132,7 +132,7 @@ import {
   issueCustomerStatusLinks,
   revokeCustomerStatusLinks,
 } from "@/features/customer-status/api/customer-status-client";
-import { usePrintLifecycle } from "@/features/print/hooks/use-print-lifecycle";
+import { useFixedOrderPdfPrint } from "@/features/orders/print/use-fixed-order-pdf-print";
 import { OrderDetailSkeleton } from "@/features/orders/components/order-detail-skeleton";
 import { orderDetailQueryOptions } from "@/features/orders/api/query-options";
 import { StoreShellUnavailableState } from "@/features/stores/components/store-shell-unavailable-state";
@@ -326,7 +326,7 @@ export function OrderDetailScreen({
     createFinanceDraftState([], 0),
   );
   const editSaveInFlightRef = useRef(false);
-  const requestPrint = usePrintLifecycle(
+  const requestPrint = useFixedOrderPdfPrint(
     () => {
       setCustomerStatusUrl("");
       setPrintPreparing(false);
@@ -1102,7 +1102,7 @@ export function OrderDetailScreen({
     rememberOrderPrintPaperMode(paperMode);
     setPrintPaperMode(paperMode);
     setPrintPaperDialogOpen(false);
-    const outcome = await requestPrint(async () => {
+    const outcome = await requestPrint(paperMode, `${order.public_no}.pdf`, async () => {
       setPrintPreparing(true);
       try {
         setCustomerStatusUrl("");
