@@ -1,5 +1,4 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { writeFile } from "node:fs/promises";
 import { PDFDocument } from "pdf-lib";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
@@ -181,13 +180,41 @@ test.skip("legacy print media isolates the customer document and the task page r
   expect(await printCallCount(page)).toBe(beforeFailedPreparation);
 });
 
-test("fixed PDF keeps all four paper modes independent from browser print CSS", async ({
+test("fixed PDF prints all four modes from the current page without a visible popup", async ({
   page,
-  browserName,
 }) => {
   test.setTimeout(240_000);
+  await page.addInitScript(() => {
+    const originalCreateObjectURL = URL.createObjectURL.bind(URL);
+    URL.createObjectURL = (object) => {
+      if (object instanceof Blob && object.type === "application/pdf") {
+        (window as Window & { __repairDeskPdfBlob?: Blob }).__repairDeskPdfBlob = object;
+      }
+      return originalCreateObjectURL(object);
+    };
+    const originalAppendChild = Element.prototype.appendChild;
+    Element.prototype.appendChild = function <T extends Node>(node: T): T {
+      const result = originalAppendChild.call(this, node) as T;
+      if (node instanceof HTMLIFrameElement && node.dataset.repairdeskPdfPrint === "true") {
+        const printWindow = node.contentWindow;
+        if (printWindow) {
+          Object.defineProperty(printWindow, "focus", {
+            configurable: true,
+            value: () => undefined,
+          });
+          Object.defineProperty(printWindow, "print", {
+            configurable: true,
+            value: () => printWindow.dispatchEvent(new Event("afterprint")),
+          });
+          queueMicrotask(() => node.dispatchEvent(new Event("load")));
+        }
+      }
+      return result;
+    };
+  });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.route("**/api/repairdesk/customer-status-links/issue", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
     const body = route.request().postDataJSON() as { order_ids?: string[] };
     const orderIds = Array.isArray(body.order_ids) ? body.order_ids : [];
     await route.fulfill({
@@ -212,52 +239,42 @@ test("fixed PDF keeps all four paper modes independent from browser print CSS", 
   const detail = page.getByRole("dialog", { name: "工单详情" });
   await expect(detail).toBeVisible();
   await detail.getByRole("button", { name: "打印", exact: true }).click();
-  if (browserName === "chromium") {
-    await page.screenshot({
-      path: "screenshots/TASK-20260724-006-fixed-pdf-print/paper-choice-complete.png",
-      fullPage: true,
-    });
-  }
 
   const modes = [
-    {
-      button: "A5 横向",
-      file: "fixed-a5.pdf",
-      width: 595.2756,
-      height: 419.5276,
-    },
-    {
-      button: "A4 横向铺满",
-      file: "fixed-a4-landscape-full.pdf",
-      width: 841.8898,
-      height: 595.2756,
-    },
-    {
-      button: "A4 上半裁切",
-      file: "fixed-a4-half.pdf",
-      width: 595.2756,
-      height: 841.8898,
-    },
-    {
-      button: "A4 双联",
-      file: "fixed-a4-duplicate.pdf",
-      width: 595.2756,
-      height: 841.8898,
-    },
+    { button: "A5 横向", width: 595.2756, height: 419.5276 },
+    { button: "A4 横向铺满", width: 841.8898, height: 595.2756 },
+    { button: "A4 上半裁切", width: 595.2756, height: 841.8898 },
+    { button: "A4 双联", width: 595.2756, height: 841.8898 },
   ] as const;
+  let popupCount = 0;
+  page.on("popup", () => {
+    popupCount += 1;
+  });
 
   for (const [index, mode] of modes.entries()) {
-    if (index > 0) await detail.getByRole("button", { name: "打印", exact: true }).click();
-    const popupPromise = page.waitForEvent("popup");
+    if (index > 0) {
+      await expect(page.getByText("打印预览已打开")).toBeHidden({ timeout: 5_000 });
+      await detail.getByRole("button", { name: "打印", exact: true }).click();
+    }
     await page.getByRole("button", { name: mode.button }).click();
-    const popup = await popupPromise;
-    const bytes = await readPopupPdf(popup);
-    const document = await PDFDocument.load(bytes);
+    if (index === 0) {
+      await expect(page.getByText("正在准备订单二维码…")).toBeVisible();
+      await page.screenshot({
+        path: "screenshots/TASK-20260724-007-in-page-pdf-print/current-page-progress.png",
+        fullPage: true,
+      });
+    }
+    await expect(page.getByText("打印预览已打开")).toBeVisible({ timeout: 30_000 });
+    expect(popupCount).toBe(0);
+    const bytes = await page.evaluate(async () => {
+      const blob = (window as Window & { __repairDeskPdfBlob?: Blob }).__repairDeskPdfBlob;
+      if (!blob) throw new Error("Fixed PDF blob missing");
+      return Array.from(new Uint8Array(await blob.arrayBuffer()));
+    });
+    const document = await PDFDocument.load(Uint8Array.from(bytes));
     expect(document.getPageCount()).toBe(1);
     expect(document.getPage(0).getWidth()).toBeCloseTo(mode.width, 3);
     expect(document.getPage(0).getHeight()).toBeCloseTo(mode.height, 3);
-    await writeFile(`screenshots/TASK-20260724-006-fixed-pdf-print/${mode.file}`, bytes);
-    await popup.close();
   }
 });
 
@@ -504,18 +521,6 @@ function readPdfPageCount(pdf: Buffer) {
     (match) => Number(match[1]),
   );
   return counts.length ? Math.max(...counts) : 0;
-}
-
-async function readPopupPdf(popup: Page) {
-  const pdf = popup.locator("#repairdesk-fixed-pdf");
-  await expect(pdf).toHaveAttribute("src", /^blob:/, { timeout: 30_000 });
-  const bytes = await popup.evaluate(async () => {
-    const url = document.getElementById("repairdesk-fixed-pdf")?.getAttribute("src");
-    if (!url) throw new Error("Fixed PDF URL missing");
-    const response = await fetch(url);
-    return Array.from(new Uint8Array(await response.arrayBuffer()));
-  });
-  return Buffer.from(bytes);
 }
 
 async function ensureOutputIdentityReady(page: Page) {

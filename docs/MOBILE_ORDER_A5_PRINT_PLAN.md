@@ -15,6 +15,8 @@ Repair order printing provides four explicit, mutually exclusive fixed-PDF modes
 
 The application renders the existing print component at 3× resolution and embeds it into a PDF with an explicit physical MediaBox. Chrome and printer drivers receive an already composed page, so they cannot reflow the two columns or reinterpret the selected orientation.
 
+PDF generation stays on the active order page. A loading toast reports QR preparation, PDF rendering and print-preview launch. Once ready, the PDF is loaded into a hidden same-page iframe and `print()` opens the browser's native print preview directly. No visible `about:blank` or PDF-viewer tab is created. The iframe and object URL are removed after printing, with a bounded fallback cleanup.
+
 ## Content stability
 
 - Existing fields, order, Italian wording, warranty text, QR position and left/right structure remain unchanged.

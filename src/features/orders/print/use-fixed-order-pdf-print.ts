@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useRef } from "react";
+import { toast } from "sonner";
 
 import type { PrintPaperMode } from "@/features/orders/components/print-portal";
 import {
   createFixedOrderPdf,
-  openPdfLoadingWindow,
-  showPdfInWindow,
+  printPdfFromCurrentPage,
 } from "@/features/orders/print/fixed-order-pdf";
 
 export type FixedPdfPrintOutcome = "started" | "busy" | "failed";
@@ -20,28 +20,21 @@ export function useFixedOrderPdfPrint(onComplete?: () => void, onError?: (error:
       prepare?: () => void | Promise<void>,
     ): Promise<FixedPdfPrintOutcome> => {
       if (activeRef.current) return "busy";
-      let popup: Window;
-      try {
-        popup = openPdfLoadingWindow();
-      } catch (cause) {
-        onError?.(cause instanceof Error ? cause : new Error("无法打开打印窗口"));
-        return "failed";
-      }
       activeRef.current = true;
+      const progressToast = toast.loading("正在准备订单二维码…");
       try {
         await prepare?.();
-        popup.document.body.innerHTML =
-          '<p style="font:16px system-ui;padding:24px">正在渲染工单内容…</p>';
+        toast.loading("正在生成固定尺寸 PDF…", { id: progressToast });
         await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
         await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
         const bytes = await createFixedOrderPdf(paperMode);
-        popup.document.body.innerHTML =
-          '<p style="font:16px system-ui;padding:24px">正在打开固定尺寸 PDF…</p>';
-        showPdfInWindow(popup, bytes, filename);
+        toast.loading("PDF 已生成，正在打开打印预览…", { id: progressToast });
+        await printPdfFromCurrentPage(bytes, filename);
+        toast.success("打印预览已打开", { id: progressToast, duration: 2_000 });
         onComplete?.();
         return "started";
       } catch (cause) {
-        popup.close();
+        toast.dismiss(progressToast);
         const error = cause instanceof Error ? cause : new Error("无法生成打印 PDF");
         onError?.(error);
         return "failed";

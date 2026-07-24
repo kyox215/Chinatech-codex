@@ -101,23 +101,69 @@ function getTicketPlacements(paperMode: PrintPaperMode, pageHeight: number) {
   ];
 }
 
-export function openPdfLoadingWindow() {
-  const popup = window.open("", "_blank");
-  if (!popup) throw new Error("浏览器阻止了打印窗口，请允许此网站打开弹窗后重试");
-  popup.document.title = "正在生成打印文件";
-  popup.document.body.innerHTML =
-    '<p style="font:16px system-ui;padding:24px">正在生成固定尺寸 PDF，请稍候…</p>';
-  return popup;
-}
-
-export function showPdfInWindow(popup: Window, bytes: Uint8Array, filename: string) {
+export function printPdfFromCurrentPage(bytes: Uint8Array, filename: string) {
   const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
-  popup.document.title = filename;
-  popup.document.documentElement.style.height = "100%";
-  popup.document.body.style.cssText = "height:100%;margin:0;overflow:hidden";
-  popup.document.body.innerHTML = `<embed id="repairdesk-fixed-pdf" src="${url}" type="application/pdf" style="width:100%;height:100%;border:0" />`;
-  window.setTimeout(() => URL.revokeObjectURL(url), 10 * 60_000);
+  const frame = document.createElement("iframe");
+  frame.title = `打印 ${filename}`;
+  frame.dataset.repairdeskPdfPrint = "true";
+  frame.setAttribute("aria-hidden", "true");
+  frame.style.cssText =
+    "position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none";
+
+  return new Promise<void>((resolve, reject) => {
+    let settled = false;
+    let cleaned = false;
+    let cleanupTimer = 0;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      window.clearTimeout(cleanupTimer);
+      frame.remove();
+      URL.revokeObjectURL(url);
+    };
+    const fail = (message: string) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error(message));
+    };
+
+    const loadTimer = window.setTimeout(() => fail("打印文件加载超时，请重试"), 15_000);
+    frame.addEventListener(
+      "error",
+      () => {
+        window.clearTimeout(loadTimer);
+        fail("无法加载打印文件，请重试");
+      },
+      { once: true },
+    );
+    frame.addEventListener(
+      "load",
+      () => {
+        window.clearTimeout(loadTimer);
+        const printWindow = frame.contentWindow;
+        if (!printWindow) {
+          fail("浏览器无法启动打印预览");
+          return;
+        }
+        try {
+          printWindow.addEventListener("afterprint", cleanup, { once: true });
+          printWindow.focus();
+          printWindow.print();
+          settled = true;
+          if (!cleaned) cleanupTimer = window.setTimeout(cleanup, 10 * 60_000);
+          resolve();
+        } catch {
+          fail("浏览器无法启动打印预览，请检查打印权限");
+        }
+      },
+      { once: true },
+    );
+
+    frame.src = url;
+    document.body.appendChild(frame);
+  });
 }
 
 async function createPrintSandbox() {

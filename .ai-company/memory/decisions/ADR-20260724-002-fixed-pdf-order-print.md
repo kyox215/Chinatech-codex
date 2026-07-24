@@ -15,7 +15,7 @@ Repair-order print entry points render the existing print DOM into a 3× raster 
 - A4 portrait half-cut: 210×297mm, identical ticket at 6mm from the top/left and a cut line at 148.5mm.
 - A4 portrait duplicate: 210×297mm, with two identical complete tickets and the same cut line.
 
-The PDF opens in a synchronously created window so popup blockers and mobile user-gesture requirements are handled before asynchronous QR preparation.
+PDF generation remains in the active order page. The completed blob is loaded into a hidden same-page iframe and printed with `iframe.contentWindow.print()`, then removed on `afterprint` (plus bounded fallback cleanup). A current-page loading toast communicates QR preparation, PDF rendering and preview launch; no visible loading/PDF tab is opened.
 
 ## Alternatives
 
@@ -29,6 +29,7 @@ The PDF opens in a synchronously created window so popup blockers and mobile use
 - Text is rasterized and not selectable; 3× capture is used for print clarity.
 - `pdf-lib` and `html2canvas` become production dependencies; production audit must remain clean.
 - Native printer drivers can still scale the complete PDF if users choose non-100% settings, but cannot reflow or misalign its internal layout.
+- The hidden-iframe path follows the browser printing model and avoids popup blockers; browsers without a usable embedded PDF viewer receive an explicit load-timeout error rather than a blank tab.
 
 ## Review condition
 
