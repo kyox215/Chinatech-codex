@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260724-006-fixed-pdf-print"
 title: "固定尺寸 PDF 工单打印"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["ARCH", "FE", "QA", "DOC", "REL"]
 created_at: "2026-07-24T00:00:00Z"
-updated_at: "2026-07-24T11:12:29Z"
+updated_at: "2026-07-24T11:19:57Z"
+closed_at: "2026-07-24T11:19:57Z"
 ---
 # Task
 

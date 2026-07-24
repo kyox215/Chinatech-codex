@@ -1,1 +1,2 @@
 - `2026-07-24T11:12:29Z` `1d7b14a80c` — Chromium E2E 1 passed；PDF 尺寸分别为 595.276x419.528pt、841.89x595.276pt、595.276x841.89pt、595.276x841.89pt；四张 PNG 视觉检查完整；lint/typecheck/9 tests/webpack build passed。
+- `2026-07-24T11:19:57Z` `e5909bf232` — Git main=623f7ef2；deployment dpl_FVuQVF4JAQ6WyyMzqEyXW84CEphs Ready；www.chinatech.in/orders 返回预期 307 到登录页。
