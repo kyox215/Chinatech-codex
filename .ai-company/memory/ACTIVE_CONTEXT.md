@@ -2,13 +2,13 @@
 schema_version: 1
 current_task_id: "TASK-20260724-006-fixed-pdf-print"
 status: "active"
-phase: "release"
+phase: "release_approval"
 task_class: "T3"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-24T12:58:00Z"
-checkpoint_required: true
+last_checkpoint_at: "2026-07-24T13:04:00Z"
+checkpoint_required: false
 last_rehydrated_at: null
 ---
 # Active Context
@@ -19,7 +19,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-浏览器端固定 PDF 实现与证据完成：A5 210×148mm、A4 210×297mm 各 1 页，现有工单 DOM 以 3×图像嵌入 PDF，避免打印驱动重排。lint、typecheck、相关单测、Chromium E2E、production build 和生产依赖审计通过，等待提交与部署。
+固定 PDF 发布候选已提交为 `9bf16da5`：A5 210×148mm、A4 210×297mm 各 1 页，现有工单 DOM 以 3×图像嵌入 PDF，避免打印驱动重排。lint、typecheck、相关单测、Chromium E2E、production build 和生产依赖审计通过。尚未推送或部署，等待 Owner 明确发布授权。
 
 ## Blocking decisions
 
@@ -27,7 +27,7 @@ last_rehydrated_at: null
 
 ## Next action
 
-形成精确提交，推送 main，部署 Vercel Production并进行线上冒烟；随后由 Owner 实机打印和扫码。
+Owner 批准后推送 main、部署 Vercel Production 并进行线上冒烟；随后实机打印和扫码。
 
 ## Resume protocol
 

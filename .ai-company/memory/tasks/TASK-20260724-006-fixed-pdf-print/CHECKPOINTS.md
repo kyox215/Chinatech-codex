@@ -20,4 +20,4 @@ Use the existing print DOM as the single layout source, render at 3× with `html
 
 ## Next action
 
-Commit the exact candidate, push main, deploy Vercel Production, verify production readiness and then ask Owner for one A5 and one A4 physical print/QR scan.
+Release candidate commit `9bf16da5` is complete and the worktree is clean. It has not been pushed or deployed. Next action requires Owner approval: push to main, deploy Vercel Production, smoke-test, then perform one A5 and one A4 physical print/QR scan.
