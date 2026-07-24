@@ -43,4 +43,6 @@
 
 | CAP-STARTUP-PRINT-20260723 | Integration Lead + API/Frontend/Security/QA read-only reviewers | C1 | candidate | Deliver a local one-request shell bootstrap and fail-closed role-separated print-readiness slice with compatibility, cache-isolation and full-gate evidence | medium/high | review_after_next_startup_or_print_release | TASK-20260723-004 passed independent no-P0/P1 review and 342 files / 2289 tests; concurrent dirty-worktree integration and production remain unproven, so no permission/autonomy upgrade | Owner |
 
+| CAP-MULTISTORE-ROLLOUT-20260724 | Integration Lead + Architecture/Security/QA read-only reviewers | C1 | candidate | Deliver a default-off tenant rollout policy with exact denylist rollback, layered capabilities, provider isolation, scoped tests and release documentation | high | review_before_production_all_store_activation_or_next_tenant_rollout | TASK-20260724-001 passed three independent reviews, 197 targeted and 2313 full tests, lint, typecheck and build. Real second-store canary, Inventory timestamp governance and production activation remain unproven; no permission/autonomy upgrade | Owner |
+
 没有登记和有效评估的能力默认视为 C0/C1，不得用于高风险自治执行。

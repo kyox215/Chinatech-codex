@@ -1,5 +1,4 @@
 import type { StoreSettings } from "@/lib/repairdesk/types";
-import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 
 export interface StorePrintProfile {
   storeName: string;
@@ -14,13 +13,13 @@ export interface StorePrintProfile {
 }
 
 const DEFAULT_STORE_PRINT_PROFILE: StorePrintProfile = {
-  storeName: "",
+  storeName: "RepairDesk",
   storeAddress: "",
   storeContactLine: "",
   storeSummaryLine: "",
-  printFooter: "",
+  printFooter: "Documento generato da RepairDesk.",
   privacyNote: "I dati personali sono trattati secondo la normativa vigente.",
-  canOutput: false,
+  canOutput: true,
   warnings: [],
 };
 
@@ -28,10 +27,24 @@ export function buildStorePrintProfile(
   settings?: Partial<StoreSettings> | null,
   activeStore?: { id?: string; name?: string } | null,
 ): StorePrintProfile {
-  const identity = resolveStoreOutputIdentity({ activeStore, settings });
-  const storeName = identity.storeName;
-  const storeAddress = identity.storeAddress;
-  const storeContactLine = identity.contactLine;
+  const activeStoreId = cleanText(activeStore?.id);
+  const settingsStoreId = cleanText(settings?.store_id);
+  const settingsBelongToActiveStore = Boolean(
+    settings && activeStoreId && settingsStoreId && settingsStoreId === activeStoreId,
+  );
+  const safeSettings = settingsBelongToActiveStore ? settings : undefined;
+  const storeName =
+    cleanText(safeSettings?.store_name) ||
+    cleanText(activeStore?.name) ||
+    DEFAULT_STORE_PRINT_PROFILE.storeName;
+  const storeAddress = cleanText(safeSettings?.store_address);
+  const storeContactLine = [
+    formatContact("Tel", safeSettings?.store_phone),
+    formatContact("WhatsApp", safeSettings?.store_whatsapp),
+    cleanText(safeSettings?.store_email),
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const storeSummaryLine = [storeAddress, storeContactLine].filter(Boolean).join(" · ");
 
   return {
@@ -39,10 +52,21 @@ export function buildStorePrintProfile(
     storeAddress,
     storeContactLine,
     storeSummaryLine,
-    printFooter: identity.printFooter,
+    printFooter: cleanText(safeSettings?.print_footer) || DEFAULT_STORE_PRINT_PROFILE.printFooter,
     privacyNote: DEFAULT_STORE_PRINT_PROFILE.privacyNote,
-    canOutput: identity.canOutput,
-    blockReason: identity.blockReason,
-    warnings: identity.warnings,
+    canOutput: true,
+    warnings:
+      settings && !settingsBelongToActiveStore
+        ? ["店铺设置无法确认属于当前店铺，本次打印已省略设置中的店铺资料"]
+        : [],
   };
+}
+
+function cleanText(value?: string | null) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function formatContact(label: string, value?: string | null) {
+  const normalized = cleanText(value);
+  return normalized ? `${label}: ${normalized}` : "";
 }

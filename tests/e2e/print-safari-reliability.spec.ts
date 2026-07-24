@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
-const evidenceDir = "screenshots/TASK-20260720-003-smart-print-qr";
+const evidenceDir = "screenshots/TASK-20260724-004-fixed-order-qr";
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for print/Safari checks.");
 
@@ -18,7 +18,16 @@ test("print media isolates the customer document and the task page reuses it", a
       testWindow.__repairDeskPrintCalls = (testWindow.__repairDeskPrintCalls ?? 0) + 1;
     };
   });
+  let issueFails = false;
   await page.route("**/api/repairdesk/customer-status-links/issue", async (route) => {
+    if (issueFails) {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ error: { message: "固定二维码暂时无法准备" } }),
+      });
+      return;
+    }
     const body = route.request().postDataJSON() as { order_ids?: string[] };
     const orderIds = Array.isArray(body.order_ids) ? body.order_ids : [];
     await route.fulfill({
@@ -165,6 +174,15 @@ test("print media isolates the customer document and the task page reuses it", a
   await expect(page.locator("#repairdesk-styled-shell")).toHaveCSS("display", "none");
   await expect(page.locator(".repair-print-sheet")).toHaveCSS("display", "block");
   expect(await taskRoot.evaluate((element) => element.getClientRects().length)).toBe(0);
+
+  await page.emulateMedia({ media: "screen" });
+  await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+  const beforeFailedPreparation = await printCallCount(page);
+  issueFails = true;
+  await printButton.click();
+  await expect(page.getByText("固定二维码暂时无法准备")).toBeVisible();
+  await expect(page.locator("body > .repair-print-sheet")).toHaveCount(0);
+  expect(await printCallCount(page)).toBe(beforeFailedPreparation);
 });
 
 test("public customer status keeps the fragment token out of URLs and app shell", async ({
@@ -286,12 +304,11 @@ test("public customer status keeps the fragment token out of URLs and app shell"
     fullPage: true,
   });
 
-  await page.getByRole("button", { name: "Accesso personale" }).click();
-  await expect(page).toHaveURL(/\/login\?next=%2Fr%3Fstaff%3D1/);
   staffResolveAuthenticated = true;
-  await page.goto("/r?staff=1", { waitUntil: "domcontentloaded" });
+  await page.goto(`/r#${validToken}`, { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/orders$/);
 
+  staffResolveAuthenticated = false;
   await page.goto(`/r#${validToken}`, { waitUntil: "domcontentloaded" });
   await expect(page.getByText("R2027001")).toBeVisible();
   await page.evaluate((slow) => {

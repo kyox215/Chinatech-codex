@@ -81,8 +81,8 @@ describe("customer status authenticated routes", () => {
     expect(resolveStaff).not.toHaveBeenCalled();
   });
 
-  it("returns only a relative task path after staff resolution", async () => {
-    resolveStaff.mockResolvedValue("/orders/order-1/task");
+  it("returns only a relative internal detail path after staff resolution", async () => {
+    resolveStaff.mockResolvedValue("/orders/order-1?from=orders");
     const response = await staffResolve(
       jsonRequest("/api/repairdesk/customer-status-links/staff-resolve", {
         token: "A".repeat(43),
@@ -91,7 +91,7 @@ describe("customer status authenticated routes", () => {
     const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(payload).toEqual({ task_path: "/orders/order-1/task" });
+    expect(payload).toEqual({ task_path: "/orders/order-1?from=orders" });
   });
 
   it("revokes an order's active links through the protected fixed-reason contract", async () => {

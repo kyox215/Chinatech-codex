@@ -11,6 +11,7 @@ import {
   resolveCustomerStatusForStaff,
   resolveCustomerStatusPublic,
 } from "./customer-status.service";
+import { createStableCustomerStatusToken } from "./customer-status-token";
 
 type QueryResult = { data: unknown; error: null };
 type Filter = { table: string; field: string; value: unknown };
@@ -19,6 +20,11 @@ describe("customer status service", () => {
   beforeEach(() => {
     vi.stubEnv("CUSTOMER_STATUS_QR_ENABLED", "1");
     vi.stubEnv("CUSTOMER_STATUS_RATE_LIMIT_SECRET", "test-rate-limit-secret");
+    vi.stubEnv("CUSTOMER_STATUS_QR_HMAC_ACTIVE_VERSION", "1");
+    vi.stubEnv(
+      "CUSTOMER_STATUS_QR_HMAC_KEYS",
+      JSON.stringify({ 1: Buffer.alloc(32, 11).toString("base64url") }),
+    );
     getSupabaseAdmin.mockReset();
   });
 
@@ -108,7 +114,7 @@ describe("customer status service", () => {
         storeRole: "technician",
         activeMembershipId: "membership-1",
       }),
-    ).resolves.toBe("/orders/order-1/task");
+    ).resolves.toBe("/orders/order-1?from=orders");
   });
 
   it("keeps pre-close links invalid after a store lifecycle revision changes", async () => {
@@ -119,7 +125,21 @@ describe("customer status service", () => {
     ).rejects.toBeInstanceOf(CustomerStatusUnavailableError);
   });
 
-  it("uses one atomic issue RPC with hashes and no bearer material", async () => {
+  it("resolves the stable token by opaque public identity and keeps the public DTO safe", async () => {
+    const token = createStableCustomerStatusToken({
+      publicId: "9e5b9bd0-f497-4ee7-8609-37cd23d19cc9",
+      generation: 1,
+      keyVersion: 1,
+    });
+    getSupabaseAdmin.mockReturnValue(createPublicAdmin([], { stableIdentity: true }));
+
+    const result = await resolveCustomerStatusPublic(token, "198.51.100.8");
+
+    expect(result.order).toMatchObject({ public_no: "R2027001", stage: "pickup" });
+    expect(JSON.stringify(result)).not.toMatch(/order-1|membership-1|device-1/);
+  });
+
+  it("uses one stable identity RPC and never sends bearer material to the database", async () => {
     const admin = createIssueAdmin();
     getSupabaseAdmin.mockReturnValue(admin);
 
@@ -130,18 +150,34 @@ describe("customer status service", () => {
       storeRole: "owner",
     });
 
-    const [rpcName, rpcInput] = admin.rpc.mock.calls[0] as [
+    const [rpcName, rpcInput] = admin.rpc.mock.calls[0] as unknown as [
       string,
-      { p_links: Array<Record<string, unknown>> },
+      { p_order_ids: string[]; p_key_version: number },
     ];
-    expect(rpcName).toBe("repairdesk_issue_customer_status_links_v1");
-    expect(rpcInput.p_links).toHaveLength(1);
-    expect(rpcInput.p_links[0]).not.toHaveProperty("token");
-    expect(rpcInput.p_links[0]).not.toHaveProperty("url");
-    expect(rpcInput.p_links[0]?.token_hash).toMatch(/^[0-9a-f]{64}$/);
-    expect(links[0]?.url).toMatch(/^https:\/\/www\.chinatech\.in\/r#[A-Za-z0-9_-]{43}$/);
+    expect(rpcName).toBe("repairdesk_ensure_customer_status_identities_v2");
+    expect(rpcInput.p_order_ids).toEqual(["order-1"]);
+    expect(rpcInput.p_key_version).toBe(1);
+    expect(links[0]?.url).toMatch(/^https:\/\/www\.chinatech\.in\/r#v2\./);
+    expect(links[0]?.expires_at).toBeNull();
     expect(JSON.stringify(admin.rpc.mock.calls)).not.toContain(String(links[0]?.url));
     expect(JSON.stringify(admin.rpc.mock.calls)).not.toContain(String(links[0]?.url).split("#")[1]);
+  });
+
+  it.each([
+    ["voided", null],
+    ["active", "2026-07-16T20:00:00.000Z"],
+  ])("prepares the fixed QR for historical record state %s", async (recordState, deletedAt) => {
+    getSupabaseAdmin.mockReturnValue(createIssueAdmin({ recordState, deletedAt }));
+
+    const links = await issueCustomerStatusLinks(["order-1"], {
+      id: "owner-1",
+      displayName: "Owner",
+      storeId: "store-1",
+      storeRole: "owner",
+    });
+
+    expect(links).toHaveLength(1);
+    expect(links[0]?.url).toMatch(/\/r#v2\./);
   });
 });
 
@@ -151,6 +187,7 @@ function createPublicAdmin(
     filters?: Filter[];
     rateLimitResults?: Array<Record<string, unknown>>;
     lifecycleRevision?: number;
+    stableIdentity?: boolean;
   } = {},
 ) {
   const rateLimitResults = [...(options.rateLimitResults ?? [])];
@@ -199,7 +236,7 @@ function createPublicAdmin(
           return builder;
         },
         maybeSingle: async (): Promise<QueryResult> => ({
-          data: rowFor(table, filters, options.lifecycleRevision),
+          data: rowFor(table, filters, options.lifecycleRevision, options.stableIdentity),
           error: null,
         }),
       };
@@ -208,7 +245,18 @@ function createPublicAdmin(
   };
 }
 
-function rowFor(table: string, filters: Filter[], lifecycleRevision = 3) {
+function rowFor(table: string, filters: Filter[], lifecycleRevision = 3, stableIdentity = false) {
+  if (table === "repair_order_customer_status_identities" && stableIdentity) {
+    return {
+      order_id: "order-1",
+      store_id: "store-1",
+      public_id: "9e5b9bd0-f497-4ee7-8609-37cd23d19cc9",
+      generation: 1,
+      key_version: 1,
+      lifecycle_revision: 3,
+      public_access_state: "enabled",
+    };
+  }
   if (table === "repair_order_customer_status_links") {
     return {
       id: "link-1",
@@ -247,23 +295,22 @@ function rowFor(table: string, filters: Filter[], lifecycleRevision = 3) {
   return null;
 }
 
-function createIssueAdmin() {
-  const rpc = vi.fn(
-    async (
-      _name: string,
-      input: { p_links: Array<Record<string, unknown>>; p_expires_at: string },
-    ) => ({
-      data: {
-        links: input.p_links.map((row, index) => ({
-          id: `new-link-${index + 1}`,
-          order_id: row.order_id,
-          expires_at: input.p_expires_at,
-        })),
-        rotated_count: 1,
-      },
-      error: null,
-    }),
-  );
+function createIssueAdmin(options: { recordState?: string; deletedAt?: string | null } = {}) {
+  const rpc = vi.fn(async () => ({
+    data: {
+      identities: [
+        {
+          order_id: "order-1",
+          public_id: "9e5b9bd0-f497-4ee7-8609-37cd23d19cc9",
+          generation: 1,
+          key_version: 1,
+          lifecycle_revision: 3,
+          public_access_state: "enabled",
+        },
+      ],
+    },
+    error: null,
+  }));
   return {
     rpc,
     from(table: string) {
@@ -295,8 +342,8 @@ function createIssueAdmin() {
                 {
                   id: "order-1",
                   store_id: "store-1",
-                  record_state: "active",
-                  deleted_at: null,
+                  record_state: options.recordState ?? "active",
+                  deleted_at: options.deletedAt ?? null,
                   assignee_membership_id: "membership-1",
                 },
               ],

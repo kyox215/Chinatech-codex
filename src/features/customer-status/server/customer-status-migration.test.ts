@@ -9,6 +9,10 @@ const migration = readFileSync(
   ),
   "utf8",
 );
+const stableMigration = readFileSync(
+  resolve(process.cwd(), "supabase/migrations/20260724071717_fixed_order_customer_status_qr.sql"),
+  "utf8",
+);
 
 describe("customer status link migration", () => {
   it("stores only token hashes with same-store order integrity and bounded expiry", () => {
@@ -83,5 +87,44 @@ describe("customer status link migration", () => {
     );
     expect(publicLimiter).toContain("v_global.attempt_count >= p_global_limit");
     expect(publicLimiter).toContain("IP-blocked requests do not consume global capacity");
+  });
+});
+
+describe("fixed customer status QR migration", () => {
+  it("backfills exactly one opaque identity for every order without storing bearer tokens", () => {
+    expect(stableMigration).toContain("order_id uuid primary key");
+    expect(stableMigration).toContain("public_id uuid not null default gen_random_uuid()");
+    expect(stableMigration).toContain(
+      "constraint repair_order_customer_status_identities_public_id_unique",
+    );
+    expect(stableMigration).toContain("foreign key (order_id, store_id)");
+    expect(stableMigration).not.toMatch(/\btoken\s+text\b|\btoken_hash\s+text\b|\braw_token\b/);
+    expect(stableMigration).toContain("customer_status_identity_backfill_invalid");
+  });
+
+  it("keeps identities service-role-only and makes reset an audited atomic rotation", () => {
+    expect(stableMigration).toContain(
+      "alter table public.repair_order_customer_status_identities enable row level security",
+    );
+    expect(stableMigration).toMatch(
+      /revoke all on table public\.repair_order_customer_status_identities\s+from public, anon, authenticated, service_role/,
+    );
+    expect(stableMigration).toContain("repairdesk_rotate_customer_status_identity_v2");
+    expect(stableMigration).toContain("public_id = gen_random_uuid()");
+    expect(stableMigration).toContain("generation = identity.generation + 1");
+    expect(stableMigration).toContain("insert into public.audit_logs");
+    expect(stableMigration).toContain("create table public.customer_status_qr_key_config");
+    expect(stableMigration).toContain("active_key_version smallint not null");
+    expect(stableMigration).toContain("customer_status_identity_key_version_mismatch");
+    expect(stableMigration).toContain("customer_status_rotate_key_version_mismatch");
+  });
+
+  it("creates identities for future orders and rotates them when a store is restored", () => {
+    expect(stableMigration).toContain("after insert on public.repair_orders");
+    expect(stableMigration).toContain("repairdesk_rotate_customer_status_identities_on_restore_v2");
+    expect(stableMigration).toContain("after update of phase, revision on public.store_lifecycles");
+    expect(stableMigration).toContain(
+      "repairdesk_lifecycle_fence_repair_order_customer_status_identities",
+    );
   });
 });

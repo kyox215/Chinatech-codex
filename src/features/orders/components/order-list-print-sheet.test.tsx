@@ -39,7 +39,7 @@ describe("OrderListPrintSheet store identity", () => {
     expect(document.body).toHaveTextContent("STATO RIPARAZIONE");
   });
 
-  it("fails closed when any printed order is missing a customer status URL", () => {
+  it("does not mount a printable sheet until every fixed QR is ready", () => {
     render(
       <OrderListPrintSheet
         orders={[decorate(orders[0])]}
@@ -54,5 +54,6 @@ describe("OrderListPrintSheet store identity", () => {
     );
 
     expect(document.querySelector(".repair-print-sheet")).toBeNull();
+    expect(document.querySelector('[data-customer-status-qr="true"]')).toBeNull();
   });
 });

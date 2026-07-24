@@ -15,6 +15,7 @@ import { AI_INVENTORY_VISION_REQUEST_MAX_BYTES } from "@/features/ai-assistant/m
 import { getAiAssistantCapabilities } from "@/features/ai-assistant/server/capabilities";
 import { AiServiceError } from "@/features/ai-assistant/server/errors";
 import { consumeAiAssistantRequestRateLimit } from "@/features/ai-assistant/server/request-rate-limit";
+import { INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES } from "@/server/api/repairdesk-request-limits";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -26,7 +27,6 @@ type RouteContext = {
 const ORDER_DATA_MULTIPART_MAX_BYTES = 4_400_000;
 const AI_ORDER_TURN_MAX_BYTES = 4_096;
 const AI_ORDER_ACTION_MAX_BYTES = 2_048;
-export const INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES = 65_536;
 const PRIVATE_NO_STORE_HEADERS = { "Cache-Control": "private, no-store, max-age=0" };
 
 function isInventoryV2CommandPath(path: string) {

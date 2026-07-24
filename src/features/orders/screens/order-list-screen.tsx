@@ -118,7 +118,6 @@ import { isRepairDeskPreloadEnabled } from "@/features/preload/model/preload-pla
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { usePrintLifecycle } from "@/features/print/hooks/use-print-lifecycle";
 import { issueCustomerStatusLinks } from "@/features/customer-status/api/customer-status-client";
-import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { useAiAssistantWorkspace } from "@/features/ai-assistant";
@@ -402,19 +401,6 @@ export function OrderListScreen() {
     enabled: canLoadOrderData,
   });
   const storeSettings = storeSettingsQuery.data;
-  const storeOutputIdentity = useMemo(
-    () =>
-      resolveStoreOutputIdentity({
-        activeStore: shell.activeStore,
-        settings: storeSettings,
-        settingsState: storeSettingsQuery.isLoading
-          ? "loading"
-          : storeSettingsQuery.isError
-            ? "error"
-            : "ready",
-      }),
-    [shell.activeStore, storeSettings, storeSettingsQuery.isError, storeSettingsQuery.isLoading],
-  );
   const requestPrint = usePrintLifecycle(
     () => {
       setPrintOrders([]);
@@ -432,11 +418,7 @@ export function OrderListScreen() {
   const canBatchPrintOrders = options.permissions.canBatchPrintOrders === true;
   const canBatchTransitionOrders = options.permissions.canBatchTransitionOrders === true;
   const canUseBulkActions = canExportOrders || canBatchTransitionOrders;
-  const singlePrintDisabledReason = !storeOutputIdentity.canOutput
-    ? (storeOutputIdentity.blockReason ?? "请先补齐当前店铺资料后再打印")
-    : shell.customerStatusQrEnabled === false
-      ? "客户工单二维码功能尚未启用，请联系店主或系统管理员"
-      : undefined;
+  const singlePrintDisabledReason = undefined;
   useEffect(() => {
     if (!canUseBulkActions) setSelected([]);
   }, [canUseBulkActions]);
@@ -1034,22 +1016,12 @@ export function OrderListScreen() {
       toast.error("没有可打印的工单");
       return;
     }
-    if (!storeOutputIdentity.canOutput) {
-      toast.error(storeOutputIdentity.blockReason ?? "请先补齐当前店铺资料后再打印");
-      return;
-    }
-    if (shell.customerStatusQrEnabled === false) {
-      toast.error("客户工单二维码功能尚未启用，请联系店主或系统管理员");
-      return;
-    }
     const outcome = await requestPrint(async () => {
-      const links = await issueCustomerStatusLinks(rows.map((order) => order.id));
-      const nextUrls = Object.fromEntries(links.map((link) => [link.order_id, link.url]));
-      if (rows.some((order) => !nextUrls[order.id])) {
-        throw new Error("部分工单的客户查询二维码未准备完成");
-      }
-      setCustomerStatusUrls(nextUrls);
       setPrintOrders(rows);
+      setCustomerStatusUrls({});
+      const links = await issueCustomerStatusLinks(rows.map((order) => order.id));
+      if (links.length !== rows.length) throw new Error("部分订单二维码准备失败，请重试");
+      setCustomerStatusUrls(Object.fromEntries(links.map((link) => [link.order_id, link.url])));
     });
     if (outcome === "busy") toast.info("打印预览已打开，请先完成或取消当前打印");
   };

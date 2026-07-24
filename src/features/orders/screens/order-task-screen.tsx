@@ -45,7 +45,6 @@ import {
 } from "@/features/orders/components/repair-order-print-sheet";
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
-import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import { issueCustomerStatusLinks } from "@/features/customer-status/api/customer-status-client";
 import { usePrintLifecycle } from "@/features/print/hooks/use-print-lifecycle";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
@@ -134,19 +133,6 @@ export function OrderTaskScreen({ id }: { id: string }) {
     enabled: Boolean(activeStoreId),
   });
   const storeSettings = storeSettingsQuery.data;
-  const storeOutputIdentity = useMemo(
-    () =>
-      resolveStoreOutputIdentity({
-        activeStore: shell.activeStore,
-        settings: storeSettings,
-        settingsState: storeSettingsQuery.isLoading
-          ? "loading"
-          : storeSettingsQuery.isError
-            ? "error"
-            : "ready",
-      }),
-    [shell.activeStore, storeSettings, storeSettingsQuery.isError, storeSettingsQuery.isLoading],
-  );
   const canCreateKioskSession = data?.capabilities?.canCreateKioskSession === true;
   const { data: kioskDevices = [] } = useQuery({
     queryKey: kioskKeys.availableDevices(activeStoreId, id),
@@ -160,20 +146,16 @@ export function OrderTaskScreen({ id }: { id: string }) {
   const cancelled = order ? isOrderCancelledForPayment(order) : false;
   const canTransition = data?.capabilities?.canTransition === true;
   const voided = order?.record_state === "voided" || Boolean(order?.deleted_at);
-  const canPrintCustomerDocument = Boolean(
-    order && canPrintRepairOrderCustomerDocument(order, storeOutputIdentity.canOutput),
-  );
+  const canPrintCustomerDocument = Boolean(order && canPrintRepairOrderCustomerDocument(order));
   const printCustomerDocument = async () => {
-    if (!order || !canPrintCustomerDocument) {
-      toast.error(storeOutputIdentity.blockReason ?? "客户工单尚未准备好");
-      return;
-    }
+    if (!order || !canPrintCustomerDocument) return;
     const outcome = await requestPrint(async () => {
       setPrintPreparing(true);
       try {
+        setCustomerStatusUrl("");
         const links = await issueCustomerStatusLinks([order.id]);
         const link = links.find((item) => item.order_id === order.id);
-        if (!link?.url) throw new Error("客户查询二维码签发结果不完整");
+        if (!link?.url) throw new Error("订单二维码准备失败，请重试");
         setCustomerStatusUrl(link.url);
       } finally {
         setPrintPreparing(false);

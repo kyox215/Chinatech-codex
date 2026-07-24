@@ -132,6 +132,7 @@ Device custody and unlock credentials are independent facts. Browser roles still
 - AI Company OS Codex Native v3.0 adopted as subordinate governance package under `.ai-company/`, `.codex/`, and `.agents/skills/`.
 - Codex One Command Mode v3.2 adopted as the RepairDesk natural-language Owner task intake layer under `.ai-company/ONE_COMMAND_MODE.md`.
 - ADR-20260718-002 adopts a project-scoped SQLite/WAL Registry plus task-local immutable Context Packets for Phase 0A cross-session identity; automatic GUI control, worktree assignment, integration, deploy and migration remain deferred.
+- ADR-20260724-001 adopts explicit all-store plus exact allowlist/denylist rollout for application code. Inventory V2 newly expanded stores are owner/manager-only at rollout, while intake cost fields require `inventory:cost_allocate` and sale requires `inventory:sale`; AI all-store eligibility is local/read-only and separate from provider, Vision and write eligibility. Production activation remains D4-gated.
 - RepairDesk Integration Lead remains the only user-facing decision owner.
 - Generic AI Company OS roles map into existing RepairDesk departments rather than replacing them.
 - Project charter lives at `docs/project-charter.md`.

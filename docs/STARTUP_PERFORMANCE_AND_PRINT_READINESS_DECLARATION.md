@@ -3,7 +3,7 @@
 Status: active
 Owner: Architecture + Frontend + API + Security + QA / Integration Lead
 Scope: app shell cold start, workspace preload, tenant cache isolation, order print capability, print readiness, diagnostics and release gates.
-Last verified: 2026-07-23 CEST by `TASK-20260723-004-startup-bootstrap-print-implementation`
+Last verified: 2026-07-24 CEST by `TASK-20260724-003-unblocked-order-printing`
 
 > 目标：后续新增页面、全局 Provider、预加载、权限或打印功能时，不能重新引入首屏请求争抢、跨店缓存污染、权限扩大或“按钮灰掉但不知道原因”的体验。
 
@@ -65,23 +65,30 @@ UI capability 只负责显示与提前反馈，不能替代服务端授权。客
 打印入口只有同时满足以下条件时才能执行：
 
 - 当前角色具有对应单张或批量 capability；
-- 工单不是 void、deleted 或其他禁止输出状态；
-- 当前店铺输出资料完整并可生成客户文档；
-- `CUSTOMER_STATUS_QR_ENABLED=1` 且链接签发服务可用；
+- 工单记录仍然存在；业务状态、void 或 soft-delete 不得禁止历史工单打印；
 - 当前不处于重复准备/打印生命周期；
-- 设备在线，或失败后能给出明确重试反馈。
+- 浏览器支持打印；失败后能给出明确重试反馈。
+
+店铺资料可安全回退；固定订单二维码是打印硬门槛：
+
+- 店铺资料完整时使用当前店铺名称、地址、联系方式和页脚；
+- 店铺资料缺失时使用当前店铺名称或中性的 `RepairDesk` 页眉和通用页脚；
+- 设置记录与当前店铺不匹配时必须省略设置中的资料，禁止借用其他租户身份；
+- 每个打印页必须包含一个对应订单的固定二维码；重复打印保持同一码；
+- QR 准备失败时不得打开无二维码的打印窗口，必须显示可重试错误。
 
 所有单张和批量入口必须：
 
-1. 在点击前显示准确 disabled state；
+1. 只有权限不足、记录不存在或打印生命周期繁忙时才能禁用；
 2. 用可见文案、`title` 或 `aria-label` 说明具体原因；
-3. 提供可执行恢复入口，例如“前往店铺资料”“重新检查资料”“查看打印设置”；
-4. QR 由部署环境关闭时明确提示联系店主/系统管理员，不伪造前端开关；
+3. 店铺资料缺失可安全回退；QR 不完整必须终止本次打印；
+4. QR 准备失败必须显示明确、可重试的阻塞错误；
 5. 禁止只显示灰色图标、通用“无法打印”或点击后才弹一个无恢复路径的 Toast。
 
 ## 7. 配置与运维声明
 
-- `CUSTOMER_STATUS_QR_ENABLED=1` 是服务端签发/解析总开关，其他值一律 fail closed。
+- 固定订单二维码是核心打印能力，不受旧 `CUSTOMER_STATUS_QR_ENABLED` 开关控制。
+- 生产必须配置独立的 `CUSTOMER_STATUS_QR_HMAC_ACTIVE_VERSION` 与 `CUSTOMER_STATUS_QR_HMAC_KEYS`；不得复用 service-role 或限流密钥。
 - `NEXT_PUBLIC_REPAIRDESK_PRELOAD_ENABLED=0` 只关闭预加载；它是构建时变量，修改后需要重新构建和部署。
 - Bootstrap 和打印 readiness 只可下发非秘密布尔值/能力；不得把密钥、内部 Supabase 配置或客户数据下发到 Shell。
 - 环境开关、角色矩阵和店铺资料变化必须有回滚方案；不得通过关闭服务端授权来掩盖 UI 状态错误。
@@ -90,16 +97,16 @@ UI capability 只负责显示与提前反馈，不能替代服务端授权。客
 
 任何相关任务至少包含以下工作包：
 
-| 工作包           | 必须验证                                                      |
-| ---------------- | ------------------------------------------------------------- |
-| Shell/API        | 单 actor、响应最小化、旧接口兼容、401/403 no-fallback         |
-| Query/cache      | 正式 key 复用、切店/退出/权限变化清理、旧响应隔离             |
-| Preload          | 首屏无跨域争抢、并发与弱网边界、query factory 一致            |
-| Print permission | Owner/Manager/Sales/Technician/Viewer 单张、批量、导出矩阵    |
-| Print readiness  | QR off、店铺资料缺失、void/deleted、busy、offline 原因与恢复  |
-| UI               | 桌面单张与批量入口；移动端如未修改必须证明无回归              |
-| QA               | lint、typecheck、full test、build、相关浏览器截图或无页面说明 |
-| Release          | 精确变更范围、配置、观测、回滚；生产动作需 Owner 单独批准     |
+| 工作包           | 必须验证                                                        |
+| ---------------- | --------------------------------------------------------------- |
+| Shell/API        | 单 actor、响应最小化、旧接口兼容、401/403 no-fallback           |
+| Query/cache      | 正式 key 复用、切店/退出/权限变化清理、旧响应隔离               |
+| Preload          | 首屏无跨域争抢、并发与弱网边界、query factory 一致              |
+| Print permission | Owner/Manager/Sales/Technician/Viewer 单张、批量、导出矩阵      |
+| Print readiness  | 固定 QR 全量可用；所有业务状态可打印；缺 QR 阻塞重试；busy 恢复 |
+| UI               | 桌面单张与批量入口；移动端如未修改必须证明无回归                |
+| QA               | lint、typecheck、full test、build、相关浏览器截图或无页面说明   |
+| Release          | 精确变更范围、配置、观测、回滚；生产动作需 Owner 单独批准       |
 
 最低自动化覆盖：
 
@@ -118,7 +125,7 @@ UI capability 只负责显示与提前反馈，不能替代服务端授权。客
 - 禁止在 workspace 首页恢复无界跨域 preload。
 - 禁止用客户端角色名称代替服务端 permission projection。
 - 禁止让 Manager 因为可单张打印而获得批量打印或导出。
-- 禁止新打印入口跳过 QR link preparation 或复用过期链接。
+- 禁止新打印入口伪造二维码、复用过期链接或在固定 QR 不可用时打开无二维码打印窗口。
 - 禁止在截图、日志、任务记忆或测试报告中暴露完整客户 PII、token 或生产凭据。
 
 ## 10. 当前基线与后续变更

@@ -3,11 +3,16 @@ import { describe, expect, it } from "vitest";
 import { CUSTOMER_STATUS_TOKEN_PATTERN, getCustomerStatusStage } from "./customer-status";
 
 describe("customer status public model", () => {
-  it("accepts only 256-bit base64url tokens", () => {
+  it("accepts legacy and strict v2 tokens only", () => {
     expect(CUSTOMER_STATUS_TOKEN_PATTERN.test("A".repeat(43))).toBe(true);
     expect(CUSTOMER_STATUS_TOKEN_PATTERN.test("A".repeat(42))).toBe(false);
     expect(CUSTOMER_STATUS_TOKEN_PATTERN.test(`${"A".repeat(42)}=`)).toBe(false);
     expect(CUSTOMER_STATUS_TOKEN_PATTERN.test(`${"A".repeat(42)}.`)).toBe(false);
+    const v2 = `v2.1.${"A".repeat(22)}.1.${"B".repeat(43)}`;
+    expect(CUSTOMER_STATUS_TOKEN_PATTERN.test(v2)).toBe(true);
+    expect(CUSTOMER_STATUS_TOKEN_PATTERN.test(v2.replace("v2.1", "v3.1"))).toBe(false);
+    expect(CUSTOMER_STATUS_TOKEN_PATTERN.test(v2.replace(".1.", ".0."))).toBe(false);
+    expect(CUSTOMER_STATUS_TOKEN_PATTERN.test(`${v2}=`)).toBe(false);
   });
 
   it("maps workflow buckets to customer-safe fixed labels", () => {

@@ -29,7 +29,7 @@ describe("buildStorePrintProfile", () => {
     });
   });
 
-  it("blocks output instead of borrowing another tenant identity", () => {
+  it("uses a neutral printable fallback instead of borrowing another tenant identity", () => {
     const profile = buildStorePrintProfile({
       store_name: "   ",
       store_address: "",
@@ -39,14 +39,14 @@ describe("buildStorePrintProfile", () => {
       print_footer: "",
     });
 
-    expect(profile.canOutput).toBe(false);
-    expect(profile.storeName).toBe("");
+    expect(profile.canOutput).toBe(true);
+    expect(profile.storeName).toBe("RepairDesk");
     expect(profile.storeSummaryLine).toBe("");
-    expect(profile.printFooter).toBe("");
+    expect(profile.printFooter).toBe("Documento generato da RepairDesk.");
     expect(JSON.stringify(profile)).not.toMatch(/ChinaTech|Floridia|Viale Vittorio Veneto/i);
   });
 
-  it("blocks printing when the explicit print footer is missing", () => {
+  it("keeps printing available when the explicit print footer is missing", () => {
     const profile = buildStorePrintProfile({
       store_name: "Centro Tech Floridia",
       store_address: "Via Roma 12, Siracusa",
@@ -55,7 +55,46 @@ describe("buildStorePrintProfile", () => {
       print_footer: "",
     });
 
-    expect(profile.canOutput).toBe(false);
-    expect(profile.blockReason).toContain("打印页脚");
+    expect(profile.canOutput).toBe(true);
+    expect(profile.printFooter).toBe("Documento generato da RepairDesk.");
+  });
+
+  it("omits mismatched tenant settings while keeping the document printable", () => {
+    const profile = buildStorePrintProfile(
+      {
+        store_id: "store-b",
+        store_name: "Other Tenant",
+        store_address: "Private address",
+        store_phone: "+39 000",
+      },
+      { id: "store-a", name: "Current Store" },
+    );
+
+    expect(profile).toMatchObject({
+      canOutput: true,
+      storeName: "Current Store",
+      storeAddress: "",
+      storeContactLine: "",
+    });
+    expect(profile.warnings).toHaveLength(1);
+    expect(JSON.stringify(profile)).not.toContain("Other Tenant");
+    expect(JSON.stringify(profile)).not.toContain("Private address");
+  });
+
+  it("omits settings when the active store identity is unavailable", () => {
+    const profile = buildStorePrintProfile({
+      store_id: "store-b",
+      store_name: "Unverified Store",
+      store_address: "Private address",
+    });
+
+    expect(profile).toMatchObject({
+      canOutput: true,
+      storeName: "RepairDesk",
+      storeAddress: "",
+    });
+    expect(profile.warnings).toHaveLength(1);
+    expect(JSON.stringify(profile)).not.toContain("Unverified Store");
+    expect(JSON.stringify(profile)).not.toContain("Private address");
   });
 });

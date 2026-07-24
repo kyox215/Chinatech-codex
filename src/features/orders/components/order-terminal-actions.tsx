@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { AlertTriangle, FilePenLine, RotateCcw, Trash2 } from "lucide-react";
+import { AlertTriangle, FilePenLine, MoreHorizontal, RotateCcw, Trash2 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -17,6 +17,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -59,11 +65,13 @@ export function OrderTerminalActions({
   workflow,
   onCompleted,
   className,
+  variant = "banner",
 }: {
   detail: OrderDetail;
   workflow?: OrderWorkflow;
   onCompleted: () => void;
   className?: string;
+  variant?: "banner" | "compact";
 }) {
   const order = detail.order;
   const capabilities = detail.capabilities;
@@ -215,8 +223,73 @@ export function OrderTerminalActions({
     </>
   );
 
-  return (
-    <>
+  const statusContent =
+    variant === "compact" ? (
+      <div
+        data-order-terminal-actions="true"
+        className={cn(
+          "flex min-w-0 flex-wrap items-center gap-1.5 rounded-md border px-2 py-1",
+          voided
+            ? "border-status-danger-foreground/20 bg-status-danger/60 text-status-danger-foreground"
+            : "border-status-warn-foreground/20 bg-status-warn/45 text-foreground",
+          className,
+        )}
+      >
+        <span className="inline-flex min-w-0 items-center gap-1 text-[10px] font-semibold">
+          <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
+          {voided ? "记录已作废" : "工单已结束 · 编辑已锁定"}
+        </span>
+        {!voided ? (
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            {capabilities?.canCorrect ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 gap-1 px-1.5 text-[10px]"
+                disabled={mutation.isPending}
+                onClick={() => open("correct")}
+              >
+                <FilePenLine className="size-3" /> 纠正
+              </Button>
+            ) : null}
+            {capabilities?.canReopen ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 gap-1 px-1.5 text-[10px]"
+                disabled={mutation.isPending || reopenTargets.length === 0}
+                onClick={() => open("reopen")}
+              >
+                <RotateCcw className="size-3" /> 重新打开
+              </Button>
+            ) : null}
+            {capabilities?.canVoid ? (
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-6"
+                    disabled={mutation.isPending}
+                    aria-label="更多结束工单操作"
+                  >
+                    <MoreHorizontal className="size-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => open("void")}
+                  >
+                    <Trash2 className="mr-2 size-3.5" /> 安全作废
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    ) : (
       <section
         data-order-terminal-actions="true"
         className={cn(
@@ -283,6 +356,11 @@ export function OrderTerminalActions({
           </p>
         ) : null}
       </section>
+    );
+
+  return (
+    <>
+      {statusContent}
 
       {isMobile ? (
         <Sheet

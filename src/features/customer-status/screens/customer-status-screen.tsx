@@ -6,11 +6,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock3,
-  ExternalLink,
   Loader2,
   MapPin,
   RefreshCw,
-  ShieldCheck,
   Smartphone,
   Store,
 } from "lucide-react";
@@ -28,9 +26,6 @@ import {
 } from "@/features/customer-status/model/customer-status";
 import { brandGradientStyle } from "@/lib/ui-patterns";
 
-const STAFF_TOKEN_SESSION_KEY = "repairdesk:customer-status:staff-token:v1";
-const STAFF_TOKEN_TTL_MS = 10 * 60 * 1000;
-
 type ViewState =
   | { kind: "loading" }
   | { kind: "success"; status: CustomerStatusPublicView }
@@ -41,8 +36,6 @@ export function CustomerStatusScreen() {
   const router = useRouter();
   const [state, setState] = useState<ViewState>({ kind: "loading" });
   const [token, setToken] = useState("");
-  const [staffPending, setStaffPending] = useState(false);
-  const [staffError, setStaffError] = useState("");
   const publicRequestSequence = useRef(0);
 
   const loadPublicStatus = useCallback(async (nextToken: string) => {
@@ -76,58 +69,10 @@ export function CustomerStatusScreen() {
     }
   }, []);
 
-  const openStaffOrder = useCallback(
-    async (staffToken: string, allowLoginRedirect: boolean) => {
-      if (!CUSTOMER_STATUS_TOKEN_PATTERN.test(staffToken)) {
-        setStaffError(CUSTOMER_STATUS_LINK_UNAVAILABLE_MESSAGE);
-        return;
-      }
-      setStaffPending(true);
-      setStaffError("");
-      try {
-        const taskPath = await resolveCustomerStatusForStaff(staffToken);
-        clearStoredStaffToken();
-        router.replace(taskPath);
-      } catch (error) {
-        const status = getErrorStatus(error);
-        if (status === 401 && allowLoginRedirect) {
-          storeStaffToken(staffToken);
-          router.push(`/login?next=${encodeURIComponent("/r?staff=1")}`);
-          return;
-        }
-        clearStoredStaffToken();
-        setStaffError(
-          status === 404 || status === 403
-            ? "Non hai accesso a questo ordine interno."
-            : error instanceof Error
-              ? error.message
-              : "Impossibile aprire l'ordine interno.",
-        );
-      } finally {
-        setStaffPending(false);
-      }
-    },
-    [router],
-  );
-
   useEffect(() => {
-    const staffReturn = new URLSearchParams(window.location.search).get("staff") === "1";
-    if (staffReturn) {
-      publicRequestSequence.current += 1;
-      const stored = readAndClearStoredStaffToken();
-      if (!stored) {
-        setState({ kind: "unavailable" });
-        return;
-      }
-      setToken(stored);
-      void openStaffOrder(stored, false);
-      return;
-    }
-
     const consumeLocationHash = () => {
       const hashToken = window.location.hash.replace(/^#/, "").trim();
       window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
-      setStaffError("");
       if (!CUSTOMER_STATUS_TOKEN_PATTERN.test(hashToken)) {
         publicRequestSequence.current += 1;
         setToken("");
@@ -136,6 +81,11 @@ export function CustomerStatusScreen() {
       }
       setToken(hashToken);
       void loadPublicStatus(hashToken);
+      void resolveCustomerStatusForStaff(hashToken)
+        .then((internalPath) => router.replace(internalPath))
+        .catch(() => {
+          // Anonymous and unauthorized scans intentionally stay on the public progress page.
+        });
     };
 
     consumeLocationHash();
@@ -144,7 +94,7 @@ export function CustomerStatusScreen() {
       publicRequestSequence.current += 1;
       window.removeEventListener("hashchange", consumeLocationHash);
     };
-  }, [loadPublicStatus, openStaffOrder]);
+  }, [loadPublicStatus, router]);
 
   const pageBrand = state.kind === "success" ? state.status.store.name : "RepairDesk";
 
@@ -181,33 +131,6 @@ export function CustomerStatusScreen() {
             />
           ) : null}
         </div>
-
-        <footer className="space-y-3 border-t border-border/60 pt-4">
-          {staffError ? (
-            <p className="text-xs text-status-danger-foreground" role="alert">
-              {staffError}
-            </p>
-          ) : null}
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 w-full justify-center gap-2"
-            disabled={!token || staffPending}
-            aria-busy={staffPending}
-            onClick={() => void openStaffOrder(token, true)}
-          >
-            {staffPending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <ShieldCheck className="size-4" />
-            )}
-            Accesso personale
-            {!staffPending ? <ExternalLink className="size-3.5" /> : null}
-          </Button>
-          <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
-            L&apos;accesso interno richiede un account autorizzato del negozio.
-          </p>
-        </footer>
       </section>
     </main>
   );
@@ -328,58 +251,6 @@ function CustomerStatusError({
       </Button>
     </div>
   );
-}
-
-function storeStaffToken(token: string) {
-  try {
-    sessionStorage.setItem(
-      STAFF_TOKEN_SESSION_KEY,
-      JSON.stringify({ token, expiresAt: Date.now() + STAFF_TOKEN_TTL_MS }),
-    );
-    window.setTimeout(clearExpiredStoredStaffToken, STAFF_TOKEN_TTL_MS + 1_000);
-  } catch {
-    // Login still works; the page will show an unavailable state after redirect.
-  }
-}
-
-function clearExpiredStoredStaffToken() {
-  try {
-    const raw = sessionStorage.getItem(STAFF_TOKEN_SESSION_KEY);
-    if (!raw) return;
-    const parsed = JSON.parse(raw) as { expiresAt?: unknown };
-    if (typeof parsed.expiresAt !== "number" || parsed.expiresAt <= Date.now()) {
-      sessionStorage.removeItem(STAFF_TOKEN_SESSION_KEY);
-    }
-  } catch {
-    sessionStorage.removeItem(STAFF_TOKEN_SESSION_KEY);
-  }
-}
-
-function readAndClearStoredStaffToken() {
-  try {
-    const raw = sessionStorage.getItem(STAFF_TOKEN_SESSION_KEY);
-    sessionStorage.removeItem(STAFF_TOKEN_SESSION_KEY);
-    if (!raw) return "";
-    const parsed = JSON.parse(raw) as { token?: unknown; expiresAt?: unknown };
-    if (
-      typeof parsed.token !== "string" ||
-      typeof parsed.expiresAt !== "number" ||
-      parsed.expiresAt < Date.now()
-    ) {
-      return "";
-    }
-    return parsed.token;
-  } catch {
-    return "";
-  }
-}
-
-function clearStoredStaffToken() {
-  try {
-    sessionStorage.removeItem(STAFF_TOKEN_SESSION_KEY);
-  } catch {
-    // No persistent fallback: raw tokens must not move to localStorage.
-  }
 }
 
 function getErrorStatus(error: unknown) {

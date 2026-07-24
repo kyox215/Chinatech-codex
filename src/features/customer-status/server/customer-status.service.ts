@@ -1,8 +1,9 @@
-import { createHash, createHmac, randomBytes } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 
 import type { AuditActor } from "@/lib/repairdesk/types";
 import {
   CUSTOMER_STATUS_TOKEN_PATTERN,
+  CUSTOMER_STATUS_LEGACY_TOKEN_PATTERN,
   getCustomerStatusStage,
   type CustomerStatusIssuedLink,
   type CustomerStatusPublicView,
@@ -10,8 +11,12 @@ import {
 import { getSupabaseAdmin } from "@/server/supabase";
 import { can } from "@/server/permissions";
 import { ForbiddenError } from "@/server/auth-context";
+import {
+  createStableCustomerStatusToken,
+  getActiveCustomerStatusKeyVersion,
+  parseAndVerifyStableCustomerStatusToken,
+} from "@/features/customer-status/server/customer-status-token";
 
-const CUSTOMER_STATUS_LINK_LIFETIME_MS = 18 * 30 * 24 * 60 * 60 * 1000;
 const CUSTOMER_STATUS_PUBLIC_ORIGIN = "https://www.chinatech.in";
 const CUSTOMER_STATUS_MAX_BATCH = 50;
 
@@ -39,14 +44,13 @@ export class CustomerStatusRateLimitError extends Error {
 }
 
 export function isCustomerStatusQrEnabled() {
-  return process.env.CUSTOMER_STATUS_QR_ENABLED === "1";
+  return true;
 }
 
 export async function issueCustomerStatusLinks(
   orderIds: string[],
   actor: AuditActor,
 ): Promise<CustomerStatusIssuedLink[]> {
-  assertCustomerStatusEnabled();
   const ids = [...new Set(orderIds.map((id) => id.trim()).filter(Boolean))];
   if (!ids.length || ids.length > CUSTOMER_STATUS_MAX_BATCH) {
     throw new Error(`每次只能准备 1-${CUSTOMER_STATUS_MAX_BATCH} 张客户工单`);
@@ -91,9 +95,7 @@ export async function issueCustomerStatusLinks(
 
   for (const id of ids) {
     const row = rowsById.get(id);
-    if (!row || row.record_state !== "active" || row.deleted_at) {
-      throw new ForbiddenError("作废或删除的工单不能签发客户查询链接");
-    }
+    if (!row) throw new ForbiddenError("工单不可用");
     const role = actor.storeRole ?? actor.role;
     const scopeSatisfied =
       role === "technician" &&
@@ -106,50 +108,47 @@ export async function issueCustomerStatusLinks(
     }
   }
 
-  const now = Date.now();
-  const expiresAt = new Date(now + CUSTOMER_STATUS_LINK_LIFETIME_MS).toISOString();
+  const activeKeyVersion = getActiveCustomerStatusKeyVersion();
   const origin = getCustomerStatusPublicOrigin();
-  const issued = ids.map((orderId) => {
-    const token = randomBytes(32).toString("base64url");
-    return {
-      orderId,
-      token,
-      tokenHash: hashCustomerStatusToken(token),
-    };
-  });
-  const { data: issueResult, error: issueError } = await admin.rpc(
-    "repairdesk_issue_customer_status_links_v1",
+  const { data: ensureResult, error: ensureError } = await admin.rpc(
+    "repairdesk_ensure_customer_status_identities_v2",
     {
       p_store_id: actor.storeId,
-      p_lifecycle_revision: Number(lifecycle.revision),
-      p_links: issued.map((link) => ({
-        order_id: link.orderId,
-        token_hash: link.tokenHash,
-      })),
-      p_expires_at: expiresAt,
+      p_order_ids: ids,
+      p_key_version: activeKeyVersion,
       p_actor_id: actor.id,
       p_actor_email: actor.email ?? null,
       p_actor_name: actor.displayName,
     },
   );
-  fail(issueError, "原子签发客户查询链接失败");
-  const payload = (Array.isArray(issueResult) ? issueResult[0] : issueResult) as DbRecord | null;
-  const inserted = Array.isArray(payload?.links) ? (payload.links as DbRecord[]) : [];
-  const insertedByOrder = new Map(inserted.map((row) => [String(row.order_id), row]));
-  if (insertedByOrder.size !== ids.length) throw new Error("客户查询链接签发结果不完整");
+  fail(ensureError, "准备固定订单二维码失败");
+  const payload = (Array.isArray(ensureResult) ? ensureResult[0] : ensureResult) as DbRecord | null;
+  const identities = Array.isArray(payload?.identities) ? (payload.identities as DbRecord[]) : [];
+  const identitiesByOrder = new Map(identities.map((row) => [String(row.order_id), row]));
+  if (identitiesByOrder.size !== ids.length) throw new Error("固定订单二维码准备结果不完整");
 
-  return issued.map((link) => ({
-    order_id: link.orderId,
-    url: `${origin}/r#${link.token}`,
-    expires_at: String(insertedByOrder.get(link.orderId)?.expires_at || expiresAt),
-  }));
+  return ids.map((orderId) => {
+    const identity = identitiesByOrder.get(orderId);
+    if (
+      !identity ||
+      identity.public_access_state !== "enabled" ||
+      Number(identity.lifecycle_revision) !== Number(lifecycle.revision)
+    ) {
+      throw new Error("固定订单二维码状态无效");
+    }
+    const token = createStableCustomerStatusToken({
+      publicId: String(identity.public_id),
+      generation: Number(identity.generation),
+      keyVersion: Number(identity.key_version),
+    });
+    return { order_id: orderId, url: `${origin}/r#${token}`, expires_at: null };
+  });
 }
 
 export async function resolveCustomerStatusPublic(
   token: string,
   clientAddress: string,
 ): Promise<CustomerStatusPublicView> {
-  assertCustomerStatusEnabled();
   if (!CUSTOMER_STATUS_TOKEN_PATTERN.test(token)) throw new CustomerStatusUnavailableError();
   await consumeCustomerStatusPublicRequestRateLimit(clientAddress);
   const live = await loadLiveLink(token);
@@ -239,7 +238,6 @@ export async function resolveCustomerStatusPublic(
 }
 
 export async function resolveCustomerStatusForStaff(token: string, actor: AuditActor) {
-  assertCustomerStatusEnabled();
   const live = await loadLiveLink(token);
   if (!actor.storeId || actor.storeId !== live.storeId) throw new CustomerStatusUnavailableError();
   const admin = getSupabaseAdmin();
@@ -271,9 +269,7 @@ export async function resolveCustomerStatusForStaff(token: string, actor: AuditA
     !lifecycle ||
     lifecycle.phase !== "active" ||
     Number(lifecycle.revision) !== live.lifecycleRevision ||
-    !order ||
-    order.record_state !== "active" ||
-    order.deleted_at
+    !order
   ) {
     throw new CustomerStatusUnavailableError();
   }
@@ -287,7 +283,7 @@ export async function resolveCustomerStatusForStaff(token: string, actor: AuditA
   if (!can(actor, "order:detail", { scopeSatisfied })) {
     throw new CustomerStatusUnavailableError();
   }
-  return `/orders/${encodeURIComponent(live.orderId)}/task`;
+  return `/orders/${encodeURIComponent(live.orderId)}?from=orders`;
 }
 
 export async function revokeCustomerStatusLinksForOrder(
@@ -304,23 +300,20 @@ export async function revokeCustomerStatusLinksForOrder(
     throw new Error("客户查询链接撤销参数无效");
   }
   const { data, error } = await getSupabaseAdmin().rpc(
-    "repairdesk_revoke_customer_status_links_v1",
+    "repairdesk_rotate_customer_status_identity_v2",
     {
       p_store_id: actor.storeId,
       p_order_id: safeOrderId,
+      p_key_version: getActiveCustomerStatusKeyVersion(),
       p_actor_id: actor.id,
       p_actor_email: actor.email ?? null,
       p_actor_name: actor.displayName,
-      p_reason: safeReason,
+      p_reason: safeReason === "manual_revoke" ? "operator_reset" : safeReason,
     },
   );
-  fail(error, "原子撤销客户查询链接失败");
+  fail(error, "重置固定订单二维码失败");
   const payload = (Array.isArray(data) ? data[0] : data) as DbRecord | null;
-  return { revoked_count: Number(payload?.revoked_count || 0) };
-}
-
-function assertCustomerStatusEnabled() {
-  if (!isCustomerStatusQrEnabled()) throw new CustomerStatusDisabledError();
+  return { revoked_count: Number(payload?.rotated_count || 0) };
 }
 
 function getCustomerStatusPublicOrigin() {
@@ -347,6 +340,33 @@ function getCustomerStatusPublicOrigin() {
 
 async function loadLiveLink(token: string) {
   if (!CUSTOMER_STATUS_TOKEN_PATTERN.test(token)) throw new CustomerStatusUnavailableError();
+  const stable = parseAndVerifyStableCustomerStatusToken(token);
+  if (stable) {
+    const { data, error } = await getSupabaseAdmin()
+      .from("repair_order_customer_status_identities")
+      .select(
+        "order_id,store_id,public_id,generation,key_version,lifecycle_revision,public_access_state",
+      )
+      .eq("public_id", stable.publicId)
+      .maybeSingle();
+    fail(error, "解析固定订单二维码失败");
+    if (
+      !data ||
+      data.public_access_state !== "enabled" ||
+      Number(data.generation) !== stable.generation ||
+      Number(data.key_version) !== stable.keyVersion
+    ) {
+      throw new CustomerStatusUnavailableError();
+    }
+    return {
+      storeId: String(data.store_id),
+      orderId: String(data.order_id),
+      lifecycleRevision: Number(data.lifecycle_revision),
+    };
+  }
+  if (!CUSTOMER_STATUS_LEGACY_TOKEN_PATTERN.test(token)) {
+    throw new CustomerStatusUnavailableError();
+  }
   const { data, error } = await getSupabaseAdmin()
     .from("repair_order_customer_status_links")
     .select("id,store_id,order_id,lifecycle_revision,expires_at,revoked_at")

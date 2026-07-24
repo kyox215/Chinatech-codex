@@ -12,7 +12,7 @@ import {
   customerStatusJson,
   readCustomerStatusJson,
 } from "@/features/customer-status/server/customer-status-http";
-import { UnauthorizedError, getRequestActor } from "@/server/auth-context";
+import { ForbiddenError, UnauthorizedError, getRequestActor } from "@/server/auth-context";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
       return customerStatusJson({ error: { message: "登录已过期，请重新登录" } }, 401);
     }
     if (
+      error instanceof ForbiddenError ||
       error instanceof CustomerStatusUnavailableError ||
       (error instanceof Error && error.name === "CustomerStatusUnavailableError")
     ) {

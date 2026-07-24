@@ -148,6 +148,7 @@ export function OrderOverviewTab({
   onRequestKioskSignature,
   kioskSignaturePending = false,
   kioskSignatureAvailable = false,
+  custodyControl,
 }: {
   order: OrderDetail["order"];
   customer?: Customer;
@@ -187,6 +188,7 @@ export function OrderOverviewTab({
   onRequestKioskSignature?: () => void;
   kioskSignaturePending?: boolean;
   kioskSignatureAvailable?: boolean;
+  custodyControl?: React.ReactNode;
 }) {
   const edit =
     isEditing && editDraft && onEditDraftChange
@@ -299,7 +301,12 @@ export function OrderOverviewTab({
               data-order-detail-column="detail"
               className={detailWorkspace.orderDetailSideColumn}
             >
-              <OrderKeyInfoCard order={order} supplier={supplier} surface={surface} />
+              <OrderKeyInfoCard
+                order={order}
+                supplier={supplier}
+                surface={surface}
+                custodyControl={custodyControl}
+              />
               <DesktopRecordsSummaryPanel
                 events={events}
                 messages={messages}
@@ -329,6 +336,7 @@ export function OrderOverviewTab({
               supplier={supplier}
               surface={surface}
               className="h-full"
+              custodyControl={custodyControl}
             />
             <DesktopOrderPhotosPanel
               attachments={photoAttachments}
@@ -685,11 +693,13 @@ export function OrderKeyInfoCard({
   supplier,
   className,
   surface = "page",
+  custodyControl,
 }: {
   order: OrderDetail["order"];
   supplier?: Supplier;
   className?: string;
   surface?: DetailSurface;
+  custodyControl?: React.ReactNode;
 }) {
   return (
     <DetailPanel surface={surface} className={className} dataPanel="key-info">
@@ -710,16 +720,22 @@ export function OrderKeyInfoCard({
           label="交付时间"
           value={order.delivered_at ? new Date(order.delivered_at).toLocaleString("zh-CN") : "—"}
         />
-        <Row
-          label="设备保管"
-          value={
-            <DeviceCustodyBadge
-              status={order.device_custody_status}
-              deliveredAt={order.delivered_at}
-              className="text-[10px]"
-            />
-          }
-        />
+        {custodyControl ? (
+          <div className={cn("min-w-0", surface === "dialog" && "sm:col-span-2")}>
+            {custodyControl}
+          </div>
+        ) : (
+          <Row
+            label="设备保管"
+            value={
+              <DeviceCustodyBadge
+                status={order.device_custody_status}
+                deliveredAt={order.delivered_at}
+                className="text-[10px]"
+              />
+            }
+          />
+        )}
         {supplier && (
           <Row
             label="外修供应商"

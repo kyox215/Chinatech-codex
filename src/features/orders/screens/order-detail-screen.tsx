@@ -46,7 +46,6 @@ import {
 } from "lucide-react";
 
 import { ImeiScannerField, normalizeImeiIdentifier } from "@/components/imei-scanner-field";
-import { StoreOutputIdentityRecovery } from "@/components/store/store-output-identity-recovery";
 import { DeviceCustodyBadge, MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
 import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
 import { DiagnosisQuoteDialog } from "@/components/orders/diagnosis-quote-dialog";
@@ -1089,29 +1088,16 @@ export function OrderDetailScreen({
   const isVoided = order.record_state === "voided" || Boolean(order.deleted_at);
   const cancelled = isOrderCancelledState(order);
   const isTerminalOrder = isOrderTerminalState(order);
-  const canPrintCustomerDocument =
-    shell.customerStatusQrEnabled !== false &&
-    canPrintRepairOrderCustomerDocument(order, storeOutputIdentity.canOutput);
-  const printDisabledReason = printPreparing
-    ? "正在准备打印内容"
-    : isVoided
-      ? "作废或删除的工单不能打印"
-      : shell.customerStatusQrEnabled === false
-        ? "客户工单二维码功能尚未启用，请联系店主或系统管理员"
-        : storeOutputIdentity.canOutput
-          ? undefined
-          : storeOutputIdentity.blockReason;
+  const canPrintCustomerDocument = canPrintRepairOrderCustomerDocument(order);
+  const printDisabledReason = printPreparing ? "正在准备打印内容" : undefined;
   const printCustomerDocument = async () => {
-    if (!canPrintCustomerDocument) {
-      toast.error(storeOutputIdentity.blockReason ?? "客户工单尚未准备好");
-      return;
-    }
     const outcome = await requestPrint(async () => {
       setPrintPreparing(true);
       try {
+        setCustomerStatusUrl("");
         const links = await issueCustomerStatusLinks([order.id]);
         const link = links.find((item) => item.order_id === order.id);
-        if (!link?.url) throw new Error("客户查询二维码签发结果不完整");
+        if (!link?.url) throw new Error("订单二维码准备失败，请重试");
         setCustomerStatusUrl(link.url);
       } finally {
         setPrintPreparing(false);
@@ -1119,17 +1105,17 @@ export function OrderDetailScreen({
     });
     if (outcome === "busy") toast.info("打印内容正在准备或预览已打开");
   };
-  const canRevokeCustomerStatusLinks = !isVoided && shell.activeStore?.role === "owner";
+  const canRevokeCustomerStatusLinks = shell.activeStore?.role === "owner";
   const revokePrintedCustomerStatusLinks = async () => {
     if (!canRevokeCustomerStatusLinks || customerStatusRevokePending) return;
-    if (!window.confirm("停用这张工单此前打印的所有客户查询二维码？下次打印会生成新二维码。")) {
+    if (!window.confirm("重置这张工单的固定二维码？此前打印的二维码将立即失效。")) {
       return;
     }
     setCustomerStatusRevokePending(true);
     try {
       const revokedCount = await revokeCustomerStatusLinks(order.id);
       setCustomerStatusUrl("");
-      toast.success(revokedCount > 0 ? `已停用 ${revokedCount} 个二维码` : "当前没有有效二维码");
+      toast.success(revokedCount > 0 ? "固定二维码已重置" : "二维码无需重置");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "无法停用客户查询二维码");
     } finally {
@@ -1301,6 +1287,28 @@ export function OrderDetailScreen({
       />
     </div>
   );
+  const renderDesktopCustodyControl = () => (
+    <OrderDeviceCustodyCard
+      order={order}
+      events={events}
+      workflowBucket={getWorkflowStatus(workflow, order.status)?.bucket}
+      canUpdate={canUpdateCustody}
+      canCorrectTerminal={canCorrectTerminalCustody}
+      pending={custodyUpdate.isPending || cancelledReturn.isPending}
+      onRequestChange={(target) => {
+        custodyTriggerRef.current =
+          document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        setCustodyReason("");
+        setCustodyDialogTarget(target);
+      }}
+      onConfirmCancelledReturn={() => {
+        cancelledReturnTriggerRef.current =
+          document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        setCancelledReturnOpen(true);
+      }}
+      variant="inline"
+    />
+  );
 
   return (
     <div
@@ -1314,11 +1322,6 @@ export function OrderDetailScreen({
       )}
     >
       <h1 className="sr-only">订单详情</h1>
-      {surface === "page" ? (
-        <div className="hidden lg:block">{renderCustodyPanel()}</div>
-      ) : (
-        renderCustodyPanel()
-      )}
       {surface === "page" ? (
         <MobileOrderDetailView
           data={data}
@@ -1457,24 +1460,6 @@ export function OrderDetailScreen({
         )}
       >
         <div className={cn("relative z-20", detailWorkspace.orderDetailContent)}>
-          {!storeOutputIdentity.canOutput ? (
-            <StoreOutputIdentityRecovery
-              identity={storeOutputIdentity}
-              canReadSettings={shell.permissions?.canReadStoreSettings === true}
-              canUpdateSettings={shell.permissions?.canUpdateStoreSettings === true}
-              onRetrySettings={() => storeSettingsQuery.refetch()}
-              onReloadStoreContext={shell.retry}
-              className="mb-2"
-            />
-          ) : null}
-          {shell.customerStatusQrEnabled === false ? (
-            <div
-              role="alert"
-              className="mb-2 rounded-lg border border-status-warn-foreground/30 bg-status-warn/10 px-3 py-2 text-xs leading-5 text-status-warn-foreground"
-            >
-              客户工单二维码功能尚未启用，因此暂时不能打印。请联系店主或系统管理员完成服务配置。
-            </div>
-          ) : null}
           <OrderHero
             order={order}
             onPrint={() => void printCustomerDocument()}
@@ -1524,6 +1509,15 @@ export function OrderDetailScreen({
                 />
               ) : undefined
             }
+            contextualStatus={
+              <OrderTerminalActions
+                detail={data}
+                workflow={workflow}
+                onCompleted={invalidate}
+                variant="compact"
+              />
+            }
+            printRecovery={undefined}
           />
         </div>
 
@@ -1683,6 +1677,7 @@ export function OrderDetailScreen({
                     Boolean(activeKioskDevice) &&
                     custodyStatus === DEVICE_CUSTODY_WITH_SHOP
                   }
+                  custodyControl={renderDesktopCustodyControl()}
                 />
               </section>
             ) : null}
@@ -2160,6 +2155,7 @@ function OrderDeviceCustodyCard({
   onRequestChange,
   onConfirmCancelledReturn,
   className,
+  variant = "card",
 }: {
   order: OrderDetail["order"];
   events: OrderEvent[];
@@ -2170,6 +2166,7 @@ function OrderDeviceCustodyCard({
   onRequestChange: (target: DeviceCustodyStatus) => void;
   onConfirmCancelledReturn: () => void;
   className?: string;
+  variant?: "card" | "inline";
 }) {
   const status = deviceCustodyStatusFromOrder(order);
   const cancelled = isOrderCancelledState(order);
@@ -2211,7 +2208,7 @@ function OrderDeviceCustodyCard({
             type="button"
             size="sm"
             variant="outline"
-            className="h-11 text-xs"
+            className={cn(variant === "inline" ? "h-7 px-2 text-[10px]" : "h-11 text-xs")}
             disabled={pending}
             onClick={() => onRequestChange(target)}
           >
@@ -2230,7 +2227,7 @@ function OrderDeviceCustodyCard({
         key="cancelled-return"
         type="button"
         size="sm"
-        className="h-11 text-xs"
+        className={cn(variant === "inline" ? "h-7 px-2 text-[10px]" : "h-11 text-xs")}
         disabled={pending}
         onClick={onConfirmCancelledReturn}
       >
@@ -2248,7 +2245,7 @@ function OrderDeviceCustodyCard({
           type="button"
           size="sm"
           variant="outline"
-          className="h-11 text-xs"
+          className={cn(variant === "inline" ? "h-7 px-2 text-[10px]" : "h-11 text-xs")}
           disabled={pending}
           onClick={() => onRequestChange(target)}
         >
@@ -2265,7 +2262,7 @@ function OrderDeviceCustodyCard({
           type="button"
           size="sm"
           variant="outline"
-          className="h-11 text-xs"
+          className={cn(variant === "inline" ? "h-7 px-2 text-[10px]" : "h-11 text-xs")}
           disabled={pending}
           onClick={() => onRequestChange(target)}
         >
@@ -2279,13 +2276,20 @@ function OrderDeviceCustodyCard({
     <section
       data-order-device-custody="true"
       className={cn(
-        "grid min-w-0 gap-1.5 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] px-2.5 py-2 shadow-[var(--shadow-card)] md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:px-3",
+        variant === "inline"
+          ? "grid min-w-0 gap-1.5 rounded-md bg-[var(--surface-panel-muted)]/55 px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+          : "grid min-w-0 gap-1.5 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] px-2.5 py-2 shadow-[var(--shadow-card)] md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:px-3",
         status === null && "border-status-warn-foreground/30 bg-status-warn/35",
         className,
       )}
     >
       <div className="flex min-w-0 items-start gap-1.5">
-        <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-[var(--surface-panel-muted)] text-primary">
+        <span
+          className={cn(
+            "grid shrink-0 place-items-center rounded-lg bg-[var(--surface-panel-muted)] text-primary",
+            variant === "inline" ? "size-6" : "size-7",
+          )}
+        >
           {status === DEVICE_CUSTODY_WITH_CUSTOMER ? (
             <UserRound className="size-3.5" />
           ) : (
@@ -2301,11 +2305,21 @@ function OrderDeviceCustodyCard({
               className="text-[10px]"
             />
           </div>
-          <p className="mt-0.5 break-words text-[10px] leading-3.5 text-muted-foreground">
+          <p
+            className={cn(
+              "mt-0.5 break-words text-[10px] text-muted-foreground",
+              variant === "inline" ? "line-clamp-2 leading-3" : "leading-3.5",
+            )}
+          >
             {description}
           </p>
           {latestHandoff ? (
-            <p className="mt-0.5 truncate text-[9px] leading-3 text-muted-foreground md:break-words md:text-[10px] md:leading-4">
+            <p
+              className={cn(
+                "mt-0.5 truncate text-[9px] leading-3 text-muted-foreground",
+                variant !== "inline" && "md:break-words md:text-[10px] md:leading-4",
+              )}
+            >
               最近交接：{latestHandoff.summary} · {formatOrderDateTime(latestHandoff.createdAt)} ·
               {latestHandoff.operator}
             </p>
@@ -5086,7 +5100,7 @@ function MobileStickyWorkflowHeader({
                     onClick={onRevokeCustomerStatusLinks}
                   >
                     <ScanLine className="mr-2 size-3.5" />
-                    {customerStatusRevokePending ? "正在停用二维码" : "停用已打印二维码"}
+                    {customerStatusRevokePending ? "正在重置二维码" : "重置固定二维码"}
                   </DropdownMenuItem>
                 ) : null}
                 <DropdownMenuItem

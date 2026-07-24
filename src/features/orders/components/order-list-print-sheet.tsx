@@ -27,12 +27,9 @@ export function OrderListPrintSheet({
   activeStore?: { id?: string; name?: string } | null;
   customerStatusUrls?: Record<string, string>;
 }) {
-  if (!orders.length) return null;
+  if (!orders.length || orders.some((order) => !customerStatusUrls?.[order.id])) return null;
 
   const storeProfile = buildStorePrintProfile(storeSettings, activeStore);
-  if (!storeProfile.canOutput || orders.some((order) => !customerStatusUrls?.[order.id])) {
-    return null;
-  }
 
   return (
     <PrintPortal paperMode="a4-portrait-half">
@@ -111,7 +108,7 @@ export function OrderListPrintSheet({
 
               <section className="repair-print-status-qr" data-customer-status-qr="true">
                 <QRCodeSVG
-                  value={customerStatusUrls?.[order.id] ?? ""}
+                  value={customerStatusUrls![order.id]}
                   level="M"
                   marginSize={4}
                   title={`Stato riparazione ${order.public_no}`}

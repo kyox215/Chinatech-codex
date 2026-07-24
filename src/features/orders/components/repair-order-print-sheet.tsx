@@ -49,7 +49,7 @@ export function RepairOrderPrintSheet({
     ? order.fault_prices
     : [{ name: order.issue_description || "Intervento richiesto", price: 0 }];
 
-  if (!canPrintRepairOrderCustomerDocument(order, storeProfile.canOutput) || !customerStatusUrl) {
+  if (!customerStatusUrl) {
     return null;
   }
 
@@ -221,10 +221,9 @@ export function RepairOrderPrintSheet({
 }
 
 export function canPrintRepairOrderCustomerDocument(
-  order: Pick<OrderDetail["order"], "record_state" | "deleted_at">,
-  storeCanOutput: boolean,
+  _order: Pick<OrderDetail["order"], "record_state" | "deleted_at">,
 ) {
-  return storeCanOutput && order.record_state !== "voided" && !order.deleted_at;
+  return true;
 }
 
 function PrintSection({ title, children }: { title: string; children: React.ReactNode }) {

@@ -1,4 +1,9 @@
-export const CUSTOMER_STATUS_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+export const CUSTOMER_STATUS_LEGACY_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+export const CUSTOMER_STATUS_STABLE_TOKEN_PATTERN =
+  /^v2\.[1-9a-z][0-9a-z]*\.[A-Za-z0-9_-]{22}\.[1-9a-z][0-9a-z]*\.[A-Za-z0-9_-]{43}$/;
+export const CUSTOMER_STATUS_TOKEN_PATTERN = new RegExp(
+  `(?:${CUSTOMER_STATUS_LEGACY_TOKEN_PATTERN.source})|(?:${CUSTOMER_STATUS_STABLE_TOKEN_PATTERN.source})`,
+);
 export const CUSTOMER_STATUS_LINK_UNAVAILABLE_MESSAGE =
   "Questo link non è disponibile. Contatta il negozio per assistenza.";
 
@@ -34,7 +39,7 @@ export interface CustomerStatusPublicView {
 export interface CustomerStatusIssuedLink {
   order_id: string;
   url: string;
-  expires_at: string;
+  expires_at: string | null;
 }
 
 const customerStageByBucket: Record<

@@ -22,6 +22,7 @@ import { toast } from "sonner";
 
 import { OrderTypeBadge, StatusBadge } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,6 +70,8 @@ export function OrderHero({
   taskHint,
   approvalDecisionAvailable = false,
   financeSummary,
+  contextualStatus,
+  printRecovery,
 }: {
   order: OrderDetail["order"];
   onPrint: () => void;
@@ -94,6 +97,8 @@ export function OrderHero({
   taskHint?: string;
   approvalDecisionAvailable?: boolean;
   financeSummary?: ReactNode;
+  contextualStatus?: ReactNode;
+  printRecovery?: ReactNode;
 }) {
   const sideBadges = getOrderSideStatusBadges(order);
   const guidance = getOrderTaskGuidance(order);
@@ -134,17 +139,45 @@ export function OrderHero({
   const missingItems = readiness.filter((item) => !item.done);
   const heroActions = (
     <div className="flex min-w-0 shrink-0 items-center justify-end gap-1">
-      <Button
-        size="icon"
-        variant="outline"
-        className="size-7"
-        disabled={printDisabled}
-        onClick={onPrint}
-        aria-label={printDisabled ? (printDisabledReason ?? "当前工单暂不可打印") : "打印"}
-        title={printDisabled ? (printDisabledReason ?? "当前工单暂不可打印") : "打印"}
-      >
-        <Printer className="size-4" />
-      </Button>
+      {printDisabled && printRecovery ? (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              size="icon"
+              variant="outline"
+              className="relative size-7 border-status-warn-foreground/30 text-status-warn-foreground"
+              aria-label={`${printDisabledReason ?? "当前工单暂不可打印"}，查看解决方法`}
+              title={printDisabledReason ?? "当前工单暂不可打印"}
+            >
+              <Printer className="size-4" />
+              <span
+                className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-status-warn-foreground"
+                aria-hidden="true"
+              />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            className="w-[min(380px,calc(100vw-24px))] p-2"
+            aria-label="打印配置提示"
+          >
+            {printRecovery}
+          </PopoverContent>
+        </Popover>
+      ) : (
+        <Button
+          size="icon"
+          variant="outline"
+          className="size-7"
+          disabled={printDisabled}
+          aria-busy={printDisabled && printDisabledReason === "正在准备打印内容"}
+          onClick={onPrint}
+          aria-label={printDisabled ? (printDisabledReason ?? "当前工单暂不可打印") : "打印"}
+          title={printDisabled ? (printDisabledReason ?? "当前工单暂不可打印") : "打印"}
+        >
+          <Printer className="size-4" />
+        </Button>
+      )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button size="icon" variant="outline" className="size-7" aria-label="更多工单操作">
@@ -167,7 +200,7 @@ export function OrderHero({
               onClick={onRevokeCustomerStatusLinks}
             >
               <QrCode className="mr-2 size-3.5" />
-              {customerStatusRevokePending ? "正在停用二维码" : "停用已打印二维码"}
+              {customerStatusRevokePending ? "正在重置二维码" : "重置固定二维码"}
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuSeparator />
@@ -301,6 +334,8 @@ export function OrderHero({
           </div>
           {heroActions}
         </div>
+
+        {contextualStatus ? <div className="min-w-0">{contextualStatus}</div> : null}
 
         <section
           className={cn(
