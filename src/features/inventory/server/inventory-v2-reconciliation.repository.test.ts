@@ -57,4 +57,16 @@ describe("reconcileInventoryV2", () => {
     });
     await expect(reconcileInventoryV2(actor)).rejects.toThrow(/结果不完整/);
   });
+
+  it("does not expose Supabase details when the dependency fails", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "SECRET database schema detail" },
+    });
+    await expect(reconcileInventoryV2(actor)).rejects.toMatchObject({
+      code: "INVENTORY_V2_DEPENDENCY_UNAVAILABLE",
+      status: 503,
+      message: "库存 V2 对账服务暂时不可用",
+    });
+  });
 });

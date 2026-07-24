@@ -26,7 +26,12 @@ type RouteContext = {
 const ORDER_DATA_MULTIPART_MAX_BYTES = 4_400_000;
 const AI_ORDER_TURN_MAX_BYTES = 4_096;
 const AI_ORDER_ACTION_MAX_BYTES = 2_048;
+export const INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES = 65_536;
 const PRIVATE_NO_STORE_HEADERS = { "Cache-Control": "private, no-store, max-age=0" };
+
+function isInventoryV2CommandPath(path: string) {
+  return path === "inventory/v2/intake/create" || path === "inventory/v2/sales/complete";
+}
 
 function privateError(error: string, status: number) {
   return NextResponse.json({ error }, { status, headers: PRIVATE_NO_STORE_HEADERS });
@@ -109,6 +114,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
   ) {
     return privateError("AI 图片请求过大，请重新裁剪标签后重试", 413);
   }
+  if (
+    isInventoryV2CommandPath(path) &&
+    Number.isFinite(contentLength) &&
+    contentLength > INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES
+  ) {
+    return privateError("库存 V2 请求过大，请减少备注或标识符后重试", 413);
+  }
   try {
     assertRepairDeskPostRequestAllowed({
       headers: request.headers,
@@ -173,7 +185,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
             ? await readJsonWithLimit(request, AI_ORDER_TURN_MAX_BYTES)
             : path === "ai/order/action"
               ? await readJsonWithLimit(request, AI_ORDER_ACTION_MAX_BYTES)
-              : await readJson(request);
+              : isInventoryV2CommandPath(path)
+                ? await readJsonWithLimit(request, INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES)
+                : await readJson(request);
   } catch (error) {
     if (error instanceof RequestPayloadTooLargeError) {
       return privateError(
@@ -181,7 +195,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
           ? "AI 图片请求过大，请重新裁剪标签后重试"
           : path === "ai/order/action"
             ? "AI 订单操作请求过大，请刷新后重试"
-            : "AI 查询请求过大，请缩短问题后重试",
+            : isInventoryV2CommandPath(path)
+              ? "库存 V2 请求过大，请减少备注或标识符后重试"
+              : "AI 查询请求过大，请缩短问题后重试",
         413,
       );
     }

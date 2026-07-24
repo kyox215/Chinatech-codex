@@ -103,6 +103,7 @@ export function AiAssistantSheet({
   const requestSequenceRef = useRef(0);
   const lastClientRequestIdRef = useRef<string | undefined>(undefined);
   const canSubmit = capabilities?.canUseOrderAssistant === true;
+  const canUseOrderModel = capabilities?.canUseOrderModel === true;
   const voiceInput = useAiAssistantVoiceInput({
     value: input,
     onValueChange: setInput,
@@ -112,6 +113,10 @@ export function AiAssistantSheet({
     lang: locale,
   });
   const abortVoiceInput = voiceInput.abort;
+
+  useEffect(() => {
+    if (!canUseOrderModel) setProcessingMode("local");
+  }, [canUseOrderModel]);
 
   useEffect(() => {
     const syncOnlineState = () => setIsOnline(window.navigator.onLine);
@@ -419,6 +424,7 @@ export function AiAssistantSheet({
             onOpenChange={setControlDetailsOpen}
             processingMode={processingMode}
             onProcessingModeChange={setProcessingMode}
+            canUseModel={canUseOrderModel}
             canSubmit={canSubmit}
             capabilitiesLoading={capabilitiesLoading}
             capabilitiesError={capabilitiesError}

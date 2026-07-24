@@ -22,6 +22,7 @@ export function AiProcessingUsageDisclosure({
   onOpenChange,
   processingMode,
   onProcessingModeChange,
+  canUseModel,
   canSubmit,
   capabilitiesLoading,
   capabilitiesError,
@@ -37,6 +38,7 @@ export function AiProcessingUsageDisclosure({
   onOpenChange: (open: boolean) => void;
   processingMode: AiAssistantProcessingMode;
   onProcessingModeChange: (mode: AiAssistantProcessingMode) => void;
+  canUseModel: boolean;
   canSubmit: boolean;
   capabilitiesLoading: boolean;
   capabilitiesError: boolean;
@@ -117,7 +119,7 @@ export function AiProcessingUsageDisclosure({
             onValueChange={(value) => {
               if (value === "local" || value === "model") onProcessingModeChange(value);
             }}
-            className="grid grid-cols-2 gap-2"
+            className={cn("grid gap-2", canUseModel ? "grid-cols-2" : "grid-cols-1")}
           >
             <ModeToggle
               value="local"
@@ -125,12 +127,14 @@ export function AiProcessingUsageDisclosure({
               label="本地处理"
               hint="固定规则 · 不调用模型"
             />
-            <ModeToggle
-              value="model"
-              icon={<Sparkles className="size-3.5" />}
-              label="大模型辅助"
-              hint="复杂语句 · 计入用量"
-            />
+            {canUseModel ? (
+              <ModeToggle
+                value="model"
+                icon={<Sparkles className="size-3.5" />}
+                label="大模型辅助"
+                hint="复杂语句 · 计入用量"
+              />
+            ) : null}
           </ToggleGroup>
         </fieldset>
 
@@ -155,6 +159,7 @@ export function AiProcessingUsageDisclosure({
               费用；仍需联网查询当前门店数据。
             </p>
           )}
+          {!canUseModel ? <p className="mt-1">当前门店未开放外部大模型处理。</p> : null}
           {voiceSupported ? (
             <p className="mt-1 flex items-start gap-1.5">
               <Mic className="mt-0.5 size-3 shrink-0" aria-hidden="true" />

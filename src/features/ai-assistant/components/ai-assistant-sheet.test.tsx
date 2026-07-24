@@ -19,6 +19,7 @@ import { mergeVoiceInputValue } from "./use-ai-assistant-voice-input";
 
 const capabilities = {
   canUseOrderAssistant: true,
+  canUseOrderModel: true,
   canUseOrderInlineActions: false,
   canUseVisionIntake: false,
   canApplyInventoryDraft: false,
@@ -394,6 +395,7 @@ describe("AiAssistantSheet", () => {
     renderSheet({
       capabilities: {
         canUseOrderAssistant: false,
+        canUseOrderModel: false,
         canUseOrderInlineActions: false,
         canUseVisionIntake: false,
         canApplyInventoryDraft: false,
@@ -407,7 +409,7 @@ describe("AiAssistantSheet", () => {
     expect(processingTrigger).toHaveTextContent("当前不可用");
     fireEvent.click(processingTrigger);
     expect(screen.getByRole("radio", { name: "使用本地处理" })).toBeDisabled();
-    expect(screen.getByRole("radio", { name: "使用大模型辅助" })).toBeDisabled();
+    expect(screen.queryByRole("radio", { name: "使用大模型辅助" })).not.toBeInTheDocument();
   });
 
   it("fills the composer from voice without automatically sending a query", async () => {

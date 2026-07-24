@@ -5,7 +5,7 @@ import { createInventoryUnitV2 } from "./inventory-v2-intake.repository";
 const mocks = vi.hoisted(() => ({ rpc: vi.fn() }));
 
 vi.mock("@/server/supabase", () => ({ getSupabaseAdmin: () => ({ rpc: mocks.rpc }) }));
-vi.mock("./inventory-v2-feature-flags", () => ({ assertInventoryV2CommandEnabled: vi.fn() }));
+vi.mock("./inventory-v2-access", () => ({ assertInventoryV2IntakeAccess: vi.fn() }));
 
 const actor = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -55,5 +55,17 @@ describe("createInventoryUnitV2", () => {
       error: null,
     });
     await expect(createInventoryUnitV2(input, actor)).rejects.toThrow(/已经绑定/);
+  });
+
+  it("does not expose Supabase details when the dependency fails", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "SECRET database schema detail" },
+    });
+    await expect(createInventoryUnitV2(input, actor)).rejects.toMatchObject({
+      code: "INVENTORY_V2_DEPENDENCY_UNAVAILABLE",
+      status: 503,
+      message: "创建设备库存服务暂时不可用",
+    });
   });
 });

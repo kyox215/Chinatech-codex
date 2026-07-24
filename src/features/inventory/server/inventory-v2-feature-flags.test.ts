@@ -32,6 +32,25 @@ describe("inventory V2 feature flags", () => {
     ).toBe(false);
   });
 
+  it("supports an explicit all-store rollout with per-store emergency rollback", () => {
+    const allStores = {
+      ...enabled,
+      INVENTORY_V2_STORE_ALLOWLIST: "",
+      INVENTORY_V2_ALL_STORES_ENABLED: "1",
+      INVENTORY_V2_STORE_DENYLIST: "store-c",
+    };
+
+    expect(isInventoryV2ShadowReadEnabledForStore("store-a", allStores)).toBe(true);
+    expect(isInventoryV2CommandEnabledForStore("store-b", allStores)).toBe(true);
+    expect(isInventoryV2UiEnabledForStore("store-c", allStores)).toBe(false);
+    expect(
+      isInventoryV2CommandEnabledForStore("store-b", {
+        ...allStores,
+        INVENTORY_V2_SCHEMA_READY: "0",
+      }),
+    ).toBe(false);
+  });
+
   it("keeps V1 mutations enabled unless explicitly disabled", () => {
     expect(areLegacyInventoryMutationsEnabled({})).toBe(true);
     expect(areLegacyInventoryMutationsEnabled({ INVENTORY_LEGACY_MUTATIONS_ENABLED: "0" })).toBe(

@@ -67,9 +67,9 @@ import {
   isStoreLifecyclePurgeSchedulingEnabled,
 } from "@/features/stores/server/store-lifecycle-feature-flags";
 import {
-  isInventoryV2CommandEnabledForStore,
-  isInventoryV2UiEnabledForStore,
-} from "@/features/inventory/server/inventory-v2-feature-flags";
+  canUseInventoryV2Commands,
+  canUseInventoryV2Ui,
+} from "@/features/inventory/server/inventory-v2-access";
 
 const ACTIVE_STORE_COOKIE = "repairdesk-store-id";
 const STORE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -1447,8 +1447,8 @@ async function storePermissionsFromActor(
     canReadInventory: can(actor, "inventory:read"),
     canCreateInventory: can(actor, "inventory:create"),
     canSellInventory: can(actor, "inventory:sale"),
-    inventoryV2UiEnabled: isInventoryV2UiEnabledForStore(actor.storeId),
-    inventoryV2CommandsEnabled: isInventoryV2CommandEnabledForStore(actor.storeId),
+    inventoryV2UiEnabled: canUseInventoryV2Ui(actor),
+    inventoryV2CommandsEnabled: canUseInventoryV2Commands(actor),
     canManageOrderData,
     canApplyOrderData: canManageOrderData && isOrderDataApplyEnabled(),
     canSearchOrderArchive: can(actor, "order:archive_search"),

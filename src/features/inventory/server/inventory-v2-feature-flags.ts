@@ -1,9 +1,13 @@
+import { isStoreRolloutEnabled } from "@/shared/lib/store-rollout";
+
 export type InventoryV2FeatureEnvironment = {
   INVENTORY_V2_SCHEMA_READY?: string;
   INVENTORY_V2_SHADOW_READ?: string;
   INVENTORY_V2_COMMANDS?: string;
   INVENTORY_V2_UI?: string;
+  INVENTORY_V2_ALL_STORES_ENABLED?: string;
   INVENTORY_V2_STORE_ALLOWLIST?: string;
+  INVENTORY_V2_STORE_DENYLIST?: string;
   INVENTORY_LEGACY_MUTATIONS_ENABLED?: string;
 };
 
@@ -35,12 +39,23 @@ export function isInventoryV2StoreEnabled(
   storeId: string | null | undefined,
   env: InventoryV2FeatureEnvironment = process.env as InventoryV2FeatureEnvironment,
 ) {
-  if (!storeId) return false;
-  return (env.INVENTORY_V2_STORE_ALLOWLIST ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean)
-    .includes(storeId);
+  return isStoreRolloutEnabled({
+    storeId,
+    allStoresEnabled: env.INVENTORY_V2_ALL_STORES_ENABLED,
+    allowlist: env.INVENTORY_V2_STORE_ALLOWLIST,
+    denylist: env.INVENTORY_V2_STORE_DENYLIST,
+  });
+}
+
+export function isInventoryV2StoreExplicitlyAllowlisted(
+  storeId: string | null | undefined,
+  env: InventoryV2FeatureEnvironment = process.env as InventoryV2FeatureEnvironment,
+) {
+  return isStoreRolloutEnabled({
+    storeId,
+    allowlist: env.INVENTORY_V2_STORE_ALLOWLIST,
+    denylist: env.INVENTORY_V2_STORE_DENYLIST,
+  });
 }
 
 export function isInventoryV2CommandEnabledForStore(

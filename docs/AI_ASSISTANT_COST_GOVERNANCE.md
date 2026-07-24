@@ -14,6 +14,8 @@ Phase 3B 已实现真实 OpenAI Responses API 适配器、Supabase durable 预�
 
 2026-07-19 的 Vision 发布候选在最新 `ai-runtime-v2` 基线上新增 server-side Sharp 信任边界、稳定 client UUID、净化图片 + 精确模型请求指纹、Chinatech-only 图片外发、读大请求体前 capability/短窗限流、provider 配置错误失败关闭与云端标识符重校验。它已通过合成图片与 mocked cloud 验证，但仍是本地候选；生产当前状态以 `docs/AI_ASSISTANT_LIVE_PILOT_RUNBOOK.md` 为准。Vision D4 建议复用已批准的 `$50/月` v2 共享政策，照片外发仍需独立批准，详见 `docs/AI_ASSISTANT_VISION_PILOT_RUNBOOK.md`。
 
+2026-07-24 的多店铺应用候选把订单助手拆成两个门店发布面：所有店铺可通过独立全店铺开关获得本地只读查询；外部文字模型仍要求精确 provider allowlist。未获 provider 权限的门店在进入预算预留和供应商构造前就返回本地澄清，因此不会产生外发或模型费用。Vision、草稿应用、行内写入和公开助手没有随本地只读能力扩大。当前预算合同只有每店每日次数、全局每日次数和共享全局月度 micro-USD 上限，没有每店独立月预算。
+
 ## 请求顺序
 
 ```text
@@ -133,6 +135,9 @@ Phase 3B 已实现真实 OpenAI Responses API 适配器、Supabase durable 预�
 以下 live 配置必须全部存在、有效且版本匹配，任何缺项均保持 `AI_MISCONFIGURED`：
 
 ```dotenv
+AI_ORDER_ASSISTANT_ALL_STORES_ENABLED=0
+AI_ORDER_ASSISTANT_STORE_DENYLIST=
+AI_ORDER_PROVIDER_STORE_ALLOWLIST=
 AI_ASSISTANT_EXTERNAL_DATA_APPROVED=0
 AI_ASSISTANT_ORDER_EXTERNAL_DATA_APPROVED=0
 AI_ASSISTANT_VISION_EXTERNAL_DATA_APPROVED=0

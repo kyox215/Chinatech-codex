@@ -18,6 +18,7 @@ describe("AI assistant capability projection", () => {
   it("fails closed when the parent feature flag is absent", () => {
     expect(getAiAssistantCapabilities(actor("owner"), {})).toEqual({
       canUseOrderAssistant: false,
+      canUseOrderModel: false,
       canUseOrderInlineActions: false,
       canUseVisionIntake: false,
       canApplyInventoryDraft: false,
@@ -28,6 +29,7 @@ describe("AI assistant capability projection", () => {
   it("does not expose first-release AI capabilities to viewers", () => {
     expect(getAiAssistantCapabilities(actor("viewer"), enabled)).toEqual({
       canUseOrderAssistant: false,
+      canUseOrderModel: false,
       canUseOrderInlineActions: false,
       canUseVisionIntake: false,
       canApplyInventoryDraft: false,
@@ -51,6 +53,7 @@ describe("AI assistant capability projection", () => {
   it("projects enabled owner capabilities without granting anything beyond RBAC", () => {
     expect(getAiAssistantCapabilities(actor("owner"), enabled)).toEqual({
       canUseOrderAssistant: true,
+      canUseOrderModel: true,
       canUseOrderInlineActions: false,
       canUseVisionIntake: true,
       canApplyInventoryDraft: true,
@@ -65,6 +68,7 @@ describe("AI assistant capability projection", () => {
       }),
     ).toEqual({
       canUseOrderAssistant: false,
+      canUseOrderModel: false,
       canUseOrderInlineActions: false,
       canUseVisionIntake: false,
       canApplyInventoryDraft: false,
@@ -80,11 +84,42 @@ describe("AI assistant capability projection", () => {
       }),
     ).toEqual({
       canUseOrderAssistant: false,
+      canUseOrderModel: false,
       canUseOrderInlineActions: false,
       canUseVisionIntake: false,
       canApplyInventoryDraft: false,
       reason: "rollout_not_enabled",
     });
+  });
+
+  it("opens only order text to every store while vision remains on the pilot allowlist", () => {
+    expect(
+      getAiAssistantCapabilities(actor("owner", { storeId: "store-2" }), {
+        ...enabled,
+        AI_ORDER_ASSISTANT_ALL_STORES_ENABLED: "1",
+      }),
+    ).toEqual({
+      canUseOrderAssistant: true,
+      canUseOrderModel: false,
+      canUseOrderInlineActions: false,
+      canUseVisionIntake: false,
+      canApplyInventoryDraft: false,
+    });
+  });
+
+  it("lets one store be disabled without closing order text for every tenant", () => {
+    const env = {
+      ...enabled,
+      AI_ORDER_ASSISTANT_ALL_STORES_ENABLED: "1",
+      AI_ORDER_ASSISTANT_STORE_DENYLIST: "store-2",
+    };
+
+    expect(
+      getAiAssistantCapabilities(actor("owner", { storeId: "store-2" }), env).canUseOrderAssistant,
+    ).toBe(false);
+    expect(
+      getAiAssistantCapabilities(actor("owner", { storeId: "store-3" }), env).canUseOrderAssistant,
+    ).toBe(true);
   });
 
   it("allows the repository's system actor only under the explicit E2E bypass", () => {
@@ -103,6 +138,16 @@ describe("AI assistant capability projection", () => {
     expect(getAiAssistantCapabilities(actor("manager"), actionEnv).canUseOrderInlineActions).toBe(
       false,
     );
+  });
+
+  it("does not inherit inline writes from the all-store read rollout", () => {
+    expect(
+      getAiAssistantCapabilities(actor("owner", { storeId: "store-2" }), {
+        ...enabled,
+        AI_ORDER_ASSISTANT_ALL_STORES_ENABLED: "1",
+        AI_ORDER_INLINE_ACTIONS_ENABLED: "1",
+      }).canUseOrderInlineActions,
+    ).toBe(false);
   });
 
   it("never grants the E2E system actor in production", () => {

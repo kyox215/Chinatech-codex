@@ -4,6 +4,8 @@ import {
   isAiAssistantStoreEnabled,
   isAiDraftApplyEnabled,
   isAiOrderInlineActionsEnabled,
+  isAiOrderAssistantStoreEnabled,
+  isAiOrderProviderStoreEnabled,
   isAiOrderReadToolsEnabled,
   isAiVisionIntakeEnabled,
   type AiAssistantFeatureEnvironment,
@@ -19,6 +21,7 @@ export function getAiAssistantCapabilities(
   if (!isAiAssistantEnabled(env)) {
     return {
       canUseOrderAssistant: false,
+      canUseOrderModel: false,
       canUseOrderInlineActions: false,
       canUseVisionIntake: false,
       canApplyInventoryDraft: false,
@@ -30,29 +33,36 @@ export function getAiAssistantCapabilities(
   const role = actor.storeRole ?? actor.role;
   const hasScopedMembership = Boolean(actor.activeMembershipId);
   const firstReleaseRoleAllowed = isE2eSystemActor || role !== "viewer";
-  const storeRolloutAllowed = isE2eSystemActor || isAiAssistantStoreEnabled(actor.storeId, env);
+  const orderStoreRolloutAllowed =
+    isE2eSystemActor || isAiOrderAssistantStoreEnabled(actor.storeId, env);
+  const pilotStoreRolloutAllowed =
+    isE2eSystemActor || isAiAssistantStoreEnabled(actor.storeId, env);
   const canReadOrders =
     isE2eSystemActor || can(actor, "order:list", { scopeSatisfied: hasScopedMembership });
   const canCreateInventory = isE2eSystemActor || can(actor, "inventory:create");
   const canUseOrderAssistant =
-    storeRolloutAllowed &&
+    orderStoreRolloutAllowed &&
     firstReleaseRoleAllowed &&
     canReadOrders &&
     isAiOrderReadToolsEnabled(env);
+  const canUseOrderModel =
+    canUseOrderAssistant && (isE2eSystemActor || isAiOrderProviderStoreEnabled(actor.storeId, env));
   const canUseVisionIntake =
-    storeRolloutAllowed &&
+    pilotStoreRolloutAllowed &&
     firstReleaseRoleAllowed &&
     canCreateInventory &&
     isAiVisionIntakeEnabled(env);
   const canApplyInventoryDraft = canUseVisionIntake && isAiDraftApplyEnabled(env);
   const canUseOrderInlineActions =
     canUseOrderAssistant &&
+    pilotStoreRolloutAllowed &&
     isAiOrderInlineActionsEnabled(env) &&
     (isE2eSystemActor || role === "owner") &&
     (isE2eSystemActor || can(actor, "order:transition", { scopeSatisfied: hasScopedMembership }));
 
   return {
     canUseOrderAssistant,
+    canUseOrderModel,
     canUseOrderInlineActions,
     canUseVisionIntake,
     canApplyInventoryDraft,

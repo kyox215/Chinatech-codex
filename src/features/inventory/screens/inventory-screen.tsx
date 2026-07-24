@@ -109,6 +109,7 @@ import {
   type InventoryBuybackSummary,
 } from "@/features/inventory/model/inventory-buyback-summary";
 import { resolveInventoryIntakeRoute } from "@/features/inventory/model/inventory-intake-route";
+import { resolveInventoryV2UiCapabilities } from "@/features/inventory/model/inventory-v2-ui-capabilities";
 import {
   buildInventorySaleReceiptData,
   getInventoryWarrantyState,
@@ -211,9 +212,8 @@ export function InventoryScreen() {
   const [action, setAction] = useState<InventoryActionMode | null>(null);
   const itemFocusFallbackRef = useRef<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const inventoryV2Available =
-    shell.permissions?.inventoryV2UiEnabled === true &&
-    shell.permissions?.inventoryV2CommandsEnabled === true;
+  const inventoryV2Capabilities = resolveInventoryV2UiCapabilities(shell.permissions);
+  const inventoryV2Available = inventoryV2Capabilities.canUseIntake;
   const requestedIntakeRoute = resolveInventoryIntakeRoute({
     requested: searchParams.get("new") === "1",
     authorityReady: intakeAuthorityReady,
@@ -559,7 +559,7 @@ export function InventoryScreen() {
         storeOutputIdentity={storeOutputIdentity}
         canReadStoreSettings={shell.permissions?.canReadStoreSettings === true}
         canUpdateStoreSettings={shell.permissions?.canUpdateStoreSettings === true}
-        useAtomicSale={inventoryV2Available && shell.permissions?.canSellInventory === true}
+        useAtomicSale={inventoryV2Capabilities.canUseAtomicSale}
         onRetryStoreSettings={storeSettingsQuery.refetch}
         onReloadStoreContext={shell.retry}
         onOpenChange={(open) => {

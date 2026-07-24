@@ -82,6 +82,8 @@ src/
 ### AI Assistant Cost Governance
 
 - `features/ai-assistant/server/order-intent-router.ts` is a conservative pure route before provider selection; it never owns actor/store scope or business reads.
+- Multi-store rollout has two independent planes: `AI_ORDER_ASSISTANT_ALL_STORES_ENABLED` can expose only local/read-only order assistance, while external text processing requires an exact `AI_ORDER_PROVIDER_STORE_ALLOWLIST` match. Vision, draft apply and inline writes continue to use the narrower pilot allowlist.
+- Shared rollout lists use exact store IDs, fail closed on missing IDs, give the denylist precedence, and do not treat `*` as a wildcard.
 - Every AI endpoint uses a short-window abuse guard. Provider quota is separate and is consumed only after direct/local resolution fails.
 - `cost-policy.ts`, `runtime-policy.ts`, `provider-signal.ts`, and `safety-identifier.ts` are server-only policy boundaries; client UI must not choose a model, budget, deadline, price, store, or Safety ID.
 - `provider-budget.ts` is the business-facing durable reservation contract. Business services must not import Supabase RPC types directly.

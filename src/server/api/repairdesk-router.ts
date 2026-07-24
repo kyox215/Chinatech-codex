@@ -158,10 +158,11 @@ import {
   updateInventoryItem,
   uploadInventoryAttachment,
 } from "@/features/inventory/server/inventory.service";
+import { assertInventoryV2ShadowReadEnabled } from "@/features/inventory/server/inventory-v2-feature-flags";
 import {
-  assertInventoryV2CommandEnabled,
-  assertInventoryV2ShadowReadEnabled,
-} from "@/features/inventory/server/inventory-v2-feature-flags";
+  assertInventoryV2IntakeAccess,
+  assertInventoryV2SaleAccess,
+} from "@/features/inventory/server/inventory-v2-access";
 import { completeInventorySaleV2BodySchema } from "@/features/inventory/model/inventory-v2-sale-contract";
 import { createInventoryUnitV2BodySchema } from "@/features/inventory/model/inventory-v2-intake-contract";
 import {
@@ -2541,7 +2542,7 @@ export async function handleRepairDeskPost(
       case "inventory/v2/intake/create": {
         const { input } = createInventoryUnitV2BodySchema.parse(body);
         assertInventoryCreatePermission(actor);
-        assertInventoryV2CommandEnabled(actor.storeId ?? "");
+        assertInventoryV2IntakeAccess(actor);
         return ok(
           await runWithRealtime(
             actor,
@@ -2645,7 +2646,7 @@ export async function handleRepairDeskPost(
       case "inventory/v2/sales/complete": {
         const { id, input } = completeInventorySaleV2BodySchema.parse(body);
         assertInventorySalePermission(actor);
-        assertInventoryV2CommandEnabled(actor.storeId ?? "");
+        assertInventoryV2SaleAccess(actor);
         return ok(
           await runWithRealtime(
             actor,

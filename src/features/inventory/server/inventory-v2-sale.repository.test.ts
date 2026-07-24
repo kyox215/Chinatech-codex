@@ -8,8 +8,8 @@ vi.mock("@/server/supabase", () => ({
   getSupabaseAdmin: () => ({ rpc: mocks.rpc }),
 }));
 
-vi.mock("./inventory-v2-feature-flags", () => ({
-  assertInventoryV2CommandEnabled: vi.fn(),
+vi.mock("./inventory-v2-access", () => ({
+  assertInventoryV2SaleAccess: vi.fn(),
 }));
 
 const actor = {
@@ -72,5 +72,17 @@ describe("completeInventorySaleV2", () => {
 
     mocks.rpc.mockResolvedValue({ data: { ok: true, code: "completed" }, error: null });
     await expect(completeInventorySaleV2("item-1", input, actor)).rejects.toThrow(/结果不完整/);
+  });
+
+  it("does not expose Supabase details when the dependency fails", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "SECRET database schema detail" },
+    });
+    await expect(completeInventorySaleV2("item-1", input, actor)).rejects.toMatchObject({
+      code: "INVENTORY_V2_DEPENDENCY_UNAVAILABLE",
+      status: 503,
+      message: "确认库存销售服务暂时不可用",
+    });
   });
 });

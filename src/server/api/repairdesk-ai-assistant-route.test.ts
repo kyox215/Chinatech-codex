@@ -110,6 +110,7 @@ describe("AI assistant BFF routes", () => {
     await expect(response.json()).resolves.toEqual({
       data: {
         canUseOrderAssistant: false,
+        canUseOrderModel: false,
         canUseOrderInlineActions: false,
         canUseVisionIntake: false,
         canApplyInventoryDraft: false,
@@ -282,6 +283,30 @@ describe("AI assistant BFF routes", () => {
     );
 
     expect(response.status).toBe(400);
+    expect(mocks.getAiAssistantProvider).not.toHaveBeenCalled();
+    expect(mocks.listOrdersPage).not.toHaveBeenCalled();
+  });
+
+  it("keeps a globally enabled second store off the external provider path", async () => {
+    const secondStoreOwner = {
+      ...owner,
+      storeId: "store-2",
+      activeMembershipId: "membership-store-2",
+    };
+    mocks.getRequestActor.mockResolvedValue(secondStoreOwner);
+    vi.stubEnv("AI_ASSISTANT_ENABLED", "1");
+    vi.stubEnv("AI_ORDER_READ_TOOLS_ENABLED", "1");
+    vi.stubEnv("AI_ORDER_ASSISTANT_ALL_STORES_ENABLED", "1");
+    vi.stubEnv("AI_ASSISTANT_STORE_ALLOWLIST", "store-1");
+
+    const response = await handleRepairDeskPost(
+      "ai/order/turn",
+      { message: "帮我概括一下这些维修情况", locale: "zh-CN", processing_mode: "model" },
+      secondStoreOwner,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ data: { kind: "clarification" } });
     expect(mocks.getAiAssistantProvider).not.toHaveBeenCalled();
     expect(mocks.listOrdersPage).not.toHaveBeenCalled();
   });

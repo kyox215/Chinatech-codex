@@ -530,6 +530,64 @@ describe("order assistant service", () => {
     );
   });
 
+  it("keeps a globally enabled second store local even when model mode is requested", async () => {
+    const providerFactory = vi.fn(() => providerFor(searchCall()));
+    const listOrdersPage = vi.fn();
+    const consumeQuota = vi.fn();
+    const secondStoreActor = { ...owner, storeId: "store-2", activeMembershipId: "member-2" };
+
+    const response = await runAiOrderAssistantTurn({
+      actor: secondStoreActor,
+      input: { message: "帮我概括一下这些维修情况", locale: "zh-CN", processing_mode: "model" },
+      dependencies: {
+        provider: providerFactory,
+        listOrdersPage,
+        getOrder: vi.fn(),
+        env: {
+          ...enabledEnv,
+          AI_ORDER_ASSISTANT_ALL_STORES_ENABLED: "1",
+        },
+        consumeQuota,
+      },
+    });
+
+    expect(response).toMatchObject({ kind: "clarification" });
+    expect(response.message).toContain("仅开放本地查询");
+    expect(providerFactory).not.toHaveBeenCalled();
+    expect(consumeQuota).not.toHaveBeenCalled();
+    expect(listOrdersPage).not.toHaveBeenCalled();
+    expect(mocks.writeAiAssistantAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "none",
+        resolutionPath: "local",
+        policyVersion: "order-provider-rollout-v1",
+      }),
+    );
+  });
+
+  it("runs a second store deterministic query with that store actor and no provider", async () => {
+    const providerFactory = vi.fn(() => providerFor(searchCall()));
+    const secondStoreActor = { ...owner, storeId: "store-2", activeMembershipId: "member-2" };
+    const listOrdersPage = vi.fn(async () => result([], 0));
+
+    await runAiOrderAssistantTurn({
+      actor: secondStoreActor,
+      input: { message: "苹果15", locale: "zh-CN" },
+      dependencies: {
+        provider: providerFactory,
+        listOrdersPage,
+        getOrder: vi.fn(),
+        env: {
+          ...enabledEnv,
+          AI_ORDER_ASSISTANT_ALL_STORES_ENABLED: "1",
+        },
+      },
+    });
+
+    expect(providerFactory).not.toHaveBeenCalled();
+    expect(listOrdersPage).toHaveBeenCalledWith(expect.any(Object), secondStoreActor);
+  });
+
   it("forces an explicit model query through the provider even when local rules can parse it", async () => {
     const provider = providerFor(searchCall({ device_search: "iPhone 15", search: null }));
     const consumeQuota = vi.fn();

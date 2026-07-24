@@ -4,10 +4,11 @@ import type {
   CompleteInventorySaleV2Result,
   InventoryV2FiscalStatus,
 } from "@/lib/repairdesk/types";
-import { fail, requireStoreIdFromActor } from "@/server/repairdesk-shared";
+import { requireStoreIdFromActor } from "@/server/repairdesk-shared";
 import { getSupabaseAdmin } from "@/server/supabase";
 
-import { assertInventoryV2CommandEnabled } from "./inventory-v2-feature-flags";
+import { assertInventoryV2SaleAccess } from "./inventory-v2-access";
+import { inventoryV2DependencyError, runInventoryV2Dependency } from "./inventory-v2-errors";
 
 type InventorySaleRpcResponse = {
   ok?: boolean;
@@ -44,27 +45,31 @@ export async function completeInventorySaleV2(
   actor: AuditActor,
 ): Promise<CompleteInventorySaleV2Result> {
   const storeId = requireStoreIdFromActor(actor);
-  assertInventoryV2CommandEnabled(storeId);
+  assertInventoryV2SaleAccess(actor);
   if (!actor.id) throw new Error("当前员工身份无效，请重新登录");
 
-  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_complete_inventory_sale_v2", {
-    p_store_id: storeId,
-    p_item_id: id,
-    p_actor_id: actor.id,
-    p_expected_updated_at: input.expected_updated_at,
-    p_idempotency_key: input.idempotency_key,
-    p_buyer_customer_id: input.buyer_customer_id ?? null,
-    p_sale_price: input.sale_price,
-    p_payment_amount: input.payment_amount,
-    p_payment_method: input.payment_method,
-    p_sale_channel: input.sale_channel,
-    p_warranty_months: input.warranty_months,
-    p_warranty_snapshot: input.warranty_snapshot,
-    p_fiscal_status: input.fiscal_status,
-    p_fiscal_reference: input.fiscal_reference ?? null,
-    p_sold_at: input.sold_at,
-  });
-  fail(error, "确认库存销售失败");
+  const { data, error } = await runInventoryV2Dependency(
+    () =>
+      getSupabaseAdmin().rpc("repairdesk_complete_inventory_sale_v2", {
+        p_store_id: storeId,
+        p_item_id: id,
+        p_actor_id: actor.id,
+        p_expected_updated_at: input.expected_updated_at,
+        p_idempotency_key: input.idempotency_key,
+        p_buyer_customer_id: input.buyer_customer_id ?? null,
+        p_sale_price: input.sale_price,
+        p_payment_amount: input.payment_amount,
+        p_payment_method: input.payment_method,
+        p_sale_channel: input.sale_channel,
+        p_warranty_months: input.warranty_months,
+        p_warranty_snapshot: input.warranty_snapshot,
+        p_fiscal_status: input.fiscal_status,
+        p_fiscal_reference: input.fiscal_reference ?? null,
+        p_sold_at: input.sold_at,
+      }),
+    "确认库存销售服务暂时不可用",
+  );
+  if (error) throw inventoryV2DependencyError("确认库存销售服务暂时不可用");
 
   const result = recordOrEmpty(data) as InventorySaleRpcResponse;
   if (result.ok !== true) {

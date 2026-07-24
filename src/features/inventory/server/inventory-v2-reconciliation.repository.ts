@@ -1,8 +1,9 @@
 import type { AuditActor } from "@/lib/repairdesk/types";
-import { fail, requireStoreIdFromActor } from "@/server/repairdesk-shared";
+import { requireStoreIdFromActor } from "@/server/repairdesk-shared";
 import { getSupabaseAdmin } from "@/server/supabase";
 
 import { assertInventoryV2ShadowReadEnabled } from "./inventory-v2-feature-flags";
+import { inventoryV2DependencyError, runInventoryV2Dependency } from "./inventory-v2-errors";
 
 export type InventoryV2ReconciliationReport = {
   ok: true;
@@ -44,11 +45,15 @@ export async function reconcileInventoryV2(
   assertInventoryV2ShadowReadEnabled(storeId);
   if (!actor.id) throw new Error("当前员工身份无效，请重新登录");
 
-  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_inventory_v2_reconcile", {
-    p_store_id: storeId,
-    p_actor_id: actor.id,
-  });
-  fail(error, "读取库存 V2 影子对账失败");
+  const { data, error } = await runInventoryV2Dependency(
+    () =>
+      getSupabaseAdmin().rpc("repairdesk_inventory_v2_reconcile", {
+        p_store_id: storeId,
+        p_actor_id: actor.id,
+      }),
+    "库存 V2 对账服务暂时不可用",
+  );
+  if (error) throw inventoryV2DependencyError("库存 V2 对账服务暂时不可用");
 
   const result = recordOrEmpty(data);
   if (result.ok !== true) {

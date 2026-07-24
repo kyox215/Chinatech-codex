@@ -9,6 +9,8 @@ import {
   isAiAssistantStoreEnabled,
   isAiDraftApplyEnabled,
   isAiOrderInlineActionsEnabled,
+  isAiOrderAssistantStoreEnabled,
+  isAiOrderProviderStoreEnabled,
   isAiOrderReadToolsEnabled,
   isAiPublicCustomerAssistantEnabled,
   isAiVisionIntakeEnabled,
@@ -122,5 +124,39 @@ describe("AI assistant feature flags", () => {
     expect(isAiAssistantStoreEnabled("store-3", env)).toBe(false);
     expect(isAiAssistantStoreEnabled("store-1", { AI_ASSISTANT_ENABLED: "1" })).toBe(false);
     expect(isAiAssistantStoreEnabled("store-1", { ...env, AI_ASSISTANT_ENABLED: "0" })).toBe(false);
+  });
+
+  it("rolls order text out globally without changing the general vision allowlist", () => {
+    const env = {
+      AI_ASSISTANT_ENABLED: "1",
+      AI_ORDER_ASSISTANT_ALL_STORES_ENABLED: "1",
+      AI_ORDER_ASSISTANT_STORE_DENYLIST: "store-3",
+      AI_ASSISTANT_STORE_ALLOWLIST: "store-1",
+    };
+
+    expect(isAiOrderAssistantStoreEnabled("store-2", env)).toBe(true);
+    expect(isAiOrderAssistantStoreEnabled("store-3", env)).toBe(false);
+    expect(isAiAssistantStoreEnabled("store-2", env)).toBe(false);
+    expect(isAiAssistantStoreEnabled("store-1", env)).toBe(true);
+    expect(isAiOrderProviderStoreEnabled("store-1", env)).toBe(true);
+    expect(isAiOrderProviderStoreEnabled("store-2", env)).toBe(false);
+    expect(
+      isAiOrderProviderStoreEnabled("store-2", {
+        ...env,
+        AI_ORDER_PROVIDER_STORE_ALLOWLIST: "store-2",
+      }),
+    ).toBe(true);
+    expect(
+      isAiOrderProviderStoreEnabled("store-3", {
+        ...env,
+        AI_ORDER_PROVIDER_STORE_ALLOWLIST: "store-3",
+      }),
+    ).toBe(false);
+    expect(
+      isAiOrderAssistantStoreEnabled("store-2", {
+        ...env,
+        AI_ASSISTANT_ENABLED: "0",
+      }),
+    ).toBe(false);
   });
 });

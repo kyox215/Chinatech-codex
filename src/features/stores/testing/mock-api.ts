@@ -25,9 +25,9 @@ import {
 import { isCostMultiCurrencyEnabled } from "@/features/orders/server/order-cost-feature";
 import { can } from "@/server/permissions";
 import {
-  isInventoryV2CommandEnabledForStore,
-  isInventoryV2UiEnabledForStore,
-} from "@/features/inventory/server/inventory-v2-feature-flags";
+  canUseInventoryV2Commands,
+  canUseInventoryV2Ui,
+} from "@/features/inventory/server/inventory-v2-access";
 
 const mockStores = [
   {
@@ -518,8 +518,8 @@ function context(actor?: AuditActor): StoreContext {
       canReadInventory: can(scopedActor, "inventory:read"),
       canCreateInventory: can(scopedActor, "inventory:create"),
       canSellInventory: can(scopedActor, "inventory:sale"),
-      inventoryV2UiEnabled: isInventoryV2UiEnabledForStore(scopedActor.storeId),
-      inventoryV2CommandsEnabled: isInventoryV2CommandEnabledForStore(scopedActor.storeId),
+      inventoryV2UiEnabled: canUseInventoryV2Ui(scopedActor),
+      inventoryV2CommandsEnabled: canUseInventoryV2Commands(scopedActor),
       canManageOrderData,
       canApplyOrderData,
       canReadAggregateFinance: can(scopedActor, "finance:aggregate_read"),

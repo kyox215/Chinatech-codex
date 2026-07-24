@@ -3,10 +3,11 @@ import type {
   CreateInventoryUnitV2Input,
   CreateInventoryUnitV2Result,
 } from "@/lib/repairdesk/types";
-import { fail, requireStoreIdFromActor } from "@/server/repairdesk-shared";
+import { requireStoreIdFromActor } from "@/server/repairdesk-shared";
 import { getSupabaseAdmin } from "@/server/supabase";
 
-import { assertInventoryV2CommandEnabled } from "./inventory-v2-feature-flags";
+import { assertInventoryV2IntakeAccess } from "./inventory-v2-access";
+import { inventoryV2DependencyError, runInventoryV2Dependency } from "./inventory-v2-errors";
 
 type IntakeRpcResponse = {
   ok?: boolean;
@@ -43,32 +44,36 @@ export async function createInventoryUnitV2(
   actor: AuditActor,
 ): Promise<CreateInventoryUnitV2Result> {
   const storeId = requireStoreIdFromActor(actor);
-  assertInventoryV2CommandEnabled(storeId);
+  assertInventoryV2IntakeAccess(actor);
   if (!actor.id) throw new Error("当前员工身份无效，请重新登录");
 
-  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_create_inventory_unit_v2", {
-    p_store_id: storeId,
-    p_actor_id: actor.id,
-    p_idempotency_key: input.idempotency_key,
-    p_source_type: input.source_type,
-    p_customer_id: input.customer_id ?? null,
-    p_supplier_id: input.supplier_id ?? null,
-    p_category: input.category,
-    p_brand: input.brand,
-    p_model: input.model,
-    p_ram_capacity: input.ram_capacity ?? null,
-    p_storage_capacity: input.storage_capacity ?? null,
-    p_color: input.color ?? null,
-    p_identifiers: input.identifiers,
-    p_cost_amount: input.cost_amount,
-    p_list_price: input.list_price,
-    p_warranty_months: input.warranty_months,
-    p_location: input.location ?? null,
-    p_notes: input.notes ?? null,
-    p_standardization_status: input.standardization_status,
-    p_created_at: input.created_at,
-  });
-  fail(error, "创建设备库存失败");
+  const { data, error } = await runInventoryV2Dependency(
+    () =>
+      getSupabaseAdmin().rpc("repairdesk_create_inventory_unit_v2", {
+        p_store_id: storeId,
+        p_actor_id: actor.id,
+        p_idempotency_key: input.idempotency_key,
+        p_source_type: input.source_type,
+        p_customer_id: input.customer_id ?? null,
+        p_supplier_id: input.supplier_id ?? null,
+        p_category: input.category,
+        p_brand: input.brand,
+        p_model: input.model,
+        p_ram_capacity: input.ram_capacity ?? null,
+        p_storage_capacity: input.storage_capacity ?? null,
+        p_color: input.color ?? null,
+        p_identifiers: input.identifiers,
+        p_cost_amount: input.cost_amount,
+        p_list_price: input.list_price,
+        p_warranty_months: input.warranty_months,
+        p_location: input.location ?? null,
+        p_notes: input.notes ?? null,
+        p_standardization_status: input.standardization_status,
+        p_created_at: input.created_at,
+      }),
+    "创建设备库存服务暂时不可用",
+  );
+  if (error) throw inventoryV2DependencyError("创建设备库存服务暂时不可用");
   const result = recordOrEmpty(data) as IntakeRpcResponse;
   if (result.ok !== true) {
     throw new Error(errorMessages[result.code ?? ""] ?? "创建设备库存失败");

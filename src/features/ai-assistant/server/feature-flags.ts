@@ -1,5 +1,6 @@
 import { assertAiLiveBudgetConfiguration } from "./runtime-policy";
 import type { AiAssistantRequestKind } from "./cost-policy";
+import { isStoreRolloutEnabled, parseStoreRolloutList } from "@/shared/lib/store-rollout";
 
 export type AiAssistantFeatureEnvironment = {
   AI_ASSISTANT_ENABLED?: string;
@@ -25,6 +26,9 @@ export type AiAssistantFeatureEnvironment = {
   AI_ASSISTANT_QUOTA_TIMEZONE?: string;
   AI_ASSISTANT_SAFETY_IDENTIFIER_SECRET?: string;
   AI_ASSISTANT_REQUEST_FINGERPRINT_SECRET?: string;
+  AI_ORDER_ASSISTANT_ALL_STORES_ENABLED?: string;
+  AI_ORDER_ASSISTANT_STORE_DENYLIST?: string;
+  AI_ORDER_PROVIDER_STORE_ALLOWLIST?: string;
   AI_ASSISTANT_STORE_ALLOWLIST?: string;
   OPENAI_API_KEY?: string;
   OPENAI_AI_ASSISTANT_MODEL?: string;
@@ -138,11 +142,33 @@ export function isAiAssistantStoreEnabled(
   return getAiAssistantStoreAllowlist(env).includes(storeId);
 }
 
+export function isAiOrderAssistantStoreEnabled(
+  storeId: string | null | undefined,
+  env: AiAssistantFeatureEnvironment = process.env as AiAssistantFeatureEnvironment,
+) {
+  if (!isAiAssistantEnabled(env)) return false;
+  return isStoreRolloutEnabled({
+    storeId,
+    allStoresEnabled: env.AI_ORDER_ASSISTANT_ALL_STORES_ENABLED,
+    allowlist: env.AI_ASSISTANT_STORE_ALLOWLIST,
+    denylist: env.AI_ORDER_ASSISTANT_STORE_DENYLIST,
+  });
+}
+
+export function isAiOrderProviderStoreEnabled(
+  storeId: string | null | undefined,
+  env: AiAssistantFeatureEnvironment = process.env as AiAssistantFeatureEnvironment,
+) {
+  if (!isAiAssistantEnabled(env)) return false;
+  return isStoreRolloutEnabled({
+    storeId,
+    allowlist: env.AI_ORDER_PROVIDER_STORE_ALLOWLIST ?? env.AI_ASSISTANT_STORE_ALLOWLIST,
+    denylist: env.AI_ORDER_ASSISTANT_STORE_DENYLIST,
+  });
+}
+
 export function getAiAssistantStoreAllowlist(env: AiAssistantFeatureEnvironment) {
-  return (env.AI_ASSISTANT_STORE_ALLOWLIST ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
+  return parseStoreRolloutList(env.AI_ASSISTANT_STORE_ALLOWLIST);
 }
 
 export function assertOpenAiExternalCallsApproved(

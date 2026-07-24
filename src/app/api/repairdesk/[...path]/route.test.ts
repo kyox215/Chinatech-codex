@@ -32,7 +32,7 @@ vi.mock("@/server/api/repairdesk-router", () => ({
 }));
 
 import { UnauthorizedError } from "@/server/auth-context";
-import { POST } from "./route";
+import { INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES, POST } from "./route";
 
 describe("RepairDesk attachment route request envelope", () => {
   beforeEach(() => {
@@ -89,6 +89,32 @@ describe("RepairDesk attachment route request envelope", () => {
     expect(response.status).toBe(413);
     expect(mocks.getRepairDeskPostActor).not.toHaveBeenCalled();
     expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized Inventory V2 command envelopes with and without content-length", async () => {
+    for (const testCase of [
+      { path: ["inventory", "v2", "intake", "create"], withContentLength: true },
+      { path: ["inventory", "v2", "sales", "complete"], withContentLength: false },
+    ]) {
+      const body = `{"notes":"${"A".repeat(INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES)}"}`;
+      const request = new NextRequest(
+        `http://localhost/api/repairdesk/${testCase.path.join("/")}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body,
+        },
+      );
+      if (!testCase.withContentLength) request.headers.delete("content-length");
+
+      const response = await POST(request, { params: Promise.resolve({ path: testCase.path }) });
+
+      expect(response.status).toBe(413);
+      await expect(response.json()).resolves.toEqual({
+        error: "库存 V2 请求过大，请减少备注或标识符后重试",
+      });
+      expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
+    }
   });
 
   it("authenticates an AI turn before reading or dispatching its JSON body", async () => {

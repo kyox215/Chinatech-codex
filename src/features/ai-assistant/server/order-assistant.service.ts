@@ -37,7 +37,7 @@ import {
   aiProviderTimeoutError,
   aiProviderUnavailableError,
 } from "./errors";
-import type { AiAssistantFeatureEnvironment } from "./feature-flags";
+import { isAiOrderProviderStoreEnabled, type AiAssistantFeatureEnvironment } from "./feature-flags";
 import type { AiAssistantProvider } from "./provider";
 import { AiProviderRequestError } from "./provider";
 import { AiProviderBudgetError, type AiProviderBudgetGateway } from "./provider-budget";
@@ -216,6 +216,24 @@ export async function runAiOrderAssistantTurn({
       auditContext.provider = "none";
       auditContext.modelVersion = "order-local-clarification-v1";
       auditContext.policyVersion = "order-local-clarification-v1";
+      auditContext.resolutionPath = "local";
+      auditContext.budgetOutcome = "not_required";
+      auditContext.safetyIdentifierPresent = false;
+    } else if (
+      !isAiOrderProviderStoreEnabled(
+        actor.storeId,
+        dependencies.env ?? (process.env as AiAssistantFeatureEnvironment),
+      )
+    ) {
+      plannedToolCall = {
+        name: "clarify_order_query",
+        arguments: {
+          question: providerNotEnabledClarification(input.locale),
+        },
+      };
+      auditContext.provider = "none";
+      auditContext.modelVersion = "order-provider-rollout-v1";
+      auditContext.policyVersion = "order-provider-rollout-v1";
       auditContext.resolutionPath = "local";
       auditContext.budgetOutcome = "not_required";
       auditContext.safetyIdentifierPresent = false;
@@ -616,6 +634,16 @@ function localModeClarification(locale: AiAssistantRequest["locale"]) {
     return "Local processing does not recognize this request yet. Add an order number, customer, device, payment or status, or switch to Model assistance.";
   }
   return "本地处理暂时无法理解这句话。请补充订单号、客户、设备、付款或状态，或者切换到“大模型辅助”。";
+}
+
+function providerNotEnabledClarification(locale: AiAssistantRequest["locale"]) {
+  if (locale === "it-IT") {
+    return "Per questo negozio sono attive solo le ricerche locali. Aggiungi numero ordine, dispositivo, pagamento o stato per continuare senza inviare testo a un servizio esterno.";
+  }
+  if (locale === "en") {
+    return "This store currently uses local searches only. Add an order number, device, payment, or status to continue without sending text to an external service.";
+  }
+  return "当前门店仅开放本地查询。请补充工单号、设备、付款或状态，以便在不向外部服务发送文字的情况下继续。";
 }
 
 function unresolvedDateClarification(locale: AiAssistantRequest["locale"]) {

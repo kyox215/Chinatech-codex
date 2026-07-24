@@ -8,6 +8,18 @@ Last verified: 2026-07-20 CEST, incident task `TASK-20260720-006-ai-ledger-fence
 
 真实 OpenAI adapter、durable Supabase 预算网关、数据外发门禁、HMAC 幂等/短窗限流、审计和维护任务已经部署到生产。ChinaTech 单店员工订单文字 AI 按既有配置开放：`AI_ASSISTANT_ENABLED=1`、`AI_ORDER_READ_TOOLS_ENABLED=1`，allowlist 只有 `5248dda1-2b32-46cd-8ed0-d15386a9e8ed`。2026-07-20 的账本围栏事故已由迁移 `20260720065246` 修复，并通过唯一一次无 PII canary 与 15 分钟观察。Vision、draft apply、public/customer assistant、PII 外发和其他店铺仍关闭。
 
+## 多店铺应用代码状态（2026-07-24）
+
+`TASK-20260724-001-multistore-feature-availability` 把“门店可使用订单助手”和“门店可调用外部模型”拆成两个独立发布面；没有改变当前生产配置：
+
+- `AI_ORDER_ASSISTANT_ALL_STORES_ENABLED=1` 可让所有非 denylist 门店使用本地、确定性、actor/store-scoped 的只读订单查询。
+- `AI_ORDER_PROVIDER_STORE_ALLOWLIST` 是外部文字模型的精确门店白名单。未命中时，强制选择模型也只返回本地澄清，不创建 provider、预算预留或外发请求。
+- 现有 `AI_ASSISTANT_STORE_ALLOWLIST` 继续作为 Vision、draft apply、inline action 和兼容 provider 的试点边界；全店铺只读开关不会扩大这些能力。
+- AI 面板会在当前门店无 provider 权限时隐藏“大模型辅助”选择，并明确说明只使用本地处理。
+- denylist 始终优先；`*` 没有通配语义。viewer 和原有业务权限拒绝仍保持失败关闭。
+
+当前代码只实现安全的“所有店铺本地只读可用”。任何新增门店的外部模型、图片外发、AI 写入或公开客户助手，仍需独立 D4 数据/隐私/预算/生产批准和真实门店 canary。
+
 ## 2026-07-20 用量账本围栏事故与已应用修复
 
 生产迁移 `20260720013000_store_lifecycle_business_fence_and_close_recheck.sql` 把通用门店生命周期触发器绑定到所有含 `store_id` 的业务表。`ai_assistant_usage_buckets` 是混合范围表：`store_day` 必须有门店，而 `global_day/global_month` 按原始约束必须使用空 `store_id`。通用触发器把合法全局桶误判为 `STORE_LIFECYCLE_STORE_REQUIRED`，因此预算预留在调用 OpenAI 前失败关闭。
@@ -90,9 +102,14 @@ AI_ORDER_INLINE_ACTIONS_ENABLED=0
 AI_VISION_INTAKE_ENABLED=0
 AI_DRAFT_APPLY_ENABLED=0
 AI_PUBLIC_CUSTOMER_ASSISTANT_ENABLED=0
+AI_ORDER_ASSISTANT_ALL_STORES_ENABLED=0
+AI_ORDER_ASSISTANT_STORE_DENYLIST=
+AI_ORDER_PROVIDER_STORE_ALLOWLIST=5248dda1-2b32-46cd-8ed0-d15386a9e8ed
 AI_ASSISTANT_STORE_ALLOWLIST=5248dda1-2b32-46cd-8ed0-d15386a9e8ed
 AI_ASSISTANT_MAINTENANCE_ENABLED=1
 ```
+
+以上三个新增变量是下一次部署应采用的应用合同；本任务未写入 Vercel Production。为保持现状，`ALL_STORES_ENABLED` 必须继续为 `0`，provider allowlist 只列现有已批准门店。
 
 `AI_ORDER_INLINE_ACTIONS_ENABLED=0` 是 Order Query V4 的硬门禁。查询结果可在对话内展开和连续加载，并只通过明确链接打开订单；生产不会出现或执行“标记已订件”。续页复用既有请求指纹 secret 的短时加密密封与签名，不改变模型、预算、配额、数据批准或数据库政策。启用写旗标仍属于新的 D4 生产写决策，不包含在当前 ChinaTech 只读文字 canary 批准内。
 
@@ -105,6 +122,14 @@ AI_ASSISTANT_MAINTENANCE_ENABLED=1
 5. 如果 smoke 不是 HTTP 200、ledger `succeeded`、audit `succeeded`，立即保持 flags off、停用 v2 policy 并结束发布。
 6. 如果 smoke 全绿，只把 `5248dda1-2b32-46cd-8ed0-d15386a9e8ed` 写入 allowlist，再开启 `AI_ASSISTANT_ENABLED=1` 与 `AI_ORDER_READ_TOOLS_ENABLED=1`。Vision、draft apply、public assistant 继续关闭。
 7. 已观察完整 30 分钟：请求/错误、预留/结算、Token、micro-USD、审计和运行错误均通过。24 小时后只做一次只读复核；扩大门店或开放 Vision 是新的 D4。
+
+## 全店铺本地只读发布顺序（待 D4）
+
+1. 先保持 provider allowlist、Vision、draft、inline actions 和 public assistant 不变，仅部署应用代码。
+2. 用第二个真实门店账号验证本地确定性查询、viewer 拒绝、店铺切换和无 provider/无预算记录；不得使用 E2E system actor 代替租户证明。
+3. 将异常门店加入 `AI_ORDER_ASSISTANT_STORE_DENYLIST`，确认该门店入口消失且其他门店不受影响。
+4. 取得 Owner 的生产开关批准后，才可设 `AI_ORDER_ASSISTANT_ALL_STORES_ENABLED=1`；观察期间 provider allowlist 不扩大。
+5. 若未来扩大 provider，必须逐店加入 `AI_ORDER_PROVIDER_STORE_ALLOWLIST`，重新核对隐私告知、当前共享月度硬预算和每店日额度。现有实现没有“每店独立月预算”，不得在报告中这样描述。
 
 ## 立即停止条件
 

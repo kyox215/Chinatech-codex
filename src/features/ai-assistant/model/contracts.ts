@@ -53,6 +53,7 @@ export type AiAssistantRequest = z.infer<typeof aiAssistantRequestSchema>;
 export const aiAssistantCapabilitiesSchema = z
   .object({
     canUseOrderAssistant: z.boolean(),
+    canUseOrderModel: z.boolean().optional(),
     canUseOrderInlineActions: z.boolean(),
     canUseVisionIntake: z.boolean(),
     canApplyInventoryDraft: z.boolean(),
