@@ -181,11 +181,11 @@ test.skip("legacy print media isolates the customer document and the task page r
   expect(await printCallCount(page)).toBe(beforeFailedPreparation);
 });
 
-test("fixed PDF keeps A5 and A4 paper geometry independent from browser print CSS", async ({
+test("fixed PDF keeps all four paper modes independent from browser print CSS", async ({
   page,
   browserName,
 }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.route("**/api/repairdesk/customer-status-links/issue", async (route) => {
     const body = route.request().postDataJSON() as { order_ids?: string[] };
@@ -212,35 +212,53 @@ test("fixed PDF keeps A5 and A4 paper geometry independent from browser print CS
   const detail = page.getByRole("dialog", { name: "工单详情" });
   await expect(detail).toBeVisible();
   await detail.getByRole("button", { name: "打印", exact: true }).click();
-  const a5PopupPromise = page.waitForEvent("popup");
-  await page.getByRole("button", { name: "A5 横向打印" }).click();
-  const a5Popup = await a5PopupPromise;
-  const a5Bytes = await readPopupPdf(a5Popup);
-  const a5Document = await PDFDocument.load(a5Bytes);
-  expect(a5Document.getPageCount()).toBe(1);
-  expect(a5Document.getPage(0).getWidth()).toBeCloseTo(595.2756, 3);
-  expect(a5Document.getPage(0).getHeight()).toBeCloseTo(419.5276, 3);
-  await writeFile("screenshots/TASK-20260724-006-fixed-pdf-print/fixed-a5.pdf", a5Bytes);
-  await a5Popup.close();
-
-  await detail.getByRole("button", { name: "打印", exact: true }).click();
-  const a4PopupPromise = page.waitForEvent("popup");
-  await page.getByRole("button", { name: "A4 对半裁切" }).click();
-  const a4Popup = await a4PopupPromise;
-  const a4Bytes = await readPopupPdf(a4Popup);
-  const a4Document = await PDFDocument.load(a4Bytes);
-  expect(a4Document.getPageCount()).toBe(1);
-  expect(a4Document.getPage(0).getWidth()).toBeCloseTo(595.2756, 3);
-  expect(a4Document.getPage(0).getHeight()).toBeCloseTo(841.8898, 3);
-  await writeFile("screenshots/TASK-20260724-006-fixed-pdf-print/fixed-a4-half.pdf", a4Bytes);
-
   if (browserName === "chromium") {
     await page.screenshot({
       path: "screenshots/TASK-20260724-006-fixed-pdf-print/paper-choice-complete.png",
       fullPage: true,
     });
   }
-  await a4Popup.close();
+
+  const modes = [
+    {
+      button: "A5 横向",
+      file: "fixed-a5.pdf",
+      width: 595.2756,
+      height: 419.5276,
+    },
+    {
+      button: "A4 横向铺满",
+      file: "fixed-a4-landscape-full.pdf",
+      width: 841.8898,
+      height: 595.2756,
+    },
+    {
+      button: "A4 上半裁切",
+      file: "fixed-a4-half.pdf",
+      width: 595.2756,
+      height: 841.8898,
+    },
+    {
+      button: "A4 双联",
+      file: "fixed-a4-duplicate.pdf",
+      width: 595.2756,
+      height: 841.8898,
+    },
+  ] as const;
+
+  for (const [index, mode] of modes.entries()) {
+    if (index > 0) await detail.getByRole("button", { name: "打印", exact: true }).click();
+    const popupPromise = page.waitForEvent("popup");
+    await page.getByRole("button", { name: mode.button }).click();
+    const popup = await popupPromise;
+    const bytes = await readPopupPdf(popup);
+    const document = await PDFDocument.load(bytes);
+    expect(document.getPageCount()).toBe(1);
+    expect(document.getPage(0).getWidth()).toBeCloseTo(mode.width, 3);
+    expect(document.getPage(0).getHeight()).toBeCloseTo(mode.height, 3);
+    await writeFile(`screenshots/TASK-20260724-006-fixed-pdf-print/${mode.file}`, bytes);
+    await popup.close();
+  }
 });
 
 test("public customer status keeps the fragment token out of URLs and app shell", async ({

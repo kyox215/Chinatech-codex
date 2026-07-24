@@ -2,12 +2,12 @@
 schema_version: 1
 current_task_id: "TASK-20260724-006-fixed-pdf-print"
 status: "active"
-phase: "release_approval"
+phase: "release-ready"
 task_class: "T3"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-24T13:04:00Z"
+last_checkpoint_at: "2026-07-24T11:12:29Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,7 +19,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-固定 PDF 发布候选已提交为 `9bf16da5`：A5 210×148mm、A4 210×297mm 各 1 页，现有工单 DOM 以 3×图像嵌入 PDF，避免打印驱动重排。lint、typecheck、相关单测、Chromium E2E、production build 和生产依赖审计通过。尚未推送或部署，等待 Owner 明确发布授权。
+四按钮固定 PDF 已实现并完成发布前验证：A5 横向、A4 横向铺满、A4 上半裁切、A4 双联；复用同一工单 DOM 与二维码。
 
 ## Blocking decisions
 
@@ -27,7 +27,7 @@ last_rehydrated_at: null
 
 ## Next action
 
-Owner 批准后推送 main、部署 Vercel Production 并进行线上冒烟；随后实机打印和扫码。
+提交变更，推送 HEAD 到 main，部署 Vercel Production 并做生产冒烟验证。
 
 ## Resume protocol
 

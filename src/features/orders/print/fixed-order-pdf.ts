@@ -8,6 +8,7 @@ import type { PrintPaperMode } from "@/features/orders/components/print-portal";
 const MM_TO_PT = 72 / 25.4;
 const A5_LANDSCAPE = [210 * MM_TO_PT, 148 * MM_TO_PT] as const;
 const A4_PORTRAIT = [210 * MM_TO_PT, 297 * MM_TO_PT] as const;
+const A4_LANDSCAPE = [297 * MM_TO_PT, 210 * MM_TO_PT] as const;
 const TICKET = {
   x: 6 * MM_TO_PT,
   top: 6 * MM_TO_PT,
@@ -40,15 +41,11 @@ export async function createFixedOrderPdf(paperMode: PrintPaperMode) {
       });
       const dataUrl = canvas.toDataURL("image/png");
       const image = await pdf.embedPng(dataUrl);
-      const pageSize = paperMode === "a5-landscape" ? A5_LANDSCAPE : A4_PORTRAIT;
+      const pageSize = getPageSize(paperMode);
       const page = pdf.addPage([...pageSize]);
-      page.drawImage(image, {
-        x: TICKET.x,
-        y: pageSize[1] - TICKET.top - TICKET.height,
-        width: TICKET.width,
-        height: TICKET.height,
-      });
-      if (paperMode === "a4-portrait-half") {
+      const placements = getTicketPlacements(paperMode, pageSize[1]);
+      for (const placement of placements) page.drawImage(image, placement);
+      if (paperMode === "a4-portrait-half" || paperMode === "a4-portrait-duplicate") {
         const cutY = pageSize[1] - 148.5 * MM_TO_PT;
         page.drawLine({
           start: { x: 6 * MM_TO_PT, y: cutY },
@@ -63,6 +60,45 @@ export async function createFixedOrderPdf(paperMode: PrintPaperMode) {
     sandbox.frame.remove();
   }
   return pdf.save();
+}
+
+function getPageSize(paperMode: PrintPaperMode) {
+  if (paperMode === "a5-landscape") return A5_LANDSCAPE;
+  if (paperMode === "a4-landscape-full") return A4_LANDSCAPE;
+  return A4_PORTRAIT;
+}
+
+function getTicketPlacements(paperMode: PrintPaperMode, pageHeight: number) {
+  if (paperMode === "a4-landscape-full") {
+    const scale = 297 / 210;
+    const x = TICKET.x * scale;
+    const top = TICKET.top * scale;
+    const height = TICKET.height * scale;
+    return [
+      {
+        x,
+        y: pageHeight - top - height,
+        width: TICKET.width * scale,
+        height,
+      },
+    ];
+  }
+
+  const first = {
+    x: TICKET.x,
+    y: pageHeight - TICKET.top - TICKET.height,
+    width: TICKET.width,
+    height: TICKET.height,
+  };
+  if (paperMode !== "a4-portrait-duplicate") return [first];
+
+  return [
+    first,
+    {
+      ...first,
+      y: pageHeight - (148.5 * MM_TO_PT + TICKET.top) - TICKET.height,
+    },
+  ];
 }
 
 export function openPdfLoadingWindow() {

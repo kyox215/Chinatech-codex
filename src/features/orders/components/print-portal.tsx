@@ -4,14 +4,26 @@ import type * as React from "react";
 import { useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
-export type PrintPaperMode = "a5-landscape" | "a4-portrait-half";
+export type PrintPaperMode =
+  | "a5-landscape"
+  | "a4-landscape-full"
+  | "a4-portrait-half"
+  | "a4-portrait-duplicate";
 
 const PAPER_STYLE_ID = "repairdesk-print-paper-page";
 const PAPER_STYLES: Record<PrintPaperMode, string> = {
   "a5-landscape": ["@media print {", "  @page { size: A5 landscape; margin: 0; }", "}"].join("\n"),
+  "a4-landscape-full": ["@media print {", "  @page { size: A4 landscape; margin: 0; }", "}"].join(
+    "\n",
+  ),
   "a4-portrait-half": ["@media print {", "  @page { size: A4 portrait; margin: 0; }", "}"].join(
     "\n",
   ),
+  "a4-portrait-duplicate": [
+    "@media print {",
+    "  @page { size: A4 portrait; margin: 0; }",
+    "}",
+  ].join("\n"),
 };
 
 const activeBodyClasses = new Map<string, number>();

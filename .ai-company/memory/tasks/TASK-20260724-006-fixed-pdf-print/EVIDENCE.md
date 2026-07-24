@@ -1,0 +1,1 @@
+- `2026-07-24T11:12:29Z` `1d7b14a80c` — Chromium E2E 1 passed；PDF 尺寸分别为 595.276x419.528pt、841.89x595.276pt、595.276x841.89pt、595.276x841.89pt；四张 PNG 视觉检查完整；lint/typecheck/9 tests/webpack build passed。

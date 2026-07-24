@@ -46,6 +46,34 @@ describe("PrintPortal", () => {
     expect(document.head.querySelector("style#repairdesk-print-paper-page")).toBeNull();
   });
 
+  it("injects A4 landscape page CSS for full-page printing", () => {
+    const view = render(
+      <PrintPortal paperMode="a4-landscape-full">
+        <section>Full page order</section>
+      </PrintPortal>,
+    );
+
+    expect(document.body).toHaveClass("has-repair-print-a4-landscape-full");
+    expect(document.head.querySelector("style#repairdesk-print-paper-page")?.textContent).toContain(
+      "size: A4 landscape",
+    );
+    view.unmount();
+  });
+
+  it("injects A4 portrait page CSS for duplicate printing", () => {
+    const view = render(
+      <PrintPortal paperMode="a4-portrait-duplicate">
+        <section>Duplicate order</section>
+      </PrintPortal>,
+    );
+
+    expect(document.body).toHaveClass("has-repair-print-a4-portrait-duplicate");
+    expect(document.head.querySelector("style#repairdesk-print-paper-page")?.textContent).toContain(
+      "size: A4 portrait",
+    );
+    view.unmount();
+  });
+
   it("uses bounded whole-ticket scaling and rejects unreadable overflow", () => {
     expect(getPrintContentFit(900)).toEqual({ scale: 1, overflow: false });
     expect(getPrintContentFit(1_500)).toEqual({ scale: 0.8, overflow: false });

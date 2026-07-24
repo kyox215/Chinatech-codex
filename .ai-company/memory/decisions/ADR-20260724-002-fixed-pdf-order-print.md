@@ -11,7 +11,9 @@ Browser CSS `@page` correctly produced A5/A4 files in automation, but Chrome plu
 Repair-order print entry points render the existing print DOM into a 3× raster image and embed it into a client-generated PDF with an explicit MediaBox:
 
 - A5 landscape: 210×148mm.
+- A4 landscape full: 297×210mm, with the ticket enlarged proportionally.
 - A4 portrait half-cut: 210×297mm, identical ticket at 6mm from the top/left and a cut line at 148.5mm.
+- A4 portrait duplicate: 210×297mm, with two identical complete tickets and the same cut line.
 
 The PDF opens in a synchronously created window so popup blockers and mobile user-gesture requirements are handled before asynchronous QR preparation.
 
