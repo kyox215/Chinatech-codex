@@ -36,9 +36,12 @@ export function CustomerStatusScreen() {
   const router = useRouter();
   const [state, setState] = useState<ViewState>({ kind: "loading" });
   const [token, setToken] = useState("");
+  const [staffNotice, setStaffNotice] = useState("");
   const publicRequestSequence = useRef(0);
+  const resolutionGeneration = useRef(0);
+  const resolutionAbort = useRef<AbortController | null>(null);
 
-  const loadPublicStatus = useCallback(async (nextToken: string) => {
+  const loadPublicStatus = useCallback(async (nextToken: string, signal?: AbortSignal) => {
     const requestSequence = ++publicRequestSequence.current;
     if (!CUSTOMER_STATUS_TOKEN_PATTERN.test(nextToken)) {
       if (requestSequence === publicRequestSequence.current) {
@@ -48,13 +51,14 @@ export function CustomerStatusScreen() {
     }
     setState({ kind: "loading" });
     try {
-      const status = await resolveCustomerStatus(nextToken);
+      const status = await resolveCustomerStatus(nextToken, { signal });
       if (requestSequence !== publicRequestSequence.current) return;
       setState({ kind: "success", status });
     } catch (error) {
+      if (isAbortError(error)) return;
       if (requestSequence !== publicRequestSequence.current) return;
       const status = getErrorStatus(error);
-      if (status === 404 || status === 503) {
+      if (status === 404) {
         setState({ kind: "unavailable" });
         return;
       }
@@ -69,32 +73,56 @@ export function CustomerStatusScreen() {
     }
   }, []);
 
+  const resolveToken = useCallback(
+    (nextToken: string) => {
+      resolutionAbort.current?.abort();
+      const controller = new AbortController();
+      resolutionAbort.current = controller;
+      const generation = ++resolutionGeneration.current;
+
+      setToken(nextToken);
+      setStaffNotice("");
+      void loadPublicStatus(nextToken, controller.signal);
+      void resolveCustomerStatusForStaff(nextToken, { signal: controller.signal })
+        .then((internalPath) => {
+          if (controller.signal.aborted || generation !== resolutionGeneration.current) return;
+          router.replace(internalPath);
+        })
+        .catch((error) => {
+          if (controller.signal.aborted || generation !== resolutionGeneration.current) return;
+          const status = getErrorStatus(error);
+          if (status === 401 || status === 403 || status === 404) return;
+          setStaffNotice("Impossibile aprire l'ordine interno. Riprova la scansione.");
+        });
+    },
+    [loadPublicStatus, router],
+  );
+
   useEffect(() => {
     const consumeLocationHash = () => {
       const hashToken = window.location.hash.replace(/^#/, "").trim();
       window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
       if (!CUSTOMER_STATUS_TOKEN_PATTERN.test(hashToken)) {
+        resolutionAbort.current?.abort();
+        resolutionGeneration.current += 1;
         publicRequestSequence.current += 1;
         setToken("");
+        setStaffNotice("");
         setState({ kind: "unavailable" });
         return;
       }
-      setToken(hashToken);
-      void loadPublicStatus(hashToken);
-      void resolveCustomerStatusForStaff(hashToken)
-        .then((internalPath) => router.replace(internalPath))
-        .catch(() => {
-          // Anonymous and unauthorized scans intentionally stay on the public progress page.
-        });
+      resolveToken(hashToken);
     };
 
     consumeLocationHash();
     window.addEventListener("hashchange", consumeLocationHash);
     return () => {
+      resolutionAbort.current?.abort();
+      resolutionGeneration.current += 1;
       publicRequestSequence.current += 1;
       window.removeEventListener("hashchange", consumeLocationHash);
     };
-  }, [loadPublicStatus, router]);
+  }, [resolveToken]);
 
   const pageBrand = state.kind === "success" ? state.status.store.name : "RepairDesk";
 
@@ -127,8 +155,25 @@ export function CustomerStatusScreen() {
             <CustomerStatusError
               message={state.message}
               retryAfter={state.retryAfter}
-              onRetry={() => token && void loadPublicStatus(token)}
+              onRetry={() => token && resolveToken(token)}
             />
+          ) : null}
+          {staffNotice && state.kind === "success" ? (
+            <div
+              className="mt-3 rounded-xl border border-status-warning-foreground/25 bg-status-warning/10 p-3 text-sm"
+              role="alert"
+            >
+              <p>{staffNotice}</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2 min-h-11"
+                onClick={() => token && resolveToken(token)}
+              >
+                Riprova
+              </Button>
+            </div>
           ) : null}
         </div>
       </section>
@@ -255,6 +300,10 @@ function CustomerStatusError({
 
 function getErrorStatus(error: unknown) {
   return Number((error as { status?: unknown } | null)?.status || 0);
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
 }
 
 function getRetryAfter(error: unknown) {

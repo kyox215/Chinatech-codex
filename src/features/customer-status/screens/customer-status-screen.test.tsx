@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CustomerStatusScreen } from "./customer-status-screen";
@@ -12,7 +12,7 @@ const routerMocks = vi.hoisted(() => ({ replace: vi.fn() }));
 vi.mock("@/features/customer-status/api/customer-status-client", () => apiMocks);
 vi.mock("next/navigation", () => ({ useRouter: () => routerMocks }));
 
-const token = "A".repeat(43);
+const token = `v2.1.${"P".repeat(22)}.1.${"S".repeat(43)}`;
 const publicStatus = {
   store: { name: "Chinatech", phone: "+39 000" },
   order: {
@@ -45,8 +45,14 @@ describe("CustomerStatusScreen identity routing", () => {
     render(<CustomerStatusScreen />);
 
     expect(await screen.findByText("Riparazione in corso")).toBeVisible();
-    expect(apiMocks.resolveCustomerStatus).toHaveBeenCalledWith(token);
-    expect(apiMocks.resolveCustomerStatusForStaff).toHaveBeenCalledWith(token);
+    expect(apiMocks.resolveCustomerStatus).toHaveBeenCalledWith(
+      token,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(apiMocks.resolveCustomerStatusForStaff).toHaveBeenCalledWith(
+      token,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
     expect(routerMocks.replace).not.toHaveBeenCalled();
     expect(window.location.hash).toBe("");
     expect(screen.queryByRole("button", { name: /accesso personale/i })).not.toBeInTheDocument();
@@ -71,5 +77,45 @@ describe("CustomerStatusScreen identity routing", () => {
     expect(await screen.findByText("Riparazione in corso")).toBeVisible();
     expect(routerMocks.replace).not.toHaveBeenCalled();
     expect(screen.queryByText(/accesso interno/i)).not.toBeInTheDocument();
+  });
+
+  it("never lets an older staff resolution navigate after a newer scan", async () => {
+    const nextToken = `v2.1.${"N".repeat(22)}.2.${"T".repeat(43)}`;
+    let resolveFirst: (path: string) => void = () => undefined;
+    let resolveSecond: (path: string) => void = () => undefined;
+    apiMocks.resolveCustomerStatusForStaff.mockImplementation(
+      (candidate: string) =>
+        new Promise<string>((resolve) => {
+          if (candidate === token) resolveFirst = resolve;
+          if (candidate === nextToken) resolveSecond = resolve;
+        }),
+    );
+    render(<CustomerStatusScreen />);
+
+    await waitFor(() => expect(apiMocks.resolveCustomerStatusForStaff).toHaveBeenCalledTimes(1));
+    act(() => {
+      window.history.replaceState(null, "", `/r#${nextToken}`);
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    await waitFor(() => expect(apiMocks.resolveCustomerStatusForStaff).toHaveBeenCalledTimes(2));
+
+    await act(async () => resolveFirst("/orders/order-old?from=orders"));
+    expect(routerMocks.replace).not.toHaveBeenCalled();
+
+    await act(async () => resolveSecond("/orders/order-new?from=orders"));
+    await waitFor(() =>
+      expect(routerMocks.replace).toHaveBeenCalledWith("/orders/order-new?from=orders"),
+    );
+  });
+
+  it("distinguishes a temporary internal failure from an unavailable QR", async () => {
+    apiMocks.resolveCustomerStatusForStaff.mockRejectedValue(
+      Object.assign(new Error("temporary"), { status: 503 }),
+    );
+    render(<CustomerStatusScreen />);
+
+    expect(await screen.findByText("Riparazione in corso")).toBeVisible();
+    expect(await screen.findByText(/Impossibile aprire l'ordine interno/i)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Riprova" })).toBeVisible();
   });
 });

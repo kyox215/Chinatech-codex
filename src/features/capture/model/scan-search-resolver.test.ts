@@ -4,6 +4,23 @@ import { parseBarcodePayload } from "@/features/capture/model/barcode-parser";
 import { resolveScanSearchActions } from "@/features/capture/model/scan-search-resolver";
 
 describe("resolveScanSearchActions", () => {
+  it("opens a repair QR only through the customer status route and never as search", () => {
+    const token = `v2.1.${"P".repeat(22)}.1.${"S".repeat(43)}`;
+    const payload = parseBarcodePayload(
+      `https://www.chinatech.in/r#${token}`,
+      "https://chinatech.in",
+    );
+
+    expect(resolveScanSearchActions(payload, "orders").actions).toEqual([
+      expect.objectContaining({
+        kind: "open",
+        label: "查看此订单",
+        href: `/r#${token}`,
+        primary: true,
+      }),
+    ]);
+  });
+
   it("opens existing order task QR links and still offers scoped order search", () => {
     const payload = parseBarcodePayload(
       "https://chinatech.in/orders/order_123/task",
@@ -78,11 +95,6 @@ describe("resolveScanSearchActions", () => {
   it("does not create an external open action for arbitrary URLs", () => {
     const payload = parseBarcodePayload("https://example.com/not-internal");
 
-    expect(resolveScanSearchActions(payload, "global").actions).toEqual([
-      expect.objectContaining({ kind: "search", label: "搜订单" }),
-      expect.objectContaining({ kind: "search", label: "搜客户" }),
-      expect.objectContaining({ kind: "search", label: "搜回收" }),
-      expect.objectContaining({ kind: "search", label: "搜库存" }),
-    ]);
+    expect(resolveScanSearchActions(payload, "global").actions).toEqual([]);
   });
 });

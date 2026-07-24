@@ -6,6 +6,7 @@ import { ScanLine } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { parseCustomerStatusLink } from "@/entities/customer-status/model/customer-status-link";
 import { BarcodeScannerSheet } from "@/features/capture/components/barcode-scanner-sheet";
 import type { CapturePayload } from "@/features/capture/model/barcode-parser";
 import {
@@ -23,6 +24,7 @@ interface ScanSearchSheetProps {
   onOpenChange: (open: boolean) => void;
   scope: ScanSearchScope;
   onSearch?: (value: string) => void;
+  navigateDocument?: (href: string) => void;
 }
 
 interface ScanSearchButtonProps {
@@ -70,7 +72,13 @@ export function ScanSearchButton({
   );
 }
 
-export function ScanSearchSheet({ open, onOpenChange, scope, onSearch }: ScanSearchSheetProps) {
+export function ScanSearchSheet({
+  open,
+  onOpenChange,
+  scope,
+  onSearch,
+  navigateDocument = (href) => window.location.assign(href),
+}: ScanSearchSheetProps) {
   const router = useRouter();
   const { runGuardedTransition } = useNavigationGuard();
 
@@ -92,6 +100,15 @@ export function ScanSearchSheet({ open, onOpenChange, scope, onSearch }: ScanSea
       label: action.label,
       run: () => {
         helpers.close();
+        if (action.id === "open:customer-status") {
+          const destination = parseCustomerStatusLink(action.href, window.location.origin);
+          if (destination?.kind !== "valid") {
+            toast.error("维修工单二维码无效，请重新扫描");
+            return;
+          }
+          navigateDocument(destination.href);
+          return;
+        }
         router.push(action.href);
       },
     });

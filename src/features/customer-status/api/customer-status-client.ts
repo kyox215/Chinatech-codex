@@ -23,11 +23,12 @@ export async function issueCustomerStatusLinks(orderIds: string[]) {
   return payload.links;
 }
 
-export async function resolveCustomerStatus(token: string) {
+export async function resolveCustomerStatus(token: string, options: { signal?: AbortSignal } = {}) {
   const response = await fetch("/api/public/order-status", {
     method: "POST",
     credentials: "same-origin",
     cache: "no-store",
+    signal: options.signal,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token }),
   });
@@ -45,11 +46,15 @@ export async function resolveCustomerStatus(token: string) {
   return payload.status;
 }
 
-export async function resolveCustomerStatusForStaff(token: string) {
+export async function resolveCustomerStatusForStaff(
+  token: string,
+  options: { signal?: AbortSignal } = {},
+) {
   const response = await fetch("/api/repairdesk/customer-status-links/staff-resolve", {
     method: "POST",
     credentials: "same-origin",
     cache: "no-store",
+    signal: options.signal,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token }),
   });

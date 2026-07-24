@@ -8,6 +8,59 @@ import {
 } from "./barcode-parser";
 
 describe("parseBarcodePayload", () => {
+  it("recognizes stable customer status QR links across official host aliases", () => {
+    const token = `v2.1.${"P".repeat(22)}.1.${"S".repeat(43)}`;
+
+    expect(
+      parseBarcodePayload(`https://www.chinatech.in/r#${token}`, "https://chinatech.in"),
+    ).toMatchObject({
+      kind: "customer_status_link",
+      label: "维修工单二维码",
+      targetHref: `/r#${token}`,
+      raw: "",
+      value: "",
+      sensitive: true,
+    });
+  });
+
+  it("treats bare repair status bearer tokens as sensitive QR payloads", () => {
+    const stableToken = `v2.1.${"P".repeat(22)}.1.${"S".repeat(43)}`;
+    const legacyToken = "L".repeat(43);
+
+    expect(parseBarcodePayload(stableToken)).toMatchObject({
+      kind: "customer_status_link",
+      targetHref: `/r#${stableToken}`,
+      sensitive: true,
+      raw: "",
+      value: "",
+    });
+    expect(parseBarcodePayload(legacyToken)).toMatchObject({
+      kind: "customer_status_link",
+      targetHref: `/r#${legacyToken}`,
+      sensitive: true,
+      raw: "",
+      value: "",
+    });
+  });
+
+  it("marks malformed or lookalike repair QR links as sensitive", () => {
+    expect(
+      parseBarcodePayload("https://www.chinatech.in/r#invalid", "https://chinatech.in"),
+    ).toMatchObject({ kind: "customer_status_invalid", sensitive: true, raw: "", value: "" });
+    expect(
+      parseBarcodePayload(
+        `https://www.chinatech.in.evil.example/r#${"A".repeat(43)}`,
+        "https://chinatech.in",
+      ),
+    ).toMatchObject({ kind: "customer_status_invalid", sensitive: true, raw: "", value: "" });
+    expect(parseBarcodePayload(`/r/extra#${"A".repeat(43)}`)).toMatchObject({
+      kind: "customer_status_invalid",
+      sensitive: true,
+      raw: "",
+      value: "",
+    });
+  });
+
   it("recognizes internal order links", () => {
     expect(
       parseBarcodePayload("https://example.com/orders/order_123", "https://example.com").targetHref,

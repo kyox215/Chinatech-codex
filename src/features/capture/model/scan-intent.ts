@@ -1,3 +1,5 @@
+import { isCustomerStatusLinkCandidate } from "@/entities/customer-status/model/customer-status-link";
+
 export type ScanIntentScope = "orders" | "customers" | "buyback" | "inventory";
 
 export interface ScanSearchIntent {
@@ -20,7 +22,7 @@ function createScanIntentId() {
 
 export function createScanSearchIntent(scope: ScanIntentScope, value: string) {
   const normalized = value.trim();
-  if (!normalized) return null;
+  if (!normalized || isCustomerStatusLinkCandidate(normalized)) return null;
 
   const intent: ScanSearchIntent = {
     id: createScanIntentId(),

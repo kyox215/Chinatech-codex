@@ -1,8 +1,11 @@
 import { buildOrderDetailWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
+import { parseCustomerStatusLink } from "@/entities/customer-status/model/customer-status-link";
 
 export type CapturePayloadKind =
   | "order_link"
   | "customer_link"
+  | "customer_status_link"
+  | "customer_status_invalid"
   | "inventory_link"
   | "buyback_link"
   | "imei"
@@ -16,6 +19,7 @@ export interface CapturePayload {
   value: string;
   label: string;
   targetHref?: string;
+  sensitive?: boolean;
 }
 
 export type ImeiCaptureSource =
@@ -184,6 +188,27 @@ export function parseBarcodePayload(rawValue: string, origin = "http://localhost
       raw,
       value: "",
       label: "空内容",
+    } satisfies CapturePayload;
+  }
+
+  const customerStatusLink = parseCustomerStatusLink(raw, origin);
+  if (customerStatusLink?.kind === "valid") {
+    return {
+      kind: "customer_status_link",
+      raw: "",
+      value: "",
+      label: "维修工单二维码",
+      targetHref: customerStatusLink.href,
+      sensitive: true,
+    } satisfies CapturePayload;
+  }
+  if (customerStatusLink?.kind === "invalid") {
+    return {
+      kind: "customer_status_invalid",
+      raw: "",
+      value: "",
+      label: "无效的维修工单二维码",
+      sensitive: true,
     } satisfies CapturePayload;
   }
 

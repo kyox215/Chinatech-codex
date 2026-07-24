@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ORDER_LIST_ROUTE_STATE_TTL_MS,
+  orderListRouteStateKey,
   readOrderListRouteState,
   writeOrderListRouteState,
   type OrderListRouteStateV1,
@@ -78,5 +79,30 @@ describe("order list route state", () => {
         1_001,
       ),
     ).toEqual(privateState);
+  });
+
+  it("never persists or restores a customer status bearer as an order search", () => {
+    const storage = memoryStorage();
+    const token = `v2.1.${"P".repeat(22)}.1.${"S".repeat(43)}`;
+    const legacyToken = "L".repeat(43);
+
+    for (const search of [`https://www.chinatech.in/r#${token}`, token, legacyToken]) {
+      const leakedState: OrderListRouteStateV1 = {
+        ...state,
+        filters: { search, searchScope: "current" },
+      };
+
+      const safeState = writeOrderListRouteState(storage, leakedState);
+      const restored = readOrderListRouteState(
+        storage,
+        { storeId: "store-1", userId: "user-1" },
+        1_001,
+      );
+
+      expect(safeState.filters.search).toBeUndefined();
+      expect(restored?.filters.search).toBeUndefined();
+      expect(restored?.page).toBe(1);
+      expect(storage.getItem(orderListRouteStateKey("store-1", "user-1"))).not.toContain(search);
+    }
   });
 });

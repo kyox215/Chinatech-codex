@@ -38,4 +38,11 @@ describe("scan search intents", () => {
     unsubscribeOrders();
     unsubscribeCustomers();
   });
+
+  it("never creates an ordinary search intent for a customer-status bearer", () => {
+    const token = `v2.1.${"P".repeat(22)}.1.${"S".repeat(43)}`;
+
+    expect(createScanSearchIntent("orders", token)).toBeNull();
+    expect(consumeScanSearchIntent("orders")).toBe("");
+  });
 });

@@ -12,6 +12,7 @@ This document defines the first supported QR/barcode payloads for RepairDesk sca
 - Do not encode customer names, phone numbers, full fault descriptions, payment notes, photos, secrets, or other unnecessary PII in QR codes.
 - Internal URLs and short prefixed payloads are preferred over large JSON payloads.
 - External URLs are not opened automatically by the scan search resolver.
+- Smart repair links are a dedicated sensitive payload. They must route only through `/r`, must never become a generic search value, and their token must not be rendered, copied, logged, cached in a query key or persisted in list state.
 
 ## Supported Payloads
 
@@ -42,6 +43,8 @@ This document defines the first supported QR/barcode payloads for RepairDesk sca
 - The public response is a fixed customer-safe projection. It never returns customer identity, IMEI/serial, diagnosis, internal notes, technician data, attachments, finance, costs, unlock data or internal UUIDs.
 - The same page offers an employee entry. The server returns an internal task route only after authentication, active-store checks and the normal order-detail/technician-assignment permission check.
 - Printed smart links are resolved by the server. Do not add client-side decoding, order identifiers, internal paths or PII to the QR payload.
+- The in-app scanner accepts the exact `/r#<token>` path from the current origin and the two approved production aliases `https://www.chinatech.in` and `https://chinatech.in`. Lookalike hosts, query strings, missing fragments and malformed tokens are rejected.
+- Scanning the smart link offers one action, “查看此订单”. `/r` remains the single identity split: authorized same-store staff are routed to internal detail; everyone else stays on the customer-safe public projection.
 - The authoritative implementation and operations contract is [CUSTOMER_REPAIR_STATUS_QR.md](./CUSTOMER_REPAIR_STATUS_QR.md).
 
 ## Approval Points

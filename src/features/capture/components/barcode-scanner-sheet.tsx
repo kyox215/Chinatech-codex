@@ -69,7 +69,7 @@ export function BarcodeScannerSheet({
       setLastPayload(payload);
       onDetected?.(payload);
       stopScanner();
-      if (payload.value) {
+      if (payload.value || payload.kind === "customer_status_link") {
         toast.success(`已识别：${payload.label}`);
       }
     },
@@ -297,9 +297,11 @@ export function BarcodeScannerSheet({
                     {lastPayload.label}
                   </p>
                   <p className="mt-1 break-all font-mono text-sm font-semibold text-foreground">
-                    {lastPayload.value || lastPayload.raw || "空内容"}
+                    {lastPayload.sensitive
+                      ? "敏感链接已隐藏"
+                      : lastPayload.value || lastPayload.raw || "空内容"}
                   </p>
-                  {lastPayload.raw !== lastPayload.value ? (
+                  {!lastPayload.sensitive && lastPayload.raw !== lastPayload.value ? (
                     <p className="mt-2 break-all text-xs text-muted-foreground">
                       原始内容：{lastPayload.raw || "-"}
                     </p>
@@ -308,10 +310,12 @@ export function BarcodeScannerSheet({
 
                 <div className="sticky bottom-0 z-10 -mx-3 border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 py-3 shadow-[var(--shadow-overlay)] sm:-mx-4 sm:px-4">
                   <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={copyValue}>
-                      <Copy className="mr-1.5 size-3.5" />
-                      复制
-                    </Button>
+                    {!lastPayload.sensitive ? (
+                      <Button type="button" variant="outline" size="sm" onClick={copyValue}>
+                        <Copy className="mr-1.5 size-3.5" />
+                        复制
+                      </Button>
+                    ) : null}
                     <Button type="button" variant="outline" size="sm" onClick={rescan}>
                       <RotateCcw className="mr-1.5 size-3.5" />
                       继续扫描

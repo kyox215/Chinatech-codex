@@ -1,4 +1,5 @@
 import type { OrderListFilters, OrderQueueGroup } from "@/lib/repairdesk/types";
+import { sanitizeOrderSearchInput } from "@/features/orders/model/order-search-safety";
 
 export const ORDER_LIST_ROUTE_STATE_TTL_MS = 30 * 60 * 1000;
 
@@ -36,7 +37,8 @@ export function writeOrderListRouteState(
   state: OrderListRouteStateV1,
 ) {
   const key = orderListRouteStateKey(state.storeId, state.userId);
-  const serialized = JSON.stringify(state);
+  const safeState = withoutSensitiveCustomerStatusSearch(state);
+  const serialized = JSON.stringify(safeState);
   inMemoryRouteState.set(key, serialized);
   try {
     storage?.setItem(key, serialized);
@@ -44,6 +46,7 @@ export function writeOrderListRouteState(
     // Some embedded/private browser contexts can deny sessionStorage. The
     // identity-scoped in-memory copy still preserves same-tab navigation.
   }
+  return safeState;
 }
 
 export function readOrderListRouteState(
@@ -97,7 +100,16 @@ export function readOrderListRouteState(
       }
       return null;
     }
-    return value as OrderListRouteStateV1;
+    const restored = withoutSensitiveCustomerStatusSearch(value as OrderListRouteStateV1);
+    if (restored !== value) {
+      inMemoryRouteState.set(key, JSON.stringify(restored));
+      try {
+        storage?.removeItem(key);
+      } catch {
+        // Removing a previously leaked QR search is best effort in restricted browsers.
+      }
+    }
+    return restored;
   } catch {
     inMemoryRouteState.delete(key);
     try {
@@ -107,4 +119,16 @@ export function readOrderListRouteState(
     }
     return null;
   }
+}
+
+function withoutSensitiveCustomerStatusSearch(state: OrderListRouteStateV1) {
+  const filters = sanitizeOrderSearchInput(state.filters);
+  if (filters === state.filters) return state;
+  return {
+    ...state,
+    filters,
+    page: 1,
+    scrollY: 0,
+    anchorOrderId: undefined,
+  };
 }

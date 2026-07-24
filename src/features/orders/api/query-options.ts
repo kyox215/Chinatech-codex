@@ -12,6 +12,7 @@ import {
 import { CACHE_TIMES } from "@/lib/query-performance";
 
 import { ordersKeys } from "./query-keys";
+import { sanitizeOrderSearchInput } from "../model/order-search-safety";
 
 export const ORDER_QUEUE_PAGE_SIZE = 20;
 
@@ -24,9 +25,10 @@ export function orderQueueSummaryQueryOptions(
   input: OrderQueueSummaryInput = defaultOrderQueueSummaryInput,
   storeId?: string | null,
 ) {
+  const safeInput = sanitizeOrderSearchInput(input);
   return queryOptions({
-    queryKey: ordersKeys.queueSummary(input, storeId),
-    queryFn: ({ signal }) => getOrderQueueSummary(input, { signal }),
+    queryKey: ordersKeys.queueSummary(safeInput, storeId),
+    queryFn: ({ signal }) => getOrderQueueSummary(safeInput, { signal }),
     staleTime: CACHE_TIMES.hotList,
   });
 }
@@ -35,10 +37,11 @@ export function orderListPageQueryOptions(
   input: OrderListPageInput = defaultOrderQueueSummaryInput,
   storeId?: string | null,
 ) {
-  const { page = 1, pageSize = ORDER_QUEUE_PAGE_SIZE, ...filters } = input;
+  const safeInput = sanitizeOrderSearchInput(input);
+  const { page = 1, pageSize = ORDER_QUEUE_PAGE_SIZE, ...filters } = safeInput;
   return queryOptions({
     queryKey: ordersKeys.page(filters, page, pageSize, storeId),
-    queryFn: ({ signal }) => listOrdersPage(input, { signal }),
+    queryFn: ({ signal }) => listOrdersPage(safeInput, { signal }),
     staleTime: CACHE_TIMES.hotList,
   });
 }

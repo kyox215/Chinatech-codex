@@ -117,4 +117,22 @@ describe("BarcodeScannerSheet", () => {
     expect(track.stop).toHaveBeenCalledTimes(1);
     expect(video.srcObject).toBeNull();
   });
+
+  it("masks customer status bearer links and removes the copy action", async () => {
+    const controls = { stop: vi.fn() };
+    let onResult: ((result: { getText: () => string } | null) => void) | undefined;
+    zxingMocks.decodeFromVideoDevice.mockImplementation((_device, _video, callback) => {
+      onResult = callback;
+      return Promise.resolve(controls);
+    });
+    const token = `v2.1.${"P".repeat(22)}.1.${"S".repeat(43)}`;
+
+    render(<BarcodeScannerSheet open onOpenChange={vi.fn()} onDetected={vi.fn()} />);
+    await waitFor(() => expect(zxingMocks.decodeFromVideoDevice).toHaveBeenCalledTimes(1));
+    onResult?.({ getText: () => `/r#${token}` });
+
+    expect(await screen.findByText("敏感链接已隐藏")).toBeVisible();
+    expect(screen.queryByText(token)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "复制" })).not.toBeInTheDocument();
+  });
 });

@@ -104,6 +104,11 @@ import {
   orderResultGroupMeta,
 } from "@/features/orders/model/order-list-grouping";
 import { useOrderSearchInput } from "@/features/orders/model/use-order-search-input";
+import {
+  sanitizeOrderSearchDraft,
+  sanitizeOrderSearchInput,
+  sanitizeOrderSearchValue,
+} from "@/features/orders/model/order-search-safety";
 import { canRunExactArchiveOrderSearch } from "@/features/orders/model/order-search-query";
 import {
   readOrderListRouteState,
@@ -265,7 +270,7 @@ export function OrderListScreen() {
       if (!isOnline) return;
       setPendingListIntent(null);
       setFailedListIntent(null);
-      const nextSearch = value || undefined;
+      const nextSearch = sanitizeOrderSearchValue(value || undefined);
       setFilters((current) =>
         current.search === nextSearch && current.searchScope !== "archive_exact"
           ? current
@@ -278,6 +283,7 @@ export function OrderListScreen() {
   const searchInput = useOrderSearchInput({
     value: filters.search,
     onCommit: commitSearch,
+    sanitize: sanitizeOrderSearchDraft,
   });
 
   useEffect(() => {
@@ -329,9 +335,20 @@ export function OrderListScreen() {
   useEffect(() => {
     const query = searchParams.get("q");
     if (!isOnline || !query) return;
-    setFilters((current) => ({ ...current, search: query, searchScope: "current" }));
+    const safeQuery = sanitizeOrderSearchValue(query);
+    setFilters((current) =>
+      sanitizeOrderSearchInput({ ...current, search: safeQuery, searchScope: "current" }),
+    );
     setPage(1);
-  }, [isOnline, searchParams]);
+    if (!safeQuery && typeof window !== "undefined") {
+      const nextParams = new URLSearchParams(searchParamsKey);
+      nextParams.delete("q");
+      const nextQuery = nextParams.toString();
+      router.replace(`${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}`, {
+        scroll: false,
+      });
+    }
+  }, [isOnline, router, searchParams, searchParamsKey]);
 
   useEffect(() => {
     if (!workspaceIntent) return;
@@ -362,7 +379,9 @@ export function OrderListScreen() {
   useEffect(() => {
     const applyIntent = (value: string) => {
       if (!value) return;
-      setFilters((current) => ({ ...current, search: value, searchScope: "current" }));
+      setFilters((current) =>
+        sanitizeOrderSearchInput({ ...current, search: value, searchScope: "current" }),
+      );
       setPage(1);
     };
 
@@ -467,9 +486,9 @@ export function OrderListScreen() {
         scrollY: window.scrollY,
         anchorOrderId,
       };
-      writeOrderListRouteState(window.sessionStorage, routeState);
+      const safeRouteState = writeOrderListRouteState(window.sessionStorage, routeState);
       window.history.replaceState(
-        { ...window.history.state, repairdeskOrderListContext: routeState },
+        { ...window.history.state, repairdeskOrderListContext: safeRouteState },
         "",
       );
     },

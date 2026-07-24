@@ -26,6 +26,7 @@ This is the authoritative product, security and operations contract for repair-o
 - `CUSTOMER_STATUS_QR_HMAC_ACTIVE_VERSION` identifies the version for newly created/reset identities. Retain previous keys while their printed QR codes must remain valid.
 - Production also stores the non-secret active version in the service-role-only singleton `customer_status_qr_key_config`. Its value and `CUSTOMER_STATUS_QR_HMAC_ACTIVE_VERSION` must match. Key rotation first adds the new key to the application keyring, then changes the singleton in a reviewed additive migration; existing identity rows keep their original key version.
 - Parsing is strict; HMAC comparison is constant-time; token, URL and signature values must never be logged or written to task memory.
+- The internal scanner treats `/r#<token>` as a sensitive dedicated payload. It must not expose a copy action or send the URL/token into order, customer, inventory or buyback search, React Query keys, route state or browser storage.
 - `/r` removes the fragment before making requests. Public responses remain `no-store`, `no-referrer`, `noindex`, `nosniff` and frame-denied.
 - The public DTO remains limited to public order number, device label, simplified stage, progress, update time, next action and public store contacts.
 - Existing atomic IP/global/token rate limiting remains mandatory. Raw IPs, tokens and user agents are not stored.
@@ -55,6 +56,8 @@ When a store is restored to a new active lifecycle revision, every stable identi
 | `/api/repairdesk/customer-status-links/staff-resolve` | authenticated staff    | Return only an authorized relative internal detail path.                                                     |
 | `/api/repairdesk/customer-status-links/revoke`        | owner-level permission | Reset the stable QR and invalidate prior stable/legacy copies.                                               |
 | `/r`                                                  | public                 | Remove fragment, load public progress and silently auto-route authorized logged-in staff.                    |
+
+The in-app scanner is only a safe navigator into `/r`; it does not duplicate authentication or permission logic. Each new token resolution cancels the previous public/staff requests, and a stale response must never navigate to an older order.
 
 The fixed QR is a core print requirement, not a feature-flag enhancement. The legacy `CUSTOMER_STATUS_QR_ENABLED` variable no longer disables issuance or resolution. All print entry points must:
 

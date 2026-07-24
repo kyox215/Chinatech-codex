@@ -28,4 +28,23 @@ describe("useOrderSearchInput", () => {
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith("R-2048");
   });
+
+  it("rejects a sensitive search before it reaches draft state or commit", () => {
+    const onCommit = vi.fn();
+    const token = `v2.1.${"P".repeat(22)}.1.${"S".repeat(43)}`;
+    const { result } = renderHook(() =>
+      useOrderSearchInput({
+        value: "",
+        onCommit,
+        delay: 300,
+        sanitize: (value) => (value === token ? "" : value),
+      }),
+    );
+
+    act(() => result.current.setDraftValue(token));
+    act(() => vi.advanceTimersByTime(300));
+
+    expect(result.current.draftValue).toBe("");
+    expect(onCommit).not.toHaveBeenCalled();
+  });
 });
