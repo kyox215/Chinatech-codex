@@ -13,3 +13,4 @@ IDs, test reports, screenshots, or concise log references.
 - `2026-07-24T12:00:58Z` `aed771cde7` — 最终 lint/typecheck/2 unit tests/webpack build 通过；Chromium 与 WebKit 四模式 E2E 均通过且无可见 popup；最终 A5 PDF 单页 595.276x419.528pt、164832 bytes，180dpi PNG 人工检查文字、边界、二维码均清晰且无裁切。
 - `2026-07-24T12:01:44Z` `59827ab560` — git diff --check passed；最终 A5 PDF 为单页 595.276x419.528pt、175042 bytes；Chromium/WebKit 四模式 E2E、lint、typecheck、unit、webpack build 均通过。
 - `2026-07-24T12:54:53Z` `0db1164669` — Chromium 390/430 mobile E2E 2 passed；WebKit 390/430 mobile E2E 2 passed；Chromium desktop four-mode E2E passed；最终 A5 PDF 595.276x419.528pt、263771 bytes，300dpi 渲染人工检查小字和二维码清晰无裁切；lint/typecheck/related unit passed。
+- `2026-07-24T13:10:00Z` `7e26bf6a68` — lint/typecheck/full 2335 tests/build passed; Chromium and WebKit desktop four modes plus mobile 390/430 passed; Vercel dpl_6KQryteyxzPQnQAmHMm4WLZ1RHVQ Ready; production authenticated smoke confirms enabled print entry and all four options.

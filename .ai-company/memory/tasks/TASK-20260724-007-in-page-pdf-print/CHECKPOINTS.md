@@ -73,3 +73,12 @@
 - **Evidence:**
   - Chromium 390/430 mobile E2E 2 passed；WebKit 390/430 mobile E2E 2 passed；Chromium desktop four-mode E2E passed；最终 A5 PDF 595.276x419.528pt、263771 bytes，300dpi 渲染人工检查小字和二维码清晰无裁切；lint/typecheck/related unit passed。
 - **Recorded by:** IntegrationLead
+## 2026-07-24T13:10:00Z — High-quality mobile and desktop fixed-size PDF printing is live. Capture remains 3x; speed improvements only optimize PNG byte transfer, CSS caching, and canvas cleanup. main dd5af006 deployed Ready.
+
+- **Phase:** production-verified
+- **Completed/current state:** High-quality mobile and desktop fixed-size PDF printing is live. Capture remains 3x; speed improvements only optimize PNG byte transfer, CSS caching, and canvas cleanup. main dd5af006 deployed Ready.
+- **Next:** Close registry task and release integration lease.
+- **Decision:** Preserve PRINT_CAPTURE_SCALE=3 as the quality floor; do not trade pixel density for speed.
+- **Evidence:**
+  - lint/typecheck/full 2335 tests/build passed; Chromium and WebKit desktop four modes plus mobile 390/430 passed; Vercel dpl_6KQryteyxzPQnQAmHMm4WLZ1RHVQ Ready; production authenticated smoke confirms enabled print entry and all four options.
+- **Recorded by:** IntegrationLead

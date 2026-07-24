@@ -9,7 +9,7 @@ autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["DOC", "FE", "QA"]
 created_at: "2026-07-24T11:22:54Z"
-updated_at: "2026-07-24T12:54:53Z"
+updated_at: "2026-07-24T13:10:00Z"
 ---
 # Task — 当前页面生成并直接打印 PDF
 
