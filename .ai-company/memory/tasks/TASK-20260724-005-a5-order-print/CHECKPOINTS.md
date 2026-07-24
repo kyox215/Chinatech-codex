@@ -22,4 +22,4 @@
 
 ## Next action
 
-Create the exact release commit, push `main`, deploy Vercel Production, then smoke-test the production order page and record deployment evidence.
+Released as commit `eea6d341` on `main`. Vercel Production deployment `dpl_FmHbbr7AaRGff5hB4A6bfiP6bt9W` is READY and aliases `www.chinatech.in` / `chinatech.in`; `/orders` returns the expected authenticated redirect. Next operational action is physical Windows/iOS A5/A4 printing and QR scanning in store.

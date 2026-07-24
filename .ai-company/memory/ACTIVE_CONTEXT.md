@@ -1,14 +1,14 @@
 ---
 schema_version: 1
 current_task_id: "TASK-20260724-005-a5-order-print"
-status: "active"
-phase: "release"
+status: "closed"
+phase: "closed"
 task_class: "T3"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-24T11:25:00Z"
-checkpoint_required: true
+last_checkpoint_at: "2026-07-24T11:31:00Z"
+checkpoint_required: false
 last_rehydrated_at: null
 ---
 # Active Context
@@ -19,7 +19,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-隔离发布候选已完成代码、文档、定向测试、lint、typecheck、production build，并生成 A5/A4 PDF 证据；等待精确提交、推送 main、生产部署和线上冒烟。
+提交 `eea6d341` 已推送 main，并部署到 Vercel Production `dpl_FmHbbr7AaRGff5hB4A6bfiP6bt9W`；生产域名别名就绪，未登录访问 `/orders` 正确跳转登录。
 
 ## Blocking decisions
 
@@ -27,7 +27,7 @@ last_rehydrated_at: null
 
 ## Next action
 
-提交发布候选，快进推送 main，部署 Vercel Production，验证生产订单页与打印入口。
+Owner 使用门店 Windows 与 iPhone/iPad 的实际打印机分别验证 A5 与 A4 对半模式，并扫描实体票据二维码。
 
 ## Resume protocol
 

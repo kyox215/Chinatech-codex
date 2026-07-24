@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260724-005-a5-order-print"
 title: "A5 工单打印与 A4 对半裁切"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["ARCH", "FE", "UX", "QA", "DOC", "REL"]
 created_at: "2026-07-24T00:00:00Z"
-updated_at: "2026-07-24T00:00:00Z"
+updated_at: "2026-07-24T11:31:00Z"
 ---
 
 # Task
