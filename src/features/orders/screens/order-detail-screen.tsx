@@ -123,6 +123,12 @@ import {
   canPrintRepairOrderCustomerDocument,
 } from "@/features/orders/components/repair-order-print-sheet";
 import {
+  OrderPrintPaperDialog,
+  readOrderPrintPaperMode,
+  rememberOrderPrintPaperMode,
+} from "@/features/orders/components/order-print-paper-dialog";
+import type { PrintPaperMode } from "@/features/orders/components/print-portal";
+import {
   issueCustomerStatusLinks,
   revokeCustomerStatusLinks,
 } from "@/features/customer-status/api/customer-status-client";
@@ -313,6 +319,8 @@ export function OrderDetailScreen({
   const [mobileFinanceSaveError, setMobileFinanceSaveError] = useState("");
   const [customerStatusUrl, setCustomerStatusUrl] = useState("");
   const [printPreparing, setPrintPreparing] = useState(false);
+  const [printPaperDialogOpen, setPrintPaperDialogOpen] = useState(false);
+  const [printPaperMode, setPrintPaperMode] = useState<PrintPaperMode>(readOrderPrintPaperMode);
   const [customerStatusRevokePending, setCustomerStatusRevokePending] = useState(false);
   const [financeDraft, setFinanceDraft] = useState<FinanceDraftState>(() =>
     createFinanceDraftState([], 0),
@@ -1090,7 +1098,10 @@ export function OrderDetailScreen({
   const isTerminalOrder = isOrderTerminalState(order);
   const canPrintCustomerDocument = canPrintRepairOrderCustomerDocument(order);
   const printDisabledReason = printPreparing ? "正在准备打印内容" : undefined;
-  const printCustomerDocument = async () => {
+  const printCustomerDocument = async (paperMode: PrintPaperMode) => {
+    rememberOrderPrintPaperMode(paperMode);
+    setPrintPaperMode(paperMode);
+    setPrintPaperDialogOpen(false);
     const outcome = await requestPrint(async () => {
       setPrintPreparing(true);
       try {
@@ -1391,7 +1402,7 @@ export function OrderDetailScreen({
           onPay={() => setPayOpen(true)}
           paymentDisabled={!canCollectPayment}
           primaryAction={desktopPrimaryAction}
-          onPrint={() => void printCustomerDocument()}
+          onPrint={() => setPrintPaperDialogOpen(true)}
           printDisabled={!canPrintCustomerDocument || printPreparing}
           printDisabledReason={printDisabledReason}
           onRevokeCustomerStatusLinks={
@@ -1462,7 +1473,7 @@ export function OrderDetailScreen({
         <div className={cn("relative z-20", detailWorkspace.orderDetailContent)}>
           <OrderHero
             order={order}
-            onPrint={() => void printCustomerDocument()}
+            onPrint={() => setPrintPaperDialogOpen(true)}
             printDisabled={!canPrintCustomerDocument || printPreparing}
             printDisabledReason={printDisabledReason}
             onRevokeCustomerStatusLinks={
@@ -1959,6 +1970,12 @@ export function OrderDetailScreen({
         storeSettings={storeSettings}
         activeStore={shell.activeStore}
         customerStatusUrl={customerStatusUrl}
+        paperMode={printPaperMode}
+      />
+      <OrderPrintPaperDialog
+        open={printPaperDialogOpen}
+        onOpenChange={setPrintPaperDialogOpen}
+        onSelect={(mode) => void printCustomerDocument(mode)}
       />
     </div>
   );

@@ -52,6 +52,12 @@ import { brandGradientStyle, controls, layoutGuards, repairOs } from "@/lib/ui-p
 import { componentOverlay } from "@/lib/component-patterns";
 import { OrderMobileCard } from "@/features/orders/components/order-list-items";
 import { OrderListPrintSheet } from "@/features/orders/components/order-list-print-sheet";
+import {
+  OrderPrintPaperDialog,
+  readOrderPrintPaperMode,
+  rememberOrderPrintPaperMode,
+} from "@/features/orders/components/order-print-paper-dialog";
+import type { PrintPaperMode } from "@/features/orders/components/print-portal";
 import { NewOrderDialog } from "@/features/orders/components/new-order-dialog";
 import { DesktopOrderQueueRow } from "@/features/orders/components/order-list-desktop-row";
 import { orderQueueDesktopGrid } from "@/features/orders/components/order-list-layout";
@@ -219,6 +225,9 @@ export function OrderListScreen() {
   });
   const [selected, setSelected] = useState<string[]>([]);
   const [printOrders, setPrintOrders] = useState<OrderListItem[]>([]);
+  const [pendingPrintOrders, setPendingPrintOrders] = useState<OrderListItem[]>([]);
+  const [printPaperDialogOpen, setPrintPaperDialogOpen] = useState(false);
+  const [printPaperMode, setPrintPaperMode] = useState<PrintPaperMode>(readOrderPrintPaperMode);
   const [customerStatusUrls, setCustomerStatusUrls] = useState<Record<string, string>>({});
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   const [newOrderOpen, setNewOrderOpen] = useState(false);
@@ -1011,11 +1020,18 @@ export function OrderListScreen() {
     return () => window.removeEventListener(REPAIRDESK_NEW_ORDER_EVENT, openNewOrder);
   }, [openNewOrder]);
 
-  const printRows = async (rows: OrderListItem[]) => {
+  const requestPrintRows = (rows: OrderListItem[]) => {
     if (!rows.length) {
       toast.error("没有可打印的工单");
       return;
     }
+    setPendingPrintOrders(rows);
+    setPrintPaperDialogOpen(true);
+  };
+  const printRows = async (rows: OrderListItem[], paperMode: PrintPaperMode) => {
+    rememberOrderPrintPaperMode(paperMode);
+    setPrintPaperMode(paperMode);
+    setPrintPaperDialogOpen(false);
     const outcome = await requestPrint(async () => {
       setPrintOrders(rows);
       setCustomerStatusUrls({});
@@ -1672,7 +1688,7 @@ export function OrderListScreen() {
                                       : previous.filter((id) => id !== order.id),
                                   )
                                 }
-                                onPrint={() => void printRows([order])}
+                                onPrint={() => requestPrintRows([order])}
                                 canPrint={canPrintSingleOrders}
                                 printDisabledReason={singlePrintDisabledReason}
                                 onOpenPrintRecovery={() => openDetail(order.id)}
@@ -1794,7 +1810,7 @@ export function OrderListScreen() {
                     disabled={Boolean(singlePrintDisabledReason)}
                     title={singlePrintDisabledReason}
                     onClick={() =>
-                      void printRows(data.filter((order) => selected.includes(order.id)))
+                      requestPrintRows(data.filter((order) => selected.includes(order.id)))
                     }
                   >
                     <Printer className="size-3.5" /> 打印
@@ -1815,6 +1831,12 @@ export function OrderListScreen() {
         storeSettings={storeSettings}
         activeStore={shell.activeStore}
         customerStatusUrls={customerStatusUrls}
+        paperMode={printPaperMode}
+      />
+      <OrderPrintPaperDialog
+        open={printPaperDialogOpen}
+        onOpenChange={setPrintPaperDialogOpen}
+        onSelect={(mode) => void printRows(pendingPrintOrders, mode)}
       />
       <NewOrderDialog
         open={newOrderOpen}

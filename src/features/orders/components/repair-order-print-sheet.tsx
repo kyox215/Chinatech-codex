@@ -15,7 +15,11 @@ import {
 } from "@/features/orders/model/order-italian";
 import { getOrderContactPhoneOptions } from "@/features/orders/model/order-contact-phones";
 import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
-import { PrintPortal } from "@/features/orders/components/print-portal";
+import {
+  FittedPrintPage,
+  PrintPortal,
+  type PrintPaperMode,
+} from "@/features/orders/components/print-portal";
 import { buildStorePrintProfile } from "@/features/print/model/store-print-profile";
 
 export function RepairOrderPrintSheet({
@@ -23,11 +27,13 @@ export function RepairOrderPrintSheet({
   storeSettings,
   activeStore,
   customerStatusUrl,
+  paperMode = "a5-landscape",
 }: {
   data: OrderDetail;
   storeSettings?: Partial<StoreSettings> | null;
   activeStore?: { id?: string; name?: string } | null;
   customerStatusUrl?: string;
+  paperMode?: PrintPaperMode;
 }) {
   const { order, customer, device } = data;
   const cancelled = isOrderCancelledForPayment(order);
@@ -48,15 +54,31 @@ export function RepairOrderPrintSheet({
   const faultRows = order.fault_prices.length
     ? order.fault_prices
     : [{ name: order.issue_description || "Intervento richiesto", price: 0 }];
+  const printContentUnits = [
+    order.public_no,
+    customer?.name ?? order.customer_name,
+    customer?.phone_e164 ?? order.customer_phone,
+    alternatePhones,
+    deviceBrand,
+    deviceModel,
+    deviceImei,
+    deviceNotes,
+    order.issue_description,
+    order.diagnosis_result,
+    order.technician_name,
+    order.warranty_text,
+    order.accessory_notes,
+    ...faultRows.flatMap((item) => [item.name, "note" in item ? item.note : ""]),
+  ].reduce((total, value) => total + String(value ?? "").length, 0);
 
   if (!customerStatusUrl) {
     return null;
   }
 
   return (
-    <PrintPortal paperMode="a4-portrait-half">
+    <PrintPortal paperMode={paperMode}>
       <section className="repair-print-sheet" aria-hidden="true">
-        <div className="repair-print-page">
+        <FittedPrintPage contentUnits={printContentUnits}>
           <div className="repair-print-left">
             <header className="repair-print-store">
               <h2>{storeProfile.storeName}</h2>
@@ -214,7 +236,7 @@ export function RepairOrderPrintSheet({
               </p>
             </footer>
           </aside>
-        </div>
+        </FittedPrintPage>
       </section>
     </PrintPortal>
   );

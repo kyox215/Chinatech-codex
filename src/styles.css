@@ -468,17 +468,18 @@
 }
 
 .repair-print-sheet {
-  display: none;
-  --repair-print-page-height: calc(148mm - 12mm);
-  --repair-print-page-width: calc(210mm - 12mm);
+  position: fixed;
+  top: 0;
+  left: -10000px;
+  display: block;
+  width: 210mm;
+  visibility: hidden;
+  pointer-events: none;
+  --repair-print-ticket-height: 136mm;
+  --repair-print-ticket-width: 198mm;
 }
 
 @media print {
-  @page {
-    size: A5 landscape;
-    margin: 6mm;
-  }
-
   html,
   body {
     background: #fff !important;
@@ -493,10 +494,24 @@
     display: none !important;
   }
 
+  body[data-order-detail-active="true"]:not(.has-repair-print) #repairdesk-styled-shell {
+    display: none !important;
+  }
+
+  body[data-order-detail-active="true"]:not(.has-repair-print)::after {
+    display: block;
+    padding: 12mm;
+    color: #000;
+    content: "请返回工单并使用打印按钮，以生成含固定二维码的客户工单。";
+    font: 12pt/1.5 Arial, sans-serif;
+  }
+
   .repair-print-sheet {
     display: block !important;
     position: static !important;
-    width: 100%;
+    width: 210mm;
+    visibility: visible;
+    pointer-events: auto;
     background: #fff;
     color: #000;
     font-family: Arial, Helvetica, sans-serif;
@@ -505,23 +520,52 @@
   }
 
   .repair-print-page {
-    display: grid;
+    position: relative;
     box-sizing: border-box;
-    width: var(--repair-print-page-width);
-    min-height: var(--repair-print-page-height);
-    height: auto;
-    grid-template-columns: 1fr 1fr;
-    overflow: visible;
-    border: 1px solid #d4d4d4;
-    page-break-inside: auto;
-    break-inside: auto;
+    width: 210mm;
+    height: 148mm;
+    overflow: hidden;
+    page-break-inside: avoid;
+    break-inside: avoid;
     page-break-after: always;
     break-after: page;
+  }
+
+  body.has-repair-print-a4-portrait-half .repair-print-page {
+    height: 297mm;
+  }
+
+  .repair-print-page-content {
+    position: absolute;
+    top: 6mm;
+    left: 6mm;
+    display: grid;
+    box-sizing: border-box;
+    width: calc(var(--repair-print-ticket-width) / var(--repair-print-scale, 1));
+    height: calc(var(--repair-print-ticket-height) / var(--repair-print-scale, 1));
+    grid-template-columns: 1fr 1fr;
+    overflow: hidden;
+    border: 1px solid #d4d4d4;
+    transform: scale(var(--repair-print-scale, 1));
+    transform-origin: top left;
   }
 
   .repair-print-page:last-child {
     page-break-after: auto;
     break-after: auto;
+  }
+
+  .repair-print-cut-line {
+    display: none;
+  }
+
+  body.has-repair-print-a4-portrait-half .repair-print-cut-line {
+    position: absolute;
+    top: 148.5mm;
+    left: 0;
+    display: block;
+    width: 210mm;
+    border-top: 0.25mm dashed #777;
   }
 
   .repair-print-left,

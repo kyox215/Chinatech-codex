@@ -64,6 +64,13 @@ export function usePrintLifecycle(onComplete?: () => void, onError?: (error: Err
       const firstFrame = window.requestAnimationFrame(() => {
         const secondFrame = window.requestAnimationFrame(() => {
           frameRef.current = [];
+          const overflowPage = document.querySelector('[data-print-overflow="true"]');
+          if (overflowPage) {
+            const error = new Error("打印内容过长，无法在一张 A5 纸内保持清晰，请缩短备注后重试");
+            complete();
+            onErrorRef.current?.(error);
+            return;
+          }
           fallbackRef.current = window.setTimeout(complete, PRINT_CLEANUP_FALLBACK_MS);
           try {
             window.print();

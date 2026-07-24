@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
-const evidenceDir = "screenshots/TASK-20260724-004-fixed-order-qr";
+const evidenceDir = "screenshots/TASK-20260724-005-a5-order-print";
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for print/Safari checks.");
 
@@ -53,6 +53,7 @@ test("print media isolates the customer document and the task page reuses it", a
   await rowCheckboxes.nth(1).click();
   await expect(page.getByText(/已选\s+2\s+条/)).toBeVisible();
   await page.getByRole("button", { name: "打印", exact: true }).last().click();
+  await page.getByRole("button", { name: "A5 横向打印" }).click();
   await expect(page.locator("body > .repair-print-sheet .repair-print-page")).toHaveCount(2);
   await expect(
     page.locator('body > .repair-print-sheet [data-customer-status-qr="true"]'),
@@ -78,6 +79,7 @@ test("print media isolates the customer document and the task page reuses it", a
   const printSheet = page.locator("body > .repair-print-sheet");
   await expect(printSheet).toHaveCount(0);
   await detail.getByRole("button", { name: "打印", exact: true }).click();
+  await page.getByRole("button", { name: "A5 横向打印" }).click();
   await expect(printSheet).toHaveCount(1);
   await expect(printSheet.locator('[data-customer-status-qr="true"]')).toHaveCount(1);
   await expect(printSheet).not.toContainText("SCAN TASK");
@@ -102,7 +104,7 @@ test("print media isolates the customer document and the task page reuses it", a
     shell: "none",
     fallback: "none",
     sheet: "block",
-    pageOverflow: "visible",
+    pageOverflow: "hidden",
     customerStatusQrCount: 1,
   });
 
@@ -120,35 +122,21 @@ test("print media isolates the customer document and the task page reuses it", a
     expect(readPdfPageCount(pdf)).toBe(1);
 
     await page.emulateMedia({ media: "screen" });
+    await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+    await expect(printSheet).toHaveCount(0);
+    const beforeA4PrintCount = await printCallCount(page);
     await detail.getByRole("button", { name: "打印", exact: true }).click();
+    await page.getByRole("button", { name: "A4 对半裁切" }).click();
     await expect(printSheet.locator('[data-customer-status-qr="true"]')).toHaveCount(1);
+    await expect.poll(() => printCallCount(page)).toBe(beforeA4PrintCount + 1);
     await page.emulateMedia({ media: "print" });
 
-    await page.evaluate(() => {
-      const left = document.querySelector<HTMLElement>(".repair-print-left");
-      if (!left) throw new Error("Printable order column is missing");
-      const section = document.createElement("section");
-      section.className = "repair-print-section";
-      section.dataset.printLongContent = "true";
-      section.innerHTML = Array.from(
-        { length: 90 },
-        (_, index) => `<p>Long printable diagnostic line ${index + 1}</p>`,
-      ).join("");
-      const sentinel = document.createElement("strong");
-      sentinel.dataset.printLongContentSentinel = "true";
-      sentinel.textContent = "END OF LONG PRINTABLE CONTENT";
-      section.appendChild(sentinel);
-      left.appendChild(section);
-    });
-    await expect(page.locator('[data-print-long-content-sentinel="true"]')).toHaveText(
-      "END OF LONG PRINTABLE CONTENT",
-    );
-    const longPdf = await page.pdf({
-      path: `${evidenceDir}/repair-order-long-content-smart-qr.pdf`,
+    const a4HalfPdf = await page.pdf({
+      path: `${evidenceDir}/repair-order-a4-half-cut.pdf`,
       printBackground: true,
       preferCSSPageSize: true,
     });
-    expect(readPdfPageCount(longPdf)).toBeGreaterThan(1);
+    expect(readPdfPageCount(a4HalfPdf)).toBe(1);
   }
 
   await page.emulateMedia({ media: "screen" });
@@ -165,6 +153,7 @@ test("print media isolates the customer document and the task page reuses it", a
   await expect(printButton).toBeEnabled();
   const beforeTaskPrintCount = await printCallCount(page);
   await printButton.click();
+  await page.getByRole("button", { name: "A5 横向打印" }).click();
   await expect(
     page.locator('body > .repair-print-sheet [data-customer-status-qr="true"]'),
   ).toHaveCount(1);
@@ -180,6 +169,7 @@ test("print media isolates the customer document and the task page reuses it", a
   const beforeFailedPreparation = await printCallCount(page);
   issueFails = true;
   await printButton.click();
+  await page.getByRole("button", { name: "A5 横向打印" }).click();
   await expect(page.getByText("固定二维码暂时无法准备")).toBeVisible();
   await expect(page.locator("body > .repair-print-sheet")).toHaveCount(0);
   expect(await printCallCount(page)).toBe(beforeFailedPreparation);

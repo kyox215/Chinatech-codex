@@ -1,25 +1,25 @@
 ---
 schema_version: 1
-current_task_id: "TASK-20260724-004-fixed-order-qr"
-status: "closed"
-phase: "closed"
+current_task_id: "TASK-20260724-005-a5-order-print"
+status: "active"
+phase: "release"
 task_class: "T3"
-risk_level: "R3"
+risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-24T08:10:00Z"
-checkpoint_required: false
+last_checkpoint_at: "2026-07-24T11:25:00Z"
+checkpoint_required: true
 last_rehydrated_at: null
 ---
 # Active Context
 
 ## Current objective
 
-**固定订单二维码与全状态打印**
+**A5 工单打印与 A4 对半裁切**
 
 ## Current state
 
-固定订单二维码已推送 main 并完成 Vercel Production 部署；生产迁移、权限分流、全状态二维码打印与冒烟验证均完成。
+隔离发布候选已完成代码、文档、定向测试、lint、typecheck、production build，并生成 A5/A4 PDF 证据；等待精确提交、推送 main、生产部署和线上冒烟。
 
 ## Blocking decisions
 
@@ -27,11 +27,11 @@ last_rehydrated_at: null
 
 ## Next action
 
-Owner 在门店使用真实手机扫描一张新旧工单票据，并用实际打印机确认纸张二维码可识别；如有设备特定问题按部署 ID 排查。
+提交发布候选，快进推送 main，部署 Vercel Production，验证生产订单页与打印入口。
 
 ## Resume protocol
 
 1. Read `AGENTS.md`, `PROJECT_MEMORY.md`, and `OPEN_CONFLICTS.md`.
-2. Read `.ai-company/memory/tasks/TASK-20260724-004-fixed-order-qr/TASK.md` and latest checkpoint.
+2. Read `.ai-company/memory/tasks/TASK-20260724-005-a5-order-print/TASK.md` and latest checkpoint.
 3. Inspect current Git/workspace state before changing files.
 4. Reclassify if scope, target environment, or risk changed.

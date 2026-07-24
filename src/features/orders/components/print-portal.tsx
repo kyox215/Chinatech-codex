@@ -1,23 +1,21 @@
 "use client";
 
 import type * as React from "react";
-import { useLayoutEffect } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 export type PrintPaperMode = "a5-landscape" | "a4-portrait-half";
 
-const A4_PORTRAIT_HALF_STYLE_ID = "repairdesk-print-a4-portrait-half-page";
-const A4_PORTRAIT_HALF_STYLE = [
-  "@media print {",
-  "  @page {",
-  "    size: A4 portrait;",
-  "    margin: 6mm;",
-  "  }",
-  "}",
-].join("\n");
+const PAPER_STYLE_ID = "repairdesk-print-paper-page";
+const PAPER_STYLES: Record<PrintPaperMode, string> = {
+  "a5-landscape": ["@media print {", "  @page { size: A5 landscape; margin: 0; }", "}"].join("\n"),
+  "a4-portrait-half": ["@media print {", "  @page { size: A4 portrait; margin: 0; }", "}"].join(
+    "\n",
+  ),
+};
 
 const activeBodyClasses = new Map<string, number>();
-let activeA4PortraitHalfPortals = 0;
+const activePaperPortals: Array<{ token: symbol; mode: PrintPaperMode }> = [];
 
 export function PrintPortal({
   children,
@@ -27,6 +25,7 @@ export function PrintPortal({
   paperMode?: PrintPaperMode;
 }) {
   const portalRoot = typeof document === "undefined" ? null : document.body;
+  const tokenRef = useRef(Symbol("repair-print-portal"));
 
   useLayoutEffect(() => {
     if (!portalRoot) return;
@@ -34,20 +33,21 @@ export function PrintPortal({
     retainBodyClass(portalRoot, "has-repair-print");
     retainBodyClass(portalRoot, `has-repair-print-${paperMode}`);
 
-    if (paperMode === "a4-portrait-half") {
-      activeA4PortraitHalfPortals += 1;
-      ensureA4PortraitHalfStyle(portalRoot.ownerDocument);
-    }
+    const token = tokenRef.current;
+    activePaperPortals.push({ token, mode: paperMode });
+    ensurePaperStyle(portalRoot.ownerDocument, paperMode);
 
     return () => {
       releaseBodyClass(portalRoot, "has-repair-print");
       releaseBodyClass(portalRoot, `has-repair-print-${paperMode}`);
 
-      if (paperMode === "a4-portrait-half") {
-        activeA4PortraitHalfPortals = Math.max(0, activeA4PortraitHalfPortals - 1);
-        if (activeA4PortraitHalfPortals === 0) {
-          portalRoot.ownerDocument.getElementById(A4_PORTRAIT_HALF_STYLE_ID)?.remove();
-        }
+      const index = activePaperPortals.findIndex((entry) => entry.token === token);
+      if (index >= 0) activePaperPortals.splice(index, 1);
+      const current = activePaperPortals.at(-1);
+      if (current) {
+        ensurePaperStyle(portalRoot.ownerDocument, current.mode);
+      } else {
+        portalRoot.ownerDocument.getElementById(PAPER_STYLE_ID)?.remove();
       }
     };
   }, [paperMode, portalRoot]);
@@ -75,11 +75,45 @@ function releaseBodyClass(portalRoot: HTMLElement, className: string) {
   activeBodyClasses.set(className, nextCount);
 }
 
-function ensureA4PortraitHalfStyle(ownerDocument: Document) {
-  if (ownerDocument.getElementById(A4_PORTRAIT_HALF_STYLE_ID)) return;
+function ensurePaperStyle(ownerDocument: Document, paperMode: PrintPaperMode) {
+  const style =
+    ownerDocument.getElementById(PAPER_STYLE_ID) ?? ownerDocument.createElement("style");
+  style.id = PAPER_STYLE_ID;
+  style.dataset.paperMode = paperMode;
+  style.textContent = PAPER_STYLES[paperMode];
+  if (!style.isConnected) ownerDocument.head.appendChild(style);
+}
 
-  const style = ownerDocument.createElement("style");
-  style.id = A4_PORTRAIT_HALF_STYLE_ID;
-  style.textContent = A4_PORTRAIT_HALF_STYLE;
-  ownerDocument.head.appendChild(style);
+export function getPrintContentFit(contentUnits: number) {
+  if (contentUnits > 2_400) return { scale: 0.72, overflow: true };
+  if (contentUnits > 1_850) return { scale: 0.72, overflow: false };
+  if (contentUnits > 1_400) return { scale: 0.8, overflow: false };
+  if (contentUnits > 1_050) return { scale: 0.9, overflow: false };
+  return { scale: 1, overflow: false };
+}
+
+export function FittedPrintPage({
+  children,
+  contentUnits = 0,
+}: {
+  children: React.ReactNode;
+  contentUnits?: number;
+}) {
+  const { scale, overflow } = getPrintContentFit(contentUnits);
+
+  return (
+    <div
+      className="repair-print-page"
+      data-print-layout-ready="true"
+      data-print-overflow={overflow ? "true" : "false"}
+    >
+      <div
+        className="repair-print-page-content"
+        style={{ "--repair-print-scale": scale } as React.CSSProperties}
+      >
+        {children}
+      </div>
+      <div className="repair-print-cut-line" aria-hidden="true" />
+    </div>
+  );
 }

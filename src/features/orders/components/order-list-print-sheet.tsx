@@ -13,7 +13,11 @@ import {
   translatePrintableText,
 } from "@/features/orders/model/order-italian";
 import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
-import { PrintPortal } from "@/features/orders/components/print-portal";
+import {
+  FittedPrintPage,
+  PrintPortal,
+  type PrintPaperMode,
+} from "@/features/orders/components/print-portal";
 import { buildStorePrintProfile } from "@/features/print/model/store-print-profile";
 
 export function OrderListPrintSheet({
@@ -21,21 +25,38 @@ export function OrderListPrintSheet({
   storeSettings,
   activeStore,
   customerStatusUrls,
+  paperMode = "a5-landscape",
 }: {
   orders: OrderListItem[];
   storeSettings?: Partial<StoreSettings> | null;
   activeStore?: { id?: string; name?: string } | null;
   customerStatusUrls?: Record<string, string>;
+  paperMode?: PrintPaperMode;
 }) {
   if (!orders.length || orders.some((order) => !customerStatusUrls?.[order.id])) return null;
 
   const storeProfile = buildStorePrintProfile(storeSettings, activeStore);
 
   return (
-    <PrintPortal paperMode="a4-portrait-half">
+    <PrintPortal paperMode={paperMode}>
       <section className="repair-print-sheet" aria-hidden="true">
         {orders.map((order) => (
-          <div className="repair-print-page" key={order.id}>
+          <FittedPrintPage
+            key={order.id}
+            contentUnits={[
+              order.public_no,
+              order.customer_name,
+              order.customer_phone,
+              ...order.contact_phones,
+              order.device_label,
+              order.device_imei,
+              order.issue_description,
+              order.technician_name,
+              order.warranty_text,
+              order.accessory_notes,
+              ...order.fault_prices.flatMap((item) => [item.name, "note" in item ? item.note : ""]),
+            ].reduce((total, value) => total + String(value ?? "").length, 0)}
+          >
             <div className="repair-print-left">
               <header className="repair-print-store">
                 <h2>{storeProfile.storeName}</h2>
@@ -170,7 +191,7 @@ export function OrderListPrintSheet({
                 </p>
               </footer>
             </aside>
-          </div>
+          </FittedPrintPage>
         ))}
       </section>
     </PrintPortal>

@@ -43,6 +43,12 @@ import {
   RepairOrderPrintSheet,
   canPrintRepairOrderCustomerDocument,
 } from "@/features/orders/components/repair-order-print-sheet";
+import {
+  OrderPrintPaperDialog,
+  readOrderPrintPaperMode,
+  rememberOrderPrintPaperMode,
+} from "@/features/orders/components/order-print-paper-dialog";
+import type { PrintPaperMode } from "@/features/orders/components/print-portal";
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { issueCustomerStatusLinks } from "@/features/customer-status/api/customer-status-client";
@@ -99,6 +105,8 @@ export function OrderTaskScreen({ id }: { id: string }) {
   const [diagnosisQuoteOpen, setDiagnosisQuoteOpen] = useState(false);
   const [customerStatusUrl, setCustomerStatusUrl] = useState("");
   const [printPreparing, setPrintPreparing] = useState(false);
+  const [printPaperDialogOpen, setPrintPaperDialogOpen] = useState(false);
+  const [printPaperMode, setPrintPaperMode] = useState<PrintPaperMode>(readOrderPrintPaperMode);
   const requestPrint = usePrintLifecycle(
     () => {
       setCustomerStatusUrl("");
@@ -147,8 +155,11 @@ export function OrderTaskScreen({ id }: { id: string }) {
   const canTransition = data?.capabilities?.canTransition === true;
   const voided = order?.record_state === "voided" || Boolean(order?.deleted_at);
   const canPrintCustomerDocument = Boolean(order && canPrintRepairOrderCustomerDocument(order));
-  const printCustomerDocument = async () => {
+  const printCustomerDocument = async (paperMode: PrintPaperMode) => {
     if (!order || !canPrintCustomerDocument) return;
+    rememberOrderPrintPaperMode(paperMode);
+    setPrintPaperMode(paperMode);
+    setPrintPaperDialogOpen(false);
     const outcome = await requestPrint(async () => {
       setPrintPreparing(true);
       try {
@@ -365,7 +376,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
           aria-label="打印客户工单"
           disabled={!canPrintCustomerDocument || printPreparing}
           aria-busy={printPreparing}
-          onClick={() => void printCustomerDocument()}
+          onClick={() => setPrintPaperDialogOpen(true)}
         >
           <Printer className="size-4" />
         </Button>
@@ -627,6 +638,12 @@ export function OrderTaskScreen({ id }: { id: string }) {
         storeSettings={storeSettings}
         activeStore={shell.activeStore}
         customerStatusUrl={customerStatusUrl}
+        paperMode={printPaperMode}
+      />
+      <OrderPrintPaperDialog
+        open={printPaperDialogOpen}
+        onOpenChange={setPrintPaperDialogOpen}
+        onSelect={(mode) => void printCustomerDocument(mode)}
       />
     </main>
   );

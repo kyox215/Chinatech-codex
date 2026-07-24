@@ -1,36 +1,38 @@
-# Mobile Order A4 Half-Page Print Mode
+# Repair Order A5 Print Contract
 
 Status: implemented
 Owner: Hexiang Huang / 鹤祥
-Last verified: 2026-07-10
+Last verified: 2026-07-24
 
 ## Decision
 
-Order printing now uses an A4 portrait compatibility mode while keeping the actual order content at A5 landscape size.
+Repair order printing provides two explicit, mutually exclusive paper modes. Both reuse the exact same A5 landscape ticket content and two-column layout.
 
-The browser receives an injected print page rule:
+1. `A5 横向打印` (default): a 210×148mm A5 landscape physical page.
+2. `A4 对半裁切`: a 210×297mm A4 portrait physical page. The unchanged A5 ticket occupies the upper half, a cut line is drawn at 148.5mm, and the lower half stays blank.
 
-```css
-@page {
-  size: A4 portrait;
-  margin: 6mm;
-}
-```
+The modes never inject competing `@page` declarations. Paper size, orientation, ticket box and margins are owned by the selected application mode instead of browser defaults.
 
-The rendered ticket remains `210mm x 148mm` minus margins, so it occupies only the upper half of an A4 portrait page. In practice, this lets mobile print dialogs keep their common A4 default while the shop can place A5 landscape paper in the printer.
+## Content stability
+
+- Existing fields, order, Italian wording, warranty text, QR position and left/right structure remain unchanged.
+- Long values wrap inside their current field.
+- The complete ticket may scale uniformly through bounded steps (100%, 90%, 80%, 72%), preserving relative positions.
+- Content requiring less than 72% is rejected before print preview with a request to shorten notes. It is never silently clipped, ellipsized or split into a second ticket.
+- Every business status remains printable and every printed ticket requires its fixed customer-status QR.
 
 ## Scope
 
-- Applies to order detail print: `RepairOrderPrintSheet`.
-- Applies to order list/bulk print: `OrderListPrintSheet`.
-- Does not change inventory sale receipt printing or other non-order print surfaces.
-- Does not change order data, payment, status, notification, permissions, or database schema.
+- Applies to order detail, task and order list/bulk printing.
+- Does not change inventory receipts or other non-order print surfaces.
+- Does not change order data, payment, status, notification, permissions, QR identity or database schema.
 
-## Operational Note
+## Operation
 
-Use this mode with A5 paper inserted landscape. If the printer reports a paper mismatch or auto-scales the document, disable fit-to-page / scaling in the printer app when available, or fall back to the standard A5 landscape printer setting.
+For A5 paper, select `A5 横向打印` and A5 landscape in the printer. When only A4 is loaded, select `A4 对半裁切`, print at 100% / actual size and cut on the dashed line.
 
 ## Verification
 
-- Unit coverage: `src/features/orders/components/print-portal.test.tsx` verifies A4 portrait print CSS injection and cleanup.
-- Visual/physical verification still requires a real iPhone/Android print preview and the shop printer with A5 paper.
+- Unit coverage verifies mutually exclusive A5/A4 page CSS, cleanup and bounded fit decisions.
+- Browser PDF verification must assert one page per order and physical page dimensions for both modes.
+- Release verification covers Chromium and WebKit desktop/mobile viewports. Real printer-driver verification remains an operational check because browser automation cannot control HP/Windows/iOS native print dialogs.
