@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260724-004-fixed-order-qr"
 title: "固定订单二维码与全状态打印"
-status: "releasing"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["FLOW", "API", "DATA", "FE", "QA", "SEC", "DOC", "INT"]
 created_at: "2026-07-24T00:00:00Z"
-updated_at: "2026-07-24T07:53:15Z"
+updated_at: "2026-07-24T08:10:00Z"
 ---
 # Task
 

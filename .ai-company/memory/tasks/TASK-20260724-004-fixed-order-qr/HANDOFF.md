@@ -2,11 +2,11 @@
 
 ## Current phase
 
-Production release in progress.
+Production release complete.
 
 ## Resume
 
 1. Read `TASK.md`, `EVIDENCE.md`, and latest checkpoint.
-2. Confirm exact staged file list excludes regenerated legacy screenshots and `next-env.d.ts`.
-3. Commit verified integrated changes, push `main`, deploy exact SHA to Vercel Production.
-4. Verify deployment READY, public unavailable response, authenticated issue boundary and production logs without exposing tokens/PII.
+2. If a production issue is reported, inspect deployment `dpl_5LyV5fUQZC5W3H1GgZbTj9rS7LcK` and compare against application commit `469803b78a7134b530b64433c2140de94715cb43`.
+3. Preserve the fixed-token database identities and legacy resolver during any rollback; prefer a forward fix.
+4. Never log raw QR tokens, HMAC keys, customer PII or production credentials.

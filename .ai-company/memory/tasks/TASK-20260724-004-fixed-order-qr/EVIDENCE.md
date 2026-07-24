@@ -27,15 +27,17 @@
 
 - `npm run lint`: PASS。
 - `npm run typecheck`: PASS。
-- full Vitest: 349 files / 2326 tests PASS（新增测试后相关定向套件继续 PASS）。
+- exact release candidate full Vitest: 350 files / 2331 tests PASS。
 - production build: PASS。
 - Chromium print/QR/public scan E2E: 5/5 PASS。
 - WebKit/Safari-equivalent print/QR/public scan E2E: 5/5 PASS。
 - Visual/PDF evidence: `screenshots/TASK-20260724-004-fixed-order-qr/`。
 
-## Pending release evidence
+## Release evidence
 
-- 精确 stage/commit/push `main`。
-- Vercel Production deployment READY 与生产 HTTP/业务冒烟。
+- 应用提交 `469803b78a7134b530b64433c2140de94715cb43` 已从基线 `f518984f8464b1f4f21a19f61d66a8a256c80516` 推送至 `main`。
+- Vercel Production deployment `dpl_5LyV5fUQZC5W3H1GgZbTj9rS7LcK` 状态 `READY`，正式别名 `https://www.chinatech.in` 与 `https://chinatech.in` 均已绑定。
+- 生产冒烟：`GET /r` 返回 200 与 `no-store`/安全头；无效 token 统一返回 404 `LINK_UNAVAILABLE`；未登录签发固定二维码返回 401。
 - 实体手机扫描与门店打印机纸张输出仍为 Owner 设备验收项，不能由软件测试代替。
 - `2026-07-24T07:53:15Z` `5c3c5f70ee` — 生产 identity 6390/6390、missing 0、cross-store 0；lint/typecheck/full test/build；Chromium/WebKit E2E 5/5。
+- `2026-07-24T08:10:00Z` `c948430b01` — main 469803b78a7134b530b64433c2140de94715cb43；deployment dpl_5LyV5fUQZC5W3H1GgZbTj9rS7LcK READY；350/350 test files、2331/2331 tests、build PASS；生产 /r 200、invalid token 404、anonymous issue 401。
