@@ -291,7 +291,10 @@ describe("store mock api invitation parity", () => {
   it("isolates members, invitations, and invite links by the active mock store", async () => {
     const originalStoreId = (await api.getStoreContext()).activeStore?.id ?? "";
     const created = await api.createStore(
-      { name: "Second Store" },
+      {
+        request_id: "00000000-0000-4000-8000-000000000102",
+        name: "Second Store",
+      },
       { id: "owner-2", email: "owner2@example.com", displayName: "Owner 2" },
     );
     const secondStoreId = created.activeStore?.id ?? "";

@@ -7,6 +7,7 @@ describe("message settings mock tenant parity", () => {
   it("provisions a newly created mock store with its own trimmed print address", async () => {
     const created = await createStore(
       {
+        request_id: "00000000-0000-4000-8000-000000000101",
         name: "  ZYG HOME Riparazioni  ",
         address: "  Via Demo 12, Siracusa  ",
       },

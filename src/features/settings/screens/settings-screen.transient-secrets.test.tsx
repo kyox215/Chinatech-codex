@@ -759,6 +759,9 @@ describe("SettingsScreen store-bound transient secrets", () => {
     );
     await waitFor(() => expect(apiMocks.createStore).toHaveBeenCalledTimes(1));
     expect(apiMocks.createStore.mock.calls[0]?.[0]).toEqual({
+      request_id: expect.stringMatching(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+      ),
       name: "Failed Store",
       address: "Via Etnea 24",
     });

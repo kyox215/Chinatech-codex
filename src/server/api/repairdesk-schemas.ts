@@ -1823,9 +1823,10 @@ export const supplierArchiveBodySchema = z.object({
 
 export const storeCreateInputSchema = z
   .object({
+    request_id: z.string().uuid("创建请求标识不正确"),
     name: z.string().min(2, "店铺名称至少需要 2 个字符").max(80, "店铺名称不能超过 80 个字符"),
     address: z.string().trim().max(500, "店铺地址不能超过 500 个字符").optional(),
-    timezone: optionalText,
+    timezone: z.literal("Europe/Rome").optional(),
     currency_code: z.literal("EUR").optional(),
   })
   .passthrough() satisfies z.ZodType<StoreCreateInput>;

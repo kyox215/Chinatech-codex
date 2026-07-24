@@ -98,6 +98,7 @@ function onboardingRequest(overrides: Partial<OnboardingRequest> = {}): Onboardi
 
 describe("OnboardingScreen", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     apiMocks.cancelOnboardingRequest.mockReset();
     apiMocks.acceptStoreInvitation.mockReset();
     apiMocks.createStore.mockReset();
@@ -112,6 +113,10 @@ describe("OnboardingScreen", () => {
 
   it("creates a new store with its own optional default print address", async () => {
     const user = userEvent.setup();
+    window.sessionStorage.setItem(
+      "repairdesk-create-store-request-id",
+      "00000000-0000-4000-8000-000000000105",
+    );
     apiMocks.getOnboardingStatus.mockResolvedValue({
       email: "owner@example.com",
       displayName: "Owner",
@@ -141,10 +146,56 @@ describe("OnboardingScreen", () => {
 
     await waitFor(() =>
       expect(apiMocks.createStore).toHaveBeenCalledWith({
+        request_id: "00000000-0000-4000-8000-000000000105",
         name: "Ripara Roma",
         address: "Via Roma 12",
         currency_code: "EUR",
       }),
+    );
+    await waitFor(() =>
+      expect(window.sessionStorage.getItem("repairdesk-create-store-request-id")).toBeNull(),
+    );
+  });
+
+  it("replaces a conflicting request id so edited store details can be resubmitted", async () => {
+    const user = userEvent.setup();
+    apiMocks.getOnboardingStatus.mockResolvedValue({
+      email: "owner@example.com",
+      displayName: "Owner",
+      isPlatformAdmin: false,
+      stores: [],
+      requests: [],
+      invitations: [],
+      availableStores: [],
+    });
+    apiMocks.createStore
+      .mockRejectedValueOnce(new Error("店铺资料已改变，请重新提交"))
+      .mockResolvedValueOnce({
+        activeStore: {
+          id: "store-new",
+          name: "Edited Store",
+          slug: "edited-store",
+          role: "owner",
+          status: "active",
+        },
+        stores: [],
+      });
+    window.sessionStorage.setItem(
+      "repairdesk-create-store-request-id",
+      "00000000-0000-4000-8000-000000000106",
+    );
+
+    renderOnboardingScreen();
+    await user.click(await screen.findByRole("tab", { name: "创建店铺" }));
+    await user.type(screen.getByLabelText("店铺名称"), "Edited Store");
+    await user.click(screen.getByRole("button", { name: "创建店铺" }));
+    await waitFor(() => expect(apiMocks.createStore).toHaveBeenCalledTimes(1));
+    expect(window.sessionStorage.getItem("repairdesk-create-store-request-id")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "创建店铺" }));
+    await waitFor(() => expect(apiMocks.createStore).toHaveBeenCalledTimes(2));
+    expect(apiMocks.createStore.mock.calls[1]?.[0].request_id).not.toBe(
+      "00000000-0000-4000-8000-000000000106",
     );
   });
 

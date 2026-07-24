@@ -93,6 +93,7 @@ export function OnboardingScreen() {
   const createStoreMutation = useMutation({
     mutationFn: (input: StoreCreateInput) => createStore(input),
     onSuccess: async () => {
+      removeStoreCreateRequestId();
       toast.success("店铺已创建");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: platformKeys.onboardingStatus }),
@@ -100,7 +101,12 @@ export function OnboardingScreen() {
       ]);
       enterSystem();
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "创建失败"),
+    onError: (error) => {
+      if (error instanceof Error && error.message === "店铺资料已改变，请重新提交") {
+        removeStoreCreateRequestId();
+      }
+      toast.error(error instanceof Error ? error.message : "创建失败");
+    },
   });
   const cancelRequestMutation = useMutation({
     mutationFn: (id: string) => cancelOnboardingRequest({ id }),
@@ -159,7 +165,9 @@ export function OnboardingScreen() {
       return;
     }
     if (formState.mode === "create_store") {
+      const requestId = getOrCreateStoreCreateRequestId();
       createStoreMutation.mutate({
+        request_id: requestId,
         name: formState.storeName.trim(),
         address: storeAddress.trim() || undefined,
         currency_code: "EUR",
@@ -509,4 +517,26 @@ export function OnboardingScreen() {
       </div>
     </main>
   );
+}
+
+const STORE_CREATE_REQUEST_ID_KEY = "repairdesk-create-store-request-id";
+
+function getOrCreateStoreCreateRequestId() {
+  try {
+    const existing = window.sessionStorage.getItem(STORE_CREATE_REQUEST_ID_KEY);
+    if (existing) return existing;
+    const requestId = crypto.randomUUID();
+    window.sessionStorage.setItem(STORE_CREATE_REQUEST_ID_KEY, requestId);
+    return requestId;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+
+function removeStoreCreateRequestId() {
+  try {
+    window.sessionStorage.removeItem(STORE_CREATE_REQUEST_ID_KEY);
+  } catch {
+    // Storage may be unavailable in restricted/private browser contexts.
+  }
 }

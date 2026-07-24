@@ -1677,6 +1677,7 @@ export function SettingsScreen() {
                         label: `创建店铺 ${name}`,
                         run: () =>
                           createStoreMutation.mutateAsync({
+                            request_id: crypto.randomUUID(),
                             name,
                             address: newStoreAddress.trim() || undefined,
                           }),

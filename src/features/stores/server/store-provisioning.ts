@@ -219,33 +219,22 @@ export interface StoreProvisioningInput {
   now?: string;
 }
 
-export async function provisionStoreDefaults(
-  supabase: SupabaseAdmin,
+export interface StoreProvisioningPayload {
+  settings: Record<string, unknown>;
+  templates: Array<Record<string, unknown>>;
+  statuses: Array<Record<string, unknown>>;
+  transitions: Array<Record<string, unknown>>;
+}
+
+export function buildStoreProvisioningPayload(
   input: StoreProvisioningInput,
-) {
+): StoreProvisioningPayload {
   const now = input.now ?? new Date().toISOString();
-  await seedStoreSettings(supabase, input, now);
-  await seedMessageTemplates(supabase, input, now);
-  await seedOrderWorkflow(supabase, input, now);
-}
-
-export async function deleteProvisionedStoreDefaults(supabase: SupabaseAdmin, storeId: string) {
-  await deleteStoreRows(supabase, "order_workflow_transitions", storeId);
-  await deleteStoreRows(supabase, "order_workflow_statuses", storeId);
-  await deleteStoreRows(supabase, "message_templates", storeId);
-  await deleteStoreRows(supabase, "store_settings", storeId);
-}
-
-async function seedStoreSettings(
-  supabase: SupabaseAdmin,
-  input: StoreProvisioningInput,
-  now: string,
-) {
   const storeName = input.storeName.trim() || DEFAULT_STORE_SETTINGS.store_name;
-  const { error } = await supabase.from("store_settings").upsert(
-    {
+
+  return {
+    settings: {
       id: storeSettingsIdForStore(input.storeId),
-      store_id: input.storeId,
       store_name: storeName,
       store_address: input.storeAddress?.trim() ?? "",
       store_phone: "",
@@ -260,20 +249,8 @@ async function seedStoreSettings(
       created_at: now,
       updated_at: now,
     },
-    { onConflict: "id", ignoreDuplicates: true },
-  );
-  fail(error, "初始化店铺设置失败");
-}
-
-async function seedMessageTemplates(
-  supabase: SupabaseAdmin,
-  input: StoreProvisioningInput,
-  now: string,
-) {
-  const { error } = await supabase.from("message_templates").upsert(
-    DEFAULT_MESSAGE_TEMPLATES.map((template) => ({
+    templates: DEFAULT_MESSAGE_TEMPLATES.map((template) => ({
       id: templateIdForStore(input.storeId, template.id),
-      store_id: input.storeId,
       domain: template.domain,
       kind: template.kind,
       channel: template.channel,
@@ -286,23 +263,8 @@ async function seedMessageTemplates(
       created_at: now,
       updated_at: now,
     })),
-    {
-      onConflict: "id",
-      ignoreDuplicates: true,
-    },
-  );
-  fail(error, "初始化消息模板失败");
-}
-
-async function seedOrderWorkflow(
-  supabase: SupabaseAdmin,
-  input: StoreProvisioningInput,
-  now: string,
-) {
-  const { error: statusError } = await supabase.from("order_workflow_statuses").upsert(
-    DEFAULT_ORDER_WORKFLOW_STATUSES.map((status) => ({
+    statuses: DEFAULT_ORDER_WORKFLOW_STATUSES.map((status) => ({
       id: crypto.randomUUID(),
-      store_id: input.storeId,
       code: status.code,
       label: status.label,
       short_label: status.shortLabel,
@@ -319,14 +281,8 @@ async function seedOrderWorkflow(
       created_at: now,
       updated_at: now,
     })),
-    { onConflict: "store_id,code", ignoreDuplicates: true },
-  );
-  fail(statusError, "初始化工单状态失败");
-
-  const { error: transitionError } = await supabase.from("order_workflow_transitions").upsert(
-    DEFAULT_ORDER_WORKFLOW_TRANSITIONS.map(([from, to, isPrimary, sortOrder]) => ({
+    transitions: DEFAULT_ORDER_WORKFLOW_TRANSITIONS.map(([from, to, isPrimary, sortOrder]) => ({
       id: crypto.randomUUID(),
-      store_id: input.storeId,
       from_status_code: from,
       to_status_code: to,
       is_primary: isPrimary,
@@ -337,6 +293,70 @@ async function seedOrderWorkflow(
       created_at: now,
       updated_at: now,
     })),
+  };
+}
+
+export async function provisionStoreDefaults(
+  supabase: SupabaseAdmin,
+  input: StoreProvisioningInput,
+) {
+  const payload = buildStoreProvisioningPayload(input);
+  await seedStoreSettings(supabase, input.storeId, payload.settings);
+  await seedMessageTemplates(supabase, input.storeId, payload.templates);
+  await seedOrderWorkflow(supabase, input.storeId, payload.statuses, payload.transitions);
+}
+
+export async function deleteProvisionedStoreDefaults(supabase: SupabaseAdmin, storeId: string) {
+  await deleteStoreRows(supabase, "order_workflow_transitions", storeId);
+  await deleteStoreRows(supabase, "order_workflow_statuses", storeId);
+  await deleteStoreRows(supabase, "message_templates", storeId);
+  await deleteStoreRows(supabase, "store_settings", storeId);
+}
+
+async function seedStoreSettings(
+  supabase: SupabaseAdmin,
+  storeId: string,
+  settings: Record<string, unknown>,
+) {
+  const { error } = await supabase.from("store_settings").upsert(
+    {
+      ...settings,
+      store_id: storeId,
+    },
+    { onConflict: "id", ignoreDuplicates: true },
+  );
+  fail(error, "初始化店铺设置失败");
+}
+
+async function seedMessageTemplates(
+  supabase: SupabaseAdmin,
+  storeId: string,
+  templates: Array<Record<string, unknown>>,
+) {
+  const { error } = await supabase.from("message_templates").upsert(
+    templates.map((template) => ({ ...template, store_id: storeId })),
+    {
+      onConflict: "id",
+      ignoreDuplicates: true,
+    },
+  );
+  fail(error, "初始化消息模板失败");
+}
+
+async function seedOrderWorkflow(
+  supabase: SupabaseAdmin,
+  storeId: string,
+  statuses: Array<Record<string, unknown>>,
+  transitions: Array<Record<string, unknown>>,
+) {
+  const { error: statusError } = await supabase.from("order_workflow_statuses").upsert(
+    statuses.map((status) => ({ ...status, store_id: storeId })),
+    { onConflict: "store_id,code", ignoreDuplicates: true },
+  );
+  fail(statusError, "初始化工单状态失败");
+
+  const { error: transitionError } = await supabase.from("order_workflow_transitions").upsert(
+    transitions.map((transition) => ({ ...transition, store_id: storeId })),
     {
       onConflict: "store_id,from_status_code,to_status_code",
       ignoreDuplicates: true,

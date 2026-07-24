@@ -98,6 +98,7 @@ describe("repairdesk API schemas", () => {
   it("trims an optional new-store print address and bounds its length", () => {
     expect(
       storeCreateInputSchema.parse({
+        request_id: "00000000-0000-4000-8000-000000000103",
         name: "Negozio Roma",
         address: "  Via Roma 12  ",
         currency_code: "EUR",
@@ -106,6 +107,7 @@ describe("repairdesk API schemas", () => {
 
     expect(() =>
       storeCreateInputSchema.parse({
+        request_id: "00000000-0000-4000-8000-000000000104",
         name: "Negozio Roma",
         address: "x".repeat(501),
         currency_code: "EUR",

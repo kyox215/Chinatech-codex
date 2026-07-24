@@ -49,10 +49,7 @@ import {
 } from "@/features/orders/server/order-cost-feature";
 import { type DbRecord, fail, requiredString } from "@/server/repairdesk-shared";
 import { getSupabaseAdmin } from "@/server/supabase";
-import {
-  deleteProvisionedStoreDefaults,
-  provisionStoreDefaults,
-} from "@/features/stores/server/store-provisioning";
+import { buildStoreProvisioningPayload } from "@/features/stores/server/store-provisioning";
 import {
   isOrderCostGrantAction,
   isStorePermissionAction,
@@ -75,11 +72,7 @@ const ACTIVE_STORE_COOKIE = "repairdesk-store-id";
 const STORE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 const INVITE_LINK_REDEEM_WINDOW_MS = 15 * 60 * 1000;
 const INVITE_LINK_REDEEM_LIMIT = 10;
-const CREATE_STORE_WINDOW_MS = 60 * 60 * 1000;
-const CREATE_STORE_LIMIT = 3;
-const STORE_PROVISIONING_ERROR = "创建店铺初始化失败，请稍后重试";
-const STORE_MEMBERSHIP_ERROR = "创建店铺成员关系失败，请稍后重试";
-const STORE_ACTIVATION_ERROR = "创建店铺激活失败，请稍后重试";
+const STORE_CREATE_ERROR = "创建店铺失败，请稍后重试";
 const EMAIL_INVITE_COOLDOWN_MS = 60 * 1000;
 
 export async function getStoreContext(actor: AuditActor): Promise<StoreContext> {
@@ -126,110 +119,67 @@ export async function createStore(
 
   const name = sanitizeStoreName(input.name);
   const supabase = getSupabaseAdmin();
-  await enforceCreateStoreRateLimit(supabase, actor);
   const now = new Date().toISOString();
-  const slug = await uniqueStoreSlug(supabase, name);
+  const slug = generateStoreSlug(name);
   const storeCode = generateStoreCode(name);
-
-  const { data: storeRow, error: storeError } = await supabase
-    .from("stores")
-    .insert({
-      store_code: storeCode,
-      name,
-      slug,
-      owner_user_id: actor.id,
-      status: "suspended",
-      plan: "starter",
-      timezone: input.timezone || "Europe/Rome",
-      currency_code: input.currency_code || "EUR",
-      created_at: now,
-      updated_at: now,
-    })
-    .select("id, name, slug, status")
-    .single();
-  fail(storeError, "创建店铺失败");
-
-  const createdStore = storeFromRow(storeRow as DbRecord, "owner");
-  try {
-    await provisionStoreDefaults(supabase, {
-      storeId: createdStore.id,
-      storeName: createdStore.name,
-      storeAddress: input.address,
-      actorId: actor.id,
-      now,
-    });
-  } catch (error) {
-    await rollbackCreatedStore(supabase, createdStore.id, {
-      includeProvisioningRows: true,
-    });
-    throw new Error(STORE_PROVISIONING_ERROR);
-  }
-
-  const { error: membershipError } = await supabase.from("store_memberships").insert({
-    store_id: createdStore.id,
-    user_id: actor.id,
-    email: sanitizeEmail(actor.email || `${actor.id}@unknown.local`),
-    display_name: actor.displayName,
-    role: "owner",
-    status: "active",
-    created_at: now,
-    updated_at: now,
+  const storeId = crypto.randomUUID();
+  const email = sanitizeEmail(actor.email || "");
+  const provisioning = buildStoreProvisioningPayload({
+    storeId,
+    storeName: name,
+    storeAddress: input.address,
+    actorId: actor.id,
+    now,
   });
-  if (membershipError) {
-    await rollbackCreatedStore(supabase, createdStore.id, {
-      includeProvisioningRows: true,
-    });
-    throw new Error(STORE_MEMBERSHIP_ERROR);
-  }
-
-  const store = await activateCreatedStore(supabase, createdStore.id, now);
+  const requestHash = createHash("sha256")
+    .update(
+      JSON.stringify({
+        name,
+        address: input.address?.trim() ?? "",
+        timezone: input.timezone || "Europe/Rome",
+        currency_code: input.currency_code || "EUR",
+      }),
+    )
+    .digest("hex");
+  const { data, error } = await supabase.rpc("repairdesk_create_store_atomic_rpc", {
+    p_request_id: input.request_id,
+    p_request_hash: requestHash,
+    p_store_id: storeId,
+    p_actor_id: actor.id,
+    p_verified_email: email,
+    p_display_name: actor.displayName,
+    p_store_code: storeCode,
+    p_name: name,
+    p_slug: slug,
+    p_timezone: input.timezone || "Europe/Rome",
+    p_currency_code: input.currency_code || "EUR",
+    p_address: input.address?.trim() ?? "",
+    p_provisioning: provisioning,
+  });
+  if (error) throw mapStoreCreateError(error);
+  const row = (Array.isArray(data) ? data[0] : data) as DbRecord | undefined;
+  if (!row) throw new Error(STORE_CREATE_ERROR);
+  const store = storeFromRow(row, "owner");
 
   await setActiveStoreCookie(store.id);
-  await writeAuditLog({
-    actor: { ...actor, storeId: store.id, storeName: store.name, storeRole: "owner" },
-    action: "create",
-    entityType: "store",
-    entityId: store.id,
-    after: { ...store },
-  });
-
   return nextContext(actor, store, true);
 }
 
-async function activateCreatedStore(
-  supabase: ReturnType<typeof getSupabaseAdmin>,
-  storeId: string,
-  now: string,
-) {
-  try {
-    const { data, error } = await supabase
-      .from("stores")
-      .update({ status: "active", updated_at: now })
-      .eq("id", storeId)
-      .select("id, name, slug, status")
-      .single();
-    fail(error, "激活店铺失败");
-    return storeFromRow(data as DbRecord, "owner");
-  } catch (error) {
-    await rollbackCreatedStore(supabase, storeId, {
-      includeProvisioningRows: true,
-    });
-    throw new Error(STORE_ACTIVATION_ERROR);
+function mapStoreCreateError(error: { message?: string }) {
+  const message = error.message ?? "";
+  if (message.includes("STORE_CREATE_RATE_LIMITED")) {
+    return new Error("创建店铺过于频繁，请稍后再试");
   }
-}
-
-async function rollbackCreatedStore(
-  supabase: ReturnType<typeof getSupabaseAdmin>,
-  storeId: string,
-  options: { includeProvisioningRows?: boolean } = {},
-) {
-  if (options.includeProvisioningRows) {
-    await deleteProvisionedStoreDefaults(supabase, storeId);
+  if (message.includes("STORE_CREATE_IDEMPOTENCY_CONFLICT")) {
+    return new Error("店铺资料已改变，请重新提交");
   }
-  const { error } = await supabase.from("stores").delete().eq("id", storeId);
-  if (error) {
-    throw new Error("创建店铺失败，回滚未完成店铺失败，请联系管理员处理");
+  if (message.includes("STORE_CREATE_EMAIL_NOT_VERIFIED")) {
+    return new ForbiddenError("请先验证账号邮箱");
   }
+  if (message.includes("STORE_CREATE_INVALID_INPUT")) {
+    return new Error("店铺资料不正确，请检查后重试");
+  }
+  return new Error(STORE_CREATE_ERROR);
 }
 
 export async function listStoreMembers(actor: AuditActor): Promise<StoreMembersResult> {
@@ -1507,35 +1457,8 @@ function assertCanGrantStoreRole(actor: AuditActor, role: StoreRole) {
   assertPermission(actor, "member:manage_basic");
 }
 
-async function enforceCreateStoreRateLimit(
-  supabase: ReturnType<typeof getSupabaseAdmin>,
-  actor: AuditActor,
-) {
-  if (!actor.id) throw new ForbiddenError("需要登录员工账号后才能创建店铺");
-  const windowStart = new Date(Date.now() - CREATE_STORE_WINDOW_MS).toISOString();
-  const { count, error } = await supabase
-    .from("stores")
-    .select("id", { count: "exact", head: true })
-    .eq("owner_user_id", actor.id)
-    .gte("created_at", windowStart);
-  fail(error, "检查创建店铺频率失败");
-  if ((count ?? 0) >= CREATE_STORE_LIMIT) {
-    throw new Error("创建店铺过于频繁，请稍后再试");
-  }
-}
-
-async function uniqueStoreSlug(supabase: ReturnType<typeof getSupabaseAdmin>, name: string) {
+function generateStoreSlug(name: string) {
   const base = slugify(name);
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const candidate = `${base}-${crypto.randomUUID().slice(0, 8)}`.slice(0, 64).replace(/-+$/g, "");
-    const { data, error } = await supabase
-      .from("stores")
-      .select("id")
-      .eq("slug", candidate)
-      .maybeSingle();
-    fail(error, "检查店铺标识失败");
-    if (!data) return candidate;
-  }
   return `${base}-${crypto.randomUUID().slice(0, 8)}`.slice(0, 64).replace(/-+$/g, "");
 }
 

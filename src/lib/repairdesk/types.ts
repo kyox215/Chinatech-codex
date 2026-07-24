@@ -2100,6 +2100,7 @@ export interface StoreContext {
 }
 
 export interface StoreCreateInput {
+  request_id: string;
   name: string;
   address?: string;
   timezone?: string;
