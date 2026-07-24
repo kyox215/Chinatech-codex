@@ -5,6 +5,16 @@ Owner: Architecture + Frontend + API + Security + QA / Integration Lead
 Scope: app shell cold start, workspace preload, tenant cache isolation, order print capability, print readiness, diagnostics and release gates.
 Last verified: 2026-07-24 CEST by `TASK-20260724-003-unblocked-order-printing`
 
+## Fixed-PDF mobile delivery and performance addendum
+
+Order fixed-PDF printing keeps its 3× raster quality floor and exact A5/A4 MediaBox composition. Performance optimization uses only bounded in-memory capture/PDF reuse keyed by the rendered print-content fingerprint; it does not persist customer content or weaken QR readiness.
+
+- Desktop: attempt the same-page hidden iframe print path, then expose visible PDF controls on failure.
+- Mobile/iPad: never require hidden iframe `contentWindow.print()`; generation ends in a visible ready dialog and a separate user click opens native file sharing/printing.
+- Recovery: native-share cancellation is non-fatal; unsupported or failed sharing keeps current-tab PDF and download actions available.
+- Measurement: `repairdesk:fixed-pdf-ready` exposes cache state and QR preparation, layout, capture, encode, compose, PDF and end-to-end ready durations; it does not expose the content fingerprint itself. The warm single-order cache-hit target is under 2 seconds from paper selection through PDF ready; cold work remains measured and visible without reducing `PRINT_CAPTURE_SCALE=3`.
+- Lifecycle: caching is limited to single-order output, bound to store/order scope, invalidated by DOM/QR or scope changes and cleared when the owning order print surface unmounts. Batch PDFs are never cached.
+
 > 目标：后续新增页面、全局 Provider、预加载、权限或打印功能时，不能重新引入首屏请求争抢、跨店缓存污染、权限扩大或“按钮灰掉但不知道原因”的体验。
 
 ## 1. 适用范围

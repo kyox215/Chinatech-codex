@@ -290,6 +290,16 @@ for (const mobileWidth of [390, 430] as const) {
   }) => {
     test.setTimeout(120_000);
     await page.addInitScript(() => {
+      Object.defineProperty(navigator, "userAgent", {
+        configurable: true,
+        value: "Mozilla/5.0 (Linux; Android 15; Mobile)",
+      });
+      Object.defineProperty(navigator, "maxTouchPoints", { configurable: true, value: 5 });
+      const originalMatchMedia = window.matchMedia.bind(window);
+      window.matchMedia = (query) =>
+        query === "(pointer: coarse)"
+          ? ({ matches: true, media: query } as MediaQueryList)
+          : originalMatchMedia(query);
       const originalCreateObjectURL = URL.createObjectURL.bind(URL);
       URL.createObjectURL = (object) => {
         if (object instanceof Blob && object.type === "application/pdf") {
@@ -297,25 +307,24 @@ for (const mobileWidth of [390, 430] as const) {
         }
         return originalCreateObjectURL(object);
       };
-      const originalAppendChild = Element.prototype.appendChild;
-      Element.prototype.appendChild = function <T extends Node>(node: T): T {
-        const result = originalAppendChild.call(this, node) as T;
-        if (node instanceof HTMLIFrameElement && node.dataset.repairdeskPdfPrint === "true") {
-          const printWindow = node.contentWindow;
-          if (printWindow) {
-            Object.defineProperty(printWindow, "focus", {
-              configurable: true,
-              value: () => undefined,
-            });
-            Object.defineProperty(printWindow, "print", {
-              configurable: true,
-              value: () => printWindow.dispatchEvent(new Event("afterprint")),
-            });
-            queueMicrotask(() => node.dispatchEvent(new Event("load")));
-          }
-        }
-        return result;
-      };
+      Object.defineProperty(navigator, "canShare", {
+        configurable: true,
+        value: ({ files }: ShareData) => Boolean(files?.length),
+      });
+      Object.defineProperty(navigator, "share", {
+        configurable: true,
+        value: async () => {
+          const testWindow = window as Window & { __repairDeskShareCalls?: number };
+          testWindow.__repairDeskShareCalls = (testWindow.__repairDeskShareCalls ?? 0) + 1;
+        },
+      });
+      window.addEventListener("repairdesk:fixed-pdf-ready", ((event: CustomEvent) => {
+        const testWindow = window as Window & { __repairDeskPdfMetrics?: unknown[] };
+        testWindow.__repairDeskPdfMetrics = [
+          ...(testWindow.__repairDeskPdfMetrics ?? []),
+          event.detail,
+        ];
+      }) as EventListener);
     });
     await page.setViewportSize({ width: mobileWidth, height: 844 });
     let qrIssueCount = 0;
@@ -355,11 +364,24 @@ for (const mobileWidth of [390, 430] as const) {
     });
     await page.getByRole("button", { name: "A5 横向" }).click();
     await expect(page.getByText("正在准备订单二维码…")).toBeVisible();
-    await expect(page.getByText("打印预览已打开")).toBeVisible({ timeout: 30_000 });
+    const readyDialog = page.locator('[data-fixed-pdf-ready-dialog="true"]');
+    await expect(readyDialog).toBeVisible({ timeout: 30_000 });
+    await expect(readyDialog.getByText("PDF 已准备好")).toBeVisible();
+    await page.screenshot({
+      path: `screenshots/TASK-20260724-008-mobile-print-performance/mobile-pdf-ready-${mobileWidth}.png`,
+      fullPage: true,
+    });
 
     expect(qrIssueCount).toBe(1);
     expect(popupCount).toBe(0);
     await expect(page.locator('[data-repairdesk-pdf-print="true"]')).toHaveCount(0);
+    await readyDialog.getByRole("button", { name: "打印或分享 PDF" }).click();
+    await expect(readyDialog).toBeHidden();
+    expect(
+      await page.evaluate(
+        () => (window as Window & { __repairDeskShareCalls?: number }).__repairDeskShareCalls,
+      ),
+    ).toBe(1);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
@@ -372,6 +394,21 @@ for (const mobileWidth of [390, 430] as const) {
     expect(pdfDocument.getPageCount()).toBe(1);
     expect(pdfDocument.getPage(0).getWidth()).toBeCloseTo(595.2756, 3);
     expect(pdfDocument.getPage(0).getHeight()).toBeCloseTo(419.5276, 3);
+
+    await page.getByRole("button", { name: "打印工单" }).click();
+    await page.getByRole("button", { name: "A5 横向" }).click();
+    await expect(readyDialog).toBeVisible({ timeout: 10_000 });
+    const metrics = await page.evaluate(
+      () =>
+        (
+          window as Window & {
+            __repairDeskPdfMetrics?: Array<{ cacheHit: boolean; endToEndReadyMs: number }>;
+          }
+        ).__repairDeskPdfMetrics ?? [],
+    );
+    expect(metrics).toHaveLength(2);
+    expect(metrics[1]?.cacheHit).toBe(true);
+    expect(metrics[1]?.endToEndReadyMs).toBeLessThan(2_000);
   });
 }
 

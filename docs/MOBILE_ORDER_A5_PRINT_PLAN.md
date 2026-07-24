@@ -13,9 +13,18 @@ Repair order printing provides four explicit, mutually exclusive fixed-PDF modes
 3. `A4 上半裁切`: a 210×297mm A4 portrait page. The unchanged A5 ticket occupies the upper half, a cut line is drawn at 148.5mm, and the lower half stays blank.
 4. `A4 双联`: a 210×297mm A4 portrait page containing two identical complete tickets, separated by the 148.5mm cut line.
 
-The application renders the existing print component at 3× resolution and embeds it into a PDF with an explicit physical MediaBox. Chrome and printer drivers receive an already composed page, so they cannot reflow the two columns or reinterpret the selected orientation.
+The application renders the existing print component at 3× resolution and embeds it into a PDF with an explicit physical MediaBox. Chrome and printer drivers receive an already composed page, so they cannot reflow the two columns or reinterpret the selected orientation. The 3× capture is the quality floor and may not be reduced as a performance shortcut.
 
-PDF generation stays on the active order page. A loading toast reports QR preparation, PDF rendering and print-preview launch. Once ready, the PDF is loaded into a hidden same-page iframe and `print()` opens the browser's native print preview directly. No visible `about:blank` or PDF-viewer tab is created. The iframe and object URL are removed after printing, with a bounded fallback cleanup.
+PDF generation stays on the active order page. A loading toast reports QR preparation and PDF rendering. For single-order printing only, the generated 3× ticket image is cached in bounded page memory and reused across the four paper compositions; the final PDF is also cached by store/order scope, content fingerprint and paper mode. Batch output is never cached. Changing store, order or QR content invalidates reuse, while leaving the page clears the cache. No PDF or customer data is persisted by this optimization.
+
+Delivery is device-aware:
+
+- Desktop browsers first use the hidden same-page PDF iframe and native `print()` flow. If the browser rejects that path, the same visible recovery dialog is shown.
+- Mobile/iPad browsers do not depend on iframe `contentWindow.print()`. After generation they show `PDF 已准备好`; the user's explicit second click invokes native file sharing so iOS/Android can offer Print, AirPrint, Save or Share while user activation is still valid.
+- If native file sharing is unavailable or rejected, `查看/打开 PDF` and `下载 PDF` remain visible. Opening uses the current tab, avoiding an intermediate `about:blank` rendering tab.
+- Closing the system share sheet is treated as cancellation, not as a print failure. The application only reports that the system menu opened; it never claims that physical printing completed.
+
+The client emits `repairdesk:fixed-pdf-ready` cache state plus QR preparation, layout readiness, PDF generation and end-to-end timing details for QA. A representative warm/cache-hit single-order flow, measured from paper selection through PDF ready, has a target of less than 2 seconds. Cold capture time is measured separately and must retain progress feedback; the target never permits lowering the 3× quality floor.
 
 ## Content stability
 
@@ -37,6 +46,7 @@ For A5 paper, select `A5 横向`. For A4 choose `A4 横向铺满`, `A4 上半裁
 
 ## Verification
 
-- Unit coverage verifies mutually exclusive A5/A4 page CSS, cleanup and bounded fit decisions.
+- Unit coverage verifies desktop iframe cleanup, mobile/iPad routing, native share cancellation, unsupported-share recovery controls, mutually exclusive A5/A4 page CSS and bounded fit decisions.
 - Browser PDF verification must assert one page per order and physical page dimensions for all four modes.
+- Mobile browser verification must assert that no PDF print iframe is created, the visible ready dialog appears, the native share call happens only after a second user click, and a repeated print reports a cache hit below the 2-second target.
 - Release verification covers Chromium and WebKit desktop/mobile viewports. Real printer-driver verification remains an operational check because browser automation cannot control HP/Windows/iOS native print dialogs.

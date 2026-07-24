@@ -7,12 +7,16 @@ type CustomerStatusApiError = {
   error?: { message?: string };
 };
 
-export async function issueCustomerStatusLinks(orderIds: string[]) {
+export async function issueCustomerStatusLinks(
+  orderIds: string[],
+  options?: { signal?: AbortSignal },
+) {
   const response = await fetch("/api/repairdesk/customer-status-links/issue", {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ order_ids: orderIds }),
+    signal: options?.signal,
   });
   const payload = (await response.json().catch(() => ({}))) as CustomerStatusApiError & {
     links?: CustomerStatusIssuedLink[];

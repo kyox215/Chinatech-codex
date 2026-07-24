@@ -127,6 +127,7 @@ import {
   readOrderPrintPaperMode,
   rememberOrderPrintPaperMode,
 } from "@/features/orders/components/order-print-paper-dialog";
+import { FixedPdfReadyDialog } from "@/features/orders/components/fixed-pdf-ready-dialog";
 import type { PrintPaperMode } from "@/features/orders/components/print-portal";
 import {
   issueCustomerStatusLinks,
@@ -326,15 +327,28 @@ export function OrderDetailScreen({
     createFinanceDraftState([], 0),
   );
   const editSaveInFlightRef = useRef(false);
-  const requestPrint = useFixedOrderPdfPrint(
+  const {
+    requestPrint,
+    preparedPdf,
+    generationPending,
+    deliveryPending,
+    deliveryError,
+    dismissPreparedPdf,
+    sharePreparedPdf,
+    openPreparedPdf,
+    downloadPreparedPdf,
+  } = useFixedOrderPdfPrint(
     () => {
-      setCustomerStatusUrl("");
       setPrintPreparing(false);
     },
     (error) => {
-      setCustomerStatusUrl("");
       setPrintPreparing(false);
       toast.error(error.message);
+    },
+    {
+      scopeKey: `${activeStoreId ?? "no-store"}:${id}`,
+      onPdfReady: () => setCustomerStatusUrl(""),
+      onInvalidate: () => setCustomerStatusUrl(""),
     },
   );
 
@@ -1097,16 +1111,17 @@ export function OrderDetailScreen({
   const cancelled = isOrderCancelledState(order);
   const isTerminalOrder = isOrderTerminalState(order);
   const canPrintCustomerDocument = canPrintRepairOrderCustomerDocument(order);
-  const printDisabledReason = printPreparing ? "正在准备打印内容" : undefined;
+  const printDisabledReason = printPreparing || generationPending ? "正在准备打印内容" : undefined;
   const printCustomerDocument = async (paperMode: PrintPaperMode) => {
     rememberOrderPrintPaperMode(paperMode);
     setPrintPaperMode(paperMode);
     setPrintPaperDialogOpen(false);
-    const outcome = await requestPrint(paperMode, `${order.public_no}.pdf`, async () => {
+    const outcome = await requestPrint(paperMode, `${order.public_no}.pdf`, async (context) => {
       setPrintPreparing(true);
       try {
         setCustomerStatusUrl("");
-        const links = await issueCustomerStatusLinks([order.id]);
+        const links = await issueCustomerStatusLinks([order.id], { signal: context.signal });
+        if (!context.isCurrent()) return;
         const link = links.find((item) => item.order_id === order.id);
         if (!link?.url) throw new Error("订单二维码准备失败，请重试");
         setCustomerStatusUrl(link.url);
@@ -1403,7 +1418,7 @@ export function OrderDetailScreen({
           paymentDisabled={!canCollectPayment}
           primaryAction={desktopPrimaryAction}
           onPrint={() => setPrintPaperDialogOpen(true)}
-          printDisabled={!canPrintCustomerDocument || printPreparing}
+          printDisabled={!canPrintCustomerDocument || generationPending}
           printDisabledReason={printDisabledReason}
           onRevokeCustomerStatusLinks={
             canRevokeCustomerStatusLinks ? () => void revokePrintedCustomerStatusLinks() : undefined
@@ -1474,7 +1489,7 @@ export function OrderDetailScreen({
           <OrderHero
             order={order}
             onPrint={() => setPrintPaperDialogOpen(true)}
-            printDisabled={!canPrintCustomerDocument || printPreparing}
+            printDisabled={!canPrintCustomerDocument || generationPending}
             printDisabledReason={printDisabledReason}
             onRevokeCustomerStatusLinks={
               canRevokeCustomerStatusLinks
@@ -1976,6 +1991,15 @@ export function OrderDetailScreen({
         open={printPaperDialogOpen}
         onOpenChange={setPrintPaperDialogOpen}
         onSelect={(mode) => void printCustomerDocument(mode)}
+      />
+      <FixedPdfReadyDialog
+        prepared={preparedPdf}
+        pending={deliveryPending}
+        errorMessage={deliveryError}
+        onClose={dismissPreparedPdf}
+        onShare={() => void sharePreparedPdf()}
+        onOpenPdf={openPreparedPdf}
+        onDownload={downloadPreparedPdf}
       />
     </div>
   );

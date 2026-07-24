@@ -48,6 +48,7 @@ import {
   readOrderPrintPaperMode,
   rememberOrderPrintPaperMode,
 } from "@/features/orders/components/order-print-paper-dialog";
+import { FixedPdfReadyDialog } from "@/features/orders/components/fixed-pdf-ready-dialog";
 import type { PrintPaperMode } from "@/features/orders/components/print-portal";
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
@@ -107,15 +108,28 @@ export function OrderTaskScreen({ id }: { id: string }) {
   const [printPreparing, setPrintPreparing] = useState(false);
   const [printPaperDialogOpen, setPrintPaperDialogOpen] = useState(false);
   const [printPaperMode, setPrintPaperMode] = useState<PrintPaperMode>(readOrderPrintPaperMode);
-  const requestPrint = useFixedOrderPdfPrint(
+  const {
+    requestPrint,
+    preparedPdf,
+    generationPending,
+    deliveryPending,
+    deliveryError,
+    dismissPreparedPdf,
+    sharePreparedPdf,
+    openPreparedPdf,
+    downloadPreparedPdf,
+  } = useFixedOrderPdfPrint(
     () => {
-      setCustomerStatusUrl("");
       setPrintPreparing(false);
     },
     (error) => {
-      setCustomerStatusUrl("");
       setPrintPreparing(false);
       toast.error(error.message);
+    },
+    {
+      scopeKey: `${activeStoreId ?? "no-store"}:${id}`,
+      onPdfReady: () => setCustomerStatusUrl(""),
+      onInvalidate: () => setCustomerStatusUrl(""),
     },
   );
 
@@ -160,11 +174,12 @@ export function OrderTaskScreen({ id }: { id: string }) {
     rememberOrderPrintPaperMode(paperMode);
     setPrintPaperMode(paperMode);
     setPrintPaperDialogOpen(false);
-    const outcome = await requestPrint(paperMode, `${order.public_no}.pdf`, async () => {
+    const outcome = await requestPrint(paperMode, `${order.public_no}.pdf`, async (context) => {
       setPrintPreparing(true);
       try {
         setCustomerStatusUrl("");
-        const links = await issueCustomerStatusLinks([order.id]);
+        const links = await issueCustomerStatusLinks([order.id], { signal: context.signal });
+        if (!context.isCurrent()) return;
         const link = links.find((item) => item.order_id === order.id);
         if (!link?.url) throw new Error("订单二维码准备失败，请重试");
         setCustomerStatusUrl(link.url);
@@ -374,8 +389,8 @@ export function OrderTaskScreen({ id }: { id: string }) {
           size="icon"
           className="size-10 rounded-full md:size-8 md:rounded-lg"
           aria-label="打印客户工单"
-          disabled={!canPrintCustomerDocument || printPreparing}
-          aria-busy={printPreparing}
+          disabled={!canPrintCustomerDocument || generationPending}
+          aria-busy={generationPending}
           onClick={() => setPrintPaperDialogOpen(true)}
         >
           <Printer className="size-4" />
@@ -644,6 +659,15 @@ export function OrderTaskScreen({ id }: { id: string }) {
         open={printPaperDialogOpen}
         onOpenChange={setPrintPaperDialogOpen}
         onSelect={(mode) => void printCustomerDocument(mode)}
+      />
+      <FixedPdfReadyDialog
+        prepared={preparedPdf}
+        pending={deliveryPending}
+        errorMessage={deliveryError}
+        onClose={dismissPreparedPdf}
+        onShare={() => void sharePreparedPdf()}
+        onOpenPdf={openPreparedPdf}
+        onDownload={downloadPreparedPdf}
       />
     </main>
   );

@@ -57,6 +57,7 @@ import {
   readOrderPrintPaperMode,
   rememberOrderPrintPaperMode,
 } from "@/features/orders/components/order-print-paper-dialog";
+import { FixedPdfReadyDialog } from "@/features/orders/components/fixed-pdf-ready-dialog";
 import type { PrintPaperMode } from "@/features/orders/components/print-portal";
 import { NewOrderDialog } from "@/features/orders/components/new-order-dialog";
 import { DesktopOrderQueueRow } from "@/features/orders/components/order-list-desktop-row";
@@ -429,12 +430,32 @@ export function OrderListScreen() {
     enabled: canLoadOrderData,
   });
   const storeSettings = storeSettingsQuery.data;
-  const requestPrint = useFixedOrderPdfPrint(
+  const {
+    requestPrint,
+    preparedPdf,
+    generationPending,
+    deliveryPending,
+    deliveryError,
+    dismissPreparedPdf,
+    sharePreparedPdf,
+    openPreparedPdf,
+    downloadPreparedPdf,
+  } = useFixedOrderPdfPrint(
     () => {
       setPrintOrders([]);
-      setCustomerStatusUrls({});
     },
     (error) => toast.error(error.message),
+    {
+      scopeKey: `${activeStoreId ?? "no-store"}:order-list`,
+      onPdfReady: () => {
+        setPrintOrders([]);
+        setCustomerStatusUrls({});
+      },
+      onInvalidate: () => {
+        setPrintOrders([]);
+        setCustomerStatusUrls({});
+      },
+    },
   );
 
   const options = orderOptions ?? emptyOrderOptions;
@@ -446,7 +467,7 @@ export function OrderListScreen() {
   const canBatchPrintOrders = options.permissions.canBatchPrintOrders === true;
   const canBatchTransitionOrders = options.permissions.canBatchTransitionOrders === true;
   const canUseBulkActions = canExportOrders || canBatchTransitionOrders;
-  const singlePrintDisabledReason = undefined;
+  const singlePrintDisabledReason = generationPending ? "正在准备打印内容" : undefined;
   useEffect(() => {
     if (!canUseBulkActions) setSelected([]);
   }, [canUseBulkActions]);
@@ -1054,10 +1075,14 @@ export function OrderListScreen() {
     const outcome = await requestPrint(
       paperMode,
       rows.length === 1 ? `${rows[0].public_no}.pdf` : `repair-orders-${rows.length}.pdf`,
-      async () => {
+      async (context) => {
         setPrintOrders(rows);
         setCustomerStatusUrls({});
-        const links = await issueCustomerStatusLinks(rows.map((order) => order.id));
+        const links = await issueCustomerStatusLinks(
+          rows.map((order) => order.id),
+          { signal: context.signal },
+        );
+        if (!context.isCurrent()) return;
         if (links.length !== rows.length) throw new Error("部分订单二维码准备失败，请重试");
         setCustomerStatusUrls(Object.fromEntries(links.map((link) => [link.order_id, link.url])));
       },
@@ -1860,6 +1885,15 @@ export function OrderListScreen() {
         open={printPaperDialogOpen}
         onOpenChange={setPrintPaperDialogOpen}
         onSelect={(mode) => void printRows(pendingPrintOrders, mode)}
+      />
+      <FixedPdfReadyDialog
+        prepared={preparedPdf}
+        pending={deliveryPending}
+        errorMessage={deliveryError}
+        onClose={dismissPreparedPdf}
+        onShare={() => void sharePreparedPdf()}
+        onOpenPdf={openPreparedPdf}
+        onDownload={downloadPreparedPdf}
       />
       <NewOrderDialog
         open={newOrderOpen}
