@@ -30,3 +30,11 @@
 - **Decision:** 移动端使用Web Share优先并保留查看/下载回退，桌面继续iframe自动打印；不降低3x质量，不新增服务端PDF存储。
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+## 2026-07-24T19:01:23Z — 移动端显式PDF交付修复已推送main并部署生产：main d2c81e0a，Vercel dpl_14SPAuGGVYs7E5diGRLR2yfGJWCs Ready，www.chinatech.in与chinatech.in已切换；最终lint/typecheck/full test/build/打印E2E通过，生产/orders到登录路由健康。
+
+- **Phase:** implementation
+- **Completed/current state:** 移动端显式PDF交付修复已推送main并部署生产：main d2c81e0a，Vercel dpl_14SPAuGGVYs7E5diGRLR2yfGJWCs Ready，www.chinatech.in与chinatech.in已切换；最终lint/typecheck/full test/build/打印E2E通过，生产/orders到登录路由健康。
+- **Next:** 老板在iPhone 16 Pro Chrome和Honor Magic 8 Pro Chrome关闭旧标签页后重开，验证PDF已准备好对话框、系统分享打印、取消重试、查看/下载及实体二维码扫描；收到结果后关闭任务或继续设备专项修复。
+- **Decision:** 生产移动端不再依赖隐藏iframe；采用显式Web Share优先、查看/下载回退；本次无数据库迁移和生产数据写入。
+- **Evidence:** none added by this command; do not infer validation.
+- **Recorded by:** CEO-Orchestrator

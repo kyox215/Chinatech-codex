@@ -17,6 +17,11 @@
 | E-013 | build | post-rebase production Next.js build | `npm run build` | passed after approved font-network access | 2026-07-24T18:05:00Z | IntegrationLead |
 | E-014 | browser | post-rebase desktop four-mode and Android-UA mobile flow | `npm run test:e2e:print-safari:mock` | 7 passed / 1 legacy skipped | 2026-07-24T18:05:00Z | IntegrationLead |
 | E-015 | review | architecture and QA read-only review | subagents `mobile_print_arch_review`, `mobile_print_qa_review` | no P0; release remains blocked on native-device smoke | 2026-07-24T18:05:00Z | IntegrationLead |
+| E-016 | release gate | final lint, typecheck, full unit and production build | `npm run lint -- --no-cache`, `npm run typecheck`, `npm run test`, `npm run build` | passed on `d2c81e0a` | 2026-07-24T19:00:00Z | IntegrationLead |
+| E-017 | browser | final print E2E before production release | `npm run test:e2e:print-safari:mock` | command exited 0; four-mode and 390px mobile cases passed | 2026-07-24T19:00:00Z | IntegrationLead |
+| E-018 | git | approved release integrated to main | `git push origin HEAD:main` | `719d2998..d2c81e0a` | 2026-07-24T19:00:00Z | IntegrationLead |
+| E-019 | deployment | exact main SHA built and assigned to production domains | Vercel `dpl_14SPAuGGVYs7E5diGRLR2yfGJWCs` | READY; `www.chinatech.in` and `chinatech.in` aliases active | 2026-07-24T19:00:00Z | IntegrationLead |
+| E-020 | smoke | unauthenticated production route health | `curl -sSIL https://www.chinatech.in/orders` | 307 to login; login 200; Vercel response healthy | 2026-07-24T19:00:00Z | IntegrationLead |
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.

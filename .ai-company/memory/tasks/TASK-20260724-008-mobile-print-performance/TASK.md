@@ -9,7 +9,7 @@ autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["FLOW", "ARCH", "FE", "API", "UX", "QA", "DOC", "INT"]
 created_at: "2026-07-24T14:06:01Z"
-updated_at: "2026-07-24T18:46:00Z"
+updated_at: "2026-07-24T19:01:23Z"
 ---
 # Task — 移动端稳定打印与两秒固定PDF性能优化
 
