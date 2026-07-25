@@ -27,25 +27,25 @@ export function DashboardPriorityCard({
       data-priority-reason={item.reasonCode}
       aria-labelledby={headingId}
       className={cn(
-        "min-w-0 rounded-2xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)]",
-        primary ? "p-3 sm:p-4" : "p-3",
+        "min-w-0 rounded-2xl border border-[var(--border-panel)] bg-card p-2.5 shadow-[var(--shadow-card)] lg:p-3",
+        primary && "lg:p-4",
       )}
     >
       <div className="flex min-w-0 items-start justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <span className="inline-flex h-6 shrink-0 items-center rounded-full bg-foreground px-2 text-[10px] font-semibold text-background">
+          <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-foreground px-2 text-[9px] font-semibold text-background lg:h-6 lg:text-[10px]">
             第 {item.rank} 优先
           </span>
           <span
             className={cn(
-              "inline-flex h-6 min-w-0 items-center rounded-full border px-2 text-[10px] font-semibold",
+              "inline-flex h-5 min-w-0 items-center rounded-full border px-2 text-[9px] font-semibold lg:h-6 lg:text-[10px]",
               tierStyles[item.tier],
             )}
           >
             <span className="truncate">{item.reasonLabel}</span>
           </span>
         </div>
-        <span className="shrink-0 font-mono text-[11px] font-medium text-muted-foreground">
+        <span className="max-w-[42%] shrink-0 truncate font-mono text-[10px] font-medium text-muted-foreground lg:max-w-none lg:text-[11px]">
           {item.publicNo}
         </span>
       </div>
@@ -53,18 +53,23 @@ export function DashboardPriorityCard({
       <h3
         id={headingId}
         className={cn(
-          "mt-2 min-w-0 truncate font-semibold text-foreground",
-          primary ? "text-base sm:text-lg" : "text-sm",
+          "mt-1.5 min-w-0 truncate text-sm font-semibold text-foreground lg:mt-2",
+          primary && "lg:text-lg",
         )}
         title={`${item.customerName} · ${item.deviceLabel}`}
       >
         {item.customerName} · {item.deviceLabel}
       </h3>
-      <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+      <p className="mt-0.5 line-clamp-1 text-[11px] leading-4 text-muted-foreground lg:mt-1 lg:line-clamp-2 lg:text-xs lg:leading-5">
         {item.reasonDescription}
       </p>
 
-      <div className={cn("mt-3 grid min-w-0 gap-2", primary && "sm:grid-cols-2")}>
+      <div
+        className={cn(
+          "mt-2 grid min-w-0 gap-0.5 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1 lg:mt-3 lg:gap-2 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0",
+          primary && "lg:grid-cols-2",
+        )}
+      >
         <StepBlock
           label="当前步骤"
           value={item.currentStep}
@@ -78,7 +83,7 @@ export function DashboardPriorityCard({
         />
       </div>
 
-      <div className="mt-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-4 text-muted-foreground">
+      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[10px] leading-4 text-muted-foreground lg:mt-3 lg:text-[11px]">
         <span className="inline-flex min-w-0 items-center gap-1">
           <UserRound className="size-3.5 shrink-0" aria-hidden />
           <span className="shrink-0">负责人</span>
@@ -91,13 +96,13 @@ export function DashboardPriorityCard({
       </div>
 
       {item.assigneeState === "unavailable" ? (
-        <p className="mt-2 inline-flex items-center gap-1 text-[10px] leading-4 text-status-warn-foreground">
+        <p className="mt-1.5 inline-flex line-clamp-1 items-center gap-1 text-[10px] leading-4 text-status-warn-foreground lg:mt-2">
           <AlertTriangle className="size-3" aria-hidden />
           负责人资料暂时不可确认，请进入工单核对。
         </p>
       ) : null}
 
-      <div className="mt-3 grid min-w-0 grid-cols-2 gap-2">
+      <div className="mt-2 grid min-w-0 grid-cols-2 gap-1.5 lg:mt-3 lg:gap-2">
         <Button asChild size="sm" className="h-11 min-w-0 rounded-xl px-3 text-xs">
           <Link href={item.action.href} data-dashboard-priority-action={item.orderId}>
             <span className="truncate">{item.action.label}</span>
@@ -133,17 +138,22 @@ function StepBlock({
   return (
     <div
       className={cn(
-        "min-w-0 rounded-xl border px-2.5 py-2",
+        "grid min-w-0 grid-cols-[64px_minmax(0,1fr)] items-start gap-2 py-1 lg:block lg:rounded-xl lg:border lg:px-2.5 lg:py-2",
         emphasized
-          ? "border-primary/20 bg-primary/5"
-          : "border-[var(--border-panel)] bg-[var(--surface-panel-muted)]",
+          ? "border-t border-primary/15 pt-1.5 lg:border-primary/20 lg:bg-primary/5"
+          : "lg:border-[var(--border-panel)] lg:bg-[var(--surface-panel-muted)]",
       )}
     >
       <div className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground">
         {icon}
         {label}
       </div>
-      <p className={cn("mt-1 line-clamp-2 text-xs leading-5", emphasized && "font-medium")}>
+      <p
+        className={cn(
+          "line-clamp-1 min-w-0 text-[11px] leading-4 lg:mt-1 lg:line-clamp-2 lg:text-xs lg:leading-5",
+          emphasized && "font-medium",
+        )}
+      >
         {value}
       </p>
     </div>

@@ -16,13 +16,13 @@ const businessLinks = [
 export function DashboardPrioritySidebar({ summary }: { summary: DashboardSummary }) {
   return (
     <aside className="min-w-0 space-y-3">
-      <AttentionSummary summary={summary} />
-      <BusinessLinks />
+      <DashboardAttentionSummary summary={summary} />
+      <DashboardBusinessLinks />
     </aside>
   );
 }
 
-function AttentionSummary({ summary }: { summary: DashboardSummary }) {
+export function DashboardAttentionSummary({ summary }: { summary: DashboardSummary }) {
   const metrics = [
     { label: "已超期", value: summary.counts.overdue, tone: "danger" },
     { label: "可立即处理", value: summary.counts.ready + summary.counts.active, tone: "primary" },
@@ -30,21 +30,23 @@ function AttentionSummary({ summary }: { summary: DashboardSummary }) {
   ] as const;
 
   return (
-    <section className={cn(repairOs.adminSection, "min-w-0 p-3")}>
+    <section className={cn(repairOs.adminSection, "min-w-0 p-2 lg:p-3")}>
       <RepairOsSectionHeader title="交接关注" description="只显示业务处理数量，不含财务数据" />
-      <div className="mt-3 grid min-w-0 grid-cols-3 gap-2 lg:grid-cols-1">
+      <div className="mt-1.5 grid min-w-0 grid-cols-3 gap-1.5 lg:mt-3 lg:grid-cols-1 lg:gap-2">
         {metrics.map((metric) => (
           <div
             key={metric.label}
             className={cn(
-              "min-w-0 rounded-xl border px-2.5 py-2",
+              "min-w-0 rounded-xl border px-2 py-1.5 lg:px-2.5 lg:py-2",
               metric.tone === "danger" && "border-status-danger-foreground/20 bg-status-danger/10",
               metric.tone === "primary" && "border-primary/20 bg-primary/10",
               metric.tone === "warn" && "border-status-warn-foreground/20 bg-status-warn/10",
             )}
           >
             <p className="truncate text-[10px] font-medium text-muted-foreground">{metric.label}</p>
-            <p className="mt-1 text-lg font-semibold tabular-nums">{metric.value}</p>
+            <p className="mt-0.5 text-sm font-semibold tabular-nums lg:mt-1 lg:text-lg">
+              {metric.value}
+            </p>
           </div>
         ))}
       </div>
@@ -52,18 +54,18 @@ function AttentionSummary({ summary }: { summary: DashboardSummary }) {
   );
 }
 
-function BusinessLinks() {
+export function DashboardBusinessLinks() {
   return (
-    <section className={cn(repairOs.adminSection, "min-w-0 p-3")}>
+    <section className={cn(repairOs.adminSection, "min-w-0 p-2 lg:p-3")}>
       <RepairOsSectionHeader title="业务入口" description="查看完整资料与历史" />
-      <div className="mt-3 grid min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-1">
+      <div className="mt-1.5 grid min-w-0 grid-cols-2 gap-1.5 lg:mt-3 lg:grid-cols-1 lg:gap-2">
         {businessLinks.map((item) => (
           <Link
             key={item.href}
             href={item.href}
-            className="grid min-w-0 grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-2 rounded-xl border border-[var(--border-panel)] bg-card px-2.5 py-2 outline-none transition-colors hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="grid min-h-11 min-w-0 grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-1.5 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 outline-none transition-colors hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 lg:grid-cols-[36px_minmax(0,1fr)_auto] lg:gap-2 lg:px-2.5 lg:py-2"
           >
-            <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
+            <span className="grid size-7 place-items-center rounded-lg bg-primary/10 text-primary lg:size-9">
               <item.icon className="size-4" aria-hidden />
             </span>
             <span className="min-w-0">

@@ -1,9 +1,9 @@
 "use client";
 
-import type { MouseEvent } from "react";
+import { useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, ClipboardPlus, Recycle, type LucideIcon } from "lucide-react";
+import { ClipboardPlus, Recycle, ScanLine, type LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { RepairOsBusinessCard, RepairOsSectionHeader } from "@/shared/ui";
@@ -11,6 +11,7 @@ import { brandGradientStyle, controls, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { createNewOrderSessionId } from "@/features/orders/model/new-order-intent";
 import { buildNewOrderWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
+import { ScanSearchSheet } from "@/features/capture";
 
 const quickStartActions = [
   {
@@ -92,6 +93,7 @@ export function DashboardDesktopQuickStart({ onCreateOrder }: { onCreateOrder?: 
 
 export function DashboardMobileQuickStart({ onCreateOrder }: { onCreateOrder?: () => void }) {
   const router = useRouter();
+  const [scannerOpen, setScannerOpen] = useState(false);
   const startNewOrder = (event: MouseEvent<HTMLAnchorElement>) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
       return;
@@ -111,54 +113,46 @@ export function DashboardMobileQuickStart({ onCreateOrder }: { onCreateOrder?: (
   return (
     <section
       data-ui="dashboard-quick-start-mobile"
-      className={cn(repairOs.adminSection, "p-2.5 md:hidden")}
+      className={cn(repairOs.adminSection, "p-2 md:hidden")}
     >
       <RepairOsSectionHeader title="快速开始" description="选择要办理的业务" />
-      <div className="mt-2 grid min-w-0 grid-cols-2 gap-2">
-        {quickStartActions.map((action) => (
+      <div className={repairOs.dashboardMobileQuickGrid}>
+        {quickStartActions.slice(0, 1).map((action) => (
           <Link
             key={action.id}
             href={action.href}
             onClick={action.id === "new-order" ? startNewOrder : undefined}
             data-dashboard-quick-start={action.id}
             aria-label={`${action.label}，${action.description}`}
-            className="block min-w-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className={repairOs.dashboardMobileQuickAction}
           >
             <RepairOsBusinessCard
               as="div"
-              leading={
-                <span
-                  className={cn(
-                    "grid size-9 place-items-center rounded-lg",
-                    action.primary
-                      ? "bg-primary-foreground/15 text-primary-foreground"
-                      : "bg-primary/10 text-primary",
-                  )}
-                >
-                  <action.icon className="size-4" aria-hidden />
-                </span>
-              }
-              trailing={
-                <ArrowUpRight
-                  className={cn(
-                    "size-3.5",
-                    action.primary ? "text-primary-foreground/80" : "text-muted-foreground",
-                  )}
-                  aria-hidden
-                />
-              }
+              bodyClassName="grid w-full min-w-0 place-items-center gap-0.5"
               className={cn(
-                "min-h-20 items-center rounded-xl px-2.5 py-2 shadow-none transition-transform active:scale-[0.98]",
+                "h-full min-h-14 grid-cols-1 place-items-center gap-0.5 rounded-xl px-1 py-1.5 text-center shadow-none transition-transform active:scale-[0.98] min-[400px]:min-h-16",
                 action.primary
                   ? "border-0 text-primary-foreground hover:bg-transparent"
                   : "border-[var(--border-panel)] bg-card hover:bg-accent/60",
               )}
               style={action.primary ? brandGradientStyle : undefined}
             >
-              <span className="block text-xs font-semibold leading-4">{action.label}</span>
               <span
                 className={cn(
-                  "mt-1 block text-[10px] leading-3.5",
+                  "grid size-7 place-items-center rounded-lg",
+                  action.primary
+                    ? "bg-primary-foreground/15 text-primary-foreground"
+                    : "bg-primary/10 text-primary",
+                )}
+              >
+                <action.icon className="size-3.5" aria-hidden />
+              </span>
+              <span className="block whitespace-nowrap text-[11px] font-semibold leading-4 min-[360px]:text-xs">
+                {action.label}
+              </span>
+              <span
+                className={cn(
+                  "mt-0.5 hidden truncate text-[10px] leading-3.5 min-[400px]:block",
                   action.primary ? "text-primary-foreground/80" : "text-muted-foreground",
                 )}
               >
@@ -167,7 +161,58 @@ export function DashboardMobileQuickStart({ onCreateOrder }: { onCreateOrder?: (
             </RepairOsBusinessCard>
           </Link>
         ))}
+
+        <button
+          type="button"
+          data-dashboard-quick-start="scan-order"
+          aria-label="扫码查单，扫描工单二维码或输入订单信息"
+          onClick={() => setScannerOpen(true)}
+          className={repairOs.dashboardMobileQuickAction}
+        >
+          <RepairOsBusinessCard
+            as="div"
+            bodyClassName="grid w-full min-w-0 place-items-center gap-0.5"
+            className="h-full min-h-14 grid-cols-1 place-items-center gap-0.5 rounded-xl border-[var(--border-panel)] bg-card px-1 py-1.5 text-center shadow-none transition-transform active:scale-[0.98] min-[400px]:min-h-16"
+          >
+            <span className="grid size-7 place-items-center rounded-lg bg-primary/10 text-primary">
+              <ScanLine className="size-3.5" aria-hidden />
+            </span>
+            <span className="block whitespace-nowrap text-[11px] font-semibold leading-4 min-[360px]:text-xs">
+              扫码查单
+            </span>
+            <span className="mt-0.5 hidden truncate text-[10px] leading-3.5 text-muted-foreground min-[400px]:block">
+              二维码 · IMEI
+            </span>
+          </RepairOsBusinessCard>
+        </button>
+
+        {quickStartActions.slice(1).map((action) => (
+          <Link
+            key={action.id}
+            href={action.href}
+            data-dashboard-quick-start={action.id}
+            aria-label={`${action.label}，${action.description}`}
+            className={repairOs.dashboardMobileQuickAction}
+          >
+            <RepairOsBusinessCard
+              as="div"
+              bodyClassName="grid w-full min-w-0 place-items-center gap-0.5"
+              className="h-full min-h-14 grid-cols-1 place-items-center gap-0.5 rounded-xl border-[var(--border-panel)] bg-card px-1 py-1.5 text-center shadow-none transition-transform active:scale-[0.98] min-[400px]:min-h-16"
+            >
+              <span className="grid size-7 place-items-center rounded-lg bg-primary/10 text-primary">
+                <action.icon className="size-3.5" aria-hidden />
+              </span>
+              <span className="block whitespace-nowrap text-[11px] font-semibold leading-4 min-[360px]:text-xs">
+                回收估价
+              </span>
+              <span className="mt-0.5 hidden truncate text-[10px] leading-3.5 text-muted-foreground min-[400px]:block">
+                iPhone 旧机
+              </span>
+            </RepairOsBusinessCard>
+          </Link>
+        ))}
       </div>
+      <ScanSearchSheet open={scannerOpen} onOpenChange={setScannerOpen} scope="orders" />
     </section>
   );
 }

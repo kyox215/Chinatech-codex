@@ -16,26 +16,53 @@ export function DashboardPriorityLoading() {
       role="status"
       aria-busy="true"
       aria-label="正在生成工单处理顺序"
-      className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[minmax(0,1fr)_320px]"
+      className="grid min-w-0 gap-2.5 lg:grid-cols-[minmax(0,1fr)_280px] lg:grid-rows-[auto_1fr] lg:gap-3 xl:grid-cols-[minmax(0,1fr)_320px]"
     >
-      <section className={cn(repairOs.adminSection, "min-w-0 p-3")}>
+      <section
+        className={cn(
+          repairOs.adminSection,
+          "order-1 min-w-0 p-2 lg:col-start-2 lg:row-start-1 lg:p-3",
+        )}
+      >
+        <Skeleton className="h-4 w-24" />
+        <div className="mt-1.5 grid grid-cols-3 gap-1.5 lg:mt-3 lg:grid-cols-1 lg:gap-2">
+          {Array.from({ length: 3 }, (_, index) => (
+            <Skeleton key={index} className="h-11 rounded-xl lg:h-14" />
+          ))}
+        </div>
+      </section>
+      <section
+        className={cn(
+          repairOs.adminSection,
+          "order-2 min-w-0 p-2 lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:p-3",
+        )}
+      >
         <Skeleton className="h-5 w-32" />
         <Skeleton className="mt-2 h-4 w-56 max-w-full" />
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="mt-2 grid grid-cols-4 gap-1 lg:mt-3 lg:gap-2">
           {Array.from({ length: 4 }, (_, index) => (
             <Skeleton key={index} className="h-11 rounded-xl" />
           ))}
         </div>
-        <div className="mt-3 space-y-2">
-          <Skeleton className="h-64 rounded-2xl" />
-          <Skeleton className="h-44 rounded-2xl" />
-          <Skeleton className="h-44 rounded-2xl" />
+        <div className="mt-2 space-y-1.5 lg:mt-3 lg:space-y-2">
+          <Skeleton className="h-48 rounded-2xl lg:h-64" />
+          <Skeleton className="h-40 rounded-2xl lg:h-44" />
+          <Skeleton className="h-40 rounded-2xl lg:h-44" />
         </div>
       </section>
-      <aside className="hidden space-y-3 lg:block">
-        <Skeleton className="h-48 rounded-2xl" />
-        <Skeleton className="h-64 rounded-2xl" />
-      </aside>
+      <section
+        className={cn(
+          repairOs.adminSection,
+          "order-3 min-w-0 p-2 lg:col-start-2 lg:row-start-2 lg:p-3",
+        )}
+      >
+        <Skeleton className="h-4 w-20" />
+        <div className="mt-1.5 grid grid-cols-2 gap-1.5 lg:mt-3 lg:grid-cols-1 lg:gap-2">
+          {Array.from({ length: 4 }, (_, index) => (
+            <Skeleton key={index} className="h-11 rounded-xl" />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

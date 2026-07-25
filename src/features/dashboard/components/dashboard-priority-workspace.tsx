@@ -6,7 +6,10 @@ import { AlertTriangle, ArrowUpRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DashboardPriorityCard } from "@/features/dashboard/components/dashboard-priority-card";
-import { DashboardPrioritySidebar } from "@/features/dashboard/components/dashboard-priority-sidebar";
+import {
+  DashboardAttentionSummary,
+  DashboardBusinessLinks,
+} from "@/features/dashboard/components/dashboard-priority-sidebar";
 import {
   DashboardFilteredEmpty,
   DashboardPriorityEmpty,
@@ -57,8 +60,17 @@ export function DashboardPriorityWorkspace({
   const visibleItems = filteredItems.slice(0, 5);
 
   return (
-    <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[minmax(0,1fr)_320px]">
-      <section className={cn(repairOs.adminSection, "min-w-0 p-2.5 sm:p-3")}>
+    <div className="grid min-w-0 gap-2.5 lg:grid-cols-[minmax(0,1fr)_280px] lg:grid-rows-[auto_1fr] lg:gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="order-1 min-w-0 lg:col-start-2 lg:row-start-1">
+        <DashboardAttentionSummary summary={summary} />
+      </div>
+
+      <section
+        className={cn(
+          repairOs.adminSection,
+          "order-2 min-w-0 p-2 lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:p-3",
+        )}
+      >
         <RepairOsSectionHeader
           title="现在先处理"
           description={
@@ -90,7 +102,7 @@ export function DashboardPriorityWorkspace({
         <div
           role="group"
           aria-label="优先工单筛选"
-          className="mt-3 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4"
+          className="mt-2 grid min-w-0 grid-cols-4 gap-1 lg:mt-3 lg:gap-2"
         >
           {filterOptions.map((option) => {
             const selected = filter === option.id;
@@ -102,7 +114,7 @@ export function DashboardPriorityWorkspace({
                 data-dashboard-priority-filter={option.id}
                 onClick={() => setFilter(option.id)}
                 className={cn(
-                  "h-11 min-w-0 truncate rounded-xl border px-2 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  "h-11 min-w-0 truncate rounded-xl border px-1 text-[11px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-[360px]:px-2 min-[360px]:text-xs",
                   selected
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-[var(--border-panel)] bg-card text-muted-foreground hover:bg-accent/60",
@@ -123,7 +135,10 @@ export function DashboardPriorityWorkspace({
             sampledTotal={summary.items.length}
           />
         ) : (
-          <div className="mt-3 min-w-0 space-y-2" data-ui="dashboard-priority-list">
+          <div
+            className="mt-2 min-w-0 space-y-1.5 lg:mt-3 lg:space-y-2"
+            data-ui="dashboard-priority-list"
+          >
             <DashboardPriorityCard item={visibleItems[0]} primary />
             {visibleItems.slice(1).map((item) => (
               <DashboardPriorityCard key={item.orderId} item={item} />
@@ -141,7 +156,9 @@ export function DashboardPriorityWorkspace({
         )}
       </section>
 
-      <DashboardPrioritySidebar summary={summary} />
+      <div className="order-3 min-w-0 lg:col-start-2 lg:row-start-2">
+        <DashboardBusinessLinks />
+      </div>
     </div>
   );
 }

@@ -9,6 +9,11 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
 }));
 
+vi.mock("@/features/capture", () => ({
+  ScanSearchSheet: ({ open, scope }: { open: boolean; scope: string }) =>
+    open ? <div role="dialog">{scope} scanner</div> : null,
+}));
+
 afterEach(() => {
   cleanup();
   push.mockReset();
@@ -40,5 +45,15 @@ describe("dashboard quick order entry", () => {
 
     expect(onCreateOrder).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
+  });
+
+  it("opens the existing order scanner from the mobile quick actions", () => {
+    render(<DashboardMobileQuickStart />);
+
+    fireEvent.click(screen.getByRole("button", { name: "扫码查单，扫描工单二维码或输入订单信息" }));
+
+    expect(screen.getByRole("dialog")).toHaveTextContent("orders scanner");
+    expect(screen.getByRole("link", { name: "快速接单，客户维修 · 新建工单" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "快速回收报价，iPhone 旧机估价" })).toBeVisible();
   });
 });

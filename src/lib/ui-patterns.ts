@@ -176,6 +176,9 @@ export const repairOs = {
     "mb-1.5 grid size-7 place-items-center rounded-xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/10",
   metricLabel: "truncate text-[10px] uppercase tracking-widest text-muted-foreground/70",
   metricValue: "font-mono text-lg font-semibold tabular-nums leading-none text-foreground",
+  dashboardMobileQuickGrid: "mt-1.5 grid min-w-0 grid-cols-3 gap-1.5 min-[400px]:gap-2",
+  dashboardMobileQuickAction:
+    "block min-w-0 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
   chipRow: "flex min-w-0 snap-x gap-1.5 overflow-x-auto pb-1",
   chip: "inline-flex h-8 shrink-0 snap-start items-center rounded-full border border-[var(--border-panel)] bg-card px-3 text-xs font-medium text-muted-foreground shadow-[var(--shadow-card)] transition-colors",
   chipActive:

@@ -1,9 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
-const evidenceDir = "screenshots/TASK-20260723-005-dashboard-quick-order-dialog";
+const evidenceDir = "screenshots/TASK-20260725-001-mobile-dashboard-scan-density";
 
 const viewports = [
+  { width: 320, height: 568 },
+  { width: 360, height: 780 },
   { width: 390, height: 844 },
   { width: 430, height: 932 },
   { width: 768, height: 1024 },
@@ -46,6 +48,7 @@ for (const viewport of viewports) {
     await expect(page.locator('[aria-label="状态分组"]')).toHaveCount(0);
 
     const intake = page.locator('[data-dashboard-quick-start="new-order"]:visible');
+    const scanOrder = page.locator('[data-dashboard-quick-start="scan-order"]:visible');
     const buyback = page.locator('[data-dashboard-quick-start="buyback-quote"]:visible');
     await expect(intake).toHaveCount(1);
     await expect(buyback).toHaveCount(1);
@@ -61,6 +64,7 @@ for (const viewport of viewports) {
     await expect(firstPriority.locator("time")).toHaveCount(1);
 
     if (viewport.width < 768) {
+      await expect(scanOrder).toHaveCount(1);
       const quickStart = page.locator('[data-ui="dashboard-quick-start-mobile"]');
       await expect(quickStart).toBeVisible();
       await expect(page.locator('[data-ui="dashboard-quick-start-desktop"]')).toBeHidden();
@@ -76,6 +80,13 @@ for (const viewport of viewports) {
     }
 
     await expectNoPageOverflow(page);
+
+    if ([320, 390, 430, 1440].includes(viewport.width)) {
+      await page.screenshot({
+        path: `${evidenceDir}/dashboard-density-${viewport.width}.png`,
+        fullPage: false,
+      });
+    }
 
     await intake.click();
     await expect(page).toHaveURL(/\/$/);
@@ -117,6 +128,7 @@ test("dashboard loading never claims zero work or a safe queue", async ({ page }
   await expect(page.getByText("当前还没有活跃工单")).toHaveCount(0);
   await expect(page.getByText("当前没有超期工单")).toHaveCount(0);
   await expect(page.locator('[data-dashboard-quick-start="new-order"]:visible')).toBeVisible();
+  await expect(page.locator('[data-dashboard-quick-start="scan-order"]:visible')).toBeVisible();
 });
 
 test("dashboard hard error keeps safe entries and never falls back to a partial queue", async ({
@@ -137,6 +149,7 @@ test("dashboard hard error keeps safe entries and never falls back to a partial 
   await expect(page.locator('[data-ui="dashboard-priority-card"]')).toHaveCount(0);
   await expect(page.getByText("当前还没有活跃工单")).toHaveCount(0);
   await expect(page.locator('[data-dashboard-quick-start="new-order"]:visible')).toBeVisible();
+  await expect(page.locator('[data-dashboard-quick-start="scan-order"]:visible')).toBeVisible();
   await expect(page.locator('[data-dashboard-quick-start="buyback-quote"]:visible')).toBeVisible();
 });
 
@@ -191,7 +204,7 @@ test("dashboard explains a permission denial without offering an endless retry",
 });
 
 test("dashboard remains readable with long Italian handoff copy on mobile", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setViewportSize({ width: 320, height: 568 });
   await mockDashboardSummary(page, {
     items: [
       priorityItem({
@@ -210,13 +223,28 @@ test("dashboard remains readable with long Italian handoff copy on mobile", asyn
   await gotoReady(page, "/");
 
   await expectNoPageOverflow(page);
-  for (const action of ["new-order", "buyback-quote"]) {
+  for (const action of ["new-order", "scan-order", "buyback-quote"]) {
     const box = await page
       .locator(`[data-dashboard-quick-start="${action}"]:visible`)
       .boundingBox();
-    expect(box?.width ?? 0).toBeGreaterThan(120);
-    expect(box?.height ?? 0).toBeLessThan(100);
+    expect(box?.width ?? 0).toBeGreaterThan(80);
+    expect(box?.height ?? 0).toBeLessThan(90);
   }
+});
+
+test("mobile dashboard order scanner opens with a manual fallback", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await gotoReady(page, "/");
+
+  await page.locator('[data-dashboard-quick-start="scan-order"]:visible').click();
+  const scanner = page.getByRole("dialog");
+  await expect(scanner.getByRole("heading", { name: "订单扫码查询" })).toBeVisible();
+  await expect(scanner.getByPlaceholder("无法扫码时，可手动输入或粘贴")).toBeVisible();
+  await expectNoPageOverflow(page);
+  await page.screenshot({
+    path: `${evidenceDir}/dashboard-order-scanner-390.png`,
+    fullPage: false,
+  });
 });
 
 test("dashboard priority action only navigates to the permission-checked task page", async ({
