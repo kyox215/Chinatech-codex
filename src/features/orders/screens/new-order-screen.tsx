@@ -763,7 +763,7 @@ export function NewOrderScreen({
               "scroll-pb-[calc(env(safe-area-inset-bottom)+12rem)] pb-[calc(env(safe-area-inset-bottom)+12rem)] md:pb-20 lg:pt-0",
             ),
           surface === "dialog" &&
-            "h-full max-h-[calc(100svh-16px)] overflow-y-auto p-2 pb-[calc(env(safe-area-inset-bottom)+9rem)] pt-3 sm:max-h-[calc(100svh-32px)] sm:p-3 sm:pt-3 md:p-4 md:pt-3 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden lg:pb-3",
+            "h-full max-h-[calc(100svh-16px)] overflow-y-auto p-2 pb-[calc(env(safe-area-inset-bottom)+9rem)] pt-3 sm:max-h-[calc(100svh-32px)] sm:p-3 sm:pt-3 md:p-4 md:pt-3 lg:flex lg:min-h-0 lg:flex-col lg:pb-3",
         )}
       >
         <p id="new-order-validation-summary" className="sr-only" role="alert" aria-live="assertive">
@@ -843,12 +843,12 @@ export function NewOrderScreen({
           data-new-order-workspace-grid="true"
           className={cn(
             "grid min-w-0 items-start gap-1.5 sm:gap-2 md:grid-cols-[minmax(280px,0.85fr)_minmax(420px,1.35fr)] md:gap-3",
-            "lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.34fr)_minmax(0,0.8fr)] lg:overflow-hidden",
+            "lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.34fr)_minmax(0,0.8fr)]",
             surface === "dialog" &&
               "xl:grid-cols-[minmax(320px,0.9fr)_minmax(500px,1.4fr)_minmax(280px,0.8fr)]",
           )}
         >
-          <div className="grid min-w-0 content-start gap-1.5 sm:gap-3 md:col-start-1 md:row-start-1 lg:row-span-2 lg:min-h-0 lg:overflow-y-auto lg:pr-0.5">
+          <div className="grid min-w-0 content-start gap-1.5 sm:gap-3 md:col-start-1 md:row-start-1 lg:row-span-2 lg:pr-0.5">
             <NewOrderCustomerSection
               form={form}
               setForm={setForm}

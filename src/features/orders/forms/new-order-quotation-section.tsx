@@ -98,7 +98,7 @@ export function NewOrderQuotationSection({
       <div
         data-new-order-section="quotation"
         data-new-order-field="quotation"
-        className="min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:h-full lg:overflow-y-auto lg:rounded-[var(--radius-lg)] lg:border lg:border-[var(--border-panel)] lg:bg-[var(--surface-panel)] lg:p-3"
+        className="min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:rounded-[var(--radius-lg)] lg:border lg:border-[var(--border-panel)] lg:bg-[var(--surface-panel)] lg:p-3"
       >
         <OrderWorkspaceSectionHeader
           icon={ReceiptText}
