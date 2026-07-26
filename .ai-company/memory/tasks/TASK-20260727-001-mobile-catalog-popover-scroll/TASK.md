@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260727-001-mobile-catalog-popover-scroll"
 title: "修复手机端库存目录弹层滚动跳动"
-status: "in_progress"
+status: "closed"
 task_class: "T1"
 risk_level: "R1"
 autonomy_level: "L2"
 owner: "CEO-Orchestrator"
 departments: ["UX", "FE", "QA", "INT"]
 created_at: "2026-07-26T22:36:18Z"
-updated_at: "2026-07-26T22:57:24Z"
+updated_at: "2026-07-26T22:59:29Z"
+closed_at: "2026-07-26T22:59:29Z"
 ---
 # Task — 修复手机端库存目录弹层滚动跳动
 
