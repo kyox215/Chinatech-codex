@@ -36,6 +36,12 @@ import {
   InventoryV2VisionDraftCard,
   type InventoryV2VisionDraft,
 } from "@/features/inventory/components/inventory-v2-vision-draft";
+import { InventoryPhoneCatalogFields } from "@/features/inventory/components/inventory-phone-catalog-fields";
+import {
+  findEuPhoneBrand,
+  findEuPhoneModel,
+  phoneColorBackground,
+} from "@/features/inventory/model/eu-phone-catalog";
 import { resolveInventoryIntakeRoute } from "@/features/inventory/model/inventory-intake-route";
 import {
   createInventoryUnitV2InputSchema,
@@ -171,6 +177,11 @@ export function InventoryIntakeScreen() {
     [draft],
   );
   const parsed = useMemo(() => createInventoryUnitV2InputSchema.safeParse(input), [input]);
+  const selectedCatalogColor = useMemo(() => {
+    const brand = findEuPhoneBrand(draft.brand);
+    const phoneModel = brand ? findEuPhoneModel(brand.id, draft.model) : undefined;
+    return phoneModel?.colors.find((item) => item.name === draft.color);
+  }, [draft.brand, draft.color, draft.model]);
   const hasExplicitAmounts = Boolean(
     draft.cost_amount.trim() && draft.list_price.trim() && draft.warranty_months.trim(),
   );
@@ -212,6 +223,70 @@ export function InventoryIntakeScreen() {
 
   function update<K extends keyof Draft>(key: K, value: Draft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function selectCatalogBrand(selection: { value: string; fromCatalog: boolean }) {
+    setDraft((current) => {
+      const changed =
+        current.brand.trim().toLocaleLowerCase() !== selection.value.toLocaleLowerCase();
+      if (
+        changed &&
+        (current.model || current.ram_capacity || current.storage_capacity || current.color)
+      ) {
+        toast.info("品牌已更改，已清除不兼容的型号、内存、容量和颜色");
+      }
+      return {
+        ...current,
+        brand: selection.value,
+        model: changed ? "" : current.model,
+        ram_capacity: changed ? undefined : current.ram_capacity,
+        storage_capacity: changed ? undefined : current.storage_capacity,
+        color: changed ? undefined : current.color,
+        standardization_status: selection.fromCatalog
+          ? current.standardization_status
+          : "unstandardized",
+      };
+    });
+  }
+
+  function selectCatalogModel(selection: { value: string; fromCatalog: boolean }) {
+    setDraft((current) => {
+      const changed =
+        current.model.trim().toLocaleLowerCase() !== selection.value.toLocaleLowerCase();
+      if (changed && (current.ram_capacity || current.storage_capacity || current.color)) {
+        toast.info("型号已更改，已清除不兼容的内存、容量和颜色");
+      }
+      return {
+        ...current,
+        model: selection.value,
+        ram_capacity: changed ? undefined : current.ram_capacity,
+        storage_capacity: changed ? undefined : current.storage_capacity,
+        color: changed ? undefined : current.color,
+        standardization_status: selection.fromCatalog ? "standard" : "unstandardized",
+      };
+    });
+  }
+
+  function updateCatalogConfiguration(
+    key: "ram_capacity" | "storage_capacity" | "color",
+    value: string,
+  ) {
+    setDraft((current) => {
+      const brand = findEuPhoneBrand(current.brand);
+      const phoneModel = brand ? findEuPhoneModel(brand.id, current.model) : undefined;
+      const catalogValues =
+        key === "ram_capacity"
+          ? phoneModel?.ramOptions
+          : key === "storage_capacity"
+            ? phoneModel?.storageOptions
+            : phoneModel?.colors.map((item) => item.name);
+      const isCatalogValue = !value || Boolean(catalogValues?.includes(value));
+      return {
+        ...current,
+        [key]: value,
+        standardization_status: phoneModel && isCatalogValue ? "standard" : "unstandardized",
+      };
+    });
   }
 
   function selectSource(sourceType: InventoryV2IntakeSource) {
@@ -472,52 +547,66 @@ export function InventoryIntakeScreen() {
                     placeholder="手机、平板、配件"
                   />
                 </Field>
-                <Field id="inventory-brand" label="品牌 *">
-                  <Input
-                    id="inventory-brand"
-                    className={inputClass}
-                    value={draft.brand}
-                    onChange={(event) => update("brand", event.target.value)}
-                    placeholder="Apple"
-                  />
-                </Field>
-                <Field id="inventory-model" label="型号 *">
-                  <Input
-                    id="inventory-model"
-                    className={inputClass}
-                    value={draft.model}
-                    onChange={(event) => update("model", event.target.value)}
-                    placeholder="iPhone 15 Pro"
-                  />
-                </Field>
-                <Field id="inventory-color" label="颜色">
-                  <Input
-                    id="inventory-color"
-                    className={inputClass}
-                    value={draft.color ?? ""}
-                    onChange={(event) => update("color", event.target.value)}
-                    placeholder="钛金属"
-                  />
-                </Field>
-                <Field id="inventory-ram" label="内存">
-                  <Input
-                    id="inventory-ram"
-                    className={inputClass}
-                    value={draft.ram_capacity ?? ""}
-                    onChange={(event) => update("ram_capacity", event.target.value)}
-                    placeholder="8 GB"
-                  />
-                </Field>
-                <Field id="inventory-storage" label="容量">
-                  <Input
-                    id="inventory-storage"
-                    className={inputClass}
-                    value={draft.storage_capacity ?? ""}
-                    onChange={(event) => update("storage_capacity", event.target.value)}
-                    placeholder="256 GB"
-                  />
-                </Field>
               </div>
+              {draft.category.trim() === "手机" ? (
+                <InventoryPhoneCatalogFields
+                  brand={draft.brand}
+                  model={draft.model}
+                  ramCapacity={draft.ram_capacity}
+                  storageCapacity={draft.storage_capacity}
+                  color={draft.color}
+                  onBrandSelect={selectCatalogBrand}
+                  onModelSelect={selectCatalogModel}
+                  onRamChange={(value) => updateCatalogConfiguration("ram_capacity", value)}
+                  onStorageChange={(value) => updateCatalogConfiguration("storage_capacity", value)}
+                  onColorChange={(value) => updateCatalogConfiguration("color", value)}
+                />
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field id="inventory-brand" label="品牌 *">
+                    <Input
+                      id="inventory-brand"
+                      className={inputClass}
+                      value={draft.brand}
+                      onChange={(event) => update("brand", event.target.value)}
+                      placeholder="品牌"
+                    />
+                  </Field>
+                  <Field id="inventory-model" label="型号 *">
+                    <Input
+                      id="inventory-model"
+                      className={inputClass}
+                      value={draft.model}
+                      onChange={(event) => update("model", event.target.value)}
+                      placeholder="型号"
+                    />
+                  </Field>
+                  <Field id="inventory-color" label="颜色">
+                    <Input
+                      id="inventory-color"
+                      className={inputClass}
+                      value={draft.color ?? ""}
+                      onChange={(event) => update("color", event.target.value)}
+                    />
+                  </Field>
+                  <Field id="inventory-storage" label="容量">
+                    <Input
+                      id="inventory-storage"
+                      className={inputClass}
+                      value={draft.storage_capacity ?? ""}
+                      onChange={(event) => update("storage_capacity", event.target.value)}
+                    />
+                  </Field>
+                  <Field id="inventory-ram" label="内存">
+                    <Input
+                      id="inventory-ram"
+                      className={inputClass}
+                      value={draft.ram_capacity ?? ""}
+                      onChange={(event) => update("ram_capacity", event.target.value)}
+                    />
+                  </Field>
+                </div>
+              )}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>唯一标识 *</Label>
@@ -756,7 +845,20 @@ export function InventoryIntakeScreen() {
               />
               <ReviewRow
                 label="商品"
-                value={`${draft.brand} ${draft.model}${draft.storage_capacity ? ` · ${draft.storage_capacity}` : ""}${draft.color ? ` · ${draft.color}` : ""}`}
+                value={
+                  <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                    <span className="break-words">
+                      {`${draft.brand} ${draft.model}${draft.storage_capacity ? ` · ${draft.storage_capacity}` : ""}${draft.color ? ` · ${draft.color}` : ""}`}
+                    </span>
+                    {selectedCatalogColor ? (
+                      <span
+                        aria-hidden="true"
+                        className="size-4 shrink-0 rounded-full border border-foreground/25"
+                        style={{ background: phoneColorBackground(selectedCatalogColor) }}
+                      />
+                    ) : null}
+                  </span>
+                }
               />
               <ReviewRow
                 label="主要标识"
@@ -851,7 +953,7 @@ function Field({
   );
 }
 
-function ReviewRow({ label, value }: { label: string; value: string }) {
+function ReviewRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex gap-3 rounded-xl border border-[var(--border-panel)] px-3 py-2.5 text-sm">
       <span className="w-20 shrink-0 text-muted-foreground">{label}</span>
