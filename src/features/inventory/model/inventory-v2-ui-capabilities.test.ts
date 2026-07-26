@@ -9,7 +9,7 @@ describe("resolveInventoryV2UiCapabilities", () => {
         inventoryV2CommandsEnabled: true,
         inventoryV2UiEnabled: false,
       }),
-    ).toEqual({ canUseIntake: false, canUseAtomicSale: true });
+    ).toEqual({ canUseIntake: false, canUseAtomicSale: true, canUseWorkflow: true });
   });
 
   it("does not expose an atomic sale unless both the rollout and sale permission are enabled", () => {
@@ -19,7 +19,7 @@ describe("resolveInventoryV2UiCapabilities", () => {
         inventoryV2CommandsEnabled: false,
         inventoryV2UiEnabled: true,
       }),
-    ).toEqual({ canUseIntake: false, canUseAtomicSale: false });
+    ).toEqual({ canUseIntake: false, canUseAtomicSale: false, canUseWorkflow: false });
   });
 
   it("enables both paths for an actor with intake and sale authority", () => {
@@ -29,6 +29,6 @@ describe("resolveInventoryV2UiCapabilities", () => {
         inventoryV2CommandsEnabled: true,
         inventoryV2UiEnabled: true,
       }),
-    ).toEqual({ canUseIntake: true, canUseAtomicSale: true });
+    ).toEqual({ canUseIntake: true, canUseAtomicSale: true, canUseWorkflow: true });
   });
 });

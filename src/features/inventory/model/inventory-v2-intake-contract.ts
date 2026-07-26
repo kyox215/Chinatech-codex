@@ -17,6 +17,12 @@ export function normalizeInventoryV2Identifier(value: string) {
     .toUpperCase();
 }
 
+export function parseInventoryV2MoneyDraft(value: string) {
+  const normalized = value.trim().replace(",", ".");
+  if (!/^\d+(?:\.\d{0,2})?$/.test(normalized)) return Number.NaN;
+  return Number(normalized);
+}
+
 export function isValidInventoryV2Imei(value: string) {
   const normalized = normalizeInventoryV2Identifier(value);
   if (!/^\d{15}$/.test(normalized)) return false;

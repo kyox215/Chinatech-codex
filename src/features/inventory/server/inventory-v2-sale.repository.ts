@@ -48,9 +48,22 @@ export async function completeInventorySaleV2(
   assertInventoryV2SaleAccess(actor);
   if (!actor.id) throw new Error("当前员工身份无效，请重新登录");
 
+  const supabase = getSupabaseAdmin();
+  const { data: itemProjection, error: itemProjectionError } = await supabase
+    .from("inventory_items")
+    .select(
+      "id,updated_at,status,legacy_payload,serial_or_imei,imei_check_status,activation_lock_status,data_wipe_status,functional_grade,cosmetic_grade,list_price",
+    )
+    .eq("store_id", storeId)
+    .eq("id", id)
+    .maybeSingle();
+  if (itemProjectionError) throw inventoryV2DependencyError("读取库存销售门禁失败");
+  if (!itemProjection) throw new Error("库存商品不存在或不属于当前门店");
+  assertInventoryV2AtomicSaleReadiness(itemProjection as Record<string, unknown>, input);
+
   const { data, error } = await runInventoryV2Dependency(
     () =>
-      getSupabaseAdmin().rpc("repairdesk_complete_inventory_sale_v2", {
+      supabase.rpc("repairdesk_complete_inventory_sale_v2", {
         p_store_id: storeId,
         p_item_id: id,
         p_actor_id: actor.id,
@@ -95,6 +108,41 @@ export async function completeInventorySaleV2(
     updated_at: result.updated_at,
     fiscal_status: result.fiscal_status,
   };
+}
+
+export function assertInventoryV2AtomicSaleReadiness(
+  item: Record<string, unknown>,
+  input: Pick<CompleteInventorySaleV2Input, "expected_updated_at">,
+) {
+  if (item.updated_at !== input.expected_updated_at) {
+    throw new Error("库存资料已被其他人更新，请刷新后重试");
+  }
+  const legacyPayload = recordOrEmpty(item.legacy_payload);
+  if (legacyPayload.inventory_v2_intake !== true) return;
+  if (!["ready_for_sale", "listed", "reserved"].includes(String(item.status ?? ""))) {
+    throw new Error("当前库存状态不能确认销售");
+  }
+  if (!String(item.serial_or_imei ?? "").trim()) {
+    throw new Error("设备缺少主要 IMEI 或序列号，不能确认销售");
+  }
+  if (item.imei_check_status !== "pass") {
+    throw new Error("IMEI / 序列号核验未通过，不能确认销售");
+  }
+  if (item.activation_lock_status !== "pass") {
+    throw new Error("账号锁 / Find My 未确认关闭，不能确认销售");
+  }
+  if (item.data_wipe_status !== "pass") {
+    throw new Error("设备资料尚未确认清除，不能确认销售");
+  }
+  if (item.functional_grade !== "passed") {
+    throw new Error("设备功能检测尚未通过，不能确认销售");
+  }
+  if (!item.cosmetic_grade || item.cosmetic_grade === "unknown") {
+    throw new Error("设备外观等级尚未登记，不能确认销售");
+  }
+  if (Number(item.list_price ?? 0) <= 0) {
+    throw new Error("设备挂牌价必须大于 0，才能确认销售");
+  }
 }
 
 function recordOrEmpty(value: unknown): Record<string, unknown> {

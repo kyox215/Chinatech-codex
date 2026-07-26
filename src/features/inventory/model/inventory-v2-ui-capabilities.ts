@@ -12,5 +12,6 @@ export function resolveInventoryV2UiCapabilities(
   return {
     canUseIntake: commandsEnabled && permissions?.inventoryV2UiEnabled === true,
     canUseAtomicSale: commandsEnabled && permissions?.canSellInventory === true,
+    canUseWorkflow: commandsEnabled,
   };
 }

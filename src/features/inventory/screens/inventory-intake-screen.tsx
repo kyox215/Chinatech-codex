@@ -37,7 +37,10 @@ import {
   type InventoryV2VisionDraft,
 } from "@/features/inventory/components/inventory-v2-vision-draft";
 import { resolveInventoryIntakeRoute } from "@/features/inventory/model/inventory-intake-route";
-import { createInventoryUnitV2InputSchema } from "@/features/inventory/model/inventory-v2-intake-contract";
+import {
+  createInventoryUnitV2InputSchema,
+  parseInventoryV2MoneyDraft,
+} from "@/features/inventory/model/inventory-v2-intake-contract";
 import {
   mergeVisionIdentifiersWithoutOverwrite,
   preferExistingInventoryValue,
@@ -61,12 +64,16 @@ const sourceOptions: Array<{
   description: string;
 }> = [
   {
+    value: "manual_stock",
+    title: "手工录入",
+    description: "自己填写单台手机的身份、规格、价格和来源说明",
+  },
+  {
     value: "supplier_purchase",
     title: "供应商采购",
     description: "从供应商采购的新机、配件或商品",
   },
   { value: "repair_resale", title: "维修转售", description: "客户设备完成维修、翻新后转为库存" },
-  { value: "manual_stock", title: "其他入库", description: "盘点发现、历史库存或其他可解释来源" },
 ];
 const identifierKinds: Array<{ value: InventoryV2IdentifierKind; label: string }> = [
   { value: "imei1", label: "IMEI 1" },
@@ -84,18 +91,19 @@ type Draft = Omit<CreateInventoryUnitV2Input, "cost_amount" | "list_price" | "wa
   cost_amount: string;
   list_price: string;
   warranty_months: string;
+  source_note?: string;
 };
 
 function newDraft(): Draft {
   return {
     idempotency_key: crypto.randomUUID(),
-    source_type: "supplier_purchase",
+    source_type: "manual_stock",
     category: "手机",
     brand: "",
     model: "",
     identifiers: [{ kind: "imei1", value: "", source: "manual", primary: true }],
-    cost_amount: "0",
-    list_price: "0",
+    cost_amount: "",
+    list_price: "",
     warranty_months: "12",
     standardization_status: "unstandardized",
     created_at: new Date().toISOString(),
@@ -149,8 +157,8 @@ export function InventoryIntakeScreen() {
         ...identifier,
         value: identifier.value.trim(),
       })),
-      cost_amount: Number(draft.cost_amount),
-      list_price: Number(draft.list_price),
+      cost_amount: parseInventoryV2MoneyDraft(draft.cost_amount),
+      list_price: parseInventoryV2MoneyDraft(draft.list_price),
       warranty_months: Number(draft.warranty_months),
       customer_id: draft.customer_id || undefined,
       supplier_id: draft.supplier_id || undefined,
@@ -158,12 +166,19 @@ export function InventoryIntakeScreen() {
       ram_capacity: draft.ram_capacity?.trim() || undefined,
       storage_capacity: draft.storage_capacity?.trim() || undefined,
       location: draft.location?.trim() || undefined,
-      notes: draft.notes?.trim() || undefined,
+      notes: buildInventoryIntakeNotes(draft.source_note, draft.notes),
     }),
     [draft],
   );
   const parsed = useMemo(() => createInventoryUnitV2InputSchema.safeParse(input), [input]);
-  const stepValid = getStepValid(step, input, parsed.success);
+  const hasExplicitAmounts = Boolean(
+    draft.cost_amount.trim() && draft.list_price.trim() && draft.warranty_months.trim(),
+  );
+  const costAmountError = inventoryMoneyDraftError(draft.cost_amount);
+  const listPriceError = inventoryMoneyDraftError(draft.list_price);
+  const warrantyMonthsError = inventoryWarrantyDraftError(draft.warranty_months);
+  const intakeReady = parsed.success && hasExplicitAmounts;
+  const stepValid = getStepValid(step, input, intakeReady, hasExplicitAmounts);
 
   const mutation = useMutation({
     mutationFn: () => createInventoryUnitV2(input),
@@ -205,6 +220,7 @@ export function InventoryIntakeScreen() {
       source_type: sourceType,
       customer_id: undefined,
       supplier_id: undefined,
+      source_note: sourceType === "manual_stock" ? current.source_note : undefined,
     }));
   }
 
@@ -278,7 +294,7 @@ export function InventoryIntakeScreen() {
           )}
         >
           <header className={repairOs.mobileFloatingHeaderNav}>
-            <SidebarTrigger className="size-8 rounded-lg border border-[var(--border-panel)] bg-card shadow-none md:hidden" />
+            <SidebarTrigger className="size-11 rounded-lg border border-[var(--border-panel)] bg-card shadow-none md:hidden" />
             <Button asChild variant="ghost" size="sm" className="hidden h-9 gap-2 md:flex">
               <Link href="/inventory">
                 <ArrowLeft className="size-4" /> 返回库存
@@ -288,7 +304,7 @@ export function InventoryIntakeScreen() {
               <p className="truncate text-sm font-semibold">库存入库</p>
               <p className="truncate text-[10px] text-muted-foreground">一次只完成一个步骤</p>
             </div>
-            <Button asChild variant="ghost" size="icon" className="size-8 rounded-lg md:hidden">
+            <Button asChild variant="ghost" size="icon" className="size-11 rounded-lg md:hidden">
               <Link href="/inventory" aria-label="返回库存">
                 <ArrowLeft className="size-4" />
               </Link>
@@ -303,9 +319,10 @@ export function InventoryIntakeScreen() {
                 <button
                   key={label}
                   type="button"
-                  className="min-w-0 text-center"
+                  className="min-h-11 min-w-0 text-center"
                   onClick={() => index <= step && setStep(index)}
                   disabled={index > step}
+                  aria-current={index === step ? "step" : undefined}
                 >
                   <span
                     className={cn(
@@ -446,48 +463,54 @@ export function InventoryIntakeScreen() {
           {step === 2 ? (
             <div className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="类别">
+                <Field id="inventory-category" label="类别">
                   <Input
+                    id="inventory-category"
                     className={inputClass}
                     value={draft.category}
                     onChange={(event) => update("category", event.target.value)}
                     placeholder="手机、平板、配件"
                   />
                 </Field>
-                <Field label="品牌 *">
+                <Field id="inventory-brand" label="品牌 *">
                   <Input
+                    id="inventory-brand"
                     className={inputClass}
                     value={draft.brand}
                     onChange={(event) => update("brand", event.target.value)}
                     placeholder="Apple"
                   />
                 </Field>
-                <Field label="型号 *">
+                <Field id="inventory-model" label="型号 *">
                   <Input
+                    id="inventory-model"
                     className={inputClass}
                     value={draft.model}
                     onChange={(event) => update("model", event.target.value)}
                     placeholder="iPhone 15 Pro"
                   />
                 </Field>
-                <Field label="颜色">
+                <Field id="inventory-color" label="颜色">
                   <Input
+                    id="inventory-color"
                     className={inputClass}
                     value={draft.color ?? ""}
                     onChange={(event) => update("color", event.target.value)}
                     placeholder="钛金属"
                   />
                 </Field>
-                <Field label="内存">
+                <Field id="inventory-ram" label="内存">
                   <Input
+                    id="inventory-ram"
                     className={inputClass}
                     value={draft.ram_capacity ?? ""}
                     onChange={(event) => update("ram_capacity", event.target.value)}
                     placeholder="8 GB"
                   />
                 </Field>
-                <Field label="容量">
+                <Field id="inventory-storage" label="容量">
                   <Input
+                    id="inventory-storage"
                     className={inputClass}
                     value={draft.storage_capacity ?? ""}
                     onChange={(event) => update("storage_capacity", event.target.value)}
@@ -508,7 +531,12 @@ export function InventoryIntakeScreen() {
                     key={index}
                     className="grid gap-2 rounded-xl border border-[var(--border-panel)] p-2 sm:grid-cols-[130px_minmax(0,1fr)_auto_auto] sm:items-center"
                   >
+                    <Label htmlFor={`inventory-identifier-kind-${index}`} className="sr-only">
+                      标识类型 {index + 1}
+                    </Label>
                     <select
+                      id={`inventory-identifier-kind-${index}`}
+                      aria-label={`标识类型 ${index + 1}`}
                       className={selectClass}
                       value={identifier.kind}
                       onChange={(event) =>
@@ -524,6 +552,8 @@ export function InventoryIntakeScreen() {
                       ))}
                     </select>
                     <ImeiScannerField
+                      inputId={`inventory-identifier-value-${index}`}
+                      inputAriaLabel={`标识内容 ${index + 1}`}
                       value={identifier.value}
                       onChange={(value) => updateIdentifier(index, { value, source: "manual" })}
                       placeholder="扫描或输入"
@@ -556,8 +586,9 @@ export function InventoryIntakeScreen() {
           {step === 3 ? (
             <div className="space-y-3">
               {draft.source_type === "supplier_purchase" ? (
-                <Field label="供应商 *">
+                <Field id="inventory-supplier" label="供应商 *">
                   <select
+                    id="inventory-supplier"
                     className={cn(selectClass, "w-full")}
                     value={draft.supplier_id ?? ""}
                     onChange={(event) => update("supplier_id", event.target.value || undefined)}
@@ -578,8 +609,9 @@ export function InventoryIntakeScreen() {
               ) : null}
               {draft.source_type === "repair_resale" ? (
                 <div className="space-y-2">
-                  <Field label="搜索客户 *">
+                  <Field id="inventory-customer-search" label="搜索客户 *">
                     <Input
+                      id="inventory-customer-search"
                       className={inputClass}
                       value={customerSearch}
                       onChange={(event) => setCustomerSearch(event.target.value)}
@@ -617,10 +649,11 @@ export function InventoryIntakeScreen() {
                 </div>
               ) : null}
               {draft.source_type === "manual_stock" ? (
-                <Field label="来源说明 *">
+                <Field id="inventory-source-notes" label="来源说明 *">
                   <Textarea
-                    value={draft.notes ?? ""}
-                    onChange={(event) => update("notes", event.target.value)}
+                    id="inventory-source-notes"
+                    value={draft.source_note ?? ""}
+                    onChange={(event) => update("source_note", event.target.value)}
                     placeholder="说明为什么手工入库，便于日后审计"
                     className="min-h-28 text-base sm:text-sm"
                   />
@@ -635,40 +668,74 @@ export function InventoryIntakeScreen() {
 
           {step === 4 ? (
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="成本（€） *">
+              <Field id="inventory-cost" label="成本（€） *">
                 <Input
+                  id="inventory-cost"
                   className={inputClass}
                   inputMode="decimal"
                   value={draft.cost_amount}
                   onChange={(event) => update("cost_amount", event.target.value)}
+                  aria-invalid={Boolean(costAmountError)}
+                  aria-describedby={costAmountError ? "inventory-cost-error" : undefined}
                 />
+                {costAmountError ? (
+                  <p id="inventory-cost-error" role="alert" className="text-xs text-destructive">
+                    {costAmountError}
+                  </p>
+                ) : null}
               </Field>
-              <Field label="建议售价（€） *">
+              <Field id="inventory-list-price" label="建议售价（€） *">
                 <Input
+                  id="inventory-list-price"
                   className={inputClass}
                   inputMode="decimal"
                   value={draft.list_price}
                   onChange={(event) => update("list_price", event.target.value)}
+                  aria-invalid={Boolean(listPriceError)}
+                  aria-describedby={listPriceError ? "inventory-list-price-error" : undefined}
                 />
+                {listPriceError ? (
+                  <p
+                    id="inventory-list-price-error"
+                    role="alert"
+                    className="text-xs text-destructive"
+                  >
+                    {listPriceError}
+                  </p>
+                ) : null}
               </Field>
-              <Field label="质保月数 *">
+              <Field id="inventory-warranty" label="质保月数 *">
                 <Input
+                  id="inventory-warranty"
                   className={inputClass}
                   inputMode="numeric"
                   value={draft.warranty_months}
                   onChange={(event) => update("warranty_months", event.target.value)}
+                  aria-invalid={Boolean(warrantyMonthsError)}
+                  aria-describedby={warrantyMonthsError ? "inventory-warranty-error" : undefined}
                 />
+                {warrantyMonthsError ? (
+                  <p
+                    id="inventory-warranty-error"
+                    role="alert"
+                    className="text-xs text-destructive"
+                  >
+                    {warrantyMonthsError}
+                  </p>
+                ) : null}
               </Field>
-              <Field label="库位">
+              <Field id="inventory-location" label="库位">
                 <Input
+                  id="inventory-location"
                   className={inputClass}
                   value={draft.location ?? ""}
                   onChange={(event) => update("location", event.target.value)}
                   placeholder="展示柜 A1"
                 />
               </Field>
-              <Field label="备注" className="sm:col-span-2">
+              <Field id="inventory-notes" label="备注" className="sm:col-span-2">
                 <Textarea
+                  id="inventory-notes"
                   value={draft.notes ?? ""}
                   onChange={(event) => update("notes", event.target.value)}
                   placeholder="成色、随附配件或需要复核的事项"
@@ -699,13 +766,17 @@ export function InventoryIntakeScreen() {
               />
               <ReviewRow
                 label="价格"
-                value={`成本 €${Number(draft.cost_amount || 0).toFixed(2)} · 售价 €${Number(draft.list_price || 0).toFixed(2)}`}
+                value={`成本 €${parseInventoryV2MoneyDraft(draft.cost_amount).toFixed(2)} · 售价 €${parseInventoryV2MoneyDraft(draft.list_price).toFixed(2)}`}
               />
               <ReviewRow label="质保" value={`${draft.warranty_months || 0} 个月`} />
-              {!parsed.success ? (
+              {!intakeReady ? (
                 <div className="rounded-xl bg-destructive/10 p-3 text-xs leading-5 text-destructive">
                   <CircleAlert className="mr-1 inline size-4" />
-                  {parsed.error.issues[0]?.message ?? "请返回补全信息"}
+                  {!hasExplicitAmounts
+                    ? "请返回明确填写成本、建议售价和质保月数；如确实为零，请主动输入 0。"
+                    : parsed.success
+                      ? "请返回补全信息"
+                      : (parsed.error.issues[0]?.message ?? "请返回补全信息")}
                 </div>
               ) : (
                 <div className="rounded-xl bg-status-success p-3 text-xs leading-5 text-status-success-foreground">
@@ -717,7 +788,7 @@ export function InventoryIntakeScreen() {
                 type="button"
                 className={cn("h-12 w-full gap-2", controls.brandButton)}
                 style={brandGradientStyle}
-                disabled={!parsed.success || mutation.isPending}
+                disabled={!intakeReady || mutation.isPending}
                 onClick={() => mutation.mutate()}
               >
                 {mutation.isPending ? (
@@ -762,17 +833,19 @@ export function InventoryIntakeScreen() {
 }
 
 function Field({
+  id,
   label,
   children,
   className,
 }: {
+  id: string;
   label: string;
   children: React.ReactNode;
   className?: string;
 }) {
   return (
     <div className={cn("min-w-0 space-y-1.5", className)}>
-      <Label>{label}</Label>
+      <Label htmlFor={id}>{label}</Label>
       {children}
     </div>
   );
@@ -802,7 +875,12 @@ function InventoryAccessDenied({ title, description }: { title: string; descript
   );
 }
 
-function getStepValid(step: number, input: CreateInventoryUnitV2Input, finalValid: boolean) {
+function getStepValid(
+  step: number,
+  input: CreateInventoryUnitV2Input,
+  finalValid: boolean,
+  hasExplicitAmounts: boolean,
+) {
   if (step <= 1) return true;
   if (step === 2)
     return Boolean(
@@ -820,6 +898,7 @@ function getStepValid(step: number, input: CreateInventoryUnitV2Input, finalVali
         : Boolean(input.notes);
   if (step === 4)
     return (
+      hasExplicitAmounts &&
       Number.isFinite(input.cost_amount) &&
       input.cost_amount >= 0 &&
       Number.isFinite(input.list_price) &&
@@ -828,6 +907,30 @@ function getStepValid(step: number, input: CreateInventoryUnitV2Input, finalVali
       input.warranty_months >= 0
     );
   return finalValid;
+}
+
+function inventoryMoneyDraftError(value: string) {
+  if (!value.trim()) return "请明确填写金额；如确实为零，请输入 0。";
+  const parsed = parseInventoryV2MoneyDraft(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return "请输入有效的非负金额。";
+  return undefined;
+}
+
+function inventoryWarrantyDraftError(value: string) {
+  if (!value.trim()) return "请明确填写质保月数；无质保请输入 0。";
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) return "请输入大于或等于 0 的完整月数。";
+  return undefined;
+}
+
+function buildInventoryIntakeNotes(sourceNote?: string, notes?: string) {
+  const normalizedSource = sourceNote?.trim();
+  const normalizedNotes = notes?.trim();
+  return (
+    [normalizedSource ? `手工入库来源：${normalizedSource}` : "", normalizedNotes ?? ""]
+      .filter(Boolean)
+      .join("\n") || undefined
+  );
 }
 
 function stepIcon(step: number) {

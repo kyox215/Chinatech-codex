@@ -475,12 +475,15 @@ export function assertInventoryTransitionActor(actor: AuditActor, to: InventoryI
   }
 }
 
-export function assertBuybackSaleReadiness(
+export function assertInventorySaleReadiness(
   before: Record<string, unknown>,
   target: InventoryItemStatus,
 ) {
-  if (maybeString(before.source_type) !== "buyback") return;
   if (!["ready_for_sale", "listed", "reserved", "sold"].includes(target)) return;
+  const legacyPayload = recordOrEmpty(before.legacy_payload);
+  const isLegacyBuyback = maybeString(before.source_type) === "buyback";
+  const isInventoryV2Intake = legacyPayload.inventory_v2_intake === true;
+  if (!isLegacyBuyback && !isInventoryV2Intake) return;
   if (maybeString(before.data_wipe_status) !== "pass") {
     throw new Error("设备资料尚未确认清除，不能进入待售或售出流程");
   }
@@ -490,7 +493,31 @@ export function assertBuybackSaleReadiness(
   if (maybeString(before.activation_lock_status) !== "pass") {
     throw new Error("账号锁 / Find My 未确认关闭，不能进入待售或售出流程");
   }
+  if (isInventoryV2Intake && maybeString(before.functional_grade) !== "passed") {
+    throw new Error("设备功能检测尚未通过，不能进入待售或售出流程");
+  }
+  if (isInventoryV2Intake && [undefined, "unknown"].includes(maybeString(before.cosmetic_grade))) {
+    throw new Error("设备外观等级尚未登记，不能进入待售或售出流程");
+  }
+  if (isInventoryV2Intake && money(before.list_price) <= 0) {
+    throw new Error("设备挂牌价必须大于 0，才能进入待售或售出流程");
+  }
 }
+
+export function assertLegacyInventorySaleAllowed(before: Record<string, unknown>) {
+  if (recordOrEmpty(before.legacy_payload).inventory_v2_intake === true) {
+    throw new Error("V2 库存商品必须使用原子成交入口，不能通过旧销售流程售出");
+  }
+}
+
+export function assertInventoryV2WorkflowOnly(before: Record<string, unknown>) {
+  if (recordOrEmpty(before.legacy_payload).inventory_v2_intake === true) {
+    throw new Error("V2 单台设备必须使用原子库存工作流，不能通过旧接口单独修改");
+  }
+}
+
+/** @deprecated Use assertInventorySaleReadiness for every serialized V2 phone source. */
+export const assertBuybackSaleReadiness = assertInventorySaleReadiness;
 
 export function inventoryMutationCas(before: Record<string, unknown>) {
   const status = maybeString(before.status);
@@ -522,6 +549,7 @@ export async function updateInventoryItem(
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const before = await fetchInventoryRow(id, storeId);
+  assertInventoryV2WorkflowOnly(before);
   assertInventoryUpdateDoesNotBypassBuybackAgreement(input, before);
   const cas = inventoryMutationCas(before);
   const now = new Date().toISOString();
@@ -582,13 +610,17 @@ export async function transitionInventoryItem(
   const supabase = getSupabaseAdmin();
   assertInventoryTransitionActor(actor, to);
   const before = await fetchInventoryRow(id, storeId);
+  assertInventoryV2WorkflowOnly(before);
   const from = before.status as InventoryItemStatus;
   const cas = inventoryMutationCas(before);
   if (to === "purchased") {
     throw new Error("回收成交必须使用带签名、版本与幂等保护的原子成交操作");
   }
   assertInventoryTransitionDoesNotBypassBuybackReversal(to, before);
-  assertBuybackSaleReadiness(before, to);
+  if (to === "sold") {
+    throw new Error("库存销售必须使用专用成交入口，不能通过通用状态流转完成");
+  }
+  assertInventorySaleReadiness(before, to);
   validateInventoryTransition(from, to);
 
   if (from === to) return { ok: true, from, to };
@@ -643,6 +675,7 @@ export async function recordInventoryCheck(
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const before = await fetchInventoryRow(id, storeId);
+  assertInventoryV2WorkflowOnly(before);
   const cas = inventoryMutationCas(before);
   if (input.expected_updated_at && input.expected_updated_at !== cas.updatedAt) {
     throw new Error("库存资料已被其他人更新，请刷新后重试");
@@ -1123,8 +1156,9 @@ export async function sellInventoryItem(
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
   const before = await fetchInventoryRow(id, storeId);
+  assertLegacyInventorySaleAllowed(before);
   const cas = inventoryMutationCas(before);
-  assertBuybackSaleReadiness(before, "sold");
+  assertInventorySaleReadiness(before, "sold");
   validateInventoryTransition(before.status as InventoryItemStatus, "sold");
   const now = new Date().toISOString();
   const soldAt = input.sold_at || now;

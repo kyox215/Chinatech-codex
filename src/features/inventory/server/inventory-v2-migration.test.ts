@@ -17,8 +17,56 @@ const grantsSql = readFileSync(
   ),
   "utf8",
 );
+const workflowExpandSql = readFileSync(
+  resolve(process.cwd(), "supabase/migrations/20260726181436_inventory_v2_workflow_expand.sql"),
+  "utf8",
+);
+const workflowEnableSql = readFileSync(
+  resolve(process.cwd(), "supabase/migrations/20260726181537_inventory_v2_workflow_enable.sql"),
+  "utf8",
+);
+const workflowTypeCompatSql = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260726182246_inventory_v2_workflow_production_type_compat.sql",
+  ),
+  "utf8",
+);
+const workflowIndexesSql = readFileSync(
+  resolve(process.cwd(), "supabase/migrations/20260726182556_inventory_v2_workflow_fk_indexes.sql"),
+  "utf8",
+);
 
 describe("inventory product V2 foundation migration", () => {
+  it("adds a dormant atomic workflow and a separate guarded enable migration", () => {
+    expect(workflowExpandSql).toContain("create table public.inventory_workflow_command_ledger");
+    expect(workflowExpandSql).toContain(
+      "create or replace function public.repairdesk_apply_inventory_unit_workflow_v2",
+    );
+    expect(workflowExpandSql).toContain("security invoker");
+    expect(workflowExpandSql).toContain("set search_path = ''");
+    expect(workflowExpandSql).toContain("pg_advisory_xact_lock");
+    expect(workflowExpandSql).toContain("projection_mismatch");
+    expect(workflowExpandSql).toContain("stale_item_version");
+    expect(workflowExpandSql).toContain("stale_unit_version");
+    expect(workflowExpandSql).toContain("insert into public.inventory_quality_checks");
+    expect(workflowExpandSql).toContain("update public.inventory_items");
+    expect(workflowExpandSql).toContain("update public.inventory_stock_units");
+    expect(workflowExpandSql).toContain("insert into public.inventory_workflow_command_ledger");
+    expect(workflowExpandSql).toContain("create trigger inventory_v2_unit_sale_guard");
+    expect(workflowExpandSql).toContain("Inventory V2 sale projection or inspection gate failed");
+    expect(workflowExpandSql).toMatch(
+      /revoke all on function public\.repairdesk_apply_inventory_unit_workflow_v2\([\s\S]*from public, anon, authenticated, service_role/i,
+    );
+    expect(workflowExpandSql).not.toMatch(
+      /grant execute on function public\.repairdesk_apply_inventory_unit_workflow_v2/i,
+    );
+    expect(workflowEnableSql).toContain("legacy/V2 projection mismatch");
+    expect(workflowEnableSql).toMatch(
+      /grant execute on function public\.repairdesk_apply_inventory_unit_workflow_v2\([\s\S]*to service_role/i,
+    );
+    expect(workflowEnableSql).not.toMatch(/to (?:anon|authenticated)/i);
+  });
   it("keeps the expand slice dormant and service-role-only", () => {
     expect(sql).toContain(
       "alter table public.inventory_sale_command_ledger enable row level security",
@@ -32,6 +80,32 @@ describe("inventory product V2 foundation migration", () => {
     expect(sql).not.toMatch(
       /grant execute on function public\.repairdesk_complete_inventory_sale_v2/i,
     );
+  });
+
+  it("adds service-role-only compatibility aliases for production text columns", () => {
+    for (const typeName of [
+      "inventory_check_status",
+      "inventory_cosmetic_grade",
+      "inventory_functional_grade",
+      "inventory_item_status",
+    ]) {
+      expect(workflowTypeCompatSql).toContain(`create domain public.${typeName} as text`);
+      expect(workflowTypeCompatSql).toContain(
+        `revoke all on domain public.${typeName}\n  from public, anon, authenticated, service_role`,
+      );
+      expect(workflowTypeCompatSql).toContain(
+        `grant usage on domain public.${typeName} to service_role`,
+      );
+    }
+    expect(workflowTypeCompatSql).not.toMatch(/alter table public\.inventory_/i);
+    expect(workflowTypeCompatSql).not.toMatch(/\b(?:update|delete from|truncate)\b/i);
+  });
+
+  it("covers every workflow-ledger foreign key in FK column order", () => {
+    expect(workflowIndexesSql).toContain("(inventory_item_id, store_id)");
+    expect(workflowIndexesSql).toContain("(stock_unit_id, store_id)");
+    expect(workflowIndexesSql).toContain("(actor_id)");
+    expect(workflowIndexesSql.match(/create index if not exists/g)).toHaveLength(3);
   });
 
   it("uses tenant-safe references and a locked idempotent command", () => {

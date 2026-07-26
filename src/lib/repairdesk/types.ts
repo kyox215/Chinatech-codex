@@ -2579,6 +2579,45 @@ export interface InventoryQualityCheckInput {
   notes?: string;
 }
 
+export type InventoryV2WorkflowOperation = "inspect" | "transition" | "update_commercials";
+
+export interface InventoryV2CommercialPatch {
+  cost_amount?: number;
+  list_price?: number;
+  repair_cost_amount?: number;
+  fees_amount?: number;
+  warranty_months?: number;
+  location?: string | null;
+  notes?: string | null;
+}
+
+export interface ApplyInventoryWorkflowV2Input {
+  expected_updated_at: string;
+  idempotency_key: string;
+  operation: InventoryV2WorkflowOperation;
+  target_status?: Extract<
+    InventoryItemStatus,
+    "intake" | "evaluating" | "refurbishing" | "ready_for_sale" | "listed"
+  >;
+  inspection?: Omit<InventoryQualityCheckInput, "expected_updated_at">;
+  commercial_patch?: InventoryV2CommercialPatch;
+  reason?: string;
+}
+
+export interface ApplyInventoryWorkflowV2Result {
+  ok: true;
+  code: "applied" | "idempotent_replay";
+  workflow_command_id: string;
+  item_id: string;
+  stock_unit_id: string;
+  previous_status: InventoryItemStatus;
+  status: InventoryItemStatus;
+  item_updated_at: string;
+  unit_version: number;
+  quality_check_id?: string;
+  applied_at: string;
+}
+
 export interface InventoryTransactionInput {
   transaction_type: InventoryTransactionType;
   amount: number;

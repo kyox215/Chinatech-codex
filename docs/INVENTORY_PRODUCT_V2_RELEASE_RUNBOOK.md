@@ -33,6 +33,21 @@
 
 这表示应用代码已具备逐店或全店铺灰度能力，不表示生产已经全量开启。全量开关仍是 D4 生产变更，必须先完成每店对账、权限抽查、审计时间策略确认和回滚演练。
 
+## 单台手机完整工作流（2026-07-26，已应用生产）
+
+`TASK-20260726-001-inventory-phone-sales-complete` 已发布完整手工入库后的原子检测、整备、待售、上架与单台售出闭环：
+
+- `20260726181436_inventory_v2_workflow_expand.sql` 只新增追加式工作流幂等账本、原子 RPC 和售出数据库门禁；RPC 默认对所有角色撤销执行权。
+- `20260726181537_inventory_v2_workflow_enable.sql` 在授权前强制检查所有 V2 marker 的 unit 关联、状态、采购成本和挂牌价投影；存在任何不一致即中止，不自动改写历史。
+- `20260726182246_inventory_v2_workflow_production_type_compat.sql` 为生产受约束 `text` 字段提供仅 `service_role` 可用的兼容别名；不改变列类型、不回填、不重写历史行。
+- `20260726182556_inventory_v2_workflow_fk_indexes.sql` 补齐工作流账本三组外键的覆盖索引。
+- 新工作流以 V1 `updated_at` 与 V2 `version` 双 CAS 锁定同一台手机；检测、价格/成本、保修、状态、事件、审计和幂等结果在同一事务完成。
+- 新 RPC 只允许 `intake → evaluating → refurbishing/ready_for_sale → listed` 的非数量流程；预订、售出、退货、报废和取消不能借此绕过库存移动。
+- 售出继续使用现有原子销售 RPC；V2 单台手机的旧更新、旧检测、旧状态和旧销售入口均 fail closed。
+- 保修月数仍由 V1 `inventory_items` 持有；V2 当前没有独立保修列，文档和 UI 不得声称它已双模型存储。
+
+Owner 明确批准后，四份迁移已按生产历史版本应用。生产回滚型事务已真实走通“手工录入 → 检测 → 待售 → 商业信息更新 → 单台售出”，V1/V2 状态、采购成本与挂牌价一致，工作流账本 3 条、销售账本 1 条；事务回滚后 V2 marker、测试商品、测试库存单元与工作流账本均为 0。最终 lint、类型检查、359 个测试文件 / 2391 项测试和 27/27 页面生产构建通过。
+
 ## 功能开关
 
 默认值：
@@ -60,6 +75,8 @@ INVENTORY_LEGACY_MUTATIONS_ENABLED=1
 6. 将一个测试门店加入 allowlist，再开启 `COMMANDS=1` 与 `UI=1`。不要从单店直接跳到 `ALL_STORES_ENABLED=1`。
 7. 验证六步入库、重复标识、网络重试、并发版本、原子售卖、客户关联、财政状态、打印失败和权限拒绝。
 8. 观察窗口内保持 V1 可写和可回滚；达到批准指标后逐店扩大。只有所有 active 门店都完成 owner/manager 命令、角色拒绝、影子对账和审计验证后，才可另行批准全店铺开关。
+9. 启用单台手机工作流时，先只应用 expand migration 并核对业务表行数不变；运行 marker/unit/status/金额只读预检为 0 后，才允许应用 enable migration。
+10. 对工作流执行同 key 重放、同 key 冲突、V1/V2 stale、状态矩阵、质量门禁、事务故障注入以及与 sale RPC 的双会话并发测试；任一零写/无死锁条件不满足即停止。
 
 ## 回滚
 

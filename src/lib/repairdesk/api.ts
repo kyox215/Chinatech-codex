@@ -102,6 +102,8 @@ import type {
   CreateInventoryUnitV2Result,
   CompleteInventorySaleV2Input,
   CompleteInventorySaleV2Result,
+  ApplyInventoryWorkflowV2Input,
+  ApplyInventoryWorkflowV2Result,
   PaymentResult,
   ElectronicsImportPreview,
   ElectronicsImportReport,
@@ -332,6 +334,8 @@ export type {
   BuybackDocumentType,
   BuybackFinalizeInput,
   BuybackFinalizeResult,
+  ApplyInventoryWorkflowV2Input,
+  ApplyInventoryWorkflowV2Result,
   InventoryDetail,
   InventoryEvent,
   InventoryFunctionalGrade,
@@ -531,6 +535,13 @@ export async function completeInventorySaleV2(
   input: CompleteInventorySaleV2Input,
 ): Promise<CompleteInventorySaleV2Result> {
   return postJson<CompleteInventorySaleV2Result>("inventory/v2/sales/complete", { id, input });
+}
+
+export async function applyInventoryWorkflowV2(
+  id: string,
+  input: ApplyInventoryWorkflowV2Input,
+): Promise<ApplyInventoryWorkflowV2Result> {
+  return postJson<ApplyInventoryWorkflowV2Result>("inventory/v2/workflow/apply", { id, input });
 }
 
 export async function importElectronicsCsvPreview(

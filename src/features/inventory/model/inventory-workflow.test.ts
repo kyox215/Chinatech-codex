@@ -6,6 +6,7 @@ import {
   canTransitionInventoryItem,
   filterInventoryItemsByView,
   getInventoryPrimaryAction,
+  getInventoryNextStatusesForItem,
   getInventoryProfit,
   inventoryNextActionLabel,
   isInventoryAttentionItem,
@@ -24,6 +25,24 @@ describe("inventory workflow", () => {
     expect(canTransitionInventoryItem("ready_for_sale", "listed")).toBe(true);
     expect(canTransitionInventoryItem("listed", "reserved")).toBe(true);
     expect(canTransitionInventoryItem("reserved", "sold")).toBe(true);
+  });
+
+  it("offers only atomic-workflow transitions for inspected direct V2 stock", () => {
+    const direct = inventoryItem({
+      source_type: "manual_stock",
+      status: "evaluating",
+      legacy_payload: { inventory_v2_intake: true },
+      imei_check_status: "pass",
+      activation_lock_status: "pass",
+      data_wipe_status: "pass",
+      functional_grade: "passed",
+      cosmetic_grade: "good",
+    });
+    expect(getInventoryNextStatusesForItem(direct)).toEqual(["refurbishing", "ready_for_sale"]);
+    expect(getInventoryPrimaryAction(direct)).toMatchObject({
+      label: "检测已完成",
+      actionKind: "transition",
+    });
   });
 
   it("rejects illegal jumps out of intake", () => {

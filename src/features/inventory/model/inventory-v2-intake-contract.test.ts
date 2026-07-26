@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createInventoryUnitV2InputSchema,
   isValidInventoryV2Imei,
+  parseInventoryV2MoneyDraft,
 } from "./inventory-v2-intake-contract";
 
 const valid = {
@@ -24,6 +25,13 @@ const valid = {
 };
 
 describe("inventory V2 intake contract", () => {
+  it("parses explicit Italian or dot-decimal money drafts without treating blanks as zero", () => {
+    expect(parseInventoryV2MoneyDraft("129,90")).toBe(129.9);
+    expect(parseInventoryV2MoneyDraft("129.90")).toBe(129.9);
+    expect(parseInventoryV2MoneyDraft("")).toBeNaN();
+    expect(parseInventoryV2MoneyDraft("12,345")).toBeNaN();
+  });
+
   it("validates IMEI deterministically", () => {
     expect(isValidInventoryV2Imei("490154203237518")).toBe(true);
     expect(isValidInventoryV2Imei("490154203237519")).toBe(false);

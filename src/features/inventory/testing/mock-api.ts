@@ -1,6 +1,8 @@
 import { CURRENCY_CODE } from "@/lib/money";
 import type {
   AuditActor,
+  ApplyInventoryWorkflowV2Input,
+  ApplyInventoryWorkflowV2Result,
   BuybackFinalizeInput,
   BuybackFinalizeResult,
   CompleteInventorySaleV2Input,
@@ -192,6 +194,10 @@ const mockInventoryTransactions: InventoryTransaction[] = [
 const mockInventoryV2Sales = new Map<
   string,
   CompleteInventorySaleV2Result & { itemId: string; fingerprint: string }
+>();
+const mockInventoryV2Workflows = new Map<
+  string,
+  ApplyInventoryWorkflowV2Result & { fingerprint: string }
 >();
 const mockInventoryV2Intakes = new Map<
   string,
@@ -848,6 +854,81 @@ export async function sellInventoryItem(
     note: "售出收款",
   });
   return { ok: true };
+}
+
+export async function applyInventoryWorkflowV2(
+  id: string,
+  input: ApplyInventoryWorkflowV2Input,
+  _actor?: AuditActor,
+): Promise<ApplyInventoryWorkflowV2Result> {
+  const fingerprint = JSON.stringify({ id, input });
+  const existing = mockInventoryV2Workflows.get(input.idempotency_key);
+  if (existing) {
+    if (existing.fingerprint !== fingerprint) {
+      throw new Error("该操作标识已用于不同请求，请刷新后重试");
+    }
+    return { ...existing, code: "idempotent_replay" };
+  }
+  const item = findItem(id);
+  if (item.updated_at !== input.expected_updated_at) {
+    throw new Error("库存资料已被其他人更新，请刷新后重试");
+  }
+  if (item.legacy_payload?.inventory_v2_intake !== true) {
+    throw new Error("该记录不是完整的 V2 单台设备库存");
+  }
+  const previousStatus = item.status;
+  const status = input.target_status ?? item.status;
+  const allowed: Partial<Record<InventoryItemStatus, InventoryItemStatus[]>> = {
+    intake: ["intake", "evaluating"],
+    evaluating: ["evaluating", "refurbishing", "ready_for_sale"],
+    refurbishing: ["evaluating", "refurbishing", "ready_for_sale"],
+    ready_for_sale: ["ready_for_sale", "listed"],
+    listed: ["listed"],
+  };
+  if (!allowed[item.status]?.includes(status)) {
+    throw new Error("当前库存状态不能这样推进");
+  }
+  let qualityCheckId: string | undefined;
+  if (input.inspection) {
+    qualityCheckId = (await recordInventoryCheck(id, input.inspection)).id;
+  }
+  if (input.commercial_patch) {
+    item.buyback_price = input.commercial_patch.cost_amount ?? item.buyback_price;
+    item.list_price = input.commercial_patch.list_price ?? item.list_price;
+    item.repair_cost_amount = input.commercial_patch.repair_cost_amount ?? item.repair_cost_amount;
+    item.fees_amount = input.commercial_patch.fees_amount ?? item.fees_amount;
+    item.warranty_months = input.commercial_patch.warranty_months ?? item.warranty_months;
+    if (input.commercial_patch.notes !== undefined) {
+      item.notes = input.commercial_patch.notes ?? undefined;
+    }
+  }
+  if (["ready_for_sale", "listed"].includes(status)) {
+    assertMockBuybackSaleReadiness(item, status);
+  }
+  const nowIso = new Date().toISOString();
+  item.status = status;
+  item.updated_at = nowIso;
+  const previousVersion = Number(item.legacy_payload.inventory_v2_mock_version ?? 1);
+  item.legacy_payload = {
+    ...item.legacy_payload,
+    inventory_v2_mock_version: previousVersion + 1,
+  };
+  const result: ApplyInventoryWorkflowV2Result & { fingerprint: string } = {
+    ok: true,
+    code: "applied",
+    workflow_command_id: crypto.randomUUID(),
+    item_id: id,
+    stock_unit_id: String(item.legacy_payload.inventory_v2_unit_id ?? `unit_${id}`),
+    previous_status: previousStatus,
+    status,
+    item_updated_at: nowIso,
+    unit_version: previousVersion + 1,
+    quality_check_id: qualityCheckId,
+    applied_at: nowIso,
+    fingerprint,
+  };
+  mockInventoryV2Workflows.set(input.idempotency_key, result);
+  return result;
 }
 
 export async function completeInventorySaleV2(

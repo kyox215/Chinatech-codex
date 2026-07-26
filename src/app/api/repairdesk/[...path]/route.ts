@@ -30,7 +30,11 @@ const AI_ORDER_ACTION_MAX_BYTES = 2_048;
 const PRIVATE_NO_STORE_HEADERS = { "Cache-Control": "private, no-store, max-age=0" };
 
 function isInventoryV2CommandPath(path: string) {
-  return path === "inventory/v2/intake/create" || path === "inventory/v2/sales/complete";
+  return (
+    path === "inventory/v2/intake/create" ||
+    path === "inventory/v2/sales/complete" ||
+    path === "inventory/v2/workflow/apply"
+  );
 }
 
 function privateError(error: string, status: number) {

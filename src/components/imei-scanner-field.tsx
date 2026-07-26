@@ -113,6 +113,8 @@ export function ImeiScannerField({
   showPaste = true,
   startScannerToken,
   appearance = "outlined",
+  inputId,
+  inputAriaLabel,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -121,6 +123,8 @@ export function ImeiScannerField({
   showPaste?: boolean;
   startScannerToken?: number;
   appearance?: "outlined" | "quiet";
+  inputId?: string;
+  inputAriaLabel?: string;
 }) {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
@@ -630,6 +634,8 @@ export function ImeiScannerField({
       >
         <Input
           {...imeiKeyboardProps}
+          id={inputId}
+          aria-label={inputAriaLabel}
           value={value}
           onChange={(event) => commitValue(event.target.value, "manual")}
           placeholder={placeholder}

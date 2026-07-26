@@ -1,11 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { completeInventorySaleV2 } from "./inventory-v2-sale.repository";
+import {
+  assertInventoryV2AtomicSaleReadiness,
+  completeInventorySaleV2,
+} from "./inventory-v2-sale.repository";
 
-const mocks = vi.hoisted(() => ({ rpc: vi.fn() }));
+const mocks = vi.hoisted(() => ({ rpc: vi.fn(), maybeSingle: vi.fn() }));
 
 vi.mock("@/server/supabase", () => ({
-  getSupabaseAdmin: () => ({ rpc: mocks.rpc }),
+  getSupabaseAdmin: () => ({
+    rpc: mocks.rpc,
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({ maybeSingle: mocks.maybeSingle }),
+        }),
+      }),
+    }),
+  }),
 }));
 
 vi.mock("./inventory-v2-access", () => ({
@@ -36,7 +48,19 @@ const input = {
 };
 
 describe("completeInventorySaleV2", () => {
-  beforeEach(() => mocks.rpc.mockReset());
+  beforeEach(() => {
+    mocks.rpc.mockReset();
+    mocks.maybeSingle.mockReset();
+    mocks.maybeSingle.mockResolvedValue({
+      data: {
+        id: "item-1",
+        updated_at: input.expected_updated_at,
+        status: "listed",
+        legacy_payload: {},
+      },
+      error: null,
+    });
+  });
 
   it("injects store and actor from the authenticated context", async () => {
     mocks.rpc.mockResolvedValue({
@@ -84,5 +108,46 @@ describe("completeInventorySaleV2", () => {
       status: 503,
       message: "确认库存销售服务暂时不可用",
     });
+  });
+});
+
+describe("assertInventoryV2AtomicSaleReadiness", () => {
+  const readyItem = {
+    updated_at: input.expected_updated_at,
+    status: "listed",
+    legacy_payload: { inventory_v2_intake: true },
+    serial_or_imei: "356938035643809",
+    imei_check_status: "pass",
+    activation_lock_status: "pass",
+    data_wipe_status: "pass",
+    functional_grade: "passed",
+    cosmetic_grade: "good",
+    list_price: 399,
+  };
+
+  it("accepts a fully inspected V2 phone", () => {
+    expect(() => assertInventoryV2AtomicSaleReadiness(readyItem, input)).not.toThrow();
+  });
+
+  it.each([
+    ["imei_check_status", "unchecked", /IMEI/],
+    ["activation_lock_status", "fail", /账号锁/],
+    ["data_wipe_status", "unchecked", /资料/],
+    ["functional_grade", "untested", /功能检测/],
+    ["cosmetic_grade", "unknown", /外观等级/],
+    ["list_price", 0, /挂牌价/],
+  ])("rejects an incomplete %s gate", (field, value, message) => {
+    expect(() =>
+      assertInventoryV2AtomicSaleReadiness({ ...readyItem, [field]: value }, input),
+    ).toThrow(message);
+  });
+
+  it("rejects stale versions before the RPC", () => {
+    expect(() =>
+      assertInventoryV2AtomicSaleReadiness(
+        { ...readyItem, updated_at: "2026-07-18T17:00:01.000Z" },
+        input,
+      ),
+    ).toThrow(/其他人更新/);
   });
 });

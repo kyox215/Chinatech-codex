@@ -52,6 +52,7 @@ export {
 
 export {
   applyElectronicsCsvImport,
+  applyInventoryWorkflowV2,
   accessInventoryAttachment,
   createInventoryIntake,
   createInventoryUnitV2,

@@ -69,3 +69,9 @@ export function assertInventoryV2SaleAccess(actor: AuditActor) {
     throw new Error("库存 V2 销售尚未对当前门店或当前角色开放");
   }
 }
+
+export function assertInventoryV2WorkflowAccess(actor: AuditActor) {
+  if (!canUseInventoryV2CommandRollout(actor, process.env as InventoryV2FeatureEnvironment)) {
+    throw new Error("库存 V2 工作流尚未对当前门店或当前角色开放");
+  }
+}

@@ -9,6 +9,7 @@ import {
   assertBuybackSensitiveWorkflowWriteEnabled,
   assertInventoryAttachmentAccessState,
   assertInventoryIntakeDoesNotBypassBuybackFinalize,
+  assertLegacyInventorySaleAllowed,
   assertInventoryTransitionActor,
   assertInventoryTransitionDoesNotBypassBuybackReversal,
   assertInventoryUpdateDoesNotBypassBuybackAgreement,
@@ -20,8 +21,10 @@ import {
   inventoryMutationCas,
   isInventoryAttachmentStorageScoped,
   mergeBuybackLegacyPayloadForUpdate,
+  recordInventoryCheck,
   returnedBuybackInspectionReset,
   sanitizeBuybackLegacyPayload,
+  sellInventoryItem,
   uploadInventoryAttachment,
 } from "@/features/inventory/server/inventory.repository";
 import { BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE } from "@/features/buyback/model/buyback-evidence-policy";
@@ -501,12 +504,27 @@ describe("inventory repository protected buyback writes", () => {
       data_wipe_status: "unchecked",
       imei_check_status: "pass",
       activation_lock_status: "pass",
+      functional_grade: "passed",
+      cosmetic_grade: "good",
+      list_price: 399,
     };
     expect(() => assertBuybackSaleReadiness(purchased, "ready_for_sale")).toThrow(
       /资料尚未确认清除/,
     );
     expect(() =>
       assertBuybackSaleReadiness({ ...purchased, data_wipe_status: "pass" }, "ready_for_sale"),
+    ).not.toThrow();
+    expect(() =>
+      assertBuybackSaleReadiness(
+        {
+          ...purchased,
+          data_wipe_status: "pass",
+          functional_grade: "untested",
+          cosmetic_grade: "unknown",
+          list_price: 0,
+        },
+        "ready_for_sale",
+      ),
     ).not.toThrow();
     expect(() =>
       assertBuybackSaleReadiness(
@@ -517,6 +535,63 @@ describe("inventory repository protected buyback writes", () => {
     expect(() =>
       assertBuybackSaleReadiness({ ...purchased, source_type: "manual_stock" }, "ready_for_sale"),
     ).not.toThrow();
+    expect(() =>
+      assertBuybackSaleReadiness(
+        {
+          ...purchased,
+          source_type: "manual_stock",
+          legacy_payload: { inventory_v2_intake: true },
+        },
+        "ready_for_sale",
+      ),
+    ).toThrow(/资料尚未确认清除/);
+  });
+
+  it("forces V2-linked stock through the atomic sale command", () => {
+    expect(() =>
+      assertLegacyInventorySaleAllowed({ legacy_payload: { inventory_v2_intake: true } }),
+    ).toThrow(/必须使用原子成交入口/);
+    expect(() => assertLegacyInventorySaleAllowed({ legacy_payload: {} })).not.toThrow();
+  });
+
+  it("rejects V2-linked inspection in the legacy one-sided write path", async () => {
+    const row = {
+      id: "item-v2-check",
+      store_id: "store_1",
+      status: "intake",
+      updated_at: "2026-07-26T00:00:00.000Z",
+      legacy_payload: { inventory_v2_intake: true },
+    };
+    mocks.supabase.from.mockReturnValue(createSupabaseSingleQuery(row));
+
+    await expect(
+      recordInventoryCheck(
+        row.id,
+        { expected_updated_at: "2026-07-25T00:00:00.000Z" },
+        { id: "staff_owner", displayName: "Owner", storeId: "store_1", storeRole: "owner" },
+      ),
+    ).rejects.toThrow(/原子库存工作流/);
+  });
+
+  it("rejects V2-linked stock in the legacy sale path before any write", async () => {
+    const row = {
+      id: "item-v2-sale",
+      store_id: "store_1",
+      status: "listed",
+      updated_at: "2026-07-26T00:00:00.000Z",
+      legacy_payload: { inventory_v2_intake: true },
+    };
+    const readQuery = createSupabaseSingleQuery(row);
+    mocks.supabase.from.mockReturnValue(readQuery);
+
+    await expect(
+      sellInventoryItem(
+        row.id,
+        { sale_price: 399 },
+        { id: "staff_owner", displayName: "Owner", storeId: "store_1", storeRole: "owner" },
+      ),
+    ).rejects.toThrow(/必须使用原子成交入口/);
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
   });
 
   it("rejects direct buyback payment transactions outside the finalize RPC", () => {

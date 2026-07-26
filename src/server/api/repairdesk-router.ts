@@ -139,6 +139,7 @@ import {
 } from "@/features/customers/server/customer.service";
 import {
   applyElectronicsCsvImport,
+  applyInventoryWorkflowV2,
   accessInventoryAttachment,
   createInventoryIntake,
   createInventoryUnitV2,
@@ -162,9 +163,11 @@ import { assertInventoryV2ShadowReadEnabled } from "@/features/inventory/server/
 import {
   assertInventoryV2IntakeAccess,
   assertInventoryV2SaleAccess,
+  assertInventoryV2WorkflowAccess,
 } from "@/features/inventory/server/inventory-v2-access";
 import { completeInventorySaleV2BodySchema } from "@/features/inventory/model/inventory-v2-sale-contract";
 import { createInventoryUnitV2BodySchema } from "@/features/inventory/model/inventory-v2-intake-contract";
+import { applyInventoryWorkflowV2BodySchema } from "@/features/inventory/model/inventory-v2-workflow-contract";
 import {
   BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE,
   BUYBACK_SENSITIVE_WORKFLOW_ENABLED,
@@ -413,6 +416,7 @@ const supabaseSource = {
   approveOnboardingRequest,
   approveStoreAccessRequest,
   applyElectronicsCsvImport,
+  applyInventoryWorkflowV2,
   accessInventoryAttachment,
   archiveSupplier,
   cancelOnboardingRequest,
@@ -2551,6 +2555,31 @@ export async function handleRepairDeskPost(
           ),
         );
       }
+      case "inventory/v2/workflow/apply": {
+        const { id, input } = applyInventoryWorkflowV2BodySchema.parse(body);
+        assertInventoryV2WorkflowAccess(actor);
+        if (input.operation === "inspect") {
+          assertInventoryQualityCheckPermission(actor);
+        } else if (input.operation === "transition") {
+          assertInventoryTransitionPermission(actor, input.target_status!);
+        } else {
+          assertInventoryUpdatePermission(actor, {
+            buyback_price: input.commercial_patch?.cost_amount,
+            list_price: input.commercial_patch?.list_price,
+            repair_cost_amount: input.commercial_patch?.repair_cost_amount,
+            fees_amount: input.commercial_patch?.fees_amount,
+            warranty_months: input.commercial_patch?.warranty_months,
+            notes: input.commercial_patch?.notes ?? undefined,
+          });
+        }
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.applyInventoryWorkflowV2(id, input, actor),
+            realtimeBroadcasts.inventoryUpdated,
+          ),
+        );
+      }
       case "inventory/update": {
         const { id, input } = inventoryUpdateBodySchema.parse(body);
         assertInventoryUpdatePermission(actor, input);
@@ -2564,8 +2593,12 @@ export async function handleRepairDeskPost(
       }
       case "inventory/transition": {
         const { id, to, reason } = inventoryTransitionBodySchema.parse(body);
-        if (to === "purchased") {
-          throw new Error("回收成交必须使用带签名与幂等保护的确认成交操作");
+        if (to === "purchased" || to === "sold") {
+          throw new Error(
+            to === "purchased"
+              ? "回收成交必须使用带签名与幂等保护的确认成交操作"
+              : "库存销售必须使用专用成交入口，不能通过通用状态流转完成",
+          );
         }
         assertInventoryTransitionPermission(actor, to);
         return ok(

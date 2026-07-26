@@ -98,6 +98,22 @@ export function getInventoryNextStatuses(status: InventoryItemStatus) {
   return statusTransitions[status] ?? [];
 }
 
+export function getInventoryNextStatusesForItem(
+  item: Pick<InventoryItem, "status" | "source_type" | "legacy_payload">,
+): InventoryItemStatus[] {
+  const isDirectStock =
+    item.source_type !== "buyback" && item.legacy_payload?.inventory_v2_intake === true;
+  if (!isDirectStock) return getInventoryNextStatuses(item.status);
+  const directStockTransitions: Partial<Record<InventoryItemStatus, InventoryItemStatus[]>> = {
+    intake: ["evaluating"],
+    evaluating: ["refurbishing", "ready_for_sale"],
+    refurbishing: ["evaluating", "ready_for_sale"],
+    ready_for_sale: ["listed"],
+    listed: [],
+  };
+  return directStockTransitions[item.status] ?? [];
+}
+
 export function canTransitionInventoryItem(from: InventoryItemStatus, to: InventoryItemStatus) {
   return from === to || getInventoryNextStatuses(from).includes(to);
 }
@@ -219,6 +235,7 @@ export function getInventoryPrimaryAction(
     | "data_wipe_status"
     | "list_price"
     | "sale_price"
+    | "legacy_payload"
   >,
 ): InventoryPrimaryAction {
   if (item.imei_check_status === "fail") {
@@ -289,7 +306,22 @@ export function getInventoryPrimaryAction(
     const unchecked = [
       item.imei_check_status !== "pass" ? "IMEI" : "",
       item.activation_lock_status !== "pass" ? "账号锁" : "",
+      item.data_wipe_status !== "pass" ? "资料清除" : "",
+      item.functional_grade !== "passed" ? "功能" : "",
+      item.cosmetic_grade === "unknown" ? "外观" : "",
     ].filter(Boolean);
+    const isDirectStock =
+      item.source_type !== "buyback" && item.legacy_payload?.inventory_v2_intake === true;
+    if (!unchecked.length && isDirectStock) {
+      return {
+        label: "检测已完成",
+        detail: "可进入整备，或在价格与保修资料完整后直接设为待售。",
+        actionLabel: "推进状态",
+        actionKind: "transition",
+        tone: "info",
+        nextStatus: "ready_for_sale",
+      };
+    }
     return {
       label: unchecked.length ? "补齐关键检测" : "确认回收报价",
       detail: unchecked.length
