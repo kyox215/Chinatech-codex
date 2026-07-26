@@ -35,3 +35,12 @@
 - **Evidence:**
   - Supabase migrations 20260726181436/181537/182246/182556; rollback smoke returned item_status=sold, unit_status=sold, workflow_ledger_rows=3, sale_ledger_rows=1; post-rollback marker/smoke/workflow rows=0; lint/typecheck passed; 359 files and 2391 tests passed; build 27/27 pages passed.
 - **Recorded by:** IntegrationLead
+## 2026-07-26T18:36:27Z — Closeout complete: acceptance matrix PASS, remote main verified at business SHA f217a4f5, project/department/capability memory synchronized, and no open scope blocker remains.
+
+- **Phase:** closeout
+- **Completed/current state:** Closeout complete: acceptance matrix PASS, remote main verified at business SHA f217a4f5, project/department/capability memory synchronized, and no open scope blocker remains.
+- **Next:** Commit and push the closeout-only memory delta, then close Registry task/run, release lease and window.
+- **Decision:** Close unconditionally; retain additive schema and V1 fallback, and require separate approval for V1 retirement, destructive cleanup or quantity-moving workflow expansion.
+- **Evidence:**
+  - CEO_REPORT.md; E-017..E-023; remote main exact SHA f217a4f56beaa1c61456ca1f6bbfa5e430841cd6; clean worktree before closeout delta.
+- **Recorded by:** IntegrationLead

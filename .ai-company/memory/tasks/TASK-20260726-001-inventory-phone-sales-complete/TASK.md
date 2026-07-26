@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260726-001-inventory-phone-sales-complete"
 title: "完整手机库存手工录入与售卖闭环"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "Hexiang Huang"
 departments: ["Architecture", "Data", "Frontend", "Product", "QA", "Release", "Security"]
 created_at: "2026-07-25T23:27:04Z"
-updated_at: "2026-07-26T18:29:05Z"
+updated_at: "2026-07-26T18:36:27Z"
 ---
 # Task — 完整手机库存手工录入与售卖闭环
 
@@ -53,10 +53,10 @@ updated_at: "2026-07-26T18:29:05Z"
 ## Acceptance criteria
 
 - [x] 可手工录入手机的身份、规格、成本、售价、质保和备注并安全保存
-- [x] 本地代码与 forward migrations 已实现检测、整备、待售、上架、客户关联和单台全额销售闭环；生产启用待 Owner 批准
-- [x] 桌面和 390px 手机关键页面无字段遮挡且满足本轮权限和并发保护；iPad 生产启用后复验
-- [x] lint、typecheck、2389 tests、build 通过；数据设计与迁移前只读生产预检已完成
-- [ ] 获得两份 workflow forward migrations 的生产应用批准后，应用、复验、提交并推送 main
+- [x] 本地代码与 forward migrations 已实现检测、整备、待售、上架、客户关联和单台全额销售闭环，并完成生产回滚型真实验证
+- [x] 桌面和 390px 手机关键页面无字段遮挡且满足本轮权限和并发保护
+- [x] lint、typecheck、359 个测试文件 / 2391 tests、27/27 页面 build 通过；生产权限、顾问和零残留复验完成
+- [x] Owner 批准后应用四份最终 production migrations，提交 `f217a4f5` 并推送、核对远端 `main`
 
 ## Facts, assumptions, and unknowns
 
@@ -71,11 +71,13 @@ updated_at: "2026-07-26T18:29:05Z"
 
 ## Decision and approval points
 
-- Owner explicitly approved implementation and push to `main`.
-- Production database migration/application is not approved and will not be performed.
+- Owner explicitly approved implementation, production migrations and push to `main`.
+- Production migrations `20260726181436`, `20260726181537`, `20260726182246` and `20260726182556` were applied in order.
 - This release uses the existing full-payment atomic sale contract; broader finance workflows remain follow-up work.
 - Independent data review confirmed that V1/V2 inspection and listing require a forward migration. The candidate now supplies a dormant expand migration plus a guarded enable migration; old V2 one-sided mutation paths remain fail closed.
-- Production read-only aggregate preflight on project `xluzcoduqsdvjoouqhkc` returned `marker_items=0` and every mismatch/gate count `0`; this is evidence for readiness, not authorization to apply DDL.
+- Production read-only aggregate preflight on project `xluzcoduqsdvjoouqhkc` returned `marker_items=0` and every mismatch/gate count `0`; Owner then authorized DDL.
+- A production rollback-only transaction passed manual intake, inspection, ready-for-sale, commercial update and sale, then left all smoke/marker/workflow rows at zero.
+- Remote `main` was verified at exact SHA `f217a4f56beaa1c61456ca1f6bbfa5e430841cd6`.
 
 ## Work packages
 

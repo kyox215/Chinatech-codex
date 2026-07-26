@@ -30,6 +30,16 @@ V1 mutations remain enabled. Production rollback-only intake/sale/reconcile pass
 rows, desktop/mobile six-step entry is verified, and AI image recognition remains optional and dormant.
 Second-store rollout, AI provider activation, V1 retirement and data cleanup remain separate D4 work.
 
+2026-07-26 Inventory V2 complete phone workflow: `TASK-20260726-001-inventory-phone-sales-complete`
+adds manual single-phone intake, inspection, commercial editing, ready/listed progression and atomic
+sale while preserving V1 history and fallback. Production migrations `20260726181436`,
+`20260726181537`, `20260726182246` and `20260726182556` are applied. The workflow RPC is
+service-role-only, invoker, empty-search-path and dual-CAS; browser roles cannot access the ledger or
+compatibility domains. A rollback-only production transaction passed intake → inspection →
+ready-for-sale → commercial update → sold with V1/V2 amount and status parity, then left zero
+marker/test/ledger residue. This does not authorize V1 retirement, destructive cleanup or broader
+production migration autonomy.
+
 2026-07-18 workspace integration release: `TASK-20260718-012-workspace-integration-release` safely
 reconstructed three proven release units on latest `main`: workflow-progress order sorting,
 custody-safe unlock retention and tenant store/print address propagation. Production applied only

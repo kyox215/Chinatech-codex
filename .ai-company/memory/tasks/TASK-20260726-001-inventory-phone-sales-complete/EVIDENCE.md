@@ -29,3 +29,4 @@
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.
 - `2026-07-26T18:29:05Z` `6b74e87463` — Supabase migrations 20260726181436/181537/182246/182556; rollback smoke returned item_status=sold, unit_status=sold, workflow_ledger_rows=3, sale_ledger_rows=1; post-rollback marker/smoke/workflow rows=0; lint/typecheck passed; 359 files and 2391 tests passed; build 27/27 pages passed.
+- `2026-07-26T18:36:27Z` `1c8ab5797c` — CEO_REPORT.md; E-017..E-023; remote main exact SHA f217a4f56beaa1c61456ca1f6bbfa5e430841cd6; clean worktree before closeout delta.
