@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, ChevronsUpDown, Palette, PencilLine, Search } from "lucide-react";
+import { Check, ChevronsUpDown, Palette, PencilLine, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +16,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
+import {
   EU_PHONE_BRANDS,
   findEuPhoneBrand,
   findEuPhoneModel,
@@ -23,6 +32,7 @@ import {
   phoneColorBackground,
   type PhoneColorOption,
 } from "@/features/inventory/model/eu-phone-catalog";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 type CatalogSelection = {
@@ -184,12 +194,9 @@ function CatalogCombobox({
   disabled?: boolean;
   onSelect: (selection: CatalogSelection) => void;
 }) {
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const normalizedQuery = query.trim();
-  const hasExactOption = options.some(
-    (option) => option.value.toLocaleLowerCase() === normalizedQuery.toLocaleLowerCase(),
-  );
 
   function choose(selection: CatalogSelection) {
     onSelect(selection);
@@ -197,85 +204,173 @@ function CatalogCombobox({
     setQuery("");
   }
 
+  function handleOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen);
+    if (!nextOpen) setQuery("");
+  }
+
+  const trigger = (
+    <Button
+      id={id}
+      type="button"
+      variant="outline"
+      role="combobox"
+      aria-expanded={open}
+      disabled={disabled}
+      className="h-11 w-full min-w-0 justify-between px-3 text-base font-normal sm:h-10 sm:text-sm"
+    >
+      <span className={cn("min-w-0 truncate", !value && "text-muted-foreground")}>
+        {value || placeholder}
+      </span>
+      <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+    </Button>
+  );
+
+  const picker = (
+    <CatalogCommandPicker
+      value={value}
+      query={query}
+      placeholder={placeholder}
+      options={options}
+      mobile={isMobile}
+      onQueryChange={setQuery}
+      onChoose={choose}
+    />
+  );
+
   return (
     <div className="min-w-0 space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            id={id}
-            type="button"
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            disabled={disabled}
-            className="h-11 w-full min-w-0 justify-between px-3 text-base font-normal sm:h-10 sm:text-sm"
-          >
-            <span className={cn("min-w-0 truncate", !value && "text-muted-foreground")}>
-              {value || placeholder}
-            </span>
-            <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          className="w-[min(28rem,calc(100vw-24px))] p-0"
-          onCloseAutoFocus={(event) => event.preventDefault()}
+      {isMobile ? (
+        <Drawer
+          open={open}
+          onOpenChange={handleOpenChange}
+          fixed
+          handleOnly
+          shouldScaleBackground={false}
+          preventScrollRestoration
         >
-          <Command shouldFilter>
-            <CommandInput
-              value={query}
-              onValueChange={setQuery}
-              placeholder={placeholder}
-              className="text-base sm:text-sm"
-            />
-            <CommandList className="max-h-[min(22rem,55svh)]">
-              <CommandEmpty className="px-3 py-4 text-left text-xs text-muted-foreground">
-                未找到目录结果。可在下方使用当前文字手动录入。
-              </CommandEmpty>
-              <CommandGroup heading={`目录选项 · ${options.length}`}>
-                {options.map((option) => (
-                  <CommandItem
-                    key={option.value}
-                    value={`${option.value} ${option.keywords ?? ""}`}
-                    onSelect={() => choose({ value: option.value, fromCatalog: true })}
-                    className="min-h-11"
-                  >
-                    <Check
-                      className={cn(
-                        "size-4 shrink-0",
-                        value === option.value ? "opacity-100" : "opacity-0",
-                      )}
-                    />
-                    <span className="min-w-0 flex-1 truncate">{option.value}</span>
-                    {option.description ? (
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {option.description}
-                      </span>
-                    ) : null}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-              {normalizedQuery && !hasExactOption ? (
-                <CommandGroup heading="手动填写">
-                  <CommandItem
-                    value={`manual ${normalizedQuery}`}
-                    onSelect={() => choose({ value: normalizedQuery, fromCatalog: false })}
-                    className="min-h-11"
-                  >
-                    <PencilLine className="size-4 shrink-0" />
-                    <span className="min-w-0 break-words">使用“{normalizedQuery}”</span>
-                  </CommandItem>
-                </CommandGroup>
-              ) : null}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+          <DrawerTrigger asChild>{trigger}</DrawerTrigger>
+          <DrawerContent
+            data-inventory-catalog-picker="mobile"
+            className="h-[min(32rem,calc(100dvh-8px))] max-h-[calc(100dvh-8px)] p-0"
+          >
+            <DrawerHeader className="relative shrink-0 gap-0.5 border-b border-[var(--border-panel)] px-4 pb-3 pt-2 text-left">
+              <DrawerTitle className="pr-12 text-base">{label.replace("*", "").trim()}</DrawerTitle>
+              <DrawerDescription className="pr-12 text-xs">{placeholder}</DrawerDescription>
+              <DrawerClose asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`关闭${label.replace("*", "").trim()}选择`}
+                  className="absolute right-2 top-1 size-11 rounded-full"
+                >
+                  <X className="size-4" />
+                </Button>
+              </DrawerClose>
+            </DrawerHeader>
+            {picker}
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Popover open={open} onOpenChange={handleOpenChange}>
+          <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+          <PopoverContent
+            align="start"
+            className="w-[min(28rem,calc(100vw-24px))] overflow-hidden p-0"
+            onCloseAutoFocus={(event) => event.preventDefault()}
+          >
+            {picker}
+          </PopoverContent>
+        </Popover>
+      )}
       <p className="text-[10px] leading-4 text-muted-foreground">
         <Search className="mr-1 inline size-3" /> 可搜索目录；找不到时可直接使用输入内容。
       </p>
     </div>
+  );
+}
+
+function CatalogCommandPicker({
+  value,
+  query,
+  placeholder,
+  options,
+  mobile,
+  onQueryChange,
+  onChoose,
+}: {
+  value: string;
+  query: string;
+  placeholder: string;
+  options: Array<{ value: string; description?: string; keywords?: string }>;
+  mobile: boolean;
+  onQueryChange: (value: string) => void;
+  onChoose: (selection: CatalogSelection) => void;
+}) {
+  const normalizedQuery = query.trim();
+  const hasExactOption = options.some(
+    (option) => option.value.toLocaleLowerCase() === normalizedQuery.toLocaleLowerCase(),
+  );
+
+  return (
+    <Command
+      shouldFilter
+      className={cn(mobile && "h-auto min-h-0 flex-1 rounded-none")}
+      data-inventory-catalog-command={mobile ? "mobile" : "desktop"}
+    >
+      <CommandInput
+        value={query}
+        onValueChange={onQueryChange}
+        placeholder={placeholder}
+        className="text-base sm:text-sm"
+      />
+      <CommandList
+        data-inventory-catalog-list
+        className={cn(
+          "overscroll-contain [touch-action:pan-y] [-webkit-overflow-scrolling:touch]",
+          mobile ? "min-h-0 max-h-none flex-1" : "max-h-[min(22rem,55svh)]",
+        )}
+      >
+        <CommandEmpty className="px-3 py-4 text-left text-xs text-muted-foreground">
+          未找到目录结果。可在下方使用当前文字手动录入。
+        </CommandEmpty>
+        <CommandGroup heading={`目录选项 · ${options.length}`}>
+          {options.map((option) => (
+            <CommandItem
+              key={option.value}
+              value={`${option.value} ${option.keywords ?? ""}`}
+              onSelect={() => onChoose({ value: option.value, fromCatalog: true })}
+              className="min-h-11"
+            >
+              <Check
+                className={cn(
+                  "size-4 shrink-0",
+                  value === option.value ? "opacity-100" : "opacity-0",
+                )}
+              />
+              <span className="min-w-0 flex-1 truncate">{option.value}</span>
+              {option.description ? (
+                <span className="shrink-0 text-xs text-muted-foreground">{option.description}</span>
+              ) : null}
+            </CommandItem>
+          ))}
+        </CommandGroup>
+        {normalizedQuery && !hasExactOption ? (
+          <CommandGroup heading="手动填写">
+            <CommandItem
+              value={`manual ${normalizedQuery}`}
+              onSelect={() => onChoose({ value: normalizedQuery, fromCatalog: false })}
+              className="min-h-11"
+            >
+              <PencilLine className="size-4 shrink-0" />
+              <span className="min-w-0 break-words">使用“{normalizedQuery}”</span>
+            </CommandItem>
+          </CommandGroup>
+        ) : null}
+      </CommandList>
+    </Command>
   );
 }
 

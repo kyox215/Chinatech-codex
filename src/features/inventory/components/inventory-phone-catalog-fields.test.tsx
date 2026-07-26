@@ -1,9 +1,42 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { InventoryPhoneCatalogFields } from "./inventory-phone-catalog-fields";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+beforeEach(() => {
+  setViewportWidth(1024);
+  HTMLElement.prototype.scrollIntoView = vi.fn();
+  vi.stubGlobal(
+    "ResizeObserver",
+    class ResizeObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+});
+
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn((query: string) => ({
+      matches: query.includes("max-width") ? width < 768 : width >= 768,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
 
 function renderFields(
   overrides: Partial<React.ComponentProps<typeof InventoryPhoneCatalogFields>> = {},
@@ -25,6 +58,34 @@ function renderFields(
 }
 
 describe("InventoryPhoneCatalogFields", () => {
+  it("uses a fixed mobile drawer with an isolated touch scroll surface", async () => {
+    setViewportWidth(390);
+    renderFields({ brand: "", model: "", storageCapacity: "", color: "" });
+
+    fireEvent.click(screen.getByRole("combobox", { name: "品牌 *" }));
+
+    expect(await screen.findByRole("dialog", { name: "品牌" })).toHaveAttribute(
+      "data-inventory-catalog-picker",
+      "mobile",
+    );
+    expect(screen.getByRole("button", { name: "关闭品牌选择" })).toBeInTheDocument();
+    expect(document.querySelector("[data-inventory-catalog-list]")).toHaveClass(
+      "overscroll-contain",
+      "[touch-action:pan-y]",
+    );
+  });
+
+  it("keeps the anchored catalog popover on desktop", async () => {
+    renderFields({ brand: "", model: "", storageCapacity: "", color: "" });
+
+    fireEvent.click(screen.getByRole("combobox", { name: "品牌 *" }));
+
+    expect(
+      document.querySelector('[data-inventory-catalog-command="desktop"]'),
+    ).toBeInTheDocument();
+    expect(document.querySelector('[data-inventory-catalog-picker="mobile"]')).toBeNull();
+  });
+
   it("shows each color as an accessible name plus a visual swatch", () => {
     renderFields();
 
