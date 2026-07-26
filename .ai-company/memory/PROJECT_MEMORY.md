@@ -295,3 +295,7 @@ Production migration `20260720190759` and feature application `main@24190b26` ar
 ## Platform approval authority
 
 `TASK-20260720-002-platform-owner-approval` is the production authority for platform approval identity. Only the current, email-verified Auth identity `kyox120@gmail.com` with the matching active `platform_admins` row may be projected as platform administrator or record platform-scoped approved/rejected decisions. Application checks cross-validate the session claim, authoritative Auth user and database row; bootstrap rejects every other email. Production application `main@5260c102` and migration `20260720231500` are live. Schema rollback must retain the hardened application and use a separately approved forward-fix migration; never roll the app back alone to the former UUID-only projection. AAL2/recent-MFA enforcement remains a separate Owner hardening decision.
+
+## European phone inventory catalog
+
+`TASK-20260726-002-eu-phone-catalog` and `docs/EU_PHONE_CATALOG_DECLARATION.md` are the authority for phone identity selection during Inventory V2 intake. The catalog is version-controlled, Europe-focused and filtered by a rolling ten-year UTC-day window. Exact employee-confirmed catalog selections are `standard`; manual values remain allowed as `unstandardized`; AI candidates remain `needs_review` until confirmed. Physical colors always render a readable name plus bordered swatch and never save CSS values. The feature is application-only: no migration, historical backfill, permission, RPC or rollout change.

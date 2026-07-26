@@ -49,9 +49,9 @@ than treated as zero; explicit zero remains a real value; estimated and confirme
 distinct. Customer quotes and store reporting stay EUR, while original currency is internal
 procurement evidence only.
 
-| Provides / consumes | Counterparty | Contract | Failure handling | Evidence | Status |
-|---|---|---|---|---|---|
-| TBD | TBD | TBD | TBD | — | unknown |
+| Provides / consumes              | Counterparty              | Contract                                                                                                                        | Failure handling                                                                              | Evidence                                                              | Status   |
+| -------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | -------- |
+| TBD                              | TBD                       | TBD                                                                                                                             | TBD                                                                                           | —                                                                     | unknown  |
 | Product customer/order lifecycle | Frontend + Backend + Data | History is retained; only valid lifecycle rows contribute operational/finance facts; terminal changes use named audited actions | Fail closed and preserve evidence when role, version, reason or accounting preconditions fail | TASK-20260716-003-customer-finance-order-correction-plan E-013..E-025 | verified |
 
 ## SOPs and checklists
@@ -61,12 +61,12 @@ procurement evidence only.
 
 ## Risks, debt, and open questions
 
-| ID | Risk/debt/question | Impact | Owner | Target/review | Status |
-|---|---|---|---|---|---|
-| PROD-20260619-001 | Production business policy for roles, retention, and external messaging is not fully verified | Misaligned automation or customer communication | Product + Owner | before production/external messaging work | open |
-| PROD-20260619-002 | Batch B duplicate files encoded stale order workflow semantics | Future agents may follow old intake/pickup assumptions | Product + Data + QA | deleted by TASK-20260619-009; monitor for re-created workflow duplicates | closed |
-| PROD-20260620-001 | Manual transition can bypass configured next-step edges by design | Accidental misuse could skip process stages if UI copy or audit trail becomes unclear | Product + QA | monitor order workflow changes | mitigated by enabled-status filtering, reason rules, approval protection, finance completion guard, and timeline events |
-| PROD-20260620-002 | Recommended role policy awaits Owner decision | Permission implementation could block real shop work if guessed | Product + Owner + Security | before role-gate implementation | approval_pending |
+| ID                | Risk/debt/question                                                                            | Impact                                                                                | Owner                      | Target/review                                                            | Status                                                                                                                  |
+| ----------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| PROD-20260619-001 | Production business policy for roles, retention, and external messaging is not fully verified | Misaligned automation or customer communication                                       | Product + Owner            | before production/external messaging work                                | open                                                                                                                    |
+| PROD-20260619-002 | Batch B duplicate files encoded stale order workflow semantics                                | Future agents may follow old intake/pickup assumptions                                | Product + Data + QA        | deleted by TASK-20260619-009; monitor for re-created workflow duplicates | closed                                                                                                                  |
+| PROD-20260620-001 | Manual transition can bypass configured next-step edges by design                             | Accidental misuse could skip process stages if UI copy or audit trail becomes unclear | Product + QA               | monitor order workflow changes                                           | mitigated by enabled-status filtering, reason rules, approval protection, finance completion guard, and timeline events |
+| PROD-20260620-002 | Recommended role policy awaits Owner decision                                                 | Permission implementation could block real shop work if guessed                       | Product + Owner + Security | before role-gate implementation                                          | approval_pending                                                                                                        |
 
 ## Lessons and anti-patterns
 
@@ -75,24 +75,25 @@ procurement evidence only.
 
 ## Capability and tool notes
 
-| Agent/Skill | Current evidence | Capability | Permission | Limitation |
-|---|---|---|---|---|
-| TBD | none | C0/C1 | task-specific | not evaluated |
+| Agent/Skill | Current evidence | Capability | Permission    | Limitation    |
+| ----------- | ---------------- | ---------- | ------------- | ------------- |
+| TBD         | none             | C0/C1      | task-specific | not evaluated |
 
 ## Memory change log
 
-| Date | Change | Source/task | Author/reviewer | Status |
-|---|---|---|---|---|
-| 2026-06-19 | Initial RepairDesk product baseline synchronized | TASK-20260619-003 | Integration Lead | active |
-| 2026-06-19 | Confirmed Batch B order workflow product semantics | TASK-20260619-008 | Integration Lead | active |
-| 2026-06-19 | Removed stale Batch B duplicate workflow files after semantic confirmation | TASK-20260619-009 | Integration Lead | active |
-| 2026-06-20 | Recorded manual order-detail status transition correction path and preserved safeguards | TASK-20260620-001 | Integration Lead | active |
-| 2026-06-20 | Added Owner-ready role-policy decision package as proposed product policy | TASK-20260619-230350-l2-025-role-policy-decision-package | Integration Lead | proposed |
-| 2026-07-16 | Recorded beginner-friendly Dashboard priority and store-handoff product contract | TASK-20260716-001-dashboard-handoff-priority | Integration Lead + department reviewers | active |
-| 2026-07-16 | Recorded customer finance/history split and audited terminal correction/reopen/void product contract | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + DATA/SEC/UX/QA reviewers | active |
-| 2026-07-17 | Promoted the order device-custody product contract to production-verified behavior | TASK-20260716-005-device-custody-status-implementation | Integration Lead + FLOW/UX/QA reviewers | active |
-| 2026-07-17 | Promoted unknown intake, diagnosis handoff, formal quote and confirmed-send semantics to production-verified behavior | TASK-20260717-004-order-diagnosis-quote-implementation | Integration Lead + FLOW/UX/DATA/SEC/QA reviewers | active |
-| 2026-07-17 | Superseded custody credential clearing and recorded one-recommended-action desktop beginner rules | TASK-20260717-008-desktop-novice-ui-implementation | Integration Lead + FLOW/UX/QA reviewers | verified |
-| 2026-07-17 | Recorded the new/existing employee email invitation, explicit acceptance and delivery-state product contract | TASK-20260717-employee-invite-registration | Integration Lead + FLOW/UX/DATA/SEC/QA reviewers | scoped_verified |
-| 2026-07-18 | Promoted the internal-cost, operating-margin, procurement, guarded-backfill and currency-snapshot product contract to dormant production schema | TASK-20260718-008-order-cost-phase2 | Integration Lead + FLOW/UX/DATA/SEC/QA reviewers | scoped_verified_option_b |
-| 2026-07-20 | Released the novice customer workbench and retained explicit employee confirmation as the boundary for recording outbound contact | TASK-20260720-001-customer-simple-workbench | Integration Lead + FLOW/UX reviewers | production_verified |
+| Date       | Change                                                                                                                                          | Source/task                                              | Author/reviewer                                  | Status                   |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------ | ------------------------ |
+| 2026-06-19 | Initial RepairDesk product baseline synchronized                                                                                                | TASK-20260619-003                                        | Integration Lead                                 | active                   |
+| 2026-06-19 | Confirmed Batch B order workflow product semantics                                                                                              | TASK-20260619-008                                        | Integration Lead                                 | active                   |
+| 2026-06-19 | Removed stale Batch B duplicate workflow files after semantic confirmation                                                                      | TASK-20260619-009                                        | Integration Lead                                 | active                   |
+| 2026-06-20 | Recorded manual order-detail status transition correction path and preserved safeguards                                                         | TASK-20260620-001                                        | Integration Lead                                 | active                   |
+| 2026-06-20 | Added Owner-ready role-policy decision package as proposed product policy                                                                       | TASK-20260619-230350-l2-025-role-policy-decision-package | Integration Lead                                 | proposed                 |
+| 2026-07-16 | Recorded beginner-friendly Dashboard priority and store-handoff product contract                                                                | TASK-20260716-001-dashboard-handoff-priority             | Integration Lead + department reviewers          | active                   |
+| 2026-07-16 | Recorded customer finance/history split and audited terminal correction/reopen/void product contract                                            | TASK-20260716-003-customer-finance-order-correction-plan | Integration Lead + DATA/SEC/UX/QA reviewers      | active                   |
+| 2026-07-17 | Promoted the order device-custody product contract to production-verified behavior                                                              | TASK-20260716-005-device-custody-status-implementation   | Integration Lead + FLOW/UX/QA reviewers          | active                   |
+| 2026-07-17 | Promoted unknown intake, diagnosis handoff, formal quote and confirmed-send semantics to production-verified behavior                           | TASK-20260717-004-order-diagnosis-quote-implementation   | Integration Lead + FLOW/UX/DATA/SEC/QA reviewers | active                   |
+| 2026-07-17 | Superseded custody credential clearing and recorded one-recommended-action desktop beginner rules                                               | TASK-20260717-008-desktop-novice-ui-implementation       | Integration Lead + FLOW/UX/QA reviewers          | verified                 |
+| 2026-07-17 | Recorded the new/existing employee email invitation, explicit acceptance and delivery-state product contract                                    | TASK-20260717-employee-invite-registration               | Integration Lead + FLOW/UX/DATA/SEC/QA reviewers | scoped_verified          |
+| 2026-07-18 | Promoted the internal-cost, operating-margin, procurement, guarded-backfill and currency-snapshot product contract to dormant production schema | TASK-20260718-008-order-cost-phase2                      | Integration Lead + FLOW/UX/DATA/SEC/QA reviewers | scoped_verified_option_b |
+| 2026-07-20 | Released the novice customer workbench and retained explicit employee confirmation as the boundary for recording outbound contact               | TASK-20260720-001-customer-simple-workbench              | Integration Lead + FLOW/UX reviewers             | production_verified      |
+| 2026-07-26 | Released catalog-first European phone intake with permanent manual fallback and explicit standard/AI/manual semantics                           | TASK-20260726-002-eu-phone-catalog                       | Integration Lead + Product/UX reviewers          | production_verified      |

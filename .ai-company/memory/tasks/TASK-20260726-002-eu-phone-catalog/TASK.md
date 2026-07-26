@@ -2,16 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260726-002-eu-phone-catalog"
 title: "欧洲近十年手机目录与颜色色块联动入库"
-status: "in_progress"
+status: "closed"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "Hexiang Huang"
 departments: ["Product", "Frontend", "UX", "QA", "Documentation", "Release"]
 created_at: "2026-07-26T21:20:00Z"
-updated_at: "2026-07-26T21:54:31Z"
+updated_at: "2026-07-26T22:03:50Z"
 ---
-
 # Task — 欧洲近十年手机目录与颜色色块联动入库
 
 ## Owner request
@@ -46,7 +45,7 @@ updated_at: "2026-07-26T21:54:31Z"
 - [x] 目录外/旧机型/缺失配置可手动录入，不改变现有保存合同。
 - [x] `standard` / `unstandardized` / `needs_review` 语义正确。
 - [x] lint、typecheck、test、build 通过并有桌面/手机视觉证据。
-- [ ] main 推送、生产部署和正式域名冒烟验证完成。
+- [x] main 推送、生产部署和正式域名冒烟验证完成。
 
 ## Decision
 
