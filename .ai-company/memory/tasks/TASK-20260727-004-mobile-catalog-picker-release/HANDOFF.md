@@ -2,7 +2,9 @@
 
 ## Current handoff
 
-- **Status:** no handoff prepared.
-- **Last verified:** 2026-07-27T02:12:08Z
-- **Workspace/branch:** inspect before resuming.
-- **First action:** read `TASK.md` and latest checkpoint, then inspect the repository.
+- **Status:** closed; no implementation handoff remains.
+- **Last verified:** 2026-07-27.
+- **Release:** production deployment for commit `888569d350ea47d66d596a45bf7bf8dd1630aced` is `READY`.
+- **Production route:** `https://www.chinatech.in/inventory/new` (authentication required).
+- **Residual verification:** if a real device still opens its keyboard automatically or cannot scroll the list, record device model, OS/browser version and a short screen recording; do not reopen implementation without that evidence.
+- **Rollback:** revert `888569d3` and redeploy the previous `main`; no schema/data rollback.

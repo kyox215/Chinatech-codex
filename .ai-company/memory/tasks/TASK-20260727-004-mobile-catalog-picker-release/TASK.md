@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260727-004-mobile-catalog-picker-release"
 title: "移动端库存目录选择器无键盘稳定滚动与生产发布"
-status: "in_progress"
+status: "closed"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["UX", "FE", "QA", "INT"]
 created_at: "2026-07-27T02:12:08Z"
-updated_at: "2026-07-27T02:25:47Z"
+updated_at: "2026-07-27T02:31:35Z"
 ---
 # Task — 移动端库存目录选择器无键盘稳定滚动与生产发布
 
@@ -48,13 +48,13 @@ updated_at: "2026-07-27T02:25:47Z"
 
 ## Acceptance criteria
 
-- [ ] 手机/触摸平板点击品牌或型号字段后，固定选择面板打开，搜索输入未获得焦点，软件键盘不应被网页主动唤起。
-- [ ] 面板打开后立即显示完整目录列表；顶部搜索/手动输入始终可见，只有主动点击输入才获得焦点。
-- [ ] 目录列表可真实纵向滚动且滚动归列表所有；背景页面不滚动，面板位置不跳动，最后一个选项可到达并选择。
-- [ ] 搜索、清空、无结果、使用手动输入、选择现有目录项、关闭/返回均保持现有业务语义。
-- [ ] 手机 390/430、iPad/触摸平板和桌面 1440 关键路径无横向溢出；桌面继续使用 Popover。
-- [ ] 相关单元/E2E、lint、typecheck、完整 test、build 与 `git diff --check` 通过。
-- [ ] 生成移动端可视截图；推送 `main` 后生产部署 Ready，并完成生产只读页面冒烟。
+- [x] 手机/触摸平板点击品牌或型号字段后，固定选择面板打开，搜索输入未获得焦点，软件键盘不应被网页主动唤起。
+- [x] 面板打开后立即显示完整目录列表；顶部搜索/手动输入始终可见，只有主动点击输入才获得焦点。
+- [x] 目录列表可真实纵向滚动且滚动归列表所有；背景页面不滚动，面板位置不跳动，最后一个选项可到达并选择。
+- [x] 搜索、清空、无结果、使用手动输入、选择现有目录项、关闭/返回均保持现有业务语义。
+- [x] 手机 390/430、iPad/触摸平板和桌面 1440 关键路径无横向溢出；桌面继续使用 Popover。
+- [x] 相关单元/E2E、lint、typecheck、完整 test、build 与 `git diff --check` 通过。
+- [x] 生成移动端可视截图；推送 `main` 后生产部署 Ready，并完成生产只读页面冒烟。
 
 ## Facts, assumptions, and unknowns
 

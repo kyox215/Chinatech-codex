@@ -1,13 +1,13 @@
 ---
 schema_version: 1
 current_task_id: "TASK-20260727-004-mobile-catalog-picker-release"
-status: "in_progress"
-phase: "implementation"
+status: "closed"
+phase: "closeout"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-07-27T02:25:47Z"
+last_checkpoint_at: "2026-07-27T02:31:35Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,7 +19,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-移动端与触摸平板目录选择器已实现列表优先、无自动键盘、真实触摸滚动；完整测试和构建通过
+移动端库存目录选择器已推送 main，Vercel production 部署 READY，生产路由冒烟通过
 
 ## Blocking decisions
 
@@ -27,7 +27,7 @@ last_rehydrated_at: null
 
 ## Next action
 
-检查最终 diff 并提交；获取 integration lease 后同步 current main、推送并部署生产
+提交并推送关闭记录，关闭 registry task/run 并释放 integration lease
 
 ## Resume protocol
 

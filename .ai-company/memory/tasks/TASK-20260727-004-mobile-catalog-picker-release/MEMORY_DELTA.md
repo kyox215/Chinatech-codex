@@ -2,7 +2,7 @@
 
 ## Candidate project facts
 
-- Fixed catalog pickers for phone and touch-tablet workspaces should open list-first with `autoFocus={false}`; search/manual input remains visible but only requests the software keyboard after an explicit tap. Source: E-004/E-008/E-009. Status: validated locally; promote after production/device smoke.
+- Fixed catalog pickers for phone and touch-tablet workspaces should open list-first with `autoFocus={false}`; search/manual input remains visible but only requests the software keyboard after an explicit tap. Source: E-004/E-008/E-009/E-012. Status: validated and released to production; review if a physical-device regression is reported.
 
 ## Candidate department updates
 

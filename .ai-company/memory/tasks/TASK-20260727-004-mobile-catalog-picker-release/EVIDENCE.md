@@ -12,13 +12,18 @@
 | E-008 | browser | phone no-autofocus, Chromium native touch gesture, iPad fixed surface and desktop Popover | `tests/e2e/inventory-mobile-catalog-scroll.spec.ts` under Chromium | 3/3 passed | 2026-07-27 | IntegrationLead |
 | E-009 | browser | WebKit phone no-autofocus/list scroll ownership, iPad fixed surface and desktop Popover | same E2E with `PLAYWRIGHT_BROWSER=webkit` | 3/3 passed; mobile WebKit uses programmatic scroll because Playwright exposes no mobile wheel/swipe primitive | 2026-07-27 | IntegrationLead |
 | E-010 | visual | list-first mobile picker with top manual/search input and no keyboard | `screenshots/TASK-20260727-004-mobile-catalog-picker-release/inventory-brand-picker-list-first-mobile-390-chromium.png`; `...-webkit.png` | visually inspected; no horizontal overflow or field obstruction | 2026-07-27 | IntegrationLead |
+| E-011 | source control | approved implementation and prior baseline were fast-forwarded to remote `main` | `git push origin HEAD:main`; commit `888569d350ea47d66d596a45bf7bf8dd1630aced` | pushed `9e9d81d9..888569d3` | 2026-07-27 | IntegrationLead |
+| E-012 | production | Git-integrated Vercel production deployment matches the released commit | deployment `chinatech-codex-daqc6mp4g-kyox120-9295s-projects.vercel.app`; `vercel ls`; `vercel inspect` | `READY`, target `production`, branch `main`, commit `888569d3`; build and TypeScript passed, 27/27 static pages generated | 2026-07-27 | IntegrationLead |
+| E-013 | production smoke | canonical production route and authentication boundary respond correctly | `curl https://www.chinatech.in/inventory/new`; `curl https://www.chinatech.in/login` | inventory route returned expected `307` to `/login?next=%2Finventory%2Fnew`; login returned `200 text/html` | 2026-07-27 | IntegrationLead |
 
 ## Quality gate
 
-- **Conclusion:** PASS for implementation and pre-release validation.
+- **Conclusion:** PASS for implementation, release and production smoke.
 - **Data/API/permissions:** unchanged; database, migration and security review gates are not applicable.
 - **Browser evidence boundary:** Chromium uses a browser-native synthesized touch gesture. Playwright mobile WebKit cannot synthesize swipe/wheel, so WebKit verifies focus, fixed surface, independent scroll ownership and layout; final iPhone physical-keyboard behavior remains a post-release Owner-device smoke.
 - **Rollback:** revert the scoped release commit and redeploy the previous production commit.
+- **Residual physical-device check:** browser automation proves that the page does not focus the input when the picker opens; the Owner should still confirm the installed iOS/Android keyboard does not override browser focus behavior on the two real devices.
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.
+- `2026-07-27T02:31:35Z` `1ef787c7bc` — commit 888569d3; Vercel chinatech-codex-daqc6mp4g READY; E-011 through E-013

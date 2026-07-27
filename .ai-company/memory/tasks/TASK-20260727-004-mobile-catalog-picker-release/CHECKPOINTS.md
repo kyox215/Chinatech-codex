@@ -35,3 +35,21 @@
 - **Next:** 检查最终 diff 并提交；获取 integration lease 后同步 current main、推送并部署生产
 - **Evidence:** none added by this command; do not infer validation.
 - **Recorded by:** CEO-Orchestrator
+
+## 2026-07-27 — Main push and production release verified
+
+- **Phase:** release / closeout.
+- **Completed:** fast-forward pushed commit `888569d3` to remote `main`; the Git-integrated Vercel deployment became `READY` in production; verified the canonical inventory route redirects unauthenticated requests to login and the login page returns `200`.
+- **Evidence:** `EVIDENCE.md` E-011 through E-013.
+- **Quality decision:** PASS. All acceptance criteria have local automated/visual evidence and production deployment evidence.
+- **Residual:** physical iPhone/Android software-keyboard behavior remains a non-blocking Owner-device smoke because desktop automation cannot instantiate the installed system keyboard.
+- **Rollback:** revert `888569d3` and allow the main-branch production deployment to restore the prior release; no data rollback is needed.
+## 2026-07-27T02:31:35Z — 移动端库存目录选择器已推送 main，Vercel production 部署 READY，生产路由冒烟通过
+
+- **Phase:** closeout
+- **Completed/current state:** 移动端库存目录选择器已推送 main，Vercel production 部署 READY，生产路由冒烟通过
+- **Next:** 提交并推送关闭记录，关闭 registry task/run 并释放 integration lease
+- **Decision:** 质量门禁 PASS；无数据库/API/权限变化；保留真机键盘非阻塞复核
+- **Evidence:**
+  - commit 888569d3; Vercel chinatech-codex-daqc6mp4g READY; E-011 through E-013
+- **Recorded by:** CEO-Orchestrator
