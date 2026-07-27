@@ -2,17 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useRef, type FocusEvent, type PointerEvent as ReactPointerEvent } from "react";
-import {
-  AlertTriangle,
-  CalendarDays,
-  PackageSearch,
-  ReceiptText,
-  Smartphone,
-  UserRound,
-} from "lucide-react";
+import { AlertTriangle, PackageSearch, Smartphone, UserRound } from "lucide-react";
 
 import { DeviceCustodyBadge, MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
-import { DeviceUnlockListBadge } from "@/features/orders/components/device-unlock-fields";
+import { orderMobileFluidDensity } from "@/features/orders/components/order-list-layout";
 import { OrderQueueStageBadge } from "@/features/orders/components/order-queue-stage-badge";
 import {
   deriveOrderFinancialState,
@@ -82,16 +75,17 @@ export function OrderMobileCard({
           ? "bg-status-danger text-status-danger-foreground"
           : "bg-muted text-muted-foreground";
   const detailAccessibleName = `工单 ${order.public_no}，${customerLabel}，${deviceLabel}，${currentStageLabel}，${paymentLabel}`;
-  const paymentTotalClass =
-    !cancelled && order.balance_amount > 0 ? "text-status-danger-foreground" : "text-foreground";
-  const paymentBalanceClass =
-    !cancelled && order.balance_amount > 0
-      ? "text-status-danger-foreground"
-      : "text-muted-foreground";
+  const hasOutstandingBalance = !cancelled && order.balance_amount > 0;
+  const paymentAmount = hasOutstandingBalance ? order.balance_amount : order.quotation_amount;
+  const paymentAmountLabel = cancelled ? "记录" : hasOutstandingBalance ? "待收" : "总额";
+  const paymentAmountClass = hasOutstandingBalance
+    ? "text-status-danger-foreground"
+    : "text-foreground";
+  const showCustodyBadge = order.device_custody_status !== "with_shop";
   const partsSupplier = suppliers.find((supplier) => supplier.id === order.parts_supplier_id);
   const supplierControl = partsSupplier ? (
-    <span className="inline-flex h-5 max-w-[90px] shrink-0 items-center gap-1 rounded bg-primary/10 px-1.5 text-[9px] font-semibold leading-none text-primary">
-      <PackageSearch className="size-2.5 shrink-0" />
+    <span className="inline-flex h-[18px] max-w-[82px] shrink-0 items-center gap-1 rounded bg-primary/10 px-1 text-[length:var(--order-mobile-meta)] font-semibold leading-none text-primary">
+      <PackageSearch className="size-2.5 shrink-0" aria-hidden="true" />
       <span className="truncate">{partsSupplier.short_name || partsSupplier.name}</span>
     </span>
   ) : null;
@@ -134,9 +128,14 @@ export function OrderMobileCard({
   return (
     <article
       data-order-id={order.id}
+      data-order-mobile-card="true"
+      data-order-mobile-card-risk={
+        hasOverdueException || Boolean(exceptionStatus) ? "true" : "false"
+      }
       className={cn(
         repairOs.mobileInfoCard,
-        "group relative touch-manipulation select-none overflow-hidden",
+        orderMobileFluidDensity,
+        "group relative touch-manipulation select-none overflow-hidden rounded-[var(--order-mobile-radius)] p-0",
       )}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={() => {
@@ -149,163 +148,127 @@ export function OrderMobileCard({
     >
       <Link
         href={detailHref}
-        className="absolute inset-0 z-10 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        className="absolute inset-0 z-10 rounded-[var(--order-mobile-radius)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
         aria-label={detailAccessibleName}
         onClick={onOpenIntent}
       />
-      <div className="space-y-1 px-2.5 py-1.5 transition-colors group-hover:bg-accent/10 group-active:bg-accent/20">
-        <div>
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-            <div className="flex min-w-0 items-start gap-1.5 rounded-md px-0.5 text-[10px] leading-3 text-muted-foreground">
-              <span className="grid size-5 shrink-0 place-items-center rounded bg-primary/10 text-primary">
-                <UserRound className="size-3.5" />
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-[13px] font-semibold leading-4 text-foreground">
-                  {customerLabel}
-                </p>
-                {showPhoneLine ? (
-                  <PhoneText
-                    value={order.customer_phone}
-                    className="block max-w-full truncate text-[10px] leading-3"
-                  />
-                ) : null}
-              </div>
-            </div>
-
-            <div className="flex min-w-[88px] shrink-0 flex-col items-end gap-1">
-              <p className="max-w-[108px] truncate font-mono text-[10px] font-semibold leading-3 text-primary">
-                {order.public_no}
-              </p>
-              <OrderQueueStageBadge order={order} className="max-w-[108px]" />
-              <p className="max-w-[72px] truncate text-right text-[10px] font-semibold leading-3 text-muted-foreground">
-                {order.technician_name || "未分配"}
-              </p>
-              <p
-                className="flex max-w-[128px] items-center justify-end gap-0.5 whitespace-nowrap text-[9px] leading-3 text-muted-foreground"
-                title={`送修时间 ${createdDate}，${relativeCreatedDate}`}
-              >
-                <CalendarDays className="size-2.5 shrink-0" />
-                <span>{createdDate}</span>
-                <span>· {relativeCreatedDate}</span>
-              </p>
-              {exceptionStatus ? (
-                <StatusBadge
-                  status={order.status}
-                  label={orderExceptionMeta[exceptionStatus].shortLabel}
-                  tone={orderExceptionMeta[exceptionStatus].tone}
-                  className="px-1.5 py-0.5 text-[9px]"
-                />
-              ) : null}
-              {hasOverdueException ? (
-                <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-status-danger/15 px-1 py-0.5 text-[9px] font-medium leading-none text-status-danger-foreground ring-1 ring-inset ring-status-danger-foreground/30">
-                  <AlertTriangle className="size-2.5 shrink-0" />
-                  超期
-                </span>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
-        <div className="min-w-0 rounded-lg bg-surface-muted/70 px-2 py-1.5">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <div className="flex min-w-0 flex-1 items-center gap-1.5">
-              <Smartphone className="size-3 shrink-0 text-muted-foreground" />
-              <p className="truncate text-[12px] font-semibold leading-4 text-foreground">
-                {deviceLabel}
-              </p>
-              <DeviceCustodyBadge
-                status={order.device_custody_status}
-                deliveredAt={order.delivered_at}
-                className="max-w-[98px] px-1 py-0.5 text-[9px]"
+      <div className="grid gap-[var(--order-mobile-gap)] p-[var(--order-mobile-pad)] transition-colors group-hover:bg-accent/10 group-active:bg-accent/20">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-[var(--order-mobile-gap)]">
+          <div className="flex min-w-0 items-center gap-[var(--order-mobile-gap)]">
+            <span className="grid size-5 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+              <UserRound className="size-[var(--order-mobile-icon)]" aria-hidden="true" />
+            </span>
+            <p className="min-w-0 truncate text-[length:var(--order-mobile-title)] font-semibold leading-4 text-foreground">
+              {customerLabel}
+            </p>
+            {showPhoneLine ? (
+              <PhoneText
+                value={order.customer_phone}
+                className="hidden min-w-0 truncate text-[length:var(--order-mobile-meta)] leading-3 min-[375px]:block"
               />
-              {extraFaultCount > 0 ? (
-                <span className="shrink-0 rounded bg-primary/10 px-1 text-[9px] leading-3 text-primary">
-                  +{extraFaultCount}
-                </span>
-              ) : null}
-            </div>
-            {supplierControl}
+            ) : null}
           </div>
 
-          <div>
-            <p className="truncate text-[10px] leading-3 text-muted-foreground">{issueLabel}</p>
-
-            <div className="mt-0.5 flex min-w-0 items-center gap-1 overflow-hidden text-[9px] leading-3">
-              <span className="inline-flex min-w-0 items-center gap-1 rounded bg-card/80 px-1.5 py-0.5 font-semibold text-foreground">
-                <ReceiptText className="size-2.5 shrink-0 text-primary" />
-                <span className="truncate">{primaryRepairLabel}</span>
-              </span>
-              {order.device_unlock_method ? (
-                <DeviceUnlockListBadge
-                  method={order.device_unlock_method}
-                  className="max-w-[82px] shrink-0 px-1 py-0.5 text-[9px] leading-3"
-                />
-              ) : null}
-              {order.accessory_notes ? (
-                <span className="min-w-0 truncate text-muted-foreground">
-                  随附：{order.accessory_notes}
-                </span>
-              ) : null}
-            </div>
+          <div className="flex min-w-0 shrink-0 items-center gap-[var(--order-mobile-gap)]">
+            <p className="max-w-[96px] truncate font-mono text-[length:var(--order-mobile-meta)] font-semibold leading-3 text-primary">
+              {order.public_no}
+            </p>
+            <OrderQueueStageBadge
+              order={order}
+              className="h-[18px] max-w-[88px] px-1 text-[length:var(--order-mobile-meta)]"
+            />
           </div>
         </div>
 
-        <div>
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2 border-t border-[var(--border-panel)] pt-1">
-            <MobileWorkflowStrip
-              workflowStatus={workflowStatus}
-              currentLabel={currentStageLabel}
-              nextAction={guidance.nextAction}
-              danger={hasOverdueException}
+        <div className="flex min-w-0 items-center gap-[var(--order-mobile-gap)] rounded-[calc(var(--order-mobile-radius)-0.125rem)] bg-surface-muted/70 px-[var(--order-mobile-pad)] py-0.5">
+          <Smartphone
+            className="size-[var(--order-mobile-icon)] shrink-0 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <p className="min-w-0 flex-1 truncate text-[length:var(--order-mobile-copy)] font-semibold leading-4 text-foreground">
+            {deviceLabel}
+          </p>
+          {showCustodyBadge ? (
+            <DeviceCustodyBadge
+              status={order.device_custody_status}
+              deliveredAt={order.delivered_at}
+              className="max-w-[86px] px-1 py-0.5 text-[length:var(--order-mobile-meta)]"
             />
+          ) : null}
+          {extraFaultCount > 0 ? (
+            <span className="shrink-0 rounded bg-primary/10 px-1 text-[length:var(--order-mobile-meta)] leading-3 text-primary">
+              +{extraFaultCount}
+            </span>
+          ) : null}
+          {supplierControl}
+          <p
+            className="max-w-[112px] shrink-0 truncate text-right text-[length:var(--order-mobile-meta)] leading-3 text-muted-foreground"
+            title={`${order.technician_name || "未分配"}，送修时间 ${createdDate}，${relativeCreatedDate}`}
+          >
+            {order.technician_name || "未分配"} · {createdDate}
+          </p>
+        </div>
 
-            <div className="grid min-w-[92px] gap-0.5 rounded-lg bg-surface-muted/55 px-1.5 py-1 text-right">
-              <span
+        <p className="min-w-0 truncate px-0.5 text-[length:var(--order-mobile-meta)] leading-3 text-muted-foreground">
+          <span className="font-semibold text-foreground">{primaryRepairLabel}</span>
+          <span aria-hidden="true"> · </span>
+          {issueLabel}
+        </p>
+
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-[var(--order-mobile-gap)] border-t border-[var(--border-panel)] pt-[var(--order-mobile-gap)]">
+          <MobileWorkflowStrip
+            workflowStatus={workflowStatus}
+            currentLabel={currentStageLabel}
+            nextAction={guidance.nextAction}
+            danger={hasOverdueException}
+          />
+
+          <div
+            data-order-mobile-card-payment="true"
+            className="flex min-w-0 items-end gap-[var(--order-mobile-gap)] rounded-[calc(var(--order-mobile-radius)-0.125rem)] bg-surface-muted/55 px-[var(--order-mobile-pad)] py-1 text-right"
+          >
+            <span
+              className={cn(
+                "inline-flex max-w-[76px] justify-center truncate rounded px-1 py-0.5 text-[length:var(--order-mobile-meta)] font-semibold leading-3",
+                paymentStatusClass,
+              )}
+            >
+              {paymentLabel}
+            </span>
+            {order.finance_redacted ? null : (
+              <p
                 className={cn(
-                  "ml-auto inline-flex max-w-[74px] justify-center truncate rounded px-1.5 py-0.5 text-[9px] font-semibold leading-3",
-                  paymentStatusClass,
+                  "flex items-baseline justify-end gap-1 whitespace-nowrap text-[length:var(--order-mobile-meta)] leading-3",
+                  paymentAmountClass,
                 )}
               >
-                {paymentLabel}
-              </span>
-              {order.finance_redacted ? (
-                <span className="text-[10px] text-muted-foreground">金额受限</span>
-              ) : (
-                <>
-                  <p
-                    className={cn(
-                      "flex items-baseline justify-end gap-1 text-[10px] leading-4",
-                      paymentTotalClass,
-                    )}
-                  >
-                    <span className="text-muted-foreground">总额</span>
-                    <span className="font-mono text-[13px] font-bold tabular-nums">
-                      <MoneyText amount={order.quotation_amount} />
-                    </span>
-                  </p>
-                  <div className="grid min-w-0 gap-0.5 text-[9px] leading-3 text-muted-foreground">
-                    <div className="flex min-w-0 justify-end gap-1">
-                      <span className="shrink-0">定金</span>
-                      <MoneyText amount={order.deposit_amount} className="min-w-0 truncate" />
-                    </div>
-                    <div className={cn("flex min-w-0 justify-end gap-1", paymentBalanceClass)}>
-                      <span className="shrink-0 text-muted-foreground">
-                        {cancelled ? "取消时余额" : "尾款"}
-                      </span>
-                      <MoneyText amount={order.balance_amount} className="min-w-0 truncate" />
-                    </div>
-                    {cancelled ? <span className="text-right">不计入待收</span> : null}
-                  </div>
-                </>
-              )}
-            </div>
+                <span className="text-muted-foreground">{paymentAmountLabel}</span>
+                <MoneyText
+                  amount={paymentAmount}
+                  className="text-[length:var(--order-mobile-title)] font-bold"
+                />
+              </p>
+            )}
           </div>
         </div>
 
-        {hasOverdueException ? (
-          <div className="rounded-md bg-status-danger/10 px-2 py-1 text-[10px] font-medium leading-3 text-status-danger-foreground">
-            当前工单存在超期风险，请优先跟进客户确认或取机。
+        {exceptionStatus || hasOverdueException ? (
+          <div className="flex min-w-0 items-center gap-[var(--order-mobile-gap)] rounded-md bg-status-danger/10 px-[var(--order-mobile-pad)] py-1 text-[length:var(--order-mobile-meta)] font-medium leading-3 text-status-danger-foreground">
+            <AlertTriangle
+              className="size-[var(--order-mobile-icon)] shrink-0"
+              aria-hidden="true"
+            />
+            {exceptionStatus ? (
+              <StatusBadge
+                status={order.status}
+                label={orderExceptionMeta[exceptionStatus].shortLabel}
+                tone={orderExceptionMeta[exceptionStatus].tone}
+                className="px-1 py-0.5 text-[length:var(--order-mobile-meta)]"
+              />
+            ) : null}
+            <span className="min-w-0 truncate">
+              {hasOverdueException ? "当前工单超期，请优先跟进" : "当前工单存在异常状态"}
+            </span>
           </div>
         ) : null}
       </div>
@@ -328,58 +291,50 @@ function MobileWorkflowStrip({
   const currentStage = orderTaskStages[currentIndex];
 
   return (
-    <div className="min-w-0">
-      <div className="min-w-0" aria-label={`当前流程：${currentStage?.label ?? workflowStatus}`}>
-        <div className="flex min-w-0 items-center justify-between gap-2">
-          <span
-            className={cn(
-              "inline-flex h-5 min-w-0 max-w-[150px] items-center gap-1 truncate rounded-md px-1.5 text-[9px] font-semibold leading-none",
-              danger
-                ? "bg-status-danger/10 text-status-danger-foreground"
-                : "bg-primary/10 text-primary",
-            )}
-          >
-            <span className="size-1.5 shrink-0 rounded-full bg-current" />
-            <span className="truncate">{currentLabel}</span>
-          </span>
-          <span className="shrink-0 font-mono text-[9px] leading-none text-muted-foreground tabular-nums">
-            {Math.min(currentIndex + 1, orderTaskStages.length)}/{orderTaskStages.length}
-          </span>
-        </div>
-        <div className="mt-1 grid min-w-0 grid-cols-5 gap-0.5">
-          {orderTaskStages.map((stage, index) => {
-            const active = index <= currentIndex;
-            const current = index === currentIndex;
-
-            return (
-              <span
-                key={stage.key}
-                title={stage.label}
-                className={cn(
-                  "h-1.5 min-w-0 rounded-full",
-                  current
-                    ? danger
-                      ? "bg-status-danger-foreground"
-                      : "bg-primary"
-                    : active
-                      ? "bg-primary/45"
-                      : "bg-border",
-                )}
-              />
-            );
-          })}
-        </div>
+    <div
+      className="min-w-0"
+      aria-label={`当前流程：${currentStage?.label ?? workflowStatus}；下一步：${nextAction}`}
+    >
+      <div className="flex min-w-0 items-center justify-between gap-[var(--order-mobile-gap)]">
+        <span
+          className={cn(
+            "inline-flex h-[18px] min-w-0 max-w-[150px] items-center gap-1 truncate rounded-md px-1 text-[length:var(--order-mobile-meta)] font-semibold leading-none",
+            danger
+              ? "bg-status-danger/10 text-status-danger-foreground"
+              : "bg-primary/10 text-primary",
+          )}
+          title={`${currentLabel} · ${nextAction}`}
+        >
+          <span className="size-1.5 shrink-0 rounded-full bg-current" />
+          <span className="truncate">{nextAction}</span>
+        </span>
+        <span className="shrink-0 font-mono text-[length:var(--order-mobile-meta)] leading-none text-muted-foreground tabular-nums">
+          {Math.min(currentIndex + 1, orderTaskStages.length)}/{orderTaskStages.length}
+        </span>
       </div>
-      <span
-        className={cn(
-          "mt-1 inline-flex h-5 max-w-full items-center truncate rounded-md px-1.5 text-[9px] font-semibold leading-none",
-          danger
-            ? "bg-status-danger/10 text-status-danger-foreground"
-            : "bg-primary/10 text-primary",
-        )}
-      >
-        {nextAction}
-      </span>
+      <div className="mt-1 grid min-w-0 grid-cols-5 gap-0.5">
+        {orderTaskStages.map((stage, index) => {
+          const active = index <= currentIndex;
+          const current = index === currentIndex;
+
+          return (
+            <span
+              key={stage.key}
+              title={stage.label}
+              className={cn(
+                "h-1 min-w-0 rounded-full",
+                current
+                  ? danger
+                    ? "bg-status-danger-foreground"
+                    : "bg-primary"
+                  : active
+                    ? "bg-primary/45"
+                    : "bg-border",
+              )}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }

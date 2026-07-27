@@ -19,48 +19,80 @@ async function expectNoOverflow(page: Page) {
 }
 
 function queueButton(page: Page, label: string) {
-  return page.getByRole("button", { name: new RegExp(`^${label} \\d+ 条$`) });
+  return page.getByRole("button", {
+    name: new RegExp(`^第 \\d+ 阶段：${label}，\\d+ 条$`),
+  });
 }
 
-test("uses the compact responsive queue header without the redundant filter entry", async ({
-  page,
-}, testInfo) => {
-  await page.setViewportSize({ width: 320, height: 844 });
+test("uses a fluid two-row queue header and compact mobile cards", async ({ page }, testInfo) => {
+  const mobileViewports = [
+    { width: 320, height: 568 },
+    { width: 375, height: 812 },
+    { width: 390, height: 844 },
+    { width: 393, height: 852 },
+    { width: 402, height: 874 },
+    { width: 430, height: 932 },
+    { width: 440, height: 956 },
+  ];
+
+  await page.setViewportSize(mobileViewports[0]);
   await gotoOrders(page);
 
-  await expect(page.getByRole("button", { name: "筛选订单" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "筛选订单" })).toBeVisible();
   await expect(queueButton(page, "等待客户取机")).toBeVisible();
   await expect(page.getByText("队列：等待客户取机")).toHaveCount(0);
-  await expectNoOverflow(page);
 
-  const processing320 = await queueButton(page, "正在处理").boundingBox();
-  const arrived320 = await queueButton(page, "配件已到").boundingBox();
-  expect(processing320).not.toBeNull();
-  expect(arrived320).not.toBeNull();
-  expect(Math.abs((processing320?.y ?? 0) - (arrived320?.y ?? 0))).toBeGreaterThan(20);
-  await page.screenshot({
-    path: testInfo.outputPath("orders-320-two-column.png"),
-    clip: { x: 0, y: 0, width: 320, height: 390 },
-  });
+  for (const viewport of mobileViewports) {
+    await page.setViewportSize(viewport);
+    await expectNoOverflow(page);
+
+    const all = await queueButton(page, "全部任务").boundingBox();
+    const processing = await queueButton(page, "正在处理").boundingBox();
+    const ordered = await queueButton(page, "等待配件").boundingBox();
+    const arrived = await queueButton(page, "配件已到").boundingBox();
+    const pickup = await queueButton(page, "等待客户取机").boundingBox();
+    const header = await page.locator('[data-order-mobile-header-card="true"]').boundingBox();
+
+    expect(all).not.toBeNull();
+    expect(processing).not.toBeNull();
+    expect(ordered).not.toBeNull();
+    expect(arrived).not.toBeNull();
+    expect(pickup).not.toBeNull();
+    expect(header).not.toBeNull();
+    expect(Math.abs((all?.y ?? 0) - (processing?.y ?? 0))).toBeLessThanOrEqual(1);
+    expect(Math.abs((processing?.y ?? 0) - (ordered?.y ?? 0))).toBeLessThanOrEqual(1);
+    expect(Math.abs((arrived?.y ?? 0) - (pickup?.y ?? 0))).toBeLessThanOrEqual(1);
+    expect(Math.abs((processing?.y ?? 0) - (arrived?.y ?? 0))).toBeGreaterThan(40);
+    expect(processing?.height ?? 0).toBeGreaterThanOrEqual(44);
+    expect(header?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(252);
+
+    await page.screenshot({
+      path: testInfo.outputPath(`orders-${viewport.width}-fluid-density.png`),
+      fullPage: false,
+    });
+  }
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await expectNoOverflow(page);
-  const processing390 = await queueButton(page, "正在处理").boundingBox();
-  const arrived390 = await queueButton(page, "配件已到").boundingBox();
-  expect(processing390).not.toBeNull();
-  expect(arrived390).not.toBeNull();
-  expect(Math.abs((processing390?.y ?? 0) - (arrived390?.y ?? 0))).toBeLessThanOrEqual(1);
-  await page.screenshot({
-    path: testInfo.outputPath("orders-390-three-column.png"),
-    clip: { x: 0, y: 0, width: 390, height: 340 },
-  });
-
-  await page.setViewportSize({ width: 430, height: 932 });
-  await expectNoOverflow(page);
-  await page.screenshot({
-    path: testInfo.outputPath("orders-430-three-column.png"),
-    clip: { x: 0, y: 0, width: 430, height: 340 },
-  });
+  const groupHeader = page
+    .locator('[data-order-mobile-list="true"] [data-order-result-group]')
+    .first();
+  await expect(groupHeader).toBeVisible();
+  const firstGroupHeader = await groupHeader.boundingBox();
+  expect(firstGroupHeader?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(40);
+  const standardCards = page.locator(
+    '[data-order-mobile-card="true"][data-order-mobile-card-risk="false"]',
+  );
+  await expect(standardCards.first()).toBeVisible();
+  const firstCard = await standardCards.first().boundingBox();
+  expect(firstCard?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(126);
+  const completeCardCount = await standardCards.evaluateAll(
+    (cards) =>
+      cards.filter((card) => {
+        const box = card.getBoundingClientRect();
+        return box.top >= 0 && box.bottom <= window.innerHeight;
+      }).length,
+  );
+  expect(completeCardCount).toBeGreaterThanOrEqual(3);
 
   await page.setViewportSize({ width: 768, height: 1024 });
   await expect(page.getByRole("button", { name: "筛选", exact: true })).toHaveCount(0);
@@ -95,7 +127,11 @@ test("blocks stale rows, commits only the latest queue, and restores after failu
 
   let failingGroup: string | null = null;
   let failingAttempts = 0;
-  await page.route("**/api/repairdesk/orders/list-page", async (route) => {
+  let releaseOrderedRequest: (() => void) | undefined;
+  const orderedRequestGate = new Promise<void>((resolve) => {
+    releaseOrderedRequest = resolve;
+  });
+  await page.route("**/api/repairdesk/orders/queue-summary", async (route) => {
     const input = (route.request().postDataJSON() ?? {}) as { queueGroups?: string[] };
     const group = input.queueGroups?.[0];
     if (group && group === failingGroup && failingAttempts > 0) {
@@ -103,21 +139,24 @@ test("blocks stale rows, commits only the latest queue, and restores after failu
       await route.fulfill({ status: 500, contentType: "application/json", body: "{}" });
       return;
     }
-    const delay =
-      group === "ordered" ? 700 : group === "arrived" ? 450 : group === "repaired" ? 120 : 0;
+    if (group === "ordered") await orderedRequestGate;
+    const delay = group === "arrived" ? 1_000 : group === "repaired" ? 500 : 0;
     if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
     await route.continue();
   });
 
   const ordered = queueButton(page, "等待配件");
-  await ordered.click();
+  await ordered.evaluate((button) => (button as HTMLButtonElement).click());
   await expect(ordered).toHaveAttribute("aria-busy", "true");
-  await expect(page.getByRole("status").filter({ hasText: "正在加载等待配件" })).toBeVisible();
+  await expect(page.locator('[data-order-mobile-header-context="true"]')).toContainText(
+    "正在加载等待配件",
+  );
   await expect(page.locator('[data-order-list-blocked="true"]')).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("orders-390-queue-loading.png"),
     clip: { x: 0, y: 0, width: 390, height: 360 },
   });
+  releaseOrderedRequest?.();
 
   await queueButton(page, "配件已到").click();
   await queueButton(page, "待通知取机").click();
@@ -152,7 +191,10 @@ test("keeps the last successful queue visible and stops transitions while offlin
 
   let listPageRequests = 0;
   page.on("request", (request) => {
-    if (request.method() === "POST" && request.url().includes("/api/repairdesk/orders/list-page")) {
+    if (
+      request.method() === "POST" &&
+      request.url().includes("/api/repairdesk/orders/queue-summary")
+    ) {
       listPageRequests += 1;
     }
   });
@@ -163,7 +205,7 @@ test("keeps the last successful queue visible and stops transitions while offlin
   await expect(offlineStatus).toBeVisible();
 
   await expect(queueButton(page, "等待配件")).toBeDisabled();
-  await expect(page.getByRole("textbox", { name: "搜索订单、客户或手机" })).toBeDisabled();
+  await expect(page.getByRole("textbox", { name: "搜索工单、客户、电话或 IMEI" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "订单扫码查询" })).toBeDisabled();
   await expect(queueButton(page, "全部任务")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator('[data-order-list-blocked="true"]')).toBeHidden();

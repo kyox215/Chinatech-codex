@@ -3,6 +3,7 @@ import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
 import {
+  orderMobileFluidDensity,
   orderMobileQueueAllSpan,
   orderMobileQueueGrid,
   orderMobileSkeletonHeaderOffsetClass,
@@ -11,31 +12,31 @@ import {
 
 function OrderMobileCardSkeleton() {
   return (
-    <article className={cn(repairOs.mobileInfoCard, "h-[148px] space-y-2 p-2.5")}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <Skeleton className="size-7 shrink-0 rounded-lg" />
-          <div className="min-w-0 flex-1 space-y-1">
-            <Skeleton className="h-4 w-2/3" />
-            <Skeleton className="h-3 w-1/2" />
-          </div>
+    <article
+      className={cn(
+        repairOs.mobileInfoCard,
+        orderMobileFluidDensity,
+        "h-[clamp(7rem,31vw,7.625rem)] space-y-[var(--order-mobile-gap)] rounded-[var(--order-mobile-radius)] p-[var(--order-mobile-pad)]",
+      )}
+    >
+      <div className="flex items-center justify-between gap-[var(--order-mobile-gap)]">
+        <div className="flex min-w-0 flex-1 items-center gap-[var(--order-mobile-gap)]">
+          <Skeleton className="size-5 shrink-0 rounded-md" />
+          <Skeleton className="h-4 w-2/3" />
         </div>
-        <Skeleton className="h-5 w-14" />
+        <Skeleton className="h-[18px] w-24" />
       </div>
-      <div className="space-y-1.5 rounded-lg bg-surface-muted/70 p-2">
-        <Skeleton className="h-4 w-3/5" />
-        <Skeleton className="h-3 w-4/5" />
-        <Skeleton className="h-3 w-1/2" />
+      <div className="flex items-center gap-[var(--order-mobile-gap)] rounded-lg bg-surface-muted/70 px-[var(--order-mobile-pad)] py-1">
+        <Skeleton className="h-3.5 min-w-0 flex-1" />
+        <Skeleton className="h-3 w-20" />
       </div>
-      <div className="grid grid-cols-[minmax(0,1fr)_92px] items-end gap-2 border-t border-[var(--border-panel)] pt-1.5">
+      <Skeleton className="h-3 w-4/5" />
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-[var(--order-mobile-gap)] border-t border-[var(--border-panel)] pt-[var(--order-mobile-gap)]">
         <div className="space-y-1">
-          <Skeleton className="h-3 w-20" />
-          <Skeleton className="h-1.5 w-full" />
+          <Skeleton className="h-[18px] w-20" />
+          <Skeleton className="h-1 w-full" />
         </div>
-        <div className="space-y-1">
-          <Skeleton className="ml-auto h-4 w-14" />
-          <Skeleton className="ml-auto h-5 w-20" />
-        </div>
+        <Skeleton className="h-7 w-28 rounded-lg" />
       </div>
     </article>
   );
@@ -92,26 +93,38 @@ export function OrderListSkeleton() {
 
       <div aria-hidden="true">
         <div className={repairOs.mobileListHeaderShell}>
-          <section className={repairOs.mobileFloatingHeaderCard}>
-            <header className={repairOs.mobileFloatingHeaderNav}>
-              <Skeleton className="size-10 rounded-xl" />
+          <section
+            className={cn(
+              repairOs.mobileFloatingHeaderCard,
+              orderMobileFluidDensity,
+              "rounded-[var(--order-mobile-radius)] px-[var(--order-mobile-pad)] py-[var(--order-mobile-tight-gap)]",
+            )}
+          >
+            <header
+              className={cn(repairOs.mobileFloatingHeaderNav, "gap-[var(--order-mobile-gap)]")}
+            >
+              <Skeleton className="size-11 rounded-xl" />
               <div className="mx-auto w-full max-w-32 space-y-1">
                 <Skeleton className="mx-auto h-4 w-20" />
                 <Skeleton className="mx-auto h-2.5 w-24" />
               </div>
-              <Skeleton className="size-10 rounded-xl" />
+              <Skeleton className="size-11 rounded-xl" />
             </header>
-            <div className={cn(repairOs.mobileFloatingHeaderBody, "space-y-1.5")}>
-              <div className="grid grid-cols-[minmax(0,1fr)_40px] gap-1.5">
-                <Skeleton className="h-10 rounded-xl" />
-                <Skeleton className="size-10 rounded-xl" />
+            <div className="mt-[var(--order-mobile-tight-gap)] min-w-0 space-y-[var(--order-mobile-gap)] border-t border-[var(--border-panel)] pt-[var(--order-mobile-tight-gap)]">
+              <div className="grid grid-cols-[minmax(0,1fr)_44px_44px] gap-[var(--order-mobile-gap)]">
+                <Skeleton className="h-11 rounded-xl" />
+                <Skeleton className="size-11 rounded-xl" />
+                <Skeleton className="size-11 rounded-xl" />
               </div>
-              <Skeleton className="h-7 rounded-md" />
+              <Skeleton className="h-11 rounded-md" />
               <div className={cn("grid", orderMobileQueueGrid)}>
                 {Array.from({ length: 7 }).map((_, index) => (
                   <Skeleton
                     key={index}
-                    className={cn("h-10 rounded-lg", index === 0 && orderMobileQueueAllSpan)}
+                    className={cn(
+                      "h-11 rounded-[var(--order-mobile-radius)]",
+                      index === 0 && orderMobileQueueAllSpan,
+                    )}
                   />
                 ))}
               </div>

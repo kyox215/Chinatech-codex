@@ -13,8 +13,9 @@ describe("RepairOS loading skeletons", () => {
     const { container, rerender } = render(<OrderListSkeleton />);
     const orderListSkeleton = container.querySelector('[data-ui="order-list-skeleton"]');
     expect(orderListSkeleton).toHaveAttribute("aria-busy", "true");
-    expect(orderListSkeleton).toHaveClass("[--orders-mobile-header-offset:21.25rem]");
-    expect(orderListSkeleton).toHaveClass("min-[360px]:[--orders-mobile-header-offset:18.75rem]");
+    expect(orderListSkeleton).toHaveClass(
+      "[--orders-mobile-header-offset:calc(env(safe-area-inset-top)+17rem)]",
+    );
     expect(screen.queryByText("正在加载工单...")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("正在准备维修工单");
 
