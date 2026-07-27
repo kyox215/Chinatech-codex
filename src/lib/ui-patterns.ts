@@ -143,7 +143,7 @@ export const repairOs = {
   mobileListFloatingPage:
     "mx-auto w-full min-w-0 max-w-[430px] overflow-x-hidden px-2 pb-24 pt-[var(--orders-mobile-header-offset,10rem)] sm:max-w-2xl md:max-w-7xl md:px-5 md:pb-8 lg:px-6 lg:pt-5",
   mobileUnifiedListPage:
-    "mx-auto w-full min-w-0 max-w-[430px] overflow-x-hidden px-2 pb-24 pt-[var(--repair-os-list-header-offset,10rem)] sm:max-w-2xl md:max-w-7xl md:px-5 md:pb-8 md:pt-5 lg:px-6",
+    "mx-auto w-full min-w-0 max-w-[430px] overflow-x-hidden px-2 pb-24 pt-[var(--repair-os-list-header-offset,10rem)] sm:max-w-2xl md:max-w-7xl md:px-5 md:pb-8 lg:px-6 lg:pt-5",
   mobileFloatingPage:
     "min-w-0 space-y-1.5 pb-20 pt-[var(--repair-os-mobile-floating-offset,calc(env(safe-area-inset-top)+10.75rem))]",
   mobileListHeaderShell:

@@ -63,7 +63,11 @@ function MobileWorkspaceDockContent({
     };
   }, []);
 
-  const primaryAction = getShellPrimaryAction(pathname, shell.isPlatformAdmin);
+  const resolvedPrimaryAction = getShellPrimaryAction(pathname, shell.isPlatformAdmin);
+  const primaryAction =
+    resolvedPrimaryAction.id === "new-memo" && !shell.permissions?.canCreateMemos
+      ? globalMobileQuickActions.find((action) => action.id === "search")!
+      : resolvedPrimaryAction;
   const actions = [
     primaryAction,
     ...globalMobileQuickActions.filter((action) => action.id !== primaryAction.id),

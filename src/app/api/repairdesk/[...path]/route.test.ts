@@ -32,7 +32,10 @@ vi.mock("@/server/api/repairdesk-router", () => ({
 }));
 
 import { UnauthorizedError } from "@/server/auth-context";
-import { INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES } from "@/server/api/repairdesk-request-limits";
+import {
+  INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES,
+  MEMO_COMMAND_REQUEST_MAX_BYTES,
+} from "@/server/api/repairdesk-request-limits";
 
 import { POST } from "./route";
 
@@ -116,6 +119,26 @@ describe("RepairDesk attachment route request envelope", () => {
         error: "库存 V2 请求过大，请减少备注或标识符后重试",
       });
       expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
+    }
+  });
+
+  it("rejects oversized memo envelopes with and without content-length", async () => {
+    for (const withContentLength of [true, false]) {
+      const body = `{"input":{"content":"${"A".repeat(MEMO_COMMAND_REQUEST_MAX_BYTES)}"}}`;
+      const request = new NextRequest("http://localhost/api/repairdesk/memos/create", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body,
+      });
+      if (!withContentLength) request.headers.delete("content-length");
+
+      const response = await POST(request, {
+        params: Promise.resolve({ path: ["memos", "create"] }),
+      });
+
+      expect(response.status).toBe(413);
+      expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
+      mocks.handleRepairDeskPost.mockClear();
     }
   });
 

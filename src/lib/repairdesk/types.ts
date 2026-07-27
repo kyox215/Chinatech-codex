@@ -2096,6 +2096,9 @@ export interface StoreContext {
     canManageKioskDevices?: boolean;
     canReviewKioskSessions?: boolean;
     canViewAudit?: boolean;
+    canReadMemos?: boolean;
+    canCreateMemos?: boolean;
+    canManageMemos?: boolean;
   };
 }
 

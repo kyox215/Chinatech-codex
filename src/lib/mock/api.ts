@@ -115,6 +115,18 @@ export {
   updateStoreMemberRole,
 } from "@/features/stores/testing/mock-api";
 
+export {
+  archiveMemo,
+  createMemo,
+  getMemo,
+  getMemoSummary,
+  listMemoAssignees,
+  listMemos,
+  restoreMemo,
+  transitionMemo,
+  updateMemo,
+} from "@/features/memos/testing/mock-api";
+
 export { allTechnicians, customers, devices, suppliers } from "@/lib/mock/state";
 
 export type {

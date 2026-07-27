@@ -29,6 +29,7 @@ import { storePermissionActions } from "@/entities/staff/model/store-permission-
 import { repairServiceCatalogItems, resolveRepairServiceCatalogItem } from "@/entities/order";
 import { storeSettingsSectionUpdateSchema } from "@/features/settings/model/store-settings-update-contract";
 import { supplierInputSchema } from "@/features/suppliers/model/supplier-input-contract";
+import { memoKinds, memoViews } from "@/features/memos/model/contracts";
 import { resolveWhatsappPhone } from "@/shared/lib/whatsapp-phone";
 import type {
   AccountProfileUpdateInput,
@@ -2077,5 +2078,88 @@ export const messageTemplatePreviewBodySchema = z
     context: z.record(z.string(), z.unknown()).optional(),
   })
   .passthrough() satisfies z.ZodType<MessageTemplatePreviewInput>;
+
+const memoOperationIdSchema = z.string().uuid("operationId 不正确");
+const memoTitleSchema = z.string().trim().min(1, "请填写标题").max(120, "标题不能超过 120 个字符");
+const memoContentSchema = z.string().max(4000, "正文不能超过 4000 个字符");
+const memoDueAtSchema = z.string().datetime({ offset: true }).nullable().optional();
+const memoAssigneeSchema = z.string().uuid("负责人不正确").nullable().optional();
+
+export const memoListBodySchema = z
+  .object({
+    view: z.enum(memoViews).optional(),
+    kind: z.union([z.enum(memoKinds), z.literal("all")]).optional(),
+    assigneeMembershipId: z.string().uuid("负责人不正确").optional(),
+    search: z.string().trim().max(120, "搜索词不能超过 120 个字符").optional(),
+    page: z.number().int().min(1).max(100).optional(),
+    pageSize: z.number().int().min(1).max(50).optional(),
+  })
+  .strict();
+
+export const memoIdBodySchema = z.object({ id: z.string().uuid("备忘录 id 不正确") }).strict();
+
+export const memoCreateBodySchema = z
+  .object({
+    input: z
+      .object({
+        operationId: memoOperationIdSchema,
+        kind: z.enum(memoKinds),
+        title: memoTitleSchema,
+        content: memoContentSchema,
+        dueAt: memoDueAtSchema,
+        assigneeMembershipId: memoAssigneeSchema,
+      })
+      .strict()
+      .superRefine((input, context) => {
+        if (input.kind === "note" && (input.dueAt || input.assigneeMembershipId)) {
+          context.addIssue({
+            code: "custom",
+            message: "普通记录不能设置负责人或到期时间",
+          });
+        }
+      }),
+  })
+  .strict();
+
+export const memoUpdateBodySchema = z
+  .object({
+    input: z
+      .object({
+        operationId: memoOperationIdSchema,
+        id: z.string().uuid("备忘录 id 不正确"),
+        expectedVersion: z.number().int().min(1),
+        title: memoTitleSchema,
+        content: memoContentSchema,
+        dueAt: memoDueAtSchema,
+        assigneeMembershipId: memoAssigneeSchema,
+      })
+      .strict(),
+  })
+  .strict();
+
+export const memoTransitionBodySchema = z
+  .object({
+    input: z
+      .object({
+        operationId: memoOperationIdSchema,
+        id: z.string().uuid("备忘录 id 不正确"),
+        expectedVersion: z.number().int().min(1),
+        transition: z.enum(["claim", "complete", "reopen"]),
+      })
+      .strict(),
+  })
+  .strict();
+
+export const memoArchiveBodySchema = z
+  .object({
+    input: z
+      .object({
+        operationId: memoOperationIdSchema,
+        id: z.string().uuid("备忘录 id 不正确"),
+        expectedVersion: z.number().int().min(1),
+      })
+      .strict(),
+  })
+  .strict();
 
 export { approvalStatusSchema, inventoryItemStatusSchema };

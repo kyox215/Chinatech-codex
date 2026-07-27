@@ -7,6 +7,7 @@ import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { storesKeys } from "@/features/stores/api/query-keys";
 import { suppliersKeys } from "@/features/suppliers/api/query-keys";
+import { memosKeys } from "@/features/memos/api/query-keys";
 
 import type {
   RepairDeskRealtimeDomain,
@@ -59,6 +60,8 @@ export function getRepairDeskRealtimeQueryKeyForGroup(
       return storesKeys.membersScoped(storeId);
     case "stores.access_requests":
       return storesKeys.accessRequestsScoped(storeId);
+    case "memos.all":
+      return memosKeys.store(storeId);
   }
 }
 
@@ -88,5 +91,7 @@ export function getRepairDeskRealtimeQueryGroupsForDomain(
         "customers.all",
         "inventory.all",
       ];
+    case "memos":
+      return ["memos.all"];
   }
 }

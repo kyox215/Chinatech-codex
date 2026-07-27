@@ -4,6 +4,7 @@ import { customersKeys } from "@/features/customers/api/query-keys";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
+import { memosKeys } from "@/features/memos/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { storesKeys } from "@/features/stores/api/query-keys";
 import { suppliersKeys } from "@/features/suppliers/api/query-keys";
@@ -61,6 +62,14 @@ describe("RepairDesk realtime invalidation map", () => {
     const availableDevices = kioskKeys.availableDevices(storeId, "order_1");
 
     expect(availableDevices.slice(0, devicePrefix.length)).toEqual(devicePrefix);
+  });
+
+  it("maps memo events to the active store memo prefix", () => {
+    const event = buildEvent(["memos.all"]);
+
+    expect(getRepairDeskRealtimeInvalidationTargets(event)).toEqual([
+      { group: "memos.all", queryKey: memosKeys.store(storeId) },
+    ]);
   });
 });
 

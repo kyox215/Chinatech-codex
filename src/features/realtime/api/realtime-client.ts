@@ -99,5 +99,7 @@ export function subscribeToRepairDeskRealtimeDomain({
 export function getRepairDeskRealtimeDomains(
   domains?: readonly RepairDeskRealtimeDomain[],
 ): RepairDeskRealtimeDomain[] {
-  return domains?.length ? [...domains] : [...repairDeskRealtimeDomains];
+  return domains?.length
+    ? [...domains]
+    : repairDeskRealtimeDomains.filter((domain) => domain !== "memos");
 }

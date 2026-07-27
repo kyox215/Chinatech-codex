@@ -19,6 +19,12 @@ Scope: all store-scoped business reads, mutations, cache keys, Realtime events, 
 手机或 iPad 进入后台时计时器可暂停；回到前台、恢复网络、重新订阅或切换店铺时必须执行
 已有的 catch-up。30 秒是最大漏消息收敛窗口，不是业务数据轮询间隔。
 
+`memos` 是第五个业务域，但只在当前路由为 `/memos` 且店铺上下文包含
+`canReadMemos` 时订阅。备忘录页面的前台 revision 对账同样限定在该路由；离开页面后由缓存
+失效和下次进入时重新读取收敛，避免为所有店铺成员常驻一个不需要的频道。
+权限丢失或店铺切换会同时清除列表和按需加载的正文详情缓存。验证过的 store purge 删除 memo
+或 order 数据时不得重建 domain revision 或发送事件；active 店铺的普通 order 变更仍必须递增。
+
 ## 2. 强制事件合同
 
 允许的 Broadcast 顶层字段仅为：`schemaVersion`、`eventId`、`emittedAt`、`storeId`、

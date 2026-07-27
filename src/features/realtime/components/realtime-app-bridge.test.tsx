@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -22,6 +23,7 @@ const storeId = "5248dda1-2b32-46cd-8ed0-d15386a9e8ed";
 describe("RealtimeAppBridge", () => {
   afterEach(() => {
     vi.clearAllMocks();
+    vi.mocked(usePathname).mockReturnValue("/orders");
   });
 
   it("renders children without subscribing when there is no active store", () => {
@@ -51,6 +53,30 @@ describe("RealtimeAppBridge", () => {
     renderBridge({ client, domains: ["orders"], enabled: true });
 
     expect(client.channel).toHaveBeenCalledWith(`repairdesk:v1:store:${storeId}:orders`, {
+      config: { private: true },
+    });
+  });
+
+  it("subscribes to memos only on the memo route with the read capability", () => {
+    vi.mocked(usePathname).mockReturnValue("/memos");
+    const client = createMockRealtimeClient();
+    mockStoreShellContext(makeShellContext({ id: storeId }, { canReadMemos: true }));
+
+    renderBridge({ client, enabled: true });
+
+    expect(client.channel).toHaveBeenCalledWith(`repairdesk:v1:store:${storeId}:memos`, {
+      config: { private: true },
+    });
+  });
+
+  it("does not subscribe to memos when the capability is absent", () => {
+    vi.mocked(usePathname).mockReturnValue("/memos");
+    const client = createMockRealtimeClient();
+    mockStoreShellContext(makeShellContext({ id: storeId }, { canReadMemos: false }));
+
+    renderBridge({ client, enabled: true });
+
+    expect(client.channel).not.toHaveBeenCalledWith(`repairdesk:v1:store:${storeId}:memos`, {
       config: { private: true },
     });
   });
@@ -115,9 +141,11 @@ describe("RealtimeAppBridge", () => {
     expect(onUnmount).toHaveBeenCalledOnce();
   });
 
-  it("limits the 30-second foreground reconcile to order routes", () => {
+  it("limits the 30-second foreground reconcile to order and memo routes", () => {
     expect(getRepairDeskForegroundReconcileDomains("/orders")).toEqual(["orders"]);
     expect(getRepairDeskForegroundReconcileDomains("/orders/order-id")).toEqual(["orders"]);
+    expect(getRepairDeskForegroundReconcileDomains("/memos", true)).toEqual(["memos"]);
+    expect(getRepairDeskForegroundReconcileDomains("/memos", false)).toEqual([]);
     expect(getRepairDeskForegroundReconcileDomains("/customers")).toEqual([]);
     expect(getRepairDeskForegroundReconcileDomains(null)).toEqual([]);
   });
@@ -160,6 +188,7 @@ function mockStoreShellContext(context: StoreShellContextSnapshot) {
 
 function makeShellContext(
   activeStore?: Partial<StoreShellContextSnapshot["activeStore"]>,
+  permissions?: Partial<NonNullable<StoreShellContextSnapshot["permissions"]>>,
 ): StoreShellContextSnapshot {
   const resolvedActiveStore = activeStore
     ? {
@@ -184,6 +213,7 @@ function makeShellContext(
     status: resolvedActiveStore ? "ready" : "onboarding_required",
     statusLabel: "店铺在线",
     statusDescription: "当前店铺上下文已同步。",
+    permissions: permissions as StoreShellContextSnapshot["permissions"],
   };
 }
 

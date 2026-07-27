@@ -109,6 +109,21 @@ describe("server permission matrix", () => {
     expect(isGrantablePermissionAction("order:quote_prepare")).toBe(false);
   });
 
+  it("keeps memo actions role/scoped and non-grantable", () => {
+    expect(can(actor("owner"), "memo:archive")).toBe(true);
+    expect(can(actor("manager"), "memo:restore")).toBe(true);
+    expect(can(actor("technician"), "memo:create")).toBe(true);
+    expect(can(actor("technician"), "memo:update")).toBe(false);
+    expect(can(actor("technician"), "memo:update", { scopeSatisfied: true })).toBe(true);
+    expect(can(actor("sales"), "memo:transition", { scopeSatisfied: true })).toBe(true);
+    expect(can(actor("viewer"), "memo:read")).toBe(true);
+    expect(can(actor("viewer"), "memo:create")).toBe(false);
+    expect(can(actor("technician"), "memo:archive", { scopeSatisfied: true })).toBe(false);
+    for (const action of permissionActions.filter((candidate) => candidate.startsWith("memo:"))) {
+      expect(isGrantablePermissionAction(action), action).toBe(false);
+    }
+  });
+
   it("separates buyback evidence capture, restricted read, and finalization", () => {
     expect(can(actor("owner"), "buyback:evidence_capture")).toBe(true);
     expect(can(actor("owner"), "buyback:evidence_read")).toBe(true);

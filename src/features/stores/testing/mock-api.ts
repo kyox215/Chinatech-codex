@@ -573,6 +573,9 @@ function context(actor?: AuditActor): StoreContext {
       canManageKioskDevices: canUpdateStoreSettings,
       canReviewKioskSessions: canUpdateStoreSettings && can(scopedActor, "order:update_intake"),
       canViewAudit: can(scopedActor, "support:view_audit"),
+      canReadMemos: true,
+      canCreateMemos: scopedActor.storeRole !== "viewer",
+      canManageMemos: scopedActor.storeRole === "owner" || scopedActor.storeRole === "manager",
     },
   };
 }

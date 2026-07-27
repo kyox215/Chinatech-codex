@@ -2,7 +2,13 @@ export const REPAIRDESK_REALTIME_SCHEMA_VERSION = 1 as const;
 export const REPAIRDESK_REALTIME_BROADCAST_EVENT = "repairdesk.realtime";
 export const REPAIRDESK_REALTIME_ENABLED_VALUE = "1";
 
-export const repairDeskRealtimeDomains = ["orders", "customers", "inventory", "settings"] as const;
+export const repairDeskRealtimeDomains = [
+  "orders",
+  "customers",
+  "inventory",
+  "settings",
+  "memos",
+] as const;
 
 export type RepairDeskRealtimeDomain = (typeof repairDeskRealtimeDomains)[number];
 
@@ -32,6 +38,7 @@ export const repairDeskRealtimeQueryGroups = [
   "stores.context",
   "stores.members",
   "stores.access_requests",
+  "memos.all",
 ] as const;
 
 export type RepairDeskRealtimeQueryGroup = (typeof repairDeskRealtimeQueryGroups)[number];
@@ -68,7 +75,12 @@ export const repairDeskRealtimeSensitiveKeys = [
   "issue",
   "issueDescription",
   "message",
+  "memoId",
   "notes",
+  "title",
+  "content",
+  "assignee",
+  "dueAt",
   "orderId",
   "paid",
   "passcode",

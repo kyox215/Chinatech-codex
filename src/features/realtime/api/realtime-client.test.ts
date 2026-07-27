@@ -112,6 +112,7 @@ describe("RepairDesk realtime client adapter", () => {
       "settings",
     ]);
     expect(getRepairDeskRealtimeDomains(["orders"])).toEqual(["orders"]);
+    expect(getRepairDeskRealtimeDomains(["memos"])).toEqual(["memos"]);
   });
 });
 

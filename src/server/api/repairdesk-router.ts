@@ -18,6 +18,18 @@ import { getAiAssistantUsageSummary } from "@/features/ai-assistant/server/usage
 import { getMockAiAssistantUsageSummary } from "@/features/ai-assistant/testing/mock-usage";
 import { runAiInventoryVisionRecognition } from "@/features/ai-assistant/server/vision-assistant.service";
 import { getDashboardPrioritySummary } from "@/features/dashboard/server/dashboard-summary.service";
+import {
+  archiveMemo,
+  createMemo,
+  readMemo,
+  readMemoAssignees,
+  readMemoList,
+  readMemoSummary,
+  restoreMemo,
+  transitionMemo,
+  updateMemo,
+} from "@/features/memos/server/memo.service";
+import { assertMemosFeature } from "@/features/memos/server/memo-feature";
 import { isCustomerStatusQrEnabled } from "@/features/customer-status/server/customer-status.service";
 import { getProfitCenter } from "@/features/profit/server/profit.repository";
 import { assertCanReadProfitCenter } from "@/features/profit/server/profit-feature";
@@ -404,9 +416,24 @@ import {
   voidOrderBodySchema,
   updateOrderCustodyBodySchema,
   whatsappNotificationBodySchema,
+  memoArchiveBodySchema,
+  memoCreateBodySchema,
+  memoIdBodySchema,
+  memoListBodySchema,
+  memoTransitionBodySchema,
+  memoUpdateBodySchema,
 } from "./repairdesk-schemas";
 
 const supabaseSource = {
+  archiveMemo,
+  createMemo,
+  getMemo: readMemo,
+  getMemoSummary: readMemoSummary,
+  listMemoAssignees: readMemoAssignees,
+  listMemos: readMemoList,
+  restoreMemo,
+  transitionMemo,
+  updateMemo,
   acceptKioskSession,
   batchTransition,
   confirmCancelledOrderReturn,
@@ -1735,14 +1762,15 @@ export async function handleRepairDeskPost(
       case "realtime/revisions": {
         const { domains } = z
           .object({
-            domains: z.array(z.enum(repairDeskRealtimeDomains)).min(1).max(4),
+            domains: z.array(z.enum(repairDeskRealtimeDomains)).min(1).max(5),
           })
           .strict()
           .parse(body);
-        if (domains.some((domain) => domain !== "orders")) {
-          throw new ForbiddenError("当前同步版本接口仅开放订单域");
+        if (domains.some((domain) => domain !== "orders" && domain !== "memos")) {
+          throw new ForbiddenError("当前同步版本接口仅开放可见业务域");
         }
-        assertOrderListPermission(actor);
+        if (domains.includes("orders")) assertOrderListPermission(actor);
+        if (domains.includes("memos")) assertMemosFeature(actor);
         return ok(await api.getRepairDeskDomainRevisions(domains, actor));
       }
       case "orders/list-page":
@@ -2923,6 +2951,36 @@ export async function handleRepairDeskPost(
             actor,
           ),
         );
+      case "memos/summary":
+        return ok(await api.getMemoSummary(actor));
+      case "memos/list":
+        return ok(await api.listMemos(memoListBodySchema.parse(body), actor));
+      case "memos/get": {
+        const { id } = memoIdBodySchema.parse(body);
+        return ok(await api.getMemo(id, actor));
+      }
+      case "memos/assignees":
+        return ok(await api.listMemoAssignees(actor));
+      case "memos/create": {
+        const { input } = memoCreateBodySchema.parse(body);
+        return ok(await api.createMemo(input, actor));
+      }
+      case "memos/update": {
+        const { input } = memoUpdateBodySchema.parse(body);
+        return ok(await api.updateMemo(input, actor));
+      }
+      case "memos/transition": {
+        const { input } = memoTransitionBodySchema.parse(body);
+        return ok(await api.transitionMemo(input, actor));
+      }
+      case "memos/archive": {
+        const { input } = memoArchiveBodySchema.parse(body);
+        return ok(await api.archiveMemo(input, actor));
+      }
+      case "memos/restore": {
+        const { input } = memoArchiveBodySchema.parse(body);
+        return ok(await api.restoreMemo(input, actor));
+      }
       default:
         return privateJson({ error: "接口不存在" }, 404);
     }

@@ -9,6 +9,7 @@ import { ordersKeys } from "@/features/orders/api/query-keys";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { storesKeys } from "@/features/stores/api/query-keys";
 import { suppliersKeys } from "@/features/suppliers/api/query-keys";
+import { memosKeys } from "@/features/memos/api/query-keys";
 import type { StoreContext } from "@/lib/repairdesk/types";
 
 export async function clearTenantScopedQueryCache(queryClient: QueryClient) {
@@ -69,6 +70,7 @@ const tenantScopedQueryRoots = [
   storesKeys.members,
   storesKeys.accessRequests,
   platformKeys.onboardingStatus,
+  memosKeys.all,
 ] as const;
 
 const authoritySensitiveQueryRoots = [
@@ -82,6 +84,7 @@ const authoritySensitiveQueryRoots = [
   aiAssistantKeys.all,
   storesKeys.members,
   storesKeys.accessRequests,
+  memosKeys.all,
 ] as const;
 
 function clearCachedQueryData(queryClient: QueryClient, queryKey: readonly unknown[]) {

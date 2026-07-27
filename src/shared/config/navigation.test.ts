@@ -37,6 +37,7 @@ describe("workspace navigation", () => {
         canReadInventory: false,
         canReadMessageTemplates: false,
         canReadRepairProfitReports: false,
+        canReadMemos: false,
       }),
     );
 
@@ -44,7 +45,19 @@ describe("workspace navigation", () => {
     expect(visible.map((item) => item.id)).not.toContain("buyback");
     expect(visible.map((item) => item.id)).not.toContain("messages");
     expect(visible.map((item) => item.id)).not.toContain("finance");
+    expect(visible.map((item) => item.id)).not.toContain("memos");
     expect(visible.map((item) => item.id)).toContain("orders");
+  });
+
+  it("places the capability-aware memo workspace after customers with command aliases", () => {
+    const items = getWorkspaceNavItems(false);
+    const memo = items.find((item) => item.id === "memos")!;
+    expect(items.indexOf(memo)).toBe(items.findIndex((item) => item.id === "customers") + 1);
+    expect(memo).toMatchObject({ title: "备忘录", url: "/memos" });
+    expect(memo.aliases).toEqual(expect.arrayContaining(["备忘", "待办", "Todo", "交班"]));
+    expect(canShowWorkspaceNavItem(memo, { canReadMemos: false })).toBe(false);
+    expect(canShowWorkspaceNavItem(memo, { canReadMemos: true })).toBe(true);
+    expect(routeLabels.memos).toBe("备忘录");
   });
 
   it("shows the repair profit workspace only with the explicit report capability", () => {
@@ -68,6 +81,13 @@ describe("workspace navigation", () => {
     expect(staffActions).toContain("new-customer");
     expect(staffActions).not.toContain("new-buyback");
     expect(staffActions).not.toContain("new-inventory");
+    expect(staffActions).not.toContain("new-memo");
+
+    expect(
+      getShellCommandActions({ canReadMemos: true, canCreateMemos: true }, "technician").map(
+        (item) => item.id,
+      ),
+    ).toContain("new-memo");
 
     const technicianWithInventory = getShellCommandActions(
       { canReadInventory: true },

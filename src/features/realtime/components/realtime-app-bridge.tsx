@@ -1,10 +1,11 @@
 "use client";
 
-import { Fragment, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
 import type { RepairDeskRealtimeClient } from "@/features/realtime/api/realtime-client";
 import type { RepairDeskRealtimeDomain } from "@/features/realtime/model/realtime-events";
+import { repairDeskRealtimeDomains } from "@/features/realtime/model/realtime-events";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 
 import { RealtimeSyncProvider } from "./realtime-sync-provider";
@@ -27,6 +28,13 @@ export function RealtimeAppBridge({
   const pathname = usePathname();
   const shell = useStoreShellContext({ monitorAuthority: true });
   const storeId = shell.activeStore?.status === "active" ? shell.activeStore.id : null;
+  const resolvedDomains = useMemo(() => {
+    if (domains) return domains;
+    const base = repairDeskRealtimeDomains.filter((domain) => domain !== "memos");
+    return pathname?.startsWith("/memos") && shell.permissions?.canReadMemos
+      ? [...base, "memos" as const]
+      : base;
+  }, [domains, pathname, shell.permissions?.canReadMemos]);
   const [authorityBoundaryKey, setAuthorityBoundaryKey] = useState("authority-bootstrap");
   const stableAuthorityFingerprintRef = useRef<string | null>(null);
 
@@ -43,9 +51,12 @@ export function RealtimeAppBridge({
   return (
     <RealtimeSyncProvider
       client={client}
-      domains={domains}
+      domains={resolvedDomains}
       enabled={enabled}
-      foregroundReconcileDomains={getRepairDeskForegroundReconcileDomains(pathname)}
+      foregroundReconcileDomains={getRepairDeskForegroundReconcileDomains(
+        pathname,
+        shell.permissions?.canReadMemos === true,
+      )}
       revisionCheckEnabled={
         revisionCheckEnabled ?? process.env.NEXT_PUBLIC_REPAIRDESK_REVISION_CHECK_ENABLED === "1"
       }
@@ -58,6 +69,9 @@ export function RealtimeAppBridge({
 
 export function getRepairDeskForegroundReconcileDomains(
   pathname?: string | null,
+  canReadMemos = false,
 ): readonly RepairDeskRealtimeDomain[] {
-  return pathname === "/orders" || pathname?.startsWith("/orders/") ? ["orders"] : [];
+  if (pathname === "/orders" || pathname?.startsWith("/orders/")) return ["orders"];
+  if (canReadMemos && (pathname === "/memos" || pathname?.startsWith("/memos/"))) return ["memos"];
+  return [];
 }

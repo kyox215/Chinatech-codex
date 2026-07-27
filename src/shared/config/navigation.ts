@@ -5,6 +5,7 @@ import {
   ClipboardList,
   ClipboardPlus,
   MessageSquare,
+  NotebookPen,
   Package,
   PackagePlus,
   Recycle,
@@ -24,6 +25,7 @@ export type RepairDeskModuleId =
   | "dashboard"
   | "orders"
   | "customers"
+  | "memos"
   | "buyback"
   | "inventory"
   | "finance"
@@ -61,6 +63,8 @@ type RepairDeskNavigationPermissions = {
   canReadInventory?: boolean;
   canReadMessageTemplates?: boolean;
   canReadRepairProfitReports?: boolean;
+  canReadMemos?: boolean;
+  canCreateMemos?: boolean;
 };
 
 type RepairDeskNavigationRole = "owner" | "manager" | "technician" | "sales" | "viewer";
@@ -121,6 +125,23 @@ export const workspaceNavItems: RepairDeskNavItem[] = [
       description: "录入客户资料与联系方式",
       icon: UserPlus,
       href: "/customers?new=1",
+    },
+  },
+  {
+    id: "memos",
+    title: "备忘录",
+    shortTitle: "备忘",
+    url: "/memos",
+    icon: NotebookPen,
+    aliases: ["备忘录", "备忘", "待办", "Todo", "交班", "memos"],
+    primaryAction: {
+      id: "new-memo",
+      kind: "route",
+      label: "新建备忘",
+      shortLabel: "备忘",
+      description: "记录门店事项或创建待办",
+      icon: NotebookPen,
+      href: "/memos?new=1",
     },
   },
   {
@@ -263,6 +284,7 @@ export function canShowWorkspaceNavItem(
   if (item.id === "finance") {
     return permissions?.canReadRepairProfitReports === true;
   }
+  if (item.id === "memos") return permissions?.canReadMemos === true;
   return true;
 }
 
@@ -297,6 +319,7 @@ export function getShellCommandActions(
     },
     newOrderShellAction,
     workspaceNavItems.find((item) => item.id === "customers")!.primaryAction!,
+    workspaceNavItems.find((item) => item.id === "memos")!.primaryAction!,
     workspaceNavItems.find((item) => item.id === "buyback")!.primaryAction!,
     workspaceNavItems.find((item) => item.id === "inventory")!.primaryAction!,
   ];
@@ -307,6 +330,7 @@ export function getShellCommandActions(
       return permissions?.canReadInventory === true && (role === "owner" || role === "manager");
     }
     if (action.id === "new-inventory") return permissions?.canReadInventory === true;
+    if (action.id === "new-memo") return permissions?.canCreateMemos === true;
     return true;
   });
 }
@@ -315,6 +339,7 @@ export const routeLabels: Record<string, string> = {
   "": "概览",
   orders: "维修工单",
   customers: "客户管理",
+  memos: "备忘录",
   buyback: "回收管理",
   inventory: "库存商品",
   finance: "维修毛利",

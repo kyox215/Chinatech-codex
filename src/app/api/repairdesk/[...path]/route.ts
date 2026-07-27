@@ -15,7 +15,10 @@ import { AI_INVENTORY_VISION_REQUEST_MAX_BYTES } from "@/features/ai-assistant/m
 import { getAiAssistantCapabilities } from "@/features/ai-assistant/server/capabilities";
 import { AiServiceError } from "@/features/ai-assistant/server/errors";
 import { consumeAiAssistantRequestRateLimit } from "@/features/ai-assistant/server/request-rate-limit";
-import { INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES } from "@/server/api/repairdesk-request-limits";
+import {
+  INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES,
+  MEMO_COMMAND_REQUEST_MAX_BYTES,
+} from "@/server/api/repairdesk-request-limits";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -35,6 +38,10 @@ function isInventoryV2CommandPath(path: string) {
     path === "inventory/v2/sales/complete" ||
     path === "inventory/v2/workflow/apply"
   );
+}
+
+function isMemoPath(path: string) {
+  return path.startsWith("memos/");
 }
 
 function privateError(error: string, status: number) {
@@ -125,6 +132,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
   ) {
     return privateError("库存 V2 请求过大，请减少备注或标识符后重试", 413);
   }
+  if (
+    isMemoPath(path) &&
+    Number.isFinite(contentLength) &&
+    contentLength > MEMO_COMMAND_REQUEST_MAX_BYTES
+  ) {
+    return privateError("备忘录请求过大，请缩短正文后重试", 413);
+  }
   try {
     assertRepairDeskPostRequestAllowed({
       headers: request.headers,
@@ -191,7 +205,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
               ? await readJsonWithLimit(request, AI_ORDER_ACTION_MAX_BYTES)
               : isInventoryV2CommandPath(path)
                 ? await readJsonWithLimit(request, INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES)
-                : await readJson(request);
+                : isMemoPath(path)
+                  ? await readJsonWithLimit(request, MEMO_COMMAND_REQUEST_MAX_BYTES)
+                  : await readJson(request);
   } catch (error) {
     if (error instanceof RequestPayloadTooLargeError) {
       return privateError(
@@ -201,7 +217,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
             ? "AI 订单操作请求过大，请刷新后重试"
             : isInventoryV2CommandPath(path)
               ? "库存 V2 请求过大，请减少备注或标识符后重试"
-              : "AI 查询请求过大，请缩短问题后重试",
+              : isMemoPath(path)
+                ? "备忘录请求过大，请缩短正文后重试"
+                : "AI 查询请求过大，请缩短问题后重试",
         413,
       );
     }

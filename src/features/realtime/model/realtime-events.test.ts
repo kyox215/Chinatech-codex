@@ -45,6 +45,23 @@ describe("RepairDesk realtime event contract", () => {
     ).toBe(false);
   });
 
+  it("accepts metadata-only memo invalidation events", () => {
+    const event = parseRepairDeskRealtimeEvent({
+      schemaVersion: 1,
+      eventId: "evt_memo_1",
+      emittedAt: "2026-07-27T01:00:00.000Z",
+      storeId,
+      domain: "memos",
+      mutation: "updated",
+      queryGroups: ["memos.all"],
+    });
+
+    expect(event?.domain).toBe("memos");
+    expect(buildRepairDeskRealtimeTopic(storeId, "memos")).toBe(
+      `repairdesk:v1:store:${storeId}:memos`,
+    );
+  });
+
   it("accepts the transport id injected by Supabase realtime.send", () => {
     expect(
       parseRepairDeskRealtimeEvent({
@@ -79,6 +96,18 @@ describe("RepairDesk realtime event contract", () => {
         mutation: "updated",
         customerId: "cust_1",
         queryGroups: ["customers.all"],
+      }),
+    ).toBeNull();
+    expect(
+      parseRepairDeskRealtimeEvent({
+        schemaVersion: 1,
+        eventId: "evt_memo_unsafe",
+        emittedAt: "2026-07-27T01:00:00.000Z",
+        storeId,
+        domain: "memos",
+        mutation: "updated",
+        queryGroups: ["memos.all"],
+        title: "private title",
       }),
     ).toBeNull();
     expect(

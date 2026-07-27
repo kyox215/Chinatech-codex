@@ -16,6 +16,18 @@ import type {
 } from "@/features/offline/server/offline-sync-contract";
 import type { ShellBootstrap } from "@/features/stores/model/shell-bootstrap";
 import type {
+  MemoArchiveInput,
+  MemoAssignee,
+  MemoCreateInput,
+  MemoListInput,
+  MemoListResult,
+  MemoMutationResult,
+  MemoSummary,
+  MemoTransitionInput,
+  MemoUpdateInput,
+  StoreMemo,
+} from "@/features/memos/model/contracts";
+import type {
   AccountProfileUpdateInput,
   CorrectTerminalOrderInput,
   CreateOrderInput,
@@ -1516,3 +1528,55 @@ export async function getRepairDeskOptions(
 ): Promise<RepairDeskOptions> {
   return requestJson<RepairDeskOptions>("options", {}, options);
 }
+
+export function listMemos(
+  input: MemoListInput = {},
+  options?: RepairDeskRequestOptions,
+): Promise<MemoListResult> {
+  return postJson<MemoListResult>("memos/list", input, options);
+}
+
+export function getMemo(id: string, options?: RepairDeskRequestOptions): Promise<StoreMemo> {
+  return postJson<StoreMemo>("memos/get", { id }, options);
+}
+
+export function getMemoSummary(options?: RepairDeskRequestOptions): Promise<MemoSummary> {
+  return postJson<MemoSummary>("memos/summary", {}, options);
+}
+
+export function listMemoAssignees(options?: RepairDeskRequestOptions): Promise<MemoAssignee[]> {
+  return postJson<MemoAssignee[]>("memos/assignees", {}, options);
+}
+
+export function createMemo(input: MemoCreateInput): Promise<MemoMutationResult> {
+  return postJson<MemoMutationResult>("memos/create", { input });
+}
+
+export function updateMemo(input: MemoUpdateInput): Promise<MemoMutationResult> {
+  return postJson<MemoMutationResult>("memos/update", { input });
+}
+
+export function transitionMemo(input: MemoTransitionInput): Promise<MemoMutationResult> {
+  return postJson<MemoMutationResult>("memos/transition", { input });
+}
+
+export function archiveMemo(input: MemoArchiveInput): Promise<MemoMutationResult> {
+  return postJson<MemoMutationResult>("memos/archive", { input });
+}
+
+export function restoreMemo(input: MemoArchiveInput): Promise<MemoMutationResult> {
+  return postJson<MemoMutationResult>("memos/restore", { input });
+}
+
+export type {
+  MemoArchiveInput,
+  MemoAssignee,
+  MemoCreateInput,
+  MemoListInput,
+  MemoListResult,
+  MemoMutationResult,
+  MemoSummary,
+  MemoTransitionInput,
+  MemoUpdateInput,
+  StoreMemo,
+} from "@/features/memos/model/contracts";

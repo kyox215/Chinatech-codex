@@ -67,6 +67,7 @@ import {
   canUseInventoryV2Commands,
   canUseInventoryV2Ui,
 } from "@/features/inventory/server/inventory-v2-access";
+import { isMemosEnabledForStore } from "@/features/memos/server/memo-feature";
 
 const ACTIVE_STORE_COOKIE = "repairdesk-store-id";
 const STORE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -1389,6 +1390,7 @@ async function storePermissionsFromActor(
   const canUpdateStoreSettings = can(actor, "settings:update_store");
   const canManageMembers = can(actor, "member:manage_basic");
   const canInviteMembers = canManageMembers && can(actor, "member:invite");
+  const memosEnabled = isMemosEnabledForStore(actor.storeId);
   return {
     orderDataAccess,
     canReadSuppliers: can(actor, "supplier:read"),
@@ -1439,6 +1441,11 @@ async function storePermissionsFromActor(
     canManageKioskDevices: canUpdateStoreSettings,
     canReviewKioskSessions: canUpdateStoreSettings && can(actor, "order:update_intake"),
     canViewAudit: can(actor, "support:view_audit"),
+    canReadMemos:
+      memosEnabled && Boolean(actor.storeId && actor.activeMembershipId && !actor.isSystem),
+    canCreateMemos:
+      memosEnabled && actor.storeRole !== "viewer" && Boolean(actor.activeMembershipId),
+    canManageMemos: memosEnabled && (actor.storeRole === "owner" || actor.storeRole === "manager"),
   };
 }
 

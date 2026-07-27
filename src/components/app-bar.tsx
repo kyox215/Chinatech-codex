@@ -29,7 +29,7 @@ function useCrumbs() {
 function usesRepairOsMobileHeader(pathname: string) {
   return (
     pathname === "/" ||
-    /^\/(?:orders|customers|buyback|inventory|finance|messages|platform|settings)(?:\/|$)/.test(
+    /^\/(?:orders|customers|memos|buyback|inventory|finance|messages|platform|settings)(?:\/|$)/.test(
       pathname,
     )
   );

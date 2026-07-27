@@ -79,6 +79,13 @@ export const permissionActions = [
   "support:view_audit",
   "unlock:read",
   "attachment:read",
+  "memo:read",
+  "memo:create",
+  "memo:update",
+  "memo:assign",
+  "memo:transition",
+  "memo:archive",
+  "memo:restore",
 ] as const;
 
 export type PermissionAction = (typeof permissionActions)[number];
@@ -326,6 +333,13 @@ export const permissionActionDefinitions: Record<PermissionAction, PermissionAct
     auditRequired: true,
     sensitive: true,
   },
+  "memo:read": { label: "查看本店铺备忘录", requiresStore: true, sensitive: true },
+  "memo:create": { label: "创建本店铺备忘录", requiresStore: true },
+  "memo:update": { label: "编辑本店铺备忘录", requiresStore: true, auditRequired: true },
+  "memo:assign": { label: "分配本店铺待办", requiresStore: true, auditRequired: true },
+  "memo:transition": { label: "流转本店铺待办", requiresStore: true, auditRequired: true },
+  "memo:archive": { label: "归档本店铺备忘录", requiresStore: true, auditRequired: true },
+  "memo:restore": { label: "恢复本店铺备忘录", requiresStore: true, auditRequired: true },
 };
 
 const allow: PermissionEffect = "allow";
@@ -402,6 +416,13 @@ export const rolePermissions: RolePermissionMatrix = {
     "support:view_audit": allow,
     "unlock:read": allow,
     "attachment:read": allow,
+    "memo:read": allow,
+    "memo:create": allow,
+    "memo:update": allow,
+    "memo:assign": allow,
+    "memo:transition": allow,
+    "memo:archive": allow,
+    "memo:restore": allow,
   },
   manager: {
     "workspace:open": allow,
@@ -471,6 +492,13 @@ export const rolePermissions: RolePermissionMatrix = {
     "support:view_audit": allow,
     "unlock:read": allow,
     "attachment:read": allow,
+    "memo:read": allow,
+    "memo:create": allow,
+    "memo:update": allow,
+    "memo:assign": allow,
+    "memo:transition": allow,
+    "memo:archive": allow,
+    "memo:restore": allow,
   },
   technician: {
     "workspace:open": allow,
@@ -540,6 +568,13 @@ export const rolePermissions: RolePermissionMatrix = {
     "support:view_audit": deny,
     "unlock:read": scoped,
     "attachment:read": scoped,
+    "memo:read": allow,
+    "memo:create": allow,
+    "memo:update": scoped,
+    "memo:assign": scoped,
+    "memo:transition": scoped,
+    "memo:archive": deny,
+    "memo:restore": deny,
   },
   sales: {
     "workspace:open": allow,
@@ -609,6 +644,13 @@ export const rolePermissions: RolePermissionMatrix = {
     "support:view_audit": deny,
     "unlock:read": elevated,
     "attachment:read": scoped,
+    "memo:read": allow,
+    "memo:create": allow,
+    "memo:update": scoped,
+    "memo:assign": scoped,
+    "memo:transition": scoped,
+    "memo:archive": deny,
+    "memo:restore": deny,
   },
   viewer: {
     "workspace:open": allow,
@@ -678,6 +720,13 @@ export const rolePermissions: RolePermissionMatrix = {
     "support:view_audit": deny,
     "unlock:read": deny,
     "attachment:read": scoped,
+    "memo:read": allow,
+    "memo:create": deny,
+    "memo:update": deny,
+    "memo:assign": deny,
+    "memo:transition": deny,
+    "memo:archive": deny,
+    "memo:restore": deny,
   },
 };
 

@@ -387,7 +387,7 @@ export function RepairOsListScaffold({
             )}
           >
             {mobileLeading ?? (
-              <SidebarTrigger className="size-10 rounded-xl border border-[var(--border-panel)] bg-card shadow-none" />
+              <SidebarTrigger className="size-11 rounded-xl border border-[var(--border-panel)] bg-card shadow-none" />
             )}
             <div className="min-w-0 text-center">
               <p className="truncate text-sm font-semibold leading-5">{title}</p>
@@ -403,16 +403,17 @@ export function RepairOsListScaffold({
               <div
                 className="grid min-w-0 gap-1.5"
                 style={{
-                  gridTemplateColumns: `minmax(0, 1fr) repeat(${searchTrailingActions.length}, 40px)`,
+                  gridTemplateColumns: `minmax(0, 1fr) repeat(${searchTrailingActions.length}, 44px)`,
                 }}
               >
-                <div className={cn(repairOs.searchBar, "h-10 rounded-xl px-2 shadow-none")}>
+                <div className={cn(repairOs.searchBar, "h-11 rounded-xl px-2 shadow-none")}>
                   <Search className="size-3.5 shrink-0 text-muted-foreground" />
                   <Input
                     value={searchValue}
                     onChange={(event) => onSearchChange(event.target.value)}
                     placeholder={searchPlaceholder}
-                    className={cn(repairOs.searchInput, "h-9 text-base")}
+                    aria-label={searchPlaceholder}
+                    className={cn(repairOs.searchInput, "h-11 text-base")}
                   />
                 </div>
                 {searchAction}
@@ -422,7 +423,7 @@ export function RepairOsListScaffold({
                       type="button"
                       variant="outline"
                       size="icon"
-                      className="size-10 rounded-xl bg-card"
+                      className="size-11 rounded-xl bg-card"
                       aria-label="筛选"
                       disabled
                     >
@@ -440,7 +441,7 @@ export function RepairOsListScaffold({
                 </span>
                 <button
                   type="button"
-                  className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   aria-label="清除搜索"
                   onClick={() => onSearchChange?.("")}
                 >
@@ -455,7 +456,7 @@ export function RepairOsListScaffold({
       </div>
 
       {resolvedDesktopHeader ? (
-        <div className="hidden md:block">{resolvedDesktopHeader}</div>
+        <div className="hidden lg:block">{resolvedDesktopHeader}</div>
       ) : null}
       {children}
     </div>
@@ -520,7 +521,7 @@ function RepairOsHeaderStepper({
               key={chip.key}
               type="button"
               onClick={chip.onClick}
-              className="relative z-10 grid min-w-0 justify-items-center gap-0.5 px-0.5 text-center"
+              className="relative z-10 grid min-h-11 min-w-0 justify-items-center gap-0.5 px-0.5 text-center"
               aria-pressed={chip.active}
             >
               {content}
@@ -554,7 +555,7 @@ export function RepairOsHeaderActionButton({
     <Button
       type="button"
       size="icon"
-      className="size-7 rounded-lg border-0 text-primary-foreground shadow-[var(--shadow-action)]"
+      className="size-11 rounded-xl border-0 text-primary-foreground shadow-[var(--shadow-action)]"
       style={brandGradientStyle}
       onClick={onClick}
       aria-label={ariaLabel}

@@ -162,3 +162,24 @@ npm run storybook
 - Rollout order for code that requires a new RPC is database expand first, catalog/grant/PostgREST visibility verification second, and application deployment last. A caller must never deploy before its required RPC.
 - Existing page layout and UI are unchanged by TASK-009. UI work from TASK-010 is an independent change set and must not be staged with this release.
 - Production database application still follows the Database Application Gate. A migration that passes targeted schema-clone tests is not automatically safe to apply when linked security or recovery gates fail.
+
+## Store Memos — 2026-07-27
+
+- `/memos` is a thin App Router entry that renders `features/memos/screens`; contracts, query keys,
+  UI, server policy, repository, service and mock parity remain inside the feature boundary.
+- All reads and writes pass through the existing RepairDesk BFF. Client code does not access Supabase
+  tables directly. Every repository query is store-scoped, and every mutation uses the typed,
+  service-role-only `repairdesk_mutate_store_memo_rpc`.
+- `store_memos` is the business table. `store_memo_operation_receipts` is durable mutation
+  idempotency metadata. A generic PII-free hashed-scope limiter counts BFF read/write attempts outside
+  tenant export data. Same-store membership foreign keys prevent cross-store actors and
+  assignees; lifecycle fences and the dynamic purge/restore catalog continue to own store deletion.
+- Memo authorization is server-owned and non-grantable: owners/managers manage all rows;
+  technicians/sales edit body text only on rows they created and transition rows they created or own;
+  viewers are read-only. Multi-store users require an explicit current-store selection. A platform
+  administrator without an active membership does not gain memo access.
+- `memos` is a route-and-capability-aware Realtime domain. Broadcast payloads contain invalidation
+  metadata only; query caches are invalidated under `memosKeys.store(storeId)`. Hard deletion does not
+  advance the memo revision or emit a Broadcast.
+- Rollout is fail closed behind `REPAIRDESK_MEMOS_ENABLED=1` plus an exact UUID store allowlist. See
+  `docs/STORE_MEMOS.md` for API, release, rollback and operational evidence.

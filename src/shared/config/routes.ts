@@ -5,6 +5,7 @@ export const appRoutes = {
   orderDetail: (id: string) => `/orders/${id}`,
   orderTask: (id: string) => `/orders/${id}/task`,
   customers: "/customers",
+  memos: "/memos",
   customerDetail: (id: string) => `/customers/${id}`,
   inventory: "/inventory",
   messages: "/messages",
