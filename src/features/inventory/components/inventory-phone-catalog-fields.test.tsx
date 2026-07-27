@@ -25,16 +25,19 @@ function setViewportWidth(width: number) {
   Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
-    value: vi.fn((query: string) => ({
-      matches: query.includes("max-width") ? width < 768 : width >= 768,
-      media: query,
-      onchange: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
+    value: vi.fn((query: string) => {
+      const maxWidth = Number(query.match(/max-width:\s*(\d+)px/)?.[1]);
+      return {
+        matches: Number.isFinite(maxWidth) ? width <= maxWidth : false,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      };
+    }),
   });
 }
 
@@ -58,11 +61,12 @@ function renderFields(
 }
 
 describe("InventoryPhoneCatalogFields", () => {
-  it("uses a fixed mobile drawer with an isolated touch scroll surface", async () => {
+  it("opens the fixed mobile picker without focusing the search input", async () => {
     setViewportWidth(390);
     renderFields({ brand: "", model: "", storageCapacity: "", color: "" });
 
-    fireEvent.click(screen.getByRole("combobox", { name: "品牌 *" }));
+    const trigger = screen.getByRole("combobox", { name: "品牌 *" });
+    fireEvent.click(trigger);
 
     expect(await screen.findByRole("dialog", { name: "品牌" })).toHaveAttribute(
       "data-inventory-catalog-picker",
@@ -73,6 +77,20 @@ describe("InventoryPhoneCatalogFields", () => {
       "overscroll-contain",
       "[touch-action:pan-y]",
     );
+    expect(screen.getByPlaceholderText("搜索欧洲常见品牌")).not.toHaveFocus();
+  });
+
+  it("uses the fixed picker on touch-first tablet widths", async () => {
+    setViewportWidth(820);
+    renderFields({ brand: "", model: "", storageCapacity: "", color: "" });
+
+    fireEvent.click(screen.getByRole("combobox", { name: "品牌 *" }));
+
+    expect(await screen.findByRole("dialog", { name: "品牌" })).toHaveAttribute(
+      "data-inventory-catalog-picker",
+      "mobile",
+    );
+    expect(screen.getByPlaceholderText("搜索欧洲常见品牌")).not.toHaveFocus();
   });
 
   it("keeps the anchored catalog popover on desktop", async () => {

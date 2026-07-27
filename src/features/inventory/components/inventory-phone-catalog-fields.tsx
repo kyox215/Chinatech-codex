@@ -32,7 +32,7 @@ import {
   phoneColorBackground,
   type PhoneColorOption,
 } from "@/features/inventory/model/eu-phone-catalog";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsCompactWorkspace } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 type CatalogSelection = {
@@ -194,7 +194,7 @@ function CatalogCombobox({
   disabled?: boolean;
   onSelect: (selection: CatalogSelection) => void;
 }) {
-  const isMobile = useIsMobile();
+  const useFixedPicker = useIsCompactWorkspace();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -232,7 +232,7 @@ function CatalogCombobox({
       query={query}
       placeholder={placeholder}
       options={options}
-      mobile={isMobile}
+      fixedSurface={useFixedPicker}
       onQueryChange={setQuery}
       onChoose={choose}
     />
@@ -241,10 +241,11 @@ function CatalogCombobox({
   return (
     <div className="min-w-0 space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
-      {isMobile ? (
+      {useFixedPicker ? (
         <Drawer
           open={open}
           onOpenChange={handleOpenChange}
+          autoFocus={false}
           fixed
           handleOnly
           shouldScaleBackground={false}
@@ -253,7 +254,7 @@ function CatalogCombobox({
           <DrawerTrigger asChild>{trigger}</DrawerTrigger>
           <DrawerContent
             data-inventory-catalog-picker="mobile"
-            className="h-[min(32rem,calc(100dvh-8px))] max-h-[calc(100dvh-8px)] p-0"
+            className="h-[min(32rem,calc(100dvh-8px))] max-h-[calc(100dvh-8px)] overscroll-none p-0 md:inset-x-4 md:mx-auto md:max-w-2xl"
           >
             <DrawerHeader className="relative shrink-0 gap-0.5 border-b border-[var(--border-panel)] px-4 pb-3 pt-2 text-left">
               <DrawerTitle className="pr-12 text-base">{label.replace("*", "").trim()}</DrawerTitle>
@@ -297,7 +298,7 @@ function CatalogCommandPicker({
   query,
   placeholder,
   options,
-  mobile,
+  fixedSurface,
   onQueryChange,
   onChoose,
 }: {
@@ -305,7 +306,7 @@ function CatalogCommandPicker({
   query: string;
   placeholder: string;
   options: Array<{ value: string; description?: string; keywords?: string }>;
-  mobile: boolean;
+  fixedSurface: boolean;
   onQueryChange: (value: string) => void;
   onChoose: (selection: CatalogSelection) => void;
 }) {
@@ -317,20 +318,23 @@ function CatalogCommandPicker({
   return (
     <Command
       shouldFilter
-      className={cn(mobile && "h-auto min-h-0 flex-1 rounded-none")}
-      data-inventory-catalog-command={mobile ? "mobile" : "desktop"}
+      className={cn(fixedSurface && "h-auto min-h-0 flex-1 rounded-none")}
+      data-inventory-catalog-command={fixedSurface ? "mobile" : "desktop"}
     >
       <CommandInput
+        data-inventory-catalog-search
         value={query}
         onValueChange={onQueryChange}
         placeholder={placeholder}
+        inputMode="search"
+        enterKeyHint="search"
         className="text-base sm:text-sm"
       />
       <CommandList
         data-inventory-catalog-list
         className={cn(
           "overscroll-contain [touch-action:pan-y] [-webkit-overflow-scrolling:touch]",
-          mobile ? "min-h-0 max-h-none flex-1" : "max-h-[min(22rem,55svh)]",
+          fixedSurface ? "min-h-0 max-h-none flex-1" : "max-h-[min(22rem,55svh)]",
         )}
       >
         <CommandEmpty className="px-3 py-4 text-left text-xs text-muted-foreground">
