@@ -204,6 +204,7 @@ export interface ExampleCardProps {
 - KPI 小卡优先使用 `repairOs.metricCard` / `repairOs.metricCardDense`，指标内容优先交给 `RepairOsInfoTile` 的 `leading` / `trailing` / `meta` slots；不要在业务页面继续手写 `glass-card p-4` 或重复的 label/value/icon 三段结构。
 - 导入预览、批量操作预览、审计摘要等“确认前检查”面板优先使用 `RepairOsBusinessCard` 承载标题/说明/状态，再用 `RepairOsInfoTile` 展示数量和金额；warning 只展示行号、字段和原因，不展示原始敏感值。
 - 状态、标签、数量和风险提示 chip 优先使用 `RepairOsBadge` 或已有业务 badge；不要在业务页面重复手写 `inline-flex rounded-full px-* text-[9px]` 的 pill 结构，长文本必须保留 `min-w-0` / `truncate`。
+- `RepairOsListScaffold` 的 `chips` 是可选能力，不是新列表页默认组成。新功能默认使用搜索、单一筛选入口和主动作；只有产品确认的核心工作队列才传入顶部 chips，不能把所有状态自动平铺。
 - 仅展示数量、进度或状态的 chip 不得渲染为无处理逻辑的 `<button>`；只有存在真实动作时才使用按钮语义，并提供键盘、触摸和状态变化反馈。
 - 移动详情和任务页面默认使用 RepairOS Floating Card 组件语言：顶部使用 `repairOs.mobileFloatingHeader*`，正文信息块使用 `repairOs.mobileInfoCard`。
 - 移动详情、任务、报价、收款、扫码、拍照和历史记录组件必须遵守 [`REPAIROS_MOBILE_DETAIL_STANDARD.md`](./REPAIROS_MOBILE_DETAIL_STANDARD.md)。订单详情页的“客户信息 / 设备信息 / 维修项目与报价 / 支付信息”是移动卡片字号、间距、色彩强调和信息层级的基准。

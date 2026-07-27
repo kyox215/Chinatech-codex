@@ -62,7 +62,7 @@ describe("memo permission policy", () => {
     ).toThrow();
   });
 
-  it("fails closed for a multi-store actor without an explicit valid selection", () => {
+  it("uses the resolved current store for a multi-store actor without extra confirmation", () => {
     const multiStore = {
       ...actor("owner"),
       activeStoreExplicit: false,
@@ -83,11 +83,11 @@ describe("memo permission policy", () => {
         },
       ],
     };
-    expect(() => requireMemoActor(multiStore)).toThrow("明确选择");
+    expect(requireMemoActor(multiStore).storeId).toBe("20000000-0000-4000-8000-000000000001");
     expect(() => requireMemoActor({ ...multiStore, activeStoreExplicit: true })).not.toThrow();
   });
 
-  it("keeps the single-store fallback usable but rejects an invalid-cookie multi-store fallback", () => {
+  it("keeps single-store and resolved multi-store fallbacks store-scoped", () => {
     const singleStore = {
       ...actor("owner"),
       activeStoreExplicit: false,
@@ -102,7 +102,7 @@ describe("memo permission policy", () => {
       ],
     };
     expect(() => requireMemoActor(singleStore)).not.toThrow();
-    expect(() =>
+    expect(
       requireMemoActor({
         ...singleStore,
         stores: [
@@ -115,7 +115,7 @@ describe("memo permission policy", () => {
             status: "active" as const,
           },
         ],
-      }),
-    ).toThrow("明确选择");
+      }).storeId,
+    ).toBe("20000000-0000-4000-8000-000000000001");
   });
 });

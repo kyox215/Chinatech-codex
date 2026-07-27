@@ -9,7 +9,7 @@ import type { AuditActor } from "@/lib/repairdesk/types";
 import { assertPermission } from "@/server/permissions";
 
 import { assertMemosFeature } from "./memo-feature";
-import { assertMemoActorStoreExplicit, requireMemoActorIdentity } from "./memo-policy";
+import { requireMemoActorIdentity } from "./memo-policy";
 import {
   getMemo,
   getMemoSummary,
@@ -22,7 +22,6 @@ import {
 async function actorForMemos(actor: AuditActor, bucket: "read" | "write") {
   const memoActor = requireMemoActorIdentity(actor);
   await consumeMemoAttempt(memoActor, bucket);
-  assertMemoActorStoreExplicit(actor);
   assertMemosFeature(actor);
   assertPermission(memoActor, "memo:read");
   return memoActor;

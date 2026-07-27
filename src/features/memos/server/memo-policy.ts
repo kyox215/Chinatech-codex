@@ -10,9 +10,7 @@ export type MemoActor = AuditActor & {
 };
 
 export function requireMemoActor(actor: AuditActor): MemoActor {
-  const memoActor = requireMemoActorIdentity(actor);
-  assertMemoActorStoreExplicit(actor);
-  return memoActor;
+  return requireMemoActorIdentity(actor);
 }
 
 export function requireMemoActorIdentity(actor: AuditActor): MemoActor {
@@ -26,12 +24,6 @@ export function requireMemoActorIdentity(actor: AuditActor): MemoActor {
     throw new ForbiddenError();
   }
   return actor as MemoActor;
-}
-
-export function assertMemoActorStoreExplicit(actor: AuditActor) {
-  if ((actor.stores?.length ?? 0) > 1 && actor.activeStoreExplicit !== true) {
-    throw new ForbiddenError("请先明确选择当前店铺");
-  }
 }
 
 export function memoCapabilities(actor: MemoActor): MemoCapabilities {

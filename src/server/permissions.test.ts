@@ -110,6 +110,9 @@ describe("server permission matrix", () => {
   });
 
   it("keeps memo actions role/scoped and non-grantable", () => {
+    for (const role of permissionRoles) {
+      expect(can(actor(role), "memo:read"), role).toBe(true);
+    }
     expect(can(actor("owner"), "memo:archive")).toBe(true);
     expect(can(actor("manager"), "memo:restore")).toBe(true);
     expect(can(actor("technician"), "memo:create")).toBe(true);

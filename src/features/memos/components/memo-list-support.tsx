@@ -8,13 +8,13 @@ import type { MemoAssignee, MemoListInput, MemoView } from "@/features/memos/mod
 import { RepairDeskApiError } from "@/lib/repairdesk/api";
 import { RepairOsBusinessCard, RepairOsListScaffold } from "@/shared/ui";
 
-export const memoViews: { value: MemoView; label: string; short: string }[] = [
-  { value: "active", label: "全部", short: "全" },
-  { value: "pending", label: "待处理", short: "待" },
-  { value: "mine", label: "我的", short: "我" },
-  { value: "overdue", label: "超期", short: "超" },
-  { value: "completed", label: "已完成", short: "完" },
-  { value: "archived", label: "已归档", short: "档" },
+export const memoViewOptions: { value: MemoView; label: string }[] = [
+  { value: "active", label: "当前记录" },
+  { value: "pending", label: "待处理" },
+  { value: "mine", label: "我的" },
+  { value: "overdue", label: "超期" },
+  { value: "completed", label: "已完成" },
+  { value: "archived", label: "已归档" },
 ];
 
 export function MemoPagination({
@@ -57,32 +57,52 @@ export function MemoPagination({
 
 export function MemoFilterControls({
   search,
+  view,
   kind,
   assigneeId,
   assignees,
   onSearchChange,
+  onViewChange,
   onKindChange,
   onAssigneeChange,
   onRefresh,
+  showSearch = true,
 }: {
   search: string;
+  view: MemoView;
   kind: MemoListInput["kind"];
   assigneeId: string;
   assignees: MemoAssignee[];
   onSearchChange: (value: string) => void;
+  onViewChange: (value: MemoView) => void;
   onKindChange: (value: MemoListInput["kind"]) => void;
   onAssigneeChange: (value: string) => void;
   onRefresh: () => void;
+  showSearch?: boolean;
 }) {
   return (
-    <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_160px_190px_auto]">
-      <Input
-        value={search}
-        placeholder="搜索标题或正文"
-        aria-label="搜索备忘录标题或正文"
-        className="h-11 text-base sm:h-9 sm:text-sm"
-        onChange={(event) => onSearchChange(event.target.value)}
-      />
+    <div className="grid min-w-0 gap-2 lg:grid-cols-[minmax(0,1fr)_140px_140px_180px_auto]">
+      {showSearch ? (
+        <Input
+          value={search}
+          placeholder="搜索标题或正文"
+          aria-label="搜索备忘录标题或正文"
+          className="h-11 text-base sm:h-9 sm:text-sm"
+          onChange={(event) => onSearchChange(event.target.value)}
+        />
+      ) : null}
+      <select
+        value={view}
+        aria-label="查看范围"
+        className="h-11 rounded-md border border-input bg-background px-3 text-base sm:h-9 sm:text-sm"
+        onChange={(event) => onViewChange(event.target.value as MemoView)}
+      >
+        {memoViewOptions.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
       <select
         value={kind}
         aria-label="备忘类型"

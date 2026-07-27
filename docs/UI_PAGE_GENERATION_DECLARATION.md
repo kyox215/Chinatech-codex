@@ -72,18 +72,18 @@ import { brandGradientStyle, pageShell, repairOs, surfaces } from "@/lib/ui-patt
 
 ### 3.1 RepairOS Compact 移动业务页
 
-用于订单管理、客户管理、回收管理、库存商品、设置等移动优先页面。优先使用 `repairOs.mobilePage`、`repairOs.metricStrip`、`repairOs.chipRow`、`repairOs.businessCard`。
+用于订单管理、客户管理、回收管理、库存商品、设置等移动优先页面。优先使用 `repairOs.mobilePage`、`repairOs.metricStrip`、`repairOs.businessCard`；`repairOs.chipRow` 只在状态分组确属核心工作队列时使用。
 
 结构固定：
 
 1. 桌面端和移动端都不重复模块标题，不做大 hero；模块名称、面包屑和店铺上下文由 `AppBar` / 移动悬浮头负责。
 2. 搜索/扫码/筛选工具条高度控制在 44px 左右。
 3. KPI 使用 2-3 个小卡片，不占满首屏。
-4. 短状态筛选可使用换行 chips；订单首页等多状态工作队列必须使用固定或自动换行网格，移动端禁止横向滑动状态栏。
+4. 新页面默认不增加顶部状态 chips、Tab 或 Stepper；状态筛选收纳进筛选入口。只有经过产品确认、需要员工高频切换的核心工作队列才可显示 2-4 个短状态；订单首页等既有多状态工作队列使用固定或自动换行网格，移动端禁止横向滑动状态栏。
 5. 主体使用高密度业务卡片，一屏目标 4-7 条。
 6. 桌面端使用固定侧边栏；移动端使用同一套侧边栏抽屉，默认收纳，由 AppBar 左侧菜单按钮打开。
 7. 移动端禁止再新增底部模块导航，避免与侧边栏重复；导航项统一来自 `src/shared/config/navigation.ts`。
-8. 进入模块后，不再重复显示页面内部大标题区；内容从 KPI、工具条、chips 或业务卡片开始。
+8. 进入模块后，不再重复显示页面内部大标题区；内容默认从工具条或业务卡片开始，KPI 和 chips 都是有明确业务价值时才使用的可选信息。
 9. 扫码和拍照作为全局工具，由悬浮 `+` 或模块工具条触发。
 10. 移动端悬浮 `+` 和快捷操作 Sheet 必须复用 `repairOs.floatingAction`、`repairOs.quickSheet`、`repairOs.quickAction*`；第一项展示当前模块主动作，其余才是扫码、拍照、搜索等全局工具。
 11. 移动端详情页和高频工作流页面必须使用 RepairOS Floating Card：`repairOs.mobileFloatingPage` + `repairOs.mobileFloatingHeader*` + `repairOs.mobileInfoCard`，顶部是一张圆角悬浮工作卡，不再使用整屏横线分割的固定顶栏。

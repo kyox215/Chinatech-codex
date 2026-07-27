@@ -25,15 +25,9 @@ import {
   MemoLoading,
   MemoLoadingRows,
   MemoPagination,
-  memoViews,
 } from "@/features/memos/components/memo-list-support";
 import { MemoEditor, type MemoEditorSaveInput } from "@/features/memos/forms/memo-editor";
-import {
-  memoAssigneesQueryOptions,
-  memoListQueryOptions,
-  memoSummaryQueryOptions,
-  memosKeys,
-} from "@/features/memos/api";
+import { memoAssigneesQueryOptions, memoListQueryOptions, memosKeys } from "@/features/memos/api";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import {
   archiveMemo,
@@ -79,10 +73,6 @@ export function MemosScreen() {
   );
   const listQuery = useQuery({
     ...memoListQueryOptions(input, storeId),
-    enabled: Boolean(storeId && shell.permissions?.canReadMemos),
-  });
-  const summaryQuery = useQuery({
-    ...memoSummaryQueryOptions(storeId),
     enabled: Boolean(storeId && shell.permissions?.canReadMemos),
   });
   const assigneesQuery = useQuery({
@@ -176,24 +166,6 @@ export function MemosScreen() {
   const detailMemo = editingMemo ?? (selected && "content" in selected ? selected : null);
   const latestDetail = detailQuery.data;
   const offlineWithoutCache = !online && !listQuery.data;
-  const summary = summaryQuery.data;
-  const chips = memoViews.map((item) => ({
-    key: item.value,
-    label: item.label,
-    shortLabel: item.short,
-    active: view === item.value,
-    count:
-      item.value === "pending"
-        ? summary?.pending
-        : item.value === "mine"
-          ? summary?.mine
-          : item.value === "overdue"
-            ? summary?.overdue
-            : item.value === "completed"
-              ? summary?.completed
-              : undefined,
-    onClick: () => setView(item.value),
-  }));
   const createAction = shell.permissions?.canCreateMemos ? (
     <RepairOsHeaderActionButton
       onClick={openCreate}
@@ -205,16 +177,19 @@ export function MemosScreen() {
   ) : null;
   if (shell.isLoading) return <MemoLoading />;
   if (!storeId || !shell.permissions?.canReadMemos) return <MemoDeniedState />;
-  const filterControls = (
+  const filterControls = (showSearch: boolean) => (
     <MemoFilterControls
       search={search}
+      view={view}
       kind={kind}
       assigneeId={assigneeId}
       assignees={assigneesQuery.data ?? []}
       onSearchChange={setSearch}
+      onViewChange={setView}
       onKindChange={setKind}
       onAssigneeChange={setAssigneeId}
       onRefresh={() => void refresh()}
+      showSearch={showSearch}
     />
   );
 
@@ -231,7 +206,7 @@ export function MemosScreen() {
           </Button>
         ) : null
       }
-      desktopHeaderAddon={filterControls}
+      desktopHeaderAddon={filterControls(true)}
       searchValue={search}
       searchPlaceholder="搜索标题或正文"
       onSearchChange={setSearch}
@@ -249,8 +224,6 @@ export function MemosScreen() {
           <Filter className="size-4" />
         </Button>
       }
-      chips={chips}
-      chipsLabel="备忘录视图"
     >
       {!online ? (
         <Alert className="mb-2">
@@ -268,7 +241,7 @@ export function MemosScreen() {
           id="memo-mobile-filters"
           className="mb-2 rounded-xl border border-[var(--border-panel)] bg-card p-2 lg:hidden"
         >
-          {filterControls}
+          {filterControls(false)}
         </div>
       ) : null}
       {shell.activeStore?.role === "viewer" ? (

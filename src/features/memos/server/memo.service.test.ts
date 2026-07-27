@@ -41,8 +41,8 @@ describe("memo service authority and attempt fences", () => {
     repository.listMemos.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 20 });
   });
 
-  it("consumes a durable read attempt before rejecting an invalid multi-store selection", async () => {
-    const invalidCookieActor: AuditActor = {
+  it("reads the resolved current store for a multi-store actor without extra confirmation", async () => {
+    const resolvedStoreActor: AuditActor = {
       ...actor,
       activeStoreExplicit: false,
       stores: [
@@ -56,12 +56,15 @@ describe("memo service authority and attempt fences", () => {
       ],
     };
 
-    await expect(readMemoList({}, invalidCookieActor)).rejects.toThrow("明确选择");
+    await expect(readMemoList({}, resolvedStoreActor)).resolves.toMatchObject({ items: [] });
     expect(repository.consumeMemoAttempt).toHaveBeenCalledWith(
       expect.objectContaining({ storeId: storeA.id }),
       "read",
     );
-    expect(repository.listMemos).not.toHaveBeenCalled();
+    expect(repository.listMemos).toHaveBeenCalledWith(
+      expect.objectContaining({ storeId: storeA.id }),
+      {},
+    );
   });
 
   it("keeps the explicit single-store read path available", async () => {
