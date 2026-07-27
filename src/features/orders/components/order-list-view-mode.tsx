@@ -31,7 +31,7 @@ export function OrderListViewMode({
     <div
       className={cn(
         "grid shrink-0 grid-cols-3 rounded-md border border-border/60 bg-surface/55",
-        compact ? "gap-0.5 p-0.5" : "gap-1 p-1",
+        compact ? "gap-px rounded-[var(--order-mobile-radius,0.625rem)] border-0 p-0" : "gap-1 p-1",
       )}
       role="group"
       aria-label="订单显示范围"
@@ -46,12 +46,22 @@ export function OrderListViewMode({
             disabled={disabled}
             size="sm"
             variant={active ? "default" : "ghost"}
-            className={cn("h-9 gap-1 px-2 text-xs", compact && "h-11 min-w-0 px-1.5 text-[10px]")}
+            className={cn(
+              "h-9 gap-1 px-2 text-xs",
+              compact &&
+                "h-11 min-w-0 gap-[var(--order-mobile-gap,0.25rem)] rounded-[var(--order-mobile-radius,0.625rem)] px-[var(--order-mobile-pad,0.375rem)] text-[length:var(--order-mobile-meta,0.625rem)]",
+            )}
             aria-pressed={active}
             title={option.label}
             onClick={() => onChange(option.value)}
           >
-            <Icon className="size-3.5 shrink-0" />
+            <Icon
+              className={cn(
+                "size-3.5 shrink-0",
+                compact && "size-[var(--order-mobile-icon,0.875rem)]",
+              )}
+              aria-hidden="true"
+            />
             <span className="truncate">{option.label}</span>
           </Button>
         );

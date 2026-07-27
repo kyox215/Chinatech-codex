@@ -28,13 +28,31 @@ beforeEach(() => {
 afterEach(cleanup);
 
 const groups = [
-  { key: "all", label: "全部任务", count: 174 },
-  { key: "processing", label: "正在处理", count: 45 },
-  { key: "ordered", label: "等待配件", count: 24, tone: "info" as const },
-  { key: "arrived", label: "配件已到", count: 27, tone: "warn" as const },
-  { key: "arrived_notified", label: "已通知到货", count: 32, tone: "warn" as const },
-  { key: "repaired", label: "待通知取机", count: 4, tone: "success" as const },
-  { key: "repaired_notified", label: "等待客户取机", count: 42, tone: "success" as const },
+  { key: "all", label: "全部任务", shortLabel: "全", count: 174 },
+  { key: "processing", label: "正在处理", shortLabel: "处理中", count: 45 },
+  { key: "ordered", label: "等待配件", shortLabel: "等配件", count: 24, tone: "info" as const },
+  { key: "arrived", label: "配件已到", shortLabel: "已到货", count: 27, tone: "warn" as const },
+  {
+    key: "arrived_notified",
+    label: "已通知到货",
+    shortLabel: "已通知",
+    count: 32,
+    tone: "warn" as const,
+  },
+  {
+    key: "repaired",
+    label: "待通知取机",
+    shortLabel: "待通知",
+    count: 4,
+    tone: "success" as const,
+  },
+  {
+    key: "repaired_notified",
+    label: "等待客户取机",
+    shortLabel: "待取机",
+    count: 42,
+    tone: "success" as const,
+  },
 ];
 
 function renderHeader({
@@ -81,11 +99,12 @@ describe("MobileOrdersFloatingHeader", () => {
     ).toBeInTheDocument();
 
     const queueGroup = screen.getByRole("group", { name: "待处理状态" });
-    expect(queueGroup).toHaveClass("grid-cols-2", "min-[360px]:grid-cols-3");
+    expect(queueGroup).toHaveClass("grid-cols-4");
     expect(screen.getByRole("button", { name: "第 1 阶段：全部任务，174 条" })).toHaveClass(
       "col-span-2",
-      "min-[360px]:col-span-3",
     );
+    expect(screen.getByText("待取机")).toBeInTheDocument();
+    expect(screen.queryByText("等待客户取机")).not.toBeInTheDocument();
     expect(container.querySelectorAll('[aria-label$=" 条"]')).toHaveLength(7);
 
     fireEvent.click(screen.getByRole("button", { name: "第 3 阶段：等待配件，24 条" }));

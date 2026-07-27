@@ -60,28 +60,38 @@ export function OrderResultGroupHeader({
 }) {
   const Icon = groupIcons[group];
   const meta = orderResultGroupMeta[group];
+  const oldestDate = formatOrderListDate(oldestCreatedAt);
 
   return (
     <div
       data-order-result-group={group}
+      aria-label={`${meta.label}，本页 ${pageCount} 条，共 ${totalCount} 条，${meta.hint}，本页起 ${oldestDate}`}
       className={cn(
-        "flex min-h-9 min-w-0 items-center gap-2 rounded-md border px-2.5 py-1.5",
+        "flex min-h-10 min-w-0 items-center gap-[clamp(0.25rem,1.28vw,0.375rem)] rounded-[clamp(0.5rem,2.56vw,0.625rem)] border px-[clamp(0.375rem,2.05vw,0.5625rem)] py-1 lg:min-h-9 lg:gap-2 lg:rounded-md lg:px-2.5 lg:py-1.5",
         toneClass(group),
         className,
       )}
     >
-      <Icon className="size-3.5 shrink-0" aria-hidden="true" />
+      <Icon
+        className="size-[clamp(0.75rem,3.33vw,0.875rem)] shrink-0 lg:size-3.5"
+        aria-hidden="true"
+      />
       <div className="min-w-0 flex-1">
-        <h2 id={headingId} className="truncate text-xs font-semibold leading-4">
+        <h2
+          id={headingId}
+          className="truncate text-[clamp(0.6875rem,3.08vw,0.75rem)] font-semibold leading-3.5 lg:text-xs lg:leading-4"
+        >
           {meta.label}
         </h2>
-        <p className="truncate text-[11px] leading-4">{meta.hint}</p>
-      </div>
-      <div className="shrink-0 text-right text-[11px] leading-4 tabular-nums">
-        <p className="font-semibold">
-          本页 {pageCount} · 共 {totalCount}
+        <p className="truncate text-[clamp(0.5625rem,2.56vw,0.625rem)] leading-3 lg:text-[11px] lg:leading-4">
+          {meta.hint}
         </p>
-        <p>本页起 {formatOrderListDate(oldestCreatedAt)}</p>
+      </div>
+      <div className="shrink-0 text-right text-[clamp(0.5625rem,2.56vw,0.625rem)] leading-3 tabular-nums lg:text-[11px] lg:leading-4">
+        <p className="font-semibold">
+          {pageCount} / {totalCount}
+        </p>
+        <p>起 {oldestDate}</p>
       </div>
     </div>
   );

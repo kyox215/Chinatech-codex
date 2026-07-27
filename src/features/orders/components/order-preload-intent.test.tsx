@@ -88,6 +88,41 @@ describe("order detail preload intent", () => {
     expect(onOpenIntent).toHaveBeenCalledTimes(1);
   });
 
+  it("renders the mobile card as a compact scan-first summary", () => {
+    const { container } = render(<OrderMobileCard order={makeOrder()} />);
+
+    const card = container.querySelector('[data-order-mobile-card="true"]');
+    expect(card).toHaveAttribute("data-order-mobile-card-risk", "false");
+    expect(card).toHaveTextContent("Cliente Test");
+    expect(card).toHaveTextContent("R2026001");
+    expect(card).toHaveTextContent("Apple iPhone");
+    expect(card).toHaveTextContent("待确认维修项目 · Display");
+    expect(card).toHaveTextContent("Tecnico · 07/07/2026");
+    expect(card).toHaveTextContent("待审批");
+    expect(card).toHaveTextContent("待收");
+    expect(card).not.toHaveTextContent("定金");
+    expect(card).not.toHaveTextContent("门店保管");
+  });
+
+  it("keeps custody, overdue and finance redaction visible without leaking amounts", () => {
+    const { container } = render(
+      <OrderMobileCard
+        order={makeOrder({
+          approval_overdue: true,
+          device_custody_status: "with_customer",
+          finance_redacted: true,
+        })}
+      />,
+    );
+
+    const card = container.querySelector('[data-order-mobile-card="true"]');
+    expect(card).toHaveAttribute("data-order-mobile-card-risk", "true");
+    expect(card).toHaveTextContent("客户持有");
+    expect(card).toHaveTextContent("当前工单超期，请优先跟进");
+    expect(card).toHaveTextContent("金额受限");
+    expect(card?.textContent).not.toMatch(/€\s*100/);
+  });
+
   it("exposes a native detail link from the desktop row action menu", async () => {
     const user = userEvent.setup();
     const onOpen = vi.fn();
