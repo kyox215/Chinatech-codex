@@ -18,3 +18,10 @@
 
 Each candidate must include source, status, owner, scope, and review trigger
 before long-term consolidation.
+
+## Closeout disposition
+
+- **Project memory:** not promoted; the responsive and RepairOS compact principles already exist in the authoritative declarations, while exact dimensions remain task/test-owned implementation detail.
+- **Department memory:** no interface, SOP, responsibility boundary or persistent risk changed; no department file update required.
+- **Capability review:** successful T2/R2 evidence for bounded mobile UI implementation and browser verification, but one task does not justify a capability or autonomy level change.
+- **Conflicts/expired items:** none found.

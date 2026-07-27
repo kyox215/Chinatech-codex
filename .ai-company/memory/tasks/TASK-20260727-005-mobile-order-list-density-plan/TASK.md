@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260727-005-mobile-order-list-density-plan"
 title: "手机端工单分组栏与订单列表流体密度优化"
-status: "in_progress"
+status: "closed"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["INT", "FLOW", "UX", "QA"]
 created_at: "2026-07-27T02:14:34Z"
-updated_at: "2026-07-27T04:34:13Z"
+updated_at: "2026-07-27T04:37:23Z"
 ---
 # Task — 手机端工单分组栏与订单列表流体密度优化
 
@@ -59,7 +59,7 @@ Owner 已批准实施：缩小手机端工单分组区域和订单卡，使更�
 - [x] 订单卡常显客户、工单号、设备、阶段/下一步、付款风险和异常；金额受限不泄漏真实金额。
 - [x] 320/375/390/393/402/430/440px 无水平溢出，加载/离线/错误/空/长文案/大金额无布局跳动或语义回归。
 - [x] 完成相关组件测试、E2E、lint、typecheck、test和 build，并保存移动端结果截图。
-- [ ] 仅暂存任务文件，提交并推送独立 `agent/*` 分支，不夹带当前主工作区的无关改动。
+- [x] 仅暂存任务文件，提交并推送独立 `agent/*` 分支，不夹带当前主工作区的无关改动。
 
 ## Facts, assumptions, and unknowns
 
@@ -110,3 +110,11 @@ Owner 已批准实施：缩小手机端工单分组区域和订单卡，使更�
 - Required QA/security/data/release gates are satisfied or formally accepted.
 - Documentation and formal memory are synchronized.
 - Residual risks have owners and deadlines.
+
+## Closeout
+
+- **Quality gate:** PASS。
+- **Published branch:** `agent/mobile-order-list-fluid-density`。
+- **Implementation commit:** `b73be2cab6c869d7830f709d6a7fdc7cb67c9504`（远端 SHA 已核对）。
+- **Deployment:** 未部署；未创建 PR、未合并主分支。
+- **Residual risk:** 仅剩真实设备上的 Safari 字体渲染细微差异，已有 WebKit 7 档宽度截图与量化 E2E 覆盖；合并前可按常规人工抽查，无阻断风险。
