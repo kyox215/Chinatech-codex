@@ -51,6 +51,7 @@ import {
 import { customerIntakePolicyBlocksSubmit } from "@/features/customers/model/customer-intake-search";
 import { NewOrderQuotationSection } from "@/features/orders/forms/new-order-quotation-section";
 import { NewOrderSubmitBar } from "@/features/orders/forms/new-order-submit-bar";
+import { NewOrderGuidedWorkspace } from "@/features/orders/forms/new-order-guided-workspace";
 import { OrderWorkspaceMoneyStrip } from "@/features/orders/components/order-workspace-primitives";
 import {
   useNewOrderOfflineAutosave,
@@ -66,8 +67,15 @@ import {
   type NewOrderFormState,
 } from "@/features/orders/model/new-order-form";
 import { formatWarrantyText, warrantyReasonRequired } from "@/features/orders/model/order-warranty";
-import { normalizeUnlockForCustody } from "@/features/orders/model/device-custody";
+import {
+  deviceCustodyAllowsStatus,
+  normalizeUnlockForCustody,
+} from "@/features/orders/model/device-custody";
 import { isRepairDeskOfflineSyncEnabled } from "@/features/offline/model/offline-sync-feature";
+import {
+  isNewOrderSessionStoreChanged,
+  isNewOrderSimpleModeEnabled,
+} from "@/features/orders/model/new-order-simple-mode-feature";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { orderWorkflowQueryOptions } from "@/features/orders/api/query-options";
 import { ordersKeys } from "@/features/orders/api/query-keys";
@@ -120,6 +128,10 @@ export function NewOrderScreen({
     "calc(env(safe-area-inset-top) + 5.5rem)",
   );
   const [hydrated, setHydrated] = useState(false);
+  const [guidedStep, setGuidedStep] = useState(0);
+  const [diagnosisDeferred, setDiagnosisDeferred] = useState(false);
+  const [sessionStoreId, setSessionStoreId] = useState<string | null>(null);
+  const [sessionEntryMode, setSessionEntryMode] = useState<"simple" | "professional" | null>(null);
 
   useEffect(() => {
     setHydrated(true);
@@ -178,10 +190,12 @@ export function NewOrderScreen({
     form,
     scope: offlineScope,
   });
-  const { data: storeSettings } = useQuery({
+  const storeSettingsQuery = useQuery({
     ...storeSettingsQueryOptions(activeStoreId),
     enabled: Boolean(activeStoreId),
+    refetchOnMount: "always",
   });
+  const storeSettings = storeSettingsQuery.data;
   const { data: workflow } = useQuery({
     ...orderWorkflowQueryOptions(activeStoreId),
     enabled: Boolean(activeStoreId),
@@ -197,6 +211,41 @@ export function NewOrderScreen({
   const defaultCreateStatus =
     createStatuses.find((status) => status.is_default_create_status) ?? createStatuses[0];
   const selectedCreateStatus = createStatuses.find((status) => status.code === form.status);
+  const simpleModeEnabled = isNewOrderSimpleModeEnabled();
+  const effectiveEntryMode =
+    sessionEntryMode === "simple"
+      ? simpleModeEnabled
+        ? "simple"
+        : "professional"
+      : sessionEntryMode;
+  const sessionStoreChanged = isNewOrderSessionStoreChanged(sessionStoreId, activeStoreId);
+
+  useEffect(() => {
+    if (activeStoreId && sessionStoreId === null) setSessionStoreId(activeStoreId);
+  }, [activeStoreId, sessionStoreId]);
+
+  useEffect(() => {
+    if (
+      !sessionStoreId ||
+      sessionEntryMode !== null ||
+      storeSettingsQuery.isPending ||
+      storeSettingsQuery.isFetching
+    ) {
+      return;
+    }
+    setSessionEntryMode(
+      storeSettingsQuery.isError
+        ? "professional"
+        : (storeSettings?.new_order_entry_mode ?? "professional"),
+    );
+  }, [
+    sessionEntryMode,
+    sessionStoreId,
+    storeSettings,
+    storeSettingsQuery.isError,
+    storeSettingsQuery.isFetching,
+    storeSettingsQuery.isPending,
+  ]);
 
   useEffect(() => {
     if (!storeSettings) return;
@@ -402,6 +451,9 @@ export function NewOrderScreen({
       | { kind: "online"; id: string; replayed?: boolean }
       | { kind: "offline_queued"; operationId: string }
     > => {
+      if (sessionStoreChanged) {
+        throw new Error("当前资料属于原店铺，请关闭后在新店铺重新接单");
+      }
       const custodyStatus = form.deviceCustodyStatus;
       if (!custodyStatus) throw new Error("请确认设备是否留店");
       if (costDefaultsBlocked) {
@@ -425,6 +477,7 @@ export function NewOrderScreen({
       const operationId = createOperationIdRef.current ?? createRepairDeskCreateOperationId();
       createOperationIdRef.current = operationId;
       const result = await createOrder({
+        expected_store_id: sessionStoreId ?? undefined,
         operation_id: operationId,
         order_type: form.type,
         status: form.status,
@@ -471,6 +524,7 @@ export function NewOrderScreen({
       ) {
         const conflict = readNewOrderIdentityConflict(error.details);
         if (conflict) {
+          setGuidedStep(0);
           setIdentityConflict(conflict);
           setCreateRecovery({ state: "idle" });
           return;
@@ -496,6 +550,12 @@ export function NewOrderScreen({
     activeDeposit <= activeTotal &&
     !costDefaultsBlocked &&
     !customerIdentityCreationBlocked &&
+    !sessionStoreChanged &&
+    deviceCustodyAllowsStatus(
+      form.deviceCustodyStatus,
+      form.status,
+      selectedCreateStatus?.bucket,
+    ) &&
     (!warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) ||
       form.warrantyChangeReason.trim());
   const missingItems = useMemo(
@@ -506,9 +566,41 @@ export function NewOrderScreen({
         defaultWarrantyMonths,
         costDefaultsBlocked,
         customerIdentityCreationBlocked,
+        selectedCreateStatus,
       }),
-    [costDefaultsBlocked, customerIdentityCreationBlocked, defaultWarrantyMonths, form, total],
+    [
+      costDefaultsBlocked,
+      customerIdentityCreationBlocked,
+      defaultWarrantyMonths,
+      form,
+      selectedCreateStatus,
+      total,
+    ],
   );
+
+  const handleGuidedNext = () => {
+    const sectionId = guidedStep === 0 ? "customer" : guidedStep === 1 ? "device" : "quotation";
+    const currentStepItems = missingItems.filter((item) => item.sectionId === sectionId);
+    if (guidedStep === 2 && !diagnosisDeferred && !form.faults.some((fault) => fault.name.trim())) {
+      currentStepItems.push({
+        code: "diagnosis_required",
+        fieldId: "faults",
+        sectionId: "quotation",
+        label: "请选择维修项目，或确认检测后补充",
+        target: "quotation",
+      });
+    }
+    if (currentStepItems.length) {
+      setValidationAttempted(true);
+      setSubmitValidationMessage(
+        `请先处理：${currentStepItems.map((item) => item.label).join("、")}`,
+      );
+      focusNewOrderMissingItem(currentStepItems[0]);
+      return;
+    }
+    setSubmitValidationMessage("");
+    setGuidedStep((current) => Math.min(3, current + 1));
+  };
 
   useEffect(() => {
     if (valid) {
@@ -678,6 +770,62 @@ export function NewOrderScreen({
     [registerGuard],
   );
 
+  const customerSectionNode = (
+    <NewOrderCustomerSection
+      form={form}
+      setForm={setForm}
+      onClearCustomerContext={() => {
+        setHistoryDevices([]);
+        setIdentityConflict(null);
+        setCustomerIdentityIntent(null);
+        setSharedPhoneConfirmOpen(false);
+        createOperationIdRef.current = null;
+      }}
+      onPickCustomer={handlePickCustomer}
+      onNewCustomerIntentChange={setCustomerIdentityIntent}
+      surface={surface}
+    />
+  );
+  const deviceSectionNode = (
+    <NewOrderDeviceInfoSection
+      form={form}
+      setForm={setForm}
+      historyDevices={historyDevices}
+      onSelectHistoryDevice={selectHistoryDevice}
+      surface={surface}
+    />
+  );
+  const unlockSectionNode = (
+    <NewOrderDeviceUnlockSection form={form} setForm={setForm} surface={surface} />
+  );
+  const quotationSectionNode = (layout: "professional" | "guided" = "professional") => (
+    <NewOrderQuotationSection
+      form={form}
+      setForm={setForm}
+      total={total}
+      operatorName={operatorName}
+      operatorRole={operatorRole}
+      onPatchFault={patchFault}
+      onAddCustomFault={addCustomFault}
+      canManageOrderCosts={canManageOrderCosts}
+      costDrafts={costDrafts}
+      costDefaultsPending={costDefaultsQuery.isPending && canManageOrderCosts}
+      costDefaultsError={costDefaultsQuery.isError && canManageOrderCosts}
+      isOnline={isOnline}
+      onRetryCostDefaults={() => void costDefaultsQuery.refetch()}
+      onCostDraftChange={(lineId, text) =>
+        setCostDrafts((current) => ({
+          ...current,
+          [lineId]: updateNewOrderCostDraft(text),
+        }))
+      }
+      createStatuses={createStatuses}
+      defaultWarrantyMonths={defaultWarrantyMonths}
+      surface={surface}
+      layout={layout}
+    />
+  );
+
   return (
     <div
       data-new-order-root="true"
@@ -719,6 +867,10 @@ export function NewOrderScreen({
         }}
         onSubmit={(event) => {
           event.preventDefault();
+          if (effectiveEntryMode === "simple" && guidedStep < 3) {
+            handleGuidedNext();
+            return;
+          }
           if (createRecovery.state === "confirming" || createRecovery.state === "uncertain") {
             toast.message(
               createRecovery.state === "confirming"
@@ -839,78 +991,117 @@ export function NewOrderScreen({
           />
         ) : null}
 
-        <div
-          data-new-order-workspace-grid="true"
-          className={cn(
-            "grid min-w-0 items-start gap-1.5 sm:gap-2 md:grid-cols-[minmax(280px,0.85fr)_minmax(420px,1.35fr)] md:gap-3",
-            "lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.34fr)_minmax(0,0.8fr)]",
-            surface === "dialog" &&
-              "xl:grid-cols-[minmax(320px,0.9fr)_minmax(500px,1.4fr)_minmax(280px,0.8fr)]",
-          )}
-        >
-          <div className="grid min-w-0 content-start gap-1.5 sm:gap-3 md:col-start-1 md:row-start-1 lg:row-span-2 lg:pr-0.5">
-            <NewOrderCustomerSection
-              form={form}
-              setForm={setForm}
-              onClearCustomerContext={() => {
-                setHistoryDevices([]);
-                setIdentityConflict(null);
-                setCustomerIdentityIntent(null);
-                setSharedPhoneConfirmOpen(false);
-                createOperationIdRef.current = null;
-              }}
-              onPickCustomer={handlePickCustomer}
-              onNewCustomerIntentChange={setCustomerIdentityIntent}
-              surface={surface}
-            />
-            <NewOrderDeviceInfoSection
-              form={form}
-              setForm={setForm}
-              historyDevices={historyDevices}
-              onSelectHistoryDevice={selectHistoryDevice}
-              surface={surface}
-            />
+        {storeSettingsQuery.isError ? (
+          <div
+            className="mb-3 rounded-xl bg-status-warn px-3 py-2 text-xs text-status-warn-foreground"
+            role="status"
+          >
+            未能读取接单模式，已使用专业模式。
+            <Button
+              type="button"
+              variant="link"
+              className="ml-1 h-auto p-0 text-xs"
+              onClick={() => void storeSettingsQuery.refetch()}
+            >
+              重试
+            </Button>
           </div>
+        ) : null}
+        {sessionStoreChanged ? (
+          <div
+            className="mb-3 rounded-xl bg-status-danger px-3 py-2 text-xs text-status-danger-foreground"
+            role="alert"
+          >
+            当前资料属于原店铺，请关闭后在新店铺重新接单。为避免跨店提交，本会话已被冻结。
+          </div>
+        ) : null}
 
-          <NewOrderQuotationSection
+        {effectiveEntryMode === null ? (
+          <section
+            data-new-order-mode-loading="true"
+            className={cn(
+              repairOs.mobileInfoCard,
+              "mx-auto w-full max-w-[760px] animate-pulse p-4 md:rounded-[var(--radius-lg)] md:shadow-none",
+            )}
+            aria-busy="true"
+          >
+            <p className="text-sm font-semibold">正在准备接单方式…</p>
+            <div className="mt-3 h-24 rounded-xl bg-[var(--surface-panel-muted)]" />
+          </section>
+        ) : effectiveEntryMode === "simple" ? (
+          <NewOrderGuidedWorkspace
+            step={guidedStep}
             form={form}
-            setForm={setForm}
             total={total}
-            operatorName={operatorName}
-            operatorRole={operatorRole}
-            onPatchFault={patchFault}
-            onAddCustomFault={addCustomFault}
-            canManageOrderCosts={canManageOrderCosts}
-            costDrafts={costDrafts}
-            costDefaultsPending={costDefaultsQuery.isPending && canManageOrderCosts}
-            costDefaultsError={costDefaultsQuery.isError && canManageOrderCosts}
-            isOnline={isOnline}
-            onRetryCostDefaults={() => void costDefaultsQuery.refetch()}
-            onCostDraftChange={(lineId, text) =>
-              setCostDrafts((current) => ({
-                ...current,
-                [lineId]: updateNewOrderCostDraft(text),
-              }))
+            statusLabel={createStatusLabel}
+            diagnosisDeferred={diagnosisDeferred}
+            pending={createSubmitBlocked || sessionStoreChanged}
+            customer={customerSectionNode}
+            device={deviceSectionNode}
+            unlock={unlockSectionNode}
+            quotation={
+              <>
+                <section
+                  className={cn(
+                    repairOs.mobileInfoCard,
+                    "p-3 md:rounded-[var(--radius-lg)] md:shadow-none",
+                  )}
+                >
+                  <p className="text-xs font-semibold">维修项目确认</p>
+                  <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                    请选择故障/维修项目；暂时无法判断时，可明确选择检测后补充。
+                  </p>
+                  <Button
+                    type="button"
+                    variant={diagnosisDeferred ? "default" : "outline"}
+                    className="mt-2 min-h-11"
+                    onClick={() => setDiagnosisDeferred((current) => !current)}
+                  >
+                    {diagnosisDeferred ? <CheckCircle2 className="size-4" /> : null}
+                    检测后补充
+                  </Button>
+                </section>
+                {quotationSectionNode("guided")}
+              </>
             }
-            createStatuses={createStatuses}
-            defaultWarrantyMonths={defaultWarrantyMonths}
-            surface={surface}
+            onStepChange={setGuidedStep}
+            onNext={handleGuidedNext}
+            onCancel={onCancel}
           />
+        ) : (
+          <>
+            <div
+              data-new-order-workspace-grid="true"
+              className={cn(
+                "grid min-w-0 items-start gap-1.5 sm:gap-2 md:grid-cols-[minmax(280px,0.85fr)_minmax(420px,1.35fr)] md:gap-3",
+                "lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.34fr)_minmax(0,0.8fr)]",
+                surface === "dialog" &&
+                  "xl:grid-cols-[minmax(320px,0.9fr)_minmax(500px,1.4fr)_minmax(280px,0.8fr)]",
+              )}
+            >
+              <div className="grid min-w-0 content-start gap-1.5 sm:gap-3 md:col-start-1 md:row-start-1 lg:row-span-2 lg:pr-0.5">
+                {customerSectionNode}
+                {deviceSectionNode}
+              </div>
+              {quotationSectionNode()}
+              <div className="grid min-w-0 content-start gap-1.5 sm:gap-3 md:col-start-1 md:row-start-2 lg:col-start-3 lg:row-start-1">
+                {unlockSectionNode}
+              </div>
+            </div>
 
-          <div className="grid min-w-0 content-start gap-1.5 sm:gap-3 md:col-start-1 md:row-start-2 lg:col-start-3 lg:row-start-1">
-            <NewOrderDeviceUnlockSection form={form} setForm={setForm} surface={surface} />
-          </div>
-        </div>
-
-        <NewOrderSubmitBar
-          valid={Boolean(valid)}
-          pending={createSubmitBlocked}
-          statusMessage={createSubmitMessage}
-          custodyStatus={form.deviceCustodyStatus}
-          onCancel={onCancel}
-          surface={surface}
-          validationSummaryId="new-order-validation-summary"
-        />
+            <NewOrderSubmitBar
+              valid={Boolean(valid)}
+              pending={createSubmitBlocked || sessionStoreChanged}
+              statusMessage={
+                sessionStoreChanged ? "店铺已切换，请关闭后重新接单" : createSubmitMessage
+              }
+              custodyStatus={form.deviceCustodyStatus}
+              onCancel={onCancel}
+              surface={surface}
+              validationSummaryId="new-order-validation-summary"
+            />
+          </>
+        )}
       </form>
 
       <AlertDialog open={discardDraftDialogOpen} onOpenChange={setDiscardDraftDialogOpen}>
@@ -1218,12 +1409,14 @@ function getNewOrderMissingItems({
   defaultWarrantyMonths,
   costDefaultsBlocked,
   customerIdentityCreationBlocked,
+  selectedCreateStatus,
 }: {
   form: NewOrderFormState;
   total: number;
   defaultWarrantyMonths: number;
   costDefaultsBlocked: boolean;
   customerIdentityCreationBlocked: boolean;
+  selectedCreateStatus: { code: string; bucket?: string | null } | undefined;
 }): NewOrderMissingItem[] {
   const items: Array<NewOrderMissingItem | null> = [
     !form.customerPhone.trim()
@@ -1251,6 +1444,16 @@ function getNewOrderMissingItems({
           sectionId: "device",
           label: "设备保管",
           target: "device-custody",
+        }
+      : null,
+    form.deviceCustodyStatus !== null &&
+    !deviceCustodyAllowsStatus(form.deviceCustodyStatus, form.status, selectedCreateStatus?.bucket)
+      ? {
+          code: "custody_status_incompatible",
+          fieldId: "status",
+          sectionId: "quotation",
+          label: "当前初始状态要求设备留店",
+          target: "create-status",
         }
       : null,
     !form.brand.trim()

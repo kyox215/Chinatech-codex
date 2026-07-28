@@ -1,5 +1,7 @@
 import { formatWarrantyText } from "@/features/orders/model/order-warranty";
+import { normalizeNewOrderEntryMode } from "@/entities/store/model/store-setting-defaults";
 import type {
+  NewOrderEntryMode,
   StoreSettings,
   StoreSettingsNotificationsSectionInput,
   StoreSettingsRulesSectionInput,
@@ -8,10 +10,14 @@ import type {
   StoreSettingsStoreSectionInput,
 } from "@/lib/repairdesk/types";
 
+type StoreSettingsRulesDraftValue = Omit<StoreSettingsRulesSectionInput, "new_order_entry_mode"> & {
+  new_order_entry_mode: NewOrderEntryMode;
+};
+
 export interface StoreSettingsDraftValues {
   store: StoreSettingsStoreSectionInput;
   notifications: StoreSettingsNotificationsSectionInput;
-  rules: StoreSettingsRulesSectionInput;
+  rules: StoreSettingsRulesDraftValue;
 }
 
 export interface StoreSettingsDraftConflict<T> {
@@ -306,6 +312,7 @@ function rulesValueFromSettings(settings: StoreSettings): StoreSettingsDraftValu
   return {
     default_order_warranty_months: settings.default_order_warranty_months as 0 | 3 | 6 | 12 | 24,
     default_inventory_warranty_months: settings.default_inventory_warranty_months,
+    new_order_entry_mode: normalizeNewOrderEntryMode(settings.new_order_entry_mode),
   };
 }
 

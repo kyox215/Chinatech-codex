@@ -18,6 +18,8 @@ describe("RulesSettingsSection", () => {
     });
     expect(onDraftChange).toHaveBeenCalledWith({ default_inventory_warranty_months: 0 });
     expect(screen.getByText("0 表示新库存默认无保修；允许范围 0–120 个月。")).toBeVisible();
+    fireEvent.click(screen.getByRole("radio", { name: /简易模式/ }));
+    expect(onDraftChange).toHaveBeenCalledWith({ new_order_entry_mode: "simple" });
 
     fireEvent.change(screen.getByLabelText("新库存商品默认保修月数"), {
       target: { value: "" },
@@ -34,6 +36,7 @@ describe("RulesSettingsSection", () => {
       draft: {
         default_order_warranty_months: 24,
         default_inventory_warranty_months: 36,
+        new_order_entry_mode: "simple",
       },
       onDraftChange,
     });
@@ -54,6 +57,7 @@ describe("RulesSettingsSection", () => {
       draft: {
         default_order_warranty_months: 0,
         default_inventory_warranty_months: 0,
+        new_order_entry_mode: "professional",
       },
       canUpdateSettings: false,
     });
@@ -80,6 +84,7 @@ describe("RulesSettingsSection", () => {
       draft: {
         default_order_warranty_months: 24,
         default_inventory_warranty_months: Number.NaN,
+        new_order_entry_mode: "simple",
       },
     });
 
@@ -103,6 +108,7 @@ function renderRules({
   draft = {
     default_order_warranty_months: 12 as const,
     default_inventory_warranty_months: 18,
+    new_order_entry_mode: "professional" as const,
   },
   canUpdateSettings = true,
   canManageOrderCosts = false,
@@ -112,6 +118,7 @@ function renderRules({
   draft?: {
     default_order_warranty_months: 0 | 3 | 6 | 12 | 24;
     default_inventory_warranty_months: number;
+    new_order_entry_mode: "simple" | "professional";
   };
   canUpdateSettings?: boolean;
   canManageOrderCosts?: boolean;
@@ -119,6 +126,7 @@ function renderRules({
   onDraftChange?: (patch: {
     default_order_warranty_months?: 0 | 3 | 6 | 12 | 24;
     default_inventory_warranty_months?: number;
+    new_order_entry_mode?: "simple" | "professional";
   }) => void;
 } = {}) {
   return render(

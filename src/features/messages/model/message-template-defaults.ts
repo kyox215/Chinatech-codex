@@ -25,6 +25,7 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   default_order_warranty_text: "6个月",
   default_order_warranty_months: STORE_RULE_DEFAULTS.default_order_warranty_months,
   default_inventory_warranty_months: STORE_RULE_DEFAULTS.default_inventory_warranty_months,
+  new_order_entry_mode: STORE_RULE_DEFAULTS.new_order_entry_mode,
   print_footer: "",
   message_signature: "",
   created_at: "",
@@ -276,6 +277,7 @@ export function withStoreSettingsDefaults(settings?: Partial<StoreSettings> | nu
     default_inventory_warranty_months:
       settings?.default_inventory_warranty_months ??
       DEFAULT_STORE_SETTINGS.default_inventory_warranty_months,
+    new_order_entry_mode: settings?.new_order_entry_mode === "simple" ? "simple" : "professional",
   };
 }
 

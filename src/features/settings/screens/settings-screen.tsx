@@ -518,7 +518,9 @@ export function SettingsScreen() {
         toast.error("店铺上下文已变化，旧设置响应未应用，请重新加载当前店铺");
         return;
       }
-      toast.success("设置已保存");
+      toast.success(
+        section === "rules" ? "设置已保存；接单模式将在下次打开快速接单时生效" : "设置已保存",
+      );
       const current = settingsDraftsRef.current;
       if (current?.storeId === requestedStoreId) {
         const next = acceptStoreSettingsSaveResult(current, section, settings);

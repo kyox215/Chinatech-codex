@@ -530,6 +530,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
       input: {
         default_order_warranty_months: 6,
         default_inventory_warranty_months: 12,
+        new_order_entry_mode: "professional",
       },
     });
     await waitFor(() => expect(saveBar).toHaveAttribute("data-save-status", "saved"));

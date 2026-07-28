@@ -57,11 +57,13 @@ import {
   DEVICE_CUSTODY_WITH_CUSTOMER,
   DEVICE_CUSTODY_WITH_SHOP,
   deviceCustodyAllowsChange,
+  deviceCustodyAllowsStatus,
   deviceCustodyBlocksStatus,
   isDeviceCustodyStatus,
   normalizeUnlockForCustody,
 } from "@/features/orders/model/device-custody";
 import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
+import { assertNewOrderExpectedStore } from "@/features/orders/model/new-order-store-session";
 import {
   deriveOrderFinancialState,
   isOrderCancelled,
@@ -3848,6 +3850,7 @@ export async function createOrder(
 ): Promise<{ id: string; replayed?: boolean }> {
   const requestActor = typeof operator === "string" ? undefined : operator;
   const storeId = requireStoreIdFromActor(requestActor);
+  assertNewOrderExpectedStore(input.expected_store_id, storeId);
   const operatorName = operatorNameFromActor(operator);
   const operationId = input.operation_id?.trim() || crypto.randomUUID();
   if (
@@ -3882,6 +3885,9 @@ export async function createOrder(
       : undefined;
   const technicianName = assignee?.displayName.trim() || operatorName.trim() || "前台";
   const initialStatus = await resolveInitialOrderStatus(supabase, storeId, input.status);
+  if (!deviceCustodyAllowsStatus(deviceCustodyStatus, initialStatus.code, initialStatus.bucket)) {
+    throw new Error("客户持有设备时不能使用需要门店保管设备的初始状态");
+  }
   const status = initialStatus.code;
   const now = new Date().toISOString();
   const defaultWarrantyMonths = await readDefaultOrderWarrantyMonths(supabase, storeId);

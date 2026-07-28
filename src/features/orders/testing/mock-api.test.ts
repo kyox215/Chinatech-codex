@@ -51,23 +51,16 @@ async function createMockOrder(input: Partial<CreateOrderInput> = {}, operator =
 }
 
 describe("mock atomic diagnosis quote workflow", () => {
-  it("treats custody as a label when choosing the initial order status", async () => {
-    const id = await createMockOrder({
-      status: "diagnosing",
-      device_custody_status: "with_customer",
-      issue_description: "",
-      fault_prices: [{ name: "检测项目", price: 80 }],
-      deposit_amount: 20,
-    });
-
-    const detail = await getOrder(id);
-
-    expect(detail.order).toMatchObject({
-      status: "diagnosing",
-      device_custody_status: "with_customer",
-      quotation_amount: 80,
-      deposit_amount: 20,
-    });
+  it("rejects an initial status that requires custody while the customer keeps the device", async () => {
+    await expect(
+      createMockOrder({
+        status: "diagnosing",
+        device_custody_status: "with_customer",
+        issue_description: "",
+        fault_prices: [{ name: "检测项目", price: 80 }],
+        deposit_amount: 20,
+      }),
+    ).rejects.toThrow("客户持有设备时不能使用需要门店保管设备的初始状态");
   });
 
   it("publishes an opaque quote revision, replays safely and confirms manual WhatsApp sending", async () => {

@@ -26,6 +26,9 @@ describe("device custody domain rules", () => {
     expect(deviceCustodyAllowsStatus(null, "completed")).toBe(false);
     expect(deviceCustodyAllowsStatus("with_customer", "completed")).toBe(true);
     expect(deviceCustodyAllowsStatus("with_customer", "parts_ordered")).toBe(true);
+    expect(deviceCustodyAllowsStatus("with_customer", "custom-code", "repair")).toBe(false);
+    expect(deviceCustodyAllowsStatus("with_customer", "custom-code", "pickup")).toBe(false);
+    expect(deviceCustodyAllowsStatus("with_customer", "custom-code", "quote")).toBe(true);
   });
 
   it("does not offer handovers that create an impossible active or terminal state", () => {

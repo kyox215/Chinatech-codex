@@ -1411,6 +1411,7 @@ export type CustomerIdentityResolution =
     };
 
 export interface CreateOrderInput {
+  expected_store_id?: string;
   operation_id?: string;
   customer_id?: string;
   device_id?: string;
@@ -2749,6 +2750,7 @@ export interface ElectronicsImportPreview {
 export type MessageTemplateDomain = "order" | "customer";
 export type MessageTemplateChannel = "whatsapp" | "sms";
 export type MessageTemplateLanguage = "it" | "zh" | "en";
+export type NewOrderEntryMode = "simple" | "professional";
 
 export interface StoreSettings {
   id: string;
@@ -2762,6 +2764,7 @@ export interface StoreSettings {
   default_order_warranty_text: string;
   default_order_warranty_months: number;
   default_inventory_warranty_months: number;
+  new_order_entry_mode?: NewOrderEntryMode;
   print_footer: string;
   message_signature: string;
   updated_by?: string;
@@ -2779,6 +2782,7 @@ export interface StoreSettingsUpdateInput {
   default_order_warranty_text?: string;
   default_order_warranty_months?: number;
   default_inventory_warranty_months?: number;
+  new_order_entry_mode?: NewOrderEntryMode;
   print_footer?: string;
   message_signature?: string;
 }
@@ -2802,6 +2806,7 @@ export interface StoreSettingsNotificationsSectionInput {
 export interface StoreSettingsRulesSectionInput {
   default_order_warranty_months: 0 | 3 | 6 | 12 | 24;
   default_inventory_warranty_months: number;
+  new_order_entry_mode?: NewOrderEntryMode;
 }
 
 interface StoreSettingsSectionUpdateBase {

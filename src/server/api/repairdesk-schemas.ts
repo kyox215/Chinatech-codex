@@ -653,6 +653,7 @@ const customerIdentityResolutionSchema = z.discriminatedUnion("mode", [
 
 export const createOrderSchema = z
   .object({
+    expected_store_id: z.string().uuid().optional(),
     customer_id: optionalText,
     device_id: optionalText,
     operation_id: z.string().uuid().optional(),

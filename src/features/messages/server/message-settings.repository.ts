@@ -18,6 +18,7 @@ import {
   formatWarrantyText,
   normalizeWarrantyMonths,
 } from "@/features/orders/model/order-warranty";
+import { normalizeNewOrderEntryMode } from "@/entities/store/model/store-setting-defaults";
 
 const DEFAULT_STORE_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -60,6 +61,7 @@ export async function getStoreSettings(
       default_order_warranty_text: defaults.default_order_warranty_text,
       default_order_warranty_months: defaults.default_order_warranty_months,
       default_inventory_warranty_months: defaults.default_inventory_warranty_months,
+      new_order_entry_mode: defaults.new_order_entry_mode,
       print_footer: defaults.print_footer,
       message_signature: defaults.message_signature,
       created_at: now,
@@ -207,6 +209,9 @@ function sanitizeStoreSettingsInput(input: StoreSettingsUpdateInput) {
   if (input.default_inventory_warranty_months !== undefined) {
     update.default_inventory_warranty_months = input.default_inventory_warranty_months;
   }
+  if (input.new_order_entry_mode !== undefined) {
+    update.new_order_entry_mode = normalizeNewOrderEntryMode(input.new_order_entry_mode);
+  }
   if (input.print_footer !== undefined) update.print_footer = input.print_footer.trim();
   if (input.message_signature !== undefined) {
     update.message_signature = input.message_signature.trim();
@@ -253,6 +258,7 @@ function storeSettingsFromRow(row: DbRecord): StoreSettings {
     default_order_warranty_text: String(row.default_order_warranty_text ?? ""),
     default_order_warranty_months: Number(row.default_order_warranty_months ?? 6),
     default_inventory_warranty_months: Number(row.default_inventory_warranty_months ?? 12),
+    new_order_entry_mode: normalizeNewOrderEntryMode(row.new_order_entry_mode),
     print_footer: String(row.print_footer ?? ""),
     message_signature: String(row.message_signature ?? ""),
     updated_by: typeof row.updated_by === "string" ? row.updated_by : undefined,

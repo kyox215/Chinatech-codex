@@ -69,6 +69,10 @@ export async function updateStoreSettings(
       request.section === "rules"
         ? request.input.default_inventory_warranty_months
         : current.default_inventory_warranty_months,
+    new_order_entry_mode:
+      request.section === "rules" && request.input.new_order_entry_mode !== undefined
+        ? request.input.new_order_entry_mode
+        : current.new_order_entry_mode,
     updated_at: now,
     store_id: storeId,
   });
@@ -88,6 +92,10 @@ function getOrCreateStoreSettings(storeId: string) {
     store_address: storeProfile?.address ?? DEFAULT_STORE_SETTINGS.store_address,
     print_footer: storeProfile?.name ? `Grazie per aver scelto ${storeProfile.name}.` : "",
     message_signature: storeProfile?.name ?? "",
+    new_order_entry_mode:
+      process.env.REPAIRDESK_E2E_NEW_ORDER_ENTRY_MODE === "simple"
+        ? "simple"
+        : DEFAULT_STORE_SETTINGS.new_order_entry_mode,
     created_at: now,
     updated_at: now,
   });

@@ -151,4 +151,31 @@ describe("store settings update contract", () => {
       "input.store_email": ["邮箱格式无效"],
     });
   });
+
+  it("keeps old rules payloads compatible and rejects unknown entry modes", () => {
+    const base = {
+      section: "rules" as const,
+      expectedStoreId: storeId,
+      expectedUpdatedAt: updatedAt,
+      input: {
+        default_order_warranty_months: 6 as const,
+        default_inventory_warranty_months: 12,
+      },
+    };
+    expect(storeSettingsSectionUpdateSchema.parse(base).input).not.toHaveProperty(
+      "new_order_entry_mode",
+    );
+    expect(
+      storeSettingsSectionUpdateSchema.parse({
+        ...base,
+        input: { ...base.input, new_order_entry_mode: "simple" },
+      }).input,
+    ).toMatchObject({ new_order_entry_mode: "simple" });
+    expect(() =>
+      storeSettingsSectionUpdateSchema.parse({
+        ...base,
+        input: { ...base.input, new_order_entry_mode: "expert" },
+      }),
+    ).toThrow();
+  });
 });

@@ -17,6 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -102,7 +103,8 @@ export function RulesSettingsSection({
   const isDefault =
     draft.default_order_warranty_months === STORE_RULE_DEFAULTS.default_order_warranty_months &&
     draft.default_inventory_warranty_months ===
-      STORE_RULE_DEFAULTS.default_inventory_warranty_months;
+      STORE_RULE_DEFAULTS.default_inventory_warranty_months &&
+    draft.new_order_entry_mode === STORE_RULE_DEFAULTS.new_order_entry_mode;
 
   const changeDraft = (patch: Partial<StoreSettingsDraftValues["rules"]>) => {
     setRestoredToDraft(false);
@@ -128,12 +130,74 @@ export function RulesSettingsSection({
             <ShieldCheck className="size-3.5" /> 只影响之后新建的业务对象
           </p>
           <p className="mt-1 text-[11px] leading-4">
-            保存后，新维修单和新库存商品会采用这些默认值；已有维修单、库存记录及已售保修快照不会被改写。
+            保存后，新打开的快速接单、新维修单和新库存商品会采用这些默认值；已经打开的接单会话、已有维修单、库存记录及已售保修快照不会被改写。
           </p>
         </div>
 
         {canUpdateSettings ? (
           <div className="grid min-w-0 gap-3 xl:grid-cols-2">
+            <SettingsField
+              label="快速接单模式"
+              htmlFor="new-order-mode-professional"
+              error={getSettingsFieldError(fieldErrors, "new_order_entry_mode")}
+            >
+              <RadioGroup
+                value={draft.new_order_entry_mode}
+                onValueChange={(value) =>
+                  changeDraft({
+                    new_order_entry_mode:
+                      value as StoreSettingsDraftValues["rules"]["new_order_entry_mode"],
+                  })
+                }
+                className="grid gap-2 sm:grid-cols-2"
+                aria-describedby="new-order-mode-description"
+              >
+                <label
+                  htmlFor="new-order-mode-simple"
+                  className={cn(
+                    "flex min-h-20 cursor-pointer items-start gap-2 rounded-xl border p-3",
+                    draft.new_order_entry_mode === "simple"
+                      ? "border-primary bg-primary/5"
+                      : "border-[var(--border-panel)] bg-[var(--surface-panel-muted)]",
+                  )}
+                >
+                  <RadioGroupItem id="new-order-mode-simple" value="simple" className="mt-0.5" />
+                  <span>
+                    <span className="block text-xs font-semibold">简易模式</span>
+                    <span className="mt-1 block text-[11px] leading-4 text-muted-foreground">
+                      用四个步骤引导新员工完成客户、设备、维修报价和确认。
+                    </span>
+                  </span>
+                </label>
+                <label
+                  htmlFor="new-order-mode-professional"
+                  className={cn(
+                    "flex min-h-20 cursor-pointer items-start gap-2 rounded-xl border p-3",
+                    draft.new_order_entry_mode === "professional"
+                      ? "border-primary bg-primary/5"
+                      : "border-[var(--border-panel)] bg-[var(--surface-panel-muted)]",
+                  )}
+                >
+                  <RadioGroupItem
+                    id="new-order-mode-professional"
+                    value="professional"
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="block text-xs font-semibold">专业模式</span>
+                    <span className="mt-1 block text-[11px] leading-4 text-muted-foreground">
+                      保持当前快速接单工作台，一次显示全部字段。
+                    </span>
+                  </span>
+                </label>
+              </RadioGroup>
+              <p
+                id="new-order-mode-description"
+                className="text-[11px] leading-4 text-muted-foreground"
+              >
+                模式变更会在下次打开快速接单时生效。
+              </p>
+            </SettingsField>
             <SettingsField
               label="新维修单默认质保"
               htmlFor="order-warranty"
@@ -215,6 +279,14 @@ export function RulesSettingsSection({
         ) : (
           <dl className="grid min-w-0 gap-2 sm:grid-cols-2">
             <ReadOnlyRule
+              label="快速接单模式"
+              value={
+                draft.new_order_entry_mode === "simple"
+                  ? "简易模式（四步引导）"
+                  : "专业模式（全部字段）"
+              }
+            />
+            <ReadOnlyRule
               label="新维修单默认质保"
               value={formatWarrantyText(draft.default_order_warranty_months)}
             />
@@ -256,8 +328,9 @@ export function RulesSettingsSection({
                 <AlertDialogHeader>
                   <AlertDialogTitle>把系统默认值应用到草稿？</AlertDialogTitle>
                   <AlertDialogDescription>
-                    维修默认质保将从 {formatWarrantyText(draft.default_order_warranty_months)}{" "}
-                    调整为 {formatWarrantyText(STORE_RULE_DEFAULTS.default_order_warranty_months)}
+                    快速接单将恢复为专业模式； 维修默认质保将从{" "}
+                    {formatWarrantyText(draft.default_order_warranty_months)} 调整为{" "}
+                    {formatWarrantyText(STORE_RULE_DEFAULTS.default_order_warranty_months)}
                     ；库存默认保修将从{" "}
                     {formatInventoryWarranty(draft.default_inventory_warranty_months)} 调整为{" "}
                     {formatInventoryWarranty(STORE_RULE_DEFAULTS.default_inventory_warranty_months)}

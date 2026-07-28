@@ -29,6 +29,7 @@ import {
   parseOrderCostDraftAmount,
   type NewOrderCostDraft,
 } from "@/features/orders/model/order-cost-draft";
+import { deviceCustodyAllowsStatus } from "@/features/orders/model/device-custody";
 import { repairOrderType, type RepairOrderType } from "@/lib/mock/enums";
 import type { FaultPriceItem, OrderWorkflowStatus } from "@/lib/repairdesk/api";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
@@ -53,6 +54,7 @@ export function NewOrderQuotationSection({
   createStatuses,
   defaultWarrantyMonths = 6,
   surface = "page",
+  layout = "professional",
 }: {
   form: NewOrderFormState;
   setForm: Dispatch<SetStateAction<NewOrderFormState>>;
@@ -71,6 +73,7 @@ export function NewOrderQuotationSection({
   createStatuses: OrderWorkflowStatus[];
   defaultWarrantyMonths?: number;
   surface?: "page" | "dialog";
+  layout?: "professional" | "guided";
 }) {
   const shellClass = cn(
     "h-fit min-w-0 p-2 sm:p-3",
@@ -94,11 +97,15 @@ export function NewOrderQuotationSection({
   const hasCatalogCostLines = form.faults.some((item) => Boolean(item.catalog_key));
 
   return (
-    <Shell className={cn(shellClass, "space-y-2 lg:contents")}>
+    <Shell className={cn(shellClass, "space-y-2", layout === "professional" && "lg:contents")}>
       <div
         data-new-order-section="quotation"
         data-new-order-field="quotation"
-        className="min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:rounded-[var(--radius-lg)] lg:border lg:border-[var(--border-panel)] lg:bg-[var(--surface-panel)] lg:p-3"
+        className={cn(
+          "min-w-0",
+          layout === "professional" &&
+            "lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:rounded-[var(--radius-lg)] lg:border lg:border-[var(--border-panel)] lg:bg-[var(--surface-panel)] lg:p-3",
+        )}
       >
         <OrderWorkspaceSectionHeader
           icon={ReceiptText}
@@ -414,7 +421,17 @@ export function NewOrderQuotationSection({
               </SelectTrigger>
               <SelectContent className={serviceDropdownContentClass}>
                 {availableCreateStatuses.map((status) => (
-                  <SelectItem key={status.code} value={status.code}>
+                  <SelectItem
+                    key={status.code}
+                    value={status.code}
+                    disabled={
+                      !deviceCustodyAllowsStatus(
+                        form.deviceCustodyStatus,
+                        status.code,
+                        status.bucket,
+                      )
+                    }
+                  >
                     {status.label}
                   </SelectItem>
                 ))}

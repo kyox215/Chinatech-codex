@@ -70,6 +70,7 @@ const rulesInputSchema = z
         STORE_INVENTORY_WARRANTY_RANGE.max,
         `库存保修月数不能超过 ${STORE_INVENTORY_WARRANTY_RANGE.max}`,
       ),
+    new_order_entry_mode: z.enum(["simple", "professional"]).optional(),
   })
   .strict();
 

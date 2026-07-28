@@ -138,6 +138,17 @@ describe("store settings section drafts", () => {
       "default_order_warranty_text",
     );
   });
+
+  it("uses a required professional fallback and includes an edited entry mode in rules saves", () => {
+    const initial = createStoreSettingsDrafts(settings({ new_order_entry_mode: undefined }));
+    expect(initial.sections.rules.value.new_order_entry_mode).toBe("professional");
+    const edited = updateStoreSettingsDraft(initial, "rules", {
+      new_order_entry_mode: "simple",
+    });
+    expect(buildStoreSettingsSectionUpdateRequest(edited, "rules").input).toMatchObject({
+      new_order_entry_mode: "simple",
+    });
+  });
 });
 
 function settings(overrides: Partial<StoreSettings> = {}): StoreSettings {
@@ -152,6 +163,7 @@ function settings(overrides: Partial<StoreSettings> = {}): StoreSettings {
     default_order_warranty_text: "6个月",
     default_order_warranty_months: 6,
     default_inventory_warranty_months: 12,
+    new_order_entry_mode: "professional",
     print_footer: "Footer",
     message_signature: "Firma",
     created_at: "2026-07-12T09:00:00.000Z",

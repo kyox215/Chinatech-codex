@@ -14,6 +14,7 @@ describe("store setting defaults", () => {
     expect(STORE_RULE_DEFAULTS).toEqual({
       default_order_warranty_months: DEFAULT_STORE_SETTINGS.default_order_warranty_months,
       default_inventory_warranty_months: DEFAULT_STORE_SETTINGS.default_inventory_warranty_months,
+      new_order_entry_mode: DEFAULT_STORE_SETTINGS.new_order_entry_mode,
     });
   });
 

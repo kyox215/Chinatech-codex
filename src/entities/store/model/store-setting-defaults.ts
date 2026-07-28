@@ -1,9 +1,14 @@
-import type { StoreSettingsRulesSectionInput } from "@/lib/repairdesk/types";
+import type { NewOrderEntryMode, StoreSettingsRulesSectionInput } from "@/lib/repairdesk/types";
 
 export const STORE_RULE_DEFAULTS = {
   default_order_warranty_months: 6,
   default_inventory_warranty_months: 12,
+  new_order_entry_mode: "professional",
 } as const satisfies StoreSettingsRulesSectionInput;
+
+export function normalizeNewOrderEntryMode(value: unknown): NewOrderEntryMode {
+  return value === "simple" ? "simple" : "professional";
+}
 
 export const STORE_INVENTORY_WARRANTY_RANGE = {
   min: 0,

@@ -46,6 +46,7 @@ import {
   DEVICE_CUSTODY_WITH_CUSTOMER,
   DEVICE_CUSTODY_WITH_SHOP,
   deviceCustodyAllowsChange,
+  deviceCustodyAllowsStatus,
   deviceCustodyBlocksStatus,
   normalizeUnlockForCustody,
 } from "@/features/orders/model/device-custody";
@@ -87,6 +88,7 @@ import {
 } from "@/lib/mock/state";
 import { getMockSupplier } from "@/features/suppliers/testing/mock-api";
 import { normalizeOrderTagInput } from "@/features/orders/model/order-tags";
+import { assertNewOrderExpectedStore } from "@/features/orders/model/new-order-store-session";
 import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
 import { ForbiddenError } from "@/server/auth-context";
 import { can } from "@/server/permissions";
@@ -2449,6 +2451,9 @@ export async function createOrder(
   input: CreateOrderInput,
   operator: MockOperator = "前台",
 ): Promise<{ id: string; replayed?: boolean }> {
+  if (typeof operator !== "string" && operator.storeId) {
+    assertNewOrderExpectedStore(input.expected_store_id, operator.storeId);
+  }
   const operationId = input.operation_id?.trim();
   if (operationId) {
     const existing = findCreatedOrderByOperationId(operationId);
@@ -2468,6 +2473,9 @@ export async function createOrder(
   const status = resolvedStatus.code;
   if (input.device_id && !input.customer_id) throw new Error("选择现有设备时必须同时选择客户");
   const deviceCustodyStatus = input.device_custody_status ?? DEVICE_CUSTODY_WITH_SHOP;
+  if (!deviceCustodyAllowsStatus(deviceCustodyStatus, status, resolvedStatus.bucket)) {
+    throw new Error("客户持有设备时不能使用需要门店保管设备的初始状态");
+  }
 
   let customer = input.customer_id ? getCustomer(input.customer_id) : undefined;
   let customerSnapshotSource: NonNullable<RepairOrder["customer_identity_snapshot_source"]> =

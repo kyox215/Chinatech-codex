@@ -67,6 +67,7 @@ import {
 describe("repairdesk API schemas", () => {
   it("accepts only explicit customer identity conflict resolutions", () => {
     const base = {
+      expected_store_id: "00000000-0000-4000-8000-000000000800",
       operation_id: "00000000-0000-4000-8000-000000000801",
       customer_name: "Cliente Due",
       customer_phone: "+39000000000",
@@ -91,6 +92,12 @@ describe("repairdesk API schemas", () => {
       createOrderSchema.parse({
         ...base,
         customer_identity_resolution: { mode: "create_distinct_shared_phone" },
+      }),
+    ).toThrow();
+    expect(() =>
+      createOrderSchema.parse({
+        ...base,
+        expected_store_id: "not-a-store-id",
       }),
     ).toThrow();
   });
