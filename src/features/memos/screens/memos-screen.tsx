@@ -2,12 +2,13 @@
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Filter, Plus, WifiOff } from "lucide-react";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, Search, SlidersHorizontal, WifiOff, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type {
   MemoListInput,
   MemoListItem,
@@ -16,32 +17,32 @@ import type {
   StoreMemo,
 } from "@/features/memos/model/contracts";
 import { MemoCard } from "@/features/memos/components/memo-card";
-import { MemoTable } from "@/features/memos/components/memo-table";
 import {
   MemoDeniedState,
   MemoEmptyState,
   MemoErrorState,
-  MemoFilterControls,
+  getMemoFilterCount,
+  getMemoFilterLabels,
+  MemoFiltersOverlay,
+  MemoLoadMore,
   MemoLoading,
   MemoLoadingRows,
-  MemoPagination,
 } from "@/features/memos/components/memo-list-support";
 import { MemoEditor, type MemoEditorSaveInput } from "@/features/memos/forms/memo-editor";
-import { memoAssigneesQueryOptions, memoListQueryOptions, memosKeys } from "@/features/memos/api";
+import { memoAssigneesQueryOptions, memosKeys } from "@/features/memos/api";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import {
   archiveMemo,
   createMemo,
   getMemo,
+  listMemos,
   restoreMemo,
   transitionMemo,
   updateMemo,
 } from "@/lib/repairdesk/api";
-import {
-  RepairOsBusinessCard,
-  RepairOsHeaderActionButton,
-  RepairOsListScaffold,
-} from "@/shared/ui";
+import { repairOs } from "@/lib/ui-patterns";
+import { cn } from "@/lib/utils";
+import { RepairOsBusinessCard, RepairOsListScaffold } from "@/shared/ui";
 
 export function MemosScreen() {
   const searchParams = useSearchParams();
@@ -53,7 +54,6 @@ export function MemosScreen() {
   const [assigneeId, setAssigneeId] = useState("");
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search.trim());
-  const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [selected, setSelected] = useState<MemoListItem | StoreMemo | null>(null);
@@ -66,14 +66,18 @@ export function MemosScreen() {
       kind,
       assigneeMembershipId: assigneeId || undefined,
       search: deferredSearch || undefined,
-      page,
       pageSize: 20,
     }),
-    [assigneeId, deferredSearch, kind, page, view],
+    [assigneeId, deferredSearch, kind, view],
   );
-  const listQuery = useQuery({
-    ...memoListQueryOptions(input, storeId),
+  const listQuery = useInfiniteQuery({
+    queryKey: memosKeys.list(storeId, input),
+    queryFn: ({ pageParam, signal }) => listMemos({ ...input, page: pageParam }, { signal }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.page < lastPage.pageCount ? lastPage.page + 1 : undefined,
     enabled: Boolean(storeId && shell.permissions?.canReadMemos),
+    staleTime: 15_000,
   });
   const assigneesQuery = useQuery({
     ...memoAssigneesQueryOptions(storeId),
@@ -84,7 +88,6 @@ export function MemosScreen() {
     queryFn: ({ signal }) => getMemo(selected!.id, { signal }),
     enabled: Boolean(storeId && selected?.id && editorOpen),
   });
-  useEffect(() => setPage(1), [assigneeId, deferredSearch, kind, view]);
   useEffect(() => {
     const onOnline = () => setOnline(true);
     const onOffline = () => setOnline(false);
@@ -167,145 +170,264 @@ export function MemosScreen() {
   const latestDetail = detailQuery.data;
   const offlineWithoutCache = !online && !listQuery.data;
   const createAction = shell.permissions?.canCreateMemos ? (
-    <RepairOsHeaderActionButton
+    <Button
+      type="button"
+      size="icon"
+      className="size-11 rounded-xl bg-foreground text-background shadow-none hover:bg-foreground/90"
       onClick={openCreate}
-      ariaLabel="新建备忘"
+      aria-label="新建备忘"
       disabled={!online || mutation.isPending}
     >
       <Plus className="size-4" />
-    </RepairOsHeaderActionButton>
+    </Button>
   ) : null;
   if (shell.isLoading) return <MemoLoading />;
   if (!storeId || !shell.permissions?.canReadMemos) return <MemoDeniedState />;
-  const filterControls = (showSearch: boolean) => (
-    <MemoFilterControls
-      search={search}
-      view={view}
-      kind={kind}
-      assigneeId={assigneeId}
-      assignees={assigneesQuery.data ?? []}
-      onSearchChange={setSearch}
-      onViewChange={setView}
-      onKindChange={setKind}
-      onAssigneeChange={setAssigneeId}
-      onRefresh={() => void refresh()}
-      showSearch={showSearch}
-    />
+  const listMeta = listQuery.data?.pages[0];
+  const visibleItems = listQuery.data?.pages.flatMap((result) => result.items) ?? [];
+  const filterValue = { view, kind, assigneeId };
+  const filterCount = getMemoFilterCount(filterValue);
+  const activeFilterLabels = getMemoFilterLabels(filterValue, assigneesQuery.data ?? []);
+  const visibleTodoCount = visibleItems.filter((memo) => memo.kind === "todo").length;
+  const visibleCompletedCount = visibleItems.filter(
+    (memo) => memo.kind === "todo" && memo.todo_status === "completed",
+  ).length;
+  const visiblePendingCount = visibleTodoCount - visibleCompletedCount;
+  const visibleNoteCount = visibleItems.length - visibleTodoCount;
+  const visibleCompletionPercent = visibleTodoCount
+    ? Math.round((visibleCompletedCount / visibleTodoCount) * 100)
+    : 0;
+  const todayLabel = new Intl.DateTimeFormat("zh-CN", {
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+  }).format(new Date());
+  const desktopCreateAction = shell.permissions?.canCreateMemos ? (
+    <Button
+      type="button"
+      onClick={openCreate}
+      disabled={!online || mutation.isPending}
+      className="h-10 rounded-xl bg-foreground px-3 text-background shadow-none hover:bg-foreground/90"
+    >
+      <Plus className="size-4" />
+      新建备忘
+    </Button>
+  ) : null;
+  const filterButton = (compact = false) => (
+    <Button
+      type="button"
+      variant="outline"
+      size={compact ? "icon" : "default"}
+      className={cn(
+        compact ? "size-11" : "h-10 px-3",
+        "relative rounded-xl border-[var(--border-panel)] bg-card shadow-none",
+        filterCount > 0 && "border-foreground text-foreground",
+      )}
+      aria-label={filterCount ? `筛选，已选 ${filterCount} 项` : "筛选"}
+      aria-expanded={filtersOpen}
+      onClick={() => setFiltersOpen(true)}
+    >
+      <SlidersHorizontal className="size-4" />
+      {compact ? null : <span>筛选</span>}
+      {filterCount > 0 ? (
+        <span
+          className={cn(
+            "grid size-5 place-items-center rounded-full bg-foreground text-[10px] font-semibold text-background",
+            compact && "absolute -right-1 -top-1",
+          )}
+        >
+          {filterCount}
+        </span>
+      ) : null}
+    </Button>
+  );
+  const activeFilterSummary = activeFilterLabels.length ? (
+    <div className="flex min-w-0 items-center gap-2" aria-label="当前筛选条件">
+      <span className="inline-flex min-w-0 items-center rounded-full bg-[var(--surface-panel-muted)] px-3 py-1.5 text-[11px] font-medium text-muted-foreground">
+        <span className="truncate">{activeFilterLabels.join(" · ")}</span>
+      </span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-11 shrink-0 rounded-full text-muted-foreground"
+        aria-label="清除筛选条件"
+        onClick={() => {
+          setView("active");
+          setKind("all");
+          setAssigneeId("");
+        }}
+      >
+        <X className="size-4" />
+      </Button>
+    </div>
+  ) : null;
+  const desktopToolbar = (
+    <div className="mx-auto mb-3 max-w-4xl space-y-2">
+      <div className="flex min-w-0 items-center gap-2">
+        <div className={cn(repairOs.searchBar, "h-10 min-w-0 flex-1 rounded-xl shadow-none")}>
+          <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <Input
+            value={search}
+            type="search"
+            placeholder="搜索备忘录"
+            aria-label="搜索备忘录"
+            className={cn(repairOs.searchInput, "h-10 text-sm")}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
+        {filterButton()}
+        {desktopCreateAction}
+      </div>
+      {search.trim() || activeFilterSummary ? (
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {search.trim() ? (
+            <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-[var(--surface-panel-muted)] px-3 py-1.5 text-[11px] text-muted-foreground">
+              <span className="shrink-0">搜索：</span>
+              <span className="truncate font-mono text-foreground">{search.trim()}</span>
+            </span>
+          ) : null}
+          {activeFilterSummary}
+        </div>
+      ) : null}
+    </div>
   );
 
   return (
     <RepairOsListScaffold
       title="备忘录"
-      subtitle={listQuery.isFetching ? "正在同步…" : `${listQuery.data?.total ?? 0} 条记录`}
+      subtitle={listQuery.isFetching ? "正在同步…" : `${listMeta?.total ?? 0} 条记录`}
       action={createAction}
-      desktopAction={
-        shell.permissions?.canCreateMemos ? (
-          <Button onClick={openCreate} disabled={!online || mutation.isPending}>
-            <Plus className="size-4" />
-            新建备忘
-          </Button>
-        ) : null
-      }
-      desktopHeaderAddon={filterControls(true)}
+      desktopHeader={desktopToolbar}
       searchValue={search}
-      searchPlaceholder="搜索标题或正文"
+      searchPlaceholder="搜索备忘录"
       onSearchChange={setSearch}
-      filterAction={
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="size-11 rounded-xl"
-          aria-label="筛选"
-          aria-expanded={filtersOpen}
-          aria-controls="memo-mobile-filters"
-          onClick={() => setFiltersOpen((value) => !value)}
-        >
-          <Filter className="size-4" />
-        </Button>
-      }
+      searchFrame="embedded"
+      filterAction={filterButton(true)}
     >
-      {!online ? (
-        <Alert className="mb-2">
-          <WifiOff className="size-4" />
-          <AlertTitle>{listQuery.data ? "当前离线" : "离线且没有缓存"}</AlertTitle>
-          <AlertDescription>
-            {listQuery.data
-              ? "已显示缓存内容，恢复网络后会自动同步；离线期间不能保存。"
-              : "此设备没有可用的备忘录缓存，请恢复网络后重试。"}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-      {filtersOpen ? (
-        <div
-          id="memo-mobile-filters"
-          className="mb-2 rounded-xl border border-[var(--border-panel)] bg-card p-2 lg:hidden"
-        >
-          {filterControls(false)}
-        </div>
-      ) : null}
-      {shell.activeStore?.role === "viewer" ? (
-        <Alert className="mb-2">
-          <AlertTitle>只读模式</AlertTitle>
-          <AlertDescription>你可以查看本店铺的活动和归档记录，但不能创建或修改。</AlertDescription>
-        </Alert>
-      ) : null}
-      {editorOpen && selected && detailQuery.isFetching && !detailMemo ? (
-        <Alert className="mb-2" aria-live="polite">
-          <AlertTitle>正在载入备忘详情</AlertTitle>
-          <AlertDescription>正在读取最新正文和状态，请稍候。</AlertDescription>
-        </Alert>
-      ) : null}
-      {detailQuery.isError ? (
-        <MemoErrorState error={detailQuery.error} onRetry={() => void detailQuery.refetch()} />
-      ) : null}
-      {offlineWithoutCache ? (
-        <RepairOsBusinessCard className="grid min-h-52 place-items-center p-5 text-center">
-          <div>
-            <WifiOff className="mx-auto size-8 text-muted-foreground" />
-            <p className="mt-2 text-sm font-semibold">无法载入备忘录</p>
-            <p className="mt-1 text-xs text-muted-foreground">恢复网络后即可查看或新建记录。</p>
-          </div>
-        </RepairOsBusinessCard>
-      ) : listQuery.isError ? (
-        <MemoErrorState error={listQuery.error} onRetry={() => void listQuery.refetch()} />
-      ) : listQuery.isLoading ? (
-        <MemoLoadingRows />
-      ) : listQuery.data?.items.length ? (
-        <>
-          <div className="grid gap-2 md:grid-cols-2 lg:hidden">
-            {listQuery.data.items.map((memo) => (
-              <MemoCard
-                key={memo.id}
-                memo={memo}
-                busy={!online || mutation.isPending}
-                onOpen={() => openExisting(memo)}
-                onTransition={() => void runTransition(memo).catch(() => undefined)}
-              />
-            ))}
-          </div>
-          <div className="hidden lg:block">
-            <MemoTable
-              items={listQuery.data.items}
-              busy={!online || mutation.isPending}
-              busyId={mutation.isPending ? selected?.id : undefined}
-              onOpen={openExisting}
-              onTransition={(memo) => void runTransition(memo).catch(() => undefined)}
+      <div className="mx-auto min-w-0 max-w-4xl space-y-2">
+        <div className="lg:hidden">{activeFilterSummary}</div>
+        {!online ? (
+          <Alert>
+            <WifiOff className="size-4" />
+            <AlertTitle>{listQuery.data ? "当前离线" : "离线且没有缓存"}</AlertTitle>
+            <AlertDescription>
+              {listQuery.data
+                ? "已显示缓存内容，恢复网络后会自动同步；离线期间不能保存。"
+                : "此设备没有可用的备忘录缓存，请恢复网络后重试。"}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        {shell.activeStore?.role === "viewer" ? (
+          <Alert>
+            <AlertTitle>只读模式</AlertTitle>
+            <AlertDescription>
+              你可以查看本店铺的活动和归档记录，但不能创建或修改。
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        {editorOpen && selected && detailQuery.isFetching && !detailMemo ? (
+          <Alert aria-live="polite">
+            <AlertTitle>正在载入备忘详情</AlertTitle>
+            <AlertDescription>正在读取最新正文和状态，请稍候。</AlertDescription>
+          </Alert>
+        ) : null}
+        {detailQuery.isError ? (
+          <MemoErrorState error={detailQuery.error} onRetry={() => void detailQuery.refetch()} />
+        ) : null}
+        {offlineWithoutCache ? (
+          <RepairOsBusinessCard className="grid min-h-52 place-items-center p-5 text-center">
+            <div>
+              <WifiOff className="mx-auto size-8 text-muted-foreground" />
+              <p className="mt-2 text-sm font-semibold">无法载入备忘录</p>
+              <p className="mt-1 text-xs text-muted-foreground">恢复网络后即可查看或新建记录。</p>
+            </div>
+          </RepairOsBusinessCard>
+        ) : listQuery.isError ? (
+          <MemoErrorState error={listQuery.error} onRetry={() => void listQuery.refetch()} />
+        ) : listQuery.isLoading ? (
+          <MemoLoadingRows />
+        ) : visibleItems.length ? (
+          <>
+            <section
+              className="min-w-0 overflow-hidden rounded-2xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)]"
+              aria-label="本店备忘清单"
+            >
+              <header className="border-b border-border/50 px-3 py-3 sm:px-4">
+                <div className="flex min-w-0 items-end justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
+                      Today
+                    </p>
+                    <h2 className="truncate text-lg font-semibold tracking-tight">{todayLabel}</h2>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="font-mono text-xs font-semibold tabular-nums">
+                      已显示 {visibleItems.length} 条
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">
+                      {visiblePendingCount} 待办 · {visibleNoteCount} 记录
+                    </p>
+                  </div>
+                </div>
+                {visibleTodoCount ? (
+                  <div className="mt-2 flex items-center gap-2">
+                    <div
+                      className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                      role="progressbar"
+                      aria-label="已显示待办完成进度"
+                      aria-valuemin={0}
+                      aria-valuemax={visibleTodoCount}
+                      aria-valuenow={visibleCompletedCount}
+                    >
+                      <div
+                        className="h-full rounded-full bg-primary transition-[width]"
+                        style={{ width: `${visibleCompletionPercent}%` }}
+                      />
+                    </div>
+                    <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
+                      {visibleCompletionPercent}%
+                    </span>
+                  </div>
+                ) : null}
+              </header>
+              <div className="min-w-0">
+                {visibleItems.map((memo) => (
+                  <MemoCard
+                    key={memo.id}
+                    memo={memo}
+                    busy={!online || mutation.isPending}
+                    onOpen={() => openExisting(memo)}
+                    onTransition={() => void runTransition(memo).catch(() => undefined)}
+                  />
+                ))}
+              </div>
+            </section>
+            <MemoLoadMore
+              hasMore={Boolean(listQuery.hasNextPage)}
+              loading={listQuery.isFetchingNextPage}
+              onLoadMore={() => void listQuery.fetchNextPage()}
             />
-          </div>
-          <MemoPagination
-            page={listQuery.data.page}
-            pageCount={listQuery.data.pageCount}
-            onPageChange={setPage}
+          </>
+        ) : (
+          <MemoEmptyState
+            filtered={Boolean(search || kind !== "all" || assigneeId || view !== "active")}
+            canCreate={Boolean(shell.permissions?.canCreateMemos)}
+            onCreate={openCreate}
           />
-        </>
-      ) : (
-        <MemoEmptyState
-          filtered={Boolean(search || kind !== "all" || assigneeId || view !== "active")}
-          canCreate={Boolean(shell.permissions?.canCreateMemos)}
-          onCreate={openCreate}
-        />
-      )}
+        )}
+      </div>
+      <MemoFiltersOverlay
+        open={filtersOpen}
+        value={filterValue}
+        assignees={assigneesQuery.data ?? []}
+        onOpenChange={setFiltersOpen}
+        onApply={(nextValue) => {
+          setView(nextValue.view);
+          setKind(nextValue.kind);
+          setAssigneeId(nextValue.assigneeId);
+        }}
+      />
       <MemoEditor
         open={editorOpen && (!selected || Boolean(detailMemo))}
         memo={detailMemo}
@@ -315,8 +437,8 @@ export function MemosScreen() {
             : (latestDetail?.version ?? detailMemo?.version)
         }
         assignees={assigneesQuery.data ?? []}
-        canAssignAny={Boolean(listQuery.data?.capabilities.canAssignAny)}
-        membershipId={listQuery.data?.capabilities.membershipId}
+        canAssignAny={Boolean(listMeta?.capabilities.canAssignAny)}
+        membershipId={listMeta?.capabilities.membershipId}
         busy={mutation.isPending || !online}
         onOpenChange={(nextOpen) => {
           setEditorOpen(nextOpen);

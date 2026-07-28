@@ -1,11 +1,27 @@
-import { AlertCircle, NotebookPen, Plus, RefreshCcw } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { AlertCircle, NotebookPen, Plus } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { MemoAssignee, MemoListInput, MemoView } from "@/features/memos/model/contracts";
+import { useIsCompactWorkspace } from "@/hooks/use-mobile";
 import { RepairDeskApiError } from "@/lib/repairdesk/api";
+import { cn } from "@/lib/utils";
 import { RepairOsBusinessCard, RepairOsListScaffold } from "@/shared/ui";
 
 export const memoViewOptions: { value: MemoView; label: string }[] = [
@@ -17,117 +33,212 @@ export const memoViewOptions: { value: MemoView; label: string }[] = [
   { value: "archived", label: "已归档" },
 ];
 
-export function MemoPagination({
-  page,
-  pageCount,
-  onPageChange,
+export type MemoFilterValue = {
+  view: MemoView;
+  kind: MemoListInput["kind"];
+  assigneeId: string;
+};
+
+export function getMemoFilterCount({ view, kind, assigneeId }: MemoFilterValue) {
+  return Number(view !== "active") + Number(kind !== "all") + Number(Boolean(assigneeId));
+}
+
+export function getMemoFilterLabels(
+  { view, kind, assigneeId }: MemoFilterValue,
+  assignees: MemoAssignee[],
+) {
+  const labels: string[] = [];
+  if (view !== "active") {
+    labels.push(memoViewOptions.find((option) => option.value === view)?.label ?? "查看范围");
+  }
+  if (kind !== "all") labels.push(kind === "todo" ? "待办" : "记录");
+  if (assigneeId) {
+    labels.push(
+      assignees.find((assignee) => assignee.membershipId === assigneeId)?.displayName ?? "负责人",
+    );
+  }
+  return labels;
+}
+
+function FilterPill({
+  selected,
+  children,
+  onClick,
 }: {
-  page: number;
-  pageCount: number;
-  onPageChange: (page: number) => void;
+  selected: boolean;
+  children: ReactNode;
+  onClick: () => void;
 }) {
   return (
-    <div className="mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-      <span>
-        第 {page} / {pageCount} 页
-      </span>
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="min-h-11"
-          disabled={page <= 1}
-          onClick={() => onPageChange(page - 1)}
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className={cn(
+        "min-h-10 rounded-full border-[var(--border-panel)] px-3 text-sm shadow-none",
+        selected
+          ? "border-foreground bg-foreground text-background hover:bg-foreground/90 hover:text-background"
+          : "bg-background text-muted-foreground hover:text-foreground",
+      )}
+      aria-pressed={selected}
+      onClick={onClick}
+    >
+      {children}
+    </Button>
+  );
+}
+
+export function MemoFiltersOverlay({
+  open,
+  value,
+  assignees,
+  onOpenChange,
+  onApply,
+}: {
+  open: boolean;
+  value: MemoFilterValue;
+  assignees: MemoAssignee[];
+  onOpenChange: (open: boolean) => void;
+  onApply: (value: MemoFilterValue) => void;
+}) {
+  const compact = useIsCompactWorkspace();
+  const { view: currentView, kind: currentKind, assigneeId: currentAssigneeId } = value;
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    if (open) {
+      setDraft({ view: currentView, kind: currentKind, assigneeId: currentAssigneeId });
+    }
+  }, [currentAssigneeId, currentKind, currentView, open]);
+
+  const content = (
+    <div className="space-y-5">
+      <fieldset className="space-y-2.5">
+        <legend className="text-xs font-medium text-muted-foreground">查看范围</legend>
+        <div className="flex flex-wrap gap-2">
+          {memoViewOptions.map((option) => (
+            <FilterPill
+              key={option.value}
+              selected={draft.view === option.value}
+              onClick={() => setDraft((current) => ({ ...current, view: option.value }))}
+            >
+              {option.label.replace("当前记录", "当前")}
+            </FilterPill>
+          ))}
+        </div>
+      </fieldset>
+      <fieldset className="space-y-2.5">
+        <legend className="text-xs font-medium text-muted-foreground">类型</legend>
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ["all", "全部"],
+              ["todo", "待办"],
+              ["note", "记录"],
+            ] as const
+          ).map(([nextKind, label]) => (
+            <FilterPill
+              key={nextKind}
+              selected={draft.kind === nextKind}
+              onClick={() => setDraft((current) => ({ ...current, kind: nextKind }))}
+            >
+              {label}
+            </FilterPill>
+          ))}
+        </div>
+      </fieldset>
+      <label className="block space-y-2.5 text-xs font-medium text-muted-foreground">
+        <span>负责人</span>
+        <select
+          value={draft.assigneeId}
+          aria-label="负责人"
+          className="h-11 w-full rounded-xl border border-[var(--border-panel)] bg-background px-3 text-base text-foreground shadow-none"
+          onChange={(event) =>
+            setDraft((current) => ({ ...current, assigneeId: event.target.value }))
+          }
         >
-          上一页
+          <option value="">全部负责人</option>
+          {assignees.map((assignee) => (
+            <option key={assignee.membershipId} value={assignee.membershipId}>
+              {assignee.displayName}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-4">
+        <Button
+          type="button"
+          variant="ghost"
+          className="min-h-11 rounded-xl px-2 text-muted-foreground"
+          onClick={() => setDraft({ view: "active", kind: "all", assigneeId: "" })}
+        >
+          清除条件
         </Button>
         <Button
-          variant="outline"
-          size="sm"
-          className="min-h-11"
-          disabled={page >= pageCount}
-          onClick={() => onPageChange(page + 1)}
+          type="button"
+          className="min-h-11 rounded-xl bg-foreground px-5 text-background hover:bg-foreground/90"
+          onClick={() => {
+            onApply(draft);
+            onOpenChange(false);
+          }}
         >
-          下一页
+          查看结果
         </Button>
       </div>
     </div>
   );
+
+  if (compact) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="bottom"
+          className="max-h-[82svh] overflow-y-auto rounded-t-[20px] border-x-0 border-b-0 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4"
+        >
+          <SheetHeader className="mb-5 text-left">
+            <SheetTitle className="text-base">筛选备忘录</SheetTitle>
+            <SheetDescription>只保留现在需要查看的内容</SheetDescription>
+          </SheetHeader>
+          {content}
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg rounded-2xl p-5">
+        <DialogHeader className="text-left">
+          <DialogTitle className="text-base">筛选备忘录</DialogTitle>
+          <DialogDescription>只保留现在需要查看的内容</DialogDescription>
+        </DialogHeader>
+        {content}
+      </DialogContent>
+    </Dialog>
+  );
 }
 
-export function MemoFilterControls({
-  search,
-  view,
-  kind,
-  assigneeId,
-  assignees,
-  onSearchChange,
-  onViewChange,
-  onKindChange,
-  onAssigneeChange,
-  onRefresh,
-  showSearch = true,
+export function MemoLoadMore({
+  hasMore,
+  loading,
+  onLoadMore,
 }: {
-  search: string;
-  view: MemoView;
-  kind: MemoListInput["kind"];
-  assigneeId: string;
-  assignees: MemoAssignee[];
-  onSearchChange: (value: string) => void;
-  onViewChange: (value: MemoView) => void;
-  onKindChange: (value: MemoListInput["kind"]) => void;
-  onAssigneeChange: (value: string) => void;
-  onRefresh: () => void;
-  showSearch?: boolean;
+  hasMore: boolean;
+  loading: boolean;
+  onLoadMore: () => void;
 }) {
+  if (!hasMore) return null;
+
   return (
-    <div className="grid min-w-0 gap-2 lg:grid-cols-[minmax(0,1fr)_140px_140px_180px_auto]">
-      {showSearch ? (
-        <Input
-          value={search}
-          placeholder="搜索标题或正文"
-          aria-label="搜索备忘录标题或正文"
-          className="h-11 text-base sm:h-9 sm:text-sm"
-          onChange={(event) => onSearchChange(event.target.value)}
-        />
-      ) : null}
-      <select
-        value={view}
-        aria-label="查看范围"
-        className="h-11 rounded-md border border-input bg-background px-3 text-base sm:h-9 sm:text-sm"
-        onChange={(event) => onViewChange(event.target.value as MemoView)}
+    <div className="flex justify-center pt-2">
+      <Button
+        type="button"
+        variant="outline"
+        className="min-h-11 rounded-full border-[var(--border-panel)] bg-card px-5 shadow-none"
+        disabled={loading}
+        onClick={onLoadMore}
       >
-        {memoViewOptions.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <select
-        value={kind}
-        aria-label="备忘类型"
-        className="h-11 rounded-md border border-input bg-background px-3 text-base sm:h-9 sm:text-sm"
-        onChange={(event) => onKindChange(event.target.value as MemoListInput["kind"])}
-      >
-        <option value="all">全部类型</option>
-        <option value="note">普通记录</option>
-        <option value="todo">待办</option>
-      </select>
-      <select
-        value={assigneeId}
-        aria-label="负责人"
-        className="h-11 rounded-md border border-input bg-background px-3 text-base sm:h-9 sm:text-sm"
-        onChange={(event) => onAssigneeChange(event.target.value)}
-      >
-        <option value="">全部负责人</option>
-        {assignees.map((assignee) => (
-          <option key={assignee.membershipId} value={assignee.membershipId}>
-            {assignee.displayName}
-          </option>
-        ))}
-      </select>
-      <Button type="button" variant="outline" className="h-11 sm:h-9" onClick={onRefresh}>
-        <RefreshCcw className="size-4" /> 刷新
+        {loading ? "加载中…" : "加载更多"}
       </Button>
     </div>
   );

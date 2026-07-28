@@ -305,6 +305,7 @@ export interface RepairOsListScaffoldProps {
   searchValue?: string;
   searchPlaceholder?: string;
   onSearchChange?: (value: string) => void;
+  searchFrame?: "standalone" | "embedded";
   searchAction?: ReactNode;
   filterAction?: ReactNode;
   chips?: RepairOsListHeaderChip[];
@@ -325,6 +326,7 @@ export function RepairOsListScaffold({
   searchValue,
   searchPlaceholder = "搜索",
   onSearchChange,
+  searchFrame = "standalone",
   searchAction,
   filterAction,
   chips = [],
@@ -406,7 +408,13 @@ export function RepairOsListScaffold({
                   gridTemplateColumns: `minmax(0, 1fr) repeat(${searchTrailingActions.length}, 44px)`,
                 }}
               >
-                <div className={cn(repairOs.searchBar, "h-11 rounded-xl px-2 shadow-none")}>
+                <div
+                  className={cn(
+                    searchFrame === "embedded" ? repairOs.searchBarEmbedded : repairOs.searchBar,
+                    "h-11 rounded-xl px-2",
+                    searchFrame === "standalone" && "shadow-none",
+                  )}
+                >
                   <Search className="size-3.5 shrink-0 text-muted-foreground" />
                   <Input
                     value={searchValue}

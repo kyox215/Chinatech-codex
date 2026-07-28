@@ -110,21 +110,102 @@ describe("MemoEditor draft action fences", () => {
 
     await userEvent.type(screen.getByLabelText("标题"), "交班事项");
     expect(screen.getByRole("group", { name: "备忘类型" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "普通记录" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
+    expect(screen.getByRole("button", { name: "待办" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "待办" })).toHaveClass(
+      "bg-[var(--memo-quick-entry-action)]",
+      "text-[var(--memo-quick-entry-action-foreground)]",
     );
+    expect(screen.getByRole("button", { name: "记录" })).toHaveClass(
+      "bg-[var(--memo-quick-entry-field)]",
+    );
+    expect(screen.getByRole("button", { name: "添加待办" })).toHaveClass(
+      "bg-[var(--memo-quick-entry-action)]",
+      "text-[var(--memo-quick-entry-action-foreground)]",
+    );
+    expect(screen.getByText("本店成员可见")).toBeVisible();
+    expect(screen.getByLabelText("标题")).toHaveClass(
+      "bg-[var(--memo-quick-entry-field)]",
+      "rounded-lg",
+    );
+    expect(screen.queryByLabelText("正文（可选）")).not.toBeInTheDocument();
     expect(screen.getByLabelText("标题")).toBeRequired();
     await userEvent.click(screen.getByRole("button", { name: "关闭" }));
     expect(await screen.findByText(/备忘录草稿有未保存修改/)).toBeVisible();
     expect(onOpenChange).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "取消" }));
 
-    await userEvent.click(screen.getByRole("button", { name: "创建备忘" }));
+    await userEvent.click(screen.getByRole("button", { name: "添加待办" }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-    await userEvent.click(screen.getByRole("button", { name: "创建备忘" }));
+    await userEvent.click(screen.getByRole("button", { name: "添加待办" }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
     expect(onSave.mock.calls[1][0].operationId).toBe(onSave.mock.calls[0][0].operationId);
+  });
+
+  it("creates the default todo from the title with Enter", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <NavigationGuardProvider>
+        <MemoEditor
+          open
+          memo={null}
+          assignees={[]}
+          canAssignAny
+          onOpenChange={vi.fn()}
+          onSave={onSave}
+        />
+      </NavigationGuardProvider>,
+    );
+
+    const title = screen.getByLabelText("标题");
+    await userEvent.type(title, "给客户回电话{Enter}");
+
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: "todo",
+          title: "给客户回电话",
+          content: "",
+          dueAt: null,
+          assigneeMembershipId: null,
+        }),
+      ),
+    );
+  });
+
+  it("supports a note with optional details and Ctrl+Enter", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <NavigationGuardProvider>
+        <MemoEditor
+          open
+          memo={null}
+          assignees={[]}
+          canAssignAny
+          onOpenChange={vi.fn()}
+          onSave={onSave}
+        />
+      </NavigationGuardProvider>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "记录" }));
+    await userEvent.type(screen.getByLabelText("标题"), "供应商备注");
+    await userEvent.click(screen.getByRole("button", { name: "添加详情" }));
+    const content = screen.getByLabelText("正文（可选）");
+    await userEvent.type(content, "下周补货");
+    await userEvent.keyboard("{Control>}{Enter}{/Control}");
+
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: "note",
+          title: "供应商备注",
+          content: "下周补货",
+          dueAt: null,
+          assigneeMembershipId: null,
+        }),
+      ),
+    );
+    expect(screen.getByRole("button", { name: "保存记录" })).toBeVisible();
   });
 
   it("does not let scoped staff clear an existing assignee", () => {

@@ -205,6 +205,7 @@ export interface ExampleCardProps {
 - 导入预览、批量操作预览、审计摘要等“确认前检查”面板优先使用 `RepairOsBusinessCard` 承载标题/说明/状态，再用 `RepairOsInfoTile` 展示数量和金额；warning 只展示行号、字段和原因，不展示原始敏感值。
 - 状态、标签、数量和风险提示 chip 优先使用 `RepairOsBadge` 或已有业务 badge；不要在业务页面重复手写 `inline-flex rounded-full px-* text-[9px]` 的 pill 结构，长文本必须保留 `min-w-0` / `truncate`。
 - `RepairOsListScaffold` 的 `chips` 是可选能力，不是新列表页默认组成。新功能默认使用搜索、单一筛选入口和主动作；只有产品确认的核心工作队列才传入顶部 chips，不能把所有状态自动平铺。
+- 搜索组件必须是单层边界。无外框父级使用独立式 `repairOs.searchBar`；放在已有完整边框/阴影的工具栏、卡片或 Floating Card 中时，必须显式使用 `repairOs.searchBarEmbedded`（`RepairOsListScaffold` 传 `searchFrame="embedded"`）。禁止“父容器完整外框 + 搜索容器完整外框”，也禁止搜索容器内的 Input 再画一层边框；焦点态可以使用瞬时 ring。
 - 仅展示数量、进度或状态的 chip 不得渲染为无处理逻辑的 `<button>`；只有存在真实动作时才使用按钮语义，并提供键盘、触摸和状态变化反馈。
 - 移动详情和任务页面默认使用 RepairOS Floating Card 组件语言：顶部使用 `repairOs.mobileFloatingHeader*`，正文信息块使用 `repairOs.mobileInfoCard`。
 - 移动详情、任务、报价、收款、扫码、拍照和历史记录组件必须遵守 [`REPAIROS_MOBILE_DETAIL_STANDARD.md`](./REPAIROS_MOBILE_DETAIL_STANDARD.md)。订单详情页的“客户信息 / 设备信息 / 维修项目与报价 / 支付信息”是移动卡片字号、间距、色彩强调和信息层级的基准。
@@ -381,6 +382,7 @@ export function ExampleDialog({ open, isPending, onOpenChange, onSubmit }: Examp
 - 禁止在可复用组件里写页面路由专属布局宽度。
 - 禁止把 Dialog/Sheet 标题省略。
 - 禁止新增与 `StatusBadge` / `MoneyText` 重复的业务渲染组件。
+- 禁止搜索框“框中框”：有框父容器内不得再使用带完整边框或卡片阴影的搜索容器。
 
 ## 14. 验收标准
 

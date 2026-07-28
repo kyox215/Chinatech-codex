@@ -170,6 +170,13 @@
   --surface-panel: oklch(1 0 0);
   --surface-panel-muted: oklch(0.972 0.006 255);
   --border-panel: oklch(0.88 0.012 255 / 0.78);
+  --memo-quick-entry-surface: oklch(0.929 0.003 286);
+  --memo-quick-entry-field: oklch(0.995 0 0);
+  --memo-quick-entry-border: oklch(0.861 0 0);
+  --memo-quick-entry-action: oklch(0.225 0.008 286);
+  --memo-quick-entry-action-foreground: oklch(0.97 0.004 286);
+  --memo-quick-entry-focus: oklch(0.995 0 0);
+  --memo-quick-entry-shadow: 0 1rem 3rem oklch(0.205 0.025 265 / 0.14);
   --capture-preview: oklch(0.16 0.02 265);
   --brand-marker-muted: color-mix(in oklch, var(--primary) 60%, transparent);
 }
@@ -232,6 +239,13 @@
   --surface-panel: oklch(1 0 0 / 0.055);
   --surface-panel-muted: oklch(1 0 0 / 0.035);
   --border-panel: oklch(1 0 0 / 0.09);
+  --memo-quick-entry-surface: oklch(0.24 0.01 286);
+  --memo-quick-entry-field: oklch(0.18 0.008 286);
+  --memo-quick-entry-border: oklch(1 0 0 / 0.12);
+  --memo-quick-entry-action: oklch(0.96 0.004 286);
+  --memo-quick-entry-action-foreground: oklch(0.2 0.008 286);
+  --memo-quick-entry-focus: oklch(0.82 0.006 286 / 0.36);
+  --memo-quick-entry-shadow: 0 1rem 3rem oklch(0 0 0 / 0.42);
   --capture-preview: oklch(0.08 0.012 265);
   --brand-marker-muted: color-mix(in oklch, var(--primary) 65%, transparent);
 }

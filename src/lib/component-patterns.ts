@@ -134,6 +134,36 @@ export const componentOverlay = {
   footer: "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
 } as const;
 
+/** Exact implementation contract for Memo quick entry, Option A. */
+export const memoQuickEntry = {
+  surface:
+    "border-[var(--memo-quick-entry-border)] bg-[var(--memo-quick-entry-surface)] text-foreground shadow-[var(--memo-quick-entry-shadow)]",
+  desktop:
+    "w-[min(576px,calc(100vw-24px))] max-w-[calc(100vw-24px)] gap-0 rounded-[1rem] p-4 sm:p-4",
+  mobile:
+    "gap-0 rounded-t-[1.25rem] border-x-0 border-b-0 px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-4",
+  header: "mb-[0.9rem] space-y-0 pe-11 text-left",
+  title: "text-sm font-medium leading-5 tracking-normal",
+  description: "text-xs leading-4 text-muted-foreground",
+  form: "flex flex-col",
+  typeRow: "mb-3 flex flex-wrap gap-2",
+  typeButton: "min-h-11 rounded-lg px-3 text-sm shadow-none sm:min-h-10 sm:px-2",
+  typeButtonSelected:
+    "border-[var(--memo-quick-entry-action)] bg-[var(--memo-quick-entry-action)] text-[var(--memo-quick-entry-action-foreground)] hover:bg-[var(--memo-quick-entry-action)] hover:text-[var(--memo-quick-entry-action-foreground)]",
+  typeButtonIdle:
+    "border-[var(--memo-quick-entry-field)] bg-[var(--memo-quick-entry-field)] text-foreground hover:bg-[var(--memo-quick-entry-field)] hover:text-foreground",
+  quickField:
+    "h-12 rounded-lg border-transparent bg-[var(--memo-quick-entry-field)] px-3 text-base shadow-none focus-visible:border-transparent focus-visible:ring-1 focus-visible:ring-[var(--memo-quick-entry-focus)] md:text-sm",
+  detailTrigger:
+    "mb-[0.65rem] min-h-11 justify-start rounded-lg px-2 text-sm font-normal text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground sm:h-7 sm:min-h-7",
+  detailsPanel: "grid gap-[0.7rem] pt-[0.4rem]",
+  footer:
+    "mt-[0.85rem] flex flex-wrap items-center justify-between gap-3 border-t border-[var(--memo-quick-entry-border)] pt-3",
+  scope: "text-xs text-muted-foreground",
+  action:
+    "min-h-11 min-w-0 rounded-lg border-[var(--memo-quick-entry-action)] bg-[var(--memo-quick-entry-action)] px-3 text-[var(--memo-quick-entry-action-foreground)] shadow-none hover:bg-[var(--memo-quick-entry-action)] hover:text-[var(--memo-quick-entry-action-foreground)] disabled:opacity-100 sm:h-7 sm:min-h-7",
+} as const;
+
 export const componentDensity = {
   compactPanel: "glass-card p-3 sm:p-4",
   denseRow: "grid min-w-0 items-center gap-2 px-3 py-2",

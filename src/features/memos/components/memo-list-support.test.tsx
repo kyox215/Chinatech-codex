@@ -1,53 +1,75 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { MemoFilterControls } from "./memo-list-support";
+vi.mock("@/hooks/use-mobile", () => ({ useIsCompactWorkspace: () => false }));
 
-describe("MemoFilterControls", () => {
-  it("keeps status views inside the filter controls", () => {
-    const onViewChange = vi.fn();
+import {
+  getMemoFilterCount,
+  getMemoFilterLabels,
+  MemoFiltersOverlay,
+  MemoLoadMore,
+} from "./memo-list-support";
+
+const assignees = [
+  { membershipId: "member-1", displayName: "王师傅", role: "technician" as const },
+];
+
+describe("memo filter helpers", () => {
+  it("keeps the default view visually quiet and counts only active filters", () => {
+    expect(getMemoFilterCount({ view: "active", kind: "all", assigneeId: "" })).toBe(0);
+    expect(getMemoFilterCount({ view: "overdue", kind: "todo", assigneeId: "member-1" })).toBe(3);
+    expect(
+      getMemoFilterLabels({ view: "overdue", kind: "todo", assigneeId: "member-1" }, assignees),
+    ).toEqual(["超期", "待办", "王师傅"]);
+  });
+});
+
+describe("MemoFiltersOverlay", () => {
+  it("uses pill choices and applies the draft only after confirmation", () => {
+    const onApply = vi.fn();
 
     render(
-      <MemoFilterControls
-        search=""
-        view="active"
-        kind="all"
-        assigneeId=""
-        assignees={[]}
-        onSearchChange={vi.fn()}
-        onViewChange={onViewChange}
-        onKindChange={vi.fn()}
-        onAssigneeChange={vi.fn()}
-        onRefresh={vi.fn()}
-        showSearch={false}
+      <MemoFiltersOverlay
+        open
+        value={{ view: "active", kind: "all", assigneeId: "" }}
+        assignees={assignees}
+        onOpenChange={vi.fn()}
+        onApply={onApply}
       />,
     );
 
-    const viewSelect = screen.getByRole("combobox", { name: "查看范围" });
-    expect(viewSelect).toHaveValue("active");
-    expect(screen.getByRole("option", { name: "待处理" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toHaveClass("max-w-lg", "rounded-2xl");
+    fireEvent.click(screen.getByRole("button", { name: "超期" }));
+    fireEvent.click(screen.getByRole("button", { name: "待办" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "负责人" }), {
+      target: { value: "member-1" },
+    });
+    expect(onApply).not.toHaveBeenCalled();
 
-    fireEvent.change(viewSelect, { target: { value: "overdue" } });
-    expect(onViewChange).toHaveBeenCalledWith("overdue");
-    expect(screen.queryByRole("textbox", { name: "搜索备忘录标题或正文" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "查看结果" }));
+    expect(onApply).toHaveBeenCalledWith({
+      view: "overdue",
+      kind: "todo",
+      assigneeId: "member-1",
+    });
+  });
+});
+
+describe("MemoLoadMore", () => {
+  it("shows one progressive action without previous or next controls", () => {
+    const onLoadMore = vi.fn();
+    render(<MemoLoadMore hasMore loading={false} onLoadMore={onLoadMore} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "加载更多" }));
+    expect(onLoadMore).toHaveBeenCalledOnce();
+    expect(screen.queryByText("上一页")).not.toBeInTheDocument();
+    expect(screen.queryByText("下一页")).not.toBeInTheDocument();
   });
 
-  it("keeps desktop search available", () => {
-    render(
-      <MemoFilterControls
-        search="交班"
-        view="active"
-        kind="all"
-        assigneeId=""
-        assignees={[]}
-        onSearchChange={vi.fn()}
-        onViewChange={vi.fn()}
-        onKindChange={vi.fn()}
-        onAssigneeChange={vi.fn()}
-        onRefresh={vi.fn()}
-      />,
+  it("stays hidden when all records are loaded", () => {
+    const { container } = render(
+      <MemoLoadMore hasMore={false} loading={false} onLoadMore={vi.fn()} />,
     );
-
-    expect(screen.getByRole("textbox", { name: "搜索备忘录标题或正文" })).toHaveValue("交班");
+    expect(container).toBeEmptyDOMElement();
   });
 });

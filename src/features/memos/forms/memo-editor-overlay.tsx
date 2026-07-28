@@ -14,40 +14,58 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { componentOverlay } from "@/lib/component-patterns";
+import { componentOverlay, memoQuickEntry } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
-
-const description = "记录本店铺事项，或安排一项待办工作。";
 
 export function MemoEditorOverlay({
   compact,
   open,
   title,
+  description,
   children,
   onOpenChange,
 }: {
   compact: boolean;
   open: boolean;
   title: string;
+  description: string;
   children: ReactNode;
   onOpenChange: (open: boolean) => void;
 }) {
   return compact ? (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className={cn(componentOverlay.bottomSheet, "flex flex-col")}>
-        <SheetHeader className="mb-3 text-left">
-          <SheetTitle>{title}</SheetTitle>
-          <SheetDescription>{description}</SheetDescription>
+      <SheetContent
+        side="bottom"
+        className={cn(
+          componentOverlay.bottomSheet,
+          memoQuickEntry.surface,
+          memoQuickEntry.mobile,
+          "flex flex-col",
+        )}
+      >
+        <SheetHeader className={memoQuickEntry.header}>
+          <SheetTitle className={memoQuickEntry.title}>{title}</SheetTitle>
+          <SheetDescription className={memoQuickEntry.description}>{description}</SheetDescription>
         </SheetHeader>
         {children}
       </SheetContent>
     </Sheet>
   ) : (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={componentOverlay.formContent}>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+      <DialogContent
+        className={cn(
+          componentOverlay.formContent,
+          memoQuickEntry.surface,
+          memoQuickEntry.desktop,
+          "flex flex-col overflow-hidden",
+        )}
+        closeClassName="right-2 top-2 size-11 hover:bg-transparent focus:ring-[var(--memo-quick-entry-focus)] sm:right-2 sm:top-2"
+      >
+        <DialogHeader className={memoQuickEntry.header}>
+          <DialogTitle className={memoQuickEntry.title}>{title}</DialogTitle>
+          <DialogDescription className={memoQuickEntry.description}>
+            {description}
+          </DialogDescription>
         </DialogHeader>
         {children}
       </DialogContent>

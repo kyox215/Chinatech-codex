@@ -61,6 +61,7 @@ Last reviewed: 2026-06-19 CEST by `TASK-20260619-021`
 10. Loading 用 `Skeleton`，错误用 `text-status-danger-foreground`，空态用 `glass-card`。
 11. 新增移动业务页面必须遵守 RepairOS Compact 标准：mobile-first、浅色背景、白色紧凑卡片、科技蓝主色、统一侧边栏抽屉、高密度业务卡片，不做大 Banner 和营销式 hero。详细标准见 [`REPAIROS_COMPACT_ARCHITECTURE.md`](./REPAIROS_COMPACT_ARCHITECTURE.md)。
 12. 本地开发环境不得注册或保留 PWA service worker 缓存；预览必须始终读取当前源码，避免旧 shell 干扰 UI 验收。
+13. 搜索控件必须遵守“单层边界”：禁止在已有完整边框或阴影的卡片、工具栏、悬浮头中，再放置一个带完整边框或阴影的搜索框。父级无完整外框时使用 `repairOs.searchBar`；父级已拥有外框时使用 `repairOs.searchBarEmbedded`，只保留中性底色和瞬时焦点反馈。搜索 Input 本身不得再绘制第三层边框。该规则同时适用于桌面端与移动端。
 
 ## 3. 页面布局声明
 
@@ -112,7 +113,7 @@ import { brandGradientStyle, pageShell, repairOs, surfaces } from "@/lib/ui-patt
 
 1. 不生成页内模块标题块；不要在正文里重复 `工作台 / ...`、模块名或总数副标题。
 2. KPI / 快捷筛选：一行可换行 pill。
-3. Toolbar：`surfaces.toolbar`，包含搜索、筛选、导出、分段 Tabs。
+3. Toolbar：`surfaces.toolbar`，包含搜索、筛选、导出、分段 Tabs。Toolbar 自身有完整边框或阴影时，内部搜索必须使用 `repairOs.searchBarEmbedded`，不得形成“框中框”。
 4. Desktop：表格。
 5. Mobile：卡片列表。
 6. Batch action：只在选中数据时出现，动作必须由业务工作流校验。
@@ -184,6 +185,13 @@ import { brandGradientStyle, pageShell, repairOs, surfaces } from "@/lib/ui-patt
 | `stateBlocks`        | skeleton/error/empty/muted help                                    |
 | `iconSizes`          | 统一图标尺寸                                                       |
 | `brandGradientStyle` | 品牌渐变 style 对象                                                |
+
+搜索容器只能二选一：
+
+- 独立式：父容器没有完整卡片边框/阴影，使用 `repairOs.searchBar` 承担唯一边界。
+- 嵌入式：父容器已经承担边界，使用 `repairOs.searchBarEmbedded`；不得再加 `border`、卡片阴影或第二个白色卡片面。
+
+两种模式都必须使用无边框的 `repairOs.searchInput`，焦点环只在交互时短暂出现，不算持久第二层边框。
 
 列表 / 管理页示例：
 

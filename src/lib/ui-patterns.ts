@@ -165,6 +165,8 @@ export const repairOs = {
     "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border-0 px-3 text-sm font-medium text-primary-foreground shadow-[var(--shadow-action)] transition-transform active:scale-95",
   searchBar:
     "flex h-10 min-w-0 items-center gap-2 rounded-2xl border border-[var(--border-panel)] bg-card px-3 shadow-[var(--shadow-card)]",
+  searchBarEmbedded:
+    "flex h-10 min-w-0 items-center gap-2 rounded-xl bg-[var(--surface-panel-muted)] px-3 transition-colors focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/20",
   searchInput:
     "h-9 min-w-0 border-0 bg-transparent px-0 text-sm shadow-none placeholder:text-muted-foreground/65 focus-visible:ring-0",
   metricStrip: "grid min-w-0 gap-2",

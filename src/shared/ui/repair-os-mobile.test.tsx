@@ -59,6 +59,27 @@ describe("RepairOsListScaffold header chips", () => {
     expect(screen.getByRole("link", { name: "返回设置总览" })).toHaveAttribute("href", "/settings");
     expect(screen.queryByRole("button", { name: /侧边栏|菜单/ })).not.toBeInTheDocument();
   });
+
+  it("uses a single-frame embedded search inside the floating header", () => {
+    render(
+      <SidebarProvider>
+        <RepairOsListScaffold
+          title="备忘录"
+          searchValue=""
+          searchPlaceholder="搜索标题或正文"
+          onSearchChange={() => undefined}
+          searchFrame="embedded"
+        >
+          <div>内容</div>
+        </RepairOsListScaffold>
+      </SidebarProvider>,
+    );
+
+    const searchContainer = screen.getByRole("textbox", { name: "搜索标题或正文" }).parentElement;
+    expect(searchContainer).toHaveClass("bg-[var(--surface-panel-muted)]");
+    expect(searchContainer).not.toHaveClass("border");
+    expect(searchContainer?.className).not.toContain("shadow-[var(--shadow-card)]");
+  });
 });
 
 function renderScaffold(chips: React.ComponentProps<typeof RepairOsListScaffold>["chips"]) {
