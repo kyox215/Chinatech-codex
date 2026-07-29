@@ -20,6 +20,10 @@ describe("MemoEditorOverlay", () => {
     expect(screen.getByRole("dialog")).toHaveClass(
       "flex",
       "flex-col",
+      "w-full",
+      "min-w-0",
+      "max-w-full",
+      "overflow-x-hidden",
       "overflow-hidden",
       "bg-[var(--memo-quick-entry-surface)]",
       "rounded-t-[1.25rem]",

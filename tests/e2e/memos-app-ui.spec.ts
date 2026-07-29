@@ -77,4 +77,36 @@ test("memo search, filters, quick entry and progressive loading match the app la
   await page.screenshot({
     path: testInfo.outputPath("memo-app-ui-mobile-filter.png"),
   });
+  await page.keyboard.press("Escape");
+  await expect(filterSheet).toBeHidden();
+
+  for (const width of [320, 375, 390, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page
+      .getByRole("button", { name: /^打开备忘：/ })
+      .first()
+      .click();
+    const editorSheet = page.getByRole("dialog", { name: "备忘详情" });
+    await expect(editorSheet).toBeVisible();
+
+    const overflow = await editorSheet.evaluate((element) => ({
+      documentWidth: document.documentElement.scrollWidth,
+      bodyWidth: document.body.scrollWidth,
+      viewportWidth: window.innerWidth,
+      sheetClientWidth: element.clientWidth,
+      sheetScrollWidth: element.scrollWidth,
+      sheetLeft: element.getBoundingClientRect().left,
+      sheetRight: element.getBoundingClientRect().right,
+    }));
+    expect(overflow.documentWidth).toBeLessThanOrEqual(overflow.viewportWidth);
+    expect(overflow.bodyWidth).toBeLessThanOrEqual(overflow.viewportWidth);
+    expect(overflow.sheetScrollWidth).toBeLessThanOrEqual(overflow.sheetClientWidth + 1);
+    expect(overflow.sheetLeft).toBeGreaterThanOrEqual(-1);
+    expect(overflow.sheetRight).toBeLessThanOrEqual(overflow.viewportWidth + 1);
+
+    await editorSheet.getByRole("button", { name: "保存修改" }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(`memo-editor-no-horizontal-${width}.png`) });
+    await editorSheet.getByRole("button", { name: "关闭" }).click();
+    await expect(editorSheet).toBeHidden();
+  }
 });

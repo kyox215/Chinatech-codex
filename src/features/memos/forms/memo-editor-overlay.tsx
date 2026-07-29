@@ -40,10 +40,10 @@ export function MemoEditorOverlay({
           componentOverlay.bottomSheet,
           memoQuickEntry.surface,
           memoQuickEntry.mobile,
-          "flex flex-col",
+          "inset-x-0 flex w-full min-w-0 max-w-full flex-col overflow-x-hidden",
         )}
       >
-        <SheetHeader className={memoQuickEntry.header}>
+        <SheetHeader className={cn(memoQuickEntry.header, "min-w-0 max-w-full")}>
           <SheetTitle className={memoQuickEntry.title}>{title}</SheetTitle>
           <SheetDescription className={memoQuickEntry.description}>{description}</SheetDescription>
         </SheetHeader>

@@ -123,43 +123,45 @@ export function MemoEditor({
 
   const editorFields = (
     <>
-      <div className="space-y-1.5">
+      <div className="min-w-0 space-y-1.5">
         <Label htmlFor="memo-content">正文{!memo ? "（可选）" : ""}</Label>
         <Textarea
           id="memo-content"
           value={content}
           maxLength={4000}
           disabled={!canEdit || busy}
-          className="min-h-32 resize-y rounded-lg border-[var(--border-panel)] bg-background text-base shadow-sm"
+          className="min-h-32 w-full min-w-0 max-w-full resize-y rounded-lg border-[var(--border-panel)] bg-background text-base shadow-sm"
           placeholder={!memo ? "补充说明…" : undefined}
           onKeyDown={submitFromContent}
           onChange={(event) => setContent(event.target.value)}
         />
-        <p className="flex justify-between gap-2 text-[10px] text-muted-foreground">
-          <span>请勿记录密码、支付资料、解锁码或不必要的客户隐私。</span>
-          <span>{content.length}/4000</span>
+        <p className="flex min-w-0 justify-between gap-2 text-[10px] text-muted-foreground">
+          <span className="min-w-0 break-words">
+            请勿记录密码、支付资料、解锁码或不必要的客户隐私。
+          </span>
+          <span className="shrink-0">{content.length}/4000</span>
         </p>
       </div>
       {kind === "todo" ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <div className="min-w-0 space-y-1.5">
             <Label htmlFor="memo-due">到期时间</Label>
             <Input
               id="memo-due"
               type="datetime-local"
               value={dueAt}
               disabled={!canEdit || busy}
-              className="h-11 rounded-lg border-[var(--border-panel)] bg-background text-base shadow-sm"
+              className="h-11 w-full min-w-0 max-w-full rounded-lg border-[var(--border-panel)] bg-background text-base shadow-sm"
               onChange={(event) => setDueAt(event.target.value)}
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="min-w-0 space-y-1.5">
             <Label htmlFor="memo-assignee">负责人</Label>
             <select
               id="memo-assignee"
               value={assignee}
               disabled={!canEdit || busy || !canChangeAssignee}
-              className="h-11 w-full rounded-lg border border-[var(--border-panel)] bg-background px-3 text-base shadow-sm"
+              className="h-11 w-full min-w-0 max-w-full rounded-lg border border-[var(--border-panel)] bg-background px-3 text-base shadow-sm"
               onChange={(event) => setAssignee(event.target.value)}
             >
               <option value="">未分配</option>
@@ -184,7 +186,7 @@ export function MemoEditor({
   const body = (
     <form
       className={cn(
-        "min-h-0 flex-1 overflow-y-auto px-0.5",
+        "min-h-0 min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto px-0.5",
         memo ? "space-y-3 pb-[max(0.25rem,env(safe-area-inset-bottom))]" : memoQuickEntry.form,
       )}
       onSubmit={(event) => {
