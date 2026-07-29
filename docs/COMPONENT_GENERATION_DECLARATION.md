@@ -3,7 +3,7 @@
 Status: active
 Owner: Frontend + Documentation / Integration Lead
 Scope: current reusable-component generation, naming, placement, styling, and validation rules for RepairDesk.
-Last reviewed: 2026-07-12 CEST by `TASK-20260712-002-mobile-interaction-click-reliability`
+Last reviewed: 2026-07-29 CEST by `TASK-20260729-011-inventory-product-simplification-implementation`
 
 > 本声明专门约束“新增可复用组件如何设计、生成、命名、落盘、验收”。
 >
@@ -207,6 +207,9 @@ export interface ExampleCardProps {
 - `RepairOsListScaffold` 的 `chips` 是可选能力，不是新列表页默认组成。新功能默认使用搜索、单一筛选入口和主动作；只有产品确认的核心工作队列才传入顶部 chips，不能把所有状态自动平铺。
 - 搜索组件必须是单层边界。无外框父级使用独立式 `repairOs.searchBar`；放在已有完整边框/阴影的工具栏、卡片或 Floating Card 中时，必须显式使用 `repairOs.searchBarEmbedded`（`RepairOsListScaffold` 传 `searchFrame="embedded"`）。禁止“父容器完整外框 + 搜索容器完整外框”，也禁止搜索容器内的 Input 再画一层边框；焦点态可以使用瞬时 ring。
 - 仅展示数量、进度或状态的 chip 不得渲染为无处理逻辑的 `<button>`；只有存在真实动作时才使用按钮语义，并提供键盘、触摸和状态变化反馈。
+- 状态筛选、类别选择、Tab 和页面分组不得使用“圆点 + 连线”的 stepper 外观；连线步骤器只服务真实、线性、有序的任务流。`RepairOsHeaderStepper` 不得用于新列表页。
+- Header / Filter / Tab / Stepper 组件禁止用 `overflow-x-auto`、`snap-x` 或动态 `minWidth` 强制横向拖动。选项过多时使用自动换行、固定网格、Select 或筛选 Sheet。
+- 滚动条、灰色长线或 carousel indicator 不得用作业务进度装饰。进度组件必须接收真实的完成量/阶段数据，并同时输出文本与可访问状态。
 - 移动详情和任务页面默认使用 RepairOS Floating Card 组件语言：顶部使用 `repairOs.mobileFloatingHeader*`，正文信息块使用 `repairOs.mobileInfoCard`。
 - 移动详情、任务、报价、收款、扫码、拍照和历史记录组件必须遵守 [`REPAIROS_MOBILE_DETAIL_STANDARD.md`](./REPAIROS_MOBILE_DETAIL_STANDARD.md)。订单详情页的“客户信息 / 设备信息 / 维修项目与报价 / 支付信息”是移动卡片字号、间距、色彩强调和信息层级的基准。
 - 新增移动详情组件不得手写固定顶部的 `border-b`、整屏白色顶栏或散落 `pt-[calc(env(safe-area-inset-top)...)]`；这些必须来自 `repairOs.mobileFloatingPage` 和 `repairOs.mobileFloatingHeaderShell`。
@@ -383,6 +386,7 @@ export function ExampleDialog({ open, isPending, onOpenChange, onSubmit }: Examp
 - 禁止把 Dialog/Sheet 标题省略。
 - 禁止新增与 `StatusBadge` / `MoneyText` 重复的业务渲染组件。
 - 禁止搜索框“框中框”：有框父容器内不得再使用带完整边框或卡片阴影的搜索容器。
+- 禁止新增需要左右拖动才能访问全部选项的状态栏、分类栏或 Tab 栏。
 
 ## 14. 验收标准
 

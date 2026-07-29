@@ -1,7 +1,9 @@
 import type { QueryKey } from "@tanstack/react-query";
 
 import { customersKeys } from "@/features/customers/api/query-keys";
+import { buybackKeys } from "@/features/buyback/api/query-keys";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
+import { inventoryProductKeys } from "@/features/inventory/products/api/query-keys";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
@@ -44,6 +46,10 @@ export function getRepairDeskRealtimeQueryKeyForGroup(
       return customersKeys.all;
     case "inventory.all":
       return inventoryKeys.all;
+    case "inventory.products":
+      return inventoryProductKeys.all;
+    case "buyback.all":
+      return buybackKeys.all;
     case "settings.store":
       return messageSettingsKeys.storeScoped(storeId);
     case "settings.templates":
@@ -74,7 +80,7 @@ export function getRepairDeskRealtimeQueryGroupsForDomain(
     case "customers":
       return ["customers.all"];
     case "inventory":
-      return ["inventory.all"];
+      return ["inventory.all", "inventory.products", "buyback.all"];
     case "settings":
       return [
         "settings.store",
@@ -90,6 +96,8 @@ export function getRepairDeskRealtimeQueryGroupsForDomain(
         "orders.all",
         "customers.all",
         "inventory.all",
+        "inventory.products",
+        "buyback.all",
       ];
     case "memos":
       return ["memos.all"];

@@ -7,6 +7,10 @@ const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 const evidenceDir = path.join(process.cwd(), "screenshots", "TASK-20260726-002-eu-phone-catalog");
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for inventory catalog checks.");
+test.skip(
+  true,
+  "The legacy six-step EU phone catalog intake was retired from /inventory/new; the new quick-entry category and overflow contract has dedicated coverage.",
+);
 
 for (const viewport of [
   { width: 1440, height: 900, name: "desktop-1440" },

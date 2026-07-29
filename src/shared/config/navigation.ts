@@ -163,7 +163,7 @@ export const workspaceNavItems: RepairDeskNavItem[] = [
   },
   {
     id: "inventory",
-    title: "库存商品",
+    title: "商品库存",
     shortTitle: "库存",
     url: "/inventory",
     icon: Package,
@@ -171,7 +171,7 @@ export const workspaceNavItems: RepairDeskNavItem[] = [
     primaryAction: {
       id: "new-inventory",
       kind: "route",
-      label: "库存入库",
+      label: "快速录入商品",
       shortLabel: "入库",
       description: "新增配件、翻新机或商品",
       icon: PackagePlus,
@@ -341,7 +341,7 @@ export const routeLabels: Record<string, string> = {
   customers: "客户管理",
   memos: "备忘录",
   buyback: "回收管理",
-  inventory: "库存商品",
+  inventory: "商品库存",
   finance: "维修毛利",
   messages: "消息模板",
   platform: "平台审批",

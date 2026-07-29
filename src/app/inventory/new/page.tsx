@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 
-import { InventoryIntakeScreen } from "@/features/inventory/screens/inventory-intake-screen";
+import { InventoryProductIntakeScreen } from "@/features/inventory/products";
 
 export const metadata: Metadata = {
-  title: "库存入库",
-  description: "分步录入库存商品、型号、唯一标识、来源、价格与质保",
+  title: "快速录入商品",
+  description: "单页录入手机、平板、电脑、游戏机和其他单件商品",
 };
 
 export default function Page() {
-  return <InventoryIntakeScreen />;
+  return <InventoryProductIntakeScreen />;
 }

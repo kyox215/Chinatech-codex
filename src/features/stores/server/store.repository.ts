@@ -64,6 +64,8 @@ import {
   isStoreLifecyclePurgeSchedulingEnabled,
 } from "@/features/stores/server/store-lifecycle-feature-flags";
 import {
+  canUseInventoryProductQuickCreate,
+  canUseInventoryProductsUi,
   canUseInventoryV2Commands,
   canUseInventoryV2Ui,
 } from "@/features/inventory/server/inventory-v2-access";
@@ -1401,6 +1403,8 @@ async function storePermissionsFromActor(
     canSellInventory: can(actor, "inventory:sale"),
     inventoryV2UiEnabled: canUseInventoryV2Ui(actor),
     inventoryV2CommandsEnabled: canUseInventoryV2Commands(actor),
+    inventoryProductsUiEnabled: canUseInventoryProductsUi(actor),
+    inventoryProductQuickCreateEnabled: canUseInventoryProductQuickCreate(actor),
     canManageOrderData,
     canApplyOrderData: canManageOrderData && isOrderDataApplyEnabled(),
     canSearchOrderArchive: can(actor, "order:archive_search"),
@@ -1413,6 +1417,7 @@ async function storePermissionsFromActor(
     canPreviewCostBackfill: isCostBackfillEnabled() && can(actor, "finance:cost_backfill_preview"),
     canApplyCostBackfill: isCostBackfillEnabled() && can(actor, "finance:cost_backfill_apply"),
     canAllocatePartsCosts: isPartsProcurementEnabled() && can(actor, "inventory:cost_allocate"),
+    canAllocateInventoryCosts: can(actor, "inventory:cost_allocate"),
     canReadCostCurrencies:
       isCostMultiCurrencyEnabled() &&
       (can(actor, "finance:currency_manage") ||

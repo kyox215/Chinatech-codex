@@ -3,7 +3,7 @@
 Status: active
 Owner: UX + Documentation / Integration Lead
 Scope: current mobile detail/task/workflow page standards for RepairDesk.
-Last reviewed: 2026-07-22 CEST by `TASK-20260722-002`
+Last reviewed: 2026-07-29 CEST by `TASK-20260729-011-inventory-product-simplification-implementation`
 
 状态：active
 来源页面：`/orders/[id]` 移动端订单详情
@@ -59,9 +59,16 @@ repairOs.mobileInfoCardMuted;
 - 页面标题，通常为 `订单详情`、`客户详情`、`回收报价`。
 - 当前主状态上下文，例如 `检测 · 检测中`。
 - 主编号，例如 `TEST-0016`。
-- 当前阶段、下一步动作。
-- 主流程进度条。
+- 下一步动作（如当前对象确实需要）。
+- 只有真实线性、不可跳步且不可压缩的多阶段任务，才可选显示当前阶段/进度。
 - 辅助状态 badge，例如 `送修单`、`外修中`、`客户审批`，但这些不能混入主流程。
+
+进度使用边界：
+
+- 单个商品、客户、设置对象的详情页不是流程，默认禁止进度条。
+- 普通新建/编辑能在单页完成时，不得为了展示进度而拆成多步。
+- 状态筛选、页面分类和 Tabs 不得渲染为连线步骤器。
+- 滚动条、细长灰线或轮播位置条不得伪装业务进度。
 
 尺寸规则：
 
@@ -289,3 +296,5 @@ document.documentElement.scrollWidth <= window.innerWidth
 8. 扫码、拍照、附件、状态流转、历史记录是否通过 API 和时间线闭环。
 9. 底部操作条是否只保留当前页面最高频动作。
 10. 390px、430px、768px、834px、1024px 是否无横向溢出，且没有卡片遮挡。
+11. 该页是否只在真实有序流程中才显示进度；普通商品等对象详情必须无进度条。
+12. 顶部和正文是否无装饰性滚动条、无横向拖动分组，手机长正文是否避免嵌套纵向滚动区。

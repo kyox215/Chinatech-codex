@@ -3,7 +3,7 @@
 Status: active
 Owner: UX + Documentation / Integration Lead
 Scope: current RepairOS Compact information architecture and mobile-first UI standards.
-Last reviewed: 2026-06-19 CEST by `TASK-20260619-021`
+Last reviewed: 2026-07-29 CEST by `TASK-20260729-011-inventory-product-simplification-implementation`
 
 更新时间：2026-06-12
 
@@ -42,7 +42,7 @@ RepairDesk 后续升级为 RepairOS Compact：移动优先的维修、客户、�
 
 ```txt
 页面背景：浅色、轻透明，不画整屏横向切割线
-顶部：一张圆角悬浮工作卡，包含返回、标题、状态、编号和当前进度
+顶部：一张圆角悬浮工作卡，包含返回、标题、状态和编号；只有真实有序任务才附加进度
 主体：同半径、同边框、同阴影的信息卡，保持高密度字段
 底部：固定操作条，只放当前页面最高频动作
 ```
@@ -56,6 +56,7 @@ RepairDesk 后续升级为 RepairOS Compact：移动优先的维修、客户、�
 - 页面正文使用 `repairOs.mobileFloatingPage` 预留顶部固定卡空间，不手写 `safe-area` / `pt-[calc(...)]`。
 - 业务信息卡使用 `repairOs.mobileInfoCard` 或 `repairOs.mobileInfoCardMuted`，避免每个页面手写圆角、边框和阴影。
 - 顶部卡和第一张正文卡之间保留 6-10px 视觉间距，不允许重叠或贴边。
+- 单个商品、客户等对象详情不显示进度条；普通列表筛选不使用圆点连线流程轨道。
 - 适用页面：工单详情、移动任务详情、新建工单移动布局、客户详情、回收报价、库存商品详情、设置子页。
 - 字号、颜色重点、卡片密度和底部操作条必须以移动订单详情页的“基础信息 / 客户信息 / 设备信息 / 维修项目与报价 / 支付信息”卡片为基准，不在单个页面重新发明一套小卡片语言。
 - 不适用：桌面列表页、普通确认弹窗、轻量 Popover。

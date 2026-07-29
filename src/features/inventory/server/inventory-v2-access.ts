@@ -58,6 +58,24 @@ export function canUseInventoryV2Ui(
   );
 }
 
+export function canUseInventoryProductsUi(
+  actor: AuditActor,
+  env: InventoryV2FeatureEnvironment = process.env as InventoryV2FeatureEnvironment,
+) {
+  return (
+    isInventoryV2UiEnabledForStore(actor.storeId, env) &&
+    canUseExpandedInventoryV2Rollout(actor, env) &&
+    can(actor, "inventory:read")
+  );
+}
+
+export function canUseInventoryProductQuickCreate(
+  actor: AuditActor,
+  env: InventoryV2FeatureEnvironment = process.env as InventoryV2FeatureEnvironment,
+) {
+  return canUseInventoryV2CommandRollout(actor, env) && can(actor, "inventory:create");
+}
+
 export function assertInventoryV2IntakeAccess(actor: AuditActor) {
   if (!canUseInventoryV2Intake(actor)) {
     throw new Error("库存 V2 入库尚未对当前门店或当前角色开放");

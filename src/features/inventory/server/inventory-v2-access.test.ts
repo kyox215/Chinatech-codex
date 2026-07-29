@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { AuditActor, StoreRole } from "@/lib/repairdesk/types";
 
 import {
+  canUseInventoryProductQuickCreate,
+  canUseInventoryProductsUi,
   canUseInventoryV2Commands,
   canUseInventoryV2Intake,
   canUseInventoryV2Sale,
@@ -21,6 +23,8 @@ describe("inventory V2 actor rollout access", () => {
     expect(canUseInventoryV2Sale(actor("sales"), env)).toBe(true);
     expect(canUseInventoryV2Intake(actor("technician"), env)).toBe(false);
     expect(canUseInventoryV2Ui(actor("sales"), env)).toBe(false);
+    expect(canUseInventoryProductsUi(actor("sales"), env)).toBe(true);
+    expect(canUseInventoryProductQuickCreate(actor("sales"), env)).toBe(true);
     expect(canUseInventoryV2Intake(actor("manager", ["inventory:cost_allocate"]), env)).toBe(true);
   });
 
@@ -33,6 +37,8 @@ describe("inventory V2 actor rollout access", () => {
     expect(canUseInventoryV2Commands(actor("manager"), env)).toBe(true);
     expect(canUseInventoryV2Commands(actor("technician"), env)).toBe(false);
     expect(canUseInventoryV2Ui(actor("sales"), env)).toBe(false);
+    expect(canUseInventoryProductsUi(actor("manager"), env)).toBe(true);
+    expect(canUseInventoryProductQuickCreate(actor("manager"), env)).toBe(true);
   });
 
   it("keeps parent flags and the store denylist authoritative", () => {

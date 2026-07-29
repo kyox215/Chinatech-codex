@@ -35,6 +35,7 @@ const PRIVATE_NO_STORE_HEADERS = { "Cache-Control": "private, no-store, max-age=
 function isInventoryV2CommandPath(path: string) {
   return (
     path === "inventory/v2/intake/create" ||
+    path === "inventory/products/quick-create" ||
     path === "inventory/v2/sales/complete" ||
     path === "inventory/v2/workflow/apply"
   );
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return privateError("上传文件超过 4 MB 限制", 413);
   }
   if (
-    path === "inventory/attachment/upload" &&
+    ["inventory/attachment/upload", "buyback/attachment/upload"].includes(path) &&
     Number.isFinite(contentLength) &&
     contentLength > BUYBACK_EVIDENCE_HOSTED_REQUEST_MAX_BYTES
   ) {

@@ -10,6 +10,8 @@ import type {
   CreateInventoryUnitV2Input,
   CreateInventoryUnitV2Result,
   CreateInventoryIntakeInput,
+  CreateInventoryProductInput,
+  CreateInventoryProductResult,
   Customer,
   ElectronicsImportPreview,
   InventoryAttachment,
@@ -22,6 +24,9 @@ import type {
   InventoryItemStatus,
   InventoryListFilters,
   InventoryListItem,
+  InventoryProductDetail,
+  InventoryProductListFilters,
+  InventoryProductListResult,
   InventoryQualityCheck,
   InventoryQualityCheckInput,
   InventoryStats,
@@ -46,6 +51,10 @@ import {
   validateInventoryTransition,
 } from "@/features/inventory/model/inventory-workflow";
 import { normalizePhoneBook } from "@/shared/lib/phone";
+import {
+  projectInventoryProductDetail,
+  projectInventoryProductListItem,
+} from "@/features/inventory/server/inventory-product.repository";
 
 const INVENTORY_DIRECT_CREATE_STATUSES = new Set<InventoryItemStatus>([
   "intake",
@@ -57,6 +66,7 @@ const now = new Date();
 const day = 24 * 60 * 60 * 1000;
 
 const mockCustomers: Customer[] = [];
+const mockInventoryProductCreates = new Map<string, CreateInventoryProductResult>();
 
 const mockInventoryItems: InventoryItem[] = [
   {
@@ -361,6 +371,120 @@ export async function createInventoryIntake(input: CreateInventoryIntakeInput, a
   mockInventoryItems.unshift(item);
   addEvent(item.id, "created", undefined, initialStatus, { input }, nowIso);
   return { id };
+}
+
+export async function createInventoryProduct(
+  input: CreateInventoryProductInput,
+  actor: AuditActor,
+): Promise<CreateInventoryProductResult> {
+  const replay = mockInventoryProductCreates.get(input.idempotency_key);
+  if (replay) return { ...replay, code: "idempotent_replay" };
+  const normalizedIdentifier = input.serial_or_imei?.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  if (
+    normalizedIdentifier &&
+    mockInventoryItems.some(
+      (item) =>
+        item.serial_or_imei?.replace(/[^A-Za-z0-9]/g, "").toUpperCase() === normalizedIdentifier &&
+        !["cancelled", "recycled"].includes(item.status),
+    )
+  ) {
+    throw new Error("这个 IMEI 或序列号已用于其他在库商品");
+  }
+  const created = await createInventoryIntake(
+    {
+      source_type: "manual_stock",
+      initial_status: "intake",
+      category: input.category,
+      brand: input.brand,
+      model: input.model,
+      color: input.color,
+      storage_capacity: input.storage_capacity,
+      serial_or_imei: input.serial_or_imei,
+      list_price: input.list_price,
+      buyback_price: input.cost_amount,
+      warranty_months: input.warranty_months,
+      notes: input.notes,
+    },
+    actor,
+  );
+  const item = mockInventoryItems.find((entry) => entry.id === created.id);
+  if (!item) throw new Error("创建商品失败");
+  item.legacy_payload = {
+    inventory_v2_intake: true,
+    inventory_product_quick_create: true,
+    internal_sku: item.public_no,
+    cost_provided: input.cost_amount !== undefined,
+    list_price_provided: input.list_price !== undefined,
+    warranty_provided: input.warranty_months !== undefined,
+    location: input.location,
+  };
+  const result: CreateInventoryProductResult = {
+    ok: true,
+    code: "created",
+    id: item.id,
+    sku: item.public_no,
+    created_at: item.created_at,
+  };
+  mockInventoryProductCreates.set(input.idempotency_key, result);
+  return result;
+}
+
+export async function listInventoryProducts(
+  filters: InventoryProductListFilters = {},
+  actor?: AuditActor,
+): Promise<InventoryProductListResult> {
+  const sources = mockInventoryItems.filter((item) => item.source_type !== "buyback");
+  const products = sources.map((item) =>
+    projectInventoryProductListItem(decorateInventoryItem(item, actor)),
+  );
+  const search = filters.search?.toLowerCase();
+  const items = products.filter((item, index) => {
+    if (
+      search &&
+      ![
+        item.sku,
+        item.brand,
+        item.model,
+        item.specification,
+        item.location,
+        sources[index].serial_or_imei,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(search)
+    )
+      return false;
+    if (filters.statuses?.length && !filters.statuses.includes(item.status)) return false;
+    if (filters.categories?.length && !filters.categories.includes(item.category)) return false;
+    if (filters.brands?.length && !filters.brands.includes(item.brand)) return false;
+    if (filters.locations?.length && (!item.location || !filters.locations.includes(item.location)))
+      return false;
+    return true;
+  });
+  return {
+    items,
+    total: items.length,
+    facets: {
+      brands: [...new Set(products.map((item) => item.brand))].sort(),
+      locations: [
+        ...new Set(
+          products.map((item) => item.location).filter((value): value is string => Boolean(value)),
+        ),
+      ].sort(),
+    },
+  };
+}
+
+export async function getInventoryProduct(
+  id: string,
+  actor: AuditActor,
+): Promise<InventoryProductDetail> {
+  const item = mockInventoryItems.find(
+    (entry) => entry.id === id && entry.source_type !== "buyback",
+  );
+  if (!item) throw new Error("商品不存在或不属于当前门店");
+  return projectInventoryProductDetail(decorateInventoryItem(item, actor), actor);
 }
 
 export async function updateInventoryItem(

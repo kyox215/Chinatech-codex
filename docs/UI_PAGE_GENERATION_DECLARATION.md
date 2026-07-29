@@ -3,7 +3,7 @@
 Status: active
 Owner: UX + Documentation / Integration Lead
 Scope: current page-generation rules, App Router page bodies, RepairOS UI language, and UI validation expectations.
-Last reviewed: 2026-06-19 CEST by `TASK-20260619-021`
+Last reviewed: 2026-07-29 CEST by `TASK-20260729-011-inventory-product-simplification-implementation`
 
 > 目标：后续新增页面、重构页面、让 AI 生成页面时，必须复用同一套布局、组件、数据和交互契约，避免页面风格漂移。
 >
@@ -62,6 +62,9 @@ Last reviewed: 2026-06-19 CEST by `TASK-20260619-021`
 11. 新增移动业务页面必须遵守 RepairOS Compact 标准：mobile-first、浅色背景、白色紧凑卡片、科技蓝主色、统一侧边栏抽屉、高密度业务卡片，不做大 Banner 和营销式 hero。详细标准见 [`REPAIROS_COMPACT_ARCHITECTURE.md`](./REPAIROS_COMPACT_ARCHITECTURE.md)。
 12. 本地开发环境不得注册或保留 PWA service worker 缓存；预览必须始终读取当前源码，避免旧 shell 干扰 UI 验收。
 13. 搜索控件必须遵守“单层边界”：禁止在已有完整边框或阴影的卡片、工具栏、悬浮头中，再放置一个带完整边框或阴影的搜索框。父级无完整外框时使用 `repairOs.searchBar`；父级已拥有外框时使用 `repairOs.searchBarEmbedded`，只保留中性底色和瞬时焦点反馈。搜索 Input 本身不得再绘制第三层边框。该规则同时适用于桌面端与移动端。
+14. 新功能不得把状态筛选、分类或页面分组做成“圆点 + 连线”的顶部流程轨道。步骤器只能用于用户正在完成的真实有序多步任务，不能用来切换列表视图。
+15. 状态、分类和 Tab 必须在当前 viewport 内完整可达；优先使用固定网格、自动换行、下拉选择或“更多筛选” Sheet。禁止使用 `overflow-x-auto` 的横向拖动栏作为主要导航或筛选方式。
+16. 不得用滚动条、细长灰线、轮播位置条或没有真实数值的条形元素伪装业务进度。只有存在真实可计算完成量时才显示进度，并同时提供文本、当前步骤和可访问状态。
 
 ## 3. 页面布局声明
 
@@ -173,18 +176,18 @@ import { brandGradientStyle, pageShell, repairOs, surfaces } from "@/lib/ui-patt
 
 `src/lib/ui-patterns.ts` 已提供以下声明：
 
-| 导出                 | 用途                                                               |
-| -------------------- | ------------------------------------------------------------------ |
-| `pageShell`          | 页面最大宽度、padding、详情/表单/列表容器                          |
+| 导出                 | 用途                                                                 |
+| -------------------- | -------------------------------------------------------------------- |
+| `pageShell`          | 页面最大宽度、padding、详情/表单/列表容器                            |
 | `pageHeader`         | 对象详情、表单或特殊工作区标题；列表/管理模块正文禁止用它重复 AppBar |
-| `surfaces`           | `glass-card`、toolbar、sticky action、empty、popover               |
-| `controls`           | 品牌按钮、搜索框、分段按钮                                         |
-| `dataDisplay`        | KPI grid、chart grid、table、mobile cards、number                  |
-| `formLayout`         | form stack、section、grid、field、label                            |
-| `repairOs`           | RepairOS Compact 移动页、Floating Card、KPI、chips、高密度业务卡片 |
-| `stateBlocks`        | skeleton/error/empty/muted help                                    |
-| `iconSizes`          | 统一图标尺寸                                                       |
-| `brandGradientStyle` | 品牌渐变 style 对象                                                |
+| `surfaces`           | `glass-card`、toolbar、sticky action、empty、popover                 |
+| `controls`           | 品牌按钮、搜索框、分段按钮                                           |
+| `dataDisplay`        | KPI grid、chart grid、table、mobile cards、number                    |
+| `formLayout`         | form stack、section、grid、field、label                              |
+| `repairOs`           | RepairOS Compact 移动页、Floating Card、KPI、chips、高密度业务卡片   |
+| `stateBlocks`        | skeleton/error/empty/muted help                                      |
+| `iconSizes`          | 统一图标尺寸                                                         |
+| `brandGradientStyle` | 品牌渐变 style 对象                                                  |
 
 搜索容器只能二选一：
 
@@ -281,6 +284,9 @@ export default function ExamplePage() {
 - 是否没有新硬编码颜色。
 - 是否复用 `StatusBadge`、`MoneyText`、`PhoneText`。
 - 是否有 loading / empty / error。
+- 是否没有将状态筛选/分类做成顶部连线流程轨道。
+- 是否没有装饰性进度条、伪滚动指示条或没有真实进度数据的长条。
+- 状态、分类和 Tab 是否不需要左右拖动才能访问。
 - 是否按响应式计划的 viewport 矩阵验证，至少覆盖 390px、768px、1024px、1280px、1440px。
 - 是否暗色默认可读，亮色主题不丢边框和层级。
 - 是否同步导航和命令面板。

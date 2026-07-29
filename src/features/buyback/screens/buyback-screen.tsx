@@ -50,7 +50,8 @@ import {
   consumeScanSearchIntent,
   subscribeScanSearchIntent,
 } from "@/features/capture";
-import { inventoryKeys } from "@/features/inventory/api/query-keys";
+import { buybackKeys } from "@/features/buyback/api/query-keys";
+import { listBuybackRecords } from "@/features/buyback/api/buyback-api";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
@@ -76,7 +77,7 @@ import {
   getBuybackRecordTaskGuidance,
   type BuybackListViewKey,
 } from "@/features/buyback/model/buyback-record-workflow";
-import { listInventoryItems, type InventoryListItem } from "@/lib/repairdesk/api";
+import type { InventoryListItem } from "@/lib/repairdesk/api";
 import { componentOverlay } from "@/lib/component-patterns";
 import { fadeUp, stagger } from "@/lib/motion";
 import { CACHE_TIMES } from "@/lib/query-performance";
@@ -164,13 +165,13 @@ export function BuybackScreen() {
   );
 
   const statsQuery = useQuery({
-    queryKey: inventoryKeys.list(buybackScopeFilters, activeStoreId),
-    queryFn: ({ signal }) => listInventoryItems(buybackScopeFilters, { signal }),
+    queryKey: buybackKeys.list(buybackScopeFilters, activeStoreId),
+    queryFn: ({ signal }) => listBuybackRecords(buybackScopeFilters, { signal }),
     staleTime: CACHE_TIMES.stats,
   });
   const listQuery = useQuery({
-    queryKey: inventoryKeys.list(filters, activeStoreId),
-    queryFn: ({ signal }) => listInventoryItems(filters, { signal }),
+    queryKey: buybackKeys.list(filters, activeStoreId),
+    queryFn: ({ signal }) => listBuybackRecords(filters, { signal }),
     placeholderData: keepPreviousData,
     staleTime: CACHE_TIMES.hotList,
   });
@@ -219,8 +220,8 @@ export function BuybackScreen() {
   };
   const handleOpenInventoryRecord = (item: InventoryListItem) => {
     setSelectedRecord(null);
-    const params = new URLSearchParams({ q: item.public_no, item: item.id });
-    router.push(`/inventory?${params.toString()}`);
+    const params = new URLSearchParams({ q: item.public_no });
+    router.push(`/buyback?${params.toString()}`);
   };
 
   return (
@@ -814,7 +815,7 @@ function BuybackRecordSheet({
     ? BUYBACK_SENSITIVE_WORKFLOW_ENABLED
       ? `${primaryAction.actionLabel} / 复估`
       : "继续报价 / 检测"
-    : "打开库存详情";
+    : "返回回收记录";
 
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
@@ -1165,13 +1166,13 @@ function BuybackRecordSheet({
               if (canOpenQuoteWorkspace) {
                 toast.info(
                   BUYBACK_SENSITIVE_WORKFLOW_ENABLED
-                    ? "已带入当前记录，保存后会更新原回收单；确认成交后转入库存商品。"
+                    ? "已带入当前记录，保存后会更新原回收单；商品库存不会自动变化。"
                     : "已带入当前记录；本次只更新报价与检测，不登记资料或确认成交。",
                 );
                 onStartFollowUp(item);
                 return;
               }
-              toast.info("已跳转库存商品，可继续整备、调价或查看历史。");
+              toast.info("已返回回收记录列表。");
               onOpenInventoryRecord(item);
             }}
           >

@@ -25,6 +25,8 @@ import {
 import { isCostMultiCurrencyEnabled } from "@/features/orders/server/order-cost-feature";
 import { can } from "@/server/permissions";
 import {
+  canUseInventoryProductQuickCreate,
+  canUseInventoryProductsUi,
   canUseInventoryV2Commands,
   canUseInventoryV2Ui,
 } from "@/features/inventory/server/inventory-v2-access";
@@ -520,6 +522,8 @@ function context(actor?: AuditActor): StoreContext {
       canSellInventory: can(scopedActor, "inventory:sale"),
       inventoryV2UiEnabled: canUseInventoryV2Ui(scopedActor),
       inventoryV2CommandsEnabled: canUseInventoryV2Commands(scopedActor),
+      inventoryProductsUiEnabled: canUseInventoryProductsUi(scopedActor),
+      inventoryProductQuickCreateEnabled: canUseInventoryProductQuickCreate(scopedActor),
       canManageOrderData,
       canApplyOrderData,
       canReadAggregateFinance: can(scopedActor, "finance:aggregate_read"),

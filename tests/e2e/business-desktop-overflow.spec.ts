@@ -85,8 +85,8 @@ test.describe("business desktop overflow guard", () => {
         }
         if (route.path === "/inventory") {
           await expectFirstVisible(
-            page.locator("main").last().locator("table").first(),
-            "/inventory desktop table",
+            page.locator("main").last().getByText("SKU / 状态", { exact: true }),
+            "/inventory bounded product grid",
           );
         }
         await expectNoPageOverflow(page, route.path, viewport.width);
@@ -109,8 +109,10 @@ test.describe("business desktop dialog overflow guard", () => {
       await auditCustomerDialogs(page, viewport);
     });
 
-    test(`inventory dialogs stay inside viewport at ${viewport.width}px`, async ({ page }) => {
-      await auditInventoryDialogs(page, viewport);
+    test(`inventory product pages stay inside viewport at ${viewport.width}px`, async ({
+      page,
+    }) => {
+      await auditInventoryProductPages(page, viewport);
     });
 
     test(`settings and output workspaces fit at ${viewport.width}px`, async ({ page }) => {
@@ -254,67 +256,33 @@ async function auditCustomerDialogs(page: Page, viewport: DesktopViewport) {
   await closeDialogs(page);
 }
 
-async function auditInventoryDialogs(page: Page, viewport: DesktopViewport) {
+async function auditInventoryProductPages(page: Page, viewport: DesktopViewport) {
   await page.setViewportSize(viewport);
   await gotoReady(page, "/inventory");
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
-  await clickFirstVisible(page.getByRole("button", { name: /新增商品/ }), "新增商品");
-  await expect(page.getByRole("dialog", { name: "新增库存商品" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "保存商品" })).toBeVisible();
-  await expectOpenDialogsFit(page, "/inventory intake", viewport.width);
-  await expectNoPageOverflow(page, "/inventory intake", viewport.width);
-  await closeDialogs(page);
+  await expectFirstVisible(
+    page.locator("main").last().getByText("SKU / 状态", { exact: true }),
+    "/inventory bounded product grid",
+  );
+  await expectNoPageOverflow(page, "/inventory product list", viewport.width);
 
-  await clickFirstVisible(page.getByRole("button", { name: /导入电子产品|导入库存/ }), "导入库存");
-  await expect(page.getByRole("dialog", { name: "导入 SeaTable 电子产品" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "应用导入" })).toBeVisible();
-  await expectOpenDialogsFit(page, "/inventory import", viewport.width);
-  await expectNoPageOverflow(page, "/inventory import", viewport.width);
-  await closeDialogs(page);
+  await clickFirstVisible(page.getByRole("link", { name: "快速录入商品" }), "快速录入商品");
+  await expect(page).toHaveURL(/\/inventory\/new$/);
+  await expect(page.getByRole("radio", { name: /手机/ })).toBeVisible();
+  await expect(page.getByLabel("品牌")).toBeVisible();
+  await expect(page.getByLabel("型号 / 商品名称")).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expectNoPageOverflow(page, "/inventory quick intake", viewport.width);
 
-  const firstInventoryRow = page
-    .locator("main")
-    .last()
-    .locator("tbody tr[role='button']")
-    .filter({ hasText: /I\d+/ })
-    .first();
-  await expectFirstVisible(firstInventoryRow, "/inventory first desktop row");
-  await clickFirstVisible(firstInventoryRow, "库存详情");
-  const inventoryDetailDialog = page
-    .getByRole("dialog")
-    .filter({ has: page.getByRole("button", { name: "更多库存操作" }) })
-    .first();
-  await expect(inventoryDetailDialog).toBeVisible();
-  await expectOpenDialogsFit(page, "/inventory detail", viewport.width);
-  await expectNoPageOverflow(page, "/inventory detail", viewport.width);
-  await openInventoryDetailAction(page, inventoryDetailDialog, "推进状态");
-  await expect(page.getByRole("dialog", { name: "推进状态" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "确认推进" })).toBeVisible();
-  await expectOpenDialogsFit(page, "/inventory transition", viewport.width);
-  await expectNoPageOverflow(page, "/inventory transition", viewport.width);
-  await page
-    .getByRole("dialog", { name: "推进状态" })
-    .getByRole("button", { name: "关闭" })
-    .click();
-  await expect(page.getByRole("dialog", { name: "推进状态" })).toHaveCount(0);
-  await expect(inventoryDetailDialog).toBeVisible();
-  await openInventoryDetailAction(page, inventoryDetailDialog, "登记检测");
-  await expect(page.getByRole("dialog", { name: "登记检测" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "保存检测" })).toBeVisible();
-  await expectOpenDialogsFit(page, "/inventory check", viewport.width);
-  await expectNoPageOverflow(page, "/inventory check", viewport.width);
-  await page
-    .getByRole("dialog", { name: "登记检测" })
-    .getByRole("button", { name: "关闭" })
-    .click();
-  await expect(page.getByRole("dialog", { name: "登记检测" })).toHaveCount(0);
-  await expect(inventoryDetailDialog).toBeVisible();
-  await openInventoryDetailAction(page, inventoryDetailDialog, "售出");
-  await expect(page.getByRole("dialog", { name: "登记售出" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "确认售出" })).toBeVisible();
-  await expectOpenDialogsFit(page, "/inventory sell", viewport.width);
-  await expectNoPageOverflow(page, "/inventory sell", viewport.width);
-  await closeDialogs(page);
+  await gotoReady(page, "/inventory");
+  const firstProduct = page.getByRole("link", { name: /Apple iPad Air 5/ }).first();
+  await expectFirstVisible(firstProduct, "/inventory first product");
+  await firstProduct.click();
+  await expect(page).toHaveURL(/\/inventory\/inv_mock_3$/);
+  await expect(page.getByRole("heading", { level: 2, name: "Apple iPad Air 5" })).toBeVisible();
+  await expect(page.locator('[role="progressbar"]')).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expectNoPageOverflow(page, "/inventory minimal detail", viewport.width);
 }
 
 async function auditSettingsAndOutputWorkspaces(page: Page, viewport: DesktopViewport) {
@@ -480,34 +448,6 @@ async function firstVisibleEnabledIndex(locator: Locator) {
     if (visible && enabled) return index;
   }
   return -1;
-}
-
-async function openInventoryDetailAction(page: Page, dialog: Locator, label: string) {
-  const directAction = dialog.getByRole("button", { name: label });
-  const openedDirectly = await clickFirstVisible(directAction, label, { optional: true });
-  if (openedDirectly) return;
-
-  await clickFirstVisible(dialog.getByRole("button", { name: "更多库存操作" }), "更多库存操作");
-  const menuAction = page.getByRole("menuitem", { name: label });
-  const target = await expect
-    .poll(
-      async () => {
-        if ((await firstVisibleEnabledIndex(menuAction)) >= 0) return "menu";
-        if ((await firstVisibleEnabledIndex(directAction)) >= 0) return "direct";
-        return "pending";
-      },
-      { message: `Inventory detail action for ${label}`, timeout: 10_000 },
-    )
-    .not.toBe("pending")
-    .then(() => firstVisibleEnabledIndex(menuAction));
-
-  if (target >= 0) {
-    await clickFirstVisible(menuAction, label);
-    return;
-  }
-
-  await page.keyboard.press("Escape");
-  await clickFirstVisible(directAction, label);
 }
 
 async function closeDialogs(page: Page) {

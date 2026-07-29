@@ -39,7 +39,15 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import { inventoryKeys } from "@/features/inventory/api/query-keys";
+import { buybackKeys } from "@/features/buyback/api/query-keys";
+import {
+  createBuybackRecord as createInventoryIntake,
+  finalizeBuybackRecord as finalizeBuybackPurchase,
+  getBuybackRecord as getInventoryItem,
+  transitionBuybackRecord as transitionInventoryItem,
+  updateBuybackRecord as updateInventoryItem,
+  uploadBuybackEvidence as uploadInventoryAttachment,
+} from "@/features/buyback/api/buyback-api";
 import {
   buildBuybackQuoteCreateInput,
   buildBuybackAgreementSnapshot,
@@ -80,14 +88,6 @@ import {
   BUYBACK_SENSITIVE_WORKFLOW_ENABLED,
 } from "@/features/buyback/model/buyback-evidence-policy";
 import { persistRecordOnlyBuybackQuote } from "@/features/buyback/model/buyback-record-save";
-import {
-  createInventoryIntake,
-  finalizeBuybackPurchase,
-  getInventoryItem,
-  transitionInventoryItem,
-  updateInventoryItem,
-  uploadInventoryAttachment,
-} from "@/lib/repairdesk/api";
 import type { InventoryItemStatus, InventoryListItem } from "@/lib/repairdesk/types";
 import { componentOverlay } from "@/lib/component-patterns";
 import { brandGradientStyle, controls, repairOs } from "@/lib/ui-patterns";
@@ -353,8 +353,8 @@ export function BuybackQuoteWorkspace({
       return { id, mode, agreementId: finalized.agreement_id };
     },
     onSuccess: async ({ id, mode, agreementId }) => {
-      toast.success(mode === "updated" ? "回收成交单已更新并转入库存" : "回收成交已完成");
-      await queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
+      toast.success(mode === "updated" ? "回收成交单已更新" : "回收成交已完成");
+      await queryClient.invalidateQueries({ queryKey: buybackKeys.all });
       setCompletion({ id, agreementId, reviewOnly: false });
     },
     onError: (error) => {
@@ -386,7 +386,7 @@ export function BuybackQuoteWorkspace({
       toast.success(
         mode === "updated" ? "已更新客户考虑中的回收报价" : "已保存为客户考虑中的回收报价",
       );
-      await queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
+      await queryClient.invalidateQueries({ queryKey: buybackKeys.all });
       onOpenChange(false);
       resetWorkspace();
     },
@@ -423,7 +423,7 @@ export function BuybackQuoteWorkspace({
     },
     onSuccess: async ({ id }) => {
       toast.success("报价与检测记录已保存");
-      await queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
+      await queryClient.invalidateQueries({ queryKey: buybackKeys.all });
       setCompletion({ id, reviewOnly: true });
     },
     onError: (error) => {
@@ -526,9 +526,7 @@ export function BuybackQuoteWorkspace({
             amount={result.finalOffer}
             reviewOnly={completion.reviewOnly}
             onNew={() => resetWorkspace()}
-            onInventory={() =>
-              window.location.assign(completion.reviewOnly ? "/buyback" : "/inventory")
-            }
+            onInventory={() => window.location.assign("/buyback")}
             onClose={() => onOpenChange(false)}
           />
         </SheetContent>
@@ -795,7 +793,7 @@ export function BuybackQuoteWorkspace({
                   <ShieldCheck className="size-3.5" />
                   {saveMutation.isPending
                     ? "正在安全成交…"
-                    : `完成回收并转入库存 · €${result.finalOffer.toFixed(0)}`}
+                    : `完成回收成交 · €${result.finalOffer.toFixed(0)}`}
                 </Button>
               )}
             </div>
@@ -887,7 +885,7 @@ function stepHelper(
   if (step === "save") return "只保存报价与检测 · 不完成成交";
   if (step === "seller") return "姓名、电话、证件类型和声明";
   if (step === "evidence") return "证件进入私有受限存储";
-  return "成交后自动生成付款并转入库存";
+  return "成交后生成回收付款与协议记录";
 }
 
 function stepBadgeLabel(step: StepKey, result: ReturnType<typeof calculateBuybackQuote>) {
@@ -2942,7 +2940,7 @@ function BuybackSuccess({
         <SheetDescription>
           {reviewOnly
             ? "本次记录尚未完成回收成交，本次保存未新增证件、签名或付款资料。"
-            : "回收付款、协议和库存已完成。"}
+            : "回收付款与协议已完成。"}
         </SheetDescription>
       </SheetHeader>
       <div className="m-auto w-full max-w-md space-y-4 text-center" aria-live="polite">
@@ -2956,7 +2954,7 @@ function BuybackSuccess({
           <p className="mt-1 text-sm text-muted-foreground">
             {reviewOnly
               ? "本次记录尚未完成回收成交；本次保存未新增证件、签名或付款资料。"
-              : "付款、协议与库存记录已一次写入"}
+              : "付款与协议记录已一次写入"}
           </p>
         </div>
         <section className={cn(quoteCardClass, "text-left")}>
@@ -2969,7 +2967,7 @@ function BuybackSuccess({
         </section>
         <div className="grid gap-2 sm:grid-cols-2">
           <Button type="button" className="min-h-11" onClick={onInventory}>
-            {reviewOnly ? "返回回收列表" : "查看库存"}
+            返回回收列表
           </Button>
           {!reviewOnly ? (
             <Button

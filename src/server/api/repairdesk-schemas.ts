@@ -526,6 +526,71 @@ export const inventoryListFiltersSchema = z
   })
   .passthrough() satisfies z.ZodType<InventoryListFilters>;
 
+const inventoryProductCategorySchema = z.enum([
+  "phone",
+  "tablet",
+  "computer",
+  "game_console",
+  "other",
+]);
+
+const inventoryProductDisplayStatusSchema = z.enum([
+  "in_stock",
+  "reserved",
+  "sold",
+  "removed",
+  "returned",
+]);
+
+export const inventoryProductListFiltersSchema = z
+  .object({
+    search: optionalText,
+    statuses: z.array(inventoryProductDisplayStatusSchema).max(5).optional(),
+    categories: z.array(inventoryProductCategorySchema).max(5).optional(),
+    brands: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
+    locations: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
+  })
+  .strict();
+
+const optionalInventoryProductMoney = z
+  .number()
+  .finite()
+  .min(0)
+  .max(9_999_999.99)
+  .refine((value) => Number.isInteger(value * 100), "金额最多保留两位小数")
+  .optional();
+
+export const createInventoryProductInputSchema = z
+  .object({
+    idempotency_key: z.string().uuid(),
+    category: inventoryProductCategorySchema,
+    brand: z.string().trim().min(1).max(120),
+    model: z.string().trim().min(1).max(160),
+    color: z.string().trim().min(1).max(120).optional(),
+    storage_capacity: z.string().trim().min(1).max(120).optional(),
+    identifier_kind: z.enum(["imei1", "serial"]).optional(),
+    serial_or_imei: z.string().trim().min(3).max(128).optional(),
+    list_price: optionalInventoryProductMoney,
+    cost_amount: optionalInventoryProductMoney,
+    location: z.string().trim().min(1).max(120).optional(),
+    warranty_months: z.number().int().min(0).max(120).optional(),
+    notes: z.string().trim().min(1).max(2_000).optional(),
+  })
+  .strict()
+  .superRefine((input, ctx) => {
+    if (Boolean(input.identifier_kind) !== Boolean(input.serial_or_imei)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["serial_or_imei"],
+        message: "标识类型和标识内容必须同时填写",
+      });
+    }
+  });
+
+export const createInventoryProductBodySchema = z
+  .object({ input: createInventoryProductInputSchema })
+  .strict();
+
 const orderLineIdSchema = z.string().uuid("维修项目行标识无效");
 const catalogKeySchema = z
   .string()

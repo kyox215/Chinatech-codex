@@ -1596,6 +1596,8 @@ export interface RepairDeskOptions {
     canSellInventory?: boolean;
     inventoryV2UiEnabled?: boolean;
     inventoryV2CommandsEnabled?: boolean;
+    inventoryProductsUiEnabled?: boolean;
+    inventoryProductQuickCreateEnabled?: boolean;
     canSearchOrderArchive?: boolean;
     canBrowseOrderArchive?: boolean;
     canReadOrderFinance?: boolean;
@@ -1606,6 +1608,7 @@ export interface RepairDeskOptions {
     canPreviewCostBackfill?: boolean;
     canApplyCostBackfill?: boolean;
     canAllocatePartsCosts?: boolean;
+    canAllocateInventoryCosts?: boolean;
     canReadCostCurrencies?: boolean;
     canManageCostCurrencies?: boolean;
     canPrintSingleOrders?: boolean;
@@ -2066,6 +2069,8 @@ export interface StoreContext {
     canSellInventory?: boolean;
     inventoryV2UiEnabled?: boolean;
     inventoryV2CommandsEnabled?: boolean;
+    inventoryProductsUiEnabled?: boolean;
+    inventoryProductQuickCreateEnabled?: boolean;
     canManageOrderData?: boolean;
     canApplyOrderData?: boolean;
     canSearchOrderArchive?: boolean;
@@ -2078,6 +2083,7 @@ export interface StoreContext {
     canPreviewCostBackfill?: boolean;
     canApplyCostBackfill?: boolean;
     canAllocatePartsCosts?: boolean;
+    canAllocateInventoryCosts?: boolean;
     canReadCostCurrencies?: boolean;
     canManageCostCurrencies?: boolean;
     can_manage_order_costs?: boolean;
@@ -2290,6 +2296,7 @@ export interface InventoryItem {
   model: string;
   color?: string;
   storage_capacity?: string;
+  identifier_kind?: "imei1" | "serial";
   serial_or_imei?: string;
   imei_check_status: InventoryCheckStatus;
   activation_lock_status: InventoryCheckStatus;
@@ -2343,6 +2350,83 @@ export interface InventoryListFilters {
 export interface InventoryListResult {
   items: InventoryListItem[];
   total: number;
+}
+
+export type InventoryProductCategory = "phone" | "tablet" | "computer" | "game_console" | "other";
+
+export type InventoryProductDisplayStatus =
+  | "in_stock"
+  | "reserved"
+  | "sold"
+  | "removed"
+  | "returned";
+
+export interface InventoryProductListFilters {
+  search?: string;
+  statuses?: InventoryProductDisplayStatus[];
+  categories?: InventoryProductCategory[];
+  brands?: string[];
+  locations?: string[];
+}
+
+export interface InventoryProductListItem {
+  id: string;
+  sku: string;
+  category: InventoryProductCategory;
+  brand: string;
+  model: string;
+  specification?: string;
+  masked_identifier?: string;
+  status: InventoryProductDisplayStatus;
+  location?: string;
+  list_price?: number;
+  currency_code: CurrencyCode;
+  updated_at: string;
+}
+
+export interface InventoryProductListResult {
+  items: InventoryProductListItem[];
+  total: number;
+  facets: {
+    brands: string[];
+    locations: string[];
+  };
+}
+
+export interface InventoryProductDetail extends InventoryProductListItem {
+  color?: string;
+  storage_capacity?: string;
+  identifier_kind?: "imei1" | "serial";
+  serial_or_imei?: string;
+  cost_amount?: number;
+  warranty_months?: number;
+  notes?: string;
+  created_at: string;
+  finance_redacted?: boolean;
+}
+
+export interface CreateInventoryProductInput {
+  idempotency_key: string;
+  category: InventoryProductCategory;
+  brand: string;
+  model: string;
+  color?: string;
+  storage_capacity?: string;
+  identifier_kind?: "imei1" | "serial";
+  serial_or_imei?: string;
+  list_price?: number;
+  cost_amount?: number;
+  location?: string;
+  warranty_months?: number;
+  notes?: string;
+}
+
+export interface CreateInventoryProductResult {
+  ok: true;
+  code: "created" | "idempotent_replay";
+  id: string;
+  sku: string;
+  created_at: string;
 }
 
 export interface InventoryStats {

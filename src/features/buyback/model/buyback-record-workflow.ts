@@ -192,7 +192,7 @@ export function getBuybackNextActionLabel(
   if (status === "cancelled") return "流程已结束：已取消";
   if (status === "returned") return "下一步：复检退回设备";
   if (status === "recycled") return "流程已结束：回收处理";
-  return "下一步：查看库存状态";
+  return "下一步：查看回收状态";
 }
 
 export function getBuybackInventoryHandoff(
@@ -397,13 +397,13 @@ export function getBuybackRecordTaskGuidance(
           ? "这台设备已售出，可查看成交记录。"
           : "这条回收记录已关闭，保留历史追溯。",
       primaryAction: "查看记录",
-      checklist: ["查看价格记录", "查看凭证状态", "查看库存事件"],
+      checklist: ["查看价格记录", "查看凭证状态", "查看回收事件"],
       tone: status === "sold" ? "success" : "neutral",
     };
   }
 
   return {
-    title: "查看库存状态",
+    title: "查看回收状态",
     detail: "当前状态需要在库存模块继续处理。",
     primaryAction: "查看记录",
     checklist: ["核对库存状态", "查看价格和凭证", "决定下一步处理人"],
@@ -550,7 +550,7 @@ export function getBuybackRecordReadiness(
 
   return {
     state: "todo",
-    label: "查看库存状态",
+    label: "查看回收状态",
     detail: "当前状态需要进入库存记录确认下一步",
     progress,
     missing: ["核对库存状态"],

@@ -3,7 +3,7 @@
 Status: active
 Owner: UX + QA + Documentation / Integration Lead
 Scope: current responsive density rules, overflow requirements, desktop/mobile behavior, and validation guidance.
-Last reviewed: 2026-07-22 CEST by `TASK-20260722-002`
+Last reviewed: 2026-07-29 CEST by `TASK-20260729-011-inventory-product-simplification-implementation`
 
 ## Summary
 
@@ -14,6 +14,7 @@ Last reviewed: 2026-07-22 CEST by `TASK-20260722-002`
 - 桌面端从列表打开详情优先使用弹窗式详情，减少整页跳转，提高查单和处理响应速度。
 - 平板端（`768px-1023px`）保持完整业务能力，使用抽屉导航、双列卡片或双列表单，不强塞桌面侧栏和复杂弹窗。
 - 移动端放弃桌面表格，统一使用三段式卡片、侧边栏抽屉导航和弹层动作。
+- 状态、分类、Tabs 和表单步骤默认必须在当前宽度完整可达，不依赖左右拖动、滚动条或伪进度条。
 - 新页面、新组件、新弹窗必须遵守同一套响应式和密度规则，避免后续继续产生横向溢出。
 
 本计划不重做视觉风格，不改变业务路由，不改变数据库结构。重点是布局边界、信息密度、组件约束、验收机制。
@@ -43,6 +44,15 @@ document.documentElement.scrollWidth <= window.innerWidth
 
 - 打印预览或实际打印介质。
 - 明确设计为局部横向滚动的数据比较组件，但滚动必须限制在组件内部，不能撑开页面。
+
+列表筛选、状态分组、类别选择、Tabs 和 Stepper 不属于“数据比较组件”，不能使用这个例外。它们必须通过固定网格、自动换行、Select/Menu 或筛选 Sheet 在当前 viewport 内完整可达。
+
+### 2.1 顶部分组不是流程，滚动条不是进度
+
+- 并列的状态/类别筛选禁止使用“圆点 + 连线”的流程轨道外观。
+- 普通列表、新建、编辑和对象详情不显示装饰性进度条。只有真实线性且不可压缩的多步任务才能显示进度。
+- 不得用浏览器滚动条、细长灰线、轮播位置条或无实际数据的条形元素表示进度。
+- 手机详情默认只允许页面纵向滚动；不在全屏/接近全屏容器内再创建一个长正文纵向滚动区。
 
 ### 3. 数据要“压缩显示”，不是“隐藏”
 
@@ -514,8 +524,10 @@ componentOverlay.responsiveDialog = "w-[min(960px,calc(100vw-24px))] max-h-[90vh
 
 ### Inventory
 
-- 库存表格使用与工单列表同一 dense table 规则。
-- 供应商、备注、设备型号长文本截断。
+- 库存列表不使用顶部连线状态轨道；手机以一个“筛选”入口打开 Sheet，桌面使用可换行控件或 Select。
+- `>= 1280px` 使用不超过 6 个主列的 dense table；`1024-1279px` 使用 5 列压缩表格或双列卡片；`< 1024px` 使用卡片。
+- 库存表格禁止依赖固定 `min-width` + `overflow-x-auto` 实现窄宽度兼容；宽度不足时先隐藏低优先级列或切换卡片。
+- 供应商、备注、设备型号长文本截断或在详情换行，不撑开列表。
 
 ### Messages
 

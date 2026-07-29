@@ -154,15 +154,18 @@ import {
   applyInventoryWorkflowV2,
   accessInventoryAttachment,
   createInventoryIntake,
+  createInventoryProduct,
   createInventoryUnitV2,
   completeInventorySaleV2,
   finalizeBuybackPurchase,
   getInventoryItem,
+  getInventoryProduct,
   getInventoryStats,
   getInventorySummary,
   importElectronicsCsvPreview,
   listInventoryItems,
   listInventoryItemsPage,
+  listInventoryProducts,
   reconcileInventoryV2,
   recordInventoryCheck,
   recordInventoryTransaction,
@@ -171,7 +174,10 @@ import {
   updateInventoryItem,
   uploadInventoryAttachment,
 } from "@/features/inventory/server/inventory.service";
-import { assertInventoryV2ShadowReadEnabled } from "@/features/inventory/server/inventory-v2-feature-flags";
+import {
+  assertInventoryV2CommandEnabled,
+  assertInventoryV2ShadowReadEnabled,
+} from "@/features/inventory/server/inventory-v2-feature-flags";
 import {
   assertInventoryV2IntakeAccess,
   assertInventoryV2SaleAccess,
@@ -333,6 +339,7 @@ import {
   customerSearchBodySchema,
   customerTagsUpdateBodySchema,
   customerUpdateBodySchema,
+  createInventoryProductBodySchema,
   dashboardSummaryInputSchema,
   dashboardPrioritySummaryInputSchema,
   electronicsCsvImportBodySchema,
@@ -342,6 +349,7 @@ import {
   buybackFinalizeBodySchema,
   inventoryIntakeCreateBodySchema,
   inventoryListFiltersSchema,
+  inventoryProductListFiltersSchema,
   inventoryQualityCheckBodySchema,
   inventorySellBodySchema,
   inventoryTransactionBodySchema,
@@ -450,6 +458,7 @@ const supabaseSource = {
   createCustomer,
   createCustomerFollowup,
   createInventoryIntake,
+  createInventoryProduct,
   createInventoryUnitV2,
   completeInventorySaleV2,
   finalizeBuybackPurchase,
@@ -476,6 +485,7 @@ const supabaseSource = {
   getCustomerDevices,
   getCustomerDetail,
   getInventoryItem,
+  getInventoryProduct,
   getInventoryStats,
   getInventorySummary,
   getOnboardingStatus,
@@ -507,6 +517,7 @@ const supabaseSource = {
   listCustomersPage,
   listInventoryItems,
   listInventoryItemsPage,
+  listInventoryProducts,
   reconcileInventoryV2,
   listKioskDevices,
   listKioskSessions,
@@ -628,6 +639,36 @@ const realtimeBroadcasts = {
     domain: "inventory",
     mutation: "created",
     queryGroups: ["inventory.all", "customers.all"],
+  },
+  inventoryProductCreated: {
+    domain: "inventory",
+    mutation: "created",
+    queryGroups: ["inventory.products"],
+  },
+  inventoryProductUpdated: {
+    domain: "inventory",
+    mutation: "updated",
+    queryGroups: ["inventory.products"],
+  },
+  inventoryProductTransitioned: {
+    domain: "inventory",
+    mutation: "transitioned",
+    queryGroups: ["inventory.products"],
+  },
+  buybackCreated: {
+    domain: "inventory",
+    mutation: "created",
+    queryGroups: ["buyback.all"],
+  },
+  buybackUpdated: {
+    domain: "inventory",
+    mutation: "updated",
+    queryGroups: ["buyback.all"],
+  },
+  buybackTransitioned: {
+    domain: "inventory",
+    mutation: "transitioned",
+    queryGroups: ["buyback.all"],
   },
   inventoryUpdated: {
     domain: "inventory",
@@ -1868,6 +1909,11 @@ export async function handleRepairDeskPost(
       case "inventory/list-page":
         assertInventoryReadPermission(actor);
         return ok(await api.listInventoryItemsPage(inventoryListFiltersSchema.parse(body), actor));
+      case "inventory/products/list":
+        assertInventoryReadPermission(actor);
+        return ok(
+          await api.listInventoryProducts(inventoryProductListFiltersSchema.parse(body), actor),
+        );
       case "inventory/summary":
         assertInventoryReadPermission(actor);
         return ok(await api.getInventorySummary(inventoryListFiltersSchema.parse(body), actor));
@@ -2084,6 +2130,11 @@ export async function handleRepairDeskPost(
         const { id } = idBodySchema.parse(body);
         assertInventoryReadPermission(actor);
         return ok(await api.getInventoryItem(id, actor));
+      }
+      case "inventory/products/get": {
+        const { id } = idBodySchema.parse(body);
+        assertInventoryReadPermission(actor);
+        return ok(await api.getInventoryProduct(id, actor));
       }
       case "customer/get": {
         const { id } = idBodySchema.parse(body);
@@ -2567,7 +2618,24 @@ export async function handleRepairDeskPost(
           await runWithRealtime(
             actor,
             () => api.createInventoryIntake(input, actor),
-            realtimeBroadcasts.inventoryCreated,
+            input.source_type === "buyback"
+              ? realtimeBroadcasts.buybackCreated
+              : realtimeBroadcasts.inventoryCreated,
+          ),
+        );
+      }
+      case "inventory/products/quick-create": {
+        const { input } = createInventoryProductBodySchema.parse(body);
+        assertInventoryCreatePermission(actor);
+        assertInventoryV2CommandEnabled(actor.storeId ?? "");
+        if (input.cost_amount !== undefined) {
+          assertRepairDeskPermission(actor, "inventory:cost_allocate");
+        }
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.createInventoryProduct(input, actor),
+            realtimeBroadcasts.inventoryProductCreated,
           ),
         );
       }
@@ -2604,7 +2672,7 @@ export async function handleRepairDeskPost(
           await runWithRealtime(
             actor,
             () => api.applyInventoryWorkflowV2(id, input, actor),
-            realtimeBroadcasts.inventoryUpdated,
+            realtimeBroadcasts.inventoryProductUpdated,
           ),
         );
       }
@@ -2616,6 +2684,17 @@ export async function handleRepairDeskPost(
             actor,
             () => api.updateInventoryItem(id, input, actor),
             realtimeBroadcasts.inventoryUpdated,
+          ),
+        );
+      }
+      case "buyback/update": {
+        const { id, input } = inventoryUpdateBodySchema.parse(body);
+        assertInventoryUpdatePermission(actor, input);
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.updateInventoryItem(id, input, actor),
+            realtimeBroadcasts.buybackUpdated,
           ),
         );
       }
@@ -2633,7 +2712,7 @@ export async function handleRepairDeskPost(
           await runWithRealtime(
             actor,
             () => api.transitionInventoryItem(id, to, { reason }, actor),
-            realtimeBroadcasts.inventoryTransitioned,
+            realtimeBroadcasts.buybackTransitioned,
           ),
         );
       }
@@ -2666,6 +2745,18 @@ export async function handleRepairDeskPost(
           ),
         );
       }
+      case "buyback/attachment/upload": {
+        const { id, input } = inventoryAttachmentUploadBodySchema.parse(body);
+        assertBuybackSensitiveWorkflowAvailable();
+        assertBuybackEvidenceCapturePermission(actor);
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.uploadInventoryAttachment(id, input, actor),
+            realtimeBroadcasts.buybackUpdated,
+          ),
+        );
+      }
       case "inventory/attachment/access": {
         const { id, attachment_id } = inventoryAttachmentAccessBodySchema.parse(body);
         return ok(await api.accessInventoryAttachment(id, attachment_id, actor));
@@ -2678,7 +2769,7 @@ export async function handleRepairDeskPost(
           await runWithRealtime(
             actor,
             () => api.finalizeBuybackPurchase(id, input, actor),
-            realtimeBroadcasts.inventoryTransitioned,
+            realtimeBroadcasts.buybackTransitioned,
           ),
         );
       }
@@ -2689,7 +2780,7 @@ export async function handleRepairDeskPost(
           await runWithRealtime(
             actor,
             () => api.recordInventoryTransaction(id, input, actor),
-            realtimeBroadcasts.inventoryUpdated,
+            realtimeBroadcasts.buybackUpdated,
           ),
         );
       }
@@ -2700,7 +2791,7 @@ export async function handleRepairDeskPost(
           await runWithRealtime(
             actor,
             () => api.sellInventoryItem(id, input, actor),
-            realtimeBroadcasts.inventoryTransitioned,
+            realtimeBroadcasts.inventoryProductTransitioned,
           ),
         );
       }
@@ -2712,7 +2803,7 @@ export async function handleRepairDeskPost(
           await runWithRealtime(
             actor,
             () => api.completeInventorySaleV2(id, input, actor),
-            realtimeBroadcasts.inventoryTransitioned,
+            realtimeBroadcasts.inventoryProductTransitioned,
           ),
         );
       }

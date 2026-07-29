@@ -12,6 +12,10 @@ const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 const evidenceDir = process.env.AI_ASSISTANT_EVIDENCE_DIR;
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for AI inventory checks.");
+test.skip(
+  true,
+  "The legacy AI/six-step inventory intake was retired from /inventory/new; the product quick-entry contract is covered by inventory-product-simplification.spec.ts.",
+);
 
 test.describe("AI inventory intake remains an editable unsaved draft", () => {
   for (const viewport of [

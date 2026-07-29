@@ -110,6 +110,8 @@ import type {
   CustomerMessageInput,
   CustomerUpdateInput,
   CreateInventoryIntakeInput,
+  CreateInventoryProductInput,
+  CreateInventoryProductResult,
   CreateInventoryUnitV2Input,
   CreateInventoryUnitV2Result,
   CompleteInventorySaleV2Input,
@@ -131,6 +133,9 @@ import type {
   InventoryListFilters,
   InventoryListItem,
   InventoryListResult,
+  InventoryProductDetail,
+  InventoryProductListFilters,
+  InventoryProductListResult,
   InventoryQualityCheckInput,
   InventoryStats,
   InventorySummary,
@@ -450,6 +455,26 @@ export async function listInventoryItemsPage(
   return postJson<InventoryListResult>("inventory/list-page", filters, options);
 }
 
+export async function listInventoryProducts(
+  filters: InventoryProductListFilters = {},
+  options?: RepairDeskRequestOptions,
+): Promise<InventoryProductListResult> {
+  return postJson<InventoryProductListResult>("inventory/products/list", filters, options);
+}
+
+export async function getInventoryProduct(
+  id: string,
+  options?: RepairDeskRequestOptions,
+): Promise<InventoryProductDetail> {
+  return postJson<InventoryProductDetail>("inventory/products/get", { id }, options);
+}
+
+export async function createInventoryProduct(
+  input: CreateInventoryProductInput,
+): Promise<CreateInventoryProductResult> {
+  return postJson<CreateInventoryProductResult>("inventory/products/quick-create", { input });
+}
+
 export async function getInventoryStats(
   options?: RepairDeskRequestOptions,
 ): Promise<InventoryStats> {
@@ -489,6 +514,13 @@ export async function updateInventoryItem(
   return postJson<{ ok: boolean }>("inventory/update", { id, input });
 }
 
+export async function updateBuybackItem(
+  id: string,
+  input: UpdateInventoryItemInput,
+): Promise<{ ok: boolean }> {
+  return postJson<{ ok: boolean }>("buyback/update", { id, input });
+}
+
 export async function transitionInventoryItem(
   id: string,
   to: InventoryItemStatus,
@@ -509,6 +541,13 @@ export async function uploadInventoryAttachment(
   input: InventoryAttachmentUploadInput,
 ): Promise<InventoryAttachmentUploadResult> {
   return postJson<InventoryAttachmentUploadResult>("inventory/attachment/upload", { id, input });
+}
+
+export async function uploadBuybackAttachment(
+  id: string,
+  input: InventoryAttachmentUploadInput,
+): Promise<InventoryAttachmentUploadResult> {
+  return postJson<InventoryAttachmentUploadResult>("buyback/attachment/upload", { id, input });
 }
 
 export async function accessInventoryAttachment(
