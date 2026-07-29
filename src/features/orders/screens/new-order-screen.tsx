@@ -908,14 +908,10 @@ export function NewOrderScreen({
           create.mutate({ mode: "auto" });
         }}
         className={cn(
-          "min-w-0 pb-32 sm:pb-20",
-          surface === "page" &&
-            cn(
-              repairOs.mobileFloatingPage,
-              "scroll-pb-[calc(env(safe-area-inset-bottom)+12rem)] pb-[calc(env(safe-area-inset-bottom)+12rem)] md:pb-20 lg:pt-0",
-            ),
+          "min-w-0 pb-0 scroll-pb-[calc(var(--new-order-submit-offset,7rem)+0.75rem)] sm:pb-20 sm:scroll-pb-20",
+          surface === "page" && cn(repairOs.mobileFloatingPage, "md:pb-20 lg:pt-0"),
           surface === "dialog" &&
-            "h-full max-h-[calc(100svh-16px)] overflow-y-auto p-2 pb-[calc(env(safe-area-inset-bottom)+9rem)] pt-3 sm:max-h-[calc(100svh-32px)] sm:p-3 sm:pt-3 md:p-4 md:pt-3 lg:flex lg:min-h-0 lg:flex-col lg:pb-3",
+            "h-full max-h-[calc(100svh-16px)] overflow-y-auto p-2 pt-2 sm:max-h-[calc(100svh-32px)] sm:p-3 sm:pt-3 md:p-4 md:pt-3 lg:flex lg:min-h-0 lg:flex-col lg:pb-3",
         )}
       >
         <p id="new-order-validation-summary" className="sr-only" role="alert" aria-live="assertive">
@@ -1088,6 +1084,13 @@ export function NewOrderScreen({
                 {unlockSectionNode}
               </div>
             </div>
+
+            <div data-new-order-content-end="true" aria-hidden="true" className="h-px w-full" />
+            <div
+              data-new-order-submit-spacer="true"
+              aria-hidden="true"
+              className="h-[calc(var(--new-order-submit-offset,7rem)+0.75rem)] w-full shrink-0 md:hidden"
+            />
 
             <NewOrderSubmitBar
               valid={Boolean(valid)}
@@ -1635,10 +1638,10 @@ function NewOrderDialogMobileHeader({
   return (
     <section
       data-new-order-dialog-mobile-header="true"
-      className="mb-2 flex min-w-0 items-center justify-between gap-2 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-2 shadow-none md:hidden"
+      className="mb-1.5 flex min-w-0 items-center justify-between gap-1.5 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-1.5 shadow-none md:hidden"
     >
       <div className="min-w-0 flex-1">
-        <div className="text-[10px] font-medium leading-3 text-muted-foreground">弹窗录入</div>
+        <div className="text-[9px] font-medium leading-3 text-muted-foreground">弹窗录入</div>
         <div className="truncate text-sm font-semibold leading-5">新建维修工单</div>
         <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground">
           <span className="truncate">{operatorName}</span>
@@ -1662,7 +1665,7 @@ function NewOrderDialogMobileHeader({
         type="button"
         variant="ghost"
         size="icon"
-        className="size-8 shrink-0 rounded-xl text-muted-foreground hover:bg-[var(--surface-panel-muted)] hover:text-foreground"
+        className="size-11 shrink-0 rounded-xl text-muted-foreground hover:bg-[var(--surface-panel-muted)] hover:text-foreground"
         aria-label="关闭新建维修工单"
         onClick={onClose}
       >

@@ -81,6 +81,7 @@ describe("customer identity lookup mobile stability", () => {
     renderWithClient(<CustomerPhoneLookupHarness />);
 
     const input = screen.getByRole("combobox");
+    expect(input).toHaveClass("h-11", "text-base", "lg:h-9", "lg:text-sm");
     await user.type(input, "12");
 
     expect(screen.queryByRole("listbox", { name: "客户搜索结果" })).not.toBeInTheDocument();

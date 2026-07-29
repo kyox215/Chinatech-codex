@@ -155,6 +155,7 @@ export function ImeiScannerField({
   const lastStartScannerTokenRef = useRef(startScannerToken);
   const compact = density === "compact";
   const quiet = appearance === "quiet";
+  const showClear = Boolean(value);
   const selectedCandidate =
     captureCandidates.find((candidate) => candidate.id === selectedCandidateId) ??
     captureCandidates[0] ??
@@ -628,8 +629,12 @@ export function ImeiScannerField({
           "flex gap-2",
           compact &&
             (showPaste
-              ? "grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-1.5"
-              : "grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1.5"),
+              ? showClear
+                ? "grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-1.5"
+                : "grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1.5"
+              : showClear
+                ? "grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1.5"
+                : "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5"),
         )}
       >
         <Input
@@ -683,17 +688,18 @@ export function ImeiScannerField({
             <ClipboardPaste className="size-4" />
           </Button>
         ) : null}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className={cn("shrink-0", compact && "size-11 lg:size-8")}
-          onClick={() => commitValue("", "clear")}
-          disabled={!value}
-          aria-label="清空 IMEI"
-        >
-          <X className="size-4" />
-        </Button>
+        {showClear ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn("shrink-0", compact && "size-11 lg:size-8")}
+            onClick={() => commitValue("", "clear")}
+            aria-label="清空 IMEI"
+          >
+            <X className="size-4" />
+          </Button>
+        ) : null}
       </div>
       {warning && <p className="text-xs text-status-warn-foreground">{warning}</p>}
 

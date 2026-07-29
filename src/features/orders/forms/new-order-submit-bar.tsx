@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { ArrowLeft, Banknote } from "lucide-react";
 
@@ -26,19 +27,50 @@ export function NewOrderSubmitBar({
   validationSummaryId?: string;
 }) {
   const isDialog = surface === "dialog";
+  const barRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const bar = barRef.current;
+    const form = bar?.closest<HTMLElement>("[data-new-order-form='true']");
+    if (!bar || !form) return;
+
+    const updateOffset = () => {
+      form.style.setProperty(
+        "--new-order-submit-offset",
+        `${Math.ceil(bar.getBoundingClientRect().height)}px`,
+      );
+    };
+
+    updateOffset();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateOffset);
+      return () => {
+        window.removeEventListener("resize", updateOffset);
+        form.style.removeProperty("--new-order-submit-offset");
+      };
+    }
+
+    const observer = new ResizeObserver(updateOffset);
+    observer.observe(bar);
+    return () => {
+      observer.disconnect();
+      form.style.removeProperty("--new-order-submit-offset");
+    };
+  }, []);
 
   return (
     <div
+      ref={barRef}
       data-new-order-submit-bar="true"
       className={cn(
-        "pointer-events-none fixed inset-x-0 bottom-0 z-40 bg-background/85 px-2 pb-[calc(env(safe-area-inset-bottom)+0.55rem)] pt-1.5 backdrop-blur-xl md:pointer-events-auto md:sticky md:bottom-3 md:mt-3 md:px-0 md:pb-0 md:pt-0",
+        "pointer-events-none fixed inset-x-0 bottom-0 z-40 bg-background/85 px-2 pb-[calc(env(safe-area-inset-bottom)+0.4rem)] pt-1 backdrop-blur-xl md:pointer-events-auto md:sticky md:bottom-3 md:mt-3 md:px-0 md:pb-0 md:pt-0",
         isDialog ? "md:mx-0" : "md:mx-0 md:bg-transparent md:backdrop-blur-none",
       )}
     >
       <div
         data-new-order-submit-card="true"
         className={cn(
-          "pointer-events-auto mx-auto grid max-w-[430px] min-w-0 grid-cols-1 items-center gap-2 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-2 shadow-[var(--shadow-card)] md:flex md:max-w-none md:justify-between md:gap-2 md:bg-[var(--surface-panel)] md:py-2 md:shadow-[var(--shadow-workspace)]",
+          "pointer-events-auto mx-auto grid max-w-[430px] min-w-0 grid-cols-1 items-center gap-1 rounded-xl border border-[var(--border-panel)] bg-card px-1.5 py-1.5 shadow-[var(--shadow-card)] md:flex md:max-w-none md:justify-between md:gap-2 md:bg-[var(--surface-panel)] md:px-2 md:py-2 md:shadow-[var(--shadow-workspace)]",
           isDialog ? "md:rounded-xl md:px-3" : "md:rounded-[var(--radius-lg)] md:px-3",
         )}
       >
@@ -65,17 +97,13 @@ export function NewOrderSubmitBar({
             </Link>
           </Button>
         )}
-        <div className="flex min-w-0 flex-col gap-1 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 md:ml-auto">
-          <div className="flex min-w-0 items-center justify-between gap-2 md:justify-start">
+        <div className="flex min-w-0 flex-col gap-0.5 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1 md:ml-auto">
+          <div className="flex min-w-0 items-center justify-between gap-1.5 md:justify-start">
             <span className="text-[10px] font-medium text-muted-foreground">设备保管</span>
             <DeviceCustodyBadge status={custodyStatus} className="text-[10px]" />
           </div>
           {statusMessage ? (
-            <p
-              role="status"
-              aria-live="polite"
-              className="max-w-[26rem] text-[10px] text-muted-foreground"
-            >
+            <p role="status" aria-live="polite" className="text-[10px] text-muted-foreground">
               {statusMessage}
             </p>
           ) : null}

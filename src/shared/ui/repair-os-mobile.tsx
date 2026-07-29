@@ -326,7 +326,7 @@ export function RepairOsListScaffold({
   searchValue,
   searchPlaceholder = "搜索",
   onSearchChange,
-  searchFrame = "standalone",
+  searchFrame = "embedded",
   searchAction,
   filterAction,
   chips = [],
@@ -403,7 +403,7 @@ export function RepairOsListScaffold({
           <div className={cn(repairOs.mobileFloatingHeaderBody, "space-y-1.5")}>
             {hasSearch ? (
               <div
-                className="grid min-w-0 gap-1.5"
+                className="grid min-w-0 gap-1.5 [&>*]:min-h-11 [&>*]:min-w-11"
                 style={{
                   gridTemplateColumns: `minmax(0, 1fr) repeat(${searchTrailingActions.length}, 44px)`,
                 }}

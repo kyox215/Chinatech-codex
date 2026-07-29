@@ -76,11 +76,12 @@ export function NewOrderQuotationSection({
   layout?: "professional" | "guided";
 }) {
   const shellClass = cn(
-    "h-fit min-w-0 p-2 sm:p-3",
+    "h-fit min-w-0 sm:p-3",
     surface === "dialog"
-      ? detailWorkspace.flatPanel
+      ? cn(detailWorkspace.flatPanel, "p-1.5")
       : cn(
           repairOs.mobileInfoCard,
+          "p-2",
           "md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:shadow-none",
         ),
   );
@@ -111,7 +112,7 @@ export function NewOrderQuotationSection({
           icon={ReceiptText}
           title="报价处理"
           description="维修项目、定金、质保与初始状态"
-          className="mb-2"
+          className="mb-1.5"
           action={
             <span className="rounded-full bg-primary/5 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-primary">
               {form.faults.length} 项
@@ -121,11 +122,11 @@ export function NewOrderQuotationSection({
 
         <div
           data-new-order-quote-draft="true"
-          className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/70 p-1.5"
+          className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/70 p-1"
         >
           <div
             id="new-order-quote-mode-note"
-            className="mb-1.5 flex h-9 min-w-0 items-center overflow-hidden rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1 text-[10px] leading-4 text-muted-foreground"
+            className="mb-1 flex min-h-7 min-w-0 items-center overflow-hidden rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1 text-[10px] leading-4 text-muted-foreground"
             role="status"
             aria-live="polite"
           >
@@ -135,7 +136,7 @@ export function NewOrderQuotationSection({
           </div>
 
           <fieldset className="min-w-0 space-y-1.5" aria-describedby="new-order-quote-mode-note">
-            <div className="mb-2 rounded-xl border border-[var(--border-panel)] bg-card p-1">
+            <div className="mb-1.5 rounded-xl border border-[var(--border-panel)] bg-card p-1">
               <div className="px-1 pb-1 text-[10px] font-medium leading-3 text-muted-foreground">
                 常见维修项目（可选）
               </div>
@@ -318,7 +319,7 @@ export function NewOrderQuotationSection({
 
       <div
         data-new-order-section="settings"
-        className="min-w-0 space-y-2 rounded-xl border border-[var(--border-panel)] bg-card p-2 lg:col-start-3 lg:row-start-2 lg:h-fit lg:p-3"
+        className="min-w-0 space-y-1.5 rounded-xl border border-[var(--border-panel)] bg-card p-2 lg:col-start-3 lg:row-start-2 lg:h-fit lg:space-y-2 lg:p-3"
       >
         <div className="flex min-w-0 items-center justify-between gap-1.5 px-0.5">
           <div className="min-w-0">
@@ -335,8 +336,11 @@ export function NewOrderQuotationSection({
           </span>
         </div>
 
-        <div className="min-w-0">
-          <FormItem label="保修">
+        <div className="min-w-0" data-new-order-setting="warranty">
+          <FormItem
+            label="保修"
+            className="[&>label]:text-[9.5px] [&>label]:font-medium [&>label]:leading-3"
+          >
             <WarrantyPicker
               valueMonths={form.warrantyMonths}
               valueText={form.warrantyText}
@@ -358,26 +362,36 @@ export function NewOrderQuotationSection({
           </FormItem>
         </div>
 
-        <div className="grid min-w-0 grid-cols-2 gap-2">
-          <div
-            className="grid min-h-10 min-w-0 content-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1.5"
-            title={operatorName || "当前登录账号"}
-          >
-            <div className="truncate text-[9.5px] font-medium leading-3 text-muted-foreground">
+        <div
+          className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-x-1.5 gap-y-1.5 sm:gap-x-2"
+          data-new-order-settings-grid="true"
+        >
+          <div className="grid min-w-0 gap-0.5" data-new-order-setting="operator">
+            <div
+              className="truncate text-[9.5px] font-medium leading-3 text-muted-foreground"
+              data-new-order-setting-label="true"
+            >
               录入人员
             </div>
-            <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+            <div
+              className={cn(serviceSelectTriggerClass, "flex min-w-0 items-center gap-1.5 border")}
+              data-new-order-setting-control="true"
+              title={operatorName || "当前登录账号"}
+            >
               <ShieldCheck className="size-3.5 shrink-0 text-primary" />
               <span className="min-w-0 flex-1 truncate text-xs font-semibold leading-4 text-foreground">
                 {operatorName || "当前登录账号"}
               </span>
-              <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium leading-none text-primary">
+              <span className="max-w-[4.75rem] shrink-0 truncate rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium leading-none text-primary">
                 {roleLabel}
               </span>
             </div>
           </div>
-          <div className="grid min-w-0 gap-0.5">
-            <div className="truncate text-[9.5px] font-medium leading-3 text-muted-foreground">
+          <div className="grid min-w-0 gap-0.5" data-new-order-setting="accessories">
+            <div
+              className="truncate text-[9.5px] font-medium leading-3 text-muted-foreground"
+              data-new-order-setting-label="true"
+            >
               随附物品
             </div>
             <AccessoryNotesPicker
@@ -388,8 +402,13 @@ export function NewOrderQuotationSection({
               contentClassName={serviceDropdownContentClass}
             />
           </div>
-          <div className="grid min-w-0 gap-0.5">
-            <div className="text-[9.5px] font-medium leading-3 text-muted-foreground">类型</div>
+          <div className="grid min-w-0 gap-0.5" data-new-order-setting="type">
+            <div
+              className="text-[9.5px] font-medium leading-3 text-muted-foreground"
+              data-new-order-setting-label="true"
+            >
+              类型
+            </div>
             <Select
               value={form.type}
               onValueChange={(type) => setForm({ ...form, type: type as RepairOrderType })}
@@ -407,8 +426,13 @@ export function NewOrderQuotationSection({
             </Select>
           </div>
 
-          <div className="grid min-w-0 gap-0.5">
-            <div className="text-[9.5px] font-medium leading-3 text-muted-foreground">状态</div>
+          <div className="grid min-w-0 gap-0.5" data-new-order-setting="status">
+            <div
+              className="text-[9.5px] font-medium leading-3 text-muted-foreground"
+              data-new-order-setting-label="true"
+            >
+              状态
+            </div>
             <Select
               value={form.status}
               onValueChange={(value) => setForm({ ...form, status: value })}

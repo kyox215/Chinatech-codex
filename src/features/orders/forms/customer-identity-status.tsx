@@ -76,8 +76,8 @@ export function CustomerIntakeFieldShell({
   children: ReactNode;
 }) {
   return (
-    <div className="rd-new-order-field grid min-w-0 grid-cols-[3rem_minmax(0,1fr)_auto] items-start gap-1.5 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)]">
-      <label className="pt-2.5 text-[10.5px] font-semibold leading-4 text-muted-foreground">
+    <div className="rd-new-order-field grid min-h-11 min-w-0 grid-cols-[3rem_minmax(0,1fr)_auto] items-start gap-1.5 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-0 shadow-[var(--shadow-card)]">
+      <label className="flex h-11 items-center text-[10.5px] font-semibold leading-4 text-muted-foreground lg:h-9">
         {label}
         {required ? <span className="text-destructive"> *</span> : null}
       </label>
@@ -88,14 +88,14 @@ export function CustomerIntakeFieldShell({
         )}
       >
         {leading ? (
-          <span className="grid size-4 shrink-0 place-items-center pt-2.5 text-muted-foreground">
+          <span className="grid h-11 w-4 shrink-0 place-items-center text-muted-foreground lg:h-9">
             {leading}
           </span>
         ) : null}
         <div className="min-w-0">{children}</div>
       </div>
       {trailing ? (
-        <div className="pointer-events-none flex h-9 shrink-0 items-center gap-1 border-l border-[var(--border-panel)] pl-2">
+        <div className="pointer-events-none flex h-9 shrink-0 self-center items-center gap-1 border-l border-[var(--border-panel)] pl-2">
           {trailing}
         </div>
       ) : null}

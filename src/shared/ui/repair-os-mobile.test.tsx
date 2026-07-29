@@ -68,7 +68,6 @@ describe("RepairOsListScaffold header chips", () => {
           searchValue=""
           searchPlaceholder="搜索标题或正文"
           onSearchChange={() => undefined}
-          searchFrame="embedded"
         >
           <div>内容</div>
         </RepairOsListScaffold>
@@ -79,6 +78,26 @@ describe("RepairOsListScaffold header chips", () => {
     expect(searchContainer).toHaveClass("bg-[var(--surface-panel-muted)]");
     expect(searchContainer).not.toHaveClass("border");
     expect(searchContainer?.className).not.toContain("shadow-[var(--shadow-card)]");
+  });
+
+  it("keeps explicit standalone search available when the parent has no frame", () => {
+    render(
+      <SidebarProvider>
+        <RepairOsListScaffold
+          title="独立搜索"
+          searchValue=""
+          searchPlaceholder="搜索"
+          onSearchChange={() => undefined}
+          searchFrame="standalone"
+        >
+          <div>内容</div>
+        </RepairOsListScaffold>
+      </SidebarProvider>,
+    );
+
+    const searchContainer = screen.getByRole("textbox", { name: "搜索" }).parentElement;
+    expect(searchContainer).toHaveClass("border");
+    expect(searchContainer).not.toHaveClass("bg-[var(--surface-panel-muted)]");
   });
 });
 

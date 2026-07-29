@@ -93,6 +93,9 @@ describe("MobileOrdersFloatingHeader", () => {
 
     expect(screen.getByRole("button", { name: "扫码搜索" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "筛选订单" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: "搜索工单、客户、电话或 IMEI" }).parentElement,
+    ).toHaveClass("bg-[var(--surface-panel-muted)]");
     expect(screen.queryByText(/队列：/)).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "第 7 阶段：等待客户取机，42 条" }),

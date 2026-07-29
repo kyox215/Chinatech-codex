@@ -163,11 +163,12 @@ export function MobileOrdersFloatingHeader({
                       : "grid-cols-[minmax(0,1fr)_44px]",
                   )
                 : "grid-cols-1",
+              "[&>*]:min-h-11 [&>*]:min-w-11",
             )}
           >
             <div
               className={cn(
-                repairOs.searchBar,
+                repairOs.searchBarEmbedded,
                 "h-11 gap-[var(--order-mobile-gap)] rounded-[var(--order-mobile-radius)] px-[var(--order-mobile-pad)] shadow-none",
               )}
               aria-busy={searchBusy}
@@ -185,7 +186,7 @@ export function MobileOrdersFloatingHeader({
                   event.preventDefault();
                   onSearchSubmit();
                 }}
-                placeholder="搜索工单号、客户姓名、电话或 IMEI"
+                placeholder="工单 / 客户 / IMEI"
                 aria-label="搜索工单、客户、电话或 IMEI"
                 className={cn(repairOs.searchInput, "h-11 text-base")}
               />
