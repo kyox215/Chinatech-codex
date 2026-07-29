@@ -1,13 +1,12 @@
 import { buildOrderDetailWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
-import { parseCustomerStatusLink } from "@/entities/customer-status/model/customer-status-link";
+import { CUSTOMER_STATUS_TOKEN_PATTERN } from "@/features/customer-status/model/customer-status";
 
 export type CapturePayloadKind =
   | "order_link"
   | "customer_link"
-  | "customer_status_link"
-  | "customer_status_invalid"
   | "inventory_link"
   | "buyback_link"
+  | "customer_status_link"
   | "imei"
   | "serial"
   | "url"
@@ -191,27 +190,6 @@ export function parseBarcodePayload(rawValue: string, origin = "http://localhost
     } satisfies CapturePayload;
   }
 
-  const customerStatusLink = parseCustomerStatusLink(raw, origin);
-  if (customerStatusLink?.kind === "valid") {
-    return {
-      kind: "customer_status_link",
-      raw: "",
-      value: "",
-      label: "维修工单二维码",
-      targetHref: customerStatusLink.href,
-      sensitive: true,
-    } satisfies CapturePayload;
-  }
-  if (customerStatusLink?.kind === "invalid") {
-    return {
-      kind: "customer_status_invalid",
-      raw: "",
-      value: "",
-      label: "无效的维修工单二维码",
-      sensitive: true,
-    } satisfies CapturePayload;
-  }
-
   const internalLink = parseInternalLink(raw, origin);
   if (internalLink) return internalLink;
 
@@ -258,6 +236,9 @@ export function parseBarcodePayload(rawValue: string, origin = "http://localhost
 }
 
 function parseInternalLink(raw: string, origin: string): CapturePayload | null {
+  const customerStatusLink = parseCustomerStatusLink(raw, origin);
+  if (customerStatusLink) return customerStatusLink;
+
   let url: URL;
   try {
     const base = new URL(origin);
@@ -326,6 +307,48 @@ function parseInternalLink(raw: string, origin: string): CapturePayload | null {
   }
 
   return null;
+}
+
+function parseCustomerStatusLink(raw: string, origin: string): CapturePayload | null {
+  let url: URL;
+  let base: URL;
+  try {
+    base = new URL(origin);
+    url = new URL(raw, base);
+  } catch {
+    return null;
+  }
+
+  const path = url.pathname.replace(/\/+$/, "") || "/";
+  const productionHost =
+    url.hostname.toLowerCase() === "www.chinatech.in" ||
+    url.hostname.toLowerCase() === "chinatech.in";
+  const trustedOrigin = url.origin === base.origin;
+  const customerStatusPath = path === "/r" || path.startsWith("/r/");
+  const token = url.hash.replace(/^#/, "").trim();
+  const validToken = CUSTOMER_STATUS_TOKEN_PATTERN.test(token);
+  if (!customerStatusPath || (!productionHost && !trustedOrigin && !validToken)) return null;
+
+  const schemeRelative = raw.startsWith("//");
+  const validProductionUrl =
+    !productionHost ||
+    (url.protocol === "https:" && !url.username && !url.password && url.port === "");
+  const validLink =
+    (productionHost || trustedOrigin) &&
+    path === "/r" &&
+    !schemeRelative &&
+    validProductionUrl &&
+    !url.search &&
+    validToken;
+
+  return {
+    kind: "customer_status_link",
+    raw: "",
+    value: "",
+    label: validLink ? "客户工单二维码" : "无效客户工单二维码",
+    targetHref: validLink ? `/r#${token}` : undefined,
+    sensitive: true,
+  } satisfies CapturePayload;
 }
 
 function parsePrefixedPayload(raw: string): CapturePayload | null {

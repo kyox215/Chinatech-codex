@@ -49,30 +49,6 @@ export function resolveScanSearchActions(
   payload: CapturePayload,
   scope: ScanSearchScope,
 ): ScanSearchResolution {
-  if (payload.kind === "customer_status_link" && payload.targetHref) {
-    return {
-      title: payload.label,
-      hint: "已安全识别维修工单二维码。系统会按当前登录身份打开内部工单或客户公开进度。",
-      actions: [
-        {
-          id: "open:customer-status",
-          kind: "open",
-          label: "查看此订单",
-          href: payload.targetHref,
-          primary: true,
-        },
-      ],
-    };
-  }
-
-  if (payload.kind === "customer_status_invalid") {
-    return {
-      title: payload.label,
-      hint: "二维码格式无效、已损坏或来源不受信任，请重新扫描或重新打印。",
-      actions: [],
-    };
-  }
-
   const searchValue = getScanSearchValue(payload);
   const actions: ScanSearchAction[] = [];
   const exactHref = getInternalTargetHref(payload);
@@ -130,7 +106,7 @@ function buildRouteSearchAction(
 }
 
 function getScanSearchValue(payload: CapturePayload) {
-  if (payload.kind === "url" || payload.sensitive) return "";
+  if (payload.sensitive || payload.kind === "customer_status_link") return "";
   return (payload.value || payload.raw).trim();
 }
 
@@ -176,11 +152,11 @@ function isInternalHref(href: string) {
 }
 
 function getOpenActionLabel(payload: CapturePayload) {
+  if (payload.kind === "customer_status_link") return "查看此订单";
   if (payload.kind === "order_link") return "打开工单";
   if (payload.kind === "customer_link") return "打开客户";
   if (payload.kind === "inventory_link") return "打开库存";
   if (payload.kind === "buyback_link") return "打开回收";
-  if (payload.kind === "customer_status_link") return "查看此订单";
   return "打开目标";
 }
 
@@ -190,6 +166,12 @@ function getResolutionHint(
   hasExactHref: boolean,
   hasSearchValue: boolean,
 ) {
+  if (payload.kind === "customer_status_link" && hasExactHref) {
+    return "已识别受保护的客户工单二维码，将通过专用安全入口打开。";
+  }
+  if (payload.kind === "customer_status_link") {
+    return "二维码凭据无效或链接格式不受信任，请重新扫描工单二维码。";
+  }
   if (hasExactHref && scope !== "global") {
     return "已识别到其他页面目标，也可以只把内容填入当前搜索。";
   }
