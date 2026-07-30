@@ -86,6 +86,26 @@ describe("inventory product projection", () => {
     );
   });
 
+  it("projects a known cost only for actors with an effective finance capability", () => {
+    const ownerDetail = projectInventoryProductDetail(item, actor);
+    expect(ownerDetail.cost_amount).toBe(260);
+    expect(ownerDetail.finance_redacted).toBeUndefined();
+
+    for (const role of ["manager", "technician", "sales"] as const) {
+      const restricted = projectInventoryProductDetail(item, { ...actor, role });
+      expect(restricted).not.toHaveProperty("cost_amount");
+      expect(restricted.finance_redacted).toBe(true);
+    }
+
+    const grantedManager = projectInventoryProductDetail(item, {
+      ...actor,
+      role: "manager",
+      permissionGrants: ["finance:profit_read"],
+    });
+    expect(grantedManager.cost_amount).toBe(260);
+    expect(grantedManager.finance_redacted).toBeUndefined();
+  });
+
   it("maps legacy statuses into the small product display state", () => {
     expect(mapProductStatus("listed")).toBe("in_stock");
     expect(mapProductStatus("reserved")).toBe("reserved");
