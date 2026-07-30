@@ -4,13 +4,13 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260729123000_inventory_product_quick_create.sql"),
+  resolve(process.cwd(), "supabase/migrations/20260729150934_inventory_product_quick_create.sql"),
   "utf8",
 );
 const enableMigration = readFileSync(
   resolve(
     process.cwd(),
-    "supabase/migrations/20260729123100_inventory_product_quick_create_enable.sql",
+    "supabase/migrations/20260729151119_inventory_product_quick_create_enable.sql",
   ),
   "utf8",
 );

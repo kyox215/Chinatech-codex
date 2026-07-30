@@ -1,3 +1,4 @@
+set lock_timeout = '5s'; set statement_timeout = '1min';
 do $$
 begin
   if to_regprocedure(
@@ -21,3 +22,4 @@ comment on function public.repairdesk_create_inventory_product(
   uuid, uuid, uuid, text, text, text, text, text, text, text,
   numeric, numeric, text, integer, text
 ) is 'Enabled atomic idempotent V2 product intake. EXECUTE remains service-role only.';
+;

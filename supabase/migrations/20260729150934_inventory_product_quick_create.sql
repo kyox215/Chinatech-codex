@@ -1,3 +1,4 @@
+set lock_timeout = '5s'; set statement_timeout = '2min';
 create unique index if not exists inventory_stock_unit_identifiers_active_external_value_unique_idx
   on public.inventory_stock_unit_identifiers (store_id, normalized_value)
   where retired_at is null and kind in ('imei1', 'imei2', 'serial');
@@ -279,3 +280,4 @@ comment on function public.repairdesk_create_inventory_product(
   uuid, uuid, uuid, text, text, text, text, text, text, text,
   numeric, numeric, text, integer, text
 ) is 'Dormant atomic idempotent V2 product intake. Product-only; enable through a separate grant migration.';
+;
