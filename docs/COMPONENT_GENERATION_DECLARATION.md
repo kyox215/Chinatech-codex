@@ -9,6 +9,7 @@ Last reviewed: 2026-07-29 CEST by `TASK-20260729-011-inventory-product-simplific
 >
 > 页面级规则见 [`UI_PAGE_GENERATION_DECLARATION.md`](./UI_PAGE_GENERATION_DECLARATION.md)。组件级可执行 class 声明见 `src/lib/component-patterns.ts`。
 > 会读取或修改业务数据的容器组件还必须遵守 [`REALTIME_DATA_CONSISTENCY_DECLARATION.md`](./REALTIME_DATA_CONSISTENCY_DECLARATION.md)。
+> 扫码组件还必须遵守 [`SCANNER_COMPONENT_BOUNDARY_DECLARATION.md`](./SCANNER_COMPONENT_BOUNDARY_DECLARATION.md)：订单二维码查询与 IMEI 设备识别是两个业务组件，只可共享无业务含义的摄像头生命周期和面板外壳。
 
 ## 1. 组件生成目标
 

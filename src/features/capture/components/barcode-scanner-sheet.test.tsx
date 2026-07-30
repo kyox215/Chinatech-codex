@@ -195,6 +195,19 @@ describe("BarcodeScannerSheet", () => {
     expect(screen.getByRole("status")).toHaveTextContent("正在扫描");
   });
 
+  it("limits the shared camera shell to QR when requested by the order component", async () => {
+    zxingMocks.decodeFromConstraints.mockResolvedValue({ stop: vi.fn() });
+
+    render(
+      <BarcodeScannerSheet open onOpenChange={vi.fn()} scanMode="qr-only" onDetected={vi.fn()} />,
+    );
+
+    await waitFor(() => expect(zxingMocks.decodeFromConstraints).toHaveBeenCalledTimes(1));
+    const hints = zxingMocks.constructor.mock.calls[0]?.[0] as Map<number, number[]>;
+    expect(hints.get(100)).toEqual([barcodeFormats.QR_CODE]);
+    expect(screen.getByLabelText("订单二维码摄像头预览")).toBeInTheDocument();
+  });
+
   it("recognizes a local image and always revokes its object URL", async () => {
     zxingMocks.decodeFromConstraints.mockResolvedValue({ stop: vi.fn() });
     zxingMocks.decodeFromImageElement.mockResolvedValue({ getText: () => "inventory:sku-42" });

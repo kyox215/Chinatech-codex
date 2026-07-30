@@ -100,7 +100,7 @@ describe("ImeiField", () => {
     await user.click(screen.getByRole("button", { name: "扫码录入 IMEI / 序列号" }));
     await user.click(await screen.findByRole("button", { name: "摄像头扫码录入 IMEI" }));
 
-    const captureDialog = await screen.findByRole("dialog", { name: "录入 IMEI / 序列号" });
+    const captureDialog = await screen.findByRole("dialog", { name: "扫描 IMEI" });
     expect(captureDialog).toBeInTheDocument();
 
     const fileInput = captureDialog.querySelector<HTMLInputElement>('input[type="file"]');
@@ -108,13 +108,13 @@ describe("ImeiField", () => {
     await user.upload(fileInput!, new File(["image"], "imei.png", { type: "image/png" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "已识别 2 个候选，请选择要填入的编号。",
+      "已识别 2 个有效 IMEI，请选择要填入的 IMEI。",
     );
     await user.click(screen.getByRole("button", { name: /IMEI2.*3809/ }));
     await user.click(screen.getByRole("button", { name: "使用选择的编号" }));
 
     await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "录入 IMEI / 序列号" })).not.toBeInTheDocument(),
+      expect(screen.queryByRole("dialog", { name: "扫描 IMEI" })).not.toBeInTheDocument(),
     );
     await user.click(screen.getByRole("button", { name: "保存 IMEI" }));
 

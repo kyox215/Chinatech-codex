@@ -26,6 +26,8 @@ interface BarcodeScannerSheetProps {
   onOpenChange: (open: boolean) => void;
   title?: string;
   description?: string;
+  scanMode?: "multi-format" | "qr-only";
+  parsePayload?: (rawValue: string, origin: string) => CapturePayload;
   onDetected?: (payload: CapturePayload) => void;
   renderActions?: (
     payload: CapturePayload,
@@ -49,6 +51,8 @@ export function BarcodeScannerSheet({
   onOpenChange,
   title = "扫码读取",
   description = "对准工单二维码、IMEI 条码、库存标签或客户标签。",
+  scanMode = "multi-format",
+  parsePayload = parseBarcodePayload,
   onDetected,
   renderActions,
 }: BarcodeScannerSheetProps) {
@@ -99,7 +103,7 @@ export function BarcodeScannerSheet({
         return;
       }
       resultAcceptedRef.current = true;
-      const payload = parseBarcodePayload(rawValue, window.location.origin);
+      const payload = parsePayload(rawValue, window.location.origin);
       setLastPayload(payload);
       onDetected?.(payload);
       safelyVibrate();
@@ -108,7 +112,7 @@ export function BarcodeScannerSheet({
         toast.success(`已识别：${payload.label}`);
       }
     },
-    [onDetected, stopScanner],
+    [onDetected, parsePayload, stopScanner],
   );
 
   const handleImageSelected = useCallback(
@@ -133,7 +137,7 @@ export function BarcodeScannerSheet({
         const image = new Image();
         image.src = imageUrl;
         await decodeImageElement(image);
-        const reader = await createBarcodeReader();
+        const reader = await createBarcodeReader(scanMode);
         const result = await withTimeout(
           reader.decodeFromImageElement(image),
           scannerImageDecodeTimeoutMs,
@@ -151,7 +155,7 @@ export function BarcodeScannerSheet({
         if (imageRequestIdRef.current === imageRequestId) setIsImageProcessing(false);
       }
     },
-    [commitRawValue, stopScanner],
+    [commitRawValue, scanMode, stopScanner],
   );
 
   const rescan = useCallback(() => {
@@ -204,7 +208,7 @@ export function BarcodeScannerSheet({
       setIsStarting(true);
       setCameraError("");
       try {
-        const reader = await createBarcodeReader();
+        const reader = await createBarcodeReader(scanMode);
         if (!isCurrentRun() || !videoRef.current) return;
 
         const controls = await startScannerWithFallback(
@@ -248,6 +252,7 @@ export function BarcodeScannerSheet({
     isPaused,
     lastPayload,
     open,
+    scanMode,
     stopScanner,
   ]);
 
@@ -344,7 +349,9 @@ export function BarcodeScannerSheet({
                     className="aspect-[4/3] w-full object-cover"
                     muted
                     playsInline
-                    aria-label="二维码和条形码摄像头预览"
+                    aria-label={
+                      scanMode === "qr-only" ? "订单二维码摄像头预览" : "二维码和条形码摄像头预览"
+                    }
                   />
                   <div
                     className="pointer-events-none absolute inset-0 grid place-items-center bg-black/10"
@@ -507,19 +514,22 @@ function clearVideoElement(video: HTMLVideoElement | null) {
   video.srcObject = null;
 }
 
-async function createBarcodeReader(): Promise<ScannerReader> {
+async function createBarcodeReader(scanMode: "multi-format" | "qr-only"): Promise<ScannerReader> {
   const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([
     import("@zxing/browser"),
     import("@zxing/library"),
   ]);
-  const formats = [
-    BarcodeFormat.QR_CODE,
-    BarcodeFormat.DATA_MATRIX,
-    BarcodeFormat.CODE_128,
-    BarcodeFormat.CODE_39,
-    BarcodeFormat.EAN_13,
-    BarcodeFormat.EAN_8,
-  ];
+  const formats =
+    scanMode === "qr-only"
+      ? [BarcodeFormat.QR_CODE]
+      : [
+          BarcodeFormat.QR_CODE,
+          BarcodeFormat.DATA_MATRIX,
+          BarcodeFormat.CODE_128,
+          BarcodeFormat.CODE_39,
+          BarcodeFormat.EAN_13,
+          BarcodeFormat.EAN_8,
+        ];
   const hints = new Map([[DecodeHintType.POSSIBLE_FORMATS, formats]]);
   return new BrowserMultiFormatReader(hints);
 }

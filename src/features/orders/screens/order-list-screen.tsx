@@ -69,11 +69,7 @@ import { OrderListViewMode } from "@/features/orders/components/order-list-view-
 import { OrderListTransitionFeedback } from "@/features/orders/components/order-list-transition-feedback";
 import { OrderStatusFilterControls } from "@/features/orders/components/order-list-filters";
 import { MobileOrdersFloatingHeader } from "@/features/orders/components/order-list-mobile-header";
-import {
-  ScanSearchButton,
-  consumeScanSearchIntent,
-  subscribeScanSearchIntent,
-} from "@/features/capture";
+import { OrderQrScannerButton } from "@/features/orders/components/order-qr-scanner";
 import { useRealtimeSync } from "@/features/realtime";
 import {
   EmptyOrdersState,
@@ -376,19 +372,6 @@ export function OrderListScreen() {
     previousDetailOrderIdRef.current = detailOrderId;
     if (previousId && !detailOrderId) clearWorkspaceIntent();
   }, [clearWorkspaceIntent, detailOrderId]);
-
-  useEffect(() => {
-    const applyIntent = (value: string) => {
-      if (!value) return;
-      setFilters((current) =>
-        sanitizeOrderSearchInput({ ...current, search: value, searchScope: "current" }),
-      );
-      setPage(1);
-    };
-
-    applyIntent(consumeScanSearchIntent("orders"));
-    return subscribeScanSearchIntent("orders", applyIntent);
-  }, []);
 
   const effectiveFilters = useMemo<OrderListFilters>(() => {
     return {
@@ -1124,9 +1107,6 @@ export function OrderListScreen() {
     hint: group.hint,
     tone: group.tone,
   }));
-  const applyScanSearch = (value: string) => {
-    searchInput.commitNow(value);
-  };
   const rememberListContext = (anchorOrderId: string) => {
     persistListContext(anchorOrderId);
   };
@@ -1251,10 +1231,8 @@ export function OrderListScreen() {
         onSearchSubmit={() => searchInput.commitNow()}
         onSearchClear={searchInput.clearSearch}
         scanAction={
-          <ScanSearchButton
-            scope="orders"
+          <OrderQrScannerButton
             disabled={!isOnline}
-            onSearch={applyScanSearch}
             className="size-11 rounded-xl bg-card"
             iconClassName="size-3.5"
           />
@@ -1532,10 +1510,8 @@ export function OrderListScreen() {
               ) : null}
             </div>
           </div>
-          <ScanSearchButton
-            scope="orders"
+          <OrderQrScannerButton
             disabled={!isOnline}
-            onSearch={applyScanSearch}
             size="sm"
             showLabel
             className="h-9 gap-1.5 border-border/60 bg-surface/60 backdrop-blur"

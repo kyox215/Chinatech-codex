@@ -108,7 +108,7 @@ describe("ImeiScannerField", () => {
 
     render(<ImeiScannerField value="" onChange={vi.fn()} />);
 
-    const inlineInput = screen.getByPlaceholderText("扫描或输入 IMEI / 序列号");
+    const inlineInput = screen.getByPlaceholderText("扫描或输入 IMEI");
     expect(inlineInput).toHaveAttribute("type", "text");
     expect(inlineInput).toHaveAttribute("inputmode", "numeric");
 
@@ -139,6 +139,29 @@ describe("ImeiScannerField", () => {
 
     expect(onChange).toHaveBeenLastCalledWith("490154203237518");
   });
+
+  it.each(["SN:C39ZQ123N70M", "SN:490154203237518", "EID:89043051202500726225007991441943"])(
+    "does not auto-fill non-IMEI scanner input %s",
+    async (identifier) => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      Object.defineProperty(navigator, "mediaDevices", {
+        configurable: true,
+        value: undefined,
+      });
+
+      render(<ImeiScannerField value="" onChange={onChange} />);
+      await user.click(screen.getByRole("button", { name: "摄像头扫码录入 IMEI" }));
+      await user.type(screen.getByPlaceholderText("无法识别时可手动输入"), identifier);
+      await user.click(screen.getByRole("button", { name: "填入手动编号" }));
+
+      expect(onChange).not.toHaveBeenCalled();
+      expect(toastMocks.error).toHaveBeenCalledWith(
+        "只接受通过校验的 15 位 IMEI；SN、EID 和其他编号请手动填写到对应字段",
+      );
+      expect(screen.getByText("扫描 IMEI")).toBeInTheDocument();
+    },
+  );
 
   it.each([
     [
@@ -208,13 +231,15 @@ describe("ImeiScannerField", () => {
         frameRate: { ideal: 24, max: 30 },
       },
     });
-    expect(await screen.findByRole("alert")).toHaveTextContent("已识别 1 个编号，请确认后再填入。");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "已识别 1 个有效 IMEI，请确认后再填入。",
+    );
     expect(onChange).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "使用选择的编号" }));
 
     expect(onChange).toHaveBeenLastCalledWith("356938035643809");
-    expect(toastMocks.success).toHaveBeenCalledWith("已录入 IMEI / 序列号");
+    expect(toastMocks.success).toHaveBeenCalledWith("已录入 IMEI");
   });
 
   it("remembers the working camera mode and reuses it after reopening the scanner", async () => {
@@ -264,7 +289,7 @@ describe("ImeiScannerField", () => {
     });
   });
 
-  it("locks the live camera frame and enriches a first serial hit with visible IMEI candidates", async () => {
+  it("locks the live camera frame and excludes an EID while retaining visible IMEI candidates", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     const imageDecodeDescriptor = Object.getOwnPropertyDescriptor(
@@ -328,18 +353,18 @@ describe("ImeiScannerField", () => {
       await user.click(screen.getByRole("button", { name: "摄像头扫码录入 IMEI" }));
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
-        "已识别 3 个候选，请选择要填入的编号。",
+        "已识别 2 个有效 IMEI，请选择要填入的 IMEI。",
       );
       expect(screen.getByAltText("已锁定的扫码画面")).toBeInTheDocument();
       expect(screen.getByText("画面已锁定")).toBeInTheDocument();
       expect(drawImageMock).toHaveBeenCalled();
       expect(barcodeDetectMock).toHaveBeenCalled();
       const candidateButtons = screen.getAllByRole("button", {
-        name: /•••• 7518|•••• 3809|•••• 1943/,
+        name: /•••• 7518|•••• 3809/,
       });
       expect(candidateButtons[0]).toHaveTextContent("•••• 7518");
       expect(candidateButtons[1]).toHaveTextContent("•••• 3809");
-      expect(candidateButtons[2]).toHaveTextContent("•••• 1943");
+      expect(screen.queryByText("89043051202500726225007991441943")).not.toBeInTheDocument();
       expect(onChange).not.toHaveBeenCalled();
     } finally {
       if (imageDecodeDescriptor) {
@@ -436,15 +461,10 @@ describe("ImeiScannerField", () => {
       await user.click(screen.getByRole("button", { name: "摄像头扫码录入 IMEI" }));
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
-        "已识别 3 个候选，请选择要填入的编号。",
+        "已识别 2 个有效 IMEI，请选择要填入的 IMEI。",
       );
-      const overlayCandidate = screen.getByRole("button", { name: "选择画面候选 1" });
-      expect(overlayCandidate).toHaveTextContent("•••• 2790");
-      expect(overlayCandidate).not.toHaveTextContent("490154203237518");
-      expect(overlayCandidate).not.toHaveTextContent("356938035643809");
-      expect(screen.queryByRole("button", { name: "选择画面候选 2" })).not.toBeInTheDocument();
-
-      expect(screen.getByRole("button", { name: /•••• 2790/ })).toHaveTextContent("画面 1");
+      expect(screen.queryByRole("button", { name: "选择画面候选 1" })).not.toBeInTheDocument();
+      expect(screen.queryByText(/AUNWE02SB05002790/)).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: /•••• 7518/ })).not.toHaveTextContent("画面");
       expect(screen.getByRole("button", { name: /•••• 3809/ })).not.toHaveTextContent("画面");
       expect(onChange).not.toHaveBeenCalled();
@@ -537,7 +557,7 @@ describe("ImeiScannerField", () => {
     await user.click(screen.getByRole("button", { name: "摄像头扫码录入 IMEI" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "已识别 2 个候选，请选择要填入的编号。",
+      "已识别 2 个有效 IMEI，请选择要填入的 IMEI。",
     );
     expect(onChange).not.toHaveBeenCalled();
 
@@ -545,7 +565,7 @@ describe("ImeiScannerField", () => {
     await user.click(screen.getByRole("button", { name: "使用选择的编号" }));
 
     expect(onChange).toHaveBeenLastCalledWith("356938035643809");
-    expect(toastMocks.success).toHaveBeenCalledWith("已录入 IMEI / 序列号");
+    expect(toastMocks.success).toHaveBeenCalledWith("已录入 IMEI");
   });
 
   it("captures the current camera frame and shows all detected barcode candidates", async () => {
@@ -667,12 +687,12 @@ describe("ImeiScannerField", () => {
       await user.click(captureFrameButton);
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
-        "已识别 3 个候选，请选择要填入的编号。",
+        "已识别 2 个有效 IMEI，请选择要填入的 IMEI。",
       );
       expect(drawImageMock).toHaveBeenCalledWith(video, 142, 107, 356, 267, 0, 0, 640, 480);
       expect(screen.getByRole("button", { name: /•••• 7518/ })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /•••• 3809/ })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /•••• 2790/ })).toBeInTheDocument();
+      expect(screen.queryByText(/AUNWE02SB05002790/)).not.toBeInTheDocument();
       expect(screen.getByAltText("当前摄像头画面 OCR 截图")).toBeInTheDocument();
       const secondOverlayCandidate = screen.getByRole("button", { name: "选择画面候选 2" });
       expect(secondOverlayCandidate).toBeInTheDocument();
@@ -834,7 +854,7 @@ describe("ImeiScannerField", () => {
       await waitFor(
         () =>
           expect(screen.getByRole("alert")).toHaveTextContent(
-            "已识别 2 个候选，请选择要填入的编号。",
+            "已识别 2 个有效 IMEI，请选择要填入的 IMEI。",
           ),
         { timeout: 4000 },
       );
@@ -907,7 +927,7 @@ describe("ImeiScannerField", () => {
       await waitFor(
         () =>
           expect(screen.getByRole("alert")).toHaveTextContent(
-            "已识别 2 个候选，请选择要填入的编号。",
+            "已识别 2 个有效 IMEI，请选择要填入的 IMEI。",
           ),
         { timeout: 4000 },
       );
@@ -984,7 +1004,7 @@ describe("ImeiScannerField", () => {
       await waitFor(
         () =>
           expect(screen.getByRole("alert")).toHaveTextContent(
-            "已识别 2 个候选，请选择要填入的编号。",
+            "已识别 2 个有效 IMEI，请选择要填入的 IMEI。",
           ),
         { timeout: 4000 },
       );
@@ -1061,7 +1081,7 @@ describe("ImeiScannerField", () => {
       await waitFor(
         () =>
           expect(screen.getByRole("alert")).toHaveTextContent(
-            "已识别 2 个候选，请选择要填入的编号。",
+            "已识别 2 个有效 IMEI，请选择要填入的 IMEI。",
           ),
         { timeout: 4000 },
       );
@@ -1101,7 +1121,7 @@ describe("ImeiScannerField", () => {
     render(<ImeiScannerField value="" onChange={vi.fn()} />);
 
     await user.click(screen.getByRole("button", { name: "摄像头扫码录入 IMEI" }));
-    await screen.findByText("录入 IMEI / 序列号");
+    await screen.findByText("扫描 IMEI");
     await waitFor(() => expect(zxingMocks.decodeFromConstraints).toHaveBeenCalled());
 
     await user.keyboard("{Escape}");
@@ -1117,7 +1137,7 @@ describe("ImeiScannerField", () => {
     render(<ImeiScannerField value="" onChange={vi.fn()} />);
 
     await user.click(screen.getByRole("button", { name: "摄像头扫码录入 IMEI" }));
-    await screen.findByText("录入 IMEI / 序列号");
+    await screen.findByText("扫描 IMEI");
     await waitFor(() => expect(zxingMocks.decodeFromConstraints).toHaveBeenCalled());
 
     await user.keyboard("{Escape}");

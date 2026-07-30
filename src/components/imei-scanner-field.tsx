@@ -15,12 +15,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
-  extractImeiCandidates,
-  getPreferredImeiCandidate,
   normalizeCaptureIdentifier,
   type ImeiCandidate,
   type ImeiCaptureSource,
 } from "@/features/capture/model/barcode-parser";
+import {
+  extractValidImeiCandidates,
+  getPreferredValidImeiCandidate,
+} from "@/entities/device/model/imei-candidates";
 import { recognizeTextWithLocalOcr } from "@/features/capture/model/local-ocr";
 import { inspectAiInventoryImage } from "@/features/ai-assistant/model/inventory-image";
 import { cn } from "@/lib/utils";
@@ -60,7 +62,6 @@ type ImeiCandidateInput = {
   rawValue: string;
   source: ImeiCaptureSource;
   detections?: readonly ImeiBarcodeDetection[];
-  includeGenericSerial?: boolean;
 };
 type ImeiCaptureViewportSize = {
   width: number;
@@ -99,7 +100,7 @@ export function normalizeImeiIdentifier(value: string) {
 export function ImeiScannerField({
   value,
   onChange,
-  placeholder = "扫描或输入 IMEI / 序列号",
+  placeholder = "扫描或输入 IMEI",
   density = "default",
   showPaste = true,
   startScannerToken,
@@ -128,7 +129,6 @@ export function ImeiScannerField({
   onCommitSource?: (source: "manual" | "scan") => void;
 }) {
   const actionIdentifierLabel = identifierLabel ?? "IMEI";
-  const dialogIdentifierLabel = identifierLabel ?? "IMEI / 序列号";
   const [scannerOpen, setScannerOpen] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -260,12 +260,12 @@ export function ImeiScannerField({
       setWarning(candidate.reason ?? "");
       onChangeRef.current(candidate.value);
       onCommitSourceRef.current?.("scan");
-      toast.success(`已录入 ${dialogIdentifierLabel}`);
+      toast.success("已录入 IMEI");
       stopScanner();
       setScannerOpen(false);
       resetCaptureState();
     },
-    [dialogIdentifierLabel, resetCaptureState, stopScanner],
+    [resetCaptureState, stopScanner],
   );
 
   const handleCapturedText = useCallback(
@@ -279,7 +279,6 @@ export function ImeiScannerField({
           rawValue,
           source,
           detections: options.detections,
-          includeGenericSerial: true,
         },
       ]);
 
@@ -287,12 +286,12 @@ export function ImeiScannerField({
         if (options.preview) {
           replaceCapturePreview(options.preview, options.previewCleanup);
         }
-        setCaptureError("未识别到可用编号。请重拍、上传更清晰照片，或手动输入。");
+        setCaptureError("未识别到有效 IMEI。请重拍、上传更清晰照片，或手动输入 15 位 IMEI。");
         stopScanner();
         return;
       }
 
-      const preferred = getPreferredImeiCandidate(orderedCandidates);
+      const preferred = getPreferredValidImeiCandidate(orderedCandidates);
       if (options.preview) {
         replaceCapturePreview(options.preview, options.previewCleanup);
       }
@@ -315,12 +314,12 @@ export function ImeiScannerField({
         if (options.preview) {
           replaceCapturePreview(options.preview, options.previewCleanup);
         }
-        setCaptureError("未识别到可用编号。请重拍、上传更清晰照片，或手动输入。");
+        setCaptureError("未识别到有效 IMEI。请重拍、上传更清晰照片，或手动输入 15 位 IMEI。");
         stopScanner();
         return;
       }
 
-      const preferred = getPreferredImeiCandidate(orderedCandidates);
+      const preferred = getPreferredValidImeiCandidate(orderedCandidates);
       if (options.preview) {
         replaceCapturePreview(options.preview, options.previewCleanup);
       }
@@ -336,23 +335,36 @@ export function ImeiScannerField({
     if (source === "clear") {
       setWarning("");
       onChangeRef.current("");
-      return;
+      return true;
     }
 
-    const normalized = normalizeImeiIdentifier(rawValue);
-    setWarning(normalized.hadUnsupported ? "已移除不支持的字符；字母数字序列号会被保留。" : "");
+    const capturedImei =
+      source === "scan" || source === "paste"
+        ? getPreferredValidImeiCandidate(
+            extractValidImeiCandidates(rawValue, {
+              source: source === "paste" ? "paste" : "manual",
+            }),
+          )
+        : null;
+    if ((source === "scan" || source === "paste") && !capturedImei) {
+      toast.error("只接受通过校验的 15 位 IMEI；SN、EID 和其他编号请手动填写到对应字段");
+      return false;
+    }
+    const normalized = normalizeImeiIdentifier(capturedImei?.value ?? rawValue);
+    setWarning(normalized.hadUnsupported ? "已移除 IMEI 中不支持的字符。" : "");
     onChangeRef.current(normalized.value);
     onCommitSourceRef.current?.(source === "scan" ? "scan" : "manual");
 
     if (source === "scan") {
-      toast.success("已录入 IMEI / 序列号");
+      toast.success("已录入 IMEI");
     } else if (source === "paste") {
-      toast.success("已粘贴并整理 IMEI / 序列号");
+      toast.success("已粘贴并校验 IMEI");
     }
 
     if (normalized.hadUnsupported && source !== "manual") {
       toast.warning("检测到非法字符，已自动移除");
     }
+    return true;
   }, []);
 
   const handleImageFile = useCallback(
@@ -743,11 +755,9 @@ export function ImeiScannerField({
           />
           <div className="min-h-0 space-y-2 overflow-y-auto p-3 pb-2 sm:space-y-3 sm:p-5 sm:pb-4">
             <DialogHeader className="space-y-0.5 pr-8 sm:space-y-1.5">
-              <DialogTitle className="text-base sm:text-lg">
-                录入 {dialogIdentifierLabel}
-              </DialogTitle>
+              <DialogTitle className="text-base sm:text-lg">扫描 IMEI</DialogTitle>
               <DialogDescription className="text-xs leading-4 sm:text-sm">
-                可扫码、上传照片识别，或手动输入。多个编号会先让你选择。
+                自动识别仅接受通过校验的 15 位 IMEI，不识别 SN 或 EID。
               </DialogDescription>
             </DialogHeader>
             {shouldShowCaptureViewport ? (
@@ -886,8 +896,7 @@ export function ImeiScannerField({
                   className="min-h-11 text-sm"
                   disabled={!scannerManualValue.trim()}
                   onClick={() => {
-                    commitValue(scannerManualValue, "manual");
-                    setScannerOpen(false);
+                    if (commitValue(scannerManualValue, "scan")) setScannerOpen(false);
                   }}
                 >
                   填入手动编号
@@ -1013,7 +1022,7 @@ async function recognizeTextFromImageElement(
 ): Promise<ImeiRecognitionResult> {
   if (options.preferOcr) {
     const ocrText = await detectTextFromImageElement(image).catch(() => "");
-    if (extractImeiCandidates(ocrText, { source: "ocr", includeGenericSerial: true }).length > 0) {
+    if (extractValidImeiCandidates(ocrText, { source: "ocr" }).length > 0) {
       return {
         text: ocrText,
         source: "ocr",
@@ -1113,7 +1122,6 @@ async function collectLockedFrameCandidateInputs(
     {
       rawValue,
       source: "camera",
-      includeGenericSerial: true,
     },
   ];
 
@@ -1128,7 +1136,6 @@ async function collectLockedFrameCandidateInputs(
       rawValue: barcodeDetections.map((detection) => detection.rawValue).join("\n"),
       source: "barcode",
       detections: barcodeDetections,
-      includeGenericSerial: true,
     });
   } else {
     const barcodeText = await withImageRecognitionTimeout(
@@ -1140,7 +1147,6 @@ async function collectLockedFrameCandidateInputs(
       inputs.push({
         rawValue: barcodeText,
         source: "image",
-        includeGenericSerial: true,
       });
     }
   }
@@ -1155,7 +1161,6 @@ async function collectLockedFrameCandidateInputs(
       inputs.push({
         rawValue: ocrText,
         source: "ocr",
-        includeGenericSerial: true,
       });
     }
   }
@@ -1531,9 +1536,8 @@ function buildSelectableCandidatesFromInputs(inputs: readonly ImeiCandidateInput
   >();
 
   for (const input of inputs) {
-    const candidates = extractImeiCandidates(input.rawValue, {
+    const candidates = extractValidImeiCandidates(input.rawValue, {
       source: input.source,
-      includeGenericSerial: input.includeGenericSerial ?? true,
     });
 
     candidates.forEach((candidate) => {
@@ -1647,8 +1651,7 @@ function compareCandidatesByPriority(left: ImeiCandidate, right: ImeiCandidate) 
 
 function getCandidateKindPriority(candidate: ImeiCandidate) {
   if (candidate.kind === "imei") return 0;
-  if (candidate.kind === "suspect_imei") return 1;
-  return 2;
+  return 1;
 }
 
 function getCandidateConfidencePriority(candidate: ImeiCandidate) {
@@ -1776,12 +1779,9 @@ function clampRatio(value: number) {
 
 function getCaptureCandidatesMessage(candidates: readonly ImeiCandidate[]) {
   if (candidates.length > 1) {
-    return `已识别 ${candidates.length} 个候选，请选择要填入的编号。`;
+    return `已识别 ${candidates.length} 个有效 IMEI，请选择要填入的 IMEI。`;
   }
-  if (candidates[0]?.kind === "suspect_imei") {
-    return "已识别 1 个疑似编号，请确认后再填入。";
-  }
-  return "已识别 1 个编号，请确认后再填入。";
+  return "已识别 1 个有效 IMEI，请确认后再填入。";
 }
 
 function getScannerStatusText({

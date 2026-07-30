@@ -46,6 +46,10 @@ import {
 } from "lucide-react";
 
 import { ImeiScannerField, normalizeImeiIdentifier } from "@/components/imei-scanner-field";
+import {
+  extractValidImeiCandidates,
+  getPreferredValidImeiCandidate,
+} from "@/entities/device/model/imei-candidates";
 import { DeviceCustodyBadge, MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
 import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
 import { DiagnosisQuoteDialog } from "@/components/orders/diagnosis-quote-dialog";
@@ -113,11 +117,7 @@ import {
   revokeAttachmentDraft,
   type AttachmentDraft,
 } from "@/features/capture";
-import {
-  extractImeiCandidates,
-  getPreferredImeiCandidate,
-  type ImeiCandidate,
-} from "@/features/capture/model/barcode-parser";
+import type { ImeiCandidate } from "@/features/capture/model/barcode-parser";
 import {
   RepairOrderPrintSheet,
   canPrintRepairOrderCustomerDocument,
@@ -4072,28 +4072,25 @@ function ImeiCaptureSheet({
         imeiOcrDecodeTimeoutMs,
         "OCR 识别超时",
       );
-      const candidates = extractImeiCandidates(text, {
-        source: "ocr",
-        includeGenericSerial: true,
-      });
-      setOcrText(candidates.length > 0 ? `已识别到 ${candidates.length} 个候选编号。` : "");
-      const candidate = getPreferredImeiCandidate(candidates);
+      const candidates = extractValidImeiCandidates(text, { source: "ocr" });
+      setOcrText(candidates.length > 0 ? `已识别到 ${candidates.length} 个有效 IMEI。` : "");
+      const candidate = getPreferredValidImeiCandidate(candidates);
       if (!candidate) {
-        setError("未自动识别到 IMEI / 序列号。请检查照片清晰度，或手动确认输入。");
+        setError("未自动识别到有效 IMEI。请检查照片清晰度，SN 或 EID 请在对应字段手动输入。");
         return;
       }
-      if (candidates.length > 1 || candidate.kind === "suspect_imei") {
+      if (candidates.length > 1) {
         setOcrCandidates(candidates);
         setSelectedOcrCandidateId(candidate.id);
         setError(
           candidates.length > 1
             ? "找到多个可能的编号，请选择一个后保存。"
-            : "找到疑似编号，请确认后再填入。",
+            : "请确认 IMEI 后再填入。",
         );
         return;
       }
       onChange(candidate.value);
-      toast.success("已识别并填入 IMEI / 序列号");
+      toast.success("已识别并填入 IMEI");
     } catch (error) {
       const message = getImeiOcrErrorMessage(error);
       setError(message);
@@ -4122,10 +4119,10 @@ function ImeiCaptureSheet({
           <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
             <SheetTitle className="flex items-center gap-2 text-base">
               <ScanLine className="size-4 text-primary" />
-              录入 IMEI / 序列号
+              扫描 IMEI
             </SheetTitle>
             <SheetDescription>
-              选择二维码 / 条码扫描，或用 OCR 拍照识别机身、包装上的数字。
+              扫码或 OCR 仅识别通过校验的 15 位 IMEI，不识别 SN 或 EID。
             </SheetDescription>
           </SheetHeader>
 

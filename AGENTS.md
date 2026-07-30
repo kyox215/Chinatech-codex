@@ -22,6 +22,7 @@ Use these rules when generating or editing pages in this repository.
 - Sub-agents report blockers to the Integration Lead. Do not let sub-agents ask the user for broader permissions or redirect the user to another agent; the Integration Lead decides whether to ask the user.
 - Read `docs/UI_PAGE_GENERATION_DECLARATION.md` before adding pages.
 - Read `docs/COMPONENT_GENERATION_DECLARATION.md` before adding reusable components.
+- Read `docs/SCANNER_COMPONENT_BOUNDARY_DECLARATION.md` before changing order lookup scanning or device identifier recognition. Order lookup QR and IMEI recognition are separate business components: order lookup accepts only trusted order QR payloads; automatic device capture accepts only checksum-valid 15-digit IMEI and never SN/EID/EAN/SKU.
 - Import reusable layout/class declarations from `src/lib/ui-patterns.ts` and component declarations from `src/lib/component-patterns.ts`.
 - Keep design tokens in `src/styles.css` as the only color source.
 - Use Next.js App Router files in `src/app/`; keep interactive page bodies in reusable client components when needed.
