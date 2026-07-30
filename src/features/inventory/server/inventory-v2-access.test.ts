@@ -15,6 +15,7 @@ const baseEnv = {
   INVENTORY_V2_SCHEMA_READY: "1",
   INVENTORY_V2_COMMANDS: "1",
   INVENTORY_V2_UI: "1",
+  INVENTORY_PRODUCT_DEVICE_DATA_V2: "1",
 } as const;
 
 describe("inventory V2 actor rollout access", () => {

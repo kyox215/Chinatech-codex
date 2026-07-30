@@ -25,8 +25,11 @@ import type {
   InventoryListFilters,
   InventoryListItem,
   InventoryProductDetail,
+  InventoryProductEditData,
   InventoryProductListFilters,
   InventoryProductListResult,
+  UpdateInventoryProductInput,
+  UpdateInventoryProductResult,
   InventoryQualityCheck,
   InventoryQualityCheckInput,
   InventoryStats,
@@ -379,7 +382,19 @@ export async function createInventoryProduct(
 ): Promise<CreateInventoryProductResult> {
   const replay = mockInventoryProductCreates.get(input.idempotency_key);
   if (replay) return { ...replay, code: "idempotent_replay" };
-  const normalizedIdentifier = input.serial_or_imei?.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  const identifiers =
+    input.identifiers ??
+    (input.identifier_kind && input.serial_or_imei
+      ? [
+          {
+            kind: input.identifier_kind,
+            value: input.serial_or_imei,
+            source: "manual" as const,
+            primary: true,
+          },
+        ]
+      : []);
+  const normalizedIdentifier = identifiers[0]?.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
   if (
     normalizedIdentifier &&
     mockInventoryItems.some(
@@ -399,7 +414,7 @@ export async function createInventoryProduct(
       model: input.model,
       color: input.color,
       storage_capacity: input.storage_capacity,
-      serial_or_imei: input.serial_or_imei,
+      serial_or_imei: identifiers[0]?.value,
       list_price: input.list_price,
       buyback_price: input.cost_amount,
       warranty_months: input.warranty_months,
@@ -417,6 +432,12 @@ export async function createInventoryProduct(
     list_price_provided: input.list_price !== undefined,
     warranty_provided: input.warranty_months !== undefined,
     location: input.location,
+    ram_capacity: input.ram_capacity,
+    gtin: input.gtin,
+    condition: input.condition,
+    specifications: input.specifications ?? {},
+    device_identifiers: identifiers,
+    product_version: 1,
   };
   const result: CreateInventoryProductResult = {
     ok: true,
@@ -438,21 +459,16 @@ export async function listInventoryProducts(
     projectInventoryProductListItem(decorateInventoryItem(item, actor)),
   );
   const search = filters.search?.toLowerCase();
+  const normalizedSearch = search?.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
   const items = products.filter((item, index) => {
     if (
       search &&
-      ![
-        item.sku,
-        item.brand,
-        item.model,
-        item.specification,
-        item.location,
-        sources[index].serial_or_imei,
-      ]
+      ![item.sku, item.brand, item.model, item.specification, item.location]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
-        .includes(search)
+        .includes(search) &&
+      sources[index].serial_or_imei?.replace(/[^A-Za-z0-9]/g, "").toUpperCase() !== normalizedSearch
     )
       return false;
     if (filters.statuses?.length && !filters.statuses.includes(item.status)) return false;
@@ -484,7 +500,77 @@ export async function getInventoryProduct(
     (entry) => entry.id === id && entry.source_type !== "buyback",
   );
   if (!item) throw new Error("商品不存在或不属于当前门店");
-  return projectInventoryProductDetail(decorateInventoryItem(item, actor), actor);
+  const detail = projectInventoryProductDetail(decorateInventoryItem(item, actor), actor);
+  const payload = (item.legacy_payload ?? {}) as Record<string, unknown>;
+  const identifiers = Array.isArray(payload.device_identifiers) ? payload.device_identifiers : [];
+  return {
+    ...detail,
+    ram_capacity: optional(String(payload.ram_capacity ?? "")),
+    gtin: optional(String(payload.gtin ?? "")),
+    condition: optional(String(payload.condition ?? "")),
+    specifications: (payload.specifications ?? {}) as Record<string, string>,
+    identifiers: identifiers.map((identifier) => {
+      const record = identifier as Record<string, unknown>;
+      return {
+        kind: record.kind as "imei1" | "imei2" | "serial" | "eid",
+        masked_value: `•••• ${String(record.value).slice(-4)}`,
+        primary: record.primary === true,
+      };
+    }),
+    version: Number(payload.product_version ?? 1),
+  };
+}
+
+export async function getInventoryProductEditData(
+  id: string,
+  actor: AuditActor,
+): Promise<InventoryProductEditData> {
+  const detail = await getInventoryProduct(id, actor);
+  const item = findItem(id);
+  const payload = (item.legacy_payload ?? {}) as Record<string, unknown>;
+  const identifiers = Array.isArray(payload.device_identifiers) ? payload.device_identifiers : [];
+  return { ...detail, identifiers: identifiers as InventoryProductEditData["identifiers"] };
+}
+
+export async function updateInventoryProduct(
+  id: string,
+  input: UpdateInventoryProductInput,
+): Promise<UpdateInventoryProductResult> {
+  const item = findItem(id);
+  const payload = (item.legacy_payload ?? {}) as Record<string, unknown>;
+  const currentVersion = Number(payload.product_version ?? 1);
+  if (input.expected_version !== currentVersion)
+    throw new Error("商品已被其他设备更新，请刷新后重试");
+  item.category = input.category;
+  item.brand = input.brand;
+  item.model = input.model;
+  item.color = input.color;
+  item.storage_capacity = input.storage_capacity;
+  item.serial_or_imei =
+    input.identifiers.find((identifier) => identifier.primary)?.value ??
+    input.identifiers[0]?.value;
+  item.list_price = input.list_price ?? 0;
+  item.buyback_price = input.cost_amount ?? item.buyback_price;
+  item.warranty_months = input.warranty_months ?? 0;
+  item.notes = input.notes;
+  item.updated_at = new Date().toISOString();
+  item.legacy_payload = {
+    ...payload,
+    ram_capacity: input.ram_capacity,
+    gtin: input.gtin,
+    condition: input.condition,
+    specifications: input.specifications ?? {},
+    device_identifiers: input.identifiers,
+    location: input.location,
+    product_version: currentVersion + 1,
+  };
+  return {
+    ok: true,
+    code: "updated",
+    id,
+    version: currentVersion + 1,
+    updated_at: item.updated_at,
+  };
 }
 
 export async function updateInventoryItem(

@@ -5,6 +5,7 @@ export type InventoryV2FeatureEnvironment = {
   INVENTORY_V2_SHADOW_READ?: string;
   INVENTORY_V2_COMMANDS?: string;
   INVENTORY_V2_UI?: string;
+  INVENTORY_PRODUCT_DEVICE_DATA_V2?: string;
   INVENTORY_V2_ALL_STORES_ENABLED?: string;
   INVENTORY_V2_STORE_ALLOWLIST?: string;
   INVENTORY_V2_STORE_DENYLIST?: string;
@@ -33,6 +34,18 @@ export function isInventoryV2UiEnabled(
   env: InventoryV2FeatureEnvironment = process.env as InventoryV2FeatureEnvironment,
 ) {
   return isInventoryV2SchemaReady(env) && env.INVENTORY_V2_UI === "1";
+}
+
+export function isInventoryProductDeviceDataV2Enabled(
+  env: InventoryV2FeatureEnvironment = process.env as InventoryV2FeatureEnvironment,
+) {
+  return isInventoryV2SchemaReady(env) && env.INVENTORY_PRODUCT_DEVICE_DATA_V2 === "1";
+}
+
+export function assertInventoryProductDeviceDataV2Enabled() {
+  if (!isInventoryProductDeviceDataV2Enabled()) {
+    throw new Error("商品设备资料功能尚未开放");
+  }
 }
 
 export function isInventoryV2StoreEnabled(

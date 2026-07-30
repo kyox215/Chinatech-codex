@@ -15,6 +15,10 @@ const zxingMocks = vi.hoisted(() => ({
   decodeFromImageElement: vi.fn(),
 }));
 
+const imageInspectionMocks = vi.hoisted(() => ({
+  inspectAiInventoryImage: vi.fn(),
+}));
+
 vi.mock("sonner", () => ({
   toast: toastMocks,
 }));
@@ -26,6 +30,10 @@ vi.mock("@zxing/browser", () => ({
       decodeFromImageElement: zxingMocks.decodeFromImageElement,
     };
   }),
+}));
+
+vi.mock("@/features/ai-assistant/model/inventory-image", () => ({
+  inspectAiInventoryImage: imageInspectionMocks.inspectAiInventoryImage,
 }));
 
 beforeAll(() => {
@@ -49,6 +57,12 @@ beforeEach(() => {
   toastMocks.warning.mockReset();
   zxingMocks.decodeFromConstraints.mockReset();
   zxingMocks.decodeFromImageElement.mockReset();
+  imageInspectionMocks.inspectAiInventoryImage.mockReset();
+  imageInspectionMocks.inspectAiInventoryImage.mockResolvedValue({
+    mimeType: "image/png",
+    width: 100,
+    height: 100,
+  });
   Object.defineProperty(navigator, "mediaDevices", {
     configurable: true,
     value: undefined,
@@ -96,7 +110,7 @@ describe("ImeiField", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "已识别 2 个候选，请选择要填入的编号。",
     );
-    await user.click(screen.getByRole("button", { name: /356938035643809/ }));
+    await user.click(screen.getByRole("button", { name: /IMEI2.*3809/ }));
     await user.click(screen.getByRole("button", { name: "使用选择的编号" }));
 
     await waitFor(() =>

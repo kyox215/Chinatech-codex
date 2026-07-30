@@ -1,6 +1,10 @@
 import { queryOptions } from "@tanstack/react-query";
 
-import { getInventoryProduct, listInventoryProducts } from "@/lib/repairdesk/api";
+import {
+  getInventoryProduct,
+  getInventoryProductEditData,
+  listInventoryProducts,
+} from "@/lib/repairdesk/api";
 import type { InventoryProductListFilters } from "@/lib/repairdesk/types";
 import { CACHE_TIMES } from "@/lib/query-performance";
 
@@ -15,6 +19,16 @@ export function inventoryProductsQueryOptions(
     queryFn: ({ signal }) => listInventoryProducts(filters, { signal }),
     staleTime: CACHE_TIMES.hotList,
     retry: 1,
+  });
+}
+
+export function inventoryProductEditQueryOptions(id: string, storeId?: string | null) {
+  return queryOptions({
+    queryKey: inventoryProductKeys.edit(id, storeId),
+    queryFn: ({ signal }) => getInventoryProductEditData(id, { signal }),
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
   });
 }
 

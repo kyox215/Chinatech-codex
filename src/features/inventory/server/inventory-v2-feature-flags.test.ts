@@ -6,6 +6,7 @@ import {
   isInventoryV2ShadowReadEnabled,
   isInventoryV2ShadowReadEnabledForStore,
   isInventoryV2UiEnabledForStore,
+  isInventoryProductDeviceDataV2Enabled,
 } from "./inventory-v2-feature-flags";
 
 describe("inventory V2 feature flags", () => {
@@ -14,11 +15,19 @@ describe("inventory V2 feature flags", () => {
     INVENTORY_V2_SHADOW_READ: "1",
     INVENTORY_V2_COMMANDS: "1",
     INVENTORY_V2_UI: "1",
+    INVENTORY_PRODUCT_DEVICE_DATA_V2: "1",
     INVENTORY_V2_STORE_ALLOWLIST: "store-a, store-b",
   };
 
   it("requires schema readiness and store allowlist for every V2 surface", () => {
     expect(isInventoryV2ShadowReadEnabled(enabled)).toBe(true);
+    expect(isInventoryProductDeviceDataV2Enabled(enabled)).toBe(true);
+    expect(
+      isInventoryProductDeviceDataV2Enabled({
+        ...enabled,
+        INVENTORY_PRODUCT_DEVICE_DATA_V2: "0",
+      }),
+    ).toBe(false);
     expect(isInventoryV2ShadowReadEnabledForStore("store-a", enabled)).toBe(true);
     expect(isInventoryV2ShadowReadEnabledForStore("store-c", enabled)).toBe(false);
     expect(isInventoryV2CommandEnabledForStore("store-a", enabled)).toBe(true);

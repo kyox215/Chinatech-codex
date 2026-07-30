@@ -3,6 +3,7 @@ import { can } from "@/server/permissions";
 
 import {
   isInventoryV2CommandEnabledForStore,
+  isInventoryProductDeviceDataV2Enabled,
   isInventoryV2StoreExplicitlyAllowlisted,
   isInventoryV2UiEnabledForStore,
   type InventoryV2FeatureEnvironment,
@@ -73,7 +74,11 @@ export function canUseInventoryProductQuickCreate(
   actor: AuditActor,
   env: InventoryV2FeatureEnvironment = process.env as InventoryV2FeatureEnvironment,
 ) {
-  return canUseInventoryV2CommandRollout(actor, env) && can(actor, "inventory:create");
+  return (
+    isInventoryProductDeviceDataV2Enabled(env) &&
+    canUseInventoryV2CommandRollout(actor, env) &&
+    can(actor, "inventory:create")
+  );
 }
 
 export function assertInventoryV2IntakeAccess(actor: AuditActor) {

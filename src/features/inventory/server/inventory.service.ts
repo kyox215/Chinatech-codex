@@ -24,5 +24,7 @@ export { applyInventoryWorkflowV2 } from "./inventory-v2-workflow.repository";
 export {
   createInventoryProduct,
   getInventoryProduct,
+  getInventoryProductEditData,
   listInventoryProducts,
+  updateInventoryProduct,
 } from "./inventory-product.repository";

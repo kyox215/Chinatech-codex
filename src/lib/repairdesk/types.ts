@@ -1593,6 +1593,7 @@ export interface RepairDeskOptions {
     canManageSuppliers: boolean;
     canReadInventory?: boolean;
     canCreateInventory?: boolean;
+    canUpdateInventory?: boolean;
     canSellInventory?: boolean;
     inventoryV2UiEnabled?: boolean;
     inventoryV2CommandsEnabled?: boolean;
@@ -2066,6 +2067,7 @@ export interface StoreContext {
     canManageSuppliers: boolean;
     canReadInventory?: boolean;
     canCreateInventory?: boolean;
+    canUpdateInventory?: boolean;
     canSellInventory?: boolean;
     inventoryV2UiEnabled?: boolean;
     inventoryV2CommandsEnabled?: boolean;
@@ -2395,14 +2397,47 @@ export interface InventoryProductListResult {
 
 export interface InventoryProductDetail extends InventoryProductListItem {
   color?: string;
+  ram_capacity?: string;
   storage_capacity?: string;
-  identifier_kind?: "imei1" | "serial";
+  gtin?: string;
+  condition?: string;
+  specifications?: Record<string, string>;
+  identifiers: InventoryProductIdentifierSummary[];
+  identifier_kind?: InventoryProductIdentifierKind;
   serial_or_imei?: string;
   cost_amount?: number;
   warranty_months?: number;
   notes?: string;
   created_at: string;
+  version: number;
   finance_redacted?: boolean;
+}
+
+export type InventoryProductIdentifierKind = "imei1" | "imei2" | "serial" | "eid";
+export type InventoryProductIdentifierSource = "manual" | "scan" | "ai_confirmed";
+
+export interface InventoryProductIdentifierInput {
+  kind: InventoryProductIdentifierKind;
+  value: string;
+  source: InventoryProductIdentifierSource;
+  primary?: boolean;
+}
+
+export interface InventoryProductIdentifierSummary {
+  kind: InventoryProductIdentifierKind;
+  masked_value: string;
+  primary: boolean;
+}
+
+export interface InventoryProductIdentifierEditValue {
+  kind: InventoryProductIdentifierKind;
+  value: string;
+  source: InventoryProductIdentifierSource;
+  primary: boolean;
+}
+
+export interface InventoryProductEditData extends Omit<InventoryProductDetail, "identifiers"> {
+  identifiers: InventoryProductIdentifierEditValue[];
 }
 
 export interface CreateInventoryProductInput {
@@ -2411,14 +2446,49 @@ export interface CreateInventoryProductInput {
   brand: string;
   model: string;
   color?: string;
+  ram_capacity?: string;
   storage_capacity?: string;
+  gtin?: string;
+  condition?: string;
+  specifications?: Record<string, string>;
+  identifiers?: InventoryProductIdentifierInput[];
+  /** @deprecated Kept for clients that have not moved to identifiers[]. */
   identifier_kind?: "imei1" | "serial";
+  /** @deprecated Kept for clients that have not moved to identifiers[]. */
   serial_or_imei?: string;
   list_price?: number;
   cost_amount?: number;
   location?: string;
   warranty_months?: number;
   notes?: string;
+}
+
+export interface UpdateInventoryProductInput {
+  idempotency_key: string;
+  expected_version: number;
+  category: InventoryProductCategory;
+  brand: string;
+  model: string;
+  color?: string;
+  ram_capacity?: string;
+  storage_capacity?: string;
+  gtin?: string;
+  condition?: string;
+  specifications?: Record<string, string>;
+  identifiers: InventoryProductIdentifierInput[];
+  list_price?: number;
+  cost_amount?: number;
+  location?: string;
+  warranty_months?: number;
+  notes?: string;
+}
+
+export interface UpdateInventoryProductResult {
+  ok: true;
+  code: "updated" | "idempotent_replay";
+  id: string;
+  version: number;
+  updated_at: string;
 }
 
 export interface CreateInventoryProductResult {

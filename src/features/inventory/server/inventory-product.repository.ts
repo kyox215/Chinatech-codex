@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type {
   AuditActor,
   CreateInventoryProductInput,
@@ -6,12 +8,16 @@ import type {
   InventoryListItem,
   InventoryProductCategory,
   InventoryProductDetail,
+  InventoryProductEditData,
   InventoryProductDisplayStatus,
   InventoryProductListFilters,
   InventoryProductListItem,
   InventoryProductListResult,
+  UpdateInventoryProductInput,
+  UpdateInventoryProductResult,
 } from "@/lib/repairdesk/types";
 import { fail, money, requireStoreIdFromActor, requiredString } from "@/server/repairdesk-shared";
+import { writeAuditLog } from "@/server/audit";
 import { can } from "@/server/permissions";
 import { getSupabaseAdmin } from "@/server/supabase";
 
@@ -34,9 +40,15 @@ const errorMessages: Record<string, string> = {
   invalid_created_at: "商品录入时间无效",
   invalid_idempotency_key: "商品保存标识无效",
   invalid_identifier: "商品标识无效",
+  invalid_identifiers: "请检查 IMEI、序列号或 EID",
   invalid_imei: "IMEI 格式或校验位不正确",
   invalid_model: "请填写品牌和型号/名称",
   invalid_warranty: "保修月数无效",
+  not_found: "商品不存在或不属于当前门店",
+  projection_conflict: "商品资料状态不一致，请刷新后重试",
+  primary_identifier_required: "请选择一个主要设备标识",
+  terminal_state: "已售出或已移除的商品不能再编辑",
+  version_conflict: "商品已被其他设备更新，请刷新后重试",
 };
 
 type ProductCreateRpcResponse = {
@@ -117,25 +129,37 @@ export async function listInventoryProducts(
   const products = sources.map(projectInventoryProductListItem);
   const search = filters.search?.trim().toLocaleLowerCase();
   const normalizedSearch = normalizeIdentifierSearch(search);
+  const identifierItemIds = new Set<string>();
+  if (normalizedSearch && normalizedSearch.length >= 3) {
+    const { data: identifierRows, error: identifierError } = await supabase
+      .from("inventory_stock_unit_identifiers")
+      .select("stock_unit_id")
+      .eq("store_id", storeId)
+      .eq("normalized_value", normalizedSearch.toLocaleUpperCase())
+      .in("kind", ["imei1", "imei2", "serial", "eid"])
+      .is("retired_at", null)
+      .limit(2);
+    fail(identifierError, "搜索商品标识失败");
+    const unitIds = (identifierRows ?? []).map((row) => requiredString(row.stock_unit_id));
+    if (unitIds.length) {
+      const { data: unitRows, error: unitError } = await supabase
+        .from("inventory_stock_units")
+        .select("legacy_inventory_item_id")
+        .eq("store_id", storeId)
+        .in("id", unitIds)
+        .limit(2);
+      fail(unitError, "搜索商品标识失败");
+      for (const row of unitRows ?? [])
+        identifierItemIds.add(requiredString(row.legacy_inventory_item_id));
+    }
+  }
   const visible = products.filter((item, index) => {
     if (search) {
-      const haystack = [
-        item.sku,
-        item.brand,
-        item.model,
-        item.specification,
-        item.location,
-        sources[index].serial_or_imei,
-      ]
+      const haystack = [item.sku, item.brand, item.model, item.specification, item.location]
         .filter(Boolean)
         .join(" ")
         .toLocaleLowerCase();
-      const normalizedHaystack = normalizeIdentifierSearch(haystack);
-      if (
-        !haystack.includes(search) &&
-        (!normalizedSearch || !normalizedHaystack?.includes(normalizedSearch))
-      )
-        return false;
+      if (!haystack.includes(search) && !identifierItemIds.has(sources[index].id)) return false;
     }
     if (filters.statuses?.length && !filters.statuses.includes(item.status)) return false;
     if (filters.categories?.length && !filters.categories.includes(item.category)) return false;
@@ -175,10 +199,64 @@ export async function getInventoryProduct(
   if (!data) {
     throw new Error("商品不存在或不属于当前门店");
   }
-  return projectInventoryProductDetail(
+  const projected = projectInventoryProductDetail(
     productSourceFromRow(data as unknown as Record<string, unknown>),
     actor,
   );
+  const device = await readProductDeviceData(storeId, id, false);
+  return { ...projected, ...device } as unknown as InventoryProductDetail;
+}
+
+export async function getInventoryProductEditData(
+  id: string,
+  actor: AuditActor,
+): Promise<InventoryProductEditData> {
+  if (!can(actor, "inventory:update")) throw new Error("当前员工没有编辑商品的权限");
+  const storeId = requireStoreIdFromActor(actor);
+  await consumeSensitiveIdentifierRead(actor, storeId);
+  const detail = await getInventoryProduct(id, actor);
+  const device = await readProductDeviceData(storeId, id, true);
+  await writeAuditLog({
+    actor,
+    action: "read_sensitive",
+    entityType: "inventory_product_identifiers",
+    entityId: id,
+    after: { identifier_count: device.identifiers.length },
+  });
+  return { ...detail, ...device } as unknown as InventoryProductEditData;
+}
+
+async function consumeSensitiveIdentifierRead(actor: AuditActor, storeId: string) {
+  const membershipId = actor.activeMembershipId;
+  if (!membershipId) {
+    throw inventoryProductHttpError("INVENTORY_IDENTIFIER_READ_FORBIDDEN", "当前员工身份无效", 403);
+  }
+  const scopeHash = createHash("sha256")
+    .update(`inventory-identifiers:${storeId}:${membershipId}`)
+    .digest("hex");
+  const { data, error } = await getSupabaseAdmin().rpc(
+    "repairdesk_consume_authenticated_rate_limit_rpc",
+    { p_scope_hash: scopeHash, p_bucket: "read" },
+  );
+  if (error) {
+    throw inventoryProductHttpError(
+      "INVENTORY_IDENTIFIER_RATE_LIMIT_UNAVAILABLE",
+      "设备标识暂时不可读取，请稍后重试",
+      503,
+    );
+  }
+  const result = data as { allowed?: boolean } | null;
+  if (!result?.allowed) {
+    throw inventoryProductHttpError(
+      "INVENTORY_IDENTIFIER_RATE_LIMITED",
+      "读取设备标识过于频繁，请稍后重试",
+      429,
+    );
+  }
+}
+
+function inventoryProductHttpError(code: string, message: string, status: number) {
+  return Object.assign(new Error(message), { code, status });
 }
 
 export async function createInventoryProduct(
@@ -191,24 +269,13 @@ export async function createInventoryProduct(
     throw new Error("当前员工没有录入商品成本的权限");
   }
 
+  const identifiers = normalizeProductIdentifiers(input);
   const { data, error } = await runInventoryV2Dependency(
     () =>
-      getSupabaseAdmin().rpc("repairdesk_create_inventory_product", {
+      getSupabaseAdmin().rpc("repairdesk_create_inventory_product_v2", {
         p_store_id: storeId,
         p_actor_id: actor.id,
-        p_idempotency_key: input.idempotency_key,
-        p_category: input.category,
-        p_brand: input.brand,
-        p_model: input.model,
-        p_color: input.color ?? null,
-        p_storage_capacity: input.storage_capacity ?? null,
-        p_identifier_kind: input.identifier_kind ?? null,
-        p_serial_or_imei: input.serial_or_imei ?? null,
-        p_list_price: input.list_price ?? null,
-        p_cost_amount: input.cost_amount ?? null,
-        p_location: input.location ?? null,
-        p_warranty_months: input.warranty_months ?? null,
-        p_notes: input.notes ?? null,
+        p_payload: { ...input, identifiers, identifier_kind: undefined, serial_or_imei: undefined },
       }),
     "商品快速录入服务暂时不可用",
   );
@@ -231,6 +298,52 @@ export async function createInventoryProduct(
     id: result.id,
     sku: result.sku,
     created_at: result.created_at,
+  };
+}
+
+export async function updateInventoryProduct(
+  id: string,
+  input: UpdateInventoryProductInput,
+  actor: AuditActor,
+): Promise<UpdateInventoryProductResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  if (!actor.id || !can(actor, "inventory:update")) {
+    throw new Error("当前员工没有编辑商品的权限");
+  }
+  if (input.cost_amount !== undefined && !can(actor, "inventory:cost_allocate")) {
+    throw new Error("当前员工没有录入商品成本的权限");
+  }
+  const { data, error } = await runInventoryV2Dependency(
+    () =>
+      getSupabaseAdmin().rpc("repairdesk_update_inventory_product_v1", {
+        p_store_id: storeId,
+        p_actor_id: actor.id,
+        p_payload: { product_id: id, ...input },
+      }),
+    "商品编辑服务暂时不可用",
+  );
+  if (error) throw inventoryV2DependencyError("商品编辑服务暂时不可用");
+  const result = recordOrEmpty(data);
+  if (result.ok !== true) {
+    const code = text(result.code) ?? "update_failed";
+    const message = errorMessages[code] ?? "更新商品失败";
+    if (["version_conflict", "idempotency_conflict"].includes(code)) {
+      const conflict = new Error(message) as Error & { status: number; code: string };
+      conflict.status = 409;
+      conflict.code = code;
+      throw conflict;
+    }
+    throw new Error(message);
+  }
+  if (!text(result.id) || typeof result.version !== "number" || !text(result.updated_at)) {
+    throw new Error("商品更新结果不完整，请刷新后确认");
+  }
+  return {
+    ok: true,
+    code: result.code as UpdateInventoryProductResult["code"],
+    id: requiredString(result.id),
+    version: result.version,
+    updated_at: requiredString(result.updated_at),
   };
 }
 
@@ -275,14 +388,97 @@ export function projectInventoryProductDetail(
   return {
     ...projected,
     color: item.color,
+    ram_capacity: text(payload.ram_capacity),
     storage_capacity: item.storage_capacity,
+    gtin: text(payload.gtin),
+    condition: text(payload.condition),
+    specifications: {},
+    identifiers: item.serial_or_imei
+      ? [{ kind: "serial", masked_value: maskIdentifier(item.serial_or_imei)!, primary: true }]
+      : [],
     serial_or_imei: maskIdentifier(item.serial_or_imei),
     ...(canReadCost && costProvided ? { cost_amount: item.buyback_price } : {}),
     warranty_months: payload.warranty_provided === false ? undefined : item.warranty_months,
     notes: item.notes,
     created_at: item.created_at,
+    version: 1,
     finance_redacted: canReadCost ? undefined : true,
   };
+}
+
+async function readProductDeviceData(
+  storeId: string,
+  itemId: string,
+  reveal: boolean,
+): Promise<{
+  ram_capacity?: string;
+  gtin?: string;
+  specifications: Record<string, unknown>;
+  version: number;
+  identifiers: Array<Record<string, unknown>>;
+}> {
+  const supabase = getSupabaseAdmin();
+  const { data: unit, error: unitError } = await supabase
+    .from("inventory_stock_units")
+    .select("id,variant_id,version")
+    .eq("store_id", storeId)
+    .eq("legacy_inventory_item_id", itemId)
+    .maybeSingle();
+  fail(unitError, "读取商品设备资料失败");
+  if (!unit) return { identifiers: [], specifications: {}, version: 1 };
+  const [{ data: variant, error: variantError }, { data: identifiers, error: identifierError }] =
+    await Promise.all([
+      supabase
+        .from("inventory_product_variants")
+        .select("ram_capacity,gtin,specifications")
+        .eq("store_id", storeId)
+        .eq("id", requiredString(unit.variant_id))
+        .maybeSingle(),
+      supabase
+        .from("inventory_stock_unit_identifiers")
+        .select("kind,display_value,source,is_primary")
+        .eq("store_id", storeId)
+        .eq("stock_unit_id", requiredString(unit.id))
+        .neq("kind", "sku")
+        .is("retired_at", null)
+        .order("kind", { ascending: true }),
+    ]);
+  fail(variantError, "读取商品规格失败");
+  fail(identifierError, "读取商品标识失败");
+  return {
+    ram_capacity: text(variant?.ram_capacity),
+    gtin: text(variant?.gtin),
+    specifications: recordOrEmpty(variant?.specifications),
+    version: Number(unit.version ?? 1),
+    identifiers: (identifiers ?? []).map((identifier) => ({
+      kind: identifier.kind,
+      ...(reveal
+        ? { value: requiredString(identifier.display_value), source: identifier.source }
+        : { masked_value: maskIdentifier(requiredString(identifier.display_value))! }),
+      primary: identifier.is_primary === true,
+    })),
+  };
+}
+
+function normalizeProductIdentifiers(input: CreateInventoryProductInput) {
+  if (input.identifiers) {
+    const hasPrimary = input.identifiers.some((identifier) => identifier.primary);
+    return input.identifiers.map((identifier, index) => ({
+      ...identifier,
+      primary: hasPrimary ? identifier.primary === true : index === 0,
+    }));
+  }
+  if (input.identifier_kind && input.serial_or_imei) {
+    return [
+      {
+        kind: input.identifier_kind,
+        value: input.serial_or_imei,
+        source: "manual" as const,
+        primary: true,
+      },
+    ];
+  }
+  return [];
 }
 
 export function mapProductStatus(status: InventoryItemStatus): InventoryProductDisplayStatus {

@@ -61,6 +61,7 @@ export interface RepairDeskNavItem {
 
 type RepairDeskNavigationPermissions = {
   canReadInventory?: boolean;
+  canCreateInventory?: boolean;
   canReadMessageTemplates?: boolean;
   canReadRepairProfitReports?: boolean;
   canReadMemos?: boolean;
@@ -329,7 +330,7 @@ export function getShellCommandActions(
     if (action.id === "new-buyback") {
       return permissions?.canReadInventory === true && (role === "owner" || role === "manager");
     }
-    if (action.id === "new-inventory") return permissions?.canReadInventory === true;
+    if (action.id === "new-inventory") return permissions?.canCreateInventory === true;
     if (action.id === "new-memo") return permissions?.canCreateMemos === true;
     return true;
   });
@@ -350,5 +351,6 @@ export const routeLabels: Record<string, string> = {
   account: "个人中心",
   offline: "离线",
   new: "新建",
+  edit: "编辑",
   task: "任务",
 };

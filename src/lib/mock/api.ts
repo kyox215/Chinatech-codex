@@ -61,6 +61,7 @@ export {
   finalizeBuybackPurchase,
   getInventoryItem,
   getInventoryProduct,
+  getInventoryProductEditData,
   getInventoryStats,
   getInventorySummary,
   importElectronicsCsvPreview,
@@ -73,6 +74,7 @@ export {
   sellInventoryItem,
   transitionInventoryItem,
   updateInventoryItem,
+  updateInventoryProduct,
   uploadInventoryAttachment,
 } from "@/features/inventory/testing/mock-api";
 

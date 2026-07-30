@@ -30,6 +30,7 @@ import {
   canUseInventoryV2Commands,
   canUseInventoryV2Ui,
 } from "@/features/inventory/server/inventory-v2-access";
+import { isInventoryProductDeviceDataV2Enabled } from "@/features/inventory/server/inventory-v2-feature-flags";
 
 const mockStores = [
   {
@@ -519,6 +520,8 @@ function context(actor?: AuditActor): StoreContext {
       canManageSuppliers: can(scopedActor, "supplier:manage"),
       canReadInventory: can(scopedActor, "inventory:read"),
       canCreateInventory: can(scopedActor, "inventory:create"),
+      canUpdateInventory:
+        can(scopedActor, "inventory:update") && isInventoryProductDeviceDataV2Enabled(),
       canSellInventory: can(scopedActor, "inventory:sale"),
       inventoryV2UiEnabled: canUseInventoryV2Ui(scopedActor),
       inventoryV2CommandsEnabled: canUseInventoryV2Commands(scopedActor),

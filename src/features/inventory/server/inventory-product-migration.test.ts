@@ -14,6 +14,17 @@ const enableMigration = readFileSync(
   ),
   "utf8",
 );
+const deviceDataMigration = readFileSync(
+  resolve(process.cwd(), "supabase/migrations/20260729225101_inventory_product_device_data_v2.sql"),
+  "utf8",
+);
+const deviceDataEnableMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260729225109_inventory_product_device_data_v2_enable.sql",
+  ),
+  "utf8",
+);
 
 describe("inventory product quick-create migration", () => {
   it("is additive, tenant-scoped and idempotent", () => {
@@ -66,5 +77,36 @@ describe("inventory product quick-create migration", () => {
     expect(migration).toContain("':inventory-identifier:imei2:'");
     expect(migration).toContain("':inventory-identifier:serial:'");
     expect(migration).toContain("identifier.kind in ('imei1', 'imei2', 'serial')");
+  });
+});
+
+describe("inventory product device-data migration", () => {
+  it("adds bounded specifications, a CAS ledger and versioned RPCs", () => {
+    expect(deviceDataMigration).toContain("specifications jsonb not null default '{}'::jsonb");
+    expect(deviceDataMigration).toContain("pg_column_size(specifications) <= 4096");
+    expect(deviceDataMigration).toContain("inventory_product_update_command_ledger");
+    expect(deviceDataMigration).toContain("repairdesk_create_inventory_product_v2");
+    expect(deviceDataMigration).toContain("repairdesk_update_inventory_product_v1");
+    expect(deviceDataMigration).toContain("version = version + 1");
+  });
+
+  it("keeps EAN at variant level and unit identifiers unique across device kinds", () => {
+    expect(deviceDataMigration).toContain("nullif(btrim(p_payload ->> 'gtin'), '')");
+    expect(deviceDataMigration).toContain("kind in ('imei1', 'imei2', 'serial', 'eid')");
+    expect(deviceDataMigration).not.toContain("kind in ('imei1', 'imei2', 'serial', 'eid', 'ean')");
+  });
+
+  it("keeps new RPCs dormant until service-role-only enable", () => {
+    expect(deviceDataMigration).not.toMatch(
+      /grant execute on function public\.repairdesk_(?:create|update)_inventory_product[\s\S]*to service_role/i,
+    );
+    expect(deviceDataEnableMigration).toContain("to service_role");
+    expect(deviceDataEnableMigration).toContain("from public, anon, authenticated, service_role");
+  });
+
+  it("persists inventory revisions without exposing identifier values in audit metadata", () => {
+    expect(deviceDataMigration).toContain("bump_repairdesk_inventory_domain_version");
+    expect(deviceDataMigration).toContain("'identifier_count'");
+    expect(deviceDataMigration).not.toContain("'identifier_values'");
   });
 });

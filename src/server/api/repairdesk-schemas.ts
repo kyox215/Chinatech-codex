@@ -1,6 +1,12 @@
 import { z } from "zod";
 
 import {
+  isValidGtin,
+  isValidImei,
+  normalizeDeviceIdentifier,
+} from "@/features/inventory/products/model/device-data";
+
+import {
   DEVICE_UNLOCK_PATTERN_MAX_STEPS,
   DEVICE_UNLOCK_PATTERN_MIN_STEPS,
 } from "@/features/orders/model/device-unlock";
@@ -258,6 +264,10 @@ const orderAttachmentMimeTypeSchema = z.enum([
 export const idBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
 });
+
+export const inventoryProductSensitiveIdBodySchema = z
+  .object({ id: z.string().uuid("商品标识无效") })
+  .strict();
 
 export const kioskDevicePairingBodySchema = z
   .object({
@@ -560,6 +570,79 @@ const optionalInventoryProductMoney = z
   .refine((value) => Number.isInteger(value * 100), "金额最多保留两位小数")
   .optional();
 
+const inventoryProductIdentifierInputSchema = z
+  .object({
+    kind: z.enum(["imei1", "imei2", "serial", "eid"]),
+    value: z.string().trim().min(3).max(128),
+    source: z.enum(["manual", "scan", "ai_confirmed"]),
+    primary: z.boolean().optional(),
+  })
+  .strict()
+  .superRefine((identifier, ctx) => {
+    const normalized = normalizeDeviceIdentifier(identifier.value);
+    if (["imei1", "imei2"].includes(identifier.kind) && !isValidImei(normalized)) {
+      ctx.addIssue({ code: "custom", path: ["value"], message: "IMEI 校验未通过" });
+    }
+    if (identifier.kind === "eid" && !/^\d{32}$/.test(normalized)) {
+      ctx.addIssue({ code: "custom", path: ["value"], message: "EID 必须是 32 位数字" });
+    }
+    if (
+      identifier.kind === "serial" &&
+      [...identifier.value].some((character) => {
+        const code = character.charCodeAt(0);
+        return code <= 31 || code === 127;
+      })
+    ) {
+      ctx.addIssue({ code: "custom", path: ["value"], message: "序列号包含不可用字符" });
+    }
+  });
+
+const inventoryProductSpecificationsSchema = z
+  .record(
+    z.enum([
+      "network_variant",
+      "connectivity",
+      "screen_size_inches",
+      "processor",
+      "disk_type",
+      "graphics",
+      "edition",
+      "region",
+      "included_controller_count",
+      "short_specification",
+    ]),
+    z.string().trim().min(1).max(160),
+  )
+  .refine((value) => JSON.stringify(value).length <= 3_000, "规格资料过长")
+  .optional();
+
+const inventoryProductSpecificationKeys = {
+  phone: new Set(["network_variant"]),
+  tablet: new Set(["connectivity", "screen_size_inches"]),
+  computer: new Set(["processor", "disk_type", "graphics"]),
+  game_console: new Set(["edition", "region", "included_controller_count"]),
+  other: new Set(["short_specification"]),
+} satisfies Record<z.infer<typeof inventoryProductCategorySchema>, Set<string>>;
+
+function validateInventoryProductSpecifications(
+  input: {
+    category: z.infer<typeof inventoryProductCategorySchema>;
+    specifications?: Record<string, string>;
+  },
+  ctx: z.RefinementCtx,
+) {
+  const allowed = inventoryProductSpecificationKeys[input.category];
+  for (const key of Object.keys(input.specifications ?? {})) {
+    if (!allowed.has(key)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["specifications", key],
+        message: "该规格不适用于当前商品类别",
+      });
+    }
+  }
+}
+
 export const createInventoryProductInputSchema = z
   .object({
     idempotency_key: z.string().uuid(),
@@ -567,7 +650,12 @@ export const createInventoryProductInputSchema = z
     brand: z.string().trim().min(1).max(120),
     model: z.string().trim().min(1).max(160),
     color: z.string().trim().min(1).max(120).optional(),
+    ram_capacity: z.string().trim().min(1).max(120).optional(),
     storage_capacity: z.string().trim().min(1).max(120).optional(),
+    gtin: z.string().trim().refine(isValidGtin, "EAN / GTIN 校验未通过").optional(),
+    condition: z.string().trim().min(1).max(120).optional(),
+    specifications: inventoryProductSpecificationsSchema,
+    identifiers: z.array(inventoryProductIdentifierInputSchema).max(4).optional(),
     identifier_kind: z.enum(["imei1", "serial"]).optional(),
     serial_or_imei: z.string().trim().min(3).max(128).optional(),
     list_price: optionalInventoryProductMoney,
@@ -578,6 +666,7 @@ export const createInventoryProductInputSchema = z
   })
   .strict()
   .superRefine((input, ctx) => {
+    validateInventoryProductSpecifications(input, ctx);
     if (Boolean(input.identifier_kind) !== Boolean(input.serial_or_imei)) {
       ctx.addIssue({
         code: "custom",
@@ -585,10 +674,62 @@ export const createInventoryProductInputSchema = z
         message: "标识类型和标识内容必须同时填写",
       });
     }
+    if (input.identifiers?.length && (input.identifier_kind || input.serial_or_imei)) {
+      ctx.addIssue({ code: "custom", path: ["identifiers"], message: "请只使用新版设备标识字段" });
+    }
+    const identifiers = input.identifiers ?? [];
+    if (identifiers.length && identifiers.filter((identifier) => identifier.primary).length !== 1) {
+      ctx.addIssue({ code: "custom", path: ["identifiers"], message: "请选择一个主要设备标识" });
+    }
+    const kinds = identifiers.map((identifier) => identifier.kind);
+    if (new Set(kinds).size !== kinds.length) {
+      ctx.addIssue({ code: "custom", path: ["identifiers"], message: "同类设备标识只能填写一次" });
+    }
+    const values = identifiers.map((identifier) => normalizeDeviceIdentifier(identifier.value));
+    if (new Set(values).size !== values.length) {
+      ctx.addIssue({ code: "custom", path: ["identifiers"], message: "设备标识不能重复" });
+    }
   });
 
 export const createInventoryProductBodySchema = z
   .object({ input: createInventoryProductInputSchema })
+  .strict();
+
+export const updateInventoryProductInputSchema = z
+  .object({
+    idempotency_key: z.string().uuid(),
+    expected_version: z.number().int().min(1),
+    category: inventoryProductCategorySchema,
+    brand: z.string().trim().min(1).max(120),
+    model: z.string().trim().min(1).max(160),
+    color: z.string().trim().min(1).max(120).optional(),
+    ram_capacity: z.string().trim().min(1).max(120).optional(),
+    storage_capacity: z.string().trim().min(1).max(120).optional(),
+    gtin: z.string().trim().refine(isValidGtin, "EAN / GTIN 校验未通过").optional(),
+    condition: z.string().trim().min(1).max(120).optional(),
+    specifications: inventoryProductSpecificationsSchema,
+    identifiers: z.array(inventoryProductIdentifierInputSchema).max(4),
+    list_price: optionalInventoryProductMoney,
+    cost_amount: optionalInventoryProductMoney,
+    location: z.string().trim().min(1).max(120).optional(),
+    warranty_months: z.number().int().min(0).max(120).optional(),
+    notes: z.string().trim().min(1).max(2_000).optional(),
+  })
+  .strict()
+  .superRefine((input, ctx) => {
+    validateInventoryProductSpecifications(input, ctx);
+    if (input.identifiers.length && input.identifiers.filter((item) => item.primary).length !== 1) {
+      ctx.addIssue({ code: "custom", path: ["identifiers"], message: "请选择一个主要设备标识" });
+    }
+    const kinds = input.identifiers.map((item) => item.kind);
+    const values = input.identifiers.map((item) => normalizeDeviceIdentifier(item.value));
+    if (new Set(kinds).size !== kinds.length || new Set(values).size !== values.length) {
+      ctx.addIssue({ code: "custom", path: ["identifiers"], message: "设备标识不能重复" });
+    }
+  });
+
+export const updateInventoryProductBodySchema = z
+  .object({ id: z.string().uuid(), input: updateInventoryProductInputSchema })
   .strict();
 
 const orderLineIdSchema = z.string().uuid("维修项目行标识无效");

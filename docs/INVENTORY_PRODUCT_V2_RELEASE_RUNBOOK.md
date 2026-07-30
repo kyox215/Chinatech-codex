@@ -38,6 +38,7 @@
 `TASK-20260724-001-multistore-feature-availability` 已加入可回滚的全店铺发布策略，但没有修改生产环境：
 
 - `INVENTORY_V2_ALL_STORES_ENABLED=1` 只在 schema、commands/UI 等父开关已开启时生效；`INVENTORY_V2_STORE_DENYLIST` 始终优先，可立即隔离单店。
+- 商品设备资料、扫码和编辑另受 `INVENTORY_PRODUCT_DEVICE_DATA_V2` 控制；迁移和 ACL 验证前保持 `0`，发布后设为 `1`，紧急回滚时优先恢复为 `0`。
 - 通过全店铺开关新增的门店，rollout 资格只给 `owner` / `manager`；V2 入库因包含采购成本与标价，还必须具备 `inventory:cost_allocate`，销售则继续要求 `inventory:sale`。同一字段权限也适用于精确 allowlist 门店，不能用旧试点资格绕过财务权限。
 - V2 数据库依赖错误只向客户端返回稳定的 `INVENTORY_V2_DEPENDENCY_UNAVAILABLE`，不转发 Supabase/PostgreSQL 原始错误文本。
 - 两个 V2 JSON 命令在 `Content-Length` 和无长度流式请求上都限制为 64 KiB，超限在 repository 调用前返回 413。
@@ -70,6 +71,7 @@ INVENTORY_V2_SHADOW_READ=0
 INVENTORY_V2_COMMANDS=0
 INVENTORY_V2_UI=0
 INVENTORY_V2_ALL_STORES_ENABLED=0
+INVENTORY_PRODUCT_DEVICE_DATA_V2=0
 INVENTORY_V2_STORE_ALLOWLIST=
 INVENTORY_V2_STORE_DENYLIST=
 INVENTORY_LEGACY_MUTATIONS_ENABLED=1

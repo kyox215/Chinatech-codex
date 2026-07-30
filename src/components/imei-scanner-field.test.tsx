@@ -25,6 +25,10 @@ const localOcrMocks = vi.hoisted(() => ({
   recognizeTextWithLocalOcr: vi.fn(),
 }));
 
+const imageInspectionMocks = vi.hoisted(() => ({
+  inspectAiInventoryImage: vi.fn(),
+}));
+
 vi.mock("sonner", () => ({
   toast: toastMocks,
 }));
@@ -40,6 +44,10 @@ vi.mock("@zxing/browser", () => ({
 
 vi.mock("@/features/capture/model/local-ocr", () => ({
   recognizeTextWithLocalOcr: localOcrMocks.recognizeTextWithLocalOcr,
+}));
+
+vi.mock("@/features/ai-assistant/model/inventory-image", () => ({
+  inspectAiInventoryImage: imageInspectionMocks.inspectAiInventoryImage,
 }));
 
 beforeAll(() => {
@@ -65,6 +73,13 @@ beforeEach(() => {
   mediaMocks.play.mockResolvedValue(undefined);
   localOcrMocks.recognizeTextWithLocalOcr.mockReset();
   localOcrMocks.recognizeTextWithLocalOcr.mockResolvedValue("");
+  imageInspectionMocks.inspectAiInventoryImage.mockReset();
+  imageInspectionMocks.inspectAiInventoryImage.mockImplementation(async (file: File) => {
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      throw new Error("仅支持 JPG、PNG 或 WebP 图片。");
+    }
+    return { mimeType: file.type, width: 100, height: 100 };
+  });
   window.localStorage.clear();
   Object.defineProperty(HTMLMediaElement.prototype, "play", {
     configurable: true,
@@ -320,11 +335,11 @@ describe("ImeiScannerField", () => {
       expect(drawImageMock).toHaveBeenCalled();
       expect(barcodeDetectMock).toHaveBeenCalled();
       const candidateButtons = screen.getAllByRole("button", {
-        name: /490154203237518|356938035643809|89043051202500726225007991441943/,
+        name: /•••• 7518|•••• 3809|•••• 1943/,
       });
-      expect(candidateButtons[0]).toHaveTextContent("490154203237518");
-      expect(candidateButtons[1]).toHaveTextContent("356938035643809");
-      expect(candidateButtons[2]).toHaveTextContent("89043051202500726225007991441943");
+      expect(candidateButtons[0]).toHaveTextContent("•••• 7518");
+      expect(candidateButtons[1]).toHaveTextContent("•••• 3809");
+      expect(candidateButtons[2]).toHaveTextContent("•••• 1943");
       expect(onChange).not.toHaveBeenCalled();
     } finally {
       if (imageDecodeDescriptor) {
@@ -424,14 +439,14 @@ describe("ImeiScannerField", () => {
         "已识别 3 个候选，请选择要填入的编号。",
       );
       const overlayCandidate = screen.getByRole("button", { name: "选择画面候选 1" });
-      expect(overlayCandidate).toHaveTextContent("...05002790");
+      expect(overlayCandidate).toHaveTextContent("•••• 2790");
       expect(overlayCandidate).not.toHaveTextContent("490154203237518");
       expect(overlayCandidate).not.toHaveTextContent("356938035643809");
       expect(screen.queryByRole("button", { name: "选择画面候选 2" })).not.toBeInTheDocument();
 
-      expect(screen.getByRole("button", { name: /AUNWE02SB05002790/ })).toHaveTextContent("画面 1");
-      expect(screen.getByRole("button", { name: /490154203237518/ })).not.toHaveTextContent("画面");
-      expect(screen.getByRole("button", { name: /356938035643809/ })).not.toHaveTextContent("画面");
+      expect(screen.getByRole("button", { name: /•••• 2790/ })).toHaveTextContent("画面 1");
+      expect(screen.getByRole("button", { name: /•••• 7518/ })).not.toHaveTextContent("画面");
+      expect(screen.getByRole("button", { name: /•••• 3809/ })).not.toHaveTextContent("画面");
       expect(onChange).not.toHaveBeenCalled();
     } finally {
       if (imageDecodeDescriptor) {
@@ -526,7 +541,7 @@ describe("ImeiScannerField", () => {
     );
     expect(onChange).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: /356938035643809/ }));
+    await user.click(screen.getByRole("button", { name: /•••• 3809/ }));
     await user.click(screen.getByRole("button", { name: "使用选择的编号" }));
 
     expect(onChange).toHaveBeenLastCalledWith("356938035643809");
@@ -655,18 +670,18 @@ describe("ImeiScannerField", () => {
         "已识别 3 个候选，请选择要填入的编号。",
       );
       expect(drawImageMock).toHaveBeenCalledWith(video, 142, 107, 356, 267, 0, 0, 640, 480);
-      expect(screen.getByRole("button", { name: /490154203237518/ })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /356938035643809/ })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /AUNWE02SB05002790/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /•••• 7518/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /•••• 3809/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /•••• 2790/ })).toBeInTheDocument();
       expect(screen.getByAltText("当前摄像头画面 OCR 截图")).toBeInTheDocument();
       const secondOverlayCandidate = screen.getByRole("button", { name: "选择画面候选 2" });
       expect(secondOverlayCandidate).toBeInTheDocument();
       await waitFor(() =>
         expect(parseFloat(secondOverlayCandidate.style.left)).toBeGreaterThan(25),
       );
-      const candidateButtons = screen.getAllByRole("button", { name: /\d{15}/ });
-      expect(candidateButtons[0]).toHaveTextContent("490154203237518");
-      expect(candidateButtons[1]).toHaveTextContent("356938035643809");
+      const candidateButtons = screen.getAllByRole("button", { name: /•••• (7518|3809)/ });
+      expect(candidateButtons[0]).toHaveTextContent("•••• 7518");
+      expect(candidateButtons[1]).toHaveTextContent("•••• 3809");
       expect(onChange).not.toHaveBeenCalled();
 
       await user.click(secondOverlayCandidate);
@@ -720,14 +735,12 @@ describe("ImeiScannerField", () => {
     expect(fileInput).toBeTruthy();
     await user.upload(fileInput!, new File(["not image"], "imei.txt", { type: "text/plain" }));
 
-    expect(
-      await screen.findByText("仅支持 JPG、PNG、WebP、HEIC 或 HEIF 图片。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("仅支持 JPG、PNG 或 WebP 图片。")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("无法识别时可手动输入")).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("accepts iPhone HEIC gallery files when the browser can decode them", async () => {
+  it("rejects HEIC gallery files before browser decoding", async () => {
     const user = userEvent.setup({ applyAccept: false });
     const onChange = vi.fn();
     const imageDecodeDescriptor = Object.getOwnPropertyDescriptor(
@@ -764,17 +777,8 @@ describe("ImeiScannerField", () => {
       expect(fileInput).toBeTruthy();
       await user.upload(fileInput!, new File(["image"], "imei-label.heic", { type: "" }));
 
-      expect(await screen.findByRole("alert")).toHaveTextContent(
-        "已识别 1 个编号，请确认后再填入。",
-      );
+      expect(await screen.findByText("仅支持 JPG、PNG 或 WebP 图片。")).toBeInTheDocument();
       expect(onChange).not.toHaveBeenCalled();
-
-      await user.click(screen.getByRole("button", { name: "使用选择的编号" }));
-
-      expect(onChange).toHaveBeenLastCalledWith("490154203237518");
-      expect(toastMocks.error).not.toHaveBeenCalledWith(
-        expect.stringContaining("仅支持 JPG、PNG、WebP、HEIC 或 HEIF 图片。"),
-      );
     } finally {
       if (imageDecodeDescriptor) {
         Object.defineProperty(HTMLImageElement.prototype, "decode", imageDecodeDescriptor);
@@ -837,7 +841,7 @@ describe("ImeiScannerField", () => {
       await waitFor(() => expect(screen.queryByText("正在识别图片...")).not.toBeInTheDocument());
       expect(screen.getByAltText("上传图片预览")).toBeInTheDocument();
 
-      await user.click(screen.getByRole("button", { name: /356938035643809/ }));
+      await user.click(screen.getByRole("button", { name: /•••• 3809/ }));
       await user.click(screen.getByRole("button", { name: "使用选择的编号" }));
 
       expect(onChange).toHaveBeenLastCalledWith("356938035643809");
@@ -907,10 +911,10 @@ describe("ImeiScannerField", () => {
           ),
         { timeout: 4000 },
       );
-      expect(screen.getByRole("button", { name: /490154203237518/ })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /356938035643809/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /•••• 7518/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /•••• 3809/ })).toBeInTheDocument();
 
-      await user.click(screen.getByRole("button", { name: /356938035643809/ }));
+      await user.click(screen.getByRole("button", { name: /•••• 3809/ }));
       await user.click(screen.getByRole("button", { name: "使用选择的编号" }));
 
       expect(onChange).toHaveBeenLastCalledWith("356938035643809");
@@ -988,8 +992,8 @@ describe("ImeiScannerField", () => {
         "blob:imei-photo-tesseract",
         { timeoutMs: 32_000 },
       );
-      expect(screen.getByRole("button", { name: /490154203237518/ })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /356938035643809/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /•••• 7518/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /•••• 3809/ })).toBeInTheDocument();
     } finally {
       if (imageDecodeDescriptor) {
         Object.defineProperty(HTMLImageElement.prototype, "decode", imageDecodeDescriptor);
@@ -1061,8 +1065,8 @@ describe("ImeiScannerField", () => {
           ),
         { timeout: 4000 },
       );
-      expect(screen.getByRole("button", { name: /490154203237518/ })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /356938035643809/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /•••• 7518/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /•••• 3809/ })).toBeInTheDocument();
       expect(toastMocks.error).not.toHaveBeenCalledWith(expect.stringContaining("超时"));
     } finally {
       if (imageDecodeDescriptor) {

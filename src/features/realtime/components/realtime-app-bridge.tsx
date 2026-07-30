@@ -72,6 +72,7 @@ export function getRepairDeskForegroundReconcileDomains(
   canReadMemos = false,
 ): readonly RepairDeskRealtimeDomain[] {
   if (pathname === "/orders" || pathname?.startsWith("/orders/")) return ["orders"];
+  if (pathname === "/inventory" || pathname?.startsWith("/inventory/")) return ["inventory"];
   if (canReadMemos && (pathname === "/memos" || pathname?.startsWith("/memos/"))) return ["memos"];
   return [];
 }

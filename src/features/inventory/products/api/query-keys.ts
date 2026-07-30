@@ -9,4 +9,6 @@ export const inventoryProductKeys = {
   details: () => [...inventoryProductKeys.all, "detail"] as const,
   detail: (id: string, storeId?: string | null) =>
     [...inventoryProductKeys.details(), id, ...storeQueryScope(storeId)] as const,
+  edit: (id: string, storeId?: string | null) =>
+    [...inventoryProductKeys.all, "edit", id, ...storeQueryScope(storeId)] as const,
 };

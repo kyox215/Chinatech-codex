@@ -7,6 +7,7 @@ import {
   Gamepad2,
   Laptop,
   PackageOpen,
+  Pencil,
   RefreshCw,
   Smartphone,
   Tablet,
@@ -107,10 +108,10 @@ export function InventoryProductDetailScreen({ id }: { id: string }) {
     <main
       className={cn(
         repairOs.mobileFloatingPage,
-        "mx-auto w-full max-w-3xl pb-10 pt-[5.25rem] md:pt-0",
+        "mx-auto w-full max-w-3xl pb-10 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] lg:pt-0",
       )}
     >
-      <div className={cn(repairOs.mobileFloatingHeaderShell, "md:static md:mb-4")}>
+      <div className={cn(repairOs.mobileFloatingHeaderShell, "lg:static lg:mb-4")}>
         <section className={repairOs.mobileFloatingHeaderCard}>
           <header className={repairOs.mobileFloatingHeaderNav}>
             <Button
@@ -131,12 +132,41 @@ export function InventoryProductDetailScreen({ id }: { id: string }) {
                 {meta.label} · {statuses[item.status]}
               </p>
             </div>
-            <span className="size-11" aria-hidden />
+            {shell.permissions?.canUpdateInventory && !["sold", "removed"].includes(item.status) ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-11 rounded-xl"
+                aria-label="编辑商品"
+                onClick={() => router.push(`/inventory/${item.id}/edit`)}
+              >
+                <Pencil className="size-4" />
+              </Button>
+            ) : (
+              <span className="size-11" aria-hidden />
+            )}
           </header>
         </section>
       </div>
 
       <div className="space-y-3">
+        <header className="hidden items-center justify-between gap-4 pb-1 lg:flex">
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-semibold">
+              {item.brand} {item.model}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {item.sku} · {statuses[item.status]}
+            </p>
+          </div>
+          {shell.permissions?.canUpdateInventory && !["sold", "removed"].includes(item.status) ? (
+            <Button type="button" onClick={() => router.push(`/inventory/${item.id}/edit`)}>
+              <Pencil className="mr-2 size-4" />
+              编辑商品
+            </Button>
+          ) : null}
+        </header>
         <section className={cn(repairOs.mobileInfoCard, "p-4 md:p-5")}>
           <div className="flex min-w-0 items-start gap-3">
             <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
@@ -163,6 +193,45 @@ export function InventoryProductDetailScreen({ id }: { id: string }) {
             {item.location ? <DetailLine label="库位" value={item.location} /> : null}
           </div>
         </section>
+
+        {item.identifiers.length ? (
+          <section className={cn(repairOs.mobileInfoCard, "p-4 md:p-5")}>
+            <h2 className="text-sm font-semibold">设备标识</h2>
+            <div className="mt-3 grid min-w-0 gap-2 sm:grid-cols-2">
+              {item.identifiers.map((identifier) => (
+                <DetailLine
+                  key={identifier.kind}
+                  label={identifierLabel(identifier.kind)}
+                  value={identifier.masked_value}
+                  mono
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {item.ram_capacity ||
+        item.storage_capacity ||
+        item.color ||
+        item.gtin ||
+        item.condition ||
+        Object.keys(item.specifications ?? {}).length ? (
+          <section className={cn(repairOs.mobileInfoCard, "p-4 md:p-5")}>
+            <h2 className="text-sm font-semibold">设备资料</h2>
+            <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
+              {item.ram_capacity ? <DetailLine label="内存" value={item.ram_capacity} /> : null}
+              {item.storage_capacity ? (
+                <DetailLine label="存储" value={item.storage_capacity} />
+              ) : null}
+              {item.color ? <DetailLine label="颜色" value={item.color} /> : null}
+              {item.condition ? <DetailLine label="成色" value={item.condition} /> : null}
+              {item.gtin ? <DetailLine label="EAN / GTIN" value={item.gtin} mono /> : null}
+              {Object.entries(item.specifications ?? {}).map(([key, value]) => (
+                <DetailLine key={key} label={specificationLabel(key)} value={value} />
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {businessFields.length ? (
           <section className={cn(repairOs.mobileInfoCard, "p-4 md:p-5")}>
@@ -191,6 +260,25 @@ export function InventoryProductDetailScreen({ id }: { id: string }) {
         ) : null}
       </div>
     </main>
+  );
+}
+function identifierLabel(kind: string) {
+  return { imei1: "IMEI 1", imei2: "IMEI 2", serial: "序列号", eid: "EID" }[kind] ?? kind;
+}
+function specificationLabel(key: string) {
+  return (
+    {
+      network_variant: "网络版本",
+      connectivity: "联网版本",
+      screen_size_inches: "屏幕尺寸",
+      processor: "处理器",
+      disk_type: "硬盘类型",
+      graphics: "显卡",
+      edition: "版本",
+      region: "区域",
+      included_controller_count: "手柄数",
+      short_specification: "简短规格",
+    }[key] ?? key
   );
 }
 

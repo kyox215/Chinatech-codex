@@ -134,4 +134,21 @@ describe("audit log redaction", () => {
       safe_item_count: 1,
     });
   });
+
+  it("redacts all device identifier payload shapes", () => {
+    const serialized = JSON.stringify(
+      sanitizeAuditRecord({
+        identifiers: [{ kind: "eid", value: "89043051202500726225007991441943" }],
+        eid: "89043051202500726225007991441943",
+        gtin: "4006381333931",
+        display_value: "490154203237518",
+        normalized_value: "490154203237518",
+        safe_identifier_count: 2,
+      }),
+    );
+    expect(serialized).not.toContain("89043051202500726225007991441943");
+    expect(serialized).not.toContain("4006381333931");
+    expect(serialized).not.toContain("490154203237518");
+    expect(serialized).toContain("safe_identifier_count");
+  });
 });

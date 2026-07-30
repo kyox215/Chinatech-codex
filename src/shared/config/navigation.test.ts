@@ -90,13 +90,15 @@ describe("workspace navigation", () => {
     ).toContain("new-memo");
 
     const technicianWithInventory = getShellCommandActions(
-      { canReadInventory: true },
+      { canReadInventory: true, canCreateInventory: true },
       "technician",
     ).map((item) => item.id);
     expect(technicianWithInventory).not.toContain("new-buyback");
     expect(technicianWithInventory).toContain("new-inventory");
     expect(
-      getShellCommandActions({ canReadInventory: true }, "manager").map((item) => item.id),
+      getShellCommandActions({ canReadInventory: true, canCreateInventory: true }, "manager").map(
+        (item) => item.id,
+      ),
     ).toContain("new-buyback");
   });
 });

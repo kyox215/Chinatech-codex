@@ -69,6 +69,7 @@ import {
   canUseInventoryV2Commands,
   canUseInventoryV2Ui,
 } from "@/features/inventory/server/inventory-v2-access";
+import { isInventoryProductDeviceDataV2Enabled } from "@/features/inventory/server/inventory-v2-feature-flags";
 import { isMemosEnabledForStore } from "@/features/memos/server/memo-feature";
 
 const ACTIVE_STORE_COOKIE = "repairdesk-store-id";
@@ -1400,6 +1401,7 @@ async function storePermissionsFromActor(
     canManageSuppliers: can(actor, "supplier:manage"),
     canReadInventory: can(actor, "inventory:read"),
     canCreateInventory: can(actor, "inventory:create"),
+    canUpdateInventory: can(actor, "inventory:update") && isInventoryProductDeviceDataV2Enabled(),
     canSellInventory: can(actor, "inventory:sale"),
     inventoryV2UiEnabled: canUseInventoryV2Ui(actor),
     inventoryV2CommandsEnabled: canUseInventoryV2Commands(actor),

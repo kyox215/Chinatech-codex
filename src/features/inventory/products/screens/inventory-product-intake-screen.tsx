@@ -16,15 +16,9 @@ import {
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { ImeiScannerField } from "@/components/imei-scanner-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { createInventoryProduct } from "@/lib/repairdesk/api";
@@ -33,15 +27,27 @@ import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
 import { inventoryProductKeys } from "../api/query-keys";
+import {
+  deviceBrandSuggestions,
+  isValidGtin,
+  validateProductIdentifiers,
+} from "../model/device-data";
 
 type Draft = {
   category: InventoryProductCategory;
   brand: string;
   model: string;
   color: string;
+  ram_capacity: string;
   storage_capacity: string;
-  identifier_kind: "imei1" | "serial";
-  serial_or_imei: string;
+  gtin: string;
+  condition: string;
+  specifications: Record<string, string>;
+  imei1: string;
+  imei2: string;
+  serial: string;
+  eid: string;
+  identifier_sources: Record<"imei1" | "imei2" | "serial" | "eid", "manual" | "scan">;
   list_price: string;
   cost_amount: string;
   location: string;
@@ -65,9 +71,16 @@ function initialDraft(category: InventoryProductCategory = "phone"): Draft {
     brand: "",
     model: "",
     color: "",
+    ram_capacity: "",
     storage_capacity: "",
-    identifier_kind: category === "phone" ? "imei1" : "serial",
-    serial_or_imei: "",
+    gtin: "",
+    condition: "",
+    specifications: {},
+    imei1: "",
+    imei2: "",
+    serial: "",
+    eid: "",
+    identifier_sources: { imei1: "manual", imei2: "manual", serial: "manual", eid: "manual" },
     list_price: "",
     cost_amount: "",
     location: "",
@@ -133,9 +146,16 @@ export function InventoryProductIntakeScreen() {
       setError(validation);
       const fieldId = validation.fieldId ?? "product-category-phone";
       if (
-        ["product-price", "product-cost", "product-warranty", "product-identifier"].includes(
-          fieldId,
-        )
+        [
+          "product-price",
+          "product-cost",
+          "product-warranty",
+          "product-imei1",
+          "product-imei2",
+          "product-serial",
+          "product-eid",
+          "product-gtin",
+        ].includes(fieldId)
       ) {
         setMoreOpen(true);
         requestAnimationFrame(() => document.getElementById(fieldId)?.focus());
@@ -154,12 +174,13 @@ export function InventoryProductIntakeScreen() {
       await queryClient.invalidateQueries({ queryKey: inventoryProductKeys.all });
       toast.success(`商品 ${result.sku} 已录入`);
       if (continueEntry) {
-        const retainedCategory = draft.category;
-        setDraft(initialDraft(retainedCategory));
+        setDraft(sameProductDraft(draft));
         setIdempotencyKey(crypto.randomUUID());
         setMoreOpen(false);
         setError(undefined);
-        document.getElementById("product-brand")?.focus();
+        document
+          .getElementById(draft.category === "phone" ? "product-imei1" : "product-serial")
+          ?.focus();
       } else {
         router.push(`/inventory/${result.id}`);
       }
@@ -169,11 +190,45 @@ export function InventoryProductIntakeScreen() {
   };
 
   const selectCategory = (category: InventoryProductCategory) => {
+    if (
+      draft.category !== category &&
+      [
+        draft.brand,
+        draft.model,
+        draft.ram_capacity,
+        draft.storage_capacity,
+        draft.color,
+        draft.condition,
+        draft.imei1,
+        draft.imei2,
+        draft.serial,
+        draft.eid,
+        draft.gtin,
+        ...Object.values(draft.specifications),
+      ].some((value) => value.trim()) &&
+      !window.confirm("切换类别会清除当前品牌、型号、规格和设备标识，是否继续？")
+    ) {
+      return;
+    }
     setDraft((current) => ({
       ...current,
       category,
-      identifier_kind: category === "phone" ? "imei1" : "serial",
-      serial_or_imei: current.category === category ? current.serial_or_imei : "",
+      ...(current.category === category
+        ? {}
+        : {
+            brand: "",
+            model: "",
+            ram_capacity: "",
+            storage_capacity: "",
+            color: "",
+            condition: "",
+            imei1: "",
+            imei2: "",
+            serial: "",
+            eid: "",
+            gtin: "",
+            specifications: {},
+          }),
     }));
   };
 
@@ -204,10 +259,10 @@ export function InventoryProductIntakeScreen() {
     <main
       className={cn(
         repairOs.mobileFloatingPage,
-        "mx-auto w-full max-w-3xl pb-28 pt-[5.25rem] md:pb-8 md:pt-0",
+        "mx-auto w-full max-w-3xl pb-28 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] lg:pb-8 lg:pt-0",
       )}
     >
-      <div className={cn(repairOs.mobileFloatingHeaderShell, "md:static md:mb-4")}>
+      <div className={cn(repairOs.mobileFloatingHeaderShell, "lg:static lg:mb-4")}>
         <section className={repairOs.mobileFloatingHeaderCard}>
           <header className={repairOs.mobileFloatingHeaderNav}>
             <Button
@@ -228,6 +283,19 @@ export function InventoryProductIntakeScreen() {
           </header>
         </section>
       </div>
+
+      <header className="hidden items-center justify-between gap-4 pb-3 lg:flex">
+        <div>
+          <h1 className="text-xl font-semibold">快速录入商品</h1>
+          <p className="text-sm text-muted-foreground">
+            品牌、型号与设备标识即可开始，其他资料可随时补充
+          </p>
+        </div>
+        <Button type="button" variant="outline" onClick={() => router.push("/inventory")}>
+          <ArrowLeft className="mr-2 size-4" />
+          返回库存
+        </Button>
+      </header>
 
       <form
         className="space-y-3"
@@ -277,9 +345,15 @@ export function InventoryProductIntakeScreen() {
               required
               value={draft.brand}
               placeholder="例如 Apple、Samsung"
+              list="product-brand-suggestions"
               invalid={error?.fieldId === "product-brand"}
               onChange={(brand) => setDraft((current) => ({ ...current, brand }))}
             />
+            <datalist id="product-brand-suggestions">
+              {deviceBrandSuggestions[draft.category].map((brand) => (
+                <option key={brand} value={brand} />
+              ))}
+            </datalist>
             <Field
               id="product-model"
               label="型号 / 商品名称"
@@ -290,6 +364,88 @@ export function InventoryProductIntakeScreen() {
               onChange={(model) => setDraft((current) => ({ ...current, model }))}
             />
           </div>
+        </section>
+
+        <section className={cn(repairOs.mobileInfoCard, "grid gap-4 p-4 sm:grid-cols-2 md:p-5")}>
+          {draft.category !== "other" ? (
+            <Field
+              id="product-storage"
+              label={draft.category === "computer" ? "硬盘 / 存储容量" : "存储容量"}
+              value={draft.storage_capacity}
+              placeholder={draft.category === "computer" ? "例如 512 GB" : "例如 128 GB"}
+              onChange={(storage_capacity) =>
+                setDraft((current) => ({ ...current, storage_capacity }))
+              }
+            />
+          ) : null}
+          {["phone", "tablet", "computer"].includes(draft.category) ? (
+            <Field
+              id="product-ram"
+              label="内存（RAM）"
+              value={draft.ram_capacity}
+              placeholder="例如 8 GB"
+              onChange={(ram_capacity) => setDraft((current) => ({ ...current, ram_capacity }))}
+            />
+          ) : null}
+          <Field
+            id="product-color"
+            label="设备颜色"
+            value={draft.color}
+            placeholder="例如 蓝色"
+            onChange={(color) => setDraft((current) => ({ ...current, color }))}
+          />
+          {draft.category === "game_console" ? (
+            <Field
+              id="product-spec-edition"
+              label="版本"
+              value={draft.specifications.edition ?? ""}
+              placeholder="例如 Slim、OLED"
+              onChange={(edition) =>
+                setDraft((current) => ({
+                  ...current,
+                  specifications: { ...current.specifications, edition },
+                }))
+              }
+            />
+          ) : null}
+        </section>
+
+        <section className={cn(repairOs.mobileInfoCard, "space-y-3 p-4 md:p-5")}>
+          <div>
+            <h2 className="text-sm font-semibold">设备标识</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              可用摄像头扫码、照片识别、粘贴或手工输入；原图仅在本机处理。
+            </p>
+          </div>
+          {draft.category === "phone" ? (
+            <IdentifierField
+              id="product-imei1"
+              label="IMEI 1"
+              value={draft.imei1}
+              invalid={error?.fieldId === "product-imei1"}
+              onChange={(imei1) => setDraft((current) => ({ ...current, imei1 }))}
+              onSource={(source) =>
+                setDraft((current) => ({
+                  ...current,
+                  identifier_sources: { ...current.identifier_sources, imei1: source },
+                }))
+              }
+            />
+          ) : (
+            <IdentifierField
+              id="product-serial"
+              label="序列号"
+              value={draft.serial}
+              invalid={error?.fieldId === "product-serial"}
+              onChange={(serial) => setDraft((current) => ({ ...current, serial }))}
+              onSource={(source) =>
+                setDraft((current) => ({
+                  ...current,
+                  identifier_sources: { ...current.identifier_sources, serial: source },
+                }))
+              }
+            />
+          )}
         </section>
 
         <section className={cn(repairOs.mobileInfoCard, "overflow-hidden p-0")}>
@@ -310,48 +466,58 @@ export function InventoryProductIntakeScreen() {
           {moreOpen ? (
             <div className="grid gap-4 border-t border-border p-4 sm:grid-cols-2">
               <Field
-                id="product-storage"
-                label={draft.category === "computer" ? "存储 / 配置" : "容量 / 版本"}
-                value={draft.storage_capacity}
-                placeholder={draft.category === "computer" ? "例如 16 GB / 512 GB" : "例如 128 GB"}
-                onChange={(storage_capacity) =>
-                  setDraft((current) => ({ ...current, storage_capacity }))
-                }
+                id="product-condition"
+                label="成色"
+                value={draft.condition}
+                placeholder="例如 全新、良好、有使用痕迹"
+                onChange={(condition) => setDraft((current) => ({ ...current, condition }))}
               />
+              {draft.category === "phone" ? (
+                <IdentifierField
+                  id="product-imei2"
+                  label="IMEI 2"
+                  value={draft.imei2}
+                  invalid={error?.fieldId === "product-imei2"}
+                  onChange={(imei2) => setDraft((current) => ({ ...current, imei2 }))}
+                  onSource={(source) => setIdentifierSource(setDraft, "imei2", source)}
+                />
+              ) : null}
+              {draft.category === "phone" ? (
+                <IdentifierField
+                  id="product-eid"
+                  label="EID"
+                  value={draft.eid}
+                  invalid={error?.fieldId === "product-eid"}
+                  onChange={(eid) => setDraft((current) => ({ ...current, eid }))}
+                  onSource={(source) => setIdentifierSource(setDraft, "eid", source)}
+                />
+              ) : null}
               <Field
-                id="product-color"
-                label="颜色 / 成色"
-                value={draft.color}
-                placeholder="例如 蓝色、良好"
-                onChange={(color) => setDraft((current) => ({ ...current, color }))}
+                id="product-gtin"
+                label="EAN / GTIN（同款条码）"
+                value={draft.gtin}
+                inputMode="numeric"
+                placeholder="8、13 或 14 位商品条码"
+                invalid={error?.fieldId === "product-gtin"}
+                onChange={(gtin) => setDraft((current) => ({ ...current, gtin }))}
               />
-              <div className="space-y-1.5">
-                <Label htmlFor="product-identifier-kind">标识类型</Label>
-                <Select
-                  value={draft.identifier_kind}
-                  onValueChange={(identifier_kind: "imei1" | "serial") =>
-                    setDraft((current) => ({ ...current, identifier_kind }))
-                  }
-                >
-                  <SelectTrigger id="product-identifier-kind" className="h-11">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="imei1">IMEI</SelectItem>
-                    <SelectItem value="serial">序列号 / 条码</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Field
-                id="product-identifier"
-                label={draft.identifier_kind === "imei1" ? "IMEI（可选）" : "序列号 / 条码（可选）"}
-                value={draft.serial_or_imei}
-                placeholder="不填写也可保存"
-                invalid={error?.fieldId === "product-identifier"}
-                onChange={(serial_or_imei) =>
-                  setDraft((current) => ({ ...current, serial_or_imei }))
-                }
-              />
+              {categorySpecificationFields(draft.category)
+                .filter((field) => !(draft.category === "game_console" && field.key === "edition"))
+                .map((field) => (
+                  <Field
+                    key={field.key}
+                    id={`product-spec-${field.key}`}
+                    label={field.label}
+                    value={draft.specifications[field.key] ?? ""}
+                    placeholder={field.placeholder}
+                    onChange={(value) =>
+                      setDraft((current) => ({
+                        ...current,
+                        specifications: { ...current.specifications, [field.key]: value },
+                      }))
+                    }
+                  />
+                ))}
               <Field
                 id="product-price"
                 label="计划售价"
@@ -447,6 +613,7 @@ function Field({
   placeholder,
   inputMode,
   invalid,
+  list,
 }: {
   id: string;
   label: string;
@@ -456,6 +623,7 @@ function Field({
   placeholder?: string;
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
   invalid?: boolean;
+  list?: string;
 }) {
   return (
     <div className="space-y-1.5">
@@ -469,6 +637,7 @@ function Field({
         required={required}
         maxLength={160}
         inputMode={inputMode}
+        list={list}
         placeholder={placeholder}
         aria-invalid={invalid || undefined}
         aria-describedby={invalid ? "product-form-error" : undefined}
@@ -479,20 +648,71 @@ function Field({
   );
 }
 
+function IdentifierField({
+  id,
+  label,
+  value,
+  onChange,
+  onSource,
+  invalid,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  onSource: (source: "manual" | "scan") => void;
+  invalid?: boolean;
+}) {
+  return (
+    <div className="min-w-0 space-y-1.5 sm:col-span-2">
+      <Label htmlFor={id}>{label}</Label>
+      <ImeiScannerField
+        inputId={id}
+        inputAriaLabel={label}
+        identifierLabel={label}
+        inputMode={id.includes("serial") ? "text" : "numeric"}
+        ariaInvalid={invalid}
+        ariaDescribedBy={invalid ? `${id}-error` : undefined}
+        value={value}
+        onChange={onChange}
+        onCommitSource={onSource}
+        placeholder={`扫描或输入${label}`}
+        density="compact"
+      />
+      {invalid ? (
+        <p id={`${id}-error`} className="text-xs text-destructive">
+          请检查{label}格式
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function toInput(
   draft: Draft,
   idempotency_key: string,
   canEnterCost: boolean,
 ): CreateInventoryProductInput {
-  const identifier = draft.serial_or_imei.trim();
+  const identifiers = (["imei1", "imei2", "serial", "eid"] as const)
+    .filter((kind) => draft[kind].trim())
+    .map((kind, index) => ({
+      kind,
+      value: draft[kind].trim(),
+      source: draft.identifier_sources[kind],
+      primary: index === 0,
+    }));
   return {
     idempotency_key,
     category: draft.category,
     brand: draft.brand.trim(),
     model: draft.model.trim(),
     color: optional(draft.color),
+    ram_capacity: optional(draft.ram_capacity),
     storage_capacity: optional(draft.storage_capacity),
-    ...(identifier ? { identifier_kind: draft.identifier_kind, serial_or_imei: identifier } : {}),
+    gtin: optional(draft.gtin),
+    condition: optional(draft.condition),
+    specifications: cleanedRecord(draft.specifications),
+    identifiers,
     list_price: parseOptionalMoney(draft.list_price),
     ...(canEnterCost ? { cost_amount: parseOptionalMoney(draft.cost_amount) } : {}),
     location: optional(draft.location),
@@ -504,6 +724,9 @@ function toInput(
 function validateDraft(draft: Draft, canEnterCost: boolean) {
   if (!draft.brand.trim()) return { message: "请填写品牌", fieldId: "product-brand" };
   if (!draft.model.trim()) return { message: "请填写型号或商品名称", fieldId: "product-model" };
+  if (draft.imei2.trim() && !draft.imei1.trim()) {
+    return { message: "请先填写 IMEI 1，再填写 IMEI 2", fieldId: "product-imei1" };
+  }
   for (const [label, value, fieldId] of [
     ["计划售价", draft.list_price, "product-price"],
     ...(canEnterCost ? [["入库成本", draft.cost_amount, "product-cost"]] : []),
@@ -519,8 +742,24 @@ function validateDraft(draft: Draft, canEnterCost: boolean) {
       message: "保修月数必须是 0 到 120 的整数",
       fieldId: "product-warranty",
     };
-  if (draft.serial_or_imei.trim().length > 0 && draft.serial_or_imei.trim().length < 3)
-    return { message: "IMEI 或序列号至少 3 个字符", fieldId: "product-identifier" };
+  const identifiers = (["imei1", "imei2", "serial", "eid"] as const)
+    .filter((kind) => draft[kind].trim())
+    .map((kind, index) => ({
+      kind,
+      value: draft[kind],
+      source: draft.identifier_sources[kind],
+      primary: index === 0,
+    }));
+  const identifierError = validateProductIdentifiers(identifiers);
+  if (identifierError) {
+    const failingKind = (["imei1", "imei2", "serial", "eid"] as const).find((kind) =>
+      identifierError.includes(kind === "serial" ? "序列号" : kind.toUpperCase()),
+    );
+    return { message: identifierError, fieldId: `product-${failingKind ?? "imei1"}` };
+  }
+  if (draft.gtin.trim() && !isValidGtin(draft.gtin)) {
+    return { message: "EAN / GTIN 校验位不正确", fieldId: "product-gtin" };
+  }
   return undefined;
 }
 
@@ -533,6 +772,61 @@ function parseOptionalMoney(value: string) {
 function optional(value: string) {
   const text = value.trim();
   return text || undefined;
+}
+function cleanedRecord(value: Record<string, string>) {
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([key, item]) => [key, item.trim()])
+      .filter(([, item]) => item),
+  );
+}
+function categorySpecificationFields(category: InventoryProductCategory) {
+  if (category === "computer")
+    return [
+      { key: "processor", label: "处理器", placeholder: "例如 Apple M3、Intel i5" },
+      { key: "disk_type", label: "硬盘类型", placeholder: "例如 SSD" },
+      { key: "graphics", label: "显卡", placeholder: "例如 RTX 4060" },
+    ];
+  if (category === "game_console")
+    return [
+      { key: "edition", label: "版本", placeholder: "例如 Slim、OLED" },
+      { key: "region", label: "区域版本", placeholder: "例如 EU" },
+      { key: "included_controller_count", label: "手柄数量", placeholder: "例如 2" },
+    ];
+  if (category === "phone")
+    return [{ key: "network_variant", label: "网络版本", placeholder: "例如 EU、双卡" }];
+  if (category === "tablet")
+    return [
+      { key: "connectivity", label: "联网版本", placeholder: "例如 Wi‑Fi、5G" },
+      { key: "screen_size_inches", label: "屏幕尺寸", placeholder: "例如 11 英寸" },
+    ];
+  return [{ key: "short_specification", label: "简短规格", placeholder: "例如 蓝牙音箱 60W" }];
+}
+
+function sameProductDraft(draft: Draft): Draft {
+  return {
+    ...draft,
+    imei1: "",
+    imei2: "",
+    serial: "",
+    eid: "",
+    identifier_sources: { imei1: "manual", imei2: "manual", serial: "manual", eid: "manual" },
+    list_price: "",
+    cost_amount: "",
+    warranty_months: "",
+    notes: "",
+  };
+}
+
+function setIdentifierSource(
+  setDraft: React.Dispatch<React.SetStateAction<Draft>>,
+  kind: "imei1" | "imei2" | "serial" | "eid",
+  source: "manual" | "scan",
+) {
+  setDraft((current) => ({
+    ...current,
+    identifier_sources: { ...current.identifier_sources, [kind]: source },
+  }));
 }
 function IntakeMessage({
   title,

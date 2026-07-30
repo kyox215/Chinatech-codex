@@ -3,6 +3,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { aiAssistantKeys } from "@/features/ai-assistant/api";
 import { customersKeys } from "@/features/customers/api/query-keys";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
+import { inventoryProductKeys } from "@/features/inventory/products/api/query-keys";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
@@ -59,6 +60,7 @@ const tenantScopedQueryRoots = [
   ordersKeys.all,
   customersKeys.all,
   inventoryKeys.all,
+  inventoryProductKeys.all,
   kioskKeys.all,
   suppliersKeys.all,
   messageSettingsKeys.store,
@@ -77,6 +79,7 @@ const authoritySensitiveQueryRoots = [
   ordersKeys.all,
   customersKeys.all,
   inventoryKeys.all,
+  inventoryProductKeys.all,
   kioskKeys.all,
   suppliersKeys.all,
   messageSettingsKeys.store,

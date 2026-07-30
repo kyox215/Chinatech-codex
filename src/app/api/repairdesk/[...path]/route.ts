@@ -36,6 +36,8 @@ function isInventoryV2CommandPath(path: string) {
   return (
     path === "inventory/v2/intake/create" ||
     path === "inventory/products/quick-create" ||
+    path === "inventory/products/edit-data" ||
+    path === "inventory/products/update" ||
     path === "inventory/v2/sales/complete" ||
     path === "inventory/v2/workflow/apply"
   );

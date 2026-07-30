@@ -134,8 +134,11 @@ import type {
   InventoryListItem,
   InventoryListResult,
   InventoryProductDetail,
+  InventoryProductEditData,
   InventoryProductListFilters,
   InventoryProductListResult,
+  UpdateInventoryProductInput,
+  UpdateInventoryProductResult,
   InventoryQualityCheckInput,
   InventoryStats,
   InventorySummary,
@@ -469,10 +472,24 @@ export async function getInventoryProduct(
   return postJson<InventoryProductDetail>("inventory/products/get", { id }, options);
 }
 
+export async function getInventoryProductEditData(
+  id: string,
+  options?: RepairDeskRequestOptions,
+): Promise<InventoryProductEditData> {
+  return postJson<InventoryProductEditData>("inventory/products/edit-data", { id }, options);
+}
+
 export async function createInventoryProduct(
   input: CreateInventoryProductInput,
 ): Promise<CreateInventoryProductResult> {
   return postJson<CreateInventoryProductResult>("inventory/products/quick-create", { input });
+}
+
+export async function updateInventoryProduct(
+  id: string,
+  input: UpdateInventoryProductInput,
+): Promise<UpdateInventoryProductResult> {
+  return postJson<UpdateInventoryProductResult>("inventory/products/update", { id, input });
 }
 
 export async function getInventoryStats(

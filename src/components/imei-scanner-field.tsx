@@ -22,6 +22,7 @@ import {
   type ImeiCaptureSource,
 } from "@/features/capture/model/barcode-parser";
 import { recognizeTextWithLocalOcr } from "@/features/capture/model/local-ocr";
+import { inspectAiInventoryImage } from "@/features/ai-assistant/model/inventory-image";
 import { cn } from "@/lib/utils";
 import { imeiKeyboardProps } from "@/shared/lib/mobile-input";
 
@@ -77,23 +78,13 @@ type VideoFrameCaptureOptions = {
   cropScale?: number;
 };
 
-const imeiImageMaxBytes = 8 * 1024 * 1024;
 const imeiBarcodeDecodeTimeoutMs = 2500;
 const imeiFastBarcodeDecodeTimeoutMs = 450;
 const imeiOcrDecodeTimeoutMs = 32_000;
 const imeiCenterCropRecognitionScale = 1.8;
 const imeiCenterCropScanIntervalMs = 250;
 const imeiCameraAccessPreferenceKey = "repairdesk:imei-camera-access:v1";
-const imeiImageAccept =
-  "image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif";
-const imeiImageMimeTypes = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/heic",
-  "image/heif",
-]);
-const imeiImageExtensionPattern = /\.(?:jpe?g|png|webp|heic|heif)$/i;
+const imeiImageAccept = "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp";
 
 export function normalizeImeiIdentifier(value: string) {
   const withoutCommonSeparators = value.trim().replace(/[\s\-:：_.,/\\|]+/g, "");
@@ -115,6 +106,11 @@ export function ImeiScannerField({
   appearance = "outlined",
   inputId,
   inputAriaLabel,
+  identifierLabel,
+  inputMode,
+  ariaInvalid,
+  ariaDescribedBy,
+  onCommitSource,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -125,7 +121,14 @@ export function ImeiScannerField({
   appearance?: "outlined" | "quiet";
   inputId?: string;
   inputAriaLabel?: string;
+  identifierLabel?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  ariaInvalid?: boolean;
+  ariaDescribedBy?: string;
+  onCommitSource?: (source: "manual" | "scan") => void;
 }) {
+  const actionIdentifierLabel = identifierLabel ?? "IMEI";
+  const dialogIdentifierLabel = identifierLabel ?? "IMEI / 序列号";
   const [scannerOpen, setScannerOpen] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -152,6 +155,7 @@ export function ImeiScannerField({
   const activeCameraModeRef = useRef<ImeiScannerCameraMode>("enhanced");
   const rememberedCameraModeRef = useRef<ImeiScannerCameraMode | null>(readRememberedCameraMode());
   const onChangeRef = useRef(onChange);
+  const onCommitSourceRef = useRef(onCommitSource);
   const lastStartScannerTokenRef = useRef(startScannerToken);
   const compact = density === "compact";
   const quiet = appearance === "quiet";
@@ -173,7 +177,8 @@ export function ImeiScannerField({
 
   useEffect(() => {
     onChangeRef.current = onChange;
-  }, [onChange]);
+    onCommitSourceRef.current = onCommitSource;
+  }, [onChange, onCommitSource]);
 
   const replaceCapturePreview = useCallback(
     (preview: ImeiCapturePreview | null, cleanup?: () => void) => {
@@ -253,12 +258,13 @@ export function ImeiScannerField({
     (candidate: ImeiCandidate) => {
       setWarning(candidate.reason ?? "");
       onChangeRef.current(candidate.value);
-      toast.success("已录入 IMEI / 序列号");
+      onCommitSourceRef.current?.("scan");
+      toast.success(`已录入 ${dialogIdentifierLabel}`);
       stopScanner();
       setScannerOpen(false);
       resetCaptureState();
     },
-    [resetCaptureState, stopScanner],
+    [dialogIdentifierLabel, resetCaptureState, stopScanner],
   );
 
   const handleCapturedText = useCallback(
@@ -335,6 +341,7 @@ export function ImeiScannerField({
     const normalized = normalizeImeiIdentifier(rawValue);
     setWarning(normalized.hadUnsupported ? "已移除不支持的字符；字母数字序列号会被保留。" : "");
     onChangeRef.current(normalized.value);
+    onCommitSourceRef.current?.(source === "scan" ? "scan" : "manual");
 
     if (source === "scan") {
       toast.success("已录入 IMEI / 序列号");
@@ -351,10 +358,12 @@ export function ImeiScannerField({
     async (file?: File) => {
       if (!file) return;
 
-      const fileError = validateImeiImageFile(file);
-      if (fileError) {
-        setCaptureError(fileError);
-        toast.error(fileError);
+      try {
+        await inspectAiInventoryImage(file);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "图片格式或尺寸不安全";
+        setCaptureError(message);
+        toast.error(message);
         return;
       }
 
@@ -615,6 +624,19 @@ export function ImeiScannerField({
   ]);
 
   useEffect(() => {
+    const stopWhenHidden = () => {
+      if (document.visibilityState === "hidden") stopScanner();
+    };
+    const stopOnPageHide = () => stopScanner();
+    document.addEventListener("visibilitychange", stopWhenHidden);
+    window.addEventListener("pagehide", stopOnPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", stopWhenHidden);
+      window.removeEventListener("pagehide", stopOnPageHide);
+    };
+  }, [stopScanner]);
+
+  useEffect(() => {
     if (startScannerToken === undefined) return;
     if (lastStartScannerTokenRef.current === startScannerToken) return;
     lastStartScannerTokenRef.current = startScannerToken;
@@ -636,6 +658,9 @@ export function ImeiScannerField({
           {...imeiKeyboardProps}
           id={inputId}
           aria-label={inputAriaLabel}
+          aria-invalid={ariaInvalid || undefined}
+          aria-describedby={ariaDescribedBy}
+          inputMode={inputMode ?? imeiKeyboardProps.inputMode}
           value={value}
           onChange={(event) => commitValue(event.target.value, "manual")}
           placeholder={placeholder}
@@ -656,7 +681,7 @@ export function ImeiScannerField({
             quiet && "rounded-lg bg-[var(--surface-panel-muted)] text-foreground",
           )}
           onClick={() => setScannerOpen(true)}
-          aria-label="摄像头扫码录入 IMEI"
+          aria-label={`摄像头扫码录入 ${actionIdentifierLabel}`}
         >
           <Camera className="size-4" />
         </Button>
@@ -678,7 +703,7 @@ export function ImeiScannerField({
                 toast.error("无法读取剪贴板，请手动粘贴");
               }
             }}
-            aria-label="粘贴 IMEI"
+            aria-label={`粘贴 ${actionIdentifierLabel}`}
           >
             <ClipboardPaste className="size-4" />
           </Button>
@@ -690,7 +715,7 @@ export function ImeiScannerField({
           className={cn("shrink-0", compact && "size-11 lg:size-8")}
           onClick={() => commitValue("", "clear")}
           disabled={!value}
-          aria-label="清空 IMEI"
+          aria-label={`清空 ${actionIdentifierLabel}`}
         >
           <X className="size-4" />
         </Button>
@@ -698,10 +723,7 @@ export function ImeiScannerField({
       {warning && <p className="text-xs text-status-warn-foreground">{warning}</p>}
 
       <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
-        <DialogContent
-          className="grid max-h-[calc(100svh-12px)] w-[min(32rem,calc(100vw-16px))] max-w-md grid-rows-[minmax(0,1fr)_auto] gap-0 overflow-hidden p-0"
-          onOpenAutoFocus={(event) => event.preventDefault()}
-        >
+        <DialogContent className="grid max-h-[calc(100svh-12px)] w-[min(32rem,calc(100vw-16px))] max-w-md grid-rows-[minmax(0,1fr)_auto] gap-0 overflow-hidden p-0">
           <input
             ref={fileInputRef}
             type="file"
@@ -715,7 +737,9 @@ export function ImeiScannerField({
           />
           <div className="min-h-0 space-y-2 overflow-y-auto p-3 pb-2 sm:space-y-3 sm:p-5 sm:pb-4">
             <DialogHeader className="space-y-0.5 pr-8 sm:space-y-1.5">
-              <DialogTitle className="text-base sm:text-lg">录入 IMEI / 序列号</DialogTitle>
+              <DialogTitle className="text-base sm:text-lg">
+                录入 {dialogIdentifierLabel}
+              </DialogTitle>
               <DialogDescription className="text-xs leading-4 sm:text-sm">
                 可扫码、上传照片识别，或手动输入。多个编号会先让你选择。
               </DialogDescription>
@@ -749,7 +773,7 @@ export function ImeiScannerField({
                           key={`${candidate.id}:overlay`}
                           type="button"
                           className={cn(
-                            "absolute min-h-7 min-w-8 rounded-md border-2 text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                            "absolute min-h-11 min-w-11 rounded-md border-2 text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 lg:min-h-8 lg:min-w-8",
                             selectedCandidateId === candidate.id
                               ? "border-primary bg-primary/15 ring-2 ring-primary/25"
                               : "border-status-warn-foreground/90 bg-background/10 hover:bg-background/20",
@@ -763,7 +787,7 @@ export function ImeiScannerField({
                           }}
                           aria-label={`选择画面候选 ${candidate.overlayIndex ?? index + 1}`}
                           aria-pressed={selectedCandidateId === candidate.id}
-                          title={`${candidate.label} ${candidate.value}`}
+                          title={`${candidate.label} ${maskCandidateValue(candidate.value)}`}
                           onClick={() => setSelectedCandidateId(candidate.id)}
                         >
                           <span className="absolute left-1 top-1 flex max-w-[calc(100%-0.5rem)] items-center gap-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold leading-none text-primary-foreground shadow-sm">
@@ -806,7 +830,7 @@ export function ImeiScannerField({
                       key={candidate.id}
                       type="button"
                       className={cn(
-                        "min-w-0 rounded-md border px-2 py-1.5 text-left transition sm:px-2.5 sm:py-2",
+                        "min-h-11 min-w-0 rounded-md border px-2 py-1.5 text-left transition sm:px-2.5 sm:py-2 lg:min-h-9",
                         selectedCandidateId === candidate.id
                           ? "border-primary bg-primary/10 text-foreground"
                           : "border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-foreground",
@@ -828,7 +852,7 @@ export function ImeiScannerField({
                         </span>
                       </span>
                       <span className="mt-1 block break-all font-mono text-xs">
-                        {candidate.value}
+                        {maskScannerCandidate(candidate.value)}
                       </span>
                       {candidate.reason ? (
                         <span className="mt-1 block text-[10px] leading-4 text-status-warn-foreground">
@@ -847,13 +871,13 @@ export function ImeiScannerField({
                   value={scannerManualValue}
                   onChange={(event) => setScannerManualValue(event.target.value)}
                   placeholder="无法识别时可手动输入"
-                  className="h-8 font-mono text-sm sm:h-9"
+                  className="h-11 font-mono text-base"
                 />
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-8 text-xs"
+                  className="min-h-11 text-sm"
                   disabled={!scannerManualValue.trim()}
                   onClick={() => {
                     commitValue(scannerManualValue, "manual");
@@ -881,7 +905,7 @@ export function ImeiScannerField({
               <Button
                 type="button"
                 size="sm"
-                className="h-8 w-full text-xs sm:h-9"
+                className="h-11 w-full text-sm lg:h-9 lg:text-xs"
                 disabled={!selectedCandidate}
                 onClick={() => {
                   if (selectedCandidate) commitCandidate(selectedCandidate);
@@ -895,7 +919,7 @@ export function ImeiScannerField({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs sm:h-9"
+                className="h-11 text-xs lg:h-9"
                 onClick={() => void handleCurrentFrameCapture()}
                 disabled={isImageProcessing || isStarting || !isCameraActive}
               >
@@ -910,7 +934,7 @@ export function ImeiScannerField({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs sm:h-9"
+                className="h-11 text-xs lg:h-9"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isImageProcessing}
               >
@@ -926,7 +950,7 @@ export function ImeiScannerField({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-8 text-xs sm:h-9"
+                  className="h-11 text-xs lg:h-9"
                   onClick={handleRetryCapture}
                 >
                   <RotateCcw className="mr-1.5 size-3.5" />
@@ -937,7 +961,7 @@ export function ImeiScannerField({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-8 text-xs sm:h-9"
+                  className="h-11 text-xs lg:h-9"
                   onClick={stopScanner}
                 >
                   {isStarting && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
@@ -950,16 +974,6 @@ export function ImeiScannerField({
       </Dialog>
     </div>
   );
-}
-
-function validateImeiImageFile(file: File) {
-  if (!imeiImageMimeTypes.has(file.type) && !imeiImageExtensionPattern.test(file.name)) {
-    return "仅支持 JPG、PNG、WebP、HEIC 或 HEIF 图片。";
-  }
-  if (file.size > imeiImageMaxBytes) {
-    return "图片不能超过 8 MB。";
-  }
-  return "";
 }
 
 async function recognizeTextFromImageFile(file: File): Promise<ImeiRecognitionResult> {
@@ -980,6 +994,11 @@ async function recognizeTextFromImageFile(file: File): Promise<ImeiRecognitionRe
     imageSource.cleanup();
     throw error;
   }
+}
+
+function maskScannerCandidate(value: string) {
+  const normalized = value.trim();
+  return normalized.length <= 4 ? `••••${normalized}` : `•••• ${normalized.slice(-4)}`;
 }
 
 async function recognizeTextFromImageElement(
@@ -1633,7 +1652,11 @@ function getCandidateConfidencePriority(candidate: ImeiCandidate) {
 }
 
 function getOverlayDisplayValue(value: string) {
-  return value.length > 12 ? `...${value.slice(-8)}` : value;
+  return maskCandidateValue(value);
+}
+
+function maskCandidateValue(value: string) {
+  return `•••• ${value.slice(-4)}`;
 }
 
 function getCandidateEvidenceLabel(candidate: ImeiSelectableCandidate) {

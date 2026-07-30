@@ -160,6 +160,7 @@ import {
   finalizeBuybackPurchase,
   getInventoryItem,
   getInventoryProduct,
+  getInventoryProductEditData,
   getInventoryStats,
   getInventorySummary,
   importElectronicsCsvPreview,
@@ -172,9 +173,11 @@ import {
   sellInventoryItem,
   transitionInventoryItem,
   updateInventoryItem,
+  updateInventoryProduct,
   uploadInventoryAttachment,
 } from "@/features/inventory/server/inventory.service";
 import {
+  assertInventoryProductDeviceDataV2Enabled,
   assertInventoryV2CommandEnabled,
   assertInventoryV2ShadowReadEnabled,
 } from "@/features/inventory/server/inventory-v2-feature-flags";
@@ -344,12 +347,14 @@ import {
   dashboardPrioritySummaryInputSchema,
   electronicsCsvImportBodySchema,
   idBodySchema,
+  inventoryProductSensitiveIdBodySchema,
   inventoryAttachmentUploadBodySchema,
   inventoryAttachmentAccessBodySchema,
   buybackFinalizeBodySchema,
   inventoryIntakeCreateBodySchema,
   inventoryListFiltersSchema,
   inventoryProductListFiltersSchema,
+  updateInventoryProductBodySchema,
   inventoryQualityCheckBodySchema,
   inventorySellBodySchema,
   inventoryTransactionBodySchema,
@@ -486,6 +491,7 @@ const supabaseSource = {
   getCustomerDetail,
   getInventoryItem,
   getInventoryProduct,
+  getInventoryProductEditData,
   getInventoryStats,
   getInventorySummary,
   getOnboardingStatus,
@@ -563,6 +569,7 @@ const supabaseSource = {
   updateStoreMemberRole,
   updateCustomer,
   updateInventoryItem,
+  updateInventoryProduct,
   updateMessageTemplate,
   updateOrder,
   updateOrderLineCosts,
@@ -965,6 +972,8 @@ async function source() {
         canAssignSuppliers: true,
         canManageSuppliers: true,
         canReadInventory: true,
+        canCreateInventory: true,
+        canUpdateInventory: true,
         canSearchOrderArchive: true,
         canBrowseOrderArchive: true,
         canReadOrderFinance: true,
@@ -1807,10 +1816,11 @@ export async function handleRepairDeskPost(
           })
           .strict()
           .parse(body);
-        if (domains.some((domain) => domain !== "orders" && domain !== "memos")) {
+        if (domains.some((domain) => !["orders", "memos", "inventory"].includes(domain))) {
           throw new ForbiddenError("当前同步版本接口仅开放可见业务域");
         }
         if (domains.includes("orders")) assertOrderListPermission(actor);
+        if (domains.includes("inventory")) assertInventoryReadPermission(actor);
         if (domains.includes("memos")) assertMemosFeature(actor);
         return ok(await api.getRepairDeskDomainRevisions(domains, actor));
       }
@@ -2135,6 +2145,13 @@ export async function handleRepairDeskPost(
         const { id } = idBodySchema.parse(body);
         assertInventoryReadPermission(actor);
         return ok(await api.getInventoryProduct(id, actor));
+      }
+      case "inventory/products/edit-data": {
+        const { id } = inventoryProductSensitiveIdBodySchema.parse(body);
+        assertInventoryUpdatePermission(actor);
+        assertInventoryProductDeviceDataV2Enabled();
+        assertInventoryV2CommandEnabled(actor.storeId ?? "");
+        return ok(await api.getInventoryProductEditData(id, actor));
       }
       case "customer/get": {
         const { id } = idBodySchema.parse(body);
@@ -2627,6 +2644,7 @@ export async function handleRepairDeskPost(
       case "inventory/products/quick-create": {
         const { input } = createInventoryProductBodySchema.parse(body);
         assertInventoryCreatePermission(actor);
+        assertInventoryProductDeviceDataV2Enabled();
         assertInventoryV2CommandEnabled(actor.storeId ?? "");
         if (input.cost_amount !== undefined) {
           assertRepairDeskPermission(actor, "inventory:cost_allocate");
@@ -2636,6 +2654,22 @@ export async function handleRepairDeskPost(
             actor,
             () => api.createInventoryProduct(input, actor),
             realtimeBroadcasts.inventoryProductCreated,
+          ),
+        );
+      }
+      case "inventory/products/update": {
+        const { id, input } = updateInventoryProductBodySchema.parse(body);
+        assertInventoryUpdatePermission(actor);
+        assertInventoryProductDeviceDataV2Enabled();
+        assertInventoryV2CommandEnabled(actor.storeId ?? "");
+        if (input.cost_amount !== undefined) {
+          assertRepairDeskPermission(actor, "inventory:cost_allocate");
+        }
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.updateInventoryProduct(id, input, actor),
+            realtimeBroadcasts.inventoryProductUpdated,
           ),
         );
       }
