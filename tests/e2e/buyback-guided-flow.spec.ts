@@ -2,7 +2,7 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 
-test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for guided buyback checks.");
+test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for transparent buyback checks.");
 
 test("a failed buyback request is never presented as an empty list", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -15,137 +15,161 @@ test("a failed buyback request is never presented as an empty list", async ({ pa
   });
 
   await page.goto("/buyback", { waitUntil: "domcontentloaded" });
-
   await expect(page.getByRole("heading", { name: "回收记录加载失败" })).toBeVisible();
-  await expect(page.getByText("这不是空数据")).toBeVisible();
-  await expect(page.getByText("还没有回收报价")).toHaveCount(0);
+  await expect(page.getByText("检查网络后重试。")).toBeVisible();
   await expect(page.getByRole("button", { name: "重新加载" })).toBeVisible();
 });
 
-for (const role of ["owner", "manager", "sales"] as const) {
-  for (const viewport of [
-    { width: 390, height: 844 },
-    { width: 1440, height: 900 },
-  ]) {
-    test(`${role} sees the same four-step quote-only flow at ${viewport.width}px`, async ({
-      page,
-    }) => {
-      test.setTimeout(120_000);
-      await useStoreRole(page, role);
-      await page.setViewportSize(viewport);
+for (const viewport of [
+  { width: 390, height: 844, name: "mobile" },
+  { width: 430, height: 932, name: "mobile-wide" },
+  { width: 768, height: 1024, name: "tablet" },
+  { width: 1024, height: 768, name: "desktop-compact" },
+  { width: 1440, height: 900, name: "desktop" },
+]) {
+  test(`owner creates and records a transparent offer at ${viewport.width}px`, async ({ page }) => {
+    test.setTimeout(120_000);
+    await useStoreRole(page, "owner");
+    await page.setViewportSize(viewport);
 
-      let evidenceUploads = 0;
-      let finalizeCalls = 0;
-      page.on("request", (request) => {
-        if (request.url().includes("/api/repairdesk/inventory/attachment/upload")) {
-          evidenceUploads += 1;
-        }
-        if (request.url().includes("/api/repairdesk/inventory/buyback/finalize")) {
-          finalizeCalls += 1;
-        }
-      });
-
-      await page.goto("/buyback", { waitUntil: "domcontentloaded" });
-      const openFlow = page.getByRole("button", { name: /^(新建回收报价|回收报价)$/ });
-      await expect(openFlow).toBeVisible({ timeout: 30_000 });
-      await openFlow.click();
-
-      const dialog = page.getByRole("dialog");
-      await expect(dialog).toBeVisible({ timeout: 30_000 });
-      await expect(dialog.getByText("回收报价", { exact: true })).toBeVisible();
-      await expect(dialog.getByText("资料关闭", { exact: true })).toBeVisible();
-      await expect(dialog.getByText("当前只能保存报价与检测", { exact: true })).toBeVisible();
-      await expectStep(dialog, 1);
-      await expectSensitiveControlsAbsent(dialog);
-
-      await dialog.getByText("iPhone 17", { exact: true }).click();
-      await dialog.getByText("128GB", { exact: true }).click();
-      await dialog.getByText("85-87%", { exact: true }).click();
-      await dialog.getByRole("button", { name: "下一步：查看回收价格" }).click();
-
-      await expectStep(dialog, 2);
-      await expect(
-        dialog.getByText("这是给客户看的初步口头估价。客户同意后，可继续做功能检测并保存记录。", {
-          exact: true,
-        }),
-      ).toBeVisible();
-      await dialog.getByRole("button", { name: "客户接受，开始检查手机" }).click();
-
-      await expectStep(dialog, 3);
-      await dialog
-        .getByPlaceholder("扫描或输入 IMEI / SN")
-        .fill(`35678901234${role.length}${viewport.width}`.slice(0, 15));
-      await dialog.getByRole("button", { name: "客户可现场解锁设备" }).click();
-      await dialog.getByRole("button", { name: "Find My / FRP / 账号锁已关闭" }).click();
-      for (let group = 0; group < 4; group += 1) {
-        await dialog.getByRole("button", { name: "本组全部正常" }).click();
-        if (group < 3) await dialog.getByRole("button", { name: "下一组" }).click();
+    const forbiddenCalls: string[] = [];
+    page.on("request", (request) => {
+      if (/attachment|finalize|transaction|inventory\/transition/.test(request.url())) {
+        forbiddenCalls.push(request.url());
       }
-      await dialog.getByRole("button", { name: "检测完成，进入保存" }).click();
-
-      await expectStep(dialog, 4);
-      await expect(dialog.getByText("资料登记暂时关闭", { exact: true })).toBeVisible();
-      await expect(
-        dialog.getByText("证件号码、证件图片、客户签名或付款记录", { exact: true }),
-      ).toBeVisible();
-      await expectSensitiveControlsAbsent(dialog);
-
-      const screenshotPath =
-        role === "owner"
-          ? viewport.width === 390
-            ? process.env.REPAIRDESK_E2E_BUYBACK_MOBILE_SCREENSHOT
-            : process.env.REPAIRDESK_E2E_BUYBACK_DESKTOP_SCREENSHOT
-          : undefined;
-      if (screenshotPath) {
-        await prepareVisualEvidence(page);
-        await page.screenshot({ path: screenshotPath, fullPage: false });
-      }
-
-      const save = dialog.getByRole("button", { name: "保存报价与检测记录" });
-      await expect(save).toBeEnabled();
-      await save.click();
-
-      await expect(
-        page.getByRole("heading", { name: "报价与检测记录已保存", exact: true }),
-      ).toBeVisible({ timeout: 30_000 });
-      await expect(
-        page.getByText("本次记录尚未完成回收成交；本次保存未新增证件、签名或付款资料。", {
-          exact: true,
-        }),
-      ).toBeVisible();
-      await expect(page.getByRole("button", { name: "返回回收列表" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "打印回收凭据" })).toHaveCount(0);
-      expect(evidenceUploads).toBe(0);
-      expect(finalizeCalls).toBe(0);
-      await expectNoPageOverflow(page);
     });
-  }
+
+    await page.goto("/buyback", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { name: "回收管理" })).toBeVisible();
+    await expect(page.getByText("当前只记录报价与客户口头答复")).toBeVisible();
+    await expectNoPageOverflow(page);
+    await expect(page.locator('[role="progressbar"]')).toHaveCount(0);
+    await expect(page.getByText(/步骤 \d/)).toHaveCount(0);
+
+    if (viewport.width <= 430) {
+      await expectMinimumTouchTarget(page.getByRole("button", { name: "回收扫码查询" }));
+      await expectMinimumTouchTarget(page.getByRole("combobox", { name: "筛选回收记录" }));
+    }
+    await page.getByRole("button", { name: "新建透明报价" }).filter({ visible: true }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("heading", { name: "新建透明报价" })).toBeVisible();
+    await expect(dialog.getByText("一页完成设备录入、价格说明和保存")).toBeVisible();
+    await dialog.getByPlaceholder("例如 iPhone 15 Pro").fill(`iPhone 15 ${viewport.width}`);
+    await dialog.getByPlaceholder("例如 原色钛金属").fill("原色钛金属");
+    await dialog.getByPlaceholder("摄像头扫码或手动输入").fill("356789012345678");
+    await dialog.getByPlaceholder("例如 87").fill("87");
+    await dialog.getByRole("textbox", { name: "参考最高 €" }).fill("420,50");
+    await dialog.getByRole("button", { name: "采用建议" }).click();
+    if (viewport.width <= 430) {
+      await expectMinimumTouchTarget(dialog.getByRole("button", { name: "采用建议" }));
+      await expectMinimumTouchTarget(dialog.getByRole("button", { name: "摄像头扫码录入 IMEI" }));
+    }
+    await expect(dialog.getByText("系统建议（参考最高 − 扣减）")).toBeVisible();
+    await expectSensitiveControlsAbsent(dialog);
+    await expectNoPageOverflow(page);
+
+    const workspaceScreenshot = screenshotPath(viewport.name, "workspace");
+    if (workspaceScreenshot) {
+      await settleDialog(page, dialog);
+      await page.screenshot({ path: workspaceScreenshot, fullPage: false });
+    }
+
+    await dialog.getByRole("button", { name: "保存透明报价" }).click();
+    await expect(dialog).toBeHidden({ timeout: 30_000 });
+    await expect(
+      page.getByText(`Apple iPhone 15 ${viewport.width}`, { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("356789012345678")).toHaveCount(0);
+    await expect(page.getByText(/••••5678/).first()).toBeVisible();
+
+    const listScreenshot = screenshotPath(viewport.name, "list");
+    if (listScreenshot) await page.screenshot({ path: listScreenshot, fullPage: false });
+
+    await page.getByText(`Apple iPhone 15 ${viewport.width}`, { exact: true }).click();
+    const detail = page.getByRole("dialog");
+    await expect(
+      detail.getByRole("heading", { name: `Apple iPhone 15 ${viewport.width}` }),
+    ).toBeVisible();
+    await expect(detail.getByText("价格怎么得出")).toBeVisible();
+    await expect(detail.getByText("现场记录客户答复")).toBeVisible();
+    await expect(detail.getByText("非签名确认")).toBeVisible();
+    await expect(detail.locator('[role="progressbar"]')).toHaveCount(0);
+    await expectNoPageOverflow(page);
+
+    const detailScreenshot = screenshotPath(viewport.name, "detail");
+    if (detailScreenshot) {
+      await settleDialog(page, detail);
+      await page.screenshot({ path: detailScreenshot, fullPage: false });
+    }
+
+    const response =
+      viewport.width === 430
+        ? { label: "接受", saved: "已接受" }
+        : viewport.width === 1440
+          ? { label: "拒绝", saved: "已拒绝" }
+          : { label: "暂缓", saved: "暂缓" };
+    await detail.getByText(response.label, { exact: true }).click();
+    if (response.label === "拒绝") {
+      await detail.getByRole("combobox").click();
+      await page.getByRole("option", { name: "价格未达预期" }).click();
+    }
+    await detail.getByRole("button", { name: "保存答复" }).click();
+    await expect(detail).toBeHidden({ timeout: 30_000 });
+    await expect(page.getByText(response.saved, { exact: true }).first()).toBeVisible();
+    expect(forbiddenCalls).toEqual([]);
+    await expectNoPageOverflow(page);
+  });
+}
+
+test("sales cannot revise while technician cannot create or respond", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await useStoreRole(page, "sales");
+  await page.goto("/buyback", { waitUntil: "domcontentloaded" });
+  await expectNoPageOverflow(page);
+  await page.getByText("Apple iPhone 13", { exact: true }).first().click();
+  await expect(page.getByRole("dialog").getByRole("button", { name: "改价" })).toBeDisabled();
+  await page.getByRole("dialog").getByRole("button", { name: "关闭" }).last().click();
+
+  await page.unrouteAll({ behavior: "wait" });
+  await useStoreRole(page, "technician");
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expectNoPageOverflow(page);
+  await expect(page.getByRole("button", { name: "新建透明报价" })).toBeDisabled();
+  await page.getByText("Apple iPhone 13", { exact: true }).first().click();
+  await expect(page.getByRole("dialog").getByRole("button", { name: "保存答复" })).toBeDisabled();
+});
+
+test("offline mode stays read-only until the network returns", async ({ context, page }) => {
+  await useStoreRole(page, "owner");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/buyback", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "新建透明报价" }).filter({ visible: true }).click();
+  await context.setOffline(true);
+  await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+  await expect(page.getByText(/当前处于离线状态/)).toHaveCount(1);
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: "保存透明报价" }),
+  ).toBeDisabled();
+  await context.setOffline(false);
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect(page.getByText(/当前处于离线状态/)).toHaveCount(0);
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: "保存透明报价" }),
+  ).toBeEnabled();
+});
+
+function screenshotPath(viewport: string, state: string) {
+  const root = process.env.REPAIRDESK_E2E_BUYBACK_SCREENSHOT_DIR;
+  return root ? `${root}/buyback-transparent-${viewport}-${state}.png` : undefined;
 }
 
 async function expectSensitiveControlsAbsent(dialog: ReturnType<Page["getByRole"]>) {
-  await expect(dialog.getByText("客户姓名", { exact: true })).toHaveCount(0);
-  await expect(dialog.getByText("WhatsApp / 电话", { exact: true })).toHaveCount(0);
+  await expect(dialog.getByText("目标利润", { exact: true })).toHaveCount(0);
+  await expect(dialog.getByText("维修成本", { exact: true })).toHaveCount(0);
+  await expect(dialog.getByText("预计毛利", { exact: true })).toHaveCount(0);
   await expect(dialog.getByText("付款方式", { exact: true })).toHaveCount(0);
-  await expect(dialog.getByPlaceholder("Document ID")).toHaveCount(0);
   await expect(dialog.locator('input[type="file"]')).toHaveCount(0);
-  await expect(dialog.locator('canvas[aria-label="客户回收成交签名区域"]')).toHaveCount(0);
-  await expect(
-    dialog.getByRole("button", { name: /拍摄证件|确认签名|完成回收并转入库存/ }),
-  ).toHaveCount(0);
-  await expect(dialog.getByText(/负责人继续采集证件与签名|资料已提交负责人/)).toHaveCount(0);
-}
-
-async function expectStep(dialog: ReturnType<Page["getByRole"]>, step: number) {
-  await expect(dialog.locator(`[aria-label="步骤 ${step} / 4"]`)).toBeVisible();
-}
-
-async function prepareVisualEvidence(page: Page) {
-  await page.waitForTimeout(250);
-  await page.locator("nextjs-portal").evaluateAll((portals) => {
-    for (const portal of portals) {
-      (portal as HTMLElement).style.display = "none";
-    }
-  });
+  await expect(dialog.getByRole("button", { name: /拍摄证件|确认签名|完成回收/ })).toHaveCount(0);
 }
 
 async function expectNoPageOverflow(page: Page) {
@@ -156,7 +180,24 @@ async function expectNoPageOverflow(page: Page) {
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.innerWidth);
 }
 
-async function useStoreRole(page: Page, role: "owner" | "manager" | "sales") {
+async function expectMinimumTouchTarget(locator: ReturnType<Page["getByRole"]>) {
+  const box = await locator.boundingBox();
+  expect(box, "touch target must be visible").not.toBeNull();
+  expect(box!.width).toBeGreaterThanOrEqual(44);
+  expect(box!.height).toBeGreaterThanOrEqual(44);
+}
+
+async function settleDialog(page: Page, dialog: ReturnType<Page["getByRole"]>) {
+  const scrollArea = dialog.locator(".overflow-y-auto").first();
+  if (await scrollArea.count()) {
+    await scrollArea.evaluate((element) => {
+      if (element instanceof HTMLElement) element.scrollTop = 0;
+    });
+  }
+  await page.waitForTimeout(350);
+}
+
+async function useStoreRole(page: Page, role: "owner" | "manager" | "sales" | "technician") {
   const fulfillWithRole = async (route: Route) => {
     const response = await route.fetch();
     const body = (await response.json()) as {
@@ -165,23 +206,42 @@ async function useStoreRole(page: Page, role: "owner" | "manager" | "sales") {
         stores?: Array<{ id?: string; role?: string }>;
       };
     };
-    const activeStore = body.data?.activeStore;
-    if (!body.data || !activeStore) {
+    if (!body.data) {
       await route.fulfill({ response });
       return;
     }
-    const activeStoreId = activeStore.id;
+    const patchContext = <
+      T extends {
+        activeStore?: { id?: string; role?: string };
+        stores?: Array<{ id?: string; role?: string }>;
+      },
+    >(
+      context: T,
+    ) => {
+      const activeStore = context.activeStore;
+      if (!activeStore) return context;
+      return {
+        ...context,
+        activeStore: { ...activeStore, role },
+        stores: context.stores?.map((store) =>
+          store.id === activeStore.id ? { ...store, role } : store,
+        ),
+      };
+    };
+    const data = body.data as typeof body.data & {
+      storeContext?: {
+        activeStore?: { id?: string; role?: string };
+        stores?: Array<{ id?: string; role?: string }>;
+      };
+    };
     await route.fulfill({
       response,
       contentType: "application/json",
       body: JSON.stringify({
         ...body,
         data: {
-          ...body.data,
-          activeStore: { ...activeStore, role },
-          stores: body.data.stores?.map((store) =>
-            store.id === activeStoreId ? { ...store, role } : store,
-          ),
+          ...patchContext(data),
+          storeContext: data.storeContext ? patchContext(data.storeContext) : undefined,
         },
       }),
     });
@@ -189,4 +249,5 @@ async function useStoreRole(page: Page, role: "owner" | "manager" | "sales") {
 
   await page.route("**/api/repairdesk/onboarding/status", fulfillWithRole);
   await page.route("**/api/repairdesk/stores/context", fulfillWithRole);
+  await page.route("**/api/repairdesk/shell/bootstrap", fulfillWithRole);
 }

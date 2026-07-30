@@ -109,6 +109,17 @@ describe("server permission matrix", () => {
     expect(isGrantablePermissionAction("order:quote_prepare")).toBe(false);
   });
 
+  it("enforces the transparent buyback quote role split", () => {
+    expect(can(actor("owner"), "buyback:quote_create")).toBe(true);
+    expect(can(actor("manager"), "buyback:quote_revise")).toBe(true);
+    expect(can(actor("sales"), "buyback:quote_create")).toBe(true);
+    expect(can(actor("sales"), "buyback:quote_respond")).toBe(true);
+    expect(can(actor("sales"), "buyback:quote_revise")).toBe(false);
+    expect(can(actor("technician"), "buyback:quote_create")).toBe(false);
+    expect(can(actor("technician"), "buyback:quote_respond")).toBe(false);
+    expect(can(actor("viewer"), "buyback:quote_create")).toBe(false);
+  });
+
   it("keeps memo actions role/scoped and non-grantable", () => {
     for (const role of permissionRoles) {
       expect(can(actor(role), "memo:read"), role).toBe(true);

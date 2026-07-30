@@ -2655,6 +2655,91 @@ export interface BuybackFinalizeResult {
   updated_at: string;
 }
 
+export type BuybackQuoteOutcome = "accepted" | "deferred" | "rejected";
+
+export interface BuybackQuoteDeductionInput {
+  code: string;
+  label: string;
+  amount: number;
+}
+
+export interface BuybackQuoteSnapshotInput {
+  reference_low: number;
+  reference_high: number;
+  final_offer: number;
+  deductions: BuybackQuoteDeductionInput[];
+  manual_adjustment_reason?: string;
+  risk_level: "low" | "medium" | "high";
+  hard_block: boolean;
+  expires_at: string;
+}
+
+export interface CreateBuybackQuoteInput {
+  record_id: string;
+  idempotency_key: string;
+  customer_id?: string;
+  device: {
+    brand: string;
+    model: string;
+    color?: string;
+    storage_capacity?: string;
+    serial_or_imei?: string;
+    battery_health?: number;
+  };
+  quote: BuybackQuoteSnapshotInput;
+}
+
+export interface ReviseBuybackQuoteInput {
+  expected_updated_at: string;
+  idempotency_key: string;
+  quote: BuybackQuoteSnapshotInput;
+  change_reason: string;
+}
+
+export interface RecordBuybackQuoteResponseInput {
+  expected_updated_at: string;
+  idempotency_key: string;
+  quote_revision_id: string;
+  outcome: BuybackQuoteOutcome;
+  reason_code?: string;
+  note?: string;
+}
+
+export interface BuybackQuoteCommandResult {
+  ok: true;
+  code: "created" | "revised" | "response_recorded" | "idempotent_replay";
+  item_id: string;
+  quote_revision_id: string;
+  response_id?: string;
+  updated_at: string;
+}
+
+export interface BuybackQuoteHistoryEntry {
+  id: string;
+  revision_no: number;
+  kind: "initial" | "reprice";
+  quote: BuybackQuoteSnapshotInput;
+  change_reason?: string;
+  actor_name: string;
+  created_at: string;
+}
+
+export interface BuybackQuoteResponseEntry {
+  id: string;
+  quote_revision_id: string;
+  outcome: BuybackQuoteOutcome;
+  reason_code?: string;
+  note?: string;
+  channel: "staff_recorded_verbal";
+  actor_name: string;
+  created_at: string;
+}
+
+export interface BuybackQuoteHistoryResult {
+  revisions: BuybackQuoteHistoryEntry[];
+  responses: BuybackQuoteResponseEntry[];
+}
+
 export interface InventoryDetail {
   item: InventoryListItem;
   customer?: Customer;

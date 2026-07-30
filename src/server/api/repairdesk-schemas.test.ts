@@ -14,6 +14,8 @@ import {
   approvalStatusSchema,
   batchTransitionBodySchema,
   buybackFinalizeInputSchema,
+  buybackQuoteCreateBodySchema,
+  buybackQuoteResponseBodySchema,
   createOrderSchema,
   correctTerminalOrderInputSchema,
   customerListPageInputSchema,
@@ -65,6 +67,94 @@ import {
 } from "./repairdesk-schemas";
 
 describe("repairdesk API schemas", () => {
+  it("strictly validates transparent quote money and verbal responses", () => {
+    const quote = {
+      reference_low: 300,
+      reference_high: 400,
+      final_offer: 365,
+      deductions: [{ code: "battery", label: "电池健康调整", amount: 35 }],
+      risk_level: "low" as const,
+      hard_block: false,
+      expires_at: "2026-08-06T12:00:00.000Z",
+    };
+    expect(
+      buybackQuoteCreateBodySchema.parse({
+        input: {
+          record_id: "00000000-0000-4000-8000-000000000801",
+          idempotency_key: "00000000-0000-4000-8000-000000000802",
+          device: { brand: "Apple", model: "iPhone 15", storage_capacity: "128GB" },
+          quote,
+        },
+      }),
+    ).toBeTruthy();
+    expect(() =>
+      buybackQuoteCreateBodySchema.parse({
+        input: {
+          record_id: "00000000-0000-4000-8000-000000000801",
+          idempotency_key: "00000000-0000-4000-8000-000000000802",
+          device: { brand: "Apple", model: "iPhone 15", secret: "forbidden" },
+          quote,
+        },
+      }),
+    ).toThrow();
+    expect(() =>
+      buybackQuoteResponseBodySchema.parse({
+        id: "00000000-0000-4000-8000-000000000801",
+        input: {
+          expected_updated_at: "2026-07-30T12:00:00.000Z",
+          idempotency_key: "00000000-0000-4000-8000-000000000803",
+          quote_revision_id: "00000000-0000-4000-8000-000000000804",
+          outcome: "rejected",
+        },
+      }),
+    ).toThrow(/拒绝报价需要选择原因/);
+    expect(() =>
+      buybackQuoteCreateBodySchema.parse({
+        input: {
+          record_id: "00000000-0000-4000-8000-000000000801",
+          idempotency_key: "00000000-0000-4000-8000-000000000802",
+          device: { brand: "Apple", model: "iPhone 15" },
+          quote: { ...quote, risk_level: "high", hard_block: false },
+        },
+      }),
+    ).toThrow(/高风险报价必须阻止/);
+    expect(() =>
+      buybackQuoteCreateBodySchema.parse({
+        input: {
+          record_id: "00000000-0000-4000-8000-000000000801",
+          idempotency_key: "00000000-0000-4000-8000-000000000802",
+          device: { brand: "Apple", model: "iPhone 15" },
+          quote: { ...quote, final_offer: 350 },
+        },
+      }),
+    ).toThrow(/人工调整原因/);
+    expect(() =>
+      buybackQuoteResponseBodySchema.parse({
+        id: "00000000-0000-4000-8000-000000000801",
+        input: {
+          expected_updated_at: "2026-07-30T12:00:00.000Z",
+          idempotency_key: "00000000-0000-4000-8000-000000000803",
+          quote_revision_id: "00000000-0000-4000-8000-000000000804",
+          outcome: "deferred",
+          note: "+39 333-123-4567",
+        },
+      }),
+    ).toThrow(/完整电话、IMEI 或证件号码/);
+    for (const note of ["333/123/4567", "333_123_4567"]) {
+      expect(() =>
+        buybackQuoteResponseBodySchema.parse({
+          id: "00000000-0000-4000-8000-000000000801",
+          input: {
+            expected_updated_at: "2026-07-30T12:00:00.000Z",
+            idempotency_key: "00000000-0000-4000-8000-000000000803",
+            quote_revision_id: "00000000-0000-4000-8000-000000000804",
+            outcome: "deferred",
+            note,
+          },
+        }),
+      ).toThrow(/完整电话、IMEI 或证件号码/);
+    }
+  });
   it("accepts only explicit customer identity conflict resolutions", () => {
     const base = {
       expected_store_id: "00000000-0000-4000-8000-000000000800",

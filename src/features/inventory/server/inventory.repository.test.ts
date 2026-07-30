@@ -383,7 +383,7 @@ describe("inventory repository protected buyback writes", () => {
         buyback_price: 0,
         quote_payload: { buyback_quote: { final_offer: 300 } },
       }),
-    ).not.toThrow();
+    ).toThrow(/专用透明报价入口/);
   });
 
   it("freezes buyback cost and signed acquisition fields outside the finalize flow", () => {

@@ -9,4 +9,6 @@ export const buybackKeys = {
   details: () => [...buybackKeys.all, "detail"] as const,
   detail: (id: string, storeId?: string | null) =>
     [...buybackKeys.details(), id, ...storeQueryScope(storeId)] as const,
+  history: (id: string, storeId?: string | null) =>
+    [...buybackKeys.detail(id, storeId), "quote-history"] as const,
 };

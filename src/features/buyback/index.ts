@@ -1,1 +1,1 @@
-export { BuybackScreen } from "@/features/buyback/screens/buyback-screen";
+export { BuybackScreen } from "@/features/buyback/screens/transparent-buyback-screen";

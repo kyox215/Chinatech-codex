@@ -23,13 +23,21 @@ import {
   getStoreSettings as getMockStoreSettings,
   updateStoreSettings as updateMockStoreSettings,
 } from "@/features/messages/testing/mock-api";
-import type { AuditActor, BuybackFinalizeInput } from "@/lib/repairdesk/types";
+import type {
+  AuditActor,
+  BuybackFinalizeInput,
+  CreateBuybackQuoteInput,
+} from "@/lib/repairdesk/types";
 
 import {
   accessInventoryAttachment,
+  createBuybackQuote,
   createInventoryIntake,
   finalizeBuybackPurchase,
   getInventoryItem,
+  getBuybackQuoteHistory,
+  recordBuybackQuoteResponse,
+  reviseBuybackQuote,
   recordInventoryCheck,
   sellInventoryItem,
   transitionInventoryItem,
@@ -40,6 +48,80 @@ import {
 const mockImageBase64 = "iVBORw0KGgo=";
 
 describe("inventory mock buyback workflow", () => {
+  it("keeps transparent quote revisions and responses idempotent and version-bound", async () => {
+    const createKey = crypto.randomUUID();
+    const createInput: CreateBuybackQuoteInput = {
+      record_id: crypto.randomUUID(),
+      idempotency_key: createKey,
+      device: { brand: "Apple", model: "iPhone 15", storage_capacity: "128GB" },
+      quote: {
+        reference_low: 300,
+        reference_high: 400,
+        final_offer: 365,
+        deductions: [{ code: "battery", label: "电池健康调整", amount: 35 }],
+        risk_level: "low",
+        hard_block: false,
+        expires_at: new Date(Date.now() + 86_400_000).toISOString(),
+      },
+    };
+    const created = await createBuybackQuote(createInput);
+    await expect(createBuybackQuote(createInput)).resolves.toMatchObject({
+      code: "idempotent_replay",
+    });
+    const item = (await getInventoryItem(created.item_id)).item;
+    const response = await recordBuybackQuoteResponse(created.item_id, {
+      expected_updated_at: item.updated_at,
+      idempotency_key: crypto.randomUUID(),
+      quote_revision_id: created.quote_revision_id,
+      outcome: "deferred",
+    });
+    expect(response.code).toBe("response_recorded");
+    const history = await getBuybackQuoteHistory(created.item_id);
+    expect(history.revisions).toHaveLength(1);
+    expect(history.responses).toMatchObject([{ outcome: "deferred" }]);
+    await expect(
+      reviseBuybackQuote(created.item_id, {
+        expected_updated_at: item.updated_at,
+        idempotency_key: crypto.randomUUID(),
+        quote: history.revisions[0].quote,
+        change_reason: "重新检测",
+      }),
+    ).rejects.toThrow(/其他人更新/);
+  });
+
+  it("locks accepted and rejected responses until a manager publishes a new revision", async () => {
+    const created = await createBuybackQuote({
+      record_id: crypto.randomUUID(),
+      idempotency_key: crypto.randomUUID(),
+      device: { brand: "Apple", model: "iPhone 14" },
+      quote: {
+        reference_low: 250,
+        reference_high: 300,
+        final_offer: 300,
+        deductions: [],
+        risk_level: "low",
+        hard_block: false,
+        expires_at: new Date(Date.now() + 86_400_000).toISOString(),
+      },
+    });
+    const item = (await getInventoryItem(created.item_id)).item;
+    await recordBuybackQuoteResponse(created.item_id, {
+      expected_updated_at: item.updated_at,
+      idempotency_key: crypto.randomUUID(),
+      quote_revision_id: created.quote_revision_id,
+      outcome: "rejected",
+      reason_code: "price_gap",
+    });
+    const rejected = (await getInventoryItem(created.item_id)).item;
+    await expect(
+      recordBuybackQuoteResponse(created.item_id, {
+        expected_updated_at: rejected.updated_at,
+        idempotency_key: crypto.randomUUID(),
+        quote_revision_id: created.quote_revision_id,
+        outcome: "accepted",
+      }),
+    ).rejects.toThrow(/答复已锁定/);
+  });
   it("blocks actor-bound buyback uploads in mock-backed server requests", async () => {
     const draft = completedBuybackDraft("3339001000");
     const result = calculateBuybackQuote(draft);
@@ -186,7 +268,7 @@ describe("inventory mock buyback workflow", () => {
     ).rejects.toThrow(/电话已绑定其他客户/);
   });
 
-  it("binds the seller when a deferred quote is reopened and then finalizes", async () => {
+  it("blocks the legacy generic update from rebinding a deferred quote", async () => {
     const sellerDraft = completedBuybackDraft("3339001017");
     const deferredDraft: BuybackQuoteDraft = {
       ...sellerDraft,
@@ -199,13 +281,10 @@ describe("inventory mock buyback workflow", () => {
     const { id } = await createInventoryIntake(buildBuybackQuoteDraftInput(deferredDraft, result));
 
     expect((await getInventoryItem(id)).customer).toBeUndefined();
-    await updateInventoryItem(id, buildBuybackQuoteReviewUpdateInput(sellerDraft, result));
-    expect((await getInventoryItem(id)).customer).toMatchObject({
-      name: sellerDraft.customer_name,
-    });
-
-    const input = await buildFinalizeInputForItem(id, sellerDraft, result);
-    await expect(finalizeBuybackPurchase(id, input)).resolves.toMatchObject({ code: "finalized" });
+    await expect(
+      updateInventoryItem(id, buildBuybackQuoteReviewUpdateInput(sellerDraft, result)),
+    ).rejects.toThrow(/专用透明报价入口/);
+    expect((await getInventoryItem(id)).customer).toBeUndefined();
   });
 
   it("accepts a passport data page without a fake back image", async () => {

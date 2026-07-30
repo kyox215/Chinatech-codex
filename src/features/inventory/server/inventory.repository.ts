@@ -3,8 +3,11 @@ import { createHash } from "node:crypto";
 import { CURRENCY_CODE } from "@/lib/money";
 import type {
   AuditActor,
+  BuybackQuoteCommandResult,
+  BuybackQuoteHistoryResult,
   BuybackFinalizeInput,
   BuybackFinalizeResult,
+  CreateBuybackQuoteInput,
   CreateInventoryIntakeInput,
   Customer,
   ElectronicsImportPreview,
@@ -25,6 +28,8 @@ import type {
   InventorySummary,
   InventoryTransaction,
   InventoryTransactionInput,
+  RecordBuybackQuoteResponseInput,
+  ReviseBuybackQuoteInput,
   SellInventoryItemInput,
   UpdateInventoryItemInput,
 } from "@/lib/repairdesk/types";
@@ -208,22 +213,62 @@ export function projectInventoryItemForActor(
   const legacyPayload = can(actor, "buyback:evidence_read")
     ? item.legacy_payload
     : redactBuybackIdentityPayload(item.legacy_payload);
-  if (can(actor, "finance:profit_read")) return { ...item, legacy_payload: legacyPayload };
+  const privacyProjected =
+    item.source_type === "buyback"
+      ? {
+          ...item,
+          serial_or_imei: maskSensitiveIdentifier(item.serial_or_imei),
+          customer_phone: maskSensitivePhone(item.customer_phone),
+          buyer_phone: maskSensitivePhone(item.buyer_phone),
+          legacy_payload: legacyPayload,
+        }
+      : { ...item, legacy_payload: legacyPayload };
+  if (can(actor, "finance:profit_read")) return privacyProjected;
   const {
     buyback_price: _buybackPrice,
     repair_cost_amount: _repairCost,
     fees_amount: _fees,
     profit: _profit,
     ...visible
-  } = item;
+  } = privacyProjected;
   const contactVisible = can(actor, "customer:detail")
     ? visible
     : { ...visible, customer_phone: undefined, buyer_phone: undefined };
   return {
     ...contactVisible,
-    legacy_payload: redactInventoryFinancePayload(legacyPayload),
+    legacy_payload:
+      item.source_type === "buyback"
+        ? redactBuybackInternalFinancePayload(legacyPayload)
+        : redactInventoryFinancePayload(legacyPayload),
     finance_redacted: true,
   } as InventoryListItem;
+}
+
+function redactBuybackInternalFinancePayload(value: Record<string, unknown>) {
+  const blockedKey =
+    /(profit|cost|fee|list_price|sale_price|system_offer|pricing_floor|pricing_ceiling|target_profit|market_(min|max))/i;
+  const walk = (entry: unknown): unknown => {
+    if (Array.isArray(entry)) return entry.map(walk);
+    if (!entry || typeof entry !== "object") return entry;
+    return Object.fromEntries(
+      Object.entries(entry as Record<string, unknown>)
+        .filter(([key]) => !blockedKey.test(key))
+        .map(([key, nested]) => [key, walk(nested)]),
+    );
+  };
+  return walk(value) as Record<string, unknown>;
+}
+
+function maskSensitiveIdentifier(value?: string) {
+  if (!value) return undefined;
+  const compact = value.replace(/\s+/g, "");
+  return compact.length > 4 ? `••••${compact.slice(-4)}` : `••••${compact}`;
+}
+
+function maskSensitivePhone(value?: string) {
+  if (!value) return undefined;
+  const digits = value.replace(/\D/g, "");
+  return digits ? `••••${digits.slice(-4)}` : undefined;
 }
 
 function redactBuybackIdentityPayload(value: Record<string, unknown>) {
@@ -429,6 +474,13 @@ export function assertInventoryIntakeDoesNotBypassBuybackFinalize(
   if (sourceType === "buyback" && money(input.buyback_price) !== 0) {
     throw new Error("回收成本只能由带证件、签名与幂等保护的确认成交操作写入");
   }
+  if (
+    sourceType === "buyback" &&
+    (Object.prototype.hasOwnProperty.call(input, "quoted_offer") ||
+      Object.prototype.hasOwnProperty.call(input, "quote_payload"))
+  ) {
+    throw new Error("回收报价必须使用专用透明报价入口");
+  }
 }
 
 export function assertInventoryUpdateDoesNotBypassBuybackAgreement(
@@ -438,6 +490,9 @@ export function assertInventoryUpdateDoesNotBypassBuybackAgreement(
   if (maybeString(before.source_type) !== "buyback") return;
   if (Object.prototype.hasOwnProperty.call(input, "buyback_price")) {
     throw new Error("回收成本不能通过通用库存更新修改，请使用专用成交或更正流程");
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "quote_payload")) {
+    throw new Error("回收报价与客户答复必须使用专用透明报价入口");
   }
 
   const status = maybeString(before.status);
@@ -1024,6 +1079,167 @@ export async function finalizeBuybackPurchase(
     agreement_id: requiredString(result.agreement_id),
     payment_id: requiredString(result.payment_id),
     updated_at: requiredString(result.updated_at),
+  };
+}
+
+function buybackQuoteCommandFailureMessage(code: string) {
+  const messages: Record<string, string> = {
+    invalid_command: "报价操作标识无效",
+    actor_forbidden: "当前员工无权执行此报价操作",
+    invalid_payload: "报价资料不完整或格式无效",
+    idempotency_conflict: "本次操作标识已用于其他报价，请刷新后重试",
+    customer_not_found: "客户不存在或不属于当前店铺",
+    item_not_found: "回收记录不存在",
+    stale_version: "回收记录已被其他人更新，请刷新后重试",
+    stale_quote_revision: "客户答复对应的报价已不是当前版本，请刷新后重新确认",
+    invalid_state: "当前回收状态不能继续改价",
+    invalid_outcome: "客户答复无效",
+    quote_not_acceptable: "报价已过期或存在阻断风险，不能记录为接受",
+    response_locked: "已接受或已拒绝的答复已锁定；需要负责人重新报价后再记录",
+    reason_required: "请填写本次改价或拒绝原因",
+  };
+  return messages[code] ?? "保存透明报价失败";
+}
+
+function buybackQuoteResult(value: unknown): BuybackQuoteCommandResult {
+  if (!value || typeof value !== "object") throw new Error("保存透明报价失败：数据库返回无效");
+  const result = value as Record<string, unknown>;
+  if (result.ok !== true) {
+    throw new Error(buybackQuoteCommandFailureMessage(requiredString(result.code)));
+  }
+  const rawCode = requiredString(result.code);
+  if (!["created", "revised", "response_recorded", "idempotent_replay"].includes(rawCode)) {
+    throw new Error("保存透明报价失败：数据库返回未知结果");
+  }
+  const code = rawCode as BuybackQuoteCommandResult["code"];
+  return {
+    ok: true,
+    code,
+    item_id: requiredString(result.item_id),
+    quote_revision_id: requiredString(result.quote_revision_id),
+    response_id: maybeString(result.response_id),
+    updated_at: requiredString(result.updated_at),
+  };
+}
+
+export async function createBuybackQuote(
+  input: CreateBuybackQuoteInput,
+  actor: AuditActor = systemActor,
+): Promise<BuybackQuoteCommandResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  if (!actor.id) throw new Error("保存报价需要已登录员工身份");
+  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_create_buyback_quote_v1", {
+    p_store_id: storeId,
+    p_item_id: input.record_id,
+    p_actor_id: actor.id,
+    p_actor_name: actor.displayName,
+    p_actor_email: actor.email ?? null,
+    p_idempotency_key: input.idempotency_key,
+    p_customer_id: input.customer_id ?? null,
+    p_device: input.device,
+    p_quote: input.quote,
+  });
+  fail(error, "保存透明报价失败");
+  return buybackQuoteResult(data);
+}
+
+export async function reviseBuybackQuote(
+  id: string,
+  input: ReviseBuybackQuoteInput,
+  actor: AuditActor = systemActor,
+): Promise<BuybackQuoteCommandResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  if (!actor.id) throw new Error("修改报价需要已登录员工身份");
+  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_revise_buyback_quote_v1", {
+    p_store_id: storeId,
+    p_item_id: id,
+    p_actor_id: actor.id,
+    p_actor_name: actor.displayName,
+    p_actor_email: actor.email ?? null,
+    p_expected_updated_at: input.expected_updated_at,
+    p_idempotency_key: input.idempotency_key,
+    p_quote: input.quote,
+    p_change_reason: input.change_reason,
+  });
+  fail(error, "修改透明报价失败");
+  return buybackQuoteResult(data);
+}
+
+export async function recordBuybackQuoteResponse(
+  id: string,
+  input: RecordBuybackQuoteResponseInput,
+  actor: AuditActor = systemActor,
+): Promise<BuybackQuoteCommandResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  if (!actor.id) throw new Error("记录客户答复需要已登录员工身份");
+  const { data, error } = await getSupabaseAdmin().rpc(
+    "repairdesk_record_buyback_quote_response_v1",
+    {
+      p_store_id: storeId,
+      p_item_id: id,
+      p_actor_id: actor.id,
+      p_actor_name: actor.displayName,
+      p_actor_email: actor.email ?? null,
+      p_expected_updated_at: input.expected_updated_at,
+      p_idempotency_key: input.idempotency_key,
+      p_quote_revision_id: input.quote_revision_id,
+      p_outcome: input.outcome,
+      p_reason_code: input.reason_code ?? null,
+      p_note: input.note ?? null,
+    },
+  );
+  fail(error, "记录客户答复失败");
+  return buybackQuoteResult(data);
+}
+
+export async function getBuybackQuoteHistory(
+  id: string,
+  actor: AuditActor = systemActor,
+): Promise<BuybackQuoteHistoryResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  const supabase = getSupabaseAdmin();
+  const item = await fetchInventoryRow(id, storeId);
+  if (maybeString(item.source_type) !== "buyback") throw new Error("回收记录不存在");
+  const [revisionResult, responseResult] = await Promise.all([
+    supabase
+      .from("buyback_quote_revisions")
+      .select("id,revision_no,kind,quote_snapshot,change_reason,actor_name,created_at")
+      .eq("store_id", storeId)
+      .eq("item_id", id)
+      .order("revision_no", { ascending: false })
+      .limit(20),
+    supabase
+      .from("buyback_quote_responses")
+      .select("id,quote_revision_id,outcome,reason_code,note,channel,actor_name,created_at")
+      .eq("store_id", storeId)
+      .eq("item_id", id)
+      .order("created_at", { ascending: false })
+      .limit(20),
+  ]);
+  fail(revisionResult.error, "读取报价历史失败");
+  fail(responseResult.error, "读取客户答复历史失败");
+  return {
+    revisions: ((revisionResult.data ?? []) as DbRecord[]).map((row) => ({
+      id: requiredString(row.id),
+      revision_no: Number(row.revision_no),
+      kind: row.kind === "initial" ? "initial" : "reprice",
+      quote: recordOrEmpty(
+        row.quote_snapshot,
+      ) as unknown as BuybackQuoteHistoryResult["revisions"][number]["quote"],
+      change_reason: maybeString(row.change_reason),
+      actor_name: requiredString(row.actor_name),
+      created_at: requiredString(row.created_at),
+    })),
+    responses: ((responseResult.data ?? []) as DbRecord[]).map((row) => ({
+      id: requiredString(row.id),
+      quote_revision_id: requiredString(row.quote_revision_id),
+      outcome: row.outcome === "accepted" || row.outcome === "rejected" ? row.outcome : "deferred",
+      reason_code: maybeString(row.reason_code),
+      note: maybeString(row.note),
+      channel: "staff_recorded_verbal",
+      actor_name: requiredString(row.actor_name),
+      created_at: requiredString(row.created_at),
+    })),
   };
 }
 

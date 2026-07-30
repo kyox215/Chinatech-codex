@@ -1,18 +1,25 @@
 import {
   createInventoryIntake,
+  createBuybackQuote,
   finalizeBuybackPurchase,
+  getBuybackQuoteHistory,
   getInventoryItem,
   listInventoryItems,
+  recordBuybackQuoteResponse,
+  reviseBuybackQuote,
   transitionInventoryItem,
   updateBuybackItem,
   uploadBuybackAttachment,
 } from "@/lib/repairdesk/api";
 import type {
   BuybackFinalizeInput,
+  CreateBuybackQuoteInput,
   CreateInventoryIntakeInput,
   InventoryAttachmentUploadInput,
   InventoryItemStatus,
   InventoryListFilters,
+  RecordBuybackQuoteResponseInput,
+  ReviseBuybackQuoteInput,
   UpdateInventoryItemInput,
 } from "@/lib/repairdesk/types";
 
@@ -27,6 +34,21 @@ export function listBuybackRecords(
 
 export function createBuybackRecord(input: CreateInventoryIntakeInput) {
   return createInventoryIntake({ ...input, source_type: "buyback" });
+}
+export function createTransparentBuybackQuote(input: CreateBuybackQuoteInput) {
+  return createBuybackQuote(input);
+}
+export function reviseTransparentBuybackQuote(id: string, input: ReviseBuybackQuoteInput) {
+  return reviseBuybackQuote(id, input);
+}
+export function recordTransparentBuybackResponse(
+  id: string,
+  input: RecordBuybackQuoteResponseInput,
+) {
+  return recordBuybackQuoteResponse(id, input);
+}
+export function readTransparentBuybackHistory(id: string) {
+  return getBuybackQuoteHistory(id);
 }
 
 export function getBuybackRecord(id: string) {

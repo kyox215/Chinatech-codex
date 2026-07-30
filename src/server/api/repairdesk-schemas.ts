@@ -49,7 +49,10 @@ import type {
   CustomerMessageInput,
   CustomerUpdateInput,
   CreateInventoryIntakeInput,
+  CreateBuybackQuoteInput,
   BuybackFinalizeInput,
+  RecordBuybackQuoteResponseInput,
+  ReviseBuybackQuoteInput,
   InventoryAttachmentUploadInput,
   InventoryItemStatus,
   InventoryListFilters,
@@ -1773,6 +1776,157 @@ export const inventoryUpdateBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
   input: inventoryUpdateInputSchema,
 });
+
+const buybackMoneySchema = z
+  .number()
+  .finite()
+  .min(0)
+  .max(100_000)
+  .refine((value) => Math.round(value * 100) === value * 100, "金额最多保留两位小数");
+
+const buybackSafeNoteSchema = (min: number, max: number) =>
+  z
+    .string()
+    .trim()
+    .min(min)
+    .max(max)
+    .refine(
+      (value) => !/\d{8,}/.test(value.replace(/\D/g, "")),
+      "说明中不能填写完整电话、IMEI 或证件号码",
+    );
+
+const buybackQuoteSnapshotSchema = z
+  .object({
+    reference_low: buybackMoneySchema,
+    reference_high: buybackMoneySchema,
+    final_offer: buybackMoneySchema,
+    deductions: z
+      .array(
+        z
+          .object({
+            code: z
+              .string()
+              .trim()
+              .regex(/^[a-z0-9_:-]{1,40}$/),
+            label: z.string().trim().min(1).max(60),
+            amount: buybackMoneySchema,
+          })
+          .strict(),
+      )
+      .max(20),
+    manual_adjustment_reason: buybackSafeNoteSchema(2, 160).optional(),
+    risk_level: z.enum(["low", "medium", "high"]),
+    hard_block: z.boolean(),
+    expires_at: z.string().datetime({ offset: true }),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.reference_low > value.reference_high) {
+      context.addIssue({
+        code: "custom",
+        path: ["reference_high"],
+        message: "参考上限不能低于下限",
+      });
+    }
+    const deductionTotal = value.deductions.reduce((sum, row) => sum + row.amount, 0);
+    if (deductionTotal > value.reference_high) {
+      context.addIssue({
+        code: "custom",
+        path: ["deductions"],
+        message: "扣减总额不能超过参考上限",
+      });
+    }
+    if (value.final_offer > value.reference_high) {
+      context.addIssue({
+        code: "custom",
+        path: ["final_offer"],
+        message: "最终报价不能超过参考上限",
+      });
+    }
+    if (value.risk_level === "high" && !value.hard_block) {
+      context.addIssue({
+        code: "custom",
+        path: ["hard_block"],
+        message: "高风险报价必须阻止记录为接受",
+      });
+    }
+    const calculatedOffer = Math.max(0, value.reference_high - deductionTotal);
+    if (Math.abs(value.final_offer - calculatedOffer) >= 0.01 && !value.manual_adjustment_reason) {
+      context.addIssue({
+        code: "custom",
+        path: ["manual_adjustment_reason"],
+        message: "最终报价偏离系统建议时必须填写人工调整原因",
+      });
+    }
+  });
+
+export const buybackQuoteCreateBodySchema = z
+  .object({
+    input: z
+      .object({
+        record_id: z.string().uuid(),
+        idempotency_key: z.string().uuid(),
+        customer_id: z.string().uuid().optional(),
+        device: z
+          .object({
+            brand: z.string().trim().min(1).max(60),
+            model: z.string().trim().min(1).max(100),
+            color: z.string().trim().max(60).optional(),
+            storage_capacity: z.string().trim().max(40).optional(),
+            serial_or_imei: z.string().trim().max(40).optional(),
+            battery_health: z.number().finite().min(0).max(100).optional(),
+          })
+          .strict(),
+        quote: buybackQuoteSnapshotSchema,
+      })
+      .strict() satisfies z.ZodType<CreateBuybackQuoteInput>,
+  })
+  .strict();
+
+export const buybackQuoteReviseBodySchema = z
+  .object({
+    id: z.string().uuid(),
+    input: z
+      .object({
+        expected_updated_at: z.string().datetime({ offset: true }),
+        idempotency_key: z.string().uuid(),
+        quote: buybackQuoteSnapshotSchema,
+        change_reason: buybackSafeNoteSchema(2, 160),
+      })
+      .strict() satisfies z.ZodType<ReviseBuybackQuoteInput>,
+  })
+  .strict();
+
+export const buybackQuoteResponseBodySchema = z
+  .object({
+    id: z.string().uuid(),
+    input: z
+      .object({
+        expected_updated_at: z.string().datetime({ offset: true }),
+        idempotency_key: z.string().uuid(),
+        quote_revision_id: z.string().uuid(),
+        outcome: z.enum(["accepted", "deferred", "rejected"]),
+        reason_code: z
+          .string()
+          .trim()
+          .regex(/^[a-z0-9_:-]{1,40}$/)
+          .optional(),
+        note: buybackSafeNoteSchema(0, 240).optional(),
+      })
+      .strict()
+      .superRefine((value, context) => {
+        if (value.outcome === "rejected" && !value.reason_code) {
+          context.addIssue({
+            code: "custom",
+            path: ["reason_code"],
+            message: "拒绝报价需要选择原因",
+          });
+        }
+      }) satisfies z.ZodType<RecordBuybackQuoteResponseInput>,
+  })
+  .strict();
+
+export const buybackQuoteHistoryBodySchema = z.object({ id: z.string().uuid() }).strict();
 
 export const inventoryTransitionBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),

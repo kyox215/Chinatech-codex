@@ -153,11 +153,13 @@ import {
   applyElectronicsCsvImport,
   applyInventoryWorkflowV2,
   accessInventoryAttachment,
+  createBuybackQuote,
   createInventoryIntake,
   createInventoryProduct,
   createInventoryUnitV2,
   completeInventorySaleV2,
   finalizeBuybackPurchase,
+  getBuybackQuoteHistory,
   getInventoryItem,
   getInventoryProduct,
   getInventoryProductEditData,
@@ -169,13 +171,16 @@ import {
   listInventoryProducts,
   reconcileInventoryV2,
   recordInventoryCheck,
+  recordBuybackQuoteResponse,
   recordInventoryTransaction,
   sellInventoryItem,
   transitionInventoryItem,
+  reviseBuybackQuote,
   updateInventoryItem,
   updateInventoryProduct,
   uploadInventoryAttachment,
 } from "@/features/inventory/server/inventory.service";
+import { assertBuybackTransparentQuoteWriteEnabled } from "@/features/buyback/server/transparent-quote-policy";
 import {
   assertInventoryProductDeviceDataV2Enabled,
   assertInventoryV2CommandEnabled,
@@ -360,6 +365,10 @@ import {
   inventoryTransactionBodySchema,
   inventoryTransitionBodySchema,
   inventoryUpdateBodySchema,
+  buybackQuoteCreateBodySchema,
+  buybackQuoteHistoryBodySchema,
+  buybackQuoteResponseBodySchema,
+  buybackQuoteReviseBodySchema,
   messageTemplatePreviewBodySchema,
   messageTemplateResetBodySchema,
   messageTemplateUpdateBodySchema,
@@ -458,6 +467,7 @@ const supabaseSource = {
   applyElectronicsCsvImport,
   applyInventoryWorkflowV2,
   accessInventoryAttachment,
+  createBuybackQuote,
   archiveSupplier,
   cancelOnboardingRequest,
   createCustomer,
@@ -489,6 +499,7 @@ const supabaseSource = {
   deleteCustomerDevice,
   getCustomerDevices,
   getCustomerDetail,
+  getBuybackQuoteHistory,
   getInventoryItem,
   getInventoryProduct,
   getInventoryProductEditData,
@@ -539,6 +550,7 @@ const supabaseSource = {
   publishOrderQuote,
   confirmOrderQuoteSent,
   recordInventoryCheck,
+  recordBuybackQuoteResponse,
   recordInventoryTransaction,
   recordPayment,
   reopenOrder,
@@ -564,6 +576,7 @@ const supabaseSource = {
   submitOnboardingRequest,
   switchActiveStore,
   transitionInventoryItem,
+  reviseBuybackQuote,
   transitionOrder,
   updateStoreMemberPermissions,
   updateStoreMemberRole,
@@ -2721,8 +2734,52 @@ export async function handleRepairDeskPost(
           ),
         );
       }
+      case "buyback/quote/create": {
+        const { input } = buybackQuoteCreateBodySchema.parse(body);
+        assertRepairDeskPermission(actor, "buyback:quote_create");
+        assertBuybackTransparentQuoteWriteEnabled();
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.createBuybackQuote(input, actor),
+            realtimeBroadcasts.buybackCreated,
+          ),
+        );
+      }
+      case "buyback/quote/revise": {
+        const { id, input } = buybackQuoteReviseBodySchema.parse(body);
+        assertRepairDeskPermission(actor, "buyback:quote_revise");
+        assertBuybackTransparentQuoteWriteEnabled();
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.reviseBuybackQuote(id, input, actor),
+            realtimeBroadcasts.buybackUpdated,
+          ),
+        );
+      }
+      case "buyback/quote/respond": {
+        const { id, input } = buybackQuoteResponseBodySchema.parse(body);
+        assertRepairDeskPermission(actor, "buyback:quote_respond");
+        assertBuybackTransparentQuoteWriteEnabled();
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.recordBuybackQuoteResponse(id, input, actor),
+            realtimeBroadcasts.buybackUpdated,
+          ),
+        );
+      }
+      case "buyback/quote/history": {
+        const { id } = buybackQuoteHistoryBodySchema.parse(body);
+        assertRepairDeskPermission(actor, "inventory:read");
+        return ok(await api.getBuybackQuoteHistory(id, actor));
+      }
       case "buyback/update": {
         const { id, input } = inventoryUpdateBodySchema.parse(body);
+        if (Object.prototype.hasOwnProperty.call(input, "quote_payload")) {
+          throw new ForbiddenError("回收报价与客户答复必须使用专用透明报价入口");
+        }
         assertInventoryUpdatePermission(actor, input);
         return ok(
           await runWithRealtime(
@@ -3283,6 +3340,13 @@ export function assertInventoryIntakeDoesNotBypassBuybackFinalize(
   const sourceType = input.source_type?.trim() || "buyback";
   if (sourceType === "buyback" && Number(input.buyback_price ?? 0) !== 0) {
     throw new Error("回收成本只能由带证件、签名与幂等保护的确认成交操作写入");
+  }
+  if (
+    sourceType === "buyback" &&
+    (Object.prototype.hasOwnProperty.call(input, "quoted_offer") ||
+      Object.prototype.hasOwnProperty.call(input, "quote_payload"))
+  ) {
+    throw new ForbiddenError("回收报价必须使用专用透明报价入口");
   }
 }
 

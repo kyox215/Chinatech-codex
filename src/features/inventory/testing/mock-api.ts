@@ -5,11 +5,14 @@ import type {
   ApplyInventoryWorkflowV2Result,
   BuybackFinalizeInput,
   BuybackFinalizeResult,
+  BuybackQuoteCommandResult,
+  BuybackQuoteHistoryResult,
   CompleteInventorySaleV2Input,
   CompleteInventorySaleV2Result,
   CreateInventoryUnitV2Input,
   CreateInventoryUnitV2Result,
   CreateInventoryIntakeInput,
+  CreateBuybackQuoteInput,
   CreateInventoryProductInput,
   CreateInventoryProductResult,
   Customer,
@@ -36,6 +39,8 @@ import type {
   InventorySummary,
   InventoryTransaction,
   InventoryTransactionInput,
+  RecordBuybackQuoteResponseInput,
+  ReviseBuybackQuoteInput,
   SellInventoryItemInput,
   UpdateInventoryItemInput,
 } from "@/lib/repairdesk/types";
@@ -70,6 +75,11 @@ const day = 24 * 60 * 60 * 1000;
 
 const mockCustomers: Customer[] = [];
 const mockInventoryProductCreates = new Map<string, CreateInventoryProductResult>();
+const mockBuybackQuoteHistory = new Map<string, BuybackQuoteHistoryResult>();
+const mockBuybackQuoteOperations = new Map<
+  string,
+  { fingerprint: string; result: BuybackQuoteCommandResult }
+>();
 
 const mockInventoryItems: InventoryItem[] = [
   {
@@ -374,6 +384,208 @@ export async function createInventoryIntake(input: CreateInventoryIntakeInput, a
   mockInventoryItems.unshift(item);
   addEvent(item.id, "created", undefined, initialStatus, { input }, nowIso);
   return { id };
+}
+
+export async function createBuybackQuote(
+  input: CreateBuybackQuoteInput,
+  actor?: AuditActor,
+): Promise<BuybackQuoteCommandResult> {
+  const fingerprint = JSON.stringify(input);
+  const replay = mockBuybackQuoteOperations.get(input.idempotency_key);
+  if (replay) {
+    if (replay.fingerprint !== fingerprint) throw new Error("本次操作标识已用于其他报价");
+    return { ...replay.result, code: "idempotent_replay" };
+  }
+  if (mockInventoryItems.some((item) => item.id === input.record_id)) {
+    throw new Error("本次操作标识已用于其他报价，请刷新后重试");
+  }
+  const nowIso = new Date().toISOString();
+  const revisionId = crypto.randomUUID();
+  const item: InventoryItem = {
+    id: input.record_id,
+    public_no: `I${String(1200 + mockInventoryItems.length + 1).padStart(6, "0")}`,
+    status: "offer_made",
+    source_type: "buyback",
+    customer_id: input.customer_id,
+    category: "phone",
+    brand: input.device.brand,
+    model: input.device.model,
+    color: optional(input.device.color),
+    storage_capacity: optional(input.device.storage_capacity),
+    serial_or_imei: optional(input.device.serial_or_imei),
+    imei_check_status: input.device.serial_or_imei ? "unknown" : "unchecked",
+    activation_lock_status: "unchecked",
+    data_wipe_status: "unchecked",
+    cosmetic_grade: "unknown",
+    functional_grade: "untested",
+    battery_health: input.device.battery_health,
+    buyback_price: 0,
+    list_price: 0,
+    sale_price: 0,
+    deposit_amount: 0,
+    repair_cost_amount: 0,
+    fees_amount: 0,
+    currency_code: CURRENCY_CODE,
+    warranty_months: 0,
+    legacy_payload: {
+      buyback_device: { ...input.device, serial_or_imei: undefined },
+      buyback_quote: {
+        ...input.quote,
+        current_revision_id: revisionId,
+        revision_no: 1,
+        intent_outcome: "undecided",
+        quote_expires_at: input.quote.expires_at,
+      },
+    },
+    created_by: actor?.id,
+    updated_by: actor?.id,
+    created_at: nowIso,
+    updated_at: nowIso,
+  };
+  mockInventoryItems.unshift(item);
+  mockBuybackQuoteHistory.set(item.id, {
+    revisions: [
+      {
+        id: revisionId,
+        revision_no: 1,
+        kind: "initial",
+        quote: input.quote,
+        change_reason: "首次透明报价",
+        actor_name: actor?.displayName ?? "演示员工",
+        created_at: nowIso,
+      },
+    ],
+    responses: [],
+  });
+  addEvent(item.id, "buyback_quote_created", undefined, "offer_made", {}, nowIso);
+  const result: BuybackQuoteCommandResult = {
+    ok: true,
+    code: "created",
+    item_id: item.id,
+    quote_revision_id: revisionId,
+    updated_at: nowIso,
+  };
+  mockBuybackQuoteOperations.set(input.idempotency_key, { fingerprint, result });
+  return result;
+}
+
+export async function reviseBuybackQuote(
+  id: string,
+  input: ReviseBuybackQuoteInput,
+  actor?: AuditActor,
+): Promise<BuybackQuoteCommandResult> {
+  const fingerprint = JSON.stringify({ id, ...input });
+  const replay = mockBuybackQuoteOperations.get(input.idempotency_key);
+  if (replay) {
+    if (replay.fingerprint !== fingerprint) throw new Error("本次操作标识已用于其他报价");
+    return { ...replay.result, code: "idempotent_replay" };
+  }
+  const item = findItem(id);
+  if (item.updated_at !== input.expected_updated_at) {
+    throw new Error("回收记录已被其他人更新，请刷新后重试");
+  }
+  const history = mockBuybackQuoteHistory.get(id) ?? { revisions: [], responses: [] };
+  const revisionId = crypto.randomUUID();
+  const revisionNo = history.revisions.length + 1;
+  item.status = "offer_made";
+  item.updated_at = nextMockUpdatedAt(item.updated_at);
+  item.legacy_payload = {
+    ...item.legacy_payload,
+    buyback_quote: {
+      ...input.quote,
+      current_revision_id: revisionId,
+      revision_no: revisionNo,
+      intent_outcome: "undecided",
+      quote_expires_at: input.quote.expires_at,
+    },
+  };
+  history.revisions.unshift({
+    id: revisionId,
+    revision_no: revisionNo,
+    kind: "reprice",
+    quote: input.quote,
+    change_reason: input.change_reason,
+    actor_name: actor?.displayName ?? "演示员工",
+    created_at: item.updated_at,
+  });
+  mockBuybackQuoteHistory.set(id, history);
+  const result: BuybackQuoteCommandResult = {
+    ok: true,
+    code: "revised",
+    item_id: id,
+    quote_revision_id: revisionId,
+    updated_at: item.updated_at,
+  };
+  mockBuybackQuoteOperations.set(input.idempotency_key, { fingerprint, result });
+  return result;
+}
+
+export async function recordBuybackQuoteResponse(
+  id: string,
+  input: RecordBuybackQuoteResponseInput,
+  actor?: AuditActor,
+): Promise<BuybackQuoteCommandResult> {
+  const fingerprint = JSON.stringify({ id, ...input });
+  const replay = mockBuybackQuoteOperations.get(input.idempotency_key);
+  if (replay) {
+    if (replay.fingerprint !== fingerprint) throw new Error("本次操作标识已用于其他报价");
+    return { ...replay.result, code: "idempotent_replay" };
+  }
+  const item = findItem(id);
+  if (item.updated_at !== input.expected_updated_at) {
+    throw new Error("回收记录已被其他人更新，请刷新后重试");
+  }
+  const quote = recordOrEmpty(item.legacy_payload.buyback_quote);
+  if (
+    item.status === "cancelled" ||
+    quote.intent_outcome === "accepted" ||
+    quote.intent_outcome === "rejected"
+  ) {
+    throw new Error("已接受或已拒绝的答复已锁定；需要负责人重新报价后再记录");
+  }
+  if (quote.current_revision_id !== input.quote_revision_id) {
+    throw new Error("客户答复对应的报价已不是当前版本，请刷新后重新确认");
+  }
+  const history = mockBuybackQuoteHistory.get(id) ?? { revisions: [], responses: [] };
+  const responseId = crypto.randomUUID();
+  item.status = input.outcome === "rejected" ? "cancelled" : "offer_made";
+  item.updated_at = nextMockUpdatedAt(item.updated_at);
+  item.legacy_payload = {
+    ...item.legacy_payload,
+    buyback_quote: {
+      ...quote,
+      intent_outcome: input.outcome,
+      response_id: responseId,
+      response_recorded_at: item.updated_at,
+      response_channel: "staff_recorded_verbal",
+    },
+  };
+  history.responses.unshift({
+    id: responseId,
+    quote_revision_id: input.quote_revision_id,
+    outcome: input.outcome,
+    reason_code: input.reason_code,
+    note: input.note,
+    channel: "staff_recorded_verbal",
+    actor_name: actor?.displayName ?? "演示员工",
+    created_at: item.updated_at,
+  });
+  mockBuybackQuoteHistory.set(id, history);
+  const result: BuybackQuoteCommandResult = {
+    ok: true,
+    code: "response_recorded",
+    item_id: id,
+    quote_revision_id: input.quote_revision_id,
+    response_id: responseId,
+    updated_at: item.updated_at,
+  };
+  mockBuybackQuoteOperations.set(input.idempotency_key, { fingerprint, result });
+  return result;
+}
+
+export async function getBuybackQuoteHistory(id: string): Promise<BuybackQuoteHistoryResult> {
+  findItem(id);
+  return mockBuybackQuoteHistory.get(id) ?? { revisions: [], responses: [] };
 }
 
 export async function createInventoryProduct(
@@ -1356,11 +1568,21 @@ function decorateInventoryItem(item: InventoryItem, actor?: AuditActor): Invento
       );
   return {
     ...item,
+    serial_or_imei:
+      item.source_type === "buyback" && item.serial_or_imei
+        ? `••••${item.serial_or_imei.replace(/\s+/g, "").slice(-4)}`
+        : item.serial_or_imei,
     legacy_payload: visibleLegacyPayload,
     customer_name: customer?.name,
-    customer_phone: customer?.phone_e164,
+    customer_phone:
+      item.source_type === "buyback" && customer?.phone_e164
+        ? `••••${customer.phone_e164.replace(/\D/g, "").slice(-4)}`
+        : customer?.phone_e164,
     buyer_name: buyer?.name,
-    buyer_phone: buyer?.phone_e164,
+    buyer_phone:
+      item.source_type === "buyback" && buyer?.phone_e164
+        ? `••••${buyer.phone_e164.replace(/\D/g, "").slice(-4)}`
+        : buyer?.phone_e164,
     item_label: `${item.brand} ${item.model}`.trim() || item.public_no,
     profit: getInventoryProfit(item, transactions),
   };
@@ -1422,6 +1644,9 @@ function assertMockInventoryUpdateDoesNotBypassBuybackAgreement(
   if (item.source_type !== "buyback") return;
   if (Object.prototype.hasOwnProperty.call(input, "buyback_price")) {
     throw new Error("回收成本不能通过通用库存更新修改，请使用专用成交或更正流程");
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "quote_payload")) {
+    throw new Error("回收报价与客户答复必须使用专用透明报价入口");
   }
   const agreementLocked =
     Boolean(item.purchased_at) || !["intake", "evaluating", "offer_made"].includes(item.status);

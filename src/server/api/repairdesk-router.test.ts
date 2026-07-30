@@ -495,7 +495,7 @@ describe("repairdesk router non-order write permissions", () => {
         buyback_price: 0,
         quote_payload: { buyback_quote: { final_offer: 250 } },
       }),
-    ).not.toThrow();
+    ).toThrow(/专用透明报价入口/);
 
     expect(() => assertLegacyElectronicsImportPermission(actor("owner"))).not.toThrow();
     for (const role of ["manager", "technician", "sales", "viewer"] as const) {

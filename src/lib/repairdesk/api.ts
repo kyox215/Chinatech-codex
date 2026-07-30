@@ -110,6 +110,11 @@ import type {
   CustomerMessageInput,
   CustomerUpdateInput,
   CreateInventoryIntakeInput,
+  CreateBuybackQuoteInput,
+  BuybackQuoteCommandResult,
+  BuybackQuoteHistoryResult,
+  RecordBuybackQuoteResponseInput,
+  ReviseBuybackQuoteInput,
   CreateInventoryProductInput,
   CreateInventoryProductResult,
   CreateInventoryUnitV2Input,
@@ -129,6 +134,7 @@ import type {
   InventoryAttachmentAccessResult,
   BuybackFinalizeInput,
   BuybackFinalizeResult,
+  BuybackQuoteSnapshotInput,
   InventoryItemStatus,
   InventoryListFilters,
   InventoryListItem,
@@ -354,6 +360,12 @@ export type {
   BuybackDocumentType,
   BuybackFinalizeInput,
   BuybackFinalizeResult,
+  BuybackQuoteCommandResult,
+  BuybackQuoteHistoryResult,
+  BuybackQuoteSnapshotInput,
+  CreateBuybackQuoteInput,
+  RecordBuybackQuoteResponseInput,
+  ReviseBuybackQuoteInput,
   ApplyInventoryWorkflowV2Input,
   ApplyInventoryWorkflowV2Result,
   InventoryDetail,
@@ -536,6 +548,30 @@ export async function updateBuybackItem(
   input: UpdateInventoryItemInput,
 ): Promise<{ ok: boolean }> {
   return postJson<{ ok: boolean }>("buyback/update", { id, input });
+}
+
+export async function createBuybackQuote(
+  input: CreateBuybackQuoteInput,
+): Promise<BuybackQuoteCommandResult> {
+  return postJson<BuybackQuoteCommandResult>("buyback/quote/create", { input });
+}
+
+export async function reviseBuybackQuote(
+  id: string,
+  input: ReviseBuybackQuoteInput,
+): Promise<BuybackQuoteCommandResult> {
+  return postJson<BuybackQuoteCommandResult>("buyback/quote/revise", { id, input });
+}
+
+export async function recordBuybackQuoteResponse(
+  id: string,
+  input: RecordBuybackQuoteResponseInput,
+): Promise<BuybackQuoteCommandResult> {
+  return postJson<BuybackQuoteCommandResult>("buyback/quote/respond", { id, input });
+}
+
+export async function getBuybackQuoteHistory(id: string): Promise<BuybackQuoteHistoryResult> {
+  return postJson<BuybackQuoteHistoryResult>("buyback/quote/history", { id });
 }
 
 export async function transitionInventoryItem(
