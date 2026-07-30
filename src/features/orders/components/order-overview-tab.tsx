@@ -1397,7 +1397,7 @@ function CustomerPhoneField({
           selectedCustomerId={customer?.id}
           autoPickExact={false}
           placeholder="搜索或输入主电话"
-          className={cn(inlineEditInputClass, "!h-7 font-mono text-[13px] sm:!h-7 sm:text-[13px]")}
+          className={cn(inlineEditInputClass, "!h-11 font-mono !text-base lg:!h-9 lg:!text-sm")}
           showSearchIcon={false}
           onChange={(customer_phone) =>
             patchDraft(edit, {

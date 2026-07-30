@@ -68,7 +68,29 @@ function FaultHarness() {
   );
 }
 
+function CompactFaultHarness() {
+  const [selected, setSelected] = useState<SelectedFault[]>([]);
+  return (
+    <FaultDiagnosisPicker
+      selected={selected}
+      onChange={setSelected}
+      density="compact"
+      compactColumns={3}
+    />
+  );
+}
+
 describe("order option pickers", () => {
+  it("keeps compact fault labels readable in the original three-column layout", () => {
+    const { container } = render(<CompactFaultHarness />);
+    const picker = container.querySelector('[data-fault-diagnosis-picker="true"]');
+
+    expect(picker).toHaveAttribute("data-compact-columns", "3");
+    expect(picker).toHaveClass("grid-cols-3");
+    expect(screen.getByRole("button", { name: /^面容\/指纹$/ })).toHaveTextContent("面容");
+    expect(screen.getByRole("button", { name: /^麦克风$/ })).toHaveTextContent("麦克");
+  });
+
   it("hides generic no-subtype fault options while preserving category selection", async () => {
     const user = userEvent.setup();
     render(<FaultHarness />);

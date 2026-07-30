@@ -2174,7 +2174,10 @@ function InventoryActionDialog({
                       setSaleConfirmed(false);
                     }}
                     placeholder="输入姓名或电话搜索"
-                    className={compactInventoryInputClass}
+                    className={cn(
+                      compactInventoryInputClass,
+                      "!h-11 !text-base lg:!h-9 lg:!text-sm",
+                    )}
                   />
                   {selectedBuyer ? (
                     <p className="text-xs text-status-success-foreground">

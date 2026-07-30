@@ -222,6 +222,7 @@ export function NewOrderDeviceInfoSection({
       <div className="grid min-w-0 gap-1.5">
         <DensePillField
           fieldTarget="device-brand"
+          inputId="new-order-device-brand"
           label="品牌"
           required
           trailingInteractive
@@ -235,6 +236,7 @@ export function NewOrderDeviceInfoSection({
           }
         >
           <Input
+            id="new-order-device-brand"
             value={form.brand}
             onChange={(event) =>
               setForm({ ...form, brand: event.target.value, deviceId: undefined })
@@ -245,6 +247,7 @@ export function NewOrderDeviceInfoSection({
         </DensePillField>
         <DensePillField
           fieldTarget="device-model"
+          inputId="new-order-device-model"
           label="型号"
           required
           trailingInteractive
@@ -266,6 +269,7 @@ export function NewOrderDeviceInfoSection({
           }
         >
           <Input
+            id="new-order-device-model"
             value={form.model}
             onChange={(event) => {
               const model = event.target.value;
@@ -288,7 +292,8 @@ export function NewOrderDeviceInfoSection({
             <ImeiScannerField
               value={form.imei}
               onChange={(imei) => setForm({ ...form, imei, deviceId: undefined })}
-              placeholder="请输入 IMEI / 序列号"
+              placeholder="IMEI / 序列号"
+              inputAriaLabel="IMEI 或序列号"
               density="compact"
               appearance="quiet"
               showPaste={false}
@@ -381,7 +386,7 @@ function NewOrderDeviceCustodySelector({
               type="button"
               aria-pressed={selected}
               className={cn(
-                "min-w-0 rounded-xl border px-2 py-2 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                "min-h-11 min-w-0 rounded-xl border px-2 py-1.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
                 selected
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-[var(--border-panel)] bg-card text-foreground hover:bg-accent/40",
@@ -400,7 +405,7 @@ function NewOrderDeviceCustodySelector({
                 </span>
                 {selected ? <Check className="ml-auto size-3.5 shrink-0" /> : null}
               </span>
-              <span className="mt-1 block text-[9px] leading-3 text-muted-foreground">
+              <span className="mt-0.5 block truncate text-[9px] leading-3 text-muted-foreground">
                 {option.description}
               </span>
             </button>
@@ -418,11 +423,12 @@ function NewOrderDeviceCustodySelector({
 
 function getShellClass(surface: "page" | "dialog") {
   return cn(
-    "h-fit min-w-0 p-2 sm:p-3",
+    "h-fit min-w-0 sm:p-3",
     surface === "dialog"
-      ? detailWorkspace.flatPanel
+      ? cn(detailWorkspace.flatPanel, "p-1.5")
       : cn(
           repairOs.mobileInfoCard,
+          "p-2",
           "md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:shadow-none",
         ),
   );
@@ -430,6 +436,7 @@ function getShellClass(surface: "page" | "dialog") {
 
 function DensePillField({
   fieldTarget,
+  inputId,
   label,
   required,
   leading,
@@ -438,6 +445,7 @@ function DensePillField({
   children,
 }: {
   fieldTarget?: string;
+  inputId?: string;
   label: string;
   required?: boolean;
   leading?: ReactNode;
@@ -448,9 +456,12 @@ function DensePillField({
   return (
     <div
       data-new-order-field={fieldTarget}
-      className="rd-new-order-field grid min-h-11 min-w-0 grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-1.5 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)]"
+      className="rd-new-order-field grid min-h-11 min-w-0 grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-1.5 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-0 shadow-[var(--shadow-card)]"
     >
-      <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground">
+      <Label
+        htmlFor={inputId}
+        className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground"
+      >
         {label}
         {required ? <span className="text-destructive"> *</span> : null}
       </Label>
@@ -525,7 +536,7 @@ function DenseOptionMenu({
                 key={option}
                 onSelect={() => onSelect(option)}
                 className={cn(
-                  "min-h-9 gap-2 rounded-lg px-2.5 py-1.5 text-xs",
+                  "min-h-11 gap-2 rounded-lg px-2.5 py-1.5 text-xs lg:min-h-9",
                   selected && "bg-primary/10 text-primary focus:bg-primary/10 focus:text-primary",
                 )}
               >
@@ -546,7 +557,7 @@ function DenseOptionMenu({
 
 function DenseScannerBlock({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="rd-new-order-field grid min-h-11 min-w-0 grid-cols-[3.25rem_minmax(0,1fr)] items-center gap-1.5 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1 shadow-[var(--shadow-card)] lg:min-h-10">
+    <div className="rd-new-order-field grid min-h-11 min-w-0 grid-cols-[3.25rem_minmax(0,1fr)] items-center gap-1.5 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-0 shadow-[var(--shadow-card)] lg:min-h-10">
       <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground">
         {label}
       </Label>

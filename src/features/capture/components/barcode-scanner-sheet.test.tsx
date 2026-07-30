@@ -15,7 +15,18 @@ const navigationMocks = vi.hoisted(() => ({
 }));
 
 const zxingMocks = vi.hoisted(() => ({
-  decodeFromVideoDevice: vi.fn(),
+  constructor: vi.fn(),
+  decodeFromConstraints: vi.fn(),
+  decodeFromImageElement: vi.fn(),
+}));
+
+const barcodeFormats = vi.hoisted(() => ({
+  QR_CODE: 1,
+  DATA_MATRIX: 2,
+  CODE_128: 3,
+  CODE_39: 4,
+  EAN_13: 5,
+  EAN_8: 6,
 }));
 
 vi.mock("sonner", () => ({
@@ -27,18 +38,27 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@zxing/browser", () => ({
-  BrowserMultiFormatReader: vi.fn(function BrowserMultiFormatReaderMock() {
+  BrowserMultiFormatReader: vi.fn(function BrowserMultiFormatReaderMock(...args: unknown[]) {
+    zxingMocks.constructor(...args);
     return {
-      decodeFromVideoDevice: zxingMocks.decodeFromVideoDevice,
+      decodeFromConstraints: zxingMocks.decodeFromConstraints,
+      decodeFromImageElement: zxingMocks.decodeFromImageElement,
     };
   }),
+}));
+
+vi.mock("@zxing/library", () => ({
+  BarcodeFormat: barcodeFormats,
+  DecodeHintType: { POSSIBLE_FORMATS: 100 },
 }));
 
 describe("BarcodeScannerSheet", () => {
   beforeEach(() => {
     toastMocks.error.mockReset();
     toastMocks.success.mockReset();
-    zxingMocks.decodeFromVideoDevice.mockReset();
+    zxingMocks.constructor.mockReset();
+    zxingMocks.decodeFromConstraints.mockReset();
+    zxingMocks.decodeFromImageElement.mockReset();
     navigationMocks.pathname = "/orders";
     Object.defineProperty(navigator, "mediaDevices", {
       configurable: true,
@@ -47,6 +67,22 @@ describe("BarcodeScannerSheet", () => {
       },
     });
     Object.defineProperty(HTMLMediaElement.prototype, "pause", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    Object.defineProperty(HTMLImageElement.prototype, "decode", {
+      configurable: true,
+      value: vi.fn().mockResolvedValue(undefined),
+    });
+    Object.defineProperty(navigator, "vibrate", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => "blob:scanner-image"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
       configurable: true,
       value: vi.fn(),
     });
@@ -59,14 +95,14 @@ describe("BarcodeScannerSheet", () => {
   it("stops late scanner controls when the sheet closes before startup resolves", async () => {
     const controls: ScannerControlsMock = { stop: vi.fn() };
     let resolveControls: (controls: ScannerControlsMock) => void = () => undefined;
-    zxingMocks.decodeFromVideoDevice.mockReturnValue(
+    zxingMocks.decodeFromConstraints.mockReturnValue(
       new Promise((resolve) => {
         resolveControls = resolve;
       }),
     );
 
     const view = render(<BarcodeScannerSheet open onOpenChange={vi.fn()} onDetected={vi.fn()} />);
-    await waitFor(() => expect(zxingMocks.decodeFromVideoDevice).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(zxingMocks.decodeFromConstraints).toHaveBeenCalledTimes(1));
 
     view.rerender(<BarcodeScannerSheet open={false} onOpenChange={vi.fn()} onDetected={vi.fn()} />);
     resolveControls(controls);
@@ -77,14 +113,14 @@ describe("BarcodeScannerSheet", () => {
   it("accepts only the first scanner result for one session", async () => {
     const controls = { stop: vi.fn() };
     let onResult: ((result: { getText: () => string } | null) => void) | undefined;
-    zxingMocks.decodeFromVideoDevice.mockImplementation((_device, _video, callback) => {
+    zxingMocks.decodeFromConstraints.mockImplementation((_constraints, _video, callback) => {
       onResult = callback;
       return Promise.resolve(controls);
     });
     const onDetected = vi.fn();
 
     render(<BarcodeScannerSheet open onOpenChange={vi.fn()} onDetected={onDetected} />);
-    await waitFor(() => expect(zxingMocks.decodeFromVideoDevice).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(zxingMocks.decodeFromConstraints).toHaveBeenCalledTimes(1));
 
     onResult?.({ getText: () => "490154203237518" });
     onResult?.({ getText: () => "C39ZQ123N70M" });
@@ -95,15 +131,16 @@ describe("BarcodeScannerSheet", () => {
         value: "490154203237518",
       }),
     );
+    expect(navigator.vibrate).toHaveBeenCalledTimes(1);
   });
 
   it("stops video tracks when the user pauses scanning", async () => {
     const controls = { stop: vi.fn() };
     const track = { stop: vi.fn() };
-    zxingMocks.decodeFromVideoDevice.mockResolvedValue(controls);
+    zxingMocks.decodeFromConstraints.mockResolvedValue(controls);
 
     render(<BarcodeScannerSheet open onOpenChange={vi.fn()} onDetected={vi.fn()} />);
-    await waitFor(() => expect(zxingMocks.decodeFromVideoDevice).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(zxingMocks.decodeFromConstraints).toHaveBeenCalledTimes(1));
 
     const video = document.querySelector("video") as HTMLVideoElement;
     expect(video).toBeTruthy();
@@ -118,21 +155,82 @@ describe("BarcodeScannerSheet", () => {
     expect(video.srcObject).toBeNull();
   });
 
-  it("masks customer status bearer links and removes the copy action", async () => {
+  it("requests the rear camera with format hints and falls back through safe constraints", async () => {
     const controls = { stop: vi.fn() };
-    let onResult: ((result: { getText: () => string } | null) => void) | undefined;
-    zxingMocks.decodeFromVideoDevice.mockImplementation((_device, _video, callback) => {
-      onResult = callback;
-      return Promise.resolve(controls);
-    });
-    const token = `v2.1.${"P".repeat(22)}.1.${"S".repeat(43)}`;
+    const overconstrained = new Error("unsupported camera constraint");
+    Object.defineProperty(overconstrained, "name", { value: "OverconstrainedError" });
+    zxingMocks.decodeFromConstraints
+      .mockRejectedValueOnce(overconstrained)
+      .mockRejectedValueOnce(overconstrained)
+      .mockResolvedValueOnce(controls);
 
     render(<BarcodeScannerSheet open onOpenChange={vi.fn()} onDetected={vi.fn()} />);
-    await waitFor(() => expect(zxingMocks.decodeFromVideoDevice).toHaveBeenCalledTimes(1));
-    onResult?.({ getText: () => `/r#${token}` });
 
-    expect(await screen.findByText("敏感链接已隐藏")).toBeVisible();
-    expect(screen.queryByText(token)).not.toBeInTheDocument();
+    await waitFor(() => expect(zxingMocks.decodeFromConstraints).toHaveBeenCalledTimes(3));
+    expect(zxingMocks.decodeFromConstraints.mock.calls[0]?.[0]).toMatchObject({
+      audio: false,
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+      },
+    });
+    expect(zxingMocks.decodeFromConstraints.mock.calls[1]?.[0]).toMatchObject({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+    });
+    expect(zxingMocks.decodeFromConstraints.mock.calls[2]?.[0]).toEqual({
+      audio: false,
+      video: true,
+    });
+
+    const hints = zxingMocks.constructor.mock.calls[0]?.[0] as Map<number, number[]>;
+    expect(hints.get(100)).toEqual([
+      barcodeFormats.QR_CODE,
+      barcodeFormats.DATA_MATRIX,
+      barcodeFormats.CODE_128,
+      barcodeFormats.CODE_39,
+      barcodeFormats.EAN_13,
+      barcodeFormats.EAN_8,
+    ]);
+    expect(screen.getByRole("status")).toHaveTextContent("正在扫描");
+  });
+
+  it("recognizes a local image and always revokes its object URL", async () => {
+    zxingMocks.decodeFromConstraints.mockResolvedValue({ stop: vi.fn() });
+    zxingMocks.decodeFromImageElement.mockResolvedValue({ getText: () => "inventory:sku-42" });
+    const onDetected = vi.fn();
+
+    render(<BarcodeScannerSheet open onOpenChange={vi.fn()} onDetected={onDetected} />);
+    await waitFor(() => expect(zxingMocks.decodeFromConstraints).toHaveBeenCalledTimes(1));
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { files: [new File(["image"], "barcode.png", { type: "image/png" })] },
+    });
+
+    await waitFor(() =>
+      expect(onDetected).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "inventory_link", value: "sku-42" }),
+      ),
+    );
+    expect(zxingMocks.decodeFromImageElement).toHaveBeenCalledTimes(1);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:scanner-image");
+  });
+
+  it("hides and disables copying protected customer status QR credentials", async () => {
+    zxingMocks.decodeFromConstraints.mockResolvedValue({ stop: vi.fn() });
+    const token = "A".repeat(43);
+
+    render(<BarcodeScannerSheet open onOpenChange={vi.fn()} onDetected={vi.fn()} />);
+    await waitFor(() => expect(zxingMocks.decodeFromConstraints).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByPlaceholderText("无法扫码时，可手动输入或粘贴"), {
+      target: { value: `https://www.chinatech.in/r#${token}` },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "识别内容" }));
+
+    await screen.findByText("凭据已保护，可通过安全入口打开工单");
+    expect(screen.queryByText(new RegExp(token))).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "复制" })).not.toBeInTheDocument();
   });
 });

@@ -172,6 +172,7 @@ export function FaultDiagnosisPicker({
   className,
   density = "default",
   appearance = "outlined",
+  compactColumns = 3,
 }: {
   selected: SelectedFault[];
   onChange: (items: SelectedFault[]) => void;
@@ -227,6 +228,7 @@ export function FaultDiagnosisPicker({
   return (
     <div
       data-fault-diagnosis-picker="true"
+      data-compact-columns={compact ? compactColumns : undefined}
       className={cn(
         "grid min-w-0",
         compact ? "grid-cols-3 gap-1.5" : "grid-cols-2 gap-1.5 sm:grid-cols-3",
@@ -269,6 +271,13 @@ function FaultCategoryButton({
   const active = selected.filter((item) => item.categoryKey === group.key);
   const Icon = group.icon;
   const compact = density === "compact";
+  const compactLabel =
+    {
+      camera: "摄像",
+      face: "面容",
+      speaker: "扬声",
+      microphone: "麦克",
+    }[group.key] ?? group.label;
   const quiet = appearance === "quiet";
   const [open, setOpen] = useState(false);
   const touchSafeTrigger = useTouchSafeDropdownTrigger(setOpen);
@@ -294,23 +303,24 @@ function FaultCategoryButton({
       >
         <button
           type="button"
+          aria-label={group.label}
           aria-pressed={active.length > 0}
           onClick={onMainToggle}
           className={cn(
             "flex min-w-0 items-center text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             compact && quiet
-              ? "min-h-11 gap-1.5 px-2 py-1.5 lg:min-h-10"
+              ? "min-h-11 gap-0.5 px-0.5 py-1 lg:min-h-10 lg:gap-1 lg:px-1"
               : compact
-                ? "min-h-11 gap-1.5 px-1.5 py-1 lg:min-h-9"
+                ? "min-h-11 gap-0.5 px-0.5 py-1 lg:min-h-9 lg:gap-1 lg:px-1"
                 : "min-h-11 gap-1.5 px-2 py-1.5 lg:min-h-10",
           )}
         >
           <Icon
             className={cn(
               compact && quiet
-                ? "size-4 shrink-0"
+                ? "size-2 shrink-0 lg:size-3"
                 : compact
-                  ? "size-3.5 shrink-0"
+                  ? "size-2 shrink-0 lg:size-3.5"
                   : "size-4 shrink-0",
               active.length ? "text-primary" : "text-muted-foreground",
             )}
@@ -320,13 +330,13 @@ function FaultCategoryButton({
               className={cn(
                 "block truncate font-medium",
                 compact && quiet
-                  ? "text-[11px] leading-4"
+                  ? "text-[10px] leading-4"
                   : compact
                     ? "text-[10px] leading-4"
                     : "text-[13px] leading-5",
               )}
             >
-              {group.label}
+              {compact ? compactLabel : group.label}
             </span>
             {!compact && active.length > 1 && (
               <span className="block text-[11px] leading-3 text-primary/80">
@@ -340,7 +350,8 @@ function FaultCategoryButton({
             type="button"
             aria-label={`展开${group.label}细分选项`}
             className={cn(
-              "grid h-full min-w-11 place-items-center border-l border-[var(--border-panel)] text-muted-foreground transition-colors [touch-action:pan-y] hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:min-w-8",
+              "grid h-full place-items-center border-l border-[var(--border-panel)] text-muted-foreground transition-colors [touch-action:pan-y] hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              "min-w-11 lg:min-w-8",
               quiet && "border-[var(--border-panel)] hover:bg-accent/30",
               active.length && "border-primary/20 text-primary/70 hover:text-primary",
             )}
@@ -374,7 +385,9 @@ function FaultCategoryButton({
               }}
               className={cn(
                 "gap-1.5 rounded-md px-2 py-1 outline-none",
-                compact ? "min-h-9 text-xs" : "min-h-9 gap-2 px-2.5 py-1.5 text-[13px]",
+                compact
+                  ? "min-h-11 text-xs lg:min-h-9"
+                  : "min-h-11 gap-2 px-2.5 py-1.5 text-[13px] lg:min-h-9",
                 checked && "bg-primary/10 text-primary focus:bg-primary/10 focus:text-primary",
               )}
             >

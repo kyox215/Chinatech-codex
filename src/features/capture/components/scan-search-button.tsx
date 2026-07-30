@@ -100,7 +100,7 @@ export function ScanSearchSheet({
       label: action.label,
       run: () => {
         helpers.close();
-        if (action.id === "open:customer-status") {
+        if (action.id === "open:customer_status_link") {
           const destination = parseCustomerStatusLink(action.href, window.location.origin);
           if (destination?.kind !== "valid") {
             toast.error("维修工单二维码无效，请重新扫描");
@@ -130,6 +130,7 @@ export function ScanSearchSheet({
               key={action.id}
               type="button"
               size="sm"
+              className="min-h-11"
               variant={action.primary ? "default" : "outline"}
               onClick={() => executeAction(action, helpers)}
             >
