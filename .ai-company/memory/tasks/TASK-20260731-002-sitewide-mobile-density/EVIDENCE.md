@@ -15,6 +15,7 @@
 | Desktop regression | pass | 768/1024/1280/1440 core route matrix PASS; order detail dialog width/height stability test PASS |
 | Mobile accessibility | pass | runtime 16px input test PASS; 44×44px touch-target and reachable inventory overlay footer test PASS in Chromium and WebKit |
 | Screenshots | verified | six files under `screenshots/TASK-20260731-002-sitewide-mobile-density/` |
+| Remote branch publication | pass | ordinary non-force SSH push created and updated `origin/codex/sitewide-mobile-density-20260731`; local HEAD and remote-tracking ref were equal after publication |
 
 ## Implementation evidence
 
@@ -53,3 +54,10 @@
 ## Documentation decision
 
 No product/API/architecture documentation change was required. The implementation applies the existing `RESPONSIVE_DENSITY_PLAN`, RepairOS compact architecture and mobile detail standard without changing their contracts.
+
+## Closeout decision
+
+- Memory consolidation: no promotion to project-wide memory; existing responsive declarations remain authoritative and task-local route counts may become stale after parallel Buyback/Inventory integration.
+- Department memory sync: no department mission, interface, SOP or risk contract changed, so no department memory file was modified.
+- Capability review: this successful T3 execution is retained as task evidence only; one task does not justify a capability, permission or autonomy upgrade.
+- Release: remote feature branch only. No `main` merge, PR, production deployment, secret handling or customer-data operation occurred.

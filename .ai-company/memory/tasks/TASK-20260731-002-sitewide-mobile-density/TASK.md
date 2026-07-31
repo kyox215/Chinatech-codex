@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260731-002-sitewide-mobile-density"
 title: "全站移动端紧凑高密度布局优化"
-status: "completed"
+status: "closed"
 task_class: "T3"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["UX", "FE", "QA", "INT"]
 created_at: "2026-07-31T00:25:26Z"
-updated_at: "2026-07-31T07:10:56Z"
+updated_at: "2026-07-31T07:12:32Z"
 ---
 # Task — 全站移动端紧凑高密度布局优化
 
