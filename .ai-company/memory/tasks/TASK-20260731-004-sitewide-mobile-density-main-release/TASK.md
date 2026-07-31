@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260731-004-sitewide-mobile-density-main-release"
 title: "全站移动端密度分支集成 main 并发布 Vercel Production"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["INT", "QA", "REL", "UX"]
 created_at: "2026-07-31T08:21:48Z"
-updated_at: "2026-07-31T08:34:00Z"
+updated_at: "2026-07-31T08:51:27Z"
 ---
 # Task — 全站移动端密度分支集成 main 并发布 Vercel Production
 
@@ -48,11 +48,11 @@ updated_at: "2026-07-31T08:34:00Z"
 
 ## Acceptance criteria
 
-- [ ] origin/main 包含已验证的移动密度实现且不丢失并行主线变更
-- [ ] 合并后 lint、typecheck、test、build 通过
-- [ ] Vercel Production 对应最终 main 提交并处于 READY
-- [ ] 生产登录页与代表性移动端路径无启动错误或横向溢出
-- [ ] 记录回滚提交、部署 URL、截图和运行证据
+- [x] origin/main 包含已验证的移动密度实现且不丢失并行主线变更
+- [x] 合并后 lint、typecheck、test、build 通过
+- [x] Vercel Production 对应最终业务提交并处于 READY
+- [x] 生产登录页与代表性移动端路径无启动错误或横向溢出
+- [x] 记录回滚提交、部署 URL、截图和运行证据
 
 ## Facts, assumptions, and unknowns
 

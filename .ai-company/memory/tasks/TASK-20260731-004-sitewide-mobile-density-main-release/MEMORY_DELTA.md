@@ -18,3 +18,9 @@
 
 Each candidate must include source, status, owner, scope, and review trigger
 before long-term consolidation.
+
+## Consolidation decision
+
+- No project or department long-term memory update: the UI density standard was already recorded by `TASK-20260731-002`; this release adds deployment evidence only.
+- No ADR: no architecture, dependency, data, permission or configuration decision changed.
+- No capability level change: successful Release/QA work is task evidence only and does not change permission or autonomy.
