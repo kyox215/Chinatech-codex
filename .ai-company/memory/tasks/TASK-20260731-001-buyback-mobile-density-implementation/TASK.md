@@ -9,7 +9,7 @@ autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["FLOW", "UX", "FE", "QA", "INT"]
 created_at: "2026-07-31T00:05:07Z"
-updated_at: "2026-07-31T01:35:45Z"
+updated_at: "2026-07-31T01:38:37Z"
 ---
 # Task — 回收功能移动端高密度一页式优化
 

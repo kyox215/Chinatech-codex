@@ -49,3 +49,12 @@
 - **Evidence:**
   - commit 71fa80a3; Chromium/WebKit 19/19; 2531 tests; production screenshots under /private/tmp/repairdesk-buyback-mobile-density-evidence/production
 - **Recorded by:** IntegrationLead
+## 2026-07-31T01:38:37Z — 生产功能、复核、推送、部署、截图与关闭证据均已完成；业务发布提交 71fa80a3，关闭记录提交 31df137a。
+
+- **Phase:** closeout
+- **Completed/current state:** 生产功能、复核、推送、部署、截图与关闭证据均已完成；业务发布提交 71fa80a3，关闭记录提交 31df137a。
+- **Next:** 推送最终关闭记录，核对远端 SHA，关闭 Registry run/task 并释放 integration lease。
+- **Decision:** 无数据库迁移与生产数据写入；生产应用保持业务提交 71fa80a3，后续关闭提交仅含文档和记忆。
+- **Evidence:**
+  - Vercel dpl_3zaDN4w3rKX77JS4WPz75vCKdsHh READY；生产 390/1024 无横向溢出，lint/typecheck/test/build/Chromium/WebKit 均通过。
+- **Recorded by:** IntegrationLead

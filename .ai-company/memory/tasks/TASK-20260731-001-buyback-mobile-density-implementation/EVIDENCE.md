@@ -85,3 +85,4 @@ None. Release and closeout evidence follows.
 
 `PASS / DEPLOYED`. No migration, SQL, API contract, permission, quote-state or production-data action occurred. Real iPhone keyboard/home-indicator behavior remains the only device-specific P2 observation item.
 - `2026-07-31T01:35:45Z` `ee1fab517f` — commit 71fa80a3; Chromium/WebKit 19/19; 2531 tests; production screenshots under /private/tmp/repairdesk-buyback-mobile-density-evidence/production
+- `2026-07-31T01:38:37Z` `295c78c055` — Vercel dpl_3zaDN4w3rKX77JS4WPz75vCKdsHh READY；生产 390/1024 无横向溢出，lint/typecheck/test/build/Chromium/WebKit 均通过。
