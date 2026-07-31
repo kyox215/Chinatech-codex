@@ -29,5 +29,23 @@
 - **Core gates:** lint PASS; typecheck PASS; 387 test files / 2531 tests PASS; production webpack build PASS; scoped desktop buyback overflow 8/8 PASS.
 - **Review:** FLOW second round GO; UX second round GO; QA second round PASS; all report no P0/P1. Integration may now proceed only after lease acquisition.
 - **Visual evidence:** `/private/tmp/repairdesk-buyback-mobile-density-evidence/remediated/` contains 36 synthetic Chromium/WebKit screenshots with Next development chrome and toasts hidden.
-- **Checkpoint tool note:** system Python is 3.9.6 and cannot import `tomllib`, so `tools/ai_company.py checkpoint` could not run; per `$memory-checkpoint` fallback, this structured task-local checkpoint was updated manually and the unrelated `ACTIVE_CONTEXT.md` was preserved.
+- **Checkpoint tool note:** system Python 3.9.6 could not import `tomllib`, so this pre-release checkpoint was first written through the documented manual fallback. The final production checkpoint later ran successfully with explicit `/opt/homebrew/bin/python3.12`; both paths preserved the unrelated `ACTIVE_CONTEXT.md` byte-for-byte.
 - **Next:** acquire/verify integration lease; commit/push; deploy Ready without production alias; smoke; promote; production smoke/screenshots; closeout and release lease.
+
+## 2026-07-31T03:32:00+02:00 — Production release and closeout checkpoint
+
+- **Phase:** deployed / task-memory closeout ready.
+- **Completed:** acquired integration lease v2; committed and exact-SHA pushed `71fa80a3`; deployed Vercel candidate `dpl_3zaDN4w3rKX77JS4WPz75vCKdsHh`; verified READY and protected HTTP; promoted; verified both production domains; ran authenticated 390/1024 Chrome smoke and screenshots without saving data.
+- **Production result:** 390/1024 `scrollWidth == innerWidth`; three-column summary present; no progressbar/horizontal rail; workspace dialog overflow zero; fixed footer visible; console warning/error count zero.
+- **Rollback:** prior READY `dpl_BuUyuWGkURnmUK44smgfJChi6V3e`; optional write containment remains `REPAIRDESK_BUYBACK_TRANSPARENT_QUOTE_WRITE_ENABLED=0`; no reverse migration exists or is needed.
+- **Documentation/memory:** plan, Task Memory, project/frontend/QA memory synchronized; no capability grade or autonomy change.
+- **Remaining:** commit/push this closeout-only documentation, close Registry run/task and release integration lease v2. No business or production action remains.
+## 2026-07-31T01:35:45Z — 生产部署 dpl_3zaDN4w3rKX77JS4WPz75vCKdsHh 与 390/1024 只读 smoke 完成；三部门二轮复核无 P0/P1；关闭文档和长期记忆已同步。
+
+- **Phase:** closeout
+- **Completed/current state:** 生产部署 dpl_3zaDN4w3rKX77JS4WPz75vCKdsHh 与 390/1024 只读 smoke 完成；三部门二轮复核无 P0/P1；关闭文档和长期记忆已同步。
+- **Next:** 提交并推送关闭记录；关闭 Registry run/task；释放 integration lease v2。
+- **Decision:** app-only release; no migration or production data write; previous deployment retained for rollback
+- **Evidence:**
+  - commit 71fa80a3; Chromium/WebKit 19/19; 2531 tests; production screenshots under /private/tmp/repairdesk-buyback-mobile-density-evidence/production
+- **Recorded by:** IntegrationLead

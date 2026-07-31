@@ -4,7 +4,7 @@
 - Owner: Hexiang Huang / 鹤祥
 - Version: 2
 - Status: active
-- Last verified: 2026-07-20 CEST
+- Last verified: 2026-07-31 CEST
 
 ## Product and business overview
 
@@ -29,6 +29,15 @@ RPCs remain service-role-only. Only Chinatech is allowlisted with schema/shadow/
 V1 mutations remain enabled. Production rollback-only intake/sale/reconcile passed with zero residual
 rows, desktop/mobile six-step entry is verified, and AI image recognition remains optional and dormant.
 Second-store rollout, AI provider activation, V1 retirement and data cleanup remain separate D4 work.
+
+2026-07-31 transparent-buyback mobile density release: `TASK-20260731-001-buyback-mobile-density-implementation`
+is the current UI authority for the quote-only `/buyback` work surface. Mobile uses one continuous,
+high-density list/detail/workspace with a three-column summary, persistent final-offer/action footer,
+progressive deduction/history disclosure and no stepper, progressbar or horizontal state rail. Existing
+quote revisions and oral responses remain auditable; `accepted` still means a recorded response only,
+not payment, purchase completion or product inventory intake. Release commit `71fa80a3` is deployed as
+Vercel `dpl_3zaDN4w3rKX77JS4WPz75vCKdsHh`; no schema, migration, API, permission or production-data
+mutation was part of this release.
 
 2026-07-26 Inventory V2 complete phone workflow: `TASK-20260726-001-inventory-phone-sales-complete`
 adds manual single-phone intake, inspection, commercial editing, ready/listed progression and atomic

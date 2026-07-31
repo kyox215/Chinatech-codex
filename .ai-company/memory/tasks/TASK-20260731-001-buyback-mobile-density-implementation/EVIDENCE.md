@@ -60,6 +60,28 @@ An attempted unfiltered desktop-overflow suite exposed a pre-existing unrelated 
 
 ### Remaining release steps
 
-- Acquire and verify the project integration lease.
-- Commit/push the isolated branch.
-- Blue/green Vercel deployment, protected preview smoke, promote, production smoke/screenshots.
+None. Release and closeout evidence follows.
+
+## Release evidence
+
+- Integration lease: holder `WINDOW-019FAC30-BUYBACK-MOBILE-DENSITY`, version `2`, verified before/after Git and Vercel material steps.
+- Release commit: `71fa80a3f0563f9a518328fbadd6e477aac67fd0`.
+- Remote branch: `origin/codex/buyback-mobile-density-20260731` resolved to the exact release commit after push.
+- Vercel deployment: `dpl_3zaDN4w3rKX77JS4WPz75vCKdsHh`, target `production`, state `READY`.
+- Previous rollback deployment: `dpl_BuUyuWGkURnmUK44smgfJChi6V3e` / `chinatech-codex-3k72jog3e-kyox120-9295s-projects.vercel.app`.
+- Candidate HTTP smoke: `/buyback` returned the expected authenticated `307` to `/login?next=%2Fbuyback`.
+- Both `chinatech.in` and `www.chinatech.in` resolved to the new deployment after promote.
+- Authenticated production Chrome smoke used the existing ChinaTech Owner session without creating or saving records:
+  - 390px list: `scrollWidth=390`, `innerWidth=390`, three-column summary region present, no progressbar or horizontal rail.
+  - 390px workspace: one dialog, zero dialog overflow, fixed footer visible, save control present; opened then closed without submit.
+  - 1024px list: `scrollWidth=1024`, `innerWidth=1024`, summary region present, no progressbar or horizontal rail.
+  - Browser console: zero warning/error entries during the verified flow.
+- Production screenshots:
+  - `/private/tmp/repairdesk-buyback-mobile-density-evidence/production/390-buyback-list.jpg`
+  - `/private/tmp/repairdesk-buyback-mobile-density-evidence/production/390-buyback-workspace.jpg`
+  - `/private/tmp/repairdesk-buyback-mobile-density-evidence/production/1024-buyback-list.jpg`
+
+## Release conclusion
+
+`PASS / DEPLOYED`. No migration, SQL, API contract, permission, quote-state or production-data action occurred. Real iPhone keyboard/home-indicator behavior remains the only device-specific P2 observation item.
+- `2026-07-31T01:35:45Z` `ee1fab517f` — commit 71fa80a3; Chromium/WebKit 19/19; 2531 tests; production screenshots under /private/tmp/repairdesk-buyback-mobile-density-evidence/production

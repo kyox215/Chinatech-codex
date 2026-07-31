@@ -3,7 +3,7 @@ schema_version: 1
 department: documentation
 status: active
 owner: Documentation Department / Integration Lead
-last_verified_at: 2026-07-19
+last_verified_at: 2026-07-31
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -56,6 +56,7 @@ as owner of this file.
 - `TASK-20260707-005-remove-module-title-blocks` updates active UI generation guidance: list/management page bodies must not repeat AppBar module titles, breadcrumbs, or total subtitles such as `工作台 / 客户`, `客户管理`, or `全部 · 共 ...`; future examples/templates should start from toolbar, KPI, chips, or business content.
 - `TASK-20260714-001-buyback-sensitive-evidence-feature-off` is the current production-behavior authority for buyback evidence: use the four-step quote-only UI and server default-deny contract until a separately approved activation task supersedes it. `TASK-20260712-005-buyback-guided-evidence` remains the local future design/history and must not be read as evidence that production Supabase or sensitive capture is active.
 - `TASK-20260714-002-buyback-supabase-schema-staging` supersedes only the prior “production Supabase objects absent” documentation: the dormant objects now exist, but are empty, private and revoked. It does not supersede the four-step quote-only/server-default-deny runtime authority and must never be described as sensitive-feature activation.
+- `docs/BUYBACK_MOBILE_DENSITY_IMPLEMENTATION_PLAN.md` and `TASK-20260731-001-buyback-mobile-density-implementation` supersede the old four-step UI description for active production presentation, not its security boundary. The active quote-only UI is now one compact continuous work surface; sensitive evidence/payment/finalize paths remain off, and accepted oral intent is still not a purchase or inventory intake.
 - `TASK-20260716-001-dashboard-handoff-priority` and `docs/UI_PAGE_GENERATION_DECLARATION.md` are the current Dashboard generation authority: no Dashboard status chips, two quick starts, complete actor-scoped ranking before slice, allowlisted non-financial projection, navigation-only actions and distinct loading/empty/filtered/error/permission states.
 - `TASK-20260716-002-orders-mobile-filter-loading-plan/CEO_REPORT.md` is the current Orders mobile queue/loading performance release authority: compact responsive queues, explicit transition/offline states, bounded two-phase list reads, exact production proof and the evidence-based no-migration decision.
 - For customer finance and terminal-order behavior, use `TASK-20260716-003-customer-finance-order-correction-plan`, `docs/CUSTOMER_MANAGEMENT_WORKBENCH_PLAN.md` and active `docs/ORDER_LIFECYCLE_CORRECTION_STANDARD.md`: `累计订单额/待收`, orthogonal repair/payment states, finance omission on restricted reads, changed-fields-only routine edits and audited correction/reopen/Owner void are the current contract. `docs/ORDERS_SPEC.md` remains a historical snapshot and only points to the active standard.

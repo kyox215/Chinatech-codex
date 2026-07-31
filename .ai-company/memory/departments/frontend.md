@@ -3,7 +3,7 @@ schema_version: 1
 department: frontend
 status: active
 owner: Frontend Department / Integration Lead
-last_verified_at: 2026-07-19
+last_verified_at: 2026-07-31
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -42,6 +42,7 @@ as owner of this file.
 - Order search uses a draft/committed split with a 300ms debounce; Enter and scan submit immediately. Debounce, fetching with retained results, success totals, empty and retryable error states remain visible and are announced with `aria-live`. Result pages render non-empty status sections in queue order and show Europe/Rome intake dates plus relative age on mobile and desktop. Detail status time accepts only a real transition into the current status and otherwise labels the intake time fallback consistently.
 - Guided buyback uses six explicit beginner steps with one primary action per stage. Sales stops at manager handoff; Owner/Manager gets identity capture, versioned Italian terms, white-background signature canvas and final confirmation. Oversized evidence is compressed to a 2.4MB raw-file envelope before Base64 upload; mobile and desktop flows require browser screenshots.
 - Production feature-off currently supersedes that six-step projection: every role sees four beginner steps `设备 -> 报价 -> 检测 -> 保存`; seller, identity, signature, evidence, payment, receipt and finalize controls are absent from the DOM. Success copy says the record was saved, not that a transaction completed. Purchased or later records only expose historical evidence as read-only and never guide recollection.
+- The 2026-07-31 transparent-quote release supersedes that four-step UI projection while preserving the same sensitive-workflow-off boundary. Mobile `/buyback` is one continuous dense surface: one three-column summary, compact quote cards, decision-first detail, visible quote-only statement, progressive deductions/revisions/responses and a fixed footer with final amount plus selected response. Do not reintroduce stepper/progressbar/horizontal status rails, hide permission/conflict reasons in toast-only feedback, or treat `accepted` as payment/purchase/inventory intake. Evidence: `TASK-20260731-001-buyback-mobile-density-implementation`.
 - `TASK-20260620-001` is the current evidence for order detail status-flow UI behavior and target E2E verification.
 - `TASK-20260620-002` classified the remaining legacy `src/routes/*` files as delete-ready after Owner approval. Live page bodies remain feature screens imported by `src/app/*`; do not use `src/routes/*` as a UI source.
 - `TASK-20260620-003` confirms the deletion preflight baseline is green without touching App Router or feature screen files. Future deletion must not modify `src/app/*` or `src/features/*`.

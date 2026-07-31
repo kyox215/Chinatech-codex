@@ -9,4 +9,4 @@
 
 ## Promotion status
 
-Implementation and local verification are complete. Promote to project/frontend/product/QA memory only after exact-SHA production smoke; capability evidence remains candidate and does not change permission or autonomy.
+Promoted to project, frontend and QA memory after exact-SHA production smoke. The four read-only subagents produced independent planning and two-round review evidence; no Agent/Skill capability grade, permission or autonomy change is justified by this single task.

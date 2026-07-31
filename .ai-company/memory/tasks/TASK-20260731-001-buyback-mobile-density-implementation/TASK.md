@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260731-001-buyback-mobile-density-implementation"
 title: "回收功能移动端高密度一页式优化"
-status: "review"
+status: "closed"
 task_class: "T2"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["FLOW", "UX", "FE", "QA", "INT"]
 created_at: "2026-07-31T00:05:07Z"
-updated_at: "2026-07-31T03:20:00+02:00"
+updated_at: "2026-07-31T01:35:45Z"
 ---
 # Task — 回收功能移动端高密度一页式优化
 
@@ -54,7 +54,7 @@ updated_at: "2026-07-31T03:20:00+02:00"
 - [x] 接受/暂缓/拒绝、权限、离线、错误、409、锁定和幂等语义不变。
 - [x] 无付款、签名、证件、finalize、库存 transition 或商品创建/更新副作用。
 - [x] lint、typecheck、全量 test、production build、Chromium/WebKit 门禁通过。
-- [ ] 分支推送、Vercel Ready/promote、生产桌面/移动 smoke 和截图完成。
+- [x] 分支推送、Vercel Ready/promote、生产桌面/移动 smoke 和截图完成。
 
 ## Facts, assumptions, and unknowns
 

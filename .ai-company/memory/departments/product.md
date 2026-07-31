@@ -3,7 +3,7 @@ schema_version: 1
 department: product
 status: active
 owner: Product Department / Integration Lead
-last_verified_at: 2026-07-18
+last_verified_at: 2026-07-31
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -35,6 +35,7 @@ as owner of this file.
 - `TASK-20260716-003-customer-finance-order-correction-plan` separates customer history from valid repair/finance facts: cancelled/custom-cancelled/voided/deleted orders remain discoverable history but contribute zero to valid count, active work, lifetime quote and receivables. Customer UI shows repair and payment states independently. Terminal corrections/reopen require Manager or Owner; safe void is Owner-only, preserves evidence and is never a normal hard delete.
 - Device custody is an independent live order dimension. Repair type and accessory notes are not reused; legacy unknown remains visible; completed-to-shop requires reopen; cancelled shop-held devices require audited return. Customer-held rows skip false pickup work but may retain previously recorded unlock credentials until an authorized explicit clear.
 - Desktop beginner workflows present one recommended action, keep correction/advanced actions secondary, require exact missing-field guidance during intake, and never replace server workflow/permission authority with UI inference.
+- Transparent buyback uses a negotiated quote ledger and recorded oral response. `accepted` binds the customer response to the current quote revision but does not pay, purchase, transfer ownership or create product inventory. Mobile should keep final offer, system suggestion/manual difference, risk, response and next action visible in one continuous dense surface; long deductions/history remain progressively available. Evidence: `TASK-20260731-001-buyback-mobile-density-implementation`.
 - `TASK-20260717-004-order-diagnosis-quote-implementation` makes unknown intake a real “待检测” condition rather than a zero-price quote. Preserve the customer report, technical diagnosis and charge lines as separate facts; technicians diagnose and hand off, while Owner/Manager/Sales publish and confirm formal quote notification. Opening WhatsApp is never evidence that a quote was sent.
 - Employee email verification and store authorization are separate product gates. A Supabase Invite/Magic Link may verify and sign in the employee, but store data remains unavailable until the employee explicitly accepts a matching, active, unexpired non-owner business invitation.
 - `TASK-20260717-007-store-lifecycle-implementation` shipped the P0-P5 store lifecycle control plane on 2026-07-18. Rename, close/archive, restore, export and purge remain separate explicit actions bound to immutable store UUIDs; all five runtime flags remain off and no real store lifecycle action occurred during release.
