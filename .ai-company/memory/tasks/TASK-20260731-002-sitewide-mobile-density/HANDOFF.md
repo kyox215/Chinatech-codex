@@ -2,6 +2,7 @@
 
 - **Status:** implementation and verification complete; local branch ready for owner review/integration.
 - **Branch:** `codex/sitewide-mobile-density-20260731`
+- **Local commit:** `4ea9ca77` (`feat(ui): compact mobile layouts sitewide`)
 - **Worktree:** `/private/tmp/repairdesk-sitewide-mobile-density-20260731`
 - **Base:** `origin/main@dd03f778`
 - **Verification:** lint, typecheck, 376/2462 Vitest, production build, Chromium/WebKit 27-route mobile matrices, desktop breakpoints, 16px input and 44×44px touch gates all pass.
