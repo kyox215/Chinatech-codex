@@ -91,22 +91,56 @@ describe("order option pickers", () => {
     expect(screen.getByRole("button", { name: /^麦克风$/ })).toHaveTextContent("麦克");
   });
 
-  it("hides generic no-subtype fault options while preserving category selection", async () => {
+  it("keeps generic category selection for services without repair variants", async () => {
     const user = userEvent.setup();
     render(<FaultHarness />);
 
-    await user.click(screen.getByRole("button", { name: "尾插" }));
+    await user.click(screen.getByRole("button", { name: "摄像头" }));
 
-    expect(screen.getByTestId("fault-value")).toHaveTextContent("尾插");
+    expect(screen.getByTestId("fault-value")).toHaveTextContent("摄像头");
 
-    await user.click(screen.getByRole("button", { name: "展开尾插细分选项" }));
+    await user.click(screen.getByRole("button", { name: "展开摄像头细分选项" }));
 
     expect(screen.queryByText("不细分")).not.toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: /接口松动/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /需要检查/ })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /前摄异常/ })).not.toBeInTheDocument();
     await user.keyboard("{Escape}");
   });
 
-  it("shows expanded front desk service options for every fault category", async () => {
+  it("shows repair variants before the original inspection options", async () => {
+    const user = userEvent.setup();
+    render(<FaultHarness />);
+
+    await user.click(screen.getByRole("button", { name: "展开屏幕细分选项" }));
+
+    expect(screen.getByRole("menuitem", { name: /原装/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /组装/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /TFT/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /Incell/ })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /黑屏无显示/ })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("menuitem", { name: /需要检查/ }));
+
+    expect(screen.getByRole("menuitem", { name: /黑屏无显示/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /返回维修方案/ })).toBeInTheDocument();
+  });
+
+  it("keeps repair variants single-select within one category", async () => {
+    const user = userEvent.setup();
+    render(<FaultHarness />);
+
+    await user.click(screen.getByRole("button", { name: "屏幕" }));
+    await user.click(screen.getByRole("menuitem", { name: /Incell/ }));
+
+    expect(screen.getByTestId("fault-value")).toHaveTextContent("屏幕 - Incell");
+
+    await user.click(screen.getByRole("menuitem", { name: /TFT/ }));
+
+    expect(screen.getByTestId("fault-value")).toHaveTextContent("屏幕 - TFT");
+    expect(screen.getByTestId("fault-value")).not.toHaveTextContent("Incell");
+  });
+
+  it("shows the original inspection options only after choosing needs inspection", async () => {
     const user = userEvent.setup();
     render(<FaultHarness />);
 
@@ -127,6 +161,11 @@ describe("order option pickers", () => {
 
     for (const { category, options } of expectedOptions) {
       await user.click(screen.getByRole("button", { name: `展开${category}细分选项` }));
+      expect(
+        screen.queryByRole("menuitem", { name: new RegExp(options[0]) }),
+      ).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("menuitem", { name: /需要检查/ }));
 
       for (const option of options) {
         expect(screen.getByRole("menuitem", { name: new RegExp(option) })).toBeInTheDocument();
@@ -141,6 +180,7 @@ describe("order option pickers", () => {
     render(<FaultHarness />);
 
     await user.click(screen.getByRole("button", { name: "展开系统细分选项" }));
+    await user.click(screen.getByRole("menuitem", { name: /需要检查/ }));
     await user.click(screen.getByRole("menuitem", { name: /屏幕锁解锁/ }));
 
     expect(screen.getByTestId("fault-value")).toHaveTextContent("系统 - 屏幕锁解锁");
