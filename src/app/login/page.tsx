@@ -10,7 +10,11 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">正在加载登录...</div>}>
+    <Suspense
+      fallback={
+        <div className="p-3 text-xs text-muted-foreground sm:p-6 sm:text-sm">正在加载登录...</div>
+      }
+    >
       <LoginScreen />
     </Suspense>
   );

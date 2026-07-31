@@ -1288,12 +1288,12 @@ export function OrderListScreen() {
       />
 
       <Dialog open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-        <DialogContent className="max-h-[min(82svh,680px)] w-[calc(100%-1.5rem)] max-w-lg overflow-y-auto rounded-2xl p-4">
+        <DialogContent className="max-h-[min(82svh,680px)] w-[calc(100%-1.5rem)] max-w-lg overflow-y-auto rounded-2xl p-3 sm:p-4">
           <DialogHeader>
             <DialogTitle>筛选维修工单</DialogTitle>
             <DialogDescription>筛选只改变当前订单列表，不会修改任何工单。</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             <fieldset className="space-y-2">
               <legend className="text-sm font-semibold">工单类型</legend>
               <div className="grid grid-cols-2 gap-2">

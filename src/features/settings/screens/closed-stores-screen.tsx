@@ -74,9 +74,9 @@ export function ClosedStoresScreen() {
       subtitle="已关闭店铺可以恢复；永久删除必须经过冷静期、备份验证和二次身份确认。"
       eyebrow="设置 / 已关闭与删除"
     >
-      <div className="mx-auto w-full max-w-3xl space-y-3 py-4">
+      <div className="mx-auto w-full max-w-3xl space-y-2 py-2 sm:space-y-3 sm:py-4">
         {contextQuery.isLoading ? (
-          <RepairOsBusinessCard as="div" className="flex items-center gap-3 p-4">
+          <RepairOsBusinessCard as="div" className="flex items-center gap-2 p-2.5 sm:gap-3 sm:p-4">
             <Loader2 className="size-4 animate-spin" />
             <span className="text-sm">正在读取店铺状态…</span>
           </RepairOsBusinessCard>
@@ -85,7 +85,7 @@ export function ClosedStoresScreen() {
           <RepairOsBusinessCard
             as="div"
             role="alert"
-            className="border-status-danger-foreground/25 bg-status-danger/10 p-4"
+            className="border-status-danger-foreground/25 bg-status-danger/10 p-2.5 sm:p-4"
           >
             <p className="text-sm font-semibold">暂时无法读取已关闭店铺</p>
             <Button
@@ -99,7 +99,7 @@ export function ClosedStoresScreen() {
           </RepairOsBusinessCard>
         ) : null}
         {contextQuery.isSuccess && recoveryStores.length === 0 ? (
-          <RepairOsBusinessCard as="div" className="p-5 text-center">
+          <RepairOsBusinessCard as="div" className="p-3 text-center sm:p-5">
             <Store className="mx-auto size-8 text-muted-foreground" />
             <p className="mt-3 text-sm font-semibold">没有可恢复的已关闭店铺</p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
@@ -135,8 +135,8 @@ function ClosedStoreCard({ store }: { store: ActorStoreMembership }) {
               : "店铺已关闭";
   const timestamp = store.lifecycle?.close_requested_at ?? store.lifecycle?.archived_at;
   return (
-    <RepairOsBusinessCard as="div" role="region" aria-label={store.name} className="p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <RepairOsBusinessCard as="div" role="region" aria-label={store.name} className="p-2.5 sm:p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <div className="min-w-0">
           <p className="break-words text-sm font-semibold">{store.name}</p>
           <p className="mt-1 text-xs font-medium text-status-warn-foreground">{statusLabel}</p>
@@ -377,7 +377,7 @@ function StorePurgeManager({
                 : "这是不可逆确认。后台开始清除后将无法恢复店铺、订单、客户、库存和附件。"}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             <div className="rounded-xl border border-status-danger-foreground/25 bg-status-danger/10 p-3 text-xs leading-5">
               <p className="flex items-center gap-2 font-semibold">
                 <ShieldAlert className="size-4" />
@@ -601,10 +601,10 @@ function StoreRestoreOverlay({
   }
 
   const body = (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3 text-sm">
+    <div className="space-y-2 sm:space-y-4">
+      <div className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2.5 text-xs sm:p-3 sm:text-sm">
         <p className="font-semibold">恢复后</p>
-        <ul className="mt-2 space-y-1.5 text-xs leading-5 text-muted-foreground">
+        <ul className="mt-1.5 space-y-1 text-xs leading-4 text-muted-foreground sm:mt-2 sm:space-y-1.5 sm:leading-5">
           <li>• 可以重新进入店铺并创建、修改业务资料</li>
           <li>• 现有订单、客户和库存资料继续保留</li>
           <li>• 旧邀请、旧链接、客户 iPad 凭据和已停用员工不会自动恢复</li>
@@ -667,12 +667,12 @@ function StoreRestoreOverlay({
             closeLabel="关闭恢复窗口"
             className={cn(componentOverlay.bottomSheet, "flex h-[min(88dvh,46rem)] flex-col gap-0")}
           >
-            <SheetHeader className="shrink-0 pb-3 text-left">
+            <SheetHeader className="shrink-0 pb-2 text-left sm:pb-3">
               <SheetTitle>恢复 {store.name}？</SheetTitle>
               <SheetDescription>店铺资料仍然保留，确认后可重新营业。</SheetDescription>
             </SheetHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto pb-4">{body}</div>
-            <SheetFooter className="shrink-0 gap-2 border-t border-[var(--border-panel)] pt-3 sm:space-x-0">
+            <div className="min-h-0 flex-1 overflow-y-auto pb-2 sm:pb-4">{body}</div>
+            <SheetFooter className="shrink-0 gap-1.5 border-t border-[var(--border-panel)] pt-2 sm:space-x-0 sm:gap-2 sm:pt-3">
               {footer}
             </SheetFooter>
           </SheetContent>

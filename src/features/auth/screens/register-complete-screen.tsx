@@ -21,15 +21,17 @@ export function RegisterCompleteScreen() {
   const nextPath = useMemo(() => resolvePostLoginPath(status, "/onboarding"), [status]);
 
   return (
-    <main className="min-h-svh bg-background px-4 py-8 lg:grid lg:place-items-center">
-      <section className="mx-auto w-full max-w-md rounded-lg border border-border/60 bg-card p-5 shadow-sm">
-        <div className="mb-5 flex items-center gap-3">
+    <main className="min-h-svh bg-background px-2 py-3 sm:px-4 sm:py-8 lg:grid lg:place-items-center">
+      <section className="mx-auto w-full max-w-md rounded-lg border border-border/60 bg-card p-3 shadow-sm sm:p-5">
+        <div className="mb-3 flex items-center gap-2 sm:mb-5 sm:gap-3">
           <div className="grid size-10 place-items-center rounded-md bg-primary/10 text-primary">
             <CheckCircle2 className="size-5" />
           </div>
           <div>
-            <h1 className="font-display text-2xl font-semibold">注册已完成</h1>
-            <p className="text-sm text-muted-foreground">邮箱验证成功，可以继续开通店铺。</p>
+            <h1 className="font-display text-xl font-semibold sm:text-2xl">注册已完成</h1>
+            <p className="text-xs text-muted-foreground sm:text-sm">
+              邮箱验证成功，可以继续开通店铺。
+            </p>
           </div>
         </div>
 

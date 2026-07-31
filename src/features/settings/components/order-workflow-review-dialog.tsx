@@ -17,6 +17,7 @@ import type {
   OrderWorkflowChangeSummary,
   OrderWorkflowDraftIssue,
 } from "@/features/settings/model/order-workflow-draft-review";
+import { componentOverlay } from "@/lib/component-patterns";
 
 export interface OrderWorkflowReviewDialogProps {
   open: boolean;
@@ -48,7 +49,9 @@ export function OrderWorkflowReviewDialog({
           onRestoreFocus();
         }}
       >
-        <DialogHeader className="border-b border-[var(--border-panel)] px-4 pb-4 pt-5 pr-14 text-left sm:px-5">
+        <DialogHeader
+          className={`${componentOverlay.mobileHeader} border-b border-[var(--border-panel)] pr-14 text-left sm:px-5`}
+        >
           <DialogTitle ref={titleRef} tabIndex={-1} className="outline-none">
             检查状态流变更
           </DialogTitle>
@@ -57,7 +60,7 @@ export function OrderWorkflowReviewDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
+        <div className={`${componentOverlay.mobileBody} sm:px-5`}>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <Metric label="新增状态" value={summary.added} />
             <Metric label="名称变化" value={summary.renamed} />
@@ -77,14 +80,17 @@ export function OrderWorkflowReviewDialog({
             {summary.items.length ? (
               <ul className="mt-2 grid gap-2 text-sm">
                 {summary.items.map((item) => (
-                  <li key={item} className="flex gap-2 rounded-lg bg-surface-muted/45 px-3 py-2">
+                  <li
+                    key={item}
+                    className="flex gap-2 rounded-lg bg-surface-muted/45 px-2.5 py-1.5 sm:px-3 sm:py-2"
+                  >
                     <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" />
                     <span className="min-w-0 break-words">{item}</span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="mt-2 rounded-lg border border-dashed border-[var(--border-panel)] px-3 py-4 text-center text-sm text-muted-foreground">
+              <p className="mt-2 rounded-lg border border-dashed border-[var(--border-panel)] px-3 py-2.5 text-center text-xs text-muted-foreground sm:py-4 sm:text-sm">
                 当前没有待检查的变更。
               </p>
             )}
@@ -137,7 +143,7 @@ export function OrderWorkflowReviewDialog({
 
           <div
             id="workflow-apply-lock-reason"
-            className="flex gap-3 rounded-lg border border-status-warn-foreground/25 bg-status-warn px-3 py-3 text-status-warn-foreground"
+            className="flex gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn px-2.5 py-2 text-status-warn-foreground sm:gap-3 sm:px-3 sm:py-3"
           >
             <LockKeyhole className="mt-0.5 size-4 shrink-0" />
             <div>
@@ -150,7 +156,7 @@ export function OrderWorkflowReviewDialog({
           </div>
         </div>
 
-        <DialogFooter className="gap-2 border-t border-[var(--border-panel)] bg-card px-4 py-4 sm:px-5">
+        <DialogFooter className={`${componentOverlay.mobileFooter} bg-card sm:px-5`}>
           <Button
             type="button"
             variant="outline"
@@ -175,9 +181,9 @@ export function OrderWorkflowReviewDialog({
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-[var(--border-panel)] bg-card px-3 py-2">
+    <div className="rounded-lg border border-[var(--border-panel)] bg-card px-2.5 py-1.5 sm:px-3 sm:py-2">
       <p className="text-[11px] text-muted-foreground">{label}</p>
-      <p className="mt-1 text-lg font-semibold tabular-nums">{value}</p>
+      <p className="mt-0.5 text-base font-semibold tabular-nums sm:mt-1 sm:text-lg">{value}</p>
     </div>
   );
 }

@@ -95,8 +95,11 @@ export function InviteRegistrationScreen({
 
   if (statusQuery.isLoading) {
     return (
-      <main className="grid min-h-svh place-items-center bg-background px-4 py-8" aria-busy="true">
-        <section className="w-full max-w-md space-y-3 rounded-lg border border-border/60 bg-card p-5">
+      <main
+        className="grid min-h-svh place-items-center bg-background px-2 py-3 sm:px-4 sm:py-8"
+        aria-busy="true"
+      >
+        <section className="w-full max-w-md space-y-2 rounded-lg border border-border/60 bg-card p-3 sm:space-y-3 sm:p-5">
           <Skeleton className="h-8 w-52" />
           <Skeleton className="h-24 w-full" />
           <Skeleton className="h-11 w-full" />
@@ -144,7 +147,7 @@ export function InviteRegistrationScreen({
       </div>
 
       {mode === "new" ? (
-        <div className="mt-4 space-y-4">
+        <div className="mt-3 space-y-3 sm:mt-4 sm:space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="invite-display-name">员工姓名</Label>
             <Input
@@ -189,12 +192,12 @@ export function InviteRegistrationScreen({
         </p>
       )}
 
-      <p className="mt-4 text-xs leading-5 text-muted-foreground">
+      <p className="mt-3 text-xs leading-4 text-muted-foreground sm:mt-4 sm:leading-5">
         加入前不能查看该店铺的订单、客户、库存或财务数据。
       </p>
       <Button
         type="button"
-        className="mt-4 min-h-11 w-full"
+        className="mt-3 min-h-11 w-full sm:mt-4"
         style={brandGradientStyle}
         disabled={completeMutation.isPending}
         aria-busy={completeMutation.isPending}
@@ -233,15 +236,15 @@ function InviteShell({
   children: React.ReactNode;
 }) {
   return (
-    <main className="grid min-h-svh place-items-center bg-background px-4 py-8">
-      <section className="w-full max-w-md rounded-lg border border-border/60 bg-card p-5 shadow-sm">
-        <div className="mb-5 flex items-center gap-3">
+    <main className="grid min-h-svh place-items-center bg-background px-2 py-3 sm:px-4 sm:py-8">
+      <section className="w-full max-w-md rounded-lg border border-border/60 bg-card p-3 shadow-sm sm:p-5">
+        <div className="mb-3 flex items-center gap-2 sm:mb-5 sm:gap-3">
           <div className="grid size-10 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
             {icon}
           </div>
           <div className="min-w-0">
             <p className="text-sm font-medium text-primary">RepairDesk 员工邀请</p>
-            <h1 className="break-words font-display text-2xl font-semibold">{title}</h1>
+            <h1 className="break-words font-display text-xl font-semibold sm:text-2xl">{title}</h1>
           </div>
         </div>
         {children}

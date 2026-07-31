@@ -7,22 +7,26 @@
 
 export const pageShell = {
   safe: "w-full min-w-0 max-w-full overflow-x-hidden",
-  wide: "mx-auto w-full min-w-0 max-w-7xl space-y-6 overflow-x-hidden px-3 py-6 sm:px-6",
-  list: "mx-auto w-full min-w-0 max-w-7xl overflow-x-hidden px-3 pt-5 sm:px-4 md:px-6 lg:px-8",
-  detail: "mx-auto w-full min-w-0 max-w-4xl overflow-x-hidden px-4 pb-12 pt-4 md:px-6",
-  form: "mx-auto w-full min-w-0 max-w-3xl overflow-x-hidden px-3 py-4 sm:px-6",
+  wide: "mx-auto w-full min-w-0 max-w-7xl space-y-3 overflow-x-hidden px-2 py-3 sm:space-y-6 sm:px-6 sm:py-6",
+  list: "mx-auto w-full min-w-0 max-w-7xl overflow-x-hidden px-2 pt-3 sm:px-4 sm:pt-5 md:px-6 lg:px-8",
+  detail:
+    "mx-auto w-full min-w-0 max-w-4xl overflow-x-hidden px-2 pb-10 pt-2 sm:px-4 sm:pb-12 sm:pt-4 md:px-6",
+  form: "mx-auto w-full min-w-0 max-w-3xl overflow-x-hidden px-2 py-3 sm:px-6 sm:py-4",
   split:
-    "mx-auto grid w-full min-w-0 max-w-7xl gap-6 overflow-x-hidden px-3 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px]",
+    "mx-auto grid w-full min-w-0 max-w-7xl gap-3 overflow-x-hidden px-2 py-3 sm:gap-6 sm:px-6 sm:py-6 lg:grid-cols-[minmax(0,1fr)_320px]",
 } as const;
 
 export const pageHeader = {
-  root: "mb-4 flex min-w-0 flex-col gap-3 md:mb-5 md:flex-row md:items-start md:justify-between",
-  compact: "mb-3 flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:justify-between",
+  root: "mb-3 flex min-w-0 flex-col gap-2 sm:mb-4 sm:gap-3 md:mb-5 md:flex-row md:items-start md:justify-between",
+  compact:
+    "mb-2 flex min-w-0 flex-col gap-1.5 sm:mb-3 sm:gap-2 md:flex-row md:items-center md:justify-between",
   titleGroup: "min-w-0 space-y-1",
   eyebrow: "text-[10px] font-medium uppercase tracking-widest text-muted-foreground/70",
-  title: "font-display text-2xl font-semibold tracking-tight text-foreground md:text-3xl",
-  compactTitle: "truncate font-display text-xl font-semibold tracking-tight text-foreground",
-  subtitle: "max-w-2xl text-sm text-muted-foreground",
+  title:
+    "font-display text-xl font-semibold tracking-tight text-foreground sm:text-2xl md:text-3xl",
+  compactTitle:
+    "truncate font-display text-lg font-semibold tracking-tight text-foreground sm:text-xl",
+  subtitle: "max-w-2xl text-xs text-muted-foreground sm:text-sm",
   actions: "flex min-w-0 flex-wrap items-center gap-2",
 } as const;
 
@@ -95,13 +99,13 @@ export const detailWorkspace = {
 
 export const surfaces = {
   card: "glass-card",
-  section: "glass-card p-4 sm:p-5",
-  toolbar: "glass-card flex flex-col gap-3 p-3",
+  section: "glass-card p-3 sm:p-5",
+  toolbar: "glass-card flex flex-col gap-2 p-2 sm:gap-3 sm:p-3",
   stickyActions:
-    "sticky bottom-0 -mx-3 flex flex-col-reverse gap-2 border-t bg-background/80 px-3 py-3 backdrop-blur sm:-mx-6 sm:flex-row sm:justify-between sm:px-6",
+    "sticky bottom-0 -mx-2 flex flex-col-reverse gap-1.5 border-t bg-background/80 px-2 py-2 backdrop-blur sm:-mx-6 sm:flex-row sm:justify-between sm:gap-2 sm:px-6 sm:py-3",
   popover: "glass-strong border-border text-popover-foreground",
   empty:
-    "glass-card mx-auto mt-16 flex max-w-sm flex-col items-center justify-center p-8 text-center",
+    "glass-card mx-auto mt-6 flex max-w-sm flex-col items-center justify-center p-4 text-center sm:mt-16 sm:p-8",
 } as const;
 
 export const controls = {
@@ -160,18 +164,18 @@ export const repairOs = {
     "min-w-0 overflow-hidden rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2 shadow-[var(--shadow-card)]",
   headerActions: "flex shrink-0 items-center gap-2",
   iconAction:
-    "inline-flex size-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border-panel)] bg-card text-foreground shadow-[var(--shadow-card)] transition-colors hover:bg-accent",
+    "inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-[var(--border-panel)] bg-card text-foreground shadow-[var(--shadow-card)] transition-colors hover:bg-accent lg:size-9",
   primaryAction:
-    "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border-0 px-3 text-sm font-medium text-primary-foreground shadow-[var(--shadow-action)] transition-transform active:scale-95",
+    "inline-flex h-11 shrink-0 items-center gap-1.5 rounded-xl border-0 px-3 text-sm font-medium text-primary-foreground shadow-[var(--shadow-action)] transition-transform active:scale-95 lg:h-9",
   searchBar:
-    "flex h-10 min-w-0 items-center gap-2 rounded-2xl border border-[var(--border-panel)] bg-card px-3 shadow-[var(--shadow-card)]",
+    "flex h-11 min-w-0 items-center gap-2 rounded-2xl border border-[var(--border-panel)] bg-card px-2.5 shadow-[var(--shadow-card)] lg:h-10 lg:px-3",
   searchBarEmbedded:
-    "flex h-10 min-w-0 items-center gap-2 rounded-xl bg-[var(--surface-panel-muted)] px-3 transition-colors focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/20",
+    "flex h-11 min-w-0 items-center gap-2 rounded-xl bg-[var(--surface-panel-muted)] px-2.5 transition-colors focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/20 lg:h-10 lg:px-3",
   searchInput:
     "h-9 min-w-0 border-0 bg-transparent px-0 text-sm shadow-none placeholder:text-muted-foreground/65 focus-visible:ring-0",
   metricStrip: "grid min-w-0 gap-2",
   metricCard:
-    "min-w-0 rounded-2xl border border-[var(--border-panel)] bg-card px-2.5 py-2 shadow-[var(--shadow-card)]",
+    "min-w-0 rounded-2xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)] sm:px-2.5 sm:py-2",
   metricCardDense:
     "min-w-0 rounded-2xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)]",
   metricIcon:
@@ -182,14 +186,14 @@ export const repairOs = {
   dashboardMobileQuickAction:
     "block min-w-0 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
   chipRow: "flex min-w-0 snap-x gap-1.5 overflow-x-auto pb-1",
-  chip: "inline-flex h-8 shrink-0 snap-start items-center rounded-full border border-[var(--border-panel)] bg-card px-3 text-xs font-medium text-muted-foreground shadow-[var(--shadow-card)] transition-colors",
+  chip: "inline-flex h-11 shrink-0 snap-start items-center rounded-full border border-[var(--border-panel)] bg-card px-3 text-xs font-medium text-muted-foreground shadow-[var(--shadow-card)] transition-colors lg:h-8",
   chipActive:
     "border-primary bg-primary text-primary-foreground shadow-[var(--shadow-action)] hover:bg-primary",
   cardList: "grid min-w-0 gap-2",
   businessCard:
-    "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-2xl border border-[var(--border-panel)] bg-card px-3 py-2.5 shadow-[var(--shadow-card)] transition-colors hover:bg-card",
+    "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-1.5 rounded-2xl border border-[var(--border-panel)] bg-card px-2.5 py-2 shadow-[var(--shadow-card)] transition-colors hover:bg-card sm:gap-2 sm:px-3 sm:py-2.5",
   businessCardDense:
-    "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-1.5 rounded-2xl border border-[var(--border-panel)] bg-card px-2.5 py-2 shadow-[var(--shadow-card)]",
+    "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-1.5 rounded-2xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)] sm:px-2.5 sm:py-2",
   cardTitle: "truncate text-sm font-semibold leading-5 text-foreground",
   cardMeta: "truncate text-[11px] leading-4 text-muted-foreground",
   cardAmount: "whitespace-nowrap text-right font-mono text-sm font-semibold tabular-nums",
@@ -198,7 +202,7 @@ export const repairOs = {
   toolbar:
     "flex min-w-0 items-center gap-2 rounded-2xl border border-[var(--border-panel)] bg-card p-2 shadow-[var(--shadow-card)]",
   floatingAction:
-    "fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-3 z-40 h-10 rounded-full border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 text-xs font-semibold text-foreground shadow-[var(--shadow-overlay)] backdrop-blur-xl transition-transform active:scale-95 md:hidden",
+    "fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-3 z-40 h-11 rounded-full border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 text-xs font-semibold text-foreground shadow-[var(--shadow-overlay)] backdrop-blur-xl transition-transform active:scale-95 md:hidden",
   quickSheet:
     "max-h-[calc(100svh-5rem)] rounded-t-xl px-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3",
   quickActionList: "mt-3 grid gap-2",
@@ -210,19 +214,19 @@ export const repairOs = {
   quickActionLabel: "block truncate text-sm font-medium text-foreground",
   quickActionDescription: "block truncate text-xs text-muted-foreground",
   adminSection:
-    "min-w-0 rounded-2xl border border-[var(--border-panel)] bg-card p-3 shadow-[var(--shadow-card)] sm:p-3",
-  adminSectionHeader: "mb-3 flex min-w-0 items-center justify-between gap-2",
+    "min-w-0 rounded-2xl border border-[var(--border-panel)] bg-card p-2.5 shadow-[var(--shadow-card)] sm:p-3",
+  adminSectionHeader: "mb-2 flex min-w-0 items-center justify-between gap-2 sm:mb-3",
   adminSectionTitle: "truncate text-sm font-semibold text-foreground",
 } as const;
 
 export const formLayout = {
-  stack: "space-y-4 pb-24",
-  section: "glass-card p-4",
-  sectionHeader: "mb-3 flex items-center justify-between",
+  stack: "space-y-3 pb-24 sm:space-y-4",
+  section: "glass-card p-3 sm:p-4",
+  sectionHeader: "mb-2 flex items-center justify-between sm:mb-3",
   sectionTitle: "text-sm font-semibold",
   sectionHint: "text-xs text-muted-foreground",
-  grid: "grid gap-3 sm:grid-cols-2",
-  field: "space-y-1.5",
+  grid: "grid gap-2.5 sm:grid-cols-2 sm:gap-3",
+  field: "space-y-1 sm:space-y-1.5",
   label: "text-xs",
   required: "text-destructive",
 } as const;

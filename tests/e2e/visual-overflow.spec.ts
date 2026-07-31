@@ -8,6 +8,7 @@ test.skip(!enabled, "Set a RepairDesk E2E bypass flag for responsive route check
 
 const mobileInteractionsOnly = process.env.REPAIRDESK_E2E_MOBILE_INTERACTIONS === "1";
 const viewports = [
+  { width: 320, height: 568 },
   { width: 390, height: 844 },
   { width: 430, height: 932 },
   { width: 768, height: 1024 },
@@ -29,6 +30,26 @@ const routes = [
   "/platform",
 ];
 
+const extendedMobileRoutes = [
+  { path: "/orders/ord_1", ready: '[data-order-detail-root="true"]' },
+  { path: "/orders/ord_1/task", ready: '[data-order-task-header="true"]' },
+  { path: "/customers/cus_1", ready: "main" },
+  { path: "/inventory/new", expectedPath: "/inventory", ready: '[role="dialog"]' },
+  { path: "/finance", ready: "main" },
+  { path: "/memos", ready: "main" },
+  { path: "/settings/closed-stores", ready: "main" },
+  { path: "/login", ready: "main" },
+  { path: "/forgot-password", ready: "main" },
+  { path: "/reset-password", ready: "main" },
+  { path: "/onboarding", ready: "main" },
+  { path: "/register/complete", ready: "main" },
+  { path: "/invite/complete", ready: "main" },
+  { path: "/auth/confirm", ready: "main" },
+  { path: "/offline", ready: "main" },
+  { path: "/r", ready: "main" },
+  { path: "/kiosk", ready: "main" },
+] as const;
+
 async function expectNoPageOverflow(page: Page) {
   const dimensions = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
@@ -45,12 +66,82 @@ test.describe("responsive overflow guard", () => {
       await page.setViewportSize(viewport);
 
       for (const route of routes) {
-        await page.goto(route, { waitUntil: "domcontentloaded" });
+        await gotoRouteReady(page, route, "main");
         await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
         await expectNoPageOverflow(page);
       }
     });
   }
+
+  for (const viewport of viewports.filter(({ width }) => width <= 430)) {
+    test(`extended route inventory fits within ${viewport.width}px`, async ({ page }) => {
+      test.setTimeout(180_000);
+      await page.setViewportSize(viewport);
+
+      for (const route of extendedMobileRoutes) {
+        await gotoRouteReady(
+          page,
+          route.path,
+          route.ready,
+          "expectedPath" in route ? route.expectedPath : route.path,
+        );
+        await expectNoPageOverflow(page);
+      }
+    });
+  }
+
+  test("mobile editable controls keep the iOS zoom guard", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    for (const route of ["/orders/new", "/inventory/new"]) {
+      await page.goto(route, { waitUntil: "domcontentloaded" });
+      await page
+        .locator("input, textarea, select")
+        .first()
+        .waitFor({ state: "visible", timeout: 30_000 });
+      const fontSizes = await page
+        .locator("input:visible, textarea:visible, select:visible")
+        .evaluateAll((elements) =>
+          elements.map((element) => Number.parseFloat(getComputedStyle(element).fontSize)),
+        );
+      expect(fontSizes.length, `${route} visible editable controls`).toBeGreaterThan(0);
+      for (const fontSize of fontSizes)
+        expect(fontSize, `${route} input font size`).toBeGreaterThanOrEqual(16);
+    }
+  });
+
+  test("representative mobile actions keep 44px touch targets and reachable overlay footer", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    await page.goto("/orders/ord_1/task", { waitUntil: "domcontentloaded" });
+    await page
+      .locator('[data-order-task-header="true"]')
+      .waitFor({ state: "visible", timeout: 30_000 });
+    await expectTouchSizes(
+      page.locator(
+        '[data-order-task-header="true"] button:visible, [data-order-task-actions="true"] button:visible, [data-order-task-transition-panel="true"] button:visible',
+      ),
+      "order task actions",
+    );
+
+    await page.goto("/inventory/new", { waitUntil: "domcontentloaded" });
+    const dialog = page.getByRole("dialog");
+    await dialog.locator("input").first().waitFor({ state: "visible", timeout: 30_000 });
+    await expectTouchSizes(dialog.locator("button:visible"), "inventory intake dialog actions");
+    await expectTouchSizes(
+      dialog.locator("input:visible, select:visible"),
+      "inventory intake dialog fields",
+    );
+
+    const saveButton = dialog.getByRole("button", { name: "保存商品" });
+    await saveButton.scrollIntoViewIfNeeded();
+    await expect(saveButton).toBeVisible();
+    const saveBox = await saveButton.boundingBox();
+    expect(saveBox).not.toBeNull();
+    expect((saveBox?.y ?? 0) + (saveBox?.height ?? 0)).toBeLessThanOrEqual(844);
+  });
 
   test("orders detail dialog keeps page width stable", async ({ page }) => {
     test.skip(mobileInteractionsOnly, "The interaction gate only runs the mobile route matrix.");
@@ -58,7 +149,9 @@ test.describe("responsive overflow guard", () => {
     await page.goto("/orders");
     await page.waitForLoadState("networkidle");
 
-    const firstOrder = page.locator("text=/SEA-[0-9]+|R[0-9]{7}/").first();
+    const firstOrder = page
+      .locator('[data-order-desktop-list="true"] [data-order-row="true"]')
+      .first();
     if ((await firstOrder.count()) === 0) {
       await expectNoPageOverflow(page);
       return;
@@ -81,3 +174,29 @@ test.describe("responsive overflow guard", () => {
     await expectNoPageOverflow(page);
   });
 });
+
+async function expectTouchSizes(locator: ReturnType<Page["locator"]>, label: string) {
+  const sizes = await locator.evaluateAll((elements) =>
+    elements.map((element) => {
+      const rect = element.getBoundingClientRect();
+      return { height: Math.round(rect.height), width: Math.round(rect.width) };
+    }),
+  );
+  expect(sizes.length, `${label} visible controls`).toBeGreaterThan(0);
+  for (const size of sizes) {
+    expect(size.height, `${label} height`).toBeGreaterThanOrEqual(44);
+    expect(size.width, `${label} width`).toBeGreaterThanOrEqual(44);
+  }
+}
+
+async function gotoRouteReady(
+  page: Page,
+  path: string,
+  readySelector: string,
+  expectedPath = path,
+) {
+  await page.goto(path, { waitUntil: "domcontentloaded" });
+  await page.waitForLoadState("networkidle", { timeout: 30_000 }).catch(() => undefined);
+  expect(new URL(page.url()).pathname, `${path} reaches its declared screen`).toBe(expectedPath);
+  await page.locator(readySelector).first().waitFor({ state: "visible", timeout: 30_000 });
+}

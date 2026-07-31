@@ -56,15 +56,15 @@ export const toneClasses: Record<
 
 export const componentShell = {
   panel: "glass-card text-card-foreground",
-  panelPadding: "p-4 sm:p-5",
-  header: "flex items-start justify-between gap-3",
+  panelPadding: "p-3 sm:p-5",
+  header: "flex items-start justify-between gap-2 sm:gap-3",
   titleGroup: "min-w-0 space-y-1",
-  title: "font-display text-base font-semibold tracking-tight text-foreground",
+  title: "font-display text-sm font-semibold tracking-tight text-foreground sm:text-base",
   compactTitle: "text-sm font-semibold text-foreground",
-  description: "text-sm text-muted-foreground",
+  description: "text-xs text-muted-foreground sm:text-sm",
   eyebrow: "text-[10px] uppercase tracking-widest text-muted-foreground/70",
-  body: "mt-4 space-y-3",
-  footer: "mt-4 flex flex-wrap items-center justify-end gap-2",
+  body: "mt-3 space-y-2 sm:mt-4 sm:space-y-3",
+  footer: "mt-3 flex flex-wrap items-center justify-end gap-1.5 sm:mt-4 sm:gap-2",
   separator: "border-t border-border/50",
 } as const;
 
@@ -89,14 +89,14 @@ export const componentMetric = {
 } as const;
 
 export const componentForm = {
-  section: "glass-card p-4",
-  sectionHeader: "mb-3 flex items-start justify-between gap-3",
+  section: "glass-card p-3 sm:p-4",
+  sectionHeader: "mb-2 flex items-start justify-between gap-2 sm:mb-3 sm:gap-3",
   sectionTitle: "text-sm font-semibold text-foreground",
   sectionHint: "text-xs text-muted-foreground",
   field: "space-y-1.5",
   label: "text-xs",
   required: "text-destructive",
-  grid: "grid gap-3 sm:grid-cols-2",
+  grid: "grid gap-2.5 sm:grid-cols-2 sm:gap-3",
   help: "text-xs text-muted-foreground",
   error: "text-xs text-status-danger-foreground",
 } as const;
@@ -132,6 +132,10 @@ export const componentOverlay = {
   title: "font-display text-lg font-semibold tracking-tight",
   description: "text-sm text-muted-foreground",
   footer: "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+  mobileHeader: "space-y-1 px-3 pb-2 pt-3 sm:space-y-1.5 sm:px-4 sm:pb-3 sm:pt-4",
+  mobileBody: "min-w-0 space-y-2 overflow-y-auto px-3 py-2 sm:space-y-3 sm:px-4 sm:py-3",
+  mobileFooter:
+    "flex flex-col-reverse gap-1.5 border-t border-[var(--border-panel)] px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 sm:flex-row sm:justify-end sm:gap-2 sm:px-4 sm:pb-4 sm:pt-3",
 } as const;
 
 /** Exact implementation contract for Memo quick entry, Option A. */
@@ -171,6 +175,12 @@ export const componentDensity = {
   denseValue: "truncate text-xs font-medium leading-5 text-foreground",
   denseCell: "min-w-0 px-2 py-1.5",
   denseAction: "inline-flex size-7 shrink-0 items-center justify-center rounded-md",
+  mobileContentStack: "min-w-0 space-y-1.5",
+  mobileAdminCard:
+    "min-w-0 rounded-xl border border-[var(--border-panel)] bg-card p-2.5 shadow-[var(--shadow-card)]",
+  mobileStateCard:
+    "min-w-0 rounded-xl border border-[var(--border-panel)] bg-card p-3 shadow-[var(--shadow-card)]",
+  mobileTouchTarget: "min-h-11 min-w-11",
 } as const;
 
 export const componentAction = {

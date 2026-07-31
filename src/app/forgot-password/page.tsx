@@ -11,7 +11,11 @@ export const metadata: Metadata = {
 export default function ForgotPasswordPage() {
   return (
     <Suspense
-      fallback={<div className="p-6 text-sm text-muted-foreground">正在加载找回密码...</div>}
+      fallback={
+        <div className="p-3 text-xs text-muted-foreground sm:p-6 sm:text-sm">
+          正在加载找回密码...
+        </div>
+      }
     >
       <ForgotPasswordScreen />
     </Suspense>

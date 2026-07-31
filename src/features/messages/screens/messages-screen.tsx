@@ -245,7 +245,7 @@ export function MessagesScreen() {
         <RepairOsBusinessCard
           as="div"
           data-ui="messages-template-load-error"
-          className="mx-auto mt-16 max-w-sm grid-cols-[auto_minmax(0,1fr)_auto] items-center rounded-xl border-status-danger-foreground/25 bg-status-danger/10 px-4 py-3 text-status-danger-foreground shadow-[var(--shadow-card)] hover:bg-status-danger/10"
+          className="mx-auto mt-6 max-w-sm grid-cols-[auto_minmax(0,1fr)_auto] items-center rounded-xl border-status-danger-foreground/25 bg-status-danger/10 px-2.5 py-2 text-status-danger-foreground shadow-[var(--shadow-card)] hover:bg-status-danger/10 sm:mt-16 sm:px-4 sm:py-3"
           leading={
             <span className="grid size-9 place-items-center rounded-lg bg-status-danger/10">
               <MessageSquareText className="size-4" />
@@ -256,7 +256,7 @@ export function MessagesScreen() {
               type="button"
               size="sm"
               variant="outline"
-              className="h-8 bg-card"
+              className="min-h-11 bg-card lg:h-8 lg:min-h-0"
               onClick={() => templatesQuery.refetch()}
             >
               重新加载
@@ -357,14 +357,14 @@ export function MessagesScreen() {
                     value={activeLabelDraft}
                     disabled={!canUpdateMessageTemplates}
                     onChange={(event) => setLabelDraft(event.target.value)}
-                    className="h-8 text-sm sm:h-9"
+                    className="h-11 text-base sm:text-sm lg:h-8"
                   />
                 </div>
                 <div className="flex items-end">
                   <RepairOsBusinessCard
                     as="div"
                     data-ui="messages-template-enabled-toggle"
-                    className="h-8 min-w-[7.25rem] items-center rounded-md bg-surface px-2.5 py-0 shadow-none hover:bg-surface sm:h-9"
+                    className="h-11 min-w-[7.25rem] items-center rounded-md bg-surface px-2.5 py-0 shadow-none hover:bg-surface lg:h-8"
                     bodyClassName="self-center"
                     trailing={
                       <Switch
@@ -412,7 +412,7 @@ export function MessagesScreen() {
                   value={activeBodyDraft}
                   disabled={!canUpdateMessageTemplates}
                   onChange={(event) => setBodyDraft(event.target.value)}
-                  className="min-h-[260px] font-mono text-base leading-relaxed md:min-h-[340px] md:text-xs"
+                  className="min-h-44 font-mono text-base leading-relaxed sm:min-h-[220px] md:min-h-[340px] md:text-xs"
                 />
               </div>
 
@@ -425,7 +425,7 @@ export function MessagesScreen() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 gap-1.5"
+                    className="min-h-11 gap-1.5 lg:h-8 lg:min-h-0"
                     disabled={
                       resetMutation.isPending ||
                       !canUpdateMessageTemplates ||
@@ -441,7 +441,7 @@ export function MessagesScreen() {
                   </Button>
                   <Button
                     size="sm"
-                    className={cn("h-8 gap-1.5", controls.brandButton)}
+                    className={cn("min-h-11 gap-1.5 lg:h-8 lg:min-h-0", controls.brandButton)}
                     style={brandGradientStyle}
                     disabled={
                       !canUpdateMessageTemplates || !canSaveTemplate || saveMutation.isPending
@@ -522,7 +522,7 @@ export function MessagesScreen() {
           <RepairOsBusinessCard
             as="div"
             data-ui="messages-template-empty-state"
-            className="mx-auto mt-8 max-w-sm grid-cols-[auto_minmax(0,1fr)] items-center rounded-xl px-4 py-3 shadow-[var(--shadow-card)]"
+            className="mx-auto mt-4 max-w-sm grid-cols-[auto_minmax(0,1fr)] items-center rounded-xl px-2.5 py-2 shadow-[var(--shadow-card)] sm:mt-8 sm:px-4 sm:py-3"
             leading={
               <span className="grid size-9 place-items-center rounded-lg bg-[var(--surface-panel-muted)] text-muted-foreground">
                 <MessageSquareText className="size-4" />

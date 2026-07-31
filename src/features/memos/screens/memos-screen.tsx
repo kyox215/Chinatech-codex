@@ -336,7 +336,7 @@ export function MemosScreen() {
           <MemoErrorState error={detailQuery.error} onRetry={() => void detailQuery.refetch()} />
         ) : null}
         {offlineWithoutCache ? (
-          <RepairOsBusinessCard className="grid min-h-52 place-items-center p-5 text-center">
+          <RepairOsBusinessCard className="grid min-h-32 place-items-center p-3 text-center sm:min-h-52 sm:p-5">
             <div>
               <WifiOff className="mx-auto size-8 text-muted-foreground" />
               <p className="mt-2 text-sm font-semibold">无法载入备忘录</p>

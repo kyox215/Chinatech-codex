@@ -209,8 +209,8 @@ export function LoginScreen() {
   }
 
   return (
-    <main className="min-h-svh bg-background px-4 py-8 lg:grid lg:place-items-center">
-      <div className="mx-auto grid w-full max-w-5xl min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] lg:items-center">
+    <main className="min-h-svh bg-background px-2 py-3 sm:px-4 sm:py-8 lg:grid lg:place-items-center">
+      <div className="mx-auto grid w-full max-w-5xl min-w-0 gap-3 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] lg:items-center">
         <section className="hidden min-w-0 lg:block">
           <div className="max-w-xl space-y-5">
             <div className="grid size-12 place-items-center rounded-xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
@@ -238,19 +238,21 @@ export function LoginScreen() {
           </div>
         </section>
 
-        <section className="w-full rounded-lg border border-border/60 bg-card p-5 shadow-sm lg:justify-self-end">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="grid size-10 place-items-center rounded-md bg-primary/10 text-primary">
+        <section className="w-full rounded-lg border border-border/60 bg-card p-3 shadow-sm sm:p-5 lg:justify-self-end">
+          <div className="mb-3 flex items-center gap-2 sm:mb-5 sm:gap-3">
+            <div className="grid size-9 place-items-center rounded-md bg-primary/10 text-primary sm:size-10">
               <KeyRound className="size-5" />
             </div>
             <div>
-              <h1 className="font-display text-2xl font-semibold">RepairDesk 登录</h1>
-              <p className="text-sm text-muted-foreground">员工登录或提交新账号开通申请。</p>
+              <h1 className="font-display text-xl font-semibold sm:text-2xl">RepairDesk 登录</h1>
+              <p className="text-xs text-muted-foreground sm:text-sm">
+                员工登录或提交新账号开通申请。
+              </p>
             </div>
           </div>
 
           {mode === "reset" ? (
-            <form className="space-y-4" onSubmit={handlePasswordResetRequest}>
+            <form className="space-y-3 sm:space-y-4" onSubmit={handlePasswordResetRequest}>
               <div className="space-y-1.5">
                 <Label htmlFor="reset-email">邮箱</Label>
                 <Input
@@ -275,7 +277,7 @@ export function LoginScreen() {
               </Button>
             </form>
           ) : mode === "update-password" ? (
-            <form className="space-y-4" onSubmit={handlePasswordUpdate}>
+            <form className="space-y-3 sm:space-y-4" onSubmit={handlePasswordUpdate}>
               <div className="space-y-1.5">
                 <Label htmlFor="new-password">新密码</Label>
                 <Input
@@ -310,7 +312,7 @@ export function LoginScreen() {
               </TabsList>
 
               <TabsContent value="login">
-                <form className="space-y-4" onSubmit={handleLogin}>
+                <form className="space-y-3 sm:space-y-4" onSubmit={handleLogin}>
                   <LoginFields
                     email={email}
                     password={password}
@@ -322,7 +324,7 @@ export function LoginScreen() {
                     <Button
                       type="button"
                       variant="link"
-                      className="h-auto px-0 text-xs"
+                      className="min-h-11 px-0 text-xs lg:min-h-0"
                       onClick={() => router.push("/forgot-password")}
                     >
                       忘记密码？
@@ -335,7 +337,7 @@ export function LoginScreen() {
               </TabsContent>
 
               <TabsContent value="register">
-                <form className="space-y-4" onSubmit={handleRegister}>
+                <form className="space-y-3 sm:space-y-4" onSubmit={handleRegister}>
                   <div className="space-y-1.5">
                     <Label htmlFor="displayName">姓名</Label>
                     <Input

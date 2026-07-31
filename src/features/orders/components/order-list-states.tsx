@@ -51,7 +51,7 @@ export function EmptyOrdersState({
 
 export function OrdersErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="mx-auto mt-16 flex max-w-lg flex-col items-center justify-center rounded-xl border border-status-danger-foreground/25 bg-status-danger/10 px-4 py-5 text-center">
+    <div className="mx-auto mt-6 flex max-w-lg flex-col items-center justify-center rounded-xl border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-3 text-center sm:mt-16 sm:px-4 sm:py-5">
       <div className="mb-3 grid size-12 place-items-center rounded-full bg-status-danger/15 text-status-danger-foreground">
         <AlertTriangle className="size-6" />
       </div>
