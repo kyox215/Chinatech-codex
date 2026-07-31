@@ -10,6 +10,7 @@ export interface RepairServiceCatalogGroup {
   key: string;
   label: string;
   italian: string;
+  repairOptions?: readonly RepairServiceCatalogOption[];
   options: readonly RepairServiceCatalogOption[];
 }
 
@@ -29,6 +30,12 @@ export const repairServiceCatalogGroups = [
     key: "display",
     label: "屏幕",
     italian: "Display",
+    repairOptions: [
+      { key: "original", label: "原装", italian: "Ricambio originale" },
+      { key: "assembled", label: "组装", italian: "Ricambio compatibile" },
+      { key: "tft", label: "TFT", italian: "Display TFT" },
+      { key: "incell", label: "Incell", italian: "Display Incell" },
+    ],
     options: [
       { key: "glass", label: "外屏碎裂", italian: "Vetro esterno rotto" },
       { key: "lcd", label: "内屏漏液", italian: "LCD danneggiato" },
@@ -43,6 +50,11 @@ export const repairServiceCatalogGroups = [
     key: "battery",
     label: "电池",
     italian: "Batteria",
+    repairOptions: [
+      { key: "original", label: "原装", italian: "Batteria originale" },
+      { key: "assembled", label: "组装", italian: "Batteria compatibile" },
+      { key: "high-capacity", label: "扩容版", italian: "Batteria maggiorata" },
+    ],
     options: [
       { key: "health", label: "健康度低", italian: "Salute batteria bassa" },
       { key: "drain", label: "耗电快", italian: "Consumo rapido" },
@@ -57,6 +69,10 @@ export const repairServiceCatalogGroups = [
     key: "charging",
     label: "尾插",
     italian: "Connettore di ricarica",
+    repairOptions: [
+      { key: "original", label: "原装", italian: "Connettore originale" },
+      { key: "assembled", label: "组装", italian: "Connettore compatibile" },
+    ],
     options: [
       { key: "loose", label: "接口松动", italian: "Porta allentata" },
       { key: "no-charge", label: "无法充电", italian: "Non carica" },
@@ -214,6 +230,7 @@ export function repairServiceCatalogKey(groupKey: string, optionKey: string) {
 export function repairServiceCatalogItemsForGroup(
   group: RepairServiceCatalogGroup,
 ): RepairServiceCatalogItem[] {
+  const detailOptions = [...(group.repairOptions ?? []), ...group.options];
   return [
     {
       catalogKey: repairServiceCatalogKey(group.key, MAIN_REPAIR_SERVICE_OPTION_KEY),
@@ -225,7 +242,7 @@ export function repairServiceCatalogItemsForGroup(
       name: group.label,
       isMain: true,
     },
-    ...group.options.map((option) => ({
+    ...detailOptions.map((option) => ({
       catalogKey: repairServiceCatalogKey(group.key, option.key),
       groupKey: group.key,
       optionKey: option.key,

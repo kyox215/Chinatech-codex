@@ -47,6 +47,7 @@ type FaultOption = {
   label: string;
   italian: string;
   price: number;
+  kind: "repair" | "inspection";
 };
 
 type FaultGroup = {
@@ -54,6 +55,7 @@ type FaultGroup = {
   label: string;
   italian: string;
   icon: React.ComponentType<{ className?: string }>;
+  repairOptions: FaultOption[];
   options: FaultOption[];
 };
 
@@ -65,6 +67,7 @@ function getMainFaultOption(group: FaultGroup): FaultOption {
     label: group.label,
     italian: group.italian,
     price: 0,
+    kind: "repair",
   };
 }
 
@@ -89,10 +92,16 @@ const faultGroupIcons: Record<string, FaultGroup["icon"]> = {
 const faultGroups: FaultGroup[] = repairServiceCatalogGroups.map((group) => {
   const icon = faultGroupIcons[group.key];
   if (!icon) throw new Error(`Missing repair service category icon: ${group.key}`);
+  const repairOptions = "repairOptions" in group ? group.repairOptions : [];
   return {
     ...group,
     icon,
-    options: group.options.map((option) => ({ ...option, price: 0 })),
+    repairOptions: repairOptions.map((option) => ({ ...option, price: 0, kind: "repair" })),
+    options: group.options.map((option) => ({
+      ...option,
+      price: 0,
+      kind: "inspection",
+    })),
   };
 });
 
@@ -200,8 +209,21 @@ export function FaultDiagnosisPicker({
       return;
     }
 
+    if (option.kind === "repair") {
+      onChange([
+        ...selected.filter((item) => item.categoryKey !== group.key),
+        createFault(group, option, active[0]),
+      ]);
+      return;
+    }
+
+    const repairKeys = new Set([
+      mainFaultKey(group),
+      ...group.repairOptions.map((repairOption) => faultKey(group, repairOption)),
+    ]);
+
     onChange([
-      ...selected.filter((item) => item.key !== mainFaultKey(group)),
+      ...selected.filter((item) => item.categoryKey !== group.key || !repairKeys.has(item.key)),
       createFault(group, option),
     ]);
   };
@@ -280,10 +302,19 @@ function FaultCategoryButton({
     }[group.key] ?? group.label;
   const quiet = appearance === "quiet";
   const [open, setOpen] = useState(false);
+  const [menuMode, setMenuMode] = useState<"repair" | "inspection">("repair");
   const touchSafeTrigger = useTouchSafeDropdownTrigger(setOpen);
+  const inspectionKeys = new Set(group.options.map((option) => faultKey(group, option)));
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setMenuMode(active.some((item) => inspectionKeys.has(item.key)) ? "inspection" : "repair");
+    }
+    setOpen(nextOpen);
+  };
+  const visibleOptions = menuMode === "inspection" ? group.options : group.repairOptions;
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+    <DropdownMenu open={open} onOpenChange={handleOpenChange}>
       <div
         className={cn(
           "grid min-w-0 overflow-hidden border text-left transition-colors",
@@ -305,7 +336,7 @@ function FaultCategoryButton({
           type="button"
           aria-label={group.label}
           aria-pressed={active.length > 0}
-          onClick={onMainToggle}
+          onClick={group.repairOptions.length > 0 ? () => setOpen(true) : onMainToggle}
           className={cn(
             "flex min-w-0 items-center text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             compact && quiet
@@ -373,7 +404,49 @@ function FaultCategoryButton({
           "max-h-[min(18rem,calc(100dvh_-_var(--rd-overlay-avoid-bottom,0px)_-_1rem))] w-[min(16rem,calc(100vw-24px))] overflow-y-auto rounded-[var(--radius-lg)] p-1 shadow-[var(--shadow-card)]",
         )}
       >
-        {group.options.map((option) => {
+        {menuMode === "inspection" && (
+          <>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                setMenuMode("repair");
+              }}
+              className={cn(
+                "gap-1.5 rounded-md px-2 py-1 outline-none",
+                compact ? "min-h-9 text-xs" : "min-h-9 gap-2 px-2.5 py-1.5 text-[13px]",
+              )}
+            >
+              <span
+                className={cn(
+                  "grid shrink-0 place-items-center rounded border border-[var(--border-panel)] bg-background text-muted-foreground",
+                  compact ? "size-4" : "size-4",
+                )}
+              >
+                <ChevronDown className="size-3 rotate-90" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span
+                  className={cn(
+                    "block truncate font-medium",
+                    compact ? "text-xs leading-4" : "text-[13px] leading-5",
+                  )}
+                >
+                  返回维修方案
+                </span>
+                <span
+                  className={cn(
+                    "block truncate text-muted-foreground",
+                    compact ? "text-[10px] leading-3" : "text-[11px] leading-4",
+                  )}
+                >
+                  Torna alle opzioni di riparazione
+                </span>
+              </span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="my-1.5" />
+          </>
+        )}
+        {visibleOptions.map((option) => {
           const key = faultKey(group, option);
           const checked = active.some((item) => item.key === key);
           return (
@@ -421,6 +494,48 @@ function FaultCategoryButton({
             </DropdownMenuItem>
           );
         })}
+        {menuMode === "repair" && (
+          <>
+            {group.repairOptions.length > 0 && <DropdownMenuSeparator className="my-1.5" />}
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                setMenuMode("inspection");
+              }}
+              className={cn(
+                "gap-1.5 rounded-md px-2 py-1 outline-none",
+                compact ? "min-h-9 text-xs" : "min-h-9 gap-2 px-2.5 py-1.5 text-[13px]",
+              )}
+            >
+              <span
+                className={cn(
+                  "grid shrink-0 place-items-center rounded border border-[var(--border-panel)] bg-background text-muted-foreground",
+                  compact ? "size-4" : "size-4",
+                )}
+              >
+                <ChevronDown className="size-3" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span
+                  className={cn(
+                    "block truncate font-medium",
+                    compact ? "text-xs leading-4" : "text-[13px] leading-5",
+                  )}
+                >
+                  需要检查
+                </span>
+                <span
+                  className={cn(
+                    "block truncate text-muted-foreground",
+                    compact ? "text-[10px] leading-3" : "text-[11px] leading-4",
+                  )}
+                >
+                  Da verificare
+                </span>
+              </span>
+            </DropdownMenuItem>
+          </>
+        )}
         {active.length > 0 && (
           <>
             <DropdownMenuSeparator className="my-1.5" />

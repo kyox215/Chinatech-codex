@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-const screenshotDir = "screenshots/TASK-20260708-003-new-order-dropdowns";
+const screenshotDir = "screenshots/TASK-20260730-015-repair-option-logic";
 const enabled =
   process.env.REPAIRDESK_E2E_ORDER_AUDIT === "1" ||
   process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
@@ -39,11 +39,27 @@ test("new order dropdown arrows distinguish touch scroll from tap", async ({
     .click();
 
   const faultTrigger = page.getByRole("button", { name: "展开屏幕细分选项" });
-  await tapTriggerAndExpectMenu(page, faultTrigger, /外屏碎裂/);
+  await tapTriggerAndExpectMenu(page, faultTrigger, /原装/);
+  await page.screenshot({
+    path: `${screenshotDir}/new-order-mobile-repair-options.png`,
+    fullPage: true,
+  });
+  await page.getByRole("menuitem", { name: /需要检查/ }).click();
+  await expect(
+    page
+      .getByRole("menu")
+      .getByText(/外屏碎裂/)
+      .first(),
+  ).toBeVisible();
+  await page.screenshot({
+    path: `${screenshotDir}/new-order-mobile-needs-inspection.png`,
+    fullPage: true,
+  });
+  await page.keyboard.press("Escape");
 
   await expectTouchDragDoesNotOpen(page, brandTrigger, /Apple/);
   await expectTouchDragDoesNotOpen(page, modelTrigger, /iPhone/);
-  await expectTouchDragDoesNotOpen(page, faultTrigger, /外屏碎裂/);
+  await expectTouchDragDoesNotOpen(page, faultTrigger, /原装/);
 
   await expectNoPageOverflow(page);
   await page.screenshot({
