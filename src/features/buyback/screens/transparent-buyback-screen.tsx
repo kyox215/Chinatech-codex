@@ -16,9 +16,7 @@ import {
   PencilLine,
   Plus,
   RefreshCw,
-  ShieldAlert,
   Smartphone,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -162,7 +160,13 @@ export function BuybackScreen() {
       }
     >
       <h1 className="sr-only">回收管理</h1>
-      <section className="mb-3 grid gap-2 sm:grid-cols-3">
+      <section
+        aria-label="回收报价概览"
+        className={cn(
+          repairOs.mobileInfoCard,
+          "mb-2 grid grid-cols-3 divide-x divide-[var(--border-panel)] overflow-hidden p-1.5",
+        )}
+      >
         <SummaryTile
           label="待答复"
           value={(list.data ?? []).filter((item) => !resolvedOutcome(item)).length}
@@ -181,7 +185,7 @@ export function BuybackScreen() {
       </section>
 
       {!BUYBACK_SENSITIVE_WORKFLOW_ENABLED ? (
-        <div className="mb-3 rounded-xl border border-status-info/25 bg-status-info/10 px-3 py-2 text-xs text-status-info-foreground">
+        <div className="mb-2 rounded-xl border border-status-info/25 bg-status-info/10 px-2.5 py-1.5 text-[10px] leading-4 text-status-info-foreground sm:text-xs">
           当前只记录报价与客户口头答复，不会付款、采集证件/签名、标记已回收或联动商品库存。
         </div>
       ) : null}
@@ -189,16 +193,25 @@ export function BuybackScreen() {
       {!isOnline ? (
         <div
           role="status"
-          className="mb-3 rounded-xl border border-status-warn/30 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground"
+          className="mb-2 rounded-xl border border-status-warn/30 bg-status-warn/10 px-2.5 py-1.5 text-[10px] leading-4 text-status-warn-foreground sm:text-xs"
         >
           当前处于离线状态。可继续查看已有资料，恢复网络后才能保存报价或客户答复。
+        </div>
+      ) : null}
+
+      {isHydrated && !canCreate ? (
+        <div
+          role="note"
+          className="mb-2 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 py-1.5 text-[10px] leading-4 text-muted-foreground sm:text-xs"
+        >
+          当前角色为只读；新建报价、改价或记录客户答复需要相应负责人权限。
         </div>
       ) : null}
 
       {list.isLoading ? (
         <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (
-            <Skeleton key={index} className="h-40 rounded-xl" />
+            <Skeleton key={index} className="h-28 rounded-xl" />
           ))}
         </div>
       ) : list.isError ? (
@@ -247,6 +260,10 @@ export function BuybackScreen() {
           setSelected(null);
           setWorkspace({ mode: "revise", item });
         }}
+        onRefresh={async (itemId) => {
+          const refreshed = await list.refetch();
+          setSelected((refreshed.data ?? []).find((item) => item.id === itemId) ?? null);
+        }}
         onSaved={() => {
           setSelected(null);
           void list.refetch();
@@ -266,19 +283,15 @@ function SummaryTile({
   icon: typeof Clock3;
 }) {
   return (
-    <RepairOsBusinessCard
-      className="items-center gap-2 p-2.5"
-      leading={
-        <span className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary">
-          <Icon className="size-4" />
-        </span>
-      }
-    >
+    <div className="flex min-w-0 items-center justify-center gap-1.5 px-1.5 py-1">
+      <Icon className="size-3.5 shrink-0 text-primary" />
       <div className="min-w-0">
-        <p className="text-[10px] text-muted-foreground">{label}</p>
-        <p className="text-lg font-semibold tabular-nums">{value}</p>
+        <p className="truncate text-[9px] leading-3 text-muted-foreground sm:text-[10px]">
+          {label}
+        </p>
+        <p className="text-sm font-semibold leading-4 tabular-nums">{value}</p>
       </div>
-    </RepairOsBusinessCard>
+    </div>
   );
 }
 
@@ -287,52 +300,50 @@ function QuoteCard({ item, onOpen }: { item: InventoryListItem; onOpen: () => vo
   const outcome = resolvedOutcome(item);
   const expired = quote.expires_at ? Date.parse(String(quote.expires_at)) <= Date.now() : false;
   return (
-    <button
+    <RepairOsBusinessCard
+      as="button"
       type="button"
       onClick={onOpen}
-      className="min-w-0 rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="h-full min-w-0 grid-cols-1 gap-1.5 p-2 text-left transition-colors hover:border-primary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <RepairOsBusinessCard className="h-full grid-cols-1 gap-3 p-3 transition-colors hover:border-primary/35">
-        <div className="flex min-w-0 items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="font-mono text-xs font-semibold text-primary">{item.public_no}</span>
-              <OutcomeBadge outcome={outcome} />
-            </div>
-            <h2 className="mt-1 truncate text-sm font-semibold">{item.item_label}</h2>
-            <p className="truncate text-[11px] text-muted-foreground">
-              {[item.color, item.storage_capacity, item.serial_or_imei]
-                .filter(Boolean)
-                .join(" · ") || "设备资料待补充"}
-            </p>
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono text-xs font-semibold text-primary">{item.public_no}</span>
+            <OutcomeBadge outcome={outcome} />
           </div>
-          <div className="shrink-0 text-right">
-            <p className="font-mono text-lg font-semibold text-primary">
-              <MoneyText amount={numberValue(quote.final_offer)} />
-            </p>
-            <p className="text-[9px] text-muted-foreground">当前报价</p>
-          </div>
+          <h2 className="mt-0.5 truncate text-sm font-semibold leading-4">{item.item_label}</h2>
+          <p className="truncate text-[10px] leading-4 text-muted-foreground">
+            {[item.color, item.storage_capacity, maskIdentifier(item.serial_or_imei)]
+              .filter(Boolean)
+              .join(" · ") || "设备资料待补充"}
+          </p>
         </div>
-        <div className="grid grid-cols-3 gap-1.5">
-          <MiniTile
-            label="参考区间"
-            value={rangeLabel(quote.reference_low, quote.reference_high)}
-          />
-          <MiniTile label="调整项目" value={`${deductionsFromQuote(quote).length} 项`} />
-          <MiniTile
-            label="有效期"
-            value={expired ? "已过期" : shortDate(quote.expires_at)}
-            danger={expired}
-          />
+        <div className="shrink-0 text-right">
+          <p className="font-mono text-base font-semibold leading-5 text-primary">
+            <MoneyText amount={numberValue(quote.final_offer)} />
+          </p>
+          <p className="text-[9px] text-muted-foreground">当前报价</p>
         </div>
-        <div className="flex items-center justify-between border-t border-[var(--border-panel)] pt-2 text-[11px]">
-          <span className="text-muted-foreground">
-            {nextAction(outcome, expired, quote.hard_block === true)}
-          </span>
-          <ArrowRight className="size-3.5 text-primary" />
-        </div>
-      </RepairOsBusinessCard>
-    </button>
+      </div>
+      <div className="flex min-w-0 items-center gap-1.5 text-[10px] leading-4 text-muted-foreground">
+        <span className="truncate">
+          参考 {rangeLabel(quote.reference_low, quote.reference_high)}
+        </span>
+        <span aria-hidden="true">·</span>
+        <span className="shrink-0">扣减 {deductionsFromQuote(quote).length} 项</span>
+        <span aria-hidden="true">·</span>
+        <span className={cn("shrink-0", expired && "text-status-danger-foreground")}>
+          {expired ? "已过期" : shortDate(quote.expires_at)}
+        </span>
+      </div>
+      <div className="flex min-w-0 items-center justify-between border-t border-[var(--border-panel)] pt-1.5 text-[10px] leading-4">
+        <span className="truncate text-muted-foreground">
+          {nextAction(outcome, expired, quote.hard_block === true)}
+        </span>
+        <ArrowRight className="size-3.5 text-primary" />
+      </div>
+    </RepairOsBusinessCard>
   );
 }
 
@@ -344,6 +355,7 @@ function TransparentQuoteDetail({
   storeId,
   onClose,
   onRevise,
+  onRefresh,
   onSaved,
 }: {
   item: InventoryListItem | null;
@@ -353,12 +365,16 @@ function TransparentQuoteDetail({
   storeId?: string;
   onClose: () => void;
   onRevise: (item: InventoryListItem) => void;
+  onRefresh: (itemId: string) => Promise<void>;
   onSaved: () => void;
 }) {
   const client = useQueryClient();
   const [outcome, setOutcome] = useState<BuybackQuoteOutcome | "">("");
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
+  const [showNote, setShowNote] = useState(false);
+  const [showAllDeductions, setShowAllDeductions] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [responseOperationKey, setResponseOperationKey] = useState("");
   const itemId = item?.id;
   const history = useQuery({
@@ -370,6 +386,9 @@ function TransparentQuoteDetail({
     setOutcome("");
     setReason("");
     setNote("");
+    setShowNote(false);
+    setShowAllDeductions(false);
+    setShowHistory(false);
     setResponseOperationKey(itemId ? crypto.randomUUID() : "");
   }, [itemId]);
   const mutation = useMutation({
@@ -401,6 +420,14 @@ function TransparentQuoteDetail({
   const currentOutcome = resolvedOutcome(item);
   const deductions = deductionsFromQuote(quote);
   const isExpired = quote.expires_at ? Date.parse(String(quote.expires_at)) <= Date.now() : false;
+  const hasRevision = typeof quote.current_revision_id === "string" && quote.current_revision_id;
+  const visibleDeductions = showAllDeductions ? deductions : deductions.slice(0, 2);
+  const deductionTotal = deductions.reduce((sum, row) => sum + row.amount, 0);
+  const suggested = Math.max(0, numberValue(quote.reference_high) - deductionTotal);
+  const finalOffer = numberValue(quote.final_offer);
+  const manualDelta = finalOffer - suggested;
+  const latestRevision = latestByCreatedAt(history.data?.revisions);
+  const latestResponse = latestByCreatedAt(history.data?.responses);
   const acceptDisabled =
     isExpired || quote.hard_block === true || numberValue(quote.final_offer) <= 0;
   const responseLocked = currentOutcome === "accepted" || currentOutcome === "rejected";
@@ -409,47 +436,64 @@ function TransparentQuoteDetail({
       <SheetContent
         side="bottom"
         style={sheetFloatingStyle}
-        className={cn(
-          "left-1/2 right-auto flex h-[min(92svh,820px)] w-[min(760px,calc(100vw-0.5rem))] -translate-x-1/2 flex-col gap-0 rounded-t-2xl p-0 md:bottom-4 md:rounded-2xl",
-          repairOs.mobileFloatingPage,
-        )}
+        className="bottom-1 left-1/2 right-auto flex h-[calc(100svh-0.5rem)] w-[calc(100vw-0.5rem)] -translate-x-1/2 flex-col gap-0 rounded-2xl p-0 md:bottom-4 md:h-[min(90svh,780px)] md:w-[min(980px,calc(100vw-2rem))]"
       >
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4 pt-3 sm:px-5">
-          <SheetHeader className="text-left">
+        <div className="min-h-0 flex-1 overflow-y-auto p-2 pb-3 sm:p-4 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:content-start lg:gap-2">
+          <SheetHeader className="text-left lg:col-span-2">
             <SheetTitle className="flex items-center gap-2 text-base">
               <Smartphone className="size-4 text-primary" />
               {item.item_label}
             </SheetTitle>
             <SheetDescription>
-              {item.public_no} · {item.serial_or_imei || "标识已隐藏"}
+              {item.public_no} · {maskIdentifier(item.serial_or_imei) || "标识已隐藏"}
             </SheetDescription>
           </SheetHeader>
-          <section className={cn(repairOs.mobileInfoCard, "mt-3 p-3")}>
+          <section
+            className={cn(
+              repairOs.mobileInfoCard,
+              "mt-2 p-2 lg:col-start-1 lg:row-start-2 lg:mt-0",
+            )}
+          >
             <div className="flex items-end justify-between gap-3">
               <div>
                 <p className="text-[10px] text-muted-foreground">当前透明报价</p>
-                <p className="mt-1 font-mono text-3xl font-semibold text-primary">
-                  <MoneyText amount={numberValue(quote.final_offer)} />
+                <p className="font-mono text-2xl font-semibold leading-7 text-primary">
+                  <MoneyText amount={finalOffer} />
                 </p>
               </div>
               <OutcomeBadge outcome={resolvedOutcome(item)} />
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="mt-2 grid grid-cols-2 gap-1.5">
               <MiniTile
                 label="初始参考"
                 value={rangeLabel(quote.reference_low, quote.reference_high)}
               />
-              <MiniTile label="报价有效期" value={shortDate(quote.expires_at)} danger={isExpired} />
+              <MiniTile label="系统建议" value={`€${suggested.toFixed(2)}`} />
+              <MiniTile
+                label="人工差额"
+                value={signedMoney(manualDelta)}
+                danger={manualDelta < 0}
+              />
+              <MiniTile
+                label="风险 / 有效期"
+                value={`${riskLabel(quote)} · ${shortDate(quote.expires_at)}`}
+                danger={isExpired || quote.hard_block === true}
+              />
             </div>
           </section>
-          <section className={cn(repairOs.mobileInfoCard, "mt-2 p-3")}>
-            <h3 className="text-xs font-semibold">价格怎么得出</h3>
-            <div className="mt-2 space-y-1.5">
+          <section
+            className={cn(repairOs.mobileInfoCard, "mt-2 p-2 lg:col-start-1 lg:row-start-3")}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-xs font-semibold">价格怎么得出</h3>
+              <span className="text-[10px] text-muted-foreground">共 {deductions.length} 项</span>
+            </div>
+            <div id="buyback-deductions-content" className="mt-1.5 space-y-1">
               {deductions.length ? (
-                deductions.map((row) => (
+                visibleDeductions.map((row) => (
                   <div
                     key={row.code}
-                    className="flex items-center justify-between rounded-xl bg-[var(--surface-panel-muted)] px-3 py-2 text-xs"
+                    className="flex min-h-8 items-center justify-between rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1 text-[11px]"
                   >
                     <span>{row.label}</span>
                     <span className="font-mono font-semibold text-status-danger-foreground">
@@ -458,37 +502,65 @@ function TransparentQuoteDetail({
                   </div>
                 ))
               ) : (
-                <p className="rounded-xl bg-[var(--surface-panel-muted)] px-3 py-2 text-xs text-muted-foreground">
+                <p className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[11px] text-muted-foreground">
                   没有扣减项目。
                 </p>
               )}
             </div>
+            {deductions.length > 2 ? (
+              <Button
+                type="button"
+                variant="ghost"
+                aria-expanded={showAllDeductions}
+                aria-controls="buyback-deductions-content"
+                className="mt-1 h-11 w-full rounded-xl text-xs"
+                onClick={() => setShowAllDeductions((value) => !value)}
+              >
+                {showAllDeductions ? "收起扣减" : `查看全部 ${deductions.length} 项扣减`}
+              </Button>
+            ) : null}
             {typeof quote.manual_adjustment_reason === "string" ? (
-              <p className="mt-2 rounded-xl border border-[var(--border-panel)] px-3 py-2 text-xs text-muted-foreground">
+              <p className="mt-1.5 rounded-lg border border-[var(--border-panel)] px-2 py-1.5 text-[11px] text-muted-foreground">
                 调整说明：{quote.manual_adjustment_reason}
               </p>
             ) : null}
           </section>
-          <section className={cn(repairOs.mobileInfoCard, "mt-2 p-3")}>
+          <section
+            className={cn(
+              repairOs.mobileInfoCard,
+              "mt-2 p-2 lg:col-start-2 lg:row-start-2 lg:mt-0",
+            )}
+          >
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold">现场记录客户答复</h3>
+              <h3 id="buyback-response-heading" className="text-xs font-semibold">
+                现场记录客户答复
+              </h3>
               <span className="text-[10px] text-muted-foreground">非签名确认</span>
             </div>
             <RadioGroup
+              aria-labelledby="buyback-response-heading"
               value={outcome}
               onValueChange={(value) => setOutcome(value as BuybackQuoteOutcome)}
-              className="mt-2 grid-cols-3"
+              className="mt-1.5 grid-cols-3 gap-1"
             >
               {(["accepted", "deferred", "rejected"] as const).map((value) => (
                 <label
                   key={value}
                   className={cn(
-                    "flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border px-2.5 text-xs",
+                    "flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-1.5 text-xs",
                     outcome === value && "border-primary bg-primary/5",
                     value === "accepted" && acceptDisabled && "cursor-not-allowed opacity-45",
                   )}
                 >
-                  <RadioGroupItem value={value} disabled={value === "accepted" && acceptDisabled} />
+                  <RadioGroupItem
+                    value={value}
+                    disabled={value === "accepted" && acceptDisabled}
+                    aria-describedby={
+                      value === "accepted" && acceptDisabled
+                        ? "buyback-accept-block-reason"
+                        : undefined
+                    }
+                  />
                   <span>{outcomeLabel(value)}</span>
                 </label>
               ))}
@@ -506,15 +578,29 @@ function TransparentQuoteDetail({
                 </SelectContent>
               </Select>
             ) : null}
-            <Textarea
-              value={note}
-              onChange={(event) => setNote(event.target.value)}
-              maxLength={240}
-              placeholder="可选备注（不要填写证件号或完整电话）"
-              className="mt-2 min-h-20 rounded-xl"
-            />
+            {showNote ? (
+              <Textarea
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                maxLength={240}
+                placeholder="可选备注（不要填写证件号或完整电话）"
+                className="mt-1.5 min-h-16 rounded-xl text-base sm:text-sm"
+              />
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                className="mt-1 h-11 w-full rounded-xl text-xs"
+                onClick={() => setShowNote(true)}
+              >
+                添加现场备注（可选）
+              </Button>
+            )}
             {acceptDisabled ? (
-              <p className="mt-2 text-[11px] text-status-warn-foreground">
+              <p
+                id="buyback-accept-block-reason"
+                className="mt-2 text-[11px] text-status-warn-foreground"
+              >
                 报价已过期或存在阻断风险，不能记录为接受；可以暂缓或拒绝。
               </p>
             ) : null}
@@ -523,92 +609,213 @@ function TransparentQuoteDetail({
                 当前答复已锁定；如需更正，请由负责人先发布新报价版本。
               </p>
             ) : null}
-          </section>
-          <section className={cn(repairOs.mobileInfoCard, "mt-2 p-3")}>
-            <h3 className="flex items-center gap-2 text-xs font-semibold">
-              <FileClock className="size-4 text-primary" />
-              最近报价记录
-            </h3>
-            <div className="mt-2 space-y-1.5">
-              {history.isLoading ? (
-                <Skeleton className="h-16 rounded-xl" />
-              ) : history.isError ? (
-                <div className="rounded-xl border border-status-danger/25 bg-status-danger/10 p-3">
-                  <p className="text-xs text-status-danger-foreground">报价历史加载失败。</p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="mt-2 h-11 rounded-xl"
-                    onClick={() => void history.refetch()}
-                  >
-                    重新加载历史
-                  </Button>
-                </div>
-              ) : history.data?.revisions.length ? (
-                history.data.revisions.slice(0, 4).map((revision) => (
-                  <div
-                    key={revision.id}
-                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-xl bg-[var(--surface-panel-muted)] px-3 py-2"
-                  >
-                    <span className="grid size-7 place-items-center rounded-full bg-card text-[10px] font-semibold">
-                      V{revision.revision_no}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-medium">
-                        {revision.change_reason || "报价更新"}
-                      </p>
-                      <p className="truncate text-[10px] text-muted-foreground">
-                        {revision.actor_name} · {shortDateTime(revision.created_at)}
-                      </p>
-                    </div>
-                    <MoneyText
-                      amount={revision.quote.final_offer}
-                      className="font-mono text-xs font-semibold"
-                    />
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  旧记录尚未版本化；下次改价后会从 V1 开始留痕。
+            {!hasRevision ? (
+              <p className="mt-2 text-[11px] text-status-warn-foreground">
+                当前记录缺少可确认的报价版本，请先由负责人重新报价。
+              </p>
+            ) : null}
+            <p className="mt-2 rounded-lg border border-status-info/25 bg-status-info/10 px-2 py-1.5 text-[10px] leading-4 text-status-info-foreground">
+              仅记录客户口头答复，不付款、不成交、不入库。
+            </p>
+            {mutation.isError ? (
+              <div
+                role="alert"
+                className="mt-2 rounded-xl border border-status-danger/25 bg-status-danger/10 p-2"
+              >
+                <p className="text-[11px] text-status-danger-foreground">
+                  保存失败，当前选择和备注已保留。
+                  {mutation.error instanceof Error ? ` ${mutation.error.message}` : ""}
                 </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-1 h-11 rounded-xl text-xs"
+                  onClick={() =>
+                    void onRefresh(item.id).then(() => {
+                      mutation.reset();
+                      setResponseOperationKey(crypto.randomUUID());
+                    })
+                  }
+                >
+                  刷新最新报价
+                </Button>
+              </div>
+            ) : null}
+          </section>
+          <section
+            className={cn(repairOs.mobileInfoCard, "mt-2 p-2 lg:col-start-2 lg:row-start-3")}
+          >
+            <button
+              type="button"
+              aria-expanded={showHistory}
+              aria-controls="buyback-history-content"
+              className="flex min-h-11 w-full items-center justify-between gap-2 rounded-xl text-left text-xs font-semibold"
+              onClick={() => setShowHistory((value) => !value)}
+            >
+              <span className="flex items-center gap-2">
+                <FileClock className="size-4 text-primary" /> 最近报价记录
+              </span>
+              <span className="text-[10px] font-normal text-muted-foreground">
+                {showHistory ? "收起" : "展开"}
+              </span>
+            </button>
+            <div className="mt-1 grid gap-1 text-[10px] text-muted-foreground sm:grid-cols-2">
+              {history.isLoading ? (
+                <Skeleton className="h-9 rounded-lg sm:col-span-2" />
+              ) : history.isError ? (
+                <p className="sm:col-span-2">历史暂时无法加载，展开后可重试。</p>
+              ) : (
+                <>
+                  <p className="truncate rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
+                    最近报价：
+                    {latestRevision
+                      ? `V${latestRevision.revision_no} · €${latestRevision.quote.final_offer.toFixed(2)}`
+                      : "暂无版本"}
+                  </p>
+                  <p className="truncate rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
+                    最近答复：
+                    {latestResponse
+                      ? `${outcomeLabel(latestResponse.outcome)} · ${shortDateTime(latestResponse.created_at)}`
+                      : "待客户答复"}
+                  </p>
+                </>
               )}
             </div>
+            {showHistory ? (
+              <div id="buyback-history-content" className="mt-1 space-y-2">
+                {history.isLoading ? (
+                  <Skeleton className="h-16 rounded-xl" />
+                ) : history.isError ? (
+                  <div className="rounded-xl border border-status-danger/25 bg-status-danger/10 p-3">
+                    <p className="text-xs text-status-danger-foreground">报价历史加载失败。</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="mt-2 h-11 rounded-xl"
+                      onClick={() => void history.refetch()}
+                    >
+                      重新加载历史
+                    </Button>
+                  </div>
+                ) : history.data?.revisions.length || history.data?.responses.length ? (
+                  <>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold text-muted-foreground">报价版本</p>
+                      {sortNewest(history.data?.revisions)
+                        .slice(0, 4)
+                        .map((revision) => (
+                          <div
+                            key={revision.id}
+                            className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
+                          >
+                            <span className="grid size-7 place-items-center rounded-full bg-card text-[10px] font-semibold">
+                              V{revision.revision_no}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-medium">
+                                {revision.change_reason || "报价更新"}
+                              </p>
+                              <p className="truncate text-[10px] text-muted-foreground">
+                                {revision.actor_name} · {shortDateTime(revision.created_at)}
+                              </p>
+                            </div>
+                            <MoneyText
+                              amount={revision.quote.final_offer}
+                              className="font-mono text-xs font-semibold"
+                            />
+                          </div>
+                        ))}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold text-muted-foreground">客户答复</p>
+                      {sortNewest(history.data?.responses)
+                        .slice(0, 4)
+                        .map((response) => (
+                          <div
+                            key={response.id}
+                            className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
+                          >
+                            <OutcomeBadge outcome={response.outcome} />
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-medium">
+                                {response.note || outcomeLabel(response.outcome)}
+                              </p>
+                              <p className="truncate text-[10px] text-muted-foreground">
+                                {response.actor_name} · {shortDateTime(response.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      {!history.data?.responses.length ? (
+                        <p className="text-xs text-muted-foreground">尚未记录客户答复。</p>
+                      ) : null}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    旧记录尚未版本化；下次改价后会从 V1 开始留痕。
+                  </p>
+                )}
+              </div>
+            ) : null}
           </section>
         </div>
-        <div className="grid shrink-0 grid-cols-3 gap-2 border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] p-3">
-          <Button variant="outline" className="h-11 rounded-xl" onClick={onClose}>
-            关闭
-          </Button>
-          <Button
-            variant="outline"
-            className="h-11 rounded-xl"
-            disabled={!canRevise}
-            onClick={() => onRevise(item)}
+        <div
+          data-buyback-fixed-footer="detail"
+          className="shrink-0 border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+        >
+          <div
+            id="buyback-footer-permission-summary"
+            className="mb-1 flex min-w-0 items-center justify-between gap-2 text-[10px] leading-4"
           >
-            <PencilLine className="mr-1 size-4" />
-            改价
-          </Button>
-          <Button
-            className={cn("h-11 rounded-xl", controls.brandButton)}
-            style={brandGradientStyle}
-            disabled={
-              !canRespond ||
-              !isOnline ||
-              responseLocked ||
-              !responseOperationKey ||
-              !outcome ||
-              (outcome === "rejected" && !reason) ||
-              mutation.isPending
-            }
-            onClick={() => mutation.mutate()}
-          >
-            {mutation.isPending ? (
-              <Loader2 className="mr-1 size-4 animate-spin" />
-            ) : (
-              <Check className="mr-1 size-4" />
-            )}
-            保存答复
-          </Button>
+            <span className="shrink-0 font-semibold text-primary">
+              最终 <MoneyText amount={finalOffer} />
+            </span>
+            <span className="truncate text-right text-muted-foreground">
+              {!canRespond
+                ? "当前角色只读：不能记录答复"
+                : !canRevise
+                  ? "改价需负责人权限"
+                  : outcome
+                    ? `已选 ${outcomeLabel(outcome)}`
+                    : "请选择客户答复"}
+            </span>
+          </div>
+          <div className="grid grid-cols-[1fr_1.5fr] gap-1.5">
+            <Button
+              variant="outline"
+              className="h-11 rounded-xl"
+              disabled={!canRevise}
+              aria-describedby={!canRevise ? "buyback-footer-permission-summary" : undefined}
+              onClick={() => onRevise(item)}
+            >
+              <PencilLine className="mr-1 size-4" />
+              改价
+            </Button>
+            <Button
+              className={cn("h-11 rounded-xl", controls.brandButton)}
+              style={brandGradientStyle}
+              aria-describedby="buyback-footer-permission-summary"
+              disabled={
+                !canRespond ||
+                !isOnline ||
+                responseLocked ||
+                !hasRevision ||
+                !responseOperationKey ||
+                !outcome ||
+                (outcome === "rejected" && !reason) ||
+                mutation.isPending
+              }
+              onClick={() => mutation.mutate()}
+            >
+              {mutation.isPending ? (
+                <Loader2 className="mr-1 size-4 animate-spin" />
+              ) : (
+                <Check className="mr-1 size-4" />
+              )}
+              {outcome ? `保存${outcomeLabel(outcome)}` : "保存答复"}
+            </Button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>
@@ -697,6 +904,7 @@ function TransparentQuoteWorkspace({
     0,
     amount(referenceHigh) - deductions.reduce((sum, row) => sum + row.amount, 0),
   );
+  const isManualOffer = amount(finalOffer) !== suggested;
   const mutation = useMutation({
     mutationFn: async () => {
       if (!isOnline || !navigator.onLine) throw new Error("当前离线，恢复网络后再保存报价");
@@ -760,21 +968,23 @@ function TransparentQuoteWorkspace({
       <SheetContent
         side="bottom"
         style={sheetFloatingStyle}
-        className={cn(
-          "left-1/2 right-auto flex h-[min(94svh,860px)] w-[min(720px,calc(100vw-0.5rem))] -translate-x-1/2 flex-col gap-0 rounded-t-2xl p-0 md:bottom-4 md:rounded-2xl",
-          repairOs.mobileFloatingPage,
-        )}
+        className="bottom-1 left-1/2 right-auto flex h-[calc(100svh-0.5rem)] w-[calc(100vw-0.5rem)] -translate-x-1/2 flex-col gap-0 rounded-2xl p-0 md:bottom-4 md:h-[min(90svh,780px)] md:w-[min(920px,calc(100vw-2rem))]"
       >
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-5 pt-3 sm:px-5">
-          <SheetHeader className="text-left">
+        <div className="min-h-0 flex-1 overflow-y-auto p-2 pb-3 sm:p-4 lg:grid lg:grid-cols-2 lg:content-start lg:gap-2">
+          <SheetHeader className="text-left lg:col-span-2">
             <SheetTitle>{existing ? "重新报价" : "新建透明报价"}</SheetTitle>
             <SheetDescription>
               一页完成设备录入、价格说明和保存；不进入付款或商品库存。
             </SheetDescription>
           </SheetHeader>
-          <section className={cn(repairOs.mobileInfoCard, "mt-3 p-3")}>
+          <section
+            className={cn(
+              repairOs.mobileInfoCard,
+              "mt-2 p-2 lg:col-start-1 lg:row-start-2 lg:mt-0",
+            )}
+          >
             <SectionTitle icon={Smartphone} title="设备" />
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="mt-2 grid grid-cols-2 gap-2">
               <Field label="品牌">
                 <Select value={brand} onValueChange={setBrand} disabled={Boolean(existing)}>
                   <SelectTrigger className="h-11 rounded-xl">
@@ -795,7 +1005,7 @@ function TransparentQuoteWorkspace({
                   disabled={Boolean(existing)}
                   onChange={(event) => setModel(event.target.value)}
                   placeholder="例如 iPhone 15 Pro"
-                  className="h-11 rounded-xl"
+                  className="h-11 rounded-xl text-base sm:text-sm"
                 />
               </Field>
               <Field label="颜色">
@@ -804,7 +1014,7 @@ function TransparentQuoteWorkspace({
                   disabled={Boolean(existing)}
                   onChange={(event) => setColor(event.target.value)}
                   placeholder="例如 原色钛金属"
-                  className="h-11 rounded-xl"
+                  className="h-11 rounded-xl text-base sm:text-sm"
                 />
               </Field>
               <Field label="容量">
@@ -822,7 +1032,7 @@ function TransparentQuoteWorkspace({
                 </Select>
               </Field>
               {!existing ? (
-                <div className="sm:col-span-2">
+                <div className="col-span-2">
                   <Field label="IMEI（可扫码）">
                     <ImeiScannerField
                       value={imei}
@@ -839,14 +1049,19 @@ function TransparentQuoteWorkspace({
                   onChange={(event) => setBattery(event.target.value)}
                   inputMode="decimal"
                   placeholder="例如 87"
-                  className="h-11 rounded-xl"
+                  className="h-11 rounded-xl text-base sm:text-sm"
                 />
               </Field>
             </div>
           </section>
-          <section className={cn(repairOs.mobileInfoCard, "mt-2 p-3")}>
+          <section
+            className={cn(
+              repairOs.mobileInfoCard,
+              "mt-2 p-2 lg:col-start-2 lg:row-start-2 lg:mt-0",
+            )}
+          >
             <SectionTitle icon={Euro} title="透明报价" />
-            <div className="mt-3 grid grid-cols-2 gap-3">
+            <div className="mt-2 grid grid-cols-2 gap-2">
               <Field label="参考最低 €">
                 <MoneyInput label="参考最低 €" value={referenceLow} onChange={setReferenceLow} />
               </Field>
@@ -868,11 +1083,11 @@ function TransparentQuoteWorkspace({
                 />
               </Field>
             </div>
-            <div className="mt-3 rounded-2xl bg-primary/8 p-3">
+            <div className="mt-2 rounded-xl bg-primary/8 p-2">
               <div className="flex items-end justify-between">
                 <div>
                   <p className="text-[10px] text-muted-foreground">系统建议（参考最高 − 扣减）</p>
-                  <p className="mt-1 font-mono text-2xl font-semibold text-primary">
+                  <p className="font-mono text-xl font-semibold leading-6 text-primary">
                     <MoneyText amount={suggested} />
                   </p>
                 </div>
@@ -887,7 +1102,7 @@ function TransparentQuoteWorkspace({
                 </Button>
               </div>
             </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="mt-2 grid grid-cols-2 gap-2">
               <Field label="最终报价 €">
                 <MoneyInput label="最终报价 €" value={finalOffer} onChange={setFinalOffer} />
               </Field>
@@ -904,40 +1119,62 @@ function TransparentQuoteWorkspace({
                 </Select>
               </Field>
             </div>
-            <Field
-              label={amount(finalOffer) === suggested ? "调整说明（可选）" : "调整说明（必填）"}
-            >
-              <Textarea
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                maxLength={160}
-                placeholder="例如：边框明显磕碰，现场与客户协商后调整"
-                className="mt-1.5 min-h-20 rounded-xl"
-              />
-            </Field>
-            <div className="mt-3 flex items-center gap-2 rounded-xl border border-[var(--border-panel)] px-3 py-2 text-[11px] text-muted-foreground">
+            {isManualOffer ? (
+              <Field label="调整说明（必填）">
+                <Textarea
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  maxLength={160}
+                  placeholder="例如：边框明显磕碰，现场与客户协商后调整"
+                  className="mt-1 min-h-16 rounded-xl text-base sm:text-sm"
+                />
+              </Field>
+            ) : null}
+            <div className="mt-2 flex items-center gap-2 rounded-xl border border-[var(--border-panel)] px-2 py-1.5 text-[10px] text-muted-foreground">
               <CalendarClock className="size-4 shrink-0 text-primary" />
               报价默认有效 7 天；过期后需要重新报价。
             </div>
+            {mutation.isError ? (
+              <div
+                role="alert"
+                className="mt-2 rounded-xl border border-status-danger/25 bg-status-danger/10 px-2 py-1.5 text-[11px] text-status-danger-foreground"
+              >
+                保存失败，当前草稿已保留。
+                {mutation.error instanceof Error ? ` ${mutation.error.message}` : ""}
+              </div>
+            ) : null}
           </section>
         </div>
-        <div className="grid shrink-0 grid-cols-[1fr_1.5fr] gap-2 border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] p-3">
-          <Button variant="outline" className="h-11 rounded-xl" onClick={onClose}>
-            取消
-          </Button>
-          <Button
-            className={cn("h-11 rounded-xl", controls.brandButton)}
-            style={brandGradientStyle}
-            disabled={!isOnline || mutation.isPending || !operationKey || !recordId || !expiresAt}
-            onClick={() => mutation.mutate()}
-          >
-            {mutation.isPending ? (
-              <Loader2 className="mr-2 size-4 animate-spin" />
-            ) : (
-              <Check className="mr-2 size-4" />
-            )}
-            {existing ? "保存新版本" : "保存透明报价"}
-          </Button>
+        <div
+          data-buyback-fixed-footer="workspace"
+          className="shrink-0 border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+        >
+          <div className="mb-1 flex items-center justify-between gap-2 text-[10px] leading-4">
+            <span className="font-semibold text-primary">
+              最终报价 <MoneyText amount={amount(finalOffer)} />
+            </span>
+            <span className="truncate text-muted-foreground">
+              {isManualOffer ? "人工调整（需说明）" : "采用系统建议"}
+            </span>
+          </div>
+          <div className="grid grid-cols-[1fr_1.5fr] gap-2">
+            <Button variant="outline" className="h-11 rounded-xl" onClick={onClose}>
+              取消
+            </Button>
+            <Button
+              className={cn("h-11 rounded-xl", controls.brandButton)}
+              style={brandGradientStyle}
+              disabled={!isOnline || mutation.isPending || !operationKey || !recordId || !expiresAt}
+              onClick={() => mutation.mutate()}
+            >
+              {mutation.isPending ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : (
+                <Check className="mr-2 size-4" />
+              )}
+              {existing ? "保存新版本" : "保存透明报价"}
+            </Button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>
@@ -967,7 +1204,7 @@ function MoneyInput({
       value={value}
       onChange={(event) => onChange(event.target.value)}
       inputMode="decimal"
-      className="h-11 rounded-xl font-mono"
+      className="h-11 rounded-xl font-mono text-base sm:text-sm"
     />
   );
 }
@@ -1082,6 +1319,13 @@ function amount(value: string) {
 function rangeLabel(low: unknown, high: unknown) {
   return `€${numberValue(low).toFixed(0)}–€${numberValue(high).toFixed(0)}`;
 }
+function maskIdentifier(value: unknown) {
+  if (typeof value !== "string") return "";
+  const compact = value.trim();
+  if (!compact) return "";
+  const tail = compact.replace(/\s+/g, "").slice(-4);
+  return tail ? `••••${tail}` : "标识已隐藏";
+}
 function shortDate(value: unknown) {
   if (typeof value !== "string" || !value) return "未设置";
   return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(
@@ -1108,7 +1352,30 @@ function filterLabel(value: ListFilter) {
   )[value];
 }
 function outcomeLabel(value: BuybackQuoteOutcome) {
-  return value === "accepted" ? "接受" : value === "deferred" ? "暂缓" : "拒绝";
+  return value === "accepted" ? "接受报价" : value === "deferred" ? "暂缓" : "拒绝";
+}
+function riskLabel(quote: Record<string, unknown>) {
+  if (quote.hard_block === true) return "阻断";
+  return quote.risk_level === "high"
+    ? "高风险"
+    : quote.risk_level === "medium"
+      ? "需复核"
+      : "低风险";
+}
+function signedMoney(value: number) {
+  if (Math.abs(value) < 0.005) return "€0.00";
+  return `${value > 0 ? "+" : "-"}€${Math.abs(value).toFixed(2)}`;
+}
+function latestByCreatedAt<T extends { created_at: string }>(values?: T[]) {
+  return values?.reduce<T | undefined>((latest, current) => {
+    if (!latest) return current;
+    return Date.parse(current.created_at) > Date.parse(latest.created_at) ? current : latest;
+  }, undefined);
+}
+function sortNewest<T extends { created_at: string }>(values?: T[]) {
+  return [...(values ?? [])].sort(
+    (left, right) => Date.parse(right.created_at) - Date.parse(left.created_at),
+  );
 }
 function nextAction(outcome: string | undefined, expired: boolean, blocked: boolean) {
   if (blocked) return "需负责人复核";

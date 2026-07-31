@@ -5,7 +5,7 @@ import { BuybackScreen } from "@/features/buyback";
 
 export const metadata: Metadata = {
   title: "回收管理",
-  description: "旧手机回收估价、检测、付款和转翻新工作台",
+  description: "旧手机透明协商报价与客户口头答复记录工作台",
 };
 
 export default function Page() {

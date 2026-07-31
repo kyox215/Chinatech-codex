@@ -73,8 +73,8 @@ test.describe("business desktop overflow guard", () => {
         }
         if (route.path === "/buyback") {
           await expectFirstVisible(
-            page.locator("main").last().locator("table").first(),
-            "/buyback desktop table",
+            page.getByRole("button", { name: /新建透明报价/ }),
+            "/buyback transparent quote action",
           );
         }
         if (route.path === "/customers") {
@@ -184,27 +184,35 @@ async function auditBuybackDialogs(page: Page, viewport: DesktopViewport) {
   await page.setViewportSize(viewport);
   await gotoReady(page, "/buyback");
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
-  await clickFirstVisible(page.getByRole("button", { name: /回收报价/ }), "回收报价");
-  const quoteDialog = page.getByRole("dialog", { name: "回收报价" });
+  await clickFirstVisible(page.getByRole("button", { name: /新建透明报价/ }), "新建透明报价");
+  const quoteDialog = page.getByRole("dialog");
   await expect(quoteDialog).toBeVisible();
-  await expect(quoteDialog.getByText("资料关闭", { exact: true })).toBeVisible();
-  await expectFirstVisible(quoteDialog.getByText("选择 iPhone"), "/buyback quote first step");
+  await expect(quoteDialog.getByRole("heading", { name: "新建透明报价" })).toBeVisible();
+  await expectFirstVisible(
+    quoteDialog.getByText("一页完成设备录入、价格说明和保存"),
+    "/buyback quote work surface",
+  );
+  await expect(quoteDialog.locator('[role="progressbar"]')).toHaveCount(0);
   await expectOpenDialogsFit(page, "/buyback quote workspace", viewport.width);
   await expectNoPageOverflow(page, "/buyback quote workspace", viewport.width);
   await closeDialogs(page);
 
-  await clickFirstVisible(page.getByRole("button", { name: /查看回收记录 I\d+/ }), "回收记录");
-  const recordDialog = page.getByRole("dialog", { name: "回收记录" });
-  await expect(recordDialog).toBeVisible();
-  await expectFirstVisible(recordDialog.getByText("处理进度"), "/buyback record progress section");
-  await expectFirstVisible(
-    recordDialog.getByText("资料登记和回收成交暂时关闭", { exact: false }),
-    "/buyback record closed-state notice",
+  await clickFirstVisible(
+    page
+      .locator("main")
+      .last()
+      .getByRole("button")
+      .filter({ hasText: /Apple iPhone/ }),
+    "回收报价卡片",
   );
+  const recordDialog = page.getByRole("dialog");
+  await expect(recordDialog).toBeVisible();
+  await expectFirstVisible(recordDialog.getByText("现场记录客户答复"), "/buyback response section");
   await expectFirstVisible(
-    recordDialog.getByRole("button", { name: /继续报价 \/ 检测|打开库存详情/ }),
+    recordDialog.getByRole("button", { name: /保存答复/ }),
     "/buyback record primary action",
   );
+  await expect(recordDialog.locator('[role="progressbar"]')).toHaveCount(0);
   await expectOpenDialogsFit(page, "/buyback record", viewport.width);
   await expectNoPageOverflow(page, "/buyback record", viewport.width);
   await closeDialogs(page);
