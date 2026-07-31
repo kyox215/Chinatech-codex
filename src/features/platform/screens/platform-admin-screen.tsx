@@ -203,7 +203,7 @@ export function PlatformAdminScreen() {
           }
         />
         {requestsQuery.isLoading ? (
-          <div className="space-y-2 p-4">
+          <div className="space-y-1.5 p-2.5 sm:space-y-2 sm:p-4">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />

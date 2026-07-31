@@ -194,14 +194,16 @@ export function MemberEditorSheet({
             requestAnimationFrame(() => returnFocusRef?.current?.focus());
           }}
         >
-          <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-4 pr-14 text-left">
+          <SheetHeader
+            className={`${componentOverlay.mobileHeader} border-b border-[var(--border-panel)] pr-14 text-left`}
+          >
             <SheetTitle>{member.display_name || member.email}</SheetTitle>
             <SheetDescription>
               {MEMBER_ROLE_LABELS[member.role]} · {member.email}。修改先保留为草稿，保存后才会提交。
             </SheetDescription>
           </SheetHeader>
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+          <div className={`${componentOverlay.mobileBody} flex-1`}>
             <section className={componentOverlay.section}>
               <Label className="text-xs font-semibold">店铺角色</Label>
               {canEditRole && roleOptions.length ? (
@@ -238,26 +240,26 @@ export function MemberEditorSheet({
                 <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" />
                 <div className="min-w-0">
                   <h3 className="text-sm font-semibold">额外敏感权限</h3>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  <p className="mt-0.5 text-xs leading-4 text-muted-foreground sm:mt-1 sm:leading-5">
                     这些授权叠加在角色默认权限上；这里只显示服务端允许当前角色接收的额外能力。
                   </p>
                 </div>
               </div>
               {permissionOptions.length ? (
-                <div className="mt-3 space-y-3">
+                <div className="mt-2 space-y-2 sm:mt-3 sm:space-y-3">
                   {["历史与财务", "供应商"].map((group) => {
                     const options = MEMBER_PERMISSION_OPTIONS.filter(
                       (option) => option.group === group && permissionOptions.includes(option),
                     );
                     if (!options.length) return null;
                     return (
-                      <div key={group} className="space-y-2">
+                      <div key={group} className="space-y-1.5 sm:space-y-2">
                         <p className="text-[11px] font-semibold text-muted-foreground">{group}</p>
                         {options.map((option) => (
                           <RepairOsBusinessCard
                             key={option.action}
                             as="div"
-                            className="grid-cols-[minmax(0,1fr)_auto] gap-3 px-3 py-2.5"
+                            className="grid-cols-[minmax(0,1fr)_auto] gap-2 px-2.5 py-1.5 sm:gap-3 sm:px-3 sm:py-2.5"
                             trailing={
                               <Checkbox
                                 id={`member-permission-${option.action}`}
@@ -281,7 +283,7 @@ export function MemberEditorSheet({
                             >
                               {option.label}
                             </Label>
-                            <p className="text-xs leading-5 text-muted-foreground">
+                            <p className="text-[11px] leading-4 text-muted-foreground sm:text-xs sm:leading-5">
                               {option.description}
                             </p>
                           </RepairOsBusinessCard>
@@ -312,7 +314,7 @@ export function MemberEditorSheet({
             ) : null}
           </div>
 
-          <SheetFooter className="border-t border-[var(--border-panel)] bg-card px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+          <SheetFooter className={`${componentOverlay.mobileFooter} bg-card`}>
             <Button
               ref={discardTriggerRef}
               type="button"

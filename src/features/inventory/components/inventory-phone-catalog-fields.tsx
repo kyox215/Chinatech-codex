@@ -78,7 +78,7 @@ export function InventoryPhoneCatalogFields({
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       <div className="grid min-w-0 gap-3 sm:grid-cols-2">
         <CatalogCombobox
           id="inventory-brand"
@@ -113,8 +113,8 @@ export function InventoryPhoneCatalogFields({
             : "选择标准型号后，会显示该机型可用的内存、容量和颜色选项。"}
         </div>
       ) : (
-        <div className="space-y-4 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3">
-          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+        <div className="space-y-3 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2.5 sm:space-y-4 sm:p-3">
+          <div className="grid min-w-0 gap-2.5 sm:grid-cols-2 sm:gap-4">
             <SpecificationChoices
               id="inventory-ram"
               label="内存"
@@ -256,7 +256,7 @@ function CatalogCombobox({
             data-inventory-catalog-picker="mobile"
             className="h-[min(32rem,calc(100dvh-8px))] max-h-[calc(100dvh-8px)] overscroll-none p-0 md:inset-x-4 md:mx-auto md:max-w-2xl"
           >
-            <DrawerHeader className="relative shrink-0 gap-0.5 border-b border-[var(--border-panel)] px-4 pb-3 pt-2 text-left">
+            <DrawerHeader className="relative shrink-0 gap-0.5 border-b border-[var(--border-panel)] px-3 pb-2 pt-1.5 text-left sm:px-4 sm:pb-3 sm:pt-2">
               <DrawerTitle className="pr-12 text-base">{label.replace("*", "").trim()}</DrawerTitle>
               <DrawerDescription className="pr-12 text-xs">{placeholder}</DrawerDescription>
               <DrawerClose asChild>
@@ -337,7 +337,7 @@ function CatalogCommandPicker({
           fixedSurface ? "min-h-0 max-h-none flex-1" : "max-h-[min(22rem,55svh)]",
         )}
       >
-        <CommandEmpty className="px-3 py-4 text-left text-xs text-muted-foreground">
+        <CommandEmpty className="px-3 py-2.5 text-left text-xs text-muted-foreground sm:py-4">
           未找到目录结果。可在下方使用当前文字手动录入。
         </CommandEmpty>
         <CommandGroup heading={`目录选项 · ${options.length}`}>

@@ -407,7 +407,7 @@ export function CustomerListScreen() {
         <RepairOsBusinessCard
           as="div"
           data-ui="customer-list-empty-state"
-          className="mx-auto mt-8 !flex max-w-sm flex-col items-center rounded-xl px-5 py-5 text-center"
+          className="mx-auto mt-4 !flex max-w-sm flex-col items-center rounded-xl px-3 py-3 text-center sm:mt-8 sm:px-5 sm:py-5"
           bodyClassName="flex min-w-0 flex-col items-center"
         >
           <span className="grid size-10 place-items-center rounded-full bg-muted text-muted-foreground">
@@ -572,7 +572,7 @@ function CustomerLoadError({ onRetry }: { onRetry: () => void }) {
     <RepairOsBusinessCard
       as="div"
       data-ui="customer-list-load-error"
-      className="mx-auto mt-8 !flex max-w-sm flex-col items-center rounded-xl border-status-danger-foreground/25 px-5 py-5 text-center"
+      className="mx-auto mt-4 !flex max-w-sm flex-col items-center rounded-xl border-status-danger-foreground/25 px-3 py-3 text-center sm:mt-8 sm:px-5 sm:py-5"
       bodyClassName="flex min-w-0 flex-col items-center"
     >
       <span className="mx-auto grid size-10 place-items-center rounded-full bg-status-danger/10 text-status-danger-foreground">

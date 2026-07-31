@@ -112,7 +112,7 @@ export function MemoFiltersOverlay({
   }, [currentAssigneeId, currentKind, currentView, open]);
 
   const content = (
-    <div className="space-y-5">
+    <div className="space-y-3 sm:space-y-5">
       <fieldset className="space-y-2.5">
         <legend className="text-xs font-medium text-muted-foreground">查看范围</legend>
         <div className="flex flex-wrap gap-2">
@@ -207,7 +207,7 @@ export function MemoFiltersOverlay({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg rounded-2xl p-5">
+      <DialogContent className="max-w-lg rounded-2xl p-3 sm:p-5">
         <DialogHeader className="text-left">
           <DialogTitle className="text-base">筛选备忘录</DialogTitle>
           <DialogDescription>只保留现在需要查看的内容</DialogDescription>
@@ -247,7 +247,7 @@ export function MemoLoadMore({
 export function MemoDeniedState() {
   return (
     <RepairOsListScaffold title="备忘录" subtitle="需要本店铺访问权限">
-      <RepairOsBusinessCard className="p-4">
+      <RepairOsBusinessCard className="p-2.5 sm:p-4">
         <p className="text-sm font-semibold">当前账号不能查看备忘录</p>
         <p className="mt-1 text-xs text-muted-foreground">请选择已开通此功能且仍在营业的店铺。</p>
       </RepairOsBusinessCard>
@@ -286,7 +286,7 @@ export function MemoEmptyState({
   onCreate: () => void;
 }) {
   return (
-    <RepairOsBusinessCard className="grid min-h-52 place-items-center p-5 text-center">
+    <RepairOsBusinessCard className="grid min-h-32 place-items-center p-3 text-center sm:min-h-52 sm:p-5">
       <div>
         <NotebookPen className="mx-auto size-8 text-muted-foreground" />
         <p className="mt-2 text-sm font-semibold">

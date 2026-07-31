@@ -95,7 +95,7 @@ import { buildWhatsappUrl } from "@/shared/lib/whatsapp-phone";
 type WorkflowNextAction = NonNullable<ReturnType<typeof getWorkflowNextActions>["primary"]>;
 
 const orderTaskPageShell =
-  "mx-auto flex min-h-[calc(100svh-3rem)] w-full max-w-md flex-col gap-3 overflow-x-hidden px-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 md:max-w-7xl md:gap-2 md:px-5 md:pb-6 md:pt-2 lg:px-6";
+  "mx-auto flex min-h-[calc(100svh-3rem)] w-full max-w-md flex-col gap-2 overflow-x-hidden px-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 md:max-w-7xl md:px-5 md:pb-6 lg:px-6";
 
 export function OrderTaskScreen({ id }: { id: string }) {
   const queryClient = useQueryClient();
@@ -299,12 +299,12 @@ export function OrderTaskScreen({ id }: { id: string }) {
               <Button
                 type="button"
                 variant="outline"
-                className="h-9"
+                className="min-h-11 lg:h-9 lg:min-h-0"
                 onClick={() => void refetch()}
               >
                 重新加载
               </Button>
-              <Button asChild variant="outline" className="h-9">
+              <Button asChild variant="outline" className="min-h-11 lg:h-9 lg:min-h-0">
                 <Link href="/orders">返回订单</Link>
               </Button>
             </div>
@@ -370,7 +370,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
           asChild
           variant="outline"
           size="icon"
-          className="size-10 rounded-full md:size-8 md:rounded-lg"
+          className="size-11 rounded-full md:rounded-lg lg:size-8"
         >
           <Link href="/orders">
             <ArrowLeft className="size-4" />
@@ -387,7 +387,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
           type="button"
           variant="outline"
           size="icon"
-          className="size-10 rounded-full md:size-8 md:rounded-lg"
+          className="size-11 rounded-full md:rounded-lg lg:size-8"
           aria-label="打印客户工单"
           disabled={!canPrintCustomerDocument || generationPending}
           aria-busy={generationPending}
@@ -399,15 +399,13 @@ export function OrderTaskScreen({ id }: { id: string }) {
 
       <section
         data-order-task-hero="true"
-        className="grid min-w-0 gap-3 rounded-2xl border border-[var(--border-panel)] bg-card p-3 shadow-[var(--shadow-card)] md:grid-cols-[minmax(0,1fr)_minmax(260px,0.36fr)] md:gap-2 md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:p-2.5 md:shadow-[var(--shadow-workspace)]"
+        className="grid min-w-0 gap-2 rounded-2xl border border-[var(--border-panel)] bg-card p-2.5 shadow-[var(--shadow-card)] md:grid-cols-[minmax(0,1fr)_minmax(260px,0.36fr)] md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:shadow-[var(--shadow-workspace)]"
       >
         <div className="min-w-0">
           <div className="flex min-w-0 items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="text-xs text-muted-foreground">当前阶段</div>
-              <h1 className="mt-0.5 truncate text-2xl font-semibold md:text-lg">
-                {guidance.stage.label}
-              </h1>
+              <h1 className="truncate text-xl font-semibold md:text-lg">{guidance.stage.label}</h1>
               <p className="mt-1 hidden truncate text-xs text-muted-foreground md:block">
                 {order.device_label || "-"} · {order.customer_name || "-"} · 技师{" "}
                 {order.technician_name || "-"}
@@ -434,7 +432,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
         <div
           data-order-task-guidance="true"
           className={cn(
-            "rounded-xl border p-3 md:p-2.5",
+            "rounded-xl border p-2.5",
             !cancelled && (order.approval_overdue || order.pickup_overdue)
               ? "border-status-danger-foreground/25 bg-status-danger/10"
               : "border-primary/20 bg-primary/5",
@@ -446,9 +444,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
             </span>
             <div className="min-w-0">
               <h2 className="text-sm font-semibold md:text-xs">现在需要做什么</h2>
-              <p className="mt-1 text-sm leading-5 text-muted-foreground md:text-xs md:leading-4">
-                {guidance.task}
-              </p>
+              <p className="mt-0.5 text-xs leading-4 text-muted-foreground">{guidance.task}</p>
             </div>
           </div>
         </div>
@@ -456,11 +452,11 @@ export function OrderTaskScreen({ id }: { id: string }) {
 
       <div
         data-order-task-workspace="true"
-        className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(300px,0.36fr)] md:gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(330px,0.34fr)]"
+        className="grid min-w-0 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(300px,0.36fr)] lg:grid-cols-[minmax(0,1fr)_minmax(330px,0.34fr)]"
       >
         <section
           data-order-task-info="true"
-          className="grid gap-2 rounded-2xl border border-[var(--border-panel)] bg-card p-3 shadow-[var(--shadow-card)] md:content-start md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:p-2.5 md:shadow-none"
+          className="grid gap-1.5 rounded-2xl border border-[var(--border-panel)] bg-card p-2.5 shadow-[var(--shadow-card)] md:content-start md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:gap-2 md:shadow-none"
         >
           <h2 className="flex items-center gap-2 text-sm font-semibold">
             <Wrench className="size-4 text-primary" />
@@ -497,7 +493,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
               <Button
                 type="button"
                 size="sm"
-                className="h-9 shrink-0 text-xs"
+                className="min-h-11 shrink-0 text-xs lg:h-9 lg:min-h-0"
                 onClick={() => setDiagnosisQuoteOpen(true)}
               >
                 {data.capabilities?.canPrepareQuote ? "检测与报价" : "记录检测"}
@@ -506,10 +502,10 @@ export function OrderTaskScreen({ id }: { id: string }) {
           ) : null}
         </section>
 
-        <div className="grid min-w-0 gap-3 md:sticky md:top-16 md:self-start md:gap-2">
+        <div className="grid min-w-0 gap-2 md:sticky md:top-16 md:self-start">
           <section
             data-order-task-finance="true"
-            className="grid grid-cols-3 gap-2 rounded-2xl border border-[var(--border-panel)] bg-card p-3 shadow-[var(--shadow-card)] md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:p-2.5 md:shadow-none"
+            className="grid grid-cols-3 gap-1.5 rounded-2xl border border-[var(--border-panel)] bg-card p-2.5 shadow-[var(--shadow-card)] md:gap-2 md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:shadow-none"
           >
             {order.finance_redacted ? (
               <p className="col-span-3 rounded-xl bg-muted px-3 py-4 text-center text-sm font-medium text-muted-foreground">
@@ -534,7 +530,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
 
           <section
             data-order-task-actions="true"
-            className="mt-auto grid gap-2 rounded-2xl border border-[var(--border-panel)] bg-card p-3 shadow-[var(--shadow-card)] md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:p-2.5 md:shadow-none"
+            className="mt-auto grid gap-1.5 rounded-2xl border border-[var(--border-panel)] bg-card p-2.5 shadow-[var(--shadow-card)] md:gap-2 md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:shadow-none"
           >
             <TaskTransitionPanel
               statusLabel={currentStatusLabel}
@@ -549,7 +545,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
               <Button
                 asChild
                 variant="outline"
-                className="h-10 gap-1 rounded-xl md:h-9 md:rounded-lg"
+                className="h-11 gap-1 rounded-xl md:rounded-lg lg:h-9"
               >
                 <a href={`tel:${order.customer_phone}`}>
                   <Phone className="size-4" />
@@ -559,7 +555,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
               <Button
                 asChild={Boolean(whatsappHref)}
                 variant="outline"
-                className="h-10 gap-1 rounded-xl md:h-9 md:rounded-lg"
+                className="h-11 gap-1 rounded-xl md:rounded-lg lg:h-9"
                 disabled={!whatsappHref}
               >
                 {whatsappHref ? (
@@ -577,7 +573,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
               <Button
                 asChild
                 variant="outline"
-                className="h-10 gap-1 rounded-xl md:h-9 md:rounded-lg"
+                className="h-11 gap-1 rounded-xl md:rounded-lg lg:h-9"
               >
                 <Link href={`/orders/${order.id}`}>
                   <Bell className="size-4" />
@@ -589,7 +585,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
               <Button
                 type="button"
                 variant="outline"
-                className="h-10 gap-1 rounded-xl md:h-9 md:rounded-lg"
+                className="h-11 gap-1 rounded-xl md:rounded-lg lg:h-9"
                 disabled={
                   !activeKioskDevice ||
                   kioskPickupRequest.isPending ||
@@ -709,7 +705,11 @@ function TaskTransitionPanel({
               </p>
             </div>
           </div>
-          <Button asChild size="sm" className="h-9 justify-center rounded-lg">
+          <Button
+            asChild
+            size="sm"
+            className="min-h-11 justify-center rounded-lg lg:h-9 lg:min-h-0"
+          >
             <Link href={`/orders/${orderId}`}>打开审批处理</Link>
           </Button>
         </div>
@@ -741,7 +741,7 @@ function TaskTransitionPanel({
                 type="button"
                 disabled={pending}
                 className={cn(
-                  "grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                  "grid min-h-11 min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:min-h-0",
                   action.isPrimary
                     ? "border-primary/35 bg-primary/5"
                     : "border-[var(--border-panel)] bg-[var(--surface-panel-muted)]",
@@ -832,7 +832,7 @@ function TaskTransitionDialog({
         data-order-task-transition-dialog="true"
         className="grid max-h-[calc(100svh-24px)] w-[min(760px,calc(100vw-24px))] max-w-[calc(100vw-24px)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-0"
       >
-        <DialogHeader className="border-b border-[var(--border-panel)] px-4 py-3 pr-12 text-left">
+        <DialogHeader className="border-b border-[var(--border-panel)] px-3 py-2 pr-12 text-left sm:px-4 sm:py-3">
           <DialogTitle className="flex min-w-0 items-center gap-2 text-base">
             <Clock3 className="size-4 text-primary" />
             任务状态推进
@@ -842,7 +842,7 @@ function TaskTransitionDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid min-h-0 min-w-0 gap-3 overflow-y-auto p-4 md:grid-cols-[minmax(220px,0.58fr)_minmax(0,1fr)]">
+        <div className="grid min-h-0 min-w-0 gap-2 overflow-y-auto p-3 sm:gap-3 sm:p-4 md:grid-cols-[minmax(220px,0.58fr)_minmax(0,1fr)]">
           <section className="min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3">
             <p className="text-[10px] leading-3 text-muted-foreground">当前状态</p>
             <p className="mt-1 truncate text-sm font-semibold">{statusLabel}</p>
@@ -878,7 +878,7 @@ function TaskTransitionDialog({
           </section>
         </div>
 
-        <DialogFooter className="border-t border-[var(--border-panel)] px-4 py-3">
+        <DialogFooter className="border-t border-[var(--border-panel)] px-3 py-2 sm:px-4 sm:py-3">
           <Button
             type="button"
             variant="outline"

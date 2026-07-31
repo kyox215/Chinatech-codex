@@ -421,7 +421,7 @@ export function ProfitCenterScreen() {
         eyebrow="工作台 / 财务"
       >
         <Card className="mx-auto max-w-xl rounded-2xl">
-          <CardContent className="p-6 text-center">
+          <CardContent className="p-3 text-center sm:p-6">
             <WalletCards className="mx-auto size-8 text-muted-foreground" />
             <h2 className="mt-3 font-semibold">此页面仅对获授权人员开放</h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -485,7 +485,7 @@ export function ProfitCenterScreen() {
         </div>
       }
     >
-      <div className="min-w-0 space-y-3">
+      <div className="min-w-0 space-y-2 sm:space-y-3">
         {exportNotice ? (
           <p
             className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2 text-xs"
@@ -495,7 +495,7 @@ export function ProfitCenterScreen() {
           </p>
         ) : null}
         <Card className="rounded-2xl border-border/70">
-          <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-end sm:p-4">
+          <CardContent className="flex flex-col gap-2 p-2.5 sm:flex-row sm:items-end sm:gap-3 sm:p-4">
             <label className="min-w-0 flex-1 text-xs font-medium text-muted-foreground">
               开始日期
               <Input
@@ -535,7 +535,7 @@ export function ProfitCenterScreen() {
 
         {hardError ? (
           <Card className="rounded-2xl border-destructive/30">
-            <CardContent className="p-6 text-center">
+            <CardContent className="p-3 text-center sm:p-6">
               <AlertTriangle className="mx-auto size-7 text-destructive" />
               <h2 className="mt-3 font-semibold">
                 {authorizationLost ? "利润查看权限已失效" : "维修毛利读取失败"}
@@ -556,7 +556,7 @@ export function ProfitCenterScreen() {
 
         {query.data ? (
           <>
-            <div className="rounded-2xl border border-border/70 bg-muted/30 px-3.5 py-3 text-xs leading-5 text-muted-foreground">
+            <div className="rounded-2xl border border-border/70 bg-muted/30 px-2.5 py-2 text-[11px] leading-4 text-muted-foreground sm:px-3.5 sm:py-3 sm:text-xs sm:leading-5">
               按含税最终报价计算的经营毛利，不是会计净利润；收款参考未扣退款。退款订单不进入报价毛利汇总，未知成本不会按
               0 计算。
             </div>
@@ -566,10 +566,10 @@ export function ProfitCenterScreen() {
             />
 
             <Card className="rounded-2xl border-border/70">
-              <CardHeader className="p-4 pb-2">
+              <CardHeader className="p-3 pb-1.5 sm:p-4 sm:pb-2">
                 <CardTitle className="text-sm">数据质量与收款参考</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-2 p-4 pt-2 text-sm lg:grid-cols-4">
+              <CardContent className="grid grid-cols-2 gap-1.5 p-3 pt-1.5 text-xs sm:gap-2 sm:p-4 sm:pt-2 sm:text-sm lg:grid-cols-4">
                 <div>
                   <p className="text-xs text-muted-foreground">未知成本行</p>
                   <p className="mt-1 font-semibold">
@@ -598,7 +598,7 @@ export function ProfitCenterScreen() {
             </Card>
 
             <Card className="min-w-0 rounded-2xl border-border/70">
-              <CardHeader className="flex-row items-center justify-between gap-3 p-4 pb-2">
+              <CardHeader className="flex-row items-center justify-between gap-2 p-3 pb-1.5 sm:gap-3 sm:p-4 sm:pb-2">
                 <CardTitle className="text-sm">
                   {trendMode === "daily" ? "每日毛利趋势" : "每月毛利趋势"}
                 </CardTitle>
@@ -607,7 +607,7 @@ export function ProfitCenterScreen() {
                     type="button"
                     size="sm"
                     variant={trendMode === "daily" ? "secondary" : "ghost"}
-                    className="h-7 px-2.5 text-xs"
+                    className="min-h-11 px-2 text-xs lg:h-7 lg:min-h-0 lg:px-2.5"
                     onClick={() => setTrendMode("daily")}
                   >
                     按日
@@ -616,24 +616,24 @@ export function ProfitCenterScreen() {
                     type="button"
                     size="sm"
                     variant={trendMode === "monthly" ? "secondary" : "ghost"}
-                    className="h-7 px-2.5 text-xs"
+                    className="min-h-11 px-2 text-xs lg:h-7 lg:min-h-0 lg:px-2.5"
                     onClick={() => setTrendMode("monthly")}
                   >
                     按月
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="min-w-0 p-4 pt-2">
+              <CardContent className="min-w-0 p-3 pt-1.5 sm:p-4 sm:pt-2">
                 <ProfitTrend data={trend} />
               </CardContent>
             </Card>
 
             {query.data.breakdowns ? (
               <Card className="min-w-0 rounded-2xl border-border/70">
-                <CardHeader className="p-4 pb-2">
+                <CardHeader className="p-3 pb-1.5 sm:p-4 sm:pb-2">
                   <CardTitle className="text-sm">维修类别与供应商毛利拆分</CardTitle>
                 </CardHeader>
-                <CardContent className="grid min-w-0 gap-4 p-4 pt-2 xl:grid-cols-2">
+                <CardContent className="grid min-w-0 gap-2.5 p-3 pt-1.5 sm:gap-4 sm:p-4 sm:pt-2 xl:grid-cols-2">
                   <div className="min-w-0 overflow-auto rounded-xl border border-border/70">
                     <p className="border-b border-border/60 px-3 py-2 text-xs font-semibold">
                       按维修类别
@@ -654,7 +654,7 @@ export function ProfitCenterScreen() {
             ) : null}
 
             <Card className="min-w-0 rounded-2xl border-border/70">
-              <CardHeader className="p-4 pb-2">
+              <CardHeader className="p-3 pb-1.5 sm:p-4 sm:pb-2">
                 <CardTitle className="flex items-center justify-between gap-2 text-sm">
                   <span>订单级核对</span>
                   {query.data.summary.expected.negative_margin_order_count > 0 ? (
@@ -665,7 +665,7 @@ export function ProfitCenterScreen() {
                   ) : null}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="min-w-0 p-4 pt-2">
+              <CardContent className="min-w-0 p-3 pt-1.5 sm:p-4 sm:pt-2">
                 <OrderDrilldown orders={query.data.orders} />
               </CardContent>
             </Card>

@@ -119,7 +119,7 @@ export function DashboardPriorityEmpty({ coverage }: { coverage: DashboardSummar
   return (
     <div
       data-ui="dashboard-priority-empty"
-      className="mt-3 rounded-2xl border border-dashed border-[var(--border-panel)] px-4 py-8 text-center"
+      className="mt-2 rounded-2xl border border-dashed border-[var(--border-panel)] px-3 py-4 text-center sm:mt-3 sm:px-4 sm:py-8"
     >
       <span className="mx-auto grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
         <ClipboardList className="size-5" aria-hidden />
@@ -154,7 +154,7 @@ export function DashboardFilteredEmpty({
   return (
     <div
       data-ui="dashboard-priority-filter-empty"
-      className="mt-3 rounded-2xl border border-dashed border-[var(--border-panel)] px-4 py-7 text-center text-sm text-muted-foreground"
+      className="mt-2 rounded-2xl border border-dashed border-[var(--border-panel)] px-3 py-4 text-center text-xs text-muted-foreground sm:mt-3 sm:px-4 sm:py-7 sm:text-sm"
     >
       {filteredTotal > 0 ? (
         <div className="space-y-2">

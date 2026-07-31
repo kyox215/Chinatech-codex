@@ -30,7 +30,7 @@ export function CustomerFilters({
     filters.work === "with_devices" || filters.work === "repeat" ? filters.work : "all";
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b px-4 py-3">
+      <div className="border-b px-3 py-2 sm:px-4 sm:py-3">
         <div className="flex items-center gap-2 font-semibold">
           <Tags className="size-4" /> 更多筛选
         </div>
@@ -38,7 +38,7 @@ export function CustomerFilters({
           这里只放不常用的条件。常用的“处理中、待收款、要跟进”请直接点列表顶部。
         </p>
       </div>
-      <div className="flex-1 space-y-6 overflow-y-auto p-4">
+      <div className="flex-1 space-y-3 overflow-y-auto p-3 sm:space-y-6 sm:p-4">
         <section>
           <div className="mb-2 text-xs font-semibold text-muted-foreground">客户记录</div>
           <CustomerSegmented

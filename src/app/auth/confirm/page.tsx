@@ -27,9 +27,9 @@ export default async function AuthConfirmPage({
     Boolean(next);
 
   return (
-    <main className="grid min-h-svh place-items-center bg-background px-4 py-8">
-      <section className="w-full max-w-md rounded-lg border border-border/60 bg-card p-5 shadow-sm">
-        <h1 className="font-display text-2xl font-semibold">
+    <main className="grid min-h-svh place-items-center bg-background px-2 py-3 sm:px-4 sm:py-8">
+      <section className="w-full max-w-md rounded-lg border border-border/60 bg-card p-3 shadow-sm sm:p-5">
+        <h1 className="font-display text-xl font-semibold sm:text-2xl">
           {valid ? "确认打开员工邀请" : "邀请链接无效"}
         </h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">

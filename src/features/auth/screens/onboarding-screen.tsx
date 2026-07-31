@@ -179,8 +179,8 @@ export function OnboardingScreen() {
 
   if (statusQuery.isLoading) {
     return (
-      <main className="grid min-h-svh place-items-center bg-background px-4 py-8">
-        <section className="w-full max-w-xl space-y-3 rounded-lg border border-border/60 bg-card p-5">
+      <main className="grid min-h-svh place-items-center bg-background px-2 py-3 sm:px-4 sm:py-8">
+        <section className="w-full max-w-xl space-y-2 rounded-lg border border-border/60 bg-card p-3 sm:space-y-3 sm:p-5">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-20 w-full" />
           <Skeleton className="h-10 w-full" />
@@ -191,8 +191,8 @@ export function OnboardingScreen() {
 
   if (statusQuery.isError) {
     return (
-      <main className="grid min-h-svh place-items-center bg-background px-4 py-8">
-        <section className="w-full max-w-md rounded-lg border border-border/60 bg-card p-5">
+      <main className="grid min-h-svh place-items-center bg-background px-2 py-3 sm:px-4 sm:py-8">
+        <section className="w-full max-w-md rounded-lg border border-border/60 bg-card p-3 sm:p-5">
           <h1 className="font-display text-xl font-semibold">无法读取账号状态</h1>
           <p className="mt-2 text-sm text-status-danger-foreground">
             {statusQuery.error instanceof Error ? statusQuery.error.message : "请重新登录后再试"}
@@ -209,9 +209,9 @@ export function OnboardingScreen() {
   const canEnter = Boolean(status?.activeStore || status?.isPlatformAdmin);
 
   return (
-    <main className="min-h-svh bg-background px-3 py-6 sm:px-6 lg:py-8">
-      <div className="mx-auto grid w-full max-w-5xl min-w-0 gap-4 lg:grid-cols-[minmax(260px,0.75fr)_minmax(0,1.25fr)] lg:items-start">
-        <aside className="glass-card min-w-0 p-4 lg:sticky lg:top-6">
+    <main className="min-h-svh bg-background px-2 py-3 sm:px-6 sm:py-6 lg:py-8">
+      <div className="mx-auto grid w-full max-w-5xl min-w-0 gap-2.5 sm:gap-4 lg:grid-cols-[minmax(260px,0.75fr)_minmax(0,1.25fr)] lg:items-start">
+        <aside className="glass-card min-w-0 p-3 sm:p-4 lg:sticky lg:top-6">
           <div className="flex min-w-0 items-start gap-3">
             <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
               <Store className="size-5" />
@@ -227,7 +227,7 @@ export function OnboardingScreen() {
             </div>
           </div>
 
-          <div className="mt-4 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3">
+          <div className="mt-3 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2.5 sm:mt-4 sm:p-3">
             <p className="text-xs text-muted-foreground">当前状态</p>
             <p className="mt-1 text-sm font-semibold">
               {status?.activeStore
@@ -251,7 +251,7 @@ export function OnboardingScreen() {
             </p>
           </div>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+          <div className="mt-3 grid gap-1.5 sm:mt-4 sm:grid-cols-2 sm:gap-2 lg:grid-cols-1">
             {canEnter && (
               <Button
                 className={controls.brandButton}
@@ -270,7 +270,7 @@ export function OnboardingScreen() {
         </aside>
 
         {status?.activeStore ? (
-          <section className="glass-card min-w-0 p-4">
+          <section className="glass-card min-w-0 p-3 sm:p-4">
             <div className="flex items-start gap-3">
               <CheckCircle2 className="mt-0.5 size-5 text-status-success-foreground" />
               <div className="min-w-0">
@@ -282,7 +282,7 @@ export function OnboardingScreen() {
             </div>
           </section>
         ) : latestInvitation ? (
-          <section className="glass-card min-w-0 p-4">
+          <section className="glass-card min-w-0 p-3 sm:p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
               <UserPlus className="mt-0.5 size-5 text-primary" />
               <div className="min-w-0">
@@ -314,7 +314,7 @@ export function OnboardingScreen() {
             </div>
           </section>
         ) : pendingRequest ? (
-          <section className="glass-card min-w-0 p-4">
+          <section className="glass-card min-w-0 p-3 sm:p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
               <Clock3 className="mt-0.5 size-5 text-status-warn-foreground" />
               <div className="min-w-0">
@@ -343,9 +343,9 @@ export function OnboardingScreen() {
             </div>
           </section>
         ) : (
-          <form className="min-w-0 space-y-4" onSubmit={handleSubmit}>
+          <form className="min-w-0 space-y-2.5 sm:space-y-4" onSubmit={handleSubmit}>
             {latestRequest && latestRequest.status !== "approved" && (
-              <section className="glass-card min-w-0 p-4">
+              <section className="glass-card min-w-0 p-3 sm:p-4">
                 <div className="flex items-start gap-3">
                   <Clock3 className="mt-0.5 size-5 text-muted-foreground" />
                   <div className="min-w-0">
@@ -379,7 +379,10 @@ export function OnboardingScreen() {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="join_store" className="glass-card space-y-4 p-4">
+              <TabsContent
+                value="join_store"
+                className="glass-card space-y-3 p-3 sm:space-y-4 sm:p-4"
+              >
                 <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
                   <Label htmlFor="inviteCode" className={formLayout.label}>
                     邀请码
@@ -464,7 +467,10 @@ export function OnboardingScreen() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="create_store" className="glass-card space-y-4 p-4">
+              <TabsContent
+                value="create_store"
+                className="glass-card space-y-3 p-3 sm:space-y-4 sm:p-4"
+              >
                 <div className={formLayout.field}>
                   <Label htmlFor="storeName" className={formLayout.label}>
                     店铺名称

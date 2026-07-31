@@ -24,6 +24,7 @@ import type {
   OrderWorkflowStatusCreateInput,
   OrderWorkflowStatusUpdateInput,
 } from "@/lib/repairdesk/types";
+import { componentOverlay } from "@/lib/component-patterns";
 
 export interface OrderWorkflowStatusSheetProps {
   open: boolean;
@@ -96,7 +97,9 @@ export function OrderWorkflowStatusSheet({
           onRestoreFocus();
         }}
       >
-        <SheetHeader className="border-b border-[var(--border-panel)] px-4 pb-4 pt-5 pr-16 text-left sm:px-5">
+        <SheetHeader
+          className={`${componentOverlay.mobileHeader} border-b border-[var(--border-panel)] pr-14 text-left`}
+        >
           <div className="flex flex-wrap items-center gap-2">
             <SheetTitle>{isNew ? "新增状态草稿" : `编辑「${status.label}」`}</SheetTitle>
             {status?.is_system ? <Badge variant="outline">系统状态</Badge> : null}
@@ -106,7 +109,7 @@ export function OrderWorkflowStatusSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-5">
+        <div className={`${componentOverlay.mobileBody} flex-1 sm:px-5`}>
           <OrderWorkflowStatusForm
             value={value}
             setValue={setValue}
@@ -116,7 +119,7 @@ export function OrderWorkflowStatusSheet({
           />
         </div>
 
-        <SheetFooter className="gap-2 border-t border-[var(--border-panel)] bg-card px-4 py-4 sm:px-5">
+        <SheetFooter className={`${componentOverlay.mobileFooter} bg-card sm:px-5`}>
           <Button
             type="button"
             variant="outline"

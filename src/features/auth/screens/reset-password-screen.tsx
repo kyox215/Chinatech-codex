@@ -45,26 +45,26 @@ export function ResetPasswordScreen() {
   }
 
   return (
-    <main className="grid min-h-svh bg-background px-4 py-8 sm:place-items-center">
-      <section className="mx-auto w-full max-w-md self-start rounded-lg border border-border/60 bg-card p-5 shadow-sm sm:self-auto">
+    <main className="grid min-h-svh bg-background px-2 py-3 sm:place-items-center sm:px-4 sm:py-8">
+      <section className="mx-auto w-full max-w-md self-start rounded-lg border border-border/60 bg-card p-3 shadow-sm sm:self-auto sm:p-5">
         <Link
           href="/login"
-          className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="mb-2 inline-flex min-h-11 items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground sm:mb-4"
         >
           <ArrowLeft className="size-4" />
           返回登录
         </Link>
-        <div className="mb-5 flex items-center gap-3">
+        <div className="mb-3 flex items-center gap-2 sm:mb-5 sm:gap-3">
           <div className="grid size-10 place-items-center rounded-md bg-primary/10 text-primary">
             <KeyRound className="size-5" />
           </div>
           <div className="min-w-0">
-            <h1 className="font-display text-2xl font-semibold">设置新密码</h1>
-            <p className="text-sm text-muted-foreground">请设置新的员工账号密码。</p>
+            <h1 className="font-display text-xl font-semibold sm:text-2xl">设置新密码</h1>
+            <p className="text-xs text-muted-foreground sm:text-sm">请设置新的员工账号密码。</p>
           </div>
         </div>
 
-        <form className="space-y-4" onSubmit={handleSubmit}>
+        <form className="space-y-3 sm:space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-1.5">
             <Label htmlFor="new-password">新密码</Label>
             <Input

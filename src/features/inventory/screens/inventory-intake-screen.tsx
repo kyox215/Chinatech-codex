@@ -205,12 +205,18 @@ export function InventoryIntakeScreen() {
 
   if (shell.status !== "ready" || intakeRoute === "wait") {
     if (shell.status === "loading" || shell.isLoading || shell.isRefreshing) {
-      return <div className="p-6 text-sm text-muted-foreground">正在读取门店权限…</div>;
+      return (
+        <div className="p-3 text-xs text-muted-foreground sm:p-6 sm:text-sm">正在读取门店权限…</div>
+      );
     }
     return <StoreShellUnavailableState shell={shell} onRetry={shell.retry} />;
   }
   if (intakeRoute === "legacy") {
-    return <div className="p-6 text-sm text-muted-foreground">正在返回兼容入库流程…</div>;
+    return (
+      <div className="p-3 text-xs text-muted-foreground sm:p-6 sm:text-sm">
+        正在返回兼容入库流程…
+      </div>
+    );
   }
   if (!shell.permissions?.canCreateInventory) {
     return (
@@ -421,7 +427,7 @@ export function InventoryIntakeScreen() {
         </section>
       </div>
 
-      <section className={cn(repairOs.mobileInfoCard, "mb-4 hidden p-4 md:block")}>
+      <section className={cn(repairOs.mobileInfoCard, "mb-3 hidden p-3 md:mb-4 md:block md:p-4")}>
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-medium text-primary">库存商品 / 新建</p>
@@ -463,7 +469,7 @@ export function InventoryIntakeScreen() {
       </section>
 
       <div className="space-y-3 px-2 pt-2 md:px-0 md:pt-0">
-        <section className={cn(repairOs.mobileInfoCard, "p-3 sm:p-4")}>
+        <section className={cn(repairOs.mobileInfoCard, "p-2.5 sm:p-4")}>
           <div className="mb-4 flex items-start gap-3">
             <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
               {stepIcon(step)}
@@ -484,7 +490,7 @@ export function InventoryIntakeScreen() {
                   type="button"
                   onClick={() => selectSource(option.value)}
                   className={cn(
-                    "min-h-24 rounded-xl border p-3 text-left transition-colors",
+                    "min-h-20 rounded-xl border p-2.5 text-left transition-colors sm:min-h-24 sm:p-3",
                     draft.source_type === option.value
                       ? "border-primary bg-primary/5"
                       : "border-[var(--border-panel)] hover:bg-muted/40",
@@ -504,7 +510,7 @@ export function InventoryIntakeScreen() {
               <Button
                 asChild
                 variant="outline"
-                className="h-auto min-h-20 justify-start whitespace-normal p-3 text-left sm:col-span-3"
+                className="h-auto min-h-16 justify-start whitespace-normal p-2.5 text-left sm:col-span-3 sm:min-h-20 sm:p-3"
               >
                 <Link href="/buyback?new=1">
                   <RotateCcw className="mr-2 size-4 shrink-0" />
@@ -536,7 +542,7 @@ export function InventoryIntakeScreen() {
           ) : null}
 
           {step === 2 ? (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field id="inventory-category" label="类别">
                   <Input
@@ -744,7 +750,7 @@ export function InventoryIntakeScreen() {
                     value={draft.source_note ?? ""}
                     onChange={(event) => update("source_note", event.target.value)}
                     placeholder="说明为什么手工入库，便于日后审计"
-                    className="min-h-28 text-base sm:text-sm"
+                    className="min-h-20 text-base sm:min-h-28 sm:text-sm"
                   />
                 </Field>
               ) : null}
@@ -828,7 +834,7 @@ export function InventoryIntakeScreen() {
                   value={draft.notes ?? ""}
                   onChange={(event) => update("notes", event.target.value)}
                   placeholder="成色、随附配件或需要复核的事项"
-                  className="min-h-24 text-base sm:text-sm"
+                  className="min-h-20 text-base sm:min-h-24 sm:text-sm"
                 />
               </Field>
             </div>
@@ -888,7 +894,7 @@ export function InventoryIntakeScreen() {
               )}
               <Button
                 type="button"
-                className={cn("h-12 w-full gap-2", controls.brandButton)}
+                className={cn("h-11 w-full gap-2 sm:h-12", controls.brandButton)}
                 style={brandGradientStyle}
                 disabled={!intakeReady || mutation.isPending}
                 onClick={() => mutation.mutate()}
@@ -965,7 +971,7 @@ function ReviewRow({ label, value }: { label: string; value: React.ReactNode }) 
 function InventoryAccessDenied({ title, description }: { title: string; description: string }) {
   return (
     <main className={cn(repairOs.mobileFloatingPage, "grid min-h-[55dvh] place-items-center p-3")}>
-      <section className={cn(repairOs.mobileInfoCard, "max-w-md p-5 text-center")}>
+      <section className={cn(repairOs.mobileInfoCard, "max-w-md p-3 text-center sm:p-5")}>
         <ShieldCheck className="mx-auto size-8 text-primary" />
         <h1 className="mt-3 font-semibold">{title}</h1>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>

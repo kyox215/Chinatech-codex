@@ -51,7 +51,7 @@ export function FiltersPanel({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <ScrollArea className="min-h-0 flex-1 overscroll-contain">
-        <div className="space-y-5 px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-5">
+        <div className="space-y-3 px-3 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-3 sm:space-y-5 sm:px-4 sm:pb-[calc(7rem+env(safe-area-inset-bottom))] sm:pt-5">
           <FilterGroup label="主流程">
             <div className="grid grid-cols-2 gap-2">
               {simpleOrderFlowStages.map((stage) => {

@@ -34,6 +34,7 @@ import {
   SUPPLIER_COLOR_PALETTE,
 } from "@/features/suppliers/model/supplier-color-palette";
 import { cn } from "@/lib/utils";
+import { componentOverlay } from "@/lib/component-patterns";
 import type { Supplier, SupplierInput } from "@/lib/repairdesk/types";
 
 export interface SupplierEditorSheetProps {
@@ -154,7 +155,9 @@ export function SupplierEditorSheet({
             requestAnimationFrame(() => returnFocusRef?.current?.focus());
           }}
         >
-          <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-4 pr-14 text-left">
+          <SheetHeader
+            className={`${componentOverlay.mobileHeader} border-b border-[var(--border-panel)] pr-14 text-left`}
+          >
             <SheetTitle>
               {mode === "new" ? "添加供应商" : `编辑 ${supplier?.name ?? "供应商"}`}
             </SheetTitle>
@@ -163,8 +166,8 @@ export function SupplierEditorSheet({
             </SheetDescription>
           </SheetHeader>
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-            <div className="grid gap-4 sm:grid-cols-2">
+          <div className={`${componentOverlay.mobileBody} flex-1`}>
+            <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-4">
               <SupplierField label="名称" field="name" errors={errors}>
                 <Input
                   ref={firstInputRef}
@@ -268,7 +271,7 @@ export function SupplierEditorSheet({
             <SupplierField label="内部备注" field="notes" errors={errors}>
               <Textarea
                 id="supplier-notes"
-                className="min-h-28 text-base sm:text-sm"
+                className="min-h-20 text-base sm:min-h-28 sm:text-sm"
                 maxLength={2000}
                 value={draft.notes ?? ""}
                 aria-invalid={Boolean(errors.notes)}
@@ -287,7 +290,7 @@ export function SupplierEditorSheet({
             ) : null}
           </div>
 
-          <SheetFooter className="border-t border-[var(--border-panel)] bg-card px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+          <SheetFooter className={`${componentOverlay.mobileFooter} bg-card`}>
             <Button
               type="button"
               variant="outline"
@@ -341,7 +344,7 @@ function SupplierField({
   const error = errors[field];
   const id = `supplier-${field}`;
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1 sm:space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
       {children}
       {error ? (
