@@ -78,3 +78,10 @@ Screenshots contain only synthetic products and masked identifiers. The test hid
 - Candidate commit and remote branch SHA.
 - Vercel preview/production deployment IDs, URLs and exact SHA.
 - Production build/runtime logs and read-only smoke.
+
+## External publication blocker
+
+- Local integration candidate: `ab0b7d6029d4e27a2b3bddde05b4537ece8d9f1d`.
+- `origin/main` remained `a9e6db44`; it was merged without changing the verified candidate tree, so the eventual main update is non-force and fast-forward.
+- Push to `git@github.com:kyox215/Chinatech-codex.git` was rejected by the external-action approval reviewer because the repository is public and the commit includes internal inventory implementation, tests, project documentation and synthetic UI screenshots.
+- No push or deployment occurred. Resume only after Owner explicitly confirms publication to this exact public repository with the stated contents.

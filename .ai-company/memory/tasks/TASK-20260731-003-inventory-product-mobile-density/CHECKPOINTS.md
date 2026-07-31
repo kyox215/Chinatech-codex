@@ -40,3 +40,12 @@
 - Independent verdict: PASS / GO; P0/P1/P2 = 0/0/0.
 - Post-remediation full Vitest: 389 files / 2540 tests PASS.
 - Next: validate exact diff and lease, commit, reconcile latest remote `main`, push and deploy exact SHA.
+
+## CP-06 — local candidate complete; public push approval blocked
+
+- Implementation commit `b73674f8` created from the reviewed tree.
+- Merged current `origin/main@a9e6db44` into the task branch as `ab0b7d60`; pre/post merge tree hash remained `fdb8fc99e334b621f11bbd861cb39df098af6f02`.
+- Current production remains Vercel `dpl_Bh3cfwETZNUD7ZHV752nPicta1Cy`, exact SHA `a9e6db44`, READY.
+- Attempted task-branch push was rejected by the external approval reviewer: `origin` is the public repository `git@github.com:kyox215/Chinatech-codex.git`, and the candidate includes internal inventory code, tests, project docs and synthetic screenshots.
+- No remote mutation and no Vercel deployment occurred. Owner must explicitly confirm publication to that exact public repository after being informed of these contents.
+- Next: after Owner confirmation, reacquire/verify the integration lease, fetch/reconcile remote `main`, push the task branch and fast-forward `main`, wait for exact-SHA Vercel READY, perform production read-only smoke, then close.
