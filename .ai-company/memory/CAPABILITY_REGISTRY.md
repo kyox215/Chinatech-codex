@@ -48,4 +48,6 @@
 
 | CAP-EU-PHONE-CATALOG-20260726 | Integration Lead + Product/UX/QA read-only reviewers | C1 | candidate | Deliver a bounded application-only device catalog with responsive linked selection, accessible physical swatches, full regression and exact production deployment | medium | review_after_next_catalog_refresh_or_inventory_selector_change | TASK-20260726-002 passed independent reviews, 361 files / 2400 tests, 2/2 responsive browser flows and exact READY deployment; one success does not increase permission or autonomy | Owner |
 
+| CAP-INVENTORY-DENSITY-20260731 | Integration Lead + Architecture/Product/UX/Data/QA read-only reviewers | C1 | candidate | Deliver and serialize an app-only tenant-safe product-inventory density release with latest-main reconciliation, cross-browser proof, synthetic evidence and exact-SHA production deployment | medium/high | review_after_next_inventory_responsive_release | TASK-20260731-003 used four real specialist agents, remediated a reviewer-found cross-store placeholder P1 and merge-induced overflow, passed 389/2540 plus Chromium/WebKit 22/22, and deployed public `main@44b1d80c` READY without data writes; no permission/autonomy upgrade | Owner |
+
 没有登记和有效评估的能力默认视为 C0/C1，不得用于高风险自治执行。

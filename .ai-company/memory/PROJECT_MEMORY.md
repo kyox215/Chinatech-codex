@@ -301,6 +301,10 @@ Production migration `20260720190759` and feature application `main@24190b26` ar
 - Owner requests a different autonomy level or AI employee operating model.
 - Agent rule checks fail or project docs conflict with implementation.
 
+## Product inventory mobile-density release
+
+`TASK-20260731-003-inventory-product-mobile-density` is the production authority for the current product-inventory list, quick-intake, detail and edit density. Public `main@44b1d80c` and Vercel production `dpl_CVHwY9EHq2qJQuTcmngTpCuWyWjs` are READY. The release preserves store-scoped placeholder isolation, masked ordinary identifiers, permission-projected cost, 44px/16px mobile controls, 84–88px cards and no-overflow desktop actions. It is app-only: no migration, flag, permission or production inventory write occurred. Lifecycle actions, server pagination and field-level conflict semantics remain separate R3 work.
+
 ## Platform approval authority
 
 `TASK-20260720-002-platform-owner-approval` is the production authority for platform approval identity. Only the current, email-verified Auth identity `kyox120@gmail.com` with the matching active `platform_admins` row may be projected as platform administrator or record platform-scoped approved/rejected decisions. Application checks cross-validate the session claim, authoritative Auth user and database row; bootstrap rejects every other email. Production application `main@5260c102` and migration `20260720231500` are live. Schema rollback must retain the hardened application and use a separately approved forward-fix migration; never roll the app back alone to the former UUID-only projection. AAL2/recent-MFA enforcement remains a separate Owner hardening decision.

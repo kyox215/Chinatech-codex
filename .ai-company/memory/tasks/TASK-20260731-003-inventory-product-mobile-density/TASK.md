@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260731-003-inventory-product-mobile-density"
 title: "商品库存持续完善与手机端高密度单页体验"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R2"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["PRODUCT", "ARCH", "DATA", "UX", "FRONTEND", "QA", "RELEASE", "INT"]
 created_at: "2026-07-31T07:14:59Z"
-updated_at: "2026-07-31T08:30:00Z"
+updated_at: "2026-07-31T09:26:59Z"
 ---
 # Task — 商品库存持续完善与手机端高密度单页体验
 
@@ -28,7 +28,7 @@ updated_at: "2026-07-31T08:30:00Z"
 - 任务开始时 Vercel Production 为 `a9e6db44`，包含维修选项修复但缺少此前生产验证的库存/回收 Web 业务树。
 - 安全业务基线 `b2598713` 的 `src/`、`supabase/` 与此前 READY 的 `71fa80a3` 相同，并含设备资料、扫码和方案 C 详情。
 - 隔离分支以 `b2598713` 为基线，重放 `a9e6db44` 为 `b6332f8c`，再实施本任务。
-- 不整枝合并 `cf594862`；只参考密度规格，避免恢复旧路由和扩大回归面。
+- 实施阶段未直接整枝合并当时未发布的 `cf594862`。发布接力时，远端 `main` 已由独立任务更新到 `1c9f4574` 并正式包含全站密度；本候选随后合并该权威主线，保留商品专用路由并修复共享操作栏在桌面断点产生的 24px 溢出。
 
 ## Scope in
 
@@ -44,7 +44,7 @@ updated_at: "2026-07-31T08:30:00Z"
 - 库存生命周期动作、采购、调拨、盘点、批量操作。
 - 服务端分页、数据库过滤/排序、虚拟化、索引和性能迁移。
 - 成本清空语义、权限、feature flag、API/RPC/schema/migration 变化。
-- 字段级并发冲突协议重写、全站密度分支合并、生产数据写入。
+- 字段级并发冲突协议重写、生产数据写入。全站密度只作为已经发布的权威 `main` 被动吸收，不在本任务扩展其业务范围。
 
 ## Hard constraints
 
@@ -56,7 +56,7 @@ updated_at: "2026-07-31T08:30:00Z"
 
 ## Acceptance criteria
 
-- [ ] 候选历史同时保留安全库存业务树与远端生产主线，且不整枝包含 `cf594862`。
+- [x] 候选历史同时保留安全库存业务树与最新远端生产主线 `1c9f4574`；单一库存路由冲突按商品专用页面解决。
 - [x] 功能关闭或无权限时 list/intake/edit 不发受限请求，不闪现编辑表单。
 - [x] 查询占位数据只在同一门店列表范围保留，切换门店不显示上一门店商品。
 - [x] 390px 列表卡片 84–88px，标准样本第六件商品可见。
@@ -65,8 +65,8 @@ updated_at: "2026-07-31T08:30:00Z"
 - [x] 编辑保留完整 identifier 权限边界并提供字段级错误与固定保存栏。
 - [x] 专项 Chromium/WebKit 断言无横向溢出。
 - [x] lint、typecheck、unit、build、库存专项与回归 E2E 全部通过。
-- [ ] Preview 与 Production 为同一已验证 exact SHA，线上只读 smoke 无阻塞。
-- [ ] 最终汇报包含截图、部署 URL/SHA、回滚点和已知限制。
+- [x] Preview 与 Production 均从 exact SHA `44b1d80c` 构建并 READY，线上只读 smoke 无阻塞。
+- [x] 最终关闭档案包含截图、部署 URL/SHA、回滚点和已知限制。
 
 ## Agent team and ownership
 

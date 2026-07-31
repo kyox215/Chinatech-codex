@@ -1,8 +1,8 @@
 # Evidence — TASK-20260731-003
 
-Status: quality gate PASS; release pending
+Status: closed; quality and production release PASS
 Candidate worktree: `/private/tmp/repairdesk-inventory-mobile-density-20260731`
-Implementation baseline: `b6332f8c`
+Final Git SHA: `44b1d80cff25a4ceab6de995a748d0d9e024e955`
 
 ## Acceptance-to-evidence matrix
 
@@ -19,7 +19,7 @@ Implementation baseline: `b6332f8c`
 | No horizontal overflow across 390/430/768/834/1024/1440 | Chromium + WebKit density/simplification/option-C specs | PASS |
 | No API/schema/permission/migration product diff | `git diff --name-status b6332f8c`, independent review pending | PASS (static) |
 | Full repository lint/type/test/build | commands below | PASS |
-| Exact-SHA preview/production and runtime smoke | release step pending | PENDING |
+| Exact-SHA preview/production and runtime smoke | Vercel build logs, READY deployments, login redirect smoke, error log query | PASS |
 
 ## Executed commands
 
@@ -40,8 +40,8 @@ The first sandboxed build attempt failed only because outbound Google Fonts acce
 
 E2E used the repository's isolated mock actor and synthetic masked product data:
 
-- Chromium: 16/16 inventory cases PASS.
-- WebKit: 16/16 inventory cases PASS.
+- Final isolated Chromium matrix: 22/22 inventory cases PASS.
+- Final isolated WebKit matrix: 22/22 inventory cases PASS.
 - Post-QA remediation: Chromium density 5/5 and WebKit density 5/5 PASS, including action-bar left/right inset symmetry.
 
 The test set contains 5 new density cases, 2 option-C privacy/detail cases, and 9 existing simplification/resilience cases. WebKit's development mock emitted the existing shell-permission SSR/client hydration warning during cross-viewport reuse; all assertions passed and the stack is in the pre-existing `RepairOsListScaffold` permission action, not a changed line. Independent QA will decide whether this is release-blocking.
@@ -71,17 +71,20 @@ Screenshots contain only synthetic products and masked identifiers. The test hid
 | RepairOS mobile detail standard | Added inventory detail workbench variant |
 | API/data/migration/runbook | No change; no contract, schema or operational migration change |
 
-## Pending release evidence
+## Release evidence
 
-- Independent QA verdict: PASS / GO; no open P0/P1/P2.
-- Integration lease acquisition/recheck.
-- Candidate commit and remote branch SHA.
-- Vercel preview/production deployment IDs, URLs and exact SHA.
-- Production build/runtime logs and read-only smoke.
+- Owner explicitly approved public publication of inventory implementation, tests, project documentation and synthetic screenshots to `kyox215/Chinatech-codex`, plus Vercel production deployment.
+- The release waited for the live sitewide-density integration lease to release. Latest `origin/main@1c9f4574` was then merged non-force into the task branch. The sole content conflict in `src/app/inventory/page.tsx` retained `InventoryProductListScreen` while adopting the compact fallback.
+- Shared `surfaces.stickyActions` reintroduced `sm:-mx-6` at desktop widths. Adding `sm:mx-0` to product intake/edit actions removed the observed 24px `main/form` overflow; targeted 4/4 and final Chromium/WebKit 22/22 passed.
+- Branch `codex/inventory-mobile-density-20260731` and public `main` were pushed non-force to exact SHA `44b1d80cff25a4ceab6de995a748d0d9e024e955`.
+- Preview `dpl_BB2ZVNsndkBNoUYc44eRsJoebs5a` is READY at `https://chinatech-codex-mz8pdlsrl-kyox120-9295s-projects.vercel.app`; build log states branch `codex/inventory-mobile-density-20260731`, commit `44b1d80`.
+- Production `dpl_CVHwY9EHq2qJQuTcmngTpCuWyWjs` is READY at `https://chinatech-codex-64ileyhj4-kyox120-9295s-projects.vercel.app`; build log states branch `main`, commit `44b1d80`.
+- Stable main alias `/inventory` returned the expected 307 authentication redirect to `/login?next=%2Finventory`, then 200. Exact-deployment error-log query for the first 10 minutes returned no error entries.
+- No production inventory mutation, database migration, environment-variable change, customer data read or secret handling occurred.
 
-## External publication blocker
+## Documentation impact and drift result
 
-- Local integration candidate: `ab0b7d6029d4e27a2b3bddde05b4537ece8d9f1d`.
-- `origin/main` remained `a9e6db44`; it was merged without changing the verified candidate tree, so the eventual main update is non-force and fast-forward.
-- Push to `git@github.com:kyox215/Chinatech-codex.git` was rejected by the external-action approval reviewer because the repository is public and the commit includes internal inventory implementation, tests, project documentation and synthetic UI screenshots.
-- No push or deployment occurred. Resume only after Owner explicitly confirms publication to this exact public repository with the stated contents.
+- Updated authoritative inventory next-phase plan, device-data implementation, responsive density plan and RepairOS mobile detail standard earlier in this task.
+- Final release evidence, closeout, memory delta and capability review now supersede the former publication-blocker handoff.
+- API/data/migration/operator runbooks required no behavioral update because the release is application-only and contains no contract or production-data operation.
+- Public artifacts were checked to contain only synthetic products and masked identifiers; no secrets or customer PII were added.

@@ -29,6 +29,8 @@
 
 ## Active task index
 
+- [TASK-20260731-003-inventory-product-mobile-density](tasks/TASK-20260731-003-inventory-product-mobile-density/TASK.md): Closed production product-inventory density release with four real read-only specialist agents, tenant-safe placeholder data, compact list/intake/detail/edit, Chromium/WebKit 22/22, public `main@44b1d80c`, exact Preview/Production READY and no production data write.
+
 - [TASK-20260723-004-startup-bootstrap-print-implementation](tasks/TASK-20260723-004-startup-bootstrap-print-implementation/TASK.md): Conditionally closed local option-B implementation for one-request Shell bootstrap, cross-domain startup preload suppression, authority-cache isolation and role-separated print readiness/recovery. Full local gates and independent QA pass; commit/push/deploy remain pending because concurrent TASK-005/TASK-006 changes share the worktree.
 
 - [TASK-20260720-003-smart-print-qr](tasks/TASK-20260720-003-smart-print-qr/TASK.md): Closed production release restoring one smart QR per standard/batch repair ticket, with privacy-minimized customer status, authorized staff resolution, UUID-bound atomic link lifecycle, abuse controls, exact database/main/Vercel proof and fail-closed print preparation. Physical Safari + HP + phone scan remains the owner device check.
