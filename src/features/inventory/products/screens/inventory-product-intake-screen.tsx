@@ -23,7 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { createInventoryProduct } from "@/lib/repairdesk/api";
 import type { CreateInventoryProductInput, InventoryProductCategory } from "@/lib/repairdesk/types";
-import { repairOs } from "@/lib/ui-patterns";
+import { repairOs, surfaces } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
 import { inventoryProductKeys } from "../api/query-keys";
@@ -119,12 +119,28 @@ export function InventoryProductIntakeScreen() {
     setError({ message: "门店或权限已变化，旧草稿已清除，请重新录入。" });
   }, [mutation, shell.authorityFingerprint, shell.isLoading]);
 
+  useEffect(() => {
+    document.body.dataset.mobileWorkspaceActive = "true";
+    return () => {
+      delete document.body.dataset.mobileWorkspaceActive;
+    };
+  }, []);
+
+  if (shell.isLoading) {
+    return (
+      <IntakeMessage
+        title="正在载入录入权限"
+        body="确认当前门店和账号权限后即可开始录入。"
+        onBack={() => router.push("/inventory")}
+      />
+    );
+  }
+
   if (
-    !shell.isLoading &&
-    (!shell.activeStore ||
-      !shell.permissions?.canCreateInventory ||
-      !shell.permissions.inventoryProductsUiEnabled ||
-      !shell.permissions.inventoryProductQuickCreateEnabled)
+    !shell.activeStore ||
+    !shell.permissions?.canCreateInventory ||
+    !shell.permissions.inventoryProductsUiEnabled ||
+    !shell.permissions.inventoryProductQuickCreateEnabled
   ) {
     return (
       <IntakeMessage
@@ -259,7 +275,7 @@ export function InventoryProductIntakeScreen() {
     <main
       className={cn(
         repairOs.mobileFloatingPage,
-        "mx-auto w-full max-w-3xl pb-28 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] lg:pb-8 lg:pt-0",
+        "mx-auto w-full max-w-[430px] px-2 pb-28 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] lg:max-w-3xl lg:px-0 lg:pb-8 lg:pt-0",
       )}
     >
       <div className={cn(repairOs.mobileFloatingHeaderShell, "lg:static lg:mb-4")}>
@@ -298,22 +314,19 @@ export function InventoryProductIntakeScreen() {
       </header>
 
       <form
-        className="space-y-3"
+        className="space-y-1.5"
+        aria-busy={mutation.isPending}
         onSubmit={(event) => {
           event.preventDefault();
           void save(false);
         }}
       >
-        <section className={cn(repairOs.mobileInfoCard, "space-y-4 p-4 md:p-5")}>
+        <section className={cn(repairOs.mobileInfoCard, "space-y-2 p-2.5 md:p-4")}>
           <fieldset>
-            <legend className="mb-2 text-sm font-semibold">
+            <legend className="mb-1.5 text-xs font-semibold">
               类别 <span className="text-destructive">*</span>
             </legend>
-            <div
-              className="grid grid-cols-2 gap-2 sm:grid-cols-5"
-              role="radiogroup"
-              aria-label="商品类别"
-            >
+            <div className="grid grid-cols-5 gap-1.5" role="radiogroup" aria-label="商品类别">
               {categories.map(({ value, label, icon: Icon }, index) => (
                 <button
                   id={`product-category-${value}`}
@@ -323,7 +336,7 @@ export function InventoryProductIntakeScreen() {
                   aria-checked={draft.category === value}
                   tabIndex={draft.category === value ? 0 : -1}
                   className={cn(
-                    "flex min-h-14 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border px-1 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     draft.category === value
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border bg-card",
@@ -331,14 +344,14 @@ export function InventoryProductIntakeScreen() {
                   onClick={() => selectCategory(value)}
                   onKeyDown={(event) => handleCategoryKeyDown(event, index)}
                 >
-                  <Icon className="size-4" />
+                  <Icon className="size-3.5" aria-hidden="true" />
                   {label}
                 </button>
               ))}
             </div>
           </fieldset>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-1.5">
             <Field
               id="product-brand"
               label="品牌"
@@ -366,7 +379,7 @@ export function InventoryProductIntakeScreen() {
           </div>
         </section>
 
-        <section className={cn(repairOs.mobileInfoCard, "grid gap-4 p-4 sm:grid-cols-2 md:p-5")}>
+        <section className={cn(repairOs.mobileInfoCard, "grid grid-cols-2 gap-2 p-2.5 md:p-4")}>
           {draft.category !== "other" ? (
             <Field
               id="product-storage"
@@ -410,10 +423,10 @@ export function InventoryProductIntakeScreen() {
           ) : null}
         </section>
 
-        <section className={cn(repairOs.mobileInfoCard, "space-y-3 p-4 md:p-5")}>
+        <section className={cn(repairOs.mobileInfoCard, "space-y-2 p-2.5 md:p-4")}>
           <div>
             <h2 className="text-sm font-semibold">设备标识</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
+            <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">
               可用摄像头扫码、照片识别、粘贴或手工输入；原图仅在本机处理。
             </p>
           </div>
@@ -451,20 +464,20 @@ export function InventoryProductIntakeScreen() {
         <section className={cn(repairOs.mobileInfoCard, "overflow-hidden p-0")}>
           <button
             type="button"
-            className="flex min-h-14 w-full items-center justify-between px-4 text-left text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            className="flex min-h-11 w-full items-center justify-between px-3 text-left text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
             aria-expanded={moreOpen}
             onClick={() => setMoreOpen((open) => !open)}
           >
             <span>
               <span className="block">更多信息</span>
-              <span className="text-xs font-normal text-muted-foreground">
+              <span className="text-[10px] font-normal leading-4 text-muted-foreground">
                 标识、规格、售价、库位等均可稍后补充
               </span>
             </span>
             <ChevronDown className={cn("size-4 transition-transform", moreOpen && "rotate-180")} />
           </button>
           {moreOpen ? (
-            <div className="grid gap-4 border-t border-border p-4 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-2 border-t border-border p-2.5 md:p-4">
               <Field
                 id="product-condition"
                 label="成色"
@@ -556,13 +569,13 @@ export function InventoryProductIntakeScreen() {
                   setDraft((current) => ({ ...current, warranty_months }))
                 }
               />
-              <div className="space-y-1.5 sm:col-span-2">
+              <div className="col-span-2 space-y-1.5">
                 <Label htmlFor="product-notes">内部备注</Label>
                 <Textarea
                   id="product-notes"
                   value={draft.notes}
                   maxLength={2000}
-                  className="min-h-24 resize-y"
+                  className="min-h-20 resize-y text-base lg:text-sm"
                   placeholder="可选"
                   onChange={(event) =>
                     setDraft((current) => ({ ...current, notes: event.target.value }))
@@ -583,7 +596,13 @@ export function InventoryProductIntakeScreen() {
           </p>
         ) : null}
 
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div
+          data-ui="inventory-product-actions"
+          className={cn(
+            surfaces.stickyActions,
+            "fixed bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-1/2 z-30 mx-0 grid w-[calc(100%_-_1rem)] max-w-[414px] -translate-x-1/2 grid-cols-2 gap-1.5 rounded-xl border border-border bg-background/95 px-2 py-2 shadow-[var(--shadow-card)] lg:sticky lg:bottom-0 lg:left-auto lg:w-auto lg:max-w-none lg:translate-x-0 lg:px-0 lg:pb-0",
+          )}
+        >
           <Button
             type="button"
             variant="outline"
@@ -626,8 +645,8 @@ function Field({
   list?: string;
 }) {
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={id}>
+    <div className="min-w-0 space-y-1">
+      <Label htmlFor={id} className="text-xs">
         {label}
         {required ? <span className="text-destructive"> *</span> : null}
       </Label>
@@ -641,7 +660,7 @@ function Field({
         placeholder={placeholder}
         aria-invalid={invalid || undefined}
         aria-describedby={invalid ? "product-form-error" : undefined}
-        className="h-11 text-base"
+        className="h-11 min-w-0 text-base lg:h-9 lg:text-sm"
         onChange={(event) => onChange(event.target.value)}
       />
     </div>
@@ -664,8 +683,10 @@ function IdentifierField({
   invalid?: boolean;
 }) {
   return (
-    <div className="min-w-0 space-y-1.5 sm:col-span-2">
-      <Label htmlFor={id}>{label}</Label>
+    <div className="col-span-2 min-w-0 space-y-1">
+      <Label htmlFor={id} className="text-xs">
+        {label}
+      </Label>
       <ImeiScannerField
         inputId={id}
         inputAriaLabel={label}

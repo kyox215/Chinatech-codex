@@ -3,7 +3,7 @@
 Status: active
 Owner: UX + QA + Documentation / Integration Lead
 Scope: current responsive density rules, overflow requirements, desktop/mobile behavior, and validation guidance.
-Last reviewed: 2026-07-29 CEST by `TASK-20260729-011-inventory-product-simplification-implementation`
+Last reviewed: 2026-07-31 CEST by `TASK-20260731-003-inventory-product-mobile-density`
 
 ## Summary
 
@@ -105,6 +105,14 @@ document.documentElement.scrollWidth <= window.innerWidth
 - 悬浮工作卡和正文卡使用同一边框、圆角、阴影系统，减少层级割裂。
 - 390px 验收时必须确认 `scrollWidth <= innerWidth`，并确认顶部卡与正文第一卡之间有 6-10px 间距。
 - 具体字号、卡片、颜色重点、金额编辑、扫码/拍照、历史入口和底部操作条必须按 [`REPAIROS_MOBILE_DETAIL_STANDARD.md`](./REPAIROS_MOBILE_DETAIL_STANDARD.md) 执行；当前移动订单详情页是标准样板。
+
+商品库存的已验证高密度变体：
+
+- 390px 商品列表使用 84–88px 三段式卡片，类别图形 36px，三行主体信息，右侧状态与售价；标准样本中至少第六件商品内容在视口内可见。
+- 快速录入的五个类别在 390px 固定五列且每项至少 44px，不使用横向滚动；品牌/型号和常用规格优先双列。
+- 新建与编辑的双主动作固定在 safe-area 上方，按钮至少 44px；正文必须预留底部空间，禁止遮挡最后一个字段。
+- 430px 商品详情用三列资料格压缩六项核心规格；同一脱敏主标识只在“设备身份”出现一次。
+- 商品库存的完整页面与验收合同见 [`INVENTORY_PRODUCT_MOBILE_DENSITY_NEXT_PLAN.md`](./INVENTORY_PRODUCT_MOBILE_DENSITY_NEXT_PLAN.md)。
 
 ## Breakpoints
 

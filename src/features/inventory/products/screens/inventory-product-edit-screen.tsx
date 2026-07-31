@@ -19,7 +19,7 @@ import type {
   InventoryProductIdentifierKind,
   UpdateInventoryProductInput,
 } from "@/lib/repairdesk/types";
-import { repairOs } from "@/lib/ui-patterns";
+import { repairOs, surfaces } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
 import { inventoryProductKeys } from "../api/query-keys";
@@ -45,7 +45,13 @@ type EditDraft = {
   notes: string;
 };
 
-type EditFieldErrorKey = "list_price" | "cost_amount" | "warranty_months";
+type EditFieldErrorKey =
+  | "brand"
+  | "model"
+  | "gtin"
+  | "list_price"
+  | "cost_amount"
+  | "warranty_months";
 
 const identifierOrder = ["imei1", "imei2", "serial", "eid"] as const;
 const identifierNames = { imei1: "IMEI 1", imei2: "IMEI 2", serial: "序列号", eid: "EID" };
@@ -67,7 +73,12 @@ function InventoryProductEditContent({
   const storeId = shell.activeStore?.id;
   const query = useQuery({
     ...inventoryProductEditQueryOptions(id, storeId),
-    enabled: Boolean(storeId && shell.permissions?.canUpdateInventory),
+    enabled: Boolean(
+      storeId &&
+      shell.permissions?.canReadInventory &&
+      shell.permissions?.canUpdateInventory &&
+      shell.permissions.inventoryProductsUiEnabled,
+    ),
   });
   const [draft, setDraft] = useState<EditDraft>();
   const [baseDraft, setBaseDraft] = useState<EditDraft>();
@@ -88,11 +99,26 @@ function InventoryProductEditContent({
     setVersion(query.data.version);
   }, [draft, query.data]);
 
-  if (shell.isLoading || query.isLoading || (!draft && !query.isError)) {
+  useEffect(() => {
+    document.body.dataset.mobileWorkspaceActive = "true";
+    return () => {
+      delete document.body.dataset.mobileWorkspaceActive;
+    };
+  }, []);
+
+  if (shell.isLoading) {
     return <EditMessage title="正在加载商品资料" body="请稍候…" />;
   }
-  if (!storeId || !shell.permissions?.canUpdateInventory) {
+  if (
+    !storeId ||
+    !shell.permissions?.canReadInventory ||
+    !shell.permissions?.canUpdateInventory ||
+    !shell.permissions.inventoryProductsUiEnabled
+  ) {
     return <EditMessage title="无法编辑商品" body="当前账号没有商品编辑权限。" />;
+  }
+  if (query.isLoading || (!draft && !query.isError)) {
+    return <EditMessage title="正在加载商品资料" body="请稍候…" />;
   }
   if (query.isError || !draft) {
     return (
@@ -117,8 +143,12 @@ function InventoryProductEditContent({
       setFieldErrors({ [field]: message });
       document.getElementById(`edit-${field.replace("_", "-")}`)?.focus();
     };
-    if (!draft.brand.trim() || !draft.model.trim()) {
-      setError("品牌和型号不能为空");
+    if (!draft.brand.trim()) {
+      rejectField("brand", "请填写品牌");
+      return;
+    }
+    if (!draft.model.trim()) {
+      rejectField("model", "请填写型号或商品名称");
       return;
     }
     for (const [field, label, value] of [
@@ -147,7 +177,10 @@ function InventoryProductEditContent({
       }));
     const identifierError = validateProductIdentifiers(identifiers);
     if (identifierError) return setError(identifierError);
-    if (draft.gtin.trim() && !isValidGtin(draft.gtin)) return setError("EAN / GTIN 校验位不正确");
+    if (draft.gtin.trim() && !isValidGtin(draft.gtin)) {
+      rejectField("gtin", "EAN / GTIN 校验位不正确");
+      return;
+    }
     try {
       const command = {
         expected_version: version,
@@ -191,7 +224,7 @@ function InventoryProductEditContent({
     <main
       className={cn(
         repairOs.mobileFloatingPage,
-        "mx-auto w-full max-w-4xl pb-28 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] lg:pb-8 lg:pt-0",
+        "mx-auto w-full max-w-[430px] px-2 pb-28 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] lg:max-w-4xl lg:px-0 lg:pb-8 lg:pt-0",
       )}
     >
       <div className={cn(repairOs.mobileFloatingHeaderShell, "lg:static lg:mb-4")}>
@@ -231,24 +264,38 @@ function InventoryProductEditContent({
       </header>
 
       <form
-        className="space-y-3"
+        className="space-y-1.5"
+        aria-busy={mutation.isPending}
+        noValidate
         onSubmit={(event) => {
           event.preventDefault();
           void save();
         }}
       >
         <section
-          className={cn(repairOs.mobileInfoCard, "grid min-w-0 gap-4 p-4 sm:grid-cols-2 md:p-5")}
+          className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 md:p-4")}
         >
           <EditField
+            id="edit-brand"
             label="品牌"
+            required
             value={draft.brand}
-            onChange={(brand) => setDraft({ ...draft, brand })}
+            error={fieldErrors.brand}
+            onChange={(brand) => {
+              setFieldErrors((current) => ({ ...current, brand: undefined }));
+              setDraft({ ...draft, brand });
+            }}
           />
           <EditField
+            id="edit-model"
             label="型号 / 商品名称"
+            required
             value={draft.model}
-            onChange={(model) => setDraft({ ...draft, model })}
+            error={fieldErrors.model}
+            onChange={(model) => {
+              setFieldErrors((current) => ({ ...current, model: undefined }));
+              setDraft({ ...draft, model });
+            }}
           />
           <EditField
             label="内存（RAM）"
@@ -271,10 +318,15 @@ function InventoryProductEditContent({
             onChange={(condition) => setDraft({ ...draft, condition })}
           />
           <EditField
+            id="edit-gtin"
             label="EAN / GTIN（同款条码）"
             value={draft.gtin}
             inputMode="numeric"
-            onChange={(gtin) => setDraft({ ...draft, gtin })}
+            error={fieldErrors.gtin}
+            onChange={(gtin) => {
+              setFieldErrors((current) => ({ ...current, gtin: undefined }));
+              setDraft({ ...draft, gtin });
+            }}
           />
           {specFields.map((field) => (
             <EditField
@@ -291,14 +343,14 @@ function InventoryProductEditContent({
           ))}
         </section>
 
-        <section className={cn(repairOs.mobileInfoCard, "space-y-4 p-4 md:p-5")}>
+        <section className={cn(repairOs.mobileInfoCard, "space-y-2 p-2.5 md:p-4")}>
           <div>
             <h2 className="text-sm font-semibold">设备标识</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
+            <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">
               修改或清空后保存；历史值会停用，不会物理删除。
             </p>
           </div>
-          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-2 sm:grid-cols-2">
             {identifierOrder.map((kind) => (
               <div key={kind} className="min-w-0 space-y-1.5 sm:col-span-2">
                 <Label htmlFor={`edit-${kind}`}>{identifierNames[kind]}</Label>
@@ -326,7 +378,7 @@ function InventoryProductEditContent({
         </section>
 
         <section
-          className={cn(repairOs.mobileInfoCard, "grid min-w-0 gap-4 p-4 sm:grid-cols-2 md:p-5")}
+          className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 md:p-4")}
         >
           <EditField
             id="edit-list-price"
@@ -368,11 +420,13 @@ function InventoryProductEditContent({
               setDraft({ ...draft, warranty_months });
             }}
           />
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="edit-notes">内部备注</Label>
+          <div className="col-span-2 space-y-1">
+            <Label htmlFor="edit-notes" className="text-xs">
+              内部备注
+            </Label>
             <Textarea
               id="edit-notes"
-              className="min-h-24 resize-y text-base"
+              className="min-h-20 resize-y text-base lg:text-sm"
               value={draft.notes}
               onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
             />
@@ -410,7 +464,13 @@ function InventoryProductEditContent({
             ) : null}
           </div>
         ) : null}
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div
+          data-ui="inventory-product-actions"
+          className={cn(
+            surfaces.stickyActions,
+            "fixed bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-1/2 z-30 mx-0 grid w-[calc(100%_-_1rem)] max-w-[414px] -translate-x-1/2 grid-cols-2 gap-1.5 rounded-xl border border-border bg-background/95 px-2 py-2 shadow-[var(--shadow-card)] lg:sticky lg:bottom-0 lg:left-auto lg:w-auto lg:max-w-none lg:translate-x-0 lg:px-0 lg:pb-0",
+          )}
+        >
           <Button
             type="button"
             variant="outline"
@@ -467,6 +527,7 @@ function EditField({
   onChange,
   inputMode,
   error,
+  required,
 }: {
   id?: string;
   label: string;
@@ -474,17 +535,22 @@ function EditField({
   onChange: (value: string) => void;
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
   error?: string;
+  required?: boolean;
 }) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
   const errorId = `${inputId}-error`;
   return (
-    <div className="min-w-0 space-y-1.5">
-      <Label htmlFor={inputId}>{label}</Label>
+    <div className="min-w-0 space-y-1">
+      <Label htmlFor={inputId} className="text-xs">
+        {label}
+        {required ? <span className="text-destructive"> *</span> : null}
+      </Label>
       <Input
         id={inputId}
-        className="h-11 min-w-0 text-base"
+        className="h-11 min-w-0 text-base lg:h-9 lg:text-sm"
         value={value}
+        required={required}
         inputMode={inputMode}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : undefined}

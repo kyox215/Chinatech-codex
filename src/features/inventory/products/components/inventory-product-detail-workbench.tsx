@@ -61,11 +61,9 @@ export function InventoryProductDetailWorkbench({
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
   const meta = categories[item.category];
-  const primaryIdentifier =
-    item.identifiers.find((identifier) => identifier.primary)?.masked_value ??
-    item.masked_identifier;
-  const visibleIdentifiers: VisibleIdentifier[] = item.identifiers.length
-    ? item.identifiers
+  const identifiers = item.identifiers ?? [];
+  const visibleIdentifiers: VisibleIdentifier[] = identifiers.length
+    ? identifiers
     : item.masked_identifier
       ? [{ kind: "identifier", masked_value: item.masked_identifier }]
       : [];
@@ -103,20 +101,15 @@ export function InventoryProductDetailWorkbench({
   if (item.cost_amount !== undefined) {
     summaryFields.push({ label: "成本", value: <MoneyText amount={item.cost_amount} /> });
   }
-  if (primaryIdentifier) {
-    summaryFields.push({
-      label: "主设备标识",
-      value: <span className="font-mono">{primaryIdentifier}</span>,
-    });
-  }
   if (item.location) summaryFields.push({ label: "库位", value: item.location });
+  summaryFields.push({ label: "更新", value: formatCompactDate(item.updated_at) });
 
   return (
     <main
       data-ui="inventory-product-detail-workbench"
       className={cn(
         repairOs.mobileFloatingPage,
-        "mx-auto w-full max-w-5xl overflow-x-hidden pb-10 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] lg:pt-0",
+        "mx-auto w-full max-w-[430px] overflow-x-hidden px-2 pb-8 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] lg:max-w-5xl lg:px-0 lg:pt-0",
       )}
       style={
         mobileHeaderHeight
@@ -137,7 +130,7 @@ export function InventoryProductDetailWorkbench({
 
       <div>
         <DesktopProductHeader item={item} canEdit={canEdit} onEdit={onEdit} />
-        <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.18fr)]">
+        <div className="grid min-w-0 gap-1.5 lg:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.18fr)] lg:gap-3">
           <ProductHeroCard
             item={item}
             icon={meta.icon}
@@ -145,7 +138,7 @@ export function InventoryProductDetailWorkbench({
             statusClassName={statusStyles[item.status]}
             summaryFields={summaryFields}
           />
-          <div className="grid min-w-0 content-start gap-3">
+          <div className="grid min-w-0 content-start gap-1.5 lg:gap-3">
             <DeviceWorkbenchSection fields={buildWorkbenchFields(item)} />
             <DeviceIdentitySection identifiers={visibleIdentifiers} gtin={item.gtin} />
             <ProductNotesSection notes={item.notes} />
@@ -154,6 +147,14 @@ export function InventoryProductDetailWorkbench({
       </div>
     </main>
   );
+}
+
+function formatCompactDate(value: string) {
+  return new Intl.DateTimeFormat("it-IT", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "Europe/Rome",
+  }).format(new Date(value));
 }
 
 function MobileProductHeader({

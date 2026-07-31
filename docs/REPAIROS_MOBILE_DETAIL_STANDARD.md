@@ -3,7 +3,7 @@
 Status: active
 Owner: UX + Documentation / Integration Lead
 Scope: current mobile detail/task/workflow page standards for RepairDesk.
-Last reviewed: 2026-07-29 CEST by `TASK-20260729-011-inventory-product-simplification-implementation`
+Last reviewed: 2026-07-31 CEST by `TASK-20260731-003-inventory-product-mobile-density`
 
 状态：active
 来源页面：`/orders/[id]` 移动端订单详情
@@ -117,6 +117,16 @@ min-w-0 overflow-hidden
 7. 维修项目与报价卡。
 8. 支付信息卡。
 9. 设备照片卡。
+
+### 3.1 商品库存详情变体
+
+商品库存属于“快速识别单个经营对象”，允许在上述骨架内使用更高密度的图标工作台：
+
+- 首卡展示类别、品牌型号、SKU、状态、售价、按权限可见的成本、库位和更新时间，不重复脱敏主标识。
+- 六项核心设备资料使用三列、两行的小格布局；每格仍须 `min-w-0`，空值不伪造业务结果。
+- IMEI、序列号、EID 和 EAN/GTIN 集中在“设备身份”卡；普通详情只显示脱敏值。
+- 430px 标准样本应尽量在单页呈现核心资料，不通过内嵌正文滚动区制造“伪一页”。
+- 具体尺寸、访问状态和测试门禁见 [`INVENTORY_PRODUCT_MOBILE_DENSITY_NEXT_PLAN.md`](./INVENTORY_PRODUCT_MOBILE_DENSITY_NEXT_PLAN.md)。
 
 ## 4. 字号与密度
 

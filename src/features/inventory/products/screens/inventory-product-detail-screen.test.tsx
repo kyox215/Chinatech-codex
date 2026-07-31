@@ -72,7 +72,7 @@ describe("InventoryProductDetailScreen icon workbench", () => {
     expect(identitySection).not.toBeNull();
     expect(within(identitySection!).getByText("•••• 4321")).toBeVisible();
     expect(within(identitySection!).getByText("•••• AB9C")).toBeVisible();
-    expect(screen.getAllByText("•••• 4321")).toHaveLength(2);
+    expect(screen.getAllByText("•••• 4321")).toHaveLength(1);
     expect(screen.queryByText("•••• 9999")).not.toBeInTheDocument();
     expect(screen.queryByText("356789012344321")).not.toBeInTheDocument();
     expect(screen.queryByText("激活锁")).not.toBeInTheDocument();
@@ -89,7 +89,18 @@ describe("InventoryProductDetailScreen icon workbench", () => {
     const identitySection = screen.getByRole("heading", { name: "设备身份" }).closest("section");
     expect(identitySection).not.toBeNull();
     expect(within(identitySection!).getByText("•••• 7788")).toBeVisible();
-    expect(screen.getAllByText("•••• 7788")).toHaveLength(2);
+    expect(screen.getAllByText("•••• 7788")).toHaveLength(1);
+  });
+
+  it("keeps rendering older responses that omit the identifiers collection", async () => {
+    apiMocks.getInventoryProduct.mockResolvedValue({
+      ...productFixture({ masked_identifier: "•••• 7788" }),
+      identifiers: undefined,
+    });
+    renderScreen();
+
+    await screen.findByRole("heading", { level: 2, name: "Apple iPhone 15 Pro" });
+    expect(screen.getByText("•••• 7788")).toBeVisible();
   });
 
   it("omits protected cost and absent fields without inventing placeholders", async () => {

@@ -45,7 +45,7 @@ test("mobile product list, filter, intake and detail stay simple and within view
 
   await page.goto("/inventory/inv_mock_3");
   await expect(page.getByRole("heading", { level: 2, name: "Apple iPad Air 5" })).toBeVisible();
-  await expect(page.getByText("内部 SKU")).toBeVisible();
+  await expect(page.getByText("I001203").first()).toBeVisible();
   await expect(page.getByText("回收报价")).toHaveCount(0);
   await expect(page.locator('[role="progressbar"]')).toHaveCount(0);
   await assertNoHorizontalOverflow(page);
@@ -95,7 +95,7 @@ for (const viewport of [
   });
 }
 
-test("quick intake keeps failed drafts and resets fields after save-and-continue", async ({
+test("quick intake keeps failed drafts and preserves same-product fields after save-and-continue", async ({
   page,
 }) => {
   await page.route("**/api/repairdesk/inventory/products/quick-create", async (route) => {
@@ -132,8 +132,8 @@ test("quick intake keeps failed drafts and resets fields after save-and-continue
   await page.context().setOffline(false);
   await page.getByRole("button", { name: "保存并继续录入" }).click();
   await expect(page.getByText(/商品 I\d+ 已录入/)).toBeVisible();
-  await expect(page.getByLabel("品牌")).toHaveValue("");
-  await expect(page.getByLabel("型号 / 商品名称")).toHaveValue("");
+  await expect(page.getByLabel("品牌")).toHaveValue("Synthetic Brand");
+  await expect(page.getByLabel("型号 / 商品名称")).toHaveValue("Synthetic Console");
   await expect(page.getByLabel("计划售价")).toHaveCount(0);
   await expect(page.getByRole("radio", { name: /手机/ })).toHaveAttribute("aria-checked", "true");
 });

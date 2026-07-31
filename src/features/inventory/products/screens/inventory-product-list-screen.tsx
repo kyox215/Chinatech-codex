@@ -36,8 +36,9 @@ import type {
   InventoryProductListFilters,
   InventoryProductListItem,
 } from "@/lib/repairdesk/types";
+import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
-import { RepairOsListScaffold } from "@/shared/ui";
+import { MoneyText, RepairOsBadge, RepairOsListScaffold } from "@/shared/ui";
 
 import { inventoryProductsQueryOptions } from "../api/query-options";
 
@@ -57,6 +58,14 @@ const statusLabels: Record<InventoryProductDisplayStatus, string> = {
   returned: "已退回",
 };
 
+const statusStyles: Record<InventoryProductDisplayStatus, string> = {
+  in_stock: "bg-status-success text-status-success-foreground",
+  reserved: "bg-status-warn text-status-warn-foreground",
+  sold: "bg-status-neutral text-status-neutral-foreground",
+  removed: "bg-destructive/10 text-destructive",
+  returned: "bg-status-info text-status-info-foreground",
+};
+
 export function InventoryProductListScreen() {
   const shell = useStoreShellContext();
   const storeId = shell.activeStore?.id;
@@ -71,7 +80,11 @@ export function InventoryProductListScreen() {
   );
   const query = useQuery({
     ...inventoryProductsQueryOptions(queryFilters, storeId),
-    enabled: Boolean(storeId && shell.permissions?.canReadInventory),
+    enabled: Boolean(
+      storeId &&
+      shell.permissions?.canReadInventory &&
+      shell.permissions.inventoryProductsUiEnabled,
+    ),
   });
   const activeFilterCount =
     (filters.statuses?.length ?? 0) +
@@ -170,9 +183,16 @@ export function InventoryProductListScreen() {
         </Button>
       }
     >
+      <p className="sr-only" role="status" aria-live="polite">
+        {query.isFetching && !query.isLoading
+          ? "正在更新商品结果"
+          : query.data
+            ? `已显示 ${query.data.items.length} 件商品`
+            : "正在准备商品结果"}
+      </p>
       {activeFilterCount ? (
-        <div className="mb-3 flex flex-wrap items-center gap-2" aria-live="polite">
-          <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+        <div className="mb-2 flex flex-wrap items-center gap-1.5" aria-live="polite">
+          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
             已应用 {activeFilterCount} 项筛选
           </span>
           <Button type="button" variant="ghost" size="sm" onClick={() => setFilters({})}>
@@ -226,13 +246,13 @@ export function InventoryProductListScreen() {
 function InventoryProductResults({ items }: { items: InventoryProductListItem[] }) {
   return (
     <>
-      <div className="grid gap-2.5 md:grid-cols-2 lg:hidden">
+      <div className="grid gap-1.5 md:grid-cols-2 lg:hidden">
         {items.map((item) => (
           <InventoryProductCard key={item.id} item={item} />
         ))}
       </div>
-      <div className="hidden lg:block rounded-2xl border border-border bg-card p-2 shadow-sm">
-        <div className="grid grid-cols-[110px_minmax(0,1.5fr)_minmax(0,1fr)_120px_88px_48px] items-center gap-3 px-3 py-2 text-xs font-medium text-muted-foreground">
+      <div className="hidden rounded-2xl border border-border bg-card p-2 shadow-sm lg:block">
+        <div className="grid grid-cols-[110px_minmax(0,1.5fr)_minmax(0,1fr)_120px_88px_36px] items-center gap-3 px-3 py-2 text-xs font-medium text-muted-foreground">
           <span>SKU / 状态</span>
           <span>商品</span>
           <span>规格 / 位置</span>
@@ -245,7 +265,7 @@ function InventoryProductResults({ items }: { items: InventoryProductListItem[] 
             <Link
               key={item.id}
               href={`/inventory/${item.id}`}
-              className="grid min-h-16 grid-cols-[110px_minmax(0,1.5fr)_minmax(0,1fr)_120px_88px_48px] items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="grid min-h-[52px] grid-cols-[110px_minmax(0,1.5fr)_minmax(0,1fr)_120px_88px_36px] items-center gap-3 rounded-xl px-3 py-1.5 text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className="min-w-0">
                 <span className="block truncate font-mono text-xs text-primary">{item.sku}</span>
@@ -265,8 +285,10 @@ function InventoryProductResults({ items }: { items: InventoryProductListItem[] 
               <span className="truncate font-mono text-xs text-muted-foreground">
                 {item.masked_identifier ?? "—"}
               </span>
-              <span className="text-right font-semibold">{formatPrice(item.list_price)}</span>
-              <span className="grid size-11 place-items-center text-primary" aria-hidden>
+              <span className="text-right font-semibold">
+                {item.list_price === undefined ? "未填写" : <MoneyText amount={item.list_price} />}
+              </span>
+              <span className="grid size-9 place-items-center text-primary" aria-hidden>
                 ›
               </span>
             </Link>
@@ -282,30 +304,34 @@ function InventoryProductCard({ item }: { item: InventoryProductListItem }) {
   return (
     <Link
       href={`/inventory/${item.id}`}
-      className="grid min-h-[112px] grid-cols-[44px_minmax(0,1fr)_auto] gap-3 rounded-2xl border border-border bg-card p-3 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      data-ui="inventory-product-card"
+      className={cn(
+        repairOs.businessCardDense,
+        "min-h-[84px] grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-2 px-2.5 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+      )}
     >
-      <span className="grid size-11 place-items-center rounded-xl bg-primary/10 text-primary">
-        <Icon className="size-5" />
+      <span className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary">
+        <Icon className="size-4" aria-hidden="true" />
       </span>
-      <span className="min-w-0">
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-xs text-primary">{item.sku}</span>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium">
-            {statusLabels[item.status]}
-          </span>
+      <span className="min-w-0 self-center">
+        <span className="block truncate font-mono text-[10px] leading-4 text-primary">
+          {item.sku}
         </span>
-        <span className="mt-1 block break-words font-semibold leading-5">
+        <span className="block truncate text-xs font-semibold leading-4">
           {item.brand} {item.model}
         </span>
-        <span className="mt-1 block truncate text-xs text-muted-foreground">
-          {[item.specification, item.location].filter(Boolean).join(" · ") ||
-            categoryMeta[item.category].label}
+        <span className="block truncate text-[10px] leading-4 text-muted-foreground">
+          {[item.specification, item.location, item.masked_identifier]
+            .filter(Boolean)
+            .join(" · ") || categoryMeta[item.category].label}
         </span>
       </span>
-      <span className="flex min-w-[64px] flex-col items-end justify-between text-right">
-        <span className="text-sm font-semibold">{formatPrice(item.list_price)}</span>
-        <span className="grid size-11 place-items-center text-primary" aria-hidden>
-          ›
+      <span className="flex min-w-[64px] flex-col items-end gap-2 self-stretch py-0.5 text-right">
+        <RepairOsBadge className={statusStyles[item.status]}>
+          {statusLabels[item.status]}
+        </RepairOsBadge>
+        <span className="mt-auto whitespace-nowrap text-xs font-semibold">
+          {item.list_price === undefined ? "未填写" : <MoneyText amount={item.list_price} />}
         </span>
       </span>
     </Link>
@@ -339,7 +365,7 @@ function InventoryProductFilterSheet({
           <SheetTitle>筛选商品</SheetTitle>
           <SheetDescription>按状态、类别、品牌或库位缩小结果。</SheetDescription>
         </SheetHeader>
-        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto py-5">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto py-3">
           <FilterGroup
             title="状态"
             values={Object.keys(statusLabels)}
@@ -407,15 +433,15 @@ function FilterGroup({
 }) {
   return (
     <fieldset>
-      <legend className="mb-2 text-sm font-semibold">{title}</legend>
-      <div className="grid grid-cols-2 gap-2">
+      <legend className="mb-1.5 text-xs font-semibold">{title}</legend>
+      <div className="grid grid-cols-2 gap-1.5">
         {values.map((value) => {
           const checked = selected.includes(value);
           return (
             <Label
               key={value}
               className={cn(
-                "flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2",
+                "flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-2.5 py-1.5",
                 checked && "border-primary bg-primary/5",
               )}
             >
@@ -438,9 +464,9 @@ function FilterGroup({
 
 function InventoryProductListSkeleton() {
   return (
-    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+    <div className="grid gap-1.5 md:grid-cols-2 lg:grid-cols-3" aria-busy="true">
       {Array.from({ length: 6 }, (_, index) => (
-        <Skeleton key={index} className="h-28 rounded-2xl" />
+        <Skeleton key={index} className="h-[84px] rounded-2xl" />
       ))}
     </div>
   );
@@ -465,10 +491,4 @@ function InventoryProductMessage({
       </div>
     </section>
   );
-}
-
-function formatPrice(value?: number) {
-  return value === undefined
-    ? "未填写"
-    : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(value);
 }

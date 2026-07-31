@@ -17,9 +17,26 @@ export function inventoryProductsQueryOptions(
   return queryOptions({
     queryKey: inventoryProductKeys.list(filters, storeId),
     queryFn: ({ signal }) => listInventoryProducts(filters, { signal }),
+    placeholderData: (previousData, previousQuery) =>
+      isInventoryProductListQueryForStore(previousQuery?.queryKey, storeId)
+        ? previousData
+        : undefined,
     staleTime: CACHE_TIMES.hotList,
     retry: 1,
   });
+}
+
+function isInventoryProductListQueryForStore(
+  queryKey: readonly unknown[] | undefined,
+  storeId?: string | null,
+) {
+  return Boolean(
+    storeId &&
+    queryKey?.[0] === inventoryProductKeys.all[0] &&
+    queryKey[1] === "list" &&
+    queryKey[2] === "store" &&
+    queryKey[3] === storeId,
+  );
 }
 
 export function inventoryProductEditQueryOptions(id: string, storeId?: string | null) {

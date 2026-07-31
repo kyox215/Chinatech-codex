@@ -51,29 +51,29 @@ export function ProductHeroCard({
   return (
     <section
       data-ui="inventory-product-hero"
-      className={cn(repairOs.mobileInfoCard, "min-w-0 self-start p-3 sm:p-4")}
+      className={cn(repairOs.mobileInfoCard, "min-w-0 self-start p-2 sm:p-3")}
     >
-      <div className="flex min-w-0 items-center gap-3 rounded-xl bg-[var(--surface-panel-muted)] p-3">
-        <span className="grid size-24 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
-          <Icon className="size-12" strokeWidth={1.5} aria-hidden="true" />
+      <div className="flex min-w-0 items-center gap-2 rounded-xl bg-[var(--surface-panel-muted)] p-2">
+        <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+          <Icon className="size-7" strokeWidth={1.5} aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
           <span
             className={cn(
-              "inline-flex rounded-full px-2 py-1 text-[10px] font-semibold",
+              "inline-flex h-5 items-center rounded-full px-1.5 text-[10px] font-semibold",
               statusClassName,
             )}
           >
             {statusLabel}
           </span>
-          <h2 className="mt-2 break-words text-lg font-semibold leading-6">
+          <h2 className="mt-1 truncate text-sm font-semibold leading-5 min-[400px]:text-base">
             {item.brand} {item.model}
           </h2>
-          <p className="mt-1 truncate font-mono text-[11px] text-primary">{item.sku}</p>
+          <p className="truncate font-mono text-[10px] leading-4 text-primary">{item.sku}</p>
         </div>
       </div>
       {summaryFields.length ? (
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
           {summaryFields.map((field) => (
             <RepairOsInfoTile
               key={field.label}
@@ -93,7 +93,7 @@ export function DeviceWorkbenchSection({ fields }: { fields: WorkbenchField[] })
   return (
     <section
       data-ui="inventory-device-workbench"
-      className={cn(repairOs.mobileInfoCard, "p-3 sm:p-4")}
+      className={cn(repairOs.mobileInfoCard, "p-2 sm:p-3")}
       aria-labelledby="inventory-device-workbench-title"
     >
       <SectionTitle
@@ -102,7 +102,7 @@ export function DeviceWorkbenchSection({ fields }: { fields: WorkbenchField[] })
         title="设备工作台"
         trailing={`${fields.length} 项资料`}
       />
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div className="mt-1.5 grid grid-cols-3 gap-1.5">
         {fields.map((field) => (
           <WorkbenchTile key={field.id} {...field} />
         ))}
@@ -122,11 +122,11 @@ export function DeviceIdentitySection({
   return (
     <section
       data-ui="inventory-device-identity"
-      className={cn(repairOs.mobileInfoCard, "p-3 sm:p-4")}
+      className={cn(repairOs.mobileInfoCard, "p-2 sm:p-3")}
       aria-labelledby="inventory-device-identity-title"
     >
       <SectionTitle icon={Barcode} id="inventory-device-identity-title" title="设备身份" />
-      <div className="mt-3 grid min-w-0 gap-2 sm:grid-cols-2">
+      <div className="mt-1.5 grid min-w-0 grid-cols-2 gap-1.5">
         {identifiers.map((identifier) => (
           <RepairOsInfoTile
             key={identifier.kind}
@@ -139,6 +139,7 @@ export function DeviceIdentitySection({
         {gtin ? (
           <RepairOsInfoTile
             frame="bordered"
+            className="col-span-2"
             label="EAN / GTIN"
             value={gtin}
             valueClassName="font-mono font-semibold"
@@ -152,9 +153,11 @@ export function DeviceIdentitySection({
 export function ProductNotesSection({ notes }: { notes?: string }) {
   if (!notes) return null;
   return (
-    <section className={cn(repairOs.mobileInfoCard, "p-3 sm:p-4")}>
+    <section className={cn(repairOs.mobileInfoCard, "p-2 sm:p-3")}>
       <SectionTitle icon={PackageOpen} title="备注" />
-      <p className="mt-3 whitespace-pre-wrap break-words text-sm text-muted-foreground">{notes}</p>
+      <p className="mt-1.5 whitespace-pre-wrap break-words text-[11px] leading-4 text-muted-foreground">
+        {notes}
+      </p>
     </section>
   );
 }
@@ -201,8 +204,8 @@ function SectionTitle({
   return (
     <div className="flex min-w-0 items-center justify-between gap-2">
       <div className="flex min-w-0 items-center gap-2">
-        <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-          <Icon className="size-4" aria-hidden="true" />
+        <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="size-3.5" aria-hidden="true" />
         </span>
         <h3 id={id} className="truncate text-sm font-semibold">
           {title}
@@ -215,13 +218,15 @@ function SectionTitle({
 
 function WorkbenchTile({ icon: Icon, label, value }: WorkbenchField) {
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-xl border border-[var(--border-panel)] bg-card p-2.5">
-      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-        <Icon className="size-4" aria-hidden="true" />
+    <div className="grid min-h-14 min-w-0 grid-cols-[28px_minmax(0,1fr)] items-center gap-1 rounded-lg bg-[var(--surface-panel-muted)] p-1.5">
+      <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+        <Icon className="size-3.5" aria-hidden="true" />
       </span>
       <span className="min-w-0">
-        <span className="block text-[10px] text-muted-foreground">{label}</span>
-        <strong className="block break-words text-xs font-semibold leading-4">{value}</strong>
+        <span className="block truncate text-[9px] leading-3 text-muted-foreground">{label}</span>
+        <strong className="line-clamp-2 block break-words text-[11px] font-semibold leading-4">
+          {value}
+        </strong>
       </span>
     </div>
   );

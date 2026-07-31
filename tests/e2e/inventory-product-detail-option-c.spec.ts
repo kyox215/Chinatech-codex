@@ -78,7 +78,7 @@ test("redacted cost and sparse data never create fake workbench values", async (
   await expect(page.getByText("保修", { exact: true })).toHaveCount(0);
   await expect(page.getByText("未录入", { exact: true })).toHaveCount(0);
   await expect(page.getByText("3 项资料")).toBeVisible();
-  await expect(page.getByText("•••• 7788")).toHaveCount(2);
+  await expect(page.getByText("•••• 7788")).toHaveCount(1);
   await assertNoHorizontalOverflow(page);
 });
 
