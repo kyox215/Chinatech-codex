@@ -1,8 +1,8 @@
 # Chinatech 回收管理：移动端高密度一页式优化计划
 
 状态：已实施并部署（2026-07-31）
-任务：`TASK-20260731-001-buyback-mobile-density-implementation`  
-基线：`bb88cb099fc404543995b4dcbb46b502e1eabbdb`  
+任务：`TASK-20260731-001-buyback-mobile-density-implementation`
+基线：`bb88cb099fc404543995b4dcbb46b502e1eabbdb`
 目标环境：Chinatech RepairDesk 生产 `/buyback`
 
 ## 1. 目标与成功定义
