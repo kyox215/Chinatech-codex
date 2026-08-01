@@ -200,7 +200,7 @@ export function MobileOrdersFloatingHeader({
               <div
                 className={cn(
                   repairOs.searchBarEmbedded,
-                  "h-9 gap-[var(--order-mobile-gap)] rounded-[var(--order-mobile-radius)] px-[var(--order-mobile-pad)] shadow-none",
+                  "h-[38px] gap-[var(--order-mobile-gap)] rounded-[var(--order-mobile-radius)] px-[var(--order-mobile-pad)] shadow-none",
                 )}
                 aria-busy={searchBusy}
               >
@@ -219,7 +219,7 @@ export function MobileOrdersFloatingHeader({
                   }}
                   placeholder="工单 / 客户 / IMEI"
                   aria-label="搜索工单、客户、电话或 IMEI"
-                  className={cn(repairOs.searchInput, "h-9 text-base")}
+                  className={cn(repairOs.searchInput, "h-full text-base")}
                   onFocus={() => setSearchFocused(true)}
                   onBlur={() => setSearchFocused(false)}
                 />

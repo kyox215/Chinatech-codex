@@ -7,7 +7,7 @@ task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "IntegrationLead"
-last_checkpoint_at: "2026-08-01T02:25:01Z"
+last_checkpoint_at: "2026-08-01T02:33:27Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,7 +19,7 @@ last_rehydrated_at: null
 
 ## Current state
 
-语义移动密度体系与全站高频页面迁移完成；lint、typecheck、2540 单元测试、生产构建、Chromium/WebKit 响应式及订单/库存/回收/备忘录专项验收通过。
+首个生产候选 READY；登录态 390px 实测发现订单搜索框仍为 36px，已修正为共享 38px 输入等级，并重新通过 lint/typecheck/2540 单元测试/build/Chromium 3项/WebKit 头部验收。
 
 ## Blocking decisions
 
@@ -27,7 +27,7 @@ last_rehydrated_at: null
 
 ## Next action
 
-完成最终 diff 与秘密审查，获取 integration lease，提交并推送 main，验证 Vercel READY 和线上移动页面。
+提交并推送 38px 修正，等待新生产 deployment READY，重新测量并保存最终线上截图后完成关闭档案。
 
 ## Resume protocol
 

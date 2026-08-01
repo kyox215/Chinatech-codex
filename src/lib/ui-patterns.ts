@@ -186,7 +186,7 @@ export const repairOs = {
   searchBarEmbedded:
     "flex h-[38px] min-w-0 items-center gap-1.5 rounded-lg bg-[var(--surface-panel-muted)] px-2 transition-colors focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/20 lg:h-10 lg:px-3",
   searchInput:
-    "h-9 min-w-0 border-0 bg-transparent px-0 text-sm shadow-none placeholder:text-muted-foreground/65 focus-visible:ring-0",
+    "h-full min-w-0 border-0 bg-transparent px-0 text-sm shadow-none placeholder:text-muted-foreground/65 focus-visible:ring-0",
   metricStrip: "grid min-w-0 gap-2",
   metricCard:
     "min-w-0 rounded-2xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)] sm:px-2.5 sm:py-2",

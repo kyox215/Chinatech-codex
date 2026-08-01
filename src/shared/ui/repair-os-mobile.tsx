@@ -421,7 +421,7 @@ export function RepairOsListScaffold({
                     onChange={(event) => onSearchChange(event.target.value)}
                     placeholder={searchPlaceholder}
                     aria-label={searchPlaceholder}
-                    className={cn(repairOs.searchInput, "h-9 text-base")}
+                    className={cn(repairOs.searchInput, "h-full text-base")}
                   />
                 </div>
                 {searchAction}

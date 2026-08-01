@@ -18,3 +18,12 @@
 - **Evidence:**
   - E-003..E-011
 - **Recorded by:** IntegrationLead
+## 2026-08-01T02:33:27Z — 首个生产候选 READY；登录态 390px 实测发现订单搜索框仍为 36px，已修正为共享 38px 输入等级，并重新通过 lint/typecheck/2540 单元测试/build/Chromium 3项/WebKit 头部验收。
+
+- **Phase:** release
+- **Completed/current state:** 首个生产候选 READY；登录态 390px 实测发现订单搜索框仍为 36px，已修正为共享 38px 输入等级，并重新通过 lint/typecheck/2540 单元测试/build/Chromium 3项/WebKit 头部验收。
+- **Next:** 提交并推送 38px 修正，等待新生产 deployment READY，重新测量并保存最终线上截图后完成关闭档案。
+- **Decision:** 生产实测属于发布门禁；发现契约偏差即补正，不以整体紧凑为由接受 36px 可编辑输入。
+- **Evidence:**
+  - E-012,E-013
+- **Recorded by:** IntegrationLead
