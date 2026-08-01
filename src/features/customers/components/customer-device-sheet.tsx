@@ -204,7 +204,7 @@ export function CustomerDeviceSheet({
         <SheetFooter className="flex-col shrink-0 border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 sm:flex-col sm:items-stretch sm:space-x-0">
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-1.5 sm:flex sm:w-full sm:justify-end">
             {primaryOrder ? (
-              <Button asChild size="sm" className="h-9 gap-1.5 text-xs">
+              <Button asChild size="sm" className="h-11 gap-1.5 text-xs lg:h-9">
                 <Link
                   href={buildOrderDetailWorkspaceHref(primaryOrder.order.id, {
                     source: "customer",
@@ -214,7 +214,7 @@ export function CustomerDeviceSheet({
                 </Link>
               </Button>
             ) : (
-              <Button asChild size="sm" className="h-9 gap-1.5 text-xs">
+              <Button asChild size="sm" className="h-11 gap-1.5 text-xs lg:h-9">
                 <Link
                   href={buildNewOrderWorkspaceHref({
                     source: "customer",
@@ -229,7 +229,7 @@ export function CustomerDeviceSheet({
             <Button
               size="sm"
               variant="outline"
-              className="h-9 gap-1.5 px-3 text-xs"
+              className="h-11 gap-1.5 px-3 text-xs lg:h-9"
               onClick={() => onEdit(device)}
             >
               <Edit3 className="size-3.5" /> 编辑
@@ -247,7 +247,7 @@ export function CustomerDeviceSheet({
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="h-8 text-xs"
+                    className="h-11 text-xs lg:h-8"
                     disabled={deleting}
                     onClick={() => setConfirmDelete(false)}
                   >
@@ -257,7 +257,7 @@ export function CustomerDeviceSheet({
                     type="button"
                     size="sm"
                     variant="destructive"
-                    className="h-8 gap-1.5 text-xs"
+                    className="h-11 gap-1.5 text-xs lg:h-8"
                     disabled={deleting}
                     onClick={() => onDelete(device.id)}
                   >
@@ -271,7 +271,7 @@ export function CustomerDeviceSheet({
                 type="button"
                 size="sm"
                 variant="ghost"
-                className="mt-1.5 h-8 w-full gap-1.5 text-xs text-destructive hover:text-destructive sm:w-auto"
+                className="mt-1.5 h-11 w-full gap-1.5 text-xs text-destructive hover:text-destructive sm:w-auto lg:h-8"
                 disabled={deleting}
                 onClick={() => setConfirmDelete(true)}
               >

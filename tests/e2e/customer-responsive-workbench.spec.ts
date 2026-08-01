@@ -6,6 +6,7 @@ const viewports = [
   { width: 430, height: 932 },
   { width: 768, height: 1024 },
   { width: 1024, height: 768 },
+  { width: 1280, height: 800 },
   { width: 1440, height: 900 },
   { width: 1920, height: 1080 },
 ] as const;
@@ -31,14 +32,36 @@ test.describe("customer responsive workbench", () => {
       }
 
       await openCustomerDetail(page, viewport.width);
+      await expect(page.locator('[data-ui="customer-current-items"]:visible')).toBeVisible();
+      if (viewport.width === 390) {
+        await page.screenshot({
+          path: "screenshots/TASK-20260801-004-customer360-style-previews/customer-360-command-center-mobile.png",
+          fullPage: true,
+        });
+      }
+      if (viewport.width === 1440) {
+        await page.screenshot({
+          path: "screenshots/TASK-20260801-004-customer360-style-previews/customer-360-command-center-desktop.png",
+          fullPage: true,
+        });
+      }
       const visibleTabs = page.locator('[role="tablist"][aria-label="客户详情分组"]:visible');
       await expect(visibleTabs.getByRole("tab")).toHaveCount(5);
       await expect(page.locator('[role="tabpanel"]:visible')).toHaveAttribute("aria-label", /.+/);
 
       if (viewport.width < 1024) {
-        await expect(page.getByRole("link", { name: "新建工单" })).toBeVisible();
-        await expect(page.getByRole("button", { name: "发消息" })).toBeVisible();
-        await expect(page.getByRole("button", { name: "加待办" })).toBeVisible();
+        const createOrderAction = page.getByRole("link", { name: "新建工单" });
+        const messageAction = page.getByRole("button", { name: "发消息" });
+        const followupAction = page.getByRole("button", { name: "加待办" });
+        await expect(createOrderAction).toBeVisible();
+        await expect(messageAction).toBeVisible();
+        await expect(followupAction).toBeVisible();
+        await expectMinTouchHeight(createOrderAction);
+        await expectMinTouchHeight(messageAction);
+        await expectMinTouchHeight(followupAction);
+        for (const tab of await visibleTabs.getByRole("tab").all()) {
+          await expectMinTouchHeight(tab);
+        }
         await expect(page.getByRole("button", { name: "打开快捷操作" })).toHaveCount(0);
       }
 
@@ -82,6 +105,36 @@ test.describe("customer responsive workbench", () => {
       "true",
     );
   });
+
+  test("verifies identity before enabling the compact create continuations", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoCustomers(page);
+    await page.getByRole("button", { name: "新建客户", exact: true }).first().click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByLabel("邮箱")).toHaveCount(0);
+    await dialog.getByLabel(/手机号/).fill("+39 000 000 0001");
+    await dialog.getByLabel(/姓名/).fill("Cliente Verifica E2E");
+    await expect(dialog.getByText("未发现相同手机号，可以继续创建。")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(dialog.getByRole("button", { name: "保存并新建工单" })).toBeEnabled();
+    await expect(dialog.getByRole("button", { name: "仅保存并查看客户" })).toBeEnabled();
+    await expectMinTouchHeight(dialog.getByRole("button", { name: "保存并新建工单" }));
+    await expectMinTouchHeight(dialog.getByRole("button", { name: "仅保存并查看客户" }));
+    await page.screenshot({
+      path: "screenshots/TASK-20260801-004-customer360-style-previews/customer-create-identity-mobile.png",
+      fullPage: true,
+    });
+
+    await dialog.getByRole("button", { name: /^补充资料/ }).click();
+    await expect(dialog.getByLabel("邮箱")).toBeVisible();
+    await expectNoPageOverflow(page);
+
+    await dialog.getByRole("button", { name: "保存并新建工单" }).click();
+    await expect(page).toHaveURL(/\/orders\?workspace=new-order&source=customer&customerId=/);
+  });
 });
 
 async function gotoCustomers(page: Page) {
@@ -98,6 +151,12 @@ async function expectNoPageOverflow(page: Page) {
     clientWidth: document.documentElement.clientWidth,
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+}
+
+async function expectMinTouchHeight(locator: ReturnType<Page["locator"]>) {
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
 }
 
 async function openCustomerDetail(page: Page, width: number) {

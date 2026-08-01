@@ -33,7 +33,7 @@ export function CustomerMessagesPanel({
         className="mb-2"
         titleClassName={customerDetailSectionTitleClass}
         action={
-          <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onMessage}>
+          <Button size="sm" variant="outline" className="h-11 gap-1.5 lg:h-8" onClick={onMessage}>
             <Send className="size-3.5" /> 发送消息
           </Button>
         }
@@ -81,7 +81,12 @@ export function CustomerProfilePanel({
         className="mb-2"
         titleClassName={customerDetailSectionTitleClass}
         action={
-          <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onManageTags}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-11 gap-1.5 lg:h-8"
+            onClick={onManageTags}
+          >
             <Tags className="size-3.5" /> 管理标签
           </Button>
         }
@@ -153,7 +158,7 @@ export function CustomerFollowupsPanel({
         className="mb-2"
         titleClassName={customerDetailSectionTitleClass}
         action={
-          <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onAdd}>
+          <Button size="sm" variant="outline" className="h-11 gap-1.5 lg:h-8" onClick={onAdd}>
             <Plus className="size-3.5" /> 添加待办
           </Button>
         }
@@ -169,7 +174,7 @@ export function CustomerFollowupsPanel({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-8 gap-1.5"
+                    className="h-11 gap-1.5 lg:h-8"
                     onClick={() => onComplete(item.id)}
                   >
                     <CheckCircle2 className="size-3.5" /> 标记完成

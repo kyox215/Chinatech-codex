@@ -59,13 +59,17 @@ export function CustomerBackupPhonesField({
             value={phone}
             onChange={(event) => updatePhone(index, event.target.value)}
             placeholder="备用联系电话"
-            className={cn("h-8 font-mono text-sm sm:h-9", compact && "h-7 text-xs sm:h-7")}
+            className={cn(
+              compact
+                ? "h-8 font-mono text-sm sm:h-8"
+                : "h-11 font-mono text-base lg:h-9 lg:text-sm",
+            )}
           />
           <Button
             type="button"
             variant="outline"
             size="icon"
-            className={cn("size-8 sm:size-9", compact && "size-7 sm:size-7")}
+            className={cn(compact ? "size-8" : "size-11 lg:size-9")}
             aria-label="设为主号码"
             onClick={() => promotePhone(index)}
             disabled={!phone.trim()}
@@ -76,7 +80,7 @@ export function CustomerBackupPhonesField({
             type="button"
             variant="outline"
             size="icon"
-            className={cn("size-8 sm:size-9", compact && "size-7 sm:size-7")}
+            className={cn(compact ? "size-8" : "size-11 lg:size-9")}
             aria-label="删除备用号码"
             onClick={() => removePhone(index)}
             disabled={filteredPhones.length === 0 && !phone.trim()}
@@ -89,7 +93,7 @@ export function CustomerBackupPhonesField({
         type="button"
         variant="outline"
         size="sm"
-        className={cn("h-8 gap-1.5 text-xs", compact && "h-7")}
+        className={cn("gap-1.5 text-xs", compact ? "h-8" : "h-11 lg:h-9")}
         onClick={() => onPhonesChange([...visiblePhones, ""])}
       >
         <Plus className="size-3.5" /> 添加备用号码

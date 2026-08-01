@@ -57,6 +57,22 @@ export interface CustomerWorkbenchSummary {
   };
 }
 
+export type CustomerCurrentItemTone = "info" | "warn" | "danger" | "success";
+
+export interface CustomerCurrentItem {
+  id: string;
+  kind: "overdue_followup" | "followup" | "pickup" | "active_order" | "unpaid";
+  tone: CustomerCurrentItemTone;
+  title: string;
+  description: string;
+  actionLabel: string;
+  orderId?: string;
+  followupId?: string;
+  dueAt?: string;
+  sortTime: number;
+  priority: number;
+}
+
 export function buildCustomerDeviceWorkbenchItems(
   data: CustomerDetail,
 ): CustomerDeviceWorkbenchItem[] {
@@ -123,6 +139,82 @@ export function buildCustomerWorkbenchSummary(data: CustomerDetail): CustomerWor
       lastContactedAt: data.customer.last_contacted_at,
     },
   };
+}
+
+export function buildCustomerCurrentItems(
+  data: CustomerDetail,
+  now: Date = new Date(),
+): CustomerCurrentItem[] {
+  const orderItems = buildCustomerOrderWorkbenchItems(data);
+  const items: CustomerCurrentItem[] = [];
+  const nowTime = now.getTime();
+
+  data.followups
+    .filter((followup) => followup.status === "open")
+    .forEach((followup) => {
+      const dueTime = new Date(followup.due_at).getTime();
+      const overdue = Number.isFinite(dueTime) && dueTime < nowTime;
+      items.push({
+        id: `followup:${followup.id}`,
+        kind: overdue ? "overdue_followup" : "followup",
+        tone: overdue ? "danger" : "warn",
+        title: overdue ? "逾期待办" : "待处理待办",
+        description: followup.title,
+        actionLabel: followup.order_id ? "查看工单" : "查看跟进",
+        orderId: followup.order_id,
+        followupId: followup.id,
+        dueAt: followup.due_at,
+        sortTime: Number.isFinite(dueTime) ? dueTime : Number.MAX_SAFE_INTEGER,
+        priority: overdue ? 10 : 30,
+      });
+    });
+
+  orderItems
+    .filter((item) => item.state === "active")
+    .forEach((item) => {
+      const workflow = item.order.workflow_status ?? item.order.workflow_bucket;
+      const pickup = workflow === "pickup";
+      const notificationPending = pickup && item.order.notify_status === "not_sent";
+      const updatedAt = orderTime(item.order);
+      items.push({
+        id: `order:${item.order.id}:active`,
+        kind: pickup ? "pickup" : "active_order",
+        tone: notificationPending ? "warn" : pickup ? "success" : "info",
+        title: notificationPending ? "待通知客户" : pickup ? "待客户取机" : "维修处理中",
+        description: `${item.order.public_no} · ${item.deviceLabel}`,
+        actionLabel: notificationPending ? "去通知" : pickup ? "去交付" : "查看工单",
+        orderId: item.order.id,
+        sortTime: updatedAt,
+        priority: notificationPending ? 20 : pickup ? 25 : 40,
+      });
+    });
+
+  if (!data.stats.finance_redacted) {
+    orderItems
+      .filter(
+        (item) => isCustomerOrderBillable(item.order) && safeAmount(item.order.balance_amount) > 0,
+      )
+      .forEach((item) => {
+        items.push({
+          id: `order:${item.order.id}:unpaid`,
+          kind: "unpaid",
+          tone: "danger",
+          title: "待收款",
+          description: `${item.order.public_no} · ${formatEuro(item.order.balance_amount)}`,
+          actionLabel: "查看工单",
+          orderId: item.order.id,
+          sortTime: orderTime(item.order),
+          priority: 50,
+        });
+      });
+  }
+
+  return items.sort(
+    (left, right) =>
+      left.priority - right.priority ||
+      left.sortTime - right.sortTime ||
+      left.id.localeCompare(right.id),
+  );
 }
 
 export function buildCustomerOrderWorkbenchItems(
@@ -210,6 +302,14 @@ function orderTime(order: Pick<OrderListItem, "updated_at" | "created_at">) {
 function safeAmount(value: unknown) {
   const amount = Number(value);
   return Number.isFinite(amount) ? Math.max(0, amount) : 0;
+}
+
+function formatEuro(value: unknown) {
+  return new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 2,
+  }).format(safeAmount(value));
 }
 
 function warrantyLabelFromOrder(order?: OrderListItem) {

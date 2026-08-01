@@ -37,12 +37,14 @@ import {
 } from "@/features/customers/components/customer-list-items";
 import { CustomerListSkeleton } from "@/features/customers/components/customer-list-skeleton";
 import { CustomerFilters } from "@/features/customers/forms/customer-filters";
+import type { CustomerCreateIntent } from "@/features/customers/forms/customer-form-dialog";
 import {
   applyCustomerQuickGroup,
   buildCustomerQuickGroupChips,
   clampCustomerPageAfterLoad,
   defaultCustomerForm,
   getCustomerActiveFilterCount,
+  getCustomerDetailHref,
   getCustomerListSubtitle,
   getCustomerPageRange,
   getCustomerQuickGroup,
@@ -51,6 +53,7 @@ import {
   serializeCustomerListUrlState,
   type CustomerQuickGroup,
 } from "@/features/customers/model/customer-list";
+import { buildNewOrderWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
 import {
   ScanSearchButton,
   consumeScanSearchIntent,
@@ -204,11 +207,18 @@ export function CustomerListScreen() {
   }, []);
 
   const create = useMutation({
-    mutationFn: (input: CustomerCreateInput) => createCustomer(input),
-    onSuccess: () => {
+    mutationFn: ({ input }: { input: CustomerCreateInput; intent: CustomerCreateIntent }) =>
+      createCustomer(input),
+    onSuccess: ({ id }, { intent }) => {
       toast.success("客户已创建");
       setCreateOpen(false);
-      queryClient.invalidateQueries({ queryKey: customersKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: customersKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: customersKeys.detail(id, activeStoreId) });
+      router.push(
+        intent === "new_order"
+          ? buildNewOrderWorkspaceHref({ source: "customer", customerId: id })
+          : getCustomerDetailHref(id),
+      );
     },
     onError: () => toast.error("客户保存失败，请检查后重试"),
   });
@@ -535,8 +545,17 @@ export function CustomerListScreen() {
             onOpenChange={setCreateOpen}
             title="新建客户"
             busy={create.isPending}
+            activeStoreId={activeStoreId}
             initial={defaultCustomerForm}
-            onSave={(input) => create.mutateAsync(input)}
+            onSave={(input, intent) => create.mutateAsync({ input, intent })}
+            onOpenExisting={(customerId) => {
+              setCreateOpen(false);
+              router.push(getCustomerDetailHref(customerId));
+            }}
+            onStartOrderForExisting={(customerId) => {
+              setCreateOpen(false);
+              router.push(buildNewOrderWorkspaceHref({ source: "customer", customerId }));
+            }}
           />
         </Suspense>
       ) : null}

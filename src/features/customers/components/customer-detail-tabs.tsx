@@ -65,7 +65,7 @@ export function CustomerDetailTabs<T extends string>({
           onClick={() => onChange(item.key)}
           className={cn(
             repairOs.chip,
-            "h-9 min-w-0 justify-center gap-1 px-1 text-[11px] sm:px-2 sm:text-xs",
+            "h-11 min-w-0 justify-center gap-1 px-1 text-[11px] sm:px-2 sm:text-xs lg:h-10",
             activeTab === item.key && repairOs.chipActive,
           )}
         >

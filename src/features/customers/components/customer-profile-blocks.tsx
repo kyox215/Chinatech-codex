@@ -220,7 +220,7 @@ export function CustomerDeviceCard({
         </div>
       ) : null}
       <div className="flex flex-wrap gap-1.5">
-        <Button asChild size="sm" variant="outline" className="h-8 gap-1.5">
+        <Button asChild size="sm" variant="outline" className="h-11 gap-1.5 lg:h-8">
           <Link
             href={buildNewOrderWorkspaceHref({
               source: "customer",
@@ -235,7 +235,7 @@ export function CustomerDeviceCard({
         <Button
           size="sm"
           variant="ghost"
-          className="h-8 gap-1.5"
+          className="h-11 gap-1.5 lg:h-8"
           onClick={(event) => {
             event.stopPropagation();
             onEdit();
@@ -247,7 +247,7 @@ export function CustomerDeviceCard({
           <Button
             size="sm"
             variant="ghost"
-            className="h-8 gap-1.5 text-destructive hover:text-destructive"
+            className="h-11 gap-1.5 text-destructive hover:text-destructive lg:h-8"
             disabled={deleting}
             onClick={(event) => {
               event.stopPropagation();
@@ -289,7 +289,12 @@ export function CustomerOrderRow({
             <MoneyText amount={order.quotation_amount} />
           )}
           {order.status === "completed" && !cancelled && (
-            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onFollowup}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-11 gap-1.5 lg:h-8"
+              onClick={onFollowup}
+            >
               <Bell className="size-3.5" /> 待办
             </Button>
           )}
@@ -357,7 +362,12 @@ export function CustomerWorkbenchOrderRow({
             </>
           )}
           {order.status === "completed" && onFollowup ? (
-            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onFollowup}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-11 gap-1.5 lg:h-8"
+              onClick={onFollowup}
+            >
               <Bell className="size-3.5" /> 待办
             </Button>
           ) : null}

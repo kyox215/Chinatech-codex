@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { CustomerDetail, OrderListItem } from "@/lib/repairdesk/types";
 
 import {
+  buildCustomerCurrentItems,
   buildCustomerDeviceWorkbenchItems,
   buildCustomerOrderWorkbenchItems,
   buildCustomerPaymentSummary,
@@ -30,6 +31,7 @@ function order(input: Partial<OrderListItem> & Pick<OrderListItem, "id" | "devic
     status: input.status ?? "completed",
     workflow_status: input.workflow_status,
     workflow_bucket: input.workflow_bucket,
+    notify_status: input.notify_status,
     exception_status: input.exception_status,
     record_state: input.record_state,
     deleted_at: input.deleted_at,
@@ -383,5 +385,75 @@ describe("customer workbench model", () => {
     expect(summary.unpaidOrders).toHaveLength(1);
     expect(summary.openFollowupCount).toBe(1);
     expect(summary.payment.totalQuoted).toBe(200);
+  });
+
+  it("projects concurrent command-center items in risk order", () => {
+    const items = buildCustomerCurrentItems(
+      detail({
+        orders: [
+          order({
+            id: "pickup",
+            device_id: "dev_1",
+            status: "repairing",
+            workflow_status: "pickup",
+            notify_status: "not_sent",
+            balance_amount: 25,
+          }),
+          order({
+            id: "repair",
+            device_id: "dev_1",
+            status: "repairing",
+            workflow_status: "repair",
+            balance_amount: 0,
+          }),
+        ],
+        followups: [
+          {
+            id: "late",
+            customer_id: "cust_1",
+            title: "致电确认取机时间",
+            due_at: "2026-05-01T09:00:00.000Z",
+            status: "open",
+            created_at: "2026-04-30T10:00:00.000Z",
+            updated_at: "2026-04-30T10:00:00.000Z",
+          },
+        ],
+      }),
+      new Date("2026-05-02T10:00:00.000Z"),
+    );
+
+    expect(items.map((item) => [item.kind, item.tone])).toEqual([
+      ["overdue_followup", "danger"],
+      ["pickup", "warn"],
+      ["active_order", "info"],
+      ["unpaid", "danger"],
+    ]);
+    expect(items[1]).toMatchObject({ title: "待通知客户", orderId: "pickup" });
+    expect(items[3].description).toContain("€");
+  });
+
+  it("does not project cancelled balances or redacted finance as current debt", () => {
+    const items = buildCustomerCurrentItems(
+      detail({
+        orders: [
+          order({
+            id: "cancelled",
+            device_id: "dev_1",
+            status: "cancelled",
+            exception_status: "cancelled",
+            balance_amount: 999,
+          }),
+        ],
+        stats: {
+          order_count: 1,
+          total_spent: 0,
+          unpaid_amount: 0,
+          device_count: 1,
+          finance_redacted: true,
+        },
+      }),
+    );
+
+    expect(items).toEqual([]);
   });
 });

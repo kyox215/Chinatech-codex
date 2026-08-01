@@ -299,7 +299,7 @@ export function CustomerDetailScreen({
   };
   const detailPanel =
     tab === "overview" ? (
-      <CustomerOverviewPanel data={data} />
+      <CustomerOverviewPanel data={data} onOpenFollowups={() => setTab("followups")} />
     ) : tab === "devices" ? (
       <CustomerDevicesPanel
         data={data}
@@ -557,7 +557,7 @@ function CustomerMobileFloatingHeader({
             type="button"
             variant="ghost"
             size="icon"
-            className="size-8 rounded-lg"
+            className="size-11 rounded-xl"
             aria-label="返回客户列表"
             onClick={onBack}
           >
@@ -573,7 +573,7 @@ function CustomerMobileFloatingHeader({
             type="button"
             variant="outline"
             size="icon"
-            className="size-8 rounded-lg bg-card"
+            className="size-11 rounded-xl bg-card"
             aria-label="编辑客户"
             onClick={onEdit}
           >
@@ -648,7 +648,7 @@ function CustomerMobileActionBar({
         <Button
           asChild
           size="sm"
-          className={cn("h-10 gap-1.5", controls.brandButton)}
+          className={cn("h-11 gap-1.5", controls.brandButton)}
           style={brandGradientStyle}
         >
           <Link
@@ -664,7 +664,7 @@ function CustomerMobileActionBar({
           type="button"
           size="sm"
           variant="outline"
-          className="h-10 gap-1.5 bg-card"
+          className="h-11 gap-1.5 bg-card"
           onClick={onMessage}
         >
           <Send className="size-4" /> 发消息
@@ -673,7 +673,7 @@ function CustomerMobileActionBar({
           type="button"
           size="sm"
           variant="outline"
-          className="h-10 gap-1.5 bg-card"
+          className="h-11 gap-1.5 bg-card"
           onClick={onFollowup}
         >
           <Bell className="size-4" /> 加待办
@@ -818,21 +818,21 @@ function CustomerDetailLoadError({
             <Button
               type="button"
               variant="outline"
-              className="h-9 gap-1.5 text-xs"
+              className="h-11 gap-1.5 text-xs lg:h-9"
               onClick={onClose}
             >
               <X className="size-3.5" />
               关闭
             </Button>
           ) : (
-            <Button asChild variant="outline" className="h-9 gap-1.5 text-xs">
+            <Button asChild variant="outline" className="h-11 gap-1.5 text-xs lg:h-9">
               <Link href="/customers">
                 <ArrowLeft className="size-3.5" />
                 返回客户
               </Link>
             </Button>
           )}
-          <Button type="button" className="h-9 gap-1.5 text-xs" onClick={onRetry}>
+          <Button type="button" className="h-11 gap-1.5 text-xs lg:h-9" onClick={onRetry}>
             <RefreshCw className="size-3.5" />
             重新加载
           </Button>

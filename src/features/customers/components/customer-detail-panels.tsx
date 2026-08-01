@@ -2,7 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronRight,
+  CircleAlert,
+  Clock3,
+  PackageCheck,
+  Plus,
+  WalletCards,
+  Wrench,
+} from "lucide-react";
 
 import { MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
@@ -18,7 +27,9 @@ import {
 } from "@/features/customers/components/customer-profile-blocks";
 import {
   buildCustomerDeviceWorkbenchItems,
+  buildCustomerCurrentItems,
   buildCustomerWorkbenchSummary,
+  type CustomerCurrentItem,
 } from "@/features/customers/model/customer-workbench";
 import { isCustomerOrderCancelled } from "@/features/customers/model/customer-order-state";
 import type { CustomerDetail, Device } from "@/lib/repairdesk/api";
@@ -30,10 +41,17 @@ import { buildOrderDetailWorkspaceHref } from "@/features/orders/model/order-wor
 const customerDetailSectionClass = cn(repairOs.mobileInfoCard, "sm:p-2.5 md:rounded-2xl md:p-3");
 const customerDetailSectionTitleClass = "text-[11px] leading-4 sm:text-sm";
 
-export function CustomerOverviewPanel({ data }: { data: CustomerDetail }) {
+export function CustomerOverviewPanel({
+  data,
+  onOpenFollowups,
+}: {
+  data: CustomerDetail;
+  onOpenFollowups: () => void;
+}) {
   const { customer } = data;
   const workbench = buildCustomerWorkbenchSummary(data);
   const { contactSummary, latestOrder, payment } = workbench;
+  const currentItems = buildCustomerCurrentItems(data);
   const financeRedacted = Boolean(data.stats.finance_redacted);
   const noteRows = [
     { label: "客户备注", value: customer.notes?.trim() },
@@ -42,13 +60,21 @@ export function CustomerOverviewPanel({ data }: { data: CustomerDetail }) {
 
   return (
     <div className="grid min-w-0 gap-1.5 sm:gap-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+      <CustomerCurrentItemsPanel
+        items={currentItems}
+        onOpenFollowups={onOpenFollowups}
+        className="lg:col-span-2"
+      />
       <section className={customerDetailSectionClass}>
         <RepairOsSectionHeader
-          title="客户资料"
+          title="经营摘要"
           className="mb-2"
           titleClassName={customerDetailSectionTitleClass}
         />
         <div className="grid min-w-0 grid-cols-2 gap-1.5 sm:gap-2">
+          <CustomerMetric label="设备档案" value={`${data.stats.device_count} 台`} />
+          <CustomerMetric label="有效维修" value={`${data.stats.valid_order_count ?? 0} 次`} />
+          <CustomerMetric label="历史工单" value={`${data.stats.order_count} 条`} />
           <CustomerInfoBlock
             label="主电话"
             value={<PhoneText value={contactSummary.primaryPhone} />}
@@ -64,14 +90,7 @@ export function CustomerOverviewPanel({ data }: { data: CustomerDetail }) {
             label="待收尾款"
             value={financeRedacted ? "金额受限" : <MoneyText amount={payment.unpaidAmount} />}
           />
-          <CustomerMetric
-            label="已收定金"
-            value={financeRedacted ? "金额受限" : <MoneyText amount={payment.depositTotal} />}
-          />
-          <CustomerMetric
-            label="历史 / 有效工单"
-            value={`${data.orders.length} / ${data.stats.valid_order_count ?? 0}`}
-          />
+          <CustomerMetric label="开放事项" value={`${currentItems.length} 项`} />
         </div>
         {noteRows.length ? (
           <>
@@ -107,6 +126,123 @@ export function CustomerOverviewPanel({ data }: { data: CustomerDetail }) {
   );
 }
 
+function CustomerCurrentItemsPanel({
+  items,
+  onOpenFollowups,
+  className,
+}: {
+  items: CustomerCurrentItem[];
+  onOpenFollowups: () => void;
+  className?: string;
+}) {
+  return (
+    <section className={cn(customerDetailSectionClass, className)} data-ui="customer-current-items">
+      <RepairOsSectionHeader
+        title="现在要处理"
+        description={`${items.length} 项当前事项`}
+        className="mb-2"
+        titleClassName={customerDetailSectionTitleClass}
+      />
+      {items.length ? (
+        <div className="grid min-w-0 gap-1.5 md:grid-cols-2 md:gap-2 xl:grid-cols-3">
+          {items.map((item) => (
+            <CustomerCurrentItemRow key={item.id} item={item} onOpenFollowups={onOpenFollowups} />
+          ))}
+        </div>
+      ) : (
+        <div className="flex min-h-11 items-center gap-2 rounded-xl border border-status-success-foreground/20 bg-status-success/10 px-3 py-2 text-status-success-foreground">
+          <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
+          <div className="min-w-0">
+            <p className="text-xs font-semibold">目前没有待处理事项</p>
+            <p className="text-[10px] leading-4 opacity-80">
+              客户档案、设备和历史记录仍可继续查看。
+            </p>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+const currentItemToneClass = {
+  info: "border-status-info-foreground/25 bg-status-info/10 text-status-info-foreground",
+  warn: "border-status-warn-foreground/25 bg-status-warn/10 text-status-warn-foreground",
+  danger: "border-status-danger-foreground/25 bg-status-danger/10 text-status-danger-foreground",
+  success:
+    "border-status-success-foreground/25 bg-status-success/10 text-status-success-foreground",
+} as const;
+
+function CustomerCurrentItemRow({
+  item,
+  onOpenFollowups,
+}: {
+  item: CustomerCurrentItem;
+  onOpenFollowups: () => void;
+}) {
+  const Icon =
+    item.kind === "overdue_followup"
+      ? CircleAlert
+      : item.kind === "followup"
+        ? Clock3
+        : item.kind === "pickup"
+          ? PackageCheck
+          : item.kind === "unpaid"
+            ? WalletCards
+            : Wrench;
+  const content = (
+    <>
+      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-background/60">
+        <Icon className="size-4" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1 text-left">
+        <span className="block text-[11px] font-semibold leading-4">{item.title}</span>
+        <span className="block truncate text-[10px] leading-4 opacity-80">{item.description}</span>
+        {item.dueAt ? (
+          <span className="mt-0.5 block text-[9px] leading-3 opacity-75">
+            截止 {formatCurrentItemTime(item.dueAt)}
+          </span>
+        ) : null}
+      </span>
+      <span className="flex shrink-0 items-center gap-0.5 text-[10px] font-semibold">
+        {item.actionLabel}
+        <ChevronRight className="size-3" aria-hidden="true" />
+      </span>
+    </>
+  );
+  const className = cn(
+    "flex min-h-14 min-w-0 items-center gap-2 rounded-xl border px-2.5 py-2 transition-colors hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    currentItemToneClass[item.tone],
+  );
+
+  if (item.orderId) {
+    return (
+      <Link
+        href={buildOrderDetailWorkspaceHref(item.orderId, { source: "customer" })}
+        className={className}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" className={className} onClick={onOpenFollowups}>
+      {content}
+    </button>
+  );
+}
+
+function formatCurrentItemTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "时间待确认";
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 export function CustomerDevicesPanel({
   data,
   deleting,
@@ -132,7 +268,12 @@ export function CustomerDevicesPanel({
         className="mb-2"
         titleClassName={customerDetailSectionTitleClass}
         action={
-          <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={onAdd}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-11 gap-1.5 text-xs lg:h-8"
+            onClick={onAdd}
+          >
             <Plus className="size-3.5" /> 添加设备
           </Button>
         }
