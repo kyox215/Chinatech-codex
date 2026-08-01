@@ -400,61 +400,65 @@ export function RepairOsListScaffold({
             <div className="flex min-h-9 min-w-9 shrink-0 items-center justify-end">{action}</div>
           </header>
 
-          <div className={cn(repairOs.mobileFloatingHeaderBody, "space-y-1.5")}>
+          <div className={cn(repairOs.mobileFloatingHeaderBody, "space-y-3")}>
             {hasSearch ? (
-              <div
-                className="grid min-w-0 gap-1 [&>*]:min-h-9 [&>*]:min-w-9"
-                style={{
-                  gridTemplateColumns: `minmax(0, 1fr) repeat(${searchTrailingActions.length}, 36px)`,
-                }}
-              >
+              <div className="min-w-0 space-y-1.5">
                 <div
-                  className={cn(
-                    searchFrame === "embedded" ? repairOs.searchBarEmbedded : repairOs.searchBar,
-                    "h-9 rounded-lg px-2",
-                    searchFrame === "standalone" && "shadow-none",
-                  )}
+                  className="grid min-w-0 gap-1.5 [&>*]:min-h-9 [&>*]:min-w-9 [&>*]:max-w-full"
+                  style={{
+                    gridTemplateColumns: `minmax(0, 1fr) repeat(${searchTrailingActions.length}, auto)`,
+                  }}
                 >
-                  <Search className="size-3.5 shrink-0 text-muted-foreground" />
-                  <Input
-                    value={searchValue}
-                    onChange={(event) => onSearchChange(event.target.value)}
-                    placeholder={searchPlaceholder}
-                    aria-label={searchPlaceholder}
-                    className={cn(repairOs.searchInput, "h-full text-base")}
-                  />
+                  <div
+                    className={cn(
+                      searchFrame === "embedded" ? repairOs.searchBarEmbedded : repairOs.searchBar,
+                      "h-9 rounded-lg px-2",
+                      searchFrame === "standalone" && "shadow-none",
+                    )}
+                  >
+                    <Search className="size-3.5 shrink-0 text-muted-foreground" />
+                    <Input
+                      value={searchValue}
+                      onChange={(event) => onSearchChange(event.target.value)}
+                      placeholder={searchPlaceholder}
+                      aria-label={searchPlaceholder}
+                      className={cn(repairOs.searchInput, "h-full text-base")}
+                    />
+                  </div>
+                  {searchAction}
+                  {filterAction ??
+                    (!searchAction ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="iconDense"
+                        className="size-9 rounded-lg bg-card"
+                        aria-label="筛选"
+                        disabled
+                      >
+                        <Filter className="size-3.5" />
+                      </Button>
+                    ) : null)}
                 </div>
-                {searchAction}
-                {filterAction ??
-                  (!searchAction ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="iconDense"
-                      className="size-9 rounded-lg bg-card"
-                      aria-label="筛选"
-                      disabled
-                    >
-                      <Filter className="size-3.5" />
-                    </Button>
-                  ) : null)}
-              </div>
-            ) : null}
 
-            {trimmedSearchValue ? (
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="inline-flex min-w-0 max-w-[calc(100%-3rem)] items-center gap-1 rounded-full border border-[var(--border-panel)] bg-card px-2.5 py-1 text-[11px] font-medium leading-4 text-muted-foreground">
-                  <span className="shrink-0">搜索：</span>
-                  <span className="truncate font-mono text-foreground">{trimmedSearchValue}</span>
-                </span>
-                <button
-                  type="button"
-                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  aria-label="清除搜索"
-                  onClick={() => onSearchChange?.("")}
-                >
-                  <X className="size-3.5" />
-                </button>
+                {trimmedSearchValue ? (
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span className="inline-flex min-w-0 max-w-[calc(100%-2.5rem)] items-center gap-1 rounded-full border border-[var(--border-panel)] bg-card px-2.5 py-1 text-[11px] font-medium leading-4 text-muted-foreground">
+                      <span className="shrink-0">搜索：</span>
+                      <span className="truncate font-mono text-foreground">
+                        {trimmedSearchValue}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      aria-label="清除搜索"
+                      onClick={() => onSearchChange?.("")}
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
@@ -478,26 +482,20 @@ function RepairOsHeaderStepper({
   chips: RepairOsListHeaderChip[];
   label: string;
 }) {
-  const minWidth = Math.max(320, chips.length * 54);
-
   return (
-    <div className="min-w-0 overflow-x-auto pb-0.5" aria-label={label}>
+    <div className="min-w-0" aria-label={label}>
       <div
-        className="relative grid"
-        style={{ gridTemplateColumns: `repeat(${chips.length}, minmax(0, 1fr))`, minWidth }}
+        className="grid min-w-0 gap-1.5"
+        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(5.25rem, 100%), 1fr))" }}
       >
-        <span
-          aria-hidden
-          className="absolute left-[calc(100%/16)] right-[calc(100%/16)] top-3 h-px bg-border"
-        />
         {chips.map((chip) => {
           const content = (
             <>
               <span
                 className={cn(
-                  "grid size-6 place-items-center rounded-full border text-[11px] font-semibold leading-none transition-colors",
+                  "grid size-5 shrink-0 place-items-center rounded-full border text-[9px] font-semibold leading-none transition-colors",
                   chip.active
-                    ? "border-primary bg-primary text-primary-foreground shadow-none"
+                    ? "border-primary bg-primary text-primary-foreground"
                     : "border-border bg-surface-muted text-muted-foreground",
                 )}
               >
@@ -505,22 +503,22 @@ function RepairOsHeaderStepper({
               </span>
               <span
                 className={cn(
-                  "flex max-w-full items-center justify-center gap-0.5 truncate text-[9px] leading-3",
-                  chip.active ? "font-semibold text-primary" : "text-muted-foreground",
+                  "min-w-0 truncate text-[10px] font-semibold leading-3",
+                  chip.active ? "text-primary" : "text-muted-foreground",
                 )}
               >
-                <span className="truncate">{chip.label}</span>
-                {chip.count !== undefined ? (
-                  <span
-                    className={cn(
-                      "font-mono text-[9px] tabular-nums",
-                      chip.active ? "text-primary" : "text-muted-foreground",
-                    )}
-                  >
-                    {chip.count}
-                  </span>
-                ) : null}
+                {chip.label}
               </span>
+              {chip.count !== undefined ? (
+                <span
+                  className={cn(
+                    "shrink-0 font-mono text-[10px] leading-3 tabular-nums",
+                    chip.active ? "text-primary" : "text-muted-foreground",
+                  )}
+                >
+                  {chip.count}
+                </span>
+              ) : null}
             </>
           );
 
@@ -529,15 +527,24 @@ function RepairOsHeaderStepper({
               key={chip.key}
               type="button"
               onClick={chip.onClick}
-              className="relative z-10 grid min-h-8 min-w-0 justify-items-center gap-0.5 px-0.5 text-center"
+              className={cn(
+                "flex min-h-8 min-w-0 items-center justify-center gap-1 rounded-lg border px-1.5 text-center transition-colors",
+                "border-[var(--border-panel)] bg-[var(--surface-panel-muted)]",
+              )}
               aria-pressed={chip.active}
+              aria-label={chip.label}
+              title={chip.label}
             >
               {content}
             </button>
           ) : (
             <div
               key={chip.key}
-              className="relative z-10 grid min-w-0 cursor-default justify-items-center gap-0.5 px-0.5 text-center"
+              className={cn(
+                "flex min-h-8 min-w-0 cursor-default items-center justify-center gap-1 rounded-lg border px-1.5 text-center",
+                "border-[var(--border-panel)] bg-[var(--surface-panel-muted)]",
+              )}
+              title={chip.label}
             >
               {content}
             </div>
@@ -641,16 +648,23 @@ export function RepairOsChipRow({
 }) {
   return (
     <div className={cn(repairOs.chipRow, className)}>
-      {chips.map((chip) => (
-        <button
-          key={chip.label}
-          type="button"
-          onClick={chip.onClick}
-          className={cn(repairOs.chip, chip.active && repairOs.chipActive)}
-        >
-          {chip.label}
-        </button>
-      ))}
+      {chips.map((chip) =>
+        chip.onClick ? (
+          <button
+            key={chip.label}
+            type="button"
+            onClick={chip.onClick}
+            className={cn(repairOs.chip, chip.active && repairOs.chipActive)}
+            aria-pressed={chip.active}
+          >
+            {chip.label}
+          </button>
+        ) : (
+          <span key={chip.label} className={cn(repairOs.chip, chip.active && repairOs.chipActive)}>
+            {chip.label}
+          </span>
+        ),
+      )}
     </div>
   );
 }
@@ -665,6 +679,7 @@ export interface RepairOsBusinessCardProps
   as?: RepairOsBusinessCardElement;
   leading?: ReactNode;
   trailing?: ReactNode;
+  density?: "standard" | "dense";
   leadingClassName?: string;
   bodyClassName?: string;
   trailingClassName?: string;
@@ -675,6 +690,7 @@ export function RepairOsBusinessCard({
   as: Component = "article",
   leading,
   trailing,
+  density = "standard",
   className,
   leadingClassName,
   bodyClassName,
@@ -688,7 +704,14 @@ export function RepairOsBusinessCard({
     : undefined;
 
   return (
-    <Component className={cn(repairOs.businessCard, className, layoutClass)} {...props}>
+    <Component
+      className={cn(
+        density === "dense" ? repairOs.businessCardDense : repairOs.businessCard,
+        className,
+        layoutClass,
+      )}
+      {...props}
+    >
       {leading ? <div className={cn("shrink-0", leadingClassName)}>{leading}</div> : null}
       <div className={cn("min-w-0", bodyClassName)}>{children}</div>
       {trailing ? <div className={cn("min-w-0", trailingClassName)}>{trailing}</div> : null}

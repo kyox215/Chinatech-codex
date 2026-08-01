@@ -182,13 +182,13 @@ iOS Safari / Chrome 会在聚焦字号小于 `16px` 的可编辑控件时自动�
 
 手机和平板业务页面（`< 1024px`）采用语义化触控密度，不再对所有控件强制 `44×44px`：
 
-| 等级 | 规格 | 适用场景 |
-| ---- | ---- | -------- |
-| Micro | `24-28px` | 低风险、相邻目标有充分留白的清除/展开/内嵌图标 |
-| Dense | `32px` | 高频筛选、状态切换、分页等紧凑操作 |
-| Standard | `36px` | 普通工具栏与图标入口 |
-| Input | `38px`，字号至少 `16px` | 输入、选择与搜索，避免 iOS 自动缩放 |
-| Primary / Danger | `40-44px` | 新建、保存、推进、付款、删除等关键或危险动作 |
+| 等级             | 规格                    | 适用场景                                       |
+| ---------------- | ----------------------- | ---------------------------------------------- |
+| Micro            | `24-28px`               | 低风险、相邻目标有充分留白的清除/展开/内嵌图标 |
+| Dense            | `32px`                  | 高频筛选、状态切换、分页等紧凑操作             |
+| Standard         | `36px`                  | 普通工具栏与图标入口                           |
+| Input            | `38px`，字号至少 `16px` | 输入、选择与搜索，避免 iOS 自动缩放            |
+| Primary / Danger | `40-44px`               | 新建、保存、推进、付款、删除等关键或危险动作   |
 
 所有目标仍须满足 WCAG 2.2 AA 的 `24×24 CSS px` 最小尺寸或等价间距例外。相邻密集目标优先使用 `32px` 以上；关键动作不得降到 Micro。
 
@@ -266,11 +266,11 @@ iOS Safari / Chrome 会在聚焦字号小于 `16px` 的可编辑控件时自动�
 
 项目需要三个密度等级，默认策略按页面类型选择。
 
-| Density     | 场景                         | 行高 / 间距                              |
-| ----------- | ---------------------------- | ---------------------------------------- |
-| Comfortable | 仪表盘、设置、低频页面       | 卡片 `p-4/p-5`，行高正常                 |
-| Compact     | 表单、详情、客户页           | 卡片 `p-3/p-4`，控件 `h-9`               |
-| Dense       | 工单列表、库存列表、客户列表 | 行高 `h-8~h-11`，字号 `text-xs/text-sm`  |
+| Density     | 场景                         | 行高 / 间距                             |
+| ----------- | ---------------------------- | --------------------------------------- |
+| Comfortable | 仪表盘、设置、低频页面       | 卡片 `p-4/p-5`，行高正常                |
+| Compact     | 表单、详情、客户页           | 卡片 `p-3/p-4`，控件 `h-9`              |
+| Dense       | 工单列表、库存列表、客户列表 | 行高 `h-8~h-11`，字号 `text-xs/text-sm` |
 
 ### Dense Table Rules
 
@@ -653,3 +653,11 @@ expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLess
 - 弹窗、Dropdown、Popover 不超出 viewport。
 - lint、typecheck、test、build 通过。
 - 截图保存到 `screenshots/responsive-density/<page>/` 用于对比。
+
+## 2026-08-01 Balanced Dense Spacing Rhythm
+
+全站移动端采用“关系间距”和“控件尺寸”分离的契约：行内图标/文字 4px、同一控件簇 6px、内容行 8px、业务组 12px、移动模块 16px、桌面模块 24px，dense 卡片纵向堆叠 6–8px。可执行声明位于 `semanticSpacing` 与 `componentSpacing`；`controlDensity` / `componentDensity` 继续单独控制 24/32/36/38/40px 语义尺寸，不能因为压缩留白而缩小关键动作。
+
+移动列表的 Header、Filter、Tab 和状态选择必须使用 grid、wrap、Select 或 Sheet，禁止页面级横向滚动、`snap-x` 和装饰性连线。Orders 在 390×844 的预算为：展开顶部卡不高于 208px、普通卡不高于 112px、折叠顶部卡不高于 44px，首屏至少完整显示 3 张普通卡。
+
+跨模块证据由 `tests/e2e/sitewide-spacing-rhythm-evidence.spec.ts` 的显式环境开关生成，覆盖 Orders、Customers、Inventory、Buyback、Messages、Memos 和 Settings 的 390px 页面横向溢出与截图。

@@ -303,6 +303,7 @@ function QuoteCard({ item, onOpen }: { item: InventoryListItem; onOpen: () => vo
     <RepairOsBusinessCard
       as="button"
       type="button"
+      data-ui="buyback-transparent-quote-card"
       onClick={onOpen}
       className="h-full min-w-0 grid-cols-1 gap-1.5 p-2 text-left transition-colors hover:border-primary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >

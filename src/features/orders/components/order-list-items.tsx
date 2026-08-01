@@ -152,9 +152,9 @@ export function OrderMobileCard({
         aria-label={detailAccessibleName}
         onClick={onOpenIntent}
       />
-      <div className="grid gap-[var(--order-mobile-gap)] p-[var(--order-mobile-pad)] transition-colors group-hover:bg-accent/10 group-active:bg-accent/20">
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-[var(--order-mobile-gap)]">
-          <div className="flex min-w-0 items-center gap-[var(--order-mobile-gap)]">
+      <div className="grid gap-[var(--order-mobile-card-group)] p-[var(--order-mobile-pad)] transition-colors group-hover:bg-accent/10 group-active:bg-accent/20">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-[var(--order-mobile-cluster)]">
+          <div className="flex min-w-0 items-center gap-[var(--order-mobile-inline)]">
             <span className="grid size-5 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
               <UserRound className="size-[var(--order-mobile-icon)]" aria-hidden="true" />
             </span>
@@ -169,7 +169,7 @@ export function OrderMobileCard({
             ) : null}
           </div>
 
-          <div className="flex min-w-0 shrink-0 items-center gap-[var(--order-mobile-gap)]">
+          <div className="flex min-w-0 shrink-0 items-center gap-[var(--order-mobile-inline)]">
             <p className="max-w-[96px] truncate font-mono text-[length:var(--order-mobile-meta)] font-semibold leading-3 text-primary">
               {order.public_no}
             </p>
@@ -180,7 +180,7 @@ export function OrderMobileCard({
           </div>
         </div>
 
-        <div className="flex min-w-0 items-center gap-[var(--order-mobile-gap)] rounded-[calc(var(--order-mobile-radius)-0.125rem)] bg-surface-muted/70 px-[var(--order-mobile-pad)] py-0.5">
+        <div className="flex min-w-0 items-center gap-[var(--order-mobile-inline)] rounded-[calc(var(--order-mobile-radius)-0.125rem)] bg-surface-muted/70 px-[var(--order-mobile-pad)] py-0.5">
           <Smartphone
             className="size-[var(--order-mobile-icon)] shrink-0 text-muted-foreground"
             aria-hidden="true"
@@ -215,7 +215,7 @@ export function OrderMobileCard({
           {issueLabel}
         </p>
 
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-[var(--order-mobile-gap)] border-t border-[var(--border-panel)] pt-[var(--order-mobile-gap)]">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-[var(--order-mobile-cluster)] border-t border-[var(--border-panel)] pt-[var(--order-mobile-inline)]">
           <MobileWorkflowStrip
             workflowStatus={workflowStatus}
             currentLabel={currentStageLabel}
@@ -225,7 +225,7 @@ export function OrderMobileCard({
 
           <div
             data-order-mobile-card-payment="true"
-            className="flex min-w-0 items-end gap-[var(--order-mobile-gap)] rounded-[calc(var(--order-mobile-radius)-0.125rem)] bg-surface-muted/55 px-[var(--order-mobile-pad)] py-1 text-right"
+            className="flex min-w-0 items-end gap-[var(--order-mobile-inline)] rounded-[calc(var(--order-mobile-radius)-0.125rem)] bg-surface-muted/55 px-[var(--order-mobile-pad)] py-0.5 text-right"
           >
             <span
               className={cn(
@@ -253,7 +253,7 @@ export function OrderMobileCard({
         </div>
 
         {exceptionStatus || hasOverdueException ? (
-          <div className="flex min-w-0 items-center gap-[var(--order-mobile-gap)] rounded-md bg-status-danger/10 px-[var(--order-mobile-pad)] py-1 text-[length:var(--order-mobile-meta)] font-medium leading-3 text-status-danger-foreground">
+          <div className="flex min-w-0 items-center gap-[var(--order-mobile-inline)] rounded-md bg-status-danger/10 px-[var(--order-mobile-pad)] py-1 text-[length:var(--order-mobile-meta)] font-medium leading-3 text-status-danger-foreground">
             <AlertTriangle
               className="size-[var(--order-mobile-icon)] shrink-0"
               aria-hidden="true"
@@ -295,7 +295,7 @@ function MobileWorkflowStrip({
       className="min-w-0"
       aria-label={`当前流程：${currentStage?.label ?? workflowStatus}；下一步：${nextAction}`}
     >
-      <div className="flex min-w-0 items-center justify-between gap-[var(--order-mobile-gap)]">
+      <div className="flex min-w-0 items-center justify-between gap-[var(--order-mobile-inline)]">
         <span
           className={cn(
             "inline-flex h-[18px] min-w-0 max-w-[150px] items-center gap-1 truncate rounded-md px-1 text-[length:var(--order-mobile-meta)] font-semibold leading-none",

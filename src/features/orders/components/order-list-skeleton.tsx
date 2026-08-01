@@ -16,22 +16,22 @@ function OrderMobileCardSkeleton() {
       className={cn(
         repairOs.mobileInfoCard,
         orderMobileFluidDensity,
-        "h-[clamp(7rem,31vw,7.625rem)] space-y-[var(--order-mobile-gap)] rounded-[var(--order-mobile-radius)] p-[var(--order-mobile-pad)]",
+        "h-[clamp(7rem,31vw,7.625rem)] space-y-[var(--order-mobile-card-group)] rounded-[var(--order-mobile-radius)] p-[var(--order-mobile-pad)]",
       )}
     >
-      <div className="flex items-center justify-between gap-[var(--order-mobile-gap)]">
-        <div className="flex min-w-0 flex-1 items-center gap-[var(--order-mobile-gap)]">
+      <div className="flex items-center justify-between gap-[var(--order-mobile-cluster)]">
+        <div className="flex min-w-0 flex-1 items-center gap-[var(--order-mobile-inline)]">
           <Skeleton className="size-5 shrink-0 rounded-md" />
           <Skeleton className="h-4 w-2/3" />
         </div>
         <Skeleton className="h-[18px] w-24" />
       </div>
-      <div className="flex items-center gap-[var(--order-mobile-gap)] rounded-lg bg-surface-muted/70 px-[var(--order-mobile-pad)] py-1">
+      <div className="flex items-center gap-[var(--order-mobile-inline)] rounded-lg bg-surface-muted/70 px-[var(--order-mobile-pad)] py-1">
         <Skeleton className="h-3.5 min-w-0 flex-1" />
         <Skeleton className="h-3 w-20" />
       </div>
       <Skeleton className="h-3 w-4/5" />
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-[var(--order-mobile-gap)] border-t border-[var(--border-panel)] pt-[var(--order-mobile-gap)]">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-[var(--order-mobile-cluster)] border-t border-[var(--border-panel)] pt-[var(--order-mobile-inline)]">
         <div className="space-y-1">
           <Skeleton className="h-[18px] w-20" />
           <Skeleton className="h-1 w-full" />
@@ -97,11 +97,11 @@ export function OrderListSkeleton() {
             className={cn(
               repairOs.mobileFloatingHeaderCard,
               orderMobileFluidDensity,
-              "rounded-[var(--order-mobile-radius)] px-[var(--order-mobile-pad)] py-[var(--order-mobile-tight-gap)]",
+              "rounded-[var(--order-mobile-radius)] px-[var(--order-mobile-pad)] py-0",
             )}
           >
             <header
-              className={cn(repairOs.mobileFloatingHeaderNav, "gap-[var(--order-mobile-gap)]")}
+              className={cn(repairOs.mobileFloatingHeaderNav, "gap-[var(--order-mobile-cluster)]")}
             >
               <Skeleton className="size-9 rounded-lg" />
               <div className="mx-auto w-full max-w-32 space-y-1">
@@ -110,8 +110,8 @@ export function OrderListSkeleton() {
               </div>
               <Skeleton className="size-9 rounded-lg" />
             </header>
-            <div className="mt-[var(--order-mobile-tight-gap)] min-w-0 space-y-[var(--order-mobile-gap)] border-t border-[var(--border-panel)] pt-[var(--order-mobile-tight-gap)]">
-              <div className="grid grid-cols-[minmax(0,1fr)_44px_44px] gap-[var(--order-mobile-gap)]">
+            <div className="min-w-0 space-y-[var(--order-mobile-group)] border-t border-[var(--border-panel)] pt-[var(--order-mobile-inline)]">
+              <div className="grid grid-cols-[minmax(0,1fr)_44px_44px] gap-[var(--order-mobile-cluster)]">
                 <Skeleton className="h-9 rounded-lg" />
                 <Skeleton className="size-9 rounded-lg" />
                 <Skeleton className="size-9 rounded-lg" />

@@ -64,7 +64,7 @@ test("uses a fluid two-row queue header and compact mobile cards", async ({ page
     expect(Math.abs((arrived?.y ?? 0) - (pickup?.y ?? 0))).toBeLessThanOrEqual(1);
     expect(Math.abs((processing?.y ?? 0) - (arrived?.y ?? 0))).toBeGreaterThan(28);
     expect(processing?.height ?? 0).toBeGreaterThanOrEqual(32);
-    expect(header?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(185);
+    expect(header?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(208);
 
     await page.screenshot({
       path: testInfo.outputPath(`orders-${viewport.width}-fluid-density.png`),
@@ -84,7 +84,7 @@ test("uses a fluid two-row queue header and compact mobile cards", async ({ page
   );
   await expect(standardCards.first()).toBeVisible();
   const firstCard = await standardCards.first().boundingBox();
-  expect(firstCard?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(108);
+  expect(firstCard?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(112);
   const completeCardCount = await standardCards.evaluateAll(
     (cards) =>
       cards.filter((card) => {

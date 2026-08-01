@@ -148,7 +148,9 @@ export function MobileOrdersFloatingHeader({
           "rounded-[var(--order-mobile-radius)] px-[var(--order-mobile-pad)] py-0",
         )}
       >
-        <header className={cn(repairOs.mobileFloatingHeaderNav, "gap-[var(--order-mobile-gap)]")}>
+        <header
+          className={cn(repairOs.mobileFloatingHeaderNav, "gap-[var(--order-mobile-cluster)]")}
+        >
           <SidebarTrigger className="size-9 rounded-lg border border-[var(--border-panel)] bg-card shadow-none" />
           <div className="min-w-0 text-center">
             <p className="truncate text-[length:var(--order-mobile-title)] font-semibold leading-5">
@@ -182,10 +184,10 @@ export function MobileOrdersFloatingHeader({
         </header>
 
         {!collapsed ? (
-          <div className="min-w-0 space-y-[var(--order-mobile-gap)] border-t border-[var(--border-panel)]">
+          <div className="min-w-0 space-y-[var(--order-mobile-group)] border-t border-[var(--border-panel)] pt-[var(--order-mobile-inline)]">
             <div
               className={cn(
-                "grid min-w-0 gap-[var(--order-mobile-gap)]",
+                "grid min-w-0 gap-[var(--order-mobile-cluster)]",
                 scanAction || filterAction
                   ? cn(
                       "grid-cols-[minmax(0,1fr)]",
@@ -200,7 +202,7 @@ export function MobileOrdersFloatingHeader({
               <div
                 className={cn(
                   repairOs.searchBarEmbedded,
-                  "h-[38px] gap-[var(--order-mobile-gap)] rounded-[var(--order-mobile-radius)] px-[var(--order-mobile-pad)] shadow-none",
+                  "h-[38px] gap-[var(--order-mobile-inline)] rounded-[var(--order-mobile-radius)] px-[var(--order-mobile-pad)] shadow-none",
                 )}
                 aria-busy={searchBusy}
               >
@@ -267,7 +269,7 @@ export function MobileOrdersFloatingHeader({
                     disabled={interactionDisabled}
                     onClick={() => onGroupChange(group.key)}
                     className={cn(
-                      "grid h-8 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-[clamp(0.125rem,0.64vw,0.25rem)] rounded-[var(--order-mobile-radius)] border px-[var(--order-mobile-pad)] py-0.5 text-left transition-colors active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                      "grid h-8 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-[var(--order-mobile-inline)] rounded-[var(--order-mobile-radius)] border px-[var(--order-mobile-pad)] py-0.5 text-left transition-colors active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
                       group.key === "all" &&
                         (groups.length === 1 ? "col-span-4" : orderMobileQueueAllSpan),
                       groupToneClass(group.tone, active),
@@ -276,7 +278,7 @@ export function MobileOrdersFloatingHeader({
                     aria-busy={pending}
                     aria-label={`第 ${groups.indexOf(group) + 1} 阶段：${group.label}，${group.count} 条`}
                   >
-                    <span className="flex min-w-0 items-center gap-[clamp(0.125rem,0.64vw,0.25rem)] text-[length:var(--order-mobile-meta)] font-semibold leading-none">
+                    <span className="flex min-w-0 items-center gap-[var(--order-mobile-inline)] text-[length:var(--order-mobile-meta)] font-semibold leading-none">
                       <Icon
                         className="hidden size-[var(--order-mobile-icon)] shrink-0 min-[360px]:block"
                         aria-hidden="true"

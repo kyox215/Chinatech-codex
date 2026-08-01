@@ -18,13 +18,13 @@ describe("SettingsLayout", () => {
     expect(container.querySelector("[data-settings-tablet-back]")).not.toBeInTheDocument();
   });
 
-  it("adds the tablet return path for a settings subpage", () => {
+  it("leaves subpage return ownership to the shared floating header", () => {
     render(
       <SettingsLayout activeSection={getSettingsSection("store")} rail={<div>导航</div>}>
         <div>店铺资料</div>
       </SettingsLayout>,
     );
 
-    expect(screen.getByRole("link", { name: "返回设置总览" })).toHaveAttribute("href", "/settings");
+    expect(screen.queryByRole("link", { name: "返回设置总览" })).not.toBeInTheDocument();
   });
 });

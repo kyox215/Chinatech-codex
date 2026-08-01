@@ -322,7 +322,7 @@ export function MessagesScreen() {
       ) : null}
       <section className="grid min-w-0 gap-3 lg:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[320px_minmax(0,1fr)]">
         <aside className={cn(repairOs.adminSection, "min-w-0 p-2.5 sm:p-3")}>
-          <div className="relative hidden md:block">
+          <div className="relative hidden lg:block">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}

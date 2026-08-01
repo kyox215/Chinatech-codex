@@ -1,7 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/hooks/use-mobile", () => ({ useIsCompactWorkspace: () => false }));
+const compactWorkspace = vi.hoisted(() => ({ current: false }));
+
+vi.mock("@/hooks/use-mobile", () => ({
+  useIsCompactWorkspace: () => compactWorkspace.current,
+}));
 
 import {
   getMemoFilterCount,
@@ -25,6 +29,10 @@ describe("memo filter helpers", () => {
 });
 
 describe("MemoFiltersOverlay", () => {
+  beforeEach(() => {
+    compactWorkspace.current = false;
+  });
+
   it("uses pill choices and applies the draft only after confirmation", () => {
     const onApply = vi.fn();
 
@@ -52,6 +60,26 @@ describe("MemoFiltersOverlay", () => {
       kind: "todo",
       assigneeId: "member-1",
     });
+  });
+
+  it("keeps the compact sheet shell fixed and gives scrolling to its body", () => {
+    compactWorkspace.current = true;
+
+    render(
+      <MemoFiltersOverlay
+        open
+        value={{ view: "active", kind: "all", assigneeId: "" }}
+        assignees={assignees}
+        onOpenChange={vi.fn()}
+        onApply={vi.fn()}
+      />,
+    );
+
+    const sheet = screen.getByRole("dialog");
+    expect(sheet).toHaveClass("overflow-hidden", "grid-rows-[auto_minmax(0,1fr)]");
+    const footer = screen.getByRole("button", { name: "查看结果" }).parentElement;
+    expect(footer).toHaveClass("bg-background", "border-t");
+    expect(footer?.previousElementSibling).toHaveClass("overflow-y-auto", "overscroll-contain");
   });
 });
 

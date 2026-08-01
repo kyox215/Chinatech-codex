@@ -142,6 +142,21 @@ export const density = {
 } as const;
 
 /**
+ * Semantic spacing rhythm for compact RepairDesk surfaces. These values describe
+ * relationships, not a site-wide replacement scale: keep controls at their
+ * existing density and choose the smallest relationship that matches the UI.
+ */
+export const semanticSpacing = {
+  inline: "gap-1",
+  controlCluster: "gap-1.5",
+  contentRow: "gap-2",
+  group: "gap-3",
+  mobileModule: "gap-4",
+  desktopModule: "gap-6",
+  denseCardStack: "gap-1.5 sm:gap-2",
+} as const;
+
+/**
  * Semantic mobile control density. WCAG 2.2 AA uses a 24px target floor (or
  * sufficient spacing); 44px is reserved for contexts that genuinely need it,
  * not imposed on every mobile control.
@@ -169,7 +184,7 @@ export const repairOs = {
   mobileFloatingHeaderShell:
     "fixed inset-x-0 top-0 z-40 bg-background/75 px-2 pb-2 pt-[calc(env(safe-area-inset-top)+0.35rem)] backdrop-blur-xl lg:hidden",
   mobileFloatingHeaderCard:
-    "mx-auto min-w-0 max-w-[430px] overflow-hidden rounded-lg border border-[var(--border-panel)] bg-card/95 px-1.5 py-1 shadow-[var(--shadow-card)] md:max-w-none",
+    "mx-auto w-full min-w-0 max-w-[430px] overflow-hidden rounded-lg border border-[var(--border-panel)] bg-card/95 px-1.5 py-1 shadow-[var(--shadow-card)] md:max-w-none",
   mobileFloatingHeaderNav: "grid min-w-0 grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-1.5",
   mobileFloatingHeaderBody: "mt-1 min-w-0 border-t border-[var(--border-panel)] pt-1",
   mobileInfoCard:
@@ -199,7 +214,7 @@ export const repairOs = {
   dashboardMobileQuickGrid: "mt-1.5 grid min-w-0 grid-cols-3 gap-1.5 min-[400px]:gap-2",
   dashboardMobileQuickAction:
     "block min-w-0 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-  chipRow: "flex min-w-0 snap-x gap-1.5 overflow-x-auto pb-1",
+  chipRow: "flex min-w-0 flex-wrap gap-1.5",
   chip: "inline-flex h-8 shrink-0 snap-start items-center rounded-full border border-[var(--border-panel)] bg-card px-2.5 text-[11px] font-medium text-muted-foreground shadow-[var(--shadow-card)] transition-colors",
   chipActive:
     "border-primary bg-primary text-primary-foreground shadow-[var(--shadow-action)] hover:bg-primary",
@@ -218,7 +233,7 @@ export const repairOs = {
   floatingAction:
     "fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-3 z-40 h-10 rounded-full border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 text-xs font-semibold text-foreground shadow-[var(--shadow-overlay)] backdrop-blur-xl transition-transform active:scale-95 md:hidden",
   quickSheet:
-    "max-h-[calc(100svh-5rem)] rounded-t-xl px-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3",
+    "grid max-h-[calc(100svh-5rem)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-t-xl px-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3",
   quickActionList: "mt-3 grid gap-2",
   quickActionItem:
     "grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel)] px-3 py-2.5 text-left transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",

@@ -121,75 +121,77 @@ function MobileWorkspaceDockContent({
             <SheetTitle className="text-base">快捷操作</SheetTitle>
             <SheetDescription>当前模块动作与扫码、拍照、搜索工具。</SheetDescription>
           </SheetHeader>
-          <div className={repairOs.quickActionList}>
-            {actions.slice(0, 1).map((action) => (
-              <button
-                key={action.label}
-                type="button"
-                data-mobile-workspace-action="primary"
-                onClick={() => runAction(action)}
-                className={cn(repairOs.quickActionItem, repairOs.quickActionPrimary)}
-              >
-                <span className={cn(repairOs.quickActionIcon, repairOs.quickActionIconPrimary)}>
-                  <action.icon className="size-4" />
-                </span>
-                <span className="min-w-0">
-                  <span className={repairOs.quickActionLabel}>当前 · {action.label}</span>
-                  <span className={repairOs.quickActionDescription}>{action.description}</span>
-                </span>
-              </button>
-            ))}
-            {aiAssistant.canOpenOrderAssistant ? (
-              <button
-                type="button"
-                data-ai-assistant-trigger="mobile-dock"
-                onClick={() => {
-                  setOpen(false);
-                  window.requestAnimationFrame(aiAssistant.openAssistant);
-                }}
-                className={repairOs.quickActionItem}
-              >
-                <span className={repairOs.quickActionIcon}>
-                  <Sparkles className="size-4" aria-hidden="true" />
-                </span>
-                <span className="min-w-0">
-                  <span className={repairOs.quickActionLabel}>AI 小助手</span>
-                  <span className={repairOs.quickActionDescription}>只读查询当前门店工单</span>
-                </span>
-              </button>
-            ) : null}
-            {actions.slice(1).map((action) => {
-              return (
+          <div className="min-h-0 overflow-y-auto overscroll-contain pr-0.5">
+            <div className={repairOs.quickActionList}>
+              {actions.slice(0, 1).map((action) => (
                 <button
                   key={action.label}
                   type="button"
+                  data-mobile-workspace-action="primary"
                   onClick={() => runAction(action)}
-                  className={repairOs.quickActionItem}
+                  className={cn(repairOs.quickActionItem, repairOs.quickActionPrimary)}
                 >
-                  <span className={repairOs.quickActionIcon}>
+                  <span className={cn(repairOs.quickActionIcon, repairOs.quickActionIconPrimary)}>
                     <action.icon className="size-4" />
                   </span>
                   <span className="min-w-0">
-                    <span className={repairOs.quickActionLabel}>{action.label}</span>
+                    <span className={repairOs.quickActionLabel}>当前 · {action.label}</span>
                     <span className={repairOs.quickActionDescription}>{action.description}</span>
                   </span>
                 </button>
-              );
-            })}
-          </div>
-          {attachmentDrafts.length > 0 ? (
-            <div className="mt-3">
-              <AttachmentDraftPanel
-                attachments={attachmentDrafts}
-                onChange={setAttachmentDrafts}
-                onOpenCamera={() => {
-                  setOpen(false);
-                  setCameraOpen(true);
-                }}
-                defaultKind="fault_photo"
-              />
+              ))}
+              {aiAssistant.canOpenOrderAssistant ? (
+                <button
+                  type="button"
+                  data-ai-assistant-trigger="mobile-dock"
+                  onClick={() => {
+                    setOpen(false);
+                    window.requestAnimationFrame(aiAssistant.openAssistant);
+                  }}
+                  className={repairOs.quickActionItem}
+                >
+                  <span className={repairOs.quickActionIcon}>
+                    <Sparkles className="size-4" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className={repairOs.quickActionLabel}>AI 小助手</span>
+                    <span className={repairOs.quickActionDescription}>只读查询当前门店工单</span>
+                  </span>
+                </button>
+              ) : null}
+              {actions.slice(1).map((action) => {
+                return (
+                  <button
+                    key={action.label}
+                    type="button"
+                    onClick={() => runAction(action)}
+                    className={repairOs.quickActionItem}
+                  >
+                    <span className={repairOs.quickActionIcon}>
+                      <action.icon className="size-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className={repairOs.quickActionLabel}>{action.label}</span>
+                      <span className={repairOs.quickActionDescription}>{action.description}</span>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-          ) : null}
+            {attachmentDrafts.length > 0 ? (
+              <div className="mt-3">
+                <AttachmentDraftPanel
+                  attachments={attachmentDrafts}
+                  onChange={setAttachmentDrafts}
+                  onOpenCamera={() => {
+                    setOpen(false);
+                    setCameraOpen(true);
+                  }}
+                  defaultKind="fault_photo"
+                />
+              </div>
+            ) : null}
+          </div>
         </SheetContent>
       </Sheet>
       <ScanSearchSheet open={scannerOpen} onOpenChange={setScannerOpen} scope="global" />

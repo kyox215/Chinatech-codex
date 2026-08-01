@@ -187,6 +187,17 @@ export const componentDensity = {
   mobileDangerTarget: "min-h-10 min-w-10",
 } as const;
 
+/** Relationship-based spacing; control height remains owned by componentDensity. */
+export const componentSpacing = {
+  inlineSpacing: "gap-1",
+  controlClusterSpacing: "gap-1.5",
+  contentRowSpacing: "gap-2",
+  groupSpacing: "gap-3",
+  mobileModuleSpacing: "gap-4",
+  desktopModuleSpacing: "gap-6",
+  denseCardStackSpacing: "gap-1.5 sm:gap-2",
+} as const;
+
 export const componentAction = {
   row: "flex flex-wrap items-center gap-2",
   iconButton: "inline-flex size-9 items-center justify-center rounded-md",

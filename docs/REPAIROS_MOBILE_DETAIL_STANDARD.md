@@ -76,7 +76,7 @@ repairOs.mobileInfoCardMuted;
 | ------------------ | ---------------------------------------------------------------------------------------------------------- |
 | 顶部卡外壳         | `max-w-[430px]`、`rounded-xl`、`border-[var(--border-panel)]`、`bg-card/95`、`shadow-[var(--shadow-card)]` |
 | 导航列             | 左侧 `36px`，中间 `minmax(0,1fr)`，右侧 `auto`                                                             |
-| 返回/打印/更多按钮 | 普通入口 `size-9 rounded-lg`；主动作 `size-10`，图标 `size-4` 到 `size-[18px]`                              |
+| 返回/打印/更多按钮 | 普通入口 `size-9 rounded-lg`；主动作 `size-10`，图标 `size-4` 到 `size-[18px]`                             |
 | 页面标题           | `text-xs font-semibold leading-4`                                                                          |
 | 状态上下文         | `text-[9px] leading-3 text-muted-foreground`                                                               |
 | 主编号             | `font-mono text-[12px] font-semibold leading-4 text-primary`                                               |
@@ -308,3 +308,10 @@ document.documentElement.scrollWidth <= window.innerWidth
 10. 390px、430px、768px、834px、1024px 是否无横向溢出，且没有卡片遮挡。
 11. 该页是否只在真实有序流程中才显示进度；普通商品等对象详情必须无进度条。
 12. 顶部和正文是否无装饰性滚动条、无横向拖动分组，手机长正文是否避免嵌套纵向滚动区。
+
+## 13. Balanced Dense 间距与滚动所有权
+
+- 行内图标与文字 4px；同一控件簇 6px；内容行 8px；标题、搜索、筛选、业务卡组之间 12px；移动模块 16px；桌面模块 24px。
+- dense 卡片内部纵向堆叠使用 6–8px；这不会改变 `controlDensity` 规定的控件高度。
+- Sheet/Dialog 只能有一个纵向滚动 owner。Header 与提交/应用 footer 固定，只有中间 body 使用 `overflow-y-auto`；禁止 Sheet 外壳和正文同时滚动。
+- Header、Filter、Tab、Stepper 不得通过横向滚动承载选项。状态筛选使用紧凑 grid/wrap；无真实动作的 chip 使用文本语义，不使用 button。

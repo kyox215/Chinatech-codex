@@ -403,3 +403,19 @@ export function ExampleDialog({ open, isPending, onOpenChange, onSubmit }: Examp
 - 图标、按钮、弹窗符合 a11y。
 - 未引入新的数据访问越界。
 - `npm run lint` 通过；涉及构建面时 `npm run build` 通过。
+
+## 15. Semantic Spacing Contract
+
+可复用组件必须把关系间距与控件尺寸分开：
+
+| 关系           | 语义值 | 声明                                                        |
+| -------------- | -----: | ----------------------------------------------------------- |
+| 行内图标/文字  |    4px | `semanticSpacing.inline` / `componentSpacing.inlineSpacing` |
+| 控件簇         |    6px | `controlCluster` / `controlClusterSpacing`                  |
+| 内容行         |    8px | `contentRow` / `contentRowSpacing`                          |
+| 业务组         |   12px | `group` / `groupSpacing`                                    |
+| 移动模块       |   16px | `mobileModule` / `mobileModuleSpacing`                      |
+| 桌面模块       |   24px | `desktopModule` / `desktopModuleSpacing`                    |
+| dense 卡片堆叠 |  6–8px | `denseCardStack` / `denseCardStackSpacing`                  |
+
+控件尺寸继续来自 `controlDensity` / `componentDensity`。`RepairOsBusinessCard` 默认 `density="standard"` 以保持兼容，明确的高密度业务列表传 `density="dense"`，不得同时再叠加 `repairOs.businessCardDense`。无 `onClick` 的 `RepairOsChipRow` 项必须渲染为 `span`；Header 筛选项必须换行或使用网格，不得使用横向滚动。

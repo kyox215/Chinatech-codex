@@ -112,60 +112,62 @@ export function MemoFiltersOverlay({
   }, [currentAssigneeId, currentKind, currentView, open]);
 
   const content = (
-    <div className="space-y-3 sm:space-y-5">
-      <fieldset className="space-y-2.5">
-        <legend className="text-xs font-medium text-muted-foreground">查看范围</legend>
-        <div className="flex flex-wrap gap-2">
-          {memoViewOptions.map((option) => (
-            <FilterPill
-              key={option.value}
-              selected={draft.view === option.value}
-              onClick={() => setDraft((current) => ({ ...current, view: option.value }))}
-            >
-              {option.label.replace("当前记录", "当前")}
-            </FilterPill>
-          ))}
-        </div>
-      </fieldset>
-      <fieldset className="space-y-2.5">
-        <legend className="text-xs font-medium text-muted-foreground">类型</legend>
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              ["all", "全部"],
-              ["todo", "待办"],
-              ["note", "记录"],
-            ] as const
-          ).map(([nextKind, label]) => (
-            <FilterPill
-              key={nextKind}
-              selected={draft.kind === nextKind}
-              onClick={() => setDraft((current) => ({ ...current, kind: nextKind }))}
-            >
-              {label}
-            </FilterPill>
-          ))}
-        </div>
-      </fieldset>
-      <label className="block space-y-2.5 text-xs font-medium text-muted-foreground">
-        <span>负责人</span>
-        <select
-          value={draft.assigneeId}
-          aria-label="负责人"
-          className="h-[38px] w-full rounded-lg border border-[var(--border-panel)] bg-background px-3 text-base text-foreground shadow-none"
-          onChange={(event) =>
-            setDraft((current) => ({ ...current, assigneeId: event.target.value }))
-          }
-        >
-          <option value="">全部负责人</option>
-          {assignees.map((assignee) => (
-            <option key={assignee.membershipId} value={assignee.membershipId}>
-              {assignee.displayName}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-4">
+    <div className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-3 sm:block sm:space-y-5">
+      <div className="min-h-0 space-y-3 overflow-y-auto overscroll-contain sm:space-y-5 sm:overflow-visible">
+        <fieldset className="space-y-2.5">
+          <legend className="text-xs font-medium text-muted-foreground">查看范围</legend>
+          <div className="flex flex-wrap gap-2">
+            {memoViewOptions.map((option) => (
+              <FilterPill
+                key={option.value}
+                selected={draft.view === option.value}
+                onClick={() => setDraft((current) => ({ ...current, view: option.value }))}
+              >
+                {option.label.replace("当前记录", "当前")}
+              </FilterPill>
+            ))}
+          </div>
+        </fieldset>
+        <fieldset className="space-y-2.5">
+          <legend className="text-xs font-medium text-muted-foreground">类型</legend>
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                ["all", "全部"],
+                ["todo", "待办"],
+                ["note", "记录"],
+              ] as const
+            ).map(([nextKind, label]) => (
+              <FilterPill
+                key={nextKind}
+                selected={draft.kind === nextKind}
+                onClick={() => setDraft((current) => ({ ...current, kind: nextKind }))}
+              >
+                {label}
+              </FilterPill>
+            ))}
+          </div>
+        </fieldset>
+        <label className="block space-y-2.5 text-xs font-medium text-muted-foreground">
+          <span>负责人</span>
+          <select
+            value={draft.assigneeId}
+            aria-label="负责人"
+            className="h-[38px] w-full rounded-lg border border-[var(--border-panel)] bg-background px-3 text-base text-foreground shadow-none"
+            onChange={(event) =>
+              setDraft((current) => ({ ...current, assigneeId: event.target.value }))
+            }
+          >
+            <option value="">全部负责人</option>
+            {assignees.map((assignee) => (
+              <option key={assignee.membershipId} value={assignee.membershipId}>
+                {assignee.displayName}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="flex items-center justify-between gap-3 border-t border-border/60 bg-background pt-3 sm:pt-4">
         <Button
           type="button"
           variant="ghost"
@@ -193,9 +195,9 @@ export function MemoFiltersOverlay({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="bottom"
-          className="max-h-[82svh] overflow-y-auto rounded-t-[20px] border-x-0 border-b-0 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4"
+          className="grid max-h-[82svh] grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-t-[20px] border-x-0 border-b-0 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4"
         >
-          <SheetHeader className="mb-5 text-left">
+          <SheetHeader className="mb-3 text-left">
             <SheetTitle className="text-base">筛选备忘录</SheetTitle>
             <SheetDescription>只保留现在需要查看的内容</SheetDescription>
           </SheetHeader>
@@ -286,7 +288,10 @@ export function MemoEmptyState({
   onCreate: () => void;
 }) {
   return (
-    <RepairOsBusinessCard className="grid min-h-32 place-items-center p-3 text-center sm:min-h-52 sm:p-5">
+    <RepairOsBusinessCard
+      data-ui="memo-empty-state"
+      className="grid min-h-32 place-items-center p-3 text-center sm:min-h-52 sm:p-5"
+    >
       <div>
         <NotebookPen className="mx-auto size-8 text-muted-foreground" />
         <p className="mt-2 text-sm font-semibold">

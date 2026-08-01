@@ -1,6 +1,4 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 
 import type { SettingsSectionDefinition } from "@/features/settings/model/settings-section-registry";
 
@@ -21,16 +19,6 @@ export function SettingsLayout({ activeSection, rail, children }: SettingsLayout
       </aside>
 
       <section data-settings-content className="w-full min-w-0 max-w-[980px]">
-        {activeSection ? (
-          <Link
-            href="/settings"
-            data-settings-tablet-back
-            className="mb-3 hidden min-h-9 items-center gap-2 rounded-lg border border-[var(--border-panel)] bg-card px-3 text-xs font-medium text-foreground shadow-[var(--shadow-card)] transition-colors hover:bg-accent md:flex lg:hidden"
-          >
-            <ArrowLeft className="size-4" />
-            返回设置总览
-          </Link>
-        ) : null}
         {children}
       </section>
     </div>

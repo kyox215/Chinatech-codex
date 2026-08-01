@@ -204,10 +204,8 @@ export function CustomerMobileCard({ customer }: { customer: CustomerListItem })
       className="block min-w-0 touch-manipulation rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <RepairOsBusinessCard
-        className={cn(
-          repairOs.businessCardDense,
-          "cursor-pointer transition active:scale-[0.99] active:bg-accent/15",
-        )}
+        density="dense"
+        className={cn("cursor-pointer transition active:scale-[0.99] active:bg-accent/15")}
         trailing={
           <div className="flex min-w-[4.5rem] flex-col items-end text-right text-xs">
             <span className="text-[9px] leading-3 text-muted-foreground">
