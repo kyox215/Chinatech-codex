@@ -27,3 +27,19 @@
 - **Evidence:**
   - E-012,E-013
 - **Recorded by:** IntegrationLead
+## 2026-08-01T02:38:24Z — 业务提交 e0db19e7 已推送；生产 dpl_J437wJ56wLrbyVTyCMx6pN4XSHBD READY 并绑定两个 Chinatech 域名。登录态 390px 线上实测顶部183px、搜索38px/16px、队列32px、无溢出、0 error 日志，最终截图已保存。
+
+- **Phase:** closeout
+- **Completed/current state:** 业务提交 e0db19e7 已推送；生产 dpl_J437wJ56wLrbyVTyCMx6pN4XSHBD READY 并绑定两个 Chinatech 域名。登录态 390px 线上实测顶部183px、搜索38px/16px、队列32px、无溢出、0 error 日志，最终截图已保存。
+- **Next:** 提交并推送关闭档案，验证 docs-only 部署，然后关闭 Registry task/run/window 并释放 lease v1。
+- **Decision:** 生产验收通过，进入正式关闭。
+- **Evidence:**
+  - E-014,E-015
+- **Recorded by:** IntegrationLead
+## 2026-08-01T02:38:45Z — Task closeout
+
+- **Status:** closed
+- **Outcome:** 全站移动端已采用语义化 24/32/36/38/40–44px 密度等级；订单顶部、卡片及高频页面完成迁移，GitHub main 与 Vercel 生产发布成功并通过登录态移动验收。
+- **Residual risks:** 真实实体 iPhone 安全区与长期大数据量仍需日常观察；广义 interactions mock 的既有跨任务不稳定项未作为本次 release gate。
+- **Follow-up:** 仅在可访问性标准、共享控件或订单移动页头重构时复审 ADR；若生产观测异常，对 e0db19e7 执行普通 git revert。
+- **Closed by:** IntegrationLead

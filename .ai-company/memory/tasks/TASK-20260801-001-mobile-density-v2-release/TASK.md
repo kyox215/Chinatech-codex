@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260801-001-mobile-density-v2-release"
 title: "全站移动端分级高密度控件体系生产发布"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "IntegrationLead"
 departments: ["PRODUCT", "UX", "ARCH", "FE", "QA", "DOC", "RELEASE", "INT"]
 created_at: "2026-08-01T01:19:21Z"
-updated_at: "2026-08-01T02:25:01Z"
+updated_at: "2026-08-01T02:38:45Z"
+closed_at: "2026-08-01T02:38:45Z"
 ---
 # Task — 全站移动端分级高密度控件体系生产发布
 
@@ -66,8 +67,8 @@ Chinatech 店员在 320–430px 手机屏幕上能用更少滚动扫读和处理
 - [x] 默认、加载、空、错误、无权限、离线、局部成功、长文案、大计数、小屏输入状态都有验证。
 - [x] 相关组件测试、Chromium/WebKit E2E、`npm run lint`、`npm run typecheck`、`npm run test`、`npm run build` 全部通过。
 - [x] 保存无客户 PII 的 `/orders` 与代表性页面实施后截图，并与基线尺寸对比。
-- [ ] 仅任务范围 diff 被提交；推送 `main` 前重新核对远端未前进、integration lease 有效和回滚点。
-- [ ] Vercel 生产 deployment `READY`，已登录 `/orders` 实路径、关键页面、错误日志和无溢出通过；异常时立即停止并回滚。
+- [x] 仅任务范围 diff 被提交；推送 `main` 前重新核对远端未前进、integration lease 有效和回滚点。
+- [x] Vercel 生产 deployment `READY`，已登录 `/orders` 实路径、关键页面、错误日志和无溢出通过；异常时立即停止并回滚。
 
 ## Facts, assumptions, and unknowns
 

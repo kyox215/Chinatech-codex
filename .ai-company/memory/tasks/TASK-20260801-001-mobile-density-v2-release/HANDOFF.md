@@ -2,7 +2,7 @@
 
 ## Current handoff
 
-- **Status:** no handoff prepared.
-- **Last verified:** 2026-08-01T01:23:53Z
-- **Workspace/branch:** inspect before resuming.
-- **First action:** read `TASK.md` and latest checkpoint, then inspect the repository.
+- **Status:** closed; no implementation handoff remains.
+- **Last verified:** 2026-08-01T02:38:00Z
+- **Release:** business tip `e0db19e7`; production `dpl_J437wJ56wLrbyVTyCMx6pN4XSHBD` READY on both Chinatech domains.
+- **Future review trigger:** accessibility standard change, shared control redesign, or a regression that raises the 390px order header above 185px.

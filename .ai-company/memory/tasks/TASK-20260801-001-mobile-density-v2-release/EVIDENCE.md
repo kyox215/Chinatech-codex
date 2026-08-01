@@ -15,8 +15,11 @@
 | E-011 | scope hygiene | generated `next-env.d.ts` and prior-task screenshots were restored; task diff is formatting-clean | `git diff --check`; `git status --short` | PASS; only task source/docs/tests/memory/new task screenshots remain | 2026-08-01T02:23:00Z | IntegrationLead |
 | E-012 | production observation | first production candidate was READY and the authenticated 390x844 `/orders` page had no overflow, but measured the editable search at 36px rather than the 38px input tier | Vercel `dpl_C3K8qrsoB22LTa1iR9vhcpCszyuq`; Chrome computed metrics | detected and corrected before closeout; header 181px, queue 32px, input font 16px, scroll width 390px | 2026-08-01T02:31:00Z | IntegrationLead |
 | E-013 | corrective verification | shared embedded search input fills its 38px container and the order header uses an explicit 38px row | `src/lib/ui-patterns.ts`, `order-list-mobile-header.tsx`, `repair-os-mobile.tsx`; lint/typecheck/full Vitest/build; focused orders E2E | PASS; 389 files / 2540 tests; Chromium orders 3/3; WebKit header 1/1 | 2026-08-01T02:34:00Z | IntegrationLead |
+| E-014 | production release | corrected commit is the GitHub main tip and both custom domains resolve to the exact READY production deployment | `origin/main@e0db19e7d267073fb2b2656bfe206711e1edb22c`; Vercel `dpl_J437wJ56wLrbyVTyCMx6pN4XSHBD`; `vercel inspect https://www.chinatech.in` | PASS; aliases include `www.chinatech.in` and `chinatech.in` | 2026-08-01T02:38:00Z | IntegrationLead |
+| E-015 | authenticated production visual | actual `/orders` at 390x844 renders the compact header and zero-data state without PII or browser errors | Chrome computed metrics and `screenshots/TASK-20260801-001-mobile-density-v2-release/production-orders-390.png` | PASS; header 183px, search 38px / font 16px, queue 32px, scrollWidth=clientWidth=390, error logs 0 | 2026-08-01T02:38:00Z | IntegrationLead |
 
 Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
 IDs, test reports, screenshots, or concise log references.
 - `2026-08-01T02:25:01Z` `d68e833135` — E-003..E-011
 - `2026-08-01T02:33:27Z` `fd518e91eb` — E-012,E-013
+- `2026-08-01T02:38:24Z` `206e74a6e0` — E-014,E-015
