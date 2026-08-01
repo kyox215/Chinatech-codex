@@ -1070,7 +1070,7 @@ function InventoryDetailBody({
                   <button
                     type="button"
                     key={attachment.id}
-                    className="block min-h-11 w-full min-w-0 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1.5 text-left disabled:cursor-wait disabled:opacity-60"
+                    className="block min-h-9 w-full min-w-0 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1 text-left disabled:cursor-wait disabled:opacity-60"
                     disabled={
                       attachmentAccess.isPending && attachmentAccess.variables === attachment.id
                     }
@@ -1999,7 +1999,7 @@ function InventoryActionDialog({
                       }
                     />
                   ) : (
-                    <div className="flex min-h-11 items-center rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 text-xs text-muted-foreground">
+                    <div className="flex min-h-9 items-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 text-xs text-muted-foreground">
                       回收实付已由成交协议锁定；如需撤销，请使用专用冲正流程。
                     </div>
                   )}
@@ -2176,7 +2176,7 @@ function InventoryActionDialog({
                     placeholder="输入姓名或电话搜索"
                     className={cn(
                       compactInventoryInputClass,
-                      "!h-11 !text-base lg:!h-9 lg:!text-sm",
+                      "!h-[38px] !text-base lg:!h-9 lg:!text-sm",
                     )}
                   />
                   {selectedBuyer ? (
@@ -2206,7 +2206,7 @@ function InventoryActionDialog({
                     <button
                       key={customer.id}
                       type="button"
-                      className="block min-h-11 w-full rounded-lg border border-[var(--border-panel)] px-3 py-2 text-left text-xs"
+                      className="block min-h-9 w-full rounded-lg border border-[var(--border-panel)] px-3 py-1.5 text-left text-xs"
                       onClick={() => {
                         setSelectedBuyer(customer);
                         setBuyerSearch(`${customer.name} · ${customer.phone_raw}`);
@@ -2296,7 +2296,7 @@ function InventoryActionDialog({
                 <p className="col-span-2 text-xs leading-5 text-muted-foreground">
                   首版正式成交只支持一次全额收款；库存、收款、售卖事件与审计会在同一事务完成。
                 </p>
-                <label className="col-span-2 flex min-h-11 items-start gap-2 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 text-xs leading-5">
+                <label className="col-span-2 flex min-h-9 items-start gap-2 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 text-xs leading-5">
                   <input
                     type="checkbox"
                     checked={saleConfirmed}

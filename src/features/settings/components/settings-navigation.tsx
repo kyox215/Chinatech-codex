@@ -66,7 +66,7 @@ export function SettingsNavigation({
         data-navigation-scroll="preserve"
         aria-current={activeSection === null ? "page" : undefined}
         className={cn(
-          "mb-2 flex min-h-11 min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors",
+          "mb-2 flex min-h-9 min-w-0 items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
           activeSection === null ? "bg-primary/10 text-primary" : "text-foreground hover:bg-accent",
         )}
       >
@@ -141,7 +141,7 @@ function SettingsNavigationRow({
     return (
       <div
         aria-disabled="true"
-        className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-muted-foreground"
+        className="flex min-h-9 min-w-0 items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground"
       >
         {content}
         <LockKeyhole className="size-3.5 shrink-0" aria-hidden="true" />
@@ -162,7 +162,7 @@ function SettingsNavigationRow({
         if (onBeforeNavigate && !onBeforeNavigate(item.key)) event.preventDefault();
       }}
       className={cn(
-        "flex min-h-11 min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-xs transition-colors",
+        "flex min-h-9 min-w-0 items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs transition-colors",
         active ? "bg-primary/10 text-primary" : "text-foreground hover:bg-accent",
       )}
     >

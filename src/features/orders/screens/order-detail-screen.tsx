@@ -2249,7 +2249,7 @@ function OrderDeviceCustodyCard({
             type="button"
             size="sm"
             variant="outline"
-            className={cn(variant === "inline" ? "h-7 px-2 text-[10px]" : "h-11 text-xs")}
+            className={cn(variant === "inline" ? "h-7 px-2 text-[10px]" : "h-9 text-xs")}
             disabled={pending}
             onClick={() => onRequestChange(target)}
           >
@@ -2268,7 +2268,7 @@ function OrderDeviceCustodyCard({
         key="cancelled-return"
         type="button"
         size="sm"
-        className={cn(variant === "inline" ? "h-7 px-2 text-[10px]" : "h-11 text-xs")}
+        className={cn(variant === "inline" ? "h-7 px-2 text-[10px]" : "h-9 text-xs")}
         disabled={pending}
         onClick={onConfirmCancelledReturn}
       >
@@ -2286,7 +2286,7 @@ function OrderDeviceCustodyCard({
           type="button"
           size="sm"
           variant="outline"
-          className={cn(variant === "inline" ? "h-7 px-2 text-[10px]" : "h-11 text-xs")}
+          className={cn(variant === "inline" ? "h-7 px-2 text-[10px]" : "h-9 text-xs")}
           disabled={pending}
           onClick={() => onRequestChange(target)}
         >
@@ -2303,7 +2303,7 @@ function OrderDeviceCustodyCard({
           type="button"
           size="sm"
           variant="outline"
-          className={cn(variant === "inline" ? "h-7 px-2 text-[10px]" : "h-11 text-xs")}
+          className={cn(variant === "inline" ? "h-7 px-2 text-[10px]" : "h-9 text-xs")}
           disabled={pending}
           onClick={() => onRequestChange(target)}
         >
@@ -3314,7 +3314,7 @@ function MobileOrderDetailView({
   ) => {
     const commonProps = {
       className: cn(
-        "h-11 min-w-0 rounded-xl text-xs",
+        "h-9 min-w-0 rounded-lg text-xs",
         primary && "flex-[1.25] border-0 text-primary-foreground",
         !primary && "flex-1",
       ),
@@ -3438,7 +3438,7 @@ function MobileOrderDetailView({
               <Button
                 type="button"
                 variant="outline"
-                className="h-11 rounded-lg px-3 text-[11px] lg:h-8"
+                className="h-9 rounded-lg px-3 text-[11px] lg:h-8"
                 aria-expanded={assignmentEditing}
                 onClick={() => setAssignmentEditing((editing) => !editing)}
               >
@@ -3479,7 +3479,7 @@ function MobileOrderDetailView({
                       }
                       disabled={assigneePending}
                     >
-                      <SelectTrigger className="h-11 min-w-0 rounded-md px-2 text-[11px] lg:h-8">
+                      <SelectTrigger className="h-[38px] min-w-0 rounded-md px-2 text-base lg:h-8 lg:text-[11px]">
                         <SelectValue placeholder={order.technician_name || "未分配"} />
                       </SelectTrigger>
                       <SelectContent>
@@ -3583,7 +3583,7 @@ function MobileOrderDetailView({
               asChild
               variant="outline"
               size="sm"
-              className="h-11 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5"
+              className="h-9 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5"
             >
               <a href={`tel:${phone}`} aria-label="拨打电话" title="拨打电话">
                 <Phone className="shrink-0" />
@@ -3595,7 +3595,7 @@ function MobileOrderDetailView({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="col-span-2 h-11 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5"
+                className="col-span-2 h-9 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5"
                 disabled={!kioskSignatureAvailable || kioskSignaturePending}
                 onClick={onRequestKioskSignature}
               >
@@ -3624,7 +3624,7 @@ function MobileOrderDetailView({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-11 min-w-11 rounded-lg px-2 text-[11px]"
+                      className="h-9 min-w-9 rounded-lg px-2 text-[11px]"
                       onClick={() => setDeviceUnlockEditing(true)}
                     >
                       密码
@@ -3635,7 +3635,7 @@ function MobileOrderDetailView({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-11 min-w-11 rounded-lg px-2 text-[11px]"
+                      className="h-9 min-w-9 rounded-lg px-2 text-[11px]"
                       onClick={() => {
                         setImeiDraft(deviceImei);
                         setImeiEditing(true);
@@ -3690,7 +3690,7 @@ function MobileOrderDetailView({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-11 min-w-11 rounded-lg px-2 text-[11px]"
+                className="h-9 min-w-9 rounded-lg px-2 text-[11px]"
                 onClick={() => setFaultEditing(true)}
               >
                 编辑
@@ -3758,7 +3758,7 @@ function MobileOrderDetailView({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-11 min-w-11 rounded-lg px-2 text-[11px]"
+                    className="h-9 min-w-9 rounded-lg px-2 text-[11px]"
                     onClick={() => onFinanceEditingChange(!financeEditing)}
                   >
                     {financeEditing ? "收起" : "编辑"}
@@ -4395,7 +4395,7 @@ function DeviceUnlockEditSheet({
             <Button
               type="button"
               variant="outline"
-              className="h-11 lg:h-9"
+              className="h-10 lg:h-9"
               disabled={pending}
               onClick={() => onOpenChange(false)}
             >
@@ -4403,7 +4403,7 @@ function DeviceUnlockEditSheet({
             </Button>
             <Button
               type="button"
-              className="h-11 lg:h-9"
+              className="h-10 lg:h-9"
               disabled={pending || Boolean(validationError)}
               onClick={() => void save()}
             >
@@ -5086,7 +5086,7 @@ function MobileStickyWorkflowHeader({
     >
       <section className={repairOs.mobileFloatingHeaderCard}>
         <header className={repairOs.mobileFloatingHeaderNav}>
-          <Button asChild variant="ghost" size="icon" className="size-11 rounded-lg">
+          <Button asChild variant="ghost" size="iconDense" className="size-9 rounded-lg">
             <Link
               href="/orders"
               aria-label="返回工单列表"
@@ -5110,7 +5110,7 @@ function MobileStickyWorkflowHeader({
               type="button"
               variant="ghost"
               size="icon"
-              className="size-11 rounded-lg"
+              className="size-9 rounded-lg"
               aria-label={
                 printDisabled ? (printDisabledReason ?? "当前工单暂不可打印") : "打印工单"
               }
@@ -5125,7 +5125,7 @@ function MobileStickyWorkflowHeader({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-11 rounded-lg"
+                  className="size-9 rounded-lg"
                   aria-label="更多操作"
                 >
                   <MoreVertical className="size-4" />

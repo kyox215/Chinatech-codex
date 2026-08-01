@@ -53,7 +53,7 @@ type InventoryPhoneCatalogFieldsProps = {
   onColorChange: (value: string) => void;
 };
 
-const manualInputClass = "h-11 min-w-0 text-base sm:h-10 sm:text-sm";
+const manualInputClass = "h-[38px] min-w-0 text-base sm:h-10 sm:text-sm";
 
 export function InventoryPhoneCatalogFields({
   brand,
@@ -217,7 +217,7 @@ function CatalogCombobox({
       role="combobox"
       aria-expanded={open}
       disabled={disabled}
-      className="h-11 w-full min-w-0 justify-between px-3 text-base font-normal sm:h-10 sm:text-sm"
+      className="h-[38px] w-full min-w-0 justify-between px-3 text-base font-normal sm:h-10 sm:text-sm"
     >
       <span className={cn("min-w-0 truncate", !value && "text-muted-foreground")}>
         {value || placeholder}
@@ -265,7 +265,7 @@ function CatalogCombobox({
                   variant="ghost"
                   size="icon"
                   aria-label={`关闭${label.replace("*", "").trim()}选择`}
-                  className="absolute right-2 top-1 size-11 rounded-full"
+                  className="absolute right-2 top-1 size-8 rounded-full"
                 >
                   <X className="size-4" />
                 </Button>
@@ -346,7 +346,7 @@ function CatalogCommandPicker({
               key={option.value}
               value={`${option.value} ${option.keywords ?? ""}`}
               onSelect={() => onChoose({ value: option.value, fromCatalog: true })}
-              className="min-h-11"
+              className="min-h-9"
             >
               <Check
                 className={cn(
@@ -366,7 +366,7 @@ function CatalogCommandPicker({
             <CommandItem
               value={`manual ${normalizedQuery}`}
               onSelect={() => onChoose({ value: normalizedQuery, fromCatalog: false })}
-              className="min-h-11"
+              className="min-h-9"
             >
               <PencilLine className="size-4 shrink-0" />
               <span className="min-w-0 break-words">使用“{normalizedQuery}”</span>
@@ -410,7 +410,7 @@ function SpecificationChoices({
               aria-checked={value === option}
               onClick={() => onChange(option)}
               className={cn(
-                "flex min-h-11 min-w-0 items-center justify-center rounded-lg border px-2 text-sm font-medium transition-colors",
+                "flex min-h-8 min-w-0 items-center justify-center rounded-lg border px-2 text-xs font-medium transition-colors",
                 value === option
                   ? "border-primary bg-accent text-primary"
                   : "border-[var(--border-panel)] bg-background hover:bg-accent/50",

@@ -970,7 +970,7 @@ export function NewOrderScreen({
             <Button
               type="button"
               variant="outline"
-              className="h-11 bg-background"
+              className="h-[38px] bg-background text-base"
               onClick={offlineDraft.retryPreflight}
             >
               <RotateCcw className="mr-1.5 size-4" /> 重新检查
@@ -1050,7 +1050,7 @@ export function NewOrderScreen({
                   <Button
                     type="button"
                     variant={diagnosisDeferred ? "default" : "outline"}
-                    className="mt-2 min-h-11"
+                    className="mt-2 min-h-9"
                     onClick={() => setDiagnosisDeferred((current) => !current)}
                   >
                     {diagnosisDeferred ? <CheckCircle2 className="size-4" /> : null}
@@ -1299,7 +1299,7 @@ function NewOrderCreateRecoveryCard({
         </p>
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <Button type="button" size="sm" className="h-11 rounded-xl text-xs lg:h-8" asChild>
+        <Button type="button" size="sm" className="h-9 rounded-lg text-xs lg:h-8" asChild>
           <Link href="/orders">
             <ClipboardList className="mr-1.5 size-3.5" />
             查看工单列表
@@ -1309,7 +1309,7 @@ function NewOrderCreateRecoveryCard({
           type="button"
           variant="outline"
           size="sm"
-          className="h-11 rounded-xl border-status-warn/70 bg-background/80 text-xs lg:h-8"
+          className="h-9 rounded-lg border-status-warn/70 bg-background/80 text-xs lg:h-8"
           asChild
         >
           <Link href="/customers">打开客户列表</Link>
@@ -1318,7 +1318,7 @@ function NewOrderCreateRecoveryCard({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-11 rounded-xl text-xs lg:h-8"
+          className="h-10 rounded-lg text-xs lg:h-8"
           disabled={confirming}
           onClick={onRetry}
         >
@@ -1594,7 +1594,7 @@ function NewOrderDesktopHeader({
               <button
                 key={`${item.target}-${item.label}`}
                 type="button"
-                className="inline-flex h-11 items-center rounded-md border border-status-warn-foreground/20 bg-background px-2 text-[10px] font-medium text-status-warn-foreground transition-colors hover:bg-status-warn/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:h-7"
+                className="inline-flex h-9 items-center rounded-md border border-status-warn-foreground/20 bg-background px-2 text-[10px] font-medium text-status-warn-foreground transition-colors hover:bg-status-warn/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:h-7"
                 onClick={() => focusNewOrderMissingItem(item)}
               >
                 补充：{item.label}
@@ -1665,7 +1665,7 @@ function NewOrderDialogMobileHeader({
         type="button"
         variant="ghost"
         size="icon"
-        className="size-11 shrink-0 rounded-xl text-muted-foreground hover:bg-[var(--surface-panel-muted)] hover:text-foreground"
+        className="size-9 shrink-0 rounded-lg text-muted-foreground hover:bg-[var(--surface-panel-muted)] hover:text-foreground"
         aria-label="关闭新建维修工单"
         onClick={onClose}
       >
@@ -1848,12 +1848,12 @@ function NewOrderMobileHeader({
     <div ref={shellRef} className={repairOs.mobileFloatingHeaderShell}>
       <section className={cn(repairOs.mobileFloatingHeaderCard, "px-2.5 pb-2")}>
         <header className={repairOs.mobileFloatingHeaderNav}>
-          <SidebarTrigger className="size-11 rounded-lg border border-[var(--border-panel)] bg-card shadow-none" />
+          <SidebarTrigger className="size-9 rounded-lg border border-[var(--border-panel)] bg-card shadow-none" />
           <div className="min-w-0 text-center">
             <p className="truncate text-xs font-semibold leading-4">新建工单</p>
             <p className="truncate text-[9px] leading-3 text-muted-foreground">{operatorName}</p>
           </div>
-          <Button asChild variant="ghost" size="icon" className="size-11 rounded-lg">
+          <Button asChild variant="ghost" size="iconDense" className="size-9 rounded-lg">
             <Link href="/orders" aria-label="返回工单列表">
               <X className="size-4" />
             </Link>
@@ -1899,7 +1899,7 @@ function NewOrderMobileHeader({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-11 w-full justify-between rounded-lg px-2 text-[10px] font-semibold"
+                className="h-9 w-full justify-between rounded-lg px-2 text-[10px] font-semibold"
                 aria-expanded={missingExpanded}
                 aria-controls="new-order-mobile-missing-list"
                 onClick={() => setMissingExpanded((expanded) => !expanded)}
@@ -1916,7 +1916,7 @@ function NewOrderMobileHeader({
                     <li key={`${item.code}-${item.fieldId}`}>
                       <button
                         type="button"
-                        className="min-h-11 w-full rounded-md px-2 text-left font-medium text-status-warn-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="min-h-9 w-full rounded-md px-2 text-left font-medium text-status-warn-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         onClick={() => focusNewOrderMissingItem(item)}
                       >
                         补充：{item.label}
@@ -2015,7 +2015,7 @@ function NewOrderOfflineRestoreCard({
         <Button
           type="button"
           size="sm"
-          className="h-11 rounded-xl text-xs lg:h-8"
+          className="h-9 rounded-lg text-xs lg:h-8"
           onClick={onRestore}
         >
           <RotateCcw className="mr-1.5 size-3.5" />
@@ -2025,7 +2025,7 @@ function NewOrderOfflineRestoreCard({
           type="button"
           variant="outline"
           size="sm"
-          className="h-11 rounded-xl text-xs lg:h-8"
+          className="h-10 rounded-lg text-xs lg:h-8"
           onClick={onDiscard}
         >
           <Trash2 className="mr-1.5 size-3.5" />

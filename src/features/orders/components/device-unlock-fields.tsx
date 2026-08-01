@@ -110,7 +110,7 @@ export function DeviceUnlockEditor({
             type="button"
             data-device-unlock-method={item}
             className={cn(
-              "h-11 min-w-0 rounded-lg border border-[var(--border-panel)] px-2 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:h-8",
+              "h-8 min-w-0 rounded-lg border border-[var(--border-panel)] px-2 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               method === item
                 ? "bg-primary text-primary-foreground"
                 : "bg-card text-muted-foreground hover:bg-accent/50 hover:text-foreground",
@@ -133,7 +133,7 @@ export function DeviceUnlockEditor({
             inputMode="text"
             maxLength={80}
             autoComplete="off"
-            className="h-11 rounded-lg bg-card text-base md:text-sm lg:h-9"
+            className="h-[38px] rounded-lg bg-card text-base md:text-sm lg:h-9"
             placeholder="例如 password / 客户提示"
             onChange={(event) => {
               onChange({ method: "text", value: event.target.value });
@@ -214,7 +214,7 @@ export function DeviceUnlockViewer({
           data-device-unlock-reveal="true"
           variant="ghost"
           size="sm"
-          className="h-11 shrink-0 gap-1 rounded-md px-2 text-[10px] lg:h-6 lg:px-1.5"
+          className="h-8 shrink-0 gap-1 rounded-md px-2 text-[10px] lg:h-6 lg:px-1.5"
           onClick={() => setRevealed((value) => !value)}
         >
           {revealed ? <EyeOff className="size-3" /> : <Eye className="size-3" />}
@@ -344,7 +344,7 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
           autoComplete="off"
           maxLength={16}
           value={pin}
-          className="h-11 rounded-lg bg-card text-base font-mono tracking-wide md:text-sm lg:h-9"
+          className="h-[38px] rounded-lg bg-card text-base font-mono tracking-wide md:text-sm lg:h-9"
           placeholder="输入数字 PIN"
           onChange={(event) => {
             const next = event.target.value.replace(/\D/g, "").slice(0, 16);
@@ -359,7 +359,7 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
             type="button"
             aria-label="数字 PIN"
             aria-expanded={open}
-            className="flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-input bg-card px-3 text-left text-base outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring md:text-sm lg:h-9"
+            className="flex h-[38px] w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-input bg-card px-3 text-left text-base outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring md:text-sm lg:h-9"
             onClick={() => setOpen(true)}
             onKeyDown={handleDisplayKeyDown}
           >
@@ -571,7 +571,7 @@ function PatternLockInput({
         </div>
         <button
           type="button"
-          className="inline-flex h-11 shrink-0 items-center gap-1 rounded-md px-2 text-[10px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground lg:h-6 lg:px-1.5"
+          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-[10px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground lg:h-6 lg:px-1.5"
           onClick={clearPattern}
         >
           <X className="size-3" />

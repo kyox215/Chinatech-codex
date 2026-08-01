@@ -123,14 +123,14 @@ export function OrderWorkflowStatusSheet({
           <Button
             type="button"
             variant="outline"
-            className="min-h-11"
+            className="min-h-9"
             onClick={() => onOpenChange(false)}
           >
             取消
           </Button>
           <Button
             type="button"
-            className="min-h-11"
+            className="min-h-10"
             disabled={Boolean(fieldError)}
             onClick={commit}
           >

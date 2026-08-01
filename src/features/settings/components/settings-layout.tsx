@@ -25,7 +25,7 @@ export function SettingsLayout({ activeSection, rail, children }: SettingsLayout
           <Link
             href="/settings"
             data-settings-tablet-back
-            className="mb-3 hidden min-h-11 items-center gap-2 rounded-xl border border-[var(--border-panel)] bg-card px-3 text-xs font-medium text-foreground shadow-[var(--shadow-card)] transition-colors hover:bg-accent md:flex lg:hidden"
+            className="mb-3 hidden min-h-9 items-center gap-2 rounded-lg border border-[var(--border-panel)] bg-card px-3 text-xs font-medium text-foreground shadow-[var(--shadow-card)] transition-colors hover:bg-accent md:flex lg:hidden"
           >
             <ArrowLeft className="size-4" />
             返回设置总览

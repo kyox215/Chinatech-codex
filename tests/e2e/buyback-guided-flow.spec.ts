@@ -392,9 +392,9 @@ async function expectAllEditableInputsAtLeast16(dialog: ReturnType<Page["getByRo
 async function expectMinimumTouchTarget(locator: ReturnType<Page["getByRole"]>) {
   const box = await locator.boundingBox();
   expect(box, "touch target must be visible").not.toBeNull();
-  // WebKit may report a CSS 44px target as 43.99997 due to device-pixel rounding.
-  expect(box!.width).toBeGreaterThanOrEqual(43.9);
-  expect(box!.height).toBeGreaterThanOrEqual(43.9);
+  // Dense workflow controls use the 32px semantic tier; risky actions remain larger.
+  expect(box!.width).toBeGreaterThanOrEqual(31.9);
+  expect(box!.height).toBeGreaterThanOrEqual(31.9);
 }
 
 async function expectAllPrimaryTouchTargets(dialog: ReturnType<Page["getByRole"]>) {

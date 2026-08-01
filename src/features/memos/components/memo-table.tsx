@@ -46,7 +46,7 @@ export function MemoTable({
               <TableCell>
                 <button
                   type="button"
-                  className="block min-h-11 w-full min-w-0 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="block min-h-9 w-full min-w-0 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => onOpen(memo)}
                 >
                   <span className="block truncate text-sm font-medium">{memo.title}</span>

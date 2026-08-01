@@ -233,7 +233,7 @@ function InventoryProductEditContent({
             <Button
               variant="ghost"
               size="icon"
-              className="size-11 rounded-xl"
+              className="size-9 rounded-lg"
               aria-label="返回商品详情"
               onClick={() => router.push(`/inventory/${id}`)}
             >
@@ -245,7 +245,7 @@ function InventoryProductEditContent({
               </h1>
               <p className="text-[10px] text-muted-foreground">保存时会检查是否有其他设备已修改</p>
             </div>
-            <span className="size-11" aria-hidden />
+            <span className="size-9" aria-hidden />
           </header>
         </section>
       </div>
@@ -474,12 +474,12 @@ function InventoryProductEditContent({
           <Button
             type="button"
             variant="outline"
-            className="min-h-11"
+            className="min-h-9"
             onClick={() => router.push(`/inventory/${id}`)}
           >
             取消
           </Button>
-          <Button type="submit" className="min-h-11" disabled={mutation.isPending}>
+          <Button type="submit" className="min-h-10" disabled={mutation.isPending}>
             {mutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}保存修改
           </Button>
         </div>
@@ -548,7 +548,7 @@ function EditField({
       </Label>
       <Input
         id={inputId}
-        className="h-11 min-w-0 text-base lg:h-9 lg:text-sm"
+        className="h-[38px] min-w-0 text-base lg:h-9 lg:text-sm"
         value={value}
         required={required}
         inputMode={inputMode}

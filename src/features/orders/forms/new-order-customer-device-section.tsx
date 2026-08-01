@@ -56,7 +56,7 @@ type NewOrderDeviceSectionProps = NewOrderCustomerDeviceBaseProps & {
 type NewOrderCustomerDeviceSectionProps = NewOrderCustomerSectionProps & NewOrderDeviceSectionProps;
 
 const visualInputClass =
-  "h-11 w-full border-0 bg-transparent px-0 py-0 font-sans text-base leading-11 text-foreground shadow-none placeholder:text-base placeholder:text-muted-foreground/55 focus-visible:ring-0 sm:h-11 sm:text-base lg:h-8 lg:text-[13px] lg:leading-8 lg:placeholder:text-[13px]";
+  "h-[38px] w-full border-0 bg-transparent px-0 py-0 font-sans text-base leading-[38px] text-foreground shadow-none placeholder:text-base placeholder:text-muted-foreground/55 focus-visible:ring-0 lg:h-8 lg:text-[13px] lg:leading-8 lg:placeholder:text-[13px]";
 
 export function NewOrderCustomerDeviceSection({
   form,
@@ -117,7 +117,7 @@ export function NewOrderCustomerSection({
         name={form.customerName}
         selectedCustomerId={form.customerId}
         inputClassName={visualInputClass}
-        inputContainerClassName="relative h-11 w-full min-w-0 overflow-hidden lg:h-9"
+        inputContainerClassName="relative h-[38px] w-full min-w-0 overflow-hidden lg:h-9"
         onPhoneChange={(customerPhone) => {
           onClearCustomerContext();
           setForm((current) => ({
@@ -386,7 +386,7 @@ function NewOrderDeviceCustodySelector({
               type="button"
               aria-pressed={selected}
               className={cn(
-                "min-h-11 min-w-0 rounded-xl border px-2 py-1.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                "min-h-9 min-w-0 rounded-lg border px-2 py-1 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
                 selected
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-[var(--border-panel)] bg-card text-foreground hover:bg-accent/40",
@@ -456,7 +456,7 @@ function DensePillField({
   return (
     <div
       data-new-order-field={fieldTarget}
-      className="rd-new-order-field grid min-h-11 min-w-0 grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-1.5 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-0 shadow-[var(--shadow-card)]"
+      className="rd-new-order-field grid min-h-[38px] min-w-0 grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-1.5 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-0 shadow-[var(--shadow-card)]"
     >
       <Label
         htmlFor={inputId}
@@ -467,7 +467,7 @@ function DensePillField({
       </Label>
       <div
         className={cn(
-          "grid h-11 min-w-0 items-center gap-1.5 overflow-hidden lg:h-9",
+          "grid h-[38px] min-w-0 items-center gap-1.5 overflow-hidden lg:h-9",
           leading ? "grid-cols-[1rem_minmax(0,1fr)]" : "grid-cols-1",
         )}
       >
@@ -514,7 +514,7 @@ function DenseOptionMenu({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="grid size-11 place-items-center rounded-lg text-muted-foreground transition-colors [touch-action:pan-y] hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:size-8"
+          className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors [touch-action:pan-y] hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           aria-label={`选择${label}`}
           {...touchSafeTrigger}
         >
@@ -536,7 +536,7 @@ function DenseOptionMenu({
                 key={option}
                 onSelect={() => onSelect(option)}
                 className={cn(
-                  "min-h-11 gap-2 rounded-lg px-2.5 py-1.5 text-xs lg:min-h-9",
+                  "min-h-9 gap-2 rounded-lg px-2.5 py-1 text-xs",
                   selected && "bg-primary/10 text-primary focus:bg-primary/10 focus:text-primary",
                 )}
               >
@@ -557,7 +557,7 @@ function DenseOptionMenu({
 
 function DenseScannerBlock({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="rd-new-order-field grid min-h-11 min-w-0 grid-cols-[3.25rem_minmax(0,1fr)] items-center gap-1.5 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-0 shadow-[var(--shadow-card)] lg:min-h-10">
+    <div className="rd-new-order-field grid min-h-[38px] min-w-0 grid-cols-[3.25rem_minmax(0,1fr)] items-center gap-1.5 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-0 shadow-[var(--shadow-card)] lg:min-h-10">
       <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground">
         {label}
       </Label>

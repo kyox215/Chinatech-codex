@@ -172,8 +172,8 @@ export function MemosScreen() {
   const createAction = shell.permissions?.canCreateMemos ? (
     <Button
       type="button"
-      size="icon"
-      className="size-11 rounded-xl bg-foreground text-background shadow-none hover:bg-foreground/90"
+      size="iconDense"
+      className="size-9 rounded-lg bg-foreground text-background shadow-none hover:bg-foreground/90"
       onClick={openCreate}
       aria-label="新建备忘"
       disabled={!online || mutation.isPending}
@@ -217,9 +217,9 @@ export function MemosScreen() {
     <Button
       type="button"
       variant="outline"
-      size={compact ? "icon" : "default"}
+      size={compact ? "iconDense" : "default"}
       className={cn(
-        compact ? "size-11" : "h-10 px-3",
+        compact ? "size-9" : "h-10 px-3",
         "relative rounded-xl border-[var(--border-panel)] bg-card shadow-none",
         filterCount > 0 && "border-foreground text-foreground",
       )}
@@ -249,8 +249,8 @@ export function MemosScreen() {
       <Button
         type="button"
         variant="ghost"
-        size="icon"
-        className="size-11 shrink-0 rounded-full text-muted-foreground"
+        size="iconDense"
+        className="size-8 shrink-0 rounded-full text-muted-foreground"
         aria-label="清除筛选条件"
         onClick={() => {
           setView("active");

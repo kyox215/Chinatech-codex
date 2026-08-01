@@ -75,8 +75,8 @@ repairOs.mobileInfoCardMuted;
 | 元素               | 默认规格                                                                                                   |
 | ------------------ | ---------------------------------------------------------------------------------------------------------- |
 | 顶部卡外壳         | `max-w-[430px]`、`rounded-xl`、`border-[var(--border-panel)]`、`bg-card/95`、`shadow-[var(--shadow-card)]` |
-| 导航列             | 左侧 `44px`，中间 `minmax(0,1fr)`，右侧 `auto`                                                             |
-| 返回/打印/更多按钮 | `size-11 rounded-lg`，图标 `size-4` 到 `size-[18px]`                                                       |
+| 导航列             | 左侧 `36px`，中间 `minmax(0,1fr)`，右侧 `auto`                                                             |
+| 返回/打印/更多按钮 | 普通入口 `size-9 rounded-lg`；主动作 `size-10`，图标 `size-4` 到 `size-[18px]`                              |
 | 页面标题           | `text-xs font-semibold leading-4`                                                                          |
 | 状态上下文         | `text-[9px] leading-3 text-muted-foreground`                                                               |
 | 主编号             | `font-mono text-[12px] font-semibold leading-4 text-primary`                                               |
@@ -261,7 +261,7 @@ min-w-0 overflow-hidden
 
 规则：
 
-- 按钮高度 `h-11`，字号 `text-xs`，图标 `size-3.5`。
+- 主按钮高度 `h-10`，字号 `text-xs`，图标 `size-3.5`；低风险次动作可使用 `h-9`。
 - 低频动作放顶部更多菜单或对应卡片内。
 - 打印属于顶部独立图标按钮，不放在更多菜单里。
 - 编辑某个关键草稿时，底部会产生外部副作用的动作必须禁用。
@@ -286,7 +286,7 @@ document.documentElement.scrollWidth <= window.innerWidth
 
 交互验收：
 
-- 顶部、卡片内和底部所有可见操作的触控区不小于 `44px`。
+- 顶部和卡片内普通操作不小于 `24px` 且保持足够间距，标准工具按钮使用 `36px`；底部主动作不小于 `40px`。
 - 流转、审批、收款、通知在 pending 时禁用并保留反馈。
 - 金额编辑可清空、可输入小数、不出现 `012`。
 - 输入框聚焦不会触发手机页面自动放大。

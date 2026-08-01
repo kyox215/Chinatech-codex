@@ -68,7 +68,7 @@ export function MemberAccessRequests({
         role="alert"
         className="grid-cols-1 gap-2 border-status-danger-foreground/25 bg-status-danger/10 px-3 py-3 text-status-danger-foreground sm:grid-cols-[minmax(0,1fr)_auto]"
         trailing={
-          <Button type="button" variant="outline" className="min-h-11" onClick={onRetry}>
+          <Button type="button" variant="outline" className="min-h-9" onClick={onRetry}>
             <RotateCcw className="size-4" /> 重新读取申请
           </Button>
         }
@@ -125,7 +125,7 @@ export function MemberAccessRequests({
                   }
                 >
                   <SelectTrigger
-                    className="min-h-11 text-base sm:text-sm"
+                    className="h-[38px] text-base sm:text-sm"
                     aria-label="批准后的角色"
                   >
                     <SelectValue />
@@ -141,7 +141,7 @@ export function MemberAccessRequests({
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     type="button"
-                    className="min-h-11"
+                    className="min-h-9"
                     disabled={isPending || !roleOptions.includes(role)}
                     onClick={(event) => {
                       returnFocusRef.current = event.currentTarget;
@@ -153,7 +153,7 @@ export function MemberAccessRequests({
                   <Button
                     type="button"
                     variant="outline"
-                    className="min-h-11"
+                    className="min-h-10"
                     disabled={isPending}
                     onClick={(event) => {
                       returnFocusRef.current = event.currentTarget;

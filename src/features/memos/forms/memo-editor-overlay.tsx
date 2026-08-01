@@ -59,7 +59,7 @@ export function MemoEditorOverlay({
           memoQuickEntry.desktop,
           "flex flex-col overflow-hidden",
         )}
-        closeClassName="right-2 top-2 size-11 hover:bg-transparent focus:ring-[var(--memo-quick-entry-focus)] sm:right-2 sm:top-2"
+        closeClassName="right-2 top-2 size-9 hover:bg-transparent focus:ring-[var(--memo-quick-entry-focus)] sm:right-2 sm:top-2"
       >
         <DialogHeader className={memoQuickEntry.header}>
           <DialogTitle className={memoQuickEntry.title}>{title}</DialogTitle>

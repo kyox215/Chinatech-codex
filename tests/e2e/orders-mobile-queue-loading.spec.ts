@@ -62,9 +62,9 @@ test("uses a fluid two-row queue header and compact mobile cards", async ({ page
     expect(Math.abs((all?.y ?? 0) - (processing?.y ?? 0))).toBeLessThanOrEqual(1);
     expect(Math.abs((processing?.y ?? 0) - (ordered?.y ?? 0))).toBeLessThanOrEqual(1);
     expect(Math.abs((arrived?.y ?? 0) - (pickup?.y ?? 0))).toBeLessThanOrEqual(1);
-    expect(Math.abs((processing?.y ?? 0) - (arrived?.y ?? 0))).toBeGreaterThan(40);
-    expect(processing?.height ?? 0).toBeGreaterThanOrEqual(44);
-    expect(header?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(252);
+    expect(Math.abs((processing?.y ?? 0) - (arrived?.y ?? 0))).toBeGreaterThan(28);
+    expect(processing?.height ?? 0).toBeGreaterThanOrEqual(32);
+    expect(header?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(185);
 
     await page.screenshot({
       path: testInfo.outputPath(`orders-${viewport.width}-fluid-density.png`),
@@ -84,7 +84,7 @@ test("uses a fluid two-row queue header and compact mobile cards", async ({ page
   );
   await expect(standardCards.first()).toBeVisible();
   const firstCard = await standardCards.first().boundingBox();
-  expect(firstCard?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(126);
+  expect(firstCard?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(108);
   const completeCardCount = await standardCards.evaluateAll(
     (cards) =>
       cards.filter((card) => {
@@ -93,6 +93,25 @@ test("uses a fluid two-row queue header and compact mobile cards", async ({ page
       }).length,
   );
   expect(completeCardCount).toBeGreaterThanOrEqual(3);
+
+  await page.evaluate(() => window.scrollTo({ top: 180, behavior: "instant" }));
+  await expect(page.locator('[data-order-mobile-header-collapsed="true"]')).toBeVisible();
+  const collapsedHeader = await page
+    .locator('[data-order-mobile-header-card="true"]')
+    .boundingBox();
+  expect(collapsedHeader?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(44);
+  await page.screenshot({
+    path: testInfo.outputPath("orders-390-collapsed-density.png"),
+    fullPage: false,
+  });
+  const collapsedCompleteCardCount = await standardCards.evaluateAll(
+    (cards) =>
+      cards.filter((card) => {
+        const box = card.getBoundingClientRect();
+        return box.top >= 0 && box.bottom <= window.innerHeight;
+      }).length,
+  );
+  expect(collapsedCompleteCardCount).toBeGreaterThanOrEqual(5);
 
   await page.setViewportSize({ width: 768, height: 1024 });
   await expect(page.getByRole("button", { name: "筛选", exact: true })).toHaveCount(0);
@@ -206,7 +225,7 @@ test("keeps the last successful queue visible and stops transitions while offlin
 
   await expect(queueButton(page, "等待配件")).toBeDisabled();
   await expect(page.getByRole("textbox", { name: "搜索工单、客户、电话或 IMEI" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "订单扫码查询" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "扫描订单二维码" })).toBeDisabled();
   await expect(queueButton(page, "全部任务")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator('[data-order-list-blocked="true"]')).toBeHidden();
   expect(listPageRequests).toBe(0);

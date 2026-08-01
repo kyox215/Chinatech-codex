@@ -65,7 +65,7 @@ export function AppBar({
       )}
     >
       <div className="flex h-full w-full min-w-0 items-center gap-2 px-3 md:px-5">
-        <SidebarTrigger className="size-11 shrink-0 rounded-xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] lg:size-9 lg:rounded-md lg:border-0 lg:bg-transparent lg:shadow-none" />
+        <SidebarTrigger className="size-9 shrink-0 rounded-lg border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] lg:rounded-md lg:border-0 lg:bg-transparent lg:shadow-none" />
 
         <div className="min-w-0 flex-1 md:hidden">
           <p
@@ -101,7 +101,7 @@ export function AppBar({
           type="button"
           aria-label="打开全局搜索"
           onClick={onOpenCommand}
-          className="ml-0 flex size-11 min-w-0 shrink-0 items-center justify-center rounded-xl border border-[var(--border-panel)] bg-card text-muted-foreground shadow-[var(--shadow-card)] transition-colors hover:text-foreground md:ml-auto md:h-9 md:w-56 md:shrink md:justify-start md:gap-2 md:rounded-md md:bg-surface/60 md:px-3 md:shadow-none lg:w-56 xl:w-80"
+          className="ml-0 flex size-9 min-w-0 shrink-0 items-center justify-center rounded-lg border border-[var(--border-panel)] bg-card text-muted-foreground shadow-[var(--shadow-card)] transition-colors hover:text-foreground md:ml-auto md:w-56 md:shrink md:justify-start md:gap-2 md:rounded-md md:bg-surface/60 md:px-3 md:shadow-none lg:w-56 xl:w-80"
         >
           <Search className="size-4" />
           <span className="hidden min-w-0 truncate text-sm md:inline">搜索工单、客户、库存…</span>

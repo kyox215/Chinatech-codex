@@ -141,7 +141,7 @@ export function MembersSettingsSection(props: MembersSettingsSectionProps) {
             <Button
               type="button"
               variant="outline"
-              className="min-h-11"
+              className="min-h-10"
               onClick={props.onRetryMembers}
             >
               <RotateCcw className="size-4" /> 重新读取成员

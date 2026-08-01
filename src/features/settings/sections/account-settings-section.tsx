@@ -206,7 +206,7 @@ export function AccountSettingsSection({
               asChild
               variant="outline"
               size="sm"
-              className="min-h-11 w-full shrink-0 gap-1.5 sm:min-h-9 sm:w-auto"
+              className="min-h-10 w-full shrink-0 gap-1.5 sm:min-h-9 sm:w-auto"
             >
               <Link href="/account">
                 <KeyRound className="size-3.5" />

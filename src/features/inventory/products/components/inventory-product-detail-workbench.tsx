@@ -184,7 +184,7 @@ function MobileProductHeader({
             type="button"
             variant="ghost"
             size="icon"
-            className="size-11 rounded-xl"
+            className="size-9 rounded-lg"
             aria-label="返回商品库存"
             onClick={onBack}
           >
@@ -201,14 +201,14 @@ function MobileProductHeader({
               type="button"
               variant="ghost"
               size="icon"
-              className="size-11 rounded-xl"
+              className="size-9 rounded-lg"
               aria-label="编辑商品"
               onClick={onEdit}
             >
               <Pencil className="size-4" aria-hidden="true" />
             </Button>
           ) : (
-            <span className="size-11" aria-hidden="true" />
+            <span className="size-9" aria-hidden="true" />
           )}
         </header>
       </section>

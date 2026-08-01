@@ -1,0 +1,19 @@
+# Evidence Index — TASK-20260801-001-mobile-density-v2-release
+
+| Evidence ID | Type | Claim supported | Source/path/command | Result | Collected at | Collector |
+|---|---|---|---|---|---|---|
+| E-001 | request | task exists and title is recorded | `TASK.md` | observed | 2026-08-01T01:23:53Z | IntegrationLead |
+| E-002 | standards | WCAG 2.2 AA target-size baseline is 24px with documented exceptions | `https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum` | verified | 2026-08-01T01:52:30Z | IntegrationLead |
+| E-003 | implementation | semantic mobile tiers and shared primitives exist | `src/lib/ui-patterns.ts`, `src/lib/component-patterns.ts`, `src/components/ui/*`, `src/shared/ui/repair-os-mobile.tsx` | verified by diff and typecheck | 2026-08-01T01:52:30Z | IntegrationLead |
+| E-004 | orders | expanded header <=185px, collapsed header <=44px, standard card <=108px, collapsed viewport >=5 complete cards | `tests/e2e/orders-mobile-queue-loading.spec.ts` | Chromium 3/3 PASS; WebKit 3/3 PASS | 2026-08-01T01:52:30Z | IntegrationLead |
+| E-005 | responsive | primary routes have no page overflow at 320/390/430/768/834/1024/1280/1440 and extended routes pass at 320/390/430; inputs remain >=16px; representative semantic targets pass | `tests/e2e/visual-overflow.spec.ts` | Chromium 12 unaffected checks PASS, then the two rollout-gated inventory checks PASS with current flags (all 14 covered); WebKit mobile matrix 8 PASS / 1 scoped desktop skip | 2026-08-01T02:23:00Z | IntegrationLead |
+| E-006 | regression | lint/typecheck/unit/build gates | `npm run lint`; `npm run typecheck`; `npm run test`; `npm run build` | PASS; Vitest 389 files / 2540 tests; Next.js production build PASS | 2026-08-01T02:23:00Z | IntegrationLead |
+| E-007 | visual | final 320/390/430 expanded and 390 collapsed order workspace | `screenshots/TASK-20260801-001-mobile-density-v2-release/` | inspected; synthetic mock data only | 2026-08-01T01:52:30Z | IntegrationLead |
+| E-008 | broad-suite limitation | broad mobile-interactions script was not a clean release gate | `npm run test:e2e:interactions:mock` | 46 passed before bounded stop; unrelated store-context mock waits and historical assertions failed; task-owned deterministic suites were rerun separately and passed | 2026-08-01T01:52:30Z | IntegrationLead |
+| E-009 | migration audit | legacy 44px classes were removed from high-frequency mobile controls; remaining matches are intentional keypad, destructive/restore/close confirmations, or desktop/skeleton contexts | `rg -n 'size-11\|h-11\|min-h-11\|min-w-11' src/features/{buyback,memos,messages,inventory,settings,orders,customers}` plus line review | PASS; no remaining buyback/memos/messages ordinary controls and all remaining matches classified | 2026-08-01T02:23:00Z | IntegrationLead |
+| E-010 | page-family E2E | inventory, buyback, memos and order page-family behavior remains intact after density migration | inventory product density; buyback guided 390px; memos app UI; orders queue loading suites | PASS: inventory 5 scenarios covered (4 initial + corrected 32px assertion rerun), buyback 390px full create flow PASS with controlled write flag, memos 1/1 PASS, orders Chromium 3/3 + WebKit 3/3 PASS | 2026-08-01T02:23:00Z | IntegrationLead |
+| E-011 | scope hygiene | generated `next-env.d.ts` and prior-task screenshots were restored; task diff is formatting-clean | `git diff --check`; `git status --short` | PASS; only task source/docs/tests/memory/new task screenshots remain | 2026-08-01T02:23:00Z | IntegrationLead |
+
+Do not record secrets or unsupported “passed” claims. Prefer stable paths, commit
+IDs, test reports, screenshots, or concise log references.
+- `2026-08-01T02:25:01Z` `d68e833135` — E-003..E-011

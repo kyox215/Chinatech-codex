@@ -151,21 +151,21 @@ export const memoQuickEntry = {
   description: "text-xs leading-4 text-muted-foreground",
   form: "flex flex-col",
   typeRow: "mb-3 flex flex-wrap gap-2",
-  typeButton: "min-h-11 rounded-lg px-3 text-sm shadow-none sm:min-h-10 sm:px-2",
+  typeButton: "min-h-8 rounded-lg px-2.5 text-xs shadow-none sm:min-h-9 sm:px-2",
   typeButtonSelected:
     "border-[var(--memo-quick-entry-action)] bg-[var(--memo-quick-entry-action)] text-[var(--memo-quick-entry-action-foreground)] hover:bg-[var(--memo-quick-entry-action)] hover:text-[var(--memo-quick-entry-action-foreground)]",
   typeButtonIdle:
     "border-[var(--memo-quick-entry-field)] bg-[var(--memo-quick-entry-field)] text-foreground hover:bg-[var(--memo-quick-entry-field)] hover:text-foreground",
   quickField:
-    "h-12 rounded-lg border-transparent bg-[var(--memo-quick-entry-field)] px-3 text-base shadow-none focus-visible:border-transparent focus-visible:ring-1 focus-visible:ring-[var(--memo-quick-entry-focus)] md:text-sm",
+    "h-[38px] rounded-lg border-transparent bg-[var(--memo-quick-entry-field)] px-3 text-base shadow-none focus-visible:border-transparent focus-visible:ring-1 focus-visible:ring-[var(--memo-quick-entry-focus)] md:text-sm",
   detailTrigger:
-    "mb-[0.65rem] min-h-11 justify-start rounded-lg px-2 text-sm font-normal text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground sm:h-7 sm:min-h-7",
+    "mb-[0.65rem] min-h-8 justify-start rounded-lg px-2 text-xs font-normal text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground sm:h-7 sm:min-h-7",
   detailsPanel: "grid gap-[0.7rem] pt-[0.4rem]",
   footer:
     "mt-[0.85rem] flex flex-wrap items-center justify-between gap-3 border-t border-[var(--memo-quick-entry-border)] pt-3",
   scope: "text-xs text-muted-foreground",
   action:
-    "min-h-11 min-w-0 rounded-lg border-[var(--memo-quick-entry-action)] bg-[var(--memo-quick-entry-action)] px-3 text-[var(--memo-quick-entry-action-foreground)] shadow-none hover:bg-[var(--memo-quick-entry-action)] hover:text-[var(--memo-quick-entry-action-foreground)] disabled:opacity-100 sm:h-7 sm:min-h-7",
+    "min-h-10 min-w-0 rounded-lg border-[var(--memo-quick-entry-action)] bg-[var(--memo-quick-entry-action)] px-3 text-[var(--memo-quick-entry-action-foreground)] shadow-none hover:bg-[var(--memo-quick-entry-action)] hover:text-[var(--memo-quick-entry-action-foreground)] disabled:opacity-100 sm:h-8 sm:min-h-8",
 } as const;
 
 export const componentDensity = {
@@ -180,7 +180,11 @@ export const componentDensity = {
     "min-w-0 rounded-xl border border-[var(--border-panel)] bg-card p-2.5 shadow-[var(--shadow-card)]",
   mobileStateCard:
     "min-w-0 rounded-xl border border-[var(--border-panel)] bg-card p-3 shadow-[var(--shadow-card)]",
-  mobileTouchTarget: "min-h-11 min-w-11",
+  mobileTouchTarget: "min-h-8 min-w-8",
+  mobileMicroTarget: "min-h-6 min-w-6",
+  mobileStandardTarget: "min-h-9 min-w-9",
+  mobilePrimaryTarget: "min-h-10 min-w-10",
+  mobileDangerTarget: "min-h-10 min-w-10",
 } as const;
 
 export const componentAction = {

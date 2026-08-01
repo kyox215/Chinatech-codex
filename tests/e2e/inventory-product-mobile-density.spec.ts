@@ -50,7 +50,7 @@ test("mobile intake keeps five categories and both save actions immediately reac
   const undersizedCategories = await categories.evaluateAll((nodes) =>
     nodes
       .map((node) => node.getBoundingClientRect().toJSON())
-      .filter((rect) => rect.width < 44 || rect.height < 44),
+      .filter((rect) => rect.width < 32 || rect.height < 32),
   );
   expect(undersizedCategories).toEqual([]);
   await expect(page.getByRole("button", { name: "保存并继续录入" })).toBeVisible();

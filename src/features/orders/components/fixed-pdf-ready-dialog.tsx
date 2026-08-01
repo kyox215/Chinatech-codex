@@ -43,7 +43,7 @@ export function FixedPdfReadyDialog({
       <DialogContent
         data-fixed-pdf-ready-dialog="true"
         className="max-w-md"
-        closeClassName="size-11 sm:size-8"
+        closeClassName="size-9 sm:size-8"
         onOpenAutoFocus={(event) => {
           if (!prepared) event.preventDefault();
         }}
@@ -75,7 +75,7 @@ export function FixedPdfReadyDialog({
           {prepared?.canShare ? (
             <Button
               type="button"
-              className="h-11 w-full"
+              className="h-9 w-full"
               disabled={pending}
               aria-busy={pending}
               onClick={onShare}
@@ -84,18 +84,18 @@ export function FixedPdfReadyDialog({
               打印或分享 PDF
             </Button>
           ) : (
-            <Button type="button" className="h-11 w-full" onClick={onOpenPdf}>
+            <Button type="button" className="h-10 w-full" onClick={onOpenPdf}>
               <ExternalLink className="size-4" aria-hidden="true" />
               打开 PDF
             </Button>
           )}
           {prepared?.canShare ? (
-            <Button type="button" variant="outline" className="h-11 w-full" onClick={onOpenPdf}>
+            <Button type="button" variant="outline" className="h-9 w-full" onClick={onOpenPdf}>
               <ExternalLink className="size-4" aria-hidden="true" />
               查看 PDF
             </Button>
           ) : (
-            <Button type="button" variant="outline" className="h-11 w-full" onClick={onDownload}>
+            <Button type="button" variant="outline" className="h-9 w-full" onClick={onDownload}>
               <Download className="size-4" aria-hidden="true" />
               下载 PDF
             </Button>
@@ -103,7 +103,7 @@ export function FixedPdfReadyDialog({
         </DialogFooter>
 
         {prepared?.canShare ? (
-          <Button type="button" variant="ghost" className="h-11 w-full" onClick={onDownload}>
+          <Button type="button" variant="ghost" className="h-9 w-full" onClick={onDownload}>
             <Download className="size-4" aria-hidden="true" />
             下载备用文件
           </Button>

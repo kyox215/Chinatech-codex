@@ -75,7 +75,7 @@ export function NewOrderGuidedWorkspace({
                   aria-current={index === step ? "step" : undefined}
                   onClick={() => onStepChange(index)}
                   className={cn(
-                    "flex min-h-11 w-full items-center justify-center gap-1 rounded-lg border px-2 text-[11px] font-semibold",
+                    "flex min-h-8 w-full items-center justify-center gap-1 rounded-lg border px-2 text-[11px] font-semibold",
                     index === step
                       ? "border-primary bg-primary/5 text-primary"
                       : index < step
@@ -121,7 +121,7 @@ export function NewOrderGuidedWorkspace({
         <div className="flex gap-2">
           {step === 0 ? (
             onCancel ? (
-              <Button type="button" variant="outline" className="min-h-11" onClick={onCancel}>
+              <Button type="button" variant="outline" className="min-h-9" onClick={onCancel}>
                 取消
               </Button>
             ) : null
@@ -129,7 +129,7 @@ export function NewOrderGuidedWorkspace({
             <Button
               type="button"
               variant="outline"
-              className="min-h-11"
+              className="min-h-9"
               disabled={pending}
               onClick={() => onStepChange(step - 1)}
             >
@@ -138,11 +138,11 @@ export function NewOrderGuidedWorkspace({
           )}
         </div>
         {step < 3 ? (
-          <Button type="button" className="min-h-11" disabled={pending} onClick={onNext}>
+          <Button type="button" className="min-h-10" disabled={pending} onClick={onNext}>
             下一步 <ArrowRight className="size-4" />
           </Button>
         ) : (
-          <Button type="submit" className="min-h-11" disabled={pending} aria-busy={pending}>
+          <Button type="submit" className="min-h-10" disabled={pending} aria-busy={pending}>
             <ClipboardCheck className="size-4" />
             {pending ? "正在创建…" : "确认并创建工单"}
           </Button>
@@ -215,7 +215,7 @@ function NewOrderReview({
               type="button"
               variant="ghost"
               size="sm"
-              className="min-h-11"
+              className="min-h-9"
               onClick={() => onEdit(group.step)}
             >
               修改

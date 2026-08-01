@@ -160,14 +160,14 @@ export function OrderWorkflowReviewDialog({
           <Button
             type="button"
             variant="outline"
-            className="min-h-11"
+            className="min-h-9"
             onClick={() => onOpenChange(false)}
           >
             返回继续编辑
           </Button>
           <Button
             type="button"
-            className="min-h-11"
+            className="min-h-10"
             disabled
             aria-describedby="workflow-apply-lock-reason"
           >

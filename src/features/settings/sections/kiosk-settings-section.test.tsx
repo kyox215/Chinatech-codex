@@ -64,8 +64,8 @@ describe("KioskSettingsSection", () => {
     expect(screen.getByText("12345678")).toBeVisible();
     expect(screen.getByText("柜台二号 iPad")).toBeVisible();
     expect(screen.getAllByText("Test Store").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: /复制/ })).toHaveClass("min-h-11");
-    expect(screen.getByRole("button", { name: /生成配对码/ })).toHaveClass("min-h-11");
+    expect(screen.getByRole("button", { name: /复制/ })).toHaveClass("min-h-9");
+    expect(screen.getByRole("button", { name: /生成配对码/ })).toHaveClass("min-h-10");
   });
 
   it("locks accept confirmation to one request and restores trigger focus", async () => {

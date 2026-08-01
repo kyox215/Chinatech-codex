@@ -216,7 +216,7 @@ export function MemberEditorSheet({
                 >
                   <SelectTrigger
                     ref={firstControlRef}
-                    className="mt-2 min-h-11 text-base sm:text-sm"
+                    className="mt-2 h-[38px] text-base sm:text-sm"
                   >
                     <SelectValue />
                   </SelectTrigger>
@@ -279,7 +279,7 @@ export function MemberEditorSheet({
                           >
                             <Label
                               htmlFor={`member-permission-${option.action}`}
-                              className="flex min-h-11 cursor-pointer items-center text-sm font-medium"
+                              className="flex min-h-9 cursor-pointer items-center text-sm font-medium"
                             >
                               {option.label}
                             </Label>
@@ -319,7 +319,7 @@ export function MemberEditorSheet({
               ref={discardTriggerRef}
               type="button"
               variant="outline"
-              className="min-h-11"
+              className="min-h-9"
               disabled={isSaving || isSubmitting}
               onClick={() => (dirty ? setDiscardConfirmOpen(true) : onOpenChange(false))}
             >
@@ -328,7 +328,7 @@ export function MemberEditorSheet({
             <Button
               ref={saveTriggerRef}
               type="button"
-              className="min-h-11"
+              className="min-h-10"
               disabled={!canEditAnything || !dirty || isSaving || isSubmitting}
               onClick={requestSave}
             >

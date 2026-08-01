@@ -168,7 +168,7 @@ export function OrderWorkflowSettingsSection({
             <Button
               type="button"
               variant="outline"
-              className="min-h-11"
+              className="min-h-10"
               data-ui="workflow-add-status"
               onClick={() => openEditor("new")}
             >
@@ -190,7 +190,7 @@ export function OrderWorkflowSettingsSection({
           role="alert"
           className="grid-cols-1 gap-3 border-status-danger-foreground/25 bg-status-danger/10 px-3 py-3 text-status-danger-foreground sm:grid-cols-[minmax(0,1fr)_auto]"
           trailing={
-            <Button type="button" variant="outline" className="min-h-11" onClick={onRetry}>
+            <Button type="button" variant="outline" className="min-h-9" onClick={onRetry}>
               <RotateCcw className="size-4" /> 重新读取
             </Button>
           }
@@ -216,7 +216,7 @@ export function OrderWorkflowSettingsSection({
               <Button
                 type="button"
                 variant="outline"
-                className="min-h-11 shrink-0"
+                className="min-h-9 shrink-0"
                 onClick={onRetry}
               >
                 <RotateCcw className="size-4" /> 再试一次
@@ -242,7 +242,7 @@ export function OrderWorkflowSettingsSection({
               <Button
                 type="button"
                 variant="outline"
-                className="mt-3 min-h-11"
+                className="mt-3 min-h-9"
                 onClick={discardDraft}
               >
                 使用最新服务器版本
@@ -273,7 +273,7 @@ export function OrderWorkflowSettingsSection({
                   <Button
                     type="button"
                     variant="outline"
-                    className="min-h-11"
+                    className="min-h-9"
                     disabled={!dirty}
                     onClick={discardDraft}
                   >
@@ -282,7 +282,7 @@ export function OrderWorkflowSettingsSection({
                   <Button
                     ref={reviewTriggerRef}
                     type="button"
-                    className="min-h-11"
+                    className="min-h-10"
                     disabled={!dirty}
                     data-ui="workflow-review-changes"
                     onClick={() => setReviewOpen(true)}

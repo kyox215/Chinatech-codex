@@ -141,6 +141,20 @@ export const density = {
   valueDense: "truncate text-xs font-medium leading-5",
 } as const;
 
+/**
+ * Semantic mobile control density. WCAG 2.2 AA uses a 24px target floor (or
+ * sufficient spacing); 44px is reserved for contexts that genuinely need it,
+ * not imposed on every mobile control.
+ */
+export const controlDensity = {
+  micro: "min-h-6 min-w-6",
+  dense: "min-h-8 min-w-8",
+  standard: "min-h-9 min-w-9",
+  input: "h-[38px]",
+  primary: "min-h-10 min-w-10",
+  danger: "min-h-10 min-w-10",
+} as const;
+
 export const repairOs = {
   mobilePage:
     "mx-auto w-full min-w-0 max-w-[430px] overflow-x-hidden px-3 pb-20 pt-3 sm:max-w-2xl md:max-w-7xl md:px-5 md:pb-8 lg:px-6",
@@ -155,22 +169,22 @@ export const repairOs = {
   mobileFloatingHeaderShell:
     "fixed inset-x-0 top-0 z-40 bg-background/75 px-2 pb-2 pt-[calc(env(safe-area-inset-top)+0.35rem)] backdrop-blur-xl lg:hidden",
   mobileFloatingHeaderCard:
-    "mx-auto min-w-0 max-w-[430px] overflow-hidden rounded-xl border border-[var(--border-panel)] bg-card/95 px-2.5 pb-1.5 pt-1.5 shadow-[var(--shadow-card)] md:max-w-none",
-  mobileFloatingHeaderNav: "grid min-w-0 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2",
-  mobileFloatingHeaderBody: "mt-1.5 min-w-0 border-t border-[var(--border-panel)] pt-1.5",
+    "mx-auto min-w-0 max-w-[430px] overflow-hidden rounded-lg border border-[var(--border-panel)] bg-card/95 px-1.5 py-1 shadow-[var(--shadow-card)] md:max-w-none",
+  mobileFloatingHeaderNav: "grid min-w-0 grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-1.5",
+  mobileFloatingHeaderBody: "mt-1 min-w-0 border-t border-[var(--border-panel)] pt-1",
   mobileInfoCard:
     "min-w-0 overflow-hidden rounded-xl border border-[var(--border-panel)] bg-card p-2 shadow-[var(--shadow-card)]",
   mobileInfoCardMuted:
     "min-w-0 overflow-hidden rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2 shadow-[var(--shadow-card)]",
   headerActions: "flex shrink-0 items-center gap-2",
   iconAction:
-    "inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-[var(--border-panel)] bg-card text-foreground shadow-[var(--shadow-card)] transition-colors hover:bg-accent lg:size-9",
+    "inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-[var(--border-panel)] bg-card text-foreground shadow-[var(--shadow-card)] transition-colors hover:bg-accent",
   primaryAction:
-    "inline-flex h-11 shrink-0 items-center gap-1.5 rounded-xl border-0 px-3 text-sm font-medium text-primary-foreground shadow-[var(--shadow-action)] transition-transform active:scale-95 lg:h-9",
+    "inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border-0 px-2.5 text-xs font-medium text-primary-foreground shadow-[var(--shadow-action)] transition-transform active:scale-95 lg:h-9",
   searchBar:
-    "flex h-11 min-w-0 items-center gap-2 rounded-2xl border border-[var(--border-panel)] bg-card px-2.5 shadow-[var(--shadow-card)] lg:h-10 lg:px-3",
+    "flex h-[38px] min-w-0 items-center gap-1.5 rounded-lg border border-[var(--border-panel)] bg-card px-2 shadow-[var(--shadow-card)] lg:h-10 lg:px-3",
   searchBarEmbedded:
-    "flex h-11 min-w-0 items-center gap-2 rounded-xl bg-[var(--surface-panel-muted)] px-2.5 transition-colors focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/20 lg:h-10 lg:px-3",
+    "flex h-[38px] min-w-0 items-center gap-1.5 rounded-lg bg-[var(--surface-panel-muted)] px-2 transition-colors focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/20 lg:h-10 lg:px-3",
   searchInput:
     "h-9 min-w-0 border-0 bg-transparent px-0 text-sm shadow-none placeholder:text-muted-foreground/65 focus-visible:ring-0",
   metricStrip: "grid min-w-0 gap-2",
@@ -186,7 +200,7 @@ export const repairOs = {
   dashboardMobileQuickAction:
     "block min-w-0 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
   chipRow: "flex min-w-0 snap-x gap-1.5 overflow-x-auto pb-1",
-  chip: "inline-flex h-11 shrink-0 snap-start items-center rounded-full border border-[var(--border-panel)] bg-card px-3 text-xs font-medium text-muted-foreground shadow-[var(--shadow-card)] transition-colors lg:h-8",
+  chip: "inline-flex h-8 shrink-0 snap-start items-center rounded-full border border-[var(--border-panel)] bg-card px-2.5 text-[11px] font-medium text-muted-foreground shadow-[var(--shadow-card)] transition-colors",
   chipActive:
     "border-primary bg-primary text-primary-foreground shadow-[var(--shadow-action)] hover:bg-primary",
   cardList: "grid min-w-0 gap-2",
@@ -202,7 +216,7 @@ export const repairOs = {
   toolbar:
     "flex min-w-0 items-center gap-2 rounded-2xl border border-[var(--border-panel)] bg-card p-2 shadow-[var(--shadow-card)]",
   floatingAction:
-    "fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-3 z-40 h-11 rounded-full border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 text-xs font-semibold text-foreground shadow-[var(--shadow-overlay)] backdrop-blur-xl transition-transform active:scale-95 md:hidden",
+    "fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-3 z-40 h-10 rounded-full border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 text-xs font-semibold text-foreground shadow-[var(--shadow-overlay)] backdrop-blur-xl transition-transform active:scale-95 md:hidden",
   quickSheet:
     "max-h-[calc(100svh-5rem)] rounded-t-xl px-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3",
   quickActionList: "mt-3 grid gap-2",
@@ -235,7 +249,7 @@ export const stateBlocks = {
   skeletonStack: "space-y-2",
   errorText: "text-sm text-status-danger-foreground",
   emptyIcon:
-    "mx-auto mb-4 grid size-16 place-items-center rounded-2xl text-primary-foreground shadow-[var(--shadow-action)]",
+    "mx-auto mb-2.5 grid size-11 place-items-center rounded-xl text-primary-foreground shadow-[var(--shadow-action)] sm:mb-4 sm:size-16 sm:rounded-2xl",
   mutedHelp: "text-sm text-muted-foreground",
 } as const;
 

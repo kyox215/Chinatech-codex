@@ -232,7 +232,7 @@ function NotificationPreviewCard({
             type="button"
             size="sm"
             variant="outline"
-            className="mt-2 min-h-11 w-full border-status-warn-foreground/30 bg-background sm:min-h-9 sm:w-auto"
+            className="mt-2 min-h-9 w-full border-status-warn-foreground/30 bg-background sm:w-auto"
           >
             <Link href={recoveryHref}>{canUpdateSettings ? "补充店铺资料" : "查看店铺资料"}</Link>
           </Button>
@@ -311,7 +311,7 @@ function MessageTemplatesCard({
             asChild
             type="button"
             variant="outline"
-            className="min-h-11 w-full shrink-0 sm:min-h-10 sm:w-auto"
+            className="min-h-10 w-full shrink-0 sm:w-auto"
           >
             <Link href="/messages">
               打开消息模板

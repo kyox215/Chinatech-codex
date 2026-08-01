@@ -88,7 +88,7 @@ export function MemberInviteTools({
               <Input
                 id="invite-email"
                 type="email"
-                className="min-h-11 text-base sm:text-sm"
+                className="h-[38px] text-base sm:text-sm"
                 value={invite.email}
                 onChange={(event) =>
                   setInvite((current) => ({ ...current, email: event.target.value }))
@@ -106,7 +106,7 @@ export function MemberInviteTools({
                   setInvite((current) => ({ ...current, role: role as ApprovedStoreRole }))
                 }
               >
-                <SelectTrigger id="invite-role" className="min-h-11 text-base sm:text-sm">
+                <SelectTrigger id="invite-role" className="h-[38px] text-base sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -120,7 +120,7 @@ export function MemberInviteTools({
             </div>
             <Button
               type="button"
-              className="min-h-11 self-end"
+              className="min-h-10 self-end"
               disabled={
                 isInviting || invite.email.trim().length < 3 || !roleOptions.includes(invite.role)
               }
@@ -152,7 +152,7 @@ export function MemberInviteTools({
                 <Label htmlFor="invite-code-label">备注</Label>
                 <Input
                   id="invite-code-label"
-                  className="min-h-11 text-base sm:text-sm"
+                  className="h-[38px] text-base sm:text-sm"
                   maxLength={120}
                   value={link.label ?? ""}
                   onChange={(event) =>
@@ -186,7 +186,7 @@ export function MemberInviteTools({
               </div>
               <Button
                 type="button"
-                className="min-h-11 sm:col-span-2"
+                className="min-h-10 sm:col-span-2"
                 disabled={isCreatingLink || !roleOptions.includes(link.role)}
                 onClick={() =>
                   void onCreateLink({
@@ -207,7 +207,7 @@ export function MemberInviteTools({
               as="div"
               className="mt-3 grid-cols-1 gap-2 border-primary/25 bg-primary/5 px-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto]"
               trailing={
-                <Button type="button" variant="outline" className="min-h-11" onClick={onCopyCode}>
+                <Button type="button" variant="outline" className="min-h-9" onClick={onCopyCode}>
                   <Copy className="size-4" /> 复制
                 </Button>
               }
@@ -235,7 +235,7 @@ export function MemberInviteTools({
                       <Button
                         type="button"
                         variant="outline"
-                        className="min-h-11"
+                        className="min-h-9"
                         disabled={isRevokingLink}
                         onClick={(event) => onRequestRevokeLink(item, event.currentTarget)}
                       >
@@ -283,7 +283,7 @@ export function MemberInviteTools({
                     <Button
                       type="button"
                       variant="outline"
-                      className="min-h-11"
+                      className="min-h-9"
                       disabled={isInviting}
                       onClick={() =>
                         void onInvite({
@@ -299,7 +299,7 @@ export function MemberInviteTools({
                     <Button
                       type="button"
                       variant="outline"
-                      className="min-h-11"
+                      className="min-h-9"
                       disabled={isRevokingInvitation}
                       onClick={(event) => onRequestRevokeInvitation(item, event.currentTarget)}
                     >
@@ -342,7 +342,7 @@ function InvitePanel({
       <CollapsibleTrigger asChild>
         <button
           type="button"
-          className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-9 w-full items-center gap-2 px-3 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="text-primary">{icon}</span>
           <span className="min-w-0 flex-1 truncate text-sm font-semibold">{title}</span>
@@ -370,7 +370,7 @@ function InviteRoleSelect({
     <div className="space-y-1.5">
       <Label htmlFor="invite-code-role">角色</Label>
       <Select value={value} onValueChange={(role) => onChange(role as ApprovedStoreRole)}>
-        <SelectTrigger id="invite-code-role" className="min-h-11 text-base sm:text-sm">
+        <SelectTrigger id="invite-code-role" className="h-[38px] text-base sm:text-sm">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -406,7 +406,7 @@ function NumberField({
         type="number"
         min={1}
         max={max}
-        className="min-h-11 text-base sm:text-sm"
+        className="h-[38px] text-base sm:text-sm"
         value={value}
         onChange={(event) => onChange(Math.min(max, Math.max(1, Number(event.target.value) || 1)))}
       />

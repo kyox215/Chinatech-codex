@@ -152,7 +152,7 @@ export function MemoFiltersOverlay({
         <select
           value={draft.assigneeId}
           aria-label="负责人"
-          className="h-11 w-full rounded-xl border border-[var(--border-panel)] bg-background px-3 text-base text-foreground shadow-none"
+          className="h-[38px] w-full rounded-lg border border-[var(--border-panel)] bg-background px-3 text-base text-foreground shadow-none"
           onChange={(event) =>
             setDraft((current) => ({ ...current, assigneeId: event.target.value }))
           }
@@ -169,14 +169,14 @@ export function MemoFiltersOverlay({
         <Button
           type="button"
           variant="ghost"
-          className="min-h-11 rounded-xl px-2 text-muted-foreground"
+          className="min-h-8 rounded-lg px-2 text-muted-foreground"
           onClick={() => setDraft({ view: "active", kind: "all", assigneeId: "" })}
         >
           清除条件
         </Button>
         <Button
           type="button"
-          className="min-h-11 rounded-xl bg-foreground px-5 text-background hover:bg-foreground/90"
+          className="min-h-10 rounded-lg bg-foreground px-4 text-background hover:bg-foreground/90"
           onClick={() => {
             onApply(draft);
             onOpenChange(false);
@@ -234,7 +234,7 @@ export function MemoLoadMore({
       <Button
         type="button"
         variant="outline"
-        className="min-h-11 rounded-full border-[var(--border-panel)] bg-card px-5 shadow-none"
+        className="min-h-9 rounded-full border-[var(--border-panel)] bg-card px-4 shadow-none"
         disabled={loading}
         onClick={onLoadMore}
       >
@@ -296,7 +296,7 @@ export function MemoEmptyState({
           {filtered ? "调整搜索或筛选条件后重试。" : "把交班事项和待办集中记录在这里。"}
         </p>
         {canCreate && !filtered ? (
-          <Button className="mt-3 min-h-11" onClick={onCreate}>
+          <Button className="mt-3 min-h-10" onClick={onCreate}>
             <Plus className="size-4" /> 新建备忘
           </Button>
         ) : null}
@@ -313,7 +313,7 @@ export function MemoErrorState({ error, onRetry }: { error: unknown; onRetry: ()
       <AlertTitle>{forbidden ? "没有读取权限" : "备忘录读取失败"}</AlertTitle>
       <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
         <span>{error instanceof Error ? error.message : "请稍后重试"}</span>
-        <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={onRetry}>
+        <Button type="button" variant="outline" size="sm" className="min-h-9" onClick={onRetry}>
           重试
         </Button>
       </AlertDescription>

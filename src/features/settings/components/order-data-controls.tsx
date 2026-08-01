@@ -19,7 +19,7 @@ export function OrderDataAction({
     <Button
       type="button"
       variant="outline"
-      className="min-h-11 justify-start gap-2 px-3"
+      className="min-h-9 justify-start gap-2 px-3"
       disabled={disabled}
       onClick={onClick}
     >

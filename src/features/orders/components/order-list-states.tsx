@@ -21,19 +21,19 @@ export function EmptyOrdersState({
     <motion.div
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="mx-auto mt-16 flex max-w-sm flex-col items-center justify-center text-center"
+      className="mx-auto mt-5 flex max-w-sm flex-col items-center justify-center text-center sm:mt-16"
     >
       <div className={stateBlocks.emptyIcon} style={brandGradientStyle}>
-        <Search className="size-7" />
+        <Search className="size-5 sm:size-7" />
       </div>
-      <h3 className="font-display text-lg font-semibold">
+      <h3 className="font-display text-base font-semibold sm:text-lg">
         {normalizedSearch
           ? `未找到“${normalizedSearch}”`
           : hasActiveFilters
             ? "暂无符合条件的工单"
             : "暂无工单"}
       </h3>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
         {normalizedSearch
           ? "可以检查订单号、姓名、电话号码或 IMEI，也可以清除条件后重试。"
           : hasActiveFilters
@@ -93,11 +93,11 @@ export function PaginationBar({
       </span>
       <div className="flex flex-wrap items-center gap-2">
         {onPageSizeChange ? (
-          <label className="flex min-h-11 items-center gap-1.5">
+          <label className="flex min-h-9 items-center gap-1.5">
             <span>每页</span>
             <select
               value={pageSize}
-              className="h-11 rounded-lg border border-input bg-background px-2 text-sm text-foreground"
+              className="h-9 rounded-lg border border-input bg-background px-2 text-base text-foreground"
               aria-label="每页显示工单数量"
               onChange={(event) => onPageSizeChange(Number(event.target.value))}
             >
@@ -112,7 +112,7 @@ export function PaginationBar({
         <Button
           variant="outline"
           size="sm"
-          className="h-11"
+          className="h-9"
           disabled={page <= 1}
           onClick={() => onPageChange(Math.max(1, page - 1))}
         >
@@ -124,7 +124,7 @@ export function PaginationBar({
         <Button
           variant="outline"
           size="sm"
-          className="h-11"
+          className="h-9"
           disabled={page >= pageCount}
           onClick={() => onPageChange(Math.min(pageCount, page + 1))}
         >

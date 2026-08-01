@@ -119,13 +119,13 @@ export function BuybackScreen() {
       onSearchChange={setSearch}
       searchPlaceholder="搜索回收单或设备"
       searchAction={
-        <ScanSearchButton scope="buyback" onSearch={setSearch} className="size-11 rounded-xl" />
+        <ScanSearchButton scope="buyback" onSearch={setSearch} className="size-9 rounded-lg" />
       }
       filterAction={
         <Select value={filter} onValueChange={(value) => setFilter(value as ListFilter)}>
           <SelectTrigger
             aria-label="筛选回收记录"
-            className="size-11 rounded-xl px-2 [&>span]:sr-only"
+            className="size-9 rounded-lg px-2 [&>span]:sr-only"
           >
             <SelectValue />
             <Filter className="size-4" />
@@ -513,7 +513,7 @@ function TransparentQuoteDetail({
                 variant="ghost"
                 aria-expanded={showAllDeductions}
                 aria-controls="buyback-deductions-content"
-                className="mt-1 h-11 w-full rounded-xl text-xs"
+                className="mt-1 h-[38px] w-full rounded-lg text-base"
                 onClick={() => setShowAllDeductions((value) => !value)}
               >
                 {showAllDeductions ? "收起扣减" : `查看全部 ${deductions.length} 项扣减`}
@@ -547,7 +547,7 @@ function TransparentQuoteDetail({
                 <label
                   key={value}
                   className={cn(
-                    "flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-1.5 text-xs",
+                    "flex min-h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-1.5 text-xs",
                     outcome === value && "border-primary bg-primary/5",
                     value === "accepted" && acceptDisabled && "cursor-not-allowed opacity-45",
                   )}
@@ -567,7 +567,7 @@ function TransparentQuoteDetail({
             </RadioGroup>
             {outcome === "rejected" ? (
               <Select value={reason} onValueChange={setReason}>
-                <SelectTrigger className="mt-2 h-11 rounded-xl">
+                <SelectTrigger className="mt-2 h-[38px] rounded-lg">
                   <SelectValue placeholder="选择拒绝原因" />
                 </SelectTrigger>
                 <SelectContent>
@@ -590,7 +590,7 @@ function TransparentQuoteDetail({
               <Button
                 type="button"
                 variant="ghost"
-                className="mt-1 h-11 w-full rounded-xl text-xs"
+                className="mt-1 h-[38px] w-full rounded-lg text-base"
                 onClick={() => setShowNote(true)}
               >
                 添加现场备注（可选）
@@ -629,7 +629,7 @@ function TransparentQuoteDetail({
                 <Button
                   type="button"
                   variant="outline"
-                  className="mt-1 h-11 rounded-xl text-xs"
+                  className="mt-1 h-[38px] rounded-lg text-base"
                   onClick={() =>
                     void onRefresh(item.id).then(() => {
                       mutation.reset();
@@ -649,7 +649,7 @@ function TransparentQuoteDetail({
               type="button"
               aria-expanded={showHistory}
               aria-controls="buyback-history-content"
-              className="flex min-h-11 w-full items-center justify-between gap-2 rounded-xl text-left text-xs font-semibold"
+              className="flex min-h-9 w-full items-center justify-between gap-2 rounded-lg text-left text-xs font-semibold"
               onClick={() => setShowHistory((value) => !value)}
             >
               <span className="flex items-center gap-2">
@@ -691,7 +691,7 @@ function TransparentQuoteDetail({
                     <Button
                       type="button"
                       variant="outline"
-                      className="mt-2 h-11 rounded-xl"
+                      className="mt-2 h-[38px] rounded-lg"
                       onClick={() => void history.refetch()}
                     >
                       重新加载历史
@@ -784,7 +784,7 @@ function TransparentQuoteDetail({
           <div className="grid grid-cols-[1fr_1.5fr] gap-1.5">
             <Button
               variant="outline"
-              className="h-11 rounded-xl"
+              className="h-9 rounded-lg"
               disabled={!canRevise}
               aria-describedby={!canRevise ? "buyback-footer-permission-summary" : undefined}
               onClick={() => onRevise(item)}
@@ -793,7 +793,7 @@ function TransparentQuoteDetail({
               改价
             </Button>
             <Button
-              className={cn("h-11 rounded-xl", controls.brandButton)}
+              className={cn("h-10 rounded-lg", controls.brandButton)}
               style={brandGradientStyle}
               aria-describedby="buyback-footer-permission-summary"
               disabled={
@@ -987,7 +987,7 @@ function TransparentQuoteWorkspace({
             <div className="mt-2 grid grid-cols-2 gap-2">
               <Field label="品牌">
                 <Select value={brand} onValueChange={setBrand} disabled={Boolean(existing)}>
-                  <SelectTrigger className="h-11 rounded-xl">
+                  <SelectTrigger className="h-[38px] rounded-lg">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1005,7 +1005,7 @@ function TransparentQuoteWorkspace({
                   disabled={Boolean(existing)}
                   onChange={(event) => setModel(event.target.value)}
                   placeholder="例如 iPhone 15 Pro"
-                  className="h-11 rounded-xl text-base sm:text-sm"
+                  className="h-[38px] rounded-lg text-base sm:text-sm"
                 />
               </Field>
               <Field label="颜色">
@@ -1014,12 +1014,12 @@ function TransparentQuoteWorkspace({
                   disabled={Boolean(existing)}
                   onChange={(event) => setColor(event.target.value)}
                   placeholder="例如 原色钛金属"
-                  className="h-11 rounded-xl text-base sm:text-sm"
+                  className="h-[38px] rounded-lg text-base sm:text-sm"
                 />
               </Field>
               <Field label="容量">
                 <Select value={storage} onValueChange={setStorage} disabled={Boolean(existing)}>
-                  <SelectTrigger className="h-11 rounded-xl">
+                  <SelectTrigger className="h-[38px] rounded-lg">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1049,7 +1049,7 @@ function TransparentQuoteWorkspace({
                   onChange={(event) => setBattery(event.target.value)}
                   inputMode="decimal"
                   placeholder="例如 87"
-                  className="h-11 rounded-xl text-base sm:text-sm"
+                  className="h-[38px] rounded-lg text-base sm:text-sm"
                 />
               </Field>
             </div>
@@ -1094,7 +1094,7 @@ function TransparentQuoteWorkspace({
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-11 rounded-xl px-3 text-xs"
+                  className="h-9 rounded-lg px-3 text-xs"
                   onClick={() => setFinalOffer(String(suggested))}
                 >
                   <MinusCircle className="mr-1 size-4" />
@@ -1108,7 +1108,7 @@ function TransparentQuoteWorkspace({
               </Field>
               <Field label="风险">
                 <Select value={risk} onValueChange={(value) => setRisk(value as typeof risk)}>
-                  <SelectTrigger className="h-11 rounded-xl">
+                  <SelectTrigger className="h-[38px] rounded-lg">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1158,11 +1158,11 @@ function TransparentQuoteWorkspace({
             </span>
           </div>
           <div className="grid grid-cols-[1fr_1.5fr] gap-2">
-            <Button variant="outline" className="h-11 rounded-xl" onClick={onClose}>
+            <Button variant="outline" className="h-9 rounded-lg" onClick={onClose}>
               取消
             </Button>
             <Button
-              className={cn("h-11 rounded-xl", controls.brandButton)}
+              className={cn("h-10 rounded-lg", controls.brandButton)}
               style={brandGradientStyle}
               disabled={!isOnline || mutation.isPending || !operationKey || !recordId || !expiresAt}
               onClick={() => mutation.mutate()}
@@ -1204,7 +1204,7 @@ function MoneyInput({
       value={value}
       onChange={(event) => onChange(event.target.value)}
       inputMode="decimal"
-      className="h-11 rounded-xl font-mono text-base sm:text-sm"
+      className="h-[38px] rounded-lg font-mono text-base sm:text-sm"
     />
   );
 }
@@ -1250,7 +1250,7 @@ function EmptyState({
       <h2 className="mt-3 text-sm font-semibold">{title}</h2>
       <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
       {actionLabel && onAction ? (
-        <Button className="mt-4 h-11 rounded-xl" onClick={onAction}>
+        <Button className="mt-4 h-10 rounded-lg" onClick={onAction}>
           {actionLabel}
         </Button>
       ) : null}

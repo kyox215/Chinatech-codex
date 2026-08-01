@@ -54,7 +54,7 @@ export function InventoryProductDetailScreen({ id }: { id: string }) {
           <Button
             type="button"
             variant="outline"
-            className="min-h-11"
+            className="min-h-9"
             onClick={() => void query.refetch()}
           >
             <RefreshCw className="mr-2 size-4" aria-hidden="true" />
@@ -110,7 +110,7 @@ function DetailMessage({
         <h1 className="font-semibold">{title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{body}</p>
         <div className="mt-4 flex flex-wrap justify-center gap-2">
-          <Button type="button" variant="outline" className="min-h-11" onClick={onBack}>
+          <Button type="button" variant="outline" className="min-h-9" onClick={onBack}>
             返回商品库存
           </Button>
           {action}

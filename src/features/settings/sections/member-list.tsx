@@ -62,14 +62,14 @@ export function MemberList({
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             aria-label="搜索员工"
-            className="min-h-11 pl-9 text-base sm:text-sm"
+            className="h-[38px] pl-9 text-base sm:text-sm"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="按姓名或邮箱搜索"
           />
         </div>
         <Select value={role} onValueChange={(value) => setRole(value as StoreRole | "all")}>
-          <SelectTrigger className="min-h-11 text-base sm:text-sm" aria-label="按角色筛选员工">
+          <SelectTrigger className="h-[38px] text-base sm:text-sm" aria-label="按角色筛选员工">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -82,7 +82,7 @@ export function MemberList({
           </SelectContent>
         </Select>
         <Select value={status} onValueChange={(value) => setStatus(value as typeof status)}>
-          <SelectTrigger className="min-h-11 text-base sm:text-sm" aria-label="按状态筛选员工">
+          <SelectTrigger className="h-[38px] text-base sm:text-sm" aria-label="按状态筛选员工">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -213,7 +213,7 @@ function MemberActions({
       <Button
         type="button"
         variant="outline"
-        className={cn("min-h-11", compact && "xl:min-h-8 xl:px-2")}
+        className={cn("min-h-9", compact && "xl:min-h-8 xl:px-2")}
         onClick={(event) => onOpenEditor(member, event.currentTarget)}
       >
         <Settings2 className="size-4" />
@@ -237,7 +237,7 @@ function MemberActions({
         <Button
           type="button"
           variant="outline"
-          className={cn("min-h-11", compact && "xl:min-h-8 xl:px-2")}
+          className={cn("min-h-9", compact && "xl:min-h-8 xl:px-2")}
           disabled={isPending}
           onClick={(event) => onRequestRestore(member, event.currentTarget)}
         >

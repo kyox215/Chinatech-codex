@@ -72,7 +72,7 @@ export function OrderQrScannerSheet({
       <Button
         type="button"
         size="sm"
-        className="min-h-11"
+        className="min-h-10"
         onClick={() => {
           void runGuardedTransition({
             kind: "route",

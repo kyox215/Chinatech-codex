@@ -299,12 +299,12 @@ export function OrderTaskScreen({ id }: { id: string }) {
               <Button
                 type="button"
                 variant="outline"
-                className="min-h-11 lg:h-9 lg:min-h-0"
+                className="min-h-9"
                 onClick={() => void refetch()}
               >
                 重新加载
               </Button>
-              <Button asChild variant="outline" className="min-h-11 lg:h-9 lg:min-h-0">
+              <Button asChild variant="outline" className="min-h-9">
                 <Link href="/orders">返回订单</Link>
               </Button>
             </div>
@@ -366,12 +366,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
         data-order-task-header="true"
         className="flex min-w-0 items-center justify-between gap-2 md:min-h-11 md:rounded-[var(--radius-lg)] md:border md:border-[var(--border-panel)] md:bg-[var(--surface-panel)] md:px-2.5 md:py-1.5 md:shadow-[var(--shadow-workspace)]"
       >
-        <Button
-          asChild
-          variant="outline"
-          size="icon"
-          className="size-11 rounded-full md:rounded-lg lg:size-8"
-        >
+        <Button asChild variant="outline" size="icon" className="size-9 rounded-lg lg:size-8">
           <Link href="/orders">
             <ArrowLeft className="size-4" />
           </Link>
@@ -387,7 +382,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
           type="button"
           variant="outline"
           size="icon"
-          className="size-11 rounded-full md:rounded-lg lg:size-8"
+          className="size-9 rounded-lg lg:size-8"
           aria-label="打印客户工单"
           disabled={!canPrintCustomerDocument || generationPending}
           aria-busy={generationPending}
@@ -493,7 +488,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
               <Button
                 type="button"
                 size="sm"
-                className="min-h-11 shrink-0 text-xs lg:h-9 lg:min-h-0"
+                className="min-h-9 shrink-0 text-xs"
                 onClick={() => setDiagnosisQuoteOpen(true)}
               >
                 {data.capabilities?.canPrepareQuote ? "检测与报价" : "记录检测"}
@@ -542,11 +537,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
               onPick={openTransitionAction}
             />
             <div className="grid grid-cols-3 gap-2">
-              <Button
-                asChild
-                variant="outline"
-                className="h-11 gap-1 rounded-xl md:rounded-lg lg:h-9"
-              >
+              <Button asChild variant="outline" className="h-9 gap-1 rounded-lg">
                 <a href={`tel:${order.customer_phone}`}>
                   <Phone className="size-4" />
                   电话
@@ -555,7 +546,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
               <Button
                 asChild={Boolean(whatsappHref)}
                 variant="outline"
-                className="h-11 gap-1 rounded-xl md:rounded-lg lg:h-9"
+                className="h-9 gap-1 rounded-lg"
                 disabled={!whatsappHref}
               >
                 {whatsappHref ? (
@@ -570,11 +561,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
                   </span>
                 )}
               </Button>
-              <Button
-                asChild
-                variant="outline"
-                className="h-11 gap-1 rounded-xl md:rounded-lg lg:h-9"
-              >
+              <Button asChild variant="outline" className="h-9 gap-1 rounded-lg">
                 <Link href={`/orders/${order.id}`}>
                   <Bell className="size-4" />
                   详情
@@ -585,7 +572,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
               <Button
                 type="button"
                 variant="outline"
-                className="h-11 gap-1 rounded-xl md:rounded-lg lg:h-9"
+                className="h-9 gap-1 rounded-lg"
                 disabled={
                   !activeKioskDevice ||
                   kioskPickupRequest.isPending ||
@@ -705,11 +692,7 @@ function TaskTransitionPanel({
               </p>
             </div>
           </div>
-          <Button
-            asChild
-            size="sm"
-            className="min-h-11 justify-center rounded-lg lg:h-9 lg:min-h-0"
-          >
+          <Button asChild size="sm" className="min-h-9 justify-center rounded-lg">
             <Link href={`/orders/${orderId}`}>打开审批处理</Link>
           </Button>
         </div>
@@ -722,7 +705,7 @@ function TaskTransitionPanel({
       <Button
         type="button"
         size="lg"
-        className="h-12 gap-2 rounded-2xl md:h-11 md:rounded-xl"
+        className="h-10 gap-2 rounded-lg"
         disabled={!primaryAction || pending}
         onClick={() => primaryAction && onPick(primaryAction)}
       >
@@ -741,7 +724,7 @@ function TaskTransitionPanel({
                 type="button"
                 disabled={pending}
                 className={cn(
-                  "grid min-h-11 min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:min-h-0",
+                  "grid min-h-9 min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2 py-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:min-h-0",
                   action.isPrimary
                     ? "border-primary/35 bg-primary/5"
                     : "border-[var(--border-panel)] bg-[var(--surface-panel-muted)]",

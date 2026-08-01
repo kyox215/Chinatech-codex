@@ -23,12 +23,12 @@ export function MemoCard({
     Boolean(memo.due_at && new Date(memo.due_at).getTime() < Date.now());
 
   return (
-    <article className="group grid min-w-0 grid-cols-[44px_minmax(0,1fr)_auto] items-start gap-2 border-b border-border/45 px-2 py-2.5 last:border-b-0 sm:px-3">
+    <article className="group grid min-w-0 grid-cols-[32px_minmax(0,1fr)_auto] items-start gap-1.5 border-b border-border/45 px-2 py-1.5 last:border-b-0 sm:px-3 sm:py-2">
       {memo.kind === "todo" ? (
         memo.capabilities.canTransition ? (
           <button
             type="button"
-            className="grid size-11 place-items-center rounded-full outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className="grid size-8 place-items-center rounded-full outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={`${completed ? "重新打开" : "完成"}待办：${memo.title}`}
             aria-pressed={completed}
             disabled={busy}
@@ -50,7 +50,7 @@ export function MemoCard({
           </button>
         ) : (
           <span
-            className="grid size-11 place-items-center"
+            className="grid size-8 place-items-center"
             aria-label={completed ? "已完成待办" : "待处理待办"}
           >
             <span
@@ -69,8 +69,8 @@ export function MemoCard({
           </span>
         )
       ) : (
-        <span className="grid size-11 place-items-center" aria-label="普通记录">
-          <span className="grid size-8 place-items-center rounded-xl bg-primary/10 text-primary">
+        <span className="grid size-8 place-items-center" aria-label="普通记录">
+          <span className="grid size-7 place-items-center rounded-lg bg-primary/10 text-primary">
             <NotebookPen className="size-4" aria-hidden="true" />
           </span>
         </span>
@@ -78,7 +78,7 @@ export function MemoCard({
 
       <button
         type="button"
-        className="min-h-11 min-w-0 rounded-lg py-0.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="min-h-8 min-w-0 rounded-lg py-0.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label={`打开备忘：${memo.title}`}
         onClick={onOpen}
       >

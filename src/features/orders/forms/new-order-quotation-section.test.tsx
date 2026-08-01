@@ -78,8 +78,8 @@ describe("NewOrderQuotationSection", () => {
     expect(grid).toHaveClass("grid-cols-[minmax(0,1fr)_minmax(0,1fr)]");
     expect(grid?.children).toHaveLength(4);
     expect(settings?.querySelector('[data-new-order-setting="operator"]')?.children[1]).toHaveClass(
-      "h-11",
-      "rounded-xl",
+      "h-[38px]",
+      "rounded-lg",
       "border",
     );
     expect(screen.getByText("很长的录入人员姓名")).toHaveClass("truncate");

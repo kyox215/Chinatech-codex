@@ -89,9 +89,9 @@ const identifierKinds: Array<{ value: InventoryV2IdentifierKind; label: string }
   { value: "ean", label: "EAN" },
   { value: "sku", label: "SKU" },
 ];
-const inputClass = "h-11 min-w-0 text-base sm:h-10 sm:text-sm";
+const inputClass = "h-[38px] min-w-0 text-base sm:h-10 sm:text-sm";
 const selectClass =
-  "h-11 min-w-0 rounded-md border border-[var(--border-panel)] bg-background px-3 text-base text-foreground sm:h-10 sm:text-sm";
+  "h-[38px] min-w-0 rounded-md border border-[var(--border-panel)] bg-background px-3 text-base text-foreground sm:h-10 sm:text-sm";
 
 type Draft = Omit<CreateInventoryUnitV2Input, "cost_amount" | "list_price" | "warranty_months"> & {
   cost_amount: string;
@@ -375,7 +375,7 @@ export function InventoryIntakeScreen() {
           )}
         >
           <header className={repairOs.mobileFloatingHeaderNav}>
-            <SidebarTrigger className="size-11 rounded-lg border border-[var(--border-panel)] bg-card shadow-none md:hidden" />
+            <SidebarTrigger className="size-9 rounded-lg border border-[var(--border-panel)] bg-card shadow-none md:hidden" />
             <Button asChild variant="ghost" size="sm" className="hidden h-9 gap-2 md:flex">
               <Link href="/inventory">
                 <ArrowLeft className="size-4" /> 返回库存
@@ -385,7 +385,12 @@ export function InventoryIntakeScreen() {
               <p className="truncate text-sm font-semibold">库存入库</p>
               <p className="truncate text-[10px] text-muted-foreground">一次只完成一个步骤</p>
             </div>
-            <Button asChild variant="ghost" size="icon" className="size-11 rounded-lg md:hidden">
+            <Button
+              asChild
+              variant="ghost"
+              size="iconDense"
+              className="size-9 rounded-lg md:hidden"
+            >
               <Link href="/inventory" aria-label="返回库存">
                 <ArrowLeft className="size-4" />
               </Link>
@@ -400,7 +405,7 @@ export function InventoryIntakeScreen() {
                 <button
                   key={label}
                   type="button"
-                  className="min-h-11 min-w-0 text-center"
+                  className="min-h-8 min-w-0 text-center"
                   onClick={() => index <= step && setStep(index)}
                   disabled={index > step}
                   aria-current={index === step ? "step" : undefined}
@@ -894,7 +899,7 @@ export function InventoryIntakeScreen() {
               )}
               <Button
                 type="button"
-                className={cn("h-11 w-full gap-2 sm:h-12", controls.brandButton)}
+                className={cn("h-10 w-full gap-2 sm:h-12", controls.brandButton)}
                 style={brandGradientStyle}
                 disabled={!intakeReady || mutation.isPending}
                 onClick={() => mutation.mutate()}
@@ -916,7 +921,7 @@ export function InventoryIntakeScreen() {
           <Button
             type="button"
             variant="outline"
-            className="h-11 flex-1"
+            className="h-9 flex-1"
             disabled={step === 0 || mutation.isPending}
             onClick={() => setStep((current) => Math.max(0, current - 1))}
           >
@@ -926,7 +931,7 @@ export function InventoryIntakeScreen() {
           {step < steps.length - 1 ? (
             <Button
               type="button"
-              className="h-11 flex-1"
+              className="h-10 flex-1"
               disabled={!stepValid}
               onClick={() => setStep((current) => Math.min(steps.length - 1, current + 1))}
             >

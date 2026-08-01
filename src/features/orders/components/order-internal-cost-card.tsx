@@ -236,7 +236,7 @@ export function OrderInternalCostCard({
             <Button
               type="button"
               variant="outline"
-              className="h-11 bg-background lg:h-9"
+              className="h-[38px] bg-background lg:h-9"
               onClick={onRepairQuoteLines}
             >
               <PencilLine className="mr-1.5 size-3.5" /> 修复报价项目
@@ -303,7 +303,7 @@ export function OrderInternalCostCard({
                     autoComplete="off"
                     placeholder="留空"
                     aria-label={`${item.name} 内部成本`}
-                    className="h-11 bg-[var(--surface-panel-muted)] px-2 text-right font-mono text-sm lg:h-8"
+                    className="h-[38px] bg-[var(--surface-panel-muted)] px-2 text-right font-mono text-base lg:h-8 lg:text-sm"
                     onChange={(event) =>
                       setDraftState((current) =>
                         current
@@ -338,7 +338,7 @@ export function OrderInternalCostCard({
           <Button
             type="button"
             size="sm"
-            className="h-11 text-xs lg:h-8"
+            className="h-9 text-xs lg:h-8"
             disabled={save.isPending || !isDirty || isConflict || !isOnline}
             onClick={() => save.mutate()}
           >

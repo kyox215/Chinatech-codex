@@ -215,7 +215,7 @@ export function RulesSettingsSection({
               >
                 <SelectTrigger
                   id="order-warranty"
-                  className="min-h-11 text-base sm:min-h-10 sm:text-sm"
+                  className="h-[38px] text-base sm:min-h-10 sm:text-sm"
                   aria-invalid={Boolean(
                     getSettingsFieldError(fieldErrors, "default_order_warranty_months"),
                   )}
@@ -249,7 +249,7 @@ export function RulesSettingsSection({
                 required
                 min={STORE_INVENTORY_WARRANTY_RANGE.min}
                 max={STORE_INVENTORY_WARRANTY_RANGE.max}
-                className="min-h-11 text-base sm:min-h-10 sm:text-sm"
+                className="h-[38px] text-base sm:min-h-10 sm:text-sm"
                 value={inventoryWarrantyInput}
                 aria-invalid={Boolean(inventoryWarrantyError)}
                 aria-describedby={
@@ -314,7 +314,7 @@ export function RulesSettingsSection({
                 <Button
                   type="button"
                   variant="outline"
-                  className="min-h-11 w-full shrink-0 aria-disabled:pointer-events-none aria-disabled:opacity-50 sm:min-h-10 sm:w-auto"
+                  className="min-h-9 w-full shrink-0 aria-disabled:pointer-events-none aria-disabled:opacity-50 sm:min-h-10 sm:w-auto"
                   aria-disabled={isDefault}
                   onClick={(event) => {
                     if (isDefault) event.preventDefault();

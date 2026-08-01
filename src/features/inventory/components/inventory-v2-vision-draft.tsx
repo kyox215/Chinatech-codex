@@ -423,7 +423,7 @@ export function InventoryV2VisionDraftCard({
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2">
-        <Button type="button" variant="outline" className="h-11 gap-2" asChild>
+        <Button type="button" variant="outline" className="h-9 gap-2" asChild>
           <label>
             <Camera className="size-4" /> 拍完整标签
             <input
@@ -436,7 +436,7 @@ export function InventoryV2VisionDraftCard({
             />
           </label>
         </Button>
-        <Button type="button" variant="outline" className="h-11 gap-2" asChild>
+        <Button type="button" variant="outline" className="h-9 gap-2" asChild>
           <label>
             <ImagePlus className="size-4" /> 选择图片
             <input
@@ -490,7 +490,7 @@ export function InventoryV2VisionDraftCard({
             return (
               <label
                 key={field}
-                className="flex min-h-11 items-center gap-3 rounded-xl border border-[var(--border-panel)] px-3 py-2 text-sm"
+                className="flex min-h-9 items-center gap-2 rounded-lg border border-[var(--border-panel)] px-2.5 py-1.5 text-sm"
               >
                 <input
                   type="checkbox"
@@ -591,7 +591,7 @@ export function InventoryV2VisionDraftCard({
           ) : null}
           <Button
             type="button"
-            className="h-11 w-full"
+            className="h-[38px] w-full"
             onClick={applySelected}
             disabled={
               (!selectedFields.length && !selectedIdentifiers.length) ||
@@ -704,7 +704,7 @@ function SpecCropReview({
       <Button
         type="button"
         variant="outline"
-        className="h-11 w-full gap-2"
+        className="h-10 w-full gap-2"
         onClick={onPreparePreview}
         disabled={status === "cropping" || status === "cloud"}
       >
@@ -723,7 +723,7 @@ function SpecCropReview({
             alt="将发送给 AI 的规格裁剪预览"
             className="mx-auto max-h-48 max-w-full rounded-lg object-contain"
           />
-          <label className="flex min-h-11 items-start gap-2 rounded-lg border border-[var(--border-panel)] p-2 text-xs leading-5">
+          <label className="flex min-h-9 items-start gap-2 rounded-lg border border-[var(--border-panel)] p-2 text-xs leading-5">
             <input
               type="checkbox"
               className="mt-1"
@@ -734,7 +734,7 @@ function SpecCropReview({
           </label>
           <Button
             type="button"
-            className="h-11 w-full"
+            className="h-9 w-full"
             onClick={onSend}
             disabled={!confirmed || !online || controlsDisabled}
           >

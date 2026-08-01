@@ -82,9 +82,9 @@ const fieldOrder = [
   "storage_capacity",
 ] as const satisfies readonly AiInventoryFieldName[];
 const mappedIdentifierTypes = new Set(["imei1", "imei2", "serial"]);
-const inputClass = "h-11 min-w-0 text-base sm:text-sm lg:h-9";
+const inputClass = "h-[38px] min-w-0 text-base sm:text-sm lg:h-9";
 const selectClass =
-  "h-11 min-w-0 rounded-md border border-[var(--border-panel)] bg-background px-2 text-base text-foreground sm:text-sm lg:h-9";
+  "h-[38px] min-w-0 rounded-md border border-[var(--border-panel)] bg-background px-2 text-base text-foreground sm:text-sm lg:h-9";
 const dialogContentClass = "gap-0 !flex flex-col !overflow-hidden !p-0";
 const dialogHeaderClass = "shrink-0 px-3 pt-3 sm:px-4 sm:pt-4";
 const dialogBodyClass = "min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-4";
@@ -431,7 +431,7 @@ export function InventoryIntakeDialog({
                     <Button
                       type="button"
                       size="sm"
-                      className="min-h-11 shrink-0 gap-1.5 lg:h-8 lg:min-h-0"
+                      className="min-h-9 shrink-0 gap-1.5 lg:h-8 lg:min-h-0"
                       onClick={() => setStep("vision")}
                     >
                       <Camera className="size-3.5" />
@@ -583,7 +583,7 @@ export function InventoryIntakeDialog({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="min-h-11 lg:min-h-0"
+                className="min-h-9 lg:min-h-0"
                 onClick={() => handleOpenChange(false)}
               >
                 取消
@@ -592,7 +592,7 @@ export function InventoryIntakeDialog({
                 type="submit"
                 size="sm"
                 disabled={mutation.isPending}
-                className={cn(controls.brandButton, "min-h-11 lg:min-h-0")}
+                className={cn(controls.brandButton, "min-h-10 lg:min-h-0")}
                 style={brandGradientStyle}
               >
                 {mutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : null}
@@ -659,7 +659,7 @@ export function InventoryIntakeDialog({
                   ref={captureButtonRef}
                   type="button"
                   size="sm"
-                  className="min-h-11 gap-1.5 lg:min-h-0"
+                  className="min-h-9 gap-1.5 lg:min-h-0"
                   disabled={
                     !isOnline ||
                     status === "preparing" ||
@@ -675,7 +675,7 @@ export function InventoryIntakeDialog({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="min-h-11 gap-1.5 lg:min-h-0"
+                  className="min-h-9 gap-1.5 lg:min-h-0"
                   disabled={
                     !isOnline ||
                     status === "preparing" ||
@@ -692,7 +692,7 @@ export function InventoryIntakeDialog({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="min-h-11 gap-1.5 lg:min-h-0"
+                    className="min-h-9 gap-1.5 lg:min-h-0"
                     onClick={deletePhoto}
                   >
                     <Trash2 className="size-3.5" />
@@ -737,7 +737,7 @@ export function InventoryIntakeDialog({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="mt-2 min-h-11 lg:min-h-0"
+                    className="mt-2 min-h-9 lg:min-h-0"
                     onClick={cancelRecognition}
                   >
                     取消识别
@@ -777,7 +777,7 @@ export function InventoryIntakeDialog({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="min-h-11 lg:min-h-0"
+                className="min-h-9 lg:min-h-0"
                 onClick={() => setStep("form")}
               >
                 返回手工表单
@@ -786,7 +786,7 @@ export function InventoryIntakeDialog({
                 type="button"
                 size="sm"
                 disabled={!review || !canApplyInventoryDraft || applyCount === 0}
-                className={cn(controls.brandButton, "min-h-11 lg:min-h-0")}
+                className={cn(controls.brandButton, "min-h-10 lg:min-h-0")}
                 style={brandGradientStyle}
                 onClick={applyReview}
               >
@@ -1062,7 +1062,7 @@ function ReviewActions<T extends InventoryFieldReview | InventoryIdentifierRevie
         type="button"
         variant="outline"
         size="sm"
-        className="min-h-11 gap-1 px-2 text-[11px] lg:h-7 lg:min-h-0"
+        className="min-h-8 gap-1 px-2 text-[11px] lg:h-7 lg:min-h-0"
         aria-label={`${label}：接受建议`}
         onClick={() => onChange({ ...review, decision: "accepted" })}
       >
@@ -1072,7 +1072,7 @@ function ReviewActions<T extends InventoryFieldReview | InventoryIdentifierRevie
         type="button"
         variant="outline"
         size="sm"
-        className="min-h-11 gap-1 px-2 text-[11px] lg:h-7 lg:min-h-0"
+        className="min-h-8 gap-1 px-2 text-[11px] lg:h-7 lg:min-h-0"
         aria-label={`${label}：编辑识别值`}
         onClick={onEdit}
       >
@@ -1082,7 +1082,7 @@ function ReviewActions<T extends InventoryFieldReview | InventoryIdentifierRevie
         type="button"
         variant="ghost"
         size="sm"
-        className="min-h-11 gap-1 px-2 text-[11px] lg:h-7 lg:min-h-0"
+        className="min-h-8 gap-1 px-2 text-[11px] lg:h-7 lg:min-h-0"
         aria-label={`${label}：清空候选`}
         onClick={() => onChange({ ...review, value: "", decision: "edited" })}
       >
@@ -1092,7 +1092,7 @@ function ReviewActions<T extends InventoryFieldReview | InventoryIdentifierRevie
         type="button"
         variant="ghost"
         size="sm"
-        className="min-h-11 gap-1 px-2 text-[11px] text-status-danger-foreground lg:h-7 lg:min-h-0"
+        className="min-h-8 gap-1 px-2 text-[11px] text-status-danger-foreground lg:h-7 lg:min-h-0"
         aria-label={`${label}：拒绝候选`}
         onClick={() => onChange({ ...review, decision: "rejected" })}
       >

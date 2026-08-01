@@ -76,7 +76,7 @@ export function SettingsOverviewScreen({
           value={searchValue}
           onChange={(event) => onSearchValueChange(event.target.value)}
           placeholder="搜索设置"
-          className="h-11 pl-9 text-base"
+          className="h-[38px] pl-9 text-base"
         />
       </div>
 

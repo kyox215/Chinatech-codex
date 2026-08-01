@@ -44,12 +44,12 @@ export function SettingsStateCard({
                 type="button"
                 size="sm"
                 variant="outline"
-                className="min-h-11 sm:min-h-8"
+                className="min-h-9 sm:min-h-8"
                 onClick={onDiscard}
               >
                 <RotateCcw className="size-3.5" /> 使用服务器版本
               </Button>
-              <Button type="button" size="sm" className="min-h-11 sm:min-h-8" onClick={onRebase}>
+              <Button type="button" size="sm" className="min-h-9 sm:min-h-8" onClick={onRebase}>
                 <GitCompareArrows className="size-3.5" /> 基于最新版继续编辑
               </Button>
             </div>

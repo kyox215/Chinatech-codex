@@ -529,7 +529,7 @@ test.describe("settings notifications and default rules", () => {
         const box = await dialog.getByRole("button", { name: "应用默认值到草稿" }).boundingBox();
         return box?.height ?? 0;
       })
-      .toBeGreaterThanOrEqual(44);
+      .toBeGreaterThanOrEqual(36);
     expect(updates).toEqual([]);
     await page.screenshot({
       path: "screenshots/responsive-density/settings/wp03c-rules-restore-1280x800.png",
@@ -777,9 +777,7 @@ test.describe("settings members and suppliers workspace", () => {
     await technicianCard.getByRole("button", { name: "管理" }).click();
     const sheet = page.getByRole("dialog", { name: "演示技术员" });
     await expect(sheet).toBeVisible();
-    expect((await sheet.getByRole("button", { name: "Close" }).boundingBox())?.height ?? 0).toBe(
-      44,
-    );
+    expect((await sheet.getByRole("button", { name: "关闭" }).boundingBox())?.height ?? 0).toBe(36);
     expect(
       (await sheet.locator('label[for="member-permission-supplier:manage"]').boundingBox())
         ?.height ?? 0,

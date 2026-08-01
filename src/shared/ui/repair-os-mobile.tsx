@@ -385,11 +385,11 @@ export function RepairOsListScaffold({
           <header
             className={cn(
               repairOs.mobileFloatingHeaderNav,
-              mobileLeading && "grid-cols-[44px_minmax(0,1fr)_auto]",
+              mobileLeading && "grid-cols-[36px_minmax(0,1fr)_auto]",
             )}
           >
             {mobileLeading ?? (
-              <SidebarTrigger className="size-11 rounded-xl border border-[var(--border-panel)] bg-card shadow-none" />
+              <SidebarTrigger className="size-9 rounded-lg border border-[var(--border-panel)] bg-card shadow-none" />
             )}
             <div className="min-w-0 text-center">
               <p className="truncate text-sm font-semibold leading-5">{title}</p>
@@ -397,21 +397,21 @@ export function RepairOsListScaffold({
                 <p className="truncate text-[9px] leading-3 text-muted-foreground">{subtitle}</p>
               ) : null}
             </div>
-            <div className="flex min-h-11 min-w-11 shrink-0 items-center justify-end">{action}</div>
+            <div className="flex min-h-9 min-w-9 shrink-0 items-center justify-end">{action}</div>
           </header>
 
           <div className={cn(repairOs.mobileFloatingHeaderBody, "space-y-1.5")}>
             {hasSearch ? (
               <div
-                className="grid min-w-0 gap-1.5 [&>*]:min-h-11 [&>*]:min-w-11"
+                className="grid min-w-0 gap-1 [&>*]:min-h-9 [&>*]:min-w-9"
                 style={{
-                  gridTemplateColumns: `minmax(0, 1fr) repeat(${searchTrailingActions.length}, 44px)`,
+                  gridTemplateColumns: `minmax(0, 1fr) repeat(${searchTrailingActions.length}, 36px)`,
                 }}
               >
                 <div
                   className={cn(
                     searchFrame === "embedded" ? repairOs.searchBarEmbedded : repairOs.searchBar,
-                    "h-11 rounded-xl px-2",
+                    "h-9 rounded-lg px-2",
                     searchFrame === "standalone" && "shadow-none",
                   )}
                 >
@@ -421,7 +421,7 @@ export function RepairOsListScaffold({
                     onChange={(event) => onSearchChange(event.target.value)}
                     placeholder={searchPlaceholder}
                     aria-label={searchPlaceholder}
-                    className={cn(repairOs.searchInput, "h-11 text-base")}
+                    className={cn(repairOs.searchInput, "h-9 text-base")}
                   />
                 </div>
                 {searchAction}
@@ -430,8 +430,8 @@ export function RepairOsListScaffold({
                     <Button
                       type="button"
                       variant="outline"
-                      size="icon"
-                      className="size-11 rounded-xl bg-card"
+                      size="iconDense"
+                      className="size-9 rounded-lg bg-card"
                       aria-label="筛选"
                       disabled
                     >
@@ -449,7 +449,7 @@ export function RepairOsListScaffold({
                 </span>
                 <button
                   type="button"
-                  className="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   aria-label="清除搜索"
                   onClick={() => onSearchChange?.("")}
                 >
@@ -529,7 +529,7 @@ function RepairOsHeaderStepper({
               key={chip.key}
               type="button"
               onClick={chip.onClick}
-              className="relative z-10 grid min-h-11 min-w-0 justify-items-center gap-0.5 px-0.5 text-center"
+              className="relative z-10 grid min-h-8 min-w-0 justify-items-center gap-0.5 px-0.5 text-center"
               aria-pressed={chip.active}
             >
               {content}
@@ -562,8 +562,8 @@ export function RepairOsHeaderActionButton({
   return (
     <Button
       type="button"
-      size="icon"
-      className="size-11 rounded-xl border-0 text-primary-foreground shadow-[var(--shadow-action)]"
+      size="iconDense"
+      className="size-9 rounded-lg border-0 text-primary-foreground shadow-[var(--shadow-action)]"
       style={brandGradientStyle}
       onClick={onClick}
       aria-label={ariaLabel}

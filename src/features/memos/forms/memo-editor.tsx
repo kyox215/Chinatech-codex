@@ -151,7 +151,7 @@ export function MemoEditor({
               type="datetime-local"
               value={dueAt}
               disabled={!canEdit || busy}
-              className="h-11 w-full min-w-0 max-w-full rounded-lg border-[var(--border-panel)] bg-background text-base shadow-sm"
+              className="h-[38px] w-full min-w-0 max-w-full rounded-lg border-[var(--border-panel)] bg-background text-base shadow-sm"
               onChange={(event) => setDueAt(event.target.value)}
             />
           </div>
@@ -161,7 +161,7 @@ export function MemoEditor({
               id="memo-assignee"
               value={assignee}
               disabled={!canEdit || busy || !canChangeAssignee}
-              className="h-11 w-full min-w-0 max-w-full rounded-lg border border-[var(--border-panel)] bg-background px-3 text-base shadow-sm"
+              className="h-[38px] w-full min-w-0 max-w-full rounded-lg border border-[var(--border-panel)] bg-background px-3 text-base shadow-sm"
               onChange={(event) => setAssignee(event.target.value)}
             >
               <option value="">未分配</option>
@@ -201,7 +201,7 @@ export function MemoEditor({
           <AlertDescription className="space-y-2">
             <p>你的草稿仍保留。载入最新版本会放弃当前未保存内容。</p>
             {onReloadLatest ? (
-              <Button type="button" variant="outline" className="min-h-11" onClick={onReloadLatest}>
+              <Button type="button" variant="outline" className="min-h-9" onClick={onReloadLatest}>
                 <RefreshCcw className="size-4" /> 载入最新版本
               </Button>
             ) : null}
@@ -310,7 +310,7 @@ export function MemoEditor({
             <Button
               type="button"
               variant="outline"
-              className="min-h-11"
+              className="min-h-9"
               disabled={busy || dirty}
               title={dirty ? "请先保存或放弃正文修改" : undefined}
               onClick={() => void onClaim().catch(() => undefined)}
@@ -322,7 +322,7 @@ export function MemoEditor({
             <Button
               type="button"
               variant="outline"
-              className="min-h-11"
+              className="min-h-9"
               disabled={busy || dirty}
               title={dirty ? "请先保存或放弃正文修改" : undefined}
               onClick={() => void onArchive().catch(() => undefined)}
@@ -334,7 +334,7 @@ export function MemoEditor({
             <Button
               type="button"
               variant="outline"
-              className="min-h-11"
+              className="min-h-9"
               disabled={busy || dirty}
               title={dirty ? "请先保存或放弃正文修改" : undefined}
               onClick={() => void onRestore().catch(() => undefined)}
@@ -355,7 +355,7 @@ export function MemoEditor({
             <Button
               type="submit"
               variant={memo ? "default" : "outline"}
-              className={memo ? "min-h-11 min-w-24" : memoQuickEntry.action}
+              className={memo ? "min-h-10 min-w-24" : memoQuickEntry.action}
               disabled={!canSave || busy}
             >
               {busy ? "保存中…" : memo ? "保存修改" : kind === "todo" ? "添加待办" : "保存记录"}

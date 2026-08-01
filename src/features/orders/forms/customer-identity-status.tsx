@@ -47,12 +47,12 @@ export function CustomerIdentitySummary({
         </div>
       </div>
       <div className="mt-2 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-1">
-        <Button type="button" variant="outline" className="min-h-11 lg:min-h-10" onClick={onAction}>
+        <Button type="button" variant="outline" className="min-h-9 lg:min-h-10" onClick={onAction}>
           <ArrowLeft className="mr-1.5 size-3.5" />
           {actionLabel}
         </Button>
         {primaryAction ? (
-          <Button type="button" className="min-h-11 lg:min-h-10" onClick={primaryAction.onClick}>
+          <Button type="button" className="min-h-10" onClick={primaryAction.onClick}>
             <Check className="mr-1.5 size-3.5" />
             {primaryAction.label}
           </Button>
@@ -76,8 +76,8 @@ export function CustomerIntakeFieldShell({
   children: ReactNode;
 }) {
   return (
-    <div className="rd-new-order-field grid min-h-11 min-w-0 grid-cols-[3rem_minmax(0,1fr)_auto] items-start gap-1.5 rounded-xl border border-[var(--border-panel)] bg-card px-2 py-0 shadow-[var(--shadow-card)]">
-      <label className="flex h-11 items-center text-[10.5px] font-semibold leading-4 text-muted-foreground lg:h-9">
+    <div className="rd-new-order-field grid min-h-[38px] min-w-0 grid-cols-[3rem_minmax(0,1fr)_auto] items-start gap-1.5 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-0 shadow-[var(--shadow-card)]">
+      <label className="flex h-[38px] items-center text-[10.5px] font-semibold leading-4 text-muted-foreground lg:h-9">
         {label}
         {required ? <span className="text-destructive"> *</span> : null}
       </label>
@@ -88,7 +88,7 @@ export function CustomerIntakeFieldShell({
         )}
       >
         {leading ? (
-          <span className="grid h-11 w-4 shrink-0 place-items-center text-muted-foreground lg:h-9">
+          <span className="grid h-[38px] w-4 shrink-0 place-items-center text-muted-foreground lg:h-9">
             {leading}
           </span>
         ) : null}
@@ -116,7 +116,7 @@ export function LookupNotice({
     <div
       role={tone === "danger" ? "alert" : undefined}
       className={cn(
-        "flex min-h-11 min-w-0 items-center gap-2 rounded-lg bg-card px-2 py-1.5 text-xs",
+        "flex min-h-9 min-w-0 items-center gap-2 rounded-lg bg-card px-2 py-1 text-xs",
         tone === "danger" ? "text-status-danger-foreground" : "text-muted-foreground",
       )}
     >

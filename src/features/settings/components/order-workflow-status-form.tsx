@@ -106,7 +106,7 @@ export function OrderWorkflowStatusForm({
               autoCapitalize="none"
               autoCorrect="off"
               maxLength={48}
-              className="min-h-11 font-mono text-base sm:text-sm"
+              className="h-[38px] font-mono text-base sm:text-sm"
               value={value.code}
               onChange={(event) =>
                 setValue((current) => ({
@@ -130,7 +130,7 @@ export function OrderWorkflowStatusForm({
           <Input
             id="workflow-status-label"
             maxLength={24}
-            className="min-h-11 text-base sm:text-sm"
+            className="h-[38px] text-base sm:text-sm"
             value={value.label}
             onChange={(event) => setValue((current) => ({ ...current, label: event.target.value }))}
             placeholder="等待供应商"
@@ -140,7 +140,7 @@ export function OrderWorkflowStatusForm({
           <Input
             id="workflow-status-short-label"
             maxLength={8}
-            className="min-h-11 text-base sm:text-sm"
+            className="h-[38px] text-base sm:text-sm"
             value={value.shortLabel}
             onChange={(event) =>
               setValue((current) => ({ ...current, shortLabel: event.target.value }))
@@ -151,7 +151,7 @@ export function OrderWorkflowStatusForm({
 
         <EditorField label="主流程分组" htmlFor="workflow-status-bucket">
           {status?.is_system ? (
-            <div className="flex min-h-11 items-center rounded-md border border-input bg-surface-muted px-3 text-sm text-muted-foreground">
+            <div className="flex min-h-[38px] items-center rounded-md border border-input bg-surface-muted px-3 text-sm text-muted-foreground">
               {orderWorkflowBucketOptions.find((item) => item.value === status.bucket)?.label}
             </div>
           ) : (
@@ -161,7 +161,7 @@ export function OrderWorkflowStatusForm({
                 setValue((current) => ({ ...current, bucket: bucket as OrderWorkflowBucket }))
               }
             >
-              <SelectTrigger id="workflow-status-bucket" className="min-h-11 text-base sm:text-sm">
+              <SelectTrigger id="workflow-status-bucket" className="h-[38px] text-base sm:text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -181,7 +181,7 @@ export function OrderWorkflowStatusForm({
               setValue((current) => ({ ...current, tone: tone as OrderWorkflowTone }))
             }
           >
-            <SelectTrigger id="workflow-status-tone" className="min-h-11 text-base sm:text-sm">
+            <SelectTrigger id="workflow-status-tone" className="h-[38px] text-base sm:text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

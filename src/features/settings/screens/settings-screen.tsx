@@ -1260,7 +1260,7 @@ export function SettingsScreen() {
               type="button"
               size="sm"
               variant="outline"
-              className="min-h-11 bg-card px-3 sm:min-h-9"
+              className="min-h-9 bg-card px-3"
               onClick={() => storeContextQuery.refetch()}
             >
               重新加载
@@ -1298,7 +1298,7 @@ export function SettingsScreen() {
           <span className="mt-1 block text-xs leading-5 text-muted-foreground">
             资料仍然保留。请前往“已关闭与删除”查看状态、恢复营业或申请永久删除。
           </span>
-          <Button asChild type="button" className="mt-3 min-h-11">
+          <Button asChild type="button" className="mt-3 min-h-10">
             <Link href="/settings/closed-stores">查看已关闭与删除</Link>
           </Button>
         </RepairOsBusinessCard>
@@ -1418,7 +1418,7 @@ export function SettingsScreen() {
           <Link
             href="/settings"
             aria-label="返回设置总览"
-            className="grid size-11 place-items-center rounded-xl border border-[var(--border-panel)] bg-card text-foreground"
+            className="grid size-9 place-items-center rounded-lg border border-[var(--border-panel)] bg-card text-foreground"
           >
             <ArrowLeft className="size-4" />
           </Link>
@@ -1432,7 +1432,7 @@ export function SettingsScreen() {
           <Button
             type="button"
             size="sm"
-            className="min-h-11 gap-1 rounded-lg border-0 px-3 text-xs text-primary-foreground shadow-[var(--shadow-action)]"
+            className="min-h-10 gap-1 rounded-lg border-0 px-3 text-xs text-primary-foreground shadow-[var(--shadow-action)]"
             style={brandGradientStyle}
             aria-label="保存设置"
             disabled={!hasChanges || saveMutation.isPending || selectedSaveStatus === "conflict"}
@@ -2085,7 +2085,7 @@ function SettingsSectionDataState({
             type="button"
             size="sm"
             variant="outline"
-            className="min-h-11 px-3 sm:min-h-9"
+            className="min-h-9 px-3"
             onClick={onRetry}
           >
             重新加载
@@ -2131,7 +2131,7 @@ function SettingsSectionAccessState({
                 ? "当前店铺的权限状态不可用，请重新加载页面后再试。"
                 : "当前账号不具备此分组所需的店铺权限。页面未读取或显示相关业务数据。")}
           </p>
-          <Button asChild type="button" size="sm" variant="outline" className="mt-3 min-h-11">
+          <Button asChild type="button" size="sm" variant="outline" className="mt-3 min-h-9">
             <Link href="/settings">返回设置总览</Link>
           </Button>
         </div>

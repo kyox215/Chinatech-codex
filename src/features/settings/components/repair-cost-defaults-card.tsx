@@ -305,7 +305,7 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
               value={group.key}
               className="border-[var(--border-panel)] last:border-b-0"
             >
-              <AccordionTrigger className="min-h-11 px-3 py-2.5 text-xs hover:no-underline sm:text-sm">
+              <AccordionTrigger className="min-h-9 px-3 py-2 text-xs hover:no-underline sm:text-sm">
                 <span className="flex min-w-0 items-center gap-2 text-left">
                   <span className="truncate font-semibold">{group.label}</span>
                   <span className="hidden truncate text-[10px] font-normal text-muted-foreground sm:inline">
@@ -430,7 +430,7 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
           <Button
             type="button"
             variant="outline"
-            className="min-h-11 sm:min-h-9"
+            className="min-h-9"
             disabled={!isDirty || saveMutation.isPending}
             onClick={discardChanges}
           >
@@ -438,7 +438,7 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
           </Button>
           <Button
             type="button"
-            className="min-h-11 border-0 text-primary-foreground sm:min-h-9"
+            className="min-h-10 border-0 text-primary-foreground sm:min-h-9"
             style={brandGradientStyle}
             disabled={!canSave}
             onClick={() => void save()}

@@ -172,7 +172,7 @@ export function SupplierEditorSheet({
                 <Input
                   ref={firstInputRef}
                   id="supplier-name"
-                  className="min-h-11 text-base sm:text-sm"
+                  className="h-[38px] text-base sm:text-sm"
                   maxLength={120}
                   value={draft.name}
                   aria-invalid={Boolean(errors.name)}
@@ -183,7 +183,7 @@ export function SupplierEditorSheet({
               <SupplierField label="简称" field="short_name" errors={errors}>
                 <Input
                   id="supplier-short_name"
-                  className="min-h-11 text-base sm:text-sm"
+                  className="h-[38px] text-base sm:text-sm"
                   maxLength={32}
                   value={draft.short_name ?? ""}
                   aria-invalid={Boolean(errors.short_name)}
@@ -194,7 +194,7 @@ export function SupplierEditorSheet({
               <SupplierField label="联系人" field="contact_name" errors={errors}>
                 <Input
                   id="supplier-contact_name"
-                  className="min-h-11 text-base sm:text-sm"
+                  className="h-[38px] text-base sm:text-sm"
                   maxLength={120}
                   value={draft.contact_name ?? ""}
                   aria-invalid={Boolean(errors.contact_name)}
@@ -206,7 +206,7 @@ export function SupplierEditorSheet({
                 <Input
                   id="supplier-phone"
                   type="tel"
-                  className="min-h-11 text-base sm:text-sm"
+                  className="h-[38px] text-base sm:text-sm"
                   maxLength={40}
                   value={draft.phone ?? ""}
                   aria-invalid={Boolean(errors.phone)}
@@ -218,7 +218,7 @@ export function SupplierEditorSheet({
                 <Input
                   id="supplier-email"
                   type="email"
-                  className="min-h-11 text-base sm:text-sm"
+                  className="h-[38px] text-base sm:text-sm"
                   maxLength={254}
                   value={draft.email ?? ""}
                   aria-invalid={Boolean(errors.email)}
@@ -231,7 +231,7 @@ export function SupplierEditorSheet({
                   id="supplier-website"
                   type="url"
                   inputMode="url"
-                  className="min-h-11 text-base sm:text-sm"
+                  className="h-[38px] text-base sm:text-sm"
                   maxLength={500}
                   placeholder="https://example.com"
                   value={draft.website ?? ""}
@@ -255,7 +255,7 @@ export function SupplierEditorSheet({
                     aria-label={`选择${option.label}`}
                     aria-pressed={draft.color === option.value}
                     className={cn(
-                      "grid size-11 place-items-center rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      "grid size-8 place-items-center rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       draft.color === option.value
                         ? "border-primary ring-2 ring-primary/25"
                         : "border-border",
@@ -294,7 +294,7 @@ export function SupplierEditorSheet({
             <Button
               type="button"
               variant="outline"
-              className="min-h-11"
+              className="min-h-9"
               disabled={isSaving}
               onClick={() => (dirty ? setDiscardConfirmOpen(true) : onOpenChange(false))}
             >
@@ -302,7 +302,7 @@ export function SupplierEditorSheet({
             </Button>
             <Button
               type="button"
-              className="min-h-11"
+              className="min-h-10"
               disabled={!dirty || isSaving}
               onClick={() => void save().catch(() => undefined)}
             >

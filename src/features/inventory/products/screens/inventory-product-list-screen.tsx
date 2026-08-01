@@ -96,7 +96,7 @@ export function InventoryProductListScreen() {
     shell.permissions?.canCreateInventory &&
     shell.permissions.inventoryProductsUiEnabled &&
     shell.permissions.inventoryProductQuickCreateEnabled ? (
-      <Button asChild size="icon" className="size-11 rounded-xl" aria-label="快速录入商品">
+      <Button asChild size="iconDense" className="size-9 rounded-lg" aria-label="快速录入商品">
         <Link href="/inventory/new">
           <Plus className="size-5" />
         </Link>
@@ -167,7 +167,7 @@ export function InventoryProductListScreen() {
           type="button"
           variant="outline"
           size="icon"
-          className="relative size-11 rounded-xl bg-card"
+          className="relative size-9 rounded-lg bg-card"
           aria-label={activeFilterCount ? `筛选，已应用 ${activeFilterCount} 项` : "筛选商品"}
           onClick={() => {
             setDraft(filters);
@@ -441,7 +441,7 @@ function FilterGroup({
             <Label
               key={value}
               className={cn(
-                "flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-2.5 py-1.5",
+                "flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-1.5",
                 checked && "border-primary bg-primary/5",
               )}
             >

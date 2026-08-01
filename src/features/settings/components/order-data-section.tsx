@@ -403,7 +403,7 @@ export function OrderDataSection({
               id="order-data-file"
               type="file"
               accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              className="h-11 min-w-0 text-xs file:mr-2 file:border-0 file:bg-transparent file:text-xs file:font-medium"
+              className="h-[38px] min-w-0 text-xs file:mr-2 file:border-0 file:bg-transparent file:text-xs file:font-medium"
               disabled={busy}
               onChange={(event) => handleFileChange(event.target.files?.[0])}
             />
@@ -426,14 +426,14 @@ export function OrderDataSection({
                 );
               }}
             >
-              <SelectTrigger id="order-data-mode" className="h-11">
+              <SelectTrigger id="order-data-mode" className="h-[38px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="update_only" className="min-h-11">
+                <SelectItem value="update_only" className="min-h-8">
                   只更新已有工单
                 </SelectItem>
-                <SelectItem value="create_and_update" className="min-h-11">
+                <SelectItem value="create_and_update" className="min-h-8">
                   新增并更新
                 </SelectItem>
               </SelectContent>
@@ -442,7 +442,7 @@ export function OrderDataSection({
           <Button
             type="button"
             variant="outline"
-            className="min-h-11 w-full gap-1.5 lg:w-auto"
+            className="min-h-9 w-full gap-1.5 lg:w-auto"
             disabled={!file || busy}
             onClick={() => file && previewMutation.mutate({ file, expectedStoreId: storeId, mode })}
           >
@@ -466,7 +466,7 @@ export function OrderDataSection({
             <Button
               type="button"
               variant="ghost"
-              className="min-h-11 justify-self-start gap-1.5 sm:justify-self-auto"
+              className="min-h-9 justify-self-start gap-1.5 sm:justify-self-auto"
               disabled={busy}
               onClick={clearSelectedFile}
             >
@@ -511,7 +511,7 @@ export function OrderDataSection({
               <Button
                 type="button"
                 variant="outline"
-                className="min-h-11 gap-1.5"
+                className="min-h-9 gap-1.5"
                 onClick={() => downloadTextReport(buildOrderDataPreviewReport(preview))}
               >
                 <Download className="size-4" /> 完整预览报告
@@ -574,7 +574,7 @@ export function OrderDataSection({
                   <Button
                     type="button"
                     variant="outline"
-                    className="min-h-11 gap-1.5 self-start"
+                    className="min-h-9 gap-1.5 self-start"
                     onClick={() => downloadTextReport(buildOrderDataApplyReport(applyResult))}
                   >
                     <Download className="size-4" /> 下载完整错误报告
@@ -620,7 +620,7 @@ export function OrderDataSection({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="min-h-11 px-2 text-xs"
+                      className="min-h-8 px-2 text-xs"
                       onClick={() => setShowExpandedPreview((expanded) => !expanded)}
                     >
                       {showExpandedPreview
@@ -662,7 +662,7 @@ export function OrderDataSection({
 
           <div className="mt-3 grid gap-3 border-t border-border pt-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
             <div className="min-w-0 space-y-1.5">
-              <div className="flex min-h-11 items-center gap-2">
+              <div className="flex min-h-9 items-center gap-2">
                 <Checkbox
                   id="confirm-order-data-import"
                   checked={confirmed}
@@ -677,7 +677,7 @@ export function OrderDataSection({
                 />
                 <Label
                   htmlFor="confirm-order-data-import"
-                  className="flex min-h-11 flex-1 cursor-pointer items-center text-xs leading-5"
+                  className="flex min-h-9 flex-1 cursor-pointer items-center text-xs leading-5"
                 >
                   确认这份预览属于“{storeName}”，并按预览结果处理当前店铺工单
                 </Label>
@@ -692,7 +692,7 @@ export function OrderDataSection({
             </div>
             <Button
               type="button"
-              className="min-h-11 w-full gap-1.5 border-0 text-primary-foreground lg:w-auto"
+              className="min-h-10 w-full gap-1.5 border-0 text-primary-foreground lg:w-auto"
               style={brandGradientStyle}
               disabled={!canApply}
               onClick={() => setApplyConfirmOpen(true)}
@@ -727,7 +727,7 @@ export function OrderDataSection({
               <Button
                 type="button"
                 variant="outline"
-                className="min-h-11 gap-1.5"
+                className="min-h-9 gap-1.5"
                 disabled={batchHistoryQuery.isFetching}
                 onClick={() => void batchHistoryQuery.refetch()}
               >
@@ -749,7 +749,7 @@ export function OrderDataSection({
             <Button
               type="button"
               variant="outline"
-              className="min-h-11 gap-1.5"
+              className="min-h-9 gap-1.5"
               onClick={() => setHistoryOpen(true)}
             >
               <History className="size-4" /> 查看最近批次
@@ -772,7 +772,7 @@ export function OrderDataSection({
             <Button
               type="button"
               variant="outline"
-              className="min-h-11"
+              className="min-h-9"
               onClick={() => void batchHistoryQuery.refetch()}
             >
               重新读取

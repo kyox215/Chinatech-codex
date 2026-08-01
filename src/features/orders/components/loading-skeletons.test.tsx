@@ -14,7 +14,7 @@ describe("RepairOS loading skeletons", () => {
     const orderListSkeleton = container.querySelector('[data-ui="order-list-skeleton"]');
     expect(orderListSkeleton).toHaveAttribute("aria-busy", "true");
     expect(orderListSkeleton).toHaveClass(
-      "[--orders-mobile-header-offset:calc(env(safe-area-inset-top)+17rem)]",
+      "[--orders-mobile-header-offset:calc(env(safe-area-inset-top)+12rem)]",
     );
     expect(screen.queryByText("正在加载工单...")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("正在准备维修工单");

@@ -171,7 +171,7 @@ export function FiltersPanel({
               {options.technicians.map((t) => (
                 <label
                   key={t}
-                  className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-[var(--border-panel)] bg-card px-3 py-2 text-sm hover:bg-accent"
+                  className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border border-[var(--border-panel)] bg-card px-3 py-1.5 text-sm hover:bg-accent"
                 >
                   <Checkbox
                     className="size-5 rounded-md"
@@ -190,7 +190,7 @@ export function FiltersPanel({
                 {options.suppliers.map((s) => (
                   <label
                     key={s.id}
-                    className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-[var(--border-panel)] bg-card px-3 py-2 text-sm hover:bg-accent"
+                    className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border border-[var(--border-panel)] bg-card px-3 py-1.5 text-sm hover:bg-accent"
                   >
                     <Checkbox
                       className="size-5 rounded-md"
@@ -213,7 +213,7 @@ export function FiltersPanel({
         <div className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)] gap-2 border-t bg-[var(--surface-workspace-strong)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <Button
             variant="outline"
-            className="h-11 px-5"
+            className="h-9 px-4"
             onClick={() => {
               setFilters({ search: filters.search });
               onStatusFilterChange?.();
@@ -221,7 +221,7 @@ export function FiltersPanel({
           >
             重置
           </Button>
-          <Button className="h-11 w-full" onClick={onClose}>
+          <Button className="h-10 w-full" onClick={onClose}>
             应用筛选
           </Button>
         </div>

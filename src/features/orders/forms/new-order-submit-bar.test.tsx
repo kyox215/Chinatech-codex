@@ -30,7 +30,7 @@ describe("NewOrderSubmitBar", () => {
 
     const form = container.querySelector<HTMLElement>('[data-new-order-form="true"]');
     expect(form?.style.getPropertyValue("--new-order-submit-offset")).toBe("64px");
-    expect(screen.getByRole("button", { name: "创建工单" })).toHaveClass("h-11");
+    expect(screen.getByRole("button", { name: "创建工单" })).toHaveClass("h-10");
   });
 
   it("keeps status text in the original custody-summary-then-submit layout", () => {

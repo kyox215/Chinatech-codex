@@ -554,8 +554,8 @@ export function BuybackQuoteWorkspace({
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon"
-                  className="size-11 shrink-0 rounded-lg"
+                  size="iconDense"
+                  className="size-9 shrink-0 rounded-lg"
                   onClick={() => onOpenChange(false)}
                   aria-label="关闭回收报价"
                 >
@@ -580,7 +580,7 @@ export function BuybackQuoteWorkspace({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-11 shrink-0 gap-1 rounded-lg px-2 text-[11px]"
+                  className="h-9 shrink-0 gap-1 rounded-lg px-2 text-[11px]"
                   onClick={() =>
                     toast.info(
                       BUYBACK_SENSITIVE_WORKFLOW_ENABLED
@@ -711,7 +711,7 @@ export function BuybackQuoteWorkspace({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-11 shrink-0 rounded-lg px-2 text-xs"
+                className="h-9 shrink-0 rounded-lg px-2 text-xs"
                 disabled={stepIndex === 0 || reviewMutation.isPending || saveMutation.isPending}
                 onClick={() => setStepIndex((current) => Math.max(0, current - 1))}
               >
@@ -725,7 +725,7 @@ export function BuybackQuoteWorkspace({
                 <Button
                   type="button"
                   size="sm"
-                  className={cn("h-11 shrink-0 rounded-lg px-3 text-xs", controls.brandButton)}
+                  className={cn("h-10 shrink-0 rounded-lg px-3 text-xs", controls.brandButton)}
                   style={brandGradientStyle}
                   disabled={reviewMutation.isPending || !isOnline}
                   aria-busy={reviewMutation.isPending}
@@ -745,7 +745,7 @@ export function BuybackQuoteWorkspace({
                 <Button
                   type="button"
                   size="sm"
-                  className={cn("h-11 shrink-0 rounded-lg px-3 text-xs", controls.brandButton)}
+                  className={cn("h-10 shrink-0 rounded-lg px-3 text-xs", controls.brandButton)}
                   style={brandGradientStyle}
                   disabled={
                     reviewMutation.isPending ||
@@ -780,7 +780,7 @@ export function BuybackQuoteWorkspace({
                 <Button
                   type="button"
                   size="sm"
-                  className={cn("h-11 shrink-0 rounded-lg px-3 text-xs", controls.brandButton)}
+                  className={cn("h-10 shrink-0 rounded-lg px-3 text-xs", controls.brandButton)}
                   style={brandGradientStyle}
                   disabled={
                     saveMutation.isPending ||
@@ -2907,7 +2907,7 @@ function ConfirmStep({
         <Button
           type="button"
           variant="outline"
-          className="min-h-11 w-full gap-2"
+          className="min-h-9 w-full gap-2"
           onClick={onWhatsapp}
         >
           <MessageCircle className="size-4" />
@@ -2966,24 +2966,24 @@ function BuybackSuccess({
           />
         </section>
         <div className="grid gap-2 sm:grid-cols-2">
-          <Button type="button" className="min-h-11" onClick={onInventory}>
+          <Button type="button" className="min-h-10" onClick={onInventory}>
             返回回收列表
           </Button>
           {!reviewOnly ? (
             <Button
               type="button"
               variant="outline"
-              className="min-h-11"
+              className="min-h-9"
               onClick={() => window.print()}
             >
               <ReceiptText className="size-4" />
               打印回收凭据
             </Button>
           ) : null}
-          <Button type="button" variant="outline" className="min-h-11" onClick={onNew}>
+          <Button type="button" variant="outline" className="min-h-9" onClick={onNew}>
             {reviewOnly ? "开始新的报价" : "新建回收"}
           </Button>
-          <Button type="button" variant="ghost" className="min-h-11" onClick={onClose}>
+          <Button type="button" variant="ghost" className="min-h-9" onClick={onClose}>
             完成并关闭
           </Button>
         </div>
@@ -3052,7 +3052,7 @@ function AttachmentCaptureButton({
     <div className="min-w-0 space-y-1">
       <RepairOsBusinessCard
         as="label"
-        className={cn(repairOs.businessCardDense, "min-h-11 cursor-pointer rounded-lg px-2 py-1.5")}
+        className={cn(repairOs.businessCardDense, "min-h-9 cursor-pointer rounded-lg px-2 py-1.5")}
         leading={
           <span className="grid size-7 place-items-center rounded-lg bg-primary/10 text-primary">
             <Icon className="size-3.5" />
@@ -3126,7 +3126,7 @@ function TextField({
           placeholder={placeholder}
           inputMode={inputMode}
           className={cn(
-            "h-11 rounded-lg px-2 text-base md:text-sm",
+            "h-[38px] rounded-lg px-2 text-base md:text-sm",
             prefix && "pl-5",
             suffix && "pr-7",
           )}
@@ -3157,7 +3157,7 @@ function ToggleRow({
       aria-pressed={checked}
       className={cn(
         repairOs.businessCardDense,
-        "min-h-11 rounded-lg px-2 py-1.5 text-left text-[11px] leading-4 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        "min-h-8 rounded-lg px-2 py-1 text-left text-[11px] leading-4 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         checked
           ? "border-primary/30 bg-primary/10 text-primary"
           : "border-[var(--border-panel)] bg-card text-foreground",
@@ -3215,7 +3215,7 @@ function IPhoneSeriesPicker({
                 aria-pressed={selected}
                 className={cn(
                   repairOs.businessCardDense,
-                  "min-h-[46px] min-w-0 rounded-lg px-2 py-1.5 text-center transition-colors active:scale-[0.99] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                  "min-h-10 min-w-0 rounded-lg px-2 py-1 text-center transition-colors active:scale-[0.99] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   selected &&
                     "border-primary/50 bg-primary/10 text-primary shadow-[var(--shadow-action)]",
                 )}
@@ -3261,7 +3261,7 @@ function ChoiceGroup<T extends string>({
             aria-pressed={value === option}
             className={cn(
               repairOs.businessCardDense,
-              "h-11 shrink-0 rounded-lg px-2.5 py-0 text-[12px] font-medium text-muted-foreground transition-colors active:scale-[0.99] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              "h-8 shrink-0 rounded-lg px-2.5 py-0 text-[12px] font-medium text-muted-foreground transition-colors active:scale-[0.99] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               value === option && "border-primary/40 bg-primary/10 text-primary",
             )}
             bodyClassName="flex min-w-0 items-center justify-center gap-1.5"

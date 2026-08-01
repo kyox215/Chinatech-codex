@@ -394,7 +394,7 @@ function StoreCreationCard({
         <Button
           type="button"
           variant="outline"
-          className="min-h-11 w-full shrink-0 gap-1.5 sm:min-h-10 sm:w-auto"
+          className="min-h-10 w-full shrink-0 gap-1.5 sm:w-auto"
           disabled={!canCreate}
           aria-busy={isCreating}
           onClick={requestCreate}

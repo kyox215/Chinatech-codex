@@ -133,7 +133,7 @@ function TransitionEditor({
           来源状态
         </label>
         <Select value={sourceCode} onValueChange={onSourceChange}>
-          <SelectTrigger id={id} className="min-h-11 text-base sm:text-sm">
+          <SelectTrigger id={id} className="h-[38px] text-base sm:text-sm">
             <SelectValue placeholder="选择来源状态" />
           </SelectTrigger>
           <SelectContent>
@@ -185,7 +185,7 @@ function TransitionEditor({
               <Button
                 type="button"
                 variant={primary ? "default" : "outline"}
-                className="min-h-11 px-3"
+                className="min-h-9 px-3"
                 disabled={!enabled}
                 aria-pressed={primary}
                 aria-label={`将${status.label}设为${source?.label ?? sourceCode}的推荐下一步`}

@@ -87,9 +87,9 @@ export function NewOrderQuotationSection({
   );
   const Shell = "section";
   const controlClass =
-    "h-11 rounded-lg border-0 bg-[var(--surface-panel-muted)] text-base leading-none shadow-none focus-visible:ring-1 md:text-[13px] lg:h-8";
+    "h-[38px] rounded-lg border-0 bg-[var(--surface-panel-muted)] text-base leading-none shadow-none focus-visible:ring-1 md:text-[13px] lg:h-8";
   const serviceSelectTriggerClass =
-    "h-11 rounded-xl border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 text-xs font-medium shadow-none focus:ring-1 focus:ring-ring focus-visible:ring-1 lg:h-10";
+    "h-[38px] rounded-lg border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 text-xs font-medium shadow-none focus:ring-1 focus:ring-ring focus-visible:ring-1 lg:h-10";
   const serviceDropdownContentClass = "z-[90] rounded-xl shadow-[var(--shadow-overlay)]";
   const balance = Math.max(0, total - form.deposit);
   const roleLabel = getOperatorRoleLabel(operatorRole);
@@ -247,7 +247,7 @@ export function NewOrderQuotationSection({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="size-11 shrink-0 lg:size-8"
+                          className="size-9 shrink-0 lg:size-8"
                           onClick={() =>
                             setForm({
                               ...form,
@@ -291,7 +291,7 @@ export function NewOrderQuotationSection({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-11 w-full justify-center gap-1.5 rounded-lg border-[var(--border-panel)] bg-card text-[11px] font-semibold shadow-none lg:h-8"
+                className="h-9 w-full justify-center gap-1.5 rounded-lg border-[var(--border-panel)] bg-card text-[11px] font-semibold shadow-none lg:h-8"
                 onClick={onAddCustomFault}
               >
                 <Plus className="size-3.5" /> 添加自定义项目

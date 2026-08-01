@@ -56,7 +56,7 @@ export function SettingsSaveBar({
             type="button"
             size="sm"
             variant="outline"
-            className="min-h-11 flex-1 gap-1.5 sm:min-h-8 sm:flex-none"
+            className="min-h-9 flex-1 gap-1.5 sm:min-h-8 sm:flex-none"
             disabled={!dirty || saving || disabled}
             onClick={onDiscard}
           >
@@ -65,7 +65,7 @@ export function SettingsSaveBar({
           <Button
             type="button"
             size="sm"
-            className="min-h-11 flex-1 gap-1.5 sm:min-h-8 sm:flex-none"
+            className="min-h-10 flex-1 gap-1.5 sm:min-h-8 sm:flex-none"
             disabled={!dirty || saving || disabled || status === "conflict"}
             onClick={onSave}
           >

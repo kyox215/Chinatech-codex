@@ -58,7 +58,7 @@ const DialogContent = React.forwardRef<
           <DialogPrimitive.Close
             aria-label={closeLabel}
             className={cn(
-              "absolute right-0.5 top-0.5 z-30 inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground ring-offset-background transition-colors hover:bg-[var(--surface-panel-muted)] hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none sm:right-3 sm:top-3 lg:size-8",
+              "absolute right-1 top-1 z-30 inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground ring-offset-background transition-colors hover:bg-[var(--surface-panel-muted)] hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none sm:right-3 sm:top-3 lg:size-8",
               closeClassName,
             )}
           >

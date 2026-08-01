@@ -12,6 +12,7 @@ const viewports = [
   { width: 390, height: 844 },
   { width: 430, height: 932 },
   { width: 768, height: 1024 },
+  { width: 834, height: 1112 },
   { width: 1024, height: 768 },
   { width: 1280, height: 800 },
   { width: 1440, height: 900 },
@@ -34,7 +35,7 @@ const extendedMobileRoutes = [
   { path: "/orders/ord_1", ready: '[data-order-detail-root="true"]' },
   { path: "/orders/ord_1/task", ready: '[data-order-task-header="true"]' },
   { path: "/customers/cus_1", ready: "main" },
-  { path: "/inventory/new", expectedPath: "/inventory", ready: '[role="dialog"]' },
+  { path: "/inventory/new", ready: "main" },
   { path: "/finance", ready: "main" },
   { path: "/memos", ready: "main" },
   { path: "/settings/closed-stores", ready: "main" },
@@ -79,12 +80,7 @@ test.describe("responsive overflow guard", () => {
       await page.setViewportSize(viewport);
 
       for (const route of extendedMobileRoutes) {
-        await gotoRouteReady(
-          page,
-          route.path,
-          route.ready,
-          "expectedPath" in route ? route.expectedPath : route.path,
-        );
+        await gotoRouteReady(page, route.path, route.ready);
         await expectNoPageOverflow(page);
       }
     });
@@ -110,7 +106,7 @@ test.describe("responsive overflow guard", () => {
     }
   });
 
-  test("representative mobile actions keep 44px touch targets and reachable overlay footer", async ({
+  test("representative mobile actions follow semantic touch tiers and keep overlay footer reachable", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -119,7 +115,7 @@ test.describe("responsive overflow guard", () => {
     await page
       .locator('[data-order-task-header="true"]')
       .waitFor({ state: "visible", timeout: 30_000 });
-    await expectTouchSizes(
+    await expectTargetSizes(
       page.locator(
         '[data-order-task-header="true"] button:visible, [data-order-task-actions="true"] button:visible, [data-order-task-transition-panel="true"] button:visible',
       ),
@@ -127,15 +123,16 @@ test.describe("responsive overflow guard", () => {
     );
 
     await page.goto("/inventory/new", { waitUntil: "domcontentloaded" });
-    const dialog = page.getByRole("dialog");
-    await dialog.locator("input").first().waitFor({ state: "visible", timeout: 30_000 });
-    await expectTouchSizes(dialog.locator("button:visible"), "inventory intake dialog actions");
-    await expectTouchSizes(
-      dialog.locator("input:visible, select:visible"),
-      "inventory intake dialog fields",
+    const intake = page.locator("main").last();
+    await intake.locator("input").first().waitFor({ state: "visible", timeout: 30_000 });
+    await expectTargetSizes(intake.locator("button:visible"), "inventory intake actions");
+    await expectTargetSizes(
+      intake.locator("input:visible, select:visible"),
+      "inventory intake fields",
+      38,
     );
 
-    const saveButton = dialog.getByRole("button", { name: "保存商品" });
+    const saveButton = intake.getByRole("button", { name: "保存并查看商品" });
     await saveButton.scrollIntoViewIfNeeded();
     await expect(saveButton).toBeVisible();
     const saveBox = await saveButton.boundingBox();
@@ -175,7 +172,11 @@ test.describe("responsive overflow guard", () => {
   });
 });
 
-async function expectTouchSizes(locator: ReturnType<Page["locator"]>, label: string) {
+async function expectTargetSizes(
+  locator: ReturnType<Page["locator"]>,
+  label: string,
+  minimum = 24,
+) {
   const sizes = await locator.evaluateAll((elements) =>
     elements.map((element) => {
       const rect = element.getBoundingClientRect();
@@ -184,8 +185,8 @@ async function expectTouchSizes(locator: ReturnType<Page["locator"]>, label: str
   );
   expect(sizes.length, `${label} visible controls`).toBeGreaterThan(0);
   for (const size of sizes) {
-    expect(size.height, `${label} height`).toBeGreaterThanOrEqual(44);
-    expect(size.width, `${label} width`).toBeGreaterThanOrEqual(44);
+    expect(size.height, `${label} height`).toBeGreaterThanOrEqual(minimum);
+    expect(size.width, `${label} width`).toBeGreaterThanOrEqual(minimum);
   }
 }
 

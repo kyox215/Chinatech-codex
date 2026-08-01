@@ -79,7 +79,7 @@ export function NewOrderSubmitBar({
             variant="ghost"
             size="sm"
             type="button"
-            className="hidden h-11 gap-1.5 rounded-xl text-xs md:inline-flex lg:h-8"
+            className="hidden h-9 gap-1.5 rounded-lg text-xs md:inline-flex lg:h-8"
             onClick={onCancel}
           >
             <ArrowLeft className="size-3.5" /> 返回工单
@@ -89,7 +89,7 @@ export function NewOrderSubmitBar({
             variant="ghost"
             size="sm"
             type="button"
-            className="hidden h-11 gap-1.5 rounded-xl text-xs md:inline-flex lg:h-8"
+            className="hidden h-9 gap-1.5 rounded-lg text-xs md:inline-flex lg:h-8"
             asChild
           >
             <Link href="/orders">
@@ -114,7 +114,7 @@ export function NewOrderSubmitBar({
             disabled={pending}
             aria-disabled={!valid || pending}
             aria-describedby={!valid ? validationSummaryId : undefined}
-            className="h-11 w-full shrink-0 gap-1.5 rounded-xl border-0 px-4 text-sm font-semibold text-primary-foreground md:w-auto lg:h-10"
+            className="h-10 w-full shrink-0 gap-1.5 rounded-lg border-0 px-4 text-sm font-semibold text-primary-foreground md:w-auto"
             style={{ background: "var(--gradient-brand)" }}
           >
             <Banknote className="size-3.5" />

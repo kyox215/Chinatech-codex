@@ -1214,8 +1214,8 @@ export function OrderListScreen() {
             <Button
               type="button"
               variant="outline"
-              size="icon"
-              className="size-11 rounded-xl border-primary/30 bg-primary/10 text-primary"
+              size="iconDense"
+              className="size-9 rounded-lg border-primary/30 bg-primary/10 text-primary"
               aria-label="打开 RepairDesk AI 小助手"
               data-ai-assistant-trigger="mobile-orders"
               onClick={aiAssistant.openAssistant}
@@ -1233,7 +1233,7 @@ export function OrderListScreen() {
         scanAction={
           <OrderQrScannerButton
             disabled={!isOnline}
-            className="size-11 rounded-xl bg-card"
+            className="size-9 rounded-lg bg-card"
             iconClassName="size-3.5"
           />
         }
@@ -1241,8 +1241,8 @@ export function OrderListScreen() {
           <Button
             type="button"
             variant="outline"
-            size="icon"
-            className="relative size-11 rounded-xl bg-card"
+            size="iconDense"
+            className="relative size-9 rounded-lg bg-card"
             aria-label={`筛选订单${mobileHiddenFilterCount ? `，已应用 ${mobileHiddenFilterCount} 项` : ""}`}
             onClick={() => setMobileFiltersOpen(true)}
           >
@@ -1287,7 +1287,7 @@ export function OrderListScreen() {
                       key={value}
                       type="button"
                       variant={active ? "default" : "outline"}
-                      className="h-11"
+                      className="h-[38px] text-base"
                       aria-pressed={active}
                       onClick={() => updateMobileFilters({ types: active ? undefined : [value] })}
                     >
@@ -1313,7 +1313,7 @@ export function OrderListScreen() {
                       key={value ?? "all"}
                       type="button"
                       variant={active ? "default" : "outline"}
-                      className="h-11 px-2"
+                      className="h-[38px] px-2 text-base"
                       aria-pressed={active}
                       onClick={() => updateMobileFilters({ paid: value })}
                     >
@@ -1339,7 +1339,7 @@ export function OrderListScreen() {
                       key={value ?? "all"}
                       type="button"
                       variant={active ? "default" : "outline"}
-                      className="h-11 px-2"
+                      className="h-[38px] px-2 text-base"
                       aria-pressed={active}
                       onClick={() => updateMobileFilters({ overdue: value })}
                     >
@@ -1360,7 +1360,7 @@ export function OrderListScreen() {
                         key={technician}
                         type="button"
                         variant={active ? "default" : "outline"}
-                        className="min-h-11"
+                        className="min-h-9"
                         aria-pressed={active}
                         onClick={() =>
                           updateMobileFilters({ technicians: active ? undefined : [technician] })
@@ -1377,12 +1377,12 @@ export function OrderListScreen() {
               <Button
                 type="button"
                 variant="outline"
-                className="h-11"
+                className="h-9"
                 onClick={clearMobileHiddenFilters}
               >
                 清除高级筛选
               </Button>
-              <Button type="button" className="h-11" onClick={() => setMobileFiltersOpen(false)}>
+              <Button type="button" className="h-10" onClick={() => setMobileFiltersOpen(false)}>
                 查看结果
               </Button>
             </div>

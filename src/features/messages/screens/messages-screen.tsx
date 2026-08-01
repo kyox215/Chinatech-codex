@@ -256,7 +256,7 @@ export function MessagesScreen() {
               type="button"
               size="sm"
               variant="outline"
-              className="min-h-11 bg-card lg:h-8 lg:min-h-0"
+              className="min-h-9 bg-card lg:h-8 lg:min-h-0"
               onClick={() => templatesQuery.refetch()}
             >
               重新加载
@@ -357,14 +357,14 @@ export function MessagesScreen() {
                     value={activeLabelDraft}
                     disabled={!canUpdateMessageTemplates}
                     onChange={(event) => setLabelDraft(event.target.value)}
-                    className="h-11 text-base sm:text-sm lg:h-8"
+                    className="h-[38px] text-base sm:text-sm lg:h-8"
                   />
                 </div>
                 <div className="flex items-end">
                   <RepairOsBusinessCard
                     as="div"
                     data-ui="messages-template-enabled-toggle"
-                    className="h-11 min-w-[7.25rem] items-center rounded-md bg-surface px-2.5 py-0 shadow-none hover:bg-surface lg:h-8"
+                    className="h-9 min-w-[7.25rem] items-center rounded-md bg-surface px-2.5 py-0 shadow-none hover:bg-surface lg:h-8"
                     bodyClassName="self-center"
                     trailing={
                       <Switch
@@ -425,7 +425,7 @@ export function MessagesScreen() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="min-h-11 gap-1.5 lg:h-8 lg:min-h-0"
+                    className="min-h-9 gap-1.5 lg:h-8 lg:min-h-0"
                     disabled={
                       resetMutation.isPending ||
                       !canUpdateMessageTemplates ||
@@ -441,7 +441,7 @@ export function MessagesScreen() {
                   </Button>
                   <Button
                     size="sm"
-                    className={cn("min-h-11 gap-1.5 lg:h-8 lg:min-h-0", controls.brandButton)}
+                    className={cn("min-h-10 gap-1.5 lg:h-8 lg:min-h-0", controls.brandButton)}
                     style={brandGradientStyle}
                     disabled={
                       !canUpdateMessageTemplates || !canSaveTemplate || saveMutation.isPending

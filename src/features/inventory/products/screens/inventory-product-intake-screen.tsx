@@ -284,8 +284,8 @@ export function InventoryProductIntakeScreen() {
             <Button
               type="button"
               variant="ghost"
-              size="icon"
-              className="size-11 rounded-xl"
+              size="iconDense"
+              className="size-9 rounded-lg"
               aria-label="返回商品库存"
               onClick={() => router.push("/inventory")}
             >
@@ -295,7 +295,7 @@ export function InventoryProductIntakeScreen() {
               <h1 className="text-sm font-semibold">快速录入商品</h1>
               <p className="text-[10px] text-muted-foreground">三个字段即可保存</p>
             </div>
-            <span className="size-11" aria-hidden />
+            <span className="size-9" aria-hidden />
           </header>
         </section>
       </div>
@@ -336,7 +336,7 @@ export function InventoryProductIntakeScreen() {
                   aria-checked={draft.category === value}
                   tabIndex={draft.category === value ? 0 : -1}
                   className={cn(
-                    "flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border px-1 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "flex min-h-8 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     draft.category === value
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border bg-card",
@@ -464,7 +464,7 @@ export function InventoryProductIntakeScreen() {
         <section className={cn(repairOs.mobileInfoCard, "overflow-hidden p-0")}>
           <button
             type="button"
-            className="flex min-h-11 w-full items-center justify-between px-3 text-left text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            className="flex min-h-9 w-full items-center justify-between px-3 text-left text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
             aria-expanded={moreOpen}
             onClick={() => setMoreOpen((open) => !open)}
           >
@@ -606,14 +606,14 @@ export function InventoryProductIntakeScreen() {
           <Button
             type="button"
             variant="outline"
-            className="min-h-11"
+            className="min-h-9"
             disabled={mutation.isPending}
             onClick={() => void save(true)}
           >
             {mutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
             保存并继续录入
           </Button>
-          <Button type="submit" className="min-h-11" disabled={mutation.isPending}>
+          <Button type="submit" className="min-h-10" disabled={mutation.isPending}>
             {mutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
             保存并查看商品
           </Button>
@@ -660,7 +660,7 @@ function Field({
         placeholder={placeholder}
         aria-invalid={invalid || undefined}
         aria-describedby={invalid ? "product-form-error" : undefined}
-        className="h-11 min-w-0 text-base lg:h-9 lg:text-sm"
+        className="h-[38px] min-w-0 text-base lg:h-9 lg:text-sm"
         onChange={(event) => onChange(event.target.value)}
       />
     </div>

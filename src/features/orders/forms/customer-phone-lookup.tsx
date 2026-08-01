@@ -145,7 +145,7 @@ export function CustomerPhoneLookup({
             }}
             placeholder={placeholder}
             className={cn(
-              "h-11 font-mono text-base lg:h-9 lg:text-sm",
+              "h-[38px] font-mono text-base lg:h-9 lg:text-sm",
               className,
               showSearchIcon && "pl-9",
             )}

@@ -115,7 +115,7 @@ export function SuppliersSettingsSection({
             <Button
               type="button"
               variant="outline"
-              className="min-h-11"
+              className="min-h-10"
               onClick={(event) => {
                 returnFocusRef.current = event.currentTarget;
                 setEditor({ mode: "new" });
@@ -144,14 +144,14 @@ export function SuppliersSettingsSection({
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 aria-label="搜索供应商"
-                className="min-h-11 pl-9 text-base sm:text-sm"
+                className="h-[38px] pl-9 text-base sm:text-sm"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="名称、联系人、电话或邮箱"
               />
             </div>
             <Select value={status} onValueChange={(value) => setStatus(value as typeof status)}>
-              <SelectTrigger className="min-h-11 text-base sm:text-sm" aria-label="筛选供应商状态">
+              <SelectTrigger className="h-[38px] text-base sm:text-sm" aria-label="筛选供应商状态">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -173,7 +173,7 @@ export function SuppliersSettingsSection({
               role="alert"
               className="grid-cols-1 gap-2 border-status-danger-foreground/25 bg-status-danger/10 px-3 py-3 text-status-danger-foreground sm:grid-cols-[minmax(0,1fr)_auto]"
               trailing={
-                <Button type="button" variant="outline" className="min-h-11" onClick={onRetry}>
+                <Button type="button" variant="outline" className="min-h-9" onClick={onRetry}>
                   <RotateCcw className="size-4" /> 重新读取
                 </Button>
               }
@@ -207,7 +207,7 @@ export function SuppliersSettingsSection({
                           <Button
                             type="button"
                             variant="outline"
-                            className="min-h-11"
+                            className="min-h-9"
                             onClick={(event) => {
                               returnFocusRef.current = event.currentTarget;
                               setEditor({ mode: "edit", supplier });
@@ -341,7 +341,7 @@ function SupplierQuickActions({ supplier }: { supplier: Supplier }) {
           asChild
           size="icon"
           variant="ghost"
-          className="size-11"
+          className="size-9"
           aria-label={`拨打 ${supplier.name}`}
         >
           <a href={`tel:${supplier.phone}`}>
@@ -354,7 +354,7 @@ function SupplierQuickActions({ supplier }: { supplier: Supplier }) {
           asChild
           size="icon"
           variant="ghost"
-          className="size-11"
+          className="size-9"
           aria-label={`邮件联系 ${supplier.name}`}
         >
           <a href={`mailto:${supplier.email}`}>
@@ -367,7 +367,7 @@ function SupplierQuickActions({ supplier }: { supplier: Supplier }) {
           asChild
           size="icon"
           variant="ghost"
-          className="size-11"
+          className="size-9"
           aria-label={`打开 ${supplier.name} 网站`}
         >
           <a href={website} target="_blank" rel="noopener noreferrer">

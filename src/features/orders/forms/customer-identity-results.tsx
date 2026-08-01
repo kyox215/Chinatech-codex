@@ -74,8 +74,8 @@ export function CustomerIdentityResultsPanel({
           <LookupNotice icon={<Loader2 className="size-3.5 animate-spin" />}>
             正在核对客户…
           </LookupNotice>
-          <div className="h-11 animate-pulse rounded-lg bg-card" />
-          <div className="h-11 animate-pulse rounded-lg bg-card" />
+          <div className="h-[38px] animate-pulse rounded-lg bg-card" />
+          <div className="h-[38px] animate-pulse rounded-lg bg-card" />
         </div>
       ) : queryError ? (
         <LookupNotice tone="danger" icon={<AlertTriangle className="size-3.5" />}>
@@ -121,7 +121,7 @@ export function CustomerIdentityResultsPanel({
             <Button
               type="button"
               variant="outline"
-              className="min-h-11 w-full whitespace-normal px-2 text-xs"
+              className="min-h-9 w-full whitespace-normal px-2 text-xs"
               disabled={!trustedResult || !phoneReadyForCreation}
               onClick={onRequestNewCustomer}
             >
@@ -166,7 +166,7 @@ function CustomerIdentityCandidateOption({
       role="option"
       aria-selected={selected}
       className={cn(
-        "mb-1 grid min-h-11 w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1.5 text-left outline-none transition-colors last:mb-0 hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring",
+        "mb-1 grid min-h-9 w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1 text-left outline-none transition-colors last:mb-0 hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring",
         highlighted && "border-primary/35 ring-1 ring-primary/20",
       )}
       onMouseEnter={onHighlight}
