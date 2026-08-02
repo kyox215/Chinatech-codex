@@ -27,8 +27,22 @@ test.describe("customer responsive workbench", () => {
       if (viewport.width >= 1024) {
         await expect(page.locator("table")).toBeVisible();
       } else {
+        const underlineNavigation = page.locator(
+          '[data-ui="repair-os-header-underline-nav"]:visible',
+        );
+        await expect(underlineNavigation).toBeVisible();
+        await expect(underlineNavigation).not.toHaveClass(/overflow-x-auto/);
+        for (const group of await visibleGroups.all()) {
+          await expectMinTouchHeight(group);
+        }
         await expect(page.locator('[data-ui="customer-mobile-name"]').first()).toBeVisible();
         await expect(page.locator("table")).not.toBeVisible();
+        if (viewport.width === 390) {
+          await page.screenshot({
+            path: "screenshots/TASK-20260802-001-customer-group-navigation-previews/customer-group-underline-mobile.png",
+            fullPage: true,
+          });
+        }
       }
 
       await openCustomerDetail(page, viewport.width);

@@ -47,6 +47,37 @@ describe("RepairOsListScaffold header chips", () => {
     expect(onClick).toHaveBeenCalledOnce();
   });
 
+  it("renders the opt-in underline navigation with full labels and 44px targets", () => {
+    const onClick = vi.fn();
+    render(
+      <SidebarProvider>
+        <RepairOsListScaffold
+          title="客户管理"
+          chipsVariant="underline"
+          chipsLabel="客户分组"
+          chips={[
+            { key: "all", label: "全部", shortLabel: "全", count: 128, active: true, onClick },
+            { key: "active", label: "处理中", shortLabel: "修", count: 7, onClick },
+            { key: "unpaid", label: "待收款", shortLabel: "款", count: 3, onClick },
+            { key: "followup", label: "要跟进", shortLabel: "跟", count: 4, onClick },
+          ]}
+        >
+          <div>内容</div>
+        </RepairOsListScaffold>
+      </SidebarProvider>,
+    );
+
+    const navigation = screen.getByRole("group", { name: "客户分组" });
+    const all = screen.getByRole("button", { name: "全部，128" });
+    expect(navigation).toHaveAttribute("data-ui", "repair-os-header-underline-nav");
+    expect(all).toHaveClass("h-11");
+    expect(all).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("99+")).toBeVisible();
+    expect(screen.queryByText("修")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "处理中，7" }));
+    expect(onClick).toHaveBeenCalledOnce();
+  });
+
   it("supports a settings subpage return action without nesting it in the menu trigger", () => {
     render(
       <SidebarProvider>

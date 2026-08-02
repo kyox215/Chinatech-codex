@@ -310,6 +310,7 @@ export interface RepairOsListScaffoldProps {
   filterAction?: ReactNode;
   chips?: RepairOsListHeaderChip[];
   chipsLabel?: string;
+  chipsVariant?: "stepper" | "underline";
   desktopHeader?: ReactNode;
   children: ReactNode;
   className?: string;
@@ -331,6 +332,7 @@ export function RepairOsListScaffold({
   filterAction,
   chips = [],
   chipsLabel = "状态分组",
+  chipsVariant = "stepper",
   desktopHeader,
   children,
   className,
@@ -458,7 +460,13 @@ export function RepairOsListScaffold({
               </div>
             ) : null}
 
-            {chips.length > 0 ? <RepairOsHeaderStepper chips={chips} label={chipsLabel} /> : null}
+            {chips.length > 0 ? (
+              chipsVariant === "underline" ? (
+                <RepairOsHeaderUnderlineNav chips={chips} label={chipsLabel} />
+              ) : (
+                <RepairOsHeaderStepper chips={chips} label={chipsLabel} />
+              )
+            ) : null}
           </div>
         </section>
       </div>
@@ -467,6 +475,61 @@ export function RepairOsListScaffold({
         <div className="hidden lg:block">{resolvedDesktopHeader}</div>
       ) : null}
       {children}
+    </div>
+  );
+}
+
+function RepairOsHeaderUnderlineNav({
+  chips,
+  label,
+}: {
+  chips: RepairOsListHeaderChip[];
+  label: string;
+}) {
+  return (
+    <div
+      data-ui="repair-os-header-underline-nav"
+      className="grid min-w-0 border-b border-border/70"
+      style={{ gridTemplateColumns: `repeat(${chips.length}, minmax(0, 1fr))` }}
+      role="group"
+      aria-label={label}
+    >
+      {chips.map((chip) => {
+        const displayCount = typeof chip.count === "number" && chip.count > 99 ? "99+" : chip.count;
+        const content = (
+          <>
+            <span className="min-w-0 truncate">{chip.label}</span>
+            {displayCount !== undefined ? (
+              <span className="shrink-0 font-mono text-[10px] tabular-nums opacity-80">
+                {displayCount}
+              </span>
+            ) : null}
+          </>
+        );
+        const itemClassName = cn(
+          "relative flex h-11 min-w-0 items-center justify-center gap-1 px-1 text-[11px] leading-4 transition-colors",
+          chip.active
+            ? "font-semibold text-primary after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-t-full after:bg-primary"
+            : "text-muted-foreground hover:text-foreground",
+        );
+
+        return chip.onClick ? (
+          <button
+            key={chip.key}
+            type="button"
+            onClick={chip.onClick}
+            className={itemClassName}
+            aria-label={`${chip.label}${chip.count !== undefined ? `，${chip.count}` : ""}`}
+            aria-pressed={chip.active}
+          >
+            {content}
+          </button>
+        ) : (
+          <div key={chip.key} className={itemClassName}>
+            {content}
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -308,6 +308,7 @@ export function CustomerListScreen() {
       }
       chips={quickChips}
       chipsLabel="客户分组"
+      chipsVariant="underline"
       desktopHeader={
         <section className="sticky top-14 z-20 mb-3 rounded-xl border border-border/60 bg-background/95 p-3 shadow-sm backdrop-blur">
           <div className="flex min-w-0 items-center gap-2">
