@@ -16,7 +16,7 @@ function OrderMobileCardSkeleton() {
       className={cn(
         repairOs.mobileInfoCard,
         orderMobileFluidDensity,
-        "h-[clamp(7rem,31vw,7.625rem)] space-y-[var(--order-mobile-gap)] rounded-[var(--order-mobile-radius)] p-[var(--order-mobile-pad)]",
+        "h-[clamp(7rem,31vw,7.625rem)] space-y-[var(--order-mobile-inline)] rounded-[var(--order-mobile-radius)] p-[var(--order-mobile-pad)]",
       )}
     >
       <div className="flex items-center justify-between gap-[var(--order-mobile-gap)]">
@@ -110,8 +110,8 @@ export function OrderListSkeleton() {
               </div>
               <Skeleton className="size-9 rounded-lg" />
             </header>
-            <div className="mt-[var(--order-mobile-tight-gap)] min-w-0 space-y-[var(--order-mobile-gap)] border-t border-[var(--border-panel)] pt-[var(--order-mobile-tight-gap)]">
-              <div className="grid grid-cols-[minmax(0,1fr)_44px_44px] gap-[var(--order-mobile-gap)]">
+            <div className="mt-[var(--order-mobile-inline)] min-w-0 space-y-[var(--order-mobile-content)] border-t border-[var(--border-panel)] pt-[var(--order-mobile-inline)]">
+              <div className="grid grid-cols-[minmax(0,1fr)_36px_36px] gap-[var(--order-mobile-cluster)]">
                 <Skeleton className="h-9 rounded-lg" />
                 <Skeleton className="size-9 rounded-lg" />
                 <Skeleton className="size-9 rounded-lg" />
@@ -150,7 +150,7 @@ export function OrderListSkeleton() {
           </div>
         </div>
 
-        <div className="space-y-1.5 lg:hidden">
+        <div className="space-y-2 lg:hidden">
           {Array.from({ length: 4 }).map((_, index) => (
             <OrderMobileCardSkeleton key={index} />
           ))}

@@ -64,7 +64,8 @@ test("uses a fluid two-row queue header and compact mobile cards", async ({ page
     expect(Math.abs((arrived?.y ?? 0) - (pickup?.y ?? 0))).toBeLessThanOrEqual(1);
     expect(Math.abs((processing?.y ?? 0) - (arrived?.y ?? 0))).toBeGreaterThan(28);
     expect(processing?.height ?? 0).toBeGreaterThanOrEqual(32);
-    expect(header?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(185);
+    // The memo-rhythm pass adds relationship spacing without enlarging queue controls.
+    expect(header?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(210);
 
     await page.screenshot({
       path: testInfo.outputPath(`orders-${viewport.width}-fluid-density.png`),

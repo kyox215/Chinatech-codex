@@ -4,7 +4,8 @@ import { motion } from "framer-motion";
 import { AlertTriangle, RefreshCw, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { brandGradientStyle, stateBlocks } from "@/lib/ui-patterns";
+import { brandGradientStyle, repairOs, stateBlocks } from "@/lib/ui-patterns";
+import { cn } from "@/lib/utils";
 
 export function EmptyOrdersState({
   hasActiveFilters,
@@ -19,9 +20,10 @@ export function EmptyOrdersState({
 
   return (
     <motion.div
+      data-ui="order-list-empty-state"
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="mx-auto mt-5 flex max-w-sm flex-col items-center justify-center text-center sm:mt-16"
+      className={cn(repairOs.listStateCard, "max-w-xl")}
     >
       <div className={stateBlocks.emptyIcon} style={brandGradientStyle}>
         <Search className="size-5 sm:size-7" />
@@ -51,7 +53,12 @@ export function EmptyOrdersState({
 
 export function OrdersErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="mx-auto mt-6 flex max-w-lg flex-col items-center justify-center rounded-xl border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-3 text-center sm:mt-16 sm:px-4 sm:py-5">
+    <div
+      className={cn(
+        repairOs.listStateCard,
+        "max-w-xl border-status-danger-foreground/25 bg-status-danger/10",
+      )}
+    >
       <div className="mb-3 grid size-12 place-items-center rounded-full bg-status-danger/15 text-status-danger-foreground">
         <AlertTriangle className="size-6" />
       </div>
@@ -87,7 +94,7 @@ export function PaginationBar({
   const end = Math.min(total, (page - 1) * pageSize + visible);
 
   return (
-    <div className="mt-3 flex flex-col gap-2 rounded-lg border border-border/60 bg-surface/70 px-3 py-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+    <div className="mt-4 flex flex-col gap-2 rounded-lg border border-border/60 bg-surface/70 px-3 py-2 text-xs text-muted-foreground sm:mt-6 sm:flex-row sm:items-center sm:justify-between">
       <span>
         显示 {start}-{end} / {total}
       </span>

@@ -355,7 +355,7 @@ export function RepairOsListScaffold({
   const resolvedDesktopHeader =
     desktopHeader ??
     (desktopActions || desktopHeaderAddon ? (
-      <div className="mb-3 space-y-3 sm:mb-4">
+      <div className="mb-3 space-y-3 sm:mb-4 lg:mb-6">
         {desktopActions ? <div className="flex min-w-0 justify-end">{desktopActions}</div> : null}
         {desktopHeaderAddon}
       </div>
@@ -381,9 +381,17 @@ export function RepairOsListScaffold({
   }, []);
 
   return (
-    <div className={cn(repairOs.mobileUnifiedListPage, className)} style={offsetStyle}>
-      <div ref={headerRef} className={repairOs.mobileListHeaderShell}>
-        <section className={repairOs.mobileFloatingHeaderCard}>
+    <div
+      data-ui="repair-os-list-scaffold"
+      className={cn(repairOs.mobileUnifiedListPage, className)}
+      style={offsetStyle}
+    >
+      <div
+        ref={headerRef}
+        data-ui="repair-os-list-header-shell"
+        className={repairOs.mobileListHeaderShell}
+      >
+        <section data-ui="repair-os-list-header-card" className={repairOs.mobileFloatingHeaderCard}>
           <header
             className={cn(
               repairOs.mobileFloatingHeaderNav,
@@ -402,12 +410,16 @@ export function RepairOsListScaffold({
             <div className="flex min-h-9 min-w-9 shrink-0 items-center justify-end">{action}</div>
           </header>
 
-          <div className={cn(repairOs.mobileFloatingHeaderBody, "space-y-1.5")}>
+          <div
+            data-ui="repair-os-list-header-body"
+            className={cn(repairOs.mobileFloatingHeaderBody, "space-y-2")}
+          >
             {hasSearch ? (
               <div
-                className="grid min-w-0 gap-1 [&>*]:min-h-9 [&>*]:min-w-9"
+                data-ui="repair-os-list-search-row"
+                className="grid min-w-0 grid-flow-col grid-cols-[minmax(0,1fr)] auto-cols-max gap-1.5 [&>*]:min-h-9 [&>*]:min-w-9"
                 style={{
-                  gridTemplateColumns: `minmax(0, 1fr) repeat(${searchTrailingActions.length}, 36px)`,
+                  gridTemplateColumns: `minmax(0, 1fr) repeat(${searchTrailingActions.length}, max-content)`,
                 }}
               >
                 <div
@@ -444,7 +456,7 @@ export function RepairOsListScaffold({
             ) : null}
 
             {trimmedSearchValue ? (
-              <div className="flex min-w-0 items-center gap-2">
+              <div className="flex min-w-0 items-center gap-1.5">
                 <span className="inline-flex min-w-0 max-w-[calc(100%-3rem)] items-center gap-1 rounded-full border border-[var(--border-panel)] bg-card px-2.5 py-1 text-[11px] font-medium leading-4 text-muted-foreground">
                   <span className="shrink-0">搜索：</span>
                   <span className="truncate font-mono text-foreground">{trimmedSearchValue}</span>
@@ -474,7 +486,9 @@ export function RepairOsListScaffold({
       {resolvedDesktopHeader ? (
         <div className="hidden lg:block">{resolvedDesktopHeader}</div>
       ) : null}
-      {children}
+      <div data-ui="repair-os-list-content" className="min-w-0 pt-2 lg:pt-0">
+        {children}
+      </div>
     </div>
   );
 }
@@ -544,7 +558,11 @@ function RepairOsHeaderStepper({
   const minWidth = Math.max(320, chips.length * 54);
 
   return (
-    <div className="min-w-0 overflow-x-auto pb-0.5" aria-label={label}>
+    <div
+      data-ui="repair-os-header-stepper"
+      className="min-w-0 overflow-x-auto pb-0.5"
+      aria-label={label}
+    >
       <div
         className="relative grid"
         style={{ gridTemplateColumns: `repeat(${chips.length}, minmax(0, 1fr))`, minWidth }}

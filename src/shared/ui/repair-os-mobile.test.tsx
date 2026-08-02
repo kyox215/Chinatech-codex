@@ -47,7 +47,7 @@ describe("RepairOsListScaffold header chips", () => {
     expect(onClick).toHaveBeenCalledOnce();
   });
 
-  it("renders the opt-in underline navigation with full labels and 44px targets", () => {
+  it("renders the opt-in underline navigation with full labels and its contextual target", () => {
     const onClick = vi.fn();
     render(
       <SidebarProvider>
@@ -100,12 +100,19 @@ describe("RepairOsListScaffold header chips", () => {
           searchPlaceholder="搜索标题或正文"
           onSearchChange={() => undefined}
         >
-          <div>内容</div>
+          <div data-testid="content">内容</div>
         </RepairOsListScaffold>
       </SidebarProvider>,
     );
 
     const searchContainer = screen.getByRole("textbox", { name: "搜索标题或正文" }).parentElement;
+    expect(screen.getByTestId("content").parentElement).toHaveAttribute(
+      "data-ui",
+      "repair-os-list-content",
+    );
+    expect(
+      screen.getByTestId("content").closest('[data-ui="repair-os-list-scaffold"]'),
+    ).not.toBeNull();
     expect(searchContainer).toHaveClass("bg-[var(--surface-panel-muted)]");
     expect(searchContainer).not.toHaveClass("border");
     expect(searchContainer?.className).not.toContain("shadow-[var(--shadow-card)]");

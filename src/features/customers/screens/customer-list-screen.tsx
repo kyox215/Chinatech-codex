@@ -68,7 +68,7 @@ import {
   type CustomerCreateInput,
   type CustomerListFilters,
 } from "@/lib/repairdesk/api";
-import { controls, density, layoutGuards } from "@/lib/ui-patterns";
+import { controls, density, layoutGuards, repairOs } from "@/lib/ui-patterns";
 import {
   RepairOsBusinessCard,
   RepairOsHeaderActionButton,
@@ -310,7 +310,10 @@ export function CustomerListScreen() {
       chipsLabel="客户分组"
       chipsVariant="underline"
       desktopHeader={
-        <section className="sticky top-14 z-20 mb-3 rounded-xl border border-border/60 bg-background/95 p-3 shadow-sm backdrop-blur">
+        <section
+          data-ui="customer-list-desktop-header"
+          className="sticky top-14 z-20 mb-6 rounded-xl border border-border/60 bg-background/95 p-3 shadow-sm backdrop-blur"
+        >
           <div className="flex min-w-0 items-center gap-2">
             <div className="relative min-w-0 flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -418,7 +421,7 @@ export function CustomerListScreen() {
         <RepairOsBusinessCard
           as="div"
           data-ui="customer-list-empty-state"
-          className="mx-auto mt-4 !flex max-w-sm flex-col items-center rounded-xl px-3 py-3 text-center sm:mt-8 sm:px-5 sm:py-5"
+          className="mx-auto !flex w-full max-w-4xl flex-col items-center rounded-xl px-3 py-5 text-center sm:px-5 sm:py-8"
           bodyClassName="flex min-w-0 flex-col items-center"
         >
           <span className="grid size-10 place-items-center rounded-full bg-muted text-muted-foreground">
@@ -498,7 +501,7 @@ export function CustomerListScreen() {
               </tbody>
             </table>
           </div>
-          <div className="space-y-2 lg:hidden">
+          <div className={cn(repairOs.listCardStack, "lg:hidden")}>
             {customers.map((customer) => (
               <CustomerMobileCard key={customer.id} customer={customer} />
             ))}
@@ -528,7 +531,7 @@ export function CustomerListScreen() {
                 </Button>
               </div>
             }
-            className="mt-3 items-center rounded-md border-border/60 bg-surface/70 px-3 py-2 text-xs shadow-none hover:bg-surface/70"
+            className="mt-4 items-center rounded-md border-border/60 bg-surface/70 px-3 py-2 text-xs shadow-none hover:bg-surface/70 sm:mt-6"
             bodyClassName="min-w-0"
             trailingClassName="shrink-0"
           >
@@ -592,7 +595,7 @@ function CustomerLoadError({ onRetry }: { onRetry: () => void }) {
     <RepairOsBusinessCard
       as="div"
       data-ui="customer-list-load-error"
-      className="mx-auto mt-4 !flex max-w-sm flex-col items-center rounded-xl border-status-danger-foreground/25 px-3 py-3 text-center sm:mt-8 sm:px-5 sm:py-5"
+      className="mx-auto !flex w-full max-w-4xl flex-col items-center rounded-xl border-status-danger-foreground/25 px-3 py-5 text-center sm:px-5 sm:py-8"
       bodyClassName="flex min-w-0 flex-col items-center"
     >
       <span className="mx-auto grid size-10 place-items-center rounded-full bg-status-danger/10 text-status-danger-foreground">

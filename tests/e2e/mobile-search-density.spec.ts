@@ -18,7 +18,7 @@ for (const viewport of [
 
     await gotoApp(page, "/customers");
     const customerSearch = page.getByRole("textbox", { name: "姓名、电话或设备" });
-    await expectEmbeddedSearch(customerSearch);
+    await expectEmbeddedSearch(customerSearch, 36);
     await expectNoOverflow(page);
 
     await gotoApp(page, "/orders");
@@ -26,13 +26,13 @@ for (const viewport of [
       name: "搜索工单、客户、电话或 IMEI",
     });
     await expect(orderSearch).toHaveAttribute("placeholder", "工单 / 客户 / IMEI");
-    await expectEmbeddedSearch(orderSearch);
+    await expectEmbeddedSearch(orderSearch, 38);
 
-    for (const actionName of [/订单扫码查询/, /筛选订单/]) {
+    for (const actionName of [/扫描订单二维码/, /筛选订单/]) {
       const action = page.getByRole("button", { name: actionName });
       const box = await action.boundingBox();
-      expect(box?.width).toBeGreaterThanOrEqual(44);
-      expect(box?.height).toBeGreaterThanOrEqual(44);
+      expect(box?.width).toBeGreaterThanOrEqual(36);
+      expect(box?.height).toBeGreaterThanOrEqual(36);
     }
 
     await expectNoOverflow(page);
@@ -46,8 +46,8 @@ for (const viewport of [
     await gotoApp(page, "/account");
     const globalSearch = page.getByRole("button", { name: "打开全局搜索" });
     const globalSearchBox = await globalSearch.boundingBox();
-    expect(globalSearchBox?.width).toBeGreaterThanOrEqual(44);
-    expect(globalSearchBox?.height).toBeGreaterThanOrEqual(44);
+    expect(globalSearchBox?.width).toBeGreaterThanOrEqual(36);
+    expect(globalSearchBox?.height).toBeGreaterThanOrEqual(36);
     await globalSearch.click();
 
     const commandInput = page.getByPlaceholder("输入命令、搜索工单或客户…");
@@ -85,16 +85,16 @@ async function gotoApp(page: Page, path: string) {
   throw new Error(`Unable to settle navigation on ${path}; last URL was ${page.url()}`);
 }
 
-async function expectEmbeddedSearch(input: Locator) {
+async function expectEmbeddedSearch(input: Locator, minimumHeight: number) {
   await expect(input).toBeVisible({ timeout: 20_000 });
   expect(await input.evaluate((element) => getComputedStyle(element).fontSize)).toBe("16px");
   const inputBox = await input.boundingBox();
-  expect(inputBox?.height).toBeGreaterThanOrEqual(44);
+  expect(inputBox?.height).toBeGreaterThanOrEqual(minimumHeight);
 
   const shell = input.locator("..");
   await expect(shell).toHaveClass(/bg-\[var\(--surface-panel-muted\)\]/);
   await expect(shell).not.toHaveClass(/border/);
-  expect((await shell.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  expect((await shell.boundingBox())?.height).toBeGreaterThanOrEqual(minimumHeight);
 }
 
 async function expectNoOverflow(page: Page) {

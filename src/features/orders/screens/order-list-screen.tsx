@@ -1730,11 +1730,11 @@ export function OrderListScreen() {
             </div>
 
             {/* Mobile and tablet cards */}
-            <div data-order-mobile-list="true" className="space-y-3 lg:hidden">
+            <div data-order-mobile-list="true" className="space-y-4 lg:hidden">
               {groupedData.map((section) => (
                 <section
                   key={section.group}
-                  className="space-y-1.5"
+                  className="space-y-2"
                   aria-labelledby={`mobile-order-group-${section.group}`}
                 >
                   <OrderResultGroupHeader
@@ -1744,7 +1744,7 @@ export function OrderListScreen() {
                     totalCount={resultGroupCounts[section.group]}
                     oldestCreatedAt={section.items[0].created_at}
                   />
-                  <div className="grid gap-1.5 md:grid-cols-2" role="list">
+                  <div className="grid gap-2 md:grid-cols-2" role="list">
                     {section.items.map((order) => (
                       <div key={order.id} role="listitem" data-order-id={order.id}>
                         <OrderMobileCard

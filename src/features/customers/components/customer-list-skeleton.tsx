@@ -39,14 +39,14 @@ export function CustomerListSkeleton() {
         <div className={repairOs.mobileListHeaderShell}>
           <section className={repairOs.mobileFloatingHeaderCard}>
             <header className={repairOs.mobileFloatingHeaderNav}>
-              <Skeleton className="size-7 rounded-lg" />
+              <Skeleton className="size-9 rounded-lg" />
               <div className="mx-auto w-full max-w-32 space-y-1">
                 <Skeleton className="mx-auto h-4 w-20" />
                 <Skeleton className="mx-auto h-2.5 w-24" />
               </div>
-              <Skeleton className="size-7 rounded-lg" />
+              <Skeleton className="size-9 rounded-lg" />
             </header>
-            <div className={cn(repairOs.mobileFloatingHeaderBody, "space-y-1.5")}>
+            <div className={cn(repairOs.mobileFloatingHeaderBody, "space-y-2")}>
               <div className="grid grid-cols-[minmax(0,1fr)_40px_40px] gap-1.5">
                 <Skeleton className="h-10 rounded-xl" />
                 <Skeleton className="size-10 rounded-xl" />
@@ -84,7 +84,7 @@ export function CustomerListSkeleton() {
           </div>
         </div>
 
-        <div className="space-y-2 lg:hidden">
+        <div className={cn(repairOs.listCardStack, "lg:hidden")}>
           {Array.from({ length: 5 }).map((_, index) => (
             <CustomerMobileCardSkeleton key={index} />
           ))}

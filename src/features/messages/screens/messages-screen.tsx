@@ -218,7 +218,7 @@ export function MessagesScreen() {
         <RepairOsBusinessCard
           as="div"
           data-ui="messages-template-no-permission"
-          className="mx-auto mt-16 max-w-sm"
+          className="mx-auto w-full max-w-4xl"
           role="status"
         >
           <span className="block text-sm font-semibold">无法打开消息模板</span>
@@ -245,7 +245,7 @@ export function MessagesScreen() {
         <RepairOsBusinessCard
           as="div"
           data-ui="messages-template-load-error"
-          className="mx-auto mt-6 max-w-sm grid-cols-[auto_minmax(0,1fr)_auto] items-center rounded-xl border-status-danger-foreground/25 bg-status-danger/10 px-2.5 py-2 text-status-danger-foreground shadow-[var(--shadow-card)] hover:bg-status-danger/10 sm:mt-16 sm:px-4 sm:py-3"
+          className="mx-auto w-full max-w-4xl grid-cols-[auto_minmax(0,1fr)_auto] items-center rounded-xl border-status-danger-foreground/25 bg-status-danger/10 px-2.5 py-2 text-status-danger-foreground shadow-[var(--shadow-card)] hover:bg-status-danger/10 sm:px-4 sm:py-3"
           leading={
             <span className="grid size-9 place-items-center rounded-lg bg-status-danger/10">
               <MessageSquareText className="size-4" />
@@ -522,7 +522,7 @@ export function MessagesScreen() {
           <RepairOsBusinessCard
             as="div"
             data-ui="messages-template-empty-state"
-            className="mx-auto mt-4 max-w-sm grid-cols-[auto_minmax(0,1fr)] items-center rounded-xl px-2.5 py-2 shadow-[var(--shadow-card)] sm:mt-8 sm:px-4 sm:py-3"
+            className="mx-auto w-full max-w-4xl grid-cols-[auto_minmax(0,1fr)] items-center rounded-xl px-2.5 py-2 shadow-[var(--shadow-card)] sm:px-4 sm:py-3"
             leading={
               <span className="grid size-9 place-items-center rounded-lg bg-[var(--surface-panel-muted)] text-muted-foreground">
                 <MessageSquareText className="size-4" />

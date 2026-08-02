@@ -1249,7 +1249,7 @@ export function SettingsScreen() {
           as="div"
           data-ui="settings-context-error"
           role="alert"
-          className="mx-auto mt-16 grid max-w-sm grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border-status-danger-foreground/25 bg-status-danger/10 px-4 py-3 text-status-danger-foreground shadow-[var(--shadow-card)] hover:bg-status-danger/10 sm:grid-cols-[auto_minmax(0,1fr)_auto]"
+          className="mx-auto grid w-full max-w-4xl grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border-status-danger-foreground/25 bg-status-danger/10 px-4 py-3 text-status-danger-foreground shadow-[var(--shadow-card)] hover:bg-status-danger/10 sm:grid-cols-[auto_minmax(0,1fr)_auto]"
           leading={
             <span className="grid size-9 place-items-center rounded-lg bg-status-danger/10">
               <Settings2 className="size-4" />
@@ -1287,7 +1287,7 @@ export function SettingsScreen() {
       <RepairOsListScaffold title="设置" subtitle="没有正在营业的店铺" eyebrow="系统 / 设置">
         <RepairOsBusinessCard
           as="div"
-          className="mx-auto mt-16 max-w-md p-4"
+          className="mx-auto w-full max-w-4xl p-4"
           leading={
             <span className="grid size-9 place-items-center rounded-lg bg-status-warn/15 text-status-warn-foreground">
               <Archive className="size-4" />
@@ -2041,7 +2041,7 @@ function SettingsLoading() {
       eyebrow="系统 / 设置"
       className="pb-28"
     >
-      <div data-ui="settings-loading" className="mt-3 space-y-2.5 sm:space-y-3">
+      <div data-ui="settings-loading" className={repairOs.listModuleStack}>
         <Skeleton className="h-32 w-full rounded-lg" />
         <Skeleton className="h-28 w-full rounded-lg" />
         <Skeleton className="h-40 w-full rounded-lg" />

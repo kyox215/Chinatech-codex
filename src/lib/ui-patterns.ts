@@ -155,6 +155,26 @@ export const controlDensity = {
   danger: "min-h-10 min-w-10",
 } as const;
 
+/**
+ * Relationship-level spacing for list and administration screens.
+ *
+ * The memo screen is the rhythm reference, not a component-size template:
+ * controls keep their semantic density while the distance between related
+ * elements follows this 4 / 6 / 8 / 12 / 16 / 24px ladder.
+ */
+export const semanticSpacing = {
+  inline: "gap-1",
+  cluster: "gap-1.5",
+  content: "gap-2",
+  group: "gap-3",
+  module: "gap-4 lg:gap-6",
+  stackInline: "space-y-1",
+  stackCluster: "space-y-1.5",
+  stackContent: "space-y-2",
+  stackGroup: "space-y-3",
+  stackModule: "space-y-4 lg:space-y-6",
+} as const;
+
 export const repairOs = {
   mobilePage:
     "mx-auto w-full min-w-0 max-w-[430px] overflow-x-hidden px-3 pb-20 pt-3 sm:max-w-2xl md:max-w-7xl md:px-5 md:pb-8 lg:px-6",
@@ -169,9 +189,15 @@ export const repairOs = {
   mobileFloatingHeaderShell:
     "fixed inset-x-0 top-0 z-40 bg-background/75 px-2 pb-2 pt-[calc(env(safe-area-inset-top)+0.35rem)] backdrop-blur-xl lg:hidden",
   mobileFloatingHeaderCard:
-    "mx-auto min-w-0 max-w-[430px] overflow-hidden rounded-lg border border-[var(--border-panel)] bg-card/95 px-1.5 py-1 shadow-[var(--shadow-card)] md:max-w-none",
+    "mx-auto w-full min-w-0 max-w-[430px] overflow-hidden rounded-lg border border-[var(--border-panel)] bg-card/95 px-1.5 py-1 shadow-[var(--shadow-card)] md:max-w-none",
   mobileFloatingHeaderNav: "grid min-w-0 grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-1.5",
   mobileFloatingHeaderBody: "mt-1 min-w-0 border-t border-[var(--border-panel)] pt-1",
+  listReadableWidth: "mx-auto w-full min-w-0 max-w-4xl",
+  listModuleStack: `min-w-0 ${semanticSpacing.stackModule}`,
+  listContentStack: "min-w-0 space-y-2 lg:space-y-3",
+  listCardStack: "grid min-w-0 gap-2 lg:gap-3",
+  listStateCard:
+    "mx-auto flex w-full max-w-4xl flex-col items-center justify-center rounded-xl border border-[var(--border-panel)] bg-card px-3 py-5 text-center shadow-[var(--shadow-card)] sm:px-5 sm:py-8",
   mobileInfoCard:
     "min-w-0 overflow-hidden rounded-xl border border-[var(--border-panel)] bg-card p-2 shadow-[var(--shadow-card)]",
   mobileInfoCardMuted:

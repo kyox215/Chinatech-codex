@@ -152,7 +152,7 @@ export function OrderMobileCard({
         aria-label={detailAccessibleName}
         onClick={onOpenIntent}
       />
-      <div className="grid gap-[var(--order-mobile-gap)] p-[var(--order-mobile-pad)] transition-colors group-hover:bg-accent/10 group-active:bg-accent/20">
+      <div className="grid gap-[var(--order-mobile-inline)] p-[var(--order-mobile-pad)] transition-colors group-hover:bg-accent/10 group-active:bg-accent/20">
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-[var(--order-mobile-gap)]">
           <div className="flex min-w-0 items-center gap-[var(--order-mobile-gap)]">
             <span className="grid size-5 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
@@ -215,7 +215,7 @@ export function OrderMobileCard({
           {issueLabel}
         </p>
 
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-[var(--order-mobile-gap)] border-t border-[var(--border-panel)] pt-[var(--order-mobile-gap)]">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-[var(--order-mobile-cluster)] border-t border-[var(--border-panel)] pt-[var(--order-mobile-inline)]">
           <MobileWorkflowStrip
             workflowStatus={workflowStatus}
             currentLabel={currentStageLabel}

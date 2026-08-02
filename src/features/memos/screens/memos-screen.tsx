@@ -263,7 +263,7 @@ export function MemosScreen() {
     </div>
   ) : null;
   const desktopToolbar = (
-    <div className="mx-auto mb-3 max-w-4xl space-y-2">
+    <div className="mx-auto mb-6 max-w-4xl space-y-2">
       <div className="flex min-w-0 items-center gap-2">
         <div className={cn(repairOs.searchBar, "h-10 min-w-0 flex-1 rounded-xl shadow-none")}>
           <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -305,8 +305,8 @@ export function MemosScreen() {
       searchFrame="embedded"
       filterAction={filterButton(true)}
     >
-      <div className="mx-auto min-w-0 max-w-4xl space-y-2">
-        <div className="lg:hidden">{activeFilterSummary}</div>
+      <div className={cn(repairOs.listReadableWidth, repairOs.listModuleStack)}>
+        {activeFilterSummary ? <div className="lg:hidden">{activeFilterSummary}</div> : null}
         {!online ? (
           <Alert>
             <WifiOff className="size-4" />

@@ -246,7 +246,7 @@ export function InventoryProductListScreen() {
 function InventoryProductResults({ items }: { items: InventoryProductListItem[] }) {
   return (
     <>
-      <div className="grid gap-1.5 md:grid-cols-2 lg:hidden">
+      <div className={cn(repairOs.listCardStack, "md:grid-cols-2 lg:hidden")}>
         {items.map((item) => (
           <InventoryProductCard key={item.id} item={item} />
         ))}
@@ -464,7 +464,7 @@ function FilterGroup({
 
 function InventoryProductListSkeleton() {
   return (
-    <div className="grid gap-1.5 md:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+    <div className={cn(repairOs.listCardStack, "md:grid-cols-2 lg:grid-cols-3")} aria-busy="true">
       {Array.from({ length: 6 }, (_, index) => (
         <Skeleton key={index} className="h-[84px] rounded-2xl" />
       ))}

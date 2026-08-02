@@ -148,7 +148,9 @@ export function MobileOrdersFloatingHeader({
           "rounded-[var(--order-mobile-radius)] px-[var(--order-mobile-pad)] py-0",
         )}
       >
-        <header className={cn(repairOs.mobileFloatingHeaderNav, "gap-[var(--order-mobile-gap)]")}>
+        <header
+          className={cn(repairOs.mobileFloatingHeaderNav, "gap-[var(--order-mobile-cluster)]")}
+        >
           <SidebarTrigger className="size-9 rounded-lg border border-[var(--border-panel)] bg-card shadow-none" />
           <div className="min-w-0 text-center">
             <p className="truncate text-[length:var(--order-mobile-title)] font-semibold leading-5">
@@ -182,10 +184,10 @@ export function MobileOrdersFloatingHeader({
         </header>
 
         {!collapsed ? (
-          <div className="min-w-0 space-y-[var(--order-mobile-gap)] border-t border-[var(--border-panel)]">
+          <div className="min-w-0 space-y-[var(--order-mobile-content)] border-t border-[var(--border-panel)] pt-[var(--order-mobile-inline)]">
             <div
               className={cn(
-                "grid min-w-0 gap-[var(--order-mobile-gap)]",
+                "grid min-w-0 gap-[var(--order-mobile-cluster)]",
                 scanAction || filterAction
                   ? cn(
                       "grid-cols-[minmax(0,1fr)]",
@@ -200,7 +202,7 @@ export function MobileOrdersFloatingHeader({
               <div
                 className={cn(
                   repairOs.searchBarEmbedded,
-                  "h-[38px] gap-[var(--order-mobile-gap)] rounded-[var(--order-mobile-radius)] px-[var(--order-mobile-pad)] shadow-none",
+                  "h-[38px] gap-[var(--order-mobile-cluster)] rounded-[var(--order-mobile-radius)] px-[var(--order-mobile-pad)] shadow-none",
                 )}
                 aria-busy={searchBusy}
               >
