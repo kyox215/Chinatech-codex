@@ -52,6 +52,14 @@ test("uses a fluid two-row queue header and compact mobile cards", async ({ page
     const arrived = await queueButton(page, "配件已到").boundingBox();
     const pickup = await queueButton(page, "等待客户取机").boundingBox();
     const header = await page.locator('[data-order-mobile-header-card="true"]').boundingBox();
+    const title = await page
+      .locator('[data-order-mobile-title-block="true"] > p')
+      .first()
+      .boundingBox();
+    const subtitle = await page.locator('[data-order-mobile-header-context="true"]').boundingBox();
+    const titleBlock = await page.locator('[data-order-mobile-title-block="true"]').boundingBox();
+    const searchRow = await page.locator('[data-order-mobile-search-row="true"]').boundingBox();
+    const rangeGroup = await page.getByRole("group", { name: "订单显示范围" }).boundingBox();
 
     expect(all).not.toBeNull();
     expect(processing).not.toBeNull();
@@ -59,13 +67,32 @@ test("uses a fluid two-row queue header and compact mobile cards", async ({ page
     expect(arrived).not.toBeNull();
     expect(pickup).not.toBeNull();
     expect(header).not.toBeNull();
+    expect(title).not.toBeNull();
+    expect(subtitle).not.toBeNull();
+    expect(titleBlock).not.toBeNull();
+    expect(searchRow).not.toBeNull();
+    expect(rangeGroup).not.toBeNull();
+    expect((subtitle?.y ?? 0) - ((title?.y ?? 0) + (title?.height ?? 0))).toBeGreaterThanOrEqual(3);
+    expect((subtitle?.y ?? 0) - ((title?.y ?? 0) + (title?.height ?? 0))).toBeLessThanOrEqual(5);
+    expect(
+      (searchRow?.y ?? 0) - ((titleBlock?.y ?? 0) + (titleBlock?.height ?? 0)),
+    ).toBeGreaterThanOrEqual(7);
+    expect(
+      (searchRow?.y ?? 0) - ((titleBlock?.y ?? 0) + (titleBlock?.height ?? 0)),
+    ).toBeLessThanOrEqual(10);
+    expect(
+      (rangeGroup?.y ?? 0) - ((searchRow?.y ?? 0) + (searchRow?.height ?? 0)),
+    ).toBeGreaterThanOrEqual(9);
+    expect(
+      (rangeGroup?.y ?? 0) - ((searchRow?.y ?? 0) + (searchRow?.height ?? 0)),
+    ).toBeLessThanOrEqual(11);
     expect(Math.abs((all?.y ?? 0) - (processing?.y ?? 0))).toBeLessThanOrEqual(1);
     expect(Math.abs((processing?.y ?? 0) - (ordered?.y ?? 0))).toBeLessThanOrEqual(1);
     expect(Math.abs((arrived?.y ?? 0) - (pickup?.y ?? 0))).toBeLessThanOrEqual(1);
     expect(Math.abs((processing?.y ?? 0) - (arrived?.y ?? 0))).toBeGreaterThan(28);
     expect(processing?.height ?? 0).toBeGreaterThanOrEqual(32);
-    // The memo-rhythm pass adds relationship spacing without enlarging queue controls.
-    expect(header?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(210);
+    // The balanced rhythm adds hierarchy spacing without enlarging queue controls.
+    expect(header?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(224);
 
     await page.screenshot({
       path: testInfo.outputPath(`orders-${viewport.width}-fluid-density.png`),

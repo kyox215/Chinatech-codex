@@ -149,10 +149,13 @@ export function MobileOrdersFloatingHeader({
         )}
       >
         <header
-          className={cn(repairOs.mobileFloatingHeaderNav, "gap-[var(--order-mobile-cluster)]")}
+          className={cn(
+            repairOs.mobileFloatingHeaderNav,
+            "gap-[var(--order-mobile-cluster)] py-[3px]",
+          )}
         >
           <SidebarTrigger className="size-9 rounded-lg border border-[var(--border-panel)] bg-card shadow-none" />
-          <div className="min-w-0 text-center">
+          <div data-order-mobile-title-block="true" className="min-w-0 space-y-1 text-center">
             <p className="truncate text-[length:var(--order-mobile-title)] font-semibold leading-5">
               维修工单
             </p>
@@ -184,8 +187,9 @@ export function MobileOrdersFloatingHeader({
         </header>
 
         {!collapsed ? (
-          <div className="min-w-0 space-y-[var(--order-mobile-content)] border-t border-[var(--border-panel)] pt-[var(--order-mobile-inline)]">
+          <div className="min-w-0 space-y-2.5 border-t border-[var(--border-panel)] pt-[var(--order-mobile-inline)]">
             <div
+              data-order-mobile-search-row="true"
               className={cn(
                 "grid min-w-0 gap-[var(--order-mobile-cluster)]",
                 scanAction || filterAction
