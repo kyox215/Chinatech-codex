@@ -101,7 +101,7 @@ export function MemberList({
         <>
           <div className="hidden overflow-hidden rounded-xl border border-[var(--border-panel)] xl:block">
             <table className="w-full table-fixed text-left text-xs">
-              <thead className="bg-[var(--surface-panel-muted)] text-[10px] uppercase tracking-wide text-muted-foreground">
+              <thead className="bg-[var(--surface-panel-muted)] text-[10px] uppercase tracking-wide text-muted-foreground lg:text-[11px] lg:leading-4 lg:tracking-normal">
                 <tr>
                   <th className="w-[30%] px-3 py-2 font-medium">员工</th>
                   <th className="w-[13%] px-3 py-2 font-medium">角色</th>
@@ -120,7 +120,7 @@ export function MemberList({
                     <td className="min-w-0 px-3 py-2.5">
                       <p className="truncate font-medium">{member.display_name || member.email}</p>
                       <p
-                        className="truncate text-[11px] text-muted-foreground"
+                        className="truncate text-[11px] text-muted-foreground lg:text-xs lg:leading-4"
                         title={member.email}
                       >
                         {member.email}
@@ -269,8 +269,10 @@ function MemberGrantSummary({ member }: { member: StoreMember }) {
     member.permission_grants?.includes(option.action),
   ).map((option) => option.label);
   return labels.length ? (
-    <p className="line-clamp-2 text-[11px] leading-5 text-muted-foreground">{labels.join(" · ")}</p>
+    <p className="line-clamp-2 text-[11px] leading-5 text-muted-foreground lg:text-xs lg:leading-5">
+      {labels.join(" · ")}
+    </p>
   ) : (
-    <p className="text-[11px] text-muted-foreground">无额外授权</p>
+    <p className="text-[11px] text-muted-foreground lg:text-xs lg:leading-4">无额外授权</p>
   );
 }

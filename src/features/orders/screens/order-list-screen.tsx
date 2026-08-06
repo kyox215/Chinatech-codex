@@ -1649,7 +1649,7 @@ export function OrderListScreen() {
                 <div className="mb-2 flex min-w-0 items-center justify-between gap-2 px-1">
                   <div className="min-w-0">
                     <div className="text-sm font-semibold">维修工单</div>
-                    <div className="text-[11px] text-muted-foreground">
+                    <div className="text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
                       {canUseBulkActions
                         ? "点击查看详情，勾选后可执行批量操作。"
                         : "点击任意工单查看详情。"}
@@ -1665,7 +1665,7 @@ export function OrderListScreen() {
                   <div
                     className={cn(
                       orderQueueDesktopGrid,
-                      "rounded-lg border border-border/40 bg-surface/45 px-1 text-[11px] font-medium text-muted-foreground",
+                      "rounded-lg border border-border/40 bg-surface/45 px-1 text-[11px] font-medium text-muted-foreground lg:text-xs lg:leading-4",
                     )}
                   >
                     <label className="flex min-w-0 items-center justify-center py-1.5">

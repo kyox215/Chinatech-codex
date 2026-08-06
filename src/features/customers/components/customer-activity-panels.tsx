@@ -17,7 +17,7 @@ import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
 const customerDetailSectionClass = cn(repairOs.mobileInfoCard, "sm:p-2.5 md:rounded-2xl md:p-3");
-const customerDetailSectionTitleClass = "text-[11px] leading-4 sm:text-sm";
+const customerDetailSectionTitleClass = "text-[11px] leading-4 sm:text-sm lg:text-sm lg:leading-5";
 
 export function CustomerMessagesPanel({
   interactions,
@@ -45,7 +45,7 @@ export function CustomerMessagesPanel({
               key={interaction.id}
               className="grid-cols-[minmax(0,1fr)] bg-surface-muted/30 px-2.5 py-2 text-sm"
             >
-              <div className="flex min-w-0 items-center justify-between gap-3 text-[11px] text-muted-foreground">
+              <div className="flex min-w-0 items-center justify-between gap-3 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
                 <span className="min-w-0 truncate">
                   {interaction.channel === "whatsapp" ? "WhatsApp" : "SMS"} ·{" "}
                   {interaction.operator_name}
@@ -92,13 +92,15 @@ export function CustomerProfilePanel({
         }
       />
       <div className="mb-2 min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
-        <p className="mb-1 text-[10px] font-medium leading-3 text-muted-foreground">服务标签</p>
+        <p className="mb-1 text-[10px] font-medium leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
+          服务标签
+        </p>
         {tags.length ? (
           <div className="flex min-w-0 flex-wrap gap-1">
             {tags.map((tag) => (
               <span
                 key={tag.id}
-                className="max-w-full truncate rounded-full border bg-card px-2 py-0.5 text-[10px] font-semibold leading-4"
+                className="max-w-full truncate rounded-full border bg-card px-2 py-0.5 text-[10px] font-semibold leading-4 lg:text-[11px] lg:leading-4"
                 style={{ borderColor: tag.color, color: tag.color }}
                 title={tag.name}
               >
@@ -107,7 +109,9 @@ export function CustomerProfilePanel({
             ))}
           </div>
         ) : (
-          <p className="text-[11px] leading-4 text-muted-foreground">暂无标签</p>
+          <p className="text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
+            暂无标签
+          </p>
         )}
       </div>
       <div className="grid min-w-0 grid-cols-2 gap-2">
@@ -199,7 +203,7 @@ export function CustomerFollowupsPanel({
                         : "待处理"}
                   </Badge>
                 </div>
-                <p className="mt-1 text-[11px] text-muted-foreground">
+                <p className="mt-1 text-[11px] text-muted-foreground lg:text-[11px] lg:leading-4">
                   {formatCustomerDateTime(item.due_at)} · {item.owner_name || "未分配"}
                 </p>
                 {item.note && (

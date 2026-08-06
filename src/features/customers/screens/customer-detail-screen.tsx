@@ -565,7 +565,7 @@ function CustomerMobileFloatingHeader({
           </Button>
           <div className="min-w-0 text-center">
             <p className="truncate text-xs font-semibold leading-4">客户详情</p>
-            <p className="truncate text-[9px] leading-3 text-muted-foreground">
+            <p className="truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
               {summary.label} · {customer.preferred_channel === "sms" ? "SMS" : "WhatsApp"}
             </p>
           </div>
@@ -587,14 +587,14 @@ function CustomerMobileFloatingHeader({
               <div className="flex min-w-0 items-center gap-1.5">
                 <p className="min-w-0 truncate text-sm font-semibold leading-5">{customer.name}</p>
                 {customer.blacklisted_at ? (
-                  <span className="shrink-0 rounded-full bg-status-danger px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-danger-foreground">
+                  <span className="shrink-0 rounded-full bg-status-danger px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-danger-foreground lg:text-[11px] lg:leading-4">
                     黑名单
                   </span>
                 ) : null}
               </div>
               <PhoneText
                 value={customer.phone_e164}
-                className="mt-0.5 block truncate text-[11px]"
+                className="mt-0.5 block truncate text-[11px] lg:text-xs lg:leading-4"
               />
             </div>
             <CustomerStatusBadges
@@ -699,7 +699,7 @@ function CustomerDesktopSummaryRail({
   return (
     <aside className="hidden min-w-0 xl:block">
       <section className={cn(repairOs.adminSection, "sticky top-4 space-y-3 p-3")}>
-        <p className="truncate text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+        <p className="truncate text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 lg:text-[11px] lg:leading-4 lg:tracking-normal lg:text-muted-foreground">
           客户工作栏
         </p>
 
@@ -719,7 +719,9 @@ function CustomerDesktopSummaryRail({
         </div>
 
         <div className="rounded-lg bg-[var(--surface-panel-muted)] px-2.5 py-2">
-          <p className="truncate text-[10px] leading-3 text-muted-foreground">下一步</p>
+          <p className="truncate text-[10px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
+            下一步
+          </p>
           <p className="mt-0.5 line-clamp-2 text-xs font-medium leading-5">{summary.actionLabel}</p>
         </div>
 
@@ -775,7 +777,7 @@ function CustomerRailMetric({ label, value }: { label: string; value: ReactNode 
       value={value}
       frame="plain"
       className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
-      labelClassName="text-[9px]"
+      labelClassName="text-[9px] lg:text-[11px] lg:leading-4"
       valueClassName="truncate font-mono text-xs font-semibold leading-4 tabular-nums"
     />
   );

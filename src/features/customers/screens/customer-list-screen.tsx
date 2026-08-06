@@ -302,7 +302,7 @@ export function CustomerListScreen() {
         >
           <Filter className="size-4" />
           {activeFilterCount > 0 ? (
-            <span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-primary px-1 font-mono text-[9px] font-semibold leading-4 text-primary-foreground">
+            <span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-primary px-1 font-mono text-[9px] font-semibold leading-4 text-primary-foreground lg:text-[11px]">
               {activeFilterCount}
             </span>
           ) : null}

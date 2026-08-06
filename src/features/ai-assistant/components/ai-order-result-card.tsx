@@ -97,7 +97,7 @@ export function AiOrderResultCard({
           {card.status_label}
         </Badge>
       </div>
-      <div className="mt-2 grid min-w-0 grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+      <div className="mt-2 grid min-w-0 grid-cols-2 gap-2 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
         <span className="flex min-w-0 items-center gap-1">
           <UserRound className="size-3 shrink-0" aria-hidden="true" />
           <span className="truncate">{card.customer_hint}</span>
@@ -109,7 +109,7 @@ export function AiOrderResultCard({
       </div>
 
       {card.matched_reasons.length > 0 ? (
-        <p className="mt-2 line-clamp-2 text-[11px] leading-4 text-muted-foreground">
+        <p className="mt-2 line-clamp-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
           匹配：{card.matched_reasons.join(" · ")}
         </p>
       ) : null}
@@ -132,7 +132,7 @@ export function AiOrderResultCard({
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent id={detailsId} className="pt-1">
-          <dl className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-xl bg-[var(--surface-panel-muted)] px-3 py-2 text-[11px]">
+          <dl className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-xl bg-[var(--surface-panel-muted)] px-3 py-2 text-[11px] lg:text-xs lg:leading-4">
             <dt className="text-muted-foreground">配件标记</dt>
             <dd className="text-right font-medium">{partsStatusLabel(card.parts_status)}</dd>
             <dt className="text-muted-foreground">完成时间</dt>
@@ -146,7 +146,7 @@ export function AiOrderResultCard({
       {success ? (
         <p
           role="status"
-          className="mt-2 flex items-start gap-1.5 rounded-lg bg-status-success/30 px-2.5 py-2 text-[11px] leading-4 text-status-success-foreground"
+          className="mt-2 flex items-start gap-1.5 rounded-lg bg-status-success/30 px-2.5 py-2 text-[11px] leading-4 text-status-success-foreground lg:text-xs lg:leading-[18px]"
         >
           <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
           {success}
@@ -155,7 +155,7 @@ export function AiOrderResultCard({
       {error && !dialogOpen ? (
         <p
           role="alert"
-          className="mt-2 rounded-lg bg-status-danger/30 px-2.5 py-2 text-[11px] text-status-danger-foreground"
+          className="mt-2 rounded-lg bg-status-danger/30 px-2.5 py-2 text-[11px] text-status-danger-foreground lg:text-xs lg:leading-[18px]"
         >
           {error}
         </p>
@@ -224,7 +224,7 @@ export function AiOrderResultCard({
         </Button>
       </div>
       {!isOnline && card.allowed_actions.length > 0 ? (
-        <p className="mt-1 text-[10px] text-muted-foreground">
+        <p className="mt-1 text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
           离线时可查看结果，但不能提交订单操作。
         </p>
       ) : null}

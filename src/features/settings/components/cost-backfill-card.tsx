@@ -188,7 +188,7 @@ export function CostBackfillCard({ storeId, canApply }: { storeId: string; canAp
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-xs font-semibold">运行 {active.id.slice(0, 8)}</p>
-              <p className="font-mono text-[10px] text-muted-foreground">
+              <p className="font-mono text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
                 校验 {active.fixture_hash.slice(0, 16)}…
               </p>
             </div>
@@ -211,7 +211,7 @@ export function CostBackfillCard({ storeId, canApply }: { storeId: string; canAp
               >
                 <div className="min-w-0">
                   <p className="truncate font-medium">{candidate.line_name}</p>
-                  <p className="font-mono text-[10px] text-muted-foreground">
+                  <p className="font-mono text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
                     {candidate.order_id.slice(0, 8)} · 第 {candidate.line_ordinal} 行
                   </p>
                 </div>
@@ -318,7 +318,7 @@ export function CostBackfillCard({ storeId, canApply }: { storeId: string; canAp
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-lg bg-muted/30 px-2.5 py-2">
-      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <p className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4">{label}</p>
       <p className="mt-0.5 font-semibold">{value}</p>
     </div>
   );

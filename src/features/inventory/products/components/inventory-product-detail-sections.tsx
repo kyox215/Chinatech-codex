@@ -60,7 +60,7 @@ export function ProductHeroCard({
         <div className="min-w-0 flex-1">
           <span
             className={cn(
-              "inline-flex h-5 items-center rounded-full px-1.5 text-[10px] font-semibold",
+              "inline-flex h-5 items-center rounded-full px-1.5 text-[10px] font-semibold lg:text-[11px] lg:leading-4",
               statusClassName,
             )}
           >
@@ -69,7 +69,9 @@ export function ProductHeroCard({
           <h2 className="mt-1 truncate text-sm font-semibold leading-5 min-[400px]:text-base">
             {item.brand} {item.model}
           </h2>
-          <p className="truncate font-mono text-[10px] leading-4 text-primary">{item.sku}</p>
+          <p className="truncate font-mono text-[10px] leading-4 text-primary lg:text-[11px]">
+            {item.sku}
+          </p>
         </div>
       </div>
       {summaryFields.length ? (
@@ -155,7 +157,7 @@ export function ProductNotesSection({ notes }: { notes?: string }) {
   return (
     <section className={cn(repairOs.mobileInfoCard, "p-2 sm:p-3")}>
       <SectionTitle icon={PackageOpen} title="备注" />
-      <p className="mt-1.5 whitespace-pre-wrap break-words text-[11px] leading-4 text-muted-foreground">
+      <p className="mt-1.5 whitespace-pre-wrap break-words text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
         {notes}
       </p>
     </section>
@@ -211,7 +213,11 @@ function SectionTitle({
           {title}
         </h3>
       </div>
-      {trailing ? <p className="shrink-0 text-[10px] text-muted-foreground">{trailing}</p> : null}
+      {trailing ? (
+        <p className="shrink-0 text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
+          {trailing}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -223,8 +229,10 @@ function WorkbenchTile({ icon: Icon, label, value }: WorkbenchField) {
         <Icon className="size-3.5" aria-hidden="true" />
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-[9px] leading-3 text-muted-foreground">{label}</span>
-        <strong className="line-clamp-2 block break-words text-[11px] font-semibold leading-4">
+        <span className="block truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
+          {label}
+        </span>
+        <strong className="line-clamp-2 block break-words text-[11px] font-semibold leading-4 lg:text-xs lg:leading-4">
           {value}
         </strong>
       </span>

@@ -316,14 +316,16 @@ export function OrderStatusFilterControls({
           </span>
           <div className="min-w-0">
             <div className="text-xs font-semibold leading-4">现在要处理</div>
-            <div className="truncate text-[11px] text-muted-foreground">
+            <div className="truncate text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
               {groupValue === "all"
                 ? "选择一类任务，再逐张处理"
                 : `当前：${activeGroup?.label ?? groupValue} · ${activeGroup?.count ?? 0} 条`}
             </div>
           </div>
         </div>
-        <span className="hidden text-[10px] text-muted-foreground sm:inline">任务视图</span>
+        <span className="hidden text-[10px] text-muted-foreground sm:inline lg:text-[11px] lg:leading-4">
+          任务视图
+        </span>
       </div>
 
       <div
@@ -363,7 +365,7 @@ export function OrderStatusFilterControls({
                   {embedded && isAll ? null : (
                     <span
                       className={cn(
-                        "grid size-3.5 shrink-0 place-items-center rounded-full text-[8px] font-semibold tabular-nums",
+                        "grid size-3.5 shrink-0 place-items-center rounded-full text-[8px] font-semibold tabular-nums lg:text-[11px] lg:leading-4",
                         active
                           ? "bg-primary text-primary-foreground"
                           : tone === "success"
@@ -410,7 +412,7 @@ export function OrderStatusFilterControls({
               <span>{group.label}</span>
               <span
                 className={cn(
-                  "font-mono text-[10px] font-semibold leading-none tabular-nums",
+                  "font-mono text-[10px] font-semibold leading-none tabular-nums lg:text-[11px] lg:leading-4",
                   "rounded-full bg-card/55 px-1.5 py-0.5 text-current",
                 )}
               >

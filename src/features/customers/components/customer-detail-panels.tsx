@@ -39,7 +39,8 @@ import { cn } from "@/lib/utils";
 import { buildOrderDetailWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
 
 const customerDetailSectionClass = cn(repairOs.mobileInfoCard, "sm:p-2.5 md:rounded-2xl md:p-3");
-const customerDetailSectionTitleClass = "text-[11px] leading-4 sm:text-sm";
+const customerDetailSectionTitleClass =
+  "text-[11px] leading-4 sm:text-sm lg:text-[13px] lg:leading-5";
 
 export function CustomerOverviewPanel({
   data,
@@ -154,7 +155,7 @@ function CustomerCurrentItemsPanel({
           <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
           <div className="min-w-0">
             <p className="text-xs font-semibold">目前没有待处理事项</p>
-            <p className="text-[10px] leading-4 opacity-80">
+            <p className="text-[10px] leading-4 opacity-80 lg:text-xs lg:leading-[18px] lg:opacity-100">
               客户档案、设备和历史记录仍可继续查看。
             </p>
           </div>
@@ -195,15 +196,19 @@ function CustomerCurrentItemRow({
         <Icon className="size-4" aria-hidden="true" />
       </span>
       <span className="min-w-0 flex-1 text-left">
-        <span className="block text-[11px] font-semibold leading-4">{item.title}</span>
-        <span className="block truncate text-[10px] leading-4 opacity-80">{item.description}</span>
+        <span className="block text-[11px] font-semibold leading-4 lg:text-xs lg:leading-4">
+          {item.title}
+        </span>
+        <span className="block truncate text-[10px] leading-4 opacity-80 lg:text-[12px] lg:leading-4 lg:opacity-100">
+          {item.description}
+        </span>
         {item.dueAt ? (
-          <span className="mt-0.5 block text-[9px] leading-3 opacity-75">
+          <span className="mt-0.5 block text-[9px] leading-3 opacity-75 lg:text-[11px] lg:leading-4 lg:opacity-100">
             截止 {formatCurrentItemTime(item.dueAt)}
           </span>
         ) : null}
       </span>
-      <span className="flex shrink-0 items-center gap-0.5 text-[10px] font-semibold">
+      <span className="flex shrink-0 items-center gap-0.5 text-[10px] font-semibold lg:text-xs lg:leading-4">
         {item.actionLabel}
         <ChevronRight className="size-3" aria-hidden="true" />
       </span>
@@ -338,7 +343,7 @@ export function CustomerOrdersPanel({
       {orderItems.length ? (
         <div className="hidden max-w-full overflow-x-auto rounded-xl border border-[var(--border-panel)] bg-card lg:block">
           <table className="w-full min-w-[760px] table-fixed text-xs xl:min-w-[840px]">
-            <thead className="border-b border-border/40 text-[11px] text-muted-foreground">
+            <thead className="border-b border-border/40 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
               <tr>
                 <th className="w-[118px] px-3 py-2 text-left font-medium xl:w-[130px]">工单</th>
                 <th className="px-2 py-2 text-left font-medium">设备与故障</th>
@@ -367,7 +372,7 @@ export function CustomerOrdersPanel({
                         status={
                           isCustomerOrderCancelled(item.order) ? "cancelled" : item.order.status
                         }
-                        className="max-w-full text-[10px]"
+                        className="max-w-full text-[10px] lg:text-[11px] lg:leading-4"
                       />
                     </div>
                   </td>
@@ -376,12 +381,12 @@ export function CustomerOrdersPanel({
                       {item.deviceLabel}
                     </div>
                     {item.deviceImei ? (
-                      <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
+                      <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
                         IMEI {item.deviceImei}
                       </div>
                     ) : null}
                     <div
-                      className="mt-0.5 truncate text-[11px] text-muted-foreground"
+                      className="mt-0.5 truncate text-[11px] text-muted-foreground lg:text-xs lg:leading-4"
                       title={item.order.issue_description}
                     >
                       {item.order.issue_description}
@@ -396,24 +401,26 @@ export function CustomerOrdersPanel({
                   </td>
                   <td className="whitespace-nowrap px-2 py-2 text-right font-mono tabular-nums">
                     {item.financeRedacted || item.order.finance_redacted ? (
-                      <div className="text-[10px] text-muted-foreground">金额受限</div>
+                      <div className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
+                        金额受限
+                      </div>
                     ) : (
                       <>
                         <div className="font-semibold">
                           <MoneyText amount={item.order.quotation_amount} />
                         </div>
-                        <div className="mt-0.5 text-[10px] text-muted-foreground">
+                        <div className="mt-0.5 text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
                           定金 <MoneyText amount={item.order.deposit_amount} />
                         </div>
                         {isCustomerOrderCancelled(item.order) ? (
-                          <div className="text-[10px] leading-4 text-muted-foreground">
+                          <div className="text-[10px] leading-4 text-muted-foreground lg:text-[11px]">
                             取消时余额 <MoneyText amount={Math.max(0, item.order.balance_amount)} />
                             <span className="block">不计入待收</span>
                           </div>
                         ) : (
                           <div
                             className={cn(
-                              "text-[10px]",
+                              "text-[10px] lg:text-[11px] lg:leading-4",
                               item.order.balance_amount > 0
                                 ? "text-status-danger-foreground"
                                 : "text-muted-foreground",
@@ -430,13 +437,18 @@ export function CustomerOrdersPanel({
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-7 gap-1.5 px-2 text-[11px]"
+                        className="h-7 gap-1.5 px-2 text-[11px] lg:text-xs"
                         onClick={() => onFollowup(item.order.id)}
                       >
                         <Plus className="size-3" /> 待办
                       </Button>
                     ) : (
-                      <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-[11px]">
+                      <Button
+                        asChild
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-[11px] lg:text-xs"
+                      >
                         <Link
                           href={buildOrderDetailWorkspaceHref(item.order.id, {
                             source: "customer",

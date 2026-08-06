@@ -79,7 +79,7 @@ export function SettingsNavigation({
           <section key={group.key} aria-labelledby={`settings-nav-${group.key}`}>
             <h2
               id={`settings-nav-${group.key}`}
-              className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+              className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground lg:text-[11px] lg:leading-4 lg:tracking-normal"
             >
               {group.label}
             </h2>
@@ -98,7 +98,7 @@ export function SettingsNavigation({
       </div>
 
       {visibleGroups.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-[var(--border-panel)] px-2.5 py-3 text-center text-[11px] text-muted-foreground">
+        <p className="rounded-lg border border-dashed border-[var(--border-panel)] px-2.5 py-3 text-center text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
           没有匹配的设置
         </p>
       ) : null}
@@ -123,13 +123,13 @@ function SettingsNavigationRow({
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="truncate font-medium">{item.label}</span>
           {item.dirty ? (
-            <span className="shrink-0 text-[9px] font-semibold text-status-warn-foreground">
+            <span className="shrink-0 text-[9px] font-semibold text-status-warn-foreground lg:text-[11px] lg:leading-4">
               未保存
             </span>
           ) : null}
         </span>
         {item.summary ? (
-          <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
+          <span className="mt-0.5 block truncate text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
             {item.summary}
           </span>
         ) : null}

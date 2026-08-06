@@ -55,10 +55,10 @@ export function OrderSupplierPicker({
       className={cn(
         "max-w-full justify-start gap-1 rounded-md font-medium leading-none",
         size === "comfortable"
-          ? "h-9 w-full px-2 text-[11px]"
+          ? "h-9 w-full px-2 text-[11px] lg:text-xs lg:leading-4"
           : size === "micro"
-            ? "h-5 px-1 text-[9px]"
-            : "h-6 px-1.5 text-[10px]",
+            ? "h-5 px-1 text-[9px] lg:text-[11px] lg:leading-4"
+            : "h-6 px-1.5 text-[10px] lg:text-[11px] lg:leading-4",
         supplier
           ? "bg-primary/10 text-primary hover:bg-primary/15"
           : "bg-muted/60 text-muted-foreground hover:bg-muted",
@@ -192,7 +192,7 @@ function SupplierOptionsList({
             <SupplierColorSwatch supplier={item} />
             <span className="min-w-0">
               <span className="block truncate font-semibold">{item.name}</span>
-              <span className="block truncate text-[10px] leading-3 text-muted-foreground">
+              <span className="block truncate text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
                 {item.short_name || item.phone || "当前店铺供应商"}
               </span>
             </span>

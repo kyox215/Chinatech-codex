@@ -40,7 +40,7 @@ export function OrderDataSummaryValue({
 }) {
   return (
     <div className="min-w-0 rounded-md border border-border bg-muted/30 px-3 py-2">
-      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className="text-[11px] text-muted-foreground lg:text-xs lg:leading-4">{label}</p>
       <p
         className={
           danger

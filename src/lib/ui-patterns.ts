@@ -21,13 +21,30 @@ export const pageHeader = {
   compact:
     "mb-2 flex min-w-0 flex-col gap-1.5 sm:mb-3 sm:gap-2 md:flex-row md:items-center md:justify-between",
   titleGroup: "min-w-0 space-y-1",
-  eyebrow: "text-[10px] font-medium uppercase tracking-widest text-muted-foreground/70",
+  eyebrow:
+    "text-[10px] font-medium uppercase tracking-widest text-muted-foreground/70 lg:text-[11px] lg:leading-4 lg:tracking-normal lg:text-muted-foreground",
   title:
     "font-display text-xl font-semibold tracking-tight text-foreground sm:text-2xl md:text-3xl",
   compactTitle:
     "truncate font-display text-lg font-semibold tracking-tight text-foreground sm:text-xl",
   subtitle: "max-w-2xl text-xs text-muted-foreground sm:text-sm",
   actions: "flex min-w-0 flex-wrap items-center gap-2",
+} as const;
+
+/**
+ * Desktop semantic typography. Every entry keeps its mobile/base class and
+ * adds only an `lg:` correction for low-DPI readability at 1024px+.
+ */
+export const desktopTypography = {
+  sectionTitle: "text-[11px] leading-4 lg:text-[13px] lg:leading-5",
+  sectionDescription: "text-[10px] leading-4 lg:text-xs lg:leading-4",
+  body: "text-xs leading-4 lg:text-[13px] lg:leading-5",
+  fieldLabel: "text-[10px] font-semibold leading-4 lg:text-xs lg:leading-4",
+  meta: "text-[10px] leading-4 lg:text-[11px] lg:leading-4",
+  badge: "text-[9px] font-semibold leading-3 lg:text-[11px] lg:leading-4",
+  identifier: "font-mono text-[11px] leading-4 lg:text-xs lg:leading-4 tabular-nums",
+  alert: "text-[11px] font-medium leading-4 lg:text-xs lg:leading-[18px]",
+  micro: "text-[10px] font-medium leading-4",
 } as const;
 
 export const layoutGuards = {
@@ -137,8 +154,8 @@ export const density = {
   tableDense: "w-full min-w-0 text-xs",
   rowDense: "border-b border-border/30 px-2 py-1.5",
   cardDense: "rounded-lg border bg-card px-3 py-2",
-  metaDense: "truncate text-[11px] leading-4 text-muted-foreground",
-  valueDense: "truncate text-xs font-medium leading-5",
+  metaDense: "truncate text-[11px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4",
+  valueDense: "truncate text-xs font-medium leading-5 lg:text-[13px] lg:leading-5",
 } as const;
 
 /**
@@ -220,7 +237,8 @@ export const repairOs = {
     "min-w-0 rounded-2xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)]",
   metricIcon:
     "mb-1.5 grid size-7 place-items-center rounded-xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/10",
-  metricLabel: "truncate text-[10px] uppercase tracking-widest text-muted-foreground/70",
+  metricLabel:
+    "truncate text-[10px] uppercase tracking-widest text-muted-foreground/70 lg:text-[11px] lg:tracking-normal lg:text-muted-foreground",
   metricValue: "font-mono text-lg font-semibold tabular-nums leading-none text-foreground",
   dashboardMobileQuickGrid: "mt-1.5 grid min-w-0 grid-cols-3 gap-1.5 min-[400px]:gap-2",
   dashboardMobileQuickAction:
@@ -238,7 +256,7 @@ export const repairOs = {
   cardMeta: "truncate text-[11px] leading-4 text-muted-foreground",
   cardAmount: "whitespace-nowrap text-right font-mono text-sm font-semibold tabular-nums",
   badge:
-    "inline-flex h-5 shrink-0 items-center rounded-full px-1.5 text-[10px] font-medium leading-none",
+    "inline-flex h-5 shrink-0 items-center rounded-full px-1.5 text-[10px] font-medium leading-none lg:text-[11px] lg:leading-4",
   toolbar:
     "flex min-w-0 items-center gap-2 rounded-2xl border border-[var(--border-panel)] bg-card p-2 shadow-[var(--shadow-card)]",
   floatingAction:

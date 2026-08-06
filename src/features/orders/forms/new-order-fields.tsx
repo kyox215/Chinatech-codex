@@ -17,7 +17,7 @@ export function SectionHeading({
   return (
     <div
       className={cn(
-        "mb-1 flex min-w-0 items-center justify-between gap-1 text-[11px] font-semibold leading-4 text-foreground",
+        "mb-1 flex min-w-0 items-center justify-between gap-1 text-[11px] font-semibold leading-4 text-foreground lg:text-[13px] lg:leading-5",
         className,
       )}
     >
@@ -51,7 +51,7 @@ export function FormItem({
     <div className={cn("min-w-0 space-y-0.5", className)}>
       <Label
         className={cn(
-          "text-[10.5px] font-semibold leading-4 text-muted-foreground sm:text-[11px]",
+          "text-[10.5px] font-semibold leading-4 text-muted-foreground sm:text-[11px] lg:text-xs lg:leading-4",
           mobileLabel === "sr-only" && "sr-only sm:not-sr-only",
         )}
       >
@@ -73,12 +73,12 @@ export function MoneyRow({
 }) {
   return (
     <div className="flex min-w-0 items-center justify-between gap-1.5 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1">
-      <span className="truncate text-[10px] font-medium leading-3 text-muted-foreground">
+      <span className="truncate text-[10px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4">
         {label}
       </span>
       <span
         className={cn(
-          "font-mono text-[11px] tabular-nums leading-4 text-foreground",
+          "font-mono text-[11px] tabular-nums leading-4 text-foreground lg:text-xs lg:leading-4",
           strong && "font-semibold text-foreground",
         )}
       >

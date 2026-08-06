@@ -248,7 +248,10 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
         title="维修项目默认成本"
         description="仅作为之后新建订单项目的成本快照"
         action={
-          <Badge variant="outline" className="font-mono text-[10px] tabular-nums">
+          <Badge
+            variant="outline"
+            className="font-mono text-[10px] tabular-nums lg:text-[11px] lg:leading-4"
+          >
             {configuredCount}/{repairServiceCatalogItems.length} 已设置
           </Badge>
         }
@@ -256,7 +259,7 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
 
       <div className="mb-3 rounded-xl border border-status-warn-foreground/20 bg-status-warn/10 px-3 py-2.5 text-status-warn-foreground">
         <p className="text-xs font-semibold">成本仅供获授权管理人员查看</p>
-        <p className="mt-1 text-[11px] leading-4">
+        <p className="mt-1 text-[11px] leading-4 lg:text-xs lg:leading-[18px]">
           空白表示成本未知，输入 0
           表示明确零成本。保存后只影响之后新建的维修项目，不会改写已有订单。
         </p>
@@ -308,10 +311,13 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
               <AccordionTrigger className="min-h-9 px-3 py-2 text-xs hover:no-underline sm:text-sm">
                 <span className="flex min-w-0 items-center gap-2 text-left">
                   <span className="truncate font-semibold">{group.label}</span>
-                  <span className="hidden truncate text-[10px] font-normal text-muted-foreground sm:inline">
+                  <span className="hidden truncate text-[10px] font-normal text-muted-foreground sm:inline lg:text-[11px] lg:leading-4">
                     {group.italian}
                   </span>
-                  <Badge variant="outline" className="shrink-0 text-[9px]">
+                  <Badge
+                    variant="outline"
+                    className="shrink-0 text-[9px] lg:text-[11px] lg:leading-4"
+                  >
                     {groupConfiguredCount}/{items.length}
                   </Badge>
                 </span>
@@ -331,13 +337,13 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
                         <div className="min-w-0">
                           <Label
                             htmlFor={inputId}
-                            className="block truncate text-[11px] font-medium"
+                            className="block truncate text-[11px] font-medium lg:text-xs lg:leading-4"
                           >
                             {item.isMain ? `${item.label}默认成本` : item.label}
                           </Label>
                           <p
                             id={descriptionId}
-                            className="mt-0.5 truncate text-[9px] leading-3 text-muted-foreground"
+                            className="mt-0.5 truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4"
                           >
                             {item.isMain ? `主项目 · ${item.italian}` : item.italian}
                           </p>
@@ -382,7 +388,7 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
                             />
                             <span
                               aria-hidden="true"
-                              className="pointer-events-none absolute inset-y-0 right-2.5 grid place-items-center text-[10px] font-semibold text-muted-foreground"
+                              className="pointer-events-none absolute inset-y-0 right-2.5 grid place-items-center text-[10px] font-semibold text-muted-foreground lg:text-[11px] lg:leading-4"
                             >
                               EUR
                             </span>
@@ -390,7 +396,7 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
                           {error ? (
                             <p
                               id={errorId}
-                              className="mt-1 text-[9px] leading-3 text-status-danger-foreground"
+                              className="mt-1 text-[9px] leading-3 text-status-danger-foreground lg:text-xs lg:leading-[18px]"
                             >
                               {error}
                             </p>
@@ -410,7 +416,7 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
         <p
           role={notice.kind === "error" ? "alert" : "status"}
           className={cn(
-            "mt-3 text-[11px] leading-4",
+            "mt-3 text-[11px] leading-4 lg:text-xs lg:leading-[18px]",
             notice.kind === "error"
               ? "text-status-danger-foreground"
               : notice.kind === "success"
@@ -423,7 +429,7 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
       ) : null}
 
       <div className="mt-3 flex min-w-0 flex-col gap-2 border-t border-[var(--border-panel)] pt-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-[10px] leading-4 text-muted-foreground">
+        <p className="text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
           {isDirty ? "存在未保存的默认成本修改。" : "当前默认成本已与服务器同步。"}
         </p>
         <div className="flex min-w-0 flex-col-reverse gap-2 sm:flex-row">

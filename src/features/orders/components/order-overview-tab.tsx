@@ -412,12 +412,12 @@ function OrderOverviewDesktopContextStrip({
           <span className="block truncate text-xs font-semibold" title={latestLabel}>
             {latestLabel}
           </span>
-          <span className="block truncate text-[11px] leading-4 text-muted-foreground">
+          <span className="block truncate text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
             {latestMeta}
           </span>
         </span>
         {onShowRecords ? (
-          <span className="shrink-0 rounded-md bg-card px-1.5 py-0.5 text-[10px] font-medium text-primary">
+          <span className="shrink-0 rounded-md bg-card px-1.5 py-0.5 text-[10px] font-medium text-primary lg:text-[11px] lg:leading-4">
             记录
           </span>
         ) : null}
@@ -520,7 +520,7 @@ export function OrderDetailActionDock({
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
           <div
             data-order-action-settlement="true"
-            className="flex min-h-9 min-w-[180px] max-w-[260px] items-center justify-between gap-2 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/45 px-2 text-[10px] text-muted-foreground"
+            className="flex min-h-9 min-w-[180px] max-w-[260px] items-center justify-between gap-2 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/45 px-2 text-[10px] text-muted-foreground lg:text-xs lg:leading-4"
           >
             {financeRedacted ? (
               <span className="truncate font-medium">金额与结算状态受限</span>
@@ -649,7 +649,7 @@ export function OrderDetailHeaderFinanceSummary({
       className="min-w-0 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/45 p-1"
     >
       {order.finance_redacted ? (
-        <div className="grid h-9 place-items-center rounded-md bg-card px-2 text-[10px] font-medium text-muted-foreground">
+        <div className="grid h-9 place-items-center rounded-md bg-card px-2 text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
           金额与结算状态受限
         </div>
       ) : (
@@ -709,7 +709,7 @@ export function OrderKeyInfoCard({
               <DeviceCustodyBadge
                 status={order.device_custody_status}
                 deliveredAt={order.delivered_at}
-                className="text-[10px]"
+                className="text-[10px] lg:text-xs lg:leading-4"
               />
             }
           />
@@ -772,7 +772,7 @@ function DesktopRecordsSummaryPanel({
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 px-2 text-[11px]"
+              className="h-7 px-2 text-[11px] lg:text-xs lg:leading-4"
               onClick={onShowRecords}
             >
               记录
@@ -819,17 +819,17 @@ function CompactSummaryRow({
         <Icon className="size-3.5" />
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-[10px] font-medium text-muted-foreground">
+        <span className="block truncate text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
           {label}
         </span>
         <span className="block truncate text-xs font-semibold" title={value}>
           {value}
         </span>
-        <span className="block truncate text-[10px] leading-3 text-muted-foreground/80">
+        <span className="block truncate text-[10px] leading-3 text-muted-foreground/80 lg:text-[11px] lg:leading-4 lg:text-muted-foreground">
           {meta}
         </span>
       </span>
-      <span className="shrink-0 rounded-md bg-card px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+      <span className="shrink-0 rounded-md bg-card px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-muted-foreground lg:text-[11px] lg:leading-4">
         {count}
       </span>
     </div>
@@ -916,7 +916,7 @@ function OrderOverviewFinancePanel({
           <ApprovalBadge status={order.approval_status} />
           <span
             className={cn(
-              "rounded-md border px-1.5 py-0.5 text-[10px] font-medium",
+              "rounded-md border px-1.5 py-0.5 text-[10px] font-medium lg:text-[11px] lg:leading-4",
               financialState.settlement === "cancelled"
                 ? "border-[var(--border-panel)] bg-muted text-muted-foreground"
                 : financialState.settlement === "refunded" || financialState.settlement === "review"
@@ -948,7 +948,7 @@ function OrderOverviewFinancePanel({
               dense={dense}
             />
             {approvalTouched ? (
-              <p className="rounded-md bg-status-warn px-2 py-1 text-[10px] leading-3 text-status-warn-foreground">
+              <p className="rounded-md bg-status-warn px-2 py-1 text-[10px] leading-3 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
                 修改报价或定金会重新计算尾款，并可能需要重新确认客户审批。
               </p>
             ) : null}
@@ -995,7 +995,7 @@ export function DesktopOrderPhotosPanel({
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 shrink-0 gap-1 px-2 text-[11px]"
+              className="h-7 shrink-0 gap-1 px-2 text-[11px] lg:text-xs lg:leading-4"
               disabled={uploadPending || !onCapture}
               onClick={onCapture}
             >
@@ -1030,7 +1030,7 @@ export function DesktopOrderPhotosPanel({
           <button
             type="button"
             className={cn(
-              "grid h-12 min-w-0 place-items-center rounded-lg border border-dashed border-primary/35 bg-primary/5 px-2 text-center text-[10px] font-semibold text-primary transition-colors hover:bg-primary/10 disabled:opacity-60",
+              "grid h-12 min-w-0 place-items-center rounded-lg border border-dashed border-primary/35 bg-primary/5 px-2 text-center text-[10px] font-semibold text-primary transition-colors hover:bg-primary/10 disabled:opacity-60 lg:text-xs lg:leading-4",
               attachments.length >= 2 && (surface === "dialog" ? "" : "col-span-2 lg:col-span-1"),
             )}
             disabled={uploadPending}
@@ -1043,7 +1043,7 @@ export function DesktopOrderPhotosPanel({
           </button>
         ) : null}
       </div>
-      <div className="mt-1.5 flex min-w-0 items-center justify-between gap-2 rounded-md bg-[var(--surface-panel-muted)] px-2 py-1 text-[11px] leading-4">
+      <div className="mt-1.5 flex min-w-0 items-center justify-between gap-2 rounded-md bg-[var(--surface-panel-muted)] px-2 py-1 text-[11px] leading-4 lg:text-xs">
         <span className="truncate text-muted-foreground">已保存照片</span>
         <span className="shrink-0 font-mono font-semibold tabular-nums">
           {attachments.length}
@@ -1077,7 +1077,7 @@ function DesktopPhotoPreview({
         <div className="grid size-full place-items-center text-primary">
           <ImageIcon className="size-4" />
         </div>
-        <span className="absolute inset-x-1 bottom-1 truncate rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur">
+        <span className="absolute inset-x-1 bottom-1 truncate rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur lg:text-[11px] lg:leading-4">
           {attachment.file_name || "设备照片"}
         </span>
       </div>
@@ -1097,10 +1097,10 @@ function DesktopPhotoPreview({
         alt={attachment.file_name || "设备照片"}
         className="size-full object-cover"
       />
-      <span className="absolute inset-0 hidden place-items-center bg-background/20 text-[9px] font-semibold text-foreground backdrop-blur-[1px] group-hover:grid group-focus-visible:grid">
+      <span className="absolute inset-0 hidden place-items-center bg-background/20 text-[9px] font-semibold text-foreground backdrop-blur-[1px] group-hover:grid group-focus-visible:grid lg:text-[11px] lg:leading-4">
         查看
       </span>
-      <span className="absolute inset-x-1 bottom-1 truncate rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur">
+      <span className="absolute inset-x-1 bottom-1 truncate rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur lg:text-[11px] lg:leading-4">
         {attachment.file_name || "设备照片"}
       </span>
     </button>
@@ -1110,7 +1110,7 @@ function DesktopPhotoPreview({
 function DesktopPhotoPlaceholder({ label }: { label: string }) {
   return (
     <div className="grid h-12 min-w-0 place-items-center rounded-lg border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/55 px-2 text-center">
-      <span className="grid place-items-center gap-1 text-[10px] font-medium text-muted-foreground">
+      <span className="grid place-items-center gap-1 text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
         <ImageIcon className="size-4 text-muted-foreground/70" />
         {label}
       </span>
@@ -1258,7 +1258,7 @@ function CustomerPhoneField({
             })
           }
         />
-        <p className="mt-1 text-[10px] leading-3 text-muted-foreground">
+        <p className="mt-1 text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
           选择结果会带入姓名和电话；不会改变工单归属客户。
         </p>
       </InfoField>
@@ -1337,7 +1337,7 @@ function BackupPhones({
           <PhoneContactMenu
             key={phone}
             phone={phone}
-            className="max-w-full truncate rounded-md border border-border/70 bg-surface-muted/70 px-1.5 py-0.5 text-[11px]"
+            className="max-w-full truncate rounded-md border border-border/70 bg-surface-muted/70 px-1.5 py-0.5 text-[11px] lg:text-xs lg:leading-4"
             compact
           />
         ))}
@@ -1392,6 +1392,7 @@ function CustomerSignatureSection({
           className={cn(
             "font-semibold text-muted-foreground",
             dense ? "text-[11px]" : "text-[11px] sm:text-xs",
+            "lg:text-xs lg:leading-4",
           )}
         >
           客户签名
@@ -1404,7 +1405,7 @@ function CustomerSignatureSection({
             disabled={!kioskSignatureAvailable || kioskSignaturePending}
             onClick={onRequestKioskSignature}
             className={cn(
-              "gap-1 px-1.5 text-[11px]",
+              "gap-1 px-1.5 text-[11px] lg:text-xs",
               dense ? "h-6" : "h-6 sm:h-7 sm:px-2 sm:text-xs",
             )}
           >
@@ -1427,7 +1428,7 @@ function CustomerSignatureSection({
               href={latestSignature.signed_url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-primary underline-offset-2 hover:underline"
+              className="inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-primary underline-offset-2 hover:underline lg:text-xs lg:leading-4"
             >
               <ImageIcon className="size-3 shrink-0" />
               查看签名
@@ -1605,7 +1606,7 @@ function DeviceUnlockDetailField({
             onChange={(device_unlock) => patchDraft(edit, { device_unlock })}
             compact
           />
-          <p className="break-words text-[10px] leading-4 text-muted-foreground">
+          <p className="break-words text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-[18px]">
             手机密码不会保存到本机草稿，刷新后需重新输入或在线保存。
           </p>
         </div>
@@ -1615,7 +1616,7 @@ function DeviceUnlockDetailField({
             <DeviceCustodyBadge
               status={custodyStatus}
               deliveredAt={order.delivered_at}
-              className="text-[10px]"
+              className="text-[10px] lg:text-[11px] lg:leading-4"
             />
           ) : null}
           <DeviceUnlockViewer order={order} compact={dense} />
@@ -1660,7 +1661,7 @@ function WarrantyField({
         <div className="min-w-0 space-y-1">
           <WarrantyTag months={valueMonths} text={valueText} />
           {order.warranty_change_reason && (
-            <div className="break-words text-[11px] text-muted-foreground">
+            <div className="break-words text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
               原因：{order.warranty_change_reason}
             </div>
           )}
@@ -1692,7 +1693,9 @@ function FinanceInlineEditor({
 
   return (
     <section className={cn("min-w-0", dense ? "space-y-1" : "space-y-1.5")}>
-      <h4 className="text-[11px] font-semibold text-muted-foreground sm:text-xs">报价项目</h4>
+      <h4 className="text-[11px] font-semibold text-muted-foreground sm:text-xs lg:text-xs lg:leading-4">
+        报价项目
+      </h4>
       {draft.faults.length ? (
         <div className={cn("min-w-0", dense ? "space-y-1" : "space-y-1.5")}>
           {draft.faults.map((item, index) => (
@@ -1736,7 +1739,7 @@ function FinanceInlineEditor({
                 placeholder="备注"
                 className={cn(
                   inlineFinanceInputClass,
-                  "col-span-2 min-w-0 text-[11px] text-muted-foreground",
+                  "col-span-2 min-w-0 text-[11px] text-muted-foreground lg:text-xs lg:leading-4",
                 )}
                 onChange={(event) => patchFault(index, { note: event.target.value })}
               />
@@ -1744,7 +1747,7 @@ function FinanceInlineEditor({
           ))}
         </div>
       ) : (
-        <div className="rounded-md border border-dashed border-[var(--border-panel)] px-2 py-2 text-center text-[10px] text-muted-foreground">
+        <div className="rounded-md border border-dashed border-[var(--border-panel)] px-2 py-2 text-center text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
           暂无报价项目
         </div>
       )}
@@ -1754,7 +1757,7 @@ function FinanceInlineEditor({
           type="button"
           variant="outline"
           size="sm"
-          className="h-7 rounded-md border-dashed px-2 text-[10px]"
+          className="h-7 rounded-md border-dashed px-2 text-[10px] lg:text-xs"
           onClick={() =>
             onChange({ ...draft, faults: [...draft.faults, emptyFinanceFaultDraft()] })
           }
@@ -1762,7 +1765,7 @@ function FinanceInlineEditor({
           <Plus className="mr-1 size-3" />
           添加项目
         </Button>
-        <label className="grid min-w-0 gap-0.5 text-[10px] leading-3 text-muted-foreground">
+        <label className="grid min-w-0 gap-0.5 text-[10px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
           <span>定金</span>
           <MoneyDraftField
             ariaLabel="定金"
@@ -1774,11 +1777,11 @@ function FinanceInlineEditor({
       </div>
 
       {message ? (
-        <p className="rounded-md bg-status-danger px-2 py-1 text-[10px] leading-3 text-status-danger-foreground">
+        <p className="rounded-md bg-status-danger px-2 py-1 text-[10px] leading-3 text-status-danger-foreground lg:text-xs lg:leading-[18px]">
           {message}
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-1 text-[10px]">
+        <div className="grid grid-cols-2 gap-1 text-[10px] lg:text-xs lg:leading-4">
           <div className="rounded-md bg-[var(--surface-panel-muted)] px-2 py-1">
             <span className="block text-muted-foreground">编辑后总额</span>
             <MoneyText amount={normalized.quotation} className="font-semibold text-primary" />
@@ -1822,7 +1825,7 @@ function MoneyDraftField({
 function FinanceDisplay({ order }: { order: OrderDetail["order"] }) {
   return (
     <section className="min-w-0">
-      <h4 className="mb-1.5 text-[11px] font-semibold text-muted-foreground sm:mb-2 sm:text-xs">
+      <h4 className="mb-1.5 text-[11px] font-semibold text-muted-foreground sm:mb-2 sm:text-xs lg:text-xs lg:leading-4">
         报价项目
       </h4>
       {order.fault_prices.length === 0 ? (
@@ -2044,7 +2047,7 @@ function OverviewMeta({
         compact ? "py-1.5" : "py-2",
       )}
     >
-      <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+      <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
         {color ? (
           <span className="size-2 shrink-0 rounded-full" style={{ background: color }} />
         ) : (
@@ -2124,6 +2127,7 @@ function PanelHeader({
         className={cn(
           "hidden rounded-full border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-1.5 py-0.5 text-muted-foreground sm:inline",
           dense ? "text-[10px]" : "text-[11px]",
+          "lg:text-xs lg:leading-4",
         )}
       >
         编辑中
@@ -2207,6 +2211,7 @@ function InfoField({
         className={cn(
           "font-medium text-muted-foreground",
           dense ? "text-[9px] leading-3" : "text-[10px] sm:text-[11px]",
+          "lg:text-xs lg:leading-4",
         )}
       >
         {label}
@@ -2215,6 +2220,7 @@ function InfoField({
         className={cn(
           "min-w-0 break-words leading-snug",
           dense ? "mt-0 text-[11px]" : "mt-0.5 text-[13px] sm:text-sm",
+          "lg:text-[13px] lg:leading-5",
           tone === "hero" && "font-semibold text-foreground",
           tone === "note" && "text-foreground",
           !dense && tone === "note" && "sm:leading-relaxed",
@@ -2229,7 +2235,7 @@ function InfoField({
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="grid min-w-0 grid-cols-[64px_minmax(0,1fr)] gap-1.5 rounded-md border border-border/50 bg-surface-muted/25 px-2 py-1 text-[11px] sm:grid-cols-[74px_minmax(0,1fr)] sm:gap-2 sm:rounded-lg sm:py-1.5 sm:text-xs">
+    <div className="grid min-w-0 grid-cols-[64px_minmax(0,1fr)] gap-1.5 rounded-md border border-border/50 bg-surface-muted/25 px-2 py-1 text-[11px] sm:grid-cols-[74px_minmax(0,1fr)] sm:gap-2 sm:rounded-lg sm:py-1.5 sm:text-xs lg:text-xs lg:leading-4">
       <dt className="text-muted-foreground">{label}</dt>
       <dd
         className="min-w-0 truncate text-right text-foreground"

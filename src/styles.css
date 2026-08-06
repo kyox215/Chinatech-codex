@@ -344,6 +344,31 @@
     font-family: var(--repairdesk-font-display), var(--font-display);
     letter-spacing: -0.01em;
   }
+
+  /*
+   * Desktop low-DPI typography contract. The mobile/tablet stack above is
+   * intentionally left unchanged; at 1024px and wider Latin glyphs continue
+   * to come from the existing Next Font variables while CJK glyphs fall back
+   * to the platform-native UI families without adding a font request.
+   */
+  @media (min-width: 1024px) {
+    :root {
+      --font-sans:
+        var(--repairdesk-font-sans), "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei",
+        "Noto Sans CJK SC", "Noto Sans SC", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+        Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-display:
+        var(--repairdesk-font-display), "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei",
+        "Noto Sans CJK SC", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
+      --font-mono:
+        var(--repairdesk-font-mono), "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei",
+        "Noto Sans CJK SC", "Noto Sans SC", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .font-display {
+      letter-spacing: normal;
+    }
+  }
 }
 
 @layer utilities {

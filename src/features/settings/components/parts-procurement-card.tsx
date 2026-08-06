@@ -137,10 +137,12 @@ export function PartsProcurementCard({
           {query.data.items.map((item) => (
             <div key={item.id} className="rounded-xl border border-border/70 bg-card p-3">
               <p className="truncate text-xs font-semibold">{item.name}</p>
-              <p className="mt-1 font-mono text-[10px] text-muted-foreground">{item.sku}</p>
+              <p className="mt-1 font-mono text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
+                {item.sku}
+              </p>
               <div className="mt-2 flex items-end justify-between gap-2">
                 <span className="text-xs">可用 {item.available_quantity}</span>
-                <span className="text-right text-[10px] text-muted-foreground">
+                <span className="text-right text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
                   加权均价
                   <br />
                   <b className="font-mono text-foreground">
@@ -267,7 +269,7 @@ export function PartsProcurementCard({
             />
           </Label>
           {multiCurrencyEnabled ? (
-            <div className="col-span-full rounded-lg border border-border/60 bg-card px-3 py-2 text-[11px] text-muted-foreground">
+            <div className="col-span-full rounded-lg border border-border/60 bg-card px-3 py-2 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
               {currencyQuery.isPending
                 ? "正在读取店主设置的采购汇率…"
                 : selectedCurrency?.stale

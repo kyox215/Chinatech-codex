@@ -61,8 +61,9 @@ export const componentShell = {
   titleGroup: "min-w-0 space-y-1",
   title: "font-display text-sm font-semibold tracking-tight text-foreground sm:text-base",
   compactTitle: "text-sm font-semibold text-foreground",
-  description: "text-xs text-muted-foreground sm:text-sm",
-  eyebrow: "text-[10px] uppercase tracking-widest text-muted-foreground/70",
+  description: "text-xs text-muted-foreground sm:text-sm lg:text-[13px] lg:leading-5",
+  eyebrow:
+    "text-[10px] uppercase tracking-widest text-muted-foreground/70 lg:text-[11px] lg:leading-4 lg:tracking-normal lg:text-muted-foreground",
   body: "mt-3 space-y-2 sm:mt-4 sm:space-y-3",
   footer: "mt-3 flex flex-wrap items-center justify-end gap-1.5 sm:mt-4 sm:gap-2",
   separator: "border-t border-border/50",
@@ -81,7 +82,8 @@ export const componentList = {
 
 export const componentMetric = {
   root: "glass-card group relative overflow-hidden px-3 py-2",
-  label: "text-[10px] uppercase tracking-widest text-muted-foreground/70",
+  label:
+    "text-[10px] uppercase tracking-widest text-muted-foreground/70 lg:text-[11px] lg:leading-4 lg:tracking-normal lg:text-muted-foreground",
   value: "font-display text-lg font-semibold tabular-nums leading-none text-foreground",
   valueLarge: "font-display text-2xl font-semibold tabular-nums leading-none text-foreground",
   delta: "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium",
@@ -94,11 +96,11 @@ export const componentForm = {
   sectionTitle: "text-sm font-semibold text-foreground",
   sectionHint: "text-xs text-muted-foreground",
   field: "space-y-1.5",
-  label: "text-xs",
+  label: "text-xs lg:text-xs lg:leading-4",
   required: "text-destructive",
   grid: "grid gap-2.5 sm:grid-cols-2 sm:gap-3",
-  help: "text-xs text-muted-foreground",
-  error: "text-xs text-status-danger-foreground",
+  help: "text-xs text-muted-foreground lg:text-[12px] lg:leading-[18px]",
+  error: "text-xs text-status-danger-foreground lg:text-[12px] lg:leading-[18px]",
 } as const;
 
 export const componentOverlay = {
@@ -171,8 +173,8 @@ export const memoQuickEntry = {
 export const componentDensity = {
   compactPanel: "glass-card p-3 sm:p-4",
   denseRow: "grid min-w-0 items-center gap-2 px-3 py-2",
-  denseMeta: "truncate text-[11px] leading-4 text-muted-foreground",
-  denseValue: "truncate text-xs font-medium leading-5 text-foreground",
+  denseMeta: "truncate text-[11px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4",
+  denseValue: "truncate text-xs font-medium leading-5 text-foreground lg:text-[13px] lg:leading-5",
   denseCell: "min-w-0 px-2 py-1.5",
   denseAction: "inline-flex size-7 shrink-0 items-center justify-center rounded-md",
   mobileContentStack: "min-w-0 space-y-1.5",

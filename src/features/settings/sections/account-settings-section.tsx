@@ -107,13 +107,13 @@ export function AccountSettingsSection({
                   {isSaving ? "保存中…" : "保存名称"}
                 </Button>
               </div>
-              <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+              <p className="mt-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
                 名称只修改当前登录账号，会用于新建工单、操作记录和成员列表。
               </p>
               {saveError ? (
                 <div
                   role="alert"
-                  className="mt-2 rounded-lg border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-2 text-[11px] leading-4 text-status-danger-foreground"
+                  className="mt-2 rounded-lg border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-2 text-[11px] leading-4 text-status-danger-foreground lg:text-xs lg:leading-[18px]"
                 >
                   名称保存失败：{saveError}。草稿仍保留，可再次点击“保存名称”重试。
                 </div>
@@ -121,12 +121,15 @@ export function AccountSettingsSection({
                 <p
                   role="status"
                   aria-live="polite"
-                  className="mt-2 text-[11px] font-medium text-status-success-foreground"
+                  className="mt-2 text-[11px] font-medium text-status-success-foreground lg:text-xs lg:leading-4"
                 >
                   名称已保存
                 </p>
               ) : hasNameChange ? (
-                <p role="status" className="mt-2 text-[11px] font-medium text-primary">
+                <p
+                  role="status"
+                  className="mt-2 text-[11px] font-medium text-primary lg:text-xs lg:leading-4"
+                >
                   名称有未保存修改
                 </p>
               ) : null}
@@ -169,13 +172,13 @@ export function AccountSettingsSection({
                   桌面端显示虚拟键盘
                 </Label>
               </div>
-              <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+              <p className="mt-1 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
                 关闭时，电脑使用普通输入框；iPad 和手机始终保留触摸键盘。
               </p>
               <p
                 role="status"
                 aria-live="polite"
-                className="mt-1 text-[10px] leading-3 text-muted-foreground"
+                className="mt-1 text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4"
               >
                 {!preferenceReady
                   ? "正在读取当前账号的浏览器偏好…"
@@ -191,14 +194,14 @@ export function AccountSettingsSection({
               onCheckedChange={setDesktopVirtualKeyboardEnabled}
             />
           </div>
-          <p className="text-[10px] leading-3 text-muted-foreground">
+          <p className="text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
             此偏好只保存在当前账号的此浏览器，不影响店铺设置或其他账号。
           </p>
 
           <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-xs font-semibold">账号安全与联系方式</p>
-              <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+              <p className="mt-1 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
                 邮箱验证、邮箱换绑、联系手机号和密码修改统一在个人中心完成，设置页不复制登录安全流程。
               </p>
             </div>
@@ -236,7 +239,7 @@ function AccountSummaryTile({
   return (
     <div className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2.5">
       <div className="flex min-w-0 items-center justify-between gap-2">
-        <span className="inline-flex min-w-0 items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+        <span className="inline-flex min-w-0 items-center gap-1.5 text-[10px] font-medium text-muted-foreground lg:text-[11px] lg:leading-4">
           <Icon className="size-3.5 shrink-0" />
           <span className="truncate">{label}</span>
         </span>
@@ -244,7 +247,7 @@ function AccountSummaryTile({
           <Badge
             variant="outline"
             className={cn(
-              "h-5 shrink-0 gap-1 px-1.5 text-[9px]",
+              "h-5 shrink-0 gap-1 px-1.5 text-[9px] lg:text-[11px] lg:leading-4",
               status === "verified" &&
                 "border-status-success-foreground/30 text-status-success-foreground",
               status === "unverified" &&
@@ -261,7 +264,9 @@ function AccountSummaryTile({
         ) : null}
       </div>
       <p className="mt-1 break-words text-xs font-semibold leading-4">{value}</p>
-      <p className="mt-1 break-words text-[10px] leading-3 text-muted-foreground">{hint}</p>
+      <p className="mt-1 break-words text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
+        {hint}
+      </p>
     </div>
   );
 }

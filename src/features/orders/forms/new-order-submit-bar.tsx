@@ -99,11 +99,20 @@ export function NewOrderSubmitBar({
         )}
         <div className="flex min-w-0 flex-col gap-0.5 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1 md:ml-auto">
           <div className="flex min-w-0 items-center justify-between gap-1.5 md:justify-start">
-            <span className="text-[10px] font-medium text-muted-foreground">设备保管</span>
-            <DeviceCustodyBadge status={custodyStatus} className="text-[10px]" />
+            <span className="text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
+              设备保管
+            </span>
+            <DeviceCustodyBadge
+              status={custodyStatus}
+              className="text-[10px] lg:text-xs lg:leading-4"
+            />
           </div>
           {statusMessage ? (
-            <p role="status" aria-live="polite" className="text-[10px] text-muted-foreground">
+            <p
+              role="status"
+              aria-live="polite"
+              className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4"
+            >
               {statusMessage}
             </p>
           ) : null}

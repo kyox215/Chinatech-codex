@@ -170,8 +170,12 @@ export function MembersSettingsSection(props: MembersSettingsSectionProps) {
                 )}
               >
                 <div className="min-w-0">
-                  <p className="truncate text-[10px] font-medium text-muted-foreground">{label}</p>
-                  <p className="truncate text-[9px] text-muted-foreground">{hint}</p>
+                  <p className="truncate text-[10px] font-medium text-muted-foreground lg:text-[11px] lg:leading-4">
+                    {label}
+                  </p>
+                  <p className="truncate text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
+                    {hint}
+                  </p>
                 </div>
                 <span className="font-mono text-base font-semibold tabular-nums">{value}</span>
               </div>

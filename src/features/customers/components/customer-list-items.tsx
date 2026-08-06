@@ -35,6 +35,7 @@ function CustomerIdentityMark({ name, compact = false }: { name: string; compact
       className={cn(
         "grid shrink-0 place-items-center rounded-lg border border-primary/15 bg-primary/10 font-semibold text-primary",
         compact ? "size-7 text-[11px]" : "size-8 text-xs",
+        "lg:text-xs lg:leading-4",
       )}
     >
       {customerInitial(name)}
@@ -57,17 +58,22 @@ function CustomerContactLine({
         className={cn(
           "inline-flex max-w-full min-w-0 items-center gap-1 rounded-md border border-primary/10 bg-primary/5 px-1.5 py-0.5 text-primary",
           compact ? "text-[10px] leading-3" : "text-[11px] leading-4",
+          "lg:text-xs lg:leading-4",
         )}
       >
         <Phone className={cn("shrink-0", compact ? "size-2.5" : "size-3")} />
         <PhoneText
           value={phone}
-          className={cn("min-w-0 truncate text-inherit", compact ? "text-[10px]" : "text-[11px]")}
+          className={cn(
+            "min-w-0 truncate text-inherit",
+            compact ? "text-[10px]" : "text-[11px]",
+            "lg:text-xs",
+          )}
         />
       </span>
       {email ? (
         <span
-          className="inline-flex min-w-0 max-w-full items-center gap-1 text-[10px] text-muted-foreground"
+          className="inline-flex min-w-0 max-w-full items-center gap-1 text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4"
           title={email}
         >
           <Mail className="size-2.5 shrink-0" />
@@ -94,14 +100,14 @@ function CustomerCompactTags({ tags, max = 1 }: { tags: CustomerTag[]; max?: num
         <RepairOsBadge
           key={tag.id}
           title={tag.name}
-          className="min-w-0 max-w-16 border bg-card text-[10px] leading-none"
+          className="min-w-0 max-w-16 border bg-card text-[10px] leading-none lg:text-[11px] lg:leading-4"
           style={{ borderColor: tag.color, color: tag.color }}
         >
           <span className="truncate">{tag.name}</span>
         </RepairOsBadge>
       ))}
       {hiddenCount > 0 ? (
-        <RepairOsBadge className="bg-[var(--surface-panel-muted)] text-[10px] text-muted-foreground">
+        <RepairOsBadge className="bg-[var(--surface-panel-muted)] text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
           +{hiddenCount}
         </RepairOsBadge>
       ) : null}
@@ -142,7 +148,7 @@ export function CustomerRow({
         <div className="truncate text-xs font-medium" title={customer.latest_device_label ?? ""}>
           {customer.latest_device_label ?? "暂无设备"}
         </div>
-        <div className="truncate text-[11px] text-muted-foreground">
+        <div className="truncate text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
           {customer.device_count} 台设备 · {customer.order_count} 个工单
         </div>
       </td>
@@ -154,7 +160,7 @@ export function CustomerRow({
             <MoneyText amount={getCustomerLifetimeQuotedAmount(customer)} />
             <div
               className={cn(
-                "text-[10px]",
+                "text-[10px] lg:text-[11px] lg:leading-4",
                 outstanding > 0 ? "text-status-warn-foreground" : "text-muted-foreground",
               )}
             >
@@ -163,7 +169,7 @@ export function CustomerRow({
           </div>
         )}
       </td>
-      <td className="min-w-0 px-2 py-2 text-[11px]">
+      <td className="min-w-0 px-2 py-2 text-[11px] lg:text-xs lg:leading-4">
         <div className="truncate font-semibold text-foreground">{workSummary.actionLabel}</div>
         <div className="truncate text-muted-foreground">{workSummary.detail}</div>
       </td>
@@ -210,7 +216,7 @@ export function CustomerMobileCard({ customer }: { customer: CustomerListItem })
         )}
         trailing={
           <div className="flex min-w-[4.5rem] flex-col items-end text-right text-xs">
-            <span className="text-[9px] leading-3 text-muted-foreground">
+            <span className="text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
               {customer.finance_redacted ? "工单" : outstanding > 0 ? "待收" : "工单额"}
             </span>
             {customer.finance_redacted ? (
@@ -248,11 +254,11 @@ export function CustomerMobileCard({ customer }: { customer: CustomerListItem })
           <p className={cn(repairOs.cardMeta, "min-w-0 truncate")}>
             {customer.latest_device_label ?? "暂无设备"}
           </p>
-          <RepairOsBadge className="gap-1 bg-[var(--surface-panel-muted)] text-[9px] text-muted-foreground">
+          <RepairOsBadge className="gap-1 bg-[var(--surface-panel-muted)] text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
             <Smartphone className="size-2.5" /> {customer.device_count} / {customer.order_count}
           </RepairOsBadge>
         </div>
-        <div className="mt-1.5 min-w-0 truncate text-[11px]">
+        <div className="mt-1.5 min-w-0 truncate text-[11px] lg:text-xs lg:leading-4">
           <span className="font-semibold text-foreground">{workSummary.actionLabel}</span>
           <span className="ml-1 text-muted-foreground">· {workSummary.detail}</span>
         </div>

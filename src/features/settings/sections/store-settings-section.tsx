@@ -282,11 +282,13 @@ function StoreWorkspaceCard({
               </Select>
             </SettingsField>
             <div className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2.5 text-xs sm:min-w-40">
-              <p className="text-[10px] text-muted-foreground">可访问店铺</p>
+              <p className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
+                可访问店铺
+              </p>
               <p className="mt-1 font-semibold">{stores.length} 个工作区</p>
             </div>
           </div>
-          <p className="text-[11px] leading-4 text-muted-foreground">
+          <p className="text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
             切换店铺会加载该独立工作区的订单、客户、库存和设置；存在未保存草稿时会先确认处理方式。
           </p>
           {!activeStoreExplicit && activeStoreId ? (
@@ -311,7 +313,7 @@ function StoreWorkspaceCard({
           {error ? (
             <div
               role="alert"
-              className="rounded-lg border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-2 text-[11px] leading-4 text-status-danger-foreground"
+              className="rounded-lg border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-2 text-[11px] leading-4 text-status-danger-foreground lg:text-xs lg:leading-[18px]"
             >
               店铺切换失败：{error}。当前店铺与未保存草稿均未改变，请重试。
             </div>
@@ -324,7 +326,9 @@ function StoreWorkspaceCard({
                 className="max-w-full gap-1.5"
               >
                 <span className="truncate">{store.name}</span>
-                <span className="text-[10px] opacity-75">{storeRoleLabels[store.role]}</span>
+                <span className="text-[10px] opacity-75 lg:text-[11px] lg:leading-4 lg:opacity-100">
+                  {storeRoleLabels[store.role]}
+                </span>
               </Badge>
             ))}
           </div>
@@ -403,13 +407,13 @@ function StoreCreationCard({
           {isCreating ? "创建中…" : "创建并切换"}
         </Button>
       </div>
-      <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+      <p className="mt-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
         将创建新的独立私有租户并切换过去。维修工单、批量工单和二手销售票据会使用填写的默认地址；创建后仍可修改。
       </p>
       {error ? (
         <div
           role="alert"
-          className="mt-2 rounded-lg border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-2 text-[11px] leading-4 text-status-danger-foreground"
+          className="mt-2 rounded-lg border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-2 text-[11px] leading-4 text-status-danger-foreground lg:text-xs lg:leading-[18px]"
         >
           店铺创建失败：{error}。名称已保留，可修改后再次尝试。
         </div>
@@ -478,7 +482,7 @@ function StoreProfileCard({
         iconFrame={false}
         title="店铺资料"
         action={
-          <Badge variant="outline" className="text-[10px]">
+          <Badge variant="outline" className="text-[10px] lg:text-[11px] lg:leading-4">
             {canUpdateSettings ? "可编辑" : "只读"}
           </Badge>
         }
@@ -486,9 +490,13 @@ function StoreProfileCard({
       {canShowIdentity && store ? (
         <div className="mb-3 grid gap-3 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
           <div className="min-w-0">
-            <p className="text-[11px] text-muted-foreground">系统中的店铺名称</p>
+            <p className="text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
+              系统中的店铺名称
+            </p>
             <p className="mt-1 break-words text-sm font-semibold">{store.name}</p>
-            <p className="mt-2 text-[11px] text-muted-foreground">店铺唯一编号</p>
+            <p className="mt-2 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
+              店铺唯一编号
+            </p>
             <p className="mt-1 break-all font-mono text-xs tabular-nums">{store.id}</p>
           </div>
           <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -624,7 +632,10 @@ function StoreProfileCard({
               onChange={(event) => onDraftChange({ store_address: event.target.value })}
             />
           </SettingsField>
-          <p id="store-address-help" className="mt-2 text-[11px] leading-4 text-muted-foreground">
+          <p
+            id="store-address-help"
+            className="mt-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4"
+          >
             维修工单、批量工单和二手销售票据会使用此地址；留空时客户输出保持暂停，不会回退到其他店铺地址。
           </p>
           <SettingsField
@@ -650,7 +661,7 @@ function StoreProfileCard({
               onChange={(event) => onDraftChange({ public_base_url: event.target.value })}
             />
           </SettingsField>
-          <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+          <p className="mt-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
             电话、WhatsApp、邮箱至少填写一个；客户门户域名为空时，外发客户消息会自动省略链接。
           </p>
         </>
@@ -671,7 +682,7 @@ function StoreProfileReadOnly({ draft }: { draft: StoreSettingsDraftValues["stor
 
   return (
     <>
-      <p className="mb-3 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 text-[11px] leading-4 text-muted-foreground">
+      <p className="mb-3 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
         当前账号可查看店铺资料；修改请联系店主或经理。
       </p>
       <dl className="grid min-w-0 gap-2 sm:grid-cols-2">
@@ -683,7 +694,9 @@ function StoreProfileReadOnly({ draft }: { draft: StoreSettingsDraftValues["stor
               label === "默认打印地址" && "sm:col-span-2",
             )}
           >
-            <dt className="text-[10px] font-medium text-muted-foreground">{label}</dt>
+            <dt className="text-[10px] font-medium text-muted-foreground lg:text-[11px] lg:leading-4">
+              {label}
+            </dt>
             <dd className="mt-1 whitespace-pre-wrap break-words text-xs font-semibold leading-4">
               {value.trim() || "未填写"}
             </dd>
@@ -736,7 +749,7 @@ function StoreOutputReadinessCard({
           <Badge
             variant="outline"
             className={cn(
-              "text-[10px]",
+              "text-[10px] lg:text-[11px] lg:leading-4",
               outputReady
                 ? "border-status-success-foreground/30 text-status-success-foreground"
                 : "border-status-warn-foreground/30 text-status-warn-foreground",
@@ -802,14 +815,18 @@ function StoreOutputReadinessCard({
         <p className="text-xs font-semibold">
           {outputReady ? "当前已保存资料可用于客户输出" : "以下客户输出当前会保持关闭"}
         </p>
-        <p className="mt-1 text-[11px] leading-4">
+        <p className="mt-1 text-[11px] leading-4 lg:text-xs lg:leading-4">
           {outputReady
             ? "消息、报价、收据和打印会使用当前已保存的店铺身份。"
             : savedOutputIdentity.blockReason}
         </p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           {outputSurfaces.map(({ label, icon: Icon }) => (
-            <Badge key={label} variant="outline" className="gap-1 bg-background/70 text-[10px]">
+            <Badge
+              key={label}
+              variant="outline"
+              className="gap-1 bg-background/70 text-[10px] lg:text-[11px] lg:leading-4"
+            >
               <Icon className="size-3" />
               {label}
             </Badge>
@@ -824,8 +841,8 @@ function StoreOutputReadinessCard({
           className="rounded-xl border border-primary/25 bg-primary/10 px-3 py-2.5 text-primary"
         >
           <p className="text-xs font-semibold">未保存草稿预估</p>
-          <p className="mt-1 text-[11px] leading-4">{projection}</p>
-          <p className="mt-1 text-[10px] leading-3 opacity-80">
+          <p className="mt-1 text-[11px] leading-4 lg:text-xs lg:leading-4">{projection}</p>
+          <p className="mt-1 text-[10px] leading-3 opacity-80 lg:text-[11px] lg:leading-4 lg:opacity-100">
             草稿身份字段 {draftCompletedCount}/{draftItems.length} · {draftScore}%
           </p>
         </div>

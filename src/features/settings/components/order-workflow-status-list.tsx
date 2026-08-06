@@ -83,7 +83,9 @@ function StatusSummary({ status }: { status: OrderWorkflowStatus }) {
         <Badge variant="outline">{status.is_system ? "系统" : "自定义"}</Badge>
         {!status.enabled ? <Badge variant="outline">已停用</Badge> : null}
       </div>
-      <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">{status.code}</p>
+      <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
+        {status.code}
+      </p>
       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
         <span>{status.show_in_order_filters ? "显示于筛选" : "不显示于筛选"}</span>
         <span>{status.allowed_for_create ? "可用于新建" : "不可用于新建"}</span>

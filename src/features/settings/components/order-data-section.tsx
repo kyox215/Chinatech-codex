@@ -459,7 +459,7 @@ export function OrderDataSection({
           <div className="mt-3 grid min-w-0 gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <div className="min-w-0">
               <p className="break-all text-xs font-medium text-foreground">{file.name}</p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
+              <p className="mt-0.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
                 {formatBytes(file.size)} · {formatMode(mode)} · 文件仅保留在当前浏览器流程中
               </p>
             </div>
@@ -612,7 +612,7 @@ export function OrderDataSection({
                 </p>
                 <div className="flex flex-col items-start gap-1 sm:items-end">
                   {preview.rows.length > PREVIEW_RENDER_LIMIT ? (
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
                       页面最多展开前 100 行；完整内容请下载预览报告。
                     </p>
                   ) : null}
@@ -640,7 +640,7 @@ export function OrderDataSection({
                       <p className="text-xs font-medium text-foreground">
                         {row.publicNo ? `工单 ${row.publicNo}` : `第 ${row.rowNumber} 行`}
                       </p>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      <p className="mt-0.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
                         表格第 {row.rowNumber} 行
                       </p>
                     </div>
@@ -683,9 +683,11 @@ export function OrderDataSection({
                 </Label>
               </div>
               {disabledReason ? (
-                <p className="text-[11px] leading-5 text-muted-foreground">{disabledReason}</p>
+                <p className="text-[11px] leading-5 text-muted-foreground lg:text-xs lg:leading-[18px]">
+                  {disabledReason}
+                </p>
               ) : (
-                <p className="text-[11px] leading-5 text-status-warn-foreground">
+                <p className="text-[11px] leading-5 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
                   新增类导入不能一键完全恢复；提交前还会显示最后确认。
                 </p>
               )}
@@ -794,7 +796,7 @@ export function OrderDataSection({
                     <p className="text-xs font-semibold text-foreground">
                       {batchKindLabel(batch.kind)}
                     </p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    <p className="mt-0.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
                       {batchStatusLabel(batch.status)}
                     </p>
                   </div>
@@ -802,14 +804,14 @@ export function OrderDataSection({
                     <p className="text-muted-foreground">
                       {batch.mode ? formatMode(batch.mode) : "不适用"}
                     </p>
-                    <p className="mt-0.5 break-words text-[11px] text-muted-foreground">
+                    <p className="mt-0.5 break-words text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
                       {batch.actorDisplayName ?? "操作人已不可用"}
                     </p>
                   </div>
                   <p className="break-words text-xs leading-5 text-muted-foreground">
                     {batchSummaryText(batch.summary)}
                   </p>
-                  <div className="text-[11px] leading-5 text-muted-foreground">
+                  <div className="text-[11px] leading-5 text-muted-foreground lg:text-xs lg:leading-[18px]">
                     <p>创建：{formatDateTime(batch.createdAt)}</p>
                     <p>
                       {batch.appliedAt
@@ -821,13 +823,13 @@ export function OrderDataSection({
               ))}
             </div>
             {batchHistory.hasMore ? (
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
                 这里只显示最近 20 个批次；更早历史未在本页加载。
               </p>
             ) : null}
           </div>
         )}
-        <div className="mt-3 flex gap-2 rounded-md border border-status-warn-foreground/25 bg-status-warn px-3 py-2 text-[11px] leading-5 text-status-warn-foreground">
+        <div className="mt-3 flex gap-2 rounded-md border border-status-warn-foreground/25 bg-status-warn px-3 py-2 text-[11px] leading-5 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
           <Clock3 className="mt-0.5 size-3.5 shrink-0" />
           <span>
             “到期”表示预览不可再应用，不等于已完成 PII 清理。可靠的保留期调度与监控仍需单独批准。
@@ -899,7 +901,7 @@ function PreviewContext({
 }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[11px] text-muted-foreground">{label}</dt>
+      <dt className="text-[11px] text-muted-foreground lg:text-xs lg:leading-4">{label}</dt>
       <dd
         className={`mt-0.5 font-medium ${danger ? "text-status-danger-foreground" : "text-foreground"} ${breakAll ? "break-all" : "break-words"}`}
       >

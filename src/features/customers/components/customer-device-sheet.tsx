@@ -107,7 +107,7 @@ export function CustomerDeviceSheet({
                 {deviceName}
               </SheetTitle>
               <SheetDescription
-                className="mt-0.5 truncate font-mono text-[10px] leading-4"
+                className="mt-0.5 truncate font-mono text-[10px] leading-4 lg:text-[11px]"
                 title={device.serial_or_imei || "无 IMEI"}
               >
                 {device.serial_or_imei || "无 IMEI"}
@@ -116,25 +116,25 @@ export function CustomerDeviceSheet({
           </div>
           <div className="flex min-w-0 flex-wrap gap-1">
             {item.activeOrderCount > 0 ? (
-              <RepairOsBadge className="bg-status-info text-[10px] text-status-info-foreground">
+              <RepairOsBadge className="bg-status-info text-[10px] text-status-info-foreground lg:text-[11px] lg:leading-4">
                 在修 {item.activeOrderCount}
               </RepairOsBadge>
             ) : null}
             {item.financeRedacted ? (
-              <RepairOsBadge className="bg-[var(--surface-panel-muted)] text-[10px] text-muted-foreground">
+              <RepairOsBadge className="bg-[var(--surface-panel-muted)] text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
                 金额受限
               </RepairOsBadge>
             ) : item.unpaidAmount > 0 ? (
-              <RepairOsBadge className="bg-status-danger/10 text-[10px] text-status-danger-foreground">
+              <RepairOsBadge className="bg-status-danger/10 text-[10px] text-status-danger-foreground lg:text-xs lg:leading-4">
                 待收 <MoneyText amount={item.unpaidAmount} />
               </RepairOsBadge>
             ) : null}
-            <RepairOsBadge className="bg-[var(--surface-panel-muted)] text-[10px] text-muted-foreground">
+            <RepairOsBadge className="bg-[var(--surface-panel-muted)] text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
               历史 {item.orderItems.length} 单
             </RepairOsBadge>
           </div>
           {device.device_notes ? (
-            <p className="line-clamp-2 text-[10px] leading-4 text-muted-foreground">
+            <p className="line-clamp-2 text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
               {device.device_notes}
             </p>
           ) : null}
@@ -159,10 +159,10 @@ export function CustomerDeviceSheet({
               <div className="flex min-w-0 items-start gap-2 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 py-2">
                 <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-status-warn-foreground" />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[11px] font-semibold leading-4">
+                  <div className="truncate text-[11px] font-semibold leading-4 lg:text-xs lg:leading-4">
                     {activeOrder ? "当前仍在维修流程中" : "还有尾款待收"}
                   </div>
-                  <div className="truncate text-[10px] leading-4 text-muted-foreground">
+                  <div className="truncate text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
                     {primaryOrder.order.public_no} · {primaryOrder.order.issue_description}
                   </div>
                 </div>
@@ -170,7 +170,7 @@ export function CustomerDeviceSheet({
             ) : null}
 
             {!item.canDelete ? (
-              <div className="flex min-w-0 items-start gap-2 rounded-xl bg-[var(--surface-panel-muted)] px-2.5 py-2 text-[10px] leading-4 text-muted-foreground">
+              <div className="flex min-w-0 items-start gap-2 rounded-xl bg-[var(--surface-panel-muted)] px-2.5 py-2 text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-[18px]">
                 <ShieldCheck className="mt-0.5 size-3.5 shrink-0" />
                 <span className="min-w-0">{item.deleteBlockedReason}</span>
               </div>
@@ -179,11 +179,11 @@ export function CustomerDeviceSheet({
 
           <section className="mt-2 min-w-0">
             <div className="mb-1.5 flex min-w-0 items-center justify-between gap-2">
-              <div className="inline-flex min-w-0 items-center gap-1.5 text-[11px] font-semibold leading-4">
+              <div className="inline-flex min-w-0 items-center gap-1.5 text-[11px] font-semibold leading-4 lg:text-xs lg:leading-4">
                 <History className="size-3.5 text-primary" />
                 <span>设备历史</span>
               </div>
-              <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
+              <span className="font-mono text-[10px] text-muted-foreground tabular-nums lg:text-[11px] lg:leading-4">
                 {item.orderItems.length} 单
               </span>
             </div>
@@ -238,7 +238,7 @@ export function CustomerDeviceSheet({
           {item.canDelete ? (
             confirmDelete ? (
               <div className="mt-1.5 grid min-w-0 gap-1.5 rounded-xl border border-destructive/30 bg-destructive/5 p-2 sm:w-full">
-                <div className="min-w-0 text-[10px] leading-4 text-muted-foreground">
+                <div className="min-w-0 text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
                   确认删除 {deviceName}
                   {device.serial_or_imei ? ` · ${device.serial_or_imei}` : ""}？
                 </div>
@@ -292,7 +292,7 @@ function DeviceMetric({ label, value }: { label: string; value: ReactNode }) {
       value={value}
       frame="plain"
       className="min-w-0 rounded-xl bg-[var(--surface-panel-muted)] px-2.5 py-2"
-      labelClassName="text-[9px]"
+      labelClassName="text-[9px] lg:text-[11px] lg:leading-4"
       valueClassName="truncate text-xs font-semibold leading-4 tabular-nums"
     />
   );
@@ -317,34 +317,36 @@ function DeviceHistoryRow({ item }: { item: CustomerDeviceWorkbenchItem["orderIt
     >
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate font-mono text-[10px] font-semibold text-primary">
+          <span className="truncate font-mono text-[10px] font-semibold text-primary lg:text-[11px] lg:leading-4">
             {item.order.public_no}
           </span>
           <StatusBadge
             status={cancelled ? "cancelled" : item.order.status}
-            className="max-w-[5.5rem] text-[10px]"
+            className="max-w-[5.5rem] text-[10px] lg:text-[11px] lg:leading-4"
           />
         </div>
-        <span className="inline-flex shrink-0 items-center gap-1 text-[9px] leading-3 text-muted-foreground">
+        <span className="inline-flex shrink-0 items-center gap-1 text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
           <CalendarClock className="size-3" />
           {formatCustomerDateTime(item.order.created_at)}
         </span>
       </div>
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
         <span
-          className="line-clamp-1 text-[10px] leading-4 text-muted-foreground"
+          className="line-clamp-1 text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4"
           title={item.order.issue_description}
         >
           {item.order.issue_description}
         </span>
-        <span className="shrink-0 font-mono text-[10px] font-semibold tabular-nums">
+        <span className="shrink-0 font-mono text-[10px] font-semibold tabular-nums lg:text-[13px] lg:leading-5">
           {financeRedacted ? "金额受限" : <MoneyText amount={item.order.quotation_amount} />}
         </span>
       </div>
       {financeRedacted ? (
-        <div className="text-[9px] leading-3 text-muted-foreground">结算状态受限</div>
+        <div className="text-[9px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
+          结算状态受限
+        </div>
       ) : (
-        <div className="flex min-w-0 flex-wrap gap-x-2 gap-y-0.5 font-mono text-[9px] leading-3 text-muted-foreground tabular-nums">
+        <div className="flex min-w-0 flex-wrap gap-x-2 gap-y-0.5 font-mono text-[9px] leading-3 text-muted-foreground tabular-nums lg:text-xs lg:leading-4">
           <span>
             定金 <MoneyText amount={item.order.deposit_amount} />
           </span>

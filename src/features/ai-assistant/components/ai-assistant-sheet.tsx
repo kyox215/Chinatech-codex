@@ -358,7 +358,7 @@ export function AiAssistantSheet({
 
               {lastQuestion && status !== "idle" ? (
                 <div className="ml-auto max-w-[88%] rounded-2xl rounded-br-md bg-primary px-3 py-2 text-sm text-primary-foreground shadow-[var(--shadow-card)]">
-                  <span className="mb-0.5 block text-[10px] font-medium text-primary-foreground/75">
+                  <span className="mb-0.5 block text-[10px] font-medium text-primary-foreground/75 lg:text-[11px] lg:leading-4">
                     处理方式 · {lastProcessingMode === "local" ? "本地处理" : "大模型辅助"}
                   </span>
                   <span>{lastQuestion}</span>
@@ -464,15 +464,15 @@ export function AiAssistantSheet({
               data-ai-voice-status="true"
               className={
                 voiceInput.phase === "error"
-                  ? "text-[11px] leading-4 text-status-danger-foreground"
-                  : "text-[11px] leading-4 text-muted-foreground"
+                  ? "text-[11px] leading-4 text-status-danger-foreground lg:text-xs lg:leading-[18px]"
+                  : "text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-[18px]"
               }
             >
               {voiceStatusMessage}
             </p>
           ) : null}
           <div className="flex items-center justify-between gap-2">
-            <span className="min-w-0 text-[11px] text-muted-foreground">
+            <span className="min-w-0 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
               {input.length}/800 · 结果来自当前 RepairDesk 数据
             </span>
             <div className="flex shrink-0 items-center gap-1.5">
@@ -565,7 +565,7 @@ function IdleState({
           </button>
         ))}
       </div>
-      <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+      <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
         <ShieldCheck className="size-3.5" aria-hidden="true" />
         只读模式 · 不向模型返回订单详情
       </div>
@@ -658,9 +658,11 @@ function ResultState({
             <Bot className="size-4" aria-hidden="true" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold text-primary">{interpretationLabel}</p>
+            <p className="text-[10px] font-semibold text-primary lg:text-xs lg:leading-4">
+              {interpretationLabel}
+            </p>
             <p className="text-sm leading-5">{response.message}</p>
-            <p className="mt-1 text-[10px] text-muted-foreground">
+            <p className="mt-1 text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
               {response.result_truncated
                 ? `显示 ${response.cards.length} / 共 ${response.total} 条 · `
                 : response.kind === "search_results"
@@ -681,7 +683,7 @@ function ResultState({
                   aria-label={scopeOpen ? "收起查询范围" : "展开查询范围"}
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[10px] font-semibold text-muted-foreground">
+                    <span className="block text-[10px] font-semibold text-muted-foreground lg:text-xs lg:leading-4">
                       已核对查询范围
                     </span>
                     <span className="block truncate text-xs text-foreground" title={scopeSummary}>
@@ -719,7 +721,7 @@ function ResultState({
                   {response.applied_filters.map((filter) => (
                     <div
                       key={`${filter.key}-${filter.value}`}
-                      className="grid min-w-0 grid-cols-[4rem_minmax(0,1fr)] gap-2 text-[10px] leading-4"
+                      className="grid min-w-0 grid-cols-[4rem_minmax(0,1fr)] gap-2 text-[10px] leading-4 lg:text-xs lg:leading-4"
                     >
                       <dt className="font-semibold text-muted-foreground">{filter.label}</dt>
                       <dd className="min-w-0 break-words text-foreground">

@@ -135,7 +135,7 @@ export function MemoEditor({
           onKeyDown={submitFromContent}
           onChange={(event) => setContent(event.target.value)}
         />
-        <p className="flex min-w-0 justify-between gap-2 text-[10px] text-muted-foreground">
+        <p className="flex min-w-0 justify-between gap-2 text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
           <span className="min-w-0 break-words">
             请勿记录密码、支付资料、解锁码或不必要的客户隐私。
           </span>
@@ -261,7 +261,7 @@ export function MemoEditor({
           id="memo-title-help"
           className={
             memo || (title.length > 0 && !title.trim()) || title.length >= 100
-              ? "flex justify-between gap-2 text-[10px] text-muted-foreground"
+              ? "flex justify-between gap-2 text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4"
               : "sr-only"
           }
         >
@@ -296,7 +296,7 @@ export function MemoEditor({
         editorFields
       )}
       {memo ? (
-        <p className="rounded-lg bg-[var(--surface-panel-muted)] p-2 text-[11px] text-muted-foreground">
+        <p className="rounded-lg bg-[var(--surface-panel-muted)] p-2 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
           保存后，本店铺成员都可以看到这条备忘。
         </p>
       ) : null}

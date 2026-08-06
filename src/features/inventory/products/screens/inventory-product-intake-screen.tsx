@@ -293,7 +293,9 @@ export function InventoryProductIntakeScreen() {
             </Button>
             <div className="min-w-0 text-center">
               <h1 className="text-sm font-semibold">快速录入商品</h1>
-              <p className="text-[10px] text-muted-foreground">三个字段即可保存</p>
+              <p className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
+                三个字段即可保存
+              </p>
             </div>
             <span className="size-9" aria-hidden />
           </header>
@@ -336,7 +338,7 @@ export function InventoryProductIntakeScreen() {
                   aria-checked={draft.category === value}
                   tabIndex={draft.category === value ? 0 : -1}
                   className={cn(
-                    "flex min-h-8 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "flex min-h-8 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:text-xs lg:leading-4",
                     draft.category === value
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border bg-card",
@@ -426,7 +428,7 @@ export function InventoryProductIntakeScreen() {
         <section className={cn(repairOs.mobileInfoCard, "space-y-2 p-2.5 md:p-4")}>
           <div>
             <h2 className="text-sm font-semibold">设备标识</h2>
-            <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">
+            <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
               可用摄像头扫码、照片识别、粘贴或手工输入；原图仅在本机处理。
             </p>
           </div>
@@ -470,7 +472,7 @@ export function InventoryProductIntakeScreen() {
           >
             <span>
               <span className="block">更多信息</span>
-              <span className="text-[10px] font-normal leading-4 text-muted-foreground">
+              <span className="text-[10px] font-normal leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
                 标识、规格、售价、库位等均可稍后补充
               </span>
             </span>

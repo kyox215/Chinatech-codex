@@ -75,7 +75,7 @@ export function OrderDetailTabs<T extends string>({
               onClick={() => onChange(tab.key)}
               onKeyDown={(event) => handleKeyDown(event, index)}
               className={cn(
-                "relative shrink-0 rounded-md px-2 py-1 text-[11px] font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-xs",
+                "relative shrink-0 rounded-md px-2 py-1 text-[11px] font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-xs lg:text-xs lg:leading-4",
                 active ? "text-primary" : "text-muted-foreground hover:text-foreground",
               )}
             >

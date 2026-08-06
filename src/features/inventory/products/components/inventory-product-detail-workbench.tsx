@@ -192,7 +192,7 @@ function MobileProductHeader({
           </Button>
           <div className="min-w-0 text-center">
             <h1 className="truncate text-sm font-semibold">商品详情</h1>
-            <p className="truncate text-[10px] text-muted-foreground">
+            <p className="truncate text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
               {item.sku} · {categoryLabel} · {statuses[item.status]}
             </p>
           </div>

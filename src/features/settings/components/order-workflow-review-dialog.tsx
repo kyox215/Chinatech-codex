@@ -182,7 +182,7 @@ export function OrderWorkflowReviewDialog({
 function Metric({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg border border-[var(--border-panel)] bg-card px-2.5 py-1.5 sm:px-3 sm:py-2">
-      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className="text-[11px] text-muted-foreground lg:text-xs lg:leading-4">{label}</p>
       <p className="mt-0.5 text-base font-semibold tabular-nums sm:mt-1 sm:text-lg">{value}</p>
     </div>
   );

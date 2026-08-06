@@ -266,7 +266,7 @@ export function MessagesScreen() {
           aria-live="polite"
         >
           <span className="block text-sm font-semibold">读取消息模板失败</span>
-          <span className="mt-0.5 block text-[11px] leading-4 text-status-danger-foreground/80">
+          <span className="mt-0.5 block text-[11px] leading-4 text-status-danger-foreground/80 lg:text-xs lg:leading-[18px] lg:text-status-danger-foreground">
             请重新加载模板列表后继续编辑。
           </span>
         </RepairOsBusinessCard>
@@ -394,7 +394,7 @@ export function MessagesScreen() {
                   </Label>
                   <span
                     className={cn(
-                      "truncate text-[11px]",
+                      "truncate text-[11px] lg:text-xs lg:leading-4",
                       unknownVariables.length
                         ? "text-status-danger-foreground"
                         : "text-muted-foreground",
@@ -487,13 +487,13 @@ export function MessagesScreen() {
                         )}
                         bodyClassName="min-w-0"
                         trailing={
-                          <span className="min-w-0 truncate text-right font-mono text-[10px] text-muted-foreground">
+                          <span className="min-w-0 truncate text-right font-mono text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
                             {`{{${variable.name}}}`}
                           </span>
                         }
                         title={`插入 ${variable.label}`}
                       >
-                        <span className="min-w-0 truncate text-[11px] font-medium">
+                        <span className="min-w-0 truncate text-[11px] font-medium lg:text-xs lg:leading-4">
                           {variable.label}
                         </span>
                       </RepairOsBusinessCard>
@@ -530,7 +530,7 @@ export function MessagesScreen() {
             }
           >
             <span className="block text-sm font-semibold text-foreground">暂无消息模板</span>
-            <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground">
+            <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
               新增默认模板后可以在这里编辑启用状态、变量和预览。
             </span>
           </RepairOsBusinessCard>
@@ -554,7 +554,7 @@ function TemplateHealthPanel({ health }: { health: ReturnType<typeof evaluateTem
         className="mt-2 grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-lg border-status-success/25 bg-status-success/10 px-2 py-1.5 text-status-success-foreground shadow-none hover:bg-status-success/10"
         leadingClassName="mt-0.5"
       >
-        <span className="block text-[11px] leading-4">
+        <span className="block text-[11px] leading-4 lg:text-xs lg:leading-4">
           模板检查通过，变量和正文都可以用于发送。
         </span>
       </RepairOsBusinessCard>
@@ -587,7 +587,7 @@ function TemplateHealthPanel({ health }: { health: ReturnType<typeof evaluateTem
           )}
           leadingClassName="mt-0.5"
         >
-          <span className="block text-[11px] leading-4">{issue.label}</span>
+          <span className="block text-[11px] leading-4 lg:text-xs lg:leading-4">{issue.label}</span>
         </RepairOsBusinessCard>
       ))}
     </div>
@@ -617,7 +617,7 @@ function TemplateGroup({
 
   return (
     <div className="min-w-0">
-      <div className="mb-1.5 flex items-center gap-2 px-1 text-[11px] font-medium text-muted-foreground">
+      <div className="mb-1.5 flex items-center gap-2 px-1 text-[11px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
         <Icon className="size-3.5" />
         {meta.title}
       </div>
@@ -645,7 +645,7 @@ function TemplateGroup({
                       template.enabled ? "bg-status-success-foreground" : "bg-muted-foreground/50",
                     )}
                   />
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
                     {template.enabled ? "启用" : "停用"}
                   </span>
                 </span>
@@ -655,7 +655,7 @@ function TemplateGroup({
                 <span className="block truncate text-[13px] font-semibold leading-5">
                   {template.label}
                 </span>
-                <span className="block truncate text-[11px] leading-4 text-muted-foreground">
+                <span className="block truncate text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
                   {template.kind} · {template.channel}
                 </span>
               </span>

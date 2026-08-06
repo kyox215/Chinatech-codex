@@ -145,7 +145,7 @@ function ClosedStoreCard({ store }: { store: ActorStoreMembership }) {
               关闭时间：{new Date(timestamp).toLocaleString("zh-CN")}
             </p>
           ) : null}
-          <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+          <p className="mt-1 font-mono text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
             识别码尾号 {store.id.replaceAll("-", "").slice(-8)}
           </p>
         </div>

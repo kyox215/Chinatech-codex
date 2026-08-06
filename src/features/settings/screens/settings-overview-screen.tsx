@@ -109,7 +109,7 @@ export function SettingsOverviewScreen({
                     trailingClassName="self-center"
                   >
                     <span className="truncate text-sm font-semibold">{item.label}</span>
-                    <span className="mt-0.5 block line-clamp-2 text-[11px] leading-4 text-muted-foreground">
+                    <span className="mt-0.5 block line-clamp-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
                       {item.description}
                     </span>
                   </RepairOsBusinessCard>
@@ -156,7 +156,7 @@ export function SettingsOverviewScreen({
                       <RepairOsBadge className="shrink-0">只读</RepairOsBadge>
                     ) : null}
                   </span>
-                  <span className="mt-0.5 block line-clamp-2 text-[11px] leading-4 text-muted-foreground">
+                  <span className="mt-0.5 block line-clamp-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
                     {blocked ? item.summary || "当前账号无法访问此设置。" : item.description}
                   </span>
                 </RepairOsBusinessCard>
@@ -164,7 +164,11 @@ export function SettingsOverviewScreen({
 
               if (blocked) {
                 return (
-                  <div key={item.key} aria-disabled="true" className="min-w-0 opacity-70">
+                  <div
+                    key={item.key}
+                    aria-disabled="true"
+                    className="min-w-0 opacity-70 lg:opacity-100"
+                  >
                     {card}
                   </div>
                 );
@@ -247,7 +251,9 @@ function OverviewMetric({
       role={status ? "status" : undefined}
       aria-live={status ? "polite" : undefined}
     >
-      <p className="text-[10px] font-medium text-muted-foreground">{label}</p>
+      <p className="text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
+        {label}
+      </p>
       <p className="mt-0.5 truncate text-sm font-semibold text-foreground">{value}</p>
     </div>
   );

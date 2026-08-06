@@ -232,7 +232,7 @@ export function MemosScreen() {
       {filterCount > 0 ? (
         <span
           className={cn(
-            "grid size-5 place-items-center rounded-full bg-foreground text-[10px] font-semibold text-background",
+            "grid size-5 place-items-center rounded-full bg-foreground text-[10px] font-semibold text-background lg:text-[11px] lg:leading-4",
             compact && "absolute -right-1 -top-1",
           )}
         >
@@ -243,7 +243,7 @@ export function MemosScreen() {
   );
   const activeFilterSummary = activeFilterLabels.length ? (
     <div className="flex min-w-0 items-center gap-2" aria-label="当前筛选条件">
-      <span className="inline-flex min-w-0 items-center rounded-full bg-[var(--surface-panel-muted)] px-3 py-1.5 text-[11px] font-medium text-muted-foreground">
+      <span className="inline-flex min-w-0 items-center rounded-full bg-[var(--surface-panel-muted)] px-3 py-1.5 text-[11px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
         <span className="truncate">{activeFilterLabels.join(" · ")}</span>
       </span>
       <Button
@@ -282,7 +282,7 @@ export function MemosScreen() {
       {search.trim() || activeFilterSummary ? (
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           {search.trim() ? (
-            <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-[var(--surface-panel-muted)] px-3 py-1.5 text-[11px] text-muted-foreground">
+            <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-[var(--surface-panel-muted)] px-3 py-1.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
               <span className="shrink-0">搜索：</span>
               <span className="truncate font-mono text-foreground">{search.trim()}</span>
             </span>
@@ -356,7 +356,7 @@ export function MemosScreen() {
               <header className="border-b border-border/50 px-3 py-3 sm:px-4">
                 <div className="flex min-w-0 items-end justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary lg:text-[11px] lg:leading-4 lg:tracking-normal">
                       Today
                     </p>
                     <h2 className="truncate text-lg font-semibold tracking-tight">{todayLabel}</h2>
@@ -365,7 +365,7 @@ export function MemosScreen() {
                     <p className="font-mono text-xs font-semibold tabular-nums">
                       已显示 {visibleItems.length} 条
                     </p>
-                    <p className="mt-0.5 text-[10px] text-muted-foreground">
+                    <p className="mt-0.5 text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
                       {visiblePendingCount} 待办 · {visibleNoteCount} 记录
                     </p>
                   </div>
@@ -385,7 +385,7 @@ export function MemosScreen() {
                         style={{ width: `${visibleCompletionPercent}%` }}
                       />
                     </div>
-                    <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
+                    <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground lg:text-[11px] lg:leading-4">
                       {visibleCompletionPercent}%
                     </span>
                   </div>

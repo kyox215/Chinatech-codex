@@ -134,7 +134,7 @@ export function AppSidebar() {
 
       <SidebarContent className="gap-0 px-2 py-2 group-data-[collapsible=icon]:px-1.5">
         <SidebarGroup className="p-0">
-          <SidebarGroupLabel className="h-7 px-2 text-[10px] uppercase tracking-widest text-muted-foreground/70">
+          <SidebarGroupLabel className="h-7 px-2 text-[10px] uppercase tracking-widest text-muted-foreground/70 lg:text-[11px] lg:leading-4 lg:tracking-normal lg:text-muted-foreground">
             工作区
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -230,7 +230,7 @@ export function AppSidebar() {
                   <div className="flex min-w-0 items-start gap-2 rounded-lg bg-muted/50 p-2">
                     <UserCircle className="mt-0.5 size-4 shrink-0 text-primary" />
                     <div className="min-w-0 flex-1">
-                      <span className="block text-[10px] font-medium uppercase text-muted-foreground">
+                      <span className="block text-[10px] font-medium uppercase text-muted-foreground lg:text-xs lg:leading-4">
                         当前账号
                       </span>
                       <span className="block truncate text-sm font-semibold text-foreground">
@@ -260,7 +260,7 @@ export function AppSidebar() {
                     >
                       <Store className="size-4" />
                       <span className="min-w-0 flex-1 truncate">{store.name}</span>
-                      <span className="shrink-0 text-[10px] uppercase text-muted-foreground">
+                      <span className="shrink-0 text-[10px] uppercase text-muted-foreground lg:text-[11px] lg:leading-4">
                         {store.role}
                       </span>
                       {store.id === shell.activeStore?.id ? <Check className="size-4" /> : null}

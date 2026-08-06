@@ -119,7 +119,7 @@ export function RulesSettingsSection({
           iconFrame={false}
           title="默认规则"
           action={
-            <Badge variant="outline" className="text-[10px]">
+            <Badge variant="outline" className="text-[10px] lg:text-[11px] lg:leading-4">
               {canUpdateSettings ? "可编辑" : "只读"}
             </Badge>
           }
@@ -129,7 +129,7 @@ export function RulesSettingsSection({
           <p className="inline-flex items-center gap-1.5 text-xs font-semibold">
             <ShieldCheck className="size-3.5" /> 只影响之后新建的业务对象
           </p>
-          <p className="mt-1 text-[11px] leading-4">
+          <p className="mt-1 text-[11px] leading-4 lg:text-xs lg:leading-4">
             保存后，新打开的快速接单、新维修单和新库存商品会采用这些默认值；已经打开的接单会话、已有维修单、库存记录及已售保修快照不会被改写。
           </p>
         </div>
@@ -164,7 +164,7 @@ export function RulesSettingsSection({
                   <RadioGroupItem id="new-order-mode-simple" value="simple" className="mt-0.5" />
                   <span>
                     <span className="block text-xs font-semibold">简易模式</span>
-                    <span className="mt-1 block text-[11px] leading-4 text-muted-foreground">
+                    <span className="mt-1 block text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
                       用四个步骤引导新员工完成客户、设备、维修报价和确认。
                     </span>
                   </span>
@@ -185,7 +185,7 @@ export function RulesSettingsSection({
                   />
                   <span>
                     <span className="block text-xs font-semibold">专业模式</span>
-                    <span className="mt-1 block text-[11px] leading-4 text-muted-foreground">
+                    <span className="mt-1 block text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
                       保持当前快速接单工作台，一次显示全部字段。
                     </span>
                   </span>
@@ -193,7 +193,7 @@ export function RulesSettingsSection({
               </RadioGroup>
               <p
                 id="new-order-mode-description"
-                className="text-[11px] leading-4 text-muted-foreground"
+                className="text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4"
               >
                 模式变更会在下次打开快速接单时生效。
               </p>
@@ -271,7 +271,7 @@ export function RulesSettingsSection({
                   });
                 }}
               />
-              <p className="text-[11px] leading-4 text-muted-foreground">
+              <p className="text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
                 0 表示新库存默认无保修；允许范围 0–120 个月。
               </p>
             </SettingsField>
@@ -301,7 +301,7 @@ export function RulesSettingsSection({
           <div className="mt-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p
               role={restoredToDraft && isDraftDirty ? "status" : undefined}
-              className="text-[11px] text-muted-foreground"
+              className="text-[11px] text-muted-foreground lg:text-xs lg:leading-4"
             >
               {restoredToDraft && isDraftDirty
                 ? "默认值已应用到草稿，仍需点击“保存”才会生效。"
@@ -387,7 +387,9 @@ export function RulesSettingsSection({
 function ReadOnlyRule({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2.5">
-      <dt className="text-[10px] font-medium text-muted-foreground">{label}</dt>
+      <dt className="text-[10px] font-medium text-muted-foreground lg:text-[11px] lg:leading-4">
+        {label}
+      </dt>
       <dd className="mt-1 break-words text-xs font-semibold leading-4">{value}</dd>
     </div>
   );

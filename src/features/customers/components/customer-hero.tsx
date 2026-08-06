@@ -131,12 +131,14 @@ export function CustomerHero({
       </div>
       <div className="mt-2 grid max-w-xl grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2.5 py-1.5">
         <div className="min-w-0">
-          <p className="truncate text-[10px] leading-3 text-muted-foreground">客户处理建议</p>
+          <p className="truncate text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
+            客户处理建议
+          </p>
           <p className="truncate text-xs font-medium leading-5">{summary.actionLabel}</p>
         </div>
         <span
           className={cn(
-            "shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold",
+            "shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold lg:text-[11px] lg:leading-4",
             customerSummaryToneClass(summary.tone),
           )}
         >

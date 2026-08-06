@@ -177,7 +177,7 @@ function TransitionEditor({
               />
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{status.label}</p>
-                <p className="truncate font-mono text-[11px] text-muted-foreground">
+                <p className="truncate font-mono text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
                   {status.code}
                   {!status.enabled ? " · 状态已停用" : ""}
                 </p>

@@ -32,7 +32,10 @@ export function SettingsField({
       </Label>
       {children}
       {error ? (
-        <p id={`${htmlFor}-error`} className="text-[11px] leading-4 text-status-danger-foreground">
+        <p
+          id={`${htmlFor}-error`}
+          className="text-[11px] leading-4 text-status-danger-foreground lg:text-xs lg:leading-[18px]"
+        >
           {error}
         </p>
       ) : null}

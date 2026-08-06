@@ -361,16 +361,16 @@ function FaultCategoryButton({
               className={cn(
                 "block truncate font-medium",
                 compact && quiet
-                  ? "text-[10px] leading-4"
+                  ? "text-[10px] leading-4 lg:text-xs lg:leading-4"
                   : compact
-                    ? "text-[10px] leading-4"
-                    : "text-[13px] leading-5",
+                    ? "text-[10px] leading-4 lg:text-xs lg:leading-4"
+                    : "text-[13px] leading-5 lg:text-[13px] lg:leading-5",
               )}
             >
               {compact ? compactLabel : group.label}
             </span>
             {!compact && active.length > 1 && (
-              <span className="block text-[11px] leading-3 text-primary/80">
+              <span className="block text-[11px] leading-3 text-primary/80 lg:text-xs lg:leading-4">
                 {active.length} 项
               </span>
             )}
@@ -436,7 +436,9 @@ function FaultCategoryButton({
                 <span
                   className={cn(
                     "block truncate text-muted-foreground",
-                    compact ? "text-[10px] leading-3" : "text-[11px] leading-4",
+                    compact
+                      ? "text-[10px] leading-3 lg:text-xs lg:leading-4"
+                      : "text-[11px] leading-4 lg:text-xs lg:leading-4",
                   )}
                 >
                   Torna alle opzioni di riparazione
@@ -485,7 +487,9 @@ function FaultCategoryButton({
                 <span
                   className={cn(
                     "block truncate text-muted-foreground",
-                    compact ? "text-[10px] leading-3" : "text-[11px] leading-4",
+                    compact
+                      ? "text-[10px] leading-3 lg:text-xs lg:leading-4"
+                      : "text-[11px] leading-4 lg:text-xs lg:leading-4",
                   )}
                 >
                   {option.italian}
@@ -527,7 +531,9 @@ function FaultCategoryButton({
                 <span
                   className={cn(
                     "block truncate text-muted-foreground",
-                    compact ? "text-[10px] leading-3" : "text-[11px] leading-4",
+                    compact
+                      ? "text-[10px] leading-3 lg:text-xs lg:leading-4"
+                      : "text-[11px] leading-4 lg:text-xs lg:leading-4",
                   )}
                 >
                   Da verificare

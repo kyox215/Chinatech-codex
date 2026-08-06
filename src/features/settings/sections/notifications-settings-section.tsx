@@ -81,7 +81,7 @@ function NotificationFieldsCard({
         iconFrame={false}
         title="输出配置"
         action={
-          <Badge variant="outline" className="text-[10px]">
+          <Badge variant="outline" className="text-[10px] lg:text-[11px] lg:leading-4">
             {canUpdateSettings ? "可编辑" : "只读"}
           </Badge>
         }
@@ -108,7 +108,7 @@ function NotificationFieldsCard({
               )}
               onChange={(event) => onDraftChange({ message_signature: event.target.value })}
             />
-            <p className="text-right text-[10px] text-muted-foreground">
+            <p className="text-right text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
               {draft.message_signature.length}/300
             </p>
           </SettingsField>
@@ -132,7 +132,7 @@ function NotificationFieldsCard({
               )}
               onChange={(event) => onDraftChange({ print_footer: event.target.value })}
             />
-            <p className="text-right text-[10px] text-muted-foreground">
+            <p className="text-right text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
               {draft.print_footer.length}/500
             </p>
           </SettingsField>
@@ -143,7 +143,7 @@ function NotificationFieldsCard({
           <ReadOnlyOutputValue label="打印页脚" value={draft.print_footer} />
         </dl>
       )}
-      <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+      <p className="mt-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
         这里只保存当前店铺的消息签名与打印页脚；消息模板正文继续在“消息模板”中维护。未保存草稿只更新下方预览，不会立即改变客户输出。
       </p>
     </section>
@@ -153,7 +153,9 @@ function NotificationFieldsCard({
 function ReadOnlyOutputValue({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2.5">
-      <dt className="text-[10px] font-medium text-muted-foreground">{label}</dt>
+      <dt className="text-[10px] font-medium text-muted-foreground lg:text-[11px] lg:leading-4">
+        {label}
+      </dt>
       <dd className="mt-1 whitespace-pre-wrap break-words text-xs font-semibold leading-4">
         {value.trim() || "未填写"}
       </dd>
@@ -196,7 +198,7 @@ function NotificationPreviewCard({
           <Badge
             variant="outline"
             className={cn(
-              "text-[10px]",
+              "text-[10px] lg:text-[11px] lg:leading-4",
               savedOutputIdentity.canOutput
                 ? "border-status-success-foreground/30 text-status-success-foreground"
                 : "border-status-warn-foreground/30 text-status-warn-foreground",
@@ -221,7 +223,7 @@ function NotificationPreviewCard({
             ? "当前已保存资料可用于客户消息与打印"
             : "客户消息、打印和票据当前保持关闭"}
         </p>
-        <p className="mt-1 text-[11px] leading-4">
+        <p className="mt-1 text-[11px] leading-4 lg:text-xs lg:leading-4">
           {savedOutputIdentity.canOutput
             ? "实际输出继续使用服务器已保存的店铺身份。"
             : savedOutputIdentity.blockReason}
@@ -246,7 +248,7 @@ function NotificationPreviewCard({
           className="rounded-xl border border-primary/25 bg-primary/10 px-3 py-2.5 text-primary"
         >
           <p className="text-xs font-semibold">未保存草稿预估</p>
-          <p className="mt-1 text-[11px] leading-4">{projection}</p>
+          <p className="mt-1 text-[11px] leading-4 lg:text-xs lg:leading-4">{projection}</p>
         </div>
       ) : null}
 
@@ -285,7 +287,7 @@ function OutputPreview({
       <pre
         aria-labelledby={titleId}
         tabIndex={0}
-        className="max-h-48 min-w-0 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-[var(--surface-panel-muted)] p-2.5 text-[11px] leading-4 text-muted-foreground [overflow-wrap:anywhere]"
+        className="max-h-48 min-w-0 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-[var(--surface-panel-muted)] p-2.5 text-[11px] leading-4 text-muted-foreground [overflow-wrap:anywhere] lg:text-xs lg:leading-4"
       >
         {value}
       </pre>
@@ -302,7 +304,7 @@ function MessageTemplatesCard({
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-semibold">维护工单与客户消息正文</p>
-          <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+          <p className="mt-1 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
             模板编辑、语言、渠道和启用状态在独立页面管理；设置页不会复制模板编辑器，也不会发送测试消息。
           </p>
         </div>
@@ -319,7 +321,10 @@ function MessageTemplatesCard({
             </Link>
           </Button>
         ) : (
-          <Badge variant="outline" className="w-fit shrink-0 text-[10px]">
+          <Badge
+            variant="outline"
+            className="w-fit shrink-0 text-[10px] lg:text-[11px] lg:leading-4"
+          >
             当前账号无模板读取权限
           </Badge>
         )}

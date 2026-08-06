@@ -76,7 +76,9 @@ export function AiProcessingUsageDisclosure({
           aria-label={`${open ? "收起" : "展开"}处理方式和用量`}
           className="flex min-h-11 w-full min-w-0 items-center gap-2 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="shrink-0 text-[11px] font-semibold text-foreground">处理方式</span>
+          <span className="shrink-0 text-[11px] font-semibold text-foreground lg:text-xs lg:leading-4">
+            处理方式
+          </span>
           <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-foreground">
             {processingMode === "local" ? (
               <Cpu className="size-3.5" aria-hidden="true" />
@@ -89,7 +91,7 @@ export function AiProcessingUsageDisclosure({
             role="status"
             aria-live="polite"
             className={cn(
-              "min-w-0 flex-1 truncate text-right text-[10px] text-muted-foreground",
+              "min-w-0 flex-1 truncate text-right text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4",
               usageError && canReadUsage && "text-status-warn-foreground",
             )}
           >
@@ -108,8 +110,12 @@ export function AiProcessingUsageDisclosure({
           disabled={isSubmitting || !canSubmit || capabilitiesLoading || capabilitiesError}
         >
           <div className="flex items-center justify-between gap-2 px-0.5">
-            <legend className="text-[11px] font-semibold text-foreground">选择处理方式</legend>
-            <span className="text-[10px] text-muted-foreground">每次发送前可切换</span>
+            <legend className="text-[11px] font-semibold text-foreground lg:text-xs lg:leading-4">
+              选择处理方式
+            </legend>
+            <span className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
+              每次发送前可切换
+            </span>
           </div>
           <ToggleGroup
             type="single"
@@ -147,7 +153,7 @@ export function AiProcessingUsageDisclosure({
           />
         ) : null}
 
-        <div className="rounded-xl bg-[var(--surface-panel-muted)] px-3 py-2 text-[11px] leading-4 text-muted-foreground">
+        <div className="rounded-xl bg-[var(--surface-panel-muted)] px-3 py-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-[18px]">
           {processingMode === "model" ? (
             <p>
               本次文字会在门店权限、出站检查和用量限制后发送至
@@ -193,7 +199,9 @@ function ModeToggle({
       <span className="flex items-center gap-1.5 text-xs font-semibold" aria-hidden="true">
         {icon} {label}
       </span>
-      <span className="text-[10px] font-normal text-muted-foreground">{hint}</span>
+      <span className="text-[10px] font-normal text-muted-foreground lg:text-[11px] lg:leading-4">
+        {hint}
+      </span>
     </ToggleGroupItem>
   );
 }
@@ -223,7 +231,9 @@ function UsageDetails({
       <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn/25 px-2.5 py-2 text-status-warn-foreground">
         <div className="min-w-0">
           <p className="truncate text-xs font-semibold">今日用量暂时无法读取</p>
-          <p className="truncate text-[10px]">不影响本地或大模型查询。</p>
+          <p className="truncate text-[10px] lg:text-[11px] lg:leading-4">
+            不影响本地或大模型查询。
+          </p>
         </div>
         <Button
           type="button"
@@ -250,7 +260,7 @@ function UsageDetails({
         <UsageMetric label="Token" value={formatAiUsageInteger(tokens)} />
         <UsageMetric label="费用估算" value={formatAiUsageMicroUsd(metric.settled_cost_microusd)} />
       </div>
-      <p className="mt-1 truncate text-[9px] text-muted-foreground">
+      <p className="mt-1 truncate text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
         本地处理不计入
         {metric.reserved_cost_microusd > 0
           ? ` · 另有 ${formatAiUsageMicroUsd(metric.reserved_cost_microusd)} 预留中`
@@ -263,7 +273,9 @@ function UsageDetails({
 function UsageMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1.5">
-      <p className="truncate text-[9px] font-medium text-muted-foreground">{label}</p>
+      <p className="truncate text-[9px] font-medium text-muted-foreground lg:text-[11px] lg:leading-4">
+        {label}
+      </p>
       <p
         className="mt-0.5 truncate font-mono text-xs font-semibold tabular-nums text-foreground"
         title={value}

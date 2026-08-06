@@ -243,7 +243,9 @@ function InventoryProductEditContent({
               <h1 className="truncate text-sm font-semibold">
                 编辑 {draft.brand} {draft.model}
               </h1>
-              <p className="text-[10px] text-muted-foreground">保存时会检查是否有其他设备已修改</p>
+              <p className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
+                保存时会检查是否有其他设备已修改
+              </p>
             </div>
             <span className="size-9" aria-hidden />
           </header>
@@ -346,7 +348,7 @@ function InventoryProductEditContent({
         <section className={cn(repairOs.mobileInfoCard, "space-y-2 p-2.5 md:p-4")}>
           <div>
             <h2 className="text-sm font-semibold">设备标识</h2>
-            <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">
+            <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
               修改或清空后保存；历史值会停用，不会物理删除。
             </p>
           </div>

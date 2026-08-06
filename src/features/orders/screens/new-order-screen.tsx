@@ -1044,7 +1044,7 @@ export function NewOrderScreen({
                   )}
                 >
                   <p className="text-xs font-semibold">维修项目确认</p>
-                  <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                  <p className="mt-1 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
                     请选择故障/维修项目；暂时无法判断时，可明确选择检测后补充。
                   </p>
                   <Button
@@ -1292,7 +1292,7 @@ function NewOrderCreateRecoveryCard({
             {confirming ? "正在确认创建结果" : "创建结果暂时无法确认"}
           </span>
         </div>
-        <p className="mt-1 text-[10px] leading-4">
+        <p className="mt-1 text-[10px] leading-4 lg:text-xs lg:leading-[18px]">
           {confirming
             ? "请求已发送，但浏览器没有及时收到结果。系统正在用本次操作标识确认是否已经创建工单。"
             : "不要再次点击创建。请先打开工单列表或客户列表检查是否已经生成记录，也可以重新确认一次结果。"}
@@ -1555,11 +1555,11 @@ function NewOrderDesktopHeader({
         </Button>
       ) : null}
       <div className="min-w-0">
-        <div className="text-[11px] font-medium leading-4 text-muted-foreground">
+        <div className="text-[11px] font-medium leading-4 text-muted-foreground lg:text-xs lg:leading-4">
           {surface === "dialog" ? "弹窗录入" : "工作台录入"}
         </div>
         <p className="truncate text-lg font-semibold leading-6">新建维修工单</p>
-        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
           <span className="truncate">{operatorName}</span>
           <span className="size-1 rounded-full bg-muted-foreground/35" />
           <span className="truncate">创建后进入 {statusLabel}</span>
@@ -1569,12 +1569,12 @@ function NewOrderDesktopHeader({
 
       <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 py-2">
         <div className="mb-1.5 flex min-w-0 items-center justify-between gap-2">
-          <span className="truncate text-[11px] font-semibold leading-4">
+          <span className="truncate text-[11px] font-semibold leading-4 lg:text-xs lg:leading-4">
             {valid ? "资料已齐全" : `还差 ${missingItems.length || 1} 项`}
           </span>
           <span
             className={cn(
-              "inline-flex h-5 shrink-0 items-center gap-1 rounded-full px-2 text-[10px] font-semibold",
+              "inline-flex h-5 shrink-0 items-center gap-1 rounded-full px-2 text-[10px] font-semibold lg:text-[11px] lg:leading-4",
               valid
                 ? "bg-status-success text-status-success-foreground"
                 : "bg-status-warn text-status-warn-foreground",
@@ -1585,7 +1585,7 @@ function NewOrderDesktopHeader({
           </span>
         </div>
         {valid ? (
-          <p className="rounded-md bg-status-success/35 px-2 py-1.5 text-[10px] font-medium text-status-success-foreground">
+          <p className="rounded-md bg-status-success/35 px-2 py-1.5 text-[10px] font-medium text-status-success-foreground lg:text-xs lg:leading-[18px]">
             可以创建；系统会保留设备保管、密码和金额记录。
           </p>
         ) : (
@@ -1594,7 +1594,7 @@ function NewOrderDesktopHeader({
               <button
                 key={`${item.target}-${item.label}`}
                 type="button"
-                className="inline-flex h-9 items-center rounded-md border border-status-warn-foreground/20 bg-background px-2 text-[10px] font-medium text-status-warn-foreground transition-colors hover:bg-status-warn/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:h-7"
+                className="inline-flex h-9 items-center rounded-md border border-status-warn-foreground/20 bg-background px-2 text-[10px] font-medium text-status-warn-foreground transition-colors hover:bg-status-warn/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:h-7 lg:text-xs lg:leading-4"
                 onClick={() => focusNewOrderMissingItem(item)}
               >
                 补充：{item.label}
@@ -1615,7 +1615,7 @@ function NewOrderDesktopHeader({
           compact
           variant="finance"
         />
-        <div className="flex min-w-0 items-center justify-self-start gap-1.5 rounded-full bg-primary/5 px-2 py-1 text-[10px] font-semibold text-primary xl:justify-self-end">
+        <div className="flex min-w-0 items-center justify-self-start gap-1.5 rounded-full bg-primary/5 px-2 py-1 text-[10px] font-semibold text-primary xl:justify-self-end lg:text-xs lg:leading-4">
           <ClipboardList className="size-3" />
           <span className="truncate">{statusLabel}</span>
         </div>
@@ -1957,7 +1957,9 @@ function NewOrderOfflineStatusLine({
         isError
           ? "bg-status-warn text-status-warn-foreground"
           : "bg-[var(--surface-panel-muted)] text-muted-foreground",
-        compact ? "text-[9.5px] leading-3.5" : "text-[10px] leading-4",
+        compact
+          ? "text-[9.5px] leading-3.5 lg:text-xs lg:leading-[18px]"
+          : "text-[10px] leading-4 lg:text-xs lg:leading-[18px]",
         className,
       )}
     >
@@ -1970,7 +1972,7 @@ function NewOrderOfflineStatusLine({
       <span className="min-w-0 flex-1">
         <span className="line-clamp-2">{copy}</span>
         {status.hasSensitiveUnlockDraft ? (
-          <span className="mt-0.5 block text-[9px] leading-3">
+          <span className="mt-0.5 block text-[9px] leading-3 lg:text-xs lg:leading-4">
             手机密码、PIN 或图案不会进入本机草稿，刷新后需重新输入。
           </span>
         ) : null}
@@ -2001,12 +2003,12 @@ function NewOrderOfflineRestoreCard({
           <RotateCcw className="size-3.5 shrink-0 text-primary" />
           <span className="truncate">发现本机草稿</span>
         </div>
-        <p className="mt-1 text-[10px] leading-4 text-muted-foreground lg:truncate">
+        <p className="mt-1 text-[10px] leading-4 text-muted-foreground lg:truncate lg:text-xs lg:leading-[18px]">
           这个草稿只保存在此设备，尚未创建系统工单。上次本机保存：
           {formatOfflineDraftTime(prompt.updatedAt)}。
         </p>
         {prompt.relationshipNeedsReview ? (
-          <p className="mt-1 rounded-lg bg-status-warn/45 px-2 py-1 text-[10px] leading-4 text-status-warn-foreground">
+          <p className="mt-1 rounded-lg bg-status-warn/45 px-2 py-1 text-[10px] leading-4 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
             恢复后请重新确认客户或设备关联，再在线创建工单。
           </p>
         ) : null}
@@ -2052,7 +2054,7 @@ function NewOrderOfflineInlineNotice({
       aria-live={isWarning ? "assertive" : "polite"}
       data-new-order-offline-notice="true"
       className={cn(
-        "mb-2 rounded-xl px-2.5 py-2 text-[10px] font-medium leading-4 md:mb-3 md:text-xs",
+        "mb-2 rounded-xl px-2.5 py-2 text-[10px] font-medium leading-4 md:mb-3 md:text-xs lg:text-xs lg:leading-[18px]",
         isWarning
           ? "bg-status-warn text-status-warn-foreground"
           : "bg-status-success/45 text-status-success-foreground",

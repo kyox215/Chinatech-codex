@@ -27,7 +27,10 @@ const customerTagPriority = new Map([
 ]);
 
 export function CustomerDetailTagList({ tags }: { tags: CustomerTag[] }) {
-  if (!tags.length) return <span className="text-[10px] text-muted-foreground">无标签</span>;
+  if (!tags.length)
+    return (
+      <span className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">无标签</span>
+    );
   const orderedTags = [...tags].sort(
     (a, b) =>
       (customerTagPriority.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
@@ -42,14 +45,14 @@ export function CustomerDetailTagList({ tags }: { tags: CustomerTag[] }) {
         <RepairOsBadge
           key={tag.id}
           title={tag.name}
-          className="max-w-20 border bg-card text-[10px]"
+          className="max-w-20 border bg-card text-[10px] lg:text-[11px] lg:leading-4"
           style={{ borderColor: tag.color, color: tag.color }}
         >
           <span className="truncate">{tag.name}</span>
         </RepairOsBadge>
       ))}
       {hiddenCount > 0 ? (
-        <RepairOsBadge className="bg-[var(--surface-panel-muted)] text-[10px] text-muted-foreground">
+        <RepairOsBadge className="bg-[var(--surface-panel-muted)] text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
           +{hiddenCount}
         </RepairOsBadge>
       ) : null}
@@ -62,7 +65,7 @@ export function CustomerMetric({ label, value }: { label: string; value: React.R
     <RepairOsInfoTile
       label={label}
       value={value}
-      labelClassName="text-[9px]"
+      labelClassName="text-[9px] lg:text-[11px] lg:leading-4"
       valueClassName="truncate font-mono text-sm font-semibold leading-5 tabular-nums sm:text-base"
     />
   );
@@ -74,7 +77,7 @@ export function CustomerInfoBlock({ label, value }: { label: string; value: Reac
       label={label}
       value={value}
       frame="plain"
-      labelClassName="text-[10px]"
+      labelClassName="text-[10px] lg:text-[11px] lg:leading-4"
       valueClassName="text-xs leading-4 sm:text-sm"
     />
   );
@@ -125,14 +128,14 @@ export function CustomerDeviceCard({
           >
             {device.brand} {device.model}
           </div>
-          <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground sm:text-xs">
+          <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground sm:text-xs lg:text-[11px] lg:leading-4">
             {device.serial_or_imei || "无 IMEI"}
           </div>
         </div>
         <Smartphone className="size-4 shrink-0 text-muted-foreground" />
       </div>
       {device.device_notes && (
-        <p className="break-words text-[11px] leading-4 text-muted-foreground">
+        <p className="break-words text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
           {device.device_notes}
         </p>
       )}
@@ -142,7 +145,7 @@ export function CustomerDeviceCard({
           value={`${item.repairCount} 次`}
           frame="plain"
           className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
-          labelClassName="text-[9px]"
+          labelClassName="text-[9px] lg:text-[11px] lg:leading-4"
           valueClassName="truncate font-mono text-xs font-semibold leading-4 tabular-nums"
         />
         <RepairOsInfoTile
@@ -150,7 +153,7 @@ export function CustomerDeviceCard({
           value={item.financeRedacted ? "金额受限" : <MoneyText amount={item.totalQuoted} />}
           frame="plain"
           className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
-          labelClassName="text-[9px]"
+          labelClassName="text-[9px] lg:text-[11px] lg:leading-4"
           valueClassName="truncate font-mono text-xs font-semibold leading-4 tabular-nums"
         />
         <RepairOsInfoTile
@@ -158,7 +161,7 @@ export function CustomerDeviceCard({
           value={item.financeRedacted ? "金额受限" : <MoneyText amount={item.unpaidAmount} />}
           frame="plain"
           className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
-          labelClassName="text-[9px]"
+          labelClassName="text-[9px] lg:text-[11px] lg:leading-4"
           valueClassName="truncate font-mono text-xs font-semibold leading-4 tabular-nums"
         />
         <RepairOsInfoTile
@@ -166,7 +169,7 @@ export function CustomerDeviceCard({
           value={item.warrantyLabel}
           frame="plain"
           className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
-          labelClassName="text-[9px]"
+          labelClassName="text-[9px] lg:text-[11px] lg:leading-4"
           valueClassName="truncate text-xs font-semibold leading-4"
         />
       </div>
@@ -175,7 +178,7 @@ export function CustomerDeviceCard({
           <div className="flex min-w-0 items-center justify-between gap-2">
             <Link
               href={buildOrderDetailWorkspaceHref(latestOrder.order.id, { source: "customer" })}
-              className="truncate font-mono text-[10px] font-semibold text-primary hover:underline"
+              className="truncate font-mono text-[10px] font-semibold text-primary hover:underline lg:text-[11px] lg:leading-4"
               onClick={stopCardClick}
             >
               {latestOrder.order.public_no}
@@ -184,28 +187,28 @@ export function CustomerDeviceCard({
               status={
                 isCustomerOrderCancelled(latestOrder.order) ? "cancelled" : latestOrder.order.status
               }
-              className="max-w-[5.5rem] text-[10px]"
+              className="max-w-[5.5rem] text-[10px] lg:text-[11px] lg:leading-4"
             />
           </div>
           <p
-            className="mt-0.5 line-clamp-1 text-[10px] leading-4 text-muted-foreground"
+            className="mt-0.5 line-clamp-1 text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4"
             title={latestOrder.order.issue_description}
           >
             最近：{latestOrder.order.issue_description}
           </p>
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-2 text-[10px] font-medium leading-4 text-muted-foreground">
+        <div className="rounded-lg border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-2 text-[10px] font-medium leading-4 text-muted-foreground lg:text-xs lg:leading-4">
           暂无关联工单
         </div>
       )}
       {item.activeOrderCount > 0 ? (
-        <RepairOsBadge className="w-fit bg-status-info text-[10px] text-status-info-foreground">
+        <RepairOsBadge className="w-fit bg-status-info text-[10px] text-status-info-foreground lg:text-[11px] lg:leading-4">
           在修 {item.activeOrderCount}
         </RepairOsBadge>
       ) : null}
       {hasHistory ? (
-        <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-[var(--border-panel)] bg-card/60 px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
+        <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-[var(--border-panel)] bg-card/60 px-2 py-1.5 text-[10px] leading-4 text-muted-foreground lg:text-[11px]">
           <span className="inline-flex min-w-0 items-center gap-1.5">
             <History className="size-3.5 shrink-0" />
             <span className="truncate">设备历史 · {item.orderItems.length} 单</span>
@@ -214,7 +217,7 @@ export function CustomerDeviceCard({
         </div>
       ) : null}
       {!item.canDelete ? (
-        <div className="flex min-w-0 items-start gap-1.5 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] font-medium leading-4 text-muted-foreground">
+        <div className="flex min-w-0 items-start gap-1.5 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] font-medium leading-4 text-muted-foreground lg:text-xs lg:leading-[18px]">
           <ShieldCheck className="mt-0.5 size-3.5 shrink-0" />
           <span>{item.deleteBlockedReason}</span>
         </div>
@@ -284,7 +287,9 @@ export function CustomerOrderRow({
       trailing={
         <>
           {financeRedacted ? (
-            <span className="text-[10px] text-muted-foreground">金额受限</span>
+            <span className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
+              金额受限
+            </span>
           ) : (
             <MoneyText amount={order.quotation_amount} />
           )}
@@ -305,14 +310,14 @@ export function CustomerOrderRow({
       <div className="min-w-0 flex-1">
         <Link
           href={buildOrderDetailWorkspaceHref(order.id, { source: "customer" })}
-          className="block truncate font-mono text-[11px] font-medium leading-4 text-primary hover:underline sm:text-xs"
+          className="block truncate font-mono text-[11px] font-medium leading-4 text-primary hover:underline sm:text-xs lg:text-xs lg:leading-4"
         >
           {order.public_no}
         </Link>
         <div className="mt-0.5 truncate text-xs font-medium sm:text-sm" title={order.device_label}>
           {order.device_label}
         </div>
-        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
+        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs lg:text-[11px] lg:leading-4">
           <StatusBadge status={cancelled ? "cancelled" : order.status} />
           <span className="min-w-0 max-w-full truncate" title={order.issue_description}>
             {order.issue_description}
@@ -341,11 +346,13 @@ export function CustomerWorkbenchOrderRow({
       trailing={
         <div className="grid min-w-0 justify-items-end gap-1">
           {financeRedacted ? (
-            <span className="text-[10px] text-muted-foreground">金额受限</span>
+            <span className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
+              金额受限
+            </span>
           ) : (
             <>
               <MoneyText amount={order.quotation_amount} />
-              <div className="grid justify-items-end gap-0.5 font-mono text-[10px] leading-3 text-muted-foreground tabular-nums">
+              <div className="grid justify-items-end gap-0.5 font-mono text-[10px] leading-3 text-muted-foreground tabular-nums lg:text-[11px] lg:leading-4">
                 <span>
                   定金 <MoneyText amount={order.deposit_amount} />
                 </span>
@@ -379,7 +386,7 @@ export function CustomerWorkbenchOrderRow({
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <Link
             href={buildOrderDetailWorkspaceHref(order.id, { source: "customer" })}
-            className="block truncate font-mono text-[11px] font-medium leading-4 text-primary hover:underline sm:text-xs"
+            className="block truncate font-mono text-[11px] font-medium leading-4 text-primary hover:underline sm:text-xs lg:text-xs lg:leading-4"
           >
             {order.public_no}
           </Link>
@@ -388,7 +395,7 @@ export function CustomerWorkbenchOrderRow({
         <div className="mt-0.5 truncate text-xs font-medium sm:text-sm" title={item.deviceLabel}>
           {item.deviceLabel}
         </div>
-        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
+        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs lg:text-[11px] lg:leading-4">
           {item.deviceImei ? (
             <span className="max-w-full truncate font-mono" title={item.deviceImei}>
               IMEI {item.deviceImei}
@@ -436,7 +443,7 @@ export function CustomerTimelineList({ data, limit }: { data: CustomerDetail; li
         <li key={item.id} className="relative min-w-0">
           <span className="absolute -left-[17px] top-1.5 size-2 rounded-full bg-primary ring-[3px] ring-background sm:-left-[19px] sm:size-2.5" />
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-            <div className="min-w-0 truncate text-[11px] font-semibold leading-4 sm:text-xs">
+            <div className="min-w-0 truncate text-[11px] font-semibold leading-4 sm:text-xs lg:text-xs lg:leading-4">
               <span title={item.title}>{item.title}</span>
               {item.meta ? (
                 <span className="font-normal text-muted-foreground" title={item.meta}>
@@ -445,11 +452,11 @@ export function CustomerTimelineList({ data, limit }: { data: CustomerDetail; li
                 </span>
               ) : null}
             </div>
-            <time className="shrink-0 text-[9px] leading-3 text-muted-foreground">
+            <time className="shrink-0 text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
               {formatCustomerDateTime(item.at)}
             </time>
           </div>
-          <p className="line-clamp-1 text-[10px] leading-[14px] text-muted-foreground sm:text-[11px] sm:leading-4">
+          <p className="line-clamp-1 text-[10px] leading-[14px] text-muted-foreground sm:text-[11px] sm:leading-4 lg:text-[11px] lg:leading-4">
             {item.body}
           </p>
         </li>

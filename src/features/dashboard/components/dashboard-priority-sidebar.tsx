@@ -43,7 +43,9 @@ export function DashboardAttentionSummary({ summary }: { summary: DashboardSumma
               metric.tone === "warn" && "border-status-warn-foreground/20 bg-status-warn/10",
             )}
           >
-            <p className="truncate text-[10px] font-medium text-muted-foreground">{metric.label}</p>
+            <p className="truncate text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
+              {metric.label}
+            </p>
             <p className="mt-0.5 text-sm font-semibold tabular-nums lg:mt-1 lg:text-lg">
               {metric.value}
             </p>
@@ -70,7 +72,7 @@ export function DashboardBusinessLinks() {
             </span>
             <span className="min-w-0">
               <span className="block truncate text-xs font-semibold">{item.label}</span>
-              <span className="block truncate text-[10px] leading-4 text-muted-foreground">
+              <span className="block truncate text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
                 {item.description}
               </span>
             </span>

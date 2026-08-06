@@ -205,7 +205,7 @@ export function CustomerPhoneLookup({
                     <span className="block break-words text-sm font-semibold leading-5 sm:text-xs sm:leading-4">
                       {customer.name}
                     </span>
-                    <span className="block break-all font-mono text-xs leading-4 text-muted-foreground sm:text-[11px]">
+                    <span className="block break-all font-mono text-xs leading-4 text-muted-foreground sm:text-[11px] lg:text-xs lg:leading-4">
                       {customer.phone_e164}
                       {customer.contact_phones.length
                         ? ` · 备用 ${customer.contact_phones.length}`
@@ -215,14 +215,16 @@ export function CustomerPhoneLookup({
                   {selected ? (
                     <Check className="size-3.5 shrink-0 text-primary" />
                   ) : (
-                    <span className="shrink-0 text-[10px] font-medium text-primary">选择</span>
+                    <span className="shrink-0 text-[10px] font-medium text-primary lg:text-xs lg:leading-4">
+                      选择
+                    </span>
                   )}
                 </button>
               );
             })
           )}
           {isSearching && data.length > 0 ? (
-            <div className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-muted-foreground">
+            <div className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
               <Loader2 className="size-3 animate-spin" />
               正在更新结果…
             </div>

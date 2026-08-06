@@ -185,7 +185,7 @@ export function BuybackScreen() {
       </section>
 
       {!BUYBACK_SENSITIVE_WORKFLOW_ENABLED ? (
-        <div className="mb-2 rounded-xl border border-status-info/25 bg-status-info/10 px-2.5 py-1.5 text-[10px] leading-4 text-status-info-foreground sm:text-xs">
+        <div className="mb-2 rounded-xl border border-status-info/25 bg-status-info/10 px-2.5 py-1.5 text-[10px] leading-4 text-status-info-foreground sm:text-xs lg:text-xs lg:leading-[18px]">
           当前只记录报价与客户口头答复，不会付款、采集证件/签名、标记已回收或联动商品库存。
         </div>
       ) : null}
@@ -193,7 +193,7 @@ export function BuybackScreen() {
       {!isOnline ? (
         <div
           role="status"
-          className="mb-2 rounded-xl border border-status-warn/30 bg-status-warn/10 px-2.5 py-1.5 text-[10px] leading-4 text-status-warn-foreground sm:text-xs"
+          className="mb-2 rounded-xl border border-status-warn/30 bg-status-warn/10 px-2.5 py-1.5 text-[10px] leading-4 text-status-warn-foreground sm:text-xs lg:text-xs lg:leading-[18px]"
         >
           当前处于离线状态。可继续查看已有资料，恢复网络后才能保存报价或客户答复。
         </div>
@@ -202,7 +202,7 @@ export function BuybackScreen() {
       {isHydrated && !canCreate ? (
         <div
           role="note"
-          className="mb-2 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 py-1.5 text-[10px] leading-4 text-muted-foreground sm:text-xs"
+          className="mb-2 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 py-1.5 text-[10px] leading-4 text-muted-foreground sm:text-xs lg:text-xs lg:leading-[18px]"
         >
           当前角色为只读；新建报价、改价或记录客户答复需要相应负责人权限。
         </div>
@@ -293,7 +293,7 @@ function SummaryTile({
     <div className="flex min-w-0 items-center justify-center gap-1.5 px-1.5 py-1">
       <Icon className="size-3.5 shrink-0 text-primary" />
       <div className="min-w-0">
-        <p className="truncate text-[9px] leading-3 text-muted-foreground sm:text-[10px]">
+        <p className="truncate text-[9px] leading-3 text-muted-foreground sm:text-[10px] lg:text-[11px] lg:leading-4">
           {label}
         </p>
         <p className="text-sm font-semibold leading-4 tabular-nums">{value}</p>
@@ -320,7 +320,7 @@ function QuoteCard({ item, onOpen }: { item: InventoryListItem; onOpen: () => vo
             <OutcomeBadge outcome={outcome} />
           </div>
           <h2 className="mt-0.5 truncate text-sm font-semibold leading-4">{item.item_label}</h2>
-          <p className="truncate text-[10px] leading-4 text-muted-foreground">
+          <p className="truncate text-[10px] leading-4 text-muted-foreground lg:text-[13px] lg:leading-5">
             {[item.color, item.storage_capacity, maskIdentifier(item.serial_or_imei)]
               .filter(Boolean)
               .join(" · ") || "设备资料待补充"}
@@ -330,10 +330,10 @@ function QuoteCard({ item, onOpen }: { item: InventoryListItem; onOpen: () => vo
           <p className="font-mono text-base font-semibold leading-5 text-primary">
             <MoneyText amount={numberValue(quote.final_offer)} />
           </p>
-          <p className="text-[9px] text-muted-foreground">当前报价</p>
+          <p className="text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">当前报价</p>
         </div>
       </div>
-      <div className="flex min-w-0 items-center gap-1.5 text-[10px] leading-4 text-muted-foreground">
+      <div className="flex min-w-0 items-center gap-1.5 text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
         <span className="truncate">
           参考 {rangeLabel(quote.reference_low, quote.reference_high)}
         </span>
@@ -344,7 +344,7 @@ function QuoteCard({ item, onOpen }: { item: InventoryListItem; onOpen: () => vo
           {expired ? "已过期" : shortDate(quote.expires_at)}
         </span>
       </div>
-      <div className="flex min-w-0 items-center justify-between border-t border-[var(--border-panel)] pt-1.5 text-[10px] leading-4">
+      <div className="flex min-w-0 items-center justify-between border-t border-[var(--border-panel)] pt-1.5 text-[10px] leading-4 lg:text-[11px] lg:leading-4">
         <span className="truncate text-muted-foreground">
           {nextAction(outcome, expired, quote.hard_block === true)}
         </span>
@@ -463,7 +463,9 @@ function TransparentQuoteDetail({
           >
             <div className="flex items-end justify-between gap-3">
               <div>
-                <p className="text-[10px] text-muted-foreground">当前透明报价</p>
+                <p className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
+                  当前透明报价
+                </p>
                 <p className="font-mono text-2xl font-semibold leading-7 text-primary">
                   <MoneyText amount={finalOffer} />
                 </p>
@@ -493,14 +495,16 @@ function TransparentQuoteDetail({
           >
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-xs font-semibold">价格怎么得出</h3>
-              <span className="text-[10px] text-muted-foreground">共 {deductions.length} 项</span>
+              <span className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
+                共 {deductions.length} 项
+              </span>
             </div>
             <div id="buyback-deductions-content" className="mt-1.5 space-y-1">
               {deductions.length ? (
                 visibleDeductions.map((row) => (
                   <div
                     key={row.code}
-                    className="flex min-h-8 items-center justify-between rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1 text-[11px]"
+                    className="flex min-h-8 items-center justify-between rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1 text-[11px] lg:text-xs lg:leading-4"
                   >
                     <span>{row.label}</span>
                     <span className="font-mono font-semibold text-status-danger-foreground">
@@ -509,7 +513,7 @@ function TransparentQuoteDetail({
                   </div>
                 ))
               ) : (
-                <p className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[11px] text-muted-foreground">
+                <p className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
                   没有扣减项目。
                 </p>
               )}
@@ -527,7 +531,7 @@ function TransparentQuoteDetail({
               </Button>
             ) : null}
             {typeof quote.manual_adjustment_reason === "string" ? (
-              <p className="mt-1.5 rounded-lg border border-[var(--border-panel)] px-2 py-1.5 text-[11px] text-muted-foreground">
+              <p className="mt-1.5 rounded-lg border border-[var(--border-panel)] px-2 py-1.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
                 调整说明：{quote.manual_adjustment_reason}
               </p>
             ) : null}
@@ -542,7 +546,9 @@ function TransparentQuoteDetail({
               <h3 id="buyback-response-heading" className="text-xs font-semibold">
                 现场记录客户答复
               </h3>
-              <span className="text-[10px] text-muted-foreground">非签名确认</span>
+              <span className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
+                非签名确认
+              </span>
             </div>
             <RadioGroup
               aria-labelledby="buyback-response-heading"
@@ -606,22 +612,22 @@ function TransparentQuoteDetail({
             {acceptDisabled ? (
               <p
                 id="buyback-accept-block-reason"
-                className="mt-2 text-[11px] text-status-warn-foreground"
+                className="mt-2 text-[11px] text-status-warn-foreground lg:text-xs lg:leading-[18px]"
               >
                 报价已过期或存在阻断风险，不能记录为接受；可以暂缓或拒绝。
               </p>
             ) : null}
             {responseLocked ? (
-              <p className="mt-2 text-[11px] text-status-warn-foreground">
+              <p className="mt-2 text-[11px] text-status-warn-foreground lg:text-xs lg:leading-[18px]">
                 当前答复已锁定；如需更正，请由负责人先发布新报价版本。
               </p>
             ) : null}
             {!hasRevision ? (
-              <p className="mt-2 text-[11px] text-status-warn-foreground">
+              <p className="mt-2 text-[11px] text-status-warn-foreground lg:text-xs lg:leading-[18px]">
                 当前记录缺少可确认的报价版本，请先由负责人重新报价。
               </p>
             ) : null}
-            <p className="mt-2 rounded-lg border border-status-info/25 bg-status-info/10 px-2 py-1.5 text-[10px] leading-4 text-status-info-foreground">
+            <p className="mt-2 rounded-lg border border-status-info/25 bg-status-info/10 px-2 py-1.5 text-[10px] leading-4 text-status-info-foreground lg:text-xs lg:leading-[18px]">
               仅记录客户口头答复，不付款、不成交、不入库。
             </p>
             {mutation.isError ? (
@@ -629,7 +635,7 @@ function TransparentQuoteDetail({
                 role="alert"
                 className="mt-2 rounded-xl border border-status-danger/25 bg-status-danger/10 p-2"
               >
-                <p className="text-[11px] text-status-danger-foreground">
+                <p className="text-[11px] text-status-danger-foreground lg:text-xs lg:leading-[18px]">
                   保存失败，当前选择和备注已保留。
                   {mutation.error instanceof Error ? ` ${mutation.error.message}` : ""}
                 </p>
@@ -662,11 +668,11 @@ function TransparentQuoteDetail({
               <span className="flex items-center gap-2">
                 <FileClock className="size-4 text-primary" /> 最近报价记录
               </span>
-              <span className="text-[10px] font-normal text-muted-foreground">
+              <span className="text-[10px] font-normal text-muted-foreground lg:text-[11px] lg:leading-4">
                 {showHistory ? "收起" : "展开"}
               </span>
             </button>
-            <div className="mt-1 grid gap-1 text-[10px] text-muted-foreground sm:grid-cols-2">
+            <div className="mt-1 grid gap-1 text-[10px] text-muted-foreground sm:grid-cols-2 lg:text-[11px] lg:leading-4">
               {history.isLoading ? (
                 <Skeleton className="h-9 rounded-lg sm:col-span-2" />
               ) : history.isError ? (
@@ -707,7 +713,9 @@ function TransparentQuoteDetail({
                 ) : history.data?.revisions.length || history.data?.responses.length ? (
                   <>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-semibold text-muted-foreground">报价版本</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground lg:text-xs lg:leading-4">
+                        报价版本
+                      </p>
                       {sortNewest(history.data?.revisions)
                         .slice(0, 4)
                         .map((revision) => (
@@ -715,14 +723,14 @@ function TransparentQuoteDetail({
                             key={revision.id}
                             className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
                           >
-                            <span className="grid size-7 place-items-center rounded-full bg-card text-[10px] font-semibold">
+                            <span className="grid size-7 place-items-center rounded-full bg-card text-[10px] font-semibold lg:text-[11px] lg:leading-4">
                               V{revision.revision_no}
                             </span>
                             <div className="min-w-0">
                               <p className="truncate text-xs font-medium">
                                 {revision.change_reason || "报价更新"}
                               </p>
-                              <p className="truncate text-[10px] text-muted-foreground">
+                              <p className="truncate text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
                                 {revision.actor_name} · {shortDateTime(revision.created_at)}
                               </p>
                             </div>
@@ -734,7 +742,9 @@ function TransparentQuoteDetail({
                         ))}
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] font-semibold text-muted-foreground">客户答复</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground lg:text-xs lg:leading-4">
+                        客户答复
+                      </p>
                       {sortNewest(history.data?.responses)
                         .slice(0, 4)
                         .map((response) => (
@@ -747,7 +757,7 @@ function TransparentQuoteDetail({
                               <p className="truncate text-xs font-medium">
                                 {response.note || outcomeLabel(response.outcome)}
                               </p>
-                              <p className="truncate text-[10px] text-muted-foreground">
+                              <p className="truncate text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
                                 {response.actor_name} · {shortDateTime(response.created_at)}
                               </p>
                             </div>
@@ -773,7 +783,7 @@ function TransparentQuoteDetail({
         >
           <div
             id="buyback-footer-permission-summary"
-            className="mb-1 flex min-w-0 items-center justify-between gap-2 text-[10px] leading-4"
+            className="mb-1 flex min-w-0 items-center justify-between gap-2 text-[10px] leading-4 lg:text-[11px]"
           >
             <span className="shrink-0 font-semibold text-primary">
               最终 <MoneyText amount={finalOffer} />
@@ -1094,7 +1104,9 @@ function TransparentQuoteWorkspace({
             <div className="mt-2 rounded-xl bg-primary/8 p-2">
               <div className="flex items-end justify-between">
                 <div>
-                  <p className="text-[10px] text-muted-foreground">系统建议（参考最高 − 扣减）</p>
+                  <p className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
+                    系统建议（参考最高 − 扣减）
+                  </p>
                   <p className="font-mono text-xl font-semibold leading-6 text-primary">
                     <MoneyText amount={suggested} />
                   </p>
@@ -1138,14 +1150,14 @@ function TransparentQuoteWorkspace({
                 />
               </Field>
             ) : null}
-            <div className="mt-2 flex items-center gap-2 rounded-xl border border-[var(--border-panel)] px-2 py-1.5 text-[10px] text-muted-foreground">
+            <div className="mt-2 flex items-center gap-2 rounded-xl border border-[var(--border-panel)] px-2 py-1.5 text-[10px] text-muted-foreground lg:text-xs lg:leading-[18px]">
               <CalendarClock className="size-4 shrink-0 text-primary" />
               报价默认有效 7 天；过期后需要重新报价。
             </div>
             {mutation.isError ? (
               <div
                 role="alert"
-                className="mt-2 rounded-xl border border-status-danger/25 bg-status-danger/10 px-2 py-1.5 text-[11px] text-status-danger-foreground"
+                className="mt-2 rounded-xl border border-status-danger/25 bg-status-danger/10 px-2 py-1.5 text-[11px] text-status-danger-foreground lg:text-xs lg:leading-[18px]"
               >
                 保存失败，当前草稿已保留。
                 {mutation.error instanceof Error ? ` ${mutation.error.message}` : ""}
@@ -1157,7 +1169,7 @@ function TransparentQuoteWorkspace({
           data-buyback-fixed-footer="workspace"
           className="shrink-0 border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
         >
-          <div className="mb-1 flex items-center justify-between gap-2 text-[10px] leading-4">
+          <div className="mb-1 flex items-center justify-between gap-2 text-[10px] leading-4 lg:text-[11px] lg:leading-4">
             <span className="font-semibold text-primary">
               最终报价 <MoneyText amount={amount(finalOffer)} />
             </span>
@@ -1192,7 +1204,7 @@ function TransparentQuoteWorkspace({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+      <Label className="text-[11px] text-muted-foreground lg:text-xs lg:leading-4">{label}</Label>
       <div className="mt-1.5">{children}</div>
     </div>
   );
@@ -1233,9 +1245,9 @@ function MiniTile({ label, value, danger }: { label: string; value: string; dang
       value={value}
       frame="plain"
       className="rounded-xl bg-[var(--surface-panel-muted)] px-2.5 py-2"
-      labelClassName="text-[9px]"
+      labelClassName="text-[9px] lg:text-[11px] lg:leading-4"
       valueClassName={cn(
-        "mt-0.5 truncate text-[11px] font-semibold",
+        "mt-0.5 truncate text-[11px] font-semibold lg:text-xs lg:leading-4",
         danger && "text-status-danger-foreground",
       )}
     />

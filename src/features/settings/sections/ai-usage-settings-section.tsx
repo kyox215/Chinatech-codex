@@ -35,7 +35,7 @@ export function AiUsageSettingsSection({
           title="AI 使用量"
           description="只读统计当前门店的大模型请求、Token 与美元费用估算。"
         />
-        <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+        <p className="mt-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
           “本地处理”不调用大模型，因此不会计入这里的请求、Token 或费用。
         </p>
       </RepairOsBusinessCard>
@@ -68,7 +68,7 @@ function UsageContent({ usage }: { usage: AiAssistantUsageSummary }) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold">今日分类</h3>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">
+            <p className="mt-0.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
               每类请求使用独立的门店每日上限。
             </p>
           </div>
@@ -94,7 +94,7 @@ function UsageContent({ usage }: { usage: AiAssistantUsageSummary }) {
         </div>
       ) : null}
 
-      <p className="px-1 text-[10px] leading-4 text-muted-foreground">
+      <p className="px-1 text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
         更新时间：{formatDateTime(usage.generated_at, usage.timezone)} · Token
         来自模型响应的用量字段；费用按当前 RepairDesk 价格策略估算，并非最终账单。
       </p>
@@ -137,11 +137,17 @@ function UsagePeriodCard({ title, metric }: { title: string; metric: AiAssistant
 function UsageMetric({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2">
-      <p className="text-[10px] font-medium text-muted-foreground">{label}</p>
+      <p className="text-[10px] font-medium text-muted-foreground lg:text-[11px] lg:leading-4">
+        {label}
+      </p>
       <p className="mt-0.5 truncate text-base font-semibold tabular-nums text-foreground">
         {value}
       </p>
-      {detail ? <p className="mt-0.5 truncate text-[9px] text-muted-foreground">{detail}</p> : null}
+      {detail ? (
+        <p className="mt-0.5 truncate text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
+          {detail}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -166,7 +172,7 @@ function UsageKindRow({
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-semibold">{label}</p>
-          <p className="text-[10px] tabular-nums text-muted-foreground">
+          <p className="text-[10px] tabular-nums text-muted-foreground lg:text-[11px] lg:leading-4">
             {formatAiUsageInteger(metric.provider_request_count)} /{" "}
             {limit === null ? "—" : formatAiUsageInteger(limit)} 次
           </p>
@@ -214,7 +220,9 @@ function UsageErrorState({ onRetry }: { onRetry: () => void }) {
       }
     >
       <span className="block text-sm font-semibold">AI 使用量读取失败</span>
-      <span className="mt-0.5 block text-[11px] leading-4">其他设置与 AI 本地处理不受影响。</span>
+      <span className="mt-0.5 block text-[11px] leading-4 lg:text-xs lg:leading-4">
+        其他设置与 AI 本地处理不受影响。
+      </span>
     </RepairOsBusinessCard>
   );
 }

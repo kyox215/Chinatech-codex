@@ -209,12 +209,14 @@ export function OrderInternalCostCard({
           <div className="inline-flex items-center gap-1.5 text-xs font-semibold">
             <LockKeyhole className="size-3.5 text-primary" /> 内部成本
           </div>
-          <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">
+          <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-[18px]">
             仅获授权人员可见；空白表示未知，0 表示明确无成本。
           </p>
         </div>
         <div className="shrink-0 text-right">
-          <div className="text-[9px] text-muted-foreground">当前合计</div>
+          <div className="text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
+            当前合计
+          </div>
           <div className="font-mono text-sm font-semibold">
             {result.items.length > 0 && unknownCount === result.items.length
               ? "未知"
@@ -224,7 +226,7 @@ export function OrderInternalCostCard({
       </div>
 
       {result.unidentified_line_count > 0 ? (
-        <div className="grid gap-2 rounded-lg bg-status-warn/35 px-2 py-1.5 text-[10px] text-status-warn-foreground sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <div className="grid gap-2 rounded-lg bg-status-warn/35 px-2 py-1.5 text-[10px] text-status-warn-foreground sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center lg:text-xs lg:leading-[18px]">
           <span className="flex gap-1.5">
             <CircleAlert className="mt-0.5 size-3 shrink-0" />
             旧报价中有 {result.unidentified_line_count} 个项目尚无稳定标识；
@@ -248,7 +250,7 @@ export function OrderInternalCostCard({
       {isConflict ? (
         <div
           role="alert"
-          className="flex items-center justify-between gap-2 rounded-lg border border-status-warn-foreground/20 bg-status-warn/35 px-2 py-1.5 text-[10px] text-status-warn-foreground"
+          className="flex items-center justify-between gap-2 rounded-lg border border-status-warn-foreground/20 bg-status-warn/35 px-2 py-1.5 text-[10px] text-status-warn-foreground lg:text-xs lg:leading-[18px]"
         >
           <span>内部成本已在其他会话变化；当前未保存输入已保留。</span>
           <Button type="button" size="sm" variant="outline" onClick={() => void reloadLatest()}>
@@ -259,7 +261,7 @@ export function OrderInternalCostCard({
 
       <div className="min-w-0 space-y-1.5">
         {result.items.length === 0 ? (
-          <div className="rounded-lg bg-muted/45 px-2.5 py-2 text-[11px] text-muted-foreground">
+          <div className="rounded-lg bg-muted/45 px-2.5 py-2 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
             暂无可录入成本的报价项目。
           </div>
         ) : (
@@ -274,10 +276,13 @@ export function OrderInternalCostCard({
                 className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(100px,0.42fr)] items-center gap-2 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1.5"
               >
                 <div className="min-w-0">
-                  <div className="truncate text-[11px] font-medium" title={item.name}>
+                  <div
+                    className="truncate text-[11px] font-medium lg:text-xs lg:leading-4"
+                    title={item.name}
+                  >
                     {item.name}
                   </div>
-                  <div className="text-[9px] text-muted-foreground">
+                  <div className="text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
                     {item.source === "store_default"
                       ? "新建时默认成本快照"
                       : item.source === "manual"
@@ -291,7 +296,7 @@ export function OrderInternalCostCard({
                               : "手动留空"}
                   </div>
                   {belowCost ? (
-                    <div className="text-[9px] font-medium text-status-warn-foreground">
+                    <div className="text-[9px] font-medium text-status-warn-foreground lg:text-xs lg:leading-4">
                       成本高于客户报价，请确认
                     </div>
                   ) : null}
@@ -328,7 +333,7 @@ export function OrderInternalCostCard({
       </div>
 
       {canManage && !isOnline ? (
-        <div className="rounded-lg bg-status-warn/35 px-2 py-1.5 text-[10px] text-status-warn-foreground">
+        <div className="rounded-lg bg-status-warn/35 px-2 py-1.5 text-[10px] text-status-warn-foreground lg:text-xs lg:leading-[18px]">
           当前离线：内部成本只读，恢复网络后可继续编辑。
         </div>
       ) : null}

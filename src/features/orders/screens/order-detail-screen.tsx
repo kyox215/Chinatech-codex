@@ -1318,7 +1318,9 @@ export function OrderDetailScreen({
           <PackageCheck className="size-4 shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold">设备退还尚未确认</p>
-            <p className="truncate text-[11px] opacity-80">该工单已移入历史，退还提醒仍保留。</p>
+            <p className="truncate text-[11px] opacity-80 lg:text-xs lg:leading-4 lg:opacity-100">
+              该工单已移入历史，退还提醒仍保留。
+            </p>
           </div>
           {data.capabilities?.canConfirmCancelledReturn ? (
             <Button
@@ -1658,7 +1660,7 @@ export function OrderDetailScreen({
                     <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                     <div className="min-w-0">
                       <div className="text-xs font-semibold">另一台设备已更新这张工单</div>
-                      <p className="mt-0.5 text-[11px] leading-4 opacity-80">
+                      <p className="mt-0.5 text-[11px] leading-4 opacity-80 lg:text-xs lg:leading-[18px] lg:opacity-100">
                         为避免覆盖，当前保存已暂停。载入最新版本会替换本页尚未保存的修改。
                       </p>
                     </div>
@@ -1679,7 +1681,7 @@ export function OrderDetailScreen({
                 <section className="flex min-w-0 items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-primary/20 bg-primary/5 px-3 py-2">
                   <div className="min-w-0">
                     <div className="text-xs font-semibold">检测与正式报价工作区</div>
-                    <div className="truncate text-[11px] text-muted-foreground">
+                    <div className="truncate text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
                       {latestPublishedQuoteId
                         ? "已有正式报价；修改后会生成新的报价版本并重置旧审批"
                         : "补充检测结论、维修项目和价格，然后发布正式报价"}
@@ -2306,7 +2308,11 @@ function OrderDeviceCustodyCard({
             type="button"
             size="sm"
             variant="outline"
-            className={cn(variant === "inline" ? "h-7 px-2 text-[10px]" : "h-9 text-xs")}
+            className={cn(
+              variant === "inline"
+                ? "h-7 px-2 text-[10px] lg:text-[11px] lg:leading-4"
+                : "h-9 text-xs",
+            )}
             disabled={pending}
             onClick={() => onRequestChange(target)}
           >
@@ -2325,7 +2331,9 @@ function OrderDeviceCustodyCard({
         key="cancelled-return"
         type="button"
         size="sm"
-        className={cn(variant === "inline" ? "h-7 px-2 text-[10px]" : "h-9 text-xs")}
+        className={cn(
+          variant === "inline" ? "h-7 px-2 text-[10px] lg:text-[11px] lg:leading-4" : "h-9 text-xs",
+        )}
         disabled={pending}
         onClick={onConfirmCancelledReturn}
       >
@@ -2343,7 +2351,11 @@ function OrderDeviceCustodyCard({
           type="button"
           size="sm"
           variant="outline"
-          className={cn(variant === "inline" ? "h-7 px-2 text-[10px]" : "h-9 text-xs")}
+          className={cn(
+            variant === "inline"
+              ? "h-7 px-2 text-[10px] lg:text-[11px] lg:leading-4"
+              : "h-9 text-xs",
+          )}
           disabled={pending}
           onClick={() => onRequestChange(target)}
         >
@@ -2360,7 +2372,11 @@ function OrderDeviceCustodyCard({
           type="button"
           size="sm"
           variant="outline"
-          className={cn(variant === "inline" ? "h-7 px-2 text-[10px]" : "h-9 text-xs")}
+          className={cn(
+            variant === "inline"
+              ? "h-7 px-2 text-[10px] lg:text-[11px] lg:leading-4"
+              : "h-9 text-xs",
+          )}
           disabled={pending}
           onClick={() => onRequestChange(target)}
         >
@@ -2400,12 +2416,12 @@ function OrderDeviceCustodyCard({
             <DeviceCustodyBadge
               status={status}
               deliveredAt={order.delivered_at}
-              className="text-[10px]"
+              className="text-[10px] lg:text-[11px] lg:leading-4"
             />
           </div>
           <p
             className={cn(
-              "mt-0.5 break-words text-[10px] text-muted-foreground",
+              "mt-0.5 break-words text-[10px] text-muted-foreground lg:text-[12px] lg:leading-4",
               variant === "inline" ? "line-clamp-2 leading-3" : "leading-3.5",
             )}
           >
@@ -2414,8 +2430,8 @@ function OrderDeviceCustodyCard({
           {latestHandoff ? (
             <p
               className={cn(
-                "mt-0.5 truncate text-[9px] leading-3 text-muted-foreground",
-                variant !== "inline" && "md:break-words md:text-[10px] md:leading-4",
+                "mt-0.5 truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4",
+                variant !== "inline" && "md:break-words md:text-[10px] md:leading-4 lg:text-[11px]",
               )}
             >
               最近交接：{latestHandoff.summary} · {formatOrderDateTime(latestHandoff.createdAt)} ·
@@ -2423,19 +2439,19 @@ function OrderDeviceCustodyCard({
             </p>
           ) : null}
           {isTerminal && !canCorrectTerminal && status === null ? (
-            <p className="mt-1 text-[10px] font-medium text-status-warn-foreground">
+            <p className="mt-1 text-[10px] font-medium text-status-warn-foreground lg:text-xs lg:leading-[18px]">
               已结束工单需由店主或经理填写说明后补录。
             </p>
           ) : null}
           {status !== DEVICE_CUSTODY_WITH_SHOP &&
           deviceCustodyBlocksStatus(order.status, workflowBucket) ? (
-            <p className="mt-1 text-[10px] font-semibold text-status-danger-foreground">
+            <p className="mt-1 text-[10px] font-semibold text-status-danger-foreground lg:text-xs lg:leading-[18px]">
               当前维修流程与设备保管状态冲突，请先核对并确认收机。
             </p>
           ) : null}
           {status === DEVICE_CUSTODY_WITH_SHOP &&
           deviceCustodyBlocksStatus(order.status, workflowBucket) ? (
-            <p className="mt-1 text-[10px] font-medium text-muted-foreground">
+            <p className="mt-1 text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-[18px]">
               当前流程需要设备留在门店；请先完成、取消或流转到允许交还的阶段。
             </p>
           ) : null}
@@ -2624,7 +2640,7 @@ function OrderAssigneeCard({
           <UserRound className="size-3.5 shrink-0 text-primary" />
           <span className="truncate">负责人</span>
         </h3>
-        <p className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground">
+        <p className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
           选择当前工单的处理负责人。
         </p>
       </div>
@@ -2674,7 +2690,7 @@ function OrderPartsSupplierCard({
             <PackageSearch className="size-3.5 shrink-0 text-primary" />
             <span className="truncate">配件供应商</span>
           </h3>
-          <p className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground">
+          <p className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
             选择当前工单使用的门店供应商。
           </p>
         </div>
@@ -2710,7 +2726,7 @@ function OrderMessagesLog({ messages }: { messages: OrderDetail["messages"] }) {
           <MessageCircle className="size-3.5 text-primary" />
           <span className="truncate">通知历史</span>
         </h3>
-        <span className="shrink-0 rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+        <span className="shrink-0 rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-muted-foreground lg:text-[11px] lg:leading-4">
           {messages.length}
         </span>
       </div>
@@ -2735,7 +2751,7 @@ function OrderMessagesLog({ messages }: { messages: OrderDetail["messages"] }) {
                 </span>
                 <span
                   className={cn(
-                    "shrink-0 rounded px-1.5 py-0.5 text-[10px] leading-none",
+                    "shrink-0 rounded px-1.5 py-0.5 text-[10px] leading-none lg:text-[11px] lg:leading-4",
                     message.status === "read"
                       ? "bg-status-success text-status-success-foreground"
                       : "bg-status-info text-status-info-foreground",
@@ -2744,10 +2760,10 @@ function OrderMessagesLog({ messages }: { messages: OrderDetail["messages"] }) {
                   {message.status === "read" ? "已读" : message.status}
                 </span>
               </div>
-              <p className="line-clamp-2 break-words text-[11px] leading-4 text-muted-foreground">
+              <p className="line-clamp-2 break-words text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
                 {message.message_body}
               </p>
-              <p className="truncate font-mono text-[10px] leading-3 text-muted-foreground/70">
+              <p className="truncate font-mono text-[10px] leading-3 text-muted-foreground/70 lg:text-[11px] lg:leading-4 lg:text-muted-foreground">
                 {new Date(message.sent_at).toLocaleString("zh-CN")}
               </p>
             </li>
@@ -2772,7 +2788,7 @@ function OrderTimelineLog({
           <FileText className="size-3.5 text-primary" />
           <span className="truncate">时间线日志</span>
         </h3>
-        <span className="shrink-0 rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+        <span className="shrink-0 rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-muted-foreground lg:text-[11px] lg:leading-4">
           {events.length}
         </span>
       </div>
@@ -2788,7 +2804,7 @@ function OrderTimelineLog({
               data-order-record-row="true"
               className="grid min-w-0 gap-2 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/55 px-2 py-1.5 text-xs sm:grid-cols-[92px_minmax(0,1fr)]"
             >
-              <div className="flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground sm:block">
+              <div className="flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground sm:block lg:text-[11px] lg:leading-4">
                 <span
                   className={cn(
                     "inline-grid size-5 shrink-0 place-items-center rounded-full font-semibold leading-none sm:mb-1",
@@ -2809,11 +2825,11 @@ function OrderTimelineLog({
                   <span className="truncate text-sm font-medium">
                     {renderEvent(event.event_type, event.payload, workflow)}
                   </span>
-                  <span className="shrink-0 rounded-md bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                  <span className="shrink-0 rounded-md bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
                     {event.operator_name}
                   </span>
                 </div>
-                <p className="mt-0.5 truncate text-[10px] leading-3 text-muted-foreground/70">
+                <p className="mt-0.5 truncate text-[10px] leading-3 text-muted-foreground/70 lg:text-[11px] lg:leading-4 lg:text-muted-foreground">
                   {event.event_type}
                 </p>
               </div>
@@ -2900,7 +2916,7 @@ function ApprovalDecisionSheet({
               onClick={() => setDecision("approved")}
             >
               <span className="block text-xs font-semibold">客户同意</span>
-              <span className="mt-0.5 block truncate text-[10px] opacity-75">
+              <span className="mt-0.5 block truncate text-[10px] opacity-75 lg:text-xs lg:leading-4 lg:opacity-100">
                 进入维修、订件或寄修
               </span>
             </button>
@@ -2916,11 +2932,13 @@ function ApprovalDecisionSheet({
               onClick={() => setDecision("rejected")}
             >
               <span className="block text-xs font-semibold">客户拒绝</span>
-              <span className="mt-0.5 block truncate text-[10px] opacity-75">未修取机或取消</span>
+              <span className="mt-0.5 block truncate text-[10px] opacity-75 lg:text-xs lg:leading-4 lg:opacity-100">
+                未修取机或取消
+              </span>
             </button>
           </div>
 
-          <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+          <label className="grid gap-1 text-[11px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
             下一步状态
             {decision === "approved" ? (
               <Select
@@ -2954,7 +2972,7 @@ function ApprovalDecisionSheet({
             )}
           </label>
           {!custodyReady ? (
-            <p className="rounded-lg border border-status-warn-foreground/25 bg-status-warn/45 px-2.5 py-2 text-[10px] leading-4 text-status-warn-foreground">
+            <p className="rounded-lg border border-status-warn-foreground/25 bg-status-warn/45 px-2.5 py-2 text-[10px] leading-4 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
               {custodyStatus === null
                 ? "请先补录设备保管状态；当前只能在客户同意后继续订件。"
                 : "设备仍由客户持有；可继续订件，开始维修、寄修或未修取机前需先确认收机。"}
@@ -2963,7 +2981,7 @@ function ApprovalDecisionSheet({
         </div>
 
         <div className="space-y-2">
-          <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+          <label className="grid gap-1 text-[11px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
             {decision === "approved" ? "备注" : "拒绝原因"}
             <Textarea
               value={reason}
@@ -2978,7 +2996,7 @@ function ApprovalDecisionSheet({
             />
           </label>
 
-          <p className="rounded-lg bg-[var(--surface-panel-muted)] px-2.5 py-2 text-[10px] leading-4 text-muted-foreground">
+          <p className="rounded-lg bg-[var(--surface-panel-muted)] px-2.5 py-2 text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
             审批结果会写入时间线；客户消息保持为独立沟通记录。
           </p>
         </div>
@@ -3467,7 +3485,7 @@ function MobileOrderDetailView({
       {approvalDecisionAvailable ? (
         <section className={cn(mobileDetailCardClass, "border-primary/25 bg-primary/5")}>
           <MobileSectionTitle icon={MessageCircle} title="客户审批" />
-          <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">
+          <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
             报价已发送或待确认；页面底部的主操作用于记录客户同意或拒绝。
           </p>
         </section>
@@ -3495,7 +3513,7 @@ function MobileOrderDetailView({
               <Button
                 type="button"
                 variant="outline"
-                className="h-9 rounded-lg px-3 text-[11px] lg:h-8"
+                className="h-9 rounded-lg px-3 text-[11px] lg:h-8 lg:text-xs"
                 aria-expanded={assignmentEditing}
                 onClick={() => setAssignmentEditing((editing) => !editing)}
               >
@@ -3504,13 +3522,17 @@ function MobileOrderDetailView({
             ) : null}
           </div>
           {!assignmentEditing ? (
-            <div className="grid min-w-0 grid-cols-2 gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-2 text-[11px]">
+            <div className="grid min-w-0 grid-cols-2 gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-2 text-[11px] lg:text-xs lg:leading-4">
               <div className="min-w-0">
-                <span className="text-[9px] text-muted-foreground">负责人</span>
+                <span className="text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
+                  负责人
+                </span>
                 <p className="truncate font-semibold">{order.technician_name || "未分配"}</p>
               </div>
               <div className="min-w-0">
-                <span className="text-[9px] text-muted-foreground">配件供应商</span>
+                <span className="text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
+                  配件供应商
+                </span>
                 <p className="truncate font-semibold">
                   {partsSupplier?.short_name || partsSupplier?.name || "未选择"}
                 </p>
@@ -3536,7 +3558,7 @@ function MobileOrderDetailView({
                       }
                       disabled={assigneePending}
                     >
-                      <SelectTrigger className="h-[38px] min-w-0 rounded-md px-2 text-base lg:h-8 lg:text-[11px]">
+                      <SelectTrigger className="h-[38px] min-w-0 rounded-md px-2 text-base lg:h-8 lg:text-xs">
                         <SelectValue placeholder={order.technician_name || "未分配"} />
                       </SelectTrigger>
                       <SelectContent>
@@ -3566,7 +3588,7 @@ function MobileOrderDetailView({
                         size="compact"
                       />
                     ) : partsSupplier ? (
-                      <div className="inline-flex max-w-full items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary">
+                      <div className="inline-flex max-w-full items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary lg:text-xs lg:leading-4">
                         <PackageSearch className="size-3 shrink-0" />
                         <span className="truncate">
                           {partsSupplier.short_name || partsSupplier.name}
@@ -3579,7 +3601,7 @@ function MobileOrderDetailView({
             </div>
           )}
           {hasMobileSupplierManagement ? (
-            <p className="mt-1 truncate text-[9px] leading-3 text-muted-foreground">
+            <p className="mt-1 truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
               供应商只读取当前店铺设置。
             </p>
           ) : null}
@@ -3600,18 +3622,18 @@ function MobileOrderDetailView({
       >
         <div className="min-w-0">
           <MobileSectionTitle icon={Clock3} title="历史记录" />
-          <p className="mt-1 truncate text-[11px] font-medium leading-4">
+          <p className="mt-1 truncate text-[11px] font-medium leading-4 lg:text-xs lg:leading-4">
             {latestEvent
               ? renderEvent(latestEvent.event_type, latestEvent.payload, workflow)
               : "暂无操作记录"}
           </p>
-          <p className="truncate text-[9px] leading-3 text-muted-foreground">
+          <p className="truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
             {latestEvent
               ? `${formatDateTime(latestEvent.created_at)} · ${latestEvent.operator_name || "系统"}`
               : "状态流转、报价、收款、照片上传都会记录在这里"}
           </p>
         </div>
-        <span className="rounded-lg border border-[var(--border-panel)] px-2 py-1 text-[10px] font-medium text-primary">
+        <span className="rounded-lg border border-[var(--border-panel)] px-2 py-1 text-[10px] font-medium text-primary lg:text-[11px] lg:leading-4">
           查看全部
         </span>
       </button>
@@ -3625,12 +3647,15 @@ function MobileOrderDetailView({
             </div>
             <div className="min-w-0">
               <p className="truncate text-xs font-semibold leading-4">{customerDisplayName}</p>
-              <PhoneText value={phone} className="block truncate text-[11px] leading-4" />
+              <PhoneText
+                value={phone}
+                className="block truncate text-[11px] leading-4 lg:text-xs"
+              />
             </div>
           </div>
           {customer?.preferred_channel ? (
             <div className="mt-1 flex min-w-0">
-              <span className="truncate rounded bg-status-success px-1.5 py-0.5 text-[9px] font-medium leading-3 text-status-success-foreground">
+              <span className="truncate rounded bg-status-success px-1.5 py-0.5 text-[9px] font-medium leading-3 text-status-success-foreground lg:text-[11px] lg:leading-4">
                 {customer.preferred_channel}
               </span>
             </div>
@@ -3640,7 +3665,7 @@ function MobileOrderDetailView({
               asChild
               variant="outline"
               size="sm"
-              className="h-9 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5"
+              className="h-9 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5 lg:text-xs"
             >
               <a href={`tel:${phone}`} aria-label="拨打电话" title="拨打电话">
                 <Phone className="shrink-0" />
@@ -3652,7 +3677,7 @@ function MobileOrderDetailView({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="col-span-2 h-9 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5"
+                className="col-span-2 h-9 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5 lg:text-xs"
                 disabled={!kioskSignatureAvailable || kioskSignaturePending}
                 onClick={onRequestKioskSignature}
               >
@@ -3681,7 +3706,7 @@ function MobileOrderDetailView({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-9 min-w-9 rounded-lg px-2 text-[11px]"
+                      className="h-9 min-w-9 rounded-lg px-2 text-[11px] lg:text-xs"
                       onClick={() => setDeviceUnlockEditing(true)}
                     >
                       密码
@@ -3692,7 +3717,7 @@ function MobileOrderDetailView({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-9 min-w-9 rounded-lg px-2 text-[11px]"
+                      className="h-9 min-w-9 rounded-lg px-2 text-[11px] lg:text-xs"
                       onClick={() => {
                         setImeiDraft(deviceImei);
                         setImeiEditing(true);
@@ -3747,7 +3772,7 @@ function MobileOrderDetailView({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-9 min-w-9 rounded-lg px-2 text-[11px]"
+                className="h-9 min-w-9 rounded-lg px-2 text-[11px] lg:text-xs"
                 onClick={() => setFaultEditing(true)}
               >
                 编辑
@@ -3758,7 +3783,7 @@ function MobileOrderDetailView({
         <p className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-xs font-medium leading-4 text-foreground">
           {order.issue_description || "-"}
         </p>
-        <p className="mt-0.5 truncate text-[10px] leading-3 text-muted-foreground">
+        <p className="mt-0.5 truncate text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
           诊断结果：{order.diagnosis_result || "尚未填写"}
         </p>
         {order.fault_prices.length ? (
@@ -3766,7 +3791,7 @@ function MobileOrderDetailView({
             {order.fault_prices.slice(0, 3).map((item, index) => (
               <span
                 key={`${item.name}-${index}`}
-                className="max-w-full truncate rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium leading-3 text-primary"
+                className="max-w-full truncate rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium leading-3 text-primary lg:text-[11px] lg:leading-4"
               >
                 {item.name || "未命名项目"}
               </span>
@@ -3796,7 +3821,7 @@ function MobileOrderDetailView({
       {order.finance_redacted ? (
         <section className={mobileDetailCardClass}>
           <MobileSectionTitle icon={WalletCards} title="报价与支付" />
-          <div className="mt-1.5 rounded-lg border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-4 text-center text-[10px] font-medium text-muted-foreground">
+          <div className="mt-1.5 rounded-lg border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-4 text-center text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
             金额与结算状态受限
           </div>
         </section>
@@ -3815,7 +3840,7 @@ function MobileOrderDetailView({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-9 min-w-9 rounded-lg px-2 text-[11px]"
+                    className="h-9 min-w-9 rounded-lg px-2 text-[11px] lg:text-xs lg:leading-4"
                     onClick={() => onFinanceEditingChange(!financeEditing)}
                   >
                     {financeEditing ? "收起" : "编辑"}
@@ -3853,7 +3878,7 @@ function MobileOrderDetailView({
                   order.fault_prices.map((item, index) => (
                     <div
                       key={`${item.name}-${index}`}
-                      className="flex min-w-0 items-center gap-1 text-[11px] leading-4"
+                      className="flex min-w-0 items-center gap-1 text-[11px] leading-4 lg:text-xs"
                     >
                       <span className="min-w-0 flex-1 truncate text-muted-foreground">
                         {item.name || "未命名项目"}
@@ -3862,7 +3887,7 @@ function MobileOrderDetailView({
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-md border border-dashed border-[var(--border-panel)] px-1.5 py-2 text-center text-[10px] text-muted-foreground">
+                  <div className="rounded-md border border-dashed border-[var(--border-panel)] px-1.5 py-2 text-center text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
                     暂无报价项目
                   </div>
                 )}
@@ -3900,7 +3925,7 @@ function MobileOrderDetailView({
             <button
               type="button"
               className={cn(
-                "grid min-h-14 place-items-center rounded-lg border border-dashed border-primary/35 bg-primary/5 text-[10px] font-medium text-primary disabled:opacity-60",
+                "grid min-h-14 place-items-center rounded-lg border border-dashed border-primary/35 bg-primary/5 text-[10px] font-medium text-primary disabled:opacity-60 lg:text-xs lg:leading-4",
                 photoAttachments.length === 0 && "col-span-3 min-h-20",
               )}
               disabled={attachmentUploadPending}
@@ -3914,7 +3939,7 @@ function MobileOrderDetailView({
           ) : null}
         </div>
         {photoAttachments.length ? (
-          <p className="mt-1 text-[9px] leading-3 text-muted-foreground">
+          <p className="mt-1 text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
             已保存 {photoAttachments.length} 张照片到工单，更多操作可在历史记录查看。
           </p>
         ) : null}
@@ -4051,11 +4076,11 @@ function MobileTimelineSheet({
                     <p className="min-w-0 flex-1 text-xs font-semibold leading-5">
                       {renderEvent(event.event_type, event.payload, workflow)}
                     </p>
-                    <span className="shrink-0 rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-0.5 text-[9px] text-muted-foreground">
+                    <span className="shrink-0 rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-0.5 text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4 lg:text-foreground/80">
                       {event.operator_name || "系统"}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">
+                  <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
                     {formatDateTime(event.created_at)}
                   </p>
                 </div>
@@ -4213,7 +4238,7 @@ function ImeiCaptureSheet({
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-xs font-semibold">扫描二维码 / 条码</span>
-                    <span className="block truncate text-[10px] leading-3 text-muted-foreground">
+                    <span className="block truncate text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
                       对准 IMEI 条码或序列号二维码，识别后自动填入。
                     </span>
                   </span>
@@ -4232,7 +4257,7 @@ function ImeiCaptureSheet({
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-xs font-semibold">OCR 识别文字</span>
-                    <span className="block truncate text-[10px] leading-3 text-muted-foreground">
+                    <span className="block truncate text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
                       适合没有二维码、只显示数字的设备标签。
                     </span>
                   </span>
@@ -4256,7 +4281,7 @@ function ImeiCaptureSheet({
                   showPaste={false}
                   startScannerToken={scannerToken}
                 />
-                <p className="text-[10px] leading-4 text-muted-foreground">
+                <p className="text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
                   当前入口不显示粘贴按钮；无法识别时可直接手动输入。
                 </p>
               </section>
@@ -4265,7 +4290,7 @@ function ImeiCaptureSheet({
             {mode === "ocr" ? (
               <section className={cn(componentOverlay.flatSection, "space-y-2 p-2.5")}>
                 <div className="grid gap-1">
-                  <label className="text-[10px] font-medium text-muted-foreground">
+                  <label className="text-[10px] font-medium text-muted-foreground lg:text-[11px] lg:leading-4">
                     识别结果 / 手动确认
                   </label>
                   <Input
@@ -4279,7 +4304,7 @@ function ImeiCaptureSheet({
                   />
                 </div>
                 {ocrText ? (
-                  <div className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
+                  <div className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
                     {ocrText}
                   </div>
                 ) : null}
@@ -4299,18 +4324,18 @@ function ImeiCaptureSheet({
                         onClick={() => setSelectedOcrCandidateId(candidate.id)}
                       >
                         <span className="flex min-w-0 items-center justify-between gap-2">
-                          <span className="truncate text-[10px] font-semibold">
+                          <span className="truncate text-[10px] font-semibold lg:text-[11px] lg:leading-4">
                             {candidate.label}
                           </span>
-                          <span className="shrink-0 text-[9px] text-muted-foreground">
+                          <span className="shrink-0 text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
                             {candidate.confidence === "high" ? "高可信" : "需确认"}
                           </span>
                         </span>
-                        <span className="mt-0.5 block break-all font-mono text-[10px]">
+                        <span className="mt-0.5 block break-all font-mono text-[10px] lg:text-[11px] lg:leading-4">
                           {candidate.value}
                         </span>
                         {candidate.reason ? (
-                          <span className="mt-0.5 block text-[9px] leading-3 text-status-warn-foreground">
+                          <span className="mt-0.5 block text-[9px] leading-3 text-status-warn-foreground lg:text-[11px] lg:leading-4">
                             {candidate.reason}
                           </span>
                         ) : null}
@@ -4345,7 +4370,7 @@ function ImeiCaptureSheet({
             ) : null}
 
             {error ? (
-              <p className="rounded-lg bg-status-danger px-2.5 py-2 text-[10px] leading-4 text-status-danger-foreground">
+              <p className="rounded-lg bg-status-danger px-2.5 py-2 text-[10px] leading-4 text-status-danger-foreground lg:text-xs lg:leading-[18px]">
                 {error}
               </p>
             ) : null}
@@ -4437,7 +4462,7 @@ function DeviceUnlockEditSheet({
         <div className="flex h-full min-w-0 flex-col overflow-hidden">
           <SheetHeader className="border-b border-[var(--border-panel)] px-3 py-2 pr-11 text-left">
             <SheetTitle className="text-sm leading-5">编辑手机密码</SheetTitle>
-            <SheetDescription className="text-[10px] leading-3">
+            <SheetDescription className="text-[10px] leading-3 lg:text-[11px] lg:leading-4">
               {order.public_no} · 默认只在详情里遮挡查看，不进入列表、打印或消息正文。
             </SheetDescription>
           </SheetHeader>
@@ -4446,7 +4471,7 @@ function DeviceUnlockEditSheet({
           >
             <DeviceUnlockEditor value={draft} onChange={setDraft} />
             {helperError ? (
-              <p className="rounded-lg bg-status-danger px-2 py-1.5 text-[10px] font-medium leading-3 text-status-danger-foreground">
+              <p className="rounded-lg bg-status-danger px-2 py-1.5 text-[10px] font-medium leading-3 text-status-danger-foreground lg:text-xs lg:leading-[18px]">
                 {helperError}
               </p>
             ) : null}
@@ -4559,19 +4584,23 @@ function FaultDescriptionEditSheet({
                   <FileText className="size-4 shrink-0 text-primary" />
                   <span className="truncate">编辑故障描述</span>
                 </SheetTitle>
-                <SheetDescription className="mt-0.5 truncate text-[10px] leading-3">
+                <SheetDescription className="mt-0.5 truncate text-[10px] leading-3 lg:text-[11px] lg:leading-4">
                   {order.public_no} · {quoteItems.length} 个维修项目
                 </SheetDescription>
               </div>
               <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-primary/15 bg-primary/5 text-center">
                 <div className="min-w-0 border-r border-primary/10 px-2 py-1">
-                  <p className="text-[9px] leading-3 text-muted-foreground">故障缺</p>
+                  <p className="text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
+                    故障缺
+                  </p>
                   <p className="font-mono text-xs font-semibold leading-4 text-primary">
                     {missingIssueCount}
                   </p>
                 </div>
                 <div className="min-w-0 px-2 py-1">
-                  <p className="text-[9px] leading-3 text-muted-foreground">诊断缺</p>
+                  <p className="text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
+                    诊断缺
+                  </p>
                   <p className="font-mono text-xs font-semibold leading-4 text-primary">
                     {missingDiagnosisCount}
                   </p>
@@ -4589,7 +4618,7 @@ function FaultDescriptionEditSheet({
             {quoteItems.length ? (
               <section className={cn(componentOverlay.flatSection, "space-y-1.5 p-2")}>
                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                  <p className="text-[10px] font-medium leading-3 text-muted-foreground">
+                  <p className="text-[10px] font-medium leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
                     维修项目来源
                   </p>
                   <div className="flex shrink-0 gap-1">
@@ -4597,7 +4626,7 @@ function FaultDescriptionEditSheet({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-6 px-1.5 text-[10px]"
+                      className="h-6 px-1.5 text-[10px] lg:text-[11px] lg:leading-4"
                       disabled={pending || !canEditIntake || missingIssueCount === 0}
                       onClick={() => appendItems("issue", quoteItems)}
                     >
@@ -4607,7 +4636,7 @@ function FaultDescriptionEditSheet({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-6 px-1.5 text-[10px]"
+                      className="h-6 px-1.5 text-[10px] lg:text-[11px] lg:leading-4"
                       disabled={pending || !canEditRepair || missingDiagnosisCount === 0}
                       onClick={() => appendItems("diagnosis", quoteItems)}
                     >
@@ -4626,10 +4655,10 @@ function FaultDescriptionEditSheet({
                         className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 rounded-md bg-[var(--surface-panel-muted)] px-2 py-1"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-[11px] font-semibold leading-4">
+                          <p className="truncate text-[11px] font-semibold leading-4 lg:text-xs lg:leading-4">
                             {item.name}
                           </p>
-                          <div className="flex min-w-0 items-center gap-1 text-[10px] leading-3 text-muted-foreground">
+                          <div className="flex min-w-0 items-center gap-1 text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
                             <MoneyText amount={item.price} className="shrink-0" />
                             {item.note ? <span className="truncate">{item.note}</span> : null}
                           </div>
@@ -4638,7 +4667,7 @@ function FaultDescriptionEditSheet({
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-6 px-1.5 text-[10px]"
+                          className="h-6 px-1.5 text-[10px] lg:text-[11px] lg:leading-4"
                           disabled={pending || !canEditIntake || inIssue}
                           aria-label={`将 ${item.name} 加入故障描述`}
                           onClick={() => appendItems("issue", [item])}
@@ -4649,7 +4678,7 @@ function FaultDescriptionEditSheet({
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-6 px-1.5 text-[10px]"
+                          className="h-6 px-1.5 text-[10px] lg:text-[11px] lg:leading-4"
                           disabled={pending || !canEditRepair || inDiagnosis}
                           aria-label={`将 ${item.name} 加入诊断结果`}
                           onClick={() => appendItems("diagnosis", [item])}
@@ -4663,17 +4692,17 @@ function FaultDescriptionEditSheet({
               </section>
             ) : (
               <section className={cn(componentOverlay.flatSection, "p-2")}>
-                <p className="grid rounded-lg border border-dashed border-[var(--border-panel)] px-2 py-3 text-center text-[10px] leading-4 text-muted-foreground md:min-h-40 md:place-items-center">
+                <p className="grid rounded-lg border border-dashed border-[var(--border-panel)] px-2 py-3 text-center text-[10px] leading-4 text-muted-foreground md:min-h-40 md:place-items-center lg:text-xs lg:leading-4">
                   暂无可带入项目，可直接手动填写。
                 </p>
               </section>
             )}
 
             <section className={cn(componentOverlay.flatSection, "space-y-2 p-2")}>
-              <label className="grid gap-1 text-[10px] font-medium text-muted-foreground">
+              <label className="grid gap-1 text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
                 <span className="flex items-center justify-between gap-2">
                   <span>故障描述{canEditIntake ? "" : "（只读）"}</span>
-                  <span className="font-mono text-[9px] font-normal text-muted-foreground">
+                  <span className="font-mono text-[9px] font-normal text-muted-foreground lg:text-[11px] lg:leading-4">
                     {issue.trim().length}
                   </span>
                 </span>
@@ -4685,10 +4714,10 @@ function FaultDescriptionEditSheet({
                   placeholder="描述客户反馈、故障表现、可复现条件等"
                 />
               </label>
-              <label className="grid gap-1 text-[10px] font-medium text-muted-foreground">
+              <label className="grid gap-1 text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
                 <span className="flex items-center justify-between gap-2">
                   <span>诊断结果{canEditRepair ? "" : "（只读）"}</span>
-                  <span className="font-mono text-[9px] font-normal text-muted-foreground">
+                  <span className="font-mono text-[9px] font-normal text-muted-foreground lg:text-[11px] lg:leading-4">
                     {diagnosis.trim().length}
                   </span>
                 </span>
@@ -4703,7 +4732,7 @@ function FaultDescriptionEditSheet({
             </section>
 
             {error ? (
-              <p className="rounded-lg bg-status-danger px-2.5 py-2 text-[10px] leading-4 text-status-danger-foreground md:col-span-2">
+              <p className="rounded-lg bg-status-danger px-2.5 py-2 text-[10px] leading-4 text-status-danger-foreground md:col-span-2 lg:text-xs lg:leading-[18px]">
                 {error}
               </p>
             ) : null}
@@ -4751,7 +4780,7 @@ function PhotoPreview({
         <div className="grid size-full place-items-center text-primary">
           <ImageIcon className="size-4" />
         </div>
-        <span className="absolute inset-x-1 bottom-1 rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur">
+        <span className="absolute inset-x-1 bottom-1 rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur lg:text-[11px] lg:leading-4">
           {label} · {formatAttachmentSize(attachment.file_size)}
         </span>
       </div>
@@ -4766,10 +4795,10 @@ function PhotoPreview({
       aria-label={`查看照片 ${attachment.file_name || label}`}
     >
       <img src={source} alt={attachment.file_name || label} className="size-full object-cover" />
-      <span className="absolute inset-0 hidden place-items-center bg-background/20 text-[9px] font-semibold text-foreground backdrop-blur-[1px] group-hover:grid group-focus-visible:grid">
+      <span className="absolute inset-0 hidden place-items-center bg-background/20 text-[9px] font-semibold text-foreground backdrop-blur-[1px] group-hover:grid group-focus-visible:grid lg:text-[11px] lg:leading-4">
         查看
       </span>
-      <span className="absolute inset-x-1 bottom-1 rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur">
+      <span className="absolute inset-x-1 bottom-1 rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur lg:text-[11px] lg:leading-4">
         {label} · {formatAttachmentSize(attachment.file_size)}
       </span>
     </button>
@@ -4801,7 +4830,7 @@ function DesktopStatusTransitionPanel({
             <Clock3 className="size-4 shrink-0 text-primary" />
             <span className="truncate">状态流转</span>
           </h3>
-          <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+          <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
             当前：{currentStage.label} · {statusLabel}。可手动选择任一启用状态，确认后会写入时间线。
           </p>
         </div>
@@ -4887,7 +4916,9 @@ function StatusTransitionPanelBody({
         <section className={cn(componentOverlay.flatSection, "space-y-1.5 p-2.5")}>
           <div className="flex min-w-0 items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-[10px] leading-3 text-muted-foreground">当前工单</p>
+              <p className="text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
+                当前工单
+              </p>
               <p className="truncate font-mono text-xs font-semibold leading-4 text-primary">
                 {order.public_no}
               </p>
@@ -4895,10 +4926,12 @@ function StatusTransitionPanelBody({
             <StatusBadge status={order.status} label={statusLabel} />
           </div>
           <div className="rounded-lg bg-[var(--surface-panel)] px-2 py-1.5">
-            <p className="text-[10px] leading-3 text-muted-foreground">当前阶段</p>
+            <p className="text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
+              当前阶段
+            </p>
             <p className="mt-0.5 truncate text-xs font-semibold">{currentStage.label}</p>
           </div>
-          <p className="text-[10px] leading-4 text-muted-foreground">
+          <p className="text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
             {reasonAction
               ? reasonAction.to === "completed" &&
                 deviceCustodyStatusFromOrder(order) === DEVICE_CUSTODY_WITH_CUSTOMER
@@ -4993,17 +5026,17 @@ function StatusTransitionPanelBody({
                           {statusLabel} → {action.label}
                         </span>
                         {action.isPrimary ? (
-                          <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-primary">
+                          <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-primary lg:text-[11px] lg:leading-4">
                             推荐
                           </span>
                         ) : null}
                         {needsReason ? (
-                          <span className="shrink-0 rounded bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-status-warn-foreground">
+                          <span className="shrink-0 rounded bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-status-warn-foreground lg:text-[11px] lg:leading-4">
                             原因
                           </span>
                         ) : null}
                       </span>
-                      <span className="mt-0.5 block truncate text-[10px] leading-3 text-muted-foreground">
+                      <span className="mt-0.5 block truncate text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
                         {hint}
                       </span>
                     </span>
@@ -5020,7 +5053,7 @@ function StatusTransitionPanelBody({
       </div>
 
       {hasCommunicationStatus && !reasonAction ? (
-        <p className="rounded-lg bg-status-warn px-2.5 py-2 text-[10px] leading-4 text-status-warn-foreground">
+        <p className="rounded-lg bg-status-warn px-2.5 py-2 text-[10px] leading-4 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
           提醒：选择“待审批”或“已通知”只会改状态，不会自动发送
           WhatsApp。需要发送给客户时请走通知入口。
         </p>
@@ -5161,7 +5194,7 @@ function MobileStickyWorkflowHeader({
           </Button>
           <div className="min-w-0 text-center">
             <p className="truncate text-xs font-semibold leading-4">订单详情</p>
-            <p className="truncate text-[9px] leading-3 text-muted-foreground">
+            <p className="truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
               {currentStage.label} · {statusLabel}
             </p>
           </div>
@@ -5219,7 +5252,7 @@ function MobileStickyWorkflowHeader({
               <p className="truncate font-mono text-[12px] font-semibold leading-4 text-primary">
                 {order.public_no}
               </p>
-              <p className="truncate text-[9px] leading-3 text-muted-foreground">
+              <p className="truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
                 {currentStage.label} · {nextText}
               </p>
             </div>
@@ -5271,7 +5304,9 @@ function MobileSectionTitle({
     <div className="flex min-w-0 items-center justify-between gap-1">
       <div className="flex min-w-0 items-center gap-1">
         <Icon className="size-3 shrink-0 text-primary" />
-        <h2 className="truncate text-[11px] font-semibold leading-4">{title}</h2>
+        <h2 className="truncate text-[11px] font-semibold leading-4 lg:text-xs lg:leading-4">
+          {title}
+        </h2>
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
@@ -5289,18 +5324,20 @@ function MobileMeta({
 }) {
   return (
     <div className="min-w-0">
-      <div className="flex items-center gap-1 text-[9px] leading-3 text-muted-foreground">
+      <div className="flex items-center gap-1 text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
         <Icon className="size-3 shrink-0" />
         <span className="truncate">{label}</span>
       </div>
-      <p className="mt-0.5 truncate text-[11px] font-medium leading-4">{value}</p>
+      <p className="mt-0.5 truncate text-[11px] font-medium leading-4 lg:text-xs lg:leading-4">
+        {value}
+      </p>
     </div>
   );
 }
 
 function DetailRows({ rows }: { rows: [string, string][] }) {
   return (
-    <dl className="mt-1.5 grid min-w-0 gap-1 text-[11px] leading-4">
+    <dl className="mt-1.5 grid min-w-0 gap-1 text-[11px] leading-4 lg:text-xs lg:leading-4">
       {rows.map(([label, value]) => (
         <div key={label} className="grid min-w-0 grid-cols-[34px_minmax(0,1fr)] gap-1.5">
           <dt className="text-muted-foreground">{label}</dt>
@@ -5411,7 +5448,7 @@ function MobileFinanceEditor({
   return (
     <div className="mt-1.5 min-w-0 space-y-1.5">
       <div className="min-w-0">
-        <p className="mb-1 text-[10px] font-semibold leading-3 text-muted-foreground">
+        <p className="mb-1 text-[10px] font-semibold leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
           选择维修项目
         </p>
         <FaultDiagnosisPicker
@@ -5463,7 +5500,7 @@ function MobileFinanceEditor({
             </div>
           ))
         ) : (
-          <div className="rounded-md border border-dashed border-[var(--border-panel)] px-2 py-2 text-center text-[10px] text-muted-foreground">
+          <div className="rounded-md border border-dashed border-[var(--border-panel)] px-2 py-2 text-center text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
             暂无报价项目
           </div>
         )}
@@ -5473,7 +5510,7 @@ function MobileFinanceEditor({
         type="button"
         variant="outline"
         size="sm"
-        className="h-7 w-full rounded-md text-[10px]"
+        className="h-7 w-full rounded-md text-[10px] lg:text-[11px] lg:leading-4"
         disabled={pending}
         onClick={() => {
           const faults = [...draft.faults, emptyFinanceFaultDraft()];
@@ -5484,7 +5521,7 @@ function MobileFinanceEditor({
       </Button>
 
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_86px] items-end gap-1.5">
-        <div className="grid grid-cols-2 gap-1 text-[10px]">
+        <div className="grid grid-cols-2 gap-1 text-[10px] lg:text-[11px] lg:leading-4">
           <div className="rounded-md bg-[var(--surface-panel-muted)] px-2 py-1">
             <span className="block text-muted-foreground">总额</span>
             <MoneyText amount={normalized.quotation} className="font-semibold text-primary" />
@@ -5494,7 +5531,7 @@ function MobileFinanceEditor({
             <MoneyText amount={normalized.balance} className="font-semibold" />
           </div>
         </div>
-        <label className="grid min-w-0 gap-0.5 text-[10px] text-muted-foreground">
+        <label className="grid min-w-0 gap-0.5 text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
           <span>押金</span>
           <MobileDenseFinanceInput
             value={draft.depositText}
@@ -5509,7 +5546,7 @@ function MobileFinanceEditor({
       </div>
 
       {normalized.error || saveError ? (
-        <p className="rounded-md bg-status-danger px-2 py-1 text-[10px] leading-3 text-status-danger-foreground">
+        <p className="rounded-md bg-status-danger px-2 py-1 text-[10px] leading-3 text-status-danger-foreground lg:text-xs lg:leading-[18px]">
           {normalized.error ?? saveError}
         </p>
       ) : null}
@@ -5519,7 +5556,7 @@ function MobileFinanceEditor({
           type="button"
           variant="outline"
           size="sm"
-          className="h-7 rounded-md text-[10px]"
+          className="h-7 rounded-md text-[10px] lg:text-[11px] lg:leading-4"
           onClick={onCancel}
           disabled={pending}
         >
@@ -5528,7 +5565,7 @@ function MobileFinanceEditor({
         <Button
           type="button"
           size="sm"
-          className="h-7 rounded-md text-[10px]"
+          className="h-7 rounded-md text-[10px] lg:text-[11px] lg:leading-4"
           onClick={() => void onSave().catch(() => undefined)}
           disabled={pending || !normalized.canSave}
         >
@@ -5765,7 +5802,9 @@ function MobilePaymentSummary({
     <div className={cn("min-w-0 space-y-1.5", className)} data-mobile-payment-summary="true">
       <div className="rounded-lg border border-primary/15 bg-primary/5 px-2 py-1.5">
         <div className="flex min-w-0 items-start justify-between gap-2">
-          <span className="shrink-0 text-[10px] font-semibold leading-4 text-primary">总金额</span>
+          <span className="shrink-0 text-[10px] font-semibold leading-4 text-primary lg:text-[11px] lg:leading-4">
+            总金额
+          </span>
           <MoneyText
             amount={total}
             className="min-w-0 text-right font-mono text-lg font-bold leading-6 text-foreground"
@@ -5792,7 +5831,9 @@ function MobilePaymentSummary({
         />
       </div>
       {cancelled ? (
-        <p className="text-[10px] leading-4 text-muted-foreground">已取消 · 此余额不计入待收</p>
+        <p className="text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
+          已取消 · 此余额不计入待收
+        </p>
       ) : null}
     </div>
   );
@@ -5809,7 +5850,7 @@ function MobilePaymentTile({
 }) {
   return (
     <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1.5">
-      <div className="truncate text-[10px] font-medium leading-3 text-muted-foreground">
+      <div className="truncate text-[10px] font-medium leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
         {label}
       </div>
       <MoneyText
@@ -5873,14 +5914,16 @@ function MobileWorkflowTimeline({
             <p
               className={cn(
                 "truncate",
-                compact ? "mt-0.5 text-[8px] leading-3" : "mt-1 text-[10px]",
+                compact
+                  ? "mt-0.5 text-[8px] leading-3 lg:text-[11px] lg:leading-4"
+                  : "mt-1 text-[10px] lg:text-[11px] lg:leading-4",
                 current ? "font-semibold text-primary" : "text-muted-foreground",
               )}
             >
               {displayStage.label}
             </p>
             {!compact ? (
-              <p className="truncate text-[9px] text-muted-foreground/70">
+              <p className="truncate text-[9px] text-muted-foreground/70 lg:text-[11px] lg:leading-4 lg:text-muted-foreground">
                 {index === 0 ? formatShortDate(createdAt) : current ? "当前" : ""}
               </p>
             ) : null}
@@ -5893,7 +5936,7 @@ function MobileWorkflowTimeline({
 
 function PhotoPlaceholder({ label }: { label: string }) {
   return (
-    <div className="grid h-14 place-items-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-center text-[10px] text-muted-foreground">
+    <div className="grid h-14 place-items-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-center text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
       <span className="grid place-items-center gap-0.5">
         <ImageIcon className="size-3.5 opacity-70" />
         {label}

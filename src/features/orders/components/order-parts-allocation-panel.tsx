@@ -74,17 +74,19 @@ export function OrderPartsAllocationPanel({
       <div className="flex items-start gap-2">
         <Link2 className="mt-0.5 size-3.5 shrink-0 text-primary" />
         <div>
-          <p className="text-[11px] font-semibold">配件批次联动</p>
-          <p className="text-[9px] leading-4 text-muted-foreground">
+          <p className="text-[11px] font-semibold lg:text-xs lg:leading-4">配件批次联动</p>
+          <p className="text-[9px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
             每个报价行绑定一个可追溯采购批次；当前版本按件分配 1 个。
           </p>
         </div>
       </div>
       {query.isPending ? (
-        <p className="text-[10px] text-muted-foreground">正在读取可用采购批次…</p>
+        <p className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
+          正在读取可用采购批次…
+        </p>
       ) : null}
       {query.isError ? (
-        <p role="alert" className="text-[10px] text-destructive">
+        <p role="alert" className="text-[10px] text-destructive lg:text-xs lg:leading-[18px]">
           采购批次读取失败。
         </p>
       ) : null}
@@ -106,18 +108,22 @@ export function OrderPartsAllocationPanel({
               className="grid gap-2 rounded-lg border border-border/70 bg-muted/20 p-2 sm:grid-cols-[minmax(0,1fr)_minmax(180px,0.8fr)_auto] sm:items-center"
             >
               <div className="min-w-0">
-                <p className="truncate text-[10px] font-medium">{line.name}</p>
+                <p className="truncate text-[10px] font-medium lg:text-xs lg:leading-4">
+                  {line.name}
+                </p>
                 {active ? (
-                  <p className="mt-0.5 text-[9px] text-muted-foreground">
+                  <p className="mt-0.5 text-[9px] text-muted-foreground lg:text-xs lg:leading-4">
                     {active.part_name} · {active.supplier_name ?? "未关联供应商"} ·{" "}
                     {formatMoney(active.total_cost_eur)}
                   </p>
                 ) : (
-                  <p className="mt-0.5 text-[9px] text-muted-foreground">尚未绑定采购批次</p>
+                  <p className="mt-0.5 text-[9px] text-muted-foreground lg:text-xs lg:leading-4">
+                    尚未绑定采购批次
+                  </p>
                 )}
               </div>
               {active ? (
-                <span className="text-[10px] font-medium text-status-success-foreground">
+                <span className="text-[10px] font-medium text-status-success-foreground lg:text-xs lg:leading-4">
                   <PackageCheck className="mr-1 inline size-3" />
                   已分配
                 </span>
@@ -128,7 +134,7 @@ export function OrderPartsAllocationPanel({
                     setLotByLine((current) => ({ ...current, [lineId]: value }))
                   }
                 >
-                  <SelectTrigger className="h-8 text-[10px]">
+                  <SelectTrigger className="h-8 text-[10px] lg:text-xs lg:leading-4">
                     <SelectValue placeholder="无匹配批次" />
                   </SelectTrigger>
                   <SelectContent>
@@ -146,7 +152,7 @@ export function OrderPartsAllocationPanel({
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-8 text-[10px]"
+                  className="h-8 text-[10px] lg:text-xs lg:leading-4"
                   disabled={release.isPending}
                   onClick={() => release.mutate(active.id)}
                 >
@@ -157,7 +163,7 @@ export function OrderPartsAllocationPanel({
                 <Button
                   type="button"
                   size="sm"
-                  className="h-8 text-[10px]"
+                  className="h-8 text-[10px] lg:text-xs lg:leading-4"
                   disabled={!selected || allocate.isPending}
                   onClick={() => allocate.mutate({ lineId, lotId: selected })}
                 >

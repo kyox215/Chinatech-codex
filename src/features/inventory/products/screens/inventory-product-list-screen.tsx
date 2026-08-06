@@ -154,7 +154,7 @@ export function InventoryProductListScreen() {
             <Filter className="size-4" />
             筛选
             {activeFilterCount ? (
-              <span className="grid min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-5 text-primary-foreground">
+              <span className="grid min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-5 text-primary-foreground lg:text-[11px]">
                 {activeFilterCount}
               </span>
             ) : null}
@@ -178,7 +178,7 @@ export function InventoryProductListScreen() {
         >
           <Filter className="size-4" />
           {activeFilterCount ? (
-            <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+            <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground lg:text-[11px] lg:leading-4">
               {activeFilterCount}
             </span>
           ) : null}
@@ -194,7 +194,7 @@ export function InventoryProductListScreen() {
       </p>
       {activeFilterCount ? (
         <div className="mb-2 flex flex-wrap items-center gap-1.5" aria-live="polite">
-          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
+          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary lg:text-xs lg:leading-4">
             已应用 {activeFilterCount} 项筛选
           </span>
           <Button type="button" variant="ghost" size="sm" onClick={() => setFilters({})}>
@@ -338,13 +338,13 @@ function InventoryProductCard({ item }: { item: InventoryProductListItem }) {
         <Icon className="size-4" aria-hidden="true" />
       </span>
       <span className="min-w-0 self-center">
-        <span className="block truncate font-mono text-[10px] leading-4 text-primary">
+        <span className="block truncate font-mono text-[10px] leading-4 text-primary lg:text-[11px]">
           {item.sku}
         </span>
         <span className="block truncate text-xs font-semibold leading-4">
           {item.brand} {item.model}
         </span>
-        <span className="block truncate text-[10px] leading-4 text-muted-foreground">
+        <span className="block truncate text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
           {[item.specification, item.location, item.masked_identifier]
             .filter(Boolean)
             .join(" · ") || categoryMeta[item.category].label}

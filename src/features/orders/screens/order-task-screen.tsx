@@ -375,8 +375,12 @@ export function OrderTaskScreen({ id }: { id: string }) {
           <div className="truncate font-mono text-sm font-semibold text-primary">
             {order.public_no}
           </div>
-          <div className="text-[11px] text-muted-foreground md:hidden">扫码任务模式</div>
-          <div className="hidden text-[11px] text-muted-foreground md:block">任务工作台</div>
+          <div className="text-[11px] text-muted-foreground md:hidden lg:text-xs lg:leading-4">
+            扫码任务模式
+          </div>
+          <div className="hidden text-[11px] text-muted-foreground md:block lg:text-xs lg:leading-4">
+            任务工作台
+          </div>
         </div>
         <Button
           type="button"
@@ -411,9 +415,12 @@ export function OrderTaskScreen({ id }: { id: string }) {
                 status={cancelled ? "cancelled" : order.status}
                 label={guidance.label}
                 tone={progressTone}
-                className="text-[10px]"
+                className="text-[10px] lg:text-[11px] lg:leading-4"
               />
-              <OrderTypeBadge type={order.order_type} className="text-[10px]" />
+              <OrderTypeBadge
+                type={order.order_type}
+                className="text-[10px] lg:text-[11px] lg:leading-4"
+              />
             </div>
           </div>
           <OrderWorkflowProgress
@@ -481,7 +488,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
             <div className="mt-1 flex min-w-0 items-center justify-between gap-2 rounded-xl border border-primary/20 bg-primary/5 p-2.5">
               <div className="min-w-0">
                 <div className="text-xs font-semibold">检测与正式报价</div>
-                <div className="truncate text-[10px] text-muted-foreground">
+                <div className="truncate text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
                   {order.diagnosis_result || "尚未记录检测结论"}
                 </div>
               </div>
@@ -517,7 +524,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
               </>
             )}
             {cancelled && !order.finance_redacted ? (
-              <p className="col-span-3 text-right text-[10px] text-muted-foreground">
+              <p className="col-span-3 text-right text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
                 已取消 · 不计入客户待收
               </p>
             ) : null}
@@ -687,7 +694,7 @@ function TaskTransitionPanel({
               <p className="text-sm font-semibold leading-5 text-status-warn-foreground">
                 需要先处理客户审批
               </p>
-              <p className="mt-0.5 text-[11px] leading-4 text-status-warn-foreground/80">
+              <p className="mt-0.5 text-[11px] leading-4 text-status-warn-foreground/80 lg:text-xs lg:leading-[18px] lg:text-status-warn-foreground">
                 当前处于报价确认阶段，必须记录客户同意或拒绝后再进入维修、订件、寄修或取消。
               </p>
             </div>
@@ -753,12 +760,12 @@ function TaskTransitionPanel({
                   <span className="block truncate text-xs font-semibold">
                     {statusLabel} → {action.label}
                   </span>
-                  <span className="block truncate text-[10px] leading-3 text-muted-foreground">
+                  <span className="block truncate text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
                     {getTaskStatusActionHint(action.to)}
                   </span>
                 </span>
                 {needsReason ? (
-                  <span className="rounded bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-status-warn-foreground">
+                  <span className="rounded bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-status-warn-foreground lg:text-[11px] lg:leading-4">
                     原因
                   </span>
                 ) : null}
@@ -769,7 +776,7 @@ function TaskTransitionPanel({
       ) : null}
 
       {hasReasonAction ? (
-        <p className="flex min-w-0 items-start gap-1.5 rounded-lg bg-status-warn px-2 py-1.5 text-[10px] leading-4 text-status-warn-foreground">
+        <p className="flex min-w-0 items-start gap-1.5 rounded-lg bg-status-warn px-2 py-1.5 text-[10px] leading-4 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
           <AlertTriangle className="mt-0.5 size-3 shrink-0" />
           取消、未修取机和返修等结束/异常分支会要求记录原因，便于后续追溯。
         </p>
@@ -827,14 +834,18 @@ function TaskTransitionDialog({
 
         <div className="grid min-h-0 min-w-0 gap-2 overflow-y-auto p-3 sm:gap-3 sm:p-4 md:grid-cols-[minmax(220px,0.58fr)_minmax(0,1fr)]">
           <section className="min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3">
-            <p className="text-[10px] leading-3 text-muted-foreground">当前状态</p>
+            <p className="text-[10px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
+              当前状态
+            </p>
             <p className="mt-1 truncate text-sm font-semibold">{statusLabel}</p>
             <div className="my-3 h-px bg-[var(--border-panel)]" />
-            <p className="text-[10px] leading-3 text-muted-foreground">准备推进</p>
+            <p className="text-[10px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
+              准备推进
+            </p>
             <p className="mt-1 truncate text-sm font-semibold text-primary">
               {action?.label ?? "未选择"}
             </p>
-            <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+            <p className="mt-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-[18px]">
               {action?.to === "completed" &&
               order.device_custody_status === DEVICE_CUSTODY_WITH_CUSTOMER
                 ? order.delivered_at
@@ -932,7 +943,9 @@ function TaskLine({
 function Metric({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <div className="truncate text-[11px] text-muted-foreground">{label}</div>
+      <div className="truncate text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
+        {label}
+      </div>
       <div className="mt-1 truncate text-sm font-semibold">{value}</div>
     </div>
   );

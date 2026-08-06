@@ -195,27 +195,33 @@ export function DesktopOrderQueueRow({
 
       <div className="min-w-0 px-1.5 py-1.5">
         <div className="flex min-w-0 flex-wrap items-center gap-1">
-          <OrderQueueStageBadge order={order} className="max-w-full text-[10px]" />
+          <OrderQueueStageBadge
+            order={order}
+            className="max-w-full text-[10px] lg:text-[11px] lg:leading-4"
+          />
           {exceptionStatus ? (
             <StatusBadge
               status={order.status}
               label={orderExceptionMeta[exceptionStatus].shortLabel}
               tone={orderExceptionMeta[exceptionStatus].tone}
-              className="max-w-full text-[10px]"
+              className="max-w-full text-[10px] lg:text-[11px] lg:leading-4"
             />
           ) : null}
           {hasOverdueException ? (
-            <span className="inline-flex max-w-full shrink-0 items-center gap-1 truncate whitespace-nowrap rounded bg-status-danger/15 px-1.5 py-0.5 text-[10px] font-medium leading-none text-status-danger-foreground ring-1 ring-inset ring-status-danger-foreground/30">
+            <span className="inline-flex max-w-full shrink-0 items-center gap-1 truncate whitespace-nowrap rounded bg-status-danger/15 px-1.5 py-0.5 text-[10px] font-medium leading-none text-status-danger-foreground ring-1 ring-inset ring-status-danger-foreground/30 lg:text-xs lg:leading-[18px]">
               <AlertTriangle className="size-2.5 shrink-0" />
               {order.approval_overdue ? "报价超期" : "取件超期"}
             </span>
           ) : null}
         </div>
-        <p className="mt-1 truncate text-[11px] leading-4 text-muted-foreground" title={nextText}>
+        <p
+          className="mt-1 truncate text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4"
+          title={nextText}
+        >
           {nextText}
         </p>
         <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
-          <span className="shrink-0 font-mono text-[10px] leading-none text-muted-foreground">
+          <span className="shrink-0 font-mono text-[10px] leading-none text-muted-foreground lg:text-[11px] lg:leading-4">
             {stageStep}/{orderTaskStages.length}
           </span>
           <div
@@ -235,14 +241,17 @@ export function DesktopOrderQueueRow({
       <div className="min-w-0 px-2 py-1.5" data-order-customer-identity="true">
         <PhoneText
           value={order.customer_phone}
-          className="block truncate text-[11px] font-semibold leading-4 text-foreground"
+          className="block truncate text-[11px] font-semibold leading-4 text-foreground lg:text-[13px] lg:leading-5"
         />
-        <div className="truncate text-[11px] leading-4 text-muted-foreground" title={customerName}>
+        <div
+          className="truncate text-[11px] leading-4 text-muted-foreground lg:text-[13px] lg:leading-5"
+          title={customerName}
+        >
           {customerName}
         </div>
         <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
           <span
-            className="min-w-0 truncate text-[10px] leading-4 text-muted-foreground"
+            className="min-w-0 truncate text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4"
             title={order.accessory_notes || "无随附物品"}
           >
             {order.accessory_notes ? `随附：${order.accessory_notes}` : "无随附物品"}
@@ -260,35 +269,35 @@ export function DesktopOrderQueueRow({
         <DeviceCustodyBadge
           status={order.device_custody_status}
           deliveredAt={order.delivered_at}
-          className="mt-0.5 max-w-full text-[9px]"
+          className="mt-0.5 max-w-full text-[9px] lg:text-[11px] lg:leading-4"
         />
         <div
-          className="truncate text-[11px] leading-4 text-muted-foreground"
+          className="truncate text-[11px] leading-4 text-muted-foreground lg:text-[13px] lg:leading-5"
           title={order.issue_description}
         >
           {order.issue_description || "-"}
         </div>
         <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
-          <span className="min-w-0 truncate text-[10px] leading-3 text-muted-foreground">
+          <span className="min-w-0 truncate text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
             {order.finance_redacted ? "报价信息受限" : primaryRepair?.name || "待报价"}
             {extraRepairCount ? ` +${extraRepairCount}` : ""}
           </span>
           {primaryRepair && !order.finance_redacted ? (
             <MoneyText
               amount={primaryRepair.price}
-              className="shrink-0 text-[10px] font-semibold leading-3 text-foreground"
+              className="shrink-0 text-[10px] font-semibold leading-3 text-foreground lg:text-xs lg:leading-4"
             />
           ) : null}
         </div>
         {partsSupplier ? (
-          <div className="mt-1 inline-flex max-w-full items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium leading-3 text-primary">
+          <div className="mt-1 inline-flex max-w-full items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium leading-3 text-primary lg:text-[11px] lg:leading-4">
             <PackageSearch className="size-2.5 shrink-0" />
             <span className="truncate">{partsSupplier.short_name || partsSupplier.name}</span>
           </div>
         ) : null}
         {order.device_imei ? (
           <div
-            className="hidden truncate font-mono text-[10px] leading-4 text-muted-foreground xl:block"
+            className="hidden truncate font-mono text-[10px] leading-4 text-muted-foreground xl:block lg:text-[11px]"
             title={order.device_imei}
           >
             IMEI {order.device_imei.slice(-10)}
@@ -305,18 +314,23 @@ export function DesktopOrderQueueRow({
             className="whitespace-nowrap text-sm font-semibold"
           />
         )}
-        <div className={cn("whitespace-nowrap text-[10px] leading-4", paymentClass)}>
+        <div
+          className={cn(
+            "whitespace-nowrap text-[10px] leading-4 lg:text-xs lg:leading-4",
+            paymentClass,
+          )}
+        >
           {paymentLabel}
         </div>
         {cancelled && !order.finance_redacted ? (
-          <div className="whitespace-nowrap text-[9px] leading-3 text-muted-foreground">
+          <div className="whitespace-nowrap text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
             不计入待收
           </div>
         ) : null}
         {!order.finance_redacted ? (
           <div
             className={cn(
-              "whitespace-nowrap text-[10px] leading-3",
+              "whitespace-nowrap text-[10px] leading-3 lg:text-xs lg:leading-4",
               !cancelled && order.balance_amount > 0
                 ? "text-status-danger-foreground"
                 : "text-muted-foreground",
@@ -337,7 +351,7 @@ export function DesktopOrderQueueRow({
         ) : null}
       </div>
 
-      <div className="min-w-0 px-2 py-1.5 text-[11px] text-muted-foreground">
+      <div className="min-w-0 px-2 py-1.5 text-[11px] text-muted-foreground lg:text-[13px] lg:leading-5">
         <div
           className="truncate font-semibold leading-4 text-foreground"
           title={order.technician_name}
@@ -348,11 +362,17 @@ export function DesktopOrderQueueRow({
           <Clock className="size-3 shrink-0" />
           {createdDate}
         </div>
-        <div className="truncate text-[10px] leading-3" title={relativeCreatedDate}>
+        <div
+          className="truncate text-[10px] leading-3 lg:text-[11px] lg:leading-4"
+          title={relativeCreatedDate}
+        >
           {relativeCreatedDate}
         </div>
         <div className="mt-0.5">
-          <OrderTypeBadge type={order.order_type} className="max-w-full text-[10px]" />
+          <OrderTypeBadge
+            type={order.order_type}
+            className="max-w-full text-[10px] lg:text-[11px] lg:leading-4"
+          />
         </div>
       </div>
 

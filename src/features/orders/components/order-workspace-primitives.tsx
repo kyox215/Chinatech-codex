@@ -35,9 +35,13 @@ export function OrderWorkspaceSectionHeader({
       <div className="flex min-w-0 items-center gap-1.5">
         {Icon ? <Icon className="size-3 shrink-0 text-primary" /> : null}
         <div className="min-w-0">
-          <h3 className="truncate text-[11px] font-semibold leading-4 text-foreground">{title}</h3>
+          <h3 className="truncate text-[11px] font-semibold leading-4 text-foreground lg:text-[13px] lg:leading-5">
+            {title}
+          </h3>
           {description ? (
-            <p className="truncate text-[9px] leading-3 text-muted-foreground">{description}</p>
+            <p className="truncate text-[9px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
+              {description}
+            </p>
           ) : null}
         </div>
       </div>
@@ -115,6 +119,7 @@ export function OrderWorkspaceMoneyStrip({
             className={cn(
               "truncate font-semibold leading-3",
               compact ? "text-[10px]" : "text-[9px]",
+              "lg:text-xs lg:leading-4",
             )}
           >
             定金
@@ -175,6 +180,7 @@ export function OrderWorkspaceMoneyTile({
         className={cn(
           "truncate font-semibold leading-3",
           compact ? "text-[10px]" : "text-[9px]",
+          "lg:text-xs lg:leading-4",
           tone === "neutral" && "text-muted-foreground",
         )}
       >
@@ -185,6 +191,7 @@ export function OrderWorkspaceMoneyTile({
         className={cn(
           "mt-0.5 block truncate font-mono font-semibold leading-4 tabular-nums",
           compact ? "text-xs" : "text-[11px]",
+          "lg:text-xs lg:leading-4",
           strong && !emphasizeTone && "text-foreground",
         )}
       />
@@ -247,7 +254,10 @@ export function OrderWorkspaceQuoteDisplayRow({
         {name || "未命名项目"}
       </div>
       {note ? (
-        <div className="truncate text-[11px] leading-4 text-muted-foreground" title={note}>
+        <div
+          className="truncate text-[11px] leading-4 text-muted-foreground lg:text-[11px]"
+          title={note}
+        >
           {note}
         </div>
       ) : null}
@@ -266,7 +276,7 @@ export function OrderWorkspaceEmptyBlock({
     <div
       data-order-workspace-empty-block="true"
       className={cn(
-        "rounded-lg border border-dashed border-[var(--border-panel)] bg-background/60 px-2 py-2 text-center text-[10px] leading-4 text-muted-foreground",
+        "rounded-lg border border-dashed border-[var(--border-panel)] bg-background/60 px-2 py-2 text-center text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-4",
         className,
       )}
     >

@@ -286,7 +286,7 @@ function CatalogCombobox({
           </PopoverContent>
         </Popover>
       )}
-      <p className="text-[10px] leading-4 text-muted-foreground">
+      <p className="text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
         <Search className="mr-1 inline size-3" /> 可搜索目录；找不到时可直接使用输入内容。
       </p>
     </div>
@@ -421,7 +421,9 @@ function SpecificationChoices({
           ))}
         </div>
       ) : (
-        <p className="text-[10px] leading-4 text-muted-foreground">{emptyMessage}</p>
+        <p className="text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
+          {emptyMessage}
+        </p>
       )}
       <Input
         id={id}
@@ -452,7 +454,7 @@ function ColorChoices({
         <Palette className="size-4 text-primary" />
         颜色
       </legend>
-      <p className="text-[10px] leading-4 text-muted-foreground">
+      <p className="text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
         色块用于辨认外观，完整颜色名称会同时保存。
       </p>
       {options.length ? (
@@ -490,7 +492,7 @@ function ColorChoices({
           })}
         </div>
       ) : (
-        <p className="text-[10px] leading-4 text-muted-foreground">
+        <p className="text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
           目录未收录官方颜色，可手动填写。
         </p>
       )}

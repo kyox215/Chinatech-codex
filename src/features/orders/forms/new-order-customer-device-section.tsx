@@ -195,10 +195,12 @@ export function NewOrderDeviceInfoSection({
       {form.customerId && !hasDeviceDraft && historyDevices.length > 0 && (
         <div className="mb-1.5 rounded-xl border border-[var(--border-panel)] bg-card p-1.5 shadow-[var(--shadow-card)]">
           <div className="mb-1 flex items-center justify-between gap-2 px-1">
-            <span className="truncate text-[10px] font-bold leading-3 text-muted-foreground">
+            <span className="truncate text-[10px] font-bold leading-3 text-muted-foreground lg:text-xs lg:leading-4">
               历史维修型号
             </span>
-            <span className="shrink-0 text-[9px] font-medium leading-3 text-primary">手动选择</span>
+            <span className="shrink-0 text-[9px] font-medium leading-3 text-primary lg:text-[11px] lg:leading-4">
+              手动选择
+            </span>
           </div>
           <div className="grid grid-cols-2 gap-1">
             {historyDevices.map((device) => (
@@ -208,10 +210,10 @@ export function NewOrderDeviceInfoSection({
                 className="min-w-0 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={() => onSelectHistoryDevice(device)}
               >
-                <span className="block truncate text-[10px] font-bold leading-3">
+                <span className="block truncate text-[10px] font-bold leading-3 lg:text-[13px] lg:leading-5">
                   {device.brand} {device.model}
                 </span>
-                <span className="mt-0.5 block truncate font-mono text-[9px] font-medium leading-3 text-muted-foreground">
+                <span className="mt-0.5 block truncate font-mono text-[9px] font-medium leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
                   {device.serial_or_imei || device.order_public_no || "历史记录"}
                 </span>
               </button>
@@ -299,7 +301,7 @@ export function NewOrderDeviceInfoSection({
               showPaste={false}
             />
           </div>
-          <span className="ml-1 hidden h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-[9px] font-medium text-primary min-[430px]:inline-flex">
+          <span className="ml-1 hidden h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-[9px] font-medium text-primary min-[430px]:inline-flex lg:text-[11px] lg:leading-4">
             <ScanLine className="size-3.5" />
             校验
           </span>
@@ -326,10 +328,10 @@ export function NewOrderDeviceUnlockSection({
       />
       <div className="rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)]">
         <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
-          <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground">
+          <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground lg:text-xs lg:leading-4">
             手机密码
           </Label>
-          <span className="shrink-0 text-[9px] font-medium leading-3 text-muted-foreground">
+          <span className="shrink-0 text-[9px] font-medium leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
             默认隐藏
           </span>
         </div>
@@ -338,7 +340,7 @@ export function NewOrderDeviceUnlockSection({
           onChange={(deviceUnlock) => setForm({ ...form, deviceUnlock })}
           compact
         />
-        <p className="mt-1 rounded-lg bg-status-warn/45 px-2 py-1 text-[9px] leading-3 text-status-warn-foreground">
+        <p className="mt-1 rounded-lg bg-status-warn/45 px-2 py-1 text-[9px] leading-3 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
           本机草稿不保存手机密码、PIN 或图案；在线创建工单时会正常保存。
         </p>
       </div>
@@ -373,7 +375,7 @@ function NewOrderDeviceCustodySelector({
       className="grid min-w-0 gap-1.5"
       aria-required="true"
     >
-      <legend className="text-[10.5px] font-semibold leading-4 text-muted-foreground">
+      <legend className="text-[10.5px] font-semibold leading-4 text-muted-foreground lg:text-xs lg:leading-4">
         设备保管状态 <span className="text-destructive">*</span>
       </legend>
       <div className="grid min-w-0 grid-cols-2 gap-1.5">
@@ -400,12 +402,12 @@ function NewOrderDeviceCustodySelector({
             >
               <span className="flex min-w-0 items-center gap-1.5">
                 <Icon className="size-3.5 shrink-0" />
-                <span className="truncate text-[11px] font-semibold leading-4">
+                <span className="truncate text-[11px] font-semibold leading-4 lg:text-xs lg:leading-4">
                   {deviceCustodyLabels[option.value]}
                 </span>
                 {selected ? <Check className="ml-auto size-3.5 shrink-0" /> : null}
               </span>
-              <span className="mt-0.5 block truncate text-[9px] leading-3 text-muted-foreground">
+              <span className="mt-0.5 block truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
                 {option.description}
               </span>
             </button>
@@ -413,7 +415,7 @@ function NewOrderDeviceCustodySelector({
         })}
       </div>
       {form.deviceCustodyStatus === null ? (
-        <p className="rounded-lg bg-status-warn/45 px-2 py-1 text-[9px] leading-3 text-status-warn-foreground">
+        <p className="rounded-lg bg-status-warn/45 px-2 py-1 text-[9px] leading-3 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
           请选择当前设备保管状态。
         </p>
       ) : null}
@@ -460,7 +462,7 @@ function DensePillField({
     >
       <Label
         htmlFor={inputId}
-        className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground"
+        className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground lg:text-xs lg:leading-4"
       >
         {label}
         {required ? <span className="text-destructive"> *</span> : null}
@@ -558,7 +560,7 @@ function DenseOptionMenu({
 function DenseScannerBlock({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="rd-new-order-field grid min-h-[38px] min-w-0 grid-cols-[3.25rem_minmax(0,1fr)] items-center gap-1.5 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-0 shadow-[var(--shadow-card)] lg:min-h-10">
-      <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground">
+      <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground lg:text-xs lg:leading-4">
         {label}
       </Label>
       <div className="grid min-w-0 grid-cols-[1rem_minmax(0,1fr)] items-center gap-1.5">

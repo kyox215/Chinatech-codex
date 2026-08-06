@@ -114,7 +114,7 @@ export function NewOrderQuotationSection({
           description="维修项目、定金、质保与初始状态"
           className="mb-1.5"
           action={
-            <span className="rounded-full bg-primary/5 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-primary">
+            <span className="rounded-full bg-primary/5 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-primary lg:text-[11px] lg:leading-4">
               {form.faults.length} 项
             </span>
           }
@@ -126,7 +126,7 @@ export function NewOrderQuotationSection({
         >
           <div
             id="new-order-quote-mode-note"
-            className="mb-1 flex min-h-7 min-w-0 items-center overflow-hidden rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1 text-[10px] leading-4 text-muted-foreground"
+            className="mb-1 flex min-h-7 min-w-0 items-center overflow-hidden rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1 text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-4"
             role="status"
             aria-live="polite"
           >
@@ -137,7 +137,7 @@ export function NewOrderQuotationSection({
 
           <fieldset className="min-w-0 space-y-1.5" aria-describedby="new-order-quote-mode-note">
             <div className="mb-1.5 rounded-xl border border-[var(--border-panel)] bg-card p-1">
-              <div className="px-1 pb-1 text-[10px] font-medium leading-3 text-muted-foreground">
+              <div className="px-1 pb-1 text-[10px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4">
                 常见维修项目（可选）
               </div>
               <FaultDiagnosisPicker
@@ -150,14 +150,14 @@ export function NewOrderQuotationSection({
               />
             </div>
             <div className="mb-1 flex min-w-0 items-center justify-between gap-2 px-0.5">
-              <span className="truncate text-[10px] font-medium leading-3 text-muted-foreground">
+              <span className="truncate text-[10px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4">
                 报价项目
               </span>
             </div>
             {canManageOrderCosts && hasCatalogCostLines && costDefaultsError ? (
               <div
                 role="alert"
-                className="mb-1.5 flex items-center justify-between gap-2 rounded-lg border border-status-danger-foreground/20 bg-status-danger/10 px-2 py-1.5 text-[10px] leading-4 text-status-danger-foreground"
+                className="mb-1.5 flex items-center justify-between gap-2 rounded-lg border border-status-danger-foreground/20 bg-status-danger/10 px-2 py-1.5 text-[10px] leading-4 text-status-danger-foreground lg:text-xs lg:leading-[18px]"
               >
                 <span>默认成本读取失败，暂不能创建含目录项目的工单。</span>
                 <Button type="button" variant="outline" size="sm" onClick={onRetryCostDefaults}>
@@ -180,7 +180,7 @@ export function NewOrderQuotationSection({
                         canManageOrderCosts && item.line_id ? (
                           <div className="grid min-w-0 grid-cols-2 gap-1.5">
                             <label className="min-w-0">
-                              <span className="mb-0.5 block truncate text-[8px] font-semibold text-muted-foreground">
+                              <span className="mb-0.5 block truncate text-[8px] font-semibold text-muted-foreground lg:text-xs lg:leading-4">
                                 内部成本
                               </span>
                               <Input
@@ -208,7 +208,7 @@ export function NewOrderQuotationSection({
                               />
                             </label>
                             <label className="min-w-0">
-                              <span className="mb-0.5 block truncate text-[8px] font-semibold text-muted-foreground">
+                              <span className="mb-0.5 block truncate text-[8px] font-semibold text-muted-foreground lg:text-xs lg:leading-4">
                                 客户报价
                               </span>
                               <MoneyKeypadInput
@@ -225,7 +225,7 @@ export function NewOrderQuotationSection({
                               costDrafts[item.line_id]?.text ?? "",
                               Number(item.price),
                             ) ? (
-                              <span className="col-span-2 text-[8px] font-medium leading-3 text-status-warn-foreground">
+                              <span className="col-span-2 text-[8px] font-medium leading-3 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
                                 成本高于报价，请确认
                               </span>
                             ) : null}
@@ -270,13 +270,13 @@ export function NewOrderQuotationSection({
                       ) : (
                         <>
                           <div
-                            className="truncate text-[10px] font-medium leading-4 sm:text-[11px]"
+                            className="truncate text-[10px] font-medium leading-4 sm:text-[11px] lg:text-[13px] lg:leading-5"
                             title={item.name}
                           >
                             {item.name}
                           </div>
                           <div
-                            className="truncate text-[9px] leading-3 text-muted-foreground"
+                            className="truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4"
                             title={item.note}
                           >
                             {item.note}
@@ -291,7 +291,7 @@ export function NewOrderQuotationSection({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-9 w-full justify-center gap-1.5 rounded-lg border-[var(--border-panel)] bg-card text-[11px] font-semibold shadow-none lg:h-8"
+                className="h-9 w-full justify-center gap-1.5 rounded-lg border-[var(--border-panel)] bg-card text-[11px] font-semibold shadow-none lg:h-8 lg:text-xs"
                 onClick={onAddCustomFault}
               >
                 <Plus className="size-3.5" /> 添加自定义项目
@@ -308,7 +308,7 @@ export function NewOrderQuotationSection({
                   ariaLabel="定金"
                   value={moneyDraftValue(form.deposit)}
                   onChange={(value) => setForm({ ...form, deposit: parseMoneyDraft(value) })}
-                  triggerClassName="h-5 min-h-0 border-0 bg-transparent px-0 py-0 font-mono text-[11px] font-semibold leading-4 shadow-none hover:bg-transparent focus-visible:ring-1"
+                  triggerClassName="h-5 min-h-0 border-0 bg-transparent px-0 py-0 font-mono text-[11px] font-semibold leading-4 shadow-none hover:bg-transparent focus-visible:ring-1 lg:text-xs"
                   placeholder="0"
                 />
               }
@@ -323,14 +323,14 @@ export function NewOrderQuotationSection({
       >
         <div className="flex min-w-0 items-center justify-between gap-1.5 px-0.5">
           <div className="min-w-0">
-            <div className="truncate text-[10px] font-semibold leading-3 text-foreground">
+            <div className="truncate text-[10px] font-semibold leading-3 text-foreground lg:text-xs lg:leading-4">
               工单设置
             </div>
-            <div className="truncate text-[9px] leading-3 text-muted-foreground">
+            <div className="truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
               质保、录入人员与工单属性
             </div>
           </div>
-          <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-1.5 text-[9px] font-medium leading-none text-muted-foreground">
+          <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-1.5 text-[9px] font-medium leading-none text-muted-foreground lg:text-[11px] lg:leading-4">
             <ShieldCheck className="size-3 text-primary" />
             {roleLabel}
           </span>
@@ -339,7 +339,7 @@ export function NewOrderQuotationSection({
         <div className="min-w-0" data-new-order-setting="warranty">
           <FormItem
             label="保修"
-            className="[&>label]:text-[9.5px] [&>label]:font-medium [&>label]:leading-3"
+            className="[&>label]:text-[9.5px] [&>label]:font-medium [&>label]:leading-3 lg:[&>label]:text-xs lg:[&>label]:leading-4"
           >
             <WarrantyPicker
               valueMonths={form.warrantyMonths}
@@ -368,7 +368,7 @@ export function NewOrderQuotationSection({
         >
           <div className="grid min-w-0 gap-0.5" data-new-order-setting="operator">
             <div
-              className="truncate text-[9.5px] font-medium leading-3 text-muted-foreground"
+              className="truncate text-[9.5px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4"
               data-new-order-setting-label="true"
             >
               录入人员
@@ -382,14 +382,14 @@ export function NewOrderQuotationSection({
               <span className="min-w-0 flex-1 truncate text-xs font-semibold leading-4 text-foreground">
                 {operatorName || "当前登录账号"}
               </span>
-              <span className="max-w-[4.75rem] shrink-0 truncate rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium leading-none text-primary">
+              <span className="max-w-[4.75rem] shrink-0 truncate rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium leading-none text-primary lg:text-[11px] lg:leading-4">
                 {roleLabel}
               </span>
             </div>
           </div>
           <div className="grid min-w-0 gap-0.5" data-new-order-setting="accessories">
             <div
-              className="truncate text-[9.5px] font-medium leading-3 text-muted-foreground"
+              className="truncate text-[9.5px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4"
               data-new-order-setting-label="true"
             >
               随附物品
@@ -404,7 +404,7 @@ export function NewOrderQuotationSection({
           </div>
           <div className="grid min-w-0 gap-0.5" data-new-order-setting="type">
             <div
-              className="text-[9.5px] font-medium leading-3 text-muted-foreground"
+              className="text-[9.5px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4"
               data-new-order-setting-label="true"
             >
               类型
@@ -428,7 +428,7 @@ export function NewOrderQuotationSection({
 
           <div className="grid min-w-0 gap-0.5" data-new-order-setting="status">
             <div
-              className="text-[9.5px] font-medium leading-3 text-muted-foreground"
+              className="text-[9.5px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4"
               data-new-order-setting-label="true"
             >
               状态

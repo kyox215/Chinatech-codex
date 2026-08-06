@@ -90,7 +90,7 @@ export function MemoCard({
         >
           {memo.title}
         </span>
-        <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10px] leading-4 text-muted-foreground">
+        <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
           <span className="flex min-w-0 items-center gap-1">
             <UserRound className="size-3 shrink-0" aria-hidden="true" />
             <span className="max-w-32 truncate">{memo.assignee_name ?? "未分配"}</span>

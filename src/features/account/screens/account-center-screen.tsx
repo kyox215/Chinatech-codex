@@ -208,7 +208,10 @@ export function AccountCenterScreen() {
             <p className="truncate text-sm font-semibold">个人中心</p>
             <p className="truncate text-xs text-muted-foreground">账号资料、密码和联系手机号</p>
           </div>
-          <Badge variant="outline" className="hidden shrink-0 gap-1 text-[11px] sm:inline-flex">
+          <Badge
+            variant="outline"
+            className="hidden shrink-0 gap-1 text-[11px] sm:inline-flex lg:text-xs lg:leading-4"
+          >
             <ShieldCheck className="size-3.5" />
             {roleLabel}
           </Badge>
@@ -382,7 +385,7 @@ function AccountEmailSecurityPanel({
             <p className="text-sm font-semibold">邮箱安全</p>
             <Badge
               variant={emailVerified ? "default" : "outline"}
-              className="h-6 gap-1 px-2 text-[11px]"
+              className="h-6 gap-1 px-2 text-[11px] lg:text-xs"
             >
               {emailVerified ? (
                 <CheckCircle2 className="size-3.5" />
@@ -543,7 +546,7 @@ function ReadonlyField({
 }) {
   return (
     <div className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2">
-      <div className="flex min-w-0 items-center gap-2 text-[11px] text-muted-foreground">
+      <div className="flex min-w-0 items-center gap-2 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
         <Icon className="size-3.5 shrink-0" />
         <span className="truncate">{label}</span>
       </div>

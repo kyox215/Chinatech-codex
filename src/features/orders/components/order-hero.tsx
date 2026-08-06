@@ -220,7 +220,7 @@ export function OrderHero({
             size="sm"
             disabled={editPending || editSaveDisabled}
             onClick={onSaveEdit}
-            className="h-7 gap-1 border-0 px-2 text-[11px] text-primary-foreground"
+            className="h-7 gap-1 border-0 px-2 text-[11px] text-primary-foreground lg:text-xs"
             style={{ background: "var(--gradient-brand)" }}
           >
             <Save className="size-3.5" />
@@ -229,7 +229,7 @@ export function OrderHero({
           <Button
             size="sm"
             variant="outline"
-            className="h-7 gap-1 px-2 text-[11px]"
+            className="h-7 gap-1 px-2 text-[11px] lg:text-xs"
             disabled={editPending}
             onClick={onCancelEdit}
           >
@@ -237,7 +237,12 @@ export function OrderHero({
           </Button>
         </>
       ) : onEdit ? (
-        <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-[11px]" onClick={onEdit}>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 gap-1 px-2 text-[11px] lg:text-xs"
+          onClick={onEdit}
+        >
           <Pencil className="size-3.5" /> 编辑
         </Button>
       ) : null}
@@ -295,7 +300,7 @@ export function OrderHero({
                   status={order.status}
                   label={activeStage.label}
                   tone={activeStage.tone}
-                  className="text-[10px]"
+                  className="text-[10px] lg:text-[11px] lg:leading-4"
                 />
                 {sideBadges.map((badge) => (
                   <StatusBadge
@@ -303,20 +308,23 @@ export function OrderHero({
                     status={order.status}
                     label={badge.label}
                     tone={badge.tone}
-                    className="max-w-[7rem] truncate text-[10px]"
+                    className="max-w-[7rem] truncate text-[10px] lg:text-[11px] lg:leading-4"
                   />
                 ))}
-                <OrderTypeBadge type={order.order_type} className="text-[10px]" />
+                <OrderTypeBadge
+                  type={order.order_type}
+                  className="text-[10px] lg:text-[11px] lg:leading-4"
+                />
                 {order.original_order_id && (
                   <Link
                     href={`/orders/${order.original_order_id}`}
-                    className="inline-flex items-center gap-1 rounded border bg-status-warn px-1.5 py-0.5 text-[10px] leading-none text-status-warn-foreground hover:underline"
+                    className="inline-flex items-center gap-1 rounded border bg-status-warn px-1.5 py-0.5 text-[10px] leading-none text-status-warn-foreground hover:underline lg:text-xs lg:leading-4"
                   >
                     <Wrench className="size-3" /> 返修来源
                   </Link>
                 )}
               </div>
-              <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] leading-3 text-muted-foreground">
+              <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
                 <span className="inline-flex min-w-0 items-center gap-1">
                   <Clock3 className="size-3 shrink-0" />
                   <span className="truncate">送修 {formatOrderDateTime(order.created_at)}</span>
@@ -350,7 +358,7 @@ export function OrderHero({
               data-order-progress-compact="true"
               className="flex h-7 min-w-0 items-center gap-2 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/55 px-2"
             >
-              <div className="flex min-w-0 shrink items-center gap-1 text-[10px]">
+              <div className="flex min-w-0 shrink items-center gap-1 text-[10px] lg:text-xs lg:leading-4">
                 <span className="shrink-0 text-muted-foreground">当前</span>
                 <span className="truncate font-semibold text-primary">{activeStage.label}</span>
               </div>
@@ -378,7 +386,7 @@ export function OrderHero({
                         aria-label={`${index + 1}. ${displayStage.label}${completed ? "，已完成" : active ? "，当前阶段" : "，未完成"}`}
                         title={displayStage.label}
                         className={cn(
-                          "mx-auto grid size-3.5 place-items-center rounded-full border bg-card text-[7px] font-semibold leading-none shadow-sm",
+                          "mx-auto grid size-3.5 place-items-center rounded-full border bg-card text-[7px] font-semibold leading-none shadow-sm lg:text-[11px] lg:leading-4",
                           completed && "border-primary bg-primary text-primary-foreground",
                           active &&
                             "border-primary bg-primary/10 text-primary ring-1 ring-primary/25",
@@ -394,7 +402,7 @@ export function OrderHero({
                 </div>
               </div>
               <div className="flex min-w-0 shrink items-center justify-end gap-1 text-right">
-                <span className="hidden shrink-0 text-[10px] text-muted-foreground lg:inline">
+                <span className="hidden shrink-0 text-[10px] text-muted-foreground lg:inline lg:text-xs lg:leading-4">
                   下一步
                 </span>
                 <span
@@ -406,13 +414,13 @@ export function OrderHero({
                 {missingCount ? (
                   <span
                     data-order-readiness="true"
-                    className="shrink-0 rounded-full bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-warn-foreground"
+                    className="shrink-0 rounded-full bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-warn-foreground lg:text-[11px] lg:leading-4"
                     title={missingItems.map((item) => `缺 ${item.label}`).join("、")}
                   >
                     缺 {missingCount}
                   </span>
                 ) : (
-                  <span className="shrink-0 rounded-full bg-status-success px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-success-foreground">
+                  <span className="shrink-0 rounded-full bg-status-success px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-success-foreground lg:text-[11px] lg:leading-4">
                     就绪
                   </span>
                 )}
@@ -422,13 +430,17 @@ export function OrderHero({
             <>
               <div className="mb-0.5 flex min-w-0 items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <span className="text-[10px] font-medium text-muted-foreground">当前流程</span>
+                  <span className="text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
+                    当前流程
+                  </span>
                   <span className="ml-1.5 text-xs font-semibold text-primary">
                     {activeStage.label}
                   </span>
                 </div>
                 <div className="flex min-w-0 items-center justify-end gap-1.5 text-right leading-4">
-                  <span className="hidden text-[10px] text-muted-foreground sm:inline">下一步</span>
+                  <span className="hidden text-[10px] text-muted-foreground sm:inline lg:text-xs lg:leading-4">
+                    下一步
+                  </span>
                   <span
                     className="max-w-[10rem] truncate text-xs font-semibold"
                     title={taskHint ?? guidance.task}
@@ -436,11 +448,11 @@ export function OrderHero({
                     {primaryActionLabel}
                   </span>
                   {missingCount ? (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-warn-foreground">
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-warn-foreground lg:text-[11px] lg:leading-4">
                       <AlertTriangle className="size-3" /> 缺 {missingCount}
                     </span>
                   ) : (
-                    <span className="shrink-0 rounded-full bg-status-success px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-success-foreground">
+                    <span className="shrink-0 rounded-full bg-status-success px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-success-foreground lg:text-[11px] lg:leading-4">
                       就绪
                     </span>
                   )}
@@ -464,7 +476,7 @@ export function OrderHero({
                       <div key={stage.key} className="min-w-0 text-center">
                         <span
                           className={cn(
-                            "mx-auto grid place-items-center rounded-full border bg-card text-[8px] font-semibold shadow-sm",
+                            "mx-auto grid place-items-center rounded-full border bg-card text-[8px] font-semibold shadow-sm lg:text-[11px] lg:leading-4",
                             "size-4",
                             completed && "border-primary bg-primary text-primary-foreground",
                             active &&
@@ -478,7 +490,7 @@ export function OrderHero({
                         </span>
                         <p
                           className={cn(
-                            "mt-0.5 truncate text-[8px] leading-[9px] text-muted-foreground",
+                            "mt-0.5 truncate text-[8px] leading-[9px] text-muted-foreground lg:text-[11px] lg:leading-4",
                             active && "font-semibold text-primary",
                           )}
                         >
@@ -494,7 +506,7 @@ export function OrderHero({
                   {missingItems.map((item) => (
                     <span
                       key={item.label}
-                      className="truncate rounded-full bg-status-warn px-1.5 py-0.5 text-[9px] font-medium leading-3 text-status-warn-foreground"
+                      className="truncate rounded-full bg-status-warn px-1.5 py-0.5 text-[9px] font-medium leading-3 text-status-warn-foreground lg:text-[11px] lg:leading-4"
                     >
                       缺 {item.label}
                     </span>

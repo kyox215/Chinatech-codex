@@ -137,7 +137,7 @@ export function CustomerStatusScreen() {
             <Store className="size-5" aria-hidden="true" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary lg:text-xs lg:leading-4 lg:tracking-normal">
               {pageBrand}
             </p>
             <h1 className="mt-0.5 text-lg font-semibold">Stato della riparazione</h1>
@@ -200,7 +200,9 @@ function CustomerStatusSuccess({ status }: { status: CustomerStatusPublicView })
       <section className="rounded-xl border border-[var(--border-panel)] bg-muted/30 p-3">
         <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Ordine</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground lg:text-[11px] lg:leading-4 lg:tracking-normal">
+              Ordine
+            </p>
             <p className="mt-0.5 truncate font-mono text-base font-semibold text-primary">
               {status.order.public_no}
             </p>
@@ -214,7 +216,7 @@ function CustomerStatusSuccess({ status }: { status: CustomerStatusPublicView })
         <div className="flex items-start gap-2">
           <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-status-success-foreground" />
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground lg:text-[11px] lg:leading-4 lg:tracking-normal">
               Stato attuale
             </p>
             <p className="mt-0.5 text-base font-semibold">{status.order.stage_label}</p>
@@ -289,7 +291,9 @@ function CustomerStatusError({
       <h2 className="mt-3 text-sm font-semibold">Connessione non disponibile</h2>
       <p className="mt-1 text-xs leading-relaxed">{message}</p>
       {retryAfter ? (
-        <p className="mt-1 text-[11px]">Riprova tra circa {retryAfter} secondi.</p>
+        <p className="mt-1 text-[11px] lg:text-xs lg:leading-4">
+          Riprova tra circa {retryAfter} secondi.
+        </p>
       ) : null}
       <Button type="button" variant="outline" className="mt-3 gap-2" onClick={onRetry}>
         <RefreshCw className="size-4" /> Riprova

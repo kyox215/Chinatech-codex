@@ -145,6 +145,7 @@ export function PlatformAdminScreen() {
       }
       desktopHeaderAddon={
         <RepairOsMetricStrip
+          className="lg:[&>div>p:last-child]:text-xs lg:[&>div>p:last-child]:leading-4"
           metrics={[
             { label: "待审核", value: requests.length, hint: "全部申请", icon: ShieldCheck },
             {
@@ -181,11 +182,14 @@ export function PlatformAdminScreen() {
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-foreground">{summary.headline}</p>
-            <p className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground">
+            <p className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
               {summary.nextAction}
             </p>
           </div>
-          <Badge variant="secondary" className="shrink-0 font-mono text-[11px]">
+          <Badge
+            variant="secondary"
+            className="shrink-0 font-mono text-[11px] lg:text-xs lg:leading-4"
+          >
             {summary.oldestWaitLabel}
           </Badge>
         </div>
@@ -197,7 +201,7 @@ export function PlatformAdminScreen() {
           description="审核后账号才可进入对应店铺工作台"
           className="mb-0 border-b border-[var(--border-panel)] px-3 py-2.5"
           action={
-            <Badge variant="secondary" className="font-mono text-[11px]">
+            <Badge variant="secondary" className="font-mono text-[11px] lg:text-xs lg:leading-4">
               {requests.length}
             </Badge>
           }
@@ -253,7 +257,7 @@ export function PlatformAdminScreen() {
             leadingClassName="self-center"
           >
             <span className="block text-sm font-semibold text-foreground">暂无待审核申请</span>
-            <span className="mt-0.5 block truncate text-[11px] leading-4">
+            <span className="mt-0.5 block truncate text-[11px] leading-4 lg:text-xs lg:leading-4">
               新店铺和成员加入申请会显示在这里。
             </span>
           </RepairOsBusinessCard>
@@ -365,11 +369,13 @@ function RequestCard({
       <div className="flex min-w-0 items-start justify-between gap-2">
         <div className="min-w-0">
           <p className={repairOs.cardTitle}>{request.display_name || request.email}</p>
-          <p className="truncate text-[11px] leading-4 text-muted-foreground">{request.email}</p>
+          <p className="truncate text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
+            {request.email}
+          </p>
         </div>
         <RequestTypeBadge request={request} />
       </div>
-      <div className="grid min-w-0 gap-0.5 text-[11px] leading-4 text-muted-foreground">
+      <div className="grid min-w-0 gap-0.5 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
         <p className="truncate">目标：{requestTarget(request)}</p>
         <p className="truncate">
           角色：{getOnboardingRequestedRoleLabel(request)} ·{" "}
@@ -454,7 +460,7 @@ function OnboardingDecisionDialog({
                 className="min-h-24 resize-none"
                 onChange={(event) => onNoteChange(event.target.value)}
               />
-              <p className="text-[11px] leading-4 text-muted-foreground">
+              <p className="text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
                 批准备注可选；拒绝申请时必须填写，方便后续追踪。
               </p>
             </div>
@@ -489,7 +495,7 @@ function InfoLine({ label, value }: { label: string; value: string }) {
       value={value}
       frame="plain"
       className="min-w-0"
-      labelClassName="text-[11px] leading-4"
+      labelClassName="text-[11px] leading-4 lg:text-xs lg:leading-4"
       valueClassName="mt-0 truncate text-sm font-medium leading-5 text-foreground"
     />
   );

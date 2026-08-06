@@ -89,7 +89,7 @@ export function AppBar({
         <div className="min-w-0 flex-1 md:hidden">
           <p
             data-app-bar-context="true"
-            className="truncate text-[10px] font-medium uppercase tracking-widest text-muted-foreground/70"
+            className="truncate text-[10px] font-medium uppercase tracking-widest text-muted-foreground/70 lg:text-[11px] lg:leading-4 lg:tracking-normal lg:text-muted-foreground"
           >
             {mobileContextTitle}
           </p>
@@ -124,7 +124,7 @@ export function AppBar({
         >
           <Search className="size-4" />
           <span className="hidden min-w-0 truncate text-sm md:inline">搜索工单、客户、库存…</span>
-          <kbd className="ml-auto hidden items-center gap-1 rounded border border-border/60 bg-muted px-1.5 py-0.5 font-mono text-[10px] md:inline-flex">
+          <kbd className="ml-auto hidden items-center gap-1 rounded border border-border/60 bg-muted px-1.5 py-0.5 font-mono text-[10px] md:inline-flex lg:text-[11px] lg:leading-4">
             ⌘K
           </kbd>
         </button>

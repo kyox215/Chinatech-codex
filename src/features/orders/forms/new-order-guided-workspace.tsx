@@ -56,7 +56,9 @@ export function NewOrderGuidedWorkspace({
         <nav aria-label="接单步骤">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[11px] font-medium text-muted-foreground">步骤 {step + 1}/4</p>
+              <p className="text-[11px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
+                步骤 {step + 1}/4
+              </p>
               <h2 ref={headingRef} tabIndex={-1} className="text-base font-semibold outline-none">
                 {steps[step]}
               </h2>
@@ -75,7 +77,7 @@ export function NewOrderGuidedWorkspace({
                   aria-current={index === step ? "step" : undefined}
                   onClick={() => onStepChange(index)}
                   className={cn(
-                    "flex min-h-8 w-full items-center justify-center gap-1 rounded-lg border px-2 text-[11px] font-semibold",
+                    "flex min-h-8 w-full items-center justify-center gap-1 rounded-lg border px-2 text-[11px] font-semibold lg:text-xs lg:leading-4",
                     index === step
                       ? "border-primary bg-primary/5 text-primary"
                       : index < step

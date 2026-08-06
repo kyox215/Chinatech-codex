@@ -183,7 +183,7 @@ export function CustomerFormDialog({
                 </span>
                 <div className="min-w-0">
                   <h3 className="text-sm font-semibold">身份确认</h3>
-                  <p className="text-[11px] leading-4 text-muted-foreground">
+                  <p className="text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
                     手机号用于核对同店客户，避免重复建档。
                   </p>
                 </div>
@@ -411,14 +411,20 @@ function CustomerIdentityStatus({
 }) {
   if (!storeReady) {
     return (
-      <p id={id} className="mt-2 text-[11px] leading-4 text-muted-foreground">
+      <p
+        id={id}
+        className="mt-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4"
+      >
         选择可用门店后才能核对并创建客户。
       </p>
     );
   }
   if (!phoneReady) {
     return (
-      <p id={id} className="mt-2 text-[11px] leading-4 text-muted-foreground">
+      <p
+        id={id}
+        className="mt-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4"
+      >
         输入完整手机号后自动核对同店客户。
       </p>
     );
@@ -467,7 +473,7 @@ function CustomerIdentityStatus({
           <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <div className="min-w-0">
             <p className="text-xs font-semibold">这个手机号已经关联客户</p>
-            <p className="text-[10px] leading-4 opacity-80">
+            <p className="text-[10px] leading-4 opacity-80 lg:text-xs lg:leading-4 lg:opacity-100">
               请复用已有档案，避免同一客户产生分散记录。
             </p>
           </div>
@@ -490,7 +496,7 @@ function CustomerIdentityStatus({
         未发现相同手机号，可以继续创建。
       </div>
       {candidates.length ? (
-        <div className="mt-1.5 flex items-center gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2.5 py-2 text-[10px] text-muted-foreground">
+        <div className="mt-1.5 flex items-center gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2.5 py-2 text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
           <Search className="size-3.5 shrink-0" aria-hidden="true" />
           同名或相似资料 {candidates.length} 条；不会自动合并，请需要时先核对客户列表。
         </div>
@@ -513,7 +519,7 @@ function CustomerCandidateRow({
       <div className="flex min-w-0 items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-xs font-semibold">{candidate.customer.name}</p>
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
             {maskPhone(candidate.customer.phone_e164)} · {candidate.historyDevices.length}{" "}
             台历史设备
           </p>

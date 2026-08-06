@@ -33,19 +33,19 @@ export function DashboardPriorityCard({
     >
       <div className="flex min-w-0 items-start justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-foreground px-2 text-[9px] font-semibold text-background lg:h-6 lg:text-[10px]">
+          <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-foreground px-2 text-[9px] font-semibold text-background lg:h-6 lg:text-[11px] lg:leading-4">
             第 {item.rank} 优先
           </span>
           <span
             className={cn(
-              "inline-flex h-5 min-w-0 items-center rounded-full border px-2 text-[9px] font-semibold lg:h-6 lg:text-[10px]",
+              "inline-flex h-5 min-w-0 items-center rounded-full border px-2 text-[9px] font-semibold lg:h-6 lg:text-[11px] lg:leading-4",
               tierStyles[item.tier],
             )}
           >
             <span className="truncate">{item.reasonLabel}</span>
           </span>
         </div>
-        <span className="max-w-[42%] shrink-0 truncate font-mono text-[10px] font-medium text-muted-foreground lg:max-w-none lg:text-[11px]">
+        <span className="max-w-[42%] shrink-0 truncate font-mono text-[10px] font-medium text-muted-foreground lg:max-w-none lg:text-[11px] lg:leading-4">
           {item.publicNo}
         </span>
       </div>
@@ -83,7 +83,7 @@ export function DashboardPriorityCard({
         />
       </div>
 
-      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[10px] leading-4 text-muted-foreground lg:mt-3 lg:text-[11px]">
+      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[10px] leading-4 text-muted-foreground lg:mt-3 lg:text-xs lg:leading-4">
         <span className="inline-flex min-w-0 items-center gap-1">
           <UserRound className="size-3.5 shrink-0" aria-hidden />
           <span className="shrink-0">负责人</span>
@@ -96,7 +96,7 @@ export function DashboardPriorityCard({
       </div>
 
       {item.assigneeState === "unavailable" ? (
-        <p className="mt-1.5 inline-flex line-clamp-1 items-center gap-1 text-[10px] leading-4 text-status-warn-foreground lg:mt-2">
+        <p className="mt-1.5 inline-flex line-clamp-1 items-center gap-1 text-[10px] leading-4 text-status-warn-foreground lg:mt-2 lg:text-xs lg:leading-[18px]">
           <AlertTriangle className="size-3" aria-hidden />
           负责人资料暂时不可确认，请进入工单核对。
         </p>
@@ -144,7 +144,7 @@ function StepBlock({
           : "lg:border-[var(--border-panel)] lg:bg-[var(--surface-panel-muted)]",
       )}
     >
-      <div className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground">
+      <div className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground lg:text-xs lg:leading-4">
         {icon}
         {label}
       </div>

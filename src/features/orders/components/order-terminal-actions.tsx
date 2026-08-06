@@ -235,7 +235,7 @@ export function OrderTerminalActions({
           className,
         )}
       >
-        <span className="inline-flex min-w-0 items-center gap-1 text-[10px] font-semibold">
+        <span className="inline-flex min-w-0 items-center gap-1 text-[10px] font-semibold lg:text-xs lg:leading-4">
           <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
           {voided ? "记录已作废" : "工单已结束 · 编辑已锁定"}
         </span>
@@ -245,7 +245,7 @@ export function OrderTerminalActions({
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-6 gap-1 px-1.5 text-[10px]"
+                className="h-6 gap-1 px-1.5 text-[10px] lg:text-xs lg:leading-4"
                 disabled={mutation.isPending}
                 onClick={() => open("correct")}
               >
@@ -256,7 +256,7 @@ export function OrderTerminalActions({
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-6 gap-1 px-1.5 text-[10px]"
+                className="h-6 gap-1 px-1.5 text-[10px] lg:text-xs lg:leading-4"
                 disabled={mutation.isPending || reopenTargets.length === 0}
                 onClick={() => open("reopen")}
               >

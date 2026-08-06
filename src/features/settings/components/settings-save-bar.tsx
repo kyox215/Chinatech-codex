@@ -44,7 +44,7 @@ export function SettingsSaveBar({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="truncate text-xs font-medium text-foreground">{label}</p>
-          <p className="flex items-center gap-1.5 text-[11px] leading-4 text-muted-foreground">
+          <p className="flex items-center gap-1.5 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
             {status === "saving" ? <Loader2 className="size-3 animate-spin" /> : null}
             {status === "saved" || status === "clean" ? <Check className="size-3" /> : null}
             {status === "offline" ? <CloudOff className="size-3" /> : null}

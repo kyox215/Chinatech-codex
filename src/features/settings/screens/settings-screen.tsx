@@ -1270,7 +1270,7 @@ export function SettingsScreen() {
           trailingClassName="col-span-2 justify-self-start sm:col-span-1 sm:justify-self-end"
         >
           <span className="block text-sm font-semibold">无法读取店铺与权限信息</span>
-          <span className="mt-0.5 block text-[11px] leading-4 text-status-danger-foreground/80">
+          <span className="mt-0.5 block text-[11px] leading-4 text-status-danger-foreground/80 lg:text-xs lg:leading-[18px] lg:text-status-danger-foreground">
             请重新加载当前店铺上下文后继续使用设置。
           </span>
         </RepairOsBusinessCard>
@@ -2094,7 +2094,9 @@ function SettingsSectionDataState({
       }
     >
       <span className="block text-sm font-semibold">读取{label}失败</span>
-      <span className="mt-0.5 block text-[11px] leading-4">其他设置不受影响，请重试当前分组。</span>
+      <span className="mt-0.5 block text-[11px] leading-4 lg:text-xs lg:leading-4">
+        其他设置不受影响，请重试当前分组。
+      </span>
     </RepairOsBusinessCard>
   );
 }

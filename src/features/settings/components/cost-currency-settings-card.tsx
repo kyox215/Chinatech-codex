@@ -242,7 +242,7 @@ function CurrencyRow({
           <p className="text-xs font-semibold">
             {code} · {COST_CURRENCY_LABELS[code]}
           </p>
-          <p className="mt-0.5 text-[10px] text-muted-foreground">
+          <p className="mt-0.5 text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
             {saved?.stale
               ? "已超过 30 天，新采购将被阻止"
               : locked
@@ -258,7 +258,9 @@ function CurrencyRow({
         />
       </div>
       <div className="mt-2 flex items-center gap-2">
-        <span className="shrink-0 text-[11px] text-muted-foreground">1 {code} =</span>
+        <span className="shrink-0 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
+          1 {code} =
+        </span>
         <Input
           aria-label={`${code} 兑 EUR 汇率`}
           type="number"
@@ -271,11 +273,15 @@ function CurrencyRow({
           aria-invalid={invalid}
           onChange={(event) => onRateChange(event.target.value)}
         />
-        <span className="text-[11px] font-semibold">EUR</span>
+        <span className="text-[11px] font-semibold lg:text-xs lg:leading-4">EUR</span>
       </div>
-      {invalid ? <p className="mt-1 text-[10px] text-destructive">请输入有效正数汇率。</p> : null}
+      {invalid ? (
+        <p className="mt-1 text-[10px] text-destructive lg:text-xs lg:leading-[18px]">
+          请输入有效正数汇率。
+        </p>
+      ) : null}
       {item.rateAt ? (
-        <Badge variant="outline" className="mt-2 font-mono text-[9px]">
+        <Badge variant="outline" className="mt-2 font-mono text-[9px] lg:text-[11px] lg:leading-4">
           {new Date(item.rateAt).toLocaleString("it-IT")}
         </Badge>
       ) : null}

@@ -272,7 +272,7 @@ function OrderDrilldown({ orders }: { orders: ProfitOrderDrilldownItem[] }) {
               <TableCell>
                 <CompletenessBadge order={order} />
                 {order.currency_costs?.length ? (
-                  <details className="mt-1.5 text-[10px] text-muted-foreground">
+                  <details className="mt-1.5 text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
                     <summary className="cursor-pointer">
                       原币成本快照 {order.currency_costs.length} 项
                     </summary>
@@ -343,7 +343,9 @@ function BreakdownTable({ items, empty }: { items: ProfitBreakdownItem[]; empty:
           <TableRow key={item.key}>
             <TableCell>
               <span className="font-medium">{item.label}</span>
-              <span className="ml-1 text-[10px] text-muted-foreground">{item.order_count} 单</span>
+              <span className="ml-1 text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
+                {item.order_count} 单
+              </span>
             </TableCell>
             <TableCell className="text-right">
               <MoneyText amount={item.quote_amount} />
@@ -556,7 +558,7 @@ export function ProfitCenterScreen() {
 
         {query.data ? (
           <>
-            <div className="rounded-2xl border border-border/70 bg-muted/30 px-2.5 py-2 text-[11px] leading-4 text-muted-foreground sm:px-3.5 sm:py-3 sm:text-xs sm:leading-5">
+            <div className="rounded-2xl border border-border/70 bg-muted/30 px-2.5 py-2 text-[11px] leading-4 text-muted-foreground sm:px-3.5 sm:py-3 sm:text-xs sm:leading-5 lg:text-[13px]">
               按含税最终报价计算的经营毛利，不是会计净利润；收款参考未扣退款。退款订单不进入报价毛利汇总，未知成本不会按
               0 计算。
             </div>

@@ -47,10 +47,10 @@ export function CustomerIdentityResultsPanel({
     >
       <div className="flex min-w-0 items-start justify-between gap-2 px-2 py-1.5">
         <div className="min-w-0">
-          <p className="truncate text-[11px] font-bold leading-4">
+          <p className="truncate text-[11px] font-bold leading-4 lg:text-xs lg:leading-4">
             {phoneBasis ? "按电话匹配客户" : "按姓名匹配客户"}
           </p>
-          <p className="truncate text-[9.5px] leading-3 text-muted-foreground">
+          <p className="truncate text-[9.5px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
             {phoneBasis
               ? name
                 ? `电话 ${phone} · 姓名仅排序同号结果`
@@ -59,7 +59,7 @@ export function CustomerIdentityResultsPanel({
           </p>
         </div>
         {trustedResult ? (
-          <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
+          <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary lg:text-xs lg:leading-4">
             {candidates.length} 位候选
           </span>
         ) : null}
@@ -180,17 +180,19 @@ function CustomerIdentityCandidateOption({
         <span className="block truncate text-xs font-bold leading-4">
           {candidate.customer.name || "未命名客户"}
         </span>
-        <span className="block truncate font-mono text-[10.5px] font-medium leading-4 text-muted-foreground">
+        <span className="block truncate font-mono text-[10.5px] font-medium leading-4 text-muted-foreground lg:text-xs lg:leading-4">
           {candidate.customer.phone_e164}
         </span>
-        <span className="block truncate text-[9px] font-semibold leading-3 text-primary">
+        <span className="block truncate text-[9px] font-semibold leading-3 text-primary lg:text-xs lg:leading-4">
           {badge}
         </span>
       </span>
       {selected ? (
         <Check className="size-3.5 shrink-0 text-primary" />
       ) : (
-        <span className="shrink-0 text-[10px] font-semibold text-primary">选择</span>
+        <span className="shrink-0 text-[10px] font-semibold text-primary lg:text-xs lg:leading-4">
+          选择
+        </span>
       )}
     </button>
   );

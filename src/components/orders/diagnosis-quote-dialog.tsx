@@ -196,7 +196,9 @@ export function DiagnosisQuoteDialog({
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div>
                   <div className="text-xs font-semibold">报价项目</div>
-                  <div className="text-[10px] text-muted-foreground">1–50 项，金额最多两位小数</div>
+                  <div className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
+                    1–50 项，金额最多两位小数
+                  </div>
                 </div>
                 {canPrepareQuote ? (
                   <Button
@@ -390,7 +392,9 @@ function patchRow(
 function QuoteMetric({ label, value }: { label: string; value: number }) {
   return (
     <div className="min-w-0">
-      <div className="truncate text-[10px] text-muted-foreground">{label}</div>
+      <div className="truncate text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
+        {label}
+      </div>
       <div className="truncate font-mono text-xs font-semibold tabular-nums">
         {formatMoney(value)}
       </div>
