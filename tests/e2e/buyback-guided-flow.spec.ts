@@ -75,6 +75,9 @@ for (const viewport of [
 
     await page.goto("/buyback", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "回收管理" })).toBeVisible();
+    await expect(page.locator('[data-buyback-list="true"]')).toHaveCount(1);
+    await expect(page.locator('[data-buyback-desktop-list="true"]')).toHaveCount(0);
+    await expect(page.locator('[data-buyback-mobile-list="true"]')).toHaveCount(0);
     await expect(page.getByText("当前只记录报价与客户口头答复")).toBeVisible();
     await expect(page.getByRole("region", { name: "回收报价概览" })).toBeVisible();
     await expectNoPageOverflow(page);
@@ -85,9 +88,11 @@ for (const viewport of [
       await expectMinimumTouchTarget(page.getByRole("button", { name: "回收扫码查询" }));
       await expectMinimumTouchTarget(page.getByRole("combobox", { name: "筛选回收记录" }));
     }
+    await expect(page.locator('[data-buyback-quote-workspace="true"]')).toHaveCount(0);
     await page.getByRole("button", { name: "新建透明报价" }).filter({ visible: true }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("heading", { name: "新建透明报价" })).toBeVisible();
+    await expect(page.locator('[data-buyback-quote-workspace="true"]')).toHaveCount(1);
     await expect(dialog.getByText("一页完成设备录入、价格说明和保存")).toBeVisible();
     await expectNoDialogOverflow(dialog);
     await dialog.getByPlaceholder("例如 iPhone 15 Pro").fill(`iPhone 15 ${viewport.width}`);

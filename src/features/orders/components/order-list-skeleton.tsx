@@ -1,4 +1,7 @@
+"use client";
+
 import { Skeleton } from "@/components/ui/skeleton";
+import { useViewportMode } from "@/hooks/use-mobile";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
@@ -77,6 +80,28 @@ function OrderDesktopRowSkeleton() {
 }
 
 export function OrderListSkeleton() {
+  const viewportMode = useViewportMode();
+
+  if (viewportMode === "pending") {
+    return (
+      <div
+        data-ui="order-list-skeleton"
+        data-ui-viewport="pending"
+        className="mx-auto w-full min-w-0 max-w-7xl space-y-2 overflow-hidden px-2 py-3 sm:px-4 sm:py-5 md:px-6 lg:px-8"
+        aria-busy="true"
+      >
+        <span className="sr-only" role="status" aria-live="polite">
+          正在准备维修工单
+        </span>
+        <div aria-hidden="true" className="space-y-2">
+          <Skeleton className="h-10 w-full rounded-xl" />
+          <Skeleton className="h-14 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       data-ui="order-list-skeleton"
@@ -92,93 +117,96 @@ export function OrderListSkeleton() {
       </span>
 
       <div aria-hidden="true">
-        <div className={repairOs.mobileListHeaderShell}>
-          <section
-            className={cn(
-              repairOs.mobileFloatingHeaderCard,
-              orderMobileFluidDensity,
-              "rounded-[var(--order-mobile-radius)] px-[var(--order-mobile-pad)] py-[var(--order-mobile-tight-gap)]",
-            )}
-          >
-            <header
-              className={cn(repairOs.mobileFloatingHeaderNav, "gap-[var(--order-mobile-gap)]")}
+        {viewportMode === "compact" ? (
+          <div className={repairOs.mobileListHeaderShell}>
+            <section
+              className={cn(
+                repairOs.mobileFloatingHeaderCard,
+                orderMobileFluidDensity,
+                "rounded-[var(--order-mobile-radius)] px-[var(--order-mobile-pad)] py-[var(--order-mobile-tight-gap)]",
+              )}
             >
-              <Skeleton className="size-9 rounded-lg" />
-              <div className="mx-auto w-full max-w-32 space-y-1">
-                <Skeleton className="mx-auto h-4 w-20" />
-                <Skeleton className="mx-auto h-2.5 w-24" />
-              </div>
-              <Skeleton className="size-9 rounded-lg" />
-            </header>
-            <div className="mt-[var(--order-mobile-inline)] min-w-0 space-y-[var(--order-mobile-content)] border-t border-[var(--border-panel)] pt-[var(--order-mobile-inline)]">
-              <div className="grid grid-cols-[minmax(0,1fr)_36px_36px] gap-[var(--order-mobile-cluster)]">
-                <Skeleton className="h-9 rounded-lg" />
+              <header
+                className={cn(repairOs.mobileFloatingHeaderNav, "gap-[var(--order-mobile-gap)]")}
+              >
                 <Skeleton className="size-9 rounded-lg" />
+                <div className="mx-auto w-full max-w-32 space-y-1">
+                  <Skeleton className="mx-auto h-4 w-20" />
+                  <Skeleton className="mx-auto h-2.5 w-24" />
+                </div>
                 <Skeleton className="size-9 rounded-lg" />
+              </header>
+              <div className="mt-[var(--order-mobile-inline)] min-w-0 space-y-[var(--order-mobile-content)] border-t border-[var(--border-panel)] pt-[var(--order-mobile-inline)]">
+                <div className="grid grid-cols-[minmax(0,1fr)_36px_36px] gap-[var(--order-mobile-cluster)]">
+                  <Skeleton className="h-9 rounded-lg" />
+                  <Skeleton className="size-9 rounded-lg" />
+                  <Skeleton className="size-9 rounded-lg" />
+                </div>
+                <Skeleton className="h-8 rounded-md" />
+                <div className={cn("grid", orderMobileQueueGrid)}>
+                  {Array.from({ length: 7 }).map((_, index) => (
+                    <Skeleton
+                      key={index}
+                      className={cn(
+                        "h-8 rounded-[var(--order-mobile-radius)]",
+                        index === 0 && orderMobileQueueAllSpan,
+                      )}
+                    />
+                  ))}
+                </div>
               </div>
-              <Skeleton className="h-8 rounded-md" />
-              <div className={cn("grid", orderMobileQueueGrid)}>
-                {Array.from({ length: 7 }).map((_, index) => (
-                  <Skeleton
-                    key={index}
-                    className={cn(
-                      "h-8 rounded-[var(--order-mobile-radius)]",
-                      index === 0 && orderMobileQueueAllSpan,
-                    )}
-                  />
-                ))}
-              </div>
-            </div>
-          </section>
-        </div>
+            </section>
+          </div>
+        ) : null}
 
-        <div
-          className={cn(
-            repairOs.mobileInfoCard,
-            "mb-3 mt-3 hidden min-w-0 gap-2 p-2.5 md:flex md:flex-col",
-          )}
-        >
-          <div className="grid flex-1 grid-cols-7 gap-1.5">
-            {Array.from({ length: 7 }).map((_, index) => (
-              <Skeleton key={index} className="h-9" />
+        {viewportMode === "desktop" ? (
+          <div className={cn(repairOs.mobileInfoCard, "mb-3 mt-3 min-w-0 space-y-2 p-2.5")}>
+            <div className="grid flex-1 grid-cols-7 gap-1.5">
+              {Array.from({ length: 7 }).map((_, index) => (
+                <Skeleton key={index} className="h-9" />
+              ))}
+            </div>
+            <div className="flex min-w-0 flex-1 gap-2">
+              <Skeleton className="h-9 min-w-0 flex-1" />
+              <Skeleton className="h-9 w-20" />
+              <Skeleton className="h-9 w-20" />
+            </div>
+          </div>
+        ) : null}
+
+        {viewportMode === "compact" ? (
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <OrderMobileCardSkeleton key={index} />
             ))}
           </div>
-          <div className="flex min-w-0 flex-1 gap-2">
-            <Skeleton className="h-9 min-w-0 flex-1" />
-            <Skeleton className="h-9 w-20" />
-            <Skeleton className="h-9 w-20" />
-          </div>
-        </div>
+        ) : null}
 
-        <div className="space-y-2 lg:hidden">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <OrderMobileCardSkeleton key={index} />
-          ))}
-        </div>
-
-        <div className="hidden space-y-1.5 lg:block">
-          <div className="mb-2 flex items-center justify-between px-1">
-            <div className="space-y-1">
-              <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-3 w-52" />
+        {viewportMode === "desktop" ? (
+          <div className="space-y-1.5">
+            <div className="mb-2 flex items-center justify-between px-1">
+              <div className="space-y-1">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-3 w-52" />
+              </div>
+              <Skeleton className="h-3 w-16" />
             </div>
-            <Skeleton className="h-3 w-16" />
-          </div>
-          <div
-            className={cn(
-              orderQueueDesktopGrid,
-              "rounded-lg border border-border/40 bg-surface/45 px-1 py-1.5",
-            )}
-          >
-            <Skeleton className="mx-auto size-4" />
+            <div
+              className={cn(
+                orderQueueDesktopGrid,
+                "rounded-lg border border-border/40 bg-surface/45 px-1 py-1.5",
+              )}
+            >
+              <Skeleton className="mx-auto size-4" />
+              {Array.from({ length: 6 }).map((_, index) => (
+                <Skeleton key={index} className="mx-2 h-3" />
+              ))}
+            </div>
             {Array.from({ length: 6 }).map((_, index) => (
-              <Skeleton key={index} className="mx-2 h-3" />
+              <OrderDesktopRowSkeleton key={index} />
             ))}
           </div>
-          {Array.from({ length: 6 }).map((_, index) => (
-            <OrderDesktopRowSkeleton key={index} />
-          ))}
-        </div>
+        ) : null}
       </div>
     </div>
   );

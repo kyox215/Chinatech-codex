@@ -233,42 +233,49 @@ export function BuybackScreen() {
           onAction={canCreate ? () => setWorkspace({ mode: "create" }) : undefined}
         />
       ) : (
-        <section className="grid min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-3">
+        <section
+          data-buyback-list="true"
+          className="grid min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-3"
+        >
           {items.map((item) => (
             <QuoteCard key={item.id} item={item} onOpen={() => setSelected(item)} />
           ))}
         </section>
       )}
 
-      <TransparentQuoteWorkspace
-        state={workspace}
-        isOnline={isOnline}
-        onClose={() => setWorkspace(null)}
-        onSaved={() => {
-          setWorkspace(null);
-          void list.refetch();
-        }}
-      />
-      <TransparentQuoteDetail
-        item={selected}
-        canRevise={canRevise}
-        canRespond={canRespond}
-        isOnline={isOnline}
-        storeId={storeId}
-        onClose={() => setSelected(null)}
-        onRevise={(item) => {
-          setSelected(null);
-          setWorkspace({ mode: "revise", item });
-        }}
-        onRefresh={async (itemId) => {
-          const refreshed = await list.refetch();
-          setSelected((refreshed.data ?? []).find((item) => item.id === itemId) ?? null);
-        }}
-        onSaved={() => {
-          setSelected(null);
-          void list.refetch();
-        }}
-      />
+      {workspace !== null ? (
+        <TransparentQuoteWorkspace
+          state={workspace}
+          isOnline={isOnline}
+          onClose={() => setWorkspace(null)}
+          onSaved={() => {
+            setWorkspace(null);
+            void list.refetch();
+          }}
+        />
+      ) : null}
+      {selected !== null ? (
+        <TransparentQuoteDetail
+          item={selected}
+          canRevise={canRevise}
+          canRespond={canRespond}
+          isOnline={isOnline}
+          storeId={storeId}
+          onClose={() => setSelected(null)}
+          onRevise={(item) => {
+            setSelected(null);
+            setWorkspace({ mode: "revise", item });
+          }}
+          onRefresh={async (itemId) => {
+            const refreshed = await list.refetch();
+            setSelected((refreshed.data ?? []).find((item) => item.id === itemId) ?? null);
+          }}
+          onSaved={() => {
+            setSelected(null);
+            void list.refetch();
+          }}
+        />
+      ) : null}
     </RepairOsListScaffold>
   );
 }
@@ -967,6 +974,7 @@ function TransparentQuoteWorkspace({
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         side="bottom"
+        data-buyback-quote-workspace="true"
         style={sheetFloatingStyle}
         className="bottom-1 left-1/2 right-auto flex h-[calc(100svh-0.5rem)] w-[calc(100vw-0.5rem)] -translate-x-1/2 flex-col gap-0 rounded-2xl p-0 md:bottom-4 md:h-[min(90svh,780px)] md:w-[min(920px,calc(100vw-2rem))]"
       >

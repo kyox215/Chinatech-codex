@@ -133,6 +133,7 @@ import { StoreShellUnavailableState } from "@/features/stores/components/store-s
 import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { cn } from "@/lib/utils";
+import { useViewportMode } from "@/hooks/use-mobile";
 import type { NewOrderPrefill } from "@/features/orders/model/new-order-intent";
 import {
   buildOrderDetailWorkspaceHref,
@@ -248,6 +249,7 @@ export function OrderListScreen() {
   const searchParamsKey = searchParams.toString();
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
+  const viewportMode = useViewportMode();
   const workspaceIntent = useMemo(
     () => parseOrderWorkspaceIntent(new URLSearchParams(searchParamsKey)),
     [searchParamsKey],
@@ -289,6 +291,10 @@ export function OrderListScreen() {
       delete document.body.dataset.mobileWorkspaceActive;
     };
   }, []);
+
+  useEffect(() => {
+    if (viewportMode !== "compact" && mobileFiltersOpen) setMobileFiltersOpen(false);
+  }, [mobileFiltersOpen, viewportMode]);
 
   useEffect(() => {
     const updateOnlineState = () => setIsOnline(navigator.onLine);
@@ -1183,6 +1189,9 @@ export function OrderListScreen() {
   if (!activeStoreId) {
     return <StoreShellUnavailableState shell={shell} onRetry={shell.retry} />;
   }
+  if (viewportMode === "pending") {
+    return <OrderListViewportPending />;
+  }
 
   return (
     <div
@@ -1198,197 +1207,201 @@ export function OrderListScreen() {
       }
     >
       <h1 className="sr-only">维修工单</h1>
-      <MobileOrdersFloatingHeader
-        headerRef={setMobileHeaderRef}
-        groups={statusGroupItems}
-        groupValue={statusGroup}
-        pendingGroupValue={
-          activePendingListIntent?.kind === "queue" ? activePendingListIntent.key : undefined
-        }
-        pendingLabel={activePendingListIntent?.label}
-        totalOrders={totalOrders}
-        onGroupChange={handleStatusGroupChange}
-        onCreateOrder={openNewOrder}
-        aiAction={
-          aiAssistant.canOpenOrderAssistant ? (
+      {viewportMode === "compact" ? (
+        <MobileOrdersFloatingHeader
+          headerRef={setMobileHeaderRef}
+          groups={statusGroupItems}
+          groupValue={statusGroup}
+          pendingGroupValue={
+            activePendingListIntent?.kind === "queue" ? activePendingListIntent.key : undefined
+          }
+          pendingLabel={activePendingListIntent?.label}
+          totalOrders={totalOrders}
+          onGroupChange={handleStatusGroupChange}
+          onCreateOrder={openNewOrder}
+          aiAction={
+            aiAssistant.canOpenOrderAssistant ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="iconDense"
+                className="size-9 rounded-lg border-primary/30 bg-primary/10 text-primary"
+                aria-label="打开 RepairDesk AI 小助手"
+                data-ai-assistant-trigger="mobile-orders"
+                onClick={aiAssistant.openAssistant}
+              >
+                <Sparkles className="size-4" aria-hidden="true" />
+              </Button>
+            ) : undefined
+          }
+          searchValue={searchInput.draftValue}
+          searchBusy={searchBusy}
+          interactionDisabled={!isOnline}
+          onSearchChange={searchInput.setDraftValue}
+          onSearchSubmit={() => searchInput.commitNow()}
+          onSearchClear={searchInput.clearSearch}
+          scanAction={
+            <OrderQrScannerButton
+              disabled={!isOnline}
+              className="size-9 rounded-lg bg-card"
+              iconClassName="size-3.5"
+            />
+          }
+          filterAction={
             <Button
               type="button"
               variant="outline"
               size="iconDense"
-              className="size-9 rounded-lg border-primary/30 bg-primary/10 text-primary"
-              aria-label="打开 RepairDesk AI 小助手"
-              data-ai-assistant-trigger="mobile-orders"
-              onClick={aiAssistant.openAssistant}
+              className="relative size-9 rounded-lg bg-card"
+              aria-label={`筛选订单${mobileHiddenFilterCount ? `，已应用 ${mobileHiddenFilterCount} 项` : ""}`}
+              onClick={() => setMobileFiltersOpen(true)}
             >
-              <Sparkles className="size-4" aria-hidden="true" />
+              <Filter className="size-4" aria-hidden="true" />
+              {mobileHiddenFilterCount ? (
+                <span className="absolute -right-1 -top-1 grid min-h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[9px] font-semibold text-primary-foreground">
+                  {mobileHiddenFilterCount}
+                </span>
+              ) : null}
             </Button>
-          ) : undefined
-        }
-        searchValue={searchInput.draftValue}
-        searchBusy={searchBusy}
-        interactionDisabled={!isOnline}
-        onSearchChange={searchInput.setDraftValue}
-        onSearchSubmit={() => searchInput.commitNow()}
-        onSearchClear={searchInput.clearSearch}
-        scanAction={
-          <OrderQrScannerButton
-            disabled={!isOnline}
-            className="size-9 rounded-lg bg-card"
-            iconClassName="size-3.5"
-          />
-        }
-        filterAction={
-          <Button
-            type="button"
-            variant="outline"
-            size="iconDense"
-            className="relative size-9 rounded-lg bg-card"
-            aria-label={`筛选订单${mobileHiddenFilterCount ? `，已应用 ${mobileHiddenFilterCount} 项` : ""}`}
-            onClick={() => setMobileFiltersOpen(true)}
-          >
-            <Filter className="size-4" aria-hidden="true" />
-            {mobileHiddenFilterCount ? (
-              <span className="absolute -right-1 -top-1 grid min-h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[9px] font-semibold text-primary-foreground">
-                {mobileHiddenFilterCount}
-              </span>
-            ) : null}
-          </Button>
-        }
-        viewModeControl={
-          <OrderListViewMode
-            value={orderListView}
-            canBrowseArchive={canBrowseOrderArchive}
-            compact
-            disabled={!isOnline}
-            onChange={changeOrderListView}
-          />
-        }
-      />
+          }
+          viewModeControl={
+            <OrderListViewMode
+              value={orderListView}
+              canBrowseArchive={canBrowseOrderArchive}
+              compact
+              disabled={!isOnline}
+              onChange={changeOrderListView}
+            />
+          }
+        />
+      ) : null}
 
-      <Dialog open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-        <DialogContent className="max-h-[min(82svh,680px)] w-[calc(100%-1.5rem)] max-w-lg overflow-y-auto rounded-2xl p-3 sm:p-4">
-          <DialogHeader>
-            <DialogTitle>筛选维修工单</DialogTitle>
-            <DialogDescription>筛选只改变当前订单列表，不会修改任何工单。</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 sm:space-y-4">
-            <fieldset className="space-y-2">
-              <legend className="text-sm font-semibold">工单类型</legend>
-              <div className="grid grid-cols-2 gap-2">
-                {(
-                  [
-                    ["quick_repair", "快修"],
-                    ["dropoff_repair", "送修"],
-                  ] as const
-                ).map(([value, label]) => {
-                  const active = filters.types?.includes(value) ?? false;
-                  return (
-                    <Button
-                      key={value}
-                      type="button"
-                      variant={active ? "default" : "outline"}
-                      className="h-[38px] text-base"
-                      aria-pressed={active}
-                      onClick={() => updateMobileFilters({ types: active ? undefined : [value] })}
-                    >
-                      {label}
-                    </Button>
-                  );
-                })}
-              </div>
-            </fieldset>
-            <fieldset className="space-y-2">
-              <legend className="text-sm font-semibold">付款状态</legend>
-              <div className="grid grid-cols-3 gap-2">
-                {(
-                  [
-                    [undefined, "全部"],
-                    ["unpaid", "待收款"],
-                    ["paid", "已结清"],
-                  ] as const
-                ).map(([value, label]) => {
-                  const active = (filters.paid ?? undefined) === value;
-                  return (
-                    <Button
-                      key={value ?? "all"}
-                      type="button"
-                      variant={active ? "default" : "outline"}
-                      className="h-[38px] px-2 text-base"
-                      aria-pressed={active}
-                      onClick={() => updateMobileFilters({ paid: value })}
-                    >
-                      {label}
-                    </Button>
-                  );
-                })}
-              </div>
-            </fieldset>
-            <fieldset className="space-y-2">
-              <legend className="text-sm font-semibold">需要优先处理</legend>
-              <div className="grid grid-cols-3 gap-2">
-                {(
-                  [
-                    [undefined, "不限"],
-                    ["approval", "报价超期"],
-                    ["pickup", "取机超期"],
-                  ] as const
-                ).map(([value, label]) => {
-                  const active = (filters.overdue ?? undefined) === value;
-                  return (
-                    <Button
-                      key={value ?? "all"}
-                      type="button"
-                      variant={active ? "default" : "outline"}
-                      className="h-[38px] px-2 text-base"
-                      aria-pressed={active}
-                      onClick={() => updateMobileFilters({ overdue: value })}
-                    >
-                      {label}
-                    </Button>
-                  );
-                })}
-              </div>
-            </fieldset>
-            {options.technicians.length ? (
+      {viewportMode === "compact" ? (
+        <Dialog open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+          <DialogContent className="max-h-[min(82svh,680px)] w-[calc(100%-1.5rem)] max-w-lg overflow-y-auto rounded-2xl p-3 sm:p-4">
+            <DialogHeader>
+              <DialogTitle>筛选维修工单</DialogTitle>
+              <DialogDescription>筛选只改变当前订单列表，不会修改任何工单。</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 sm:space-y-4">
               <fieldset className="space-y-2">
-                <legend className="text-sm font-semibold">负责人</legend>
-                <div className="flex flex-wrap gap-2">
-                  {options.technicians.map((technician) => {
-                    const active = filters.technicians?.includes(technician) ?? false;
+                <legend className="text-sm font-semibold">工单类型</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      ["quick_repair", "快修"],
+                      ["dropoff_repair", "送修"],
+                    ] as const
+                  ).map(([value, label]) => {
+                    const active = filters.types?.includes(value) ?? false;
                     return (
                       <Button
-                        key={technician}
+                        key={value}
                         type="button"
                         variant={active ? "default" : "outline"}
-                        className="min-h-9"
+                        className="h-[38px] text-base"
                         aria-pressed={active}
-                        onClick={() =>
-                          updateMobileFilters({ technicians: active ? undefined : [technician] })
-                        }
+                        onClick={() => updateMobileFilters({ types: active ? undefined : [value] })}
                       >
-                        {technician}
+                        {label}
                       </Button>
                     );
                   })}
                 </div>
               </fieldset>
-            ) : null}
-            <div className="grid grid-cols-2 gap-2 border-t border-[var(--border-panel)] pt-3">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-9"
-                onClick={clearMobileHiddenFilters}
-              >
-                清除高级筛选
-              </Button>
-              <Button type="button" className="h-10" onClick={() => setMobileFiltersOpen(false)}>
-                查看结果
-              </Button>
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-semibold">付款状态</legend>
+                <div className="grid grid-cols-3 gap-2">
+                  {(
+                    [
+                      [undefined, "全部"],
+                      ["unpaid", "待收款"],
+                      ["paid", "已结清"],
+                    ] as const
+                  ).map(([value, label]) => {
+                    const active = (filters.paid ?? undefined) === value;
+                    return (
+                      <Button
+                        key={value ?? "all"}
+                        type="button"
+                        variant={active ? "default" : "outline"}
+                        className="h-[38px] px-2 text-base"
+                        aria-pressed={active}
+                        onClick={() => updateMobileFilters({ paid: value })}
+                      >
+                        {label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-semibold">需要优先处理</legend>
+                <div className="grid grid-cols-3 gap-2">
+                  {(
+                    [
+                      [undefined, "不限"],
+                      ["approval", "报价超期"],
+                      ["pickup", "取机超期"],
+                    ] as const
+                  ).map(([value, label]) => {
+                    const active = (filters.overdue ?? undefined) === value;
+                    return (
+                      <Button
+                        key={value ?? "all"}
+                        type="button"
+                        variant={active ? "default" : "outline"}
+                        className="h-[38px] px-2 text-base"
+                        aria-pressed={active}
+                        onClick={() => updateMobileFilters({ overdue: value })}
+                      >
+                        {label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+              {options.technicians.length ? (
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-semibold">负责人</legend>
+                  <div className="flex flex-wrap gap-2">
+                    {options.technicians.map((technician) => {
+                      const active = filters.technicians?.includes(technician) ?? false;
+                      return (
+                        <Button
+                          key={technician}
+                          type="button"
+                          variant={active ? "default" : "outline"}
+                          className="min-h-9"
+                          aria-pressed={active}
+                          onClick={() =>
+                            updateMobileFilters({ technicians: active ? undefined : [technician] })
+                          }
+                        >
+                          {technician}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              ) : null}
+              <div className="grid grid-cols-2 gap-2 border-t border-[var(--border-panel)] pt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9"
+                  onClick={clearMobileHiddenFilters}
+                >
+                  清除高级筛选
+                </Button>
+                <Button type="button" className="h-10" onClick={() => setMobileFiltersOpen(false)}>
+                  查看结果
+                </Button>
+              </div>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       <OrderListTransitionFeedback
         pendingLabel={activePendingListIntent?.label}
@@ -1400,8 +1413,8 @@ export function OrderListScreen() {
         onRetry={retryFailedListIntent}
       />
 
-      {isOnline && !listTransitionPending && !failedListIntent ? (
-        <div className="lg:hidden">
+      {viewportMode === "compact" && isOnline && !listTransitionPending && !failedListIntent ? (
+        <div>
           <OrderSearchFeedback
             compact
             draftValue={searchInput.draftValue}
@@ -1421,8 +1434,8 @@ export function OrderListScreen() {
         </div>
       ) : null}
 
-      {mobileHiddenFilterCount > 0 ? (
-        <div className="mb-2 flex items-center gap-2 rounded-lg border border-border/60 bg-surface/70 px-3 py-2 text-xs text-muted-foreground lg:hidden">
+      {viewportMode === "compact" && mobileHiddenFilterCount > 0 ? (
+        <div className="mb-2 flex items-center gap-2 rounded-lg border border-border/60 bg-surface/70 px-3 py-2 text-xs text-muted-foreground">
           <Filter className="size-3.5 shrink-0" aria-hidden="true" />
           <span className="min-w-0 flex-1">已应用 {mobileHiddenFilterCount} 项高级筛选</span>
           <Button
@@ -1438,8 +1451,8 @@ export function OrderListScreen() {
         </div>
       ) : null}
 
-      {workflowIsError || optionsIsError ? (
-        <div className="mb-2 flex min-w-0 items-center gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground lg:hidden">
+      {viewportMode === "compact" && (workflowIsError || optionsIsError) ? (
+        <div className="mb-2 flex min-w-0 items-center gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground">
           <AlertTriangle className="size-3.5 shrink-0" />
           <span className="min-w-0 flex-1 truncate">
             {workflowIsError ? workflowErrorMessage : optionsErrorMessage}
@@ -1448,141 +1461,140 @@ export function OrderListScreen() {
       ) : null}
 
       {/* Desktop stage and search toolbar */}
-      <div
-        data-order-desktop-unified-toolbar="true"
-        className={cn(
-          repairOs.mobileInfoCard,
-          "mb-3 mt-3 hidden min-w-0 flex-col gap-2 p-2.5 lg:flex",
-        )}
-      >
-        <OrderStatusFilterControls
-          embedded
-          className="min-w-0"
-          groups={statusGroupItems}
-          subTabs={statusSubTabs}
-          groupValue={statusGroup}
-          statusValue={statusCode}
-          onGroupChange={handleStatusGroupChange}
-          onStatusChange={handleStatusCodeChange}
-        />
+      {viewportMode === "desktop" ? (
+        <div
+          data-order-desktop-unified-toolbar="true"
+          className={cn(repairOs.mobileInfoCard, "mb-3 mt-3 min-w-0 space-y-2 p-2.5")}
+        >
+          <OrderStatusFilterControls
+            embedded
+            className="min-w-0"
+            groups={statusGroupItems}
+            subTabs={statusSubTabs}
+            groupValue={statusGroup}
+            statusValue={statusCode}
+            onGroupChange={handleStatusGroupChange}
+            onStatusChange={handleStatusCodeChange}
+          />
 
-        <div className={cn(layoutGuards.wrapRow, "min-w-0 items-stretch justify-end")}>
-          <OrderListViewMode
-            value={orderListView}
-            canBrowseArchive={canBrowseOrderArchive}
-            disabled={!isOnline}
-            onChange={changeOrderListView}
-          />
-          <div className="relative min-w-0 flex-[1_1_260px]">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchInput.draftValue}
+          <div className={cn(layoutGuards.wrapRow, "min-w-0 items-stretch justify-end")}>
+            <OrderListViewMode
+              value={orderListView}
+              canBrowseArchive={canBrowseOrderArchive}
               disabled={!isOnline}
-              onChange={(event) => searchInput.setDraftValue(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") return;
-                event.preventDefault();
-                searchInput.commitNow();
-              }}
-              placeholder="搜索工单号、客户姓名、电话或 IMEI"
-              aria-label="搜索工单、客户、电话或 IMEI"
-              className={cn(controls.searchInput, "pr-16")}
-              aria-busy={searchBusy}
+              onChange={changeOrderListView}
             />
-            <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
-              {searchBusy ? (
-                <LoaderCircle
-                  className="pointer-events-none size-4 shrink-0 animate-spin text-primary"
-                  aria-hidden="true"
-                />
-              ) : null}
-              {searchInput.draftValue ? (
-                <button
-                  type="button"
-                  disabled={!isOnline}
-                  onClick={searchInput.clearSearch}
-                  className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                  aria-label="清除搜索"
-                  title="清除搜索"
-                >
-                  <X className="size-3.5" />
-                </button>
-              ) : null}
-            </div>
-          </div>
-          <OrderQrScannerButton
-            disabled={!isOnline}
-            size="sm"
-            showLabel
-            className="h-9 gap-1.5 border-border/60 bg-surface/60 backdrop-blur"
-            iconClassName="size-3.5"
-          />
-          <Button
-            type="button"
-            data-order-list-new-button="true"
-            size="sm"
-            className={cn("hidden h-9 gap-1.5 lg:inline-flex", controls.brandButton)}
-            style={brandGradientStyle}
-            onClick={openNewOrder}
-          >
-            <Plus className="size-3.5" /> 新建工单
-          </Button>
-        </div>
-        {isOnline && !listTransitionPending && !failedListIntent ? (
-          <OrderSearchFeedback
-            draftValue={searchInput.draftValue}
-            committedValue={searchInput.committedValue}
-            isDebouncing={searchInput.isDebouncing}
-            isFetching={isFetching}
-            isPlaceholderData={isPlaceholderData}
-            hasError={searchHasError}
-            total={totalOrders}
-            resultGroupCounts={listResult?.resultGroupCounts}
-            canSearchArchive={canSearchOrderArchive}
-            archiveSearchAvailable={archiveSearchAvailable}
-            archiveSearchActive={archiveSearchActive}
-            onArchiveSearchChange={changeArchiveSearchScope}
-            onRetry={() => void refetchOrders()}
-          />
-        ) : null}
-        {(workflowIsError || optionsIsError) && (
-          <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-status-warn-foreground/25 bg-status-warn/10 px-2.5 py-2 text-xs text-status-warn-foreground">
-            <AlertTriangle className="size-3.5 shrink-0" />
-            <span className="min-w-0 flex-1">
-              {workflowIsError
-                ? `状态流未加载，正在使用默认状态。${workflowErrorMessage}`
-                : `筛选选项未加载。${optionsErrorMessage}`}
-            </span>
-          </div>
-        )}
-        {activeFilterChips.length > 0 && (
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">当前筛选</span>
-            {activeFilterChips.map((chip) => (
-              <button
-                key={chip.key}
-                type="button"
+            <div className="relative min-w-0 flex-[1_1_260px]">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchInput.draftValue}
                 disabled={!isOnline}
-                onClick={() => removeFilterChip(chip.key)}
-                className="inline-flex h-7 max-w-full items-center gap-1 rounded-md border border-border/60 bg-surface/70 px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                title="点击移除此筛选"
-              >
-                <span className="truncate">{chip.label}</span>
-                <X className="size-3 shrink-0" />
-              </button>
-            ))}
-            <Button
-              variant="ghost"
-              size="sm"
+                onChange={(event) => searchInput.setDraftValue(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  searchInput.commitNow();
+                }}
+                placeholder="搜索工单号、客户姓名、电话或 IMEI"
+                aria-label="搜索工单、客户、电话或 IMEI"
+                className={cn(controls.searchInput, "pr-16")}
+                aria-busy={searchBusy}
+              />
+              <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+                {searchBusy ? (
+                  <LoaderCircle
+                    className="pointer-events-none size-4 shrink-0 animate-spin text-primary"
+                    aria-hidden="true"
+                  />
+                ) : null}
+                {searchInput.draftValue ? (
+                  <button
+                    type="button"
+                    disabled={!isOnline}
+                    onClick={searchInput.clearSearch}
+                    className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                    aria-label="清除搜索"
+                    title="清除搜索"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                ) : null}
+              </div>
+            </div>
+            <OrderQrScannerButton
               disabled={!isOnline}
-              className="h-7 px-2 text-xs"
-              onClick={clearAllFilters}
+              size="sm"
+              showLabel
+              className="h-9 gap-1.5 border-border/60 bg-surface/60 backdrop-blur"
+              iconClassName="size-3.5"
+            />
+            <Button
+              type="button"
+              data-order-list-new-button="true"
+              size="sm"
+              className={cn("hidden h-9 gap-1.5 lg:inline-flex", controls.brandButton)}
+              style={brandGradientStyle}
+              onClick={openNewOrder}
             >
-              清除全部
+              <Plus className="size-3.5" /> 新建工单
             </Button>
           </div>
-        )}
-      </div>
+          {isOnline && !listTransitionPending && !failedListIntent ? (
+            <OrderSearchFeedback
+              draftValue={searchInput.draftValue}
+              committedValue={searchInput.committedValue}
+              isDebouncing={searchInput.isDebouncing}
+              isFetching={isFetching}
+              isPlaceholderData={isPlaceholderData}
+              hasError={searchHasError}
+              total={totalOrders}
+              resultGroupCounts={listResult?.resultGroupCounts}
+              canSearchArchive={canSearchOrderArchive}
+              archiveSearchAvailable={archiveSearchAvailable}
+              archiveSearchActive={archiveSearchActive}
+              onArchiveSearchChange={changeArchiveSearchScope}
+              onRetry={() => void refetchOrders()}
+            />
+          ) : null}
+          {(workflowIsError || optionsIsError) && (
+            <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-status-warn-foreground/25 bg-status-warn/10 px-2.5 py-2 text-xs text-status-warn-foreground">
+              <AlertTriangle className="size-3.5 shrink-0" />
+              <span className="min-w-0 flex-1">
+                {workflowIsError
+                  ? `状态流未加载，正在使用默认状态。${workflowErrorMessage}`
+                  : `筛选选项未加载。${optionsErrorMessage}`}
+              </span>
+            </div>
+          )}
+          {activeFilterChips.length > 0 && (
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">当前筛选</span>
+              {activeFilterChips.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  disabled={!isOnline}
+                  onClick={() => removeFilterChip(chip.key)}
+                  className="inline-flex h-7 max-w-full items-center gap-1 rounded-md border border-border/60 bg-surface/70 px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  title="点击移除此筛选"
+                >
+                  <span className="truncate">{chip.label}</span>
+                  <X className="size-3 shrink-0" />
+                </button>
+              ))}
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={!isOnline}
+                className="h-7 px-2 text-xs"
+                onClick={clearAllFilters}
+              >
+                清除全部
+              </Button>
+            </div>
+          )}
+        </div>
+      ) : null}
 
       {isOnline && listIsError && listResult && !searchInput.committedValue && !failedListIntent ? (
         <div
@@ -1629,138 +1641,142 @@ export function OrderListScreen() {
         ) : (
           <>
             {/* Desktop work queue */}
-            <div
-              data-order-desktop-list="true"
-              className="hidden min-w-0 max-w-full overflow-x-hidden overflow-y-hidden pb-1 lg:block"
-            >
-              <div className="mb-2 flex min-w-0 items-center justify-between gap-2 px-1">
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold">维修工单</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {canUseBulkActions
-                      ? "点击查看详情，勾选后可执行批量操作。"
-                      : "点击任意工单查看详情。"}
+            {viewportMode === "desktop" ? (
+              <div
+                data-order-desktop-list="true"
+                className="min-w-0 max-w-full overflow-x-hidden overflow-y-hidden pb-1"
+              >
+                <div className="mb-2 flex min-w-0 items-center justify-between gap-2 px-1">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold">维修工单</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {canUseBulkActions
+                        ? "点击查看详情，勾选后可执行批量操作。"
+                        : "点击任意工单查看详情。"}
+                    </div>
                   </div>
+                  {canUseBulkActions ? (
+                    <span className="text-xs text-muted-foreground">
+                      选中 <span className="text-foreground">{selected.length}</span>
+                    </span>
+                  ) : null}
                 </div>
-                {canUseBulkActions ? (
-                  <span className="text-xs text-muted-foreground">
-                    选中 <span className="text-foreground">{selected.length}</span>
-                  </span>
-                ) : null}
-              </div>
-              <div className="space-y-1.5">
-                <div
-                  className={cn(
-                    orderQueueDesktopGrid,
-                    "rounded-lg border border-border/40 bg-surface/45 px-1 text-[11px] font-medium text-muted-foreground",
-                  )}
-                >
-                  <label className="flex min-w-0 items-center justify-center py-1.5">
-                    {canUseBulkActions ? (
-                      <Checkbox
-                        checked={allSelected}
-                        onCheckedChange={(v) => setSelected(v ? data.map((o) => o.id) : [])}
-                        aria-label="选择当前页全部工单"
-                      />
-                    ) : null}
-                  </label>
-                  <div className="min-w-0 px-2 py-1.5">阶段 / 下一步</div>
-                  <div className="min-w-0 px-2 py-1.5">客户</div>
-                  <div className="min-w-0 px-2 py-1.5">设备 / 故障</div>
-                  <div className="px-2 py-1.5 text-right">金额 / 风险</div>
-                  <div className="px-2 py-1.5">负责人 / 时间</div>
-                  <div className="px-2 py-1.5 text-right">{data.length}</div>
-                </div>
-                <div className="space-y-3">
-                  {groupedData.map((section) => (
-                    <section
-                      key={section.group}
-                      className="space-y-1.5"
-                      aria-labelledby={`desktop-order-group-${section.group}`}
-                    >
-                      <OrderResultGroupHeader
-                        headingId={`desktop-order-group-${section.group}`}
-                        group={section.group}
-                        pageCount={section.items.length}
-                        totalCount={resultGroupCounts[section.group]}
-                        oldestCreatedAt={section.items[0].created_at}
-                      />
-                      <motion.div
-                        role="list"
-                        aria-label={`${orderResultGroupMeta[section.group].label}工单分组`}
-                        variants={stagger(0.025)}
-                        initial="hidden"
-                        animate="show"
-                        className="space-y-1.5"
-                      >
-                        {section.items.map((order) => {
-                          const checked = selected.includes(order.id);
-                          return (
-                            <div key={order.id} role="listitem">
-                              <DesktopOrderQueueRow
-                                order={order}
-                                workflow={workflow}
-                                checked={checked}
-                                selectable={canUseBulkActions}
-                                onOpen={() => openDetail(order.id)}
-                                onPrefetch={() => scheduleOrderDetailPrefetch(order.id, "intent")}
-                                onCancelPrefetch={() => cancelOrderDetailPrefetch(order.id)}
-                                onCheckedChange={(value) =>
-                                  setSelected((previous) =>
-                                    value
-                                      ? [...previous, order.id]
-                                      : previous.filter((id) => id !== order.id),
-                                  )
-                                }
-                                onPrint={() => requestPrintRows([order])}
-                                canPrint={canPrintSingleOrders}
-                                printDisabledReason={singlePrintDisabledReason}
-                                onOpenPrintRecovery={() => openDetail(order.id)}
-                                onStopInteraction={stopRowClick}
-                                suppliers={visibleSuppliers}
-                              />
-                            </div>
-                          );
-                        })}
-                      </motion.div>
-                    </section>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Mobile and tablet cards */}
-            <div data-order-mobile-list="true" className="space-y-4 lg:hidden">
-              {groupedData.map((section) => (
-                <section
-                  key={section.group}
-                  className="space-y-2"
-                  aria-labelledby={`mobile-order-group-${section.group}`}
-                >
-                  <OrderResultGroupHeader
-                    headingId={`mobile-order-group-${section.group}`}
-                    group={section.group}
-                    pageCount={section.items.length}
-                    totalCount={resultGroupCounts[section.group]}
-                    oldestCreatedAt={section.items[0].created_at}
-                  />
-                  <div className="grid gap-2 md:grid-cols-2" role="list">
-                    {section.items.map((order) => (
-                      <div key={order.id} role="listitem" data-order-id={order.id}>
-                        <OrderMobileCard
-                          order={order}
-                          detailHref={`/orders/${order.id}?from=orders`}
-                          onPrefetch={() => scheduleOrderDetailPrefetch(order.id, "intent")}
-                          onCancelPrefetch={() => cancelOrderDetailPrefetch(order.id)}
-                          suppliers={visibleSuppliers}
-                          onOpenIntent={() => rememberListContext(order.id)}
+                <div className="space-y-1.5">
+                  <div
+                    className={cn(
+                      orderQueueDesktopGrid,
+                      "rounded-lg border border-border/40 bg-surface/45 px-1 text-[11px] font-medium text-muted-foreground",
+                    )}
+                  >
+                    <label className="flex min-w-0 items-center justify-center py-1.5">
+                      {canUseBulkActions ? (
+                        <Checkbox
+                          checked={allSelected}
+                          onCheckedChange={(v) => setSelected(v ? data.map((o) => o.id) : [])}
+                          aria-label="选择当前页全部工单"
                         />
-                      </div>
+                      ) : null}
+                    </label>
+                    <div className="min-w-0 px-2 py-1.5">阶段 / 下一步</div>
+                    <div className="min-w-0 px-2 py-1.5">客户</div>
+                    <div className="min-w-0 px-2 py-1.5">设备 / 故障</div>
+                    <div className="px-2 py-1.5 text-right">金额 / 风险</div>
+                    <div className="px-2 py-1.5">负责人 / 时间</div>
+                    <div className="px-2 py-1.5 text-right">{data.length}</div>
+                  </div>
+                  <div className="space-y-3">
+                    {groupedData.map((section) => (
+                      <section
+                        key={section.group}
+                        className="space-y-1.5"
+                        aria-labelledby={`desktop-order-group-${section.group}`}
+                      >
+                        <OrderResultGroupHeader
+                          headingId={`desktop-order-group-${section.group}`}
+                          group={section.group}
+                          pageCount={section.items.length}
+                          totalCount={resultGroupCounts[section.group]}
+                          oldestCreatedAt={section.items[0].created_at}
+                        />
+                        <motion.div
+                          role="list"
+                          aria-label={`${orderResultGroupMeta[section.group].label}工单分组`}
+                          variants={stagger(0.025)}
+                          initial="hidden"
+                          animate="show"
+                          className="space-y-1.5"
+                        >
+                          {section.items.map((order) => {
+                            const checked = selected.includes(order.id);
+                            return (
+                              <div key={order.id} role="listitem">
+                                <DesktopOrderQueueRow
+                                  order={order}
+                                  workflow={workflow}
+                                  checked={checked}
+                                  selectable={canUseBulkActions}
+                                  onOpen={() => openDetail(order.id)}
+                                  onPrefetch={() => scheduleOrderDetailPrefetch(order.id, "intent")}
+                                  onCancelPrefetch={() => cancelOrderDetailPrefetch(order.id)}
+                                  onCheckedChange={(value) =>
+                                    setSelected((previous) =>
+                                      value
+                                        ? [...previous, order.id]
+                                        : previous.filter((id) => id !== order.id),
+                                    )
+                                  }
+                                  onPrint={() => requestPrintRows([order])}
+                                  canPrint={canPrintSingleOrders}
+                                  printDisabledReason={singlePrintDisabledReason}
+                                  onOpenPrintRecovery={() => openDetail(order.id)}
+                                  onStopInteraction={stopRowClick}
+                                  suppliers={visibleSuppliers}
+                                />
+                              </div>
+                            );
+                          })}
+                        </motion.div>
+                      </section>
                     ))}
                   </div>
-                </section>
-              ))}
-            </div>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Mobile and tablet cards */}
+            {viewportMode === "compact" ? (
+              <div data-order-mobile-list="true" className="space-y-4">
+                {groupedData.map((section) => (
+                  <section
+                    key={section.group}
+                    className="space-y-2"
+                    aria-labelledby={`mobile-order-group-${section.group}`}
+                  >
+                    <OrderResultGroupHeader
+                      headingId={`mobile-order-group-${section.group}`}
+                      group={section.group}
+                      pageCount={section.items.length}
+                      totalCount={resultGroupCounts[section.group]}
+                      oldestCreatedAt={section.items[0].created_at}
+                    />
+                    <div className="grid gap-2 md:grid-cols-2" role="list">
+                      {section.items.map((order) => (
+                        <div key={order.id} role="listitem" data-order-id={order.id}>
+                          <OrderMobileCard
+                            order={order}
+                            detailHref={`/orders/${order.id}?from=orders`}
+                            onPrefetch={() => scheduleOrderDetailPrefetch(order.id, "intent")}
+                            onCancelPrefetch={() => cancelOrderDetailPrefetch(order.id)}
+                            suppliers={visibleSuppliers}
+                            onOpenIntent={() => rememberListContext(order.id)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            ) : null}
             <PaginationBar
               page={page}
               pageCount={pageCount}
@@ -1906,6 +1922,25 @@ export function OrderListScreen() {
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function OrderListViewportPending() {
+  return (
+    <div
+      data-ui="order-list-viewport-pending"
+      className="mx-auto w-full min-w-0 max-w-7xl space-y-2 overflow-hidden px-2 py-3 sm:px-4 sm:py-5 md:px-6 lg:px-8"
+      aria-busy="true"
+    >
+      <span className="sr-only" role="status" aria-live="polite">
+        正在准备维修工单布局
+      </span>
+      <div aria-hidden="true" className="space-y-2">
+        <Skeleton className="h-10 w-full rounded-xl" />
+        <Skeleton className="h-14 w-full rounded-xl" />
+        <Skeleton className="h-24 w-full rounded-xl" />
+      </div>
     </div>
   );
 }

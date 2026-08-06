@@ -75,6 +75,7 @@ import {
   RepairOsListScaffold,
 } from "@/shared/ui";
 import { cn } from "@/lib/utils";
+import { useViewportMode } from "@/hooks/use-mobile";
 
 const CUSTOMER_SEARCH_DEBOUNCE_MS = 280;
 const MANAGED_LIST_PARAMS = ["q", "group", "work", "tags", "marketing", "followup", "page"];
@@ -107,6 +108,7 @@ export function CustomerListScreen() {
   const searchParams = useSearchParams();
   const searchParamsKey = searchParams.toString();
   const shell = useStoreShellContext();
+  const viewportMode = useViewportMode();
   const activeStoreId = shell.activeStore?.id;
   const realtimeSync = useRealtimeSync();
   const initialUrlStateRef = useRef<ReturnType<typeof parseCustomerListUrlState> | null>(null);
@@ -471,41 +473,52 @@ export function CustomerListScreen() {
               {isFetching ? "正在更新客户数据" : ""}
             </span>
           </div>
-          <div className="glass-card hidden min-w-0 max-w-full overflow-hidden lg:block">
-            <table
-              className={cn(density.tableDense, "w-full table-fixed", layoutGuards.noPageOverflow)}
+          {viewportMode === "desktop" ? (
+            <div
+              data-customer-desktop-list="true"
+              className="glass-card min-w-0 max-w-full overflow-hidden"
             >
-              <thead className="text-xs text-muted-foreground">
-                <tr className="border-b border-border/40">
-                  <th scope="col" className="w-[29%] px-3 py-2 text-left font-medium">
-                    客户
-                  </th>
-                  <th scope="col" className="w-[21%] px-2 py-2 text-left font-medium">
-                    设备
-                  </th>
-                  <th scope="col" className="w-[13%] px-2 py-2 text-right font-medium">
-                    金额
-                  </th>
-                  <th scope="col" className="w-[29%] px-2 py-2 text-left font-medium">
-                    现在要做什么
-                  </th>
-                  <th scope="col" className="w-[8%] px-2 py-2 text-right font-medium">
-                    查看
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {customers.map((customer) => (
-                  <CustomerRow key={customer.id} customer={customer} onOpenDetail={openPreview} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className={cn(repairOs.listCardStack, "lg:hidden")}>
-            {customers.map((customer) => (
-              <CustomerMobileCard key={customer.id} customer={customer} />
-            ))}
-          </div>
+              <table
+                className={cn(
+                  density.tableDense,
+                  "w-full table-fixed",
+                  layoutGuards.noPageOverflow,
+                )}
+              >
+                <thead className="text-xs text-muted-foreground">
+                  <tr className="border-b border-border/40">
+                    <th scope="col" className="w-[29%] px-3 py-2 text-left font-medium">
+                      客户
+                    </th>
+                    <th scope="col" className="w-[21%] px-2 py-2 text-left font-medium">
+                      设备
+                    </th>
+                    <th scope="col" className="w-[13%] px-2 py-2 text-right font-medium">
+                      金额
+                    </th>
+                    <th scope="col" className="w-[29%] px-2 py-2 text-left font-medium">
+                      现在要做什么
+                    </th>
+                    <th scope="col" className="w-[8%] px-2 py-2 text-right font-medium">
+                      查看
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {customers.map((customer) => (
+                    <CustomerRow key={customer.id} customer={customer} onOpenDetail={openPreview} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+          {viewportMode === "compact" ? (
+            <div data-customer-mobile-list="true" className={repairOs.listCardStack}>
+              {customers.map((customer) => (
+                <CustomerMobileCard key={customer.id} customer={customer} />
+              ))}
+            </div>
+          ) : null}
           <RepairOsBusinessCard
             as="div"
             data-ui="customer-list-pagination"

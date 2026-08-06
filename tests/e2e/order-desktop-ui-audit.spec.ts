@@ -39,7 +39,8 @@ test.describe("order desktop UI audit", () => {
       await expectFirstVisible(page.getByText("维修工单"), "/orders work queue heading");
       const desktopList = page.locator('[data-order-desktop-list="true"]');
       await expectFirstVisible(desktopList, "/orders desktop queue");
-      await expect(page.locator('[data-order-mobile-list="true"]')).toBeHidden();
+      await expect(desktopList).toHaveCount(1);
+      await expect(page.locator('[data-order-mobile-list="true"]')).toHaveCount(0);
       await expect(page.locator("main").last().locator("table")).toHaveCount(0);
       await expectDesktopQueueGrid(desktopList, "/orders desktop queue", viewport.width);
       await expectNoLocalHorizontalScroll(desktopList, "/orders desktop queue");

@@ -1,8 +1,8 @@
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { CapturePayload } from "@/features/capture/model/barcode-parser";
-import { OrderQrScannerSheet } from "./order-qr-scanner";
+import { OrderQrScannerButton, OrderQrScannerSheet } from "./order-qr-scanner";
 
 const scannerProps = vi.hoisted(() => ({ current: null as Record<string, unknown> | null }));
 
@@ -23,12 +23,14 @@ describe("OrderQrScannerSheet", () => {
     scannerProps.current = null;
   });
 
-  it("binds the order feature to QR-only mode and its own parser", () => {
+  it("binds the order feature to QR-only mode and its own parser", async () => {
     render(<OrderQrScannerSheet open onOpenChange={vi.fn()} />);
 
-    expect(scannerProps.current).toMatchObject({
-      scanMode: "qr-only",
-      title: "扫描订单二维码",
+    await waitFor(() => {
+      expect(scannerProps.current).toMatchObject({
+        scanMode: "qr-only",
+        title: "扫描订单二维码",
+      });
     });
     const parsePayload = scannerProps.current?.parsePayload as (
       rawValue: string,
@@ -38,5 +40,21 @@ describe("OrderQrScannerSheet", () => {
       value: "",
       label: "不是有效订单二维码",
     });
+  });
+
+  it("does not load before the trigger and keeps the sheet mounted after close", async () => {
+    render(<OrderQrScannerButton />);
+    expect(scannerProps.current).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "扫描订单二维码" }));
+    await waitFor(() => expect(scannerProps.current).not.toBeNull());
+    expect(scannerProps.current?.open).toBe(true);
+
+    const onOpenChange = scannerProps.current?.onOpenChange as
+      | ((open: boolean) => void)
+      | undefined;
+    onOpenChange?.(false);
+    await waitFor(() => expect(scannerProps.current?.open).toBe(false));
+    expect(scannerProps.current).not.toBeNull();
   });
 });

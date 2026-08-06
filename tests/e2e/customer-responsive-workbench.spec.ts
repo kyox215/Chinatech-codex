@@ -25,8 +25,12 @@ test.describe("customer responsive workbench", () => {
       await expectNoPageOverflow(page);
 
       if (viewport.width >= 1024) {
+        await expect(page.locator('[data-customer-desktop-list="true"]')).toHaveCount(1);
+        await expect(page.locator('[data-customer-mobile-list="true"]')).toHaveCount(0);
         await expect(page.locator("table")).toBeVisible();
       } else {
+        await expect(page.locator('[data-customer-desktop-list="true"]')).toHaveCount(0);
+        await expect(page.locator('[data-customer-mobile-list="true"]')).toHaveCount(1);
         const underlineNavigation = page.locator(
           '[data-ui="repair-os-header-underline-nav"]:visible',
         );

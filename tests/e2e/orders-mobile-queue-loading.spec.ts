@@ -8,6 +8,8 @@ async function gotoOrders(page: Page) {
   await page.goto("/orders", { waitUntil: "domcontentloaded" });
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
   await expect(page.locator('[data-order-mobile-list="true"]')).toBeVisible();
+  await expect(page.locator('[data-order-mobile-list="true"]')).toHaveCount(1);
+  await expect(page.locator('[data-order-desktop-list="true"]')).toHaveCount(0);
 }
 
 async function expectNoOverflow(page: Page) {
@@ -151,6 +153,8 @@ test("uses a fluid two-row queue header and compact mobile cards", async ({ page
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(page.getByRole("button", { name: "筛选", exact: true })).toHaveCount(0);
+  await expect(page.locator('[data-order-desktop-list="true"]')).toHaveCount(1);
+  await expect(page.locator('[data-order-mobile-list="true"]')).toHaveCount(0);
   await expectNoOverflow(page);
   await page.screenshot({
     path: testInfo.outputPath("orders-1440-desktop-toolbar.png"),

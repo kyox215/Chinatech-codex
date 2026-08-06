@@ -3,16 +3,21 @@ import { ArrowLeft, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { ViewportMode } from "@/hooks/use-mobile";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
 export function OrderDetailSkeleton({
   surface = "page",
   onClose,
+  renderMode = "pending",
 }: {
   surface?: "page" | "dialog";
   onClose?: () => void;
+  renderMode?: ViewportMode;
 }) {
+  const showCompactHeader = surface === "page" && renderMode !== "desktop";
+
   return (
     <div
       data-ui="order-detail-skeleton"
@@ -31,13 +36,17 @@ export function OrderDetailSkeleton({
       <span className="sr-only" role="status" aria-live="polite">
         正在准备工单详情
       </span>
-      {surface === "page" ? (
-        <div className="md:hidden">
-          <div className={repairOs.mobileFloatingHeaderShell}>
+      {showCompactHeader ? (
+        <div data-order-detail-skeleton-nav="true">
+          <div className={cn(repairOs.mobileFloatingHeaderShell, "lg:!block")}>
             <section className={repairOs.mobileFloatingHeaderCard}>
               <header className={repairOs.mobileFloatingHeaderNav}>
                 <Button asChild variant="ghost" size="icon" className="size-8 rounded-lg">
-                  <Link href="/orders" aria-label="返回工单列表">
+                  <Link
+                    href="/orders"
+                    aria-label="返回工单列表"
+                    data-order-detail-skeleton-back="true"
+                  >
                     <ArrowLeft className="size-4" />
                   </Link>
                 </Button>

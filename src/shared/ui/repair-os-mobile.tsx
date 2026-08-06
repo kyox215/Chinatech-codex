@@ -15,6 +15,7 @@ import { Filter, Search, X, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useViewportMode } from "@/hooks/use-mobile";
 import { brandGradientStyle, pageHeader, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
@@ -337,6 +338,7 @@ export function RepairOsListScaffold({
   children,
   className,
 }: RepairOsListScaffoldProps) {
+  const viewportMode = useViewportMode();
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
   const hasSearch = typeof searchValue === "string" && onSearchChange;
@@ -378,7 +380,30 @@ export function RepairOsListScaffold({
       observer.disconnect();
       window.removeEventListener("resize", updateHeight);
     };
-  }, []);
+  }, [viewportMode]);
+
+  if (viewportMode === "pending") {
+    return (
+      <div
+        data-ui="repair-os-list-scaffold"
+        data-ui-viewport="pending"
+        className={cn(
+          "mx-auto w-full min-w-0 max-w-7xl space-y-2 overflow-hidden px-2 py-3 sm:px-4 sm:py-5 md:px-6 lg:px-8",
+          className,
+        )}
+        aria-busy="true"
+      >
+        <span className="sr-only" role="status" aria-live="polite">
+          正在准备{title}
+        </span>
+        <div aria-hidden="true" className="space-y-2">
+          <div className="h-10 w-full animate-pulse rounded-xl bg-muted" />
+          <div className="h-14 w-full animate-pulse rounded-xl bg-muted" />
+          <div className="h-24 w-full animate-pulse rounded-xl bg-muted" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -386,105 +411,110 @@ export function RepairOsListScaffold({
       className={cn(repairOs.mobileUnifiedListPage, className)}
       style={offsetStyle}
     >
-      <div
-        ref={headerRef}
-        data-ui="repair-os-list-header-shell"
-        className={repairOs.mobileListHeaderShell}
-      >
-        <section data-ui="repair-os-list-header-card" className={repairOs.mobileFloatingHeaderCard}>
-          <header
-            className={cn(
-              repairOs.mobileFloatingHeaderNav,
-              mobileLeading && "grid-cols-[36px_minmax(0,1fr)_auto]",
-            )}
+      {viewportMode === "compact" ? (
+        <div
+          ref={headerRef}
+          data-ui="repair-os-list-header-shell"
+          className={repairOs.mobileListHeaderShell}
+        >
+          <section
+            data-ui="repair-os-list-header-card"
+            className={repairOs.mobileFloatingHeaderCard}
           >
-            {mobileLeading ?? (
-              <SidebarTrigger className="size-9 rounded-lg border border-[var(--border-panel)] bg-card shadow-none" />
-            )}
-            <div className="min-w-0 text-center">
-              <p className="truncate text-sm font-semibold leading-5">{title}</p>
-              {subtitle ? (
-                <p className="truncate text-[9px] leading-3 text-muted-foreground">{subtitle}</p>
+            <header
+              className={cn(
+                repairOs.mobileFloatingHeaderNav,
+                mobileLeading && "grid-cols-[36px_minmax(0,1fr)_auto]",
+              )}
+            >
+              {mobileLeading ?? (
+                <SidebarTrigger className="size-9 rounded-lg border border-[var(--border-panel)] bg-card shadow-none" />
+              )}
+              <div className="min-w-0 text-center">
+                <p className="truncate text-sm font-semibold leading-5">{title}</p>
+                {subtitle ? (
+                  <p className="truncate text-[9px] leading-3 text-muted-foreground">{subtitle}</p>
+                ) : null}
+              </div>
+              <div className="flex min-h-9 min-w-9 shrink-0 items-center justify-end">{action}</div>
+            </header>
+
+            <div
+              data-ui="repair-os-list-header-body"
+              className={cn(repairOs.mobileFloatingHeaderBody, "space-y-2")}
+            >
+              {hasSearch ? (
+                <div
+                  data-ui="repair-os-list-search-row"
+                  className="grid min-w-0 grid-flow-col grid-cols-[minmax(0,1fr)] auto-cols-max gap-1.5 [&>*]:min-h-9 [&>*]:min-w-9"
+                  style={{
+                    gridTemplateColumns: `minmax(0, 1fr) repeat(${searchTrailingActions.length}, max-content)`,
+                  }}
+                >
+                  <div
+                    className={cn(
+                      searchFrame === "embedded" ? repairOs.searchBarEmbedded : repairOs.searchBar,
+                      "h-9 rounded-lg px-2",
+                      searchFrame === "standalone" && "shadow-none",
+                    )}
+                  >
+                    <Search className="size-3.5 shrink-0 text-muted-foreground" />
+                    <Input
+                      value={searchValue}
+                      onChange={(event) => onSearchChange(event.target.value)}
+                      placeholder={searchPlaceholder}
+                      aria-label={searchPlaceholder}
+                      className={cn(repairOs.searchInput, "h-full text-base")}
+                    />
+                  </div>
+                  {searchAction}
+                  {filterAction ??
+                    (!searchAction ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="iconDense"
+                        className="size-9 rounded-lg bg-card"
+                        aria-label="筛选"
+                        disabled
+                      >
+                        <Filter className="size-3.5" />
+                      </Button>
+                    ) : null)}
+                </div>
+              ) : null}
+
+              {trimmedSearchValue ? (
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <span className="inline-flex min-w-0 max-w-[calc(100%-3rem)] items-center gap-1 rounded-full border border-[var(--border-panel)] bg-card px-2.5 py-1 text-[11px] font-medium leading-4 text-muted-foreground">
+                    <span className="shrink-0">搜索：</span>
+                    <span className="truncate font-mono text-foreground">{trimmedSearchValue}</span>
+                  </span>
+                  <button
+                    type="button"
+                    className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    aria-label="清除搜索"
+                    onClick={() => onSearchChange?.("")}
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              ) : null}
+
+              {chips.length > 0 ? (
+                chipsVariant === "underline" ? (
+                  <RepairOsHeaderUnderlineNav chips={chips} label={chipsLabel} />
+                ) : (
+                  <RepairOsHeaderStepper chips={chips} label={chipsLabel} />
+                )
               ) : null}
             </div>
-            <div className="flex min-h-9 min-w-9 shrink-0 items-center justify-end">{action}</div>
-          </header>
+          </section>
+        </div>
+      ) : null}
 
-          <div
-            data-ui="repair-os-list-header-body"
-            className={cn(repairOs.mobileFloatingHeaderBody, "space-y-2")}
-          >
-            {hasSearch ? (
-              <div
-                data-ui="repair-os-list-search-row"
-                className="grid min-w-0 grid-flow-col grid-cols-[minmax(0,1fr)] auto-cols-max gap-1.5 [&>*]:min-h-9 [&>*]:min-w-9"
-                style={{
-                  gridTemplateColumns: `minmax(0, 1fr) repeat(${searchTrailingActions.length}, max-content)`,
-                }}
-              >
-                <div
-                  className={cn(
-                    searchFrame === "embedded" ? repairOs.searchBarEmbedded : repairOs.searchBar,
-                    "h-9 rounded-lg px-2",
-                    searchFrame === "standalone" && "shadow-none",
-                  )}
-                >
-                  <Search className="size-3.5 shrink-0 text-muted-foreground" />
-                  <Input
-                    value={searchValue}
-                    onChange={(event) => onSearchChange(event.target.value)}
-                    placeholder={searchPlaceholder}
-                    aria-label={searchPlaceholder}
-                    className={cn(repairOs.searchInput, "h-full text-base")}
-                  />
-                </div>
-                {searchAction}
-                {filterAction ??
-                  (!searchAction ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="iconDense"
-                      className="size-9 rounded-lg bg-card"
-                      aria-label="筛选"
-                      disabled
-                    >
-                      <Filter className="size-3.5" />
-                    </Button>
-                  ) : null)}
-              </div>
-            ) : null}
-
-            {trimmedSearchValue ? (
-              <div className="flex min-w-0 items-center gap-1.5">
-                <span className="inline-flex min-w-0 max-w-[calc(100%-3rem)] items-center gap-1 rounded-full border border-[var(--border-panel)] bg-card px-2.5 py-1 text-[11px] font-medium leading-4 text-muted-foreground">
-                  <span className="shrink-0">搜索：</span>
-                  <span className="truncate font-mono text-foreground">{trimmedSearchValue}</span>
-                </span>
-                <button
-                  type="button"
-                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  aria-label="清除搜索"
-                  onClick={() => onSearchChange?.("")}
-                >
-                  <X className="size-3.5" />
-                </button>
-              </div>
-            ) : null}
-
-            {chips.length > 0 ? (
-              chipsVariant === "underline" ? (
-                <RepairOsHeaderUnderlineNav chips={chips} label={chipsLabel} />
-              ) : (
-                <RepairOsHeaderStepper chips={chips} label={chipsLabel} />
-              )
-            ) : null}
-          </div>
-        </section>
-      </div>
-
-      {resolvedDesktopHeader ? (
-        <div className="hidden lg:block">{resolvedDesktopHeader}</div>
+      {viewportMode === "desktop" && resolvedDesktopHeader ? (
+        <div>{resolvedDesktopHeader}</div>
       ) : null}
       <div data-ui="repair-os-list-content" className="min-w-0 pt-2 lg:pt-0">
         {children}

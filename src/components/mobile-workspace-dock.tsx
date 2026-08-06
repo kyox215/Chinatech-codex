@@ -1,16 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Command, Sparkles } from "lucide-react";
 
 import {
-  AttachmentDraftPanel,
-  CameraCaptureSheet,
   revokeAttachmentDraft,
-  ScanSearchSheet,
   type AttachmentDraft,
-} from "@/features/capture";
+} from "@/features/capture/model/attachment-rules";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { RealtimeSyncIndicator } from "@/features/realtime";
 import { Button } from "@/components/ui/button";
@@ -30,6 +27,34 @@ import { useNavigationGuard } from "@/components/navigation-guard-provider";
 import { useAiAssistantWorkspace } from "@/features/ai-assistant";
 import { createNewOrderSessionId } from "@/features/orders/model/new-order-intent";
 import { buildNewOrderWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
+import { LazyModalErrorBoundary, LazyModalShell } from "@/components/lazy-modal-shell";
+
+function createLazyAttachmentDraftPanel(attempt: number) {
+  return lazy(() => {
+    void attempt;
+    return import("@/features/capture/components/attachment-draft-panel").then((module) => ({
+      default: module.AttachmentDraftPanel,
+    }));
+  });
+}
+
+function createLazyCameraCaptureSheet(attempt: number) {
+  return lazy(() => {
+    void attempt;
+    return import("@/features/capture/components/camera-capture-sheet").then((module) => ({
+      default: module.CameraCaptureSheet,
+    }));
+  });
+}
+
+function createLazyScanSearchSheet(attempt: number) {
+  return lazy(() => {
+    void attempt;
+    return import("@/features/capture/components/scan-search-button").then((module) => ({
+      default: module.ScanSearchSheet,
+    }));
+  });
+}
 
 interface MobileWorkspaceDockProps {
   onOpenCommand: () => void;
@@ -49,12 +74,30 @@ function MobileWorkspaceDockContent({
   const [open, setOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [scannerActivated, setScannerActivated] = useState(false);
+  const [cameraActivated, setCameraActivated] = useState(false);
+  const [scannerLoaderVersion, setScannerLoaderVersion] = useState(0);
+  const [cameraLoaderVersion, setCameraLoaderVersion] = useState(0);
+  const [attachmentLoaderVersion, setAttachmentLoaderVersion] = useState(0);
   const [attachmentDrafts, setAttachmentDrafts] = useState<AttachmentDraft[]>([]);
   const attachmentDraftsRef = useRef<AttachmentDraft[]>([]);
+  const dockTriggerRef = useRef<HTMLButtonElement | null>(null);
   const router = useRouter();
   const { runGuardedTransition } = useNavigationGuard();
   const shell = useStoreShellContext();
   const aiAssistant = useAiAssistantWorkspace();
+  const LazyAttachmentDraftPanel = useMemo(
+    () => createLazyAttachmentDraftPanel(attachmentLoaderVersion),
+    [attachmentLoaderVersion],
+  );
+  const LazyCameraCaptureSheet = useMemo(
+    () => createLazyCameraCaptureSheet(cameraLoaderVersion),
+    [cameraLoaderVersion],
+  );
+  const LazyScanSearchSheet = useMemo(
+    () => createLazyScanSearchSheet(scannerLoaderVersion),
+    [scannerLoaderVersion],
+  );
   attachmentDraftsRef.current = attachmentDrafts;
 
   useEffect(() => {
@@ -72,6 +115,26 @@ function MobileWorkspaceDockContent({
     primaryAction,
     ...globalMobileQuickActions.filter((action) => action.id !== primaryAction.id),
   ];
+
+  const restoreDockTriggerFocus = () => {
+    window.requestAnimationFrame(() => dockTriggerRef.current?.focus());
+  };
+  const cancelScanner = () => {
+    setScannerOpen(false);
+    setScannerActivated(false);
+    restoreDockTriggerFocus();
+  };
+  const cancelCamera = () => {
+    setCameraOpen(false);
+    setCameraActivated(false);
+    restoreDockTriggerFocus();
+  };
+  const cancelAttachmentPanel = () => {
+    setOpen(false);
+    restoreDockTriggerFocus();
+  };
+  const scannerPanelState = getMobileWorkspaceLazyPanelState(scannerActivated, scannerOpen);
+  const cameraPanelState = getMobileWorkspaceLazyPanelState(cameraActivated, cameraOpen);
 
   const runAction = (action: (typeof actions)[number]) => {
     runRepairDeskShellAction(action, {
@@ -95,8 +158,14 @@ function MobileWorkspaceDockContent({
       },
       close: () => setOpen(false),
       openCommand: onOpenCommand,
-      openScanner: () => setScannerOpen(true),
-      openCamera: () => setCameraOpen(true),
+      openScanner: () => {
+        setScannerActivated(true);
+        setScannerOpen(true);
+      },
+      openCamera: () => {
+        setCameraActivated(true);
+        setCameraOpen(true);
+      },
     });
   };
 
@@ -105,6 +174,7 @@ function MobileWorkspaceDockContent({
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
           <Button
+            ref={dockTriggerRef}
             size="sm"
             variant="outline"
             data-mobile-workspace-trigger="true"
@@ -179,26 +249,97 @@ function MobileWorkspaceDockContent({
           </div>
           {attachmentDrafts.length > 0 ? (
             <div className="mt-3">
-              <AttachmentDraftPanel
-                attachments={attachmentDrafts}
-                onChange={setAttachmentDrafts}
-                onOpenCamera={() => {
-                  setOpen(false);
-                  setCameraOpen(true);
-                }}
-                defaultKind="fault_photo"
-              />
+              <LazyModalErrorBoundary
+                key={attachmentLoaderVersion}
+                open={open}
+                title="附件面板"
+                onCancel={cancelAttachmentPanel}
+                onRetry={() => setAttachmentLoaderVersion((current) => current + 1)}
+              >
+                <Suspense
+                  fallback={
+                    <CapturePanelFallback
+                      label="正在加载附件面板…"
+                      onCancel={cancelAttachmentPanel}
+                    />
+                  }
+                >
+                  <LazyAttachmentDraftPanel
+                    attachments={attachmentDrafts}
+                    onChange={setAttachmentDrafts}
+                    onOpenCamera={() => {
+                      setOpen(false);
+                      setCameraActivated(true);
+                      setCameraOpen(true);
+                    }}
+                    defaultKind="fault_photo"
+                  />
+                </Suspense>
+              </LazyModalErrorBoundary>
             </div>
           ) : null}
         </SheetContent>
       </Sheet>
-      <ScanSearchSheet open={scannerOpen} onOpenChange={setScannerOpen} scope="global" />
-      <CameraCaptureSheet
-        open={cameraOpen}
-        onOpenChange={setCameraOpen}
-        onCapture={(draft) => setAttachmentDrafts((current) => [...current, draft])}
-      />
+      {scannerPanelState.mounted ? (
+        <LazyModalErrorBoundary
+          key={scannerLoaderVersion}
+          open={scannerOpen}
+          title="扫码器"
+          onCancel={cancelScanner}
+          onRetry={() => setScannerLoaderVersion((current) => current + 1)}
+        >
+          <Suspense
+            fallback={<CapturePanelFallback label="正在打开扫码器…" onCancel={cancelScanner} />}
+          >
+            <LazyScanSearchSheet
+              open={scannerPanelState.open}
+              onOpenChange={(nextOpen) => {
+                setScannerOpen(nextOpen);
+                if (!nextOpen) restoreDockTriggerFocus();
+              }}
+              scope="global"
+            />
+          </Suspense>
+        </LazyModalErrorBoundary>
+      ) : null}
+      {cameraPanelState.mounted ? (
+        <LazyModalErrorBoundary
+          key={cameraLoaderVersion}
+          open={cameraOpen}
+          title="相机"
+          onCancel={cancelCamera}
+          onRetry={() => setCameraLoaderVersion((current) => current + 1)}
+        >
+          <Suspense
+            fallback={<CapturePanelFallback label="正在打开相机…" onCancel={cancelCamera} />}
+          >
+            <LazyCameraCaptureSheet
+              open={cameraPanelState.open}
+              onOpenChange={(nextOpen) => {
+                setCameraOpen(nextOpen);
+                if (!nextOpen) restoreDockTriggerFocus();
+              }}
+              onCapture={(draft) => setAttachmentDrafts((current) => [...current, draft])}
+            />
+          </Suspense>
+        </LazyModalErrorBoundary>
+      ) : null}
     </>
+  );
+}
+
+export function getMobileWorkspaceLazyPanelState(activated: boolean, open: boolean) {
+  return { mounted: activated, open: activated && open };
+}
+
+function CapturePanelFallback({ label, onCancel }: { label: string; onCancel: () => void }) {
+  return (
+    <LazyModalShell
+      title={label}
+      description="快捷工具正在加载，可以取消并返回快捷操作。"
+      onCancel={onCancel}
+      dataAttribute="mobile-workspace-lazy-fallback"
+    />
   );
 }
 

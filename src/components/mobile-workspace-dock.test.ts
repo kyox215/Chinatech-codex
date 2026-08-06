@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { shouldHideMobileWorkspaceDock } from "@/components/mobile-workspace-dock";
+import {
+  getMobileWorkspaceLazyPanelState,
+  shouldHideMobileWorkspaceDock,
+} from "@/components/mobile-workspace-dock";
 
 describe("shouldHideMobileWorkspaceDock", () => {
   it.each([
@@ -21,4 +24,12 @@ describe("shouldHideMobileWorkspaceDock", () => {
       expect(shouldHideMobileWorkspaceDock(pathname)).toBe(false);
     },
   );
+});
+
+describe("getMobileWorkspaceLazyPanelState", () => {
+  it("does not mount before activation and keeps the loaded panel mounted when closed", () => {
+    expect(getMobileWorkspaceLazyPanelState(false, false)).toEqual({ mounted: false, open: false });
+    expect(getMobileWorkspaceLazyPanelState(true, true)).toEqual({ mounted: true, open: true });
+    expect(getMobileWorkspaceLazyPanelState(true, false)).toEqual({ mounted: true, open: false });
+  });
 });

@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -230,6 +231,11 @@ import { formatMoney } from "@/lib/money";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { invalidateOrderReadCaches, patchOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { useViewportMode, type ViewportMode } from "@/hooks/use-mobile";
+import {
+  registerOrderDetailBodyOwner,
+  updateOrderDetailBodyOwner,
+} from "@/features/orders/screens/order-detail-body-state";
 import {
   buildStoreCustomerOutputUrl,
   resolveStoreOutputIdentity,
@@ -292,6 +298,40 @@ export function OrderDetailScreen({
 }) {
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
+  const viewportMode = useViewportMode();
+  const renderModeOwnerId = useId();
+  const lockedOrderIdRef = useRef(id);
+  const [lockedPageRenderMode, setLockedPageRenderMode] = useState<ViewportMode>("pending");
+  const orderDetailRenderMode: ViewportMode =
+    surface === "dialog"
+      ? "desktop"
+      : lockedOrderIdRef.current === id
+        ? lockedPageRenderMode
+        : "pending";
+  const initialBodyOwnerRef = useRef({
+    ownerId: renderModeOwnerId,
+    surface,
+    renderMode: orderDetailRenderMode,
+  });
+
+  useEffect(() => {
+    if (surface === "dialog") return;
+    if (lockedOrderIdRef.current !== id) {
+      lockedOrderIdRef.current = id;
+      setLockedPageRenderMode("pending");
+      return;
+    }
+    if (lockedPageRenderMode === "pending" && viewportMode !== "pending") {
+      setLockedPageRenderMode(viewportMode);
+    }
+  }, [id, lockedPageRenderMode, surface, viewportMode]);
+
+  useEffect(() => registerOrderDetailBodyOwner(initialBodyOwnerRef.current), [renderModeOwnerId]);
+
+  useEffect(() => {
+    updateOrderDetailBodyOwner(renderModeOwnerId, { surface, renderMode: orderDetailRenderMode });
+  }, [orderDetailRenderMode, renderModeOwnerId, surface]);
+
   const activeStoreId = shell.activeStore?.id;
   const activeUserId = shell.userId;
   const offlineScope = useMemo(
@@ -360,15 +400,6 @@ export function OrderDetailScreen({
   const closeCancelledReturnOverlay = useCallback(() => {
     setCancelledReturnOpen(false);
     window.requestAnimationFrame(() => cancelledReturnTriggerRef.current?.focus());
-  }, []);
-
-  useEffect(() => {
-    document.body.dataset.orderDetailActive = "true";
-    document.body.dataset.mobileWorkspaceActive = "true";
-    return () => {
-      delete document.body.dataset.orderDetailActive;
-      delete document.body.dataset.mobileWorkspaceActive;
-    };
   }, []);
 
   useEffect(() => {
@@ -1043,7 +1074,19 @@ export function OrderDetailScreen({
     !data &&
     (shell.status === "loading" || (Boolean(activeStoreId) && (isLoading || isPending)))
   ) {
-    return <OrderDetailSkeleton surface={surface} onClose={onClose} />;
+    return (
+      <div
+        data-order-detail-render-mode={orderDetailRenderMode}
+        data-order-detail-renderer={orderDetailRenderMode}
+        className="contents"
+      >
+        <OrderDetailSkeleton
+          surface={surface}
+          onClose={onClose}
+          renderMode={orderDetailRenderMode}
+        />
+      </div>
+    );
   }
   if (!activeStoreId) {
     return <StoreShellUnavailableState shell={shell} onRetry={shell.retry} />;
@@ -1103,6 +1146,17 @@ export function OrderDetailScreen({
             ) : null}
           </div>
         </section>
+      </div>
+    );
+  }
+  if (surface === "page" && orderDetailRenderMode === "pending") {
+    return (
+      <div
+        data-order-detail-render-mode="pending"
+        data-order-detail-renderer="pending"
+        className="min-w-0"
+      >
+        <OrderDetailSkeleton surface="page" onClose={onClose} renderMode={orderDetailRenderMode} />
       </div>
     );
   }
@@ -1340,6 +1394,8 @@ export function OrderDetailScreen({
     <div
       data-order-detail-root="true"
       data-order-detail-surface={surface}
+      data-order-detail-render-mode={orderDetailRenderMode}
+      data-order-detail-renderer={orderDetailRenderMode}
       className={cn(
         "relative min-w-0 max-w-full overflow-x-clip",
         surface === "page"
@@ -1348,146 +1404,76 @@ export function OrderDetailScreen({
       )}
     >
       <h1 className="sr-only">订单详情</h1>
-      {surface === "page" ? (
-        <MobileOrderDetailView
-          data={data}
-          deviceLabel={deviceLabel}
-          deviceImei={deviceImei}
-          accessoryNotes={accessoryNotes}
-          storeSettings={storeSettings}
-          workflow={workflow}
-          topNotice={
-            <OrderTerminalActions
-              detail={data}
-              workflow={workflow}
-              onCompleted={invalidate}
-              className="mb-2"
-            />
-          }
-          transitionPending={transition.isPending}
-          onTransition={(to, reason) => transition.mutate({ to, reason })}
-          onImeiSave={async (imei) => {
-            await quickImeiUpdate.mutateAsync(imei);
-          }}
-          imeiPending={quickImeiUpdate.isPending}
-          onFaultSave={async (changes) => {
-            await faultUpdate.mutateAsync(changes);
-          }}
-          faultPending={faultUpdate.isPending}
-          onDeviceUnlockSave={async (deviceUnlock) => {
-            await deviceUnlockUpdate.mutateAsync(deviceUnlock);
-          }}
-          deviceUnlockPending={deviceUnlockUpdate.isPending}
-          onAttachmentUpload={async (input) => {
-            await attachmentUpload.mutateAsync(input);
-          }}
-          attachmentUploadPending={attachmentUpload.isPending}
-          financeDraft={financeDraft}
-          financeEditing={mobileFinanceEditing}
-          financeSaveError={mobileFinanceSaveError}
-          onFinanceEditingChange={(editing) => {
-            if (editing) setMobileFinanceSaveError("");
-            setMobileFinanceEditing(editing);
-          }}
-          onFinanceDraftChange={(draft) => {
-            setMobileFinanceSaveError("");
-            setFinanceDraft(draft);
-          }}
-          onFinanceSave={async () => {
-            if (!mobileFinance?.canSave) {
-              const message = mobileFinance?.error ?? "请检查报价金额后再保存。";
-              setMobileFinanceSaveError(message);
-              toast.error(message);
-              return false;
+      {orderDetailRenderMode === "compact" ? (
+        <>
+          <MobileOrderDetailView
+            data={data}
+            deviceLabel={deviceLabel}
+            deviceImei={deviceImei}
+            accessoryNotes={accessoryNotes}
+            storeSettings={storeSettings}
+            workflow={workflow}
+            topNotice={
+              <OrderTerminalActions
+                detail={data}
+                workflow={workflow}
+                onCompleted={invalidate}
+                className="mb-2"
+              />
             }
-            setMobileFinanceSaveError("");
-            await financeUpdate.mutateAsync({
-              expectedUpdatedAt: order.updated_at,
-              faultPrices: mobileFinance.faultPrices,
-              deposit: mobileFinance.deposit,
-            });
-            return true;
-          }}
-          financePending={financeUpdate.isPending}
-          canAdjustFinance={Boolean(data.capabilities?.canAdjustFinance)}
-          onNotify={() => setNotifyOpen(true)}
-          onApprovalDecision={() => setApprovalDecisionOpen(true)}
-          approvalDecisionAvailable={canDecideApproval}
-          whatsappDisabled={mobileFinanceEditing || financeUpdate.isPending || !canNotify}
-          onPay={() => setPayOpen(true)}
-          paymentDisabled={!canCollectPayment}
-          primaryAction={desktopPrimaryAction}
-          onPrint={() => setPrintPaperDialogOpen(true)}
-          printDisabled={!canPrintCustomerDocument || generationPending}
-          printDisabledReason={printDisabledReason}
-          onRevokeCustomerStatusLinks={
-            canRevokeCustomerStatusLinks ? () => void revokePrintedCustomerStatusLinks() : undefined
-          }
-          customerStatusRevokePending={customerStatusRevokePending}
-          onCancel={() => setCancelOpen(true)}
-          canCancel={canCancelOrder}
-          onRequestKioskSignature={
-            canCreateKioskSession ? () => kioskSignatureRequest.mutate() : undefined
-          }
-          kioskSignaturePending={kioskSignatureRequest.isPending}
-          kioskSignatureAvailable={
-            canCreateKioskSession &&
-            Boolean(activeKioskDevice) &&
-            custodyStatus === DEVICE_CUSTODY_WITH_SHOP
-          }
-          partsSupplier={partsSupplier}
-          supplierOptions={supplierOptions}
-          partsSupplierPending={partsSupplierUpdate.isPending}
-          onPartsSupplierChange={
-            supplierPermissions.canAssignSuppliers && data.capabilities?.canEditRepair
-              ? (supplierId) => partsSupplierUpdate.mutate(supplierId)
-              : undefined
-          }
-          assigneeOptions={assigneeOptions}
-          assigneePending={assigneeUpdate.isPending}
-          onAssigneeChange={
-            canAssignOrders && data.capabilities?.canEditIntake
-              ? (membershipId) => assigneeUpdate.mutate(membershipId)
-              : undefined
-          }
-          custodyPanel={renderCustodyPanel()}
-          className="lg:hidden"
-        />
-      ) : null}
-      {surface === "page" && data.capabilities?.canReadInternalCosts && activeStoreId ? (
-        <div className="lg:hidden">
-          <OrderInternalCostCard
-            orderId={order.id}
-            storeId={activeStoreId}
-            faultPrices={order.fault_prices}
-            canManage={Boolean(data.capabilities.canManageInternalCosts)}
-            canAllocatePartsCosts={Boolean(data.capabilities.canAllocatePartsCosts)}
-            onRepairQuoteLines={
-              data.capabilities?.canAdjustFinance && !isVoided && !isTerminalOrder
-                ? () => {
-                    setMobileFinanceEditing(true);
-                    window.requestAnimationFrame(() => {
-                      document.getElementById("mobile-order-quote")?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center",
-                      });
-                    });
-                  }
-                : undefined
-            }
-          />
-        </div>
-      ) : null}
-      <div
-        className={cn(
-          surface === "page" && "hidden lg:block",
-          surface === "dialog" &&
-            "flex min-h-0 flex-1 flex-col overflow-hidden p-2 sm:p-2.5 md:p-3",
-        )}
-      >
-        <div className={cn("relative z-20", detailWorkspace.orderDetailContent)}>
-          <OrderHero
-            order={order}
+            transitionPending={transition.isPending}
+            onTransition={(to, reason) => transition.mutate({ to, reason })}
+            onImeiSave={async (imei) => {
+              await quickImeiUpdate.mutateAsync(imei);
+            }}
+            imeiPending={quickImeiUpdate.isPending}
+            onFaultSave={async (changes) => {
+              await faultUpdate.mutateAsync(changes);
+            }}
+            faultPending={faultUpdate.isPending}
+            onDeviceUnlockSave={async (deviceUnlock) => {
+              await deviceUnlockUpdate.mutateAsync(deviceUnlock);
+            }}
+            deviceUnlockPending={deviceUnlockUpdate.isPending}
+            onAttachmentUpload={async (input) => {
+              await attachmentUpload.mutateAsync(input);
+            }}
+            attachmentUploadPending={attachmentUpload.isPending}
+            financeDraft={financeDraft}
+            financeEditing={mobileFinanceEditing}
+            financeSaveError={mobileFinanceSaveError}
+            onFinanceEditingChange={(editing) => {
+              if (editing) setMobileFinanceSaveError("");
+              setMobileFinanceEditing(editing);
+            }}
+            onFinanceDraftChange={(draft) => {
+              setMobileFinanceSaveError("");
+              setFinanceDraft(draft);
+            }}
+            onFinanceSave={async () => {
+              if (!mobileFinance?.canSave) {
+                const message = mobileFinance?.error ?? "请检查报价金额后再保存。";
+                setMobileFinanceSaveError(message);
+                toast.error(message);
+                return false;
+              }
+              setMobileFinanceSaveError("");
+              await financeUpdate.mutateAsync({
+                expectedUpdatedAt: order.updated_at,
+                faultPrices: mobileFinance.faultPrices,
+                deposit: mobileFinance.deposit,
+              });
+              return true;
+            }}
+            financePending={financeUpdate.isPending}
+            canAdjustFinance={Boolean(data.capabilities?.canAdjustFinance)}
+            onNotify={() => setNotifyOpen(true)}
+            onApprovalDecision={() => setApprovalDecisionOpen(true)}
+            approvalDecisionAvailable={canDecideApproval}
+            whatsappDisabled={mobileFinanceEditing || financeUpdate.isPending || !canNotify}
+            onPay={() => setPayOpen(true)}
+            paymentDisabled={!canCollectPayment}
+            primaryAction={desktopPrimaryAction}
             onPrint={() => setPrintPaperDialogOpen(true)}
             printDisabled={!canPrintCustomerDocument || generationPending}
             printDisabledReason={printDisabledReason}
@@ -1499,362 +1485,433 @@ export function OrderDetailScreen({
             customerStatusRevokePending={customerStatusRevokePending}
             onCancel={() => setCancelOpen(true)}
             canCancel={canCancelOrder}
-            onEdit={
-              data.capabilities?.canEditIntake ||
-              data.capabilities?.canEditRepair ||
-              data.capabilities?.canAdjustFinance
-                ? startEditing
+            onRequestKioskSignature={
+              canCreateKioskSession ? () => kioskSignatureRequest.mutate() : undefined
+            }
+            kioskSignaturePending={kioskSignatureRequest.isPending}
+            kioskSignatureAvailable={
+              canCreateKioskSession &&
+              Boolean(activeKioskDevice) &&
+              custodyStatus === DEVICE_CUSTODY_WITH_SHOP
+            }
+            partsSupplier={partsSupplier}
+            supplierOptions={supplierOptions}
+            partsSupplierPending={partsSupplierUpdate.isPending}
+            onPartsSupplierChange={
+              supplierPermissions.canAssignSuppliers && data.capabilities?.canEditRepair
+                ? (supplierId) => partsSupplierUpdate.mutate(supplierId)
                 : undefined
             }
-            onSaveEdit={() => void saveEditing()}
-            onCancelEdit={cancelEditing}
-            storeName={storeOutputIdentity.storeName}
-            isEditing={isEditing}
-            editPending={orderUpdate.isPending}
-            editSaveDisabled={!editCanSave}
-            showBackLink={surface === "page"}
-            surface={surface}
-            onClose={onClose}
-            currentStage={desktopCurrentStage}
-            currentStageIndex={desktopStageIndex}
-            nextActionLabel={canDecideApproval ? "处理客户审批" : next.primary?.label}
-            taskHint={
-              canDecideApproval
-                ? "客户已在等待报价结果，先记录同意或拒绝，再进入维修、订件、寄修或未修取机。"
-                : next.primary
-                  ? getStatusActionHint(next.primary.to, order)
-                  : undefined
+            assigneeOptions={assigneeOptions}
+            assigneePending={assigneeUpdate.isPending}
+            onAssigneeChange={
+              canAssignOrders && data.capabilities?.canEditIntake
+                ? (membershipId) => assigneeUpdate.mutate(membershipId)
+                : undefined
             }
-            approvalDecisionAvailable={canDecideApproval}
-            financeSummary={
-              surface === "dialog" ? (
-                <OrderDetailHeaderFinanceSummary
-                  order={order}
-                  isEditing={isEditing}
-                  financeDraft={financeDraft}
-                />
-              ) : undefined
-            }
-            contextualStatus={
-              <OrderTerminalActions
-                detail={data}
-                workflow={workflow}
-                onCompleted={invalidate}
-                variant="compact"
-              />
-            }
-            printRecovery={undefined}
+            custodyPanel={renderCustodyPanel()}
           />
-        </div>
-
-        {surface === "dialog" ? (
-          <div
-            data-order-detail-view-switcher="true"
-            className="relative z-10 mx-auto mb-2 flex w-fit max-w-full min-w-0 items-center gap-2"
-          >
-            <OrderDetailTabs
-              tabs={isEditing ? desktopDetailTabs.slice(0, 1) : desktopDetailTabs}
-              activeTab={safeDesktopDetailView}
-              onChange={changeDesktopDetailView}
-              ariaLabel="工单详情内容"
-              idPrefix="order-detail-workspace"
-              className="!m-0 min-w-0"
+          {data.capabilities?.canReadInternalCosts && activeStoreId ? (
+            <OrderInternalCostCard
+              orderId={order.id}
+              storeId={activeStoreId}
+              faultPrices={order.fault_prices}
+              canManage={Boolean(data.capabilities.canManageInternalCosts)}
+              canAllocatePartsCosts={Boolean(data.capabilities.canAllocatePartsCosts)}
+              onRepairQuoteLines={
+                data.capabilities?.canAdjustFinance && !isVoided && !isTerminalOrder
+                  ? () => {
+                      setMobileFinanceEditing(true);
+                      window.requestAnimationFrame(() => {
+                        document.getElementById("mobile-order-quote")?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "center",
+                        });
+                      });
+                    }
+                  : undefined
+              }
             />
-            {canOpenDiagnosisQuote ? (
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 shrink-0 px-2.5 text-xs"
-                onClick={() => setDiagnosisQuoteOpen(true)}
-              >
-                {data.capabilities?.canPrepareQuote ? "检测报价" : "记录检测"}
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
-
-        <div className={cn("min-w-0", surface === "dialog" && "min-h-0 flex-1 overflow-y-auto")}>
-          <motion.div
-            data-order-desktop-single-workspace="true"
-            variants={stagger(0.05)}
-            initial="hidden"
-            animate="show"
-            className={cn("min-w-0 space-y-2 sm:space-y-3", surface === "dialog" && "min-h-full")}
-          >
-            <OrderEditOfflineDraftNotice
-              state={editOfflineState}
-              errorMessage={editOfflineErrorMessage}
-              lastSavedAt={editOfflineLastSavedAt}
-              prompt={editOfflineDraftPrompt}
-              pendingRestoreNotice={editOfflineRestoreNotice}
-              hasSensitiveUnlockDraft={editOfflineHasSensitiveUnlockDraft}
+          ) : null}
+        </>
+      ) : (
+        <div
+          className={cn(
+            surface === "dialog" &&
+              "flex min-h-0 flex-1 flex-col overflow-hidden p-2 sm:p-2.5 md:p-3",
+          )}
+        >
+          <div className={cn("relative z-20", detailWorkspace.orderDetailContent)}>
+            <OrderHero
+              order={order}
+              onPrint={() => setPrintPaperDialogOpen(true)}
+              printDisabled={!canPrintCustomerDocument || generationPending}
+              printDisabledReason={printDisabledReason}
+              onRevokeCustomerStatusLinks={
+                canRevokeCustomerStatusLinks
+                  ? () => void revokePrintedCustomerStatusLinks()
+                  : undefined
+              }
+              customerStatusRevokePending={customerStatusRevokePending}
+              onCancel={() => setCancelOpen(true)}
+              canCancel={canCancelOrder}
+              onEdit={
+                data.capabilities?.canEditIntake ||
+                data.capabilities?.canEditRepair ||
+                data.capabilities?.canAdjustFinance
+                  ? startEditing
+                  : undefined
+              }
+              onSaveEdit={() => void saveEditing()}
+              onCancelEdit={cancelEditing}
+              storeName={storeOutputIdentity.storeName}
               isEditing={isEditing}
-              onRestore={() => void restoreEditOfflineDraft()}
-              onDiscard={() => void discardEditOfflinePrompt()}
+              editPending={orderUpdate.isPending}
+              editSaveDisabled={!editCanSave}
+              showBackLink={surface === "page"}
+              surface={surface}
+              onClose={onClose}
+              currentStage={desktopCurrentStage}
+              currentStageIndex={desktopStageIndex}
+              nextActionLabel={canDecideApproval ? "处理客户审批" : next.primary?.label}
+              taskHint={
+                canDecideApproval
+                  ? "客户已在等待报价结果，先记录同意或拒绝，再进入维修、订件、寄修或未修取机。"
+                  : next.primary
+                    ? getStatusActionHint(next.primary.to, order)
+                    : undefined
+              }
+              approvalDecisionAvailable={canDecideApproval}
+              financeSummary={
+                surface === "dialog" ? (
+                  <OrderDetailHeaderFinanceSummary
+                    order={order}
+                    isEditing={isEditing}
+                    financeDraft={financeDraft}
+                  />
+                ) : undefined
+              }
+              contextualStatus={
+                <OrderTerminalActions
+                  detail={data}
+                  workflow={workflow}
+                  onCompleted={invalidate}
+                  variant="compact"
+                />
+              }
+              printRecovery={undefined}
             />
-            {remoteEditConflict ? (
-              <section
-                role="alert"
-                data-order-edit-remote-conflict="true"
-                className="flex min-w-0 flex-col gap-2 rounded-[var(--radius-lg)] border border-status-warn-foreground/30 bg-status-warn/20 px-3 py-2.5 text-status-warn-foreground sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="flex min-w-0 items-start gap-2">
-                  <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <div className="text-xs font-semibold">另一台设备已更新这张工单</div>
-                    <p className="mt-0.5 text-[11px] leading-4 opacity-80">
-                      为避免覆盖，当前保存已暂停。载入最新版本会替换本页尚未保存的修改。
-                    </p>
-                  </div>
-                </div>
+          </div>
+
+          {surface === "dialog" ? (
+            <div
+              data-order-detail-view-switcher="true"
+              className="relative z-10 mx-auto mb-2 flex w-fit max-w-full min-w-0 items-center gap-2"
+            >
+              <OrderDetailTabs
+                tabs={isEditing ? desktopDetailTabs.slice(0, 1) : desktopDetailTabs}
+                activeTab={safeDesktopDetailView}
+                onChange={changeDesktopDetailView}
+                ariaLabel="工单详情内容"
+                idPrefix="order-detail-workspace"
+                className="!m-0 min-w-0"
+              />
+              {canOpenDiagnosisQuote ? (
                 <Button
                   type="button"
                   size="sm"
-                  variant="outline"
-                  className="h-8 shrink-0 border-status-warn-foreground/30 bg-background px-2.5 text-xs text-status-warn-foreground hover:bg-status-warn/15"
-                  onClick={() => void loadLatestEditVersion()}
-                >
-                  <RefreshCw className="mr-1 size-3.5" aria-hidden="true" />
-                  载入最新版本
-                </Button>
-              </section>
-            ) : null}
-            {surface !== "dialog" && canOpenDiagnosisQuote ? (
-              <section className="flex min-w-0 items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-primary/20 bg-primary/5 px-3 py-2">
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold">检测与正式报价工作区</div>
-                  <div className="truncate text-[11px] text-muted-foreground">
-                    {latestPublishedQuoteId
-                      ? "已有正式报价；修改后会生成新的报价版本并重置旧审批"
-                      : "补充检测结论、维修项目和价格，然后发布正式报价"}
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-8 shrink-0 text-xs"
+                  className="h-8 shrink-0 px-2.5 text-xs"
                   onClick={() => setDiagnosisQuoteOpen(true)}
                 >
-                  {data.capabilities?.canPrepareQuote ? "打开检测报价" : "记录检测结论"}
+                  {data.capabilities?.canPrepareQuote ? "检测报价" : "记录检测"}
                 </Button>
-              </section>
-            ) : null}
-            {surface !== "dialog" || safeDesktopDetailView === "overview" ? (
-              <section
-                id={surface === "dialog" ? "order-detail-workspace-panel-overview" : undefined}
-                role={surface === "dialog" ? "tabpanel" : undefined}
-                aria-labelledby={
-                  surface === "dialog" ? "order-detail-workspace-tab-overview" : undefined
-                }
-                className={cn("min-w-0", detailWorkspace.orderDetailContent)}
-              >
-                <OrderOverviewTab
-                  order={order}
-                  customer={customer}
-                  deviceBrand={deviceBrand}
-                  deviceModel={deviceModel}
-                  deviceImei={deviceImei}
-                  deviceNotes={deviceNotes}
-                  accessoryNotes={accessoryNotes}
-                  isEditing={isEditing}
-                  editDraft={editDraft}
-                  onEditDraftChange={(next) => setEditDraft(next)}
-                  financeDraft={financeDraft}
-                  financeError={editFinance?.error}
-                  onFinanceDraftChange={setFinanceDraft}
-                  canEditIntake={Boolean(data.capabilities?.canEditIntake)}
-                  canEditRepair={Boolean(data.capabilities?.canEditRepair)}
-                  canAdjustFinance={Boolean(data.capabilities?.canAdjustFinance)}
-                  activeStoreId={activeStoreId}
-                  canReadInternalCosts={Boolean(data.capabilities?.canReadInternalCosts)}
-                  canManageInternalCosts={Boolean(data.capabilities?.canManageInternalCosts)}
-                  canAllocatePartsCosts={Boolean(data.capabilities?.canAllocatePartsCosts)}
-                  onRepairQuoteLines={
-                    data.capabilities?.canAdjustFinance && !isVoided && !isTerminalOrder
-                      ? startEditing
-                      : undefined
-                  }
-                  defaultWarrantyMonths={defaultWarrantyMonths}
-                  onQuickImeiSave={
-                    data.capabilities?.canEditIntake
-                      ? async (imei) => {
-                          await quickImeiUpdate.mutateAsync(imei);
-                        }
-                      : undefined
-                  }
-                  quickImeiPending={quickImeiUpdate.isPending}
-                  surface={surface}
-                  storeSettings={storeSettings}
-                  supplier={supplier}
-                  events={events}
-                  messages={messages}
-                  workflow={workflow}
-                  onShowRecords={showDesktopRecords}
-                  photoAttachments={photoAttachments}
-                  signatureAttachments={signatureAttachments}
-                  photoUploadPending={attachmentUpload.isPending}
-                  onPhotoCapture={isVoided ? undefined : () => setDesktopPhotoCaptureOpen(true)}
-                  onRequestKioskSignature={
-                    canCreateKioskSession ? () => kioskSignatureRequest.mutate() : undefined
-                  }
-                  kioskSignaturePending={kioskSignatureRequest.isPending}
-                  kioskSignatureAvailable={
-                    canCreateKioskSession &&
-                    Boolean(activeKioskDevice) &&
-                    custodyStatus === DEVICE_CUSTODY_WITH_SHOP
-                  }
-                  custodyControl={renderDesktopCustodyControl()}
-                />
-              </section>
-            ) : null}
-            {surface === "dialog" ? (
-              <>
-                {safeDesktopDetailView === "records" ? (
-                  <section
-                    id="order-detail-workspace-panel-records"
-                    role="tabpanel"
-                    aria-labelledby="order-detail-workspace-tab-records"
-                    className={cn("min-w-0", detailWorkspace.orderDetailReadable)}
-                  >
-                    <OrderRecordsWorkspace
-                      order={order}
-                      supplier={supplier}
-                      partsSupplier={partsSupplier}
-                      supplierOptions={supplierOptions}
-                      partsSupplierPending={partsSupplierUpdate.isPending}
-                      onPartsSupplierChange={
-                        supplierPermissions.canAssignSuppliers && data.capabilities?.canEditRepair
-                          ? (supplierId) => partsSupplierUpdate.mutate(supplierId)
-                          : undefined
-                      }
-                      assigneeOptions={assigneeOptions}
-                      assigneePending={assigneeUpdate.isPending}
-                      onAssigneeChange={
-                        canAssignOrders && data.capabilities?.canEditIntake
-                          ? (membershipId) => assigneeUpdate.mutate(membershipId)
-                          : undefined
-                      }
-                      messages={messages}
-                      events={events}
-                      workflow={workflow}
-                      surface={surface}
-                      tabs={desktopRecordsTabs}
-                      activeView={desktopRecordsView}
-                      onViewChange={setDesktopRecordsView}
-                    />
-                  </section>
-                ) : null}
-                {safeDesktopDetailView === "photos" ? (
-                  <section
-                    id="order-detail-workspace-panel-photos"
-                    role="tabpanel"
-                    aria-labelledby="order-detail-workspace-tab-photos"
-                    className={cn("min-w-0", detailWorkspace.orderDetailReadable)}
-                  >
-                    <DesktopOrderPhotosPanel
-                      attachments={photoAttachments}
-                      uploadPending={attachmentUpload.isPending}
-                      onCapture={isVoided ? undefined : () => setDesktopPhotoCaptureOpen(true)}
-                      surface={surface}
-                    />
-                  </section>
-                ) : null}
-                {canReadInternalCosts &&
-                (desktopCostsVisited || safeDesktopDetailView === "costs") ? (
-                  <section
-                    id="order-detail-workspace-panel-costs"
-                    role="tabpanel"
-                    aria-labelledby="order-detail-workspace-tab-costs"
-                    hidden={safeDesktopDetailView !== "costs"}
-                    className={cn("min-w-0", detailWorkspace.orderDetailReadable)}
-                  >
-                    <OrderInternalCostCard
-                      orderId={order.id}
-                      storeId={activeStoreId}
-                      faultPrices={order.fault_prices}
-                      canManage={Boolean(data.capabilities?.canManageInternalCosts)}
-                      canAllocatePartsCosts={Boolean(data.capabilities?.canAllocatePartsCosts)}
-                      onRepairQuoteLines={
-                        data.capabilities?.canAdjustFinance && !isVoided && !isTerminalOrder
-                          ? startEditing
-                          : undefined
-                      }
-                    />
-                  </section>
-                ) : null}
-              </>
-            ) : (
-              <div className={cn("scroll-mt-24", detailWorkspace.orderDetailReadable)}>
-                <OrderRecordsWorkspace
-                  order={order}
-                  supplier={supplier}
-                  partsSupplier={partsSupplier}
-                  supplierOptions={supplierOptions}
-                  partsSupplierPending={partsSupplierUpdate.isPending}
-                  onPartsSupplierChange={
-                    supplierPermissions.canAssignSuppliers && data.capabilities?.canEditRepair
-                      ? (supplierId) => partsSupplierUpdate.mutate(supplierId)
-                      : undefined
-                  }
-                  assigneeOptions={assigneeOptions}
-                  assigneePending={assigneeUpdate.isPending}
-                  onAssigneeChange={
-                    canAssignOrders && data.capabilities?.canEditIntake
-                      ? (membershipId) => assigneeUpdate.mutate(membershipId)
-                      : undefined
-                  }
-                  messages={messages}
-                  events={events}
-                  workflow={workflow}
-                  surface={surface}
-                />
-              </div>
-            )}
-          </motion.div>
-        </div>
+              ) : null}
+            </div>
+          ) : null}
 
-        <AnimatePresence initial={false}>
-          {desktopTransitionOpen ? (
+          <div className={cn("min-w-0", surface === "dialog" && "min-h-0 flex-1 overflow-y-auto")}>
             <motion.div
-              key="desktop-transition-panel"
-              data-order-desktop-transition-panel="true"
-              variants={fadeUp}
+              data-order-desktop-single-workspace="true"
+              variants={stagger(0.05)}
               initial="hidden"
               animate="show"
-              exit={{ opacity: 0, y: 4 }}
-              className="mt-2 min-w-0"
+              className={cn("min-w-0 space-y-2 sm:space-y-3", surface === "dialog" && "min-h-full")}
             >
-              <DesktopStatusTransitionPanel
-                order={order}
-                statusLabel={getWorkflowStatusLabel(workflow, order.status)}
-                currentStage={desktopCurrentStage}
-                actions={desktopStatusActions}
-                pending={transition.isPending}
-                onOpenChange={setDesktopTransitionOpen}
-                onTransition={(to, reason) => transition.mutate({ to, reason })}
+              <OrderEditOfflineDraftNotice
+                state={editOfflineState}
+                errorMessage={editOfflineErrorMessage}
+                lastSavedAt={editOfflineLastSavedAt}
+                prompt={editOfflineDraftPrompt}
+                pendingRestoreNotice={editOfflineRestoreNotice}
+                hasSensitiveUnlockDraft={editOfflineHasSensitiveUnlockDraft}
+                isEditing={isEditing}
+                onRestore={() => void restoreEditOfflineDraft()}
+                onDiscard={() => void discardEditOfflinePrompt()}
               />
+              {remoteEditConflict ? (
+                <section
+                  role="alert"
+                  data-order-edit-remote-conflict="true"
+                  className="flex min-w-0 flex-col gap-2 rounded-[var(--radius-lg)] border border-status-warn-foreground/30 bg-status-warn/20 px-3 py-2.5 text-status-warn-foreground sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex min-w-0 items-start gap-2">
+                    <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold">另一台设备已更新这张工单</div>
+                      <p className="mt-0.5 text-[11px] leading-4 opacity-80">
+                        为避免覆盖，当前保存已暂停。载入最新版本会替换本页尚未保存的修改。
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 shrink-0 border-status-warn-foreground/30 bg-background px-2.5 text-xs text-status-warn-foreground hover:bg-status-warn/15"
+                    onClick={() => void loadLatestEditVersion()}
+                  >
+                    <RefreshCw className="mr-1 size-3.5" aria-hidden="true" />
+                    载入最新版本
+                  </Button>
+                </section>
+              ) : null}
+              {surface !== "dialog" && canOpenDiagnosisQuote ? (
+                <section className="flex min-w-0 items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-primary/20 bg-primary/5 px-3 py-2">
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold">检测与正式报价工作区</div>
+                    <div className="truncate text-[11px] text-muted-foreground">
+                      {latestPublishedQuoteId
+                        ? "已有正式报价；修改后会生成新的报价版本并重置旧审批"
+                        : "补充检测结论、维修项目和价格，然后发布正式报价"}
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-8 shrink-0 text-xs"
+                    onClick={() => setDiagnosisQuoteOpen(true)}
+                  >
+                    {data.capabilities?.canPrepareQuote ? "打开检测报价" : "记录检测结论"}
+                  </Button>
+                </section>
+              ) : null}
+              {surface !== "dialog" || safeDesktopDetailView === "overview" ? (
+                <section
+                  id={surface === "dialog" ? "order-detail-workspace-panel-overview" : undefined}
+                  role={surface === "dialog" ? "tabpanel" : undefined}
+                  aria-labelledby={
+                    surface === "dialog" ? "order-detail-workspace-tab-overview" : undefined
+                  }
+                  className={cn("min-w-0", detailWorkspace.orderDetailContent)}
+                >
+                  <OrderOverviewTab
+                    order={order}
+                    customer={customer}
+                    deviceBrand={deviceBrand}
+                    deviceModel={deviceModel}
+                    deviceImei={deviceImei}
+                    deviceNotes={deviceNotes}
+                    accessoryNotes={accessoryNotes}
+                    isEditing={isEditing}
+                    editDraft={editDraft}
+                    onEditDraftChange={(next) => setEditDraft(next)}
+                    financeDraft={financeDraft}
+                    financeError={editFinance?.error}
+                    onFinanceDraftChange={setFinanceDraft}
+                    canEditIntake={Boolean(data.capabilities?.canEditIntake)}
+                    canEditRepair={Boolean(data.capabilities?.canEditRepair)}
+                    canAdjustFinance={Boolean(data.capabilities?.canAdjustFinance)}
+                    activeStoreId={activeStoreId}
+                    canReadInternalCosts={Boolean(data.capabilities?.canReadInternalCosts)}
+                    canManageInternalCosts={Boolean(data.capabilities?.canManageInternalCosts)}
+                    canAllocatePartsCosts={Boolean(data.capabilities?.canAllocatePartsCosts)}
+                    onRepairQuoteLines={
+                      data.capabilities?.canAdjustFinance && !isVoided && !isTerminalOrder
+                        ? startEditing
+                        : undefined
+                    }
+                    defaultWarrantyMonths={defaultWarrantyMonths}
+                    onQuickImeiSave={
+                      data.capabilities?.canEditIntake
+                        ? async (imei) => {
+                            await quickImeiUpdate.mutateAsync(imei);
+                          }
+                        : undefined
+                    }
+                    quickImeiPending={quickImeiUpdate.isPending}
+                    surface={surface}
+                    storeSettings={storeSettings}
+                    supplier={supplier}
+                    events={events}
+                    messages={messages}
+                    workflow={workflow}
+                    onShowRecords={showDesktopRecords}
+                    photoAttachments={photoAttachments}
+                    signatureAttachments={signatureAttachments}
+                    photoUploadPending={attachmentUpload.isPending}
+                    onPhotoCapture={isVoided ? undefined : () => setDesktopPhotoCaptureOpen(true)}
+                    onRequestKioskSignature={
+                      canCreateKioskSession ? () => kioskSignatureRequest.mutate() : undefined
+                    }
+                    kioskSignaturePending={kioskSignatureRequest.isPending}
+                    kioskSignatureAvailable={
+                      canCreateKioskSession &&
+                      Boolean(activeKioskDevice) &&
+                      custodyStatus === DEVICE_CUSTODY_WITH_SHOP
+                    }
+                    custodyControl={renderDesktopCustodyControl()}
+                  />
+                </section>
+              ) : null}
+              {surface === "dialog" ? (
+                <>
+                  {safeDesktopDetailView === "records" ? (
+                    <section
+                      id="order-detail-workspace-panel-records"
+                      role="tabpanel"
+                      aria-labelledby="order-detail-workspace-tab-records"
+                      className={cn("min-w-0", detailWorkspace.orderDetailReadable)}
+                    >
+                      <OrderRecordsWorkspace
+                        order={order}
+                        supplier={supplier}
+                        partsSupplier={partsSupplier}
+                        supplierOptions={supplierOptions}
+                        partsSupplierPending={partsSupplierUpdate.isPending}
+                        onPartsSupplierChange={
+                          supplierPermissions.canAssignSuppliers && data.capabilities?.canEditRepair
+                            ? (supplierId) => partsSupplierUpdate.mutate(supplierId)
+                            : undefined
+                        }
+                        assigneeOptions={assigneeOptions}
+                        assigneePending={assigneeUpdate.isPending}
+                        onAssigneeChange={
+                          canAssignOrders && data.capabilities?.canEditIntake
+                            ? (membershipId) => assigneeUpdate.mutate(membershipId)
+                            : undefined
+                        }
+                        messages={messages}
+                        events={events}
+                        workflow={workflow}
+                        surface={surface}
+                        tabs={desktopRecordsTabs}
+                        activeView={desktopRecordsView}
+                        onViewChange={setDesktopRecordsView}
+                      />
+                    </section>
+                  ) : null}
+                  {safeDesktopDetailView === "photos" ? (
+                    <section
+                      id="order-detail-workspace-panel-photos"
+                      role="tabpanel"
+                      aria-labelledby="order-detail-workspace-tab-photos"
+                      className={cn("min-w-0", detailWorkspace.orderDetailReadable)}
+                    >
+                      <DesktopOrderPhotosPanel
+                        attachments={photoAttachments}
+                        uploadPending={attachmentUpload.isPending}
+                        onCapture={isVoided ? undefined : () => setDesktopPhotoCaptureOpen(true)}
+                        surface={surface}
+                      />
+                    </section>
+                  ) : null}
+                  {canReadInternalCosts &&
+                  (desktopCostsVisited || safeDesktopDetailView === "costs") ? (
+                    <section
+                      id="order-detail-workspace-panel-costs"
+                      role="tabpanel"
+                      aria-labelledby="order-detail-workspace-tab-costs"
+                      hidden={safeDesktopDetailView !== "costs"}
+                      className={cn("min-w-0", detailWorkspace.orderDetailReadable)}
+                    >
+                      <OrderInternalCostCard
+                        orderId={order.id}
+                        storeId={activeStoreId}
+                        faultPrices={order.fault_prices}
+                        canManage={Boolean(data.capabilities?.canManageInternalCosts)}
+                        canAllocatePartsCosts={Boolean(data.capabilities?.canAllocatePartsCosts)}
+                        onRepairQuoteLines={
+                          data.capabilities?.canAdjustFinance && !isVoided && !isTerminalOrder
+                            ? startEditing
+                            : undefined
+                        }
+                      />
+                    </section>
+                  ) : null}
+                </>
+              ) : (
+                <div className={cn("scroll-mt-24", detailWorkspace.orderDetailReadable)}>
+                  <OrderRecordsWorkspace
+                    order={order}
+                    supplier={supplier}
+                    partsSupplier={partsSupplier}
+                    supplierOptions={supplierOptions}
+                    partsSupplierPending={partsSupplierUpdate.isPending}
+                    onPartsSupplierChange={
+                      supplierPermissions.canAssignSuppliers && data.capabilities?.canEditRepair
+                        ? (supplierId) => partsSupplierUpdate.mutate(supplierId)
+                        : undefined
+                    }
+                    assigneeOptions={assigneeOptions}
+                    assigneePending={assigneeUpdate.isPending}
+                    onAssigneeChange={
+                      canAssignOrders && data.capabilities?.canEditIntake
+                        ? (membershipId) => assigneeUpdate.mutate(membershipId)
+                        : undefined
+                    }
+                    messages={messages}
+                    events={events}
+                    workflow={workflow}
+                    surface={surface}
+                  />
+                </div>
+              )}
             </motion.div>
-          ) : null}
-        </AnimatePresence>
+          </div>
 
-        {!isVoided ? (
-          <OrderDetailActionDock
-            order={order}
-            isEditing={isEditing}
-            financeDraft={financeDraft}
-            onApprovalDecision={() => setApprovalDecisionOpen(true)}
-            approvalDecisionAvailable={canDecideApproval}
-            onFlow={() => setDesktopTransitionOpen((open) => !open)}
-            flowDisabled={transition.isPending || desktopStatusActions.length === 0}
-            onPay={() => setPayOpen(true)}
-            paymentDisabled={!canCollectPayment}
-            onNotify={() => setNotifyOpen(true)}
-            notifyDisabled={!canNotify}
-            primaryAction={desktopPrimaryAction}
-            surface={surface}
-          />
-        ) : null}
-      </div>
+          <AnimatePresence initial={false}>
+            {desktopTransitionOpen ? (
+              <motion.div
+                key="desktop-transition-panel"
+                data-order-desktop-transition-panel="true"
+                variants={fadeUp}
+                initial="hidden"
+                animate="show"
+                exit={{ opacity: 0, y: 4 }}
+                className="mt-2 min-w-0"
+              >
+                <DesktopStatusTransitionPanel
+                  order={order}
+                  statusLabel={getWorkflowStatusLabel(workflow, order.status)}
+                  currentStage={desktopCurrentStage}
+                  actions={desktopStatusActions}
+                  pending={transition.isPending}
+                  onOpenChange={setDesktopTransitionOpen}
+                  onTransition={(to, reason) => transition.mutate({ to, reason })}
+                />
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+
+          {!isVoided ? (
+            <OrderDetailActionDock
+              order={order}
+              isEditing={isEditing}
+              financeDraft={financeDraft}
+              onApprovalDecision={() => setApprovalDecisionOpen(true)}
+              approvalDecisionAvailable={canDecideApproval}
+              onFlow={() => setDesktopTransitionOpen((open) => !open)}
+              flowDisabled={transition.isPending || desktopStatusActions.length === 0}
+              onPay={() => setPayOpen(true)}
+              paymentDisabled={!canCollectPayment}
+              onNotify={() => setNotifyOpen(true)}
+              notifyDisabled={!canNotify}
+              primaryAction={desktopPrimaryAction}
+              surface={surface}
+            />
+          ) : null}
+        </div>
+      )}
 
       {canNotify ? (
         <NotifyDialog
@@ -3890,7 +3947,10 @@ function MobileOrderDetailView({
       />
 
       {!isVoided && mobileDockActions.length ? (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-panel)] bg-background/95 px-2.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1.5 shadow-[0_-10px_30px_color-mix(in_oklch,var(--foreground)_10%,transparent)] backdrop-blur-xl lg:hidden">
+        <div
+          data-mobile-order-action-dock="true"
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-panel)] bg-background/95 px-2.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1.5 shadow-[0_-10px_30px_color-mix(in_oklch,var(--foreground)_10%,transparent)] backdrop-blur-xl lg:!block"
+        >
           <div className="mx-auto flex max-w-3xl gap-2">
             {mobileDockActions.map((action) =>
               renderMobileDockAction(action, action === mobilePrimaryAction),
@@ -5082,7 +5142,7 @@ function MobileStickyWorkflowHeader({
     <div
       ref={shellRef}
       data-mobile-order-header="true"
-      className={repairOs.mobileFloatingHeaderShell}
+      className={cn(repairOs.mobileFloatingHeaderShell, "lg:!block")}
     >
       <section className={repairOs.mobileFloatingHeaderCard}>
         <header className={repairOs.mobileFloatingHeaderNav}>

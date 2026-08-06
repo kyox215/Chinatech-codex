@@ -39,6 +39,7 @@ import type {
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { MoneyText, RepairOsBadge, RepairOsListScaffold } from "@/shared/ui";
+import { useViewportMode } from "@/hooks/use-mobile";
 
 import { inventoryProductsQueryOptions } from "../api/query-options";
 
@@ -68,6 +69,7 @@ const statusStyles: Record<InventoryProductDisplayStatus, string> = {
 
 export function InventoryProductListScreen() {
   const shell = useStoreShellContext();
+  const viewportMode = useViewportMode();
   const storeId = shell.activeStore?.id;
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
@@ -225,7 +227,9 @@ export function InventoryProductListScreen() {
           action={createAction}
         />
       ) : null}
-      {query.data?.items.length ? <InventoryProductResults items={query.data.items} /> : null}
+      {query.data?.items.length ? (
+        <InventoryProductResults items={query.data.items} viewportMode={viewportMode} />
+      ) : null}
 
       <InventoryProductFilterSheet
         open={filterOpen}
@@ -243,58 +247,78 @@ export function InventoryProductListScreen() {
   );
 }
 
-function InventoryProductResults({ items }: { items: InventoryProductListItem[] }) {
+function InventoryProductResults({
+  items,
+  viewportMode,
+}: {
+  items: InventoryProductListItem[];
+  viewportMode: ReturnType<typeof useViewportMode>;
+}) {
   return (
     <>
-      <div className={cn(repairOs.listCardStack, "md:grid-cols-2 lg:hidden")}>
-        {items.map((item) => (
-          <InventoryProductCard key={item.id} item={item} />
-        ))}
-      </div>
-      <div className="hidden rounded-2xl border border-border bg-card p-2 shadow-sm lg:block">
-        <div className="grid grid-cols-[110px_minmax(0,1.5fr)_minmax(0,1fr)_120px_88px_36px] items-center gap-3 px-3 py-2 text-xs font-medium text-muted-foreground">
-          <span>SKU / 状态</span>
-          <span>商品</span>
-          <span>规格 / 位置</span>
-          <span>标识</span>
-          <span className="text-right">售价</span>
-          <span />
-        </div>
-        <div className="divide-y divide-border">
+      {viewportMode === "compact" ? (
+        <div
+          data-inventory-product-mobile-list="true"
+          className={cn(repairOs.listCardStack, "md:grid-cols-2")}
+        >
           {items.map((item) => (
-            <Link
-              key={item.id}
-              href={`/inventory/${item.id}`}
-              className="grid min-h-[52px] grid-cols-[110px_minmax(0,1.5fr)_minmax(0,1fr)_120px_88px_36px] items-center gap-3 rounded-xl px-3 py-1.5 text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <span className="min-w-0">
-                <span className="block truncate font-mono text-xs text-primary">{item.sku}</span>
-                <span className="text-xs text-muted-foreground">{statusLabels[item.status]}</span>
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate font-semibold">
-                  {item.brand} {item.model}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {categoryMeta[item.category].label}
-                </span>
-              </span>
-              <span className="min-w-0 truncate text-muted-foreground">
-                {[item.specification, item.location].filter(Boolean).join(" · ") || "—"}
-              </span>
-              <span className="truncate font-mono text-xs text-muted-foreground">
-                {item.masked_identifier ?? "—"}
-              </span>
-              <span className="text-right font-semibold">
-                {item.list_price === undefined ? "未填写" : <MoneyText amount={item.list_price} />}
-              </span>
-              <span className="grid size-9 place-items-center text-primary" aria-hidden>
-                ›
-              </span>
-            </Link>
+            <InventoryProductCard key={item.id} item={item} />
           ))}
         </div>
-      </div>
+      ) : null}
+      {viewportMode === "desktop" ? (
+        <div
+          data-inventory-product-desktop-list="true"
+          className="rounded-2xl border border-border bg-card p-2 shadow-sm"
+        >
+          <div className="grid grid-cols-[110px_minmax(0,1.5fr)_minmax(0,1fr)_120px_88px_36px] items-center gap-3 px-3 py-2 text-xs font-medium text-muted-foreground">
+            <span>SKU / 状态</span>
+            <span>商品</span>
+            <span>规格 / 位置</span>
+            <span>标识</span>
+            <span className="text-right">售价</span>
+            <span />
+          </div>
+          <div className="divide-y divide-border">
+            {items.map((item) => (
+              <Link
+                key={item.id}
+                href={`/inventory/${item.id}`}
+                className="grid min-h-[52px] grid-cols-[110px_minmax(0,1.5fr)_minmax(0,1fr)_120px_88px_36px] items-center gap-3 rounded-xl px-3 py-1.5 text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-mono text-xs text-primary">{item.sku}</span>
+                  <span className="text-xs text-muted-foreground">{statusLabels[item.status]}</span>
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold">
+                    {item.brand} {item.model}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {categoryMeta[item.category].label}
+                  </span>
+                </span>
+                <span className="min-w-0 truncate text-muted-foreground">
+                  {[item.specification, item.location].filter(Boolean).join(" · ") || "—"}
+                </span>
+                <span className="truncate font-mono text-xs text-muted-foreground">
+                  {item.masked_identifier ?? "—"}
+                </span>
+                <span className="text-right font-semibold">
+                  {item.list_price === undefined ? (
+                    "未填写"
+                  ) : (
+                    <MoneyText amount={item.list_price} />
+                  )}
+                </span>
+                <span className="grid size-9 place-items-center text-primary" aria-hidden>
+                  ›
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -463,11 +487,50 @@ function FilterGroup({
 }
 
 function InventoryProductListSkeleton() {
+  const viewportMode = useViewportMode();
+
+  if (viewportMode === "pending") {
+    return (
+      <div data-ui="inventory-product-list-skeleton" data-ui-viewport="pending" aria-busy="true">
+        <div className="space-y-2" aria-hidden="true">
+          {Array.from({ length: 4 }, (_, index) => (
+            <Skeleton key={index} className="h-[84px] rounded-2xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={cn(repairOs.listCardStack, "md:grid-cols-2 lg:grid-cols-3")} aria-busy="true">
-      {Array.from({ length: 6 }, (_, index) => (
-        <Skeleton key={index} className="h-[84px] rounded-2xl" />
-      ))}
+    <div data-ui="inventory-product-list-skeleton" aria-busy="true">
+      {viewportMode === "compact" ? (
+        <div className={cn(repairOs.listCardStack, "md:grid-cols-2")}>
+          {Array.from({ length: 6 }, (_, index) => (
+            <Skeleton key={index} className="h-[84px] rounded-2xl" />
+          ))}
+        </div>
+      ) : (
+        <div
+          className="space-y-1.5 rounded-2xl border border-border bg-card p-2"
+          aria-hidden="true"
+        >
+          <div className="grid grid-cols-[110px_minmax(0,1.5fr)_minmax(0,1fr)_120px_88px_36px] gap-3 px-3 py-2">
+            {Array.from({ length: 6 }, (_, index) => (
+              <Skeleton key={index} className="h-3" />
+            ))}
+          </div>
+          {Array.from({ length: 6 }, (_, row) => (
+            <div
+              key={row}
+              className="grid min-h-[52px] grid-cols-[110px_minmax(0,1.5fr)_minmax(0,1fr)_120px_88px_36px] items-center gap-3 px-3 py-1.5"
+            >
+              {Array.from({ length: 6 }, (_, cell) => (
+                <Skeleton key={cell} className={cn("h-3", cell < 2 ? "w-3/4" : "w-2/3")} />
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

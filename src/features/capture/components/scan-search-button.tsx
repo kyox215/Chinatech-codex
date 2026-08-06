@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ScanLine } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { LazyModalErrorBoundary, LazyModalShell } from "@/components/lazy-modal-shell";
 import { parseCustomerStatusLink } from "@/entities/customer-status/model/customer-status-link";
-import { BarcodeScannerSheet } from "@/features/capture/components/barcode-scanner-sheet";
 import type { CapturePayload } from "@/features/capture/model/barcode-parser";
 import {
   getScanSearchScopeLabel,
@@ -39,6 +39,15 @@ interface ScanSearchButtonProps {
   disabled?: boolean;
 }
 
+function createLazyBarcodeScannerSheet(attempt: number) {
+  return lazy(() => {
+    void attempt;
+    return import("@/features/capture/components/barcode-scanner-sheet").then((module) => ({
+      default: module.BarcodeScannerSheet,
+    }));
+  });
+}
+
 export function ScanSearchButton({
   scope,
   onSearch,
@@ -51,23 +60,42 @@ export function ScanSearchButton({
   disabled = false,
 }: ScanSearchButtonProps) {
   const [open, setOpen] = useState(false);
+  const [activated, setActivated] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const resolvedLabel = label ?? "扫码";
+  const restoreTriggerFocus = () => {
+    window.requestAnimationFrame(() => triggerRef.current?.focus());
+  };
 
   return (
     <>
       <Button
+        ref={triggerRef}
         type="button"
         variant={variant}
         size={size}
         disabled={disabled}
         className={className}
         aria-label={`${getScanSearchScopeLabel(scope)}扫码查询`}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setActivated(true);
+          setOpen(true);
+        }}
       >
         <ScanLine className={cn("size-4", iconClassName)} />
         {showLabel ? <span>{resolvedLabel}</span> : null}
       </Button>
-      <ScanSearchSheet open={open} onOpenChange={setOpen} scope={scope} onSearch={onSearch} />
+      {activated ? (
+        <ScanSearchSheet
+          open={open}
+          onOpenChange={(nextOpen) => {
+            setOpen(nextOpen);
+            if (!nextOpen) restoreTriggerFocus();
+          }}
+          scope={scope}
+          onSearch={onSearch}
+        />
+      ) : null}
     </>
   );
 }
@@ -81,6 +109,16 @@ export function ScanSearchSheet({
 }: ScanSearchSheetProps) {
   const router = useRouter();
   const { runGuardedTransition } = useNavigationGuard();
+  const [scannerActivated, setScannerActivated] = useState(open);
+  const [loaderVersion, setLoaderVersion] = useState(0);
+  const LazyBarcodeScannerSheet = useMemo(
+    () => createLazyBarcodeScannerSheet(loaderVersion),
+    [loaderVersion],
+  );
+
+  useEffect(() => {
+    if (open) setScannerActivated(true);
+  }, [open]);
 
   const executeAction = (
     action: ScanSearchAction,
@@ -142,13 +180,37 @@ export function ScanSearchSheet({
     );
   };
 
-  return (
-    <BarcodeScannerSheet
+  const closeBeforeLoad = () => {
+    setScannerActivated(false);
+    onOpenChange(false);
+  };
+
+  return scannerActivated ? (
+    <LazyModalErrorBoundary
+      key={loaderVersion}
       open={open}
-      onOpenChange={onOpenChange}
       title={`${getScanSearchScopeLabel(scope)}扫码查询`}
-      description="扫描工单二维码、库存标签、客户标签、IMEI 条码或手动输入内容。"
-      renderActions={renderActions}
-    />
-  );
+      onCancel={closeBeforeLoad}
+      onRetry={() => setLoaderVersion((current) => current + 1)}
+    >
+      <Suspense
+        fallback={
+          <LazyModalShell
+            title={`${getScanSearchScopeLabel(scope)}扫码查询`}
+            description="扫码工具正在加载，可以取消并返回当前页面。"
+            onCancel={closeBeforeLoad}
+            dataAttribute="scan-search-lazy-fallback"
+          />
+        }
+      >
+        <LazyBarcodeScannerSheet
+          open={open}
+          onOpenChange={onOpenChange}
+          title={`${getScanSearchScopeLabel(scope)}扫码查询`}
+          description="扫描工单二维码、库存标签、客户标签、IMEI 条码或手动输入内容。"
+          renderActions={renderActions}
+        />
+      </Suspense>
+    </LazyModalErrorBoundary>
+  ) : null;
 }

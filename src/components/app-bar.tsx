@@ -26,13 +26,32 @@ function useCrumbs() {
   }));
 }
 
-function usesRepairOsMobileHeader(pathname: string) {
-  return (
-    pathname === "/" ||
-    /^\/(?:orders|customers|memos|buyback|inventory|finance|messages|platform|settings)(?:\/|$)/.test(
-      pathname,
-    )
-  );
+const repairOsMobileHeaderRoutes = new Set([
+  "/",
+  "/orders",
+  "/orders/new",
+  "/customers",
+  "/memos",
+  "/buyback",
+  "/inventory",
+  "/finance",
+  "/messages",
+  "/platform",
+  "/settings",
+  "/settings/closed-stores",
+]);
+
+const repairOsMobileHeaderPrefixes =
+  /^\/(?:orders|customers|memos|buyback|inventory|finance|messages|platform|settings)(?:\/|$)/;
+
+export function usesRepairOsMobileHeader(pathname: string) {
+  return repairOsMobileHeaderRoutes.has(pathname);
+}
+
+export function getAppBarVisibilityClass(pathname: string) {
+  if (usesRepairOsMobileHeader(pathname)) return "max-lg:hidden";
+  if (repairOsMobileHeaderPrefixes.test(pathname)) return "max-md:hidden";
+  return "";
 }
 
 export function AppBar({
@@ -50,7 +69,7 @@ export function AppBar({
   const shell = useStoreShellContext();
   const aiAssistant = useAiAssistantWorkspace();
   const activeModule = getActiveWorkspaceItem(pathname, shell.isPlatformAdmin);
-  const hideOnMobile = usesRepairOsMobileHeader(pathname);
+  const appBarVisibilityClass = getAppBarVisibilityClass(pathname);
   const mobileContextTitle =
     routeLabels[pathname.split("/").filter(Boolean)[0] ?? ""] ?? activeModule.title;
   const activeStoreName = shell.activeStore?.name ?? (shell.isLoading ? "读取店铺…" : "未选择店铺");
@@ -60,7 +79,7 @@ export function AppBar({
       data-app-bar="true"
       className={cn(
         appShell.topBar,
-        hideOnMobile && "max-md:hidden",
+        appBarVisibilityClass,
         scrolled ? "shadow-[var(--shadow-card)]" : "shadow-none",
       )}
     >
