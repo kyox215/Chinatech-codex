@@ -21,6 +21,7 @@ import {
 
 import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
 import { buildNewOrderWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
+import { isRepairDeskToolkitEnabled } from "@/features/toolkit/model/toolkit-feature";
 
 export type RepairDeskModuleId =
   | "dashboard"
@@ -286,6 +287,7 @@ export function canShowWorkspaceNavItem(
   item: RepairDeskNavItem,
   permissions?: RepairDeskNavigationPermissions,
 ) {
+  if (item.id === "toolkit") return isRepairDeskToolkitEnabled();
   if (["inventory", "buyback"].includes(item.id)) {
     return permissions?.canReadInventory === true;
   }

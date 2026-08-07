@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   canShowWorkspaceNavItem,
@@ -9,11 +9,26 @@ import {
 } from "./navigation";
 
 describe("workspace navigation", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
   it("exposes the authenticated toolkit in navigation and route labels", () => {
+    vi.stubEnv("NEXT_PUBLIC_REPAIRDESK_TOOLKIT_ENABLED", "1");
     const toolkit = getWorkspaceNavItems(false).find((item) => item.id === "toolkit");
     expect(toolkit).toMatchObject({ title: "工具集", url: "/toolkit" });
-    expect(getSidebarNavItems(false).map((item) => item.id)).toContain("toolkit");
+    expect(
+      getSidebarNavItems(false)
+        .filter((item) => canShowWorkspaceNavItem(item))
+        .map((item) => item.id),
+    ).toContain("toolkit");
     expect(routeLabels.toolkit).toBe("工具集");
+  });
+
+  it("keeps toolkit hidden until the production dependency gate is enabled", () => {
+    const toolkit = getWorkspaceNavItems(false).find((item) => item.id === "toolkit")!;
+
+    expect(canShowWorkspaceNavItem(toolkit)).toBe(false);
+    vi.stubEnv("NEXT_PUBLIC_REPAIRDESK_TOOLKIT_ENABLED", "1");
+    expect(canShowWorkspaceNavItem(toolkit)).toBe(true);
   });
 
   it("uses one user-facing name for repair orders", () => {

@@ -28,4 +28,6 @@
 
 ## 数据库与发布
 
-`supabase/migrations/20260806222149_authenticated_toolkit_library.sql` 仅为向前兼容新增迁移，启用 RLS 并只授予 `service_role`，创建私有 `repairdesk-toolkit-files` bucket（200 MiB 上限）。本任务不应用生产迁移、不创建生产对象、不上传真实文件、不部署。
+`supabase/migrations/20260806222149_authenticated_toolkit_library.sql` 仅为向前兼容新增迁移，启用 RLS 并只授予 `service_role`，创建私有 `repairdesk-toolkit-files` bucket（200 MiB 上限）。当前发布只部署默认关闭的应用代码，不应用生产迁移、不创建生产对象、不上传真实文件，也不启用工具集。
+
+应用发布采用 fail-closed 开关 `NEXT_PUBLIC_REPAIRDESK_TOOLKIT_ENABLED=1`。变量不存在或不是精确的 `1` 时，侧栏和命令面板不显示工具集，`/toolkit` 返回 404，所有 `toolkit/*` API 也在访问数据库前返回 404。只有完成生产迁移、RLS/Storage 复核和独立启用批准后才能设置该变量；未接入扫描器前仍不得启用 hosted file 发布。

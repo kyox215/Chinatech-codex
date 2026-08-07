@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
+import { isRepairDeskToolkitEnabled } from "@/features/toolkit/model/toolkit-feature";
 import { ToolkitScreen } from "@/features/toolkit/screens/toolkit-screen";
 
 export const metadata: Metadata = {
@@ -8,5 +10,6 @@ export const metadata: Metadata = {
 };
 
 export default function ToolkitPage() {
+  if (!isRepairDeskToolkitEnabled()) notFound();
   return <ToolkitScreen />;
 }

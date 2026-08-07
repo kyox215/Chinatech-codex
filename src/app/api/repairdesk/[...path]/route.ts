@@ -15,6 +15,7 @@ import { AI_INVENTORY_VISION_REQUEST_MAX_BYTES } from "@/features/ai-assistant/m
 import { getAiAssistantCapabilities } from "@/features/ai-assistant/server/capabilities";
 import { AiServiceError } from "@/features/ai-assistant/server/errors";
 import { consumeAiAssistantRequestRateLimit } from "@/features/ai-assistant/server/request-rate-limit";
+import { isRepairDeskToolkitEnabled } from "@/features/toolkit/model/toolkit-feature";
 import {
   INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES,
   MEMO_COMMAND_REQUEST_MAX_BYTES,
@@ -129,12 +130,18 @@ async function readJsonWithLimit(
 
 export async function GET(request: NextRequest, context: RouteContext) {
   const path = (await context.params).path?.join("/") ?? "";
+  if (path.startsWith("toolkit/") && !isRepairDeskToolkitEnabled()) {
+    return privateError("工具集当前未开放", 404);
+  }
   return handleRepairDeskGet(path, request.nextUrl.searchParams);
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
   const path = (await context.params).path?.join("/") ?? "";
   const isToolkitPost = path.startsWith("toolkit/");
+  if (isToolkitPost && !isRepairDeskToolkitEnabled()) {
+    return privateError("工具集当前未开放", 404);
+  }
   const contentLength = Number(request.headers.get("content-length") || 0);
   if (isToolkitPost && Number.isFinite(contentLength) && contentLength > TOOLKIT_POST_MAX_BYTES) {
     return privateError("工具集请求过大，请缩短内容后重试", 413);

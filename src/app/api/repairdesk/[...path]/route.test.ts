@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   consumeAiAssistantRequestRateLimit: vi.fn(),
   getAiAssistantCapabilities: vi.fn(),
   getRepairDeskPostActor: vi.fn(),
+  handleRepairDeskGet: vi.fn(),
   handleRepairDeskPost: vi.fn(),
   resolveRepairDeskRequestOrigin: vi.fn(() => "http://localhost"),
 }));
@@ -29,7 +30,7 @@ vi.mock("@/features/ai-assistant/server/request-rate-limit", () => ({
 
 vi.mock("@/server/api/repairdesk-router", () => ({
   getRepairDeskPostActor: mocks.getRepairDeskPostActor,
-  handleRepairDeskGet: vi.fn(),
+  handleRepairDeskGet: mocks.handleRepairDeskGet,
   handleRepairDeskPost: mocks.handleRepairDeskPost,
 }));
 
@@ -39,11 +40,12 @@ import {
   MEMO_COMMAND_REQUEST_MAX_BYTES,
 } from "@/server/api/repairdesk-request-limits";
 
-import { INVENTORY_LIFECYCLE_COMMAND_MAX_BYTES, POST } from "./route";
+import { GET, INVENTORY_LIFECYCLE_COMMAND_MAX_BYTES, POST } from "./route";
 
 describe("RepairDesk attachment route request envelope", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("NEXT_PUBLIC_REPAIRDESK_TOOLKIT_ENABLED", "1");
     mocks.getAiAssistantCapabilities.mockReturnValue({
       canUseOrderAssistant: false,
       canUseOrderInlineActions: false,
@@ -99,6 +101,28 @@ describe("RepairDesk attachment route request envelope", () => {
         requireOrigin: true,
       }),
     );
+  });
+
+  it("keeps toolkit GET and POST routes closed until explicitly enabled", async () => {
+    vi.stubEnv("NEXT_PUBLIC_REPAIRDESK_TOOLKIT_ENABLED", "0");
+
+    const getResponse = await GET(
+      new NextRequest("http://localhost/api/repairdesk/toolkit/resources"),
+      { params: Promise.resolve({ path: ["toolkit", "resources"] }) },
+    );
+    const postResponse = await POST(
+      new NextRequest("http://localhost/api/repairdesk/toolkit/resources/link", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "http://localhost" },
+        body: "{}",
+      }),
+      { params: Promise.resolve({ path: ["toolkit", "resources", "link"] }) },
+    );
+
+    expect(getResponse.status).toBe(404);
+    expect(postResponse.status).toBe(404);
+    expect(mocks.handleRepairDeskGet).not.toHaveBeenCalled();
+    expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
   });
 
   it("enforces the streamed toolkit JSON cap when Content-Length is absent", async () => {
