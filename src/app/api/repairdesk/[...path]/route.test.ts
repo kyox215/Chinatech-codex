@@ -6,15 +6,17 @@ import { AI_INVENTORY_VISION_REQUEST_MAX_BYTES } from "@/features/ai-assistant/m
 import { AiServiceError } from "@/features/ai-assistant/server/errors";
 
 vi.mock("@/server/api/repairdesk-request-guard", () => ({
-  assertRepairDeskPostRequestAllowed: vi.fn(),
-  resolveRepairDeskRequestOrigin: vi.fn(() => "http://localhost"),
+  assertRepairDeskPostRequestAllowed: mocks.assertRepairDeskPostRequestAllowed,
+  resolveRepairDeskRequestOrigin: mocks.resolveRepairDeskRequestOrigin,
 }));
 
 const mocks = vi.hoisted(() => ({
+  assertRepairDeskPostRequestAllowed: vi.fn(),
   consumeAiAssistantRequestRateLimit: vi.fn(),
   getAiAssistantCapabilities: vi.fn(),
   getRepairDeskPostActor: vi.fn(),
   handleRepairDeskPost: vi.fn(),
+  resolveRepairDeskRequestOrigin: vi.fn(() => "http://localhost"),
 }));
 
 vi.mock("@/features/ai-assistant/server/capabilities", () => ({
@@ -75,6 +77,65 @@ describe("RepairDesk attachment route request envelope", () => {
     await expect(response.json()).resolves.toEqual({
       error: "附件请求过大，请压缩至 2.4MB 后重试",
     });
+  });
+
+  it("requires same-origin JSON and an explicit Origin for toolkit posts", async () => {
+    const request = new NextRequest("http://localhost/api/repairdesk/toolkit/resources", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "http://localhost",
+      },
+      body: "{}",
+    });
+
+    await POST(request, {
+      params: Promise.resolve({ path: ["toolkit", "resources"] }),
+    });
+
+    expect(mocks.assertRepairDeskPostRequestAllowed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allowedContentTypes: ["application/json"],
+        requireOrigin: true,
+      }),
+    );
+  });
+
+  it("enforces the streamed toolkit JSON cap when Content-Length is absent", async () => {
+    const request = new NextRequest("http://localhost/api/repairdesk/toolkit/resources/link", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "http://localhost",
+      },
+      body: `{"title":"${"A".repeat(64 * 1024)}"}`,
+    });
+    request.headers.delete("content-length");
+
+    const response = await POST(request, {
+      params: Promise.resolve({ path: ["toolkit", "resources", "link"] }),
+    });
+
+    expect(response.status).toBe(413);
+    expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for malformed toolkit JSON instead of dispatching an empty object", async () => {
+    const request = new NextRequest("http://localhost/api/repairdesk/toolkit/resources/link", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "http://localhost",
+      },
+      body: "not-json",
+    });
+
+    const response = await POST(request, {
+      params: Promise.resolve({ path: ["toolkit", "resources", "link"] }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
   });
 
   it("rejects an oversized AI text envelope before authentication or parsing", async () => {

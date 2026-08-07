@@ -9,6 +9,7 @@ describe("AppBar responsive route contract", () => {
     expect(usesRepairOsMobileHeader("/orders")).toBe(true);
     expect(usesRepairOsMobileHeader("/orders/new")).toBe(true);
     expect(usesRepairOsMobileHeader("/settings/closed-stores")).toBe(true);
+    expect(usesRepairOsMobileHeader("/toolkit")).toBe(true);
     expect(usesRepairOsMobileHeader("/customers/id")).toBe(false);
     expect(usesRepairOsMobileHeader("/inventory/id")).toBe(false);
     expect(usesRepairOsMobileHeader("/orders/id")).toBe(false);
@@ -20,6 +21,7 @@ describe("AppBar responsive route contract", () => {
     expect(getAppBarVisibilityClass("/orders")).toBe("max-lg:hidden");
     expect(getAppBarVisibilityClass("/orders/new")).toBe("max-lg:hidden");
     expect(getAppBarVisibilityClass("/settings/closed-stores")).toBe("max-lg:hidden");
+    expect(getAppBarVisibilityClass("/toolkit")).toBe("max-lg:hidden");
     expect(getAppBarVisibilityClass("/customers/id")).toBe("max-md:hidden");
     expect(getAppBarVisibilityClass("/inventory/id")).toBe("max-md:hidden");
     expect(getAppBarVisibilityClass("/inventory/new")).toBe("max-md:hidden");

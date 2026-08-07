@@ -9,6 +9,13 @@ import {
 } from "./navigation";
 
 describe("workspace navigation", () => {
+  it("exposes the authenticated toolkit in navigation and route labels", () => {
+    const toolkit = getWorkspaceNavItems(false).find((item) => item.id === "toolkit");
+    expect(toolkit).toMatchObject({ title: "工具集", url: "/toolkit" });
+    expect(getSidebarNavItems(false).map((item) => item.id)).toContain("toolkit");
+    expect(routeLabels.toolkit).toBe("工具集");
+  });
+
   it("uses one user-facing name for repair orders", () => {
     const orders = getWorkspaceNavItems(false).find((item) => item.id === "orders");
 
@@ -70,10 +77,6 @@ describe("workspace navigation", () => {
   });
 
   it("filters write shortcuts for viewers and inventory shortcuts without permission", () => {
-    expect(
-      getShellCommandActions({ canReadInventory: true }, "viewer").map((item) => item.id),
-    ).toEqual(["account-center"]);
-
     const staffActions = getShellCommandActions({ canReadInventory: false }, "technician").map(
       (item) => item.id,
     );

@@ -9,7 +9,11 @@ import type {
 import { BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE } from "@/features/buyback/model/buyback-evidence-policy";
 import { ForbiddenError } from "@/server/auth-context";
 
-import { allowsPendingStore, hasOwnOrderCostInputs } from "./repairdesk-router";
+import {
+  allowsPendingStore,
+  hasOwnOrderCostInputs,
+  parseToolkitResourceActionPath,
+} from "./repairdesk-router";
 import {
   assertOrderDetailReadPermission,
   assertOrderListPermission,
@@ -54,6 +58,19 @@ import {
 } from "./repairdesk-router";
 
 describe("repairdesk router pending-store access", () => {
+  it("only parses toolkit resource actions with UUID resource ids", () => {
+    expect(
+      parseToolkitResourceActionPath(
+        "toolkit/resources/00000000-0000-4000-8000-000000000001/status",
+      ),
+    ).toEqual({
+      id: "00000000-0000-4000-8000-000000000001",
+      action: "status",
+    });
+    expect(parseToolkitResourceActionPath("toolkit/resources/not-a-uuid/status")).toBeUndefined();
+    expect(allowsPendingStore("toolkit/resources/not-a-uuid/status", "POST")).toBe(false);
+  });
+
   it("allows identity, switch, create, and lifecycle recovery routes without an active store", () => {
     expect(allowsPendingStore("stores/create", "POST")).toBe(true);
     expect(allowsPendingStore("stores/create", "GET")).toBe(false);
@@ -98,6 +115,12 @@ describe("repairdesk router pending-store access", () => {
     expect(allowsPendingStore("onboarding/anything-else", "GET")).toBe(false);
     expect(allowsPendingStore("platform/orders", "GET")).toBe(false);
     expect(allowsPendingStore("account/anything-else", "POST")).toBe(false);
+    expect(allowsPendingStore("toolkit/resources", "GET")).toBe(true);
+    expect(allowsPendingStore("toolkit/resources/access", "POST")).toBe(false);
+    expect(
+      allowsPendingStore("toolkit/resources/00000000-0000-4000-8000-000000000001/access", "POST"),
+    ).toBe(true);
+    expect(allowsPendingStore("toolkit/anything-else", "GET")).toBe(false);
   });
 });
 

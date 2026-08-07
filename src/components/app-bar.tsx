@@ -36,13 +36,14 @@ const repairOsMobileHeaderRoutes = new Set([
   "/inventory",
   "/finance",
   "/messages",
+  "/toolkit",
   "/platform",
   "/settings",
   "/settings/closed-stores",
 ]);
 
 const repairOsMobileHeaderPrefixes =
-  /^\/(?:orders|customers|memos|buyback|inventory|finance|messages|platform|settings)(?:\/|$)/;
+  /^\/(?:orders|customers|memos|buyback|inventory|finance|messages|toolkit|platform|settings)(?:\/|$)/;
 
 export function usesRepairOsMobileHeader(pathname: string) {
   return repairOsMobileHeaderRoutes.has(pathname);

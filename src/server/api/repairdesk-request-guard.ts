@@ -30,10 +30,12 @@ export function assertRepairDeskPostRequestAllowed({
   headers,
   requestOrigin,
   allowedContentTypes = ["application/json"],
+  requireOrigin = false,
 }: {
   headers: Headers;
   requestOrigin: string;
   allowedContentTypes?: readonly string[];
+  requireOrigin?: boolean;
 }) {
   const fetchSite = headers.get("sec-fetch-site")?.toLowerCase();
   if (fetchSite && !allowedFetchSites.has(fetchSite)) {
@@ -41,12 +43,22 @@ export function assertRepairDeskPostRequestAllowed({
   }
 
   const origin = headers.get("origin");
+  if (requireOrigin && !origin) {
+    throw new ForbiddenError("请求来源无效，请刷新页面后重试");
+  }
   if (origin && origin !== requestOrigin) {
     throw new ForbiddenError("请求来源无效，请刷新页面后重试");
   }
 
   const contentType = headers.get("content-type")?.toLowerCase();
-  if (contentType && !allowedContentTypes.some((allowed) => contentType.includes(allowed))) {
+  if (requireOrigin && !contentType) {
+    throw new ForbiddenError("请求格式无效，请刷新页面后重试");
+  }
+  const mediaType = contentType?.split(";", 1)[0]?.trim();
+  if (
+    mediaType &&
+    !allowedContentTypes.some((allowed) => mediaType === allowed.trim().toLowerCase())
+  ) {
     throw new ForbiddenError("请求格式无效，请刷新页面后重试");
   }
 }

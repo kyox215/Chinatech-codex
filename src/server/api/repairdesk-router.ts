@@ -306,6 +306,25 @@ import {
   SETTINGS_ERROR_CODES,
   SettingsMutationError,
 } from "@/features/settings/model/store-settings-errors";
+import {
+  accessToolkitResource,
+  createToolkitLink,
+  finalizeToolkitFileUpload,
+  listToolkitResources,
+  prepareToolkitFileUpload,
+  updateToolkitResource,
+  updateToolkitResourceStatus,
+} from "@/features/toolkit/server/toolkit.service";
+import {
+  accessMockToolkitResource,
+  createMockToolkitLink,
+  finalizeMockToolkitFileUpload,
+  listMockToolkitResources,
+  prepareMockToolkitFileUpload,
+  updateMockToolkitResource,
+  updateMockToolkitResourceStatus,
+} from "@/features/toolkit/testing/mock-api";
+import { TOOLKIT_FILE_MAX_BYTES } from "@/features/toolkit/model/policy";
 import type {
   AuditActor,
   CustomerIntakeSearchInput,
@@ -457,6 +476,13 @@ import {
 } from "./repairdesk-schemas";
 
 const supabaseSource = {
+  listToolkitResources,
+  createToolkitLink,
+  prepareToolkitFileUpload,
+  finalizeToolkitFileUpload,
+  accessToolkitResource,
+  updateToolkitResource,
+  updateToolkitResourceStatus,
   archiveMemo,
   createMemo,
   getMemo: readMemo,
@@ -623,6 +649,55 @@ const orderDataStoreBodySchema = z.object({ expectedStoreId: z.string().uuid() }
 const orderDataApplyBodySchema = orderDataStoreBodySchema
   .extend({ batchId: z.string().uuid() })
   .strict();
+
+const toolkitOptionalDescriptionSchema = z.string().trim().max(1000).optional();
+const toolkitOptionalPlatformSchema = z.string().trim().max(80).optional();
+const toolkitOptionalVersionSchema = z.string().trim().max(80).optional();
+const toolkitExpectedRevisionSchema = z.number().int().positive();
+const toolkitLinkCreateBodySchema = z
+  .object({
+    title: z.string().trim().min(1).max(120),
+    description: toolkitOptionalDescriptionSchema,
+    platform: toolkitOptionalPlatformSchema,
+    version: toolkitOptionalVersionSchema,
+    url: z.string().trim().min(1).max(2048),
+  })
+  .strict();
+const toolkitFilePrepareBodySchema = z
+  .object({
+    title: z.string().trim().min(1).max(120),
+    description: toolkitOptionalDescriptionSchema,
+    platform: toolkitOptionalPlatformSchema,
+    version: toolkitOptionalVersionSchema,
+    fileName: z.string().trim().min(1).max(160),
+    mimeType: z.string().trim().min(1).max(200),
+    sizeBytes: z.number().int().min(1).max(TOOLKIT_FILE_MAX_BYTES),
+  })
+  .strict();
+const toolkitFileFinalizeBodySchema = z
+  .object({ expectedRevision: toolkitExpectedRevisionSchema })
+  .strict();
+const toolkitResourceUpdateBodySchema = z
+  .object({
+    expectedRevision: toolkitExpectedRevisionSchema,
+    title: z.string().trim().min(1).max(120).optional(),
+    description: toolkitOptionalDescriptionSchema,
+    platform: toolkitOptionalPlatformSchema,
+    version: toolkitOptionalVersionSchema,
+    url: z.string().trim().min(1).max(2048).optional(),
+    provenanceNote: z.string().trim().max(1000).optional(),
+    trustAttestation: z.boolean().optional(),
+  })
+  .strict();
+const toolkitResourceStatusBodySchema = z
+  .object({
+    expectedRevision: toolkitExpectedRevisionSchema,
+    action: z.enum(["publish", "archive", "restore"]),
+    provenanceNote: z.string().trim().max(1000).optional(),
+    trustAttestation: z.boolean().optional(),
+  })
+  .strict();
+const toolkitAccessBodySchema = z.object({}).strict();
 
 const realtimeBroadcasts = {
   kioskSessionReviewed: {
@@ -963,6 +1038,13 @@ async function source() {
       if (!lifecycleE2eEnabled) throw new Error("商品生命周期命令尚未对当前环境开放");
       return { ok: true, code: "e2e_preview_completed" };
     },
+    listToolkitResources: listMockToolkitResources,
+    createToolkitLink: createMockToolkitLink,
+    prepareToolkitFileUpload: prepareMockToolkitFileUpload,
+    finalizeToolkitFileUpload: finalizeMockToolkitFileUpload,
+    accessToolkitResource: accessMockToolkitResource,
+    updateToolkitResource: updateMockToolkitResource,
+    updateToolkitResourceStatus: updateMockToolkitResourceStatus,
     getRepairDeskDomainRevisions: async (domains: readonly RepairDeskRealtimeDomain[]) => ({
       revisions: Object.fromEntries(domains.map((domain) => [domain, "0"])),
     }),
@@ -1721,6 +1803,8 @@ export async function handleRepairDeskGet(path: string, searchParams?: URLSearch
         return ok(await api.listOrderWorkflow(actor));
       case "options":
         return ok(await api.getRepairDeskOptions(actor));
+      case "toolkit/resources":
+        return ok(await api.listToolkitResources(actor));
       case "inventory/stats":
         assertInventoryReadPermission(actor);
         return ok(await api.getInventoryStats(actor));
@@ -1808,6 +1892,38 @@ export async function handleRepairDeskPost(
       );
     }
     const api = await source();
+    const toolkitAction = parseToolkitResourceActionPath(path);
+    if (toolkitAction) {
+      if (toolkitAction.action === "finalize") {
+        return ok(
+          await api.finalizeToolkitFileUpload(
+            toolkitAction.id,
+            toolkitFileFinalizeBodySchema.parse(body),
+            actor,
+          ),
+        );
+      }
+      if (toolkitAction.action === "update") {
+        return ok(
+          await api.updateToolkitResource(
+            toolkitAction.id,
+            toolkitResourceUpdateBodySchema.parse(body),
+            actor,
+          ),
+        );
+      }
+      if (toolkitAction.action === "status") {
+        return ok(
+          await api.updateToolkitResourceStatus(
+            toolkitAction.id,
+            toolkitResourceStatusBodySchema.parse(body),
+            actor,
+          ),
+        );
+      }
+      toolkitAccessBodySchema.parse(body);
+      return ok(await api.accessToolkitResource(toolkitAction.id, actor));
+    }
     switch (path) {
       case "ai/order/turn":
         return ok(
@@ -1914,6 +2030,12 @@ export async function handleRepairDeskPost(
         const { input } = accountProfileUpdateBodySchema.parse(body);
         return ok(await api.updateAccountProfile(input, actor));
       }
+      case "toolkit/resources/link":
+        return ok(await api.createToolkitLink(toolkitLinkCreateBodySchema.parse(body), actor));
+      case "toolkit/resources/file/prepare":
+        return ok(
+          await api.prepareToolkitFileUpload(toolkitFilePrepareBodySchema.parse(body), actor),
+        );
       case "kiosk/devices/pairing": {
         assertRepairDeskPermission(actor, "settings:update_store");
         assertKioskEndToEndEnabled();
@@ -3373,13 +3495,25 @@ function allowsLifecycleControlGet(path: string) {
   );
 }
 
+export function parseToolkitResourceActionPath(
+  path: string,
+): { id: string; action: "finalize" | "update" | "status" | "access" } | undefined {
+  const match = /^toolkit\/resources\/([^/]+)\/(file\/finalize|update|status|access)$/.exec(path);
+  if (!match) return undefined;
+  const resourceId = z.string().uuid().safeParse(match[1]);
+  if (!resourceId.success) return undefined;
+  const action = match[2] === "file/finalize" ? "finalize" : match[2];
+  return { id: resourceId.data, action: action as "finalize" | "update" | "status" | "access" };
+}
+
 export function allowsPendingStore(path: string, method: "GET" | "POST") {
   if (method === "GET") {
     return (
       path === "shell/bootstrap" ||
       path === "stores/context" ||
       path === "onboarding/status" ||
-      path === "platform/onboarding/requests"
+      path === "platform/onboarding/requests" ||
+      path === "toolkit/resources"
     );
   }
   return (
@@ -3392,7 +3526,10 @@ export function allowsPendingStore(path: string, method: "GET" | "POST") {
     path === "onboarding/invite-links/redeem" ||
     path === "account/profile/update" ||
     path === "platform/onboarding/approve" ||
-    path === "platform/onboarding/reject"
+    path === "platform/onboarding/reject" ||
+    path === "toolkit/resources/link" ||
+    path === "toolkit/resources/file/prepare" ||
+    parseToolkitResourceActionPath(path) !== undefined
   );
 }
 

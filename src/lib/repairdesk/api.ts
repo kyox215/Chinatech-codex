@@ -216,6 +216,19 @@ import type {
   UpdateInventoryItemInput,
   WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
+import type {
+  ToolkitAccessResult,
+  ToolkitFileFinalizeInput,
+  ToolkitFilePrepareInput,
+  ToolkitFilePrepareResult,
+  ToolkitLinkCreateInput,
+  ToolkitListResult,
+  ToolkitResource,
+  ToolkitResourceStatusInput,
+  ToolkitResourceUpdateInput,
+} from "@/features/toolkit/model/contracts";
+import { TOOLKIT_FILE_BUCKET } from "@/features/toolkit/model/policy";
+import { createClient as createSupabaseBrowserClient } from "@/utils/supabase/client";
 
 export class RepairDeskApiError extends Error {
   constructor(
@@ -461,6 +474,18 @@ export type {
   UpdateInventoryItemInput,
   WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
+
+export type {
+  ToolkitAccessResult,
+  ToolkitFileFinalizeInput,
+  ToolkitFilePrepareInput,
+  ToolkitFilePrepareResult,
+  ToolkitLinkCreateInput,
+  ToolkitListResult,
+  ToolkitResource,
+  ToolkitResourceStatusInput,
+  ToolkitResourceUpdateInput,
+} from "@/features/toolkit/model/contracts";
 
 export async function listInventoryItems(
   filters: InventoryListFilters = {},
@@ -1198,6 +1223,70 @@ function postJson<T>(path: string, body: unknown, options?: RepairDeskRequestOpt
     },
     options,
   );
+}
+
+export function listToolkitResources(
+  options?: RepairDeskRequestOptions,
+): Promise<ToolkitListResult> {
+  return requestJson<ToolkitListResult>("toolkit/resources", {}, options);
+}
+
+export function createToolkitLink(input: ToolkitLinkCreateInput): Promise<ToolkitResource> {
+  return postJson<ToolkitResource>("toolkit/resources/link", input);
+}
+
+export function prepareToolkitFileUpload(
+  input: ToolkitFilePrepareInput,
+): Promise<ToolkitFilePrepareResult> {
+  return postJson<ToolkitFilePrepareResult>("toolkit/resources/file/prepare", input);
+}
+
+export function uploadToolkitFile(
+  upload: ToolkitFilePrepareResult["upload"],
+  file: File,
+  options?: { onProgress?: (progress: number) => void },
+) {
+  options?.onProgress?.(0);
+  return createSupabaseBrowserClient()
+    .storage.from(TOOLKIT_FILE_BUCKET)
+    .uploadToSignedUrl(upload.path, upload.token, file, {
+      contentType: file.type || "application/octet-stream",
+      cacheControl: "0",
+      upsert: false,
+    })
+    .then((result) => {
+      if (result.error) throw new RepairDeskApiError("工具文件直传失败", 400);
+      options?.onProgress?.(100);
+      return result.data;
+    });
+}
+
+export function finalizeToolkitFileUpload(
+  id: string,
+  input: ToolkitFileFinalizeInput,
+): Promise<ToolkitResource> {
+  return postJson<ToolkitResource>(
+    `toolkit/resources/${encodeURIComponent(id)}/file/finalize`,
+    input,
+  );
+}
+
+export function updateToolkitResource(
+  id: string,
+  input: ToolkitResourceUpdateInput,
+): Promise<ToolkitResource> {
+  return postJson<ToolkitResource>(`toolkit/resources/${encodeURIComponent(id)}/update`, input);
+}
+
+export function updateToolkitResourceStatus(
+  id: string,
+  input: ToolkitResourceStatusInput,
+): Promise<ToolkitResource> {
+  return postJson<ToolkitResource>(`toolkit/resources/${encodeURIComponent(id)}/status`, input);
+}
+
+export function accessToolkitResource(id: string): Promise<ToolkitAccessResult> {
+  return postJson<ToolkitAccessResult>(`toolkit/resources/${encodeURIComponent(id)}/access`, {});
 }
 
 export async function listOrders(

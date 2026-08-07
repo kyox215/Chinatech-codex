@@ -36,6 +36,29 @@ describe("repairdesk request guard", () => {
     ).toThrow(ForbiddenError);
   });
 
+  it("can require an explicit Origin for sensitive JSON posts", () => {
+    expect(() =>
+      assertRepairDeskPostRequestAllowed({
+        headers: new Headers({
+          "content-type": "application/json",
+          "sec-fetch-site": "same-origin",
+        }),
+        requestOrigin,
+        requireOrigin: true,
+      }),
+    ).toThrow(ForbiddenError);
+  });
+
+  it("can require Content-Type for sensitive posts", () => {
+    expect(() =>
+      assertRepairDeskPostRequestAllowed({
+        headers: new Headers({ origin: requestOrigin, "sec-fetch-site": "same-origin" }),
+        requestOrigin,
+        requireOrigin: true,
+      }),
+    ).toThrow(ForbiddenError);
+  });
+
   it("rejects same-site subdomain origins that do not match the app origin", () => {
     expect(() =>
       assertRepairDeskPostRequestAllowed({
@@ -60,6 +83,29 @@ describe("repairdesk request guard", () => {
         requestOrigin,
       }),
     ).toThrow(ForbiddenError);
+  });
+
+  it("matches media types before parameters instead of accepting lookalikes", () => {
+    const accepted = new Headers({
+      "content-type": "application/json; charset=utf-8",
+      origin: requestOrigin,
+      "sec-fetch-site": "same-origin",
+    });
+    expect(() =>
+      assertRepairDeskPostRequestAllowed({ headers: accepted, requestOrigin }),
+    ).not.toThrow();
+    for (const contentType of ["application/jsonp", "text/application/json"]) {
+      expect(() =>
+        assertRepairDeskPostRequestAllowed({
+          headers: new Headers({
+            "content-type": contentType,
+            origin: requestOrigin,
+            "sec-fetch-site": "same-origin",
+          }),
+          requestOrigin,
+        }),
+      ).toThrow(ForbiddenError);
+    }
   });
 
   it("derives the browser-visible origin from Host when Next supplies an internal fallback", () => {

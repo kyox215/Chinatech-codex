@@ -4,6 +4,7 @@ import {
   ChartNoAxesCombined,
   ClipboardList,
   ClipboardPlus,
+  Blocks,
   MessageSquare,
   NotebookPen,
   Package,
@@ -30,6 +31,7 @@ export type RepairDeskModuleId =
   | "inventory"
   | "finance"
   | "messages"
+  | "toolkit"
   | "platform"
   | "settings";
 
@@ -196,6 +198,14 @@ export const workspaceNavItems: RepairDeskNavItem[] = [
     aliases: ["消息", "模板", "WhatsApp", "SMS"],
   },
   {
+    id: "toolkit",
+    title: "工具集",
+    shortTitle: "工具",
+    url: "/toolkit",
+    icon: Blocks,
+    aliases: ["工具集", "工具", "软件", "下载", "toolkit"],
+  },
+  {
     id: "settings",
     title: "设置",
     shortTitle: "设置",
@@ -349,6 +359,7 @@ export const routeLabels: Record<string, string> = {
   "after-sales": "售后队列",
   finance: "维修毛利",
   messages: "消息模板",
+  toolkit: "工具集",
   platform: "平台审批",
   settings: "设置",
   "closed-stores": "已关闭与删除",
