@@ -12,6 +12,7 @@ import {
   PackageOpen,
   Smartphone,
   Tablet,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -57,6 +58,19 @@ type Draft = {
 
 type ValidationError = { message: string; fieldId?: string };
 
+export type InventoryProductIntakeState = {
+  isDirty: boolean;
+  isPending: boolean;
+};
+
+export type InventoryProductIntakeScreenProps = {
+  surface?: "page" | "dialog";
+  onCancel?: () => void;
+  onCreated?: (id: string) => void | Promise<void>;
+  onStateChange?: (state: InventoryProductIntakeState) => void;
+  onAuthorityInvalidated?: () => void;
+};
+
 const categories = [
   { value: "phone", label: "手机", icon: Smartphone },
   { value: "tablet", label: "平板", icon: Tablet },
@@ -89,20 +103,65 @@ function initialDraft(category: InventoryProductCategory = "phone"): Draft {
   };
 }
 
-export function InventoryProductIntakeScreen() {
+function isDraftDirty(draft: Draft) {
+  return (
+    draft.category !== "phone" ||
+    [
+      draft.brand,
+      draft.model,
+      draft.color,
+      draft.ram_capacity,
+      draft.storage_capacity,
+      draft.gtin,
+      draft.condition,
+      draft.imei1,
+      draft.imei2,
+      draft.serial,
+      draft.eid,
+      draft.list_price,
+      draft.cost_amount,
+      draft.location,
+      draft.warranty_months,
+      draft.notes,
+      ...Object.values(draft.specifications),
+    ].some((value) => value.trim().length > 0)
+  );
+}
+
+export function InventoryProductIntakeScreen({
+  surface = "page",
+  onCancel,
+  onCreated,
+  onStateChange,
+  onAuthorityInvalidated,
+}: InventoryProductIntakeScreenProps = {}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const shell = useStoreShellContext({ monitorAuthority: true });
   const [draft, setDraft] = useState<Draft>(() => initialDraft());
   const [moreOpen, setMoreOpen] = useState(false);
+  const [pendingCategory, setPendingCategory] = useState<InventoryProductCategory>();
   const [error, setError] = useState<ValidationError>();
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
   const authorityRef = useRef<string | undefined>(undefined);
+  const authorityGenerationRef = useRef(0);
+  const submitLockRef = useRef(false);
+  const onStateChangeRef = useRef(onStateChange);
+  const onAuthorityInvalidatedRef = useRef(onAuthorityInvalidated);
+  const lastReportedStateRef = useRef<InventoryProductIntakeState | undefined>(undefined);
   const canEnterCost = shell.permissions?.canAllocateInventoryCosts === true;
 
   const mutation = useMutation({
     mutationFn: (input: CreateInventoryProductInput) => createInventoryProduct(input),
   });
+
+  useEffect(() => {
+    onStateChangeRef.current = onStateChange;
+  }, [onStateChange]);
+
+  useEffect(() => {
+    onAuthorityInvalidatedRef.current = onAuthorityInvalidated;
+  }, [onAuthorityInvalidated]);
 
   useEffect(() => {
     if (shell.isLoading) return;
@@ -112,12 +171,31 @@ export function InventoryProductIntakeScreen() {
     }
     if (authorityRef.current === shell.authorityFingerprint) return;
     authorityRef.current = shell.authorityFingerprint;
+    authorityGenerationRef.current += 1;
     setDraft(initialDraft());
     setIdempotencyKey(crypto.randomUUID());
     setMoreOpen(false);
+    setPendingCategory(undefined);
+    submitLockRef.current = false;
     mutation.reset();
     setError({ message: "门店或权限已变化，旧草稿已清除，请重新录入。" });
+    onAuthorityInvalidatedRef.current?.();
   }, [mutation, shell.authorityFingerprint, shell.isLoading]);
+
+  useEffect(() => {
+    const nextState = {
+      isDirty: isDraftDirty(draft),
+      isPending: mutation.isPending,
+    };
+    const previousState = lastReportedStateRef.current;
+    if (
+      previousState?.isDirty === nextState.isDirty &&
+      previousState.isPending === nextState.isPending
+    )
+      return;
+    lastReportedStateRef.current = nextState;
+    onStateChangeRef.current?.(nextState);
+  }, [draft, mutation.isPending]);
 
   useEffect(() => {
     document.body.dataset.mobileWorkspaceActive = "true";
@@ -126,12 +204,21 @@ export function InventoryProductIntakeScreen() {
     };
   }, []);
 
+  const closeIntake = () => {
+    if (onCancel) {
+      onCancel();
+      return;
+    }
+    router.push("/inventory");
+  };
+
   if (shell.isLoading) {
     return (
       <IntakeMessage
         title="正在载入录入权限"
         body="确认当前门店和账号权限后即可开始录入。"
-        onBack={() => router.push("/inventory")}
+        onBack={closeIntake}
+        surface={surface}
       />
     );
   }
@@ -150,12 +237,16 @@ export function InventoryProductIntakeScreen() {
             ? "当前门店尚未启用商品快速录入。"
             : "当前账号没有商品录入权限。"
         }
-        onBack={() => router.push("/inventory")}
+        onBack={closeIntake}
+        surface={surface}
       />
     );
   }
 
+  const activeStoreId = shell.activeStore.id;
+
   const save = async (continueEntry: boolean) => {
+    if (submitLockRef.current) return;
     setError(undefined);
     const validation = validateDraft(draft, canEnterCost);
     if (validation) {
@@ -185,11 +276,16 @@ export function InventoryProductIntakeScreen() {
       return;
     }
 
+    submitLockRef.current = true;
+    const submitAuthorityGeneration = authorityGenerationRef.current;
     try {
       const result = await mutation.mutateAsync(toInput(draft, idempotencyKey, canEnterCost));
-      await queryClient.invalidateQueries({ queryKey: inventoryProductKeys.all });
+      if (submitAuthorityGeneration !== authorityGenerationRef.current) return;
       toast.success(`商品 ${result.sku} 已录入`);
       if (continueEntry) {
+        await queryClient.invalidateQueries({
+          queryKey: inventoryProductKeys.listsForStore(activeStoreId),
+        });
         setDraft(sameProductDraft(draft));
         setIdempotencyKey(crypto.randomUUID());
         setMoreOpen(false);
@@ -198,34 +294,23 @@ export function InventoryProductIntakeScreen() {
           .getElementById(draft.category === "phone" ? "product-imei1" : "product-serial")
           ?.focus();
       } else {
-        router.push(`/inventory/${result.id}`);
+        if (onCreated) await onCreated(result.id);
+        else {
+          await queryClient.invalidateQueries({
+            queryKey: inventoryProductKeys.listsForStore(activeStoreId),
+          });
+          router.push(`/inventory/${result.id}`);
+        }
       }
     } catch (cause) {
       setError({ message: cause instanceof Error ? cause.message : "商品保存失败，请重试" });
+    } finally {
+      submitLockRef.current = false;
     }
   };
 
-  const selectCategory = (category: InventoryProductCategory) => {
-    if (
-      draft.category !== category &&
-      [
-        draft.brand,
-        draft.model,
-        draft.ram_capacity,
-        draft.storage_capacity,
-        draft.color,
-        draft.condition,
-        draft.imei1,
-        draft.imei2,
-        draft.serial,
-        draft.eid,
-        draft.gtin,
-        ...Object.values(draft.specifications),
-      ].some((value) => value.trim()) &&
-      !window.confirm("切换类别会清除当前品牌、型号、规格和设备标识，是否继续？")
-    ) {
-      return;
-    }
+  const applyCategory = (category: InventoryProductCategory) => {
+    setPendingCategory(undefined);
     setDraft((current) => ({
       ...current,
       category,
@@ -248,6 +333,31 @@ export function InventoryProductIntakeScreen() {
     }));
   };
 
+  const selectCategory = (category: InventoryProductCategory) => {
+    if (
+      draft.category !== category &&
+      [
+        draft.brand,
+        draft.model,
+        draft.ram_capacity,
+        draft.storage_capacity,
+        draft.color,
+        draft.condition,
+        draft.imei1,
+        draft.imei2,
+        draft.serial,
+        draft.eid,
+        draft.gtin,
+        ...Object.values(draft.specifications),
+      ].some((value) => value.trim())
+    ) {
+      setPendingCategory(category);
+      return false;
+    }
+    applyCategory(category);
+    return true;
+  };
+
   const handleCategoryKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
     const keyMoves: Record<string, number> = {
       ArrowRight: 1,
@@ -267,56 +377,93 @@ export function InventoryProductIntakeScreen() {
     if (nextIndex === undefined) return;
     event.preventDefault();
     const next = categories[nextIndex].value;
-    selectCategory(next);
-    document.getElementById(`product-category-${next}`)?.focus();
+    if (selectCategory(next)) document.getElementById(`product-category-${next}`)?.focus();
   };
 
+  const IntakeRoot = surface === "page" ? "main" : "div";
+
   return (
-    <main
+    <IntakeRoot
+      data-inventory-product-intake-surface={surface}
       className={cn(
-        repairOs.mobileFloatingPage,
-        "mx-auto w-full max-w-[430px] px-2 pb-28 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] lg:max-w-3xl lg:px-0 lg:pb-8 lg:pt-0",
+        surface === "page" &&
+          cn(
+            repairOs.mobileFloatingPage,
+            "mx-auto w-full max-w-[430px] px-2 pb-28 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] lg:max-w-3xl lg:px-0 lg:pb-8 lg:pt-0",
+          ),
+        surface === "dialog" &&
+          "flex h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] min-h-0 w-full flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] p-2 shadow-[var(--shadow-overlay)] sm:h-auto sm:max-h-[calc(100svh-32px)] sm:p-3",
       )}
     >
-      <div className={cn(repairOs.mobileFloatingHeaderShell, "lg:static lg:mb-4")}>
-        <section className={repairOs.mobileFloatingHeaderCard}>
-          <header className={repairOs.mobileFloatingHeaderNav}>
-            <Button
-              type="button"
-              variant="ghost"
-              size="iconDense"
-              className="size-9 rounded-lg"
-              aria-label="返回商品库存"
-              onClick={() => router.push("/inventory")}
-            >
-              <ArrowLeft className="size-5" />
-            </Button>
-            <div className="min-w-0 text-center">
-              <h1 className="text-sm font-semibold">快速录入商品</h1>
-              <p className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                三个字段即可保存
+      {surface === "page" ? (
+        <>
+          <div className={cn(repairOs.mobileFloatingHeaderShell, "lg:static lg:mb-4")}>
+            <section className={repairOs.mobileFloatingHeaderCard}>
+              <header className={repairOs.mobileFloatingHeaderNav}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="iconDense"
+                  className="size-9 rounded-lg"
+                  aria-label="返回商品库存"
+                  onClick={closeIntake}
+                >
+                  <ArrowLeft className="size-5" />
+                </Button>
+                <div className="min-w-0 text-center">
+                  <h1 className="text-sm font-semibold">快速录入商品</h1>
+                  <p className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
+                    三个字段即可保存
+                  </p>
+                </div>
+                <span className="size-9" aria-hidden />
+              </header>
+            </section>
+          </div>
+
+          <header className="hidden items-center justify-between gap-4 pb-3 lg:flex">
+            <div>
+              <h1 className="text-xl font-semibold">快速录入商品</h1>
+              <p className="text-sm text-muted-foreground">
+                品牌、型号与设备标识即可开始，其他资料可随时补充
               </p>
             </div>
-            <span className="size-9" aria-hidden />
+            <Button type="button" variant="outline" onClick={closeIntake}>
+              <ArrowLeft className="mr-2 size-4" />
+              返回库存
+            </Button>
           </header>
-        </section>
-      </div>
-
-      <header className="hidden items-center justify-between gap-4 pb-3 lg:flex">
-        <div>
-          <h1 className="text-xl font-semibold">快速录入商品</h1>
-          <p className="text-sm text-muted-foreground">
-            品牌、型号与设备标识即可开始，其他资料可随时补充
-          </p>
-        </div>
-        <Button type="button" variant="outline" onClick={() => router.push("/inventory")}>
-          <ArrowLeft className="mr-2 size-4" />
-          返回库存
-        </Button>
-      </header>
+        </>
+      ) : (
+        <header className="mb-2 flex min-w-0 shrink-0 items-center gap-2 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-2 sm:px-3 sm:py-2.5">
+          <div className="min-w-0 flex-1">
+            <p className="text-[9px] font-medium leading-3 text-muted-foreground sm:text-[10px]">
+              库存弹窗录入
+            </p>
+            <h1 className="truncate text-sm font-semibold leading-5 sm:text-base">快速录入商品</h1>
+            <p className="truncate text-[10px] leading-4 text-muted-foreground sm:text-xs">
+              三个字段即可保存，其他资料可稍后补充
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-11 shrink-0 rounded-lg sm:size-9"
+            aria-label="关闭商品录入弹窗"
+            onClick={closeIntake}
+          >
+            <X className="size-4" />
+          </Button>
+        </header>
+      )}
 
       <form
-        className="space-y-1.5"
+        className={cn(
+          "space-y-1.5",
+          surface === "dialog" &&
+            "min-h-0 min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-0.5 pb-0.5 scroll-pb-24 sm:max-h-[calc(100svh-9.5rem)] sm:px-1",
+        )}
         aria-busy={mutation.isPending}
         onSubmit={(event) => {
           event.preventDefault();
@@ -351,6 +498,46 @@ export function InventoryProductIntakeScreen() {
                 </button>
               ))}
             </div>
+            {pendingCategory ? (
+              <div
+                data-ui="inventory-product-category-confirm"
+                className="mt-2 grid gap-2 rounded-lg border border-status-warn-foreground/20 bg-status-warn px-2.5 py-2 text-status-warn-foreground sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                role="status"
+                aria-live="polite"
+              >
+                <p className="text-[11px] leading-4 sm:text-xs">
+                  切换到“{categories.find((item) => item.value === pendingCategory)?.label}
+                  ”会清除当前品牌、型号、规格和设备标识。
+                </p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="min-h-9"
+                    autoFocus
+                    onClick={() => setPendingCategory(undefined)}
+                  >
+                    继续编辑
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="min-h-9 bg-background"
+                    onClick={() => {
+                      const category = pendingCategory;
+                      applyCategory(category);
+                      requestAnimationFrame(() =>
+                        document.getElementById(`product-category-${category}`)?.focus(),
+                      );
+                    }}
+                  >
+                    清空并切换
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </fieldset>
 
           <div className="grid grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-1.5">
@@ -358,6 +545,7 @@ export function InventoryProductIntakeScreen() {
               id="product-brand"
               label="品牌"
               required
+              autoFocus={surface === "dialog"}
               value={draft.brand}
               placeholder="例如 Apple、Samsung"
               list="product-brand-suggestions"
@@ -429,7 +617,9 @@ export function InventoryProductIntakeScreen() {
           <div>
             <h2 className="text-sm font-semibold">设备标识</h2>
             <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-              可用摄像头扫码、照片识别、粘贴或手工输入；原图仅在本机处理。
+              {surface === "dialog"
+                ? "弹窗内可粘贴或手工输入；完整页面仍保留摄像头扫码与本机图片识别。"
+                : "可用摄像头扫码、照片识别、粘贴或手工输入；原图仅在本机处理。"}
             </p>
           </div>
           {draft.category === "phone" ? (
@@ -438,6 +628,7 @@ export function InventoryProductIntakeScreen() {
               label="IMEI 1"
               value={draft.imei1}
               invalid={error?.fieldId === "product-imei1"}
+              showScanner={surface === "page"}
               onChange={(imei1) => setDraft((current) => ({ ...current, imei1 }))}
               onSource={(source) =>
                 setDraft((current) => ({
@@ -452,6 +643,7 @@ export function InventoryProductIntakeScreen() {
               label="序列号"
               value={draft.serial}
               invalid={error?.fieldId === "product-serial"}
+              showScanner={surface === "page"}
               onChange={(serial) => setDraft((current) => ({ ...current, serial }))}
               onSource={(source) =>
                 setDraft((current) => ({
@@ -493,6 +685,7 @@ export function InventoryProductIntakeScreen() {
                   label="IMEI 2"
                   value={draft.imei2}
                   invalid={error?.fieldId === "product-imei2"}
+                  showScanner={surface === "page"}
                   onChange={(imei2) => setDraft((current) => ({ ...current, imei2 }))}
                   onSource={(source) => setIdentifierSource(setDraft, "imei2", source)}
                 />
@@ -503,6 +696,7 @@ export function InventoryProductIntakeScreen() {
                   label="EID"
                   value={draft.eid}
                   invalid={error?.fieldId === "product-eid"}
+                  showScanner={surface === "page"}
                   onChange={(eid) => setDraft((current) => ({ ...current, eid }))}
                   onSource={(source) => setIdentifierSource(setDraft, "eid", source)}
                 />
@@ -602,7 +796,10 @@ export function InventoryProductIntakeScreen() {
           data-ui="inventory-product-actions"
           className={cn(
             surfaces.stickyActions,
-            "fixed bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-1/2 z-30 mx-0 grid w-[calc(100%_-_1rem)] max-w-[414px] -translate-x-1/2 grid-cols-2 gap-1.5 rounded-xl border border-border bg-background/95 px-2 py-2 shadow-[var(--shadow-card)] sm:mx-0 lg:sticky lg:bottom-0 lg:left-auto lg:w-auto lg:max-w-none lg:translate-x-0 lg:px-0 lg:pb-0",
+            surface === "page" &&
+              "fixed bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-1/2 z-30 mx-0 grid w-[calc(100%_-_1rem)] max-w-[414px] -translate-x-1/2 grid-cols-2 gap-1.5 rounded-xl border border-border bg-background/95 px-2 py-2 shadow-[var(--shadow-card)] sm:mx-0 lg:sticky lg:bottom-0 lg:left-auto lg:w-auto lg:max-w-none lg:translate-x-0 lg:px-0 lg:pb-0",
+            surface === "dialog" &&
+              "sticky bottom-0 z-20 grid grid-cols-2 gap-1.5 rounded-xl border border-border bg-background/95 px-2 py-2 shadow-[var(--shadow-card)]",
           )}
         >
           <Button
@@ -621,7 +818,7 @@ export function InventoryProductIntakeScreen() {
           </Button>
         </div>
       </form>
-    </main>
+    </IntakeRoot>
   );
 }
 
@@ -635,6 +832,7 @@ function Field({
   inputMode,
   invalid,
   list,
+  autoFocus,
 }: {
   id: string;
   label: string;
@@ -645,6 +843,7 @@ function Field({
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
   invalid?: boolean;
   list?: string;
+  autoFocus?: boolean;
 }) {
   return (
     <div className="min-w-0 space-y-1">
@@ -654,6 +853,7 @@ function Field({
       </Label>
       <Input
         id={id}
+        autoFocus={autoFocus}
         value={value}
         required={required}
         maxLength={160}
@@ -676,6 +876,7 @@ function IdentifierField({
   onChange,
   onSource,
   invalid,
+  showScanner = true,
 }: {
   id: string;
   label: string;
@@ -683,6 +884,7 @@ function IdentifierField({
   onChange: (value: string) => void;
   onSource: (source: "manual" | "scan") => void;
   invalid?: boolean;
+  showScanner?: boolean;
 }) {
   return (
     <div className="col-span-2 min-w-0 space-y-1">
@@ -701,6 +903,7 @@ function IdentifierField({
         onCommitSource={onSource}
         placeholder={`扫描或输入${label}`}
         density="compact"
+        showScanner={showScanner}
       />
       {invalid ? (
         <p id={`${id}-error`} className="text-xs text-destructive">
@@ -855,13 +1058,23 @@ function IntakeMessage({
   title,
   body,
   onBack,
+  surface = "page",
 }: {
   title: string;
   body: string;
   onBack: () => void;
+  surface?: "page" | "dialog";
 }) {
+  const Root = surface === "page" ? "main" : "div";
   return (
-    <main className={cn(repairOs.mobileFloatingPage, "grid min-h-[55dvh] place-items-center p-4")}>
+    <Root
+      data-inventory-product-intake-message={surface}
+      className={cn(
+        surface === "page" && repairOs.mobileFloatingPage,
+        "grid place-items-center p-4",
+        surface === "page" ? "min-h-[55dvh]" : "h-full min-h-[18rem]",
+      )}
+    >
       <section className={cn(repairOs.mobileInfoCard, "max-w-sm p-6 text-center")}>
         <h1 className="font-semibold">{title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{body}</p>
@@ -869,6 +1082,6 @@ function IntakeMessage({
           返回商品库存
         </Button>
       </section>
-    </main>
+    </Root>
   );
 }

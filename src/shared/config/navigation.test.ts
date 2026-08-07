@@ -108,11 +108,26 @@ describe("workspace navigation", () => {
     ).toContain("new-memo");
 
     const technicianWithInventory = getShellCommandActions(
-      { canReadInventory: true, canCreateInventory: true },
+      {
+        canReadInventory: true,
+        canCreateInventory: true,
+        inventoryProductsUiEnabled: true,
+        inventoryProductQuickCreateEnabled: true,
+      },
       "technician",
-    ).map((item) => item.id);
-    expect(technicianWithInventory).not.toContain("new-buyback");
-    expect(technicianWithInventory).toContain("new-inventory");
+    );
+    expect(technicianWithInventory.find((item) => item.id === "new-inventory")?.href).toBe(
+      "/inventory?workspace=new-product",
+    );
+    const technicianWithInventoryIds = technicianWithInventory.map((item) => item.id);
+    expect(technicianWithInventoryIds).not.toContain("new-buyback");
+    expect(technicianWithInventoryIds).toContain("new-inventory");
+    expect(
+      getShellCommandActions(
+        { canReadInventory: true, canCreateInventory: true },
+        "technician",
+      ).map((item) => item.id),
+    ).not.toContain("new-inventory");
     expect(
       getShellCommandActions({ canReadInventory: true, canCreateInventory: true }, "manager").map(
         (item) => item.id,

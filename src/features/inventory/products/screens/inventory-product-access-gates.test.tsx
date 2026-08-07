@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const apiMocks = vi.hoisted(() => ({
@@ -8,10 +8,17 @@ const apiMocks = vi.hoisted(() => ({
   listInventoryProducts: vi.fn(),
   updateInventoryProduct: vi.fn(),
 }));
-const routerMocks = vi.hoisted(() => ({ push: vi.fn() }));
+const routerMocks = vi.hoisted(() => ({
+  push: vi.fn(),
+  replace: vi.fn(),
+  searchParams: new URLSearchParams(),
+}));
 const shellMocks = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
 
-vi.mock("next/navigation", () => ({ useRouter: () => routerMocks }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => routerMocks,
+  useSearchParams: () => routerMocks.searchParams,
+}));
 vi.mock("@/lib/repairdesk/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/repairdesk/api")>()),
   createInventoryProduct: apiMocks.createInventoryProduct,
@@ -29,11 +36,15 @@ import { InventoryProductListScreen } from "./inventory-product-list-screen";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  routerMocks.searchParams = new URLSearchParams();
   window.localStorage.clear();
   shellMocks.value = shellContext();
 });
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe("inventory product UI access gates", () => {
   it("does not request list data when the product UI flag is disabled", async () => {
@@ -58,6 +69,219 @@ describe("inventory product UI access gates", () => {
 
     expect(screen.getByRole("heading", { name: "正在载入录入权限" })).toBeVisible();
     expect(screen.queryByLabelText("品牌")).not.toBeInTheDocument();
+  });
+
+  it("opens product intake in one controlled dialog and protects a dirty draft", async () => {
+    apiMocks.listInventoryProducts.mockResolvedValue({
+      items: [product()],
+      total: 1,
+      facets: { brands: ["Apple"], locations: ["A-02"] },
+    });
+    renderWithQuery(<InventoryProductListScreen />);
+
+    await screen.findByText("SKU SKU-001");
+    fireEvent.click(screen.getAllByRole("button", { name: "快速录入商品" })[0]);
+
+    const dialog = await screen.findByRole("dialog");
+    const brand = await within(dialog).findByLabelText(/品牌/);
+    expect(routerMocks.push).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(
+      within(dialog).queryByRole("button", { name: "摄像头扫码录入 IMEI 1" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(brand, { target: { value: "Apple" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "关闭商品录入弹窗" }));
+    expect(screen.getByRole("heading", { name: "放弃本次未保存商品？" })).toBeVisible();
+    expect(brand.closest("[inert]")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByRole("dialog")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "继续填写" }));
+    expect(within(dialog).getByLabelText(/品牌/)).toHaveValue("Apple");
+    fireEvent.click(within(dialog).getByRole("button", { name: "关闭商品录入弹窗" }));
+    fireEvent.click(screen.getByRole("button", { name: "放弃并关闭" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("opens the same dialog from the route intent and fails closed without create capability", async () => {
+    apiMocks.listInventoryProducts.mockResolvedValue({
+      items: [product()],
+      total: 1,
+      facets: { brands: [], locations: [] },
+    });
+    routerMocks.searchParams = new URLSearchParams("workspace=new-product");
+    const firstRender = renderWithQuery(<InventoryProductListScreen />);
+    expect(await screen.findByRole("dialog")).toBeVisible();
+    firstRender.unmount();
+
+    routerMocks.searchParams = new URLSearchParams("workspace=new-product");
+    shellMocks.value = shellContext({ canCreateInventory: false });
+    renderWithQuery(<InventoryProductListScreen />);
+    await waitFor(() =>
+      expect(routerMocks.replace).toHaveBeenCalledWith("/inventory", { scroll: false }),
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "快速录入商品" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the dialog open while a create result is pending", async () => {
+    let resolveCreate: ((value: { id: string; sku: string }) => void) | undefined;
+    apiMocks.listInventoryProducts.mockResolvedValue({
+      items: [product()],
+      total: 1,
+      facets: { brands: [], locations: [] },
+    });
+    apiMocks.createInventoryProduct.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCreate = resolve;
+      }),
+    );
+    renderWithQuery(<InventoryProductListScreen />);
+    await screen.findByText("SKU SKU-001");
+    fireEvent.click(screen.getAllByRole("button", { name: "快速录入商品" })[0]);
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/品牌/), { target: { value: "Apple" } });
+    fireEvent.change(within(dialog).getByLabelText(/型号 \/ 商品名称/), {
+      target: { value: "iPhone 15" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存并查看商品" }));
+    await waitFor(() => expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "关闭商品录入弹窗" }));
+    expect(screen.getByRole("dialog")).toBeVisible();
+    expect(screen.getByText("正在保存商品，请等待结果后再关闭。")).toBeInTheDocument();
+
+    resolveCreate?.({ id: "product-created", sku: "SKU-NEW" });
+    await waitFor(() =>
+      expect(routerMocks.push).toHaveBeenCalledWith("/inventory/product-created"),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("closes the stale dialog and clears its draft when store authority changes", async () => {
+    apiMocks.listInventoryProducts.mockResolvedValue({
+      items: [product()],
+      total: 1,
+      facets: { brands: [], locations: [] },
+    });
+    const view = renderWithQuery(<InventoryProductListScreen />);
+    await screen.findByText("SKU SKU-001");
+    fireEvent.click(screen.getAllByRole("button", { name: "快速录入商品" })[0]);
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/品牌/), { target: { value: "Apple" } });
+
+    shellMocks.value = {
+      ...shellContext(),
+      activeStore: { id: "store-2" },
+      authorityFingerprint: "store-2:owner",
+    };
+    view.rerender(
+      <QueryClientProvider client={view.queryClient}>
+        <InventoryProductListScreen />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    fireEvent.click(screen.getAllByRole("button", { name: "快速录入商品" })[0]);
+    const freshDialog = await screen.findByRole("dialog");
+    expect(within(freshDialog).getByLabelText(/品牌/)).toHaveValue("");
+  });
+
+  it("ignores a stale create result after authority changes while saving", async () => {
+    let resolveCreate: ((value: { id: string; sku: string }) => void) | undefined;
+    apiMocks.listInventoryProducts.mockResolvedValue({
+      items: [product()],
+      total: 1,
+      facets: { brands: [], locations: [] },
+    });
+    apiMocks.createInventoryProduct.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCreate = resolve;
+      }),
+    );
+    const view = renderWithQuery(<InventoryProductListScreen />);
+    await screen.findByText("SKU SKU-001");
+    fireEvent.click(screen.getAllByRole("button", { name: "快速录入商品" })[0]);
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/品牌/), { target: { value: "Apple" } });
+    fireEvent.change(within(dialog).getByLabelText(/型号 \/ 商品名称/), {
+      target: { value: "iPhone 15" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存并查看商品" }));
+    await waitFor(() => expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1));
+
+    shellMocks.value = {
+      ...shellContext(),
+      activeStore: { id: "store-2" },
+      authorityFingerprint: "store-2:owner",
+    };
+    view.rerender(
+      <QueryClientProvider client={view.queryClient}>
+        <InventoryProductListScreen />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await act(async () => resolveCreate?.({ id: "stale-product", sku: "SKU-STALE" }));
+    expect(routerMocks.push).not.toHaveBeenCalledWith("/inventory/stale-product");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("keeps the idempotency key across a failed retry and delegates final navigation", async () => {
+    const onCreated = vi.fn();
+    apiMocks.createInventoryProduct
+      .mockRejectedValueOnce(new Error("controlled failure"))
+      .mockResolvedValueOnce({ id: "product-created", sku: "SKU-NEW" });
+    renderWithQuery(
+      <InventoryProductIntakeScreen surface="dialog" onCreated={onCreated} onCancel={vi.fn()} />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/品牌/), { target: { value: "Apple" } });
+    fireEvent.change(screen.getByLabelText(/型号 \/ 商品名称/), {
+      target: { value: "iPhone 15" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存并查看商品" }));
+    expect(await screen.findByText("controlled failure")).toBeVisible();
+    const firstKey = apiMocks.createInventoryProduct.mock.calls[0][0].idempotency_key;
+
+    fireEvent.click(screen.getByRole("button", { name: "保存并查看商品" }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith("product-created"));
+    expect(apiMocks.createInventoryProduct.mock.calls[1][0].idempotency_key).toBe(firstKey);
+    expect(routerMocks.push).not.toHaveBeenCalledWith("/inventory/product-created");
+  });
+
+  it("uses a synchronous submit lock before React can disable the buttons", async () => {
+    let resolveCreate: ((value: { id: string; sku: string }) => void) | undefined;
+    apiMocks.createInventoryProduct.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCreate = resolve;
+      }),
+    );
+    renderWithQuery(<InventoryProductIntakeScreen surface="dialog" onCreated={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText(/品牌/), { target: { value: "Sony" } });
+    fireEvent.change(screen.getByLabelText(/型号 \/ 商品名称/), {
+      target: { value: "PlayStation 5" },
+    });
+    const form = screen.getByRole("button", { name: "保存并查看商品" }).closest("form")!;
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    await waitFor(() => expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1));
+    resolveCreate?.({ id: "product-created", sku: "SKU-NEW" });
+    await waitFor(() => expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1));
+  });
+
+  it("confirms destructive category changes inside the current work surface", () => {
+    const nativeConfirm = vi.spyOn(window, "confirm");
+    renderWithQuery(<InventoryProductIntakeScreen surface="dialog" />);
+    fireEvent.change(screen.getByLabelText(/品牌/), { target: { value: "Apple" } });
+    fireEvent.click(screen.getByRole("radio", { name: "平板" }));
+
+    expect(nativeConfirm).not.toHaveBeenCalled();
+    expect(screen.getByText(/会清除当前品牌、型号、规格和设备标识/)).toBeVisible();
+    expect(screen.getByLabelText(/品牌/)).toHaveValue("Apple");
+    fireEvent.click(screen.getByRole("button", { name: "清空并切换" }));
+    expect(screen.getByRole("radio", { name: "平板" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByLabelText(/品牌/)).toHaveValue("");
   });
 
   it("prioritizes a real thumbnail, then uses the local reference after an image error", async () => {

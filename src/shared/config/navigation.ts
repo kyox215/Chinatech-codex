@@ -65,6 +65,8 @@ export interface RepairDeskNavItem {
 type RepairDeskNavigationPermissions = {
   canReadInventory?: boolean;
   canCreateInventory?: boolean;
+  inventoryProductsUiEnabled?: boolean;
+  inventoryProductQuickCreateEnabled?: boolean;
   canReadMessageTemplates?: boolean;
   canReadRepairProfitReports?: boolean;
   canReadMemos?: boolean;
@@ -179,7 +181,7 @@ export const workspaceNavItems: RepairDeskNavItem[] = [
       shortLabel: "入库",
       description: "新增配件、翻新机或商品",
       icon: PackagePlus,
-      href: "/inventory/new",
+      href: "/inventory?workspace=new-product",
     },
   },
   {
@@ -342,7 +344,13 @@ export function getShellCommandActions(
     if (action.id === "new-buyback") {
       return permissions?.canReadInventory === true && (role === "owner" || role === "manager");
     }
-    if (action.id === "new-inventory") return permissions?.canCreateInventory === true;
+    if (action.id === "new-inventory") {
+      return (
+        permissions?.canCreateInventory === true &&
+        permissions.inventoryProductsUiEnabled === true &&
+        permissions.inventoryProductQuickCreateEnabled === true
+      );
+    }
     if (action.id === "new-memo") return permissions?.canCreateMemos === true;
     return true;
   });

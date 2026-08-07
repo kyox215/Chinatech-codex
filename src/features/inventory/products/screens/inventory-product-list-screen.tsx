@@ -1,8 +1,9 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Filter,
   Gamepad2,
@@ -43,6 +44,8 @@ import { cn } from "@/lib/utils";
 import { MoneyText, RepairOsBadge, RepairOsListScaffold } from "@/shared/ui";
 
 import { inventoryProductsQueryOptions } from "../api/query-options";
+import { inventoryProductKeys } from "../api/query-keys";
+import { InventoryProductCreateDialog } from "../components/inventory-product-create-dialog";
 import {
   inventoryProductColorStyle,
   matchInventoryProductColor,
@@ -96,6 +99,9 @@ const statusStyles: Record<InventoryProductDisplayStatus, string> = {
 };
 
 export function InventoryProductListScreen() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const shell = useStoreShellContext();
   const storeId = shell.activeStore?.id;
   const [search, setSearch] = useState("");
@@ -105,6 +111,9 @@ export function InventoryProductListScreen() {
   const [draft, setDraft] = useState<InventoryProductListFilters>({});
   const [view, setView] = useState<InventoryProductView>("shelf");
   const [viewReady, setViewReady] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createSessionKey, setCreateSessionKey] = useState(0);
+  const handledCreateIntentRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(INVENTORY_PRODUCT_VIEW_STORAGE_KEY);
@@ -141,17 +150,77 @@ export function InventoryProductListScreen() {
     (filters.locations?.length ?? 0);
   const hasSelectedCategory = Boolean(filters.categories?.length);
   const hasActiveSelection = activeFilterCount > 0 || hasSelectedCategory;
-
-  const createAction =
+  const canCreateProduct = Boolean(
     shell.permissions?.canCreateInventory &&
     shell.permissions.inventoryProductsUiEnabled &&
-    shell.permissions.inventoryProductQuickCreateEnabled ? (
-      <Button asChild size="iconDense" className="size-11 rounded-lg" aria-label="快速录入商品">
-        <Link href="/inventory/new">
-          <Plus className="size-5" />
-        </Link>
-      </Button>
-    ) : null;
+    shell.permissions.inventoryProductQuickCreateEnabled,
+  );
+
+  const clearCreateIntent = useCallback(() => {
+    if (searchParams.get("workspace") !== "new-product") return;
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("workspace");
+    const query = nextParams.toString();
+    router.replace(query ? `/inventory?${query}` : "/inventory", { scroll: false });
+  }, [router, searchParams]);
+
+  const openCreate = useCallback(() => {
+    if (!canCreateProduct || shell.isLoading) return;
+    setFilterOpen(false);
+    setCreateSessionKey((current) => current + 1);
+    setCreateOpen(true);
+  }, [canCreateProduct, shell.isLoading]);
+
+  const handleCreateOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (nextOpen) {
+        openCreate();
+        return;
+      }
+      setCreateOpen(false);
+      clearCreateIntent();
+    },
+    [clearCreateIntent, openCreate],
+  );
+
+  useEffect(() => {
+    if (searchParams.get("workspace") !== "new-product") {
+      handledCreateIntentRef.current = undefined;
+      return;
+    }
+    if (shell.isLoading) return;
+    const intentKey = searchParams.toString();
+    if (handledCreateIntentRef.current === intentKey) return;
+    handledCreateIntentRef.current = intentKey;
+    if (!canCreateProduct) {
+      clearCreateIntent();
+      return;
+    }
+    openCreate();
+  }, [canCreateProduct, clearCreateIntent, openCreate, searchParams, shell.isLoading]);
+
+  const handleProductCreated = useCallback(
+    async (id: string) => {
+      await queryClient.invalidateQueries({
+        queryKey: inventoryProductKeys.listsForStore(storeId),
+      });
+      router.push(`/inventory/${id}`);
+    },
+    [queryClient, router, storeId],
+  );
+
+  const createAction = canCreateProduct ? (
+    <Button
+      type="button"
+      size="iconDense"
+      className="size-11 rounded-lg"
+      aria-label="快速录入商品"
+      data-inventory-product-create-trigger="true"
+      onClick={openCreate}
+    >
+      <Plus className="size-5" />
+    </Button>
+  ) : null;
 
   if (
     !shell.isLoading &&
@@ -330,6 +399,12 @@ export function InventoryProductListScreen() {
           setFilters(draft);
           setFilterOpen(false);
         }}
+      />
+      <InventoryProductCreateDialog
+        open={createOpen}
+        sessionKey={createSessionKey}
+        onOpenChange={handleCreateOpenChange}
+        onCreated={handleProductCreated}
       />
     </RepairOsListScaffold>
   );

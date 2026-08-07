@@ -103,6 +103,7 @@ export function ImeiScannerField({
   placeholder = "扫描或输入 IMEI",
   density = "default",
   showPaste = true,
+  showScanner = true,
   startScannerToken,
   appearance = "outlined",
   inputId,
@@ -118,6 +119,7 @@ export function ImeiScannerField({
   placeholder?: string;
   density?: ImeiScannerFieldDensity;
   showPaste?: boolean;
+  showScanner?: boolean;
   startScannerToken?: number;
   appearance?: "outlined" | "quiet";
   inputId?: string;
@@ -650,11 +652,11 @@ export function ImeiScannerField({
   }, [stopScanner]);
 
   useEffect(() => {
-    if (startScannerToken === undefined) return;
+    if (!showScanner || startScannerToken === undefined) return;
     if (lastStartScannerTokenRef.current === startScannerToken) return;
     lastStartScannerTokenRef.current = startScannerToken;
     setScannerOpen(true);
-  }, [startScannerToken]);
+  }, [showScanner, startScannerToken]);
 
   return (
     <div className={cn("space-y-1.5", compact && "space-y-1")}>
@@ -662,13 +664,21 @@ export function ImeiScannerField({
         className={cn(
           "flex gap-2",
           compact &&
-            (showPaste
-              ? showClear
-                ? "grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-1.5"
-                : "grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1.5"
-              : showClear
-                ? "grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1.5"
-                : "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5"),
+            (showScanner
+              ? showPaste
+                ? showClear
+                  ? "grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-1.5"
+                  : "grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1.5"
+                : showClear
+                  ? "grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1.5"
+                  : "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5"
+              : showPaste
+                ? showClear
+                  ? "grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1.5"
+                  : "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5"
+                : showClear
+                  ? "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5"
+                  : "grid grid-cols-1 items-center gap-1.5"),
         )}
       >
         <Input
@@ -688,20 +698,22 @@ export function ImeiScannerField({
             compact && quiet && "border-0 bg-transparent px-0 shadow-none focus-visible:ring-0",
           )}
         />
-        <Button
-          type="button"
-          variant={quiet ? "ghost" : "outline"}
-          size="icon"
-          className={cn(
-            "shrink-0",
-            compact && "size-11 lg:size-8",
-            quiet && "rounded-lg bg-[var(--surface-panel-muted)] text-foreground",
-          )}
-          onClick={() => setScannerOpen(true)}
-          aria-label={`摄像头扫码录入 ${actionIdentifierLabel}`}
-        >
-          <Camera className="size-4" />
-        </Button>
+        {showScanner ? (
+          <Button
+            type="button"
+            variant={quiet ? "ghost" : "outline"}
+            size="icon"
+            className={cn(
+              "shrink-0",
+              compact && "size-11 lg:size-8",
+              quiet && "rounded-lg bg-[var(--surface-panel-muted)] text-foreground",
+            )}
+            onClick={() => setScannerOpen(true)}
+            aria-label={`摄像头扫码录入 ${actionIdentifierLabel}`}
+          >
+            <Camera className="size-4" />
+          </Button>
+        ) : null}
         {showPaste ? (
           <Button
             type="button"
@@ -740,7 +752,7 @@ export function ImeiScannerField({
       </div>
       {warning && <p className="text-xs text-status-warn-foreground">{warning}</p>}
 
-      <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
+      <Dialog open={showScanner && scannerOpen} onOpenChange={setScannerOpen}>
         <DialogContent className="grid max-h-[calc(100svh-12px)] w-[min(32rem,calc(100vw-16px))] max-w-md grid-rows-[minmax(0,1fr)_auto] gap-0 overflow-hidden p-0">
           <input
             ref={fileInputRef}
