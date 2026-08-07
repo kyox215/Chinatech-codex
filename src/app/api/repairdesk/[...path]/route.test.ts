@@ -36,11 +36,12 @@ vi.mock("@/server/api/repairdesk-router", () => ({
 
 import { UnauthorizedError } from "@/server/auth-context";
 import {
+  INVENTORY_LIFECYCLE_COMMAND_MAX_BYTES,
   INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES,
   MEMO_COMMAND_REQUEST_MAX_BYTES,
 } from "@/server/api/repairdesk-request-limits";
 
-import { GET, INVENTORY_LIFECYCLE_COMMAND_MAX_BYTES, POST } from "./route";
+import { GET, POST } from "./route";
 
 describe("RepairDesk attachment route request envelope", () => {
   beforeEach(() => {

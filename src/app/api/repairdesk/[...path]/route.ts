@@ -17,6 +17,7 @@ import { AiServiceError } from "@/features/ai-assistant/server/errors";
 import { consumeAiAssistantRequestRateLimit } from "@/features/ai-assistant/server/request-rate-limit";
 import { isRepairDeskToolkitEnabled } from "@/features/toolkit/model/toolkit-feature";
 import {
+  INVENTORY_LIFECYCLE_COMMAND_MAX_BYTES,
   INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES,
   MEMO_COMMAND_REQUEST_MAX_BYTES,
 } from "@/server/api/repairdesk-request-limits";
@@ -29,7 +30,6 @@ type RouteContext = {
 };
 
 const ORDER_DATA_MULTIPART_MAX_BYTES = 4_400_000;
-export const INVENTORY_LIFECYCLE_COMMAND_MAX_BYTES = 48 * 1024;
 const TOOLKIT_POST_MAX_BYTES = 64 * 1024;
 const AI_ORDER_TURN_MAX_BYTES = 4_096;
 const AI_ORDER_ACTION_MAX_BYTES = 2_048;
