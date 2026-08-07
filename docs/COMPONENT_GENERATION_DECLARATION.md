@@ -3,7 +3,7 @@
 Status: active
 Owner: Frontend + Documentation / Integration Lead
 Scope: current reusable-component generation, naming, placement, styling, and validation rules for RepairDesk.
-Last reviewed: 2026-07-29 CEST by `TASK-20260729-011-inventory-product-simplification-implementation`
+Last reviewed: 2026-08-07 CEST by `TASK-20260807-005-global-create-dialog-declaration`
 
 > 本声明专门约束“新增可复用组件如何设计、生成、命名、落盘、验收”。
 >
@@ -184,6 +184,9 @@ export interface ExampleCardProps {
 - 默认复用 `src/components/ui/*` 的 `Dialog`、`Sheet`、`Popover`，不要自造 Portal、Overlay 或关闭按钮。
 - `Dialog` / `Sheet` 内嵌 `DropdownMenu` 时，如果菜单动作会导航、卸载或同批关闭外层浮层，内层菜单必须使用 `modal={false}`，由外层浮层统一管理焦点和 pointer lock；回归测试必须确认最终 `document.body.style.pointerEvents !== "none"`。
 - `Dialog` 用于桌面详情、确认、新建/编辑；`Sheet` 用于移动筛选、接近全屏流程或侧向辅助面板；`Popover` 只承载轻量菜单、筛选、日期/状态选择，不放长表单或详情页。
+- 列表、概览和模块 Header 的主创建入口必须由所属 feature 页面持有 `open` state，并渲染受控创建 `Dialog`；移动端可以渲染同一控制器的 `Sheet`/近全屏表面。触发器不得默认使用裸 `/new` 路由跳转，完整规则见 [`UI_PAGE_GENERATION_DECLARATION.md`](./UI_PAGE_GENERATION_DECLARATION.md#351-全局创建入口与浮层契约)。
+- 任一时刻只能存在一个模态根；禁止 `Dialog`、`AlertDialog` 与 modal `Sheet` 相互嵌套。已有详情/编辑浮层内的子级创建或确认使用当前工作面 inline panel/step；移动端确需 `Sheet` 时让它替换父表面，或先关闭/暂停父浮层后再打开。完成后回写并刷新外层，不叠加第二层 overlay、scroll lock 或焦点陷阱。
+- 创建组件必须让表单/控制器与浮层外壳解耦，复用同一份校验、权限、mutation、幂等和 dirty-draft 逻辑；不得复制“页面版”和“弹窗版”两套业务实现。
 - `Dialog` / `Sheet` 必须包含 title 和 description；视觉隐藏时使用 `sr-only`。`PopoverTrigger` 必须有可访问名称，内容无可见标题时补 `aria-label` 或 `aria-labelledby`。
 - 内容 class 复用 `componentOverlay.content`、`componentOverlay.responsiveContent` 或 `surfaces.popover`；所有浮层限制在 `max-w-[calc(100vw-24px)]` 内，移动 Sheet 接近全屏时使用 `h-[calc(100svh-16px)]`。
 - 底部表单 Sheet 使用 `componentOverlay.bottomSheet`，表单 body 自己负责 `overflow-y-auto`，不要在业务页面手写 `max-h` / safe-area padding。

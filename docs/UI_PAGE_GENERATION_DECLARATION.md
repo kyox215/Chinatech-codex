@@ -3,7 +3,7 @@
 Status: active
 Owner: UX + Documentation / Integration Lead
 Scope: current page-generation rules, App Router page bodies, RepairOS UI language, and UI validation expectations.
-Last reviewed: 2026-07-29 CEST by `TASK-20260729-011-inventory-product-simplification-implementation`
+Last reviewed: 2026-08-07 CEST by `TASK-20260807-005-global-create-dialog-declaration`
 
 > 目标：后续新增页面、重构页面、让 AI 生成页面时，必须复用同一套布局、组件、数据和交互契约，避免页面风格漂移。
 >
@@ -65,6 +65,7 @@ Last reviewed: 2026-07-29 CEST by `TASK-20260729-011-inventory-product-simplific
 14. 新功能不得把状态筛选、分类或页面分组做成“圆点 + 连线”的顶部流程轨道。步骤器只能用于用户正在完成的真实有序多步任务，不能用来切换列表视图。
 15. 状态、分类和 Tab 必须在当前 viewport 内完整可达；优先使用固定网格、自动换行、下拉选择或“更多筛选” Sheet。禁止使用 `overflow-x-auto` 的横向拖动栏作为主要导航或筛选方式。
 16. 不得用滚动条、细长灰线、轮播位置条或没有真实数值的条形元素伪装业务进度。只有存在真实可计算完成量时才显示进度，并同时提供文本、当前步骤和可访问状态。
+17. 列表、概览和模块头部的主“新建 / +”入口必须保留当前页面上下文并打开创建浮层：桌面使用 `Dialog`，紧凑移动端使用 `Sheet` 或接近全屏的 `Dialog`。禁止把裸 `Link href="/.../new"` 或 `router.push("/.../new")` 作为默认创建入口；确需独立创建页时必须按 3.5.1 的例外流程记录并批准。
 
 ## 3. 页面布局声明
 
@@ -146,6 +147,25 @@ import { brandGradientStyle, pageShell, repairOs, surfaces } from "@/lib/ui-patt
 5. 底部 sticky action bar，左侧摘要，右侧取消/提交。
 6. 提交前本地校验；提交后 invalidate 相关 query key。
 
+#### 3.5.1 全局创建入口与浮层契约
+
+以下规则适用于商品、客户、订单、备忘、回收及后续新增模块。订单管理的入口、受控 `open/session` state、共享创建组件和顺序成功编排是参考基准；其内部现存嵌套确认浮层不是参考实现。
+
+1. **默认入口必须是浮层。** 列表页、概览页、模块 Header、空态和移动快捷操作中的主“新建 / +”动作，必须通过按钮更新 `open` state，在当前上下文挂载同一个创建组件；`RepairOsListScaffold` 等壳层只接收触发器，不拥有业务表单状态。
+2. **桌面与移动保持同一业务控制器。** 桌面使用 `Dialog`；紧凑移动端使用 `Sheet` 或接近全屏的 `Dialog`。两种表面必须复用同一份校验、权限、mutation、幂等键和成功回调，不得复制两套创建逻辑。
+3. **路由只能作为兼容入口，不得取代默认浮层。** `/module/new` 可保留给直接链接、恢复草稿或明确批准的沉浸式长流程，但列表“+”不得直接跳转过去。可分享入口优先使用 query/workspace intent 打开列表页上的创建浮层。新增独立创建页必须在任务记录中说明浮层不可行的原因，并取得 Owner 或 Integration Lead 明确批准。
+4. **表单必须与页面外壳解耦。** 可复用创建工作区应接收 `surface`、`onCancel`、`onCreated` 等接口；路由页和浮层只负责外壳、返回/关闭与成功去向。不得把包含独立 Header、返回按钮和 `router.push` 的完整页面直接塞进 `Dialog`。
+5. **成功后先结束创建，再刷新上下文。** mutation 必须防重复提交并沿用服务端权限/幂等保护；成功后关闭创建浮层，invalidate 当前门店的列表、统计和必要详情 query，再按模块契约打开 canonical 详情或聚焦新记录。不得在创建 `Dialog` 尚未卸载时叠放第二个详情 `Dialog`。
+6. **关闭不得丢失草稿。** 有未保存内容时，关闭按钮、Escape、点击遮罩和移动返回手势必须走同一确认逻辑，并在当前浮层内使用 inline confirm/step，不得再叠加 `AlertDialog`；mutation pending 时禁用重复提交，并明确允许安全取消还是必须等待。关闭后焦点回到原触发器，列表筛选、搜索、滚动位置和已选门店保持不变。
+7. **权限和门店上下文保持 fail-closed。** 触发器按创建权限隐藏或禁用，服务端继续做最终授权；浮层打开期间如门店、账号或权限指纹变化，必须关闭或清空旧草稿并提示用户，不得把旧门店草稿提交到新上下文。
+8. **错误必须保留现场。** 校验、网络、超时或服务端错误不得关闭浮层或清空草稿；使用 inline error/summary，聚焦首个错误并允许重试。超时和结果未知必须复用同一幂等键进入确认/恢复流程，不得重新创建重复对象。
+9. **单一模态根，禁止浮层嵌套。** 已位于 `Dialog`、`AlertDialog` 或 modal `Sheet` 内的子级创建/确认动作，必须在当前工作面内展开 inline panel/step；移动端需要改用 `Sheet` 时，应让它替换当前表面，或先关闭/暂停父浮层后再打开，禁止两个模态根同时存在。子级完成后回写当前工作面并刷新相关数据。
+10. **浮层必须可访问且不溢出。** 必须提供 title、description、初始焦点、键盘导航、可预测的 Escape 行为和焦点恢复；外壳尺寸稳定，长内容仅由 body 滚动，提交区使用 sticky footer，并至少验证 390px、768px、1024px、1280px、1440px。
+
+代码审查时，凡发现列表主创建入口使用裸 `/new` 导航，默认视为违反本声明；除非同一任务内存在已批准的例外记录。
+
+本声明自 `TASK-20260807-005-global-create-dialog-declaration` 起约束所有新增和被修改的创建流程。`NewOrderScreen` 内现存的嵌套 `AlertDialog` 与 `SupplierEditorSheet` 的弃稿 `AlertDialog` 登记为既有技术债，不得作为新实现范例；后续触碰这些流程时必须优先迁移到同表面 inline confirm/step，并补单一模态根回归测试。
+
 工单录入人 / 技师属于服务端归属字段。新建、编辑、详情弹窗不得生成可编辑技师输入框或选择器；新建工单只可显示当前账号提示，最终写入必须由 API actor 决定。
 
 金额编辑必须使用 string draft 管理输入框，再通过纯 helper 统一转换为 number。禁止直接用 `Number(event.target.value)` 绑定可清空的金额输入，避免空值被强制显示为 `0`。
@@ -218,7 +238,7 @@ import { brandGradientStyle, pageShell, repairOs, surfaces } from "@/lib/ui-patt
 
 Mutation 成功后至少 invalidate 当前资源和相关统计。例如创建/流转/付款工单后，应 invalidate `orders`、`order-stats`，详情页还要 invalidate `["order", id]`。
 
-新建工单成功后，无论入口是独立 `/orders/new` 页面还是 `/orders` 内的新建 Dialog，都必须进入 canonical `/orders/{id}` 详情页；不要以叠放或瞬时切换第二个详情 Dialog 代替成功导航。
+新建工单成功后，列表内入口必须先关闭创建 `Dialog`，再顺序进入 route-backed 详情工作区 `/orders?workspace=order-detail&orderId=...`；独立 `/orders/new` 兼容页则进入 canonical `/orders/{id}`。两种入口都不得叠放创建与详情浮层，也不得同时触发两个成功目的地。
 
 ## 6. 新页面生成流程
 
