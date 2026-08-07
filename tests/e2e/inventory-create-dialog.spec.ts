@@ -5,7 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 const screenshotDir = resolve(
   process.cwd(),
-  "artifacts/screenshots/TASK-20260807-006-inventory-create-dialog-implementation",
+  "artifacts/screenshots/TASK-20260807-009-inventory-dialog-no-auto-keyboard",
 );
 
 test.beforeAll(async () => {
@@ -29,7 +29,16 @@ for (const viewport of [
     await page.getByRole("button", { name: "快速录入商品" }).click();
     const dialog = page.locator('[data-inventory-product-create-dialog="true"]');
     await expect(dialog).toBeVisible();
-    await expect(page.getByLabel(/品牌/)).toBeFocused();
+    if (viewport.width < 1024) {
+      await expect(dialog).toBeFocused();
+      expect(
+        await page.evaluate(() =>
+          document.activeElement?.matches("input, textarea, select, [role='combobox']"),
+        ),
+      ).toBe(false);
+    } else {
+      await expect(page.getByLabel(/品牌/)).toBeFocused();
+    }
     expect(new URL(page.url()).pathname).toBe(pathnameBefore);
     await expect(page.locator('[role="dialog"]')).toHaveCount(1);
     await expect(page.getByRole("button", { name: "摄像头扫码录入 IMEI 1" })).toHaveCount(0);

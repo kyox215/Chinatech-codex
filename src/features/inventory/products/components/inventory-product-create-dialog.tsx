@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { COMPACT_WORKSPACE_BREAKPOINT } from "@/hooks/use-mobile";
 import { componentOverlay } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +43,7 @@ export function InventoryProductCreateDialog({
   const [intakeState, setIntakeState] = useState(cleanIntakeState);
   const [discardPromptOpen, setDiscardPromptOpen] = useState(false);
   const [closeNotice, setCloseNotice] = useState("");
+  const dialogContentRef = useRef<HTMLDivElement | null>(null);
   const focusBeforePromptRef = useRef<HTMLElement | null>(null);
   const continueEditingRef = useRef<HTMLButtonElement | null>(null);
   const discardAndCloseRef = useRef<HTMLButtonElement | null>(null);
@@ -114,6 +116,7 @@ export function InventoryProductCreateDialog({
       }}
     >
       <DialogContent
+        ref={dialogContentRef}
         data-inventory-product-create-dialog="true"
         showCloseButton={false}
         className={cn(
@@ -122,7 +125,15 @@ export function InventoryProductCreateDialog({
         )}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
-          requestAnimationFrame(() => document.getElementById("product-brand")?.focus());
+          if (window.innerWidth < COMPACT_WORKSPACE_BREAKPOINT) {
+            requestAnimationFrame(() => {
+              dialogContentRef.current?.focus({ preventScroll: true });
+            });
+          } else {
+            window.setTimeout(() => {
+              document.getElementById("product-brand")?.focus({ preventScroll: true });
+            }, 0);
+          }
         }}
         onCloseAutoFocus={(event) => {
           event.preventDefault();

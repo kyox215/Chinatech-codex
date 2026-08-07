@@ -3,7 +3,7 @@
 Status: active
 Owner: Frontend + Documentation / Integration Lead
 Scope: current reusable-component generation, naming, placement, styling, and validation rules for RepairDesk.
-Last reviewed: 2026-08-07 CEST by `TASK-20260807-005-global-create-dialog-declaration`
+Last reviewed: 2026-08-07 CEST by `TASK-20260807-009-inventory-dialog-no-auto-keyboard`
 
 > 本声明专门约束“新增可复用组件如何设计、生成、命名、落盘、验收”。
 >
@@ -188,6 +188,7 @@ export interface ExampleCardProps {
 - 任一时刻只能存在一个模态根；禁止 `Dialog`、`AlertDialog` 与 modal `Sheet` 相互嵌套。已有详情/编辑浮层内的子级创建或确认使用当前工作面 inline panel/step；移动端确需 `Sheet` 时让它替换父表面，或先关闭/暂停父浮层后再打开。完成后回写并刷新外层，不叠加第二层 overlay、scroll lock 或焦点陷阱。
 - 创建组件必须让表单/控制器与浮层外壳解耦，复用同一份校验、权限、mutation、幂等和 dirty-draft 逻辑；不得复制“页面版”和“弹窗版”两套业务实现。
 - `Dialog` / `Sheet` 必须包含 title 和 description；视觉隐藏时使用 `sr-only`。`PopoverTrigger` 必须有可访问名称，内容无可见标题时补 `aria-label` 或 `aria-labelledby`。
+- 紧凑/移动端创建 `Dialog` 打开时不得自动聚焦 `input`、`textarea`、`select` 或 combobox，以免用户尚未选择字段就弹出软键盘；初始焦点应停在 Dialog 容器或非文本操作上并保留焦点陷阱。桌面端可显式聚焦首个高频字段。回归测试必须同时断言移动端 `document.activeElement` 不是文本控件、桌面快捷焦点（如保留）以及关闭后触发器焦点恢复。
 - 内容 class 复用 `componentOverlay.content`、`componentOverlay.responsiveContent` 或 `surfaces.popover`；所有浮层限制在 `max-w-[calc(100vw-24px)]` 内，移动 Sheet 接近全屏时使用 `h-[calc(100svh-16px)]`。
 - 底部表单 Sheet 使用 `componentOverlay.bottomSheet`，表单 body 自己负责 `overflow-y-auto`，不要在业务页面手写 `max-h` / safe-area padding。
 - 弹层内部使用 compact density，长表单 footer 可 sticky；mutation pending 时禁用主操作并保留关闭/取消路径。

@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { COMPACT_WORKSPACE_BREAKPOINT } from "@/hooks/use-mobile";
 import { createInventoryProduct } from "@/lib/repairdesk/api";
 import type { CreateInventoryProductInput, InventoryProductCategory } from "@/lib/repairdesk/types";
 import { repairOs, surfaces } from "@/lib/ui-patterns";
@@ -545,7 +546,7 @@ export function InventoryProductIntakeScreen({
               id="product-brand"
               label="品牌"
               required
-              autoFocus={surface === "dialog"}
+              autoFocus={shouldAutoFocusBrand(surface)}
               value={draft.brand}
               placeholder="例如 Apple、Samsung"
               list="product-brand-suggestions"
@@ -866,6 +867,14 @@ function Field({
         onChange={(event) => onChange(event.target.value)}
       />
     </div>
+  );
+}
+
+function shouldAutoFocusBrand(surface: "page" | "dialog") {
+  return (
+    surface === "dialog" &&
+    typeof window !== "undefined" &&
+    window.innerWidth >= COMPACT_WORKSPACE_BREAKPOINT
   );
 }
 

@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { SidebarProvider } from "@/components/ui/sidebar";
+
 const apiMocks = vi.hoisted(() => ({
   createInventoryProduct: vi.fn(),
   getInventoryProductEditData: vi.fn(),
@@ -14,6 +16,15 @@ const routerMocks = vi.hoisted(() => ({
   searchParams: new URLSearchParams(),
 }));
 const shellMocks = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
+
+class ResizeObserverMock {
+  observe() {}
+  disconnect() {}
+}
+
+function setViewport(width: number) {
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
+}
 
 vi.mock("next/navigation", () => ({
   useRouter: () => routerMocks,
@@ -36,6 +47,8 @@ import { InventoryProductListScreen } from "./inventory-product-list-screen";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+  setViewport(1024);
   routerMocks.searchParams = new URLSearchParams();
   window.localStorage.clear();
   shellMocks.value = shellContext();
@@ -44,9 +57,69 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("inventory product UI access gates", () => {
+  it("keeps focus off form controls when the create dialog opens on mobile", async () => {
+    apiMocks.listInventoryProducts.mockResolvedValue({
+      items: [product()],
+      total: 1,
+      facets: { brands: ["Apple"], locations: ["A-02"] },
+    });
+    renderWithQuery(
+      <SidebarProvider>
+        <InventoryProductListScreen />
+      </SidebarProvider>,
+    );
+
+    await screen.findByText("SKU SKU-001");
+    setViewport(390);
+    fireEvent.click(screen.getAllByRole("button", { name: "快速录入商品" })[0]);
+
+    const dialog = await screen.findByRole("dialog");
+    const brand = await within(dialog).findByLabelText(/品牌/);
+    await waitFor(() => expect(dialog).toHaveFocus());
+    expect(brand).not.toHaveFocus();
+    expect(dialog.querySelector("input:focus, textarea:focus, select:focus")).toBeNull();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "关闭商品录入弹窗" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("retains brand autofocus on desktop and restores the visible create trigger on close", async () => {
+    setViewport(1280);
+    apiMocks.listInventoryProducts.mockResolvedValue({
+      items: [product()],
+      total: 1,
+      facets: { brands: ["Apple"], locations: ["A-02"] },
+    });
+    renderWithQuery(<InventoryProductListScreen />);
+
+    await screen.findByText("SKU SKU-001");
+    const trigger = screen.getAllByRole("button", { name: "快速录入商品" })[0];
+    vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
+      bottom: 44,
+      height: 40,
+      left: 4,
+      right: 44,
+      top: 4,
+      width: 40,
+      x: 4,
+      y: 4,
+      toJSON: () => ({}),
+    });
+    fireEvent.click(trigger);
+
+    const dialog = await screen.findByRole("dialog");
+    const brand = await within(dialog).findByLabelText(/品牌/);
+    await waitFor(() => expect(brand).toHaveFocus());
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "关闭商品录入弹窗" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
   it("does not request list data when the product UI flag is disabled", async () => {
     shellMocks.value = shellContext({ inventoryProductsUiEnabled: false });
     renderWithQuery(<InventoryProductListScreen />);
