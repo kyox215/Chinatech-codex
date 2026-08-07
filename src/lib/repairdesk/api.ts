@@ -143,6 +143,12 @@ import type {
   InventoryProductEditData,
   InventoryProductListFilters,
   InventoryProductListResult,
+  InventoryLifecycleCommandInput,
+  InventoryLifecycleCommandResult,
+  InventoryLifecycleListSummary,
+  InventoryLifecycleSaleDetail,
+  InventoryLifecycleAfterSalesQueueItem,
+  InventoryLifecycleAfterSalesCaseDetail,
   UpdateInventoryProductInput,
   UpdateInventoryProductResult,
   InventoryQualityCheckInput,
@@ -502,6 +508,39 @@ export async function updateInventoryProduct(
   input: UpdateInventoryProductInput,
 ): Promise<UpdateInventoryProductResult> {
   return postJson<UpdateInventoryProductResult>("inventory/products/update", { id, input });
+}
+
+export async function runInventoryLifecycleCommand(
+  input: InventoryLifecycleCommandInput,
+): Promise<InventoryLifecycleCommandResult> {
+  return postJson<InventoryLifecycleCommandResult>("inventory/lifecycle/command", input);
+}
+
+export async function readInventoryLifecycleSummary(
+  id: string,
+): Promise<InventoryLifecycleListSummary | null> {
+  return postJson<InventoryLifecycleListSummary | null>("inventory/lifecycle/summary", { id });
+}
+
+export async function readInventoryLifecycleSale(
+  id: string,
+): Promise<InventoryLifecycleSaleDetail | null> {
+  return postJson<InventoryLifecycleSaleDetail | null>("inventory/lifecycle/sale", { id });
+}
+
+export async function readInventoryLifecycleAfterSalesQueue(): Promise<
+  InventoryLifecycleAfterSalesQueueItem[]
+> {
+  return postJson<InventoryLifecycleAfterSalesQueueItem[]>("inventory/lifecycle/after-sales", {});
+}
+
+export async function readInventoryLifecycleAfterSalesCase(
+  id: string,
+): Promise<InventoryLifecycleAfterSalesCaseDetail | null> {
+  return postJson<InventoryLifecycleAfterSalesCaseDetail | null>(
+    "inventory/lifecycle/after-sales/case",
+    { id },
+  );
 }
 
 export async function getInventoryStats(

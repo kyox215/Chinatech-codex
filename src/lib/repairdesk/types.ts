@@ -1599,6 +1599,7 @@ export interface RepairDeskOptions {
     inventoryV2CommandsEnabled?: boolean;
     inventoryProductsUiEnabled?: boolean;
     inventoryProductQuickCreateEnabled?: boolean;
+    inventoryLifecycleUiEnabled?: boolean;
     canSearchOrderArchive?: boolean;
     canBrowseOrderArchive?: boolean;
     canReadOrderFinance?: boolean;
@@ -2073,6 +2074,7 @@ export interface StoreContext {
     inventoryV2CommandsEnabled?: boolean;
     inventoryProductsUiEnabled?: boolean;
     inventoryProductQuickCreateEnabled?: boolean;
+    inventoryLifecycleUiEnabled?: boolean;
     canManageOrderData?: boolean;
     canApplyOrderData?: boolean;
     canSearchOrderArchive?: boolean;
@@ -2497,6 +2499,149 @@ export interface CreateInventoryProductResult {
   id: string;
   sku: string;
   created_at: string;
+}
+
+export type InventoryLifecycleCommand =
+  | "acquisition.save"
+  | "inspection.save"
+  | "reservation.create"
+  | "payment.append"
+  | "sale.complete"
+  | "pickup.confirm"
+  | "reservation.cancel"
+  | "warranty.adjust"
+  | "after_sales.create"
+  | "after_sales.update"
+  | "after_sales.close";
+
+export interface InventoryLifecycleCommandInput {
+  command: InventoryLifecycleCommand;
+  idempotency_key: string;
+  payload: Record<string, unknown>;
+}
+
+export interface InventoryLifecycleCommandResult {
+  ok: boolean;
+  code: string;
+  sale_order_id?: string;
+  stock_unit_id?: string;
+  case_id?: string;
+  payment_id?: string;
+  inventory_item_id?: string;
+  balance?: number;
+  expires_at?: string;
+  actual_pickup_at?: string;
+  sold_at?: string;
+  starts_at?: string;
+  ends_at?: string;
+  version_no?: number;
+  version?: number;
+  order_version?: number;
+  unit_version?: number;
+  case_version?: number;
+  warranty_version?: number;
+  status?: string;
+}
+
+export interface InventoryLifecycleListSummary {
+  item_id: string;
+  stock_unit_id: string;
+  sku: string;
+  business_status:
+    | "in_stock"
+    | "reserved"
+    | "sold_pending_pickup"
+    | "delivered"
+    | "after_sales"
+    | "removed";
+  reservation_expires_at?: string;
+  expected_pickup_at?: string;
+  actual_pickup_at?: string;
+  warranty_ends_at?: string;
+  unit_version?: number;
+  order_version?: number;
+  case_version?: number;
+  warranty_version?: number;
+  after_sales_status?: "open" | "in_progress" | "waiting_customer" | "returned" | "closed";
+  sale_order_id?: string;
+  status?: "reserved" | "sold" | "cancelled";
+  agreed_price?: number;
+  signed_paid_amount?: number;
+  balance?: number;
+  reserved_at?: string;
+  sold_at?: string;
+  allowed_actions: InventoryLifecycleCommand[];
+  inspection?: {
+    battery_health: number | null;
+    face_id_status: "not_tested" | "normal" | "abnormal" | "not_applicable";
+    touch_id_status: "not_tested" | "normal" | "abnormal" | "not_applicable";
+    true_tone_status: "not_tested" | "normal" | "abnormal" | "not_applicable";
+    activation_lock_status: "not_tested" | "normal" | "abnormal" | "not_applicable";
+    data_wipe_status: "not_tested" | "normal" | "abnormal" | "not_applicable";
+    imei_status: "not_tested" | "normal" | "abnormal" | "not_applicable";
+    inspected_at: string;
+  };
+  commercial_warranty?: {
+    version_no: number;
+    basis: "legal" | "commercial";
+    months: number;
+    starts_at?: string;
+    ends_at?: string;
+  };
+  after_sales?: InventoryLifecycleAfterSalesSummary;
+}
+
+export interface InventoryLifecycleSaleDetail extends InventoryLifecycleListSummary {
+  sale_order_id: string;
+  inventory_item_id: string;
+  status: "reserved" | "sold" | "cancelled";
+  agreed_price: number;
+  signed_paid_amount: number;
+  balance: number;
+  payments: Array<{
+    kind: "deposit" | "balance" | "payment" | "refund" | "reversal";
+    amount: number;
+    method: "cash" | "card" | "bancomat" | "transfer" | "other";
+    occurred_at: string;
+  }>;
+}
+
+export interface InventoryLifecycleAfterSalesSummary {
+  case_id: string;
+  sale_order_id: string;
+  inventory_item_id: string;
+  status: "open" | "in_progress" | "waiting_customer" | "returned" | "closed";
+  coverage_decision?: "pending" | "covered" | "not_covered";
+  received_at: string;
+  version: number;
+}
+
+export interface InventoryLifecycleAfterSalesQueueItem {
+  case_id: string;
+  sale_order_id: string;
+  inventory_item_id: string;
+  stock_unit_id: string;
+  sku: string;
+  status: "open" | "in_progress" | "waiting_customer" | "returned" | "closed";
+  issue_summary: string;
+  coverage_decision?: "pending" | "covered" | "not_covered";
+  received_at: string;
+  returned_at?: string;
+  version: number;
+  order_version: number;
+  allowed_actions: InventoryLifecycleCommand[];
+}
+
+export interface InventoryLifecycleAfterSalesCaseDetail extends InventoryLifecycleAfterSalesQueueItem {
+  diagnosis?: string;
+  closed_at?: string;
+  sale?: InventoryLifecycleSaleDetail;
+  events: Array<{
+    event_type: string;
+    from_status?: string;
+    to_status?: string;
+    occurred_at: string;
+  }>;
 }
 
 export interface InventoryStats {

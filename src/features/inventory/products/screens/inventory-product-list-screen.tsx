@@ -4,6 +4,8 @@ import { useDeferredValue, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
+  CalendarClock,
+  CircleAlert,
   Filter,
   Gamepad2,
   Laptop,
@@ -12,6 +14,7 @@ import {
   RefreshCw,
   Search,
   Smartphone,
+  Tag,
   Tablet,
 } from "lucide-react";
 
@@ -98,7 +101,7 @@ export function InventoryProductListScreen() {
     shell.permissions?.canCreateInventory &&
     shell.permissions.inventoryProductsUiEnabled &&
     shell.permissions.inventoryProductQuickCreateEnabled ? (
-      <Button asChild size="iconDense" className="size-9 rounded-lg" aria-label="快速录入商品">
+      <Button asChild size="iconDense" className="size-11 rounded-lg" aria-label="快速录入商品">
         <Link href="/inventory/new">
           <Plus className="size-5" />
         </Link>
@@ -138,13 +141,13 @@ export function InventoryProductListScreen() {
               onChange={(event) => setSearch(event.target.value)}
               placeholder="搜索商品、SKU、型号"
               aria-label="搜索商品、SKU、型号"
-              className="h-10 pl-9"
+              className="h-11 pl-9"
             />
           </div>
           <Button
             type="button"
             variant="outline"
-            className="relative h-10 shrink-0 gap-2"
+            className="relative min-h-11 shrink-0 gap-2"
             aria-label={activeFilterCount ? `筛选，已应用 ${activeFilterCount} 项` : "筛选商品"}
             onClick={() => {
               setDraft(filters);
@@ -169,7 +172,7 @@ export function InventoryProductListScreen() {
           type="button"
           variant="outline"
           size="icon"
-          className="relative size-9 rounded-lg bg-card"
+          className="relative size-11 rounded-lg bg-card"
           aria-label={activeFilterCount ? `筛选，已应用 ${activeFilterCount} 项` : "筛选商品"}
           onClick={() => {
             setDraft(filters);
@@ -192,12 +195,25 @@ export function InventoryProductListScreen() {
             ? `已显示 ${query.data.items.length} 件商品`
             : "正在准备商品结果"}
       </p>
+      {query.data ? (
+        <InventoryQueueKpis
+          items={query.data.items}
+          activeStatuses={filters.statuses ?? []}
+          onSelect={(statuses) => setFilters({ ...filters, statuses })}
+        />
+      ) : null}
       {activeFilterCount ? (
         <div className="mb-2 flex flex-wrap items-center gap-1.5" aria-live="polite">
           <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary lg:text-xs lg:leading-4">
             已应用 {activeFilterCount} 项筛选
           </span>
-          <Button type="button" variant="ghost" size="sm" onClick={() => setFilters({})}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="min-h-11"
+            onClick={() => setFilters({})}
+          >
             清除
           </Button>
         </div>
@@ -271,55 +287,163 @@ function InventoryProductResults({
           data-inventory-product-desktop-list="true"
           className="rounded-2xl border border-border bg-card p-2 shadow-sm"
         >
-          <div className="grid grid-cols-[110px_minmax(0,1.5fr)_minmax(0,1fr)_120px_88px_36px] items-center gap-3 px-3 py-2 text-xs font-medium text-muted-foreground">
-            <span>SKU / 状态</span>
-            <span>商品</span>
-            <span>规格 / 位置</span>
-            <span>标识</span>
-            <span className="text-right">售价</span>
-            <span />
-          </div>
-          <div className="divide-y divide-border">
-            {items.map((item) => (
-              <Link
-                key={item.id}
-                href={`/inventory/${item.id}`}
-                className="grid min-h-[52px] grid-cols-[110px_minmax(0,1.5fr)_minmax(0,1fr)_120px_88px_36px] items-center gap-3 rounded-xl px-3 py-1.5 text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <span className="min-w-0">
-                  <span className="block truncate font-mono text-xs text-primary">{item.sku}</span>
-                  <span className="text-xs text-muted-foreground">{statusLabels[item.status]}</span>
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate font-semibold">
-                    {item.brand} {item.model}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {categoryMeta[item.category].label}
-                  </span>
-                </span>
-                <span className="min-w-0 truncate text-muted-foreground">
-                  {[item.specification, item.location].filter(Boolean).join(" · ") || "—"}
-                </span>
-                <span className="truncate font-mono text-xs text-muted-foreground">
-                  {item.masked_identifier ?? "—"}
-                </span>
-                <span className="text-right font-semibold">
-                  {item.list_price === undefined ? (
-                    "未填写"
-                  ) : (
-                    <MoneyText amount={item.list_price} />
-                  )}
-                </span>
-                <span className="grid size-9 place-items-center text-primary" aria-hidden>
-                  ›
-                </span>
-              </Link>
-            ))}
-          </div>
+          <table className="w-full min-w-0 text-xs">
+            <caption className="sr-only">商品库存列表</caption>
+            <thead className="text-left text-xs font-medium text-muted-foreground">
+              <tr>
+                <th scope="col" className="px-3 py-2">
+                  SKU / 状态
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  商品
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  规格 / 位置
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  标识
+                </th>
+                <th scope="col" className="px-3 py-2 text-right">
+                  售价
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  <span className="sr-only">打开</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {items.map((item) => (
+                <tr
+                  key={item.id}
+                  className="group min-h-[52px] transition-colors hover:bg-muted/60"
+                >
+                  <td className="min-w-0 px-3 py-2">
+                    <Link
+                      href={`/inventory/${item.id}`}
+                      className="block min-h-11 rounded-lg py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span className="block truncate font-mono text-xs text-primary">
+                        {item.sku}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {statusLabels[item.status]}
+                      </span>
+                    </Link>
+                  </td>
+                  <td className="min-w-0 px-3 py-2">
+                    <Link
+                      href={`/inventory/${item.id}`}
+                      className="block min-h-11 rounded-lg py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span className="block truncate font-semibold">
+                        {item.brand} {item.model}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {categoryMeta[item.category].label}
+                      </span>
+                    </Link>
+                  </td>
+                  <td className="min-w-0 max-w-[260px] truncate px-3 py-2 text-muted-foreground">
+                    {[item.specification, item.location].filter(Boolean).join(" · ") || "—"}
+                  </td>
+                  <td className="max-w-[120px] truncate px-3 py-2 font-mono text-xs text-muted-foreground">
+                    {item.masked_identifier ?? "—"}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right font-semibold">
+                    {item.list_price === undefined ? (
+                      "未填写"
+                    ) : (
+                      <MoneyText amount={item.list_price} />
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    <Link
+                      href={`/inventory/${item.id}`}
+                      className="grid size-11 place-items-center rounded-lg text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label={`打开 ${item.sku}`}
+                    >
+                      ›
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : null}
     </>
+  );
+}
+
+function InventoryQueueKpis({
+  items,
+  activeStatuses,
+  onSelect,
+}: {
+  items: InventoryProductListItem[];
+  activeStatuses: InventoryProductDisplayStatus[];
+  onSelect: (statuses: InventoryProductDisplayStatus[]) => void;
+}) {
+  const metrics = [
+    {
+      key: "listed",
+      label: "在售",
+      value: items.filter((item) => item.status === "in_stock").length,
+      statuses: ["in_stock"] as InventoryProductDisplayStatus[],
+      icon: Tag,
+      tone: "text-status-success-foreground",
+    },
+    {
+      key: "reserved",
+      label: "已预订",
+      value: items.filter((item) => item.status === "reserved").length,
+      statuses: ["reserved"] as InventoryProductDisplayStatus[],
+      icon: CalendarClock,
+      tone: "text-status-warn-foreground",
+    },
+    {
+      key: "attention",
+      label: "需处理",
+      value: items.filter((item) => item.status === "sold" || item.status === "returned").length,
+      statuses: ["sold", "returned"] as InventoryProductDisplayStatus[],
+      icon: CircleAlert,
+      tone: "text-status-danger-foreground",
+    },
+  ];
+
+  return (
+    <div className="mb-2 grid min-w-0 grid-cols-3 gap-1.5 sm:gap-2" aria-label="库存工作队列">
+      {metrics.map((metric) => {
+        const isActive =
+          metric.statuses.length === activeStatuses.length &&
+          metric.statuses.every((status) => activeStatuses.includes(status));
+        const Icon = metric.icon;
+        return (
+          <button
+            key={metric.key}
+            type="button"
+            className={cn(
+              repairOs.metricCardDense,
+              "min-h-[68px] text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              isActive && "border-primary bg-primary/5",
+            )}
+            aria-pressed={isActive}
+            onClick={() => onSelect(isActive ? [] : metric.statuses)}
+          >
+            <span
+              className={cn(
+                "mb-1 grid size-7 place-items-center rounded-lg bg-primary/10",
+                metric.tone,
+              )}
+            >
+              <Icon className="size-3.5" aria-hidden="true" />
+            </span>
+            <span className="block truncate text-[10px] text-muted-foreground">{metric.label}</span>
+            <strong className="mt-0.5 block font-mono text-lg leading-none">{metric.value}</strong>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -428,11 +552,16 @@ function InventoryProductFilterSheet({
           ) : null}
         </div>
         <SheetFooter className="grid shrink-0 grid-cols-2 gap-2 border-t border-border bg-background pt-3 sm:grid-cols-2">
-          <Button type="button" variant="outline" onClick={() => onDraftChange({})}>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11"
+            onClick={() => onDraftChange({})}
+          >
             重置
           </Button>
           <SheetClose asChild>
-            <Button type="button" onClick={onApply}>
+            <Button type="button" className="min-h-11" onClick={onApply}>
               应用筛选
             </Button>
           </SheetClose>
@@ -465,7 +594,7 @@ function FilterGroup({
             <Label
               key={value}
               className={cn(
-                "flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-1.5",
+                "flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-1.5",
                 checked && "border-primary bg-primary/5",
               )}
             >

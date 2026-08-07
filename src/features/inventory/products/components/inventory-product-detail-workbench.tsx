@@ -12,6 +12,16 @@ import type {
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { MoneyText } from "@/shared/ui";
+import type { InventoryLifecycleListSummary } from "@/lib/repairdesk/types";
+
+import {
+  InventoryDeviceHealthCard,
+  InventoryLifecycleHistoryCard,
+  InventoryLifecycleSummaryCard,
+  InventoryLifecycleUnavailableCard,
+} from "@/features/inventory/lifecycle/components/inventory-lifecycle-status";
+import { InventoryLifecycleLoadingCard } from "@/features/inventory/lifecycle/components/inventory-lifecycle-page-shell";
+import { InventoryInspectionEditor } from "@/features/inventory/lifecycle/forms/inventory-inspection-editor";
 
 import {
   buildWorkbenchFields,
@@ -49,11 +59,15 @@ const statusStyles: Record<InventoryProductDisplayStatus, string> = {
 
 export function InventoryProductDetailWorkbench({
   item,
+  lifecycleSummary,
+  lifecycleSummaryState,
   canEdit,
   onBack,
   onEdit,
 }: {
   item: InventoryProductDetail;
+  lifecycleSummary?: InventoryLifecycleListSummary | null;
+  lifecycleSummaryState?: "loading" | "ready" | "unavailable" | "dormant";
   canEdit: boolean;
   onBack: () => void;
   onEdit: () => void;
@@ -139,9 +153,28 @@ export function InventoryProductDetailWorkbench({
             summaryFields={summaryFields}
           />
           <div className="grid min-w-0 content-start gap-1.5 lg:gap-3">
+            {lifecycleSummaryState === "loading" ? <InventoryLifecycleLoadingCard /> : null}
+            {lifecycleSummaryState === "unavailable" ? <InventoryLifecycleUnavailableCard /> : null}
+            {lifecycleSummaryState !== "dormant" && lifecycleSummary ? (
+              <InventoryLifecycleSummaryCard summary={lifecycleSummary} itemId={item.id} />
+            ) : null}
+            <InventoryDeviceHealthCard
+              category={item.category}
+              brand={item.brand}
+              specifications={item.specifications}
+              inspection={lifecycleSummary?.inspection}
+            />
+            {lifecycleSummary ? (
+              <InventoryInspectionEditor
+                summary={lifecycleSummary}
+                brand={item.brand}
+                category={item.category}
+              />
+            ) : null}
             <DeviceWorkbenchSection fields={buildWorkbenchFields(item)} />
             <DeviceIdentitySection identifiers={visibleIdentifiers} gtin={item.gtin} />
             <ProductNotesSection notes={item.notes} />
+            {lifecycleSummary ? <InventoryLifecycleHistoryCard summary={lifecycleSummary} /> : null}
           </div>
         </div>
       </div>
@@ -184,7 +217,7 @@ function MobileProductHeader({
             type="button"
             variant="ghost"
             size="icon"
-            className="size-9 rounded-lg"
+            className="size-11 rounded-lg"
             aria-label="返回商品库存"
             onClick={onBack}
           >
@@ -201,14 +234,14 @@ function MobileProductHeader({
               type="button"
               variant="ghost"
               size="icon"
-              className="size-9 rounded-lg"
+              className="size-11 rounded-lg"
               aria-label="编辑商品"
               onClick={onEdit}
             >
               <Pencil className="size-4" aria-hidden="true" />
             </Button>
           ) : (
-            <span className="size-9" aria-hidden="true" />
+            <span className="size-11" aria-hidden="true" />
           )}
         </header>
       </section>

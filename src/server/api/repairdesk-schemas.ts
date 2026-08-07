@@ -5,6 +5,9 @@ import {
   isValidImei,
   normalizeDeviceIdentifier,
 } from "@/features/inventory/products/model/device-data";
+import { inventoryLifecycleCommandBodySchema } from "@/features/inventory/lifecycle/model/contracts";
+
+export { inventoryLifecycleCommandBodySchema };
 
 import {
   DEVICE_UNLOCK_PATTERN_MAX_STEPS,

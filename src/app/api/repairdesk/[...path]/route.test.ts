@@ -37,7 +37,7 @@ import {
   MEMO_COMMAND_REQUEST_MAX_BYTES,
 } from "@/server/api/repairdesk-request-limits";
 
-import { POST } from "./route";
+import { INVENTORY_LIFECYCLE_COMMAND_MAX_BYTES, POST } from "./route";
 
 describe("RepairDesk attachment route request envelope", () => {
   beforeEach(() => {
@@ -120,6 +120,34 @@ describe("RepairDesk attachment route request envelope", () => {
       });
       expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
     }
+  });
+
+  it("rejects oversized and structurally unbounded lifecycle command JSON", async () => {
+    const path = ["inventory", "lifecycle", "command"];
+    const oversized = new NextRequest(
+      "http://localhost/api/repairdesk/inventory/lifecycle/command",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: `{"notes":"${"A".repeat(INVENTORY_LIFECYCLE_COMMAND_MAX_BYTES)}"}`,
+      },
+    );
+    oversized.headers.delete("content-length");
+    const oversizedResponse = await POST(oversized, { params: Promise.resolve({ path }) });
+    expect(oversizedResponse.status).toBe(413);
+
+    let nested: unknown = true;
+    for (let index = 0; index < 10; index += 1) nested = { nested };
+    const nestedResponse = await POST(
+      new NextRequest("http://localhost/api/repairdesk/inventory/lifecycle/command", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(nested),
+      }),
+      { params: Promise.resolve({ path }) },
+    );
+    expect(nestedResponse.status).toBe(413);
+    expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
   });
 
   it("rejects oversized memo envelopes with and without content-length", async () => {

@@ -10,6 +10,8 @@ import { useStoreShellContext } from "@/features/stores/api/use-store-shell-cont
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
+import { inventoryLifecycleSummaryQueryOptions } from "@/features/inventory/lifecycle/api/query-options";
+
 import { inventoryProductDetailQueryOptions } from "../api/query-options";
 import { InventoryProductDetailWorkbench } from "../components/inventory-product-detail-workbench";
 
@@ -23,6 +25,15 @@ export function InventoryProductDetailScreen({ id }: { id: string }) {
       storeId &&
       shell.permissions?.canReadInventory &&
       shell.permissions.inventoryProductsUiEnabled,
+    ),
+  });
+  const lifecycleSummaryQuery = useQuery({
+    ...inventoryLifecycleSummaryQueryOptions(id, storeId),
+    enabled: Boolean(
+      storeId &&
+      shell.permissions?.canReadInventory &&
+      shell.permissions.inventoryProductsUiEnabled &&
+      shell.permissions.inventoryLifecycleUiEnabled === true,
     ),
   });
 
@@ -72,6 +83,16 @@ export function InventoryProductDetailScreen({ id }: { id: string }) {
   return (
     <InventoryProductDetailWorkbench
       item={item}
+      lifecycleSummary={lifecycleSummaryQuery.data}
+      lifecycleSummaryState={
+        shell.permissions.inventoryLifecycleUiEnabled === true
+          ? lifecycleSummaryQuery.isLoading
+            ? "loading"
+            : lifecycleSummaryQuery.isError
+              ? "unavailable"
+              : "ready"
+          : "dormant"
+      }
       canEdit={canEdit}
       onBack={() => router.push("/inventory")}
       onEdit={() => router.push(`/inventory/${item.id}/edit`)}

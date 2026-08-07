@@ -28,6 +28,7 @@ type RouteContext = {
 };
 
 const ORDER_DATA_MULTIPART_MAX_BYTES = 4_400_000;
+export const INVENTORY_LIFECYCLE_COMMAND_MAX_BYTES = 48 * 1024;
 const AI_ORDER_TURN_MAX_BYTES = 4_096;
 const AI_ORDER_ACTION_MAX_BYTES = 2_048;
 const PRIVATE_NO_STORE_HEADERS = { "Cache-Control": "private, no-store, max-age=0" };
@@ -43,6 +44,10 @@ function isInventoryV2CommandPath(path: string) {
   );
 }
 
+function isInventoryLifecycleCommandPath(path: string) {
+  return path === "inventory/lifecycle/command";
+}
+
 function isMemoPath(path: string) {
   return path.startsWith("memos/");
 }
@@ -56,6 +61,33 @@ async function readJson(request: NextRequest): Promise<unknown> {
 }
 
 class RequestPayloadTooLargeError extends Error {}
+
+function assertInventoryLifecycleJsonBounds(value: unknown, depth = 0, state = { nodes: 0 }): void {
+  state.nodes += 1;
+  if (depth > 8 || state.nodes > 256) throw new RequestPayloadTooLargeError();
+  if (value === null || typeof value === "boolean") return;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new RequestPayloadTooLargeError();
+    return;
+  }
+  if (typeof value === "string") {
+    if (value.length > 4096) throw new RequestPayloadTooLargeError();
+    return;
+  }
+  if (Array.isArray(value)) {
+    if (value.length > 64) throw new RequestPayloadTooLargeError();
+    for (const entry of value) assertInventoryLifecycleJsonBounds(entry, depth + 1, state);
+    return;
+  }
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length > 64) throw new RequestPayloadTooLargeError();
+    for (const [key, entry] of entries) {
+      if (key.length > 128) throw new RequestPayloadTooLargeError();
+      assertInventoryLifecycleJsonBounds(entry, depth + 1, state);
+    }
+  }
+}
 
 async function readJsonWithLimit(request: NextRequest, maxBytes: number): Promise<unknown> {
   const reader = request.body?.getReader();
@@ -136,6 +168,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return privateError("库存 V2 请求过大，请减少备注或标识符后重试", 413);
   }
   if (
+    isInventoryLifecycleCommandPath(path) &&
+    Number.isFinite(contentLength) &&
+    contentLength > INVENTORY_LIFECYCLE_COMMAND_MAX_BYTES
+  ) {
+    return privateError("商品生命周期请求过大，请减少备注或检查项后重试", 413);
+  }
+  if (
     isMemoPath(path) &&
     Number.isFinite(contentLength) &&
     contentLength > MEMO_COMMAND_REQUEST_MAX_BYTES
@@ -208,9 +247,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
               ? await readJsonWithLimit(request, AI_ORDER_ACTION_MAX_BYTES)
               : isInventoryV2CommandPath(path)
                 ? await readJsonWithLimit(request, INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES)
-                : isMemoPath(path)
-                  ? await readJsonWithLimit(request, MEMO_COMMAND_REQUEST_MAX_BYTES)
-                  : await readJson(request);
+                : isInventoryLifecycleCommandPath(path)
+                  ? await readJsonWithLimit(request, INVENTORY_LIFECYCLE_COMMAND_MAX_BYTES)
+                  : isMemoPath(path)
+                    ? await readJsonWithLimit(request, MEMO_COMMAND_REQUEST_MAX_BYTES)
+                    : await readJson(request);
   } catch (error) {
     if (error instanceof RequestPayloadTooLargeError) {
       return privateError(
@@ -220,13 +261,25 @@ export async function POST(request: NextRequest, context: RouteContext) {
             ? "AI 订单操作请求过大，请刷新后重试"
             : isInventoryV2CommandPath(path)
               ? "库存 V2 请求过大，请减少备注或标识符后重试"
-              : isMemoPath(path)
-                ? "备忘录请求过大，请缩短正文后重试"
-                : "AI 查询请求过大，请缩短问题后重试",
+              : isInventoryLifecycleCommandPath(path)
+                ? "商品生命周期请求过大，请缩短备注或检查项后重试"
+                : isMemoPath(path)
+                  ? "备忘录请求过大，请缩短正文后重试"
+                  : "AI 查询请求过大，请缩短问题后重试",
         413,
       );
     }
     return privateError("请求内容无法读取，请重试", 400);
+  }
+  if (isInventoryLifecycleCommandPath(path)) {
+    try {
+      assertInventoryLifecycleJsonBounds(body);
+    } catch (error) {
+      if (error instanceof RequestPayloadTooLargeError) {
+        return privateError("商品生命周期请求过大，请减少备注或检查项后重试", 413);
+      }
+      return privateError("商品生命周期请求无效，请重试", 400);
+    }
   }
   return handleRepairDeskPost(path, body, preauthenticatedActor, request.signal, {
     aiVisionRateLimitConsumed,

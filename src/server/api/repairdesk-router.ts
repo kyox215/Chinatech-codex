@@ -195,6 +195,14 @@ import { completeInventorySaleV2BodySchema } from "@/features/inventory/model/in
 import { createInventoryUnitV2BodySchema } from "@/features/inventory/model/inventory-v2-intake-contract";
 import { applyInventoryWorkflowV2BodySchema } from "@/features/inventory/model/inventory-v2-workflow-contract";
 import {
+  readInventoryLifecycleAfterSalesCase,
+  readInventoryLifecycleAfterSalesQueue,
+  readInventoryLifecycleSale,
+  readInventoryLifecycleSummary,
+  runInventoryLifecycleCommand,
+} from "@/features/inventory/lifecycle/server/inventory-lifecycle.repository";
+import { assertInventoryLifecycleCommandEnabled } from "@/features/inventory/lifecycle/server/inventory-lifecycle-feature-flags";
+import {
   BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE,
   BUYBACK_SENSITIVE_WORKFLOW_ENABLED,
 } from "@/features/buyback/model/buyback-evidence-policy";
@@ -304,6 +312,7 @@ import type {
   CreateInventoryIntakeInput,
   CreateOrderInput,
   InventoryItemStatus,
+  InventoryLifecycleCommand,
   InventoryTransactionInput,
   KioskSessionCreateInput,
   OrderListItem,
@@ -365,6 +374,7 @@ import {
   inventoryTransactionBodySchema,
   inventoryTransitionBodySchema,
   inventoryUpdateBodySchema,
+  inventoryLifecycleCommandBodySchema,
   buybackQuoteCreateBodySchema,
   buybackQuoteHistoryBodySchema,
   buybackQuoteResponseBodySchema,
@@ -535,6 +545,10 @@ const supabaseSource = {
   listInventoryItems,
   listInventoryItemsPage,
   listInventoryProducts,
+  readInventoryLifecycleAfterSalesCase,
+  readInventoryLifecycleAfterSalesQueue,
+  readInventoryLifecycleSale,
+  readInventoryLifecycleSummary,
   reconcileInventoryV2,
   listKioskDevices,
   listKioskSessions,
@@ -552,6 +566,7 @@ const supabaseSource = {
   recordInventoryCheck,
   recordBuybackQuoteResponse,
   recordInventoryTransaction,
+  runInventoryLifecycleCommand,
   recordPayment,
   reopenOrder,
   reorderOrderWorkflowStatuses,
@@ -804,11 +819,150 @@ async function source() {
   if (mode === "supabase") return supabaseSource;
 
   const mock = await import("@/lib/mock/api");
+  const lifecycleE2eEnabled =
+    process.env.NODE_ENV !== "production" && process.env.REPAIRDESK_E2E_INVENTORY_LIFECYCLE === "1";
+  const lifecycleE2eSaleId = "10000000-0000-4000-8000-000000000001";
+  const lifecycleE2eCaseId = "20000000-0000-4000-8000-000000000001";
+  const lifecycleE2eItemId = "inv_mock_3";
+  const lifecycleE2eSale = {
+    item_id: lifecycleE2eItemId,
+    inventory_item_id: lifecycleE2eItemId,
+    stock_unit_id: "30000000-0000-4000-8000-000000000001",
+    sku: "I001203",
+    business_status: "reserved" as const,
+    sale_order_id: lifecycleE2eSaleId,
+    status: "reserved" as const,
+    agreed_price: 520,
+    signed_paid_amount: 120,
+    balance: 400,
+    payments: [
+      {
+        kind: "deposit" as const,
+        amount: 120,
+        method: "card" as const,
+        occurred_at: "2026-08-07T10:00:00.000Z",
+      },
+    ],
+    reservation_expires_at: "2026-08-14T10:00:00.000Z",
+    expected_pickup_at: "2026-08-11T16:00:00.000Z",
+    reserved_at: "2026-08-07T10:00:00.000Z",
+    unit_version: 3,
+    order_version: 2,
+    allowed_actions: [
+      "inspection.save",
+      "payment.append",
+      "reservation.cancel",
+    ] as InventoryLifecycleCommand[],
+    inspection: {
+      battery_health: 91,
+      face_id_status: "normal" as const,
+      touch_id_status: "not_applicable" as const,
+      true_tone_status: "normal" as const,
+      activation_lock_status: "normal" as const,
+      data_wipe_status: "normal" as const,
+      imei_status: "normal" as const,
+      inspected_at: "2026-08-07T09:30:00.000Z",
+    },
+  };
   const getMockStoreMembers = async (actor: Awaited<ReturnType<typeof getRequestActor>>) => {
     return mock.listStoreMembers(actor);
   };
   return {
     ...mock,
+    readInventoryLifecycleAfterSalesCase: async (id: string) =>
+      lifecycleE2eEnabled && id === lifecycleE2eCaseId
+        ? {
+            case_id: lifecycleE2eCaseId,
+            sale_order_id: lifecycleE2eSaleId,
+            inventory_item_id: lifecycleE2eItemId,
+            stock_unit_id: lifecycleE2eSale.stock_unit_id,
+            sku: lifecycleE2eSale.sku,
+            status: "in_progress" as const,
+            issue_summary: "充电偶尔中断，需要检测充电接口与电池状态",
+            diagnosis: "已完成外观和基础充电测试，等待进一步检测。",
+            coverage_decision: "pending" as const,
+            received_at: "2026-08-06T09:00:00.000Z",
+            version: 2,
+            order_version: 4,
+            allowed_actions: [
+              "after_sales.update",
+              "after_sales.close",
+            ] as InventoryLifecycleCommand[],
+            sale: {
+              ...lifecycleE2eSale,
+              business_status: "after_sales" as const,
+              status: "sold" as const,
+              signed_paid_amount: 520,
+              balance: 0,
+              actual_pickup_at: "2026-07-20T15:00:00.000Z",
+              allowed_actions: [
+                "after_sales.update",
+                "after_sales.close",
+              ] as InventoryLifecycleCommand[],
+            },
+            events: [
+              {
+                event_type: "status_changed",
+                from_status: "open",
+                to_status: "in_progress",
+                occurred_at: "2026-08-06T10:15:00.000Z",
+              },
+              {
+                event_type: "created",
+                to_status: "open",
+                occurred_at: "2026-08-06T09:00:00.000Z",
+              },
+            ],
+          }
+        : null,
+    readInventoryLifecycleAfterSalesQueue: async () =>
+      lifecycleE2eEnabled
+        ? [
+            {
+              case_id: lifecycleE2eCaseId,
+              sale_order_id: lifecycleE2eSaleId,
+              inventory_item_id: lifecycleE2eItemId,
+              stock_unit_id: lifecycleE2eSale.stock_unit_id,
+              sku: lifecycleE2eSale.sku,
+              status: "in_progress" as const,
+              issue_summary: "充电偶尔中断，需要检测充电接口与电池状态",
+              coverage_decision: "pending" as const,
+              received_at: "2026-08-06T09:00:00.000Z",
+              version: 2,
+              order_version: 4,
+              allowed_actions: [
+                "after_sales.update",
+                "after_sales.close",
+              ] as InventoryLifecycleCommand[],
+            },
+          ]
+        : [],
+    readInventoryLifecycleSale: async (id: string) =>
+      lifecycleE2eEnabled && id === lifecycleE2eSaleId ? lifecycleE2eSale : null,
+    readInventoryLifecycleSummary: async (id: string) =>
+      lifecycleE2eEnabled && id === lifecycleE2eItemId
+        ? {
+            ...lifecycleE2eSale,
+            sale_order_id: undefined,
+            status: undefined,
+            business_status: "in_stock" as const,
+            reservation_expires_at: undefined,
+            expected_pickup_at: undefined,
+            reserved_at: undefined,
+            agreed_price: undefined,
+            signed_paid_amount: undefined,
+            balance: undefined,
+            order_version: undefined,
+            allowed_actions: [
+              "inspection.save",
+              "reservation.create",
+            ] as InventoryLifecycleCommand[],
+          }
+        : null,
+    runInventoryLifecycleCommand: async () => {
+      if (!lifecycleE2eEnabled) throw new Error("商品生命周期命令尚未对当前环境开放");
+      return { ok: true, code: "e2e_preview_completed" };
+    },
     getRepairDeskDomainRevisions: async (domains: readonly RepairDeskRealtimeDomain[]) => ({
       revisions: Object.fromEntries(domains.map((domain) => [domain, "0"])),
     }),
@@ -2685,6 +2839,36 @@ export async function handleRepairDeskPost(
             realtimeBroadcasts.inventoryProductUpdated,
           ),
         );
+      }
+      case "inventory/lifecycle/command": {
+        const input = inventoryLifecycleCommandBodySchema.parse(body);
+        assertInventoryLifecycleCommandEnabled(actor.storeId ?? "");
+        return ok(
+          await runWithRealtime(
+            actor,
+            () => api.runInventoryLifecycleCommand(input, actor),
+            realtimeBroadcasts.inventoryProductUpdated,
+          ),
+        );
+      }
+      case "inventory/lifecycle/summary": {
+        const { id } = idBodySchema.parse(body);
+        assertRepairDeskPermission(actor, "inventory:read");
+        return ok(await api.readInventoryLifecycleSummary(id, actor));
+      }
+      case "inventory/lifecycle/sale": {
+        const { id } = idBodySchema.parse(body);
+        assertRepairDeskPermission(actor, "inventory:read");
+        return ok(await api.readInventoryLifecycleSale(id, actor));
+      }
+      case "inventory/lifecycle/after-sales": {
+        assertRepairDeskPermission(actor, "inventory:read");
+        return ok(await api.readInventoryLifecycleAfterSalesQueue(actor));
+      }
+      case "inventory/lifecycle/after-sales/case": {
+        const { id } = idBodySchema.parse(body);
+        assertRepairDeskPermission(actor, "inventory:read");
+        return ok(await api.readInventoryLifecycleAfterSalesCase(id, actor));
       }
       case "inventory/v2/intake/create": {
         const { input } = createInventoryUnitV2BodySchema.parse(body);

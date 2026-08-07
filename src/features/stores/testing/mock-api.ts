@@ -527,6 +527,9 @@ function context(actor?: AuditActor): StoreContext {
       inventoryV2CommandsEnabled: canUseInventoryV2Commands(scopedActor),
       inventoryProductsUiEnabled: canUseInventoryProductsUi(scopedActor),
       inventoryProductQuickCreateEnabled: canUseInventoryProductQuickCreate(scopedActor),
+      inventoryLifecycleUiEnabled:
+        process.env.NODE_ENV !== "production" &&
+        process.env.REPAIRDESK_E2E_INVENTORY_LIFECYCLE === "1",
       canManageOrderData,
       canApplyOrderData,
       canReadAggregateFinance: can(scopedActor, "finance:aggregate_read"),

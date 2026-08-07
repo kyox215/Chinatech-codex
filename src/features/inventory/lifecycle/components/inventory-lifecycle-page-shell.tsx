@@ -1,0 +1,108 @@
+"use client";
+
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { ArrowLeft, Boxes } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { repairOs } from "@/lib/ui-patterns";
+import { cn } from "@/lib/utils";
+
+export function InventoryLifecyclePageShell({
+  title,
+  context,
+  onBack,
+  status,
+  children,
+  action,
+}: {
+  title: string;
+  context?: string;
+  status?: ReactNode;
+  onBack: () => void;
+  children: ReactNode;
+  action?: ReactNode;
+}) {
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+
+  useEffect(() => {
+    document.body.dataset.mobileWorkspaceActive = "true";
+    return () => {
+      delete document.body.dataset.mobileWorkspaceActive;
+    };
+  }, []);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const measure = () => setHeaderHeight(Math.ceil(header.getBoundingClientRect().height));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [title, context, status]);
+
+  return (
+    <main
+      data-ui="inventory-lifecycle-page"
+      className={cn(
+        repairOs.mobileFloatingPage,
+        "mx-auto w-full max-w-[430px] overflow-x-hidden px-2 pb-24 lg:max-w-6xl lg:px-6 lg:pt-5",
+      )}
+      style={
+        headerHeight
+          ? ({ "--repair-os-mobile-floating-offset": `${headerHeight}px` } as CSSProperties)
+          : undefined
+      }
+    >
+      <div ref={headerRef} className={cn(repairOs.mobileFloatingHeaderShell, "lg:static lg:mb-4")}>
+        <section className={repairOs.mobileFloatingHeaderCard}>
+          <header className={repairOs.mobileFloatingHeaderNav}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-11 rounded-lg"
+              aria-label="返回商品库存"
+              onClick={onBack}
+            >
+              <ArrowLeft className="size-5" aria-hidden="true" />
+            </Button>
+            <div className="min-w-0 text-center">
+              <div className="flex items-center justify-center gap-1.5">
+                <Boxes className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
+                <h1 className="truncate text-sm font-semibold">{title}</h1>
+              </div>
+              {context ? (
+                <p className="truncate text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
+                  {context}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex min-w-11 shrink-0 justify-end">
+              {action ?? status ?? <span className="size-11" />}
+            </div>
+          </header>
+          {status && action ? (
+            <div className={repairOs.mobileFloatingHeaderBody}>{status}</div>
+          ) : null}
+        </section>
+      </div>
+      <div className="min-w-0 space-y-2 lg:space-y-3">{children}</div>
+    </main>
+  );
+}
+
+export function InventoryLifecycleLoadingCard() {
+  return (
+    <section className={cn(repairOs.mobileInfoCard, "space-y-2 p-3")} aria-busy="true">
+      <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+      <div className="h-8 w-full animate-pulse rounded bg-muted" />
+      <div className="h-8 w-2/3 animate-pulse rounded bg-muted" />
+    </section>
+  );
+}

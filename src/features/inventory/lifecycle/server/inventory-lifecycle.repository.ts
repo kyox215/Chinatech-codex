@@ -1,0 +1,648 @@
+import type { AuditActor } from "@/lib/repairdesk/types";
+import { requireStoreIdFromActor } from "@/server/repairdesk-shared";
+import { can } from "@/server/permissions";
+import { getSupabaseAdmin } from "@/server/supabase";
+import { resolveInventoryIntakeWarrantyMonths } from "@/features/inventory/server/inventory-warranty-default.repository";
+
+import {
+  type InventoryLifecycleCommand,
+  type InventoryLifecycleCommandBody,
+  type InventoryLifecycleCommandResult,
+  type InventoryLifecycleAfterSalesCaseDetail,
+  type InventoryLifecycleAfterSalesQueueItem,
+  type InventoryLifecycleListSummary,
+  type InventoryLifecycleSaleDetail,
+} from "../model/contracts";
+import {
+  assertInventoryLifecycleCommandEnabled,
+  assertInventoryLifecycleReadEnabled,
+} from "./inventory-lifecycle-feature-flags";
+
+const commandPermissions: Record<InventoryLifecycleCommand, Parameters<typeof can>[1]> = {
+  "acquisition.save": "finance:cost_manage",
+  "inspection.save": "inventory:inspection",
+  "reservation.create": "reservation:create",
+  "payment.append": "payment:collect",
+  "sale.complete": "inventory:sale",
+  "pickup.confirm": "pickup:confirm",
+  "reservation.cancel": "payment:refund_adjust",
+  "warranty.adjust": "warranty:adjust",
+  "after_sales.create": "after_sales:intake",
+  "after_sales.update": "after_sales:update",
+  "after_sales.close": "after_sales:update",
+};
+
+const errorMessages: Record<string, string> = {
+  actor_forbidden: "当前员工没有执行此商品生命周期操作的权限",
+  already_reserved: "这个商品已经被其他预订锁定，请刷新后重试",
+  balance_remaining: "尾款尚未结清，普通员工不能确认取走",
+  conflict: "商品状态刚刚发生变化，请刷新后重试",
+  stale_version: "商品状态刚刚发生变化，请刷新后重试",
+  deposit_required: "普通预订必须留下定金；免定金请由负责人填写原因",
+  feature_disabled: "商品生命周期功能尚未对当前门店开放",
+  idempotency_conflict: "本次保存标识已用于不同内容，请刷新后重试",
+  invalid_amount: "金额无效，请检查后重试",
+  invalid_command: "商品生命周期操作暂不支持",
+  invalid_payload: "商品生命周期资料不完整或格式不正确",
+  invalid_request: "商品生命周期请求无效",
+  invalid_state: "商品当前状态不能执行此操作",
+  invalid_transition: "售后状态刚刚发生变化，请刷新后重试",
+  not_found: "商品生命周期记录不存在或不属于当前门店",
+  internal_error: "商品生命周期服务暂时不可用，请稍后重试",
+};
+
+export class InventoryLifecycleHttpError extends Error {
+  readonly status: number;
+  readonly code: string;
+
+  constructor(code: string, message: string, status = 400) {
+    super(message);
+    this.name = "InventoryLifecycleHttpError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
+function resultFromRpc(data: unknown): InventoryLifecycleCommandResult {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    throw new InventoryLifecycleHttpError("internal_error", errorMessages.internal_error, 503);
+  }
+  const result = data as Record<string, unknown>;
+  return {
+    ok: result.ok === true,
+    code: typeof result.code === "string" ? result.code : "internal_error",
+    ...(typeof result.sale_order_id === "string" ? { sale_order_id: result.sale_order_id } : {}),
+    ...(typeof result.stock_unit_id === "string" ? { stock_unit_id: result.stock_unit_id } : {}),
+    ...(typeof result.case_id === "string" ? { case_id: result.case_id } : {}),
+    ...(typeof result.payment_id === "string" ? { payment_id: result.payment_id } : {}),
+    ...(typeof result.inventory_item_id === "string"
+      ? { inventory_item_id: result.inventory_item_id }
+      : {}),
+    ...(typeof result.balance === "number" ? { balance: result.balance } : {}),
+    ...(typeof result.expires_at === "string" ? { expires_at: result.expires_at } : {}),
+    ...(typeof result.actual_pickup_at === "string"
+      ? { actual_pickup_at: result.actual_pickup_at }
+      : {}),
+    ...(typeof result.sold_at === "string" ? { sold_at: result.sold_at } : {}),
+    ...(typeof result.starts_at === "string" ? { starts_at: result.starts_at } : {}),
+    ...(typeof result.ends_at === "string" ? { ends_at: result.ends_at } : {}),
+    ...(typeof result.version_no === "number" ? { version_no: result.version_no } : {}),
+    ...(typeof result.version === "number" ? { version: result.version } : {}),
+    ...(typeof result.order_version === "number" ? { order_version: result.order_version } : {}),
+    ...(typeof result.unit_version === "number" ? { unit_version: result.unit_version } : {}),
+    ...(typeof result.case_version === "number" ? { case_version: result.case_version } : {}),
+    ...(typeof result.warranty_version === "number"
+      ? { warranty_version: result.warranty_version }
+      : {}),
+    ...(typeof result.status === "string" ? { status: result.status } : {}),
+  };
+}
+
+function lifecycleErrorStatus(code: string) {
+  if (code === "actor_forbidden") return 403;
+  if (code === "not_found") return 404;
+  if (
+    [
+      "idempotency_conflict",
+      "conflict",
+      "stale_version",
+      "invalid_state",
+      "invalid_transition",
+      "already_reserved",
+      "balance_remaining",
+    ].includes(code)
+  ) {
+    return 409;
+  }
+  if (["feature_disabled", "feature_error", "internal_error", "internal"].includes(code)) {
+    return 503;
+  }
+  return 400;
+}
+
+export async function runInventoryLifecycleCommand(
+  input: InventoryLifecycleCommandBody,
+  actor: AuditActor,
+): Promise<InventoryLifecycleCommandResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  if (!actor.id) {
+    throw new InventoryLifecycleHttpError("actor_forbidden", "当前员工身份无效，请重新登录", 403);
+  }
+  if (!can(actor, commandPermissions[input.command])) {
+    throw new InventoryLifecycleHttpError("actor_forbidden", errorMessages.actor_forbidden, 403);
+  }
+  if (
+    input.command === "payment.append" &&
+    (input.payload.kind === "refund" || input.payload.kind === "reversal") &&
+    !can(actor, "payment:refund_adjust")
+  ) {
+    throw new InventoryLifecycleHttpError("actor_forbidden", errorMessages.actor_forbidden, 403);
+  }
+  if (input.command === "pickup.confirm" && input.payload.override_reason !== undefined) {
+    if (!can(actor, "pickup:override_balance")) {
+      throw new InventoryLifecycleHttpError(
+        "actor_forbidden",
+        "当前员工没有余额未清强制交付权限",
+        403,
+      );
+    }
+  }
+
+  assertInventoryLifecycleCommandEnabled(storeId);
+  const rpcInput =
+    input.command === "pickup.confirm" && input.payload.warranty_months === undefined
+      ? {
+          ...input,
+          payload: {
+            ...input.payload,
+            warranty_months: await resolveInventoryIntakeWarrantyMonths(storeId, undefined),
+          },
+        }
+      : input;
+  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_inventory_lifecycle_command", {
+    p_store_id: storeId,
+    p_actor_id: actor.id,
+    p_command: rpcInput.command,
+    p_idempotency_key: rpcInput.idempotency_key,
+    p_payload: rpcInput.payload,
+  });
+  if (error) {
+    throw new InventoryLifecycleHttpError("internal_error", errorMessages.internal_error, 503);
+  }
+
+  const result = resultFromRpc(data);
+  if (!result.ok) {
+    throw new InventoryLifecycleHttpError(
+      result.code,
+      errorMessages[result.code] ?? "商品生命周期操作失败",
+      lifecycleErrorStatus(result.code),
+    );
+  }
+  return result;
+}
+
+type SaleOrderRow = {
+  id: string;
+  inventory_item_id: string;
+  stock_unit_id: string;
+  status: "reserved" | "sold" | "cancelled";
+  agreed_price: number | string;
+  reserved_at: string | null;
+  expires_at: string | null;
+  expected_pickup_at: string | null;
+  sold_at: string | null;
+  actual_pickup_at: string | null;
+  version: number;
+};
+
+function numeric(value: unknown) {
+  const parsed = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function resolveInventoryLifecycleAllowedActions(
+  actor: AuditActor,
+  state: {
+    businessStatus: InventoryLifecycleListSummary["business_status"];
+    orderStatus?: SaleOrderRow["status"];
+    balance: number;
+    hasActiveCase: boolean;
+  },
+): InventoryLifecycleCommand[] {
+  const actions: InventoryLifecycleCommand[] = [];
+  if (state.businessStatus !== "removed" && can(actor, "inventory:inspection")) {
+    actions.push("inspection.save");
+  }
+  if (state.businessStatus === "in_stock" && can(actor, "finance:cost_manage")) {
+    actions.push("acquisition.save");
+  }
+  if (state.businessStatus === "in_stock" && can(actor, "reservation:create")) {
+    actions.push("reservation.create");
+  }
+  if (state.orderStatus === "reserved") {
+    if (state.balance > 0 && can(actor, "payment:collect")) actions.push("payment.append");
+    if (state.balance === 0 && can(actor, "inventory:sale")) actions.push("sale.complete");
+    if (can(actor, "payment:refund_adjust")) actions.push("reservation.cancel");
+  }
+  if (state.businessStatus === "sold_pending_pickup" && can(actor, "pickup:confirm")) {
+    if (state.balance === 0 || can(actor, "pickup:override_balance"))
+      actions.push("pickup.confirm");
+  }
+  if (state.businessStatus === "delivered" && can(actor, "warranty:adjust")) {
+    actions.push("warranty.adjust");
+  }
+  if (
+    state.businessStatus === "delivered" &&
+    !state.hasActiveCase &&
+    can(actor, "after_sales:intake")
+  ) {
+    actions.push("after_sales.create");
+  }
+  if (state.hasActiveCase && can(actor, "after_sales:update")) {
+    actions.push("after_sales.update", "after_sales.close");
+  }
+  return actions;
+}
+
+async function projectLifecycleSale(
+  order: SaleOrderRow,
+  actor: AuditActor,
+): Promise<InventoryLifecycleSaleDetail | null> {
+  const storeId = requireStoreIdFromActor(actor);
+  const supabase = getSupabaseAdmin();
+  const [productResult, unitResult, paymentsResult, inspectionResult, warrantyResult, caseResult] =
+    await Promise.all([
+      supabase
+        .from("inventory_items")
+        .select("public_no,warranty_until")
+        .eq("store_id", storeId)
+        .eq("id", order.inventory_item_id)
+        .maybeSingle(),
+      supabase
+        .from("inventory_stock_units")
+        .select("version,status")
+        .eq("store_id", storeId)
+        .eq("id", order.stock_unit_id)
+        .maybeSingle(),
+      supabase
+        .from("inventory_sale_payment_entries")
+        .select("kind,amount,method,occurred_at")
+        .eq("store_id", storeId)
+        .eq("sale_order_id", order.id)
+        .order("occurred_at", { ascending: true }),
+      supabase
+        .from("inventory_device_inspections")
+        .select(
+          "battery_health,face_id_status,touch_id_status,true_tone_status,activation_lock_status,data_wipe_status,imei_status,inspected_at",
+        )
+        .eq("store_id", storeId)
+        .eq("stock_unit_id", order.stock_unit_id)
+        .order("inspected_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("inventory_warranty_versions")
+        .select("version_no,basis,months,starts_at,ends_at")
+        .eq("store_id", storeId)
+        .eq("sale_order_id", order.id)
+        .eq("basis", "commercial")
+        .order("version_no", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("inventory_after_sales_cases")
+        .select("id,status,coverage_decision,received_at,version")
+        .eq("store_id", storeId)
+        .eq("sale_order_id", order.id)
+        .neq("status", "closed")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+  if (
+    productResult.error ||
+    unitResult.error ||
+    paymentsResult.error ||
+    inspectionResult.error ||
+    warrantyResult.error ||
+    caseResult.error
+  ) {
+    throw new InventoryLifecycleHttpError("internal_error", errorMessages.internal_error, 503);
+  }
+  if (!productResult.data || !unitResult.data) return null;
+
+  const signedPaidAmount = (paymentsResult.data ?? []).reduce((total, payment) => {
+    const sign = ["refund", "reversal"].includes(String(payment.kind)) ? -1 : 1;
+    return total + sign * numeric(payment.amount);
+  }, 0);
+  const agreedPrice = numeric(order.agreed_price);
+  const balance = Math.max(0, Math.round((agreedPrice - signedPaidAmount) * 100) / 100);
+  const activeCase = caseResult.data;
+  const businessStatus: InventoryLifecycleListSummary["business_status"] = activeCase
+    ? "after_sales"
+    : order.status === "reserved"
+      ? "reserved"
+      : order.status === "sold"
+        ? order.actual_pickup_at
+          ? "delivered"
+          : "sold_pending_pickup"
+        : "removed";
+  const actions = resolveInventoryLifecycleAllowedActions(actor, {
+    businessStatus,
+    orderStatus: order.status,
+    balance,
+    hasActiveCase: Boolean(activeCase),
+  });
+  const inspection = inspectionResult.data;
+  const warranty = warrantyResult.data;
+
+  return {
+    item_id: order.inventory_item_id,
+    inventory_item_id: order.inventory_item_id,
+    stock_unit_id: order.stock_unit_id,
+    sku: String(productResult.data.public_no),
+    business_status: businessStatus,
+    sale_order_id: order.id,
+    status: order.status,
+    agreed_price: agreedPrice,
+    signed_paid_amount: signedPaidAmount,
+    balance,
+    payments: (paymentsResult.data ?? []).map((payment) => ({
+      kind: payment.kind,
+      amount: numeric(payment.amount),
+      method: payment.method,
+      occurred_at: String(payment.occurred_at),
+    })),
+    allowed_actions: actions,
+    order_version: Number(order.version),
+    unit_version: Number(unitResult.data.version),
+    ...(order.reserved_at ? { reserved_at: String(order.reserved_at) } : {}),
+    ...(order.expires_at ? { reservation_expires_at: String(order.expires_at) } : {}),
+    ...(order.expected_pickup_at ? { expected_pickup_at: String(order.expected_pickup_at) } : {}),
+    ...(order.sold_at ? { sold_at: String(order.sold_at) } : {}),
+    ...(order.actual_pickup_at ? { actual_pickup_at: String(order.actual_pickup_at) } : {}),
+    ...(productResult.data.warranty_until
+      ? { warranty_ends_at: String(productResult.data.warranty_until) }
+      : {}),
+    ...(inspection
+      ? {
+          inspection: {
+            battery_health:
+              inspection.battery_health === null ? null : Number(inspection.battery_health),
+            face_id_status: inspection.face_id_status,
+            touch_id_status: inspection.touch_id_status,
+            true_tone_status: inspection.true_tone_status,
+            activation_lock_status: inspection.activation_lock_status,
+            data_wipe_status: inspection.data_wipe_status,
+            imei_status: inspection.imei_status,
+            inspected_at: String(inspection.inspected_at),
+          },
+        }
+      : {}),
+    ...(warranty
+      ? {
+          warranty_version: Number(warranty.version_no),
+          commercial_warranty: {
+            version_no: Number(warranty.version_no),
+            basis: warranty.basis,
+            months: Number(warranty.months),
+            ...(warranty.starts_at ? { starts_at: String(warranty.starts_at) } : {}),
+            ...(warranty.ends_at ? { ends_at: String(warranty.ends_at) } : {}),
+          },
+        }
+      : {}),
+    ...(activeCase
+      ? {
+          case_version: Number(activeCase.version),
+          after_sales_status: activeCase.status,
+          after_sales: {
+            case_id: String(activeCase.id),
+            sale_order_id: order.id,
+            inventory_item_id: order.inventory_item_id,
+            status: activeCase.status,
+            ...(activeCase.coverage_decision
+              ? { coverage_decision: activeCase.coverage_decision }
+              : {}),
+            received_at: String(activeCase.received_at),
+            version: Number(activeCase.version),
+          },
+        }
+      : {}),
+  };
+}
+
+export async function readInventoryLifecycleSummary(
+  inventoryItemId: string,
+  actor: AuditActor,
+): Promise<InventoryLifecycleListSummary | null> {
+  const storeId = requireStoreIdFromActor(actor);
+  if (!can(actor, "inventory:read")) {
+    throw new InventoryLifecycleHttpError("actor_forbidden", "当前员工没有查看库存的权限", 403);
+  }
+  assertInventoryLifecycleReadEnabled(storeId);
+
+  const supabase = getSupabaseAdmin();
+  const { data: unit, error: unitError } = await supabase
+    .from("inventory_stock_units")
+    .select("id,legacy_inventory_item_id,status,version")
+    .eq("store_id", storeId)
+    .eq("legacy_inventory_item_id", inventoryItemId)
+    .maybeSingle();
+  if (unitError)
+    throw new InventoryLifecycleHttpError("internal_error", errorMessages.internal_error, 503);
+  if (!unit) return null;
+
+  const [{ data: product, error: productError }, { data: order, error: orderError }] =
+    await Promise.all([
+      supabase
+        .from("inventory_items")
+        .select("public_no,warranty_until")
+        .eq("store_id", storeId)
+        .eq("id", inventoryItemId)
+        .maybeSingle(),
+      supabase
+        .from("inventory_sale_orders")
+        .select(
+          "id,inventory_item_id,stock_unit_id,status,agreed_price,reserved_at,expires_at,expected_pickup_at,sold_at,actual_pickup_at,version",
+        )
+        .eq("store_id", storeId)
+        .eq("inventory_item_id", inventoryItemId)
+        .in("status", ["reserved", "sold"])
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+  if (productError || orderError) {
+    throw new InventoryLifecycleHttpError("internal_error", errorMessages.internal_error, 503);
+  }
+  if (!product) return null;
+
+  if (order) return projectLifecycleSale(order as SaleOrderRow, actor);
+  const businessStatus: InventoryLifecycleListSummary["business_status"] = [
+    "cancelled",
+    "recycled",
+  ].includes(String(unit.status))
+    ? "removed"
+    : "in_stock";
+  return {
+    item_id: inventoryItemId,
+    stock_unit_id: String(unit.id),
+    sku: String(product.public_no),
+    business_status: businessStatus,
+    ...(product.warranty_until ? { warranty_ends_at: String(product.warranty_until) } : {}),
+    ...(typeof unit.version === "number" ? { unit_version: unit.version } : {}),
+    allowed_actions: resolveInventoryLifecycleAllowedActions(actor, {
+      businessStatus,
+      balance: 0,
+      hasActiveCase: false,
+    }),
+  };
+}
+
+export async function readInventoryLifecycleSale(
+  saleOrderId: string,
+  actor: AuditActor,
+): Promise<InventoryLifecycleSaleDetail | null> {
+  const storeId = requireStoreIdFromActor(actor);
+  if (!can(actor, "inventory:read")) {
+    throw new InventoryLifecycleHttpError("actor_forbidden", "当前员工没有查看库存的权限", 403);
+  }
+  assertInventoryLifecycleReadEnabled(storeId);
+  const { data, error } = await getSupabaseAdmin()
+    .from("inventory_sale_orders")
+    .select(
+      "id,inventory_item_id,stock_unit_id,status,agreed_price,reserved_at,expires_at,expected_pickup_at,sold_at,actual_pickup_at,version",
+    )
+    .eq("store_id", storeId)
+    .eq("id", saleOrderId)
+    .maybeSingle();
+  if (error)
+    throw new InventoryLifecycleHttpError("internal_error", errorMessages.internal_error, 503);
+  return data ? projectLifecycleSale(data as SaleOrderRow, actor) : null;
+}
+
+export async function readInventoryLifecycleAfterSalesQueue(
+  actor: AuditActor,
+): Promise<InventoryLifecycleAfterSalesQueueItem[]> {
+  const storeId = requireStoreIdFromActor(actor);
+  if (!can(actor, "inventory:read") || !can(actor, "after_sales:intake")) {
+    throw new InventoryLifecycleHttpError("actor_forbidden", "当前员工没有查看售后队列的权限", 403);
+  }
+  assertInventoryLifecycleReadEnabled(storeId);
+  const supabase = getSupabaseAdmin();
+  const { data: cases, error } = await supabase
+    .from("inventory_after_sales_cases")
+    .select(
+      "id,sale_order_id,inventory_item_id,status,issue_summary,coverage_decision,received_at,returned_at,version",
+    )
+    .eq("store_id", storeId)
+    .neq("status", "closed")
+    .order("received_at", { ascending: false })
+    .limit(100);
+  if (error)
+    throw new InventoryLifecycleHttpError("internal_error", errorMessages.internal_error, 503);
+  if (!cases?.length) return [];
+  const orderIds = cases.map((row) => String(row.sale_order_id));
+  const itemIds = cases.map((row) => String(row.inventory_item_id));
+  const [{ data: orders, error: orderError }, { data: products, error: productError }] =
+    await Promise.all([
+      supabase
+        .from("inventory_sale_orders")
+        .select("id,stock_unit_id,version")
+        .eq("store_id", storeId)
+        .in("id", orderIds),
+      supabase
+        .from("inventory_items")
+        .select("id,public_no")
+        .eq("store_id", storeId)
+        .in("id", itemIds),
+    ]);
+  if (orderError || productError) {
+    throw new InventoryLifecycleHttpError("internal_error", errorMessages.internal_error, 503);
+  }
+  const orderMap = new Map((orders ?? []).map((row) => [String(row.id), row]));
+  const productMap = new Map((products ?? []).map((row) => [String(row.id), row]));
+  return cases.flatMap((row) => {
+    const order = orderMap.get(String(row.sale_order_id));
+    const product = productMap.get(String(row.inventory_item_id));
+    if (!order || !product) return [];
+    return [
+      {
+        case_id: String(row.id),
+        sale_order_id: String(row.sale_order_id),
+        inventory_item_id: String(row.inventory_item_id),
+        stock_unit_id: String(order.stock_unit_id),
+        sku: String(product.public_no),
+        status: row.status,
+        issue_summary: String(row.issue_summary),
+        ...(row.coverage_decision ? { coverage_decision: row.coverage_decision } : {}),
+        received_at: String(row.received_at),
+        ...(row.returned_at ? { returned_at: String(row.returned_at) } : {}),
+        version: Number(row.version),
+        order_version: Number(order.version),
+        allowed_actions: can(actor, "after_sales:update")
+          ? (["after_sales.update", "after_sales.close"] as InventoryLifecycleCommand[])
+          : [],
+      },
+    ];
+  });
+}
+
+export async function readInventoryLifecycleAfterSalesCase(
+  caseId: string,
+  actor: AuditActor,
+): Promise<InventoryLifecycleAfterSalesCaseDetail | null> {
+  const storeId = requireStoreIdFromActor(actor);
+  if (!can(actor, "inventory:read") || !can(actor, "after_sales:update")) {
+    throw new InventoryLifecycleHttpError(
+      "actor_forbidden",
+      "当前员工没有查看售后诊断详情的权限",
+      403,
+    );
+  }
+  assertInventoryLifecycleReadEnabled(storeId);
+  const supabase = getSupabaseAdmin();
+  const { data: caseRow, error: caseError } = await supabase
+    .from("inventory_after_sales_cases")
+    .select(
+      "id,sale_order_id,inventory_item_id,status,issue_summary,diagnosis,coverage_decision,received_at,returned_at,closed_at,version",
+    )
+    .eq("store_id", storeId)
+    .eq("id", caseId)
+    .maybeSingle();
+  if (caseError)
+    throw new InventoryLifecycleHttpError("internal_error", errorMessages.internal_error, 503);
+  if (!caseRow) return null;
+  const [orderResult, productResult, eventsResult, sale] = await Promise.all([
+    supabase
+      .from("inventory_sale_orders")
+      .select("stock_unit_id,version")
+      .eq("store_id", storeId)
+      .eq("id", caseRow.sale_order_id)
+      .maybeSingle(),
+    supabase
+      .from("inventory_items")
+      .select("public_no")
+      .eq("store_id", storeId)
+      .eq("id", caseRow.inventory_item_id)
+      .maybeSingle(),
+    supabase
+      .from("inventory_after_sales_events")
+      .select("event_type,from_status,to_status,occurred_at")
+      .eq("store_id", storeId)
+      .eq("case_id", caseId)
+      .order("occurred_at", { ascending: false })
+      .limit(100),
+    readInventoryLifecycleSale(String(caseRow.sale_order_id), actor),
+  ]);
+  if (orderResult.error || productResult.error || eventsResult.error)
+    throw new InventoryLifecycleHttpError("internal_error", errorMessages.internal_error, 503);
+  if (!orderResult.data || !productResult.data) return null;
+  return {
+    case_id: String(caseRow.id),
+    sale_order_id: String(caseRow.sale_order_id),
+    inventory_item_id: String(caseRow.inventory_item_id),
+    stock_unit_id: String(orderResult.data.stock_unit_id),
+    sku: String(productResult.data.public_no),
+    status: caseRow.status,
+    issue_summary: String(caseRow.issue_summary),
+    ...(caseRow.diagnosis ? { diagnosis: String(caseRow.diagnosis) } : {}),
+    ...(caseRow.coverage_decision ? { coverage_decision: caseRow.coverage_decision } : {}),
+    received_at: String(caseRow.received_at),
+    ...(caseRow.returned_at ? { returned_at: String(caseRow.returned_at) } : {}),
+    ...(caseRow.closed_at ? { closed_at: String(caseRow.closed_at) } : {}),
+    version: Number(caseRow.version),
+    order_version: Number(orderResult.data.version),
+    allowed_actions:
+      caseRow.status === "closed"
+        ? []
+        : (["after_sales.update", "after_sales.close"] as InventoryLifecycleCommand[]),
+    sale: sale ?? undefined,
+    events: (eventsResult.data ?? []).map((event) => ({
+      event_type: String(event.event_type),
+      ...(event.from_status ? { from_status: String(event.from_status) } : {}),
+      ...(event.to_status ? { to_status: String(event.to_status) } : {}),
+      occurred_at: String(event.occurred_at),
+    })),
+  };
+}
