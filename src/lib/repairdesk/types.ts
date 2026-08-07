@@ -2386,6 +2386,8 @@ export interface InventoryProductListItem {
   list_price?: number;
   currency_code: CurrencyCode;
   updated_at: string;
+  /** Same-origin authenticated thumbnail handle. Storage metadata is never returned. */
+  thumbnail_url?: string;
 }
 
 export interface InventoryProductListResult {

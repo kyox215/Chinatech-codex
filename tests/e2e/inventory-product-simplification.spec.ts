@@ -18,8 +18,8 @@ test("mobile product list, filter, intake and detail stay simple and within view
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/inventory");
   await expect(page.getByRole("link", { name: /Apple iPad Air 5/ })).toBeVisible();
-  await expect(page.locator('[data-inventory-product-mobile-list="true"]')).toHaveCount(1);
-  await expect(page.locator('[data-inventory-product-desktop-list="true"]')).toHaveCount(0);
+  await expect(page.locator('[data-inventory-product-shelf="true"]')).toHaveCount(1);
+  await expect(page.locator('[data-ui="inventory-product-card"]').first()).toBeVisible();
   await expect(page.getByText("回收报价")).toHaveCount(0);
   await expect(page.getByText("客户确认")).toHaveCount(0);
   await assertNoHorizontalOverflow(page);
@@ -57,13 +57,16 @@ test("mobile product list, filter, intake and detail stay simple and within view
   });
 });
 
-test("desktop product list uses a bounded six-column layout", async ({ page }) => {
+test("desktop product list uses a bounded four-column shelf", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/inventory");
-  await expect(page.getByText("SKU / 状态")).toBeVisible();
-  await expect(page.locator('[data-inventory-product-desktop-list="true"]')).toHaveCount(1);
-  await expect(page.locator('[data-inventory-product-mobile-list="true"]')).toHaveCount(0);
+  await expect(page.getByText("SKU / 状态")).toHaveCount(0);
+  await expect(page.locator('[data-inventory-product-shelf="true"]')).toHaveCount(1);
   await expect(page.getByRole("link", { name: /Apple iPad Air 5/ })).toBeVisible();
+  const columns = await page
+    .locator('[data-inventory-product-shelf="true"]')
+    .evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
+  expect(columns).toBe(4);
   await assertNoHorizontalOverflow(page);
   await page.screenshot({ path: resolve(screenshotDir, "1280-product-list.png"), fullPage: true });
 });
@@ -80,13 +83,7 @@ for (const viewport of [
 
     await page.goto("/inventory");
     await expect(page.getByRole("link", { name: /Apple iPad Air 5/ })).toBeVisible();
-    if (viewport.width >= 1024) {
-      await expect(page.locator('[data-inventory-product-desktop-list="true"]')).toHaveCount(1);
-      await expect(page.locator('[data-inventory-product-mobile-list="true"]')).toHaveCount(0);
-    } else {
-      await expect(page.locator('[data-inventory-product-desktop-list="true"]')).toHaveCount(0);
-      await expect(page.locator('[data-inventory-product-mobile-list="true"]')).toHaveCount(1);
-    }
+    await expect(page.locator('[data-inventory-product-shelf="true"]')).toHaveCount(1);
     await page.getByRole("button", { name: "筛选商品" }).click();
     await expect(page.getByRole("heading", { name: "筛选商品" })).toBeVisible();
     await expect(page.getByRole("button", { name: "应用筛选" })).toBeVisible();

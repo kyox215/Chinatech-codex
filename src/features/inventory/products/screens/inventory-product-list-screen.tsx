@@ -4,8 +4,6 @@ import { useDeferredValue, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
-  CalendarClock,
-  CircleAlert,
   Filter,
   Gamepad2,
   Laptop,
@@ -14,7 +12,6 @@ import {
   RefreshCw,
   Search,
   Smartphone,
-  Tag,
   Tablet,
 } from "lucide-react";
 
@@ -42,7 +39,6 @@ import type {
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { MoneyText, RepairOsBadge, RepairOsListScaffold } from "@/shared/ui";
-import { useViewportMode } from "@/hooks/use-mobile";
 
 import { inventoryProductsQueryOptions } from "../api/query-options";
 
@@ -53,6 +49,19 @@ const categoryMeta: Record<InventoryProductCategory, { label: string; icon: type
   game_console: { label: "游戏机", icon: Gamepad2 },
   other: { label: "其他", icon: PackageOpen },
 };
+
+const categoryTabs: Array<{
+  key: "all" | InventoryProductCategory;
+  label: string;
+  icon: typeof Smartphone;
+}> = [
+  { key: "all", label: "全部", icon: PackageOpen },
+  ...Object.entries(categoryMeta).map(([key, value]) => ({
+    key: key as InventoryProductCategory,
+    label: value.label,
+    icon: value.icon,
+  })),
+];
 
 const statusLabels: Record<InventoryProductDisplayStatus, string> = {
   in_stock: "在库",
@@ -72,7 +81,6 @@ const statusStyles: Record<InventoryProductDisplayStatus, string> = {
 
 export function InventoryProductListScreen() {
   const shell = useStoreShellContext();
-  const viewportMode = useViewportMode();
   const storeId = shell.activeStore?.id;
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
@@ -93,9 +101,10 @@ export function InventoryProductListScreen() {
   });
   const activeFilterCount =
     (filters.statuses?.length ?? 0) +
-    (filters.categories?.length ?? 0) +
     (filters.brands?.length ?? 0) +
     (filters.locations?.length ?? 0);
+  const hasSelectedCategory = Boolean(filters.categories?.length);
+  const hasActiveSelection = activeFilterCount > 0 || hasSelectedCategory;
 
   const createAction =
     shell.permissions?.canCreateInventory &&
@@ -133,35 +142,41 @@ export function InventoryProductListScreen() {
       action={createAction}
       desktopAction={createAction}
       desktopHeaderAddon={
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="搜索商品、SKU、型号"
-              aria-label="搜索商品、SKU、型号"
-              className="h-11 pl-9"
-            />
+        <div className="space-y-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="搜索商品、SKU、型号"
+                aria-label="搜索商品、SKU、型号"
+                className="h-11 pl-9"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="relative min-h-11 shrink-0 gap-2"
+              aria-label={activeFilterCount ? `筛选，已应用 ${activeFilterCount} 项` : "筛选商品"}
+              onClick={() => {
+                setDraft(filters);
+                setFilterOpen(true);
+              }}
+            >
+              <Filter className="size-4" />
+              筛选
+              {activeFilterCount ? (
+                <span className="grid min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-5 text-primary-foreground lg:text-[11px]">
+                  {activeFilterCount}
+                </span>
+              ) : null}
+            </Button>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="relative min-h-11 shrink-0 gap-2"
-            aria-label={activeFilterCount ? `筛选，已应用 ${activeFilterCount} 项` : "筛选商品"}
-            onClick={() => {
-              setDraft(filters);
-              setFilterOpen(true);
-            }}
-          >
-            <Filter className="size-4" />
-            筛选
-            {activeFilterCount ? (
-              <span className="grid min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-5 text-primary-foreground lg:text-[11px]">
-                {activeFilterCount}
-              </span>
-            ) : null}
-          </Button>
+          <InventoryProductCategoryTabs
+            filters={filters}
+            onChange={(categories) => setFilters({ ...filters, categories })}
+          />
         </div>
       }
       searchValue={search}
@@ -195,13 +210,12 @@ export function InventoryProductListScreen() {
             ? `已显示 ${query.data.items.length} 件商品`
             : "正在准备商品结果"}
       </p>
-      {query.data ? (
-        <InventoryQueueKpis
-          items={query.data.items}
-          activeStatuses={filters.statuses ?? []}
-          onSelect={(statuses) => setFilters({ ...filters, statuses })}
+      <div className="mb-2 lg:hidden">
+        <InventoryProductCategoryTabs
+          filters={filters}
+          onChange={(categories) => setFilters({ ...filters, categories })}
         />
-      ) : null}
+      </div>
       {activeFilterCount ? (
         <div className="mb-2 flex flex-wrap items-center gap-1.5" aria-live="polite">
           <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary lg:text-xs lg:leading-4">
@@ -212,9 +226,9 @@ export function InventoryProductListScreen() {
             variant="ghost"
             size="sm"
             className="min-h-11"
-            onClick={() => setFilters({})}
+            onClick={() => setFilters({ categories: filters.categories })}
           >
-            清除
+            清除筛选
           </Button>
         </div>
       ) : null}
@@ -234,18 +248,34 @@ export function InventoryProductListScreen() {
       ) : null}
       {query.isSuccess && query.data.items.length === 0 ? (
         <InventoryProductMessage
-          title={search || activeFilterCount ? "没有符合条件的商品" : "还没有商品"}
+          title={
+            hasSelectedCategory && !search && activeFilterCount === 0
+              ? "当前分类暂无商品"
+              : search || hasActiveSelection
+                ? "没有符合条件的商品"
+                : "还没有商品"
+          }
           body={
-            search || activeFilterCount
+            search || hasActiveSelection
               ? "更换搜索词或清除筛选。"
               : "录入手机、平板、电脑或游戏机。"
           }
-          action={createAction}
+          action={
+            hasSelectedCategory && !search && activeFilterCount === 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setFilters({ ...filters, categories: [] })}
+              >
+                查看全部
+              </Button>
+            ) : (
+              createAction
+            )
+          }
         />
       ) : null}
-      {query.data?.items.length ? (
-        <InventoryProductResults items={query.data.items} viewportMode={viewportMode} />
-      ) : null}
+      {query.data?.items.length ? <InventoryProductResults items={query.data.items} /> : null}
 
       <InventoryProductFilterSheet
         open={filterOpen}
@@ -263,226 +293,124 @@ export function InventoryProductListScreen() {
   );
 }
 
-function InventoryProductResults({
-  items,
-  viewportMode,
-}: {
-  items: InventoryProductListItem[];
-  viewportMode: ReturnType<typeof useViewportMode>;
-}) {
+function InventoryProductResults({ items }: { items: InventoryProductListItem[] }) {
   return (
-    <>
-      {viewportMode === "compact" ? (
-        <div
-          data-inventory-product-mobile-list="true"
-          className={cn(repairOs.listCardStack, "md:grid-cols-2")}
-        >
-          {items.map((item) => (
-            <InventoryProductCard key={item.id} item={item} />
-          ))}
-        </div>
-      ) : null}
-      {viewportMode === "desktop" ? (
-        <div
-          data-inventory-product-desktop-list="true"
-          className="rounded-2xl border border-border bg-card p-2 shadow-sm"
-        >
-          <table className="w-full min-w-0 text-xs">
-            <caption className="sr-only">商品库存列表</caption>
-            <thead className="text-left text-xs font-medium text-muted-foreground">
-              <tr>
-                <th scope="col" className="px-3 py-2">
-                  SKU / 状态
-                </th>
-                <th scope="col" className="px-3 py-2">
-                  商品
-                </th>
-                <th scope="col" className="px-3 py-2">
-                  规格 / 位置
-                </th>
-                <th scope="col" className="px-3 py-2">
-                  标识
-                </th>
-                <th scope="col" className="px-3 py-2 text-right">
-                  售价
-                </th>
-                <th scope="col" className="px-3 py-2">
-                  <span className="sr-only">打开</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {items.map((item) => (
-                <tr
-                  key={item.id}
-                  className="group min-h-[52px] transition-colors hover:bg-muted/60"
-                >
-                  <td className="min-w-0 px-3 py-2">
-                    <Link
-                      href={`/inventory/${item.id}`}
-                      className="block min-h-11 rounded-lg py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <span className="block truncate font-mono text-xs text-primary">
-                        {item.sku}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {statusLabels[item.status]}
-                      </span>
-                    </Link>
-                  </td>
-                  <td className="min-w-0 px-3 py-2">
-                    <Link
-                      href={`/inventory/${item.id}`}
-                      className="block min-h-11 rounded-lg py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <span className="block truncate font-semibold">
-                        {item.brand} {item.model}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {categoryMeta[item.category].label}
-                      </span>
-                    </Link>
-                  </td>
-                  <td className="min-w-0 max-w-[260px] truncate px-3 py-2 text-muted-foreground">
-                    {[item.specification, item.location].filter(Boolean).join(" · ") || "—"}
-                  </td>
-                  <td className="max-w-[120px] truncate px-3 py-2 font-mono text-xs text-muted-foreground">
-                    {item.masked_identifier ?? "—"}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-right font-semibold">
-                    {item.list_price === undefined ? (
-                      "未填写"
-                    ) : (
-                      <MoneyText amount={item.list_price} />
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <Link
-                      href={`/inventory/${item.id}`}
-                      className="grid size-11 place-items-center rounded-lg text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      aria-label={`打开 ${item.sku}`}
-                    >
-                      ›
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-    </>
-  );
-}
-
-function InventoryQueueKpis({
-  items,
-  activeStatuses,
-  onSelect,
-}: {
-  items: InventoryProductListItem[];
-  activeStatuses: InventoryProductDisplayStatus[];
-  onSelect: (statuses: InventoryProductDisplayStatus[]) => void;
-}) {
-  const metrics = [
-    {
-      key: "listed",
-      label: "在售",
-      value: items.filter((item) => item.status === "in_stock").length,
-      statuses: ["in_stock"] as InventoryProductDisplayStatus[],
-      icon: Tag,
-      tone: "text-status-success-foreground",
-    },
-    {
-      key: "reserved",
-      label: "已预订",
-      value: items.filter((item) => item.status === "reserved").length,
-      statuses: ["reserved"] as InventoryProductDisplayStatus[],
-      icon: CalendarClock,
-      tone: "text-status-warn-foreground",
-    },
-    {
-      key: "attention",
-      label: "需处理",
-      value: items.filter((item) => item.status === "sold" || item.status === "returned").length,
-      statuses: ["sold", "returned"] as InventoryProductDisplayStatus[],
-      icon: CircleAlert,
-      tone: "text-status-danger-foreground",
-    },
-  ];
-
-  return (
-    <div className="mb-2 grid min-w-0 grid-cols-3 gap-1.5 sm:gap-2" aria-label="库存工作队列">
-      {metrics.map((metric) => {
-        const isActive =
-          metric.statuses.length === activeStatuses.length &&
-          metric.statuses.every((status) => activeStatuses.includes(status));
-        const Icon = metric.icon;
-        return (
-          <button
-            key={metric.key}
-            type="button"
-            className={cn(
-              repairOs.metricCardDense,
-              "min-h-[68px] text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              isActive && "border-primary bg-primary/5",
-            )}
-            aria-pressed={isActive}
-            onClick={() => onSelect(isActive ? [] : metric.statuses)}
-          >
-            <span
-              className={cn(
-                "mb-1 grid size-7 place-items-center rounded-lg bg-primary/10",
-                metric.tone,
-              )}
-            >
-              <Icon className="size-3.5" aria-hidden="true" />
-            </span>
-            <span className="block truncate text-[10px] text-muted-foreground">{metric.label}</span>
-            <strong className="mt-0.5 block font-mono text-lg leading-none">{metric.value}</strong>
-          </button>
-        );
-      })}
+    <div
+      data-inventory-product-shelf="true"
+      className={cn(
+        repairOs.listCardStack,
+        "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+      )}
+    >
+      {items.map((item) => (
+        <InventoryProductCard key={item.id} item={item} />
+      ))}
     </div>
   );
 }
 
 function InventoryProductCard({ item }: { item: InventoryProductListItem }) {
   const Icon = categoryMeta[item.category].icon;
+  const [failedThumbnailUrl, setFailedThumbnailUrl] = useState<string>();
+  const showThumbnail = Boolean(item.thumbnail_url && failedThumbnailUrl !== item.thumbnail_url);
+  const imageAlt = [item.brand, item.model, item.specification, categoryMeta[item.category].label]
+    .filter(Boolean)
+    .join("，");
   return (
     <Link
       href={`/inventory/${item.id}`}
       data-ui="inventory-product-card"
       className={cn(
         repairOs.businessCardDense,
-        "min-h-[84px] grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-2 px-2.5 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "min-h-[104px] grid-cols-[86px_minmax(0,1fr)_auto] items-stretch gap-2 overflow-hidden p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex md:min-h-0 md:flex-col md:gap-0 md:p-0",
       )}
     >
-      <span className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary">
-        <Icon className="size-4" aria-hidden="true" />
+      <span className="relative grid size-[86px] shrink-0 place-items-center overflow-hidden rounded-xl bg-primary/10 text-primary md:aspect-[4/3] md:h-auto md:w-full md:rounded-b-none md:rounded-t-2xl">
+        {showThumbnail ? (
+          <img
+            src={item.thumbnail_url}
+            alt={imageAlt}
+            loading="lazy"
+            decoding="async"
+            className="size-full object-contain"
+            onError={() => setFailedThumbnailUrl(item.thumbnail_url)}
+          />
+        ) : null}
+        {!showThumbnail ? (
+          <span className="absolute inset-0 grid place-items-center gap-1 text-primary">
+            <Icon className="size-7 md:size-10" aria-hidden="true" />
+            <span className="text-[10px] leading-3 text-muted-foreground">暂无图片</span>
+          </span>
+        ) : null}
       </span>
-      <span className="min-w-0 self-center">
-        <span className="block truncate font-mono text-[10px] leading-4 text-primary lg:text-[11px]">
-          {item.sku}
-        </span>
-        <span className="block truncate text-xs font-semibold leading-4">
-          {item.brand} {item.model}
+      <span className="min-w-0 self-center py-0.5 md:w-full md:self-stretch md:px-3 md:pt-2.5">
+        <span className="mb-1 flex min-w-0 items-center gap-1.5">
+          <span className="block min-w-0 truncate text-xs font-semibold leading-4">
+            {item.brand} {item.model}
+          </span>
+          <RepairOsBadge className={cn("shrink-0", statusStyles[item.status])}>
+            {statusLabels[item.status]}
+          </RepairOsBadge>
         </span>
         <span className="block truncate text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
-          {[item.specification, item.location, item.masked_identifier]
-            .filter(Boolean)
-            .join(" · ") || categoryMeta[item.category].label}
+          {item.specification || categoryMeta[item.category].label}
+        </span>
+        <span className="mt-0.5 block truncate font-mono text-[10px] leading-4 text-primary lg:text-[11px]">
+          SKU {item.sku}
+        </span>
+        <span className="block truncate text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
+          {[item.location, item.masked_identifier].filter(Boolean).join(" · ") || "暂无库位"}
         </span>
       </span>
-      <span className="flex min-w-[64px] flex-col items-end gap-2 self-stretch py-0.5 text-right">
-        <RepairOsBadge className={statusStyles[item.status]}>
-          {statusLabels[item.status]}
-        </RepairOsBadge>
-        <span className="mt-auto whitespace-nowrap text-xs font-semibold">
+      <span className="flex min-w-[64px] flex-col items-end justify-end self-stretch py-0.5 text-right md:mt-auto md:px-3 md:pb-3 md:pt-2">
+        <span className="whitespace-nowrap text-xs font-semibold md:text-sm">
           {item.list_price === undefined ? "未填写" : <MoneyText amount={item.list_price} />}
         </span>
       </span>
     </Link>
+  );
+}
+
+function InventoryProductCategoryTabs({
+  filters,
+  onChange,
+}: {
+  filters: InventoryProductListFilters;
+  onChange: (categories: InventoryProductCategory[]) => void;
+}) {
+  const selectedCategories = filters.categories ?? [];
+  const allSelected = selectedCategories.length === 0;
+  return (
+    <div
+      data-ui="inventory-product-category-tabs"
+      className="grid min-w-0 grid-cols-6 gap-1 rounded-xl border border-border bg-card p-1 shadow-sm"
+      role="group"
+      aria-label="商品分类"
+    >
+      {categoryTabs.map(({ key, label, icon: Icon }) => {
+        const active =
+          key === "all"
+            ? allSelected
+            : selectedCategories.length === 1 && selectedCategories[0] === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            className={cn(
+              "flex min-h-11 min-w-0 items-center justify-center gap-0.5 rounded-lg px-0.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-9 md:min-h-9 md:gap-1 md:px-1.5 md:text-[11px]",
+              active
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted",
+            )}
+            aria-pressed={active}
+            onClick={() => onChange(key === "all" ? [] : [key])}
+          >
+            <Icon className="size-3 shrink-0 md:size-3.5" aria-hidden="true" />
+            <span className="truncate">{label}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -511,7 +439,7 @@ function InventoryProductFilterSheet({
       >
         <SheetHeader>
           <SheetTitle>筛选商品</SheetTitle>
-          <SheetDescription>按状态、类别、品牌或库位缩小结果。</SheetDescription>
+          <SheetDescription>按状态、品牌或库位缩小结果。</SheetDescription>
         </SheetHeader>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto py-3">
           <FilterGroup
@@ -521,17 +449,6 @@ function InventoryProductFilterSheet({
             labels={statusLabels}
             onChange={(values) =>
               onDraftChange({ ...draft, statuses: values as InventoryProductDisplayStatus[] })
-            }
-          />
-          <FilterGroup
-            title="类别"
-            values={Object.keys(categoryMeta)}
-            selected={draft.categories ?? []}
-            labels={Object.fromEntries(
-              Object.entries(categoryMeta).map(([key, value]) => [key, value.label]),
-            )}
-            onChange={(values) =>
-              onDraftChange({ ...draft, categories: values as InventoryProductCategory[] })
             }
           />
           {brands.length ? (
@@ -556,7 +473,7 @@ function InventoryProductFilterSheet({
             type="button"
             variant="outline"
             className="min-h-11"
-            onClick={() => onDraftChange({})}
+            onClick={() => onDraftChange({ categories: draft.categories })}
           >
             重置
           </Button>
@@ -616,50 +533,31 @@ function FilterGroup({
 }
 
 function InventoryProductListSkeleton() {
-  const viewportMode = useViewportMode();
-
-  if (viewportMode === "pending") {
-    return (
-      <div data-ui="inventory-product-list-skeleton" data-ui-viewport="pending" aria-busy="true">
-        <div className="space-y-2" aria-hidden="true">
-          {Array.from({ length: 4 }, (_, index) => (
-            <Skeleton key={index} className="h-[84px] rounded-2xl" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div data-ui="inventory-product-list-skeleton" aria-busy="true">
-      {viewportMode === "compact" ? (
-        <div className={cn(repairOs.listCardStack, "md:grid-cols-2")}>
-          {Array.from({ length: 6 }, (_, index) => (
-            <Skeleton key={index} className="h-[84px] rounded-2xl" />
-          ))}
-        </div>
-      ) : (
-        <div
-          className="space-y-1.5 rounded-2xl border border-border bg-card p-2"
-          aria-hidden="true"
-        >
-          <div className="grid grid-cols-[110px_minmax(0,1.5fr)_minmax(0,1fr)_120px_88px_36px] gap-3 px-3 py-2">
-            {Array.from({ length: 6 }, (_, index) => (
-              <Skeleton key={index} className="h-3" />
-            ))}
+      <div
+        className={cn(
+          repairOs.listCardStack,
+          "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+        )}
+        aria-hidden="true"
+      >
+        {Array.from({ length: 8 }, (_, index) => (
+          <div
+            key={index}
+            className="grid min-h-[104px] grid-cols-[86px_minmax(0,1fr)_64px] items-center gap-2 overflow-hidden rounded-2xl border border-border bg-card p-2 md:flex md:min-h-0 md:flex-col md:gap-0 md:p-0"
+          >
+            <Skeleton className="size-[86px] rounded-xl md:aspect-[4/3] md:h-auto md:w-full md:rounded-b-none md:rounded-t-2xl" />
+            <span className="space-y-1.5 md:w-full md:px-3 md:pt-2.5">
+              <Skeleton className="h-3.5 w-4/5" />
+              <Skeleton className="h-3 w-3/5" />
+              <Skeleton className="h-2.5 w-2/3" />
+              <Skeleton className="h-2.5 w-1/2" />
+            </span>
+            <Skeleton className="h-3 w-14 justify-self-end md:mb-3 md:mr-3 md:mt-2 md:self-end" />
           </div>
-          {Array.from({ length: 6 }, (_, row) => (
-            <div
-              key={row}
-              className="grid min-h-[52px] grid-cols-[110px_minmax(0,1.5fr)_minmax(0,1fr)_120px_88px_36px] items-center gap-3 px-3 py-1.5"
-            >
-              {Array.from({ length: 6 }, (_, cell) => (
-                <Skeleton key={cell} className={cn("h-3", cell < 2 ? "w-3/4" : "w-2/3")} />
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   );
 }

@@ -30,5 +30,6 @@ export {
   getInventoryProduct,
   getInventoryProductEditData,
   listInventoryProducts,
+  readInventoryProductThumbnail,
   updateInventoryProduct,
 } from "./inventory-product.repository";

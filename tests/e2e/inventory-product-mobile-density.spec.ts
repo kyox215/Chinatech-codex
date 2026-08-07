@@ -13,7 +13,7 @@ test.beforeAll(async () => {
   await mkdir(screenshotDir, { recursive: true });
 });
 
-test("390px list shows six complete dense cards in the first viewport", async ({
+test("390px list shows compact image-and-information shelf cards", async ({
   page,
   browserName,
 }) => {
@@ -26,10 +26,16 @@ test("390px list shows six complete dense cards in the first viewport", async ({
   const cardBox = await cards.first().boundingBox();
   const sixthBox = await cards.nth(5).boundingBox();
   expect(cardBox).not.toBeNull();
-  expect(cardBox!.height).toBeGreaterThanOrEqual(84);
-  expect(cardBox!.height).toBeLessThanOrEqual(88);
+  expect(cardBox!.height).toBeGreaterThanOrEqual(104);
+  expect(cardBox!.height).toBeLessThanOrEqual(110);
   expect(sixthBox).not.toBeNull();
-  expect(sixthBox!.y + sixthBox!.height).toBeLessThanOrEqual(844);
+  expect(sixthBox!.y).toBeGreaterThan(cardBox!.y);
+  const categoryTabs = page.locator('[data-ui="inventory-product-category-tabs"]:visible');
+  await expect(categoryTabs.getByRole("button")).toHaveCount(6);
+  const categoryColumns = await categoryTabs.evaluate(
+    (element) => getComputedStyle(element).gridTemplateColumns.split(" ").length,
+  );
+  expect(categoryColumns).toBe(6);
   await assertNoHorizontalOverflow(page);
   await hideNextDevUi(page);
 
@@ -118,13 +124,17 @@ test("390px edit exposes field-level validation and a fixed save bar", async ({
   });
 });
 
-test("desktop list remains a bounded six-column table", async ({ page, browserName }) => {
+test("desktop list becomes a bounded three-column device shelf", async ({ page, browserName }) => {
   await mockProductList(page);
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.goto("/inventory");
 
-  await expect(page.getByText("SKU / 状态")).toBeVisible();
-  await expect(page.locator('[data-ui="inventory-product-card"]').first()).toBeHidden();
+  await expect(page.getByText("SKU / 状态")).toHaveCount(0);
+  await expect(page.locator('[data-ui="inventory-product-card"]').first()).toBeVisible();
+  const columns = await page
+    .locator('[data-inventory-product-shelf="true"]')
+    .evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
+  expect(columns).toBe(3);
   await assertNoHorizontalOverflow(page);
   await hideNextDevUi(page);
   await page.screenshot({

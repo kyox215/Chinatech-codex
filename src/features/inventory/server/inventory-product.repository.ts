@@ -102,6 +102,24 @@ const PRODUCT_SELECT = [
   "updated_at",
 ].join(",");
 
+const PRODUCT_THUMBNAIL_BUCKET = "repairdesk-inventory-attachments";
+const PRODUCT_THUMBNAIL_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+const PRODUCT_THUMBNAIL_QUERY_BATCH_SIZE = 100;
+const PRODUCT_THUMBNAIL_MAX_BYTES = 2_400_000;
+
+type ProductThumbnailCandidate = {
+  attachmentId: string;
+  itemId: string;
+  storagePath: string;
+  mimeType: (typeof PRODUCT_THUMBNAIL_MIME_TYPES)[number];
+  createdAt: string;
+};
+
+export type InventoryProductThumbnailPayload = {
+  bytes: Uint8Array;
+  contentType: (typeof PRODUCT_THUMBNAIL_MIME_TYPES)[number];
+};
+
 export async function listInventoryProducts(
   filters: InventoryProductListFilters,
   actor: AuditActor,
@@ -173,13 +191,208 @@ export async function listInventoryProducts(
     return true;
   });
 
+  const items = await attachProductThumbnails(visible, actor, storeId);
+
   return {
-    items: visible,
+    items,
     total: visible.length,
     facets: {
       brands: uniqueSorted(products.map((item) => item.brand)),
       locations: uniqueSorted(products.map((item) => item.location).filter(isString)),
     },
+  };
+}
+
+async function attachProductThumbnails(
+  items: InventoryProductListItem[],
+  actor: AuditActor,
+  storeId: string,
+): Promise<InventoryProductListItem[]> {
+  if (!items.length || !can(actor, "attachment:read")) return items;
+
+  const supabase = getSupabaseAdmin();
+  const itemIds = items.map((item) => item.id);
+  const rows: Record<string, unknown>[] = [];
+
+  try {
+    for (let offset = 0; offset < itemIds.length; offset += PRODUCT_THUMBNAIL_QUERY_BATCH_SIZE) {
+      const batch = itemIds.slice(offset, offset + PRODUCT_THUMBNAIL_QUERY_BATCH_SIZE);
+      const { data, error } = await supabase
+        .from("inventory_attachments")
+        .select(
+          "id,item_id,kind,sensitivity,evidence_status,storage_bucket,storage_path,mime_type,created_at",
+        )
+        .eq("store_id", storeId)
+        .in("item_id", batch)
+        .eq("kind", "device_photo")
+        .eq("sensitivity", "internal")
+        .eq("evidence_status", "bound")
+        .in("mime_type", [...PRODUCT_THUMBNAIL_MIME_TYPES])
+        .order("created_at", { ascending: false });
+      if (error) return items;
+      rows.push(...((data ?? []) as unknown as Record<string, unknown>[]));
+    }
+
+    const candidates = selectProductThumbnailCandidates(rows, storeId, itemIds);
+    if (!candidates.length) return items;
+
+    const thumbnailByItemId = new Map(
+      candidates.map(
+        (candidate) =>
+          [
+            candidate.itemId,
+            `/api/repairdesk/inventory/product-thumbnails/${encodeURIComponent(candidate.attachmentId)}`,
+          ] as const,
+      ),
+    );
+
+    return items.map((item) => {
+      const thumbnailUrl = thumbnailByItemId.get(item.id);
+      return thumbnailUrl ? { ...item, thumbnail_url: thumbnailUrl } : item;
+    });
+  } catch {
+    // Photos are an optional enhancement. Metadata failures must degrade to
+    // the category illustration without failing the product list.
+    return items;
+  }
+}
+
+export function selectProductThumbnailCandidates(
+  rows: Record<string, unknown>[],
+  storeId: string,
+  visibleItemIds: string[],
+): ProductThumbnailCandidate[] {
+  const visibleIds = new Set(visibleItemIds);
+  const latestByItemId = new Map<string, ProductThumbnailCandidate>();
+
+  for (const row of [...rows].sort((left, right) =>
+    String(right.created_at ?? "").localeCompare(String(left.created_at ?? "")),
+  )) {
+    const attachmentId = text(row.id);
+    const itemId = text(row.item_id);
+    const storageBucket = text(row.storage_bucket);
+    const storagePath = text(row.storage_path);
+    const mimeType = text(row.mime_type);
+    const createdAt = text(row.created_at);
+    const expectedExtension =
+      mimeType === "image/jpeg"
+        ? "jpg"
+        : mimeType === "image/png"
+          ? "png"
+          : mimeType === "image/webp"
+            ? "webp"
+            : undefined;
+    if (
+      !attachmentId ||
+      !itemId ||
+      !visibleIds.has(itemId) ||
+      latestByItemId.has(itemId) ||
+      row.kind !== "device_photo" ||
+      row.sensitivity !== "internal" ||
+      row.evidence_status !== "bound" ||
+      storageBucket !== PRODUCT_THUMBNAIL_BUCKET ||
+      !expectedExtension ||
+      storagePath !== `${storeId}/${itemId}/device_photo/${attachmentId}.${expectedExtension}` ||
+      !mimeType ||
+      !(PRODUCT_THUMBNAIL_MIME_TYPES as readonly string[]).includes(mimeType) ||
+      !createdAt
+    ) {
+      continue;
+    }
+    latestByItemId.set(itemId, {
+      attachmentId,
+      itemId,
+      storagePath,
+      mimeType: mimeType as ProductThumbnailCandidate["mimeType"],
+      createdAt,
+    });
+  }
+
+  return [...latestByItemId.values()];
+}
+
+export async function readInventoryProductThumbnail(
+  attachmentId: string,
+  actor: AuditActor,
+): Promise<InventoryProductThumbnailPayload> {
+  if (!can(actor, "inventory:read") || !can(actor, "attachment:read")) {
+    throw inventoryProductHttpError(
+      "INVENTORY_PRODUCT_THUMBNAIL_FORBIDDEN",
+      "当前员工没有查看商品图片的权限",
+      403,
+    );
+  }
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(attachmentId)
+  ) {
+    throw inventoryProductHttpError("INVENTORY_PRODUCT_THUMBNAIL_NOT_FOUND", "商品图片不存在", 404);
+  }
+
+  const storeId = requireStoreIdFromActor(actor);
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("inventory_attachments")
+    .select(
+      "id,item_id,kind,sensitivity,evidence_status,storage_bucket,storage_path,mime_type,file_size,created_at",
+    )
+    .eq("store_id", storeId)
+    .eq("id", attachmentId)
+    .eq("kind", "device_photo")
+    .eq("sensitivity", "internal")
+    .eq("evidence_status", "bound")
+    .in("mime_type", [...PRODUCT_THUMBNAIL_MIME_TYPES])
+    .maybeSingle();
+  if (error)
+    throw inventoryProductHttpError(
+      "INVENTORY_PRODUCT_THUMBNAIL_UNAVAILABLE",
+      "商品图片暂不可用",
+      503,
+    );
+  if (!data) {
+    throw inventoryProductHttpError("INVENTORY_PRODUCT_THUMBNAIL_NOT_FOUND", "商品图片不存在", 404);
+  }
+
+  const row = data as unknown as Record<string, unknown>;
+  const itemId = text(row.item_id);
+  const candidate = itemId
+    ? selectProductThumbnailCandidates([row], storeId, [itemId])[0]
+    : undefined;
+  const recordedBytes = Number(row.file_size ?? 0);
+  if (
+    !candidate ||
+    candidate.attachmentId !== attachmentId ||
+    !Number.isSafeInteger(recordedBytes) ||
+    recordedBytes <= 0 ||
+    recordedBytes > PRODUCT_THUMBNAIL_MAX_BYTES
+  ) {
+    throw inventoryProductHttpError("INVENTORY_PRODUCT_THUMBNAIL_NOT_FOUND", "商品图片不存在", 404);
+  }
+
+  const { data: blob, error: downloadError } = await supabase.storage
+    .from(PRODUCT_THUMBNAIL_BUCKET)
+    .download(candidate.storagePath);
+  if (downloadError || !blob) {
+    throw inventoryProductHttpError(
+      "INVENTORY_PRODUCT_THUMBNAIL_UNAVAILABLE",
+      "商品图片暂不可用",
+      503,
+    );
+  }
+  if (blob.size <= 0 || blob.size > PRODUCT_THUMBNAIL_MAX_BYTES) {
+    throw inventoryProductHttpError("INVENTORY_PRODUCT_THUMBNAIL_INVALID", "商品图片不可用", 422);
+  }
+
+  await writeAuditLog({
+    actor,
+    action: "read_inventory_product_thumbnail",
+    entityType: "inventory_attachment",
+    entityId: candidate.attachmentId,
+    metadata: { item_id: candidate.itemId, mime_type: candidate.mimeType },
+  });
+
+  return {
+    bytes: new Uint8Array(await blob.arrayBuffer()),
+    contentType: candidate.mimeType,
   };
 }
 
