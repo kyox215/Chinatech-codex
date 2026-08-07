@@ -1,12 +1,14 @@
 "use client";
 
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
   Filter,
   Gamepad2,
   Laptop,
+  LayoutGrid,
+  List as ListIcon,
   PackageOpen,
   Plus,
   RefreshCw,
@@ -41,6 +43,20 @@ import { cn } from "@/lib/utils";
 import { MoneyText, RepairOsBadge, RepairOsListScaffold } from "@/shared/ui";
 
 import { inventoryProductsQueryOptions } from "../api/query-options";
+import {
+  inventoryProductColorStyle,
+  matchInventoryProductColor,
+  matchInventoryProductReference,
+  type InventoryProductReferenceImage,
+} from "../../model/inventory-product-reference-image";
+
+type InventoryProductView = "shelf" | "list";
+
+const INVENTORY_PRODUCT_VIEW_STORAGE_KEY = "repairdesk.inventory.product-view";
+
+function isInventoryProductView(value: string | null): value is InventoryProductView {
+  return value === "shelf" || value === "list";
+}
 
 const categoryMeta: Record<InventoryProductCategory, { label: string; icon: typeof Smartphone }> = {
   phone: { label: "手机", icon: Smartphone },
@@ -87,6 +103,26 @@ export function InventoryProductListScreen() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [filters, setFilters] = useState<InventoryProductListFilters>({});
   const [draft, setDraft] = useState<InventoryProductListFilters>({});
+  const [view, setView] = useState<InventoryProductView>("shelf");
+  const [viewReady, setViewReady] = useState(false);
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(INVENTORY_PRODUCT_VIEW_STORAGE_KEY);
+      if (isInventoryProductView(stored)) setView(stored);
+    } catch {
+      // Private browsing and disabled storage should keep the SSR-safe shelf default.
+    } finally {
+      setViewReady(true);
+    }
+  }, []);
+  useEffect(() => {
+    if (!viewReady) return;
+    try {
+      window.localStorage.setItem(INVENTORY_PRODUCT_VIEW_STORAGE_KEY, view);
+    } catch {
+      // View preference is optional and must never block the inventory page.
+    }
+  }, [view, viewReady]);
   const queryFilters = useMemo(
     () => ({ ...filters, search: deferredSearch.trim() || undefined }),
     [deferredSearch, filters],
@@ -154,6 +190,7 @@ export function InventoryProductListScreen() {
                 className="h-11 pl-9"
               />
             </div>
+            <InventoryProductViewToggle value={view} onChange={setView} />
             <Button
               type="button"
               variant="outline"
@@ -183,24 +220,27 @@ export function InventoryProductListScreen() {
       searchPlaceholder="搜索商品、SKU、型号"
       onSearchChange={setSearch}
       filterAction={
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="relative size-11 rounded-lg bg-card"
-          aria-label={activeFilterCount ? `筛选，已应用 ${activeFilterCount} 项` : "筛选商品"}
-          onClick={() => {
-            setDraft(filters);
-            setFilterOpen(true);
-          }}
-        >
-          <Filter className="size-4" />
-          {activeFilterCount ? (
-            <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground lg:text-[11px] lg:leading-4">
-              {activeFilterCount}
-            </span>
-          ) : null}
-        </Button>
+        <div className="flex min-w-0 shrink-0 items-center gap-1">
+          <InventoryProductViewToggle value={view} onChange={setView} />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="relative size-11 rounded-lg bg-card"
+            aria-label={activeFilterCount ? `筛选，已应用 ${activeFilterCount} 项` : "筛选商品"}
+            onClick={() => {
+              setDraft(filters);
+              setFilterOpen(true);
+            }}
+          >
+            <Filter className="size-4" />
+            {activeFilterCount ? (
+              <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground lg:text-[11px] lg:leading-4">
+                {activeFilterCount}
+              </span>
+            ) : null}
+          </Button>
+        </div>
       }
     >
       <p className="sr-only" role="status" aria-live="polite">
@@ -275,7 +315,9 @@ export function InventoryProductListScreen() {
           }
         />
       ) : null}
-      {query.data?.items.length ? <InventoryProductResults items={query.data.items} /> : null}
+      {query.data?.items.length ? (
+        <InventoryProductResults items={query.data.items} view={view} />
+      ) : null}
 
       <InventoryProductFilterSheet
         open={filterOpen}
@@ -293,57 +335,106 @@ export function InventoryProductListScreen() {
   );
 }
 
-function InventoryProductResults({ items }: { items: InventoryProductListItem[] }) {
+function InventoryProductResults({
+  items,
+  view,
+}: {
+  items: InventoryProductListItem[];
+  view: InventoryProductView;
+}) {
+  const shelf = view === "shelf";
   return (
     <div
       data-inventory-product-shelf="true"
+      data-inventory-product-view={view}
       className={cn(
         repairOs.listCardStack,
-        "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+        shelf ? "grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid-cols-1",
       )}
     >
       {items.map((item) => (
-        <InventoryProductCard key={item.id} item={item} />
+        <InventoryProductCard key={item.id} item={item} view={view} />
       ))}
     </div>
   );
 }
 
-function InventoryProductCard({ item }: { item: InventoryProductListItem }) {
+function InventoryProductCard({
+  item,
+  view,
+}: {
+  item: InventoryProductListItem;
+  view: InventoryProductView;
+}) {
   const Icon = categoryMeta[item.category].icon;
-  const [failedThumbnailUrl, setFailedThumbnailUrl] = useState<string>();
-  const showThumbnail = Boolean(item.thumbnail_url && failedThumbnailUrl !== item.thumbnail_url);
+  const [failedImageUrls, setFailedImageUrls] = useState<string[]>([]);
+  const reference = matchInventoryProductReference(item);
+  const colorMatch = matchInventoryProductColor(item);
+  const specification = inventoryProductSpecification(item.specification, colorMatch);
+  const uploadedThumbnailUrl = safeInventoryProductThumbnailUrl(item.thumbnail_url);
+  const activeImage = resolveInventoryProductImage(
+    uploadedThumbnailUrl,
+    reference,
+    failedImageUrls,
+  );
   const imageAlt = [item.brand, item.model, item.specification, categoryMeta[item.category].label]
     .filter(Boolean)
     .join("，");
+  const shelf = view === "shelf";
   return (
     <Link
       href={`/inventory/${item.id}`}
       data-ui="inventory-product-card"
       className={cn(
         repairOs.businessCardDense,
-        "min-h-[104px] grid-cols-[86px_minmax(0,1fr)_auto] items-stretch gap-2 overflow-hidden p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex md:min-h-0 md:flex-col md:gap-0 md:p-0",
+        shelf
+          ? "flex min-h-0 flex-col gap-0 overflow-hidden p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          : "min-h-[104px] grid-cols-[86px_minmax(0,1fr)_auto] items-stretch gap-2 overflow-hidden p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex md:flex-row md:items-stretch md:gap-2 md:p-2",
       )}
     >
-      <span className="relative grid size-[86px] shrink-0 place-items-center overflow-hidden rounded-xl bg-primary/10 text-primary md:aspect-[4/3] md:h-auto md:w-full md:rounded-b-none md:rounded-t-2xl">
-        {showThumbnail ? (
+      <span
+        className={cn(
+          "relative grid size-[86px] shrink-0 place-items-center overflow-hidden rounded-xl bg-primary/10 text-primary",
+          shelf
+            ? "aspect-[4/3] h-auto w-full rounded-b-none rounded-t-2xl"
+            : "md:size-[86px] md:aspect-square",
+        )}
+      >
+        {activeImage ? (
           <img
-            src={item.thumbnail_url}
-            alt={imageAlt}
+            src={activeImage.url}
+            alt={activeImage.isReference ? activeImage.reference.alt : imageAlt}
             loading="lazy"
             decoding="async"
             className="size-full object-contain"
-            onError={() => setFailedThumbnailUrl(item.thumbnail_url)}
+            onError={() =>
+              setFailedImageUrls((current) =>
+                current.includes(activeImage.url) ? current : [...current, activeImage.url],
+              )
+            }
           />
         ) : null}
-        {!showThumbnail ? (
+        {activeImage?.isReference ? (
+          <span
+            className="absolute left-1.5 top-1.5 rounded-full bg-background/90 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-foreground shadow-sm"
+            aria-label="参考图"
+          >
+            参考图
+          </span>
+        ) : null}
+        {!activeImage ? (
           <span className="absolute inset-0 grid place-items-center gap-1 text-primary">
             <Icon className="size-7 md:size-10" aria-hidden="true" />
             <span className="text-[10px] leading-3 text-muted-foreground">暂无图片</span>
           </span>
         ) : null}
       </span>
-      <span className="min-w-0 self-center py-0.5 md:w-full md:self-stretch md:px-3 md:pt-2.5">
+      <span
+        className={cn(
+          "min-w-0 self-center py-0.5",
+          shelf ? "w-full self-stretch px-2.5 pt-2.5" : "md:flex-1 md:self-center md:px-0 md:pt-0",
+        )}
+      >
         <span className="mb-1 flex min-w-0 items-center gap-1.5">
           <span className="block min-w-0 truncate text-xs font-semibold leading-4">
             {item.brand} {item.model}
@@ -352,8 +443,11 @@ function InventoryProductCard({ item }: { item: InventoryProductListItem }) {
             {statusLabels[item.status]}
           </RepairOsBadge>
         </span>
-        <span className="block truncate text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
-          {item.specification || categoryMeta[item.category].label}
+        <span className="flex min-w-0 items-center gap-1.5 truncate text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
+          <span className="min-w-0 truncate">
+            {specification || categoryMeta[item.category].label}
+          </span>
+          {colorMatch ? <InventoryProductColor color={colorMatch} /> : null}
         </span>
         <span className="mt-0.5 block truncate font-mono text-[10px] leading-4 text-primary lg:text-[11px]">
           SKU {item.sku}
@@ -362,12 +456,139 @@ function InventoryProductCard({ item }: { item: InventoryProductListItem }) {
           {[item.location, item.masked_identifier].filter(Boolean).join(" · ") || "暂无库位"}
         </span>
       </span>
-      <span className="flex min-w-[64px] flex-col items-end justify-end self-stretch py-0.5 text-right md:mt-auto md:px-3 md:pb-3 md:pt-2">
+      <span
+        className={cn(
+          "flex min-w-[64px] flex-col items-end justify-end self-stretch py-0.5 text-right",
+          shelf ? "mt-auto px-2.5 pb-2.5 pt-1.5" : "md:mt-0 md:self-center md:px-2 md:py-0",
+        )}
+      >
         <span className="whitespace-nowrap text-xs font-semibold md:text-sm">
           {item.list_price === undefined ? "未填写" : <MoneyText amount={item.list_price} />}
         </span>
       </span>
     </Link>
+  );
+}
+
+function resolveInventoryProductImage(
+  uploadedThumbnailUrl: string | undefined,
+  reference: InventoryProductReferenceImage | undefined,
+  failedImageUrls: readonly string[],
+) {
+  if (uploadedThumbnailUrl && !failedImageUrls.includes(uploadedThumbnailUrl)) {
+    return { url: uploadedThumbnailUrl, isReference: false as const };
+  }
+  if (reference && !failedImageUrls.includes(reference.src)) {
+    return { url: reference.src, isReference: true as const, reference };
+  }
+  return undefined;
+}
+
+function safeInventoryProductThumbnailUrl(value: string | undefined) {
+  const candidate = value?.trim();
+  if (!candidate) return undefined;
+  return /^\/api\/repairdesk\/inventory\/product-thumbnails\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
+    candidate,
+  )
+    ? candidate
+    : undefined;
+}
+
+function InventoryProductColor({
+  color,
+}: {
+  color: ReturnType<typeof matchInventoryProductColor>;
+}) {
+  if (!color) return null;
+  if (!color.option) {
+    return (
+      <span className="shrink-0 truncate" title={`颜色：${color.value}`}>
+        {color.value}
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex max-w-[45%] shrink-0 items-center gap-1 truncate text-foreground"
+      title={`目录颜色：${color.option.name}`}
+      aria-label={`颜色 ${color.option.name}`}
+      role="img"
+    >
+      <span
+        className="size-2.5 shrink-0 rounded-full border border-border/70"
+        style={inventoryProductColorStyle(color.option)}
+        aria-hidden="true"
+      />
+      <span className="truncate">{color.option.name}</span>
+    </span>
+  );
+}
+
+function inventoryProductSpecification(
+  specification: string | undefined,
+  color: ReturnType<typeof matchInventoryProductColor>,
+) {
+  if (!specification || !color) return specification;
+  const colorLabels = [color.value, color.option?.id, color.option?.name]
+    .filter((value): value is string => Boolean(value))
+    .map(normalizedProductLabel);
+  return specification
+    .split(/[·|,，]/u)
+    .map((value) => value.trim())
+    .filter((value) => value && !colorLabels.includes(normalizedProductLabel(value)))
+    .join(" · ");
+}
+
+function normalizedProductLabel(value: string) {
+  return value
+    .trim()
+    .toLocaleLowerCase("en-US")
+    .normalize("NFKC")
+    .replace(/[^\p{L}\p{N}]+/gu, "")
+    .replace(/色$/u, "");
+}
+
+function InventoryProductViewToggle({
+  value,
+  onChange,
+}: {
+  value: InventoryProductView;
+  onChange: (value: InventoryProductView) => void;
+}) {
+  return (
+    <div
+      data-ui="inventory-product-view-toggle"
+      role="group"
+      aria-label="商品列表视图"
+      className="grid h-11 w-[88px] shrink-0 grid-cols-2 overflow-hidden rounded-lg bg-card shadow-sm ring-1 ring-inset ring-border"
+    >
+      <button
+        type="button"
+        className={cn(
+          "grid min-h-11 min-w-0 place-items-center rounded-md text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+          value === "shelf" && "bg-primary text-primary-foreground",
+        )}
+        aria-label="智能货架视图"
+        aria-pressed={value === "shelf"}
+        onClick={() => onChange("shelf")}
+      >
+        <LayoutGrid className="size-4" aria-hidden="true" />
+        <span className="sr-only">智能货架</span>
+      </button>
+      <button
+        type="button"
+        className={cn(
+          "grid min-h-11 min-w-0 place-items-center rounded-md text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+          value === "list" && "bg-primary text-primary-foreground",
+        )}
+        aria-label="紧凑列表视图"
+        aria-pressed={value === "list"}
+        onClick={() => onChange("list")}
+      >
+        <ListIcon className="size-4" aria-hidden="true" />
+        <span className="sr-only">紧凑列表</span>
+      </button>
+    </div>
   );
 }
 

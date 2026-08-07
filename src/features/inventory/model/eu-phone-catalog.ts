@@ -57,6 +57,13 @@ const COLORS = {
   grey: color("grey", "灰色", "#8c8d91"),
   cyan: color("cyan", "青色", "#8bd3d5"),
   gradientBlue: color("gradient-blue", "蓝紫渐变", "#5d80d6", "#a77bd4"),
+  skyBlue: color("sky-blue", "天蓝色", "#a7c9e8"),
+  lightGold: color("light-gold", "浅金色", "#e8d3ad"),
+  cloudWhite: color("cloud-white", "云白色", "#f3f4f0"),
+  spaceBlack: color("space-black", "深空黑", "#17191d"),
+  sageGreen: color("sage-green", "鼠尾草绿", "#a7b7a4"),
+  mistBlue: color("mist-blue", "雾蓝色", "#9fb6c9"),
+  softPink: color("soft-pink", "淡粉色", "#f1c9d2"),
 } as const;
 
 const APPLE_CLASSIC = [COLORS.black, COLORS.white, COLORS.red, COLORS.blue] as const;
@@ -139,7 +146,7 @@ export const EU_PHONE_MODELS: readonly EuPhoneModel[] = [
     "2025-09-19",
     [],
     ["256 GB", "512 GB", "1 TB"],
-    [COLORS.black, COLORS.white, COLORS.lightBlue, COLORS.gold],
+    [COLORS.skyBlue, COLORS.lightGold, COLORS.cloudWhite, COLORS.spaceBlack],
   ),
   model(
     "apple",
@@ -147,7 +154,15 @@ export const EU_PHONE_MODELS: readonly EuPhoneModel[] = [
     "2025-09-19",
     [],
     ["256 GB", "512 GB"],
-    [COLORS.black, COLORS.white, COLORS.blue, COLORS.green, COLORS.purple],
+    [COLORS.lavender, COLORS.sageGreen, COLORS.mistBlue, COLORS.white, COLORS.black],
+  ),
+  model(
+    "apple",
+    "iPhone 17e",
+    "2026-03-11",
+    [],
+    ["128 GB", "256 GB", "512 GB"],
+    [COLORS.softPink, COLORS.white, COLORS.black],
   ),
   model(
     "apple",
@@ -804,6 +819,77 @@ export function findEuPhoneModel(brandId: string, value: string, asOf = new Date
     (item) =>
       normalize(item.name) === needle || item.aliases?.some((alias) => normalize(alias) === needle),
   );
+}
+
+const COLOR_ALIASES: Record<string, readonly string[]> = {
+  black: ["black", "space black", "深空黑"],
+  white: ["white", "cloud white", "云白"],
+  silver: ["silver"],
+  graphite: ["graphite", "深灰"],
+  gold: ["gold"],
+  "rose-gold": ["rose gold"],
+  blue: ["blue"],
+  "light-blue": ["light blue", "浅蓝"],
+  green: ["green"],
+  mint: ["mint"],
+  red: ["red"],
+  yellow: ["yellow"],
+  purple: ["purple"],
+  pink: ["pink"],
+  orange: ["orange"],
+  "natural-titanium": ["natural titanium"],
+  "blue-titanium": ["blue titanium"],
+  "white-titanium": ["white titanium"],
+  "black-titanium": ["black titanium"],
+  "desert-titanium": ["desert titanium"],
+  "cosmic-orange": ["cosmic orange"],
+  "deep-blue": ["deep blue"],
+  lavender: ["lavender"],
+  cream: ["cream"],
+  navy: ["navy"],
+  grey: ["grey", "gray"],
+  cyan: ["cyan"],
+  "gradient-blue": ["gradient blue"],
+  "sky-blue": ["sky blue", "天蓝"],
+  "light-gold": ["light gold", "浅金"],
+  "cloud-white": ["cloud white", "云白"],
+  "space-black": ["space black", "深空黑"],
+  "sage-green": ["sage green", "鼠尾草绿"],
+  "mist-blue": ["mist blue", "雾蓝"],
+  "soft-pink": ["soft pink", "淡粉"],
+};
+
+function normalizeColor(value: string) {
+  return value
+    .trim()
+    .toLocaleLowerCase("en-US")
+    .normalize("NFKC")
+    .replace(/[^\p{L}\p{N}]+/gu, "")
+    .replace(/色$/u, "");
+}
+
+function colorMatches(option: PhoneColorOption, value: string) {
+  const needle = normalizeColor(value);
+  if (!needle) return false;
+  return [option.id, option.name, ...(COLOR_ALIASES[option.id] ?? [])].some(
+    (candidate) => normalizeColor(candidate) === needle,
+  );
+}
+
+/**
+ * Resolve a catalog color without exposing any inventory or financial fields.
+ * Product payloads may contain the display name, English marketing name, or
+ * the stable catalog id; all three are accepted.
+ */
+export function findEuPhoneColor(
+  brandId: string,
+  modelValue: string,
+  colorValue?: string,
+  asOf = new Date(),
+) {
+  if (!colorValue?.trim()) return undefined;
+  const model = findEuPhoneModel(brandId, modelValue, asOf);
+  return model?.colors.find((option) => colorMatches(option, colorValue));
 }
 
 export function phoneColorBackground(colorOption: PhoneColorOption) {

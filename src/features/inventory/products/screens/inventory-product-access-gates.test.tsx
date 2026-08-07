@@ -29,6 +29,7 @@ import { InventoryProductListScreen } from "./inventory-product-list-screen";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  window.localStorage.clear();
   shellMocks.value = shellContext();
 });
 
@@ -59,49 +60,103 @@ describe("inventory product UI access gates", () => {
     expect(screen.queryByLabelText("品牌")).not.toBeInTheDocument();
   });
 
-  it("renders a real thumbnail and falls back to the category icon after an image error", async () => {
+  it("prioritizes a real thumbnail, then uses the local reference after an image error", async () => {
+    const thumbnailUrl =
+      "/api/repairdesk/inventory/product-thumbnails/00000000-0000-4000-8000-000000000501";
     apiMocks.listInventoryProducts.mockResolvedValue({
-      items: [product({ thumbnail_url: "https://private.example/thumb-token" })],
+      items: [product({ model: "iPhone 13", thumbnail_url: thumbnailUrl })],
       total: 1,
       facets: { brands: [], locations: [] },
     });
     const { queryClient } = renderWithQuery(<InventoryProductListScreen />);
 
     const image = await screen.findByAltText("Apple，iPhone 13，128GB，手机");
-    expect(image).toHaveAttribute("src", "https://private.example/thumb-token");
+    expect(image).toHaveAttribute("src", thumbnailUrl);
     fireEvent.error(image);
+    expect(await screen.findByAltText("Apple iPhone 标准机型设备参考图")).toHaveAttribute(
+      "src",
+      "/inventory-reference/iphone-standard.webp",
+    );
+    expect(screen.getByText("参考图")).toBeVisible();
+
+    const reference = screen.getByAltText("Apple iPhone 标准机型设备参考图");
+    fireEvent.error(reference);
     expect(await screen.findByText("暂无图片")).toBeVisible();
+    expect(screen.queryByAltText("Apple，iPhone 13，128GB，手机")).not.toBeInTheDocument();
 
     apiMocks.listInventoryProducts.mockResolvedValue({
-      items: [product({ thumbnail_url: "https://private.example/refreshed-thumb-token" })],
+      items: [
+        product({
+          thumbnail_url:
+            "/api/repairdesk/inventory/product-thumbnails/00000000-0000-4000-8000-000000000502",
+        }),
+      ],
       total: 1,
       facets: { brands: [], locations: [] },
     });
     await queryClient.refetchQueries();
     expect(await screen.findByAltText("Apple，iPhone 13，128GB，手机")).toHaveAttribute(
       "src",
-      "https://private.example/refreshed-thumb-token",
+      "/api/repairdesk/inventory/product-thumbnails/00000000-0000-4000-8000-000000000502",
     );
+  });
+
+  it("rejects an external thumbnail URL before rendering and uses the local reference", async () => {
+    apiMocks.listInventoryProducts.mockResolvedValue({
+      items: [product({ thumbnail_url: "https://tracking.example/device.webp" })],
+      total: 1,
+      facets: { brands: ["Apple"], locations: ["A-02"] },
+    });
+    renderWithQuery(<InventoryProductListScreen />);
+
+    expect(await screen.findByAltText("Apple iPhone 标准机型设备参考图")).toBeVisible();
+    expect(document.querySelector('img[src^="https://tracking.example/"]')).toBeNull();
   });
 
   it("keeps a missing thumbnail usable with the category fallback", async () => {
     apiMocks.listInventoryProducts.mockResolvedValue({
-      items: [product()],
+      items: [product({ brand: "Samsung", model: "Galaxy S24" })],
       total: 1,
       facets: { brands: [], locations: [] },
     });
     renderWithQuery(<InventoryProductListScreen />);
 
     expect(await screen.findByText("暂无图片")).toBeVisible();
-    expect(screen.getByRole("link", { name: /Apple iPhone 13/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Samsung Galaxy S24/ })).toHaveAttribute(
       "href",
       "/inventory/product-1",
     );
   });
 
+  it("falls through from a failed local reference to the category icon", async () => {
+    apiMocks.listInventoryProducts.mockResolvedValue({
+      items: [product({ model: "iPhone 13" })],
+      total: 1,
+      facets: { brands: ["Apple"], locations: ["A-02"] },
+    });
+    renderWithQuery(<InventoryProductListScreen />);
+
+    const reference = await screen.findByAltText("Apple iPhone 标准机型设备参考图");
+    fireEvent.error(reference);
+    expect(await screen.findByText("暂无图片")).toBeVisible();
+  });
+
+  it("shows a color swatch without repeating the color inside the specification", async () => {
+    apiMocks.listInventoryProducts.mockResolvedValue({
+      items: [product({ color: "Blue", specification: "128 GB · Blue" })],
+      total: 1,
+      facets: { brands: ["Apple"], locations: ["A-02"] },
+    });
+    renderWithQuery(<InventoryProductListScreen />);
+
+    expect(await screen.findByText("128 GB")).toBeVisible();
+    expect(screen.queryByText("128 GB · Blue")).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "颜色 蓝色" })).toBeVisible();
+  });
+
   it("uses fixed category buttons with aria-pressed and combines the selection with search filters", async () => {
     apiMocks.listInventoryProducts.mockResolvedValue({
-      items: [product()],
+      items: [product({ brand: "Samsung", model: "Galaxy S24" })],
       total: 1,
       facets: { brands: [], locations: [] },
     });
@@ -121,6 +176,35 @@ describe("inventory product UI access gates", () => {
         expect.anything(),
       ),
     );
+  });
+
+  it("offers shelf and compact list views with an SSR-safe local preference", async () => {
+    window.localStorage.clear();
+    apiMocks.listInventoryProducts.mockResolvedValue({
+      items: [product({ brand: "Samsung", model: "Galaxy S24" })],
+      total: 1,
+      facets: { brands: ["Samsung"], locations: ["A-02"] },
+    });
+    const { unmount } = renderWithQuery(<InventoryProductListScreen />);
+
+    await screen.findByText("暂无图片");
+    const toggle = screen.getByRole("group", { name: "商品列表视图" });
+    const shelf = within(toggle).getByRole("button", { name: "智能货架视图" });
+    const list = within(toggle).getByRole("button", { name: "紧凑列表视图" });
+    expect(shelf).toHaveAttribute("aria-pressed", "true");
+    expect(list).toHaveAttribute("aria-pressed", "false");
+    expect(shelf).toHaveClass("min-h-11");
+    fireEvent.click(list);
+    await waitFor(() =>
+      expect(document.querySelector('[data-inventory-product-view="list"]')).toBeTruthy(),
+    );
+    expect(window.localStorage.getItem("repairdesk.inventory.product-view")).toBe("list");
+    unmount();
+
+    window.localStorage.setItem("repairdesk.inventory.product-view", "invalid");
+    renderWithQuery(<InventoryProductListScreen />);
+    await screen.findByText("暂无图片");
+    expect(document.querySelector('[data-inventory-product-view="shelf"]')).toBeTruthy();
   });
 });
 

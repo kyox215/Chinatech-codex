@@ -2379,6 +2379,8 @@ export interface InventoryProductListItem {
   category: InventoryProductCategory;
   brand: string;
   model: string;
+  /** Optional catalog/display color; no cost or identifier data is included. */
+  color?: string;
   specification?: string;
   masked_identifier?: string;
   status: InventoryProductDisplayStatus;

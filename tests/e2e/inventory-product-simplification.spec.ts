@@ -67,6 +67,13 @@ test("desktop product list uses a bounded four-column shelf", async ({ page }) =
     .locator('[data-inventory-product-shelf="true"]')
     .evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
   expect(columns).toBe(4);
+  const viewToggle = page.getByRole("group", { name: "商品列表视图" });
+  await expect(viewToggle.getByRole("button", { name: "智能货架视图" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await viewToggle.getByRole("button", { name: "紧凑列表视图" }).click();
+  await expect(page.locator('[data-inventory-product-view="list"]')).toBeVisible();
   await assertNoHorizontalOverflow(page);
   await page.screenshot({ path: resolve(screenshotDir, "1280-product-list.png"), fullPage: true });
 });

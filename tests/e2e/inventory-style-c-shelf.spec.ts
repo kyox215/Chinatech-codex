@@ -27,8 +27,8 @@ test("Style C keeps compact categories and a responsive image shelf", async ({ p
     "true",
   );
   await expect(page.getByAltText(/Apple，iPhone 15 Pro/)).toBeVisible();
-  await expect(page.getByText("暂无图片").first()).toBeVisible();
-  await assertGridColumns(page, 1);
+  await expect(page.getByText("参考图").first()).toBeVisible();
+  await assertGridColumns(page, 2);
   await assertNoHorizontalOverflow(page);
   await page.screenshot({
     path: resolve(screenshotDir, "390-inventory-style-c-shelf.png"),
@@ -57,9 +57,52 @@ test("Style C keeps compact categories and a responsive image shelf", async ({ p
   });
 });
 
+test("inventory views keep filters and persist a safe compact-list preference", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/inventory");
+  const search = page.locator('input[placeholder="搜索商品、SKU、型号"]:visible');
+  await search.fill("iPhone");
+  const toggle = page.getByRole("group", { name: "商品列表视图" });
+  await expect(toggle.getByRole("button", { name: "智能货架视图" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await toggle.getByRole("button", { name: "紧凑列表视图" }).click();
+  await expect(toggle.getByRole("button", { name: "紧凑列表视图" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(search).toHaveValue("iPhone");
+  await expect(page.locator('[data-inventory-product-view="list"]')).toBeVisible();
+  await page.screenshot({
+    path: resolve(screenshotDir, "390-inventory-style-c-list.png"),
+    fullPage: true,
+  });
+  await page.reload();
+  await expect(
+    page.getByRole("group", { name: "商品列表视图" }).getByRole("button", { name: "紧凑列表视图" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.reload();
+  await expect(page.locator('[data-inventory-product-view="list"]')).toBeVisible();
+  await assertNoHorizontalOverflow(page);
+  await page.screenshot({
+    path: resolve(screenshotDir, "1280-inventory-style-c-list.png"),
+    fullPage: true,
+  });
+  await page.evaluate(() => localStorage.setItem("repairdesk.inventory.product-view", "invalid"));
+  await page.reload();
+  await expect(
+    page.getByRole("group", { name: "商品列表视图" }).getByRole("button", { name: "智能货架视图" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await assertNoHorizontalOverflow(page);
+});
+
 async function mockShelf(page: Page) {
-  await page.route("**/test-device-photo/*.svg", async (route) => {
-    const label = route.request().url().includes("iphone") ? "iPhone" : "iPad";
+  await page.route("**/api/repairdesk/inventory/product-thumbnails/*", async (route) => {
+    const label = route.request().url().endsWith("0601") ? "iPhone" : "iPad";
     await route.fulfill({
       status: 200,
       contentType: "image/svg+xml",
@@ -79,10 +122,12 @@ async function mockShelf(page: Page) {
               category: "phone",
               brand: "Apple",
               model: "iPhone 15 Pro",
+              color: "原色钛金属",
               specification: "256GB · 原色钛金属",
               location: "展柜 A03",
               list_price: 799,
-              thumbnail_url: "/test-device-photo/iphone.svg",
+              thumbnail_url:
+                "/api/repairdesk/inventory/product-thumbnails/00000000-0000-4000-8000-000000000601",
             }),
             product({
               id: "style-c-2",
@@ -94,7 +139,8 @@ async function mockShelf(page: Page) {
               status: "reserved",
               location: "展柜 B01",
               list_price: 399,
-              thumbnail_url: "/test-device-photo/ipad.svg",
+              thumbnail_url:
+                "/api/repairdesk/inventory/product-thumbnails/00000000-0000-4000-8000-000000000602",
             }),
             product({
               id: "style-c-3",

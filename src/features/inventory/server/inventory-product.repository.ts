@@ -578,6 +578,7 @@ export function projectInventoryProductListItem(
     category: normalizeCategory(item.category),
     brand: item.brand,
     model: item.model,
+    ...(item.color ? { color: item.color } : {}),
     specification: [item.storage_capacity, item.color].filter(Boolean).join(" · ") || undefined,
     masked_identifier: maskIdentifier(item.serial_or_imei),
     status: mapProductStatus(item.status),

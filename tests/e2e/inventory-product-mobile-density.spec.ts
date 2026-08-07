@@ -24,12 +24,16 @@ test("390px list shows compact image-and-information shelf cards", async ({
   const cards = page.locator('[data-ui="inventory-product-card"]');
   await expect(cards).toHaveCount(8);
   const cardBox = await cards.first().boundingBox();
-  const sixthBox = await cards.nth(5).boundingBox();
+  const thirdBox = await cards.nth(2).boundingBox();
   expect(cardBox).not.toBeNull();
-  expect(cardBox!.height).toBeGreaterThanOrEqual(104);
-  expect(cardBox!.height).toBeLessThanOrEqual(110);
-  expect(sixthBox).not.toBeNull();
-  expect(sixthBox!.y).toBeGreaterThan(cardBox!.y);
+  expect(cardBox!.height).toBeGreaterThanOrEqual(210);
+  expect(cardBox!.height).toBeLessThanOrEqual(270);
+  expect(thirdBox).not.toBeNull();
+  expect(thirdBox!.y).toBeGreaterThan(cardBox!.y);
+  const shelfColumns = await page
+    .locator('[data-inventory-product-shelf="true"]')
+    .evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
+  expect(shelfColumns).toBe(2);
   const categoryTabs = page.locator('[data-ui="inventory-product-category-tabs"]:visible');
   await expect(categoryTabs.getByRole("button")).toHaveCount(6);
   const categoryColumns = await categoryTabs.evaluate(
@@ -135,6 +139,13 @@ test("desktop list becomes a bounded three-column device shelf", async ({ page, 
     .locator('[data-inventory-product-shelf="true"]')
     .evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
   expect(columns).toBe(3);
+  const viewToggle = page.getByRole("group", { name: "商品列表视图" });
+  await expect(viewToggle.getByRole("button", { name: "智能货架视图" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await viewToggle.getByRole("button", { name: "紧凑列表视图" }).click();
+  await expect(page.locator('[data-inventory-product-view="list"]')).toBeVisible();
   await assertNoHorizontalOverflow(page);
   await hideNextDevUi(page);
   await page.screenshot({

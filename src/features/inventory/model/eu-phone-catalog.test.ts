@@ -4,6 +4,7 @@ import {
   EU_PHONE_BRANDS,
   EU_PHONE_MODELS,
   findEuPhoneBrand,
+  findEuPhoneColor,
   findEuPhoneModel,
   getRollingTenYearCutoff,
   isModelWithinRollingTenYears,
@@ -64,5 +65,43 @@ describe("European phone catalog", () => {
     expect(listCurrentEuPhoneModels("apple").every((item) => item.ramOptions.length === 0)).toBe(
       true,
     );
+  });
+
+  it("keeps every Apple model color-addressable by id and display name", () => {
+    const asOf = new Date("2026-08-07T00:00:00.000Z");
+    const appleModels = EU_PHONE_MODELS.filter((item) => item.brandId === "apple");
+    expect(appleModels.length).toBeGreaterThan(30);
+    for (const model of appleModels) {
+      expect(model.colors.length, model.name).toBeGreaterThan(0);
+      for (const color of model.colors) {
+        expect(color.name, `${model.name} color name`).toBeTruthy();
+        expect(color.swatches.length, `${model.name} ${color.id} swatch`).toBeGreaterThan(0);
+        expect(findEuPhoneColor("apple", model.name, color.id, asOf)?.id).toBe(color.id);
+        expect(findEuPhoneColor("apple", model.name, color.name, asOf)?.id).toBe(color.id);
+      }
+    }
+  });
+
+  it("uses the corrected 2026 Apple family colors", () => {
+    const asOf = new Date("2026-08-07T00:00:00.000Z");
+    expect(findEuPhoneModel("apple", "iPhone 17e", asOf)?.colors.map((item) => item.name)).toEqual([
+      "淡粉色",
+      "白色",
+      "黑色",
+    ]);
+    expect(
+      findEuPhoneModel("apple", "iPhone 17 Air", asOf)?.colors.map((item) => item.name),
+    ).toEqual(["天蓝色", "浅金色", "云白色", "深空黑"]);
+    expect(findEuPhoneModel("apple", "iPhone 17", asOf)?.colors.map((item) => item.name)).toEqual([
+      "薰衣草紫",
+      "鼠尾草绿",
+      "雾蓝色",
+      "白色",
+      "黑色",
+    ]);
+    expect(findEuPhoneColor("apple", "iPhone 17 Pro", "Cosmic Orange", asOf)?.id).toBe(
+      "cosmic-orange",
+    );
+    expect(findEuPhoneColor("apple", "iPhone 17 Air", "sky blue", asOf)?.id).toBe("sky-blue");
   });
 });
