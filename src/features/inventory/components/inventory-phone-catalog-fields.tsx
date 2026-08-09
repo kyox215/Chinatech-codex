@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { Check, ChevronsUpDown, Palette, PencilLine, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -35,9 +35,19 @@ import {
 import { useIsCompactWorkspace } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
-type CatalogSelection = {
+export type CatalogSelection = {
   value: string;
   fromCatalog: boolean;
+  optionId?: string;
+};
+
+export type CatalogOption = {
+  value: string;
+  description?: string;
+  keywords?: string;
+  aliases?: readonly string[];
+  group?: string;
+  icon?: ReactNode;
 };
 
 type InventoryPhoneCatalogFieldsProps = {
@@ -88,7 +98,9 @@ export function InventoryPhoneCatalogFields({
           options={EU_PHONE_BRANDS.map((item) => ({
             value: item.name,
             keywords: item.aliases?.join(" "),
+            aliases: item.aliases,
           }))}
+          maxLength={120}
           onSelect={onBrandSelect}
         />
         <CatalogCombobox
@@ -101,7 +113,9 @@ export function InventoryPhoneCatalogFields({
             value: item.name,
             description: item.releasedOn.slice(0, 4),
             keywords: item.aliases?.join(" "),
+            aliases: item.aliases,
           }))}
+          maxLength={160}
           onSelect={onModelSelect}
         />
       </div>
@@ -177,7 +191,7 @@ export function InventoryPhoneCatalogFields({
   );
 }
 
-function CatalogCombobox({
+export function CatalogCombobox({
   id,
   label,
   value,
@@ -185,31 +199,92 @@ function CatalogCombobox({
   options,
   disabled,
   onSelect,
+  onInputChange,
+  editable = false,
+  required = false,
+  invalid = false,
+  autoFocus = false,
+  maxLength,
 }: {
   id: string;
   label: string;
   value: string;
   placeholder: string;
-  options: Array<{ value: string; description?: string; keywords?: string }>;
+  options: CatalogOption[];
   disabled?: boolean;
   onSelect: (selection: CatalogSelection) => void;
+  onInputChange?: (value: string) => void;
+  editable?: boolean;
+  required?: boolean;
+  invalid?: boolean;
+  autoFocus?: boolean;
+  maxLength?: number;
 }) {
   const useFixedPicker = useIsCompactWorkspace();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const triggerRef = useRef<HTMLInputElement | HTMLButtonElement>(null);
+
+  function focusTrigger() {
+    queueMicrotask(() => triggerRef.current?.focus());
+  }
 
   function choose(selection: CatalogSelection) {
     onSelect(selection);
     setOpen(false);
     setQuery("");
+    focusTrigger();
   }
 
   function handleOpenChange(nextOpen: boolean) {
     setOpen(nextOpen);
-    if (!nextOpen) setQuery("");
+    if (!nextOpen) {
+      setQuery("");
+      focusTrigger();
+    }
   }
 
-  const trigger = (
+  const trigger = editable ? (
+    <div className="relative min-w-0">
+      <Input
+        id={id}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={open}
+        aria-invalid={invalid || undefined}
+        maxLength={maxLength}
+        required={required}
+        disabled={disabled}
+        autoFocus={autoFocus}
+        value={value}
+        placeholder={placeholder}
+        className="h-[38px] min-w-0 pr-10 text-base sm:h-10 sm:text-sm"
+        ref={(node) => {
+          triggerRef.current = node;
+        }}
+        onClick={() => setOpen(true)}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setOpen(true);
+          }
+        }}
+        onChange={(event) => onInputChange?.(event.target.value)}
+      />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label="打开目录选择器"
+        title={label.replace("*", "").trim()}
+        disabled={disabled}
+        className="absolute right-0 top-0 size-[38px] rounded-l-none sm:size-10"
+        onClick={() => setOpen(true)}
+      >
+        <ChevronsUpDown className="size-4 opacity-60" />
+      </Button>
+    </div>
+  ) : (
     <Button
       id={id}
       type="button"
@@ -217,6 +292,9 @@ function CatalogCombobox({
       role="combobox"
       aria-expanded={open}
       disabled={disabled}
+      ref={(node) => {
+        triggerRef.current = node;
+      }}
       className="h-[38px] w-full min-w-0 justify-between px-3 text-base font-normal sm:h-10 sm:text-sm"
     >
       <span className={cn("min-w-0 truncate", !value && "text-muted-foreground")}>
@@ -233,6 +311,7 @@ function CatalogCombobox({
       placeholder={placeholder}
       options={options}
       fixedSurface={useFixedPicker}
+      maxLength={maxLength}
       onQueryChange={setQuery}
       onChoose={choose}
     />
@@ -299,21 +378,25 @@ function CatalogCommandPicker({
   placeholder,
   options,
   fixedSurface,
+  maxLength,
   onQueryChange,
   onChoose,
 }: {
   value: string;
   query: string;
   placeholder: string;
-  options: Array<{ value: string; description?: string; keywords?: string }>;
+  options: CatalogOption[];
   fixedSurface: boolean;
+  maxLength?: number;
   onQueryChange: (value: string) => void;
   onChoose: (selection: CatalogSelection) => void;
 }) {
   const normalizedQuery = query.trim();
-  const hasExactOption = options.some(
-    (option) => option.value.toLocaleLowerCase() === normalizedQuery.toLocaleLowerCase(),
-  );
+  const exactOptions = normalizedQuery
+    ? options.filter((option) => hasExactCatalogMatch(option, normalizedQuery))
+    : [];
+  const visibleOptions = exactOptions.length ? exactOptions : options;
+  const hasExactOption = exactOptions.length > 0;
 
   return (
     <Command
@@ -326,6 +409,8 @@ function CatalogCommandPicker({
         value={query}
         onValueChange={onQueryChange}
         placeholder={placeholder}
+        aria-autocomplete="list"
+        maxLength={maxLength}
         inputMode="search"
         enterKeyHint="search"
         className="text-base sm:text-sm"
@@ -340,27 +425,39 @@ function CatalogCommandPicker({
         <CommandEmpty className="px-3 py-2.5 text-left text-xs text-muted-foreground sm:py-4">
           未找到目录结果。可在下方使用当前文字手动录入。
         </CommandEmpty>
-        <CommandGroup heading={`目录选项 · ${options.length}`}>
-          {options.map((option) => (
-            <CommandItem
-              key={option.value}
-              value={`${option.value} ${option.keywords ?? ""}`}
-              onSelect={() => onChoose({ value: option.value, fromCatalog: true })}
-              className="min-h-9"
-            >
-              <Check
-                className={cn(
-                  "size-4 shrink-0",
-                  value === option.value ? "opacity-100" : "opacity-0",
-                )}
-              />
-              <span className="min-w-0 flex-1 truncate">{option.value}</span>
-              {option.description ? (
-                <span className="shrink-0 text-xs text-muted-foreground">{option.description}</span>
-              ) : null}
-            </CommandItem>
-          ))}
-        </CommandGroup>
+        {groupOptions(visibleOptions).map(([heading, groupedOptions]) => (
+          <CommandGroup key={heading} heading={`${heading} · ${groupedOptions.length}`}>
+            {groupedOptions.map((option) => (
+              <CommandItem
+                key={option.value}
+                value={`${option.value} ${option.keywords ?? ""}`}
+                onSelect={() => onChoose({ value: option.value, fromCatalog: true })}
+                className="min-h-11 gap-2"
+              >
+                {option.icon ? (
+                  <span
+                    aria-hidden="true"
+                    className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-[10px] font-semibold text-primary"
+                  >
+                    {option.icon}
+                  </span>
+                ) : null}
+                <Check
+                  className={cn(
+                    "size-4 shrink-0",
+                    value === option.value ? "opacity-100" : "opacity-0",
+                  )}
+                />
+                <span className="min-w-0 flex-1 truncate">{option.value}</span>
+                {option.description ? (
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {option.description}
+                  </span>
+                ) : null}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        ))}
         {normalizedQuery && !hasExactOption ? (
           <CommandGroup heading="手动填写">
             <CommandItem
@@ -376,6 +473,31 @@ function CatalogCommandPicker({
       </CommandList>
     </Command>
   );
+}
+
+function hasExactCatalogMatch(option: CatalogOption, query: string) {
+  const normalizedQuery = normalizeCatalogQuery(query);
+  return [option.value, ...(option.aliases ?? [])].some(
+    (value) => normalizeCatalogQuery(value) === normalizedQuery,
+  );
+}
+
+function normalizeCatalogQuery(value: string) {
+  return value
+    .trim()
+    .toLocaleLowerCase("en-US")
+    .replace(/[\s_\-/]+/g, " ");
+}
+
+function groupOptions(options: CatalogOption[]) {
+  const groups = new Map<string, CatalogOption[]>();
+  for (const option of options) {
+    const heading = option.group ?? "目录选项";
+    const current = groups.get(heading);
+    if (current) current.push(option);
+    else groups.set(heading, [option]);
+  }
+  return [...groups.entries()];
 }
 
 function SpecificationChoices({

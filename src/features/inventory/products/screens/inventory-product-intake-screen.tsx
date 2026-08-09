@@ -29,11 +29,8 @@ import { repairOs, surfaces } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
 import { inventoryProductKeys } from "../api/query-keys";
-import {
-  deviceBrandSuggestions,
-  isValidGtin,
-  validateProductIdentifiers,
-} from "../model/device-data";
+import { InventoryDeviceCatalogFields } from "../components/inventory-device-catalog-fields";
+import { isValidGtin, validateProductIdentifiers } from "../model/device-data";
 
 type Draft = {
   category: InventoryProductCategory;
@@ -541,64 +538,28 @@ export function InventoryProductIntakeScreen({
             ) : null}
           </fieldset>
 
-          <div className="grid grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-1.5">
-            <Field
-              id="product-brand"
-              label="品牌"
-              required
-              autoFocus={shouldAutoFocusBrand(surface)}
-              value={draft.brand}
-              placeholder="例如 Apple、Samsung"
-              list="product-brand-suggestions"
-              invalid={error?.fieldId === "product-brand"}
-              onChange={(brand) => setDraft((current) => ({ ...current, brand }))}
-            />
-            <datalist id="product-brand-suggestions">
-              {deviceBrandSuggestions[draft.category].map((brand) => (
-                <option key={brand} value={brand} />
-              ))}
-            </datalist>
-            <Field
-              id="product-model"
-              label="型号 / 商品名称"
-              required
-              value={draft.model}
-              placeholder="例如 iPhone 13"
-              invalid={error?.fieldId === "product-model"}
-              onChange={(model) => setDraft((current) => ({ ...current, model }))}
-            />
-          </div>
+          <InventoryDeviceCatalogFields
+            category={draft.category}
+            brand={draft.brand}
+            model={draft.model}
+            ramCapacity={draft.ram_capacity}
+            storageCapacity={draft.storage_capacity}
+            color={draft.color}
+            autoFocusBrand={shouldAutoFocusBrand(surface)}
+            brandInvalid={error?.fieldId === "product-brand"}
+            modelInvalid={error?.fieldId === "product-model"}
+            onBrandChange={(brand) => setDraft((current) => ({ ...current, brand }))}
+            onModelChange={(model) => setDraft((current) => ({ ...current, model }))}
+            onRamChange={(ram_capacity) => setDraft((current) => ({ ...current, ram_capacity }))}
+            onStorageChange={(storage_capacity) =>
+              setDraft((current) => ({ ...current, storage_capacity }))
+            }
+            onColorChange={(color) => setDraft((current) => ({ ...current, color }))}
+          />
         </section>
 
-        <section className={cn(repairOs.mobileInfoCard, "grid grid-cols-2 gap-2 p-2.5 md:p-4")}>
-          {draft.category !== "other" ? (
-            <Field
-              id="product-storage"
-              label={draft.category === "computer" ? "硬盘 / 存储容量" : "存储容量"}
-              value={draft.storage_capacity}
-              placeholder={draft.category === "computer" ? "例如 512 GB" : "例如 128 GB"}
-              onChange={(storage_capacity) =>
-                setDraft((current) => ({ ...current, storage_capacity }))
-              }
-            />
-          ) : null}
-          {["phone", "tablet", "computer"].includes(draft.category) ? (
-            <Field
-              id="product-ram"
-              label="内存（RAM）"
-              value={draft.ram_capacity}
-              placeholder="例如 8 GB"
-              onChange={(ram_capacity) => setDraft((current) => ({ ...current, ram_capacity }))}
-            />
-          ) : null}
-          <Field
-            id="product-color"
-            label="设备颜色"
-            value={draft.color}
-            placeholder="例如 蓝色"
-            onChange={(color) => setDraft((current) => ({ ...current, color }))}
-          />
-          {draft.category === "game_console" ? (
+        {draft.category === "game_console" ? (
+          <section className={cn(repairOs.mobileInfoCard, "grid grid-cols-2 gap-2 p-2.5 md:p-4")}>
             <Field
               id="product-spec-edition"
               label="版本"
@@ -611,8 +572,8 @@ export function InventoryProductIntakeScreen({
                 }))
               }
             />
-          ) : null}
-        </section>
+          </section>
+        ) : null}
 
         <section className={cn(repairOs.mobileInfoCard, "space-y-2 p-2.5 md:p-4")}>
           <div>
