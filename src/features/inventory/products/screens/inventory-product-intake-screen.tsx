@@ -711,7 +711,7 @@ export function InventoryProductIntakeScreen({
         </section>
 
         {draft.category === "game_console" ? (
-          <section className={cn(repairOs.mobileInfoCard, "grid grid-cols-2 gap-2 p-2.5 md:p-4")}>
+          <section className={cn(repairOs.mobileInfoCard, "grid gap-2 p-2.5 md:p-4")}>
             <Field
               id="product-spec-edition"
               label="版本"

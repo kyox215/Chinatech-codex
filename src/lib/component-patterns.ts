@@ -177,6 +177,18 @@ export const componentDensity = {
   denseValue: "truncate text-xs font-medium leading-5 text-foreground lg:text-[13px] lg:leading-5",
   denseCell: "min-w-0 px-2 py-1.5",
   denseAction: "inline-flex size-7 shrink-0 items-center justify-center rounded-md",
+  compactSelector: {
+    trigger: "h-11 min-h-11 w-full min-w-0 justify-between gap-2 px-3 text-sm font-normal",
+    triggerValue: "min-w-0 flex-1 truncate",
+    editableInput: "h-[38px] min-w-0 pr-10 text-base sm:h-10 sm:text-sm",
+    close: "size-11 h-11 w-11 min-h-11 min-w-11 shrink-0",
+    option: "min-h-11 min-w-0 items-start gap-2 py-2",
+    optionValue:
+      "min-w-0 flex-1 whitespace-normal break-words leading-4 [overflow-wrap:anywhere] line-clamp-2",
+    optionDescription:
+      "max-w-[5rem] shrink-0 text-[11px] leading-4 text-muted-foreground sm:text-xs",
+    helper: "text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4",
+  },
   mobileContentStack: "min-w-0 space-y-1.5",
   mobileAdminCard:
     "min-w-0 rounded-xl border border-[var(--border-panel)] bg-card p-2.5 shadow-[var(--shadow-card)]",

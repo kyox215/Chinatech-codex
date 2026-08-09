@@ -41,6 +41,7 @@ import {
   type PhoneColorOption,
 } from "@/features/inventory/model/eu-phone-catalog";
 import { useIsCompactWorkspace } from "@/hooks/use-mobile";
+import { componentDensity } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
 
 export type CatalogSelection = {
@@ -163,7 +164,10 @@ export function InventoryPhoneCatalogFields({
           id="inventory-brand"
           label="品牌 *"
           value={brand}
-          placeholder="搜索欧洲常见品牌"
+          placeholder={catalogCategoryCopy.phone.brandPlaceholder}
+          compactPlaceholder="选择品牌"
+          helperText={catalogCategoryCopy.phone.brandHint}
+          searchPlaceholder={catalogCategoryCopy.phone.brandSearchPlaceholder}
           options={EU_PHONE_BRANDS.map((item) => ({
             value: item.name,
             keywords: item.aliases?.join(" "),
@@ -176,7 +180,10 @@ export function InventoryPhoneCatalogFields({
           id="inventory-model"
           label="型号 *"
           value={model}
-          placeholder={selectedBrand ? `搜索 ${selectedBrand.name} 型号` : "请先选择品牌"}
+          placeholder={selectedBrand ? "选择型号" : "先选品牌"}
+          compactPlaceholder={selectedBrand ? "选择型号" : "先选品牌"}
+          helperText={catalogCategoryCopy.phone.modelHint}
+          searchPlaceholder={catalogCategoryCopy.phone.modelSearchPlaceholder}
           disabled={!selectedBrand}
           options={modelOptions.map((item) => ({
             value: item.name,
@@ -265,6 +272,7 @@ export function CatalogCombobox({
   label,
   value,
   placeholder,
+  compactPlaceholder,
   options,
   disabled,
   onSelect,
@@ -282,6 +290,7 @@ export function CatalogCombobox({
   label: string;
   value: string;
   placeholder: string;
+  compactPlaceholder?: string;
   options: CatalogOption[];
   disabled?: boolean;
   onSelect: (selection: CatalogSelection) => void;
@@ -305,6 +314,7 @@ export function CatalogCombobox({
   const inlineCloseButtonRef = useRef<HTMLButtonElement>(null);
   const viewportMetrics = useVisualViewportMetrics(open && useFixedPicker && searchActive);
   const pickerId = `${id}-catalog-list`;
+  const closedPlaceholder = compactPlaceholder ?? placeholder;
 
   useEffect(() => {
     if (!open) setSearchActive(!useFixedPicker);
@@ -391,15 +401,21 @@ export function CatalogCombobox({
       aria-haspopup="listbox"
       aria-controls={pickerId}
       aria-invalid={invalid || undefined}
+      aria-label={value ? `${label}：${value}` : undefined}
       disabled={disabled}
       ref={(node) => {
         triggerRef.current = node;
       }}
-      className="h-11 min-h-11 w-full min-w-0 justify-between px-3 text-base font-normal sm:text-sm"
+      className={componentDensity.compactSelector.trigger}
       onClick={openPicker}
     >
-      <span className={cn("min-w-0 truncate", !value && "text-muted-foreground")}>
-        {value || placeholder}
+      <span
+        className={cn(
+          componentDensity.compactSelector.triggerValue,
+          !value && "text-muted-foreground",
+        )}
+      >
+        {value || closedPlaceholder}
       </span>
       <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
     </Button>
@@ -423,7 +439,7 @@ export function CatalogCombobox({
         autoFocus={autoFocus}
         value={value}
         placeholder={placeholder}
-        className="h-[38px] min-w-0 pr-10 text-base sm:h-10 sm:text-sm"
+        className={componentDensity.compactSelector.editableInput}
         ref={(node) => {
           triggerRef.current = node;
         }}
@@ -458,15 +474,21 @@ export function CatalogCombobox({
       aria-expanded={open}
       aria-haspopup="listbox"
       aria-controls={pickerId}
+      aria-label={value ? `${label}：${value}` : undefined}
       disabled={disabled}
       ref={(node) => {
         triggerRef.current = node;
       }}
-      className="h-[38px] w-full min-w-0 justify-between px-3 text-base font-normal sm:h-10 sm:text-sm"
+      className="h-[38px] w-full min-w-0 justify-between gap-2 px-3 text-sm font-normal sm:h-10"
       onClick={openPicker}
     >
-      <span className={cn("min-w-0 truncate", !value && "text-muted-foreground")}>
-        {value || placeholder}
+      <span
+        className={cn(
+          componentDensity.compactSelector.triggerValue,
+          !value && "text-muted-foreground",
+        )}
+      >
+        {value || closedPlaceholder}
       </span>
       <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
     </Button>
@@ -537,7 +559,10 @@ export function CatalogCombobox({
                     variant="ghost"
                     size="icon"
                     aria-label={`关闭${label.replace("*", "").trim()}选择`}
-                    className="absolute right-2 top-2 size-8 rounded-full"
+                    className={cn(
+                      "absolute right-2 top-2 rounded-full",
+                      componentDensity.compactSelector.close,
+                    )}
                     ref={inlineCloseButtonRef}
                     onClick={() => handleOpenChange(false)}
                   >
@@ -566,14 +591,19 @@ export function CatalogCombobox({
           >
             <DrawerHeader className="relative shrink-0 gap-0.5 border-b border-[var(--border-panel)] px-3 pb-2 pt-1.5 text-left sm:px-4 sm:pb-3 sm:pt-2">
               <DrawerTitle className="pr-12 text-base">{label.replace("*", "").trim()}</DrawerTitle>
-              <DrawerDescription className="pr-12 text-xs">{placeholder}</DrawerDescription>
+              <DrawerDescription className="pr-12 text-xs">
+                {helperText ?? placeholder}
+              </DrawerDescription>
               <DrawerClose asChild>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
                   aria-label={`关闭${label.replace("*", "").trim()}选择`}
-                  className="absolute right-2 top-1 size-8 rounded-full"
+                  className={cn(
+                    "absolute right-2 top-1 rounded-full",
+                    componentDensity.compactSelector.close,
+                  )}
                 >
                   <X className="size-4" />
                 </Button>
@@ -594,7 +624,7 @@ export function CatalogCombobox({
           </PopoverContent>
         </Popover>
       )}
-      <p className="text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
+      <p className={componentDensity.compactSelector.helper}>
         <Search className="mr-1 inline size-3" />{" "}
         {helperText ?? "可搜索目录；找不到时可直接使用输入内容。"}
       </p>
@@ -694,7 +724,10 @@ function CatalogCommandPicker({
                 key={option.value}
                 value={`${option.value} ${option.keywords ?? ""}`}
                 onSelect={() => onChoose({ value: option.value, fromCatalog: true })}
-                className="min-h-11 gap-2"
+                className={cn(
+                  componentDensity.compactSelector.option,
+                  !fixedSurface && "min-h-9 py-1.5",
+                )}
               >
                 {option.icon ? (
                   <span
@@ -710,9 +743,9 @@ function CatalogCommandPicker({
                     value === option.value ? "opacity-100" : "opacity-0",
                   )}
                 />
-                <span className="min-w-0 flex-1 truncate">{option.value}</span>
+                <span className={componentDensity.compactSelector.optionValue}>{option.value}</span>
                 {option.description ? (
-                  <span className="shrink-0 text-xs text-muted-foreground">
+                  <span className={componentDensity.compactSelector.optionDescription}>
                     {option.description}
                   </span>
                 ) : null}
@@ -725,10 +758,15 @@ function CatalogCommandPicker({
             <CommandItem
               value={`manual ${normalizedQuery}`}
               onSelect={() => onChoose({ value: normalizedQuery, fromCatalog: false })}
-              className={fixedSurface ? "min-h-11" : "min-h-9"}
+              className={cn(
+                componentDensity.compactSelector.option,
+                !fixedSurface && "min-h-9 py-1.5",
+              )}
             >
               <PencilLine className="size-4 shrink-0" />
-              <span className="min-w-0 break-words">使用“{normalizedQuery}”</span>
+              <span className={componentDensity.compactSelector.optionValue}>
+                使用“{normalizedQuery}”
+              </span>
             </CommandItem>
           </CommandGroup>
         ) : null}

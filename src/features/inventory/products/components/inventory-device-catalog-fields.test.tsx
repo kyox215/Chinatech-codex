@@ -81,36 +81,42 @@ describe("InventoryDeviceCatalogFields", () => {
   });
 
   it.each([
-    { category: "phone" as const, placeholder: "选择手机品牌", search: "搜索手机品牌或手动输入" },
+    {
+      category: "phone" as const,
+      helper: "常见品牌：Apple、Samsung、小米",
+      search: "搜索手机品牌或手动输入",
+    },
     {
       category: "tablet" as const,
-      placeholder: "选择平板品牌",
+      helper: "常见品牌：Apple、Samsung、Lenovo",
       search: "搜索平板品牌或手动输入",
     },
     {
       category: "computer" as const,
-      placeholder: "选择电脑品牌",
+      helper: "常见品牌：Apple、Dell、Lenovo、HP",
       search: "搜索电脑品牌或手动输入",
     },
     {
       category: "game_console" as const,
-      placeholder: "选择游戏机品牌",
+      helper: "常见品牌：PlayStation、Nintendo、Xbox",
       search: "搜索游戏机品牌或手动输入",
     },
-    { category: "other" as const, placeholder: "选择或输入品牌", search: "搜索品牌或手动输入" },
-  ])(
-    "keeps compact copy category-specific for $category",
-    async ({ category, placeholder, search }) => {
-      setViewportWidth(390);
-      renderFields({ category });
-      const trigger = screen.getByRole("combobox", { name: "品牌 *" });
-      expect(trigger).toHaveTextContent(placeholder);
-      fireEvent.click(trigger);
-      expect(screen.queryByText("例如 Apple、Samsung")).not.toBeInTheDocument();
-      await screen.getByRole("button", { name: "搜索目录或手动输入" }).click();
-      await waitFor(() => expect(screen.getByPlaceholderText(search)).toHaveFocus());
+    {
+      category: "other" as const,
+      helper: "目录外品牌可直接手动填写。",
+      search: "搜索品牌或手动输入",
     },
-  );
+  ])("keeps compact copy category-specific for $category", async ({ category, helper, search }) => {
+    setViewportWidth(390);
+    renderFields({ category });
+    const trigger = screen.getByRole("combobox", { name: "品牌 *" });
+    expect(trigger).toHaveTextContent("选择品牌");
+    expect(screen.getByText(helper)).toBeVisible();
+    fireEvent.click(trigger);
+    expect(screen.queryByText("例如 Apple、Samsung")).not.toBeInTheDocument();
+    await screen.getByRole("button", { name: "搜索目录或手动输入" }).click();
+    await waitFor(() => expect(screen.getByPlaceholderText(search)).toHaveFocus());
+  });
 
   it("uses an inline selector inside the create dialog without a second dialog root", async () => {
     setViewportWidth(390);
@@ -121,6 +127,8 @@ describe("InventoryDeviceCatalogFields", () => {
     fireEvent.click(trigger);
 
     expect(await screen.findByRole("region", { name: "品牌选择" })).toBeVisible();
+    const closeButton = screen.getByRole("button", { name: "关闭品牌选择" });
+    expect(closeButton).toHaveClass("size-11", "h-11", "w-11", "min-h-11", "min-w-11");
     expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(0);
     expect(screen.getAllByText("常见品牌：PlayStation、Nintendo、Xbox").length).toBeGreaterThan(0);
     expect(screen.queryByText("例如 Apple、Samsung")).not.toBeInTheDocument();
@@ -223,4 +231,41 @@ describe("InventoryDeviceCatalogFields", () => {
     fireEvent.click(screen.getByRole("radio", { name: "颜色：蓝色钛金属" }));
     expect(props.onColorChange).toHaveBeenCalledWith("蓝色钛金属");
   });
+
+  it("gives console storage a full row and keeps long model options to two lines", async () => {
+    setViewportWidth(390);
+    renderFields({ category: "game_console", brand: "Nintendo" });
+
+    const storageField = document.querySelector("#product-storage")?.closest("fieldset");
+    expect(storageField).toHaveClass("col-span-2");
+
+    fireEvent.click(screen.getByRole("combobox", { name: "型号 / 商品名称 *" }));
+    const modelOption = await screen.findByText("Nintendo Switch OLED Model", { exact: true });
+    expect(modelOption).toHaveClass("line-clamp-2", "whitespace-normal", "break-words");
+  });
+
+  it.each([360, 390, 430])("keeps compact device triggers at 14px and 44px at %dpx", (width) => {
+    setViewportWidth(width);
+    renderFields({ category: "game_console" });
+
+    const trigger = screen.getByRole("combobox", { name: "品牌 *" });
+    expect(trigger).toHaveClass("text-sm", "min-h-11");
+    expect(trigger).not.toHaveClass("text-base");
+    expect(trigger).toHaveTextContent("选择品牌");
+  });
+
+  it.each([320, 359, 360])(
+    "declares a single-column fallback below 360px and a paired selector breakpoint at %dpx",
+    (width) => {
+      setViewportWidth(width);
+      renderFields({ category: "game_console" });
+
+      const selectorGrid = screen.getByRole("combobox", { name: "品牌 *" }).closest("div.grid");
+      expect(selectorGrid).not.toBeNull();
+      expect(selectorGrid).toHaveClass(
+        "grid-cols-1",
+        "min-[360px]:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]",
+      );
+    },
+  );
 });

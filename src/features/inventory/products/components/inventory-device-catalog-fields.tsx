@@ -21,6 +21,7 @@ import {
 } from "@/features/inventory/products/model/device-catalog";
 import { phoneColorBackground } from "@/features/inventory/model/eu-phone-catalog";
 import type { InventoryProductCategory } from "@/lib/repairdesk/types";
+import { componentDensity } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
 
 type InventoryDeviceCatalogFieldsProps = {
@@ -42,7 +43,7 @@ type InventoryDeviceCatalogFieldsProps = {
   onColorChange: (value: string) => void;
 };
 
-const inputClass = "h-[38px] min-w-0 text-base sm:h-10 sm:text-sm";
+const inputClass = componentDensity.compactSelector.editableInput;
 
 export function InventoryDeviceCatalogFields({
   category,
@@ -109,12 +110,13 @@ export function InventoryDeviceCatalogFields({
 
   return (
     <div className="min-w-0 space-y-2">
-      <div className="grid min-w-0 grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-1.5 sm:gap-2.5">
+      <div className="grid min-w-0 grid-cols-1 min-[360px]:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-1.5 sm:gap-2.5">
         <CatalogCombobox
           id="product-brand"
           label="品牌 *"
           value={brand}
           placeholder={categoryCopy.brandPlaceholder}
+          compactPlaceholder="选择品牌"
           helperText={categoryCopy.brandHint}
           searchPlaceholder={categoryCopy.brandSearchPlaceholder}
           options={brandOptions}
@@ -132,11 +134,8 @@ export function InventoryDeviceCatalogFields({
           id="product-model"
           label="型号 / 商品名称 *"
           value={model}
-          placeholder={
-            selectedBrand
-              ? `选择${categoryLabel(category)}型号`
-              : `先选择${categoryLabel(category)}品牌`
-          }
+          placeholder={selectedBrand ? "选择型号" : "先选品牌"}
+          compactPlaceholder={selectedBrand ? "选择型号" : "先选品牌"}
           helperText={categoryCopy.modelHint}
           searchPlaceholder={categoryCopy.modelSearchPlaceholder}
           options={modelOptions}
@@ -163,6 +162,7 @@ export function InventoryDeviceCatalogFields({
             value={storageCapacity}
             options={selectedModel?.storageOptions ?? []}
             placeholder={categoryCopy.storagePlaceholder}
+            className={category === "game_console" ? "col-span-2" : undefined}
             disabled={disabled}
             onChange={onStorageChange}
           />
@@ -201,6 +201,7 @@ function CatalogSpecificationChoices({
   value,
   options,
   placeholder,
+  className,
   disabled,
   onChange,
 }: {
@@ -209,12 +210,13 @@ function CatalogSpecificationChoices({
   value: string;
   options: readonly string[];
   placeholder: string;
+  className?: string;
   disabled?: boolean;
   onChange: (value: string) => void;
 }) {
   const isManualValue = Boolean(value) && !options.includes(value);
   return (
-    <fieldset className="min-w-0 space-y-1.5">
+    <fieldset className={cn("min-w-0 space-y-1.5", className)}>
       <legend className="text-xs font-medium">{label}</legend>
       {options.length ? (
         <div

@@ -73,18 +73,22 @@ describe("InventoryPhoneCatalogFields", () => {
       "data-inventory-catalog-picker",
       "mobile",
     );
-    expect(screen.getByRole("button", { name: "关闭品牌选择" })).toBeInTheDocument();
+    const closeButton = screen.getByRole("button", { name: "关闭品牌选择" });
+    expect(closeButton).toBeInTheDocument();
+    expect(closeButton).toHaveClass("size-11", "h-11", "w-11", "min-h-11", "min-w-11");
     expect(document.querySelector("[data-inventory-catalog-list]")).toHaveClass(
       "overscroll-contain",
       "[touch-action:pan-y]",
     );
-    expect(screen.queryByPlaceholderText("搜索欧洲常见品牌")).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("搜索手机品牌或手动输入")).not.toBeInTheDocument();
     const searchAction = screen.getByRole("button", { name: "搜索目录或手动输入" });
     expect(searchAction).toBeVisible();
     expect(searchAction).toHaveClass("h-11", "min-h-11");
     await searchAction.click();
-    await waitFor(() => expect(screen.getByPlaceholderText("搜索欧洲常见品牌")).toHaveFocus());
-    fireEvent.change(screen.getByPlaceholderText("搜索欧洲常见品牌"), {
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("搜索手机品牌或手动输入")).toHaveFocus(),
+    );
+    fireEvent.change(screen.getByPlaceholderText("搜索手机品牌或手动输入"), {
       target: { value: "Unknown mobile brand" },
     });
     expect(screen.getByRole("option", { name: "使用“Unknown mobile brand”" })).toHaveClass(
@@ -102,10 +106,25 @@ describe("InventoryPhoneCatalogFields", () => {
       "data-inventory-catalog-picker",
       "mobile",
     );
-    expect(screen.queryByPlaceholderText("搜索欧洲常见品牌")).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("搜索手机品牌或手动输入")).not.toBeInTheDocument();
     await screen.getByRole("button", { name: "搜索目录或手动输入" }).click();
-    await waitFor(() => expect(screen.getByPlaceholderText("搜索欧洲常见品牌")).toHaveFocus());
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("搜索手机品牌或手动输入")).toHaveFocus(),
+    );
   });
+
+  it.each([360, 390, 430])(
+    "keeps compact selector triggers readable and touch-safe at %dpx",
+    (width) => {
+      setViewportWidth(width);
+      renderFields({ brand: "", model: "", storageCapacity: "", color: "" });
+
+      const trigger = screen.getByRole("combobox", { name: "品牌 *" });
+      expect(trigger).toHaveClass("text-sm", "min-h-11");
+      expect(trigger).not.toHaveClass("text-base");
+      expect(trigger).toHaveTextContent("选择品牌");
+    },
+  );
 
   it("keeps the anchored catalog popover on desktop", async () => {
     renderFields({ brand: "", model: "", storageCapacity: "", color: "" });

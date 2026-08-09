@@ -3,7 +3,7 @@
 Status: active
 Owner: Frontend + Documentation / Integration Lead
 Scope: current reusable-component generation, naming, placement, styling, and validation rules for RepairDesk.
-Last reviewed: 2026-08-07 CEST by `TASK-20260807-009-inventory-dialog-no-auto-keyboard`
+Last reviewed: 2026-08-09 CEST by `TASK-20260809-005-global-compact-selector-typography-release`
 
 > 本声明专门约束“新增可复用组件如何设计、生成、命名、落盘、验收”。
 >
@@ -222,6 +222,20 @@ export interface ExampleCardProps {
 - 移动金额/报价输入必须从一开始就是白色高密度可编辑格，不允许先显示蓝色或灰色摘要行再切换成另一个输入态；真实 input 字号保持 `16px` 以上，视觉密度通过局部缩放和固定高度处理。
 - 状态色只用于当前流程、异常、风险金额、主动作和关键 badge；支付、维修、客户、设备等普通信息卡保持中性背景。
 - 新增或调整 `OrderMobileCard`、`RepairOsBusinessCard` 等移动订单列表组件时，必须复用或镜像订单详情页小卡片的层级契约：`MobileSectionTitle` 式标签、`PaymentLine` 式左右行、`MoneyText` 金额、`min-w-0/truncate/shrink-0` 溢出控制；重复超过两处时先沉淀到 `src/lib/ui-patterns.ts` 或 `src/lib/component-patterns.ts`。订单列表富摘要卡允许一屏 3-4 张，支付主金额可用 `text-base`，但客户、设备、维修、支付不得全部拆成 bordered panel；支付摘要必须是中性分组 + 行式金额，不能整块按状态染色；重点色只服务于状态、异常、下一步、维修主项和支付风险。
+
+### 8.3 移动紧凑选择器排版
+
+品牌、型号、容量和版本这类高频字段必须同时满足紧凑密度、完整可达和 iOS 键盘安全。实现时 MUST 使用 `componentDensity.compactSelector`（或与其等价的共享声明），禁止在业务页面重新拼一套选择器字号和溢出规则。
+
+- **MUST** 将移动关闭态占位控制在短语级别：品牌使用“选择品牌”，已有品牌后的型号使用“选择型号”，未选品牌时使用“先选品牌”。类别示例、目录范围和手工 fallback 放在 helper/search 说明中，不得把长示例重复塞进关闭态按钮。
+- **MUST** 保持真实 `input`、`textarea`、`select` 和 `contenteditable` 在 `<768px` 下 `16px`；不得用 `text-xs`、`text-sm` 或 `!text-*` 覆盖全局 zoom guard。只有不承载文本编辑的 combobox trigger button 可以使用 `13px–14px`（默认 `text-sm`），但实际命中区域仍 **MUST** 至少 `44px`（`min-h-11`）。
+- **MUST** 给选择器 trigger、搜索按钮和移动 option row 保留 `44px` 触控高度；字号变小只能压缩视觉文字，不能压缩按钮命中区、箭头或关闭动作。
+- **MUST** 对选中值保留 `min-w-0`、独立的 `shrink-0` 箭头和 `truncate`，保证长品牌/型号不覆盖箭头或相邻字段。列表中的长品牌/型号优先完整展示，必要时允许最多两行，使用 `whitespace-normal`、`break-words`/`overflow-wrap:anywhere` 和 `line-clamp-2`；禁止让列表通过页面级横向滚动兜底。
+- **MUST** 在 `<360px` 将成对的品牌/型号选择器降为单列；`360px–639px` 只有同时满足 `minmax(0,...)`、短关闭态 label、13–14px 非编辑 trigger、44px target 和无横向溢出验收时才允许双列，否则必须单列。`640px–767px` 可按字段语义保持双列或换行；`768px–1023px` 保持双列但允许依赖字段（游戏机存储、版本等）降为整行；`>=1024px` 保留 editable input + anchored Popover。任何降级不能破坏显式搜索、Escape、Tab、focus 恢复、visualViewport 适配和手动录入。
+- **MUST** 让 option row 的主文本使用 `text-sm`/`leading-4`，辅助年份/系列使用 `text-[11px]` 到 `text-xs`，两者都带 `min-w-0`；禁止只显示首字、让中文字竖排或用固定 `min-width` 撑开页面。
+- **禁止** 以 placeholder 代替 helper，禁止在类别示例和占位之间重复同一长句；禁止把 editable input 改成小于 `16px` 的真实控件；禁止为了“紧凑”移除 44px target、focus ring、可访问名称或手动 fallback。
+
+共享 class 入口：`src/lib/component-patterns.ts` 的 `componentDensity.compactSelector`，包括 `trigger`、`triggerValue`、`editableInput`、`option`、`optionValue`、`optionDescription` 和 `helper`。新增 selector 变体须先扩展该声明并补组件测试，不得散落页面级 magic class。
 
 ## 9. 动效声明
 
