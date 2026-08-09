@@ -33,7 +33,7 @@ export type DeviceCatalogModel = {
 const OTHER_BRANDS: readonly DeviceCatalogBrand[] = [
   brand("apple", "Apple", ["iPhone"], ["phone", "tablet", "computer", "other"]),
   brand("samsung", "Samsung", ["三星"], ["phone", "tablet", "computer", "other"]),
-  brand("sony", "Sony", ["索尼", "Xperia"], ["phone", "tablet", "game_console", "other"]),
+  brand("sony", "Sony", ["索尼", "Xperia"], ["phone", "tablet", "other"]),
   brand("jbl", "JBL", [], ["other"]),
   brand("marshall", "Marshall", [], ["other"]),
   brand("logitech", "Logitech", ["罗技"], ["other"]),

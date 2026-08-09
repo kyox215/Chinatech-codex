@@ -26,6 +26,15 @@ describe("inventory device catalog", () => {
     expect(findDeviceCatalogBrand("game_console", "PS")?.id).toBe("sony-playstation");
     expect(findDeviceCatalogBrand("game_console", "Switch")?.id).toBe("nintendo");
     expect(findDeviceCatalogBrand("game_console", "Xbox")?.id).toBe("microsoft-xbox");
+    const consoleBrands = listDeviceCatalogBrands("game_console");
+    expect(
+      consoleBrands
+        .filter((item) => item.name === "Sony" || item.aliases?.includes("Sony"))
+        .map((item) => item.name),
+    ).toEqual(["Sony / PlayStation"]);
+    expect(
+      consoleBrands.every((item) => listDeviceCatalogModels("game_console", item.name).length > 0),
+    ).toBe(true);
 
     const playstation = listDeviceCatalogModels("game_console", "PlayStation");
     expect(playstation.map((item) => item.name)).toEqual(
