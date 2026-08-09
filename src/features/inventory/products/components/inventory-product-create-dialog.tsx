@@ -140,6 +140,13 @@ export function InventoryProductCreateDialog({
           requestAnimationFrame(() => focusVisibleCreateTrigger());
         }}
         onEscapeKeyDown={(event) => {
+          if (
+            event.target instanceof HTMLElement &&
+            event.target.closest('[data-inventory-catalog-picker="inline"]')
+          ) {
+            event.preventDefault();
+            return;
+          }
           if (discardPromptOpen) {
             event.preventDefault();
             continueEditing();

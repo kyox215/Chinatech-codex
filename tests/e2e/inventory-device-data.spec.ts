@@ -18,7 +18,15 @@ test("mobile intake keeps device data easy to scan and inside the viewport", asy
   await page.goto("/inventory/new");
 
   await expect(page.getByRole("heading", { name: "快速录入商品" })).toBeVisible();
-  await expect(page.getByLabel("品牌")).toHaveAttribute("list", "product-brand-suggestions");
+  const brandTrigger = page.locator("#product-brand");
+  await expect(brandTrigger).toHaveAttribute("role", "combobox");
+  await expect(brandTrigger).toHaveJSProperty("tagName", "BUTTON");
+  await brandTrigger.click();
+  await expect(page.locator('[data-inventory-catalog-picker="mobile"]')).toBeVisible();
+  await expect(page.locator("[data-inventory-catalog-search]")).toHaveCount(0);
+  await page.locator("[data-inventory-catalog-search-action]").click();
+  await expect(page.getByPlaceholder("搜索手机品牌或手动输入")).toBeFocused();
+  await page.getByRole("button", { name: "关闭品牌选择" }).click();
   await expect(page.getByRole("textbox", { name: "IMEI 1", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "摄像头扫码录入 IMEI 1" })).toBeVisible();
   await page.getByText("更多信息", { exact: true }).click();
@@ -53,7 +61,7 @@ test("mobile detail stays minimal and edit supports full device data", async ({ 
   await mockEditableProduct(page);
   await page.goto(`/inventory/${editableProductId}/edit`);
   await expect(page.getByRole("heading", { name: /编辑 Apple iPad Air 5/ })).toBeVisible();
-  await expect(page.getByLabel("品牌")).toHaveValue("Apple");
+  await expect(page.locator("#edit-brand")).toHaveValue("Apple");
   await expect(page.getByText("设备标识", { exact: true })).toBeVisible();
   await expect(page.locator('[role="progressbar"]')).toHaveCount(0);
   await assertNoHorizontalOverflow(page);

@@ -1,6 +1,14 @@
 "use client";
 
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { Check, ChevronsUpDown, Palette, PencilLine, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -48,6 +56,67 @@ export type CatalogOption = {
   aliases?: readonly string[];
   group?: string;
   icon?: ReactNode;
+};
+
+export type CatalogPickerSurface = "page" | "dialog";
+
+type CatalogCategoryCopy = {
+  brandPlaceholder: string;
+  brandHint: string;
+  brandSearchPlaceholder: string;
+  modelHint: string;
+  modelSearchPlaceholder: string;
+  storagePlaceholder: string;
+};
+
+/**
+ * Category-specific copy belongs in one place so a game console can never
+ * inherit a phone-only "Apple" example by accident.
+ */
+export const catalogCategoryCopy: Record<
+  "phone" | "tablet" | "computer" | "game_console" | "other",
+  CatalogCategoryCopy
+> = {
+  phone: {
+    brandPlaceholder: "选择手机品牌",
+    brandHint: "常见品牌：Apple、Samsung、小米",
+    brandSearchPlaceholder: "搜索手机品牌或手动输入",
+    modelHint: "先选品牌，再选择手机型号；未收录型号可手动填写。",
+    modelSearchPlaceholder: "搜索手机型号或手动输入",
+    storagePlaceholder: "例如 128 GB",
+  },
+  tablet: {
+    brandPlaceholder: "选择平板品牌",
+    brandHint: "常见品牌：Apple、Samsung、Lenovo",
+    brandSearchPlaceholder: "搜索平板品牌或手动输入",
+    modelHint: "先选品牌，再选择平板型号；未收录型号可手动填写。",
+    modelSearchPlaceholder: "搜索平板型号或手动输入",
+    storagePlaceholder: "例如 128 GB",
+  },
+  computer: {
+    brandPlaceholder: "选择电脑品牌",
+    brandHint: "常见品牌：Apple、Dell、Lenovo、HP",
+    brandSearchPlaceholder: "搜索电脑品牌或手动输入",
+    modelHint: "先选品牌，再选择电脑型号；未收录型号可手动填写。",
+    modelSearchPlaceholder: "搜索电脑型号或手动输入",
+    storagePlaceholder: "例如 512 GB SSD",
+  },
+  game_console: {
+    brandPlaceholder: "选择游戏机品牌",
+    brandHint: "常见品牌：PlayStation、Nintendo、Xbox",
+    brandSearchPlaceholder: "搜索游戏机品牌或手动输入",
+    modelHint: "先选品牌，再选择游戏机型号；未收录型号可手动填写。",
+    modelSearchPlaceholder: "搜索游戏机型号或手动输入",
+    storagePlaceholder: "例如 825 GB、1 TB",
+  },
+  other: {
+    brandPlaceholder: "选择或输入品牌",
+    brandHint: "目录外品牌可直接手动填写。",
+    brandSearchPlaceholder: "搜索品牌或手动输入",
+    modelHint: "可从目录选择型号，也可以直接手动填写商品名称。",
+    modelSearchPlaceholder: "搜索型号或手动输入",
+    storagePlaceholder: "例如 128 GB",
+  },
 };
 
 type InventoryPhoneCatalogFieldsProps = {
@@ -205,6 +274,9 @@ export function CatalogCombobox({
   invalid = false,
   autoFocus = false,
   maxLength,
+  surface = "page",
+  helperText,
+  searchPlaceholder,
 }: {
   id: string;
   label: string;
@@ -219,38 +291,131 @@ export function CatalogCombobox({
   invalid?: boolean;
   autoFocus?: boolean;
   maxLength?: number;
+  surface?: CatalogPickerSurface;
+  helperText?: string;
+  searchPlaceholder?: string;
 }) {
   const useFixedPicker = useIsCompactWorkspace();
+  const useInlinePicker = useFixedPicker && surface === "dialog";
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [searchActive, setSearchActive] = useState(!useFixedPicker);
   const triggerRef = useRef<HTMLInputElement | HTMLButtonElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const inlineCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const viewportMetrics = useVisualViewportMetrics(open && useFixedPicker && searchActive);
+  const pickerId = `${id}-catalog-list`;
+
+  useEffect(() => {
+    if (!open) setSearchActive(!useFixedPicker);
+  }, [open, useFixedPicker]);
+
+  useEffect(() => {
+    if (!open || !useInlinePicker) return;
+    requestAnimationFrame(() => inlineCloseButtonRef.current?.focus({ preventScroll: true }));
+  }, [open, useInlinePicker]);
 
   function focusTrigger() {
-    queueMicrotask(() => triggerRef.current?.focus());
+    queueMicrotask(() => triggerRef.current?.focus({ preventScroll: true }));
   }
 
   function choose(selection: CatalogSelection) {
     onSelect(selection);
     setOpen(false);
     setQuery("");
+    setSearchActive(!useFixedPicker);
+    searchInputRef.current?.blur();
     focusTrigger();
   }
 
   function handleOpenChange(nextOpen: boolean) {
     setOpen(nextOpen);
+    setQuery("");
+    setSearchActive(!useFixedPicker);
     if (!nextOpen) {
-      setQuery("");
+      searchInputRef.current?.blur();
       focusTrigger();
     }
   }
 
-  const trigger = editable ? (
+  function openPicker() {
+    setQuery("");
+    setSearchActive(!useFixedPicker);
+    setOpen(true);
+  }
+
+  function requestSearch() {
+    setSearchActive(true);
+    requestAnimationFrame(() => {
+      window.setTimeout(() => searchInputRef.current?.focus({ preventScroll: true }), 0);
+    });
+  }
+
+  function handleInlineKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      handleOpenChange(false);
+      return;
+    }
+    if (event.key !== "Tab") return;
+
+    const focusable = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [role="option"]',
+      ),
+    ).filter((element) => element.getClientRects().length > 0 && element.tabIndex >= 0);
+    if (!focusable.length) {
+      event.preventDefault();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus({ preventScroll: true });
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus({ preventScroll: true });
+    }
+  }
+
+  const compactTrigger = (
+    <Button
+      id={id}
+      type="button"
+      variant="outline"
+      role="combobox"
+      aria-expanded={open}
+      aria-haspopup="listbox"
+      aria-controls={pickerId}
+      aria-invalid={invalid || undefined}
+      disabled={disabled}
+      ref={(node) => {
+        triggerRef.current = node;
+      }}
+      className="h-11 min-h-11 w-full min-w-0 justify-between px-3 text-base font-normal sm:text-sm"
+      onClick={openPicker}
+    >
+      <span className={cn("min-w-0 truncate", !value && "text-muted-foreground")}>
+        {value || placeholder}
+      </span>
+      <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+    </Button>
+  );
+
+  const trigger = useFixedPicker ? (
+    compactTrigger
+  ) : editable ? (
     <div className="relative min-w-0">
       <Input
         id={id}
         role="combobox"
         aria-autocomplete="list"
         aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-controls={pickerId}
         aria-invalid={invalid || undefined}
         maxLength={maxLength}
         required={required}
@@ -262,7 +427,7 @@ export function CatalogCombobox({
         ref={(node) => {
           triggerRef.current = node;
         }}
-        onClick={() => setOpen(true)}
+        onClick={openPicker}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown") {
             event.preventDefault();
@@ -279,7 +444,7 @@ export function CatalogCombobox({
         title={label.replace("*", "").trim()}
         disabled={disabled}
         className="absolute right-0 top-0 size-[38px] rounded-l-none sm:size-10"
-        onClick={() => setOpen(true)}
+        onClick={openPicker}
       >
         <ChevronsUpDown className="size-4 opacity-60" />
       </Button>
@@ -291,11 +456,14 @@ export function CatalogCombobox({
       variant="outline"
       role="combobox"
       aria-expanded={open}
+      aria-haspopup="listbox"
+      aria-controls={pickerId}
       disabled={disabled}
       ref={(node) => {
         triggerRef.current = node;
       }}
       className="h-[38px] w-full min-w-0 justify-between px-3 text-base font-normal sm:h-10 sm:text-sm"
+      onClick={openPicker}
     >
       <span className={cn("min-w-0 truncate", !value && "text-muted-foreground")}>
         {value || placeholder}
@@ -312,7 +480,13 @@ export function CatalogCombobox({
       options={options}
       fixedSurface={useFixedPicker}
       maxLength={maxLength}
+      searchActive={searchActive}
+      searchInputRef={searchInputRef}
+      listId={pickerId}
+      searchPlaceholder={searchPlaceholder ?? placeholder}
+      helperText={helperText}
       onQueryChange={setQuery}
+      onRequestSearch={requestSearch}
       onChoose={choose}
     />
   );
@@ -320,7 +494,62 @@ export function CatalogCombobox({
   return (
     <div className="min-w-0 space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
-      {useFixedPicker ? (
+      {useInlinePicker ? (
+        <div className="min-w-0" data-inventory-catalog-inline-host={id}>
+          {trigger}
+          {open ? (
+            <div
+              data-inventory-catalog-picker="inline"
+              className="fixed inset-0 z-50 flex items-end bg-[var(--overlay-scrim)] p-2 sm:items-center sm:p-4"
+              style={
+                viewportMetrics
+                  ? {
+                      top: `${Math.max(0, viewportMetrics.offsetTop)}px`,
+                      bottom: "auto",
+                      height: `${viewportMetrics.height}px`,
+                    }
+                  : undefined
+              }
+              onPointerDown={(event) => {
+                if (event.target === event.currentTarget) handleOpenChange(false);
+              }}
+            >
+              <section
+                aria-label={`${label.replace("*", "").trim()}选择`}
+                id={`${id}-catalog-panel`}
+                className="flex h-[min(36rem,calc(100dvh-16px))] max-h-[calc(100dvh-16px)] min-h-0 w-full flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] shadow-[var(--shadow-overlay)] sm:mx-auto sm:max-w-xl"
+                style={
+                  viewportMetrics
+                    ? {
+                        height: `${Math.min(576, Math.max(320, viewportMetrics.height - 16))}px`,
+                        maxHeight: `${Math.max(320, viewportMetrics.height - 16)}px`,
+                      }
+                    : undefined
+                }
+                onPointerDown={(event) => event.stopPropagation()}
+                onKeyDownCapture={handleInlineKeyDown}
+              >
+                <header className="relative shrink-0 border-b border-[var(--border-panel)] px-3 pb-2 pt-3 text-left sm:px-4 sm:pb-3">
+                  <h2 className="pr-12 text-base font-semibold">{label.replace("*", "").trim()}</h2>
+                  <p className="pr-12 text-xs text-muted-foreground">{helperText ?? placeholder}</p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`关闭${label.replace("*", "").trim()}选择`}
+                    className="absolute right-2 top-2 size-8 rounded-full"
+                    ref={inlineCloseButtonRef}
+                    onClick={() => handleOpenChange(false)}
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </header>
+                {picker}
+              </section>
+            </div>
+          ) : null}
+        </div>
+      ) : useFixedPicker ? (
         <Drawer
           open={open}
           onOpenChange={handleOpenChange}
@@ -366,7 +595,8 @@ export function CatalogCombobox({
         </Popover>
       )}
       <p className="text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
-        <Search className="mr-1 inline size-3" /> 可搜索目录；找不到时可直接使用输入内容。
+        <Search className="mr-1 inline size-3" />{" "}
+        {helperText ?? "可搜索目录；找不到时可直接使用输入内容。"}
       </p>
     </div>
   );
@@ -379,7 +609,13 @@ function CatalogCommandPicker({
   options,
   fixedSurface,
   maxLength,
+  searchActive,
+  searchInputRef,
+  listId,
+  searchPlaceholder,
+  helperText,
   onQueryChange,
+  onRequestSearch,
   onChoose,
 }: {
   value: string;
@@ -388,7 +624,13 @@ function CatalogCommandPicker({
   options: CatalogOption[];
   fixedSurface: boolean;
   maxLength?: number;
+  searchActive: boolean;
+  searchInputRef: RefObject<HTMLInputElement | null>;
+  listId: string;
+  searchPlaceholder: string;
+  helperText?: string;
   onQueryChange: (value: string) => void;
+  onRequestSearch: () => void;
   onChoose: (selection: CatalogSelection) => void;
 }) {
   const normalizedQuery = query.trim();
@@ -400,22 +642,42 @@ function CatalogCommandPicker({
 
   return (
     <Command
-      shouldFilter
+      shouldFilter={searchActive}
       className={cn(fixedSurface && "h-auto min-h-0 flex-1 rounded-none")}
       data-inventory-catalog-command={fixedSurface ? "mobile" : "desktop"}
     >
-      <CommandInput
-        data-inventory-catalog-search
-        value={query}
-        onValueChange={onQueryChange}
-        placeholder={placeholder}
-        aria-autocomplete="list"
-        maxLength={maxLength}
-        inputMode="search"
-        enterKeyHint="search"
-        className="text-base sm:text-sm"
-      />
+      {searchActive ? (
+        <CommandInput
+          ref={searchInputRef}
+          data-inventory-catalog-search
+          value={query}
+          onValueChange={onQueryChange}
+          placeholder={searchPlaceholder}
+          aria-autocomplete="list"
+          maxLength={maxLength}
+          inputMode="search"
+          enterKeyHint="search"
+          className="text-base sm:text-sm"
+        />
+      ) : (
+        <div className="shrink-0 border-b border-[var(--border-panel)] px-3 py-2 sm:px-4">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 min-h-11 w-full justify-start gap-2 text-xs font-medium"
+            data-inventory-catalog-search-action
+            onClick={onRequestSearch}
+          >
+            <Search className="size-4" />
+            搜索目录或手动输入
+          </Button>
+          <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+            {helperText ?? "先浏览常用选项；需要时再搜索或录入目录外值。"}
+          </p>
+        </div>
+      )}
       <CommandList
+        id={listId}
         data-inventory-catalog-list
         className={cn(
           "overscroll-contain [touch-action:pan-y] [-webkit-overflow-scrolling:touch]",
@@ -463,7 +725,7 @@ function CatalogCommandPicker({
             <CommandItem
               value={`manual ${normalizedQuery}`}
               onSelect={() => onChoose({ value: normalizedQuery, fromCatalog: false })}
-              className="min-h-9"
+              className={fixedSurface ? "min-h-11" : "min-h-9"}
             >
               <PencilLine className="size-4 shrink-0" />
               <span className="min-w-0 break-words">使用“{normalizedQuery}”</span>
@@ -473,6 +735,32 @@ function CatalogCommandPicker({
       </CommandList>
     </Command>
   );
+}
+
+function useVisualViewportMetrics(enabled: boolean) {
+  const [metrics, setMetrics] = useState<{ height: number; offsetTop: number }>();
+
+  useEffect(() => {
+    if (!enabled || typeof window === "undefined" || !window.visualViewport) {
+      setMetrics(undefined);
+      return;
+    }
+    const viewport = window.visualViewport;
+    const update = () =>
+      setMetrics({
+        height: viewport.height,
+        offsetTop: viewport.offsetTop,
+      });
+    update();
+    viewport.addEventListener("resize", update);
+    viewport.addEventListener("scroll", update);
+    return () => {
+      viewport.removeEventListener("resize", update);
+      viewport.removeEventListener("scroll", update);
+    };
+  }, [enabled]);
+
+  return metrics;
 }
 
 function hasExactCatalogMatch(option: CatalogOption, query: string) {

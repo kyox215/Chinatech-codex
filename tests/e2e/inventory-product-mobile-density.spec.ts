@@ -67,7 +67,9 @@ test("mobile intake keeps five categories and both save actions immediately reac
   await expect(page.getByRole("button", { name: "保存并查看商品" })).toBeVisible();
   await assertActionBarCentered(page, 390);
   expect(
-    await page.getByLabel("品牌").evaluate((input) => parseFloat(getComputedStyle(input).fontSize)),
+    await page
+      .locator("#product-brand")
+      .evaluate((trigger) => parseFloat(getComputedStyle(trigger).fontSize)),
   ).toBeGreaterThanOrEqual(16);
   await assertNoHorizontalOverflow(page);
   await hideNextDevUi(page);

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { InventoryPhoneCatalogFields } from "./inventory-phone-catalog-fields";
@@ -61,11 +61,12 @@ function renderFields(
 }
 
 describe("InventoryPhoneCatalogFields", () => {
-  it("opens the fixed mobile picker without focusing the search input", async () => {
+  it("opens the fixed mobile picker with a button trigger and explicit search", async () => {
     setViewportWidth(390);
     renderFields({ brand: "", model: "", storageCapacity: "", color: "" });
 
     const trigger = screen.getByRole("combobox", { name: "品牌 *" });
+    expect(trigger).toHaveClass("h-11", "min-h-11");
     fireEvent.click(trigger);
 
     expect(await screen.findByRole("dialog", { name: "品牌" })).toHaveAttribute(
@@ -77,7 +78,18 @@ describe("InventoryPhoneCatalogFields", () => {
       "overscroll-contain",
       "[touch-action:pan-y]",
     );
-    expect(screen.getByPlaceholderText("搜索欧洲常见品牌")).not.toHaveFocus();
+    expect(screen.queryByPlaceholderText("搜索欧洲常见品牌")).not.toBeInTheDocument();
+    const searchAction = screen.getByRole("button", { name: "搜索目录或手动输入" });
+    expect(searchAction).toBeVisible();
+    expect(searchAction).toHaveClass("h-11", "min-h-11");
+    await searchAction.click();
+    await waitFor(() => expect(screen.getByPlaceholderText("搜索欧洲常见品牌")).toHaveFocus());
+    fireEvent.change(screen.getByPlaceholderText("搜索欧洲常见品牌"), {
+      target: { value: "Unknown mobile brand" },
+    });
+    expect(screen.getByRole("option", { name: "使用“Unknown mobile brand”" })).toHaveClass(
+      "min-h-11",
+    );
   });
 
   it("uses the fixed picker on touch-first tablet widths", async () => {
@@ -90,7 +102,9 @@ describe("InventoryPhoneCatalogFields", () => {
       "data-inventory-catalog-picker",
       "mobile",
     );
-    expect(screen.getByPlaceholderText("搜索欧洲常见品牌")).not.toHaveFocus();
+    expect(screen.queryByPlaceholderText("搜索欧洲常见品牌")).not.toBeInTheDocument();
+    await screen.getByRole("button", { name: "搜索目录或手动输入" }).click();
+    await waitFor(() => expect(screen.getByPlaceholderText("搜索欧洲常见品牌")).toHaveFocus());
   });
 
   it("keeps the anchored catalog popover on desktop", async () => {

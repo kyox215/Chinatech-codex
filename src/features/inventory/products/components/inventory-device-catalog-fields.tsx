@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   CatalogCombobox,
+  catalogCategoryCopy,
+  type CatalogPickerSurface,
   type CatalogOption,
   type CatalogSelection,
 } from "@/features/inventory/components/inventory-phone-catalog-fields";
@@ -28,6 +30,8 @@ type InventoryDeviceCatalogFieldsProps = {
   ramCapacity?: string;
   storageCapacity?: string;
   color?: string;
+  surface?: CatalogPickerSurface;
+  disabled?: boolean;
   autoFocusBrand?: boolean;
   brandInvalid?: boolean;
   modelInvalid?: boolean;
@@ -47,6 +51,8 @@ export function InventoryDeviceCatalogFields({
   ramCapacity = "",
   storageCapacity = "",
   color = "",
+  surface = "page",
+  disabled = false,
   autoFocusBrand = false,
   brandInvalid = false,
   modelInvalid = false,
@@ -63,6 +69,7 @@ export function InventoryDeviceCatalogFields({
     () => findDeviceCatalogModel(category, brand, model),
     [brand, category, model],
   );
+  const categoryCopy = catalogCategoryCopy[category];
 
   const brandOptions = useMemo<CatalogOption[]>(
     () =>
@@ -92,12 +99,10 @@ export function InventoryDeviceCatalogFields({
 
   const handleBrandSelect = (selection: CatalogSelection) => {
     onBrandChange(selection.value);
-    if (selection.value !== brand) onModelChange("");
   };
 
   const handleBrandInput = (value: string) => {
     onBrandChange(value);
-    if (value !== brand) onModelChange("");
   };
 
   const handleModelSelect = (selection: CatalogSelection) => onModelChange(selection.value);
@@ -109,9 +114,13 @@ export function InventoryDeviceCatalogFields({
           id="product-brand"
           label="品牌 *"
           value={brand}
-          placeholder="例如 Apple、Samsung"
+          placeholder={categoryCopy.brandPlaceholder}
+          helperText={categoryCopy.brandHint}
+          searchPlaceholder={categoryCopy.brandSearchPlaceholder}
           options={brandOptions}
+          disabled={disabled}
           editable
+          surface={surface}
           required
           invalid={brandInvalid}
           autoFocus={autoFocusBrand}
@@ -123,11 +132,18 @@ export function InventoryDeviceCatalogFields({
           id="product-model"
           label="型号 / 商品名称 *"
           value={model}
-          placeholder={selectedBrand ? `搜索 ${selectedBrand.name} 型号` : "先输入或选择品牌"}
+          placeholder={
+            selectedBrand
+              ? `选择${categoryLabel(category)}型号`
+              : `先选择${categoryLabel(category)}品牌`
+          }
+          helperText={categoryCopy.modelHint}
+          searchPlaceholder={categoryCopy.modelSearchPlaceholder}
           options={modelOptions}
           editable
+          surface={surface}
           required
-          disabled={!brand.trim()}
+          disabled={disabled || !brand.trim()}
           invalid={modelInvalid}
           maxLength={160}
           onInputChange={onModelChange}
@@ -146,7 +162,8 @@ export function InventoryDeviceCatalogFields({
             label={category === "computer" ? "硬盘 / 存储容量" : "存储容量"}
             value={storageCapacity}
             options={selectedModel?.storageOptions ?? []}
-            placeholder={category === "computer" ? "例如 512 GB" : "例如 128 GB"}
+            placeholder={categoryCopy.storagePlaceholder}
+            disabled={disabled}
             onChange={onStorageChange}
           />
         ) : null}
@@ -157,12 +174,14 @@ export function InventoryDeviceCatalogFields({
             value={ramCapacity}
             options={selectedModel?.ramOptions ?? []}
             placeholder="例如 8 GB"
+            disabled={disabled}
             onChange={onRamChange}
           />
         ) : null}
         <CatalogColorChoices
           value={color}
           options={selectedModel?.colors ?? []}
+          disabled={disabled}
           onChange={onColorChange}
           className={category === "other" || category === "game_console" ? "col-span-2" : undefined}
         />
@@ -182,6 +201,7 @@ function CatalogSpecificationChoices({
   value,
   options,
   placeholder,
+  disabled,
   onChange,
 }: {
   id: string;
@@ -189,6 +209,7 @@ function CatalogSpecificationChoices({
   value: string;
   options: readonly string[];
   placeholder: string;
+  disabled?: boolean;
   onChange: (value: string) => void;
 }) {
   const isManualValue = Boolean(value) && !options.includes(value);
@@ -207,6 +228,7 @@ function CatalogSpecificationChoices({
               type="button"
               role="radio"
               aria-checked={value === option}
+              disabled={disabled}
               onClick={() => onChange(option)}
               className={cn(
                 "min-h-8 rounded-lg border px-2 text-[11px] font-medium transition-colors",
@@ -224,6 +246,7 @@ function CatalogSpecificationChoices({
         id={id}
         className={inputClass}
         value={isManualValue ? value : ""}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
         placeholder={`${placeholder}${options.length ? "（其他）" : ""}`}
         aria-label={label}
@@ -235,11 +258,13 @@ function CatalogSpecificationChoices({
 function CatalogColorChoices({
   value,
   options,
+  disabled,
   onChange,
   className,
 }: {
   value: string;
   options: DeviceCatalogModel["colors"];
+  disabled?: boolean;
   onChange: (value: string) => void;
   className?: string;
 }) {
@@ -264,6 +289,7 @@ function CatalogColorChoices({
                 role="radio"
                 aria-checked={selected}
                 aria-label={`颜色：${option.name}${selected ? "，已选择" : ""}`}
+                disabled={disabled}
                 onClick={() => onChange(option.name)}
                 className={cn(
                   "flex min-h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors",
@@ -288,6 +314,7 @@ function CatalogColorChoices({
         id="product-color"
         className={inputClass}
         value={isManualValue ? value : ""}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
         placeholder="例如 蓝色（其他/手动）"
         aria-label="设备颜色"

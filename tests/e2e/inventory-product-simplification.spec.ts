@@ -130,25 +130,25 @@ test("quick intake keeps failed drafts and preserves same-product fields after s
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/inventory/new");
-  await page.getByLabel("品牌").fill("Synthetic Brand");
-  await page.getByLabel("型号 / 商品名称").fill("Synthetic Console");
+  await selectCatalogValue(page, "product-brand", "搜索手机品牌或手动输入", "Synthetic Brand");
+  await selectCatalogValue(page, "product-model", "搜索手机型号或手动输入", "Synthetic Console");
   await page.getByText("更多信息", { exact: true }).click();
   await page.getByLabel("计划售价").fill("12.345");
   await page.getByRole("button", { name: "保存并继续录入" }).click();
   await expect(page.locator("#product-form-error")).toContainText("计划售价格式无效");
-  await expect(page.getByLabel("品牌")).toHaveValue("Synthetic Brand");
+  await expect(page.locator("#product-brand")).toContainText("Synthetic Brand");
   await expect(page.getByLabel("计划售价")).toBeFocused();
 
   await page.getByLabel("计划售价").fill("129,90");
   await page.context().setOffline(true);
   await page.getByRole("button", { name: "保存并继续录入" }).click();
   await expect(page.locator("#product-form-error")).toContainText("当前离线");
-  await expect(page.getByLabel("品牌")).toHaveValue("Synthetic Brand");
+  await expect(page.locator("#product-brand")).toContainText("Synthetic Brand");
   await page.context().setOffline(false);
   await page.getByRole("button", { name: "保存并继续录入" }).click();
   await expect(page.getByText(/商品 I\d+ 已录入/)).toBeVisible();
-  await expect(page.getByLabel("品牌")).toHaveValue("Synthetic Brand");
-  await expect(page.getByLabel("型号 / 商品名称")).toHaveValue("Synthetic Console");
+  await expect(page.locator("#product-brand")).toContainText("Synthetic Brand");
+  await expect(page.locator("#product-model")).toContainText("Synthetic Console");
   await expect(page.getByLabel("计划售价")).toHaveCount(0);
   await expect(page.getByRole("radio", { name: /手机/ })).toHaveAttribute("aria-checked", "true");
 });
@@ -188,4 +188,39 @@ async function assertNoHorizontalOverflow(page: Page) {
   }));
   expect(result.document).toBeLessThanOrEqual(result.viewport);
   expect(result.offenders).toEqual([]);
+}
+
+async function selectCatalogValue(
+  page: Page,
+  id: string,
+  searchPlaceholder: string,
+  value: string,
+) {
+  const trigger = page.locator(`#${id}`);
+  const tagName = await trigger.evaluate((element) => element.tagName);
+  if (tagName === "INPUT") {
+    await trigger.fill(value);
+    return;
+  }
+
+  await trigger.click();
+  const searchAction = page.locator("[data-inventory-catalog-search-action]");
+  await expect(searchAction).toBeVisible();
+  await searchAction.scrollIntoViewIfNeeded();
+  await searchAction.click();
+  const search = page.getByPlaceholder(searchPlaceholder);
+  await expect(search).toBeFocused();
+  await search.fill(value);
+  const exactOption = page.getByRole("option", {
+    name: new RegExp(`^${escapeRegExp(value)}(?:\\s|$)`),
+  });
+  if (await exactOption.count()) {
+    await exactOption.first().click();
+  } else {
+    await page.getByRole("option", { name: new RegExp(`使用“${escapeRegExp(value)}”`) }).click();
+  }
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

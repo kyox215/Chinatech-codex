@@ -62,7 +62,7 @@ function renderFields(
 }
 
 describe("InventoryDeviceCatalogFields", () => {
-  it("opens the mobile picker without auto-focusing its search input", async () => {
+  it("opens the mobile picker with a non-editable trigger and explicit search", async () => {
     setViewportWidth(390);
     renderFields();
 
@@ -72,7 +72,64 @@ describe("InventoryDeviceCatalogFields", () => {
       "data-inventory-catalog-picker",
       "mobile",
     );
-    expect(document.querySelector("[data-inventory-catalog-search]")).not.toHaveFocus();
+    expect(document.querySelector("[data-inventory-catalog-search]")).toBeNull();
+    expect(screen.getByRole("button", { name: "搜索目录或手动输入" })).toBeVisible();
+    await screen.getByRole("button", { name: "搜索目录或手动输入" }).click();
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("搜索手机品牌或手动输入")).toHaveFocus(),
+    );
+  });
+
+  it.each([
+    { category: "phone" as const, placeholder: "选择手机品牌", search: "搜索手机品牌或手动输入" },
+    {
+      category: "tablet" as const,
+      placeholder: "选择平板品牌",
+      search: "搜索平板品牌或手动输入",
+    },
+    {
+      category: "computer" as const,
+      placeholder: "选择电脑品牌",
+      search: "搜索电脑品牌或手动输入",
+    },
+    {
+      category: "game_console" as const,
+      placeholder: "选择游戏机品牌",
+      search: "搜索游戏机品牌或手动输入",
+    },
+    { category: "other" as const, placeholder: "选择或输入品牌", search: "搜索品牌或手动输入" },
+  ])(
+    "keeps compact copy category-specific for $category",
+    async ({ category, placeholder, search }) => {
+      setViewportWidth(390);
+      renderFields({ category });
+      const trigger = screen.getByRole("combobox", { name: "品牌 *" });
+      expect(trigger).toHaveTextContent(placeholder);
+      fireEvent.click(trigger);
+      expect(screen.queryByText("例如 Apple、Samsung")).not.toBeInTheDocument();
+      await screen.getByRole("button", { name: "搜索目录或手动输入" }).click();
+      await waitFor(() => expect(screen.getByPlaceholderText(search)).toHaveFocus());
+    },
+  );
+
+  it("uses an inline selector inside the create dialog without a second dialog root", async () => {
+    setViewportWidth(390);
+    renderFields({ category: "game_console", surface: "dialog" });
+
+    const trigger = screen.getByRole("combobox", { name: "品牌 *" });
+    expect(trigger.tagName).toBe("BUTTON");
+    fireEvent.click(trigger);
+
+    expect(await screen.findByRole("region", { name: "品牌选择" })).toBeVisible();
+    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(0);
+    expect(screen.getAllByText("常见品牌：PlayStation、Nintendo、Xbox").length).toBeGreaterThan(0);
+    expect(screen.queryByText("例如 Apple、Samsung")).not.toBeInTheDocument();
+    expect(document.querySelector("[data-inventory-catalog-search]")).toBeNull();
+
+    await screen.getByRole("button", { name: "搜索目录或手动输入" }).click();
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("搜索游戏机品牌或手动输入")).toHaveFocus(),
+    );
   });
 
   it("opens the desktop picker with ArrowDown or Alt+ArrowDown without hijacking Enter", async () => {
@@ -133,6 +190,9 @@ describe("InventoryDeviceCatalogFields", () => {
       fireEvent.click(trigger);
 
       if (close === "select") {
+        if (width < 1024) {
+          await screen.getByRole("button", { name: "搜索目录或手动输入" }).click();
+        }
         await waitFor(() =>
           expect(document.querySelector("[data-inventory-catalog-search]")).toBeInTheDocument(),
         );

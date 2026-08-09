@@ -19,6 +19,7 @@ const shellMocks = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
 
 class ResizeObserverMock {
   observe() {}
+  unobserve() {}
   disconnect() {}
 }
 
@@ -48,6 +49,9 @@ import { InventoryProductListScreen } from "./inventory-product-list-screen";
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+  if (!HTMLElement.prototype.scrollIntoView) {
+    HTMLElement.prototype.scrollIntoView = () => {};
+  }
   setViewport(1024);
   routerMocks.searchParams = new URLSearchParams();
   window.localStorage.clear();
@@ -94,7 +98,11 @@ describe("inventory product UI access gates", () => {
       total: 1,
       facets: { brands: ["Apple"], locations: ["A-02"] },
     });
-    renderWithQuery(<InventoryProductListScreen />);
+    renderWithQuery(
+      <SidebarProvider>
+        <InventoryProductListScreen />
+      </SidebarProvider>,
+    );
 
     await screen.findByText("SKU SKU-001");
     const trigger = screen.getAllByRole("button", { name: "快速录入商品" })[0];
@@ -352,9 +360,122 @@ describe("inventory product UI access gates", () => {
     expect(nativeConfirm).not.toHaveBeenCalled();
     expect(screen.getByText(/会清除当前品牌、型号、规格和设备标识/)).toBeVisible();
     expect(screen.getByLabelText(/品牌/)).toHaveValue("Apple");
+    const saveButton = screen.getByRole("button", { name: "保存并查看商品" });
+    expect(saveButton).toBeDisabled();
+    fireEvent.submit(saveButton.closest("form")!);
+    expect(apiMocks.createInventoryProduct).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "清空并切换" }));
     expect(screen.getByRole("radio", { name: "平板" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByLabelText(/品牌/)).toHaveValue("");
+  });
+
+  it("confirms brand changes, clears incompatible specs, and preserves custody and finance fields", () => {
+    renderWithQuery(<InventoryProductIntakeScreen surface="dialog" />);
+    const brand = screen.getByLabelText(/品牌/);
+    const model = screen.getByLabelText(/型号 \/ 商品名称/);
+    fireEvent.change(brand, { target: { value: "Apple" } });
+    fireEvent.change(model, { target: { value: "iPhone 15" } });
+    fireEvent.change(screen.getByLabelText("内存（RAM）"), { target: { value: "8 GB" } });
+    fireEvent.change(screen.getByLabelText("存储容量"), { target: { value: "256 GB" } });
+    fireEvent.change(screen.getByLabelText("设备颜色"), { target: { value: "自定义色" } });
+    fireEvent.change(screen.getByLabelText("IMEI 1"), { target: { value: "356789012345678" } });
+    fireEvent.click(screen.getByText("更多信息", { exact: true }));
+    fireEvent.change(screen.getByLabelText("计划售价"), { target: { value: "699" } });
+    fireEvent.change(screen.getByLabelText("库位"), { target: { value: "A-02" } });
+    fireEvent.change(screen.getByLabelText("保修（月）"), { target: { value: "12" } });
+
+    fireEvent.change(brand, { target: { value: "Samsung" } });
+    expect(screen.getByRole("status")).toHaveTextContent(/更换品牌会清除/);
+    expect(model).toHaveValue("iPhone 15");
+    fireEvent.click(screen.getByRole("button", { name: "保留原资料" }));
+    expect(brand).toHaveValue("Apple");
+    expect(model).toHaveValue("iPhone 15");
+
+    fireEvent.change(brand, { target: { value: "Samsung" } });
+    fireEvent.click(screen.getByRole("button", { name: "清理并切换" }));
+    expect(brand).toHaveValue("Samsung");
+    expect(model).toHaveValue("");
+    expect(screen.getByLabelText("内存（RAM）")).toHaveValue("");
+    expect(screen.getByLabelText("存储容量")).toHaveValue("");
+    expect(screen.getByLabelText("设备颜色")).toHaveValue("");
+    expect(screen.getByLabelText("IMEI 1")).toHaveValue("356789012345678");
+    expect(screen.getByLabelText("计划售价")).toHaveValue("699");
+    expect(screen.getByLabelText("库位")).toHaveValue("A-02");
+    expect(screen.getByLabelText("保修（月）")).toHaveValue("12");
+  });
+
+  it("allows manual model entry without confirmation until derived values exist", () => {
+    renderWithQuery(<InventoryProductIntakeScreen surface="dialog" />);
+    const brand = screen.getByLabelText(/品牌/);
+    const model = screen.getByLabelText(/型号 \/ 商品名称/);
+    fireEvent.change(brand, { target: { value: "Sony / PlayStation" } });
+    fireEvent.change(model, { target: { value: "Workshop Prototype" } });
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(model).toHaveValue("Workshop Prototype");
+
+    fireEvent.change(screen.getByLabelText("存储容量"), { target: { value: "825 GB" } });
+    fireEvent.change(model, { target: { value: "PlayStation 5" } });
+    expect(screen.getByRole("status")).toHaveTextContent(/更换型号会清除/);
+    expect(model).toHaveValue("PlayStation 5");
+    fireEvent.click(screen.getByRole("button", { name: "清理并切换" }));
+    expect(model).toHaveValue("PlayStation 5");
+    expect(screen.getByLabelText("存储容量")).toHaveValue("");
+    expect(screen.getByLabelText(/品牌/)).toHaveValue("Sony / PlayStation");
+  });
+
+  it("fails closed when a catalog transition is pending and keeps save from calling the API", () => {
+    renderWithQuery(<InventoryProductIntakeScreen surface="dialog" />);
+    const brand = screen.getByLabelText(/品牌/);
+    const model = screen.getByLabelText(/型号 \/ 商品名称/);
+    fireEvent.change(brand, { target: { value: "Apple" } });
+    fireEvent.change(model, { target: { value: "iPhone 15" } });
+    fireEvent.change(screen.getByLabelText("存储容量"), { target: { value: "256 GB" } });
+    fireEvent.change(model, { target: { value: "iPhone 16" } });
+
+    const saveButton = screen.getByRole("button", { name: "保存并查看商品" });
+    expect(saveButton).toBeDisabled();
+    expect(brand).toBeDisabled();
+    expect(screen.getByLabelText("存储容量")).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "平板" })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent(/更换型号会清除/);
+    fireEvent.click(saveButton);
+    fireEvent.submit(saveButton.closest("form")!);
+    expect(apiMocks.createInventoryProduct).not.toHaveBeenCalled();
+  });
+
+  it("keeps the dialog open when Escape closes only the inline catalog selector", async () => {
+    apiMocks.listInventoryProducts.mockResolvedValue({
+      items: [product()],
+      total: 1,
+      facets: { brands: ["Apple"], locations: ["A-02"] },
+    });
+    renderWithQuery(
+      <SidebarProvider>
+        <InventoryProductListScreen />
+      </SidebarProvider>,
+    );
+    await screen.findByText("SKU SKU-001");
+    setViewport(390);
+    fireEvent.click(screen.getAllByRole("button", { name: "快速录入商品" })[0]);
+    const dialog = await screen.findByRole("dialog");
+    const brandTrigger = within(dialog).getByLabelText(/品牌/);
+    fireEvent.click(brandTrigger);
+    const picker = await waitFor(() => {
+      const node = document.querySelector<HTMLElement>('[data-inventory-catalog-picker="inline"]');
+      expect(node).toBeTruthy();
+      return node!;
+    });
+    const closeButton = within(picker).getByRole("button", { name: "关闭品牌选择" });
+    await waitFor(() => expect(closeButton).toHaveFocus());
+    expect(document.activeElement?.matches("input, textarea, select")).toBe(false);
+    fireEvent.keyDown(picker.querySelector("section")!, { key: "Escape" });
+    await waitFor(() =>
+      expect(document.querySelector('[data-inventory-catalog-picker="inline"]')).toBeNull(),
+    );
+    expect(screen.getByRole("dialog")).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "放弃本次未保存商品？" })).not.toBeInTheDocument();
+    expect(brandTrigger).toHaveFocus();
   });
 
   it("prioritizes a real thumbnail, then uses the local reference after an image error", async () => {

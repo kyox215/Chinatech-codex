@@ -56,6 +56,17 @@ type Draft = {
 
 type ValidationError = { message: string; fieldId?: string };
 
+type CatalogDraftSnapshot = Pick<
+  Draft,
+  "brand" | "model" | "ram_capacity" | "storage_capacity" | "color" | "specifications"
+>;
+
+type PendingCatalogTransition = {
+  kind: "brand" | "model";
+  nextValue: string;
+  snapshot: CatalogDraftSnapshot;
+};
+
 export type InventoryProductIntakeState = {
   isDirty: boolean;
   isPending: boolean;
@@ -126,6 +137,58 @@ function isDraftDirty(draft: Draft) {
   );
 }
 
+function catalogSnapshot(draft: Draft): CatalogDraftSnapshot {
+  return {
+    brand: draft.brand,
+    model: draft.model,
+    ram_capacity: draft.ram_capacity,
+    storage_capacity: draft.storage_capacity,
+    color: draft.color,
+    specifications: { ...draft.specifications },
+  };
+}
+
+function hasModelDependentValues(draft: Draft) {
+  return Boolean(
+    draft.ram_capacity.trim() ||
+    draft.storage_capacity.trim() ||
+    draft.color.trim() ||
+    Object.values(draft.specifications).some((value) => value.trim()),
+  );
+}
+
+function hasBrandDependentValues(draft: Draft) {
+  return Boolean(draft.model.trim() || hasModelDependentValues(draft));
+}
+
+function focusCatalogTransitionConfirmation() {
+  requestAnimationFrame(() => {
+    document
+      .querySelector<HTMLElement>('[data-ui="inventory-product-catalog-transition-confirm"] button')
+      ?.focus({ preventScroll: true });
+  });
+}
+
+function focusCategoryConfirmation() {
+  requestAnimationFrame(() => {
+    document
+      .querySelector<HTMLElement>('[data-ui="inventory-product-category-confirm"] button')
+      ?.focus({ preventScroll: true });
+  });
+}
+
+function clearCatalogDependentValues(draft: Draft, kind: "brand" | "model", nextValue: string) {
+  return {
+    ...draft,
+    ...(kind === "brand" ? { brand: nextValue } : { model: nextValue }),
+    model: kind === "brand" ? "" : nextValue,
+    ram_capacity: "",
+    storage_capacity: "",
+    color: "",
+    specifications: {},
+  };
+}
+
 export function InventoryProductIntakeScreen({
   surface = "page",
   onCancel,
@@ -139,6 +202,8 @@ export function InventoryProductIntakeScreen({
   const [draft, setDraft] = useState<Draft>(() => initialDraft());
   const [moreOpen, setMoreOpen] = useState(false);
   const [pendingCategory, setPendingCategory] = useState<InventoryProductCategory>();
+  const [pendingCatalogTransition, setPendingCatalogTransition] =
+    useState<PendingCatalogTransition>();
   const [error, setError] = useState<ValidationError>();
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
   const authorityRef = useRef<string | undefined>(undefined);
@@ -174,6 +239,7 @@ export function InventoryProductIntakeScreen({
     setIdempotencyKey(crypto.randomUUID());
     setMoreOpen(false);
     setPendingCategory(undefined);
+    setPendingCatalogTransition(undefined);
     submitLockRef.current = false;
     mutation.reset();
     setError({ message: "门店或权限已变化，旧草稿已清除，请重新录入。" });
@@ -245,6 +311,16 @@ export function InventoryProductIntakeScreen({
 
   const save = async (continueEntry: boolean) => {
     if (submitLockRef.current) return;
+    if (pendingCatalogTransition) {
+      setError({ message: "请先确认品牌或型号切换，再保存商品。" });
+      focusCatalogTransitionConfirmation();
+      return;
+    }
+    if (pendingCategory) {
+      setError({ message: "请先确认商品类别切换，再保存商品。" });
+      focusCategoryConfirmation();
+      return;
+    }
     setError(undefined);
     const validation = validateDraft(draft, canEnterCost);
     if (validation) {
@@ -309,6 +385,7 @@ export function InventoryProductIntakeScreen({
 
   const applyCategory = (category: InventoryProductCategory) => {
     setPendingCategory(undefined);
+    setPendingCatalogTransition(undefined);
     setDraft((current) => ({
       ...current,
       category,
@@ -329,6 +406,72 @@ export function InventoryProductIntakeScreen({
             specifications: {},
           }),
     }));
+  };
+
+  const clearCatalogValidationError = (fieldId: "product-brand" | "product-model") => {
+    setError((current) =>
+      current?.fieldId === fieldId ||
+      current?.fieldId === "product-brand" ||
+      current?.fieldId === "product-model"
+        ? undefined
+        : current,
+    );
+  };
+
+  const requestBrandChange = (nextValue: string) => {
+    clearCatalogValidationError("product-brand");
+    const current = draft;
+    if (pendingCatalogTransition?.kind === "brand") {
+      setPendingCatalogTransition((pending) => (pending ? { ...pending, nextValue } : pending));
+      setDraft((previous) => ({ ...previous, brand: nextValue }));
+      return;
+    }
+    if (nextValue === current.brand) return;
+    if (hasBrandDependentValues(current)) {
+      setPendingCatalogTransition({
+        kind: "brand",
+        nextValue,
+        snapshot: catalogSnapshot(current),
+      });
+      setDraft((previous) => ({ ...previous, brand: nextValue }));
+      return;
+    }
+    setDraft((previous) => clearCatalogDependentValues(previous, "brand", nextValue));
+  };
+
+  const requestModelChange = (nextValue: string) => {
+    clearCatalogValidationError("product-model");
+    const current = draft;
+    if (pendingCatalogTransition?.kind === "model") {
+      setPendingCatalogTransition((pending) => (pending ? { ...pending, nextValue } : pending));
+      setDraft((previous) => ({ ...previous, model: nextValue }));
+      return;
+    }
+    if (nextValue === current.model) return;
+    if (hasModelDependentValues(current)) {
+      setPendingCatalogTransition({
+        kind: "model",
+        nextValue,
+        snapshot: catalogSnapshot(current),
+      });
+      setDraft((previous) => ({ ...previous, model: nextValue }));
+      return;
+    }
+    setDraft((previous) => ({ ...previous, model: nextValue }));
+  };
+
+  const cancelCatalogTransition = () => {
+    const pending = pendingCatalogTransition;
+    if (!pending) return;
+    setDraft((current) => ({ ...current, ...pending.snapshot }));
+    setPendingCatalogTransition(undefined);
+  };
+
+  const confirmCatalogTransition = () => {
+    const pending = pendingCatalogTransition;
+    if (!pending) return;
+    setDraft((current) => clearCatalogDependentValues(current, pending.kind, pending.nextValue));
+    setPendingCatalogTransition(undefined);
   };
 
   const selectCategory = (category: InventoryProductCategory) => {
@@ -482,6 +625,7 @@ export function InventoryProductIntakeScreen({
                   role="radio"
                   aria-checked={draft.category === value}
                   tabIndex={draft.category === value ? 0 : -1}
+                  disabled={Boolean(pendingCategory || pendingCatalogTransition)}
                   className={cn(
                     "flex min-h-8 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:text-xs lg:leading-4",
                     draft.category === value
@@ -513,7 +657,6 @@ export function InventoryProductIntakeScreen({
                     variant="ghost"
                     size="sm"
                     className="min-h-9"
-                    autoFocus
                     onClick={() => setPendingCategory(undefined)}
                   >
                     继续编辑
@@ -545,17 +688,26 @@ export function InventoryProductIntakeScreen({
             ramCapacity={draft.ram_capacity}
             storageCapacity={draft.storage_capacity}
             color={draft.color}
+            surface={surface === "dialog" ? "dialog" : "page"}
+            disabled={Boolean(pendingCategory || pendingCatalogTransition)}
             autoFocusBrand={shouldAutoFocusBrand(surface)}
             brandInvalid={error?.fieldId === "product-brand"}
             modelInvalid={error?.fieldId === "product-model"}
-            onBrandChange={(brand) => setDraft((current) => ({ ...current, brand }))}
-            onModelChange={(model) => setDraft((current) => ({ ...current, model }))}
+            onBrandChange={requestBrandChange}
+            onModelChange={requestModelChange}
             onRamChange={(ram_capacity) => setDraft((current) => ({ ...current, ram_capacity }))}
             onStorageChange={(storage_capacity) =>
               setDraft((current) => ({ ...current, storage_capacity }))
             }
             onColorChange={(color) => setDraft((current) => ({ ...current, color }))}
           />
+          {pendingCatalogTransition ? (
+            <CatalogTransitionConfirm
+              kind={pendingCatalogTransition.kind}
+              onCancel={cancelCatalogTransition}
+              onConfirm={confirmCatalogTransition}
+            />
+          ) : null}
         </section>
 
         {draft.category === "game_console" ? (
@@ -768,13 +920,17 @@ export function InventoryProductIntakeScreen({
             type="button"
             variant="outline"
             className="min-h-9"
-            disabled={mutation.isPending}
+            disabled={mutation.isPending || Boolean(pendingCategory || pendingCatalogTransition)}
             onClick={() => void save(true)}
           >
             {mutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
             保存并继续录入
           </Button>
-          <Button type="submit" className="min-h-10" disabled={mutation.isPending}>
+          <Button
+            type="submit"
+            className="min-h-10"
+            disabled={mutation.isPending || Boolean(pendingCategory || pendingCatalogTransition)}
+          >
             {mutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
             保存并查看商品
           </Button>
@@ -1024,6 +1180,47 @@ function setIdentifierSource(
     identifier_sources: { ...current.identifier_sources, [kind]: source },
   }));
 }
+
+function CatalogTransitionConfirm({
+  kind,
+  onCancel,
+  onConfirm,
+}: {
+  kind: "brand" | "model";
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const label = kind === "brand" ? "品牌" : "型号";
+  const clearSummary =
+    kind === "brand" ? "型号、内存、容量、颜色和型号专属规格" : "内存、容量、颜色和型号专属规格";
+  return (
+    <div
+      data-ui="inventory-product-catalog-transition-confirm"
+      className="grid gap-2 rounded-lg border border-status-warn-foreground/20 bg-status-warn px-2.5 py-2 text-status-warn-foreground sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+      role="status"
+      aria-live="polite"
+    >
+      <p className="text-[11px] leading-4 sm:text-xs">
+        更换{label}会清除{clearSummary}；IMEI / 序列号、售价、成本、库位、保修和备注会保留。
+      </p>
+      <div className="grid grid-cols-2 gap-1.5">
+        <Button type="button" variant="ghost" size="sm" className="min-h-9" onClick={onCancel}>
+          保留原资料
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="min-h-9 bg-background"
+          onClick={onConfirm}
+        >
+          清理并切换
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function IntakeMessage({
   title,
   body,
