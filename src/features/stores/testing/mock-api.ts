@@ -31,6 +31,7 @@ import {
   canUseInventoryV2Ui,
 } from "@/features/inventory/server/inventory-v2-access";
 import { isInventoryProductDeviceDataV2Enabled } from "@/features/inventory/server/inventory-v2-feature-flags";
+import { isInventoryProductInspectionEnabledForStore } from "@/features/inventory/products/server/inventory-product-inspection-feature-flags";
 
 const mockStores = [
   {
@@ -530,6 +531,10 @@ function context(actor?: AuditActor): StoreContext {
       inventoryLifecycleUiEnabled:
         process.env.NODE_ENV !== "production" &&
         process.env.REPAIRDESK_E2E_INVENTORY_LIFECYCLE === "1",
+      canInspectInventory: can(scopedActor, "inventory:inspection"),
+      inventoryProductInspectionEnabled:
+        can(scopedActor, "inventory:inspection") &&
+        isInventoryProductInspectionEnabledForStore(scopedActor.storeId),
       canManageOrderData,
       canApplyOrderData,
       canReadAggregateFinance: can(scopedActor, "finance:aggregate_read"),

@@ -1600,6 +1600,8 @@ export interface RepairDeskOptions {
     inventoryProductsUiEnabled?: boolean;
     inventoryProductQuickCreateEnabled?: boolean;
     inventoryLifecycleUiEnabled?: boolean;
+    inventoryProductInspectionEnabled?: boolean;
+    canInspectInventory?: boolean;
     canSearchOrderArchive?: boolean;
     canBrowseOrderArchive?: boolean;
     canReadOrderFinance?: boolean;
@@ -2075,6 +2077,8 @@ export interface StoreContext {
     inventoryProductsUiEnabled?: boolean;
     inventoryProductQuickCreateEnabled?: boolean;
     inventoryLifecycleUiEnabled?: boolean;
+    inventoryProductInspectionEnabled?: boolean;
+    canInspectInventory?: boolean;
     canManageOrderData?: boolean;
     canApplyOrderData?: boolean;
     canSearchOrderArchive?: boolean;
@@ -2479,6 +2483,10 @@ export interface InventoryProductDetail extends InventoryProductListItem {
   created_at: string;
   version: number;
   finance_redacted?: boolean;
+  /** V2 rows are editable; legacy rows without a stock unit are read-only. */
+  edit_backing?: "v2" | "legacy_read_only";
+  edit_blocked_reason?: "legacy_without_stock_unit";
+  inspection?: InventoryProductInspectionSummary;
 }
 
 export type InventoryProductIdentifierKind = "imei1" | "imei2" | "serial" | "eid";
@@ -2529,6 +2537,7 @@ export interface CreateInventoryProductInput {
   location?: string;
   warranty_months?: number;
   notes?: string;
+  inspection?: InventoryProductInspectionInput;
 }
 
 export interface UpdateInventoryProductInput {
@@ -2549,6 +2558,22 @@ export interface UpdateInventoryProductInput {
   location?: string;
   warranty_months?: number;
   notes?: string;
+  inspection?: InventoryProductInspectionInput;
+}
+
+export type InventoryProductFaceIdStatus = "not_tested" | "normal" | "abnormal" | "not_applicable";
+
+export interface InventoryProductInspectionInput {
+  /** Null means the battery was not measured (or was cleared); the inspection record remains. */
+  battery_health?: number | null;
+  face_id_status?: InventoryProductFaceIdStatus;
+}
+
+export interface InventoryProductInspectionSummary {
+  id: string;
+  battery_health: number | null;
+  face_id_status: InventoryProductFaceIdStatus;
+  inspected_at: string;
 }
 
 export interface UpdateInventoryProductResult {

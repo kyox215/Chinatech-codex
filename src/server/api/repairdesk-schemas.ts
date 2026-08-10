@@ -601,6 +601,19 @@ const inventoryProductIdentifierInputSchema = z
     ) {
       ctx.addIssue({ code: "custom", path: ["value"], message: "序列号包含不可用字符" });
     }
+    if (identifier.kind === "eid" && identifier.primary === true) {
+      ctx.addIssue({ code: "custom", path: ["primary"], message: "EID 不能作为主要设备标识" });
+    }
+  });
+
+export const inventoryProductInspectionSchema = z
+  .object({
+    battery_health: z.number().finite().int().min(0).max(100).nullable().optional(),
+    face_id_status: z.enum(["not_tested", "normal", "abnormal", "not_applicable"]).optional(),
+  })
+  .strict()
+  .refine((value) => value.battery_health !== undefined || value.face_id_status !== undefined, {
+    message: "检测内容不能为空",
   });
 
 const inventoryProductSpecificationsSchema = z
@@ -669,6 +682,7 @@ export const createInventoryProductInputSchema = z
     location: z.string().trim().min(1).max(120).optional(),
     warranty_months: z.number().int().min(0).max(120).optional(),
     notes: z.string().trim().min(1).max(2_000).optional(),
+    inspection: inventoryProductInspectionSchema.optional(),
   })
   .strict()
   .superRefine((input, ctx) => {
@@ -686,6 +700,18 @@ export const createInventoryProductInputSchema = z
     const identifiers = input.identifiers ?? [];
     if (identifiers.length && identifiers.filter((identifier) => identifier.primary).length !== 1) {
       ctx.addIssue({ code: "custom", path: ["identifiers"], message: "请选择一个主要设备标识" });
+    }
+    if (
+      identifiers.some(
+        (identifier) =>
+          identifier.primary && !["imei1", "imei2", "serial"].includes(identifier.kind),
+      )
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["identifiers"],
+        message: "主要设备标识只能是 IMEI 1、IMEI 2 或序列号",
+      });
     }
     const kinds = identifiers.map((identifier) => identifier.kind);
     if (new Set(kinds).size !== kinds.length) {
@@ -720,12 +746,24 @@ export const updateInventoryProductInputSchema = z
     location: z.string().trim().min(1).max(120).optional(),
     warranty_months: z.number().int().min(0).max(120).optional(),
     notes: z.string().trim().min(1).max(2_000).optional(),
+    inspection: inventoryProductInspectionSchema.optional(),
   })
   .strict()
   .superRefine((input, ctx) => {
     validateInventoryProductSpecifications(input, ctx);
     if (input.identifiers.length && input.identifiers.filter((item) => item.primary).length !== 1) {
       ctx.addIssue({ code: "custom", path: ["identifiers"], message: "请选择一个主要设备标识" });
+    }
+    if (
+      input.identifiers.some(
+        (item) => item.primary && !["imei1", "imei2", "serial"].includes(item.kind),
+      )
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["identifiers"],
+        message: "主要设备标识只能是 IMEI 1、IMEI 2 或序列号",
+      });
     }
     const kinds = input.identifiers.map((item) => item.kind);
     const values = input.identifiers.map((item) => normalizeDeviceIdentifier(item.value));

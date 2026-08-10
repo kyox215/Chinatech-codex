@@ -1,16 +1,12 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
-import { ImeiScannerField } from "@/components/imei-scanner-field";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { updateInventoryProduct } from "@/lib/repairdesk/api";
 import type {
@@ -24,7 +20,20 @@ import { cn } from "@/lib/utils";
 
 import { inventoryProductKeys } from "../api/query-keys";
 import { inventoryProductEditQueryOptions } from "../api/query-options";
-import { isValidGtin, validateProductIdentifiers } from "../model/device-data";
+import {
+  InventoryProductIdentifierSection,
+  InventoryProductForm,
+  InventoryProductFormDetails,
+  inventoryProductFormCategories,
+} from "../components/inventory-product-form";
+import {
+  clearInventoryProductFormDependencies,
+  inventoryProductFormToUpdateInput,
+  mergeInventoryProductFormDraft,
+  validateInventoryProductFormDraft,
+  type InventoryProductFormDraft,
+} from "../model/inventory-product-form";
+import { useInventoryProductLeaveGuard } from "../model/use-inventory-product-leave-guard";
 
 type EditDraft = {
   category: InventoryProductCategory;
@@ -37,24 +46,27 @@ type EditDraft = {
   gtin: string;
   identifiers: Record<InventoryProductIdentifierKind, string>;
   sources: Record<InventoryProductIdentifierKind, "manual" | "scan" | "ai_confirmed">;
+  primary_identifier_kind?: InventoryProductIdentifierKind;
   specifications: Record<string, string>;
   list_price: string;
   cost_amount: string;
   location: string;
   warranty_months: string;
   notes: string;
+  inspection_battery_health: string;
+  inspection_face_id_status: InventoryProductFormDraft["inspection_face_id_status"];
+  inspection_touched: boolean;
 };
 
 type EditFieldErrorKey =
   | "brand"
   | "model"
+  | "condition"
   | "gtin"
   | "list_price"
   | "cost_amount"
-  | "warranty_months";
-
-const identifierOrder = ["imei1", "imei2", "serial", "eid"] as const;
-const identifierNames = { imei1: "IMEI 1", imei2: "IMEI 2", serial: "序列号", eid: "EID" };
+  | "warranty_months"
+  | "inspection_battery_health";
 
 export function InventoryProductEditScreen({ id }: { id: string }) {
   const shell = useStoreShellContext({ monitorAuthority: true });
@@ -87,8 +99,27 @@ function InventoryProductEditContent({
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<EditFieldErrorKey, string>>>({});
   const commandRef = useRef<{ fingerprint: string; idempotencyKey: string } | undefined>(undefined);
   const canEnterCost = shell.permissions?.canAllocateInventoryCosts === true;
+  const inspectionEnabled =
+    shell.permissions?.inventoryProductInspectionEnabled === true &&
+    shell.permissions?.canInspectInventory === true;
   const mutation = useMutation({
     mutationFn: (input: UpdateInventoryProductInput) => updateInventoryProduct(id, input),
+  });
+  const editDirty = Boolean(
+    draft &&
+    baseDraft &&
+    JSON.stringify(toFormDraft(draft)) !== JSON.stringify(toFormDraft(baseDraft)),
+  );
+  const leaveGuard = useInventoryProductLeaveGuard({
+    enabled: Boolean(draft && baseDraft),
+    isDirty: editDirty,
+    isPending: mutation.isPending,
+    onBlocked: (reason) =>
+      setError(
+        reason === "pending"
+          ? "正在保存商品，请等待结果后再离开。"
+          : "当前商品资料尚未保存，继续编辑或确认离开。",
+      ),
   });
 
   useEffect(() => {
@@ -105,6 +136,11 @@ function InventoryProductEditContent({
       delete document.body.dataset.mobileWorkspaceActive;
     };
   }, []);
+
+  const closeEdit = () => {
+    if (!leaveGuard.requestLeave()) return;
+    router.push(`/inventory/${id}`);
+  };
 
   if (shell.isLoading) {
     return <EditMessage title="正在加载商品资料" body="请稍候…" />;
@@ -138,69 +174,30 @@ function InventoryProductEditContent({
   const save = async () => {
     setError("");
     setFieldErrors({});
-    const rejectField = (field: EditFieldErrorKey, message: string) => {
-      setError(message);
-      setFieldErrors({ [field]: message });
-      document.getElementById(`edit-${field.replace("_", "-")}`)?.focus();
-    };
-    if (!draft.brand.trim()) {
-      rejectField("brand", "请填写品牌");
-      return;
-    }
-    if (!draft.model.trim()) {
-      rejectField("model", "请填写型号或商品名称");
-      return;
-    }
-    for (const [field, label, value] of [
-      ["list_price", "计划售价", draft.list_price],
-      ...(canEnterCost ? [["cost_amount", "入库成本", draft.cost_amount]] : []),
-    ]) {
-      if (value.trim() && optionalMoney(value) === undefined) {
-        rejectField(field as EditFieldErrorKey, `${label}格式无效，最多两位小数`);
-        return;
-      }
-    }
-    if (
-      draft.warranty_months.trim() &&
-      (!/^\d+$/.test(draft.warranty_months) || Number(draft.warranty_months) > 120)
-    ) {
-      rejectField("warranty_months", "保修月数必须是 0 到 120 的整数");
-      return;
-    }
-    const identifiers = identifierOrder
-      .filter((kind) => draft.identifiers[kind].trim())
-      .map((kind, index) => ({
-        kind,
-        value: draft.identifiers[kind].trim(),
-        source: draft.sources[kind],
-        primary: index === 0,
-      }));
-    const identifierError = validateProductIdentifiers(identifiers);
-    if (identifierError) return setError(identifierError);
-    if (draft.gtin.trim() && !isValidGtin(draft.gtin)) {
-      rejectField("gtin", "EAN / GTIN 校验位不正确");
+    const validation = validateInventoryProductFormDraft(toFormDraft(draft), {
+      canEnterCost,
+    });
+    if (validation) {
+      setError(validation.message);
+      const editFieldId = validation.fieldId
+        ? editFieldIdForValidation(validation.fieldId)
+        : undefined;
+      const fieldKey = validation.fieldId
+        ? editFieldKeyForValidation(validation.fieldId)
+        : undefined;
+      if (fieldKey) setFieldErrors({ [fieldKey]: validation.message });
+      if (editFieldId) document.getElementById(editFieldId)?.focus();
       return;
     }
     try {
-      const command = {
-        expected_version: version,
-        category: draft.category,
-        brand: draft.brand.trim(),
-        model: draft.model.trim(),
-        ram_capacity: optional(draft.ram_capacity),
-        storage_capacity: optional(draft.storage_capacity),
-        color: optional(draft.color),
-        gtin: optional(draft.gtin),
-        condition: optional(draft.condition),
-        specifications: cleanedRecord(draft.specifications),
-        identifiers,
-        list_price: optionalMoney(draft.list_price),
-        ...(canEnterCost ? { cost_amount: optionalMoney(draft.cost_amount) } : {}),
-        location: optional(draft.location),
-        warranty_months: draft.warranty_months.trim() ? Number(draft.warranty_months) : undefined,
-        notes: optional(draft.notes),
-      };
-      const fingerprint = JSON.stringify(command);
+      const command = inventoryProductFormToUpdateInput(
+        toFormDraft(draft),
+        "00000000-0000-4000-8000-000000000000",
+        version,
+        { canEnterCost },
+      );
+      const { idempotency_key: _unusedIdempotencyKey, ...commandWithoutIdempotency } = command;
+      const fingerprint = JSON.stringify(commandWithoutIdempotency);
       const idempotencyKey =
         commandRef.current?.fingerprint === fingerprint
           ? commandRef.current.idempotencyKey
@@ -208,17 +205,16 @@ function InventoryProductEditContent({
       commandRef.current = { fingerprint, idempotencyKey };
       const result = await mutation.mutateAsync({
         idempotency_key: idempotencyKey,
-        ...command,
+        ...commandWithoutIdempotency,
       });
       await queryClient.invalidateQueries({ queryKey: inventoryProductKeys.all });
       toast.success("商品资料已更新");
+      leaveGuard.markSaved();
       router.push(`/inventory/${result.id}`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "商品更新失败，请重试");
     }
   };
-
-  const specFields = categorySpecificationFields(draft.category);
 
   return (
     <main
@@ -235,7 +231,7 @@ function InventoryProductEditContent({
               size="icon"
               className="size-9 rounded-lg"
               aria-label="返回商品详情"
-              onClick={() => router.push(`/inventory/${id}`)}
+              onClick={closeEdit}
             >
               <ArrowLeft className="size-5" />
             </Button>
@@ -259,7 +255,7 @@ function InventoryProductEditContent({
           </h1>
           <p className="text-sm text-muted-foreground">保存时会检查是否有其他设备已修改</p>
         </div>
-        <Button type="button" variant="outline" onClick={() => router.push(`/inventory/${id}`)}>
+        <Button type="button" variant="outline" onClick={closeEdit}>
           <ArrowLeft className="mr-2 size-4" />
           返回详情
         </Button>
@@ -274,166 +270,126 @@ function InventoryProductEditContent({
           void save();
         }}
       >
-        <section
-          className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 md:p-4")}
-        >
-          <EditField
-            id="edit-brand"
-            label="品牌"
-            required
-            value={draft.brand}
-            error={fieldErrors.brand}
-            onChange={(brand) => {
-              setFieldErrors((current) => ({ ...current, brand: undefined }));
-              setDraft({ ...draft, brand });
-            }}
-          />
-          <EditField
-            id="edit-model"
-            label="型号 / 商品名称"
-            required
-            value={draft.model}
-            error={fieldErrors.model}
-            onChange={(model) => {
-              setFieldErrors((current) => ({ ...current, model: undefined }));
-              setDraft({ ...draft, model });
-            }}
-          />
-          <EditField
-            label="内存（RAM）"
-            value={draft.ram_capacity}
-            onChange={(ram_capacity) => setDraft({ ...draft, ram_capacity })}
-          />
-          <EditField
-            label="硬盘 / 存储容量"
-            value={draft.storage_capacity}
-            onChange={(storage_capacity) => setDraft({ ...draft, storage_capacity })}
-          />
-          <EditField
-            label="设备颜色"
-            value={draft.color}
-            onChange={(color) => setDraft({ ...draft, color })}
-          />
-          <EditField
-            label="成色"
-            value={draft.condition}
-            onChange={(condition) => setDraft({ ...draft, condition })}
-          />
-          <EditField
-            id="edit-gtin"
-            label="EAN / GTIN（同款条码）"
-            value={draft.gtin}
-            inputMode="numeric"
-            error={fieldErrors.gtin}
-            onChange={(gtin) => {
-              setFieldErrors((current) => ({ ...current, gtin: undefined }));
-              setDraft({ ...draft, gtin });
-            }}
-          />
-          {specFields.map((field) => (
-            <EditField
-              key={field.key}
-              label={field.label}
-              value={draft.specifications[field.key] ?? ""}
-              onChange={(value) =>
-                setDraft({
-                  ...draft,
-                  specifications: { ...draft.specifications, [field.key]: value },
-                })
+        <InventoryProductForm
+          draft={toFormDraft(draft)}
+          categories={inventoryProductFormCategories}
+          idPrefix="product"
+          brandInvalid={Boolean(fieldErrors.brand)}
+          modelInvalid={Boolean(fieldErrors.model)}
+          inspectionBatteryInvalid={Boolean(fieldErrors.inspection_battery_health)}
+          onCategoryChange={(category) =>
+            setDraft({
+              ...draft,
+              category,
+              brand: "",
+              model: "",
+              ram_capacity: "",
+              storage_capacity: "",
+              color: "",
+              specifications: {},
+              inspection_battery_health: "",
+              inspection_face_id_status: "not_tested",
+              inspection_touched: false,
+            })
+          }
+          onBrandChange={(brand) => {
+            setFieldErrors((current) => ({ ...current, brand: undefined }));
+            setDraft((current) => {
+              if (!current || current.brand === brand) return current;
+              return editDraftFromForm({
+                ...clearInventoryProductFormDependencies(toFormDraft(current), "brand"),
+                brand,
+              });
+            });
+          }}
+          onModelChange={(model) => {
+            setFieldErrors((current) => ({ ...current, model: undefined }));
+            setDraft((current) => {
+              if (!current || current.model === model) return current;
+              return editDraftFromForm({
+                ...clearInventoryProductFormDependencies(toFormDraft(current), "model"),
+                model,
+              });
+            });
+          }}
+          onRamChange={(ram_capacity) => setDraft({ ...draft, ram_capacity })}
+          onStorageChange={(storage_capacity) => setDraft({ ...draft, storage_capacity })}
+          onColorChange={(color) => setDraft({ ...draft, color })}
+          inspectionEnabled={inspectionEnabled}
+          onInspectionBatteryHealthChange={(inspection_battery_health) =>
+            setDraft((current) =>
+              current
+                ? { ...current, inspection_battery_health, inspection_touched: true }
+                : current,
+            )
+          }
+          onInspectionFaceIdStatusChange={(inspection_face_id_status) =>
+            setDraft((current) =>
+              current
+                ? { ...current, inspection_face_id_status, inspection_touched: true }
+                : current,
+            )
+          }
+        />
+        <InventoryProductFormDetails
+          draft={toFormDraft(draft)}
+          idPrefix="product"
+          canEnterCost={canEnterCost}
+          conditionInvalid={Boolean(fieldErrors.condition)}
+          gtinInvalid={Boolean(fieldErrors.gtin)}
+          listPriceInvalid={Boolean(fieldErrors.list_price)}
+          costInvalid={Boolean(fieldErrors.cost_amount)}
+          warrantyInvalid={Boolean(fieldErrors.warranty_months)}
+          identifierSection={
+            <InventoryProductIdentifierSection
+              draft={toFormDraft(draft)}
+              idPrefix="product"
+              description="修改或清空后保存；历史值会停用，不会物理删除。"
+              allowPrimarySelection
+              onIdentifierChange={(kind, value) =>
+                setDraft((current) =>
+                  current
+                    ? { ...current, identifiers: { ...current.identifiers, [kind]: value } }
+                    : current,
+                )
+              }
+              onIdentifierSource={(kind, source) =>
+                setDraft((current) =>
+                  current
+                    ? { ...current, sources: { ...current.sources, [kind]: source } }
+                    : current,
+                )
+              }
+              onPrimaryIdentifierChange={(kind) =>
+                setDraft((current) =>
+                  current ? { ...current, primary_identifier_kind: kind } : current,
+                )
               }
             />
-          ))}
-        </section>
-
-        <section className={cn(repairOs.mobileInfoCard, "space-y-2 p-2.5 md:p-4")}>
-          <div>
-            <h2 className="text-sm font-semibold">设备标识</h2>
-            <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-              修改或清空后保存；历史值会停用，不会物理删除。
-            </p>
-          </div>
-          <div className="grid min-w-0 gap-2 sm:grid-cols-2">
-            {identifierOrder.map((kind) => (
-              <div key={kind} className="min-w-0 space-y-1.5 sm:col-span-2">
-                <Label htmlFor={`edit-${kind}`}>{identifierNames[kind]}</Label>
-                <ImeiScannerField
-                  inputId={`edit-${kind}`}
-                  inputAriaLabel={identifierNames[kind]}
-                  identifierLabel={identifierNames[kind]}
-                  inputMode={kind === "serial" ? "text" : "numeric"}
-                  value={draft.identifiers[kind]}
-                  onChange={(value) =>
-                    setDraft({ ...draft, identifiers: { ...draft.identifiers, [kind]: value } })
-                  }
-                  onCommitSource={(source) =>
-                    setDraft((current) =>
-                      current
-                        ? { ...current, sources: { ...current.sources, [kind]: source } }
-                        : current,
-                    )
-                  }
-                  density="compact"
-                />
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section
-          className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 md:p-4")}
-        >
-          <EditField
-            id="edit-list-price"
-            label="计划售价"
-            value={draft.list_price}
-            inputMode="decimal"
-            error={fieldErrors.list_price}
-            onChange={(list_price) => {
-              setFieldErrors((current) => ({ ...current, list_price: undefined }));
-              setDraft({ ...draft, list_price });
-            }}
-          />
-          {canEnterCost ? (
-            <EditField
-              id="edit-cost-amount"
-              label="入库成本"
-              value={draft.cost_amount}
-              inputMode="decimal"
-              error={fieldErrors.cost_amount}
-              onChange={(cost_amount) => {
-                setFieldErrors((current) => ({ ...current, cost_amount: undefined }));
-                setDraft({ ...draft, cost_amount });
-              }}
-            />
-          ) : null}
-          <EditField
-            label="库位"
-            value={draft.location}
-            onChange={(location) => setDraft({ ...draft, location })}
-          />
-          <EditField
-            id="edit-warranty-months"
-            label="保修（月）"
-            value={draft.warranty_months}
-            inputMode="numeric"
-            error={fieldErrors.warranty_months}
-            onChange={(warranty_months) => {
-              setFieldErrors((current) => ({ ...current, warranty_months: undefined }));
-              setDraft({ ...draft, warranty_months });
-            }}
-          />
-          <div className="col-span-2 space-y-1">
-            <Label htmlFor="edit-notes" className="text-xs">
-              内部备注
-            </Label>
-            <Textarea
-              id="edit-notes"
-              className="min-h-20 resize-y text-base lg:text-sm"
-              value={draft.notes}
-              onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
-            />
-          </div>
-        </section>
+          }
+          onConditionChange={(condition) => setDraft({ ...draft, condition })}
+          onGtinChange={(gtin) => {
+            setFieldErrors((current) => ({ ...current, gtin: undefined }));
+            setDraft({ ...draft, gtin });
+          }}
+          onSpecificationChange={(key, value) =>
+            setDraft({ ...draft, specifications: { ...draft.specifications, [key]: value } })
+          }
+          onListPriceChange={(list_price) => {
+            setFieldErrors((current) => ({ ...current, list_price: undefined }));
+            setDraft({ ...draft, list_price });
+          }}
+          onCostChange={(cost_amount) => {
+            setFieldErrors((current) => ({ ...current, cost_amount: undefined }));
+            setDraft({ ...draft, cost_amount });
+          }}
+          onLocationChange={(location) => setDraft({ ...draft, location })}
+          onWarrantyChange={(warranty_months) => {
+            setFieldErrors((current) => ({ ...current, warranty_months: undefined }));
+            setDraft({ ...draft, warranty_months });
+          }}
+          onNotesChange={(notes) => setDraft({ ...draft, notes })}
+        />
 
         {error ? (
           <div
@@ -473,15 +429,10 @@ function InventoryProductEditContent({
             "fixed bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-1/2 z-30 mx-0 grid w-[calc(100%_-_1rem)] max-w-[414px] -translate-x-1/2 grid-cols-2 gap-1.5 rounded-xl border border-border bg-background/95 px-2 py-2 shadow-[var(--shadow-card)] sm:mx-0 lg:sticky lg:bottom-0 lg:left-auto lg:w-auto lg:max-w-none lg:translate-x-0 lg:px-0 lg:pb-0",
           )}
         >
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-9"
-            onClick={() => router.push(`/inventory/${id}`)}
-          >
+          <Button type="button" variant="outline" className="min-h-11" onClick={closeEdit}>
             取消
           </Button>
-          <Button type="submit" className="min-h-10" disabled={mutation.isPending}>
+          <Button type="submit" className="min-h-11" disabled={mutation.isPending}>
             {mutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}保存修改
           </Button>
         </div>
@@ -502,6 +453,7 @@ function toDraft(data: InventoryProductEditData): EditDraft {
     identifiers[identifier.kind] = identifier.value;
     sources[identifier.kind] = identifier.source;
   }
+  const primary = data.identifiers.find((identifier) => identifier.primary)?.kind;
   return {
     category: data.category,
     brand: data.brand,
@@ -513,127 +465,109 @@ function toDraft(data: InventoryProductEditData): EditDraft {
     gtin: data.gtin ?? "",
     identifiers,
     sources,
+    primary_identifier_kind: primary,
     specifications: data.specifications ?? {},
     list_price: data.list_price?.toString() ?? "",
     cost_amount: data.cost_amount?.toString() ?? "",
     location: data.location ?? "",
     warranty_months: data.warranty_months?.toString() ?? "",
     notes: data.notes ?? "",
+    inspection_battery_health:
+      data.inspection?.battery_health === null || data.inspection?.battery_health === undefined
+        ? ""
+        : String(data.inspection.battery_health),
+    inspection_face_id_status: data.inspection?.face_id_status ?? "not_tested",
+    inspection_touched: false,
   };
 }
 
-function EditField({
-  id,
-  label,
-  value,
-  onChange,
-  inputMode,
-  error,
-  required,
-}: {
-  id?: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
-  error?: string;
-  required?: boolean;
-}) {
-  const generatedId = useId();
-  const inputId = id ?? generatedId;
-  const errorId = `${inputId}-error`;
-  return (
-    <div className="min-w-0 space-y-1">
-      <Label htmlFor={inputId} className="text-xs">
-        {label}
-        {required ? <span className="text-destructive"> *</span> : null}
-      </Label>
-      <Input
-        id={inputId}
-        className="h-[38px] min-w-0 text-base lg:h-9 lg:text-sm"
-        value={value}
-        required={required}
-        inputMode={inputMode}
-        aria-invalid={Boolean(error)}
-        aria-describedby={error ? errorId : undefined}
-        onChange={(event) => onChange(event.target.value)}
-      />
-      {error ? (
-        <p id={errorId} className="text-xs text-destructive">
-          {error}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function categorySpecificationFields(category: InventoryProductCategory) {
-  if (category === "computer")
-    return [
-      { key: "processor", label: "处理器" },
-      { key: "disk_type", label: "硬盘类型" },
-      { key: "graphics", label: "显卡" },
-    ];
-  if (category === "game_console")
-    return [
-      { key: "edition", label: "版本" },
-      { key: "region", label: "区域" },
-      { key: "included_controller_count", label: "手柄数" },
-    ];
-  if (category === "phone") return [{ key: "network_variant", label: "网络版本" }];
-  if (category === "tablet")
-    return [
-      { key: "connectivity", label: "联网版本" },
-      { key: "screen_size_inches", label: "屏幕尺寸" },
-    ];
-  return [{ key: "short_specification", label: "简短规格" }];
-}
-function optional(value: string) {
-  return value.trim() || undefined;
-}
-function optionalMoney(value: string) {
-  const text = value.trim().replace(",", ".");
-  return text && /^\d+(?:\.\d{1,2})?$/.test(text) ? Number(text) : undefined;
-}
-function cleanedRecord(value: Record<string, string>) {
-  return Object.fromEntries(
-    Object.entries(value)
-      .map(([key, item]) => [key, item.trim()])
-      .filter(([, item]) => item),
-  );
+function toFormDraft(draft: EditDraft): InventoryProductFormDraft {
+  return {
+    category: draft.category,
+    brand: draft.brand,
+    model: draft.model,
+    color: draft.color,
+    ram_capacity: draft.ram_capacity,
+    storage_capacity: draft.storage_capacity,
+    gtin: draft.gtin,
+    condition: draft.condition,
+    identifiers: draft.identifiers,
+    identifier_sources: draft.sources,
+    primary_identifier_kind: draft.primary_identifier_kind,
+    specifications: draft.specifications,
+    list_price: draft.list_price,
+    cost_amount: draft.cost_amount,
+    location: draft.location,
+    warranty_months: draft.warranty_months,
+    notes: draft.notes,
+    inspection_battery_health: draft.inspection_battery_health,
+    inspection_face_id_status: draft.inspection_face_id_status,
+    inspection_touched: draft.inspection_touched,
+  };
 }
 
 function mergeEditDraft(base: EditDraft, local: EditDraft, latest: EditDraft): EditDraft {
-  const merged = { ...latest } as EditDraft;
-  for (const key of Object.keys(local) as Array<keyof EditDraft>) {
-    if (["identifiers", "sources", "specifications"].includes(key)) continue;
-    const localValue = local[key];
-    const baseValue = base[key];
-    if (JSON.stringify(localValue) !== JSON.stringify(baseValue)) {
-      Object.assign(merged, { [key]: localValue });
-    }
-  }
-  merged.identifiers = mergeRecord(base.identifiers, local.identifiers, latest.identifiers);
-  merged.sources = mergeRecord(base.sources, local.sources, latest.sources);
-  merged.specifications = mergeRecord(
-    base.specifications,
-    local.specifications,
-    latest.specifications,
+  return editDraftFromForm(
+    mergeInventoryProductFormDraft(toFormDraft(base), toFormDraft(local), toFormDraft(latest)),
   );
-  return merged;
 }
 
-function mergeRecord<T extends Record<string, string>>(base: T, local: T, latest: T): T {
-  const merged = { ...latest } as T;
-  for (const key of new Set([
-    ...Object.keys(base),
-    ...Object.keys(local),
-    ...Object.keys(latest),
-  ])) {
-    if (local[key] !== base[key]) merged[key as keyof T] = local[key] as T[keyof T];
-  }
-  return merged;
+function editDraftFromForm(draft: InventoryProductFormDraft): EditDraft {
+  return {
+    category: draft.category,
+    brand: draft.brand,
+    model: draft.model,
+    ram_capacity: draft.ram_capacity,
+    storage_capacity: draft.storage_capacity,
+    color: draft.color,
+    condition: draft.condition,
+    gtin: draft.gtin,
+    identifiers: draft.identifiers,
+    sources: draft.identifier_sources,
+    primary_identifier_kind: draft.primary_identifier_kind,
+    specifications: draft.specifications,
+    list_price: draft.list_price,
+    cost_amount: draft.cost_amount,
+    location: draft.location,
+    warranty_months: draft.warranty_months,
+    notes: draft.notes,
+    inspection_battery_health: draft.inspection_battery_health,
+    inspection_face_id_status: draft.inspection_face_id_status,
+    inspection_touched: draft.inspection_touched,
+  };
 }
+
+const editValidationFieldIds: Record<string, string> = {
+  "product-brand": "product-brand",
+  "product-model": "product-model",
+  "product-condition": "product-condition",
+  "product-gtin": "product-gtin",
+  "product-price": "product-price",
+  "product-cost": "product-cost",
+  "product-warranty": "product-warranty",
+  "product-notes": "product-notes",
+  "product-battery-health": "product-battery-health",
+};
+
+const editValidationFieldKeys: Record<string, EditFieldErrorKey> = {
+  "product-brand": "brand",
+  "product-model": "model",
+  "product-condition": "condition",
+  "product-gtin": "gtin",
+  "product-price": "list_price",
+  "product-cost": "cost_amount",
+  "product-warranty": "warranty_months",
+  "product-battery-health": "inspection_battery_health",
+};
+
+function editFieldIdForValidation(fieldId: string) {
+  return editValidationFieldIds[fieldId] ?? fieldId;
+}
+
+function editFieldKeyForValidation(fieldId: string) {
+  return editValidationFieldKeys[fieldId];
+}
+
 function EditMessage({
   title,
   body,

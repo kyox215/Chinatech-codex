@@ -61,7 +61,10 @@ test("mobile detail stays minimal and edit supports full device data", async ({ 
   await mockEditableProduct(page);
   await page.goto(`/inventory/${editableProductId}/edit`);
   await expect(page.getByRole("heading", { name: /编辑 Apple iPad Air 5/ })).toBeVisible();
-  await expect(page.locator("#edit-brand")).toHaveValue("Apple");
+  // Compact/mobile catalog controls are buttons by design so opening them does
+  // not summon the system keyboard. Assert the selected label rather than an
+  // input value; desktop keeps the editable input contract.
+  await expect(page.locator("#product-brand")).toContainText("Apple");
   await expect(page.getByText("设备标识", { exact: true })).toBeVisible();
   await expect(page.locator('[role="progressbar"]')).toHaveCount(0);
   await assertNoHorizontalOverflow(page);

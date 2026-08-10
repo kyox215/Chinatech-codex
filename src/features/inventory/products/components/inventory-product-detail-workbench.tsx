@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import type {
   InventoryProductCategory,
   InventoryProductDetail,
+  InventoryProductInspectionSummary,
   InventoryProductDisplayStatus,
 } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
@@ -59,6 +60,32 @@ const statusStyles: Record<InventoryProductDisplayStatus, string> = {
   returned: "bg-status-info text-status-info-foreground",
 };
 
+type LifecycleInspection = NonNullable<InventoryLifecycleListSummary["inspection"]>;
+
+function mergeInspectionFacts(
+  itemInspection?: InventoryProductInspectionSummary,
+  lifecycleInspection?: InventoryLifecycleListSummary["inspection"],
+): LifecycleInspection | undefined {
+  if (!itemInspection && !lifecycleInspection) return undefined;
+  const baseline: LifecycleInspection = lifecycleInspection ?? {
+    battery_health: itemInspection?.battery_health ?? null,
+    face_id_status: itemInspection?.face_id_status ?? "not_tested",
+    touch_id_status: "not_tested",
+    true_tone_status: "not_tested",
+    activation_lock_status: "not_tested",
+    data_wipe_status: "not_tested",
+    imei_status: "not_tested",
+    inspected_at: itemInspection?.inspected_at ?? new Date(0).toISOString(),
+  };
+  if (!itemInspection) return baseline;
+  return {
+    ...baseline,
+    battery_health: itemInspection.battery_health,
+    face_id_status: itemInspection.face_id_status,
+    inspected_at: itemInspection.inspected_at,
+  };
+}
+
 export function InventoryProductDetailWorkbench({
   item,
   lifecycleSummary,
@@ -110,6 +137,10 @@ export function InventoryProductDetailWorkbench({
   const summaryFields: ProductSummaryField[] = [];
   const exactProjection =
     lifecycleSummary?.projection?.mode === "exact" ? lifecycleSummary.projection : undefined;
+  const inspection = mergeInspectionFacts(item.inspection, lifecycleSummary?.inspection);
+  const lifecycleSummaryWithInspection = lifecycleSummary
+    ? { ...lifecycleSummary, ...(inspection ? { inspection } : {}) }
+    : undefined;
   const lifecycleMeta = exactProjection
     ? getInventoryLifecycleProjectionMeta(exactProjection, item.legacy_status ?? item.status)
     : undefined;
@@ -183,11 +214,11 @@ export function InventoryProductDetailWorkbench({
               category={item.category}
               brand={item.brand}
               specifications={item.specifications}
-              inspection={lifecycleSummary?.inspection}
+              inspection={inspection}
             />
             {lifecycleSummary ? (
               <InventoryInspectionEditor
-                summary={lifecycleSummary}
+                summary={lifecycleSummaryWithInspection ?? lifecycleSummary}
                 brand={item.brand}
                 category={item.category}
               />
@@ -195,7 +226,11 @@ export function InventoryProductDetailWorkbench({
             <DeviceWorkbenchSection fields={buildWorkbenchFields(item)} />
             <DeviceIdentitySection identifiers={visibleIdentifiers} gtin={item.gtin} />
             <ProductNotesSection notes={item.notes} />
-            {lifecycleSummary ? <InventoryLifecycleHistoryCard summary={lifecycleSummary} /> : null}
+            {lifecycleSummary ? (
+              <InventoryLifecycleHistoryCard
+                summary={lifecycleSummaryWithInspection ?? lifecycleSummary}
+              />
+            ) : null}
           </div>
         </div>
       </div>
@@ -251,6 +286,9 @@ function MobileProductHeader({
             <p className="truncate text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
               {item.sku} · {categoryLabel} · {statusLabel}
             </p>
+            {item.edit_backing === "legacy_read_only" ? (
+              <p className="text-[10px] text-status-warn-foreground">历史商品：仅可查看</p>
+            ) : null}
           </div>
           {canEdit ? (
             <Button
@@ -292,6 +330,11 @@ function DesktopProductHeader({
         <p className="text-sm text-muted-foreground">
           {item.sku} · {statusLabel}
         </p>
+        {item.edit_backing === "legacy_read_only" ? (
+          <p className="text-xs text-status-warn-foreground">
+            历史商品：仅可查看（无 V2 库存单元）
+          </p>
+        ) : null}
       </div>
       {canEdit ? (
         <Button type="button" onClick={onEdit}>

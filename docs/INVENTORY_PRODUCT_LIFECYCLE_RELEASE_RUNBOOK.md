@@ -180,3 +180,55 @@ Expand 默认不授予浏览器写权限。九张表启用 RLS；`service_role` 
 - 自动退款、自动没收定金或自动释放过期预订；
 - AI 自动判断设备检测或保障责任；
 - 旧表 RLS、历史迁移 lineage 和恢复治理的跨任务修复。
+
+## 12. 商品检测 Phase 1（独立门禁）
+
+商品检测不是生命周期 UI 或 commands 的隐式子开关。新增检测编排与表结构
+必须在完整 V2/lifecycle migration 序列中 rehearsal 后，才允许设置：
+
+- `INVENTORY_PRODUCT_INSPECTION_SCHEMA_READY`
+- `INVENTORY_PRODUCT_INSPECTION_ENABLED`
+- `INVENTORY_PRODUCT_INSPECTION_ALL_STORES`
+- `INVENTORY_PRODUCT_INSPECTION_ALLOWLIST`
+- `INVENTORY_PRODUCT_INSPECTION_DENYLIST`
+
+常规商品保存不带 `inspection` 时必须继续走旧商品 RPC，省略检测不得查询检测表。
+带检测的商品与检测必须经单一 service-role 编排 RPC 在一个 PostgreSQL 事务中完成；
+`inventory:inspection` 权限与普通商品保存权限分离，销售角色即使能保存商品也不能
+携带检测。Phase 1 只接受 `battery_health`（0–100 或 null）与四态
+`face_id_status`；Touch ID、True Tone、激活锁、抹除和 IMEI 检测仍关闭。
+
+目录能力必须是显式元数据；未知或手工型号默认无能力。iPhone/iPad/MacBook 的电池
+能力和明确 Face ID 机型矩阵见代码目录测试，桌面 Mac 设备默认无电池能力。
+
+### 12.1 当前窄授权迁移合同
+
+商品检测生产序列固定为：
+
+1. `20260810173524_inventory_product_inspection_atomic_20260810150000.sql`：自包含、追加式
+   `inventory_device_inspections`、同店约束/复合 FK、最新检测索引、追加式专用
+   幂等 ledger 和 dormant `SECURITY DEFINER` wrapper；此步不授予浏览器或
+   `service_role` 直接 DML，也不启用任何 lifecycle command/UI。
+2. `20260810173610_inventory_product_inspection_atomic_enable_20260810150100.sql`：只在对象、列型、
+   约束、RLS、append-only trigger、索引、owner、`search_path` 和完整 ACL preflight
+   通过后，授予 `service_role` wrapper `EXECUTE` 和两张检测表 `SELECT`。
+
+生产 manifest 只允许上述精确的 `20260810173524 → 20260810173610` 顺序；远端迁移名中
+保留的 `20260810150000` / `20260810150100` 仅作为来源迁移 provenance；
+`20260806222149_authenticated_toolkit_library.sql`、
+`20260807120000_inventory_product_lifecycle.sql`、
+`20260807120100_inventory_product_lifecycle_enable.sql` 均明确排除，不得混入、重排或
+作为前置依赖。不得做 migration repair、修改历史迁移或用 repair 标记掩盖 lineage
+差异；任何历史 lineage 差异必须在临时 PostgreSQL 17 rehearsal 中 fail closed。
+
+`20260807120000`/`20260807120100` 生命周期迁移不属于本次生产序列。若未来迁移先以
+`CREATE IF NOT EXISTS` 建立检测表，`20260810173524` 仍会用显式幂等 DO block 补齐
+`inventory_device_inspections_unit_item_same_store_fkey`，因此两条 lineage 都必须在
+PostgreSQL 17 临时库 rehearsal：既验证 `20260810173524 → 20260810173610`，也验证“未来 lifecycle
+先建表 → 20260810173524 → 20260810173610”。
+
+可执行的 rollback-only 行为演练位于
+`supabase/tests/inventory_product_inspection_atomic.sql`，覆盖 PG17、RLS/ACL、检测
+字段 fail-closed（`battery_health` 的 0/100/null）、角色与跨店边界、sales 普通保存
+与带检测拒绝、同 actor replay、actor binding、CAS 冲突及外层异常回滚。演练必须在
+临时库或 staging 执行，外层事务最终 `ROLLBACK`，禁止指向生产。

@@ -106,11 +106,11 @@ test("390px edit exposes field-level validation and a fixed save bar", async ({
   page,
   browserName,
 }) => {
-  await mockProductEdit(page);
+  await mockProductEdit(page, { brand: "" });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/inventory/${productId}/edit`);
 
-  await expect(page.getByLabel("品牌")).toHaveValue("Apple");
+  await expect(page.locator("#product-brand")).toContainText("选择品牌");
   const actions = page.locator('[data-ui="inventory-product-actions"]');
   await expect(actions).toBeVisible();
   const actionBox = await actions.boundingBox();
@@ -118,10 +118,9 @@ test("390px edit exposes field-level validation and a fixed save bar", async ({
   expect(actionBox!.y + actionBox!.height).toBeLessThanOrEqual(844);
   await assertActionBarCentered(page, 390);
 
-  await page.getByLabel("品牌").fill("");
   await page.getByRole("button", { name: "保存修改" }).click();
-  await expect(page.getByLabel("品牌")).toHaveAttribute("aria-invalid", "true");
-  await expect(page.locator("#edit-brand-error")).toHaveText("请填写品牌");
+  await expect(page.locator("#product-brand")).toHaveAttribute("aria-invalid", "true");
+  await expect(page.locator("#product-brand-error")).toHaveText("请填写品牌");
   await assertNoHorizontalOverflow(page);
   await hideNextDevUi(page);
 
@@ -196,12 +195,14 @@ async function mockProductDetail(page: Page) {
   });
 }
 
-async function mockProductEdit(page: Page) {
+async function mockProductEdit(page: Page, overrides: { brand?: string } = {}) {
   await page.route("**/api/repairdesk/inventory/products/edit-data", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ data: { ...productDetail(), identifiers: [] } }),
+      body: JSON.stringify({
+        data: { ...productDetail(), ...overrides, identifiers: [] },
+      }),
     });
   });
 }

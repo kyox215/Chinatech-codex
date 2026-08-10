@@ -78,7 +78,9 @@ export function InventoryProductDetailScreen({ id }: { id: string }) {
 
   const item = query.data;
   const canEdit = Boolean(
-    shell.permissions?.canUpdateInventory && !["sold", "removed"].includes(item.status),
+    shell.permissions?.canUpdateInventory &&
+    item.edit_backing !== "legacy_read_only" &&
+    !["sold", "removed"].includes(item.status),
   );
   return (
     <InventoryProductDetailWorkbench

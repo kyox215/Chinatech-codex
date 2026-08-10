@@ -3,24 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  ChevronDown,
-  Gamepad2,
-  Laptop,
-  Loader2,
-  PackageOpen,
-  Smartphone,
-  Tablet,
-  X,
-} from "lucide-react";
+import { ArrowLeft, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { ImeiScannerField } from "@/components/imei-scanner-field";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { COMPACT_WORKSPACE_BREAKPOINT } from "@/hooks/use-mobile";
 import { createInventoryProduct } from "@/lib/repairdesk/api";
@@ -29,8 +15,20 @@ import { repairOs, surfaces } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
 import { inventoryProductKeys } from "../api/query-keys";
-import { InventoryDeviceCatalogFields } from "../components/inventory-device-catalog-fields";
-import { isValidGtin, validateProductIdentifiers } from "../model/device-data";
+import {
+  InventoryProductIdentifierSection,
+  InventoryProductForm,
+  InventoryProductFormDetails,
+  inventoryProductFormCategories,
+} from "../components/inventory-product-form";
+import {
+  clearInventoryProductFormDependencies,
+  inventoryProductFormToCreateInput,
+  isInventoryProductFormDraftDirty,
+  validateInventoryProductFormDraft,
+  type InventoryProductFormDraft,
+} from "../model/inventory-product-form";
+import { useInventoryProductLeaveGuard } from "../model/use-inventory-product-leave-guard";
 
 type Draft = {
   category: InventoryProductCategory;
@@ -46,19 +44,31 @@ type Draft = {
   imei2: string;
   serial: string;
   eid: string;
+  primary_identifier_kind?: "imei1" | "imei2" | "serial" | "eid";
   identifier_sources: Record<"imei1" | "imei2" | "serial" | "eid", "manual" | "scan">;
   list_price: string;
   cost_amount: string;
   location: string;
   warranty_months: string;
   notes: string;
+  inspection_battery_health: string;
+  inspection_face_id_status: InventoryProductFormDraft["inspection_face_id_status"];
+  inspection_touched: boolean;
 };
 
 type ValidationError = { message: string; fieldId?: string };
 
 type CatalogDraftSnapshot = Pick<
   Draft,
-  "brand" | "model" | "ram_capacity" | "storage_capacity" | "color" | "specifications"
+  | "brand"
+  | "model"
+  | "ram_capacity"
+  | "storage_capacity"
+  | "color"
+  | "specifications"
+  | "inspection_battery_health"
+  | "inspection_face_id_status"
+  | "inspection_touched"
 >;
 
 type PendingCatalogTransition = {
@@ -80,14 +90,6 @@ export type InventoryProductIntakeScreenProps = {
   onAuthorityInvalidated?: () => void;
 };
 
-const categories = [
-  { value: "phone", label: "手机", icon: Smartphone },
-  { value: "tablet", label: "平板", icon: Tablet },
-  { value: "computer", label: "电脑", icon: Laptop },
-  { value: "game_console", label: "游戏机", icon: Gamepad2 },
-  { value: "other", label: "其他", icon: PackageOpen },
-] satisfies Array<{ value: InventoryProductCategory; label: string; icon: typeof Smartphone }>;
-
 function initialDraft(category: InventoryProductCategory = "phone"): Draft {
   return {
     category,
@@ -103,38 +105,21 @@ function initialDraft(category: InventoryProductCategory = "phone"): Draft {
     imei2: "",
     serial: "",
     eid: "",
+    primary_identifier_kind: undefined,
     identifier_sources: { imei1: "manual", imei2: "manual", serial: "manual", eid: "manual" },
     list_price: "",
     cost_amount: "",
     location: "",
     warranty_months: "",
     notes: "",
+    inspection_battery_health: "",
+    inspection_face_id_status: "not_tested",
+    inspection_touched: false,
   };
 }
 
 function isDraftDirty(draft: Draft) {
-  return (
-    draft.category !== "phone" ||
-    [
-      draft.brand,
-      draft.model,
-      draft.color,
-      draft.ram_capacity,
-      draft.storage_capacity,
-      draft.gtin,
-      draft.condition,
-      draft.imei1,
-      draft.imei2,
-      draft.serial,
-      draft.eid,
-      draft.list_price,
-      draft.cost_amount,
-      draft.location,
-      draft.warranty_months,
-      draft.notes,
-      ...Object.values(draft.specifications),
-    ].some((value) => value.trim().length > 0)
-  );
+  return isInventoryProductFormDraftDirty(toFormDraft(draft));
 }
 
 function catalogSnapshot(draft: Draft): CatalogDraftSnapshot {
@@ -145,6 +130,9 @@ function catalogSnapshot(draft: Draft): CatalogDraftSnapshot {
     storage_capacity: draft.storage_capacity,
     color: draft.color,
     specifications: { ...draft.specifications },
+    inspection_battery_health: draft.inspection_battery_health,
+    inspection_face_id_status: draft.inspection_face_id_status,
+    inspection_touched: draft.inspection_touched,
   };
 }
 
@@ -153,6 +141,9 @@ function hasModelDependentValues(draft: Draft) {
     draft.ram_capacity.trim() ||
     draft.storage_capacity.trim() ||
     draft.color.trim() ||
+    draft.inspection_battery_health.trim() ||
+    draft.inspection_face_id_status !== "not_tested" ||
+    draft.inspection_touched ||
     Object.values(draft.specifications).some((value) => value.trim()),
   );
 }
@@ -178,14 +169,18 @@ function focusCategoryConfirmation() {
 }
 
 function clearCatalogDependentValues(draft: Draft, kind: "brand" | "model", nextValue: string) {
+  const cleared = clearInventoryProductFormDependencies(toFormDraft(draft), kind);
   return {
     ...draft,
     ...(kind === "brand" ? { brand: nextValue } : { model: nextValue }),
     model: kind === "brand" ? "" : nextValue,
-    ram_capacity: "",
-    storage_capacity: "",
-    color: "",
-    specifications: {},
+    ram_capacity: cleared.ram_capacity,
+    storage_capacity: cleared.storage_capacity,
+    color: cleared.color,
+    specifications: cleared.specifications,
+    inspection_battery_health: cleared.inspection_battery_health,
+    inspection_face_id_status: cleared.inspection_face_id_status,
+    inspection_touched: cleared.inspection_touched,
   };
 }
 
@@ -200,7 +195,6 @@ export function InventoryProductIntakeScreen({
   const queryClient = useQueryClient();
   const shell = useStoreShellContext({ monitorAuthority: true });
   const [draft, setDraft] = useState<Draft>(() => initialDraft());
-  const [moreOpen, setMoreOpen] = useState(false);
   const [pendingCategory, setPendingCategory] = useState<InventoryProductCategory>();
   const [pendingCatalogTransition, setPendingCatalogTransition] =
     useState<PendingCatalogTransition>();
@@ -213,9 +207,25 @@ export function InventoryProductIntakeScreen({
   const onAuthorityInvalidatedRef = useRef(onAuthorityInvalidated);
   const lastReportedStateRef = useRef<InventoryProductIntakeState | undefined>(undefined);
   const canEnterCost = shell.permissions?.canAllocateInventoryCosts === true;
+  const inspectionEnabled =
+    shell.permissions?.inventoryProductInspectionEnabled === true &&
+    shell.permissions?.canInspectInventory === true;
 
   const mutation = useMutation({
     mutationFn: (input: CreateInventoryProductInput) => createInventoryProduct(input),
+  });
+
+  const leaveGuard = useInventoryProductLeaveGuard({
+    enabled: surface === "page" && !shell.isLoading,
+    isDirty: isDraftDirty(draft),
+    isPending: mutation.isPending,
+    onBlocked: (reason) =>
+      setError({
+        message:
+          reason === "pending"
+            ? "正在保存商品，请等待结果后再离开。"
+            : "当前商品资料尚未保存，继续填写或确认离开。",
+      }),
   });
 
   useEffect(() => {
@@ -237,7 +247,6 @@ export function InventoryProductIntakeScreen({
     authorityGenerationRef.current += 1;
     setDraft(initialDraft());
     setIdempotencyKey(crypto.randomUUID());
-    setMoreOpen(false);
     setPendingCategory(undefined);
     setPendingCatalogTransition(undefined);
     submitLockRef.current = false;
@@ -269,6 +278,7 @@ export function InventoryProductIntakeScreen({
   }, []);
 
   const closeIntake = () => {
+    if (surface === "page" && !leaveGuard.requestLeave()) return;
     if (onCancel) {
       onCancel();
       return;
@@ -338,7 +348,6 @@ export function InventoryProductIntakeScreen({
           "product-gtin",
         ].includes(fieldId)
       ) {
-        setMoreOpen(true);
         requestAnimationFrame(() => document.getElementById(fieldId)?.focus());
       } else {
         document.getElementById(fieldId)?.focus();
@@ -362,12 +371,12 @@ export function InventoryProductIntakeScreen({
         });
         setDraft(sameProductDraft(draft));
         setIdempotencyKey(crypto.randomUUID());
-        setMoreOpen(false);
         setError(undefined);
         document
           .getElementById(draft.category === "phone" ? "product-imei1" : "product-serial")
           ?.focus();
       } else {
+        leaveGuard.markSaved();
         if (onCreated) await onCreated(result.id);
         else {
           await queryClient.invalidateQueries({
@@ -402,8 +411,12 @@ export function InventoryProductIntakeScreen({
             imei2: "",
             serial: "",
             eid: "",
+            primary_identifier_kind: undefined,
             gtin: "",
             specifications: {},
+            inspection_battery_health: "",
+            inspection_face_id_status: "not_tested",
+            inspection_touched: false,
           }),
     }));
   };
@@ -489,6 +502,9 @@ export function InventoryProductIntakeScreen({
         draft.serial,
         draft.eid,
         draft.gtin,
+        draft.inspection_battery_health,
+        draft.inspection_face_id_status === "not_tested" ? "" : draft.inspection_face_id_status,
+        draft.inspection_touched ? "inspection-touched" : "",
         ...Object.values(draft.specifications),
       ].some((value) => value.trim())
     ) {
@@ -511,13 +527,14 @@ export function InventoryProductIntakeScreen({
       event.key === "Home"
         ? 0
         : event.key === "End"
-          ? categories.length - 1
+          ? inventoryProductFormCategories.length - 1
           : delta
-            ? (index + delta + categories.length) % categories.length
+            ? (index + delta + inventoryProductFormCategories.length) %
+              inventoryProductFormCategories.length
             : undefined;
     if (nextIndex === undefined) return;
     event.preventDefault();
-    const next = categories[nextIndex].value;
+    const next = inventoryProductFormCategories[nextIndex].value;
     if (selectCategory(next)) document.getElementById(`product-category-${next}`)?.focus();
   };
 
@@ -530,7 +547,7 @@ export function InventoryProductIntakeScreen({
         surface === "page" &&
           cn(
             repairOs.mobileFloatingPage,
-            "mx-auto w-full max-w-[430px] px-2 pb-28 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] lg:max-w-3xl lg:px-0 lg:pb-8 lg:pt-0",
+            "mx-auto w-full max-w-[430px] px-2 pb-28 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] lg:max-w-4xl lg:px-0 lg:pb-8 lg:pt-0",
           ),
         surface === "dialog" &&
           "flex h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] min-h-0 w-full flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] p-2 shadow-[var(--shadow-overlay)] sm:h-auto sm:max-h-[calc(100svh-32px)] sm:p-3",
@@ -611,36 +628,18 @@ export function InventoryProductIntakeScreen({
           void save(false);
         }}
       >
-        <section className={cn(repairOs.mobileInfoCard, "space-y-2 p-2.5 md:p-4")}>
-          <fieldset>
-            <legend className="mb-1.5 text-xs font-semibold">
-              类别 <span className="text-destructive">*</span>
-            </legend>
-            <div className="grid grid-cols-5 gap-1.5" role="radiogroup" aria-label="商品类别">
-              {categories.map(({ value, label, icon: Icon }, index) => (
-                <button
-                  id={`product-category-${value}`}
-                  key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={draft.category === value}
-                  tabIndex={draft.category === value ? 0 : -1}
-                  disabled={Boolean(pendingCategory || pendingCatalogTransition)}
-                  className={cn(
-                    "flex min-h-8 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:text-xs lg:leading-4",
-                    draft.category === value
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-card",
-                  )}
-                  onClick={() => selectCategory(value)}
-                  onKeyDown={(event) => handleCategoryKeyDown(event, index)}
-                >
-                  <Icon className="size-3.5" aria-hidden="true" />
-                  {label}
-                </button>
-              ))}
-            </div>
-            {pendingCategory ? (
+        <InventoryProductForm
+          draft={toFormDraft(draft)}
+          categories={inventoryProductFormCategories}
+          surface={surface === "dialog" ? "dialog" : "page"}
+          categoryDisabled={Boolean(pendingCategory || pendingCatalogTransition)}
+          catalogDisabled={Boolean(pendingCategory || pendingCatalogTransition)}
+          autoFocusBrand={shouldAutoFocusBrand(surface)}
+          brandInvalid={error?.fieldId === "product-brand"}
+          modelInvalid={error?.fieldId === "product-model"}
+          inspectionBatteryInvalid={error?.fieldId === "product-battery-health"}
+          categoryNotice={
+            pendingCategory ? (
               <div
                 data-ui="inventory-product-category-confirm"
                 className="mt-2 grid gap-2 rounded-lg border border-status-warn-foreground/20 bg-status-warn px-2.5 py-2 text-status-warn-foreground sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
@@ -648,7 +647,11 @@ export function InventoryProductIntakeScreen({
                 aria-live="polite"
               >
                 <p className="text-[11px] leading-4 sm:text-xs">
-                  切换到“{categories.find((item) => item.value === pendingCategory)?.label}
+                  切换到“
+                  {
+                    inventoryProductFormCategories.find((item) => item.value === pendingCategory)
+                      ?.label
+                  }
                   ”会清除当前品牌、型号、规格和设备标识。
                 </p>
                 <div className="grid grid-cols-2 gap-1.5">
@@ -678,223 +681,94 @@ export function InventoryProductIntakeScreen({
                   </Button>
                 </div>
               </div>
-            ) : null}
-          </fieldset>
+            ) : null
+          }
+          catalogNotice={
+            pendingCatalogTransition ? (
+              <CatalogTransitionConfirm
+                kind={pendingCatalogTransition.kind}
+                onCancel={cancelCatalogTransition}
+                onConfirm={confirmCatalogTransition}
+              />
+            ) : null
+          }
+          onCategoryChange={selectCategory}
+          onCategoryKeyDown={handleCategoryKeyDown}
+          onBrandChange={requestBrandChange}
+          onModelChange={requestModelChange}
+          onRamChange={(ram_capacity) => setDraft((current) => ({ ...current, ram_capacity }))}
+          onStorageChange={(storage_capacity) =>
+            setDraft((current) => ({ ...current, storage_capacity }))
+          }
+          onColorChange={(color) => setDraft((current) => ({ ...current, color }))}
+          inspectionEnabled={inspectionEnabled}
+          onInspectionBatteryHealthChange={(inspection_battery_health) =>
+            setDraft((current) => ({
+              ...current,
+              inspection_battery_health,
+              inspection_touched: true,
+            }))
+          }
+          onInspectionFaceIdStatusChange={(inspection_face_id_status) =>
+            setDraft((current) => ({
+              ...current,
+              inspection_face_id_status,
+              inspection_touched: true,
+            }))
+          }
+        />
 
-          <InventoryDeviceCatalogFields
-            category={draft.category}
-            brand={draft.brand}
-            model={draft.model}
-            ramCapacity={draft.ram_capacity}
-            storageCapacity={draft.storage_capacity}
-            color={draft.color}
-            surface={surface === "dialog" ? "dialog" : "page"}
-            disabled={Boolean(pendingCategory || pendingCatalogTransition)}
-            autoFocusBrand={shouldAutoFocusBrand(surface)}
-            brandInvalid={error?.fieldId === "product-brand"}
-            modelInvalid={error?.fieldId === "product-model"}
-            onBrandChange={requestBrandChange}
-            onModelChange={requestModelChange}
-            onRamChange={(ram_capacity) => setDraft((current) => ({ ...current, ram_capacity }))}
-            onStorageChange={(storage_capacity) =>
-              setDraft((current) => ({ ...current, storage_capacity }))
-            }
-            onColorChange={(color) => setDraft((current) => ({ ...current, color }))}
-          />
-          {pendingCatalogTransition ? (
-            <CatalogTransitionConfirm
-              kind={pendingCatalogTransition.kind}
-              onCancel={cancelCatalogTransition}
-              onConfirm={confirmCatalogTransition}
-            />
-          ) : null}
-        </section>
-
-        {draft.category === "game_console" ? (
-          <section className={cn(repairOs.mobileInfoCard, "grid gap-2 p-2.5 md:p-4")}>
-            <Field
-              id="product-spec-edition"
-              label="版本"
-              value={draft.specifications.edition ?? ""}
-              placeholder="例如 Slim、OLED"
-              onChange={(edition) =>
-                setDraft((current) => ({
-                  ...current,
-                  specifications: { ...current.specifications, edition },
-                }))
+        <InventoryProductFormDetails
+          draft={toFormDraft(draft)}
+          idPrefix="product"
+          canEnterCost={canEnterCost}
+          conditionInvalid={error?.fieldId === "product-condition"}
+          gtinInvalid={error?.fieldId === "product-gtin"}
+          listPriceInvalid={error?.fieldId === "product-price"}
+          costInvalid={error?.fieldId === "product-cost"}
+          warrantyInvalid={error?.fieldId === "product-warranty"}
+          identifierSection={
+            <InventoryProductIdentifierSection
+              draft={toFormDraft(draft)}
+              idPrefix="product"
+              description={
+                surface === "dialog"
+                  ? "弹窗内可粘贴或手工输入；完整页面仍保留摄像头扫码与本机图片识别。"
+                  : "可用摄像头扫码、照片识别、粘贴或手工输入；原图仅在本机处理。"
               }
-            />
-          </section>
-        ) : null}
-
-        <section className={cn(repairOs.mobileInfoCard, "space-y-2 p-2.5 md:p-4")}>
-          <div>
-            <h2 className="text-sm font-semibold">设备标识</h2>
-            <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-              {surface === "dialog"
-                ? "弹窗内可粘贴或手工输入；完整页面仍保留摄像头扫码与本机图片识别。"
-                : "可用摄像头扫码、照片识别、粘贴或手工输入；原图仅在本机处理。"}
-            </p>
-          </div>
-          {draft.category === "phone" ? (
-            <IdentifierField
-              id="product-imei1"
-              label="IMEI 1"
-              value={draft.imei1}
-              invalid={error?.fieldId === "product-imei1"}
               showScanner={surface === "page"}
-              onChange={(imei1) => setDraft((current) => ({ ...current, imei1 }))}
-              onSource={(source) =>
-                setDraft((current) => ({
-                  ...current,
-                  identifier_sources: { ...current.identifier_sources, imei1: source },
-                }))
+              allowPrimarySelection
+              invalidKinds={{
+                imei1: error?.fieldId === "product-imei1",
+                imei2: error?.fieldId === "product-imei2",
+                serial: error?.fieldId === "product-serial",
+                eid: error?.fieldId === "product-eid",
+              }}
+              onIdentifierChange={(kind, value) =>
+                setDraft((current) => ({ ...current, [kind]: value }))
+              }
+              onIdentifierSource={(kind, source) => setIdentifierSource(setDraft, kind, source)}
+              onPrimaryIdentifierChange={(kind) =>
+                setDraft((current) => ({ ...current, primary_identifier_kind: kind }))
               }
             />
-          ) : (
-            <IdentifierField
-              id="product-serial"
-              label="序列号"
-              value={draft.serial}
-              invalid={error?.fieldId === "product-serial"}
-              showScanner={surface === "page"}
-              onChange={(serial) => setDraft((current) => ({ ...current, serial }))}
-              onSource={(source) =>
-                setDraft((current) => ({
-                  ...current,
-                  identifier_sources: { ...current.identifier_sources, serial: source },
-                }))
-              }
-            />
-          )}
-        </section>
-
-        <section className={cn(repairOs.mobileInfoCard, "overflow-hidden p-0")}>
-          <button
-            type="button"
-            className="flex min-h-9 w-full items-center justify-between px-3 text-left text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-            aria-expanded={moreOpen}
-            onClick={() => setMoreOpen((open) => !open)}
-          >
-            <span>
-              <span className="block">更多信息</span>
-              <span className="text-[10px] font-normal leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
-                标识、规格、售价、库位等均可稍后补充
-              </span>
-            </span>
-            <ChevronDown className={cn("size-4 transition-transform", moreOpen && "rotate-180")} />
-          </button>
-          {moreOpen ? (
-            <div className="grid grid-cols-2 gap-2 border-t border-border p-2.5 md:p-4">
-              <Field
-                id="product-condition"
-                label="成色"
-                value={draft.condition}
-                placeholder="例如 全新、良好、有使用痕迹"
-                onChange={(condition) => setDraft((current) => ({ ...current, condition }))}
-              />
-              {draft.category === "phone" ? (
-                <IdentifierField
-                  id="product-imei2"
-                  label="IMEI 2"
-                  value={draft.imei2}
-                  invalid={error?.fieldId === "product-imei2"}
-                  showScanner={surface === "page"}
-                  onChange={(imei2) => setDraft((current) => ({ ...current, imei2 }))}
-                  onSource={(source) => setIdentifierSource(setDraft, "imei2", source)}
-                />
-              ) : null}
-              {draft.category === "phone" ? (
-                <IdentifierField
-                  id="product-eid"
-                  label="EID"
-                  value={draft.eid}
-                  invalid={error?.fieldId === "product-eid"}
-                  showScanner={surface === "page"}
-                  onChange={(eid) => setDraft((current) => ({ ...current, eid }))}
-                  onSource={(source) => setIdentifierSource(setDraft, "eid", source)}
-                />
-              ) : null}
-              <Field
-                id="product-gtin"
-                label="EAN / GTIN（同款条码）"
-                value={draft.gtin}
-                inputMode="numeric"
-                placeholder="8、13 或 14 位商品条码"
-                invalid={error?.fieldId === "product-gtin"}
-                onChange={(gtin) => setDraft((current) => ({ ...current, gtin }))}
-              />
-              {categorySpecificationFields(draft.category)
-                .filter((field) => !(draft.category === "game_console" && field.key === "edition"))
-                .map((field) => (
-                  <Field
-                    key={field.key}
-                    id={`product-spec-${field.key}`}
-                    label={field.label}
-                    value={draft.specifications[field.key] ?? ""}
-                    placeholder={field.placeholder}
-                    onChange={(value) =>
-                      setDraft((current) => ({
-                        ...current,
-                        specifications: { ...current.specifications, [field.key]: value },
-                      }))
-                    }
-                  />
-                ))}
-              <Field
-                id="product-price"
-                label="计划售价"
-                inputMode="decimal"
-                value={draft.list_price}
-                placeholder="未填写"
-                invalid={error?.fieldId === "product-price"}
-                onChange={(list_price) => setDraft((current) => ({ ...current, list_price }))}
-              />
-              {canEnterCost ? (
-                <Field
-                  id="product-cost"
-                  label="入库成本"
-                  inputMode="decimal"
-                  value={draft.cost_amount}
-                  placeholder="未填写"
-                  invalid={error?.fieldId === "product-cost"}
-                  onChange={(cost_amount) => setDraft((current) => ({ ...current, cost_amount }))}
-                />
-              ) : null}
-              <Field
-                id="product-location"
-                label="库位"
-                value={draft.location}
-                placeholder="例如 A-02"
-                onChange={(location) => setDraft((current) => ({ ...current, location }))}
-              />
-              <Field
-                id="product-warranty"
-                label="保修（月）"
-                inputMode="numeric"
-                value={draft.warranty_months}
-                placeholder="未填写"
-                invalid={error?.fieldId === "product-warranty"}
-                onChange={(warranty_months) =>
-                  setDraft((current) => ({ ...current, warranty_months }))
-                }
-              />
-              <div className="col-span-2 space-y-1.5">
-                <Label htmlFor="product-notes">内部备注</Label>
-                <Textarea
-                  id="product-notes"
-                  value={draft.notes}
-                  maxLength={2000}
-                  className="min-h-20 resize-y text-base lg:text-sm"
-                  placeholder="可选"
-                  onChange={(event) =>
-                    setDraft((current) => ({ ...current, notes: event.target.value }))
-                  }
-                />
-              </div>
-            </div>
-          ) : null}
-        </section>
+          }
+          onConditionChange={(condition) => setDraft((current) => ({ ...current, condition }))}
+          onGtinChange={(gtin) => setDraft((current) => ({ ...current, gtin }))}
+          onSpecificationChange={(key, value) =>
+            setDraft((current) => ({
+              ...current,
+              specifications: { ...current.specifications, [key]: value },
+            }))
+          }
+          onListPriceChange={(list_price) => setDraft((current) => ({ ...current, list_price }))}
+          onCostChange={(cost_amount) => setDraft((current) => ({ ...current, cost_amount }))}
+          onLocationChange={(location) => setDraft((current) => ({ ...current, location }))}
+          onWarrantyChange={(warranty_months) =>
+            setDraft((current) => ({ ...current, warranty_months }))
+          }
+          onNotesChange={(notes) => setDraft((current) => ({ ...current, notes }))}
+        />
 
         {error ? (
           <p
@@ -919,7 +793,7 @@ export function InventoryProductIntakeScreen({
           <Button
             type="button"
             variant="outline"
-            className="min-h-9"
+            className="min-h-11"
             disabled={mutation.isPending || Boolean(pendingCategory || pendingCatalogTransition)}
             onClick={() => void save(true)}
           >
@@ -928,7 +802,7 @@ export function InventoryProductIntakeScreen({
           </Button>
           <Button
             type="submit"
-            className="min-h-10"
+            className="min-h-11"
             disabled={mutation.isPending || Boolean(pendingCategory || pendingCatalogTransition)}
           >
             {mutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
@@ -940,53 +814,6 @@ export function InventoryProductIntakeScreen({
   );
 }
 
-function Field({
-  id,
-  label,
-  value,
-  onChange,
-  required,
-  placeholder,
-  inputMode,
-  invalid,
-  list,
-  autoFocus,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  required?: boolean;
-  placeholder?: string;
-  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
-  invalid?: boolean;
-  list?: string;
-  autoFocus?: boolean;
-}) {
-  return (
-    <div className="min-w-0 space-y-1">
-      <Label htmlFor={id} className="text-xs">
-        {label}
-        {required ? <span className="text-destructive"> *</span> : null}
-      </Label>
-      <Input
-        id={id}
-        autoFocus={autoFocus}
-        value={value}
-        required={required}
-        maxLength={160}
-        inputMode={inputMode}
-        list={list}
-        placeholder={placeholder}
-        aria-invalid={invalid || undefined}
-        aria-describedby={invalid ? "product-form-error" : undefined}
-        className="h-[38px] min-w-0 text-base lg:h-9 lg:text-sm"
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </div>
-  );
-}
-
 function shouldAutoFocusBrand(surface: "page" | "dialog") {
   return (
     surface === "dialog" &&
@@ -995,164 +822,43 @@ function shouldAutoFocusBrand(surface: "page" | "dialog") {
   );
 }
 
-function IdentifierField({
-  id,
-  label,
-  value,
-  onChange,
-  onSource,
-  invalid,
-  showScanner = true,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  onSource: (source: "manual" | "scan") => void;
-  invalid?: boolean;
-  showScanner?: boolean;
-}) {
-  return (
-    <div className="col-span-2 min-w-0 space-y-1">
-      <Label htmlFor={id} className="text-xs">
-        {label}
-      </Label>
-      <ImeiScannerField
-        inputId={id}
-        inputAriaLabel={label}
-        identifierLabel={label}
-        inputMode={id.includes("serial") ? "text" : "numeric"}
-        ariaInvalid={invalid}
-        ariaDescribedBy={invalid ? `${id}-error` : undefined}
-        value={value}
-        onChange={onChange}
-        onCommitSource={onSource}
-        placeholder={`扫描或输入${label}`}
-        density="compact"
-        showScanner={showScanner}
-      />
-      {invalid ? (
-        <p id={`${id}-error`} className="text-xs text-destructive">
-          请检查{label}格式
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
 function toInput(
   draft: Draft,
   idempotency_key: string,
   canEnterCost: boolean,
 ): CreateInventoryProductInput {
-  const identifiers = (["imei1", "imei2", "serial", "eid"] as const)
-    .filter((kind) => draft[kind].trim())
-    .map((kind, index) => ({
-      kind,
-      value: draft[kind].trim(),
-      source: draft.identifier_sources[kind],
-      primary: index === 0,
-    }));
-  return {
-    idempotency_key,
-    category: draft.category,
-    brand: draft.brand.trim(),
-    model: draft.model.trim(),
-    color: optional(draft.color),
-    ram_capacity: optional(draft.ram_capacity),
-    storage_capacity: optional(draft.storage_capacity),
-    gtin: optional(draft.gtin),
-    condition: optional(draft.condition),
-    specifications: cleanedRecord(draft.specifications),
-    identifiers,
-    list_price: parseOptionalMoney(draft.list_price),
-    ...(canEnterCost ? { cost_amount: parseOptionalMoney(draft.cost_amount) } : {}),
-    location: optional(draft.location),
-    warranty_months: draft.warranty_months.trim() ? Number(draft.warranty_months) : undefined,
-    notes: optional(draft.notes),
-  };
+  return inventoryProductFormToCreateInput(toFormDraft(draft), idempotency_key, {
+    canEnterCost,
+  });
 }
 
 function validateDraft(draft: Draft, canEnterCost: boolean) {
-  if (!draft.brand.trim()) return { message: "请填写品牌", fieldId: "product-brand" };
-  if (!draft.model.trim()) return { message: "请填写型号或商品名称", fieldId: "product-model" };
-  if (draft.imei2.trim() && !draft.imei1.trim()) {
-    return { message: "请先填写 IMEI 1，再填写 IMEI 2", fieldId: "product-imei1" };
-  }
-  for (const [label, value, fieldId] of [
-    ["计划售价", draft.list_price, "product-price"],
-    ...(canEnterCost ? [["入库成本", draft.cost_amount, "product-cost"]] : []),
-  ] as string[][]) {
-    if (value.trim() && parseOptionalMoney(value) === undefined)
-      return { message: `${label}格式无效，最多两位小数`, fieldId };
-  }
-  if (
-    draft.warranty_months.trim() &&
-    (!/^\d+$/.test(draft.warranty_months) || Number(draft.warranty_months) > 120)
-  )
-    return {
-      message: "保修月数必须是 0 到 120 的整数",
-      fieldId: "product-warranty",
-    };
-  const identifiers = (["imei1", "imei2", "serial", "eid"] as const)
-    .filter((kind) => draft[kind].trim())
-    .map((kind, index) => ({
-      kind,
-      value: draft[kind],
-      source: draft.identifier_sources[kind],
-      primary: index === 0,
-    }));
-  const identifierError = validateProductIdentifiers(identifiers);
-  if (identifierError) {
-    const failingKind = (["imei1", "imei2", "serial", "eid"] as const).find((kind) =>
-      identifierError.includes(kind === "serial" ? "序列号" : kind.toUpperCase()),
-    );
-    return { message: identifierError, fieldId: `product-${failingKind ?? "imei1"}` };
-  }
-  if (draft.gtin.trim() && !isValidGtin(draft.gtin)) {
-    return { message: "EAN / GTIN 校验位不正确", fieldId: "product-gtin" };
-  }
-  return undefined;
+  return validateInventoryProductFormDraft(toFormDraft(draft), { canEnterCost });
 }
 
-function parseOptionalMoney(value: string) {
-  const text = value.trim();
-  if (!text) return undefined;
-  if (!/^\d+(?:[.,]\d{1,2})?$/.test(text)) return undefined;
-  return Number(text.replace(",", "."));
-}
-function optional(value: string) {
-  const text = value.trim();
-  return text || undefined;
-}
-function cleanedRecord(value: Record<string, string>) {
-  return Object.fromEntries(
-    Object.entries(value)
-      .map(([key, item]) => [key, item.trim()])
-      .filter(([, item]) => item),
-  );
-}
-function categorySpecificationFields(category: InventoryProductCategory) {
-  if (category === "computer")
-    return [
-      { key: "processor", label: "处理器", placeholder: "例如 Apple M3、Intel i5" },
-      { key: "disk_type", label: "硬盘类型", placeholder: "例如 SSD" },
-      { key: "graphics", label: "显卡", placeholder: "例如 RTX 4060" },
-    ];
-  if (category === "game_console")
-    return [
-      { key: "edition", label: "版本", placeholder: "例如 Slim、OLED" },
-      { key: "region", label: "区域版本", placeholder: "例如 EU" },
-      { key: "included_controller_count", label: "手柄数量", placeholder: "例如 2" },
-    ];
-  if (category === "phone")
-    return [{ key: "network_variant", label: "网络版本", placeholder: "例如 EU、双卡" }];
-  if (category === "tablet")
-    return [
-      { key: "connectivity", label: "联网版本", placeholder: "例如 Wi‑Fi、5G" },
-      { key: "screen_size_inches", label: "屏幕尺寸", placeholder: "例如 11 英寸" },
-    ];
-  return [{ key: "short_specification", label: "简短规格", placeholder: "例如 蓝牙音箱 60W" }];
+function toFormDraft(draft: Draft): InventoryProductFormDraft {
+  return {
+    category: draft.category,
+    brand: draft.brand,
+    model: draft.model,
+    color: draft.color,
+    ram_capacity: draft.ram_capacity,
+    storage_capacity: draft.storage_capacity,
+    gtin: draft.gtin,
+    condition: draft.condition,
+    specifications: draft.specifications,
+    identifiers: { imei1: draft.imei1, imei2: draft.imei2, serial: draft.serial, eid: draft.eid },
+    identifier_sources: draft.identifier_sources,
+    primary_identifier_kind: draft.primary_identifier_kind,
+    list_price: draft.list_price,
+    cost_amount: draft.cost_amount,
+    location: draft.location,
+    warranty_months: draft.warranty_months,
+    notes: draft.notes,
+    inspection_battery_health: draft.inspection_battery_health,
+    inspection_face_id_status: draft.inspection_face_id_status,
+    inspection_touched: draft.inspection_touched,
+  };
 }
 
 function sameProductDraft(draft: Draft): Draft {
@@ -1162,11 +868,15 @@ function sameProductDraft(draft: Draft): Draft {
     imei2: "",
     serial: "",
     eid: "",
+    primary_identifier_kind: undefined,
     identifier_sources: { imei1: "manual", imei2: "manual", serial: "manual", eid: "manual" },
     list_price: "",
     cost_amount: "",
     warranty_months: "",
     notes: "",
+    inspection_battery_health: "",
+    inspection_face_id_status: "not_tested",
+    inspection_touched: false,
   };
 }
 

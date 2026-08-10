@@ -34,6 +34,7 @@ type InventoryDeviceCatalogFieldsProps = {
   surface?: CatalogPickerSurface;
   disabled?: boolean;
   autoFocusBrand?: boolean;
+  idPrefix?: string;
   brandInvalid?: boolean;
   modelInvalid?: boolean;
   onBrandChange: (value: string) => void;
@@ -55,6 +56,7 @@ export function InventoryDeviceCatalogFields({
   surface = "page",
   disabled = false,
   autoFocusBrand = false,
+  idPrefix = "product",
   brandInvalid = false,
   modelInvalid = false,
   onBrandChange,
@@ -112,7 +114,7 @@ export function InventoryDeviceCatalogFields({
     <div className="min-w-0 space-y-2">
       <div className="grid min-w-0 grid-cols-1 min-[360px]:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-1.5 sm:gap-2.5">
         <CatalogCombobox
-          id="product-brand"
+          id={`${idPrefix}-brand`}
           label="品牌 *"
           value={brand}
           placeholder={categoryCopy.brandPlaceholder}
@@ -131,7 +133,7 @@ export function InventoryDeviceCatalogFields({
           onSelect={handleBrandSelect}
         />
         <CatalogCombobox
-          id="product-model"
+          id={`${idPrefix}-model`}
           label="型号 / 商品名称 *"
           value={model}
           placeholder={selectedBrand ? "选择型号" : "先选品牌"}
@@ -157,7 +159,7 @@ export function InventoryDeviceCatalogFields({
       <div className="grid min-w-0 grid-cols-2 gap-2">
         {category !== "other" ? (
           <CatalogSpecificationChoices
-            id="product-storage"
+            id={`${idPrefix}-storage`}
             label={category === "computer" ? "硬盘 / 存储容量" : "存储容量"}
             value={storageCapacity}
             options={selectedModel?.storageOptions ?? []}
@@ -169,7 +171,7 @@ export function InventoryDeviceCatalogFields({
         ) : null}
         {(["phone", "tablet", "computer"] as InventoryProductCategory[]).includes(category) ? (
           <CatalogSpecificationChoices
-            id="product-ram"
+            id={`${idPrefix}-ram`}
             label="内存（RAM）"
             value={ramCapacity}
             options={selectedModel?.ramOptions ?? []}
@@ -183,6 +185,7 @@ export function InventoryDeviceCatalogFields({
           options={selectedModel?.colors ?? []}
           disabled={disabled}
           onChange={onColorChange}
+          idPrefix={idPrefix}
           className={category === "other" || category === "game_console" ? "col-span-2" : undefined}
         />
       </div>
@@ -233,7 +236,7 @@ function CatalogSpecificationChoices({
               disabled={disabled}
               onClick={() => onChange(option)}
               className={cn(
-                "min-h-8 rounded-lg border px-2 text-[11px] font-medium transition-colors",
+                "min-h-11 rounded-lg border px-2 text-[11px] font-medium transition-colors",
                 value === option
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-[var(--border-panel)] bg-background hover:bg-accent/60",
@@ -263,12 +266,14 @@ function CatalogColorChoices({
   disabled,
   onChange,
   className,
+  idPrefix,
 }: {
   value: string;
   options: DeviceCatalogModel["colors"];
   disabled?: boolean;
   onChange: (value: string) => void;
   className?: string;
+  idPrefix: string;
 }) {
   const isManualValue = Boolean(value) && !options.some((option) => option.name === value);
   return (
@@ -294,7 +299,7 @@ function CatalogColorChoices({
                 disabled={disabled}
                 onClick={() => onChange(option.name)}
                 className={cn(
-                  "flex min-h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors",
+                  "flex min-h-11 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors",
                   selected
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-[var(--border-panel)] bg-background hover:bg-accent/60",
@@ -313,7 +318,7 @@ function CatalogColorChoices({
         </div>
       ) : null}
       <Input
-        id="product-color"
+        id={`${idPrefix}-color`}
         className={inputClass}
         value={isManualValue ? value : ""}
         disabled={disabled}

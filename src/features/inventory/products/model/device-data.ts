@@ -72,6 +72,9 @@ export function validateProductIdentifiers(identifiers: InventoryProductIdentifi
   const seenKinds = new Set<InventoryProductIdentifierKind>();
   const seenValues = new Set<string>();
   for (const identifier of populated) {
+    if (identifier.primary === true && identifier.kind === "eid") {
+      return "EID 不能作为主要设备标识";
+    }
     const error = validateProductIdentifier(identifier.kind, identifier.value);
     if (error) return error;
     const normalized = normalizeDeviceIdentifier(identifier.value);

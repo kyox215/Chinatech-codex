@@ -13,6 +13,8 @@ import type {
   InventoryProductListFilters,
   InventoryProductListItem,
   InventoryProductListResult,
+  InventoryProductInspectionInput,
+  InventoryProductInspectionSummary,
   UpdateInventoryProductInput,
   UpdateInventoryProductResult,
 } from "@/lib/repairdesk/types";
@@ -22,6 +24,11 @@ import { can } from "@/server/permissions";
 import { getSupabaseAdmin } from "@/server/supabase";
 
 import { inventoryV2DependencyError, runInventoryV2Dependency } from "./inventory-v2-errors";
+import {
+  assertInventoryProductInspectionEnabled,
+  isInventoryProductInspectionEnabledForStore,
+} from "@/features/inventory/products/server/inventory-product-inspection-feature-flags";
+import { resolveDeviceInspectionCapabilities } from "@/features/inventory/products/model/device-catalog";
 import { enrichInventoryProductLifecycle } from "@/features/inventory/lifecycle/server/inventory-lifecycle.repository";
 import { projectUnavailableInventoryLifecycle } from "@/features/inventory/lifecycle/model/projection";
 
@@ -46,6 +53,15 @@ const errorMessages: Record<string, string> = {
   invalid_imei: "IMEI 格式或校验位不正确",
   invalid_model: "请填写品牌和型号/名称",
   invalid_warranty: "保修月数无效",
+  inspection_not_supported: "当前目录不支持所选检测项目",
+  invalid_battery_health: "电池健康度必须是 0 到 100 的整数或空值",
+  invalid_face_id_status: "Face ID 检测状态无效",
+  unsupported_inspection_field: "当前版本不支持该检测项目",
+  invalid_request: "商品检测请求无效",
+  invalid_inspection: "请至少填写一项设备检测结果",
+  invalid_result: "商品检测保存结果不完整，请使用原保存标识重试",
+  idempotency_actor_conflict: "该保存标识属于其他员工，不能重放",
+  legacy_read_only: "历史商品没有可编辑库存单元，只能查看",
   not_found: "商品不存在或不属于当前门店",
   projection_conflict: "商品资料状态不一致，请刷新后重试",
   primary_identifier_required: "请选择一个主要设备标识",
@@ -445,6 +461,13 @@ export async function getInventoryProductEditData(
   await consumeSensitiveIdentifierRead(actor, storeId);
   const detail = await getInventoryProduct(id, actor);
   const device = await readProductDeviceData(storeId, id, true);
+  if (device.edit_backing === "legacy_read_only") {
+    throw inventoryProductHttpError(
+      "INVENTORY_PRODUCT_LEGACY_READ_ONLY",
+      "历史商品没有可编辑库存单元，只能查看",
+      409,
+    );
+  }
   await writeAuditLog({
     actor,
     action: "read_sensitive",
@@ -499,6 +522,13 @@ export async function createInventoryProduct(
   }
 
   const identifiers = normalizeProductIdentifiers(input);
+  if (input.inspection !== undefined) {
+    const inspection = prepareInventoryProductInspection(input, actor, input.inspection);
+    return createInventoryProductWithInspection(
+      { ...input, identifiers, identifier_kind: undefined, serial_or_imei: undefined, inspection },
+      actor,
+    );
+  }
   const { data, error } = await runInventoryV2Dependency(
     () =>
       getSupabaseAdmin().rpc("repairdesk_create_inventory_product_v2", {
@@ -542,6 +572,10 @@ export async function updateInventoryProduct(
   if (input.cost_amount !== undefined && !can(actor, "inventory:cost_allocate")) {
     throw new Error("当前员工没有录入商品成本的权限");
   }
+  if (input.inspection !== undefined) {
+    const inspection = prepareInventoryProductInspection(input, actor, input.inspection);
+    return updateInventoryProductWithInspection(id, { ...input, inspection }, actor);
+  }
   const { data, error } = await runInventoryV2Dependency(
     () =>
       getSupabaseAdmin().rpc("repairdesk_update_inventory_product_v1", {
@@ -556,7 +590,7 @@ export async function updateInventoryProduct(
   if (result.ok !== true) {
     const code = text(result.code) ?? "update_failed";
     const message = errorMessages[code] ?? "更新商品失败";
-    if (["version_conflict", "idempotency_conflict"].includes(code)) {
+    if (["version_conflict", "idempotency_conflict", "idempotency_actor_conflict"].includes(code)) {
       const conflict = new Error(message) as Error & { status: number; code: string };
       conflict.status = 409;
       conflict.code = code;
@@ -647,6 +681,9 @@ async function readProductDeviceData(
   specifications: Record<string, unknown>;
   version: number;
   identifiers: Array<Record<string, unknown>>;
+  edit_backing: "v2" | "legacy_read_only";
+  edit_blocked_reason?: "legacy_without_stock_unit";
+  inspection?: InventoryProductInspectionSummary;
 }> {
   const supabase = getSupabaseAdmin();
   const { data: unit, error: unitError } = await supabase
@@ -656,31 +693,55 @@ async function readProductDeviceData(
     .eq("legacy_inventory_item_id", itemId)
     .maybeSingle();
   fail(unitError, "读取商品设备资料失败");
-  if (!unit) return { identifiers: [], specifications: {}, version: 1 };
-  const [{ data: variant, error: variantError }, { data: identifiers, error: identifierError }] =
-    await Promise.all([
-      supabase
-        .from("inventory_product_variants")
-        .select("ram_capacity,gtin,specifications")
-        .eq("store_id", storeId)
-        .eq("id", requiredString(unit.variant_id))
-        .maybeSingle(),
-      supabase
-        .from("inventory_stock_unit_identifiers")
-        .select("kind,display_value,source,is_primary")
+  if (!unit) {
+    return {
+      identifiers: [],
+      specifications: {},
+      version: 1,
+      edit_backing: "legacy_read_only",
+      edit_blocked_reason: "legacy_without_stock_unit",
+    };
+  }
+  const variantQuery = supabase
+    .from("inventory_product_variants")
+    .select("ram_capacity,gtin,specifications")
+    .eq("store_id", storeId)
+    .eq("id", requiredString(unit.variant_id))
+    .maybeSingle();
+  const identifiersQuery = supabase
+    .from("inventory_stock_unit_identifiers")
+    .select("kind,display_value,source,is_primary")
+    .eq("store_id", storeId)
+    .eq("stock_unit_id", requiredString(unit.id))
+    .neq("kind", "sku")
+    .is("retired_at", null)
+    .order("kind", { ascending: true });
+  const inspectionQuery = isInventoryProductInspectionEnabledForStore(storeId)
+    ? supabase
+        .from("inventory_device_inspections")
+        .select("id,battery_health,face_id_status,inspected_at,created_at")
         .eq("store_id", storeId)
         .eq("stock_unit_id", requiredString(unit.id))
-        .neq("kind", "sku")
-        .is("retired_at", null)
-        .order("kind", { ascending: true }),
-    ]);
+        .order("inspected_at", { ascending: false })
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    : Promise.resolve({ data: null, error: null });
+  const [
+    { data: variant, error: variantError },
+    { data: identifiers, error: identifierError },
+    { data: inspectionRow, error: inspectionError },
+  ] = await Promise.all([variantQuery, identifiersQuery, inspectionQuery]);
   fail(variantError, "读取商品规格失败");
   fail(identifierError, "读取商品标识失败");
+  fail(inspectionError, "读取商品检测资料失败");
   return {
     ram_capacity: text(variant?.ram_capacity),
     gtin: text(variant?.gtin),
     specifications: recordOrEmpty(variant?.specifications),
     version: Number(unit.version ?? 1),
+    edit_backing: "v2",
     identifiers: (identifiers ?? []).map((identifier) => ({
       kind: identifier.kind,
       ...(reveal
@@ -688,15 +749,219 @@ async function readProductDeviceData(
         : { masked_value: maskIdentifier(requiredString(identifier.display_value))! }),
       primary: identifier.is_primary === true,
     })),
+    ...(inspectionRow
+      ? {
+          inspection: {
+            id: requiredString(inspectionRow.id),
+            battery_health:
+              inspectionRow.battery_health === null || inspectionRow.battery_health === undefined
+                ? null
+                : Number(inspectionRow.battery_health),
+            face_id_status:
+              inspectionRow.face_id_status as InventoryProductInspectionSummary["face_id_status"],
+            inspected_at: requiredString(inspectionRow.inspected_at),
+          },
+        }
+      : {}),
   };
+}
+
+async function createInventoryProductWithInspection(
+  input: CreateInventoryProductInput,
+  actor: AuditActor,
+): Promise<CreateInventoryProductResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  const { data, error } = await runInventoryV2Dependency(
+    () =>
+      getSupabaseAdmin().rpc("repairdesk_inventory_product_save_with_inspection_v1", {
+        p_store_id: storeId,
+        p_actor_id: actor.id,
+        p_operation: "create",
+        p_payload: {
+          ...input,
+          identifier_kind: undefined,
+          serial_or_imei: undefined,
+        },
+      }),
+    "商品与设备检测保存服务暂时不可用",
+  );
+  if (error) throw inventoryV2DependencyError("商品与设备检测保存服务暂时不可用");
+  const result = recordOrEmpty(data);
+  if (result.ok !== true) throw inventoryProductError(result);
+  if (
+    !text(result.id) ||
+    !text(result.sku) ||
+    !text(result.created_at) ||
+    !text(result.inspection_id)
+  ) {
+    throw new Error(errorMessages.invalid_result);
+  }
+  return {
+    ok: true,
+    code: result.code as CreateInventoryProductResult["code"],
+    id: requiredString(result.id),
+    sku: requiredString(result.sku),
+    created_at: requiredString(result.created_at),
+  };
+}
+
+async function updateInventoryProductWithInspection(
+  id: string,
+  input: UpdateInventoryProductInput,
+  actor: AuditActor,
+): Promise<UpdateInventoryProductResult> {
+  const storeId = requireStoreIdFromActor(actor);
+  const { data, error } = await runInventoryV2Dependency(
+    () =>
+      getSupabaseAdmin().rpc("repairdesk_inventory_product_save_with_inspection_v1", {
+        p_store_id: storeId,
+        p_actor_id: actor.id,
+        p_operation: "update",
+        p_payload: {
+          ...input,
+          product_id: id,
+        },
+      }),
+    "商品与设备检测保存服务暂时不可用",
+  );
+  if (error) throw inventoryV2DependencyError("商品与设备检测保存服务暂时不可用");
+  const result = recordOrEmpty(data);
+  if (result.ok !== true) throw inventoryProductError(result);
+  if (
+    !text(result.id) ||
+    typeof result.version !== "number" ||
+    !text(result.updated_at) ||
+    !text(result.inspection_id)
+  ) {
+    throw new Error(errorMessages.invalid_result);
+  }
+  return {
+    ok: true,
+    code: result.code as UpdateInventoryProductResult["code"],
+    id: requiredString(result.id),
+    version: result.version,
+    updated_at: requiredString(result.updated_at),
+  };
+}
+
+function prepareInventoryProductInspection(
+  input: Pick<CreateInventoryProductInput, "category" | "brand" | "model">,
+  actor: AuditActor,
+  inspection: InventoryProductInspectionInput,
+): InventoryProductInspectionInput {
+  const storeId = requireStoreIdFromActor(actor);
+  assertInventoryProductInspectionEnabled(storeId);
+  if (!can(actor, "inventory:inspection")) {
+    throw inventoryProductHttpError(
+      "INVENTORY_PRODUCT_INSPECTION_FORBIDDEN",
+      "当前员工没有录入商品设备检测的权限",
+      403,
+    );
+  }
+  const capabilities = resolveDeviceInspectionCapabilities(
+    input.category,
+    input.brand,
+    input.model,
+  );
+  if (!capabilities) {
+    throw inventoryProductHttpError(
+      "INVENTORY_PRODUCT_INSPECTION_NOT_SUPPORTED",
+      errorMessages.inspection_not_supported,
+      422,
+    );
+  }
+  if (!capabilities.battery_health && !capabilities.face_id_status) {
+    throw inventoryProductHttpError(
+      "INVENTORY_PRODUCT_INSPECTION_NOT_SUPPORTED",
+      errorMessages.inspection_not_supported,
+      422,
+    );
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(inspection, "battery_health") &&
+    !capabilities.battery_health
+  ) {
+    throw inventoryProductHttpError(
+      "INVENTORY_PRODUCT_INSPECTION_FIELD_UNSUPPORTED",
+      errorMessages.unsupported_inspection_field,
+      422,
+    );
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(inspection, "face_id_status") &&
+    !capabilities.face_id_status &&
+    inspection.face_id_status !== "not_applicable"
+  ) {
+    throw inventoryProductHttpError(
+      "INVENTORY_PRODUCT_INSPECTION_FIELD_UNSUPPORTED",
+      errorMessages.unsupported_inspection_field,
+      422,
+    );
+  }
+  if (Object.keys(inspection).length === 0) {
+    throw inventoryProductHttpError(
+      "INVENTORY_PRODUCT_INSPECTION_INVALID",
+      errorMessages.invalid_inspection,
+      422,
+    );
+  }
+  const batteryHealth = inspection.battery_health;
+  if (
+    Object.prototype.hasOwnProperty.call(inspection, "battery_health") &&
+    batteryHealth !== null &&
+    (batteryHealth === undefined ||
+      !Number.isInteger(batteryHealth) ||
+      batteryHealth < 0 ||
+      batteryHealth > 100)
+  ) {
+    throw inventoryProductHttpError(
+      "INVENTORY_PRODUCT_INSPECTION_BATTERY_INVALID",
+      errorMessages.invalid_battery_health,
+      422,
+    );
+  }
+  if (
+    inspection.face_id_status !== undefined &&
+    !["not_tested", "normal", "abnormal", "not_applicable"].includes(inspection.face_id_status)
+  ) {
+    throw inventoryProductHttpError(
+      "INVENTORY_PRODUCT_INSPECTION_FACE_ID_INVALID",
+      errorMessages.invalid_face_id_status,
+      422,
+    );
+  }
+  return {
+    ...(Object.prototype.hasOwnProperty.call(inspection, "battery_health")
+      ? { battery_health: inspection.battery_health ?? null }
+      : {}),
+    ...(inspection.face_id_status !== undefined
+      ? { face_id_status: inspection.face_id_status }
+      : {}),
+  };
+}
+
+function inventoryProductError(result: Record<string, unknown>): Error {
+  const code = text(result.code) ?? "update_failed";
+  const message = errorMessages[code] ?? "商品保存失败";
+  if (["version_conflict", "idempotency_conflict", "idempotency_actor_conflict"].includes(code)) {
+    return Object.assign(new Error(message), { status: 409, code });
+  }
+  return new Error(message);
 }
 
 function normalizeProductIdentifiers(input: CreateInventoryProductInput) {
   if (input.identifiers) {
     const hasPrimary = input.identifiers.some((identifier) => identifier.primary);
-    return input.identifiers.map((identifier, index) => ({
+    const eligiblePrimary = input.identifiers.find((identifier) =>
+      ["imei1", "imei2", "serial"].includes(identifier.kind),
+    );
+    return input.identifiers.map((identifier) => ({
       ...identifier,
-      primary: hasPrimary ? identifier.primary === true : index === 0,
+      primary: hasPrimary
+        ? identifier.primary === true
+        : eligiblePrimary
+          ? identifier.kind === eligiblePrimary.kind
+          : false,
     }));
   }
   if (input.identifier_kind && input.serial_or_imei) {

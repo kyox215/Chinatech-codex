@@ -71,6 +71,7 @@ import {
 } from "@/features/inventory/server/inventory-v2-access";
 import { isInventoryProductDeviceDataV2Enabled } from "@/features/inventory/server/inventory-v2-feature-flags";
 import { isInventoryLifecycleReadEnabledForStore } from "@/features/inventory/lifecycle/server/inventory-lifecycle-feature-flags";
+import { isInventoryProductInspectionEnabledForStore } from "@/features/inventory/products/server/inventory-product-inspection-feature-flags";
 import { isMemosEnabledForStore } from "@/features/memos/server/memo-feature";
 
 const ACTIVE_STORE_COOKIE = "repairdesk-store-id";
@@ -1409,6 +1410,10 @@ async function storePermissionsFromActor(
     inventoryProductsUiEnabled: canUseInventoryProductsUi(actor),
     inventoryProductQuickCreateEnabled: canUseInventoryProductQuickCreate(actor),
     inventoryLifecycleUiEnabled: isInventoryLifecycleReadEnabledForStore(actor.storeId),
+    canInspectInventory: can(actor, "inventory:inspection"),
+    inventoryProductInspectionEnabled:
+      can(actor, "inventory:inspection") &&
+      isInventoryProductInspectionEnabledForStore(actor.storeId),
     canManageOrderData,
     canApplyOrderData: canManageOrderData && isOrderDataApplyEnabled(),
     canSearchOrderArchive: can(actor, "order:archive_search"),

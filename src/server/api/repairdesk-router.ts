@@ -186,6 +186,7 @@ import {
   assertInventoryV2CommandEnabled,
   assertInventoryV2ShadowReadEnabled,
 } from "@/features/inventory/server/inventory-v2-feature-flags";
+import { assertInventoryProductInspectionEnabled } from "@/features/inventory/products/server/inventory-product-inspection-feature-flags";
 import {
   assertInventoryV2IntakeAccess,
   assertInventoryV2SaleAccess,
@@ -2938,6 +2939,10 @@ export async function handleRepairDeskPost(
         if (input.cost_amount !== undefined) {
           assertRepairDeskPermission(actor, "inventory:cost_allocate");
         }
+        if (input.inspection !== undefined) {
+          assertInventoryProductInspectionEnabled(actor.storeId ?? "");
+          assertRepairDeskPermission(actor, "inventory:inspection");
+        }
         return ok(
           await runWithRealtime(
             actor,
@@ -2953,6 +2958,10 @@ export async function handleRepairDeskPost(
         assertInventoryV2CommandEnabled(actor.storeId ?? "");
         if (input.cost_amount !== undefined) {
           assertRepairDeskPermission(actor, "inventory:cost_allocate");
+        }
+        if (input.inspection !== undefined) {
+          assertInventoryProductInspectionEnabled(actor.storeId ?? "");
+          assertRepairDeskPermission(actor, "inventory:inspection");
         }
         return ok(
           await runWithRealtime(

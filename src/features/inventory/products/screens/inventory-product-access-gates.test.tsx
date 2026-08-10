@@ -378,8 +378,8 @@ describe("inventory product UI access gates", () => {
     fireEvent.change(screen.getByLabelText("内存（RAM）"), { target: { value: "8 GB" } });
     fireEvent.change(screen.getByLabelText("存储容量"), { target: { value: "256 GB" } });
     fireEvent.change(screen.getByLabelText("设备颜色"), { target: { value: "自定义色" } });
-    fireEvent.change(screen.getByLabelText("IMEI 1"), { target: { value: "356789012345678" } });
     fireEvent.click(screen.getByText("更多信息", { exact: true }));
+    fireEvent.change(screen.getByLabelText("IMEI 1"), { target: { value: "356789012345678" } });
     fireEvent.change(screen.getByLabelText("计划售价"), { target: { value: "699" } });
     fireEvent.change(screen.getByLabelText("库位"), { target: { value: "A-02" } });
     fireEvent.change(screen.getByLabelText("保修（月）"), { target: { value: "12" } });

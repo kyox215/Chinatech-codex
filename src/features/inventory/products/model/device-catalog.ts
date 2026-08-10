@@ -16,6 +16,11 @@ export type DeviceCatalogBrand = {
   categories: readonly InventoryProductCategory[];
 };
 
+export type DeviceInspectionCapabilities = {
+  battery_health: boolean;
+  face_id_status: boolean;
+};
+
 export type DeviceCatalogModel = {
   id: string;
   category: InventoryProductCategory;
@@ -28,6 +33,8 @@ export type DeviceCatalogModel = {
   storageOptions: readonly string[];
   colors: readonly DeviceCatalogColor[];
   priority: "common" | "standard";
+  /** Explicitly curated inspection support. Missing means unknown/unsupported. */
+  inspectionCapabilities?: DeviceInspectionCapabilities;
 };
 
 const OTHER_BRANDS: readonly DeviceCatalogBrand[] = [
@@ -122,7 +129,13 @@ function seedModel(
   options: Partial<
     Pick<
       DeviceCatalogModel,
-      "releasedOn" | "aliases" | "ramOptions" | "storageOptions" | "colors" | "priority"
+      | "releasedOn"
+      | "aliases"
+      | "ramOptions"
+      | "storageOptions"
+      | "colors"
+      | "priority"
+      | "inspectionCapabilities"
     >
   > = {},
 ): DeviceCatalogModel {
@@ -136,6 +149,9 @@ function seedModel(
     storageOptions: options.storageOptions ?? [],
     colors: options.colors ?? [COLORS.black, COLORS.white],
     priority: options.priority ?? "standard",
+    ...(options.inspectionCapabilities
+      ? { inspectionCapabilities: options.inspectionCapabilities }
+      : {}),
     ...(options.releasedOn ? { releasedOn: options.releasedOn } : {}),
     ...(options.aliases?.length ? { aliases: options.aliases } : {}),
   };
@@ -168,8 +184,53 @@ function mapPhoneModel(model: EuPhoneModel): DeviceCatalogModel {
     storageOptions: model.storageOptions,
     colors: model.colors,
     priority: model.releasedOn >= "2022-01-01" ? "common" : "standard",
+    inspectionCapabilities: PHONE_INSPECTION_CAPABILITIES[model.id],
   };
 }
+
+const APPLE_FACE_ID_MODELS = new Set([
+  "iPhone 17 Pro Max",
+  "iPhone 17 Pro",
+  "iPhone 17 Air",
+  "iPhone 17",
+  "iPhone 17e",
+  "iPhone 16e",
+  "iPhone 16 Pro Max",
+  "iPhone 16 Pro",
+  "iPhone 16 Plus",
+  "iPhone 16",
+  "iPhone 15 Pro Max",
+  "iPhone 15 Pro",
+  "iPhone 15 Plus",
+  "iPhone 15",
+  "iPhone 14 Pro Max",
+  "iPhone 14 Pro",
+  "iPhone 14 Plus",
+  "iPhone 14",
+  "iPhone 13 Pro Max",
+  "iPhone 13 Pro",
+  "iPhone 13 mini",
+  "iPhone 13",
+  "iPhone 12 Pro Max",
+  "iPhone 12 Pro",
+  "iPhone 12 mini",
+  "iPhone 12",
+  "iPhone 11 Pro Max",
+  "iPhone 11 Pro",
+  "iPhone 11",
+  "iPhone XS Max",
+  "iPhone XS",
+  "iPhone XR",
+  "iPhone X",
+]);
+
+const PHONE_INSPECTION_CAPABILITIES: Record<string, DeviceInspectionCapabilities> =
+  Object.fromEntries(
+    EU_PHONE_MODELS.filter((model) => model.brandId === "apple").map((model) => [
+      model.id,
+      { battery_health: true, face_id_status: APPLE_FACE_ID_MODELS.has(model.name) },
+    ]),
+  );
 
 const PHONE_BRANDS: readonly DeviceCatalogBrand[] = EU_PHONE_BRANDS.map(mapPhoneBrand);
 const PHONE_MODELS: readonly DeviceCatalogModel[] = EU_PHONE_MODELS.map(mapPhoneModel);
@@ -179,36 +240,43 @@ const TABLET_MODELS: readonly DeviceCatalogModel[] = [
     releasedOn: "2022-10-26",
     storageOptions: ["64 GB", "256 GB"],
     priority: "common",
+    inspectionCapabilities: { battery_health: true, face_id_status: false },
   }),
   seedModel("tablet", "apple", "iPad (A16)", "iPad", {
     releasedOn: "2025-03-12",
     storageOptions: ["128 GB", "256 GB", "512 GB"],
     priority: "common",
+    inspectionCapabilities: { battery_health: true, face_id_status: false },
   }),
   seedModel("tablet", "apple", "iPad mini (A17 Pro)", "iPad mini", {
     releasedOn: "2024-10-23",
     storageOptions: ["128 GB", "256 GB", "512 GB"],
     priority: "common",
+    inspectionCapabilities: { battery_health: true, face_id_status: false },
   }),
   seedModel("tablet", "apple", "iPad Air 5", "iPad Air", {
     releasedOn: "2022-03-18",
     storageOptions: ["64 GB", "256 GB"],
     priority: "common",
+    inspectionCapabilities: { battery_health: true, face_id_status: false },
   }),
   seedModel("tablet", "apple", "iPad Air 11-inch (M2)", "iPad Air", {
     releasedOn: "2024-05-15",
     storageOptions: ["128 GB", "256 GB", "512 GB", "1 TB"],
     priority: "common",
+    inspectionCapabilities: { battery_health: true, face_id_status: false },
   }),
   seedModel("tablet", "apple", "iPad Pro 11-inch (M4)", "iPad Pro", {
     releasedOn: "2024-05-15",
     storageOptions: ["256 GB", "512 GB", "1 TB", "2 TB"],
     priority: "common",
+    inspectionCapabilities: { battery_health: true, face_id_status: true },
   }),
   seedModel("tablet", "apple", "iPad Pro 13-inch (M4)", "iPad Pro", {
     releasedOn: "2024-05-15",
     storageOptions: ["256 GB", "512 GB", "1 TB", "2 TB"],
     priority: "common",
+    inspectionCapabilities: { battery_health: true, face_id_status: true },
   }),
   seedModel("tablet", "samsung", "Galaxy Tab S9", "Galaxy Tab S", {
     releasedOn: "2023-08-11",
@@ -340,14 +408,25 @@ const COMPUTER_MODELS: readonly DeviceCatalogModel[] = [
   seedModel("computer", "apple", "MacBook Air", "MacBook", {
     priority: "common",
     aliases: ["MacBook Air M1", "MacBook Air M2", "MacBook Air M3", "MacBook Air M4"],
+    inspectionCapabilities: { battery_health: true, face_id_status: false },
   }),
   seedModel("computer", "apple", "MacBook Pro", "MacBook", {
     priority: "common",
     aliases: ["MacBook Pro M1", "MacBook Pro M2", "MacBook Pro M3", "MacBook Pro M4"],
+    inspectionCapabilities: { battery_health: true, face_id_status: false },
   }),
-  seedModel("computer", "apple", "iMac", "iMac", { priority: "common" }),
-  seedModel("computer", "apple", "Mac mini", "Mac", { priority: "common" }),
-  seedModel("computer", "apple", "Mac Studio", "Mac", { priority: "standard" }),
+  seedModel("computer", "apple", "iMac", "iMac", {
+    priority: "common",
+    inspectionCapabilities: { battery_health: false, face_id_status: false },
+  }),
+  seedModel("computer", "apple", "Mac mini", "Mac", {
+    priority: "common",
+    inspectionCapabilities: { battery_health: false, face_id_status: false },
+  }),
+  seedModel("computer", "apple", "Mac Studio", "Mac", {
+    priority: "standard",
+    inspectionCapabilities: { battery_health: false, face_id_status: false },
+  }),
   seedModel("computer", "dell", "XPS", "XPS", { priority: "common" }),
   seedModel("computer", "dell", "Inspiron", "Inspiron", { priority: "common" }),
   seedModel("computer", "dell", "Latitude", "Latitude", { priority: "common" }),
@@ -618,6 +697,18 @@ export function findDeviceCatalogModel(
     (item) =>
       normalize(item.name) === needle || item.aliases?.some((alias) => normalize(alias) === needle),
   );
+}
+
+/**
+ * Resolve inspection support only from an exact curated catalog match.
+ * Manual/unknown brand or model values deliberately return undefined.
+ */
+export function resolveDeviceInspectionCapabilities(
+  category: InventoryProductCategory,
+  brandValue: string,
+  modelValue: string,
+) {
+  return findDeviceCatalogModel(category, brandValue, modelValue)?.inspectionCapabilities;
 }
 
 export function listDeviceCatalogModelsBySeries(models: readonly DeviceCatalogModel[]) {

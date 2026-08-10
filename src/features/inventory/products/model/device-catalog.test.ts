@@ -7,6 +7,7 @@ import {
   listDeviceCatalogBrands,
   listDeviceCatalogModels,
   listDeviceCatalogModelsBySeries,
+  resolveDeviceInspectionCapabilities,
 } from "./device-catalog";
 
 describe("inventory device catalog", () => {
@@ -76,5 +77,41 @@ describe("inventory device catalog", () => {
         ([series]) => series,
       ),
     ).toEqual(expect.arrayContaining(["Nintendo Switch", "Nintendo 3DS", "Nintendo Wii"]));
+  });
+
+  it("exposes explicit Phase 1 Apple inspection capabilities", () => {
+    expect(findDeviceCatalogModel("phone", "Apple", "iPhone 15")?.inspectionCapabilities).toEqual({
+      battery_health: true,
+      face_id_status: true,
+    });
+    expect(
+      findDeviceCatalogModel("phone", "Apple", "iPhone SE 2022")?.inspectionCapabilities,
+    ).toEqual({
+      battery_health: true,
+      face_id_status: false,
+    });
+    expect(findDeviceCatalogModel("phone", "Apple", "iPhone 8")?.inspectionCapabilities).toEqual({
+      battery_health: true,
+      face_id_status: false,
+    });
+    expect(
+      findDeviceCatalogModel("tablet", "Apple", "iPad Pro 11-inch (M4)")?.inspectionCapabilities,
+    ).toEqual({
+      battery_health: true,
+      face_id_status: true,
+    });
+    expect(
+      findDeviceCatalogModel("computer", "Apple", "MacBook Pro")?.inspectionCapabilities,
+    ).toEqual({
+      battery_health: true,
+      face_id_status: false,
+    });
+    expect(findDeviceCatalogModel("computer", "Apple", "iMac")?.inspectionCapabilities).toEqual({
+      battery_health: false,
+      face_id_status: false,
+    });
+    expect(
+      resolveDeviceInspectionCapabilities("phone", "Apple", "Unlisted iPhone"),
+    ).toBeUndefined();
   });
 });
