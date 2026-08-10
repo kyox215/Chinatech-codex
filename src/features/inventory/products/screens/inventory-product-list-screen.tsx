@@ -38,10 +38,20 @@ import type {
   InventoryProductDisplayStatus,
   InventoryProductListFilters,
   InventoryProductListItem,
+  InventoryLifecycleProjectionStatus,
 } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
-import { MoneyText, RepairOsBadge, RepairOsListScaffold } from "@/shared/ui";
+import {
+  InventoryLifecycleProjectionBadge,
+  InventoryLifecycleProjectionStatusIcon,
+} from "@/features/inventory/lifecycle/components/inventory-lifecycle-status";
+import {
+  getInventoryLifecycleProjectionMeta,
+  inventoryLifecycleProjectionStatusMeta,
+  projectCompatibleInventoryLifecycle,
+} from "@/features/inventory/lifecycle/model/projection";
+import { MoneyText, RepairOsListScaffold } from "@/shared/ui";
 
 import { inventoryProductsQueryOptions } from "../api/query-options";
 import { inventoryProductKeys } from "../api/query-keys";
@@ -54,6 +64,12 @@ import {
 } from "../../model/inventory-product-reference-image";
 
 type InventoryProductView = "shelf" | "list";
+type InventoryLifecycleShortcut =
+  | "all"
+  | "in_stock"
+  | "reserved"
+  | "sold_pending_pickup"
+  | "processing";
 
 const INVENTORY_PRODUCT_VIEW_STORAGE_KEY = "repairdesk.inventory.product-view";
 
@@ -109,6 +125,12 @@ export function InventoryProductListScreen() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [filters, setFilters] = useState<InventoryProductListFilters>({});
   const [draft, setDraft] = useState<InventoryProductListFilters>({});
+  const [lifecycleStatusFilter, setLifecycleStatusFilter] = useState<
+    InventoryLifecycleProjectionStatus[]
+  >([]);
+  const [draftLifecycleStatusFilter, setDraftLifecycleStatusFilter] = useState<
+    InventoryLifecycleProjectionStatus[]
+  >([]);
   const [view, setView] = useState<InventoryProductView>("shelf");
   const [viewReady, setViewReady] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -144,10 +166,33 @@ export function InventoryProductListScreen() {
       shell.permissions.inventoryProductsUiEnabled,
     ),
   });
+  const lifecycleExact = query.data?.lifecycle_projection?.mode === "exact";
+  const lifecycleShortcut: InventoryLifecycleShortcut =
+    lifecycleStatusFilter.length === 1 && lifecycleStatusFilter[0] === "in_stock"
+      ? "in_stock"
+      : lifecycleStatusFilter.length === 1 && lifecycleStatusFilter[0] === "reserved"
+        ? "reserved"
+        : lifecycleStatusFilter.length === 1 && lifecycleStatusFilter[0] === "sold_pending_pickup"
+          ? "sold_pending_pickup"
+          : lifecycleStatusFilter.length > 0 &&
+              lifecycleStatusFilter.every((status) =>
+                ["processing", "after_sales"].includes(status),
+              )
+            ? "processing"
+            : "all";
+  const displayItems = useMemo(() => {
+    const items = query.data?.items ?? [];
+    if (!lifecycleExact || !lifecycleStatusFilter.length) return items;
+    return items.filter(
+      (item) =>
+        item.lifecycle?.mode === "exact" && lifecycleStatusFilter.includes(item.lifecycle.status),
+    );
+  }, [lifecycleExact, lifecycleStatusFilter, query.data?.items]);
   const activeFilterCount =
     (filters.statuses?.length ?? 0) +
     (filters.brands?.length ?? 0) +
-    (filters.locations?.length ?? 0);
+    (filters.locations?.length ?? 0) +
+    (lifecycleExact ? lifecycleStatusFilter.length : 0);
   const hasSelectedCategory = Boolean(filters.categories?.length);
   const hasActiveSelection = activeFilterCount > 0 || hasSelectedCategory;
   const canCreateProduct = Boolean(
@@ -155,6 +200,10 @@ export function InventoryProductListScreen() {
     shell.permissions.inventoryProductsUiEnabled &&
     shell.permissions.inventoryProductQuickCreateEnabled,
   );
+
+  useEffect(() => {
+    if (!lifecycleExact && lifecycleStatusFilter.length) setLifecycleStatusFilter([]);
+  }, [lifecycleExact, lifecycleStatusFilter.length]);
 
   const clearCreateIntent = useCallback(() => {
     if (searchParams.get("workspace") !== "new-product") return;
@@ -267,6 +316,7 @@ export function InventoryProductListScreen() {
               aria-label={activeFilterCount ? `筛选，已应用 ${activeFilterCount} 项` : "筛选商品"}
               onClick={() => {
                 setDraft(filters);
+                setDraftLifecycleStatusFilter(lifecycleStatusFilter);
                 setFilterOpen(true);
               }}
             >
@@ -299,6 +349,7 @@ export function InventoryProductListScreen() {
             aria-label={activeFilterCount ? `筛选，已应用 ${activeFilterCount} 项` : "筛选商品"}
             onClick={() => {
               setDraft(filters);
+              setDraftLifecycleStatusFilter(lifecycleStatusFilter);
               setFilterOpen(true);
             }}
           >
@@ -325,6 +376,21 @@ export function InventoryProductListScreen() {
           onChange={(categories) => setFilters({ ...filters, categories })}
         />
       </div>
+      {lifecycleExact ? (
+        <InventoryLifecycleShortcutBar
+          value={lifecycleShortcut}
+          counts={query.data?.lifecycle_projection?.counts}
+          onChange={(shortcut) => {
+            setLifecycleStatusFilter(
+              shortcut === "all"
+                ? []
+                : shortcut === "processing"
+                  ? ["processing", "after_sales"]
+                  : [shortcut],
+            );
+          }}
+        />
+      ) : null}
       {activeFilterCount ? (
         <div className="mb-2 flex flex-wrap items-center gap-1.5" aria-live="polite">
           <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary lg:text-xs lg:leading-4">
@@ -335,7 +401,10 @@ export function InventoryProductListScreen() {
             variant="ghost"
             size="sm"
             className="min-h-11"
-            onClick={() => setFilters({ categories: filters.categories })}
+            onClick={() => {
+              setFilters({ categories: filters.categories });
+              setLifecycleStatusFilter([]);
+            }}
           >
             清除筛选
           </Button>
@@ -355,7 +424,7 @@ export function InventoryProductListScreen() {
           }
         />
       ) : null}
-      {query.isSuccess && query.data.items.length === 0 ? (
+      {query.isSuccess && displayItems.length === 0 ? (
         <InventoryProductMessage
           title={
             hasSelectedCategory && !search && activeFilterCount === 0
@@ -384,9 +453,7 @@ export function InventoryProductListScreen() {
           }
         />
       ) : null}
-      {query.data?.items.length ? (
-        <InventoryProductResults items={query.data.items} view={view} />
-      ) : null}
+      {displayItems.length ? <InventoryProductResults items={displayItems} view={view} /> : null}
 
       <InventoryProductFilterSheet
         open={filterOpen}
@@ -395,8 +462,12 @@ export function InventoryProductListScreen() {
         onDraftChange={setDraft}
         brands={query.data?.facets.brands ?? []}
         locations={query.data?.facets.locations ?? []}
+        lifecycleExact={lifecycleExact}
+        lifecycleStatuses={draftLifecycleStatusFilter}
+        onLifecycleStatusesChange={setDraftLifecycleStatusFilter}
         onApply={() => {
           setFilters(draft);
+          setLifecycleStatusFilter(draftLifecycleStatusFilter);
           setFilterOpen(false);
         }}
       />
@@ -407,6 +478,67 @@ export function InventoryProductListScreen() {
         onCreated={handleProductCreated}
       />
     </RepairOsListScaffold>
+  );
+}
+
+function InventoryLifecycleShortcutBar({
+  value,
+  counts,
+  onChange,
+}: {
+  value: InventoryLifecycleShortcut;
+  counts?: Partial<Record<InventoryLifecycleProjectionStatus, number>>;
+  onChange: (value: InventoryLifecycleShortcut) => void;
+}) {
+  const shortcuts = [
+    { key: "in_stock" as const, label: "在售", statuses: ["in_stock"] as const },
+    { key: "reserved" as const, label: "预订", statuses: ["reserved"] as const },
+    {
+      key: "sold_pending_pickup" as const,
+      label: "待取",
+      statuses: ["sold_pending_pickup"] as const,
+    },
+    {
+      key: "processing" as const,
+      label: "处理",
+      statuses: ["processing", "after_sales"] as const,
+    },
+  ];
+  return (
+    <div
+      data-ui="inventory-lifecycle-shortcuts"
+      className="mb-2 grid min-w-0 grid-cols-2 gap-1.5 min-[360px]:grid-cols-4"
+      role="group"
+      aria-label="生命周期工作入口"
+    >
+      {shortcuts.map(({ key, label, statuses }) => {
+        const count = statuses.reduce((total, status) => total + (counts?.[status] ?? 0), 0);
+        const hasCount = statuses.some((status) => counts?.[status] !== undefined);
+        const meta = inventoryLifecycleProjectionStatusMeta[statuses[0]];
+        return (
+          <button
+            key={key}
+            type="button"
+            className={cn(
+              "flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl border px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              value === key
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-muted-foreground hover:bg-muted",
+            )}
+            aria-pressed={value === key}
+            onClick={() => onChange(value === key ? "all" : key)}
+          >
+            <InventoryLifecycleProjectionStatusIcon
+              status={statuses[0]}
+              className={value === key ? "text-primary-foreground" : undefined}
+            />
+            <span className="truncate">{label}</span>
+            {hasCount ? <span className="font-mono text-[10px]">{count}</span> : null}
+            <span className="sr-only">{meta.description}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -456,6 +588,13 @@ function InventoryProductCard({
     .filter(Boolean)
     .join("，");
   const shelf = view === "shelf";
+  const lifecycle =
+    item.lifecycle ?? projectCompatibleInventoryLifecycle(item.legacy_status ?? item.status);
+  const lifecycleMeta = getInventoryLifecycleProjectionMeta(
+    lifecycle,
+    item.legacy_status ?? item.status,
+  );
+  const auxiliaryLabels = lifecycleAuxiliaryLabels(lifecycle);
   return (
     <Link
       href={`/inventory/${item.id}`}
@@ -514,9 +653,11 @@ function InventoryProductCard({
           <span className="block min-w-0 truncate text-xs font-semibold leading-4">
             {item.brand} {item.model}
           </span>
-          <RepairOsBadge className={cn("shrink-0", statusStyles[item.status])}>
-            {statusLabels[item.status]}
-          </RepairOsBadge>
+          <InventoryLifecycleProjectionBadge
+            projection={lifecycle}
+            legacyStatus={item.status}
+            className="shrink-0"
+          />
         </span>
         <span className="flex min-w-0 items-center gap-1.5 truncate text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
           <span className="min-w-0 truncate">
@@ -530,6 +671,22 @@ function InventoryProductCard({
         <span className="block truncate text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
           {[item.location, item.masked_identifier].filter(Boolean).join(" · ") || "暂无库位"}
         </span>
+        {auxiliaryLabels.length ? (
+          <span className="mt-1 flex min-w-0 flex-wrap gap-1">
+            {auxiliaryLabels.map((label) => (
+              <span
+                key={label}
+                className="max-w-full truncate rounded-full bg-[var(--surface-panel-muted)] px-1.5 py-0.5 text-[9px] leading-3 text-muted-foreground"
+              >
+                {label}
+              </span>
+            ))}
+          </span>
+        ) : null}
+        <span className="mt-1 flex min-w-0 items-center gap-1 text-[9px] leading-3 text-muted-foreground">
+          <span className="size-1 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+          <span className="truncate">{lifecycleMeta.nextStep ?? "暂无下一步"}</span>
+        </span>
       </span>
       <span
         className={cn(
@@ -537,12 +694,35 @@ function InventoryProductCard({
           shelf ? "mt-auto px-2.5 pb-2.5 pt-1.5" : "md:mt-0 md:self-center md:px-2 md:py-0",
         )}
       >
+        {lifecycle.mode === "exact" && lifecycle.balance !== undefined ? (
+          <span className="whitespace-nowrap text-[10px] font-semibold text-muted-foreground md:text-xs">
+            尾款 <MoneyText amount={lifecycle.balance} />
+          </span>
+        ) : null}
         <span className="whitespace-nowrap text-xs font-semibold md:text-sm">
           {item.list_price === undefined ? "未填写" : <MoneyText amount={item.list_price} />}
         </span>
       </span>
     </Link>
   );
+}
+
+function lifecycleAuxiliaryLabels(lifecycle: NonNullable<InventoryProductListItem["lifecycle"]>) {
+  const labels: string[] = [];
+  if (lifecycle.needs_review) labels.push("需核对");
+  if (lifecycle.mode === "exact" && lifecycle.after_sales_status) {
+    labels.push(
+      {
+        open: "待检测",
+        in_progress: "处理中",
+        waiting_customer: "等客户",
+        returned: "已返还",
+        closed: "已关闭",
+      }[lifecycle.after_sales_status],
+    );
+  }
+  if (lifecycle.mode === "exact" && lifecycle.expected_pickup_at) labels.push("已安排取走");
+  return labels.slice(0, 2);
 }
 
 function resolveInventoryProductImage(
@@ -717,6 +897,9 @@ function InventoryProductFilterSheet({
   onDraftChange,
   brands,
   locations,
+  lifecycleExact,
+  lifecycleStatuses,
+  onLifecycleStatusesChange,
   onApply,
 }: {
   open: boolean;
@@ -725,6 +908,9 @@ function InventoryProductFilterSheet({
   onDraftChange: (filters: InventoryProductListFilters) => void;
   brands: string[];
   locations: string[];
+  lifecycleExact: boolean;
+  lifecycleStatuses: InventoryLifecycleProjectionStatus[];
+  onLifecycleStatusesChange: (statuses: InventoryLifecycleProjectionStatus[]) => void;
   onApply: () => void;
 }) {
   return (
@@ -738,15 +924,32 @@ function InventoryProductFilterSheet({
           <SheetDescription>按状态、品牌或库位缩小结果。</SheetDescription>
         </SheetHeader>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto py-3">
-          <FilterGroup
-            title="状态"
-            values={Object.keys(statusLabels)}
-            selected={draft.statuses ?? []}
-            labels={statusLabels}
-            onChange={(values) =>
-              onDraftChange({ ...draft, statuses: values as InventoryProductDisplayStatus[] })
-            }
-          />
+          {lifecycleExact ? (
+            <FilterGroup
+              title="精确状态"
+              values={Object.keys(inventoryLifecycleProjectionStatusMeta)}
+              selected={lifecycleStatuses}
+              labels={Object.fromEntries(
+                Object.entries(inventoryLifecycleProjectionStatusMeta).map(([key, meta]) => [
+                  key,
+                  meta.label,
+                ]),
+              )}
+              onChange={(values) =>
+                onLifecycleStatusesChange(values as InventoryLifecycleProjectionStatus[])
+              }
+            />
+          ) : (
+            <FilterGroup
+              title="状态"
+              values={Object.keys(statusLabels)}
+              selected={draft.statuses ?? []}
+              labels={statusLabels}
+              onChange={(values) =>
+                onDraftChange({ ...draft, statuses: values as InventoryProductDisplayStatus[] })
+              }
+            />
+          )}
           {brands.length ? (
             <FilterGroup
               title="品牌"
@@ -769,7 +972,10 @@ function InventoryProductFilterSheet({
             type="button"
             variant="outline"
             className="min-h-11"
-            onClick={() => onDraftChange({ categories: draft.categories })}
+            onClick={() => {
+              onDraftChange({ categories: draft.categories });
+              onLifecycleStatusesChange([]);
+            }}
           >
             重置
           </Button>

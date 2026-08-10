@@ -12,6 +12,7 @@ canonical_rules:
   - .ai-company/memory/ACTIVE_CONTEXT.md
   - AI智能部门管理/部门化管理设计.md
   - .agents/README.md
+  - docs/COMPLEX_REQUIREMENT_MULTI_AGENT_DECLARATION.md
 
 execution_model:
   pattern: manager_led

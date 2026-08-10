@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { InventoryLifecycleProjection } from "@/lib/repairdesk/types";
+
 /**
  * Server-owned inventory lifecycle commands. The browser submits only a
  * command payload and idempotency key; store/actor identity is injected from
@@ -167,7 +169,7 @@ const lifecyclePayloadSchemas = {
     .object({
       case_id: lifecycleUuid,
       expected_case_version: lifecycleCaseVersion,
-      status: z.enum(["open", "in_progress", "waiting_customer", "returned", "closed"]),
+      status: z.enum(["open", "in_progress", "waiting_customer", "returned"]),
       diagnosis: lifecycleText(2_000).optional(),
       coverage_decision: lifecycleCoverageDecision.optional(),
       returned_at: lifecycleDate.optional(),
@@ -322,6 +324,7 @@ export interface InventoryLifecycleListSummary {
   inspection?: InventoryLifecycleInspectionSummary;
   commercial_warranty?: InventoryLifecycleWarrantySummary;
   after_sales?: InventoryLifecycleAfterSalesSummary;
+  projection?: InventoryLifecycleProjection;
 }
 
 export interface InventoryLifecycleSaleDetail extends InventoryLifecycleListSummary {
@@ -354,6 +357,7 @@ export interface InventoryLifecycleAfterSalesQueueItem {
   version: number;
   order_version: number;
   allowed_actions: InventoryLifecycleCommand[];
+  allowed_next_statuses?: InventoryAfterSalesStatus[];
 }
 
 export interface InventoryLifecycleAfterSalesCaseDetail extends InventoryLifecycleAfterSalesQueueItem {

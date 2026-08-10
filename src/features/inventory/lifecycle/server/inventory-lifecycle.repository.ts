@@ -1,4 +1,9 @@
-import type { AuditActor } from "@/lib/repairdesk/types";
+import type {
+  AuditActor,
+  InventoryAfterSalesStatus,
+  InventoryLifecycleBatchProjection,
+  InventoryProductListItem,
+} from "@/lib/repairdesk/types";
 import { requireStoreIdFromActor } from "@/server/repairdesk-shared";
 import { can } from "@/server/permissions";
 import { getSupabaseAdmin } from "@/server/supabase";
@@ -16,7 +21,17 @@ import {
 import {
   assertInventoryLifecycleCommandEnabled,
   assertInventoryLifecycleReadEnabled,
+  isInventoryLifecycleCommandEnabledForStore,
+  resolveInventoryLifecycleProjectionMode,
 } from "./inventory-lifecycle-feature-flags";
+import {
+  countInventoryLifecycleProjections,
+  getInventoryLifecycleAfterSalesNextStatuses,
+  projectCompatibleInventoryLifecycle,
+  projectExactInventoryLifecycle,
+  projectUnavailableInventoryLifecycle,
+  type InventoryLifecycleProjectionFacts,
+} from "../model/projection";
 
 const commandPermissions: Record<InventoryLifecycleCommand, Parameters<typeof can>[1]> = {
   "acquisition.save": "finance:cost_manage",
@@ -50,6 +65,75 @@ const errorMessages: Record<string, string> = {
   not_found: "商品生命周期记录不存在或不属于当前门店",
   internal_error: "商品生命周期服务暂时不可用，请稍后重试",
 };
+
+export function assertInventoryAfterSalesClosePreconditions(input: {
+  currentStatus: InventoryAfterSalesStatus;
+  returnedAt?: string | null;
+  currentVersion: number;
+  expectedVersion: number;
+}) {
+  if (input.currentVersion !== input.expectedVersion) {
+    throw new InventoryLifecycleHttpError("stale_version", errorMessages.stale_version, 409);
+  }
+  if (input.currentStatus !== "returned" || !input.returnedAt) {
+    throw new InventoryLifecycleHttpError(
+      "invalid_state",
+      "售后案件必须先登记已返还并记录返还时间，才能关闭",
+      409,
+    );
+  }
+}
+
+export function assertInventoryAfterSalesUpdatePreconditions(input: {
+  currentStatus: InventoryAfterSalesStatus;
+  targetStatus: string;
+  currentVersion: number;
+  expectedVersion: number;
+}) {
+  if (input.currentVersion !== input.expectedVersion) {
+    throw new InventoryLifecycleHttpError("stale_version", errorMessages.stale_version, 409);
+  }
+  if (input.currentStatus === "closed") {
+    throw new InventoryLifecycleHttpError("invalid_state", errorMessages.invalid_state, 409);
+  }
+  const allowedStatuses = getInventoryLifecycleAfterSalesNextStatuses(input.currentStatus).filter(
+    (status) => status !== "closed",
+  );
+  if (
+    !allowedStatuses.includes(input.targetStatus as Exclude<InventoryAfterSalesStatus, "closed">)
+  ) {
+    throw new InventoryLifecycleHttpError(
+      "invalid_transition",
+      errorMessages.invalid_transition,
+      409,
+    );
+  }
+}
+
+export function assertInventoryReservationCreatePreconditions(input: {
+  itemId: string;
+  itemStatus: string;
+  unitItemId: string;
+  unitStatus: string;
+  unitVersion: number;
+  expectedUnitVersion: number;
+  activeOrder?: { inventory_item_id?: string } | null;
+  activeAfterSales?: { inventory_item_id?: string } | null;
+}) {
+  if (input.unitVersion !== input.expectedUnitVersion) {
+    throw new InventoryLifecycleHttpError("stale_version", errorMessages.stale_version, 409);
+  }
+  if (
+    input.itemStatus !== "listed" ||
+    input.unitStatus !== "listed" ||
+    input.unitItemId !== input.itemId
+  ) {
+    throw new InventoryLifecycleHttpError("invalid_state", errorMessages.invalid_state, 409);
+  }
+  if (input.activeOrder || input.activeAfterSales) {
+    throw new InventoryLifecycleHttpError("invalid_state", errorMessages.invalid_state, 409);
+  }
+}
 
 export class InventoryLifecycleHttpError extends Error {
   readonly status: number;
@@ -149,6 +233,96 @@ export async function runInventoryLifecycleCommand(
   }
 
   assertInventoryLifecycleCommandEnabled(storeId);
+  if (input.command === "reservation.create") {
+    const supabase = getSupabaseAdmin();
+    const { data: unit, error: unitError } = await supabase
+      .from("inventory_stock_units")
+      .select("id,legacy_inventory_item_id,status,version")
+      .eq("store_id", storeId)
+      .eq("id", input.payload.stock_unit_id)
+      .maybeSingle();
+    if (unitError) {
+      throw new InventoryLifecycleHttpError("internal_error", errorMessages.internal_error, 503);
+    }
+    if (!unit) {
+      throw new InventoryLifecycleHttpError("not_found", errorMessages.not_found, 404);
+    }
+    const [itemResult, activeOrderResult, activeAfterSalesResult] = await Promise.all([
+      supabase
+        .from("inventory_items")
+        .select("id,status")
+        .eq("store_id", storeId)
+        .eq("id", unit.legacy_inventory_item_id)
+        .maybeSingle(),
+      supabase
+        .from("inventory_sale_orders")
+        .select("id,inventory_item_id,status")
+        .eq("store_id", storeId)
+        .eq("stock_unit_id", unit.id)
+        .in("status", ["reserved", "sold"])
+        .maybeSingle(),
+      supabase
+        .from("inventory_after_sales_cases")
+        .select("id,inventory_item_id,status")
+        .eq("store_id", storeId)
+        .eq("inventory_item_id", unit.legacy_inventory_item_id)
+        .neq("status", "closed")
+        .maybeSingle(),
+    ]);
+    if (itemResult.error || activeOrderResult.error || activeAfterSalesResult.error) {
+      throw new InventoryLifecycleHttpError("internal_error", errorMessages.internal_error, 503);
+    }
+    if (!itemResult.data) {
+      throw new InventoryLifecycleHttpError("not_found", errorMessages.not_found, 404);
+    }
+    assertInventoryReservationCreatePreconditions({
+      itemId: String(itemResult.data.id),
+      itemStatus: String(itemResult.data.status),
+      unitItemId: String(unit.legacy_inventory_item_id),
+      unitStatus: String(unit.status),
+      unitVersion: Number(unit.version),
+      expectedUnitVersion: input.payload.expected_unit_version,
+      activeOrder: activeOrderResult.data,
+      activeAfterSales: activeAfterSalesResult.data,
+    });
+  }
+  if (input.command === "after_sales.update" || input.command === "after_sales.close") {
+    const { data: currentCase, error: currentCaseError } = await getSupabaseAdmin()
+      .from("inventory_after_sales_cases")
+      .select("status,returned_at,version")
+      .eq("store_id", storeId)
+      .eq("id", input.payload.case_id)
+      .maybeSingle();
+    if (currentCaseError) {
+      throw new InventoryLifecycleHttpError("internal_error", errorMessages.internal_error, 503);
+    }
+    if (!currentCase) {
+      throw new InventoryLifecycleHttpError("not_found", errorMessages.not_found, 404);
+    }
+    const currentStatus = currentCase.status as InventoryAfterSalesStatus;
+    if (input.command === "after_sales.close") {
+      if (String(input.payload.status) !== "closed") {
+        throw new InventoryLifecycleHttpError(
+          "invalid_payload",
+          errorMessages.invalid_payload,
+          400,
+        );
+      }
+      assertInventoryAfterSalesClosePreconditions({
+        currentStatus,
+        returnedAt: currentCase.returned_at,
+        currentVersion: Number(currentCase.version),
+        expectedVersion: input.payload.expected_case_version,
+      });
+    } else {
+      assertInventoryAfterSalesUpdatePreconditions({
+        currentStatus,
+        targetStatus: String(input.payload.status),
+        currentVersion: Number(currentCase.version),
+        expectedVersion: input.payload.expected_case_version,
+      });
+    }
+  }
   const rpcInput =
     input.command === "pickup.confirm" && input.payload.warranty_months === undefined
       ? {
@@ -207,6 +381,8 @@ export function resolveInventoryLifecycleAllowedActions(
     orderStatus?: SaleOrderRow["status"];
     balance: number;
     hasActiveCase: boolean;
+    afterSalesStatus?: InventoryAfterSalesStatus;
+    returnedAt?: string | null;
   },
 ): InventoryLifecycleCommand[] {
   const actions: InventoryLifecycleCommand[] = [];
@@ -239,9 +415,219 @@ export function resolveInventoryLifecycleAllowedActions(
     actions.push("after_sales.create");
   }
   if (state.hasActiveCase && can(actor, "after_sales:update")) {
-    actions.push("after_sales.update", "after_sales.close");
+    const nextStatuses = state.afterSalesStatus
+      ? getInventoryLifecycleAfterSalesNextStatuses(state.afterSalesStatus)
+      : [];
+    if (nextStatuses.some((status) => status !== "closed")) actions.push("after_sales.update");
+    if (nextStatuses.includes("closed") && state.returnedAt) actions.push("after_sales.close");
   }
   return actions;
+}
+
+function resolveInventoryLifecycleCommandActions(
+  storeId: string,
+  actor: AuditActor,
+  state: Parameters<typeof resolveInventoryLifecycleAllowedActions>[1],
+) {
+  return isInventoryLifecycleCommandEnabledForStore(storeId)
+    ? resolveInventoryLifecycleAllowedActions(actor, state)
+    : [];
+}
+
+type InventoryLifecycleBatchUnitRow = {
+  id: string;
+  legacy_inventory_item_id: string;
+  status: string;
+  version: number;
+};
+
+type InventoryLifecycleBatchOrderRow = {
+  id: string;
+  inventory_item_id: string;
+  stock_unit_id: string;
+  status: "reserved" | "sold";
+  agreed_price: number | string;
+  reserved_at: string | null;
+  expires_at: string | null;
+  expected_pickup_at: string | null;
+  sold_at: string | null;
+  actual_pickup_at: string | null;
+  version: number;
+  updated_at?: string | null;
+};
+
+type InventoryLifecycleBatchCaseRow = {
+  id: string;
+  sale_order_id: string;
+  status: "open" | "in_progress" | "waiting_customer" | "returned" | "closed";
+  returned_at: string | null;
+};
+
+/**
+ * Adds one minimized lifecycle projection per current list item. Exact mode
+ * intentionally performs fixed-size batch reads (never one query per card).
+ */
+export async function enrichInventoryProductLifecycle(
+  items: InventoryProductListItem[],
+  actor: AuditActor,
+): Promise<{
+  items: InventoryProductListItem[];
+  lifecycle_projection: InventoryLifecycleBatchProjection;
+}> {
+  const storeId = requireStoreIdFromActor(actor);
+  const mode = resolveInventoryLifecycleProjectionMode(storeId);
+  if (mode === "compatible") {
+    const projections = items.map((item) =>
+      projectCompatibleInventoryLifecycle(item.legacy_status ?? item.status),
+    );
+    return {
+      items: items.map((item, index) => ({ ...item, lifecycle: projections[index] })),
+      lifecycle_projection: { mode, counts: countInventoryLifecycleProjections(projections) },
+    };
+  }
+  if (mode === "unavailable") {
+    const projections = items.map(() => projectUnavailableInventoryLifecycle());
+    return {
+      items: items.map((item, index) => ({ ...item, lifecycle: projections[index] })),
+      lifecycle_projection: { mode, counts: {} },
+    };
+  }
+  if (!items.length) {
+    return { items, lifecycle_projection: { mode: "exact", counts: {} } };
+  }
+
+  const itemIds = items.map((item) => item.id);
+  const supabase = getSupabaseAdmin();
+  const [unitsResult, ordersResult] = await Promise.all([
+    supabase
+      .from("inventory_stock_units")
+      .select("id,legacy_inventory_item_id,status,version")
+      .eq("store_id", storeId)
+      .in("legacy_inventory_item_id", itemIds),
+    supabase
+      .from("inventory_sale_orders")
+      .select(
+        "id,inventory_item_id,stock_unit_id,status,agreed_price,reserved_at,expires_at,expected_pickup_at,sold_at,actual_pickup_at,version,updated_at",
+      )
+      .eq("store_id", storeId)
+      .in("inventory_item_id", itemIds)
+      .in("status", ["reserved", "sold"])
+      .order("updated_at", { ascending: false }),
+  ]);
+  if (unitsResult.error || ordersResult.error) {
+    throw new InventoryLifecycleHttpError("internal_error", errorMessages.internal_error, 503);
+  }
+
+  const unitByItem = new Map<string, InventoryLifecycleBatchUnitRow>();
+  for (const row of (unitsResult.data ?? []) as unknown as InventoryLifecycleBatchUnitRow[]) {
+    if (!unitByItem.has(String(row.legacy_inventory_item_id))) {
+      unitByItem.set(String(row.legacy_inventory_item_id), row);
+    }
+  }
+  const orderByItem = new Map<string, InventoryLifecycleBatchOrderRow>();
+  for (const row of (ordersResult.data ?? []) as unknown as InventoryLifecycleBatchOrderRow[]) {
+    const itemId = String(row.inventory_item_id);
+    if (!orderByItem.has(itemId)) orderByItem.set(itemId, row);
+  }
+
+  const orders = [...orderByItem.values()];
+  const orderIds = orders.map((row) => String(row.id));
+  const [paymentsResult, casesResult] = await Promise.all([
+    orderIds.length
+      ? supabase
+          .from("inventory_sale_payment_entries")
+          .select("sale_order_id,kind,amount")
+          .eq("store_id", storeId)
+          .in("sale_order_id", orderIds)
+      : Promise.resolve({ data: [], error: null }),
+    orderIds.length
+      ? supabase
+          .from("inventory_after_sales_cases")
+          .select("id,sale_order_id,status,returned_at,updated_at")
+          .eq("store_id", storeId)
+          .in("sale_order_id", orderIds)
+          .neq("status", "closed")
+          .order("updated_at", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (paymentsResult.error || casesResult.error) {
+    throw new InventoryLifecycleHttpError("internal_error", errorMessages.internal_error, 503);
+  }
+
+  const paidByOrder = new Map<string, number>();
+  for (const row of (paymentsResult.data ?? []) as Array<Record<string, unknown>>) {
+    const orderId = String(row.sale_order_id ?? "");
+    if (!orderId) continue;
+    const sign = ["refund", "reversal"].includes(String(row.kind)) ? -1 : 1;
+    paidByOrder.set(orderId, (paidByOrder.get(orderId) ?? 0) + sign * numeric(row.amount));
+  }
+  const caseByOrder = new Map<string, InventoryLifecycleBatchCaseRow>();
+  for (const row of (casesResult.data ?? []) as unknown as InventoryLifecycleBatchCaseRow[]) {
+    if (!caseByOrder.has(String(row.sale_order_id))) {
+      caseByOrder.set(String(row.sale_order_id), row);
+    }
+  }
+
+  const projections = items.map((item) => {
+    const unit = unitByItem.get(item.id);
+    const order = orderByItem.get(item.id);
+    const activeCase = order ? caseByOrder.get(String(order.id)) : undefined;
+    const balance = order
+      ? Math.max(
+          0,
+          Math.round(
+            (numeric(order.agreed_price) - (paidByOrder.get(String(order.id)) ?? 0)) * 100,
+          ) / 100,
+        )
+      : undefined;
+    const businessStatus: InventoryLifecycleListSummary["business_status"] = activeCase
+      ? "after_sales"
+      : order?.status === "reserved"
+        ? "reserved"
+        : order?.status === "sold"
+          ? order.actual_pickup_at
+            ? "delivered"
+            : "sold_pending_pickup"
+          : ["cancelled", "recycled"].includes(item.status)
+            ? "removed"
+            : "in_stock";
+    const actions = resolveInventoryLifecycleCommandActions(storeId, actor, {
+      businessStatus,
+      orderStatus: order?.status,
+      balance: balance ?? 0,
+      hasActiveCase: Boolean(activeCase),
+      afterSalesStatus: activeCase?.status,
+      returnedAt: activeCase?.returned_at,
+    });
+    const facts: InventoryLifecycleProjectionFacts = {
+      legacyStatus: item.legacy_status ?? item.status,
+      unitStatus: unit?.status ?? null,
+      order: order
+        ? {
+            status: order.status,
+            reservedAt: order.reserved_at,
+            reservationExpiresAt: order.expires_at,
+            expectedPickupAt: order.expected_pickup_at,
+            soldAt: order.sold_at,
+            actualPickupAt: order.actual_pickup_at,
+          }
+        : undefined,
+      afterSales: activeCase
+        ? { status: activeCase.status, returnedAt: activeCase.returned_at }
+        : undefined,
+      balance,
+      allowedActions: actions,
+    };
+    return projectExactInventoryLifecycle(facts);
+  });
+
+  return {
+    items: items.map((item, index) => ({ ...item, lifecycle: projections[index] })),
+    lifecycle_projection: {
+      mode: "exact",
+      counts: countInventoryLifecycleProjections(projections),
+    },
+  };
 }
 
 async function projectLifecycleSale(
@@ -254,7 +640,7 @@ async function projectLifecycleSale(
     await Promise.all([
       supabase
         .from("inventory_items")
-        .select("public_no,warranty_until")
+        .select("public_no,status,warranty_until")
         .eq("store_id", storeId)
         .eq("id", order.inventory_item_id)
         .maybeSingle(),
@@ -291,7 +677,7 @@ async function projectLifecycleSale(
         .maybeSingle(),
       supabase
         .from("inventory_after_sales_cases")
-        .select("id,status,coverage_decision,received_at,version")
+        .select("id,status,coverage_decision,received_at,returned_at,version")
         .eq("store_id", storeId)
         .eq("sale_order_id", order.id)
         .neq("status", "closed")
@@ -327,14 +713,34 @@ async function projectLifecycleSale(
           ? "delivered"
           : "sold_pending_pickup"
         : "removed";
-  const actions = resolveInventoryLifecycleAllowedActions(actor, {
+  const actions = resolveInventoryLifecycleCommandActions(storeId, actor, {
     businessStatus,
     orderStatus: order.status,
     balance,
     hasActiveCase: Boolean(activeCase),
+    afterSalesStatus: activeCase?.status,
+    returnedAt: activeCase?.returned_at,
   });
   const inspection = inspectionResult.data;
   const warranty = warrantyResult.data;
+  const projection = projectExactInventoryLifecycle({
+    legacyStatus: productResult.data.status,
+    unitStatus: unitResult.data.status,
+    order: {
+      status: order.status,
+      reservedAt: order.reserved_at,
+      reservationExpiresAt: order.expires_at,
+      expectedPickupAt: order.expected_pickup_at,
+      soldAt: order.sold_at,
+      actualPickupAt: order.actual_pickup_at,
+    },
+    afterSales: activeCase
+      ? { status: activeCase.status, returnedAt: activeCase.returned_at }
+      : undefined,
+    balance,
+    warrantyEndsAt: productResult.data.warranty_until,
+    allowedActions: actions,
+  });
 
   return {
     item_id: order.inventory_item_id,
@@ -353,7 +759,8 @@ async function projectLifecycleSale(
       method: payment.method,
       occurred_at: String(payment.occurred_at),
     })),
-    allowed_actions: actions,
+    allowed_actions: projection.allowed_actions,
+    projection,
     order_version: Number(order.version),
     unit_version: Number(unitResult.data.version),
     ...(order.reserved_at ? { reserved_at: String(order.reserved_at) } : {}),
@@ -436,7 +843,7 @@ export async function readInventoryLifecycleSummary(
     await Promise.all([
       supabase
         .from("inventory_items")
-        .select("public_no,warranty_until")
+        .select("public_no,status,warranty_until")
         .eq("store_id", storeId)
         .eq("id", inventoryItemId)
         .maybeSingle(),
@@ -464,6 +871,17 @@ export async function readInventoryLifecycleSummary(
   ].includes(String(unit.status))
     ? "removed"
     : "in_stock";
+  const allowedActions = resolveInventoryLifecycleCommandActions(storeId, actor, {
+    businessStatus,
+    balance: 0,
+    hasActiveCase: false,
+  });
+  const projection = projectExactInventoryLifecycle({
+    legacyStatus: product.status,
+    unitStatus: unit.status,
+    warrantyEndsAt: product.warranty_until,
+    allowedActions,
+  });
   return {
     item_id: inventoryItemId,
     stock_unit_id: String(unit.id),
@@ -471,11 +889,8 @@ export async function readInventoryLifecycleSummary(
     business_status: businessStatus,
     ...(product.warranty_until ? { warranty_ends_at: String(product.warranty_until) } : {}),
     ...(typeof unit.version === "number" ? { unit_version: unit.version } : {}),
-    allowed_actions: resolveInventoryLifecycleAllowedActions(actor, {
-      businessStatus,
-      balance: 0,
-      hasActiveCase: false,
-    }),
+    allowed_actions: projection.allowed_actions,
+    projection,
   };
 }
 
@@ -546,6 +961,18 @@ export async function readInventoryLifecycleAfterSalesQueue(
     const order = orderMap.get(String(row.sale_order_id));
     const product = productMap.get(String(row.inventory_item_id));
     if (!order || !product) return [];
+    const allowedNextStatuses = getInventoryLifecycleAfterSalesNextStatuses(row.status);
+    const allowedActions: InventoryLifecycleCommand[] =
+      isInventoryLifecycleCommandEnabledForStore(storeId) && can(actor, "after_sales:update")
+        ? [
+            ...(allowedNextStatuses.some((status) => status !== "closed")
+              ? (["after_sales.update"] as const)
+              : []),
+            ...(allowedNextStatuses.includes("closed") && row.returned_at
+              ? (["after_sales.close"] as const)
+              : []),
+          ]
+        : [];
     return [
       {
         case_id: String(row.id),
@@ -560,9 +987,8 @@ export async function readInventoryLifecycleAfterSalesQueue(
         ...(row.returned_at ? { returned_at: String(row.returned_at) } : {}),
         version: Number(row.version),
         order_version: Number(order.version),
-        allowed_actions: can(actor, "after_sales:update")
-          ? (["after_sales.update", "after_sales.close"] as InventoryLifecycleCommand[])
-          : [],
+        allowed_actions: allowedActions,
+        allowed_next_statuses: allowedNextStatuses,
       },
     ];
   });
@@ -618,6 +1044,18 @@ export async function readInventoryLifecycleAfterSalesCase(
   if (orderResult.error || productResult.error || eventsResult.error)
     throw new InventoryLifecycleHttpError("internal_error", errorMessages.internal_error, 503);
   if (!orderResult.data || !productResult.data) return null;
+  const allowedNextStatuses = getInventoryLifecycleAfterSalesNextStatuses(caseRow.status);
+  const allowedActions: InventoryLifecycleCommand[] =
+    isInventoryLifecycleCommandEnabledForStore(storeId) && can(actor, "after_sales:update")
+      ? [
+          ...(allowedNextStatuses.some((status) => status !== "closed")
+            ? (["after_sales.update"] as const)
+            : []),
+          ...(allowedNextStatuses.includes("closed") && caseRow.returned_at
+            ? (["after_sales.close"] as const)
+            : []),
+        ]
+      : [];
   return {
     case_id: String(caseRow.id),
     sale_order_id: String(caseRow.sale_order_id),
@@ -633,10 +1071,8 @@ export async function readInventoryLifecycleAfterSalesCase(
     ...(caseRow.closed_at ? { closed_at: String(caseRow.closed_at) } : {}),
     version: Number(caseRow.version),
     order_version: Number(orderResult.data.version),
-    allowed_actions:
-      caseRow.status === "closed"
-        ? []
-        : (["after_sales.update", "after_sales.close"] as InventoryLifecycleCommand[]),
+    allowed_actions: allowedActions,
+    allowed_next_statuses: allowedNextStatuses,
     sale: sale ?? undefined,
     events: (eventsResult.data ?? []).map((event) => ({
       event_type: String(event.event_type),

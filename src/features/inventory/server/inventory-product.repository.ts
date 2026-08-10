@@ -22,6 +22,8 @@ import { can } from "@/server/permissions";
 import { getSupabaseAdmin } from "@/server/supabase";
 
 import { inventoryV2DependencyError, runInventoryV2Dependency } from "./inventory-v2-errors";
+import { enrichInventoryProductLifecycle } from "@/features/inventory/lifecycle/server/inventory-lifecycle.repository";
+import { projectUnavailableInventoryLifecycle } from "@/features/inventory/lifecycle/model/projection";
 
 const CATEGORIES = new Set<InventoryProductCategory>([
   "phone",
@@ -191,7 +193,20 @@ export async function listInventoryProducts(
     return true;
   });
 
-  const items = await attachProductThumbnails(visible, actor, storeId);
+  let lifecycleItems = visible;
+  let lifecycleProjection: InventoryProductListResult["lifecycle_projection"];
+  try {
+    const enriched = await enrichInventoryProductLifecycle(visible, actor);
+    lifecycleItems = enriched.items;
+    lifecycleProjection = enriched.lifecycle_projection;
+  } catch {
+    lifecycleItems = visible.map((item) => ({
+      ...item,
+      lifecycle: projectUnavailableInventoryLifecycle(),
+    }));
+    lifecycleProjection = { mode: "unavailable", counts: {} };
+  }
+  const items = await attachProductThumbnails(lifecycleItems, actor, storeId);
 
   return {
     items,
@@ -200,6 +215,7 @@ export async function listInventoryProducts(
       brands: uniqueSorted(products.map((item) => item.brand)),
       locations: uniqueSorted(products.map((item) => item.location).filter(isString)),
     },
+    lifecycle_projection: lifecycleProjection,
   };
 }
 
@@ -582,6 +598,7 @@ export function projectInventoryProductListItem(
     specification: [item.storage_capacity, item.color].filter(Boolean).join(" · ") || undefined,
     masked_identifier: maskIdentifier(item.serial_or_imei),
     status: mapProductStatus(item.status),
+    legacy_status: item.status,
     location,
     ...(listPriceProvided ? { list_price: item.list_price } : {}),
     currency_code: item.currency_code,

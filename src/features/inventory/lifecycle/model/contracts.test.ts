@@ -104,4 +104,25 @@ describe("inventory lifecycle command contract", () => {
       }),
     ).toThrow();
   });
+
+  it("requires close to be a separate command from after-sales updates", () => {
+    const update = {
+      command: "after_sales.update" as const,
+      idempotency_key: "00000000-0000-4000-8000-000000000001",
+      payload: {
+        case_id: "00000000-0000-4000-8000-000000000002",
+        expected_case_version: 2,
+        status: "in_progress" as const,
+      },
+    };
+    expect(inventoryLifecycleCommandBodySchema.parse(update)).toMatchObject({
+      payload: { status: "in_progress" },
+    });
+    expect(() =>
+      inventoryLifecycleCommandBodySchema.parse({
+        ...update,
+        payload: { ...update.payload, status: "closed" },
+      }),
+    ).toThrow();
+  });
 });

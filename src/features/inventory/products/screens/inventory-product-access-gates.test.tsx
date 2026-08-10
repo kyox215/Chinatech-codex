@@ -624,6 +624,158 @@ describe("inventory product UI access gates", () => {
     await screen.findByText("暂无图片");
     expect(document.querySelector('[data-inventory-product-view="shelf"]')).toBeTruthy();
   });
+
+  it("keeps the default compatibility view fail-closed for pipeline statuses", async () => {
+    apiMocks.listInventoryProducts.mockResolvedValue({
+      items: [product({ legacy_status: "ready_for_sale" })],
+      total: 1,
+      facets: { brands: [], locations: [] },
+      lifecycle_projection: {
+        mode: "compatible",
+        counts: { processing: 1 },
+      },
+    });
+    renderWithQuery(<InventoryProductListScreen />);
+
+    expect(await screen.findByText("待处理")).toBeVisible();
+    expect(screen.queryByRole("group", { name: "生命周期工作入口" })).not.toBeInTheDocument();
+    expect(screen.queryByText("尾款")).not.toBeInTheDocument();
+  });
+
+  it("renders exact lifecycle shortcuts, filters cards, and exposes no card mutations", async () => {
+    const items = [
+      product({
+        id: "listed",
+        model: "Listed",
+        legacy_status: "listed",
+        lifecycle: {
+          mode: "exact",
+          status: "in_stock",
+          confidence: "high",
+          needs_review: false,
+          allowed_actions: ["reservation.create"],
+        },
+      }),
+      product({
+        id: "reserved",
+        model: "Reserved",
+        status: "reserved",
+        legacy_status: "reserved",
+        lifecycle: {
+          mode: "exact",
+          status: "reserved",
+          confidence: "high",
+          needs_review: false,
+          balance: 120,
+          allowed_actions: [],
+        },
+      }),
+      product({
+        id: "pickup",
+        model: "Pickup",
+        status: "sold",
+        legacy_status: "sold",
+        lifecycle: {
+          mode: "exact",
+          status: "sold_pending_pickup",
+          confidence: "high",
+          needs_review: false,
+          expected_pickup_at: "2026-08-11T10:00:00.000Z",
+          allowed_actions: [],
+        },
+      }),
+      product({
+        id: "processing",
+        model: "Processing",
+        legacy_status: "evaluating",
+        lifecycle: {
+          mode: "exact",
+          status: "processing",
+          confidence: "low",
+          needs_review: true,
+          allowed_actions: [],
+        },
+      }),
+      product({
+        id: "after-sales",
+        model: "After Sales",
+        status: "sold",
+        legacy_status: "sold",
+        lifecycle: {
+          mode: "exact",
+          status: "after_sales",
+          confidence: "high",
+          needs_review: false,
+          after_sales_status: "in_progress",
+          allowed_actions: [],
+        },
+      }),
+    ];
+    apiMocks.listInventoryProducts.mockResolvedValue({
+      items,
+      total: items.length,
+      facets: { brands: [], locations: [] },
+      lifecycle_projection: {
+        mode: "exact",
+        counts: { in_stock: 1, reserved: 1, sold_pending_pickup: 1, processing: 1, after_sales: 1 },
+      },
+    });
+    renderWithQuery(<InventoryProductListScreen />);
+
+    const shortcutGroup = await screen.findByRole("group", { name: "生命周期工作入口" });
+    expect(within(shortcutGroup).getAllByRole("button")).toHaveLength(4);
+    expect(shortcutGroup).toHaveClass("grid-cols-2", "min-[360px]:grid-cols-4");
+    expect(screen.getByText("尾款")).toBeVisible();
+    expect(screen.getByText("售后处理中")).toBeVisible();
+    for (const link of document.querySelectorAll<HTMLAnchorElement>('a[href^="/inventory/"]')) {
+      expect(link.querySelector("button")).toBeNull();
+    }
+
+    const reservedShortcut = Array.from(within(shortcutGroup).getAllByRole("button")).find(
+      (button) => button.querySelector(".truncate")?.textContent === "预订",
+    );
+    expect(reservedShortcut).toBeDefined();
+    fireEvent.click(reservedShortcut!);
+    await waitFor(() =>
+      expect(document.querySelectorAll('a[href^="/inventory/"]')).toHaveLength(1),
+    );
+    expect(apiMocks.createInventoryProduct).not.toHaveBeenCalled();
+    expect(apiMocks.updateInventoryProduct).not.toHaveBeenCalled();
+  });
+
+  it("does not invent zero counts for exact shortcuts", async () => {
+    apiMocks.listInventoryProducts.mockResolvedValue({
+      items: [
+        product({
+          legacy_status: "listed",
+          lifecycle: {
+            mode: "exact",
+            status: "in_stock",
+            confidence: "high",
+            needs_review: false,
+            allowed_actions: [],
+          },
+        }),
+      ],
+      total: 1,
+      facets: { brands: [], locations: [] },
+      lifecycle_projection: { mode: "exact", counts: { in_stock: 1 } },
+    });
+    renderWithQuery(<InventoryProductListScreen />);
+
+    const shortcuts = await screen.findByRole("group", { name: "生命周期工作入口" });
+    const shortcutButtons = Array.from(within(shortcuts).getAllByRole("button"));
+    const reservedShortcut = shortcutButtons.find(
+      (button) => button.querySelector(".truncate")?.textContent === "预订",
+    );
+    const pickupShortcut = shortcutButtons.find(
+      (button) => button.querySelector(".truncate")?.textContent === "待取",
+    );
+    expect(reservedShortcut).toBeDefined();
+    expect(pickupShortcut).toBeDefined();
+    expect(reservedShortcut).not.toHaveTextContent("0");
+    expect(pickupShortcut).not.toHaveTextContent("0");
+  });
 });
 
 function product(overrides: Record<string, unknown> = {}) {

@@ -1,4 +1,5 @@
 import { isStoreRolloutEnabled } from "@/shared/lib/store-rollout";
+import type { InventoryLifecycleProjectionMode } from "@/lib/repairdesk/types";
 
 export type InventoryLifecycleFeatureEnvironment = {
   INVENTORY_LIFECYCLE_SCHEMA_READY?: string;
@@ -61,6 +62,22 @@ export function isInventoryLifecycleReadEnabledForStore(
   env: InventoryLifecycleFeatureEnvironment = process.env as InventoryLifecycleFeatureEnvironment,
 ) {
   return isInventoryLifecycleUiEnabled(env) && isInventoryLifecycleStoreEnabled(storeId, env);
+}
+
+/**
+ * Resolves the list/detail read mode without throwing. Dormant stores stay on
+ * the compatibility projection; an explicitly requested UI whose schema is
+ * not ready is unavailable and must not silently fall back to an in-sale
+ * label.
+ */
+export function resolveInventoryLifecycleProjectionMode(
+  storeId: string | null | undefined,
+  env: InventoryLifecycleFeatureEnvironment = process.env as InventoryLifecycleFeatureEnvironment,
+): InventoryLifecycleProjectionMode {
+  if (isInventoryLifecycleReadEnabledForStore(storeId, env)) return "exact";
+  const rolloutRequested =
+    env.INVENTORY_LIFECYCLE_UI === "1" && isInventoryLifecycleStoreEnabled(storeId, env);
+  return rolloutRequested && !isInventoryLifecycleSchemaReady(env) ? "unavailable" : "compatible";
 }
 
 export function assertInventoryLifecycleCommandEnabled(storeId: string) {

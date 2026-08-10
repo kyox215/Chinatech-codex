@@ -65,6 +65,7 @@ describe("inventory product projection", () => {
       specification: "蓝色",
       masked_identifier: "•••• 2345",
       status: "in_stock",
+      legacy_status: "ready_for_sale",
       location: "A-02",
       list_price: 420,
       currency_code: "EUR",

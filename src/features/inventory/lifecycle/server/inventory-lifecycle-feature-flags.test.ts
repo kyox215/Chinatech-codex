@@ -6,6 +6,7 @@ import {
   isInventoryLifecycleCommandEnabledForStore,
   isInventoryLifecycleReadEnabledForStore,
   isInventoryLifecycleUiEnabled,
+  resolveInventoryLifecycleProjectionMode,
 } from "./inventory-lifecycle-feature-flags";
 
 describe("inventory lifecycle feature flags", () => {
@@ -40,5 +41,17 @@ describe("inventory lifecycle feature flags", () => {
     expect(() => assertInventoryLifecycleReadEnabled("store-a")).toThrow(
       InventoryLifecycleFeatureDisabledError,
     );
+  });
+
+  it("selects compatible by default and unavailable only for a requested unready rollout", () => {
+    expect(resolveInventoryLifecycleProjectionMode("store-a", {})).toBe("compatible");
+    expect(resolveInventoryLifecycleProjectionMode("store-a", enabled)).toBe("exact");
+    expect(
+      resolveInventoryLifecycleProjectionMode("store-a", {
+        ...enabled,
+        INVENTORY_LIFECYCLE_SCHEMA_READY: "0",
+      }),
+    ).toBe("unavailable");
+    expect(resolveInventoryLifecycleProjectionMode("store-b", enabled)).toBe("compatible");
   });
 });

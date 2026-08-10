@@ -15,11 +15,13 @@ import { MoneyText } from "@/shared/ui";
 import type { InventoryLifecycleListSummary } from "@/lib/repairdesk/types";
 
 import {
+  getInventoryLifecycleProjectionToneClass,
   InventoryDeviceHealthCard,
   InventoryLifecycleHistoryCard,
   InventoryLifecycleSummaryCard,
   InventoryLifecycleUnavailableCard,
 } from "@/features/inventory/lifecycle/components/inventory-lifecycle-status";
+import { getInventoryLifecycleProjectionMeta } from "@/features/inventory/lifecycle/model/projection";
 import { InventoryLifecycleLoadingCard } from "@/features/inventory/lifecycle/components/inventory-lifecycle-page-shell";
 import { InventoryInspectionEditor } from "@/features/inventory/lifecycle/forms/inventory-inspection-editor";
 
@@ -106,6 +108,11 @@ export function InventoryProductDetailWorkbench({
   }, [item.id]);
 
   const summaryFields: ProductSummaryField[] = [];
+  const exactProjection =
+    lifecycleSummary?.projection?.mode === "exact" ? lifecycleSummary.projection : undefined;
+  const lifecycleMeta = exactProjection
+    ? getInventoryLifecycleProjectionMeta(exactProjection, item.legacy_status ?? item.status)
+    : undefined;
   if (item.list_price !== undefined) {
     summaryFields.push({
       label: "售价",
@@ -137,26 +144,40 @@ export function InventoryProductDetailWorkbench({
         headerRef={mobileHeaderRef}
         item={item}
         categoryLabel={meta.label}
+        statusLabel={lifecycleMeta?.label ?? statuses[item.status]}
         canEdit={canEdit}
         onBack={onBack}
         onEdit={onEdit}
       />
 
       <div>
-        <DesktopProductHeader item={item} canEdit={canEdit} onEdit={onEdit} />
+        <DesktopProductHeader
+          item={item}
+          statusLabel={lifecycleMeta?.label ?? statuses[item.status]}
+          canEdit={canEdit}
+          onEdit={onEdit}
+        />
         <div className="grid min-w-0 gap-1.5 lg:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.18fr)] lg:gap-3">
           <ProductHeroCard
             item={item}
             icon={meta.icon}
-            statusLabel={statuses[item.status]}
-            statusClassName={statusStyles[item.status]}
+            statusLabel={lifecycleMeta?.label ?? statuses[item.status]}
+            statusClassName={
+              exactProjection
+                ? getInventoryLifecycleProjectionToneClass(lifecycleMeta?.tone ?? "neutral")
+                : statusStyles[item.status]
+            }
             summaryFields={summaryFields}
           />
           <div className="grid min-w-0 content-start gap-1.5 lg:gap-3">
             {lifecycleSummaryState === "loading" ? <InventoryLifecycleLoadingCard /> : null}
             {lifecycleSummaryState === "unavailable" ? <InventoryLifecycleUnavailableCard /> : null}
             {lifecycleSummaryState !== "dormant" && lifecycleSummary ? (
-              <InventoryLifecycleSummaryCard summary={lifecycleSummary} itemId={item.id} />
+              <InventoryLifecycleSummaryCard
+                summary={lifecycleSummary}
+                itemId={item.id}
+                hidePrimaryStatus={Boolean(exactProjection)}
+              />
             ) : null}
             <InventoryDeviceHealthCard
               category={item.category}
@@ -194,6 +215,7 @@ function MobileProductHeader({
   headerRef,
   item,
   categoryLabel,
+  statusLabel,
   canEdit,
   onBack,
   onEdit,
@@ -201,6 +223,7 @@ function MobileProductHeader({
   headerRef: React.RefObject<HTMLDivElement | null>;
   item: InventoryProductDetail;
   categoryLabel: string;
+  statusLabel: string;
   canEdit: boolean;
   onBack: () => void;
   onEdit: () => void;
@@ -226,7 +249,7 @@ function MobileProductHeader({
           <div className="min-w-0 text-center">
             <h1 className="truncate text-sm font-semibold">商品详情</h1>
             <p className="truncate text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-              {item.sku} · {categoryLabel} · {statuses[item.status]}
+              {item.sku} · {categoryLabel} · {statusLabel}
             </p>
           </div>
           {canEdit ? (
@@ -251,10 +274,12 @@ function MobileProductHeader({
 
 function DesktopProductHeader({
   item,
+  statusLabel,
   canEdit,
   onEdit,
 }: {
   item: InventoryProductDetail;
+  statusLabel: string;
   canEdit: boolean;
   onEdit: () => void;
 }) {
@@ -265,7 +290,7 @@ function DesktopProductHeader({
           {item.brand} {item.model}
         </h1>
         <p className="text-sm text-muted-foreground">
-          {item.sku} · {statuses[item.status]}
+          {item.sku} · {statusLabel}
         </p>
       </div>
       {canEdit ? (

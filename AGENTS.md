@@ -18,6 +18,7 @@ Use these rules when generating or editing pages in this repository.
 - For every non-micro task, create or update task memory under `.ai-company/memory/tasks/` when it helps future agents recover context. The old `.ai-company/runtime-memory/` path is legacy v2 reference only. Do not store secrets, full customer PII, hidden reasoning, or production credentials in memory files.
 - Read `AI智能部门管理/部门化管理设计.md` before non-trivial work. Use it to classify the request, decide whether current web research is required, choose single-agent vs multi-agent execution, assign departments, set sub-agent permission mode, and define verification.
 - For multi-agent work, also read `.agents/README.md`, `.agents/repairdesk-multiagent.yaml`, `.agents/department-roster.md`, `.agents/task-package-template.md`, and `.agents/integration-checklist.md`.
+- For T2/T3 or other complex cross-domain work, follow [`docs/COMPLEX_REQUIREMENT_MULTI_AGENT_DECLARATION.md`](docs/COMPLEX_REQUIREMENT_MULTI_AGENT_DECLARATION.md): natural-language intake, 2–4 independent read-only views, one bounded cross-question pass only for disagreement/high risk, frozen measurable contract, a single Luna writer, risk-based independent review, and Integration Lead final integration.
 - Treat the integration-lease holder as the only user-facing final decision owner. The user gives work to a top-level intake window; the bound Task Controller and lease-holding Integration Lead decide whether to spawn departments, write every sub-agent task package, arbitrate disputes, and own the final integration report.
 - Sub-agents report blockers to the Integration Lead. Do not let sub-agents ask the user for broader permissions or redirect the user to another agent; the Integration Lead decides whether to ask the user.
 - Read `docs/UI_PAGE_GENERATION_DECLARATION.md` before adding pages.
@@ -51,6 +52,8 @@ Use these rules when generating or editing pages in this repository.
 ## Owner Simple Mode（最高优先级交互规则）
 
 本项目采用自然语言单入口模式。
+
+对于 T2/T3 或跨域复杂需求，入口与停止条件遵循 [`docs/COMPLEX_REQUIREMENT_MULTI_AGENT_DECLARATION.md`](docs/COMPLEX_REQUIREMENT_MULTI_AGENT_DECLARATION.md)；普通简单任务继续使用本节的轻量策略。
 
 用户的正常任务描述即为正式任务输入。不得要求用户填写内部模板、选择 Agent、安排 Side Thread、指定 Skill、维护任务状态或更新记忆。
 

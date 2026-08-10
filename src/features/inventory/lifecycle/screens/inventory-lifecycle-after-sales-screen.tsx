@@ -11,7 +11,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { runInventoryLifecycleCommand } from "@/lib/repairdesk/api";
-import type { InventoryLifecycleAfterSalesCaseDetail } from "@/lib/repairdesk/types";
+import type {
+  InventoryAfterSalesStatus,
+  InventoryLifecycleAfterSalesCaseDetail,
+} from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +25,7 @@ import {
 } from "../api/query-options";
 import { InventoryLifecyclePageShell } from "../components/inventory-lifecycle-page-shell";
 import { InventoryLifecycleUnavailableCard } from "../components/inventory-lifecycle-status";
+import { getInventoryLifecycleAfterSalesNextStatuses } from "../model/projection";
 
 const statusCopy = {
   open: "待检测",
@@ -128,7 +132,7 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
   });
   const [diagnosis, setDiagnosis] = useState("");
   const [coverage, setCoverage] = useState("pending");
-  const [status, setStatus] = useState("in_progress");
+  const [status, setStatus] = useState<InventoryAfterSalesStatus>("in_progress");
   const [message, setMessage] = useState("");
   const idempotencyKey = useRef(crypto.randomUUID());
   const mutation = useMutation({
@@ -142,7 +146,7 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
   });
   useEffect(() => {
     if (!query.data) return;
-    setStatus(query.data.status);
+    setStatus(query.data.allowed_next_statuses?.[0] ?? query.data.status);
     setCoverage(query.data.coverage_decision ?? "pending");
     setDiagnosis(query.data.diagnosis ?? "");
   }, [query.data]);
@@ -171,7 +175,12 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
       </InventoryLifecyclePageShell>
     );
   const item = query.data;
-  const canUpdate = item.allowed_actions.includes("after_sales.update");
+  const nextStatuses =
+    item.allowed_next_statuses ?? getInventoryLifecycleAfterSalesNextStatuses(item.status);
+  const canUpdate =
+    (item.allowed_actions.includes("after_sales.update") ||
+      item.allowed_actions.includes("after_sales.close")) &&
+    nextStatuses.length > 0;
   return (
     <InventoryLifecyclePageShell
       title="售后详情"
@@ -199,22 +208,28 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
             <h2 className="text-sm font-semibold">推进案件</h2>
           </div>
           <div className="grid gap-1.5">
-            <Label className="text-xs">下一状态</Label>
+            <Label className="text-xs" htmlFor="inventory-after-sales-next-status">
+              下一状态
+            </Label>
             <select
+              id="inventory-after-sales-next-status"
               className="h-11 rounded-md border bg-background px-3 text-sm"
               value={status}
-              onChange={(event) => setStatus(event.target.value)}
+              onChange={(event) => setStatus(event.target.value as InventoryAfterSalesStatus)}
             >
-              <option value="in_progress">处理中</option>
-              <option value="open">待检测</option>
-              <option value="waiting_customer">等待客户</option>
-              <option value="returned">已返还客户</option>
-              <option value="closed">关闭案件</option>
+              {nextStatuses.map((nextStatus) => (
+                <option key={nextStatus} value={nextStatus}>
+                  {statusCopy[nextStatus]}
+                </option>
+              ))}
             </select>
           </div>
           <div className="grid gap-1.5">
-            <Label className="text-xs">保障判断</Label>
+            <Label className="text-xs" htmlFor="inventory-after-sales-coverage">
+              保障判断
+            </Label>
             <select
+              id="inventory-after-sales-coverage"
               className="h-11 rounded-md border bg-background px-3 text-sm"
               value={coverage}
               onChange={(event) => setCoverage(event.target.value)}

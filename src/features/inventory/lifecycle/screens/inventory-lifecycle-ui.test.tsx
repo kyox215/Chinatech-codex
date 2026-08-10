@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const apiMocks = vi.hoisted(() => ({
   getInventoryProduct: vi.fn(),
+  readInventoryLifecycleAfterSalesCase: vi.fn(),
   readInventoryLifecycleSummary: vi.fn(),
   runInventoryLifecycleCommand: vi.fn(),
 }));
@@ -13,6 +14,7 @@ const routerMocks = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 vi.mock("@/lib/repairdesk/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/repairdesk/api")>()),
   getInventoryProduct: apiMocks.getInventoryProduct,
+  readInventoryLifecycleAfterSalesCase: apiMocks.readInventoryLifecycleAfterSalesCase,
   readInventoryLifecycleSummary: apiMocks.readInventoryLifecycleSummary,
   runInventoryLifecycleCommand: apiMocks.runInventoryLifecycleCommand,
 }));
@@ -23,6 +25,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => routerMocks }));
 
 import { InventoryLifecycleReservationScreen } from "./inventory-lifecycle-reservation-screen";
 import { InventoryLifecycleReadonlyScreen } from "./inventory-lifecycle-readonly-screen";
+import { InventoryLifecycleAfterSalesCaseScreen } from "./inventory-lifecycle-after-sales-screen";
 import { InventoryDeviceHealthCard } from "../components/inventory-lifecycle-status";
 
 beforeEach(() => {
@@ -81,6 +84,33 @@ describe("inventory lifecycle UI safety gates", () => {
     expect(screen.getByText("电池健康")).toBeVisible();
     expect(screen.getAllByText("尚未检测").length).toBeGreaterThan(0);
     expect(screen.queryByText("0%")).not.toBeInTheDocument();
+  });
+
+  it("shows only the server-owned close transition after an item is returned", async () => {
+    apiMocks.readInventoryLifecycleAfterSalesCase.mockResolvedValue({
+      case_id: "case-1",
+      sale_order_id: "sale-1",
+      inventory_item_id: "item-1",
+      stock_unit_id: "unit-1",
+      sku: "I000001",
+      status: "returned",
+      issue_summary: "屏幕检测完成，设备已返还",
+      received_at: "2026-08-01T08:00:00.000Z",
+      returned_at: "2026-08-02T08:00:00.000Z",
+      version: 3,
+      order_version: 2,
+      allowed_actions: ["after_sales.close"],
+      allowed_next_statuses: ["closed"],
+      events: [],
+    });
+    renderWithQuery(<InventoryLifecycleAfterSalesCaseScreen caseId="case-1" />);
+
+    expect(await screen.findByRole("button", { name: "确认关闭案件" })).toBeVisible();
+    const statusSelect = screen.getAllByRole("combobox")[0];
+    expect(statusSelect).toHaveValue("closed");
+    expect(statusSelect.querySelectorAll("option")).toHaveLength(1);
+    expect(screen.queryByText("处理中")).not.toBeInTheDocument();
+    expect(apiMocks.runInventoryLifecycleCommand).not.toHaveBeenCalled();
   });
 });
 

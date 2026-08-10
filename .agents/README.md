@@ -57,6 +57,10 @@ Every delegated task follows this chain:
 
 The detailed decision workflow lives in `.agents/decision-flow.md`.
 
+For complex T2/T3 or cross-domain requirements, the natural-language intake,
+independent-view, single-writer, review, stop-condition, and no-spawn rules are
+defined in [`docs/COMPLEX_REQUIREMENT_MULTI_AGENT_DECLARATION.md`](../docs/COMPLEX_REQUIREMENT_MULTI_AGENT_DECLARATION.md).
+
 ## Routing Examples
 
 Reusable routing cases live in `.agents/route-cases.yaml`.

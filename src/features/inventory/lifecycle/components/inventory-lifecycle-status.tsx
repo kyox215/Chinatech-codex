@@ -1,13 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CircleAlert, History, PackageCheck, ShieldCheck } from "lucide-react";
+import {
+  ArchiveX,
+  ArrowRight,
+  CheckCircle2,
+  CircleAlert,
+  CircleDashed,
+  Clock3,
+  History,
+  PackageCheck,
+  ShieldCheck,
+  Tag,
+  Wrench,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import type { InventoryLifecycleListSummary } from "@/lib/repairdesk/types";
+import type {
+  InventoryItemStatus,
+  InventoryLifecycleListSummary,
+  InventoryLifecycleProjection,
+} from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { RepairOsBadge } from "@/shared/ui";
+import {
+  getInventoryLifecycleProjectionMeta,
+  inventoryLifecycleProjectionStatusMeta,
+} from "../model/projection";
 
 export type LifecycleStatus = InventoryLifecycleListSummary["business_status"];
 
@@ -58,17 +78,76 @@ export function InventoryLifecycleStatusBadge({
   return <RepairOsBadge className={cn(meta.className, className)}>{meta.label}</RepairOsBadge>;
 }
 
+const projectionToneClasses = {
+  neutral: "bg-status-neutral text-status-neutral-foreground",
+  info: "bg-status-info text-status-info-foreground",
+  warning: "bg-status-warn text-status-warn-foreground",
+  success: "bg-status-success text-status-success-foreground",
+  danger: "bg-status-danger text-status-danger-foreground",
+} as const;
+
+export function getInventoryLifecycleProjectionToneClass(tone: keyof typeof projectionToneClasses) {
+  return projectionToneClasses[tone];
+}
+
+const projectionIcons = {
+  "circle-dashed": CircleDashed,
+  tag: Tag,
+  clock: Clock3,
+  "package-check": PackageCheck,
+  "check-circle": CheckCircle2,
+  wrench: Wrench,
+  "archive-x": ArchiveX,
+} as const;
+
+export function InventoryLifecycleProjectionBadge({
+  projection,
+  legacyStatus,
+  className,
+}: {
+  projection: InventoryLifecycleProjection;
+  legacyStatus?: InventoryItemStatus | string | null;
+  className?: string;
+}) {
+  const meta = getInventoryLifecycleProjectionMeta(projection, legacyStatus);
+  const Icon = projectionIcons[meta.icon];
+  return (
+    <RepairOsBadge className={cn(projectionToneClasses[meta.tone], "gap-1", className)}>
+      <Icon className="size-3" aria-hidden="true" />
+      <span>{meta.label}</span>
+    </RepairOsBadge>
+  );
+}
+
+export function InventoryLifecycleProjectionStatusIcon({
+  status,
+  className,
+}: {
+  status: InventoryLifecycleProjection["status"];
+  className?: string;
+}) {
+  const Icon = projectionIcons[inventoryLifecycleProjectionStatusMeta[status].icon];
+  return <Icon className={cn("size-3.5", className)} aria-hidden="true" />;
+}
+
 export function InventoryLifecycleSummaryCard({
   summary,
   itemId,
   compact = false,
+  hidePrimaryStatus = false,
 }: {
   summary: InventoryLifecycleListSummary;
   itemId: string;
   compact?: boolean;
+  hidePrimaryStatus?: boolean;
 }) {
+  const projection = summary.projection;
   const meta = lifecycleStatusMeta[summary.business_status];
-  const canReserve = summary.allowed_actions?.includes("reservation.create") === true;
+  const projectionMeta =
+    projection?.mode === "exact" ? getInventoryLifecycleProjectionMeta(projection) : undefined;
+  const allowedActions =
+    projection?.mode === "exact" ? projection.allowed_actions : summary.allowed_actions;
+  const canReserve = allowedActions?.includes("reservation.create") === true;
   const nextHref = summary.after_sales?.case_id
     ? `/inventory/after-sales/${encodeURIComponent(summary.after_sales.case_id)}`
     : summary.sale_order_id
@@ -101,9 +180,15 @@ export function InventoryLifecycleSummaryCard({
               当前业务
             </h2>
           </div>
-          <p className="mt-1 text-[10px] leading-4 text-muted-foreground">{meta.description}</p>
+          <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+            {projectionMeta?.description ?? meta.description}
+          </p>
         </div>
-        <InventoryLifecycleStatusBadge status={summary.business_status} />
+        {!hidePrimaryStatus && projection?.mode === "exact" ? (
+          <InventoryLifecycleProjectionBadge projection={projection} />
+        ) : !hidePrimaryStatus ? (
+          <InventoryLifecycleStatusBadge status={summary.business_status} />
+        ) : null}
       </div>
 
       <div className="mt-2 grid min-w-0 grid-cols-2 gap-1.5 sm:grid-cols-4">

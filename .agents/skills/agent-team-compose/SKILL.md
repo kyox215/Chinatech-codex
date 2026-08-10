@@ -5,6 +5,9 @@ description: 用于 T2/T3 或需要独立专业判断的任务，选择最小充
 
 # agent-team-compose
 
+复杂需求的项目级流程声明见
+[`docs/COMPLEX_REQUIREMENT_MULTI_AGENT_DECLARATION.md`](../../../docs/COMPLEX_REQUIREMENT_MULTI_AGENT_DECLARATION.md)。本 Skill 只提供执行路由，不复制该声明正文。
+
 ## 目标
 
 把公司部门模型映射为真正有独立交付物的子 Agent，避免所有角色每次都参加，也避免并行写入冲突。

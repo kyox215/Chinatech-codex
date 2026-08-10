@@ -2365,6 +2365,63 @@ export type InventoryProductDisplayStatus =
   | "removed"
   | "returned";
 
+/**
+ * A minimized, server-owned lifecycle read model for inventory list/detail UI.
+ * It is deliberately separate from the legacy inventory status so existing
+ * clients can continue reading `status` while the projection rolls out.
+ */
+export type InventoryLifecycleProjectionMode = "exact" | "compatible" | "unavailable";
+
+export type InventoryLifecycleProjectionStatus =
+  | "processing"
+  | "in_stock"
+  | "reserved"
+  | "sold_pending_pickup"
+  | "delivered"
+  | "after_sales"
+  | "removed";
+
+export type InventoryLifecycleProjectionConfidence = "high" | "medium" | "low";
+
+export type InventoryAfterSalesStatus =
+  | "open"
+  | "in_progress"
+  | "waiting_customer"
+  | "returned"
+  | "closed";
+
+export interface InventoryLifecycleProjection {
+  mode: InventoryLifecycleProjectionMode;
+  status: InventoryLifecycleProjectionStatus;
+  confidence: InventoryLifecycleProjectionConfidence;
+  needs_review: boolean;
+  /** Aggregate only; individual payment rows are never exposed by the list. */
+  balance?: number;
+  reservation_expires_at?: string;
+  expected_pickup_at?: string;
+  actual_pickup_at?: string;
+  warranty_ends_at?: string;
+  after_sales_status?: InventoryAfterSalesStatus;
+  allowed_actions: InventoryLifecycleCommand[];
+}
+
+export interface InventoryLifecycleProjectionCounts {
+  processing?: number;
+  in_stock?: number;
+  reserved?: number;
+  sold_pending_pickup?: number;
+  delivered?: number;
+  after_sales?: number;
+  removed?: number;
+  /** Omitted when there is no unknown/failed projection; never rendered as 0. */
+  unknown?: number;
+}
+
+export interface InventoryLifecycleBatchProjection {
+  mode: InventoryLifecycleProjectionMode;
+  counts: InventoryLifecycleProjectionCounts;
+}
+
 export interface InventoryProductListFilters {
   search?: string;
   statuses?: InventoryProductDisplayStatus[];
@@ -2384,12 +2441,16 @@ export interface InventoryProductListItem {
   specification?: string;
   masked_identifier?: string;
   status: InventoryProductDisplayStatus;
+  /** Raw lifecycle source retained while the legacy display status is compatible. */
+  legacy_status?: InventoryItemStatus;
   location?: string;
   list_price?: number;
   currency_code: CurrencyCode;
   updated_at: string;
   /** Same-origin authenticated thumbnail handle. Storage metadata is never returned. */
   thumbnail_url?: string;
+  /** Optional lifecycle projection; legacy status/statuses remain available for compatibility. */
+  lifecycle?: InventoryLifecycleProjection;
 }
 
 export interface InventoryProductListResult {
@@ -2399,6 +2460,7 @@ export interface InventoryProductListResult {
     brands: string[];
     locations: string[];
   };
+  lifecycle_projection?: InventoryLifecycleBatchProjection;
 }
 
 export interface InventoryProductDetail extends InventoryProductListItem {
@@ -2575,6 +2637,7 @@ export interface InventoryLifecycleListSummary {
   reserved_at?: string;
   sold_at?: string;
   allowed_actions: InventoryLifecycleCommand[];
+  projection?: InventoryLifecycleProjection;
   inspection?: {
     battery_health: number | null;
     face_id_status: "not_tested" | "normal" | "abnormal" | "not_applicable";
@@ -2634,6 +2697,7 @@ export interface InventoryLifecycleAfterSalesQueueItem {
   version: number;
   order_version: number;
   allowed_actions: InventoryLifecycleCommand[];
+  allowed_next_statuses?: InventoryAfterSalesStatus[];
 }
 
 export interface InventoryLifecycleAfterSalesCaseDetail extends InventoryLifecycleAfterSalesQueueItem {
