@@ -5,7 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 const screenshotDir = resolve(
   process.cwd(),
-  "artifacts/screenshots/TASK-20260730-009-inventory-icon-workbench-detail",
+  "artifacts/screenshots/TASK-20260810-006-inventory-product-detail-redesign",
 );
 const productId = "00000000-0000-4000-8000-000000000501";
 const rawImei = "356789012344321";
@@ -14,7 +14,7 @@ test.beforeAll(async () => {
   await mkdir(screenshotDir, { recursive: true });
 });
 
-test("option C workbench stays graphical, private and bounded across viewports", async ({
+test("complete device profile stays readable, private and bounded across viewports", async ({
   page,
   browserName,
 }) => {
@@ -34,13 +34,18 @@ test("option C workbench stays graphical, private and bounded across viewports",
     ).toBeVisible();
     await expect(page.getByRole("heading", { name: "设备工作台" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "设备身份" })).toBeVisible();
-    await expect(page.getByText("6 项资料")).toBeVisible();
+    await expect(page.getByText("5 项核心资料")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "设备检测" })).toBeVisible();
+    await expect(page.getByText("电池健康", { exact: true })).toBeVisible();
+    await expect(page.getByText("Face ID", { exact: true })).toBeVisible();
+    await expect(page.getByText("91%", { exact: true })).toBeVisible();
+    await expect(page.getByText("正常", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(/^检测时间：/)).toBeVisible();
+    await expect(page.getByText("经营信息", { exact: true })).toBeVisible();
     await expect(page.getByText("•••• 4321").first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "编辑商品" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "编辑商品" }).first()).toBeVisible();
     await expect(page.getByText(rawImei)).toHaveCount(0);
     await expect(page.getByText("激活锁", { exact: true })).toHaveCount(0);
-    await expect(page.getByText("功能正常", { exact: true })).toHaveCount(0);
-    await expect(page.getByText("电池", { exact: true })).toHaveCount(0);
     await expect(page.locator('[role="progressbar"]')).toHaveCount(0);
     await assertNoHorizontalOverflow(page);
 
@@ -49,24 +54,33 @@ test("option C workbench stays graphical, private and bounded across viewports",
       await assertHeaderDoesNotCoverHero(page);
     }
 
+    await hideDevBadge(page);
     await page.screenshot({
-      path: resolve(screenshotDir, `${viewport.width}-${browserName}-option-c-detail.png`),
+      path: resolve(screenshotDir, `${viewport.width}-${browserName}-complete-device-profile.png`),
       fullPage: true,
     });
   }
 });
 
-test("redacted cost and sparse data never create fake workbench values", async ({ page }) => {
+test("redacted cost and sparse data stay explicit without fake values", async ({ page }) => {
   await mockProductDetail(
     page,
     richProduct({
       cost_amount: undefined,
       finance_redacted: true,
       condition: undefined,
+      storage_capacity: undefined,
+      ram_capacity: undefined,
+      color: undefined,
+      list_price: undefined,
+      location: undefined,
       warranty_months: undefined,
       specifications: {},
       identifiers: [],
       masked_identifier: "•••• 7788",
+      gtin: undefined,
+      notes: undefined,
+      inspection: undefined,
     }),
   );
   await page.setViewportSize({ width: 390, height: 844 });
@@ -74,12 +88,25 @@ test("redacted cost and sparse data never create fake workbench values", async (
 
   await expect(page.getByRole("heading", { level: 2, name: "Apple iPhone 15 Pro" })).toBeVisible();
   await expect(page.getByText("成本", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("成色", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("保修", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("未录入", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("3 项资料")).toBeVisible();
+  await expect(page.getByText("成色", { exact: true })).toBeVisible();
+  await expect(page.getByText("保修", { exact: true })).toBeVisible();
+  await expect(page.getByText("未录入", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("未定价", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("未设置库位", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("5 项核心资料")).toBeVisible();
+  await expect(
+    page.getByText("暂无备注。编辑商品时可补充检测结果、配件或售后说明。", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "设备检测" })).toBeVisible();
+  await expect(page.getByText("未检测", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("检测时间：未检测", { exact: true })).toBeVisible();
   await expect(page.getByText("•••• 7788")).toHaveCount(1);
   await assertNoHorizontalOverflow(page);
+  await hideDevBadge(page);
+  await page.screenshot({
+    path: resolve(screenshotDir, `390-${test.info().project.name}-sparse-device-profile.png`),
+    fullPage: true,
+  });
 });
 
 async function mockProductDetail(page: Page, detail: ReturnType<typeof richProduct>) {
@@ -89,6 +116,14 @@ async function mockProductDetail(page: Page, detail: ReturnType<typeof richProdu
       contentType: "application/json",
       body: JSON.stringify({ data: detail }),
     });
+  });
+}
+
+async function hideDevBadge(page: Page) {
+  await page.evaluate(() => {
+    document
+      .querySelectorAll("nextjs-portal, [data-nextjs-toast], [data-nextjs-dev-tools-button]")
+      .forEach((element) => element.remove());
   });
 }
 
@@ -118,6 +153,12 @@ function richProduct(overrides: Record<string, unknown> = {}) {
     cost_amount: 610,
     warranty_months: 12,
     notes: "配件齐全，已存入防尘收纳盒。",
+    inspection: {
+      id: "inspection-1",
+      battery_health: 91,
+      face_id_status: "normal",
+      inspected_at: "2026-07-29T08:00:00.000Z",
+    },
     created_at: "2026-07-29T08:00:00.000Z",
     version: 2,
     ...overrides,

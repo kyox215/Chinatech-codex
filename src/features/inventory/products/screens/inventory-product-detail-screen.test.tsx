@@ -55,20 +55,26 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("InventoryProductDetailScreen icon workbench", () => {
-  it("renders only real product data in the selected workbench layout", async () => {
+describe("InventoryProductDetailScreen complete device profile", () => {
+  it("renders the complete profile with stable core, health and business sections", async () => {
     renderScreen();
 
     expect(
       await screen.findByRole("heading", { level: 2, name: "Apple iPhone 15 Pro" }),
     ).toBeVisible();
     expect(screen.getByRole("heading", { name: "设备工作台" })).toBeVisible();
-    expect(screen.getByText("6 项资料")).toBeVisible();
-    for (const value of ["256 GB", "8 GB", "Natural Titanium", "A", "12 个月", "EU 双卡"]) {
-      expect(screen.getByText(value)).toBeVisible();
+    expect(screen.getByText("5 项核心资料")).toBeVisible();
+    for (const value of ["256 GB", "8 GB", "Natural Titanium", "A", "EU 双卡"]) {
+      expect(screen.getAllByText(value).length).toBeGreaterThan(0);
     }
+    expect(screen.getByRole("heading", { name: "设备检测" })).toBeVisible();
+    expect(screen.getByText("电池健康")).toBeVisible();
+    expect(screen.getByText("Face ID")).toBeVisible();
+    expect(screen.getAllByText("未检测").length).toBeGreaterThan(0);
+    expect(screen.getByText(/^检测时间：/)).toBeVisible();
+    expect(screen.getByRole("heading", { name: "经营信息" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "设备身份" })).toBeVisible();
-    const identitySection = screen.getByRole("heading", { name: "设备身份" }).closest("section");
+    const identitySection = screen.getByRole("heading", { name: "设备身份" }).closest("details");
     expect(identitySection).not.toBeNull();
     expect(within(identitySection!).getByText("•••• 4321")).toBeVisible();
     expect(within(identitySection!).getByText("•••• AB9C")).toBeVisible();
@@ -86,7 +92,7 @@ describe("InventoryProductDetailScreen icon workbench", () => {
     renderScreen();
 
     await screen.findByRole("heading", { level: 2, name: "Apple iPhone 15 Pro" });
-    const identitySection = screen.getByRole("heading", { name: "设备身份" }).closest("section");
+    const identitySection = screen.getByRole("heading", { name: "设备身份" }).closest("details");
     expect(identitySection).not.toBeNull();
     expect(within(identitySection!).getByText("•••• 7788")).toBeVisible();
     expect(screen.getAllByText("•••• 7788")).toHaveLength(1);
@@ -103,7 +109,7 @@ describe("InventoryProductDetailScreen icon workbench", () => {
     expect(screen.getByText("•••• 7788")).toBeVisible();
   });
 
-  it("omits protected cost and absent fields without inventing placeholders", async () => {
+  it("keeps protected cost hidden while explaining missing editable fields", async () => {
     apiMocks.getInventoryProduct.mockResolvedValue(
       productFixture({
         cost_amount: undefined,
@@ -117,10 +123,42 @@ describe("InventoryProductDetailScreen icon workbench", () => {
 
     await screen.findByRole("heading", { level: 2, name: "Apple iPhone 15 Pro" });
     expect(screen.queryByText("成本")).not.toBeInTheDocument();
-    expect(screen.queryByText("成色")).not.toBeInTheDocument();
-    expect(screen.queryByText("保修")).not.toBeInTheDocument();
-    expect(screen.queryByText("未录入")).not.toBeInTheDocument();
-    expect(screen.getByText("3 项资料")).toBeVisible();
+    expect(screen.getByText("成色")).toBeVisible();
+    expect(screen.getByText("保修")).toBeVisible();
+    expect(screen.getAllByText("未录入").length).toBeGreaterThan(0);
+    expect(screen.getByText("5 项核心资料")).toBeVisible();
+  });
+
+  it("keeps a sparse product understandable without hiding the profile", async () => {
+    apiMocks.getInventoryProduct.mockResolvedValue(
+      productFixture({
+        list_price: undefined,
+        location: undefined,
+        color: undefined,
+        ram_capacity: undefined,
+        storage_capacity: undefined,
+        condition: undefined,
+        warranty_months: undefined,
+        specifications: {},
+        identifiers: [],
+        gtin: undefined,
+        notes: undefined,
+        cost_amount: undefined,
+        finance_redacted: true,
+        inspection: undefined,
+      }),
+    );
+    renderScreen();
+
+    await screen.findByRole("heading", { level: 2, name: "Apple iPhone 15 Pro" });
+    expect(screen.getAllByText("未定价").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("未设置库位").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("未录入").length).toBeGreaterThanOrEqual(4);
+    expect(screen.getByText("暂无备注。编辑商品时可补充检测结果、配件或售后说明。")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "设备检测" })).toBeVisible();
+    expect(screen.getAllByText("未检测").length).toBeGreaterThan(0);
+    expect(screen.getByText("检测时间：未检测")).toBeVisible();
+    expect(screen.queryByText("成本")).not.toBeInTheDocument();
   });
 
   it("keeps sold products readable but removes every edit action", async () => {
@@ -178,6 +216,12 @@ function productFixture(overrides: Partial<InventoryProductDetail> = {}): Invent
     cost_amount: 610,
     warranty_months: 12,
     notes: "配件齐全",
+    inspection: {
+      id: "inspection-1",
+      battery_health: null,
+      face_id_status: "not_tested",
+      inspected_at: "2026-07-29T08:00:00.000Z",
+    },
     created_at: "2026-07-29T08:00:00.000Z",
     version: 2,
     ...overrides,

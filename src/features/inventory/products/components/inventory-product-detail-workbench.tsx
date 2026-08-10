@@ -30,6 +30,7 @@ import {
   buildWorkbenchFields,
   DeviceIdentitySection,
   DeviceWorkbenchSection,
+  ProductBusinessSection,
   ProductHeroCard,
   ProductNotesSection,
   type ProductSummaryField,
@@ -86,6 +87,19 @@ function mergeInspectionFacts(
   };
 }
 
+function createUninspectedHealthSummary(inspectedAt: string): LifecycleInspection {
+  return {
+    battery_health: null,
+    face_id_status: "not_tested",
+    touch_id_status: "not_tested",
+    true_tone_status: "not_tested",
+    activation_lock_status: "not_tested",
+    data_wipe_status: "not_tested",
+    imei_status: "not_tested",
+    inspected_at: inspectedAt,
+  };
+}
+
 export function InventoryProductDetailWorkbench({
   item,
   lifecycleSummary,
@@ -138,30 +152,27 @@ export function InventoryProductDetailWorkbench({
   const exactProjection =
     lifecycleSummary?.projection?.mode === "exact" ? lifecycleSummary.projection : undefined;
   const inspection = mergeInspectionFacts(item.inspection, lifecycleSummary?.inspection);
+  const healthInspection =
+    inspection ??
+    (item.brand.trim().toLowerCase() === "apple" ? createUninspectedHealthSummary("") : undefined);
   const lifecycleSummaryWithInspection = lifecycleSummary
     ? { ...lifecycleSummary, ...(inspection ? { inspection } : {}) }
     : undefined;
   const lifecycleMeta = exactProjection
     ? getInventoryLifecycleProjectionMeta(exactProjection, item.legacy_status ?? item.status)
     : undefined;
-  if (item.list_price !== undefined) {
-    summaryFields.push({
-      label: "售价",
-      value: <MoneyText amount={item.list_price} className="font-semibold" />,
-    });
-  }
-  if (item.cost_amount !== undefined) {
-    summaryFields.push({ label: "成本", value: <MoneyText amount={item.cost_amount} /> });
-  }
-  if (item.location) summaryFields.push({ label: "库位", value: item.location });
-  summaryFields.push({ label: "更新", value: formatCompactDate(item.updated_at) });
+  summaryFields.push({
+    label: "售价",
+    value: item.list_price === undefined ? "未定价" : <MoneyText amount={item.list_price} />,
+  });
+  summaryFields.push({ label: "库位", value: item.location?.trim() || "未设置库位" });
 
   return (
     <main
       data-ui="inventory-product-detail-workbench"
       className={cn(
         repairOs.mobileFloatingPage,
-        "mx-auto w-full max-w-[430px] overflow-x-hidden px-2 pb-8 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] lg:max-w-5xl lg:px-0 lg:pt-0",
+        "mx-auto w-full max-w-[430px] overflow-x-hidden px-2 pb-20 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] lg:max-w-5xl lg:px-0 lg:pb-8 lg:pt-0",
       )}
       style={
         mobileHeaderHeight
@@ -188,18 +199,21 @@ export function InventoryProductDetailWorkbench({
           canEdit={canEdit}
           onEdit={onEdit}
         />
-        <div className="grid min-w-0 gap-1.5 lg:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.18fr)] lg:gap-3">
-          <ProductHeroCard
-            item={item}
-            icon={meta.icon}
-            statusLabel={lifecycleMeta?.label ?? statuses[item.status]}
-            statusClassName={
-              exactProjection
-                ? getInventoryLifecycleProjectionToneClass(lifecycleMeta?.tone ?? "neutral")
-                : statusStyles[item.status]
-            }
-            summaryFields={summaryFields}
-          />
+        <div className="grid min-w-0 gap-1.5 lg:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.18fr)] lg:items-start lg:gap-3">
+          <div className="grid min-w-0 content-start gap-1.5 lg:gap-3">
+            <ProductHeroCard
+              item={item}
+              icon={meta.icon}
+              statusLabel={lifecycleMeta?.label ?? statuses[item.status]}
+              statusClassName={
+                exactProjection
+                  ? getInventoryLifecycleProjectionToneClass(lifecycleMeta?.tone ?? "neutral")
+                  : statusStyles[item.status]
+              }
+              summaryFields={summaryFields}
+            />
+            <DeviceWorkbenchSection fields={buildWorkbenchFields(item)} />
+          </div>
           <div className="grid min-w-0 content-start gap-1.5 lg:gap-3">
             {lifecycleSummaryState === "loading" ? <InventoryLifecycleLoadingCard /> : null}
             {lifecycleSummaryState === "unavailable" ? <InventoryLifecycleUnavailableCard /> : null}
@@ -214,8 +228,10 @@ export function InventoryProductDetailWorkbench({
               category={item.category}
               brand={item.brand}
               specifications={item.specifications}
-              inspection={inspection}
+              inspection={healthInspection}
+              showExtendedChecks={Boolean(lifecycleSummary)}
             />
+            <ProductBusinessSection item={item} />
             {lifecycleSummary ? (
               <InventoryInspectionEditor
                 summary={lifecycleSummaryWithInspection ?? lifecycleSummary}
@@ -223,8 +239,11 @@ export function InventoryProductDetailWorkbench({
                 category={item.category}
               />
             ) : null}
-            <DeviceWorkbenchSection fields={buildWorkbenchFields(item)} />
-            <DeviceIdentitySection identifiers={visibleIdentifiers} gtin={item.gtin} />
+            <DeviceIdentitySection
+              identifiers={visibleIdentifiers}
+              gtin={item.gtin}
+              specifications={item.specifications}
+            />
             <ProductNotesSection notes={item.notes} />
             {lifecycleSummary ? (
               <InventoryLifecycleHistoryCard
@@ -234,7 +253,21 @@ export function InventoryProductDetailWorkbench({
           </div>
         </div>
       </div>
+      {canEdit ? <MobileDetailActionBar onEdit={onEdit} /> : null}
     </main>
+  );
+}
+
+function MobileDetailActionBar({ onEdit }: { onEdit: () => void }) {
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[var(--border-panel)] bg-background/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1.5 shadow-[0_-10px_30px_color-mix(in_oklch,var(--foreground)_10%,transparent)] backdrop-blur-xl lg:hidden">
+      <div className="mx-auto max-w-[430px]">
+        <Button type="button" className="min-h-11 w-full rounded-xl text-xs" onClick={onEdit}>
+          <Pencil className="mr-2 size-4" aria-hidden="true" />
+          编辑商品
+        </Button>
+      </div>
+    </div>
   );
 }
 

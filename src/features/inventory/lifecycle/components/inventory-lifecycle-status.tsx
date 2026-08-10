@@ -265,11 +265,14 @@ export function InventoryDeviceHealthCard({
   brand,
   specifications,
   inspection,
+  showExtendedChecks = true,
 }: {
   category: string;
   brand?: string;
   specifications?: Record<string, string>;
   inspection?: InventoryLifecycleListSummary["inspection"];
+  /** Detail pages can keep the first health summary focused on battery/Face ID. */
+  showExtendedChecks?: boolean;
 }) {
   const isApple = brand?.trim().toLowerCase() === "apple";
   const checks = [
@@ -286,8 +289,11 @@ export function InventoryDeviceHealthCard({
         check.key,
       ),
   );
+  const visibleChecks = showExtendedChecks
+    ? checks
+    : checks.filter(({ key }) => ["battery_health", "face_id_status"].includes(key));
   const hasHealthSignal =
-    Boolean(inspection) || checks.some(({ key }) => specifications?.[key] !== undefined);
+    Boolean(inspection) || visibleChecks.some(({ key }) => specifications?.[key] !== undefined);
   if (!hasHealthSignal) return null;
 
   return (
@@ -304,7 +310,7 @@ export function InventoryDeviceHealthCard({
         <span className="ml-auto text-[10px] text-muted-foreground">未检测不会显示为 0</span>
       </div>
       <div className="mt-2 grid min-w-0 grid-cols-2 gap-1.5 sm:grid-cols-3">
-        {checks.map(({ key, label, icon: Icon }) => {
+        {visibleChecks.map(({ key, label, icon: Icon }) => {
           const inspectionValue = inspection?.[key as keyof NonNullable<typeof inspection>];
           const raw =
             inspectionValue === null || inspectionValue === undefined
@@ -330,6 +336,9 @@ export function InventoryDeviceHealthCard({
           );
         })}
       </div>
+      <p className="mt-1.5 text-[10px] leading-3 text-muted-foreground">
+        检测时间：{inspection?.inspected_at ? formatFullDate(inspection.inspected_at) : "未检测"}
+      </p>
     </section>
   );
 }
