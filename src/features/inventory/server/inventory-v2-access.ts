@@ -5,6 +5,7 @@ import {
   isInventoryV2CommandEnabledForStore,
   isInventoryProductDeviceDataV2Enabled,
   isInventoryV2StoreExplicitlyAllowlisted,
+  isInventoryV2UiEnabled,
   isInventoryV2UiEnabledForStore,
   type InventoryV2FeatureEnvironment,
 } from "./inventory-v2-feature-flags";
@@ -66,6 +67,22 @@ export function canUseInventoryProductsUi(
   return (
     isInventoryV2UiEnabledForStore(actor.storeId, env) &&
     canUseExpandedInventoryV2Rollout(actor, env) &&
+    can(actor, "inventory:read")
+  );
+}
+
+/**
+ * The products BFF is a production-facing read surface, so it must remain
+ * stricter than the UI capability payload. A role with inventory:read (or a
+ * settings grant) must not widen a rollout to an unallowlisted store.
+ */
+export function canUseInventoryProductsBff(
+  actor: AuditActor,
+  env: InventoryV2FeatureEnvironment = process.env as InventoryV2FeatureEnvironment,
+) {
+  return (
+    isInventoryV2UiEnabled(env) &&
+    isInventoryV2StoreExplicitlyAllowlisted(actor.storeId, env) &&
     can(actor, "inventory:read")
   );
 }

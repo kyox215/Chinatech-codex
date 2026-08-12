@@ -7,6 +7,7 @@ const source = [
   "inventory-product-list-screen.tsx",
   "inventory-product-intake-screen.tsx",
   "inventory-product-detail-screen.tsx",
+  "../components/inventory-product-queue-components.tsx",
 ]
   .map((file) =>
     readFileSync(resolve(process.cwd(), "src/features/inventory/products/screens", file), "utf8"),
@@ -36,6 +37,11 @@ describe("inventory product UI guardrails", () => {
     for (const category of ["phone", "tablet", "computer", "game_console", "other"]) {
       expect(source).toContain(category);
     }
+  });
+
+  it("keeps the mobile product search target at the shared 44px minimum", () => {
+    expect(source).toContain('[data-ui="repair-os-list-search-row"]>div:first-child]:!h-11');
+    expect(source).toContain('[data-ui="repair-os-list-search-row"]>div:first-child>input]:!h-11');
   });
 
   it("keeps product and buyback realtime invalidation paths separate", () => {

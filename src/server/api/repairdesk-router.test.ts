@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type {
   AuditActor,
@@ -11,6 +11,9 @@ import { ForbiddenError } from "@/server/auth-context";
 
 import {
   allowsPendingStore,
+  assertInventoryProductsUiAccess,
+  fail,
+  handleRepairDeskPost,
   hasOwnOrderCostInputs,
   parseToolkitResourceActionPath,
 } from "./repairdesk-router";
@@ -121,6 +124,113 @@ describe("repairdesk router pending-store access", () => {
       allowsPendingStore("toolkit/resources/00000000-0000-4000-8000-000000000001/access", "POST"),
     ).toBe(true);
     expect(allowsPendingStore("toolkit/anything-else", "GET")).toBe(false);
+  });
+});
+
+describe("inventory products BFF release gate", () => {
+  const enabled = {
+    INVENTORY_V2_SCHEMA_READY: "1",
+    INVENTORY_V2_UI: "1",
+    INVENTORY_V2_STORE_ALLOWLIST: "store-1",
+  } as const;
+
+  it("fails closed for a reader outside the exact store allowlist", () => {
+    expect(() =>
+      assertInventoryProductsUiAccess(actor("sales", { storeId: "store-2" }), enabled),
+    ).toThrow(ForbiddenError);
+    expect(() =>
+      assertInventoryProductsUiAccess(actor("sales", { storeId: "store-1" }), enabled),
+    ).not.toThrow();
+  });
+
+  it("preserves the legacy global fallback while inventory reads redact unknown database errors", async () => {
+    const unknown = await fail(new Error("Postgres password sentinel"));
+    expect(unknown.status).toBe(400);
+    expect(await unknown.json()).toEqual({ error: "Postgres password sentinel" });
+
+    const structured = Object.assign(new Error("safe domain copy"), {
+      status: 409,
+      code: "stale_version",
+      details: { expected: 3 },
+    });
+    const response = await fail(structured);
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "safe domain copy",
+      code: "stale_version",
+      details: { expected: 3 },
+    });
+  });
+
+  it("applies the exact-store gate on both product list and get routes", async () => {
+    vi.stubEnv("INVENTORY_V2_SCHEMA_READY", "1");
+    vi.stubEnv("INVENTORY_V2_UI", "1");
+    vi.stubEnv("INVENTORY_V2_STORE_ALLOWLIST", "store-1");
+    try {
+      const deniedActor = actor("sales", { storeId: "store-2" });
+      const deniedList = await handleRepairDeskPost("inventory/products/list", {}, deniedActor);
+      expect(deniedList.status).toBe(403);
+      expect(await deniedList.json()).toMatchObject({
+        error: "库存商品界面尚未对当前门店开放",
+      });
+
+      const deniedGet = await handleRepairDeskPost(
+        "inventory/products/get",
+        { id: "inv_mock_3" },
+        deniedActor,
+      );
+      expect(deniedGet.status).toBe(403);
+
+      const allowedList = await handleRepairDeskPost(
+        "inventory/products/list",
+        {},
+        actor("sales", { storeId: "store-1" }),
+      );
+      expect(allowedList.status).toBe(200);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("redacts unknown repository errors on product list and get only", async () => {
+    vi.stubEnv("INVENTORY_V2_SCHEMA_READY", "1");
+    vi.stubEnv("INVENTORY_V2_UI", "1");
+    vi.stubEnv("INVENTORY_V2_STORE_ALLOWLIST", "store-1");
+    vi.resetModules();
+    vi.doMock("@/lib/mock/api", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/mock/api")>();
+      return {
+        ...actual,
+        listInventoryProducts: vi
+          .fn()
+          .mockRejectedValue(new Error("Postgres list password sentinel")),
+        getInventoryProduct: vi.fn().mockRejectedValue(new Error("Postgres get password sentinel")),
+      };
+    });
+    try {
+      const { handleRepairDeskPost: isolatedHandleRepairDeskPost } =
+        await import("./repairdesk-router");
+      const allowedActor = actor("sales", { storeId: "store-1" });
+      const listResponse = await isolatedHandleRepairDeskPost(
+        "inventory/products/list",
+        {},
+        allowedActor,
+      );
+      expect(listResponse.status).toBe(500);
+      expect(await listResponse.json()).toEqual({ error: "请求处理失败，请稍后重试" });
+
+      const getResponse = await isolatedHandleRepairDeskPost(
+        "inventory/products/get",
+        { id: "inv_mock_3" },
+        allowedActor,
+      );
+      expect(getResponse.status).toBe(500);
+      expect(await getResponse.json()).toEqual({ error: "请求处理失败，请稍后重试" });
+    } finally {
+      vi.doUnmock("@/lib/mock/api");
+      vi.resetModules();
+      vi.unstubAllEnvs();
+    }
   });
 });
 
