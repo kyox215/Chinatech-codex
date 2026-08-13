@@ -39,7 +39,8 @@ describe("inventory product UI guardrails", () => {
     }
   });
 
-  it("keeps the mobile product search target at the shared 44px minimum", () => {
+  it("keeps the inventory list heading and mobile search target contract", () => {
+    expect(source).toContain('<h1 className="sr-only">商品库存</h1>');
     expect(source).toContain('[data-ui="repair-os-list-search-row"]>div:first-child]:!h-11');
     expect(source).toContain('[data-ui="repair-os-list-search-row"]>div:first-child>input]:!h-11');
   });

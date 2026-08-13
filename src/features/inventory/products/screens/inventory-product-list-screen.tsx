@@ -38,6 +38,7 @@ import {
   InventoryProductMessage,
   InventoryProductResults,
   InventoryProductViewToggle,
+  inventoryProductListScaffoldClassName,
   isInventoryProductView,
   statusLabels,
   type InventoryLifecycleShortcut,
@@ -223,7 +224,7 @@ export function InventoryProductListScreen() {
 
   return (
     <RepairOsListScaffold
-      className='[&_[data-ui="repair-os-list-search-row"]>div:first-child]:!h-11 [&_[data-ui="repair-os-list-search-row"]>div:first-child>input]:!h-11'
+      className={inventoryProductListScaffoldClassName}
       title="商品库存"
       subtitle={query.data ? `共 ${query.data.total} 件` : "店内单件商品"}
       action={createAction}
@@ -296,6 +297,7 @@ export function InventoryProductListScreen() {
         </div>
       }
     >
+      <h1 className="sr-only">商品库存</h1>
       <p className="sr-only" role="status" aria-live="polite">
         {query.isFetching && !query.isLoading
           ? "正在更新商品结果"

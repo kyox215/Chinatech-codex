@@ -42,6 +42,18 @@ import {
 
 export type InventoryProductView = "shelf" | "list";
 
+/**
+ * Inventory-only parity contract for the shared list scaffold.
+ *
+ * RepairOS keeps its compact scaffold intentionally dense (36px by default),
+ * while inventory search is a primary mobile control and must retain a 44px
+ * hit target. Keep this selector owned by the inventory queue module so the
+ * runtime screen and Storybook use the exact same contract without changing
+ * the shared RepairOS scaffold for other feature families.
+ */
+export const inventoryProductListScaffoldClassName =
+  '[&_[data-ui="repair-os-list-search-row"]>div:first-child]:!h-11 [&_[data-ui="repair-os-list-search-row"]>div:first-child>input]:!h-11';
+
 export type InventoryLifecycleShortcut =
   | "all"
   | "in_stock"
@@ -234,7 +246,7 @@ export function InventoryProductCard({
         ) : null}
         {activeImage?.isReference ? (
           <span
-            className="absolute left-1.5 top-1.5 rounded-full bg-background/90 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-foreground shadow-sm"
+            className="absolute left-1.5 top-1.5 rounded-full border border-border bg-card px-1.5 py-0.5 text-xs font-semibold leading-4 text-foreground shadow-sm"
             aria-label="参考图"
           >
             参考图
@@ -465,7 +477,7 @@ export function InventoryProductCategoryTabs({
   return (
     <div
       data-ui="inventory-product-category-tabs"
-      className="grid min-w-0 grid-cols-6 gap-1 rounded-xl border border-border bg-card p-1 shadow-sm"
+      className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-1.5 rounded-xl border border-border bg-card p-1.5 shadow-sm"
       role="group"
       aria-label="商品分类"
     >
@@ -479,7 +491,7 @@ export function InventoryProductCategoryTabs({
             key={key}
             type="button"
             className={cn(
-              "flex min-h-11 min-w-0 items-center justify-center gap-0.5 rounded-lg px-0.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:gap-1 md:px-1.5 md:text-[11px]",
+              "flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-lg px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm",
               active
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:bg-muted",
@@ -487,7 +499,7 @@ export function InventoryProductCategoryTabs({
             aria-pressed={active}
             onClick={() => onChange(key === "all" ? [] : [key])}
           >
-            <Icon className="size-3 shrink-0 md:size-3.5" aria-hidden="true" />
+            <Icon className="size-4 shrink-0" aria-hidden="true" />
             <span className="truncate">{label}</span>
           </button>
         );
