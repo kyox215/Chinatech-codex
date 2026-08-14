@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { ArrowLeft, Boxes } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { resolveEntityContextBack } from "@/shared/config/entity-context-routes";
 
 export function InventoryLifecyclePageShell({
   title,
@@ -24,6 +26,8 @@ export function InventoryLifecyclePageShell({
 }) {
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
+  const pathname = usePathname() ?? "/";
+  const hasDesktopContextBack = Boolean(resolveEntityContextBack(pathname));
 
   useEffect(() => {
     document.body.dataset.mobileWorkspaceActive = "true";
@@ -47,7 +51,7 @@ export function InventoryLifecyclePageShell({
   }, [title, context, status]);
 
   return (
-    <main
+    <div
       data-ui="inventory-lifecycle-page"
       className={cn(
         repairOs.mobileFloatingPage,
@@ -59,14 +63,17 @@ export function InventoryLifecyclePageShell({
           : undefined
       }
     >
-      <div ref={headerRef} className={cn(repairOs.mobileFloatingHeaderShell, "lg:static lg:mb-4")}>
+      <div
+        ref={headerRef}
+        className={cn(repairOs.mobileFloatingHeaderShell, "lg:!static lg:!mb-4 lg:!block")}
+      >
         <section className={repairOs.mobileFloatingHeaderCard}>
           <header className={repairOs.mobileFloatingHeaderNav}>
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="size-11 rounded-lg"
+              className={cn("size-11 rounded-lg", hasDesktopContextBack && "lg:hidden")}
               aria-label="返回商品库存"
               onClick={onBack}
             >
@@ -93,16 +100,22 @@ export function InventoryLifecyclePageShell({
         </section>
       </div>
       <div className="min-w-0 space-y-2 lg:space-y-3">{children}</div>
-    </main>
+    </div>
   );
 }
 
 export function InventoryLifecycleLoadingCard() {
   return (
-    <section className={cn(repairOs.mobileInfoCard, "space-y-2 p-3")} aria-busy="true">
-      <div className="h-4 w-32 animate-pulse rounded bg-muted" />
-      <div className="h-8 w-full animate-pulse rounded bg-muted" />
-      <div className="h-8 w-2/3 animate-pulse rounded bg-muted" />
+    <section
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      className={cn(repairOs.mobileInfoCard, "space-y-2 p-3")}
+    >
+      <span className="sr-only">正在加载生命周期资料…</span>
+      <div aria-hidden="true" className="h-4 w-32 animate-pulse rounded bg-muted" />
+      <div aria-hidden="true" className="h-8 w-full animate-pulse rounded bg-muted" />
+      <div aria-hidden="true" className="h-8 w-2/3 animate-pulse rounded bg-muted" />
     </section>
   );
 }

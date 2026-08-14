@@ -180,7 +180,7 @@ export const componentDensity = {
   compactSelector: {
     trigger: "h-11 min-h-11 w-full min-w-0 justify-between gap-2 px-3 text-sm font-normal",
     triggerValue: "min-w-0 flex-1 truncate",
-    editableInput: "h-[38px] min-w-0 pr-10 text-base sm:h-10 sm:text-sm",
+    editableInput: "h-11 min-h-11 min-w-0 pr-10 text-base sm:text-sm",
     close: "size-11 h-11 w-11 min-h-11 min-w-11 shrink-0",
     option: "min-h-11 min-w-0 items-start gap-2 py-2",
     optionValue:

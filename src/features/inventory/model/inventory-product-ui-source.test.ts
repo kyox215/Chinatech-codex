@@ -3,15 +3,20 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const source = [
+const sourceFiles = [
   "inventory-product-list-screen.tsx",
   "inventory-product-intake-screen.tsx",
+  "inventory-product-edit-screen.tsx",
   "inventory-product-detail-screen.tsx",
-]
-  .map((file) =>
+  "../components/inventory-product-queue-components.tsx",
+];
+const screenSource = Object.fromEntries(
+  sourceFiles.map((file) => [
+    file,
     readFileSync(resolve(process.cwd(), "src/features/inventory/products/screens", file), "utf8"),
-  )
-  .join("\n");
+  ]),
+);
+const source = Object.values(screenSource).join("\n");
 const routerSource = readFileSync(
   resolve(process.cwd(), "src/server/api/repairdesk-router.ts"),
   "utf8",
@@ -36,6 +41,23 @@ describe("inventory product UI guardrails", () => {
     for (const category of ["phone", "tablet", "computer", "game_console", "other"]) {
       expect(source).toContain(category);
     }
+  });
+
+  it("keeps Intake and Edit on the shared page/body composition", () => {
+    for (const file of [
+      "inventory-product-intake-screen.tsx",
+      "inventory-product-edit-screen.tsx",
+    ]) {
+      expect(screenSource[file]).toContain("InventoryProductPageFrame");
+      expect(screenSource[file]).toContain("InventoryProductFormWorkspace");
+    }
+  });
+
+  it("keeps the list canary's single accessible heading and mobile search target", () => {
+    const listSource = screenSource["inventory-product-list-screen.tsx"];
+    expect(listSource).toContain('<h1 className="sr-only">商品库存</h1>');
+    expect(listSource).toContain('placeholder="搜索商品、SKU、型号"');
+    expect(listSource).toContain('className="h-11 pl-9"');
   });
 
   it("keeps product and buyback realtime invalidation paths separate", () => {

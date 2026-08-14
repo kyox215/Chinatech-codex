@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { getAppBarVisibilityClass, usesRepairOsMobileHeader } from "@/components/app-bar";
@@ -27,5 +30,54 @@ describe("AppBar responsive route contract", () => {
     expect(getAppBarVisibilityClass("/inventory/new")).toBe("max-md:hidden");
     expect(getAppBarVisibilityClass("/orders/id")).toBe("max-md:hidden");
     expect(getAppBarVisibilityClass("/dashboard")).toBe("");
+  });
+
+  it("keeps global search in the sidebar as the single desktop-shell entry", () => {
+    const appBarSource = readFileSync(resolve(process.cwd(), "src/components/app-bar.tsx"), "utf8");
+    const sidebarSource = readFileSync(
+      resolve(process.cwd(), "src/components/app-sidebar.tsx"),
+      "utf8",
+    );
+    const workspaceBrandSource = readFileSync(
+      resolve(process.cwd(), "src/components/workspace-brand-search.tsx"),
+      "utf8",
+    );
+    const providersSource = readFileSync(resolve(process.cwd(), "src/app/providers.tsx"), "utf8");
+
+    expect(appBarSource).not.toContain('aria-label="打开全局搜索"');
+    expect(sidebarSource).toContain("WorkspaceBrandSearch");
+    expect(workspaceBrandSource.match(/aria-label="打开全局搜索"/g)).toHaveLength(1);
+    expect(sidebarSource).toContain("onOpenCommand");
+    expect(workspaceBrandSource).toContain("group-data-[collapsible=icon]:hidden");
+    expect(workspaceBrandSource).toContain("ml-auto flex size-11");
+    expect(workspaceBrandSource).toContain('data-workspace-search-trigger="true"');
+    expect(providersSource).toContain("<AppSidebar onOpenCommand={() => setOpen(true)} />");
+    expect(providersSource).not.toContain("<AppBar\n                      onOpenCommand");
+    expect(appBarSource).toContain('className="min-w-0 flex-1"');
+
+    const customerDetailSource = readFileSync(
+      resolve(process.cwd(), "src/features/customers/screens/customer-detail-screen.tsx"),
+      "utf8",
+    );
+    const productDetailSource = readFileSync(
+      resolve(
+        process.cwd(),
+        "src/features/inventory/products/components/inventory-product-detail-workbench.tsx",
+      ),
+      "utf8",
+    );
+    expect(customerDetailSource).toContain("CustomerMobileFloatingHeader");
+    expect(customerDetailSource).toContain('aria-label="返回客户列表"');
+    expect(productDetailSource).toContain('aria-label="返回商品库存"');
+    expect(productDetailSource).toContain("size-11 rounded-lg lg:hidden");
+
+    const orderTaskSource = readFileSync(
+      resolve(process.cwd(), "src/features/orders/screens/order-task-screen.tsx"),
+      "utf8",
+    );
+    expect(orderTaskSource).toContain('href="/orders"');
+    expect(orderTaskSource).toContain('aria-label="返回工单列表"');
+    expect(orderTaskSource).toContain('className="size-9 rounded-lg lg:hidden"');
+    expect(orderTaskSource).toContain("min-w-0 flex-1 text-center");
   });
 });

@@ -4,11 +4,34 @@ import {
   getInventoryProduct,
   getInventoryProductEditData,
   listInventoryProducts,
+  searchInventoryCatalog,
 } from "@/lib/repairdesk/api";
-import type { InventoryProductListFilters } from "@/lib/repairdesk/types";
+import type {
+  InventoryCatalogSearchInput,
+  InventoryProductListFilters,
+} from "@/lib/repairdesk/types";
 import { CACHE_TIMES } from "@/lib/query-performance";
 
-import { inventoryProductKeys } from "./query-keys";
+import { inventoryCatalogKeys, inventoryProductKeys } from "./query-keys";
+
+export function isInventoryCatalogSearchSafe(input: InventoryCatalogSearchInput) {
+  return ![input.brand, input.query].some((value) => value?.includes("*"));
+}
+
+export function inventoryCatalogQueryOptions(
+  input: InventoryCatalogSearchInput,
+  storeId?: string | null,
+) {
+  return queryOptions({
+    queryKey: inventoryCatalogKeys.search(input, storeId),
+    queryFn: ({ signal }) =>
+      isInventoryCatalogSearchSafe(input)
+        ? searchInventoryCatalog(input, { signal })
+        : Promise.resolve({ items: [] }),
+    staleTime: CACHE_TIMES.hotList,
+    retry: 1,
+  });
+}
 
 export function inventoryProductsQueryOptions(
   filters: InventoryProductListFilters = {},

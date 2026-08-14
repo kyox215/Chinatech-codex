@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Check, Palette, Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import {
   CatalogCombobox,
   catalogCategoryCopy,
   type CatalogPickerSurface,
+  type CatalogPickerMode,
   type CatalogOption,
   type CatalogSelection,
 } from "@/features/inventory/components/inventory-phone-catalog-fields";
@@ -20,9 +21,20 @@ import {
   type DeviceCatalogModel,
 } from "@/features/inventory/products/model/device-catalog";
 import { phoneColorBackground } from "@/features/inventory/model/eu-phone-catalog";
-import type { InventoryProductCategory } from "@/lib/repairdesk/types";
+import type { InventoryCatalogOption, InventoryProductCategory } from "@/lib/repairdesk/types";
 import { componentDensity } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
+import {
+  hasLearnedCatalogModel,
+  learnedCatalogBrandsForCategory,
+  learnedCatalogOptionsForBrand,
+  mergeInventoryCatalogOptions,
+} from "../model/inventory-catalog-options";
+import {
+  listDeviceColorOptions,
+  listDeviceRamOptions,
+  listDeviceStorageOptions,
+} from "../model/device-form-options";
 
 type InventoryDeviceCatalogFieldsProps = {
   category: InventoryProductCategory;
@@ -32,11 +44,13 @@ type InventoryDeviceCatalogFieldsProps = {
   storageCapacity?: string;
   color?: string;
   surface?: CatalogPickerSurface;
+  pickerMode?: CatalogPickerMode;
   disabled?: boolean;
   autoFocusBrand?: boolean;
   idPrefix?: string;
   brandInvalid?: boolean;
   modelInvalid?: boolean;
+  learnedCatalogOptions?: readonly InventoryCatalogOption[];
   onBrandChange: (value: string) => void;
   onModelChange: (value: string) => void;
   onRamChange: (value: string) => void;
@@ -54,11 +68,13 @@ export function InventoryDeviceCatalogFields({
   storageCapacity = "",
   color = "",
   surface = "page",
+  pickerMode = "auto",
   disabled = false,
   autoFocusBrand = false,
   idPrefix = "product",
   brandInvalid = false,
   modelInvalid = false,
+  learnedCatalogOptions = [],
   onBrandChange,
   onModelChange,
   onRamChange,
@@ -74,30 +90,57 @@ export function InventoryDeviceCatalogFields({
   );
   const categoryCopy = catalogCategoryCopy[category];
 
+  const learnedBrandOptions = useMemo(
+    () => learnedCatalogBrandsForCategory(learnedCatalogOptions, category),
+    [category, learnedCatalogOptions],
+  );
+  const learnedModelOptions = useMemo(
+    () => learnedCatalogOptionsForBrand(learnedCatalogOptions, category, brand),
+    [brand, category, learnedCatalogOptions],
+  );
+
   const brandOptions = useMemo<CatalogOption[]>(
     () =>
-      brands.map((item) => ({
-        value: item.name,
-        keywords: item.aliases?.join(" "),
-        aliases: item.aliases,
-        description: `${categoryLabel(category)} · ${listDeviceCatalogModels(category, item.name).length} 个型号`,
-        group: item.name === selectedBrand?.name ? "当前品牌" : "常用品牌",
-        icon: brandMonogram(item.name),
-      })),
-    [brands, category, selectedBrand?.name],
+      mergeInventoryCatalogOptions(
+        brands.map((item) => ({
+          value: item.name,
+          keywords: item.aliases?.join(" "),
+          aliases: item.aliases,
+          description: `${categoryLabel(category)} · ${listDeviceCatalogModels(category, item.name).length} 个型号`,
+          group: item.name === selectedBrand?.name ? "当前品牌" : "常用品牌",
+          icon: brandMonogram(item.name),
+        })),
+        learnedBrandOptions,
+      ),
+    [brands, category, learnedBrandOptions, selectedBrand?.name],
   );
 
   const modelOptions = useMemo<CatalogOption[]>(
     () =>
-      models.map((item) => ({
-        value: item.name,
-        keywords: item.aliases?.join(" "),
-        aliases: item.aliases,
-        description: item.releasedOn?.slice(0, 4) ?? "系列",
-        group: item.series,
-        icon: modelMonogram(item),
-      })),
-    [models],
+      mergeInventoryCatalogOptions(
+        models.map((item) => ({
+          value: item.name,
+          keywords: item.aliases?.join(" "),
+          aliases: item.aliases,
+          description: item.releasedOn?.slice(0, 4) ?? "系列",
+          group: item.series,
+          icon: modelMonogram(item),
+        })),
+        learnedModelOptions,
+      ),
+    [learnedModelOptions, models],
+  );
+  const storageOptions = useMemo(
+    () => listDeviceStorageOptions(category, selectedModel?.storageOptions),
+    [category, selectedModel?.storageOptions],
+  );
+  const ramOptions = useMemo(
+    () => listDeviceRamOptions(category, selectedModel?.ramOptions),
+    [category, selectedModel?.ramOptions],
+  );
+  const colorOptions = useMemo(
+    () => listDeviceColorOptions(category, selectedModel?.colors),
+    [category, selectedModel?.colors],
   );
 
   const handleBrandSelect = (selection: CatalogSelection) => {
@@ -125,6 +168,7 @@ export function InventoryDeviceCatalogFields({
           disabled={disabled}
           editable
           surface={surface}
+          pickerMode={pickerMode}
           required
           invalid={brandInvalid}
           autoFocus={autoFocusBrand}
@@ -143,6 +187,7 @@ export function InventoryDeviceCatalogFields({
           options={modelOptions}
           editable
           surface={surface}
+          pickerMode={pickerMode}
           required
           disabled={disabled || !brand.trim()}
           invalid={modelInvalid}
@@ -162,9 +207,10 @@ export function InventoryDeviceCatalogFields({
             id={`${idPrefix}-storage`}
             label={category === "computer" ? "硬盘 / 存储容量" : "存储容量"}
             value={storageCapacity}
-            options={selectedModel?.storageOptions ?? []}
+            options={storageOptions}
             placeholder={categoryCopy.storagePlaceholder}
             className={category === "game_console" ? "col-span-2" : undefined}
+            pickerMode={pickerMode}
             disabled={disabled}
             onChange={onStorageChange}
           />
@@ -174,22 +220,26 @@ export function InventoryDeviceCatalogFields({
             id={`${idPrefix}-ram`}
             label="内存（RAM）"
             value={ramCapacity}
-            options={selectedModel?.ramOptions ?? []}
+            options={ramOptions}
             placeholder="例如 8 GB"
+            pickerMode={pickerMode}
             disabled={disabled}
             onChange={onRamChange}
           />
         ) : null}
         <CatalogColorChoices
           value={color}
-          options={selectedModel?.colors ?? []}
+          options={colorOptions}
           disabled={disabled}
           onChange={onColorChange}
+          pickerMode={pickerMode}
           idPrefix={idPrefix}
           className={category === "other" || category === "game_console" ? "col-span-2" : undefined}
         />
       </div>
-      {model && !selectedModel ? (
+      {model &&
+      !selectedModel &&
+      !hasLearnedCatalogModel(learnedCatalogOptions, category, brand, model) ? (
         <p className="rounded-lg border border-dashed border-[var(--border-panel)] px-2.5 py-2 text-[10px] leading-4 text-muted-foreground">
           目录中没有“{model}”，已按手动型号保留；仍可继续入库。
         </p>
@@ -205,6 +255,7 @@ function CatalogSpecificationChoices({
   options,
   placeholder,
   className,
+  pickerMode,
   disabled,
   onChange,
 }: {
@@ -214,18 +265,26 @@ function CatalogSpecificationChoices({
   options: readonly string[];
   placeholder: string;
   className?: string;
+  pickerMode?: CatalogPickerMode;
   disabled?: boolean;
   onChange: (value: string) => void;
 }) {
   const isManualValue = Boolean(value) && !options.includes(value);
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listId = `${id}-options`;
+  const close = () => {
+    setOpen(false);
+    triggerRef.current?.focus({ preventScroll: true });
+  };
   return (
     <fieldset className={cn("min-w-0 space-y-1.5", className)}>
       <legend className="text-xs font-medium">{label}</legend>
-      {options.length ? (
+      {options.length > 0 && pickerMode !== "mobile" ? (
         <div
           role="radiogroup"
           aria-label={`${label}常用选项`}
-          className="flex min-w-0 flex-wrap gap-1"
+          className="flex max-h-40 min-w-0 flex-wrap gap-1 overflow-y-auto overscroll-contain pr-1"
         >
           {options.map((option) => (
             <button
@@ -236,7 +295,7 @@ function CatalogSpecificationChoices({
               disabled={disabled}
               onClick={() => onChange(option)}
               className={cn(
-                "min-h-11 rounded-lg border px-2 text-[11px] font-medium transition-colors",
+                "min-h-11 min-w-11 rounded-lg border px-2 text-[11px] font-medium transition-colors",
                 value === option
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-[var(--border-panel)] bg-background hover:bg-accent/60",
@@ -247,9 +306,56 @@ function CatalogSpecificationChoices({
           ))}
         </div>
       ) : null}
+      {options.length > 0 && pickerMode === "mobile" ? (
+        <>
+          <button
+            type="button"
+            className="min-h-11 min-w-0 w-full rounded-lg border border-[var(--border-panel)] bg-background px-3 text-left text-base font-medium lg:text-sm"
+            aria-expanded={open}
+            aria-haspopup="listbox"
+            aria-controls={open ? listId : undefined}
+            ref={triggerRef}
+            disabled={disabled}
+            onClick={() => setOpen(true)}
+          >
+            {value || "选择" + label}
+          </button>
+          {open ? (
+            <div
+              role="listbox"
+              id={listId}
+              aria-label={`${label}选择`}
+              tabIndex={-1}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  close();
+                }
+              }}
+              className="max-h-72 overflow-y-auto rounded-lg border border-[var(--border-panel)] bg-popover p-1 shadow-[var(--shadow-overlay)]"
+            >
+              {options.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  role="option"
+                  aria-selected={value === option}
+                  className="flex min-h-11 w-full items-center rounded-md px-3 text-left text-base hover:bg-accent lg:text-sm"
+                  onClick={() => {
+                    onChange(option);
+                    close();
+                  }}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </>
+      ) : null}
       <Input
         id={id}
-        className={inputClass}
+        className={cn(inputClass, "text-base !text-base lg:!text-sm")}
         value={isManualValue ? value : ""}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
@@ -265,6 +371,7 @@ function CatalogColorChoices({
   options,
   disabled,
   onChange,
+  pickerMode,
   className,
   idPrefix,
 }: {
@@ -273,19 +380,27 @@ function CatalogColorChoices({
   disabled?: boolean;
   onChange: (value: string) => void;
   className?: string;
+  pickerMode?: CatalogPickerMode;
   idPrefix: string;
 }) {
   const isManualValue = Boolean(value) && !options.some((option) => option.name === value);
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listId = `${idPrefix}-color-options`;
+  const close = () => {
+    setOpen(false);
+    triggerRef.current?.focus({ preventScroll: true });
+  };
   return (
     <fieldset className={cn("col-span-2 min-w-0 space-y-1.5", className)}>
       <legend className="flex items-center gap-1.5 text-xs font-medium">
         <Palette className="size-3.5 text-primary" /> 设备颜色
       </legend>
-      {options.length ? (
+      {options.length > 0 && pickerMode !== "mobile" ? (
         <div
           role="radiogroup"
           aria-label="设备颜色常用选项"
-          className="flex min-w-0 flex-wrap gap-1"
+          className="flex max-h-40 min-w-0 flex-wrap gap-1 overflow-y-auto overscroll-contain pr-1"
         >
           {options.map((option) => {
             const selected = value === option.name;
@@ -317,9 +432,61 @@ function CatalogColorChoices({
           })}
         </div>
       ) : null}
+      {options.length > 0 && pickerMode === "mobile" ? (
+        <>
+          <button
+            type="button"
+            className="min-h-11 min-w-0 w-full rounded-lg border border-[var(--border-panel)] bg-background px-3 text-left text-base font-medium lg:text-sm"
+            aria-expanded={open}
+            aria-haspopup="listbox"
+            aria-controls={open ? listId : undefined}
+            ref={triggerRef}
+            disabled={disabled}
+            onClick={() => setOpen(true)}
+          >
+            {value || "选择设备颜色"}
+          </button>
+          {open ? (
+            <div
+              role="listbox"
+              id={listId}
+              aria-label="设备颜色选择"
+              tabIndex={-1}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  close();
+                }
+              }}
+              className="max-h-72 overflow-y-auto rounded-lg border border-[var(--border-panel)] bg-popover p-1 shadow-[var(--shadow-overlay)]"
+            >
+              {options.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="option"
+                  aria-selected={value === option.name}
+                  className="flex min-h-11 w-full items-center gap-2 rounded-md px-3 text-left text-base hover:bg-accent lg:text-sm"
+                  onClick={() => {
+                    onChange(option.name);
+                    close();
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="size-4 shrink-0 rounded-full border border-foreground/25"
+                    style={{ background: phoneColorBackground(option) }}
+                  />
+                  {option.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </>
+      ) : null}
       <Input
         id={`${idPrefix}-color`}
-        className={inputClass}
+        className={cn(inputClass, "text-base !text-base lg:!text-sm")}
         value={isManualValue ? value : ""}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { ArrowLeft, Gamepad2, Laptop, PackageOpen, Pencil, Smartphone, Tablet } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import type {
 } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
-import { MoneyText } from "@/shared/ui";
+import { MoneyText } from "@/components/orders/badges";
 import type { InventoryLifecycleListSummary } from "@/lib/repairdesk/types";
 
 import {
@@ -24,7 +24,9 @@ import {
 } from "@/features/inventory/lifecycle/components/inventory-lifecycle-status";
 import { getInventoryLifecycleProjectionMeta } from "@/features/inventory/lifecycle/model/projection";
 import { InventoryLifecycleLoadingCard } from "@/features/inventory/lifecycle/components/inventory-lifecycle-page-shell";
-import { InventoryInspectionEditor } from "@/features/inventory/lifecycle/forms/inventory-inspection-editor";
+import { InventoryDetailActionDock } from "./inventory-detail-action-dock";
+import { resolveInventoryDetailNextAction } from "../model/resolve-inventory-detail-next-action";
+import type { InventoryDetailNextAction } from "@/features/inventory/model/inventory-detail-next-action";
 
 import {
   buildWorkbenchFields,
@@ -107,6 +109,8 @@ export function InventoryProductDetailWorkbench({
   canEdit,
   onBack,
   onEdit,
+  onNavigate,
+  renderInspectionEditor,
 }: {
   item: InventoryProductDetail;
   lifecycleSummary?: InventoryLifecycleListSummary | null;
@@ -114,6 +118,9 @@ export function InventoryProductDetailWorkbench({
   canEdit: boolean;
   onBack: () => void;
   onEdit: () => void;
+  onNavigate: (href: string) => void;
+  /** Production injects the mutation-owning editor; stories provide no editor. */
+  renderInspectionEditor?: (summary: InventoryLifecycleListSummary) => ReactNode;
 }) {
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
@@ -158,6 +165,12 @@ export function InventoryProductDetailWorkbench({
   const lifecycleSummaryWithInspection = lifecycleSummary
     ? { ...lifecycleSummary, ...(inspection ? { inspection } : {}) }
     : undefined;
+  const nextAction = resolveInventoryDetailNextAction({
+    itemId: item.id,
+    summary: lifecycleSummary,
+    lifecycleSummaryState,
+    canEdit,
+  });
   const lifecycleMeta = exactProjection
     ? getInventoryLifecycleProjectionMeta(exactProjection, item.legacy_status ?? item.status)
     : undefined;
@@ -168,7 +181,7 @@ export function InventoryProductDetailWorkbench({
   summaryFields.push({ label: "库位", value: item.location?.trim() || "未设置库位" });
 
   return (
-    <main
+    <div
       data-ui="inventory-product-detail-workbench"
       className={cn(
         repairOs.mobileFloatingPage,
@@ -222,6 +235,9 @@ export function InventoryProductDetailWorkbench({
                 summary={lifecycleSummary}
                 itemId={item.id}
                 hidePrimaryStatus={Boolean(exactProjection)}
+                nextAction={nextAction}
+                hideMobilePrimaryAction
+                onAction={() => handleNextAction(nextAction, onNavigate)}
               />
             ) : null}
             <InventoryDeviceHealthCard
@@ -232,13 +248,9 @@ export function InventoryProductDetailWorkbench({
               showExtendedChecks={Boolean(lifecycleSummary)}
             />
             <ProductBusinessSection item={item} />
-            {lifecycleSummary ? (
-              <InventoryInspectionEditor
-                summary={lifecycleSummaryWithInspection ?? lifecycleSummary}
-                brand={item.brand}
-                category={item.category}
-              />
-            ) : null}
+            {lifecycleSummary && renderInspectionEditor
+              ? renderInspectionEditor(lifecycleSummaryWithInspection ?? lifecycleSummary)
+              : null}
             <DeviceIdentitySection
               identifiers={visibleIdentifiers}
               gtin={item.gtin}
@@ -253,22 +265,23 @@ export function InventoryProductDetailWorkbench({
           </div>
         </div>
       </div>
-      {canEdit ? <MobileDetailActionBar onEdit={onEdit} /> : null}
-    </main>
+      <InventoryDetailActionDock
+        action={nextAction}
+        onAction={() => handleNextAction(nextAction, onNavigate)}
+      />
+    </div>
   );
 }
 
-function MobileDetailActionBar({ onEdit }: { onEdit: () => void }) {
-  return (
-    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[var(--border-panel)] bg-background/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1.5 shadow-[0_-10px_30px_color-mix(in_oklch,var(--foreground)_10%,transparent)] backdrop-blur-xl lg:hidden">
-      <div className="mx-auto max-w-[430px]">
-        <Button type="button" className="min-h-11 w-full rounded-xl text-xs" onClick={onEdit}>
-          <Pencil className="mr-2 size-4" aria-hidden="true" />
-          编辑商品
-        </Button>
-      </div>
-    </div>
-  );
+function handleNextAction(action: InventoryDetailNextAction, onNavigate: (href: string) => void) {
+  if (action.kind !== "action") return;
+  if (action.target === "inspection-editor") {
+    const editor = document.querySelector<HTMLElement>("[data-ui='inventory-inspection-editor']");
+    editor?.scrollIntoView({ behavior: "smooth", block: "center" });
+    editor?.focus({ preventScroll: true });
+    return;
+  }
+  if (action.href) onNavigate(action.href);
 }
 
 function formatCompactDate(value: string) {
@@ -308,7 +321,7 @@ function MobileProductHeader({
             type="button"
             variant="ghost"
             size="icon"
-            className="size-11 rounded-lg"
+            className="size-11 rounded-lg lg:hidden"
             aria-label="返回商品库存"
             onClick={onBack}
           >
@@ -370,7 +383,7 @@ function DesktopProductHeader({
         ) : null}
       </div>
       {canEdit ? (
-        <Button type="button" onClick={onEdit}>
+        <Button type="button" className="min-h-11" onClick={onEdit}>
           <Pencil className="mr-2 size-4" aria-hidden="true" />
           编辑商品
         </Button>

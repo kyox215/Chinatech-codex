@@ -35,6 +35,7 @@ describe("RepairOsListScaffold header chips", () => {
 
     expect(screen.getByText("全部")).toBeVisible();
     expect(screen.getByText("待处理")).toBeVisible();
+    expect(screen.getByRole("heading", { level: 1, name: "测试列表" })).toBeVisible();
     expect(screen.queryByRole("button", { name: /全部/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /待处理/ })).not.toBeInTheDocument();
   });

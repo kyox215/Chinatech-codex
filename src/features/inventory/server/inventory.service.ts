@@ -33,3 +33,5 @@ export {
   readInventoryProductThumbnail,
   updateInventoryProduct,
 } from "./inventory-product.repository";
+
+export { searchInventoryCatalog } from "./inventory-catalog.repository";

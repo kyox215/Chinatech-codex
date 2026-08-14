@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { InventoryPhoneCatalogFields } from "./inventory-phone-catalog-fields";
+import { CatalogCombobox, InventoryPhoneCatalogFields } from "./inventory-phone-catalog-fields";
 
 afterEach(() => {
   cleanup();
@@ -60,12 +60,46 @@ function renderFields(
   return { props, ...render(<InventoryPhoneCatalogFields {...props} />) };
 }
 
+function renderCatalogCombobox(
+  overrides: Partial<React.ComponentProps<typeof CatalogCombobox>> = {},
+) {
+  const props: React.ComponentProps<typeof CatalogCombobox> = {
+    id: "catalog-test",
+    label: "品牌",
+    value: "",
+    placeholder: "选择品牌",
+    options: [
+      { value: "Apple", keywords: "iphone" },
+      { value: "Samsung", keywords: "galaxy" },
+    ],
+    onSelect: vi.fn(),
+    ...overrides,
+  };
+  return { props, ...render(<CatalogCombobox {...props} />) };
+}
+
+async function expectOpenListboxFor(trigger: HTMLElement) {
+  fireEvent.click(trigger);
+  await waitFor(() => expect(trigger).toHaveAttribute("aria-expanded", "true"));
+  await waitFor(() => {
+    const controls = trigger.getAttribute("aria-controls");
+    expect(controls).toBeTruthy();
+    const listbox = controls ? document.getElementById(controls) : null;
+    expect(listbox).toBeInTheDocument();
+    expect(listbox).toHaveAttribute("role", "listbox");
+    expect(listbox).toBeVisible();
+  });
+  return document.getElementById(trigger.getAttribute("aria-controls") ?? "");
+}
+
 describe("InventoryPhoneCatalogFields", () => {
   it("opens the fixed mobile picker with a button trigger and explicit search", async () => {
     setViewportWidth(390);
     renderFields({ brand: "", model: "", storageCapacity: "", color: "" });
 
     const trigger = screen.getByRole("combobox", { name: "品牌 *" });
+    expect(trigger).toHaveAttribute("data-ui", "inventory-catalog-combobox-trigger");
+    expect(trigger).toHaveAttribute("data-inventory-catalog-trigger-id", "inventory-brand");
     expect(trigger).toHaveClass("h-11", "min-h-11");
     fireEvent.click(trigger);
 
@@ -129,12 +163,71 @@ describe("InventoryPhoneCatalogFields", () => {
   it("keeps the anchored catalog popover on desktop", async () => {
     renderFields({ brand: "", model: "", storageCapacity: "", color: "" });
 
-    fireEvent.click(screen.getByRole("combobox", { name: "品牌 *" }));
+    const trigger = screen.getByRole("combobox", { name: "品牌 *" });
+    expect(trigger).not.toHaveAttribute("aria-controls");
+    fireEvent.click(trigger);
 
     expect(
       document.querySelector('[data-inventory-catalog-command="desktop"]'),
     ).toBeInTheDocument();
+    await waitFor(() => {
+      const controls = trigger.getAttribute("aria-controls");
+      expect(controls).toBeTruthy();
+      expect(controls).not.toBe("inventory-brand-catalog-list");
+      expect(controls ? document.getElementById(controls) : null).toHaveAttribute(
+        "data-inventory-catalog-list",
+        "true",
+      );
+    });
     expect(document.querySelector('[data-inventory-catalog-picker="mobile"]')).toBeNull();
+
+    fireEvent.keyDown(trigger, { key: "Escape" });
+    await waitFor(() => {
+      expect(trigger).not.toHaveAttribute("aria-controls");
+      expect(trigger).toHaveFocus();
+    });
+  });
+
+  it.each([
+    ["desktop button", 1024, false],
+    ["desktop editable input", 1024, true],
+    ["compact button", 390, false],
+  ] as const)(
+    "captures the mounted listbox id for the %s branch and clears it on Escape",
+    async (_name, width, editable) => {
+      setViewportWidth(width);
+      const { props } = renderCatalogCombobox({ editable });
+      const trigger = screen.getByRole("combobox", { name: "品牌" });
+
+      expect(trigger).not.toHaveAttribute("aria-controls");
+      await expectOpenListboxFor(trigger);
+      const controls = trigger.getAttribute("aria-controls");
+      expect(controls).not.toBe("catalog-test-catalog-list");
+
+      fireEvent.keyDown(trigger, { key: "Escape" });
+      await waitFor(() => {
+        expect(trigger).not.toHaveAttribute("aria-controls");
+        expect(trigger).toHaveAttribute("aria-expanded", "false");
+        expect(trigger).toHaveFocus();
+      });
+      expect(props.onSelect).not.toHaveBeenCalled();
+    },
+  );
+
+  it("clears the resolved listbox id and restores focus after selecting an option", async () => {
+    setViewportWidth(1024);
+    const { props } = renderCatalogCombobox();
+    const trigger = screen.getByRole("combobox", { name: "品牌" });
+
+    await expectOpenListboxFor(trigger);
+    fireEvent.click(screen.getByRole("option", { name: "Apple" }));
+
+    await waitFor(() => {
+      expect(props.onSelect).toHaveBeenCalledWith({ value: "Apple", fromCatalog: true });
+      expect(trigger).not.toHaveAttribute("aria-controls");
+      expect(trigger).toHaveAttribute("aria-expanded", "false");
+      expect(trigger).toHaveFocus();
+    });
   });
 
   it("shows each color as an accessible name plus a visual swatch", () => {

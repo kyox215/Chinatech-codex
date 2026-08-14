@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { InventoryDeviceCatalogFields } from "./inventory-device-catalog-fields";
@@ -157,6 +158,34 @@ describe("InventoryDeviceCatalogFields", () => {
     );
   });
 
+  it("keeps the editable desktop popover anchor semantic while the input owns combobox ARIA", async () => {
+    renderFields({ brand: "Apple", model: "iPhone 15 Pro" });
+    const input = screen.getByRole("combobox", { name: "品牌 *" });
+    const host = input.parentElement;
+    expect(host).toHaveClass("relative", "min-w-0");
+    expect(host).not.toHaveAttribute("type");
+    expect(host).not.toHaveAttribute("aria-haspopup");
+    expect(host).not.toHaveAttribute("aria-expanded");
+    expect(host).not.toHaveAttribute("aria-controls");
+    expect(host).not.toHaveAttribute("data-state");
+    expect(input).toHaveAttribute("role", "combobox");
+    expect(input).toHaveAttribute("aria-haspopup", "listbox");
+    expect(input).not.toHaveAttribute("aria-controls");
+
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-inventory-catalog-command="desktop"]'),
+      ).toBeInTheDocument(),
+    );
+    const controls = input.getAttribute("aria-controls");
+    expect(controls).toBeTruthy();
+    expect(controls ? document.getElementById(controls) : null).toHaveAttribute(
+      "data-inventory-catalog-list",
+      "true",
+    );
+  });
+
   it("shows grouped PS models and preserves a manual model path", async () => {
     renderFields({ category: "game_console", brand: "Sony / PlayStation" });
     fireEvent.click(screen.getByTitle("型号 / 商品名称"));
@@ -227,9 +256,61 @@ describe("InventoryDeviceCatalogFields", () => {
     });
     expect(screen.getByDisplayValue("12 GB manual")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Custom Pearl")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "1 TB" })).toHaveClass("min-h-11", "min-w-11");
     expect(screen.getByRole("radio", { name: "颜色：原色钛金属" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("radio", { name: "颜色：蓝色钛金属" }));
     expect(props.onColorChange).toHaveBeenCalledWith("蓝色钛金属");
+  });
+
+  it("uses compact click-to-select panels for long specification lists", () => {
+    setViewportWidth(430);
+    function StatefulFields() {
+      const [storageCapacity, setStorageCapacity] = useState("");
+      const [color, setColor] = useState("");
+      return (
+        <InventoryDeviceCatalogFields
+          category="phone"
+          brand="Apple"
+          model="iPhone 15 Pro"
+          ramCapacity=""
+          storageCapacity={storageCapacity}
+          color={color}
+          pickerMode="mobile"
+          onBrandChange={vi.fn()}
+          onModelChange={vi.fn()}
+          onRamChange={vi.fn()}
+          onStorageChange={setStorageCapacity}
+          onColorChange={setColor}
+        />
+      );
+    }
+
+    render(<StatefulFields />);
+
+    expect(screen.queryByRole("radio", { name: "1 TB" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "颜色：原色钛金属" })).not.toBeInTheDocument();
+    const storageTrigger = screen.getByRole("button", { name: "选择存储容量" });
+    fireEvent.click(storageTrigger);
+    const storageList = screen.getByRole("listbox", { name: "存储容量选择" });
+    expect(storageList).toBeVisible();
+    expect(storageTrigger).toHaveAttribute("aria-controls", storageList.id);
+    expect(screen.getByRole("option", { name: "8 TB" })).toBeVisible();
+    fireEvent.click(screen.getByRole("option", { name: "8 TB" }));
+    expect(storageTrigger).toHaveTextContent("8 TB");
+    expect(storageTrigger).toHaveFocus();
+    expect(screen.queryByRole("listbox", { name: "存储容量选择" })).not.toBeInTheDocument();
+
+    const colorTrigger = screen.getByRole("button", { name: "选择设备颜色" });
+    fireEvent.click(colorTrigger);
+    const colorList = screen.getByRole("listbox", { name: "设备颜色选择" });
+    expect(colorList).toBeVisible();
+    expect(colorTrigger).toHaveAttribute("aria-controls", colorList.id);
+    expect(screen.getByRole("option", { name: "原色钛金属" })).toBeVisible();
+    fireEvent.keyDown(colorList, { key: "Escape" });
+    expect(screen.queryByRole("listbox", { name: "设备颜色选择" })).not.toBeInTheDocument();
+    expect(colorTrigger).toHaveAttribute("aria-expanded", "false");
+    expect(colorTrigger).not.toHaveAttribute("aria-controls");
+    expect(colorTrigger).toHaveFocus();
   });
 
   it("gives console storage a full row and keeps long model options to two lines", async () => {

@@ -366,12 +366,18 @@ export function OrderTaskScreen({ id }: { id: string }) {
         data-order-task-header="true"
         className="flex min-w-0 items-center justify-between gap-2 md:min-h-11 md:rounded-[var(--radius-lg)] md:border md:border-[var(--border-panel)] md:bg-[var(--surface-panel)] md:px-2.5 md:py-1.5 md:shadow-[var(--shadow-workspace)]"
       >
-        <Button asChild variant="outline" size="icon" className="size-9 rounded-lg lg:size-8">
+        <Button
+          asChild
+          variant="outline"
+          size="icon"
+          className="size-9 rounded-lg lg:hidden"
+          aria-label="返回工单列表"
+        >
           <Link href="/orders">
             <ArrowLeft className="size-4" />
           </Link>
         </Button>
-        <div className="min-w-0 text-center">
+        <div className="min-w-0 flex-1 text-center">
           <div className="truncate font-mono text-sm font-semibold text-primary">
             {order.public_no}
           </div>

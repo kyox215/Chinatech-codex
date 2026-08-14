@@ -568,6 +568,33 @@ export const inventoryProductListFiltersSchema = z
   })
   .strict();
 
+/**
+ * Store-scoped, read-only catalog suggestions for the inventory form.
+ *
+ * The actor store is intentionally not accepted here; the BFF derives it
+ * from the authenticated actor before the repository is called.
+ */
+export const inventoryCatalogSearchBodySchema = z
+  .object({
+    category: inventoryProductCategorySchema,
+    brand: z
+      .string()
+      .trim()
+      .min(1)
+      .max(120)
+      .refine((value) => !value.includes("*"), "目录搜索不支持通配符 *，请使用手工录入")
+      .optional(),
+    query: z
+      .string()
+      .trim()
+      .min(1)
+      .max(160)
+      .refine((value) => !value.includes("*"), "目录搜索不支持通配符 *，请使用手工录入")
+      .optional(),
+    limit: z.coerce.number().int().min(1).max(100).optional(),
+  })
+  .strict();
+
 const optionalInventoryProductMoney = z
   .number()
   .finite()

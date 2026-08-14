@@ -18,14 +18,24 @@ import type {
 import { repairOs, surfaces } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
-import { inventoryProductKeys } from "../api/query-keys";
-import { inventoryProductEditQueryOptions } from "../api/query-options";
+import { inventoryCatalogKeys, inventoryProductKeys } from "../api/query-keys";
 import {
-  InventoryProductIdentifierSection,
-  InventoryProductForm,
-  InventoryProductFormDetails,
-  inventoryProductFormCategories,
-} from "../components/inventory-product-form";
+  inventoryCatalogQueryOptions,
+  inventoryProductEditQueryOptions,
+} from "../api/query-options";
+import { InventoryProductFormWorkspace } from "../components/inventory-product-form-workspace";
+import { InventoryProductIdentifierField } from "../components/inventory-product-identifier-field";
+import { InventoryConsequenceDialog } from "../../components/inventory-consequence-dialog";
+import {
+  getInventoryConflictDetails,
+  InventoryConflictPanel,
+  type InventoryConflictDetails,
+} from "../../components/inventory-conflict-panel";
+import {
+  InventorySyncStatusPanel,
+  type InventorySyncStatus,
+} from "../../components/inventory-sync-status-panel";
+import { InventoryProductPageFrame } from "../components/inventory-product-page-frame";
 import {
   clearInventoryProductFormDependencies,
   inventoryProductFormToUpdateInput,
@@ -34,6 +44,7 @@ import {
   type InventoryProductFormDraft,
 } from "../model/inventory-product-form";
 import { useInventoryProductLeaveGuard } from "../model/use-inventory-product-leave-guard";
+import { inventorySafeOperationMessage } from "../../model/inventory-operation-error";
 
 type EditDraft = {
   category: InventoryProductCategory;
@@ -96,8 +107,26 @@ function InventoryProductEditContent({
   const [baseDraft, setBaseDraft] = useState<EditDraft>();
   const [version, setVersion] = useState(1);
   const [error, setError] = useState("");
+  const [recoveryMessage, setRecoveryMessage] = useState("");
+  const [conflict, setConflict] = useState<InventoryConflictDetails | null>(null);
+  const [isRecoveringConflict, setIsRecoveringConflict] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<InventorySyncStatus>();
+  const [syncTargetId, setSyncTargetId] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<EditFieldErrorKey, string>>>({});
+  const catalogQuery = useQuery({
+    ...inventoryCatalogQueryOptions(
+      { category: draft?.category ?? "phone", brand: draft?.brand || undefined, limit: 100 },
+      storeId,
+    ),
+    enabled: Boolean(
+      storeId &&
+      draft?.category &&
+      shell.permissions?.canReadInventory &&
+      shell.permissions.inventoryProductsUiEnabled,
+    ),
+  });
   const commandRef = useRef<{ fingerprint: string; idempotencyKey: string } | undefined>(undefined);
+  const leaveTriggerRef = useRef<HTMLElement | null>(null);
   const canEnterCost = shell.permissions?.canAllocateInventoryCosts === true;
   const inspectionEnabled =
     shell.permissions?.inventoryProductInspectionEnabled === true &&
@@ -110,6 +139,7 @@ function InventoryProductEditContent({
     baseDraft &&
     JSON.stringify(toFormDraft(draft)) !== JSON.stringify(toFormDraft(baseDraft)),
   );
+  const syncBlocked = Boolean(syncStatus && syncStatus !== "recovered");
   const leaveGuard = useInventoryProductLeaveGuard({
     enabled: Boolean(draft && baseDraft),
     isDirty: editDirty,
@@ -137,9 +167,28 @@ function InventoryProductEditContent({
     };
   }, []);
 
-  const closeEdit = () => {
-    if (!leaveGuard.requestLeave()) return;
-    router.push(`/inventory/${id}`);
+  const closeEdit = (event?: React.MouseEvent<HTMLButtonElement>) => {
+    leaveTriggerRef.current = event?.currentTarget ?? leaveTriggerRef.current;
+    leaveGuard.requestLeave(() => router.push(`/inventory/${id}`), leaveTriggerRef.current);
+  };
+
+  const retryCommittedSync = async () => {
+    if (!syncTargetId) return;
+    setSyncStatus("committed-refreshing");
+    try {
+      await queryClient.invalidateQueries({
+        queryKey: inventoryProductKeys.listsForStore(storeId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: inventoryCatalogKeys.catalogsForStore(storeId),
+      });
+      const result = await query.refetch();
+      if (!result.isSuccess || !result.data) throw new Error("无法读取最新商品资料");
+      await Promise.resolve(router.push(`/inventory/${syncTargetId}`));
+      setSyncStatus("recovered");
+    } catch {
+      setSyncStatus("committed-refresh-failed");
+    }
   };
 
   if (shell.isLoading) {
@@ -172,7 +221,9 @@ function InventoryProductEditContent({
   }
 
   const save = async () => {
+    if (syncBlocked) return;
     setError("");
+    setRecoveryMessage("");
     setFieldErrors({});
     const validation = validateInventoryProductFormDraft(toFormDraft(draft), {
       canEnterCost,
@@ -189,6 +240,7 @@ function InventoryProductEditContent({
       if (editFieldId) document.getElementById(editFieldId)?.focus();
       return;
     }
+    let result: Awaited<ReturnType<typeof mutation.mutateAsync>>;
     try {
       const command = inventoryProductFormToUpdateInput(
         toFormDraft(draft),
@@ -203,241 +255,223 @@ function InventoryProductEditContent({
           ? commandRef.current.idempotencyKey
           : crypto.randomUUID();
       commandRef.current = { fingerprint, idempotencyKey };
-      const result = await mutation.mutateAsync({
+      result = await mutation.mutateAsync({
         idempotency_key: idempotencyKey,
         ...commandWithoutIdempotency,
       });
-      await queryClient.invalidateQueries({ queryKey: inventoryProductKeys.all });
-      toast.success("商品资料已更新");
-      leaveGuard.markSaved();
-      router.push(`/inventory/${result.id}`);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "商品更新失败，请重试");
+      const nextConflict = getInventoryConflictDetails(cause);
+      if (nextConflict) {
+        setConflict(nextConflict);
+        setError("");
+        setRecoveryMessage("");
+        if (nextConflict.kind === "idempotency") commandRef.current = undefined;
+      } else {
+        setConflict(null);
+        setRecoveryMessage("");
+        setError(inventorySafeOperationMessage(cause, "商品更新失败，请重试"));
+      }
+      return;
+    }
+
+    // The mutation has committed. Keep post-commit synchronization separate so
+    // cache or navigation failures never look like a failed write.
+    commandRef.current = undefined;
+    setSyncTargetId(result.id);
+    setSyncStatus("committed-refreshing");
+    setConflict(null);
+    setRecoveryMessage("");
+    setError("");
+    leaveGuard.markSaved();
+    toast.success("商品资料已更新");
+    try {
+      await queryClient.invalidateQueries({
+        queryKey: inventoryProductKeys.listsForStore(storeId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: inventoryCatalogKeys.catalogsForStore(storeId),
+      });
+      const latest = await query.refetch();
+      if (!latest.isSuccess || !latest.data) throw new Error("无法读取最新商品资料");
+      await Promise.resolve(router.push(`/inventory/${result.id}`));
+      setSyncStatus("recovered");
+    } catch {
+      setSyncStatus("committed-refresh-failed");
+    }
+  };
+
+  const recoverConflict = async () => {
+    if (isRecoveringConflict) return;
+    setIsRecoveringConflict(true);
+    const shouldRotateIdempotency = conflict?.kind === "idempotency";
+    try {
+      const result = await query.refetch();
+      if (!result.isSuccess || !result.data) {
+        throw new Error("无法读取最新商品资料");
+      }
+      const latest = toDraft(result.data);
+      setDraft((current) =>
+        mergeEditDraft(baseDraft ?? current ?? latest, current ?? latest, latest),
+      );
+      setBaseDraft(latest);
+      setVersion(result.data.version);
+      if (shouldRotateIdempotency) commandRef.current = undefined;
+      setConflict(null);
+      setRecoveryMessage("已读取最新资料：你的改动已保留，但尚未自动保存。请检查后再次保存。");
+    } finally {
+      setIsRecoveringConflict(false);
     }
   };
 
   return (
-    <main
-      className={cn(
-        repairOs.mobileFloatingPage,
-        "mx-auto w-full max-w-[430px] px-2 pb-28 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] lg:max-w-4xl lg:px-0 lg:pb-8 lg:pt-0",
-      )}
+    <InventoryProductPageFrame
+      mode="edit"
+      title={`编辑 ${draft.brand} ${draft.model}`.trim()}
+      subtitle="保存时会检查是否有其他设备已修改"
+      mobileSubtitle="保存时会检查是否有其他设备已修改"
+      mutationPending={mutation.isPending}
+      syncBlocked={syncBlocked}
+      syncStatus={syncStatus}
+      onRetrySync={retryCommittedSync}
+      onOpenCommitted={
+        syncStatus === "committed-refresh-failed" && syncTargetId
+          ? () => router.push(`/inventory/${syncTargetId}`)
+          : undefined
+      }
+      conflict={
+        conflict ? (
+          <InventoryConflictPanel
+            conflict={conflict}
+            onRecover={recoverConflict}
+            pending={isRecoveringConflict}
+            preserveDraft
+          />
+        ) : null
+      }
+      recoveryMessage={recoveryMessage}
+      error={error}
+      onBack={closeEdit}
+      leaveGuard={leaveGuard}
+      primaryLabel="保存修改"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void save();
+      }}
+      secondaryLabel="取消"
+      onSecondary={closeEdit}
     >
-      <div className={cn(repairOs.mobileFloatingHeaderShell, "lg:static lg:mb-4")}>
-        <section className={repairOs.mobileFloatingHeaderCard}>
-          <header className={repairOs.mobileFloatingHeaderNav}>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-9 rounded-lg"
-              aria-label="返回商品详情"
-              onClick={closeEdit}
-            >
-              <ArrowLeft className="size-5" />
-            </Button>
-            <div className="min-w-0 text-center">
-              <h1 className="truncate text-sm font-semibold">
-                编辑 {draft.brand} {draft.model}
-              </h1>
-              <p className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                保存时会检查是否有其他设备已修改
-              </p>
-            </div>
-            <span className="size-9" aria-hidden />
-          </header>
-        </section>
-      </div>
-
-      <header className="hidden items-center justify-between gap-4 pb-3 lg:flex">
-        <div className="min-w-0">
-          <h1 className="truncate text-xl font-semibold">
-            编辑 {draft.brand} {draft.model}
-          </h1>
-          <p className="text-sm text-muted-foreground">保存时会检查是否有其他设备已修改</p>
-        </div>
-        <Button type="button" variant="outline" onClick={closeEdit}>
-          <ArrowLeft className="mr-2 size-4" />
-          返回详情
-        </Button>
-      </header>
-
-      <form
-        className="space-y-1.5"
-        aria-busy={mutation.isPending}
-        noValidate
-        onSubmit={(event) => {
-          event.preventDefault();
-          void save();
+      <InventoryProductFormWorkspace
+        draft={toFormDraft(draft)}
+        idPrefix="product"
+        learnedCatalogOptions={catalogQuery.data?.items}
+        catalogNotice={
+          catalogQuery.isError ? (
+            <p className="text-[11px] leading-4 text-muted-foreground">
+              店铺目录暂时不可用，仍可使用常用选项或手动填写。
+            </p>
+          ) : null
+        }
+        brandInvalid={Boolean(fieldErrors.brand)}
+        modelInvalid={Boolean(fieldErrors.model)}
+        inspectionBatteryInvalid={Boolean(fieldErrors.inspection_battery_health)}
+        conditionInvalid={Boolean(fieldErrors.condition)}
+        gtinInvalid={Boolean(fieldErrors.gtin)}
+        listPriceInvalid={Boolean(fieldErrors.list_price)}
+        costInvalid={Boolean(fieldErrors.cost_amount)}
+        warrantyInvalid={Boolean(fieldErrors.warranty_months)}
+        canEnterCost={canEnterCost}
+        inspectionEnabled={inspectionEnabled}
+        identifierDescription="修改或清空后保存；历史值会停用，不会物理删除。"
+        showScanner
+        identifierField={InventoryProductIdentifierField}
+        allowPrimarySelection
+        onCategoryChange={(category) =>
+          setDraft({
+            ...draft,
+            category,
+            brand: "",
+            model: "",
+            ram_capacity: "",
+            storage_capacity: "",
+            color: "",
+            specifications: {},
+            inspection_battery_health: "",
+            inspection_face_id_status: "not_tested",
+            inspection_touched: false,
+          })
+        }
+        onBrandChange={(brand) => {
+          setFieldErrors((current) => ({ ...current, brand: undefined }));
+          setDraft((current) => {
+            if (!current || current.brand === brand) return current;
+            return editDraftFromForm({
+              ...clearInventoryProductFormDependencies(toFormDraft(current), "brand"),
+              brand,
+            });
+          });
         }}
-      >
-        <InventoryProductForm
-          draft={toFormDraft(draft)}
-          categories={inventoryProductFormCategories}
-          idPrefix="product"
-          brandInvalid={Boolean(fieldErrors.brand)}
-          modelInvalid={Boolean(fieldErrors.model)}
-          inspectionBatteryInvalid={Boolean(fieldErrors.inspection_battery_health)}
-          onCategoryChange={(category) =>
-            setDraft({
-              ...draft,
-              category,
-              brand: "",
-              model: "",
-              ram_capacity: "",
-              storage_capacity: "",
-              color: "",
-              specifications: {},
-              inspection_battery_health: "",
-              inspection_face_id_status: "not_tested",
-              inspection_touched: false,
-            })
-          }
-          onBrandChange={(brand) => {
-            setFieldErrors((current) => ({ ...current, brand: undefined }));
-            setDraft((current) => {
-              if (!current || current.brand === brand) return current;
-              return editDraftFromForm({
-                ...clearInventoryProductFormDependencies(toFormDraft(current), "brand"),
-                brand,
-              });
+        onModelChange={(model) => {
+          setFieldErrors((current) => ({ ...current, model: undefined }));
+          setDraft((current) => {
+            if (!current || current.model === model) return current;
+            return editDraftFromForm({
+              ...clearInventoryProductFormDependencies(toFormDraft(current), "model"),
+              model,
             });
-          }}
-          onModelChange={(model) => {
-            setFieldErrors((current) => ({ ...current, model: undefined }));
-            setDraft((current) => {
-              if (!current || current.model === model) return current;
-              return editDraftFromForm({
-                ...clearInventoryProductFormDependencies(toFormDraft(current), "model"),
-                model,
-              });
-            });
-          }}
-          onRamChange={(ram_capacity) => setDraft({ ...draft, ram_capacity })}
-          onStorageChange={(storage_capacity) => setDraft({ ...draft, storage_capacity })}
-          onColorChange={(color) => setDraft({ ...draft, color })}
-          inspectionEnabled={inspectionEnabled}
-          onInspectionBatteryHealthChange={(inspection_battery_health) =>
-            setDraft((current) =>
-              current
-                ? { ...current, inspection_battery_health, inspection_touched: true }
-                : current,
-            )
-          }
-          onInspectionFaceIdStatusChange={(inspection_face_id_status) =>
-            setDraft((current) =>
-              current
-                ? { ...current, inspection_face_id_status, inspection_touched: true }
-                : current,
-            )
-          }
-        />
-        <InventoryProductFormDetails
-          draft={toFormDraft(draft)}
-          idPrefix="product"
-          canEnterCost={canEnterCost}
-          conditionInvalid={Boolean(fieldErrors.condition)}
-          gtinInvalid={Boolean(fieldErrors.gtin)}
-          listPriceInvalid={Boolean(fieldErrors.list_price)}
-          costInvalid={Boolean(fieldErrors.cost_amount)}
-          warrantyInvalid={Boolean(fieldErrors.warranty_months)}
-          identifierSection={
-            <InventoryProductIdentifierSection
-              draft={toFormDraft(draft)}
-              idPrefix="product"
-              description="修改或清空后保存；历史值会停用，不会物理删除。"
-              allowPrimarySelection
-              onIdentifierChange={(kind, value) =>
-                setDraft((current) =>
-                  current
-                    ? { ...current, identifiers: { ...current.identifiers, [kind]: value } }
-                    : current,
-                )
-              }
-              onIdentifierSource={(kind, source) =>
-                setDraft((current) =>
-                  current
-                    ? { ...current, sources: { ...current.sources, [kind]: source } }
-                    : current,
-                )
-              }
-              onPrimaryIdentifierChange={(kind) =>
-                setDraft((current) =>
-                  current ? { ...current, primary_identifier_kind: kind } : current,
-                )
-              }
-            />
-          }
-          onConditionChange={(condition) => setDraft({ ...draft, condition })}
-          onGtinChange={(gtin) => {
-            setFieldErrors((current) => ({ ...current, gtin: undefined }));
-            setDraft({ ...draft, gtin });
-          }}
-          onSpecificationChange={(key, value) =>
-            setDraft({ ...draft, specifications: { ...draft.specifications, [key]: value } })
-          }
-          onListPriceChange={(list_price) => {
-            setFieldErrors((current) => ({ ...current, list_price: undefined }));
-            setDraft({ ...draft, list_price });
-          }}
-          onCostChange={(cost_amount) => {
-            setFieldErrors((current) => ({ ...current, cost_amount: undefined }));
-            setDraft({ ...draft, cost_amount });
-          }}
-          onLocationChange={(location) => setDraft({ ...draft, location })}
-          onWarrantyChange={(warranty_months) => {
-            setFieldErrors((current) => ({ ...current, warranty_months: undefined }));
-            setDraft({ ...draft, warranty_months });
-          }}
-          onNotesChange={(notes) => setDraft({ ...draft, notes })}
-        />
-
-        {error ? (
-          <div
-            role="alert"
-            className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
-          >
-            {error}
-            {error.includes("其他设备") ? (
-              <Button
-                type="button"
-                variant="link"
-                className="ml-2 h-auto p-0"
-                onClick={() =>
-                  void query.refetch().then((result) => {
-                    if (!result.data) return;
-                    const latest = toDraft(result.data);
-                    setDraft((current) =>
-                      mergeEditDraft(baseDraft ?? current ?? latest, current ?? latest, latest),
-                    );
-                    setBaseDraft(latest);
-                    setVersion(result.data.version);
-                    setError(
-                      "已合并最新资料：你的修改已保留，未修改的字段已更新。请检查后再次保存。",
-                    );
-                  })
-                }
-              >
-                合并最新版本并保留我的修改
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
-        <div
-          data-ui="inventory-product-actions"
-          className={cn(
-            surfaces.stickyActions,
-            "fixed bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-1/2 z-30 mx-0 grid w-[calc(100%_-_1rem)] max-w-[414px] -translate-x-1/2 grid-cols-2 gap-1.5 rounded-xl border border-border bg-background/95 px-2 py-2 shadow-[var(--shadow-card)] sm:mx-0 lg:sticky lg:bottom-0 lg:left-auto lg:w-auto lg:max-w-none lg:translate-x-0 lg:px-0 lg:pb-0",
-          )}
-        >
-          <Button type="button" variant="outline" className="min-h-11" onClick={closeEdit}>
-            取消
-          </Button>
-          <Button type="submit" className="min-h-11" disabled={mutation.isPending}>
-            {mutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}保存修改
-          </Button>
-        </div>
-      </form>
-    </main>
+          });
+        }}
+        onRamChange={(ram_capacity) => setDraft({ ...draft, ram_capacity })}
+        onStorageChange={(storage_capacity) => setDraft({ ...draft, storage_capacity })}
+        onColorChange={(color) => setDraft({ ...draft, color })}
+        onInspectionBatteryHealthChange={(inspection_battery_health) =>
+          setDraft((current) =>
+            current ? { ...current, inspection_battery_health, inspection_touched: true } : current,
+          )
+        }
+        onInspectionFaceIdStatusChange={(inspection_face_id_status) =>
+          setDraft((current) =>
+            current ? { ...current, inspection_face_id_status, inspection_touched: true } : current,
+          )
+        }
+        onIdentifierChange={(kind, value) =>
+          setDraft((current) =>
+            current
+              ? { ...current, identifiers: { ...current.identifiers, [kind]: value } }
+              : current,
+          )
+        }
+        onIdentifierSource={(kind, source) =>
+          setDraft((current) =>
+            current ? { ...current, sources: { ...current.sources, [kind]: source } } : current,
+          )
+        }
+        onPrimaryIdentifierChange={(kind) =>
+          setDraft((current) => (current ? { ...current, primary_identifier_kind: kind } : current))
+        }
+        onConditionChange={(condition) => setDraft({ ...draft, condition })}
+        onGtinChange={(gtin) => {
+          setFieldErrors((current) => ({ ...current, gtin: undefined }));
+          setDraft({ ...draft, gtin });
+        }}
+        onSpecificationChange={(key, value) =>
+          setDraft({ ...draft, specifications: { ...draft.specifications, [key]: value } })
+        }
+        onListPriceChange={(list_price) => {
+          setFieldErrors((current) => ({ ...current, list_price: undefined }));
+          setDraft({ ...draft, list_price });
+        }}
+        onCostChange={(cost_amount) => {
+          setFieldErrors((current) => ({ ...current, cost_amount: undefined }));
+          setDraft({ ...draft, cost_amount });
+        }}
+        onLocationChange={(location) => setDraft({ ...draft, location })}
+        onWarrantyChange={(warranty_months) => {
+          setFieldErrors((current) => ({ ...current, warranty_months: undefined }));
+          setDraft({ ...draft, warranty_months });
+        }}
+        onNotesChange={(notes) => setDraft({ ...draft, notes })}
+      />
+    </InventoryProductPageFrame>
   );
 }
 
@@ -578,12 +612,12 @@ function EditMessage({
   action?: React.ReactNode;
 }) {
   return (
-    <main className={cn(repairOs.mobileFloatingPage, "grid min-h-[55dvh] place-items-center p-4")}>
+    <div className={cn(repairOs.mobileFloatingPage, "grid min-h-[55dvh] place-items-center p-4")}>
       <section className={cn(repairOs.mobileInfoCard, "max-w-sm p-6 text-center")}>
         <h1 className="font-semibold">{title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{body}</p>
         {action ? <div className="mt-4">{action}</div> : null}
       </section>
-    </main>
+    </div>
   );
 }

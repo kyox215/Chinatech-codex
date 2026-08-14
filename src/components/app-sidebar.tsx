@@ -6,16 +6,7 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  Check,
-  Wrench,
-  ChevronsUpDown,
-  Loader2,
-  LogOut,
-  Store,
-  Settings,
-  UserCircle,
-} from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, LogOut, Store, Settings, UserCircle } from "lucide-react";
 
 import {
   Sidebar,
@@ -57,8 +48,9 @@ import {
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
 import { useNavigationGuard } from "@/components/navigation-guard-provider";
+import { WorkspaceBrandSearch } from "@/components/workspace-brand-search";
 
-export function AppSidebar() {
+export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
   const pathname = usePathname() ?? "/";
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -114,22 +106,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className={appShell.sidebar}>
       <SidebarHeader className={appShell.sidebarHeader}>
-        <div className={appShell.sidebarBrand}>
-          <div
-            className="relative flex size-8 shrink-0 items-center justify-center rounded-lg text-primary-foreground shadow-[var(--shadow-action)]"
-            style={brandGradientStyle}
-          >
-            <Wrench className="size-4" />
-          </div>
-          <div className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
-            <span className="truncate font-display text-sm font-semibold leading-5 tracking-tight">
-              RepairDesk
-            </span>
-            <span className="truncate text-[11px] leading-4 text-muted-foreground">
-              {activeStoreName}
-            </span>
-          </div>
-        </div>
+        <WorkspaceBrandSearch activeStoreName={activeStoreName} onOpenCommand={onOpenCommand} />
       </SidebarHeader>
 
       <SidebarContent className="gap-0 px-2 py-2 group-data-[collapsible=icon]:px-1.5">

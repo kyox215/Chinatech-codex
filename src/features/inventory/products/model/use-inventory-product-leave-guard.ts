@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-type LeaveBlockReason = "dirty" | "pending";
+export type LeaveBlockReason = "dirty" | "pending";
+export type InventoryLeaveAction = () => void | Promise<void>;
+export type InventoryLeaveIntentKind = "explicit" | "history";
 
 type InventoryProductLeaveGuardOptions = {
   enabled?: boolean;
@@ -11,11 +13,15 @@ type InventoryProductLeaveGuardOptions = {
   onBlocked?: (reason: LeaveBlockReason) => void;
 };
 
+type PendingLeave = {
+  kind: InventoryLeaveIntentKind;
+  action?: InventoryLeaveAction;
+};
+
 /**
- * Protects the full-page create/edit workspace without taking over dialog
- * close handling. A history sentinel lets the user cancel a browser-back
- * attempt and keeps the form mounted; accepted navigation is then replayed
- * once with the guard bypassed.
+ * Protects a full-page inventory form without using a synchronous browser
+ * confirmation. A history sentinel keeps a browser-back attempt reversible;
+ * callers render the controlled consequence dialog and decide when to confirm.
  */
 export function useInventoryProductLeaveGuard({
   enabled = true,
@@ -26,6 +32,12 @@ export function useInventoryProductLeaveGuard({
   const dirtyRef = useRef(isDirty);
   const pendingRef = useRef(isPending);
   const blockedRef = useRef(onBlocked);
+  const pendingLeaveRef = useRef<PendingLeave | undefined>(undefined);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const bypassNextPopRef = useRef(false);
+  const restoringSentinelRef = useRef(false);
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [isConfirmingLeave, setIsConfirmingLeave] = useState(false);
 
   useEffect(() => {
     dirtyRef.current = isDirty;
@@ -37,21 +49,79 @@ export function useInventoryProductLeaveGuard({
     blockedRef.current = onBlocked;
   }, [onBlocked]);
 
-  const requestLeave = useCallback(() => {
+  const openDirtyConfirmation = useCallback(
+    (
+      kind: InventoryLeaveIntentKind,
+      action?: InventoryLeaveAction,
+      focusTarget?: HTMLElement | null,
+    ) => {
+      pendingLeaveRef.current = { kind, action };
+      if (focusTarget) returnFocusRef.current = focusTarget;
+      setLeaveDialogOpen(true);
+    },
+    [],
+  );
+
+  const requestLeave = useCallback(
+    (action?: InventoryLeaveAction, focusTarget?: HTMLElement | null) => {
+      if (pendingRef.current) {
+        blockedRef.current?.("pending");
+        return false;
+      }
+      if (dirtyRef.current) {
+        openDirtyConfirmation("explicit", action, focusTarget);
+        return false;
+      }
+      if (action) void action();
+      return true;
+    },
+    [openDirtyConfirmation],
+  );
+
+  const cancelLeave = useCallback(() => {
+    const intent = pendingLeaveRef.current;
+    pendingLeaveRef.current = undefined;
+    setLeaveDialogOpen(false);
+    setIsConfirmingLeave(false);
+    if (intent?.kind === "history") {
+      // The browser already consumed the sentinel before opening the dialog.
+      // Restore that entry so a cancelled back action leaves the form/history
+      // pair intact.
+      restoringSentinelRef.current = true;
+      window.history.go(1);
+    }
+  }, []);
+
+  const confirmLeave = useCallback(async () => {
     if (pendingRef.current) {
       blockedRef.current?.("pending");
-      return false;
+      return;
     }
-    if (dirtyRef.current && !window.confirm("当前商品资料尚未保存，确定要离开吗？")) {
-      blockedRef.current?.("dirty");
-      return false;
+    const intent = pendingLeaveRef.current;
+    if (!intent) return;
+    pendingLeaveRef.current = undefined;
+    setLeaveDialogOpen(false);
+    if (intent.kind === "history") {
+      // The popstate that opened the dialog left the browser at the form's
+      // original entry. One more back reaches the entry before the form.
+      bypassNextPopRef.current = true;
+      window.history.go(-1);
+      return;
     }
-    return true;
+    setIsConfirmingLeave(true);
+    try {
+      await intent.action?.();
+    } finally {
+      setIsConfirmingLeave(false);
+    }
   }, []);
 
   const markSaved = useCallback(() => {
     dirtyRef.current = false;
     pendingRef.current = false;
+    pendingLeaveRef.current = undefined;
+    setLeaveDialogOpen(false);
+    setIsConfirmingLeave(false);
   }, []);
 
   useEffect(() => {
@@ -69,20 +139,22 @@ export function useInventoryProductLeaveGuard({
       initialUrl,
     );
 
-    let bypassNextPop = false;
-    let restoringSentinel = false;
     const restoreSentinel = () => {
-      restoringSentinel = true;
+      restoringSentinelRef.current = true;
       window.history.go(1);
     };
 
     const onPopState = () => {
-      if (bypassNextPop) {
-        bypassNextPop = false;
+      if (bypassNextPopRef.current) {
+        bypassNextPopRef.current = false;
         return;
       }
-      if (restoringSentinel) {
-        restoringSentinel = false;
+      if (restoringSentinelRef.current) {
+        restoringSentinelRef.current = false;
+        return;
+      }
+      if (pendingLeaveRef.current) {
+        restoreSentinel();
         return;
       }
       if (pendingRef.current) {
@@ -93,19 +165,14 @@ export function useInventoryProductLeaveGuard({
       if (!dirtyRef.current) {
         // The browser already popped the sentinel; consume the original page
         // entry as the actual back navigation.
-        bypassNextPop = true;
+        bypassNextPopRef.current = true;
         window.history.go(-1);
         return;
       }
-      if (window.confirm("当前商品资料尚未保存，确定要离开吗？")) {
-        // The browser already popped the sentinel; consume the original form
-        // entry and land on the route before the form.
-        bypassNextPop = true;
-        window.history.go(-1);
-      } else {
-        blockedRef.current?.("dirty");
-        restoreSentinel();
-      }
+      // Do not navigate or synchronously prompt. The browser is currently at
+      // the original form entry; cancel restores the sentinel, confirm goes
+      // one more step back.
+      openDirtyConfirmation("history");
     };
 
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -123,7 +190,15 @@ export function useInventoryProductLeaveGuard({
         window.history.replaceState(initialState, "", initialUrl);
       }
     };
-  }, [enabled]);
+  }, [enabled, openDirtyConfirmation]);
 
-  return { markSaved, requestLeave };
+  return {
+    markSaved,
+    requestLeave,
+    cancelLeave,
+    confirmLeave,
+    leaveDialogOpen,
+    leaveReturnFocusRef: returnFocusRef,
+    isConfirmingLeave,
+  };
 }

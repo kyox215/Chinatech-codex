@@ -677,6 +677,22 @@ export function listDeviceCatalogModels(category: InventoryProductCategory, bran
   });
 }
 
+/**
+ * Shared visual color pool derived from the same curated device catalog as
+ * model-specific colors. This is a fallback for manual/learned models only;
+ * it never contributes inspection capabilities.
+ */
+export function listDeviceCatalogColors(category: InventoryProductCategory) {
+  const seen = new Set<string>();
+  return DEVICE_CATALOG_MODELS.filter((model) => model.category === category)
+    .flatMap((model) => model.colors)
+    .filter((option) => {
+      if (seen.has(option.id)) return false;
+      seen.add(option.id);
+      return true;
+    });
+}
+
 export function findDeviceCatalogBrand(category: InventoryProductCategory, value: string) {
   const needle = normalize(value);
   if (!needle) return undefined;

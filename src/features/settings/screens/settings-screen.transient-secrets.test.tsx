@@ -196,7 +196,12 @@ describe("SettingsScreen store-bound transient secrets", () => {
     const user = userEvent.setup();
     render(settingsTree(queryClient));
 
-    expect(await screen.findByRole("heading", { name: "客户 iPad" })).toBeVisible();
+    await waitFor(() => expect(document.querySelector("#settings-kiosk")).not.toBeNull());
+    const kioskSection = document.querySelector("#settings-kiosk");
+    expect(kioskSection).not.toBeNull();
+    expect(
+      within(kioskSection as HTMLElement).getByRole("heading", { name: "客户 iPad" }),
+    ).toBeVisible();
     await user.click(screen.getByRole("button", { name: /生成配对码/ }));
     expect(apiMocks.createKioskDevicePairing).toHaveBeenCalledWith({ label: "前台 iPad" });
 

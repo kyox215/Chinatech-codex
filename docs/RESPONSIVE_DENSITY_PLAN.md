@@ -683,3 +683,106 @@ expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLess
 - 弹窗、Dropdown、Popover 不超出 viewport。
 - lint、typecheck、test、build 通过。
 - 截图保存到 `screenshots/responsive-density/<page>/` 用于对比。
+
+## TASK-20260814-001 — Inventory Device Form Responsive Intake Contract
+
+Status: `proposed` / intake only · Owner: Integration Lead · Risk: `R2` · Autonomy: `L2`
+
+This section records the approved boundary for the new inventory device form work. It is a
+planning contract, not an implementation claim. The current development worktree is
+`/private/tmp/repairdesk-inventory-design-system-20260811`; it contains preserved M16 and
+other dirty changes that must not be reverted or folded into this task.
+
+### Shared data, separate responsive surfaces
+
+Brand, model, storage, memory, color, condition, and category option values may be shared as
+neutral data. Desktop and mobile must not share a responsive shell, DOM order, layout model,
+or interaction implementation merely because their option values are the same. Each surface
+must keep its own accessible focus order, scrolling boundary, and state presentation.
+
+### Desktop workbench contract
+
+At `1024`, `1280`, and `1440` CSS pixels, the form remains a desktop workbench with its
+multi-column information hierarchy, independent workspace/dialog sizing, mouse-oriented
+dropdowns, and wheel scrolling inside long option lists. The desktop surface must not be
+converted to a mobile single-column layout, mobile bottom Sheet, or tap-only interaction.
+Long labels and option rows must wrap or truncate within their own bounded region without
+creating page-level horizontal overflow.
+
+### Mobile/tablet compact contract
+
+At `390`, `430`, and `768` CSS pixels, the form uses compact sections, short labels, and
+logical two-column pairs only for short fields that still meet the existing target and input
+contracts. Brand/model and other selectors are opened by touch/click, remain searchable and
+scrollable to the last option, and preserve keyboard-safe input behavior. The mobile surface
+must not be treated as a shrunken desktop workbench; fields may become single-column when
+labels, validation, or available width require it.
+
+### Intake acceptance for the next implementation packet
+
+- Verify desktop and mobile independently at all six widths above; record viewport width,
+  page overflow, selector scroll completion, search, focus/Escape recovery, and long-option
+  wrapping.
+- Preserve the existing manual-entry path for an uncatalogued model. Do not claim that a
+  manually entered model is persisted or searchable on a later visit until the current
+  same-store/same-brand data path is audited and proven.
+- Keep maintenance-oriented device options bounded and explicit: phone/tablet/game-console
+  storage `8GB` through `8TB`, RAM `2/4/8/16GB`, and computer `32/64GB` extensions; colors
+  remain preset-first with manual completion; condition remains a clear percentage or common
+  grade.
+- Keep real inventory, customer-device, customer, production, external Figma, database,
+  migration, and destructive writes outside this packet. A schema/API/permission/tenant or
+  migration requirement stops the batch and requires a new Owner-approved scope.
+- Preserve M16 UI component governance as paused historical work; do not alter its source,
+  tools, catalog, Registry state, or evidence in this intake batch.
+
+### Candidate files and verification boundary
+
+The next implementation packet may audit (and only then allowlist) the existing form/workspace
+and catalog surfaces and focused tests: `inventory-product-form.tsx`,
+`inventory-product-form-workspace.tsx`, `inventory-phone-catalog-fields.tsx`,
+`inventory-device-catalog-fields.tsx`, `inventory-product-intake-screen.tsx`,
+`inventory-product-edit-screen.tsx`, and their corresponding tests. Shared data helpers may
+be reused, but desktop/mobile DOM and interaction ownership must remain explicit. Expected
+focused evidence is scoped unit/source-contract coverage followed by the six-width browser
+matrix; full gates belong to a later approved packet.
+
+### Stop and approval conditions
+
+Stop immediately if the implementation would change API payloads, schema, permissions,
+tenant boundaries, query/mutation behavior, dependencies, production data, or database
+structure; if the actual persistence path for hand-entered models cannot be proven; if a
+desktop/mobile merge is proposed; or if preserved dirty worktree/M16 ownership is ambiguous.
+No commit, push, deploy, migration, CAS, external Figma action, or production action is
+authorized by this intake section.
+
+## TASK-20260814-001 Instruction 3 — shared desktop return and search reuse
+
+Entity detail/edit pages use one shared desktop context-back pattern: a visual-only
+`ArrowLeft` with deterministic destination, exact accessible name, keyboard access, and visible
+hover/focus treatment. The route resolver maps inventory entities to `/inventory` (`返回商品库存`),
+orders to `/orders` (`返回工单列表`), and customers to `/customers` (`返回客户列表`). This
+control belongs in the AppBar layer for desktop 1024/1280/1440; normal non-entity breadcrumbs
+remain intact, and UUID/internal IDs are not promoted into the top chrome. Existing mobile
+RepairOS headers/docks remain separate at 390/430/768, so a desktop control must not replace or
+duplicate their mobile interaction.
+
+The AppSidebar brand area is the single desktop global-search entry. It receives the existing
+command-palette callback, keeps the accessible name `打开全局搜索` and ⌘K behavior, and must be
+reachable in both expanded and collapsed sidebar states without horizontal overflow. Remove
+duplicate AppBar search UI rather than adding a second command trigger. Future detail/edit pages
+should reuse the route resolver and context-back control before introducing local navigation.
+
+The instruction-3 acceptance matrix is desktop 1024/1280/1440 and mobile 390/430/768: one
+desktop search trigger, exact href/name, no UUID chrome, visible focus/hover states, deterministic
+route behavior, and unchanged mobile RepairOS behavior. Any API, schema, permission, tenant,
+dependency, persistence, production-data, CAS, commit, push, or deploy coupling is a stop
+condition requiring a new packet.
+
+### Release-candidate closure — Instructions 2–3
+
+The release candidate includes the implemented store-scoped read-only catalog facade and the
+shared responsive/navigation source contract above. The candidate preserves separate desktop and
+mobile compositions and keeps navigation/search ownership in the shared shell. This is a local
+candidate record only: it introduces no migration, database write, schema, environment,
+dependency, production-data import, CAS, commit, push, or deploy behavior.

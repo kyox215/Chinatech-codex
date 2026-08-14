@@ -1,4 +1,7 @@
-import type { InventoryProductListFilters } from "@/lib/repairdesk/types";
+import type {
+  InventoryCatalogSearchInput,
+  InventoryProductListFilters,
+} from "@/lib/repairdesk/types";
 import { storeQueryScope } from "@/shared/lib/store-query-scope";
 
 export const inventoryProductKeys = {
@@ -13,4 +16,12 @@ export const inventoryProductKeys = {
     [...inventoryProductKeys.details(), id, ...storeQueryScope(storeId)] as const,
   edit: (id: string, storeId?: string | null) =>
     [...inventoryProductKeys.all, "edit", id, ...storeQueryScope(storeId)] as const,
+};
+
+export const inventoryCatalogKeys = {
+  all: ["inventory-catalog"] as const,
+  catalogsForStore: (storeId?: string | null) =>
+    [...inventoryCatalogKeys.all, ...storeQueryScope(storeId)] as const,
+  search: (input: InventoryCatalogSearchInput, storeId?: string | null) =>
+    [...inventoryCatalogKeys.catalogsForStore(storeId), input] as const,
 };

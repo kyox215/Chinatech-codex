@@ -66,12 +66,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
               <AiAssistantWorkspaceProvider>
                 <OfflineOutboxSyncBridge />
                 <SidebarProvider>
-                  <AppSidebar />
+                  <AppSidebar onOpenCommand={() => setOpen(true)} />
                   <SidebarInset className="relative isolate min-h-svh min-w-0 max-w-full overflow-x-clip">
-                    <AppBar
-                      onOpenCommand={() => setOpen(true)}
-                      onOpenScanner={() => setScannerOpen(true)}
-                    />
+                    <AppBar onOpenScanner={() => setScannerOpen(true)} />
                     <main className={appShell.content}>{children}</main>
                     <MobileWorkspaceDock onOpenCommand={() => setOpen(true)} />
                   </SidebarInset>

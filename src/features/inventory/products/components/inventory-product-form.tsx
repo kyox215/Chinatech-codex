@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ComponentType, HTMLAttributes, KeyboardEvent, ReactNode } from "react";
 
 import {
@@ -13,18 +13,21 @@ import {
   Tablet,
 } from "lucide-react";
 
-import { ImeiScannerField } from "@/components/imei-scanner-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { InventoryDeviceCatalogFields } from "./inventory-device-catalog-fields";
-import type { CatalogPickerSurface } from "@/features/inventory/components/inventory-phone-catalog-fields";
+import type {
+  CatalogPickerMode,
+  CatalogPickerSurface,
+} from "@/features/inventory/components/inventory-phone-catalog-fields";
 import {
   resolveDeviceInspectionCapabilities,
   type DeviceInspectionCapabilities,
 } from "../model/device-catalog";
 import type { InventoryProductFormDraft } from "../model/inventory-product-form";
 import type {
+  InventoryCatalogOption,
   InventoryProductCategory,
   InventoryProductFaceIdStatus,
   InventoryProductIdentifierKind,
@@ -33,12 +36,32 @@ import type {
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { identifierLabels, inventoryProductIdentifierKinds } from "../model/device-data";
+import { listDeviceConditionOptions } from "../model/device-form-options";
 
 export type InventoryProductFormCategory = {
   value: InventoryProductCategory;
   label: string;
   icon?: ComponentType<{ className?: string }>;
 };
+
+export type InventoryProductIdentifierFieldProps = {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  density?: "default" | "compact";
+  showPaste?: boolean;
+  showScanner?: boolean;
+  inputId?: string;
+  inputAriaLabel?: string;
+  identifierLabel?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  ariaInvalid?: boolean;
+  ariaDescribedBy?: string;
+  onCommitSource?: (source: "manual" | "scan") => void;
+};
+
+export type InventoryProductIdentifierFieldComponent =
+  ComponentType<InventoryProductIdentifierFieldProps>;
 
 /** One category contract for both the create and edit adapters. */
 export const inventoryProductFormCategories = [
@@ -54,11 +77,13 @@ export type InventoryProductFormProps = {
   categories: readonly InventoryProductFormCategory[];
   idPrefix?: string;
   surface?: CatalogPickerSurface;
+  pickerMode?: CatalogPickerMode;
   categoryDisabled?: boolean;
   catalogDisabled?: boolean;
   autoFocusBrand?: boolean;
   brandInvalid?: boolean;
   modelInvalid?: boolean;
+  learnedCatalogOptions?: readonly InventoryCatalogOption[];
   inspectionBatteryInvalid?: boolean;
   categoryNotice?: ReactNode;
   catalogNotice?: ReactNode;
@@ -87,11 +112,13 @@ export function InventoryProductForm({
   categories,
   idPrefix = "product",
   surface = "page",
+  pickerMode = "auto",
   categoryDisabled = false,
   catalogDisabled = false,
   autoFocusBrand = false,
   brandInvalid = false,
   modelInvalid = false,
+  learnedCatalogOptions = [],
   inspectionBatteryInvalid = false,
   categoryNotice,
   catalogNotice,
@@ -122,7 +149,7 @@ export function InventoryProductForm({
     <section className={cn(repairOs.mobileInfoCard, "space-y-2 p-2.5 md:p-4")}>
       <fieldset>
         <legend className="mb-1.5 text-xs font-semibold">
-          类别 <span className="text-destructive">*</span>
+          类别 <span className="text-status-danger-foreground">*</span>
         </legend>
         <div className="grid grid-cols-5 gap-1.5" role="radiogroup" aria-label="商品类别">
           {categories.map(({ value, label, icon: Icon }, index) => (
@@ -137,7 +164,7 @@ export function InventoryProductForm({
               className={cn(
                 "flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:text-xs lg:leading-4",
                 draft.category === value
-                  ? "border-primary bg-primary/10 text-primary"
+                  ? "border-primary bg-primary text-primary-foreground"
                   : "border-border bg-card",
               )}
               onClick={() => onCategoryChange(value)}
@@ -164,6 +191,8 @@ export function InventoryProductForm({
         autoFocusBrand={autoFocusBrand}
         brandInvalid={brandInvalid}
         modelInvalid={modelInvalid}
+        learnedCatalogOptions={learnedCatalogOptions}
+        pickerMode={pickerMode}
         onBrandChange={onBrandChange}
         onModelChange={onModelChange}
         onRamChange={onRamChange}
@@ -200,13 +229,16 @@ export function InventoryProductForm({
                     inspectionBatteryInvalid ? `${idPrefix}-battery-health-error` : undefined
                   }
                   className={cn(
-                    "h-11 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-base outline-none transition focus-visible:ring-2 focus-visible:ring-ring lg:h-9 lg:text-sm",
+                    "h-11 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-base !text-base outline-none transition focus-visible:ring-2 focus-visible:ring-ring lg:h-9 lg:!text-sm",
                     inspectionBatteryInvalid && "border-destructive focus-visible:ring-destructive",
                   )}
                   onChange={(event) => onInspectionBatteryHealthChange?.(event.target.value)}
                 />
                 {inspectionBatteryInvalid ? (
-                  <p id={`${idPrefix}-battery-health-error`} className="text-xs text-destructive">
+                  <p
+                    id={`${idPrefix}-battery-health-error`}
+                    className="text-xs text-status-danger-foreground"
+                  >
                     电池健康度必须是 0 到 100 的整数或空值
                   </p>
                 ) : null}
@@ -231,7 +263,7 @@ export function InventoryProductForm({
                         className={cn(
                           "min-h-11 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           draft.inspection_face_id_status === option.value
-                            ? "border-primary bg-primary/10 text-primary"
+                            ? "border-primary bg-primary text-primary-foreground"
                             : "border-border bg-card text-muted-foreground",
                         )}
                         aria-pressed={draft.inspection_face_id_status === option.value}
@@ -269,6 +301,7 @@ export type InventoryProductFormDetailsProps = {
   costInvalid?: boolean;
   warrantyInvalid?: boolean;
   identifierSection: ReactNode;
+  layoutMode?: "compact" | "desktop";
   onConditionChange: (value: string) => void;
   onGtinChange: (value: string) => void;
   onSpecificationChange: (key: string, value: string) => void;
@@ -284,7 +317,9 @@ export function InventoryProductIdentifierSection({
   idPrefix = "product",
   description,
   showScanner = true,
+  IdentifierField = InventoryProductLocalIdentifierField,
   allowPrimarySelection = false,
+  layoutMode = "compact",
   invalidKinds,
   onIdentifierChange,
   onIdentifierSource,
@@ -297,7 +332,9 @@ export function InventoryProductIdentifierSection({
   idPrefix?: string;
   description: string;
   showScanner?: boolean;
+  IdentifierField?: InventoryProductIdentifierFieldComponent;
   allowPrimarySelection?: boolean;
+  layoutMode?: "compact" | "desktop";
   invalidKinds?: Partial<Record<InventoryProductIdentifierKind, boolean>>;
   onIdentifierChange: (kind: InventoryProductIdentifierKind, value: string) => void;
   onIdentifierSource: (
@@ -317,7 +354,12 @@ export function InventoryProductIdentifierSection({
           {description}
         </p>
       </div>
-      <div className="grid min-w-0 gap-2">
+      <div
+        className={cn(
+          "grid min-w-0 gap-2",
+          layoutMode === "desktop" ? "lg:grid-cols-2" : "min-[390px]:grid-cols-2",
+        )}
+      >
         {inventoryProductIdentifierKinds.map((kind) => {
           const id = `${idPrefix}-${kind}`;
           const label = identifierLabels[kind];
@@ -336,7 +378,7 @@ export function InventoryProductIdentifierSection({
                     className={cn(
                       "inline-flex min-h-11 min-w-11 items-center justify-center rounded-md px-2 text-[10px] font-medium",
                       draft.primary_identifier_kind === kind
-                        ? "bg-primary/10 text-primary"
+                        ? "bg-primary text-primary-foreground"
                         : "text-muted-foreground hover:bg-muted",
                     )}
                     aria-pressed={draft.primary_identifier_kind === kind}
@@ -348,7 +390,7 @@ export function InventoryProductIdentifierSection({
                   <span className="text-[10px] text-muted-foreground">保存时自动选择主要标识</span>
                 )}
               </div>
-              <ImeiScannerField
+              <IdentifierField
                 inputId={id}
                 inputAriaLabel={label}
                 identifierLabel={label}
@@ -363,7 +405,7 @@ export function InventoryProductIdentifierSection({
                 showScanner={showScanner}
               />
               {invalid ? (
-                <p id={`${id}-error`} className="text-xs text-destructive">
+                <p id={`${id}-error`} className="text-xs text-status-danger-foreground">
                   请检查{label}格式
                 </p>
               ) : null}
@@ -372,6 +414,40 @@ export function InventoryProductIdentifierSection({
         })}
       </div>
     </section>
+  );
+}
+
+/**
+ * Story-safe identifier presenter. It deliberately has no camera, file,
+ * clipboard, storage, or network capability; production screens inject the
+ * real scanner adapter explicitly.
+ */
+export function InventoryProductLocalIdentifierField({
+  value,
+  onChange,
+  placeholder,
+  inputId,
+  inputAriaLabel,
+  inputMode,
+  ariaInvalid,
+  ariaDescribedBy,
+  onCommitSource,
+}: InventoryProductIdentifierFieldProps) {
+  return (
+    <Input
+      id={inputId}
+      aria-label={inputAriaLabel}
+      inputMode={inputMode}
+      aria-invalid={ariaInvalid || undefined}
+      aria-describedby={ariaDescribedBy}
+      className="h-11 min-h-11 text-base !text-base lg:h-9 lg:!text-sm"
+      value={value}
+      placeholder={placeholder}
+      onChange={(event) => {
+        onChange(event.target.value);
+        onCommitSource?.("manual");
+      }}
+    />
   );
 }
 
@@ -390,6 +466,7 @@ export function InventoryProductFormDetails({
   costInvalid = false,
   warrantyInvalid = false,
   identifierSection,
+  layoutMode = "compact",
   onConditionChange,
   onGtinChange,
   onSpecificationChange,
@@ -399,10 +476,25 @@ export function InventoryProductFormDetails({
   onWarrantyChange,
   onNotesChange,
 }: InventoryProductFormDetailsProps) {
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(layoutMode === "desktop");
+  useEffect(() => {
+    setDetailsOpen(layoutMode === "desktop");
+  }, [layoutMode]);
   const specFields = detailsSpecificationFields(draft.category);
   return (
     <section data-ui="inventory-product-form-details" className="grid gap-1.5">
+      <section
+        data-ui="inventory-product-form-primary-details"
+        className={cn(repairOs.mobileInfoCard, "grid min-w-0 gap-2 p-2.5 md:p-4")}
+      >
+        <ConditionField
+          id={`${idPrefix}-condition`}
+          value={draft.condition}
+          invalid={conditionInvalid}
+          onChange={onConditionChange}
+        />
+        {identifierSection}
+      </section>
       <button
         type="button"
         className={cn(
@@ -416,7 +508,7 @@ export function InventoryProductFormDetails({
         <span>
           <span className="block text-sm font-semibold">更多信息</span>
           <span className="block text-[10px] leading-4 text-muted-foreground">
-            成色、设备标识、售价、库位、保修和备注
+            售价、库位、保修和备注
           </span>
         </span>
         <span aria-hidden className="text-lg leading-none text-muted-foreground">
@@ -430,14 +522,6 @@ export function InventoryProductFormDetails({
             data-ui="inventory-product-form-specifications"
             className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 md:p-4")}
           >
-            <ProductDetailField
-              id={`${idPrefix}-condition`}
-              label="成色"
-              value={draft.condition}
-              placeholder="例如 全新、良好、有使用痕迹"
-              invalid={conditionInvalid}
-              onChange={onConditionChange}
-            />
             <ProductDetailField
               id={`${idPrefix}-gtin`}
               label="EAN / GTIN（同款条码）"
@@ -458,8 +542,6 @@ export function InventoryProductFormDetails({
               />
             ))}
           </section>
-
-          {identifierSection}
 
           <section
             data-ui="inventory-product-form-commercial"
@@ -507,7 +589,7 @@ export function InventoryProductFormDetails({
               </Label>
               <Textarea
                 id={`${idPrefix}-notes`}
-                className="min-h-20 resize-y text-base lg:text-sm"
+                className="min-h-20 resize-y text-base !text-base lg:!text-sm"
                 maxLength={2000}
                 value={draft.notes}
                 placeholder="可选"
@@ -546,7 +628,7 @@ function ProductDetailField({
       </Label>
       <Input
         id={id}
-        className="h-[38px] min-w-0 text-base lg:h-9 lg:text-sm"
+        className="h-11 min-h-11 min-w-0 text-base !text-base lg:h-9 lg:min-h-0 lg:!text-sm"
         value={value}
         placeholder={placeholder}
         inputMode={inputMode}
@@ -555,7 +637,63 @@ function ProductDetailField({
         onChange={(event) => onChange(event.target.value)}
       />
       {invalid ? (
-        <p id={errorId} className="text-xs text-destructive">
+        <p id={errorId} className="text-xs text-status-danger-foreground">
+          请检查此字段
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function ConditionField({
+  id,
+  value,
+  onChange,
+  invalid,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  invalid?: boolean;
+}) {
+  const options = listDeviceConditionOptions();
+  const isManualValue = Boolean(value) && !options.some((option) => option.value === value);
+  const errorId = `${id}-error`;
+  return (
+    <div className="min-w-0 space-y-1">
+      <Label htmlFor={id} className="text-xs">
+        成色
+      </Label>
+      <div className="flex min-w-0 flex-wrap gap-1" role="radiogroup" aria-label="成色预设">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={value === option.value}
+            className={cn(
+              "min-h-11 min-w-11 rounded-lg border px-2 text-[11px] font-medium transition-colors",
+              value === option.value
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border bg-card hover:bg-accent/60",
+            )}
+            onClick={() => onChange(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <Input
+        id={id}
+        className="h-11 min-h-11 min-w-0 text-base !text-base lg:h-9 lg:min-h-0 lg:!text-sm"
+        value={isManualValue ? value : ""}
+        placeholder="例如 全新、良好、有使用痕迹"
+        aria-invalid={invalid}
+        aria-describedby={invalid ? errorId : undefined}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      {invalid ? (
+        <p id={errorId} className="text-xs text-status-danger-foreground">
           请检查此字段
         </p>
       ) : null}

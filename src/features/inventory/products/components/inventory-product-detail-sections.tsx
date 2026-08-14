@@ -15,7 +15,8 @@ import {
 import type { InventoryProductDetail } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
-import { MoneyText, RepairOsInfoTile } from "@/shared/ui";
+import { MoneyText } from "@/components/orders/badges";
+import { InventoryInfoTile } from "@/features/inventory/components/inventory-ui-primitives";
 
 export interface ProductSummaryField {
   label: string;
@@ -91,7 +92,7 @@ export function ProductHeroCard({
       </div>
       <div className="mt-1.5 grid grid-cols-2 gap-1.5">
         {summaryFields.map((field) => (
-          <RepairOsInfoTile
+          <InventoryInfoTile
             key={field.label}
             label={field.label}
             value={field.value}
@@ -158,7 +159,7 @@ export function ProductBusinessSection({ item }: { item: InventoryProductDetail 
       <SectionTitle icon={ShieldCheck} id="inventory-product-business-title" title="经营信息" />
       <div className="mt-1.5 grid min-w-0 grid-cols-2 gap-1.5 sm:grid-cols-3">
         {fields.map((field) => (
-          <RepairOsInfoTile
+          <InventoryInfoTile
             key={field.label}
             label={field.label}
             value={field.value}
@@ -207,7 +208,7 @@ export function DeviceIdentitySection({
       </summary>
       <div className="mt-1.5 grid min-w-0 grid-cols-2 gap-1.5">
         {identifiers.map((identifier) => (
-          <RepairOsInfoTile
+          <InventoryInfoTile
             key={identifier.kind}
             frame="bordered"
             label={identifierLabel(identifier.kind)}
@@ -216,7 +217,7 @@ export function DeviceIdentitySection({
           />
         ))}
         {gtin ? (
-          <RepairOsInfoTile
+          <InventoryInfoTile
             frame="bordered"
             className="col-span-2"
             label="EAN / GTIN"
@@ -225,7 +226,7 @@ export function DeviceIdentitySection({
           />
         ) : null}
         {specificationEntries.map(([key, value]) => (
-          <RepairOsInfoTile
+          <InventoryInfoTile
             key={key}
             frame="bordered"
             label={specificationLabel(key)}

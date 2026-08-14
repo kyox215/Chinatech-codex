@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Sidebar, SidebarProvider, SidebarTrigger, useSidebar } from "./sidebar";
+import { Sidebar, SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from "./sidebar";
 
 afterEach(() => {
   cleanup();
@@ -66,6 +66,19 @@ describe("SidebarProvider responsive state", () => {
       expect(screen.getByTestId("sidebar-state")).toHaveAttribute("data-state", "expanded"),
     );
     expect(container.querySelector("[data-sidebar-controlled='true']")).toBeInTheDocument();
+  });
+});
+
+describe("SidebarInset landmark ownership", () => {
+  it("keeps the shell inset as a layout div so Providers owns the sole main", () => {
+    const { container } = render(
+      <SidebarInset data-testid="sidebar-inset">
+        <main>content</main>
+      </SidebarInset>,
+    );
+
+    expect(screen.getByTestId("sidebar-inset").tagName).toBe("DIV");
+    expect(container.querySelectorAll("main")).toHaveLength(1);
   });
 });
 

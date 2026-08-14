@@ -9,6 +9,7 @@ import {
   CircleDashed,
   Clock3,
   History,
+  Loader2,
   PackageCheck,
   ShieldCheck,
   Tag,
@@ -23,11 +24,19 @@ import type {
 } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
-import { RepairOsBadge } from "@/shared/ui";
+import { InventoryStatusBadge } from "@/features/inventory/components/inventory-ui-primitives";
 import {
   getInventoryLifecycleProjectionMeta,
   inventoryLifecycleProjectionStatusMeta,
 } from "../model/projection";
+import type { InventoryDetailNextAction } from "@/features/inventory/model/inventory-detail-next-action";
+import { InventoryNoActionGuidanceCard } from "@/features/inventory/components/inventory-no-action-guidance-card";
+import { resolveInventoryNoActionGuidance } from "@/features/inventory/model/inventory-no-action-guidance";
+import { InventoryLifecycleTimeline } from "./inventory-lifecycle-timeline";
+import {
+  buildInventoryLifecycleMilestones,
+  resolveInventoryMilestoneTimeline,
+} from "../model/inventory-lifecycle-timeline";
 
 export type LifecycleStatus = InventoryLifecycleListSummary["business_status"];
 
@@ -75,7 +84,11 @@ export function InventoryLifecycleStatusBadge({
   className?: string;
 }) {
   const meta = lifecycleStatusMeta[status];
-  return <RepairOsBadge className={cn(meta.className, className)}>{meta.label}</RepairOsBadge>;
+  return (
+    <InventoryStatusBadge className={cn(meta.className, className)}>
+      {meta.label}
+    </InventoryStatusBadge>
+  );
 }
 
 const projectionToneClasses = {
@@ -112,10 +125,10 @@ export function InventoryLifecycleProjectionBadge({
   const meta = getInventoryLifecycleProjectionMeta(projection, legacyStatus);
   const Icon = projectionIcons[meta.icon];
   return (
-    <RepairOsBadge className={cn(projectionToneClasses[meta.tone], "gap-1", className)}>
+    <InventoryStatusBadge className={cn(projectionToneClasses[meta.tone], "gap-1", className)}>
       <Icon className="size-3" aria-hidden="true" />
       <span>{meta.label}</span>
-    </RepairOsBadge>
+    </InventoryStatusBadge>
   );
 }
 
@@ -135,11 +148,19 @@ export function InventoryLifecycleSummaryCard({
   itemId,
   compact = false,
   hidePrimaryStatus = false,
+  nextAction,
+  hideMobilePrimaryAction = false,
+  onAction,
+  onReadOnly,
 }: {
   summary: InventoryLifecycleListSummary;
   itemId: string;
   compact?: boolean;
   hidePrimaryStatus?: boolean;
+  nextAction?: InventoryDetailNextAction;
+  hideMobilePrimaryAction?: boolean;
+  onAction?: () => void;
+  onReadOnly?: () => void | Promise<void>;
 }) {
   const projection = summary.projection;
   const meta = lifecycleStatusMeta[summary.business_status];
@@ -162,6 +183,27 @@ export function InventoryLifecycleSummaryCard({
         ? "收款 / 完成成交"
         : "打开销售与保修"
       : "开始预订";
+  const resolvedHref =
+    nextAction?.kind === "action" ? nextAction.href : nextAction ? undefined : nextHref;
+  const resolvedLabel =
+    nextAction?.kind === "action"
+      ? nextAction.label
+      : nextAction?.kind === "loading"
+        ? nextAction.label
+        : nextAction?.kind === "none"
+          ? "当前没有可执行动作"
+          : nextLabel;
+  const resolvedLoading = nextAction?.kind === "loading";
+  const resolvedNone = nextAction?.kind === "none";
+  const primaryActionClass = hideMobilePrimaryAction ? "max-lg:hidden" : undefined;
+  const noActionGuidance = resolveInventoryNoActionGuidance({
+    lifecycleState: nextAction?.kind === "loading" ? "loading" : "ready",
+    hasData: true,
+    projectionMode: projection?.mode ?? "compatible",
+    projection,
+    status: summary.business_status,
+    allowedActions,
+  });
 
   return (
     <section
@@ -203,16 +245,35 @@ export function InventoryLifecycleSummaryCard({
           <History className="size-3" aria-hidden="true" />
           版本 {summary.order_version ?? summary.unit_version ?? "—"}
         </span>
-        {nextHref ? (
-          <Button asChild className="min-h-11 gap-1.5 px-3 text-xs">
-            <Link href={nextHref}>
-              {nextLabel}
+        {noActionGuidance ? (
+          <InventoryNoActionGuidanceCard
+            guidance={noActionGuidance}
+            onReadOnly={onReadOnly}
+            className="w-full basis-full"
+          />
+        ) : resolvedHref ? (
+          <Button asChild className={cn("min-h-11 gap-1.5 px-3 text-xs", primaryActionClass)}>
+            <Link href={resolvedHref}>
+              {resolvedLabel}
               <ArrowRight className="size-3.5" aria-hidden="true" />
             </Link>
           </Button>
         ) : (
-          <Button type="button" variant="outline" disabled className="min-h-11 text-xs">
-            当前没有可执行动作
+          <Button
+            type="button"
+            variant={resolvedNone || resolvedLoading ? "outline" : "default"}
+            disabled={resolvedNone || resolvedLoading}
+            aria-busy={resolvedLoading}
+            className={cn("min-h-11 gap-1.5 text-xs", primaryActionClass)}
+            onClick={onAction}
+          >
+            {resolvedLoading ? (
+              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+            ) : null}
+            {resolvedLabel}
+            {!resolvedNone && !resolvedLoading ? (
+              <ArrowRight className="size-3.5" aria-hidden="true" />
+            ) : null}
           </Button>
         )}
       </div>
@@ -348,48 +409,11 @@ export function InventoryLifecycleHistoryCard({
 }: {
   summary: InventoryLifecycleListSummary;
 }) {
-  const events = [
-    summary.inspection?.inspected_at
-      ? { label: "设备检测", at: summary.inspection.inspected_at }
-      : null,
-    summary.reserved_at ? { label: "建立预订", at: summary.reserved_at } : null,
-    summary.sold_at ? { label: "完成销售", at: summary.sold_at } : null,
-    summary.actual_pickup_at ? { label: "客户取走", at: summary.actual_pickup_at } : null,
-    summary.after_sales?.received_at
-      ? { label: "登记售后", at: summary.after_sales.received_at }
-      : null,
-  ]
-    .filter((event): event is { label: string; at: string } => Boolean(event))
-    .sort((left, right) => right.at.localeCompare(left.at));
   return (
-    <section
-      data-ui="inventory-lifecycle-history"
-      className={cn(repairOs.mobileInfoCard, "p-2.5 sm:p-3")}
-      aria-labelledby="inventory-lifecycle-history-title"
-    >
-      <div className="flex items-center gap-1.5">
-        <History className="size-3.5 text-primary" aria-hidden="true" />
-        <h2 id="inventory-lifecycle-history-title" className="text-[11px] font-semibold lg:text-sm">
-          最近历史
-        </h2>
-        <span className="ml-auto text-[10px] text-muted-foreground">最近 {events.length} 项</span>
-      </div>
-      {events.length ? (
-        <ol className="mt-2 grid gap-1.5">
-          {events.map((event) => (
-            <li
-              key={`${event.label}-${event.at}`}
-              className="flex items-center justify-between gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px]"
-            >
-              <strong>{event.label}</strong>
-              <time className="text-muted-foreground">{formatFullDate(event.at)}</time>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p className="mt-1.5 text-[10px] leading-4 text-muted-foreground">尚无生命周期事件。</p>
-      )}
-    </section>
+    <InventoryLifecycleTimeline
+      source="milestone-summary"
+      result={resolveInventoryMilestoneTimeline(buildInventoryLifecycleMilestones(summary))}
+    />
   );
 }
 

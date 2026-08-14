@@ -2467,6 +2467,30 @@ export interface InventoryProductListResult {
   lifecycle_projection?: InventoryLifecycleBatchProjection;
 }
 
+export interface InventoryCatalogSearchInput {
+  category: InventoryProductCategory;
+  brand?: string;
+  query?: string;
+  limit?: number;
+}
+
+export type InventoryCatalogOptionSource = "curated" | "learned";
+
+/**
+ * Store-owned catalog suggestions intentionally expose no inventory identity,
+ * pricing, cost, identifier, customer, or staff fields.
+ */
+export interface InventoryCatalogOption {
+  category: InventoryProductCategory;
+  brand: string;
+  model: string;
+  source: InventoryCatalogOptionSource;
+}
+
+export interface InventoryCatalogSearchResult {
+  items: InventoryCatalogOption[];
+}
+
 export interface InventoryProductDetail extends InventoryProductListItem {
   color?: string;
   ram_capacity?: string;

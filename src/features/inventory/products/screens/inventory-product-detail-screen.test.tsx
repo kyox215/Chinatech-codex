@@ -3,8 +3,12 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { InventoryProductDetail } from "@/lib/repairdesk/types";
+import { inventoryLifecycleKeys } from "@/features/inventory/lifecycle/api/query-keys";
 
-const apiMocks = vi.hoisted(() => ({ getInventoryProduct: vi.fn() }));
+const apiMocks = vi.hoisted(() => ({
+  getInventoryProduct: vi.fn(),
+  readInventoryLifecycleSummary: vi.fn(),
+}));
 const routerMocks = vi.hoisted(() => ({ push: vi.fn() }));
 const shellMocks = vi.hoisted(() => ({
   value: {
@@ -14,6 +18,7 @@ const shellMocks = vi.hoisted(() => ({
       canReadInventory: true,
       canUpdateInventory: true,
       inventoryProductsUiEnabled: true,
+      inventoryLifecycleUiEnabled: false,
     },
   },
 }));
@@ -22,6 +27,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => routerMocks }));
 vi.mock("@/lib/repairdesk/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/repairdesk/api")>()),
   getInventoryProduct: apiMocks.getInventoryProduct,
+  readInventoryLifecycleSummary: apiMocks.readInventoryLifecycleSummary,
 }));
 vi.mock("@/features/stores/api/use-store-shell-context", () => ({
   useStoreShellContext: () => shellMocks.value,
@@ -38,9 +44,11 @@ beforeEach(() => {
       canReadInventory: true,
       canUpdateInventory: true,
       inventoryProductsUiEnabled: true,
+      inventoryLifecycleUiEnabled: false,
     },
   };
   apiMocks.getInventoryProduct.mockResolvedValue(productFixture());
+  apiMocks.readInventoryLifecycleSummary.mockResolvedValue(undefined);
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -170,6 +178,147 @@ describe("InventoryProductDetailScreen complete device profile", () => {
     expect(screen.queryByRole("button", { name: "编辑商品" })).not.toBeInTheDocument();
   });
 
+  it("uses one server-driven after-sales action in the mobile dock", async () => {
+    shellMocks.value.permissions.inventoryLifecycleUiEnabled = true;
+    apiMocks.readInventoryLifecycleSummary.mockResolvedValue(
+      lifecycleSummaryFixture({
+        business_status: "after_sales",
+        after_sales: {
+          case_id: "case-1",
+          sale_order_id: "sale-1",
+          inventory_item_id: "product-1",
+          status: "open",
+          received_at: "2026-08-11T08:00:00.000Z",
+          version: 1,
+        },
+        allowed_actions: ["after_sales.update"],
+      }),
+    );
+    renderScreen();
+
+    const actionButton = await screen.findByRole("button", { name: "继续处理售后" });
+    expect(screen.getByRole("heading", { name: "关键里程碑（摘要）" })).toBeVisible();
+    const dock = actionButton.closest("[data-ui='inventory-detail-action-dock']") as HTMLElement;
+    expect(dock).not.toBeNull();
+    expect(within(dock).getByRole("button", { name: "继续处理售后" })).toBeVisible();
+    expect(within(dock).getAllByRole("button")).toHaveLength(1);
+    const summaryCard = screen
+      .getByRole("heading", { name: "当前业务" })
+      .closest("[data-ui='inventory-lifecycle-summary']");
+    expect(summaryCard).not.toBeNull();
+    const desktopSummaryAction = within(summaryCard! as HTMLElement).getByRole("link", {
+      name: "继续处理售后",
+    });
+    expect(desktopSummaryAction).toHaveClass("max-lg:hidden");
+    expect(document.querySelectorAll("[data-ui='inventory-detail-action-dock']")).toHaveLength(1);
+  });
+
+  it("shows a disabled loading status without flashing edit", async () => {
+    shellMocks.value.permissions.inventoryLifecycleUiEnabled = true;
+    apiMocks.readInventoryLifecycleSummary.mockReturnValue(new Promise(() => undefined));
+    renderScreen();
+
+    const loadingText = await screen.findByText("正在读取下一动作");
+    const dock = loadingText.closest("[data-ui='inventory-detail-action-dock']") as HTMLElement;
+    expect(dock).not.toBeNull();
+    expect(dock).toHaveAttribute("role", "status");
+    expect(dock).toHaveAttribute("aria-busy", "true");
+    expect(within(dock).getByText("正在读取下一动作")).toBeVisible();
+    expect(within(dock).queryByRole("button", { name: "编辑商品" })).not.toBeInTheDocument();
+  });
+
+  it("focuses the inspection editor when inspection.save is the next action", async () => {
+    shellMocks.value.permissions.inventoryLifecycleUiEnabled = true;
+    apiMocks.readInventoryLifecycleSummary.mockResolvedValue(
+      lifecycleSummaryFixture({
+        allowed_actions: ["inspection.save"],
+      }),
+    );
+    renderScreen();
+
+    await screen.findByRole("heading", { name: "录入设备检测" });
+    const dock = document.querySelector<HTMLElement>("[data-ui='inventory-detail-action-dock']");
+    expect(dock).not.toBeNull();
+    const editor = document.querySelector<HTMLElement>("[data-ui='inventory-inspection-editor']");
+    expect(editor).not.toBeNull();
+    const scrollIntoView = vi.fn();
+    editor!.scrollIntoView = scrollIntoView;
+    const actionButton = within(dock!).getByRole("button", { name: "补齐设备检测" });
+    expect(actionButton).toBeVisible();
+    actionButton.click();
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(editor);
+    expect(screen.getByRole("heading", { name: "录入设备检测" })).toBeVisible();
+  });
+
+  it("uses exact projection actions for both the dock and inspection editor", async () => {
+    shellMocks.value.permissions.inventoryLifecycleUiEnabled = true;
+    apiMocks.readInventoryLifecycleSummary.mockResolvedValue(
+      lifecycleSummaryFixture({
+        allowed_actions: ["reservation.create"],
+        projection: {
+          mode: "exact",
+          status: "in_stock",
+          confidence: "high",
+          needs_review: false,
+          allowed_actions: ["inspection.save"],
+        },
+      }),
+    );
+    renderScreen();
+
+    await screen.findByRole("heading", { name: "录入设备检测" });
+    const dock = document.querySelector<HTMLElement>("[data-ui='inventory-detail-action-dock']");
+    expect(dock).not.toBeNull();
+    expect(within(dock!).getByRole("button", { name: "补齐设备检测" })).toBeVisible();
+  });
+
+  it("does not render the inspection editor when exact projection removes inspection.save", async () => {
+    shellMocks.value.permissions.inventoryLifecycleUiEnabled = true;
+    apiMocks.readInventoryLifecycleSummary.mockResolvedValue(
+      lifecycleSummaryFixture({
+        allowed_actions: ["inspection.save"],
+        projection: {
+          mode: "exact",
+          status: "in_stock",
+          confidence: "high",
+          needs_review: false,
+          allowed_actions: [],
+        },
+      }),
+    );
+    renderScreen();
+
+    await screen.findByRole("heading", { name: "当前业务" });
+    expect(screen.getByRole("heading", { name: "服务端未提供可执行动作" })).toBeVisible();
+    const dock = document.querySelector<HTMLElement>("[data-ui='inventory-detail-action-dock']");
+    expect(dock).toBeNull();
+    expect(screen.queryByRole("heading", { name: "录入设备检测" })).not.toBeInTheDocument();
+  });
+
+  it("does not expose cached lifecycle actions after a background read is rejected", async () => {
+    shellMocks.value.permissions.inventoryLifecycleUiEnabled = true;
+    apiMocks.readInventoryLifecycleSummary.mockResolvedValue(
+      lifecycleSummaryFixture({ allowed_actions: ["inspection.save"] }),
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <InventoryProductDetailScreen id="product-1" />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByRole("heading", { name: "录入设备检测" });
+    apiMocks.readInventoryLifecycleSummary.mockRejectedValueOnce(new Error("forbidden"));
+    await queryClient.refetchQueries({
+      queryKey: inventoryLifecycleKeys.summary("product-1", "store-1"),
+    });
+    await screen.findByText("商品生命周期暂不可用");
+    expect(screen.queryByRole("heading", { name: "当前业务" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "录入设备检测" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "补齐设备检测" })).not.toBeInTheDocument();
+  });
+
   it("does not request or render product data without read permission", async () => {
     shellMocks.value.permissions.canReadInventory = false;
     renderScreen();
@@ -224,6 +373,21 @@ function productFixture(overrides: Partial<InventoryProductDetail> = {}): Invent
     },
     created_at: "2026-07-29T08:00:00.000Z",
     version: 2,
+    ...overrides,
+  };
+}
+
+function lifecycleSummaryFixture(
+  overrides: Partial<import("@/lib/repairdesk/types").InventoryLifecycleListSummary> = {},
+) {
+  return {
+    item_id: "product-1",
+    stock_unit_id: "unit-1",
+    sku: "I001501",
+    business_status: "in_stock" as const,
+    unit_version: 3,
+    allowed_actions: [] as const,
+    after_sales: undefined,
     ...overrides,
   };
 }

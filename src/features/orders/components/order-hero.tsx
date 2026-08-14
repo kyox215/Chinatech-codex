@@ -280,8 +280,8 @@ export function OrderHero({
                 asChild
                 variant="outline"
                 size="icon"
-                className="size-7 shrink-0"
-                aria-label="返回列表"
+                className="size-7 shrink-0 lg:hidden"
+                aria-label="返回工单列表"
               >
                 <Link href="/orders">
                   <ArrowLeft className="size-4" />

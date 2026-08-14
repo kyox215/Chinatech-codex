@@ -169,6 +169,7 @@ import {
   listInventoryItems,
   listInventoryItemsPage,
   listInventoryProducts,
+  searchInventoryCatalog,
   reconcileInventoryV2,
   recordInventoryCheck,
   recordBuybackQuoteResponse,
@@ -191,7 +192,9 @@ import {
   assertInventoryV2IntakeAccess,
   assertInventoryV2SaleAccess,
   assertInventoryV2WorkflowAccess,
+  canUseInventoryProductsBff,
 } from "@/features/inventory/server/inventory-v2-access";
+import type { InventoryV2FeatureEnvironment } from "@/features/inventory/server/inventory-v2-feature-flags";
 import { completeInventorySaleV2BodySchema } from "@/features/inventory/model/inventory-v2-sale-contract";
 import { createInventoryUnitV2BodySchema } from "@/features/inventory/model/inventory-v2-intake-contract";
 import { applyInventoryWorkflowV2BodySchema } from "@/features/inventory/model/inventory-v2-workflow-contract";
@@ -386,6 +389,7 @@ import {
   inventoryAttachmentAccessBodySchema,
   buybackFinalizeBodySchema,
   inventoryIntakeCreateBodySchema,
+  inventoryCatalogSearchBodySchema,
   inventoryListFiltersSchema,
   inventoryProductListFiltersSchema,
   updateInventoryProductBodySchema,
@@ -572,6 +576,7 @@ const supabaseSource = {
   listInventoryItems,
   listInventoryItemsPage,
   listInventoryProducts,
+  searchInventoryCatalog,
   readInventoryLifecycleAfterSalesCase,
   readInventoryLifecycleAfterSalesQueue,
   readInventoryLifecycleSale,
@@ -945,6 +950,7 @@ async function source() {
   };
   return {
     ...mock,
+    searchInventoryCatalog: async () => ({ items: [] }),
     readInventoryLifecycleAfterSalesCase: async (id: string) =>
       lifecycleE2eEnabled && id === lifecycleE2eCaseId
         ? {
@@ -1703,7 +1709,7 @@ function deriveDashboardStatsFromRecentOrders(items: OrderListItem[], total: num
   };
 }
 
-function fail(error: unknown) {
+export function fail(error: unknown) {
   if (error instanceof UnauthorizedError) {
     return privateJson({ error: error.message }, 401);
   }
@@ -1745,14 +1751,34 @@ function fail(error: unknown) {
     );
   }
 
-  const message =
-    error instanceof z.ZodError
-      ? `请求参数错误：${error.issues.map((issue) => issue.message).join("，")}`
-      : error instanceof Error
-        ? error.message
-        : "请求处理失败";
+  if (error instanceof z.ZodError) {
+    return privateJson(
+      { error: `请求参数错误：${error.issues.map((issue) => issue.message).join("，")}` },
+      400,
+    );
+  }
 
+  const message = error instanceof Error ? error.message : "请求处理失败";
   return privateJson({ error: message }, 400);
+}
+
+function isKnownRouterError(error: unknown) {
+  return (
+    error instanceof UnauthorizedError ||
+    error instanceof ForbiddenError ||
+    error instanceof SettingsMutationError ||
+    error instanceof z.ZodError ||
+    (error instanceof Error &&
+      "status" in error &&
+      typeof error.status === "number" &&
+      "code" in error &&
+      typeof error.code === "string")
+  );
+}
+
+function failInventoryProductsRead(error: unknown) {
+  if (isKnownRouterError(error)) return fail(error);
+  return privateJson({ error: "请求处理失败，请稍后重试" }, 500);
 }
 
 function routeConflict(code: string, message: string) {
@@ -2211,9 +2237,24 @@ export async function handleRepairDeskPost(
         return ok(await api.listInventoryItemsPage(inventoryListFiltersSchema.parse(body), actor));
       case "inventory/products/list":
         assertInventoryReadPermission(actor);
-        return ok(
-          await api.listInventoryProducts(inventoryProductListFiltersSchema.parse(body), actor),
-        );
+        assertInventoryProductsUiAccess(actor);
+        try {
+          return ok(
+            await api.listInventoryProducts(inventoryProductListFiltersSchema.parse(body), actor),
+          );
+        } catch (error) {
+          return failInventoryProductsRead(error);
+        }
+      case "inventory/catalog/search":
+        assertInventoryReadPermission(actor);
+        assertInventoryProductsUiAccess(actor);
+        try {
+          return ok(
+            await api.searchInventoryCatalog(inventoryCatalogSearchBodySchema.parse(body), actor),
+          );
+        } catch (error) {
+          return failInventoryProductsRead(error);
+        }
       case "inventory/summary":
         assertInventoryReadPermission(actor);
         return ok(await api.getInventorySummary(inventoryListFiltersSchema.parse(body), actor));
@@ -2434,7 +2475,12 @@ export async function handleRepairDeskPost(
       case "inventory/products/get": {
         const { id } = idBodySchema.parse(body);
         assertInventoryReadPermission(actor);
-        return ok(await api.getInventoryProduct(id, actor));
+        assertInventoryProductsUiAccess(actor);
+        try {
+          return ok(await api.getInventoryProduct(id, actor));
+        } catch (error) {
+          return failInventoryProductsRead(error);
+        }
       }
       case "inventory/products/edit-data": {
         const { id } = inventoryProductSensitiveIdBodySchema.parse(body);
@@ -3634,6 +3680,15 @@ export function assertOrderCustomerMessagePermission(actor: AuditActor) {
 
 export function assertInventoryReadPermission(actor: AuditActor) {
   assertRepairDeskPermission(actor, "inventory:read");
+}
+
+export function assertInventoryProductsUiAccess(
+  actor: AuditActor,
+  env?: InventoryV2FeatureEnvironment,
+) {
+  if (!canUseInventoryProductsBff(actor, env)) {
+    throw new ForbiddenError("库存商品界面尚未对当前门店开放");
+  }
 }
 
 export function assertCustomerListPermission(actor: AuditActor) {

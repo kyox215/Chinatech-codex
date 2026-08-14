@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 import { customersKeys } from "@/features/customers/api/query-keys";
 import { aiAssistantKeys } from "@/features/ai-assistant/api";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
+import { inventoryLifecycleKeys } from "@/features/inventory/lifecycle/api/query-keys";
+import { inventoryCatalogKeys } from "@/features/inventory/products/api/query-keys";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { memosKeys } from "@/features/memos/api/query-keys";
@@ -36,6 +38,20 @@ describe("tenant cache helpers", () => {
     queryClient.setQueryData(ordersKeys.detail("ord_a", "store_1"), { id: "ord_a" });
     queryClient.setQueryData(customersKeys.detail("cust_a", "store_1"), { id: "cust_a" });
     queryClient.setQueryData(inventoryKeys.detail("item_a", "store_1"), { id: "item_a" });
+    queryClient.setQueryData(
+      inventoryCatalogKeys.search({ category: "phone", brand: "Apple" }, "store_1"),
+      [{ category: "phone", brand: "Apple", model: "iPhone 17", source: "learned" }],
+    );
+    queryClient.setQueryData(
+      inventoryCatalogKeys.search({ category: "phone", brand: "Samsung" }, "store_2"),
+      [{ category: "phone", brand: "Samsung", model: "Galaxy A56", source: "learned" }],
+    );
+    const unrelatedStoreQueryKey = ["unrelated", "store_1"] as const;
+    queryClient.setQueryData(unrelatedStoreQueryKey, { keep: true });
+    queryClient.setQueryData(inventoryLifecycleKeys.summary("item_a", "store_1"), {
+      stock_unit_id: "item_a",
+      allowed_actions: ["inspection.save"],
+    });
     queryClient.setQueryData(messageSettingsKeys.storeScoped("store_1"), { store_id: "store_1" });
     queryClient.setQueryData(messageSettingsKeys.templatesScoped("store_1"), [{ id: "tpl_a" }]);
     queryClient.setQueryData(kioskKeys.sessions("store_1"), [{ id: "session_a" }]);
@@ -54,6 +70,20 @@ describe("tenant cache helpers", () => {
     expect(queryClient.getQueryData(ordersKeys.detail("ord_a", "store_1"))).toBeUndefined();
     expect(queryClient.getQueryData(customersKeys.detail("cust_a", "store_1"))).toBeUndefined();
     expect(queryClient.getQueryData(inventoryKeys.detail("item_a", "store_1"))).toBeUndefined();
+    expect(
+      queryClient.getQueryData(
+        inventoryCatalogKeys.search({ category: "phone", brand: "Apple" }, "store_1"),
+      ),
+    ).toBeUndefined();
+    expect(
+      queryClient.getQueryData(
+        inventoryCatalogKeys.search({ category: "phone", brand: "Samsung" }, "store_2"),
+      ),
+    ).toBeUndefined();
+    expect(queryClient.getQueryData(unrelatedStoreQueryKey)).toEqual({ keep: true });
+    expect(
+      queryClient.getQueryData(inventoryLifecycleKeys.summary("item_a", "store_1")),
+    ).toBeUndefined();
     expect(queryClient.getQueryData(messageSettingsKeys.storeScoped("store_1"))).toBeUndefined();
     expect(
       queryClient.getQueryData(messageSettingsKeys.templatesScoped("store_1")),
@@ -73,6 +103,14 @@ describe("tenant cache helpers", () => {
     queryClient.setQueryData(ordersKeys.detail("ord_a", "store_1"), { id: "ord_a" });
     queryClient.setQueryData(customersKeys.detail("cust_a", "store_1"), { id: "cust_a" });
     queryClient.setQueryData(inventoryKeys.detail("item_a", "store_1"), { id: "item_a" });
+    queryClient.setQueryData(
+      inventoryCatalogKeys.search({ category: "phone", query: "iphone" }, "store_1"),
+      [{ category: "phone", brand: "Apple", model: "iPhone 17", source: "learned" }],
+    );
+    queryClient.setQueryData(inventoryLifecycleKeys.summary("item_a", "store_1"), {
+      stock_unit_id: "item_a",
+      allowed_actions: ["inspection.save"],
+    });
     queryClient.setQueryData(kioskKeys.sessions("store_1"), [{ id: "session_a" }]);
     queryClient.setQueryData(suppliersKeys.storeScoped("store_1"), [{ id: "supplier_a" }]);
     queryClient.setQueryData(storesKeys.membersScoped("store_1"), [{ id: "member_a" }]);
@@ -87,6 +125,14 @@ describe("tenant cache helpers", () => {
     expect(queryClient.getQueryData(ordersKeys.detail("ord_a", "store_1"))).toBeUndefined();
     expect(queryClient.getQueryData(customersKeys.detail("cust_a", "store_1"))).toBeUndefined();
     expect(queryClient.getQueryData(inventoryKeys.detail("item_a", "store_1"))).toBeUndefined();
+    expect(
+      queryClient.getQueryData(
+        inventoryCatalogKeys.search({ category: "phone", query: "iphone" }, "store_1"),
+      ),
+    ).toBeUndefined();
+    expect(
+      queryClient.getQueryData(inventoryLifecycleKeys.summary("item_a", "store_1")),
+    ).toBeUndefined();
     expect(queryClient.getQueryData(kioskKeys.sessions("store_1"))).toBeUndefined();
     expect(queryClient.getQueryData(suppliersKeys.storeScoped("store_1"))).toBeUndefined();
     expect(queryClient.getQueryData(storesKeys.membersScoped("store_1"))).toBeUndefined();
@@ -106,6 +152,10 @@ describe("tenant cache helpers", () => {
     queryClient.setQueryData(ordersKeys.detail("ord_a", "store_1"), { id: "ord_a" });
     queryClient.setQueryData(customersKeys.detail("cust_a", "store_1"), { id: "cust_a" });
     queryClient.setQueryData(inventoryKeys.detail("item_a", "store_1"), { id: "item_a" });
+    queryClient.setQueryData(inventoryLifecycleKeys.summary("item_a", "store_1"), {
+      stock_unit_id: "item_a",
+      allowed_actions: ["inspection.save"],
+    });
     queryClient.setQueryData(kioskKeys.sessions("store_1"), [{ id: "session_a" }]);
     queryClient.setQueryData(suppliersKeys.storeScoped("store_1"), [{ id: "supplier_a" }]);
     queryClient.setQueryData(storesKeys.membersScoped("store_1"), [{ id: "member_a" }]);
@@ -123,6 +173,9 @@ describe("tenant cache helpers", () => {
     expect(queryClient.getQueryData(ordersKeys.detail("ord_a", "store_1"))).toBeUndefined();
     expect(queryClient.getQueryData(customersKeys.detail("cust_a", "store_1"))).toBeUndefined();
     expect(queryClient.getQueryData(inventoryKeys.detail("item_a", "store_1"))).toBeUndefined();
+    expect(
+      queryClient.getQueryData(inventoryLifecycleKeys.summary("item_a", "store_1")),
+    ).toBeUndefined();
     expect(queryClient.getQueryData(kioskKeys.sessions("store_1"))).toBeUndefined();
     expect(queryClient.getQueryData(suppliersKeys.storeScoped("store_1"))).toBeUndefined();
     expect(queryClient.getQueryData(storesKeys.membersScoped("store_1"))).toBeUndefined();

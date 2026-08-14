@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -14,13 +14,20 @@ import type { CreateInventoryProductInput, InventoryProductCategory } from "@/li
 import { repairOs, surfaces } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
-import { inventoryProductKeys } from "../api/query-keys";
+import { inventoryCatalogKeys, inventoryProductKeys } from "../api/query-keys";
+import { inventoryCatalogQueryOptions } from "../api/query-options";
+import { inventoryProductFormCategories } from "../components/inventory-product-form";
+import { InventoryProductFormWorkspace } from "../components/inventory-product-form-workspace";
+import { InventoryProductIdentifierField } from "../components/inventory-product-identifier-field";
+import { InventoryConsequenceDialog } from "../../components/inventory-consequence-dialog";
 import {
-  InventoryProductIdentifierSection,
-  InventoryProductForm,
-  InventoryProductFormDetails,
-  inventoryProductFormCategories,
-} from "../components/inventory-product-form";
+  InventorySyncStatusPanel,
+  type InventorySyncStatus,
+} from "../../components/inventory-sync-status-panel";
+import {
+  InventoryProductPageFrame,
+  type InventoryProductPageLeaveGuard,
+} from "../components/inventory-product-page-frame";
 import {
   clearInventoryProductFormDependencies,
   inventoryProductFormToCreateInput,
@@ -29,6 +36,7 @@ import {
   type InventoryProductFormDraft,
 } from "../model/inventory-product-form";
 import { useInventoryProductLeaveGuard } from "../model/use-inventory-product-leave-guard";
+import { inventorySafeOperationMessage } from "../../model/inventory-operation-error";
 
 type Draft = {
   category: InventoryProductCategory;
@@ -199,10 +207,14 @@ export function InventoryProductIntakeScreen({
   const [pendingCatalogTransition, setPendingCatalogTransition] =
     useState<PendingCatalogTransition>();
   const [error, setError] = useState<ValidationError>();
+  const [syncStatus, setSyncStatus] = useState<InventorySyncStatus>();
+  const [createdId, setCreatedId] = useState<string>();
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
   const authorityRef = useRef<string | undefined>(undefined);
   const authorityGenerationRef = useRef(0);
   const submitLockRef = useRef(false);
+  const createdContinueRef = useRef(false);
+  const leaveTriggerRef = useRef<HTMLElement | null>(null);
   const onStateChangeRef = useRef(onStateChange);
   const onAuthorityInvalidatedRef = useRef(onAuthorityInvalidated);
   const lastReportedStateRef = useRef<InventoryProductIntakeState | undefined>(undefined);
@@ -210,6 +222,19 @@ export function InventoryProductIntakeScreen({
   const inspectionEnabled =
     shell.permissions?.inventoryProductInspectionEnabled === true &&
     shell.permissions?.canInspectInventory === true;
+  const syncBlocked = Boolean(syncStatus && syncStatus !== "recovered");
+
+  const catalogQuery = useQuery({
+    ...inventoryCatalogQueryOptions(
+      { category: draft.category, brand: draft.brand || undefined, limit: 100 },
+      shell.activeStore?.id,
+    ),
+    enabled: Boolean(
+      shell.activeStore?.id &&
+      shell.permissions?.canReadInventory &&
+      shell.permissions.inventoryProductsUiEnabled,
+    ),
+  });
 
   const mutation = useMutation({
     mutationFn: (input: CreateInventoryProductInput) => createInventoryProduct(input),
@@ -249,6 +274,9 @@ export function InventoryProductIntakeScreen({
     setIdempotencyKey(crypto.randomUUID());
     setPendingCategory(undefined);
     setPendingCatalogTransition(undefined);
+    setSyncStatus(undefined);
+    setCreatedId(undefined);
+    createdContinueRef.current = false;
     submitLockRef.current = false;
     mutation.reset();
     setError({ message: "门店或权限已变化，旧草稿已清除，请重新录入。" });
@@ -277,13 +305,20 @@ export function InventoryProductIntakeScreen({
     };
   }, []);
 
-  const closeIntake = () => {
-    if (surface === "page" && !leaveGuard.requestLeave()) return;
-    if (onCancel) {
-      onCancel();
+  const closeIntake = (event?: React.MouseEvent<HTMLButtonElement>) => {
+    const leave = () => {
+      if (onCancel) {
+        onCancel();
+        return;
+      }
+      router.push("/inventory");
+    };
+    if (surface === "page") {
+      leaveTriggerRef.current = event?.currentTarget ?? leaveTriggerRef.current;
+      leaveGuard.requestLeave(leave, leaveTriggerRef.current);
       return;
     }
-    router.push("/inventory");
+    leave();
   };
 
   if (shell.isLoading) {
@@ -319,8 +354,49 @@ export function InventoryProductIntakeScreen({
 
   const activeStoreId = shell.activeStore.id;
 
+  const retryCreatedSync = async () => {
+    if (!createdId) return;
+    setSyncStatus("committed-refreshing");
+    try {
+      await queryClient.invalidateQueries({
+        queryKey: inventoryProductKeys.listsForStore(activeStoreId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: inventoryCatalogKeys.catalogsForStore(activeStoreId),
+      });
+      if (!createdContinueRef.current) {
+        if (onCreated) await onCreated(createdId);
+        else await Promise.resolve(router.push(`/inventory/${createdId}`));
+      }
+      setSyncStatus("recovered");
+    } catch {
+      setSyncStatus("committed-refresh-failed");
+    }
+  };
+
+  const syncCreatedAfterCommit = async (id: string, continueEntry: boolean) => {
+    setSyncStatus("committed-refreshing");
+    try {
+      await queryClient.invalidateQueries({
+        queryKey: inventoryProductKeys.listsForStore(activeStoreId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: inventoryCatalogKeys.catalogsForStore(activeStoreId),
+      });
+      if (!continueEntry) {
+        if (onCreated) await onCreated(id);
+        else await Promise.resolve(router.push(`/inventory/${id}`));
+      }
+      setSyncStatus("recovered");
+    } catch {
+      setSyncStatus("committed-refresh-failed");
+    } finally {
+      submitLockRef.current = false;
+    }
+  };
+
   const save = async (continueEntry: boolean) => {
-    if (submitLockRef.current) return;
+    if (submitLockRef.current || syncBlocked) return;
     if (pendingCatalogTransition) {
       setError({ message: "请先确认品牌或型号切换，再保存商品。" });
       focusCatalogTransitionConfirmation();
@@ -361,35 +437,42 @@ export function InventoryProductIntakeScreen({
 
     submitLockRef.current = true;
     const submitAuthorityGeneration = authorityGenerationRef.current;
+    let result: Awaited<ReturnType<typeof mutation.mutateAsync>>;
     try {
-      const result = await mutation.mutateAsync(toInput(draft, idempotencyKey, canEnterCost));
-      if (submitAuthorityGeneration !== authorityGenerationRef.current) return;
-      toast.success(`商品 ${result.sku} 已录入`);
-      if (continueEntry) {
-        await queryClient.invalidateQueries({
-          queryKey: inventoryProductKeys.listsForStore(activeStoreId),
-        });
-        setDraft(sameProductDraft(draft));
-        setIdempotencyKey(crypto.randomUUID());
-        setError(undefined);
+      result = await mutation.mutateAsync(toInput(draft, idempotencyKey, canEnterCost));
+    } catch (cause) {
+      submitLockRef.current = false;
+      setError({ message: inventorySafeOperationMessage(cause, "商品保存失败，请重试") });
+      return;
+    }
+
+    // The create is committed. Rotate the key and mark the draft saved before
+    // invalidation, callbacks, or navigation can fail.
+    setCreatedId(result.id);
+    createdContinueRef.current = continueEntry;
+    setIdempotencyKey(crypto.randomUUID());
+    setError(undefined);
+    leaveGuard.markSaved();
+    if (submitAuthorityGeneration !== authorityGenerationRef.current) {
+      // Authority changed while the server accepted the create. Do not navigate
+      // into another store; keep the original save path blocked and expose only
+      // a read/sync recovery surface.
+      setCreatedId(undefined);
+      createdContinueRef.current = false;
+      setSyncStatus("committed-context-stale");
+      submitLockRef.current = false;
+      return;
+    }
+    toast.success(`商品 ${result.sku} 已录入`);
+    if (continueEntry) {
+      setDraft(sameProductDraft(draft));
+      requestAnimationFrame(() =>
         document
           .getElementById(draft.category === "phone" ? "product-imei1" : "product-serial")
-          ?.focus();
-      } else {
-        leaveGuard.markSaved();
-        if (onCreated) await onCreated(result.id);
-        else {
-          await queryClient.invalidateQueries({
-            queryKey: inventoryProductKeys.listsForStore(activeStoreId),
-          });
-          router.push(`/inventory/${result.id}`);
-        }
-      }
-    } catch (cause) {
-      setError({ message: cause instanceof Error ? cause.message : "商品保存失败，请重试" });
-    } finally {
-      submitLockRef.current = false;
+          ?.focus(),
+      );
     }
+    void syncCreatedAfterCommit(result.id, continueEntry);
   };
 
   const applyCategory = (category: InventoryProductCategory) => {
@@ -538,279 +621,174 @@ export function InventoryProductIntakeScreen({
     if (selectCategory(next)) document.getElementById(`product-category-${next}`)?.focus();
   };
 
-  const IntakeRoot = surface === "page" ? "main" : "div";
-
   return (
-    <IntakeRoot
-      data-inventory-product-intake-surface={surface}
-      className={cn(
-        surface === "page" &&
-          cn(
-            repairOs.mobileFloatingPage,
-            "mx-auto w-full max-w-[430px] px-2 pb-28 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] lg:max-w-4xl lg:px-0 lg:pb-8 lg:pt-0",
-          ),
-        surface === "dialog" &&
-          "flex h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] min-h-0 w-full flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] p-2 shadow-[var(--shadow-overlay)] sm:h-auto sm:max-h-[calc(100svh-32px)] sm:p-3",
-      )}
+    <InventoryProductPageFrame
+      mode="intake"
+      surface={surface}
+      title="快速录入商品"
+      subtitle="品牌、型号与设备标识即可开始，其他资料可随时补充"
+      mobileSubtitle="三个字段即可保存"
+      mutationPending={mutation.isPending}
+      syncBlocked={syncBlocked}
+      error={error?.message}
+      syncStatus={syncStatus}
+      syncPrivacyRedacted={surface === "dialog" || syncStatus === "committed-context-stale"}
+      onRetrySync={retryCreatedSync}
+      onOpenCommitted={
+        syncStatus === "committed-refresh-failed" && createdId
+          ? () => {
+              if (onCreated) return onCreated(createdId);
+              return router.push(`/inventory/${createdId}`);
+            }
+          : undefined
+      }
+      onBack={closeIntake}
+      leaveGuard={surface === "page" ? (leaveGuard as InventoryProductPageLeaveGuard) : undefined}
+      onContinue={() => void save(true)}
+      primaryLabel="保存并查看商品"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void save(false);
+      }}
+      primaryDisabled={Boolean(pendingCategory || pendingCatalogTransition)}
+      secondaryDisabled={Boolean(pendingCategory || pendingCatalogTransition)}
     >
-      {surface === "page" ? (
-        <>
-          <div className={cn(repairOs.mobileFloatingHeaderShell, "lg:static lg:mb-4")}>
-            <section className={repairOs.mobileFloatingHeaderCard}>
-              <header className={repairOs.mobileFloatingHeaderNav}>
+      <InventoryProductFormWorkspace
+        draft={toFormDraft(draft)}
+        surface={surface === "dialog" ? "dialog" : "page"}
+        categoryDisabled={Boolean(pendingCategory || pendingCatalogTransition)}
+        catalogDisabled={Boolean(pendingCategory || pendingCatalogTransition)}
+        learnedCatalogOptions={catalogQuery.data?.items}
+        autoFocusBrand={shouldAutoFocusBrand(surface)}
+        brandInvalid={error?.fieldId === "product-brand"}
+        modelInvalid={error?.fieldId === "product-model"}
+        inspectionBatteryInvalid={error?.fieldId === "product-battery-health"}
+        conditionInvalid={error?.fieldId === "product-condition"}
+        gtinInvalid={error?.fieldId === "product-gtin"}
+        listPriceInvalid={error?.fieldId === "product-price"}
+        costInvalid={error?.fieldId === "product-cost"}
+        warrantyInvalid={error?.fieldId === "product-warranty"}
+        canEnterCost={canEnterCost}
+        inspectionEnabled={inspectionEnabled}
+        identifierDescription={
+          surface === "dialog"
+            ? "弹窗内可粘贴或手工输入；完整页面仍保留摄像头扫码与本机图片识别。"
+            : "可用摄像头扫码、照片识别、粘贴或手工输入；原图仅在本机处理。"
+        }
+        showScanner={surface === "page"}
+        identifierField={InventoryProductIdentifierField}
+        invalidKinds={{
+          imei1: error?.fieldId === "product-imei1",
+          imei2: error?.fieldId === "product-imei2",
+          serial: error?.fieldId === "product-serial",
+          eid: error?.fieldId === "product-eid",
+        }}
+        categoryNotice={
+          pendingCategory ? (
+            <div
+              data-ui="inventory-product-category-confirm"
+              className="mt-2 grid gap-2 rounded-lg border border-status-warn-foreground/20 bg-status-warn px-2.5 py-2 text-status-warn-foreground sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+              role="status"
+              aria-live="polite"
+            >
+              <p className="text-[11px] leading-4 sm:text-xs">
+                切换到“
+                {
+                  inventoryProductFormCategories.find((item) => item.value === pendingCategory)
+                    ?.label
+                }
+                ”会清除当前品牌、型号、规格和设备标识。
+              </p>
+              <div className="grid grid-cols-2 gap-1.5">
                 <Button
                   type="button"
                   variant="ghost"
-                  size="iconDense"
-                  className="size-9 rounded-lg"
-                  aria-label="返回商品库存"
-                  onClick={closeIntake}
+                  size="sm"
+                  className="min-h-11"
+                  onClick={() => setPendingCategory(undefined)}
                 >
-                  <ArrowLeft className="size-5" />
+                  继续编辑
                 </Button>
-                <div className="min-w-0 text-center">
-                  <h1 className="text-sm font-semibold">快速录入商品</h1>
-                  <p className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                    三个字段即可保存
-                  </p>
-                </div>
-                <span className="size-9" aria-hidden />
-              </header>
-            </section>
-          </div>
-
-          <header className="hidden items-center justify-between gap-4 pb-3 lg:flex">
-            <div>
-              <h1 className="text-xl font-semibold">快速录入商品</h1>
-              <p className="text-sm text-muted-foreground">
-                品牌、型号与设备标识即可开始，其他资料可随时补充
-              </p>
-            </div>
-            <Button type="button" variant="outline" onClick={closeIntake}>
-              <ArrowLeft className="mr-2 size-4" />
-              返回库存
-            </Button>
-          </header>
-        </>
-      ) : (
-        <header className="mb-2 flex min-w-0 shrink-0 items-center gap-2 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-2 sm:px-3 sm:py-2.5">
-          <div className="min-w-0 flex-1">
-            <p className="text-[9px] font-medium leading-3 text-muted-foreground sm:text-[10px]">
-              库存弹窗录入
-            </p>
-            <h1 className="truncate text-sm font-semibold leading-5 sm:text-base">快速录入商品</h1>
-            <p className="truncate text-[10px] leading-4 text-muted-foreground sm:text-xs">
-              三个字段即可保存，其他资料可稍后补充
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-11 shrink-0 rounded-lg sm:size-9"
-            aria-label="关闭商品录入弹窗"
-            onClick={closeIntake}
-          >
-            <X className="size-4" />
-          </Button>
-        </header>
-      )}
-
-      <form
-        className={cn(
-          "space-y-1.5",
-          surface === "dialog" &&
-            "min-h-0 min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-0.5 pb-0.5 scroll-pb-24 sm:max-h-[calc(100svh-9.5rem)] sm:px-1",
-        )}
-        aria-busy={mutation.isPending}
-        onSubmit={(event) => {
-          event.preventDefault();
-          void save(false);
-        }}
-      >
-        <InventoryProductForm
-          draft={toFormDraft(draft)}
-          categories={inventoryProductFormCategories}
-          surface={surface === "dialog" ? "dialog" : "page"}
-          categoryDisabled={Boolean(pendingCategory || pendingCatalogTransition)}
-          catalogDisabled={Boolean(pendingCategory || pendingCatalogTransition)}
-          autoFocusBrand={shouldAutoFocusBrand(surface)}
-          brandInvalid={error?.fieldId === "product-brand"}
-          modelInvalid={error?.fieldId === "product-model"}
-          inspectionBatteryInvalid={error?.fieldId === "product-battery-health"}
-          categoryNotice={
-            pendingCategory ? (
-              <div
-                data-ui="inventory-product-category-confirm"
-                className="mt-2 grid gap-2 rounded-lg border border-status-warn-foreground/20 bg-status-warn px-2.5 py-2 text-status-warn-foreground sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-                role="status"
-                aria-live="polite"
-              >
-                <p className="text-[11px] leading-4 sm:text-xs">
-                  切换到“
-                  {
-                    inventoryProductFormCategories.find((item) => item.value === pendingCategory)
-                      ?.label
-                  }
-                  ”会清除当前品牌、型号、规格和设备标识。
-                </p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="min-h-9"
-                    onClick={() => setPendingCategory(undefined)}
-                  >
-                    继续编辑
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="min-h-9 bg-background"
-                    onClick={() => {
-                      const category = pendingCategory;
-                      applyCategory(category);
-                      requestAnimationFrame(() =>
-                        document.getElementById(`product-category-${category}`)?.focus(),
-                      );
-                    }}
-                  >
-                    清空并切换
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="min-h-11 bg-background"
+                  onClick={() => {
+                    const category = pendingCategory;
+                    applyCategory(category);
+                    requestAnimationFrame(() =>
+                      document.getElementById(`product-category-${category}`)?.focus(),
+                    );
+                  }}
+                >
+                  清空并切换
+                </Button>
               </div>
-            ) : null
-          }
-          catalogNotice={
-            pendingCatalogTransition ? (
+            </div>
+          ) : null
+        }
+        catalogNotice={
+          <>
+            {pendingCatalogTransition ? (
               <CatalogTransitionConfirm
                 kind={pendingCatalogTransition.kind}
                 onCancel={cancelCatalogTransition}
                 onConfirm={confirmCatalogTransition}
               />
-            ) : null
-          }
-          onCategoryChange={selectCategory}
-          onCategoryKeyDown={handleCategoryKeyDown}
-          onBrandChange={requestBrandChange}
-          onModelChange={requestModelChange}
-          onRamChange={(ram_capacity) => setDraft((current) => ({ ...current, ram_capacity }))}
-          onStorageChange={(storage_capacity) =>
-            setDraft((current) => ({ ...current, storage_capacity }))
-          }
-          onColorChange={(color) => setDraft((current) => ({ ...current, color }))}
-          inspectionEnabled={inspectionEnabled}
-          onInspectionBatteryHealthChange={(inspection_battery_health) =>
-            setDraft((current) => ({
-              ...current,
-              inspection_battery_health,
-              inspection_touched: true,
-            }))
-          }
-          onInspectionFaceIdStatusChange={(inspection_face_id_status) =>
-            setDraft((current) => ({
-              ...current,
-              inspection_face_id_status,
-              inspection_touched: true,
-            }))
-          }
-        />
-
-        <InventoryProductFormDetails
-          draft={toFormDraft(draft)}
-          idPrefix="product"
-          canEnterCost={canEnterCost}
-          conditionInvalid={error?.fieldId === "product-condition"}
-          gtinInvalid={error?.fieldId === "product-gtin"}
-          listPriceInvalid={error?.fieldId === "product-price"}
-          costInvalid={error?.fieldId === "product-cost"}
-          warrantyInvalid={error?.fieldId === "product-warranty"}
-          identifierSection={
-            <InventoryProductIdentifierSection
-              draft={toFormDraft(draft)}
-              idPrefix="product"
-              description={
-                surface === "dialog"
-                  ? "弹窗内可粘贴或手工输入；完整页面仍保留摄像头扫码与本机图片识别。"
-                  : "可用摄像头扫码、照片识别、粘贴或手工输入；原图仅在本机处理。"
-              }
-              showScanner={surface === "page"}
-              allowPrimarySelection
-              invalidKinds={{
-                imei1: error?.fieldId === "product-imei1",
-                imei2: error?.fieldId === "product-imei2",
-                serial: error?.fieldId === "product-serial",
-                eid: error?.fieldId === "product-eid",
-              }}
-              onIdentifierChange={(kind, value) =>
-                setDraft((current) => ({ ...current, [kind]: value }))
-              }
-              onIdentifierSource={(kind, source) => setIdentifierSource(setDraft, kind, source)}
-              onPrimaryIdentifierChange={(kind) =>
-                setDraft((current) => ({ ...current, primary_identifier_kind: kind }))
-              }
-            />
-          }
-          onConditionChange={(condition) => setDraft((current) => ({ ...current, condition }))}
-          onGtinChange={(gtin) => setDraft((current) => ({ ...current, gtin }))}
-          onSpecificationChange={(key, value) =>
-            setDraft((current) => ({
-              ...current,
-              specifications: { ...current.specifications, [key]: value },
-            }))
-          }
-          onListPriceChange={(list_price) => setDraft((current) => ({ ...current, list_price }))}
-          onCostChange={(cost_amount) => setDraft((current) => ({ ...current, cost_amount }))}
-          onLocationChange={(location) => setDraft((current) => ({ ...current, location }))}
-          onWarrantyChange={(warranty_months) =>
-            setDraft((current) => ({ ...current, warranty_months }))
-          }
-          onNotesChange={(notes) => setDraft((current) => ({ ...current, notes }))}
-        />
-
-        {error ? (
-          <p
-            id="product-form-error"
-            role="alert"
-            className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
-          >
-            {error.message}
-          </p>
-        ) : null}
-
-        <div
-          data-ui="inventory-product-actions"
-          className={cn(
-            surfaces.stickyActions,
-            surface === "page" &&
-              "fixed bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-1/2 z-30 mx-0 grid w-[calc(100%_-_1rem)] max-w-[414px] -translate-x-1/2 grid-cols-2 gap-1.5 rounded-xl border border-border bg-background/95 px-2 py-2 shadow-[var(--shadow-card)] sm:mx-0 lg:sticky lg:bottom-0 lg:left-auto lg:w-auto lg:max-w-none lg:translate-x-0 lg:px-0 lg:pb-0",
-            surface === "dialog" &&
-              "sticky bottom-0 z-20 grid grid-cols-2 gap-1.5 rounded-xl border border-border bg-background/95 px-2 py-2 shadow-[var(--shadow-card)]",
-          )}
-        >
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-11"
-            disabled={mutation.isPending || Boolean(pendingCategory || pendingCatalogTransition)}
-            onClick={() => void save(true)}
-          >
-            {mutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-            保存并继续录入
-          </Button>
-          <Button
-            type="submit"
-            className="min-h-11"
-            disabled={mutation.isPending || Boolean(pendingCategory || pendingCatalogTransition)}
-          >
-            {mutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-            保存并查看商品
-          </Button>
-        </div>
-      </form>
-    </IntakeRoot>
+            ) : null}
+            {catalogQuery.isError ? (
+              <p className="text-[11px] leading-4 text-muted-foreground">
+                店铺目录暂时不可用，仍可使用常用选项或手动填写。
+              </p>
+            ) : null}
+          </>
+        }
+        onCategoryChange={selectCategory}
+        onCategoryKeyDown={handleCategoryKeyDown}
+        onBrandChange={requestBrandChange}
+        onModelChange={requestModelChange}
+        onRamChange={(ram_capacity) => setDraft((current) => ({ ...current, ram_capacity }))}
+        onStorageChange={(storage_capacity) =>
+          setDraft((current) => ({ ...current, storage_capacity }))
+        }
+        onColorChange={(color) => setDraft((current) => ({ ...current, color }))}
+        onInspectionBatteryHealthChange={(inspection_battery_health) =>
+          setDraft((current) => ({
+            ...current,
+            inspection_battery_health,
+            inspection_touched: true,
+          }))
+        }
+        onInspectionFaceIdStatusChange={(inspection_face_id_status) =>
+          setDraft((current) => ({
+            ...current,
+            inspection_face_id_status,
+            inspection_touched: true,
+          }))
+        }
+        onIdentifierChange={(kind, value) => setDraft((current) => ({ ...current, [kind]: value }))}
+        onIdentifierSource={(kind, source) => setIdentifierSource(setDraft, kind, source)}
+        onPrimaryIdentifierChange={(kind) =>
+          setDraft((current) => ({ ...current, primary_identifier_kind: kind }))
+        }
+        onConditionChange={(condition) => setDraft((current) => ({ ...current, condition }))}
+        onGtinChange={(gtin) => setDraft((current) => ({ ...current, gtin }))}
+        onSpecificationChange={(key, value) =>
+          setDraft((current) => ({
+            ...current,
+            specifications: { ...current.specifications, [key]: value },
+          }))
+        }
+        onListPriceChange={(list_price) => setDraft((current) => ({ ...current, list_price }))}
+        onCostChange={(cost_amount) => setDraft((current) => ({ ...current, cost_amount }))}
+        onLocationChange={(location) => setDraft((current) => ({ ...current, location }))}
+        onWarrantyChange={(warranty_months) =>
+          setDraft((current) => ({ ...current, warranty_months }))
+        }
+        onNotesChange={(notes) => setDraft((current) => ({ ...current, notes }))}
+      />
+    </InventoryProductPageFrame>
   );
 }
 
@@ -914,14 +892,14 @@ function CatalogTransitionConfirm({
         更换{label}会清除{clearSummary}；IMEI / 序列号、售价、成本、库位、保修和备注会保留。
       </p>
       <div className="grid grid-cols-2 gap-1.5">
-        <Button type="button" variant="ghost" size="sm" className="min-h-9" onClick={onCancel}>
+        <Button type="button" variant="ghost" size="sm" className="min-h-11" onClick={onCancel}>
           保留原资料
         </Button>
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="min-h-9 bg-background"
+          className="min-h-11 bg-background"
           onClick={onConfirm}
         >
           清理并切换

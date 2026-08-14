@@ -4,6 +4,7 @@ import type { AuditActor, StoreRole } from "@/lib/repairdesk/types";
 
 import {
   canUseInventoryProductQuickCreate,
+  canUseInventoryProductsBff,
   canUseInventoryProductsUi,
   canUseInventoryV2Commands,
   canUseInventoryV2Intake,
@@ -58,15 +59,33 @@ describe("inventory V2 actor rollout access", () => {
       }),
     ).toBe(false);
   });
+
+  it("keeps the products BFF exact-store even when a reader has inventory permission", () => {
+    const env = { ...baseEnv, INVENTORY_V2_STORE_ALLOWLIST: "store-1" };
+    expect(canUseInventoryProductsBff(actor("sales"), env)).toBe(true);
+    expect(canUseInventoryProductsBff(actor("sales", [], "store-2"), env)).toBe(false);
+    expect(
+      canUseInventoryProductsBff(actor("sales"), {
+        ...env,
+        INVENTORY_V2_ALL_STORES_ENABLED: "1",
+        INVENTORY_V2_STORE_ALLOWLIST: "",
+      }),
+    ).toBe(false);
+    expect(canUseInventoryProductsBff(actor("viewer"), env)).toBe(false);
+  });
 });
 
-function actor(role: StoreRole, permissionGrants: AuditActor["permissionGrants"] = []): AuditActor {
+function actor(
+  role: StoreRole,
+  permissionGrants: AuditActor["permissionGrants"] = [],
+  storeId = "store-1",
+): AuditActor {
   return {
     id: `actor-${role}`,
     displayName: role,
     role,
     storeRole: role,
-    storeId: "store-1",
+    storeId,
     activeMembershipId: `membership-${role}`,
     permissionGrants,
   };

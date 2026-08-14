@@ -89,3 +89,68 @@ Use these rules when generating or editing pages in this repository.
 - 如果任务是纯文档、规则、后端、数据、脚本或无可视页面，关闭汇报必须明确写出“无相关任务页面可截图”的原因，并提供替代证据，例如文件路径、命令结果或报告路径。
 - 如果页面需要登录、服务不可启动、浏览器受限或环境阻塞，必须说明阻塞原因和已提供的替代证据；不得假装已经截图。
 - 不得在截图、录屏或报告中暴露 secrets、生产凭据、完整客户 PII 或不必要敏感数据。
+
+## TASK-20260814-001 Inventory Device Form Responsive Contract (Instruction 1)
+
+Status: intake / proposed. This contract is the first project-local declaration for the
+inventory device form work. Before any implementation, read this section and the matching
+section in `docs/RESPONSIVE_DENSITY_PLAN.md`; neither section authorizes source, API, schema,
+Registry, production, or data changes by itself.
+
+- Shared option data is allowed: brand, model, storage, memory, color, condition, and
+  category option values may come from one neutral source. Responsive shells, DOM order,
+  layout rules, and interaction mechanics must remain separate for desktop and mobile.
+- Desktop (`1024 / 1280 / 1440`) is an independent workbench: use the existing multi-column
+  arrangement, mouse-oriented dropdown and wheel scrolling, and desktop dialog/workspace
+  behavior. Do not apply the mobile single-column shell, mobile bottom Sheet, or mobile
+  tap-only interaction to desktop.
+- Mobile/tablet (`390 / 430 / 768`) is an independent compact form: use compact sections,
+  short labels, logical two-column pairs for short fields where they fit, touch selection,
+  keyboard-safe inputs, and mobile sheet behavior only where the mobile contract calls for it.
+  A desktop multi-column grid must not be shrunk into this shell without an explicit proof.
+- The later implementation batch must verify each viewport separately: desktop `1024`,
+  `1280`, `1440`; mobile/tablet `390`, `430`, `768`. It must check complete selector
+  scrolling/search, long-label wrapping, focus/keyboard behavior, and page-level overflow.
+- No real inventory, customer-device, customer, production, external-system, migration,
+  or database write is authorized by this intake contract. Any persistence, schema, API,
+  permission, tenant, or migration need is a stop condition for a new Owner-approved packet.
+- Candidate files for the next bounded implementation batch are the existing inventory form
+  workspace and catalog fields/screens plus their focused tests:
+  `src/features/inventory/products/components/inventory-product-form.tsx`,
+  `src/features/inventory/products/components/inventory-product-form-workspace.tsx`,
+  `src/features/inventory/components/inventory-phone-catalog-fields.tsx`,
+  `src/features/inventory/products/components/inventory-device-catalog-fields.tsx`,
+  `src/features/inventory/products/screens/inventory-product-intake-screen.tsx`,
+  `src/features/inventory/products/screens/inventory-product-edit-screen.tsx`, and the
+  corresponding `*.test.*` files. The actual allowlist must be re-audited before writing.
+- M16 UI component governance remains paused and preserved. Do not rewrite, revert, reseal,
+  or reinterpret M16 files or evidence as part of this task.
+- This instruction-1 batch is documentation/intake only. No commit, push, deploy, migration,
+  CAS, external Figma action, or production action is permitted.
+
+## TASK-20260814-001 Instruction 3 — shared desktop return/search contract
+
+For entity detail/edit surfaces, reuse the shared route resolver and visual-only ArrowLeft
+control in `src/components/app-bar.tsx` rather than creating page-local desktop back buttons.
+The control uses a deterministic `href`, exact destination-specific accessible name, keyboard
+reachability, and visible hover/focus states; it never calls `history.back()`. Inventory entity
+routes resolve to `/inventory` / `返回商品库存`, order routes to `/orders` / `返回工单列表`, and
+customer routes to `/customers` / `返回客户列表`. Normal non-entity breadcrumbs retain their
+hierarchy and UUID/internal IDs do not become AppBar chrome. Existing mobile RepairOS headers
+remain mobile-specific; hide only proven desktop duplicates.
+
+The global search has one desktop-shell trigger in the AppSidebar brand area beside the current
+workspace/store identity. Pass `onOpenCommand` from Providers, preserve `打开全局搜索` and ⌘K,
+and keep the collapsed sidebar state accessible without overflow. Do not retain a second AppBar
+search trigger. Reuse this contract for later pages before adding another top-level control.
+
+This section records reuse/governance after the instruction-3 code gates; it does not authorize
+API, schema, permission, tenant, dependency, production, CAS, commit, push, or deploy changes.
+
+## Release-candidate closure — TASK-20260814-001 (Instructions 2–3)
+
+The clean release candidate contains the reviewed Instruction-2 store-scoped read-only catalog
+facade and the Instruction-3 responsive/navigation source integration. The catalog path derives
+the store only from the actor, keeps the read projection bounded, and does not import production
+data into this candidate. This records candidate scope only: no migration, database write, schema,
+environment, dependency, production-data, CAS, commit, push, or deploy action is authorized here.

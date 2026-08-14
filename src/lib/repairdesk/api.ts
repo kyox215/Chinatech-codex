@@ -143,6 +143,8 @@ import type {
   InventoryProductEditData,
   InventoryProductListFilters,
   InventoryProductListResult,
+  InventoryCatalogSearchInput,
+  InventoryCatalogSearchResult,
   InventoryLifecycleCommandInput,
   InventoryLifecycleCommandResult,
   InventoryLifecycleListSummary,
@@ -506,6 +508,13 @@ export async function listInventoryProducts(
   options?: RepairDeskRequestOptions,
 ): Promise<InventoryProductListResult> {
   return postJson<InventoryProductListResult>("inventory/products/list", filters, options);
+}
+
+export async function searchInventoryCatalog(
+  input: InventoryCatalogSearchInput,
+  options?: RepairDeskRequestOptions,
+): Promise<InventoryCatalogSearchResult> {
+  return postJson<InventoryCatalogSearchResult>("inventory/catalog/search", input, options);
 }
 
 export async function getInventoryProduct(

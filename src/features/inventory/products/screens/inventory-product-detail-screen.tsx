@@ -11,6 +11,7 @@ import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 
 import { inventoryLifecycleSummaryQueryOptions } from "@/features/inventory/lifecycle/api/query-options";
+import { InventoryInspectionEditor } from "@/features/inventory/lifecycle/forms/inventory-inspection-editor";
 
 import { inventoryProductDetailQueryOptions } from "../api/query-options";
 import { InventoryProductDetailWorkbench } from "../components/inventory-product-detail-workbench";
@@ -65,7 +66,7 @@ export function InventoryProductDetailScreen({ id }: { id: string }) {
           <Button
             type="button"
             variant="outline"
-            className="min-h-9"
+            className="min-h-11"
             onClick={() => void query.refetch()}
           >
             <RefreshCw className="mr-2 size-4" aria-hidden="true" />
@@ -77,6 +78,12 @@ export function InventoryProductDetailScreen({ id }: { id: string }) {
   }
 
   const item = query.data;
+  const lifecycleUiEnabled = shell.permissions.inventoryLifecycleUiEnabled === true;
+  const lifecycleSummaryReady =
+    lifecycleUiEnabled &&
+    lifecycleSummaryQuery.isSuccess &&
+    !lifecycleSummaryQuery.isFetching &&
+    !lifecycleSummaryQuery.isError;
   const canEdit = Boolean(
     shell.permissions?.canUpdateInventory &&
     item.edit_backing !== "legacy_read_only" &&
@@ -85,33 +92,55 @@ export function InventoryProductDetailScreen({ id }: { id: string }) {
   return (
     <InventoryProductDetailWorkbench
       item={item}
-      lifecycleSummary={lifecycleSummaryQuery.data}
+      lifecycleSummary={lifecycleSummaryReady ? lifecycleSummaryQuery.data : undefined}
       lifecycleSummaryState={
-        shell.permissions.inventoryLifecycleUiEnabled === true
-          ? lifecycleSummaryQuery.isLoading
+        lifecycleUiEnabled
+          ? lifecycleSummaryQuery.isLoading || lifecycleSummaryQuery.isFetching
             ? "loading"
             : lifecycleSummaryQuery.isError
               ? "unavailable"
-              : "ready"
+              : lifecycleSummaryQuery.isSuccess
+                ? "ready"
+                : "unavailable"
           : "dormant"
       }
       canEdit={canEdit}
       onBack={() => router.push("/inventory")}
       onEdit={() => router.push(`/inventory/${item.id}/edit`)}
+      onNavigate={(href) => router.push(href)}
+      renderInspectionEditor={
+        lifecycleSummaryReady
+          ? (summary) => (
+              <InventoryInspectionEditor
+                summary={summary}
+                brand={item.brand}
+                category={item.category}
+                onVerifyConflict={async () => {
+                  const result = await lifecycleSummaryQuery.refetch();
+                  return Boolean(result.isSuccess && result.data);
+                }}
+                onSyncCommitted={async () => {
+                  const result = await lifecycleSummaryQuery.refetch();
+                  return Boolean(result.isSuccess && result.data);
+                }}
+              />
+            )
+          : undefined
+      }
     />
   );
 }
 
 function DetailSkeleton() {
   return (
-    <main className={cn(repairOs.mobileFloatingPage, "mx-auto w-full max-w-5xl")} aria-busy="true">
+    <div className={cn(repairOs.mobileFloatingPage, "mx-auto w-full max-w-5xl")} aria-busy="true">
       <span className="sr-only">正在加载商品详情</span>
       <Skeleton className="mb-3 h-24 rounded-3xl" />
       <div className="grid gap-3 lg:grid-cols-2">
         <Skeleton className="h-64 rounded-2xl" />
         <Skeleton className="h-64 rounded-2xl" />
       </div>
-    </main>
+    </div>
   );
 }
 
@@ -127,18 +156,18 @@ function DetailMessage({
   action?: React.ReactNode;
 }) {
   return (
-    <main className={cn(repairOs.mobileFloatingPage, "grid min-h-[55dvh] place-items-center p-4")}>
+    <div className={cn(repairOs.mobileFloatingPage, "grid min-h-[55dvh] place-items-center p-4")}>
       <section className={cn(repairOs.mobileInfoCard, "max-w-sm p-6 text-center")} role="alert">
         <PackageOpen className="mx-auto mb-3 size-9 text-muted-foreground" aria-hidden="true" />
         <h1 className="font-semibold">{title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{body}</p>
         <div className="mt-4 flex flex-wrap justify-center gap-2">
-          <Button type="button" variant="outline" className="min-h-9" onClick={onBack}>
+          <Button type="button" variant="outline" className="min-h-11" onClick={onBack}>
             返回商品库存
           </Button>
           {action}
         </div>
       </section>
-    </main>
+    </div>
   );
 }

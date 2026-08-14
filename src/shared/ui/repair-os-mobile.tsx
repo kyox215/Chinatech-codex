@@ -393,6 +393,7 @@ export function RepairOsListScaffold({
         )}
         aria-busy="true"
       >
+        <h1 className="text-sm font-semibold leading-5 text-foreground">{title}</h1>
         <span className="sr-only" role="status" aria-live="polite">
           正在准备{title}
         </span>
@@ -431,7 +432,7 @@ export function RepairOsListScaffold({
                 <SidebarTrigger className="size-9 rounded-lg border border-[var(--border-panel)] bg-card shadow-none" />
               )}
               <div className="min-w-0 text-center">
-                <p className="truncate text-sm font-semibold leading-5">{title}</p>
+                <h1 className="truncate text-sm font-semibold leading-5">{title}</h1>
                 {subtitle ? (
                   <p className="truncate text-[9px] leading-3 text-muted-foreground">{subtitle}</p>
                 ) : null}
@@ -513,8 +514,11 @@ export function RepairOsListScaffold({
         </div>
       ) : null}
 
-      {viewportMode === "desktop" && resolvedDesktopHeader ? (
-        <div>{resolvedDesktopHeader}</div>
+      {viewportMode === "desktop" ? (
+        <div className="mb-3 space-y-3 sm:mb-4 lg:mb-6">
+          <h1 className="text-xl font-semibold leading-7 text-foreground">{title}</h1>
+          {resolvedDesktopHeader}
+        </div>
       ) : null}
       <div data-ui="repair-os-list-content" className="min-w-0 pt-2 lg:pt-0">
         {children}

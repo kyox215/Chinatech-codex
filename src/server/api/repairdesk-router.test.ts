@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
   AuditActor,
@@ -11,6 +11,9 @@ import { ForbiddenError } from "@/server/auth-context";
 
 import {
   allowsPendingStore,
+  assertInventoryProductsUiAccess,
+  fail,
+  handleRepairDeskPost,
   hasOwnOrderCostInputs,
   parseToolkitResourceActionPath,
 } from "./repairdesk-router";
@@ -121,6 +124,216 @@ describe("repairdesk router pending-store access", () => {
       allowsPendingStore("toolkit/resources/00000000-0000-4000-8000-000000000001/access", "POST"),
     ).toBe(true);
     expect(allowsPendingStore("toolkit/anything-else", "GET")).toBe(false);
+  });
+});
+
+describe("inventory products BFF release gate", () => {
+  const enabled = {
+    INVENTORY_V2_SCHEMA_READY: "1",
+    INVENTORY_V2_UI: "1",
+    INVENTORY_V2_STORE_ALLOWLIST: "store-1",
+  } as const;
+
+  it("fails closed for a reader outside the exact store allowlist", () => {
+    expect(() =>
+      assertInventoryProductsUiAccess(actor("sales", { storeId: "store-2" }), enabled),
+    ).toThrow(ForbiddenError);
+    expect(() =>
+      assertInventoryProductsUiAccess(actor("sales", { storeId: "store-1" }), enabled),
+    ).not.toThrow();
+  });
+
+  it("preserves the legacy global fallback while inventory reads redact unknown database errors", async () => {
+    const unknown = await fail(new Error("Postgres password sentinel"));
+    expect(unknown.status).toBe(400);
+    expect(await unknown.json()).toEqual({ error: "Postgres password sentinel" });
+
+    const structured = Object.assign(new Error("safe domain copy"), {
+      status: 409,
+      code: "stale_version",
+      details: { expected: 3 },
+    });
+    const response = await fail(structured);
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "safe domain copy",
+      code: "stale_version",
+      details: { expected: 3 },
+    });
+  });
+
+  it("applies the exact-store gate on both product list and get routes", async () => {
+    vi.stubEnv("INVENTORY_V2_SCHEMA_READY", "1");
+    vi.stubEnv("INVENTORY_V2_UI", "1");
+    vi.stubEnv("INVENTORY_V2_STORE_ALLOWLIST", "store-1");
+    try {
+      const deniedActor = actor("sales", { storeId: "store-2" });
+      const deniedList = await handleRepairDeskPost("inventory/products/list", {}, deniedActor);
+      expect(deniedList.status).toBe(403);
+      expect(await deniedList.json()).toMatchObject({
+        error: "库存商品界面尚未对当前门店开放",
+      });
+
+      const deniedGet = await handleRepairDeskPost(
+        "inventory/products/get",
+        { id: "inv_mock_3" },
+        deniedActor,
+      );
+      expect(deniedGet.status).toBe(403);
+
+      const allowedList = await handleRepairDeskPost(
+        "inventory/products/list",
+        {},
+        actor("sales", { storeId: "store-1" }),
+      );
+      expect(allowedList.status).toBe(200);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("redacts unknown repository errors on product list and get only", async () => {
+    vi.stubEnv("INVENTORY_V2_SCHEMA_READY", "1");
+    vi.stubEnv("INVENTORY_V2_UI", "1");
+    vi.stubEnv("INVENTORY_V2_STORE_ALLOWLIST", "store-1");
+    vi.resetModules();
+    vi.doMock("@/lib/mock/api", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/mock/api")>();
+      return {
+        ...actual,
+        listInventoryProducts: vi
+          .fn()
+          .mockRejectedValue(new Error("Postgres list password sentinel")),
+        getInventoryProduct: vi.fn().mockRejectedValue(new Error("Postgres get password sentinel")),
+      };
+    });
+    try {
+      const { handleRepairDeskPost: isolatedHandleRepairDeskPost } =
+        await import("./repairdesk-router");
+      const allowedActor = actor("sales", { storeId: "store-1" });
+      const listResponse = await isolatedHandleRepairDeskPost(
+        "inventory/products/list",
+        {},
+        allowedActor,
+      );
+      expect(listResponse.status).toBe(500);
+      expect(await listResponse.json()).toEqual({ error: "请求处理失败，请稍后重试" });
+
+      const getResponse = await isolatedHandleRepairDeskPost(
+        "inventory/products/get",
+        { id: "inv_mock_3" },
+        allowedActor,
+      );
+      expect(getResponse.status).toBe(500);
+      expect(await getResponse.json()).toEqual({ error: "请求处理失败，请稍后重试" });
+    } finally {
+      vi.doUnmock("@/lib/mock/api");
+      vi.resetModules();
+      vi.unstubAllEnvs();
+    }
+  });
+});
+
+describe("inventory catalog search route release gate", () => {
+  const body = { category: "phone", brand: "Apple", query: "iPhone", limit: 20 };
+
+  async function importRouterWithCatalogSearch(searchInventoryCatalog: ReturnType<typeof vi.fn>) {
+    vi.resetModules();
+    vi.doMock("@/server/supabase", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/server/supabase")>();
+      return { ...actual, hasSupabaseConfig: () => true };
+    });
+    vi.doMock("@/features/inventory/server/inventory.service", async (importOriginal) => {
+      const actual =
+        await importOriginal<typeof import("@/features/inventory/server/inventory.service")>();
+      return { ...actual, searchInventoryCatalog };
+    });
+    return import("./repairdesk-router");
+  }
+
+  function stubCatalogFeatureFlags() {
+    vi.stubEnv("INVENTORY_V2_SCHEMA_READY", "1");
+    vi.stubEnv("INVENTORY_V2_UI", "1");
+    vi.stubEnv("INVENTORY_V2_STORE_ALLOWLIST", "store_1");
+  }
+
+  afterEach(() => {
+    vi.doUnmock("@/server/supabase");
+    vi.doUnmock("@/features/inventory/server/inventory.service");
+    vi.resetModules();
+    vi.unstubAllEnvs();
+  });
+
+  it("rejects a missing inventory:read permission or unallowlisted store before repository access", async () => {
+    stubCatalogFeatureFlags();
+    const searchInventoryCatalog = vi.fn();
+    const { handleRepairDeskPost: isolatedHandleRepairDeskPost } =
+      await importRouterWithCatalogSearch(searchInventoryCatalog);
+
+    const deniedPermission = await isolatedHandleRepairDeskPost(
+      "inventory/catalog/search",
+      body,
+      actor("viewer", { storeId: "store_1" }),
+    );
+    expect(deniedPermission.status).toBe(403);
+
+    const deniedStore = await isolatedHandleRepairDeskPost(
+      "inventory/catalog/search",
+      body,
+      actor("sales", { storeId: "store_2" }),
+    );
+    expect(deniedStore.status).toBe(403);
+    expect(searchInventoryCatalog).not.toHaveBeenCalled();
+  });
+
+  it("passes the actor store to the repository for an allowed inventory reader", async () => {
+    stubCatalogFeatureFlags();
+    const searchInventoryCatalog = vi.fn().mockResolvedValue({
+      items: [{ category: "phone", brand: "Apple", model: "iPhone", source: "learned" }],
+    });
+    const { handleRepairDeskPost: isolatedHandleRepairDeskPost } =
+      await importRouterWithCatalogSearch(searchInventoryCatalog);
+    const response = await isolatedHandleRepairDeskPost(
+      "inventory/catalog/search",
+      body,
+      actor("sales", { storeId: "store_1" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(searchInventoryCatalog).toHaveBeenCalledWith(
+      body,
+      expect.objectContaining({ storeId: "store_1" }),
+    );
+  });
+
+  it("rejects PostgREST wildcard aliases before repository access", async () => {
+    stubCatalogFeatureFlags();
+    const searchInventoryCatalog = vi.fn();
+    const { handleRepairDeskPost: isolatedHandleRepairDeskPost } =
+      await importRouterWithCatalogSearch(searchInventoryCatalog);
+    const response = await isolatedHandleRepairDeskPost(
+      "inventory/catalog/search",
+      { ...body, query: "iPhone*" },
+      actor("sales", { storeId: "store_1" }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(searchInventoryCatalog).not.toHaveBeenCalled();
+  });
+
+  it("redacts unexpected repository errors", async () => {
+    stubCatalogFeatureFlags();
+    const searchInventoryCatalog = vi.fn().mockRejectedValue(new Error("catalog secret sentinel"));
+    const { handleRepairDeskPost: isolatedHandleRepairDeskPost } =
+      await importRouterWithCatalogSearch(searchInventoryCatalog);
+    const response = await isolatedHandleRepairDeskPost(
+      "inventory/catalog/search",
+      body,
+      actor("sales", { storeId: "store_1" }),
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "请求处理失败，请稍后重试" });
   });
 });
 

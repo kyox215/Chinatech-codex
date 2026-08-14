@@ -3,11 +3,13 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { inventoryCatalogKeys } from "../api/query-keys";
 
 const apiMocks = vi.hoisted(() => ({
   createInventoryProduct: vi.fn(),
   getInventoryProductEditData: vi.fn(),
   listInventoryProducts: vi.fn(),
+  searchInventoryCatalog: vi.fn(),
   updateInventoryProduct: vi.fn(),
 }));
 const routerMocks = vi.hoisted(() => ({
@@ -36,6 +38,7 @@ vi.mock("@/lib/repairdesk/api", async (importOriginal) => ({
   createInventoryProduct: apiMocks.createInventoryProduct,
   getInventoryProductEditData: apiMocks.getInventoryProductEditData,
   listInventoryProducts: apiMocks.listInventoryProducts,
+  searchInventoryCatalog: apiMocks.searchInventoryCatalog,
   updateInventoryProduct: apiMocks.updateInventoryProduct,
 }));
 vi.mock("@/features/stores/api/use-store-shell-context", () => ({
@@ -56,6 +59,7 @@ beforeEach(() => {
   routerMocks.searchParams = new URLSearchParams();
   window.localStorage.clear();
   shellMocks.value = shellContext();
+  apiMocks.searchInventoryCatalog.mockResolvedValue({ items: [] });
 });
 
 afterEach(() => {
@@ -322,13 +326,78 @@ describe("inventory product UI access gates", () => {
       target: { value: "iPhone 15" },
     });
     fireEvent.click(screen.getByRole("button", { name: "保存并查看商品" }));
-    expect(await screen.findByText("controlled failure")).toBeVisible();
+    expect(await screen.findByText("商品保存失败，请重试")).toBeVisible();
+    expect(screen.queryByText("controlled failure")).not.toBeInTheDocument();
     const firstKey = apiMocks.createInventoryProduct.mock.calls[0][0].idempotency_key;
 
     fireEvent.click(screen.getByRole("button", { name: "保存并查看商品" }));
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith("product-created"));
     expect(apiMocks.createInventoryProduct.mock.calls[1][0].idempotency_key).toBe(firstKey);
     expect(routerMocks.push).not.toHaveBeenCalledWith("/inventory/product-created");
+  });
+
+  it("keeps a committed create safe when parent completion fails and retry only re-runs completion", async () => {
+    const onCreated = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("parent sync unavailable"))
+      .mockResolvedValueOnce(undefined);
+    apiMocks.createInventoryProduct.mockResolvedValue({ id: "product-created", sku: "SKU-NEW" });
+    renderWithQuery(
+      <InventoryProductIntakeScreen surface="dialog" onCreated={onCreated} onCancel={vi.fn()} />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/品牌/), { target: { value: "Apple" } });
+    fireEvent.change(screen.getByLabelText(/型号 \/ 商品名称/), {
+      target: { value: "iPhone 15" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存并查看商品" }));
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText("写入已完成，但同步最新状态失败")).toBeVisible();
+    expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "保存并查看商品" })).toBeDisabled();
+
+    await fireEvent.click(screen.getByRole("button", { name: "重试同步" }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(2));
+    expect(screen.getByText(/当前页面已恢复可用/)).toBeVisible();
+    expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1);
+  });
+
+  it("redacts a committed create when store authority changes before completion sync", async () => {
+    let resolveCreate: ((value: { id: string; sku: string }) => void) | undefined;
+    apiMocks.createInventoryProduct.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCreate = resolve;
+      }),
+    );
+    const view = renderWithQuery(
+      <InventoryProductIntakeScreen surface="dialog" onCreated={vi.fn()} />,
+    );
+    fireEvent.change(screen.getByLabelText(/品牌/), { target: { value: "Apple" } });
+    fireEvent.change(screen.getByLabelText(/型号 \/ 商品名称/), {
+      target: { value: "iPhone 15" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存并查看商品" }));
+    await waitFor(() => expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1));
+
+    shellMocks.value = {
+      ...shellContext(),
+      activeStore: { id: "store-2" },
+      authorityFingerprint: "store-2:owner",
+    };
+    view.rerender(
+      <QueryClientProvider client={view.queryClient}>
+        <InventoryProductIntakeScreen surface="dialog" onCreated={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await act(async () => resolveCreate?.({ id: "stale-product", sku: "SKU-STALE" }));
+
+    expect(await screen.findByText("写入已完成，但当前门店上下文已变化")).toBeVisible();
+    expect(screen.getByText(/为保护隐私/)).toBeVisible();
+    expect(screen.queryByText("stale-product")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "重试同步" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "打开已完成记录" })).not.toBeInTheDocument();
+    expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1);
   });
 
   it("uses a synchronous submit lock before React can disable the buttons", async () => {
@@ -378,7 +447,6 @@ describe("inventory product UI access gates", () => {
     fireEvent.change(screen.getByLabelText("内存（RAM）"), { target: { value: "8 GB" } });
     fireEvent.change(screen.getByLabelText("存储容量"), { target: { value: "256 GB" } });
     fireEvent.change(screen.getByLabelText("设备颜色"), { target: { value: "自定义色" } });
-    fireEvent.click(screen.getByText("更多信息", { exact: true }));
     fireEvent.change(screen.getByLabelText("IMEI 1"), { target: { value: "356789012345678" } });
     fireEvent.change(screen.getByLabelText("计划售价"), { target: { value: "699" } });
     fireEvent.change(screen.getByLabelText("库位"), { target: { value: "A-02" } });
@@ -775,6 +843,121 @@ describe("inventory product UI access gates", () => {
     expect(pickupShortcut).toBeDefined();
     expect(reservedShortcut).not.toHaveTextContent("0");
     expect(pickupShortcut).not.toHaveTextContent("0");
+  });
+
+  it("invalidates only the active store catalog after a committed intake", async () => {
+    const onCreated = vi.fn().mockResolvedValue(undefined);
+    apiMocks.createInventoryProduct.mockResolvedValue({ id: "created-1", sku: "SKU-NEW" });
+    const { queryClient } = renderWithQuery(
+      <InventoryProductIntakeScreen surface="dialog" onCreated={onCreated} />,
+    );
+    const invalidatedKeys: unknown[][] = [];
+    vi.spyOn(queryClient, "invalidateQueries").mockImplementation(async (filters) => {
+      invalidatedKeys.push([...(filters?.queryKey ?? [])]);
+    });
+
+    fireEvent.change(screen.getByLabelText(/品牌/), { target: { value: "Apple" } });
+    fireEvent.change(screen.getByLabelText(/型号 \/ 商品名称/), {
+      target: { value: "iPhone 15" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存并查看商品" }));
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith("created-1"));
+    expect(invalidatedKeys).toContainEqual([...inventoryCatalogKeys.catalogsForStore("store-1")]);
+    expect(invalidatedKeys).not.toContainEqual([
+      ...inventoryCatalogKeys.catalogsForStore("store-2"),
+    ]);
+  });
+
+  it("keeps a committed intake successful when catalog refresh fails", async () => {
+    const onCreated = vi.fn().mockResolvedValue(undefined);
+    apiMocks.createInventoryProduct.mockResolvedValue({ id: "created-2", sku: "SKU-NEW" });
+    const { queryClient } = renderWithQuery(
+      <InventoryProductIntakeScreen surface="dialog" onCreated={onCreated} />,
+    );
+    vi.spyOn(queryClient, "invalidateQueries").mockImplementation(async (filters) => {
+      const queryKey = filters?.queryKey;
+      if (
+        JSON.stringify(queryKey) ===
+        JSON.stringify(inventoryCatalogKeys.catalogsForStore("store-1"))
+      ) {
+        throw new Error("catalog refresh unavailable");
+      }
+    });
+
+    fireEvent.change(screen.getByLabelText(/品牌/), { target: { value: "Apple" } });
+    fireEvent.change(screen.getByLabelText(/型号 \/ 商品名称/), {
+      target: { value: "iPhone 15" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存并查看商品" }));
+
+    await waitFor(() => expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1));
+    expect(onCreated).not.toHaveBeenCalled();
+    expect(screen.queryByText("商品保存失败，请重试")).not.toBeInTheDocument();
+    expect(await screen.findByText("写入已完成，但同步最新状态失败")).toBeVisible();
+  });
+
+  it("invalidates only the active store catalog after a committed edit", async () => {
+    apiMocks.getInventoryProductEditData.mockResolvedValue({
+      ...product({ id: "product-1", created_at: "2026-08-07T10:00:00.000Z", version: 1 }),
+      identifiers: [],
+    });
+    apiMocks.updateInventoryProduct.mockResolvedValue({
+      ok: true,
+      code: "updated",
+      id: "product-1",
+      version: 2,
+    });
+    const { queryClient } = renderWithQuery(<InventoryProductEditScreen id="product-1" />);
+    const invalidatedKeys: unknown[][] = [];
+    vi.spyOn(queryClient, "invalidateQueries").mockImplementation(async (filters) => {
+      invalidatedKeys.push([...(filters?.queryKey ?? [])]);
+    });
+
+    await screen.findByLabelText(/品牌/);
+    fireEvent.change(screen.getByLabelText(/型号 \/ 商品名称/), {
+      target: { value: "iPhone 15 Pro" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+
+    await waitFor(() => expect(apiMocks.updateInventoryProduct).toHaveBeenCalledTimes(1));
+    expect(invalidatedKeys).toContainEqual([...inventoryCatalogKeys.catalogsForStore("store-1")]);
+    expect(invalidatedKeys).not.toContainEqual([
+      ...inventoryCatalogKeys.catalogsForStore("store-2"),
+    ]);
+  });
+
+  it("keeps a committed edit successful when catalog refresh fails", async () => {
+    apiMocks.getInventoryProductEditData.mockResolvedValue({
+      ...product({ id: "product-1", created_at: "2026-08-07T10:00:00.000Z", version: 1 }),
+      identifiers: [],
+    });
+    apiMocks.updateInventoryProduct.mockResolvedValue({
+      ok: true,
+      code: "updated",
+      id: "product-1",
+      version: 2,
+    });
+    const { queryClient } = renderWithQuery(<InventoryProductEditScreen id="product-1" />);
+    vi.spyOn(queryClient, "invalidateQueries").mockImplementation(async (filters) => {
+      const queryKey = filters?.queryKey;
+      if (
+        JSON.stringify(queryKey) ===
+        JSON.stringify(inventoryCatalogKeys.catalogsForStore("store-1"))
+      ) {
+        throw new Error("catalog refresh unavailable");
+      }
+    });
+
+    await screen.findByLabelText(/品牌/);
+    fireEvent.change(screen.getByLabelText(/型号 \/ 商品名称/), {
+      target: { value: "iPhone 15 Pro" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+
+    await waitFor(() => expect(apiMocks.updateInventoryProduct).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("商品更新失败，请重试")).not.toBeInTheDocument();
+    expect(await screen.findByText("写入已完成，但同步最新状态失败")).toBeVisible();
   });
 });
 

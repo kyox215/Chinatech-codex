@@ -4,9 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { useState } from "react";
-import { ScanLine, Search, Sparkles, Store } from "lucide-react";
+import { ScanLine, Sparkles, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { EntityContextBackLink } from "@/components/entity-context-back-link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
@@ -14,6 +15,7 @@ import { RealtimeSyncIndicator } from "@/features/realtime";
 import { useAiAssistantWorkspace } from "@/features/ai-assistant";
 import { appShell } from "@/lib/ui-patterns";
 import { getActiveWorkspaceItem, routeLabels } from "@/shared/config/navigation";
+import { resolveEntityContextBack } from "@/shared/config/entity-context-routes";
 import { cn } from "@/lib/utils";
 
 function useCrumbs() {
@@ -55,18 +57,13 @@ export function getAppBarVisibilityClass(pathname: string) {
   return "";
 }
 
-export function AppBar({
-  onOpenCommand,
-  onOpenScanner,
-}: {
-  onOpenCommand: () => void;
-  onOpenScanner: () => void;
-}) {
+export function AppBar({ onOpenScanner }: { onOpenScanner: () => void }) {
   const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
   useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 8));
   const crumbs = useCrumbs();
   const pathname = usePathname() ?? "/";
+  const entityContextBack = resolveEntityContextBack(pathname);
   const shell = useStoreShellContext();
   const aiAssistant = useAiAssistantWorkspace();
   const activeModule = getActiveWorkspaceItem(pathname, shell.isPlatformAdmin);
@@ -99,36 +96,32 @@ export function AppBar({
           </p>
         </div>
 
-        <nav className="ml-1 hidden min-w-0 shrink items-center gap-1.5 text-sm md:flex">
-          {crumbs.map((c, i) => (
-            <span key={c.href} className="flex items-center gap-1.5 truncate">
-              {i > 0 && <span className="text-muted-foreground/40">/</span>}
-              {i === crumbs.length - 1 ? (
-                <span className="truncate font-medium">{c.label}</span>
-              ) : (
-                <Link
-                  href={c.href}
-                  className="truncate text-muted-foreground hover:text-foreground"
-                >
-                  {c.label}
-                </Link>
-              )}
-            </span>
-          ))}
-        </nav>
+        {entityContextBack ? (
+          <EntityContextBackLink
+            context={entityContextBack}
+            className="ml-1 hidden lg:inline-flex"
+          />
+        ) : (
+          <nav className="ml-1 hidden min-w-0 shrink items-center gap-1.5 text-sm md:flex">
+            {crumbs.map((c, i) => (
+              <span key={c.href} className="flex items-center gap-1.5 truncate">
+                {i > 0 && <span className="text-muted-foreground/40">/</span>}
+                {i === crumbs.length - 1 ? (
+                  <span className="truncate font-medium">{c.label}</span>
+                ) : (
+                  <Link
+                    href={c.href}
+                    className="truncate text-muted-foreground hover:text-foreground"
+                  >
+                    {c.label}
+                  </Link>
+                )}
+              </span>
+            ))}
+          </nav>
+        )}
 
-        <button
-          type="button"
-          aria-label="打开全局搜索"
-          onClick={onOpenCommand}
-          className="ml-0 flex size-9 min-w-0 shrink-0 items-center justify-center rounded-lg border border-[var(--border-panel)] bg-card text-muted-foreground shadow-[var(--shadow-card)] transition-colors hover:text-foreground md:ml-auto md:w-56 md:shrink md:justify-start md:gap-2 md:rounded-md md:bg-surface/60 md:px-3 md:shadow-none lg:w-56 xl:w-80"
-        >
-          <Search className="size-4" />
-          <span className="hidden min-w-0 truncate text-sm md:inline">搜索工单、客户、库存…</span>
-          <kbd className="ml-auto hidden items-center gap-1 rounded border border-border/60 bg-muted px-1.5 py-0.5 font-mono text-[10px] md:inline-flex lg:text-[11px] lg:leading-4">
-            ⌘K
-          </kbd>
-        </button>
+        <div aria-hidden="true" className="min-w-0 flex-1" />
 
         {aiAssistant.canOpenOrderAssistant ? (
           <Button

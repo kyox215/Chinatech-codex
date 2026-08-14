@@ -1,11 +1,13 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
   type KeyboardEvent,
+  type RefCallback,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -22,7 +24,7 @@ import {
 } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Drawer,
   DrawerClose,
@@ -60,6 +62,7 @@ export type CatalogOption = {
 };
 
 export type CatalogPickerSurface = "page" | "dialog";
+export type CatalogPickerMode = "auto" | "mobile" | "desktop";
 
 type CatalogCategoryCopy = {
   brandPlaceholder: string;
@@ -133,7 +136,7 @@ type InventoryPhoneCatalogFieldsProps = {
   onColorChange: (value: string) => void;
 };
 
-const manualInputClass = "h-[38px] min-w-0 text-base sm:h-10 sm:text-sm";
+const manualInputClass = "h-11 min-h-11 min-w-0 text-base !text-base lg:!text-sm";
 
 export function InventoryPhoneCatalogFields({
   brand,
@@ -283,6 +286,7 @@ export function CatalogCombobox({
   autoFocus = false,
   maxLength,
   surface = "page",
+  pickerMode = "auto",
   helperText,
   searchPlaceholder,
 }: {
@@ -301,10 +305,12 @@ export function CatalogCombobox({
   autoFocus?: boolean;
   maxLength?: number;
   surface?: CatalogPickerSurface;
+  pickerMode?: CatalogPickerMode;
   helperText?: string;
   searchPlaceholder?: string;
 }) {
-  const useFixedPicker = useIsCompactWorkspace();
+  const compactWorkspace = useIsCompactWorkspace();
+  const useFixedPicker = pickerMode === "mobile" || (pickerMode === "auto" && compactWorkspace);
   const useInlinePicker = useFixedPicker && surface === "dialog";
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -312,13 +318,38 @@ export function CatalogCombobox({
   const triggerRef = useRef<HTMLInputElement | HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const inlineCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const resolvedListboxIdRef = useRef<string | null>(null);
+  const [resolvedListboxId, setResolvedListboxId] = useState<string | null>(null);
   const viewportMetrics = useVisualViewportMetrics(open && useFixedPicker && searchActive);
   const pickerId = `${id}-catalog-list`;
   const closedPlaceholder = compactPlaceholder ?? placeholder;
 
+  const captureListboxNode = useCallback((node: HTMLDivElement | null) => {
+    const nextId = node?.id || null;
+    if (resolvedListboxIdRef.current === nextId) return;
+
+    resolvedListboxIdRef.current = nextId;
+    setResolvedListboxId(nextId);
+  }, []);
+
+  const clearResolvedListboxId = useCallback(() => {
+    resolvedListboxIdRef.current = null;
+    setResolvedListboxId((current) => (current === null ? current : null));
+  }, []);
+
   useEffect(() => {
-    if (!open) setSearchActive(!useFixedPicker);
-  }, [open, useFixedPicker]);
+    if (!open) {
+      clearResolvedListboxId();
+      setSearchActive(!useFixedPicker);
+    }
+  }, [clearResolvedListboxId, open, useFixedPicker]);
+
+  useEffect(
+    () => () => {
+      resolvedListboxIdRef.current = null;
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!open || !useInlinePicker) return;
@@ -331,6 +362,7 @@ export function CatalogCombobox({
 
   function choose(selection: CatalogSelection) {
     onSelect(selection);
+    clearResolvedListboxId();
     setOpen(false);
     setQuery("");
     setSearchActive(!useFixedPicker);
@@ -339,6 +371,7 @@ export function CatalogCombobox({
   }
 
   function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen) clearResolvedListboxId();
     setOpen(nextOpen);
     setQuery("");
     setSearchActive(!useFixedPicker);
@@ -349,6 +382,7 @@ export function CatalogCombobox({
   }
 
   function openPicker() {
+    clearResolvedListboxId();
     setQuery("");
     setSearchActive(!useFixedPicker);
     setOpen(true);
@@ -391,22 +425,26 @@ export function CatalogCombobox({
     }
   }
 
+  const resolvedAriaControls = open ? (resolvedListboxId ?? undefined) : undefined;
+
   const compactTrigger = (
     <Button
       id={id}
       type="button"
       variant="outline"
+      data-ui="inventory-catalog-combobox-trigger"
+      data-inventory-catalog-trigger-id={id}
       role="combobox"
       aria-expanded={open}
       aria-haspopup="listbox"
-      aria-controls={pickerId}
+      aria-controls={resolvedAriaControls}
       aria-invalid={invalid || undefined}
       aria-label={value ? `${label}：${value}` : undefined}
       disabled={disabled}
       ref={(node) => {
         triggerRef.current = node;
       }}
-      className={componentDensity.compactSelector.trigger}
+      className={cn(componentDensity.compactSelector.trigger, "!text-base lg:!text-sm")}
       onClick={openPicker}
     >
       <span
@@ -427,11 +465,13 @@ export function CatalogCombobox({
     <div className="relative min-w-0">
       <Input
         id={id}
+        data-ui="inventory-catalog-combobox-trigger"
+        data-inventory-catalog-trigger-id={id}
         role="combobox"
         aria-autocomplete="list"
         aria-expanded={open}
         aria-haspopup="listbox"
-        aria-controls={pickerId}
+        aria-controls={resolvedAriaControls}
         aria-invalid={invalid || undefined}
         maxLength={maxLength}
         required={required}
@@ -439,7 +479,7 @@ export function CatalogCombobox({
         autoFocus={autoFocus}
         value={value}
         placeholder={placeholder}
-        className={componentDensity.compactSelector.editableInput}
+        className={cn(componentDensity.compactSelector.editableInput, "!text-base lg:!text-sm")}
         ref={(node) => {
           triggerRef.current = node;
         }}
@@ -459,7 +499,7 @@ export function CatalogCombobox({
         aria-label="打开目录选择器"
         title={label.replace("*", "").trim()}
         disabled={disabled}
-        className="absolute right-0 top-0 size-[38px] rounded-l-none sm:size-10"
+        className="absolute right-0 top-0 size-11 min-h-11 min-w-11 rounded-l-none"
         onClick={openPicker}
       >
         <ChevronsUpDown className="size-4 opacity-60" />
@@ -470,16 +510,18 @@ export function CatalogCombobox({
       id={id}
       type="button"
       variant="outline"
+      data-ui="inventory-catalog-combobox-trigger"
+      data-inventory-catalog-trigger-id={id}
       role="combobox"
       aria-expanded={open}
       aria-haspopup="listbox"
-      aria-controls={pickerId}
+      aria-controls={resolvedAriaControls}
       aria-label={value ? `${label}：${value}` : undefined}
       disabled={disabled}
       ref={(node) => {
         triggerRef.current = node;
       }}
-      className="h-[38px] w-full min-w-0 justify-between gap-2 px-3 text-sm font-normal sm:h-10"
+      className={componentDensity.compactSelector.trigger}
       onClick={openPicker}
     >
       <span
@@ -505,6 +547,7 @@ export function CatalogCombobox({
       searchActive={searchActive}
       searchInputRef={searchInputRef}
       listId={pickerId}
+      listboxRef={captureListboxNode}
       searchPlaceholder={searchPlaceholder ?? placeholder}
       helperText={helperText}
       onQueryChange={setQuery}
@@ -514,7 +557,10 @@ export function CatalogCombobox({
   );
 
   return (
-    <div className="min-w-0 space-y-1.5">
+    <div
+      className="min-w-0 space-y-1.5"
+      data-inventory-catalog-picker-mode={useFixedPicker ? "mobile" : "desktop"}
+    >
       <Label htmlFor={id}>{label}</Label>
       {useInlinePicker ? (
         <div className="min-w-0" data-inventory-catalog-inline-host={id}>
@@ -614,7 +660,11 @@ export function CatalogCombobox({
         </Drawer>
       ) : (
         <Popover open={open} onOpenChange={handleOpenChange}>
-          <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+          {editable ? (
+            <PopoverAnchor asChild>{trigger}</PopoverAnchor>
+          ) : (
+            <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+          )}
           <PopoverContent
             align="start"
             className="w-[min(28rem,calc(100vw-24px))] overflow-hidden p-0"
@@ -642,6 +692,7 @@ function CatalogCommandPicker({
   searchActive,
   searchInputRef,
   listId,
+  listboxRef,
   searchPlaceholder,
   helperText,
   onQueryChange,
@@ -657,6 +708,7 @@ function CatalogCommandPicker({
   searchActive: boolean;
   searchInputRef: RefObject<HTMLInputElement | null>;
   listId: string;
+  listboxRef: RefCallback<HTMLDivElement>;
   searchPlaceholder: string;
   helperText?: string;
   onQueryChange: (value: string) => void;
@@ -687,7 +739,7 @@ function CatalogCommandPicker({
           maxLength={maxLength}
           inputMode="search"
           enterKeyHint="search"
-          className="text-base sm:text-sm"
+          className="text-base !text-base lg:!text-sm"
         />
       ) : (
         <div className="shrink-0 border-b border-[var(--border-panel)] px-3 py-2 sm:px-4">
@@ -707,6 +759,7 @@ function CatalogCommandPicker({
         </div>
       )}
       <CommandList
+        ref={listboxRef}
         id={listId}
         data-inventory-catalog-list
         className={cn(
@@ -726,7 +779,8 @@ function CatalogCommandPicker({
                 onSelect={() => onChoose({ value: option.value, fromCatalog: true })}
                 className={cn(
                   componentDensity.compactSelector.option,
-                  !fixedSurface && "min-h-9 py-1.5",
+                  "min-w-11",
+                  !fixedSurface && "py-1.5",
                 )}
               >
                 {option.icon ? (
@@ -760,7 +814,8 @@ function CatalogCommandPicker({
               onSelect={() => onChoose({ value: normalizedQuery, fromCatalog: false })}
               className={cn(
                 componentDensity.compactSelector.option,
-                !fixedSurface && "min-h-9 py-1.5",
+                "min-w-11",
+                !fixedSurface && "py-1.5",
               )}
             >
               <PencilLine className="size-4 shrink-0" />
@@ -858,7 +913,7 @@ function SpecificationChoices({
               aria-checked={value === option}
               onClick={() => onChange(option)}
               className={cn(
-                "flex min-h-8 min-w-0 items-center justify-center rounded-lg border px-2 text-xs font-medium transition-colors",
+                "flex min-h-11 min-w-11 items-center justify-center rounded-lg border px-2 text-xs font-medium transition-colors",
                 value === option
                   ? "border-primary bg-accent text-primary"
                   : "border-[var(--border-panel)] bg-background hover:bg-accent/50",

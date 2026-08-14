@@ -415,7 +415,7 @@ export function CustomerDetailScreen({
           onMessage={() => setMessageOpen(true)}
           onFollowup={openCustomerFollowup}
           onEdit={() => setEditOpen(true)}
-          showBackLink={surface === "page"}
+          showBackLink={false}
           onClose={surface === "dialog" ? onClose : undefined}
         />
       </div>
