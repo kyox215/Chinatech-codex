@@ -52,11 +52,21 @@ describe("InventoryProductFormWorkspace", () => {
     renderWorkspace();
 
     expect(screen.getByText("类别")).toBeInTheDocument();
+    expect(screen.getByLabelText("计划售价")).toBeInTheDocument();
+    expect(screen.getByText("设备标识")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /更多信息/ }));
-    expect(screen.getByText("设备标识")).toBeInTheDocument();
     expect(screen.getByLabelText("成色")).toBeInTheDocument();
     expect(screen.queryByLabelText("入库成本")).not.toBeInTheDocument();
+  });
+
+  it("surfaces acquisition cost beside sale price only with the existing permission", () => {
+    renderWorkspace({ canEnterCost: true });
+
+    expect(screen.getByLabelText("计划售价")).toBeInTheDocument();
+    expect(screen.getByLabelText("入库成本")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /更多信息/ }));
+    expect(screen.getByLabelText("入库成本")).toBeInTheDocument();
   });
 
   it("renders exactly one explicit desktop workbench shell with primary details visible", () => {
@@ -65,6 +75,8 @@ describe("InventoryProductFormWorkspace", () => {
     const shell = document.querySelector('[data-inventory-product-form-shell="desktop-workbench"]');
     expect(shell).toBeInTheDocument();
     expect(document.querySelectorAll("[data-inventory-product-form-shell]")).toHaveLength(1);
+    expect(shell).toHaveClass("lg:grid-cols-3");
+    expect(shell).not.toHaveClass("min-[1440px]:grid-cols-4");
     expect(
       document.querySelector('[data-ui="inventory-product-form-primary-details"]'),
     ).toBeVisible();
@@ -86,5 +98,23 @@ describe("InventoryProductFormWorkspace", () => {
     ).toBeNull();
     expect(screen.getByLabelText("成色")).toBeVisible();
     expect(screen.getByText("设备标识")).toBeVisible();
+  });
+
+  it("uses the shared disclosure field for Face ID status", () => {
+    const draft = createInventoryProductFormDraft("phone");
+    draft.brand = "Apple";
+    draft.model = "iPhone 15 Pro";
+    renderWorkspace({ draft, layoutMode: "desktop", inspectionEnabled: true });
+
+    expect(screen.getByRole("combobox", { name: "Face ID 检测状态：未检测" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "正常" })).not.toBeInTheDocument();
+  });
+
+  it("marks only the configured identifier as required", () => {
+    renderWorkspace({ requiredIdentifierKinds: { imei1: true } });
+
+    expect(screen.getByLabelText("IMEI 1")).toHaveAttribute("aria-required", "true");
+    expect(screen.getByLabelText("IMEI 2")).not.toHaveAttribute("aria-required");
+    expect(screen.getByText("IMEI 1").parentElement).toHaveTextContent("IMEI 1*");
   });
 });

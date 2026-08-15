@@ -7,7 +7,9 @@ import {
   BatteryMedium,
   Gamepad2,
   Laptop,
+  Minus,
   PackageOpen,
+  Plus,
   ScanFace,
   Smartphone,
   Tablet,
@@ -17,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { InventoryDeviceCatalogFields } from "./inventory-device-catalog-fields";
+import { InventorySelectableField } from "./inventory-selectable-field";
 import type {
   CatalogPickerMode,
   CatalogPickerSurface,
@@ -37,6 +40,7 @@ import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { identifierLabels, inventoryProductIdentifierKinds } from "../model/device-data";
 import { listDeviceConditionOptions } from "../model/device-form-options";
+import type { AppleColorApprovalOverlay } from "../model/device-color-policy";
 
 export type InventoryProductFormCategory = {
   value: InventoryProductCategory;
@@ -57,6 +61,7 @@ export type InventoryProductIdentifierFieldProps = {
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
   ariaInvalid?: boolean;
   ariaDescribedBy?: string;
+  ariaRequired?: boolean;
   onCommitSource?: (source: "manual" | "scan") => void;
 };
 
@@ -84,6 +89,10 @@ export type InventoryProductFormProps = {
   brandInvalid?: boolean;
   modelInvalid?: boolean;
   learnedCatalogOptions?: readonly InventoryCatalogOption[];
+  existingColor?: string;
+  approvedAppleColorOverlay?: AppleColorApprovalOverlay;
+  colorRequired?: boolean;
+  colorInvalid?: boolean;
   inspectionBatteryInvalid?: boolean;
   categoryNotice?: ReactNode;
   catalogNotice?: ReactNode;
@@ -119,6 +128,10 @@ export function InventoryProductForm({
   brandInvalid = false,
   modelInvalid = false,
   learnedCatalogOptions = [],
+  existingColor,
+  approvedAppleColorOverlay,
+  colorRequired = false,
+  colorInvalid = false,
   inspectionBatteryInvalid = false,
   categoryNotice,
   catalogNotice,
@@ -186,6 +199,10 @@ export function InventoryProductForm({
         ramCapacity={draft.ram_capacity}
         storageCapacity={draft.storage_capacity}
         color={draft.color}
+        existingColor={existingColor}
+        approvedAppleColorOverlay={approvedAppleColorOverlay}
+        colorRequired={colorRequired}
+        colorInvalid={colorInvalid}
         surface={surface}
         disabled={catalogDisabled}
         autoFocusBrand={autoFocusBrand}
@@ -251,28 +268,16 @@ export function InventoryProductForm({
                   Face ID
                 </div>
                 {inspectionCapabilities.face_id_status ? (
-                  <div
-                    className="grid grid-cols-2 gap-1"
-                    role="group"
-                    aria-label="Face ID 检测状态"
-                  >
-                    {faceIdStatusOptions.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        className={cn(
-                          "min-h-11 rounded-lg border px-2 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                          draft.inspection_face_id_status === option.value
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border bg-card text-muted-foreground",
-                        )}
-                        aria-pressed={draft.inspection_face_id_status === option.value}
-                        onClick={() => onInspectionFaceIdStatusChange?.(option.value)}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
+                  <InventorySelectableField
+                    id={`${idPrefix}-face-id-status`}
+                    label="Face ID 检测状态"
+                    value={draft.inspection_face_id_status}
+                    options={faceIdStatusOptions}
+                    mode={pickerMode}
+                    onChange={(value) =>
+                      onInspectionFaceIdStatusChange?.(value as InventoryProductFaceIdStatus)
+                    }
+                  />
                 ) : (
                   <div className="flex min-h-10 items-center rounded-lg border border-border bg-muted/30 px-3 text-xs text-muted-foreground">
                     不适用
@@ -321,6 +326,7 @@ export function InventoryProductIdentifierSection({
   allowPrimarySelection = false,
   layoutMode = "compact",
   invalidKinds,
+  requiredKinds,
   onIdentifierChange,
   onIdentifierSource,
   onPrimaryIdentifierChange,
@@ -336,6 +342,7 @@ export function InventoryProductIdentifierSection({
   allowPrimarySelection?: boolean;
   layoutMode?: "compact" | "desktop";
   invalidKinds?: Partial<Record<InventoryProductIdentifierKind, boolean>>;
+  requiredKinds?: Partial<Record<InventoryProductIdentifierKind, boolean>>;
   onIdentifierChange: (kind: InventoryProductIdentifierKind, value: string) => void;
   onIdentifierSource: (
     kind: InventoryProductIdentifierKind,
@@ -364,11 +371,15 @@ export function InventoryProductIdentifierSection({
           const id = `${idPrefix}-${kind}`;
           const label = identifierLabels[kind];
           const invalid = invalidKinds?.[kind] === true;
+          const required = requiredKinds?.[kind] === true;
           return (
             <div key={kind} className="min-w-0 space-y-1.5">
               <div className="flex min-h-5 items-center justify-between gap-2">
                 <label htmlFor={id} className="text-xs font-medium">
                   {label}
+                  {required ? (
+                    <span className="ml-0.5 text-status-danger-foreground">*</span>
+                  ) : null}
                 </label>
                 {kind === "eid" ? (
                   <span className="text-[10px] text-muted-foreground">EID 不作为主要标识</span>
@@ -397,6 +408,7 @@ export function InventoryProductIdentifierSection({
                 inputMode={kind === "serial" ? "text" : "numeric"}
                 ariaInvalid={invalid}
                 ariaDescribedBy={invalid ? `${id}-error` : undefined}
+                ariaRequired={required}
                 value={draft.identifiers[kind]}
                 onChange={(value) => onIdentifierChange(kind, value)}
                 onCommitSource={(source) => onIdentifierSource(kind, source)}
@@ -431,6 +443,7 @@ export function InventoryProductLocalIdentifierField({
   inputMode,
   ariaInvalid,
   ariaDescribedBy,
+  ariaRequired,
   onCommitSource,
 }: InventoryProductIdentifierFieldProps) {
   return (
@@ -440,6 +453,7 @@ export function InventoryProductLocalIdentifierField({
       inputMode={inputMode}
       aria-invalid={ariaInvalid || undefined}
       aria-describedby={ariaDescribedBy}
+      aria-required={ariaRequired || undefined}
       className="h-11 min-h-11 text-base !text-base lg:h-9 lg:!text-sm"
       value={value}
       placeholder={placeholder}
@@ -491,9 +505,36 @@ export function InventoryProductFormDetails({
           id={`${idPrefix}-condition`}
           value={draft.condition}
           invalid={conditionInvalid}
+          mode={layoutMode === "desktop" ? "desktop" : "mobile"}
           onChange={onConditionChange}
         />
         {identifierSection}
+        <section
+          data-ui="inventory-product-form-commercial"
+          data-inventory-product-form-primary-commercial="true"
+          className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 md:p-4")}
+        >
+          <ProductDetailField
+            id={`${idPrefix}-price`}
+            label="计划售价"
+            value={draft.list_price}
+            placeholder="未填写"
+            inputMode="decimal"
+            invalid={listPriceInvalid}
+            onChange={onListPriceChange}
+          />
+          {canEnterCost ? (
+            <ProductDetailField
+              id={`${idPrefix}-cost`}
+              label="入库成本"
+              value={draft.cost_amount}
+              placeholder="未填写"
+              inputMode="decimal"
+              invalid={costInvalid}
+              onChange={onCostChange}
+            />
+          ) : null}
+        </section>
       </section>
       <button
         type="button"
@@ -508,12 +549,14 @@ export function InventoryProductFormDetails({
         <span>
           <span className="block text-sm font-semibold">更多信息</span>
           <span className="block text-[10px] leading-4 text-muted-foreground">
-            售价、库位、保修和备注
+            条码、规格、库位、保修和备注
           </span>
         </span>
-        <span aria-hidden className="text-lg leading-none text-muted-foreground">
-          {detailsOpen ? "−" : "+"}
-        </span>
+        {detailsOpen ? (
+          <Minus aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+        ) : (
+          <Plus aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+        )}
       </button>
 
       {detailsOpen ? (
@@ -547,26 +590,6 @@ export function InventoryProductFormDetails({
             data-ui="inventory-product-form-commercial"
             className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 md:p-4")}
           >
-            <ProductDetailField
-              id={`${idPrefix}-price`}
-              label="计划售价"
-              value={draft.list_price}
-              placeholder="未填写"
-              inputMode="decimal"
-              invalid={listPriceInvalid}
-              onChange={onListPriceChange}
-            />
-            {canEnterCost ? (
-              <ProductDetailField
-                id={`${idPrefix}-cost`}
-                label="入库成本"
-                value={draft.cost_amount}
-                placeholder="未填写"
-                inputMode="decimal"
-                invalid={costInvalid}
-                onChange={onCostChange}
-              />
-            ) : null}
             <ProductDetailField
               id={`${idPrefix}-location`}
               label="库位"
@@ -650,39 +673,30 @@ function ConditionField({
   value,
   onChange,
   invalid,
+  mode,
 }: {
   id: string;
   value: string;
   onChange: (value: string) => void;
   invalid?: boolean;
+  mode: "desktop" | "mobile";
 }) {
   const options = listDeviceConditionOptions();
   const isManualValue = Boolean(value) && !options.some((option) => option.value === value);
   const errorId = `${id}-error`;
   return (
     <div className="min-w-0 space-y-1">
-      <Label htmlFor={id} className="text-xs">
-        成色
-      </Label>
-      <div className="flex min-w-0 flex-wrap gap-1" role="radiogroup" aria-label="成色预设">
-        {options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={value === option.value}
-            className={cn(
-              "min-h-11 min-w-11 rounded-lg border px-2 text-[11px] font-medium transition-colors",
-              value === option.value
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border bg-card hover:bg-accent/60",
-            )}
-            onClick={() => onChange(option.value)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+      <InventorySelectableField
+        id={`${id}-preset`}
+        label="成色"
+        value={value}
+        placeholder="选择成色"
+        options={options}
+        mode={mode}
+        invalid={invalid}
+        ariaDescribedBy={invalid ? errorId : undefined}
+        onChange={onChange}
+      />
       <Input
         id={id}
         className="h-11 min-h-11 min-w-0 text-base !text-base lg:h-9 lg:min-h-0 lg:!text-sm"

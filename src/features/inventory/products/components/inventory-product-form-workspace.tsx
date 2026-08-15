@@ -20,6 +20,7 @@ import {
 } from "./inventory-product-form";
 import type { CatalogPickerSurface } from "@/features/inventory/components/inventory-phone-catalog-fields";
 import type { InventoryProductFormDraft } from "../model/inventory-product-form";
+import type { AppleColorApprovalOverlay } from "../model/device-color-policy";
 
 export type InventoryProductFormWorkspaceProps = {
   draft: InventoryProductFormDraft;
@@ -32,6 +33,10 @@ export type InventoryProductFormWorkspaceProps = {
   brandInvalid?: boolean;
   modelInvalid?: boolean;
   learnedCatalogOptions?: readonly InventoryCatalogOption[];
+  existingColor?: string;
+  approvedAppleColorOverlay?: AppleColorApprovalOverlay;
+  colorRequired?: boolean;
+  colorInvalid?: boolean;
   inspectionBatteryInvalid?: boolean;
   conditionInvalid?: boolean;
   gtinInvalid?: boolean;
@@ -47,6 +52,7 @@ export type InventoryProductFormWorkspaceProps = {
   identifierField?: InventoryProductIdentifierFieldComponent;
   allowPrimarySelection?: boolean;
   invalidKinds?: Partial<Record<InventoryProductIdentifierKind, boolean>>;
+  requiredIdentifierKinds?: Partial<Record<InventoryProductIdentifierKind, boolean>>;
   onCategoryChange: (category: InventoryProductCategory) => void;
   onCategoryKeyDown?: (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => void;
   onBrandChange: (value: string) => void;
@@ -88,6 +94,10 @@ export function InventoryProductFormWorkspace({
   brandInvalid = false,
   modelInvalid = false,
   learnedCatalogOptions = [],
+  existingColor,
+  approvedAppleColorOverlay,
+  colorRequired = false,
+  colorInvalid = false,
   inspectionBatteryInvalid = false,
   conditionInvalid = false,
   gtinInvalid = false,
@@ -103,6 +113,7 @@ export function InventoryProductFormWorkspace({
   identifierField,
   allowPrimarySelection = true,
   invalidKinds,
+  requiredIdentifierKinds,
   onCategoryChange,
   onCategoryKeyDown,
   onBrandChange,
@@ -152,6 +163,10 @@ export function InventoryProductFormWorkspace({
       brandInvalid={brandInvalid}
       modelInvalid={modelInvalid}
       learnedCatalogOptions={learnedCatalogOptions}
+      existingColor={existingColor}
+      approvedAppleColorOverlay={approvedAppleColorOverlay}
+      colorRequired={colorRequired}
+      colorInvalid={colorInvalid}
       inspectionBatteryInvalid={inspectionBatteryInvalid}
       categoryNotice={categoryNotice}
       catalogNotice={catalogNotice}
@@ -188,6 +203,7 @@ export function InventoryProductFormWorkspace({
           allowPrimarySelection={allowPrimarySelection}
           layoutMode={resolvedLayoutMode}
           invalidKinds={invalidKinds}
+          requiredKinds={requiredIdentifierKinds}
           onIdentifierChange={onIdentifierChange}
           onIdentifierSource={onIdentifierSource}
           onPrimaryIdentifierChange={onPrimaryIdentifierChange}
@@ -209,12 +225,12 @@ export function InventoryProductFormWorkspace({
       <div
         data-inventory-product-form-layout="desktop"
         data-inventory-product-form-shell="desktop-workbench"
-        className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(22rem,0.9fr)]"
+        className="grid min-w-0 gap-3 lg:grid-cols-3"
       >
-        <div data-inventory-product-form-primary="true" className="min-w-0">
+        <div data-inventory-product-form-primary="true" className="min-w-0 lg:col-span-2">
           {primaryForm}
         </div>
-        <div data-inventory-product-form-details-column="true" className="min-w-0">
+        <div data-inventory-product-form-details-column="true" className="min-w-0 lg:col-span-1">
           {detailsForm}
         </div>
       </div>

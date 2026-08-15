@@ -72,6 +72,7 @@ type EditDraft = {
 type EditFieldErrorKey =
   | "brand"
   | "model"
+  | "color"
   | "condition"
   | "gtin"
   | "list_price"
@@ -227,6 +228,7 @@ function InventoryProductEditContent({
     setFieldErrors({});
     const validation = validateInventoryProductFormDraft(toFormDraft(draft), {
       canEnterCost,
+      existingColor: query.data?.color,
     });
     if (validation) {
       setError(validation.message);
@@ -246,7 +248,7 @@ function InventoryProductEditContent({
         toFormDraft(draft),
         "00000000-0000-4000-8000-000000000000",
         version,
-        { canEnterCost },
+        { canEnterCost, existingColor: query.data?.color },
       );
       const { idempotency_key: _unusedIdempotencyKey, ...commandWithoutIdempotency } = command;
       const fingerprint = JSON.stringify(commandWithoutIdempotency);
@@ -373,6 +375,8 @@ function InventoryProductEditContent({
         }
         brandInvalid={Boolean(fieldErrors.brand)}
         modelInvalid={Boolean(fieldErrors.model)}
+        colorInvalid={Boolean(fieldErrors.color)}
+        existingColor={query.data?.color}
         inspectionBatteryInvalid={Boolean(fieldErrors.inspection_battery_health)}
         conditionInvalid={Boolean(fieldErrors.condition)}
         gtinInvalid={Boolean(fieldErrors.gtin)}
@@ -422,7 +426,10 @@ function InventoryProductEditContent({
         }}
         onRamChange={(ram_capacity) => setDraft({ ...draft, ram_capacity })}
         onStorageChange={(storage_capacity) => setDraft({ ...draft, storage_capacity })}
-        onColorChange={(color) => setDraft({ ...draft, color })}
+        onColorChange={(color) => {
+          setFieldErrors((current) => ({ ...current, color: undefined }));
+          setDraft({ ...draft, color });
+        }}
         onInspectionBatteryHealthChange={(inspection_battery_health) =>
           setDraft((current) =>
             current ? { ...current, inspection_battery_health, inspection_touched: true } : current,
@@ -574,6 +581,7 @@ function editDraftFromForm(draft: InventoryProductFormDraft): EditDraft {
 const editValidationFieldIds: Record<string, string> = {
   "product-brand": "product-brand",
   "product-model": "product-model",
+  "product-color": "product-color",
   "product-condition": "product-condition",
   "product-gtin": "product-gtin",
   "product-price": "product-price",
@@ -586,6 +594,7 @@ const editValidationFieldIds: Record<string, string> = {
 const editValidationFieldKeys: Record<string, EditFieldErrorKey> = {
   "product-brand": "brand",
   "product-model": "model",
+  "product-color": "color",
   "product-condition": "condition",
   "product-gtin": "gtin",
   "product-price": "list_price",

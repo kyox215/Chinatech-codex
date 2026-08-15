@@ -4,6 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { InventoryDeviceCatalogFields } from "./inventory-device-catalog-fields";
 
+const APPROVED_APPLE_COLORS = {
+  "iPhone 15 Pro": [
+    { id: "natural-titanium", name: "原色钛金属", swatches: ["#b8ad9e"] },
+    { id: "blue-titanium", name: "蓝色钛金属", swatches: ["#4d5c6c"] },
+  ],
+} as const;
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -253,16 +260,63 @@ describe("InventoryDeviceCatalogFields", () => {
       ramCapacity: "12 GB manual",
       storageCapacity: "512 GB",
       color: "Custom Pearl",
+      approvedAppleColorOverlay: APPROVED_APPLE_COLORS,
     });
     expect(screen.getByDisplayValue("12 GB manual")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Custom Pearl")).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "1 TB" })).toHaveClass("min-h-11", "min-w-11");
-    expect(screen.getByRole("radio", { name: "颜色：原色钛金属" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("radio", { name: "颜色：蓝色钛金属" }));
+    expect(screen.getByRole("combobox", { name: "设备颜色：Custom Pearl" })).toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "1 TB" })).not.toBeInTheDocument();
+    const colorTrigger = screen.getByRole("combobox", { name: "设备颜色：Custom Pearl" });
+    fireEvent.click(colorTrigger);
+    const blueColorOption = screen.getByRole("option", { name: "蓝色钛金属" });
+    const blueColorSwatch = blueColorOption.querySelector('[aria-hidden="true"]');
+    expect(blueColorSwatch).toHaveAttribute("aria-hidden", "true");
+    expect(blueColorSwatch).toHaveClass("block", "size-4");
+    fireEvent.click(blueColorOption);
     expect(props.onColorChange).toHaveBeenCalledWith("蓝色钛金属");
   });
 
-  it("uses compact click-to-select panels for long specification lists", () => {
+  it("keeps an Apple color pending and preserves an explicit existing value read-only", () => {
+    renderFields({
+      brand: "Apple",
+      model: "iPhone 15 Pro",
+      color: "原色钛金属",
+      existingColor: "原色钛金属",
+    });
+
+    const trigger = screen.getByRole("combobox", { name: "设备颜色：原色钛金属" });
+    expect(trigger).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "设备颜色当前值（只读）" })).toHaveAttribute(
+      "readonly",
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("尚无已审核的官方颜色映射");
+    expect(screen.queryByRole("option")).not.toBeInTheDocument();
+  });
+
+  it("does not present an unapproved draft color as a read-only existing value", () => {
+    renderFields({ brand: "Apple", model: "iPhone 15 Pro", color: "未审核色" });
+
+    const trigger = screen.getByRole("combobox", { name: "选择设备颜色" });
+    expect(trigger).toBeDisabled();
+    expect(
+      screen.queryByRole("textbox", { name: "设备颜色当前值（只读）" }),
+    ).not.toBeInTheDocument();
+    expect(trigger).not.toHaveTextContent("未审核色");
+    expect(screen.getByRole("status")).toHaveTextContent("尚无已审核的官方颜色映射");
+  });
+
+  it("orders non-Apple generic colors before the supplemental choices", () => {
+    renderFields({ brand: "Samsung", model: "Galaxy A55" });
+    fireEvent.click(screen.getByRole("combobox", { name: "选择设备颜色" }));
+
+    expect(
+      screen
+        .getAllByRole("option")
+        .slice(0, 5)
+        .map((option) => option.textContent),
+    ).toEqual(["黑色", "灰色", "深蓝色", "绿色", "白色"]);
+  });
+
+  it("uses compact click-to-select panels for long specification lists", async () => {
     setViewportWidth(430);
     function StatefulFields() {
       const [storageCapacity, setStorageCapacity] = useState("");
@@ -272,6 +326,7 @@ describe("InventoryDeviceCatalogFields", () => {
           category="phone"
           brand="Apple"
           model="iPhone 15 Pro"
+          approvedAppleColorOverlay={APPROVED_APPLE_COLORS}
           ramCapacity=""
           storageCapacity={storageCapacity}
           color={color}
@@ -289,7 +344,7 @@ describe("InventoryDeviceCatalogFields", () => {
 
     expect(screen.queryByRole("radio", { name: "1 TB" })).not.toBeInTheDocument();
     expect(screen.queryByRole("radio", { name: "颜色：原色钛金属" })).not.toBeInTheDocument();
-    const storageTrigger = screen.getByRole("button", { name: "选择存储容量" });
+    const storageTrigger = screen.getByRole("combobox", { name: "选择存储容量" });
     fireEvent.click(storageTrigger);
     const storageList = screen.getByRole("listbox", { name: "存储容量选择" });
     expect(storageList).toBeVisible();
@@ -297,10 +352,10 @@ describe("InventoryDeviceCatalogFields", () => {
     expect(screen.getByRole("option", { name: "8 TB" })).toBeVisible();
     fireEvent.click(screen.getByRole("option", { name: "8 TB" }));
     expect(storageTrigger).toHaveTextContent("8 TB");
-    expect(storageTrigger).toHaveFocus();
+    await waitFor(() => expect(storageTrigger).toHaveFocus());
     expect(screen.queryByRole("listbox", { name: "存储容量选择" })).not.toBeInTheDocument();
 
-    const colorTrigger = screen.getByRole("button", { name: "选择设备颜色" });
+    const colorTrigger = screen.getByRole("combobox", { name: "选择设备颜色" });
     fireEvent.click(colorTrigger);
     const colorList = screen.getByRole("listbox", { name: "设备颜色选择" });
     expect(colorList).toBeVisible();
@@ -310,7 +365,7 @@ describe("InventoryDeviceCatalogFields", () => {
     expect(screen.queryByRole("listbox", { name: "设备颜色选择" })).not.toBeInTheDocument();
     expect(colorTrigger).toHaveAttribute("aria-expanded", "false");
     expect(colorTrigger).not.toHaveAttribute("aria-controls");
-    expect(colorTrigger).toHaveFocus();
+    await waitFor(() => expect(colorTrigger).toHaveFocus());
   });
 
   it("gives console storage a full row and keeps long model options to two lines", async () => {

@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -27,6 +30,12 @@ class ResizeObserverMock {
 
 function setViewport(width: number) {
   Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
+}
+
+function fillPhoneImei1(container: HTMLElement = document.body) {
+  fireEvent.change(within(container).getByLabelText("IMEI 1"), {
+    target: { value: "490154203237518" },
+  });
 }
 
 vi.mock("next/navigation", () => ({
@@ -156,6 +165,50 @@ describe("inventory product UI access gates", () => {
     expect(screen.queryByLabelText("品牌")).not.toBeInTheDocument();
   });
 
+  it("marks IMEI 1 required only for phone intake", () => {
+    renderWithQuery(<InventoryProductIntakeScreen surface="dialog" />);
+
+    expect(screen.getByLabelText("IMEI 1")).toHaveAttribute("aria-required", "true");
+    fireEvent.click(screen.getByRole("radio", { name: "电脑" }));
+    expect(screen.getByLabelText("IMEI 1")).not.toHaveAttribute("aria-required");
+  });
+
+  it("blocks phone intake without IMEI 1 and focuses the required field", async () => {
+    renderWithQuery(<InventoryProductIntakeScreen surface="dialog" />);
+
+    fireEvent.change(screen.getByLabelText(/品牌/), { target: { value: "Apple" } });
+    fireEvent.change(screen.getByLabelText(/型号 \/ 商品名称/), {
+      target: { value: "iPhone 15" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存并查看商品" }));
+
+    expect(apiMocks.createInventoryProduct).not.toHaveBeenCalled();
+    expect(await screen.findByText("手机商品必须填写 IMEI 1")).toBeVisible();
+    const imei1 = screen.getByLabelText("IMEI 1");
+    expect(imei1).toHaveAttribute("aria-invalid", "true");
+    await waitFor(() => expect(imei1).toHaveFocus());
+  });
+
+  it("keeps runtime intake and edit screens free of Apple overlay injection", () => {
+    const intakeSource = readFileSync(
+      resolve(
+        process.cwd(),
+        "src/features/inventory/products/screens/inventory-product-intake-screen.tsx",
+      ),
+      "utf8",
+    );
+    const editSource = readFileSync(
+      resolve(
+        process.cwd(),
+        "src/features/inventory/products/screens/inventory-product-edit-screen.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(intakeSource).not.toContain("approvedAppleColorOverlay=");
+    expect(editSource).not.toContain("approvedAppleColorOverlay=");
+  });
+
   it("opens product intake in one controlled dialog and protects a dirty draft", async () => {
     apiMocks.listInventoryProducts.mockResolvedValue({
       items: [product()],
@@ -229,6 +282,7 @@ describe("inventory product UI access gates", () => {
     fireEvent.change(within(dialog).getByLabelText(/型号 \/ 商品名称/), {
       target: { value: "iPhone 15" },
     });
+    fillPhoneImei1(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "保存并查看商品" }));
     await waitFor(() => expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1));
 
@@ -292,6 +346,7 @@ describe("inventory product UI access gates", () => {
     fireEvent.change(within(dialog).getByLabelText(/型号 \/ 商品名称/), {
       target: { value: "iPhone 15" },
     });
+    fillPhoneImei1(dialog);
     fireEvent.click(within(dialog).getByRole("button", { name: "保存并查看商品" }));
     await waitFor(() => expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1));
 
@@ -325,6 +380,7 @@ describe("inventory product UI access gates", () => {
     fireEvent.change(screen.getByLabelText(/型号 \/ 商品名称/), {
       target: { value: "iPhone 15" },
     });
+    fillPhoneImei1();
     fireEvent.click(screen.getByRole("button", { name: "保存并查看商品" }));
     expect(await screen.findByText("商品保存失败，请重试")).toBeVisible();
     expect(screen.queryByText("controlled failure")).not.toBeInTheDocument();
@@ -350,6 +406,7 @@ describe("inventory product UI access gates", () => {
     fireEvent.change(screen.getByLabelText(/型号 \/ 商品名称/), {
       target: { value: "iPhone 15" },
     });
+    fillPhoneImei1();
     fireEvent.click(screen.getByRole("button", { name: "保存并查看商品" }));
 
     await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
@@ -377,6 +434,7 @@ describe("inventory product UI access gates", () => {
     fireEvent.change(screen.getByLabelText(/型号 \/ 商品名称/), {
       target: { value: "iPhone 15" },
     });
+    fillPhoneImei1();
     fireEvent.click(screen.getByRole("button", { name: "保存并查看商品" }));
     await waitFor(() => expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1));
 
@@ -412,6 +470,7 @@ describe("inventory product UI access gates", () => {
     fireEvent.change(screen.getByLabelText(/型号 \/ 商品名称/), {
       target: { value: "PlayStation 5" },
     });
+    fillPhoneImei1();
     const form = screen.getByRole("button", { name: "保存并查看商品" }).closest("form")!;
     fireEvent.submit(form);
     fireEvent.submit(form);
@@ -442,30 +501,36 @@ describe("inventory product UI access gates", () => {
     renderWithQuery(<InventoryProductIntakeScreen surface="dialog" />);
     const brand = screen.getByLabelText(/品牌/);
     const model = screen.getByLabelText(/型号 \/ 商品名称/);
-    fireEvent.change(brand, { target: { value: "Apple" } });
-    fireEvent.change(model, { target: { value: "iPhone 15" } });
-    fireEvent.change(screen.getByLabelText("内存（RAM）"), { target: { value: "8 GB" } });
-    fireEvent.change(screen.getByLabelText("存储容量"), { target: { value: "256 GB" } });
-    fireEvent.change(screen.getByLabelText("设备颜色"), { target: { value: "自定义色" } });
+    fireEvent.change(brand, { target: { value: "Samsung" } });
+    fireEvent.change(model, { target: { value: "Galaxy S24" } });
+    fireEvent.change(screen.getByLabelText("内存（RAM）手动补充"), {
+      target: { value: "8 GB" },
+    });
+    fireEvent.change(screen.getByLabelText("存储容量手动补充"), {
+      target: { value: "256 GB" },
+    });
+    fireEvent.change(screen.getByLabelText("设备颜色手动补充"), {
+      target: { value: "自定义色" },
+    });
     fireEvent.change(screen.getByLabelText("IMEI 1"), { target: { value: "356789012345678" } });
     fireEvent.change(screen.getByLabelText("计划售价"), { target: { value: "699" } });
     fireEvent.change(screen.getByLabelText("库位"), { target: { value: "A-02" } });
     fireEvent.change(screen.getByLabelText("保修（月）"), { target: { value: "12" } });
 
-    fireEvent.change(brand, { target: { value: "Samsung" } });
+    fireEvent.change(brand, { target: { value: "Xiaomi" } });
     expect(screen.getByRole("status")).toHaveTextContent(/更换品牌会清除/);
-    expect(model).toHaveValue("iPhone 15");
+    expect(model).toHaveValue("Galaxy S24");
     fireEvent.click(screen.getByRole("button", { name: "保留原资料" }));
-    expect(brand).toHaveValue("Apple");
-    expect(model).toHaveValue("iPhone 15");
-
-    fireEvent.change(brand, { target: { value: "Samsung" } });
-    fireEvent.click(screen.getByRole("button", { name: "清理并切换" }));
     expect(brand).toHaveValue("Samsung");
+    expect(model).toHaveValue("Galaxy S24");
+
+    fireEvent.change(brand, { target: { value: "Xiaomi" } });
+    fireEvent.click(screen.getByRole("button", { name: "清理并切换" }));
+    expect(brand).toHaveValue("Xiaomi");
     expect(model).toHaveValue("");
-    expect(screen.getByLabelText("内存（RAM）")).toHaveValue("");
-    expect(screen.getByLabelText("存储容量")).toHaveValue("");
-    expect(screen.getByLabelText("设备颜色")).toHaveValue("");
+    expect(screen.getByLabelText("内存（RAM）手动补充")).toHaveValue("");
+    expect(screen.getByLabelText("存储容量手动补充")).toHaveValue("");
+    expect(screen.getByLabelText("设备颜色手动补充")).toHaveValue("");
     expect(screen.getByLabelText("IMEI 1")).toHaveValue("356789012345678");
     expect(screen.getByLabelText("计划售价")).toHaveValue("699");
     expect(screen.getByLabelText("库位")).toHaveValue("A-02");
@@ -482,13 +547,15 @@ describe("inventory product UI access gates", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(model).toHaveValue("Workshop Prototype");
 
-    fireEvent.change(screen.getByLabelText("存储容量"), { target: { value: "825 GB" } });
+    fireEvent.change(screen.getByLabelText("存储容量手动补充"), { target: { value: "825 GB" } });
     fireEvent.change(model, { target: { value: "PlayStation 5" } });
-    expect(screen.getByRole("status")).toHaveTextContent(/更换型号会清除/);
+    expect(
+      document.querySelector('[data-ui="inventory-product-catalog-transition-confirm"]'),
+    ).toHaveTextContent(/更换型号会清除/);
     expect(model).toHaveValue("PlayStation 5");
     fireEvent.click(screen.getByRole("button", { name: "清理并切换" }));
     expect(model).toHaveValue("PlayStation 5");
-    expect(screen.getByLabelText("存储容量")).toHaveValue("");
+    expect(screen.getByLabelText("存储容量手动补充")).toHaveValue("");
     expect(screen.getByLabelText(/品牌/)).toHaveValue("Sony / PlayStation");
   });
 
@@ -498,7 +565,7 @@ describe("inventory product UI access gates", () => {
     const model = screen.getByLabelText(/型号 \/ 商品名称/);
     fireEvent.change(brand, { target: { value: "Apple" } });
     fireEvent.change(model, { target: { value: "iPhone 15" } });
-    fireEvent.change(screen.getByLabelText("存储容量"), { target: { value: "256 GB" } });
+    fireEvent.change(screen.getByLabelText("存储容量手动补充"), { target: { value: "256 GB" } });
     fireEvent.change(model, { target: { value: "iPhone 16" } });
 
     const saveButton = screen.getByRole("button", { name: "保存并查看商品" });
@@ -506,7 +573,9 @@ describe("inventory product UI access gates", () => {
     expect(brand).toBeDisabled();
     expect(screen.getByLabelText("存储容量")).toBeDisabled();
     expect(screen.getByRole("radio", { name: "平板" })).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent(/更换型号会清除/);
+    expect(
+      document.querySelector('[data-ui="inventory-product-catalog-transition-confirm"]'),
+    ).toHaveTextContent(/更换型号会清除/);
     fireEvent.click(saveButton);
     fireEvent.submit(saveButton.closest("form")!);
     expect(apiMocks.createInventoryProduct).not.toHaveBeenCalled();
@@ -860,6 +929,7 @@ describe("inventory product UI access gates", () => {
     fireEvent.change(screen.getByLabelText(/型号 \/ 商品名称/), {
       target: { value: "iPhone 15" },
     });
+    fillPhoneImei1();
     fireEvent.click(screen.getByRole("button", { name: "保存并查看商品" }));
 
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith("created-1"));
@@ -889,12 +959,53 @@ describe("inventory product UI access gates", () => {
     fireEvent.change(screen.getByLabelText(/型号 \/ 商品名称/), {
       target: { value: "iPhone 15" },
     });
+    fillPhoneImei1();
     fireEvent.click(screen.getByRole("button", { name: "保存并查看商品" }));
 
     await waitFor(() => expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1));
     expect(onCreated).not.toHaveBeenCalled();
     expect(screen.queryByText("商品保存失败，请重试")).not.toBeInTheDocument();
     expect(await screen.findByText("写入已完成，但同步最新状态失败")).toBeVisible();
+  });
+
+  it("omits unapproved Apple color from the intake mutation payload", async () => {
+    apiMocks.createInventoryProduct.mockResolvedValue({ id: "created-color", sku: "SKU-NEW" });
+    renderWithQuery(<InventoryProductIntakeScreen surface="dialog" onCreated={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText(/品牌/), { target: { value: "Apple" } });
+    fireEvent.change(screen.getByLabelText(/型号 \/ 商品名称/), {
+      target: { value: "Unreviewed iPhone" },
+    });
+    fillPhoneImei1();
+    fireEvent.click(screen.getByRole("button", { name: "保存并查看商品" }));
+
+    await waitFor(() => expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1));
+    expect(apiMocks.createInventoryProduct.mock.calls[0][0]).not.toHaveProperty("color");
+  });
+
+  it("preserves the persisted Apple color in an edit mutation while mapping is pending", async () => {
+    apiMocks.getInventoryProductEditData.mockResolvedValue({
+      ...product({
+        id: "product-color",
+        color: "红色",
+        created_at: "2026-08-07T10:00:00.000Z",
+        version: 1,
+      }),
+      identifiers: [],
+    });
+    apiMocks.updateInventoryProduct.mockResolvedValue({
+      ok: true,
+      code: "updated",
+      id: "product-color",
+      version: 2,
+    });
+    renderWithQuery(<InventoryProductEditScreen id="product-color" />);
+
+    await screen.findByLabelText(/品牌/);
+    fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+
+    await waitFor(() => expect(apiMocks.updateInventoryProduct).toHaveBeenCalledTimes(1));
+    expect(apiMocks.updateInventoryProduct.mock.calls[0][1].color).toBe("红色");
   });
 
   it("invalidates only the active store catalog after a committed edit", async () => {

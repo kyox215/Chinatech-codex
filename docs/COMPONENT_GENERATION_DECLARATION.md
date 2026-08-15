@@ -421,3 +421,81 @@ export function ExampleDialog({ open, isPending, onOpenChange, onSubmit }: Examp
 - 图标、按钮、弹窗符合 a11y。
 - 未引入新的数据访问越界。
 - `npm run lint` 通过；涉及构建面时 `npm run build` 通过。
+
+## TASK-20260814-001 — Quick Entry disclosure primitive reuse audit (design-only, 2026-08-15)
+
+The bounded Quick Entry packet starts from the clean release commit
+`d33bad91a5e1d7ed5e56a73849536e875f61db76` in the isolated worktree
+`/private/tmp/repairdesk-quick-entry-ui-20260815`. It is documentation/setup only; no source,
+test, Storybook, package, config, Registry, production-data, commit, push, or deploy change is
+authorized.
+
+### Audited reusable sources
+
+- `InventoryProductFormWorkspace` already resolves pending/compact/desktop modes and renders one
+  explicit shell. Keep this controller/body boundary rather than cloning Intake and Edit forms.
+- `InventoryProductForm`, `InventoryProductIdentifierSection`, and the existing details fields
+  provide category, condition, identifiers, prices/cost, location, warranty, notes, and a manual
+  identifier presenter. IMEI1/IMEI2 visibility and required-state semantics should be extended at
+  this domain boundary, not by a generic `Input` change.
+- `CatalogCombobox` already owns editable/non-editable brand/model search, mobile fixed picker,
+  desktop anchored Popover, mounted listbox-id capture, Escape, and focus restoration.
+  `CatalogSpecificationChoices` and `CatalogColorChoices` already separate desktop option groups
+  from mobile button/listbox choices. Reuse their ARIA and focus contracts before adding a domain
+  disclosure adapter.
+- `componentDensity.compactSelector`, `componentOverlay`, `src/components/ui/popover.tsx`,
+  `src/components/ui/sheet.tsx`, and `device-form-options.ts` are the current style/primitive/
+  option authorities. `eu-phone-catalog.ts` is searchable input data only: its broad Apple color
+  arrays are not an exact approval overlay. Without a per-model official source and review receipt,
+  Apple colors must remain pending-official-color; a later local approval manifest/validator is a
+  separate data gate. The `memoQuickEntry` object is a memo-specific surface and is not a
+  device-form implementation.
+- The pending color state preserves an existing draft/edit value read-only but offers no new
+  generic/custom color choice. It omits newly selected Apple color from the save payload and shows
+  an inline pending-mapping explanation. Because Quick Entry color is optional, pending mapping
+  alone does not block save; only an independently required category/device color may block save.
+
+### Proposed component decision
+
+Prefer extending the existing inventory-domain fields/workspace. Only if a single disclosure-first
+contract cannot be expressed without duplicated markup may a small inventory-domain adapter be
+introduced under `src/features/inventory/products/components/`; it must compose existing
+Popover/Sheet/listbox primitives, have explicit props, no `any`, no data access, and preserve
+separate desktop/mobile DOM and interaction. Do not create a generic button, color source, or
+global responsive primitive for this task.
+
+### Candidate source/test/story allowlist (not yet authorized)
+
+The next packet may re-audit and narrowly allow the existing files under
+`src/features/inventory/products/components/`, `src/features/inventory/components/`,
+`src/features/inventory/products/model/`, and their paired `*.test.*` and existing inventory
+stories. `src/lib/component-patterns.ts` or `src/components/ui/*` may be touched only if a
+demonstrated shared contract gap cannot be handled in the inventory domain. The candidate must
+prove: desktop exactly three top-level columns at 1024/1280/1440; mobile separate sections/Sheet;
+category-aware IMEI1
+requiredness (phone only) and IMEI2 visible; planned sale exposed and acquisition cost only when
+the existing permission allows it; disclosure selection close/Escape/focus/
+ARIA; direct free text; Apple official-color gate and unknown/manual pending state; non-Apple
+generic color priority; and six-width/a11y/overflow evidence.
+
+### Required states and stop/rollback rules
+
+Support default, pending/loading, disabled/permission-limited, empty, invalid, read-failure
+fallback, Apple known, Apple unknown/manual, and save-pending/success/error states. Stop for any
+API/query/payload/permission/tenant/dependency/AppShell/schema/migration/production-data need,
+unclear ownership in the preserved dirty worktree, or a proposed merge of desktop and mobile
+interaction. Rollback is limited to reverting this design section or discarding the isolated
+uncommitted worktree; prior release candidates and other worktrees remain untouched.
+
+### Implementation preview candidate status (current update, 2026-08-15)
+
+The Owner has authorized the completed 20-path candidate for intentional commit/push and a
+protected Preview. Existing implementation evidence records Node22 full lint/typecheck/test
+`453/453` + `2993/2993`, build `30/30`, and browser `20/20`. Independent UX audit still has two
+P1 gaps: disclosure-first coverage is incomplete for network/version, warranty, and manual
+supplements; and complete save/error/permission/offline/conflict/success Story/evidence coverage
+is not yet complete. Formal production domains therefore remain blocked and must not be cut over.
+No production data, schema/migration, or bulk catalog import is included. The Owner has authorized
+autonomous design → Preview → implementation → validation → follow-up Preview; future work does
+not require a separate per-design Owner-approval gate. This is appended current status and does
+not alter the historical design-only facts above.

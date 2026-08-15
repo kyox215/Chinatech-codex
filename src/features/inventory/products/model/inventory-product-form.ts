@@ -16,6 +16,7 @@ import {
   isValidGtin,
   validateProductIdentifiers,
 } from "./device-data";
+import { resolveDeviceColorPolicy, type AppleColorApprovalOverlay } from "./device-color-policy";
 
 export type InventoryProductFormIdentifierSource = Extract<
   InventoryProductIdentifierSource,
@@ -48,6 +49,18 @@ export type InventoryProductFormDraft = {
 export type InventoryProductFormValidationError = {
   message: string;
   fieldId?: string;
+};
+
+export type InventoryProductFormOptions = {
+  canEnterCost?: boolean;
+  /** Only reviewed exact-model Apple colors may be supplied here. */
+  approvedAppleColorOverlay?: AppleColorApprovalOverlay;
+  /** The persisted edit value; create flows leave this unset. */
+  existingColor?: string;
+  /** Independent business requirement; pending Apple mapping is otherwise optional. */
+  colorRequired?: boolean;
+  /** Intake-only phone rule; edit flows intentionally leave this unset. */
+  requireImei1?: boolean;
 };
 
 export const eligiblePrimaryIdentifierKinds = ["imei1", "imei2", "serial"] as const;
@@ -167,7 +180,7 @@ export function formIdentifiers(
 
 export function validateInventoryProductFormDraft(
   draft: InventoryProductFormDraft,
-  options: { canEnterCost?: boolean } = {},
+  options: InventoryProductFormOptions = {},
 ): InventoryProductFormValidationError | undefined {
   if (!draft.brand.trim()) return { message: "请填写品牌", fieldId: "product-brand" };
   if (!draft.model.trim()) return { message: "请填写型号或商品名称", fieldId: "product-model" };
@@ -184,6 +197,9 @@ export function validateInventoryProductFormDraft(
   }
   if (draft.identifiers.imei2.trim() && !draft.identifiers.imei1.trim()) {
     return { message: "请先填写 IMEI 1，再填写 IMEI 2", fieldId: "product-imei1" };
+  }
+  if (options.requireImei1 && draft.category === "phone" && !draft.identifiers.imei1.trim()) {
+    return { message: "手机商品必须填写 IMEI 1", fieldId: "product-imei1" };
   }
   if (draft.gtin.trim() && !isValidGtin(draft.gtin)) {
     return { message: "EAN / GTIN 校验位不正确", fieldId: "product-gtin" };
@@ -216,20 +232,39 @@ export function validateInventoryProductFormDraft(
   ) {
     return { message: "保修月数必须是 0 到 120 的整数", fieldId: "product-warranty" };
   }
+  const colorPolicy = resolveDeviceColorPolicy({
+    category: draft.category,
+    brand: draft.brand,
+    model: draft.model,
+    selectedColor: draft.color,
+    existingColor: options.existingColor,
+    approvedAppleColors: options.approvedAppleColorOverlay,
+    colorRequired: options.colorRequired,
+  });
+  if (!colorPolicy.save.canSave) {
+    return {
+      message:
+        colorPolicy.save.blockedReason === "color-required"
+          ? "请先选择设备颜色后再保存"
+          : "Apple 设备颜色必须来自已审核的官方颜色映射",
+      fieldId: "product-color",
+    };
+  }
   return undefined;
 }
 
 export function inventoryProductFormToCreateInput(
   draft: InventoryProductFormDraft,
   idempotency_key: string,
-  options: { canEnterCost?: boolean } = {},
+  options: InventoryProductFormOptions = {},
 ): CreateInventoryProductInput {
+  const color = colorForSave(draft, options);
   return {
     idempotency_key,
     category: draft.category,
     brand: draft.brand.trim(),
     model: draft.model.trim(),
-    color: optional(draft.color),
+    ...(color ? { color } : {}),
     ram_capacity: optional(draft.ram_capacity),
     storage_capacity: optional(draft.storage_capacity),
     gtin: optional(draft.gtin),
@@ -249,13 +284,32 @@ export function inventoryProductFormToUpdateInput(
   draft: InventoryProductFormDraft,
   idempotency_key: string,
   expected_version: number,
-  options: { canEnterCost?: boolean } = {},
+  options: InventoryProductFormOptions = {},
 ): UpdateInventoryProductInput {
   return {
     ...inventoryProductFormToCreateInput(draft, idempotency_key, options),
     expected_version,
     identifiers: formIdentifiers(draft),
   };
+}
+
+function colorForSave(
+  draft: Pick<InventoryProductFormDraft, "category" | "brand" | "model" | "color">,
+  options: InventoryProductFormOptions,
+) {
+  const policy = resolveDeviceColorPolicy({
+    category: draft.category,
+    brand: draft.brand,
+    model: draft.model,
+    selectedColor: draft.color,
+    existingColor: options.existingColor,
+    approvedAppleColors: options.approvedAppleColorOverlay,
+    colorRequired: options.colorRequired,
+  });
+  if (policy.state === "pending-official-color")
+    return optional(policy.save.preservedExistingColor);
+  if (policy.state === "approved") return optional(policy.save.payloadColor);
+  return optional(draft.color);
 }
 
 export function inventoryProductEditDataToFormDraft(
@@ -342,8 +396,8 @@ function mergeRecord<T extends Record<string, string>>(base: T, local: T, latest
   return merged;
 }
 
-function optional(value: string) {
-  return value.trim() || undefined;
+function optional(value: string | undefined) {
+  return value?.trim() || undefined;
 }
 
 function optionalMoney(value: string) {

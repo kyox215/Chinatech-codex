@@ -99,6 +99,12 @@ afterEach(() => {
 });
 
 describe("ImeiScannerField", () => {
+  it("forwards aria-required to the manual IMEI input", () => {
+    render(<ImeiScannerField value="" onChange={vi.fn()} inputAriaLabel="IMEI 1" ariaRequired />);
+
+    expect(screen.getByLabelText("IMEI 1")).toHaveAttribute("aria-required", "true");
+  });
+
   it("requests numeric mobile keyboards for IMEI manual entry without changing text storage", async () => {
     const user = userEvent.setup();
     Object.defineProperty(navigator, "mediaDevices", {

@@ -112,6 +112,7 @@ export function ImeiScannerField({
   inputMode,
   ariaInvalid,
   ariaDescribedBy,
+  ariaRequired,
   onCommitSource,
 }: {
   value: string;
@@ -128,6 +129,7 @@ export function ImeiScannerField({
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
   ariaInvalid?: boolean;
   ariaDescribedBy?: string;
+  ariaRequired?: boolean;
   onCommitSource?: (source: "manual" | "scan") => void;
 }) {
   const actionIdentifierLabel = identifierLabel ?? "IMEI";
@@ -687,6 +689,7 @@ export function ImeiScannerField({
           aria-label={inputAriaLabel}
           aria-invalid={ariaInvalid || undefined}
           aria-describedby={ariaDescribedBy}
+          aria-required={ariaRequired || undefined}
           inputMode={inputMode ?? imeiKeyboardProps.inputMode}
           value={value}
           onChange={(event) => commitValue(event.target.value, "manual")}

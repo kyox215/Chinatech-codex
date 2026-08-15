@@ -422,6 +422,7 @@ export function InventoryProductIntakeScreen({
           "product-serial",
           "product-eid",
           "product-gtin",
+          "product-color",
         ].includes(fieldId)
       ) {
         requestAnimationFrame(() => document.getElementById(fieldId)?.focus());
@@ -668,6 +669,7 @@ export function InventoryProductIntakeScreen({
         listPriceInvalid={error?.fieldId === "product-price"}
         costInvalid={error?.fieldId === "product-cost"}
         warrantyInvalid={error?.fieldId === "product-warranty"}
+        colorInvalid={error?.fieldId === "product-color"}
         canEnterCost={canEnterCost}
         inspectionEnabled={inspectionEnabled}
         identifierDescription={
@@ -683,6 +685,7 @@ export function InventoryProductIntakeScreen({
           serial: error?.fieldId === "product-serial",
           eid: error?.fieldId === "product-eid",
         }}
+        requiredIdentifierKinds={{ imei1: draft.category === "phone" }}
         categoryNotice={
           pendingCategory ? (
             <div
@@ -807,11 +810,15 @@ function toInput(
 ): CreateInventoryProductInput {
   return inventoryProductFormToCreateInput(toFormDraft(draft), idempotency_key, {
     canEnterCost,
+    requireImei1: draft.category === "phone",
   });
 }
 
 function validateDraft(draft: Draft, canEnterCost: boolean) {
-  return validateInventoryProductFormDraft(toFormDraft(draft), { canEnterCost });
+  return validateInventoryProductFormDraft(toFormDraft(draft), {
+    canEnterCost,
+    requireImei1: draft.category === "phone",
+  });
 }
 
 function toFormDraft(draft: Draft): InventoryProductFormDraft {

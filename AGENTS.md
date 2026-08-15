@@ -154,3 +154,95 @@ facade and the Instruction-3 responsive/navigation source integration. The catal
 the store only from the actor, keeps the read projection bounded, and does not import production
 data into this candidate. This records candidate scope only: no migration, database write, schema,
 environment, dependency, production-data, CAS, commit, push, or deploy action is authorized here.
+
+## TASK-20260814-001 — Quick Entry disclosure-first design contract (2026-08-15)
+
+Status: terminal release block observed; this section is a design-only Plan Delta for the
+isolated worktree `/private/tmp/repairdesk-quick-entry-ui-20260815` on branch
+`codex/quick-entry-disclosure-ui-20260815`, based on clean commit
+`d33bad91a5e1d7ed5e56a73849536e875f61db76`. It does not authorize source, test, Storybook,
+configuration, package, API, schema, Registry, production-data, commit, push, or deploy changes.
+
+The staged deployment `dpl_CMHAYXQw65hJtxhiGtAyFRqrsaHr` is READY but not promoted. The formal
+`chinatech.in/www` deployment remains `dpl_3LVoLSqBKr9gJJLPYLjJDv6dhtU5`. Source evidence says
+Quick Create requires `device-data-v2`, commands/store rollout, and `inventory:create`; legacy
+mutations do not authorize Quick Create. A protected staged session still exposes two save
+buttons while the expected `device-data-v2=0` shell should not, so no click, POST, real save, or
+production cutover is allowed. The next non-destructive check is control-plane-only confirmation
+of effective `INVENTORY_PRODUCT_DEVICE_DATA_V2` after refresh/re-auth; do not edit env/config/data.
+
+### Quick Entry surface contract
+
+- Desktop `1024/1280/1440`: an independent compact workbench with exactly three top-level
+  desktop columns at every listed width. Keep identity, device options, identifiers, and
+  commercial fields in an efficient mouse order; do not reuse the mobile single-column or
+  bottom-Sheet DOM.
+- Mobile/tablet `390/430/768`: an independent DOM composition with compact sections and mobile
+  Sheet/listbox surfaces. IMEI1 is explicitly required; IMEI2 remains visible beside it and is
+  never hidden. Planned sale and acquisition cost remain exposed, subject to the existing
+  permission boundary.
+- Every enum field uses a shared disclosure-first primitive: desktop anchored Popover/listbox;
+  mobile Sheet/listbox. Selection closes the disclosure, Escape closes it, focus returns to the
+  trigger, and `aria-expanded`/`aria-controls` reflect the mounted surface. Free-text fields are
+  directly visible rather than hidden behind a disclosure.
+- Existing EU catalog searchability is not proof of an Apple color approval. The current
+  `eu-phone-catalog.ts` contains broad shared color arrays for some older Apple models; without a
+  per-model official source and review receipt, an Apple model remains `pending-official-color`.
+  Known Apple models may expose only an exact approved-color overlay, while unknown/manual models
+  retain the draft and have no generic/custom color choice. A bounded local approval manifest and
+  validator may be proposed later, but importing or approving that data is a separate data gate;
+  do not batch-approve the existing Apple arrays. For non-Apple devices, generic colors are ordered
+  black, gray, dark blue, green, then white. No bulk Apple import, schema/migration, or production
+  data write is permitted.
+- `pending-official-color` is a truthful disclosure state, not an automatic save failure: if an
+  existing draft/edit already contains a color, preserve and display it read-only; do not offer a
+  new generic/custom color choice, and omit any newly selected Apple color from the save payload.
+  Quick Entry color is currently optional, so pending official mapping alone does not block save;
+  show an inline pending-mapping explanation. A category/device flow that independently requires
+  a color may block its save with that explicit validation reason.
+- IMEI1 requiredness is category-aware: phone Quick Entry requires IMEI1; non-IMEI categories must
+  not be forced to fabricate an IMEI. Planned acquisition cost is visible only when the existing
+  cost permission allows it; planned sale remains an explicit field.
+- Acceptance spans all six widths and covers default, loading/disabled, empty, invalid, read
+  failure fallback, permission-limited, Apple-known, Apple-unknown/manual, and save-pending/error
+  states. Check overflow, keyboard/focus/Escape, touch and mouse scrolling, last-option reachability,
+  field visibility, and accessible names before any later implementation packet is accepted.
+
+### Reuse and bounded candidate allowlist
+
+The source audit found reusable contracts in `InventoryProductFormWorkspace` (pending viewport
+state and explicit desktop/mobile shells), `InventoryProductForm`,
+`InventoryProductIdentifierSection`, `CatalogCombobox`, the existing specification/color choices,
+`componentDensity.compactSelector`, `componentOverlay`, `src/components/ui/Popover`,
+`src/components/ui/Sheet`, `device-form-options.ts`, and the official-first
+`eu-phone-catalog.ts` color data. Reuse these before creating a component. The unrelated
+`memoQuickEntry` style object is not a device-form contract and must not be copied blindly.
+
+A later packet may audit and allowlist only the existing inventory form/workspace/catalog fields,
+Intake/Edit screens, their paired tests and representative stories, plus a narrowly scoped
+domain disclosure primitive if the existing combobox/specification/color surfaces cannot express
+the contract. Candidate paths include `src/features/inventory/products/components/`,
+`src/features/inventory/components/`, `src/features/inventory/products/model/`, the paired
+`*.test.*` files, and existing inventory stories. `src/components/ui/*`, `src/lib/component-patterns.ts`,
+and `src/styles.css` remain reuse-first; changing them requires proof and a new approval.
+
+Implementation must proceed design → implementation → browser/a11y validation → evidence
+iteration → clean RC/release. A critical defect may stop the sequence, never be waived by a
+threshold or hidden state. Stop and request a new packet for any API/query/payload/permission/
+tenant/dependency/AppShell/schema/migration/production-data coupling, ambiguous dirty ownership,
+or inability to prove rollback. Rollback for this design-only batch is limited to reverting its
+document sections or discarding this isolated uncommitted worktree; do not touch the prior RC or
+other worktrees.
+
+### Implementation preview candidate status (current update, 2026-08-15)
+
+The Owner has authorized the completed 20-path candidate for intentional commit/push and a
+protected Preview. Existing implementation evidence records Node22 full lint/typecheck/test
+`453/453` + `2993/2993`, build `30/30`, and browser `20/20`. Independent UX audit still has two
+P1 gaps: disclosure-first coverage is incomplete for network/version, warranty, and manual
+supplements; and complete save/error/permission/offline/conflict/success Story/evidence coverage
+is not yet complete. Therefore formal production domains remain blocked and must not be cut over.
+No production data, schema/migration, or bulk catalog import is included. The Owner has authorized
+autonomous design → Preview → implementation → validation → follow-up Preview; do not add a
+per-design Owner-approval gate. This status update does not rewrite the historical design-only
+record above.

@@ -1,10 +1,9 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { Check, Palette, Search } from "lucide-react";
+import { useMemo } from "react";
+import { Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   CatalogCombobox,
   catalogCategoryCopy,
@@ -20,21 +19,23 @@ import {
   listDeviceCatalogModels,
   type DeviceCatalogModel,
 } from "@/features/inventory/products/model/device-catalog";
-import { phoneColorBackground } from "@/features/inventory/model/eu-phone-catalog";
 import type { InventoryCatalogOption, InventoryProductCategory } from "@/lib/repairdesk/types";
-import { componentDensity } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
+import {
+  InventorySelectableField,
+  type InventorySelectableFieldOption,
+} from "./inventory-selectable-field";
 import {
   hasLearnedCatalogModel,
   learnedCatalogBrandsForCategory,
   learnedCatalogOptionsForBrand,
   mergeInventoryCatalogOptions,
 } from "../model/inventory-catalog-options";
+import { listDeviceRamOptions, listDeviceStorageOptions } from "../model/device-form-options";
 import {
-  listDeviceColorOptions,
-  listDeviceRamOptions,
-  listDeviceStorageOptions,
-} from "../model/device-form-options";
+  resolveDeviceColorPolicy,
+  type AppleColorApprovalOverlay,
+} from "../model/device-color-policy";
 
 type InventoryDeviceCatalogFieldsProps = {
   category: InventoryProductCategory;
@@ -43,6 +44,10 @@ type InventoryDeviceCatalogFieldsProps = {
   ramCapacity?: string;
   storageCapacity?: string;
   color?: string;
+  existingColor?: string;
+  approvedAppleColorOverlay?: AppleColorApprovalOverlay;
+  colorRequired?: boolean;
+  colorInvalid?: boolean;
   surface?: CatalogPickerSurface;
   pickerMode?: CatalogPickerMode;
   disabled?: boolean;
@@ -58,8 +63,6 @@ type InventoryDeviceCatalogFieldsProps = {
   onColorChange: (value: string) => void;
 };
 
-const inputClass = componentDensity.compactSelector.editableInput;
-
 export function InventoryDeviceCatalogFields({
   category,
   brand,
@@ -67,6 +70,10 @@ export function InventoryDeviceCatalogFields({
   ramCapacity = "",
   storageCapacity = "",
   color = "",
+  existingColor,
+  approvedAppleColorOverlay = {},
+  colorRequired = false,
+  colorInvalid = false,
   surface = "page",
   pickerMode = "auto",
   disabled = false,
@@ -138,9 +145,33 @@ export function InventoryDeviceCatalogFields({
     () => listDeviceRamOptions(category, selectedModel?.ramOptions),
     [category, selectedModel?.ramOptions],
   );
-  const colorOptions = useMemo(
-    () => listDeviceColorOptions(category, selectedModel?.colors),
-    [category, selectedModel?.colors],
+  const colorPolicy = useMemo(
+    () =>
+      resolveDeviceColorPolicy({
+        category,
+        brand,
+        model,
+        existingColor,
+        selectedColor: color,
+        approvedAppleColors: approvedAppleColorOverlay,
+        colorRequired,
+      }),
+    [approvedAppleColorOverlay, brand, category, color, colorRequired, existingColor, model],
+  );
+  const colorOptions = useMemo<InventorySelectableFieldOption[]>(
+    () =>
+      colorPolicy.options.map((option) => ({
+        value: option.name,
+        label: option.name,
+        leading: (
+          <span
+            aria-hidden="true"
+            className="mt-0.5 block size-4 shrink-0 rounded-full border border-foreground/25"
+            style={{ background: option.swatches[0] ?? "transparent" }}
+          />
+        ),
+      })),
+    [colorPolicy.options],
   );
 
   const handleBrandSelect = (selection: CatalogSelection) => {
@@ -203,7 +234,7 @@ export function InventoryDeviceCatalogFields({
 
       <div className="grid min-w-0 grid-cols-2 gap-2">
         {category !== "other" ? (
-          <CatalogSpecificationChoices
+          <SpecificationField
             id={`${idPrefix}-storage`}
             label={category === "computer" ? "硬盘 / 存储容量" : "存储容量"}
             value={storageCapacity}
@@ -216,7 +247,7 @@ export function InventoryDeviceCatalogFields({
           />
         ) : null}
         {(["phone", "tablet", "computer"] as InventoryProductCategory[]).includes(category) ? (
-          <CatalogSpecificationChoices
+          <SpecificationField
             id={`${idPrefix}-ram`}
             label="内存（RAM）"
             value={ramCapacity}
@@ -227,13 +258,24 @@ export function InventoryDeviceCatalogFields({
             onChange={onRamChange}
           />
         ) : null}
-        <CatalogColorChoices
+        <ColorField
           value={color}
+          existingColor={existingColor}
           options={colorOptions}
+          policyState={colorPolicy.state}
+          statusMessage={colorPolicy.statusMessage}
+          invalid={colorInvalid || !colorPolicy.save.canSave}
+          errorMessage={
+            !colorPolicy.save.canSave
+              ? colorRequired
+                ? "请先选择设备颜色后再保存"
+                : "Apple 设备颜色必须来自已审核的官方颜色映射"
+              : undefined
+          }
           disabled={disabled}
           onChange={onColorChange}
           pickerMode={pickerMode}
-          idPrefix={idPrefix}
+          id={`${idPrefix}-color`}
           className={category === "other" || category === "game_console" ? "col-span-2" : undefined}
         />
       </div>
@@ -248,7 +290,7 @@ export function InventoryDeviceCatalogFields({
   );
 }
 
-function CatalogSpecificationChoices({
+function SpecificationField({
   id,
   label,
   value,
@@ -269,230 +311,107 @@ function CatalogSpecificationChoices({
   disabled?: boolean;
   onChange: (value: string) => void;
 }) {
+  const selectableOptions = options.map((option) => ({ value: option, label: option }));
   const isManualValue = Boolean(value) && !options.includes(value);
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const listId = `${id}-options`;
-  const close = () => {
-    setOpen(false);
-    triggerRef.current?.focus({ preventScroll: true });
-  };
   return (
     <fieldset className={cn("min-w-0 space-y-1.5", className)}>
-      <legend className="text-xs font-medium">{label}</legend>
-      {options.length > 0 && pickerMode !== "mobile" ? (
-        <div
-          role="radiogroup"
-          aria-label={`${label}常用选项`}
-          className="flex max-h-40 min-w-0 flex-wrap gap-1 overflow-y-auto overscroll-contain pr-1"
-        >
-          {options.map((option) => (
-            <button
-              key={option}
-              type="button"
-              role="radio"
-              aria-checked={value === option}
-              disabled={disabled}
-              onClick={() => onChange(option)}
-              className={cn(
-                "min-h-11 min-w-11 rounded-lg border px-2 text-[11px] font-medium transition-colors",
-                value === option
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-[var(--border-panel)] bg-background hover:bg-accent/60",
-              )}
-            >
-              {option}
-            </button>
-          ))}
-        </div>
-      ) : null}
-      {options.length > 0 && pickerMode === "mobile" ? (
-        <>
-          <button
-            type="button"
-            className="min-h-11 min-w-0 w-full rounded-lg border border-[var(--border-panel)] bg-background px-3 text-left text-base font-medium lg:text-sm"
-            aria-expanded={open}
-            aria-haspopup="listbox"
-            aria-controls={open ? listId : undefined}
-            ref={triggerRef}
-            disabled={disabled}
-            onClick={() => setOpen(true)}
-          >
-            {value || "选择" + label}
-          </button>
-          {open ? (
-            <div
-              role="listbox"
-              id={listId}
-              aria-label={`${label}选择`}
-              tabIndex={-1}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  close();
-                }
-              }}
-              className="max-h-72 overflow-y-auto rounded-lg border border-[var(--border-panel)] bg-popover p-1 shadow-[var(--shadow-overlay)]"
-            >
-              {options.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  role="option"
-                  aria-selected={value === option}
-                  className="flex min-h-11 w-full items-center rounded-md px-3 text-left text-base hover:bg-accent lg:text-sm"
-                  onClick={() => {
-                    onChange(option);
-                    close();
-                  }}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </>
-      ) : null}
-      <Input
+      <InventorySelectableField
         id={id}
-        className={cn(inputClass, "text-base !text-base lg:!text-sm")}
+        label={label}
+        value={value}
+        placeholder={`选择${label}`}
+        options={selectableOptions}
+        mode={pickerMode}
+        disabled={disabled}
+        onChange={onChange}
+      />
+      <Input
+        id={`${id}-manual`}
+        className="h-11 min-h-11 min-w-0 text-base !text-base lg:h-9 lg:min-h-0 lg:!text-sm"
         value={isManualValue ? value : ""}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
-        placeholder={`${placeholder}${options.length ? "（其他）" : ""}`}
-        aria-label={label}
+        placeholder={`${placeholder}${options.length ? "（其他/手动）" : ""}`}
+        aria-label={`${label}手动补充`}
       />
     </fieldset>
   );
 }
 
-function CatalogColorChoices({
+function ColorField({
+  id,
   value,
+  existingColor,
   options,
+  policyState,
+  statusMessage,
+  invalid,
+  errorMessage,
   disabled,
   onChange,
   pickerMode,
   className,
-  idPrefix,
 }: {
+  id: string;
   value: string;
-  options: DeviceCatalogModel["colors"];
+  existingColor?: string;
+  options: readonly InventorySelectableFieldOption[];
+  policyState: "generic" | "approved" | "pending-official-color";
+  statusMessage: string;
+  invalid?: boolean;
+  errorMessage?: string;
   disabled?: boolean;
   onChange: (value: string) => void;
-  className?: string;
   pickerMode?: CatalogPickerMode;
-  idPrefix: string;
+  className?: string;
 }) {
-  const isManualValue = Boolean(value) && !options.some((option) => option.name === value);
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const listId = `${idPrefix}-color-options`;
-  const close = () => {
-    setOpen(false);
-    triggerRef.current?.focus({ preventScroll: true });
-  };
+  const isPending = policyState === "pending-official-color";
+  const isManualValue = Boolean(value) && !options.some((option) => option.value === value);
+  const preservedValue = existingColor?.trim();
+  const displayValue = isPending ? (preservedValue ?? "") : value;
   return (
     <fieldset className={cn("col-span-2 min-w-0 space-y-1.5", className)}>
-      <legend className="flex items-center gap-1.5 text-xs font-medium">
-        <Palette className="size-3.5 text-primary" /> 设备颜色
-      </legend>
-      {options.length > 0 && pickerMode !== "mobile" ? (
-        <div
-          role="radiogroup"
-          aria-label="设备颜色常用选项"
-          className="flex max-h-40 min-w-0 flex-wrap gap-1 overflow-y-auto overscroll-contain pr-1"
-        >
-          {options.map((option) => {
-            const selected = value === option.name;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                aria-label={`颜色：${option.name}${selected ? "，已选择" : ""}`}
-                disabled={disabled}
-                onClick={() => onChange(option.name)}
-                className={cn(
-                  "flex min-h-11 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors",
-                  selected
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-[var(--border-panel)] bg-background hover:bg-accent/60",
-                )}
-              >
-                <span
-                  aria-hidden="true"
-                  className="size-4 shrink-0 rounded-full border border-foreground/25"
-                  style={{ background: phoneColorBackground(option) }}
-                />
-                <span>{option.name}</span>
-                <Check className={cn("size-3.5", selected ? "opacity-100" : "opacity-0")} />
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-      {options.length > 0 && pickerMode === "mobile" ? (
-        <>
-          <button
-            type="button"
-            className="min-h-11 min-w-0 w-full rounded-lg border border-[var(--border-panel)] bg-background px-3 text-left text-base font-medium lg:text-sm"
-            aria-expanded={open}
-            aria-haspopup="listbox"
-            aria-controls={open ? listId : undefined}
-            ref={triggerRef}
-            disabled={disabled}
-            onClick={() => setOpen(true)}
-          >
-            {value || "选择设备颜色"}
-          </button>
-          {open ? (
-            <div
-              role="listbox"
-              id={listId}
-              aria-label="设备颜色选择"
-              tabIndex={-1}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  close();
-                }
-              }}
-              className="max-h-72 overflow-y-auto rounded-lg border border-[var(--border-panel)] bg-popover p-1 shadow-[var(--shadow-overlay)]"
-            >
-              {options.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  role="option"
-                  aria-selected={value === option.name}
-                  className="flex min-h-11 w-full items-center gap-2 rounded-md px-3 text-left text-base hover:bg-accent lg:text-sm"
-                  onClick={() => {
-                    onChange(option.name);
-                    close();
-                  }}
-                >
-                  <span
-                    aria-hidden="true"
-                    className="size-4 shrink-0 rounded-full border border-foreground/25"
-                    style={{ background: phoneColorBackground(option) }}
-                  />
-                  {option.name}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </>
-      ) : null}
-      <Input
-        id={`${idPrefix}-color`}
-        className={cn(inputClass, "text-base !text-base lg:!text-sm")}
-        value={isManualValue ? value : ""}
+      <InventorySelectableField
+        id={id}
+        label="设备颜色"
+        value={displayValue}
+        placeholder="选择设备颜色"
+        options={options}
+        mode={pickerMode}
+        pending={isPending}
+        pendingMessage={statusMessage}
+        invalid={invalid}
+        ariaDescribedBy={invalid ? `${id}-error` : undefined}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder="例如 蓝色（其他/手动）"
-        aria-label="设备颜色"
+        onChange={onChange}
       />
+      {isPending ? (
+        preservedValue ? (
+          <Input
+            id={`${id}-preserved`}
+            className="h-11 min-h-11 min-w-0 text-base !text-base lg:h-9 lg:min-h-0 lg:!text-sm"
+            value={preservedValue}
+            readOnly
+            disabled={disabled}
+            aria-label="设备颜色当前值（只读）"
+          />
+        ) : null
+      ) : policyState === "generic" ? (
+        <Input
+          id={`${id}-manual`}
+          className="h-11 min-h-11 min-w-0 text-base !text-base lg:h-9 lg:min-h-0 lg:!text-sm"
+          value={isManualValue ? value : ""}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="例如 蓝色（其他/手动）"
+          aria-label="设备颜色手动补充"
+        />
+      ) : null}
+      {invalid && errorMessage ? (
+        <p id={`${id}-error`} className="text-xs text-status-danger-foreground">
+          {errorMessage}
+        </p>
+      ) : null}
     </fieldset>
   );
 }

@@ -6,6 +6,7 @@ import {
   formIdentifiers,
   inventoryProductEditDataToFormDraft,
   inventoryProductFormToCreateInput,
+  inventoryProductFormToUpdateInput,
   isInventoryProductFormDraftDirty,
   mergeInventoryProductFormDraft,
   type InventoryProductFormDraft,
@@ -13,6 +14,72 @@ import {
 } from "./inventory-product-form";
 
 describe("InventoryProductForm pure contract", () => {
+  const approvedAppleColors = {
+    "iPhone 15 Pro": [
+      { id: "natural-titanium", name: "原色钛金属", swatches: ["#b8ad9e"] },
+      { id: "blue-titanium", name: "蓝色钛金属", swatches: ["#4d5c6c"] },
+    ],
+  } as const;
+
+  it("omits a new Apple color from create while official mapping is pending", () => {
+    const draft = createInventoryProductFormDraft("phone");
+    draft.brand = "Apple";
+    draft.model = "iPhone 15 Pro 手动型号";
+    draft.color = "手输蓝色";
+
+    expect(
+      inventoryProductFormToCreateInput(draft, "00000000-0000-4000-8000-000000000010"),
+    ).not.toHaveProperty("color");
+  });
+
+  it("preserves only the persisted Apple color on a pending edit", () => {
+    const draft = createInventoryProductFormDraft("phone");
+    draft.brand = "Apple";
+    draft.model = "iPhone 15 Pro 手动型号";
+    draft.color = "新手输颜色";
+
+    expect(
+      inventoryProductFormToUpdateInput(draft, "00000000-0000-4000-8000-000000000011", 2, {
+        existingColor: "原色钛金属",
+      }).color,
+    ).toBe("原色钛金属");
+  });
+
+  it("serializes an exact approved Apple color and rejects required pending color", () => {
+    const approvedDraft = createInventoryProductFormDraft("phone");
+    approvedDraft.brand = "Apple";
+    approvedDraft.model = "iPhone 15 Pro";
+    approvedDraft.color = "蓝色钛金属";
+    expect(
+      inventoryProductFormToCreateInput(approvedDraft, "00000000-0000-4000-8000-000000000012", {
+        approvedAppleColorOverlay: approvedAppleColors,
+      }).color,
+    ).toBe("蓝色钛金属");
+
+    const pendingDraft = createInventoryProductFormDraft("phone");
+    pendingDraft.brand = "Apple";
+    pendingDraft.model = "iPhone 15 Pro 手动型号";
+    expect(validateInventoryProductFormDraft(pendingDraft, { colorRequired: true })).toMatchObject({
+      fieldId: "product-color",
+    });
+  });
+
+  it("requires IMEI1 only for phone intake when the explicit option is enabled", () => {
+    const phoneDraft = createInventoryProductFormDraft("phone");
+    phoneDraft.brand = "Apple";
+    phoneDraft.model = "iPhone 15";
+    expect(validateInventoryProductFormDraft(phoneDraft, { requireImei1: true })).toMatchObject({
+      fieldId: "product-imei1",
+    });
+
+    const computerDraft = createInventoryProductFormDraft("computer");
+    computerDraft.brand = "Apple";
+    computerDraft.model = "MacBook Air";
+    expect(
+      validateInventoryProductFormDraft(computerDraft, { requireImei1: true }),
+    ).toBeUndefined();
+  });
+
   it("never promotes EID to primary", () => {
     const draft = createInventoryProductFormDraft("phone");
     draft.brand = "Apple";

@@ -786,3 +786,90 @@ shared responsive/navigation source contract above. The candidate preserves sepa
 mobile compositions and keeps navigation/search ownership in the shared shell. This is a local
 candidate record only: it introduces no migration, database write, schema, environment,
 dependency, production-data import, CAS, commit, push, or deploy behavior.
+
+## TASK-20260814-001 — Quick Entry disclosure-first responsive contract (design-only, 2026-08-15)
+
+The current release is terminal-blocked: staged `dpl_CMHAYXQw65hJtxhiGtAyFRqrsaHr` is READY but
+not promoted, while formal `chinatech.in/www` remains `dpl_3LVoLSqBKr9gJJLPYLjJDv6dhtU5`. A
+protected staged session showing two save buttons conflicts with the expected `device-data-v2=0`
+shell. No save, POST, production data, or cutover is allowed. Verify only the effective
+`INVENTORY_PRODUCT_DEVICE_DATA_V2` control-plane value after refresh/re-auth in a later gate.
+
+### Layout and field visibility
+
+- `1024/1280/1440`: use a separate desktop workbench with exactly three top-level columns at
+  every listed width, placing identity, device option, identifier, and commercial groups in a
+  compact mouse-first order. Desktop uses anchored Popover/listbox surfaces and one bounded
+  wheel-scroll owner per long list. It must not render a mobile Sheet or a shrunken mobile DOM.
+- `390/430/768`: render a separate mobile/tablet DOM with compact semantic sections. Enum fields
+  open a mobile Sheet/listbox; the sheet/listbox has a bounded scroll owner, safe-area padding,
+  last-option reachability, Escape close, focus restoration, and accurate `aria-expanded` and
+  mounted `aria-controls`. IMEI1 is an explicit required field; IMEI2 is a visible adjacent
+  field, never hidden. Planned sale and acquisition cost remain visible in the main Quick Entry
+  flow, subject to permission-safe rendering.
+- Free text is directly visible. Do not hide a required or frequently edited field behind
+  “more information”. The six-width matrix must assert one active responsive shell, no page
+  overflow, stable focus order, and no duplicate IDs or controls.
+
+### Disclosure and option policy
+
+All enum fields use the existing shared selector contracts first (`componentDensity.compactSelector`,
+`Popover`, `Sheet`, and the current catalog/listbox code). Selection closes the disclosure; Escape
+closes it; focus returns to the trigger; the trigger exposes an accessible name and truthful
+expanded/controls state. New disclosure code is allowed only as a small inventory-domain adapter
+when existing primitives cannot express these rules.
+
+Existing EU catalog searchability is separate from Apple exact-color approval. Because
+`eu-phone-catalog.ts` contains broad shared arrays for some older Apple models, an Apple model is
+`pending-official-color` unless a per-model official source and review receipt bind the exact
+colors. Apple unknown/manual models keep their draft, display the pending mapping notice, and block
+generic/custom selection. A future local approval manifest/validator is a separate data gate and
+must not batch-approve the current arrays. Non-Apple generic color order is black, gray, dark blue,
+green, white. IMEI1 requiredness is category-aware (phone only); non-IMEI categories do not invent
+an IMEI. Acquisition cost is shown only when the existing cost permission allows it, while planned
+sale remains explicit. No bulk import, schema/migration, production-data write, or unapproved
+catalog mutation is implied.
+
+- `pending-official-color` is not itself a save failure: preserve any existing draft/edit color as
+  read-only, offer no new generic/custom color choice, omit any newly selected Apple color from the
+  payload, and show an inline pending-mapping status. Quick Entry color is optional today, so save
+  remains allowed unless the applicable category/device flow independently requires a color; that
+  separate validation must state the reason explicitly.
+
+### State and validation matrix
+
+Later implementation evidence must cover default, loading/disabled, empty, invalid, read-failure
+fallback to static/manual, permission-limited, Apple-known, Apple-unknown/manual, and save-pending/
+success/error states. For each state and viewport record overflow, target sizes, input font size,
+selector scroll completion, keyboard and touch behavior, Escape/focus restoration, accessible
+names, and whether the active shell is desktop or mobile. Critical defects stop the batch; they
+cannot be masked by `requiresRoot200`, stale screenshots, or broad exceptions.
+
+### Reuse-first candidate boundary
+
+The audited reusable sources are `InventoryProductFormWorkspace`, `InventoryProductForm`,
+`InventoryProductIdentifierSection`, `CatalogCombobox`, existing specification/color choices,
+`device-form-options.ts`, `eu-phone-catalog.ts`, `componentDensity.compactSelector`,
+`componentOverlay`, and the existing UI `Popover`/`Sheet`. Candidate implementation paths are
+the current inventory form/workspace/catalog fields and their existing tests/stories only; a
+new domain disclosure adapter is a bounded exception requiring an explicit packet. Do not create
+a generic UI primitive or alter `src/styles.css` merely to satisfy this contract.
+
+The sequence is design → implementation → browser/a11y validation → evidence iteration → clean RC /
+release. Stop for API/query/payload/permission/tenant/dependency/AppShell/schema/migration or
+production-data coupling, unresolved dirty ownership, or unprovable rollback. This section is a
+design contract and authorizes no source, test, Storybook, config, Registry, CAS, commit, push, or
+deploy write.
+
+### Implementation preview candidate status (current update, 2026-08-15)
+
+The Owner has authorized the completed 20-path candidate for intentional commit/push and a
+protected Preview. Existing implementation evidence records Node22 full lint/typecheck/test
+`453/453` + `2993/2993`, build `30/30`, and browser `20/20`. Independent UX audit still has two
+P1 gaps: disclosure-first coverage is incomplete for network/version, warranty, and manual
+supplements; and complete save/error/permission/offline/conflict/success Story/evidence coverage
+is not yet complete. Formal production domains remain blocked and must not be cut over. No
+production data, schema/migration, or bulk catalog import is included. The Owner has authorized
+autonomous design → Preview → implementation → validation → follow-up Preview; do not require a
+separate per-design Owner-approval gate. This appended status does not alter the historical
+design-only contract above.
