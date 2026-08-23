@@ -1738,11 +1738,19 @@ export function fail(error: unknown) {
       status: number;
       code: string;
       details?: Record<string, unknown>;
+      requestId?: unknown;
     };
+    const requestId =
+      domainError.code === "STORE_CREATE_UNAVAILABLE" &&
+      typeof domainError.requestId === "string" &&
+      z.string().uuid().safeParse(domainError.requestId).success
+        ? domainError.requestId
+        : undefined;
     return privateJson(
       {
         error: domainError.message,
         code: domainError.code,
+        ...(requestId ? { requestId } : {}),
         ...(domainError.details && typeof domainError.details === "object"
           ? { details: domainError.details }
           : {}),

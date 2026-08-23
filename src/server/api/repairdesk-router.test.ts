@@ -162,6 +162,95 @@ describe("inventory products BFF release gate", () => {
     });
   });
 
+  it("serializes only store-create availability request ids for safe retry support", async () => {
+    const requestId = "00000000-0000-4000-8000-000000000005";
+    const response = await fail(
+      Object.assign(new Error("店铺创建服务暂时不可用，请稍后重试"), {
+        status: 503,
+        code: "STORE_CREATE_UNAVAILABLE",
+        requestId,
+      }),
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "店铺创建服务暂时不可用，请稍后重试",
+      code: "STORE_CREATE_UNAVAILABLE",
+      requestId,
+    });
+
+    const unrelated = await fail(
+      Object.assign(new Error("safe domain copy"), {
+        status: 409,
+        code: "stale_version",
+        requestId,
+      }),
+    );
+    expect(await unrelated.json()).toEqual({
+      error: "safe domain copy",
+      code: "stale_version",
+    });
+  });
+
+  it("drops invalid store-create correlation ids from response, headers, and logs", async () => {
+    const invalidRequestId = "not-a-uuid-secret-sentinel";
+    const telemetry = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const response = await fail(
+        Object.assign(new Error("店铺创建服务暂时不可用，请稍后重试"), {
+          status: 503,
+          code: "STORE_CREATE_UNAVAILABLE",
+          requestId: invalidRequestId,
+        }),
+      );
+      const body = await response.json();
+      expect(body).toEqual({
+        error: "店铺创建服务暂时不可用，请稍后重试",
+        code: "STORE_CREATE_UNAVAILABLE",
+      });
+      expect(JSON.stringify(body)).not.toContain(invalidRequestId);
+      expect(response.headers.get("x-request-id")).toBeNull();
+      expect(telemetry).not.toHaveBeenCalled();
+    } finally {
+      telemetry.mockRestore();
+    }
+  });
+
+  it("rejects an invalid store-create request id before repository access", async () => {
+    const invalidRequestId = "invalid-request-id-secret-sentinel";
+    const createStore = vi.fn();
+    const errorTelemetry = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const warningTelemetry = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.resetModules();
+    vi.doMock("@/features/stores/server/store.repository", async (importOriginal) => {
+      const actual =
+        await importOriginal<typeof import("@/features/stores/server/store.repository")>();
+      return { ...actual, createStore };
+    });
+    try {
+      const { handleRepairDeskPost: isolatedHandleRepairDeskPost } =
+        await import("./repairdesk-router");
+      const response = await isolatedHandleRepairDeskPost(
+        "stores/create",
+        { input: { request_id: invalidRequestId, name: "Synthetic" } },
+        actor("owner"),
+      );
+      const body = await response.json();
+      const serializedBody = JSON.stringify(body);
+      expect(response.status).toBe(400);
+      expect(serializedBody).not.toContain(invalidRequestId);
+      expect(response.headers.get("x-request-id")).toBeNull();
+      expect(
+        JSON.stringify([...errorTelemetry.mock.calls, ...warningTelemetry.mock.calls]),
+      ).not.toContain(invalidRequestId);
+      expect(createStore).not.toHaveBeenCalled();
+    } finally {
+      errorTelemetry.mockRestore();
+      warningTelemetry.mockRestore();
+      vi.doUnmock("@/features/stores/server/store.repository");
+      vi.resetModules();
+    }
+  });
+
   it("applies the exact-store gate on both product list and get routes", async () => {
     vi.stubEnv("INVENTORY_V2_SCHEMA_READY", "1");
     vi.stubEnv("INVENTORY_V2_UI", "1");

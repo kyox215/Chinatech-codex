@@ -26,6 +26,7 @@ import {
   createStore,
   getOnboardingStatus,
   redeemStoreInviteLink,
+  RepairDeskApiError,
   submitOnboardingRequest,
   type OnboardingRequestInput,
   type StoreCreateInput,
@@ -104,6 +105,11 @@ export function OnboardingScreen() {
     onError: (error) => {
       if (error instanceof Error && error.message === "店铺资料已改变，请重新提交") {
         removeStoreCreateRequestId();
+      }
+      if (error instanceof RepairDeskApiError && error.code === "STORE_CREATE_UNAVAILABLE") {
+        const requestId = error.requestId ?? getOrCreateStoreCreateRequestId();
+        toast.error(`${error.message}（请求编号：${requestId}）`);
+        return;
       }
       toast.error(error instanceof Error ? error.message : "创建失败");
     },

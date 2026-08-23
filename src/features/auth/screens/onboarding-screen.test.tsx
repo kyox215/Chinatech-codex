@@ -14,6 +14,18 @@ const apiMocks = vi.hoisted(() => ({
   getOnboardingStatus: vi.fn(),
   redeemStoreInviteLink: vi.fn(),
   submitOnboardingRequest: vi.fn(),
+  RepairDeskApiError: class RepairDeskApiError extends Error {
+    constructor(
+      message: string,
+      readonly status: number,
+      readonly code?: string,
+      readonly details?: Record<string, unknown>,
+      readonly requestId?: string,
+    ) {
+      super(message);
+      this.name = "RepairDeskApiError";
+    }
+  },
 }));
 
 const routerMocks = vi.hoisted(() => ({
@@ -197,6 +209,42 @@ describe("OnboardingScreen", () => {
     expect(apiMocks.createStore.mock.calls[1]?.[0].request_id).not.toBe(
       "00000000-0000-4000-8000-000000000106",
     );
+  });
+
+  it("shows the correlation id and preserves it for an unavailable store-create retry", async () => {
+    const user = userEvent.setup();
+    const requestId = "00000000-0000-4000-8000-000000000107";
+    apiMocks.getOnboardingStatus.mockResolvedValue({
+      email: "owner@example.com",
+      displayName: "Owner",
+      isPlatformAdmin: false,
+      stores: [],
+      requests: [],
+      invitations: [],
+      availableStores: [],
+    });
+    apiMocks.createStore.mockRejectedValue(
+      new apiMocks.RepairDeskApiError(
+        "店铺创建服务暂时不可用，请稍后重试",
+        503,
+        "STORE_CREATE_UNAVAILABLE",
+        undefined,
+        requestId,
+      ),
+    );
+    window.sessionStorage.setItem("repairdesk-create-store-request-id", requestId);
+
+    renderOnboardingScreen();
+    await user.click(await screen.findByRole("tab", { name: "创建店铺" }));
+    await user.type(screen.getByLabelText("店铺名称"), "Unavailable Store");
+    await user.click(screen.getByRole("button", { name: "创建店铺" }));
+
+    await waitFor(() =>
+      expect(toastMocks.error).toHaveBeenCalledWith(
+        `店铺创建服务暂时不可用，请稍后重试（请求编号：${requestId}）`,
+      ),
+    );
+    expect(window.sessionStorage.getItem("repairdesk-create-store-request-id")).toBe(requestId);
   });
 
   it("lets an applicant cancel a pending onboarding request", async () => {

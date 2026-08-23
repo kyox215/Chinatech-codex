@@ -78,8 +78,27 @@ const ACTIVE_STORE_COOKIE = "repairdesk-store-id";
 const STORE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 const INVITE_LINK_REDEEM_WINDOW_MS = 15 * 60 * 1000;
 const INVITE_LINK_REDEEM_LIMIT = 10;
-const STORE_CREATE_ERROR = "创建店铺失败，请稍后重试";
 const EMAIL_INVITE_COOLDOWN_MS = 60 * 1000;
+
+export class StoreCreateUnavailableError extends Error {
+  readonly status = 503;
+  readonly code = "STORE_CREATE_UNAVAILABLE";
+
+  constructor(readonly requestId: string) {
+    super("店铺创建服务暂时不可用，请稍后重试");
+    this.name = "StoreCreateUnavailableError";
+  }
+}
+
+function storeCreateUnavailable(requestId: string) {
+  console.error("[store-create] unavailable", {
+    event: "store_create_unavailable",
+    status: 503,
+    errorCode: "STORE_CREATE_UNAVAILABLE",
+    requestId,
+  });
+  return new StoreCreateUnavailableError(requestId);
+}
 
 export async function getStoreContext(actor: AuditActor): Promise<StoreContext> {
   const { orderDataAccess, ...permissions } = await storePermissionsFromActor(actor);
@@ -124,7 +143,12 @@ export async function createStore(
   assertVerifiedEmail(actor);
 
   const name = sanitizeStoreName(input.name);
-  const supabase = getSupabaseAdmin();
+  let supabase: ReturnType<typeof getSupabaseAdmin>;
+  try {
+    supabase = getSupabaseAdmin();
+  } catch {
+    throw storeCreateUnavailable(input.request_id);
+  }
   const now = new Date().toISOString();
   const slug = generateStoreSlug(name);
   const storeCode = generateStoreCode(name);
@@ -147,31 +171,37 @@ export async function createStore(
       }),
     )
     .digest("hex");
-  const { data, error } = await supabase.rpc("repairdesk_create_store_atomic_rpc", {
-    p_request_id: input.request_id,
-    p_request_hash: requestHash,
-    p_store_id: storeId,
-    p_actor_id: actor.id,
-    p_verified_email: email,
-    p_display_name: actor.displayName,
-    p_store_code: storeCode,
-    p_name: name,
-    p_slug: slug,
-    p_timezone: input.timezone || "Europe/Rome",
-    p_currency_code: input.currency_code || "EUR",
-    p_address: input.address?.trim() ?? "",
-    p_provisioning: provisioning,
-  });
-  if (error) throw mapStoreCreateError(error);
+  let rpcResult: { data: unknown; error: { message?: string } | null };
+  try {
+    rpcResult = await supabase.rpc("repairdesk_create_store_atomic_rpc", {
+      p_request_id: input.request_id,
+      p_request_hash: requestHash,
+      p_store_id: storeId,
+      p_actor_id: actor.id,
+      p_verified_email: email,
+      p_display_name: actor.displayName,
+      p_store_code: storeCode,
+      p_name: name,
+      p_slug: slug,
+      p_timezone: input.timezone || "Europe/Rome",
+      p_currency_code: input.currency_code || "EUR",
+      p_address: input.address?.trim() ?? "",
+      p_provisioning: provisioning,
+    });
+  } catch {
+    throw storeCreateUnavailable(input.request_id);
+  }
+  const { data, error } = rpcResult;
+  if (error) throw mapStoreCreateError(error, input.request_id);
   const row = (Array.isArray(data) ? data[0] : data) as DbRecord | undefined;
-  if (!row) throw new Error(STORE_CREATE_ERROR);
+  if (!row) throw storeCreateUnavailable(input.request_id);
   const store = storeFromRow(row, "owner");
 
   await setActiveStoreCookie(store.id);
   return nextContext(actor, store, true);
 }
 
-function mapStoreCreateError(error: { message?: string }) {
+function mapStoreCreateError(error: { message?: string }, requestId: string) {
   const message = error.message ?? "";
   if (message.includes("STORE_CREATE_RATE_LIMITED")) {
     return new Error("创建店铺过于频繁，请稍后再试");
@@ -185,7 +215,7 @@ function mapStoreCreateError(error: { message?: string }) {
   if (message.includes("STORE_CREATE_INVALID_INPUT")) {
     return new Error("店铺资料不正确，请检查后重试");
   }
-  return new Error(STORE_CREATE_ERROR);
+  return storeCreateUnavailable(requestId);
 }
 
 export async function listStoreMembers(actor: AuditActor): Promise<StoreMembersResult> {

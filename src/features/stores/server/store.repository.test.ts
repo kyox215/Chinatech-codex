@@ -16,11 +16,13 @@ import {
   rejectStoreAccessRequest,
   restoreStoreMember,
   revokeStoreInvitation,
+  StoreCreateUnavailableError,
   updateStoreMemberPermissions,
   updateStoreMemberRole,
 } from "./store.repository";
 
 const mocks = vi.hoisted(() => ({
+  getSupabaseAdmin: vi.fn(),
   supabase: {
     from: vi.fn(),
     rpc: vi.fn(),
@@ -39,7 +41,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/server/supabase", () => ({
-  getSupabaseAdmin: () => mocks.supabase,
+  getSupabaseAdmin: mocks.getSupabaseAdmin,
 }));
 
 vi.mock("@/server/audit", () => ({
@@ -122,6 +124,8 @@ describe("store repository access request boundaries", () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-07-18T08:00:00.000Z"));
+    mocks.getSupabaseAdmin.mockReset();
+    mocks.getSupabaseAdmin.mockReturnValue(mocks.supabase);
     mocks.supabase.from.mockReset();
     mocks.supabase.rpc.mockReset();
     mocks.supabase.auth.admin.getUserById.mockReset();
@@ -632,7 +636,47 @@ describe("store repository access request boundaries", () => {
     expect(mocks.setCookie).not.toHaveBeenCalled();
   });
 
+  it("maps server client initialization failures to the same safe unavailable response", async () => {
+    const requestId = "00000000-0000-4000-8000-000000000006";
+    mocks.getSupabaseAdmin.mockImplementation(() => {
+      throw new Error("SUPABASE_SECRET_KEY sentinel");
+    });
+    const telemetry = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      await expect(
+        createStore(
+          {
+            request_id: requestId,
+            name: "ChinaTech Roma",
+            currency_code: "EUR",
+          },
+          {
+            id: "owner_2",
+            email: "owner@chinatech.in",
+            emailVerified: true,
+            displayName: "New Owner",
+          },
+        ),
+      ).rejects.toMatchObject({
+        status: 503,
+        code: "STORE_CREATE_UNAVAILABLE",
+        requestId,
+        message: "店铺创建服务暂时不可用，请稍后重试",
+      });
+      expect(telemetry).toHaveBeenCalledWith("[store-create] unavailable", {
+        event: "store_create_unavailable",
+        status: 503,
+        errorCode: "STORE_CREATE_UNAVAILABLE",
+        requestId,
+      });
+    } finally {
+      telemetry.mockRestore();
+    }
+  });
+
   it("maps unknown atomic RPC failures to a stable public message", async () => {
+    const requestId = "00000000-0000-4000-8000-000000000005";
+    const telemetry = vi.spyOn(console, "error").mockImplementation(() => undefined);
     mocks.supabase.rpc.mockResolvedValue({
       data: null,
       error: { message: "duplicate key violates constraint private_constraint" },
@@ -644,20 +688,73 @@ describe("store repository access request boundaries", () => {
       displayName: "New Owner",
       role: "viewer",
     };
-    await expect(
-      createStore(
-        {
-          request_id: "00000000-0000-4000-8000-000000000005",
-          name: "ChinaTech Roma",
-          currency_code: "EUR",
-        },
-        newOwner,
-      ),
-    ).rejects.toThrow("创建店铺失败，请稍后重试");
+    try {
+      await expect(
+        createStore(
+          {
+            request_id: requestId,
+            name: "ChinaTech Roma",
+            currency_code: "EUR",
+          },
+          newOwner,
+        ),
+      ).rejects.toMatchObject({
+        name: "StoreCreateUnavailableError",
+        status: 503,
+        code: "STORE_CREATE_UNAVAILABLE",
+        requestId,
+        message: "店铺创建服务暂时不可用，请稍后重试",
+      } satisfies Partial<StoreCreateUnavailableError>);
+
+      expect(telemetry).toHaveBeenCalledWith("[store-create] unavailable", {
+        event: "store_create_unavailable",
+        status: 503,
+        errorCode: "STORE_CREATE_UNAVAILABLE",
+        requestId,
+      });
+    } finally {
+      telemetry.mockRestore();
+    }
 
     expect(mocks.supabase.from).not.toHaveBeenCalled();
     expect(mocks.setCookie).not.toHaveBeenCalled();
     expect(mocks.writeAuditLog).not.toHaveBeenCalled();
+  });
+
+  it("maps thrown RPC transport failures without exposing the caught error", async () => {
+    const requestId = "00000000-0000-4000-8000-000000000007";
+    mocks.supabase.rpc.mockRejectedValue(new Error("Postgres connection secret"));
+    const telemetry = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      await expect(
+        createStore(
+          {
+            request_id: requestId,
+            name: "ChinaTech Roma",
+            currency_code: "EUR",
+          },
+          {
+            id: "owner_2",
+            email: "owner@chinatech.in",
+            emailVerified: true,
+            displayName: "New Owner",
+          },
+        ),
+      ).rejects.toMatchObject({
+        status: 503,
+        code: "STORE_CREATE_UNAVAILABLE",
+        requestId,
+        message: "店铺创建服务暂时不可用，请稍后重试",
+      });
+      expect(telemetry).toHaveBeenCalledWith("[store-create] unavailable", {
+        event: "store_create_unavailable",
+        status: 503,
+        errorCode: "STORE_CREATE_UNAVAILABLE",
+        requestId,
+      });
+    } finally {
+      telemetry.mockRestore();
+    }
   });
 
   it("does not let managers invite another manager", async () => {

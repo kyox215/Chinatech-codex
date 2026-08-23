@@ -1,5 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
+if (process.env.REPAIRDESK_E2E_ATOMIC_ONBOARDING_POSTGREST === "1") {
+  throw new Error(
+    "Sensitive store-signup PostgREST E2E requires --config=playwright.store-signup-postgrest.config.ts.",
+  );
+}
+
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const reuseExistingServer = process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER
   ? process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === "1"

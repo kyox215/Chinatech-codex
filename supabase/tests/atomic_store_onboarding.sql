@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(17);
+select plan(19);
 
 select ok(
   not has_function_privilege(
@@ -91,7 +91,9 @@ insert into atomic_test_payload values (
     ))
   )
 );
+grant select on atomic_test_payload to service_role;
 
+set role anon;
 select throws_ok(
   $$select * from public.repairdesk_create_store_atomic_rpc(
     'a1000000-0000-4000-8000-000000000009', repeat('f', 64),
@@ -99,14 +101,46 @@ select throws_ok(
     'a1000000-0000-4000-8000-000000000001',
     'atomic-owner@example.test', 'Atomic Owner', 'FORBIDDEN-1',
     'Forbidden Store', 'forbidden-store-0001', 'Europe/Rome', 'EUR', '',
-    (select payload from atomic_test_payload)
+    '{}'::jsonb
   )$$,
   '42501',
-  'STORE_CREATE_FORBIDDEN',
-  'runtime rejects calls without a service-role claim'
+  null,
+  'anon cannot invoke atomic store creation'
+);
+reset role;
+
+set role authenticated;
+select throws_ok(
+  $$select * from public.repairdesk_create_store_atomic_rpc(
+    'a1000000-0000-4000-8000-000000000009', repeat('f', 64),
+    'a1000000-0000-4000-8000-000000000090',
+    'a1000000-0000-4000-8000-000000000001',
+    'atomic-owner@example.test', 'Atomic Owner', 'FORBIDDEN-1',
+    'Forbidden Store', 'forbidden-store-0001', 'Europe/Rome', 'EUR', '',
+    '{}'::jsonb
+  )$$,
+  '42501',
+  null,
+  'authenticated cannot invoke atomic store creation'
+);
+reset role;
+
+select throws_ok(
+  $$select * from public.repairdesk_create_store_atomic_rpc(
+    'a1000000-0000-4000-8000-000000000009', 'invalid-hash',
+    'a1000000-0000-4000-8000-000000000090',
+    'a1000000-0000-4000-8000-000000000001',
+    'atomic-owner@example.test', 'Atomic Owner', 'INVALID-1',
+    'Invalid Store', 'invalid-store-0001', 'Europe/Rome', 'EUR', '',
+    (select payload from atomic_test_payload)
+  )$$,
+  '22023',
+  'STORE_CREATE_INVALID_INPUT',
+  'runtime validates input without a legacy request-claim dependency'
 );
 
-select set_config('request.jwt.claim.role', 'service_role', true);
+set role service_role;
+reset request.jwt.claim.role;
 
 select throws_ok(
   $$select * from public.repairdesk_create_store_atomic_rpc(
@@ -138,6 +172,8 @@ select * from public.repairdesk_create_store_atomic_rpc(
   'Via Atomic 1',
   (select payload from atomic_test_payload)
 );
+
+reset role;
 
 select is((select count(*) from atomic_first_result), 1::bigint, 'atomic RPC returns one store');
 select is(
