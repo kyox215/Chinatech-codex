@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "task_id": "TASK-20260823-002-store-signup-repair",
+  "audit_date": "2026-08-25",
+  "source_candidate": {
+    "commit": "871d2ca9ef8de6af056001454d66b082a1ac7e0d",
+    "tree": "df6862f4f820b35a18434d7585e84f39cdd78778",
+    "production_baseline_commit": "7b47c0afcb2bea5f1069553555c701bc75549d46"
+  },
+  "status": "evidence_only",
+  "production_applied": false,
+  "other_environment_status": "unknown",
+  "active_schema_implication": false,
+  "execution_policy": {
+    "prohibit_execution": true,
+    "prohibit_restoration": true,
+    "prohibit_old_timestamp_reuse": true,
+    "future_rule": "Use a newly timestamped migration only after owner approval, lineage review, disposable rehearsal, and release gates."
+  },
+  "whitespace_exception": {
+    "path": "supabase/migrations/20260804230127_seatable_import_preferred_channel_enum_fix_static.sql",
+    "sha256": "6aebb597ff202f67aa8d4421a70b7fb47de589178f01d140d8bbcfd2330486a4",
+    "diagnostic": "new blank line at EOF",
+    "scope": "exact path and exact SHA-256 only",
+    "reason": "The production-authoritative byte artifact ends with two LF bytes and must not be trimmed.",
+    "all_other_untracked_files_must_be_clean": true,
+    "broad_skip_forbidden": true
+  },
+  "authoritative_seatable_sources": [
+    {
+      "path": "supabase/migrations/20260804225445_seatable_current_repair_transactional_import.sql",
+      "production_ledger": {
+        "version": "20260804225445",
+        "name": "seatable_current_repair_transactional_import",
+        "statement_count": 1,
+        "bytes": 43341,
+        "sha256": "c7d28bd05b862e4ef2865cc53a94b04a123e2645129af079bdb00b793f1af5b5"
+      },
+      "source_alias_commit": "4cda523e92470bfc8f81fd1bc62ddca3730ddc00",
+      "source_alias_snapshot_commit": "353fb0eb5d41948facf284b7c62bb6df1c20d827",
+      "source_alias_path": "supabase/migrations/20260804140252_seatable_current_repair_transactional_import.sql",
+      "source_alias_blob_oid": "2ff62428b97f7da78f41449efe9ac4b52316041f",
+      "source_alias_bytes": 43365,
+      "source_alias_sha256": "1dc0239b9ccd672b105fc8008cd5a0b9b5fa82bbdb4a32b43d553edb6140bc56",
+      "candidate_path": "supabase/migrations/20260804225445_seatable_current_repair_transactional_import.sql",
+      "candidate_blob_oid": "04a3b3115a0e3088f95968bdf1ed3a792d2d27b8",
+      "candidate_bytes": 43341,
+      "candidate_sha256": "c7d28bd05b862e4ef2865cc53a94b04a123e2645129af079bdb00b793f1af5b5",
+      "byte_equal_to_source_alias": false,
+      "derivation": "Remove exactly one literal ::public.message_channel cast from the approved source alias; all other bytes are unchanged."
+    },
+    {
+      "path": "supabase/migrations/20260804230127_seatable_import_preferred_channel_enum_fix_static.sql",
+      "production_ledger": {
+        "version": "20260804230127",
+        "name": "seatable_import_preferred_channel_enum_fix_static",
+        "statement_count": 1,
+        "bytes": 24925,
+        "sha256": "6aebb597ff202f67aa8d4421a70b7fb47de589178f01d140d8bbcfd2330486a4"
+      },
+      "source_alias_commit": "4cda523e92470bfc8f81fd1bc62ddca3730ddc00",
+      "source_alias_snapshot_commit": "353fb0eb5d41948facf284b7c62bb6df1c20d827",
+      "source_alias_path": "supabase/migrations/20260804225900_seatable_import_preferred_channel_enum_fix.sql",
+      "source_alias_blob_oid": "28f0cb6db1d3e5abb00586278e491f03eaae34c2",
+      "source_alias_bytes": 24924,
+      "source_alias_sha256": "7666bf1b26dd3092e020ae502ff93197167eb930285af81eca6e3b37860b8f25",
+      "candidate_path": "supabase/migrations/20260804230127_seatable_import_preferred_channel_enum_fix_static.sql",
+      "candidate_blob_oid": "ef2c21c55e7f6fc65dcaa12adfd31ae79373c89b",
+      "candidate_bytes": 24925,
+      "candidate_sha256": "6aebb597ff202f67aa8d4421a70b7fb47de589178f01d140d8bbcfd2330486a4",
+      "byte_equal_to_source_alias": false,
+      "derivation": "Append exactly one LF byte to the approved source alias; the resulting production-authoritative artifact ends with exactly two LF bytes and must not be trimmed."
+    }
+  ],
+  "artifacts": [
+    {
+      "original_path": "supabase/migrations/20260806222149_authenticated_toolkit_library.sql",
+      "archive_path": "docs/migration-lineage/archive/TASK-20260823-002-repo-only-unapplied/migrations/20260806222149_authenticated_toolkit_library.sql",
+      "source_candidate": "871d2ca9ef8de6af056001454d66b082a1ac7e0d",
+      "git_blob_oid": "503877264977b37f18b2cac8018502f7f8b552af",
+      "bytes": 4330,
+      "sha256": "e4c25f276e78be6c6f410231e730a25c8465ea0253c67388e0ecf62dcfef4c61",
+      "introducing_commit": "3f049c7cd82f0ca97d35410af8dbb687e05a7939",
+      "production_applied": false,
+      "audit_date": "2026-08-25",
+      "other_environment_status": "unknown",
+      "status": "evidence_only",
+      "active_schema_implication": false
+    },
+    {
+      "original_path": "supabase/migrations/20260807120000_inventory_product_lifecycle.sql",
+      "archive_path": "docs/migration-lineage/archive/TASK-20260823-002-repo-only-unapplied/migrations/20260807120000_inventory_product_lifecycle.sql",
+      "source_candidate": "871d2ca9ef8de6af056001454d66b082a1ac7e0d",
+      "git_blob_oid": "fd93225cdd50606f6d581f19c2b1c5ad053bdb09",
+      "bytes": 76655,
+      "sha256": "13b52a2feb08d8956c5a07a5c34c87a34aa0f5f1338ebf06a5b855088b198942",
+      "introducing_commit": "50ac38c2ba35f313c9f26bc0f365c118d9eb2334",
+      "production_applied": false,
+      "audit_date": "2026-08-25",
+      "other_environment_status": "unknown",
+      "status": "evidence_only",
+      "active_schema_implication": false
+    },
+    {
+      "original_path": "supabase/migrations/20260807120100_inventory_product_lifecycle_enable.sql",
+      "archive_path": "docs/migration-lineage/archive/TASK-20260823-002-repo-only-unapplied/migrations/20260807120100_inventory_product_lifecycle_enable.sql",
+      "source_candidate": "871d2ca9ef8de6af056001454d66b082a1ac7e0d",
+      "git_blob_oid": "f91debee6e26e9fcfdd5048fe66f379889e6e1a2",
+      "bytes": 7569,
+      "sha256": "3cdc8f419c835cc137da7bedd6082d1822ee1dde235fcb490f27f99357cd5cc5",
+      "introducing_commit": "50ac38c2ba35f313c9f26bc0f365c118d9eb2334",
+      "production_applied": false,
+      "audit_date": "2026-08-25",
+      "other_environment_status": "unknown",
+      "status": "evidence_only",
+      "active_schema_implication": false
+    },
+    {
+      "original_path": "supabase/tests/inventory_product_lifecycle.sql",
+      "archive_path": "docs/migration-lineage/archive/TASK-20260823-002-repo-only-unapplied/tests/inventory_product_lifecycle.sql",
+      "source_candidate": "871d2ca9ef8de6af056001454d66b082a1ac7e0d",
+      "git_blob_oid": "8260dd9f71db29c8034b1f7147d877a6977cdce1",
+      "bytes": 8031,
+      "sha256": "8dd017d7a53b20a8554a884cd13f4d395347be5287b0df79ad12de1f390c12b9",
+      "introducing_commit": "50ac38c2ba35f313c9f26bc0f365c118d9eb2334",
+      "production_applied": false,
+      "audit_date": "2026-08-25",
+      "other_environment_status": "unknown",
+      "status": "evidence_only",
+      "active_schema_implication": false
+    }
+  ]
+}

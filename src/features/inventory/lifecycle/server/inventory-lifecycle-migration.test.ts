@@ -1,12 +1,32 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const migration = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260807120000_inventory_product_lifecycle.sql"),
-  "utf8",
-);
+const repoRoot = process.cwd();
+const archivePath =
+  "docs/migration-lineage/archive/TASK-20260823-002-repo-only-unapplied/migrations/20260807120000_inventory_product_lifecycle.sql";
+const activePath = "supabase/migrations/20260807120000_inventory_product_lifecycle.sql";
+const manifest = JSON.parse(
+  readFileSync(
+    resolve(
+      repoRoot,
+      "docs/migration-lineage/archive/TASK-20260823-002-repo-only-unapplied/MANIFEST.json",
+    ),
+    "utf8",
+  ),
+) as {
+  artifacts: Array<{
+    archive_path: string;
+    bytes: number;
+    sha256: string;
+    production_applied: boolean;
+    status: string;
+    active_schema_implication: boolean;
+  }>;
+};
+const migration = readFileSync(resolve(repoRoot, archivePath), "utf8");
 
 function commandBody(command: string, nextCommand: string) {
   const start = migration.indexOf(`elsif v_command = '${command}'`);
@@ -17,6 +37,22 @@ function commandBody(command: string, nextCommand: string) {
 }
 
 describe("inventory lifecycle migration contracts", () => {
+  it("keeps the lifecycle expand body as inactive evidence-only lineage", () => {
+    const artifact = manifest.artifacts.find((entry) => entry.archive_path === archivePath);
+
+    expect(artifact).toBeDefined();
+    expect(existsSync(resolve(repoRoot, activePath))).toBe(false);
+    expect(existsSync(resolve(repoRoot, archivePath))).toBe(true);
+    if (!artifact) return;
+    const contents = readFileSync(resolve(repoRoot, archivePath));
+
+    expect(contents.byteLength).toBe(artifact.bytes);
+    expect(createHash("sha256").update(contents).digest("hex")).toBe(artifact.sha256);
+    expect(artifact.production_applied).toBe(false);
+    expect(artifact.status).toBe("evidence_only");
+    expect(artifact.active_schema_implication).toBe(false);
+  });
+
   it("keeps acquisition behind a coarse owner or manager database fence", () => {
     expect(migration).toContain(
       "v_command = 'acquisition.save' and v_actor_role not in ('owner', 'manager')",

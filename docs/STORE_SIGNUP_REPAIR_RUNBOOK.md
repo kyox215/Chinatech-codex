@@ -12,6 +12,14 @@ Status: implementation draft. This runbook records the reversible forward repair
 - Rollback artifact SHA-256: `4ee9dae7a6d91cec62d20808c16aa2ca0b74c0f821fa0f71110875c38e4bcc75`.
 - Verify the exact commit, migration filename, and migration body in a clean worktree before any linked-environment action. Do not infer lineage from a branch name or local dirty tree.
 
+## Candidate chain and remote verification
+
+- The release candidate chain is exactly `7b47c0afcb2bea5f1069553555c701bc75549d46` → `871d2ca9ef8de6af056001454d66b082a1ac7e0d` → `X`. `X` is the later approved lineage candidate, not yet recorded by this runbook.
+- The sole final-candidate parent rule is: `X` has exactly one parent `871d2ca9ef8de6af056001454d66b082a1ac7e0d`, and `git merge-base X 7b47c0afcb2bea5f1069553555c701bc75549d46` is exactly `7b47c0afcb2bea5f1069553555c701bc75549d46`. The earlier `871d2ca9ef8de6af056001454d66b082a1ac7e0d` commit has the production baseline as its single parent; this does not change the final `X` rule.
+- No squash, amend, merge, or cherry-pick is permitted in this chain. A candidate must retain the recorded parent/tree lineage.
+- Before a separately approved necessary non-production push, verify locally that `git rev-parse <recorded-candidate-ref>^{commit}` equals the recorded `X` and `git show -s --format=%T <recorded-candidate-ref>` equals the approved candidate tree. Also verify the sanitized origin owner/repository, the actual GitHub integration configured repository, the configured working/root directory, and the configured trigger and target are all the approved non-production values; `git rev-parse --show-toplevel` is local evidence only. Only after that approval may the necessary non-production ref be pushed.
+- After the push, fetch the approved remote ref and verify its SHA equals `X` and its tree equals the approved candidate tree before creating or validating the Supabase branch. Do not infer remote state from local refs. This runbook does not authorize a push.
+
 ## What the forward migration changes
 
 The migration replaces the existing `public.repairdesk_create_store_atomic_rpc` with the same signature and the same `SECURITY DEFINER`, empty `search_path`, validation, email check, advisory lock, idempotency, rate limit, DML, transaction, and return shape. It removes only the obsolete `request.jwt.claim.role` gate.
@@ -24,7 +32,7 @@ Supabase's current API-key guidance describes `sb_secret_...` keys as backend-on
 
 Run these checks against the intended non-production or approved release environment, using an operator account that can inspect metadata but not expose key values:
 
-1. Before candidate freeze, create the isolated worktree from the exact baseline above and verify that the historical migration is byte-for-byte unchanged. After candidate freeze, verify that the candidate's merge-base and single parent commit are that baseline, `HEAD` is the recorded and approved candidate SHA, and the candidate worktree is clean; do not require post-freeze `HEAD` to remain at the baseline.
+1. Before candidate freeze, create the isolated worktree from the exact baseline above and verify that the historical migration is byte-for-byte unchanged. After candidate freeze, verify that `X` has exactly one parent `871d2ca9ef8de6af056001454d66b082a1ac7e0d`, `git merge-base X 7b47c0afcb2bea5f1069553555c701bc75549d46` is exactly the production baseline, `HEAD` is the recorded and approved candidate SHA `X`, and the candidate worktree is clean; do not require post-freeze `HEAD` to remain at the baseline.
 2. Confirm the live migration marker is `20260810173610` (or stop and obtain a new lineage decision if it differs).
 3. Inspect the target function's signature, `prosecdef`, `proconfig`/empty `search_path`, and ACL. Do not call the function with customer data or create a store during prechecks.
 4. Confirm `PUBLIC`, `anon`, and `authenticated` do not have `EXECUTE`; confirm `service_role` does.
@@ -36,28 +44,28 @@ Run these checks against the intended non-production or approved release environ
 
 1. Complete independent DATA, SEC, QA, and Release reviews of the migration, repository/router response, client retry behavior, tests, and this runbook.
 2. Verify migration lineage and the prechecks above in a clean release worktree.
-3. Apply the single forward migration in the approved environment. Do not edit or replay historical migrations.
+3. In an approved environment whose ledger does not yet contain the signup change, apply the single forward migration once; the staging drill below starts at the already-forward `120` state and must not apply `20260823141758` again. Do not edit or replay historical migrations.
 4. Reload PostgREST schema (the migration emits `pg_notify('pgrst', 'reload schema')`) and perform read-only postchecks for the function definition and ACL.
 5. Deploy the server/client changes that use the typed `503 STORE_CREATE_UNAVAILABLE` response. The UI must preserve the same request id for a safe retry and show that id to the operator.
 6. Observe error rates, ACL-denial signals, and sanitized availability telemetry (`event`, `status`, `errorCode`, `requestId`) without recording raw Supabase/SQL errors or secrets.
 
-## Staging-only forward → rollback → forward drill
+## Staging-only already-forward 120 → rollback 121 → re-forward 122 drill
 
 This drill is a release rehearsal only. Do not execute the inert SQL file directly, do not run it against production, and do not promote a staging artifact. A separately reviewed forward migration may copy the exact commented body from `docs/STORE_SIGNUP_REPAIR_ROLLBACK.sql` only after explicit staging authorization.
 
-1. Create the Supabase disposable staging branch from the verified and approved database baseline/lineage. Independently use a clean Git release worktree whose `HEAD` is the recorded candidate SHA (with its merge-base and single parent still the production baseline); never treat the Git baseline commit as the source of the database branch. Verify the non-production origin/project-ref allowlists, external `storageState` mode `0600`, and the read-only prechecks above.
-2. Apply the reviewed forward migration in staging, reload PostgREST, and run the read-only function/ACL/invariant checks plus the gated real E2E. Record the migration response and synthetic `activeStore.id/name`; do not retain customer data.
-3. Stop the staging create path, create and apply a newly timestamped reviewed forward rollback migration containing the artifact's exact historic function gate and ACL, reload PostgREST, and confirm the old gate is restored without table/data/policy changes.
-4. After rollback, create a fresh, later-timestamped reviewed re-forward migration that copies the forward function body, ACL declarations, and schema reload exactly. It must be newer than the already-applied `20260823141758`; never reuse that migration version. Apply it, rerun the read-only checks and real E2E, and confirm the service-role/no-claim contract. Any mismatch stops the drill.
-5. For each stage, record the five **data invariant** violation counts below; every forward, rollback, and re-forward count must be exactly `0`:
+1. Create the Supabase disposable staging branch from the verified and approved production-based data-less database baseline/lineage; never use `--with-data`. Independently use a clean Git release worktree whose `HEAD` is the recorded candidate SHA (with `X`'s single parent `871d2ca9ef8de6af056001454d66b082a1ac7e0d` and merge-base `7b47c0afcb2bea5f1069553555c701bc75549d46`); never treat the Git baseline commit as the source of the database branch. Before any postchecks, require active migrations `120` files/`120` unique versions and the branch migration ledger exactly `120`/`120` as an already-forward state, with signup applied exactly once and the production version set differing only by the signup migration. Do not apply `20260823141758` again. Verify repo-only toolkit/lifecycle objects are absent, and verify SeaTable catalog, ACL, RLS, and owner parity against production before accepting the branch. Verify the non-production origin/project-ref allowlists, external `storageState` mode `0600`, and the read-only prechecks above.
+2. At the initial already-forward `120` state, reload PostgREST if required by the approved branch procedure and run the read-only function/ACL/invariant checks plus the gated real E2E; do not apply the signup forward migration again. Record the existing migration state and synthetic `activeStore.id/name`; do not retain customer data.
+3. Stop the staging create path, create and apply a newly timestamped reviewed forward rollback migration producing ledger state `121` and containing the artifact's exact historic function gate and ACL, reload PostgREST, and confirm the old gate is restored without table/data/policy changes. State `121` is rehearsal-only and never promotable.
+4. After rollback, create a fresh, later-timestamped reviewed re-forward migration producing ledger state `122` that copies the forward function body, ACL declarations, and schema reload exactly. It must be newer than the already-applied `20260823141758`; never reuse that migration version. Apply it, rerun the read-only checks and real E2E, and confirm the service-role/no-claim contract. State `122` is rehearsal-only and never promotable. Any mismatch stops the drill.
+5. For each stage, record the five **data invariant** violation counts below; every initial `120`, rollback `121`, and re-forward `122` count must be exactly `0`:
 
-   | Data invariant                                             | Forward | Rollback | Re-forward |
-   | ---------------------------------------------------------- | ------: | -------: | ---------: |
-   | Active store missing its active lifecycle                  |     `0` |      `0` |        `0` |
-   | Active store missing its active owner membership           |     `0` |      `0` |        `0` |
-   | Per-store settings row count is not exactly `1`            |     `0` |      `0` |        `0` |
-   | Enabled default-create status row count is not exactly `1` |     `0` |      `0` |        `0` |
-   | Operation ledger references a store that does not exist    |     `0` |      `0` |        `0` |
+   | Data invariant                                             | Initial 120 | Rollback 121 | Re-forward 122 |
+   | ---------------------------------------------------------- | ----------: | -----------: | -------------: |
+   | Active store missing its active lifecycle                  |         `0` |          `0` |             `0` |
+   | Active store missing its active owner membership           |         `0` |          `0` |             `0` |
+   | Per-store settings row count is not exactly `1`            |         `0` |          `0` |             `0` |
+   | Enabled default-create status row count is not exactly `1` |         `0` |          `0` |             `0` |
+   | Operation ledger references a store that does not exist    |         `0` |          `0` |             `0` |
 
    Separately record the metadata/behavior checklist—not part of these five data counts—for the exact function signature, `SECURITY DEFINER`, empty `search_path`, email/input validation, advisory lock, rate limit, idempotent replay/conflict behavior, atomic DML/child-row rollback, and return shape. Compare pre/post counts for a valid store, its child rows, and its operation-ledger rows; rollback must preserve all three and must not delete them.
 

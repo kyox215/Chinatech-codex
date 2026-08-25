@@ -28,6 +28,6 @@
 
 ## 数据库与发布
 
-`supabase/migrations/20260806222149_authenticated_toolkit_library.sql` 仅为向前兼容新增迁移，启用 RLS 并只授予 `service_role`，创建私有 `repairdesk-toolkit-files` bucket（200 MiB 上限）。当前发布只部署默认关闭的应用代码，不应用生产迁移、不创建生产对象、不上传真实文件，也不启用工具集。
+`docs/migration-lineage/archive/TASK-20260823-002-repo-only-unapplied/migrations/20260806222149_authenticated_toolkit_library.sql` 是从候选提交保留的字节级 lineage 证据，启用 RLS、只授予 `service_role` 并创建私有 `repairdesk-toolkit-files` bucket（200 MiB 上限）的历史设计仍可供审查。它的 `production_applied=false`、`status=evidence_only`，不代表任何环境已有对应 schema；原 `supabase/migrations/` 路径已移除。不得执行、恢复或复用这个旧 timestamp。本次 lineage reconciliation 不授权当前 toolkit deployment，也不授权当前 toolkit migration；未来若需相关能力，必须另建新 timestamp migration，并重新通过 lineage、RLS/Storage 与独立发布审批。本文不构成当前应用或工具集部署许可。
 
 应用发布采用 fail-closed 开关 `NEXT_PUBLIC_REPAIRDESK_TOOLKIT_ENABLED=1`。变量不存在或不是精确的 `1` 时，侧栏和命令面板不显示工具集，`/toolkit` 返回 404，所有 `toolkit/*` API 也在访问数据库前返回 404。只有完成生产迁移、RLS/Storage 复核和独立启用批准后才能设置该变量；未接入扫描器前仍不得启用 hosted file 发布。

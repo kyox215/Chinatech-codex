@@ -45,7 +45,7 @@ SeaTable 是只读外部参考源。本发布不连接、不回写、不导入�
 
 ## 3. 数据对象
 
-Expand migration：`supabase/migrations/20260807120000_inventory_product_lifecycle.sql`
+Expand migration（仅 lineage 证据归档、不可执行）：`docs/migration-lineage/archive/TASK-20260823-002-repo-only-unapplied/migrations/20260807120000_inventory_product_lifecycle.sql`
 
 新增对象：
 
@@ -60,9 +60,11 @@ Expand migration：`supabase/migrations/20260807120000_inventory_product_lifecyc
 - `inventory_lifecycle_command_ledger`
 - `repairdesk_inventory_lifecycle_command(...)`
 
-Enable migration：`supabase/migrations/20260807120100_inventory_product_lifecycle_enable.sql`
+Enable migration（仅 lineage 证据归档、不可执行）：`docs/migration-lineage/archive/TASK-20260823-002-repo-only-unapplied/migrations/20260807120100_inventory_product_lifecycle_enable.sql`
 
 Expand 默认不授予浏览器写权限。九张表启用 RLS；`service_role` 仅有 SELECT，写入只能通过固定空 `search_path` 的 SECURITY DEFINER RPC。Enable 会重新验证列型、同店索引、RLS、ACL、函数 owner、安全属性和 `search_path`，任何不一致都失败关闭。
+
+上述两份文件当前是 `production_applied=false`、`status=evidence_only` 的字节级 lineage 归档，原 `supabase/migrations/` 路径已移除，不表示任何环境已有生命周期 schema。不得执行、应用、复制、移动、恢复或复用旧 timestamp；未来若 Owner 批准相关能力，必须另建新 timestamp migration 与新测试，并在临时 PostgreSQL 17 库完成 lineage、RLS/ACL、回滚和发布复核。对应 pgTAP 也只保留为归档审查证据，不得直接执行。
 
 ## 4. 应用边界
 
@@ -134,9 +136,9 @@ Expand 默认不授予浏览器写权限。九张表启用 RLS；`service_role` 
 1. 固定待发布 Git SHA、迁移文件 SHA256 和目标 Supabase 项目 ID。
 2. 只读核验生产迁移目录、表列型、同店唯一索引、函数 owner、ACL/RLS 和历史迁移 lineage。
 3. 获得可验证的生产备份与恢复演练证据，记录 RPO/RTO、负责人和回滚窗口。
-4. 在 PostgreSQL 17 同构临时库原样执行 expand、enable 和 pgTAP。
-5. 生产先应用 expand，保持所有开关关闭；核验表为空、RLS 开启、无浏览器 grant。
-6. 应用 enable；核验仅 `service_role` 可执行 RPC，九张表仍无直接 DML。
+4. 在 PostgreSQL 17 同构临时库只执行未来新 timestamp、单独审查并批准的 expand/enable migration 与匹配新测试；本归档中的旧 timestamp/body/pgTAP 仅用于字节和 lineage 比对。
+5. 生产先应用新建且单独审查批准的 expand migration，保持所有开关关闭；核验表为空、RLS 开启、无浏览器 grant。
+6. 再应用其匹配的新 timestamp enable migration；核验仅 `service_role` 可执行 RPC，九张表仍无直接 DML。
 7. 仅允许 Chinatech 门店进入 allowlist，并打开 `SCHEMA_READY` 与 `UI`，观察只读投影。
 8. 再打开 `COMMANDS`，使用专用脱敏测试商品验证预订到售后主链和 reconcile。
 9. UI 继续限于同一 allowlist；执行移动/桌面浏览器 smoke、日志和错误率观察。
@@ -159,8 +161,8 @@ Expand 默认不授予浏览器写权限。九张表启用 RLS；`service_role` 
 - `npm run typecheck`
 - `npm run test`
 - `npm run build`
-- PostgreSQL 17 expand：事务内成功并回滚
-- expand + enable + `supabase/tests/inventory_product_lifecycle.sql`
+- PostgreSQL 17 rehearsal：仅执行未来新 timestamp、单独审查批准的 expand/enable migrations 与匹配的新测试；归档 migration/pgTAP 不得执行、应用、复制、移动或直接恢复
+- 新 timestamp expand + enable migrations 与新测试（仅指未来新建、单独审查批准的对象；旧归档 migration/pgTAP 不得执行、应用、复制、移动或直接恢复）
 - 超付、时间因果、exact-balance、幂等、欠款取走、售后唯一性行为测试
 - ACL：九表 `service_role` 仅 SELECT，anon/authenticated 无授权
 - 390/430/768/1024/1280/1440 响应式检查及 `scrollWidth <= innerWidth`
@@ -215,13 +217,15 @@ Expand 默认不授予浏览器写权限。九张表启用 RLS；`service_role` 
 
 生产 manifest 只允许上述精确的 `20260810173524 → 20260810173610` 顺序；远端迁移名中
 保留的 `20260810150000` / `20260810150100` 仅作为来源迁移 provenance；
+归档中的
 `20260806222149_authenticated_toolkit_library.sql`、
 `20260807120000_inventory_product_lifecycle.sql`、
-`20260807120100_inventory_product_lifecycle_enable.sql` 均明确排除，不得混入、重排或
-作为前置依赖。不得做 migration repair、修改历史迁移或用 repair 标记掩盖 lineage
-差异；任何历史 lineage 差异必须在临时 PostgreSQL 17 rehearsal 中 fail closed。
+`20260807120100_inventory_product_lifecycle_enable.sql` 均明确排除，不得执行、恢复、
+混入、重排或作为前置依赖，也不代表 active schema。不得做 migration repair、修改历史
+迁移或用 repair 标记掩盖 lineage 差异；任何历史 lineage 差异必须在临时 PostgreSQL 17
+rehearsal 中 fail closed。
 
-`20260807120000`/`20260807120100` 生命周期迁移不属于本次生产序列。若未来迁移先以
+`20260807120000`/`20260807120100` 生命周期迁移不属于本次生产序列。归档只用于审查；若未来另建的新 timestamp migration 先以
 `CREATE IF NOT EXISTS` 建立检测表，`20260810173524` 仍会用显式幂等 DO block 补齐
 `inventory_device_inspections_unit_item_same_store_fkey`，因此两条 lineage 都必须在
 PostgreSQL 17 临时库 rehearsal：既验证 `20260810173524 → 20260810173610`，也验证“未来 lifecycle
