@@ -1,6 +1,7 @@
 # Store signup repair runbook
 
 Status: production migration applied and verified on 2026-08-27. This runbook is the release, smoke, observation, and forward-only recovery SOP. The ordinary `main` push and automatic Vercel deployment are still pending and are not claimed complete. No validation may leave a real or test store or any derived rows behind.
+Owner: `RepairDesk Integration Lead`. Temporary server-key compatibility exit deadline: `2026-10-31`.
 
 ## Baseline and lineage
 
@@ -30,7 +31,7 @@ The migration replaces the existing `public.repairdesk_create_store_atomic_rpc` 
 
 The final ACL is the authority boundary: `PUBLIC`, `anon`, and `authenticated` are explicitly revoked, and `service_role` is granted `EXECUTE`. No table, column, index, RLS policy, backfill, purge, or data-retention change is included. PostgREST schema reload notification is sent after the ACL statements.
 
-Supabase's current API-key guidance describes `sb_secret_...` keys as backend-only elevated keys equivalent to the service-role capability, while legacy `service_role` keys remain supported. The application therefore prefers a non-empty `SUPABASE_SECRET_KEY` and falls back to a non-empty `SUPABASE_SERVICE_ROLE_KEY`; values are never logged, printed, or written to task evidence. See the [official Supabase API keys guide](https://supabase.com/docs/guides/getting-started/api-keys).
+Supabase's current API-key guidance describes `sb_secret_...` keys as backend-only elevated keys equivalent to the service-role capability, while legacy `service_role` keys remain supported. As a short-term compatibility policy, the application trims both variables, prefers a non-empty `SUPABASE_SERVICE_ROLE_KEY`, and falls back to a non-empty `SUPABASE_SECRET_KEY` only when the legacy variable is absent or blank; if both are absent or blank, configuration fails closed. This order reflects the observed production result that the secret-key path returned `401` while the legacy-key path returned `200`; no key value is included. Owner: `RepairDesk Integration Lead`; exit deadline: `2026-10-31`. This run does not read, record, or rotate either key value. After a new secret key succeeds for REST, Auth, Storage, and RPC checks plus the existing authenticated read-only onboarding verification, a separately approved credential rotation may revoke the legacy key and restore secret-first selection. See the [official Supabase API keys guide](https://supabase.com/docs/guides/getting-started/api-keys).
 
 ## Preconditions and read-only prechecks
 

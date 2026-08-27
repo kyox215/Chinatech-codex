@@ -15,27 +15,10 @@ describe("Supabase server configuration", () => {
     vi.unstubAllEnvs();
   });
 
-  it("prefers the server secret key when both server key variables are configured", () => {
+  it("prefers the legacy service-role key when both server key variables are configured", () => {
     vi.stubEnv("SUPABASE_URL", "https://example.supabase.co");
     vi.stubEnv("SUPABASE_SECRET_KEY", "synthetic-secret-key");
-    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "synthetic-legacy-key");
-
-    expect(hasSupabaseConfig()).toBe(true);
-    getSupabaseAdmin();
-
-    expect(createClient).toHaveBeenCalledWith(
-      "https://example.supabase.co",
-      "synthetic-secret-key",
-      expect.objectContaining({
-        auth: { autoRefreshToken: false, persistSession: false },
-      }),
-    );
-  });
-
-  it("falls back to the legacy service-role key when no secret key is configured", () => {
-    vi.stubEnv("SUPABASE_URL", "https://example.supabase.co");
-    vi.stubEnv("SUPABASE_SECRET_KEY", "   ");
-    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "synthetic-legacy-key");
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "  synthetic-legacy-key  ");
 
     expect(hasSupabaseConfig()).toBe(true);
     getSupabaseAdmin();
@@ -43,6 +26,38 @@ describe("Supabase server configuration", () => {
     expect(createClient).toHaveBeenCalledWith(
       "https://example.supabase.co",
       "synthetic-legacy-key",
+      expect.objectContaining({
+        auth: { autoRefreshToken: false, persistSession: false },
+      }),
+    );
+  });
+
+  it("falls back to a trimmed secret key when the legacy key is blank", () => {
+    vi.stubEnv("SUPABASE_URL", "https://example.supabase.co");
+    vi.stubEnv("SUPABASE_SECRET_KEY", "  synthetic-secret-key  ");
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "   ");
+
+    expect(hasSupabaseConfig()).toBe(true);
+    getSupabaseAdmin();
+
+    expect(createClient).toHaveBeenCalledWith(
+      "https://example.supabase.co",
+      "synthetic-secret-key",
+      expect.any(Object),
+    );
+  });
+
+  it("falls back to the secret key when the legacy key is missing", () => {
+    vi.stubEnv("SUPABASE_URL", "https://example.supabase.co");
+    vi.stubEnv("SUPABASE_SECRET_KEY", "synthetic-secret-key");
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", undefined);
+
+    expect(hasSupabaseConfig()).toBe(true);
+    getSupabaseAdmin();
+
+    expect(createClient).toHaveBeenCalledWith(
+      "https://example.supabase.co",
+      "synthetic-secret-key",
       expect.any(Object),
     );
   });

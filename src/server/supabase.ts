@@ -9,10 +9,11 @@ function getSupabaseUrl() {
 }
 
 function getSupabaseServerKey() {
-  const secretKey = process.env.SUPABASE_SECRET_KEY?.trim();
-  if (secretKey) return secretKey;
   const legacyKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  return legacyKey || undefined;
+  if (legacyKey) return legacyKey;
+
+  const secretKey = process.env.SUPABASE_SECRET_KEY?.trim();
+  return secretKey || undefined;
 }
 
 export function getSupabaseAdmin() {
