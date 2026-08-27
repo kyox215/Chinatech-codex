@@ -36,6 +36,7 @@ import {
 import { normalizePositiveCentAmount } from "@/lib/money";
 import { storePermissionActions } from "@/entities/staff/model/store-permission-policy";
 import { repairServiceCatalogItems, resolveRepairServiceCatalogItem } from "@/entities/order";
+import { STORE_PURGE_CONFIRMATION_MAX_LENGTH } from "@/entities/store/model/store-purge-confirmation";
 import { storeSettingsSectionUpdateSchema } from "@/features/settings/model/store-settings-update-contract";
 import { supplierInputSchema } from "@/features/suppliers/model/supplier-input-contract";
 import { memoKinds, memoViews } from "@/features/memos/model/contracts";
@@ -2358,8 +2359,11 @@ export const storePurgeRequestBodySchema = z
     expectedRevision: lifecycleRevisionSchema,
     reauthChallengeId: z.string().uuid("安全挑战 id 不正确"),
     preflightSnapshotHash: lifecycleSha256Schema,
-    confirmationStoreName: z.string().min(2).max(80),
-    confirmationStoreIdSuffix: z.string().regex(/^[0-9a-f]{8}$/i, "店铺 UUID 尾号不正确"),
+    confirmationPhrase: z
+      .string()
+      .min(1, "请输入页面显示的确认提示词")
+      .max(STORE_PURGE_CONFIRMATION_MAX_LENGTH, "确认提示词过长")
+      .refine((value) => !containsControlCharacter(value), "确认提示词包含无效控制字符"),
   })
   .strict() satisfies z.ZodType<StorePurgeRequestInput>;
 

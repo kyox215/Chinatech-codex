@@ -39,6 +39,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import type { StoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import { SettingsField } from "@/features/settings/components/settings-field";
+import { StoreDeleteEntry } from "@/features/settings/sections/store-delete-entry";
 import { StoreLifecycleActions } from "@/features/settings/sections/store-lifecycle-actions";
 import { StoreRenameOverlay } from "@/features/settings/sections/store-rename-overlay";
 import type { SettingsFieldErrors } from "@/features/settings/model/settings-field-errors";
@@ -167,6 +168,8 @@ export function StoreSettingsSectionContent({
 
       <StoreLifecycleCard
         store={stores.find((store) => store.id === activeStoreId)}
+        activeStoreExplicit={activeStoreExplicit}
+        lifecycleAccess={lifecycleAccess}
         preflight={lifecyclePreflight}
         isLoading={isLifecyclePreflighting}
         error={lifecyclePreflightError}
@@ -196,6 +199,8 @@ export function StoreSettingsSectionContent({
 
 function StoreLifecycleCard({
   store,
+  activeStoreExplicit,
+  lifecycleAccess,
   preflight,
   isLoading,
   error,
@@ -204,6 +209,8 @@ function StoreLifecycleCard({
   onRun,
 }: {
   store?: ActorStoreMembership;
+  activeStoreExplicit: boolean;
+  lifecycleAccess?: StoreLifecycleCapability;
   preflight?: StoreLifecyclePreflight;
   isLoading: boolean;
   error?: string;
@@ -211,6 +218,12 @@ function StoreLifecycleCard({
   capability?: StoreLifecycleCapability["close"];
   onRun: () => void;
 }) {
+  const canShowDeleteEntry =
+    Boolean(store) &&
+    activeStoreExplicit &&
+    lifecycleAccess?.check.allowed === true &&
+    store?.lifecycle?.phase === "active";
+  const showLifecycleActions = !canShowDeleteEntry || Boolean(preflight) || Boolean(error);
   return (
     <section className={cn(repairOs.adminSection, "space-y-3 p-2.5 sm:p-3")}>
       <RepairOsSectionHeader
@@ -220,14 +233,26 @@ function StoreLifecycleCard({
         description="需要停用这家店时，从安全检查开始。关闭不是永久删除，以后仍可恢复。"
       />
       {store && capability ? (
-        <StoreLifecycleActions
-          store={store}
-          capability={capability}
-          preflight={preflight}
-          isPreflighting={isLoading}
-          preflightError={error}
-          onRunPreflight={onRun}
-        />
+        <>
+          {canShowDeleteEntry ? (
+            <StoreDeleteEntry
+              store={store}
+              canStart={capability.allowed}
+              isPreflighting={isLoading}
+              onStart={onRun}
+            />
+          ) : null}
+          {showLifecycleActions ? (
+            <StoreLifecycleActions
+              store={store}
+              capability={capability}
+              preflight={preflight}
+              isPreflighting={isLoading}
+              preflightError={error}
+              onRunPreflight={onRun}
+            />
+          ) : null}
+        </>
       ) : (
         <p className="text-sm text-muted-foreground">请先选择要管理的店铺。</p>
       )}

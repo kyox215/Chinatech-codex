@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { getStorePurgeConfirmationPhrase } from "@/entities/store/model/store-purge-confirmation";
+
 import {
   storeLifecycleChallengeBodySchema,
   storePurgeCancelBodySchema,
@@ -31,24 +33,51 @@ describe("store purge API schemas", () => {
       expectedRevision: 1,
       reauthChallengeId: challengeId,
       preflightSnapshotHash: snapshotHash,
-      confirmationStoreName: "Chinatech siracusa",
-      confirmationStoreIdSuffix: "410afd9b",
+      confirmationPhrase: getStorePurgeConfirmationPhrase(storeId, "request_purge"),
     };
     expect(storePurgeRequestBodySchema.parse(request)).toEqual(request);
     expect(storePurgeConfirmBodySchema.parse({ ...request, requestId }).requestId).toBe(requestId);
   });
 
-  it("rejects browser-provided approval hashes and purge times", () => {
+  it("rejects browser-provided approval hashes, purge times, and the legacy split fields", () => {
     expect(
       storePurgeRequestBodySchema.safeParse({
         expectedStoreId: storeId,
         expectedRevision: 1,
         reauthChallengeId: challengeId,
         preflightSnapshotHash: snapshotHash,
+        confirmationPhrase: getStorePurgeConfirmationPhrase(storeId, "request_purge"),
         confirmationStoreName: "Chinatech siracusa",
         confirmationStoreIdSuffix: "410afd9b",
         approvalRefHash: "b".repeat(64),
         purgeAfter: new Date().toISOString(),
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects control characters and overlong confirmation phrases without normalizing them", () => {
+    const base = {
+      expectedStoreId: storeId,
+      expectedRevision: 1,
+      reauthChallengeId: challengeId,
+      preflightSnapshotHash: snapshotHash,
+    };
+    expect(
+      storePurgeRequestBodySchema.safeParse({
+        ...base,
+        confirmationPhrase: `${getStorePurgeConfirmationPhrase(storeId, "request_purge")} `,
+      }).success,
+    ).toBe(true);
+    expect(
+      storePurgeRequestBodySchema.safeParse({
+        ...base,
+        confirmationPhrase: `${getStorePurgeConfirmationPhrase(storeId, "request_purge")}\n`,
+      }).success,
+    ).toBe(false);
+    expect(
+      storePurgeRequestBodySchema.safeParse({
+        ...base,
+        confirmationPhrase: "x".repeat(81),
       }).success,
     ).toBe(false);
   });

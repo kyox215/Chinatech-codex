@@ -128,6 +128,7 @@ import {
   assertCanReadOrderCosts,
 } from "@/features/orders/server/order-cost-feature";
 import { repairServiceCatalogItems } from "@/entities/order";
+import { getStorePurgeConfirmationPhrase } from "@/entities/store/model/store-purge-confirmation";
 import {
   isOrderCostGrantAction,
   normalizeStorePermissionGrants,
@@ -273,6 +274,7 @@ import {
   updateStoreMemberPermissions,
   updateStoreMemberRole,
 } from "@/features/stores/server/store.service";
+import { MOCK_PURGE_DEMO_STORE_ID } from "@/features/stores/testing/mock-api";
 import {
   approveOnboardingRequest,
   cancelOnboardingRequest,
@@ -352,6 +354,8 @@ import type {
   CostExportInput,
   CostExportRow,
   StoreMemberPermissionUpdateInput,
+  StorePurgeRequest,
+  StorePurgeRequestInput,
   SupplierInput,
   UpdateInventoryItemInput,
   UpdateOrderInput,
@@ -832,6 +836,38 @@ type MockCostDefaultsState = {
 const mockCostDefaultsByStore = new Map<string, MockCostDefaultsState>();
 const mockOrderCostState = new Map<string, OrderLineCostsResult>();
 const mockOrderCostHistory = new Map<string, OrderCostHistoryResult>();
+const mockPurgeRequestsByStore = new Map<string, StorePurgeRequest>();
+
+/** Test-only state transition for the non-production purge demo. */
+export function advanceMockPurgeRequestForTest(expectedStoreId: string, now = Date.now()) {
+  if (
+    process.env.NODE_ENV === "production" ||
+    process.env.REPAIRDESK_E2E_STORE_PURGE_DEMO !== "1" ||
+    expectedStoreId !== MOCK_PURGE_DEMO_STORE_ID
+  ) {
+    throw new Error("STORE_PURGE_DEMO_HELPER_UNAVAILABLE");
+  }
+  const current = mockPurgeRequestsByStore.get(expectedStoreId);
+  if (!current || current.state !== "cooling") {
+    throw new Error("STORE_PURGE_DEMO_REQUEST_NOT_COOLING");
+  }
+  const ready: StorePurgeRequest = {
+    ...current,
+    state: "ready_for_confirmation",
+    cooling_until: new Date(now - 1).toISOString(),
+    export_state: "restore_verified",
+  };
+  mockPurgeRequestsByStore.set(expectedStoreId, ready);
+  return ready;
+}
+
+/** Test-only cleanup for isolated route tests; never callable through an HTTP route. */
+export function resetMockPurgeRequestsForTest() {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("STORE_PURGE_DEMO_HELPER_UNAVAILABLE");
+  }
+  mockPurgeRequestsByStore.clear();
+}
 
 function mockCostDefaultsForStore(storeId: string) {
   const saved = mockCostDefaultsByStore.get(storeId);
@@ -947,6 +983,39 @@ async function source() {
   };
   const getMockStoreMembers = async (actor: Awaited<ReturnType<typeof getRequestActor>>) => {
     return mock.listStoreMembers(actor);
+  };
+  const isMockPurgeRecoveryStore = (expectedStoreId: string) =>
+    process.env.NODE_ENV !== "production" &&
+    process.env.REPAIRDESK_E2E_STORE_PURGE_DEMO === "1" &&
+    expectedStoreId === MOCK_PURGE_DEMO_STORE_ID;
+  const assertMockPurgeOwner = async (expectedStoreId: string, actor: AuditActor) => {
+    const context = await mock.getStoreContext(actor);
+    const membership = [...(context.stores ?? []), ...(context.recoveryStores ?? [])].find(
+      (store) => store.id === expectedStoreId,
+    );
+    if (!membership || membership.role !== "owner" || membership.isPrimaryOwner !== true) {
+      throw new ForbiddenError("只有这家店铺的主账号可以执行此操作");
+    }
+    return membership;
+  };
+  const assertMockPurgeRecoveryStore = async (expectedStoreId: string, actor: AuditActor) => {
+    if (!isMockPurgeRecoveryStore(expectedStoreId)) {
+      throw new ForbiddenError("本地永久删除演示只支持指定的已归档店铺");
+    }
+    const membership = await assertMockPurgeOwner(expectedStoreId, actor);
+    if (membership.lifecycle?.phase !== "archived") {
+      throw new ForbiddenError("店铺尚未归档，不能申请永久删除");
+    }
+    return membership;
+  };
+  const assertMockPurgePhrase = (
+    confirmationPhrase: string,
+    expectedStoreId: string,
+    operation: "request_purge" | "confirm_purge",
+  ) => {
+    if (confirmationPhrase !== getStorePurgeConfirmationPhrase(expectedStoreId, operation)) {
+      throw new ForbiddenError("删除确认提示词不正确，请按页面提示逐字输入");
+    }
   };
   return {
     ...mock,
@@ -1073,15 +1142,17 @@ async function source() {
     receivePartLot: receiveMockPartLot,
     allocateOrderPart: allocateMockOrderPart,
     releaseOrderPart: releaseMockOrderPart,
-    createStoreLifecyclePreflight: async (expectedStoreId: string) => {
+    createStoreLifecyclePreflight: async (expectedStoreId: string, actor: AuditActor) => {
+      const isRecoveryStore = isMockPurgeRecoveryStore(expectedStoreId);
+      if (isRecoveryStore) await assertMockPurgeOwner(expectedStoreId, actor);
       const eligible = process.env.REPAIRDESK_E2E_STORE_LIFECYCLE_ELIGIBLE === "1";
       return {
         id: randomUUID(),
         store_id: expectedStoreId,
-        store_name: "Mock Store",
+        store_name: isRecoveryStore ? "Demo Archived Store" : "Mock Store",
         lifecycle: {
           store_id: expectedStoreId,
-          phase: "active" as const,
+          phase: isRecoveryStore ? ("archived" as const) : ("active" as const),
           revision: 1,
         },
         state: eligible ? ("eligible" as const) : ("blocked" as const),
@@ -1101,34 +1172,46 @@ async function source() {
         expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
       };
     },
-    getStoreLifecycleState: async (expectedStoreId: string) => ({
-      store_id: expectedStoreId,
-      phase: "active" as const,
-      revision: 1,
-    }),
+    getStoreLifecycleState: async (expectedStoreId: string, actor: AuditActor) => {
+      const isRecoveryStore = isMockPurgeRecoveryStore(expectedStoreId);
+      if (isRecoveryStore) await assertMockPurgeOwner(expectedStoreId, actor);
+      return {
+        store_id: expectedStoreId,
+        phase: isRecoveryStore ? ("archived" as const) : ("active" as const),
+        revision: 1,
+      };
+    },
     getStoreLifecycleOperationStatus: async (expectedStoreId: string, operationId: string) => ({
       operation_id: operationId,
       store_id: expectedStoreId,
       state: "missing" as const,
     }),
-    issueStoreLifecycleChallenge: async (input: {
-      expectedStoreId: string;
-      expectedRevision: number;
-      operationKind:
-        | "rename"
-        | "request_close"
-        | "restore"
-        | "schedule_purge"
-        | "request_purge"
-        | "confirm_purge";
-    }) => ({
-      id: randomUUID(),
-      store_id: input.expectedStoreId,
-      operation_kind: input.operationKind,
-      lifecycle_revision: input.expectedRevision,
-      assurance_level: "aal2" as const,
-      expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-    }),
+    issueStoreLifecycleChallenge: async (
+      input: {
+        expectedStoreId: string;
+        expectedRevision: number;
+        operationKind:
+          | "rename"
+          | "request_close"
+          | "restore"
+          | "schedule_purge"
+          | "request_purge"
+          | "confirm_purge";
+      },
+      actor: AuditActor,
+    ) => {
+      if (input.operationKind === "request_purge" || input.operationKind === "confirm_purge") {
+        await assertMockPurgeOwner(input.expectedStoreId, actor);
+      }
+      return {
+        id: randomUUID(),
+        store_id: input.expectedStoreId,
+        operation_kind: input.operationKind,
+        lifecycle_revision: input.expectedRevision,
+        assurance_level: "aal2" as const,
+        expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      };
+    },
     renameStoreWorkspace: async (input: {
       expectedStoreId: string;
       expectedRevision: number;
@@ -1179,37 +1262,80 @@ async function source() {
         revision: input.expectedRevision + 1,
       },
     }),
-    getStorePurgeRequest: async () => null,
-    requestStorePurge: async (input: { expectedStoreId: string; expectedRevision: number }) => ({
-      request_id: randomUUID(),
-      store_id: input.expectedStoreId,
-      state: "cooling" as const,
-      requested_at: new Date().toISOString(),
-      cooling_until: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      export_job_id: randomUUID(),
-      export_state: "pending" as const,
-    }),
-    cancelStorePurgeRequest: async (input: { expectedStoreId: string; requestId: string }) => ({
-      request_id: input.requestId,
-      store_id: input.expectedStoreId,
-      state: "cancelled" as const,
-      requested_at: "",
-      cooling_until: "",
-      export_job_id: "",
-      cancelled_at: new Date().toISOString(),
-    }),
-    confirmStorePurgeRequest: async (input: { expectedStoreId: string; requestId: string }) => ({
-      request_id: input.requestId,
-      store_id: input.expectedStoreId,
-      state: "scheduled" as const,
-      requested_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-      cooling_until: new Date().toISOString(),
-      export_job_id: randomUUID(),
-      export_state: "restore_verified" as const,
-      purge_job_id: randomUUID(),
-      purge_after: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-      destructive_step_started: false,
-    }),
+    getStorePurgeRequest: async (expectedStoreId: string, actor: AuditActor) => {
+      await assertMockPurgeRecoveryStore(expectedStoreId, actor);
+      return mockPurgeRequestsByStore.get(expectedStoreId) ?? null;
+    },
+    requestStorePurge: async (input: StorePurgeRequestInput, actor: AuditActor) => {
+      await assertMockPurgeRecoveryStore(input.expectedStoreId, actor);
+      assertMockPurgePhrase(input.confirmationPhrase, input.expectedStoreId, "request_purge");
+      const existing = mockPurgeRequestsByStore.get(input.expectedStoreId);
+      if (existing && existing.state !== "cancelled" && existing.state !== "completed") {
+        throw new ForbiddenError("已有永久删除申请正在处理，请先核对现有状态");
+      }
+      const requestedAt = new Date().toISOString();
+      const request: StorePurgeRequest = {
+        request_id: randomUUID(),
+        store_id: input.expectedStoreId,
+        state: "cooling",
+        requested_at: requestedAt,
+        cooling_until: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        export_job_id: randomUUID(),
+        export_state: "pending",
+      };
+      mockPurgeRequestsByStore.set(input.expectedStoreId, request);
+      return request;
+    },
+    cancelStorePurgeRequest: async (
+      input: { expectedStoreId: string; requestId: string },
+      actor: AuditActor,
+    ) => {
+      await assertMockPurgeRecoveryStore(input.expectedStoreId, actor);
+      const current = mockPurgeRequestsByStore.get(input.expectedStoreId);
+      if (!current || current.request_id !== input.requestId) {
+        throw new Error("找不到可取消的删除申请");
+      }
+      if (current.state === "cancelled" || current.state === "completed") {
+        throw new ForbiddenError("当前永久删除申请已经结束，不能取消");
+      }
+      const result: StorePurgeRequest = {
+        ...current,
+        state: "cancelled",
+        cancelled_at: new Date().toISOString(),
+      };
+      mockPurgeRequestsByStore.set(input.expectedStoreId, result);
+      return result;
+    },
+    confirmStorePurgeRequest: async (
+      input: StorePurgeRequestInput & { requestId: string },
+      actor: AuditActor,
+    ) => {
+      await assertMockPurgeRecoveryStore(input.expectedStoreId, actor);
+      assertMockPurgePhrase(input.confirmationPhrase, input.expectedStoreId, "confirm_purge");
+      const current = mockPurgeRequestsByStore.get(input.expectedStoreId);
+      if (!current || current.request_id !== input.requestId || current.state === "cancelled") {
+        throw new Error("找不到待确认的永久删除申请");
+      }
+      if (current.state !== "ready_for_confirmation") {
+        throw new ForbiddenError("永久删除申请尚未达到最终确认条件");
+      }
+      if (Date.parse(current.cooling_until) > Date.now()) {
+        throw new ForbiddenError("永久删除冷静期尚未结束");
+      }
+      if (current.export_state !== "restore_verified") {
+        throw new ForbiddenError("永久删除备份尚未完成恢复验证");
+      }
+      const result: StorePurgeRequest = {
+        ...current,
+        state: "scheduled",
+        export_state: "restore_verified",
+        purge_job_id: randomUUID(),
+        purge_after: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        destructive_step_started: false,
+      };
+      mockPurgeRequestsByStore.set(input.expectedStoreId, result);
+      return result;
+    },
     archiveSupplier: async (id: string, actor: AuditActor) => archiveMockSupplier(id, actor),
     createSupplier: async (input: SupplierInput, actor: AuditActor) =>
       createMockSupplier(input, actor),

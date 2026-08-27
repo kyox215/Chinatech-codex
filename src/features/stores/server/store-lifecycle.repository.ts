@@ -5,6 +5,11 @@ import {
   assertPrimaryStoreOwnerForStore,
 } from "@/features/stores/server/primary-store-owner";
 import {
+  getStorePurgeConfirmationPhrase,
+  getStorePurgeStoreIdSuffix,
+  type StorePurgeConfirmationOperation,
+} from "@/entities/store/model/store-purge-confirmation";
+import {
   clearActiveStoreCookie,
   setActiveStoreCookie,
 } from "@/features/stores/server/store.repository";
@@ -385,6 +390,8 @@ export async function getStorePurgeRequest(
   actor: AuditActor,
 ): Promise<StorePurgeRequest | null> {
   await assertPrimaryStoreOwnerForStore(expectedStoreId, actor);
+  const purgeContractVersion = await readStorePurgeContractVersion();
+  if (purgeContractVersion === null || purgeContractVersion < 3) return null;
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("store_purge_requests")
@@ -406,12 +413,14 @@ export async function getStorePurgeRequest(
         .from("store_export_jobs")
         .select("state, error_code")
         .eq("id", exportJobId)
+        .eq("store_id", expectedStoreId)
         .maybeSingle(),
       purgeJobId
         ? supabase
             .from("store_purge_jobs")
-            .select("state, purge_after, destructive_step_started, last_error_code")
+            .select("state, store_id, purge_after, destructive_step_started, last_error_code")
             .eq("id", purgeJobId)
+            .eq("store_id", expectedStoreId)
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
     ]);
@@ -421,15 +430,14 @@ export async function getStorePurgeRequest(
   const purgeRow = (purgeJob ?? {}) as DbRecord;
   const storedState = requiredString(row.state) as StorePurgeRequest["state"];
   const exportState = requiredString(exportRow.state) as StorePurgeRequest["export_state"];
+  const purgeJobState = requiredString(purgeRow.state);
   const coolingComplete = new Date(requiredString(row.cooling_until)).getTime() <= Date.now();
-  const derivedState: StorePurgeRequest["state"] =
-    storedState === "cooling" && exportState === "failed"
-      ? "failed"
-      : storedState === "cooling" && exportState === "restore_verified" && coolingComplete
-        ? "ready_for_confirmation"
-        : storedState === "cooling" && coolingComplete
-          ? "preparing_export"
-          : storedState;
+  const derivedState = projectStorePurgeRequestState({
+    storedState,
+    exportState,
+    purgeJobState,
+    coolingComplete,
+  });
   return {
     request_id: requiredString(row.id),
     store_id: requiredString(row.store_id),
@@ -459,19 +467,21 @@ export async function requestStorePurge(
   input: StorePurgeRequestInput,
   actor: AuditActor,
 ): Promise<StorePurgeRequest> {
+  const owner = await assertPrimaryStoreOwnerForStore(input.expectedStoreId, actor);
+  const target = await readAuthoritativePurgeTarget(owner.storeId);
+  assertStorePurgeConfirmation(input.confirmationPhrase, target.id, "request_purge");
   if (!isStoreLifecyclePurgeSchedulingEnabled()) {
     throw new ForbiddenError("店铺永久删除申请暂未启用");
   }
-  await assertLifecycleMutationsEnabled();
-  const owner = await assertPrimaryStoreOwnerForStore(input.expectedStoreId, actor);
+  await assertStorePurgeContractEnabled();
   const { data, error } = await getSupabaseAdmin().rpc("repairdesk_request_store_purge_rpc", {
     p_store_id: owner.storeId,
     p_actor_id: owner.actorId,
     p_expected_revision: input.expectedRevision,
     p_challenge_id: input.reauthChallengeId,
     p_preflight_snapshot_hash: input.preflightSnapshotHash,
-    p_confirmation_store_name: input.confirmationStoreName,
-    p_confirmation_store_id_suffix: input.confirmationStoreIdSuffix,
+    p_confirmation_store_name: target.name,
+    p_confirmation_store_id_suffix: getStorePurgeStoreIdSuffix(target.id).toLowerCase(),
   });
   if (error) throw lifecycleRpcError(error);
   const result = (data ?? {}) as DbRecord;
@@ -490,11 +500,8 @@ export async function cancelStorePurgeRequest(
   input: StorePurgeCancelInput,
   actor: AuditActor,
 ): Promise<StorePurgeRequest> {
-  if (!isStoreLifecyclePurgeSchedulingEnabled()) {
-    throw new ForbiddenError("店铺永久删除申请暂未启用");
-  }
-  await assertLifecycleMutationsEnabled();
   const owner = await assertPrimaryStoreOwnerForStore(input.expectedStoreId, actor);
+  await assertStorePurgeContractEnabled();
   const { data, error } = await getSupabaseAdmin().rpc(
     "repairdesk_cancel_store_purge_request_rpc",
     {
@@ -520,11 +527,13 @@ export async function confirmStorePurgeRequest(
   input: StorePurgeConfirmInput,
   actor: AuditActor,
 ): Promise<StorePurgeRequest> {
+  const owner = await assertPrimaryStoreOwnerForStore(input.expectedStoreId, actor);
+  const target = await readAuthoritativePurgeTarget(owner.storeId);
+  assertStorePurgeConfirmation(input.confirmationPhrase, target.id, "confirm_purge");
   if (!isStoreLifecyclePurgeSchedulingEnabled()) {
     throw new ForbiddenError("店铺永久删除申请暂未启用");
   }
-  await assertLifecycleMutationsEnabled();
-  const owner = await assertPrimaryStoreOwnerForStore(input.expectedStoreId, actor);
+  await assertStorePurgeContractEnabled();
   const { data, error } = await getSupabaseAdmin().rpc(
     "repairdesk_confirm_store_purge_request_rpc",
     {
@@ -534,8 +543,8 @@ export async function confirmStorePurgeRequest(
       p_expected_revision: input.expectedRevision,
       p_challenge_id: input.reauthChallengeId,
       p_preflight_snapshot_hash: input.preflightSnapshotHash,
-      p_confirmation_store_name: input.confirmationStoreName,
-      p_confirmation_store_id_suffix: input.confirmationStoreIdSuffix,
+      p_confirmation_store_name: target.name,
+      p_confirmation_store_id_suffix: getStorePurgeStoreIdSuffix(target.id).toLowerCase(),
     },
   );
   if (error) throw lifecycleRpcError(error);
@@ -724,6 +733,74 @@ async function assertEligiblePreflight(
     .maybeSingle();
   fail(error, "验证店铺预检快照失败");
   if (!data) throw new Error("店铺安全预检已失效或仍有阻断，请重新预检");
+}
+
+async function readAuthoritativePurgeTarget(storeId: string) {
+  const { data, error } = await getSupabaseAdmin()
+    .from("stores")
+    .select("id, name")
+    .eq("id", storeId)
+    .maybeSingle();
+  fail(error, "读取删除目标店铺身份失败");
+  if (!data) throw new ForbiddenError("店铺不存在或不可用");
+  const row = data as DbRecord;
+  return {
+    id: requiredString(row.id),
+    name: requiredString(row.name),
+  };
+}
+
+function assertStorePurgeConfirmation(
+  confirmationPhrase: string,
+  storeId: string,
+  operation: StorePurgeConfirmationOperation,
+) {
+  if (confirmationPhrase !== getStorePurgeConfirmationPhrase(storeId, operation)) {
+    throw new ForbiddenError("删除确认提示词不正确，请按页面提示逐字输入");
+  }
+}
+
+async function readStorePurgeContractVersion() {
+  const { data, error } = await getSupabaseAdmin().rpc(
+    "repairdesk_store_lifecycle_contract_version",
+  );
+  if (error) return null;
+  const version = Number(data);
+  return Number.isFinite(version) ? version : null;
+}
+
+async function assertStorePurgeContractEnabled() {
+  if (!isStoreLifecycleMutationSafeEnabled()) {
+    throw new ForbiddenError("店铺保护尚未准备完成，当前不能进行永久删除操作");
+  }
+  const version = await readStorePurgeContractVersion();
+  if (version === null || version < 3) {
+    throw new ForbiddenError("店铺保护尚未安装完成，当前不能进行永久删除操作");
+  }
+}
+
+export function projectStorePurgeRequestState({
+  storedState,
+  exportState,
+  purgeJobState,
+  coolingComplete,
+}: {
+  storedState: StorePurgeRequest["state"];
+  exportState?: StorePurgeRequest["export_state"];
+  purgeJobState: string;
+  coolingComplete: boolean;
+}): StorePurgeRequest["state"] {
+  if (storedState === "cancelled" || storedState === "completed") return storedState;
+  if (purgeJobState === "completed") return "completed";
+  if (purgeJobState === "running") return "purging";
+  if (purgeJobState === "retry" || purgeJobState === "failed") return "failed";
+  if (purgeJobState === "queued") return "scheduled";
+  if (storedState === "cooling" && exportState === "failed") return "failed";
+  if (storedState === "cooling" && exportState === "restore_verified" && coolingComplete) {
+    return "ready_for_confirmation";
+  }
+  if (storedState === "cooling" && coolingComplete) return "preparing_export";
+  return storedState;
 }
 
 async function assertLifecycleMutationsEnabled() {

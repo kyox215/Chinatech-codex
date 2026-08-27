@@ -1,11 +1,21 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import type { StoreSettingsDraftValues } from "@/features/settings/model/store-settings-draft";
 import { getStoreSettingsReadiness } from "@/features/settings/model/store-settings-readiness";
 import { StoreSettingsSectionContent } from "@/features/settings/sections/store-settings-section";
-import type { ActorStoreMembership, StoreSettings } from "@/lib/repairdesk/types";
+import type {
+  ActorStoreMembership,
+  StoreLifecycleCapability,
+  StoreSettings,
+} from "@/lib/repairdesk/types";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }),
+}));
+vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => false }));
 
 afterEach(cleanup);
 
@@ -123,6 +133,49 @@ describe("StoreSettingsSectionContent", () => {
     expect(screen.getByText(/店铺创建失败：name already exists/)).toBeVisible();
     expect(screen.getByLabelText("新店铺名称")).toHaveValue("Second Lab");
   });
+
+  it("shows the close-and-delete entry only for an explicitly selected active primary-owner store", () => {
+    const activeStore: ActorStoreMembership = {
+      ...store,
+      lifecycle: { store_id: store.id, phase: "active", revision: 1 },
+    };
+    const lifecycleAccess = availableLifecycleAccess(store.id);
+
+    const view = renderStore({ storeOverride: activeStore, lifecycleAccess });
+    expect(screen.getByRole("heading", { name: "关闭与删除店铺" })).toBeVisible();
+    expect(view.container.querySelector("[data-store-lifecycle-actions]")).not.toBeInTheDocument();
+
+    view.rerender(
+      <QueryClientProvider client={view.queryClient}>
+        {storeSection({
+          storeOverride: activeStore,
+          lifecycleAccess,
+          activeStoreExplicit: false,
+        })}
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByRole("heading", { name: "关闭与删除店铺" })).not.toBeInTheDocument();
+  });
+
+  it("does not show an active delete entry for archived or unknown lifecycle states", () => {
+    const lifecycleAccess = availableLifecycleAccess(store.id);
+
+    const view = renderStore({
+      storeOverride: {
+        ...store,
+        lifecycle: { store_id: store.id, phase: "archived", revision: 1 },
+      },
+      lifecycleAccess,
+    });
+    expect(screen.queryByRole("heading", { name: "关闭与删除店铺" })).not.toBeInTheDocument();
+
+    view.rerender(
+      <QueryClientProvider client={view.queryClient}>
+        {storeSection({ storeOverride: store, lifecycleAccess })}
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByRole("heading", { name: "关闭与删除店铺" })).not.toBeInTheDocument();
+  });
 });
 
 function renderStore({
@@ -136,6 +189,9 @@ function renderStore({
   createError,
   onDraftChange = vi.fn(),
   onCreateStore = vi.fn(),
+  storeOverride = store,
+  activeStoreExplicit = true,
+  lifecycleAccess,
 }: {
   saved?: StoreSettings;
   draft?: StoreSettingsDraftValues["store"];
@@ -147,21 +203,33 @@ function renderStore({
   createError?: string;
   onDraftChange?: (patch: Partial<StoreSettingsDraftValues["store"]>) => void;
   onCreateStore?: () => void;
+  storeOverride?: ActorStoreMembership;
+  activeStoreExplicit?: boolean;
+  lifecycleAccess?: StoreLifecycleCapability;
 } = {}) {
-  return render(
-    storeSection({
-      saved,
-      draft,
-      isDraftDirty,
-      canUpdateSettings,
-      newStoreName,
-      newStoreAddress,
-      switchError,
-      createError,
-      onDraftChange,
-      onCreateStore,
-    }),
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  const view = render(
+    <QueryClientProvider client={queryClient}>
+      {storeSection({
+        saved,
+        draft,
+        isDraftDirty,
+        canUpdateSettings,
+        newStoreName,
+        newStoreAddress,
+        switchError,
+        createError,
+        onDraftChange,
+        onCreateStore,
+        storeOverride,
+        activeStoreExplicit,
+        lifecycleAccess,
+      })}
+    </QueryClientProvider>,
   );
+  return { ...view, queryClient };
 }
 
 function storeSection({
@@ -175,6 +243,9 @@ function storeSection({
   createError,
   onDraftChange = vi.fn(),
   onCreateStore = vi.fn(),
+  storeOverride = store,
+  activeStoreExplicit = true,
+  lifecycleAccess,
 }: {
   saved?: StoreSettings;
   draft?: StoreSettingsDraftValues["store"];
@@ -186,12 +257,16 @@ function storeSection({
   createError?: string;
   onDraftChange?: (patch: Partial<StoreSettingsDraftValues["store"]>) => void;
   onCreateStore?: () => void;
+  storeOverride?: ActorStoreMembership;
+  activeStoreExplicit?: boolean;
+  lifecycleAccess?: StoreLifecycleCapability;
 } = {}) {
   const draftSettings = { ...saved, ...draft };
   return (
     <StoreSettingsSectionContent
-      activeStoreId="store-a"
-      stores={[store]}
+      activeStoreId={storeOverride.id}
+      activeStoreExplicit={activeStoreExplicit}
+      stores={[storeOverride]}
       isContextLoading={false}
       isSwitching={false}
       isCreating={false}
@@ -206,9 +281,13 @@ function storeSection({
       draft={draft}
       savedReadiness={getStoreSettingsReadiness(saved)}
       draftReadiness={getStoreSettingsReadiness(draftSettings)}
-      savedOutputIdentity={resolveStoreOutputIdentity({ activeStore: store, settings: saved })}
+      lifecycleAccess={lifecycleAccess}
+      savedOutputIdentity={resolveStoreOutputIdentity({
+        activeStore: storeOverride,
+        settings: saved,
+      })}
       draftOutputIdentity={resolveStoreOutputIdentity({
-        activeStore: store,
+        activeStore: storeOverride,
         settings: draftSettings,
       })}
       isDraftDirty={isDraftDirty}
@@ -217,6 +296,18 @@ function storeSection({
       onDraftChange={onDraftChange}
     />
   );
+}
+
+function availableLifecycleAccess(storeId: string): StoreLifecycleCapability {
+  const available = { allowed: true, code: "available" as const };
+  return {
+    store_id: storeId,
+    check: available,
+    rename: available,
+    close: available,
+    restore: available,
+    purge: available,
+  };
 }
 
 function toStoreDraft(settings: StoreSettings): StoreSettingsDraftValues["store"] {

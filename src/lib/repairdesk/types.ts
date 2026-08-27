@@ -1950,8 +1950,7 @@ export interface StorePurgeRequestInput {
   expectedRevision: number;
   reauthChallengeId: string;
   preflightSnapshotHash: string;
-  confirmationStoreName: string;
-  confirmationStoreIdSuffix: string;
+  confirmationPhrase: string;
 }
 
 export interface StorePurgeCancelInput {

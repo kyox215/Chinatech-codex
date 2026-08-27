@@ -171,6 +171,43 @@ describe("store mock api invitation parity", () => {
     });
   });
 
+  it("keeps the archived purge fixture behind an explicit non-production demo flag", async () => {
+    expect((await api.getStoreContext()).recoveryStores).toEqual([]);
+
+    vi.stubEnv("REPAIRDESK_E2E_STORE_PURGE_DEMO", "1");
+    vi.stubEnv("STORE_LIFECYCLE_ENFORCEMENT_ENABLED", "1");
+    vi.stubEnv("STORE_LIFECYCLE_MUTATIONS_ENABLED", "1");
+    vi.stubEnv("STORE_LIFECYCLE_PURGE_SCHEDULING_ENABLED", "1");
+    const owner = {
+      id: "mock_user_owner",
+      email: "owner@repairdesk.local",
+      displayName: "Owner",
+      storeRole: "owner" as const,
+    };
+    const ownerRecovery = (await api.getStoreContext(owner)).recoveryStores;
+    expect(ownerRecovery).toHaveLength(1);
+    expect(ownerRecovery?.[0]).toMatchObject({
+      id: api.MOCK_PURGE_DEMO_STORE_ID,
+      name: "Demo Archived Store",
+      isPrimaryOwner: true,
+      lifecycle: { phase: "archived" },
+      lifecycleAccess: { purge: { allowed: true, code: "available" } },
+    });
+
+    const managerRecovery = (
+      await api.getStoreContext({
+        id: "mock_user_manager",
+        email: "manager@repairdesk.local",
+        displayName: "Manager",
+        storeRole: "manager",
+      })
+    ).recoveryStores;
+    expect(managerRecovery?.[0]).toMatchObject({
+      isPrimaryOwner: false,
+      lifecycleAccess: { purge: { allowed: false, code: "primary_owner_required" } },
+    });
+  });
+
   it("keeps manager and technician mock capabilities aligned with server policy", async () => {
     const manager = {
       id: "mock_user_manager",

@@ -1,12 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AuditActor } from "@/lib/repairdesk/types";
+import { getStorePurgeConfirmationPhrase } from "@/entities/store/model/store-purge-confirmation";
 
 import {
+  cancelStorePurgeRequest,
+  confirmStorePurgeRequest,
   createStoreLifecyclePreflight,
+  getStorePurgeRequest,
   getStoreLifecycleOperationStatus,
   issueStoreLifecycleChallenge,
   renameStoreWorkspace,
+  requestStorePurge,
+  projectStorePurgeRequestState,
 } from "./store-lifecycle.repository";
 
 const storeId = "00000000-0000-4000-8000-000000000001";
@@ -58,7 +64,7 @@ describe("store lifecycle preflight", () => {
     mocks.rpc.mockReset();
     mocks.rpc.mockImplementation(async (name: string) =>
       name === "repairdesk_store_lifecycle_contract_version"
-        ? { data: 2, error: null }
+        ? { data: 3, error: null }
         : { data: null, error: null },
     );
     mocks.storageList.mockReset();
@@ -188,6 +194,206 @@ describe("store lifecycle preflight", () => {
     });
   });
 
+  it("rejects a request when the displayed phrase is changed by even one space", async () => {
+    vi.stubEnv("STORE_LIFECYCLE_MUTATIONS_ENABLED", "1");
+    vi.stubEnv("STORE_LIFECYCLE_ENFORCEMENT_ENABLED", "1");
+    vi.stubEnv("STORE_LIFECYCLE_PURGE_SCHEDULING_ENABLED", "1");
+
+    await expect(
+      requestStorePurge(
+        {
+          ...purgeInput(),
+          confirmationPhrase: `${getStorePurgeConfirmationPhrase(storeId, "request_purge")} `,
+        },
+        actor,
+      ),
+    ).rejects.toThrow("删除确认提示词不正确");
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("validates the request phrase before calling the legacy RPC with authoritative identity", async () => {
+    vi.stubEnv("STORE_LIFECYCLE_MUTATIONS_ENABLED", "1");
+    vi.stubEnv("STORE_LIFECYCLE_ENFORCEMENT_ENABLED", "1");
+    vi.stubEnv("STORE_LIFECYCLE_PURGE_SCHEDULING_ENABLED", "1");
+    mocks.rpc.mockImplementation(async (name: string) => {
+      if (name === "repairdesk_store_lifecycle_contract_version") return { data: 3, error: null };
+      return {
+        data: {
+          request_id: "00000000-0000-4000-8000-000000000501",
+          store_id: storeId,
+          state: "cooling",
+          requested_at: "2026-08-27T10:00:00.000Z",
+          cooling_until: "2026-08-28T10:00:00.000Z",
+          export_job_id: "00000000-0000-4000-8000-000000000502",
+        },
+        error: null,
+      };
+    });
+
+    const result = await requestStorePurge(
+      {
+        ...purgeInput(),
+        confirmationPhrase: getStorePurgeConfirmationPhrase(storeId, "request_purge"),
+      },
+      actor,
+    );
+
+    expect(result.state).toBe("cooling");
+    expect(mocks.rpc).toHaveBeenCalledWith("repairdesk_request_store_purge_rpc", {
+      p_store_id: storeId,
+      p_actor_id: actor.id,
+      p_expected_revision: 7,
+      p_challenge_id: "00000000-0000-4000-8000-000000000503",
+      p_preflight_snapshot_hash: "a".repeat(64),
+      p_confirmation_store_name: "ChinaTech",
+      p_confirmation_store_id_suffix: "00000001",
+    });
+  });
+
+  it("requires the distinct final phrase and still derives RPC identity from the store row", async () => {
+    vi.stubEnv("STORE_LIFECYCLE_MUTATIONS_ENABLED", "1");
+    vi.stubEnv("STORE_LIFECYCLE_ENFORCEMENT_ENABLED", "1");
+    vi.stubEnv("STORE_LIFECYCLE_PURGE_SCHEDULING_ENABLED", "1");
+    mocks.rpc.mockImplementation(async (name: string) => {
+      if (name === "repairdesk_store_lifecycle_contract_version") return { data: 3, error: null };
+      return {
+        data: {
+          request_id: "00000000-0000-4000-8000-000000000501",
+          store_id: storeId,
+          state: "scheduled",
+          requested_at: "2026-08-27T10:00:00.000Z",
+          cooling_until: "2026-08-28T10:00:00.000Z",
+          export_job_id: "00000000-0000-4000-8000-000000000502",
+          purge_job_id: "00000000-0000-4000-8000-000000000504",
+          purge_after: "2026-08-28T10:05:00.000Z",
+        },
+        error: null,
+      };
+    });
+
+    await expect(
+      confirmStorePurgeRequest(
+        {
+          ...purgeInput(),
+          requestId: "00000000-0000-4000-8000-000000000501",
+          confirmationPhrase: getStorePurgeConfirmationPhrase(storeId, "request_purge"),
+        },
+        actor,
+      ),
+    ).rejects.toThrow("删除确认提示词不正确");
+    expect(mocks.rpc).not.toHaveBeenCalled();
+
+    const result = await confirmStorePurgeRequest(
+      {
+        ...purgeInput(),
+        requestId: "00000000-0000-4000-8000-000000000501",
+        confirmationPhrase: getStorePurgeConfirmationPhrase(storeId, "confirm_purge"),
+      },
+      actor,
+    );
+
+    expect(result.state).toBe("scheduled");
+    expect(mocks.rpc).toHaveBeenCalledWith("repairdesk_confirm_store_purge_request_rpc", {
+      p_store_id: storeId,
+      p_actor_id: actor.id,
+      p_request_id: "00000000-0000-4000-8000-000000000501",
+      p_expected_revision: 7,
+      p_challenge_id: "00000000-0000-4000-8000-000000000503",
+      p_preflight_snapshot_hash: "a".repeat(64),
+      p_confirmation_store_name: "ChinaTech",
+      p_confirmation_store_id_suffix: "00000001",
+    });
+  });
+
+  it("does not read or call purge RPCs for a non-owner", async () => {
+    vi.stubEnv("STORE_LIFECYCLE_MUTATIONS_ENABLED", "1");
+    vi.stubEnv("STORE_LIFECYCLE_ENFORCEMENT_ENABLED", "1");
+    vi.stubEnv("STORE_LIFECYCLE_PURGE_SCHEDULING_ENABLED", "1");
+    mocks.assertPrimaryStoreOwnerForStore.mockRejectedValue(
+      new Error("只有当前店铺的主店主可以执行此操作"),
+    );
+
+    await expect(
+      requestStorePurge(
+        {
+          ...purgeInput(),
+          confirmationPhrase: getStorePurgeConfirmationPhrase(storeId, "request_purge"),
+        },
+        actor,
+      ),
+    ).rejects.toThrow("只有当前店铺的主店主");
+    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("returns no purge status and never reads v3 tables when the purge contract is unavailable", async () => {
+    mocks.rpc.mockImplementation(async (name: string) =>
+      name === "repairdesk_store_lifecycle_contract_version"
+        ? { data: 2, error: null }
+        : { data: null, error: null },
+    );
+
+    await expect(getStorePurgeRequest(storeId, actor)).resolves.toBeNull();
+    expect(mocks.rpc).toHaveBeenCalledWith("repairdesk_store_lifecycle_contract_version");
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("rejects request, cancel, and final confirmation before any purge RPC below contract v3", async () => {
+    vi.stubEnv("STORE_LIFECYCLE_MUTATIONS_ENABLED", "1");
+    vi.stubEnv("STORE_LIFECYCLE_ENFORCEMENT_ENABLED", "1");
+    vi.stubEnv("STORE_LIFECYCLE_PURGE_SCHEDULING_ENABLED", "1");
+    mocks.rpc.mockImplementation(async (name: string) =>
+      name === "repairdesk_store_lifecycle_contract_version"
+        ? { data: 2, error: null }
+        : { data: null, error: null },
+    );
+
+    await expect(
+      requestStorePurge(
+        {
+          ...purgeInput(),
+          confirmationPhrase: getStorePurgeConfirmationPhrase(storeId, "request_purge"),
+        },
+        actor,
+      ),
+    ).rejects.toThrow("店铺保护尚未安装完成");
+    await expect(
+      cancelStorePurgeRequest(
+        { expectedStoreId: storeId, requestId: "00000000-0000-4000-8000-000000000501" },
+        actor,
+      ),
+    ).rejects.toThrow("店铺保护尚未安装完成");
+    await expect(
+      confirmStorePurgeRequest(
+        {
+          ...purgeInput(),
+          requestId: "00000000-0000-4000-8000-000000000501",
+          confirmationPhrase: getStorePurgeConfirmationPhrase(storeId, "confirm_purge"),
+        },
+        actor,
+      ),
+    ).rejects.toThrow("店铺保护尚未安装完成");
+
+    expect(
+      mocks.rpc.mock.calls.some(([name]) => name !== "repairdesk_store_lifecycle_contract_version"),
+    ).toBe(false);
+  });
+
+  it("projects purge job states without claiming queued work is completed", () => {
+    const base = {
+      storedState: "scheduled" as const,
+      exportState: "restore_verified" as const,
+      coolingComplete: true,
+    };
+    expect(projectStorePurgeRequestState({ ...base, purgeJobState: "queued" })).toBe("scheduled");
+    expect(projectStorePurgeRequestState({ ...base, purgeJobState: "running" })).toBe("purging");
+    expect(projectStorePurgeRequestState({ ...base, purgeJobState: "retry" })).toBe("failed");
+    expect(projectStorePurgeRequestState({ ...base, purgeJobState: "failed" })).toBe("failed");
+    expect(projectStorePurgeRequestState({ ...base, purgeJobState: "completed" })).toBe(
+      "completed",
+    );
+  });
+
   it("projects only the original lifecycle operation status and current phase", async () => {
     const result = await getStoreLifecycleOperationStatus(
       storeId,
@@ -246,6 +452,16 @@ describe("store lifecycle preflight", () => {
     expect(result.next_active_store_id).toBe(storeId);
   });
 });
+
+function purgeInput() {
+  return {
+    expectedStoreId: storeId,
+    expectedRevision: 7,
+    reauthChallengeId: "00000000-0000-4000-8000-000000000503",
+    preflightSnapshotHash: "a".repeat(64),
+    confirmationPhrase: "unused",
+  };
+}
 
 class PreflightQuery implements PromiseLike<QueryResult> {
   private filters = new Map<string, unknown>();

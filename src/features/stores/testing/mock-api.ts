@@ -1,4 +1,5 @@
 import type {
+  ActorStoreMembership,
   AuditActor,
   OnboardingDecisionInput,
   OnboardingRequest,
@@ -33,6 +34,8 @@ import {
 import { isInventoryProductDeviceDataV2Enabled } from "@/features/inventory/server/inventory-v2-feature-flags";
 import { isInventoryProductInspectionEnabledForStore } from "@/features/inventory/products/server/inventory-product-inspection-feature-flags";
 
+export const MOCK_PURGE_DEMO_STORE_ID = "00000000-0000-4000-8000-000000000099";
+
 const mockStores = [
   {
     id: "00000000-0000-0000-0000-000000000001",
@@ -43,6 +46,15 @@ const mockStores = [
     membershipId: "10000000-0000-4000-8000-000000000001",
   },
 ] satisfies StoreContext["stores"];
+
+const mockPurgeRecoveryStore = {
+  id: MOCK_PURGE_DEMO_STORE_ID,
+  name: "Demo Archived Store",
+  slug: "demo-archived-store",
+  role: "owner",
+  status: "active",
+  membershipId: "10000000-0000-4000-8000-000000000099",
+} satisfies NonNullable<StoreContext["recoveryStores"]>[number];
 
 let activeStoreId = mockStores[0].id;
 const createdStoreProfiles = new Map<string, { name: string; address: string }>();
@@ -83,6 +95,21 @@ const mockMembersByStore = new Map<string, StoreMember[]>([
         role: "technician",
         status: "active",
         permission_grants: ["supplier:read"],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ],
+  ],
+  [
+    MOCK_PURGE_DEMO_STORE_ID,
+    [
+      {
+        id: mockPurgeRecoveryStore.membershipId,
+        user_id: "mock_user_owner",
+        email: "owner@repairdesk.local",
+        display_name: "店铺管理员",
+        role: "owner",
+        status: "active",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -480,6 +507,7 @@ function context(actor?: AuditActor): StoreContext {
       revision: 1,
     },
   };
+  const recoveryStore = buildMockPurgeRecoveryStore(scopedActor);
   const canManageOrderData =
     isOrderDataExportEnabled() &&
     scopedActor.storeRole === "owner" &&
@@ -501,7 +529,7 @@ function context(actor?: AuditActor): StoreContext {
     stores: mockStores.map((store) =>
       store.id === activeStoreId ? activeStoreWithLifecycle : store,
     ),
-    recoveryStores: [],
+    recoveryStores: isStorePurgeDemoEnabled() ? [recoveryStore] : [],
     activeStoreExplicit: true,
     lifecycleAccess: {
       store_id: activeStore.id,
@@ -593,6 +621,52 @@ function context(actor?: AuditActor): StoreContext {
       canManageMemos: scopedActor.storeRole === "owner" || scopedActor.storeRole === "manager",
     },
   };
+}
+
+function buildMockPurgeRecoveryStore(actor: AuditActor): ActorStoreMembership {
+  const isPrimaryOwner = actor.id === "mock_user_owner" && actor.storeRole === "owner";
+  const check = isPrimaryOwner
+    ? ({ allowed: true, code: "available" } as const)
+    : ({ allowed: false, code: "primary_owner_required" } as const);
+  const mutations =
+    isPrimaryOwner &&
+    process.env.STORE_LIFECYCLE_ENFORCEMENT_ENABLED === "1" &&
+    process.env.STORE_LIFECYCLE_MUTATIONS_ENABLED === "1"
+      ? ({ allowed: true, code: "available" } as const)
+      : isPrimaryOwner
+        ? ({ allowed: false, code: "feature_disabled" } as const)
+        : check;
+  const purge = !isPrimaryOwner
+    ? check
+    : process.env.STORE_LIFECYCLE_PURGE_SCHEDULING_ENABLED === "1"
+      ? mutations
+      : ({ allowed: false, code: "feature_disabled" } as const);
+  const lifecycle = {
+    store_id: mockPurgeRecoveryStore.id,
+    phase: "archived" as const,
+    revision: 1,
+    archived_at: "2026-08-01T00:00:00.000Z",
+  };
+  return {
+    ...mockPurgeRecoveryStore,
+    role: actor.storeRole ?? "owner",
+    isPrimaryOwner,
+    lifecycle,
+    lifecycleAccess: {
+      store_id: mockPurgeRecoveryStore.id,
+      check,
+      rename: { allowed: false, code: "store_unavailable" },
+      close: { allowed: false, code: "store_unavailable" },
+      restore: mutations,
+      purge,
+    },
+  };
+}
+
+function isStorePurgeDemoEnabled() {
+  return (
+    process.env.NODE_ENV !== "production" && process.env.REPAIRDESK_E2E_STORE_PURGE_DEMO === "1"
+  );
 }
 
 function members(actor?: AuditActor): StoreMembersResult {

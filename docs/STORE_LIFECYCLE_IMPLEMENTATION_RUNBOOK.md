@@ -1,6 +1,6 @@
 # Store Lifecycle P0-P5 Implementation Runbook
 
-Last updated: 2026-07-20
+Last updated: 2026-08-27
 
 ## Current release boundary
 
@@ -17,6 +17,10 @@ P0-P5 has a verified implementation path. Its first six additive migrations were
 
 The browser never deletes tenant data directly. Contract v3 adds owner-facing request, status, cancellation and final-confirmation controls under **已关闭与删除**. The first AAL2 confirmation creates a server-owned request and export job, at least 24 hours remain cancellable, and a distinct fresh AAL2 confirmation is accepted only after a current preflight and isolated `restore_verified` proof. Export and destructive purge still run only through service workers.
 
+The Settings controls are a staged browser control plane: an explicitly selected active store exposes only the recoverable close preflight, while an archived store exposes the purge request/status controls only to the system-registered primary owner. The request and final-confirm operations display and require different exact phrases derived from the authoritative UUID (including case and spaces); the browser sends only `confirmationPhrase`, never a client-supplied store-name/UUID split. The full store name and UUID remain separate read-only核对 values, copy feedback is announced without normalizing the input, and active mutation submissions lock the phrase, acknowledgement, cancel and submit controls to prevent duplicate or accidental actions. `scheduled` means the request is waiting for background safety checks and scheduling; only `completed` means deletion finished.
+
+The read-only request/status query remains visible when purge scheduling is disabled, while creating or final-confirming a request remains capability-gated. Existing requests can still be cancelled through the guarded server path. The browser control plane is staged only: it never deletes Storage or database rows. The purge worker and every destructive adapter method now fail closed unless `repairdesk_store_lifecycle_contract_version >= 4` before claim/queue/start or any Storage API call; contract v4 is intentionally absent from the current production lineage. This local control-plane implementation does not authorize production scheduling, worker activation, Storage deletion, or database purge: the forward v4 migration, encrypted sink, isolated restore proof, independent background runner approval and a separate R4 Owner/D4 approval remain blocking production gates.
+
 ## Migration order
 
 Applied after linked dry-run approval, in this exact order:
@@ -30,6 +34,8 @@ Applied after linked dry-run approval, in this exact order:
 7. `20260720013000_store_lifecycle_business_fence_and_close_recheck.sql`
 8. `20260720065246_ai_usage_bucket_store_fence_hotfix.sql` — production-applied and postchecked
 9. `20260720211230_store_self_service_purge_safety.sql` — contract v3; pending production approval/apply
+
+Contract v4 is a future forward migration and is deliberately not present in this release. Until it is independently reviewed and approved, the production worker must reject every claim/start/destructive method before any purge side effect.
 
 The chain is additive until a separately approved purge job reaches its final worker steps. The sixth migration contains deletion RPCs; the contract-v3 forward migration adds a service-owned request ledger and lease-bound writer-fence bypass. All destructive RPCs remain `service_role` only and unreachable while purge flags are off.
 
@@ -173,5 +179,5 @@ The earlier read-only preflight for the label `china tech noto` used a UUID endi
 - Rename rollback is a forward audited rename.
 - Close/archive rollback is the formal restore RPC; revoked credentials are reissued, never revived.
 - Stop export/purge workers by turning off their exact flags and preserve job/checkpoint evidence.
-- Contract v3 adds the missing bypass, bound to the exact store UUID, job UUID, worker ID, destructive-step marker and unexpired lease. Keep purge scheduling and worker flags off until that forward migration, application code and disposable-store proof have all passed independent review.
+- Contract v3 adds the missing bypass, bound to the exact store UUID, job UUID, worker ID, destructive-step marker and unexpired lease. The current application guard requires contract v4 because the existing v3 completion path is incompatible with the retained purge-request ledger (`ON DELETE RESTRICT`) and there is no independent D4 background-runner approval. Keep purge scheduling and worker flags off until a forward v4 migration, application code, disposable-store proof, sink/restore review and independent D4 approval have all passed.
 - Once a purge deletes Storage or rows, there is no business rollback. Recovery depends on the already verified encrypted export, so a production purge is always a separate R4 approval.

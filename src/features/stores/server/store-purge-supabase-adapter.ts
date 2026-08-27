@@ -11,11 +11,20 @@ import { getSupabaseAdmin } from "@/server/supabase";
 
 const STORAGE_LIST_LIMIT = 100;
 const STORAGE_OBJECT_SAFETY_LIMIT = 100_000;
+export const STORE_PURGE_MIN_CONTRACT_VERSION = 4;
+
+export function assertStorePurgeContractVersion(version: unknown) {
+  const numericVersion = typeof version === "number" ? version : Number(version);
+  if (!Number.isFinite(numericVersion) || numericVersion < STORE_PURGE_MIN_CONTRACT_VERSION) {
+    throw new Error("STORE_PURGE_CONTRACT_VERSION_UNSUPPORTED");
+  }
+}
 
 export function createSupabaseStorePurgeAdapter(): StorePurgeExecutorAdapter {
   const supabase = getSupabaseAdmin();
   return {
     async claimJob(workerId) {
+      await assertContractVersion();
       await rpc("repairdesk_queue_due_store_purge_jobs", {});
       const data = await rpc("repairdesk_claim_store_purge_job", {
         p_worker_id: workerId,
@@ -32,6 +41,7 @@ export function createSupabaseStorePurgeAdapter(): StorePurgeExecutorAdapter {
       };
     },
     async renewLease(jobId, workerId) {
+      await assertContractVersion();
       await rpc("repairdesk_renew_store_purge_lease_rpc", {
         p_job_id: jobId,
         p_worker_id: workerId,
@@ -39,10 +49,12 @@ export function createSupabaseStorePurgeAdapter(): StorePurgeExecutorAdapter {
       });
     },
     async computeOtherTenantGuard(storeId) {
+      await assertContractVersion();
       const data = await rpc("repairdesk_other_tenant_guard_sha256", { p_store_id: storeId });
       return requiredString(data);
     },
     async startJob(job, workerId, otherTenantGuard) {
+      await assertContractVersion();
       await rpc("repairdesk_start_store_purge_rpc", {
         p_job_id: job.id,
         p_worker_id: workerId,
@@ -50,6 +62,7 @@ export function createSupabaseStorePurgeAdapter(): StorePurgeExecutorAdapter {
       });
     },
     async listCatalog() {
+      await assertContractVersion();
       const data = await rpc("repairdesk_store_purge_catalog", {});
       return ((data ?? []) as DbRecord[]).map(
         (row): StorePurgeCatalogEntry => ({
@@ -61,6 +74,7 @@ export function createSupabaseStorePurgeAdapter(): StorePurgeExecutorAdapter {
       );
     },
     async deleteStorageBatch(job, limit) {
+      await assertContractVersion();
       const objects = await listStoreStorageObjects(
         job.storeId,
         Math.min(limit, STORAGE_LIST_LIMIT),
@@ -75,15 +89,18 @@ export function createSupabaseStorePurgeAdapter(): StorePurgeExecutorAdapter {
       return deleted;
     },
     async countStorageObjects(job) {
+      await assertContractVersion();
       return (await listStoreStorageObjects(job.storeId, STORAGE_OBJECT_SAFETY_LIMIT)).length;
     },
     async prepareDatabaseDelete(job, workerId) {
+      await assertContractVersion();
       await rpc("repairdesk_prepare_store_purge_database_v3_rpc", {
         p_job_id: job.id,
         p_worker_id: workerId,
       });
     },
     async deleteTableBatch(job, workerId, tableName, limit) {
+      await assertContractVersion();
       const data = await rpc("repairdesk_purge_store_table_batch_v3_rpc", {
         p_job_id: job.id,
         p_worker_id: workerId,
@@ -93,6 +110,7 @@ export function createSupabaseStorePurgeAdapter(): StorePurgeExecutorAdapter {
       return Number((data as DbRecord | null)?.deleted_count ?? 0);
     },
     async readResidualCounts(storeId) {
+      await assertContractVersion();
       const data = await rpc("repairdesk_store_purge_residual_counts", { p_store_id: storeId });
       if (!data || typeof data !== "object" || Array.isArray(data)) return {};
       return Object.fromEntries(
@@ -103,9 +121,11 @@ export function createSupabaseStorePurgeAdapter(): StorePurgeExecutorAdapter {
       );
     },
     async checkpoint(jobId, workerId, checkpoint) {
+      await assertContractVersion();
       await writeCheckpoint(jobId, workerId, checkpoint);
     },
     async markZeroProof(input) {
+      await assertContractVersion();
       await rpc("repairdesk_mark_store_purge_zero_proof_rpc", {
         p_job_id: input.jobId,
         p_worker_id: input.workerId,
@@ -114,6 +134,7 @@ export function createSupabaseStorePurgeAdapter(): StorePurgeExecutorAdapter {
       });
     },
     async complete(input) {
+      await assertContractVersion();
       const data = await rpc("repairdesk_complete_store_purge_v3_rpc", {
         p_job_id: input.jobId,
         p_worker_id: input.workerId,
@@ -128,6 +149,11 @@ export function createSupabaseStorePurgeAdapter(): StorePurgeExecutorAdapter {
     const { data, error } = await supabase.rpc(name, params);
     fail(error, `店铺清除 RPC ${name} 失败`);
     return data;
+  }
+
+  async function assertContractVersion() {
+    const data = await rpc("repairdesk_store_lifecycle_contract_version", {});
+    assertStorePurgeContractVersion(data);
   }
 
   async function listStoreStorageObjects(storeId: string, maxObjects: number) {
@@ -186,6 +212,11 @@ export async function runSupabaseStorePurgeWorker(workerId: string) {
     throw new Error("店铺永久清除 worker 未启用");
   }
   if (!/^[A-Za-z0-9:_-]{3,120}$/.test(workerId)) throw new Error("清除 worker id 无效");
+  const { data, error } = await getSupabaseAdmin().rpc(
+    "repairdesk_store_lifecycle_contract_version",
+  );
+  fail(error, "店铺清除 RPC repairdesk_store_lifecycle_contract_version 失败");
+  assertStorePurgeContractVersion(data);
   return runNextStorePurge({ workerId, adapter: createSupabaseStorePurgeAdapter() });
 }
 
