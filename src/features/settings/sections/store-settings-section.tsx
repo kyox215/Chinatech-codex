@@ -1,16 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  Check,
   Copy,
+  ChevronDown,
   Link as LinkIcon,
   Mail,
   MessageSquare,
   Phone,
   Plus,
-  Printer,
-  ReceiptText,
   ShieldCheck,
   Store,
 } from "lucide-react";
@@ -28,14 +26,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import type { StoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import { SettingsField } from "@/features/settings/components/settings-field";
@@ -54,34 +44,29 @@ import type {
   ActorStoreMembership,
   StoreLifecycleCapability,
   StoreLifecyclePreflight,
-  StoreRole,
 } from "@/lib/repairdesk/types";
 import { formLayout, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { RepairOsBusinessCard, RepairOsSectionHeader } from "@/shared/ui";
 
-const storeRoleLabels: Record<StoreRole, string> = {
-  owner: "店主",
-  manager: "经理",
-  technician: "技师",
-  sales: "前台",
-  viewer: "只读",
-};
-
 export interface StoreSettingsSectionContentProps {
   activeStoreId?: string;
   activeStoreExplicit?: boolean;
   stores: ActorStoreMembership[];
-  isContextLoading: boolean;
-  isSwitching: boolean;
-  isCreating: boolean;
+  /** @deprecated Store switching is owned by AppSidebar; kept for test/caller compatibility. */
+  isContextLoading?: boolean;
+  /** @deprecated Store switching is owned by AppSidebar; kept for test/caller compatibility. */
+  isSwitching?: boolean;
+  /** @deprecated Store switching is owned by AppSidebar; kept for test/caller compatibility. */
   switchError?: string;
+  isCreating: boolean;
   createError?: string;
   newStoreName: string;
   newStoreAddress: string;
   onNewStoreNameChange: (value: string) => void;
   onNewStoreAddressChange: (value: string) => void;
-  onSwitchStore: (storeId: string) => void;
+  /** @deprecated Store switching is owned by AppSidebar; kept for test/caller compatibility. */
+  onSwitchStore?: (storeId: string) => void;
   onCreateStore: () => void;
   lifecyclePreflight?: StoreLifecyclePreflight;
   isLifecyclePreflighting?: boolean;
@@ -104,16 +89,12 @@ export function StoreSettingsSectionContent({
   activeStoreId,
   activeStoreExplicit = true,
   stores,
-  isContextLoading,
-  isSwitching,
   isCreating,
-  switchError,
   createError,
   newStoreName,
   newStoreAddress,
   onNewStoreNameChange,
   onNewStoreAddressChange,
-  onSwitchStore,
   onCreateStore,
   lifecyclePreflight,
   isLifecyclePreflighting = false,
@@ -131,68 +112,96 @@ export function StoreSettingsSectionContent({
   fieldErrors,
   onDraftChange,
 }: StoreSettingsSectionContentProps) {
+  const [managementOpen, setManagementOpen] = useState(false);
+  const activeStore = stores.find((store) => store.id === activeStoreId);
+
   return (
     <div data-settings-store-section className="min-w-0 space-y-3">
-      <StoreWorkspaceCard
-        activeStoreId={activeStoreId}
-        activeStoreExplicit={activeStoreExplicit}
-        stores={stores}
-        isLoading={isContextLoading}
-        isSwitching={isSwitching}
-        error={switchError}
-        onSwitchStore={onSwitchStore}
-      />
-
       {draft ? (
-        <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] xl:items-start">
-          <StoreProfileCard
-            store={stores.find((store) => store.id === activeStoreId)}
-            lifecycleAccess={lifecycleAccess}
-            hasUnsavedDraft={isDraftDirty}
-            draft={draft}
-            canUpdateSettings={canUpdateSettings}
-            fieldErrors={fieldErrors}
-            onDraftChange={onDraftChange}
-          />
-          {savedReadiness && draftReadiness && savedOutputIdentity && draftOutputIdentity ? (
-            <StoreOutputReadinessCard
-              savedReadiness={savedReadiness}
-              draftReadiness={draftReadiness}
-              savedOutputIdentity={savedOutputIdentity}
-              draftOutputIdentity={draftOutputIdentity}
-              isDraftDirty={isDraftDirty}
-            />
-          ) : null}
-        </div>
+        <StoreProfileCard
+          draft={draft}
+          canUpdateSettings={canUpdateSettings}
+          fieldErrors={fieldErrors}
+          onDraftChange={onDraftChange}
+        />
       ) : null}
 
-      <StoreLifecycleCard
-        store={stores.find((store) => store.id === activeStoreId)}
-        activeStoreExplicit={activeStoreExplicit}
-        lifecycleAccess={lifecycleAccess}
-        preflight={lifecyclePreflight}
-        isLoading={isLifecyclePreflighting}
-        error={lifecyclePreflightError}
-        canRun={canRunLifecyclePreflight}
-        capability={
-          lifecycleAccess
-            ? canRunLifecyclePreflight
-              ? lifecycleAccess.close
-              : { allowed: false, code: "primary_owner_required" as const }
-            : undefined
-        }
-        onRun={onRunLifecyclePreflight}
-      />
+      {savedReadiness && draftReadiness && savedOutputIdentity && draftOutputIdentity ? (
+        <StoreOutputReadinessCard
+          savedReadiness={savedReadiness}
+          draftReadiness={draftReadiness}
+          savedOutputIdentity={savedOutputIdentity}
+          draftOutputIdentity={draftOutputIdentity}
+          isDraftDirty={isDraftDirty}
+        />
+      ) : null}
 
-      <StoreCreationCard
-        isCreating={isCreating}
-        error={createError}
-        newStoreName={newStoreName}
-        newStoreAddress={newStoreAddress}
-        onNewStoreNameChange={onNewStoreNameChange}
-        onNewStoreAddressChange={onNewStoreAddressChange}
-        onCreateStore={onCreateStore}
-      />
+      <section
+        data-settings-store-management
+        className={cn(repairOs.adminSection, "overflow-hidden p-0")}
+      >
+        <button
+          type="button"
+          data-settings-store-management-toggle
+          aria-expanded={managementOpen}
+          aria-controls="settings-store-management-content"
+          onClick={() => setManagementOpen((open) => !open)}
+          className="flex min-h-11 w-full min-w-0 items-center gap-2 px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-4"
+        >
+          <ShieldCheck className="size-4 shrink-0 text-primary" aria-hidden="true" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold">管理店铺与安全</span>
+            <span className="mt-0.5 block truncate text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
+              重命名、创建、关闭或删除店铺
+            </span>
+          </span>
+          <ChevronDown
+            className={cn("size-4 shrink-0 transition-transform", managementOpen && "rotate-180")}
+            aria-hidden="true"
+          />
+        </button>
+        <div
+          id="settings-store-management-content"
+          hidden={!managementOpen}
+          className="space-y-3 border-t border-[var(--border-panel)] p-2.5 sm:p-3"
+        >
+          {managementOpen ? (
+            <>
+              <StoreIdentityCard
+                store={activeStore}
+                lifecycleAccess={lifecycleAccess}
+                hasUnsavedDraft={isDraftDirty}
+              />
+              <StoreLifecycleCard
+                store={activeStore}
+                activeStoreExplicit={activeStoreExplicit}
+                lifecycleAccess={lifecycleAccess}
+                preflight={lifecyclePreflight}
+                isLoading={isLifecyclePreflighting}
+                error={lifecyclePreflightError}
+                canRun={canRunLifecyclePreflight}
+                capability={
+                  lifecycleAccess
+                    ? canRunLifecyclePreflight
+                      ? lifecycleAccess.close
+                      : { allowed: false, code: "primary_owner_required" as const }
+                    : undefined
+                }
+                onRun={onRunLifecyclePreflight}
+              />
+              <StoreCreationCard
+                isCreating={isCreating}
+                error={createError}
+                newStoreName={newStoreName}
+                newStoreAddress={newStoreAddress}
+                onNewStoreNameChange={onNewStoreNameChange}
+                onNewStoreAddressChange={onNewStoreAddressChange}
+                onCreateStore={onCreateStore}
+              />
+            </>
+          ) : null}
+        </div>
+      </section>
     </div>
   );
 }
@@ -255,109 +264,6 @@ function StoreLifecycleCard({
         </>
       ) : (
         <p className="text-sm text-muted-foreground">请先选择要管理的店铺。</p>
-      )}
-    </section>
-  );
-}
-
-function StoreWorkspaceCard({
-  activeStoreId,
-  activeStoreExplicit,
-  stores,
-  isLoading,
-  isSwitching,
-  error,
-  onSwitchStore,
-}: {
-  activeStoreId?: string;
-  activeStoreExplicit: boolean;
-  stores: ActorStoreMembership[];
-  isLoading: boolean;
-  isSwitching: boolean;
-  error?: string;
-  onSwitchStore: (storeId: string) => void;
-}) {
-  return (
-    <section className={cn(repairOs.adminSection, "space-y-3 p-2.5 sm:p-3")}>
-      <RepairOsSectionHeader icon={Store} iconFrame={false} title="店铺工作区" />
-      {isLoading ? (
-        <div className="grid gap-2 sm:grid-cols-2">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      ) : (
-        <>
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-            <SettingsField label="当前店铺" htmlFor="active-store">
-              <Select
-                value={activeStoreId}
-                onValueChange={onSwitchStore}
-                disabled={isSwitching || stores.length === 0}
-              >
-                <SelectTrigger id="active-store" className="h-10 text-sm" aria-busy={isSwitching}>
-                  <SelectValue placeholder="选择店铺" />
-                </SelectTrigger>
-                <SelectContent>
-                  {stores.map((store) => (
-                    <SelectItem key={store.id} value={store.id}>
-                      {store.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </SettingsField>
-            <div className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2.5 text-xs sm:min-w-40">
-              <p className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                可访问店铺
-              </p>
-              <p className="mt-1 font-semibold">{stores.length} 个工作区</p>
-            </div>
-          </div>
-          <p className="text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-            切换店铺会加载该独立工作区的订单、客户、库存和设置；存在未保存草稿时会先确认处理方式。
-          </p>
-          {!activeStoreExplicit && activeStoreId ? (
-            <div className="flex flex-col gap-2 rounded-xl border border-status-warn-foreground/25 bg-status-warn/10 p-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs leading-5 text-status-warn-foreground">
-                你有多个店铺。请先确认要管理的是当前这家，系统才会显示重命名和关闭功能。
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                className="min-h-10 shrink-0"
-                disabled={isSwitching}
-                onClick={() => onSwitchStore(activeStoreId)}
-              >
-                确认管理这家店
-              </Button>
-            </div>
-          ) : null}
-          <p role="status" aria-live="polite" className="sr-only">
-            {isSwitching ? "正在切换店铺" : "当前店铺已加载"}
-          </p>
-          {error ? (
-            <div
-              role="alert"
-              className="rounded-lg border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-2 text-[11px] leading-4 text-status-danger-foreground lg:text-xs lg:leading-[18px]"
-            >
-              店铺切换失败：{error}。当前店铺与未保存草稿均未改变，请重试。
-            </div>
-          ) : null}
-          <div className="flex min-w-0 flex-wrap gap-2" aria-label="可用店铺">
-            {stores.map((store) => (
-              <Badge
-                key={store.id}
-                variant={store.id === activeStoreId ? "default" : "outline"}
-                className="max-w-full gap-1.5"
-              >
-                <span className="truncate">{store.name}</span>
-                <span className="text-[10px] opacity-75 lg:text-[11px] lg:leading-4 lg:opacity-100">
-                  {storeRoleLabels[store.role]}
-                </span>
-              </Badge>
-            ))}
-          </div>
-        </>
       )}
     </section>
   );
@@ -447,7 +353,7 @@ function StoreCreationCard({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>确认创建独立店铺？</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="[overflow-wrap:anywhere]">
               将创建“{newStoreName.trim()}
               ”作为新的独立私有租户，并在成功后切换过去。
               {newStoreAddress.trim()
@@ -476,30 +382,28 @@ function StoreCreationCard({
 }
 
 function StoreProfileCard({
-  store,
-  lifecycleAccess,
-  hasUnsavedDraft,
   draft,
   canUpdateSettings,
   fieldErrors,
   onDraftChange,
 }: {
-  store?: ActorStoreMembership;
-  lifecycleAccess?: StoreLifecycleCapability;
-  hasUnsavedDraft: boolean;
   draft: StoreSettingsDraftValues["store"];
   canUpdateSettings: boolean;
   fieldErrors: SettingsFieldErrors;
   onDraftChange: (patch: Partial<StoreSettingsDraftValues["store"]>) => void;
 }) {
-  const [copied, setCopied] = useState(false);
-  const canShowIdentity = lifecycleAccess?.check.allowed === true && Boolean(store);
-  const copyStoreId = async () => {
-    if (!store) return;
-    await navigator.clipboard.writeText(store.id);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
-  };
+  const publicBaseUrlError = getSettingsFieldError(fieldErrors, "public_base_url");
+  const [moreOptionsOpen, setMoreOptionsOpen] = useState(Boolean(publicBaseUrlError));
+  useEffect(() => {
+    if (publicBaseUrlError) setMoreOptionsOpen(true);
+  }, [publicBaseUrlError]);
+  useEffect(() => {
+    if (!publicBaseUrlError || !moreOptionsOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById("public-base-url")?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [moreOptionsOpen, publicBaseUrlError]);
   return (
     <section className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
       <RepairOsSectionHeader
@@ -512,42 +416,6 @@ function StoreProfileCard({
           </Badge>
         }
       />
-      {canShowIdentity && store ? (
-        <div className="mb-3 grid gap-3 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-          <div className="min-w-0">
-            <p className="text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-              系统中的店铺名称
-            </p>
-            <p className="mt-1 break-words text-sm font-semibold">{store.name}</p>
-            <p className="mt-2 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-              店铺唯一编号
-            </p>
-            <p className="mt-1 break-all font-mono text-xs tabular-nums">{store.id}</p>
-          </div>
-          <div className="flex flex-wrap gap-2 sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="min-h-10 gap-1.5"
-              onClick={() => void copyStoreId()}
-            >
-              <Copy className="size-3.5" aria-hidden="true" />
-              {copied ? "已复制" : "复制编号"}
-            </Button>
-            {lifecycleAccess ? (
-              <StoreRenameOverlay
-                store={store}
-                capability={lifecycleAccess.rename}
-                hasUnsavedProfileDraft={hasUnsavedDraft}
-              />
-            ) : null}
-          </div>
-          <p role="status" aria-live="polite" className="sr-only">
-            {copied ? "店铺唯一编号已复制" : ""}
-          </p>
-        </div>
-      ) : null}
       {!canUpdateSettings ? (
         <StoreProfileReadOnly draft={draft} />
       ) : (
@@ -663,32 +531,13 @@ function StoreProfileCard({
           >
             维修工单、批量工单和二手销售票据会使用此地址；留空时客户输出保持暂停，不会回退到其他店铺地址。
           </p>
-          <SettingsField
-            label="客户门户域名"
-            htmlFor="public-base-url"
-            icon={LinkIcon}
-            className="mt-3"
-            error={getSettingsFieldError(fieldErrors, "public_base_url")}
-          >
-            <Input
-              id="public-base-url"
-              type="url"
-              className="h-10 text-sm"
-              value={draft.public_base_url ?? ""}
-              inputMode="url"
-              placeholder="https://example.test"
-              aria-invalid={Boolean(getSettingsFieldError(fieldErrors, "public_base_url"))}
-              aria-describedby={getSettingsFieldErrorId(
-                fieldErrors,
-                "public_base_url",
-                "public-base-url",
-              )}
-              onChange={(event) => onDraftChange({ public_base_url: event.target.value })}
-            />
-          </SettingsField>
-          <p className="mt-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-            电话、WhatsApp、邮箱至少填写一个；客户门户域名为空时，外发客户消息会自动省略链接。
-          </p>
+          <StoreProfileMoreOptions
+            open={moreOptionsOpen}
+            onOpenChange={setMoreOptionsOpen}
+            draft={draft}
+            fieldErrors={fieldErrors}
+            onDraftChange={onDraftChange}
+          />
         </>
       )}
     </section>
@@ -696,12 +545,12 @@ function StoreProfileCard({
 }
 
 function StoreProfileReadOnly({ draft }: { draft: StoreSettingsDraftValues["store"] }) {
+  const [moreOptionsOpen, setMoreOptionsOpen] = useState(false);
   const values = [
     ["店铺名", draft.store_name],
     ["邮箱", draft.store_email],
     ["电话", draft.store_phone],
     ["WhatsApp", draft.store_whatsapp],
-    ["客户门户域名", draft.public_base_url ?? ""],
     ["默认打印地址", draft.store_address],
   ] as const;
 
@@ -728,13 +577,160 @@ function StoreProfileReadOnly({ draft }: { draft: StoreSettingsDraftValues["stor
           </div>
         ))}
       </dl>
+      <div className="mt-3 border-t border-[var(--border-panel)] pt-2">
+        <button
+          type="button"
+          aria-expanded={moreOptionsOpen}
+          aria-controls="store-profile-readonly-more"
+          onClick={() => setMoreOptionsOpen((open) => !open)}
+          className="flex min-h-11 w-full items-center gap-2 text-left text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-9"
+        >
+          <span className="flex-1">更多选项</span>
+          <ChevronDown
+            className={cn("size-4 transition-transform", moreOptionsOpen && "rotate-180")}
+            aria-hidden="true"
+          />
+        </button>
+        <dl id="store-profile-readonly-more" hidden={!moreOptionsOpen} className="mt-2">
+          {moreOptionsOpen ? (
+            <div className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2.5">
+              <dt className="text-[10px] font-medium text-muted-foreground lg:text-[11px] lg:leading-4">
+                客户门户域名
+              </dt>
+              <dd className="mt-1 whitespace-pre-wrap break-words text-xs font-semibold leading-4">
+                {draft.public_base_url?.trim() || "未填写"}
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+      </div>
     </>
   );
 }
 
+function StoreProfileMoreOptions({
+  open,
+  onOpenChange,
+  draft,
+  fieldErrors,
+  onDraftChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  draft: StoreSettingsDraftValues["store"];
+  fieldErrors: SettingsFieldErrors;
+  onDraftChange: (patch: Partial<StoreSettingsDraftValues["store"]>) => void;
+}) {
+  return (
+    <div className="mt-3 border-t border-[var(--border-panel)] pt-2">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls="store-profile-more"
+        onClick={() => onOpenChange(!open)}
+        className="flex min-h-11 w-full items-center gap-2 text-left text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-9"
+      >
+        <span className="flex-1">更多选项</span>
+        <ChevronDown
+          className={cn("size-4 transition-transform", open && "rotate-180")}
+          aria-hidden="true"
+        />
+      </button>
+      <div id="store-profile-more" hidden={!open} className="mt-2">
+        {open ? (
+          <>
+            <SettingsField
+              label="客户门户域名"
+              htmlFor="public-base-url"
+              icon={LinkIcon}
+              error={getSettingsFieldError(fieldErrors, "public_base_url")}
+            >
+              <Input
+                id="public-base-url"
+                type="url"
+                className="h-10 text-sm"
+                value={draft.public_base_url ?? ""}
+                inputMode="url"
+                placeholder="https://example.test"
+                aria-invalid={Boolean(getSettingsFieldError(fieldErrors, "public_base_url"))}
+                aria-describedby={getSettingsFieldErrorId(
+                  fieldErrors,
+                  "public_base_url",
+                  "public-base-url",
+                )}
+                onChange={(event) => onDraftChange({ public_base_url: event.target.value })}
+              />
+            </SettingsField>
+            <p className="mt-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
+              为空时，外发客户消息会自动省略链接。
+            </p>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function StoreIdentityCard({
+  store,
+  lifecycleAccess,
+  hasUnsavedDraft,
+}: {
+  store?: ActorStoreMembership;
+  lifecycleAccess?: StoreLifecycleCapability;
+  hasUnsavedDraft: boolean;
+}) {
+  const [copied, setCopied] = useState(false);
+  if (!store || lifecycleAccess?.check.allowed !== true) return null;
+
+  const copyStoreId = async () => {
+    await navigator.clipboard.writeText(store.id);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  };
+
+  return (
+    <section className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
+      <RepairOsSectionHeader icon={Store} iconFrame={false} title="店铺技术信息" />
+      <div className="grid gap-3 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <div className="min-w-0">
+          <p className="text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
+            系统中的店铺名称
+          </p>
+          <p className="mt-1 break-words text-sm font-semibold">{store.name}</p>
+          <p className="mt-2 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
+            店铺唯一编号
+          </p>
+          <p className="mt-1 break-all font-mono text-xs tabular-nums">{store.id}</p>
+        </div>
+        <div className="flex flex-wrap gap-2 sm:justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-10 gap-1.5"
+            onClick={() => void copyStoreId()}
+          >
+            <Copy className="size-3.5" aria-hidden="true" />
+            {copied ? "已复制" : "复制编号"}
+          </Button>
+          <StoreRenameOverlay
+            store={store}
+            capability={lifecycleAccess.rename}
+            hasUnsavedProfileDraft={hasUnsavedDraft}
+          />
+        </div>
+        <p role="status" aria-live="polite" className="sr-only">
+          {copied ? "店铺唯一编号已复制" : ""}
+        </p>
+      </div>
+    </section>
+  );
+}
+
 function StoreOutputReadinessCard({
-  savedReadiness,
-  draftReadiness,
+  savedReadiness: _savedReadiness,
+  draftReadiness: _draftReadiness,
   savedOutputIdentity,
   draftOutputIdentity,
   isDraftDirty,
@@ -746,136 +742,27 @@ function StoreOutputReadinessCard({
   isDraftDirty: boolean;
 }) {
   const outputReady = savedOutputIdentity.canOutput;
-  const savedItems = customerOutputItems(savedReadiness);
-  const draftItems = customerOutputItems(draftReadiness);
-  const savedCompletedCount = savedItems.filter((item) => item.completed).length;
-  const draftCompletedCount = draftItems.filter((item) => item.completed).length;
-  const savedScore = Math.round((savedCompletedCount / savedItems.length) * 100);
-  const draftScore = Math.round((draftCompletedCount / draftItems.length) * 100);
   const projection = isDraftDirty
     ? getStoreOutputDraftProjectionCopy(
         savedOutputIdentity.canOutput,
         draftOutputIdentity.canOutput,
       )
     : null;
-  const outputSurfaces = [
-    { label: "客户消息", icon: MessageSquare },
-    { label: "工单与报价打印", icon: Printer },
-    { label: "销售与保修票据", icon: ReceiptText },
-  ];
+
+  if (outputReady && (!isDraftDirty || draftOutputIdentity.canOutput)) return null;
 
   return (
-    <section className={cn(repairOs.adminSection, "space-y-3 p-2.5 sm:p-3")}>
-      <RepairOsSectionHeader
-        icon={Check}
-        iconFrame={false}
-        title="客户输出就绪度"
-        action={
-          <Badge
-            variant="outline"
-            className={cn(
-              "text-[10px] lg:text-[11px] lg:leading-4",
-              outputReady
-                ? "border-status-success-foreground/30 text-status-success-foreground"
-                : "border-status-warn-foreground/30 text-status-warn-foreground",
-            )}
-          >
-            {outputReady ? "当前已就绪" : "当前已暂停"}
-          </Badge>
-        }
-      />
-      <div className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3">
-        <div className="flex items-center justify-between gap-3 text-xs">
-          <span className="font-semibold">
-            已保存身份字段 {savedCompletedCount}/{savedItems.length}
-          </span>
-          <span className="font-mono font-semibold tabular-nums">{savedScore}%</span>
-        </div>
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border/60">
-          <div
-            className={cn(
-              "h-full rounded-full",
-              savedScore === 100
-                ? "bg-status-success-foreground"
-                : savedScore >= 60
-                  ? "bg-status-warn-foreground"
-                  : "bg-status-danger-foreground",
-            )}
-            style={{ width: `${savedScore}%` }}
-          />
-        </div>
-        <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
-          {savedItems.map((item) => (
-            <RepairOsBusinessCard
-              key={item.key}
-              className="grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-lg border-0 bg-card px-2 py-2 shadow-none"
-              leading={
-                <span
-                  className={cn(
-                    "grid size-5 place-items-center rounded-full",
-                    item.completed
-                      ? "bg-status-success text-status-success-foreground"
-                      : "bg-status-warn text-status-warn-foreground",
-                  )}
-                >
-                  {item.completed ? <Check className="size-3" /> : "!"}
-                </span>
-              }
-            >
-              <span className="block truncate text-xs font-medium">{item.label}</span>
-            </RepairOsBusinessCard>
-          ))}
-        </div>
-      </div>
-
-      <div
-        role={outputReady ? "status" : "alert"}
-        className={cn(
-          "rounded-xl border px-3 py-2.5",
-          outputReady
-            ? "border-status-success-foreground/25 bg-status-success/10 text-status-success-foreground"
-            : "border-status-warn-foreground/25 bg-status-warn/10 text-status-warn-foreground",
-        )}
-      >
-        <p className="text-xs font-semibold">
-          {outputReady ? "当前已保存资料可用于客户输出" : "以下客户输出当前会保持关闭"}
-        </p>
-        <p className="mt-1 text-[11px] leading-4 lg:text-xs lg:leading-4">
-          {outputReady
-            ? "消息、报价、收据和打印会使用当前已保存的店铺身份。"
-            : savedOutputIdentity.blockReason}
-        </p>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {outputSurfaces.map(({ label, icon: Icon }) => (
-            <Badge
-              key={label}
-              variant="outline"
-              className="gap-1 bg-background/70 text-[10px] lg:text-[11px] lg:leading-4"
-            >
-              <Icon className="size-3" />
-              {label}
-            </Badge>
-          ))}
-        </div>
-      </div>
-
-      {projection ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="rounded-xl border border-primary/25 bg-primary/10 px-3 py-2.5 text-primary"
-        >
-          <p className="text-xs font-semibold">未保存草稿预估</p>
-          <p className="mt-1 text-[11px] leading-4 lg:text-xs lg:leading-4">{projection}</p>
-          <p className="mt-1 text-[10px] leading-3 opacity-80 lg:text-[11px] lg:leading-4 lg:opacity-100">
-            草稿身份字段 {draftCompletedCount}/{draftItems.length} · {draftScore}%
-          </p>
-        </div>
-      ) : null}
+    <section
+      data-settings-output-warning
+      role="alert"
+      className="rounded-xl border border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2.5 text-status-warn-foreground"
+    >
+      <p className="text-xs font-semibold">
+        {outputReady ? "保存这份草稿后将暂停客户输出" : "客户输出当前保持关闭"}
+      </p>
+      <p className="mt-1 text-[11px] leading-4 lg:text-xs lg:leading-4">
+        {projection ?? savedOutputIdentity.blockReason}
+      </p>
     </section>
   );
-}
-
-function customerOutputItems(readiness: StoreSettingsReadiness) {
-  return readiness.items.filter((item) => item.key !== "default_inventory_warranty_months");
 }

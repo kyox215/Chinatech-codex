@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { RotateCcw, Settings2, ShieldCheck } from "lucide-react";
+import { ChevronDown, RotateCcw, Settings2, ShieldCheck } from "lucide-react";
 
 import {
   AlertDialog,
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
@@ -75,6 +76,7 @@ export function RulesSettingsSection({
   onDraftChange,
 }: RulesSettingsSectionProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [costsOpen, setCostsOpen] = useState(false);
   const [restoredToDraft, setRestoredToDraft] = useState(false);
   useEffect(() => {
     if (!isDraftDirty) setRestoredToDraft(false);
@@ -215,7 +217,7 @@ export function RulesSettingsSection({
               >
                 <SelectTrigger
                   id="order-warranty"
-                  className="h-[38px] text-base sm:min-h-10 sm:text-sm"
+                  className="h-[38px] min-h-11 text-base sm:min-h-10 sm:text-sm"
                   aria-invalid={Boolean(
                     getSettingsFieldError(fieldErrors, "default_order_warranty_months"),
                   )}
@@ -249,7 +251,7 @@ export function RulesSettingsSection({
                 required
                 min={STORE_INVENTORY_WARRANTY_RANGE.min}
                 max={STORE_INVENTORY_WARRANTY_RANGE.max}
-                className="h-[38px] text-base sm:min-h-10 sm:text-sm"
+                className="h-[38px] min-h-11 text-base sm:min-h-10 sm:text-sm"
                 value={inventoryWarrantyInput}
                 aria-invalid={Boolean(inventoryWarrantyError)}
                 aria-describedby={
@@ -314,7 +316,7 @@ export function RulesSettingsSection({
                 <Button
                   type="button"
                   variant="outline"
-                  className="min-h-9 w-full shrink-0 aria-disabled:pointer-events-none aria-disabled:opacity-50 sm:min-h-10 sm:w-auto"
+                  className="min-h-11 w-full shrink-0 aria-disabled:pointer-events-none aria-disabled:opacity-50 sm:min-h-10 sm:w-auto"
                   aria-disabled={isDefault}
                   onClick={(event) => {
                     if (isDefault) event.preventDefault();
@@ -357,28 +359,74 @@ export function RulesSettingsSection({
           </div>
         ) : null}
       </section>
-      {canManageOrderCosts && activeStoreId ? (
-        <RepairCostDefaultsCard key={activeStoreId} storeId={activeStoreId} />
-      ) : null}
-      {canManageCostCurrencies && activeStoreId ? (
-        <CostCurrencySettingsCard
-          key={`cost-currencies-${activeStoreId}`}
-          storeId={activeStoreId}
-        />
-      ) : null}
-      {canAllocatePartsCosts && activeStoreId ? (
-        <PartsProcurementCard
-          key={`parts-${activeStoreId}`}
-          storeId={activeStoreId}
-          multiCurrencyEnabled={canReadCostCurrencies}
-        />
-      ) : null}
-      {canPreviewCostBackfill && activeStoreId ? (
-        <CostBackfillCard
-          key={`cost-backfill-${activeStoreId}`}
-          storeId={activeStoreId}
-          canApply={canApplyCostBackfill}
-        />
+      {activeStoreId &&
+      (canManageOrderCosts ||
+        canManageCostCurrencies ||
+        canAllocatePartsCosts ||
+        canPreviewCostBackfill) ? (
+        <Collapsible
+          open={costsOpen}
+          onOpenChange={setCostsOpen}
+          className="overflow-hidden rounded-xl border border-[var(--border-panel)] bg-card"
+        >
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              data-settings-rules-costs-toggle
+              aria-expanded={costsOpen}
+              className="flex min-h-11 w-full min-w-0 items-center gap-2 px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-4"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold">财务与成本</span>
+                <span className="mt-0.5 block truncate text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
+                  维修成本、币种、采购与历史回填
+                </span>
+              </span>
+              <ChevronDown
+                className={cn("size-4 shrink-0 transition-transform", costsOpen && "rotate-180")}
+                aria-hidden="true"
+              />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent
+            forceMount
+            className={cn(
+              "border-t border-[var(--border-panel)] p-2.5 sm:p-3",
+              !costsOpen && "hidden",
+            )}
+          >
+            <div
+              data-settings-rules-costs-content
+              hidden={!costsOpen}
+              aria-hidden={!costsOpen}
+              className="space-y-3"
+            >
+              {canManageOrderCosts ? (
+                <RepairCostDefaultsCard key={activeStoreId} storeId={activeStoreId} />
+              ) : null}
+              {canManageCostCurrencies ? (
+                <CostCurrencySettingsCard
+                  key={`cost-currencies-${activeStoreId}`}
+                  storeId={activeStoreId}
+                />
+              ) : null}
+              {canAllocatePartsCosts ? (
+                <PartsProcurementCard
+                  key={`parts-${activeStoreId}`}
+                  storeId={activeStoreId}
+                  multiCurrencyEnabled={canReadCostCurrencies}
+                />
+              ) : null}
+              {canPreviewCostBackfill ? (
+                <CostBackfillCard
+                  key={`cost-backfill-${activeStoreId}`}
+                  storeId={activeStoreId}
+                  canApply={canApplyCostBackfill}
+                />
+              ) : null}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       ) : null}
     </div>
   );

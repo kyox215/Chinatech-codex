@@ -38,7 +38,7 @@ export function OrderWorkflowStatusList({
                   type="button"
                   variant="outline"
                   size="icon"
-                  className="size-8"
+                  className="size-11 sm:size-8"
                   disabled={index === 0}
                   aria-label={`上移状态 ${status.label}`}
                   onClick={() => onMove(status.id, -1)}
@@ -49,7 +49,7 @@ export function OrderWorkflowStatusList({
                   type="button"
                   variant="outline"
                   size="icon"
-                  className="size-8"
+                  className="size-11 sm:size-8"
                   disabled={index === statuses.length - 1}
                   aria-label={`下移状态 ${status.label}`}
                   onClick={() => onMove(status.id, 1)}
@@ -59,7 +59,7 @@ export function OrderWorkflowStatusList({
                 <Button
                   type="button"
                   variant="outline"
-                  className="min-h-9"
+                  className="min-h-11 sm:min-h-9"
                   aria-label={`编辑状态 ${status.label}`}
                   onClick={() => onEdit(status.id)}
                 >

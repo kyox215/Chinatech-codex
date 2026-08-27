@@ -86,16 +86,6 @@ export function MembersSettingsSection(props: MembersSettingsSectionProps) {
   const [confirmSubmitting, setConfirmSubmitting] = useState(false);
   const confirmSubmittingRef = useRef(false);
   const returnFocusRef = useRef<HTMLElement | null>(null);
-  const activeCount = props.members.filter((member) => member.status === "active").length;
-  const inactiveCount = props.members.filter((member) => member.status === "inactive").length;
-  const requestMetric = !props.canReviewAccessRequests
-    ? "无权限"
-    : props.isAccessRequestsLoading
-      ? "…"
-      : props.isAccessRequestsError
-        ? "—"
-        : String(props.accessRequests.length);
-
   const confirmTitle =
     confirmAction?.kind === "disable"
       ? "停用这名员工？"
@@ -153,34 +143,37 @@ export function MembersSettingsSection(props: MembersSettingsSectionProps) {
         </RepairOsBusinessCard>
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-2 lg:grid-cols-6">
-            {[
-              ["成员", props.members.length, "已加入"],
-              ["正常", activeCount, "可用"],
-              ["停用", inactiveCount, "不可用"],
-              ["邀请", props.invitations.length, "待接受"],
-              ["邀请码", props.inviteLinks.length, "有效"],
-              ["申请", requestMetric, props.isAccessRequestsError ? "读取失败" : "待批"],
-            ].map(([label, value, hint]) => (
-              <div
-                key={label}
-                className={cn(
-                  repairOs.metricCardDense,
-                  "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1",
-                )}
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-[10px] font-medium text-muted-foreground lg:text-[11px] lg:leading-4">
-                    {label}
-                  </p>
-                  <p className="truncate text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                    {hint}
-                  </p>
-                </div>
-                <span className="font-mono text-base font-semibold tabular-nums">{value}</span>
-              </div>
-            ))}
-          </div>
+          {props.canReviewAccessRequests && props.accessRequests.length > 0 ? (
+            <RepairOsBusinessCard
+              as="div"
+              role="status"
+              className="grid-cols-1 gap-1.5 border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2 text-status-warn-foreground"
+            >
+              <p className="text-xs font-semibold">
+                {props.accessRequests.length} 个加入申请待审核
+              </p>
+              <p className="text-[11px] leading-4">
+                处理申请后，成员才能按批准的角色进入当前店铺。
+              </p>
+            </RepairOsBusinessCard>
+          ) : null}
+          <MemberList
+            members={props.members}
+            currentMembershipId={props.currentMembershipId}
+            pendingMemberId={props.pendingMemberId}
+            onOpenEditor={(member, trigger) => {
+              returnFocusRef.current = trigger;
+              setEditingMember(member);
+            }}
+            onRequestDisable={(member, trigger) => {
+              returnFocusRef.current = trigger;
+              setConfirmAction({ kind: "disable", member });
+            }}
+            onRequestRestore={(member, trigger) => {
+              returnFocusRef.current = trigger;
+              setConfirmAction({ kind: "restore", member });
+            }}
+          />
 
           {props.canReviewAccessRequests ? (
             <MemberAccessRequests
@@ -229,24 +222,6 @@ export function MembersSettingsSection(props: MembersSettingsSectionProps) {
               {props.actionError}
             </div>
           ) : null}
-
-          <MemberList
-            members={props.members}
-            currentMembershipId={props.currentMembershipId}
-            pendingMemberId={props.pendingMemberId}
-            onOpenEditor={(member, trigger) => {
-              returnFocusRef.current = trigger;
-              setEditingMember(member);
-            }}
-            onRequestDisable={(member, trigger) => {
-              returnFocusRef.current = trigger;
-              setConfirmAction({ kind: "disable", member });
-            }}
-            onRequestRestore={(member, trigger) => {
-              returnFocusRef.current = trigger;
-              setConfirmAction({ kind: "restore", member });
-            }}
-          />
         </div>
       )}
 

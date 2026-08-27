@@ -7,7 +7,7 @@ const enabled =
 const sections = [
   { key: "account", label: /账号/, heading: "我的账号" },
   { key: "members", label: /员工/, heading: "员工与权限" },
-  { key: "store", label: /店铺/, heading: "店铺工作区" },
+  { key: "store", label: /店铺/, heading: "店铺资料" },
   { key: "suppliers", label: /供应商/, heading: "供应商" },
   { key: "kiosk", label: /客户 iPad|iPad/, heading: "客户 iPad" },
   { key: "rules", label: /默认规则|规则/, heading: "默认规则" },
@@ -16,6 +16,13 @@ const sections = [
   { key: "ai-usage", label: /AI 使用量|AI 用量/, heading: "AI 使用量" },
   { key: "order-data", label: /工单数据|数据/, heading: "工单数据文件" },
 ] as const;
+
+const coreSections = sections.filter((section) =>
+  ["members", "store", "rules", "notifications"].includes(section.key),
+);
+const advancedSections = sections.filter((section) =>
+  ["suppliers", "kiosk", "workflow", "ai-usage", "order-data"].includes(section.key),
+);
 
 const viewports = [
   { width: 390, height: 844 },
@@ -38,15 +45,17 @@ test.describe("settings overview responsive shell", () => {
       await gotoReady(page, "/settings");
 
       await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
-      await expect(page.getByRole("heading", { name: "设置总览" })).toBeVisible({
+      await expect(page.locator("[data-settings-overview-guide]")).toBeVisible({
         timeout: 15_000,
       });
       await expect(page.locator("[data-settings-overview]")).toBeVisible();
       await expect(page.locator("[data-settings-content]")).toBeVisible();
-      await expect(page.getByRole("link", { name: /消息模板/ })).toHaveAttribute(
-        "href",
-        "/messages",
-      );
+      await expect(
+        page.locator("[data-settings-overview]").getByRole("link", { name: /通知与打印/ }),
+      ).toBeVisible();
+      await expect(page.getByRole("link", { name: /消息模板/ })).toHaveCount(0);
+      await expect(page.locator("[data-settings-overview]")).not.toContainText("当前店铺");
+      await expect(page.locator("[data-settings-overview]")).not.toContainText("完整度");
       await expectNoPageOverflow(page, `/settings ${viewport.width}px`);
 
       const rail = page.locator("[data-settings-rail]");
@@ -61,13 +70,18 @@ test.describe("settings overview responsive shell", () => {
             .locator(":scope > div")
             .evaluate((element) => window.getComputedStyle(element).position),
         ).toBe("sticky");
+        await expect(rail.locator("[data-settings-navigation] input")).toHaveCount(0);
+        await expect(rail.locator("[data-settings-more-toggle]")).toHaveAttribute(
+          "aria-expanded",
+          "false",
+        );
       } else {
         await expect(rail).toBeHidden();
       }
 
       const firstGroupCards = page
-        .locator('[aria-labelledby="settings-overview-personal-access"] > div')
-        .locator(":scope > a, :scope > div");
+        .locator('[aria-labelledby="settings-overview-core"] > div')
+        .locator(":scope > a");
       const firstBox = await firstGroupCards.nth(0).boundingBox();
       const secondBox = await firstGroupCards.nth(1).boundingBox();
       expect(firstBox).not.toBeNull();
@@ -99,7 +113,7 @@ test.describe("settings navigation and deep links", () => {
 
   test("falls back to the overview for an unknown section", async ({ page }) => {
     await gotoReady(page, "/settings?section=unknown");
-    await expect(page.getByRole("heading", { name: "设置总览" })).toBeVisible();
+    await expect(page.locator("[data-settings-overview-guide]")).toBeVisible();
   });
 
   for (const section of sections) {
@@ -110,31 +124,38 @@ test.describe("settings navigation and deep links", () => {
         page.locator("main").last().getByRole("heading", { name: section.heading }).first(),
         `${section.key} settings marker`,
       ).toBeVisible({ timeout: 10_000 });
-      await expect(
-        page
-          .getByRole("navigation", { name: "设置导航" })
-          .getByRole("link", { name: section.label })
-          .first(),
-      ).toHaveAttribute("aria-current", "page");
+      const navigation = page.getByRole("navigation", { name: "设置导航" });
+      if (section.key === "account") {
+        await expect(navigation.getByRole("link", { name: section.label })).toHaveCount(0);
+      } else {
+        const link = navigation.getByRole("link", { name: section.label }).first();
+        if (advancedSections.some((item) => item.key === section.key)) {
+          await expect(navigation.locator("[data-settings-more-toggle]")).toHaveAttribute(
+            "aria-expanded",
+            "true",
+          );
+        }
+        await expect(link).toHaveAttribute("aria-current", "page");
+      }
       await expectNoPageOverflow(page, `/settings?section=${section.key}`);
     });
   }
 
   test("preserves overview, rail, back, and forward history", async ({ page }) => {
     await gotoReady(page, "/settings");
-    await clickOverviewEntry(page, /账号/);
-    await expect(page).toHaveURL(/section=account/);
+    await clickOverviewEntry(page, /员工/);
+    await expect(page).toHaveURL(/section=members/);
     await page
       .getByRole("navigation", { name: "设置导航" })
       .getByRole("link", { name: /店铺/ })
       .click();
     await expect(page).toHaveURL(/section=store/);
     await page.goBack();
-    await expect(page).toHaveURL(/section=account/);
-    await expect(page.getByRole("heading", { name: "我的账号" })).toBeVisible();
+    await expect(page).toHaveURL(/section=members/);
+    await expect(page.getByRole("heading", { name: "员工与权限" })).toBeVisible();
     await page.goForward();
     await expect(page).toHaveURL(/section=store/);
-    await expect(page.getByRole("heading", { name: "店铺工作区" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "店铺资料" })).toBeVisible();
   });
 });
 
@@ -166,27 +187,33 @@ test.describe("settings mobile touch targets", () => {
     await gotoReady(page, "/settings");
     const overview = page.locator("[data-settings-overview]");
 
-    for (const section of sections) {
+    for (const section of coreSections) {
       const link = overview.getByRole("link", { name: section.label }).first();
       await expect(link).toBeVisible();
       await expectLinkCenterHitsSelf(link);
     }
 
+    const more = overview.locator("[data-settings-overview-more-toggle]");
+    await expect(more).toHaveAttribute("aria-expanded", "false");
+    await more.click();
+    await expect(more).toHaveAttribute("aria-expanded", "true");
+    for (const section of advancedSections) {
+      const link = overview.getByRole("link", { name: section.label }).first();
+      await expect(link).toBeVisible();
+      await expectLinkCenterHitsSelf(link);
+    }
+    await expect(overview.getByRole("link", { name: /账号/ })).toHaveCount(0);
+
     const storeLink = overview.getByRole("link", { name: /店铺/ }).first();
     await tapLocatorCenter(page, storeLink);
     await expect(page).toHaveURL(/section=store/);
-    await expect(page.getByRole("heading", { name: "店铺工作区" })).toBeVisible();
-    const mobileSaveBox = await page
-      .getByRole("button", { name: "保存设置" })
-      .first()
-      .boundingBox();
-    expect(mobileSaveBox?.height ?? 0).toBeGreaterThanOrEqual(44);
-    expect(mobileSaveBox?.width ?? 0).toBeGreaterThanOrEqual(44);
+    await expect(page.getByRole("heading", { name: "店铺资料" })).toBeVisible();
+    await expect(page.locator("[data-settings-save-bar]").getByRole("button")).toHaveCount(0);
     const returnLink = page.getByRole("link", { name: "返回设置总览" }).first();
     await expectLinkCenterHitsSelf(returnLink);
     await tapLocatorCenter(page, returnLink);
     await expect(page).toHaveURL(/\/settings$/);
-    await expect(page.getByRole("heading", { name: "设置总览" })).toBeVisible();
+    await expect(page.locator("[data-settings-overview-guide]")).toBeVisible();
   });
 });
 
@@ -200,6 +227,35 @@ test.describe("settings blocked query gate", () => {
         memberRequests.push(request.url());
       }
     });
+    const patchBlockedMembers = (payload: {
+      activeStore?: { role?: string };
+      permissions?: Record<string, boolean>;
+    }) => {
+      if (payload.activeStore) payload.activeStore.role = "technician";
+      payload.permissions = {
+        ...(payload.permissions ?? {}),
+        canListMembers: false,
+        canInviteMembers: false,
+        canManageMembers: false,
+        canRevokeMembers: false,
+        canGrantManager: false,
+        canReviewAccessRequests: true,
+      };
+    };
+    await page.route("**/api/repairdesk/shell/bootstrap", async (route) => {
+      const response = await route.fetch();
+      if (!response.ok()) {
+        await route.fulfill({ response });
+        return;
+      }
+      const payload = (await response.json()) as {
+        data: {
+          storeContext?: { activeStore?: { role?: string }; permissions?: Record<string, boolean> };
+        };
+      };
+      if (payload.data.storeContext) patchBlockedMembers(payload.data.storeContext);
+      await route.fulfill({ response, json: payload });
+    });
     await page.route("**/api/repairdesk/stores/context", async (route) => {
       const response = await route.fetch();
       const payload = (await response.json()) as {
@@ -208,16 +264,7 @@ test.describe("settings blocked query gate", () => {
           permissions?: Record<string, boolean>;
         };
       };
-      if (payload.data.activeStore) payload.data.activeStore.role = "technician";
-      payload.data.permissions = {
-        ...(payload.data.permissions ?? {}),
-        canListMembers: false,
-        canInviteMembers: false,
-        canManageMembers: false,
-        canRevokeMembers: false,
-        canGrantManager: false,
-        canReviewAccessRequests: true,
-      };
+      patchBlockedMembers(payload.data);
       await route.fulfill({ response, json: payload });
     });
 
@@ -291,15 +338,20 @@ test.describe("settings account and store workspace details", () => {
     });
   });
 
-  test("separates workspace, profile, output readiness, and confirmed creation on desktop", async ({
+  test("keeps the profile focused and gates store management behind a collapsed section", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await gotoReady(page, "/settings?section=store");
 
-    for (const heading of ["店铺工作区", "店铺资料", "客户输出就绪度", "创建独立店铺"]) {
-      await expect(page.getByRole("heading", { name: heading })).toBeVisible();
-    }
+    await expect(page.getByRole("heading", { name: "店铺资料" })).toBeVisible();
+    const managementToggle = page.locator("[data-settings-store-management-toggle]");
+    await expect(managementToggle).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByRole("heading", { name: "创建独立店铺" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "客户输出就绪度" })).toHaveCount(0);
+    await managementToggle.click();
+    await expect(managementToggle).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByRole("heading", { name: "创建独立店铺" })).toBeVisible();
     await expectNoPageOverflow(page, "store settings 1280px");
     await page.screenshot({
       path: "screenshots/responsive-density/settings/wp03b-store-1280x800.png",
@@ -345,8 +397,14 @@ test.describe("settings account and store workspace details", () => {
       page.getByText("当前账号不能修改当前店铺资料，但仍可按账号资格创建新的独立店铺。"),
     ).toBeVisible();
     await expect(page.getByText("当前账号可查看店铺资料；修改请联系店主或经理。")).toBeVisible();
-    await expect(page.getByRole("textbox", { name: "店铺名", exact: true })).toHaveCount(0);
+    await expect(
+      page.getByRole("textbox", { name: "收据和客户消息显示名称", exact: true }),
+    ).toHaveCount(0);
     await expect(page.locator("dt").filter({ hasText: /^店铺名$/ })).toBeVisible();
+    const managementToggle = page.locator("[data-settings-store-management-toggle]");
+    await expect(managementToggle).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByLabel("新店铺名称")).toHaveCount(0);
+    await managementToggle.click();
     await expect(page.getByLabel("新店铺名称")).toBeEnabled();
     await page.getByLabel("新店铺名称").fill("Viewer Store");
     await page.getByRole("button", { name: "创建并切换" }).click();
@@ -389,12 +447,12 @@ test.describe("settings account and store workspace details", () => {
     });
 
     await gotoReady(page, "/settings?section=store");
-    await expect(page.getByText("当前已暂停")).toBeVisible();
+    await expect(page.getByText("客户输出当前保持关闭")).toBeVisible();
     await page
       .getByRole("textbox", { name: "门店默认地址（用于打印）", exact: true })
       .fill("Via Roma 12, Floridia");
     await expect(page.getByText(/当前客户输出仍然阻断；保存这份草稿后预计解除阻断/)).toBeVisible();
-    await expect(page.getByText("当前已暂停")).toBeVisible();
+    await expect(page.getByText("客户输出当前保持关闭")).toBeVisible();
     await expectNoPageOverflow(page, "store draft projection 390px");
     await page.screenshot({
       path: "screenshots/responsive-density/settings/wp03b-store-draft-390x844.png",
@@ -408,7 +466,8 @@ test.describe("settings account and store workspace details", () => {
 
     await expect(page.getByRole("link", { name: "返回设置总览" }).first()).toBeVisible();
     await expect(page.getByRole("heading", { name: "店铺资料" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "客户输出就绪度" })).toBeVisible();
+    await expect(page.locator("[data-settings-store-management-toggle]")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "客户输出就绪度" })).toHaveCount(0);
     await expectNoPageOverflow(page, "store settings 768px");
   });
 });
@@ -421,11 +480,16 @@ test.describe("settings notifications and default rules", () => {
 
     const section = page.locator("[data-settings-notifications-section]");
     await expect(section.getByRole("heading", { name: "输出配置" })).toBeVisible();
-    await expect(section.getByText("当前已就绪")).toBeVisible();
     const signature = section.getByLabel("客户消息签名");
     await signature.fill("Repair Lab · Pending signature");
-    await expect(section.getByText("未保存草稿预估")).toBeVisible();
-    await expect(section.getByText("未保存草稿 · 客户消息")).toBeVisible();
+    await expect(section.getByRole("alert")).toHaveCount(0);
+    await expect(section.getByRole("button", { name: "预览客户消息" })).toBeVisible();
+    await section.getByRole("button", { name: "预览客户消息" }).click();
+    const previewDialog = page.getByRole("dialog", { name: "未保存草稿 · 客户消息" });
+    await expect(previewDialog).toBeVisible();
+    await expect(previewDialog).toContainText("Pending signature");
+    await page.keyboard.press("Escape");
+    await expect(previewDialog).toBeHidden();
 
     for (const target of [signature, section.getByRole("link", { name: /打开消息模板/ })]) {
       const box = await target.boundingBox();
@@ -444,8 +508,18 @@ test.describe("settings notifications and default rules", () => {
     await gotoReady(page, "/settings?section=notifications");
 
     const section = page.locator("[data-settings-notifications-section]");
-    await expect(section.getByText("客户消息预览")).toBeVisible();
-    await expect(section.getByText("打印资料预览")).toBeVisible();
+    await expect(section.getByRole("button", { name: "预览客户消息" })).toBeVisible();
+    await expect(section.getByRole("button", { name: "预览打印资料" })).toBeVisible();
+    await section.getByRole("button", { name: "预览客户消息" }).click();
+    const messageDialog = page.getByRole("dialog", { name: "客户消息预览" });
+    await expect(messageDialog).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(messageDialog).toBeHidden();
+    await section.getByRole("button", { name: "预览打印资料" }).click();
+    const printDialog = page.getByRole("dialog", { name: "打印资料预览" });
+    await expect(printDialog).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(printDialog).toBeHidden();
     await expect(section.getByRole("link", { name: /打开消息模板/ })).toHaveAttribute(
       "href",
       "/messages",
@@ -946,7 +1020,9 @@ test.describe("settings members and suppliers workspace", () => {
       await expectNoPageOverflow(page, `members settings ${viewport.width}px`);
 
       await gotoReady(page, "/settings?section=suppliers");
-      await expect(page.getByRole("heading", { name: "供应商", exact: true })).toBeVisible();
+      await expect(
+        page.locator("main").last().getByRole("heading", { name: "供应商", exact: true }).first(),
+      ).toBeVisible();
       await expectNoPageOverflow(page, `supplier settings ${viewport.width}px`);
     }
   });
@@ -965,7 +1041,7 @@ test.describe("settings draft safety", () => {
     });
 
     await gotoReady(page, "/settings?section=store");
-    const nameInput = page.getByLabel("店铺名", { exact: true });
+    const nameInput = page.getByLabel("收据和客户消息显示名称", { exact: true });
     await expect(nameInput).toBeVisible();
     await nameInput.fill("Etna Repair Lab E2E");
     const saveBar = page.locator("[data-settings-save-bar]");
@@ -978,6 +1054,10 @@ test.describe("settings draft safety", () => {
     const guard = page.getByRole("alertdialog", { name: "当前设置尚未保存" });
     await expect(guard).toBeVisible();
     await guard.getByRole("button", { name: "取消" }).click();
+    await expect(guard).toBeHidden();
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.pointerEvents))
+      .not.toBe("none");
     await expect(page).toHaveURL(/section=store/);
     await expect(nameInput).toHaveValue("Etna Repair Lab E2E");
     expect(updateBodies).toEqual([]);
@@ -999,13 +1079,13 @@ test.describe("settings draft safety", () => {
 
   test("guards command palette navigation and releases modal pointer locks", async ({ page }) => {
     await gotoReady(page, "/settings?section=store");
-    await page.getByLabel("店铺名", { exact: true }).fill("Command Palette Draft");
+    await page.getByLabel("收据和客户消息显示名称", { exact: true }).fill("Command Palette Draft");
     await expect(page.locator("[data-settings-save-bar]")).toHaveAttribute(
       "data-save-status",
       "dirty",
     );
 
-    await page.getByRole("button", { name: /搜索工单、客户、库存/ }).click();
+    await page.getByRole("button", { name: "打开全局搜索" }).click();
     const paletteInput = page.getByPlaceholder("输入命令、搜索工单或客户…");
     await expect(paletteInput).toBeVisible();
     await paletteInput.fill("维修工单");
@@ -1024,7 +1104,7 @@ test.describe("settings draft safety", () => {
   test("guards AppSidebar links before any route transition", async ({ page }) => {
     test.setTimeout(60_000);
     await gotoReady(page, "/settings?section=store");
-    await page.getByLabel("店铺名", { exact: true }).fill("Sidebar Draft");
+    await page.getByLabel("收据和客户消息显示名称", { exact: true }).fill("Sidebar Draft");
     const ordersLink = page.getByRole("link", { name: "维修工单", exact: true }).first();
 
     await ordersLink.click();
@@ -1032,7 +1112,9 @@ test.describe("settings draft safety", () => {
     await expect(guard).toBeVisible();
     await guard.getByRole("button", { name: "取消" }).click();
     await expect(page).toHaveURL(/section=store/);
-    await expect(page.getByLabel("店铺名", { exact: true })).toHaveValue("Sidebar Draft");
+    await expect(page.getByLabel("收据和客户消息显示名称", { exact: true })).toHaveValue(
+      "Sidebar Draft",
+    );
 
     await ordersLink.click();
     await guard.getByRole("button", { name: "放弃修改" }).click();
@@ -1042,11 +1124,48 @@ test.describe("settings draft safety", () => {
       .not.toBe("none");
   });
 
-  test("guards store switching and keeps the current form mounted after a failed switch", async ({
+  test("keeps store switching in the app sidebar instead of duplicating it in settings", async ({
     page,
   }) => {
-    test.setTimeout(60_000);
-    let switchRequests = 0;
+    const syntheticStore = {
+      id: "store-e2e-b",
+      membershipId: "membership-store-e2e-b",
+      name: "Etna Phone Lab",
+      slug: "etna-phone-lab",
+    };
+    const appendSyntheticStore = <
+      T extends {
+        activeStore?: Record<string, unknown>;
+        stores?: Array<Record<string, unknown>>;
+      },
+    >(
+      data: T,
+    ): T => {
+      if (!data.activeStore || data.stores?.some((store) => store.id === syntheticStore.id)) {
+        return data;
+      }
+      return {
+        ...data,
+        stores: [...(data.stores ?? []), { ...data.activeStore, ...syntheticStore }],
+      };
+    };
+
+    await page.route("**/api/repairdesk/shell/bootstrap", async (route) => {
+      const response = await route.fetch();
+      const payload = (await response.json()) as {
+        data: {
+          storeContext?: {
+            activeStore?: Record<string, unknown>;
+            stores?: Array<Record<string, unknown>>;
+          };
+        };
+      };
+      if (payload.data.storeContext) {
+        payload.data.storeContext = appendSyntheticStore(payload.data.storeContext);
+      }
+      await route.fulfill({ response, json: payload });
+    });
+
     await page.route("**/api/repairdesk/stores/context", async (route) => {
       const response = await route.fetch();
       const payload = (await response.json()) as {
@@ -1055,48 +1174,16 @@ test.describe("settings draft safety", () => {
           stores?: Array<Record<string, unknown>>;
         };
       };
-      const activeStore = payload.data.activeStore;
-      if (activeStore) {
-        payload.data.stores = [
-          ...(payload.data.stores ?? []),
-          {
-            ...activeStore,
-            id: "store-e2e-b",
-            membershipId: "membership-store-e2e-b",
-            name: "Etna Phone Lab",
-            slug: "etna-phone-lab",
-          },
-        ];
-      }
+      payload.data = appendSyntheticStore(payload.data);
       await route.fulfill({ response, json: payload });
-    });
-    await page.route("**/api/repairdesk/stores/switch", async (route) => {
-      switchRequests += 1;
-      await route.fulfill({
-        status: 500,
-        contentType: "application/json",
-        json: { error: { message: "mock switch failure" } },
-      });
     });
 
     await gotoReady(page, "/settings?section=store");
-    const nameInput = page.getByLabel("店铺名", { exact: true });
-    const originalName = await nameInput.inputValue();
-    await nameInput.fill("Switch Draft");
-    const storeSelect = page.getByLabel("当前店铺");
-    await storeSelect.click();
-    await page.getByRole("option", { name: "Etna Phone Lab" }).click();
-    const guard = page.getByRole("alertdialog", { name: "当前设置尚未保存" });
-    await expect(guard).toBeVisible();
-    expect(switchRequests).toBe(0);
-    await guard.getByRole("button", { name: "取消" }).click();
-    await expect(nameInput).toHaveValue("Switch Draft");
-
-    await storeSelect.click();
-    await page.getByRole("option", { name: "Etna Phone Lab" }).click();
-    await guard.getByRole("button", { name: "放弃修改" }).click();
-    await expect.poll(() => switchRequests).toBe(1);
-    await expect(nameInput).toHaveValue(originalName);
+    await expect(page.getByLabel("当前店铺")).toHaveCount(0);
+    const storeMenuTrigger = page.locator('[data-sidebar="menu-button"][data-size="lg"]').last();
+    await storeMenuTrigger.click();
+    await expect(page.getByRole("menuitem", { name: /Etna Phone Lab/ })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "个人中心" })).toBeVisible();
   });
 
   test("restores back and forward history until the dirty decision is resolved", async ({
@@ -1114,18 +1201,22 @@ test.describe("settings draft safety", () => {
 
     await page.evaluate(() => window.history.back());
     await expect(page).toHaveURL(/section=store/);
-    await page.getByLabel("店铺名", { exact: true }).fill("Forward Guard Draft");
+    await page.getByLabel("收据和客户消息显示名称", { exact: true }).fill("Forward Guard Draft");
 
     await page.evaluate(() => window.history.forward());
     const guard = page.getByRole("alertdialog", { name: "当前设置尚未保存" });
     await expect(guard).toBeVisible();
     await expect(page).toHaveURL(/section=store/);
     await guard.getByRole("button", { name: "取消" }).click();
+    await expect(guard).toBeHidden();
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.pointerEvents))
+      .not.toBe("none");
     await expect(page).toHaveURL(/section=store/);
 
     await page.evaluate(() => window.history.forward());
-    await expect(guard).toBeVisible();
-    await guard.getByRole("button", { name: "放弃修改" }).click();
+    await expect(guard).toHaveAttribute("data-state", "open");
+    await clickStableGuardButton(page, "放弃修改");
     await expect(page).toHaveURL(/section=rules/);
     await expect
       .poll(() => page.evaluate(() => document.body.style.pointerEvents))
@@ -1142,7 +1233,7 @@ test.describe("settings mobile overlay and guard safety", () => {
     test.setTimeout(60_000);
     await gotoReady(page, "/settings?section=store");
     await expect(page.locator('[data-mobile-workspace-trigger="true"]')).toHaveCount(0);
-    await page.getByLabel("店铺名", { exact: true }).fill("Mobile Return Draft");
+    await page.getByLabel("收据和客户消息显示名称", { exact: true }).fill("Mobile Return Draft");
     const returnLink = page.getByRole("link", { name: "返回设置总览" }).first();
     await returnLink.click();
 
@@ -1150,7 +1241,9 @@ test.describe("settings mobile overlay and guard safety", () => {
     await expect(guard).toBeVisible();
     await guard.getByRole("button", { name: "取消" }).click();
     await expect(page).toHaveURL(/section=store/);
-    await expect(page.getByLabel("店铺名", { exact: true })).toHaveValue("Mobile Return Draft");
+    await expect(page.getByLabel("收据和客户消息显示名称", { exact: true })).toHaveValue(
+      "Mobile Return Draft",
+    );
 
     await returnLink.click();
     await guard.getByRole("button", { name: "放弃修改" }).click();
@@ -1349,6 +1442,14 @@ async function expectLinkCenterHitsSelf(locator: Locator) {
 
   expect(result.hitsSelf, `link center should hit itself: ${JSON.stringify(result)}`).toBe(true);
   expect(result.height).toBeGreaterThanOrEqual(44);
+}
+
+async function clickStableGuardButton(page: Page, name: string) {
+  const guard = page.getByRole("alertdialog", { name: "当前设置尚未保存" });
+  await expect(guard).toHaveAttribute("data-state", "open");
+  const button = guard.getByRole("button", { name });
+  await expect(button).toBeVisible();
+  await button.click();
 }
 
 async function expectFirstVisible(locator: Locator, label: string) {

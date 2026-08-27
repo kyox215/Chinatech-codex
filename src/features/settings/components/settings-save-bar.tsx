@@ -1,4 +1,4 @@
-import { Check, CloudOff, Loader2, RotateCcw, Save } from "lucide-react";
+import { Loader2, RotateCcw, Save } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { repairOs } from "@/lib/ui-patterns";
@@ -30,6 +30,8 @@ export function SettingsSaveBar({
   onSave,
   onDiscard,
 }: SettingsSaveBarProps) {
+  if (status !== "dirty" && status !== "saving") return null;
+
   const saving = status === "saving";
   return (
     <div
@@ -46,8 +48,6 @@ export function SettingsSaveBar({
           <p className="truncate text-xs font-medium text-foreground">{label}</p>
           <p className="flex items-center gap-1.5 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
             {status === "saving" ? <Loader2 className="size-3 animate-spin" /> : null}
-            {status === "saved" || status === "clean" ? <Check className="size-3" /> : null}
-            {status === "offline" ? <CloudOff className="size-3" /> : null}
             {settingsSaveStatusLabel(status)}
           </p>
         </div>
@@ -56,7 +56,7 @@ export function SettingsSaveBar({
             type="button"
             size="sm"
             variant="outline"
-            className="min-h-9 flex-1 gap-1.5 sm:min-h-8 sm:flex-none"
+            className="min-h-11 flex-1 gap-1.5 sm:min-h-8 sm:flex-none"
             disabled={!dirty || saving || disabled}
             onClick={onDiscard}
           >
@@ -65,8 +65,8 @@ export function SettingsSaveBar({
           <Button
             type="button"
             size="sm"
-            className="min-h-10 flex-1 gap-1.5 sm:min-h-8 sm:flex-none"
-            disabled={!dirty || saving || disabled || status === "conflict"}
+            className="min-h-11 flex-1 gap-1.5 sm:min-h-8 sm:flex-none"
+            disabled={!dirty || saving || disabled}
             onClick={onSave}
           >
             {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}

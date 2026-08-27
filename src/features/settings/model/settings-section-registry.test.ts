@@ -4,6 +4,7 @@ import {
   filterSettingsSectionGroups,
   getSettingsSection,
   parseSettingsView,
+  sortSettingsCoreSections,
   SETTINGS_SECTION_GROUPS,
 } from "@/features/settings/model/settings-section-registry";
 
@@ -36,6 +37,19 @@ describe("settings section registry", () => {
     expect(parseSettingsView("")).toEqual({ kind: "overview" });
     expect(parseSettingsView("unknown")).toEqual({ kind: "overview" });
     expect(parseSettingsView("store")).toEqual({ kind: "section", section: "store" });
+  });
+
+  it("defines the shared daily core order", () => {
+    const coreSections = SETTINGS_SECTION_GROUPS.flatMap((group) => group.sections).filter(
+      (section) => section.tier === "core",
+    );
+
+    expect(sortSettingsCoreSections(coreSections).map((section) => section.key)).toEqual([
+      "store",
+      "members",
+      "rules",
+      "notifications",
+    ]);
   });
 
   it("returns stable hrefs and filters labels, descriptions, and keywords", () => {

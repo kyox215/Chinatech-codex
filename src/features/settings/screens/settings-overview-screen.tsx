@@ -1,10 +1,14 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, LockKeyhole, MessageSquare, Search, ShieldCheck, Store } from "lucide-react";
+import { ArrowRight, ChevronDown, Search, ShieldCheck } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
-import { RepairOsBadge, RepairOsBusinessCard, RepairOsSectionHeader } from "@/shared/ui";
+import { RepairOsBadge, RepairOsBusinessCard } from "@/shared/ui";
 import type { SettingsNavigationGroup } from "@/features/settings/components/settings-navigation";
 import type { SettingsSectionKey } from "@/features/settings/model/settings-section-access";
+import { sortSettingsCoreSections } from "@/features/settings/model/settings-section-registry";
 import { cn } from "@/lib/utils";
 
 export interface SettingsOverviewReadiness {
@@ -15,10 +19,11 @@ export interface SettingsOverviewReadiness {
 export interface SettingsOverviewScreenProps {
   groups: readonly SettingsNavigationGroup[];
   isPlatformAdmin?: boolean;
+  /** Compatibility props retained while the overview no longer renders metrics. */
   activeStoreName?: string;
-  accessibleSectionCount: number;
-  totalSectionCount: number;
-  readiness: SettingsOverviewReadiness;
+  accessibleSectionCount?: number;
+  totalSectionCount?: number;
+  readiness?: SettingsOverviewReadiness;
   searchValue: string;
   onSearchValueChange: (value: string) => void;
   onBeforeNavigate?: (section: SettingsSectionKey) => boolean;
@@ -27,44 +32,49 @@ export interface SettingsOverviewScreenProps {
 export function SettingsOverviewScreen({
   groups,
   isPlatformAdmin = false,
-  activeStoreName,
-  accessibleSectionCount,
-  totalSectionCount,
-  readiness,
   searchValue,
   onSearchValueChange,
   onBeforeNavigate,
 }: SettingsOverviewScreenProps) {
-  const visibleGroups = filterOverviewGroups(groups, searchValue);
-  const visibleDestinations = filterOverviewDestinations(
-    isPlatformAdmin ? settingsOverviewDestinations : settingsOverviewDestinations.slice(0, 1),
+  const [advancedOpen, setAdvancedOpen] = useState(Boolean(searchValue.trim()));
+  const allItems = groups.flatMap((group) => group.items);
+  const coreItems = filterItems(
+    sortSettingsCoreSections(
+      allItems.filter(
+        (item) =>
+          item.tier === "core" &&
+          item.showInDefaultNavigation &&
+          (item.access === "editable" || item.access === "readonly"),
+      ),
+    ),
+    searchValue,
+  ).slice(0, 4);
+  const advancedItems = filterItems(
+    allItems.filter(
+      (item) =>
+        item.tier === "advanced" &&
+        item.showInDefaultNavigation &&
+        (item.access === "editable" || item.access === "readonly"),
+    ),
+    searchValue,
+  );
+  const visiblePlatformTools = filterOverviewDestinations(
+    isPlatformAdmin ? settingsOverviewDestinations : [],
     searchValue,
   );
 
+  useEffect(() => {
+    if (searchValue.trim()) setAdvancedOpen(true);
+  }, [searchValue]);
+
+  const hasResults =
+    coreItems.length > 0 || advancedItems.length > 0 || visiblePlatformTools.length > 0;
+
   return (
     <div data-settings-overview className="min-w-0 space-y-3">
-      <section className="rounded-xl border border-[var(--border-panel)] bg-card p-3 shadow-[var(--shadow-card)] sm:p-4">
-        <RepairOsSectionHeader
-          icon={Store}
-          iconFrame={false}
-          title="设置总览"
-          description="按业务分组进入设置；只会加载当前页面需要的数据。"
-        />
-
-        <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3">
-          <OverviewMetric label="当前店铺" value={activeStoreName || "未选择"} />
-          <OverviewMetric
-            label="可访问功能"
-            value={`${accessibleSectionCount} / ${totalSectionCount}`}
-          />
-          <OverviewMetric
-            label="店铺资料"
-            value={readinessLabel(readiness)}
-            className="col-span-2 sm:col-span-1"
-            status
-          />
-        </div>
-      </section>
+      <p data-settings-overview-guide className="px-1 text-xs leading-5 text-muted-foreground">
+        先处理常用设置；低频工具收在“更多设置”中。
+      </p>
 
       <div className="relative min-w-0 lg:hidden">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -80,120 +90,53 @@ export function SettingsOverviewScreen({
         />
       </div>
 
-      {visibleDestinations.length > 0 ? (
-        <section aria-labelledby="settings-overview-tools">
-          <h2
-            id="settings-overview-tools"
-            className="mb-1.5 px-1 text-xs font-semibold text-foreground"
+      {coreItems.length > 0 ? (
+        <SettingsOverviewGroup
+          id="settings-overview-core"
+          title="常用设置"
+          items={coreItems}
+          onBeforeNavigate={onBeforeNavigate}
+        />
+      ) : null}
+
+      {advancedItems.length > 0 ? (
+        <section aria-labelledby="settings-overview-advanced">
+          <button
+            type="button"
+            id="settings-overview-advanced"
+            data-settings-overview-more-toggle
+            aria-expanded={advancedOpen}
+            aria-controls="settings-overview-advanced-content"
+            onClick={() => setAdvancedOpen((open) => !open)}
+            className="flex min-h-11 w-full min-w-0 items-center gap-2 rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2 text-left text-sm font-semibold text-foreground shadow-[var(--shadow-card)] transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            工具与平台
-          </h2>
-          <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2">
-            {visibleDestinations.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="min-w-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <RepairOsBusinessCard
-                    as="div"
-                    className="min-h-16 gap-2 px-3 py-2.5 transition-colors hover:bg-accent"
-                    leading={
-                      <span className="grid size-9 place-items-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-foreground">
-                        <Icon className="size-4" />
-                      </span>
-                    }
-                    trailing={<ArrowRight className="size-4 text-muted-foreground" />}
-                    trailingClassName="self-center"
-                  >
-                    <span className="truncate text-sm font-semibold">{item.label}</span>
-                    <span className="mt-0.5 block line-clamp-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-                      {item.description}
-                    </span>
-                  </RepairOsBusinessCard>
-                </Link>
-              );
-            })}
+            <span className="min-w-0 flex-1">更多设置</span>
+            <span className="text-xs font-normal text-muted-foreground">
+              {advancedItems.length} 项可用
+            </span>
+            <ChevronDown
+              aria-hidden="true"
+              className={cn("size-4 shrink-0 transition-transform", advancedOpen && "rotate-180")}
+            />
+          </button>
+          <div id="settings-overview-advanced-content" hidden={!advancedOpen} className="mt-2">
+            {advancedOpen ? (
+              <SettingsOverviewCards items={advancedItems} onBeforeNavigate={onBeforeNavigate} />
+            ) : null}
           </div>
         </section>
       ) : null}
 
-      {visibleGroups.map((group) => (
-        <section key={group.key} aria-labelledby={`settings-overview-${group.key}`}>
-          <h2
-            id={`settings-overview-${group.key}`}
-            className="mb-1.5 px-1 text-xs font-semibold text-foreground"
-          >
-            {group.label}
-          </h2>
-          <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2">
-            {group.items.map((item) => {
-              const Icon = item.icon;
-              const blocked = item.access === "blocked" || item.access === "unavailable";
-              const card = (
-                <RepairOsBusinessCard
-                  as="div"
-                  className="min-h-16 gap-2 px-3 py-2.5 transition-colors hover:bg-accent"
-                  leading={
-                    <span className="grid size-9 place-items-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-foreground">
-                      <Icon className="size-4" />
-                    </span>
-                  }
-                  trailing={
-                    blocked ? (
-                      <LockKeyhole className="size-4 text-muted-foreground" />
-                    ) : (
-                      <ArrowRight className="size-4 text-muted-foreground" />
-                    )
-                  }
-                  trailingClassName="self-center"
-                >
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="truncate text-sm font-semibold">{item.label}</span>
-                    {item.access === "readonly" ? (
-                      <RepairOsBadge className="shrink-0">只读</RepairOsBadge>
-                    ) : null}
-                  </span>
-                  <span className="mt-0.5 block line-clamp-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-                    {blocked ? item.summary || "当前账号无法访问此设置。" : item.description}
-                  </span>
-                </RepairOsBusinessCard>
-              );
+      {visiblePlatformTools.length > 0 ? (
+        <SettingsOverviewGroup
+          id="settings-overview-platform"
+          title="平台工具"
+          items={visiblePlatformTools}
+          onBeforeNavigate={onBeforeNavigate}
+        />
+      ) : null}
 
-              if (blocked) {
-                return (
-                  <div
-                    key={item.key}
-                    aria-disabled="true"
-                    className="min-w-0 opacity-70 lg:opacity-100"
-                  >
-                    {card}
-                  </div>
-                );
-              }
-
-              return (
-                <Link
-                  key={item.key}
-                  href={item.href}
-                  scroll={false}
-                  data-navigation-scroll="preserve"
-                  className="min-w-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  onClick={(event) => {
-                    if (onBeforeNavigate && !onBeforeNavigate(item.key)) event.preventDefault();
-                  }}
-                >
-                  {card}
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      ))}
-
-      {visibleGroups.length === 0 && visibleDestinations.length === 0 ? (
+      {!hasResults ? (
         <RepairOsBusinessCard as="div" className="min-h-24 place-items-center text-center">
           <span className="text-sm font-medium">没有匹配的设置</span>
           <span className="mt-1 block text-xs text-muted-foreground">请尝试其他关键词。</span>
@@ -203,14 +146,86 @@ export function SettingsOverviewScreen({
   );
 }
 
+function SettingsOverviewGroup({
+  id,
+  title,
+  items,
+  onBeforeNavigate,
+}: {
+  id: string;
+  title: string;
+  items: readonly OverviewItem[];
+  onBeforeNavigate?: (section: SettingsSectionKey) => boolean;
+}) {
+  return (
+    <section aria-labelledby={id}>
+      <h2 id={id} className="mb-1.5 px-1 text-xs font-semibold text-foreground">
+        {title}
+      </h2>
+      <SettingsOverviewCards items={items} onBeforeNavigate={onBeforeNavigate} />
+    </section>
+  );
+}
+
+type OverviewItem =
+  | SettingsNavigationGroup["items"][number]
+  | (typeof settingsOverviewDestinations)[number];
+
+function SettingsOverviewCards({
+  items,
+  onBeforeNavigate,
+}: {
+  items: readonly OverviewItem[];
+  onBeforeNavigate?: (section: SettingsSectionKey) => boolean;
+}) {
+  return (
+    <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2">
+      {items.map((item) => {
+        const isSettingsItem = "key" in item;
+        const Icon = item.icon;
+        const href = item.href;
+        return (
+          <Link
+            key={href}
+            href={href}
+            scroll={false}
+            data-navigation-scroll="preserve"
+            className="block min-h-11 min-w-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={(event) => {
+              if (isSettingsItem && onBeforeNavigate && !onBeforeNavigate(item.key)) {
+                event.preventDefault();
+              }
+            }}
+          >
+            <RepairOsBusinessCard
+              as="div"
+              className="min-h-16 gap-2 px-3 py-2.5 transition-colors hover:bg-accent"
+              leading={
+                <span className="grid size-9 place-items-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-foreground">
+                  <Icon className="size-4" />
+                </span>
+              }
+              trailing={<ArrowRight className="size-4 text-muted-foreground" />}
+              trailingClassName="self-center"
+            >
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate text-sm font-semibold">{item.label}</span>
+                {isSettingsItem && item.access === "readonly" ? (
+                  <RepairOsBadge className="shrink-0">只读</RepairOsBadge>
+                ) : null}
+              </span>
+              <span className="mt-0.5 block line-clamp-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
+                {item.description}
+              </span>
+            </RepairOsBusinessCard>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 const settingsOverviewDestinations = [
-  {
-    label: "消息模板",
-    description: "管理 WhatsApp 与 SMS 销售和维修通知模板。",
-    href: "/messages",
-    icon: MessageSquare,
-    keywords: ["消息", "模板", "销售模板", "WhatsApp", "SMS"],
-  },
   {
     label: "平台审批",
     description: "处理平台级店铺申请与开通审批。",
@@ -231,56 +246,21 @@ function filterOverviewDestinations(
   );
 }
 
-function OverviewMetric({
-  label,
-  value,
-  className,
-  status = false,
-}: {
-  label: string;
-  value: string;
-  className?: string;
-  status?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2",
-        className,
-      )}
-      role={status ? "status" : undefined}
-      aria-live={status ? "polite" : undefined}
-    >
-      <p className="text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
-        {label}
-      </p>
-      <p className="mt-0.5 truncate text-sm font-semibold text-foreground">{value}</p>
-    </div>
-  );
-}
-
-function readinessLabel(readiness: SettingsOverviewReadiness) {
-  if (readiness.state === "loading") return "读取中…";
-  if (readiness.state === "error") return "读取失败";
-  if (readiness.state === "unavailable") return "不可用";
-  return `${readiness.score ?? 0}% 完整`;
-}
-
-function filterOverviewGroups(
-  groups: readonly SettingsNavigationGroup[],
-  searchValue: string,
-): readonly SettingsNavigationGroup[] {
+function filterItems<
+  T extends {
+    label: string;
+    shortLabel?: string;
+    description: string;
+    keywords: readonly string[];
+  },
+>(items: readonly T[], searchValue: string) {
   const query = searchValue.trim().toLocaleLowerCase();
-  if (!query) return groups;
-  return groups
-    .map((group) => ({
-      ...group,
-      items: group.items.filter((item) =>
-        [item.label, item.shortLabel, item.description, ...item.keywords]
-          .join(" ")
-          .toLocaleLowerCase()
-          .includes(query),
-      ),
-    }))
-    .filter((group) => group.items.length > 0);
+  if (!query) return items;
+  return items.filter((item) =>
+    [item.label, item.shortLabel, item.description, ...item.keywords]
+      .filter(Boolean)
+      .join(" ")
+      .toLocaleLowerCase()
+      .includes(query),
+  );
 }

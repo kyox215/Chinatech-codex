@@ -1,10 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, MessageSquare, MessagesSquare, Printer } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import type { StoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import { SettingsField } from "@/features/settings/components/settings-field";
@@ -57,10 +65,10 @@ export function NotificationsSettingsSection({
         draftOutputIdentity={draftOutputIdentity}
         isDraftDirty={isDraftDirty}
         canUpdateSettings={canUpdateSettings}
+        canReadMessageTemplates={canReadMessageTemplates}
         messagePreview={messagePreview}
         printPreview={printPreview}
       />
-      <MessageTemplatesCard canReadMessageTemplates={canReadMessageTemplates} />
     </div>
   );
 }
@@ -168,6 +176,7 @@ function NotificationPreviewCard({
   draftOutputIdentity,
   isDraftDirty,
   canUpdateSettings,
+  canReadMessageTemplates,
   messagePreview,
   printPreview,
 }: Pick<
@@ -176,9 +185,11 @@ function NotificationPreviewCard({
   | "draftOutputIdentity"
   | "isDraftDirty"
   | "canUpdateSettings"
+  | "canReadMessageTemplates"
   | "messagePreview"
   | "printPreview"
 >) {
+  const [preview, setPreview] = useState<"message" | "print" | null>(null);
   const projection = isDraftDirty
     ? getStoreOutputDraftProjectionCopy(
         savedOutputIdentity.canOutput,
@@ -187,84 +198,105 @@ function NotificationPreviewCard({
     : null;
   const recoveryHref =
     savedOutputIdentity.recoveryTarget === "store" ? "/settings?section=store" : null;
+  const outputWarning = !savedOutputIdentity.canOutput
+    ? (projection ?? savedOutputIdentity.blockReason)
+    : isDraftDirty && !draftOutputIdentity.canOutput
+      ? projection
+      : null;
 
   return (
-    <section className={cn(repairOs.adminSection, "space-y-3 p-2.5 sm:p-3")}>
-      <RepairOsSectionHeader
-        icon={MessageSquare}
-        iconFrame={false}
-        title="客户输出与预览"
-        action={
-          <Badge
-            variant="outline"
-            className={cn(
-              "text-[10px] lg:text-[11px] lg:leading-4",
-              savedOutputIdentity.canOutput
-                ? "border-status-success-foreground/30 text-status-success-foreground"
-                : "border-status-warn-foreground/30 text-status-warn-foreground",
-            )}
-          >
-            {savedOutputIdentity.canOutput ? "当前已就绪" : "当前已暂停"}
-          </Badge>
-        }
-      />
-
-      <div
-        role={savedOutputIdentity.canOutput ? "status" : "alert"}
-        className={cn(
-          "rounded-xl border px-3 py-2.5",
-          savedOutputIdentity.canOutput
-            ? "border-status-success-foreground/25 bg-status-success/10 text-status-success-foreground"
-            : "border-status-warn-foreground/25 bg-status-warn/10 text-status-warn-foreground",
-        )}
-      >
-        <p className="text-xs font-semibold">
-          {savedOutputIdentity.canOutput
-            ? "当前已保存资料可用于客户消息与打印"
-            : "客户消息、打印和票据当前保持关闭"}
-        </p>
-        <p className="mt-1 text-[11px] leading-4 lg:text-xs lg:leading-4">
-          {savedOutputIdentity.canOutput
-            ? "实际输出继续使用服务器已保存的店铺身份。"
-            : savedOutputIdentity.blockReason}
-        </p>
-        {recoveryHref ? (
-          <Button
-            asChild
-            type="button"
-            size="sm"
-            variant="outline"
-            className="mt-2 min-h-9 w-full border-status-warn-foreground/30 bg-background sm:w-auto"
-          >
-            <Link href={recoveryHref}>{canUpdateSettings ? "补充店铺资料" : "查看店铺资料"}</Link>
-          </Button>
-        ) : null}
-      </div>
-
-      {projection ? (
+    <div className="min-w-0 space-y-2">
+      {outputWarning ? (
         <div
-          role="status"
-          aria-live="polite"
-          className="rounded-xl border border-primary/25 bg-primary/10 px-3 py-2.5 text-primary"
+          data-settings-output-warning
+          role="alert"
+          className="rounded-xl border border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2.5 text-status-warn-foreground"
         >
-          <p className="text-xs font-semibold">未保存草稿预估</p>
-          <p className="mt-1 text-[11px] leading-4 lg:text-xs lg:leading-4">{projection}</p>
+          <p className="text-xs font-semibold">
+            {savedOutputIdentity.canOutput ? "保存后将暂停客户输出" : "客户输出当前保持关闭"}
+          </p>
+          <p className="mt-1 text-[11px] leading-4 lg:text-xs lg:leading-4">{outputWarning}</p>
+          {recoveryHref ? (
+            <Button
+              asChild
+              type="button"
+              size="sm"
+              variant="outline"
+              className="mt-2 min-h-11 w-full border-status-warn-foreground/30 bg-background sm:w-auto sm:min-h-9"
+            >
+              <Link href={recoveryHref}>{canUpdateSettings ? "补充店铺资料" : "查看店铺资料"}</Link>
+            </Button>
+          ) : null}
         </div>
       ) : null}
 
-      <div className="grid min-w-0 gap-3 xl:grid-cols-2">
-        <OutputPreview
-          title={isDraftDirty ? "未保存草稿 · 客户消息" : "客户消息预览"}
-          icon={MessageSquare}
-          value={messagePreview}
-        />
-        <OutputPreview
-          title={isDraftDirty ? "未保存草稿 · 打印资料" : "打印资料预览"}
-          icon={Printer}
-          value={printPreview}
-        />
+      <div
+        className={cn(
+          "flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2",
+          outputWarning ? "justify-end" : "justify-between",
+        )}
+      >
+        {!outputWarning ? (
+          <span className="inline-flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+            <MessageSquare className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
+            预览与消息模板
+          </span>
+        ) : null}
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-11 flex-1 sm:w-auto sm:flex-none"
+          onClick={() => setPreview("message")}
+        >
+          <MessageSquare className="size-3.5" />
+          预览客户消息
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-11 flex-1 sm:w-auto sm:flex-none"
+          onClick={() => setPreview("print")}
+        >
+          <Printer className="size-3.5" />
+          预览打印资料
+        </Button>
+        <MessageTemplatesAction canReadMessageTemplates={canReadMessageTemplates} />
       </div>
-    </section>
+
+      <Dialog open={preview !== null} onOpenChange={(open) => !open && setPreview(null)}>
+        <DialogContent data-settings-preview-dialog closeClassName="size-11 sm:size-8">
+          <DialogHeader>
+            <DialogTitle>
+              {preview === "message"
+                ? isDraftDirty
+                  ? "未保存草稿 · 客户消息"
+                  : "客户消息预览"
+                : isDraftDirty
+                  ? "未保存草稿 · 打印资料"
+                  : "打印资料预览"}
+            </DialogTitle>
+            <DialogDescription>
+              {isDraftDirty
+                ? "这是当前草稿的预览；保存后才会影响客户输出。"
+                : "这是当前已保存店铺资料生成的预览。"}
+            </DialogDescription>
+          </DialogHeader>
+          {preview === "message" ? (
+            <OutputPreview
+              title={isDraftDirty ? "未保存草稿 · 客户消息" : "客户消息预览"}
+              icon={MessageSquare}
+              value={messagePreview}
+            />
+          ) : preview === "print" ? (
+            <OutputPreview
+              title={isDraftDirty ? "未保存草稿 · 打印资料" : "打印资料预览"}
+              icon={Printer}
+              value={printPreview}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
@@ -295,40 +327,30 @@ function OutputPreview({
   );
 }
 
-function MessageTemplatesCard({
+function MessageTemplatesAction({
   canReadMessageTemplates,
 }: Pick<NotificationsSettingsSectionProps, "canReadMessageTemplates">) {
-  return (
-    <section className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
-      <RepairOsSectionHeader icon={MessagesSquare} iconFrame={false} title="消息模板" />
-      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold">维护工单与客户消息正文</p>
-          <p className="mt-1 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-            模板编辑、语言、渠道和启用状态在独立页面管理；设置页不会复制模板编辑器，也不会发送测试消息。
-          </p>
-        </div>
-        {canReadMessageTemplates ? (
-          <Button
-            asChild
-            type="button"
-            variant="outline"
-            className="min-h-10 w-full shrink-0 sm:w-auto"
-          >
-            <Link href="/messages">
-              打开消息模板
-              <ArrowRight className="size-3.5" />
-            </Link>
-          </Button>
-        ) : (
-          <Badge
-            variant="outline"
-            className="w-fit shrink-0 text-[10px] lg:text-[11px] lg:leading-4"
-          >
-            当前账号无模板读取权限
-          </Badge>
-        )}
-      </div>
-    </section>
+  return canReadMessageTemplates ? (
+    <Button
+      asChild
+      type="button"
+      variant="ghost"
+      className="min-h-11 shrink-0 px-2 text-xs sm:min-h-9"
+      data-settings-message-templates
+    >
+      <Link href="/messages">
+        <MessagesSquare className="size-3.5" aria-hidden="true" />
+        打开消息模板
+        <ArrowRight className="size-3.5" />
+      </Link>
+    </Button>
+  ) : (
+    <Badge
+      variant="outline"
+      data-settings-message-templates
+      className="min-h-11 shrink-0 px-2 text-[10px] lg:min-h-9 lg:text-[11px] lg:leading-4"
+    >
+      当前账号无模板读取权限
+    </Badge>
   );
 }

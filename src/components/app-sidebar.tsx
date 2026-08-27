@@ -6,7 +6,16 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, ChevronsUpDown, Loader2, LogOut, Store, Settings, UserCircle } from "lucide-react";
+import {
+  Check,
+  ChevronsUpDown,
+  Loader2,
+  LogOut,
+  Store,
+  Settings,
+  UserCircle,
+  UserRound,
+} from "lucide-react";
 
 import {
   Sidebar,
@@ -247,6 +256,12 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
                   <DropdownMenuItem disabled>暂无可用店铺</DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/account" onClick={handleNav}>
+                    <UserRound className="size-4" />
+                    个人中心
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/settings" onClick={handleNav}>
                     <Settings className="size-4" />

@@ -7,6 +7,7 @@ export interface SettingsStateCardProps {
   status: SettingsSaveStatus;
   fieldErrors?: Record<string, string[]>;
   onDiscard: () => void;
+  onRetry: () => void;
   onRebase: () => void;
 }
 
@@ -14,6 +15,7 @@ export function SettingsStateCard({
   status,
   fieldErrors = {},
   onDiscard,
+  onRetry,
   onRebase,
 }: SettingsStateCardProps) {
   if (!["validation-error", "conflict", "offline", "error"].includes(status)) return null;
@@ -44,13 +46,29 @@ export function SettingsStateCard({
                 type="button"
                 size="sm"
                 variant="outline"
-                className="min-h-9 sm:min-h-8"
+                className="min-h-11 sm:min-h-8"
                 onClick={onDiscard}
               >
                 <RotateCcw className="size-3.5" /> 使用服务器版本
               </Button>
-              <Button type="button" size="sm" className="min-h-9 sm:min-h-8" onClick={onRebase}>
+              <Button type="button" size="sm" className="min-h-11 sm:min-h-8" onClick={onRebase}>
                 <GitCompareArrows className="size-3.5" /> 基于最新版继续编辑
+              </Button>
+            </div>
+          ) : null}
+          {status !== "conflict" ? (
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="min-h-11 sm:min-h-8"
+                onClick={onDiscard}
+              >
+                <RotateCcw className="size-3.5" /> 放弃修改
+              </Button>
+              <Button type="button" size="sm" className="min-h-11 sm:min-h-8" onClick={onRetry}>
+                <GitCompareArrows className="size-3.5" /> 重新保存
               </Button>
             </div>
           ) : null}

@@ -51,6 +51,9 @@ describe("NotificationsSettingsSection", () => {
     expect(onDraftChange).toHaveBeenNthCalledWith(2, { print_footer: "Pending footer" });
     expect(screen.getByRole("link", { name: /打开消息模板/ })).toHaveAttribute("href", "/messages");
     expect(screen.queryByRole("button", { name: /测试|发送/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "预览客户消息" })).toHaveClass("min-h-11");
+    expect(screen.getByRole("button", { name: "预览打印资料" })).toHaveClass("min-h-11");
   });
 
   it("uses semantic read-only values and removes the template link without read capability", () => {
@@ -72,9 +75,15 @@ describe("NotificationsSettingsSection", () => {
     const saved = { ...completeSettings, store_address: "" };
     renderNotifications({ saved, draftSettings: completeSettings, isDraftDirty: true });
 
-    expect(screen.getByText("当前已暂停")).toBeVisible();
+    expect(screen.getByText("客户输出当前保持关闭")).toBeVisible();
     expect(screen.getByText(/当前客户输出仍然阻断；保存这份草稿后预计解除阻断/)).toBeVisible();
-    expect(screen.getByText("未保存草稿 · 客户消息")).toBeVisible();
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(screen.queryByText("未保存草稿 · 客户消息")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "预览客户消息" }));
+    const previewDialog = screen.getByRole("dialog", { name: "未保存草稿 · 客户消息" });
+    expect(previewDialog).toBeVisible();
+    expect(previewDialog).toHaveTextContent("Gentile Mario Rossi");
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
     expect(screen.getByRole("link", { name: "补充店铺资料" })).toHaveAttribute(
       "href",
       "/settings?section=store",

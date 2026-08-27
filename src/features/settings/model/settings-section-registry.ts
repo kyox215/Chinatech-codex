@@ -20,11 +20,36 @@ export type SettingsSectionGroupKey =
   | "business-rules"
   | "output-data";
 
+export type SettingsSectionTier = "core" | "advanced";
+
+/**
+ * Keep the daily settings entry points in the same product order everywhere
+ * they are rendered. The registry's historical grouping is intentionally
+ * retained for deep links and capability lookup, so consumers should use
+ * this helper instead of relying on group declaration order for core items.
+ */
+export const SETTINGS_CORE_SECTION_ORDER = [
+  "store",
+  "members",
+  "rules",
+  "notifications",
+] as const satisfies readonly SettingsSectionKey[];
+
+const settingsCoreSectionOrder = new Map<SettingsSectionKey, number>(
+  SETTINGS_CORE_SECTION_ORDER.map((key, index) => [key, index]),
+);
+
 export type SettingsView = { kind: "overview" } | { kind: "section"; section: SettingsSectionKey };
 
 export interface SettingsSectionDefinition {
   key: SettingsSectionKey;
   group: SettingsSectionGroupKey;
+  tier: SettingsSectionTier;
+  /**
+   * Some compatibility routes remain available by deep link but should not
+   * compete with the daily settings entry points (for example /account).
+   */
+  showInDefaultNavigation: boolean;
   label: string;
   shortLabel: string;
   description: string;
@@ -43,6 +68,8 @@ const sectionDefinitions: readonly SettingsSectionDefinition[] = [
   {
     key: "account",
     group: "personal-access",
+    tier: "advanced",
+    showInDefaultNavigation: false,
     label: "账号",
     shortLabel: "账号",
     description: "名称、身份与登录资料",
@@ -53,6 +80,8 @@ const sectionDefinitions: readonly SettingsSectionDefinition[] = [
   {
     key: "members",
     group: "personal-access",
+    tier: "core",
+    showInDefaultNavigation: true,
     label: "员工",
     shortLabel: "员工",
     description: "成员、邀请与加入申请",
@@ -63,9 +92,11 @@ const sectionDefinitions: readonly SettingsSectionDefinition[] = [
   {
     key: "store",
     group: "store-operations",
+    tier: "core",
+    showInDefaultNavigation: true,
     label: "店铺",
     shortLabel: "店铺",
-    description: "店铺资料、联系方式与切换",
+    description: "店铺资料、联系方式与客户输出",
     keywords: ["地址", "电话", "WhatsApp", "门店"],
     icon: Store,
     href: "/settings?section=store",
@@ -73,6 +104,8 @@ const sectionDefinitions: readonly SettingsSectionDefinition[] = [
   {
     key: "suppliers",
     group: "store-operations",
+    tier: "advanced",
+    showInDefaultNavigation: true,
     label: "供应商",
     shortLabel: "供应商",
     description: "配件与外修来源",
@@ -83,6 +116,8 @@ const sectionDefinitions: readonly SettingsSectionDefinition[] = [
   {
     key: "kiosk",
     group: "store-operations",
+    tier: "advanced",
+    showInDefaultNavigation: true,
     label: "客户 iPad",
     shortLabel: "iPad",
     description: "客户填写、签名与设备配对",
@@ -93,6 +128,8 @@ const sectionDefinitions: readonly SettingsSectionDefinition[] = [
   {
     key: "rules",
     group: "business-rules",
+    tier: "core",
+    showInDefaultNavigation: true,
     label: "默认规则",
     shortLabel: "规则",
     description: "维修与二手保修默认值",
@@ -103,6 +140,8 @@ const sectionDefinitions: readonly SettingsSectionDefinition[] = [
   {
     key: "workflow",
     group: "business-rules",
+    tier: "advanced",
+    showInDefaultNavigation: true,
     label: "状态流",
     shortLabel: "状态",
     description: "工单状态与流转关系",
@@ -113,6 +152,8 @@ const sectionDefinitions: readonly SettingsSectionDefinition[] = [
   {
     key: "notifications",
     group: "output-data",
+    tier: "core",
+    showInDefaultNavigation: true,
     label: "通知与打印",
     shortLabel: "通知",
     description: "客户消息签名与打印页脚",
@@ -123,6 +164,8 @@ const sectionDefinitions: readonly SettingsSectionDefinition[] = [
   {
     key: "ai-usage",
     group: "output-data",
+    tier: "advanced",
+    showInDefaultNavigation: true,
     label: "AI 使用量",
     shortLabel: "AI 用量",
     description: "大模型请求、Token 与费用估算",
@@ -133,6 +176,8 @@ const sectionDefinitions: readonly SettingsSectionDefinition[] = [
   {
     key: "order-data",
     group: "output-data",
+    tier: "advanced",
+    showInDefaultNavigation: true,
     label: "工单数据",
     shortLabel: "数据",
     description: "模板、导出与批量整理",
@@ -176,6 +221,16 @@ export function getSettingsSection(key: SettingsSectionKey): SettingsSectionDefi
   const section = sectionByKey.get(key);
   if (!section) throw new Error(`Unknown settings section: ${key}`);
   return section;
+}
+
+export function sortSettingsCoreSections<T extends Pick<SettingsSectionDefinition, "key">>(
+  sections: readonly T[],
+): T[] {
+  return [...sections].sort(
+    (left, right) =>
+      (settingsCoreSectionOrder.get(left.key) ?? Number.MAX_SAFE_INTEGER) -
+      (settingsCoreSectionOrder.get(right.key) ?? Number.MAX_SAFE_INTEGER),
+  );
 }
 
 export function filterSettingsSectionGroups(

@@ -62,7 +62,7 @@ export function MemberInviteTools({
   onRequestRevokeLink,
 }: MemberInviteToolsProps) {
   const defaultRole = roleOptions[0] ?? "viewer";
-  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(true);
   const [linkOpen, setLinkOpen] = useState(false);
   const [invite, setInvite] = useState<StoreInviteInput>({ email: "", role: defaultRole });
   const [link, setLink] = useState<StoreInviteLinkCreateInput>({
@@ -120,7 +120,7 @@ export function MemberInviteTools({
             </div>
             <Button
               type="button"
-              className="min-h-10 self-end"
+              className="min-h-11 self-end"
               disabled={
                 isInviting || invite.email.trim().length < 3 || !roleOptions.includes(invite.role)
               }
@@ -186,7 +186,7 @@ export function MemberInviteTools({
               </div>
               <Button
                 type="button"
-                className="min-h-10 sm:col-span-2"
+                className="min-h-11 sm:col-span-2"
                 disabled={isCreatingLink || !roleOptions.includes(link.role)}
                 onClick={() =>
                   void onCreateLink({
@@ -207,7 +207,7 @@ export function MemberInviteTools({
               as="div"
               className="mt-3 grid-cols-1 gap-2 border-primary/25 bg-primary/5 px-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto]"
               trailing={
-                <Button type="button" variant="outline" className="min-h-9" onClick={onCopyCode}>
+                <Button type="button" variant="outline" className="min-h-11" onClick={onCopyCode}>
                   <Copy className="size-4" /> 复制
                 </Button>
               }
@@ -235,7 +235,7 @@ export function MemberInviteTools({
                       <Button
                         type="button"
                         variant="outline"
-                        className="min-h-9"
+                        className="min-h-11"
                         disabled={isRevokingLink}
                         onClick={(event) => onRequestRevokeLink(item, event.currentTarget)}
                       >
@@ -283,7 +283,7 @@ export function MemberInviteTools({
                     <Button
                       type="button"
                       variant="outline"
-                      className="min-h-9"
+                      className="min-h-11"
                       disabled={isInviting}
                       onClick={() =>
                         void onInvite({
@@ -299,7 +299,7 @@ export function MemberInviteTools({
                     <Button
                       type="button"
                       variant="outline"
-                      className="min-h-9"
+                      className="min-h-11"
                       disabled={isRevokingInvitation}
                       onClick={(event) => onRequestRevokeInvitation(item, event.currentTarget)}
                     >
@@ -342,7 +342,7 @@ function InvitePanel({
       <CollapsibleTrigger asChild>
         <button
           type="button"
-          className="flex min-h-9 w-full items-center gap-2 px-3 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-11 w-full items-center gap-2 px-3 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-9"
         >
           <span className="text-primary">{icon}</span>
           <span className="min-w-0 flex-1 truncate text-sm font-semibold">{title}</span>

@@ -239,23 +239,23 @@ describe("SettingsScreen store-bound transient secrets", () => {
 
     const reason = await screen.findByLabelText("给客户的退回原因");
     await user.type(reason, "请重新确认电话号码");
-    const accountLink = within(screen.getByRole("navigation", { name: "设置导航" })).getByRole(
+    const storeLink = within(screen.getByRole("navigation", { name: "设置导航" })).getByRole(
       "link",
-      { name: /个人中心|账号/ },
+      { name: "店铺" },
     );
-    await user.click(accountLink);
+    await user.click(storeLink);
 
     let guard = await screen.findByRole("alertdialog", { name: "当前设置尚未保存" });
     expect(guard).toHaveTextContent("客户 iPad 退回原因草稿");
     await user.click(within(guard).getByRole("button", { name: "取消" }));
     expect(reason).toHaveValue("请重新确认电话号码");
 
-    await user.click(accountLink);
+    await user.click(storeLink);
     guard = await screen.findByRole("alertdialog", { name: "当前设置尚未保存" });
     await user.click(within(guard).getByRole("button", { name: "保存并继续" }));
 
     await waitFor(() =>
-      expect(navigationMocks.push).toHaveBeenCalledWith("/settings?section=account", {
+      expect(navigationMocks.push).toHaveBeenCalledWith("/settings?section=store", {
         scroll: false,
       }),
     );
@@ -300,10 +300,12 @@ describe("SettingsScreen store-bound transient secrets", () => {
       queryClient.setQueryData(storesKeys.context, storeContext("store-b", "Etna Phone Lab"));
     });
 
-    expect(
-      screen.queryByRole("textbox", { name: "收据和客户消息显示名称" }),
-    ).not.toBeInTheDocument();
-    expect(document.querySelector('[data-ui="settings-section-loading"]')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("textbox", { name: "收据和客户消息显示名称" }),
+      ).not.toBeInTheDocument();
+      expect(document.querySelector('[data-ui="settings-section-loading"]')).toBeInTheDocument();
+    });
 
     await act(async () => {
       pendingStoreB.resolve(storeSettings("store-b", "Etna Phone Lab"));
@@ -402,7 +404,8 @@ describe("SettingsScreen store-bound transient secrets", () => {
       });
       await pending.promise;
     });
-    await waitFor(() => expect(saveBar).toHaveAttribute("data-save-status", "saved"));
+    await waitFor(() => expect(document.querySelector("[data-settings-save-bar]")).toBeNull());
+    expect(document.querySelector("[data-settings-save-state]")).toBeNull();
   });
 
   it("blocks invalid store input locally and focuses the field without calling the API", async () => {
@@ -422,7 +425,42 @@ describe("SettingsScreen store-bound transient secrets", () => {
     expect((await screen.findAllByText("联系方式格式无效"))[0]).toBeVisible();
     expect(apiMocks.updateStoreSettings).not.toHaveBeenCalled();
     await waitFor(() => expect(phoneInput).toHaveFocus());
-    expect(saveBar).toHaveAttribute("data-save-status", "validation-error");
+    const stateCard = document.querySelector<HTMLElement>("[data-settings-save-state]");
+    expect(stateCard).toHaveAttribute("data-save-status", "validation-error");
+    expect(document.querySelector("[data-settings-save-bar]")).toBeNull();
+    expect(within(stateCard!).getByRole("button", { name: "重新保存" })).toBeVisible();
+    expect(within(stateCard!).getByRole("button", { name: "放弃修改" })).toBeVisible();
+  });
+
+  it("reopens and focuses the collapsed public portal URL field after validation", async () => {
+    navigationMocks.search = "section=store";
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const user = userEvent.setup();
+    render(settingsTree(queryClient));
+
+    const more = await screen.findByRole("button", { name: "更多选项" });
+    await user.click(more);
+    const publicBaseUrl = screen.getByLabelText("客户门户域名");
+    await user.clear(publicBaseUrl);
+    await user.type(publicBaseUrl, "http://example.com");
+    await user.click(more);
+    expect(screen.queryByLabelText("客户门户域名")).not.toBeInTheDocument();
+
+    const saveBar = document.querySelector<HTMLElement>("[data-settings-save-bar]");
+    expect(saveBar).not.toBeNull();
+    await user.click(within(saveBar!).getByRole("button", { name: "保存设置" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "更多选项" })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+      expect(screen.getByLabelText("客户门户域名")).toHaveFocus();
+    });
+    expect(screen.getAllByText(/客户门户域名必须使用 HTTPS/)[0]).toBeVisible();
+    expect(apiMocks.updateStoreSettings).not.toHaveBeenCalled();
   });
 
   it("keeps a ready saved identity ready after a harmless unsaved profile change", async () => {
@@ -440,13 +478,10 @@ describe("SettingsScreen store-bound transient secrets", () => {
     const nameInput = await screen.findByRole("textbox", {
       name: "收据和客户消息显示名称",
     });
-    expect(screen.getByText("当前已就绪")).toBeVisible();
     await user.type(nameInput, " Due");
 
-    expect(
-      screen.getByText(/当前客户输出已就绪；草稿尚未保存，实际使用的仍是服务器版本/),
-    ).toBeVisible();
-    expect(screen.queryByText(/保存这份草稿后将阻断/)).not.toBeInTheDocument();
+    expect(screen.queryByText("当前已就绪")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("projects recovery from a blocked saved identity without marking the draft active", async () => {
@@ -462,7 +497,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
     const user = userEvent.setup();
     render(settingsTree(queryClient));
 
-    expect(await screen.findByText("当前已暂停")).toBeVisible();
+    expect(await screen.findByText("客户输出当前保持关闭")).toBeVisible();
     await user.type(screen.getByLabelText("门店默认地址（用于打印）"), "Via Roma 12");
 
     expect(screen.getByText(/当前客户输出仍然阻断；保存这份草稿后预计解除阻断/)).toBeVisible();
@@ -489,13 +524,16 @@ describe("SettingsScreen store-bound transient secrets", () => {
 
     navigationMocks.search = "section=notifications";
     view.rerender(settingsTree(queryClient));
-    const messagePreview = (await screen.findByText("客户消息预览")).closest("div");
-    const printPreview = screen.getByText("打印资料预览").closest("div");
-
-    expect(messagePreview).toHaveTextContent("Ripara Subito");
-    expect(messagePreview).not.toHaveTextContent("Hidden Store Draft");
+    await user.click(await screen.findByRole("button", { name: "预览客户消息" }));
+    const messageDialog = await screen.findByRole("dialog", { name: "客户消息预览" });
+    expect(messageDialog).toHaveTextContent("Ripara Subito");
+    expect(messageDialog).not.toHaveTextContent("Hidden Store Draft");
+    await user.click(screen.getByRole("button", { name: "关闭" }));
+    await user.click(screen.getByRole("button", { name: "预览打印资料" }));
+    const printPreview = await screen.findByRole("dialog", { name: "打印资料预览" });
     expect(printPreview).toHaveTextContent("Garanzia usato: 12 mesi");
     expect(printPreview).not.toHaveTextContent("Garanzia usato: 24 mesi");
+    await user.keyboard("{Escape}");
     expect(screen.getByRole("link", { name: /打开消息模板/ })).toHaveAttribute("href", "/messages");
   });
 
@@ -538,7 +576,10 @@ describe("SettingsScreen store-bound transient secrets", () => {
         new_order_entry_mode: "professional",
       },
     });
-    await waitFor(() => expect(saveBar).toHaveAttribute("data-save-status", "saved"));
+    await waitFor(() => expect(document.querySelector("[data-settings-save-bar]")).toBeNull(), {
+      timeout: 5_000,
+    });
+    expect(document.querySelector("[data-settings-save-state]")).toBeNull();
     expect(
       screen.queryByText("默认值已应用到草稿，仍需点击“保存”才会生效。"),
     ).not.toBeInTheDocument();
@@ -596,6 +637,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
     expect(await screen.findByText("检测到设置版本冲突")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "使用服务器版本" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "基于最新版继续编辑" })).toBeInTheDocument();
+    expect(document.querySelector("[data-settings-save-bar]")).toBeNull();
   });
 
   it("saves every dirty section in sequence before continuing navigation", async () => {
@@ -690,10 +732,10 @@ describe("SettingsScreen store-bound transient secrets", () => {
     navigationMocks.search = "section=store";
     view.rerender(settingsTree(queryClient));
     expect(await screen.findByDisplayValue("Still Dirty Store")).toBeInTheDocument();
-    expect(document.querySelector("[data-settings-save-bar]")).toHaveAttribute(
-      "data-save-status",
-      "error",
-    );
+    const stateCard = document.querySelector<HTMLElement>("[data-settings-save-state]");
+    expect(stateCard).toHaveAttribute("data-save-status", "error");
+    expect(within(stateCard!).getByRole("button", { name: "重新保存" })).toBeVisible();
+    expect(within(stateCard!).getByRole("button", { name: "放弃修改" })).toBeVisible();
   });
 
   it("discards every dirty section once before continuing navigation", async () => {
@@ -737,10 +779,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
   it("keeps the current settings draft mounted when store switch or creation fails", async () => {
     navigationMocks.search = "section=store";
     const context = storeContext("store-a", "Ripara Subito");
-    const otherStore = storeContext("store-b", "Etna Phone Lab").activeStore!;
-    context.stores = [context.activeStore!, otherStore];
     apiMocks.getStoreContext.mockResolvedValue(context);
-    apiMocks.switchStore.mockRejectedValueOnce(new Error("switch failed"));
     apiMocks.createStore.mockRejectedValueOnce(new Error("create failed"));
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -749,10 +788,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
     render(settingsTree(queryClient));
 
     const nameInput = await screen.findByLabelText("收据和客户消息显示名称");
-    await user.click(screen.getByLabelText("当前店铺"));
-    await user.click(await screen.findByRole("option", { name: "Etna Phone Lab" }));
-    await waitFor(() => expect(apiMocks.switchStore).toHaveBeenCalledTimes(1));
-    expect(apiMocks.switchStore.mock.calls[0]?.[0]).toBe("store-b");
+    await user.click(screen.getByRole("button", { name: /管理店铺与安全/ }));
     expect(nameInput).toHaveValue("Ripara Subito");
 
     await user.type(screen.getByLabelText("新店铺名称"), "Failed Store");
@@ -787,6 +823,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
     });
     await user.clear(nameInput);
     await user.type(nameInput, "Unsaved Current Store");
+    await user.click(screen.getByRole("button", { name: /管理店铺与安全/ }));
     await user.type(screen.getByLabelText("新店铺名称"), "Second Store");
     await user.type(screen.getByLabelText("默认打印地址（可选）"), "Via Roma 99");
     await user.click(screen.getByRole("button", { name: "创建并切换" }));

@@ -6,7 +6,7 @@ vi.mock("@/features/settings/components/unsaved-settings-guard", () => ({
 }));
 
 import { MembersSettingsSection } from "@/features/settings/sections/members-settings-section";
-import type { OnboardingRequest, StoreMember } from "@/lib/repairdesk/types";
+import type { OnboardingRequest, StoreInvitation, StoreMember } from "@/lib/repairdesk/types";
 
 afterEach(cleanup);
 
@@ -68,7 +68,7 @@ describe("MembersSettingsSection", () => {
 
     expect(screen.getAllByText("Owner")[0]).toBeVisible();
     expect(screen.getByText("加入申请读取失败")).toBeVisible();
-    expect(screen.getByText("—")).toBeVisible();
+    expect(screen.queryByText("—")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /重新读取申请/ })).toBeVisible();
   });
 
@@ -164,6 +164,35 @@ describe("MembersSettingsSection", () => {
     expect(within(dialog).getByRole("button", { name: "处理中…" })).toBeDisabled();
     await act(async () => resolve());
     await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it("puts the member list first and makes email invitation the primary disclosure", () => {
+    const invitation: StoreInvitation = {
+      id: "invitation-a",
+      store_id: "store-a",
+      email: "new@example.com",
+      role: "viewer",
+      status: "invited",
+      email_delivery_status: "sent",
+      expires_at: "2099-07-13T00:00:00.000Z",
+      created_at: "2026-07-12T00:00:00.000Z",
+      updated_at: "2026-07-12T00:00:00.000Z",
+    };
+    renderMembers({ invitations: [invitation] });
+
+    const section = screen.getByRole("heading", { name: "员工与权限" }).closest("section");
+    expect(section).not.toBeNull();
+    expect(
+      within(section as HTMLElement).getByRole("heading", { name: "店铺成员" }),
+    ).toBeInTheDocument();
+    const emailTrigger = within(section as HTMLElement).getByRole("button", {
+      name: /邮件邀请员工/,
+    });
+    const linkTrigger = within(section as HTMLElement).getByRole("button", { name: /邀请码/ });
+    expect(emailTrigger).toHaveAttribute("aria-expanded", "true");
+    expect(linkTrigger).toHaveAttribute("aria-expanded", "false");
+    expect(emailTrigger).toHaveClass("min-h-11");
+    expect(within(section as HTMLElement).queryByText("1 封邀请等待接受")).not.toBeInTheDocument();
   });
 });
 

@@ -286,7 +286,7 @@ function KioskPairingPanel({
           <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
             <Input
               id="kiosk-device-label"
-              className="h-[38px] text-base sm:text-sm"
+              className="h-[38px] min-h-11 text-base sm:min-h-10 sm:text-sm"
               value={deviceLabel}
               maxLength={80}
               disabled={pending}
@@ -300,7 +300,7 @@ function KioskPairingPanel({
             />
             <Button
               type="button"
-              className="min-h-10"
+              className="min-h-11 sm:min-h-10"
               disabled={pending || !deviceLabel.trim()}
               onClick={onCreate}
             >
@@ -333,7 +333,12 @@ function KioskPairingPanel({
                 {pairing.code}
               </p>
             </div>
-            <Button type="button" variant="outline" className="min-h-9" onClick={onCopyCode}>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 sm:min-h-9"
+              onClick={onCopyCode}
+            >
               <Copy className="size-4" /> 复制
             </Button>
           </div>
@@ -562,7 +567,7 @@ function KioskReviewCard({
         <Button
           type="button"
           variant="outline"
-          className="min-h-9"
+          className="min-h-11 sm:min-h-9"
           disabled={!reason.trim()}
           onClick={(event) => onReturn(event.currentTarget)}
         >
@@ -570,7 +575,7 @@ function KioskReviewCard({
         </Button>
         <Button
           type="button"
-          className="min-h-10"
+          className="min-h-11 sm:min-h-10"
           onClick={(event) => onAccept(event.currentTarget)}
         >
           <Check className="size-4" /> 接受并更新
@@ -707,7 +712,7 @@ function DomainError({ label, onRetry }: { label: string; onRetry: () => void })
       role="alert"
       className="grid-cols-1 gap-2 border-status-danger-foreground/25 bg-status-danger/10 px-3 py-3 text-status-danger-foreground sm:grid-cols-[minmax(0,1fr)_auto]"
       trailing={
-        <Button type="button" variant="outline" className="min-h-9" onClick={onRetry}>
+        <Button type="button" variant="outline" className="min-h-11 sm:min-h-9" onClick={onRetry}>
           <RefreshCw className="size-4" /> 重新读取
         </Button>
       }

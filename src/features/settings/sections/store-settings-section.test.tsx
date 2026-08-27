@@ -1,8 +1,9 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
+import type { SettingsFieldErrors } from "@/features/settings/model/settings-field-errors";
 import type { StoreSettingsDraftValues } from "@/features/settings/model/store-settings-draft";
 import { getStoreSettingsReadiness } from "@/features/settings/model/store-settings-readiness";
 import { StoreSettingsSectionContent } from "@/features/settings/sections/store-settings-section";
@@ -47,35 +48,43 @@ const completeSettings: StoreSettings = {
 };
 
 describe("StoreSettingsSectionContent", () => {
-  it("edits only the profile draft and keeps creation independently reachable", () => {
+  it("keeps the basic profile focused while management actions stay collapsed", () => {
     const onDraftChange = vi.fn();
     const onCreateStore = vi.fn();
     const view = renderStore({ onDraftChange, onCreateStore });
+
+    expect(screen.queryByLabelText("新店铺名称")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /管理店铺与安全/ }));
 
     fireEvent.change(screen.getByLabelText("收据和客户消息显示名称"), {
       target: { value: "Repair Lab Due" },
     });
     expect(onDraftChange).toHaveBeenCalledWith({ store_name: "Repair Lab Due" });
+    fireEvent.click(screen.getByRole("button", { name: "更多选项" }));
     fireEvent.change(screen.getByLabelText("客户门户域名"), {
       target: { value: "https://repair.example.test" },
     });
     expect(onDraftChange).toHaveBeenCalledWith({
       public_base_url: "https://repair.example.test",
     });
-    expect(screen.getByText("店主")).toBeInTheDocument();
-
-    view.rerender(storeSection({ newStoreName: "A", onDraftChange, onCreateStore }));
+    view.rerender(
+      <QueryClientProvider client={view.queryClient}>
+        {storeSection({ newStoreName: "A", onDraftChange, onCreateStore })}
+      </QueryClientProvider>,
+    );
     const createInput = screen.getByLabelText("新店铺名称");
     fireEvent.keyDown(createInput, { key: "Enter" });
     expect(onCreateStore).not.toHaveBeenCalled();
 
     view.rerender(
-      storeSection({
-        newStoreName: "Second Lab",
-        newStoreAddress: "Via Etnea 24, Catania",
-        onDraftChange,
-        onCreateStore,
-      }),
+      <QueryClientProvider client={view.queryClient}>
+        {storeSection({
+          newStoreName: "Second Lab",
+          newStoreAddress: "Via Etnea 24, Catania",
+          onDraftChange,
+          onCreateStore,
+        })}
+      </QueryClientProvider>,
     );
     fireEvent.keyDown(screen.getByLabelText("新店铺名称"), { key: "Enter" });
     expect(onCreateStore).not.toHaveBeenCalled();
@@ -89,6 +98,29 @@ describe("StoreSettingsSectionContent", () => {
     expect(onCreateStore).toHaveBeenCalledTimes(1);
   });
 
+  it("opens and focuses more options when a later public portal URL error arrives", async () => {
+    const view = renderStore();
+    const more = screen.getByRole("button", { name: "更多选项" });
+
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    view.rerender(
+      <QueryClientProvider client={view.queryClient}>
+        {storeSection({
+          fieldErrors: { "input.public_base_url": ["客户门户域名无效"] },
+        })}
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "更多选项" })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+      expect(screen.getByLabelText("客户门户域名")).toHaveFocus();
+    });
+    expect(screen.getByText("客户门户域名无效")).toBeVisible();
+  });
+
   it("uses semantic read-only values without hiding independent store creation", () => {
     const { container } = renderStore({ canUpdateSettings: false });
     const details = container.querySelector("dl");
@@ -97,6 +129,8 @@ describe("StoreSettingsSectionContent", () => {
     expect(details).not.toBeNull();
     expect(within(details as HTMLElement).getByText("店铺名").tagName).toBe("DT");
     expect(within(details as HTMLElement).getByText("Repair Lab").tagName).toBe("DD");
+    expect(screen.queryByLabelText("新店铺名称")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /管理店铺与安全/ }));
     expect(screen.getByLabelText("新店铺名称")).toBeEnabled();
     expect(screen.getByLabelText("默认打印地址（可选）")).toBeEnabled();
     expect(screen.getByText("当前账号可查看店铺资料；修改请联系店主或经理。")).toBeVisible();
@@ -106,8 +140,9 @@ describe("StoreSettingsSectionContent", () => {
     const saved = { ...completeSettings, store_address: "" };
     renderStore({ saved, draft: toStoreDraft(completeSettings), isDraftDirty: true });
 
-    expect(screen.getByText("当前已暂停")).toBeInTheDocument();
-    expect(screen.getByText(/当前客户输出仍然阻断；保存这份草稿后预计解除阻断/)).toBeVisible();
+    const warning = screen.getByRole("alert");
+    expect(warning).toHaveTextContent("客户输出当前保持关闭");
+    expect(warning).toHaveTextContent(/当前客户输出仍然阻断；保存这份草稿后预计解除阻断/);
     expect(screen.queryByText("当前已就绪")).not.toBeInTheDocument();
   });
 
@@ -118,18 +153,22 @@ describe("StoreSettingsSectionContent", () => {
       isDraftDirty: true,
     });
 
-    expect(screen.getByText("当前已就绪")).toBeInTheDocument();
-    expect(screen.getByText(/保存这份草稿后将阻断客户消息、打印和票据/)).toBeVisible();
+    const warning = screen.getByRole("alert");
+    expect(warning).toHaveTextContent("保存这份草稿后将暂停客户输出");
+    expect(warning).toHaveTextContent(/保存这份草稿后将阻断客户消息、打印和票据/);
+    expect(screen.queryByText("当前已就绪")).not.toBeInTheDocument();
   });
 
-  it("keeps switch and creation failures visible inside their own cards", () => {
+  it("keeps creation failures visible inside the collapsed management area", () => {
     renderStore({
       newStoreName: "Second Lab",
       switchError: "network unavailable",
       createError: "name already exists",
     });
 
-    expect(screen.getByText(/店铺切换失败：network unavailable/)).toBeVisible();
+    expect(screen.queryByText(/店铺切换失败：network unavailable/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/店铺创建失败：name already exists/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /管理店铺与安全/ }));
     expect(screen.getByText(/店铺创建失败：name already exists/)).toBeVisible();
     expect(screen.getByLabelText("新店铺名称")).toHaveValue("Second Lab");
   });
@@ -142,6 +181,7 @@ describe("StoreSettingsSectionContent", () => {
     const lifecycleAccess = availableLifecycleAccess(store.id);
 
     const view = renderStore({ storeOverride: activeStore, lifecycleAccess });
+    fireEvent.click(screen.getByRole("button", { name: /管理店铺与安全/ }));
     expect(screen.getByRole("heading", { name: "关闭与删除店铺" })).toBeVisible();
     expect(view.container.querySelector("[data-store-lifecycle-actions]")).not.toBeInTheDocument();
 
@@ -189,6 +229,7 @@ function renderStore({
   createError,
   onDraftChange = vi.fn(),
   onCreateStore = vi.fn(),
+  fieldErrors = {},
   storeOverride = store,
   activeStoreExplicit = true,
   lifecycleAccess,
@@ -203,6 +244,7 @@ function renderStore({
   createError?: string;
   onDraftChange?: (patch: Partial<StoreSettingsDraftValues["store"]>) => void;
   onCreateStore?: () => void;
+  fieldErrors?: SettingsFieldErrors;
   storeOverride?: ActorStoreMembership;
   activeStoreExplicit?: boolean;
   lifecycleAccess?: StoreLifecycleCapability;
@@ -222,6 +264,7 @@ function renderStore({
         switchError,
         createError,
         onDraftChange,
+        fieldErrors,
         onCreateStore,
         storeOverride,
         activeStoreExplicit,
@@ -243,6 +286,7 @@ function storeSection({
   createError,
   onDraftChange = vi.fn(),
   onCreateStore = vi.fn(),
+  fieldErrors = {},
   storeOverride = store,
   activeStoreExplicit = true,
   lifecycleAccess,
@@ -257,6 +301,7 @@ function storeSection({
   createError?: string;
   onDraftChange?: (patch: Partial<StoreSettingsDraftValues["store"]>) => void;
   onCreateStore?: () => void;
+  fieldErrors?: SettingsFieldErrors;
   storeOverride?: ActorStoreMembership;
   activeStoreExplicit?: boolean;
   lifecycleAccess?: StoreLifecycleCapability;
@@ -292,7 +337,7 @@ function storeSection({
       })}
       isDraftDirty={isDraftDirty}
       canUpdateSettings={canUpdateSettings}
-      fieldErrors={{}}
+      fieldErrors={fieldErrors}
       onDraftChange={onDraftChange}
     />
   );

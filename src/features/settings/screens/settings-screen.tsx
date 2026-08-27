@@ -7,7 +7,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive,
   ArrowLeft,
-  Check,
   ChevronDown,
   FileSpreadsheet,
   MessageSquare,
@@ -92,10 +91,6 @@ import {
   type StoreBoundTransientValue,
 } from "@/features/settings/model/store-bound-transient-state";
 import { storesKeys } from "@/features/stores/api/query-keys";
-import {
-  applySwitchedStoreContext,
-  refreshStoreContextQueries,
-} from "@/features/stores/api/tenant-cache";
 import { RepairOsBusinessCard, RepairOsListScaffold, RepairOsSectionHeader } from "@/shared/ui";
 import {
   acceptKioskSession,
@@ -122,7 +117,6 @@ import {
   restoreStoreMember,
   revokeStoreInviteLink,
   revokeStoreInvitation,
-  switchStore,
   updateSupplier,
   updateStoreMemberPermissions,
   updateStoreMemberRole,
@@ -145,7 +139,7 @@ import {
 } from "@/lib/repairdesk/api";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { cn } from "@/lib/utils";
-import { brandGradientStyle, formLayout, repairOs } from "@/lib/ui-patterns";
+import { formLayout, repairOs } from "@/lib/ui-patterns";
 import { SettingsOverviewScreen } from "@/features/settings/screens/settings-overview-screen";
 import {
   acceptStoreSettingsSaveResult,
@@ -555,7 +549,6 @@ export function SettingsScreen() {
       ) {
         void settingsQuery.refetch();
       }
-      toast.error(error instanceof Error ? error.message : "保存失败");
     },
   });
 
@@ -813,21 +806,6 @@ export function SettingsScreen() {
       setSupplierActionError(message);
       toast.error(message);
     },
-  });
-  const switchStoreMutation = useMutation({
-    mutationFn: switchStore,
-    onMutate: () => {
-      inviteCodeRequestEpochRef.current += 1;
-      kioskPairingRequestEpochRef.current += 1;
-      setLatestInviteCodeState(null);
-      setLatestKioskPairingCodeState(null);
-    },
-    onSuccess: async (context) => {
-      toast.success(`已切换到 ${context.activeStore?.name ?? "店铺"}`);
-      await applySwitchedStoreContext(queryClient, context);
-      await refreshStoreContextQueries(queryClient);
-    },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "切换店铺失败"),
   });
   const createStoreMutation = useMutation({
     mutationFn: createStore,
@@ -1260,7 +1238,7 @@ export function SettingsScreen() {
               type="button"
               size="sm"
               variant="outline"
-              className="min-h-9 bg-card px-3"
+              className="min-h-11 bg-card px-3"
               onClick={() => storeContextQuery.refetch()}
             >
               重新加载
@@ -1411,59 +1389,25 @@ export function SettingsScreen() {
   return (
     <RepairOsListScaffold
       title={activeSection?.label ?? "设置"}
-      subtitle={storeContextQuery.data?.activeStore?.name ?? "当前店铺"}
+      subtitle={
+        activeSection ? (storeContextQuery.data?.activeStore?.name ?? "当前店铺") : "常用设置"
+      }
       eyebrow="系统 / 设置"
       mobileLeading={
         activeSection ? (
           <Link
             href="/settings"
             aria-label="返回设置总览"
-            className="grid size-9 place-items-center rounded-lg border border-[var(--border-panel)] bg-card text-foreground"
+            className="grid size-11 place-items-center rounded-lg border border-[var(--border-panel)] bg-card text-foreground sm:size-9"
           >
             <ArrowLeft className="size-4" />
           </Link>
         ) : undefined
       }
-      action={
-        selectedSection &&
-        canSaveDraftInSection(selectedSection) &&
-        canUpdateStoreSettings &&
-        activeDraft ? (
-          <Button
-            type="button"
-            size="sm"
-            className="min-h-10 gap-1 rounded-lg border-0 px-3 text-xs text-primary-foreground shadow-[var(--shadow-action)]"
-            style={brandGradientStyle}
-            aria-label="保存设置"
-            disabled={!hasChanges || saveMutation.isPending || selectedSaveStatus === "conflict"}
-            onClick={() =>
-              selectedDraftSection && void saveStoreSettingsSection(selectedDraftSection)
-            }
-          >
-            <Check className="size-3.5" />
-            保存
-          </Button>
-        ) : undefined
-      }
-      desktopAction={
-        selectedSection &&
-        canSaveDraftInSection(selectedSection) &&
-        canUpdateStoreSettings &&
-        activeDraft ? (
-          <Button
-            size="sm"
-            className="h-8 shrink-0 gap-1.5 border-0 text-primary-foreground sm:h-9"
-            style={brandGradientStyle}
-            disabled={!hasChanges || saveMutation.isPending || selectedSaveStatus === "conflict"}
-            onClick={() =>
-              selectedDraftSection && void saveStoreSettingsSection(selectedDraftSection)
-            }
-          >
-            <Check className="size-3.5" /> 保存
-          </Button>
-        ) : undefined
-      }
-      className="pb-8"
+      className={cn(
+        "pb-8",
+        '[&_[data-ui="repair-os-list-header-card"]>header]:!grid-cols-[44px_minmax(0,1fr)_auto]',
+      )}
     >
       <UnsavedSettingsGuard
         id="settings-store-draft"
@@ -1627,16 +1571,7 @@ export function SettingsScreen() {
                     activeStoreId={storeContextQuery.data?.activeStore?.id}
                     activeStoreExplicit={storeContextQuery.data?.activeStoreExplicit}
                     stores={storeContextQuery.data?.stores ?? []}
-                    isContextLoading={storeContextQuery.isLoading}
-                    isSwitching={switchStoreMutation.isPending}
                     isCreating={createStoreMutation.isPending}
-                    switchError={
-                      switchStoreMutation.isError
-                        ? switchStoreMutation.error instanceof Error
-                          ? switchStoreMutation.error.message
-                          : "切换店铺失败"
-                        : undefined
-                    }
                     createError={
                       createStoreMutation.isError
                         ? createStoreMutation.error instanceof Error
@@ -1653,23 +1588,6 @@ export function SettingsScreen() {
                     onNewStoreAddressChange={(value) => {
                       createStoreMutation.reset();
                       setNewStoreAddress(value);
-                    }}
-                    onSwitchStore={(storeId) => {
-                      if (!storeId) return;
-                      if (
-                        storeId === storeContextQuery.data?.activeStore?.id &&
-                        storeContextQuery.data?.activeStoreExplicit
-                      ) {
-                        return;
-                      }
-                      const targetStore = storeContextQuery.data?.stores.find(
-                        (store) => store.id === storeId,
-                      );
-                      void runGuardedTransition({
-                        kind: "store-switch",
-                        label: `切换到 ${targetStore?.name ?? "其他店铺"}`,
-                        run: () => switchStoreMutation.mutateAsync(storeId),
-                      });
                     }}
                     onCreateStore={() => {
                       const name = newStoreName.trim();
@@ -2009,13 +1927,18 @@ export function SettingsScreen() {
             ) : null}
 
             {canRenderDraftSection && canUpdateStoreSettings && selectedDraftSection ? (
-              <>
+              selectedSaveStatus === "validation-error" ||
+              selectedSaveStatus === "conflict" ||
+              selectedSaveStatus === "offline" ||
+              selectedSaveStatus === "error" ? (
                 <SettingsStateCard
                   status={selectedSaveStatus}
                   fieldErrors={settingsFieldErrors}
                   onDiscard={() => discardStoreSettingsSection(selectedDraftSection)}
+                  onRetry={() => void saveStoreSettingsSection(selectedDraftSection)}
                   onRebase={() => rebaseStoreSettingsSection(selectedDraftSection)}
                 />
+              ) : (
                 <SettingsSaveBar
                   label={activeSection?.label ?? "当前分组"}
                   status={selectedSaveStatus}
@@ -2024,7 +1947,7 @@ export function SettingsScreen() {
                   onSave={() => void saveStoreSettingsSection(selectedDraftSection)}
                   onDiscard={() => discardStoreSettingsSection(selectedDraftSection)}
                 />
-              </>
+              )
             ) : null}
           </form>
         )}
@@ -2085,7 +2008,7 @@ function SettingsSectionDataState({
             type="button"
             size="sm"
             variant="outline"
-            className="min-h-9 px-3"
+            className="min-h-11 px-3"
             onClick={onRetry}
           >
             重新加载
@@ -2161,6 +2084,7 @@ function focusFirstSettingsError(fieldErrors?: Record<string, string[]>) {
         store_phone: "store-phone",
         store_whatsapp: "store-whatsapp",
         store_email: "store-email",
+        public_base_url: "public-base-url",
         default_order_warranty_months: "order-warranty",
         default_inventory_warranty_months: "inventory-warranty",
         print_footer: "print-footer",

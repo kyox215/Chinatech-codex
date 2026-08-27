@@ -4,6 +4,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { STORE_RULE_DEFAULTS } from "@/entities/store/model/store-setting-defaults";
 import { RulesSettingsSection } from "@/features/settings/sections/rules-settings-section";
 
+vi.mock("@/features/settings/components/repair-cost-defaults-card", () => ({
+  RepairCostDefaultsCard: () => (
+    <div data-testid="settings-test-cost-card">
+      <label>
+        测试成本草稿
+        <input aria-label="测试成本草稿" defaultValue="初始成本" />
+      </label>
+      <div data-testid="settings-test-cost-guard" />
+    </div>
+  ),
+}));
+
 afterEach(cleanup);
 
 describe("RulesSettingsSection", () => {
@@ -101,6 +113,33 @@ describe("RulesSettingsSection", () => {
     expect(screen.queryByText("成本仅供获授权管理人员查看")).not.toBeInTheDocument();
     expect(screen.queryByText("配件采购成本与库存")).not.toBeInTheDocument();
     expect(screen.queryByText("采购成本币种与汇率")).not.toBeInTheDocument();
+  });
+
+  it("keeps cost editors and their unsaved guard mounted while the fold is closed", () => {
+    renderRules({ canManageOrderCosts: true, activeStoreId: "store-a" });
+
+    const toggle = screen.getByRole("button", { name: /^财务与成本/ });
+    const content = document.querySelector<HTMLElement>("[data-settings-rules-costs-content]");
+    expect(content).not.toBeNull();
+    expect(content).toHaveAttribute("hidden", "");
+    expect(document.querySelector("[data-testid='settings-test-cost-card']")).toBeInTheDocument();
+    expect(document.querySelector("[data-testid='settings-test-cost-guard']")).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    const input = screen.getByRole("textbox", { name: "测试成本草稿" });
+    fireEvent.change(input, { target: { value: "编辑后的成本" } });
+    expect(input).toHaveValue("编辑后的成本");
+
+    fireEvent.click(toggle);
+    expect(content).toHaveAttribute("hidden", "");
+    expect(document.querySelector("[data-testid='settings-test-cost-guard']")).toBeInTheDocument();
+    expect(
+      document.querySelector<HTMLInputElement>("[data-testid='settings-test-cost-card'] input"),
+    ).toHaveValue("编辑后的成本");
+    expect(screen.queryByRole("textbox", { name: "测试成本草稿" })).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(screen.getByRole("textbox", { name: "测试成本草稿" })).toHaveValue("编辑后的成本");
   });
 });
 

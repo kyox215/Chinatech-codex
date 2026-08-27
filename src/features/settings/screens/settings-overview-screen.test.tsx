@@ -7,27 +7,50 @@ import { SETTINGS_SECTION_GROUPS } from "@/features/settings/model/settings-sect
 import { SettingsOverviewScreen } from "@/features/settings/screens/settings-overview-screen";
 
 describe("SettingsOverviewScreen", () => {
-  it("renders four groups, ten entries, readonly and blocked semantics", () => {
+  it("renders concise core entries and a collapsed advanced area", () => {
     renderOverview({ state: "ready", score: 80 }, true);
 
-    expect(screen.getByRole("heading", { name: "设置总览" })).toBeVisible();
-    for (const label of ["个人与访问", "店铺运营", "业务规则", "输出与数据"]) {
-      expect(screen.getByRole("heading", { name: label })).toBeVisible();
+    expect(screen.getByText("先处理常用设置；低频工具收在“更多设置”中。")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "常用设置" })).toBeVisible();
+    expect(screen.getByRole("link", { name: /店铺资料/ })).toBeVisible();
+    expect(
+      screen
+        .getAllByRole("link")
+        .filter((link) => link.getAttribute("href")?.startsWith("/settings?section="))
+        .map((link) => link.getAttribute("href")),
+    ).toEqual([
+      "/settings?section=store",
+      "/settings?section=members",
+      "/settings?section=rules",
+      "/settings?section=notifications",
+    ]);
+    for (const label of ["员工", "默认规则", "通知与打印"]) {
+      expect(screen.getByRole("link", { name: new RegExp(`^${label}`) })).toBeVisible();
     }
-    expect(screen.getByText("9 / 10")).toBeVisible();
-    expect(screen.getByText("80% 完整")).toBeVisible();
+    expect(screen.queryByText("9 / 10")).not.toBeInTheDocument();
+    expect(screen.queryByText("80% 完整")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ripara Subito")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /员工.*只读/ })).toHaveAttribute(
       "href",
       "/settings?section=members",
     );
     expect(screen.queryByRole("link", { name: /工单数据/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /消息模板/ })).toHaveAttribute("href", "/messages");
+    expect(screen.queryByRole("link", { name: /消息模板/ })).not.toBeInTheDocument();
+    const more = screen.getByRole("button", { name: /更多设置/ });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(more);
+    expect(more).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: /^供应商/ })).toHaveAttribute(
+      "href",
+      "/settings?section=suppliers",
+    );
+    expect(screen.queryByRole("link", { name: /工单数据/ })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /平台审批/ })).toHaveAttribute("href", "/platform");
   });
 
   it("hides platform approval for non-platform administrators", () => {
     renderOverview({ state: "ready", score: 100 });
-    expect(screen.getByRole("link", { name: /消息模板/ })).toBeVisible();
+    expect(screen.queryByRole("link", { name: /消息模板/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /平台审批/ })).not.toBeInTheDocument();
   });
 
@@ -35,17 +58,19 @@ describe("SettingsOverviewScreen", () => {
     [{ state: "loading" as const }, "读取中…"],
     [{ state: "error" as const }, "读取失败"],
     [{ state: "unavailable" as const }, "不可用"],
-  ])("renders the readiness state %#", (readiness, label) => {
+  ])("does not render the removed readiness panel %#", (readiness, label) => {
     renderOverview(readiness);
-    expect(screen.getByRole("status")).toHaveTextContent(label);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.queryByText(label)).not.toBeInTheDocument();
   });
 
-  it("filters entry cards and shows a clear empty state", () => {
+  it("keeps the mobile search useful without exposing blocked entries", () => {
     renderOverview({ state: "ready", score: 100 });
 
-    fireEvent.change(screen.getByLabelText("搜索设置"), { target: { value: "Excel" } });
-    expect(screen.getByText("工单数据")).toBeVisible();
-    expect(screen.queryByText("员工")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("搜索设置"), { target: { value: "员工" } });
+    expect(screen.getByRole("link", { name: /员工/ })).toBeVisible();
+    expect(screen.queryByRole("link", { name: /店铺/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /工单数据/ })).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("搜索设置"), { target: { value: "没有结果" } });
     expect(screen.getByText("没有匹配的设置")).toBeVisible();

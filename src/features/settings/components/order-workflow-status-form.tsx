@@ -106,7 +106,7 @@ export function OrderWorkflowStatusForm({
               autoCapitalize="none"
               autoCorrect="off"
               maxLength={48}
-              className="h-[38px] font-mono text-base sm:text-sm"
+              className="h-[38px] min-h-11 font-mono text-base sm:min-h-10 sm:text-sm"
               value={value.code}
               onChange={(event) =>
                 setValue((current) => ({
@@ -130,7 +130,7 @@ export function OrderWorkflowStatusForm({
           <Input
             id="workflow-status-label"
             maxLength={24}
-            className="h-[38px] text-base sm:text-sm"
+            className="h-[38px] min-h-11 text-base sm:min-h-10 sm:text-sm"
             value={value.label}
             onChange={(event) => setValue((current) => ({ ...current, label: event.target.value }))}
             placeholder="等待供应商"
@@ -140,7 +140,7 @@ export function OrderWorkflowStatusForm({
           <Input
             id="workflow-status-short-label"
             maxLength={8}
-            className="h-[38px] text-base sm:text-sm"
+            className="h-[38px] min-h-11 text-base sm:min-h-10 sm:text-sm"
             value={value.shortLabel}
             onChange={(event) =>
               setValue((current) => ({ ...current, shortLabel: event.target.value }))
@@ -161,7 +161,10 @@ export function OrderWorkflowStatusForm({
                 setValue((current) => ({ ...current, bucket: bucket as OrderWorkflowBucket }))
               }
             >
-              <SelectTrigger id="workflow-status-bucket" className="h-[38px] text-base sm:text-sm">
+              <SelectTrigger
+                id="workflow-status-bucket"
+                className="h-[38px] min-h-11 text-base sm:min-h-10 sm:text-sm"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -181,7 +184,10 @@ export function OrderWorkflowStatusForm({
               setValue((current) => ({ ...current, tone: tone as OrderWorkflowTone }))
             }
           >
-            <SelectTrigger id="workflow-status-tone" className="h-[38px] text-base sm:text-sm">
+            <SelectTrigger
+              id="workflow-status-tone"
+              className="h-[38px] min-h-11 text-base sm:min-h-10 sm:text-sm"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

@@ -9,24 +9,37 @@ import {
 import { SETTINGS_SECTION_GROUPS } from "@/features/settings/model/settings-section-registry";
 
 describe("SettingsNavigation", () => {
-  it("uses links for accessible views and no links for blocked sections", () => {
+  it("shows accessible core links and keeps advanced settings behind a collapsed fold", () => {
     renderNavigation("store");
 
-    expect(screen.getByRole("link", { name: "设置总览" })).toHaveAttribute("href", "/settings");
+    expect(screen.queryByRole("link", { name: "设置总览" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /店铺/ })).toHaveAttribute("aria-current", "page");
+    expect(screen.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
+      "/settings?section=store",
+      "/settings?section=members",
+      "/settings?section=rules",
+      "/settings?section=notifications",
+    ]);
     expect(screen.queryByRole("link", { name: /工单数据/ })).not.toBeInTheDocument();
-    expect(screen.getByText("工单数据").closest("[aria-disabled='true']")).toBeInTheDocument();
+    expect(screen.queryByText("工单数据")).not.toBeInTheDocument();
+    const more = screen.getByRole("button", { name: "更多设置" });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(more);
+    expect(more).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: "供应商" })).toHaveAttribute(
+      "href",
+      "/settings?section=suppliers",
+    );
+    expect(screen.queryByRole("link", { name: /工单数据/ })).not.toBeInTheDocument();
     expect(screen.queryByText(/0 个|0 成员|0 台/)).not.toBeInTheDocument();
   });
 
-  it("exposes readonly and dirty states as text and supports search empty state", () => {
+  it("exposes readonly and dirty states without rendering the removed rail search", () => {
     renderNavigation(null);
 
     expect(screen.getByRole("link", { name: /员工.*未保存.*只读/ })).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("搜索设置"), {
-      target: { value: "不存在的设置" },
-    });
-    expect(screen.getByText("没有匹配的设置")).toBeVisible();
+    expect(screen.queryByLabelText("搜索设置")).not.toBeInTheDocument();
+    expect(screen.queryByText("没有匹配的设置")).not.toBeInTheDocument();
   });
 
   it("allows a future dirty guard to cancel section navigation", () => {

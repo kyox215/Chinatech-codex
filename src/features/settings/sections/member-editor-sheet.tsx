@@ -279,7 +279,7 @@ export function MemberEditorSheet({
                           >
                             <Label
                               htmlFor={`member-permission-${option.action}`}
-                              className="flex min-h-9 cursor-pointer items-center text-sm font-medium"
+                              className="flex min-h-11 cursor-pointer items-center text-sm font-medium"
                             >
                               {option.label}
                             </Label>
