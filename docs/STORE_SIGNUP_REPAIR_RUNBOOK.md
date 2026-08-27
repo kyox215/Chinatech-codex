@@ -1,6 +1,6 @@
 # Store signup repair runbook
 
-Status: production migration applied and verified on 2026-08-27. This runbook is the release, smoke, observation, and forward-only recovery SOP. The ordinary `main` push and automatic Vercel deployment are still pending and are not claimed complete. No validation may leave a real or test store or any derived rows behind.
+Status: production migration, runtime key compatibility, ordinary `main` push, and automatic Vercel deployment were applied and verified on 2026-08-27. The final 60-minute authenticated read-only observation gate passed. This runbook remains the release, smoke, observation, and forward-only recovery SOP. No validation may leave a real or test store or any derived rows behind.
 Owner: `RepairDesk Integration Lead`. Temporary server-key compatibility exit deadline: `2026-10-31`.
 
 ## Baseline and lineage
@@ -22,8 +22,8 @@ Owner: `RepairDesk Integration Lead`. Temporary server-key compatibility exit de
 ## Release lineage and remote verification
 
 - The database migration was applied from the approved candidate worktree through the CLI on 2026-08-27; the live ledger and RPC facts above are the current remote evidence.
-- Before the pending delivery, verify the exact candidate commit/tree, sanitized GitHub repository, configured root, and target ref. Push to `main` only as an ordinary non-force push; do not squash, amend, merge, cherry-pick, repair history, use `--include-all`, or use `--force`.
-- After the push, verify the remote `main` SHA and tree, then verify that Vercel's automatic deployment uses that same commit. Main push and Vercel deployment are pending in this runbook; do not claim either is complete without remote evidence.
+- The ordinary non-force `main` push and automatic Vercel deployment were completed and remotely verified for runtime commit `e17434e8388959e14e8ed1de8323172e28c2c876`; deployment `dpl_8Vk8CvGq4Bzj3ziaYkqFXk3Ki9QM` is READY. Do not squash, amend, merge, cherry-pick, repair history, use `--include-all`, or use `--force` for any future delivery.
+- The final release evidence below records the remote SHA/tree, deployment health, 15/30/60-minute observations, and rollback boundary. No real create-store POST or new account/store was used as a release probe.
 
 ## What the forward migration changes
 
@@ -50,7 +50,7 @@ Run these read-only checks against the approved release environment, using an op
 2. Verify the committed ledger/RPC/ACL/trigger baselines and the rollback-only evidence above in a clean release worktree.
 3. Do not reapply `20260823141758`, edit or replay migration history, repair history, or use `--include-all`/`--force`.
 4. Perform the independent read-only postcheck for the function definition, ACL, trigger/event digests, synthetic residue, and advisory-lock residue.
-5. Push the approved application changes to `main` with an ordinary non-force push; Vercel's automatic deployment follows that push. Both remain pending and require remote verification.
+5. The approved application changes were pushed to `main` with an ordinary non-force push; Vercel's automatic deployment followed that push and was verified against the same commit.
 6. Run the authenticated read-only smoke against the verified deployment. Do not issue a create-store POST, create a real/test store, or retain any canary data.
 7. Observe error rates, ACL-denial signals, and sanitized availability telemetry (`event`, `status`, `errorCode`, `requestId`) without recording raw Supabase/SQL errors or secrets.
 
@@ -80,9 +80,9 @@ The rehearsal branch TTL is at most four hours. Its infrastructure budget is cap
 
 ## Authenticated read-only smoke and release delivery
 
-After the approved ordinary non-force `main` push and Vercel's automatic deployment, run an authenticated read-only smoke against the verified deployment origin. Check the authenticated shell, the signup route, the typed availability/error presentation, and read-only API responses. Do not issue `POST /api/repairdesk/stores/create`, create a real or test store, retain a persistent canary, or record credentials, raw SQL errors, or customer data.
+The approved ordinary non-force `main` push and Vercel's automatic deployment completed. Run the authenticated read-only smoke against the verified deployment origin, as recorded in the final 60-minute evidence below. Check the authenticated shell, the signup route, the typed availability/error presentation, and read-only API responses. Do not issue `POST /api/repairdesk/stores/create`, create a real or test store, retain a persistent canary, or record credentials, raw SQL errors, or customer data.
 
-A local build and the Vercel deployment are separate gates: a build proves packaging only, while the deployed commit and health must be checked remotely. If the Vercel deployment is unhealthy, use the reviewed Vercel rollback plan to return to the last verified deployment, then rerun the authenticated read-only smoke. Main push and Vercel deployment are pending here; this runbook does not claim either is complete.
+A local build and the Vercel deployment are separate gates: a build proves packaging only, while the deployed commit and health must be checked remotely. If a future Vercel deployment is unhealthy, use the reviewed Vercel rollback plan to return to the last verified deployment, then rerun the authenticated read-only smoke. The current deployment and observation gate are complete; this runbook still does not authorize a real create-store mutation.
 
 ## Stop conditions
 
@@ -114,7 +114,7 @@ No D3 replay of historical failed POSTs is required or automatic. A customer/ope
 
 ## Observation thresholds
 
-Record observations at 15, 30, and 60 minutes after the pending `main`/Vercel release. The database apply and rollback-only rehearsals are complete; delivery and observation remain pending until remote evidence is recorded.
+Record observations at 15, 30, and 60 minutes after the `main`/Vercel release. The database apply, rollback-only rehearsals, delivery, and final observation evidence are complete as recorded below; the thresholds remain the stop/rollback policy for any future release.
 
 | Checkpoint | Continue only if                                                                                                                                                  | Stop / rollback trigger                                                                                                               |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
@@ -126,6 +126,14 @@ For a Vercel/app/runtime/environment/read-only-smoke failure, roll Vercel back t
 
 ## Production release, rollback, and canary policy
 
-The migration, backup evidence, rollback-only rehearsals, committed-state canary, and read-only database postchecks are complete as recorded above. The ordinary non-force `main` push and Vercel automatic deployment are still pending; verify both remotely before claiming release completion. The production smoke is authenticated and read-only: no real or test store, persistent canary, customer-data mutation, or historical POST replay is permitted.
+The migration, backup evidence, rollback-only rehearsals, committed-state canary, read-only database postchecks, ordinary non-force `main` push, Vercel automatic deployment, and final 60-minute read-only observation are complete as recorded above and below. The production smoke is authenticated and read-only: no real or test store, persistent canary, customer-data mutation, or historical POST replay is permitted.
 
 Database recovery remains forward-only. If the Vercel deployment is unhealthy, use the reviewed Vercel rollback plan to return to the last verified deployment, then rerun the authenticated read-only smoke. Staging artifacts, branches, storage states, and E2E evidence are never promoted to production. The only permitted cleanup is deletion of the disposable staging branch/worktree by the Integration Lead after the drill; no production data or account is deleted.
+
+## Final 60-minute release verification (2026-08-27)
+
+- Production deployment `dpl_8Vk8CvGq4Bzj3ziaYkqFXk3Ki9QM` is READY and serves runtime commit `e17434e8388959e14e8ed1de8323172e28c2c876`. Computer Use hard refresh showed the ChinaTech account-opened state (`账号已开通`, `owner`); redacted screenshot: `/Users/kyox215/.codex/visualizations/2026/08/25/01a03ac9-d6dd-7a63-b1fb-ce1c291ac896/repairdesk-store-signup-60m-2026-08-27.png`.
+- Vercel sanitized observations over the recent approximately two-hour window recorded target `401`/`403`/`5xx`/timeout/`Invalid API key`/`STORE_CREATE` counts all `0`. From READY at `2026-08-27T12:23:34.626Z`, Supabase observations recorded API `34`, Auth `14`, and Postgres `2`; every same target error category remained `0`.
+- Independent QA review is `PASS`; Release disposition is `GO` for this docs-only closeout only. The postcheck `/private/tmp/repairdesk_store_signup_postapply_postcheck_v30.sql` is 320 lines, SHA-256 `f0fd3415ad343100524148e42e588b656efd1b168541689100f24c9314df7153`, pure read-only, and execution `PASS` (`isError=false`).
+- The postcheck assertions passed for committed ledger `120/120`, RPC definition/owner/language/security-definer/empty-search-path/ACL, 18 normal-trigger and 6 managed-event-trigger closure, synthetic auth/profile/store/child/operation residue, and advisory-lock residue. The rollback-only rehearsals/canary also remain zero-residue.
+- This gate did not execute a real create-store POST, create a new account, create a new store, or claim real multi-account E2E. `PITR=false` remains a recovery-risk limitation. Any future database recovery is forward-only under this runbook, with Vercel rollback retained for app/runtime failures.
