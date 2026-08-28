@@ -1,6 +1,9 @@
 # 工单详情电脑端高密度布局计划书
 
-Status: proposed
+Status: superseded
+
+> 历史说明：本文旧三栏正文仅作历史记录；当前权威规范见 [`UI_PAGE_GENERATION_DECLARATION.md`](./UI_PAGE_GENERATION_DECLARATION.md)、[`COMPONENT_GENERATION_DECLARATION.md`](./COMPONENT_GENERATION_DECLARATION.md) 与 [`RESPONSIVE_DENSITY_PLAN.md`](./RESPONSIVE_DENSITY_PLAN.md)，统一采用员工优先两列工单详情工作面（报价处理 → 客户与设备 → 关键信息与记录，`768px+` 约 `2fr/1fr`）。
+
 Owner: UX / Frontend / Integration Lead
 Scope: `/orders` 列表内打开的工单详情 Dialog，以及桌面宽度下的 `/orders/[id]` 详情工作面
 Out of scope: 数据库、订单状态机、付款规则、通知发送规则、移动端信息层级重设计

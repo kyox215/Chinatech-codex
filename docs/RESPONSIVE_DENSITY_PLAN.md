@@ -253,7 +253,7 @@ iOS Safari / Chrome 会在聚焦字号小于 `16px` 的可编辑控件时自动�
 小型表单、付款、通知、确认类 Dialog 继续使用 `modalSm` / `modalMd` / `formContent`，
 不要被提升成全屏工作台。
 
-工单详情弹窗属于沉浸式工作面，外壳必须固定为 viewport-safe 高度，切换概览、记录、附件库存时不改变 Dialog 尺寸；iPad/桌面概览区必须使用 `detailWorkspace.orderDetailGrid`：左栏堆叠客户与设备，中栏报价处理，右栏工单信息与最近记录；768–1023px 自动使用与新建订单一致的两列落位。手机详情保持独立移动结构，任何断点都不能产生页面级横向滚动。
+工单详情弹窗属于沉浸式工作面，外壳必须固定为 viewport-safe 高度，切换概览、记录、附件库存时不改变 Dialog 尺寸；iPad/桌面概览区必须使用 `detailWorkspace.orderDetailGrid` 的员工优先两列落位：左侧先显示报价处理、下方堆叠客户与设备，右侧显示工单关键信息与最近记录；`768px+` 保持左侧约 `2fr`、右侧约 `1fr`，所有列 `min-w-0`。手机详情保持独立移动结构，任何断点都不能产生页面级横向滚动。
 
 新建工单工作区采用“客户设备 + 报价处理”的稳定布局：
 
@@ -503,14 +503,14 @@ componentOverlay.responsiveDialog = "w-[min(960px,calc(100vw-24px))] max-h-[90vh
 - `OrderDetailScreen` 支持 `surface="page" | "dialog"` 的响应式 class。
 - `OrderHero` 操作区使用 flex wrap。
 - Tabs 容器增加 `max-w-full overflow-hidden`。
-- 弹窗概览 grid 使用 `detailWorkspace.orderDetailGrid`：移动单列、平板两列、桌面三列，每列 `min-w-0`。
+- 弹窗概览 grid 使用 `detailWorkspace.orderDetailGrid`：移动单列；`768px+` 使用员工优先两列，DOM/视觉顺序为“报价处理 → 客户与设备 → 关键信息与记录”，左侧约 `2fr`、右侧约 `1fr`，每列 `min-w-0`。
 - 技师 / 录入人只读展示，新建与编辑入口不得提供选择器或 inline edit。
 - 报价金额编辑使用 string draft + shared normalizer，空金额不自动显示为 `0`，总报价、尾款和保存 payload 必须同源计算。
 
 ### Acceptance
 
 - 详情弹窗在 1024 宽度内不横向滚动。
-- 详情弹窗在 1024、1280、1440 宽度下客户、设备、报价三列同屏。
+- 详情弹窗在 768、1024、1280、1440 宽度下报价首屏可见，客户/设备位于同一左列下方，关键信息/记录位于右列且不重叠。
 - 详情弹窗切换到附件库存等短内容 Tab 后，Dialog 外壳宽高不变。
 - 独立详情页在 390 宽度下单列。
 - 所有金额保持 `€` 在前。

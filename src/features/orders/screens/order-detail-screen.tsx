@@ -1622,7 +1622,8 @@ export function OrderDetailScreen({
                 <Button
                   type="button"
                   size="sm"
-                  className="h-8 shrink-0 px-2.5 text-xs"
+                  variant="outline"
+                  className="h-11 min-w-11 shrink-0 px-3 text-xs lg:h-8 lg:min-w-0 lg:px-2.5"
                   onClick={() => setDiagnosisQuoteOpen(true)}
                 >
                   {data.capabilities?.canPrepareQuote ? "检测报价" : "记录检测"}
@@ -2310,7 +2311,7 @@ function OrderDeviceCustodyCard({
             variant="outline"
             className={cn(
               variant === "inline"
-                ? "h-7 px-2 text-[10px] lg:text-[11px] lg:leading-4"
+                ? "h-11 min-w-11 px-3 text-xs lg:h-7 lg:min-w-0 lg:px-2 lg:text-[11px] lg:leading-4"
                 : "h-9 text-xs",
             )}
             disabled={pending}
@@ -2332,7 +2333,9 @@ function OrderDeviceCustodyCard({
         type="button"
         size="sm"
         className={cn(
-          variant === "inline" ? "h-7 px-2 text-[10px] lg:text-[11px] lg:leading-4" : "h-9 text-xs",
+          variant === "inline"
+            ? "h-11 min-w-11 px-3 text-xs lg:h-7 lg:min-w-0 lg:px-2 lg:text-[11px] lg:leading-4"
+            : "h-9 text-xs",
         )}
         disabled={pending}
         onClick={onConfirmCancelledReturn}
@@ -2353,7 +2356,7 @@ function OrderDeviceCustodyCard({
           variant="outline"
           className={cn(
             variant === "inline"
-              ? "h-7 px-2 text-[10px] lg:text-[11px] lg:leading-4"
+              ? "h-11 min-w-11 px-3 text-xs lg:h-7 lg:min-w-0 lg:px-2 lg:text-[11px] lg:leading-4"
               : "h-9 text-xs",
           )}
           disabled={pending}
@@ -2374,7 +2377,7 @@ function OrderDeviceCustodyCard({
           variant="outline"
           className={cn(
             variant === "inline"
-              ? "h-7 px-2 text-[10px] lg:text-[11px] lg:leading-4"
+              ? "h-11 min-w-11 px-3 text-xs lg:h-7 lg:min-w-0 lg:px-2 lg:text-[11px] lg:leading-4"
               : "h-9 text-xs",
           )}
           disabled={pending}

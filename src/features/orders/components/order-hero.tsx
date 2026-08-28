@@ -145,7 +145,7 @@ export function OrderHero({
             <Button
               size="icon"
               variant="outline"
-              className="relative size-7 border-status-warn-foreground/30 text-status-warn-foreground"
+              className="relative size-11 border-status-warn-foreground/30 text-status-warn-foreground lg:size-7"
               aria-label={`${printDisabledReason ?? "当前工单暂不可打印"}，查看解决方法`}
               title={printDisabledReason ?? "当前工单暂不可打印"}
             >
@@ -168,7 +168,7 @@ export function OrderHero({
         <Button
           size="icon"
           variant="outline"
-          className="size-7"
+          className="size-11 lg:size-7"
           disabled={printDisabled}
           aria-busy={printDisabled && printDisabledReason === "正在准备打印内容"}
           onClick={onPrint}
@@ -180,7 +180,12 @@ export function OrderHero({
       )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button size="icon" variant="outline" className="size-7" aria-label="更多工单操作">
+          <Button
+            size="icon"
+            variant="outline"
+            className="size-11 lg:size-7"
+            aria-label="更多工单操作"
+          >
             <MoreHorizontal className="size-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -240,7 +245,7 @@ export function OrderHero({
         <Button
           size="sm"
           variant="outline"
-          className="h-7 gap-1 px-2 text-[11px] lg:text-xs"
+          className="h-11 min-w-11 gap-1 px-3 text-xs lg:h-7 lg:min-w-0 lg:px-2 lg:text-[11px]"
           onClick={onEdit}
         >
           <Pencil className="size-3.5" /> 编辑
@@ -251,7 +256,7 @@ export function OrderHero({
           type="button"
           size="icon"
           variant="outline"
-          className="size-7"
+          className="size-11 lg:size-7"
           onClick={onClose}
           aria-label="关闭工单详情"
         >

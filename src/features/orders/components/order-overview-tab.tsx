@@ -263,17 +263,17 @@ export function OrderOverviewTab({
             className={cn("grid min-w-0 gap-2", detailWorkspace.orderDetailGrid)}
           >
             <div
+              data-order-detail-column="quote"
+              className={detailWorkspace.orderDetailFinanceColumn}
+            >
+              {financePanel}
+            </div>
+            <div
               data-order-detail-column="customer-device"
               className={detailWorkspace.orderDetailCoreColumn}
             >
               {customerPanel}
               {devicePanel}
-            </div>
-            <div
-              data-order-detail-column="quote"
-              className={detailWorkspace.orderDetailFinanceColumn}
-            >
-              {financePanel}
             </div>
             <div
               data-order-detail-column="detail"
@@ -560,7 +560,7 @@ export function OrderDetailActionDock({
               variant={notifyPrimary ? "default" : "outline"}
               data-primary-action={notifyPrimary ? "true" : undefined}
               className={cn(
-                "h-9 gap-1.5 px-2 text-xs",
+                "h-11 min-w-11 gap-1.5 px-2 text-xs lg:h-9 lg:min-w-0",
                 notifyPrimary && "border-0 text-primary-foreground",
               )}
               style={notifyPrimary ? { background: "var(--gradient-brand)" } : undefined}
@@ -576,7 +576,7 @@ export function OrderDetailActionDock({
               variant={flowPrimary ? "default" : "outline"}
               data-primary-action={flowPrimary ? "true" : undefined}
               className={cn(
-                "h-9 gap-1.5 px-2 text-xs",
+                "h-11 min-w-11 gap-1.5 px-2 text-xs lg:h-9 lg:min-w-0",
                 flowPrimary && "border-0 text-primary-foreground",
               )}
               style={flowPrimary ? { background: "var(--gradient-brand)" } : undefined}
@@ -592,7 +592,7 @@ export function OrderDetailActionDock({
               variant={paymentPrimary ? "default" : "outline"}
               data-primary-action={paymentPrimary ? "true" : undefined}
               className={cn(
-                "h-9 gap-1.5 px-2 text-xs",
+                "h-11 min-w-11 gap-1.5 px-2 text-xs lg:h-9 lg:min-w-0",
                 paymentPrimary && "border-0 text-primary-foreground",
               )}
               style={paymentPrimary ? { background: "var(--gradient-brand)" } : undefined}
@@ -772,7 +772,7 @@ function DesktopRecordsSummaryPanel({
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 px-2 text-[11px] lg:text-xs lg:leading-4"
+              className="h-11 min-w-11 px-3 text-xs lg:h-7 lg:min-w-0 lg:px-2 lg:text-[11px]"
               onClick={onShowRecords}
             >
               记录
@@ -913,7 +913,10 @@ function OrderOverviewFinancePanel({
         )}
 
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <ApprovalBadge status={order.approval_status} />
+          <span className="inline-flex min-w-0 items-center gap-1 text-[10px] font-medium text-muted-foreground">
+            <span className="shrink-0">客户</span>
+            <ApprovalBadge status={order.approval_status} />
+          </span>
           <span
             className={cn(
               "rounded-md border px-1.5 py-0.5 text-[10px] font-medium lg:text-[11px] lg:leading-4",
@@ -927,6 +930,7 @@ function OrderOverviewFinancePanel({
                     : "border-status-warn-foreground/25 bg-status-warn text-status-warn-foreground",
             )}
           >
+            结算{" · "}
             {financeRedacted
               ? "财务信息受限"
               : financialState.settlement === "cancelled"
@@ -1406,7 +1410,9 @@ function CustomerSignatureSection({
             onClick={onRequestKioskSignature}
             className={cn(
               "gap-1 px-1.5 text-[11px] lg:text-xs",
-              dense ? "h-6" : "h-6 sm:h-7 sm:px-2 sm:text-xs",
+              dense
+                ? "h-11 min-w-11 px-3 text-xs lg:h-6 lg:min-w-0 lg:px-1.5 lg:text-[11px]"
+                : "h-6 sm:h-7 sm:px-2 sm:text-xs",
             )}
           >
             <ActionIcon className="size-3" />
@@ -1960,7 +1966,7 @@ export function ImeiField({
               type="button"
               variant="outline"
               size="icon"
-              className="size-7 shrink-0"
+              className="size-11 shrink-0 lg:size-7"
               aria-label="扫码录入 IMEI / 序列号"
             >
               <Camera className="size-3.5" />

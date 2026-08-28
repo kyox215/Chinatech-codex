@@ -13,6 +13,11 @@ const desktopQueueViewports = [
   { width: 1536, height: 900 },
   { width: 1600, height: 1000 },
 ] as const;
+const employeeFirstViewports = [
+  { width: 768, height: 900 },
+  { width: 1024, height: 768 },
+  { width: 1440, height: 900 },
+] as const;
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_ORDER_AUDIT=1 for order desktop UI audit.");
 
@@ -147,7 +152,7 @@ test.describe("order desktop UI audit", () => {
           (element) =>
             window.getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean).length,
         );
-      expect(overviewColumns, `工单概览三栏 at ${viewport.width}px`).toBe(3);
+      expect(overviewColumns, `工单概览两栏 at ${viewport.width}px`).toBe(2);
       const overviewDensity = await detail
         .locator('[data-order-desktop-single-workspace="true"]')
         .evaluate((workspace) => {
@@ -371,6 +376,144 @@ test.describe("order desktop UI audit", () => {
   }
 });
 
+test.describe("employee-first order detail layout", () => {
+  for (const viewport of employeeFirstViewports) {
+    test(`keeps quote-first two-column work surface at ${viewport.width}px`, async ({ page }) => {
+      test.setTimeout(60_000);
+      await page.setViewportSize(viewport);
+      await gotoReady(
+        page,
+        "/orders?workspace=order-detail&orderId=ord_21&source=order-detail-layout-audit",
+      );
+
+      const detail = page.getByRole("dialog", { name: "工单详情" });
+      await expect(detail).toBeVisible();
+      await expectFirstVisible(detail.getByText("R2026021"), "稳定员工优先工单 R2026021");
+      const mainGrid = detail.locator('[data-order-detail-main-grid="true"]');
+      await expectFirstVisible(mainGrid, "员工优先订单详情主网格");
+
+      const layout = await mainGrid.evaluate((grid) => {
+        const style = window.getComputedStyle(grid);
+        const columns = style.gridTemplateColumns.split(" ").filter(Boolean);
+        const columnsByKey = [
+          ...grid.querySelectorAll<HTMLElement>("[data-order-detail-column]"),
+        ].map((element) => {
+          const rect = element.getBoundingClientRect();
+          return {
+            key: element.dataset.orderDetailColumn,
+            left: Math.round(rect.left),
+            top: Math.round(rect.top),
+            right: Math.round(rect.right),
+            bottom: Math.round(rect.bottom),
+            width: Math.round(rect.width),
+            rowEnd: window.getComputedStyle(element).gridRowEnd,
+          };
+        });
+        return { columns: columns.length, columnsByKey };
+      });
+      expect(layout.columns, `员工优先主网格列数 at ${viewport.width}px`).toBe(2);
+      expect(layout.columnsByKey.map((column) => column.key)).toEqual([
+        "quote",
+        "customer-device",
+        "detail",
+      ]);
+      const quote = layout.columnsByKey.find((column) => column.key === "quote");
+      const core = layout.columnsByKey.find((column) => column.key === "customer-device");
+      const side = layout.columnsByKey.find((column) => column.key === "detail");
+      expect(quote).toBeTruthy();
+      expect(core).toBeTruthy();
+      expect(side).toBeTruthy();
+      if (quote && core && side) {
+        expect(Math.abs(quote.left - core.left)).toBeLessThanOrEqual(1);
+        expect(quote.top).toBeLessThan(core.top);
+        expect(Math.abs(quote.top - side.top)).toBeLessThanOrEqual(1);
+        expect(side.left).toBeGreaterThan(quote.left);
+        expect(side.width).toBeGreaterThanOrEqual(260);
+        expect(side.rowEnd).toMatch(/span\s+2/);
+      }
+
+      const finance = detail.locator('[data-order-panel="finance"]');
+      await expectFirstVisible(finance.getByText("报价处理"), "员工优先报价处理");
+      await expectFirstVisible(finance.getByText("客户", { exact: true }), "客户审批前缀");
+      await expectFirstVisible(finance.getByText(/结算\s·/), "结算状态前缀");
+      const quoteRect = await finance.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        const scroller = element.closest(
+          '[data-order-desktop-single-workspace="true"]',
+        )?.parentElement;
+        const scrollerRect = scroller?.getBoundingClientRect();
+        return {
+          top: Math.round(rect.top),
+          bottom: Math.round(rect.bottom),
+          scrollerTop: Math.round(scrollerRect?.top ?? 0),
+          scrollerBottom: Math.round(scrollerRect?.bottom ?? window.innerHeight),
+        };
+      });
+      expect(quoteRect.top).toBeGreaterThanOrEqual(quoteRect.scrollerTop - 1);
+      expect(quoteRect.top).toBeLessThan(quoteRect.scrollerBottom);
+
+      const actionDock = detail.locator('[data-order-action-dock="true"]');
+      await expect(actionDock.locator('[data-primary-action="true"]')).toHaveCount(1);
+      await expect(actionDock.getByRole("button", { name: "审批处理" })).toHaveCount(1);
+      const diagnosisShortcut = detail.getByRole("button", { name: "检测报价" });
+      await expect(diagnosisShortcut).toHaveClass(/border/);
+      await expect(diagnosisShortcut).not.toHaveAttribute("data-primary-action", "true");
+
+      if (viewport.width === 768) {
+        const custodyActions = detail
+          .locator('[data-order-device-custody="true"]:visible')
+          .getByRole("button", {
+            name: /确认收机|确认交还客人|补录为留店|补录为未留店|确认已退还|历史修正/,
+          });
+        const kioskSignatureActions = detail
+          .locator('[data-order-panel="customer"]:visible')
+          .getByRole("button", { name: /发送到 iPad|重新发送|发送中|无 iPad/ });
+        await expect(custodyActions).toHaveCount(1);
+        await expect(kioskSignatureActions).toHaveCount(1);
+        const touchTargets = [
+          detail.locator('[data-order-hero="true"]').getByRole("button", { name: "打印" }),
+          detail.locator('[data-order-hero="true"]').getByRole("button", { name: "更多工单操作" }),
+          detail.locator('[data-order-hero="true"]').getByRole("button", { name: "编辑" }),
+          detail.locator('[data-order-hero="true"]').getByRole("button", { name: "关闭工单详情" }),
+          detail.locator('[data-order-detail-view-switcher="true"] [role="tab"]'),
+          diagnosisShortcut,
+          custodyActions,
+          kioskSignatureActions,
+          actionDock.getByRole("button"),
+        ];
+        for (const target of touchTargets) {
+          const count = await target.count();
+          for (let index = 0; index < count; index += 1) {
+            const button = target.nth(index);
+            if (!(await button.isVisible().catch(() => false))) continue;
+            await expect
+              .poll(
+                () =>
+                  button.evaluate((element) => Math.round(element.getBoundingClientRect().height)),
+                { message: "768px 触控目标高度", timeout: 5_000 },
+              )
+              .toBeGreaterThanOrEqual(44);
+          }
+        }
+      }
+
+      await expectRectInsideViewport(
+        detail.locator('[data-order-hero="true"]'),
+        "员工优先顶部工作卡",
+      );
+      await expectRectInsideViewport(actionDock, "员工优先底部动作栏");
+      await expectNoLocalHorizontalScroll(mainGrid, `员工优先主网格 at ${viewport.width}px`);
+      await expectNoPageOverflow(page, "/orders employee-first detail", viewport.width);
+      if (process.env.REPAIRDESK_CAPTURE_TASK_SCREENSHOT === "1") {
+        await page.screenshot({
+          path: `${taskScreenshotDir}/employee-first-${viewport.width}.png`,
+          fullPage: false,
+        });
+      }
+    });
+  }
+});
+
 async function gotoReady(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await page.locator("body").waitFor({ state: "visible" });
@@ -569,41 +712,54 @@ async function expectDesktopPanelsReadable(detail: Locator, width: number) {
   }
 
   if ((await getOrderDetailSurface(detail)) === "dialog") {
-    const customerWidth = await detail
-      .locator('[data-order-panel="customer"]')
-      .evaluate((element) => Math.round(element.getBoundingClientRect().width));
-    const deviceWidth = await detail
-      .locator('[data-order-panel="device"]')
-      .evaluate((element) => Math.round(element.getBoundingClientRect().width));
-    const financeWidth = await detail
-      .locator('[data-order-panel="finance"]')
-      .evaluate((element) => Math.round(element.getBoundingClientRect().width));
-    expect(customerWidth, `客户信息卡保持左侧工作列 at ${width}px`).toBeLessThanOrEqual(380);
-    expect(deviceWidth, `设备信息卡保持左侧工作列 at ${width}px`).toBeLessThanOrEqual(380);
-    expect(financeWidth, `报价处理卡保持主工作列 at ${width}px`).toBeLessThanOrEqual(560);
-
-    const overviewBoxes = await detail
-      .locator('[data-order-detail-main-grid="true"] [data-order-detail-column]')
-      .evaluateAll((elements) =>
-        elements
-          .filter((element) => {
-            const style = window.getComputedStyle(element);
-            return style.display !== "none" && style.visibility !== "hidden";
-          })
-          .map((element) => {
-            const rect = element.getBoundingClientRect();
-            return {
-              top: Math.round(rect.top),
-              bottom: Math.round(rect.bottom),
-            };
-          }),
-      );
-    expect(overviewBoxes, `工单概览工作列数量 at ${width}px`).toHaveLength(3);
+    const overviewLayout = await detail
+      .locator('[data-order-detail-main-grid="true"]')
+      .evaluate((grid) => {
+        const columns = window
+          .getComputedStyle(grid)
+          .gridTemplateColumns.split(" ")
+          .filter(Boolean);
+        const columnRects = [
+          ...grid.querySelectorAll<HTMLElement>("[data-order-detail-column]"),
+        ].map((element) => {
+          const rect = element.getBoundingClientRect();
+          return {
+            key: element.dataset.orderDetailColumn,
+            left: Math.round(rect.left),
+            top: Math.round(rect.top),
+            right: Math.round(rect.right),
+            bottom: Math.round(rect.bottom),
+            width: Math.round(rect.width),
+            rowEnd: window.getComputedStyle(element).gridRowEnd,
+          };
+        });
+        return { columns: columns.length, columnRects };
+      });
+    expect(overviewLayout.columns, `工单概览两栏 at ${width}px`).toBe(2);
     expect(
-      Math.max(...overviewBoxes.map((box) => box.top)) -
-        Math.min(...overviewBoxes.map((box) => box.top)),
-      `工单概览工作列顶部对齐 at ${width}px`,
-    ).toBeLessThanOrEqual(1);
+      overviewLayout.columnRects.map((column) => column.key),
+      `工单概览 DOM 顺序 at ${width}px`,
+    ).toEqual(["quote", "customer-device", "detail"]);
+    const quote = overviewLayout.columnRects.find((column) => column.key === "quote");
+    const core = overviewLayout.columnRects.find((column) => column.key === "customer-device");
+    const side = overviewLayout.columnRects.find((column) => column.key === "detail");
+    expect(quote).toBeTruthy();
+    expect(core).toBeTruthy();
+    expect(side).toBeTruthy();
+    if (quote && core && side) {
+      expect(
+        Math.abs(quote.left - core.left),
+        `报价/客户设备左列对齐 at ${width}px`,
+      ).toBeLessThanOrEqual(1);
+      expect(quote.top, `报价位于客户设备之前 at ${width}px`).toBeLessThan(core.top);
+      expect(
+        Math.abs(quote.top - side.top),
+        `报价/关键信息顶部对齐 at ${width}px`,
+      ).toBeLessThanOrEqual(1);
+      expect(side.left, `关键信息位于右列 at ${width}px`).toBeGreaterThan(quote.left);
+      expect(side.width, `关键信息列保持可读宽度 at ${width}px`).toBeGreaterThanOrEqual(260);
+      expect(side.rowEnd, `关键信息列跨越左列两行 at ${width}px`).toMatch(/span\s+2/);
+    }
     const tabsWidth = await detail
       .locator('[data-order-detail-view-switcher="true"]')
       .evaluate((element) => Math.round(element.getBoundingClientRect().width));
@@ -675,7 +831,7 @@ async function expectInlineEditWorkspace(
     (await detail
       .locator('[data-order-detail-root="true"][data-order-detail-surface="dialog"]')
       .count()) > 0;
-  const expectedColumns = isDialog || width >= 1280 ? 3 : 2;
+  const expectedColumns = isDialog ? 2 : width >= 1280 ? 3 : 2;
   expect(columns, `${route} main edit grid columns at ${width}px`).toBe(expectedColumns);
   expect(
     await mainGrid.locator('[data-order-panel="photos"]').count(),

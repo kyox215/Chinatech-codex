@@ -103,13 +103,11 @@ export const detailWorkspace = {
   orderDetailReadable: "mx-auto w-full min-w-0 max-w-[920px]",
   orderDetailControlGrid:
     "grid min-w-0 items-stretch gap-2 sm:gap-3 md:grid-cols-[repeat(2,minmax(0,1fr))]",
-  orderDetailGrid:
-    "items-start md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.35fr)] lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.34fr)_minmax(0,0.8fr)] xl:grid-cols-[minmax(320px,0.9fr)_minmax(500px,1.4fr)_minmax(280px,0.8fr)]",
-  orderDetailCoreColumn:
-    "grid min-w-0 content-start gap-2 md:col-start-1 md:row-start-1 lg:row-span-2",
-  orderDetailFinanceColumn: "min-w-0 md:col-start-2 md:row-start-1 md:row-span-2 lg:col-start-2",
+  orderDetailGrid: "items-start md:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]",
+  orderDetailCoreColumn: "grid min-w-0 content-start gap-2 md:col-start-1 md:row-start-2",
+  orderDetailFinanceColumn: "min-w-0 md:col-start-1 md:row-start-1",
   orderDetailSideColumn:
-    "grid min-w-0 content-start gap-2 md:col-start-1 md:row-start-2 lg:col-start-3 lg:row-start-1",
+    "grid min-w-0 content-start gap-2 md:col-start-2 md:row-start-1 md:row-span-2",
   orderDetailSecondaryGrid:
     "lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.78fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(400px,1.28fr)_minmax(280px,0.92fr)]",
 } as const;

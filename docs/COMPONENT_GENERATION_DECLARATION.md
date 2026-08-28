@@ -193,7 +193,7 @@ export interface ExampleCardProps {
 - 底部表单 Sheet 使用 `componentOverlay.bottomSheet`，表单 body 自己负责 `overflow-y-auto`，不要在业务页面手写 `max-h` / safe-area padding。
 - 弹层内部使用 compact density，长表单 footer 可 sticky；mutation pending 时禁用主操作并保留关闭/取消路径。
 - 额外使用 framer-motion 包裹浮层时，`Dialog` / `Popover` 使用 `overlayTransition`，`Sheet` 使用 `sheetTransition`，不要写散落 spring。
-- 工单详情这类复杂业务 Dialog 使用 `componentOverlay.detailWorkspace` + `detailWorkspace.orderDetailGrid`，外壳必须固定工作面尺寸，Tab 内容不得改变 Dialog 宽高；小表单 Dialog 保持单层容器，不把工作面三列 pattern 用到确认框。
+- 工单详情这类复杂业务 Dialog 使用 `componentOverlay.detailWorkspace` + `detailWorkspace.orderDetailGrid` 的员工优先两列共享 pattern：`768px+` 左侧约 `2fr`、右侧约 `1fr`，DOM/视觉顺序为报价处理 → 客户与设备 → 关键信息与记录；外壳必须固定工作面尺寸，Tab 内容不得改变 Dialog 宽高；小表单 Dialog 保持单层容器，不把详情工作面 pattern 用到确认框。
 - 录入人、技师、创建人等归属字段只能只读展示，组件不得新增输入框、Select、inline edit 或 patch payload 来修改它们。
 - 金额输入组件必须以 string draft 驱动输入框，保存前通过共享 helper 转为 number；不要用 `Number(event.target.value)` 直接控制金额输入。
 - 工单状态流转入口必须先读取工作流配置；涉及取消、未修取机、返修等异常/结束分支时，必须复用 `OrderTransitionReasonSelector` 和 `order-transition-reasons.ts` 的预设原因，禁止新增裸 textarea 或让用户完全手写原因。
