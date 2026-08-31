@@ -16,6 +16,8 @@ import { simpleOrderFlowStages } from "@/features/orders/model/order-simple-flow
 import type { OrderListStatusTab } from "@/features/orders/model/order-workflow";
 import type { OrderWorkflowStatusCode } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { localizeOrderException, localizeOrderFlowStage } from "@/features/orders/model/order-i18n";
 
 export function FiltersPanel({
   filters,
@@ -32,6 +34,7 @@ export function FiltersPanel({
   onClose?: () => void;
   onStatusFilterChange?: () => void;
 }) {
+  const { t } = useLocale();
   const toggle = <K extends keyof OrderListFilters>(key: K, value: string) => {
     const arr = (filters[key] as string[] | undefined) ?? [];
     const next = arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
@@ -52,7 +55,7 @@ export function FiltersPanel({
     <div className="flex h-full min-h-0 flex-col">
       <ScrollArea className="min-h-0 flex-1 overscroll-contain">
         <div className="space-y-3 px-3 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-3 sm:space-y-5 sm:px-4 sm:pb-[calc(7rem+env(safe-area-inset-bottom))] sm:pt-5">
-          <FilterGroup label="主流程">
+          <FilterGroup label={t("orders.mainWorkflow")}>
             <div className="grid grid-cols-2 gap-2">
               {simpleOrderFlowStages.map((stage) => {
                 const active = stage.workflowStatuses.every((status) =>
@@ -70,14 +73,14 @@ export function FiltersPanel({
                         : "bg-surface hover:bg-accent",
                     )}
                   >
-                    {stage.label}
+                    {localizeOrderFlowStage(stage, t).label}
                   </button>
                 );
               })}
             </div>
           </FilterGroup>
 
-          <FilterGroup label="异常">
+          <FilterGroup label={t("orders.exceptionFilter")}>
             <div className="grid grid-cols-2 gap-2">
               {Object.entries(orderExceptionMeta).map(([status, meta]) => {
                 const active = filters.exceptionStatuses?.includes(status as never);
@@ -93,14 +96,14 @@ export function FiltersPanel({
                         : "bg-surface hover:bg-accent",
                     )}
                   >
-                    {meta.label}
+                    {localizeOrderException(status, t).label}
                   </button>
                 );
               })}
             </div>
           </FilterGroup>
 
-          <FilterGroup label="工单状态">
+          <FilterGroup label={t("orders.statusFilter")}>
             <div className="grid grid-cols-3 gap-2">
               {statuses.map((status) => {
                 const active = filters.statuses?.includes(status.code);
@@ -123,15 +126,15 @@ export function FiltersPanel({
             </div>
           </FilterGroup>
 
-          <FilterGroup label="工单类型">
+          <FilterGroup label={t("orders.typeFilter")}>
             <div className="grid grid-cols-2 gap-2">
-              {repairOrderType.map((t) => {
-                const active = filters.types?.includes(t);
+              {repairOrderType.map((orderType) => {
+                const active = filters.types?.includes(orderType);
                 return (
                   <button
-                    key={t}
+                    key={orderType}
                     type="button"
-                    onClick={() => toggle("types", t)}
+                    onClick={() => toggle("types", orderType)}
                     className={cn(
                       filterChipClass,
                       active
@@ -139,14 +142,16 @@ export function FiltersPanel({
                         : "bg-surface hover:bg-accent",
                     )}
                   >
-                    {t === "quick_repair" ? "快修" : "送修"}
+                    {orderType === "quick_repair"
+                      ? t("orders.quickRepair")
+                      : t("orders.dropoffRepair")}
                   </button>
                 );
               })}
             </div>
           </FilterGroup>
 
-          <FilterGroup label="付款状态">
+          <FilterGroup label={t("orders.paymentFilter")}>
             <div className="grid grid-cols-3 gap-2">
               {(["all", "paid", "unpaid"] as const).map((p) => (
                 <button
@@ -160,13 +165,17 @@ export function FiltersPanel({
                       : "bg-surface hover:bg-accent",
                   )}
                 >
-                  {p === "all" ? "全部" : p === "paid" ? "已结清" : "未结清"}
+                  {p === "all"
+                    ? t("orders.allOrders")
+                    : p === "paid"
+                      ? t("orders.paid")
+                      : t("orders.unpaid")}
                 </button>
               ))}
             </div>
           </FilterGroup>
 
-          <FilterGroup label="技师">
+          <FilterGroup label={t("orders.technicianFilter")}>
             <div className="space-y-2">
               {options.technicians.map((t) => (
                 <label
@@ -185,7 +194,7 @@ export function FiltersPanel({
           </FilterGroup>
 
           {options.permissions.canReadSuppliers ? (
-            <FilterGroup label="外修供应商">
+            <FilterGroup label={t("orders.supplierFilter")}>
               <div className="space-y-2">
                 {options.suppliers.map((s) => (
                   <label
@@ -219,10 +228,10 @@ export function FiltersPanel({
               onStatusFilterChange?.();
             }}
           >
-            重置
+            {t("orders.resetFilters")}
           </Button>
           <Button className="h-10 w-full" onClick={onClose}>
-            应用筛选
+            {t("orders.applyFilters")}
           </Button>
         </div>
       )}
@@ -296,6 +305,7 @@ export function OrderStatusFilterControls({
   onGroupChange: (value: string) => void;
   onStatusChange: (value: string) => void;
 }) {
+  const { t } = useLocale();
   const showSubTabs = groupValue !== "all" && subTabs.length > 1;
   const activeGroup = groups.find((group) => group.key === groupValue);
 
@@ -315,16 +325,19 @@ export function OrderStatusFilterControls({
             <ListChecks className="size-3" />
           </span>
           <div className="min-w-0">
-            <div className="text-xs font-semibold leading-4">现在要处理</div>
+            <div className="text-xs font-semibold leading-4">{t("orders.processNow")}</div>
             <div className="truncate text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
               {groupValue === "all"
-                ? "选择一类任务，再逐张处理"
-                : `当前：${activeGroup?.label ?? groupValue} · ${activeGroup?.count ?? 0} 条`}
+                ? t("orders.processNowHint")
+                : t("orders.currentGroupCount", {
+                    label: activeGroup?.label ?? groupValue,
+                    count: activeGroup?.count ?? 0,
+                  })}
             </div>
           </div>
         </div>
         <span className="hidden text-[10px] text-muted-foreground sm:inline lg:text-[11px] lg:leading-4">
-          任务视图
+          {t("orders.taskView")}
         </span>
       </div>
 
@@ -379,7 +392,7 @@ export function OrderStatusFilterControls({
                                   : "bg-surface-muted",
                       )}
                     >
-                      {isAll ? "全" : index}
+                      {isAll ? t("orders.allShortLabel") : index}
                     </span>
                   )}
                 </div>

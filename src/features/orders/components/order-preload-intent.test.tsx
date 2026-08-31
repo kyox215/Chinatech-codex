@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { OrderListItem } from "@/lib/repairdesk/api";
+import type { OrderWorkflow } from "@/lib/repairdesk/types";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
 
 import { DesktopOrderQueueRow } from "./order-list-desktop-row";
 import { OrderMobileCard } from "./order-list-items";
@@ -97,7 +99,7 @@ describe("order detail preload intent", () => {
     expect(card).toHaveTextContent("R2026001");
     expect(card).toHaveTextContent("Apple iPhone");
     expect(card).toHaveTextContent("待确认维修项目 · Display");
-    expect(card).toHaveTextContent("Tecnico · 07/07/2026");
+    expect(card).toHaveTextContent("Tecnico · 2026/07/07");
     expect(card).toHaveTextContent("待审批");
     expect(card).toHaveTextContent("待收");
     expect(card).not.toHaveTextContent("定金");
@@ -121,6 +123,100 @@ describe("order detail preload intent", () => {
     expect(card).toHaveTextContent("当前工单超期，请优先跟进");
     expect(card).toHaveTextContent("金额受限");
     expect(card?.textContent).not.toMatch(/€\s*100/);
+  });
+
+  it("renders mobile guidance in English without fixed Chinese labels", () => {
+    render(
+      <LocaleProvider initialLocale="en">
+        <OrderMobileCard
+          order={makeOrder({
+            approval_overdue: true,
+            finance_redacted: true,
+            device_custody_status: "with_customer",
+            exception_status: "paused",
+          })}
+        />
+      </LocaleProvider>,
+    );
+    const card = document.querySelector('[data-order-mobile-card="true"]');
+    expect(card).toHaveTextContent("Contact customer");
+    expect(card).toHaveTextContent("With customer");
+    expect(card).toHaveTextContent("Amount restricted");
+    expect(card).not.toHaveTextContent("报价超期");
+    expect(card).not.toHaveTextContent("客户持有");
+  });
+
+  it("renders desktop system and custom workflow labels in Italian", async () => {
+    const workflow: OrderWorkflow = {
+      statuses: [
+        {
+          id: "intake",
+          store_id: "store",
+          code: "new",
+          label: "Nuovo",
+          short_label: "Nuovo",
+          tone: "info",
+          bucket: "intake",
+          sort_order: 1,
+          enabled: true,
+          show_in_order_filters: true,
+          allowed_for_create: true,
+          is_default_create_status: true,
+          is_system: true,
+          created_at: "",
+          updated_at: "",
+        },
+        {
+          id: "custom",
+          store_id: "store",
+          code: "diagnosing",
+          label: "Stato negozio",
+          short_label: "Stato",
+          tone: "progress",
+          bucket: "diagnosing",
+          sort_order: 2,
+          enabled: true,
+          show_in_order_filters: true,
+          allowed_for_create: false,
+          is_default_create_status: false,
+          is_system: false,
+          created_at: "",
+          updated_at: "",
+        },
+      ],
+      transitions: [
+        {
+          id: "tr",
+          store_id: "store",
+          from_status_code: "new",
+          to_status_code: "diagnosing",
+          is_primary: true,
+          sort_order: 1,
+          enabled: true,
+          created_at: "",
+          updated_at: "",
+        },
+      ],
+    };
+    render(
+      <LocaleProvider initialLocale="it-IT">
+        <DesktopOrderQueueRow
+          order={makeOrder({ exception_status: "paused", device_unlock_method: "pin" })}
+          workflow={workflow}
+          checked={false}
+          onOpen={vi.fn()}
+          onCheckedChange={vi.fn()}
+          onPrint={vi.fn()}
+          onStopInteraction={(event) => event.stopPropagation()}
+          suppliers={[]}
+        />
+      </LocaleProvider>,
+    );
+    expect(document.body).toHaveTextContent("Pausa");
+    expect(document.body).toHaveTextContent("Riparazione rapida");
+    expect(document.body).toHaveTextContent("In negozio");
+    expect(document.body).toHaveTextContent("PIN");
+    expect(document.body).toHaveTextContent("Stato negozio");
   });
 
   it("exposes a native detail link from the desktop row action menu", async () => {

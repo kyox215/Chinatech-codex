@@ -24,6 +24,14 @@ import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { ORDER_DETAIL_HOVER_DELAY_MS } from "@/features/preload/model/order-detail-preload";
 import { formatOrderListDate, formatOrderRelativeDate } from "@/features/orders/model/order-date";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import {
+  localizeDeviceCustody,
+  localizeOrderException,
+  localizeOrderFlowStage,
+  localizeOrderTaskGuidance,
+} from "@/features/orders/model/order-i18n";
+import { localizeOrderFinancialLabel } from "@/features/orders/model/order-i18n";
 
 export interface OrderMobileCardProps {
   order: OrderListItem;
@@ -42,13 +50,14 @@ export function OrderMobileCard({
   onCancelPrefetch,
   onOpenIntent,
 }: OrderMobileCardProps) {
+  const { locale, t } = useLocale();
   const hoverTimerRef = useRef<number | null>(null);
   const cancelled = isOrderCancelledForPayment(order);
   const financialState = deriveOrderFinancialState(order);
   const workflowStatus = getOrderWorkflowStatus(order);
   const exceptionStatus = order.exception_status;
   const hasOverdueException = !cancelled && Boolean(order.approval_overdue || order.pickup_overdue);
-  const guidance = getOrderTaskGuidance(order);
+  const guidance = localizeOrderTaskGuidance(getOrderTaskGuidance(order), t);
   const currentStageLabel = guidance.label || guidance.stage.label;
   const normalizedCustomerName = normalizeComparable(order.customer_name);
   const normalizedPhone = normalizeComparable(order.customer_phone);
@@ -59,13 +68,13 @@ export function OrderMobileCard({
   const firstFaultPrice = order.fault_prices[0];
   const extraFaultCount = Math.max(0, order.fault_prices.length - 1);
   const primaryRepairLabel = order.finance_redacted
-    ? "报价信息受限"
-    : firstFaultPrice?.name || "待确认维修项目";
-  const deviceLabel = order.device_label || order.device_imei || "未知设备";
-  const issueLabel = order.issue_description || "待补充故障描述";
-  const createdDate = formatOrderListDate(order.created_at);
-  const relativeCreatedDate = formatOrderRelativeDate(order.created_at);
-  const paymentLabel = financialState.label;
+    ? t("orders.quoteRestrictedMobile")
+    : firstFaultPrice?.name || t("orders.repairPending");
+  const deviceLabel = order.device_label || order.device_imei || t("orders.unknownDevice");
+  const issueLabel = order.issue_description || t("orders.issuePending");
+  const createdDate = formatOrderListDate(order.created_at, locale);
+  const relativeCreatedDate = formatOrderRelativeDate(order.created_at, Date.now(), locale);
+  const paymentLabel = localizeOrderFinancialLabel(financialState, t);
   const paymentStatusClass =
     financialState.settlement === "settled" || financialState.settlement === "zero_charge"
       ? "bg-status-success text-status-success-foreground"
@@ -74,10 +83,20 @@ export function OrderMobileCard({
         : financialState.settlement === "unpaid"
           ? "bg-status-danger text-status-danger-foreground"
           : "bg-muted text-muted-foreground";
-  const detailAccessibleName = `工单 ${order.public_no}，${customerLabel}，${deviceLabel}，${currentStageLabel}，${paymentLabel}`;
+  const detailAccessibleName = t("orders.mobileDetailsAria", {
+    id: order.public_no,
+    customer: customerLabel,
+    device: deviceLabel,
+    stage: currentStageLabel,
+    payment: paymentLabel,
+  });
   const hasOutstandingBalance = !cancelled && order.balance_amount > 0;
   const paymentAmount = hasOutstandingBalance ? order.balance_amount : order.quotation_amount;
-  const paymentAmountLabel = cancelled ? "记录" : hasOutstandingBalance ? "待收" : "总额";
+  const paymentAmountLabel = cancelled
+    ? t("orders.recordAmount")
+    : hasOutstandingBalance
+      ? t("orders.amountDue")
+      : t("orders.amountTotal");
   const paymentAmountClass = hasOutstandingBalance
     ? "text-status-danger-foreground"
     : "text-foreground";
@@ -192,6 +211,7 @@ export function OrderMobileCard({
             <DeviceCustodyBadge
               status={order.device_custody_status}
               deliveredAt={order.delivered_at}
+              label={localizeDeviceCustody(order.device_custody_status, order.delivered_at, t)}
               className="max-w-[86px] px-1 py-0.5 text-[length:var(--order-mobile-meta)]"
             />
           ) : null}
@@ -203,9 +223,13 @@ export function OrderMobileCard({
           {supplierControl}
           <p
             className="max-w-[112px] shrink-0 truncate text-right text-[length:var(--order-mobile-meta)] leading-3 text-muted-foreground"
-            title={`${order.technician_name || "未分配"}，送修时间 ${createdDate}，${relativeCreatedDate}`}
+            title={t("orders.technicianTimeTitle", {
+              technician: order.technician_name || t("orders.unassigned"),
+              date: createdDate,
+              relative: relativeCreatedDate,
+            })}
           >
-            {order.technician_name || "未分配"} · {createdDate}
+            {order.technician_name || t("orders.unassigned")} · {createdDate}
           </p>
         </div>
 
@@ -261,13 +285,13 @@ export function OrderMobileCard({
             {exceptionStatus ? (
               <StatusBadge
                 status={order.status}
-                label={orderExceptionMeta[exceptionStatus].shortLabel}
+                label={localizeOrderException(exceptionStatus, t).shortLabel}
                 tone={orderExceptionMeta[exceptionStatus].tone}
                 className="px-1 py-0.5 text-[length:var(--order-mobile-meta)]"
               />
             ) : null}
             <span className="min-w-0 truncate">
-              {hasOverdueException ? "当前工单超期，请优先跟进" : "当前工单存在异常状态"}
+              {hasOverdueException ? t("orders.overdueHint") : t("orders.exceptionHint")}
             </span>
           </div>
         ) : null}
@@ -287,13 +311,18 @@ function MobileWorkflowStrip({
   nextAction: string;
   danger: boolean;
 }) {
+  const { t } = useLocale();
   const currentIndex = getWorkflowProgressValue(workflowStatus);
   const currentStage = orderTaskStages[currentIndex];
+  const localizedCurrentStage = currentStage ? localizeOrderFlowStage(currentStage, t) : undefined;
 
   return (
     <div
       className="min-w-0"
-      aria-label={`当前流程：${currentStage?.label ?? workflowStatus}；下一步：${nextAction}`}
+      aria-label={t("orders.workflowAria", {
+        current: localizedCurrentStage?.label ?? currentLabel ?? workflowStatus,
+        next: nextAction,
+      })}
     >
       <div className="flex min-w-0 items-center justify-between gap-[var(--order-mobile-gap)]">
         <span
@@ -320,7 +349,7 @@ function MobileWorkflowStrip({
           return (
             <span
               key={stage.key}
-              title={stage.label}
+              title={localizeOrderFlowStage(stage, t).label}
               className={cn(
                 "h-1 min-w-0 rounded-full",
                 current

@@ -4,6 +4,9 @@ import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock3, UserRound } from "lu
 import { Button } from "@/components/ui/button";
 import type { DashboardPriorityItem } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { translateMessage } from "@/shared/i18n/messages";
+import { localizeDashboardPriorityItem } from "@/features/dashboard/model/dashboard-priority-i18n";
 
 const tierStyles: Record<DashboardPriorityItem["tier"], string> = {
   overdue: "border-status-danger-foreground/25 bg-status-danger/10 text-status-danger-foreground",
@@ -19,6 +22,8 @@ export function DashboardPriorityCard({
   item: DashboardPriorityItem;
   primary?: boolean;
 }) {
+  const { t, locale } = useLocale();
+  const localizedItem = localizeDashboardPriorityItem(item, t);
   const headingId = `dashboard-priority-${item.orderId}`;
 
   return (
@@ -34,7 +39,7 @@ export function DashboardPriorityCard({
       <div className="flex min-w-0 items-start justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-foreground px-2 text-[9px] font-semibold text-background lg:h-6 lg:text-[11px] lg:leading-4">
-            第 {item.rank} 优先
+            {t("dashboard.priorityRank", { rank: item.rank })}
           </span>
           <span
             className={cn(
@@ -42,7 +47,7 @@ export function DashboardPriorityCard({
               tierStyles[item.tier],
             )}
           >
-            <span className="truncate">{item.reasonLabel}</span>
+            <span className="truncate">{localizedItem.reasonLabel}</span>
           </span>
         </div>
         <span className="max-w-[42%] shrink-0 truncate font-mono text-[10px] font-medium text-muted-foreground lg:max-w-none lg:text-[11px] lg:leading-4">
@@ -61,7 +66,7 @@ export function DashboardPriorityCard({
         {item.customerName} · {item.deviceLabel}
       </h3>
       <p className="mt-0.5 line-clamp-1 text-[11px] leading-4 text-muted-foreground lg:mt-1 lg:line-clamp-2 lg:text-xs lg:leading-5">
-        {item.reasonDescription}
+        {localizedItem.reasonDescription}
       </p>
 
       <div
@@ -71,13 +76,13 @@ export function DashboardPriorityCard({
         )}
       >
         <StepBlock
-          label="当前步骤"
-          value={item.currentStep}
+          label={t("dashboard.currentStep")}
+          value={localizedItem.currentStep ?? t("orders.noNextStep")}
           icon={<Clock3 className="size-3.5" aria-hidden />}
         />
         <StepBlock
-          label="下一步"
-          value={item.nextStep}
+          label={t("dashboard.nextStep")}
+          value={localizedItem.nextStep ?? t("orders.noNextStep")}
           icon={<CheckCircle2 className="size-3.5" aria-hidden />}
           emphasized
         />
@@ -86,26 +91,28 @@ export function DashboardPriorityCard({
       <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[10px] leading-4 text-muted-foreground lg:mt-3 lg:text-xs lg:leading-4">
         <span className="inline-flex min-w-0 items-center gap-1">
           <UserRound className="size-3.5 shrink-0" aria-hidden />
-          <span className="shrink-0">负责人</span>
-          <span className="truncate font-medium text-foreground">{item.assigneeLabel}</span>
+          <span className="shrink-0">{t("dashboard.assignee")}</span>
+          <span className="truncate font-medium text-foreground">
+            {localizedItem.assigneeLabel}
+          </span>
         </span>
         <span className="inline-flex shrink-0 items-center gap-1">
           <Clock3 className="size-3.5" aria-hidden />
-          <time dateTime={item.updatedAt}>{formatUpdatedAt(item.updatedAt)}</time>
+          <time dateTime={item.updatedAt}>{formatUpdatedAt(item.updatedAt, locale)}</time>
         </span>
       </div>
 
       {item.assigneeState === "unavailable" ? (
         <p className="mt-1.5 inline-flex line-clamp-1 items-center gap-1 text-[10px] leading-4 text-status-warn-foreground lg:mt-2 lg:text-xs lg:leading-[18px]">
           <AlertTriangle className="size-3" aria-hidden />
-          负责人资料暂时不可确认，请进入工单核对。
+          {t("dashboard.assigneeUnavailable")}
         </p>
       ) : null}
 
       <div className="mt-2 grid min-w-0 grid-cols-2 gap-1.5 lg:mt-3 lg:gap-2">
         <Button asChild size="sm" className="h-11 min-w-0 rounded-xl px-3 text-xs">
           <Link href={item.action.href} data-dashboard-priority-action={item.orderId}>
-            <span className="truncate">{item.action.label}</span>
+            <span className="truncate">{localizedItem.action.label}</span>
             <ArrowUpRight className="size-3.5 shrink-0" aria-hidden />
           </Link>
         </Button>
@@ -116,7 +123,7 @@ export function DashboardPriorityCard({
           className="h-11 min-w-0 rounded-xl px-3 text-xs"
         >
           <Link href={item.detailHref}>
-            <span className="truncate">查看工单</span>
+            <span className="truncate">{t("dashboard.viewOrder")}</span>
           </Link>
         </Button>
       </div>
@@ -160,14 +167,17 @@ function StepBlock({
   );
 }
 
-function formatUpdatedAt(value: string) {
+function formatUpdatedAt(value: string, locale: "zh-CN" | "it-IT" | "en") {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "更新时间待确认";
-  return new Intl.DateTimeFormat("zh-CN", {
-    timeZone: "Europe/Rome",
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+  if (Number.isNaN(date.getTime())) return translateMessage(locale, "dashboard.dateUnknown");
+  return new Intl.DateTimeFormat(
+    locale === "zh-CN" ? "zh-CN" : locale === "it-IT" ? "it-IT" : "en",
+    {
+      timeZone: "Europe/Rome",
+      month: "numeric",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+  ).format(date);
 }

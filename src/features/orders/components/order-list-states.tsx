@@ -6,6 +6,7 @@ import { AlertTriangle, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { brandGradientStyle, repairOs, stateBlocks } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function EmptyOrdersState({
   hasActiveFilters,
@@ -16,6 +17,7 @@ export function EmptyOrdersState({
   searchQuery?: string;
   onClearFilters: () => void;
 }) {
+  const { t } = useLocale();
   const normalizedSearch = searchQuery?.trim();
 
   return (
@@ -30,21 +32,21 @@ export function EmptyOrdersState({
       </div>
       <h3 className="font-display text-base font-semibold sm:text-lg">
         {normalizedSearch
-          ? `未找到“${normalizedSearch}”`
+          ? t("orders.noSearchResults", { query: normalizedSearch })
           : hasActiveFilters
-            ? "暂无符合条件的工单"
-            : "暂无工单"}
+            ? t("orders.noFilteredResults")
+            : t("orders.noOrders")}
       </h3>
       <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
         {normalizedSearch
-          ? "可以检查订单号、姓名、电话号码或 IMEI，也可以清除条件后重试。"
+          ? t("orders.searchHelp")
           : hasActiveFilters
-            ? "当前有筛选条件生效，可以清除后再查看。"
-            : "新建第一张维修工单后会显示在这里。"}
+            ? t("orders.filterHelp")
+            : t("orders.emptyHelp")}
       </p>
       {hasActiveFilters && (
         <Button variant="outline" size="sm" className="mt-3 h-8" onClick={onClearFilters}>
-          {normalizedSearch ? "清除搜索和筛选" : "清除全部筛选"}
+          {normalizedSearch ? t("orders.clearSearchAndFilters") : t("orders.clearAllFilters")}
         </Button>
       )}
     </motion.div>
@@ -52,8 +54,11 @@ export function EmptyOrdersState({
 }
 
 export function OrdersErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { t } = useLocale();
   return (
     <div
+      data-ui="order-list-error-state"
+      role="alert"
       className={cn(
         repairOs.listStateCard,
         "max-w-xl border-status-danger-foreground/25 bg-status-danger/10",
@@ -62,10 +67,10 @@ export function OrdersErrorState({ message, onRetry }: { message: string; onRetr
       <div className="mb-3 grid size-12 place-items-center rounded-full bg-status-danger/15 text-status-danger-foreground">
         <AlertTriangle className="size-6" />
       </div>
-      <h3 className="font-display text-lg font-semibold">工单加载失败</h3>
+      <h3 className="font-display text-lg font-semibold">{t("orders.loadFailed")}</h3>
       <p className="mt-1 max-w-md break-words text-sm text-muted-foreground">{message}</p>
       <Button variant="outline" size="sm" className="mt-3 h-8 gap-1.5" onClick={onRetry}>
-        <RefreshCw className="size-3.5" /> 重试
+        <RefreshCw className="size-3.5" /> {t("orders.retry")}
       </Button>
     </div>
   );
@@ -90,27 +95,26 @@ export function PaginationBar({
   pageSizeOptions?: number[];
   onPageSizeChange?: (pageSize: number) => void;
 }) {
+  const { t } = useLocale();
   const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const end = Math.min(total, (page - 1) * pageSize + visible);
 
   return (
     <div className="mt-4 flex flex-col gap-2 rounded-lg border border-border/60 bg-surface/70 px-3 py-2 text-xs text-muted-foreground sm:mt-6 sm:flex-row sm:items-center sm:justify-between">
-      <span>
-        显示 {start}-{end} / {total}
-      </span>
+      <span>{t("orders.showingRange", { start, end, total })}</span>
       <div className="flex flex-wrap items-center gap-2">
         {onPageSizeChange ? (
           <label className="flex min-h-9 items-center gap-1.5">
-            <span>每页</span>
+            <span>{t("orders.perPage")}</span>
             <select
               value={pageSize}
               className="h-9 rounded-lg border border-input bg-background px-2 text-base text-foreground"
-              aria-label="每页显示工单数量"
+              aria-label={t("orders.perPageLabel")}
               onChange={(event) => onPageSizeChange(Number(event.target.value))}
             >
               {pageSizeOptions.map((option) => (
                 <option key={option} value={option}>
-                  {option} 条
+                  {t("orders.itemsCount", { count: option })}
                 </option>
               ))}
             </select>
@@ -123,7 +127,7 @@ export function PaginationBar({
           disabled={page <= 1}
           onClick={() => onPageChange(Math.max(1, page - 1))}
         >
-          上一页
+          {t("orders.previousPage")}
         </Button>
         <span className="min-w-16 text-center tabular-nums">
           {page} / {pageCount}
@@ -135,7 +139,7 @@ export function PaginationBar({
           disabled={page >= pageCount}
           onClick={() => onPageChange(Math.min(pageCount, page + 1))}
         >
-          下一页
+          {t("orders.nextPage")}
         </Button>
       </div>
     </div>

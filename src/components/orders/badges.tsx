@@ -87,7 +87,15 @@ export function StatusBadge({
   );
 }
 
-export function OrderTypeBadge({ type, className }: { type: RepairOrderType; className?: string }) {
+export function OrderTypeBadge({
+  type,
+  label,
+  className,
+}: {
+  type: RepairOrderType;
+  label?: string;
+  className?: string;
+}) {
   return (
     <span
       className={cn(
@@ -95,7 +103,7 @@ export function OrderTypeBadge({ type, className }: { type: RepairOrderType; cla
         className,
       )}
     >
-      {orderTypeMeta[type].label}
+      {label ?? orderTypeMeta[type].label}
     </span>
   );
 }
@@ -108,17 +116,19 @@ export function ApprovalBadge({ status }: { status: ApprovalStatus }) {
 export function DeviceCustodyBadge({
   status,
   deliveredAt,
+  label,
   className,
 }: {
   status: DeviceCustodyStatus | null | undefined;
   deliveredAt?: string | null;
+  label?: string;
   className?: string;
 }) {
   const tone: Tone =
     status === "with_shop" ? "progress" : status === "with_customer" ? "neutral" : "warn";
   return (
     <Pill tone={tone} className={className}>
-      {deviceCustodyDisplayLabel(status, deliveredAt)}
+      {label ?? deviceCustodyDisplayLabel(status, deliveredAt)}
     </Pill>
   );
 }

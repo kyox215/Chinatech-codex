@@ -23,13 +23,7 @@ import type { DashboardPriorityItem, DashboardSummary } from "@/lib/repairdesk/t
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { RepairOsSectionHeader } from "@/shared/ui";
-
-const filterOptions = [
-  { id: "all", label: "全部优先" },
-  { id: "overdue", label: "已超期" },
-  { id: "actionable", label: "可推进" },
-  { id: "waiting", label: "等待中" },
-] satisfies Array<{ id: DashboardPriorityFilter; label: string }>;
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function DashboardPriorityWorkspace({
   summary,
@@ -46,6 +40,13 @@ export function DashboardPriorityWorkspace({
   hasStaleData: boolean;
   onRetry: () => void;
 }) {
+  const { t } = useLocale();
+  const filterOptions = [
+    { id: "all", label: t("dashboard.filterAll") },
+    { id: "overdue", label: t("dashboard.filterOverdue") },
+    { id: "actionable", label: t("dashboard.filterActionable") },
+    { id: "waiting", label: t("dashboard.filterWaiting") },
+  ] satisfies Array<{ id: DashboardPriorityFilter; label: string }>;
   const [filter, setFilter] = useState<DashboardPriorityFilter>("all");
   const filteredItems = useMemo(
     () => (summary ? summary.items.filter((item) => matchesFilter(item, filter)) : []),
@@ -72,16 +73,16 @@ export function DashboardPriorityWorkspace({
         )}
       >
         <RepairOsSectionHeader
-          title="现在先处理"
+          title={t("dashboard.nowProcess")}
           description={
             summary.coverage === "assigned"
-              ? "已按你的已分配工单排好下一步"
-              : "已按全店当前工单排好下一步"
+              ? t("dashboard.assignedNextSteps")
+              : t("dashboard.storeNextStepsDescription")
           }
           action={
             <Button asChild variant="ghost" size="sm" className="h-9 shrink-0 gap-1 px-2 text-xs">
               <Link href="/orders">
-                完整队列
+                {t("dashboard.completeQueue")}
                 <ArrowUpRight className="size-3.5" aria-hidden />
               </Link>
             </Button>
@@ -95,13 +96,13 @@ export function DashboardPriorityWorkspace({
             className="mt-3 flex min-w-0 items-start gap-2 rounded-xl border border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground"
           >
             <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-            <span>当前显示上次读取的顺序，数据可能已经变化。</span>
+            <span>{t("dashboard.stalePriority")}</span>
           </div>
         ) : null}
 
         <div
           role="group"
-          aria-label="优先工单筛选"
+          aria-label={t("dashboard.priorityFilter")}
           className="mt-2 grid min-w-0 grid-cols-4 gap-1 lg:mt-3 lg:gap-2"
         >
           {filterOptions.map((option) => {
@@ -145,11 +146,18 @@ export function DashboardPriorityWorkspace({
             ))}
             {filteredTotal > visibleItems.length ? (
               <div className="rounded-xl border border-dashed border-[var(--border-panel)] px-3 py-2 text-center text-xs text-muted-foreground">
-                {filter === "all" ? "已显示最高优先级" : "当前优先列表显示"}的 {visibleItems.length}{" "}
-                单；
-                {filter === "all"
-                  ? "完整队列"
-                  : `${getDashboardFilterLabel(filter)}完整队列`}共 {filteredTotal} 单。
+                {t("dashboard.summaryVisible", {
+                  prefix:
+                    filter === "all"
+                      ? t("dashboard.showingTop")
+                      : t("dashboard.currentPriorityList"),
+                  count: visibleItems.length,
+                  suffix:
+                    filter === "all"
+                      ? t("dashboard.completeQueue")
+                      : `${getDashboardFilterLabel(filter, t)}${t("dashboard.completeQueue")}`,
+                  total: filteredTotal,
+                })}
               </div>
             ) : null}
           </div>

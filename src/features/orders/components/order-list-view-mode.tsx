@@ -5,12 +5,7 @@ import { Archive, List, ListTodo } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { OrderListView } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
-
-const viewOptions = [
-  { value: "active", label: "待处理", icon: ListTodo },
-  { value: "archive", label: "历史", icon: Archive },
-  { value: "all", label: "全部", icon: List },
-] as const;
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function OrderListViewMode({
   value,
@@ -25,6 +20,12 @@ export function OrderListViewMode({
   disabled?: boolean;
   onChange: (value: OrderListView) => void;
 }) {
+  const { t } = useLocale();
+  const viewOptions = [
+    { value: "active", label: t("orders.allTasks"), icon: ListTodo },
+    { value: "archive", label: t("orders.allHistory"), icon: Archive },
+    { value: "all", label: t("orders.allOrders"), icon: List },
+  ] as const;
   if (!canBrowseArchive) return null;
 
   return (
@@ -34,7 +35,7 @@ export function OrderListViewMode({
         compact ? "gap-px rounded-[var(--order-mobile-radius,0.625rem)] border-0 p-0" : "gap-1 p-1",
       )}
       role="group"
-      aria-label="订单显示范围"
+      aria-label={t("orders.displayRange")}
     >
       {viewOptions.map((option) => {
         const Icon = option.icon;

@@ -47,6 +47,17 @@ import type { Supplier } from "@/lib/repairdesk/types";
 import { orderQueueDesktopGrid } from "@/features/orders/components/order-list-layout";
 import { ORDER_DETAIL_HOVER_DELAY_MS } from "@/features/preload/model/order-detail-preload";
 import { formatOrderListDate, formatOrderRelativeDate } from "@/features/orders/model/order-date";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import {
+  localizeDeviceCustody,
+  localizeDeviceUnlockMethod,
+  localizeOrderException,
+  localizeOrderFinancialLabel,
+  localizeOrderTaskGuidance,
+  localizeOrderType,
+  localizeWorkflowStatusLabel,
+} from "@/features/orders/model/order-i18n";
+import type { MessageKey } from "@/shared/i18n/messages";
 
 export { orderQueueDesktopGrid } from "@/features/orders/components/order-list-layout";
 
@@ -81,18 +92,19 @@ export function DesktopOrderQueueRow({
   onStopInteraction: (event: SyntheticEvent) => void;
   suppliers: Supplier[];
 }) {
+  const { locale, t } = useLocale();
   const hoverTimerRef = useRef<number | null>(null);
   const exceptionStatus = order.exception_status;
   const cancelled = isOrderCancelledForPayment(order);
   const financialState = deriveOrderFinancialState(order);
-  const guidance = getOrderTaskGuidance(order);
+  const guidance = localizeOrderTaskGuidance(getOrderTaskGuidance(order), t);
   const next = cancelled
     ? { primary: undefined, secondary: [] }
     : getWorkflowNextActions(workflow, order.status);
   const hasOverdueException = !cancelled && Boolean(order.approval_overdue || order.pickup_overdue);
-  const createdDate = formatOrderListDate(order.created_at);
-  const relativeCreatedDate = formatOrderRelativeDate(order.created_at);
-  const paymentLabel = financialState.label;
+  const createdDate = formatOrderListDate(order.created_at, locale);
+  const relativeCreatedDate = formatOrderRelativeDate(order.created_at, Date.now(), locale);
+  const paymentLabel = localizeOrderFinancialLabel(financialState, t);
   const paymentClass =
     financialState.settlement === "settled" || financialState.settlement === "zero_charge"
       ? "text-status-success-foreground"
@@ -106,12 +118,17 @@ export function DesktopOrderQueueRow({
   const allNextActions = [next.primary, ...next.secondary].filter(
     (action): action is NonNullable<typeof next.primary> => Boolean(action),
   );
-  const nextLabel = allNextActions[0]?.label ?? "暂无下一步";
-  const nextText = allNextActions.length ? `下一步：${nextLabel}` : nextLabel;
-  const stageIndex = orderTaskStageIndex[guidance.stage.key] ?? 0;
+  const nextLabel = allNextActions[0]
+    ? localizeWorkflowStatusLabel(workflow, allNextActions[0].to, t)
+    : t("orders.noNextStep");
+  const nextText = allNextActions.length
+    ? t("orders.nextStepText", { label: nextLabel })
+    : nextLabel;
+  const stageIndex =
+    orderTaskStageIndex[guidance.stage.key as keyof typeof orderTaskStageIndex] ?? 0;
   const stageStep = stageIndex + 1;
   const partsSupplier = suppliers.find((supplier) => supplier.id === order.parts_supplier_id);
-  const customerName = getCustomerDisplayName(order.customer_name, order.customer_phone);
+  const customerName = getCustomerDisplayName(order.customer_name, order.customer_phone, t);
 
   const clearHoverTimer = () => {
     if (hoverTimerRef.current === null) return;
@@ -151,7 +168,7 @@ export function DesktopOrderQueueRow({
       data-order-row="true"
       variants={fadeUp}
       role="button"
-      aria-label={`查看工单详情 ${order.public_no}`}
+      aria-label={t("orders.viewDetails", { id: order.public_no })}
       tabIndex={0}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={() => {
@@ -188,7 +205,7 @@ export function DesktopOrderQueueRow({
           <Checkbox
             checked={checked}
             onCheckedChange={(value) => onCheckedChange(Boolean(value))}
-            aria-label={`选择工单 ${order.public_no}`}
+            aria-label={t("orders.selectOrder", { id: order.public_no })}
           />
         ) : null}
       </div>
@@ -202,7 +219,7 @@ export function DesktopOrderQueueRow({
           {exceptionStatus ? (
             <StatusBadge
               status={order.status}
-              label={orderExceptionMeta[exceptionStatus].shortLabel}
+              label={localizeOrderException(exceptionStatus, t).shortLabel}
               tone={orderExceptionMeta[exceptionStatus].tone}
               className="max-w-full text-[10px] lg:text-[11px] lg:leading-4"
             />
@@ -210,7 +227,7 @@ export function DesktopOrderQueueRow({
           {hasOverdueException ? (
             <span className="inline-flex max-w-full shrink-0 items-center gap-1 truncate whitespace-nowrap rounded bg-status-danger/15 px-1.5 py-0.5 text-[10px] font-medium leading-none text-status-danger-foreground ring-1 ring-inset ring-status-danger-foreground/30 lg:text-xs lg:leading-[18px]">
               <AlertTriangle className="size-2.5 shrink-0" />
-              {order.approval_overdue ? "报价超期" : "取件超期"}
+              {order.approval_overdue ? t("orders.approvalOverdue") : t("orders.pickupOverdue")}
             </span>
           ) : null}
         </div>
@@ -226,7 +243,10 @@ export function DesktopOrderQueueRow({
           </span>
           <div
             className="grid min-w-0 flex-1 grid-cols-5 gap-0.5"
-            aria-label={`当前进度第 ${stageStep} 步，共 ${orderTaskStages.length} 步`}
+            aria-label={t("orders.progressAria", {
+              index: stageStep,
+              total: orderTaskStages.length,
+            })}
           >
             {orderTaskStages.map((stage, index) => (
               <span
@@ -252,12 +272,18 @@ export function DesktopOrderQueueRow({
         <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
           <span
             className="min-w-0 truncate text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4"
-            title={order.accessory_notes || "无随附物品"}
+            title={order.accessory_notes || t("orders.noAccessories")}
           >
-            {order.accessory_notes ? `随附：${order.accessory_notes}` : "无随附物品"}
+            {order.accessory_notes
+              ? t("orders.accessories", { value: order.accessory_notes })
+              : t("orders.noAccessories")}
           </span>
           {order.device_unlock_method ? (
-            <DeviceUnlockListBadge method={order.device_unlock_method} className="shrink-0" />
+            <DeviceUnlockListBadge
+              method={order.device_unlock_method}
+              label={localizeDeviceUnlockMethod(order.device_unlock_method, t)}
+              className="shrink-0"
+            />
           ) : null}
         </div>
       </div>
@@ -269,6 +295,7 @@ export function DesktopOrderQueueRow({
         <DeviceCustodyBadge
           status={order.device_custody_status}
           deliveredAt={order.delivered_at}
+          label={localizeDeviceCustody(order.device_custody_status, order.delivered_at, t)}
           className="mt-0.5 max-w-full text-[9px] lg:text-[11px] lg:leading-4"
         />
         <div
@@ -279,7 +306,9 @@ export function DesktopOrderQueueRow({
         </div>
         <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
           <span className="min-w-0 truncate text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-            {order.finance_redacted ? "报价信息受限" : primaryRepair?.name || "待报价"}
+            {order.finance_redacted
+              ? t("orders.quoteRestricted")
+              : primaryRepair?.name || t("orders.quotePending")}
             {extraRepairCount ? ` +${extraRepairCount}` : ""}
           </span>
           {primaryRepair && !order.finance_redacted ? (
@@ -307,7 +336,9 @@ export function DesktopOrderQueueRow({
 
       <div className="min-w-0 px-2 py-1.5 text-right">
         {order.finance_redacted ? (
-          <span className="whitespace-nowrap text-xs text-muted-foreground">金额受限</span>
+          <span className="whitespace-nowrap text-xs text-muted-foreground">
+            {t("orders.amountRestricted")}
+          </span>
         ) : (
           <MoneyText
             amount={order.quotation_amount}
@@ -324,7 +355,7 @@ export function DesktopOrderQueueRow({
         </div>
         {cancelled && !order.finance_redacted ? (
           <div className="whitespace-nowrap text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-            不计入待收
+            {t("orders.excludedFromBalance")}
           </div>
         ) : null}
         {!order.finance_redacted ? (
@@ -338,14 +369,14 @@ export function DesktopOrderQueueRow({
           >
             {cancelled ? (
               <>
-                取消时 <MoneyText amount={order.balance_amount} />
+                {t("orders.atCancellation")} <MoneyText amount={order.balance_amount} />
               </>
             ) : order.balance_amount > 0 ? (
               <>
-                尾款 <MoneyText amount={order.balance_amount} />
+                {t("orders.balanceDue")} <MoneyText amount={order.balance_amount} />
               </>
             ) : (
-              "尾款清"
+              t("orders.balanceClear")
             )}
           </div>
         ) : null}
@@ -371,6 +402,7 @@ export function DesktopOrderQueueRow({
         <div className="mt-0.5">
           <OrderTypeBadge
             type={order.order_type}
+            label={localizeOrderType(order.order_type, t)}
             className="max-w-full text-[10px] lg:text-[11px] lg:leading-4"
           />
         </div>
@@ -379,13 +411,18 @@ export function DesktopOrderQueueRow({
       <div className="px-1.5 py-1.5" onClick={onStopInteraction}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-7" aria-label="更多工单操作">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              aria-label={t("orders.moreActions")}
+            >
               <MoreHorizontal className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuItem asChild>
-              <a href={`/orders/${order.id}`}>在新页打开</a>
+              <a href={`/orders/${order.id}`}>{t("orders.openNewPage")}</a>
             </DropdownMenuItem>
             {canPrint ? (
               <>
@@ -395,10 +432,12 @@ export function DesktopOrderQueueRow({
                   disabled={Boolean(printDisabledReason)}
                   title={printDisabledReason}
                 >
-                  <Printer className="mr-2 size-3.5" /> 打印
+                  <Printer className="mr-2 size-3.5" /> {t("orders.print")}
                 </DropdownMenuItem>
                 {printDisabledReason && onOpenPrintRecovery ? (
-                  <DropdownMenuItem onClick={onOpenPrintRecovery}>查看打印设置</DropdownMenuItem>
+                  <DropdownMenuItem onClick={onOpenPrintRecovery}>
+                    {t("orders.printSettings")}
+                  </DropdownMenuItem>
                 ) : null}
               </>
             ) : null}
@@ -412,11 +451,12 @@ export function DesktopOrderQueueRow({
 function getCustomerDisplayName(
   customerName: string | null | undefined,
   customerPhone: string | null | undefined,
+  t: (key: MessageKey) => string,
 ) {
   const trimmedName = customerName?.trim() || "";
   const normalizedName = normalizeComparable(trimmedName);
   if (!trimmedName || (normalizedName && normalizedName === normalizeComparable(customerPhone))) {
-    return "未填写姓名";
+    return t("orders.nameMissing");
   }
   return trimmedName;
 }

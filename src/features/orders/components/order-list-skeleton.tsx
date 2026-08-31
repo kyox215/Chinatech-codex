@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useViewportMode } from "@/hooks/use-mobile";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 import {
   orderMobileFluidDensity,
@@ -80,6 +81,7 @@ function OrderDesktopRowSkeleton() {
 }
 
 export function OrderListSkeleton() {
+  const { t } = useLocale();
   const viewportMode = useViewportMode();
 
   if (viewportMode === "pending") {
@@ -91,7 +93,7 @@ export function OrderListSkeleton() {
         aria-busy="true"
       >
         <span className="sr-only" role="status" aria-live="polite">
-          正在准备维修工单
+          {t("orders.loadingList")}
         </span>
         <div aria-hidden="true" className="space-y-2">
           <Skeleton className="h-10 w-full rounded-xl" />
@@ -113,7 +115,7 @@ export function OrderListSkeleton() {
       aria-busy="true"
     >
       <span className="sr-only" role="status" aria-live="polite">
-        正在准备维修工单
+        {t("orders.loadingList")}
       </span>
 
       <div aria-hidden="true">

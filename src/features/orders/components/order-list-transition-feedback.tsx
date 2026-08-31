@@ -3,6 +3,7 @@
 import { AlertTriangle, LoaderCircle, RefreshCw, WifiOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function OrderListTransitionFeedback({
   pendingLabel,
@@ -17,6 +18,7 @@ export function OrderListTransitionFeedback({
   backgroundRefreshing?: boolean;
   onRetry: () => void;
 }) {
+  const { t } = useLocale();
   if (offlineMessage) {
     return (
       <div
@@ -39,7 +41,7 @@ export function OrderListTransitionFeedback({
         <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
         <span className="min-w-0 flex-1">{errorMessage}</span>
         <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={onRetry}>
-          重试
+          {t("orders.retry")}
         </Button>
       </div>
     );
@@ -53,7 +55,7 @@ export function OrderListTransitionFeedback({
         className="mb-2 flex min-w-0 items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-foreground"
       >
         <LoaderCircle className="size-3.5 shrink-0 animate-spin text-primary" aria-hidden="true" />
-        <span className="min-w-0 flex-1">正在加载{pendingLabel}，当前列表暂不可操作…</span>
+        <span className="min-w-0 flex-1">{t("orders.pendingList", { group: pendingLabel })}</span>
       </div>
     );
   }
@@ -66,7 +68,7 @@ export function OrderListTransitionFeedback({
         className="mb-2 flex items-center gap-1.5 px-1 text-[11px] text-muted-foreground"
       >
         <RefreshCw className="size-3 animate-spin" aria-hidden="true" />
-        正在后台更新订单
+        {t("orders.backgroundRefreshing")}
       </div>
     );
   }

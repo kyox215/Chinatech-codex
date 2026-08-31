@@ -244,9 +244,11 @@ export function DeviceUnlockViewer({
 
 export function DeviceUnlockListBadge({
   method,
+  label,
   className,
 }: {
   method?: DeviceUnlockMethod;
+  label?: string;
   className?: string;
 }) {
   if (!method) return null;
@@ -259,7 +261,7 @@ export function DeviceUnlockListBadge({
       )}
     >
       <LockKeyhole className="size-3 shrink-0" />
-      <span className="truncate">{getDeviceUnlockLabel(method)}</span>
+      <span className="truncate">{label ?? getDeviceUnlockLabel(method)}</span>
     </span>
   );
 }

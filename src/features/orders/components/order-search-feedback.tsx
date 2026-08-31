@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { orderQueueGroups } from "@/features/orders/model/order-queue-classification";
 import type { OrderResultGroup } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function OrderSearchFeedback({
   draftValue,
@@ -45,6 +46,7 @@ export function OrderSearchFeedback({
   onRetry: () => void;
   compact?: boolean;
 }) {
+  const { t } = useLocale();
   const query = (isDebouncing ? draftValue : committedValue).trim();
   const isRetainingResults = isFetching && isPlaceholderData;
   if (!query && !isRetainingResults) return null;
@@ -84,20 +86,28 @@ export function OrderSearchFeedback({
 
       <span className="min-w-0 flex-1 break-words">
         {hasError ? (
-          <>搜索“{committedValue}”失败，仍显示上次结果</>
+          <>{t("orders.searchFailedCached", { query: committedValue })}</>
         ) : isDebouncing ? (
-          <>准备搜索“{draftValue.trim()}”…</>
+          <>{t("orders.prepareSearch", { query: draftValue.trim() })}</>
         ) : !query ? (
-          <>正在更新订单… 上次结果暂时保留</>
+          <>{t("orders.updatingList")}</>
         ) : isFetching ? (
           <>
-            正在搜索“{committedValue}”…{isPlaceholderData ? " 上次结果暂时保留" : ""}
+            {t(isRetainingResults ? "orders.searchingRetained" : "orders.searching", {
+              query: committedValue,
+            })}
           </>
         ) : (
           <>
-            {archiveSearchActive ? "历史精确搜索" : "当前范围"}“{committedValue}”找到 {total} 条
-            {resultGroupCounts ? ` · 待办 ${activeCount} · 历史 ${historyCount}` : ""}
-            {canSearchArchive ? "" : " · 历史结果按权限显示"}
+            {t("orders.searchFound", {
+              scope: archiveSearchActive ? t("orders.scopeArchive") : t("orders.scopeCurrent"),
+              query: committedValue,
+              total,
+              counts: resultGroupCounts
+                ? t("orders.searchCounts", { active: activeCount, history: historyCount })
+                : "",
+              permission: canSearchArchive ? "" : t("orders.searchPermission"),
+            })}
           </>
         )}
       </span>
@@ -111,7 +121,7 @@ export function OrderSearchFeedback({
           onClick={() => onArchiveSearchChange(!archiveSearchActive)}
         >
           <Archive className="size-3" />
-          {archiveSearchActive ? "返回当前范围" : "精确查历史"}
+          {archiveSearchActive ? t("orders.returnCurrent") : t("orders.searchArchive")}
         </Button>
       ) : null}
 
@@ -123,7 +133,7 @@ export function OrderSearchFeedback({
           className="h-6 shrink-0 gap-1 px-1.5 text-[11px]"
           onClick={onRetry}
         >
-          <RefreshCw className="size-3" /> 重试
+          <RefreshCw className="size-3" /> {t("orders.retry")}
         </Button>
       ) : null}
     </div>

@@ -17,6 +17,8 @@ import {
 import type { StatusTone } from "@/lib/mock/enums";
 import type { OrderListItem, OrderQueueGroup } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { localizeOrderQueueStage } from "@/features/orders/model/order-i18n";
 
 type QueueStageOrder = Pick<
   OrderListItem,
@@ -49,14 +51,20 @@ export function OrderQueueStageBadge({
   order: QueueStageOrder;
   className?: string;
 }) {
+  const { t } = useLocale();
   const archived = isOrderArchivedForQueue(order);
   const cancelled = order.status === "cancelled" || order.exception_status === "cancelled";
   const group = archived ? null : getOrderQueueGroup(order);
+  const localizedGroup = group ? localizeOrderQueueStage(group, t) : null;
   const meta = group
-    ? orderQueueGroupMeta[group]
+    ? {
+        tone: orderQueueGroupMeta[group].tone,
+        label: localizedGroup!.label,
+        hint: localizedGroup!.hint,
+      }
     : cancelled
-      ? { label: "作废", hint: "作废订单，仅在历史中显示", tone: "danger" as const }
-      : { label: "完成", hint: "完成订单，仅在历史中显示", tone: "neutral" as const };
+      ? { label: t("orders.cancelled"), hint: t("orders.cancelledHint"), tone: "danger" as const }
+      : { label: t("orders.completed"), hint: t("orders.completedHint"), tone: "neutral" as const };
   const Icon = group ? groupIcons[group] : cancelled ? Ban : CheckCircle2;
   const stageKey = group ?? (cancelled ? "cancelled" : order.status);
 
@@ -69,7 +77,7 @@ export function OrderQueueStageBadge({
         className,
       )}
       title={meta.hint}
-      aria-label={`订单阶段：${meta.label}`}
+      aria-label={t("orders.stageAria", { stage: meta.label })}
     >
       <Icon className="size-2.5 shrink-0" aria-hidden="true" />
       <span className="truncate">{meta.label}</span>

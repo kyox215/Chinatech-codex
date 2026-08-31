@@ -27,6 +27,7 @@ export function OrderQrScannerButton({
   iconClassName,
   showLabel = false,
   label = "扫码",
+  ariaLabel = "扫描订单二维码",
   size = "icon",
   disabled = false,
 }: {
@@ -34,6 +35,7 @@ export function OrderQrScannerButton({
   iconClassName?: string;
   showLabel?: boolean;
   label?: string;
+  ariaLabel?: string;
   size?: "sm" | "icon";
   disabled?: boolean;
 }) {
@@ -57,7 +59,7 @@ export function OrderQrScannerButton({
         size={size}
         disabled={disabled}
         className={className}
-        aria-label="扫描订单二维码"
+        aria-label={ariaLabel}
         onClick={() => {
           setActivated(true);
           setOpen(true);

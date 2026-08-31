@@ -45,9 +45,11 @@ Cookie 名为 `repairdesk_locale`，值必须精确等于三个 locale 之一。
 
 因此客户路由不显示员工语言切换器；`/r` 与 `/kiosk` 的当前服务端请求会固定使用 `it-IT` 文档语言，但不回写或覆盖浏览器中的员工 locale Cookie。切换员工界面不能改变客户语言、打印文档或保修条款。
 
-## 5. 覆盖和翻译工作流
+## 5. 当前 Release A 覆盖和翻译工作流
 
-共享 catalog 已覆盖语言切换、Root/metadata/manifest/offline 恢复、Shell 导航与命令、公开认证/邀请/开通流程，以及 Dashboard、Orders、Customers、Inventory、Buyback、Finance、Messages、Toolkit、Platform 和 Settings 的顶层入口与状态。邀请确认与 offline 正文使用客户端 locale context，所以切换后会原地更新，不需要 reload。深层业务表单、弹窗、领域文案和存量格式化必须按功能继续迁移，不得用“语言切换器存在”或“共享 formatter 存在”代替完整翻译声明。
+共享 catalog 已覆盖语言切换、Root/metadata/manifest/offline 恢复、Shell 导航与命令、公开认证/邀请/开通流程，以及顶层入口与状态。本次 Release A 冻结并实际接入 Dashboard 快捷/优先区与 `/orders` Orders Queue 的 UI-owned 文案、ARIA、加载/空态/搜索反馈、错误/权限/离线/后台刷新反馈和列表日期/相对时间。在切换器可达的正常路径上，切换语言保持 URL、搜索、非默认筛选、页码、选中项和滚动，不 reload 或 remount。
+
+本批未覆盖 New Order、Order Detail、Customers、Inventory、Buyback、打印/通知/票据/保修/协议/法律文案，以及动态店铺、客户、设备、维修项目、供应商和备注数据；这些保持原文并进入 Release B+ 路线图。Orders 与 Dashboard 上的扫码触发器已本地化，但打开后的 `OrderQrScannerSheet` / `ScanSearchSheet` 正文属扫码业务边界，是 Release A 的显式登记例外，不应宣称已翻译。移动筛选层为 modal，打开时外部语言切换器不可达；本批不改变该 focus-trap 合同。深层表单、弹窗、领域文案和存量格式化必须按功能继续迁移，不得用“语言切换器存在”或“共享 formatter 存在”代替完整翻译声明。审计候选数量也不等于缺陷数量，见 `docs/I18N_UNTRANSLATED_UI_AUDIT.md`。
 
 新增或修改用户可见文案时：
 

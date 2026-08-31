@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createOrderResultGroupCounts } from "@/features/orders/model/order-list-grouping";
 import { OrderSearchFeedback } from "./order-search-feedback";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
 
 const baseProps = {
   draftValue: "Xiaomi",
@@ -31,8 +32,7 @@ describe("OrderSearchFeedback", () => {
     expect(screen.getByRole("status")).toHaveTextContent("准备搜索“Xiaomi 14”");
 
     rerender(<OrderSearchFeedback {...baseProps} isFetching isPlaceholderData />);
-    expect(screen.getByRole("status")).toHaveTextContent("正在搜索“Xiaomi”");
-    expect(screen.getByRole("status")).toHaveTextContent("上次结果暂时保留");
+    expect(screen.getByRole("status")).toHaveTextContent("正在搜索“Xiaomi”…上次结果暂时保留");
   });
 
   it("summarizes active and historical search results", () => {
@@ -63,5 +63,19 @@ describe("OrderSearchFeedback", () => {
     screen.getByRole("button", { name: "重试" }).click();
     expect(onRetry).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("status")).toHaveTextContent("仍显示上次结果");
+  });
+
+  it.each([
+    ["en", "Searching for “Xiaomi”… previous results are temporarily retained"],
+    ["it-IT", "Ricerca di “Xiaomi”…; mantengo temporaneamente i risultati precedenti"],
+  ] as const)("localizes retained search feedback in %s", (locale, expected) => {
+    render(
+      <LocaleProvider initialLocale={locale}>
+        <OrderSearchFeedback {...baseProps} isFetching isPlaceholderData />
+      </LocaleProvider>,
+    );
+    const feedback = document.querySelector('[data-order-search-feedback="true"]');
+    expect(feedback).toHaveTextContent(expected);
+    expect(feedback?.textContent).not.toMatch(/[一-龥]/);
   });
 });

@@ -5,13 +5,7 @@ import type { DashboardSummary } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { RepairOsSectionHeader } from "@/shared/ui";
-
-const businessLinks = [
-  { label: "全部工单", description: "完整队列与历史", href: "/orders", icon: ClipboardList },
-  { label: "客户管理", description: "客户档案与设备", href: "/customers", icon: Users },
-  { label: "回收管理", description: "旧机估价与检测", href: "/buyback", icon: Recycle },
-  { label: "库存商品", description: "配件与商品库存", href: "/inventory", icon: Package },
-] as const;
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function DashboardPrioritySidebar({ summary }: { summary: DashboardSummary }) {
   return (
@@ -23,15 +17,23 @@ export function DashboardPrioritySidebar({ summary }: { summary: DashboardSummar
 }
 
 export function DashboardAttentionSummary({ summary }: { summary: DashboardSummary }) {
+  const { t } = useLocale();
   const metrics = [
-    { label: "已超期", value: summary.counts.overdue, tone: "danger" },
-    { label: "可立即处理", value: summary.counts.ready + summary.counts.active, tone: "primary" },
-    { label: "等待跟进", value: summary.counts.waiting, tone: "warn" },
+    { label: t("dashboard.filterOverdue"), value: summary.counts.overdue, tone: "danger" },
+    {
+      label: t("dashboard.filterActionable"),
+      value: summary.counts.ready + summary.counts.active,
+      tone: "primary",
+    },
+    { label: t("dashboard.filterWaiting"), value: summary.counts.waiting, tone: "warn" },
   ] as const;
 
   return (
     <section className={cn(repairOs.adminSection, "min-w-0 p-2 lg:p-3")}>
-      <RepairOsSectionHeader title="交接关注" description="只显示业务处理数量，不含财务数据" />
+      <RepairOsSectionHeader
+        title={t("dashboard.attention")}
+        description={t("dashboard.attentionDescription")}
+      />
       <div className="mt-1.5 grid min-w-0 grid-cols-3 gap-1.5 lg:mt-3 lg:grid-cols-1 lg:gap-2">
         {metrics.map((metric) => (
           <div
@@ -57,9 +59,39 @@ export function DashboardAttentionSummary({ summary }: { summary: DashboardSumma
 }
 
 export function DashboardBusinessLinks() {
+  const { t } = useLocale();
+  const businessLinks = [
+    {
+      label: t("dashboard.allOrders"),
+      description: t("dashboard.allOrdersDescription"),
+      href: "/orders",
+      icon: ClipboardList,
+    },
+    {
+      label: t("dashboard.customers"),
+      description: t("dashboard.customersDescription"),
+      href: "/customers",
+      icon: Users,
+    },
+    {
+      label: t("dashboard.buyback"),
+      description: t("dashboard.buybackDescriptionFull"),
+      href: "/buyback",
+      icon: Recycle,
+    },
+    {
+      label: t("dashboard.inventory"),
+      description: t("dashboard.inventoryDescription"),
+      href: "/inventory",
+      icon: Package,
+    },
+  ] as const;
   return (
     <section className={cn(repairOs.adminSection, "min-w-0 p-2 lg:p-3")}>
-      <RepairOsSectionHeader title="业务入口" description="查看完整资料与历史" />
+      <RepairOsSectionHeader
+        title={t("dashboard.businessLinks")}
+        description={t("dashboard.businessLinksDescription")}
+      />
       <div className="mt-1.5 grid min-w-0 grid-cols-2 gap-1.5 lg:mt-3 lg:grid-cols-1 lg:gap-2">
         {businessLinks.map((item) => (
           <Link

@@ -82,19 +82,20 @@ import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type { OrderListPageInput, OrderListView, OrderQueueGroup } from "@/lib/repairdesk/types";
 import {
   getCommonWorkflowTargets,
-  getWorkflowStatusLabel,
   getWorkflowStatuses,
   type OrderListStatusTab,
 } from "@/features/orders/model/order-workflow";
 import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
 import {
-  orderExceptionMeta,
-  orderWorkflowMeta,
-} from "@/features/orders/model/canonical-order-status";
-import {
   orderQueueGroupMeta,
   orderQueueGroups,
 } from "@/features/orders/model/order-queue-classification";
+import {
+  localizeOrderResultGroup,
+  localizeOrderException,
+  localizeBulkTransitionFeedback,
+  localizeWorkflowStatusLabel,
+} from "@/features/orders/model/order-i18n";
 import {
   createOrderResultGroupCounts,
   groupOrderListItems,
@@ -163,16 +164,6 @@ const emptyOrderOptions = {
     canExportOrders: false,
     canBatchTransitionOrders: false,
   },
-};
-
-const orderStageHints: Record<OrderQueueGroup | "all", string> = {
-  all: "所有待处理维修工单",
-  processing: orderQueueGroupMeta.processing.hint,
-  ordered: orderQueueGroupMeta.ordered.hint,
-  arrived: orderQueueGroupMeta.arrived.hint,
-  arrived_notified: orderQueueGroupMeta.arrived_notified.hint,
-  repaired: orderQueueGroupMeta.repaired.hint,
-  repaired_notified: orderQueueGroupMeta.repaired_notified.hint,
 };
 
 type ActiveFilterChip = {
@@ -405,7 +396,6 @@ export function OrderListScreen() {
     isFetching,
     isPlaceholderData,
     isError: listIsError,
-    error: listError,
     refetch: refetchOrders,
   } = useQuery({
     ...orderQueueSummaryQueryOptions(queueInput, activeStoreId),
@@ -459,7 +449,7 @@ export function OrderListScreen() {
   const canBatchPrintOrders = options.permissions.canBatchPrintOrders === true;
   const canBatchTransitionOrders = options.permissions.canBatchTransitionOrders === true;
   const canUseBulkActions = canExportOrders || canBatchTransitionOrders;
-  const singlePrintDisabledReason = generationPending ? "正在准备打印内容" : undefined;
+  const singlePrintDisabledReason = generationPending ? t("orders.printPreparing") : undefined;
   useEffect(() => {
     if (!canUseBulkActions) setSelected([]);
   }, [canUseBulkActions]);
@@ -467,16 +457,19 @@ export function OrderListScreen() {
     () => (canReadSuppliers ? options.suppliers : []),
     [canReadSuppliers, options.suppliers],
   );
-  const workflowErrorMessage = "状态流配置暂时不可用。";
-  const optionsErrorMessage = "筛选选项暂时不可用。";
+  const workflowErrorMessage = t("orders.workflowUnavailable");
+  const optionsErrorMessage = t("orders.filterOptionsUnavailable");
   const statusSubTabs = useMemo<OrderListStatusTab[]>(
-    () => [{ key: "all", label: "全部状态" }],
-    [],
+    () => [{ key: "all", label: t("orders.allStatuses") }],
+    [t],
   );
   const workflowStatuses = useMemo(
     () =>
-      getWorkflowStatuses(workflow).map((status) => ({ code: status.code, label: status.label })),
-    [workflow],
+      getWorkflowStatuses(workflow).map((status) => ({
+        code: status.code,
+        label: localizeWorkflowStatusLabel(workflow, status.code, t),
+      })),
+    [t, workflow],
   );
 
   const data = useMemo(() => listResult?.items ?? [], [listResult?.items]);
@@ -573,7 +566,7 @@ export function OrderListScreen() {
           shortLabel: t("orders.allShort"),
           tone: "neutral" as const,
           count: totalOrders,
-          hint: filters.view === "archive" ? "已归档订单" : "全部订单",
+          hint: filters.view === "archive" ? t("orders.allHistory") : t("orders.allOrders"),
         },
       ];
     }
@@ -584,7 +577,7 @@ export function OrderListScreen() {
         shortLabel: t("orders.allShort"),
         tone: "neutral" as const,
         count: queueCounts.all,
-        hint: orderStageHints.all,
+        hint: t("orders.allTasks"),
       },
       ...orderQueueGroups.map((key) => {
         const localized = localizeOrderQueueGroup(key, t);
@@ -594,13 +587,12 @@ export function OrderListScreen() {
           shortLabel: localized.shortLabel,
           tone: orderQueueGroupMeta[key].tone,
           count: queueCounts[key],
-          hint: orderStageHints[key],
+          hint: localized.hint,
         };
       }),
     ];
   }, [filters.view, listResult?.queueCounts, t, totalOrders]);
-  const listErrorMessage =
-    listError instanceof Error ? listError.message : "请检查网络、登录状态或数据库迁移。";
+  const listErrorMessage = t("orders.safeListError");
   const applyOrderListSelection = useCallback((selection: OrderListSelection) => {
     setStatusGroup(selection.statusGroup);
     setStatusCode(selection.statusCode);
@@ -670,7 +662,12 @@ export function OrderListScreen() {
   const searchHasError = listIsError && Boolean(searchInput.committedValue);
   const activeFilterChips = useMemo<ActiveFilterChip[]>(() => {
     const chips: ActiveFilterChip[] = [];
-    const statusLabels = new Map(workflowStatuses.map((status) => [status.code, status.label]));
+    const statusLabels = new Map(
+      workflowStatuses.map((status) => [
+        status.code,
+        localizeWorkflowStatusLabel(workflow, status.code, t),
+      ]),
+    );
     const activeGroup = statusGroups.find((group) => group.key === statusGroup);
 
     if (filters.search?.trim()) {
@@ -678,58 +675,72 @@ export function OrderListScreen() {
         key: "search",
         label:
           filters.searchScope === "archive_exact"
-            ? `历史精确搜索：${filters.search}`
-            : `当前范围搜索：${filters.search}`,
+            ? t("orders.chipSearchArchive", { value: filters.search })
+            : t("orders.chipSearchCurrent", { value: filters.search }),
       });
     }
     if (filters.view && filters.view !== "active") {
       chips.push({
         key: "view",
-        label: filters.view === "archive" ? "范围：历史归档" : "范围：全部订单",
+        label: filters.view === "archive" ? t("orders.chipViewArchive") : t("orders.chipViewAll"),
       });
     }
     if (filters.statuses?.length) {
       filters.statuses.forEach((status) =>
         chips.push({
           key: `status:${status}`,
-          label: `状态：${statusLabels.get(status) ?? status}`,
+          label: t("orders.chipStatus", { value: statusLabels.get(status) ?? status }),
         }),
       );
     } else if (filters.workflowStatuses?.length) {
       filters.workflowStatuses.forEach((status) =>
         chips.push({
           key: `workflow:${status}`,
-          label: `流程：${orderWorkflowMeta[status].label}`,
+          label: t("orders.chipWorkflow", {
+            value: localizeWorkflowStatusLabel(workflow, status, t),
+          }),
         }),
       );
     } else if (statusCode !== "all") {
       chips.push({
         key: "substatus",
-        label: `状态：${statusLabels.get(statusCode as RepairOrderStatus) ?? statusCode}`,
+        label: t("orders.chipStatus", {
+          value: statusLabels.get(statusCode as RepairOrderStatus) ?? statusCode,
+        }),
       });
     } else if (statusGroup !== "all") {
       chips.push({
         key: "phase",
-        label: `队列：${activeGroup?.label ?? statusGroup}`,
+        label: t("orders.chipQueue", { value: activeGroup?.label ?? statusGroup }),
       });
     }
     filters.exceptionStatuses?.forEach((status) =>
       chips.push({
         key: `exception:${status}`,
-        label: `异常：${orderExceptionMeta[status].label}`,
+        label: t("orders.chipException", { value: localizeOrderException(status, t).label }),
       }),
     );
     filters.types?.forEach((type) =>
       chips.push({
         key: `type:${type}`,
-        label: `类型：${type === "quick_repair" ? "快修" : "送修"}`,
+        label: t("orders.chipType", {
+          value: type === "quick_repair" ? t("orders.quickRepair") : t("orders.dropoffRepair"),
+        }),
       }),
     );
     if (filters.paid && filters.paid !== "all") {
-      chips.push({ key: "paid", label: `付款：${filters.paid === "paid" ? "已结清" : "未结清"}` });
+      chips.push({
+        key: "paid",
+        label: t("orders.chipPayment", {
+          value: filters.paid === "paid" ? t("orders.paid") : t("orders.unpaid"),
+        }),
+      });
     }
     filters.technicians?.forEach((technician) =>
-      chips.push({ key: `technician:${technician}`, label: `技师：${technician}` }),
+      chips.push({
+        key: `technician:${technician}`,
+        label: t("orders.chipTechnician", { value: technician }),
+      }),
     );
     if (canReadSuppliers) {
       const supplierLabels = new Map(
@@ -738,7 +749,7 @@ export function OrderListScreen() {
       filters.supplierIds?.forEach((supplierId) =>
         chips.push({
           key: `supplier:${supplierId}`,
-          label: `外修：${supplierLabels.get(supplierId) ?? supplierId}`,
+          label: t("orders.chipSupplier", { value: supplierLabels.get(supplierId) ?? supplierId }),
         }),
       );
     }
@@ -747,10 +758,10 @@ export function OrderListScreen() {
         key: "overdue",
         label:
           filters.overdue === "approval"
-            ? "报价超期"
+            ? t("orders.chipOverdueApproval")
             : filters.overdue === "pickup"
-              ? "取件超期"
-              : "超期",
+              ? t("orders.chipOverduePickup")
+              : t("orders.chipOverdueAny"),
       });
     }
 
@@ -761,7 +772,9 @@ export function OrderListScreen() {
     statusCode,
     statusGroup,
     statusGroups,
+    t,
     visibleSuppliers,
+    workflow,
     workflowStatuses,
   ]);
   const hasActiveFilters = activeFilterChips.length > 0;
@@ -837,8 +850,15 @@ export function OrderListScreen() {
     mutationFn: ({ ids, to }: { ids: string[]; to: RepairOrderStatus }) => batchTransition(ids, to),
     onSuccess: (r, vars) => {
       toast.success(
-        `已将 ${r.count} 条流转为「${getWorkflowStatusLabel(workflow, vars.to)}」` +
-          (r.failures.length ? `（${r.failures.length} 条失败）` : ""),
+        localizeBulkTransitionFeedback(
+          {
+            count: r.count,
+            failures: r.failures.length,
+            to: vars.to,
+          },
+          workflow,
+          t,
+        ),
       );
       setSelected([]);
       refreshOrderData();
@@ -986,7 +1006,8 @@ export function OrderListScreen() {
       queueGroups: undefined,
       overdue: undefined,
     };
-    const label = statusGroups.find((group) => group.key === nextStatusGroup)?.label ?? "目标队列";
+    const label =
+      statusGroups.find((group) => group.key === nextStatusGroup)?.label ?? t("orders.targetQueue");
     beginListIntent({
       requested: {
         statusGroup: nextStatusGroup,
@@ -1042,13 +1063,13 @@ export function OrderListScreen() {
 
   const openNewOrder = useCallback(() => {
     if (newOrderOpen) {
-      toast.info("接单窗口已打开");
+      toast.info(t("orders.newOrderAlreadyOpen"));
       return;
     }
     setNewOrderPrefill(undefined);
     setNewOrderSessionKey((current) => current + 1);
     setNewOrderOpen(true);
-  }, [newOrderOpen]);
+  }, [newOrderOpen, t]);
 
   useEffect(() => {
     window.addEventListener(REPAIRDESK_NEW_ORDER_EVENT, openNewOrder);
@@ -1057,7 +1078,7 @@ export function OrderListScreen() {
 
   const requestPrintRows = (rows: OrderListItem[]) => {
     if (!rows.length) {
-      toast.error("没有可打印的工单");
+      toast.error(t("orders.noPrintableOrders"));
       return;
     }
     setPendingPrintOrders(rows);
@@ -1078,11 +1099,11 @@ export function OrderListScreen() {
           { signal: context.signal },
         );
         if (!context.isCurrent()) return;
-        if (links.length !== rows.length) throw new Error("部分订单二维码准备失败，请重试");
+        if (links.length !== rows.length) throw new Error(t("orders.qrPrepareFailed"));
         setCustomerStatusUrls(Object.fromEntries(links.map((link) => [link.order_id, link.url])));
       },
     );
-    if (outcome === "busy") toast.info("打印预览已打开，请先完成或取消当前打印");
+    if (outcome === "busy") toast.info(t("orders.printBusy"));
   };
   const openDetail = (id: string) => {
     scheduleOrderDetailPrefetch(id, "intent");
@@ -1134,7 +1155,12 @@ export function OrderListScreen() {
   };
   const orderListView = filters.view ?? "active";
   const changeOrderListView = (view: OrderListView) => {
-    const label = view === "active" ? "待处理订单" : view === "archive" ? "历史订单" : "全部订单";
+    const label =
+      view === "active"
+        ? t("orders.viewActive")
+        : view === "archive"
+          ? t("orders.viewArchive")
+          : t("orders.viewAll");
     beginListIntent({
       requested: {
         statusGroup: "all",
@@ -1153,7 +1179,7 @@ export function OrderListScreen() {
       requested: { ...currentSelection, page: nextPage },
       kind: "page",
       key: String(nextPage),
-      label: `第 ${nextPage} 页`,
+      label: t("orders.pageLabel", { page: nextPage }),
     });
   };
   const changeOrderListPageSize = (nextPageSize: number) => {
@@ -1161,7 +1187,7 @@ export function OrderListScreen() {
       requested: { ...currentSelection, page: 1, pageSize: nextPageSize },
       kind: "page",
       key: `size-${nextPageSize}`,
-      label: `每页 ${nextPageSize} 条`,
+      label: t("orders.pageSizeLabel", { size: nextPageSize }),
     });
   };
   const retryFailedListIntent = () => {
@@ -1179,10 +1205,7 @@ export function OrderListScreen() {
 
   if (!isOnline && !listResult) {
     return (
-      <OrdersErrorState
-        message="当前离线，暂无可用订单缓存。恢复网络后请重试。"
-        onRetry={() => refreshOrderData()}
-      />
+      <OrdersErrorState message={t("orders.offlineNoCache")} onRetry={() => refreshOrderData()} />
     );
   }
   if (
@@ -1249,6 +1272,7 @@ export function OrderListScreen() {
           scanAction={
             <OrderQrScannerButton
               disabled={!isOnline}
+              ariaLabel={t("orders.scanOrderQr")}
               className="size-9 rounded-lg bg-card"
               iconClassName="size-3.5"
             />
@@ -1259,7 +1283,7 @@ export function OrderListScreen() {
               variant="outline"
               size="iconDense"
               className="relative size-9 rounded-lg bg-card"
-              aria-label={`筛选订单${mobileHiddenFilterCount ? `，已应用 ${mobileHiddenFilterCount} 项` : ""}`}
+              aria-label={t("orders.mobileFilterAria", { count: mobileHiddenFilterCount })}
               onClick={() => setMobileFiltersOpen(true)}
             >
               <Filter className="size-4" aria-hidden="true" />
@@ -1284,19 +1308,22 @@ export function OrderListScreen() {
 
       {viewportMode === "compact" ? (
         <Dialog open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-          <DialogContent className="max-h-[min(82svh,680px)] w-[calc(100%-1.5rem)] max-w-lg overflow-y-auto rounded-2xl p-3 sm:p-4">
+          <DialogContent
+            closeLabel={t("orders.closeFilters")}
+            className="max-h-[min(82svh,680px)] w-[calc(100%-1.5rem)] max-w-lg overflow-y-auto rounded-2xl p-3 sm:p-4"
+          >
             <DialogHeader>
-              <DialogTitle>筛选维修工单</DialogTitle>
-              <DialogDescription>筛选只改变当前订单列表，不会修改任何工单。</DialogDescription>
+              <DialogTitle>{t("orders.mobileFilterTitle")}</DialogTitle>
+              <DialogDescription>{t("orders.mobileFilterDescription")}</DialogDescription>
             </DialogHeader>
             <div className="space-y-3 sm:space-y-4">
               <fieldset className="space-y-2">
-                <legend className="text-sm font-semibold">工单类型</legend>
+                <legend className="text-sm font-semibold">{t("orders.typeFilter")}</legend>
                 <div className="grid grid-cols-2 gap-2">
                   {(
                     [
-                      ["quick_repair", "快修"],
-                      ["dropoff_repair", "送修"],
+                      ["quick_repair", t("orders.quickRepair")],
+                      ["dropoff_repair", t("orders.dropoffRepair")],
                     ] as const
                   ).map(([value, label]) => {
                     const active = filters.types?.includes(value) ?? false;
@@ -1316,13 +1343,13 @@ export function OrderListScreen() {
                 </div>
               </fieldset>
               <fieldset className="space-y-2">
-                <legend className="text-sm font-semibold">付款状态</legend>
+                <legend className="text-sm font-semibold">{t("orders.paymentFilter")}</legend>
                 <div className="grid grid-cols-3 gap-2">
                   {(
                     [
-                      [undefined, "全部"],
-                      ["unpaid", "待收款"],
-                      ["paid", "已结清"],
+                      [undefined, t("orders.unlimited")],
+                      ["unpaid", t("orders.paymentDue")],
+                      ["paid", t("orders.paid")],
                     ] as const
                   ).map(([value, label]) => {
                     const active = (filters.paid ?? undefined) === value;
@@ -1342,13 +1369,13 @@ export function OrderListScreen() {
                 </div>
               </fieldset>
               <fieldset className="space-y-2">
-                <legend className="text-sm font-semibold">需要优先处理</legend>
-                <div className="grid grid-cols-3 gap-2">
+                <legend className="text-sm font-semibold">{t("orders.priorityNeeded")}</legend>
+                <div className="grid grid-cols-2 gap-2">
                   {(
                     [
-                      [undefined, "不限"],
-                      ["approval", "报价超期"],
-                      ["pickup", "取机超期"],
+                      [undefined, t("orders.unlimited")],
+                      ["approval", t("orders.approvalOverdue")],
+                      ["pickup", t("orders.pickupOverdue")],
                     ] as const
                   ).map(([value, label]) => {
                     const active = (filters.overdue ?? undefined) === value;
@@ -1369,7 +1396,7 @@ export function OrderListScreen() {
               </fieldset>
               {options.technicians.length ? (
                 <fieldset className="space-y-2">
-                  <legend className="text-sm font-semibold">负责人</legend>
+                  <legend className="text-sm font-semibold">{t("dashboard.assignee")}</legend>
                   <div className="flex flex-wrap gap-2">
                     {options.technicians.map((technician) => {
                       const active = filters.technicians?.includes(technician) ?? false;
@@ -1398,10 +1425,10 @@ export function OrderListScreen() {
                   className="h-9"
                   onClick={clearMobileHiddenFilters}
                 >
-                  清除高级筛选
+                  {t("orders.clearAdvancedFilters")}
                 </Button>
                 <Button type="button" className="h-10" onClick={() => setMobileFiltersOpen(false)}>
-                  查看结果
+                  {t("orders.viewResults")}
                 </Button>
               </div>
             </div>
@@ -1411,9 +1438,11 @@ export function OrderListScreen() {
 
       <OrderListTransitionFeedback
         pendingLabel={activePendingListIntent?.label}
-        offlineMessage={!isOnline ? "当前离线，显示最近数据。" : undefined}
+        offlineMessage={!isOnline ? t("orders.offlineCached") : undefined}
         errorMessage={
-          failedListIntent ? `加载${failedListIntent.label}失败，已恢复上一次成功队列。` : undefined
+          failedListIntent
+            ? t("orders.transitionFailedRollback", { label: failedListIntent.label })
+            : undefined
         }
         backgroundRefreshing={backgroundRefreshing}
         onRetry={retryFailedListIntent}
@@ -1443,7 +1472,9 @@ export function OrderListScreen() {
       {viewportMode === "compact" && mobileHiddenFilterCount > 0 ? (
         <div className="mb-2 flex items-center gap-2 rounded-lg border border-border/60 bg-surface/70 px-3 py-2 text-xs text-muted-foreground">
           <Filter className="size-3.5 shrink-0" aria-hidden="true" />
-          <span className="min-w-0 flex-1">已应用 {mobileHiddenFilterCount} 项高级筛选</span>
+          <span className="min-w-0 flex-1">
+            {t("orders.appliedAdvancedFilters", { count: mobileHiddenFilterCount })}
+          </span>
           <Button
             type="button"
             disabled={!isOnline}
@@ -1452,7 +1483,7 @@ export function OrderListScreen() {
             className="h-7 px-2 text-xs text-primary"
             onClick={clearMobileHiddenFilters}
           >
-            清除
+            {t("orders.clearAllFilters")}
           </Button>
         </div>
       ) : null}
@@ -1519,8 +1550,8 @@ export function OrderListScreen() {
                     disabled={!isOnline}
                     onClick={searchInput.clearSearch}
                     className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                    aria-label="清除搜索"
-                    title="清除搜索"
+                    aria-label={t("orders.clearSearch")}
+                    title={t("orders.clearSearch")}
                   >
                     <X className="size-3.5" />
                   </button>
@@ -1531,6 +1562,8 @@ export function OrderListScreen() {
               disabled={!isOnline}
               size="sm"
               showLabel
+              ariaLabel={t("orders.scanOrderQr")}
+              label={t("orders.scanOrderQrShort")}
               className="h-9 gap-1.5 border-border/60 bg-surface/60 backdrop-blur"
               iconClassName="size-3.5"
             />
@@ -1542,7 +1575,7 @@ export function OrderListScreen() {
               style={brandGradientStyle}
               onClick={openNewOrder}
             >
-              <Plus className="size-3.5" /> 新建工单
+              <Plus className="size-3.5" /> {t("orders.new")}
             </Button>
           </div>
           {isOnline && !listTransitionPending && !failedListIntent ? (
@@ -1567,14 +1600,14 @@ export function OrderListScreen() {
               <AlertTriangle className="size-3.5 shrink-0" />
               <span className="min-w-0 flex-1">
                 {workflowIsError
-                  ? `状态流未加载，正在使用默认状态。${workflowErrorMessage}`
-                  : `筛选选项未加载。${optionsErrorMessage}`}
+                  ? t("orders.workflowFallback", { message: workflowErrorMessage })
+                  : t("orders.optionsFallback", { message: optionsErrorMessage })}
               </span>
             </div>
           )}
           {activeFilterChips.length > 0 && (
             <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-              <span className="text-xs text-muted-foreground">当前筛选</span>
+              <span className="text-xs text-muted-foreground">{t("orders.currentFilters")}</span>
               {activeFilterChips.map((chip) => (
                 <button
                   key={chip.key}
@@ -1582,7 +1615,7 @@ export function OrderListScreen() {
                   disabled={!isOnline}
                   onClick={() => removeFilterChip(chip.key)}
                   className="inline-flex h-7 max-w-full items-center gap-1 rounded-md border border-border/60 bg-surface/70 px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                  title="点击移除此筛选"
+                  title={t("orders.removeFilter")}
                 >
                   <span className="truncate">{chip.label}</span>
                   <X className="size-3 shrink-0" />
@@ -1595,7 +1628,7 @@ export function OrderListScreen() {
                 className="h-7 px-2 text-xs"
                 onClick={clearAllFilters}
               >
-                清除全部
+                {t("orders.clearAllFilters")}
               </Button>
             </div>
           )}
@@ -1608,7 +1641,7 @@ export function OrderListScreen() {
           className="mb-2 flex min-w-0 items-center gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground"
         >
           <AlertTriangle className="size-3.5 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">工单刷新失败，正在显示上次数据。</span>
+          <span className="min-w-0 flex-1 truncate">{t("orders.refreshFailedCached")}</span>
           <Button
             type="button"
             variant="ghost"
@@ -1616,7 +1649,7 @@ export function OrderListScreen() {
             className="h-7 shrink-0 px-2 text-xs"
             onClick={() => refreshOrderData()}
           >
-            重试
+            {t("orders.retry")}
           </Button>
         </div>
       ) : null}
@@ -1654,16 +1687,14 @@ export function OrderListScreen() {
               >
                 <div className="mb-2 flex min-w-0 items-center justify-between gap-2 px-1">
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold">维修工单</div>
+                    <div className="text-sm font-semibold">{t("orders.desktopTitle")}</div>
                     <div className="text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-                      {canUseBulkActions
-                        ? "点击查看详情，勾选后可执行批量操作。"
-                        : "点击任意工单查看详情。"}
+                      {canUseBulkActions ? t("orders.desktopHintBulk") : t("orders.desktopHint")}
                     </div>
                   </div>
                   {canUseBulkActions ? (
                     <span className="text-xs text-muted-foreground">
-                      选中 <span className="text-foreground">{selected.length}</span>
+                      {t("orders.selectedCount", { count: selected.length })}
                     </span>
                   ) : null}
                 </div>
@@ -1679,15 +1710,15 @@ export function OrderListScreen() {
                         <Checkbox
                           checked={allSelected}
                           onCheckedChange={(v) => setSelected(v ? data.map((o) => o.id) : [])}
-                          aria-label="选择当前页全部工单"
+                          aria-label={t("orders.selectPage")}
                         />
                       ) : null}
                     </label>
-                    <div className="min-w-0 px-2 py-1.5">阶段 / 下一步</div>
-                    <div className="min-w-0 px-2 py-1.5">客户</div>
-                    <div className="min-w-0 px-2 py-1.5">设备 / 故障</div>
-                    <div className="px-2 py-1.5 text-right">金额 / 风险</div>
-                    <div className="px-2 py-1.5">负责人 / 时间</div>
+                    <div className="min-w-0 px-2 py-1.5">{t("orders.headerStage")}</div>
+                    <div className="min-w-0 px-2 py-1.5">{t("orders.headerCustomer")}</div>
+                    <div className="min-w-0 px-2 py-1.5">{t("orders.headerDevice")}</div>
+                    <div className="px-2 py-1.5 text-right">{t("orders.headerAmountRisk")}</div>
+                    <div className="px-2 py-1.5">{t("orders.headerAssigneeTime")}</div>
                     <div className="px-2 py-1.5 text-right">{data.length}</div>
                   </div>
                   <div className="space-y-3">
@@ -1706,7 +1737,9 @@ export function OrderListScreen() {
                         />
                         <motion.div
                           role="list"
-                          aria-label={`${orderResultGroupMeta[section.group].label}工单分组`}
+                          aria-label={t("orders.groupAria", {
+                            label: localizeOrderResultGroup(section.group, t).label,
+                          })}
                           variants={stagger(0.025)}
                           initial="hidden"
                           animate="show"
@@ -1817,23 +1850,23 @@ export function OrderListScreen() {
                 <X className="size-4" />
               </Button>
               <span className="text-sm font-medium">
-                已选 <span className="gradient-text font-semibold">{selected.length}</span> 条
+                {t("orders.bulkSelected", { count: selected.length })}
               </span>
               <Separator orientation="vertical" className="h-5" />
               {canBatchTransitionOrders ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button size="sm" variant="outline" disabled={!bulkTargets.length}>
-                      批量流转状态
+                      {t("orders.bulkTransition")}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
                     <DropdownMenuLabel>
                       {bulkTargets.length
-                        ? "可用目标状态"
+                        ? t("orders.bulkAvailable")
                         : hasReasonRequiredBulkTargets
-                          ? "需记录原因的状态请在详情处理"
-                          : "所选工单状态不一致，无共同流转目标"}
+                          ? t("orders.bulkReasonRequired")
+                          : t("orders.bulkInconsistent")}
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {bulkTargets.map((s) => (
@@ -1841,7 +1874,7 @@ export function OrderListScreen() {
                         key={s}
                         onClick={() => bulk.mutate({ ids: selected, to: s })}
                       >
-                        {getWorkflowStatusLabel(workflow, s)}
+                        {localizeWorkflowStatusLabel(workflow, s, t)}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
@@ -1859,11 +1892,11 @@ export function OrderListScreen() {
                       requestPrintRows(data.filter((order) => selected.includes(order.id)))
                     }
                   >
-                    <Printer className="size-3.5" /> 打印
+                    <Printer className="size-3.5" /> {t("orders.print")}
                   </Button>
                   {singlePrintDisabledReason && selected[0] ? (
                     <Button size="sm" variant="ghost" onClick={() => openDetail(selected[0])}>
-                      查看打印设置
+                      {t("orders.printSettings")}
                     </Button>
                   ) : null}
                 </>
@@ -1907,8 +1940,8 @@ export function OrderListScreen() {
           className={componentOverlay.orderDetailWorkspace}
         >
           <DialogHeader className="sr-only">
-            <DialogTitle>工单详情</DialogTitle>
-            <DialogDescription>在弹窗中查看和处理当前工单详情。</DialogDescription>
+            <DialogTitle>{t("orders.detailDialogTitle")}</DialogTitle>
+            <DialogDescription>{t("orders.detailDialogDescription")}</DialogDescription>
           </DialogHeader>
           {detailOrderId && (
             <Suspense
@@ -1933,6 +1966,7 @@ export function OrderListScreen() {
 }
 
 function OrderListViewportPending() {
+  const { t } = useLocale();
   return (
     <div
       data-ui="order-list-viewport-pending"
@@ -1940,7 +1974,7 @@ function OrderListViewportPending() {
       aria-busy="true"
     >
       <span className="sr-only" role="status" aria-live="polite">
-        正在准备维修工单布局
+        {t("orders.viewportPreparing")}
       </span>
       <div aria-hidden="true" className="space-y-2">
         <Skeleton className="h-10 w-full rounded-xl" />

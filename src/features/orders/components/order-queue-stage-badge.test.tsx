@@ -2,10 +2,17 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { OrderQueueStageBadge } from "./order-queue-stage-badge";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
 
 afterEach(cleanup);
 
 describe("OrderQueueStageBadge", () => {
+  it("keeps the processing stage baseline in Chinese", () => {
+    render(<OrderQueueStageBadge order={{ status: "repairing", workflow_status: "repair" }} />);
+
+    expect(screen.getByText("正在处理")).toBeInTheDocument();
+  });
+
   it.each([
     [{ status: "parts_ordered", workflow_status: "parts" }, "等待配件", "ordered"],
     [
@@ -39,6 +46,20 @@ describe("OrderQueueStageBadge", () => {
 
     expect(screen.getByText(label)).toBeInTheDocument();
     expect(container.querySelector(`[data-order-queue-stage="${key}"]`)).toBeInTheDocument();
+  });
+
+  it.each([
+    ["it-IT", "In lavorazione"],
+    ["en", "In progress"],
+  ] as const)("localizes processing stage in %s", (locale, label) => {
+    render(
+      <LocaleProvider initialLocale={locale}>
+        <OrderQueueStageBadge order={{ status: "repairing", workflow_status: "repair" }} />
+      </LocaleProvider>,
+    );
+
+    expect(screen.getByText(label)).toBeInTheDocument();
+    expect(screen.queryByText("正在处理")).not.toBeInTheDocument();
   });
 
   it.each([

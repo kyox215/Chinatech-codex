@@ -12,20 +12,21 @@ import { cn } from "@/lib/utils";
 import { createNewOrderSessionId } from "@/features/orders/model/new-order-intent";
 import { buildNewOrderWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
 import { ScanSearchSheet } from "@/features/capture";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 const quickStartActions = [
   {
     id: "new-order",
-    label: "快速接单",
-    description: "客户维修 · 新建工单",
+    label: "dashboard.quickOrder",
+    description: "dashboard.quickOrderDescription",
     href: buildNewOrderWorkspaceHref({ source: "dashboard" }),
     icon: ClipboardPlus,
     primary: true,
   },
   {
     id: "buyback-quote",
-    label: "快速回收报价",
-    description: "iPhone 旧机估价",
+    label: "dashboard.quickBuyback",
+    description: "dashboard.quickBuybackDescription",
     href: "/buyback?new=1",
     icon: Recycle,
     primary: false,
@@ -40,6 +41,7 @@ const quickStartActions = [
 }>;
 
 export function DashboardDesktopQuickStart({ onCreateOrder }: { onCreateOrder?: () => void }) {
+  const { t } = useLocale();
   const router = useRouter();
   const startNewOrder = (event: MouseEvent<HTMLAnchorElement>) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
@@ -80,10 +82,10 @@ export function DashboardDesktopQuickStart({ onCreateOrder }: { onCreateOrder?: 
             href={action.href}
             onClick={action.id === "new-order" ? startNewOrder : undefined}
             data-dashboard-quick-start={action.id}
-            aria-label={`${action.label}，${action.description}`}
+            aria-label={`${action.id === "new-order" ? t("dashboard.quickOrder") : t("dashboard.quickBuyback")}，${action.id === "new-order" ? t("dashboard.quickOrderDescription") : t("dashboard.quickBuybackDescription")}`}
           >
             <action.icon className="size-3.5" aria-hidden />
-            {action.label}
+            {action.id === "new-order" ? t("dashboard.quickOrder") : t("dashboard.quickBuyback")}
           </Link>
         </Button>
       ))}
@@ -92,6 +94,7 @@ export function DashboardDesktopQuickStart({ onCreateOrder }: { onCreateOrder?: 
 }
 
 export function DashboardMobileQuickStart({ onCreateOrder }: { onCreateOrder?: () => void }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [scannerOpen, setScannerOpen] = useState(false);
   const startNewOrder = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -115,7 +118,10 @@ export function DashboardMobileQuickStart({ onCreateOrder }: { onCreateOrder?: (
       data-ui="dashboard-quick-start-mobile"
       className={cn(repairOs.adminSection, "p-2 md:hidden")}
     >
-      <RepairOsSectionHeader title="快速开始" description="选择要办理的业务" />
+      <RepairOsSectionHeader
+        title={t("dashboard.quickStart")}
+        description={t("dashboard.chooseBusiness")}
+      />
       <div className={repairOs.dashboardMobileQuickGrid}>
         {quickStartActions.slice(0, 1).map((action) => (
           <Link
@@ -123,7 +129,7 @@ export function DashboardMobileQuickStart({ onCreateOrder }: { onCreateOrder?: (
             href={action.href}
             onClick={action.id === "new-order" ? startNewOrder : undefined}
             data-dashboard-quick-start={action.id}
-            aria-label={`${action.label}，${action.description}`}
+            aria-label={`${t("dashboard.quickOrder")}，${t("dashboard.quickOrderDescription")}`}
             className={repairOs.dashboardMobileQuickAction}
           >
             <RepairOsBusinessCard
@@ -148,7 +154,7 @@ export function DashboardMobileQuickStart({ onCreateOrder }: { onCreateOrder?: (
                 <action.icon className="size-3.5" aria-hidden />
               </span>
               <span className="block whitespace-nowrap text-[11px] font-semibold leading-4 min-[360px]:text-xs lg:text-xs lg:leading-4">
-                {action.label}
+                {t("dashboard.quickOrder")}
               </span>
               <span
                 className={cn(
@@ -156,7 +162,9 @@ export function DashboardMobileQuickStart({ onCreateOrder }: { onCreateOrder?: (
                   action.primary ? "text-primary-foreground/80" : "text-muted-foreground",
                 )}
               >
-                {action.description}
+                {action.id === "new-order"
+                  ? t("dashboard.quickOrderDescription")
+                  : t("dashboard.quickBuybackDescription")}
               </span>
             </RepairOsBusinessCard>
           </Link>
@@ -165,7 +173,7 @@ export function DashboardMobileQuickStart({ onCreateOrder }: { onCreateOrder?: (
         <button
           type="button"
           data-dashboard-quick-start="scan-order"
-          aria-label="扫码查单，扫描工单二维码或输入订单信息"
+          aria-label={`${t("dashboard.scanOrder")}，${t("dashboard.scanOrderDescription")}`}
           onClick={() => setScannerOpen(true)}
           className={repairOs.dashboardMobileQuickAction}
         >
@@ -178,10 +186,10 @@ export function DashboardMobileQuickStart({ onCreateOrder }: { onCreateOrder?: (
               <ScanLine className="size-3.5" aria-hidden />
             </span>
             <span className="block whitespace-nowrap text-[11px] font-semibold leading-4 min-[360px]:text-xs lg:text-xs lg:leading-4">
-              扫码查单
+              {t("dashboard.scanOrder")}
             </span>
             <span className="mt-0.5 hidden truncate text-[10px] leading-3.5 text-muted-foreground min-[400px]:block lg:text-[11px] lg:leading-4">
-              二维码 · IMEI
+              {t("dashboard.scanOrderShort")}
             </span>
           </RepairOsBusinessCard>
         </button>
@@ -191,7 +199,7 @@ export function DashboardMobileQuickStart({ onCreateOrder }: { onCreateOrder?: (
             key={action.id}
             href={action.href}
             data-dashboard-quick-start={action.id}
-            aria-label={`${action.label}，${action.description}`}
+            aria-label={`${t("dashboard.quickBuyback")}，${t("dashboard.quickBuybackDescription")}`}
             className={repairOs.dashboardMobileQuickAction}
           >
             <RepairOsBusinessCard
@@ -203,10 +211,10 @@ export function DashboardMobileQuickStart({ onCreateOrder }: { onCreateOrder?: (
                 <action.icon className="size-3.5" aria-hidden />
               </span>
               <span className="block whitespace-nowrap text-[11px] font-semibold leading-4 min-[360px]:text-xs lg:text-xs lg:leading-4">
-                回收估价
+                {t("dashboard.buybackShort")}
               </span>
               <span className="mt-0.5 hidden truncate text-[10px] leading-3.5 text-muted-foreground min-[400px]:block lg:text-[11px] lg:leading-4">
-                iPhone 旧机
+                {t("dashboard.buybackDescription")}
               </span>
             </RepairOsBusinessCard>
           </Link>

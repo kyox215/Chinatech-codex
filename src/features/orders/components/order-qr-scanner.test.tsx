@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { CapturePayload } from "@/features/capture/model/barcode-parser";
 import { OrderQrScannerButton, OrderQrScannerSheet } from "./order-qr-scanner";
+import { OrdersErrorState } from "./order-list-states";
 
 const scannerProps = vi.hoisted(() => ({ current: null as Record<string, unknown> | null }));
 
@@ -56,5 +57,17 @@ describe("OrderQrScannerSheet", () => {
     onOpenChange?.(false);
     await waitFor(() => expect(scannerProps.current?.open).toBe(false));
     expect(scannerProps.current).not.toBeNull();
+  });
+
+  it("supports localized trigger aria and visible labels", () => {
+    render(<OrderQrScannerButton showLabel ariaLabel="Scan order QR code" label="Scan QR" />);
+
+    expect(screen.getByRole("button", { name: "Scan order QR code" })).toHaveTextContent("Scan QR");
+  });
+
+  it("exposes the safe list error state to assistive technology", () => {
+    render(<OrdersErrorState message="Orders could not be loaded." onRetry={vi.fn()} />);
+
+    expect(screen.getByRole("alert")).toHaveAttribute("data-ui", "order-list-error-state");
   });
 });
