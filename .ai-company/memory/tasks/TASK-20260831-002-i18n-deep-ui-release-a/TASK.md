@@ -2,14 +2,14 @@
 schema_version: 1
 task_id: "TASK-20260831-002-i18n-deep-ui-release-a"
 title: "深层员工界面中意英未翻译审计与 Release A"
-status: "active"
+status: "completed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "Hexiang Huang / 鹤祥"
 departments: ["Documentation", "Frontend", "Product", "QA", "Release", "Security", "UX"]
 created_at: "2026-08-31T15:45:25Z"
-updated_at: "2026-08-31T19:36:57Z"
+updated_at: "2026-08-31T19:46:04Z"
 ---
 # Task — 深层员工界面中意英未翻译审计与 Release A
 
@@ -59,7 +59,7 @@ updated_at: "2026-08-31T19:36:57Z"
 - [x] Loading、empty、搜索无结果、首次失败、后台刷新失败、离线有/无缓存、权限受限、批量成功/部分失败均有自动化或受控 mock 证据。
 - [x] `390 / 768 / 1440` 无横向溢出；Chromium/WebKit 目标 E2E 通过并保存至少意大利语桌面、英语移动、中文中尺寸三张截图。
 - [x] lint、typecheck、全量 test、build、diff 检查及独立 QA/安全/架构复核通过。
-- [ ] 最终提交 SHA = `origin/main` SHA = Vercel 部署 Git SHA；正式别名 2xx、READY、错误日志和回滚锚点已验证。
+- [x] 最终应用提交 SHA = `origin/main` SHA = Vercel 部署 Git SHA；正式别名 2xx、READY、错误日志和回滚锚点已验证。关闭证据提交仅含任务记忆，并在 Registry/Goal 关闭前单独复核其 Git deployment。
 
 ## Facts, assumptions, and unknowns
 
@@ -86,7 +86,7 @@ updated_at: "2026-08-31T19:36:57Z"
 - WP-3 complete: one bounded cross-question pass; both reviewers converged on Dashboard + Orders Queue.
 - WP-4 complete: single Luna writer — report, catalog, frozen application allowlist and focused tests.
 - WP-5 complete: independent QA, security and fresh current-candidate architecture/UX reviews plus full local/browser gates passed; stable no-dev-overlay screenshot evidence was refreshed after dual-engine 10/10 reruns.
-- WP-6 pending: Integration Lead commit, push, Vercel deploy, observability, docs/memory closeout.
+- WP-6 complete: Integration Lead committed and non-force pushed the reviewed application candidate; the existing Vercel Git integration deployed the exact SHA to READY production aliases; HTTP, auth redirect, runtime error log and rollback checks passed; closeout memory is synchronized.
 
 ## Definition of done
 
@@ -95,3 +95,11 @@ updated_at: "2026-08-31T19:36:57Z"
 - Documentation and formal memory are synchronized.
 - Residual risks have owners and deadlines.
 - Registry run/task and Goal are closed only after remote/deployment evidence is recorded.
+
+## Closure
+
+- Application commit: `cb13b7125fad9ab7c507f6a15f5a46f259a4780f`.
+- Production deployment: `dpl_8MT1dcNE2TD3qQYZ8uS49NzxRoDv` (`READY`).
+- Production URL: `https://www.chinatech.in`.
+- Rollback anchor: `dpl_3RdXnkLLsoH1S8hJZZT1GGGBGvkf` at `fdeb7b13e8c9757911bd4e21f37c34497ed6941e`.
+- The final closeout commit contains task memory only. Its automatic Git deployment must be observed at the exact final SHA before Registry and Goal closure; no further source or evidence-file edit is required after that external verification.

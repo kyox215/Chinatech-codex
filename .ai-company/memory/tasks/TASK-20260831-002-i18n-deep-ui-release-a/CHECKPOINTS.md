@@ -94,3 +94,12 @@
 - **Decision:** the architecture/UX visual-evidence MINOR is closed. The remaining scanner Sheet body item is intentionally scheduled for Release B and is not a Release A defect.
 - **Risk:** no production, business mutation or customer data was used. Local ports 3137/3138 were confirmed closed after the runs.
 - **Next:** stage the exact candidate, fetch and verify remote freshness, commit, non-force push, then observe the existing Vercel Git deployment.
+
+## 2026-08-31T19:46:04Z — Release A application deployment verified
+
+- **Phase:** closeout
+- **Completed:** created application commit `cb13b7125fad9ab7c507f6a15f5a46f259a4780f`, performed a fresh remote check, pushed `main` without force, and observed the existing Vercel Git production deployment `dpl_8MT1dcNE2TD3qQYZ8uS49NzxRoDv` reach READY at the same Git SHA.
+- **Evidence:** both production aliases point to the deployment; public smoke checks resolve `/`, `/orders`, `/login`, `/r` and `/kiosk` to 200 after expected auth redirects; direct unauthenticated `/orders` remains 307 to `/login?next=%2Forders`; the deployment returned no error-level runtime logs.
+- **Decision:** the primary rollback anchor is the freshly observed pre-release deployment `dpl_3RdXnkLLsoH1S8hJZZT1GGGBGvkf` at `fdeb7b13...`, not an older historical deployment.
+- **Risk:** no production credentials were used, so the authenticated employee UI was not exercised against real customer data. The equivalent full flow was proven in the controlled dual-engine mock matrix and stable screenshots.
+- **Next:** commit/push this memory-only closeout, verify its automatic production Git deployment matches the final SHA, then close Registry and Goal without another repository edit.

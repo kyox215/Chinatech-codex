@@ -21,3 +21,10 @@
 
 Each candidate must include source, status, owner, scope, and review trigger
 before long-term consolidation.
+
+## Closeout consolidation
+
+- **Accepted project fact:** repository-wide Han candidates are an inventory signal, not a defect count; the frozen Release A removed 240 direct occurrences and leaves 5,599 / 4,088 for reachability/ownership classification. Owner: Documentation + Frontend. Review trigger: audit or route reachability changes.
+- **Accepted engineering rule:** fixed system copy imported from model/config requires a display-only adapter keyed by stable code or exact known system value; unknown/custom and dynamic business data stay verbatim. Owner: Frontend + Product. Review trigger: a new default system value or locale.
+- **Accepted QA/security rule:** localization E2E stays loopback-only, denies RepairDesk writes except semantically reviewed read-only POST endpoints, and covers both Chromium and WebKit. Owner: QA + Security. Review trigger: allowlist or browser harness changes.
+- **Accepted release boundary:** scanner Sheet bodies, New Order, Order Detail, other domains and customer/print/legal output require independent Release B+ contracts. Owner: Product + UX + Security. Review trigger: the next localization task is opened.
