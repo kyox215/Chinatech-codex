@@ -39,6 +39,9 @@ test("desktop sidebar lines and collapsed icon size stay stable", async ({ page 
   const sidebarHeader = page.locator('[data-sidebar="header"]').first();
   await expect(topbar).toBeVisible();
   await expect(sidebarHeader).toBeVisible();
+  const languageTrigger = topbar.locator('[data-language-switcher-trigger="true"]');
+  await expect(languageTrigger).toHaveCSS("width", "44px");
+  await expect(languageTrigger).toHaveCSS("height", "44px");
   const topbarBox = await topbar.boundingBox();
   const sidebarHeaderBox = await sidebarHeader.boundingBox();
   expect(topbarBox).not.toBeNull();

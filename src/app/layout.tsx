@@ -6,6 +6,8 @@ import {
   repairDeskCriticalStyleGuard,
   repairDeskStyleRecoveryBootstrap,
 } from "@/shared/lib/app-style-recovery";
+import { translateMessage } from "@/shared/i18n/messages";
+import { getServerLocale } from "@/shared/i18n/server";
 import "@/styles.css";
 
 const repairDeskSans = Inter({
@@ -73,24 +75,27 @@ const repairDeskShellStyle: React.CSSProperties = {
   display: "none",
 };
 
-export const metadata: Metadata = {
-  title: {
-    default: "RepairDesk — 维修工单后台",
-    template: "%s — RepairDesk",
-  },
-  description: "现代化手机维修接单管理后台",
-  applicationName: "RepairDesk",
-  manifest: "/manifest.webmanifest",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "RepairDesk",
-  },
-  icons: {
-    icon: "/icons/repairdesk-icon.svg",
-    apple: "/icons/repairdesk-icon.svg",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getServerLocale();
+  return {
+    title: {
+      default: translateMessage(locale, "metadata.title"),
+      template: "%s — RepairDesk",
+    },
+    description: translateMessage(locale, "metadata.description"),
+    applicationName: "RepairDesk",
+    manifest: "/manifest.webmanifest",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: "RepairDesk",
+    },
+    icons: {
+      icon: "/icons/repairdesk-icon.svg",
+      apple: "/icons/repairdesk-icon.svg",
+    },
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -98,12 +103,15 @@ export const viewport: Viewport = {
   themeColor: "#ffffff",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getServerLocale();
+
   return (
     <html
-      lang="zh-CN"
+      lang={locale}
       className={`${repairDeskSans.variable} ${repairDeskDisplay.variable} ${repairDeskMono.variable}`}
       data-style-recovery="booting"
+      data-locale={locale}
       suppressHydrationWarning
     >
       <head>
@@ -124,7 +132,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div style={repairDeskFallbackContentStyle}>
             <span aria-hidden="true" style={repairDeskFallbackSpinnerStyle} />
             <span id="repairdesk-style-status" suppressHydrationWarning>
-              正在恢复 RepairDesk…
+              {translateMessage(locale, "recovery.loading")}
             </span>
             <button
               id="repairdesk-style-retry"
@@ -132,12 +140,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               style={repairDeskFallbackRetryStyle}
               suppressHydrationWarning
             >
-              立即重试
+              {translateMessage(locale, "recovery.retry")}
             </button>
           </div>
         </div>
         <div id="repairdesk-styled-shell" style={repairDeskShellStyle}>
-          <Providers>{children}</Providers>
+          <Providers initialLocale={locale}>{children}</Providers>
         </div>
         <script
           id="repairdesk-style-recovery-bootstrap"

@@ -1,10 +1,13 @@
 import type { MetadataRoute } from "next";
+import { getServerLocale } from "@/shared/i18n/server";
+import { translateMessage } from "@/shared/i18n/messages";
 
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const locale = await getServerLocale();
   return {
     name: "RepairDesk",
     short_name: "RepairDesk",
-    description: "手机维修、客户、库存和消息工作台",
+    description: translateMessage(locale, "manifest.description"),
     start_url: "/orders",
     scope: "/",
     display: "standalone",

@@ -18,6 +18,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { appShell } from "@/lib/ui-patterns";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
@@ -181,6 +182,7 @@ const Sidebar = React.forwardRef<
     ref,
   ) => {
     const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+    const { t } = useLocale();
 
     if (collapsible === "none") {
       return (
@@ -214,8 +216,8 @@ const Sidebar = React.forwardRef<
             side={side}
           >
             <SheetHeader className="sr-only">
-              <SheetTitle>导航菜单</SheetTitle>
-              <SheetDescription>打开工作区导航。</SheetDescription>
+              <SheetTitle>{t("shell.navigationMenu")}</SheetTitle>
+              <SheetDescription>{t("shell.navigationMenuDescription")}</SheetDescription>
             </SheetHeader>
             <div className="flex h-full w-full flex-col">{children}</div>
           </SheetContent>
@@ -275,7 +277,12 @@ const SidebarTrigger = React.forwardRef<
   React.ComponentProps<typeof Button>
 >(({ className, onClick, title, "aria-label": ariaLabel, ...props }, ref) => {
   const { toggleSidebar, isMobile, state } = useSidebar();
-  const label = isMobile ? "打开导航菜单" : state === "collapsed" ? "展开侧边栏" : "折叠侧边栏";
+  const { t } = useLocale();
+  const label = isMobile
+    ? t("shell.openNavigation")
+    : state === "collapsed"
+      ? t("shell.expandSidebar")
+      : t("shell.collapseSidebar");
   const Icon = isMobile ? Menu : state === "collapsed" ? PanelLeftOpen : PanelLeftClose;
 
   return (
@@ -303,7 +310,8 @@ SidebarTrigger.displayName = "SidebarTrigger";
 const SidebarRail = React.forwardRef<HTMLButtonElement, React.ComponentProps<"button">>(
   ({ className, title, "aria-label": ariaLabel, ...props }, ref) => {
     const { toggleSidebar, state } = useSidebar();
-    const label = state === "collapsed" ? "展开侧边栏" : "折叠侧边栏";
+    const { t } = useLocale();
+    const label = state === "collapsed" ? t("shell.expandSidebar") : t("shell.collapseSidebar");
 
     return (
       <button

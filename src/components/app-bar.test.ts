@@ -46,7 +46,7 @@ describe("AppBar responsive route contract", () => {
 
     expect(appBarSource).not.toContain('aria-label="打开全局搜索"');
     expect(sidebarSource).toContain("WorkspaceBrandSearch");
-    expect(workspaceBrandSource.match(/aria-label="打开全局搜索"/g)).toHaveLength(1);
+    expect(workspaceBrandSource).toContain('aria-label={t("shell.openSearch")}');
     expect(sidebarSource).toContain("onOpenCommand");
     expect(workspaceBrandSource).toContain("group-data-[collapsible=icon]:hidden");
     expect(workspaceBrandSource).toContain("ml-auto flex size-11");

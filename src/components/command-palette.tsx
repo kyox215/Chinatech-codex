@@ -25,6 +25,8 @@ import {
   buildNewOrderWorkspaceHref,
   buildOrderDetailWorkspaceHref,
 } from "@/features/orders/model/order-workspace-intent";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { localizeNavItem, localizeShellAction } from "@/shared/i18n/navigation";
 
 export function CommandPalette({
   open,
@@ -35,6 +37,7 @@ export function CommandPalette({
   onOpenChange: (v: boolean) => void;
   onOpenScanner: () => void;
 }) {
+  const { t } = useLocale();
   const router = useRouter();
   const { runGuardedTransition } = useNavigationGuard();
   const shell = useStoreShellContext();
@@ -63,7 +66,7 @@ export function CommandPalette({
     onOpenChange(false);
     const outcome = await runGuardedTransition({
       kind: "route",
-      label: "打开工单",
+      label: t("shell.openOrder"),
       run: () => router.push(buildOrderDetailWorkspaceHref(id, { source: "command" })),
     });
     if (outcome.status === "ignored" || outcome.status === "failed") onOpenChange(true);
@@ -77,17 +80,19 @@ export function CommandPalette({
     onOpenChange(false);
     onOpenScanner();
   };
-  const navigationItems = getWorkspaceNavItems(shell.isPlatformAdmin).filter((item) =>
-    canShowWorkspaceNavItem(item, shell.permissions),
+  const navigationItems = getWorkspaceNavItems(shell.isPlatformAdmin)
+    .filter((item) => canShowWorkspaceNavItem(item, shell.permissions))
+    .map((item) => localizeNavItem(item, t));
+  const shellActions = getShellCommandActions(shell.permissions, shell.activeStore?.role).map(
+    (action) => localizeShellAction(action, t),
   );
-  const shellActions = getShellCommandActions(shell.permissions, shell.activeStore?.role);
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <CommandInput placeholder="输入命令、搜索工单或客户…" />
+      <CommandInput placeholder={t("shell.commandPlaceholder")} />
       <CommandList>
-        <CommandEmpty>没有匹配项。</CommandEmpty>
-        <CommandGroup heading="跳转">
+        <CommandEmpty>{t("shell.noCommandMatches")}</CommandEmpty>
+        <CommandGroup heading={t("shell.commandNavigate")}>
           {navigationItems.map((item) => (
             <CommandItem
               key={item.id}
@@ -101,7 +106,7 @@ export function CommandPalette({
           ))}
         </CommandGroup>
         <CommandSeparator />
-        <CommandGroup heading="快捷动作">
+        <CommandGroup heading={t("shell.commandQuickActions")}>
           {shellActions.map((action) => (
             <CommandItem
               key={action.id}
@@ -116,14 +121,14 @@ export function CommandPalette({
               value="已关闭与删除 恢复店铺 永久删除 closed restore delete purge"
               onSelect={() => void go("/settings/closed-stores")}
             >
-              <Wrench className="mr-2 size-4" /> 已关闭与删除
+              <Wrench className="mr-2 size-4" /> {t("shell.closedStores")}
             </CommandItem>
           ) : null}
         </CommandGroup>
         {data.length > 0 && (
           <>
             <CommandSeparator />
-            <CommandGroup heading="最近工单">
+            <CommandGroup heading={t("shell.commandRecentOrders")}>
               {data.slice(0, 8).map((o) => (
                 <CommandItem
                   key={o.id}
@@ -142,12 +147,12 @@ export function CommandPalette({
           </>
         )}
         <CommandSeparator />
-        <CommandGroup heading="动作">
+        <CommandGroup heading={t("shell.commandActions")}>
           <CommandItem value="扫码查询 scan qr barcode imei inventory order" onSelect={openScanner}>
-            <ScanLine className="mr-2 size-4" /> 扫码查询
+            <ScanLine className="mr-2 size-4" /> {t("shell.scanSearch")}
           </CommandItem>
           <CommandItem onSelect={toggleTheme}>
-            <Sun className="mr-2 size-4" /> 切换主题
+            <Sun className="mr-2 size-4" /> {t("shell.toggleTheme")}
           </CommandItem>
         </CommandGroup>
       </CommandList>

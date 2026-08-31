@@ -40,13 +40,13 @@ test.describe("mobile navigation interaction reliability", () => {
 
       const settingsLink = page.locator('[role="menu"] a[href="/settings"]');
       await expect(settingsLink).toHaveCount(1);
-      await expect(page.locator('[role="menu"] a[href="/account"]')).toHaveCount(0);
+      await expect(page.locator('[role="menu"] a[href="/account"]')).toHaveCount(1);
       await expect(page.locator('[role="menu"] a[href="/platform"]')).toHaveCount(0);
       await expect(settingsLink).toBeVisible();
       await tapCenter(page, settingsLink);
 
       await expect(page).toHaveURL(/\/settings$/);
-      await expect(page.getByRole("heading", { name: "设置总览" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "设置", exact: true })).toBeVisible();
       await expect(page.locator('[data-app-bar-context="true"]')).toHaveText("设置");
       await expect(navigationDialog).toBeHidden();
 
@@ -134,12 +134,9 @@ test.describe("mobile navigation interaction reliability", () => {
 });
 
 async function gotoWithStableStoreShell(page: Page, path: string) {
-  const storeContext = page.waitForResponse(
-    (response) => response.url().includes("/api/repairdesk/stores/context") && response.ok(),
-  );
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  await storeContext;
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
+  await expect(page.locator('[data-app-bar="true"]')).toContainText("Demo Repair Store");
 }
 
 async function tapCenter(page: Page, locator: Locator) {

@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 
 import { InviteRegistrationScreen } from "@/features/auth/screens/invite-registration-screen";
+import { getLocalizedMetadata } from "@/shared/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "完成员工邀请",
-  description: "完成 RepairDesk 员工账号和店铺邀请",
-  robots: { index: false, follow: false },
-  referrer: "no-referrer",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    ...(await getLocalizedMetadata("auth.inviteCompleteTitle")),
+    robots: { index: false, follow: false },
+    referrer: "no-referrer",
+  };
+}
 
 export default async function InviteCompletePage({
   searchParams,

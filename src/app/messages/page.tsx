@@ -1,10 +1,7 @@
-import type { Metadata } from "next";
 import { MessagesScreen } from "@/features/messages/screens/messages-screen";
+import { createLocalizedMetadata } from "@/shared/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "消息模板",
-  description: "客户通知模板与发送记录",
-};
+export const generateMetadata = createLocalizedMetadata("messages.title");
 
 export default function Page() {
   return <MessagesScreen />;

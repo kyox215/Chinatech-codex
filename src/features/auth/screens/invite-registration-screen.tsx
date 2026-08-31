@@ -22,13 +22,15 @@ import {
 } from "@/lib/repairdesk/api";
 import { brandGradientStyle } from "@/lib/ui-patterns";
 import { createClient } from "@/utils/supabase/client";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey } from "@/shared/i18n/messages";
 
-const roleLabels = {
-  manager: "管理员",
-  technician: "维修人员",
-  sales: "前台销售",
-  viewer: "只读人员",
-  owner: "店主",
+const roleLabelKeys: Record<string, MessageKey> = {
+  manager: "role.manager",
+  technician: "role.technician",
+  sales: "role.sales",
+  viewer: "role.viewer",
+  owner: "role.owner",
 } as const;
 
 export function InviteRegistrationScreen({
@@ -38,6 +40,7 @@ export function InviteRegistrationScreen({
   invitationId: string;
   mode: "new" | "existing";
 }) {
+  const { t } = useLocale();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [displayName, setDisplayName] = useState("");
@@ -56,16 +59,16 @@ export function InviteRegistrationScreen({
 
   const completeMutation = useMutation({
     mutationFn: async () => {
-      if (!invitation) throw new Error("邀请不存在、已过期或已失效");
+      if (!invitation) throw new Error(t("invite.missing"));
       if (mode === "new") {
-        if (effectiveName.length < 2) throw new Error("请输入至少 2 个字符的员工姓名");
-        const passwordError = validateNewPassword(password, confirmation);
+        if (effectiveName.length < 2) throw new Error(t("invite.nameTooShort"));
+        const passwordError = validateNewPassword(password, confirmation, t);
         if (passwordError) throw new Error(passwordError);
         const { error } = await createClient().auth.updateUser({
           password,
           data: { display_name: effectiveName },
         });
-        if (error) throw new Error("账号密码设置失败，请重新打开最新邀请邮件后重试");
+        if (error) throw new Error(t("invite.passwordSetupFailed"));
         await updateAccountProfile({ display_name: effectiveName });
       }
       return acceptStoreInvitation({ id: invitation.id });
@@ -75,12 +78,12 @@ export function InviteRegistrationScreen({
         queryClient.invalidateQueries({ queryKey: platformKeys.onboardingStatus }),
         queryClient.invalidateQueries({ queryKey: storesKeys.context }),
       ]);
-      toast.success("员工账号已开通");
+      toast.success(t("invite.accountActivated"));
       router.replace(context.activeStore ? "/" : "/onboarding");
       router.refresh();
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "完成邀请失败");
+      toast.error(error instanceof Error ? error.message : t("invite.completeFailed"));
     },
   });
 
@@ -110,9 +113,9 @@ export function InviteRegistrationScreen({
 
   if (statusQuery.isError || !invitation) {
     return (
-      <InviteShell title="邀请无法继续" icon={<MailCheck className="size-5" />}>
+      <InviteShell title={t("invite.unavailableTitle")} icon={<MailCheck className="size-5" />}>
         <p role="alert" className="text-sm leading-6 text-muted-foreground">
-          邀请不存在、已经过期、已被撤销，或者当前登录账号与受邀邮箱不一致。
+          {t("invite.unavailableDescription")}
         </p>
         <Button
           type="button"
@@ -120,7 +123,7 @@ export function InviteRegistrationScreen({
           className="mt-4 min-h-11 w-full"
           onClick={switchAccount}
         >
-          <LogOut className="size-4" /> 切换登录账号
+          <LogOut className="size-4" /> {t("invite.switchAccount")}
         </Button>
       </InviteShell>
     );
@@ -128,7 +131,9 @@ export function InviteRegistrationScreen({
 
   return (
     <InviteShell
-      title={`加入 ${invitation.store_name ?? "店铺"}`}
+      title={t("invite.joinStore", {
+        store: invitation.store_name ?? t("shell.storeFallback"),
+      })}
       icon={<UserPlus className="size-5" />}
     >
       <div className="rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3">
@@ -139,7 +144,7 @@ export function InviteRegistrationScreen({
               {invitation.store_name ?? "RepairDesk"}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Badge variant="outline">{roleLabels[invitation.role]}</Badge>
+              <Badge variant="outline">{t(roleLabelKeys[invitation.role] ?? "role.viewer")}</Badge>
               <span className="break-all text-xs text-muted-foreground">{invitation.email}</span>
             </div>
           </div>
@@ -149,18 +154,18 @@ export function InviteRegistrationScreen({
       {mode === "new" ? (
         <div className="mt-3 space-y-3 sm:mt-4 sm:space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="invite-display-name">员工姓名</Label>
+            <Label htmlFor="invite-display-name">{t("invite.employeeName")}</Label>
             <Input
               id="invite-display-name"
               className="min-h-11 text-base"
               autoComplete="name"
               value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
-              placeholder={statusQuery.data?.displayName || "请输入姓名"}
+              placeholder={statusQuery.data?.displayName || t("invite.namePlaceholder")}
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="invite-password">设置登录密码</Label>
+            <Label htmlFor="invite-password">{t("invite.setPassword")}</Label>
             <Input
               id="invite-password"
               type="password"
@@ -171,11 +176,11 @@ export function InviteRegistrationScreen({
               aria-describedby="invite-password-help"
             />
             <p id="invite-password-help" className="text-xs leading-5 text-muted-foreground">
-              至少 8 位；以后可以用受邀邮箱和这个密码登录。
+              {t("invite.passwordHelp")}
             </p>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="invite-password-confirmation">再次输入密码</Label>
+            <Label htmlFor="invite-password-confirmation">{t("invite.repeatPassword")}</Label>
             <Input
               id="invite-password-confirmation"
               type="password"
@@ -188,12 +193,12 @@ export function InviteRegistrationScreen({
         </div>
       ) : (
         <p className="mt-4 text-sm leading-6 text-muted-foreground">
-          邮箱验证已完成。确认后系统才会按邀请角色开通当前店铺权限。
+          {t("invite.verifiedDescription")}
         </p>
       )}
 
       <p className="mt-3 text-xs leading-4 text-muted-foreground sm:mt-4 sm:leading-5">
-        加入前不能查看该店铺的订单、客户、库存或财务数据。
+        {t("invite.dataProtection")}
       </p>
       <Button
         type="button"
@@ -209,10 +214,10 @@ export function InviteRegistrationScreen({
           <CheckCircle2 className="size-4" />
         )}
         {completeMutation.isPending
-          ? "正在开通…"
+          ? t("invite.activating")
           : mode === "new"
-            ? "创建账号并加入店铺"
-            : "接受邀请并进入店铺"}
+            ? t("invite.createAndJoin")
+            : t("invite.acceptAndEnter")}
       </Button>
       <Button
         type="button"
@@ -220,7 +225,7 @@ export function InviteRegistrationScreen({
         className="mt-2 min-h-11 w-full"
         onClick={switchAccount}
       >
-        切换登录账号
+        {t("invite.switchAccount")}
       </Button>
     </InviteShell>
   );
@@ -235,6 +240,7 @@ function InviteShell({
   icon: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const { t } = useLocale();
   return (
     <main className="grid min-h-svh place-items-center bg-background px-2 py-3 sm:px-4 sm:py-8">
       <section className="w-full max-w-md rounded-lg border border-border/60 bg-card p-3 shadow-sm sm:p-5">
@@ -243,7 +249,7 @@ function InviteShell({
             {icon}
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-primary">RepairDesk 员工邀请</p>
+            <p className="text-sm font-medium text-primary">{t("invite.eyebrow")}</p>
             <h1 className="break-words font-display text-xl font-semibold sm:text-2xl">{title}</h1>
           </div>
         </div>

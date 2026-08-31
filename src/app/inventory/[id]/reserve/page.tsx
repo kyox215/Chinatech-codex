@@ -1,11 +1,7 @@
-import type { Metadata } from "next";
-
 import { InventoryLifecycleReservationScreen } from "@/features/inventory/lifecycle";
+import { createLocalizedMetadata } from "@/shared/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "新建商品预订",
-  description: "为在售商品登记客户、定金和预计取走时间",
-};
+export const generateMetadata = createLocalizedMetadata("inventory.reserveTitle");
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

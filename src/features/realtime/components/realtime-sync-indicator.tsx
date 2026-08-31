@@ -6,36 +6,38 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 
 import { useRealtimeSync, type RealtimeConnectionState } from "./realtime-sync-context";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey } from "@/shared/i18n/messages";
 
 const stateMeta: Record<
   Exclude<RealtimeConnectionState, "disabled">,
-  { icon: typeof Wifi; label: string; className: string; spin?: boolean }
+  { icon: typeof Wifi; labelKey: MessageKey; className: string; spin?: boolean }
 > = {
   connecting: {
     icon: LoaderCircle,
-    label: "实时连接中",
+    labelKey: "realtime.connecting",
     className: "text-status-info-foreground",
     spin: true,
   },
   live: {
     icon: Wifi,
-    label: "实时同步中",
+    labelKey: "realtime.live",
     className: "text-status-success-foreground",
   },
   reconnecting: {
     icon: RefreshCw,
-    label: "正在恢复同步",
+    labelKey: "realtime.reconnecting",
     className: "text-status-warn-foreground",
     spin: true,
   },
   offline: {
     icon: WifiOff,
-    label: "离线，联网后自动同步",
+    labelKey: "realtime.offline",
     className: "text-muted-foreground",
   },
   synced: {
     icon: CheckCircle2,
-    label: "数据已同步",
+    labelKey: "realtime.synced",
     className: "text-status-success-foreground",
   },
 };
@@ -47,6 +49,7 @@ export function RealtimeSyncIndicator({
   compact?: boolean;
   className?: string;
 }) {
+  const { t } = useLocale();
   const { connectionState } = useRealtimeSync();
   if (connectionState === "disabled") return null;
 
@@ -57,7 +60,7 @@ export function RealtimeSyncIndicator({
       data-realtime-sync-state={connectionState}
       role="status"
       aria-live="polite"
-      aria-label={meta.label}
+      aria-label={t(meta.labelKey)}
       className={cn(
         "inline-flex shrink-0 items-center justify-center",
         compact ? "size-4" : "size-9 rounded-md bg-surface/60",
@@ -75,7 +78,7 @@ export function RealtimeSyncIndicator({
     <TooltipProvider delayDuration={250}>
       <Tooltip>
         <TooltipTrigger asChild>{indicator}</TooltipTrigger>
-        <TooltipContent>{meta.label}</TooltipContent>
+        <TooltipContent>{t(meta.labelKey)}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );

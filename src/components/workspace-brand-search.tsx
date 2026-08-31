@@ -4,6 +4,7 @@ import { Search, Wrench } from "lucide-react";
 
 import { appShell, brandGradientStyle } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function WorkspaceBrandSearch({
   activeStoreName,
@@ -12,6 +13,7 @@ export function WorkspaceBrandSearch({
   activeStoreName: string;
   onOpenCommand: () => void;
 }) {
+  const { t } = useLocale();
   return (
     <div className="flex min-w-0 items-center gap-1">
       <div className={cn(appShell.sidebarBrand, "group-data-[collapsible=icon]:hidden")}>
@@ -32,8 +34,8 @@ export function WorkspaceBrandSearch({
       </div>
       <button
         type="button"
-        aria-label="打开全局搜索"
-        title="打开全局搜索 ⌘K"
+        aria-label={t("shell.openSearch")}
+        title={t("shell.openSearchWithShortcut")}
         onClick={onOpenCommand}
         data-workspace-search-trigger="true"
         className="ml-auto flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 group-data-[collapsible=icon]:mx-auto"

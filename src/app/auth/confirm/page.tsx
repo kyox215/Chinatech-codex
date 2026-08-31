@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
+import { AuthConfirmScreen } from "@/features/auth/screens/auth-confirm-screen";
+import { getLocalizedMetadata } from "@/shared/i18n/metadata";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "确认安全邀请",
-  description: "确认 RepairDesk 一次性邮箱邀请",
-  robots: { index: false, follow: false },
-  referrer: "no-referrer",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    ...(await getLocalizedMetadata("auth.confirmTitle")),
+    robots: { index: false, follow: false },
+    referrer: "no-referrer",
+  };
+}
 
 export default async function AuthConfirmPage({
   searchParams,
@@ -26,39 +27,7 @@ export default async function AuthConfirmPage({
     (type === "invite" || type === "magiclink") &&
     Boolean(next);
 
-  return (
-    <main className="grid min-h-svh place-items-center bg-background px-2 py-3 sm:px-4 sm:py-8">
-      <section className="w-full max-w-md rounded-lg border border-border/60 bg-card p-3 shadow-sm sm:p-5">
-        <h1 className="font-display text-xl font-semibold sm:text-2xl">
-          {valid ? "确认打开员工邀请" : "邀请链接无效"}
-        </h1>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          {valid
-            ? "为了避免邮箱安全扫描器提前使用一次性链接，请由你本人点击下面的按钮继续。"
-            : "该链接不完整、已经失效或不是 RepairDesk 支持的邀请链接。"}
-        </p>
-
-        {valid ? (
-          <form action="/auth/confirm/complete" method="post" className="mt-5">
-            <input type="hidden" name="token_hash" value={tokenHash} />
-            <input type="hidden" name="type" value={type} />
-            <input type="hidden" name="next" value={next} />
-            <Button type="submit" className="min-h-11 w-full">
-              继续验证邮箱
-            </Button>
-          </form>
-        ) : (
-          <Button asChild variant="outline" className="mt-5 min-h-11 w-full">
-            <Link href="/login">返回登录</Link>
-          </Button>
-        )}
-
-        <p className="mt-4 text-xs leading-5 text-muted-foreground">
-          继续后只会验证你的登录邮箱；店铺权限仍需有效邀请并由你明确接受。
-        </p>
-      </section>
-    </main>
-  );
+  return <AuthConfirmScreen valid={valid} tokenHash={tokenHash} type={type} next={next} />;
 }
 
 function firstValue(value: string | string[] | undefined) {

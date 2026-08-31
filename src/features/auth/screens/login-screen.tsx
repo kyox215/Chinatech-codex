@@ -32,8 +32,10 @@ import {
   buildAuthCallbackUrl,
 } from "@/features/auth/model/auth-redirect";
 import { resolvePostLoginPath } from "@/features/auth/model/post-login-redirect";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function LoginScreen() {
+  const { t } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = useMemo(() => searchParams.get("next") || "/", [searchParams]);
@@ -58,15 +60,15 @@ export function LoginScreen() {
       setMode("update-password");
     }
     if (searchParams.get("auth_error") === "callback") {
-      toast.error("登录链接已失效，请重新发送邮件后再试。");
+      toast.error(t("auth.callbackExpired"));
     }
     if (searchParams.get("auth_error") === "invite") {
-      toast.error("员工邀请链接无效或已过期，请让店铺管理员重新发送。");
+      toast.error(t("auth.inviteExpired"));
     }
     if (searchParams.get("password_updated") === "1") {
-      toast.success("密码已更新，请使用新密码登录。");
+      toast.success(t("auth.passwordUpdated"));
     }
-  }, [searchParams]);
+  }, [searchParams, t]);
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -81,7 +83,7 @@ export function LoginScreen() {
     setIsSubmitting(false);
 
     if (error) {
-      toast.error(authErrorMessage(error));
+      toast.error(authErrorMessage(error, t));
       return;
     }
 
@@ -94,12 +96,12 @@ export function LoginScreen() {
   async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalizedEmail = normalizeAuthEmail(email);
-    const emailError = validateEmailAddress(normalizedEmail);
+    const emailError = validateEmailAddress(normalizedEmail, t);
     if (emailError) {
       toast.error(emailError);
       return;
     }
-    const passwordError = validateNewPassword(password, registrationPasswordConfirmation);
+    const passwordError = validateNewPassword(password, registrationPasswordConfirmation, t);
     if (passwordError) {
       toast.error(passwordError);
       return;
@@ -120,7 +122,7 @@ export function LoginScreen() {
 
     if (error) {
       setIsSubmitting(false);
-      toast.error(authErrorMessage(error));
+      toast.error(authErrorMessage(error, t));
       return;
     }
 
@@ -133,7 +135,7 @@ export function LoginScreen() {
       await supabase.auth.signOut();
     }
     setIsSubmitting(false);
-    toast.success("验证邮件已发送，请通过邮箱链接完成注册。");
+    toast.success(t("auth.registrationEmailSent"));
   }
 
   async function handlePasswordResetRequest(event: React.FormEvent<HTMLFormElement>) {
@@ -147,18 +149,18 @@ export function LoginScreen() {
     setIsSubmitting(false);
 
     if (error) {
-      toast.error(authErrorMessage(error));
+      toast.error(authErrorMessage(error, t));
       return;
     }
 
     setEmail(normalizedEmail);
-    toast.success(passwordResetSentMessage());
+    toast.success(passwordResetSentMessage(t));
     setMode("login");
   }
 
   async function handleResendVerification() {
     const normalizedEmail = normalizeAuthEmail(verificationEmail || email);
-    const emailError = validateEmailAddress(normalizedEmail);
+    const emailError = validateEmailAddress(normalizedEmail, t);
     if (emailError) {
       toast.error(emailError);
       return;
@@ -173,16 +175,16 @@ export function LoginScreen() {
     });
     setIsResendingVerification(false);
     if (error) {
-      toast.error(authErrorMessage(error));
+      toast.error(authErrorMessage(error, t));
       return;
     }
     setVerificationEmail(normalizedEmail);
-    toast.success(verificationEmailSentMessage());
+    toast.success(verificationEmailSentMessage(t));
   }
 
   async function handlePasswordUpdate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const validationError = validateNewPassword(newPassword, newPasswordConfirmation);
+    const validationError = validateNewPassword(newPassword, newPasswordConfirmation, t);
     if (validationError) {
       toast.error(validationError);
       return;
@@ -194,11 +196,11 @@ export function LoginScreen() {
     setIsSubmitting(false);
 
     if (error) {
-      toast.error(authErrorMessage(error));
+      toast.error(authErrorMessage(error, t));
       return;
     }
 
-    toast.success("密码已更新，请使用新密码登录。");
+    toast.success(t("auth.passwordUpdated"));
     await supabase.auth.signOut();
     setPassword("");
     setNewPassword("");
@@ -222,17 +224,17 @@ export function LoginScreen() {
                 RepairDesk
               </h2>
               <p className="max-w-md text-sm leading-6 text-muted-foreground">
-                多店铺维修、客户、库存和消息协作后台。登录后系统会读取你当前店铺的资料。
+                {t("auth.platformDescription")}
               </p>
             </div>
             <div className="grid max-w-lg grid-cols-2 gap-3 text-sm">
               <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel)] p-3">
-                <p className="text-xs text-muted-foreground">店铺资料</p>
-                <p className="mt-1 truncate font-medium">登录后读取</p>
+                <p className="text-xs text-muted-foreground">{t("auth.storeProfile")}</p>
+                <p className="mt-1 truncate font-medium">{t("auth.readAfterLogin")}</p>
               </div>
               <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel)] p-3">
-                <p className="text-xs text-muted-foreground">对外身份</p>
-                <p className="mt-1 truncate font-medium">按当前店铺配置</p>
+                <p className="text-xs text-muted-foreground">{t("auth.publicIdentity")}</p>
+                <p className="mt-1 truncate font-medium">{t("auth.currentStoreConfig")}</p>
               </div>
             </div>
           </div>
@@ -244,17 +246,17 @@ export function LoginScreen() {
               <KeyRound className="size-5" />
             </div>
             <div>
-              <h1 className="font-display text-xl font-semibold sm:text-2xl">RepairDesk 登录</h1>
-              <p className="text-xs text-muted-foreground sm:text-sm">
-                员工登录或提交新账号开通申请。
-              </p>
+              <h1 className="font-display text-xl font-semibold sm:text-2xl">
+                {t("auth.loginTitle")}
+              </h1>
+              <p className="text-xs text-muted-foreground sm:text-sm">{t("auth.loginSubtitle")}</p>
             </div>
           </div>
 
           {mode === "reset" ? (
             <form className="space-y-3 sm:space-y-4" onSubmit={handlePasswordResetRequest}>
               <div className="space-y-1.5">
-                <Label htmlFor="reset-email">邮箱</Label>
+                <Label htmlFor="reset-email">{t("auth.email")}</Label>
                 <Input
                   id="reset-email"
                   type="email"
@@ -265,7 +267,7 @@ export function LoginScreen() {
                 />
               </div>
               <SubmitButton isSubmitting={isSubmitting} icon="reset">
-                发送重置邮件
+                {t("auth.sendReset")}
               </SubmitButton>
               <Button
                 type="button"
@@ -273,13 +275,13 @@ export function LoginScreen() {
                 className="w-full"
                 onClick={() => setMode("login")}
               >
-                返回登录
+                {t("auth.backToLogin")}
               </Button>
             </form>
           ) : mode === "update-password" ? (
             <form className="space-y-3 sm:space-y-4" onSubmit={handlePasswordUpdate}>
               <div className="space-y-1.5">
-                <Label htmlFor="new-password">新密码</Label>
+                <Label htmlFor="new-password">{t("auth.newPassword")}</Label>
                 <Input
                   id="new-password"
                   type="password"
@@ -290,7 +292,7 @@ export function LoginScreen() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="new-password-confirmation">确认新密码</Label>
+                <Label htmlFor="new-password-confirmation">{t("auth.confirmNewPassword")}</Label>
                 <Input
                   id="new-password-confirmation"
                   type="password"
@@ -301,14 +303,14 @@ export function LoginScreen() {
                 />
               </div>
               <SubmitButton isSubmitting={isSubmitting} icon="reset">
-                更新密码
+                {t("auth.updatePassword")}
               </SubmitButton>
             </form>
           ) : (
             <Tabs value={mode} onValueChange={(value) => setMode(value as "login" | "register")}>
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login">登录</TabsTrigger>
-                <TabsTrigger value="register">注册</TabsTrigger>
+                <TabsTrigger value="login">{t("auth.login")}</TabsTrigger>
+                <TabsTrigger value="register">{t("auth.register")}</TabsTrigger>
               </TabsList>
 
               <TabsContent value="login">
@@ -327,11 +329,11 @@ export function LoginScreen() {
                       className="min-h-11 px-0 text-xs lg:min-h-0"
                       onClick={() => router.push("/forgot-password")}
                     >
-                      忘记密码？
+                      {t("auth.forgotPassword")}
                     </Button>
                   </div>
                   <SubmitButton isSubmitting={isSubmitting} icon="login">
-                    登录
+                    {t("auth.login")}
                   </SubmitButton>
                 </form>
               </TabsContent>
@@ -339,7 +341,7 @@ export function LoginScreen() {
               <TabsContent value="register">
                 <form className="space-y-3 sm:space-y-4" onSubmit={handleRegister}>
                   <div className="space-y-1.5">
-                    <Label htmlFor="displayName">姓名</Label>
+                    <Label htmlFor="displayName">{t("auth.name")}</Label>
                     <Input
                       id="displayName"
                       autoComplete="name"
@@ -356,7 +358,9 @@ export function LoginScreen() {
                     passwordAutoComplete="new-password"
                   />
                   <div className="space-y-1.5">
-                    <Label htmlFor="register-password-confirmation">确认密码</Label>
+                    <Label htmlFor="register-password-confirmation">
+                      {t("auth.confirmPassword")}
+                    </Label>
                     <Input
                       id="register-password-confirmation"
                       type="password"
@@ -368,7 +372,7 @@ export function LoginScreen() {
                   </div>
                   <RememberLoginCheckbox checked={rememberMe} onCheckedChange={setRememberMe} />
                   <SubmitButton isSubmitting={isSubmitting} icon="register">
-                    发送验证邮件
+                    {t("auth.sendVerification")}
                   </SubmitButton>
                 </form>
               </TabsContent>
@@ -379,10 +383,7 @@ export function LoginScreen() {
             <div className="mt-4 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 text-xs leading-5 text-muted-foreground">
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-status-success-foreground" />
-                <p>
-                  已向 {verificationEmail}{" "}
-                  发送注册验证邮件。请打开邮件中的链接完成注册，系统会继续进入店铺开通流程。
-                </p>
+                <p>{t("auth.registrationVerificationSent", { email: verificationEmail })}</p>
               </div>
               <Button
                 type="button"
@@ -391,7 +392,7 @@ export function LoginScreen() {
                 disabled={isResendingVerification}
                 onClick={handleResendVerification}
               >
-                {isResendingVerification ? "正在重发..." : "重新发送完成注册链接"}
+                {isResendingVerification ? t("auth.resending") : t("auth.resendRegistration")}
               </Button>
             </div>
           ) : null}
@@ -408,6 +409,7 @@ function RememberLoginCheckbox({
   checked: boolean;
   onCheckedChange: (value: boolean) => void;
 }) {
+  const { t } = useLocale();
   return (
     <div className="flex items-center gap-2">
       <Checkbox
@@ -416,7 +418,7 @@ function RememberLoginCheckbox({
         onCheckedChange={(value) => onCheckedChange(value === true)}
       />
       <Label htmlFor="remember-login" className="cursor-pointer text-sm font-normal">
-        记住登录状态
+        {t("auth.rememberLogin")}
       </Label>
     </div>
   );
@@ -435,10 +437,11 @@ function LoginFields({
   onPasswordChange: (value: string) => void;
   passwordAutoComplete?: string;
 }) {
+  const { t } = useLocale();
   return (
     <>
       <div className="space-y-1.5">
-        <Label htmlFor="email">邮箱</Label>
+        <Label htmlFor="email">{t("auth.email")}</Label>
         <Input
           id="email"
           type="email"
@@ -449,7 +452,7 @@ function LoginFields({
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="password">密码</Label>
+        <Label htmlFor="password">{t("auth.password")}</Label>
         <Input
           id="password"
           type="password"

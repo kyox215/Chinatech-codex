@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CustomerDetailScreen } from "@/features/customers/screens/customer-detail-screen";
+import { getLocalizedMetadata } from "@/shared/i18n/metadata";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -7,10 +8,7 @@ type PageProps = {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  return {
-    title: `客户 ${id}`,
-    description: "客户资料、设备、历史工单与客户待办",
-  };
+  return getLocalizedMetadata("customers.detailTitle", { id });
 }
 
 export default async function Page({ params }: PageProps) {

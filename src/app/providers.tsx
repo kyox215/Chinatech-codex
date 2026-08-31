@@ -6,6 +6,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { AppBar } from "@/components/app-bar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { DesktopVirtualKeyboardPreferenceProvider } from "@/components/desktop-virtual-keyboard-preference-provider";
 import { useCommandPalette } from "@/components/use-command-palette";
 import { MobileWorkspaceDock } from "@/components/mobile-workspace-dock";
@@ -19,6 +20,8 @@ import { RealtimeAppBridge } from "@/features/realtime";
 import { OfflineOutboxSyncBridge } from "@/features/offline/components/offline-outbox-sync-bridge";
 import { repairDeskQueryDefaultOptions } from "@/lib/query-performance";
 import { appShell } from "@/lib/ui-patterns";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
+import type { AppLocale } from "@/shared/i18n/locales";
 
 const CommandPalette = dynamic(
   () => import("@/components/command-palette").then((module) => module.CommandPalette),
@@ -29,7 +32,13 @@ const ScanSearchSheet = dynamic(
   { ssr: false },
 );
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({
+  children,
+  initialLocale,
+}: {
+  children: React.ReactNode;
+  initialLocale: AppLocale;
+}) {
   const [queryClient] = useState(
     () => new QueryClient({ defaultOptions: repairDeskQueryDefaultOptions }),
   );
@@ -48,48 +57,58 @@ export function Providers({ children }: { children: React.ReactNode }) {
     pathname === "/kiosk" ||
     pathname === "/r"
   ) {
+    const usesCustomerCommunicationLanguage = pathname === "/kiosk" || pathname === "/r";
     return (
-      <QueryClientProvider client={queryClient}>
-        {children}
-        <PwaServiceWorker />
-        <Toaster />
-      </QueryClientProvider>
+      <LocaleProvider initialLocale={initialLocale}>
+        <QueryClientProvider client={queryClient}>
+          {!usesCustomerCommunicationLanguage ? (
+            <div className="fixed right-3 top-3 z-[80] rounded-xl border border-[var(--border-panel)] bg-card/95 shadow-[var(--shadow-card)] backdrop-blur">
+              <LanguageSwitcher />
+            </div>
+          ) : null}
+          {children}
+          <PwaServiceWorker />
+          <Toaster />
+        </QueryClientProvider>
+      </LocaleProvider>
     );
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <DesktopVirtualKeyboardPreferenceProvider>
-        <NavigationGuardProvider>
-          <RealtimeAppBridge>
-            <AppPreloadBridge>
-              <AiAssistantWorkspaceProvider>
-                <OfflineOutboxSyncBridge />
-                <SidebarProvider>
-                  <AppSidebar onOpenCommand={() => setOpen(true)} />
-                  <SidebarInset className="relative isolate min-h-svh min-w-0 max-w-full overflow-x-clip">
-                    <AppBar onOpenScanner={() => setScannerOpen(true)} />
-                    <main className={appShell.content}>{children}</main>
-                    <MobileWorkspaceDock onOpenCommand={() => setOpen(true)} />
-                  </SidebarInset>
-                </SidebarProvider>
-                <PwaServiceWorker />
-                {open ? (
-                  <CommandPalette
-                    open={open}
-                    onOpenChange={setOpen}
-                    onOpenScanner={() => setScannerOpen(true)}
-                  />
-                ) : null}
-                {scannerOpen ? (
-                  <ScanSearchSheet open onOpenChange={setScannerOpen} scope="global" />
-                ) : null}
-                <Toaster />
-              </AiAssistantWorkspaceProvider>
-            </AppPreloadBridge>
-          </RealtimeAppBridge>
-        </NavigationGuardProvider>
-      </DesktopVirtualKeyboardPreferenceProvider>
-    </QueryClientProvider>
+    <LocaleProvider initialLocale={initialLocale}>
+      <QueryClientProvider client={queryClient}>
+        <DesktopVirtualKeyboardPreferenceProvider>
+          <NavigationGuardProvider>
+            <RealtimeAppBridge>
+              <AppPreloadBridge>
+                <AiAssistantWorkspaceProvider>
+                  <OfflineOutboxSyncBridge />
+                  <SidebarProvider>
+                    <AppSidebar onOpenCommand={() => setOpen(true)} />
+                    <SidebarInset className="relative isolate min-h-svh min-w-0 max-w-full overflow-x-clip">
+                      <AppBar onOpenScanner={() => setScannerOpen(true)} />
+                      <main className={appShell.content}>{children}</main>
+                      <MobileWorkspaceDock onOpenCommand={() => setOpen(true)} />
+                    </SidebarInset>
+                  </SidebarProvider>
+                  <PwaServiceWorker />
+                  {open ? (
+                    <CommandPalette
+                      open={open}
+                      onOpenChange={setOpen}
+                      onOpenScanner={() => setScannerOpen(true)}
+                    />
+                  ) : null}
+                  {scannerOpen ? (
+                    <ScanSearchSheet open onOpenChange={setScannerOpen} scope="global" />
+                  ) : null}
+                  <Toaster />
+                </AiAssistantWorkspaceProvider>
+              </AppPreloadBridge>
+            </RealtimeAppBridge>
+          </NavigationGuardProvider>
+        </DesktopVirtualKeyboardPreferenceProvider>
+      </QueryClientProvider>
+    </LocaleProvider>
   );
 }

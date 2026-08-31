@@ -3,6 +3,12 @@ import type {
   OnboardingRequestInput,
   OnboardingStatus,
 } from "@/lib/repairdesk/types";
+import { translateMessage, type MessageKey, type MessageValues } from "@/shared/i18n/messages";
+
+export type OnboardingTranslator = (key: MessageKey, values?: MessageValues) => string;
+
+const defaultTranslate: OnboardingTranslator = (key, values) =>
+  translateMessage("zh-CN", key, values);
 
 export const onboardingRoleLabels: Record<
   NonNullable<OnboardingRequestInput["requested_role"]>,
@@ -47,64 +53,92 @@ export function getLatestOnboardingRequest(
   })[0];
 }
 
-export function getOnboardingRequestSummary(request: OnboardingRequest) {
+export function getOnboardingRoleLabel(
+  role: string | null | undefined,
+  t: OnboardingTranslator = defaultTranslate,
+) {
+  switch (role) {
+    case "owner":
+      return t("role.owner");
+    case "manager":
+      return t("role.manager");
+    case "technician":
+      return t("role.technician");
+    case "sales":
+      return t("role.sales");
+    case "viewer":
+      return t("role.viewer");
+    default:
+      return role ?? "";
+  }
+}
+
+export function getOnboardingRequestSummary(
+  request: OnboardingRequest,
+  t: OnboardingTranslator = defaultTranslate,
+) {
   if (request.request_type === "create_store") {
-    return `创建店铺：${request.desired_store_name || "未填写店铺名"}`;
+    return t("onboarding.createSummary", {
+      store: request.desired_store_name || t("onboarding.unnamedStore"),
+    });
   }
 
   const target = request.target_store_name
     ? request.target_store_name
     : request.target_owner_email
-      ? `负责人 ${request.target_owner_email}`
-      : request.target_store_id || "等待负责人确认";
-  return `加入店铺：${target} · ${
-    onboardingRoleLabels[
-      request.requested_role as NonNullable<OnboardingRequestInput["requested_role"]>
-    ] ?? request.requested_role
-  }`;
+      ? t("onboarding.ownerTarget", { email: request.target_owner_email })
+      : request.target_store_id || t("onboarding.awaitingOwner");
+  return t("onboarding.joinSummary", {
+    target,
+    role: getOnboardingRoleLabel(request.requested_role, t),
+  });
 }
 
-export function getOnboardingRequestStatusLabel(request: OnboardingRequest) {
+export function getOnboardingRequestStatusLabel(
+  request: OnboardingRequest,
+  t: OnboardingTranslator = defaultTranslate,
+) {
   switch (request.status) {
     case "approved":
-      return "申请已通过";
+      return t("onboarding.requestApproved");
     case "rejected":
-      return "申请未通过";
+      return t("onboarding.requestRejected");
     case "cancelled":
-      return "申请已取消";
+      return t("onboarding.requestCancelled");
     case "pending":
     default:
-      return "申请待审核";
+      return t("onboarding.requestPending");
   }
 }
 
 export function validateOnboardingForm(
   form: OnboardingFormState,
   _status: Pick<OnboardingStatus, "availableStores"> | null | undefined,
+  t: OnboardingTranslator = defaultTranslate,
 ): OnboardingFormValidation {
   if (form.mode === "create_store") {
     const name = form.storeName.trim();
     if (name.length < 2) {
-      return { canSubmit: false, reason: "店铺名称至少需要 2 个字符" };
+      return { canSubmit: false, reason: t("onboarding.storeNameMin") };
     }
     if (name.length > 80) {
-      return { canSubmit: false, reason: "店铺名称不能超过 80 个字符" };
+      return { canSubmit: false, reason: t("onboarding.storeNameMax") };
     }
-    return { canSubmit: true, reason: "将立即创建你的独立私有店铺" };
+    return { canSubmit: true, reason: t("onboarding.createImmediate") };
   }
 
   const email = form.targetOwnerEmail.trim();
   if (!email) {
-    return { canSubmit: false, reason: "请填写目标店铺负责人的邮箱" };
+    return { canSubmit: false, reason: t("onboarding.ownerEmailRequired") };
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { canSubmit: false, reason: "店铺负责人邮箱格式不正确" };
+    return { canSubmit: false, reason: t("onboarding.ownerEmailInvalid") };
   }
   if (form.note.trim().length > 500) {
-    return { canSubmit: false, reason: "申请备注不能超过 500 个字符" };
+    return { canSubmit: false, reason: t("onboarding.noteMax") };
   }
 
-  return { canSubmit: true, reason: "系统不会展示已有店铺列表，提交后等待负责人确认" };
+  return { canSubmit: true, reason: t("onboarding.joinWait") };
 }
 
 export function buildOnboardingRequestInput(form: OnboardingFormState): OnboardingRequestInput {

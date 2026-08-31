@@ -1,11 +1,7 @@
-import type { Metadata } from "next";
-
 import { InventoryLifecycleAfterSalesCaseScreen } from "@/features/inventory/lifecycle";
+import { createLocalizedMetadata } from "@/shared/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "售后详情",
-  description: "查看返修案件、检测和返还安排",
-};
+export const generateMetadata = createLocalizedMetadata("inventory.afterSalesDetailTitle");
 
 export default async function Page({ params }: { params: Promise<{ caseId: string }> }) {
   const { caseId } = await params;

@@ -1,4 +1,4 @@
-const CACHE_NAME = "repairdesk-shell-v4";
+const CACHE_NAME = "repairdesk-shell-v5";
 const OFFLINE_FALLBACK_URL = "/offline-fallback-v1.html";
 const STATIC_ASSETS = [OFFLINE_FALLBACK_URL];
 const NAVIGATION_TIMEOUT_MS = 3_000;

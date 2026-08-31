@@ -93,6 +93,7 @@ import {
 } from "@/shared/ui";
 import { brandGradientStyle, controls, density, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 const buybackScopeFilters = {
   sourceTypes: ["buyback"],
@@ -100,6 +101,7 @@ const buybackScopeFilters = {
 };
 
 export function BuybackScreen() {
+  const { t } = useLocale();
   const router = useRouter();
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
@@ -227,9 +229,9 @@ export function BuybackScreen() {
   return (
     <motion.div variants={stagger()} initial="hidden" animate="show" className="contents">
       <RepairOsListScaffold
-        title="回收管理"
-        subtitle={`${activeViewLabel} · 共 ${filteredItems.length} 条`}
-        eyebrow="工作台 / 回收"
+        title={t("buyback.title")}
+        subtitle={t("page.recordsTotal", { count: filteredItems.length })}
+        eyebrow={t("page.workspaceBuyback")}
         action={
           <RepairOsHeaderActionButton ariaLabel="新建回收报价" onClick={handleCreateQuote}>
             <Plus className="size-4" />

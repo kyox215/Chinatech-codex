@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN" data-repairdesk-offline-fallback="v1">
+<html lang="zh-CN" data-repairdesk-offline-fallback="v2">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -99,6 +99,60 @@
     </main>
     <script>
       (() => {
+        const copies = {
+          "zh-CN": {
+            title: "RepairDesk 离线恢复",
+            unavailable: "网络暂不可用，RepairDesk 正在自动重试…",
+            retry: "立即重试",
+            restoring: "正在恢复 RepairDesk…",
+            connectedManual: "连接已恢复，RepairDesk 未完成启动，请立即重试。",
+            restoredEntering: "网络已恢复，正在重新进入 RepairDesk…",
+            reloading: "正在重新加载 RepairDesk…",
+            fallbackPage: "这是 RepairDesk 离线恢复页，请返回离线说明。",
+            returnOffline: "返回离线说明",
+            stillRestoring: "仍在恢复中，你也可以立即重试。",
+          },
+          "it-IT": {
+            title: "Ripristino offline di RepairDesk",
+            unavailable: "Rete non disponibile. RepairDesk riproverà automaticamente…",
+            retry: "Riprova ora",
+            restoring: "Ripristino di RepairDesk…",
+            connectedManual:
+              "La connessione è tornata, ma RepairDesk non si è avviato. Riprova ora.",
+            restoredEntering: "Rete ripristinata. Riapertura di RepairDesk…",
+            reloading: "Ricaricamento di RepairDesk…",
+            fallbackPage:
+              "Questa è la pagina di ripristino offline. Torna alle informazioni offline.",
+            returnOffline: "Torna alla pagina offline",
+            stillRestoring: "Ripristino ancora in corso; puoi anche riprovare ora.",
+          },
+          en: {
+            title: "RepairDesk offline recovery",
+            unavailable: "The network is unavailable. RepairDesk will retry automatically…",
+            retry: "Retry now",
+            restoring: "Restoring RepairDesk…",
+            connectedManual: "The connection is back, but RepairDesk did not start. Retry now.",
+            restoredEntering: "Network restored. Reopening RepairDesk…",
+            reloading: "Reloading RepairDesk…",
+            fallbackPage:
+              "This is the offline recovery page. Return to the offline information page.",
+            returnOffline: "Return to offline information",
+            stillRestoring: "Recovery is still in progress; you can also retry now.",
+          },
+        };
+        const cookieLocale = document.cookie
+          .split(";")
+          .map((part) => part.trim())
+          .find((part) => part.startsWith("repairdesk_locale="))
+          ?.slice("repairdesk_locale=".length);
+        const locale = Object.prototype.hasOwnProperty.call(copies, cookieLocale)
+          ? cookieLocale
+          : "zh-CN";
+        const copy = copies[locale];
+        document.documentElement.lang = locale;
+        document.documentElement.dataset.locale = locale;
+        document.title = copy.title;
+
         const config = {
           fallbackPath: "/offline-fallback-v1.html",
           maxAutoReloads: 1,
@@ -112,6 +166,8 @@
         };
         const status = document.getElementById("repairdesk-style-status");
         const retry = document.getElementById("repairdesk-style-retry");
+        if (status) status.textContent = copy.unavailable;
+        if (retry) retry.textContent = copy.retry;
         let controller;
         let inFlight = false;
         let stopped = false;
@@ -216,20 +272,20 @@
         async function attemptRecovery() {
           if (stopped || inFlight || document.visibilityState === "hidden") return;
           inFlight = true;
-          if (status) status.textContent = "正在恢复 RepairDesk…";
+          if (status) status.textContent = copy.restoring;
           try {
             const reachable = await probeReachability();
             if (!reachable) {
-              if (status) status.textContent = "网络暂不可用，RepairDesk 正在自动重试…";
+              if (status) status.textContent = copy.unavailable;
               return;
             }
             if (!recordAutoReload()) {
               stopped = true;
-              showManualRecovery("连接已恢复，RepairDesk 未完成启动，请立即重试。");
+              showManualRecovery(copy.connectedManual);
               return;
             }
             stopped = true;
-            if (status) status.textContent = "网络已恢复，正在重新进入 RepairDesk…";
+            if (status) status.textContent = copy.restoredEntering;
             window.setTimeout(() => window.location.reload(), 60);
           } finally {
             inFlight = false;
@@ -245,7 +301,7 @@
           }
           if (retry.disabled) return;
           retry.disabled = true;
-          if (status) status.textContent = "正在重新加载 RepairDesk…";
+          if (status) status.textContent = copy.reloading;
           window.setTimeout(() => window.location.reload(), 60);
         });
         document.addEventListener("visibilitychange", () => {
@@ -262,12 +318,12 @@
 
         if (window.location.pathname === config.fallbackPath) {
           stopped = true;
-          showManualRecovery("这是 RepairDesk 离线恢复页，请返回离线说明。");
-          if (retry) retry.textContent = "返回离线说明";
+          showManualRecovery(copy.fallbackPage);
+          if (retry) retry.textContent = copy.returnOffline;
           return;
         }
 
-        window.setTimeout(() => showManualRecovery("仍在恢复中，你也可以立即重试。"), 2500);
+        window.setTimeout(() => showManualRecovery(copy.stillRestoring), 2500);
         schedule(200);
       })();
     </script>

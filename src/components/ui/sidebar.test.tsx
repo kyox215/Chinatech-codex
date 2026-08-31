@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
+
 import { Sidebar, SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from "./sidebar";
 
 afterEach(() => {
@@ -66,6 +68,23 @@ describe("SidebarProvider responsive state", () => {
       expect(screen.getByTestId("sidebar-state")).toHaveAttribute("data-state", "expanded"),
     );
     expect(container.querySelector("[data-sidebar-controlled='true']")).toBeInTheDocument();
+  });
+
+  it("localizes the mobile navigation trigger and drawer name", async () => {
+    setViewport(390);
+    const user = userEvent.setup();
+    render(
+      <LocaleProvider initialLocale="en">
+        <SidebarProvider>
+          <SidebarTrigger />
+          <Sidebar>Navigation</Sidebar>
+        </SidebarProvider>
+      </LocaleProvider>,
+    );
+
+    const trigger = await screen.findByRole("button", { name: "Open navigation menu" });
+    await user.click(trigger);
+    expect(await screen.findByRole("dialog", { name: "Navigation menu" })).toBeVisible();
   });
 });
 

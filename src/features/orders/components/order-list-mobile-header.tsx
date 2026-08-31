@@ -28,6 +28,7 @@ import {
 } from "@/features/orders/components/order-list-layout";
 import { RealtimeSyncIndicator } from "@/features/realtime";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 const groupIcons: Record<string, LucideIcon> = {
   all: ListTodo,
@@ -106,6 +107,7 @@ export function MobileOrdersFloatingHeader({
   viewModeControl?: ReactNode;
   headerRef?: Ref<HTMLDivElement>;
 }) {
+  const { t } = useLocale();
   const activeGroup = groups.find((group) => group.key === groupValue);
   const [collapsed, setCollapsed] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -157,7 +159,7 @@ export function MobileOrdersFloatingHeader({
           <SidebarTrigger className="size-9 rounded-lg border border-[var(--border-panel)] bg-card shadow-none" />
           <div data-order-mobile-title-block="true" className="min-w-0 space-y-1 text-center">
             <p className="truncate text-[length:var(--order-mobile-title)] font-semibold leading-5">
-              维修工单
+              {t("orders.title")}
             </p>
             <p
               data-order-mobile-header-context="true"
@@ -165,8 +167,11 @@ export function MobileOrdersFloatingHeader({
             >
               <span className="truncate">
                 {pendingLabel
-                  ? `正在加载${pendingLabel}…`
-                  : `${activeGroup?.label ?? "全部"} · 共 ${totalOrders} 条`}
+                  ? t("orders.loadingGroup", { group: pendingLabel })
+                  : t("orders.groupCount", {
+                      group: activeGroup?.label ?? t("orders.allShort"),
+                      count: totalOrders,
+                    })}
               </span>
               <RealtimeSyncIndicator compact />
             </p>
@@ -179,7 +184,7 @@ export function MobileOrdersFloatingHeader({
               className="size-9 rounded-lg border-0 text-primary-foreground shadow-[var(--shadow-action)]"
               style={brandGradientStyle}
               onClick={onCreateOrder}
-              aria-label="新建工单"
+              aria-label={t("orders.new")}
             >
               <Plus className="size-4" />
             </Button>
@@ -223,8 +228,8 @@ export function MobileOrdersFloatingHeader({
                     event.preventDefault();
                     onSearchSubmit();
                   }}
-                  placeholder="工单 / 客户 / IMEI"
-                  aria-label="搜索工单、客户、电话或 IMEI"
+                  placeholder={t("orders.searchPlaceholder")}
+                  aria-label={t("orders.searchLabel")}
                   className={cn(repairOs.searchInput, "h-full text-base")}
                   onFocus={() => setSearchFocused(true)}
                   onBlur={() => setSearchFocused(false)}
@@ -241,8 +246,8 @@ export function MobileOrdersFloatingHeader({
                     disabled={interactionDisabled}
                     className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                     onClick={onSearchClear}
-                    aria-label="清除搜索"
-                    title="清除搜索"
+                    aria-label={t("orders.clearSearch")}
+                    title={t("orders.clearSearch")}
                   >
                     <X className="size-3.5" />
                   </button>
@@ -257,7 +262,7 @@ export function MobileOrdersFloatingHeader({
             <div
               className={cn("grid min-w-0", orderMobileQueueGrid)}
               role="group"
-              aria-label="待处理状态"
+              aria-label={t("orders.pendingStages")}
             >
               {groups.map((group) => {
                 const active = groupValue === group.key;
@@ -280,7 +285,11 @@ export function MobileOrdersFloatingHeader({
                     )}
                     aria-pressed={active}
                     aria-busy={pending}
-                    aria-label={`第 ${groups.indexOf(group) + 1} 阶段：${group.label}，${group.count} 条`}
+                    aria-label={t("orders.stageLabel", {
+                      index: groups.indexOf(group) + 1,
+                      stage: group.label,
+                      count: group.count,
+                    })}
                   >
                     <span className="flex min-w-0 items-center gap-[clamp(0.125rem,0.64vw,0.25rem)] text-[length:var(--order-mobile-meta)] font-semibold leading-none">
                       <Icon
@@ -309,7 +318,10 @@ export function MobileOrdersFloatingHeader({
               role={searchValue || pendingLabel ? undefined : "status"}
               aria-live={searchValue || pendingLabel ? "off" : "polite"}
             >
-              当前显示 {activeGroup?.label ?? "全部任务"}，共 {activeGroup?.count ?? totalOrders} 条
+              {t("orders.currentCount", {
+                group: activeGroup?.label ?? t("orders.allTasks"),
+                count: activeGroup?.count ?? totalOrders,
+              })}
             </span>
           </div>
         ) : null}

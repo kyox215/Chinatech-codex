@@ -28,6 +28,8 @@ import { useAiAssistantWorkspace } from "@/features/ai-assistant";
 import { createNewOrderSessionId } from "@/features/orders/model/new-order-intent";
 import { buildNewOrderWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
 import { LazyModalErrorBoundary, LazyModalShell } from "@/components/lazy-modal-shell";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { localizeShellAction } from "@/shared/i18n/navigation";
 
 function createLazyAttachmentDraftPanel(attempt: number) {
   return lazy(() => {
@@ -71,6 +73,7 @@ function MobileWorkspaceDockContent({
   pathname,
   onOpenCommand,
 }: MobileWorkspaceDockProps & { pathname: string }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -114,7 +117,7 @@ function MobileWorkspaceDockContent({
   const actions = [
     primaryAction,
     ...globalMobileQuickActions.filter((action) => action.id !== primaryAction.id),
-  ];
+  ].map((action) => localizeShellAction(action, t));
 
   const restoreDockTriggerFocus = () => {
     window.requestAnimationFrame(() => dockTriggerRef.current?.focus());
@@ -179,17 +182,17 @@ function MobileWorkspaceDockContent({
             variant="outline"
             data-mobile-workspace-trigger="true"
             className={repairOs.floatingAction}
-            aria-label="打开快捷操作"
+            aria-label={t("shell.openQuickActions")}
           >
             <Command className="size-3.5" />
-            <span>快捷</span>
+            <span>{t("shell.quick")}</span>
             <RealtimeSyncIndicator compact />
           </Button>
         </SheetTrigger>
         <SheetContent side="bottom" className={repairOs.quickSheet}>
           <SheetHeader className="px-1 text-left">
-            <SheetTitle className="text-base">快捷操作</SheetTitle>
-            <SheetDescription>当前模块动作与扫码、拍照、搜索工具。</SheetDescription>
+            <SheetTitle className="text-base">{t("shell.quickActions")}</SheetTitle>
+            <SheetDescription>{t("shell.quickActionsDescription")}</SheetDescription>
           </SheetHeader>
           <div className={repairOs.quickActionList}>
             {actions.slice(0, 1).map((action) => (
@@ -204,7 +207,9 @@ function MobileWorkspaceDockContent({
                   <action.icon className="size-4" />
                 </span>
                 <span className="min-w-0">
-                  <span className={repairOs.quickActionLabel}>当前 · {action.label}</span>
+                  <span className={repairOs.quickActionLabel}>
+                    {t("shell.currentAction", { action: action.label })}
+                  </span>
                   <span className={repairOs.quickActionDescription}>{action.description}</span>
                 </span>
               </button>
@@ -223,8 +228,10 @@ function MobileWorkspaceDockContent({
                   <Sparkles className="size-4" aria-hidden="true" />
                 </span>
                 <span className="min-w-0">
-                  <span className={repairOs.quickActionLabel}>AI 小助手</span>
-                  <span className={repairOs.quickActionDescription}>只读查询当前门店工单</span>
+                  <span className={repairOs.quickActionLabel}>{t("shell.aiAssistantMobile")}</span>
+                  <span className={repairOs.quickActionDescription}>
+                    {t("shell.aiAssistantDescription")}
+                  </span>
                 </span>
               </button>
             ) : null}
@@ -252,14 +259,14 @@ function MobileWorkspaceDockContent({
               <LazyModalErrorBoundary
                 key={attachmentLoaderVersion}
                 open={open}
-                title="附件面板"
+                title={t("shell.attachmentPanel")}
                 onCancel={cancelAttachmentPanel}
                 onRetry={() => setAttachmentLoaderVersion((current) => current + 1)}
               >
                 <Suspense
                   fallback={
                     <CapturePanelFallback
-                      label="正在加载附件面板…"
+                      label={t("shell.loadingAttachmentPanel")}
                       onCancel={cancelAttachmentPanel}
                     />
                   }
@@ -284,12 +291,14 @@ function MobileWorkspaceDockContent({
         <LazyModalErrorBoundary
           key={scannerLoaderVersion}
           open={scannerOpen}
-          title="扫码器"
+          title={t("shell.scanner")}
           onCancel={cancelScanner}
           onRetry={() => setScannerLoaderVersion((current) => current + 1)}
         >
           <Suspense
-            fallback={<CapturePanelFallback label="正在打开扫码器…" onCancel={cancelScanner} />}
+            fallback={
+              <CapturePanelFallback label={t("shell.openingScanner")} onCancel={cancelScanner} />
+            }
           >
             <LazyScanSearchSheet
               open={scannerPanelState.open}
@@ -306,12 +315,14 @@ function MobileWorkspaceDockContent({
         <LazyModalErrorBoundary
           key={cameraLoaderVersion}
           open={cameraOpen}
-          title="相机"
+          title={t("shell.camera")}
           onCancel={cancelCamera}
           onRetry={() => setCameraLoaderVersion((current) => current + 1)}
         >
           <Suspense
-            fallback={<CapturePanelFallback label="正在打开相机…" onCancel={cancelCamera} />}
+            fallback={
+              <CapturePanelFallback label={t("shell.openingCamera")} onCancel={cancelCamera} />
+            }
           >
             <LazyCameraCaptureSheet
               open={cameraPanelState.open}
@@ -333,10 +344,11 @@ export function getMobileWorkspaceLazyPanelState(activated: boolean, open: boole
 }
 
 function CapturePanelFallback({ label, onCancel }: { label: string; onCancel: () => void }) {
+  const { t } = useLocale();
   return (
     <LazyModalShell
       title={label}
-      description="快捷工具正在加载，可以取消并返回快捷操作。"
+      description={t("shell.quickToolLoading")}
       onCancel={onCancel}
       dataAttribute="mobile-workspace-lazy-fallback"
     />

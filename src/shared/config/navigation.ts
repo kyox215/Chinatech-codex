@@ -322,7 +322,7 @@ export function getShellCommandActions(
   permissions?: RepairDeskNavigationPermissions,
   role?: RepairDeskNavigationRole,
 ) {
-  const actions = [
+  const actions: RepairDeskShellAction[] = [
     {
       id: "account-center",
       kind: "route",

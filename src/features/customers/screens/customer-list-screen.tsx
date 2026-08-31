@@ -74,6 +74,7 @@ import {
   RepairOsHeaderActionButton,
   RepairOsListScaffold,
 } from "@/shared/ui";
+import { useLocale } from "@/shared/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import { useViewportMode } from "@/hooks/use-mobile";
 
@@ -102,6 +103,7 @@ function useDebouncedValue<T>(value: T, delay: number) {
 }
 
 export function CustomerListScreen() {
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const router = useRouter();
   const pathname = usePathname();
@@ -272,9 +274,9 @@ export function CustomerListScreen() {
 
   return (
     <RepairOsListScaffold
-      title="客户管理"
-      subtitle={getCustomerListSubtitle(baseFilters, total)}
-      eyebrow="工作台 / 客户"
+      title={t("customers.title")}
+      subtitle={t("page.recordsTotal", { count: total })}
+      eyebrow={t("page.workspaceCustomers")}
       action={
         <RepairOsHeaderActionButton ariaLabel="新建客户" onClick={() => setCreateOpen(true)}>
           <Plus className="size-4" />

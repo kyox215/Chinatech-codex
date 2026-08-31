@@ -139,7 +139,7 @@ describe("RepairDesk app style recovery", () => {
     expect(offlineFallbackHtml).not.toMatch(
       /\/_next\/|<script[^>]+\bsrc=|<link[^>]+\brel=["']stylesheet|<img[^>]+\bsrc=|@font-face|\binnerHTML\b|\beval\s*\(/i,
     );
-    expect(offlineFallbackHtml).toContain('data-repairdesk-offline-fallback="v1"');
+    expect(offlineFallbackHtml).toContain('data-repairdesk-offline-fallback="v2"');
     expect(offlineFallbackHtml).toContain("min-height: 44px");
     expect(offlineFallbackHtml).toContain("prefers-reduced-motion: reduce");
     expect(offlineFallbackHtml).toContain("default-src 'none'");
@@ -159,7 +159,7 @@ describe("RepairDesk app style recovery", () => {
   });
 
   it("limits the Service Worker fallback to GET navigation and preserves unrelated caches", () => {
-    expect(serviceWorkerSource).toContain('const CACHE_NAME = "repairdesk-shell-v4"');
+    expect(serviceWorkerSource).toContain('const CACHE_NAME = "repairdesk-shell-v5"');
     expect(serviceWorkerSource).toContain(
       'const OFFLINE_FALLBACK_URL = "/offline-fallback-v1.html"',
     );

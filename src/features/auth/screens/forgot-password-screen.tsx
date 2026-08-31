@@ -18,8 +18,10 @@ import { buildAuthCallbackUrl } from "@/features/auth/model/auth-redirect";
 import { brandGradientStyle, controls } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function ForgotPasswordScreen() {
+  const { t } = useLocale();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState("");
@@ -27,9 +29,9 @@ export function ForgotPasswordScreen() {
 
   useEffect(() => {
     const error = searchParams.get("auth_error");
-    if (error === "callback") toast.error("重置链接已失效，请重新发送邮件后再试。");
-    if (error === "session") toast.error("请先从邮箱中的重置链接进入修改密码页面。");
-  }, [searchParams]);
+    if (error === "callback") toast.error(t("auth.resetLinkExpired"));
+    if (error === "session") toast.error(t("auth.resetSessionRequired"));
+  }, [searchParams, t]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,13 +43,13 @@ export function ForgotPasswordScreen() {
     setIsSubmitting(false);
 
     if (error) {
-      toast.error(authErrorMessage(error));
+      toast.error(authErrorMessage(error, t));
       return;
     }
 
     setEmail(normalizedEmail);
     setSentTo(normalizedEmail);
-    toast.success(passwordResetSentMessage());
+    toast.success(passwordResetSentMessage(t));
   }
 
   return (
@@ -58,23 +60,23 @@ export function ForgotPasswordScreen() {
           className="mb-2 inline-flex min-h-11 items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground sm:mb-4"
         >
           <ArrowLeft className="size-4" />
-          返回登录
+          {t("auth.backToLogin")}
         </Link>
         <div className="mb-3 flex items-center gap-2 sm:mb-5 sm:gap-3">
           <div className="grid size-10 place-items-center rounded-md bg-primary/10 text-primary">
             <KeyRound className="size-5" />
           </div>
           <div className="min-w-0">
-            <h1 className="font-display text-xl font-semibold sm:text-2xl">找回密码</h1>
-            <p className="text-xs text-muted-foreground sm:text-sm">
-              输入账号邮箱，继续通过邮件重置。
-            </p>
+            <h1 className="font-display text-xl font-semibold sm:text-2xl">
+              {t("auth.forgotTitle")}
+            </h1>
+            <p className="text-xs text-muted-foreground sm:text-sm">{t("auth.forgotSubtitle")}</p>
           </div>
         </div>
 
         <form className="space-y-3 sm:space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-1.5">
-            <Label htmlFor="reset-email">邮箱</Label>
+            <Label htmlFor="reset-email">{t("auth.email")}</Label>
             <Input
               id="reset-email"
               type="email"
@@ -95,13 +97,13 @@ export function ForgotPasswordScreen() {
             ) : (
               <Mail className="size-4" />
             )}
-            发送重置邮件
+            {t("auth.sendReset")}
           </Button>
         </form>
 
         {sentTo ? (
           <p className="mt-4 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 text-xs leading-5 text-muted-foreground">
-            如果 {sentTo} 已注册，重置邮件会发送到该邮箱。请从邮件链接继续修改密码。
+            {t("auth.resetSentHint", { email: sentTo })}
           </p>
         ) : null}
       </section>

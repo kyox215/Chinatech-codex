@@ -58,8 +58,12 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
 import { useNavigationGuard } from "@/components/navigation-guard-provider";
 import { WorkspaceBrandSearch } from "@/components/workspace-brand-search";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { localizeNavItem } from "@/shared/i18n/navigation";
 
 export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
+  const { t } = useLocale();
   const pathname = usePathname() ?? "/";
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -67,27 +71,33 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const shell = useStoreShellContext();
   const { isMobile, setOpenMobile } = useSidebar();
-  const nav = getSidebarNavItems(shell.isPlatformAdmin).filter((item) =>
-    canShowWorkspaceNavItem(item, shell.permissions),
-  );
-  const activeStoreName = shell.activeStore?.name ?? (shell.isLoading ? "读取店铺…" : "未选择店铺");
-  const accountDisplayName = shell.displayName?.trim() || "当前账号";
-  const accountEmail = shell.email?.trim() || (shell.isLoading ? "读取账号…" : "未读取邮箱");
+  const nav = getSidebarNavItems(shell.isPlatformAdmin)
+    .filter((item) => canShowWorkspaceNavItem(item, shell.permissions))
+    .map((item) => localizeNavItem(item, t));
+  const activeStoreName =
+    shell.activeStore?.name ?? (shell.isLoading ? t("shell.loadingStore") : t("shell.noStore"));
+  const accountDisplayName = shell.displayName?.trim() || t("shell.currentAccount");
+  const accountEmail =
+    shell.email?.trim() ||
+    (shell.isLoading ? t("shell.loadingAccount") : t("shell.emailUnavailable"));
   const activeStoreMeta = shell.activeStore
-    ? `${shell.activeStore.role} · 在线`
+    ? `${shell.activeStore.role} · ${t("shell.online")}`
     : shell.isPlatformAdmin
-      ? "平台管理员"
-      : "等待开通";
+      ? t("shell.platformAdmin")
+      : t("shell.awaitingAccess");
 
   const switchStoreMutation = useMutation({
     mutationFn: switchStore,
     onSuccess: async (context) => {
-      toast.success(`已切换到 ${context.activeStore?.name ?? "店铺"}`);
+      toast.success(
+        t("shell.switchedStore", { store: context.activeStore?.name ?? t("shell.storeFallback") }),
+      );
       await applySwitchedStoreContext(queryClient, context);
       await refreshStoreContextQueries(queryClient);
       router.refresh();
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "切换店铺失败"),
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : t("shell.switchStoreFailed")),
   });
 
   const handleNav = () => {
@@ -103,12 +113,12 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
       clearBrowserAuthPersistenceCookie();
       queryClient.clear();
       await clearRepairDeskOfflineIndexedDb();
-      toast.success("已退出登录");
+      toast.success(t("shell.signedOut"));
       router.replace("/login");
       router.refresh();
     } catch (error) {
       setIsSigningOut(false);
-      toast.error(error instanceof Error ? error.message : "退出登录失败");
+      toast.error(error instanceof Error ? error.message : t("shell.signOutFailed"));
     }
   };
 
@@ -121,7 +131,7 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
       <SidebarContent className="gap-0 px-2 py-2 group-data-[collapsible=icon]:px-1.5">
         <SidebarGroup className="p-0">
           <SidebarGroupLabel className="h-7 px-2 text-[10px] uppercase tracking-widest text-muted-foreground/70 lg:text-[11px] lg:leading-4 lg:tracking-normal lg:text-muted-foreground">
-            工作区
+            {t("shell.workspace")}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
@@ -217,7 +227,7 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
                     <UserCircle className="mt-0.5 size-4 shrink-0 text-primary" />
                     <div className="min-w-0 flex-1">
                       <span className="block text-[10px] font-medium uppercase text-muted-foreground lg:text-xs lg:leading-4">
-                        当前账号
+                        {t("shell.currentAccount")}
                       </span>
                       <span className="block truncate text-sm font-semibold text-foreground">
                         {accountDisplayName}
@@ -229,7 +239,7 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuLabel>店铺</DropdownMenuLabel>
+                <DropdownMenuLabel>{t("shell.stores")}</DropdownMenuLabel>
                 {shell.stores.length > 0 ? (
                   shell.stores.map((store) => (
                     <DropdownMenuItem
@@ -239,7 +249,7 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
                         if (store.id === shell.activeStore?.id) return;
                         void runGuardedTransition({
                           kind: "store-switch",
-                          label: `切换到 ${store.name}`,
+                          label: t("shell.switchToStore", { store: store.name }),
                           run: () => switchStoreMutation.mutateAsync(store.id),
                         });
                       }}
@@ -253,26 +263,26 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
                     </DropdownMenuItem>
                   ))
                 ) : (
-                  <DropdownMenuItem disabled>暂无可用店铺</DropdownMenuItem>
+                  <DropdownMenuItem disabled>{t("shell.noStores")}</DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/account" onClick={handleNav}>
                     <UserRound className="size-4" />
-                    个人中心
+                    {t("shell.profile")}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/settings" onClick={handleNav}>
                     <Settings className="size-4" />
-                    设置
+                    {t("nav.settings.title")}
                   </Link>
                 </DropdownMenuItem>
                 {(shell.recoveryStores?.length ?? 0) > 0 ? (
                   <DropdownMenuItem asChild>
                     <Link href="/settings/closed-stores" onClick={handleNav}>
                       <Store className="size-4" />
-                      已关闭与删除（{shell.recoveryStores?.length ?? 0}）
+                      {t("shell.closedStores")}（{shell.recoveryStores?.length ?? 0}）
                     </Link>
                   </DropdownMenuItem>
                 ) : null}
@@ -284,7 +294,7 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
                     event.preventDefault();
                     void runGuardedTransition({
                       kind: "sign-out",
-                      label: "退出登录",
+                      label: t("shell.signOut"),
                       run: handleSignOut,
                     });
                   }}
@@ -294,10 +304,16 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
                   ) : (
                     <LogOut className="size-4" />
                   )}
-                  {isSigningOut ? "正在退出…" : "退出登录"}
+                  {isSigningOut ? t("shell.signingOut") : t("shell.signOut")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+          </SidebarMenuItem>
+          <SidebarMenuItem className="flex min-h-11 items-center justify-end group-data-[collapsible=icon]:justify-center lg:hidden">
+            <span className="mr-auto truncate px-2 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+              {t("locale.menuLabel")}
+            </span>
+            <LanguageSwitcher />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

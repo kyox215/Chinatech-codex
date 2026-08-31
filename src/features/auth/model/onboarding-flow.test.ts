@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { OnboardingRequest, OnboardingStatus } from "@/lib/repairdesk/types";
+import { translateMessage } from "@/shared/i18n/messages";
 
 import {
   buildOnboardingRequestInput,
@@ -103,6 +104,38 @@ describe("onboarding flow helpers", () => {
         }),
       ),
     ).toBe("加入店铺：负责人 owner@example.com · 销售/前台");
+  });
+
+  it("localizes summaries, statuses, roles, and validation through the shared catalog", () => {
+    const t = (
+      key: Parameters<typeof translateMessage>[1],
+      values?: Record<string, string | number>,
+    ) => translateMessage("en", key, values);
+    const joinRequest = request({
+      request_type: "join_store",
+      target_store_name: undefined,
+      target_owner_email: "owner@example.com",
+      requested_role: "sales",
+      status: "rejected",
+    });
+
+    expect(getOnboardingRequestSummary(joinRequest, t)).toBe(
+      "Join store: Owner owner@example.com · Sales staff",
+    );
+    expect(getOnboardingRequestStatusLabel(joinRequest, t)).toBe("Request rejected");
+    expect(
+      validateOnboardingForm(
+        {
+          mode: "join_store",
+          storeName: "",
+          targetOwnerEmail: "",
+          note: "",
+          requestedRole: "technician",
+        },
+        baseStatus,
+        t,
+      ).reason,
+    ).toBe("Enter the target store owner’s email");
   });
 
   it("validates join store requirements", () => {

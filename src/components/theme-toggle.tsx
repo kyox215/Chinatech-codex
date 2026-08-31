@@ -8,8 +8,10 @@ import {
   THEME_CHANGE_EVENT,
   type ThemePreference,
 } from "@/lib/theme";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function ThemeToggle({ className }: { className?: string }) {
+  const { t } = useLocale();
   const [theme, setTheme] = useState<ThemePreference>("light");
 
   useEffect(() => {
@@ -36,7 +38,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       size="icon"
       onClick={toggle}
       className={cn("size-9", className)}
-      aria-label="切换主题"
+      aria-label={t("shell.toggleTheme")}
     >
       {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
     </Button>

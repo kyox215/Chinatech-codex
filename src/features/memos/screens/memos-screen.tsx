@@ -43,8 +43,10 @@ import {
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { RepairOsBusinessCard, RepairOsListScaffold } from "@/shared/ui";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function MemosScreen() {
+  const { t } = useLocale();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
@@ -295,8 +297,12 @@ export function MemosScreen() {
 
   return (
     <RepairOsListScaffold
-      title="备忘录"
-      subtitle={listQuery.isFetching ? "正在同步…" : `${listMeta?.total ?? 0} 条记录`}
+      title={t("memos.title")}
+      subtitle={
+        listQuery.isFetching
+          ? t("page.syncing")
+          : t("page.recordsTotal", { count: listMeta?.total ?? 0 })
+      }
       action={createAction}
       desktopHeader={desktopToolbar}
       searchValue={search}

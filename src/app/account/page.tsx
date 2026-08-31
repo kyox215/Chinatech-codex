@@ -1,11 +1,7 @@
-import type { Metadata } from "next";
-
 import { AccountCenterScreen } from "@/features/account/screens/account-center-screen";
+import { createLocalizedMetadata } from "@/shared/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "个人中心 | RepairDesk",
-  description: "查看账号资料、修改密码和绑定联系手机号。",
-};
+export const generateMetadata = createLocalizedMetadata("account.title");
 
 export default function AccountPage() {
   return <AccountCenterScreen />;

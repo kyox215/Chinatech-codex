@@ -59,8 +59,10 @@ import {
   sortOnboardingRequests,
 } from "@/features/platform/model/onboarding-queue";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function PlatformAdminScreen() {
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const [selectedRequest, setSelectedRequest] = useState<OnboardingRequest | null>(null);
   const [decisionNote, setDecisionNote] = useState("");
@@ -129,9 +131,9 @@ export function PlatformAdminScreen() {
 
   return (
     <RepairOsListScaffold
-      title="平台审批"
-      subtitle={`待审核 · 共 ${requests.length} 条`}
-      eyebrow="系统 / 平台"
+      title={t("platform.title")}
+      subtitle={t("platform.pendingCount", { count: requests.length })}
+      eyebrow={t("page.systemPlatform")}
       chips={[
         { key: "pending", label: "待审核", shortLabel: "审", count: requests.length },
         { key: "create", label: "创建店铺", shortLabel: "店", count: summary.createStoreCount },

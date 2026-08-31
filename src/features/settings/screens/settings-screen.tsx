@@ -92,6 +92,7 @@ import {
 } from "@/features/settings/model/store-bound-transient-state";
 import { storesKeys } from "@/features/stores/api/query-keys";
 import { RepairOsBusinessCard, RepairOsListScaffold, RepairOsSectionHeader } from "@/shared/ui";
+import { useLocale } from "@/shared/i18n/locale-provider";
 import {
   acceptKioskSession,
   createStore,
@@ -193,6 +194,7 @@ function isStoreSettingsDraftSection(
 }
 
 export function SettingsScreen() {
+  const { t } = useLocale();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { runGuardedTransition } = useNavigationGuard();
@@ -1222,7 +1224,11 @@ export function SettingsScreen() {
       (storeContextQuery.data.recoveryStores?.length ?? 0) === 0)
   ) {
     return (
-      <RepairOsListScaffold title="设置" subtitle="读取失败" eyebrow="系统 / 设置">
+      <RepairOsListScaffold
+        title={t("settings.title")}
+        subtitle={t("page.readFailed")}
+        eyebrow={t("page.systemSettings")}
+      >
         <RepairOsBusinessCard
           as="div"
           data-ui="settings-context-error"
@@ -1262,7 +1268,11 @@ export function SettingsScreen() {
     (storeContextQuery.data.recoveryStores?.length ?? 0) > 0
   ) {
     return (
-      <RepairOsListScaffold title="设置" subtitle="没有正在营业的店铺" eyebrow="系统 / 设置">
+      <RepairOsListScaffold
+        title={t("settings.title")}
+        subtitle={t("settings.noOpenStore")}
+        eyebrow={t("page.systemSettings")}
+      >
         <RepairOsBusinessCard
           as="div"
           className="mx-auto w-full max-w-4xl p-4"
@@ -1388,16 +1398,18 @@ export function SettingsScreen() {
 
   return (
     <RepairOsListScaffold
-      title={activeSection?.label ?? "设置"}
+      title={activeSection?.label ?? t("settings.title")}
       subtitle={
-        activeSection ? (storeContextQuery.data?.activeStore?.name ?? "当前店铺") : "常用设置"
+        activeSection
+          ? (storeContextQuery.data?.activeStore?.name ?? t("settings.currentStore"))
+          : t("settings.common")
       }
-      eyebrow="系统 / 设置"
+      eyebrow={t("page.systemSettings")}
       mobileLeading={
         activeSection ? (
           <Link
             href="/settings"
-            aria-label="返回设置总览"
+            aria-label={t("settings.backOverview")}
             className="grid size-11 place-items-center rounded-lg border border-[var(--border-panel)] bg-card text-foreground sm:size-9"
           >
             <ArrowLeft className="size-4" />
@@ -1957,11 +1969,12 @@ export function SettingsScreen() {
 }
 
 function SettingsLoading() {
+  const { t } = useLocale();
   return (
     <RepairOsListScaffold
-      title="设置"
-      subtitle="正在读取配置"
-      eyebrow="系统 / 设置"
+      title={t("settings.title")}
+      subtitle={t("settings.loading")}
+      eyebrow={t("page.systemSettings")}
       className="pb-28"
     >
       <div data-ui="settings-loading" className={repairOs.listModuleStack}>

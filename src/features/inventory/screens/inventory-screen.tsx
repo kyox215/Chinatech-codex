@@ -153,6 +153,7 @@ import {
   surfaces,
 } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 const checkOptions = ["unchecked", "pass", "fail", "unknown"] as const;
 const cosmeticOptions = ["unknown", "new", "mint", "good", "fair", "poor", "for_parts"] as const;
@@ -187,6 +188,7 @@ const inventoryDetailActions = [
 const EMPTY_INVENTORY_ITEMS: InventoryListItem[] = [];
 
 export function InventoryScreen() {
+  const { t } = useLocale();
   const router = useRouter();
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
@@ -345,11 +347,14 @@ export function InventoryScreen() {
 
   return (
     <RepairOsListScaffold
-      title="库存商品"
-      subtitle={`${activeViewLabel} · 共 ${
-        view === "all" && !hasSearch ? (stats?.total ?? visibleItems.length) : visibleItems.length
-      } 件`}
-      eyebrow="工作台 / 库存"
+      title={t("inventory.title")}
+      subtitle={t("page.itemsTotal", {
+        count:
+          view === "all" && !hasSearch
+            ? (stats?.total ?? visibleItems.length)
+            : visibleItems.length,
+      })}
+      eyebrow={t("page.workspaceInventory")}
       action={
         <RepairOsHeaderActionButton
           ariaLabel="新增商品"

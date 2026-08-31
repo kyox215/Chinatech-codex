@@ -1,11 +1,7 @@
-import type { Metadata } from "next";
-
 import { InventoryLifecycleAfterSalesQueueScreen } from "@/features/inventory/lifecycle";
+import { createLocalizedMetadata } from "@/shared/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "售后队列",
-  description: "查看商品返修和保修案件队列",
-};
+export const generateMetadata = createLocalizedMetadata("inventory.afterSalesTitle");
 
 export default function Page() {
   return <InventoryLifecycleAfterSalesQueueScreen />;

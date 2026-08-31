@@ -1,16 +1,23 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { BuybackScreen } from "@/features/buyback";
+import { createLocalizedMetadata } from "@/shared/i18n/metadata";
+import { translateMessage } from "@/shared/i18n/messages";
+import { getServerLocale } from "@/shared/i18n/server";
 
-export const metadata: Metadata = {
-  title: "回收管理",
-  description: "旧手机透明协商报价与客户口头答复记录工作台",
-};
+export const generateMetadata = createLocalizedMetadata("buyback.title");
 
-export default function Page() {
+export default async function Page() {
+  const locale = await getServerLocale();
+
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">正在加载回收...</div>}>
+    <Suspense
+      fallback={
+        <div className="p-6 text-sm text-muted-foreground">
+          {translateMessage(locale, "page.loading")}
+        </div>
+      }
+    >
       <BuybackScreen />
     </Suspense>
   );

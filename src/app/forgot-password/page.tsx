@@ -1,19 +1,20 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { ForgotPasswordScreen } from "@/features/auth/screens/forgot-password-screen";
+import { createLocalizedMetadata } from "@/shared/i18n/metadata";
+import { translateMessage } from "@/shared/i18n/messages";
+import { getServerLocale } from "@/shared/i18n/server";
 
-export const metadata: Metadata = {
-  title: "找回密码 | RepairDesk",
-  description: "通过账号邮箱发送 RepairDesk 密码重置邮件。",
-};
+export const generateMetadata = createLocalizedMetadata("auth.forgotTitle");
 
-export default function ForgotPasswordPage() {
+export default async function ForgotPasswordPage() {
+  const locale = await getServerLocale();
+
   return (
     <Suspense
       fallback={
         <div className="p-3 text-xs text-muted-foreground sm:p-6 sm:text-sm">
-          正在加载找回密码...
+          {translateMessage(locale, "page.loading")}
         </div>
       }
     >

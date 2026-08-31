@@ -11,8 +11,10 @@ import { brandGradientStyle } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { resolvePostLoginPath } from "@/features/auth/model/post-login-redirect";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function RegisterCompleteScreen() {
+  const { t } = useLocale();
   const router = useRouter();
   const { data: status, isLoading } = useQuery({
     queryKey: platformKeys.onboardingStatus,
@@ -28,9 +30,11 @@ export function RegisterCompleteScreen() {
             <CheckCircle2 className="size-5" />
           </div>
           <div>
-            <h1 className="font-display text-xl font-semibold sm:text-2xl">注册已完成</h1>
+            <h1 className="font-display text-xl font-semibold sm:text-2xl">
+              {t("auth.registrationComplete")}
+            </h1>
             <p className="text-xs text-muted-foreground sm:text-sm">
-              邮箱验证成功，可以继续开通店铺。
+              {t("auth.registrationCompleteSubtitle")}
             </p>
           </div>
         </div>
@@ -44,9 +48,9 @@ export function RegisterCompleteScreen() {
               <Store className="size-4" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold">下一步</p>
+              <p className="text-sm font-semibold">{t("auth.nextStep")}</p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                继续完成店铺创建、加入申请或邀请确认；未通过店铺审批前不会开放业务数据。
+                {t("auth.nextStepDescription")}
               </p>
             </div>
           </div>
@@ -63,7 +67,7 @@ export function RegisterCompleteScreen() {
           }}
         >
           {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Store className="size-4" />}
-          继续店铺开通
+          {t("auth.continueOnboarding")}
         </Button>
       </section>
     </main>

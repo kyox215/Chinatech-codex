@@ -1,11 +1,7 @@
-import type { Metadata } from "next";
-
 import { OnboardingScreen } from "@/features/auth/screens/onboarding-screen";
+import { createLocalizedMetadata } from "@/shared/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "账号开通",
-  description: "提交 RepairDesk 店铺访问申请",
-};
+export const generateMetadata = createLocalizedMetadata("auth.onboardingTitle");
 
 export default function OnboardingPage() {
   return <OnboardingScreen />;

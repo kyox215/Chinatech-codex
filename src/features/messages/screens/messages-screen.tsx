@@ -50,6 +50,7 @@ import {
   RepairOsSectionHeader,
 } from "@/shared/ui";
 import { brandGradientStyle, controls, repairOs } from "@/lib/ui-patterns";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 const domainMeta = {
   order: {
@@ -65,6 +66,7 @@ const domainMeta = {
 const messageTemplateVariableNames = MESSAGE_TEMPLATE_VARIABLES.map((variable) => variable.name);
 
 export function MessagesScreen() {
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
@@ -214,7 +216,11 @@ export function MessagesScreen() {
 
   if (!canReadMessageTemplates) {
     return (
-      <RepairOsListScaffold title="消息模板" subtitle="需要权限" eyebrow="工作台 / 消息">
+      <RepairOsListScaffold
+        title={t("messages.title")}
+        subtitle={t("page.permissionRequired")}
+        eyebrow={t("page.workspaceMessages")}
+      >
         <RepairOsBusinessCard
           as="div"
           data-ui="messages-template-no-permission"
@@ -233,9 +239,9 @@ export function MessagesScreen() {
   if (templatesQuery.isError) {
     return (
       <RepairOsListScaffold
-        title="消息模板"
-        subtitle="读取失败"
-        eyebrow="工作台 / 消息"
+        title={t("messages.title")}
+        subtitle={t("page.readFailed")}
+        eyebrow={t("page.workspaceMessages")}
         chips={[
           { key: "enabled", label: "启用", shortLabel: "启", count: "-" },
           { key: "order", label: "工单", shortLabel: "单", count: "-" },
@@ -276,9 +282,9 @@ export function MessagesScreen() {
 
   return (
     <RepairOsListScaffold
-      title="消息模板"
-      subtitle={`启用 ${enabledCount} · 共 ${templates.length} 个`}
-      eyebrow="工作台 / 消息"
+      title={t("messages.title")}
+      subtitle={t("page.enabledTotal", { enabled: enabledCount, total: templates.length })}
+      eyebrow={t("page.workspaceMessages")}
       action={
         canUpdateMessageTemplates ? (
           <RepairOsHeaderActionButton
@@ -681,11 +687,12 @@ function TemplateGroup({
 }
 
 function MessagesLoading() {
+  const { t } = useLocale();
   return (
     <RepairOsListScaffold
-      title="消息模板"
-      subtitle="正在读取模板"
-      eyebrow="工作台 / 消息"
+      title={t("messages.title")}
+      subtitle={t("messages.loading")}
+      eyebrow={t("page.workspaceMessages")}
       chips={[
         { key: "enabled", label: "启用", shortLabel: "启", count: "-" },
         { key: "order", label: "工单", shortLabel: "单", count: "-" },

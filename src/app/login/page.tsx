@@ -1,18 +1,21 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { LoginScreen } from "@/features/auth/screens/login-screen";
+import { createLocalizedMetadata } from "@/shared/i18n/metadata";
+import { translateMessage } from "@/shared/i18n/messages";
+import { getServerLocale } from "@/shared/i18n/server";
 
-export const metadata: Metadata = {
-  title: "登录",
-  description: "RepairDesk 员工邮箱登录",
-};
+export const generateMetadata = createLocalizedMetadata("auth.login");
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const locale = await getServerLocale();
+
   return (
     <Suspense
       fallback={
-        <div className="p-3 text-xs text-muted-foreground sm:p-6 sm:text-sm">正在加载登录...</div>
+        <div className="p-3 text-xs text-muted-foreground sm:p-6 sm:text-sm">
+          {translateMessage(locale, "page.loading")}
+        </div>
       }
     >
       <LoginScreen />

@@ -13,8 +13,10 @@ import { authErrorMessage, validateNewPassword } from "@/features/auth/model/aut
 import { brandGradientStyle, controls } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function ResetPasswordScreen() {
+  const { t } = useLocale();
   const router = useRouter();
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirmation, setNewPasswordConfirmation] = useState("");
@@ -22,7 +24,7 @@ export function ResetPasswordScreen() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const validationError = validateNewPassword(newPassword, newPasswordConfirmation);
+    const validationError = validateNewPassword(newPassword, newPasswordConfirmation, t);
     if (validationError) {
       toast.error(validationError);
       return;
@@ -33,13 +35,13 @@ export function ResetPasswordScreen() {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) {
       setIsSubmitting(false);
-      toast.error(authErrorMessage(error));
+      toast.error(authErrorMessage(error, t));
       return;
     }
 
     await fetch("/auth/recovery/complete", { method: "POST" }).catch(() => undefined);
     await supabase.auth.signOut();
-    toast.success("密码已更新，请使用新密码登录。");
+    toast.success(t("auth.passwordUpdated"));
     router.replace("/login?password_updated=1");
     router.refresh();
   }
@@ -52,21 +54,23 @@ export function ResetPasswordScreen() {
           className="mb-2 inline-flex min-h-11 items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground sm:mb-4"
         >
           <ArrowLeft className="size-4" />
-          返回登录
+          {t("auth.backToLogin")}
         </Link>
         <div className="mb-3 flex items-center gap-2 sm:mb-5 sm:gap-3">
           <div className="grid size-10 place-items-center rounded-md bg-primary/10 text-primary">
             <KeyRound className="size-5" />
           </div>
           <div className="min-w-0">
-            <h1 className="font-display text-xl font-semibold sm:text-2xl">设置新密码</h1>
-            <p className="text-xs text-muted-foreground sm:text-sm">请设置新的员工账号密码。</p>
+            <h1 className="font-display text-xl font-semibold sm:text-2xl">
+              {t("auth.resetTitle")}
+            </h1>
+            <p className="text-xs text-muted-foreground sm:text-sm">{t("auth.resetSubtitle")}</p>
           </div>
         </div>
 
         <form className="space-y-3 sm:space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-1.5">
-            <Label htmlFor="new-password">新密码</Label>
+            <Label htmlFor="new-password">{t("auth.newPassword")}</Label>
             <Input
               id="new-password"
               type="password"
@@ -77,7 +81,7 @@ export function ResetPasswordScreen() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="new-password-confirmation">确认新密码</Label>
+            <Label htmlFor="new-password-confirmation">{t("auth.confirmNewPassword")}</Label>
             <Input
               id="new-password-confirmation"
               type="password"
@@ -98,7 +102,7 @@ export function ResetPasswordScreen() {
             ) : (
               <KeyRound className="size-4" />
             )}
-            更新密码
+            {t("auth.updatePassword")}
           </Button>
         </form>
       </section>

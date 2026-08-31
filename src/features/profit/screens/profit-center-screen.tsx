@@ -50,6 +50,7 @@ import type {
 import { cn } from "@/lib/utils";
 import { buildOrderDetailWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
 import { RepairOsListScaffold } from "@/shared/ui";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 const FALLBACK_TIMEZONE = "Europe/Rome";
 
@@ -381,6 +382,7 @@ function ProfitLoading() {
 }
 
 export function ProfitCenterScreen() {
+  const { t } = useLocale();
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
   const canRead = shell.permissions?.canReadRepairProfitReports === true;
@@ -418,14 +420,14 @@ export function ProfitCenterScreen() {
   if (!shell.isLoading && !canRead) {
     return (
       <RepairOsListScaffold
-        title="维修毛利"
-        subtitle="需要财务利润查看权限"
-        eyebrow="工作台 / 财务"
+        title={t("profit.title")}
+        subtitle={t("profit.permissionSubtitle")}
+        eyebrow={t("page.workspaceFinance")}
       >
         <Card className="mx-auto max-w-xl rounded-2xl">
           <CardContent className="p-3 text-center sm:p-6">
             <WalletCards className="mx-auto size-8 text-muted-foreground" />
-            <h2 className="mt-3 font-semibold">此页面仅对获授权人员开放</h2>
+            <h2 className="mt-3 font-semibold">{t("profit.restrictedTitle")}</h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               成本、毛利、趋势及订单级财务数据均未向当前账号请求或展示。
             </p>
@@ -459,9 +461,9 @@ export function ProfitCenterScreen() {
 
   return (
     <RepairOsListScaffold
-      title="维修毛利"
-      subtitle={query.isFetching ? "正在更新经营毛利" : `${range.start_date} 至 ${range.end_date}`}
-      eyebrow="工作台 / 财务"
+      title={t("profit.title")}
+      subtitle={query.isFetching ? t("profit.updating") : `${range.start_date} – ${range.end_date}`}
+      eyebrow={t("page.workspaceFinance")}
       desktopAction={
         <div className="flex items-center gap-2">
           {canExport ? (

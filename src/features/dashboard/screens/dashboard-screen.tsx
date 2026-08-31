@@ -16,10 +16,12 @@ import { useStoreShellContext } from "@/features/stores/api/use-store-shell-cont
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { getDashboardSummary, isRepairDeskAuthorizationError } from "@/lib/repairdesk/api";
 import { RepairOsListScaffold } from "@/shared/ui";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 const dashboardSummaryInput = { limit: 20 } as const;
 
 export function DashboardScreen() {
+  const { t } = useLocale();
   const router = useRouter();
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const [newOrderSessionKey, setNewOrderSessionKey] = useState(0);
@@ -51,19 +53,19 @@ export function DashboardScreen() {
 
   return (
     <RepairOsListScaffold
-      title="概览"
+      title={t("nav.dashboard.title")}
       subtitle={
         isInitialLoading
-          ? "正在生成处理顺序"
+          ? t("dashboard.loadingPriority")
           : hasPermissionError
-            ? "优先队列无权查看"
+            ? t("dashboard.permissionDenied")
             : hasHardError
-              ? "优先队列暂不可用"
+              ? t("dashboard.priorityUnavailable")
               : dashboardQuery.data?.coverage === "assigned"
-                ? "按优先级显示我的下一步"
-                : "按优先级显示全店下一步"
+                ? t("dashboard.myNextSteps")
+                : t("dashboard.storeNextSteps")
       }
-      eyebrow="工作台 / 概览"
+      eyebrow={t("page.workspaceOverview")}
       desktopAction={<DashboardDesktopQuickStart onCreateOrder={openNewOrder} />}
     >
       <div className="min-w-0 space-y-3">

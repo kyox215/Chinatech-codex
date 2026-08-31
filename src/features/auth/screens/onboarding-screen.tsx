@@ -37,19 +37,21 @@ import { clearBrowserAuthPersistenceCookie } from "@/features/auth/model/auth-pe
 import {
   buildOnboardingRequestInput,
   getLatestOnboardingRequest,
+  getOnboardingRoleLabel,
   getOnboardingRequestSummary,
   getOnboardingRequestStatusLabel,
   getPendingOnboardingRequest,
-  onboardingRoleLabels,
   validateOnboardingForm,
 } from "@/features/auth/model/onboarding-flow";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { storesKeys } from "@/features/stores/api/query-keys";
 import { CACHE_TIMES } from "@/lib/query-performance";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function OnboardingScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { t } = useLocale();
   const [mode, setMode] = useState<OnboardingRequestInput["request_type"]>("join_store");
   const [storeName, setStoreName] = useState("");
   const [storeAddress, setStoreAddress] = useState("");
@@ -79,23 +81,24 @@ export function OnboardingScreen() {
   );
   const latestInvitation = statusQuery.data?.invitations?.[0];
   const formValidation = useMemo(
-    () => validateOnboardingForm(formState, statusQuery.data),
-    [formState, statusQuery.data],
+    () => validateOnboardingForm(formState, statusQuery.data, t),
+    [formState, statusQuery.data, t],
   );
 
   const joinStoreMutation = useMutation({
     mutationFn: (input: OnboardingRequestInput) => submitOnboardingRequest(input),
     onSuccess: async () => {
-      toast.success("申请已提交");
+      toast.success(t("onboarding.requestSubmitted"));
       await queryClient.invalidateQueries({ queryKey: platformKeys.onboardingStatus });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "提交失败"),
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : t("onboarding.submitFailed")),
   });
   const createStoreMutation = useMutation({
     mutationFn: (input: StoreCreateInput) => createStore(input),
     onSuccess: async () => {
       removeStoreCreateRequestId();
-      toast.success("店铺已创建");
+      toast.success(t("onboarding.storeCreated"));
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: platformKeys.onboardingStatus }),
         queryClient.invalidateQueries({ queryKey: storesKeys.context }),
@@ -108,40 +111,48 @@ export function OnboardingScreen() {
       }
       if (error instanceof RepairDeskApiError && error.code === "STORE_CREATE_UNAVAILABLE") {
         const requestId = error.requestId ?? getOrCreateStoreCreateRequestId();
-        toast.error(`${error.message}（请求编号：${requestId}）`);
+        toast.error(
+          t("onboarding.unavailableWithRequestId", {
+            message: error.message,
+            id: requestId,
+          }),
+        );
         return;
       }
-      toast.error(error instanceof Error ? error.message : "创建失败");
+      toast.error(error instanceof Error ? error.message : t("onboarding.createFailed"));
     },
   });
   const cancelRequestMutation = useMutation({
     mutationFn: (id: string) => cancelOnboardingRequest({ id }),
     onSuccess: async () => {
-      toast.success("申请已撤回");
+      toast.success(t("onboarding.requestWithdrawn"));
       await queryClient.invalidateQueries({ queryKey: platformKeys.onboardingStatus });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "撤回失败"),
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : t("onboarding.withdrawFailed")),
   });
   const acceptInvitationMutation = useMutation({
     mutationFn: (id: string) => acceptStoreInvitation({ id }),
     onSuccess: async () => {
-      toast.success("邀请已接受");
+      toast.success(t("onboarding.inviteAccepted"));
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: platformKeys.onboardingStatus }),
         queryClient.invalidateQueries({ queryKey: storesKeys.context }),
       ]);
       enterSystem();
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "接受邀请失败"),
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : t("onboarding.acceptFailed")),
   });
   const redeemInviteLinkMutation = useMutation({
     mutationFn: (code: string) => redeemStoreInviteLink({ code }),
     onSuccess: async () => {
-      toast.success("邀请码已兑换，请接受邀请");
+      toast.success(t("onboarding.codeRedeemed"));
       setInviteCode("");
       await queryClient.invalidateQueries({ queryKey: platformKeys.onboardingStatus });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "兑换邀请码失败"),
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : t("onboarding.redeemFailed")),
   });
   const isSubmitting =
     joinStoreMutation.isPending ||
@@ -199,12 +210,16 @@ export function OnboardingScreen() {
     return (
       <main className="grid min-h-svh place-items-center bg-background px-2 py-3 sm:px-4 sm:py-8">
         <section className="w-full max-w-md rounded-lg border border-border/60 bg-card p-3 sm:p-5">
-          <h1 className="font-display text-xl font-semibold">无法读取账号状态</h1>
+          <h1 className="font-display text-xl font-semibold">
+            {t("onboarding.statusUnavailable")}
+          </h1>
           <p className="mt-2 text-sm text-status-danger-foreground">
-            {statusQuery.error instanceof Error ? statusQuery.error.message : "请重新登录后再试"}
+            {statusQuery.error instanceof Error
+              ? statusQuery.error.message
+              : t("onboarding.signInAgain")}
           </p>
           <Button className="mt-4" variant="outline" onClick={signOut}>
-            重新登录
+            {t("auth.login")}
           </Button>
         </section>
       </main>
@@ -223,7 +238,7 @@ export function OnboardingScreen() {
               <Store className="size-5" />
             </div>
             <div className="min-w-0">
-              <h1 className="font-display text-xl font-semibold">账号开通</h1>
+              <h1 className="font-display text-xl font-semibold">{t("auth.onboardingTitle")}</h1>
               <p className="mt-1 truncate text-sm text-muted-foreground">
                 {status?.activeStore?.name ??
                   latestInvitation?.store_name ??
@@ -234,25 +249,29 @@ export function OnboardingScreen() {
           </div>
 
           <div className="mt-3 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2.5 sm:mt-4 sm:p-3">
-            <p className="text-xs text-muted-foreground">当前状态</p>
+            <p className="text-xs text-muted-foreground">{t("onboarding.currentStatus")}</p>
             <p className="mt-1 text-sm font-semibold">
               {status?.activeStore
-                ? "账号已开通"
+                ? t("onboarding.accountReady")
                 : latestInvitation
-                  ? "待接受邀请"
+                  ? t("onboarding.pendingInvite")
                   : latestRequest
-                    ? getOnboardingRequestStatusLabel(latestRequest)
-                    : "等待提交"}
+                    ? getOnboardingRequestStatusLabel(latestRequest, t)
+                    : t("onboarding.awaitingSubmission")}
             </p>
             <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
               {status?.activeStore
-                ? `角色：${status.activeStore.role}`
+                ? t("onboarding.roleSummary", {
+                    role: getOnboardingRoleLabel(status.activeStore.role, t),
+                  })
                 : latestInvitation
-                  ? `邀请加入：${latestInvitation.store_name ?? "店铺"}`
+                  ? t("onboarding.invitedTo", {
+                      store: latestInvitation.store_name ?? t("onboarding.storeFallback"),
+                    })
                   : pendingRequest
-                    ? getOnboardingRequestSummary(pendingRequest)
+                    ? getOnboardingRequestSummary(pendingRequest, t)
                     : latestRequest
-                      ? `${getOnboardingRequestStatusLabel(latestRequest)}：${getOnboardingRequestSummary(latestRequest)}`
+                      ? `${getOnboardingRequestStatusLabel(latestRequest, t)}: ${getOnboardingRequestSummary(latestRequest, t)}`
                       : formValidation.reason}
             </p>
           </div>
@@ -265,12 +284,12 @@ export function OnboardingScreen() {
                 onClick={enterSystem}
               >
                 <CheckCircle2 className="size-4" />
-                进入系统
+                {t("onboarding.enterSystem")}
               </Button>
             )}
             <Button variant="outline" onClick={signOut}>
               <LogOut className="size-4" />
-              退出
+              {t("onboarding.signOut")}
             </Button>
           </div>
         </aside>
@@ -280,9 +299,12 @@ export function OnboardingScreen() {
             <div className="flex items-start gap-3">
               <CheckCircle2 className="mt-0.5 size-5 text-status-success-foreground" />
               <div className="min-w-0">
-                <h2 className="text-sm font-semibold">账号已开通</h2>
+                <h2 className="text-sm font-semibold">{t("onboarding.accountReady")}</h2>
                 <p className="mt-1 break-words text-sm text-muted-foreground">
-                  你已加入 {status.activeStore.name}，角色为 {status.activeStore.role}。
+                  {t("onboarding.joinedStore", {
+                    store: status.activeStore.name,
+                    role: getOnboardingRoleLabel(status.activeStore.role, t),
+                  })}
                 </p>
               </div>
             </div>
@@ -293,15 +315,15 @@ export function OnboardingScreen() {
               <UserPlus className="mt-0.5 size-5 text-primary" />
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-sm font-semibold">待接受邀请</h2>
+                  <h2 className="text-sm font-semibold">{t("onboarding.pendingInvite")}</h2>
                   <Badge variant="outline">
-                    {latestInvitation.role === "owner"
-                      ? "owner"
-                      : (onboardingRoleLabels[latestInvitation.role] ?? latestInvitation.role)}
+                    {getOnboardingRoleLabel(latestInvitation.role, t)}
                   </Badge>
                 </div>
                 <p className="mt-1 break-words text-sm text-muted-foreground">
-                  {latestInvitation.store_name ?? "店铺"} 邀请你加入。接受前不会开通店铺权限。
+                  {t("onboarding.inviteDescription", {
+                    store: latestInvitation.store_name ?? t("onboarding.storeFallback"),
+                  })}
                 </p>
               </div>
               <Button
@@ -315,7 +337,7 @@ export function OnboardingScreen() {
                 ) : (
                   <CheckCircle2 className="size-4" />
                 )}
-                接受邀请
+                {t("onboarding.acceptInvite")}
               </Button>
             </div>
           </section>
@@ -325,11 +347,11 @@ export function OnboardingScreen() {
               <Clock3 className="mt-0.5 size-5 text-status-warn-foreground" />
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-sm font-semibold">申请待审核</h2>
+                  <h2 className="text-sm font-semibold">{t("onboarding.requestPending")}</h2>
                   <Badge variant="outline">pending</Badge>
                 </div>
                 <p className="mt-1 break-words text-sm text-muted-foreground">
-                  {getOnboardingRequestSummary(pendingRequest)}
+                  {getOnboardingRequestSummary(pendingRequest, t)}
                 </p>
               </div>
               <Button
@@ -344,7 +366,7 @@ export function OnboardingScreen() {
                 ) : (
                   <RotateCcw className="size-4" />
                 )}
-                撤回申请
+                {t("onboarding.withdrawRequest")}
               </Button>
             </div>
           </section>
@@ -357,12 +379,12 @@ export function OnboardingScreen() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="text-sm font-semibold">
-                        {getOnboardingRequestStatusLabel(latestRequest)}
+                        {getOnboardingRequestStatusLabel(latestRequest, t)}
                       </h2>
                       <Badge variant="outline">{latestRequest.status}</Badge>
                     </div>
                     <p className="mt-1 break-words text-sm text-muted-foreground">
-                      {getOnboardingRequestSummary(latestRequest)}
+                      {getOnboardingRequestSummary(latestRequest, t)}
                     </p>
                     {latestRequest.decision_note && (
                       <p className="mt-2 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 text-sm text-foreground">
@@ -377,11 +399,11 @@ export function OnboardingScreen() {
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="join_store">
                   <UserPlus className="mr-1.5 size-4" />
-                  加入店铺
+                  {t("onboarding.joinStore")}
                 </TabsTrigger>
                 <TabsTrigger value="create_store">
                   <Store className="mr-1.5 size-4" />
-                  创建店铺
+                  {t("onboarding.createStore")}
                 </TabsTrigger>
               </TabsList>
 
@@ -391,14 +413,14 @@ export function OnboardingScreen() {
               >
                 <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
                   <Label htmlFor="inviteCode" className={formLayout.label}>
-                    邀请码
+                    {t("onboarding.inviteCode")}
                   </Label>
                   <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                     <Input
                       id="inviteCode"
                       value={inviteCode}
                       onChange={(event) => setInviteCode(event.target.value)}
-                      placeholder="粘贴店铺邀请码"
+                      placeholder={t("onboarding.inviteCodePlaceholder")}
                       autoComplete="off"
                       onKeyDown={(event) => {
                         if (event.key !== "Enter") return;
@@ -418,28 +440,28 @@ export function OnboardingScreen() {
                       ) : (
                         <CheckCircle2 className="size-4" />
                       )}
-                      兑换
+                      {t("onboarding.redeem")}
                     </Button>
                   </div>
                   <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                    兑换后会生成待接受邀请，不会直接开通店铺权限。
+                    {t("onboarding.redeemHelp")}
                   </p>
                 </div>
                 <div className={formLayout.field}>
                   <Label htmlFor="targetOwnerEmail" className={formLayout.label}>
-                    店铺负责人邮箱
+                    {t("onboarding.ownerEmail")}
                   </Label>
                   <Input
                     id="targetOwnerEmail"
                     type="email"
                     value={targetOwnerEmail}
                     onChange={(event) => setTargetOwnerEmail(event.target.value)}
-                    placeholder="例如 owner@example.com"
+                    placeholder="owner@example.com"
                     autoComplete="email"
                   />
                 </div>
                 <div className={formLayout.field}>
-                  <Label className={formLayout.label}>申请角色</Label>
+                  <Label className={formLayout.label}>{t("onboarding.requestedRole")}</Label>
                   <Select
                     value={requestedRole}
                     onValueChange={(value) => setRequestedRole(value as typeof requestedRole)}
@@ -448,9 +470,9 @@ export function OnboardingScreen() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(onboardingRoleLabels).map(([value, label]) => (
+                      {(["technician", "sales", "manager", "viewer"] as const).map((value) => (
                         <SelectItem key={value} value={value}>
-                          {label}
+                          {getOnboardingRoleLabel(value, t)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -458,18 +480,18 @@ export function OnboardingScreen() {
                 </div>
                 <div className={formLayout.field}>
                   <Label htmlFor="requestNote" className={formLayout.label}>
-                    申请备注
+                    {t("onboarding.requestNote")}
                   </Label>
                   <Textarea
                     id="requestNote"
                     value={requestNote}
                     onChange={(event) => setRequestNote(event.target.value)}
-                    placeholder="说明你是谁、要加入哪家店，方便负责人确认"
+                    placeholder={t("onboarding.requestNotePlaceholder")}
                     rows={3}
                   />
                 </div>
                 <div className="rounded-[var(--radius-lg)] border border-primary/15 bg-primary/5 px-3 py-2 text-xs leading-5 text-muted-foreground">
-                  系统不会展示已有店铺列表。申请提交后等待店铺负责人确认；如果负责人看不到申请，请让负责人发送邀请或邀请码。
+                  {t("onboarding.storePrivacyHelp")}
                 </div>
               </TabsContent>
 
@@ -479,33 +501,33 @@ export function OnboardingScreen() {
               >
                 <div className={formLayout.field}>
                   <Label htmlFor="storeName" className={formLayout.label}>
-                    店铺名称
+                    {t("onboarding.storeName")}
                   </Label>
                   <Input
                     id="storeName"
                     value={storeName}
                     onChange={(event) => setStoreName(event.target.value)}
-                    placeholder="例如 Centro Riparazioni Roma"
+                    placeholder="Centro Riparazioni Roma"
                   />
                 </div>
                 <div className={formLayout.field}>
                   <Label htmlFor="storeAddress" className={formLayout.label}>
-                    默认打印地址（可选）
+                    {t("onboarding.storeAddress")}
                   </Label>
                   <Textarea
                     id="storeAddress"
                     value={storeAddress}
                     maxLength={500}
                     onChange={(event) => setStoreAddress(event.target.value)}
-                    placeholder="例如 Via Roma 12, Siracusa"
+                    placeholder="Via Roma 12, Siracusa"
                     rows={2}
                   />
                   <p className="text-xs leading-5 text-muted-foreground">
-                    维修工单、批量工单和二手销售票据使用此地址；留空时客户输出保持暂停，创建后可在设置中补充。
+                    {t("onboarding.addressHelp")}
                   </p>
                 </div>
                 <div className="rounded-[var(--radius-lg)] border border-primary/15 bg-primary/5 px-3 py-2 text-xs leading-5 text-muted-foreground">
-                  创建后你会成为该店铺 owner。店铺资料默认只对本店成员可见，不进入平台审核队列。
+                  {t("onboarding.ownerHelp")}
                 </div>
               </TabsContent>
             </Tabs>
@@ -521,7 +543,11 @@ export function OnboardingScreen() {
               ) : (
                 <CheckCircle2 className="size-4" />
               )}
-              {mode === "create_store" ? "创建店铺" : latestRequest ? "重新提交申请" : "提交申请"}
+              {mode === "create_store"
+                ? t("onboarding.createStore")
+                : latestRequest
+                  ? t("onboarding.resubmit")
+                  : t("onboarding.submit")}
             </Button>
             <p className="text-xs text-muted-foreground">{formValidation.reason}</p>
           </form>

@@ -32,6 +32,7 @@ import {
 } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
 import { RepairOsBusinessCard, RepairOsListScaffold } from "@/shared/ui";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 type PendingToolkitFinalize = {
   id: string;
@@ -41,6 +42,7 @@ type PendingToolkitFinalize = {
 };
 
 export function ToolkitScreen() {
+  const { t } = useLocale();
   const shell = useStoreShellContext();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -212,8 +214,12 @@ export function ToolkitScreen() {
   if (shell.isLoading) return <ToolkitLoading />;
   if (!canRead) {
     return (
-      <RepairOsListScaffold title="工具集" subtitle="需要登录并加入店铺" eyebrow="工作台 / 工具集">
-        <h1 className="sr-only">工具集</h1>
+      <RepairOsListScaffold
+        title={t("toolkit.title")}
+        subtitle={t("page.loginAndStoreRequired")}
+        eyebrow={t("page.workspaceToolkit")}
+      >
+        <h1 className="sr-only">{t("toolkit.title")}</h1>
         <RepairOsBusinessCard as="div" role="status" className="mx-auto max-w-3xl">
           当前账号暂时无法查看工具集，请先完成登录和店铺开通。
         </RepairOsBusinessCard>
@@ -223,8 +229,12 @@ export function ToolkitScreen() {
   if (resourcesQuery.isPending) return <ToolkitLoading />;
   if (resourcesQuery.isError) {
     return (
-      <RepairOsListScaffold title="工具集" subtitle="读取失败" eyebrow="工作台 / 工具集">
-        <h1 className="sr-only">工具集</h1>
+      <RepairOsListScaffold
+        title={t("toolkit.title")}
+        subtitle={t("page.readFailed")}
+        eyebrow={t("page.workspaceToolkit")}
+      >
+        <h1 className="sr-only">{t("toolkit.title")}</h1>
         <RepairOsBusinessCard as="div" className="mx-auto max-w-3xl text-status-danger-foreground">
           <p>工具集暂时无法读取。</p>
           <Button
@@ -242,9 +252,9 @@ export function ToolkitScreen() {
 
   return (
     <RepairOsListScaffold
-      title="工具集"
-      subtitle="已发布的网页工具与可下载资源；文件需完成扫描后才可发布"
-      eyebrow="工作台 / 工具集"
+      title={t("toolkit.title")}
+      subtitle={t("toolkit.description")}
+      eyebrow={t("page.workspaceToolkit")}
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder="搜索工具名称、平台或版本"
@@ -608,9 +618,14 @@ function stateLabel(state?: ToolkitResource["state"]) {
 }
 
 function ToolkitLoading() {
+  const { t } = useLocale();
   return (
-    <RepairOsListScaffold title="工具集" subtitle="正在读取…" eyebrow="工作台 / 工具集">
-      <h1 className="sr-only">工具集</h1>
+    <RepairOsListScaffold
+      title={t("toolkit.title")}
+      subtitle={t("page.loading")}
+      eyebrow={t("page.workspaceToolkit")}
+    >
+      <h1 className="sr-only">{t("toolkit.title")}</h1>
       <div className="grid gap-3 xl:grid-cols-2">
         {[1, 2, 3].map((item) => (
           <div key={item} className="h-32 animate-pulse rounded-2xl bg-muted/50" />

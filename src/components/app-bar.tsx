@@ -9,21 +9,25 @@ import { ScanLine, Sparkles, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EntityContextBackLink } from "@/components/entity-context-back-link";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { RealtimeSyncIndicator } from "@/features/realtime";
 import { useAiAssistantWorkspace } from "@/features/ai-assistant";
 import { appShell } from "@/lib/ui-patterns";
-import { getActiveWorkspaceItem, routeLabels } from "@/shared/config/navigation";
+import { getActiveWorkspaceItem } from "@/shared/config/navigation";
 import { resolveEntityContextBack } from "@/shared/config/entity-context-routes";
+import { localizeNavItem, localizeRouteLabel } from "@/shared/i18n/navigation";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey, MessageValues } from "@/shared/i18n/messages";
 import { cn } from "@/lib/utils";
 
-function useCrumbs() {
+function useCrumbs(t: (key: MessageKey, values?: MessageValues) => string) {
   const pathname = usePathname() ?? "/";
   const segs = pathname.split("/").filter(Boolean);
-  if (segs.length === 0) return [{ label: "概览", href: "/" }];
+  if (segs.length === 0) return [{ label: t("nav.dashboard.title"), href: "/" }];
   return segs.map((seg, i) => ({
-    label: routeLabels[seg] ?? decodeURIComponent(seg),
+    label: localizeRouteLabel(seg, t) ?? decodeURIComponent(seg),
     href: "/" + segs.slice(0, i + 1).join("/"),
   }));
 }
@@ -58,19 +62,21 @@ export function getAppBarVisibilityClass(pathname: string) {
 }
 
 export function AppBar({ onOpenScanner }: { onOpenScanner: () => void }) {
+  const { t } = useLocale();
   const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
   useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 8));
-  const crumbs = useCrumbs();
+  const crumbs = useCrumbs(t);
   const pathname = usePathname() ?? "/";
   const entityContextBack = resolveEntityContextBack(pathname);
   const shell = useStoreShellContext();
   const aiAssistant = useAiAssistantWorkspace();
-  const activeModule = getActiveWorkspaceItem(pathname, shell.isPlatformAdmin);
+  const activeModule = localizeNavItem(getActiveWorkspaceItem(pathname, shell.isPlatformAdmin), t);
   const appBarVisibilityClass = getAppBarVisibilityClass(pathname);
   const mobileContextTitle =
-    routeLabels[pathname.split("/").filter(Boolean)[0] ?? ""] ?? activeModule.title;
-  const activeStoreName = shell.activeStore?.name ?? (shell.isLoading ? "读取店铺…" : "未选择店铺");
+    localizeRouteLabel(pathname.split("/").filter(Boolean)[0] ?? "", t) ?? activeModule.title;
+  const activeStoreName =
+    shell.activeStore?.name ?? (shell.isLoading ? t("shell.loadingStore") : t("shell.noStore"));
 
   return (
     <motion.header
@@ -129,12 +135,12 @@ export function AppBar({ onOpenScanner }: { onOpenScanner: () => void }) {
             variant="outline"
             size="sm"
             className="hidden h-9 shrink-0 gap-1.5 border-primary/30 bg-primary/10 px-2.5 text-primary hover:bg-primary/15 md:inline-flex"
-            aria-label="打开 RepairDesk AI 小助手"
+            aria-label={t("shell.openAi")}
             data-ai-assistant-trigger="desktop"
             onClick={aiAssistant.openAssistant}
           >
             <Sparkles className="size-3.5" aria-hidden="true" />
-            <span className="hidden lg:inline">AI 助手</span>
+            <span className="hidden lg:inline">{t("shell.aiAssistant")}</span>
           </Button>
         ) : null}
 
@@ -143,11 +149,13 @@ export function AppBar({ onOpenScanner }: { onOpenScanner: () => void }) {
           variant="outline"
           size="icon"
           className="size-10 shrink-0 rounded-xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] md:size-9 md:rounded-md md:bg-surface/60 md:shadow-none"
-          aria-label="全局扫码查询"
+          aria-label={t("shell.scanGlobal")}
           onClick={onOpenScanner}
         >
           <ScanLine className="size-4" />
         </Button>
+
+        <LanguageSwitcher className="rounded-xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] md:rounded-md md:border-0 md:bg-transparent md:shadow-none" />
 
         <ThemeToggle className="size-10 rounded-xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] md:size-9 md:rounded-md md:border-0 md:bg-transparent md:shadow-none" />
 

@@ -1,8 +1,7 @@
-import type { Metadata } from "next";
-
 import { InventoryProductEditScreen } from "@/features/inventory/products/screens/inventory-product-edit-screen";
+import { createLocalizedMetadata } from "@/shared/i18n/metadata";
 
-export const metadata: Metadata = { title: "编辑商品 — RepairDesk" };
+export const generateMetadata = createLocalizedMetadata("inventory.editTitle");
 
 export default async function InventoryProductEditPage({
   params,

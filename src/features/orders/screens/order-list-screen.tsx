@@ -140,6 +140,8 @@ import {
   clearOrderWorkspaceIntentHref,
   parseOrderWorkspaceIntent,
 } from "@/features/orders/model/order-workspace-intent";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { localizeOrderQueueGroup } from "@/features/orders/model/order-i18n";
 
 const LazyOrderDetailScreen = lazy(() =>
   import("@/features/orders/screens/order-detail-screen").then((module) => ({
@@ -211,6 +213,7 @@ function orderListRequestHash(input: OrderListPageInput) {
 }
 
 export function OrderListScreen() {
+  const { t } = useLocale();
   const [statusGroup, setStatusGroup] = useState<"all" | OrderQueueGroup>("all");
   const [statusCode, setStatusCode] = useState<string>("all");
   const [filters, setFilters] = useState<OrderListFilters>({});
@@ -566,8 +569,8 @@ export function OrderListScreen() {
       return [
         {
           key: "all" as const,
-          label: filters.view === "archive" ? "全部历史" : "全部订单",
-          shortLabel: "全",
+          label: filters.view === "archive" ? t("orders.allHistory") : t("orders.allOrders"),
+          shortLabel: t("orders.allShort"),
           tone: "neutral" as const,
           count: totalOrders,
           hint: filters.view === "archive" ? "已归档订单" : "全部订单",
@@ -577,22 +580,25 @@ export function OrderListScreen() {
     return [
       {
         key: "all" as const,
-        label: "全部任务",
-        shortLabel: "全",
+        label: t("orders.allTasks"),
+        shortLabel: t("orders.allShort"),
         tone: "neutral" as const,
         count: queueCounts.all,
         hint: orderStageHints.all,
       },
-      ...orderQueueGroups.map((key) => ({
-        key,
-        label: orderQueueGroupMeta[key].label,
-        shortLabel: orderQueueGroupMeta[key].shortLabel,
-        tone: orderQueueGroupMeta[key].tone,
-        count: queueCounts[key],
-        hint: orderStageHints[key],
-      })),
+      ...orderQueueGroups.map((key) => {
+        const localized = localizeOrderQueueGroup(key, t);
+        return {
+          key,
+          label: localized.label,
+          shortLabel: localized.shortLabel,
+          tone: orderQueueGroupMeta[key].tone,
+          count: queueCounts[key],
+          hint: orderStageHints[key],
+        };
+      }),
     ];
-  }, [filters.view, listResult?.queueCounts, totalOrders]);
+  }, [filters.view, listResult?.queueCounts, t, totalOrders]);
   const listErrorMessage =
     listError instanceof Error ? listError.message : "请检查网络、登录状态或数据库迁移。";
   const applyOrderListSelection = useCallback((selection: OrderListSelection) => {
@@ -1206,7 +1212,7 @@ export function OrderListScreen() {
           : undefined
       }
     >
-      <h1 className="sr-only">维修工单</h1>
+      <h1 className="sr-only">{t("orders.title")}</h1>
       {viewportMode === "compact" ? (
         <MobileOrdersFloatingHeader
           headerRef={setMobileHeaderRef}
@@ -1226,7 +1232,7 @@ export function OrderListScreen() {
                 variant="outline"
                 size="iconDense"
                 className="size-9 rounded-lg border-primary/30 bg-primary/10 text-primary"
-                aria-label="打开 RepairDesk AI 小助手"
+                aria-label={t("shell.openAi")}
                 data-ai-assistant-trigger="mobile-orders"
                 onClick={aiAssistant.openAssistant}
               >
@@ -1495,8 +1501,8 @@ export function OrderListScreen() {
                   event.preventDefault();
                   searchInput.commitNow();
                 }}
-                placeholder="搜索工单号、客户姓名、电话或 IMEI"
-                aria-label="搜索工单、客户、电话或 IMEI"
+                placeholder={t("orders.searchLabel")}
+                aria-label={t("orders.searchLabel")}
                 className={cn(controls.searchInput, "pr-16")}
                 aria-busy={searchBusy}
               />

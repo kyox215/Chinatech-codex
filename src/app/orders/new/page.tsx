@@ -1,11 +1,8 @@
-import type { Metadata } from "next";
 import { NewOrderScreen } from "@/features/orders/screens/new-order-screen";
 import { parseNewOrderPrefill } from "@/features/orders/model/new-order-intent";
+import { createLocalizedMetadata } from "@/shared/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "新建工单",
-  description: "录入新工单：客户、设备、故障与报价",
-};
+export const generateMetadata = createLocalizedMetadata("action.new-order.label");
 
 export default async function Page({
   searchParams,

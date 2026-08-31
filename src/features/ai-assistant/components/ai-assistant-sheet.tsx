@@ -42,6 +42,7 @@ import {
 } from "@/lib/repairdesk/api";
 import { brandGradientStyle } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 type AssistantStatus = "idle" | "loading" | "result" | "error" | "cancelled";
 
@@ -84,11 +85,12 @@ export function AiAssistantSheet({
   onModelUsageChanged,
   storeKey,
 }: AiAssistantSheetProps) {
+  const { locale: serverSafeLocale } = useLocale();
+  const locale = typeof document === "undefined" ? serverSafeLocale : currentAiAssistantLocale();
   const [input, setInput] = useState("");
   const [lastQuestion, setLastQuestion] = useState("");
   const [processingMode, setProcessingMode] = useState<AiAssistantProcessingMode>("local");
   const [lastProcessingMode, setLastProcessingMode] = useState<AiAssistantProcessingMode>("local");
-  const [locale] = useState(currentAiAssistantLocale);
   const [controlDetailsOpen, setControlDetailsOpen] = useState(false);
   const [status, setStatus] = useState<AssistantStatus>("idle");
   const [response, setResponse] = useState<AiOrderAssistantResponse>();
