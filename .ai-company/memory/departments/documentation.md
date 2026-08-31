@@ -3,7 +3,7 @@ schema_version: 1
 department: documentation
 status: active
 owner: Documentation Department / Integration Lead
-last_verified_at: 2026-07-31
+last_verified_at: 2026-08-31
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -24,6 +24,7 @@ as owner of this file.
 
 ## Verified rules and conventions
 
+- `docs/EMPLOYEE_INTERFACE_I18N.md` is the active authority for employee `zh-CN` / `it-IT` / `en` support, Cookie/SSR/cache/customer-language boundaries, translation workflow and rollback. Documentation must describe this as core Shell/Auth/public-entry coverage plus a formatter foundation, not as every historical domain string translated; the repeatable audit inventory owns later domain migration discovery.
 - Root `AGENTS.md` and RepairDesk docs override generic AI Company OS templates.
 - New applicable top-level windows automatically route through `$cross-session-orchestration`; `docs/CROSS_SESSION_ORCHESTRATION_DECLARATION.md` is the human contract and `.ai-company/orchestration.json` is the machine declaration. Already-open windows may need to reload project rules.
 - `PROJECT_TAKEOVER_REPORT.md` is the initial 2026-06-19 takeover baseline.
@@ -170,3 +171,4 @@ visible wherever the release is summarized.
 | 2026-07-24 | Synchronized multi-store defaults, exact rollout precedence, AI local/provider split, shared monthly budget truth, staged activation, denylist rollback and code-ready versus production-live boundary | TASK-20260724-001-multistore-feature-availability               | Integration Lead + department reviewers         | local_verified               |
 | 2026-07-26 | Published the European phone catalog source, rolling-window, manual-fallback, physical-color exception, maintenance and rollback contract                                                              | TASK-20260726-002-eu-phone-catalog                              | Integration Lead + Documentation reviewer       | production_verified          |
 | 2026-07-31 | Synchronized product-inventory density plan, responsive/detail standards, public release evidence, synthetic screenshot boundary, exact-SHA rollback and no-data-write scope | TASK-20260731-003-inventory-product-mobile-density | Integration Lead + Documentation/QA reviewers | production_verified |
+| 2026-08-31 | Published the employee-interface i18n authority and synchronized exact scope, Cookie/cache/customer-language boundaries, production proof, screenshots and incremental translation debt | TASK-20260831-001-project-i18n-clean-rebuild | Integration Lead + Documentation/QA reviewers | production_verified |

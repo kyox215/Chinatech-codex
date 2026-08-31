@@ -3,7 +3,7 @@ schema_version: 1
 department: frontend
 status: active
 owner: Frontend Department / Integration Lead
-last_verified_at: 2026-07-31
+last_verified_at: 2026-08-31
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -24,6 +24,7 @@ as owner of this file.
 
 ## Verified rules and conventions
 
+- Employee interface locale supports exactly `zh-CN`, `it-IT`, and `en`, with Chinese default and stable URLs. Reuse the strict Cookie resolver, typed catalogs, `LocaleProvider`, shared formatters and self-named 44px radio-menu switcher; switching must preserve route, draft/dialog state, focus and scroll. Employee locale must not alter `/r`, Kiosk, customer communication or fixed Italian print/legal language. Evidence: `TASK-20260831-001-project-i18n-clean-rebuild` and `docs/EMPLOYEE_INTERFACE_I18N.md`.
 - Navigation currently includes overview, orders, customers, buyback, inventory, settings, and platform for platform admins.
 - UI should reuse `src/components/ui/*`, `src/lib/ui-patterns.ts`, and feature query key factories.
 - New navigation pages must update `AppSidebar`, `AppBar`, and command palette.
@@ -134,3 +135,4 @@ Verified custody contract: Frontend keeps repair type, accessories, custody and 
 | 2026-07-23 | Added cold-start lazy mounts, home cross-domain preload suppression and exact single/batch print disabled reasons with recovery entries                 | TASK-20260723-004-startup-bootstrap-print-implementation | Integration Lead + QA reviewer               | local_verified              |
 | 2026-07-26 | Added searchable brand/model and responsive RAM/storage/color selectors; physical finishes require name, bordered swatch and non-color selected state   | TASK-20260726-002-eu-phone-catalog                       | Integration Lead + UX/QA reviewers           | production_verified         |
 | 2026-07-31 | Released product-inventory 84–88px mobile cards, five-column intake, compact detail and fixed actions; product action bars must neutralize shared margins at base and `sm` breakpoints | TASK-20260731-003-inventory-product-mobile-density | Integration Lead + UX/QA reviewers | production_verified |
+| 2026-08-31 | Released typed Chinese/Italian/English employee locale, strict Cookie SSR, in-place accessible switching, customer-language isolation and shared formatter foundation | TASK-20260831-001-project-i18n-clean-rebuild | Integration Lead + QA/Security/Architecture reviewers | production_verified |

@@ -2,7 +2,7 @@
 
 ## Current handoff
 
-- **Status:** no handoff prepared.
-- **Last verified:** 2026-08-31T09:50:25Z
-- **Workspace/branch:** inspect before resuming.
-- **First action:** read `TASK.md` and latest checkpoint, then inspect the repository.
+- **Status:** closed; no implementation handoff required.
+- **Last verified:** 2026-08-31T14:49:04Z
+- **Workspace/branch:** canonical `main`; implementation release `119e39da` is published and production verified.
+- **Follow-up:** create a new scoped task for deep-domain translation batches or formatter-consumption migration; do not reopen this release task or broaden its completion claim.

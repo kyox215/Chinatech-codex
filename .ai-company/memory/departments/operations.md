@@ -3,7 +3,7 @@ schema_version: 1
 department: operations
 status: active
 owner: Operations Department / Integration Lead
-last_verified_at: 2026-07-19
+last_verified_at: 2026-08-31
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -24,6 +24,7 @@ as owner of this file.
 
 ## Verified rules and conventions
 
+- `TASK-20260831-001-project-i18n-clean-rebuild` released `main@119e39da` as READY production `dpl_J2fh5rx5gfTanES51s9C5FsoSC1x` with canonical aliases, exact-SHA metadata, three-locale private/no-store smoke and no schema/config/secret/data write. Rollback is prior READY `dpl_AvyKuvhGqkhyjo9sGtc34b3kgPre` or scoped forward revert; employee locale incidents must not mutate customer-language, tenant or permission state.
 - As of `TASK-20260709-220940-task` closeout on 2026-07-10, the original checkout `main` was protected and synced to `origin/main` at `d2e3cff1`: old local HEAD is preserved at `preserve/original-main-before-sync-20260710-0030`, original pre-sync dirty/untracked work is saved in `stash@{1}`, and later external mobile-performance residual is saved in `stash@{0}`. Use stash messages to identify restore targets because numeric indices can shift.
 - Duplicate `* 2.*` files must not be deleted without owner confirmation.
 - Differing duplicate review result corrected by `TASK-20260619-006`: 18 remove-after-Owner-confirmation, 12 remove-after-domain-confirmation, and 2 backlog/salvage-only candidates.
@@ -137,3 +138,4 @@ scoped slice into broad recovery certification.
 | 2026-07-19 | Released exact fast-recovery source, verified SW v4/probe/fallback, production responsive views, clean runtime, Supabase no-op and prior READY rollback                                                                 | TASK-20260719-007-fast-app-recovery                          | Integration Lead + Architecture/QA reviewers     | production_verified_bounded  |
 | 2026-07-20 | Executed the Owner-approved DB-only ledger hotfix, exact linked apply, one 130 micro-USD canary and 15-minute zero-threshold observation; recorded mandatory hotfix-branch-to-main follow-up                  | TASK-20260720-006-ai-ledger-fence-hotfix                    | Integration Lead + DATA/SEC/QA reviewers         | conditional_repo_integration |
 | 2026-07-20 | Stopped on remote-main movement, rebased and reran full gates, deployed app-first `main@5260c102`, then applied only `20260720231500` under an active release lease with exact postchecks | TASK-20260720-002-platform-owner-approval | Integration Lead + DATA/SEC/QA reviewers | production_verified_immediate |
+| 2026-08-31 | Released exact-SHA employee i18n to existing Vercel production, verified aliases/SSR/cache/browser/logs and retained a prior READY rollback target without database/config writes | TASK-20260831-001-project-i18n-clean-rebuild | Integration Lead + QA/Security/Architecture reviewers | production_verified |

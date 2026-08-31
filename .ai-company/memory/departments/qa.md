@@ -3,7 +3,7 @@ schema_version: 1
 department: qa
 status: active
 owner: QA Department / Integration Lead
-last_verified_at: 2026-07-19
+last_verified_at: 2026-08-31
 review_trigger: relevant-task-or-quarterly-review
 ---
 
@@ -24,6 +24,7 @@ as owner of this file.
 
 ## Verified rules and conventions
 
+- Employee-locale releases must verify typed catalog/interpolation parity, exact Cookie allowlist and fallback, SSR/hydration, customer-route isolation, state/URL/focus/scroll preservation, 44px/mobile overflow, Chromium and WebKit, sanitized desktop/mobile screenshots, exact Git/Vercel SHA, private/no-store localized HTML and production browser smoke. Deep-domain text audit counts are backlog evidence, not proof of full translation. `TASK-20260831-001-project-i18n-clean-rebuild` passed 466 files / 3,071 tests and Chromium/WebKit 9/9.
 - 2026-06-19 gates passed: `agents:check`, v3 validation, lint, typecheck, unit tests, and production build outside sandbox.
 - Sandboxed `npm run build` may fail with Turbopack port permission; rerun outside sandbox before classifying as code failure.
 - `TASK-20260619-024` is the order-list migration pre-implementation baseline: `agents:check`, lint, typecheck, unit tests, and non-sandbox build passed; sandbox build failure was environment-specific Turbopack port binding.
@@ -192,3 +193,4 @@ Verified gate from `TASK-20260716-005-device-custody-status-implementation`: cre
 | 2026-07-24 | Verified multi-store rollout with 197 targeted and 2313 full tests, lint, typecheck and build; retained real non-system second-store desktop/mobile canary as production gate                                            | TASK-20260724-001-multistore-feature-availability               | Integration Lead + QA reviewer                   | local_verified_production_gated               |
 | 2026-07-26 | Verified rolling cutoff, unique catalog IDs, aliases, manual fallback, color accessibility, 2400-test regression, 27-page build and 1440/390 browser flows                                                               | TASK-20260726-002-eu-phone-catalog                              | Integration Lead + QA reviewer                   | production_verified                           |
 | 2026-07-31 | Verified cross-store placeholder isolation, exact-store QueryObserver behavior, independent-port E2E configuration, 2540 tests and Chromium/WebKit 22/22; stale shared servers are invalid evidence | TASK-20260731-003-inventory-product-mobile-density | Integration Lead + QA reviewer | production_verified |
+| 2026-08-31 | Verified locale parity/SSR/state/customer isolation, 3,071 tests, Chromium/WebKit 9/9, exact-SHA production smoke and four sanitized screenshots | TASK-20260831-001-project-i18n-clean-rebuild | Integration Lead + QA/Security/Architecture reviewers | production_verified |

@@ -45,3 +45,13 @@
 - **Scope:** release claim remains core zh-CN/it-IT/en capability with principal Shell/Auth/public-entry coverage and tested formatter foundation. Deep historical domain strings and formatter consumption remain an explicit follow-up, not a full-site translation claim.
 - **Release controls:** freshly fetched `origin/main` still equals baseline `eb45cc65507445292c572c514576715bfffa05aa`; integration lease v1 is held by the bound Integration Lead. Existing Vercel rollback anchor is `dpl_AvyKuvhGqkhyjo9sGtc34b3kgPre` (Ready production).
 - **Next:** freeze staged diff, commit, reverify exact-SHA gates and lease, non-force push, verify existing Vercel production deployment/aliases/smoke/logs, then consolidate memory and close.
+
+## 2026-08-31T14:49:04Z — Production release and closeout complete
+
+- **Phase:** closed.
+- **Done:** exact implementation commit `119e39da61272b00ee1dc77815025ae2e40247ab` passed lint, typecheck, 466 files / 3,071 tests and production build, then was non-force pushed to `origin/main`. Vercel deployment `dpl_J2fh5rx5gfTanES51s9C5FsoSC1x` is production/READY, carries the same Git SHA and owns `www.chinatech.in` / `chinatech.in`.
+- **Production evidence:** default/invalid locale is Chinese; exact Italian and English Cookies produce matching SSR; `/r` and `/kiosk` remain fixed Italian without overwriting employee preference; localized HTML is private/no-store. Mobile Chromium switched zh→it→en in place with a secure SameSite=Lax Cookie, 44px target, zero overflow and zero console errors. SW v5 remains network-first for navigation.
+- **Reviews:** QA code quality PASS; Security PASS after generated-file drift was closed; Architecture/UX/Release PASS/GO with BLOCKER 0 and MAJOR 0.
+- **Scope boundary:** release is the core employee-site language capability and principal Shell/Auth/public-entry coverage, not a claim that every historical deep-domain string or formatter call is migrated.
+- **Rollback:** promote prior READY production `dpl_AvyKuvhGqkhyjo9sGtc34b3kgPre` or make a scoped forward revert; no database, schema, secret, environment or customer-data rollback is required.
+- **Capability:** one successful T3/R3 candidate evidence set is recorded, but no autonomy or capability-level promotion is granted.

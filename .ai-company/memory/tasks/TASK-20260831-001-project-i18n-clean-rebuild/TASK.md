@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260831-001-project-i18n-clean-rebuild"
 title: "从远端干净基线重建网站核心中意英语言能力并发布"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "Hexiang Huang / Owner"
 departments: ["INT", "ARCH", "UX", "FE", "QA", "DOC", "RELEASE"]
 created_at: "2026-08-31T09:50:25Z"
-updated_at: "2026-08-31T12:28:46Z"
+updated_at: "2026-08-31T14:49:04Z"
+closed_at: "2026-08-31T14:49:04Z"
 ---
 # Task — 从远端干净基线重建网站核心中意英语言能力并发布
 
@@ -61,8 +62,8 @@ RepairDesk 门店员工、平台管理员和公开页面用户可在中文、意
 - [x] 深层领域硬编码文案有可重复审计清单与明确非覆盖声明，不得声称所有历史界面已全量翻译。
 - [x] 共享 EUR、日期、数字和相对时间 formatter 严格按 locale + `Europe/Rome` 实现并有自动化证据；存量深层显示迁移明确延期。
 - [x] 390/430/768/1024/1440 无页面横向溢出，保留脱敏桌面/移动/公开页截图。
-- [ ] 最终 exact SHA 上 lint、typecheck、test、build、定向 Chromium/WebKit E2E 与独立 QA/架构/安全复核为 PASS。
-- [ ] 最终 diff 无依赖、配置、auth/API/data/schema/migration/secret 漂移；GitHub/Vercel 生产部署对应同一 SHA，并有 READY、alias、2xx、日志和回滚锚点证据。
+- [x] 最终 exact SHA 上 lint、typecheck、test、build、定向 Chromium/WebKit E2E 与独立 QA/架构/安全复核为 PASS。
+- [x] 最终 diff 无依赖、配置、auth/API/data/schema/migration/secret 漂移；GitHub/Vercel 生产部署对应同一 SHA，并有 READY、alias、2xx、日志和回滚锚点证据。
 
 ## Facts, assumptions, and unknowns
 
@@ -72,8 +73,8 @@ RepairDesk 门店员工、平台管理员和公开页面用户可在中文、意
 | 原本地未提交/未跟踪/忽略内容、`.env.local`、依赖缓存、旧任务记忆与 Registry 已删除 | verified fact | Owner destructive authorization; `git reset --hard`; `git clean -ffdx` | 不可从当前工作树恢复；不复用旧候选 |
 | 当前代码没有已安装 i18n 依赖，RootLayout 固定 `lang=zh-CN` 且文案硬编码 | verified fact | `package.json`; `src/app/layout.tsx` | 采用无新增依赖方案 |
 | Next.js 16.2.11 / React 19.2 / Node >=22.12 | verified fact | `package.json` | 遵守 async server APIs |
-| 全站精确用户可见文案清单 | unknown | clean baseline code inventory in progress | Explorer 只读审计后冻结 allowlist |
-| 当前 Vercel project、branch protection、回滚 deployment | unknown | 发布阶段在线核验 | 未核验前不得生产 GO |
+| 全站精确用户可见文案清单 | verified scoped fact | `scripts/audit-i18n-ui-text.mjs --summary`; `docs/EMPLOYEE_INTERFACE_I18N.md` | 核心入口已覆盖；5,839 个候选出现位置保留为后续逐领域迁移清单，不作全站翻译声明 |
+| 当前 Vercel project、生产 deployment 与回滚 deployment | verified fact | Vercel inspect/API；`EVIDENCE.md` E-025、E-028..E-030 | `119e39da` 对应 `dpl_J2fh5rx5gfTanES51s9C5FsoSC1x` READY；上一 READY `dpl_AvyKuvhGqkhyjo9sGtc34b3kgPre` 可回滚 |
 
 ## Decision and approval points
 

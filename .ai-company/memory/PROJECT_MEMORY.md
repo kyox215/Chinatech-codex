@@ -4,11 +4,13 @@
 - Owner: Hexiang Huang / 鹤祥
 - Version: 2
 - Status: active
-- Last verified: 2026-07-31 CEST
+- Last verified: 2026-08-31 CEST
 
 ## Product and business overview
 
 Chinatech RepairDesk is a Next.js internal management system for a phone repair and electronics shop in Floridia, Siracusa, Italy. It supports repair orders, customers, buyback, inventory, payments, messaging, platform settings, and mobile task/detail workflows.
+
+2026-08-31 employee-interface i18n release: `TASK-20260831-001-project-i18n-clean-rebuild` adds exact `zh-CN` / `it-IT` / `en` support with Chinese default, strict Cookie SSR, stable URLs, typed in-repo catalogs, in-place accessible switching and Europe/Rome/EUR formatter foundations. Implementation `main@119e39da` is production-verified at `dpl_J2fh5rx5gfTanES51s9C5FsoSC1x`. `/r`, Kiosk, customer communications and fixed Italian print/legal language remain separate from employee preference. `docs/EMPLOYEE_INTERFACE_I18N.md` is the active scope authority; deep historical domain strings remain incremental migration work, not a completed full-site translation claim.
 
 2026-07-04 product direction update: multi-store planning should treat RepairDesk as a privacy-first platform for independent partner store owners, not as one headquarters company with branch employees. Each store is a private tenant controlled by its own store owner. Platform operators manage the system, cooperation status, and support controls, but should not have default access to store business data. The active long-term plan is `docs/INDEPENDENT_PARTNER_STORE_PLATFORM_PLAN.md`; progress and owner decisions are tracked in `docs/INDEPENDENT_PARTNER_STORE_PLATFORM_PROGRESS.md`.
 
@@ -220,7 +222,7 @@ Device custody and unlock credentials are independent facts. Browser roles still
   hardening, recovery-baseline failure, backup/PITR restore proof, the missing historical one-hour/24-hour
   observations and one plaintext unlock pattern remain independent R4/policy follow-ups.
 - TASK-009 also exposed a shared-workspace release-coordination failure: separate executors can race on DB/Git/deploy state. Future production releases require a serialized release lock plus remote state assertions immediately before and after writes.
-- Latest closed task: `TASK-20260717-004-order-diagnosis-quote-implementation`, the production unknown-intake, diagnosis, atomic quote and staff-confirmed WhatsApp workflow, validated through migration `20260717213518`, business `main@6e511c56`, exact READY deployment and clean runtime smoke.
+- Latest closed task: `TASK-20260831-001-project-i18n-clean-rebuild`, the production employee-interface `zh-CN` / `it-IT` / `en` release with strict Cookie SSR, in-place accessible switching, customer-language isolation, exact `main@119e39da`, Vercel READY deployment and clean canonical-domain smoke.
 - Active handoff candidate: Phase 2 tenant isolation audit, using `.ai-company/memory/ACTIVE_CONTEXT.md` and `TASK-20260704-009-independent-partner-store-platform` as Phase 1 baseline evidence.
 - 30-day focus: close residual default-ACL/RLS/policy/function hardening after the browser-grant containment;
   repair/reconstruct the migration recovery baseline; record backup/PITR and run an isolated restore drill;
