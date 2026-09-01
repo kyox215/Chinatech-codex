@@ -74,8 +74,9 @@ test("dashboard Release A copy stays localized across desktop to mobile", async 
     await page.evaluate(() => Reflect.get(window, "__repairDeskDashboardLocaleIdentity")),
   ).toBe("same-document");
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.locator('[data-ui="dashboard-quick-start-mobile"]')).toBeVisible();
-  await expect(page.getByText("Quick order", { exact: true })).toBeVisible();
+  const mobileQuickStart = page.locator('[data-ui="dashboard-quick-start-mobile"]');
+  await expect(mobileQuickStart).toBeVisible();
+  await expect(mobileQuickStart.getByText("Quick order", { exact: true })).toBeVisible();
   await expect(page.getByText("Process next", { exact: true })).toBeVisible();
   await expect(page.locator('[data-dashboard-priority-filter="overdue"]')).toHaveAttribute(
     "aria-pressed",
@@ -267,6 +268,9 @@ test("Orders offline with no cache uses localized availability copy", async ({ p
   await page.addInitScript(() => {
     Object.defineProperty(Navigator.prototype, "onLine", { configurable: true, get: () => false });
   });
+  await page.route("**/api/repairdesk/orders/queue-summary", (route) =>
+    route.abort("internetdisconnected"),
+  );
   await page.goto("/orders", { waitUntil: "domcontentloaded" });
   await hideNextDevIndicator(page);
   await expect(

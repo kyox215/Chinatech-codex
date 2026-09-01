@@ -197,7 +197,7 @@ test.describe("localized employee workspace evidence", () => {
     await page.goto("/orders", { waitUntil: "domcontentloaded" });
 
     await expect(page.locator("html")).toHaveAttribute("lang", "it-IT");
-    await expect(page.locator('[data-app-bar="true"]')).toContainText("Demo Repair Store");
+    await waitForAppBarStoreLink(page);
     await expect(page.getByRole("heading", { name: "Ordini di riparazione" })).toBeVisible();
     await expect(page.getByRole("link", { name: /Clienti/ })).toBeVisible();
     await hideNextDevIndicator(page);
@@ -212,7 +212,7 @@ test.describe("localized employee workspace evidence", () => {
     await page.goto("/orders", { waitUntil: "domcontentloaded" });
 
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
-    await expect(page.locator('[data-app-bar="true"]')).toContainText("Demo Repair Store");
+    await waitForAppBarStoreLink(page);
     await page.getByRole("button", { name: "Open navigation menu" }).click();
     const drawer = page.getByRole("dialog", { name: "Navigation menu" });
     await expect(drawer).toBeVisible();
@@ -245,4 +245,12 @@ async function hideNextDevIndicator(page: Page) {
       portal.style.display = "none";
     });
   });
+}
+
+async function waitForAppBarStoreLink(page: Page) {
+  await expect(
+    page
+      .locator('[data-app-bar="true"]')
+      .getByRole("link", { name: "Demo Repair Store", includeHidden: true }),
+  ).toHaveAttribute("href", "/settings", { timeout: 20_000 });
 }

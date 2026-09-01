@@ -75,3 +75,20 @@
 - **Verdict:** independent QA reports PASS with no P0/P1; all prior release blockers are closed. Independent Security reports no P0/P1 and retains four non-blocking P2 follow-ups.
 - **Release controls:** current window holds project integration lease version 1; `origin/main` was freshly fetched and remains at baseline `8e349b06f9e44883eb3348b434f96ad3f0d409d3`. Owner authorization covers a normal non-force main push and existing production deployment only after exact staging checks.
 - **Next:** stage the frozen source, tests, docs and evidence; recheck generated/forbidden paths and lease; commit; push; wait for GitHub/Vercel; perform production public read-only smoke and record rollback anchor.
+
+## 2026-09-01T09:17:00Z — Main CI correctly blocks on browser determinism
+
+- **Phase:** post-push correction.
+- **Remote state:** commit `3e9b89520af945cb280f468cc3110d149cbc5e9c` is on `origin/main`; Vercel built it READY, but release acceptance remains paused because GitHub run `33490561926` is red. The prior READY `8e349b06...` remains the rollback anchor.
+- **CI evidence:** verify job passed all lint/typecheck/test/build steps. Chromium failed the delayed store-name assertion and post-switch scroll preservation. WebKit failed the same delayed store assertion plus an ambiguous responsive Quick Order locator and an offline-empty story that received seeded mock data.
+- **Decision:** no retry/waiver. Freeze the bounded Plan Delta in `TASK.md`, use the same single writer for two language-switcher paths and two existing E2E specs, then repeat both complete matrices before another push.
+- **Security/data boundary:** downloaded artifacts contain controlled mocks only. No production login, mutation, secret, customer data or configuration change is involved.
+
+## 2026-09-01T09:31:00Z — Post-CI corrective candidate independently gate-green
+
+- **Phase:** corrective integration staging.
+- **Completed:** the same single writer fixed pre-open scroll capture, final AppBar readiness, responsive Quick Order scoping and deterministic offline-no-cache setup within the frozen six-path Plan Delta. Full local Node 22.12 lint/typecheck/Vitest/build are green; Chromium and WebKit each pass 24/24 with zero skips; generated `next-env.d.ts` is restored.
+- **Independent review:** QA PASS and Security/Data PASS, no P0/P1. Review confirms no auth/API/data/config change, retry/skip/assertion weakening or fake-green mechanism.
+- **Control plane:** GitHub workflow token defaults to read-only, but `main` currently has no branch protection or repository ruleset. The release therefore manually requires all new-SHA jobs green; platform-enforced required checks remain an explicit P2 governance item for Release 3.
+- **Deployment state:** first commit `3e9b8952...` is Vercel READY as `dpl_4wZZckLaQqYHeR1joSE3zYiScCLj` and public read-only smoke is healthy. It is not the final Release 1 candidate because hosted browser CI remains red. Prior READY rollback anchor is `dpl_AP6Y4eDmFgukeS4boDjDtqsNEJY3` at `8e349b06...`.
+- **Next:** renew/reverify the integration lease, fetch `origin/main`, stage only the six corrected paths, commit and normal-push; require all hosted jobs green on the new SHA, then require its exact Vercel deployment READY and repeat public read-only production smoke.

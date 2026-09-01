@@ -20,17 +20,26 @@ export function LanguageSwitcher({ className }: { className?: string }) {
   const { locale, setLocale, t } = useLocale();
   const [open, setOpen] = useState(false);
   const scrollPositionRef = useRef({ x: 0, y: 0 });
+  const openingScrollCapturedRef = useRef(false);
+  const captureOpeningScrollPosition = () => {
+    if (open) return;
+    scrollPositionRef.current = { x: window.scrollX, y: window.scrollY };
+    openingScrollCapturedRef.current = true;
+  };
   const restoreScrollPosition = () => {
-    const scrollPosition = scrollPositionRef.current;
+    const scrollPosition = { ...scrollPositionRef.current };
     window.requestAnimationFrame(() => {
       window.scrollTo(scrollPosition.x, scrollPosition.y);
       window.requestAnimationFrame(() => window.scrollTo(scrollPosition.x, scrollPosition.y));
     });
   };
   const handleOpenChange = (nextOpen: boolean) => {
-    if (nextOpen) scrollPositionRef.current = { x: window.scrollX, y: window.scrollY };
+    if (nextOpen && !openingScrollCapturedRef.current) captureOpeningScrollPosition();
     setOpen(nextOpen);
-    if (!nextOpen) restoreScrollPosition();
+    if (!nextOpen) {
+      restoreScrollPosition();
+      openingScrollCapturedRef.current = false;
+    }
   };
 
   return (
@@ -44,6 +53,14 @@ export function LanguageSwitcher({ className }: { className?: string }) {
           aria-label={t("locale.menuLabel")}
           title={t("locale.menuLabel")}
           data-language-switcher-trigger="true"
+          onPointerDownCapture={(event) => {
+            if (event.button === 0 && !event.ctrlKey) captureOpeningScrollPosition();
+          }}
+          onKeyDownCapture={(event) => {
+            if (["Enter", " ", "ArrowDown", "ArrowUp"].includes(event.key)) {
+              captureOpeningScrollPosition();
+            }
+          }}
         >
           <Languages className="size-4" aria-hidden="true" />
         </Button>

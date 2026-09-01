@@ -9,7 +9,7 @@ autonomy_level: "L2"
 owner: "Hexiang Huang / Owner"
 departments: ["ARCH", "DOC", "FE", "PRODUCT", "QA", "RELEASE", "SEC", "UX"]
 created_at: "2026-09-01T07:54:13Z"
-updated_at: "2026-09-01T08:18:00Z"
+updated_at: "2026-09-01T09:31:00Z"
 ---
 # Task — 按优化报告完成高优先级网站与三语改进并发布
 
@@ -180,6 +180,13 @@ Task Memory files remain owned by the Integration Lead and are outside the appli
 - The known-title synchronization allowlist now includes the existing `auth.confirmTitle` and `auth.inviteCompleteTitle` catalog keys so those public static pages follow an in-place locale switch. Unknown and dynamic titles remain preserved.
 - The final candidate supersedes earlier test counts: after these changes, the full unit suite and both complete Chromium/WebKit i18n matrices must be rerun and recorded before integration.
 - The expanded audit's seven `features/kiosk` candidates are classified as employee-side create/review/return validation in `kiosk-session.ts`, not public fixed-Italian leakage; this exception is documented rather than suppressed.
+
+### Release 1 post-push CI Plan Delta (2026-09-01)
+
+- GitHub run `33490561926` proved the no-path-filter matrix executes on `main`: the ordinary verify job passed, while both browser jobs correctly failed instead of reporting green. Controlled artifacts identify timing/determinism gaps rather than an API/data/auth regression.
+- The existing E2E allowlist may be tightened only as follows: wait for the final store link instead of assuming a five-second shell load; scope the mobile Quick Order assertion to its mobile quick-start region; make the offline-with-no-cache story abort its queue-summary read so seeded mock data cannot race the intended empty cache.
+- The scroll failure exposes a real pointer-order edge in the already-required same-document state contract. `src/components/language-switcher.tsx` and `src/components/language-switcher.test.tsx` are added to the allowlist solely to capture scroll before pointer/keyboard menu opening and prove restoration; locale, Cookie, URL and navigation semantics remain unchanged.
+- The same single application writer owns this correction. Required proof is focused component tests, lint/typecheck, both complete 24-story matrices with no skip, then a new normal commit and push. No test retry, skip, timeout-only waiver or CI exception is allowed.
 
 ## Definition of done
 
