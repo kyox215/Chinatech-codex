@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LazyModalErrorBoundary, LazyModalShell } from "@/components/lazy-modal-shell";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
 
 describe("LazyModalShell", () => {
   afterEach(() => vi.restoreAllMocks());
@@ -38,5 +39,27 @@ describe("LazyModalShell", () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "取消" }));
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["zh-CN", "取消", "重试", "Scanner加载失败"],
+    ["it-IT", "Annulla", "Riprova", "Caricamento non riuscito: Scanner"],
+    ["en", "Cancel", "Retry", "Scanner failed to load"],
+  ] as const)("localizes lazy fallback controls in %s", (locale, cancel, retry, errorTitle) => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const BrokenWorkspace = () => {
+      throw new Error("lazy import failed");
+    };
+    render(
+      <LocaleProvider initialLocale={locale}>
+        <LazyModalErrorBoundary open title="Scanner" onCancel={vi.fn()} onRetry={vi.fn()}>
+          <BrokenWorkspace />
+        </LazyModalErrorBoundary>
+      </LocaleProvider>,
+    );
+
+    expect(screen.getByRole("button", { name: cancel })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: retry })).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toHaveAccessibleName(errorTitle);
   });
 });

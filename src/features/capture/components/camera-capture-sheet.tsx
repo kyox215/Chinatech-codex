@@ -13,13 +13,19 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  getBarcodeScannerCameraErrorKind,
+  getCameraCaptureErrorMessageKey,
+  type ScannerErrorKind,
+} from "@/features/capture/model/scanner-errors";
+import {
   createAttachmentDraft,
-  validateAttachmentFile,
+  getAttachmentValidationIssue,
   type AttachmentDraft,
   type AttachmentDraftKind,
 } from "@/features/capture/model/attachment-rules";
 import { componentOverlay } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 interface CameraCaptureSheetProps {
   open: boolean;
@@ -27,23 +33,59 @@ interface CameraCaptureSheetProps {
   title?: string;
   description?: string;
   attachmentKind?: AttachmentDraftKind;
+  purpose?: "draft" | "order-attachment";
+  onOutsideDismiss?: () => void;
+  onCloseAutoFocus?: (event: Event) => void;
   onCapture: (draft: AttachmentDraft) => void;
 }
+
+const cameraCaptureErrorToastId = "repairdesk-camera-capture-error";
 
 export function CameraCaptureSheet({
   open,
   onOpenChange,
-  title = "拍照采集",
-  description = "拍摄设备外观、故障位置或取件凭证。",
+  title,
+  description,
   attachmentKind = "fault_photo",
+  purpose,
+  onOutsideDismiss,
+  onCloseAutoFocus,
   onCapture,
 }: CameraCaptureSheetProps) {
+  const { t } = useLocale();
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
+  const resolvedPurpose = purpose ?? "draft";
+  const resolvedTitle = title ?? t("camera.title");
+  const resolvedDescription =
+    description ??
+    t(
+      resolvedPurpose === "order-attachment"
+        ? "camera.descriptionOrder"
+        : "camera.descriptionDraft",
+    );
   const inputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
+  const [cameraErrorKind, setCameraErrorKind] = useState<ScannerErrorKind | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const outsideDismissedRef = useRef(false);
+  const cameraErrorToastIdRef = useRef<string | number | null>(null);
+  const lastErrorToastKindRef = useRef<ScannerErrorKind | null>(null);
+  const cameraError = cameraErrorKind ? t(getCameraCaptureErrorMessageKey(cameraErrorKind)) : "";
+
+  const dismissCameraErrorToast = useCallback(() => {
+    if (cameraErrorToastIdRef.current !== null) {
+      toast.dismiss(cameraErrorToastIdRef.current);
+      cameraErrorToastIdRef.current = null;
+    }
+    lastErrorToastKindRef.current = null;
+  }, []);
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -61,14 +103,22 @@ export function CameraCaptureSheet({
     setPhotoBlob(null);
   }, [photoUrl]);
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) dismissCameraErrorToast();
+    onOpenChange(nextOpen);
+  };
+
   useEffect(() => {
     if (!open) {
+      dismissCameraErrorToast();
       stopCamera();
       clearPhoto();
+      setCameraErrorKind(null);
+      setIsPaused(false);
       return;
     }
 
-    if (photoBlob) {
+    if (photoBlob || isPaused || cameraErrorKind) {
       stopCamera();
       return;
     }
@@ -77,7 +127,7 @@ export function CameraCaptureSheet({
 
     async function startCamera() {
       if (!navigator.mediaDevices?.getUserMedia) {
-        toast.error("当前浏览器不支持摄像头，请使用文件上传");
+        setCameraErrorKind("unsupported");
         return;
       }
 
@@ -97,8 +147,16 @@ export function CameraCaptureSheet({
           await videoRef.current.play().catch(() => undefined);
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : "无法打开摄像头";
-        toast.error(message || "无法打开摄像头，请检查权限后重试");
+        if (cancelled) return;
+        const kind = getBarcodeScannerCameraErrorKind(error);
+        setCameraErrorKind(kind);
+        if (lastErrorToastKindRef.current !== kind) {
+          lastErrorToastKindRef.current = kind;
+          const toastId = toast.error(tRef.current(getCameraCaptureErrorMessageKey(kind)), {
+            id: cameraCaptureErrorToastId,
+          });
+          cameraErrorToastIdRef.current = toastId ?? cameraCaptureErrorToastId;
+        }
       } finally {
         if (!cancelled) setIsStarting(false);
       }
@@ -110,12 +168,20 @@ export function CameraCaptureSheet({
       cancelled = true;
       stopCamera();
     };
-  }, [clearPhoto, open, photoBlob, stopCamera]);
+  }, [cameraErrorKind, clearPhoto, dismissCameraErrorToast, isPaused, open, photoBlob, stopCamera]);
+
+  useEffect(() => () => dismissCameraErrorToast(), [dismissCameraErrorToast]);
+
+  const restartCamera = () => {
+    dismissCameraErrorToast();
+    setCameraErrorKind(null);
+    setIsPaused(false);
+  };
 
   const captureFrame = async () => {
     const video = videoRef.current;
     if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
-      toast.error("摄像头画面尚未准备好");
+      toast.error(t("camera.notReady"));
       return;
     }
 
@@ -124,7 +190,7 @@ export function CameraCaptureSheet({
     canvas.height = video.videoHeight;
     const context = canvas.getContext("2d");
     if (!context) {
-      toast.error("无法生成照片");
+      toast.error(t("camera.captureFailed"));
       return;
     }
 
@@ -133,7 +199,7 @@ export function CameraCaptureSheet({
       canvas.toBlob(resolve, "image/jpeg", 0.88),
     );
     if (!blob) {
-      toast.error("无法生成照片");
+      toast.error(t("camera.captureFailed"));
       return;
     }
 
@@ -149,39 +215,54 @@ export function CameraCaptureSheet({
     });
     onCapture(createAttachmentDraft(file, attachmentKind));
     clearPhoto();
-    onOpenChange(false);
+    handleOpenChange(false);
   };
 
   const handleSelectedImage = (file: File | undefined) => {
     if (!file) return;
-    const error = validateAttachmentFile(file);
-    if (error) {
+    const issue = getAttachmentValidationIssue(file);
+    if (issue) {
+      const error =
+        issue.code === "file-too-large"
+          ? t("attachment.fileTooLarge", { size: Math.round(issue.maxBytes / 1024 / 1024) })
+          : t("attachment.fileType");
       toast.error(`${file.name}: ${error}`);
       return;
     }
     onCapture(createAttachmentDraft(file, attachmentKind));
     clearPhoto();
     stopCamera();
-    onOpenChange(false);
+    handleOpenChange(false);
   };
 
   const retake = () => {
     clearPhoto();
   };
 
+  const handleCloseAutoFocus = (event: Event) => {
+    onCloseAutoFocus?.(event);
+    outsideDismissedRef.current = false;
+  };
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side="bottom"
+        closeLabel={t("common.close")}
+        onPointerDownOutside={() => {
+          outsideDismissedRef.current = true;
+          onOutsideDismiss?.();
+        }}
+        onCloseAutoFocus={handleCloseAutoFocus}
         className="max-h-[calc(100svh-16px)] rounded-t-xl p-0 sm:mx-auto sm:max-w-xl"
       >
         <div className="flex max-h-[calc(100svh-16px)] min-w-0 flex-col overflow-hidden">
           <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
             <SheetTitle className="flex items-center gap-2 text-base">
               <Camera className="size-4 text-primary" />
-              {title}
+              {resolvedTitle}
             </SheetTitle>
-            <SheetDescription>{description}</SheetDescription>
+            <SheetDescription>{resolvedDescription}</SheetDescription>
           </SheetHeader>
 
           <div className={cn(componentOverlay.body, "space-y-3 pt-3")}>
@@ -197,23 +278,48 @@ export function CameraCaptureSheet({
             />
             <div className="overflow-hidden rounded-lg border border-[var(--border-panel)] bg-foreground">
               {photoUrl ? (
-                <img src={photoUrl} alt="照片预览" className="aspect-[4/3] w-full object-cover" />
+                <img
+                  src={photoUrl}
+                  alt={t("camera.photoPreview")}
+                  className="aspect-[4/3] w-full object-cover"
+                />
               ) : (
                 <video
                   ref={videoRef}
                   className="aspect-[4/3] w-full object-cover"
                   muted
                   playsInline
+                  aria-label={t("camera.videoPreview")}
                 />
               )}
             </div>
 
             <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-              <span>{isStarting ? "正在启动摄像头…" : "确认后会保存到当前工单。"}</span>
+              <span role={cameraError ? "alert" : "status"} aria-live="polite">
+                {cameraError ||
+                  (isStarting
+                    ? t("camera.statusStarting")
+                    : resolvedPurpose === "order-attachment"
+                      ? t("camera.statusOrder")
+                      : t("camera.statusDraft"))}
+              </span>
               {!photoUrl ? (
-                <Button type="button" variant="outline" size="sm" onClick={stopCamera}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="min-h-11"
+                  onClick={
+                    cameraError || isPaused
+                      ? restartCamera
+                      : () => {
+                          stopCamera();
+                          setIsPaused(true);
+                        }
+                  }
+                >
                   {isStarting ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
-                  停止
+                  {cameraError || isPaused ? t("common.restart") : t("common.stop")}
                 </Button>
               ) : null}
             </div>
@@ -221,12 +327,18 @@ export function CameraCaptureSheet({
             <div className="flex flex-wrap justify-end gap-2">
               {photoUrl ? (
                 <>
-                  <Button type="button" variant="outline" size="sm" onClick={retake}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="min-h-11"
+                    onClick={retake}
+                  >
                     <RotateCcw className="mr-1.5 size-3.5" />
-                    重拍
+                    {t("common.retake")}
                   </Button>
-                  <Button type="button" size="sm" onClick={confirmCapture}>
-                    使用照片
+                  <Button type="button" size="sm" className="min-h-11" onClick={confirmCapture}>
+                    {t("common.usePhoto")}
                   </Button>
                 </>
               ) : (
@@ -235,14 +347,21 @@ export function CameraCaptureSheet({
                     type="button"
                     variant="outline"
                     size="sm"
+                    className="min-h-11"
                     onClick={() => inputRef.current?.click()}
                   >
                     <ImagePlus className="mr-1.5 size-3.5" />
-                    相册
+                    {t("common.album")}
                   </Button>
-                  <Button type="button" size="sm" onClick={captureFrame} disabled={isStarting}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="min-h-11"
+                    onClick={captureFrame}
+                    disabled={isStarting}
+                  >
                     <Camera className="mr-1.5 size-3.5" />
-                    拍照
+                    {t("common.capture")}
                   </Button>
                 </>
               )}

@@ -81,6 +81,28 @@ E2E 必须覆盖非法 Cookie 回退、SSR `html lang`、切换后草稿/对话�
 
 回滚时优先恢复上一个已验证的 Vercel `READY` deployment，然后通过正常 forward-revert commit 恢复代码；禁止 force push。旧版本会忽略非敏感 locale Cookie，不需要清除认证或业务数据。
 
+## 7.1 Release 2A：Scanner/Camera 壳与结果表面
+
+Release 2A 覆盖员工侧生产可达的 Scanner/Camera 壳、订单 QR 包装器、ScanSearch 展示和
+紧邻的附件草稿结果表面，支持 `zh-CN`、`it-IT` 与 `en`。标题、说明、按钮、状态、ARIA、
+校验和安全错误均来自共享消息目录；客户、订单、设备、文件名、原始扫码内容和用户输入
+保持原文。`ImeiScannerField`、parser、Order QR 载荷、API、权限与上传语义不在本批范围。
+
+Order QR 继续使用 `scanMode="qr-only"` 与 `parseOrderQrPayload`，拒绝 IMEI、SN、EID、
+EAN/SKU、普通文本、外部链接和非订单 QR。受保护的客户状态凭据只允许通过安全入口路由，
+不会渲染到 DOM、普通搜索、toast、日志或截图。相机错误按稳定 kind 分类并显示安全三语
+恢复文案，不显示浏览器原始错误；图片识别超时使用稳定 sentinel。
+
+Camera 默认文案表示本地附件草稿；订单详情的两个既有入口显式使用
+`purpose="order-attachment"`，只说明确认后可添加到订单附件，不新增上传或保存行为。
+关闭/Escape 恢复触发器焦点时使用 `preventScroll: true`；locale 切换不重启媒体、不清空
+手动输入或结果，Sheet 关闭按钮、视频、手动输入和错误状态均有本地化可访问名称。
+
+该批次的浏览器验收由专用 Scanner/Camera E2E story 负责，须在 Chromium/WebKit 覆盖
+390/430/768/1024/1280/1440 六种视口，并验证长意大利语、无溢出、键盘焦点、Cookie 持久化、
+无 token/raw error 泄漏和无业务 mutation。未完成该浏览器矩阵前，不得将 Release 2A 描述为
+全站深层界面翻译完成。
+
 ## 8. 文档影响矩阵
 
 | 读者        | 权威信息                                             | 本次结果                                            |

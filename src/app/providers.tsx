@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { AppBar } from "@/components/app-bar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -44,6 +44,14 @@ export function Providers({
   );
   const { open, setOpen } = useCommandPalette();
   const [scannerOpen, setScannerOpen] = useState(false);
+  const scannerTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const openScannerFromCommand = useCallback(() => {
+    setOpen(false);
+    window.requestAnimationFrame(() => {
+      scannerTriggerRef.current?.focus({ preventScroll: true });
+      setScannerOpen(true);
+    });
+  }, [setOpen]);
   const pathname = usePathname();
 
   if (
@@ -86,7 +94,10 @@ export function Providers({
                   <SidebarProvider>
                     <AppSidebar onOpenCommand={() => setOpen(true)} />
                     <SidebarInset className="relative isolate min-h-svh min-w-0 max-w-full overflow-x-clip">
-                      <AppBar onOpenScanner={() => setScannerOpen(true)} />
+                      <AppBar
+                        onOpenScanner={() => setScannerOpen(true)}
+                        scannerTriggerRef={scannerTriggerRef}
+                      />
                       <main className={appShell.content}>{children}</main>
                       <MobileWorkspaceDock onOpenCommand={() => setOpen(true)} />
                     </SidebarInset>
@@ -96,11 +107,16 @@ export function Providers({
                     <CommandPalette
                       open={open}
                       onOpenChange={setOpen}
-                      onOpenScanner={() => setScannerOpen(true)}
+                      onOpenScanner={openScannerFromCommand}
                     />
                   ) : null}
                   {scannerOpen ? (
-                    <ScanSearchSheet open onOpenChange={setScannerOpen} scope="global" />
+                    <ScanSearchSheet
+                      open
+                      onOpenChange={setScannerOpen}
+                      scope="global"
+                      returnFocusRef={scannerTriggerRef}
+                    />
                   ) : null}
                   <Toaster />
                 </AiAssistantWorkspaceProvider>

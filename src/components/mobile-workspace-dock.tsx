@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Command, Sparkles } from "lucide-react";
 
@@ -85,6 +85,8 @@ function MobileWorkspaceDockContent({
   const [attachmentDrafts, setAttachmentDrafts] = useState<AttachmentDraft[]>([]);
   const attachmentDraftsRef = useRef<AttachmentDraft[]>([]);
   const dockTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const scannerOutsideDismissedRef = useRef(false);
+  const cameraOutsideDismissedRef = useRef(false);
   const router = useRouter();
   const { runGuardedTransition } = useNavigationGuard();
   const shell = useStoreShellContext();
@@ -119,9 +121,29 @@ function MobileWorkspaceDockContent({
     ...globalMobileQuickActions.filter((action) => action.id !== primaryAction.id),
   ].map((action) => localizeShellAction(action, t));
 
-  const restoreDockTriggerFocus = () => {
-    window.requestAnimationFrame(() => dockTriggerRef.current?.focus());
-  };
+  const restoreDockTriggerFocus = useCallback(() => {
+    dockTriggerRef.current?.focus({ preventScroll: true });
+  }, []);
+  const handleScannerCloseAutoFocus = useCallback(
+    (event: Event) => {
+      if (!scannerOutsideDismissedRef.current) {
+        event.preventDefault();
+        restoreDockTriggerFocus();
+      }
+      scannerOutsideDismissedRef.current = false;
+    },
+    [restoreDockTriggerFocus],
+  );
+  const handleCameraCloseAutoFocus = useCallback(
+    (event: Event) => {
+      if (!cameraOutsideDismissedRef.current) {
+        event.preventDefault();
+        restoreDockTriggerFocus();
+      }
+      cameraOutsideDismissedRef.current = false;
+    },
+    [restoreDockTriggerFocus],
+  );
   const cancelScanner = () => {
     setScannerOpen(false);
     setScannerActivated(false);
@@ -162,10 +184,12 @@ function MobileWorkspaceDockContent({
       close: () => setOpen(false),
       openCommand: onOpenCommand,
       openScanner: () => {
+        scannerOutsideDismissedRef.current = false;
         setScannerActivated(true);
         setScannerOpen(true);
       },
       openCamera: () => {
+        cameraOutsideDismissedRef.current = false;
         setCameraActivated(true);
         setCameraOpen(true);
       },
@@ -257,7 +281,7 @@ function MobileWorkspaceDockContent({
           {attachmentDrafts.length > 0 ? (
             <div className="mt-3">
               <LazyModalErrorBoundary
-                key={attachmentLoaderVersion}
+                key={`attachment-${attachmentLoaderVersion}`}
                 open={open}
                 title={t("shell.attachmentPanel")}
                 onCancel={cancelAttachmentPanel}
@@ -276,6 +300,7 @@ function MobileWorkspaceDockContent({
                     onChange={setAttachmentDrafts}
                     onOpenCamera={() => {
                       setOpen(false);
+                      cameraOutsideDismissedRef.current = false;
                       setCameraActivated(true);
                       setCameraOpen(true);
                     }}
@@ -289,7 +314,7 @@ function MobileWorkspaceDockContent({
       </Sheet>
       {scannerPanelState.mounted ? (
         <LazyModalErrorBoundary
-          key={scannerLoaderVersion}
+          key={`scanner-${scannerLoaderVersion}`}
           open={scannerOpen}
           title={t("shell.scanner")}
           onCancel={cancelScanner}
@@ -304,8 +329,12 @@ function MobileWorkspaceDockContent({
               open={scannerPanelState.open}
               onOpenChange={(nextOpen) => {
                 setScannerOpen(nextOpen);
-                if (!nextOpen) restoreDockTriggerFocus();
+                if (nextOpen) scannerOutsideDismissedRef.current = false;
               }}
+              onOutsideDismiss={() => {
+                scannerOutsideDismissedRef.current = true;
+              }}
+              onCloseAutoFocus={handleScannerCloseAutoFocus}
               scope="global"
             />
           </Suspense>
@@ -313,7 +342,7 @@ function MobileWorkspaceDockContent({
       ) : null}
       {cameraPanelState.mounted ? (
         <LazyModalErrorBoundary
-          key={cameraLoaderVersion}
+          key={`camera-${cameraLoaderVersion}`}
           open={cameraOpen}
           title={t("shell.camera")}
           onCancel={cancelCamera}
@@ -328,8 +357,12 @@ function MobileWorkspaceDockContent({
               open={cameraPanelState.open}
               onOpenChange={(nextOpen) => {
                 setCameraOpen(nextOpen);
-                if (!nextOpen) restoreDockTriggerFocus();
+                if (nextOpen) cameraOutsideDismissedRef.current = false;
               }}
+              onOutsideDismiss={() => {
+                cameraOutsideDismissedRef.current = true;
+              }}
+              onCloseAutoFocus={handleCameraCloseAutoFocus}
               onCapture={(draft) => setAttachmentDrafts((current) => [...current, draft])}
             />
           </Suspense>

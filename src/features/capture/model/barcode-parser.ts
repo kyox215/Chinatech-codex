@@ -1,5 +1,9 @@
+import {
+  CUSTOMER_STATUS_LEGACY_TOKEN_PATTERN,
+  CUSTOMER_STATUS_STABLE_TOKEN_PATTERN,
+  parseCustomerStatusLink as parseCustomerStatusEntityLink,
+} from "@/entities/customer-status/model/customer-status-link";
 import { buildOrderDetailWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
-import { CUSTOMER_STATUS_TOKEN_PATTERN } from "@/features/customer-status/model/customer-status";
 
 export type CapturePayloadKind =
   | "order_link"
@@ -236,7 +240,7 @@ export function parseBarcodePayload(rawValue: string, origin = "http://localhost
 }
 
 function parseInternalLink(raw: string, origin: string): CapturePayload | null {
-  const customerStatusLink = parseCustomerStatusLink(raw, origin);
+  const customerStatusLink = parseCustomerStatusPayload(raw, origin);
   if (customerStatusLink) return customerStatusLink;
 
   let url: URL;
@@ -309,46 +313,46 @@ function parseInternalLink(raw: string, origin: string): CapturePayload | null {
   return null;
 }
 
-function parseCustomerStatusLink(raw: string, origin: string): CapturePayload | null {
-  let url: URL;
-  let base: URL;
-  try {
-    base = new URL(origin);
-    url = new URL(raw, base);
-  } catch {
-    return null;
+function parseCustomerStatusPayload(raw: string, origin: string): CapturePayload | null {
+  const parsed = parseCustomerStatusEntityLink(raw, origin);
+  if (parsed?.kind === "valid") {
+    return {
+      kind: "customer_status_link",
+      raw: "",
+      value: "",
+      label: "客户工单二维码",
+      targetHref: parsed.href,
+      sensitive: true,
+    } satisfies CapturePayload;
   }
 
-  const path = url.pathname.replace(/\/+$/, "") || "/";
-  const productionHost =
-    url.hostname.toLowerCase() === "www.chinatech.in" ||
-    url.hostname.toLowerCase() === "chinatech.in";
-  const trustedOrigin = url.origin === base.origin;
-  const customerStatusPath = path === "/r" || path.startsWith("/r/");
-  const token = url.hash.replace(/^#/, "").trim();
-  const validToken = CUSTOMER_STATUS_TOKEN_PATTERN.test(token);
-  if (!customerStatusPath || (!productionHost && !trustedOrigin && !validToken)) return null;
-
-  const schemeRelative = raw.startsWith("//");
-  const validProductionUrl =
-    !productionHost ||
-    (url.protocol === "https:" && !url.username && !url.password && url.port === "");
-  const validLink =
-    (productionHost || trustedOrigin) &&
-    path === "/r" &&
-    !schemeRelative &&
-    validProductionUrl &&
-    !url.search &&
-    validToken;
+  if (parsed?.kind !== "invalid" && !containsDelimitedCustomerStatusToken(raw)) return null;
 
   return {
     kind: "customer_status_link",
     raw: "",
     value: "",
-    label: validLink ? "客户工单二维码" : "无效客户工单二维码",
-    targetHref: validLink ? `/r#${token}` : undefined,
+    label: "无效客户工单二维码",
     sensitive: true,
   } satisfies CapturePayload;
+}
+
+function containsDelimitedCustomerStatusToken(raw: string) {
+  const stableSegments = raw.split(/[^A-Za-z0-9._-]+/).filter(Boolean);
+  const containsStableToken = stableSegments.some((segment) => {
+    const components = segment.split(".");
+    for (let index = 0; index <= components.length - 5; index += 1) {
+      if (CUSTOMER_STATUS_STABLE_TOKEN_PATTERN.test(components.slice(index, index + 5).join("."))) {
+        return true;
+      }
+    }
+    return false;
+  });
+  if (containsStableToken) return true;
+
+  return raw
+    .split(/[^A-Za-z0-9_-]+/)
+    .some((segment) => CUSTOMER_STATUS_LEGACY_TOKEN_PATTERN.test(segment));
 }
 
 function parsePrefixedPayload(raw: string): CapturePayload | null {

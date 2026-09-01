@@ -1,19 +1,96 @@
-export function getBarcodeScannerCameraErrorMessage(error?: unknown) {
-  const name = error instanceof Error ? error.name : "";
-  const message = error instanceof Error ? error.message : "";
-  const normalized = `${name} ${message}`.toLowerCase();
+import { translateMessage } from "@/shared/i18n/messages";
+import type { AppLocale } from "@/shared/i18n/locales";
 
-  if (normalized.includes("notallowed") || normalized.includes("permission")) {
-    return "摄像头权限被拒绝，请在浏览器权限里允许摄像头，或使用手动输入。";
+export type ScannerErrorKind =
+  | "permission-denied"
+  | "not-found"
+  | "unsupported"
+  | "unavailable"
+  | "unknown";
+
+export function getBarcodeScannerCameraErrorKind(error?: unknown): ScannerErrorKind {
+  const name = getErrorName(error).toLowerCase();
+  if (name === "notallowederror" || name === "securityerror") return "permission-denied";
+  if (name === "notfounderror" || name === "devicenotfounderror") return "not-found";
+  if (name === "notsupportederror") return "unsupported";
+  if (name === "aborterror" || name === "invalidstateerror" || name === "notreadableerror") {
+    return "unavailable";
   }
+  return "unknown";
+}
 
-  if (normalized.includes("notfound") || normalized.includes("no camera")) {
-    return "没有检测到可用摄像头，请使用手动输入或粘贴扫码内容。";
+export function getBarcodeScannerCameraErrorMessage(error?: unknown, locale: AppLocale = "zh-CN") {
+  return translateMessage(
+    locale,
+    getCameraErrorMessageKey(getBarcodeScannerCameraErrorKind(error)),
+  );
+}
+
+export function getCameraErrorMessageKey(kind: ScannerErrorKind) {
+  switch (kind) {
+    case "permission-denied":
+      return "scanner.error.permission" as const;
+    case "not-found":
+      return "scanner.error.notFound" as const;
+    case "unsupported":
+      return "scanner.error.unsupported" as const;
+    case "unavailable":
+      return "scanner.error.unavailable" as const;
+    default:
+      return "scanner.error.generic" as const;
   }
+}
 
-  if (normalized.includes("notsupported") || normalized.includes("not supported")) {
-    return "当前浏览器无法启动摄像头扫码，请使用手动输入或粘贴。";
+export function getCameraCaptureErrorMessageKey(kind: ScannerErrorKind) {
+  switch (kind) {
+    case "permission-denied":
+      return "camera.error.permission" as const;
+    case "not-found":
+      return "camera.error.notFound" as const;
+    case "unsupported":
+      return "camera.error.unsupported" as const;
+    case "unavailable":
+      return "camera.error.unavailable" as const;
+    default:
+      return "camera.error.generic" as const;
   }
+}
 
-  return "无法打开摄像头，请检查权限后使用手动输入或粘贴。";
+export const IMAGE_DECODE_TIMEOUT_CODE = "image-decode-timeout";
+export const CAMERA_START_FAILED_CODE = "camera-start-failed";
+export const IMAGE_READ_FAILED_CODE = "image-read-failed";
+
+export function createCameraStartFailedError() {
+  const error = new Error(CAMERA_START_FAILED_CODE);
+  error.name = "CameraStartFailedError";
+  return error;
+}
+
+export function createImageReadFailedError() {
+  const error = new Error(IMAGE_READ_FAILED_CODE);
+  error.name = "ImageReadFailedError";
+  return error;
+}
+
+export function createImageDecodeTimeoutError() {
+  const error = new Error(IMAGE_DECODE_TIMEOUT_CODE);
+  error.name = "ImageDecodeTimeoutError";
+  return error;
+}
+
+export function getImageDecodeErrorMessage(error: unknown, locale: AppLocale = "zh-CN") {
+  const key = isImageDecodeTimeout(error) ? "scanner.imageTimeout" : "scanner.imageDecodeFailed";
+  return translateMessage(locale, key);
+}
+
+export function isImageDecodeTimeout(error: unknown) {
+  return (
+    error instanceof Error &&
+    (error.name === "ImageDecodeTimeoutError" || error.message === IMAGE_DECODE_TIMEOUT_CODE)
+  );
+}
+
+function getErrorName(error: unknown) {
+  if (!error || typeof error !== "object" || !("name" in error)) return "";
+  return String((error as { name?: unknown }).name ?? "");
 }

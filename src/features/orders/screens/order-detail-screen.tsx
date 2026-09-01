@@ -350,6 +350,15 @@ export function OrderDetailScreen({
   const [approvalDecisionOpen, setApprovalDecisionOpen] = useState(false);
   const [desktopTransitionOpen, setDesktopTransitionOpen] = useState(false);
   const [desktopPhotoCaptureOpen, setDesktopPhotoCaptureOpen] = useState(false);
+  const desktopPhotoTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const desktopPhotoOutsideDismissedRef = useRef(false);
+  const handleDesktopPhotoCloseAutoFocus = useCallback((event: Event) => {
+    if (!desktopPhotoOutsideDismissedRef.current) {
+      event.preventDefault();
+      desktopPhotoTriggerRef.current?.focus({ preventScroll: true });
+    }
+    desktopPhotoOutsideDismissedRef.current = false;
+  }, []);
   const [desktopDetailView, setDesktopDetailView] = useState<DesktopDetailView>("overview");
   const [desktopRecordsView, setDesktopRecordsView] = useState<DesktopRecordsView>("key-info");
   const [desktopCostsVisited, setDesktopCostsVisited] = useState(false);
@@ -1752,7 +1761,15 @@ export function OrderDetailScreen({
                     photoAttachments={photoAttachments}
                     signatureAttachments={signatureAttachments}
                     photoUploadPending={attachmentUpload.isPending}
-                    onPhotoCapture={isVoided ? undefined : () => setDesktopPhotoCaptureOpen(true)}
+                    onPhotoCapture={
+                      isVoided
+                        ? undefined
+                        : (trigger) => {
+                            desktopPhotoTriggerRef.current = trigger;
+                            desktopPhotoOutsideDismissedRef.current = false;
+                            setDesktopPhotoCaptureOpen(true);
+                          }
+                    }
                     onRequestKioskSignature={
                       canCreateKioskSession ? () => kioskSignatureRequest.mutate() : undefined
                     }
@@ -1813,7 +1830,15 @@ export function OrderDetailScreen({
                       <DesktopOrderPhotosPanel
                         attachments={photoAttachments}
                         uploadPending={attachmentUpload.isPending}
-                        onCapture={isVoided ? undefined : () => setDesktopPhotoCaptureOpen(true)}
+                        onCapture={
+                          isVoided
+                            ? undefined
+                            : (trigger) => {
+                                desktopPhotoTriggerRef.current = trigger;
+                                desktopPhotoOutsideDismissedRef.current = false;
+                                setDesktopPhotoCaptureOpen(true);
+                              }
+                        }
                         surface={surface}
                       />
                     </section>
@@ -2030,9 +2055,12 @@ export function OrderDetailScreen({
         <CameraCaptureSheet
           open={desktopPhotoCaptureOpen}
           onOpenChange={setDesktopPhotoCaptureOpen}
-          title="拍摄设备照片"
-          description="拍摄设备外观、故障位置或取件凭证。确认后会保存到当前工单。"
           attachmentKind="fault_photo"
+          purpose="order-attachment"
+          onOutsideDismiss={() => {
+            desktopPhotoOutsideDismissedRef.current = true;
+          }}
+          onCloseAutoFocus={handleDesktopPhotoCloseAutoFocus}
           onCapture={(draft) => {
             void uploadAttachmentDraft(draft, async (input) => {
               await attachmentUpload.mutateAsync(input);
@@ -3330,6 +3358,15 @@ function MobileOrderDetailView({
   const [deviceUnlockEditing, setDeviceUnlockEditing] = useState(false);
   const [photoCaptureOpen, setPhotoCaptureOpen] = useState(false);
   const [photoPreviewId, setPhotoPreviewId] = useState<string | null>(null);
+  const mobilePhotoTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const mobilePhotoOutsideDismissedRef = useRef(false);
+  const handleMobilePhotoCloseAutoFocus = useCallback((event: Event) => {
+    if (!mobilePhotoOutsideDismissedRef.current) {
+      event.preventDefault();
+      mobilePhotoTriggerRef.current?.focus({ preventScroll: true });
+    }
+    mobilePhotoOutsideDismissedRef.current = false;
+  }, []);
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [statusSheetOpen, setStatusSheetOpen] = useState(false);
   const [assignmentEditing, setAssignmentEditing] = useState(false);
@@ -3932,7 +3969,11 @@ function MobileOrderDetailView({
                 photoAttachments.length === 0 && "col-span-3 min-h-20",
               )}
               disabled={attachmentUploadPending}
-              onClick={() => setPhotoCaptureOpen(true)}
+              onClick={(event) => {
+                mobilePhotoTriggerRef.current = event.currentTarget;
+                mobilePhotoOutsideDismissedRef.current = false;
+                setPhotoCaptureOpen(true);
+              }}
             >
               <span className="grid place-items-center gap-1">
                 <Camera className="size-4" />
@@ -3952,9 +3993,12 @@ function MobileOrderDetailView({
         <CameraCaptureSheet
           open={photoCaptureOpen}
           onOpenChange={setPhotoCaptureOpen}
-          title="拍摄设备照片"
-          description="拍摄设备外观、故障位置或取件凭证。确认后会保存到当前工单。"
           attachmentKind="fault_photo"
+          purpose="order-attachment"
+          onOutsideDismiss={() => {
+            mobilePhotoOutsideDismissedRef.current = true;
+          }}
+          onCloseAutoFocus={handleMobilePhotoCloseAutoFocus}
           onCapture={(draft) => {
             void uploadAttachmentDraft(draft, onAttachmentUpload);
           }}

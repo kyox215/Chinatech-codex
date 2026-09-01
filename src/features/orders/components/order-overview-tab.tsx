@@ -184,7 +184,7 @@ export function OrderOverviewTab({
   photoAttachments?: OrderAttachment[];
   signatureAttachments?: OrderAttachment[];
   photoUploadPending?: boolean;
-  onPhotoCapture?: () => void;
+  onPhotoCapture?: (trigger: HTMLButtonElement) => void;
   onRequestKioskSignature?: () => void;
   kioskSignaturePending?: boolean;
   kioskSignatureAvailable?: boolean;
@@ -974,7 +974,7 @@ export function DesktopOrderPhotosPanel({
 }: {
   attachments: OrderAttachment[];
   uploadPending: boolean;
-  onCapture?: () => void;
+  onCapture?: (trigger: HTMLButtonElement) => void;
   surface: DetailSurface;
   className?: string;
 }) {
@@ -1001,7 +1001,7 @@ export function DesktopOrderPhotosPanel({
               size="sm"
               className="h-7 shrink-0 gap-1 px-2 text-[11px] lg:text-xs lg:leading-4"
               disabled={uploadPending || !onCapture}
-              onClick={onCapture}
+              onClick={(event) => onCapture(event.currentTarget)}
             >
               <Camera className="size-3.5" />
               {uploadPending ? "上传中" : "拍照"}
@@ -1038,7 +1038,7 @@ export function DesktopOrderPhotosPanel({
               attachments.length >= 2 && (surface === "dialog" ? "" : "col-span-2 lg:col-span-1"),
             )}
             disabled={uploadPending}
-            onClick={onCapture}
+            onClick={(event) => onCapture(event.currentTarget)}
           >
             <span className="grid place-items-center gap-1">
               <Camera className="size-4" />

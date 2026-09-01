@@ -17,9 +17,19 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { parseBarcodePayload, type CapturePayload } from "@/features/capture/model/barcode-parser";
-import { getBarcodeScannerCameraErrorMessage } from "@/features/capture/model/scanner-errors";
+import { getCapturePayloadDisplayLabel } from "@/features/capture/model/capture-presentation";
+import {
+  createCameraStartFailedError,
+  createImageDecodeTimeoutError,
+  createImageReadFailedError,
+  getBarcodeScannerCameraErrorKind,
+  getCameraErrorMessageKey,
+  getImageDecodeErrorMessage,
+  isImageDecodeTimeout,
+} from "@/features/capture/model/scanner-errors";
 import { componentOverlay } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 interface BarcodeScannerSheetProps {
   open: boolean;
@@ -29,6 +39,8 @@ interface BarcodeScannerSheetProps {
   scanMode?: "multi-format" | "qr-only";
   parsePayload?: (rawValue: string, origin: string) => CapturePayload;
   onDetected?: (payload: CapturePayload) => void;
+  onOutsideDismiss?: () => void;
+  onCloseAutoFocus?: (event: Event) => void;
   renderActions?: (
     payload: CapturePayload,
     helpers: { close: () => void; rescan: () => void },
@@ -45,23 +57,46 @@ type ScannerCameraMode = "enhanced" | "standard" | "default";
 const scannerImageMaxBytes = 12 * 1024 * 1024;
 const scannerImageDecodeTimeoutMs = 8_000;
 const scannerManualMaxLength = 4_096;
+const scannerCameraErrorToastId = "repairdesk-scanner-camera-error";
 
 export function BarcodeScannerSheet({
   open,
   onOpenChange,
-  title = "扫码读取",
-  description = "对准工单二维码、IMEI 条码、库存标签或客户标签。",
+  title,
+  description,
   scanMode = "multi-format",
   parsePayload = parseBarcodePayload,
   onDetected,
   renderActions,
+  onOutsideDismiss,
+  onCloseAutoFocus,
 }: BarcodeScannerSheetProps) {
+  const { locale, t } = useLocale();
+  const tRef = useRef(t);
+  const localeRef = useRef(locale);
+  useEffect(() => {
+    tRef.current = t;
+    localeRef.current = locale;
+  }, [locale, t]);
+  const resolvedTitle = title ?? t("scanner.title");
+  const resolvedDescription =
+    description ??
+    (scanMode === "qr-only" ? t("scanner.qrOnlyDescription") : t("scanner.description"));
   const pathname = usePathname();
   const [isStarting, setIsStarting] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isImageProcessing, setIsImageProcessing] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [cameraError, setCameraError] = useState("");
+  const [cameraErrorKind, setCameraErrorKind] = useState<ReturnType<
+    typeof getBarcodeScannerCameraErrorKind
+  > | null>(null);
+  const cameraError = cameraErrorKind ? t(getCameraErrorMessageKey(cameraErrorKind)) : "";
+  const [recognitionErrorKind, setRecognitionErrorKind] = useState<"timeout" | "decode" | null>(
+    null,
+  );
+  const recognitionError = recognitionErrorKind
+    ? t(recognitionErrorKind === "timeout" ? "scanner.imageTimeout" : "scanner.imageDecodeFailed")
+    : "";
   const [manualValue, setManualValue] = useState("");
   const [lastPayload, setLastPayload] = useState<CapturePayload | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -71,6 +106,21 @@ export function BarcodeScannerSheet({
   const imageRequestIdRef = useRef(0);
   const resultAcceptedRef = useRef(false);
   const pathnameRef = useRef(pathname);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const previousOpenRef = useRef(false);
+  const outsideDismissedRef = useRef(false);
+  const scannerToastIdsRef = useRef<Array<string | number>>([]);
+  const cameraErrorToastIdRef = useRef<string | number | null>(null);
+  const lastCameraErrorToastKindRef = useRef<ReturnType<
+    typeof getBarcodeScannerCameraErrorKind
+  > | null>(null);
+
+  if (open && !previousOpenRef.current) {
+    const activeElement = typeof document === "undefined" ? null : document.activeElement;
+    openerRef.current = activeElement instanceof HTMLElement ? activeElement : null;
+    outsideDismissedRef.current = false;
+  }
+  previousOpenRef.current = open;
 
   const stopScanner = useCallback((options: { pause?: boolean } = {}) => {
     runIdRef.current += 1;
@@ -81,6 +131,34 @@ export function BarcodeScannerSheet({
     setIsCameraActive(false);
     if (options.pause) setIsPaused(true);
   }, []);
+
+  const dismissCameraErrorToast = useCallback(() => {
+    if (cameraErrorToastIdRef.current === null) return;
+    const toastId = cameraErrorToastIdRef.current;
+    toast.dismiss(toastId);
+    scannerToastIdsRef.current = scannerToastIdsRef.current.filter((id) => id !== toastId);
+    cameraErrorToastIdRef.current = null;
+    lastCameraErrorToastKindRef.current = null;
+  }, []);
+
+  const dismissScannerToasts = useCallback(() => {
+    scannerToastIdsRef.current.forEach((id) => toast.dismiss(id));
+    scannerToastIdsRef.current = [];
+    cameraErrorToastIdRef.current = null;
+    lastCameraErrorToastKindRef.current = null;
+  }, []);
+
+  const showCameraErrorToast = useCallback(
+    (kind: ReturnType<typeof getBarcodeScannerCameraErrorKind>, message: string) => {
+      if (lastCameraErrorToastKindRef.current === kind) return;
+      dismissCameraErrorToast();
+      lastCameraErrorToastKindRef.current = kind;
+      toast.error(message, { id: scannerCameraErrorToastId });
+      cameraErrorToastIdRef.current = scannerCameraErrorToastId;
+      scannerToastIdsRef.current.push(cameraErrorToastIdRef.current);
+    },
+    [dismissCameraErrorToast],
+  );
 
   const cancelImageRecognition = useCallback(() => {
     imageRequestIdRef.current += 1;
@@ -98,7 +176,7 @@ export function BarcodeScannerSheet({
     (rawValue: string) => {
       if (resultAcceptedRef.current) return;
       if (rawValue.length > scannerManualMaxLength) {
-        toast.error("扫码内容过长，请确认二维码或条码是否正确");
+        toast.error(tRef.current("scanner.tooLong"));
         stopScanner({ pause: true });
         return;
       }
@@ -109,7 +187,12 @@ export function BarcodeScannerSheet({
       safelyVibrate();
       stopScanner();
       if (payload.value) {
-        toast.success(`已识别：${payload.label}`);
+        const toastId = toast.success(
+          tRef.current("scanner.recognized", {
+            label: getCapturePayloadDisplayLabel(payload, localeRef.current),
+          }),
+        );
+        scannerToastIdsRef.current.push(toastId);
       }
     },
     [onDetected, parsePayload, stopScanner],
@@ -119,11 +202,11 @@ export function BarcodeScannerSheet({
     async (file: File | undefined) => {
       if (!file) return;
       if (!file.type.startsWith("image/")) {
-        toast.error("请选择图片文件");
+        toast.error(tRef.current("scanner.invalidImage"));
         return;
       }
       if (file.size > scannerImageMaxBytes) {
-        toast.error("图片过大，请选择 12MB 以内的图片");
+        toast.error(tRef.current("scanner.imageTooLarge"));
         return;
       }
 
@@ -131,7 +214,7 @@ export function BarcodeScannerSheet({
       const imageRequestId = imageRequestIdRef.current + 1;
       imageRequestIdRef.current = imageRequestId;
       setIsImageProcessing(true);
-      setCameraError("");
+      setCameraErrorKind(null);
       const imageUrl = URL.createObjectURL(file);
       try {
         const image = new Image();
@@ -141,14 +224,14 @@ export function BarcodeScannerSheet({
         const result = await withTimeout(
           reader.decodeFromImageElement(image),
           scannerImageDecodeTimeoutMs,
-          "图片识别超时，请换一张更清晰的图片",
+          createImageDecodeTimeoutError(),
         );
         if (imageRequestIdRef.current !== imageRequestId || resultAcceptedRef.current) return;
         commitRawValue(result.getText());
       } catch (error) {
         if (imageRequestIdRef.current !== imageRequestId) return;
-        const message = getImageDecodeErrorMessage(error);
-        setCameraError(message);
+        const message = getImageDecodeErrorMessage(error, localeRef.current);
+        setRecognitionErrorKind(isImageDecodeTimeout(error) ? "timeout" : "decode");
         toast.error(message);
       } finally {
         URL.revokeObjectURL(imageUrl);
@@ -159,21 +242,25 @@ export function BarcodeScannerSheet({
   );
 
   const rescan = useCallback(() => {
+    dismissScannerToasts();
     cancelImageRecognition();
     resultAcceptedRef.current = false;
     setLastPayload(null);
     setManualValue("");
     setIsPaused(false);
-    setCameraError("");
-  }, [cancelImageRecognition]);
+    setCameraErrorKind(null);
+    setRecognitionErrorKind(null);
+  }, [cancelImageRecognition, dismissScannerToasts]);
 
   useEffect(() => {
     if (!open) {
+      dismissScannerToasts();
       cancelImageRecognition();
       stopScanner();
       resultAcceptedRef.current = false;
       setIsPaused(false);
-      setCameraError("");
+      setCameraErrorKind(null);
+      setRecognitionErrorKind(null);
       setLastPayload(null);
       setManualValue("");
       return;
@@ -198,15 +285,16 @@ export function BarcodeScannerSheet({
 
     async function startScanner() {
       if (!navigator.mediaDevices?.getUserMedia) {
-        const message = getBarcodeScannerCameraErrorMessage();
-        setCameraError(message);
+        const message = tRef.current(getCameraErrorMessageKey("unknown"));
+        setCameraErrorKind("unknown");
         setIsPaused(true);
-        toast.error(message);
+        showCameraErrorToast("unknown", message);
         return;
       }
 
       setIsStarting(true);
-      setCameraError("");
+      setCameraErrorKind(null);
+      setRecognitionErrorKind(null);
       try {
         const reader = await createBarcodeReader(scanMode);
         if (!isCurrentRun() || !videoRef.current) return;
@@ -229,10 +317,11 @@ export function BarcodeScannerSheet({
         setIsCameraActive(true);
       } catch (error) {
         if (isCurrentRun()) {
-          const message = getBarcodeScannerCameraErrorMessage(error);
-          setCameraError(message);
+          const kind = getBarcodeScannerCameraErrorKind(error);
+          const message = tRef.current(getCameraErrorMessageKey(kind));
+          setCameraErrorKind(kind);
           setIsPaused(true);
-          toast.error(message);
+          showCameraErrorToast(kind, message);
         }
       } finally {
         if (isCurrentRun()) setIsStarting(false);
@@ -248,11 +337,13 @@ export function BarcodeScannerSheet({
   }, [
     cancelImageRecognition,
     commitRawValue,
+    dismissScannerToasts,
     isImageProcessing,
     isPaused,
     lastPayload,
     open,
     scanMode,
+    showCameraErrorToast,
     stopScanner,
   ]);
 
@@ -288,18 +379,32 @@ export function BarcodeScannerSheet({
     if (!lastPayload?.value || lastPayload.sensitive) return;
     try {
       await navigator.clipboard.writeText(lastPayload.value);
-      toast.success("已复制扫码内容");
+      toast.success(t("common.copy"));
     } catch {
-      toast.error("复制失败，请手动选择内容");
+      toast.error(t("scanner.copyFailed"));
     }
   };
 
   const hasResult = Boolean(lastPayload);
+  const handleCloseAutoFocus = (event: Event) => {
+    onCloseAutoFocus?.(event);
+    if (!event.defaultPrevented && !outsideDismissedRef.current) {
+      event.preventDefault();
+      openerRef.current?.focus({ preventScroll: true });
+    }
+    outsideDismissedRef.current = false;
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
+        closeLabel={t("common.close")}
+        onPointerDownOutside={() => {
+          outsideDismissedRef.current = true;
+          onOutsideDismiss?.();
+        }}
+        onCloseAutoFocus={handleCloseAutoFocus}
         className={cn(
           "rounded-t-xl p-0 sm:mx-auto sm:max-w-xl",
           hasResult ? "h-[min(82svh,42rem)] max-h-[calc(100svh-8px)]" : "max-h-[calc(100svh-16px)]",
@@ -314,9 +419,9 @@ export function BarcodeScannerSheet({
           <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
             <SheetTitle className="flex items-center gap-2 text-base">
               <ScanLine className="size-4 text-primary" />
-              {title}
+              {resolvedTitle}
             </SheetTitle>
-            <SheetDescription>{description}</SheetDescription>
+            <SheetDescription>{resolvedDescription}</SheetDescription>
           </SheetHeader>
 
           <div
@@ -350,7 +455,9 @@ export function BarcodeScannerSheet({
                     muted
                     playsInline
                     aria-label={
-                      scanMode === "qr-only" ? "订单二维码摄像头预览" : "二维码和条形码摄像头预览"
+                      scanMode === "qr-only"
+                        ? t("scanner.videoQrLabel")
+                        : t("scanner.videoBarcodeLabel")
                     }
                   />
                   <div
@@ -365,9 +472,16 @@ export function BarcodeScannerSheet({
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <span role="status" aria-live="polite" className="min-w-0 flex-1">
+                  <span
+                    role={cameraError || recognitionError ? "alert" : "status"}
+                    aria-live="polite"
+                    aria-atomic="true"
+                    className="min-w-0 flex-1"
+                  >
                     {getScannerStatusMessage({
                       cameraError,
+                      recognitionError,
+                      t,
                       isCameraActive,
                       isImageProcessing,
                       isPaused,
@@ -384,7 +498,7 @@ export function BarcodeScannerSheet({
                       onClick={() => fileInputRef.current?.click()}
                     >
                       <ImagePlus className="mr-1.5 size-4" />
-                      相册识别
+                      {t("scanner.album")}
                     </Button>
                     <Button
                       type="button"
@@ -394,7 +508,9 @@ export function BarcodeScannerSheet({
                       disabled={isImageProcessing}
                       onClick={() => {
                         if (isPaused || cameraError) {
-                          setCameraError("");
+                          dismissCameraErrorToast();
+                          setCameraErrorKind(null);
+                          setRecognitionErrorKind(null);
                           setIsPaused(false);
                           return;
                         }
@@ -402,7 +518,7 @@ export function BarcodeScannerSheet({
                       }}
                     >
                       {isStarting ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
-                      {isPaused || cameraError ? "重新启动" : "停止"}
+                      {isPaused || cameraError ? t("common.restart") : t("common.stop")}
                     </Button>
                   </div>
                 </div>
@@ -412,7 +528,8 @@ export function BarcodeScannerSheet({
                       value={manualValue}
                       onChange={(event) => setManualValue(event.target.value)}
                       maxLength={scannerManualMaxLength}
-                      placeholder="无法扫码时，可手动输入或粘贴"
+                      aria-label={t("scanner.manualLabel")}
+                      placeholder={t("scanner.manualPlaceholder")}
                       className="h-11 min-w-0 font-mono text-base lg:h-9 lg:text-sm"
                     />
                     <Button
@@ -420,13 +537,13 @@ export function BarcodeScannerSheet({
                       variant="outline"
                       size="icon"
                       className="size-11 shrink-0 lg:size-9"
-                      aria-label="粘贴扫码内容"
+                      aria-label={t("scanner.pasteAria")}
                       onClick={async () => {
                         try {
                           const text = await navigator.clipboard.readText();
                           setManualValue(text);
                         } catch {
-                          toast.error("无法读取剪贴板，请手动粘贴");
+                          toast.error(t("scanner.pasteFailed"));
                         }
                       }}
                     >
@@ -440,7 +557,7 @@ export function BarcodeScannerSheet({
                     disabled={!manualValue.trim()}
                     onClick={() => commitRawValue(manualValue)}
                   >
-                    识别内容
+                    {t("common.recognize")}
                   </Button>
                 </div>
               </>
@@ -448,16 +565,16 @@ export function BarcodeScannerSheet({
               <div className="space-y-3">
                 <div className="rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel)] p-3">
                   <p className="text-[11px] uppercase tracking-widest text-muted-foreground/70">
-                    {lastPayload.label}
+                    {getCapturePayloadDisplayLabel(lastPayload, locale)}
                   </p>
                   <p className="mt-1 break-all font-mono text-sm font-semibold text-foreground">
                     {lastPayload.sensitive
-                      ? "凭据已保护，可通过安全入口打开工单"
-                      : lastPayload.value || lastPayload.raw || "空内容"}
+                      ? t("scanner.protected")
+                      : lastPayload.value || lastPayload.raw || t("scanner.empty")}
                   </p>
                   {!lastPayload.sensitive && lastPayload.raw !== lastPayload.value ? (
                     <p className="mt-2 break-all text-xs text-muted-foreground">
-                      原始内容：{lastPayload.raw || "-"}
+                      {t("scanner.original", { value: lastPayload.raw || "-" })}
                     </p>
                   ) : null}
                 </div>
@@ -473,7 +590,7 @@ export function BarcodeScannerSheet({
                         onClick={copyValue}
                       >
                         <Copy className="mr-1.5 size-3.5" />
-                        复制
+                        {t("common.copy")}
                       </Button>
                     ) : null}
                     <Button
@@ -484,7 +601,7 @@ export function BarcodeScannerSheet({
                       onClick={rescan}
                     >
                       <RotateCcw className="mr-1.5 size-3.5" />
-                      继续扫描
+                      {t("common.rescan")}
                     </Button>
                     {renderActions?.(lastPayload, {
                       close: () => onOpenChange(false),
@@ -550,7 +667,7 @@ async function startScannerWithFallback(
       if (getErrorName(error) !== "OverconstrainedError") throw error;
     }
   }
-  throw lastError ?? new Error("无法打开摄像头");
+  throw lastError ?? createCameraStartFailedError();
 }
 
 function getScannerConstraintPlans(): Array<{
@@ -591,23 +708,28 @@ function getScannerConstraintPlans(): Array<{
 
 function getScannerStatusMessage({
   cameraError,
+  recognitionError,
+  t,
   isCameraActive,
   isImageProcessing,
   isPaused,
   isStarting,
 }: {
   cameraError: string;
+  recognitionError: string;
+  t: ReturnType<typeof useLocale>["t"];
   isCameraActive: boolean;
   isImageProcessing: boolean;
   isPaused: boolean;
   isStarting: boolean;
 }) {
-  if (isImageProcessing) return "正在本地识别图片，不会上传服务器…";
+  if (isImageProcessing) return t("scanner.statusImage");
   if (cameraError) return cameraError;
-  if (isPaused) return "摄像头已暂停，可重新启动、从相册识别或手动输入。";
-  if (isStarting) return "正在启动后置摄像头…";
-  if (isCameraActive) return "正在扫描，请把二维码或条形码放入框内。";
-  return "正在准备扫码；摄像头需要 HTTPS 或 localhost 环境。";
+  if (recognitionError) return recognitionError;
+  if (isPaused) return t("scanner.statusPaused");
+  if (isStarting) return t("scanner.statusStarting");
+  if (isCameraActive) return t("scanner.statusActive");
+  return t("scanner.statusPreparing");
 }
 
 function safelyVibrate() {
@@ -626,27 +748,29 @@ async function decodeImageElement(image: HTMLImageElement) {
   if (image.complete) return;
   await new Promise<void>((resolve, reject) => {
     image.onload = () => resolve();
-    image.onerror = () => reject(new Error("图片无法读取"));
+    image.onerror = () => reject(createImageReadFailedError());
   });
 }
 
-async function withTimeout<T>(operation: Promise<T>, timeoutMs: number, message: string) {
+async function withTimeout<T>(
+  operation: Promise<T>,
+  timeoutMs: number,
+  timeoutError: Error | string,
+) {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
       operation,
       new Promise<T>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+        timeoutId = setTimeout(
+          () => reject(timeoutError instanceof Error ? timeoutError : new Error(timeoutError)),
+          timeoutMs,
+        );
       }),
     ]);
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
   }
-}
-
-function getImageDecodeErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message.includes("超时")) return error.message;
-  return "图片中未识别到二维码或条形码，请换一张更清晰的图片";
 }
 
 function getErrorName(error: unknown) {

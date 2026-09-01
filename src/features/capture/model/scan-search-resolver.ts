@@ -1,4 +1,7 @@
 import type { CapturePayload } from "@/features/capture/model/barcode-parser";
+import { getCapturePayloadDisplayLabel } from "@/features/capture/model/capture-presentation";
+import { translateMessage } from "@/shared/i18n/messages";
+import type { AppLocale } from "@/shared/i18n/locales";
 
 export type ScanSearchScope = "global" | "orders" | "customers" | "buyback" | "inventory";
 
@@ -26,14 +29,6 @@ export interface ScanSearchResolution {
   actions: ScanSearchAction[];
 }
 
-const scopeLabels: Record<ScanSearchScope, string> = {
-  global: "全局",
-  orders: "订单",
-  customers: "客户",
-  buyback: "回收",
-  inventory: "库存",
-};
-
 const searchHrefByScope: Record<Exclude<ScanSearchScope, "global">, () => string> = {
   orders: () => "/orders",
   customers: () => "/customers",
@@ -41,13 +36,21 @@ const searchHrefByScope: Record<Exclude<ScanSearchScope, "global">, () => string
   inventory: () => "/inventory",
 };
 
-export function getScanSearchScopeLabel(scope: ScanSearchScope) {
-  return scopeLabels[scope];
+export function getScanSearchScopeLabel(scope: ScanSearchScope, locale: AppLocale = "zh-CN") {
+  const keys = {
+    global: "scanSearch.scope.global",
+    orders: "scanSearch.scope.orders",
+    customers: "scanSearch.scope.customers",
+    buyback: "scanSearch.scope.buyback",
+    inventory: "scanSearch.scope.inventory",
+  } as const;
+  return translateMessage(locale, keys[scope]);
 }
 
 export function resolveScanSearchActions(
   payload: CapturePayload,
   scope: ScanSearchScope,
+  locale: AppLocale = "zh-CN",
 ): ScanSearchResolution {
   const searchValue = getScanSearchValue(payload);
   const actions: ScanSearchAction[] = [];
@@ -57,7 +60,7 @@ export function resolveScanSearchActions(
     actions.push({
       id: `open:${payload.kind}`,
       kind: "open",
-      label: getOpenActionLabel(payload),
+      label: getOpenActionLabel(payload, locale),
       href: exactHref,
       primary: true,
     });
@@ -66,10 +69,10 @@ export function resolveScanSearchActions(
   if (scope === "global") {
     if (searchValue) {
       actions.push(
-        buildRouteSearchAction("orders", searchValue),
-        buildRouteSearchAction("customers", searchValue),
-        buildRouteSearchAction("buyback", searchValue),
-        buildRouteSearchAction("inventory", searchValue),
+        buildRouteSearchAction("orders", searchValue, locale),
+        buildRouteSearchAction("customers", searchValue, locale),
+        buildRouteSearchAction("buyback", searchValue, locale),
+        buildRouteSearchAction("inventory", searchValue, locale),
       );
     }
   } else if (searchValue) {
@@ -77,7 +80,9 @@ export function resolveScanSearchActions(
       id: `search:${scope}`,
       kind: "search",
       scope,
-      label: `在${scopeLabels[scope]}搜索`,
+      label: translateMessage(locale, "scanSearch.searchIn", {
+        scope: getScanSearchScopeLabel(scope, locale),
+      }),
       searchValue,
       href: searchHrefByScope[scope](),
       primary: actions.length === 0,
@@ -85,8 +90,8 @@ export function resolveScanSearchActions(
   }
 
   return {
-    title: payload.label,
-    hint: getResolutionHint(payload, scope, Boolean(exactHref), Boolean(searchValue)),
+    title: getCapturePayloadDisplayLabel(payload, locale),
+    hint: getResolutionHint(payload, scope, Boolean(exactHref), Boolean(searchValue), locale),
     actions: dedupeActions(actions),
   };
 }
@@ -94,12 +99,15 @@ export function resolveScanSearchActions(
 function buildRouteSearchAction(
   scope: Exclude<ScanSearchScope, "global">,
   searchValue: string,
+  locale: AppLocale,
 ): ScanSearchAction {
   return {
     id: `search:${scope}`,
     kind: "search",
     scope,
-    label: `搜${scopeLabels[scope]}`,
+    label: translateMessage(locale, "scanSearch.searchShort", {
+      scope: getScanSearchScopeLabel(scope, locale),
+    }),
     searchValue,
     href: searchHrefByScope[scope](),
   };
@@ -151,13 +159,20 @@ function isInternalHref(href: string) {
   return href.startsWith("/") && !href.startsWith("//");
 }
 
-function getOpenActionLabel(payload: CapturePayload) {
-  if (payload.kind === "customer_status_link") return "查看此订单";
-  if (payload.kind === "order_link") return "打开工单";
-  if (payload.kind === "customer_link") return "打开客户";
-  if (payload.kind === "inventory_link") return "打开库存";
-  if (payload.kind === "buyback_link") return "打开回收";
-  return "打开目标";
+function getOpenActionLabel(payload: CapturePayload, locale: AppLocale) {
+  const key =
+    payload.kind === "customer_status_link"
+      ? "scanSearch.viewOrder"
+      : payload.kind === "order_link"
+        ? "scanSearch.openOrder"
+        : payload.kind === "customer_link"
+          ? "scanSearch.openCustomer"
+          : payload.kind === "inventory_link"
+            ? "scanSearch.openInventory"
+            : payload.kind === "buyback_link"
+              ? "scanSearch.openBuyback"
+              : "scanSearch.openTarget";
+  return translateMessage(locale, key);
 }
 
 function getResolutionHint(
@@ -165,20 +180,24 @@ function getResolutionHint(
   scope: ScanSearchScope,
   hasExactHref: boolean,
   hasSearchValue: boolean,
+  locale: AppLocale,
 ) {
   if (payload.kind === "customer_status_link" && hasExactHref) {
-    return "已识别受保护的客户工单二维码，将通过专用安全入口打开。";
+    return translateMessage(locale, "scanSearch.protectedHint");
   }
   if (payload.kind === "customer_status_link") {
-    return "二维码凭据无效或链接格式不受信任，请重新扫描工单二维码。";
+    return translateMessage(locale, "scanSearch.protectedInvalidHint");
   }
   if (hasExactHref && scope !== "global") {
-    return "已识别到其他页面目标，也可以只把内容填入当前搜索。";
+    return translateMessage(locale, "scanSearch.exactAndSearchHint");
   }
-  if (hasExactHref) return "已识别到系统内部目标。";
-  if (hasSearchValue) return `已识别到可查询内容，可用于${scopeLabels[scope]}搜索。`;
-  if (payload.kind === "url") return "外部链接不会自动打开；如需使用请先复制核对。";
-  return "没有可用的查询内容，请重新扫描或手动输入。";
+  if (hasExactHref) return translateMessage(locale, "scanSearch.exactHint");
+  if (hasSearchValue)
+    return translateMessage(locale, "scanSearch.searchHint", {
+      scope: getScanSearchScopeLabel(scope, locale),
+    });
+  if (payload.kind === "url") return translateMessage(locale, "scanSearch.externalHint");
+  return translateMessage(locale, "scanSearch.emptyHint");
 }
 
 function dedupeActions(actions: ScanSearchAction[]) {

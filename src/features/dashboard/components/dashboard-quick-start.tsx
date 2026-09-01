@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type MouseEvent } from "react";
+import { useCallback, useRef, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ClipboardPlus, Recycle, ScanLine, type LucideIcon } from "lucide-react";
@@ -97,6 +97,15 @@ export function DashboardMobileQuickStart({ onCreateOrder }: { onCreateOrder?: (
   const { t } = useLocale();
   const router = useRouter();
   const [scannerOpen, setScannerOpen] = useState(false);
+  const scannerTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const scannerOutsideDismissedRef = useRef(false);
+  const handleScannerCloseAutoFocus = useCallback((event: Event) => {
+    if (!scannerOutsideDismissedRef.current) {
+      event.preventDefault();
+      scannerTriggerRef.current?.focus({ preventScroll: true });
+    }
+    scannerOutsideDismissedRef.current = false;
+  }, []);
   const startNewOrder = (event: MouseEvent<HTMLAnchorElement>) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
       return;
@@ -171,10 +180,15 @@ export function DashboardMobileQuickStart({ onCreateOrder }: { onCreateOrder?: (
         ))}
 
         <button
+          ref={scannerTriggerRef}
           type="button"
           data-dashboard-quick-start="scan-order"
           aria-label={`${t("dashboard.scanOrder")}，${t("dashboard.scanOrderDescription")}`}
-          onClick={() => setScannerOpen(true)}
+          onClick={() => {
+            scannerOutsideDismissedRef.current = false;
+            scannerTriggerRef.current?.focus({ preventScroll: true });
+            setScannerOpen(true);
+          }}
           className={repairOs.dashboardMobileQuickAction}
         >
           <RepairOsBusinessCard
@@ -220,7 +234,18 @@ export function DashboardMobileQuickStart({ onCreateOrder }: { onCreateOrder?: (
           </Link>
         ))}
       </div>
-      <ScanSearchSheet open={scannerOpen} onOpenChange={setScannerOpen} scope="orders" />
+      <ScanSearchSheet
+        open={scannerOpen}
+        onOpenChange={(nextOpen) => {
+          setScannerOpen(nextOpen);
+          if (nextOpen) scannerOutsideDismissedRef.current = false;
+        }}
+        onOutsideDismiss={() => {
+          scannerOutsideDismissedRef.current = true;
+        }}
+        onCloseAutoFocus={handleScannerCloseAutoFocus}
+        scope="orders"
+      />
     </section>
   );
 }

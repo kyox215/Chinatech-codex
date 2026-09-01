@@ -20,6 +20,10 @@ export interface AttachmentDraft {
 export const attachmentAccept = "image/*,.pdf";
 export const attachmentMaxBytes = 8 * 1024 * 1024;
 
+export type AttachmentValidationIssue =
+  | { code: "file-too-large"; maxBytes: number }
+  | { code: "unsupported-type" };
+
 export const attachmentKindLabels: Record<AttachmentDraftKind, string> = {
   device_front: "正面",
   device_back: "背面",
@@ -30,14 +34,20 @@ export const attachmentKindLabels: Record<AttachmentDraftKind, string> = {
 };
 
 export function validateAttachmentFile(file: File) {
-  if (file.size > attachmentMaxBytes) {
-    return `文件不能超过 ${Math.round(attachmentMaxBytes / 1024 / 1024)}MB。`;
+  const issue = getAttachmentValidationIssue(file);
+  if (issue?.code === "file-too-large") {
+    return `文件不能超过 ${Math.round(issue.maxBytes / 1024 / 1024)}MB。`;
   }
+  if (issue?.code === "unsupported-type") return "仅支持图片或 PDF。";
+  return undefined;
+}
 
+export function getAttachmentValidationIssue(file: File): AttachmentValidationIssue | undefined {
+  if (file.size > attachmentMaxBytes)
+    return { code: "file-too-large", maxBytes: attachmentMaxBytes };
   if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
-    return "仅支持图片或 PDF。";
+    return { code: "unsupported-type" };
   }
-
   return undefined;
 }
 

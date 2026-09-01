@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ScanLine } from "lucide-react";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import { parseCustomerStatusLink } from "@/entities/customer-status/model/custom
 import type { CapturePayload } from "@/features/capture/model/barcode-parser";
 import { parseOrderQrPayload } from "@/features/orders/model/order-qr-payload";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 function createLazyBarcodeScannerSheet(attempt: number) {
   return lazy(() => {
@@ -26,8 +27,8 @@ export function OrderQrScannerButton({
   className,
   iconClassName,
   showLabel = false,
-  label = "扫码",
-  ariaLabel = "扫描订单二维码",
+  label,
+  ariaLabel,
   size = "icon",
   disabled = false,
 }: {
@@ -39,16 +40,24 @@ export function OrderQrScannerButton({
   size?: "sm" | "icon";
   disabled?: boolean;
 }) {
+  const { t } = useLocale();
+  const resolvedLabel = label ?? t("orders.scanOrderQrShort");
+  const resolvedAriaLabel = ariaLabel ?? t("orderQr.title");
   const [open, setOpen] = useState(false);
   const [activated, setActivated] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const restoreTriggerFocus = () => {
-    window.requestAnimationFrame(() => triggerRef.current?.focus());
-  };
+  const outsideDismissedRef = useRef(false);
+  const handleCloseAutoFocus = useCallback((event: Event) => {
+    if (!outsideDismissedRef.current) {
+      event.preventDefault();
+      triggerRef.current?.focus({ preventScroll: true });
+    }
+    outsideDismissedRef.current = false;
+  }, []);
   const closeBeforeLoad = () => {
     setOpen(false);
     setActivated(false);
-    restoreTriggerFocus();
+    triggerRef.current?.focus({ preventScroll: true });
   };
   return (
     <>
@@ -59,23 +68,28 @@ export function OrderQrScannerButton({
         size={size}
         disabled={disabled}
         className={className}
-        aria-label={ariaLabel}
+        aria-label={resolvedAriaLabel}
         onClick={() => {
+          outsideDismissedRef.current = false;
           setActivated(true);
           setOpen(true);
         }}
       >
         <ScanLine className={cn("size-4", iconClassName)} />
-        {showLabel ? <span>{label}</span> : null}
+        {showLabel ? <span>{resolvedLabel}</span> : null}
       </Button>
       {activated ? (
         <OrderQrScannerSheet
           open={open}
           onOpenChange={(nextOpen) => {
             setOpen(nextOpen);
-            if (!nextOpen) restoreTriggerFocus();
+            if (nextOpen) outsideDismissedRef.current = false;
+          }}
+          onOutsideDismiss={() => {
+            outsideDismissedRef.current = true;
           }}
           closeBeforeLoad={closeBeforeLoad}
+          onCloseAutoFocus={handleCloseAutoFocus}
         />
       ) : null}
     </>
@@ -87,13 +101,18 @@ export function OrderQrScannerSheet({
   onOpenChange,
   navigateDocument = (href) => window.location.assign(href),
   closeBeforeLoad,
+  onOutsideDismiss,
+  onCloseAutoFocus,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   navigateDocument?: (href: string) => void;
   closeBeforeLoad?: () => void;
+  onOutsideDismiss?: () => void;
+  onCloseAutoFocus?: (event: Event) => void;
 }) {
   const router = useRouter();
+  const { t } = useLocale();
   const { runGuardedTransition } = useNavigationGuard();
   const [scannerActivated, setScannerActivated] = useState(open);
   const [loaderVersion, setLoaderVersion] = useState(0);
@@ -111,7 +130,7 @@ export function OrderQrScannerSheet({
     helpers: { close: () => void; rescan: () => void },
   ) => {
     if (!payload.targetHref) {
-      return <p className="text-xs text-destructive">只接受有效的订单二维码，请重新扫描。</p>;
+      return <p className="text-xs text-destructive">{t("orderQr.invalid")}</p>;
     }
     const targetHref = payload.targetHref;
     return (
@@ -122,13 +141,13 @@ export function OrderQrScannerSheet({
         onClick={() => {
           void runGuardedTransition({
             kind: "route",
-            label: "打开扫码订单",
+            label: t("orderQr.open"),
             run: () => {
               helpers.close();
               if (payload.kind === "customer_status_link") {
                 const destination = parseCustomerStatusLink(targetHref, window.location.origin);
                 if (destination?.kind !== "valid") {
-                  toast.error("维修工单二维码无效，请重新扫描");
+                  toast.error(t("orderQr.invalidToast"));
                   return;
                 }
                 navigateDocument(destination.href);
@@ -139,7 +158,7 @@ export function OrderQrScannerSheet({
           });
         }}
       >
-        打开订单
+        {t("orderQr.open")}
       </Button>
     );
   };
@@ -155,15 +174,15 @@ export function OrderQrScannerSheet({
     <LazyModalErrorBoundary
       key={loaderVersion}
       open={open}
-      title="扫描订单二维码"
+      title={t("orderQr.title")}
       onCancel={cancelLazyScanner}
       onRetry={() => setLoaderVersion((current) => current + 1)}
     >
       <Suspense
         fallback={
           <LazyModalShell
-            title="扫描订单二维码"
-            description="订单二维码扫描器正在加载，可以取消并返回当前页面。"
+            title={t("orderQr.title")}
+            description={t("orderQr.lazyDescription")}
             onCancel={cancelLazyScanner}
             dataAttribute="order-qr-scanner-lazy-fallback"
           />
@@ -174,9 +193,11 @@ export function OrderQrScannerSheet({
           onOpenChange={onOpenChange}
           scanMode="qr-only"
           parsePayload={parseOrderQrPayload}
-          title="扫描订单二维码"
-          description="仅扫描订单查询二维码；IMEI、SN、EID 和普通条形码不会用于订单查询。"
+          title={t("orderQr.title")}
+          description={t("scanner.qrOnlyDescription")}
           renderActions={renderActions}
+          onOutsideDismiss={onOutsideDismiss}
+          onCloseAutoFocus={onCloseAutoFocus}
         />
       </Suspense>
     </LazyModalErrorBoundary>

@@ -7,16 +7,25 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   attachmentAccept,
-  attachmentKindLabels,
   createAttachmentDraft,
   formatAttachmentSize,
+  getAttachmentValidationIssue,
   revokeAttachmentDraft,
-  validateAttachmentFile,
   type AttachmentDraft,
   type AttachmentDraftKind,
 } from "@/features/capture/model/attachment-rules";
 import { componentOverlay } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+
+const attachmentKindMessageKeys = {
+  device_front: "attachment.kind.device_front",
+  device_back: "attachment.kind.device_back",
+  screen_on: "attachment.kind.screen_on",
+  fault_photo: "attachment.kind.fault_photo",
+  signature: "attachment.kind.signature",
+  other: "attachment.kind.other",
+} as const;
 
 interface AttachmentDraftPanelProps {
   attachments: AttachmentDraft[];
@@ -33,14 +42,21 @@ export function AttachmentDraftPanel({
   defaultKind = "other",
   className,
 }: AttachmentDraftPanelProps) {
+  const { t } = useLocale();
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const addFiles = (files: FileList | File[]) => {
     const next: AttachmentDraft[] = [];
 
     for (const file of Array.from(files)) {
-      const error = validateAttachmentFile(file);
-      if (error) {
+      const issue = getAttachmentValidationIssue(file);
+      if (issue) {
+        const error =
+          issue.code === "file-too-large"
+            ? t("attachment.fileTooLarge", {
+                size: Math.round(issue.maxBytes / 1024 / 1024),
+              })
+            : t("attachment.fileType");
         toast.error(`${file.name}: ${error}`);
         continue;
       }
@@ -49,7 +65,7 @@ export function AttachmentDraftPanel({
 
     if (next.length > 0) {
       onChange([...attachments, ...next]);
-      toast.success(`已加入 ${next.length} 个附件草稿`);
+      toast.success(t("attachment.added", { count: next.length }));
     }
   };
 
@@ -79,27 +95,38 @@ export function AttachmentDraftPanel({
             <Paperclip className="size-4" />
           </span>
           <div className="min-w-0">
-            <h3 className="truncate text-sm font-semibold text-foreground">附件草稿</h3>
+            <h3 className="truncate text-sm font-semibold text-foreground">
+              {t("attachment.title")}
+            </h3>
             <p className="truncate text-xs text-muted-foreground">
-              {attachments.length > 0 ? `${attachments.length} 个待处理附件` : "暂无附件"}
+              {attachments.length > 0
+                ? t("attachment.pendingCount", { count: attachments.length })
+                : t("attachment.empty")}
             </p>
           </div>
         </div>
         <div className="flex shrink-0 gap-2">
           {onOpenCamera ? (
-            <Button type="button" variant="outline" size="sm" onClick={onOpenCamera}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-11"
+              onClick={onOpenCamera}
+            >
               <Camera className="mr-1.5 size-3.5" />
-              拍照
+              {t("common.capture")}
             </Button>
           ) : null}
           <Button
             type="button"
             variant="outline"
             size="sm"
+            className="min-h-11"
             onClick={() => inputRef.current?.click()}
           >
             <Upload className="mr-1.5 size-3.5" />
-            选择
+            {t("common.select")}
           </Button>
         </div>
       </div>
@@ -115,16 +142,17 @@ export function AttachmentDraftPanel({
               <div className="min-w-0">
                 <p className="truncate text-xs font-medium text-foreground">{attachment.name}</p>
                 <p className="truncate text-[11px] text-muted-foreground">
-                  {attachmentKindLabels[attachment.kind]} · {formatAttachmentSize(attachment.size)}
+                  {t(attachmentKindMessageKeys[attachment.kind])} ·{" "}
+                  {formatAttachmentSize(attachment.size)}
                 </p>
               </div>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="size-8"
+                className="size-11"
                 onClick={() => remove(attachment.id)}
-                aria-label={`删除附件 ${attachment.name}`}
+                aria-label={t("attachment.delete", { name: attachment.name })}
               >
                 <Trash2 className="size-4" />
               </Button>
@@ -133,7 +161,7 @@ export function AttachmentDraftPanel({
         </ul>
       ) : (
         <div className="rounded-md border border-dashed border-[var(--border-panel)] px-3 py-4 text-center text-xs text-muted-foreground">
-          可添加设备外观、故障位置、签名或凭证图片。
+          {t("attachment.emptyHelp")}
         </div>
       )}
     </section>

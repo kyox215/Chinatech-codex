@@ -1,4 +1,8 @@
-import { parseCustomerStatusLink } from "@/entities/customer-status/model/customer-status-link";
+import {
+  CUSTOMER_STATUS_LEGACY_TOKEN_PATTERN,
+  CUSTOMER_STATUS_STABLE_TOKEN_PATTERN,
+  parseCustomerStatusLink,
+} from "@/entities/customer-status/model/customer-status-link";
 import type { CapturePayload } from "@/features/capture/model/barcode-parser";
 import { buildOrderDetailWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
 
@@ -16,20 +20,29 @@ export function parseOrderQrPayload(
     value: "",
     label: "不是有效订单二维码",
   });
+  const invalidCustomerStatus = (): CapturePayload => ({
+    kind: "customer_status_link",
+    raw: "",
+    value: "",
+    label: "无效客户工单二维码",
+    sensitive: true,
+  });
   if (!raw) return invalid();
 
   const customerStatus = parseCustomerStatusLink(raw, origin);
   if (customerStatus?.kind === "valid") {
     return {
       kind: "customer_status_link",
-      raw,
-      value: customerStatus.token,
+      raw: "",
+      value: "",
       label: "客户维修状态二维码",
       targetHref: customerStatus.href,
       sensitive: true,
     };
   }
-  if (customerStatus?.kind === "invalid") return invalid();
+  if (customerStatus?.kind === "invalid" || containsDelimitedCustomerStatusToken(raw)) {
+    return invalidCustomerStatus();
+  }
 
   const prefixedOrderId = raw.match(/^order:([A-Za-z0-9][A-Za-z0-9_-]{0,127})$/i)?.[1];
   if (prefixedOrderId) return orderPayload(raw, prefixedOrderId);
@@ -87,4 +100,22 @@ function isTrustedOrderOrigin(url: URL, base: URL) {
 
 function isLocalOrigin(url: URL) {
   return url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1");
+}
+
+function containsDelimitedCustomerStatusToken(raw: string) {
+  const stableSegments = raw.split(/[^A-Za-z0-9._-]+/);
+  if (stableSegments.some(containsStableCustomerStatusToken)) return true;
+
+  return raw
+    .split(/[^A-Za-z0-9_-]+/)
+    .some((segment) => CUSTOMER_STATUS_LEGACY_TOKEN_PATTERN.test(segment));
+}
+
+function containsStableCustomerStatusToken(segment: string) {
+  const components = segment.split(".");
+  for (let index = 0; index <= components.length - 5; index += 1) {
+    const candidate = components.slice(index, index + 5).join(".");
+    if (CUSTOMER_STATUS_STABLE_TOKEN_PATTERN.test(candidate)) return true;
+  }
+  return false;
 }

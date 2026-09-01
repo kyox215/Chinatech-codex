@@ -41,6 +41,7 @@ jobs:
           tests/e2e/i18n-language-switcher.spec.ts
           tests/e2e/i18n-orders-queue-release-a.spec.ts
           tests/e2e/i18n-public-states.spec.ts
+          tests/e2e/i18n-scanner-camera-shell.spec.ts
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:3131
           PLAYWRIGHT_BROWSER: ${{ matrix.browser }}

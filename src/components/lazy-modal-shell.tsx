@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { componentOverlay } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export interface LazyModalShellProps {
   title: string;
@@ -39,6 +40,7 @@ export function LazyModalShell({
   dataAttribute = "lazy-modal-shell",
   className,
 }: LazyModalShellProps) {
+  const { t } = useLocale();
   const cancelRef = React.useRef<HTMLButtonElement | null>(null);
 
   React.useEffect(() => {
@@ -63,11 +65,11 @@ export function LazyModalShell({
         </DialogHeader>
         <DialogFooter className="mt-1 gap-2 sm:mt-2">
           <Button ref={cancelRef} type="button" variant="outline" size="sm" onClick={onCancel}>
-            取消
+            {t("common.cancel")}
           </Button>
           {onRetry ? (
             <Button type="button" size="sm" onClick={onRetry}>
-              重试
+              {t("common.retry")}
             </Button>
           ) : null}
         </DialogFooter>
@@ -108,16 +110,35 @@ export class LazyModalErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <LazyModalShell
-          state="error"
-          title={`${this.props.title}加载失败`}
-          description="当前操作结果尚未确认；重试前请先核对记录。"
+        <LazyModalErrorFallback
+          title={this.props.title}
           onCancel={this.props.onCancel}
           onRetry={this.props.onRetry}
-          dataAttribute="lazy-modal-error"
         />
       );
     }
     return this.props.children;
   }
+}
+
+function LazyModalErrorFallback({
+  title,
+  onCancel,
+  onRetry,
+}: {
+  title: string;
+  onCancel: () => void;
+  onRetry: () => void;
+}) {
+  const { t } = useLocale();
+  return (
+    <LazyModalShell
+      state="error"
+      title={t("lazy.errorTitle", { title })}
+      description={t("lazy.errorDescription")}
+      onCancel={onCancel}
+      onRetry={onRetry}
+      dataAttribute="lazy-modal-error"
+    />
+  );
 }

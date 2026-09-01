@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
-import { useState } from "react";
+import { useRef, useState, type RefObject } from "react";
 import { ScanLine, Sparkles, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -61,10 +61,18 @@ export function getAppBarVisibilityClass(pathname: string) {
   return "";
 }
 
-export function AppBar({ onOpenScanner }: { onOpenScanner: () => void }) {
+export function AppBar({
+  onOpenScanner,
+  scannerTriggerRef: externalScannerTriggerRef,
+}: {
+  onOpenScanner: () => void;
+  scannerTriggerRef?: RefObject<HTMLButtonElement | null>;
+}) {
   const { t } = useLocale();
   const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
+  const localScannerTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const scannerTriggerRef = externalScannerTriggerRef ?? localScannerTriggerRef;
   useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 8));
   const crumbs = useCrumbs(t);
   const pathname = usePathname() ?? "/";
@@ -145,12 +153,16 @@ export function AppBar({ onOpenScanner }: { onOpenScanner: () => void }) {
         ) : null}
 
         <Button
+          ref={scannerTriggerRef}
           type="button"
           variant="outline"
           size="icon"
           className="size-10 shrink-0 rounded-xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] md:size-9 md:rounded-md md:bg-surface/60 md:shadow-none"
           aria-label={t("shell.scanGlobal")}
-          onClick={onOpenScanner}
+          onClick={() => {
+            scannerTriggerRef.current?.focus({ preventScroll: true });
+            onOpenScanner();
+          }}
         >
           <ScanLine className="size-4" />
         </Button>

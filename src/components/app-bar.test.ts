@@ -54,6 +54,13 @@ describe("AppBar responsive route contract", () => {
     expect(providersSource).toContain("<AppSidebar onOpenCommand={() => setOpen(true)} />");
     expect(providersSource).not.toContain("<AppBar\n                      onOpenCommand");
     expect(appBarSource).toContain('className="min-w-0 flex-1"');
+    expect(appBarSource).toContain("scannerTriggerRef.current?.focus({ preventScroll: true })");
+    expect(appBarSource).toContain("scannerTriggerRef?: RefObject<HTMLButtonElement | null>");
+    expect(providersSource).toContain(
+      "const scannerTriggerRef = useRef<HTMLButtonElement | null>(null);",
+    );
+    expect(providersSource).toContain("window.requestAnimationFrame");
+    expect(providersSource).toContain("onOpenScanner={openScannerFromCommand}");
 
     const customerDetailSource = readFileSync(
       resolve(process.cwd(), "src/features/customers/screens/customer-detail-screen.tsx"),

@@ -1,6 +1,15 @@
 "use client";
 
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { useRouter } from "next/navigation";
 import { ScanLine } from "lucide-react";
 import { toast } from "sonner";
@@ -18,6 +27,7 @@ import {
 import { createScanSearchIntent } from "@/features/capture/model/scan-intent";
 import { cn } from "@/lib/utils";
 import { useNavigationGuard } from "@/components/navigation-guard-provider";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 interface ScanSearchSheetProps {
   open: boolean;
@@ -25,6 +35,9 @@ interface ScanSearchSheetProps {
   scope: ScanSearchScope;
   onSearch?: (value: string) => void;
   navigateDocument?: (href: string) => void;
+  returnFocusRef?: RefObject<HTMLElement | null>;
+  onOutsideDismiss?: () => void;
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 interface ScanSearchButtonProps {
@@ -62,10 +75,16 @@ export function ScanSearchButton({
   const [open, setOpen] = useState(false);
   const [activated, setActivated] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const resolvedLabel = label ?? "扫码";
-  const restoreTriggerFocus = () => {
-    window.requestAnimationFrame(() => triggerRef.current?.focus());
-  };
+  const outsideDismissedRef = useRef(false);
+  const { locale, t } = useLocale();
+  const resolvedLabel = label ?? t("scanner.title");
+  const handleCloseAutoFocus = useCallback((event: Event) => {
+    if (!outsideDismissedRef.current) {
+      event.preventDefault();
+      triggerRef.current?.focus({ preventScroll: true });
+    }
+    outsideDismissedRef.current = false;
+  }, []);
 
   return (
     <>
@@ -76,8 +95,9 @@ export function ScanSearchButton({
         size={size}
         disabled={disabled}
         className={className}
-        aria-label={`${getScanSearchScopeLabel(scope)}扫码查询`}
+        aria-label={t("scanSearch.title", { scope: getScanSearchScopeLabel(scope, locale) })}
         onClick={() => {
+          outsideDismissedRef.current = false;
           setActivated(true);
           setOpen(true);
         }}
@@ -90,10 +110,14 @@ export function ScanSearchButton({
           open={open}
           onOpenChange={(nextOpen) => {
             setOpen(nextOpen);
-            if (!nextOpen) restoreTriggerFocus();
+            if (nextOpen) outsideDismissedRef.current = false;
           }}
           scope={scope}
           onSearch={onSearch}
+          onOutsideDismiss={() => {
+            outsideDismissedRef.current = true;
+          }}
+          onCloseAutoFocus={handleCloseAutoFocus}
         />
       ) : null}
     </>
@@ -106,9 +130,16 @@ export function ScanSearchSheet({
   scope,
   onSearch,
   navigateDocument = (href) => window.location.assign(href),
+  returnFocusRef,
+  onOutsideDismiss,
+  onCloseAutoFocus,
 }: ScanSearchSheetProps) {
   const router = useRouter();
+  const { locale, t } = useLocale();
   const { runGuardedTransition } = useNavigationGuard();
+  const openerRef = useRef<HTMLElement | null>(null);
+  const previousOpenRef = useRef(false);
+  const outsideDismissedRef = useRef(false);
   const [scannerActivated, setScannerActivated] = useState(open);
   const [loaderVersion, setLoaderVersion] = useState(0);
   const LazyBarcodeScannerSheet = useMemo(
@@ -120,6 +151,25 @@ export function ScanSearchSheet({
     if (open) setScannerActivated(true);
   }, [open]);
 
+  if (open && !previousOpenRef.current) {
+    const activeElement = typeof document === "undefined" ? null : document.activeElement;
+    openerRef.current = activeElement instanceof HTMLElement ? activeElement : null;
+    outsideDismissedRef.current = false;
+  }
+  previousOpenRef.current = open;
+
+  const handleCloseAutoFocus = useCallback(
+    (event: Event) => {
+      onCloseAutoFocus?.(event);
+      if (!event.defaultPrevented && !outsideDismissedRef.current) {
+        event.preventDefault();
+        (returnFocusRef?.current ?? openerRef.current)?.focus({ preventScroll: true });
+      }
+      outsideDismissedRef.current = false;
+    },
+    [onCloseAutoFocus, returnFocusRef],
+  );
+
   const executeAction = (
     action: ScanSearchAction,
     helpers: { close: () => void; rescan: () => void },
@@ -127,7 +177,7 @@ export function ScanSearchSheet({
     if (action.kind === "search" && onSearch) {
       helpers.close();
       onSearch(action.searchValue);
-      toast.success(`已填入${getScanSearchScopeLabel(scope)}搜索`);
+      toast.success(t("scanSearch.filled", { scope: getScanSearchScopeLabel(scope, locale) }));
       return;
     }
     if (action.kind === "search") {
@@ -141,7 +191,7 @@ export function ScanSearchSheet({
         if (action.id === "open:customer_status_link") {
           const destination = parseCustomerStatusLink(action.href, window.location.origin);
           if (destination?.kind !== "valid") {
-            toast.error("维修工单二维码无效，请重新扫描");
+            toast.error(t("orderQr.invalidToast"));
             return;
           }
           navigateDocument(destination.href);
@@ -156,7 +206,7 @@ export function ScanSearchSheet({
     payload: CapturePayload,
     helpers: { close: () => void; rescan: () => void },
   ) => {
-    const resolution = resolveScanSearchActions(payload, scope);
+    const resolution = resolveScanSearchActions(payload, scope, locale);
     if (resolution.actions.length === 0) return null;
 
     return (
@@ -189,15 +239,15 @@ export function ScanSearchSheet({
     <LazyModalErrorBoundary
       key={loaderVersion}
       open={open}
-      title={`${getScanSearchScopeLabel(scope)}扫码查询`}
+      title={t("scanSearch.title", { scope: getScanSearchScopeLabel(scope, locale) })}
       onCancel={closeBeforeLoad}
       onRetry={() => setLoaderVersion((current) => current + 1)}
     >
       <Suspense
         fallback={
           <LazyModalShell
-            title={`${getScanSearchScopeLabel(scope)}扫码查询`}
-            description="扫码工具正在加载，可以取消并返回当前页面。"
+            title={t("scanSearch.title", { scope: getScanSearchScopeLabel(scope, locale) })}
+            description={t("scanSearch.lazyDescription")}
             onCancel={closeBeforeLoad}
             dataAttribute="scan-search-lazy-fallback"
           />
@@ -206,9 +256,14 @@ export function ScanSearchSheet({
         <LazyBarcodeScannerSheet
           open={open}
           onOpenChange={onOpenChange}
-          title={`${getScanSearchScopeLabel(scope)}扫码查询`}
-          description="扫描工单二维码、库存标签、客户标签、IMEI 条码或手动输入内容。"
+          title={t("scanSearch.title", { scope: getScanSearchScopeLabel(scope, locale) })}
+          description={t("scanSearch.description")}
           renderActions={renderActions}
+          onOutsideDismiss={() => {
+            outsideDismissedRef.current = true;
+            onOutsideDismiss?.();
+          }}
+          onCloseAutoFocus={handleCloseAutoFocus}
         />
       </Suspense>
     </LazyModalErrorBoundary>

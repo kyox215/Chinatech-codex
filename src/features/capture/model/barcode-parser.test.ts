@@ -9,6 +9,7 @@ import {
 
 describe("parseBarcodePayload", () => {
   const legacyCustomerStatusToken = "A".repeat(43);
+  const stableCustomerStatusToken = `v2.1.${"B".repeat(22)}.1.${"C".repeat(43)}`;
 
   it("recognizes internal order links", () => {
     expect(
@@ -92,17 +93,24 @@ describe("parseBarcodePayload", () => {
   });
 
   it("recognizes official customer status QR links as protected internal targets", () => {
-    const stableCustomerStatusToken = `v2.1.${"B".repeat(22)}.1.${"C".repeat(43)}`;
-    expect(
-      parseBarcodePayload(`https://www.chinatech.in/r#${legacyCustomerStatusToken}`),
-    ).toMatchObject({
-      kind: "customer_status_link",
-      label: "客户工单二维码",
-      raw: "",
-      value: "",
-      targetHref: `/r#${legacyCustomerStatusToken}`,
-      sensitive: true,
-    });
+    for (const token of [legacyCustomerStatusToken, stableCustomerStatusToken]) {
+      expect(parseBarcodePayload(token)).toEqual({
+        kind: "customer_status_link",
+        label: "客户工单二维码",
+        raw: "",
+        value: "",
+        targetHref: `/r#${token}`,
+        sensitive: true,
+      });
+      expect(parseBarcodePayload(`https://www.chinatech.in/r#${token}`)).toEqual({
+        kind: "customer_status_link",
+        label: "客户工单二维码",
+        raw: "",
+        value: "",
+        targetHref: `/r#${token}`,
+        sensitive: true,
+      });
+    }
     expect(
       parseBarcodePayload(`https://chinatech.in/r#${legacyCustomerStatusToken}`),
     ).toMatchObject({
@@ -114,13 +122,6 @@ describe("parseBarcodePayload", () => {
     ).toMatchObject({
       kind: "customer_status_link",
       targetHref: `/r#${legacyCustomerStatusToken}`,
-    });
-    expect(
-      parseBarcodePayload(`https://www.chinatech.in/r#${stableCustomerStatusToken}`),
-    ).toMatchObject({
-      kind: "customer_status_link",
-      targetHref: `/r#${stableCustomerStatusToken}`,
-      sensitive: true,
     });
   });
 
@@ -136,33 +137,101 @@ describe("parseBarcodePayload", () => {
       expect(parseBarcodePayload(raw)).toMatchObject({
         kind: "customer_status_link",
         label: "无效客户工单二维码",
+        raw: "",
         value: "",
         sensitive: true,
       });
       expect(parseBarcodePayload(raw).targetHref).toBeUndefined();
     }
-    expect(
-      parseBarcodePayload(
-        `//www.chinatech.in/r#${legacyCustomerStatusToken}`,
-        "https://preview.example",
-      ),
-    ).toMatchObject({
+    const schemeRelative = parseBarcodePayload(
+      `//www.chinatech.in/r#${legacyCustomerStatusToken}`,
+      "https://preview.example",
+    );
+    expect(schemeRelative).toMatchObject({
       kind: "customer_status_link",
-      targetHref: undefined,
       sensitive: true,
     });
+    expect(schemeRelative.targetHref).toBeUndefined();
   });
 
   it("protects valid-looking customer tokens on lookalike domains without trusting the target", () => {
-    expect(
-      parseBarcodePayload(`https://www.chinatech.in.evil.example/r#${legacyCustomerStatusToken}`),
-    ).toMatchObject({
+    const payload = parseBarcodePayload(
+      `https://www.chinatech.in.evil.example/r#${legacyCustomerStatusToken}`,
+    );
+    expect(payload).toMatchObject({
       kind: "customer_status_link",
       label: "无效客户工单二维码",
       raw: "",
       value: "",
-      targetHref: undefined,
       sensitive: true,
+    });
+    expect(payload.targetHref).toBeUndefined();
+  });
+
+  it.each([
+    ["wrong path", `https://www.chinatech.in/orders/${legacyCustomerStatusToken}`],
+    ["wrong query", `https://www.chinatech.in/orders?token=${stableCustomerStatusToken}`],
+    ["wrong fragment", `https://www.chinatech.in/orders#${legacyCustomerStatusToken}`],
+    ["legacy order prefix", `order:${legacyCustomerStatusToken}`],
+    ["stable order prefix", `order:${stableCustomerStatusToken}`],
+  ])("fails closed when a customer credential appears in %s", (_case, raw) => {
+    expect(parseBarcodePayload(raw)).toEqual({
+      kind: "customer_status_link",
+      label: "无效客户工单二维码",
+      raw: "",
+      value: "",
+      sensitive: true,
+    });
+  });
+
+  it.each([
+    ["legacy dot prefix", `https://[invalid/r#prefix.${legacyCustomerStatusToken}`],
+    ["legacy dot suffix", `https://[invalid/r#${legacyCustomerStatusToken}.trailing`],
+    ["stable dot prefix", `https://[invalid/r#prefix.${stableCustomerStatusToken}`],
+    ["stable dot suffix", `https://[invalid/r#${stableCustomerStatusToken}.trailing`],
+  ])("fails closed for parser-error credentials with a %s boundary", (_case, raw) => {
+    expect(parseBarcodePayload(raw)).toEqual({
+      kind: "customer_status_link",
+      label: "无效客户工单二维码",
+      raw: "",
+      value: "",
+      sensitive: true,
+    });
+  });
+
+  it.each([
+    ["legacy suffix", `https://[invalid/r#${legacyCustomerStatusToken}A.trailing`],
+    ["stable suffix", `https://[invalid/r#${stableCustomerStatusToken}A.trailing`],
+  ])("does not redact a non-token 44-character %s lookalike", (_case, raw) => {
+    expect(parseBarcodePayload(raw)).toEqual({
+      kind: "text",
+      label: "文本内容",
+      raw,
+      value: raw,
+    });
+  });
+
+  it.each([
+    [
+      "order:550e8400-e29b-41d4-a716-446655440000",
+      "order_link",
+      "550e8400-e29b-41d4-a716-446655440000",
+    ],
+    ["imei:490154203237518", "imei", "490154203237518"],
+    ["sn:C39ZQ123N70M", "serial", "C39ZQ123N70M"],
+    ["EID:89049032000000000000000000000000", "serial", "EID89049032000000000000000000000000"],
+    ["EAN:4006381333931", "serial", "EAN4006381333931"],
+    ["SKU:RD-APPLE-001", "serial", "SKURDAPPLE001"],
+  ])("keeps ordinary identifier parsing for %s", (raw, kind, value) => {
+    expect(parseBarcodePayload(raw)).toMatchObject({ kind, raw, value });
+  });
+
+  it("keeps an ordinary 44-character identifier as a serial", () => {
+    const raw = "Z".repeat(44);
+    expect(parseBarcodePayload(raw)).toMatchObject({
+      kind: "serial",
+      raw,
+      value: raw,
     });
   });
 });
