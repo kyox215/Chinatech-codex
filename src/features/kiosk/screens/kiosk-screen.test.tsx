@@ -49,7 +49,7 @@ describe("KioskScreen public token recovery", () => {
       .mockResolvedValueOnce(
         jsonResponse(
           {
-            error: "iPad 未绑定或已撤销",
+            error: "Questo iPad non è autorizzato o l'autorizzazione è stata revocata.",
             code: KIOSK_PUBLIC_ERROR_CODES.deviceUnauthorized,
           },
           401,
@@ -61,7 +61,7 @@ describe("KioskScreen public token recovery", () => {
     render(<KioskScreen />);
 
     expect(await screen.findByDisplayValue("Cliente Riservato")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "刷新任务" }));
+    await user.click(screen.getByRole("button", { name: "Aggiorna il modulo" }));
 
     expect(
       await screen.findByText(
@@ -111,13 +111,45 @@ describe("KioskScreen public token recovery", () => {
 
     const note = await screen.findByRole("textbox", { name: "Note" });
     await user.type(note, "Nota non ancora inviata");
-    await user.click(screen.getByRole("button", { name: "刷新任务" }));
+    await user.click(screen.getByRole("button", { name: "Aggiorna il modulo" }));
 
     expect(await screen.findByText(/Connessione temporaneamente non disponibile/)).toBeVisible();
     expect(screen.getByRole("textbox", { name: "Note" })).toHaveValue("Nota non ancora inviata");
     expect(screen.getByDisplayValue("Cliente Test")).toBeVisible();
     expect(window.localStorage.getItem(tokenStorageKey)).toBe("demo-kiosk-token");
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("exposes the optional signature canvas and clear state in Italian", async () => {
+    window.localStorage.setItem(tokenStorageKey, "demo-kiosk-token");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          data: {
+            session: {
+              session_type: "pickup_signature",
+              status: "active",
+              submission_version: 0,
+              expires_at: "2099-07-13T00:00:00.000Z",
+            },
+            device: { label: "Front iPad", status: "active" },
+            store: { name: "Test Store" },
+            order: { public_no: "SAFE-003", device_label: "Telefono Test" },
+          },
+        }),
+      ),
+    );
+
+    render(<KioskScreen />);
+
+    expect(
+      await screen.findByRole("img", { name: "Area per la firma del cliente" }),
+    ).toHaveAttribute("aria-describedby", "customer-signature-status");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Firma non inserita; la firma è facoltativa",
+    );
+    expect(screen.getByRole("button", { name: "Cancella la firma" })).toBeDisabled();
   });
 });
 

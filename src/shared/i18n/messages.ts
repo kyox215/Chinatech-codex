@@ -3,6 +3,9 @@ import type { AppLocale } from "@/shared/i18n/locales";
 const zhCN = {
   "metadata.title": "RepairDesk — 维修工单后台",
   "metadata.description": "现代化手机维修接单管理后台",
+  "notFound.title": "页面未找到",
+  "notFound.description": "您访问的页面不存在或已被移除。",
+  "notFound.backHome": "返回首页",
   "recovery.loading": "正在恢复 RepairDesk…",
   "recovery.retry": "立即重试",
   "locale.menuLabel": "选择界面语言",
@@ -181,6 +184,11 @@ const zhCN = {
   "auth.nextStepDescription":
     "继续完成店铺创建、加入申请或邀请确认；未通过店铺审批前不会开放业务数据。",
   "auth.continueOnboarding": "继续店铺开通",
+  "auth.registrationStatusLoading": "正在确认注册状态",
+  "auth.registrationStatusLoadingDescription": "请稍候，我们正在读取账号和店铺开通状态。",
+  "auth.registrationStatusError": "无法确认注册状态",
+  "auth.registrationStatusErrorDescription": "暂时无法读取账号状态。请重试，或安全返回登录页。",
+  "auth.retry": "重试",
   "auth.error.operationFailed": "操作失败，请稍后再试",
   "auth.error.invalidCredentials": "邮箱或密码不正确，请检查邮箱，或使用忘记密码重置。",
   "auth.error.emailNotConfirmed": "邮箱还没有确认，请先打开邮件完成确认后再登录。",
@@ -786,6 +794,9 @@ export type MessageValues = Record<string, string | number>;
 const itIT: Record<MessageKey, string> = {
   "metadata.title": "RepairDesk — Gestione riparazioni",
   "metadata.description": "Gestionale moderno per ordini di riparazione smartphone",
+  "notFound.title": "Pagina non trovata",
+  "notFound.description": "La pagina richiesta non esiste o è stata rimossa.",
+  "notFound.backHome": "Torna alla home",
   "recovery.loading": "Ripristino di RepairDesk…",
   "recovery.retry": "Riprova ora",
   "locale.menuLabel": "Scegli la lingua dell’interfaccia",
@@ -970,6 +981,13 @@ const itIT: Record<MessageKey, string> = {
   "auth.nextStepDescription":
     "Completa la creazione del negozio, la richiesta di accesso o la conferma dell’invito. I dati operativi restano chiusi fino all’approvazione.",
   "auth.continueOnboarding": "Continua l’attivazione",
+  "auth.registrationStatusLoading": "Verifica della registrazione",
+  "auth.registrationStatusLoadingDescription":
+    "Attendi: stiamo leggendo lo stato dell’account e dell’attivazione del negozio.",
+  "auth.registrationStatusError": "Impossibile verificare la registrazione",
+  "auth.registrationStatusErrorDescription":
+    "Non riusciamo a leggere lo stato dell’account. Riprova oppure torna in sicurezza alla pagina di accesso.",
+  "auth.retry": "Riprova",
   "auth.error.operationFailed": "Operazione non riuscita. Riprova più tardi.",
   "auth.error.invalidCredentials":
     "Email o password non corrette. Controlla i dati oppure reimposta la password.",
@@ -1619,6 +1637,9 @@ const itIT: Record<MessageKey, string> = {
 const en: Record<MessageKey, string> = {
   "metadata.title": "RepairDesk — Repair management",
   "metadata.description": "Modern smartphone repair order management",
+  "notFound.title": "Page not found",
+  "notFound.description": "The page you requested does not exist or has been removed.",
+  "notFound.backHome": "Back to home",
   "recovery.loading": "Restoring RepairDesk…",
   "recovery.retry": "Retry now",
   "locale.menuLabel": "Choose interface language",
@@ -1802,6 +1823,13 @@ const en: Record<MessageKey, string> = {
   "auth.nextStepDescription":
     "Complete store creation, an access request, or invitation confirmation. Business data remains unavailable until approval.",
   "auth.continueOnboarding": "Continue store setup",
+  "auth.registrationStatusLoading": "Checking registration status",
+  "auth.registrationStatusLoadingDescription":
+    "Please wait while we read the account and store setup status.",
+  "auth.registrationStatusError": "Could not verify registration",
+  "auth.registrationStatusErrorDescription":
+    "We could not read the account status. Try again or return safely to the sign-in page.",
+  "auth.retry": "Try again",
   "auth.error.operationFailed": "The operation failed. Try again later.",
   "auth.error.invalidCredentials":
     "The email or password is incorrect. Check the details or reset your password.",

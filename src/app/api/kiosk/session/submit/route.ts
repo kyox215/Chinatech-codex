@@ -22,7 +22,9 @@ const submitBodySchema = z
     backup_phone: z.string().max(40).optional(),
     preferred_channel: z.enum(["whatsapp", "sms"]).optional(),
     language: z.enum(["it", "zh", "en"]).optional(),
-    confirmation_checked: z.boolean().refine(Boolean, "请先确认客户资料"),
+    confirmation_checked: z
+      .boolean()
+      .refine(Boolean, "Conferma i dati del cliente prima di continuare"),
     signature_data_url: z.string().max(600_000).optional(),
     note: z.string().max(500).optional(),
   })
@@ -47,7 +49,7 @@ export async function POST(request: NextRequest) {
       return kioskPublicJson({ error: error.message, code: error.code }, error.status);
     }
     if (error instanceof z.ZodError) {
-      return kioskPublicJson({ error: error.issues.map((issue) => issue.message).join("，") }, 400);
+      return kioskPublicJson({ error: error.issues.map((issue) => issue.message).join(", ") }, 400);
     }
     return kioskPublicJson(
       {

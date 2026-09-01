@@ -42,17 +42,23 @@ export function isKioskPublicError(error: unknown): error is KioskPublicError {
 
 export function kioskDeviceUnauthorizedError() {
   return new KioskPublicError(
-    "iPad 未绑定或已撤销",
+    "Questo iPad non è autorizzato o l'autorizzazione è stata revocata.",
     KIOSK_PUBLIC_ERROR_CODES.deviceUnauthorized,
     401,
   );
 }
 
 export function kioskPairingInvalidError() {
-  return new KioskPublicError("配对码无效或已过期", KIOSK_PUBLIC_ERROR_CODES.pairingInvalid, 400);
+  return new KioskPublicError(
+    "Il codice di abbinamento non è valido o è scaduto.",
+    KIOSK_PUBLIC_ERROR_CODES.pairingInvalid,
+    400,
+  );
 }
 
-export function kioskSessionConflictError(message = "当前任务已变化，请重新读取后再试") {
+export function kioskSessionConflictError(
+  message = "L'attività è cambiata. Aggiorna il modulo e riprova.",
+) {
   return new KioskPublicError(message, KIOSK_PUBLIC_ERROR_CODES.sessionConflict, 409);
 }
 

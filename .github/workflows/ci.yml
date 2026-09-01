@@ -19,3 +19,39 @@ jobs:
       - run: npm run typecheck
       - run: npm run test
       - run: npm run build
+
+  i18n-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22.12.0
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Run required i18n browser stories
+        run: >-
+          npx playwright test --workers=1 --forbid-only --fail-on-flaky-tests
+          tests/e2e/i18n-language-switcher.spec.ts
+          tests/e2e/i18n-orders-queue-release-a.spec.ts
+          tests/e2e/i18n-public-states.spec.ts
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:3131
+          PLAYWRIGHT_BROWSER: ${{ matrix.browser }}
+          PLAYWRIGHT_REUSE_EXISTING_SERVER: "0"
+          PLAYWRIGHT_WEBSERVER_COMMAND: REPAIRDESK_E2E_BUSINESS_DESKTOP=1 npx next dev -H 127.0.0.1 -p 3131
+          REPAIRDESK_E2E_BUSINESS_DESKTOP: "1"
+          REPAIRDESK_I18N_EVIDENCE_DIR: test-results/i18n-${{ matrix.browser }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: i18n-${{ matrix.browser }}
+          path: |
+            playwright-report
+            test-results

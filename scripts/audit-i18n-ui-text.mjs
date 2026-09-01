@@ -3,6 +3,7 @@ import { relative, resolve } from "node:path";
 import ts from "typescript";
 
 const root = resolve(process.cwd(), "src");
+const includeTypeScript = process.argv.includes("--include-ts");
 const configPath = ts.findConfigFile(process.cwd(), ts.sys.fileExists, "tsconfig.json");
 if (!configPath) throw new Error("tsconfig.json not found");
 
@@ -11,11 +12,11 @@ const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, process.cwd(
 const files = parsed.fileNames.filter(
   (file) =>
     file.startsWith(root) &&
-    /\.tsx$/.test(file) &&
+    (includeTypeScript ? /\.(?:ts|tsx)$/.test(file) : /\.tsx$/.test(file)) &&
     !/\.(?:test|spec|stories)\.(?:ts|tsx)$/.test(file) &&
     !file.includes("/server/") &&
     !file.includes("/testing/") &&
-    !file.includes("/app/api/") &&
+    (includeTypeScript || !file.includes("/app/api/")) &&
     !file.includes("/shared/i18n/messages.ts"),
 );
 
@@ -48,6 +49,8 @@ for (const file of files) {
         file: relative(process.cwd(), file),
         line: position.line + 1,
         kind,
+        extension: file.endsWith(".tsx") ? "tsx" : "ts",
+        domain: sourceDomain(file),
         text: value,
       });
     }
@@ -68,19 +71,28 @@ const summary = [...unique.entries()]
   .map(([text, value]) => ({ text, ...value }))
   .sort((a, b) => b.count - a.count || a.text.localeCompare(b.text, "zh-CN"));
 
+const byKind = countRowsBy(rows, (row) => row.kind, ["jsx", "attribute", "string"]);
+const byExtension = countRowsBy(rows, (row) => row.extension, ["tsx", "ts"]);
+const byDomain = countRowsBy(rows, (row) => row.domain);
+
 if (process.argv.includes("--summary")) {
-  const byKind = Object.fromEntries(
-    ["jsx", "attribute", "string"].map((kind) => [
-      kind,
-      rows.filter((row) => row.kind === kind).length,
-    ]),
-  );
   process.stdout.write(
-    `UI Han-script candidates: ${rows.length} occurrences, ${summary.length} unique; ${JSON.stringify(byKind)}\n`,
+    `UI Han-script candidates: ${rows.length} occurrences, ${summary.length} unique; kinds=${JSON.stringify(byKind)}; extensions=${JSON.stringify(byExtension)}; domains=${JSON.stringify(byDomain)}\n`,
   );
 } else if (process.argv.includes("--json")) {
   process.stdout.write(
-    `${JSON.stringify({ occurrences: rows.length, unique: summary }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        mode: includeTypeScript ? "tsx-and-ts-runtime" : "legacy-tsx",
+        occurrences: rows.length,
+        byKind,
+        byExtension,
+        byDomain,
+        unique: summary,
+      },
+      null,
+      2,
+    )}\n`,
   );
 } else {
   process.stdout.write(
@@ -91,4 +103,27 @@ if (process.argv.includes("--summary")) {
       `${String(row.count).padStart(4)}\t${row.text}\t${row.examples.join(", ")}\n`,
     );
   }
+}
+
+function sourceDomain(file) {
+  const path = relative(root, file).split("/");
+  if (path[0] === "features" && path[1]) return `features/${path[1]}`;
+  if (path[0] === "app" && path[1] === "api") return "app/api";
+  return path[0] || "src";
+}
+
+function countRowsBy(sourceRows, selectKey, preferredOrder = []) {
+  const counts = new Map();
+  for (const row of sourceRows) {
+    const key = selectKey(row);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const preferred = new Map(preferredOrder.map((key, index) => [key, index]));
+  return Object.fromEntries(
+    [...counts.entries()].sort(([leftKey, leftCount], [rightKey, rightCount]) => {
+      const leftOrder = preferred.get(leftKey) ?? Number.MAX_SAFE_INTEGER;
+      const rightOrder = preferred.get(rightKey) ?? Number.MAX_SAFE_INTEGER;
+      return leftOrder - rightOrder || rightCount - leftCount || leftKey.localeCompare(rightKey);
+    }),
+  );
 }

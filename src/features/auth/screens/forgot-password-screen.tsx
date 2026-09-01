@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, KeyRound, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   authErrorMessage,
+  authErrorMessageKey,
   normalizeAuthEmail,
   passwordResetSentMessage,
 } from "@/features/auth/model/auth-errors";
@@ -19,6 +20,7 @@ import { brandGradientStyle, controls } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
 import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey } from "@/shared/i18n/messages";
 
 export function ForgotPasswordScreen() {
   const { t } = useLocale();
@@ -26,15 +28,28 @@ export function ForgotPasswordScreen() {
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formErrorKey, setFormErrorKey] = useState<MessageKey | null>(null);
+  const formErrorRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const error = searchParams.get("auth_error");
-    if (error === "callback") toast.error(t("auth.resetLinkExpired"));
-    if (error === "session") toast.error(t("auth.resetSessionRequired"));
+    if (error === "callback") {
+      setFormErrorKey("auth.resetLinkExpired");
+      toast.error(t("auth.resetLinkExpired"));
+    }
+    if (error === "session") {
+      setFormErrorKey("auth.resetSessionRequired");
+      toast.error(t("auth.resetSessionRequired"));
+    }
   }, [searchParams, t]);
+
+  useEffect(() => {
+    if (formErrorKey) formErrorRef.current?.focus();
+  }, [formErrorKey]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setFormErrorKey(null);
     const normalizedEmail = normalizeAuthEmail(email);
     setIsSubmitting(true);
     const { error } = await createClient().auth.resetPasswordForEmail(normalizedEmail, {
@@ -43,6 +58,8 @@ export function ForgotPasswordScreen() {
     setIsSubmitting(false);
 
     if (error) {
+      const key = authErrorMessageKey(error);
+      setFormErrorKey(key);
       toast.error(authErrorMessage(error, t));
       return;
     }
@@ -74,6 +91,18 @@ export function ForgotPasswordScreen() {
           </div>
         </div>
 
+        {formErrorKey ? (
+          <div
+            ref={formErrorRef}
+            id="forgot-password-error"
+            role="alert"
+            tabIndex={-1}
+            className="mb-3 rounded-lg bg-status-danger/10 px-3 py-2 text-sm text-status-danger-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {t(formErrorKey)}
+          </div>
+        ) : null}
+
         <form className="space-y-3 sm:space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-1.5">
             <Label htmlFor="reset-email">{t("auth.email")}</Label>
@@ -82,7 +111,10 @@ export function ForgotPasswordScreen() {
               type="email"
               autoComplete="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setFormErrorKey(null);
+              }}
               required
             />
           </div>

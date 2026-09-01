@@ -19,6 +19,15 @@ describe("auth error helpers", () => {
     );
   });
 
+  it("replaces unknown provider text with the generic safe error", () => {
+    expect(authErrorMessage({ message: "provider tenant secret failure" })).toBe(
+      "操作失败，请稍后再试",
+    );
+    expect(authErrorMessage({ message: "provider tenant secret failure" })).not.toContain(
+      "provider tenant secret failure",
+    );
+  });
+
   it("validates password reset confirmation locally", () => {
     expect(validateNewPassword("1234567", "1234567")).toBe("新密码至少需要 8 位");
     expect(validateNewPassword("12345678", "87654321")).toBe("两次输入的新密码不一致");

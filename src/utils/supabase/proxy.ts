@@ -43,7 +43,7 @@ export async function updateSession(request: NextRequest) {
   const hasPasswordRecoveryCookie = request.cookies.get(PASSWORD_RECOVERY_COOKIE)?.value === "1";
 
   if (isRepairDeskE2eAuthBypassEnabled()) {
-    return applyCustomerStatusPageHeaders(NextResponse.next({ request }), pathname);
+    return applyPublicPageHeaders(NextResponse.next({ request }), pathname);
   }
 
   // This server-to-server route performs its own constant-time CRON_SECRET
@@ -54,7 +54,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (!supabaseUrl || !supabaseKey) {
-    return applyCustomerStatusPageHeaders(NextResponse.next({ request }), pathname);
+    return applyPublicPageHeaders(NextResponse.next({ request }), pathname);
   }
 
   let response = NextResponse.next({
@@ -135,11 +135,11 @@ export async function updateSession(request: NextRequest) {
     response.headers.set("Referrer-Policy", "no-referrer");
   }
 
-  return applyCustomerStatusPageHeaders(response, pathname);
+  return applyPublicPageHeaders(response, pathname);
 }
 
-function applyCustomerStatusPageHeaders(response: NextResponse, pathname: string) {
-  if (pathname !== "/r") return response;
+function applyPublicPageHeaders(response: NextResponse, pathname: string) {
+  if (pathname !== "/r" && pathname !== "/kiosk") return response;
   response.headers.set("Cache-Control", "private, no-store, max-age=0, must-revalidate");
   response.headers.set(
     "Content-Security-Policy",

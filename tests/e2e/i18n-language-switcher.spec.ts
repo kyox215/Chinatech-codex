@@ -3,8 +3,7 @@ import { resolve } from "node:path";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const evidenceDir = resolve(
-  process.cwd(),
-  ".ai-company/memory/tasks/TASK-20260831-001-project-i18n-clean-rebuild/screenshots",
+  process.env.REPAIRDESK_I18N_EVIDENCE_DIR ?? "test-results/i18n-foundation",
 );
 const workspaceEvidenceEnabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 
@@ -45,6 +44,7 @@ test("fixed Italian customer routes do not replace the employee locale cookie", 
   for (const path of ["/r", "/kiosk"]) {
     await page.goto(path, { waitUntil: "domcontentloaded" });
     await expect(page.locator("html"), path).toHaveAttribute("lang", "it-IT");
+    if (path === "/r") await expect(page).toHaveTitle("Stato riparazione — RepairDesk");
     expect(
       (await context.cookies()).find((cookie) => cookie.name === "repairdesk_locale")?.value,
       path,
@@ -54,6 +54,7 @@ test("fixed Italian customer routes do not replace the employee locale cookie", 
   await page.goto("/login", { waitUntil: "domcontentloaded" });
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.getByRole("heading", { name: "Sign in to RepairDesk" })).toBeVisible();
+  await expect(page).toHaveTitle("Sign in — RepairDesk");
 });
 
 test("language switching keeps form state, URL, document identity and persistence", async ({
@@ -168,6 +169,7 @@ test("auth confirmation copy switches in place without navigation", async ({ pag
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/auth/confirm", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "邀请链接无效" })).toBeVisible();
+  await expect(page).toHaveTitle("确认安全邀请 — RepairDesk");
 
   await page.evaluate(() => {
     Object.assign(window, { __repairDeskConfirmIdentity: "same-document" });
@@ -179,6 +181,7 @@ test("auth confirmation copy switches in place without navigation", async ({ pag
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.getByRole("heading", { name: "Invalid invitation link" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Back to sign in" })).toBeVisible();
+  await expect(page).toHaveTitle("Confirm secure invitation — RepairDesk");
   expect(page.url()).toBe(initialURL);
   expect(await page.evaluate(() => Reflect.get(window, "__repairDeskConfirmIdentity"))).toBe(
     "same-document",

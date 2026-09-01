@@ -60,7 +60,7 @@ describe("public kiosk routes", () => {
     expect(response.status).toBe(401);
     expect(response.headers.get("cache-control")).toContain("no-store");
     await expect(response.json()).resolves.toEqual({
-      error: "iPad 未绑定或已撤销",
+      error: "Questo iPad non è autorizzato o l'autorizzazione è stata revocata.",
       code: KIOSK_PUBLIC_ERROR_CODES.deviceUnauthorized,
     });
   });
@@ -115,6 +115,9 @@ describe("public kiosk routes", () => {
       }),
     );
     expect(unconfirmed.status).toBe(400);
+    await expect(unconfirmed.json()).resolves.toEqual({
+      error: "Conferma i dati del cliente prima di continuare",
+    });
     expect(mocks.submitKioskPublicSession).not.toHaveBeenCalled();
 
     mocks.submitKioskPublicSession.mockResolvedValueOnce({

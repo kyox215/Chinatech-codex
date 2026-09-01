@@ -17,6 +17,7 @@ import {
   readLocaleCookie,
   type AppLocale,
 } from "@/shared/i18n/locales";
+import { localizeKnownDocumentTitle } from "@/shared/i18n/document-title";
 import { translateMessage, type MessageKey, type MessageValues } from "@/shared/i18n/messages";
 
 type Translate = (key: MessageKey, values?: MessageValues) => string;
@@ -57,6 +58,7 @@ export function LocaleProvider({
   useEffect(() => {
     document.documentElement.lang = locale;
     document.documentElement.dataset.locale = locale;
+    document.title = localizeKnownDocumentTitle(document.title, locale);
   }, [locale]);
 
   const setLocale = useCallback(

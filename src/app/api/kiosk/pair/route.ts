@@ -17,7 +17,10 @@ export const runtime = "nodejs";
 
 const pairBodySchema = z
   .object({
-    code: z.string().min(6, "请输入配对码").max(32, "配对码过长"),
+    code: z
+      .string()
+      .min(6, "Inserisci il codice di abbinamento")
+      .max(32, "Il codice di abbinamento è troppo lungo"),
   })
   .strict();
 
@@ -44,7 +47,7 @@ export async function POST(request: NextRequest) {
       return kioskPublicJson({ error: error.message, code: error.code }, error.status);
     }
     if (error instanceof z.ZodError) {
-      return kioskPublicJson({ error: error.issues.map((issue) => issue.message).join("，") }, 400);
+      return kioskPublicJson({ error: error.issues.map((issue) => issue.message).join(", ") }, 400);
     }
     return kioskPublicJson(
       {

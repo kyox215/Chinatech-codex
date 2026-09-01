@@ -40,14 +40,20 @@ export function normalizeKioskSubmission(input: KioskSessionSubmitInput) {
   const note = input.note?.trim();
   const signature = input.signature_data_url?.trim();
 
-  if (customerName && customerName.length > 120) throw new Error("姓名过长");
-  if (customerPhone && customerPhone.length > 40) throw new Error("手机号过长");
-  if (backupPhone && backupPhone.length > 40) throw new Error("备用电话过长");
-  if (note && note.length > 500) throw new Error("备注过长");
-  if (signature && !/^data:image\/(png|jpeg|webp);base64,/i.test(signature)) {
-    throw new Error("签名图片格式无效");
+  if (customerName && customerName.length > 120) throw new Error("Il nome è troppo lungo");
+  if (customerPhone && customerPhone.length > 40) {
+    throw new Error("Il numero di telefono è troppo lungo");
   }
-  if (input.confirmation_checked !== true) throw new Error("请先确认客户资料");
+  if (backupPhone && backupPhone.length > 40) {
+    throw new Error("Il numero di telefono alternativo è troppo lungo");
+  }
+  if (note && note.length > 500) throw new Error("Le note sono troppo lunghe");
+  if (signature && !/^data:image\/(png|jpeg|webp);base64,/i.test(signature)) {
+    throw new Error("Il formato dell'immagine della firma non è valido");
+  }
+  if (input.confirmation_checked !== true) {
+    throw new Error("Conferma i dati del cliente prima di continuare");
+  }
 
   return {
     ...(customerName ? { customer_name: customerName } : {}),
@@ -68,10 +74,14 @@ export function assertKioskSubmissionRequirements(
     "customer_name" | "customer_phone" | "confirmation_checked"
   >,
 ) {
-  if (submission.confirmation_checked !== true) throw new Error("请先确认客户资料");
+  if (submission.confirmation_checked !== true) {
+    throw new Error("Conferma i dati del cliente prima di continuare");
+  }
   if (sessionType === "pickup_signature") return;
-  if (!submission.customer_name?.trim()) throw new Error("请输入客户姓名");
-  if (!submission.customer_phone?.trim()) throw new Error("请输入客户电话");
+  if (!submission.customer_name?.trim()) throw new Error("Inserisci il nome del cliente");
+  if (!submission.customer_phone?.trim()) {
+    throw new Error("Inserisci il numero di telefono del cliente");
+  }
 }
 
 export function normalizeKioskReturnInput(input: KioskSessionReturnInput) {

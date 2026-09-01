@@ -173,15 +173,21 @@ describe("kiosk mock API review flow", () => {
   });
 
   it("rejects invalid and replayed pairing codes and revokes the issued token", async () => {
-    await expect(pairKioskDevice("NOT-A-REAL-CODE")).rejects.toThrow("配对码无效或已过期");
+    await expect(pairKioskDevice("NOT-A-REAL-CODE")).rejects.toThrow(
+      "Il codice di abbinamento non è valido o è scaduto.",
+    );
 
     const pairing = await createKioskDevicePairing({ label: "Test iPad" }, actor);
     const paired = await pairKioskDevice(pairing.pairing_code);
-    await expect(pairKioskDevice(pairing.pairing_code)).rejects.toThrow("配对码无效或已过期");
+    await expect(pairKioskDevice(pairing.pairing_code)).rejects.toThrow(
+      "Il codice di abbinamento non è valido o è scaduto.",
+    );
 
     await expect(getKioskPublicSession(paired.token)).resolves.toBeNull();
     await revokeKioskDevice(pairing.device.id, actor);
-    await expect(getKioskPublicSession(paired.token)).rejects.toThrow("iPad 未绑定或已撤销");
+    await expect(getKioskPublicSession(paired.token)).rejects.toThrow(
+      "Questo iPad non è autorizzato o l'autorizzazione è stata revocata.",
+    );
   });
 
   it("does not let another store bind or revoke the demo store device", async () => {

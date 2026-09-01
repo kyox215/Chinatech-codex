@@ -1,13 +1,13 @@
 ---
 schema_version: 1
-current_task_id: "TASK-20260831-002-i18n-deep-ui-release-a"
-status: "completed"
-phase: "closed"
+current_task_id: "TASK-20260901-002-site-i18n-optimization-release"
+status: "active"
+phase: "context_ready"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
-owner: "Hexiang Huang / 鹤祥"
-last_checkpoint_at: "2026-08-31T19:46:04Z"
+owner: "Hexiang Huang / Owner"
+last_checkpoint_at: "2026-09-01T07:55:58Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -15,23 +15,23 @@ last_rehydrated_at: null
 
 ## Current objective
 
-**深层员工界面中意英未翻译审计与 Release A**
+**按优化报告完成高优先级网站与三语改进并发布**
 
 ## Current state
 
-Audit/report, Release A implementation, all local/browser/review gates, normal push and exact-SHA production deployment are complete.
+T3/R3/L2 phased release contract drafted. Registry task/run/window is bound to the main-thread Integration Lead. Release 1 is the only active milestone; business source writes have not started.
 
 ## Blocking decisions
 
-- None. Release A is terminal; remaining untranslated scopes are planned Release B+ work and require a new bound task.
+- Exact Release 1 allowlist and compatible runtime/security/CI boundaries await independent read-only review; no Owner decision is currently required.
 
 ## Next action
 
-Create and bind a new task before beginning Release B or another localization domain.
+Issue and verify the immutable Context Packet, then complete the bounded Release 1 architecture/UX/QA/security review before assigning the single writer.
 
 ## Resume protocol
 
 1. Read `AGENTS.md`, `PROJECT_MEMORY.md`, and `OPEN_CONFLICTS.md`.
-2. Read `.ai-company/memory/tasks/TASK-20260831-002-i18n-deep-ui-release-a/TASK.md` and latest checkpoint.
+2. Read `.ai-company/memory/tasks/TASK-20260901-002-site-i18n-optimization-release/TASK.md` and latest checkpoint.
 3. Inspect current Git/workspace state before changing files.
 4. Reclassify if scope, target environment, or risk changed.

@@ -114,7 +114,11 @@ export function KioskScreen() {
       setToken(result.token);
       setPairingCode("");
     } catch (error) {
-      setPairingError(error instanceof Error ? error.message : "配对失败");
+      setPairingError(
+        error instanceof KioskHttpError
+          ? error.message
+          : "Collegamento non riuscito. Controlla la connessione e riprova.",
+      );
     } finally {
       pairingPendingRef.current = false;
       setPairingPending(false);
@@ -124,7 +128,7 @@ export function KioskScreen() {
   if (!tokenReady) {
     return (
       <main className="grid min-h-dvh place-items-center bg-background text-foreground">
-        <Loader2 className="size-6 animate-spin text-primary" aria-label="Caricamento kiosk" />
+        <Loader2 className="size-6 animate-spin text-primary" aria-label="Caricamento del kiosk" />
       </main>
     );
   }
@@ -141,7 +145,7 @@ export function KioskScreen() {
               <TabletSmartphone className="size-5" />
             </span>
             <div className="min-w-0">
-              <h1 className="text-lg font-semibold">Customer Kiosk</h1>
+              <h1 className="text-lg font-semibold">Kiosk clienti</h1>
               <p className="text-sm text-muted-foreground">
                 Inserisci il codice fornito dallo staff.
               </p>
@@ -186,7 +190,7 @@ export function KioskScreen() {
         <header className="flex min-w-0 items-center justify-between gap-3 border-b border-border pb-3">
           <div className="min-w-0">
             <p className="text-sm font-medium text-primary">{session?.store.name ?? "Negozio"}</p>
-            <h1 className="truncate text-xl font-semibold">Customer Kiosk</h1>
+            <h1 className="truncate text-xl font-semibold">Kiosk clienti</h1>
           </div>
           <Button
             type="button"
@@ -198,7 +202,7 @@ export function KioskScreen() {
               setSubmitted(false);
               setRefreshCounter((current) => current + 1);
             }}
-            aria-label="刷新任务"
+            aria-label="Aggiorna il modulo"
           >
             <RefreshCw className={cn("size-4", loading && "animate-spin")} />
           </Button>
@@ -258,7 +262,7 @@ function WaitingState({ loading, error }: { loading: boolean; error: string }) {
       </span>
       <h2 className="text-xl font-semibold">Attendere lo staff</h2>
       <p className="text-sm text-muted-foreground">
-        Quando lo staff invia un modulo, apparira qui.
+        Quando lo staff invia un modulo, apparirà qui.
       </p>
       {error ? (
         <p
@@ -337,7 +341,11 @@ function KioskSessionForm({
       );
       onSubmitted();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Invio non riuscito");
+      setError(
+        submitError instanceof KioskHttpError
+          ? submitError.message
+          : "Invio non riuscito. Controlla la connessione e riprova.",
+      );
     } finally {
       submitPendingRef.current = false;
       setPending(false);
@@ -427,19 +435,20 @@ function KioskSessionForm({
         </div>
       ) : (
         <p className="rounded-lg bg-status-warn/25 px-3 py-2 text-sm text-status-warn-foreground">
-          Conferma di aver ritirato il dispositivo. La firma e facoltativa in questa versione.
+          Conferma di aver ritirato il dispositivo. La firma è facoltativa in questa versione.
         </p>
       )}
 
       <div className="grid gap-2">
         <div className="flex items-center justify-between gap-2">
-          <Label>Firma cliente</Label>
+          <Label htmlFor="customer-signature">Firma cliente</Label>
           <Button
             type="button"
             variant="outline"
             size="sm"
             className="min-h-11"
-            disabled={pending}
+            disabled={pending || !hasSignature}
+            aria-label="Cancella la firma"
             onClick={() => {
               const canvas = signatureRef.current;
               const context = canvas?.getContext("2d");
@@ -451,9 +460,13 @@ function KioskSessionForm({
           </Button>
         </div>
         <canvas
+          id="customer-signature"
           ref={signatureRef}
           width={720}
           height={220}
+          role="img"
+          aria-label="Area per la firma del cliente"
+          aria-describedby="customer-signature-status"
           aria-disabled={pending}
           className={cn(
             "h-44 w-full touch-none rounded-lg border border-dashed border-border bg-background text-foreground",
@@ -472,6 +485,9 @@ function KioskSessionForm({
             drawingRef.current = false;
           }}
         />
+        <span id="customer-signature-status" className="sr-only" role="status" aria-live="polite">
+          {hasSignature ? "Firma inserita" : "Firma non inserita; la firma è facoltativa"}
+        </span>
       </div>
 
       <label className="flex items-start gap-3 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3">
@@ -483,7 +499,7 @@ function KioskSessionForm({
           }
         />
         <span className="text-sm leading-5">
-          Confermo che i dati inseriti sono corretti e che lo staff puo procedere con la pratica.
+          Confermo che i dati inseriti sono corretti e che lo staff può procedere con la pratica.
         </span>
       </label>
 
@@ -574,7 +590,11 @@ async function fetchKioskSession(token: string) {
     code?: string;
   };
   if (!response.ok) {
-    throw new KioskHttpError(payload.error || "读取任务失败", response.status, payload.code);
+    throw new KioskHttpError(
+      payload.error || "Impossibile leggere il modulo. Riprova.",
+      response.status,
+      payload.code,
+    );
   }
   return payload.data ?? null;
 }
@@ -594,7 +614,11 @@ async function postKioskJson<T = unknown>(path: string, body: unknown, token?: s
     code?: string;
   };
   if (!response.ok) {
-    throw new KioskHttpError(payload.error || "请求失败", response.status, payload.code);
+    throw new KioskHttpError(
+      payload.error || "Richiesta non riuscita. Riprova.",
+      response.status,
+      payload.code,
+    );
   }
   return payload.data as T;
 }

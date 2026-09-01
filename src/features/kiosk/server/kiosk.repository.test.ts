@@ -382,7 +382,7 @@ describe("kiosk repository local safety contracts", () => {
         customer_phone: "+39 333 000 0000",
         confirmation_checked: true,
       }),
-    ).rejects.toThrow("当前任务已变化");
+    ).rejects.toThrow("L'attività è cambiata. Aggiorna il modulo e riprova.");
 
     expect(update.eq).toHaveBeenCalledWith("store_id", actor.storeId);
     expect(update.eq).toHaveBeenCalledWith("device_id", "device-a");

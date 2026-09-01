@@ -3,6 +3,9 @@ import { resolve } from "node:path";
 import { CACHE_TIMES } from "@/lib/query-performance";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
+if (process.env.CI && !enabled) {
+  throw new Error("Release A i18n CI requires REPAIRDESK_E2E_BUSINESS_DESKTOP=1.");
+}
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const evidenceDir = resolve(
   process.env.REPAIRDESK_I18N_EVIDENCE_DIR ?? "test-results/i18n-orders-queue-release-a",

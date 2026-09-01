@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, KeyRound, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -9,11 +9,16 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { authErrorMessage, validateNewPassword } from "@/features/auth/model/auth-errors";
+import {
+  authErrorMessage,
+  authErrorMessageKey,
+  validateNewPassword,
+} from "@/features/auth/model/auth-errors";
 import { brandGradientStyle, controls } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
 import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey } from "@/shared/i18n/messages";
 
 export function ResetPasswordScreen() {
   const { t } = useLocale();
@@ -21,11 +26,25 @@ export function ResetPasswordScreen() {
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirmation, setNewPasswordConfirmation] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formErrorKey, setFormErrorKey] = useState<MessageKey | null>(null);
+  const formErrorRef = useRef<HTMLDivElement | null>(null);
+  const hasPasswordFieldError =
+    formErrorKey === "auth.error.passwordTooShort" ||
+    formErrorKey === "auth.error.passwordMismatch" ||
+    formErrorKey === "auth.error.weakPassword";
+
+  useEffect(() => {
+    if (formErrorKey) formErrorRef.current?.focus();
+  }, [formErrorKey]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setFormErrorKey(null);
     const validationError = validateNewPassword(newPassword, newPasswordConfirmation, t);
     if (validationError) {
+      setFormErrorKey(
+        newPassword.length < 8 ? "auth.error.passwordTooShort" : "auth.error.passwordMismatch",
+      );
       toast.error(validationError);
       return;
     }
@@ -35,6 +54,7 @@ export function ResetPasswordScreen() {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) {
       setIsSubmitting(false);
+      setFormErrorKey(authErrorMessageKey(error));
       toast.error(authErrorMessage(error, t));
       return;
     }
@@ -68,6 +88,18 @@ export function ResetPasswordScreen() {
           </div>
         </div>
 
+        {formErrorKey ? (
+          <div
+            ref={formErrorRef}
+            id="reset-password-error"
+            role="alert"
+            tabIndex={-1}
+            className="mb-3 rounded-lg bg-status-danger/10 px-3 py-2 text-sm text-status-danger-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {t(formErrorKey)}
+          </div>
+        ) : null}
+
         <form className="space-y-3 sm:space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-1.5">
             <Label htmlFor="new-password">{t("auth.newPassword")}</Label>
@@ -76,7 +108,12 @@ export function ResetPasswordScreen() {
               type="password"
               autoComplete="new-password"
               value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
+              onChange={(event) => {
+                setNewPassword(event.target.value);
+                setFormErrorKey(null);
+              }}
+              aria-invalid={hasPasswordFieldError || undefined}
+              aria-describedby={hasPasswordFieldError ? "reset-password-error" : undefined}
               required
             />
           </div>
@@ -87,7 +124,12 @@ export function ResetPasswordScreen() {
               type="password"
               autoComplete="new-password"
               value={newPasswordConfirmation}
-              onChange={(event) => setNewPasswordConfirmation(event.target.value)}
+              onChange={(event) => {
+                setNewPasswordConfirmation(event.target.value);
+                setFormErrorKey(null);
+              }}
+              aria-invalid={hasPasswordFieldError || undefined}
+              aria-describedby={hasPasswordFieldError ? "reset-password-error" : undefined}
               required
             />
           </div>

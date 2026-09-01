@@ -26,6 +26,7 @@ function StatefulHarness() {
 
 describe("LocaleProvider", () => {
   it("switches in place and preserves client state without remounting children", () => {
+    document.title = "登录 — RepairDesk";
     render(
       <LocaleProvider initialLocale="zh-CN">
         <StatefulHarness />
@@ -43,7 +44,21 @@ describe("LocaleProvider", () => {
     expect(screen.getByRole("textbox", { name: "draft" })).toHaveValue("unfinished order note");
     expect(screen.getByRole("dialog")).toBe(dialog);
     expect(document.documentElement).toHaveAttribute("lang", "en");
+    expect(document.title).toBe("Sign in — RepairDesk");
     expect(document.cookie).toContain("repairdesk_locale=en");
+  });
+
+  it("preserves an unknown dynamic document title", () => {
+    document.title = "Ordine RD-2026-001 — RepairDesk";
+    render(
+      <LocaleProvider initialLocale="zh-CN">
+        <StatefulHarness />
+      </LocaleProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "English" }));
+
+    expect(document.title).toBe("Ordine RD-2026-001 — RepairDesk");
   });
 
   it("keeps the in-memory locale and announces when Cookie persistence is blocked", () => {

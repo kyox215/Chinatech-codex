@@ -1,6 +1,6 @@
 # RepairDesk 员工界面多语言声明
 
-Last verified: 2026-08-31
+Last verified: 2026-09-01
 Owner: RepairDesk Frontend / Integration Lead
 Audience: Product, frontend, QA, support, security and release
 
@@ -21,7 +21,7 @@ Audience: Product, frontend, QA, support, security and release
 - `src/shared/i18n/locales.ts`：locale allowlist、默认值和 Cookie 合同。
 - `src/shared/i18n/messages.ts`：以中文 key 集为类型基准的中/意/英字典。其他语言缺 key 时 TypeScript 必须失败。
 - `src/shared/i18n/server.ts`：服务端 Cookie 解析。
-- `src/shared/i18n/locale-provider.tsx`：客户端即时切换、`html lang` 同步和可访问性公告。
+- `src/shared/i18n/locale-provider.tsx`：客户端即时切换、`html lang` 同步、可访问性公告，以及可识别静态 metadata 标题的同文档同步；未知/动态标题保持原样。
 - `src/shared/i18n/format.ts`：已实现并测试数字、EUR、日期、时间和相对时间的共享 formatter，业务时区固定为 `Europe/Rome`。存量深层页面仍有自有 `Intl`/`toLocale*` 实现，须随后续领域翻译逐功能迁移；不得把 formatter 存在声称为存量 UI 已全量接入。
 - `src/components/language-switcher.tsx`：唯一共享切换器。
 
@@ -45,6 +45,8 @@ Cookie 名为 `repairdesk_locale`，值必须精确等于三个 locale 之一。
 
 因此客户路由不显示员工语言切换器；`/r` 与 `/kiosk` 的当前服务端请求会固定使用 `it-IT` 文档语言，但不回写或覆盖浏览器中的员工 locale Cookie。切换员工界面不能改变客户语言、打印文档或保修条款。
 
+`/kiosk` 的 UI-owned metadata、可见文案、ARIA、校验与安全公开错误固定为意大利语；动态店铺、客户、设备、工单号和返回修正内容保持原文。`/r` 与 exact `/kiosk` 共享有界的 no-store/no-frame/noindex 页面响应头，不扩展到 Kiosk API 或全站。
+
 ## 5. 当前 Release A 覆盖和翻译工作流
 
 共享 catalog 已覆盖语言切换、Root/metadata/manifest/offline 恢复、Shell 导航与命令、公开认证/邀请/开通流程，以及顶层入口与状态。本次 Release A 冻结并实际接入 Dashboard 快捷/优先区与 `/orders` Orders Queue 的 UI-owned 文案、ARIA、加载/空态/搜索反馈、错误/权限/离线/后台刷新反馈和列表日期/相对时间。在切换器可达的正常路径上，切换语言保持 URL、搜索、非默认筛选、页码、选中项和滚动，不 reload 或 remount。
@@ -56,7 +58,7 @@ Cookie 名为 `repairdesk_locale`，值必须精确等于三个 locale 之一。
 1. 先在中文 catalog 定义语义 key 和参数，再同步意大利语、英语。
 2. 禁止拼接句子；用 `{name}` 形式插值，并在三种语言测试参数一致性。
 3. 原始数据、内部错误码、搜索归一化及稳定排序 locale 不可机械替换。
-4. 运行 `node scripts/audit-i18n-ui-text.mjs --summary` 生成待处理清单；该清单是审计输入，不是单独的 PASS/FAIL 门禁。
+4. 运行 `node scripts/audit-i18n-ui-text.mjs --summary` 复现历史 TSX 口径；运行 `node scripts/audit-i18n-ui-text.mjs --include-ts --summary` 生成扩展的 TSX + TS runtime/API 候选清单与 extension/domain 计数。两者都是待分类审计输入，不是全仓零汉字 PASS/FAIL 门禁。
 
 ## 6. Offline、Service Worker 和缓存
 
@@ -72,9 +74,10 @@ node node_modules/eslint/bin/eslint.js .
 node node_modules/vitest/vitest.mjs run
 node node_modules/next/dist/bin/next build
 node node_modules/@playwright/test/cli.js test tests/e2e/i18n-language-switcher.spec.ts
+REPAIRDESK_E2E_BUSINESS_DESKTOP=1 node node_modules/@playwright/test/cli.js test tests/e2e/i18n-language-switcher.spec.ts tests/e2e/i18n-orders-queue-release-a.spec.ts tests/e2e/i18n-public-states.spec.ts
 ```
 
-E2E 必须覆盖非法 Cookie 回退、SSR `html lang`、切换后草稿/对话框/URL 不丢失、Cookie 持久化、键盘/`menuitemradio`/`aria-live`、以及长意大利语在手机和桌面无横向溢出。
+E2E 必须覆盖非法 Cookie 回退、SSR `html lang`、切换后草稿/对话框/URL/已知标题不丢失、Cookie 持久化、键盘/`menuitemradio`/`aria-live`、Kiosk/404/公开认证错误状态，以及长意大利语在手机和桌面无横向溢出。CI 在每个 PR 和 `main` push 用 Chromium/WebKit 自动运行这三个 story；缺失 mock 前置或非法浏览器值必须失败，不得 skip 后显示绿灯。
 
 回滚时优先恢复上一个已验证的 Vercel `READY` deployment，然后通过正常 forward-revert commit 恢复代码；禁止 force push。旧版本会忽略非敏感 locale Cookie，不需要清除认证或业务数据。
 

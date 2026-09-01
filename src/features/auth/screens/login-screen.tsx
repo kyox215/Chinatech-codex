@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, KeyRound, Loader2, LogIn, Mail, Store, UserPlus } from "lucide-react";
 import { toast } from "sonner";
@@ -20,7 +20,7 @@ import {
   readRememberLoginPreference,
 } from "@/features/auth/model/auth-persistence";
 import {
-  authErrorMessage,
+  authErrorMessageKey,
   normalizeAuthEmail,
   passwordResetSentMessage,
   validateEmailAddress,
@@ -33,6 +33,10 @@ import {
 } from "@/features/auth/model/auth-redirect";
 import { resolvePostLoginPath } from "@/features/auth/model/post-login-redirect";
 import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey } from "@/shared/i18n/messages";
+
+type AuthField = "email" | "password" | "passwordConfirmation";
+type AuthFormError = { key: MessageKey; fields: AuthField[] };
 
 export function LoginScreen() {
   const { t } = useLocale();
@@ -50,6 +54,8 @@ export function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(DEFAULT_REMEMBER_LOGIN);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
+  const [formError, setFormError] = useState<AuthFormError | null>(null);
+  const formErrorRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setRememberMe(readRememberLoginPreference());
@@ -60,9 +66,11 @@ export function LoginScreen() {
       setMode("update-password");
     }
     if (searchParams.get("auth_error") === "callback") {
+      setFormError({ key: "auth.callbackExpired", fields: [] });
       toast.error(t("auth.callbackExpired"));
     }
     if (searchParams.get("auth_error") === "invite") {
+      setFormError({ key: "auth.inviteExpired", fields: [] });
       toast.error(t("auth.inviteExpired"));
     }
     if (searchParams.get("password_updated") === "1") {
@@ -70,8 +78,18 @@ export function LoginScreen() {
     }
   }, [searchParams, t]);
 
+  useEffect(() => {
+    if (formError) formErrorRef.current?.focus();
+  }, [formError]);
+
+  function showFormError(key: MessageKey, fields: AuthField[] = []) {
+    setFormError({ key, fields });
+    toast.error(t(key));
+  }
+
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setFormError(null);
     const normalizedEmail = normalizeAuthEmail(email);
     setIsSubmitting(true);
     persistBrowserAuthPreference(rememberMe);
@@ -83,7 +101,8 @@ export function LoginScreen() {
     setIsSubmitting(false);
 
     if (error) {
-      toast.error(authErrorMessage(error, t));
+      const key = authErrorMessageKey(error);
+      showFormError(key, authFieldsForError(key, "login"));
       return;
     }
 
@@ -95,15 +114,21 @@ export function LoginScreen() {
 
   async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setFormError(null);
     const normalizedEmail = normalizeAuthEmail(email);
     const emailError = validateEmailAddress(normalizedEmail, t);
     if (emailError) {
-      toast.error(emailError);
+      showFormError(normalizedEmail ? "auth.error.emailInvalid" : "auth.error.emailRequired", [
+        "email",
+      ]);
       return;
     }
     const passwordError = validateNewPassword(password, registrationPasswordConfirmation, t);
     if (passwordError) {
-      toast.error(passwordError);
+      showFormError(
+        password.length < 8 ? "auth.error.passwordTooShort" : "auth.error.passwordMismatch",
+        ["password", "passwordConfirmation"],
+      );
       return;
     }
     setIsSubmitting(true);
@@ -122,7 +147,8 @@ export function LoginScreen() {
 
     if (error) {
       setIsSubmitting(false);
-      toast.error(authErrorMessage(error, t));
+      const key = authErrorMessageKey(error);
+      showFormError(key, authFieldsForError(key, "register"));
       return;
     }
 
@@ -140,6 +166,7 @@ export function LoginScreen() {
 
   async function handlePasswordResetRequest(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setFormError(null);
     const normalizedEmail = normalizeAuthEmail(email);
     setIsSubmitting(true);
     const supabase = createClient();
@@ -149,7 +176,8 @@ export function LoginScreen() {
     setIsSubmitting(false);
 
     if (error) {
-      toast.error(authErrorMessage(error, t));
+      const key = authErrorMessageKey(error);
+      showFormError(key, authFieldsForError(key, "reset"));
       return;
     }
 
@@ -162,7 +190,9 @@ export function LoginScreen() {
     const normalizedEmail = normalizeAuthEmail(verificationEmail || email);
     const emailError = validateEmailAddress(normalizedEmail, t);
     if (emailError) {
-      toast.error(emailError);
+      showFormError(normalizedEmail ? "auth.error.emailInvalid" : "auth.error.emailRequired", [
+        "email",
+      ]);
       return;
     }
     setIsResendingVerification(true);
@@ -175,7 +205,8 @@ export function LoginScreen() {
     });
     setIsResendingVerification(false);
     if (error) {
-      toast.error(authErrorMessage(error, t));
+      const key = authErrorMessageKey(error);
+      showFormError(key, authFieldsForError(key, "reset"));
       return;
     }
     setVerificationEmail(normalizedEmail);
@@ -184,9 +215,13 @@ export function LoginScreen() {
 
   async function handlePasswordUpdate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setFormError(null);
     const validationError = validateNewPassword(newPassword, newPasswordConfirmation, t);
     if (validationError) {
-      toast.error(validationError);
+      showFormError(
+        newPassword.length < 8 ? "auth.error.passwordTooShort" : "auth.error.passwordMismatch",
+        ["password", "passwordConfirmation"],
+      );
       return;
     }
 
@@ -196,7 +231,8 @@ export function LoginScreen() {
     setIsSubmitting(false);
 
     if (error) {
-      toast.error(authErrorMessage(error, t));
+      const key = authErrorMessageKey(error);
+      showFormError(key, authFieldsForError(key, "update-password"));
       return;
     }
 
@@ -253,6 +289,18 @@ export function LoginScreen() {
             </div>
           </div>
 
+          {formError ? (
+            <div
+              ref={formErrorRef}
+              id="auth-form-error"
+              role="alert"
+              tabIndex={-1}
+              className="mb-3 rounded-lg bg-status-danger/10 px-3 py-2 text-sm text-status-danger-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {t(formError.key)}
+            </div>
+          ) : null}
+
           {mode === "reset" ? (
             <form className="space-y-3 sm:space-y-4" onSubmit={handlePasswordResetRequest}>
               <div className="space-y-1.5">
@@ -262,7 +310,14 @@ export function LoginScreen() {
                   type="email"
                   autoComplete="email"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={(event) => {
+                    setEmail(event.target.value);
+                    setFormError(null);
+                  }}
+                  aria-invalid={formError?.fields.includes("email") || undefined}
+                  aria-describedby={
+                    formError?.fields.includes("email") ? "auth-form-error" : undefined
+                  }
                   required
                 />
               </div>
@@ -287,7 +342,14 @@ export function LoginScreen() {
                   type="password"
                   autoComplete="new-password"
                   value={newPassword}
-                  onChange={(event) => setNewPassword(event.target.value)}
+                  onChange={(event) => {
+                    setNewPassword(event.target.value);
+                    setFormError(null);
+                  }}
+                  aria-invalid={formError?.fields.includes("password") || undefined}
+                  aria-describedby={
+                    formError?.fields.includes("password") ? "auth-form-error" : undefined
+                  }
                   required
                 />
               </div>
@@ -298,7 +360,16 @@ export function LoginScreen() {
                   type="password"
                   autoComplete="new-password"
                   value={newPasswordConfirmation}
-                  onChange={(event) => setNewPasswordConfirmation(event.target.value)}
+                  onChange={(event) => {
+                    setNewPasswordConfirmation(event.target.value);
+                    setFormError(null);
+                  }}
+                  aria-invalid={formError?.fields.includes("passwordConfirmation") || undefined}
+                  aria-describedby={
+                    formError?.fields.includes("passwordConfirmation")
+                      ? "auth-form-error"
+                      : undefined
+                  }
                   required
                 />
               </div>
@@ -307,7 +378,13 @@ export function LoginScreen() {
               </SubmitButton>
             </form>
           ) : (
-            <Tabs value={mode} onValueChange={(value) => setMode(value as "login" | "register")}>
+            <Tabs
+              value={mode}
+              onValueChange={(value) => {
+                setMode(value as "login" | "register");
+                setFormError(null);
+              }}
+            >
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="login">{t("auth.login")}</TabsTrigger>
                 <TabsTrigger value="register">{t("auth.register")}</TabsTrigger>
@@ -318,8 +395,15 @@ export function LoginScreen() {
                   <LoginFields
                     email={email}
                     password={password}
-                    onEmailChange={setEmail}
-                    onPasswordChange={setPassword}
+                    onEmailChange={(value) => {
+                      setEmail(value);
+                      setFormError(null);
+                    }}
+                    onPasswordChange={(value) => {
+                      setPassword(value);
+                      setFormError(null);
+                    }}
+                    invalidFields={formError?.fields ?? []}
                   />
                   <div className="flex items-center justify-between gap-3">
                     <RememberLoginCheckbox checked={rememberMe} onCheckedChange={setRememberMe} />
@@ -353,8 +437,15 @@ export function LoginScreen() {
                   <LoginFields
                     email={email}
                     password={password}
-                    onEmailChange={setEmail}
-                    onPasswordChange={setPassword}
+                    onEmailChange={(value) => {
+                      setEmail(value);
+                      setFormError(null);
+                    }}
+                    onPasswordChange={(value) => {
+                      setPassword(value);
+                      setFormError(null);
+                    }}
+                    invalidFields={formError?.fields ?? []}
                     passwordAutoComplete="new-password"
                   />
                   <div className="space-y-1.5">
@@ -366,7 +457,16 @@ export function LoginScreen() {
                       type="password"
                       autoComplete="new-password"
                       value={registrationPasswordConfirmation}
-                      onChange={(event) => setRegistrationPasswordConfirmation(event.target.value)}
+                      onChange={(event) => {
+                        setRegistrationPasswordConfirmation(event.target.value);
+                        setFormError(null);
+                      }}
+                      aria-invalid={formError?.fields.includes("passwordConfirmation") || undefined}
+                      aria-describedby={
+                        formError?.fields.includes("passwordConfirmation")
+                          ? "auth-form-error"
+                          : undefined
+                      }
                       required
                     />
                   </div>
@@ -430,12 +530,14 @@ function LoginFields({
   onEmailChange,
   onPasswordChange,
   passwordAutoComplete = "current-password",
+  invalidFields = [],
 }: {
   email: string;
   password: string;
   onEmailChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
   passwordAutoComplete?: string;
+  invalidFields?: AuthField[];
 }) {
   const { t } = useLocale();
   return (
@@ -448,6 +550,8 @@ function LoginFields({
           autoComplete="email"
           value={email}
           onChange={(event) => onEmailChange(event.target.value)}
+          aria-invalid={invalidFields.includes("email") || undefined}
+          aria-describedby={invalidFields.includes("email") ? "auth-form-error" : undefined}
           required
         />
       </div>
@@ -459,11 +563,27 @@ function LoginFields({
           autoComplete={passwordAutoComplete}
           value={password}
           onChange={(event) => onPasswordChange(event.target.value)}
+          aria-invalid={invalidFields.includes("password") || undefined}
+          aria-describedby={invalidFields.includes("password") ? "auth-form-error" : undefined}
           required
         />
       </div>
     </>
   );
+}
+
+function authFieldsForError(
+  key: ReturnType<typeof authErrorMessageKey>,
+  mode: "login" | "register" | "reset" | "update-password",
+): AuthField[] {
+  if (key === "auth.error.invalidCredentials") return ["email", "password"];
+  if (key === "auth.error.emailNotConfirmed" || key === "auth.error.alreadyRegistered") {
+    return ["email"];
+  }
+  if (key === "auth.error.weakPassword" && (mode === "register" || mode === "update-password")) {
+    return ["password", "passwordConfirmation"];
+  }
+  return [];
 }
 
 function SubmitButton({

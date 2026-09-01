@@ -67,7 +67,7 @@ describe("kiosk-session model", () => {
 
   it("requires explicit customer confirmation on every public submission", () => {
     expect(() => normalizeKioskSubmission({ customer_name: "Cliente" })).toThrow(
-      "请先确认客户资料",
+      "Conferma i dati del cliente prima di continuare",
     );
   });
 
@@ -77,7 +77,7 @@ describe("kiosk-session model", () => {
         customer_name: "Cliente",
         confirmation_checked: true,
       }),
-    ).toThrow("请输入客户电话");
+    ).toThrow("Inserisci il numero di telefono del cliente");
     expect(() =>
       assertKioskSubmissionRequirements("pickup_signature", {
         confirmation_checked: true,
