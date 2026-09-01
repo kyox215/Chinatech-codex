@@ -236,3 +236,25 @@
 - **Confirmed closure:** both reviewers independently confirmed entity-parser-first protection in the shared Scanner, fail-closed malformed/standalone/dot-boundary credentials, valid safe internal targets only, ordinary identifier compatibility, Order QR parity and unchanged API/data/permission/config boundaries.
 - **P2 follow-up:** `main` has no platform-required checks and therefore needs manual exact-SHA enforcement; the test-only Next development namespace remains an explicit POST exception; shared and Order QR containment helpers may drift and should be consolidated only through a later entity-layer contract. These are not current production P0/P1 defects and do not authorize scope expansion now.
 - **Next:** fresh-fetch, acquire and verify the project integration lease, exact-stage the reviewed candidate, commit and normal-push `main`; then require same-SHA hosted verify/Chromium/WebKit, READY production deployment, public read-only smoke and a fresh rollback anchor.
+
+## 2026-09-01T20:56:24Z — Hosted WebKit fails closed on per-case capacity
+
+- **Published candidate:** commit `e2487b15ed72b775b95034f82aca4c5bc3989f78` was normally pushed to `main`. GitHub run `33556608348` passed verify and Chromium 46/46, while WebKit passed 38/46 and failed eight matrix cases at the unchanged 30-second per-test ceiling. No retry, waiver or manual green claim was used.
+- **Artifact diagnosis:** downloaded `i18n-webkit` to `/private/tmp/repairdesk-ci-33556608348-webkit`. Failed cases lasted 30.9–31.6 seconds; the same hosted journey took about 20–30 seconds when it passed. Screenshots show the expected localized Camera Sheet and safe permission state. Late assertions were natural toast disappearance, geometry settlement, close completion or trial action stability, all reached after most of the same test had already passed.
+- **Decision:** freeze a test-only Plan Delta: give only the generated 18 Scanner/Camera matrix cases a 60-second total budget. Do not change expectation timeouts, assertions, wait logic, retries, skips, application source, workflow command or job timeout. Any failure inside that budget is an underlying defect and blocks further timeout changes.
+- **Production state:** auto-deployment `dpl_CNYvuWkYM3mTonJgPTHu1TBkDtez` is READY at exact SHA `e2487b15...`; apex/www/login/Kiosk/`/r`/offline and three employee login SSR locales pass public read-only smoke. It is not formally accepted while hosted WebKit is red. Immediate prior READY rollback anchor remains `dpl_F8qQS27LxRAHVw3a7m3Dg9FBFPqq` at `7d1b59c5...`.
+- **Next:** one bounded test writer applies the timeout line, proves both local engines without retry/skip/waiver, then renewed QA and Architecture/Security review the exact corrective tree before a new commit/push.
+
+## 2026-09-01T21:07:38Z — Test-only hosted-capacity correction is locally green
+
+- **Exact diff:** the generated 18-case Scanner/Camera callback adds only `test.setTimeout(60_000)`. No expectation timeout, assertion, action, helper, retry/skip/only policy, application source, CI workflow or job timeout changed.
+- **Local proof:** full Scanner/Camera spec passes Chromium 22/22 in 4.1 minutes and WebKit 22/22 in 4.2 minutes under `workers=1`, `--forbid-only` and `--fail-on-flaky-tests`, with no retry or waiver. Target ESLint, full typecheck, target Prettier and diff-check pass.
+- **Generated file:** both dev-server runs changed `next-env.d.ts`; Integration Lead restored the committed `.next/types/routes.d.ts` baseline and confirmed it is clean.
+- **Next:** renew QA and Architecture/Security against this exact four-path corrective tree. P0/P1 must remain zero, then fresh-fetch, reverify/renew the integration lease, exact-stage, create a separate normal corrective commit and push.
+
+## 2026-09-01T21:16:16Z — Corrective independent reviews pass
+
+- **Verdicts:** QA PASS and Architecture/Security PASS on the exact corrective tree; P0 = 0, P1 = 0 and new P2 = 0. Existing E-031 governance P2s remain unchanged.
+- **Integrity proof:** both reviewers verified that deleting the single 60-second timeout line makes the spec byte-identical to `origin/main=e2487b15...`; only the generated 18 cases are affected, while all expectation timeouts, assertions, actions, helpers, request gates, retry/skip/only policy, application source, CI command and 30-minute job ceiling remain unchanged.
+- **Artifact proof:** all eight hosted failures were 30,907–31,636ms with `testTimeout=30000`, and downloaded traces/screenshots show safe localized Camera permission surfaces and late assertion truncation, not raw errors, credentials, production traffic, authorization headers or mutations.
+- **Next:** fresh-fetch, verify the active integration lease, exact-stage only the three Task Memory files and one E2E test, create a separate normal corrective commit and push. Formal production remains NO-GO until that new SHA passes hosted verify/Chromium/WebKit and a same-SHA READY deployment plus read-only smoke.

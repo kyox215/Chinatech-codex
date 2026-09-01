@@ -44,6 +44,7 @@ type FocusCall = { ariaLabel: string; text: string; preventScroll: boolean };
 
 for (const [locale, width, height] of cases) {
   test(`scanner/camera shell ${locale} ${width}x${height}`, async ({ page }) => {
+    test.setTimeout(60_000);
     await page.setViewportSize({ width, height });
     await page.addInitScript(() => {
       Object.defineProperty(navigator, "mediaDevices", {

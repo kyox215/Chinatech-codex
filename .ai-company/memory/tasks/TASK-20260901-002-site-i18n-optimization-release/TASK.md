@@ -9,7 +9,7 @@ autonomy_level: "L2"
 owner: "Hexiang Huang / Owner"
 departments: ["ARCH", "DOC", "FE", "PRODUCT", "QA", "RELEASE", "SEC", "UX"]
 created_at: "2026-09-01T07:54:13Z"
-updated_at: "2026-09-01T20:37:00Z"
+updated_at: "2026-09-01T21:16:16Z"
 ---
 # Task — 按优化报告完成高优先级网站与三语改进并发布
 
@@ -311,6 +311,13 @@ Task Memory remains Integration Lead-owned. `MobileWorkspaceDock` is expected to
 - `resolveScanSearchActions` must produce no search/open action for an invalid protected payload and may produce only the existing safe internal open action for a valid protected target; no action, label, href, query or search value may carry the token except that valid internal target. The result surface must not render/copy the token.
 - Required proof includes shared-parser tables for standalone valid legacy/stable credentials, malformed trusted/lookalike/parser-error and dot prefix/suffix cases, ordinary identifier regressions and 44-character lookalikes; resolver/action proof; Scanner component proof; and a real global Scanner journey in Chromium and WebKit asserting no token in DOM/attributes/input/accessibility tree/clipboard/console, no invalid protected action/navigation/write and unchanged valid safe-target behavior. No existing assertion may be weakened. Repeat focused/full Node/build and complete browser gates, then renew both independent reviews before integration.
 - Rollback is a scoped forward revert of this capture-parser/test delta. Any need to change customer-status entity parsing, IMEI/device recognition, public `/r`, APIs, permissions, data or persisted payloads is a new stop condition.
+
+### Release 2A hosted WebKit capacity-timeout Plan Delta (2026-09-01)
+
+- Exact-SHA hosted run `33556608348` passed verify and Chromium, but WebKit passed 38/46 and failed eight Scanner/Camera width cases at the unchanged global 30-second per-test limit. The failing cases completed 30.9–31.6 seconds while the same journey took about 20–30 seconds in passing hosted cases; captured failure images show the expected localized Camera Sheet and safe permission state, with late failures occurring at natural toast removal, geometry settlement, close or action-stability assertions. This is a real CI capacity/determinism gate and is not waived or retried.
+- The corrective allowlist is test-only: `tests/e2e/i18n-scanner-camera-shell.spec.ts` may assign a 60-second timeout only to the generated 18-case Scanner/Camera matrix. No expectation timeout, assertion, action, wait helper, retry/skip/only policy, application source, CI job timeout or workflow command may change. The 60-second budget is derived from the observed maximum 31.6-second hosted case and keeps every existing assertion intact.
+- Required proof is an exact focused diff, local WebKit and Chromium full Scanner/Camera spec without retry/skip/waiver, targeted test/lint/typecheck checks, renewed independent QA plus Architecture/Security no-P0/P1 review, then a separate normal corrective commit and push. The new exact SHA must pass hosted verify, Chromium and WebKit and produce a same-SHA READY Vercel deployment before production acceptance.
+- Rollback is the one test-timeout line. If any assertion still fails within the increased per-case budget, or evidence reveals an application, toast, focus, geometry or route defect, stop and correct the underlying behavior instead of increasing the timeout again.
 
 ## Definition of done
 
