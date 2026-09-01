@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LanguageSwitcher } from "@/components/language-switcher";
@@ -7,8 +7,9 @@ import { LocaleProvider } from "@/shared/i18n/locale-provider";
 afterEach(() => vi.restoreAllMocks());
 
 describe("LanguageSwitcher", () => {
-  it("exposes a keyboard-compatible three-language radio menu", () => {
+  it("exposes a keyboard-compatible three-language radio menu", async () => {
     vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    const focus = vi.spyOn(HTMLButtonElement.prototype, "focus");
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
       callback(0);
       return 1;
@@ -34,6 +35,7 @@ describe("LanguageSwitcher", () => {
     expect(document.documentElement).toHaveAttribute("lang", "en");
     expect(screen.getByRole("button", { name: "Choose interface language" })).toBeVisible();
     expect(screen.getByRole("status")).toHaveTextContent("Interface language changed to English");
+    await waitFor(() => expect(focus).toHaveBeenCalledWith({ preventScroll: true }));
   });
 
   it.each([
@@ -77,4 +79,29 @@ describe("LanguageSwitcher", () => {
       expect(scrollTo).toHaveBeenCalledWith(24, 480);
     },
   );
+
+  it("preserves an outside click target instead of reclaiming focus or scroll", async () => {
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    const focus = vi.spyOn(HTMLButtonElement.prototype, "focus");
+    render(
+      <LocaleProvider initialLocale="zh-CN">
+        <LanguageSwitcher />
+        <button type="button">外部目标</button>
+      </LocaleProvider>,
+    );
+
+    const trigger = screen.getByRole("button", { name: "选择界面语言" });
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+    expect(screen.getAllByRole("menuitemradio")).toHaveLength(3);
+
+    const outsideTarget = screen.getByRole("button", { name: "外部目标" });
+    fireEvent.pointerDown(outsideTarget, { button: 0, ctrlKey: false });
+    outsideTarget.focus();
+    fireEvent.click(outsideTarget);
+
+    await waitFor(() => expect(screen.queryByRole("menuitemradio")).not.toBeInTheDocument());
+    expect(outsideTarget).toHaveFocus();
+    expect(focus).not.toHaveBeenCalledWith({ preventScroll: true });
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
 });

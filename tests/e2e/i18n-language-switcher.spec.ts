@@ -149,6 +149,25 @@ test("keyboard switching restores focus and preserves scroll position", async ({
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(trigger).toBeFocused();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(initialScrollY);
+
+  await page.evaluate(() => {
+    const outsideTarget = document.createElement("input");
+    outsideTarget.type = "text";
+    outsideTarget.setAttribute("aria-label", "Outside focus target");
+    outsideTarget.dataset.localeOutsideFocusTarget = "true";
+    Object.assign(outsideTarget.style, {
+      position: "fixed",
+      inset: "16px auto auto 16px",
+      zIndex: "100",
+    });
+    document.body.append(outsideTarget);
+  });
+  const outsideTarget = page.locator('[data-locale-outside-focus-target="true"]');
+  await trigger.press("Enter");
+  await expect(page.getByRole("menuitemradio", { name: "English" })).toBeVisible();
+  await outsideTarget.click();
+  await expect(outsideTarget).toBeFocused();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(initialScrollY);
 });
 
 test("Italian and English layouts stay within a desktop viewport", async ({ page, context }) => {

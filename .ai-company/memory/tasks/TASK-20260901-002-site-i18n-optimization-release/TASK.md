@@ -9,7 +9,7 @@ autonomy_level: "L2"
 owner: "Hexiang Huang / Owner"
 departments: ["ARCH", "DOC", "FE", "PRODUCT", "QA", "RELEASE", "SEC", "UX"]
 created_at: "2026-09-01T07:54:13Z"
-updated_at: "2026-09-01T09:31:00Z"
+updated_at: "2026-09-01T09:57:00Z"
 ---
 # Task — 按优化报告完成高优先级网站与三语改进并发布
 
@@ -187,6 +187,13 @@ Task Memory files remain owned by the Integration Lead and are outside the appli
 - The existing E2E allowlist may be tightened only as follows: wait for the final store link instead of assuming a five-second shell load; scope the mobile Quick Order assertion to its mobile quick-start region; make the offline-with-no-cache story abort its queue-summary read so seeded mock data cannot race the intended empty cache.
 - The scroll failure exposes a real pointer-order edge in the already-required same-document state contract. `src/components/language-switcher.tsx` and `src/components/language-switcher.test.tsx` are added to the allowlist solely to capture scroll before pointer/keyboard menu opening and prove restoration; locale, Cookie, URL and navigation semantics remain unchanged.
 - The same single application writer owns this correction. Required proof is focused component tests, lint/typecheck, both complete 24-story matrices with no skip, then a new normal commit and push. No test retry, skip, timeout-only waiver or CI exception is allowed.
+
+### Release 1 second hosted-CI focus Plan Delta (2026-09-01)
+
+- GitHub run `33492618893` closes the first determinism gaps: ordinary verify and WebKit pass, and Chromium passes 23/24. The sole remaining failure is the same real Orders scroll contract (`240` expected, `0` received) after language selection; the pre-open capture alone did not close the hosted Chromium timing.
+- Artifact evidence shows the locale, URL, search, selected row, filters and document identity are all preserved. The language trigger is focused at the top after close, identifying Radix close auto-focus as the remaining scroll source rather than a navigation or component remount.
+- The existing two LanguageSwitcher paths remain the only runtime/unit allowlist. The close auto-focus handler may prevent Radix's default focus movement and explicitly focus the same trigger with `{ preventScroll: true }` only for selection/Escape-style closure; outside dismissal must preserve the user's new focus target and native scroll semantics. The existing `tests/e2e/i18n-language-switcher.spec.ts` may add only this real-browser outside-dismiss assertion. No existing E2E assertion, timeout, retry, skip, locale/Cookie/navigation semantic or application boundary may change.
+- Required proof is the focused component suite, full static/unit/build gates, both complete 24-story browser matrices with zero skips, a new independent QA/security check, and a new exact-SHA hosted run where verify, Chromium and WebKit all pass. The READY Vercel deployment for `6a7bcdb8...` is superseded for release acceptance while Chromium is red.
 
 ## Definition of done
 

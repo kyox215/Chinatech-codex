@@ -92,3 +92,26 @@
 - **Control plane:** GitHub workflow token defaults to read-only, but `main` currently has no branch protection or repository ruleset. The release therefore manually requires all new-SHA jobs green; platform-enforced required checks remain an explicit P2 governance item for Release 3.
 - **Deployment state:** first commit `3e9b8952...` is Vercel READY as `dpl_4wZZckLaQqYHeR1joSE3zYiScCLj` and public read-only smoke is healthy. It is not the final Release 1 candidate because hosted browser CI remains red. Prior READY rollback anchor is `dpl_AP6Y4eDmFgukeS4boDjDtqsNEJY3` at `8e349b06...`.
 - **Next:** renew/reverify the integration lease, fetch `origin/main`, stage only the six corrected paths, commit and normal-push; require all hosted jobs green on the new SHA, then require its exact Vercel deployment READY and repeat public read-only production smoke.
+
+## 2026-09-01T09:45:00Z — Hosted Chromium isolates remaining close-focus defect
+
+- **Phase:** second corrective implementation.
+- **Remote evidence:** commit `6a7bcdb8...` deployed READY as `dpl_14EobMtRCtWpQpW3DugU8oD4xYEm`. GitHub run `33492618893` has verify PASS, WebKit 24/24 PASS and Chromium 23/24 with one scroll failure; no retry or waiver was used.
+- **Diagnosis:** the first correction captured the correct pre-open coordinate but left Radix's default close auto-focus in control. Hosted Chromium can therefore focus/scroll the fixed trigger after the scheduled coordinate restoration. All other state assertions and all other Chromium stories pass.
+- **Decision:** extend the frozen LanguageSwitcher implementation only: prevent default close auto-focus and focus the existing trigger with `{ preventScroll: true }` for selection/Escape closure. Preserve native outside-dismiss focus/scroll behavior and prove it in the existing real-browser language story. Keep every existing browser assertion unchanged. This is a real runtime focus/scroll fix, not test stabilization by weakening.
+- **Next:** focused test with explicit prevent-scroll focus proof, full local gates and both complete matrices; independent follow-up review; then a new exact commit/push and hosted all-green requirement.
+
+## 2026-09-01T09:57:00Z — Selection and outside-dismiss focus contracts both gate-green
+
+- **Phase:** final corrective review.
+- **Completed:** selection/Escape closure now suppresses Radix's scrolling auto-focus and returns focus to the same trigger with `preventScroll`; pointer/focus dismissal outside the menu keeps the user's target and does not force coordinate restoration. Existing locale/URL/state/scroll assertions remain unchanged; one additive real-browser outside-focus assertion covers both engines.
+- **Final local evidence:** LanguageSwitcher 4/4; Node 22.12 lint/typecheck PASS; Vitest 472 files / 3,164 tests PASS; build 30/30 PASS; complete Chromium 24/24 and WebKit 24/24 PASS, zero skips; `next-env.d.ts` exact baseline and diff-check PASS.
+- **Browser nuance:** a synthetic button was not a cross-browser focus target in WebKit/Safari semantics, so the evidence fixture uses a fixed text input that both engines focus explicitly. Product code was not changed to accommodate this platform-test nuance.
+- **Next:** obtain final independent QA/Security verdict on the outside-dismiss refinement; then renew lease, fresh-fetch/stage exact six paths, normal commit/push, and require new-SHA hosted verify/Chromium/WebKit plus exact deployment READY and production read-only smoke.
+
+## 2026-09-01T09:59:00Z — Final corrective reviews PASS
+
+- **Phase:** exact integration staging.
+- **Independent verdicts:** QA PASS and Security/Data PASS; no P0/P1. The previously identified outside-dismiss focus P2 is closed by the state-machine refinement, focused 4/4 tests and full Chromium/WebKit proof. No new incremental P2 remains; inherited unprotected-main governance debt still requires manual exact-SHA enforcement.
+- **Scope:** exact six paths only: LanguageSwitcher, its test, one existing additive browser spec and TASK/CHECKPOINTS/EVIDENCE. No retry, skip, timeout waiver, assertion deletion, dependency, workflow, API, auth, Cookie, data, config or generated-file drift.
+- **Next:** fresh-fetch `origin/main`, reverify lease and generated-file baseline, exact stage/commit/push, then block until hosted verify/Chromium/WebKit are all green and the same SHA is production READY with canonical read-only smoke.

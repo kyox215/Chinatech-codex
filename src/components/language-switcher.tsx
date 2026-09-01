@@ -19,8 +19,10 @@ import { cn } from "@/lib/utils";
 export function LanguageSwitcher({ className }: { className?: string }) {
   const { locale, setLocale, t } = useLocale();
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const scrollPositionRef = useRef({ x: 0, y: 0 });
   const openingScrollCapturedRef = useRef(false);
+  const interactedOutsideRef = useRef(false);
   const captureOpeningScrollPosition = () => {
     if (open) return;
     scrollPositionRef.current = { x: window.scrollX, y: window.scrollY };
@@ -34,10 +36,11 @@ export function LanguageSwitcher({ className }: { className?: string }) {
     });
   };
   const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) interactedOutsideRef.current = false;
     if (nextOpen && !openingScrollCapturedRef.current) captureOpeningScrollPosition();
     setOpen(nextOpen);
     if (!nextOpen) {
-      restoreScrollPosition();
+      if (!interactedOutsideRef.current) restoreScrollPosition();
       openingScrollCapturedRef.current = false;
     }
   };
@@ -46,6 +49,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
     <DropdownMenu modal={false} open={open} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button
+          ref={triggerRef}
           type="button"
           variant="ghost"
           size="icon"
@@ -65,7 +69,20 @@ export function LanguageSwitcher({ className }: { className?: string }) {
           <Languages className="size-4" aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48 max-w-[calc(100vw-24px)]">
+      <DropdownMenuContent
+        align="end"
+        className="w-48 max-w-[calc(100vw-24px)]"
+        onInteractOutside={() => {
+          interactedOutsideRef.current = true;
+        }}
+        onCloseAutoFocus={(event) => {
+          const interactedOutside = interactedOutsideRef.current;
+          interactedOutsideRef.current = false;
+          if (interactedOutside) return;
+          event.preventDefault();
+          triggerRef.current?.focus({ preventScroll: true });
+        }}
+      >
         <DropdownMenuLabel>{t("locale.menuLabel")}</DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={locale}
