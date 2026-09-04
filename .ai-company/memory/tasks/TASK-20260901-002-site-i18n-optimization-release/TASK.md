@@ -153,9 +153,9 @@ updated_at: "2026-09-04T08:00:00Z"
 ## Current state
 
 - **Done:** all planned direct employee i18n implementation; direct-i18n P0/P1 review; full local/static/browser release gates; exact release commit `a274f756b46b017e9560e948cc3fcd51cc78d2d8` pushed to `origin/main`; matching Vercel production deployment READY.
-- **Remaining:** repair the hosted mobile print E2E locator that still expects the superseded Chinese-only accessible name `打印工单`; run one related Chromium/WebKit verification; push the corrective test/memory commit; require hosted exact-SHA green, canonical-domain smoke and final evidence closeout.
-- **Blocked:** hosted E2E run `33863005589` is red in both Chromium and WebKit because the test cannot locate the now-localized mobile print button (`打印` / `Stampa` / `Print`). Product printing has no failure evidence.
-- **Next:** advance the Registry instruction, issue/verify Context Packet v7, replace the two stale Chinese-only button locators with the exact three-locale accessible-name contract, and run only the affected mobile print cases.
+- **Remaining:** repair the five deterministic hosted Chromium i18n test races shared by runs `33863005646` and `33864592446`; run the exact five-test verification; push the final test/memory correction; require a new exact-SHA hosted green run and final evidence closeout.
+- **Blocked:** the final CI gate is red even though verify, dual-engine print E2E, Vercel READY, canonical smoke and production error/5xx observation are green. Four Inventory tests read the pending request array before the debounced route begins; one Order Detail test closes while a final read-only route callback is still settling.
+- **Next:** advance the Registry instruction, issue/verify Context Packet v8, add request-aware polling at the two Inventory interception points and wait for Order Detail route callbacks before teardown, then run only the five affected Chromium cases.
 
 ## Hosted print-locator corrective packet — 2026-09-04
 
@@ -165,3 +165,12 @@ updated_at: "2026-09-04T08:00:00Z"
 - **Acceptance:** both stale call sites use the same exact tri-locale accessible-name locator; scoped formatting/lint passes; the two mobile widths pass in Chromium and WebKit with retries zero; a normal corrective commit is pushed and the new exact SHA passes hosted CI/E2E and production READY/canonical smoke.
 - **Verification budget:** one targeted local correction and one related dual-browser verification. Do not rerun broad local application gates because no product/build input changes.
 - **Rollback:** normal forward revert of the corrective commit. No data rollback applies.
+
+## Hosted i18n deterministic-race corrective packet — 2026-09-04
+
+- **Trigger:** both the original release run `33863005646` and print-corrective run `33864592446` completed with the same five Chromium i18n failures; all other 156 stories passed in the latter run.
+- **Root cause:** Inventory's visible loading state precedes its debounced customer-search request, but four assertions synchronously inspected the intercepted-route array. Order Detail completed every business assertion, then a query-invalidation `order/get` read remained inside `route.fetch()` when Playwright closed the page.
+- **Allowlist:** `tests/e2e/i18n-inventory-release-2b4.spec.ts`, `tests/e2e/i18n-order-detail-release-2b2.spec.ts` and this task's memory/evidence/closeout files only.
+- **Implementation contract:** replace only the two immediate pending-search assumptions with assertion-preserving polling for exactly one intercepted request; wait for installed Order Detail route callbacks before the heavy test teardown. Do not change application source, assertions, retry, timeout, workflow, dependencies, environment, data or infrastructure.
+- **Acceptance:** scoped lint/format/diff checks pass; the three 430px locale cases, heavy Inventory reservation case and heavy Order Detail transition case pass together in Chromium with one worker and retries zero; the next exact SHA passes hosted verify, Chromium i18n, dual-engine print E2E, Vercel READY and canonical smoke.
+- **Rollback:** normal forward revert of the final corrective commit. No data rollback applies.

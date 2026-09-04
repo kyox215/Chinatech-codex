@@ -399,6 +399,7 @@ test("heavy zh-CN 1440px sends one exact staged reservation.create and never sal
   await expect(root).toContainText(
     translateMessage("zh-CN", "inventory2b4.reservation.customerLoading"),
   );
+  await expect.poll(() => control.pendingCustomerSearch.length).toBe(1);
   await control.pendingCustomerSearch[0]!.fulfill({ json: { data: [customerFixture()] } });
   await page.getByRole("option", { name: new RegExp(escapeRegExp(synthetic.customer)) }).click();
   await root
@@ -1239,7 +1240,7 @@ async function exerciseRouteInteraction(
     await expect(root).toContainText(
       translateMessage(locale, "inventory2b4.reservation.customerLoading"),
     );
-    expect(pendingCustomerSearch).toHaveLength(1);
+    await expect.poll(() => pendingCustomerSearch.length).toBe(1);
     await pendingCustomerSearch[0]!.fulfill({ json: { data: [customerFixture()] } });
     const option = page.getByRole("option", { name: new RegExp(escapeRegExp(synthetic.customer)) });
     await expect(option).toBeVisible();

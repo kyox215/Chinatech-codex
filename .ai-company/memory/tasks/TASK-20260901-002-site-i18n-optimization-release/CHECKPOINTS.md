@@ -109,3 +109,11 @@ Registry Context Packet.
 - This is a test-compatibility defect directly caused by the accepted localization change; there is no product print failure evidence.
 - The corrective packet is limited to the two stale locators, related verification and release memory. Application source, dependencies, workflows, data, environment and infrastructure remain frozen.
 - Next: issue/verify Context Packet v7, apply the shared tri-locale locator, run the affected Chromium/WebKit mobile cases once, then publish a normal corrective commit and require new exact-SHA hosted/production evidence.
+
+## 2026-09-04 — Hosted i18n job exposes five deterministic test races
+
+- Print correction `f70dd754b4d4c2b8e049d817761d37735c132766` is pushed; its E2E run `33864592482` passed complete Chromium and WebKit print jobs. Vercel deployment `dpl_DxdSwxKvdxRfVM5bktkSk4WstfNz` is READY on both canonical aliases, public locale/security smoke passes, and 30-minute error/5xx queries are empty.
+- CI run `33864592446` passed lint, typecheck, all unit tests and build, but its Chromium i18n job reproduced exactly the same five failures as the prior release run `33863005646`: 156 passed, four Inventory pending-route races failed, and one Order Detail route callback failed during page teardown.
+- Artifact and source evidence show the Inventory loading UI becomes visible before the debounced request reaches Playwright, while Order Detail finishes its business assertions before a final read-only `order/get` callback settles. No product failure, mutation, retry or timeout issue is implicated.
+- Corrective scope is limited to request-aware polling at two Inventory points and route-callback settlement in the single heavy Order Detail test, plus task evidence.
+- Next: issue/verify Context Packet v8, apply the bounded test-only correction, run exactly the five affected Chromium cases once, then create/push a normal final correction and require new exact-SHA hosted green.

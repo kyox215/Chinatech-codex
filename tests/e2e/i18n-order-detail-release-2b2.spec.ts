@@ -360,6 +360,7 @@ test("heavy en 1440px preserves finance draft then one pending transition across
     [`POST ${apiUrl("order/transition")}`],
     [`POST ${blockedExternalTransition}`],
   );
+  await page.unrouteAll({ behavior: "wait" });
 });
 
 async function preparePage(
