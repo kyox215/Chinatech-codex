@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getStorePurgeConfirmationPhrase } from "@/entities/store/model/store-purge-confirmation";
@@ -8,8 +8,11 @@ import type {
   StoreLifecyclePreflight,
   StorePurgeRequest,
 } from "@/lib/repairdesk/types";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
+import type { AppLocale } from "@/shared/i18n/locales";
 
 import { StorePurgeManager } from "./store-purge-manager";
+import { formatPurgeTimestamp } from "./store-purge-status-card";
 
 const storeId = "00000000-0000-4000-8000-00000000cafe";
 const store: ActorStoreMembership = {
@@ -138,6 +141,21 @@ describe("StorePurgeManager", () => {
     await waitFor(() => expect(mocks.cancel).toHaveBeenCalledTimes(1));
   });
 
+  it.each([
+    ["zh-CN" as const, "永久删除冷静期中", "取消永久删除"],
+    ["it-IT" as const, "Periodo di attesa per l’eliminazione", "Annulla eliminazione definitiva"],
+    ["en" as const, "Permanent deletion cooling-off period", "Cancel permanent deletion"],
+  ])(
+    "presents a canonical cooling state in %s without changing it",
+    async (locale, status, cancel) => {
+      mocks.getPurge.mockResolvedValue(coolingRequest());
+      renderManager(locale);
+      expect(await screen.findByText(status)).toBeVisible();
+      expect(screen.getByRole("button", { name: cancel })).toBeEnabled();
+      expect(mocks.cancel).not.toHaveBeenCalled();
+    },
+  );
+
   it("requires an exact request phrase and sends only the shared phrase field", async () => {
     mocks.getPurge.mockResolvedValue(null);
     renderManager();
@@ -162,13 +180,48 @@ describe("StorePurgeManager", () => {
     expect(submit).toBeEnabled();
     fireEvent.click(submit);
 
-    await waitFor(() =>
-      expect(mocks.request).toHaveBeenCalledWith(
-        expect.objectContaining({ expectedStoreId: storeId, confirmationPhrase: phrase }),
-      ),
+    await waitFor(() => expect(mocks.request).toHaveBeenCalledTimes(1));
+    expect(mocks.request).toHaveBeenCalledWith({
+      expectedStoreId: storeId,
+      expectedRevision: 7,
+      reauthChallengeId: "00000000-0000-4000-8000-000000000901",
+      preflightSnapshotHash: "a".repeat(64),
+      confirmationPhrase: phrase,
+    });
+  });
+
+  it("formats purge status dates in Rome and never echoes invalid input", () => {
+    const hostTimezone = process.env.TZ;
+    process.env.TZ = "America/Los_Angeles";
+    const instant = "2026-10-25T01:30:00.000Z";
+    try {
+      expect(formatPurgeTimestamp(instant, "zh-CN")).toBe("2026年10月25日 02:30");
+      expect(formatPurgeTimestamp(instant, "it-IT")).toBe("25 ott 2026, 02:30");
+      expect(formatPurgeTimestamp(instant, "en")).toBe("Oct 25, 2026, 2:30 AM");
+      expect(formatPurgeTimestamp("RAW_INVALID_TIMESTAMP", "zh-CN")).toBe("时间不可用");
+      expect(formatPurgeTimestamp("RAW_INVALID_TIMESTAMP", "it-IT")).toBe("Data non disponibile");
+      expect(formatPurgeTimestamp("RAW_INVALID_TIMESTAMP", "en")).toBe("Date unavailable");
+    } finally {
+      if (hostTimezone === undefined) delete process.env.TZ;
+      else process.env.TZ = hostTimezone;
+    }
+  });
+
+  it("takes the begin/preflight lock before the first await", async () => {
+    let resolvePreflight!: (value: StoreLifecyclePreflight) => void;
+    mocks.getPurge.mockResolvedValue(null);
+    mocks.createPreflight.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePreflight = resolve;
+        }),
     );
-    expect(mocks.request.mock.calls[0][0]).not.toHaveProperty("confirmationStoreName");
-    expect(mocks.request.mock.calls[0][0]).not.toHaveProperty("confirmationStoreIdSuffix");
+    renderManager();
+    const begin = await screen.findByRole("button", { name: "申请永久删除" });
+    fireEvent.click(begin);
+    fireEvent.click(begin);
+    expect(mocks.createPreflight).toHaveBeenCalledTimes(1);
+    await act(async () => resolvePreflight(eligiblePreflight()));
   });
 
   it("locks phrase, acknowledgement, cancel, and submit controls while a mutation is pending", async () => {
@@ -286,14 +339,15 @@ describe("StorePurgeManager", () => {
     expect(submit).toBeEnabled();
     fireEvent.click(submit);
 
-    await waitFor(() =>
-      expect(mocks.confirm).toHaveBeenCalledWith(
-        expect.objectContaining({
-          requestId: readyRequest().request_id,
-          confirmationPhrase: phrase,
-        }),
-      ),
-    );
+    await waitFor(() => expect(mocks.confirm).toHaveBeenCalledTimes(1));
+    expect(mocks.confirm).toHaveBeenCalledWith({
+      expectedStoreId: storeId,
+      expectedRevision: 7,
+      reauthChallengeId: "00000000-0000-4000-8000-000000000901",
+      preflightSnapshotHash: "a".repeat(64),
+      confirmationPhrase: phrase,
+      requestId: readyRequest().request_id,
+    });
     expect(screen.queryByText("后台将开始清除")).not.toBeInTheDocument();
   });
 
@@ -303,7 +357,11 @@ describe("StorePurgeManager", () => {
     await screen.findByRole("button", { name: "取消永久删除" });
     fireEvent.click(screen.getByRole("button", { name: "取消永久删除" }));
 
-    await waitFor(() => expect(mocks.cancel).toHaveBeenCalledWith(expect.anything()));
+    await waitFor(() => expect(mocks.cancel).toHaveBeenCalledTimes(1));
+    expect(mocks.cancel).toHaveBeenCalledWith({
+      expectedStoreId: storeId,
+      requestId: coolingRequest().request_id,
+    });
     await waitFor(() => expect(mocks.refreshStoreContext).toHaveBeenCalledTimes(1));
 
     firstView.unmount();
@@ -328,14 +386,16 @@ describe("StorePurgeManager", () => {
   });
 });
 
-function renderManager() {
+function renderManager(locale: AppLocale = "zh-CN") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
-    <QueryClientProvider client={queryClient}>
-      <StorePurgeManager store={store} capability={{ allowed: true, code: "available" }} />
-    </QueryClientProvider>,
+    <LocaleProvider initialLocale={locale}>
+      <QueryClientProvider client={queryClient}>
+        <StorePurgeManager store={store} capability={{ allowed: true, code: "available" }} />
+      </QueryClientProvider>
+    </LocaleProvider>,
   );
 }
 

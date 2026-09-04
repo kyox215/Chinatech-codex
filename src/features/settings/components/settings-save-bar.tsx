@@ -2,6 +2,8 @@ import { Loader2, RotateCcw, Save } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { repairOs } from "@/lib/ui-patterns";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey } from "@/shared/i18n/messages";
 
 export type SettingsSaveStatus =
   | "clean"
@@ -30,6 +32,7 @@ export function SettingsSaveBar({
   onSave,
   onDiscard,
 }: SettingsSaveBarProps) {
+  const { t } = useLocale();
   if (status !== "dirty" && status !== "saving") return null;
 
   const saving = status === "saving";
@@ -48,7 +51,7 @@ export function SettingsSaveBar({
           <p className="truncate text-xs font-medium text-foreground">{label}</p>
           <p className="flex items-center gap-1.5 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
             {status === "saving" ? <Loader2 className="size-3 animate-spin" /> : null}
-            {settingsSaveStatusLabel(status)}
+            {t(settingsSaveStatusKey(status))}
           </p>
         </div>
         <div className="flex min-w-0 gap-2">
@@ -60,7 +63,7 @@ export function SettingsSaveBar({
             disabled={!dirty || saving || disabled}
             onClick={onDiscard}
           >
-            <RotateCcw className="size-3.5" /> 放弃修改
+            <RotateCcw className="size-3.5" /> {t("settings.save.discard")}
           </Button>
           <Button
             type="button"
@@ -70,7 +73,7 @@ export function SettingsSaveBar({
             onClick={onSave}
           >
             {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
-            {saving ? "保存中" : "保存设置"}
+            {saving ? t("settings.save.saving") : t("settings.save.submit")}
           </Button>
         </div>
       </div>
@@ -78,13 +81,13 @@ export function SettingsSaveBar({
   );
 }
 
-function settingsSaveStatusLabel(status: SettingsSaveStatus) {
-  if (status === "clean") return "当前分组没有未保存修改。";
-  if (status === "dirty") return "当前分组有未保存修改。";
-  if (status === "saving") return "正在保存当前分组，请稍候。";
-  if (status === "saved") return "当前分组已保存。";
-  if (status === "validation-error") return "请修正标记字段后重试。";
-  if (status === "conflict") return "服务器已有新版本，请先处理冲突。";
-  if (status === "offline") return "当前离线，本地输入仍保留。";
-  return "保存失败，本地输入仍保留。";
+function settingsSaveStatusKey(status: SettingsSaveStatus): MessageKey {
+  if (status === "clean") return "settings.save.status.clean";
+  if (status === "dirty") return "settings.save.status.dirty";
+  if (status === "saving") return "settings.save.status.saving";
+  if (status === "saved") return "settings.save.status.saved";
+  if (status === "validation-error") return "settings.save.status.validation";
+  if (status === "conflict") return "settings.save.status.conflict";
+  if (status === "offline") return "settings.save.status.offline";
+  return "settings.save.status.error";
 }

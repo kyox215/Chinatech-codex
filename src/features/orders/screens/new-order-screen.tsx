@@ -89,11 +89,14 @@ import {
 } from "@/features/orders/model/order-cost-draft";
 import { synchronizeCreatedOrderNavigation } from "@/features/orders/api/cache-sync";
 import { getWorkflowStatuses } from "@/features/orders/model/order-workflow";
+import { localizeOrderWorkflowStatusLabel } from "@/features/orders/model/order-i18n";
 import type { NewOrderPrefill } from "@/features/orders/model/new-order-intent";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { detailWorkspace, layoutGuards, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { formatDateTime } from "@/shared/i18n/format";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function NewOrderScreen({
   surface = "page",
@@ -106,6 +109,7 @@ export function NewOrderScreen({
   onCancel?: () => void;
   prefill?: NewOrderPrefill;
 }) {
+  const { t } = useLocale();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { registerGuard } = useNavigationGuard();
@@ -200,7 +204,7 @@ export function NewOrderScreen({
     ...orderWorkflowQueryOptions(activeStoreId),
     enabled: Boolean(activeStoreId),
   });
-  const operatorName = hydratedOnboardingStatus?.displayName ?? "当前登录账号";
+  const operatorName = hydratedOnboardingStatus?.displayName ?? t("orders2b1.new.currentAccount");
   const operatorRole = hydratedOnboardingStatus?.activeStore?.role;
   const defaultWarrantyMonths = storeSettings?.default_order_warranty_months ?? 6;
   const createStatuses = useMemo(
@@ -298,8 +302,11 @@ export function NewOrderScreen({
       syncNewOrderCostDrafts(current, draftFaultPrices, costDefaultsQuery.data?.items),
     );
   }, [canManageOrderCosts, costDefaultsQuery.data?.items, draftFaultPrices]);
-  const createStatusLabel =
-    selectedCreateStatus?.label ?? defaultCreateStatus?.label ?? form.status;
+  const createStatusLabel = selectedCreateStatus
+    ? localizeOrderWorkflowStatusLabel(selectedCreateStatus, t)
+    : defaultCreateStatus
+      ? localizeOrderWorkflowStatusLabel(defaultCreateStatus, t)
+      : form.status;
 
   const selectHistoryDevice = useCallback((device: CustomerHistoryDeviceCandidate) => {
     setForm((current) => ({
@@ -312,28 +319,31 @@ export function NewOrderScreen({
     }));
   }, []);
 
-  const handlePickCustomer = useCallback((candidate: CustomerIntakeCandidate) => {
-    setCustomerIdentityIntent(null);
-    const customerName = customerNameForNewOrder(candidate.customer);
-    const customerLabel = customerLabelForNewOrder(candidate.customer);
-    setHistoryDevices(candidate.historyDevices);
-    setForm((current) => ({
-      ...current,
-      customerId: candidate.customer.id,
-      customerName,
-      customerPhone: candidate.customer.phone_e164,
-      deviceId: undefined,
-      brand: "",
-      model: "",
-      imei: "",
-      deviceNotes: "",
-    }));
-    toast.success(
-      candidate.historyDevices.length
-        ? `已选择客户 ${customerLabel}，请选择历史维修型号`
-        : `已选择客户 ${customerLabel}`,
-    );
-  }, []);
+  const handlePickCustomer = useCallback(
+    (candidate: CustomerIntakeCandidate) => {
+      setCustomerIdentityIntent(null);
+      const customerName = customerNameForNewOrder(candidate.customer);
+      const customerLabel = customerLabelForNewOrder(candidate.customer);
+      setHistoryDevices(candidate.historyDevices);
+      setForm((current) => ({
+        ...current,
+        customerId: candidate.customer.id,
+        customerName,
+        customerPhone: candidate.customer.phone_e164,
+        deviceId: undefined,
+        brand: "",
+        model: "",
+        imei: "",
+        deviceNotes: "",
+      }));
+      toast.success(
+        candidate.historyDevices.length
+          ? t("orders2b1.new.selectedCustomerDevice", { customer: customerLabel })
+          : t("orders2b1.new.selectedCustomer", { customer: customerLabel }),
+      );
+    },
+    [t],
+  );
 
   useEffect(() => {
     const customerId = prefill?.customerId;
@@ -389,19 +399,23 @@ export function NewOrderScreen({
         }));
         toast.success(
           selectedDevice
-            ? `已从客户档案带入：${customerLabel} / ${selectedDevice.brand} ${selectedDevice.model}`
-            : `已从客户档案带入：${customerLabel}`,
+            ? t("orders2b1.new.prefilledDevice", {
+                customer: customerLabel,
+                device: `${selectedDevice.brand} ${selectedDevice.model}`,
+              })
+            : t("orders2b1.new.prefilledCustomer", { customer: customerLabel }),
         );
         applyPrefillIdentifier();
       })
       .catch((error: Error) => {
-        if (!controller.signal.aborted && error.name !== "AbortError") toast.error(error.message);
+        if (!controller.signal.aborted && error.name !== "AbortError")
+          toast.error(t("orders2b1.new.error.generic"));
       });
 
     return () => {
       controller.abort();
     };
-  }, [prefill?.customerId, prefill?.deviceId, prefill?.identifier, prefill?.key]);
+  }, [prefill?.customerId, prefill?.deviceId, prefill?.identifier, prefill?.key, t]);
 
   const completeOnlineOrderCreated = useCallback(
     async (id: string, options: { recovered?: boolean; replayed?: boolean } = {}) => {
@@ -410,7 +424,13 @@ export function NewOrderScreen({
       setSharedPhoneConfirmOpen(false);
       setCreateRecovery({ state: "idle" });
       void offlineDraft.discardCurrentDraft();
-      toast.success(options.recovered || options.replayed ? "已确认工单已创建" : "工单已创建");
+      toast.success(
+        t(
+          options.recovered || options.replayed
+            ? "orders2b1.new.toast.createdConfirmed"
+            : "orders2b1.new.toast.created",
+        ),
+      );
       await synchronizeCreatedOrderNavigation(queryClient, id, activeStoreId).catch(
         () => undefined,
       );
@@ -420,7 +440,7 @@ export function NewOrderScreen({
         router.push(`/orders/${id}`);
       }
     },
-    [activeStoreId, offlineDraft, onCreated, queryClient, router],
+    [activeStoreId, offlineDraft, onCreated, queryClient, router, t],
   );
 
   const confirmCreateOperation = useCallback(
@@ -439,9 +459,9 @@ export function NewOrderScreen({
         // Keep the UI in a non-duplicating state when result confirmation fails.
       }
       setCreateRecovery({ state: "uncertain", operationId });
-      toast.error("暂时无法确认创建结果，请先查看工单列表，避免重复创建");
+      toast.error(t("orders2b1.new.recovery.uncertain"));
     },
-    [completeOnlineOrderCreated],
+    [completeOnlineOrderCreated, t],
   );
 
   const create = useMutation({
@@ -452,22 +472,22 @@ export function NewOrderScreen({
       | { kind: "offline_queued"; operationId: string }
     > => {
       if (sessionStoreChanged) {
-        throw new Error("当前资料属于原店铺，请关闭后在新店铺重新接单");
+        throw new Error(t("orders2b1.new.error.storeChanged"));
       }
       const custodyStatus = form.deviceCustodyStatus;
-      if (!custodyStatus) throw new Error("请确认设备是否留店");
+      if (!custodyStatus) throw new Error(t("orders2b1.new.error.custody"));
       if (costDefaultsBlocked) {
-        throw new Error("默认成本尚未成功读取，请重试后再创建工单");
+        throw new Error(t("orders2b1.new.error.cost"));
       }
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         if (identityResolution.mode !== "auto") {
-          throw new Error("客户身份确认需要联网完成，请恢复网络后重试");
+          throw new Error(t("orders2b1.new.error.identityOnline"));
         }
         if (canManageOrderCosts && Object.values(costDrafts).some((draft) => draft.touched)) {
-          throw new Error("内部成本仅支持联网保存；请恢复网络后创建，或清除本次成本修改");
+          throw new Error(t("orders2b1.new.error.costOnline"));
         }
         if (!isRepairDeskOfflineSyncEnabled()) {
-          throw new Error("离线创建尚未启用，请恢复网络后创建工单");
+          throw new Error(t("orders2b1.new.error.offlineDisabled"));
         }
         return {
           kind: "offline_queued",
@@ -506,7 +526,7 @@ export function NewOrderScreen({
     },
     onSuccess: (result) => {
       if (result.kind === "offline_queued") {
-        toast.success("工单已保存在本机，联网后会自动同步");
+        toast.success(t("orders2b1.new.toast.queued"));
         if (onCancel) {
           onCancel();
         } else {
@@ -531,13 +551,13 @@ export function NewOrderScreen({
         }
       }
       if (isRepairDeskRequestTimeoutError(error) && createOperationIdRef.current) {
-        toast.message("创建请求仍在确认中，请不要重复提交");
+        toast.message(t("orders2b1.new.recovery.confirming"));
         void confirmCreateOperation(createOperationIdRef.current);
         return;
       }
       createOperationIdRef.current = null;
       setCreateRecovery({ state: "idle" });
-      toast.error(getCreateOrderErrorMessage(error));
+      toast.error(getCreateOrderErrorMessage(error, t));
     },
   });
 
@@ -567,6 +587,7 @@ export function NewOrderScreen({
         costDefaultsBlocked,
         customerIdentityCreationBlocked,
         selectedCreateStatus,
+        t,
       }),
     [
       costDefaultsBlocked,
@@ -575,6 +596,7 @@ export function NewOrderScreen({
       form,
       selectedCreateStatus,
       total,
+      t,
     ],
   );
 
@@ -586,14 +608,16 @@ export function NewOrderScreen({
         code: "diagnosis_required",
         fieldId: "faults",
         sectionId: "quotation",
-        label: "请选择维修项目，或确认检测后补充",
+        label: t("orders2b1.new.validation.diagnosis"),
         target: "quotation",
       });
     }
     if (currentStepItems.length) {
       setValidationAttempted(true);
       setSubmitValidationMessage(
-        `请先处理：${currentStepItems.map((item) => item.label).join("、")}`,
+        t("orders2b1.new.validation.handle", {
+          items: currentStepItems.map((item) => item.label).join(" / "),
+        }),
       );
       focusNewOrderMissingItem(currentStepItems[0]);
       return;
@@ -637,15 +661,15 @@ export function NewOrderScreen({
     setForm(restored.form);
     setHistoryDevices([]);
     setCustomerIdentityIntent(null);
-    toast.success("已恢复本机草稿");
-  }, [offlineDraft]);
+    toast.success(t("orders2b1.new.toast.restored"));
+  }, [offlineDraft, t]);
 
   const handleDiscardOfflineDraft = useCallback(async () => {
     const discarded = await offlineDraft.discardPromptDraft();
     if (!discarded) return;
     setDiscardDraftDialogOpen(false);
-    toast.success("本机草稿已丢弃");
-  }, [offlineDraft]);
+    toast.success(t("orders2b1.new.toast.discarded"));
+  }, [offlineDraft, t]);
 
   const offlineStatus = {
     state: offlineDraft.state,
@@ -660,13 +684,13 @@ export function NewOrderScreen({
     createRecovery.state === "uncertain";
   const createSubmitMessage =
     createRecovery.state === "confirming"
-      ? "请求超时，正在确认是否已经创建。请不要重复提交或刷新。"
+      ? t("orders2b1.new.recovery.confirmingHelp")
       : createRecovery.state === "uncertain"
-        ? "暂时无法确认创建结果，请使用页面提示打开工单或客户列表检查，避免重复创建。"
+        ? t("orders2b1.new.recovery.uncertainHelp")
         : create.isPending
-          ? "正在提交工单，请保持页面打开。"
+          ? t("orders2b1.new.processing")
           : customerIdentityCreationBlocked
-            ? "客户身份尚未解决，请先使用已有客户，或修改资料后重新确认。"
+            ? t("orders2b1.new.validation.identity")
             : undefined;
   const guardSnapshotRef = useRef({
     surface,
@@ -687,7 +711,7 @@ export function NewOrderScreen({
     () =>
       registerGuard({
         id: "orders-new-draft",
-        label: () => "新建工单草稿",
+        label: () => t("orders2b1.new.shortTitle"),
         isDirty: () => {
           const snapshot = guardSnapshotRef.current;
           if (snapshot.surface !== "page") return false;
@@ -722,21 +746,21 @@ export function NewOrderScreen({
         saveUnavailableReason: () => {
           const snapshot = guardSnapshotRef.current;
           if (snapshot.createPending || snapshot.createRecoveryState !== "idle") {
-            return "工单正在创建或确认结果，请先留在当前页面。";
+            return t("orders2b1.new.recovery.confirmingHelp");
           }
           if (snapshot.offlineDraft.draftPrompt) {
-            return "请先恢复或丢弃已有本机草稿，再离开页面。";
+            return t("orders2b1.new.offline.found");
           }
           if (snapshot.offlineDraft.hasSensitiveUnlockDraft) {
-            return "手机密码、PIN 或图案不会进入本机草稿；请先清除或选择放弃修改。";
+            return t("orders2b1.new.unlockDraftWarning");
           }
           if (snapshot.hasTouchedCostDrafts) {
-            return "内部成本不会保存到本机；请留在当前页面提交工单，或选择放弃成本修改。";
+            return t("orders2b1.new.error.costOnline");
           }
           if (snapshot.offlineDraft.state === "unavailable") {
-            return "本机草稿不可用，无法确认保存后离开。";
+            return t("orders2b1.new.offline.unavailable");
           }
-          return "当前草稿暂时无法保存。";
+          return t("orders2b1.new.offline.unavailable");
         },
         save: async (): Promise<NavigationGuardResolution> => {
           const snapshot = guardSnapshotRef.current;
@@ -767,7 +791,7 @@ export function NewOrderScreen({
           document.querySelector<HTMLElement>("[data-new-order-form='true'] input")?.focus();
         },
       }),
-    [registerGuard],
+    [registerGuard, t],
   );
 
   const customerSectionNode = (
@@ -847,7 +871,7 @@ export function NewOrderScreen({
           : undefined
       }
     >
-      <h1 className="sr-only">新建维修工单</h1>
+      <h1 className="sr-only">{t("orders2b1.new.title")}</h1>
       {surface === "page" ? (
         <NewOrderMobileHeader
           operatorName={operatorName}
@@ -874,33 +898,34 @@ export function NewOrderScreen({
           if (createRecovery.state === "confirming" || createRecovery.state === "uncertain") {
             toast.message(
               createRecovery.state === "confirming"
-                ? "正在确认创建结果，请稍候"
-                : "请先查看工单列表确认是否已创建，避免重复提交",
+                ? t("orders2b1.new.recovery.confirming")
+                : t("orders2b1.new.recovery.uncertainHelp"),
             );
             return;
           }
           if (!valid) {
             const normalizedMissingItems = missingItems.length
               ? missingItems
-              : [fallbackNewOrderMissingItem];
+              : [fallbackNewOrderMissingItem(t)];
             setValidationAttempted(true);
             setSubmitValidationMessage(
-              `无法创建工单，共有 ${normalizedMissingItems.length} 项需要处理：${normalizedMissingItems
-                .map((item) => item.label)
-                .join("、")}`,
+              t("orders2b1.new.validation.summary", {
+                count: normalizedMissingItems.length,
+                items: normalizedMissingItems.map((item) => item.label).join(" / "),
+              }),
             );
             focusNewOrderMissingItem(normalizedMissingItems[0]);
             toast.error(
               form.deviceCustodyStatus === null
-                ? "请确认设备是否留店"
+                ? t("orders2b1.new.error.custody")
                 : customerIdentityCreationBlocked
-                  ? "请先使用已有客户，或修改姓名、电话后重新确认客户身份"
+                  ? t("orders2b1.new.validation.identity")
                   : form.deposit > total
-                    ? "定金不能超过订单总金额"
+                    ? t("orders2b1.new.validation.deposit")
                     : warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) &&
                         !form.warrantyChangeReason.trim()
-                      ? "非默认质保需要填写原因"
-                      : "请补全必填字段",
+                      ? t("orders2b1.new.validation.warranty")
+                      : t("orders2b1.new.validation.required"),
             );
             return;
           }
@@ -920,7 +945,7 @@ export function NewOrderScreen({
         {surface === "page" ? (
           <div className="mb-2 hidden min-w-0 justify-end gap-2 lg:flex lg:mb-3">
             <Button variant="outline" size="icon" className="size-9 shrink-0 rounded-full" asChild>
-              <Link href="/orders" aria-label="关闭">
+              <Link href="/orders" aria-label={t("common.close")}>
                 <X className="size-4" />
               </Link>
             </Button>
@@ -965,7 +990,7 @@ export function NewOrderScreen({
             <NewOrderOfflineInlineNotice
               tone="warning"
               className="mb-0 bg-transparent p-0"
-              message={offlineDraft.errorMessage ?? "本机草稿暂不可用，请不要刷新页面。"}
+              message={t("orders2b1.new.offline.unavailable")}
             />
             <Button
               type="button"
@@ -973,7 +998,7 @@ export function NewOrderScreen({
               className="h-[38px] bg-background text-base"
               onClick={offlineDraft.retryPreflight}
             >
-              <RotateCcw className="mr-1.5 size-4" /> 重新检查
+              <RotateCcw className="mr-1.5 size-4" /> {t("common.retry")}
             </Button>
           </div>
         ) : null}
@@ -992,14 +1017,14 @@ export function NewOrderScreen({
             className="mb-3 rounded-xl bg-status-warn px-3 py-2 text-xs text-status-warn-foreground"
             role="status"
           >
-            未能读取接单模式，已使用专业模式。
+            {t("orders2b1.new.modeFallback")}
             <Button
               type="button"
               variant="link"
               className="ml-1 h-auto p-0 text-xs"
               onClick={() => void storeSettingsQuery.refetch()}
             >
-              重试
+              {t("common.retry")}
             </Button>
           </div>
         ) : null}
@@ -1008,7 +1033,7 @@ export function NewOrderScreen({
             className="mb-3 rounded-xl bg-status-danger px-3 py-2 text-xs text-status-danger-foreground"
             role="alert"
           >
-            当前资料属于原店铺，请关闭后在新店铺重新接单。为避免跨店提交，本会话已被冻结。
+            {t("orders2b1.new.storeFrozen")}
           </div>
         ) : null}
 
@@ -1021,7 +1046,7 @@ export function NewOrderScreen({
             )}
             aria-busy="true"
           >
-            <p className="text-sm font-semibold">正在准备接单方式…</p>
+            <p className="text-sm font-semibold">{t("orders2b1.new.modeLoading")}</p>
             <div className="mt-3 h-24 rounded-xl bg-[var(--surface-panel-muted)]" />
           </section>
         ) : effectiveEntryMode === "simple" ? (
@@ -1043,9 +1068,9 @@ export function NewOrderScreen({
                     "p-3 md:rounded-[var(--radius-lg)] md:shadow-none",
                   )}
                 >
-                  <p className="text-xs font-semibold">维修项目确认</p>
+                  <p className="text-xs font-semibold">{t("orders2b1.new.quoteItems")}</p>
                   <p className="mt-1 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-                    请选择故障/维修项目；暂时无法判断时，可明确选择检测后补充。
+                    {t("orders2b1.new.validation.diagnosis")}
                   </p>
                   <Button
                     type="button"
@@ -1054,7 +1079,7 @@ export function NewOrderScreen({
                     onClick={() => setDiagnosisDeferred((current) => !current)}
                   >
                     {diagnosisDeferred ? <CheckCircle2 className="size-4" /> : null}
-                    检测后补充
+                    {t("orders2b1.new.diagnosisDeferred")}
                   </Button>
                 </section>
                 {quotationSectionNode("guided")}
@@ -1096,7 +1121,7 @@ export function NewOrderScreen({
               valid={Boolean(valid)}
               pending={createSubmitBlocked || sessionStoreChanged}
               statusMessage={
-                sessionStoreChanged ? "店铺已切换，请关闭后重新接单" : createSubmitMessage
+                sessionStoreChanged ? t("orders2b1.new.storeChangedShort") : createSubmitMessage
               }
               custodyStatus={form.deviceCustodyStatus}
               onCancel={onCancel}
@@ -1110,20 +1135,18 @@ export function NewOrderScreen({
       <AlertDialog open={discardDraftDialogOpen} onOpenChange={setDiscardDraftDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>丢弃本机草稿</AlertDialogTitle>
-            <AlertDialogDescription>
-              只会删除此设备上的本机草稿，不会删除或修改任何系统工单。
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("orders2b1.new.discardTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("orders2b1.new.discardHelp")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="h-11 lg:h-9">取消</AlertDialogCancel>
+            <AlertDialogCancel className="h-11 lg:h-9">{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90 lg:h-9"
               onClick={() => {
                 void handleDiscardOfflineDraft();
               }}
             >
-              确认丢弃
+              {t("orders2b1.new.discardConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1140,10 +1163,8 @@ export function NewOrderScreen({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认这张工单属于哪位客户</AlertDialogTitle>
-            <AlertDialogDescription>
-              电话号码已关联其他客户，但本次填写了不同姓名。未确认前不会创建工单、设备或修改客户资料。
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("orders2b1.new.identityTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("orders2b1.new.identityHelp")}</AlertDialogDescription>
           </AlertDialogHeader>
           <div className="grid gap-2">
             {identityConflict?.candidates.map((candidate) => (
@@ -1162,7 +1183,9 @@ export function NewOrderScreen({
                   });
                 }}
               >
-                使用已有客户：{candidate.displayName || "未命名客户"}
+                {t("orders2b1.new.useExistingNamed", {
+                  name: candidate.displayName || t("orders2b1.new.lookup.unnamed"),
+                })}
               </Button>
             ))}
             <Button
@@ -1172,11 +1195,13 @@ export function NewOrderScreen({
               disabled={create.isPending}
               onClick={() => setSharedPhoneConfirmOpen(true)}
             >
-              这是另一位客户（共用电话）
+              {t("orders2b1.new.otherShared")}
             </Button>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel className="h-11 lg:h-9">返回检查</AlertDialogCancel>
+            <AlertDialogCancel className="h-11 lg:h-9">
+              {t("orders2b1.new.backCheck")}
+            </AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1184,13 +1209,11 @@ export function NewOrderScreen({
       <AlertDialog open={sharedPhoneConfirmOpen} onOpenChange={setSharedPhoneConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认创建独立客户</AlertDialogTitle>
-            <AlertDialogDescription>
-              将保留当前填写的姓名，并创建一位共用此电话号码的独立客户。已有客户资料不会被改名。
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("orders2b1.new.distinctTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("orders2b1.new.distinctHelp")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="h-11 lg:h-9">返回</AlertDialogCancel>
+            <AlertDialogCancel className="h-11 lg:h-9">{t("shell.back")}</AlertDialogCancel>
             <AlertDialogAction
               className="h-11 lg:h-9"
               disabled={create.isPending}
@@ -1203,7 +1226,7 @@ export function NewOrderScreen({
                 });
               }}
             >
-              确认独立创建
+              {t("orders2b1.new.distinctConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1238,12 +1261,20 @@ function readNewOrderIdentityConflict(
   return conflictToken && candidates.length ? { conflictToken, candidates } : null;
 }
 
-function getCreateOrderErrorMessage(error: Error) {
-  const message = error.message || "创建工单失败";
+function getCreateOrderErrorMessage(error: Error, t: ReturnType<typeof useLocale>["t"]) {
+  const message = error.message;
   if (/public_no/i.test(message) || /repair_orders_public_no/i.test(message)) {
-    return "创建工单失败：工单编号生成失败，请重试或联系管理员";
+    return t("orders2b1.new.error.publicNo");
   }
-  return message;
+  const knownMessages = [
+    t("orders2b1.new.error.storeChanged"),
+    t("orders2b1.new.error.custody"),
+    t("orders2b1.new.error.cost"),
+    t("orders2b1.new.error.identityOnline"),
+    t("orders2b1.new.error.costOnline"),
+    t("orders2b1.new.error.offlineDisabled"),
+  ];
+  return knownMessages.includes(message) ? message : t("orders2b1.new.error.generic");
 }
 
 const CREATE_OPERATION_CONFIRM_ATTEMPTS = 6;
@@ -1272,6 +1303,7 @@ function NewOrderCreateRecoveryCard({
   state: Exclude<NewOrderCreateRecoveryState, { state: "idle" }>;
   onRetry: () => void;
 }) {
+  const { t } = useLocale();
   const confirming = state.state === "confirming";
   return (
     <section
@@ -1289,20 +1321,22 @@ function NewOrderCreateRecoveryCard({
             <CircleAlert className="size-3.5 shrink-0" />
           )}
           <span className="truncate">
-            {confirming ? "正在确认创建结果" : "创建结果暂时无法确认"}
+            {t(
+              confirming ? "orders2b1.new.recovery.confirming" : "orders2b1.new.recovery.uncertain",
+            )}
           </span>
         </div>
         <p className="mt-1 text-[10px] leading-4 lg:text-xs lg:leading-[18px]">
           {confirming
-            ? "请求已发送，但浏览器没有及时收到结果。系统正在用本次操作标识确认是否已经创建工单。"
-            : "不要再次点击创建。请先打开工单列表或客户列表检查是否已经生成记录，也可以重新确认一次结果。"}
+            ? t("orders2b1.new.recovery.confirmingHelp")
+            : t("orders2b1.new.recovery.uncertainHelp")}
         </p>
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <Button type="button" size="sm" className="h-9 rounded-lg text-xs lg:h-8" asChild>
           <Link href="/orders">
             <ClipboardList className="mr-1.5 size-3.5" />
-            查看工单列表
+            {t("orders2b1.new.recovery.orders")}
           </Link>
         </Button>
         <Button
@@ -1312,7 +1346,7 @@ function NewOrderCreateRecoveryCard({
           className="h-9 rounded-lg border-status-warn/70 bg-background/80 text-xs lg:h-8"
           asChild
         >
-          <Link href="/customers">打开客户列表</Link>
+          <Link href="/customers">{t("orders2b1.new.recovery.customers")}</Link>
         </Button>
         <Button
           type="button"
@@ -1323,7 +1357,7 @@ function NewOrderCreateRecoveryCard({
           onClick={onRetry}
         >
           <RotateCcw className="mr-1.5 size-3.5" />
-          重新确认
+          {t("orders2b1.new.recovery.retry")}
         </Button>
       </div>
     </section>
@@ -1346,13 +1380,15 @@ type NewOrderMissingItem = {
   target: string;
 };
 
-const fallbackNewOrderMissingItem: NewOrderMissingItem = {
-  code: "required",
-  fieldId: "customerPhone",
-  sectionId: "customer",
-  label: "必填资料",
-  target: "customer-phone",
-};
+function fallbackNewOrderMissingItem(t: ReturnType<typeof useLocale>["t"]): NewOrderMissingItem {
+  return {
+    code: "required",
+    fieldId: "customerPhone",
+    sectionId: "customer",
+    label: t("orders2b1.new.validation.requiredData"),
+    target: "customer-phone",
+  };
+}
 
 const validationFocusableSelector =
   "input:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex='0']";
@@ -1413,6 +1449,7 @@ function getNewOrderMissingItems({
   costDefaultsBlocked,
   customerIdentityCreationBlocked,
   selectedCreateStatus,
+  t,
 }: {
   form: NewOrderFormState;
   total: number;
@@ -1420,6 +1457,7 @@ function getNewOrderMissingItems({
   costDefaultsBlocked: boolean;
   customerIdentityCreationBlocked: boolean;
   selectedCreateStatus: { code: string; bucket?: string | null } | undefined;
+  t: ReturnType<typeof useLocale>["t"];
 }): NewOrderMissingItem[] {
   const items: Array<NewOrderMissingItem | null> = [
     !form.customerPhone.trim()
@@ -1427,7 +1465,7 @@ function getNewOrderMissingItems({
           code: "required",
           fieldId: "customerPhone",
           sectionId: "customer",
-          label: "客户电话",
+          label: t("orders2b1.new.validation.customerPhone"),
           target: "customer-phone",
         }
       : null,
@@ -1436,7 +1474,7 @@ function getNewOrderMissingItems({
           code: "identity_conflict",
           fieldId: "customerPhone",
           sectionId: "customer",
-          label: "客户身份需处理",
+          label: t("orders2b1.new.validation.identityIssue"),
           target: "customer-phone",
         }
       : null,
@@ -1445,7 +1483,7 @@ function getNewOrderMissingItems({
           code: "required",
           fieldId: "deviceCustodyStatus",
           sectionId: "device",
-          label: "设备保管",
+          label: t("orders2b1.new.validation.custody"),
           target: "device-custody",
         }
       : null,
@@ -1455,7 +1493,7 @@ function getNewOrderMissingItems({
           code: "custody_status_incompatible",
           fieldId: "status",
           sectionId: "quotation",
-          label: "当前初始状态要求设备留店",
+          label: t("orders2b1.new.validation.custodyStatus"),
           target: "create-status",
         }
       : null,
@@ -1464,7 +1502,7 @@ function getNewOrderMissingItems({
           code: "required",
           fieldId: "brand",
           sectionId: "device",
-          label: "设备品牌",
+          label: t("orders2b1.new.validation.deviceBrand"),
           target: "device-brand",
         }
       : null,
@@ -1473,7 +1511,7 @@ function getNewOrderMissingItems({
           code: "required",
           fieldId: "model",
           sectionId: "device",
-          label: "设备型号",
+          label: t("orders2b1.new.validation.deviceModel"),
           target: "device-model",
         }
       : null,
@@ -1482,7 +1520,7 @@ function getNewOrderMissingItems({
           code: "deposit_exceeds_total",
           fieldId: "deposit",
           sectionId: "quotation",
-          label: "定金不能超过总额",
+          label: t("orders2b1.new.validation.depositShort"),
           target: "deposit",
         }
       : null,
@@ -1491,7 +1529,7 @@ function getNewOrderMissingItems({
           code: "cost_defaults_pending",
           fieldId: "faults",
           sectionId: "quotation",
-          label: "默认成本尚未读取",
+          label: t("orders2b1.new.validation.cost"),
           target: "quotation",
         }
       : null,
@@ -1501,7 +1539,7 @@ function getNewOrderMissingItems({
           code: "warranty_reason_required",
           fieldId: "warrantyChangeReason",
           sectionId: "quotation",
-          label: "质保变更原因",
+          label: t("orders2b1.new.validation.warrantyReason"),
           target: "warranty-reason",
         }
       : null,
@@ -1531,6 +1569,7 @@ function NewOrderDesktopHeader({
   offlineStatus: NewOrderOfflineStatusSummary;
   onClose?: () => void;
 }) {
+  const { t } = useLocale();
   const balance = Math.max(0, total - deposit);
   return (
     <section
@@ -1548,7 +1587,7 @@ function NewOrderDesktopHeader({
           variant="ghost"
           size="icon"
           className="absolute right-2 top-2 size-8 rounded-xl text-muted-foreground hover:bg-[var(--surface-panel-muted)] hover:text-foreground"
-          aria-label="关闭新建维修工单"
+          aria-label={t("orders2b1.new.closeAria")}
           onClick={onClose}
         >
           <X className="size-4" />
@@ -1556,13 +1595,15 @@ function NewOrderDesktopHeader({
       ) : null}
       <div className="min-w-0">
         <div className="text-[11px] font-medium leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-          {surface === "dialog" ? "弹窗录入" : "工作台录入"}
+          {t(surface === "dialog" ? "orders2b1.new.dialogMode" : "orders2b1.new.workspaceMode")}
         </div>
-        <p className="truncate text-lg font-semibold leading-6">新建维修工单</p>
+        <p className="truncate text-lg font-semibold leading-6">{t("orders2b1.new.title")}</p>
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
           <span className="truncate">{operatorName}</span>
           <span className="size-1 rounded-full bg-muted-foreground/35" />
-          <span className="truncate">创建后进入 {statusLabel}</span>
+          <span className="truncate">
+            {t("orders2b1.new.createdStatus", { status: statusLabel })}
+          </span>
         </div>
         <NewOrderOfflineStatusLine status={offlineStatus} className="mt-2" />
       </div>
@@ -1570,7 +1611,9 @@ function NewOrderDesktopHeader({
       <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 py-2">
         <div className="mb-1.5 flex min-w-0 items-center justify-between gap-2">
           <span className="truncate text-[11px] font-semibold leading-4 lg:text-xs lg:leading-4">
-            {valid ? "资料已齐全" : `还差 ${missingItems.length || 1} 项`}
+            {valid
+              ? t("orders2b1.new.complete")
+              : t("orders2b1.new.missingCount", { count: missingItems.length || 1 })}
           </span>
           <span
             className={cn(
@@ -1581,23 +1624,23 @@ function NewOrderDesktopHeader({
             )}
           >
             {valid ? <CheckCircle2 className="size-3" /> : <CircleAlert className="size-3" />}
-            {valid ? "可创建" : "待补全"}
+            {t(valid ? "orders2b1.new.ready" : "orders2b1.new.incomplete")}
           </span>
         </div>
         {valid ? (
           <p className="rounded-md bg-status-success/35 px-2 py-1.5 text-[10px] font-medium text-status-success-foreground lg:text-xs lg:leading-[18px]">
-            可以创建；系统会保留设备保管、密码和金额记录。
+            {t("orders2b1.new.readyHelp")}
           </p>
         ) : (
           <div data-new-order-missing-items="true" className="flex min-w-0 flex-wrap gap-1.5">
-            {(missingItems.length ? missingItems : [fallbackNewOrderMissingItem]).map((item) => (
+            {(missingItems.length ? missingItems : [fallbackNewOrderMissingItem(t)]).map((item) => (
               <button
                 key={`${item.target}-${item.label}`}
                 type="button"
                 className="inline-flex h-9 items-center rounded-md border border-status-warn-foreground/20 bg-background px-2 text-[10px] font-medium text-status-warn-foreground transition-colors hover:bg-status-warn/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:h-7 lg:text-xs lg:leading-4"
                 onClick={() => focusNewOrderMissingItem(item)}
               >
-                补充：{item.label}
+                {t("orders2b1.new.addField", { label: item.label })}
               </button>
             ))}
           </div>
@@ -1635,18 +1678,23 @@ function NewOrderDialogMobileHeader({
   valid: boolean;
   onClose: () => void;
 }) {
+  const { t } = useLocale();
   return (
     <section
       data-new-order-dialog-mobile-header="true"
       className="mb-1.5 flex min-w-0 items-center justify-between gap-1.5 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-1.5 shadow-none md:hidden"
     >
       <div className="min-w-0 flex-1">
-        <div className="text-[9px] font-medium leading-3 text-muted-foreground">弹窗录入</div>
-        <div className="truncate text-sm font-semibold leading-5">新建维修工单</div>
+        <div className="text-[9px] font-medium leading-3 text-muted-foreground">
+          {t("orders2b1.new.dialogMode")}
+        </div>
+        <div className="truncate text-sm font-semibold leading-5">{t("orders2b1.new.title")}</div>
         <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground">
           <span className="truncate">{operatorName}</span>
           <span className="size-1 rounded-full bg-muted-foreground/35" />
-          <span className="truncate">创建后进入 {statusLabel}</span>
+          <span className="truncate">
+            {t("orders2b1.new.createdStatus", { status: statusLabel })}
+          </span>
         </div>
       </div>
       <span
@@ -1658,7 +1706,7 @@ function NewOrderDialogMobileHeader({
         )}
       >
         {valid ? <CheckCircle2 className="size-3" /> : <CircleAlert className="size-3" />}
-        {valid ? "可创建" : "待补全"}
+        {t(valid ? "orders2b1.new.ready" : "orders2b1.new.incomplete")}
       </span>
       <Button
         data-new-order-dialog-close="true"
@@ -1666,7 +1714,7 @@ function NewOrderDialogMobileHeader({
         variant="ghost"
         size="icon"
         className="size-9 shrink-0 rounded-lg text-muted-foreground hover:bg-[var(--surface-panel-muted)] hover:text-foreground"
-        aria-label="关闭新建维修工单"
+        aria-label={t("orders2b1.new.closeAria")}
         onClick={onClose}
       >
         <X className="size-4" />
@@ -1809,17 +1857,12 @@ function NewOrderMobileHeader({
   offlineStatus: NewOrderOfflineStatusSummary;
   onHeightChange?: (height: number) => void;
 }) {
+  const { t } = useLocale();
   const shellRef = useRef<HTMLDivElement | null>(null);
   const [missingExpanded, setMissingExpanded] = useState(false);
-  const missingSummary = missingItems.length
-    ? `${missingItems
-        .slice(0, 3)
-        .map((item) => item.label)
-        .join("、")}${missingItems.length > 3 ? `，另有 ${missingItems.length - 3} 项` : ""}`
-    : "必填资料";
   const helperText = valid
-    ? `资料已补全，创建后进入「${statusLabel}」。`
-    : `还差：${missingSummary}`;
+    ? t("orders2b1.new.createdStatus", { status: statusLabel })
+    : t("orders2b1.new.missingCount", { count: missingItems.length || 1 });
 
   useEffect(() => {
     if (valid) setMissingExpanded(false);
@@ -1850,11 +1893,13 @@ function NewOrderMobileHeader({
         <header className={repairOs.mobileFloatingHeaderNav}>
           <SidebarTrigger className="size-9 rounded-lg border border-[var(--border-panel)] bg-card shadow-none" />
           <div className="min-w-0 text-center">
-            <p className="truncate text-xs font-semibold leading-4">新建工单</p>
+            <p className="truncate text-xs font-semibold leading-4">
+              {t("orders2b1.new.shortTitle")}
+            </p>
             <p className="truncate text-[9px] leading-3 text-muted-foreground">{operatorName}</p>
           </div>
           <Button asChild variant="ghost" size="iconDense" className="size-9 rounded-lg">
-            <Link href="/orders" aria-label="返回工单列表">
+            <Link href="/orders" aria-label={t("orders2b1.new.backOrders")}>
               <X className="size-4" />
             </Link>
           </Button>
@@ -1870,7 +1915,7 @@ function NewOrderMobileHeader({
             )}
           >
             {valid ? <CheckCircle2 className="size-3" /> : <CircleAlert className="size-3" />}
-            {valid ? "可创建" : "待补全"}
+            {t(valid ? "orders2b1.new.ready" : "orders2b1.new.incomplete")}
           </span>
         </div>
 
@@ -1904,8 +1949,14 @@ function NewOrderMobileHeader({
                 aria-controls="new-order-mobile-missing-list"
                 onClick={() => setMissingExpanded((expanded) => !expanded)}
               >
-                <span>{missingExpanded ? "收起缺失清单" : "查看完整缺失清单"}</span>
-                <span>{missingItems.length} 项</span>
+                <span>
+                  {t(
+                    missingExpanded
+                      ? "orders2b1.new.collapseMissing"
+                      : "orders2b1.new.expandMissing",
+                  )}
+                </span>
+                <span>{t("orders2b1.new.itemsCount", { count: missingItems.length })}</span>
               </Button>
               {missingExpanded ? (
                 <ul
@@ -1919,7 +1970,7 @@ function NewOrderMobileHeader({
                         className="min-h-9 w-full rounded-md px-2 text-left font-medium text-status-warn-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         onClick={() => focusNewOrderMissingItem(item)}
                       >
-                        补充：{item.label}
+                        {t("orders2b1.new.addField", { label: item.label })}
                       </button>
                     </li>
                   ))}
@@ -1943,7 +1994,8 @@ function NewOrderOfflineStatusLine({
   compact?: boolean;
   className?: string;
 }) {
-  const copy = getNewOrderOfflineStatusCopy(status);
+  const { locale, t } = useLocale();
+  const copy = getNewOrderOfflineStatusCopy(status, locale, t);
   const isError = status.state === "error" || status.state === "unavailable";
   if (!copy && !status.hasSensitiveUnlockDraft) return null;
 
@@ -1973,7 +2025,7 @@ function NewOrderOfflineStatusLine({
         <span className="line-clamp-2">{copy}</span>
         {status.hasSensitiveUnlockDraft ? (
           <span className="mt-0.5 block text-[9px] leading-3 lg:text-xs lg:leading-4">
-            手机密码、PIN 或图案不会进入本机草稿，刷新后需重新输入。
+            {t("orders2b1.new.unlockDraftWarning")}
           </span>
         ) : null}
       </span>
@@ -1990,6 +2042,7 @@ function NewOrderOfflineRestoreCard({
   onRestore: () => void;
   onDiscard: () => void;
 }) {
+  const { locale, t } = useLocale();
   return (
     <section
       data-new-order-offline-restore-card="true"
@@ -2001,15 +2054,16 @@ function NewOrderOfflineRestoreCard({
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-1.5 text-xs font-semibold leading-4">
           <RotateCcw className="size-3.5 shrink-0 text-primary" />
-          <span className="truncate">发现本机草稿</span>
+          <span className="truncate">{t("orders2b1.new.offline.found")}</span>
         </div>
         <p className="mt-1 text-[10px] leading-4 text-muted-foreground lg:truncate lg:text-xs lg:leading-[18px]">
-          这个草稿只保存在此设备，尚未创建系统工单。上次本机保存：
-          {formatOfflineDraftTime(prompt.updatedAt)}。
+          {t("orders2b1.new.offline.foundHelp", {
+            time: formatOfflineDraftTime(prompt.updatedAt, locale, t),
+          })}
         </p>
         {prompt.relationshipNeedsReview ? (
           <p className="mt-1 rounded-lg bg-status-warn/45 px-2 py-1 text-[10px] leading-4 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
-            恢复后请重新确认客户或设备关联，再在线创建工单。
+            {t("orders2b1.new.offline.review")}
           </p>
         ) : null}
       </div>
@@ -2021,7 +2075,7 @@ function NewOrderOfflineRestoreCard({
           onClick={onRestore}
         >
           <RotateCcw className="mr-1.5 size-3.5" />
-          恢复本机草稿
+          {t("orders2b1.new.offline.restore")}
         </Button>
         <Button
           type="button"
@@ -2031,7 +2085,7 @@ function NewOrderOfflineRestoreCard({
           onClick={onDiscard}
         >
           <Trash2 className="mr-1.5 size-3.5" />
-          丢弃本机草稿
+          {t("orders2b1.new.offline.discard")}
         </Button>
       </div>
     </section>
@@ -2066,34 +2120,41 @@ function NewOrderOfflineInlineNotice({
   );
 }
 
-function getNewOrderOfflineStatusCopy(status: NewOrderOfflineStatusSummary) {
-  if (!status.scopeReady) return "本机草稿需登录店铺后启用。";
+function getNewOrderOfflineStatusCopy(
+  status: NewOrderOfflineStatusSummary,
+  locale: ReturnType<typeof useLocale>["locale"],
+  t: ReturnType<typeof useLocale>["t"],
+) {
+  if (!status.scopeReady) return t("orders2b1.new.offline.scope");
   switch (status.state) {
     case "checking":
-      return "正在检查本机草稿。";
+      return t("orders2b1.new.offline.checking");
     case "ready":
-      return "本机草稿可用，仅此设备可见，尚未创建系统工单。";
+      return t("orders2b1.new.offline.ready");
     case "saving":
-      return "正在保存本机草稿。";
+      return t("orders2b1.new.offline.saving");
     case "saved":
       return status.lastSavedAt
-        ? `本机草稿已保存 ${formatOfflineDraftTime(status.lastSavedAt)}，仅此设备可见。`
-        : "本机草稿已保存，仅此设备可见。";
+        ? t("orders2b1.new.offline.savedAt", {
+            time: formatOfflineDraftTime(status.lastSavedAt, locale, t),
+          })
+        : t("orders2b1.new.offline.saved");
     case "queued":
-      return "工单已进入本机同步队列，联网后会自动创建。";
+      return t("orders2b1.new.offline.queued");
     case "error":
     case "unavailable":
-      return status.errorMessage ?? "本机草稿暂不可用，请不要刷新页面。";
+      return t("orders2b1.new.offline.unavailable");
     case "disabled":
-      return "本机草稿未启用。";
+      return t("orders2b1.new.offline.disabled");
   }
 }
 
-function formatOfflineDraftTime(value: string) {
+function formatOfflineDraftTime(
+  value: string,
+  locale: ReturnType<typeof useLocale>["locale"],
+  t: ReturnType<typeof useLocale>["t"],
+) {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "刚刚";
-  return new Intl.DateTimeFormat("zh-CN", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+  if (Number.isNaN(date.getTime())) return t("orders2b1.new.offline.justNow");
+  return formatDateTime(date, locale, { hour: "2-digit", minute: "2-digit" });
 }

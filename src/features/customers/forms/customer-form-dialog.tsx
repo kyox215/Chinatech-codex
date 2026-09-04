@@ -42,17 +42,14 @@ import {
 } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
 import { primaryPhoneRaw } from "@/shared/lib/phone";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 const customerChannelOptions = [
   { value: "whatsapp", label: "WhatsApp" },
   { value: "sms", label: "SMS" },
 ] as const;
 
-const customerLanguageOptions = [
-  { value: "it", label: "Italiano" },
-  { value: "zh", label: "中文" },
-  { value: "en", label: "English" },
-] as const;
+const customerLanguageOptions = [{ value: "it" }, { value: "zh" }, { value: "en" }] as const;
 
 const compactInputClass = "h-11 text-base lg:h-9 lg:text-sm";
 const compactTextareaClass = "min-h-20 text-base lg:text-sm";
@@ -81,6 +78,7 @@ export function CustomerFormDialog({
   onOpenExisting: (customerId: string) => void;
   onStartOrderForExisting: (customerId: string) => void;
 }) {
+  const { t } = useLocale();
   const [form, setForm] = useState(initial);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [saveError, setSaveError] = useState<string>();
@@ -129,7 +127,7 @@ export function CustomerFormDialog({
   ].filter((value) => value?.trim()).length;
 
   const requestOpenChange = (nextOpen: boolean) => {
-    if (nextOpen || !dirty || busy || window.confirm("放弃尚未保存的客户资料？")) {
+    if (nextOpen || !dirty || busy || window.confirm(t("customers.create.discardConfirm"))) {
       onOpenChange(nextOpen);
     }
   };
@@ -140,13 +138,14 @@ export function CustomerFormDialog({
     try {
       await onSave(form, intent);
     } catch {
-      setSaveError("客户暂时没有保存成功。资料已保留，请核对网络或重复客户后重试。");
+      setSaveError(t("customers.create.saveError"));
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={requestOpenChange}>
       <DialogContent
+        closeLabel={t("customers.detail.close")}
         className={cn(
           componentOverlay.formContent,
           "flex max-h-[calc(100svh-16px)] flex-col gap-0 overflow-hidden p-0",
@@ -155,7 +154,7 @@ export function CustomerFormDialog({
         <DialogHeader className="shrink-0 space-y-1.5 border-b border-border/60 px-3 pb-3 pt-4 sm:px-5 sm:pb-4 sm:pt-5">
           <DialogTitle className={componentOverlay.title}>{title}</DialogTitle>
           <DialogDescription className={componentOverlay.description}>
-            先核对客户身份，再补充非必填资料。创建后可直接进入客户档案或新建维修工单。
+            {t("customers.create.description")}
           </DialogDescription>
         </DialogHeader>
 
@@ -182,14 +181,18 @@ export function CustomerFormDialog({
                   <UserRound className="size-4" aria-hidden="true" />
                 </span>
                 <div className="min-w-0">
-                  <h3 className="text-sm font-semibold">身份确认</h3>
+                  <h3 className="text-sm font-semibold">{t("customers.create.identity")}</h3>
                   <p className="text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-                    手机号用于核对同店客户，避免重复建档。
+                    {t("customers.create.identityDescription")}
                   </p>
                 </div>
               </div>
               <div className="grid min-w-0 gap-2.5 sm:grid-cols-2">
-                <CustomerFormField label="手机号" required htmlFor="customer-create-phone">
+                <CustomerFormField
+                  label={t("customers.form.phone")}
+                  required
+                  htmlFor="customer-create-phone"
+                >
                   <Input
                     id="customer-create-phone"
                     type="tel"
@@ -204,7 +207,11 @@ export function CustomerFormDialog({
                     aria-describedby="customer-create-identity-status"
                   />
                 </CustomerFormField>
-                <CustomerFormField label="姓名" required htmlFor="customer-create-name">
+                <CustomerFormField
+                  label={t("customers.form.name")}
+                  required
+                  htmlFor="customer-create-name"
+                >
                   <Input
                     id="customer-create-name"
                     autoComplete="name"
@@ -233,7 +240,9 @@ export function CustomerFormDialog({
             </section>
 
             <section className="rounded-xl border border-border/70 bg-card p-3">
-              <h3 className="text-xs font-semibold">联系授权</h3>
+              <h3 className="text-xs font-semibold">
+                {t("customers.create.contactAuthorization")}
+              </h3>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 <label className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2.5 text-sm">
                   <Checkbox
@@ -242,7 +251,7 @@ export function CustomerFormDialog({
                       setForm({ ...form, consent_marketing: Boolean(checked) })
                     }
                   />
-                  允许主动联系
+                  {t("customers.form.allowContact")}
                 </label>
                 <label className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2.5 text-sm">
                   <Checkbox
@@ -251,7 +260,7 @@ export function CustomerFormDialog({
                       setForm({ ...form, consent_sms: Boolean(checked) })
                     }
                   />
-                  允许短信通知
+                  {t("customers.form.allowSms")}
                 </label>
               </div>
             </section>
@@ -265,7 +274,9 @@ export function CustomerFormDialog({
                     className="h-11 w-full justify-between rounded-xl px-3 text-sm"
                   >
                     <span>
-                      补充资料{optionalFieldCount ? ` · 已填 ${optionalFieldCount} 项` : ""}
+                      {optionalFieldCount
+                        ? t("customers.create.optionalFilled", { count: optionalFieldCount })
+                        : t("customers.create.optional")}
                     </span>
                     <ChevronDown
                       className={cn("size-4 transition-transform", detailsOpen && "rotate-180")}
@@ -276,7 +287,7 @@ export function CustomerFormDialog({
                 <CollapsibleContent>
                   <div className="grid min-w-0 gap-2.5 border-t border-border/60 p-3 sm:grid-cols-2">
                     <div className="sm:col-span-2">
-                      <CustomerFormField label="备用联系电话">
+                      <CustomerFormField label={t("customers.form.backupPhones")}>
                         <CustomerBackupPhonesField
                           primaryPhone={form.phone_e164}
                           phones={form.contact_phones ?? []}
@@ -285,7 +296,10 @@ export function CustomerFormDialog({
                         />
                       </CustomerFormField>
                     </div>
-                    <CustomerFormField label="邮箱" htmlFor="customer-create-email">
+                    <CustomerFormField
+                      label={t("customers.form.email")}
+                      htmlFor="customer-create-email"
+                    >
                       <Input
                         id="customer-create-email"
                         type="email"
@@ -295,7 +309,7 @@ export function CustomerFormDialog({
                         onChange={(event) => setForm({ ...form, email: event.target.value })}
                       />
                     </CustomerFormField>
-                    <CustomerFormField label="首选通道">
+                    <CustomerFormField label={t("customers.form.preferredChannel")}>
                       <Select
                         value={form.preferred_channel ?? "whatsapp"}
                         onValueChange={(preferred_channel) =>
@@ -317,7 +331,7 @@ export function CustomerFormDialog({
                         </SelectContent>
                       </Select>
                     </CustomerFormField>
-                    <CustomerFormField label="语言">
+                    <CustomerFormField label={t("customers.detail.language")}>
                       <Select
                         value={form.language ?? "it"}
                         onValueChange={(language) =>
@@ -330,14 +344,21 @@ export function CustomerFormDialog({
                         <SelectContent>
                           {customerLanguageOptions.map((option) => (
                             <SelectItem key={option.value} value={option.value}>
-                              {option.label}
+                              {option.value === "zh"
+                                ? t("customers.language.zh")
+                                : option.value === "en"
+                                  ? t("customers.language.en")
+                                  : t("customers.language.it")}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </CustomerFormField>
                     <div className="sm:col-span-2">
-                      <CustomerFormField label="客户备注" htmlFor="customer-create-notes">
+                      <CustomerFormField
+                        label={t("customers.form.customerNotes")}
+                        htmlFor="customer-create-notes"
+                      >
                         <Textarea
                           id="customer-create-notes"
                           className={compactTextareaClass}
@@ -347,7 +368,10 @@ export function CustomerFormDialog({
                       </CustomerFormField>
                     </div>
                     <div className="sm:col-span-2">
-                      <CustomerFormField label="联系备注" htmlFor="customer-create-marketing-notes">
+                      <CustomerFormField
+                        label={t("customers.form.contactNotes")}
+                        htmlFor="customer-create-marketing-notes"
+                      >
                         <Textarea
                           id="customer-create-marketing-notes"
                           className={compactTextareaClass}
@@ -372,10 +396,10 @@ export function CustomerFormDialog({
               disabled={!canSave}
               onClick={() => void save("view_customer")}
             >
-              仅保存并查看客户
+              {t("customers.create.saveView")}
             </Button>
             <Button type="submit" className="h-11 lg:h-9" disabled={!canSave}>
-              {busy ? "正在创建…" : "保存并新建工单"}
+              {busy ? t("customers.create.savingOrder") : t("customers.create.saveOrder")}
             </Button>
           </DialogFooter>
         </form>
@@ -409,13 +433,14 @@ function CustomerIdentityStatus({
   onOpenExisting: (customerId: string) => void;
   onStartOrderForExisting: (customerId: string) => void;
 }) {
+  const { t } = useLocale();
   if (!storeReady) {
     return (
       <p
         id={id}
         className="mt-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4"
       >
-        选择可用门店后才能核对并创建客户。
+        {t("customers.create.storeRequired")}
       </p>
     );
   }
@@ -425,7 +450,7 @@ function CustomerIdentityStatus({
         id={id}
         className="mt-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4"
       >
-        输入完整手机号后自动核对同店客户。
+        {t("customers.create.phoneRequired")}
       </p>
     );
   }
@@ -437,7 +462,8 @@ function CustomerIdentityStatus({
         aria-live="polite"
         className="mt-2 flex items-center gap-2 text-xs text-status-info-foreground"
       >
-        <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" /> 正在核对客户身份…
+        <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />{" "}
+        {t("customers.create.checking")}
       </div>
     );
   }
@@ -449,7 +475,7 @@ function CustomerIdentityStatus({
         className="mt-2 flex min-h-11 items-center gap-2 rounded-lg border border-status-danger-foreground/25 bg-status-danger/10 px-2.5 text-xs text-status-danger-foreground"
       >
         <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
-        <span className="min-w-0 flex-1">身份核对失败，当前不能把它当作新客户。</span>
+        <span className="min-w-0 flex-1">{t("customers.create.checkFailed")}</span>
         <Button
           type="button"
           variant="ghost"
@@ -457,7 +483,7 @@ function CustomerIdentityStatus({
           className="h-11 px-2 text-xs lg:h-9"
           onClick={onRetry}
         >
-          重试
+          {t("customers.detail.retry")}
         </Button>
       </div>
     );
@@ -472,9 +498,9 @@ function CustomerIdentityStatus({
         <div className="flex items-start gap-2">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <div className="min-w-0">
-            <p className="text-xs font-semibold">这个手机号已经关联客户</p>
+            <p className="text-xs font-semibold">{t("customers.create.duplicateTitle")}</p>
             <p className="text-[10px] leading-4 opacity-80 lg:text-xs lg:leading-4 lg:opacity-100">
-              请复用已有档案，避免同一客户产生分散记录。
+              {t("customers.create.duplicateDescription")}
             </p>
           </div>
         </div>
@@ -493,12 +519,12 @@ function CustomerIdentityStatus({
     <div id={id} role="status" aria-live="polite" className="mt-2">
       <div className="flex min-h-9 items-center gap-2 rounded-lg border border-status-success-foreground/20 bg-status-success/10 px-2.5 text-xs text-status-success-foreground">
         <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
-        未发现相同手机号，可以继续创建。
+        {t("customers.create.noDuplicate")}
       </div>
       {candidates.length ? (
         <div className="mt-1.5 flex items-center gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2.5 py-2 text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
           <Search className="size-3.5 shrink-0" aria-hidden="true" />
-          同名或相似资料 {candidates.length} 条；不会自动合并，请需要时先核对客户列表。
+          {t("customers.create.similar", { count: candidates.length })}
         </div>
       ) : null}
     </div>
@@ -514,14 +540,15 @@ function CustomerCandidateRow({
   onOpenExisting: (customerId: string) => void;
   onStartOrderForExisting: (customerId: string) => void;
 }) {
+  const { t } = useLocale();
   return (
     <div className="rounded-lg border border-current/15 bg-background/70 p-2 text-foreground">
       <div className="flex min-w-0 items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-xs font-semibold">{candidate.customer.name}</p>
           <p className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
-            {maskPhone(candidate.customer.phone_e164)} · {candidate.historyDevices.length}{" "}
-            台历史设备
+            {maskPhone(candidate.customer.phone_e164)} ·{" "}
+            {t("customers.create.deviceHistoryCount", { count: candidate.historyDevices.length })}
           </p>
         </div>
       </div>
@@ -533,7 +560,7 @@ function CustomerCandidateRow({
           className="h-11 text-xs lg:h-10"
           onClick={() => onOpenExisting(candidate.customer.id)}
         >
-          打开客户
+          {t("customers.create.openCustomer")}
         </Button>
         <Button
           type="button"
@@ -541,7 +568,7 @@ function CustomerCandidateRow({
           className="h-11 text-xs lg:h-10"
           onClick={() => onStartOrderForExisting(candidate.customer.id)}
         >
-          用此客户开单
+          {t("customers.create.startOrder")}
         </Button>
       </div>
     </div>

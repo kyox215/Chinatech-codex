@@ -8,12 +8,16 @@ import type {
   StorePermissionAction,
   StoreRole,
 } from "@/lib/repairdesk/types";
+import { DEFAULT_LOCALE, type AppLocale } from "@/shared/i18n/locales";
+import { translateMessage, type MessageKey } from "@/shared/i18n/messages";
+
+export type MemberPermissionGroup = "history-finance" | "suppliers";
 
 export interface MemberPermissionOption {
   action: StorePermissionAction;
   label: string;
   description: string;
-  group: "历史与财务" | "供应商";
+  group: MemberPermissionGroup;
   sensitive?: boolean;
 }
 
@@ -27,68 +31,68 @@ export const MEMBER_PERMISSION_OPTIONS: readonly MemberPermissionOption[] = [
     action: "order:archive_browse",
     label: "浏览历史归档",
     description: "可浏览当前店铺的完整历史工单。",
-    group: "历史与财务",
+    group: "history-finance",
     sensitive: true,
   },
   {
     action: "finance:aggregate_read",
     label: "查看业绩汇总",
     description: "可查看店铺级金额汇总。",
-    group: "历史与财务",
+    group: "history-finance",
     sensitive: true,
   },
   {
     action: "finance:profit_read",
     label: "查看成本利润",
     description: "可查看库存和回收业务的成本与利润。",
-    group: "历史与财务",
+    group: "history-finance",
     sensitive: true,
   },
   {
     action: "finance:cost_manage",
     label: "管理维修项目成本",
     description: "可查看、输入并修改工单项目成本和店铺默认成本。",
-    group: "历史与财务",
+    group: "history-finance",
     sensitive: true,
   },
   {
     action: "finance:cost_export",
     label: "导出维修成本与毛利",
     description: "包含成本利润查看权限，并可导出脱敏财务明细。",
-    group: "历史与财务",
+    group: "history-finance",
     sensitive: true,
   },
   {
     action: "finance:cost_backfill_preview",
     label: "预览历史成本回填",
     description: "包含成本管理权限，可生成历史成本候选；不能批量应用。",
-    group: "历史与财务",
+    group: "history-finance",
     sensitive: true,
   },
   {
     action: "inventory:cost_allocate",
     label: "分配维修配件成本",
     description: "包含成本管理权限，可把采购批次分配到维修项目。",
-    group: "历史与财务",
+    group: "history-finance",
     sensitive: true,
   },
   {
     action: "supplier:read",
     label: "查看供应商",
     description: "可读取当前店铺的供应商资料。",
-    group: "供应商",
+    group: "suppliers",
   },
   {
     action: "supplier:assign",
     label: "选择供应商",
     description: "包含查看权限，并可在工单中选择供应商。",
-    group: "供应商",
+    group: "suppliers",
   },
   {
     action: "supplier:manage",
     label: "管理供应商",
     description: "包含查看和选择权限，并可新增、编辑或归档。",
-    group: "供应商",
+    group: "suppliers",
     sensitive: true,
   },
 ] as const;
@@ -106,6 +110,92 @@ export const MEMBER_STATUS_LABELS: Record<StoreMember["status"], string> = {
   inactive: "已停用",
   invited: "待接受",
 };
+
+const memberRoleLabelKeys: Record<StoreRole, MessageKey> = {
+  owner: "settings.members.role.owner",
+  manager: "settings.members.role.manager",
+  technician: "settings.members.role.technician",
+  sales: "settings.members.role.sales",
+  viewer: "settings.members.role.viewer",
+};
+
+const memberStatusLabelKeys: Record<StoreMember["status"], MessageKey> = {
+  active: "settings.members.status.active",
+  inactive: "settings.members.status.inactive",
+  invited: "settings.members.status.invited",
+};
+
+const memberPermissionPresentationKeys: Record<
+  StorePermissionAction,
+  { label: MessageKey; description: MessageKey }
+> = {
+  "order:archive_browse": {
+    label: "settings.members.permission.archiveBrowse.label",
+    description: "settings.members.permission.archiveBrowse.description",
+  },
+  "finance:aggregate_read": {
+    label: "settings.members.permission.aggregateRead.label",
+    description: "settings.members.permission.aggregateRead.description",
+  },
+  "finance:profit_read": {
+    label: "settings.members.permission.profitRead.label",
+    description: "settings.members.permission.profitRead.description",
+  },
+  "finance:cost_manage": {
+    label: "settings.members.permission.costManage.label",
+    description: "settings.members.permission.costManage.description",
+  },
+  "finance:cost_export": {
+    label: "settings.members.permission.costExport.label",
+    description: "settings.members.permission.costExport.description",
+  },
+  "finance:cost_backfill_preview": {
+    label: "settings.members.permission.costBackfillPreview.label",
+    description: "settings.members.permission.costBackfillPreview.description",
+  },
+  "inventory:cost_allocate": {
+    label: "settings.members.permission.costAllocate.label",
+    description: "settings.members.permission.costAllocate.description",
+  },
+  "supplier:read": {
+    label: "settings.members.permission.supplierRead.label",
+    description: "settings.members.permission.supplierRead.description",
+  },
+  "supplier:assign": {
+    label: "settings.members.permission.supplierAssign.label",
+    description: "settings.members.permission.supplierAssign.description",
+  },
+  "supplier:manage": {
+    label: "settings.members.permission.supplierManage.label",
+    description: "settings.members.permission.supplierManage.description",
+  },
+};
+
+export function getMemberRoleLabels(locale: AppLocale = DEFAULT_LOCALE) {
+  return Object.fromEntries(
+    Object.entries(memberRoleLabelKeys).map(([role, key]) => [role, translateMessage(locale, key)]),
+  ) as Record<StoreRole, string>;
+}
+
+export function getMemberStatusLabels(locale: AppLocale = DEFAULT_LOCALE) {
+  return Object.fromEntries(
+    Object.entries(memberStatusLabelKeys).map(([status, key]) => [
+      status,
+      translateMessage(locale, key),
+    ]),
+  ) as Record<StoreMember["status"], string>;
+}
+
+export function getMemberPermissionOptions(locale: AppLocale = DEFAULT_LOCALE) {
+  return MEMBER_PERMISSION_OPTIONS.map((option) => {
+    const keys = memberPermissionPresentationKeys[option.action];
+    return {
+      ...option,
+      label: translateMessage(locale, keys.label),
+      description: translateMessage(locale, keys.description),
+    };
+  });
+}
 
 export function toApprovedRole(role?: StoreRole): ApprovedStoreRole {
   return role && role !== "owner" ? role : "viewer";

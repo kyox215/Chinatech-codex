@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   filterSettingsSectionGroups,
   getSettingsSection,
+  getSettingsSectionGroups,
   parseSettingsView,
   sortSettingsCoreSections,
   SETTINGS_SECTION_GROUPS,
@@ -69,5 +70,38 @@ describe("settings section registry", () => {
         group.sections.map((section) => section.key),
       ),
     ).toEqual(["ai-usage"]);
+  });
+
+  it("localizes presentation while preserving canonical keys, order, and hrefs", () => {
+    const zh = getSettingsSectionGroups("zh-CN").flatMap((group) => group.sections);
+    const it = getSettingsSectionGroups("it-IT").flatMap((group) => group.sections);
+    const en = getSettingsSectionGroups("en").flatMap((group) => group.sections);
+
+    expect(it.map(({ key, href }) => ({ key, href }))).toEqual(
+      zh.map(({ key, href }) => ({ key, href })),
+    );
+    expect(en.map(({ key, href }) => ({ key, href }))).toEqual(
+      zh.map(({ key, href }) => ({ key, href })),
+    );
+    expect(getSettingsSection("store", "it-IT")).toMatchObject({
+      key: "store",
+      label: "Negozio",
+      href: "/settings?section=store",
+    });
+    expect(getSettingsSection("store", "en")).toMatchObject({
+      key: "store",
+      label: "Store",
+      href: "/settings?section=store",
+    });
+    expect(
+      filterSettingsSectionGroups("signature", "en").flatMap((group) =>
+        group.sections.map((section) => section.key),
+      ),
+    ).toEqual(["kiosk", "notifications"]);
+    expect(
+      filterSettingsSectionGroups("fornitori", "it-IT").flatMap((group) =>
+        group.sections.map((section) => section.key),
+      ),
+    ).toEqual(["suppliers"]);
   });
 });

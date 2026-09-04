@@ -209,7 +209,10 @@ describe("AI assistant BFF routes", () => {
       href: "/orders?workspace=order-detail&orderId=order-sensitive&source=ai-assistant",
     });
     expect(JSON.stringify(body)).not.toContain("SECRET-SENTINEL");
-    expect(JSON.stringify(body)).not.toContain("999");
+    expect(body.data.cards[0]).not.toHaveProperty("quotation_amount");
+    expect(body.data.cards[0]).not.toHaveProperty("deposit_amount");
+    expect(body.data.cards[0]).not.toHaveProperty("balance_amount");
+    expect(body.data.cards[0]).not.toHaveProperty("fault_prices");
   });
 
   it("audits a confirmed inline action without placing customer data in audit metadata", async () => {

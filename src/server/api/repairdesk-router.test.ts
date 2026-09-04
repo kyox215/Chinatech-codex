@@ -323,6 +323,143 @@ describe("inventory products BFF release gate", () => {
   });
 });
 
+describe("inventory product edit-data safe read boundary", () => {
+  const productId = "00000000-0000-4000-8000-000000000041";
+
+  function stubEditDataFeatureFlags() {
+    vi.stubEnv("INVENTORY_V2_SCHEMA_READY", "1");
+    vi.stubEnv("INVENTORY_PRODUCT_DEVICE_DATA_V2", "1");
+    vi.stubEnv("INVENTORY_V2_COMMANDS", "1");
+    vi.stubEnv("INVENTORY_V2_STORE_ALLOWLIST", "store-1");
+  }
+
+  async function importRouterWithEditData(getInventoryProductEditData: ReturnType<typeof vi.fn>) {
+    vi.resetModules();
+    vi.doMock("@/lib/mock/api", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/mock/api")>();
+      return { ...actual, getInventoryProductEditData };
+    });
+    return import("./repairdesk-router");
+  }
+
+  async function requestEditData(getInventoryProductEditData: ReturnType<typeof vi.fn>) {
+    stubEditDataFeatureFlags();
+    const { handleRepairDeskPost: isolatedHandleRepairDeskPost } = await importRouterWithEditData(
+      getInventoryProductEditData,
+    );
+    const requestActor = actor("owner", { storeId: "store-1" });
+    const response = await isolatedHandleRepairDeskPost(
+      "inventory/products/edit-data",
+      { id: productId },
+      requestActor,
+    );
+    return { response, requestActor };
+  }
+
+  afterEach(() => {
+    vi.doUnmock("@/lib/mock/api");
+    vi.resetModules();
+    vi.unstubAllEnvs();
+  });
+
+  it("redacts an ordinary provider error behind the exact generic 500 response", async () => {
+    const sentinel = "provider-password-SECRET-SENTINEL";
+    const getInventoryProductEditData = vi.fn().mockRejectedValue(new Error(sentinel));
+
+    const { response } = await requestEditData(getInventoryProductEditData);
+    const responseBody = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(responseBody).toEqual({ error: "请求处理失败，请稍后重试" });
+    expect(JSON.stringify(responseBody)).not.toContain(sentinel);
+    expect(JSON.stringify([...response.headers])).not.toContain(sentinel);
+    expect(response.headers.get("cache-control")).toBe("private, no-store, max-age=0");
+  });
+
+  it("redacts unknown structured status, code, message, and details", async () => {
+    const sentinel = "unknown-provider-SECRET-SENTINEL";
+    const unknownStructuredError = Object.assign(new Error(sentinel), {
+      status: 599,
+      code: "UNKNOWN_PROVIDER_FAILURE",
+      details: { diagnostics: sentinel },
+    });
+    const getInventoryProductEditData = vi.fn().mockRejectedValue(unknownStructuredError);
+
+    const { response } = await requestEditData(getInventoryProductEditData);
+    const responseBody = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(responseBody).toEqual({ error: "请求处理失败，请稍后重试" });
+    expect(JSON.stringify(responseBody)).not.toContain(sentinel);
+    expect(JSON.stringify(responseBody)).not.toContain("UNKNOWN_PROVIDER_FAILURE");
+    expect(JSON.stringify([...response.headers])).not.toContain(sentinel);
+    expect(response.headers.get("cache-control")).toBe("private, no-store, max-age=0");
+  });
+
+  it.each([
+    {
+      code: "INVENTORY_IDENTIFIER_READ_FORBIDDEN",
+      message: "当前员工身份无效",
+      status: 403,
+    },
+    {
+      code: "INVENTORY_IDENTIFIER_RATE_LIMIT_UNAVAILABLE",
+      message: "设备标识暂时不可读取，请稍后重试",
+      status: 503,
+    },
+    {
+      code: "INVENTORY_IDENTIFIER_RATE_LIMITED",
+      message: "读取设备标识过于频繁，请稍后重试",
+      status: 429,
+    },
+    {
+      code: "INVENTORY_PRODUCT_LEGACY_READ_ONLY",
+      message: "历史商品没有可编辑库存单元，只能查看",
+      status: 409,
+    },
+  ])("preserves the stable $code response", async ({ code, message, status }) => {
+    const getInventoryProductEditData = vi
+      .fn()
+      .mockRejectedValue(Object.assign(new Error(message), { status, code }));
+
+    const { response } = await requestEditData(getInventoryProductEditData);
+
+    expect(response.status).toBe(status);
+    expect(await response.json()).toEqual({ error: message, code });
+  });
+
+  it("keeps the existing safe fallback for an unstructured not-found error", async () => {
+    const repositoryMessage = "商品不存在或不属于当前门店";
+    const getInventoryProductEditData = vi.fn().mockRejectedValue(new Error(repositoryMessage));
+
+    const { response } = await requestEditData(getInventoryProductEditData);
+    const responseBody = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(responseBody).toEqual({ error: "请求处理失败，请稍后重试" });
+    expect(JSON.stringify(responseBody)).not.toContain(repositoryMessage);
+  });
+
+  it("keeps the successful response and repository input unchanged", async () => {
+    const success = {
+      id: productId,
+      brand: "Synthetic Brand",
+      model: "Dynamic Model",
+      edit_backing: "v2",
+      identifiers: [{ kind: "imei", value: "490154203237518", primary: true }],
+      version: 7,
+    };
+    const getInventoryProductEditData = vi.fn().mockResolvedValue(success);
+
+    const { response, requestActor } = await requestEditData(getInventoryProductEditData);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ data: success });
+    expect(getInventoryProductEditData).toHaveBeenCalledOnce();
+    expect(getInventoryProductEditData).toHaveBeenCalledWith(productId, requestActor);
+  });
+});
+
 describe("inventory catalog search route release gate", () => {
   const body = { category: "phone", brand: "Apple", query: "iPhone", limit: 20 };
 

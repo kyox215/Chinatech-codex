@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import { NotificationsSettingsSection } from "@/features/settings/sections/notifications-settings-section";
 import type { ActorStoreMembership, StoreSettings } from "@/lib/repairdesk/types";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
+import type { AppLocale } from "@/shared/i18n/locales";
 
 afterEach(cleanup);
 
@@ -90,6 +92,33 @@ describe("NotificationsSettingsSection", () => {
     );
     expect(screen.queryByText("当前已就绪")).not.toBeInTheDocument();
   });
+
+  it.each([
+    ["zh-CN", "预览客户消息", "预览打印资料"],
+    ["it-IT", "Anteprima messaggio cliente", "Anteprima dati di stampa"],
+    ["en", "Preview customer message", "Preview print output"],
+  ] as const)(
+    "keeps canonical customer output byte-identical in %s",
+    (locale, messageAction, printAction) => {
+      const messagePreview =
+        "Gentile Mario Rossi,\nIl dispositivo iPhone 15 è pronto.\nRepair Lab · Assistenza";
+      const printPreview = "Repair Lab\nVia Roma 12, Siracusa\nGrazie per aver scelto Repair Lab.";
+      renderNotifications({ locale, messagePreview, printPreview });
+
+      expect(screen.getByDisplayValue(completeSettings.message_signature)).toHaveValue(
+        completeSettings.message_signature,
+      );
+      expect(screen.getByDisplayValue(completeSettings.print_footer)).toHaveValue(
+        completeSettings.print_footer,
+      );
+      expect(screen.getByRole("link")).toHaveAttribute("href", "/messages");
+      fireEvent.click(screen.getByRole("button", { name: messageAction }));
+      expect(screen.getByRole("dialog").querySelector("pre")?.textContent).toBe(messagePreview);
+      fireEvent.click(screen.getByRole("button", { name: /关闭|Chiudi|Close/ }));
+      fireEvent.click(screen.getByRole("button", { name: printAction }));
+      expect(screen.getByRole("dialog").querySelector("pre")?.textContent).toBe(printPreview);
+    },
+  );
 });
 
 function renderNotifications({
@@ -99,6 +128,9 @@ function renderNotifications({
   canUpdateSettings = true,
   canReadMessageTemplates = true,
   onDraftChange = vi.fn(),
+  locale = "zh-CN",
+  messagePreview = "Gentile Mario Rossi,\nexample preview",
+  printPreview = "Repair Lab\nexample footer",
 }: {
   saved?: StoreSettings;
   draftSettings?: StoreSettings;
@@ -106,25 +138,30 @@ function renderNotifications({
   canUpdateSettings?: boolean;
   canReadMessageTemplates?: boolean;
   onDraftChange?: (patch: { message_signature?: string; print_footer?: string }) => void;
+  locale?: AppLocale;
+  messagePreview?: string;
+  printPreview?: string;
 } = {}) {
   return render(
-    <NotificationsSettingsSection
-      draft={{
-        message_signature: draftSettings.message_signature,
-        print_footer: draftSettings.print_footer,
-      }}
-      savedOutputIdentity={resolveStoreOutputIdentity({ activeStore: store, settings: saved })}
-      draftOutputIdentity={resolveStoreOutputIdentity({
-        activeStore: store,
-        settings: draftSettings,
-      })}
-      isDraftDirty={isDraftDirty}
-      canUpdateSettings={canUpdateSettings}
-      canReadMessageTemplates={canReadMessageTemplates}
-      fieldErrors={{}}
-      messagePreview="Gentile Mario Rossi,\nexample preview"
-      printPreview="Repair Lab\nexample footer"
-      onDraftChange={onDraftChange}
-    />,
+    <LocaleProvider initialLocale={locale}>
+      <NotificationsSettingsSection
+        draft={{
+          message_signature: draftSettings.message_signature,
+          print_footer: draftSettings.print_footer,
+        }}
+        savedOutputIdentity={resolveStoreOutputIdentity({ activeStore: store, settings: saved })}
+        draftOutputIdentity={resolveStoreOutputIdentity({
+          activeStore: store,
+          settings: draftSettings,
+        })}
+        isDraftDirty={isDraftDirty}
+        canUpdateSettings={canUpdateSettings}
+        canReadMessageTemplates={canReadMessageTemplates}
+        fieldErrors={{}}
+        messagePreview={messagePreview}
+        printPreview={printPreview}
+        onDraftChange={onDraftChange}
+      />
+    </LocaleProvider>,
   );
 }

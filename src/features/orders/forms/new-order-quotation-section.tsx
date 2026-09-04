@@ -30,10 +30,12 @@ import {
   type NewOrderCostDraft,
 } from "@/features/orders/model/order-cost-draft";
 import { deviceCustodyAllowsStatus } from "@/features/orders/model/device-custody";
+import { localizeOrderWorkflowStatusLabel } from "@/features/orders/model/order-i18n";
 import { repairOrderType, type RepairOrderType } from "@/lib/mock/enums";
 import type { FaultPriceItem, OrderWorkflowStatus } from "@/lib/repairdesk/api";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 import { moneyDraftValue, parseMoneyDraft } from "@/shared/lib/mobile-input";
 
 export function NewOrderQuotationSection({
@@ -75,6 +77,7 @@ export function NewOrderQuotationSection({
   surface?: "page" | "dialog";
   layout?: "professional" | "guided";
 }) {
+  const { t } = useLocale();
   const shellClass = cn(
     "h-fit min-w-0 sm:p-3",
     surface === "dialog"
@@ -92,9 +95,9 @@ export function NewOrderQuotationSection({
     "h-[38px] rounded-lg border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 text-xs font-medium shadow-none focus:ring-1 focus:ring-ring focus-visible:ring-1 lg:h-10";
   const serviceDropdownContentClass = "z-[90] rounded-xl shadow-[var(--shadow-overlay)]";
   const balance = Math.max(0, total - form.deposit);
-  const roleLabel = getOperatorRoleLabel(operatorRole);
+  const roleLabel = getOperatorRoleLabel(operatorRole, t);
   const availableCreateStatuses = createStatuses;
-  const quoteModeNote = "可在接单时先报价，也可以保留为空，检测后再发布正式报价。";
+  const quoteModeNote = t("orders2b1.new.quoteModeHelp");
   const hasCatalogCostLines = form.faults.some((item) => Boolean(item.catalog_key));
 
   return (
@@ -110,12 +113,12 @@ export function NewOrderQuotationSection({
       >
         <OrderWorkspaceSectionHeader
           icon={ReceiptText}
-          title="报价处理"
-          description="维修项目、定金、质保与初始状态"
+          title={t("orders2b1.new.quoteTitle")}
+          description={t("orders2b1.new.quoteHelp")}
           className="mb-1.5"
           action={
             <span className="rounded-full bg-primary/5 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-primary lg:text-[11px] lg:leading-4">
-              {form.faults.length} 项
+              {t("orders2b1.new.itemsCount", { count: form.faults.length })}
             </span>
           }
         />
@@ -138,7 +141,7 @@ export function NewOrderQuotationSection({
           <fieldset className="min-w-0 space-y-1.5" aria-describedby="new-order-quote-mode-note">
             <div className="mb-1.5 rounded-xl border border-[var(--border-panel)] bg-card p-1">
               <div className="px-1 pb-1 text-[10px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4">
-                常见维修项目（可选）
+                {t("orders2b1.new.commonRepairs")}
               </div>
               <FaultDiagnosisPicker
                 selected={form.faults}
@@ -151,7 +154,7 @@ export function NewOrderQuotationSection({
             </div>
             <div className="mb-1 flex min-w-0 items-center justify-between gap-2 px-0.5">
               <span className="truncate text-[10px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4">
-                报价项目
+                {t("orders2b1.new.quoteItems")}
               </span>
             </div>
             {canManageOrderCosts && hasCatalogCostLines && costDefaultsError ? (
@@ -159,16 +162,16 @@ export function NewOrderQuotationSection({
                 role="alert"
                 className="mb-1.5 flex items-center justify-between gap-2 rounded-lg border border-status-danger-foreground/20 bg-status-danger/10 px-2 py-1.5 text-[10px] leading-4 text-status-danger-foreground lg:text-xs lg:leading-[18px]"
               >
-                <span>默认成本读取失败，暂不能创建含目录项目的工单。</span>
+                <span>{t("orders2b1.new.costLoadFailed")}</span>
                 <Button type="button" variant="outline" size="sm" onClick={onRetryCostDefaults}>
-                  重试
+                  {t("common.retry")}
                 </Button>
               </div>
             ) : null}
             <div className="min-w-0 space-y-1.5">
               {form.faults.length === 0 ? (
                 <OrderWorkspaceEmptyBlock>
-                  接单时可以暂不报价；检测后再从工单详情发布正式报价
+                  {t("orders2b1.new.quoteOptional")}
                 </OrderWorkspaceEmptyBlock>
               ) : (
                 <div className="max-h-60 min-w-0 space-y-1.5 overflow-y-auto pr-0.5">
@@ -181,7 +184,7 @@ export function NewOrderQuotationSection({
                           <div className="grid min-w-0 grid-cols-2 gap-1.5">
                             <label className="min-w-0">
                               <span className="mb-0.5 block truncate text-[8px] font-semibold text-muted-foreground lg:text-xs lg:leading-4">
-                                内部成本
+                                {t("orders2b1.new.internalCost")}
                               </span>
                               <Input
                                 value={costDrafts[item.line_id]?.text ?? ""}
@@ -189,10 +192,10 @@ export function NewOrderQuotationSection({
                                 autoComplete="off"
                                 placeholder={
                                   costDefaultsPending
-                                    ? "读取中"
+                                    ? t("orders2b1.new.loading")
                                     : costDefaultsError
-                                      ? "读取失败"
-                                      : "留空"
+                                      ? t("orders2b1.new.readFailed")
+                                      : t("orders2b1.new.leaveEmpty")
                                 }
                                 disabled={isNewOrderCostInputDisabled({
                                   catalogKey: item.catalog_key,
@@ -200,7 +203,7 @@ export function NewOrderQuotationSection({
                                   defaultsPending: costDefaultsPending,
                                   defaultsError: costDefaultsError,
                                 })}
-                                aria-label={`维修项目 ${index + 1} 内部成本`}
+                                aria-label={t("orders2b1.new.costAria", { index: index + 1 })}
                                 className={cn(controlClass, "px-2 font-mono")}
                                 onChange={(event) =>
                                   onCostDraftChange?.(item.line_id!, event.target.value)
@@ -209,10 +212,10 @@ export function NewOrderQuotationSection({
                             </label>
                             <label className="min-w-0">
                               <span className="mb-0.5 block truncate text-[8px] font-semibold text-muted-foreground lg:text-xs lg:leading-4">
-                                客户报价
+                                {t("orders2b1.new.customerQuote")}
                               </span>
                               <MoneyKeypadInput
-                                ariaLabel={`报价项目 ${index + 1} 金额`}
+                                ariaLabel={t("orders2b1.new.quoteAria", { index: index + 1 })}
                                 value={moneyDraftValue(Number(item.price) || 0)}
                                 onChange={(value) =>
                                   onPatchFault(index, { price: parseMoneyDraft(value) })
@@ -226,13 +229,13 @@ export function NewOrderQuotationSection({
                               Number(item.price),
                             ) ? (
                               <span className="col-span-2 text-[8px] font-medium leading-3 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
-                                成本高于报价，请确认
+                                {t("orders2b1.new.costAboveQuote")}
                               </span>
                             ) : null}
                           </div>
                         ) : (
                           <MoneyKeypadInput
-                            ariaLabel={`报价项目 ${index + 1} 金额`}
+                            ariaLabel={t("orders2b1.new.quoteAria", { index: index + 1 })}
                             value={moneyDraftValue(Number(item.price) || 0)}
                             onChange={(value) =>
                               onPatchFault(index, { price: parseMoneyDraft(value) })
@@ -254,7 +257,7 @@ export function NewOrderQuotationSection({
                               faults: form.faults.filter((_, faultIndex) => faultIndex !== index),
                             })
                           }
-                          aria-label="删除报价项目"
+                          aria-label={t("orders2b1.new.deleteQuote")}
                         >
                           <Trash2 className="size-3 text-muted-foreground sm:size-4" />
                         </Button>
@@ -265,7 +268,7 @@ export function NewOrderQuotationSection({
                           value={item.name}
                           onChange={(event) => onPatchFault(index, { name: event.target.value })}
                           className={cn(controlClass, "px-2")}
-                          placeholder="自定义项目"
+                          placeholder={t("orders2b1.new.customItem")}
                         />
                       ) : (
                         <>
@@ -294,7 +297,7 @@ export function NewOrderQuotationSection({
                 className="h-9 w-full justify-center gap-1.5 rounded-lg border-[var(--border-panel)] bg-card text-[11px] font-semibold shadow-none lg:h-8 lg:text-xs"
                 onClick={onAddCustomFault}
               >
-                <Plus className="size-3.5" /> 添加自定义项目
+                <Plus className="size-3.5" /> {t("orders2b1.new.addCustomItem")}
               </Button>
             </div>
             <OrderWorkspaceMoneyStrip
@@ -305,7 +308,7 @@ export function NewOrderQuotationSection({
               className="mt-1.5"
               depositControl={
                 <MoneyKeypadInput
-                  ariaLabel="定金"
+                  ariaLabel={t("orders2b1.money.deposit")}
                   value={moneyDraftValue(form.deposit)}
                   onChange={(value) => setForm({ ...form, deposit: parseMoneyDraft(value) })}
                   triggerClassName="h-5 min-h-0 border-0 bg-transparent px-0 py-0 font-mono text-[11px] font-semibold leading-4 shadow-none hover:bg-transparent focus-visible:ring-1 lg:text-xs"
@@ -324,10 +327,10 @@ export function NewOrderQuotationSection({
         <div className="flex min-w-0 items-center justify-between gap-1.5 px-0.5">
           <div className="min-w-0">
             <div className="truncate text-[10px] font-semibold leading-3 text-foreground lg:text-xs lg:leading-4">
-              工单设置
+              {t("orders2b1.new.settings")}
             </div>
             <div className="truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-              质保、录入人员与工单属性
+              {t("orders2b1.new.settingsHelp")}
             </div>
           </div>
           <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-1.5 text-[9px] font-medium leading-none text-muted-foreground lg:text-[11px] lg:leading-4">
@@ -338,7 +341,7 @@ export function NewOrderQuotationSection({
 
         <div className="min-w-0" data-new-order-setting="warranty">
           <FormItem
-            label="保修"
+            label={t("orders2b1.new.warranty")}
             className="[&>label]:text-[9.5px] [&>label]:font-medium [&>label]:leading-3 lg:[&>label]:text-xs lg:[&>label]:leading-4"
           >
             <WarrantyPicker
@@ -371,16 +374,16 @@ export function NewOrderQuotationSection({
               className="truncate text-[9.5px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4"
               data-new-order-setting-label="true"
             >
-              录入人员
+              {t("orders2b1.new.operator")}
             </div>
             <div
               className={cn(serviceSelectTriggerClass, "flex min-w-0 items-center gap-1.5 border")}
               data-new-order-setting-control="true"
-              title={operatorName || "当前登录账号"}
+              title={operatorName || t("orders2b1.new.currentAccount")}
             >
               <ShieldCheck className="size-3.5 shrink-0 text-primary" />
               <span className="min-w-0 flex-1 truncate text-xs font-semibold leading-4 text-foreground">
-                {operatorName || "当前登录账号"}
+                {operatorName || t("orders2b1.new.currentAccount")}
               </span>
               <span className="max-w-[4.75rem] shrink-0 truncate rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium leading-none text-primary lg:text-[11px] lg:leading-4">
                 {roleLabel}
@@ -392,7 +395,7 @@ export function NewOrderQuotationSection({
               className="truncate text-[9.5px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4"
               data-new-order-setting-label="true"
             >
-              随附物品
+              {t("orders2b1.new.accessories")}
             </div>
             <AccessoryNotesPicker
               value={form.accessoryNotes}
@@ -407,7 +410,7 @@ export function NewOrderQuotationSection({
               className="text-[9.5px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4"
               data-new-order-setting-label="true"
             >
-              类型
+              {t("orders2b1.new.type")}
             </div>
             <Select
               value={form.type}
@@ -419,7 +422,11 @@ export function NewOrderQuotationSection({
               <SelectContent className={serviceDropdownContentClass}>
                 {repairOrderType.map((type) => (
                   <SelectItem key={type} value={type}>
-                    {type === "quick_repair" ? "快修" : "送修"}
+                    {t(
+                      type === "quick_repair"
+                        ? "orders2b1.new.quickRepair"
+                        : "orders2b1.new.dropoffRepair",
+                    )}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -431,7 +438,7 @@ export function NewOrderQuotationSection({
               className="text-[9.5px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4"
               data-new-order-setting-label="true"
             >
-              状态
+              {t("orders2b1.new.status")}
             </div>
             <Select
               value={form.status}
@@ -456,7 +463,7 @@ export function NewOrderQuotationSection({
                       )
                     }
                   >
-                    {status.label}
+                    {localizeOrderWorkflowStatusLabel(status, t)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -473,11 +480,11 @@ function costExceedsQuote(costText: string, quote: number) {
   return cost !== null && Number.isFinite(quote) && cost > quote;
 }
 
-function getOperatorRoleLabel(role?: string) {
-  if (role === "owner") return "最高管理员";
-  if (role === "manager") return "管理员";
-  if (role === "technician") return "技师";
-  if (role === "sales") return "前台";
-  if (role === "viewer") return "只读";
-  return "账号";
+function getOperatorRoleLabel(role: string | undefined, t: ReturnType<typeof useLocale>["t"]) {
+  if (role === "owner") return t("orders2b1.new.role.owner");
+  if (role === "manager") return t("orders2b1.new.role.manager");
+  if (role === "technician") return t("orders2b1.new.role.technician");
+  if (role === "sales") return t("orders2b1.new.role.sales");
+  if (role === "viewer") return t("orders2b1.new.role.viewer");
+  return t("orders2b1.new.role.account");
 }

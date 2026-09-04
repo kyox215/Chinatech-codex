@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CatalogCombobox, InventoryPhoneCatalogFields } from "./inventory-phone-catalog-fields";
@@ -94,6 +95,7 @@ async function expectOpenListboxFor(trigger: HTMLElement) {
 
 describe("InventoryPhoneCatalogFields", () => {
   it("opens the fixed mobile picker with a button trigger and explicit search", async () => {
+    const user = userEvent.setup();
     setViewportWidth(390);
     renderFields({ brand: "", model: "", storageCapacity: "", color: "" });
 
@@ -118,7 +120,7 @@ describe("InventoryPhoneCatalogFields", () => {
     const searchAction = screen.getByRole("button", { name: "搜索目录或手动输入" });
     expect(searchAction).toBeVisible();
     expect(searchAction).toHaveClass("h-11", "min-h-11");
-    await searchAction.click();
+    await user.click(searchAction);
     await waitFor(() =>
       expect(screen.getByPlaceholderText("搜索手机品牌或手动输入")).toHaveFocus(),
     );
@@ -128,23 +130,32 @@ describe("InventoryPhoneCatalogFields", () => {
     expect(screen.getByRole("option", { name: "使用“Unknown mobile brand”" })).toHaveClass(
       "min-h-11",
     );
+    await user.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(trigger).toHaveAttribute("aria-expanded", "false");
+      expect(trigger).toHaveFocus();
+    });
   });
 
   it("uses the fixed picker on touch-first tablet widths", async () => {
+    const user = userEvent.setup();
     setViewportWidth(820);
     renderFields({ brand: "", model: "", storageCapacity: "", color: "" });
 
-    fireEvent.click(screen.getByRole("combobox", { name: "品牌 *" }));
+    const trigger = screen.getByRole("combobox", { name: "品牌 *" });
+    fireEvent.click(trigger);
 
     expect(await screen.findByRole("dialog", { name: "品牌" })).toHaveAttribute(
       "data-inventory-catalog-picker",
       "mobile",
     );
     expect(screen.queryByPlaceholderText("搜索手机品牌或手动输入")).not.toBeInTheDocument();
-    await screen.getByRole("button", { name: "搜索目录或手动输入" }).click();
+    await user.click(screen.getByRole("button", { name: "搜索目录或手动输入" }));
     await waitFor(() =>
       expect(screen.getByPlaceholderText("搜索手机品牌或手动输入")).toHaveFocus(),
     );
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(trigger).toHaveAttribute("aria-expanded", "false"));
   });
 
   it.each([360, 390, 430])(

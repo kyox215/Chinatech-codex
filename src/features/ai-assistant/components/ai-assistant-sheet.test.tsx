@@ -14,6 +14,8 @@ vi.mock("@/lib/repairdesk/api", async (importOriginal) => ({
 
 import type { AiOrderAssistantResponse } from "@/features/ai-assistant/model/contracts";
 import { getMockAiAssistantUsageSummary } from "@/features/ai-assistant/testing/mock-usage";
+import { LocaleProvider, useLocale } from "@/shared/i18n/locale-provider";
+import type { AppLocale } from "@/shared/i18n/locales";
 import { AiAssistantSheet } from "./ai-assistant-sheet";
 import { mergeVoiceInputValue } from "./use-ai-assistant-voice-input";
 
@@ -73,10 +75,12 @@ describe("AiAssistantSheet", () => {
     apiMocks.runAiOrderAssistantTurn.mockResolvedValue(response("R-IT", "order-it"));
     renderSheet();
 
-    fireEvent.change(screen.getByRole("textbox", { name: "输入工单查询问题" }), {
+    expect(screen.getByRole("button", { name: "Chiudi assistente AI" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Inserisci una domanda sugli ordini" }), {
       target: { value: "mostra iPhone 15" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    fireEvent.click(screen.getByRole("button", { name: "Invia" }));
 
     await screen.findByText("R-IT");
     expect(apiMocks.runAiOrderAssistantTurn).toHaveBeenCalledWith(
@@ -135,7 +139,9 @@ describe("AiAssistantSheet", () => {
 
     fireEvent.click(await screen.findByText("R-NAV"));
     expect(onOpenChange).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("link", { name: "打开订单 R-NAV" }));
+    const orderLink = screen.getByRole("link", { name: "打开订单 R-NAV" });
+    orderLink.addEventListener("click", (event) => event.preventDefault(), { once: true });
+    fireEvent.click(orderLink);
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
@@ -478,6 +484,25 @@ describe("AiAssistantSheet", () => {
     expect(merged.value).toHaveLength(800);
     expect(merged.truncated).toBe(true);
   });
+
+  it("localizes client chrome while preserving the active draft without a business action", () => {
+    render(
+      <LocaleProvider initialLocale="zh-CN">
+        <LocaleCapture />
+        {sheetBody()}
+      </LocaleProvider>,
+    );
+
+    const input = screen.getByRole("textbox", { name: "输入工单查询问题" });
+    fireEvent.change(input, { target: { value: "DYNAMIC-设备-42" } });
+    act(() => setTestLocale("it-IT"));
+
+    expect(screen.getByRole("textbox", { name: "Inserisci una domanda sugli ordini" })).toHaveValue(
+      "DYNAMIC-设备-42",
+    );
+    expect(apiMocks.runAiOrderAssistantTurn).not.toHaveBeenCalled();
+    expect(apiMocks.runAiOrderInlineAction).not.toHaveBeenCalled();
+  });
 });
 
 function renderSheet(overrides: Partial<React.ComponentProps<typeof AiAssistantSheet>> = {}) {
@@ -485,6 +510,15 @@ function renderSheet(overrides: Partial<React.ComponentProps<typeof AiAssistantS
 }
 
 function sheetElement(overrides: Partial<React.ComponentProps<typeof AiAssistantSheet>> = {}) {
+  const locale = document.documentElement.lang as AppLocale;
+  return (
+    <LocaleProvider initialLocale={locale === "it-IT" || locale === "en" ? locale : "zh-CN"}>
+      {sheetBody(overrides)}
+    </LocaleProvider>
+  );
+}
+
+function sheetBody(overrides: Partial<React.ComponentProps<typeof AiAssistantSheet>> = {}) {
   return (
     <AiAssistantSheet
       open
@@ -502,6 +536,14 @@ function sheetElement(overrides: Partial<React.ComponentProps<typeof AiAssistant
       {...overrides}
     />
   );
+}
+
+let setTestLocale: (locale: AppLocale) => void = () => undefined;
+
+function LocaleCapture() {
+  const { setLocale } = useLocale();
+  setTestLocale = setLocale;
+  return null;
 }
 
 function response(publicNo: string, id: string): AiOrderAssistantResponse {

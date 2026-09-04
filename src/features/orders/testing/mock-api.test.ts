@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import type { CreateOrderInput, PatchOrderInput, UpdateOrderInput } from "@/lib/repairdesk/types";
+import type {
+  AuditActor,
+  CreateOrderInput,
+  PatchOrderInput,
+  UpdateOrderInput,
+} from "@/lib/repairdesk/types";
 import { orders as mockOrders } from "@/lib/mock/state";
 import { createMockSupplier, resetMockSuppliers } from "@/features/suppliers/testing/mock-api";
 import {
@@ -186,7 +191,7 @@ describe("mock order WhatsApp notification workflow", () => {
     expect(detail.order.public_no).toMatch(/^R\d+$/);
   });
 
-  it("enforces assigned-order scope and kiosk capability in mock detail reads", async () => {
+  it("enforces assigned-order scope and projects kiosk/photo capabilities in mock detail reads", async () => {
     const id = await createMockOrder();
     const row = mockOrders.find((item) => item.id === id);
     if (!row) throw new Error("fixture order missing");
@@ -207,13 +212,50 @@ describe("mock order WhatsApp notification workflow", () => {
     };
 
     await expect(getOrder(id, assignedTechnician)).resolves.toMatchObject({
-      capabilities: { canCreateKioskSession: true },
+      capabilities: { canCreateKioskSession: true, canUploadPhoto: true },
     });
     await expect(getOrder(id, otherTechnician)).rejects.toThrow("当前工单未分配给你");
 
+    for (const role of ["owner", "manager", "sales"] as const) {
+      const employee = {
+        id: `staff_${role}`,
+        displayName: role,
+        role,
+        storeRole: role,
+        storeId: "00000000-0000-0000-0000-000000000001",
+        activeMembershipId: `membership_${role}`,
+      } satisfies AuditActor;
+      await expect(getOrder(id, employee)).resolves.toMatchObject({
+        capabilities: { canUploadPhoto: true },
+      });
+    }
+    const viewer = {
+      id: "staff_viewer",
+      displayName: "Viewer",
+      role: "viewer" as const,
+      storeRole: "viewer" as const,
+      storeId: "00000000-0000-0000-0000-000000000001",
+      activeMembershipId: "membership_viewer",
+    } satisfies AuditActor;
+    await expect(getOrder(id, viewer)).resolves.toMatchObject({
+      capabilities: { canUploadPhoto: false },
+    });
+
+    row.status = "completed";
+    await expect(
+      getOrder(id, {
+        id: "staff_owner",
+        displayName: "Owner",
+        role: "owner",
+        storeRole: "owner",
+        storeId: "00000000-0000-0000-0000-000000000001",
+        activeMembershipId: "membership_owner",
+      }),
+    ).resolves.toMatchObject({ capabilities: { canUploadPhoto: true } });
+
     row.record_state = "voided";
     await expect(getOrder(id, assignedTechnician)).resolves.toMatchObject({
-      capabilities: { canCreateKioskSession: false },
+      capabilities: { canCreateKioskSession: false, canUploadPhoto: false },
     });
   });
 

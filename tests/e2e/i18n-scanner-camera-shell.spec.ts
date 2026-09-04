@@ -5,6 +5,7 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const evidenceDir = resolve(
   process.env.REPAIRDESK_I18N_EVIDENCE_DIR ?? "test-results/i18n-scanner-camera-shell",
 );
+const captureVisualEvidence = process.env.REPAIRDESK_CAPTURE_I18N_EVIDENCE === "1";
 const cases = [
   ["zh-CN", 390, 844],
   ["zh-CN", 430, 932],
@@ -32,6 +33,11 @@ const labels = {
 } as const;
 const cameraTitles = {
   "zh-CN": "拍照采集",
+  "it-IT": "Scatta foto",
+  en: "Take photo",
+} as const;
+const orderPhotoTriggerLabels = {
+  "zh-CN": "拍照",
   "it-IT": "Scatta foto",
   en: "Take photo",
 } as const;
@@ -331,7 +337,7 @@ for (const [locale, width, height] of cases) {
       const orderDetail = page.locator('[data-order-detail-root="true"]').first();
       await expect(orderDetail).toBeVisible({ timeout: 30_000 });
       const orderPhotoTrigger = orderDetail
-        .getByRole("button", { name: "拍照", exact: true })
+        .getByRole("button", { name: orderPhotoTriggerLabels[locale], exact: true })
         .filter({ visible: true })
         .first();
       await orderPhotoTrigger.click();
@@ -583,7 +589,10 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 function shouldCaptureEvidence(locale: (typeof cases)[number][0], width: number) {
-  return locale === "it-IT" || width === 390 || width === 768 || width === 1440;
+  return (
+    captureVisualEvidence &&
+    (locale === "it-IT" || width === 390 || width === 768 || width === 1440)
+  );
 }
 
 async function waitForSheetSettled(sheet: Locator) {

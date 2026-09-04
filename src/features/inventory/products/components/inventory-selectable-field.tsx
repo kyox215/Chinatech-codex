@@ -15,6 +15,7 @@ import {
 import { useIsCompactWorkspace } from "@/hooks/use-mobile";
 import { componentDensity, componentOverlay } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export type InventorySelectableFieldMode = "auto" | "desktop" | "mobile";
 
@@ -54,20 +55,23 @@ export function InventorySelectableField({
   id,
   label,
   value = "",
-  placeholder = "选择",
+  placeholder,
   options,
   onChange,
   mode = "auto",
   disabled = false,
   pending = false,
   pendingMessage,
-  emptyMessage = "暂无可选项",
+  emptyMessage,
   helperText,
   required = false,
   invalid = false,
   ariaDescribedBy,
   className,
 }: InventorySelectableFieldProps) {
+  const { t } = useLocale();
+  const resolvedPlaceholder = placeholder ?? t("inventory2b4.quick.select.placeholder");
+  const resolvedEmptyMessage = emptyMessage ?? t("inventory2b4.quick.select.empty");
   const compactWorkspace = useIsCompactWorkspace();
   const resolvedMode = mode === "auto" ? (compactWorkspace ? "mobile" : "desktop") : mode;
   const [open, setOpen] = useState(false);
@@ -166,7 +170,11 @@ export function InventorySelectableField({
       aria-controls={open ? listboxId : undefined}
       aria-invalid={invalid || undefined}
       aria-required={required || undefined}
-      aria-label={summaryValue ? `${label}：${summaryValue}` : placeholder}
+      aria-label={
+        summaryValue
+          ? t("inventory2b4.quick.select.valueAria", { label, value: summaryValue })
+          : resolvedPlaceholder
+      }
       aria-describedby={ariaDescribedBy}
       disabled={isUnavailable}
       data-inventory-selectable-field-trigger
@@ -184,7 +192,7 @@ export function InventorySelectableField({
           !value && "text-muted-foreground",
         )}
       >
-        {summaryValue || placeholder}
+        {summaryValue || resolvedPlaceholder}
       </span>
       <ChevronDown aria-hidden="true" className="ml-2 size-4 shrink-0 text-muted-foreground" />
     </button>
@@ -195,7 +203,7 @@ export function InventorySelectableField({
       id={listboxId}
       ref={listboxRef}
       role="listbox"
-      aria-label={`${label}选择`}
+      aria-label={t("inventory2b4.quick.select.optionsAria", { label })}
       tabIndex={-1}
       data-inventory-selectable-field-listbox
       onKeyDown={handleListboxKeyDown}
@@ -239,7 +247,7 @@ export function InventorySelectableField({
         </div>
       ) : (
         <p role="status" className="px-3 py-4 text-sm text-muted-foreground">
-          {pendingMessage ?? emptyMessage}
+          {pendingMessage ?? resolvedEmptyMessage}
         </p>
       )}
     </div>
@@ -266,7 +274,9 @@ export function InventorySelectableField({
             <SheetHeader className={componentOverlay.mobileHeader}>
               <SheetTitle className="text-left text-base">{label}</SheetTitle>
               <SheetDescription className="text-left">
-                {pendingMessage ?? helperText ?? "选择后会自动关闭"}
+                {pendingMessage ??
+                  helperText ??
+                  t("inventory2b4.quick.select.closesAfterSelection")}
               </SheetDescription>
             </SheetHeader>
             <div
@@ -282,7 +292,7 @@ export function InventorySelectableField({
           <PopoverTrigger asChild>{trigger}</PopoverTrigger>
           <PopoverContent
             align="start"
-            aria-label={`${label}选择`}
+            aria-label={t("inventory2b4.quick.select.optionsAria", { label })}
             className={cn(
               componentOverlay.popoverContent,
               "max-h-72 w-[min(22rem,calc(100vw-24px))] p-2",

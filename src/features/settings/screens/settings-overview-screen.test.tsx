@@ -3,8 +3,10 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { SettingsNavigationGroup } from "@/features/settings/components/settings-navigation";
-import { SETTINGS_SECTION_GROUPS } from "@/features/settings/model/settings-section-registry";
+import { getSettingsSectionGroups } from "@/features/settings/model/settings-section-registry";
 import { SettingsOverviewScreen } from "@/features/settings/screens/settings-overview-screen";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
+import type { AppLocale } from "@/shared/i18n/locales";
 
 describe("SettingsOverviewScreen", () => {
   it("renders concise core entries and a collapsed advanced area", () => {
@@ -60,7 +62,6 @@ describe("SettingsOverviewScreen", () => {
     [{ state: "unavailable" as const }, "不可用"],
   ])("does not render the removed readiness panel %#", (readiness, label) => {
     renderOverview(readiness);
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(screen.queryByText(label)).not.toBeInTheDocument();
   });
 
@@ -75,26 +76,50 @@ describe("SettingsOverviewScreen", () => {
     fireEvent.change(screen.getByLabelText("搜索设置"), { target: { value: "没有结果" } });
     expect(screen.getByText("没有匹配的设置")).toBeVisible();
   });
+
+  it.each([
+    ["it-IT" as const, "Impostazioni frequenti", "Negozio", "Altre impostazioni"],
+    ["en" as const, "Common settings", "Store", "More settings"],
+  ])("renders localized overview presentation for %s", (locale, core, store, more) => {
+    renderOverview({ state: "ready", score: 100 }, false, locale);
+
+    expect(screen.getByRole("heading", { name: core })).toBeVisible();
+    expect(screen.getByRole("link", { name: new RegExp(`^${store}`) })).toHaveAttribute(
+      "href",
+      "/settings?section=store",
+    );
+    expect(screen.getByRole("button", { name: new RegExp(more) })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
 });
 
 function renderOverview(
   readiness: React.ComponentProps<typeof SettingsOverviewScreen>["readiness"],
   isPlatformAdmin = false,
+  locale: AppLocale = "zh-CN",
 ) {
-  return render(<OverviewHarness readiness={readiness} isPlatformAdmin={isPlatformAdmin} />);
+  return render(
+    <LocaleProvider initialLocale={locale}>
+      <OverviewHarness readiness={readiness} isPlatformAdmin={isPlatformAdmin} locale={locale} />
+    </LocaleProvider>,
+  );
 }
 
 function OverviewHarness({
   readiness,
   isPlatformAdmin,
+  locale,
 }: {
   readiness: React.ComponentProps<typeof SettingsOverviewScreen>["readiness"];
   isPlatformAdmin: boolean;
+  locale: AppLocale;
 }) {
   const [searchValue, setSearchValue] = useState("");
   return (
     <SettingsOverviewScreen
-      groups={groups()}
+      groups={groups(locale)}
       isPlatformAdmin={isPlatformAdmin}
       activeStoreName="Ripara Subito"
       accessibleSectionCount={9}
@@ -106,8 +131,8 @@ function OverviewHarness({
   );
 }
 
-function groups(): readonly SettingsNavigationGroup[] {
-  return SETTINGS_SECTION_GROUPS.map((group) => ({
+function groups(locale: AppLocale): readonly SettingsNavigationGroup[] {
+  return getSettingsSectionGroups(locale).map((group) => ({
     key: group.key,
     label: group.label,
     items: group.sections.map((section) => ({

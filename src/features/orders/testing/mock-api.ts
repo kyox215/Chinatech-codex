@@ -651,7 +651,7 @@ export async function getOrder(id: string, _actor?: AuditActor) {
   const hasFinancialEvidence =
     o.is_paid || o.deposit_amount > 0 || o.quotation_amount > o.balance_amount;
   const role = _actor?.storeRole ?? _actor?.role;
-  const kioskScopeSatisfied =
+  const orderScopeSatisfied =
     role === "technician" &&
     Boolean(_actor?.activeMembershipId && o.assignee_membership_id === _actor.activeMembershipId);
   return {
@@ -695,7 +695,12 @@ export async function getOrder(id: string, _actor?: AuditActor) {
         !voided &&
         (!_actor ||
           _actor.isSystem ||
-          can(_actor, "order:update_intake", { scopeSatisfied: kioskScopeSatisfied })),
+          can(_actor, "order:update_intake", { scopeSatisfied: orderScopeSatisfied })),
+      canUploadPhoto:
+        !voided &&
+        (!_actor ||
+          _actor.isSystem ||
+          can(_actor, "order:photo_upload", { scopeSatisfied: orderScopeSatisfied })),
       canCorrect: terminal && !voided,
       canReopen: terminal && !voided,
       canVoid: terminal && !voided && !hasFinancialEvidence,

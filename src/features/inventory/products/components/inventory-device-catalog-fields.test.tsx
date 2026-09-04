@@ -82,10 +82,13 @@ describe("InventoryDeviceCatalogFields", () => {
     );
     expect(document.querySelector("[data-inventory-catalog-search]")).toBeNull();
     expect(screen.getByRole("button", { name: "搜索目录或手动输入" })).toBeVisible();
-    await screen.getByRole("button", { name: "搜索目录或手动输入" }).click();
+    fireEvent.click(screen.getByRole("button", { name: "搜索目录或手动输入" }));
     await waitFor(() =>
       expect(screen.getByPlaceholderText("搜索手机品牌或手动输入")).toHaveFocus(),
     );
+    const picker = screen.getByRole("dialog", { name: "品牌" });
+    fireEvent.click(screen.getByRole("button", { name: "关闭品牌选择" }));
+    await waitFor(() => expect(picker).toHaveAttribute("data-state", "closed"));
   });
 
   it.each([
@@ -122,8 +125,11 @@ describe("InventoryDeviceCatalogFields", () => {
     expect(screen.getByText(helper)).toBeVisible();
     fireEvent.click(trigger);
     expect(screen.queryByText("例如 Apple、Samsung")).not.toBeInTheDocument();
-    await screen.getByRole("button", { name: "搜索目录或手动输入" }).click();
+    fireEvent.click(screen.getByRole("button", { name: "搜索目录或手动输入" }));
     await waitFor(() => expect(screen.getByPlaceholderText(search)).toHaveFocus());
+    const picker = screen.getByRole("dialog", { name: "品牌" });
+    fireEvent.click(screen.getByRole("button", { name: "关闭品牌选择" }));
+    await waitFor(() => expect(picker).toHaveAttribute("data-state", "closed"));
   });
 
   it("uses an inline selector inside the create dialog without a second dialog root", async () => {
@@ -142,9 +148,13 @@ describe("InventoryDeviceCatalogFields", () => {
     expect(screen.queryByText("例如 Apple、Samsung")).not.toBeInTheDocument();
     expect(document.querySelector("[data-inventory-catalog-search]")).toBeNull();
 
-    await screen.getByRole("button", { name: "搜索目录或手动输入" }).click();
+    fireEvent.click(screen.getByRole("button", { name: "搜索目录或手动输入" }));
     await waitFor(() =>
       expect(screen.getByPlaceholderText("搜索游戏机品牌或手动输入")).toHaveFocus(),
+    );
+    fireEvent.click(closeButton);
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: "品牌选择" })).not.toBeInTheDocument(),
     );
   });
 

@@ -17,6 +17,7 @@ import type {
   CustomerIntakeNewCustomerPolicy,
 } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 import { normalizePhoneKeypadDraft } from "@/shared/lib/mobile-input";
 
 type NewCustomerIntent = CustomerIntakeNewCustomerPolicy;
@@ -50,6 +51,7 @@ export function CustomerIdentityLookup({
   deviceLimit?: number;
   disabled?: boolean;
 }) {
+  const { t } = useLocale();
   const listboxId = useId();
   const [activeField, setActiveField] = useState<"phone" | "name" | null>(null);
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
@@ -138,13 +140,14 @@ export function CustomerIdentityLookup({
     candidateCount: lookup.candidates.length,
     queryError: lookup.queryError,
     isOnline: lookup.isOnline,
+    t,
   });
 
   return (
     <div data-customer-identity-lookup="true" className="grid min-w-0 gap-1.5">
       <div className="grid min-w-0 gap-1.5 md:grid-cols-2 lg:grid-cols-1">
         <CustomerIntakeFieldShell
-          label="电话"
+          label={t("orders2b1.new.lookup.phone")}
           required
           leading={<Search className="size-3.5" />}
           trailing={<UserRound className="size-3.5 text-primary" />}
@@ -159,11 +162,11 @@ export function CustomerIdentityLookup({
                 onPhoneChange(normalizePhoneKeypadDraft(value));
               }}
               disabled={disabled}
-              ariaLabel="客户电话号码"
+              ariaLabel={t("orders2b1.new.lookup.phoneAria")}
               ariaControls={listboxId}
               ariaExpanded={listboxVisible}
               ariaActiveDescendant={activeField === "phone" ? activeDescendant : undefined}
-              placeholder="输入电话号码"
+              placeholder={t("orders2b1.new.lookup.phonePlaceholder")}
               triggerClassName={inputClassName}
               onOpenChange={(open) => {
                 setActiveField(open ? "phone" : null);
@@ -174,14 +177,17 @@ export function CustomerIdentityLookup({
           </div>
         </CustomerIntakeFieldShell>
 
-        <CustomerIntakeFieldShell label="姓名" leading={<UserRound className="size-3.5" />}>
+        <CustomerIntakeFieldShell
+          label={t("orders2b1.new.lookup.name")}
+          leading={<UserRound className="size-3.5" />}
+        >
           <div className={cn("relative min-w-0", inputContainerClassName)}>
             <Input
               type="text"
               value={name}
               disabled={disabled}
               role="combobox"
-              aria-label="客户姓名"
+              aria-label={t("orders2b1.new.lookup.nameAria")}
               aria-autocomplete="list"
               aria-expanded={listboxVisible}
               aria-controls={listboxId}
@@ -198,7 +204,7 @@ export function CustomerIdentityLookup({
               }}
               onBlur={() => setActiveField(null)}
               onKeyDown={handleKeyboardNavigation}
-              placeholder="搜索客户姓名（可选）"
+              placeholder={t("orders2b1.new.lookup.namePlaceholder")}
               className={cn("h-7 text-base sm:h-9 sm:text-sm", inputClassName)}
             />
           </div>
@@ -212,9 +218,9 @@ export function CustomerIdentityLookup({
         {selectedCustomerId ? (
           <CustomerIdentitySummary
             tone="selected"
-            title="已选择现有客户"
-            description={`${lookup.normalizedName || "未命名客户"} · ${lookup.normalizedPhone}`}
-            actionLabel="更换客户"
+            title={t("orders2b1.new.lookup.selected")}
+            description={`${lookup.normalizedName || t("orders2b1.new.lookup.unnamed")} · ${lookup.normalizedPhone}`}
+            actionLabel={t("orders2b1.new.lookup.change")}
             onAction={() => {
               onClearCustomerSelection();
               updateNewCustomerIntent(null);
@@ -226,20 +232,27 @@ export function CustomerIdentityLookup({
             tone={blockedIntent ? "warning" : "new"}
             title={
               newCustomerIntent === "blocked_exact_duplicate"
-                ? "已有姓名和电话完全相同的客户"
+                ? t("orders2b1.new.lookup.duplicate")
                 : newCustomerIntent === "blocked_missing_name"
-                  ? "请先填写可区分的客户姓名"
-                  : "将按当前资料新建客户"
+                  ? t("orders2b1.new.lookup.distinguishName")
+                  : t("orders2b1.new.lookup.createNew")
             }
-            description={newCustomerIntentDescription(newCustomerIntent)}
-            actionLabel={blockedIntent ? "返回结果" : "返回选择已有客户"}
+            description={newCustomerIntentDescription(newCustomerIntent, t)}
+            actionLabel={
+              blockedIntent
+                ? t("orders2b1.new.lookup.backResults")
+                : t("orders2b1.new.lookup.backExisting")
+            }
             onAction={() => {
               updateNewCustomerIntent(null);
               setDismissedIntentKey("");
             }}
             primaryAction={
               blockedIntent && exactPhoneCandidate
-                ? { label: "使用已有客户", onClick: () => pickCustomer(exactPhoneCandidate) }
+                ? {
+                    label: t("orders2b1.new.lookup.useExisting"),
+                    onClick: () => pickCustomer(exactPhoneCandidate),
+                  }
                 : undefined
             }
           />
@@ -270,14 +283,15 @@ export function CustomerIdentityLookup({
 }
 
 function LookupIdleHint({ lookup }: { lookup: ReturnType<typeof useCustomerIdentityCandidates> }) {
-  let message = "可单独输入电话或姓名；两者都有时以电话为准。";
+  const { t } = useLocale();
+  let message = t("orders2b1.new.lookup.idle");
   if (lookup.phonePresent) {
     message =
       lookup.phoneRaw.length < 3
-        ? "继续输入电话号码；有电话时只显示电话匹配客户。"
-        : "姓名仅用于同号客户排序，不会显示电话号码不同的同名客户。";
+        ? t("orders2b1.new.lookup.keepTyping")
+        : t("orders2b1.new.lookup.nameSortOnly");
   } else if (lookup.nameHasDigits) {
-    message = "姓名搜索只接收姓名，电话号码请在电话栏输入。";
+    message = t("orders2b1.new.lookup.nameNoPhone");
   }
   return (
     <p className="rounded-lg bg-primary/5 px-2 py-1 text-[10px] leading-4 text-primary">
@@ -292,17 +306,20 @@ function nextHighlight(index: number | null, length: number, key: string) {
   return index === null ? length - 1 : Math.max(0, index - 1);
 }
 
-function newCustomerIntentDescription(intent: NewCustomerIntent) {
+function newCustomerIntentDescription(
+  intent: NewCustomerIntent,
+  t: ReturnType<typeof useLocale>["t"],
+) {
   if (intent === "blocked_exact_duplicate") {
-    return "不能创建无法区分的重复档案，请使用已有客户或修改姓名、电话。";
+    return t("orders2b1.new.lookup.blockedDuplicate");
   }
   if (intent === "blocked_missing_name") {
-    return "此电话已有客户；若要新建另一位共用电话的客户，请先填写可区分的姓名。";
+    return t("orders2b1.new.lookup.blockedName");
   }
   if (intent === "requires_shared_phone_confirmation") {
-    return "此电话已有客户；提交工单时仍需确认这是另一位共用电话的客户。";
+    return t("orders2b1.new.lookup.sharedConfirm");
   }
-  return "当前未发现相同电话；最终身份仍会在提交工单时由服务端确认。";
+  return t("orders2b1.new.lookup.noMatch");
 }
 
 function getLookupLiveStatus({
@@ -314,6 +331,7 @@ function getLookupLiveStatus({
   candidateCount,
   queryError,
   isOnline,
+  t,
 }: {
   selectedCustomerId?: string;
   newCustomerIntent: NewCustomerIntent | null;
@@ -323,11 +341,12 @@ function getLookupLiveStatus({
   candidateCount: number;
   queryError: string;
   isOnline: boolean;
+  t: ReturnType<typeof useLocale>["t"];
 }) {
-  if (selectedCustomerId) return "已选择现有客户";
-  if (newCustomerIntent) return newCustomerIntentDescription(newCustomerIntent);
+  if (selectedCustomerId) return t("orders2b1.new.lookup.selected");
+  if (newCustomerIntent) return newCustomerIntentDescription(newCustomerIntent, t);
   if (!showResults || queryError || !isOnline) return "";
-  if (isSearching) return "正在核对客户";
-  if (trustedResult) return `客户核对完成，共 ${candidateCount} 位候选`;
+  if (isSearching) return t("orders2b1.new.lookup.checking");
+  if (trustedResult) return t("orders2b1.new.lookup.checked", { count: candidateCount });
   return "";
 }

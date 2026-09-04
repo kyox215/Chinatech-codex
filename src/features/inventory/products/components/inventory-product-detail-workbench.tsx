@@ -12,8 +12,8 @@ import type {
 } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
-import { MoneyText } from "@/components/orders/badges";
 import type { InventoryLifecycleListSummary } from "@/lib/repairdesk/types";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 import {
   getInventoryLifecycleProjectionToneClass,
@@ -23,10 +23,17 @@ import {
   InventoryLifecycleUnavailableCard,
 } from "@/features/inventory/lifecycle/components/inventory-lifecycle-status";
 import { getInventoryLifecycleProjectionMeta } from "@/features/inventory/lifecycle/model/projection";
+import { localizeInventoryProjectionMeta } from "@/features/inventory/lifecycle/model/inventory-lifecycle-i18n";
 import { InventoryLifecycleLoadingCard } from "@/features/inventory/lifecycle/components/inventory-lifecycle-page-shell";
 import { InventoryDetailActionDock } from "./inventory-detail-action-dock";
 import { resolveInventoryDetailNextAction } from "../model/resolve-inventory-detail-next-action";
 import type { InventoryDetailNextAction } from "@/features/inventory/model/inventory-detail-next-action";
+import {
+  formatInventoryProductMoney,
+  localizeInventoryDetailNextAction,
+  localizeInventoryProductCategory,
+  localizeInventoryProductStatus,
+} from "../model/inventory-product-i18n";
 
 import {
   buildWorkbenchFields,
@@ -122,9 +129,11 @@ export function InventoryProductDetailWorkbench({
   /** Production injects the mutation-owning editor; stories provide no editor. */
   renderInspectionEditor?: (summary: InventoryLifecycleListSummary) => ReactNode;
 }) {
+  const { locale, t } = useLocale();
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
   const meta = categories[item.category];
+  const categoryLabel = localizeInventoryProductCategory(item.category, meta.label, t);
   const identifiers = item.identifiers ?? [];
   const visibleIdentifiers: VisibleIdentifier[] = identifiers.length
     ? identifiers
@@ -165,20 +174,34 @@ export function InventoryProductDetailWorkbench({
   const lifecycleSummaryWithInspection = lifecycleSummary
     ? { ...lifecycleSummary, ...(inspection ? { inspection } : {}) }
     : undefined;
-  const nextAction = resolveInventoryDetailNextAction({
+  const resolvedNextAction = resolveInventoryDetailNextAction({
     itemId: item.id,
     summary: lifecycleSummary,
     lifecycleSummaryState,
     canEdit,
   });
+  const nextAction = localizeNextAction(resolvedNextAction, t);
   const lifecycleMeta = exactProjection
-    ? getInventoryLifecycleProjectionMeta(exactProjection, item.legacy_status ?? item.status)
+    ? localizeInventoryProjectionMeta(
+        exactProjection,
+        getInventoryLifecycleProjectionMeta(exactProjection, item.legacy_status ?? item.status),
+        item.legacy_status ?? item.status,
+        t,
+      )
     : undefined;
+  const statusLabel =
+    lifecycleMeta?.label ?? localizeInventoryProductStatus(item.status, statuses[item.status], t);
   summaryFields.push({
-    label: "售价",
-    value: item.list_price === undefined ? "未定价" : <MoneyText amount={item.list_price} />,
+    label: t("inventory2b4.detail.listPrice"),
+    value:
+      item.list_price === undefined
+        ? t("inventory2b4.detail.unpriced")
+        : formatInventoryProductMoney(item.list_price, locale, t),
   });
-  summaryFields.push({ label: "库位", value: item.location?.trim() || "未设置库位" });
+  summaryFields.push({
+    label: t("inventory2b4.detail.location"),
+    value: item.location?.trim() ? item.location : t("inventory2b4.detail.locationUnset"),
+  });
 
   return (
     <div
@@ -198,8 +221,8 @@ export function InventoryProductDetailWorkbench({
       <MobileProductHeader
         headerRef={mobileHeaderRef}
         item={item}
-        categoryLabel={meta.label}
-        statusLabel={lifecycleMeta?.label ?? statuses[item.status]}
+        categoryLabel={categoryLabel}
+        statusLabel={statusLabel}
         canEdit={canEdit}
         onBack={onBack}
         onEdit={onEdit}
@@ -208,7 +231,7 @@ export function InventoryProductDetailWorkbench({
       <div>
         <DesktopProductHeader
           item={item}
-          statusLabel={lifecycleMeta?.label ?? statuses[item.status]}
+          statusLabel={statusLabel}
           canEdit={canEdit}
           onEdit={onEdit}
         />
@@ -217,7 +240,7 @@ export function InventoryProductDetailWorkbench({
             <ProductHeroCard
               item={item}
               icon={meta.icon}
-              statusLabel={lifecycleMeta?.label ?? statuses[item.status]}
+              statusLabel={statusLabel}
               statusClassName={
                 exactProjection
                   ? getInventoryLifecycleProjectionToneClass(lifecycleMeta?.tone ?? "neutral")
@@ -225,7 +248,7 @@ export function InventoryProductDetailWorkbench({
               }
               summaryFields={summaryFields}
             />
-            <DeviceWorkbenchSection fields={buildWorkbenchFields(item)} />
+            <DeviceWorkbenchSection fields={buildWorkbenchFields(item, t)} />
           </div>
           <div className="grid min-w-0 content-start gap-1.5 lg:gap-3">
             {lifecycleSummaryState === "loading" ? <InventoryLifecycleLoadingCard /> : null}
@@ -284,12 +307,17 @@ function handleNextAction(action: InventoryDetailNextAction, onNavigate: (href: 
   if (action.href) onNavigate(action.href);
 }
 
-function formatCompactDate(value: string) {
-  return new Intl.DateTimeFormat("it-IT", {
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: "Europe/Rome",
-  }).format(new Date(value));
+function localizeNextAction(
+  action: InventoryDetailNextAction,
+  t: ReturnType<typeof useLocale>["t"],
+): InventoryDetailNextAction {
+  if (action.kind === "none") return action;
+  const label = localizeInventoryDetailNextAction(action, t) ?? action.label;
+  if (action.kind === "loading") {
+    // The shared business union retains its historical Chinese literal type; this is display-only.
+    return { ...action, label: label as typeof action.label };
+  }
+  return { ...action, label };
 }
 
 function MobileProductHeader({
@@ -309,6 +337,7 @@ function MobileProductHeader({
   onBack: () => void;
   onEdit: () => void;
 }) {
+  const { t } = useLocale();
   return (
     <div
       ref={headerRef}
@@ -322,18 +351,20 @@ function MobileProductHeader({
             variant="ghost"
             size="icon"
             className="size-11 rounded-lg lg:hidden"
-            aria-label="返回商品库存"
+            aria-label={t("inventory2b4.detail.back")}
             onClick={onBack}
           >
             <ArrowLeft className="size-5" aria-hidden="true" />
           </Button>
           <div className="min-w-0 text-center">
-            <h1 className="truncate text-sm font-semibold">商品详情</h1>
+            <h1 className="truncate text-sm font-semibold">{t("inventory2b4.detail.title")}</h1>
             <p className="truncate text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
               {item.sku} · {categoryLabel} · {statusLabel}
             </p>
             {item.edit_backing === "legacy_read_only" ? (
-              <p className="text-[10px] text-status-warn-foreground">历史商品：仅可查看</p>
+              <p className="text-[10px] text-status-warn-foreground">
+                {t("inventory2b4.detail.legacyMobile")}
+              </p>
             ) : null}
           </div>
           {canEdit ? (
@@ -342,7 +373,7 @@ function MobileProductHeader({
               variant="ghost"
               size="icon"
               className="size-11 rounded-lg"
-              aria-label="编辑商品"
+              aria-label={t("inventory2b4.detail.edit")}
               onClick={onEdit}
             >
               <Pencil className="size-4" aria-hidden="true" />
@@ -367,6 +398,7 @@ function DesktopProductHeader({
   canEdit: boolean;
   onEdit: () => void;
 }) {
+  const { t } = useLocale();
   return (
     <header className="mb-3 hidden items-center justify-between gap-4 pb-1 lg:flex">
       <div className="min-w-0">
@@ -378,14 +410,14 @@ function DesktopProductHeader({
         </p>
         {item.edit_backing === "legacy_read_only" ? (
           <p className="text-xs text-status-warn-foreground">
-            历史商品：仅可查看（无 V2 库存单元）
+            {t("inventory2b4.detail.legacyDesktop")}
           </p>
         ) : null}
       </div>
       {canEdit ? (
         <Button type="button" className="min-h-11" onClick={onEdit}>
           <Pencil className="mr-2 size-4" aria-hidden="true" />
-          编辑商品
+          {t("inventory2b4.detail.edit")}
         </Button>
       ) : null}
     </header>

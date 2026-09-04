@@ -11,6 +11,7 @@ import {
 } from "../../components/inventory-sync-status-panel";
 import { repairOs, surfaces } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export type InventoryProductPageLeaveGuard = {
   leaveDialogOpen: boolean;
@@ -80,7 +81,7 @@ export function InventoryProductPageFrame({
   onBack,
   leaveGuard,
   onContinue,
-  continueLabel = "保存并继续录入",
+  continueLabel,
   primaryLabel,
   onPrimary,
   primaryDisabled = false,
@@ -88,6 +89,8 @@ export function InventoryProductPageFrame({
   secondaryDisabled = false,
   onSecondary,
 }: InventoryProductPageFrameProps) {
+  const { t } = useLocale();
+  const resolvedContinueLabel = continueLabel ?? t("inventory2b4.quick.frame.saveAndContinue");
   // Providers owns the single application content landmark. This frame is a
   // route body and therefore remains a layout container even for full-page
   // stories; those stories provide their AppShell main explicitly.
@@ -128,7 +131,11 @@ export function InventoryProductPageFrame({
                   variant="ghost"
                   size="icon"
                   className="size-11 rounded-lg"
-                  aria-label={isIntake ? "返回商品库存" : "返回商品详情"}
+                  aria-label={
+                    isIntake
+                      ? t("inventory2b4.quick.frame.backInventory")
+                      : t("inventory2b4.quick.frame.backDetail")
+                  }
                   onClick={onBack}
                 >
                   <ArrowLeft className="size-5" />
@@ -152,7 +159,7 @@ export function InventoryProductPageFrame({
             {isIntake ? (
               <Button type="button" variant="outline" className="min-h-11" onClick={onBack}>
                 <ArrowLeft className="mr-2 size-4" />
-                返回库存
+                {t("inventory2b4.quick.frame.backInventoryShort")}
               </Button>
             ) : null}
           </header>
@@ -161,7 +168,7 @@ export function InventoryProductPageFrame({
         <header className="mb-2 flex min-w-0 shrink-0 items-center gap-2 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-2 sm:px-3 sm:py-2.5">
           <div className="min-w-0 flex-1">
             <p className="text-[9px] font-medium leading-3 text-muted-foreground sm:text-[10px]">
-              库存弹窗录入
+              {t("inventory2b4.quick.frame.dialogEyebrow")}
             </p>
             <h1 className="truncate text-sm font-semibold leading-5 sm:text-base">{title}</h1>
             <p className="truncate text-[10px] leading-4 text-muted-foreground sm:text-xs">
@@ -173,7 +180,7 @@ export function InventoryProductPageFrame({
             variant="ghost"
             size="icon"
             className="size-11 shrink-0 rounded-lg sm:size-9"
-            aria-label="关闭商品录入弹窗"
+            aria-label={t("inventory2b4.quick.frame.closeDialog")}
             onClick={onBack}
           >
             <X className="size-4" />
@@ -237,18 +244,18 @@ export function InventoryProductPageFrame({
             <Button
               type="button"
               variant="outline"
-              className="min-h-11"
+              className="h-auto min-h-11 whitespace-normal text-center leading-tight"
               disabled={mutationPending || syncBlocked || secondaryDisabled}
               onClick={() => void onContinue()}
             >
               {mutationPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              {continueLabel}
+              {resolvedContinueLabel}
             </Button>
           ) : null}
           {isIntake ? (
             <Button
               type="submit"
-              className="min-h-11"
+              className="h-auto min-h-11 whitespace-normal text-center leading-tight"
               disabled={mutationPending || syncBlocked || primaryDisabled}
             >
               {mutationPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
@@ -259,15 +266,15 @@ export function InventoryProductPageFrame({
               <Button
                 type="button"
                 variant="outline"
-                className="min-h-11"
+                className="h-auto min-h-11 whitespace-normal text-center leading-tight"
                 disabled={mutationPending || syncBlocked || secondaryDisabled}
                 onClick={() => void onSecondary?.()}
               >
-                {secondaryLabel ?? "取消"}
+                {secondaryLabel ?? t("inventory2b4.quick.frame.cancel")}
               </Button>
               <Button
                 type="submit"
-                className="min-h-11"
+                className="h-auto min-h-11 whitespace-normal text-center leading-tight"
                 disabled={mutationPending || syncBlocked || primaryDisabled}
               >
                 {mutationPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
@@ -283,7 +290,7 @@ export function InventoryProductPageFrame({
               onClick={onBack}
               disabled={mutationPending}
             >
-              取消并返回库存
+              {t("inventory2b4.quick.frame.cancelAndBack")}
             </Button>
           ) : null}
         </div>
@@ -292,19 +299,33 @@ export function InventoryProductPageFrame({
       {leaveGuard ? (
         <InventoryConsequenceDialog
           open={leaveGuard.leaveDialogOpen}
-          title={isIntake ? "放弃未保存的商品资料？" : "放弃未保存的修改？"}
+          title={
+            isIntake
+              ? t("inventory2b4.quick.frame.leaveCreateTitle")
+              : t("inventory2b4.quick.frame.leaveEditTitle")
+          }
           description={
             isIntake
-              ? "确认离开后，当前尚未保存的录入内容不会写入库存。"
-              : "确认离开后，当前尚未保存的商品资料修改不会写入库存。"
+              ? t("inventory2b4.quick.frame.leaveCreateDescription")
+              : t("inventory2b4.quick.frame.leaveEditDescription")
           }
           consequences={
             isIntake
-              ? ["草稿只保留在当前页面，不会自动恢复。", "你可以取消并继续填写。"]
-              : ["已保存的商品资料不会受影响。", "你可以取消并继续编辑当前版本。"]
+              ? [
+                  t("inventory2b4.quick.frame.leaveCreateConsequence"),
+                  t("inventory2b4.quick.frame.leaveCreateRecovery"),
+                ]
+              : [
+                  t("inventory2b4.quick.frame.leaveEditConsequence"),
+                  t("inventory2b4.quick.frame.leaveEditRecovery"),
+                ]
           }
-          confirmLabel="放弃并离开"
-          cancelLabel={isIntake ? "继续填写" : "继续编辑"}
+          confirmLabel={t("inventory2b4.quick.frame.leaveConfirm")}
+          cancelLabel={
+            isIntake
+              ? t("inventory2b4.quick.frame.continueCreate")
+              : t("inventory2b4.quick.frame.continueEdit")
+          }
           tone="warning"
           pending={leaveGuard.isConfirmingLeave}
           onConfirm={leaveGuard.confirmLeave}

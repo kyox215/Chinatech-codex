@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { DesktopVirtualKeyboardPreferenceContext } from "@/components/desktop-virtual-keyboard-preference-context";
 import type { AccountSettingsSummary } from "@/features/settings/model/account-settings-summary";
 import { AccountSettingsSection } from "@/features/settings/sections/account-settings-section";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
+import type { AppLocale } from "@/shared/i18n/locales";
 
 afterEach(cleanup);
 
@@ -98,16 +100,48 @@ describe("AccountSettingsSection", () => {
         nameDraft="Mario Pending"
         hasNameChange
         isSaving={false}
-        saveError="network unavailable"
+        saveError="RAW_PROVIDER_SENTINEL"
         onNameDraftChange={vi.fn()}
         onSave={vi.fn()}
       />,
     );
 
-    expect(screen.getByRole("alert")).toHaveTextContent("名称保存失败：network unavailable");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "名称保存失败。草稿仍保留，可再次点击“保存名称”重试。",
+    );
+    expect(screen.getByRole("alert")).not.toHaveTextContent("RAW_PROVIDER_SENTINEL");
     expect(screen.getByLabelText("显示名称")).toHaveValue("Mario Pending");
     expect(screen.getByRole("button", { name: "保存名称" })).toBeEnabled();
   });
+
+  it.each([
+    ["zh-CN", "我的账号", "打开个人中心"],
+    ["it-IT", "Il mio account", "Apri profilo personale"],
+    ["en", "My account", "Open personal profile"],
+  ] as const)(
+    "renders fixed account UI in %s while preserving dynamic values",
+    (locale, title, link) => {
+      render(
+        <LocaleProvider initialLocale={locale as AppLocale}>
+          <AccountSettingsSection
+            summary={summary}
+            isLoading={false}
+            nameDraft="Mario Dynamic"
+            hasNameChange={false}
+            isSaving={false}
+            onNameDraftChange={vi.fn()}
+            onSave={vi.fn()}
+          />
+        </LocaleProvider>,
+      );
+
+      expect(screen.getByText(title)).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: link })).toHaveAttribute("href", "/account");
+      expect(screen.getByDisplayValue("Mario Dynamic")).toBeInTheDocument();
+      expect(screen.getByText("owner@example.test")).toBeInTheDocument();
+      expect(screen.getByText("Repair Lab")).toBeInTheDocument();
+    },
+  );
 
   it("lets a user choose whether their desktop browser shows virtual keyboards", async () => {
     const user = userEvent.setup();

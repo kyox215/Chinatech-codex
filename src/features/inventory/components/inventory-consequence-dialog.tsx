@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { componentOverlay } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export type InventoryConsequenceDialogTone = "warning" | "danger";
 
@@ -55,6 +56,7 @@ export function InventoryConsequenceDialog({
   returnFocusRef,
   className,
 }: InventoryConsequenceDialogProps) {
+  const { t } = useLocale();
   const cancelRef = React.useRef<HTMLButtonElement>(null);
   const wasOpenRef = React.useRef(open);
 
@@ -83,6 +85,14 @@ export function InventoryConsequenceDialog({
     },
     [blocked, closeAndRestore, onOpenChange, pending],
   );
+  const handleConfirm = React.useCallback(() => {
+    try {
+      void Promise.resolve(onConfirm()).catch(() => undefined);
+    } catch {
+      // Mutation owners expose the safe error state; this UI boundary only
+      // prevents a rejected user action from escaping as an unhandled error.
+    }
+  }, [onConfirm]);
 
   return (
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
@@ -105,7 +115,7 @@ export function InventoryConsequenceDialog({
 
         {consequences.length > 0 ? (
           <ul
-            aria-label="操作后果"
+            aria-label={t("inventory2b4.consequence.aria")}
             className={cn(
               "grid gap-1.5 rounded-lg border px-3 py-2 text-xs leading-5",
               tone === "danger"
@@ -124,7 +134,7 @@ export function InventoryConsequenceDialog({
 
         {pending ? (
           <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
-            正在处理；请等待当前操作完成，不要重复提交或关闭此确认框。
+            {t("inventory2b4.consequence.pending")}
           </p>
         ) : null}
 
@@ -145,9 +155,9 @@ export function InventoryConsequenceDialog({
             variant={tone === "danger" ? "destructive" : "default"}
             className="min-h-11 flex-1 sm:flex-none"
             disabled={pending || blocked}
-            onClick={() => void onConfirm()}
+            onClick={handleConfirm}
           >
-            {pending ? "处理中…" : confirmLabel}
+            {pending ? t("inventory2b4.consequence.processing") : confirmLabel}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

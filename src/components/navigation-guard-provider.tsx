@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export type NavigationGuardResolution =
   | { status: "resolved" }
@@ -70,6 +71,7 @@ const NavigationGuardContext = createContext<NavigationGuardContextValue | null>
 
 export function NavigationGuardProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const { t } = useLocale();
   const sourcesRef = useRef(new Map<string, NavigationGuardSource>());
   const pendingRef = useRef<PendingTransition | null>(null);
   const guardDialogRef = useRef<HTMLDivElement>(null);
@@ -84,17 +86,21 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
     return sources.find((source) => source.isDirty());
   }, []);
 
-  const executeTransition = useCallback(async (transition: GuardedTransition) => {
-    try {
-      await Promise.resolve().then(transition.run);
-      return { status: "executed" } as const;
-    } catch (cause) {
-      const error = cause instanceof Error ? cause : new Error("导航操作失败");
-      console.error("[navigation-guard] transition failed", error);
-      toast.error(error.message || "导航操作失败，请重试");
-      return { status: "failed", error } as const;
-    }
-  }, []);
+  const executeTransition = useCallback(
+    async (transition: GuardedTransition) => {
+      try {
+        await Promise.resolve().then(transition.run);
+        return { status: "executed" } as const;
+      } catch (cause) {
+        const error =
+          cause instanceof Error ? cause : new Error(t("orders2b1.nav.transitionFailed"));
+        console.error("[navigation-guard] transition failed");
+        toast.error(t("orders2b1.nav.transitionFailed"));
+        return { status: "failed", error } as const;
+      }
+    },
+    [t],
+  );
 
   const closeGuardDialog = useCallback(
     async ({
@@ -119,7 +125,7 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
       if (closeSequenceRef.current !== sequence) return;
       if (!detached) {
         closingRef.current = false;
-        toast.error("导航确认层未能安全关闭，请重试");
+        toast.error(t("orders2b1.nav.dialogCloseFailed"));
         console.error("[navigation-guard] dialog remained attached; transition cancelled");
         return;
       }
@@ -136,7 +142,7 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
       if (closeSequenceRef.current === sequence) closingRef.current = false;
       return outcome;
     },
-    [executeTransition],
+    [executeTransition, t],
   );
 
   const cancelPending = useCallback(
@@ -157,7 +163,7 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
         return executeTransition(transition);
       }
       if (source.isBusy()) {
-        toast.info(`${source.label()}正在处理中，请稍候再试`);
+        toast.info(t("orders2b1.nav.sourceBusy", { source: source.label() }));
         return { status: "ignored", reason: "source-busy" };
       }
       const next = { source, transition };
@@ -165,7 +171,7 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
       setPending(next);
       return { status: "prompted" };
     },
-    [executeTransition, getDirtySource],
+    [executeTransition, getDirtySource, t],
   );
 
   const registerGuard = useCallback(
@@ -202,9 +208,8 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
     let resolution: NavigationGuardResolution;
     try {
       resolution = await current.source.save();
-    } catch (cause) {
-      const error = cause instanceof Error ? cause : new Error("保存失败");
-      toast.error(error.message);
+    } catch {
+      toast.error(t("orders2b1.nav.saveFailed"));
       await closeGuardDialog({ current, focusFallback: true });
       return;
     }
@@ -216,7 +221,7 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
       return;
     }
     await continueOrCompleteTransition(current);
-  }, [closeGuardDialog, continueOrCompleteTransition, isResolving]);
+  }, [closeGuardDialog, continueOrCompleteTransition, isResolving, t]);
 
   const resolveWithDiscard = useCallback(async () => {
     const current = pendingRef.current;
@@ -225,9 +230,8 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
     let resolution: NavigationGuardResolution;
     try {
       resolution = await current.source.discard();
-    } catch (cause) {
-      const error = cause instanceof Error ? cause : new Error("放弃修改失败");
-      toast.error(error.message);
+    } catch {
+      toast.error(t("orders2b1.nav.discardFailed"));
       await closeGuardDialog({ current, focusFallback: true });
       return;
     }
@@ -239,7 +243,7 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
       return;
     }
     await continueOrCompleteTransition(current);
-  }, [closeGuardDialog, continueOrCompleteTransition, isResolving]);
+  }, [closeGuardDialog, continueOrCompleteTransition, isResolving, t]);
 
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
@@ -337,7 +341,7 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
           () =>
             void runGuardedTransition({
               kind: "history",
-              label: "浏览器历史",
+              label: t("orders2b1.nav.history"),
               run: () => {
                 bypassNextPop = true;
                 history.go(transition.delta);
@@ -363,7 +367,7 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
       if (history.pushState === wrappedPushState) history.pushState = originalPushState;
       if (history.replaceState === wrappedReplaceState) history.replaceState = originalReplaceState;
     };
-  }, [getDirtySource, runGuardedTransition]);
+  }, [getDirtySource, runGuardedTransition, t]);
 
   const value = useMemo(
     () => ({ registerGuard, runGuardedTransition }),
@@ -392,24 +396,29 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
           }}
         >
           <AlertDialogHeader>
-            <AlertDialogTitle>当前设置尚未保存</AlertDialogTitle>
+            <AlertDialogTitle>{t("orders2b1.nav.title")}</AlertDialogTitle>
             <AlertDialogDescription>
               {pending
-                ? `${pending.source.label()}有未保存修改。要继续${pending.transition.label ? `前往“${pending.transition.label}”` : "当前操作"}吗？`
-                : "请先处理未保存修改。"}
+                ? pending.transition.label
+                  ? t("orders2b1.nav.descriptionTo", {
+                      source: pending.source.label(),
+                      target: pending.transition.label,
+                    })
+                  : t("orders2b1.nav.descriptionAction", { source: pending.source.label() })
+                : t("orders2b1.nav.handleFirst")}
             </AlertDialogDescription>
             {pending?.source.canSave?.() === false ? (
               <p className="text-sm text-status-warn-foreground" role="status">
-                {pending.source.saveUnavailableReason?.() ?? "当前草稿暂不支持直接保存。"}
+                {pending.source.saveUnavailableReason?.() ?? t("orders2b1.nav.saveUnavailable")}
               </p>
             ) : null}
           </AlertDialogHeader>
           <p className="sr-only" aria-live="polite">
-            {isResolving ? "正在处理未保存设置" : ""}
+            {isResolving ? t("orders2b1.nav.resolvingLabel") : ""}
           </p>
           <AlertDialogFooter>
             <AlertDialogCancel ref={cancelRef} className="min-h-11" disabled={isResolving}>
-              取消
+              {t("common.cancel")}
             </AlertDialogCancel>
             <Button
               type="button"
@@ -418,7 +427,7 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
               disabled={isResolving || pending?.source.isBusy()}
               onClick={() => void resolveWithDiscard()}
             >
-              放弃修改
+              {t("orders2b1.nav.discard")}
             </Button>
             <Button
               type="button"
@@ -428,7 +437,7 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
               }
               onClick={() => void resolveWithSave()}
             >
-              {isResolving ? "正在处理…" : "保存并继续"}
+              {isResolving ? t("orders2b1.nav.resolving") : t("orders2b1.nav.saveContinue")}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

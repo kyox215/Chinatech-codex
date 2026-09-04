@@ -1,6 +1,8 @@
 import { AlertTriangle, GitCompareArrows, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey } from "@/shared/i18n/messages";
 import type { SettingsSaveStatus } from "./settings-save-bar";
 
 export interface SettingsStateCardProps {
@@ -18,8 +20,9 @@ export function SettingsStateCard({
   onRetry,
   onRebase,
 }: SettingsStateCardProps) {
+  const { t } = useLocale();
   if (!["validation-error", "conflict", "offline", "error"].includes(status)) return null;
-  const validationMessages = Object.values(fieldErrors).flat();
+  const validationCount = Object.values(fieldErrors).flat().length;
   return (
     <section
       data-settings-save-state
@@ -31,14 +34,12 @@ export function SettingsStateCard({
       <div className="flex items-start gap-2.5">
         <AlertTriangle className="mt-0.5 size-4 shrink-0" />
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold">{stateTitle(status)}</h2>
-          <p className="mt-1 text-xs leading-5">{stateDescription(status)}</p>
-          {validationMessages.length > 0 ? (
-            <ul className="mt-2 list-disc space-y-1 pl-4 text-xs">
-              {validationMessages.map((message, index) => (
-                <li key={`${message}-${index}`}>{message}</li>
-              ))}
-            </ul>
+          <h2 className="text-sm font-semibold">{t(stateTitleKey(status))}</h2>
+          <p className="mt-1 text-xs leading-5">{t(stateDescriptionKey(status))}</p>
+          {validationCount > 0 ? (
+            <p className="mt-2 text-xs">
+              {t("settings.state.validationSummary", { count: validationCount })}
+            </p>
           ) : null}
           {status === "conflict" ? (
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -49,10 +50,10 @@ export function SettingsStateCard({
                 className="min-h-11 sm:min-h-8"
                 onClick={onDiscard}
               >
-                <RotateCcw className="size-3.5" /> 使用服务器版本
+                <RotateCcw className="size-3.5" /> {t("settings.state.useServer")}
               </Button>
               <Button type="button" size="sm" className="min-h-11 sm:min-h-8" onClick={onRebase}>
-                <GitCompareArrows className="size-3.5" /> 基于最新版继续编辑
+                <GitCompareArrows className="size-3.5" /> {t("settings.state.continueLatest")}
               </Button>
             </div>
           ) : null}
@@ -65,10 +66,10 @@ export function SettingsStateCard({
                 className="min-h-11 sm:min-h-8"
                 onClick={onDiscard}
               >
-                <RotateCcw className="size-3.5" /> 放弃修改
+                <RotateCcw className="size-3.5" /> {t("settings.save.discard")}
               </Button>
               <Button type="button" size="sm" className="min-h-11 sm:min-h-8" onClick={onRetry}>
-                <GitCompareArrows className="size-3.5" /> 重新保存
+                <GitCompareArrows className="size-3.5" /> {t("settings.state.retry")}
               </Button>
             </div>
           ) : null}
@@ -78,18 +79,16 @@ export function SettingsStateCard({
   );
 }
 
-function stateTitle(status: SettingsSaveStatus) {
-  if (status === "validation-error") return "部分内容需要修正";
-  if (status === "conflict") return "检测到设置版本冲突";
-  if (status === "offline") return "当前无法连接服务器";
-  return "设置保存失败";
+function stateTitleKey(status: SettingsSaveStatus): MessageKey {
+  if (status === "validation-error") return "settings.state.validationTitle";
+  if (status === "conflict") return "settings.state.conflictTitle";
+  if (status === "offline") return "settings.state.offlineTitle";
+  return "settings.state.errorTitle";
 }
 
-function stateDescription(status: SettingsSaveStatus) {
-  if (status === "validation-error") return "服务器没有写入任何内容，本地输入仍完整保留。";
-  if (status === "conflict") {
-    return "服务器版本和本地草稿都已保留。请使用服务器版本，或在确认当前输入后重建基线再手动保存；系统不会强制覆盖。";
-  }
-  if (status === "offline") return "请恢复网络后重试；本阶段不会把草稿写入浏览器持久存储。";
-  return "没有写入设置。您可以检查网络或稍后重试。";
+function stateDescriptionKey(status: SettingsSaveStatus): MessageKey {
+  if (status === "validation-error") return "settings.state.validationDescription";
+  if (status === "conflict") return "settings.state.conflictDescription";
+  if (status === "offline") return "settings.state.offlineDescription";
+  return "settings.state.errorDescription";
 }

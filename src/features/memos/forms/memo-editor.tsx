@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Archive, Minus, Plus, RefreshCcw, UserRoundCheck } from "lucide-react";
 
-import { toDateTimeLocal, type MemoEditorProps } from "@/features/memos/forms/memo-editor-types";
+import type { MemoEditorProps } from "@/features/memos/forms/memo-editor-types";
+import { formatMemoDueAtForInput, parseMemoDueAtInput } from "@/features/memos/model/memo-due-at";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -15,6 +16,8 @@ import { UnsavedNavigationGuard } from "@/components/unsaved-navigation-guard";
 import { useIsCompactWorkspace } from "@/hooks/use-mobile";
 import { memoQuickEntry } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { getMemoPresentationCopy } from "@/shared/i18n/messages";
 import { toast } from "sonner";
 
 import { MemoEditorOverlay } from "./memo-editor-overlay";
@@ -37,6 +40,8 @@ export function MemoEditor({
   onRestore,
 }: MemoEditorProps) {
   const compact = useIsCompactWorkspace();
+  const { locale } = useLocale();
+  const copy = getMemoPresentationCopy(locale);
   const { runGuardedTransition } = useNavigationGuard();
   const [kind, setKind] = useState<"note" | "todo">("todo");
   const [title, setTitle] = useState("");
@@ -46,28 +51,36 @@ export function MemoEditor({
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [baseVersion, setBaseVersion] = useState<number | undefined>();
   const [operationId, setOperationId] = useState(() => crypto.randomUUID());
+  const [invalidServerDueAt, setInvalidServerDueAt] = useState(false);
+  const [dueAtTouched, setDueAtTouched] = useState(false);
+  const dueAtRef = useRef<HTMLInputElement>(null);
+  const submitLockRef = useRef(false);
+  const formattedMemoDueAt = useMemo(() => formatMemoDueAtForInput(memo?.due_at), [memo?.due_at]);
 
   useEffect(() => {
     if (!open) return;
     setKind(memo?.kind ?? "todo");
     setTitle(memo?.title ?? "");
     setContent(memo?.content ?? "");
-    setDueAt(toDateTimeLocal(memo?.due_at));
+    setDueAt(formattedMemoDueAt.value);
+    setInvalidServerDueAt(formattedMemoDueAt.status === "invalid");
+    setDueAtTouched(false);
     setAssignee(memo?.assignee_membership_id ?? "");
     setDetailsOpen(Boolean(memo));
     setBaseVersion(memo?.version);
     setOperationId(crypto.randomUUID());
-  }, [memo, open]);
+    submitLockRef.current = false;
+  }, [formattedMemoDueAt, memo, open]);
 
   const initial = useMemo(
     () => ({
       kind: memo?.kind ?? "todo",
       title: memo?.title ?? "",
       content: memo?.content ?? "",
-      dueAt: toDateTimeLocal(memo?.due_at),
+      dueAt: formattedMemoDueAt.value,
       assignee: memo?.assignee_membership_id ?? "",
     }),
-    [memo],
+    [formattedMemoDueAt.value, memo],
   );
   const dirty =
     kind !== initial.kind ||
@@ -78,33 +91,73 @@ export function MemoEditor({
   const conflict = Boolean(baseVersion && latestVersion && latestVersion !== baseVersion);
   const canEdit = !memo || memo.capabilities.canEdit;
   const canChangeAssignee = canAssignAny || !memo?.assignee_membership_id;
+  const parsedDueAt = useMemo(() => parseMemoDueAtInput(dueAt), [dueAt]);
+  const dueAtError = useMemo(() => {
+    if (kind !== "todo") return null;
+    if (invalidServerDueAt) return copy.invalidServerDue;
+    if (
+      !dueAtTouched &&
+      formattedMemoDueAt.status === "valid" &&
+      dueAt === formattedMemoDueAt.value
+    ) {
+      return null;
+    }
+    if (parsedDueAt.status !== "invalid") return null;
+    if (parsedDueAt.reason === "nonexistent_time") {
+      return copy.nonexistentDue;
+    }
+    if (parsedDueAt.reason === "ambiguous_time") {
+      return copy.ambiguousDue;
+    }
+    return copy.invalidDue;
+  }, [copy, dueAt, dueAtTouched, formattedMemoDueAt, invalidServerDueAt, kind, parsedDueAt]);
   const canSave =
     canEdit &&
     title.trim().length > 0 &&
     title.trim().length <= 120 &&
     content.length <= 4000 &&
+    !dueAtError &&
     !conflict;
 
   const save = async () => {
-    if (!canSave) throw new Error("请先修正表单内容");
+    if (busy || submitLockRef.current) return;
+    if (!canSave) {
+      if (dueAtError) dueAtRef.current?.focus();
+      throw new Error(copy.formInvalid);
+    }
+    const resolvedDueAt =
+      kind !== "todo" || parsedDueAt.status === "empty"
+        ? null
+        : !dueAtTouched &&
+            dueAt === formattedMemoDueAt.value &&
+            formattedMemoDueAt.status === "valid"
+          ? formattedMemoDueAt.iso
+          : parsedDueAt.status === "valid"
+            ? parsedDueAt.iso
+            : null;
     const common = {
       operationId,
       title: title.trim(),
       content,
-      dueAt: kind === "todo" && dueAt ? new Date(dueAt).toISOString() : null,
+      dueAt: resolvedDueAt,
       assigneeMembershipId: kind === "todo" && assignee ? assignee : null,
     };
-    await onSave(
-      memo
-        ? { ...common, id: memo.id, expectedVersion: baseVersion ?? memo.version }
-        : { ...common, kind },
-    );
+    submitLockRef.current = true;
+    try {
+      await onSave(
+        memo
+          ? { ...common, id: memo.id, expectedVersion: baseVersion ?? memo.version }
+          : { ...common, kind },
+      );
+    } finally {
+      submitLockRef.current = false;
+    }
   };
 
   const submitFromTitle = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
     event.preventDefault();
-    if (busy || !canSave) return;
+    if (busy) return;
     void save().catch(() => undefined);
   };
 
@@ -117,46 +170,59 @@ export function MemoEditor({
       return;
     }
     event.preventDefault();
-    if (busy || !canSave) return;
+    if (busy) return;
     void save().catch(() => undefined);
   };
 
   const editorFields = (
     <>
       <div className="min-w-0 space-y-1.5">
-        <Label htmlFor="memo-content">正文{!memo ? "（可选）" : ""}</Label>
+        <Label htmlFor="memo-content">
+          {copy.content}
+          {!memo ? copy.optionalSuffix : ""}
+        </Label>
         <Textarea
           id="memo-content"
           value={content}
           maxLength={4000}
           disabled={!canEdit || busy}
           className="min-h-32 w-full min-w-0 max-w-full resize-y rounded-lg border-[var(--border-panel)] bg-background text-base shadow-sm"
-          placeholder={!memo ? "补充说明…" : undefined}
+          placeholder={!memo ? copy.contentPlaceholder : undefined}
           onKeyDown={submitFromContent}
           onChange={(event) => setContent(event.target.value)}
         />
         <p className="flex min-w-0 justify-between gap-2 text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-          <span className="min-w-0 break-words">
-            请勿记录密码、支付资料、解锁码或不必要的客户隐私。
-          </span>
+          <span className="min-w-0 break-words">{copy.privacyHint}</span>
           <span className="shrink-0">{content.length}/4000</span>
         </p>
       </div>
       {kind === "todo" ? (
         <div className="grid min-w-0 gap-3 sm:grid-cols-2">
           <div className="min-w-0 space-y-1.5">
-            <Label htmlFor="memo-due">到期时间</Label>
+            <Label htmlFor="memo-due">{copy.dueAt}</Label>
             <Input
+              ref={dueAtRef}
               id="memo-due"
               type="datetime-local"
               value={dueAt}
+              aria-invalid={Boolean(dueAtError)}
+              aria-describedby={dueAtError ? "memo-due-error" : undefined}
               disabled={!canEdit || busy}
               className="h-[38px] w-full min-w-0 max-w-full rounded-lg border-[var(--border-panel)] bg-background text-base shadow-sm"
-              onChange={(event) => setDueAt(event.target.value)}
+              onChange={(event) => {
+                setDueAt(event.target.value);
+                setInvalidServerDueAt(false);
+                setDueAtTouched(true);
+              }}
             />
+            {dueAtError ? (
+              <p id="memo-due-error" role="alert" className="text-xs text-destructive">
+                {dueAtError}
+              </p>
+            ) : null}
           </div>
           <div className="min-w-0 space-y-1.5">
-            <Label htmlFor="memo-assignee">负责人</Label>
+            <Label htmlFor="memo-assignee">{copy.assignee}</Label>
             <select
               id="memo-assignee"
               value={assignee}
@@ -164,10 +230,10 @@ export function MemoEditor({
               className="h-[38px] w-full min-w-0 max-w-full rounded-lg border border-[var(--border-panel)] bg-background px-3 text-base shadow-sm"
               onChange={(event) => setAssignee(event.target.value)}
             >
-              <option value="">未分配</option>
+              <option value="">{copy.unassigned}</option>
               {memo?.assignee_membership_id &&
               !assignees.some((item) => item.membershipId === memo.assignee_membership_id) ? (
-                <option value={memo.assignee_membership_id}>当前负责人</option>
+                <option value={memo.assignee_membership_id}>{copy.currentAssignee}</option>
               ) : null}
               {assignees
                 .filter((item) => canAssignAny || item.membershipId === membershipId)
@@ -197,12 +263,12 @@ export function MemoEditor({
       {conflict ? (
         <Alert variant="destructive" aria-live="assertive">
           <RefreshCcw className="size-4" />
-          <AlertTitle>这条记录已被更新</AlertTitle>
+          <AlertTitle>{copy.conflictTitle}</AlertTitle>
           <AlertDescription className="space-y-2">
-            <p>你的草稿仍保留。载入最新版本会放弃当前未保存内容。</p>
+            <p>{copy.conflictDescription}</p>
             {onReloadLatest ? (
               <Button type="button" variant="outline" className="min-h-9" onClick={onReloadLatest}>
-                <RefreshCcw className="size-4" /> 载入最新版本
+                <RefreshCcw className="size-4" /> {copy.reloadLatest}
               </Button>
             ) : null}
           </AlertDescription>
@@ -210,13 +276,13 @@ export function MemoEditor({
       ) : null}
       {!canEdit ? (
         <Alert>
-          <AlertTitle>只读记录</AlertTitle>
-          <AlertDescription>你可以查看本店铺记录，但不能修改这条内容。</AlertDescription>
+          <AlertTitle>{copy.readonlyRecordTitle}</AlertTitle>
+          <AlertDescription>{copy.readonlyRecordDescription}</AlertDescription>
         </Alert>
       ) : null}
       {!memo ? (
         <fieldset className={memoQuickEntry.typeRow}>
-          <legend className="sr-only">备忘类型</legend>
+          <legend className="sr-only">{copy.memoType}</legend>
           {(["todo", "note"] as const).map((value) => (
             <Button
               key={value}
@@ -230,14 +296,14 @@ export function MemoEditor({
               aria-pressed={kind === value}
               onClick={() => setKind(value)}
             >
-              {value === "note" ? "记录" : "待办"}
+              {value === "note" ? copy.note : copy.todo}
             </Button>
           ))}
         </fieldset>
       ) : null}
       <div className={memo ? "space-y-1.5" : "mb-[0.55rem]"}>
         <Label htmlFor="memo-title" className={!memo ? "sr-only" : undefined}>
-          标题
+          {copy.titleField}
         </Label>
         <Input
           id="memo-title"
@@ -253,7 +319,7 @@ export function MemoEditor({
               ? "h-12 rounded-lg border-[var(--border-panel)] bg-background px-4 text-base shadow-sm"
               : memoQuickEntry.quickField
           }
-          placeholder={!memo ? "写下要做的事或记录…" : undefined}
+          placeholder={!memo ? copy.titlePlaceholder : undefined}
           onKeyDown={submitFromTitle}
           onChange={(event) => setTitle(event.target.value)}
         />
@@ -267,10 +333,10 @@ export function MemoEditor({
         >
           <span>
             {title.length > 0 && !title.trim()
-              ? "标题不能只包含空格"
+              ? copy.titleWhitespace
               : !memo
-                ? "输入标题后按 Enter 即可保存"
-                : "必填"}
+                ? copy.titleEnterHint
+                : copy.required}
           </span>
           <span>{title.length}/120</span>
         </p>
@@ -285,7 +351,7 @@ export function MemoEditor({
               disabled={busy}
             >
               {detailsOpen ? <Minus className="size-4" /> : <Plus className="size-4" />}
-              {detailsOpen ? "收起详情" : "添加详情"}
+              {detailsOpen ? copy.collapseDetails : copy.addDetails}
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent className={memoQuickEntry.detailsPanel}>
@@ -297,7 +363,7 @@ export function MemoEditor({
       )}
       {memo ? (
         <p className="rounded-lg bg-[var(--surface-panel-muted)] p-2 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-          保存后，本店铺成员都可以看到这条备忘。
+          {copy.savedVisibleHint}
         </p>
       ) : null}
       <div
@@ -312,10 +378,10 @@ export function MemoEditor({
               variant="outline"
               className="min-h-9"
               disabled={busy || dirty}
-              title={dirty ? "请先保存或放弃正文修改" : undefined}
+              title={dirty ? copy.saveOrDiscard : undefined}
               onClick={() => void onClaim().catch(() => undefined)}
             >
-              <UserRoundCheck className="size-4" /> 领取
+              <UserRoundCheck className="size-4" /> {copy.claim}
             </Button>
           ) : null}
           {memo?.capabilities.canArchive && onArchive ? (
@@ -324,10 +390,10 @@ export function MemoEditor({
               variant="outline"
               className="min-h-9"
               disabled={busy || dirty}
-              title={dirty ? "请先保存或放弃正文修改" : undefined}
+              title={dirty ? copy.saveOrDiscard : undefined}
               onClick={() => void onArchive().catch(() => undefined)}
             >
-              <Archive className="size-4" /> 归档
+              <Archive className="size-4" /> {copy.archive}
             </Button>
           ) : null}
           {memo?.capabilities.canRestore && onRestore ? (
@@ -336,10 +402,10 @@ export function MemoEditor({
               variant="outline"
               className="min-h-9"
               disabled={busy || dirty}
-              title={dirty ? "请先保存或放弃正文修改" : undefined}
+              title={dirty ? copy.saveOrDiscard : undefined}
               onClick={() => void onRestore().catch(() => undefined)}
             >
-              <RefreshCcw className="size-4" /> 恢复
+              <RefreshCcw className="size-4" /> {copy.restore}
             </Button>
           ) : null}
         </div>
@@ -351,25 +417,31 @@ export function MemoEditor({
                 : "flex w-full min-w-0 flex-wrap items-center justify-between gap-3"
             }
           >
-            {!memo ? <span className={memoQuickEntry.scope}>本店成员可见</span> : null}
+            {!memo ? <span className={memoQuickEntry.scope}>{copy.scopeVisible}</span> : null}
             <Button
               type="submit"
               variant={memo ? "default" : "outline"}
               className={memo ? "min-h-10 min-w-24" : memoQuickEntry.action}
               disabled={!canSave || busy}
             >
-              {busy ? "保存中…" : memo ? "保存修改" : kind === "todo" ? "添加待办" : "保存记录"}
+              {busy
+                ? copy.saving
+                : memo
+                  ? copy.saveChanges
+                  : kind === "todo"
+                    ? copy.addTodo
+                    : copy.saveNote}
             </Button>
           </div>
         ) : null}
       </div>
       <UnsavedNavigationGuard
         id={`memo-editor-${memo?.id ?? "new"}`}
-        label="备忘录草稿"
+        label={copy.draftLabel}
         dirty={dirty}
         busy={Boolean(busy)}
         canSave={canSave}
-        saveUnavailableReason={conflict ? "记录已更新，请先载入最新版本" : "请先修正表单"}
+        saveUnavailableReason={conflict ? copy.conflictSaveUnavailable : copy.formInvalid}
         onSave={async () => {
           await save();
           return { status: "resolved" };
@@ -384,11 +456,11 @@ export function MemoEditor({
 
   const requestOpenChange = (nextOpen: boolean) => {
     if (nextOpen) return onOpenChange(true);
-    if (busy) return toast.info("备忘录正在处理中，请稍候再关闭");
+    if (busy) return toast.info(copy.processingClose);
     if (!dirty) return onOpenChange(false);
     void runGuardedTransition({
       kind: "route",
-      label: "关闭备忘录",
+      label: copy.closeMemo,
       run: () => onOpenChange(false),
     });
   };
@@ -397,8 +469,8 @@ export function MemoEditor({
     <MemoEditorOverlay
       compact={compact}
       open={open}
-      title={memo ? "备忘详情" : "新建备忘"}
-      description={memo ? "查看或更新本店铺记录。" : "快速写下，详情稍后补充"}
+      title={memo ? copy.detailTitle : copy.newTitle}
+      description={memo ? copy.detailDescription : copy.newDescription}
       onOpenChange={requestOpenChange}
     >
       {body}

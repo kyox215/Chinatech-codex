@@ -29,6 +29,16 @@ import {
 import type { ActorStoreMembership, StoreLifecyclePreflight } from "@/lib/repairdesk/types";
 import { componentOverlay } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { translateSettingsOperations } from "@/shared/i18n/messages";
+
+function useOperationsCopy() {
+  const { locale } = useLocale();
+  return (
+    source: Parameters<typeof translateSettingsOperations>[1],
+    values?: Record<string, string | number>,
+  ) => translateSettingsOperations(locale, source, values);
+}
 
 interface StoreCloseConfirmOverlayProps {
   mobile: boolean;
@@ -67,6 +77,7 @@ export function StoreCloseConfirmOverlay({
   onTotpChange,
   onConfirm,
 }: StoreCloseConfirmOverlayProps) {
+  const copy = useOperationsCopy();
   const content = (
     <CloseConfirmContent
       store={store}
@@ -90,10 +101,10 @@ export function StoreCloseConfirmOverlay({
         disabled={pending}
         onClick={() => onOpenChange(false)}
       >
-        返回检查
+        {copy("返回检查")}
       </Button>
       <Button type="button" variant="destructive" disabled={!ready} onClick={onConfirm}>
-        {pending ? "正在安全关闭店铺…" : "确认关闭这家店（可恢复）"}
+        {pending ? copy("正在安全关闭店铺…") : copy("确认关闭这家店（可恢复）")}
       </Button>
     </>
   );
@@ -103,7 +114,7 @@ export function StoreCloseConfirmOverlay({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="bottom"
-          closeLabel="关闭确认窗口"
+          closeLabel={copy("关闭确认窗口")}
           className={cn(componentOverlay.bottomSheet, "flex h-[min(92dvh,52rem)] flex-col gap-0")}
           onEscapeKeyDown={(event) => {
             if (pending) event.preventDefault();
@@ -113,8 +124,10 @@ export function StoreCloseConfirmOverlay({
           }}
         >
           <SheetHeader className="shrink-0 pb-3 text-left">
-            <SheetTitle>确认关闭 {store.name}？</SheetTitle>
-            <SheetDescription>这不是永久删除。资料会继续保留，以后可以恢复。</SheetDescription>
+            <SheetTitle>{copy("确认关闭 {store}？", { store: store.name })}</SheetTitle>
+            <SheetDescription>
+              {copy("这不是永久删除。资料会继续保留，以后可以恢复。")}
+            </SheetDescription>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-y-auto pb-4">{content}</div>
           <SheetFooter className="shrink-0 gap-2 border-t border-[var(--border-panel)] pt-3 sm:space-x-0">
@@ -128,6 +141,7 @@ export function StoreCloseConfirmOverlay({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={componentOverlay.modalMd}
+        closeLabel={copy("关闭")}
         showCloseButton={!pending}
         onEscapeKeyDown={(event) => {
           if (pending) event.preventDefault();
@@ -137,8 +151,10 @@ export function StoreCloseConfirmOverlay({
         }}
       >
         <DialogHeader>
-          <DialogTitle>确认关闭 {store.name}？</DialogTitle>
-          <DialogDescription>这不是永久删除。资料会继续保留，以后可以恢复。</DialogDescription>
+          <DialogTitle>{copy("确认关闭 {store}？", { store: store.name })}</DialogTitle>
+          <DialogDescription>
+            {copy("这不是永久删除。资料会继续保留，以后可以恢复。")}
+          </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 overflow-y-auto">{content}</div>
         <DialogFooter className="gap-2 sm:space-x-0">{footer}</DialogFooter>
@@ -163,17 +179,18 @@ function CloseConfirmContent({
   StoreCloseConfirmOverlayProps,
   "mobile" | "open" | "ready" | "onOpenChange" | "onConfirm"
 >) {
+  const copy = useOperationsCopy();
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-3">
-        <p className="text-xs text-muted-foreground">正在关闭</p>
+        <p className="text-xs text-muted-foreground">{copy("正在关闭")}</p>
         <p className="mt-1 break-words text-sm font-semibold">{store.name}</p>
-        <p className="mt-2 text-xs text-muted-foreground">店铺唯一编号</p>
+        <p className="mt-2 text-xs text-muted-foreground">{copy("店铺唯一编号")}</p>
         <p className="mt-1 break-all font-mono text-xs tabular-nums">{store.id}</p>
       </div>
       <StoreCloseImpactList />
       <div className="space-y-1.5">
-        <Label htmlFor="store-close-id-suffix">店铺识别码最后 8 位</Label>
+        <Label htmlFor="store-close-id-suffix">{copy("店铺识别码最后 8 位")}</Label>
         <Input
           id="store-close-id-suffix"
           value={suffix}
@@ -181,7 +198,7 @@ function CloseConfirmContent({
           maxLength={8}
           autoFocus
           autoComplete="off"
-          placeholder="请输入上方编号最后 8 位"
+          placeholder={copy("请输入上方编号最后 8 位")}
           disabled={pending}
           aria-describedby="store-close-id-suffix-help"
           onChange={(event) =>
@@ -189,26 +206,26 @@ function CloseConfirmContent({
           }
         />
         <p id="store-close-id-suffix-help" className="text-xs leading-5 text-muted-foreground">
-          用于避免关错同名店铺，不是密码。
+          {copy("用于避免关错同名店铺，不是密码。")}
         </p>
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="store-close-reason">为什么要关闭？</Label>
+        <Label htmlFor="store-close-reason">{copy("为什么要关闭？")}</Label>
         <Select value={reason} disabled={pending} onValueChange={onReasonChange}>
           <SelectTrigger id="store-close-reason" className="min-h-11">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="business_closed">停止营业</SelectItem>
-            <SelectItem value="temporary_closure">暂时停业</SelectItem>
-            <SelectItem value="duplicate_store">重复或误创建</SelectItem>
-            <SelectItem value="other">其他原因</SelectItem>
+            <SelectItem value="business_closed">{copy("停止营业")}</SelectItem>
+            <SelectItem value="temporary_closure">{copy("暂时停业")}</SelectItem>
+            <SelectItem value="duplicate_store">{copy("重复或误创建")}</SelectItem>
+            <SelectItem value="other">{copy("其他原因")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
       {requiresTotp ? (
         <div className="space-y-1.5">
-          <Label htmlFor="store-close-totp">身份验证器中的 6 位安全验证码</Label>
+          <Label htmlFor="store-close-totp">{copy("身份验证器中的 6 位安全验证码")}</Label>
           <Input
             id="store-close-totp"
             value={totpCode}
@@ -216,13 +233,13 @@ function CloseConfirmContent({
             inputMode="numeric"
             autoComplete="one-time-code"
             maxLength={6}
-            placeholder="6 位数字"
+            placeholder={copy("6 位数字")}
             disabled={pending}
             aria-describedby="store-close-totp-help"
             onChange={(event) => onTotpChange(event.target.value.replace(/\D/g, "").slice(0, 6))}
           />
           <p id="store-close-totp-help" className="text-xs leading-5 text-muted-foreground">
-            例如 Google Authenticator 中的验证码，不是短信验证码。
+            {copy("例如 Google Authenticator 中的验证码，不是短信验证码。")}
           </p>
         </div>
       ) : null}
@@ -234,25 +251,31 @@ function CloseConfirmContent({
           disabled={pending}
           onChange={(event) => onAcknowledgedChange(event.target.checked)}
         />
-        <span>我明白这是可恢复关闭，不是永久删除；旧邀请和客户 iPad 权限不会自动恢复。</span>
+        <span>
+          {copy("我明白这是可恢复关闭，不是永久删除；旧邀请和客户 iPad 权限不会自动恢复。")}
+        </span>
       </label>
     </div>
   );
 }
 
 export function StoreCloseImpactList({ preflight }: { preflight?: StoreLifecyclePreflight }) {
+  const copy = useOperationsCopy();
   return (
     <div className="space-y-2 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3 text-sm">
-      <p className="font-semibold">关闭后会发生什么</p>
+      <p className="font-semibold">{copy("关闭后会发生什么")}</p>
       <ul className="space-y-1.5 text-xs leading-5 text-muted-foreground">
-        <li>• 立即停止这家店的新工单、客户、库存和设置写入</li>
+        <li>{copy("• 立即停止这家店的新工单、客户、库存和设置写入")}</li>
         <li>
-          • 撤销待处理邀请和客户 iPad 权限
+          {copy("• 撤销待处理邀请和客户 iPad 权限")}
           {preflight?.automatic_effects
-            ? `（邀请 ${preflight.automatic_effects.pending_invitations} 个，iPad 会话 ${preflight.automatic_effects.open_kiosk_sessions} 个）`
+            ? ` ${copy("（邀请 {invitations} 个，iPad 会话 {sessions} 个）", {
+                invitations: preflight.automatic_effects.pending_invitations,
+                sessions: preflight.automatic_effects.open_kiosk_sessions,
+              })}`
             : ""}
         </li>
-        <li>• 保留现有资料，以后可由店铺主账号恢复</li>
+        <li>{copy("• 保留现有资料，以后可由店铺主账号恢复")}</li>
       </ul>
     </div>
   );

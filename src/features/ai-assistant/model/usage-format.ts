@@ -1,5 +1,7 @@
-export function formatAiUsageInteger(value: number) {
-  return new Intl.NumberFormat("zh-CN").format(value);
+import type { AppLocale } from "@/shared/i18n/locales";
+
+export function formatAiUsageInteger(value: number, locale: AppLocale = "zh-CN") {
+  return new Intl.NumberFormat(locale).format(value);
 }
 
 export function formatAiUsageMicroUsd(value: number) {

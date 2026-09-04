@@ -7,9 +7,11 @@ import {
   orderTaskStages,
   type OrderTaskStage,
 } from "@/features/orders/model/order-task-flow";
+import { localizeOrderFlowStage } from "@/features/orders/model/order-i18n";
 import type { StatusTone } from "@/lib/mock/enums";
 import type { OrderWorkflowStatusCode } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 const nodeToneClass: Record<StatusTone, { current: string; done: string; track: string }> = {
   neutral: {
@@ -59,10 +61,12 @@ export function OrderWorkflowProgress({
   showLabels?: boolean;
   className?: string;
 }) {
+  const { t } = useLocale();
   const currentIndex = getWorkflowProgressValue(workflowStatus);
-  const activeStage = currentStage ?? orderTaskStages[currentIndex];
+  const localizedStages = orderTaskStages.map((stage) => localizeOrderFlowStage(stage, t));
+  const activeStage = currentStage ?? localizedStages[currentIndex];
   const toneClass = nodeToneClass[tone];
-  const stageCount = orderTaskStages.length;
+  const stageCount = localizedStages.length;
   const railOffset = `${100 / Math.max(1, stageCount * 2)}%`;
   const progressWidth = stageCount <= 1 ? "0%" : `${(currentIndex / (stageCount - 1)) * 100}%`;
   const stageGridStyle = { gridTemplateColumns: `repeat(${stageCount}, minmax(0, 1fr))` };
@@ -71,7 +75,9 @@ export function OrderWorkflowProgress({
     <div
       className={cn("min-w-0", className)}
       data-order-workflow-progress="true"
-      aria-label={`当前流程：${activeStage?.label ?? workflowStatus}`}
+      aria-label={t("orders2b1.workflow.current", {
+        stage: activeStage?.label ?? workflowStatus,
+      })}
     >
       <div
         className={cn("relative grid min-w-0 items-center", compact ? "h-4" : "h-8")}
@@ -90,7 +96,7 @@ export function OrderWorkflowProgress({
             style={{ width: progressWidth }}
           />
         </span>
-        {orderTaskStages.map((stage, index) => {
+        {localizedStages.map((stage, index) => {
           const done = index < currentIndex;
           const current = index === currentIndex;
           const next = index === currentIndex + 1;
@@ -136,7 +142,7 @@ export function OrderWorkflowProgress({
           className="mt-1 grid min-w-0 text-center text-[10px] leading-4 text-muted-foreground"
           style={stageGridStyle}
         >
-          {orderTaskStages.map((stage, index) => {
+          {localizedStages.map((stage, index) => {
             const displayStage = index === currentIndex ? (activeStage ?? stage) : stage;
             return (
               <span

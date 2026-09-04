@@ -9,15 +9,15 @@ import { Label } from "@/components/ui/label";
 import { VirtualKeyboardDock } from "@/components/ui/virtual-keyboard-dock";
 import { useVirtualKeyboardSurface } from "@/hooks/use-virtual-keyboard-surface";
 import {
-  DEVICE_UNLOCK_METHOD_LABELS,
   DEVICE_UNLOCK_PATTERN_MAX_STEPS,
   DEVICE_UNLOCK_PATTERN_MIN_STEPS,
   deviceUnlockInputFromOrder,
-  getDeviceUnlockLabel,
   normalizeUnlockPattern,
 } from "@/features/orders/model/device-unlock";
+import { localizeDeviceUnlockMethod } from "@/features/orders/model/order-i18n";
 import type { DeviceUnlockInput, DeviceUnlockMethod, RepairOrder } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 const patternPoints = Array.from({ length: 9 }, (_, index) => index + 1);
 const pinKeypadDigits = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"] as const;
@@ -68,6 +68,7 @@ export function DeviceUnlockEditor({
   className?: string;
   compact?: boolean;
 }) {
+  const { t } = useLocale();
   const method = value?.method ?? "none";
 
   const setMethod = (next: "none" | DeviceUnlockMethod) => {
@@ -99,10 +100,10 @@ export function DeviceUnlockEditor({
       >
         {(
           [
-            ["none", "无"],
-            ["text", "文字"],
-            ["pin", "PIN"],
-            ["pattern", "图案"],
+            ["none", t("orders2b1.unlock.none")],
+            ["text", t("orders2b1.unlock.text")],
+            ["pin", t("orders2b1.unlock.pin")],
+            ["pattern", t("orders2b1.unlock.pattern")],
           ] as const
         ).map(([item, label]) => (
           <button
@@ -125,7 +126,7 @@ export function DeviceUnlockEditor({
       {method === "text" ? (
         <div className="space-y-1">
           <Label className="text-[10px] font-semibold leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-            文字 / 字母密码
+            {t("orders2b1.unlock.textLabel")}
           </Label>
           <Input
             type="text"
@@ -134,13 +135,13 @@ export function DeviceUnlockEditor({
             maxLength={80}
             autoComplete="off"
             className="h-[38px] rounded-lg bg-card text-base md:text-sm lg:h-9"
-            placeholder="例如 password / 客户提示"
+            placeholder={t("orders2b1.unlock.textPlaceholder")}
             onChange={(event) => {
               onChange({ method: "text", value: event.target.value });
             }}
           />
           <p className="text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-            最多 80 个字符。
+            {t("orders2b1.unlock.textHelp")}
           </p>
         </div>
       ) : null}
@@ -171,6 +172,7 @@ export function DeviceUnlockViewer({
   className?: string;
   compact?: boolean;
 }) {
+  const { t } = useLocale();
   const unlock = deviceUnlockInputFromOrder(order);
   const [revealed, setRevealed] = useState(false);
   const method = order.device_unlock_method;
@@ -193,7 +195,7 @@ export function DeviceUnlockViewer({
       >
         <div className="flex min-w-0 items-center gap-1.5 text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
           <LockKeyhole className="size-3.5 shrink-0" />
-          <span className="truncate">未留手机密码</span>
+          <span className="truncate">{t("orders2b1.unlock.notProvided")}</span>
         </div>
       </div>
     );
@@ -208,7 +210,7 @@ export function DeviceUnlockViewer({
         <div className="flex min-w-0 items-center gap-1.5">
           <LockKeyhole className="size-3.5 shrink-0 text-primary" />
           <span className="truncate text-[10px] font-semibold leading-3 text-foreground lg:text-xs lg:leading-4">
-            {getDeviceUnlockLabel(method)}
+            {localizeDeviceUnlockMethod(method, t)}
           </span>
         </div>
         <Button
@@ -220,7 +222,7 @@ export function DeviceUnlockViewer({
           onClick={() => setRevealed((value) => !value)}
         >
           {revealed ? <EyeOff className="size-3" /> : <Eye className="size-3" />}
-          {revealed ? "隐藏" : "查看"}
+          {revealed ? t("orders2b1.unlock.hide") : t("orders2b1.unlock.view")}
         </Button>
       </div>
       {revealed ? (
@@ -235,7 +237,7 @@ export function DeviceUnlockViewer({
         </div>
       ) : (
         <p className="mt-1 truncate text-[9px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
-          默认隐藏，查看后 15 秒自动遮挡。
+          {t("orders2b1.unlock.hiddenHelp")}
         </p>
       )}
     </div>
@@ -251,6 +253,7 @@ export function DeviceUnlockListBadge({
   label?: string;
   className?: string;
 }) {
+  const { t } = useLocale();
   if (!method) return null;
   return (
     <span
@@ -261,12 +264,13 @@ export function DeviceUnlockListBadge({
       )}
     >
       <LockKeyhole className="size-3 shrink-0" />
-      <span className="truncate">{label ?? getDeviceUnlockLabel(method)}</span>
+      <span className="truncate">{label ?? localizeDeviceUnlockMethod(method, t)}</span>
     </span>
   );
 }
 
 function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const { t } = useLocale();
   const pin = value.replace(/\D/g, "").slice(0, 16);
   const pinRef = useRef(pin);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -336,7 +340,7 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
         htmlFor={keyboardSurface === "native" ? "device-unlock-pin" : undefined}
         className="text-[10px] font-semibold leading-3 text-muted-foreground lg:text-xs lg:leading-4"
       >
-        数字 PIN
+        {t("orders2b1.unlock.pinTitle")}
       </Label>
       {keyboardSurface === "native" ? (
         <Input
@@ -349,7 +353,7 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
           maxLength={16}
           value={pin}
           className="h-[38px] rounded-lg bg-card text-base font-mono tracking-wide md:text-sm lg:h-9"
-          placeholder="输入数字 PIN"
+          placeholder={t("orders2b1.unlock.pinPlaceholder")}
           onChange={(event) => {
             const next = event.target.value.replace(/\D/g, "").slice(0, 16);
             pinRef.current = next;
@@ -361,7 +365,7 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
           <button
             ref={triggerRef}
             type="button"
-            aria-label="数字 PIN"
+            aria-label={t("orders2b1.unlock.pinAria")}
             aria-expanded={open}
             className="flex h-[38px] w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-input bg-card px-3 text-left text-base outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring md:text-sm lg:h-9"
             onClick={() => setOpen(true)}
@@ -373,7 +377,7 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
                 pin ? "text-foreground" : "text-muted-foreground",
               )}
             >
-              {pin || "点下方数字输入"}
+              {pin || t("orders2b1.unlock.pinPrompt")}
             </span>
             <span className="shrink-0 text-[10px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4">
               {pin.length}/16
@@ -383,7 +387,7 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
           <VirtualKeyboardDock
             open={open}
             onOpenChange={setOpen}
-            label="PIN 数字键盘"
+            label={t("orders2b1.unlock.pinKeypad")}
             triggerRef={triggerRef}
           >
             <div data-device-unlock-pin-keypad-panel="true">
@@ -400,7 +404,11 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
                   {pin.length}/16
                 </span>
               </div>
-              <div className="grid grid-cols-3 gap-1.5" role="group" aria-label="PIN 数字键盘">
+              <div
+                className="grid grid-cols-3 gap-1.5"
+                role="group"
+                aria-label={t("orders2b1.unlock.pinKeypad")}
+              >
                 {pinKeypadDigits.slice(0, 9).map((digit) => (
                   <button
                     key={digit}
@@ -420,7 +428,7 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
                   disabled={!pin}
                   onClick={clearPin}
                 >
-                  清空
+                  {t("orders2b1.keypad.clear")}
                 </button>
                 <button
                   type="button"
@@ -434,7 +442,7 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
                 <button
                   type="button"
                   data-device-unlock-pin-backspace="true"
-                  aria-label="退格"
+                  aria-label={t("orders2b1.unlock.backspace")}
                   className="grid h-11 place-items-center rounded-lg border border-[var(--border-panel)] bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-45 lg:h-10"
                   disabled={!pin}
                   onClick={removeLastDigit}
@@ -450,12 +458,12 @@ function PinKeypadInput({ value, onChange }: { value: string; onChange: (value: 
                 data-device-unlock-pin-done="true"
               >
                 <Check className="mr-1 size-3.5" />
-                完成
+                {t("orders2b1.keypad.done")}
               </Button>
             </div>
           </VirtualKeyboardDock>
           <p className="text-[9px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
-            点击输入框打开底部数字键盘；PIN 会按文本保存，保留前导 0。
+            {t("orders2b1.unlock.pinHelp")}
           </p>
         </>
       )}
@@ -470,6 +478,7 @@ function PatternLockInput({
   value: number[];
   onChange: (pattern: number[]) => void;
 }) {
+  const { t } = useLocale();
   const drawingRef = useRef(false);
   const [ignoredPoint, setIgnoredPoint] = useState<number | null>(null);
   const draftPattern = useMemo(() => sanitizePatternDraft(value), [value]);
@@ -570,7 +579,7 @@ function PatternLockInput({
         <div className="flex min-w-0 items-center gap-1.5">
           <Grid3X3 className="size-3.5 shrink-0 text-primary" />
           <span className="truncate text-[10px] font-semibold leading-3 text-foreground lg:text-xs lg:leading-4">
-            绘制图案
+            {t("orders2b1.unlock.patternDraw")}
           </span>
         </div>
         <button
@@ -579,7 +588,7 @@ function PatternLockInput({
           onClick={clearPattern}
         >
           <X className="size-3" />
-          清除
+          {t("orders2b1.keypad.clear")}
         </button>
       </div>
       <div
@@ -613,8 +622,12 @@ function PatternLockInput({
               )}
               aria-label={
                 selected
-                  ? `图案点 ${point}，第 ${stepNumber} 步${isStart ? "，起点" : ""}${isEnd ? "，终点" : ""}`
-                  : `图案点 ${point}`
+                  ? t("orders2b1.unlock.patternStep", {
+                      point,
+                      step: stepNumber,
+                      position: `${isStart ? t("orders2b1.unlock.patternStart") : ""}${isEnd ? t("orders2b1.unlock.patternEnd") : ""}`,
+                    })
+                  : t("orders2b1.unlock.patternPoint", { point })
               }
               onKeyDown={(event) => addPointWithKeyboard(event, point)}
             >
@@ -625,10 +638,17 @@ function PatternLockInput({
       </div>
       <p className="mt-2 text-center text-[9px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
         {draftPattern.length > 0
-          ? `起点 ${startPoint} · 终点 ${endPoint} · 已连接 ${draftPattern.length} / ${DEVICE_UNLOCK_PATTERN_MAX_STEPS} 点。`
-          : `已连接 0 个点，保存时需要至少 ${DEVICE_UNLOCK_PATTERN_MIN_STEPS} 个点。`}
+          ? t("orders2b1.unlock.patternSummary", {
+              start: startPoint ?? "",
+              end: endPoint ?? "",
+              count: draftPattern.length,
+              max: DEVICE_UNLOCK_PATTERN_MAX_STEPS,
+            })
+          : t("orders2b1.unlock.patternEmpty", {
+              min: DEVICE_UNLOCK_PATTERN_MIN_STEPS,
+            })}
         {draftPattern.length >= DEVICE_UNLOCK_PATTERN_MAX_STEPS
-          ? ` 已到 ${DEVICE_UNLOCK_PATTERN_MAX_STEPS} 步上限。`
+          ? t("orders2b1.unlock.patternMax", { max: DEVICE_UNLOCK_PATTERN_MAX_STEPS })
           : null}
       </p>
       <p
@@ -639,8 +659,11 @@ function PatternLockInput({
         aria-live="polite"
       >
         {ignoredPoint
-          ? `点 ${ignoredPoint} 已在第 ${draftPattern.indexOf(ignoredPoint) + 1} 步，不会重复添加；要改顺序请点清除后重画。`
-          : "每个点只能连接一次，数字 1 是起点，最后一个数字是终点。"}
+          ? t("orders2b1.unlock.patternDuplicate", {
+              point: ignoredPoint,
+              step: draftPattern.indexOf(ignoredPoint) + 1,
+            })
+          : t("orders2b1.unlock.patternUnique")}
       </p>
     </div>
   );

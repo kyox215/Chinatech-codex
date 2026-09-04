@@ -32,13 +32,14 @@ import {
   inferWhatsappCountry,
   resolveWhatsappPhone,
 } from "@/shared/lib/whatsapp-phone";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 const customerMessageChannels = [
   { value: "whatsapp", label: "WhatsApp" },
   { value: "sms", label: "SMS" },
 ] as const;
 
-const compactControlClass = "h-8 text-sm sm:h-9";
+const compactControlClass = "h-11 text-base lg:h-9 lg:text-sm";
 
 export function CustomerMessageDialog({
   open,
@@ -65,6 +66,7 @@ export function CustomerMessageDialog({
   busy: boolean;
   onConfirm: (input: CustomerMessageInput) => Promise<unknown>;
 }) {
+  const { t } = useLocale();
   const [channel, setChannel] = useState<"whatsapp" | "sms">(
     data.customer.preferred_channel ?? "whatsapp",
   );
@@ -101,11 +103,16 @@ export function CustomerMessageDialog({
         onOpenChange(nextOpen);
       }}
     >
-      <DialogContent className={componentOverlay.formContent}>
+      <DialogContent
+        closeLabel={t("customers.detail.close")}
+        className={componentOverlay.formContent}
+      >
         <DialogHeader className={componentOverlay.header}>
-          <DialogTitle className={componentOverlay.title}>给客户发消息</DialogTitle>
+          <DialogTitle className={componentOverlay.title}>
+            {t("customers.message.title")}
+          </DialogTitle>
           <DialogDescription className={componentOverlay.description}>
-            第一步打开发送软件；实际发出后，再回来记录联系结果。
+            {t("customers.message.description")}
           </DialogDescription>
         </DialogHeader>
         <div className="min-w-0 space-y-2.5">
@@ -146,20 +153,25 @@ export function CustomerMessageDialog({
                 updatePhone(value);
               }}
             >
-              <SelectTrigger className="h-8 min-w-0 font-mono text-xs sm:h-9">
+              <SelectTrigger className="h-11 min-w-0 font-mono text-base lg:h-9 lg:text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {phoneOptions.map((option, index) => (
                   <SelectItem key={option} value={option}>
-                    {index === 0 ? "主号码" : "备用号码"} · {option}
+                    {t(
+                      index === 0
+                        ? "customers.message.primaryPhone"
+                        : "customers.message.backupPhone",
+                    )}{" "}
+                    · {option}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           ) : channel === "sms" ? (
-            <div className="flex h-8 items-center truncate rounded-md border border-[var(--border-panel)] bg-surface-muted px-3 font-mono text-xs text-muted-foreground sm:h-9">
-              {phone || "缺少电话号码"}
+            <div className="flex h-11 items-center truncate rounded-md border border-[var(--border-panel)] bg-surface-muted px-3 font-mono text-base text-muted-foreground lg:h-9 lg:text-xs">
+              {phone || t("customers.message.missingPhone")}
             </div>
           ) : null}
           {channel === "whatsapp" ? (
@@ -176,7 +188,7 @@ export function CustomerMessageDialog({
             />
           ) : null}
           <Textarea
-            aria-label="客户消息内容"
+            aria-label={t("customers.message.bodyLabel")}
             value={body}
             disabled={!storeIdentity.canOutput}
             onChange={(event) => {
@@ -184,14 +196,14 @@ export function CustomerMessageDialog({
               setChannelOpened(false);
               setChannelOpenError(false);
             }}
-            className="min-h-56 font-mono text-xs leading-relaxed sm:min-h-64"
+            className="min-h-56 font-mono text-base leading-relaxed sm:min-h-64 lg:text-xs"
           />
           {channelOpened ? (
             <p
               role="status"
               className="rounded-lg bg-status-success/10 px-3 py-2 text-xs text-status-success-foreground"
             >
-              发送软件已打开。请确认消息真的发出后，再点击“我已发送”。
+              {t("customers.message.opened")}
             </p>
           ) : null}
           {channelOpenError ? (
@@ -199,29 +211,34 @@ export function CustomerMessageDialog({
               role="alert"
               className="rounded-lg bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground"
             >
-              没有打开发送软件。请允许浏览器弹窗后，再点一次“打开”。
+              {t("customers.message.openFailed")}
             </p>
           ) : null}
         </div>
         <DialogFooter className={componentOverlay.footer}>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            取消
+          <Button
+            className="min-h-11 whitespace-normal lg:min-h-9"
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+          >
+            {t("customers.form.cancel")}
           </Button>
           {channelOpened ? (
             <Button
               disabled={busy}
+              className="min-h-11 whitespace-normal lg:min-h-9"
               onClick={() =>
-                onConfirm({
+                void onConfirm({
                   channel,
                   body: body.trim(),
                   recipient_phone:
                     channel === "whatsapp" && phoneResolution.valid
                       ? phoneResolution.e164
                       : undefined,
-                })
+                }).catch(() => undefined)
               }
             >
-              <Check className="mr-1.5 size-3.5" /> 我已发送，记录联系
+              <Check className="mr-1.5 size-3.5" /> {t("customers.message.confirm")}
             </Button>
           ) : (
             <Button
@@ -247,8 +264,8 @@ export function CustomerMessageDialog({
                 setChannelOpened(true);
               }}
             >
-              <ExternalLink className="mr-1.5 size-3.5" /> 打开
-              {channel === "whatsapp" ? " WhatsApp" : "短信"}
+              <ExternalLink className="mr-1.5 size-3.5" /> {t("customers.message.open")}
+              {channel === "whatsapp" ? " WhatsApp" : ` ${t("customers.channel.sms")}`}
             </Button>
           )}
         </DialogFooter>

@@ -6,7 +6,10 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { inventoryCatalogKeys } from "../api/query-keys";
+import { LocaleProvider, useLocale } from "@/shared/i18n/locale-provider";
+import type { AppLocale } from "@/shared/i18n/locales";
+import { translateMessage } from "@/shared/i18n/messages";
+import { inventoryCatalogKeys, inventoryProductKeys } from "../api/query-keys";
 
 const apiMocks = vi.hoisted(() => ({
   createInventoryProduct: vi.fn(),
@@ -78,6 +81,237 @@ afterEach(() => {
 });
 
 describe("inventory product UI access gates", () => {
+  it("keeps create and edit mutation inputs canonical across employee locales", async () => {
+    const createInputs: unknown[] = [];
+    const updateInputs: unknown[] = [];
+
+    for (const locale of ["zh-CN", "it-IT", "en"] as const) {
+      const onCreated = vi.fn();
+      apiMocks.createInventoryProduct.mockResolvedValueOnce({
+        id: `created-${locale}`,
+        sku: "SKU-DYNAMIC-设备",
+      });
+      renderWithQuery(
+        <InventoryProductIntakeScreen surface="dialog" onCreated={onCreated} />,
+        locale,
+      );
+
+      expect(
+        screen.getByRole("heading", {
+          name: translateMessage(locale, "inventory2b4.quick.dialog.title"),
+        }),
+      ).toBeVisible();
+      if (locale !== "zh-CN") {
+        expect(document.body).not.toHaveTextContent("商品类别");
+        expect(document.body).not.toHaveTextContent("保存并查看商品");
+        expect(document.body).not.toHaveTextContent("计划售价");
+        expect(document.body).not.toHaveTextContent("更多资料");
+        expect(document.body).not.toHaveTextContent("保修（月）");
+      }
+      fireEvent.change(document.getElementById("product-brand")!, {
+        target: { value: "Brand-DYNAMIC-品牌" },
+      });
+      fireEvent.change(document.getElementById("product-model")!, {
+        target: { value: "Model-DYNAMIC-型号" },
+      });
+      fireEvent.change(document.getElementById("product-imei1")!, {
+        target: { value: "490154203237518" },
+      });
+      fireEvent.change(document.getElementById("product-spec-network_variant")!, {
+        target: { value: "Network-DYNAMIC-网络" },
+      });
+      fireEvent.change(document.getElementById("product-warranty")!, {
+        target: { value: "12" },
+      });
+      fireEvent.change(document.getElementById("product-notes")!, {
+        target: { value: "Notes-DYNAMIC-备注" },
+      });
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: translateMessage(locale, "inventory2b4.quick.screen.saveAndView"),
+        }),
+      );
+      await waitFor(() => expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(onCreated).toHaveBeenCalledWith(`created-${locale}`));
+      createInputs.push(normalizeIdempotency(apiMocks.createInventoryProduct.mock.calls[0]![0]));
+      expect(JSON.stringify(apiMocks.createInventoryProduct.mock.calls[0]![0])).toContain(
+        "DYNAMIC",
+      );
+
+      cleanup();
+      vi.clearAllMocks();
+      apiMocks.searchInventoryCatalog.mockResolvedValue({ items: [] });
+      apiMocks.getInventoryProductEditData.mockResolvedValue({
+        ...product({
+          id: "product-dynamic",
+          brand: "Brand-DYNAMIC-品牌",
+          model: "Model-DYNAMIC-型号",
+          created_at: "2026-08-07T10:00:00.000Z",
+          version: 7,
+        }),
+        identifiers: [],
+        specifications: { network_variant: "Network-DYNAMIC-网络" },
+        notes: "Notes-DYNAMIC-备注",
+        warranty_months: 12,
+      });
+      apiMocks.updateInventoryProduct.mockResolvedValue({
+        ok: true,
+        code: "updated",
+        id: "product-dynamic",
+        version: 8,
+      });
+      renderWithQuery(<InventoryProductEditScreen id="product-dynamic" />, locale);
+      await waitFor(() => expect(document.getElementById("product-model")).not.toBeNull());
+      fireEvent.change(document.getElementById("product-model")!, {
+        target: { value: "Model-DYNAMIC-型号-v2" },
+      });
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: translateMessage(locale, "inventory2b4.quick.edit.save"),
+        }),
+      );
+      await waitFor(() => expect(apiMocks.updateInventoryProduct).toHaveBeenCalledTimes(1));
+      await waitFor(() =>
+        expect(routerMocks.push).toHaveBeenCalledWith("/inventory/product-dynamic"),
+      );
+      updateInputs.push(normalizeIdempotency(apiMocks.updateInventoryProduct.mock.calls[0]![1]));
+      expect(apiMocks.updateInventoryProduct.mock.calls[0]![1].expected_version).toBe(7);
+
+      cleanup();
+      vi.clearAllMocks();
+      apiMocks.searchInventoryCatalog.mockResolvedValue({ items: [] });
+    }
+
+    expect(createInputs[1]).toEqual(createInputs[0]);
+    expect(createInputs[2]).toEqual(createInputs[0]);
+    expect(updateInputs[1]).toEqual(updateInputs[0]);
+    expect(updateInputs[2]).toEqual(updateInputs[0]);
+  });
+
+  it("preserves offline drafts and sends zero writes across employee locales", async () => {
+    vi.spyOn(window.navigator, "onLine", "get").mockReturnValue(false);
+
+    for (const locale of ["zh-CN", "it-IT", "en"] as const) {
+      renderWithQuery(<InventoryProductIntakeScreen surface="dialog" />, locale);
+      fireEvent.change(document.getElementById("product-brand")!, {
+        target: { value: "Brand-OFFLINE-品牌" },
+      });
+      fireEvent.change(document.getElementById("product-model")!, {
+        target: { value: "Model-OFFLINE-型号" },
+      });
+      fireEvent.change(document.getElementById("product-imei1")!, {
+        target: { value: "490154203237518" },
+      });
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: translateMessage(locale, "inventory2b4.quick.screen.saveAndView"),
+        }),
+      );
+
+      expect(
+        await screen.findByText(translateMessage(locale, "inventory2b4.quick.screen.offline")),
+      ).toBeVisible();
+      expect(apiMocks.createInventoryProduct).not.toHaveBeenCalled();
+      expect(document.getElementById("product-brand")).toHaveValue("Brand-OFFLINE-品牌");
+      expect(document.getElementById("product-model")).toHaveValue("Model-OFFLINE-型号");
+
+      cleanup();
+      vi.clearAllMocks();
+      apiMocks.searchInventoryCatalog.mockResolvedValue({ items: [] });
+    }
+  });
+
+  it("omits cost and inspection fields when their existing capabilities are absent", async () => {
+    shellMocks.value = shellContext({
+      canAllocateInventoryCosts: false,
+      canInspectInventory: false,
+      inventoryProductInspectionEnabled: false,
+    });
+    apiMocks.createInventoryProduct.mockResolvedValue({
+      id: "created-limited",
+      sku: "SKU-LIMITED",
+    });
+    renderWithQuery(<InventoryProductIntakeScreen surface="dialog" />, "en");
+
+    expect(document.getElementById("product-cost")).toBeNull();
+    expect(document.getElementById("product-battery-health")).toBeNull();
+    fireEvent.change(document.getElementById("product-brand")!, {
+      target: { value: "Brand-LIMITED-品牌" },
+    });
+    fireEvent.change(document.getElementById("product-model")!, {
+      target: { value: "Model-LIMITED-型号" },
+    });
+    fireEvent.change(document.getElementById("product-imei1")!, {
+      target: { value: "490154203237518" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save and view product" }));
+
+    await waitFor(() => expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1));
+    const input = apiMocks.createInventoryProduct.mock.calls[0]![0];
+    expect(input).not.toHaveProperty("cost_amount");
+    expect(input).not.toHaveProperty("inspection");
+  });
+
+  it("keeps conflict recovery localized and command inputs canonical across locales", async () => {
+    const updateInputs: unknown[] = [];
+
+    for (const locale of ["zh-CN", "it-IT", "en"] as const) {
+      apiMocks.getInventoryProductEditData.mockResolvedValue({
+        ...product({
+          id: "product-conflict",
+          brand: "Brand-CONFLICT-品牌",
+          model: "Model-CONFLICT-型号",
+          created_at: "2026-08-07T10:00:00.000Z",
+          version: 7,
+        }),
+        identifiers: [],
+      });
+      apiMocks.updateInventoryProduct.mockRejectedValueOnce({
+        status: 409,
+        code: "version_conflict",
+        message: "SECRET-SENTINEL-客户号",
+      });
+      renderWithQuery(<InventoryProductEditScreen id="product-conflict" />, locale);
+      await waitFor(() => expect(document.getElementById("product-model")).not.toBeNull());
+      fireEvent.change(document.getElementById("product-model")!, {
+        target: { value: "Model-CONFLICT-型号-v2" },
+      });
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: translateMessage(locale, "inventory2b4.quick.edit.save"),
+        }),
+      );
+
+      expect(
+        await screen.findByRole("heading", {
+          name: translateMessage(locale, "inventory2b4.conflict.version.title"),
+        }),
+      ).toBeVisible();
+      expect(document.body).not.toHaveTextContent("SECRET-SENTINEL-客户号");
+      expect(document.getElementById("product-model")).toHaveValue("Model-CONFLICT-型号-v2");
+      expect(apiMocks.updateInventoryProduct).toHaveBeenCalledTimes(1);
+      updateInputs.push(normalizeIdempotency(apiMocks.updateInventoryProduct.mock.calls[0]![1]));
+
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: translateMessage(locale, "inventory2b4.conflict.refreshPreserve"),
+        }),
+      );
+      expect(
+        await screen.findByText(translateMessage(locale, "inventory2b4.quick.edit.recovered")),
+      ).toBeVisible();
+      expect(document.getElementById("product-model")).toHaveValue("Model-CONFLICT-型号-v2");
+      expect(apiMocks.updateInventoryProduct).toHaveBeenCalledTimes(1);
+
+      cleanup();
+      vi.clearAllMocks();
+      apiMocks.searchInventoryCatalog.mockResolvedValue({ items: [] });
+    }
+
+    expect(updateInputs[1]).toEqual(updateInputs[0]);
+    expect(updateInputs[2]).toEqual(updateInputs[0]);
+  });
+
   it("keeps focus off form controls when the create dialog opens on mobile", async () => {
     apiMocks.listInventoryProducts.mockResolvedValue({
       items: [product()],
@@ -420,6 +654,61 @@ describe("inventory product UI access gates", () => {
     expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the real route-intent dialog mounted when post-commit navigation fails", async () => {
+    routerMocks.searchParams = new URLSearchParams("workspace=new-product");
+    apiMocks.listInventoryProducts.mockResolvedValue({
+      items: [product()],
+      total: 1,
+      facets: { brands: [], locations: [] },
+    });
+    apiMocks.createInventoryProduct.mockResolvedValue({
+      id: "product-route-created",
+      sku: "SKU-ROUTE-NEW",
+    });
+    routerMocks.push
+      .mockRejectedValueOnce(new Error("SECRET-ROUTER-SENTINEL"))
+      .mockResolvedValueOnce(undefined);
+    const view = renderWithQuery(<InventoryProductListScreen />);
+    const invalidatedKeys: unknown[][] = [];
+    vi.spyOn(view.queryClient, "invalidateQueries").mockImplementation(async (filters) => {
+      invalidatedKeys.push([...(filters?.queryKey ?? [])]);
+    });
+
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/品牌/), {
+      target: { value: "Brand-ROUTE-品牌" },
+    });
+    fireEvent.change(within(dialog).getByLabelText(/型号 \/ 商品名称/), {
+      target: { value: "Model-ROUTE-型号" },
+    });
+    fillPhoneImei1(dialog);
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存并查看商品" }));
+
+    expect(await within(dialog).findByText("写入已完成，但同步最新状态失败")).toBeVisible();
+    expect(screen.getByRole("dialog")).toBe(dialog);
+    expect(document.body).not.toHaveTextContent("SECRET-ROUTER-SENTINEL");
+    expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1);
+    expect(routerMocks.push).toHaveBeenCalledTimes(1);
+    expect(
+      invalidatedKeys.filter(
+        (key) =>
+          JSON.stringify(key) === JSON.stringify(inventoryProductKeys.listsForStore("store-1")),
+      ),
+    ).toHaveLength(1);
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "重试同步" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1);
+    expect(routerMocks.push).toHaveBeenNthCalledWith(2, "/inventory/product-route-created");
+    expect(
+      invalidatedKeys.filter(
+        (key) =>
+          JSON.stringify(key) === JSON.stringify(inventoryProductKeys.listsForStore("store-1")),
+      ),
+    ).toHaveLength(2);
+    expect(routerMocks.replace).toHaveBeenCalledWith("/inventory", { scroll: false });
+  });
+
   it("redacts a committed create when store authority changes before completion sync", async () => {
     let resolveCreate: ((value: { id: string; sku: string }) => void) | undefined;
     apiMocks.createInventoryProduct.mockReturnValue(
@@ -628,13 +917,13 @@ describe("inventory product UI access gates", () => {
     const image = await screen.findByAltText("Apple，iPhone 13，128GB，手机");
     expect(image).toHaveAttribute("src", thumbnailUrl);
     fireEvent.error(image);
-    expect(await screen.findByAltText("Apple iPhone 标准机型设备参考图")).toHaveAttribute(
+    expect(await screen.findByAltText("Apple iPhone 13 商品参考图")).toHaveAttribute(
       "src",
       "/inventory-reference/iphone-standard.webp",
     );
     expect(screen.getByText("参考图")).toBeVisible();
 
-    const reference = screen.getByAltText("Apple iPhone 标准机型设备参考图");
+    const reference = screen.getByAltText("Apple iPhone 13 商品参考图");
     fireEvent.error(reference);
     expect(await screen.findByText("暂无图片")).toBeVisible();
     expect(screen.queryByAltText("Apple，iPhone 13，128GB，手机")).not.toBeInTheDocument();
@@ -664,7 +953,7 @@ describe("inventory product UI access gates", () => {
     });
     renderWithQuery(<InventoryProductListScreen />);
 
-    expect(await screen.findByAltText("Apple iPhone 标准机型设备参考图")).toBeVisible();
+    expect(await screen.findByAltText("Apple iPhone 13 商品参考图")).toBeVisible();
     expect(document.querySelector('img[src^="https://tracking.example/"]')).toBeNull();
   });
 
@@ -691,7 +980,7 @@ describe("inventory product UI access gates", () => {
     });
     renderWithQuery(<InventoryProductListScreen />);
 
-    const reference = await screen.findByAltText("Apple iPhone 标准机型设备参考图");
+    const reference = await screen.findByAltText("Apple iPhone 13 商品参考图");
     fireEvent.error(reference);
     expect(await screen.findByText("暂无图片")).toBeVisible();
   });
@@ -706,7 +995,7 @@ describe("inventory product UI access gates", () => {
 
     expect(await screen.findByText("128 GB")).toBeVisible();
     expect(screen.queryByText("128 GB · Blue")).not.toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "颜色 蓝色" })).toBeVisible();
+    expect(screen.getByRole("img", { name: "颜色 Blue" })).toBeVisible();
   });
 
   it("uses fixed category buttons with aria-pressed and combines the selection with search filters", async () => {
@@ -1070,6 +1359,299 @@ describe("inventory product UI access gates", () => {
     expect(screen.queryByText("商品更新失败，请重试")).not.toBeInTheDocument();
     expect(await screen.findByText("写入已完成，但同步最新状态失败")).toBeVisible();
   });
+
+  it("uses a synchronous edit submit lock for same-tick duplicate submits", async () => {
+    let resolveUpdate:
+      | ((value: { ok: true; code: "updated"; id: string; version: number }) => void)
+      | undefined;
+    apiMocks.getInventoryProductEditData.mockResolvedValue({
+      ...product({
+        id: "product-edit-lock",
+        created_at: "2026-08-07T10:00:00.000Z",
+        version: 7,
+      }),
+      identifiers: [],
+    });
+    apiMocks.updateInventoryProduct.mockReturnValue(
+      new Promise((resolve) => {
+        resolveUpdate = resolve;
+      }),
+    );
+    renderWithQuery(<InventoryProductEditScreen id="product-edit-lock" />);
+    await waitFor(() => expect(document.getElementById("product-model")).not.toBeNull());
+    fireEvent.change(document.getElementById("product-model")!, {
+      target: { value: "Model-LOCK-型号" },
+    });
+    const form = screen.getByRole("button", { name: "保存修改" }).closest("form")!;
+
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    await waitFor(() => expect(apiMocks.updateInventoryProduct).toHaveBeenCalledTimes(1));
+    expect(apiMocks.updateInventoryProduct.mock.calls[0]![1].expected_version).toBe(7);
+    normalizeIdempotency(apiMocks.updateInventoryProduct.mock.calls[0]![1]);
+
+    await act(async () =>
+      resolveUpdate?.({ ok: true, code: "updated", id: "product-edit-lock", version: 8 }),
+    );
+    await waitFor(() =>
+      expect(routerMocks.push).toHaveBeenCalledWith("/inventory/product-edit-lock"),
+    );
+    expect(apiMocks.updateInventoryProduct).toHaveBeenCalledTimes(1);
+  });
+
+  it("reuses the edit idempotency key only while the failed command stays unchanged", async () => {
+    const rawError = "EDIT-RETRY-RAW-SENTINEL";
+    apiMocks.getInventoryProductEditData.mockResolvedValue({
+      ...product({
+        id: "product-edit-retry-key",
+        created_at: "2026-08-07T10:00:00.000Z",
+        version: 7,
+      }),
+      identifiers: [],
+    });
+    apiMocks.updateInventoryProduct.mockRejectedValue(new Error(rawError));
+    renderWithQuery(<InventoryProductEditScreen id="product-edit-retry-key" />, "en");
+    await waitFor(() => expect(document.getElementById("product-model")).not.toBeNull());
+    fireEvent.change(document.getElementById("product-model")!, {
+      target: { value: "Model-RETRY-A-型号" },
+    });
+    const save = screen.getByRole("button", { name: "Save changes" });
+
+    fireEvent.click(save);
+    await waitFor(() => expect(apiMocks.updateInventoryProduct).toHaveBeenCalledTimes(1));
+    expect(
+      await screen.findByText(translateMessage("en", "inventory2b4.quick.edit.updateFailed")),
+    ).toBeVisible();
+    const firstInput = apiMocks.updateInventoryProduct.mock.calls[0]![1];
+    normalizeIdempotency(firstInput);
+
+    fireEvent.click(save);
+    await waitFor(() => expect(apiMocks.updateInventoryProduct).toHaveBeenCalledTimes(2));
+    const unchangedRetryInput = apiMocks.updateInventoryProduct.mock.calls[1]![1];
+    expect(unchangedRetryInput.idempotency_key).toBe(firstInput.idempotency_key);
+
+    fireEvent.change(document.getElementById("product-model")!, {
+      target: { value: "Model-RETRY-B-型号" },
+    });
+    fireEvent.click(save);
+    await waitFor(() => expect(apiMocks.updateInventoryProduct).toHaveBeenCalledTimes(3));
+    const changedCommandInput = apiMocks.updateInventoryProduct.mock.calls[2]![1];
+    normalizeIdempotency(changedCommandInput);
+    expect(changedCommandInput.idempotency_key).not.toBe(firstInput.idempotency_key);
+    expect(changedCommandInput.expected_version).toBe(7);
+    expect(changedCommandInput.model).toBe("Model-RETRY-B-型号");
+    expect(document.body).not.toHaveTextContent(rawError);
+  });
+
+  it.each([
+    ["it-IT", new DOMException("ABORT-RAW-SENTINEL", "AbortError"), "connectivity"],
+    ["en", { status: 503, message: "SERVER-RAW-SENTINEL" }, "server"],
+  ] satisfies ReadonlyArray<[AppLocale, unknown, "connectivity" | "server"]>)(
+    "shows a localized safe outcome-unknown edit state for %s",
+    async (locale, failure, subtype) => {
+      apiMocks.getInventoryProductEditData.mockResolvedValue({
+        ...product({
+          id: `product-edit-${subtype}`,
+          created_at: "2026-08-07T10:00:00.000Z",
+          version: 7,
+        }),
+        identifiers: [],
+      });
+      apiMocks.updateInventoryProduct.mockRejectedValue(failure);
+      renderWithQuery(<InventoryProductEditScreen id={`product-edit-${subtype}`} />, locale);
+      await waitFor(() => expect(document.getElementById("product-model")).not.toBeNull());
+      fireEvent.change(document.getElementById("product-model")!, {
+        target: { value: `Model-${subtype}-DYNAMIC-型号` },
+      });
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: translateMessage(locale, "inventory2b4.quick.edit.save"),
+        }),
+      );
+
+      expect(
+        await screen.findByText(translateMessage(locale, `inventory2b4.error.${subtype}`)),
+      ).toBeVisible();
+      expect(apiMocks.updateInventoryProduct).toHaveBeenCalledTimes(1);
+      expect(document.body).not.toHaveTextContent("ABORT-RAW-SENTINEL");
+      expect(document.body).not.toHaveTextContent("SERVER-RAW-SENTINEL");
+      expect(document.getElementById("product-model")).toHaveValue(`Model-${subtype}-DYNAMIC-型号`);
+    },
+  );
+
+  it("retries only post-commit synchronization and never repeats the edit mutation", async () => {
+    apiMocks.getInventoryProductEditData.mockResolvedValue({
+      ...product({
+        id: "product-edit-post-commit",
+        created_at: "2026-08-07T10:00:00.000Z",
+        version: 7,
+      }),
+      identifiers: [],
+    });
+    apiMocks.updateInventoryProduct.mockResolvedValue({
+      ok: true,
+      code: "updated",
+      id: "product-edit-post-commit",
+      version: 8,
+    });
+    const { queryClient } = renderWithQuery(
+      <InventoryProductEditScreen id="product-edit-post-commit" />,
+      "it-IT",
+    );
+    const invalidate = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockRejectedValueOnce(new Error("POST-COMMIT-SYNC-RAW-SENTINEL"))
+      .mockResolvedValue(undefined);
+    await waitFor(() => expect(document.getElementById("product-model")).not.toBeNull());
+    fireEvent.change(document.getElementById("product-model")!, {
+      target: { value: "Model-COMMITTED-DYNAMIC-型号" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Salva modifiche" }));
+
+    expect(
+      await screen.findByText(translateMessage("it-IT", "inventory2b4.sync.failed.title")),
+    ).toBeVisible();
+    expect(apiMocks.updateInventoryProduct).toHaveBeenCalledTimes(1);
+    expect(document.body).not.toHaveTextContent("POST-COMMIT-SYNC-RAW-SENTINEL");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: translateMessage("it-IT", "inventory2b4.sync.retry") }),
+    );
+    await waitFor(() =>
+      expect(routerMocks.push).toHaveBeenCalledWith("/inventory/product-edit-post-commit"),
+    );
+    expect(apiMocks.updateInventoryProduct).toHaveBeenCalledTimes(1);
+    expect(invalidate).toHaveBeenCalledTimes(3);
+  });
+
+  it("loads the latest conflict version, preserves the draft, and starts a new confirmed command", async () => {
+    const initial = {
+      ...product({
+        id: "product-edit-conflict-lifecycle",
+        model: "Model-BASE-型号",
+        created_at: "2026-08-07T10:00:00.000Z",
+        version: 7,
+      }),
+      identifiers: [],
+    };
+    const latest = {
+      ...initial,
+      location: "LOCATION-LATEST-库位",
+      version: 11,
+    };
+    apiMocks.getInventoryProductEditData.mockResolvedValueOnce(initial).mockResolvedValue(latest);
+    apiMocks.updateInventoryProduct
+      .mockRejectedValueOnce({ status: 409, code: "version_conflict" })
+      .mockResolvedValueOnce({
+        ok: true,
+        code: "updated",
+        id: "product-edit-conflict-lifecycle",
+        version: 12,
+      });
+    renderWithQuery(<InventoryProductEditScreen id="product-edit-conflict-lifecycle" />, "en");
+    await waitFor(() => expect(document.getElementById("product-model")).not.toBeNull());
+    fireEvent.change(document.getElementById("product-model")!, {
+      target: { value: "Model-DRAFT-PRESERVED-型号" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(apiMocks.updateInventoryProduct).toHaveBeenCalledTimes(1));
+    const firstInput = apiMocks.updateInventoryProduct.mock.calls[0]![1];
+    normalizeIdempotency(firstInput);
+    expect(firstInput.expected_version).toBe(7);
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: translateMessage("en", "inventory2b4.conflict.refreshPreserve"),
+      }),
+    );
+    expect(
+      await screen.findByText(translateMessage("en", "inventory2b4.quick.edit.recovered")),
+    ).toBeVisible();
+    expect(document.getElementById("product-model")).toHaveValue("Model-DRAFT-PRESERVED-型号");
+    expect(document.getElementById("product-location")).toHaveValue("LOCATION-LATEST-库位");
+
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(apiMocks.updateInventoryProduct).toHaveBeenCalledTimes(2));
+    const confirmedInput = apiMocks.updateInventoryProduct.mock.calls[1]![1];
+    normalizeIdempotency(confirmedInput);
+    expect(confirmedInput.expected_version).toBe(11);
+    expect(confirmedInput.model).toBe("Model-DRAFT-PRESERVED-型号");
+    expect(confirmedInput.location).toBe("LOCATION-LATEST-库位");
+    expect(confirmedInput.idempotency_key).not.toBe(firstInput.idempotency_key);
+    await waitFor(() =>
+      expect(routerMocks.push).toHaveBeenCalledWith("/inventory/product-edit-conflict-lifecycle"),
+    );
+    expect(apiMocks.updateInventoryProduct).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps an offline edit draft and sends zero writes", async () => {
+    vi.spyOn(window.navigator, "onLine", "get").mockReturnValue(false);
+    apiMocks.getInventoryProductEditData.mockResolvedValue({
+      ...product({
+        id: "product-edit-offline",
+        created_at: "2026-08-07T10:00:00.000Z",
+        version: 7,
+      }),
+      identifiers: [],
+    });
+    renderWithQuery(<InventoryProductEditScreen id="product-edit-offline" />, "it-IT");
+    await waitFor(() => expect(document.getElementById("product-model")).not.toBeNull());
+    fireEvent.change(document.getElementById("product-model")!, {
+      target: { value: "Model-OFFLINE-型号" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Salva modifiche" }));
+
+    expect(
+      await screen.findByText(translateMessage("it-IT", "inventory2b4.quick.screen.offline")),
+    ).toBeVisible();
+    expect(document.getElementById("product-model")).toHaveValue("Model-OFFLINE-型号");
+    expect(apiMocks.updateInventoryProduct).not.toHaveBeenCalled();
+  });
+
+  it("preserves the Quick Entry draft, disclosure, focus, scroll, and reads on locale switch", async () => {
+    renderWithQuery(
+      <>
+        <InventoryProductIntakeScreen surface="dialog" onCreated={vi.fn()} />
+        <QuickEntryLocaleSwitch />
+      </>,
+      "en",
+    );
+    const brand = document.getElementById("product-brand")!;
+    const model = document.getElementById("product-model")!;
+    const network = document.getElementById("product-spec-network_variant")!;
+    const disclosure = document.getElementById("product-spec-network_variant-preset")!;
+    await waitFor(() => expect(brand).toHaveFocus());
+    fireEvent.change(brand, { target: { value: "Brand-DYNAMIC-品牌" } });
+    fireEvent.change(model, { target: { value: "Model-DYNAMIC-型号" } });
+    fireEvent.change(network, { target: { value: "Network-DYNAMIC-网络" } });
+    fireEvent.click(disclosure);
+    await waitFor(() => expect(disclosure).toHaveAttribute("aria-expanded", "true"));
+    await waitFor(() => expect(screen.getByRole("option", { name: "EU" })).toHaveFocus());
+    const readsBeforeSwitch = apiMocks.searchInventoryCatalog.mock.calls.length;
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 240 });
+
+    fireEvent.click(screen.getByRole("button", { name: "switch-quick-entry-locale" }));
+
+    await waitFor(() => {
+      expect(document.getElementById("product-brand")).toHaveValue("Brand-DYNAMIC-品牌");
+      expect(document.getElementById("product-model")).toHaveValue("Model-DYNAMIC-型号");
+      expect(document.getElementById("product-spec-network_variant")).toHaveValue(
+        "Network-DYNAMIC-网络",
+      );
+      expect(disclosure).toHaveAttribute("aria-expanded", "true");
+      expect(screen.getByRole("listbox")).toHaveAccessibleName(
+        translateMessage("it-IT", "inventory2b4.quick.select.optionsAria", {
+          label: translateMessage("it-IT", "inventory2b4.quick.form.presets", {
+            label: translateMessage("it-IT", "inventory2b4.quick.spec.networkVariant"),
+          }),
+        }),
+      );
+      expect(screen.getByRole("option", { name: "EU" })).toHaveFocus();
+      expect(window.scrollY).toBe(240);
+      expect(apiMocks.searchInventoryCatalog).toHaveBeenCalledTimes(readsBeforeSwitch);
+    });
+    expect(apiMocks.createInventoryProduct).not.toHaveBeenCalled();
+  });
 });
 
 function product(overrides: Record<string, unknown> = {}) {
@@ -1090,12 +1672,29 @@ function product(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function renderWithQuery(node: React.ReactNode) {
+function renderWithQuery(node: React.ReactNode, locale?: AppLocale) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const content = <QueryClientProvider client={queryClient}>{node}</QueryClientProvider>;
   return {
-    ...render(<QueryClientProvider client={queryClient}>{node}</QueryClientProvider>),
+    ...render(locale ? <LocaleProvider initialLocale={locale}>{content}</LocaleProvider> : content),
     queryClient,
   };
+}
+
+function normalizeIdempotency<T extends Record<string, unknown>>(input: T) {
+  expect(input.idempotency_key).toMatch(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+  );
+  return { ...input, idempotency_key: "<uuid>" };
+}
+
+function QuickEntryLocaleSwitch() {
+  const { setLocale } = useLocale();
+  return (
+    <button type="button" onClick={() => setLocale("it-IT")}>
+      switch-quick-entry-locale
+    </button>
+  );
 }
 
 function shellContext(permissionOverrides: Record<string, boolean> = {}) {

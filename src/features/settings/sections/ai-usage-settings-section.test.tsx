@@ -1,8 +1,11 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { getMockAiAssistantUsageSummary } from "@/features/ai-assistant/testing/mock-usage";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
 import { AiUsageSettingsSection } from "./ai-usage-settings-section";
+
+afterEach(cleanup);
 
 describe("AiUsageSettingsSection", () => {
   it("renders current-store request, token, cost and daily limit metrics", () => {
@@ -58,6 +61,51 @@ describe("AiUsageSettingsSection", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("$0.0125 预留费用尚待结算");
     expect(screen.getAllByText("美元 · 已结算")).toHaveLength(2);
+  });
+
+  it.each([
+    ["zh-CN", "2026-03-29T00:30:00.000Z", "03/29 01:30", "AI 使用量"],
+    ["zh-CN", "2026-03-29T01:30:00.000Z", "03/29 03:30", "AI 使用量"],
+    ["it-IT", "2026-03-29T00:30:00.000Z", "29/03, 01:30", "Utilizzo AI"],
+    ["it-IT", "2026-03-29T01:30:00.000Z", "29/03, 03:30", "Utilizzo AI"],
+    ["en", "2026-03-29T00:30:00.000Z", "03/29, 01:30 AM", "AI usage"],
+    ["en", "2026-03-29T01:30:00.000Z", "03/29, 03:30 AM", "AI usage"],
+  ] as const)(
+    "formats the Rome DST boundary in %s without depending on the host timezone",
+    (locale, generatedAt, expectedTime, heading) => {
+      const usage = getMockAiAssistantUsageSummary(new Date(generatedAt));
+      render(
+        <LocaleProvider initialLocale={locale}>
+          <AiUsageSettingsSection
+            usage={usage}
+            isLoading={false}
+            isError={false}
+            onRetry={vi.fn()}
+          />
+        </LocaleProvider>,
+      );
+
+      expect(screen.getByRole("heading", { name: heading })).toBeVisible();
+      expect(screen.getByText(new RegExp(expectedTime.replace(".", "\\.")))).toBeVisible();
+      expect(usage.generated_at).toBe(generatedAt);
+    },
+  );
+
+  it.each([
+    ["zh-CN", "未知"],
+    ["it-IT", "Sconosciuto"],
+    ["en", "Unknown"],
+  ] as const)("renders an invalid timestamp safely in %s", (locale, unknown) => {
+    const usage = getMockAiAssistantUsageSummary();
+    usage.generated_at = "RAW_INVALID_TIMESTAMP_SENTINEL";
+    render(
+      <LocaleProvider initialLocale={locale}>
+        <AiUsageSettingsSection usage={usage} isLoading={false} isError={false} onRetry={vi.fn()} />
+      </LocaleProvider>,
+    );
+
+    expect(screen.getByText(new RegExp(unknown))).toBeVisible();
+    expect(screen.queryByText(/RAW_INVALID_TIMESTAMP_SENTINEL/)).not.toBeInTheDocument();
   });
 });
 

@@ -8,8 +8,11 @@ import {
   buildCustomerOrderWorkbenchItems,
   buildCustomerPaymentSummary,
   buildCustomerWorkbenchSummary,
+  formatCustomerWorkbenchDate,
   getCustomerOrderWorkbenchState,
 } from "./customer-workbench";
+import { APP_TIME_ZONE } from "@/shared/i18n/locales";
+import { translateMessage } from "@/shared/i18n/messages";
 
 const baseCustomer: CustomerDetail["customer"] = {
   id: "cust_1",
@@ -85,6 +88,26 @@ function detail(overrides: Partial<CustomerDetail> = {}): CustomerDetail {
 }
 
 describe("customer workbench model", () => {
+  it.each(["zh-CN", "it-IT", "en"] as const)(
+    "formats display dates in Europe/Rome without mutating the canonical timestamp for %s",
+    (locale) => {
+      const canonical = "2026-07-01T10:30:00.000Z";
+      const expected = new Intl.DateTimeFormat(locale, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: APP_TIME_ZONE,
+      }).format(new Date(canonical));
+
+      expect(formatCustomerWorkbenchDate(canonical, locale)).toBe(expected);
+      expect(canonical).toBe("2026-07-01T10:30:00.000Z");
+      expect(formatCustomerWorkbenchDate("not-a-date", locale)).toBe(
+        translateMessage(locale, "customers.dateUnavailable"),
+      );
+    },
+  );
+
   it("builds order-centered items and keeps device association visible", () => {
     const data = detail({
       orders: [
@@ -175,8 +198,10 @@ describe("customer workbench model", () => {
       activeOrderCount: 1,
       totalQuoted: 150,
       unpaidAmount: 30,
+      warranty: { kind: "months", count: 6 },
       warrantyLabel: "6个月售后",
       canDelete: false,
+      deleteBlockedReasonKind: "has_order_history",
       deleteBlockedReason: "已有历史工单，设备档案需要保留用于维修记录追踪",
     });
     expect(iphone.orderItems.map((item) => item.order.id)).toEqual(["o3", "o2", "o1"]);
@@ -186,6 +211,7 @@ describe("customer workbench model", () => {
       activeOrderCount: 0,
       totalQuoted: 0,
       unpaidAmount: 0,
+      warranty: { kind: "none" },
       warrantyLabel: "暂无售后记录",
       canDelete: true,
       deleteBlockedReason: undefined,
@@ -378,7 +404,9 @@ describe("customer workbench model", () => {
     expect(summary.contactSummary).toMatchObject({
       primaryPhone: "+39333",
       backupPhoneCount: 1,
+      channelKind: "whatsapp",
       channel: "WhatsApp",
+      languageKind: "it",
       language: "Italiano",
     });
     expect(summary.activeOrders).toHaveLength(1);
@@ -428,8 +456,31 @@ describe("customer workbench model", () => {
       ["active_order", "info"],
       ["unpaid", "danger"],
     ]);
+    expect(items[0]).toMatchObject({
+      titleKind: "overdue_followup",
+      actionKind: "view_followup",
+    });
     expect(items[1]).toMatchObject({ title: "待通知客户", orderId: "pickup" });
     expect(items[3].description).toContain("€");
+  });
+
+  it("preserves custom warranty text byte-for-byte while exposing a stable fact", () => {
+    const [item] = buildCustomerDeviceWorkbenchItems(
+      detail({
+        orders: [
+          order({
+            id: "custom-warranty",
+            device_id: "dev_1",
+            status: "completed",
+            warranty_text: "  动态售后 Ω  ",
+            balance_amount: 0,
+          }),
+        ],
+      }),
+    );
+
+    expect(item.warranty).toEqual({ kind: "custom", value: "  动态售后 Ω  " });
+    expect(item.warrantyLabel).toBe("  动态售后 Ω  ");
   });
 
   it("does not project cancelled balances or redacted finance as current debt", () => {

@@ -74,8 +74,8 @@ describe("AppBar responsive route contract", () => {
       "utf8",
     );
     expect(customerDetailSource).toContain("CustomerMobileFloatingHeader");
-    expect(customerDetailSource).toContain('aria-label="返回客户列表"');
-    expect(productDetailSource).toContain('aria-label="返回商品库存"');
+    expect(customerDetailSource).toContain('aria-label={t("customers.detail.back")}');
+    expect(productDetailSource).toContain('aria-label={t("inventory2b4.detail.back")}');
     expect(productDetailSource).toContain("size-11 rounded-lg lg:hidden");
 
     const orderTaskSource = readFileSync(
@@ -83,7 +83,7 @@ describe("AppBar responsive route contract", () => {
       "utf8",
     );
     expect(orderTaskSource).toContain('href="/orders"');
-    expect(orderTaskSource).toContain('aria-label="返回工单列表"');
+    expect(orderTaskSource).toContain('aria-label={t("orders2b1.task.backOrdersAria")}');
     expect(orderTaskSource).toContain('className="size-9 rounded-lg lg:hidden"');
     expect(orderTaskSource).toContain("min-w-0 flex-1 text-center");
   });

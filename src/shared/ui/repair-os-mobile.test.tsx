@@ -4,6 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { RepairOsListScaffold } from "@/shared/ui/repair-os-mobile";
 
+const mocks = vi.hoisted(() => ({ viewport: "compact" as "pending" | "compact" | "desktop" }));
+
+vi.mock("@/hooks/use-mobile", () => ({
+  useViewportMode: () => mocks.viewport,
+  useIsCompactWorkspace: () => mocks.viewport === "compact",
+  useIsMobile: () => mocks.viewport === "compact",
+}));
+
 class ResizeObserverMock {
   observe() {}
   disconnect() {}
@@ -11,6 +19,7 @@ class ResizeObserverMock {
 
 describe("RepairOsListScaffold header chips", () => {
   beforeEach(() => {
+    mocks.viewport = "compact";
     vi.stubGlobal("ResizeObserver", ResizeObserverMock);
     vi.stubGlobal(
       "matchMedia",
@@ -137,6 +146,62 @@ describe("RepairOsListScaffold header chips", () => {
     const searchContainer = screen.getByRole("textbox", { name: "搜索" }).parentElement;
     expect(searchContainer).toHaveClass("border");
     expect(searchContainer).not.toHaveClass("bg-[var(--surface-panel-muted)]");
+  });
+
+  it("keeps Chinese defaults and supports localized search and filter overrides", () => {
+    const { unmount } = render(
+      <SidebarProvider>
+        <RepairOsListScaffold title="测试列表" searchValue="Mario" onSearchChange={() => undefined}>
+          <div>内容</div>
+        </RepairOsListScaffold>
+      </SidebarProvider>,
+    );
+
+    expect(screen.getByText("搜索：")).toBeVisible();
+    expect(screen.getByRole("button", { name: "清除搜索" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "筛选" })).toBeVisible();
+    unmount();
+
+    render(
+      <SidebarProvider>
+        <RepairOsListScaffold
+          title="Clienti"
+          searchValue="Mario"
+          searchPrefix="Ricerca:"
+          clearSearchLabel="Cancella ricerca"
+          filterLabel="Filtri"
+          onSearchChange={() => undefined}
+        >
+          <div>Contenuto</div>
+        </RepairOsListScaffold>
+      </SidebarProvider>,
+    );
+
+    expect(screen.getByText("Ricerca:")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Cancella ricerca" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Filtri" })).toBeVisible();
+  });
+
+  it("keeps the preparing status default and accepts an explicit override", () => {
+    mocks.viewport = "pending";
+    const { unmount } = render(
+      <SidebarProvider>
+        <RepairOsListScaffold title="测试列表">
+          <div>内容</div>
+        </RepairOsListScaffold>
+      </SidebarProvider>,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("正在准备测试列表");
+    unmount();
+
+    render(
+      <SidebarProvider>
+        <RepairOsListScaffold title="Clienti" preparingStatus="Preparazione clienti">
+          <div>Contenuto</div>
+        </RepairOsListScaffold>
+      </SidebarProvider>,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Preparazione clienti");
   });
 });
 

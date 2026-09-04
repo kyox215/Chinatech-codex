@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export type InventoryLifecycleValidationIssue = {
   fieldId: string;
@@ -90,6 +91,7 @@ export function InventoryLifecycleValidationSummary({
   onFocusField,
   className,
 }: InventoryLifecycleValidationSummaryProps) {
+  const { t } = useLocale();
   const summaryRef = React.useRef<HTMLElement>(null);
   const generatedId = React.useId();
   const issueKey = issues.map((issue) => `${issue.fieldId}:${issue.message}`).join("|");
@@ -114,7 +116,7 @@ export function InventoryLifecycleValidationSummary({
         className,
       )}
     >
-      <p className="font-semibold">请先检查以下内容</p>
+      <p className="font-semibold">{t("inventory2b4.validation.summary")}</p>
       {serverError ? <p className="text-xs leading-5">{serverError}</p> : null}
       {issues.length > 0 ? (
         <ul className="grid min-w-0 gap-1">

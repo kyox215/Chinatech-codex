@@ -13,6 +13,7 @@ import {
   normalizeMoneyKeypadDraft,
   type MoneyKeypadKey,
 } from "@/shared/lib/mobile-input";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 const moneyKeypadRows: MoneyKeypadKey[][] = [
   ["1", "2", "3"],
@@ -51,6 +52,7 @@ export function MoneyKeypadInput({
   valueClassName,
   contentClassName,
 }: MoneyKeypadInputProps) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => normalizeMoneyKeypadDraft(value));
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -146,7 +148,7 @@ export function MoneyKeypadInput({
       <VirtualKeyboardDock
         open={open}
         onOpenChange={handleOpenChange}
-        label={`${ariaLabel} 虚拟金额键盘`}
+        label={t("orders2b1.keypad.moneyLabel", { label: ariaLabel })}
         triggerRef={triggerRef}
         panelClassName={contentClassName}
       >
@@ -157,7 +159,11 @@ export function MoneyKeypadInput({
               {draft || "0"}
             </span>
           </div>
-          <div className="grid gap-1.5" role="group" aria-label={`${ariaLabel} 虚拟金额键盘`}>
+          <div
+            className="grid gap-1.5"
+            role="group"
+            aria-label={t("orders2b1.keypad.moneyLabel", { label: ariaLabel })}
+          >
             {moneyKeypadRows.map((row, rowIndex) => (
               <div key={rowIndex} className="grid grid-cols-3 gap-1.5">
                 {row.map((key) => (
@@ -172,7 +178,7 @@ export function MoneyKeypadInput({
                     data-money-keypad-done="true"
                   >
                     <Check className="mr-1 size-3.5" />
-                    完成
+                    {t("orders2b1.keypad.done")}
                   </Button>
                 ) : null}
               </div>
@@ -185,6 +191,7 @@ export function MoneyKeypadInput({
 }
 
 function KeypadButton({ keypadKey, onClick }: { keypadKey: MoneyKeypadKey; onClick: () => void }) {
+  const { t } = useLocale();
   if (keypadKey === "backspace") {
     return (
       <Button
@@ -193,7 +200,7 @@ function KeypadButton({ keypadKey, onClick }: { keypadKey: MoneyKeypadKey; onCli
         size="sm"
         className="h-10 rounded-lg"
         onClick={onClick}
-        aria-label="删除最后一位金额"
+        aria-label={t("orders2b1.keypad.deleteAmount")}
         data-money-keypad-key={keypadKey}
       >
         <Delete className="size-4" />
@@ -212,7 +219,7 @@ function KeypadButton({ keypadKey, onClick }: { keypadKey: MoneyKeypadKey; onCli
         data-money-keypad-key={keypadKey}
       >
         <RotateCcw className="mr-1 size-3.5" />
-        清空
+        {t("orders2b1.keypad.clear")}
       </Button>
     );
   }

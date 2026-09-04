@@ -39,7 +39,6 @@ import {
 } from "@/features/settings/model/settings-field-errors";
 import type { StoreSettingsDraftValues } from "@/features/settings/model/store-settings-draft";
 import type { StoreSettingsReadiness } from "@/features/settings/model/store-settings-readiness";
-import { getStoreOutputDraftProjectionCopy } from "@/features/settings/model/store-output-draft-projection";
 import type {
   ActorStoreMembership,
   StoreLifecycleCapability,
@@ -48,6 +47,16 @@ import type {
 import { formLayout, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { RepairOsBusinessCard, RepairOsSectionHeader } from "@/shared/ui";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { translateSettingsOperations } from "@/shared/i18n/messages";
+
+function useOperationsCopy() {
+  const { locale } = useLocale();
+  return (
+    source: Parameters<typeof translateSettingsOperations>[1],
+    values?: Record<string, string | number>,
+  ) => translateSettingsOperations(locale, source, values);
+}
 
 export interface StoreSettingsSectionContentProps {
   activeStoreId?: string;
@@ -112,6 +121,7 @@ export function StoreSettingsSectionContent({
   fieldErrors,
   onDraftChange,
 }: StoreSettingsSectionContentProps) {
+  const copy = useOperationsCopy();
   const [managementOpen, setManagementOpen] = useState(false);
   const activeStore = stores.find((store) => store.id === activeStoreId);
 
@@ -150,9 +160,9 @@ export function StoreSettingsSectionContent({
         >
           <ShieldCheck className="size-4 shrink-0 text-primary" aria-hidden="true" />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold">管理店铺与安全</span>
+            <span className="block truncate text-sm font-semibold">{copy("管理店铺与安全")}</span>
             <span className="mt-0.5 block truncate text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-              重命名、创建、关闭或删除店铺
+              {copy("重命名、创建、关闭或删除店铺")}
             </span>
           </span>
           <ChevronDown
@@ -227,6 +237,7 @@ function StoreLifecycleCard({
   capability?: StoreLifecycleCapability["close"];
   onRun: () => void;
 }) {
+  const copy = useOperationsCopy();
   const canShowDeleteEntry =
     Boolean(store) &&
     activeStoreExplicit &&
@@ -238,8 +249,8 @@ function StoreLifecycleCard({
       <RepairOsSectionHeader
         icon={ShieldCheck}
         iconFrame={false}
-        title="店铺状态与关闭"
-        description="需要停用这家店时，从安全检查开始。关闭不是永久删除，以后仍可恢复。"
+        title={copy("店铺状态与关闭")}
+        description={copy("需要停用这家店时，从安全检查开始。关闭不是永久删除，以后仍可恢复。")}
       />
       {store && capability ? (
         <>
@@ -263,7 +274,7 @@ function StoreLifecycleCard({
           ) : null}
         </>
       ) : (
-        <p className="text-sm text-muted-foreground">请先选择要管理的店铺。</p>
+        <p className="text-sm text-muted-foreground">{copy("请先选择要管理的店铺。")}</p>
       )}
     </section>
   );
@@ -286,6 +297,7 @@ function StoreCreationCard({
   onNewStoreAddressChange: (value: string) => void;
   onCreateStore: () => void;
 }) {
+  const copy = useOperationsCopy();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const canCreate = newStoreName.trim().length >= 2 && !isCreating;
   const requestCreate = () => {
@@ -294,16 +306,16 @@ function StoreCreationCard({
 
   return (
     <section className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
-      <RepairOsSectionHeader icon={Plus} iconFrame={false} title="创建独立店铺" />
+      <RepairOsSectionHeader icon={Plus} iconFrame={false} title={copy("创建独立店铺")} />
       <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
         <div className="grid min-w-0 gap-3">
-          <SettingsField label="新店铺名称" htmlFor="new-store">
+          <SettingsField label={copy("新店铺名称")} htmlFor="new-store">
             <Input
               id="new-store"
               className="h-10 text-sm"
               value={newStoreName}
               maxLength={80}
-              placeholder="输入至少 2 个字符"
+              placeholder={copy("输入至少 2 个字符")}
               disabled={isCreating}
               onChange={(event) => onNewStoreNameChange(event.target.value)}
               onKeyDown={(event) => {
@@ -314,13 +326,13 @@ function StoreCreationCard({
               }}
             />
           </SettingsField>
-          <SettingsField label="默认打印地址（可选）" htmlFor="new-store-address">
+          <SettingsField label={copy("默认打印地址（可选）")} htmlFor="new-store-address">
             <Textarea
               id="new-store-address"
               rows={2}
               maxLength={500}
               value={newStoreAddress}
-              placeholder="例如 Via Roma 12, Siracusa"
+              placeholder={copy("例如 Via Roma 12, Siracusa")}
               disabled={isCreating}
               onChange={(event) => onNewStoreAddressChange(event.target.value)}
             />
@@ -335,36 +347,39 @@ function StoreCreationCard({
           onClick={requestCreate}
         >
           <Plus className="size-3.5" />
-          {isCreating ? "创建中…" : "创建并切换"}
+          {isCreating ? copy("创建中…") : copy("创建并切换")}
         </Button>
       </div>
       <p className="mt-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-        将创建新的独立私有租户并切换过去。维修工单、批量工单和二手销售票据会使用填写的默认地址；创建后仍可修改。
+        {copy(
+          "将创建新的独立私有租户并切换过去。维修工单、批量工单和二手销售票据会使用填写的默认地址；创建后仍可修改。",
+        )}
       </p>
       {error ? (
         <div
           role="alert"
           className="mt-2 rounded-lg border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-2 text-[11px] leading-4 text-status-danger-foreground lg:text-xs lg:leading-[18px]"
         >
-          店铺创建失败：{error}。名称已保留，可修改后再次尝试。
+          {copy("店铺创建失败。名称已保留，可修改后再次尝试。")}
         </div>
       ) : null}
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认创建独立店铺？</AlertDialogTitle>
+            <AlertDialogTitle>{copy("确认创建独立店铺？")}</AlertDialogTitle>
             <AlertDialogDescription className="[overflow-wrap:anywhere]">
-              将创建“{newStoreName.trim()}
-              ”作为新的独立私有租户，并在成功后切换过去。
+              {copy("将创建“{name}”作为新的独立私有租户，并在成功后切换过去。", {
+                name: newStoreName.trim(),
+              })}{" "}
               {newStoreAddress.trim()
-                ? ` 默认打印地址为“${newStoreAddress.trim()}”。`
-                : " 默认打印地址暂不填写，完成后可在店铺设置补充。"}
-              当前店铺的数据与权限不会复制。
+                ? copy("默认打印地址为“{address}”。", { address: newStoreAddress.trim() })
+                : copy("默认打印地址暂不填写，完成后可在店铺设置补充。")}{" "}
+              {copy("当前店铺的数据与权限不会复制。")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="min-h-11" disabled={isCreating}>
-              取消
+              {copy("取消")}
             </AlertDialogCancel>
             <AlertDialogAction
               className="min-h-11"
@@ -372,7 +387,7 @@ function StoreCreationCard({
               aria-busy={isCreating}
               onClick={onCreateStore}
             >
-              {isCreating ? "创建中…" : "确认创建并切换"}
+              {isCreating ? copy("创建中…") : copy("确认创建并切换")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -392,6 +407,7 @@ function StoreProfileCard({
   fieldErrors: SettingsFieldErrors;
   onDraftChange: (patch: Partial<StoreSettingsDraftValues["store"]>) => void;
 }) {
+  const copy = useOperationsCopy();
   const publicBaseUrlError = getSettingsFieldError(fieldErrors, "public_base_url");
   const [moreOptionsOpen, setMoreOptionsOpen] = useState(Boolean(publicBaseUrlError));
   useEffect(() => {
@@ -409,10 +425,10 @@ function StoreProfileCard({
       <RepairOsSectionHeader
         icon={Store}
         iconFrame={false}
-        title="店铺资料"
+        title={copy("店铺资料")}
         action={
           <Badge variant="outline" className="text-[10px] lg:text-[11px] lg:leading-4">
-            {canUpdateSettings ? "可编辑" : "只读"}
+            {canUpdateSettings ? copy("可编辑") : copy("只读")}
           </Badge>
         }
       />
@@ -422,9 +438,9 @@ function StoreProfileCard({
         <>
           <div className={formLayout.grid}>
             <SettingsField
-              label="收据和客户消息显示名称"
+              label={copy("收据和客户消息显示名称")}
               htmlFor="store-name"
-              error={getSettingsFieldError(fieldErrors, "store_name")}
+              error={localizeSettingsFieldError(fieldErrors, "store_name", copy)}
             >
               <Input
                 id="store-name"
@@ -438,10 +454,10 @@ function StoreProfileCard({
               />
             </SettingsField>
             <SettingsField
-              label="邮箱"
+              label={copy("邮箱")}
               htmlFor="store-email"
               icon={Mail}
-              error={getSettingsFieldError(fieldErrors, "store_email")}
+              error={localizeSettingsFieldError(fieldErrors, "store_email", copy)}
             >
               <Input
                 id="store-email"
@@ -459,10 +475,10 @@ function StoreProfileCard({
               />
             </SettingsField>
             <SettingsField
-              label="电话"
+              label={copy("电话")}
               htmlFor="store-phone"
               icon={Phone}
-              error={getSettingsFieldError(fieldErrors, "store_phone")}
+              error={localizeSettingsFieldError(fieldErrors, "store_phone", copy)}
             >
               <Input
                 id="store-phone"
@@ -484,7 +500,7 @@ function StoreProfileCard({
               label="WhatsApp"
               htmlFor="store-whatsapp"
               icon={MessageSquare}
-              error={getSettingsFieldError(fieldErrors, "store_whatsapp")}
+              error={localizeSettingsFieldError(fieldErrors, "store_whatsapp", copy)}
             >
               <Input
                 id="store-whatsapp"
@@ -504,10 +520,10 @@ function StoreProfileCard({
             </SettingsField>
           </div>
           <SettingsField
-            label="门店默认地址（用于打印）"
+            label={copy("门店默认地址（用于打印）")}
             htmlFor="store-address"
             className="mt-3"
-            error={getSettingsFieldError(fieldErrors, "store_address")}
+            error={localizeSettingsFieldError(fieldErrors, "store_address", copy)}
           >
             <Textarea
               id="store-address"
@@ -529,7 +545,9 @@ function StoreProfileCard({
             id="store-address-help"
             className="mt-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4"
           >
-            维修工单、批量工单和二手销售票据会使用此地址；留空时客户输出保持暂停，不会回退到其他店铺地址。
+            {copy(
+              "维修工单、批量工单和二手销售票据会使用此地址；留空时客户输出保持暂停，不会回退到其他店铺地址。",
+            )}
           </p>
           <StoreProfileMoreOptions
             open={moreOptionsOpen}
@@ -545,34 +563,35 @@ function StoreProfileCard({
 }
 
 function StoreProfileReadOnly({ draft }: { draft: StoreSettingsDraftValues["store"] }) {
+  const copy = useOperationsCopy();
   const [moreOptionsOpen, setMoreOptionsOpen] = useState(false);
   const values = [
-    ["店铺名", draft.store_name],
-    ["邮箱", draft.store_email],
-    ["电话", draft.store_phone],
-    ["WhatsApp", draft.store_whatsapp],
-    ["默认打印地址", draft.store_address],
+    [copy("店铺名"), draft.store_name, false],
+    [copy("邮箱"), draft.store_email, false],
+    [copy("电话"), draft.store_phone, false],
+    ["WhatsApp", draft.store_whatsapp, false],
+    [copy("默认打印地址"), draft.store_address, true],
   ] as const;
 
   return (
     <>
       <p className="mb-3 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-        当前账号可查看店铺资料；修改请联系店主或经理。
+        {copy("当前账号可查看店铺资料；修改请联系店主或经理。")}
       </p>
       <dl className="grid min-w-0 gap-2 sm:grid-cols-2">
-        {values.map(([label, value]) => (
+        {values.map(([label, value, wide]) => (
           <div
             key={label}
             className={cn(
               "min-w-0 rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2.5",
-              label === "默认打印地址" && "sm:col-span-2",
+              wide && "sm:col-span-2",
             )}
           >
             <dt className="text-[10px] font-medium text-muted-foreground lg:text-[11px] lg:leading-4">
               {label}
             </dt>
             <dd className="mt-1 whitespace-pre-wrap break-words text-xs font-semibold leading-4">
-              {value.trim() || "未填写"}
+              {value.trim() || copy("未填写")}
             </dd>
           </div>
         ))}
@@ -585,7 +604,7 @@ function StoreProfileReadOnly({ draft }: { draft: StoreSettingsDraftValues["stor
           onClick={() => setMoreOptionsOpen((open) => !open)}
           className="flex min-h-11 w-full items-center gap-2 text-left text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-9"
         >
-          <span className="flex-1">更多选项</span>
+          <span className="flex-1">{copy("更多选项")}</span>
           <ChevronDown
             className={cn("size-4 transition-transform", moreOptionsOpen && "rotate-180")}
             aria-hidden="true"
@@ -595,10 +614,10 @@ function StoreProfileReadOnly({ draft }: { draft: StoreSettingsDraftValues["stor
           {moreOptionsOpen ? (
             <div className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2.5">
               <dt className="text-[10px] font-medium text-muted-foreground lg:text-[11px] lg:leading-4">
-                客户门户域名
+                {copy("客户门户域名")}
               </dt>
               <dd className="mt-1 whitespace-pre-wrap break-words text-xs font-semibold leading-4">
-                {draft.public_base_url?.trim() || "未填写"}
+                {draft.public_base_url?.trim() || copy("未填写")}
               </dd>
             </div>
           ) : null}
@@ -621,6 +640,7 @@ function StoreProfileMoreOptions({
   fieldErrors: SettingsFieldErrors;
   onDraftChange: (patch: Partial<StoreSettingsDraftValues["store"]>) => void;
 }) {
+  const copy = useOperationsCopy();
   return (
     <div className="mt-3 border-t border-[var(--border-panel)] pt-2">
       <button
@@ -630,7 +650,7 @@ function StoreProfileMoreOptions({
         onClick={() => onOpenChange(!open)}
         className="flex min-h-11 w-full items-center gap-2 text-left text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-9"
       >
-        <span className="flex-1">更多选项</span>
+        <span className="flex-1">{copy("更多选项")}</span>
         <ChevronDown
           className={cn("size-4 transition-transform", open && "rotate-180")}
           aria-hidden="true"
@@ -640,10 +660,10 @@ function StoreProfileMoreOptions({
         {open ? (
           <>
             <SettingsField
-              label="客户门户域名"
+              label={copy("客户门户域名")}
               htmlFor="public-base-url"
               icon={LinkIcon}
-              error={getSettingsFieldError(fieldErrors, "public_base_url")}
+              error={localizeSettingsFieldError(fieldErrors, "public_base_url", copy)}
             >
               <Input
                 id="public-base-url"
@@ -662,7 +682,7 @@ function StoreProfileMoreOptions({
               />
             </SettingsField>
             <p className="mt-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-              为空时，外发客户消息会自动省略链接。
+              {copy("为空时，外发客户消息会自动省略链接。")}
             </p>
           </>
         ) : null}
@@ -680,6 +700,7 @@ function StoreIdentityCard({
   lifecycleAccess?: StoreLifecycleCapability;
   hasUnsavedDraft: boolean;
 }) {
+  const copy = useOperationsCopy();
   const [copied, setCopied] = useState(false);
   if (!store || lifecycleAccess?.check.allowed !== true) return null;
 
@@ -691,15 +712,15 @@ function StoreIdentityCard({
 
   return (
     <section className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
-      <RepairOsSectionHeader icon={Store} iconFrame={false} title="店铺技术信息" />
+      <RepairOsSectionHeader icon={Store} iconFrame={false} title={copy("店铺技术信息")} />
       <div className="grid gap-3 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
         <div className="min-w-0">
           <p className="text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-            系统中的店铺名称
+            {copy("系统中的店铺名称")}
           </p>
           <p className="mt-1 break-words text-sm font-semibold">{store.name}</p>
           <p className="mt-2 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-            店铺唯一编号
+            {copy("店铺唯一编号")}
           </p>
           <p className="mt-1 break-all font-mono text-xs tabular-nums">{store.id}</p>
         </div>
@@ -712,7 +733,7 @@ function StoreIdentityCard({
             onClick={() => void copyStoreId()}
           >
             <Copy className="size-3.5" aria-hidden="true" />
-            {copied ? "已复制" : "复制编号"}
+            {copied ? copy("已复制") : copy("复制编号")}
           </Button>
           <StoreRenameOverlay
             store={store}
@@ -721,7 +742,7 @@ function StoreIdentityCard({
           />
         </div>
         <p role="status" aria-live="polite" className="sr-only">
-          {copied ? "店铺唯一编号已复制" : ""}
+          {copied ? copy("店铺唯一编号已复制") : ""}
         </p>
       </div>
     </section>
@@ -741,12 +762,16 @@ function StoreOutputReadinessCard({
   draftOutputIdentity: StoreOutputIdentity;
   isDraftDirty: boolean;
 }) {
+  const copy = useOperationsCopy();
   const outputReady = savedOutputIdentity.canOutput;
   const projection = isDraftDirty
-    ? getStoreOutputDraftProjectionCopy(
-        savedOutputIdentity.canOutput,
-        draftOutputIdentity.canOutput,
-      )
+    ? savedOutputIdentity.canOutput
+      ? draftOutputIdentity.canOutput
+        ? "当前客户输出已就绪；草稿尚未保存，实际使用的仍是服务器版本。"
+        : "当前客户输出仍可使用；保存这份草稿后将阻断客户消息、打印和票据。"
+      : draftOutputIdentity.canOutput
+        ? "当前客户输出仍然阻断；保存这份草稿后预计解除阻断。"
+        : "当前客户输出仍然阻断；草稿尚未保存，实际缺失状态没有变化。"
     : null;
 
   if (outputReady && (!isDraftDirty || draftOutputIdentity.canOutput)) return null;
@@ -758,11 +783,50 @@ function StoreOutputReadinessCard({
       className="rounded-xl border border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2.5 text-status-warn-foreground"
     >
       <p className="text-xs font-semibold">
-        {outputReady ? "保存这份草稿后将暂停客户输出" : "客户输出当前保持关闭"}
+        {outputReady ? copy("保存这份草稿后将暂停客户输出") : copy("客户输出当前保持关闭")}
       </p>
       <p className="mt-1 text-[11px] leading-4 lg:text-xs lg:leading-4">
-        {projection ?? savedOutputIdentity.blockReason}
+        {getStoreOutputPresentationCopy({
+          savedOutputIdentity,
+          projection,
+          copy,
+        })}
       </p>
     </section>
   );
+}
+
+function getStoreOutputPresentationCopy({
+  savedOutputIdentity,
+  projection,
+  copy,
+}: {
+  savedOutputIdentity: StoreOutputIdentity;
+  projection: Parameters<typeof translateSettingsOperations>[1] | null;
+  copy: ReturnType<typeof useOperationsCopy>;
+}) {
+  if (projection) return copy(projection);
+  switch (savedOutputIdentity.blockCode) {
+    case "settings_loading":
+      return copy("正在读取当前店铺资料");
+    case "settings_load_failed":
+      return copy("无法读取当前店铺资料");
+    case "store_context_mismatch":
+      return copy("当前店铺资料与设置所属店铺不一致");
+    case "legacy_identity":
+      return copy("检测到需要重新确认的旧店铺身份资料，请先更新店铺资料");
+    case "missing_store_name":
+      return copy("请先在设置中填写当前店铺名称");
+    case "missing_required_fields":
+    default:
+      return copy("请先补齐当前店铺必填资料");
+  }
+}
+
+function localizeSettingsFieldError(
+  errors: SettingsFieldErrors,
+  field: string,
+  copy: ReturnType<typeof useOperationsCopy>,
+) {
+  return getSettingsFieldError(errors, field) ? copy("请检查此字段") : undefined;
 }

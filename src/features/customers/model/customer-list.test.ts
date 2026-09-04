@@ -1,16 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import type { CustomerStats } from "@/lib/repairdesk/types";
+import { translateMessage } from "@/shared/i18n/messages";
 
 import {
   buildCustomerDetailTabs,
   applyCustomerQuickGroup,
   buildCustomerQuickGroupChips,
   clampCustomerPageAfterLoad,
+  formatCustomerDate,
   getCustomerDetailWorkSummary,
   getCustomerActiveFilterCount,
   getCustomerDetailHref,
   getCustomerListSubtitle,
+  getCustomerListSubtitleFact,
   getCustomerPageRange,
   getCustomerQuickGroup,
   getCustomerWorkSummary,
@@ -58,6 +61,7 @@ describe("customer list helpers", () => {
     });
     expect(getCustomerActiveFilterCount(filters)).toBe(4);
     expect(getCustomerListSubtitle(filters, 7)).toBe("要跟进 · 共 7 位");
+    expect(getCustomerListSubtitleFact(filters, 7)).toEqual({ group: "followup", total: 7 });
   });
 
   it("maps the four simple groups to server filters", () => {
@@ -147,7 +151,13 @@ describe("customer list helpers", () => {
         valid_order_count: 4,
         device_count: 3,
       }),
-    ).toMatchObject({ label: "在修 2", actionLabel: "跟进维修进度", tone: "info" });
+    ).toMatchObject({
+      kind: "active",
+      count: 2,
+      label: "在修 2",
+      actionLabel: "跟进维修进度",
+      tone: "info",
+    });
     expect(
       getCustomerWorkSummary({
         active_order_count: 0,
@@ -176,6 +186,25 @@ describe("customer list helpers", () => {
       }),
     ).toMatchObject({ label: "有设备", actionLabel: "新工单可复用", tone: "neutral" });
   });
+
+  it.each(["zh-CN", "it-IT", "en"] as const)(
+    "formats dates in the employee locale and Europe/Rome with a safe %s fallback",
+    (locale) => {
+      const timestamp = "2026-09-02T22:15:00.000Z";
+      const expected = new Intl.DateTimeFormat(locale, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Europe/Rome",
+      }).format(new Date(timestamp));
+      expect(formatCustomerDate(timestamp, locale)).toBe(expected);
+      expect(formatCustomerDate("not-a-date", locale)).toBe(
+        translateMessage(locale, "customers.dateUnavailable"),
+      );
+      expect(timestamp).toBe("2026-09-02T22:15:00.000Z");
+    },
+  );
 
   it("summarizes customer detail state without depending on list stats", () => {
     expect(

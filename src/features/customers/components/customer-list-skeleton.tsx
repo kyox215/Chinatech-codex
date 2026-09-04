@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useViewportMode } from "@/hooks/use-mobile";
 import { dataDisplay, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 function CustomerMobileCardSkeleton() {
   return (
@@ -28,6 +29,7 @@ function CustomerMobileCardSkeleton() {
 }
 
 export function CustomerListSkeleton() {
+  const { t } = useLocale();
   const viewportMode = useViewportMode();
 
   if (viewportMode === "pending") {
@@ -39,7 +41,7 @@ export function CustomerListSkeleton() {
         aria-busy="true"
       >
         <span className="sr-only" role="status" aria-live="polite">
-          正在准备客户管理
+          {t("customers.list.preparing")}
         </span>
         <div aria-hidden="true" className="space-y-2">
           <Skeleton className="h-10 w-full rounded-xl" />
@@ -57,7 +59,7 @@ export function CustomerListSkeleton() {
       aria-busy="true"
     >
       <span className="sr-only" role="status" aria-live="polite">
-        正在准备客户管理
+        {t("customers.list.preparing")}
       </span>
 
       <div aria-hidden="true">

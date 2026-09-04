@@ -4,10 +4,9 @@ import type { StorePurgeRequest } from "@/lib/repairdesk/types";
 
 import {
   cancellableState,
+  formatTimestamp,
   isKnownPurgeRequestState,
   isMutationOutcomeResolved,
-  purgeStatusCopy,
-  purgeUnavailableCopy,
 } from "./store-purge-manager-logic";
 
 const request: StorePurgeRequest = {
@@ -56,9 +55,20 @@ describe("store purge manager logic", () => {
     );
   });
 
-  it("keeps status and capability copy centralized", () => {
-    expect(purgeStatusCopy("ready_for_confirmation")).toBe("可以进行最终确认");
-    expect(purgeStatusCopy("unknown")).toBe("永久删除处理中");
-    expect(purgeUnavailableCopy("primary_owner_required")).toContain("店铺主账号");
+  it("formats purge timestamps in Rome for each locale without echoing invalid input", () => {
+    const hostTimezone = process.env.TZ;
+    process.env.TZ = "America/Los_Angeles";
+    const instant = "2026-03-29T01:30:00.000Z";
+    try {
+      expect(formatTimestamp(instant, "zh-CN")).toBe("2026年3月29日 03:30");
+      expect(formatTimestamp(instant, "it-IT")).toBe("29 mar 2026, 03:30");
+      expect(formatTimestamp(instant, "en")).toBe("Mar 29, 2026, 3:30 AM");
+      expect(formatTimestamp("RAW_INVALID_TIMESTAMP", "zh-CN")).toBe("时间不可用");
+      expect(formatTimestamp("RAW_INVALID_TIMESTAMP", "it-IT")).toBe("Data non disponibile");
+      expect(formatTimestamp("RAW_INVALID_TIMESTAMP", "en")).toBe("Date unavailable");
+    } finally {
+      if (hostTimezone === undefined) delete process.env.TZ;
+      else process.env.TZ = hostTimezone;
+    }
   });
 });

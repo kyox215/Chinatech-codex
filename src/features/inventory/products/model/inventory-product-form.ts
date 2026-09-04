@@ -11,10 +11,10 @@ import type {
 } from "@/lib/repairdesk/types";
 
 import {
-  identifierLabels,
   inventoryProductIdentifierKinds,
   isValidGtin,
-  validateProductIdentifiers,
+  normalizeDeviceIdentifier,
+  validateProductIdentifier,
 } from "./device-data";
 import { resolveDeviceColorPolicy, type AppleColorApprovalOverlay } from "./device-color-policy";
 
@@ -46,7 +46,28 @@ export type InventoryProductFormDraft = {
   inspection_touched: boolean;
 };
 
+export type InventoryProductFormValidationCode =
+  | "brand_required"
+  | "model_required"
+  | "notes_too_long"
+  | "battery_invalid"
+  | "imei2_requires_imei1"
+  | "imei1_required"
+  | "gtin_invalid"
+  | "imei_invalid"
+  | "serial_invalid"
+  | "eid_invalid"
+  | "identifier_duplicate"
+  | "primary_identifier_required"
+  | "eid_primary_forbidden"
+  | "list_price_invalid"
+  | "cost_amount_invalid"
+  | "warranty_invalid"
+  | "color_required"
+  | "color_not_approved";
+
 export type InventoryProductFormValidationError = {
+  code: InventoryProductFormValidationCode;
   message: string;
   fieldId?: string;
 };
@@ -182,10 +203,11 @@ export function validateInventoryProductFormDraft(
   draft: InventoryProductFormDraft,
   options: InventoryProductFormOptions = {},
 ): InventoryProductFormValidationError | undefined {
-  if (!draft.brand.trim()) return { message: "请填写品牌", fieldId: "product-brand" };
-  if (!draft.model.trim()) return { message: "请填写型号或商品名称", fieldId: "product-model" };
+  if (!draft.brand.trim()) return validationError("brand_required", "请填写品牌", "product-brand");
+  if (!draft.model.trim())
+    return validationError("model_required", "请填写型号或商品名称", "product-model");
   if (draft.notes.length > 2_000)
-    return { message: "内部备注不能超过 2000 个字符", fieldId: "product-notes" };
+    return validationError("notes_too_long", "内部备注不能超过 2000 个字符", "product-notes");
   if (
     draft.inspection_touched &&
     draft.inspection_battery_health.trim() &&
@@ -193,44 +215,84 @@ export function validateInventoryProductFormDraft(
       Number(draft.inspection_battery_health) < 0 ||
       Number(draft.inspection_battery_health) > 100)
   ) {
-    return { message: "电池健康度必须是 0 到 100 的整数或空值", fieldId: "product-battery-health" };
+    return validationError(
+      "battery_invalid",
+      "电池健康度必须是 0 到 100 的整数或空值",
+      "product-battery-health",
+    );
   }
   if (draft.identifiers.imei2.trim() && !draft.identifiers.imei1.trim()) {
-    return { message: "请先填写 IMEI 1，再填写 IMEI 2", fieldId: "product-imei1" };
+    return validationError(
+      "imei2_requires_imei1",
+      "请先填写 IMEI 1，再填写 IMEI 2",
+      "product-imei1",
+    );
   }
   if (options.requireImei1 && draft.category === "phone" && !draft.identifiers.imei1.trim()) {
-    return { message: "手机商品必须填写 IMEI 1", fieldId: "product-imei1" };
+    return validationError("imei1_required", "手机商品必须填写 IMEI 1", "product-imei1");
   }
   if (draft.gtin.trim() && !isValidGtin(draft.gtin)) {
-    return { message: "EAN / GTIN 校验位不正确", fieldId: "product-gtin" };
+    return validationError("gtin_invalid", "EAN / GTIN 校验位不正确", "product-gtin");
   }
   const identifiers = formIdentifiers(draft);
-  const identifierError = validateProductIdentifiers(identifiers);
-  if (identifierError) {
-    const failing = inventoryProductIdentifierKinds.find((kind) =>
-      identifierError.includes(kind === "serial" ? "序列号" : identifierLabels[kind]),
-    );
-    return { message: identifierError, fieldId: `product-${failing ?? "imei1"}` };
+  const seenIdentifiers = new Set<string>();
+  for (const identifier of identifiers) {
+    const identifierMessage = validateProductIdentifier(identifier.kind, identifier.value);
+    if (identifierMessage) {
+      const code =
+        identifier.kind === "eid"
+          ? "eid_invalid"
+          : identifier.kind === "serial"
+            ? "serial_invalid"
+            : "imei_invalid";
+      return validationError(code, identifierMessage, `product-${identifier.kind}`);
+    }
+    const normalized = normalizeDeviceIdentifier(identifier.value);
+    if (seenIdentifiers.has(normalized)) {
+      return validationError(
+        "identifier_duplicate",
+        "设备标识不能重复",
+        `product-${identifier.kind}`,
+      );
+    }
+    seenIdentifiers.add(normalized);
   }
   if (identifiers.length && !identifiers.some((item) => item.primary)) {
-    return { message: "请填写 IMEI 1、IMEI 2 或序列号作为主要标识", fieldId: "product-imei1" };
+    return validationError(
+      "primary_identifier_required",
+      "请填写 IMEI 1、IMEI 2 或序列号作为主要标识",
+      "product-imei1",
+    );
   }
   if (identifiers.some((item) => item.primary && item.kind === "eid")) {
-    return { message: "EID 不能作为主要设备标识", fieldId: "product-eid" };
+    return validationError("eid_primary_forbidden", "EID 不能作为主要设备标识", "product-eid");
   }
-  for (const [label, value, fieldId] of [
-    ["计划售价", draft.list_price, "product-price"],
-    ...(options.canEnterCost ? [["入库成本", draft.cost_amount, "product-cost"]] : []),
+  for (const [code, label, value, fieldId] of [
+    ["list_price_invalid", "计划售价", draft.list_price, "product-price"],
+    ...(options.canEnterCost
+      ? [["cost_amount_invalid", "入库成本", draft.cost_amount, "product-cost"]]
+      : []),
   ] as string[][]) {
     if (value.trim() && !/^[0-9]+(?:[.,][0-9]{1,2})?$/.test(value.trim())) {
-      return { message: `${label}格式无效，最多两位小数`, fieldId };
+      return validationError(
+        code as Extract<
+          InventoryProductFormValidationCode,
+          "list_price_invalid" | "cost_amount_invalid"
+        >,
+        `${label}格式无效，最多两位小数`,
+        fieldId,
+      );
     }
   }
   if (
     draft.warranty_months.trim() &&
     (!/^\d+$/.test(draft.warranty_months) || Number(draft.warranty_months) > 120)
   ) {
-    return { message: "保修月数必须是 0 到 120 的整数", fieldId: "product-warranty" };
+    return validationError(
+      "warranty_invalid",
+      "保修月数必须是 0 到 120 的整数",
+      "product-warranty",
+    );
   }
   const colorPolicy = resolveDeviceColorPolicy({
     category: draft.category,
@@ -242,15 +304,23 @@ export function validateInventoryProductFormDraft(
     colorRequired: options.colorRequired,
   });
   if (!colorPolicy.save.canSave) {
-    return {
-      message:
-        colorPolicy.save.blockedReason === "color-required"
-          ? "请先选择设备颜色后再保存"
-          : "Apple 设备颜色必须来自已审核的官方颜色映射",
-      fieldId: "product-color",
-    };
+    return colorPolicy.save.blockedReason === "color-required"
+      ? validationError("color_required", "请先选择设备颜色后再保存", "product-color")
+      : validationError(
+          "color_not_approved",
+          "Apple 设备颜色必须来自已审核的官方颜色映射",
+          "product-color",
+        );
   }
   return undefined;
+}
+
+function validationError(
+  code: InventoryProductFormValidationCode,
+  message: string,
+  fieldId: string,
+): InventoryProductFormValidationError {
+  return { code, message, fieldId };
 }
 
 export function inventoryProductFormToCreateInput(

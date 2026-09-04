@@ -172,3 +172,9 @@ visible wherever the release is summarized.
 | 2026-07-26 | Published the European phone catalog source, rolling-window, manual-fallback, physical-color exception, maintenance and rollback contract                                                              | TASK-20260726-002-eu-phone-catalog                              | Integration Lead + Documentation reviewer       | production_verified          |
 | 2026-07-31 | Synchronized product-inventory density plan, responsive/detail standards, public release evidence, synthetic screenshot boundary, exact-SHA rollback and no-data-write scope | TASK-20260731-003-inventory-product-mobile-density | Integration Lead + Documentation/QA reviewers | production_verified |
 | 2026-08-31 | Published the employee-interface i18n authority and synchronized exact scope, Cookie/cache/customer-language boundaries, production proof, screenshots and incremental translation debt | TASK-20260831-001-project-i18n-clean-rebuild | Integration Lead + Documentation/QA reviewers | production_verified |
+
+## 2026-09-03 — Release 2B local i18n documentation sync
+
+- Updated `docs/EMPLOYEE_INTERFACE_I18N.md` and `docs/I18N_UNTRANSLATED_UI_AUDIT.md` with the completed local domain coverage, canonical/dynamic exceptions, conditional browser result and explicit no-release state.
+- API, data, security and operations runbooks require no change because this lightweight batch changed no schema, permission, payload, production data or deployment behavior.
+- `TASK-20260901-002-site-i18n-optimization-release/CEO_REPORT.md` is the release-decision handoff authority.

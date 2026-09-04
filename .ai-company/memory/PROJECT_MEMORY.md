@@ -303,6 +303,16 @@ Production migration `20260720190759` and feature application `main@24190b26` ar
 - Owner requests a different autonomy level or AI employee operating model.
 - Agent rule checks fail or project docs conflict with implementation.
 
+## Employee interface i18n local candidate — 2026-09-03
+
+`TASK-20260901-002-site-i18n-optimization-release` conditionally closes the local employee-interface
+translation sequence through Memos, Toolkit, Platform and AI client fixed presentation. The stable
+boundary is: translate UI-owned copy and accessible output; preserve dynamic business content,
+canonical codes/messages, query keys and API payloads. The final four-group batch passes 84 targeted
+tests and independent direct-i18n QA with P0/P1 zero. It is not a production authority: the working
+tree is uncommitted and no push/deploy occurred. Platform/AI mobile Escape focus return is a separate
+P2 backlog item.
+
 ## Product inventory mobile-density release
 
 `TASK-20260731-003-inventory-product-mobile-density` is the production authority for the current product-inventory list, quick-intake, detail and edit density. Public `main@44b1d80c` and Vercel production `dpl_CVHwY9EHq2qJQuTcmngTpCuWyWjs` are READY. The release preserves store-scoped placeholder isolation, masked ordinary identifiers, permission-projected cost, 44px/16px mobile controls, 84–88px cards and no-overflow desktop actions. It is app-only: no migration, flag, permission or production inventory write occurred. Lifecycle actions, server pagination and field-level conflict semantics remain separate R3 work.

@@ -64,6 +64,32 @@ export type CatalogOption = {
 export type CatalogPickerSurface = "page" | "dialog";
 export type CatalogPickerMode = "auto" | "mobile" | "desktop";
 
+export type CatalogComboboxPresentation = {
+  openPickerLabel: string;
+  selectionAria: (label: string) => string;
+  closeSelectionAria: (label: string) => string;
+  defaultHelper: string;
+  searchAction: string;
+  browseHint: string;
+  noResults: string;
+  manualGroup: string;
+  useValue: (value: string) => string;
+  defaultGroup: string;
+};
+
+const defaultCatalogComboboxPresentation: CatalogComboboxPresentation = {
+  openPickerLabel: "打开目录选择器",
+  selectionAria: (label) => `${label}选择`,
+  closeSelectionAria: (label) => `关闭${label}选择`,
+  defaultHelper: "可搜索目录；找不到时可直接使用输入内容。",
+  searchAction: "搜索目录或手动输入",
+  browseHint: "先浏览常用选项；需要时再搜索或录入目录外值。",
+  noResults: "未找到目录结果。可在下方使用当前文字手动录入。",
+  manualGroup: "手动填写",
+  useValue: (value) => `使用“${value}”`,
+  defaultGroup: "目录选项",
+};
+
 type CatalogCategoryCopy = {
   brandPlaceholder: string;
   brandHint: string;
@@ -289,6 +315,7 @@ export function CatalogCombobox({
   pickerMode = "auto",
   helperText,
   searchPlaceholder,
+  presentation = defaultCatalogComboboxPresentation,
 }: {
   id: string;
   label: string;
@@ -308,6 +335,7 @@ export function CatalogCombobox({
   pickerMode?: CatalogPickerMode;
   helperText?: string;
   searchPlaceholder?: string;
+  presentation?: CatalogComboboxPresentation;
 }) {
   const compactWorkspace = useIsCompactWorkspace();
   const useFixedPicker = pickerMode === "mobile" || (pickerMode === "auto" && compactWorkspace);
@@ -496,7 +524,7 @@ export function CatalogCombobox({
         type="button"
         variant="ghost"
         size="icon"
-        aria-label="打开目录选择器"
+        aria-label={presentation.openPickerLabel}
         title={label.replace("*", "").trim()}
         disabled={disabled}
         className="absolute right-0 top-0 size-11 min-h-11 min-w-11 rounded-l-none"
@@ -553,6 +581,7 @@ export function CatalogCombobox({
       onQueryChange={setQuery}
       onRequestSearch={requestSearch}
       onChoose={choose}
+      presentation={presentation}
     />
   );
 
@@ -583,7 +612,7 @@ export function CatalogCombobox({
               }}
             >
               <section
-                aria-label={`${label.replace("*", "").trim()}选择`}
+                aria-label={presentation.selectionAria(label.replace("*", "").trim())}
                 id={`${id}-catalog-panel`}
                 className="flex h-[min(36rem,calc(100dvh-16px))] max-h-[calc(100dvh-16px)] min-h-0 w-full flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] shadow-[var(--shadow-overlay)] sm:mx-auto sm:max-w-xl"
                 style={
@@ -604,7 +633,7 @@ export function CatalogCombobox({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    aria-label={`关闭${label.replace("*", "").trim()}选择`}
+                    aria-label={presentation.closeSelectionAria(label.replace("*", "").trim())}
                     className={cn(
                       "absolute right-2 top-2 rounded-full",
                       componentDensity.compactSelector.close,
@@ -645,7 +674,7 @@ export function CatalogCombobox({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  aria-label={`关闭${label.replace("*", "").trim()}选择`}
+                  aria-label={presentation.closeSelectionAria(label.replace("*", "").trim())}
                   className={cn(
                     "absolute right-2 top-1 rounded-full",
                     componentDensity.compactSelector.close,
@@ -675,8 +704,7 @@ export function CatalogCombobox({
         </Popover>
       )}
       <p className={componentDensity.compactSelector.helper}>
-        <Search className="mr-1 inline size-3" />{" "}
-        {helperText ?? "可搜索目录；找不到时可直接使用输入内容。"}
+        <Search className="mr-1 inline size-3" /> {helperText ?? presentation.defaultHelper}
       </p>
     </div>
   );
@@ -698,6 +726,7 @@ function CatalogCommandPicker({
   onQueryChange,
   onRequestSearch,
   onChoose,
+  presentation,
 }: {
   value: string;
   query: string;
@@ -714,6 +743,7 @@ function CatalogCommandPicker({
   onQueryChange: (value: string) => void;
   onRequestSearch: () => void;
   onChoose: (selection: CatalogSelection) => void;
+  presentation: CatalogComboboxPresentation;
 }) {
   const normalizedQuery = query.trim();
   const exactOptions = normalizedQuery
@@ -751,10 +781,10 @@ function CatalogCommandPicker({
             onClick={onRequestSearch}
           >
             <Search className="size-4" />
-            搜索目录或手动输入
+            {presentation.searchAction}
           </Button>
           <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
-            {helperText ?? "先浏览常用选项；需要时再搜索或录入目录外值。"}
+            {helperText ?? presentation.browseHint}
           </p>
         </div>
       )}
@@ -768,47 +798,51 @@ function CatalogCommandPicker({
         )}
       >
         <CommandEmpty className="px-3 py-2.5 text-left text-xs text-muted-foreground sm:py-4">
-          未找到目录结果。可在下方使用当前文字手动录入。
+          {presentation.noResults}
         </CommandEmpty>
-        {groupOptions(visibleOptions).map(([heading, groupedOptions]) => (
-          <CommandGroup key={heading} heading={`${heading} · ${groupedOptions.length}`}>
-            {groupedOptions.map((option) => (
-              <CommandItem
-                key={option.value}
-                value={`${option.value} ${option.keywords ?? ""}`}
-                onSelect={() => onChoose({ value: option.value, fromCatalog: true })}
-                className={cn(
-                  componentDensity.compactSelector.option,
-                  "min-w-11",
-                  !fixedSurface && "py-1.5",
-                )}
-              >
-                {option.icon ? (
-                  <span
-                    aria-hidden="true"
-                    className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-[10px] font-semibold text-primary"
-                  >
-                    {option.icon}
-                  </span>
-                ) : null}
-                <Check
+        {groupOptions(visibleOptions, presentation.defaultGroup).map(
+          ([heading, groupedOptions]) => (
+            <CommandGroup key={heading} heading={`${heading} · ${groupedOptions.length}`}>
+              {groupedOptions.map((option) => (
+                <CommandItem
+                  key={option.value}
+                  value={`${option.value} ${option.keywords ?? ""}`}
+                  onSelect={() => onChoose({ value: option.value, fromCatalog: true })}
                   className={cn(
-                    "size-4 shrink-0",
-                    value === option.value ? "opacity-100" : "opacity-0",
+                    componentDensity.compactSelector.option,
+                    "min-w-11",
+                    !fixedSurface && "py-1.5",
                   )}
-                />
-                <span className={componentDensity.compactSelector.optionValue}>{option.value}</span>
-                {option.description ? (
-                  <span className={componentDensity.compactSelector.optionDescription}>
-                    {option.description}
+                >
+                  {option.icon ? (
+                    <span
+                      aria-hidden="true"
+                      className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-[10px] font-semibold text-primary"
+                    >
+                      {option.icon}
+                    </span>
+                  ) : null}
+                  <Check
+                    className={cn(
+                      "size-4 shrink-0",
+                      value === option.value ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  <span className={componentDensity.compactSelector.optionValue}>
+                    {option.value}
                   </span>
-                ) : null}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        ))}
+                  {option.description ? (
+                    <span className={componentDensity.compactSelector.optionDescription}>
+                      {option.description}
+                    </span>
+                  ) : null}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ),
+        )}
         {normalizedQuery && !hasExactOption ? (
-          <CommandGroup heading="手动填写">
+          <CommandGroup heading={presentation.manualGroup}>
             <CommandItem
               value={`manual ${normalizedQuery}`}
               onSelect={() => onChoose({ value: normalizedQuery, fromCatalog: false })}
@@ -820,7 +854,7 @@ function CatalogCommandPicker({
             >
               <PencilLine className="size-4 shrink-0" />
               <span className={componentDensity.compactSelector.optionValue}>
-                使用“{normalizedQuery}”
+                {presentation.useValue(normalizedQuery)}
               </span>
             </CommandItem>
           </CommandGroup>
@@ -870,10 +904,10 @@ function normalizeCatalogQuery(value: string) {
     .replace(/[\s_\-/]+/g, " ");
 }
 
-function groupOptions(options: CatalogOption[]) {
+function groupOptions(options: CatalogOption[], defaultGroup = "目录选项") {
   const groups = new Map<string, CatalogOption[]>();
   for (const option of options) {
-    const heading = option.group ?? "目录选项";
+    const heading = option.group ?? defaultGroup;
     const current = groups.get(heading);
     if (current) current.push(option);
     else groups.set(heading, [option]);

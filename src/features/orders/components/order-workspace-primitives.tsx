@@ -4,6 +4,7 @@ import type { ComponentType, ReactNode } from "react";
 
 import { MoneyText } from "@/components/orders/badges";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export type OrderWorkspaceMoneyTone = "neutral" | "info" | "success" | "warning" | "danger";
 export type OrderWorkspaceMoneyStripVariant = "status" | "finance";
@@ -71,6 +72,7 @@ export function OrderWorkspaceMoneyStrip({
   cancelled?: boolean;
   depositControl?: ReactNode;
 }) {
+  const { t } = useLocale();
   const financeVariant = variant === "finance";
   const totalTone: OrderWorkspaceMoneyTone = financeVariant
     ? "info"
@@ -95,7 +97,7 @@ export function OrderWorkspaceMoneyStrip({
       className={cn("grid min-w-0 grid-cols-3 gap-1.5", className)}
     >
       <OrderWorkspaceMoneyTile
-        label="总额"
+        label={t("orders2b1.money.total")}
         amount={total}
         tone={totalTone}
         strong
@@ -122,13 +124,13 @@ export function OrderWorkspaceMoneyStrip({
               "lg:text-xs lg:leading-4",
             )}
           >
-            定金
+            {t("orders2b1.money.deposit")}
           </div>
           <div className="mt-0.5 min-w-0">{depositControl}</div>
         </div>
       ) : (
         <OrderWorkspaceMoneyTile
-          label="定金"
+          label={t("orders2b1.money.deposit")}
           amount={deposit}
           tone={depositTone}
           compact={compact}
@@ -137,7 +139,7 @@ export function OrderWorkspaceMoneyStrip({
         />
       )}
       <OrderWorkspaceMoneyTile
-        label={cancelled ? "取消时余额" : "尾款"}
+        label={t(cancelled ? "orders2b1.money.cancelledBalance" : "orders2b1.money.balance")}
         amount={balance}
         tone={balanceTone}
         strong={!cancelled && balance > 0}
@@ -243,6 +245,7 @@ export function OrderWorkspaceQuoteDisplayRow({
   amount: number;
   className?: string;
 }) {
+  const { t } = useLocale();
   return (
     <OrderWorkspaceQuoteRow
       className={className}
@@ -251,7 +254,7 @@ export function OrderWorkspaceQuoteDisplayRow({
       }
     >
       <div className="truncate text-xs font-medium" title={name}>
-        {name || "未命名项目"}
+        {name || t("orders2b1.quote.unnamedItem")}
       </div>
       {note ? (
         <div

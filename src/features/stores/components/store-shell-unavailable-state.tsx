@@ -25,10 +25,18 @@ export function StoreShellUnavailableState({
   shell,
   className,
   onRetry,
+  title,
+  description,
+  actionLabel,
+  retryLabel,
 }: {
   shell: StoreShellContextSnapshot;
   className?: string;
   onRetry?: () => Promise<unknown> | unknown;
+  title?: string;
+  description?: string;
+  actionLabel?: string;
+  retryLabel?: string;
 }) {
   const isError = shell.status === "error";
   const action =
@@ -54,9 +62,9 @@ export function StoreShellUnavailableState({
         <span className="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
           <Icon className="size-5" />
         </span>
-        <h1 className="mt-3 text-base font-semibold leading-5">{shell.statusLabel}</h1>
+        <h1 className="mt-3 text-base font-semibold leading-5">{title ?? shell.statusLabel}</h1>
         <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
-          {shell.statusDescription}
+          {description ?? shell.statusDescription}
         </p>
         {isError ? (
           <Button
@@ -65,11 +73,11 @@ export function StoreShellUnavailableState({
             className="mt-4 h-9 gap-1.5 rounded-lg px-3"
             onClick={() => void onRetry?.()}
           >
-            <RefreshCw className="size-3.5" /> 重新读取
+            <RefreshCw className="size-3.5" /> {retryLabel ?? "重新读取"}
           </Button>
         ) : (
           <Button asChild size="sm" className="mt-4 h-9 rounded-lg px-3">
-            <Link href={action.href}>{action.label}</Link>
+            <Link href={action.href}>{actionLabel ?? action.label}</Link>
           </Button>
         )}
       </section>

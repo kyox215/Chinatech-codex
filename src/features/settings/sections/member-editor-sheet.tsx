@@ -35,18 +35,20 @@ import {
 import { UnsavedSettingsGuard } from "@/features/settings/components/unsaved-settings-guard";
 import {
   createMemberEditorDraft,
+  getMemberPermissionOptions,
+  getMemberRoleLabels,
   isMemberEditorDraftChanged,
   isMemberEditorDraftDirty,
   isSensitiveMemberEditorChange,
-  MEMBER_PERMISSION_OPTIONS,
-  MEMBER_ROLE_LABELS,
   updateMemberEditorPermission,
   updateMemberEditorRole,
   visibleMemberPermissionOptions,
   type MemberEditorDraft,
+  type MemberPermissionGroup,
 } from "@/features/settings/model/member-settings-editor";
 import { componentOverlay } from "@/lib/component-patterns";
 import type { StoreMember } from "@/lib/repairdesk/types";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export interface MemberEditorSheetProps {
   member: StoreMember | null;
@@ -69,6 +71,8 @@ export function MemberEditorSheet({
   onDirtyChange,
   onSave,
 }: MemberEditorSheetProps) {
+  const { locale, t } = useLocale();
+  const roleLabels = getMemberRoleLabels(locale);
   const initialDraft = useMemo(() => (member ? createMemberEditorDraft(member) : null), [member]);
   const [draft, setDraft] = useState<MemberEditorDraft | null>(initialDraft);
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
@@ -101,6 +105,10 @@ export function MemberEditorSheet({
   const roleDirty = member.role !== draft.role;
   const canEditRole = member.management?.can_update_role === true && member.status === "active";
   const permissionOptions = visibleMemberPermissionOptions(draft.role, orderCostsEnabled);
+  const visiblePermissionActions = new Set(permissionOptions.map((option) => option.action));
+  const localizedPermissionOptions = getMemberPermissionOptions(locale).filter((option) =>
+    visiblePermissionActions.has(option.action),
+  );
   const canEditPermissions =
     member.management?.can_update_permissions === true &&
     member.status === "active" &&
@@ -158,7 +166,9 @@ export function MemberEditorSheet({
           return Boolean(current && base && isMemberEditorDraftChanged(base, current));
         }}
         busy={isSaving || isSubmitting}
-        label={`${member.display_name || member.email} 的员工权限`}
+        label={t("settings.members.editor.guardLabel", {
+          member: member.display_name || member.email,
+        })}
         onSave={async () => {
           try {
             await submitDraft();
@@ -199,13 +209,18 @@ export function MemberEditorSheet({
           >
             <SheetTitle>{member.display_name || member.email}</SheetTitle>
             <SheetDescription>
-              {MEMBER_ROLE_LABELS[member.role]} · {member.email}。修改先保留为草稿，保存后才会提交。
+              {t("settings.members.editor.description", {
+                role: roleLabels[member.role],
+                email: member.email,
+              })}
             </SheetDescription>
           </SheetHeader>
 
           <div className={`${componentOverlay.mobileBody} flex-1`}>
             <section className={componentOverlay.section}>
-              <Label className="text-xs font-semibold">店铺角色</Label>
+              <Label className="text-xs font-semibold">
+                {t("settings.members.editor.storeRole")}
+              </Label>
               {canEditRole && roleOptions.length ? (
                 <Select
                   value={draft.role}
@@ -223,14 +238,16 @@ export function MemberEditorSheet({
                   <SelectContent>
                     {roleOptions.map((role) => (
                       <SelectItem key={role} value={role}>
-                        {MEMBER_ROLE_LABELS[role]}
+                        {roleLabels[role]}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               ) : (
                 <p className="mt-2 text-sm text-muted-foreground">
-                  {MEMBER_ROLE_LABELS[member.role]} · 当前账号不能修改此成员角色。
+                  {t("settings.members.editor.roleReadonly", {
+                    role: roleLabels[member.role],
+                  })}
                 </p>
               )}
             </section>
@@ -239,22 +256,26 @@ export function MemberEditorSheet({
               <div className="flex items-start gap-2">
                 <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" />
                 <div className="min-w-0">
-                  <h3 className="text-sm font-semibold">额外敏感权限</h3>
+                  <h3 className="text-sm font-semibold">
+                    {t("settings.members.editor.sensitivePermissions")}
+                  </h3>
                   <p className="mt-0.5 text-xs leading-4 text-muted-foreground sm:mt-1 sm:leading-5">
-                    这些授权叠加在角色默认权限上；这里只显示服务端允许当前角色接收的额外能力。
+                    {t("settings.members.editor.permissionsHint")}
                   </p>
                 </div>
               </div>
               {permissionOptions.length ? (
                 <div className="mt-2 space-y-2 sm:mt-3 sm:space-y-3">
-                  {["历史与财务", "供应商"].map((group) => {
-                    const options = MEMBER_PERMISSION_OPTIONS.filter(
-                      (option) => option.group === group && permissionOptions.includes(option),
+                  {(["history-finance", "suppliers"] as const).map((group) => {
+                    const options = localizedPermissionOptions.filter(
+                      (option) => option.group === group,
                     );
                     if (!options.length) return null;
                     return (
                       <div key={group} className="space-y-1.5 sm:space-y-2">
-                        <p className="text-[11px] font-semibold text-muted-foreground">{group}</p>
+                        <p className="text-[11px] font-semibold text-muted-foreground">
+                          {memberPermissionGroupLabel(group, t)}
+                        </p>
                         {options.map((option) => (
                           <RepairOsBusinessCard
                             key={option.action}
@@ -294,12 +315,12 @@ export function MemberEditorSheet({
                 </div>
               ) : (
                 <p className="mt-3 text-sm text-muted-foreground">
-                  当前角色不能接收额外历史、财务或供应商授权。
+                  {t("settings.members.editor.noPermissions")}
                 </p>
               )}
               {roleDirty ? (
                 <div className="mt-3 rounded-lg border border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2 text-xs leading-5 text-status-warn-foreground">
-                  请先保存角色并重新读取成员。角色变化会撤销旧的额外授权，之后再为新角色单独配置权限，避免两个独立接口产生部分成功。
+                  {t("settings.members.editor.roleDirty")}
                 </div>
               ) : null}
             </section>
@@ -309,7 +330,7 @@ export function MemberEditorSheet({
                 role="alert"
                 className="rounded-lg border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-2 text-sm text-status-danger-foreground"
               >
-                {errorMessage}
+                {t("settings.members.saveError")}
               </div>
             ) : null}
           </div>
@@ -323,7 +344,7 @@ export function MemberEditorSheet({
               disabled={isSaving || isSubmitting}
               onClick={() => (dirty ? setDiscardConfirmOpen(true) : onOpenChange(false))}
             >
-              取消
+              {t("settings.members.cancel")}
             </Button>
             <Button
               ref={saveTriggerRef}
@@ -332,7 +353,9 @@ export function MemberEditorSheet({
               disabled={!canEditAnything || !dirty || isSaving || isSubmitting}
               onClick={requestSave}
             >
-              {isSaving || isSubmitting ? "保存中…" : "保存员工变更"}
+              {isSaving || isSubmitting
+                ? t("settings.members.saving")
+                : t("settings.members.editor.save")}
             </Button>
           </SheetFooter>
         </SheetContent>
@@ -348,15 +371,17 @@ export function MemberEditorSheet({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>放弃员工权限草稿？</AlertDialogTitle>
+            <AlertDialogTitle>{t("settings.members.editor.discardTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              未保存的角色和额外权限修改会被清除，服务器上的现有权限不会改变。
+              {t("settings.members.editor.discardDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="min-h-11">继续编辑</AlertDialogCancel>
+            <AlertDialogCancel className="min-h-11">
+              {t("settings.members.editor.continueEditing")}
+            </AlertDialogCancel>
             <AlertDialogAction className="min-h-11" onClick={discardDraft}>
-              放弃修改
+              {t("settings.members.editor.discard")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -372,18 +397,20 @@ export function MemberEditorSheet({
       >
         <AlertDialogContent aria-busy={isSubmitting || isSaving}>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认授予敏感员工权限？</AlertDialogTitle>
+            <AlertDialogTitle>{t("settings.members.editor.sensitiveTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              这次修改包含店长角色或历史、财务、供应商管理等敏感能力。保存后会立即影响当前店铺访问范围，并写入审计记录。
+              {t("settings.members.editor.sensitiveDescription")}
             </AlertDialogDescription>
             {errorMessage ? (
               <p role="alert" className="text-sm text-status-danger-foreground">
-                {errorMessage}
+                {t("settings.members.saveError")}
               </p>
             ) : null}
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="min-h-11">取消</AlertDialogCancel>
+            <AlertDialogCancel className="min-h-11">
+              {t("settings.members.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               className="min-h-11"
               disabled={isSubmitting || isSaving}
@@ -392,11 +419,22 @@ export function MemberEditorSheet({
                 void submitDraft().catch(() => undefined);
               }}
             >
-              {isSubmitting || isSaving ? "保存中…" : "确认并保存"}
+              {isSubmitting || isSaving
+                ? t("settings.members.saving")
+                : t("settings.members.editor.confirmSave")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
   );
+}
+
+function memberPermissionGroupLabel(
+  group: MemberPermissionGroup,
+  t: ReturnType<typeof useLocale>["t"],
+) {
+  return group === "history-finance"
+    ? t("settings.members.group.historyFinance")
+    : t("settings.members.group.suppliers");
 }

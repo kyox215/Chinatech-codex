@@ -62,4 +62,32 @@ describe("buildAccountSettingsSummary", () => {
       currentStoreRole: "当前无店铺角色",
     });
   });
+
+  it("localizes presentation without changing dynamic account or store values", () => {
+    const status = {
+      email: "owner@example.test",
+      emailVerified: true,
+      isPlatformAdmin: true,
+      activeStore: {
+        id: "store-a",
+        name: "Ripara Subito 北店",
+        slug: "ripara-subito",
+        role: "owner" as const,
+        status: "active" as const,
+      },
+    };
+
+    expect(buildAccountSettingsSummary(status, "it-IT")).toMatchObject({
+      email: "owner@example.test",
+      accountNature: "Account amministratore piattaforma",
+      activeStoreName: "Ripara Subito 北店",
+      currentStoreRole: "Titolare",
+    });
+    expect(buildAccountSettingsSummary(status, "en")).toMatchObject({
+      email: "owner@example.test",
+      accountNature: "Platform administrator account",
+      activeStoreName: "Ripara Subito 北店",
+      currentStoreRole: "Owner",
+    });
+  });
 });

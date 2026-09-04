@@ -26,6 +26,8 @@ import {
 import { recognizeTextWithLocalOcr } from "@/features/capture/model/local-ocr";
 import { inspectAiInventoryImage } from "@/features/ai-assistant/model/inventory-image";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey, MessageValues } from "@/shared/i18n/messages";
 import { imeiKeyboardProps } from "@/shared/lib/mobile-input";
 
 type CommitSource = "manual" | "paste" | "scan" | "clear";
@@ -78,6 +80,7 @@ type VideoFrameCaptureOptions = {
   enhanceForOcr?: boolean;
   cropScale?: number;
 };
+type Translate = (key: MessageKey, values?: MessageValues) => string;
 
 const imeiBarcodeDecodeTimeoutMs = 2500;
 const imeiFastBarcodeDecodeTimeoutMs = 450;
@@ -100,7 +103,7 @@ export function normalizeImeiIdentifier(value: string) {
 export function ImeiScannerField({
   value,
   onChange,
-  placeholder = "扫描或输入 IMEI",
+  placeholder,
   density = "default",
   showPaste = true,
   showScanner = true,
@@ -132,7 +135,9 @@ export function ImeiScannerField({
   ariaRequired?: boolean;
   onCommitSource?: (source: "manual" | "scan") => void;
 }) {
+  const { t } = useLocale();
   const actionIdentifierLabel = identifierLabel ?? "IMEI";
+  const resolvedPlaceholder = placeholder ?? t("inventory2b4.scanner.placeholder");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -264,12 +269,12 @@ export function ImeiScannerField({
       setWarning(candidate.reason ?? "");
       onChangeRef.current(candidate.value);
       onCommitSourceRef.current?.("scan");
-      toast.success("已录入 IMEI");
+      toast.success(t("inventory2b4.scanner.recorded"));
       stopScanner();
       setScannerOpen(false);
       resetCaptureState();
     },
-    [resetCaptureState, stopScanner],
+    [resetCaptureState, stopScanner, t],
   );
 
   const handleCapturedText = useCallback(
@@ -290,7 +295,7 @@ export function ImeiScannerField({
         if (options.preview) {
           replaceCapturePreview(options.preview, options.previewCleanup);
         }
-        setCaptureError("未识别到有效 IMEI。请重拍、上传更清晰照片，或手动输入 15 位 IMEI。");
+        setCaptureError(t("inventory2b4.scanner.noValid"));
         stopScanner();
         return;
       }
@@ -301,10 +306,10 @@ export function ImeiScannerField({
       }
       setCaptureCandidates(orderedCandidates);
       setSelectedCandidateId(preferred?.id ?? orderedCandidates[0]?.id ?? "");
-      setCaptureError(getCaptureCandidatesMessage(orderedCandidates));
+      setCaptureError(getCaptureCandidatesMessage(orderedCandidates, t));
       stopScanner();
     },
-    [replaceCapturePreview, stopScanner],
+    [replaceCapturePreview, stopScanner, t],
   );
 
   const handleCapturedCandidateInputs = useCallback(
@@ -318,7 +323,7 @@ export function ImeiScannerField({
         if (options.preview) {
           replaceCapturePreview(options.preview, options.previewCleanup);
         }
-        setCaptureError("未识别到有效 IMEI。请重拍、上传更清晰照片，或手动输入 15 位 IMEI。");
+        setCaptureError(t("inventory2b4.scanner.noValid"));
         stopScanner();
         return;
       }
@@ -329,47 +334,50 @@ export function ImeiScannerField({
       }
       setCaptureCandidates(orderedCandidates);
       setSelectedCandidateId(preferred?.id ?? orderedCandidates[0]?.id ?? "");
-      setCaptureError(getCaptureCandidatesMessage(orderedCandidates));
+      setCaptureError(getCaptureCandidatesMessage(orderedCandidates, t));
       stopScanner();
     },
-    [replaceCapturePreview, stopScanner],
+    [replaceCapturePreview, stopScanner, t],
   );
 
-  const commitValue = useCallback((rawValue: string, source: CommitSource) => {
-    if (source === "clear") {
-      setWarning("");
-      onChangeRef.current("");
+  const commitValue = useCallback(
+    (rawValue: string, source: CommitSource) => {
+      if (source === "clear") {
+        setWarning("");
+        onChangeRef.current("");
+        return true;
+      }
+
+      const capturedImei =
+        source === "scan" || source === "paste"
+          ? getPreferredValidImeiCandidate(
+              extractValidImeiCandidates(rawValue, {
+                source: source === "paste" ? "paste" : "manual",
+              }),
+            )
+          : null;
+      if ((source === "scan" || source === "paste") && !capturedImei) {
+        toast.error(t("inventory2b4.scanner.automaticImeiOnly"));
+        return false;
+      }
+      const normalized = normalizeImeiIdentifier(capturedImei?.value ?? rawValue);
+      setWarning(normalized.hadUnsupported ? t("inventory2b4.scanner.unsupportedRemoved") : "");
+      onChangeRef.current(normalized.value);
+      onCommitSourceRef.current?.(source === "scan" ? "scan" : "manual");
+
+      if (source === "scan") {
+        toast.success(t("inventory2b4.scanner.recorded"));
+      } else if (source === "paste") {
+        toast.success(t("inventory2b4.scanner.pasted"));
+      }
+
+      if (normalized.hadUnsupported && source !== "manual") {
+        toast.warning(t("inventory2b4.scanner.normalized"));
+      }
       return true;
-    }
-
-    const capturedImei =
-      source === "scan" || source === "paste"
-        ? getPreferredValidImeiCandidate(
-            extractValidImeiCandidates(rawValue, {
-              source: source === "paste" ? "paste" : "manual",
-            }),
-          )
-        : null;
-    if ((source === "scan" || source === "paste") && !capturedImei) {
-      toast.error("只接受通过校验的 15 位 IMEI；SN、EID 和其他编号请手动填写到对应字段");
-      return false;
-    }
-    const normalized = normalizeImeiIdentifier(capturedImei?.value ?? rawValue);
-    setWarning(normalized.hadUnsupported ? "已移除 IMEI 中不支持的字符。" : "");
-    onChangeRef.current(normalized.value);
-    onCommitSourceRef.current?.(source === "scan" ? "scan" : "manual");
-
-    if (source === "scan") {
-      toast.success("已录入 IMEI");
-    } else if (source === "paste") {
-      toast.success("已粘贴并校验 IMEI");
-    }
-
-    if (normalized.hadUnsupported && source !== "manual") {
-      toast.warning("检测到非法字符，已自动移除");
-    }
-    return true;
-  }, []);
+    },
+    [t],
+  );
 
   const handleImageFile = useCallback(
     async (file?: File) => {
@@ -377,8 +385,12 @@ export function ImeiScannerField({
 
       try {
         await inspectAiInventoryImage(file);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "图片格式或尺寸不安全";
+      } catch {
+        const message = t(
+          ["image/jpeg", "image/png", "image/webp"].includes(file.type)
+            ? "inventory2b4.scanner.imageUnsafe"
+            : "inventory2b4.scanner.imageUnsupported",
+        );
         setCaptureError(message);
         toast.error(message);
         return;
@@ -395,22 +407,27 @@ export function ImeiScannerField({
 
       try {
         const recognition = await recognizeTextFromImageFile(file);
-        handleCapturedText(recognition.text, recognition.source, recognition);
+        handleCapturedText(recognition.text, recognition.source, {
+          ...recognition,
+          preview: recognition.preview
+            ? { ...recognition.preview, alt: t("inventory2b4.scanner.uploadPreview") }
+            : undefined,
+        });
       } catch (error) {
-        const message = getImageRecognitionErrorMessage(error);
+        const message = getImageRecognitionErrorMessage(t);
         setCaptureError(message);
         toast.error(message);
       } finally {
         setIsImageProcessing(false);
       }
     },
-    [handleCapturedText, replaceCapturePreview, stopScanner],
+    [handleCapturedText, replaceCapturePreview, stopScanner, t],
   );
 
   const handleCurrentFrameCapture = useCallback(async () => {
     const video = videoRef.current;
     if (!video) {
-      const message = "当前没有可识别的摄像头画面。请重新打开摄像头或上传图片。";
+      const message = t("inventory2b4.scanner.noFrame");
       setCaptureError(message);
       toast.error(message);
       return;
@@ -426,7 +443,7 @@ export function ImeiScannerField({
 
     try {
       const frame = await createImageElementFromVideoFrame(video, {
-        alt: "当前摄像头画面 OCR 截图",
+        alt: t("inventory2b4.scanner.previewCurrentOcr"),
         enhanceForOcr: true,
         cropScale: activeCameraMode === "enhanced" ? imeiCenterCropRecognitionScale : 1,
       });
@@ -439,13 +456,13 @@ export function ImeiScannerField({
         preview: frame.preview,
       });
     } catch (error) {
-      const message = getImageRecognitionErrorMessage(error);
+      const message = getImageRecognitionErrorMessage(t);
       setCaptureError(message);
       toast.error(message);
     } finally {
       setIsImageProcessing(false);
     }
-  }, [activeCameraMode, handleCapturedText, replaceCapturePreview, stopScanner]);
+  }, [activeCameraMode, handleCapturedText, replaceCapturePreview, stopScanner, t]);
 
   const handleCameraDecodeResult = useCallback(
     async (rawValue: string) => {
@@ -468,7 +485,7 @@ export function ImeiScannerField({
       const cameraMode = activeCameraModeRef.current;
       try {
         frame = await createImageElementFromVideoFrame(video, {
-          alt: "已锁定的扫码画面",
+          alt: t("inventory2b4.scanner.previewLocked"),
           cropScale: cameraMode === "enhanced" ? imeiCenterCropRecognitionScale : 1,
         });
         stopScanner();
@@ -484,7 +501,7 @@ export function ImeiScannerField({
         setIsImageProcessing(false);
       }
     },
-    [handleCapturedCandidateInputs, handleCapturedText, replaceCapturePreview, stopScanner],
+    [handleCapturedCandidateInputs, handleCapturedText, replaceCapturePreview, stopScanner, t],
   );
 
   const startCenterCropDecodeLoop = useCallback(
@@ -514,7 +531,7 @@ export function ImeiScannerField({
           let lockedByThisDecode = false;
           try {
             const frame = await createImageElementFromVideoFrame(video, {
-              alt: "中心裁切增强识别截图",
+              alt: t("inventory2b4.scanner.previewEnhanced"),
               cropScale: imeiCenterCropRecognitionScale,
             });
             const recognition = await recognizeFastBarcodeFromImageElement(frame.image);
@@ -539,7 +556,7 @@ export function ImeiScannerField({
         })();
       }, imeiCenterCropScanIntervalMs);
     },
-    [handleCapturedText, replaceCapturePreview, stopScanner],
+    [handleCapturedText, replaceCapturePreview, stopScanner, t],
   );
 
   const handleRetryCapture = useCallback(() => {
@@ -570,7 +587,7 @@ export function ImeiScannerField({
 
     async function startScanner() {
       if (!navigator.mediaDevices?.getUserMedia) {
-        setCaptureError("当前浏览器不支持摄像头扫码。请使用照片上传或手动输入。");
+        setCaptureError(t("inventory2b4.scanner.cameraUnsupported"));
         return;
       }
 
@@ -616,7 +633,7 @@ export function ImeiScannerField({
           forgetCameraMode();
           rememberedCameraModeRef.current = null;
         }
-        setCaptureError(getCameraErrorMessage(error));
+        setCaptureError(getCameraErrorMessage(error, t));
       } finally {
         if (!cancelled && scannerRunIdRef.current === runId) setIsStarting(false);
       }
@@ -638,6 +655,7 @@ export function ImeiScannerField({
     scannerOpen,
     startCenterCropDecodeLoop,
     stopScanner,
+    t,
   ]);
 
   useEffect(() => {
@@ -693,7 +711,7 @@ export function ImeiScannerField({
           inputMode={inputMode ?? imeiKeyboardProps.inputMode}
           value={value}
           onChange={(event) => commitValue(event.target.value, "manual")}
-          placeholder={placeholder}
+          placeholder={resolvedPlaceholder}
           className={cn(
             "font-mono",
             compact &&
@@ -712,7 +730,9 @@ export function ImeiScannerField({
               quiet && "rounded-lg bg-[var(--surface-panel-muted)] text-foreground",
             )}
             onClick={() => setScannerOpen(true)}
-            aria-label={`摄像头扫码录入 ${actionIdentifierLabel}`}
+            aria-label={t("inventory2b4.scanner.cameraAction", {
+              identifier: actionIdentifierLabel,
+            })}
           >
             <Camera className="size-4" />
           </Button>
@@ -732,10 +752,12 @@ export function ImeiScannerField({
                 const text = await navigator.clipboard.readText();
                 commitValue(text, "paste");
               } catch {
-                toast.error("无法读取剪贴板，请手动粘贴");
+                toast.error(t("inventory2b4.scanner.clipboardError"));
               }
             }}
-            aria-label={`粘贴 ${actionIdentifierLabel}`}
+            aria-label={t("inventory2b4.scanner.pasteAction", {
+              identifier: actionIdentifierLabel,
+            })}
           >
             <ClipboardPaste className="size-4" />
           </Button>
@@ -747,7 +769,9 @@ export function ImeiScannerField({
             size="icon"
             className={cn("shrink-0", compact && "size-11 lg:size-8")}
             onClick={() => commitValue("", "clear")}
-            aria-label={`清空 ${actionIdentifierLabel}`}
+            aria-label={t("inventory2b4.scanner.clearAction", {
+              identifier: actionIdentifierLabel,
+            })}
           >
             <X className="size-4" />
           </Button>
@@ -770,9 +794,11 @@ export function ImeiScannerField({
           />
           <div className="min-h-0 space-y-2 overflow-y-auto p-3 pb-2 sm:space-y-3 sm:p-5 sm:pb-4">
             <DialogHeader className="space-y-0.5 pr-8 sm:space-y-1.5">
-              <DialogTitle className="text-base sm:text-lg">扫描 IMEI</DialogTitle>
+              <DialogTitle className="text-base sm:text-lg">
+                {t("inventory2b4.scanner.title")}
+              </DialogTitle>
               <DialogDescription className="text-xs leading-4 sm:text-sm">
-                自动识别仅接受通过校验的 15 位 IMEI，不识别 SN 或 EID。
+                {t("inventory2b4.scanner.description")}
               </DialogDescription>
             </DialogHeader>
             {shouldShowCaptureViewport ? (
@@ -793,7 +819,7 @@ export function ImeiScannerField({
                     muted
                     playsInline
                     autoPlay
-                    aria-label="摄像头预览"
+                    aria-label={t("inventory2b4.scanner.cameraPreview")}
                   />
                 )}
                 {hasOverlayCandidates ? (
@@ -816,7 +842,9 @@ export function ImeiScannerField({
                               captureViewportSize,
                             ),
                           }}
-                          aria-label={`选择画面候选 ${candidate.overlayIndex ?? index + 1}`}
+                          aria-label={t("inventory2b4.scanner.chooseOverlay", {
+                            index: candidate.overlayIndex ?? index + 1,
+                          })}
                           aria-pressed={selectedCandidateId === candidate.id}
                           title={`${candidate.label} ${maskCandidateValue(candidate.value)}`}
                           onClick={() => setSelectedCandidateId(candidate.id)}
@@ -834,12 +862,16 @@ export function ImeiScannerField({
                 ) : null}
                 {!capturePreview && (isStarting || isCameraActive) ? (
                   <div className="pointer-events-none absolute left-2 top-2 rounded bg-background/85 px-2 py-1 text-[10px] font-semibold text-foreground shadow-sm">
-                    {activeCameraMode === "enhanced" ? "1x 取景 · 中心增强" : "1x 兼容扫码"}
+                    {t(
+                      activeCameraMode === "enhanced"
+                        ? "inventory2b4.scanner.cameraEnhanced"
+                        : "inventory2b4.scanner.cameraCompatible",
+                    )}
                   </div>
                 ) : null}
                 {isFrameLocked && capturePreview ? (
                   <div className="pointer-events-none absolute left-2 top-2 rounded bg-primary px-2 py-1 text-[10px] font-semibold text-primary-foreground shadow-sm">
-                    画面已锁定
+                    {t("inventory2b4.scanner.frameLocked")}
                   </div>
                 ) : null}
               </div>
@@ -854,7 +886,9 @@ export function ImeiScannerField({
             ) : null}
             {captureCandidates.length > 0 ? (
               <div className="space-y-1.5 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel)] p-1.5 sm:space-y-2 sm:p-2">
-                <p className="text-xs font-medium text-muted-foreground">选择要填入的编号</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  {t("inventory2b4.scanner.choose")}
+                </p>
                 <div className="grid max-h-[20svh] gap-1 overflow-y-auto pr-0.5 sm:max-h-[28svh] sm:gap-1.5">
                   {captureCandidates.map((candidate, index) => (
                     <button
@@ -879,7 +913,7 @@ export function ImeiScannerField({
                           <span className="truncate text-xs font-semibold">{candidate.label}</span>
                         </span>
                         <span className="shrink-0 text-[10px] text-muted-foreground">
-                          {getCandidateEvidenceLabel(candidate)}
+                          {getCandidateEvidenceLabel(candidate, t)}
                         </span>
                       </span>
                       <span className="mt-1 block break-all font-mono text-xs">
@@ -901,7 +935,7 @@ export function ImeiScannerField({
                   {...imeiKeyboardProps}
                   value={scannerManualValue}
                   onChange={(event) => setScannerManualValue(event.target.value)}
-                  placeholder="无法识别时可手动输入"
+                  placeholder={t("inventory2b4.scanner.manualPlaceholder")}
                   className="h-11 font-mono text-base"
                 />
                 <Button
@@ -914,22 +948,25 @@ export function ImeiScannerField({
                     if (commitValue(scannerManualValue, "scan")) setScannerOpen(false);
                   }}
                 >
-                  填入手动编号
+                  {t("inventory2b4.scanner.manualApply")}
                 </Button>
               </div>
             ) : null}
           </div>
           <div className="grid gap-1.5 border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] p-2 text-xs text-muted-foreground sm:gap-2 sm:p-4">
             <span className="min-w-0 leading-5" aria-live="polite">
-              {getScannerStatusText({
-                isImageProcessing,
-                isStarting,
-                isCameraActive,
-                cameraMode: activeCameraMode,
-                candidateCount: captureCandidates.length,
-                hasCaptureError: Boolean(captureError),
-                isFrameLocked,
-              })}
+              {getScannerStatusText(
+                {
+                  isImageProcessing,
+                  isStarting,
+                  isCameraActive,
+                  cameraMode: activeCameraMode,
+                  candidateCount: captureCandidates.length,
+                  hasCaptureError: Boolean(captureError),
+                  isFrameLocked,
+                },
+                t,
+              )}
             </span>
             {captureCandidates.length > 0 ? (
               <Button
@@ -941,7 +978,7 @@ export function ImeiScannerField({
                   if (selectedCandidate) commitCandidate(selectedCandidate);
                 }}
               >
-                使用选择的编号
+                {t("inventory2b4.scanner.useSelected")}
               </Button>
             ) : null}
             <div className="grid grid-cols-3 gap-2">
@@ -958,7 +995,7 @@ export function ImeiScannerField({
                 ) : (
                   <ScanLine className="mr-1.5 size-3.5" />
                 )}
-                拍照 OCR
+                {t("inventory2b4.scanner.captureOcr")}
               </Button>
               <Button
                 type="button"
@@ -973,7 +1010,7 @@ export function ImeiScannerField({
                 ) : (
                   <ImagePlus className="mr-1.5 size-3.5" />
                 )}
-                上传图片
+                {t("inventory2b4.scanner.upload")}
               </Button>
               {captureError || captureCandidates.length > 0 ? (
                 <Button
@@ -984,7 +1021,7 @@ export function ImeiScannerField({
                   onClick={handleRetryCapture}
                 >
                   <RotateCcw className="mr-1.5 size-3.5" />
-                  重试
+                  {t("inventory2b4.scanner.retry")}
                 </Button>
               ) : (
                 <Button
@@ -995,7 +1032,7 @@ export function ImeiScannerField({
                   onClick={stopScanner}
                 >
                   {isStarting && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
-                  停止
+                  {t("inventory2b4.scanner.stop")}
                 </Button>
               )}
             </div>
@@ -1379,28 +1416,28 @@ async function withImageRecognitionTimeout<T>(
   }
 }
 
-function getCameraErrorMessage(error: unknown) {
+function getCameraErrorMessage(error: unknown, t: Translate) {
   if (!(error instanceof DOMException) && !(error instanceof Error)) {
-    return "无法打开摄像头，请改用照片上传或手动输入。";
+    return t("inventory2b4.scanner.cameraGeneric");
   }
 
   if (error.name === "NotAllowedError") {
-    return "摄像头权限被拒绝。请在浏览器设置允许相机后重试，或改用照片上传 / 手动输入。";
+    return t("inventory2b4.scanner.cameraDenied");
   }
   if (error.name === "NotFoundError") {
-    return "没有找到可用摄像头。请改用照片上传或手动输入。";
+    return t("inventory2b4.scanner.cameraNotFound");
   }
   if (error.name === "NotReadableError") {
-    return "摄像头正被其他应用占用。关闭占用后重试，或改用照片上传 / 手动输入。";
+    return t("inventory2b4.scanner.cameraBusy");
   }
   if (error.name === "OverconstrainedError") {
-    return "当前设备不支持请求的摄像头模式。请重试或改用照片上传。";
+    return t("inventory2b4.scanner.cameraConstraints");
   }
   if (error.name === "TypeError") {
-    return "当前页面无法使用摄像头。请确认使用 HTTPS 或 localhost。";
+    return t("inventory2b4.scanner.cameraContext");
   }
 
-  return "无法打开摄像头，请改用照片上传或手动输入。";
+  return t("inventory2b4.scanner.cameraGeneric");
 }
 
 async function startScannerWithFallback(
@@ -1683,13 +1720,20 @@ function maskCandidateValue(value: string) {
   return `•••• ${value.slice(-4)}`;
 }
 
-function getCandidateEvidenceLabel(candidate: ImeiSelectableCandidate) {
-  const confidenceLabel = candidate.confidence === "high" ? "高可信" : "需确认";
+function getCandidateEvidenceLabel(candidate: ImeiSelectableCandidate, t: Translate) {
+  const confidenceLabel = t(
+    candidate.confidence === "high"
+      ? "inventory2b4.scanner.evidenceHigh"
+      : "inventory2b4.scanner.evidenceConfirm",
+  );
   if (candidate.box && candidate.overlayIndex) {
-    return `画面 ${candidate.overlayIndex} · ${confidenceLabel}`;
+    return t("inventory2b4.scanner.evidenceFrame", {
+      index: candidate.overlayIndex,
+      confidence: confidenceLabel,
+    });
   }
   if (candidate.source === "ocr") {
-    return `OCR · ${confidenceLabel}`;
+    return t("inventory2b4.scanner.evidenceOcr", { confidence: confidenceLabel });
   }
   return confidenceLabel;
 }
@@ -1792,53 +1836,50 @@ function clampRatio(value: number) {
   return Math.min(1, Math.max(0, value));
 }
 
-function getCaptureCandidatesMessage(candidates: readonly ImeiCandidate[]) {
+function getCaptureCandidatesMessage(candidates: readonly ImeiCandidate[], t: Translate) {
   if (candidates.length > 1) {
-    return `已识别 ${candidates.length} 个有效 IMEI，请选择要填入的 IMEI。`;
+    return t("inventory2b4.scanner.candidatesMany", { count: candidates.length });
   }
-  return "已识别 1 个有效 IMEI，请确认后再填入。";
+  return t("inventory2b4.scanner.candidateOne");
 }
 
-function getScannerStatusText({
-  isImageProcessing,
-  isFrameLocked,
-  isStarting,
-  isCameraActive,
-  cameraMode,
-  candidateCount,
-  hasCaptureError,
-}: {
-  isImageProcessing: boolean;
-  isFrameLocked: boolean;
-  isStarting: boolean;
-  isCameraActive: boolean;
-  cameraMode: ImeiScannerCameraMode;
-  candidateCount: number;
-  hasCaptureError: boolean;
-}) {
-  if (isFrameLocked && isImageProcessing) return "已锁定画面，正在识别更多编号...";
-  if (isImageProcessing) return "正在识别图片 / OCR...";
-  if (isStarting) return "正在启动 1x 摄像头，识别时会自动中心裁切增强...";
-  if (candidateCount > 0) return `已识别 ${candidateCount} 个候选，请选择要填入的编号。`;
-  if (isFrameLocked) return "已锁定画面，可选择候选、重试或上传图片。";
-  if (hasCaptureError) return "可重试、上传图片或手动输入。";
+function getScannerStatusText(
+  {
+    isImageProcessing,
+    isFrameLocked,
+    isStarting,
+    isCameraActive,
+    cameraMode,
+    candidateCount,
+    hasCaptureError,
+  }: {
+    isImageProcessing: boolean;
+    isFrameLocked: boolean;
+    isStarting: boolean;
+    isCameraActive: boolean;
+    cameraMode: ImeiScannerCameraMode;
+    candidateCount: number;
+    hasCaptureError: boolean;
+  },
+  t: Translate,
+) {
+  if (isFrameLocked && isImageProcessing) {
+    return t("inventory2b4.scanner.statusLockedProcessing");
+  }
+  if (isImageProcessing) return t("inventory2b4.scanner.statusProcessing");
+  if (isStarting) return t("inventory2b4.scanner.statusStarting");
+  if (candidateCount > 0) {
+    return t("inventory2b4.scanner.statusCandidates", { count: candidateCount });
+  }
+  if (isFrameLocked) return t("inventory2b4.scanner.statusLocked");
+  if (hasCaptureError) return t("inventory2b4.scanner.statusRecover");
   if (isCameraActive && cameraMode === "enhanced") {
-    return "1x 取景中；对准条码会自动锁定画面并快速识别。";
+    return t("inventory2b4.scanner.statusActiveEnhanced");
   }
-  if (isCameraActive) return "正在扫描，保持条码在画面中；识别后会在下方显示候选。";
-  return "摄像头已停止，可上传图片或手动输入。";
+  if (isCameraActive) return t("inventory2b4.scanner.statusActive");
+  return t("inventory2b4.scanner.statusStopped");
 }
 
-function getImageRecognitionErrorMessage(error: unknown) {
-  const message = error instanceof Error ? error.message : "";
-  if (/摄像头画面|无法读取摄像头|图片无法读取/.test(message)) {
-    return message;
-  }
-  if (/当前浏览器暂不支持本机 OCR/.test(message)) {
-    return "当前浏览器暂不支持本机 OCR。请使用条码照片、摄像头扫码或手动输入。";
-  }
-  if (/超时|timeout/i.test(message)) {
-    return "图片识别超时，请重试、换一张更清晰的照片或手动输入。";
-  }
-  return "图片识别失败，请换一张更清晰的照片或手动输入。";
+function getImageRecognitionErrorMessage(t: Translate) {
+  return t("inventory2b4.scanner.recognitionFailed");
 }

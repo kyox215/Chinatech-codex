@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import type { StoreMember } from "@/lib/repairdesk/types";
 import {
   createMemberEditorDraft,
+  getMemberPermissionOptions,
+  getMemberRoleLabels,
+  getMemberStatusLabels,
   isMemberEditorDraftChanged,
   isMemberEditorDraftDirty,
   isSensitiveMemberEditorChange,
@@ -135,5 +138,33 @@ describe("member settings editor", () => {
         { role: "manager", permissions: ["finance:cost_manage"] },
       ),
     ).toBe(true);
+  });
+
+  it("localizes presentation without changing stable role, status, action, or group codes", () => {
+    const zh = getMemberPermissionOptions("zh-CN");
+    const it = getMemberPermissionOptions("it-IT");
+    const en = getMemberPermissionOptions("en");
+
+    expect(it.map(({ action, group, sensitive }) => ({ action, group, sensitive }))).toEqual(
+      zh.map(({ action, group, sensitive }) => ({ action, group, sensitive })),
+    );
+    expect(en.map(({ action, group, sensitive }) => ({ action, group, sensitive }))).toEqual(
+      zh.map(({ action, group, sensitive }) => ({ action, group, sensitive })),
+    );
+    expect(it.flatMap(({ label, description }) => [label, description]).join(" ")).not.toMatch(
+      /[\u3400-\u9fff]/u,
+    );
+    expect(en.flatMap(({ label, description }) => [label, description]).join(" ")).not.toMatch(
+      /[\u3400-\u9fff]/u,
+    );
+    expect(zh[0].label).toBe("浏览历史归档");
+    expect(it[0].label).toBe("Consulta archivio storico");
+    expect(en[0].label).toBe("Browse historical archive");
+    expect(getMemberRoleLabels("it-IT").technician).toBe("Tecnico");
+    expect(getMemberRoleLabels("en").sales).toBe("Front desk");
+    expect(getMemberStatusLabels("it-IT").inactive).toBe("Disattivato");
+    expect(getMemberStatusLabels("en").invited).toBe("Pending");
+    expect(Object.values(getMemberRoleLabels("it-IT")).join(" ")).not.toMatch(/[\u3400-\u9fff]/u);
+    expect(Object.values(getMemberStatusLabels("en")).join(" ")).not.toMatch(/[\u3400-\u9fff]/u);
   });
 });

@@ -6,11 +6,11 @@ import { ArrowLeft, ArrowRight, Check, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { NewOrderFormState } from "@/features/orders/model/new-order-form";
-import { deviceCustodyLabel, hasUnlockValue } from "@/features/orders/model/device-custody";
+import { hasUnlockValue } from "@/features/orders/model/device-custody";
+import { localizeDeviceCustody } from "@/features/orders/model/order-i18n";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
-
-const steps = ["客户资料", "设备与交接", "维修与报价", "确认创建"] as const;
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function NewOrderGuidedWorkspace({
   step,
@@ -41,6 +41,13 @@ export function NewOrderGuidedWorkspace({
   onNext: () => void;
   onCancel?: () => void;
 }) {
+  const { t } = useLocale();
+  const steps = [
+    t("orders2b1.new.step.customer"),
+    t("orders2b1.new.step.device"),
+    t("orders2b1.new.step.quote"),
+    t("orders2b1.new.step.confirm"),
+  ];
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -53,11 +60,11 @@ export function NewOrderGuidedWorkspace({
       <section
         className={cn(repairOs.mobileInfoCard, "p-3 md:rounded-[var(--radius-lg)] md:shadow-none")}
       >
-        <nav aria-label="接单步骤">
+        <nav aria-label={t("orders2b1.new.stepsAria")}>
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
-                步骤 {step + 1}/4
+                {t("orders2b1.new.stepProgress", { current: step + 1 })}
               </p>
               <h2 ref={headingRef} tabIndex={-1} className="text-base font-semibold outline-none">
                 {steps[step]}
@@ -124,7 +131,7 @@ export function NewOrderGuidedWorkspace({
           {step === 0 ? (
             onCancel ? (
               <Button type="button" variant="outline" className="min-h-9" onClick={onCancel}>
-                取消
+                {t("common.cancel")}
               </Button>
             ) : null
           ) : (
@@ -135,18 +142,18 @@ export function NewOrderGuidedWorkspace({
               disabled={pending}
               onClick={() => onStepChange(step - 1)}
             >
-              <ArrowLeft className="size-4" /> 上一步
+              <ArrowLeft className="size-4" /> {t("orders2b1.new.previous")}
             </Button>
           )}
         </div>
         {step < 3 ? (
           <Button type="button" className="min-h-10" disabled={pending} onClick={onNext}>
-            下一步 <ArrowRight className="size-4" />
+            {t("orders2b1.new.next")} <ArrowRight className="size-4" />
           </Button>
         ) : (
           <Button type="submit" className="min-h-10" disabled={pending} aria-busy={pending}>
             <ClipboardCheck className="size-4" />
-            {pending ? "正在创建…" : "确认并创建工单"}
+            {t(pending ? "orders2b1.new.creating" : "orders2b1.new.confirmCreate")}
           </Button>
         )}
       </div>
@@ -167,23 +174,33 @@ function NewOrderReview({
   diagnosisDeferred: boolean;
   onEdit: (step: number) => void;
 }) {
+  const { t } = useLocale();
   const rows = [
     {
-      title: "客户资料",
+      title: t("orders2b1.new.step.customer"),
       step: 0,
-      lines: [form.customerName.trim() || "未填写姓名", form.customerPhone.trim() || "未填写电话"],
-    },
-    {
-      title: "设备与交接",
-      step: 1,
       lines: [
-        `${form.brand || "未填写品牌"} ${form.model || "未填写型号"}`,
-        deviceCustodyLabel(form.deviceCustodyStatus),
-        `解锁信息：${hasUnlockValue(form.deviceUnlock) ? "已记录（不显示内容）" : "未记录"}`,
+        form.customerName.trim() || t("orders2b1.new.nameMissing"),
+        form.customerPhone.trim() || t("orders2b1.new.phoneMissing"),
       ],
     },
     {
-      title: "维修与报价",
+      title: t("orders2b1.new.step.device"),
+      step: 1,
+      lines: [
+        `${form.brand || t("orders2b1.new.brandMissing")} ${form.model || t("orders2b1.new.modelMissing")}`,
+        localizeDeviceCustody(form.deviceCustodyStatus, undefined, t),
+        t("orders2b1.new.unlockSummary", {
+          status: t(
+            hasUnlockValue(form.deviceUnlock)
+              ? "orders2b1.new.unlockRecorded"
+              : "orders2b1.new.notRecorded",
+          ),
+        }),
+      ],
+    },
+    {
+      title: t("orders2b1.new.step.quote"),
       step: 2,
       lines: [
         form.faults.some((fault) => fault.name.trim())
@@ -192,10 +209,13 @@ function NewOrderReview({
               .map((fault) => fault.name)
               .join("、")
           : diagnosisDeferred
-            ? "检测后补充"
-            : "未选择维修项目",
-        `报价 €${total.toFixed(2)} · 定金 €${form.deposit.toFixed(2)}`,
-        `初始状态：${statusLabel}`,
+            ? t("orders2b1.new.diagnosisDeferred")
+            : t("orders2b1.new.noRepairItem"),
+        t("orders2b1.new.quoteSummary", {
+          total: total.toFixed(2),
+          deposit: form.deposit.toFixed(2),
+        }),
+        t("orders2b1.new.initialStatus", { status: statusLabel }),
       ],
     },
   ];
@@ -220,7 +240,7 @@ function NewOrderReview({
               className="min-h-9"
               onClick={() => onEdit(group.step)}
             >
-              修改
+              {t("orders2b1.new.edit")}
             </Button>
           </div>
           <div className="grid gap-1 text-xs text-muted-foreground">

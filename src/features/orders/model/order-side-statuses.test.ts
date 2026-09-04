@@ -25,6 +25,7 @@ describe("order side status badges", () => {
       "已订件",
       "已通知",
     ]);
+    expect(badges.find((badge) => badge.key === "logistics-mail")?.supplierName).toBe("PartsLab");
   });
 
   it.each([
@@ -47,5 +48,24 @@ describe("order side status badges", () => {
     });
 
     expect(badges[0]?.label).toBe(label);
+  });
+
+  it("exposes an external-repair supplier without requiring label parsing", () => {
+    const badges = getOrderSideStatusBadges({
+      status: "repairing",
+      order_type: "dropoff_repair",
+      supplier_id: "supplier-2",
+      supplier_name: "Fornitore 动态",
+      exception_status: undefined,
+      approval_flow_status: "not_required",
+      parts_status: "not_required",
+      notify_status: "not_sent",
+      device_custody_status: "with_shop",
+      delivered_at: undefined,
+    });
+
+    expect(badges.find((badge) => badge.key === "external-repair")?.supplierName).toBe(
+      "Fornitore 动态",
+    );
   });
 });

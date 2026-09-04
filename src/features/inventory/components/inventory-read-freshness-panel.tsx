@@ -4,6 +4,9 @@ import { CheckCircle2, Eye, Loader2, ShieldAlert } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey, MessageValues } from "@/shared/i18n/messages";
+import { formatInventoryLifecycleDate } from "@/features/inventory/lifecycle/model/inventory-lifecycle-i18n";
 
 import type { InventoryReadFreshnessResolution } from "../model/inventory-read-freshness";
 
@@ -13,41 +16,48 @@ export type InventoryReadFreshnessPanelProps = {
   className?: string;
 };
 
-const copy = {
+const copy: Record<
+  Exclude<InventoryReadFreshnessResolution["state"], "fresh">,
+  { title: MessageKey; description: MessageKey; role: "status" | "alert" }
+> = {
   stale: {
-    title: "资料需要只读刷新",
-    description: "当前画面显示的是本机最后一次成功读取的资料，写入动作已锁定。",
+    title: "inventory2b4.freshnessCard.stale.title",
+    description: "inventory2b4.freshnessCard.stale.description",
     role: "alert" as const,
   },
   verifying: {
-    title: "正在读取最新状态",
-    description: "正在只读刷新；不会调用写入操作，也不会轮换写入标识。",
+    title: "inventory2b4.freshnessCard.verifying.title",
+    description: "inventory2b4.freshnessCard.verifying.description",
     role: "status" as const,
   },
   "verify-failed": {
-    title: "最新状态读取失败",
-    description: "资料仍保持只读，写入动作继续锁定；请稍后再次只读刷新。",
+    title: "inventory2b4.freshnessCard.failed.title",
+    description: "inventory2b4.freshnessCard.failed.description",
     role: "alert" as const,
   },
   recovered: {
-    title: "最新状态已读取",
-    description: "写入动作已恢复可用；恢复只来自成功读回，不会自动重放写入。",
+    title: "inventory2b4.freshnessCard.recovered.title",
+    description: "inventory2b4.freshnessCard.recovered.description",
     role: "status" as const,
   },
   "privacy-redacted": {
-    title: "资料已裁剪，写入保持锁定",
-    description: "为保护隐私，当前只显示保守的只读状态，不显示业务标识或原始详情。",
+    title: "inventory2b4.freshnessCard.redacted.title",
+    description: "inventory2b4.freshnessCard.redacted.description",
     role: "alert" as const,
   },
 } as const;
 
-function localReadCopy(lastSuccessAt?: number, redacted?: boolean) {
-  if (redacted) return "本机最后成功读取时间已隐藏。";
-  if (!lastSuccessAt) return "本机最后成功读取时间暂不可用；不会使用服务端时间代替。";
-  return `本机最后成功读取：${new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(lastSuccessAt)}`;
+function localReadCopy(
+  lastSuccessAt: number | undefined,
+  redacted: boolean,
+  locale: ReturnType<typeof useLocale>["locale"],
+  t: (key: MessageKey, values?: MessageValues) => string,
+) {
+  if (redacted) return t("inventory2b4.freshnessCard.readTimeHidden");
+  if (!lastSuccessAt) return t("inventory2b4.freshnessCard.readTimeUnavailable");
+  return t("inventory2b4.freshnessCard.readTime", {
+    date: formatInventoryLifecycleDate(lastSuccessAt, locale, t),
+  });
 }
 
 export function InventoryReadFreshnessPanel({
@@ -55,6 +65,7 @@ export function InventoryReadFreshnessPanel({
   onVerify,
   className,
 }: InventoryReadFreshnessPanelProps) {
+  const { locale, t } = useLocale();
   if (freshness.hidden || freshness.state === "fresh") return null;
   const stateCopy = copy[freshness.state];
   const verifying = freshness.state === "verifying";
@@ -91,21 +102,21 @@ export function InventoryReadFreshnessPanel({
           )}
         </span>
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold">{stateCopy.title}</h2>
-          <p className="mt-1 text-xs leading-5 text-foreground">{stateCopy.description}</p>
+          <h2 className="text-sm font-semibold">{t(stateCopy.title)}</h2>
+          <p className="mt-1 text-xs leading-5 text-foreground">{t(stateCopy.description)}</p>
         </div>
       </div>
       <p className="text-xs leading-5 text-muted-foreground">
-        {localReadCopy(freshness.lastSuccessAt, redacted)}
+        {localReadCopy(freshness.lastSuccessAt, redacted, locale, t)}
       </p>
       {!redacted && freshness.state !== "recovered" ? (
         <p className="text-xs leading-5 text-muted-foreground">
-          只读刷新成功且返回最新资料后，写入动作才会恢复；此处不会自动提交任何命令。
+          {t("inventory2b4.freshnessCard.recoveryHelp")}
         </p>
       ) : null}
       {freshness.state === "recovered" ? (
         <p role="status" aria-live="polite" className="text-xs leading-5 text-muted-foreground">
-          已完成只读核对；没有自动重放写入。
+          {t("inventory2b4.freshnessCard.recoveredStatus")}
         </p>
       ) : null}
       {!redacted && onVerify ? (
@@ -117,7 +128,9 @@ export function InventoryReadFreshnessPanel({
           onClick={() => void onVerify()}
         >
           <Eye className="size-4" aria-hidden="true" />
-          {verifying ? "正在读取最新状态…" : "只读刷新最新状态"}
+          {verifying
+            ? t("inventory2b4.freshnessCard.verifyingAction")
+            : t("inventory2b4.freshnessCard.verify")}
         </Button>
       ) : null}
     </section>

@@ -1,8 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ActorStoreMembership, StoreLifecyclePreflight } from "@/lib/repairdesk/types";
+import { LocaleProvider, useLocale } from "@/shared/i18n/locale-provider";
+import type { AppLocale } from "@/shared/i18n/locales";
 
 import { StoreLifecycleActions } from "./store-lifecycle-actions";
 
@@ -24,6 +26,7 @@ const mocks = vi.hoisted(() => ({
   refreshStoreContext: vi.fn(),
   replace: vi.fn(),
   refresh: vi.fn(),
+  mfaRequired: false,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -42,9 +45,15 @@ vi.mock("@/features/stores/api/tenant-cache", () => ({
   refreshStoreContextQueries: mocks.refreshStoreContext,
 }));
 
+vi.mock("@/features/settings/model/store-lifecycle-mfa", () => ({
+  lifecycleMfaRequired: () => mocks.mfaRequired,
+  verifyRecentLifecycleAal2: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe("StoreLifecycleActions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.mfaRequired = false;
     vi.stubGlobal("matchMedia", () => ({
       matches: false,
       addEventListener: vi.fn(),
@@ -100,19 +109,17 @@ describe("StoreLifecycleActions", () => {
     expect(confirmButton).toBeEnabled();
     fireEvent.click(confirmButton);
 
-    await waitFor(() =>
-      expect(mocks.close).toHaveBeenCalledWith(
-        expect.objectContaining({
-          expectedStoreId: storeId,
-          expectedRevision: 4,
-          preflightSnapshotHash: "a".repeat(64),
-          confirmationStoreName: store.name,
-          confirmationStoreIdSuffix: "0000cafe",
-          reasonCode: "business_closed",
-          operationId: expect.stringMatching(/^[0-9a-f-]{36}$/),
-        }),
-      ),
-    );
+    await waitFor(() => expect(mocks.close).toHaveBeenCalledTimes(1));
+    expect(mocks.close).toHaveBeenCalledWith({
+      expectedStoreId: storeId,
+      expectedRevision: 4,
+      operationId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      reauthChallengeId: "00000000-0000-4000-8000-000000000901",
+      preflightSnapshotHash: "a".repeat(64),
+      confirmationStoreName: store.name,
+      confirmationStoreIdSuffix: "0000cafe",
+      reasonCode: "business_closed",
+    });
     expect(mocks.clearTenantCache).toHaveBeenCalledTimes(1);
     expect(mocks.replace).toHaveBeenCalledWith("/settings/closed-stores");
   });
@@ -126,30 +133,115 @@ describe("StoreLifecycleActions", () => {
     expect(screen.queryByText(storeId)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "继续关闭" })).not.toBeInTheDocument();
   });
+
+  it.each([
+    ["zh-CN" as const, "只有系统登记的店铺主账号可以关闭店铺。"],
+    ["it-IT" as const, "Solo il titolare principale registrato può chiudere il negozio."],
+    ["en" as const, "Only the registered primary store owner can close it."],
+  ])("localizes a stable denied capability in %s without domain IO", (locale, message) => {
+    renderActions({
+      locale,
+      capability: { allowed: false, code: "primary_owner_required" },
+      preflight: eligiblePreflight(),
+    });
+    expect(screen.getByText(message)).toBeVisible();
+    expect(mocks.getState).not.toHaveBeenCalled();
+    expect(mocks.close).not.toHaveBeenCalled();
+  });
+
+  it("locks close before awaiting the lifecycle challenge", async () => {
+    let resolveChallenge!: (value: { id: string }) => void;
+    mocks.issueChallenge.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveChallenge = resolve;
+        }),
+    );
+    renderActions({ preflight: eligiblePreflight() });
+    fireEvent.click(await screen.findByRole("button", { name: "继续关闭" }));
+    fireEvent.change(screen.getByLabelText("店铺识别码最后 8 位"), {
+      target: { value: "0000cafe" },
+    });
+    fireEvent.click(
+      screen.getByLabelText(
+        "我明白这是可恢复关闭，不是永久删除；旧邀请和客户 iPad 权限不会自动恢复。",
+      ),
+    );
+    const submit = screen.getByRole("button", { name: "确认关闭这家店（可恢复）" });
+    fireEvent.click(submit);
+    fireEvent.click(submit);
+    await waitFor(() => expect(mocks.issueChallenge).toHaveBeenCalledTimes(1));
+    await act(async () => resolveChallenge({ id: "challenge-close" }));
+    await waitFor(() => expect(mocks.close).toHaveBeenCalledTimes(1));
+  });
+
+  it("preserves the close dialog, focused TOTP and canonical draft across locale changes without IO", async () => {
+    mocks.mfaRequired = true;
+    renderActions({ preflight: eligiblePreflight(), withLocaleSwitch: true });
+    fireEvent.click(await screen.findByRole("button", { name: "继续关闭" }));
+    fireEvent.change(screen.getByLabelText("店铺识别码最后 8 位"), {
+      target: { value: "0000cafe" },
+    });
+    const totp = screen.getByLabelText("身份验证器中的 6 位安全验证码");
+    fireEvent.change(totp, { target: { value: "123456" } });
+    totp.focus();
+    const lifecycleReads = mocks.getState.mock.calls.length;
+    fireEvent.click(screen.getByTestId("switch-it"));
+
+    expect(
+      await screen.findByRole("dialog", { name: "Confermare la chiusura di Chinatech Siracusa?" }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Ultime 8 cifre dell’identificativo")).toHaveValue("0000cafe");
+    expect(screen.getByLabelText("Codice di sicurezza a 6 cifre dell’app di autenticazione")).toBe(
+      totp,
+    );
+    expect(totp).toHaveValue("123456");
+    expect(totp).toHaveFocus();
+    expect(mocks.getState).toHaveBeenCalledTimes(lifecycleReads);
+    expect(mocks.getOperation).not.toHaveBeenCalled();
+    expect(mocks.issueChallenge).not.toHaveBeenCalled();
+    expect(mocks.close).not.toHaveBeenCalled();
+  });
 });
 
 function renderActions({
   capability = { allowed: true, code: "available" },
   preflight,
   onRunPreflight = vi.fn(),
+  locale = "zh-CN",
+  withLocaleSwitch = false,
 }: {
   capability?: { allowed: boolean; code: "available" | "primary_owner_required" };
   preflight?: StoreLifecyclePreflight;
   onRunPreflight?: () => void;
+  locale?: AppLocale;
+  withLocaleSwitch?: boolean;
 } = {}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
-    <QueryClientProvider client={queryClient}>
-      <StoreLifecycleActions
-        store={store}
-        capability={capability}
-        preflight={preflight}
-        isPreflighting={false}
-        onRunPreflight={onRunPreflight}
-      />
-    </QueryClientProvider>,
+    <LocaleProvider initialLocale={locale}>
+      <QueryClientProvider client={queryClient}>
+        {withLocaleSwitch ? <TestLocaleSwitch /> : null}
+        <StoreLifecycleActions
+          store={store}
+          capability={capability}
+          preflight={preflight}
+          isPreflighting={false}
+          onRunPreflight={onRunPreflight}
+        />
+      </QueryClientProvider>
+    </LocaleProvider>,
+  );
+}
+
+function TestLocaleSwitch() {
+  const { setLocale } = useLocale();
+  return (
+    <button type="button" data-testid="switch-it" onClick={() => setLocale("it-IT")}>
+      switch-it
+    </button>
   );
 }
 

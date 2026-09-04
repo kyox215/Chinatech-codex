@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 
 import type { SettingsSectionKey } from "@/features/settings/model/settings-section-access";
+import { DEFAULT_LOCALE, type AppLocale } from "@/shared/i18n/locales";
+import { translateMessage, type MessageKey } from "@/shared/i18n/messages";
 
 export type SettingsSectionGroupKey =
   | "personal-access"
@@ -189,7 +191,7 @@ const sectionDefinitions: readonly SettingsSectionDefinition[] = [
 
 const sectionByKey = new Map(sectionDefinitions.map((section) => [section.key, section]));
 
-export const SETTINGS_SECTION_GROUPS: readonly SettingsSectionGroupDefinition[] = [
+const groupDefinitions: readonly SettingsSectionGroupDefinition[] = [
   {
     key: "personal-access",
     label: "个人与访问",
@@ -212,15 +214,103 @@ export const SETTINGS_SECTION_GROUPS: readonly SettingsSectionGroupDefinition[] 
   },
 ];
 
+const groupLabelKeys: Record<SettingsSectionGroupKey, MessageKey> = {
+  "personal-access": "settings.group.personalAccess",
+  "store-operations": "settings.group.storeOperations",
+  "business-rules": "settings.group.businessRules",
+  "output-data": "settings.group.outputData",
+};
+
+const sectionPresentationKeys: Record<
+  SettingsSectionKey,
+  { label: MessageKey; shortLabel: MessageKey; description: MessageKey; keywords: MessageKey }
+> = {
+  account: {
+    label: "settings.section.account.label",
+    shortLabel: "settings.section.account.shortLabel",
+    description: "settings.section.account.description",
+    keywords: "settings.section.account.keywords",
+  },
+  members: {
+    label: "settings.section.members.label",
+    shortLabel: "settings.section.members.shortLabel",
+    description: "settings.section.members.description",
+    keywords: "settings.section.members.keywords",
+  },
+  store: {
+    label: "settings.section.store.label",
+    shortLabel: "settings.section.store.shortLabel",
+    description: "settings.section.store.description",
+    keywords: "settings.section.store.keywords",
+  },
+  suppliers: {
+    label: "settings.section.suppliers.label",
+    shortLabel: "settings.section.suppliers.shortLabel",
+    description: "settings.section.suppliers.description",
+    keywords: "settings.section.suppliers.keywords",
+  },
+  kiosk: {
+    label: "settings.section.kiosk.label",
+    shortLabel: "settings.section.kiosk.shortLabel",
+    description: "settings.section.kiosk.description",
+    keywords: "settings.section.kiosk.keywords",
+  },
+  rules: {
+    label: "settings.section.rules.label",
+    shortLabel: "settings.section.rules.shortLabel",
+    description: "settings.section.rules.description",
+    keywords: "settings.section.rules.keywords",
+  },
+  workflow: {
+    label: "settings.section.workflow.label",
+    shortLabel: "settings.section.workflow.shortLabel",
+    description: "settings.section.workflow.description",
+    keywords: "settings.section.workflow.keywords",
+  },
+  notifications: {
+    label: "settings.section.notifications.label",
+    shortLabel: "settings.section.notifications.shortLabel",
+    description: "settings.section.notifications.description",
+    keywords: "settings.section.notifications.keywords",
+  },
+  "ai-usage": {
+    label: "settings.section.aiUsage.label",
+    shortLabel: "settings.section.aiUsage.shortLabel",
+    description: "settings.section.aiUsage.description",
+    keywords: "settings.section.aiUsage.keywords",
+  },
+  "order-data": {
+    label: "settings.section.orderData.label",
+    shortLabel: "settings.section.orderData.shortLabel",
+    description: "settings.section.orderData.description",
+    keywords: "settings.section.orderData.keywords",
+  },
+};
+
+export const SETTINGS_SECTION_GROUPS = getSettingsSectionGroups();
+
+export function getSettingsSectionGroups(
+  locale: AppLocale = DEFAULT_LOCALE,
+): readonly SettingsSectionGroupDefinition[] {
+  return groupDefinitions.map((group) => ({
+    ...group,
+    label: translateMessage(locale, groupLabelKeys[group.key]),
+    sections: group.sections.map((section) => localizeSettingsSection(section, locale)),
+  }));
+}
+
 export function parseSettingsView(value: string | null): SettingsView {
   if (!value || !sectionByKey.has(value as SettingsSectionKey)) return { kind: "overview" };
   return { kind: "section", section: value as SettingsSectionKey };
 }
 
-export function getSettingsSection(key: SettingsSectionKey): SettingsSectionDefinition {
+export function getSettingsSection(
+  key: SettingsSectionKey,
+  locale: AppLocale = DEFAULT_LOCALE,
+): SettingsSectionDefinition {
   const section = sectionByKey.get(key);
   if (!section) throw new Error(`Unknown settings section: ${key}`);
-  return section;
+  return localizeSettingsSection(section, locale);
 }
 
 export function sortSettingsCoreSections<T extends Pick<SettingsSectionDefinition, "key">>(
@@ -235,17 +325,35 @@ export function sortSettingsCoreSections<T extends Pick<SettingsSectionDefinitio
 
 export function filterSettingsSectionGroups(
   query: string,
+  locale: AppLocale = DEFAULT_LOCALE,
 ): readonly SettingsSectionGroupDefinition[] {
   const normalizedQuery = query.trim().toLocaleLowerCase();
-  if (!normalizedQuery) return SETTINGS_SECTION_GROUPS;
+  const groups = getSettingsSectionGroups(locale);
+  if (!normalizedQuery) return groups;
 
-  return SETTINGS_SECTION_GROUPS.map((group) => ({
-    ...group,
-    sections: group.sections.filter((section) =>
-      [section.label, section.shortLabel, section.description, ...section.keywords]
-        .join(" ")
-        .toLocaleLowerCase()
-        .includes(normalizedQuery),
-    ),
-  })).filter((group) => group.sections.length > 0);
+  return groups
+    .map((group) => ({
+      ...group,
+      sections: group.sections.filter((section) =>
+        [section.label, section.shortLabel, section.description, ...section.keywords]
+          .join(" ")
+          .toLocaleLowerCase()
+          .includes(normalizedQuery),
+      ),
+    }))
+    .filter((group) => group.sections.length > 0);
+}
+
+function localizeSettingsSection(
+  section: SettingsSectionDefinition,
+  locale: AppLocale,
+): SettingsSectionDefinition {
+  const keys = sectionPresentationKeys[section.key];
+  return {
+    ...section,
+    label: translateMessage(locale, keys.label),
+    shortLabel: translateMessage(locale, keys.shortLabel),
+    description: translateMessage(locale, keys.description),
+    keywords: translateMessage(locale, keys.keywords).split("|"),
+  };
 }

@@ -36,6 +36,20 @@ import {
 import { cn } from "@/lib/utils";
 import { componentOverlay } from "@/lib/component-patterns";
 import type { Supplier, SupplierInput } from "@/lib/repairdesk/types";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { translateSettingsOperations } from "@/shared/i18n/messages";
+
+const supplierColorPresentation = {
+  "#2563eb": "蓝色",
+  "#16a34a": "绿色",
+  "#f59e0b": "黄色",
+  "#dc2626": "红色",
+  "#7c3aed": "紫色",
+  "#0891b2": "青色",
+} as const satisfies Record<
+  (typeof SUPPLIER_COLOR_PALETTE)[number]["value"],
+  Parameters<typeof translateSettingsOperations>[1]
+>;
 
 export interface SupplierEditorSheetProps {
   mode: "new" | "edit" | null;
@@ -58,6 +72,11 @@ export function SupplierEditorSheet({
   onDirtyChange,
   onSave,
 }: SupplierEditorSheetProps) {
+  const { locale } = useLocale();
+  const copy = (
+    source: Parameters<typeof translateSettingsOperations>[1],
+    values?: Record<string, string | number>,
+  ) => translateSettingsOperations(locale, source, values);
   const initial = supplier ? supplierToInput(supplier) : defaultSupplierInput();
   const [draft, setDraft] = useState(initial);
   const [errors, setErrors] = useState<Partial<Record<SupplierInputField, string>>>({});
@@ -65,6 +84,7 @@ export function SupplierEditorSheet({
   const draftRef = useRef(initial);
   const baseRef = useRef(initial);
   const firstInputRef = useRef<HTMLInputElement>(null);
+  const saveSubmittingRef = useRef(false);
 
   useEffect(() => {
     const next = supplier ? supplierToInput(supplier) : defaultSupplierInput();
@@ -101,16 +121,22 @@ export function SupplierEditorSheet({
     onOpenChange(false);
   };
   const save = async () => {
-    const result = validateSupplierInput(draftRef.current);
-    if (!result.success) {
-      setErrors(result.errors);
-      requestAnimationFrame(() => focusFirstSupplierError(result.errors, firstInputRef));
-      throw new Error("供应商资料校验失败");
+    if (saveSubmittingRef.current) return;
+    saveSubmittingRef.current = true;
+    try {
+      const result = validateSupplierInput(draftRef.current);
+      if (!result.success) {
+        setErrors(result.errors);
+        requestAnimationFrame(() => focusFirstSupplierError(result.errors, firstInputRef));
+        throw new Error(copy("供应商资料校验失败"));
+      }
+      await onSave(result.data, supplier?.id);
+      draftRef.current = result.data;
+      baseRef.current = result.data;
+      onOpenChange(false);
+    } finally {
+      saveSubmittingRef.current = false;
     }
-    await onSave(result.data, supplier?.id);
-    draftRef.current = result.data;
-    baseRef.current = result.data;
-    onOpenChange(false);
   };
 
   return (
@@ -120,7 +146,11 @@ export function SupplierEditorSheet({
         dirty={dirty}
         isDirty={() => isSupplierDraftDirty(draftRef.current, baseRef.current)}
         busy={isSaving}
-        label={mode === "new" ? "新供应商资料" : `${supplier?.name ?? "供应商"}资料`}
+        label={
+          mode === "new"
+            ? copy("新供应商资料")
+            : copy("{supplier}资料", { supplier: supplier?.name ?? copy("供应商") })
+        }
         onSave={async () => {
           try {
             await save();
@@ -148,6 +178,7 @@ export function SupplierEditorSheet({
       >
         <SheetContent
           side="right"
+          closeLabel={copy("关闭")}
           className="flex h-full w-[calc(100vw-16px)] max-w-[calc(100vw-8px)] flex-col gap-0 p-0 sm:w-[min(38rem,calc(100vw-24px))]"
           aria-busy={isSaving}
           onCloseAutoFocus={(event) => {
@@ -159,16 +190,18 @@ export function SupplierEditorSheet({
             className={`${componentOverlay.mobileHeader} border-b border-[var(--border-panel)] pr-14 text-left`}
           >
             <SheetTitle>
-              {mode === "new" ? "添加供应商" : `编辑 ${supplier?.name ?? "供应商"}`}
+              {mode === "new"
+                ? copy("添加供应商")
+                : copy("编辑 {supplier}", { supplier: supplier?.name ?? copy("供应商") })}
             </SheetTitle>
             <SheetDescription>
-              资料只属于当前店铺。归档和恢复不在这个编辑器中执行。
+              {copy("资料只属于当前店铺。归档和恢复不在这个编辑器中执行。")}
             </SheetDescription>
           </SheetHeader>
 
           <div className={`${componentOverlay.mobileBody} flex-1`}>
             <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-4">
-              <SupplierField label="名称" field="name" errors={errors}>
+              <SupplierField label={copy("名称")} field="name" errors={errors}>
                 <Input
                   ref={firstInputRef}
                   id="supplier-name"
@@ -180,7 +213,7 @@ export function SupplierEditorSheet({
                   onChange={(event) => update({ name: event.target.value })}
                 />
               </SupplierField>
-              <SupplierField label="简称" field="short_name" errors={errors}>
+              <SupplierField label={copy("简称")} field="short_name" errors={errors}>
                 <Input
                   id="supplier-short_name"
                   className="h-[38px] text-base sm:text-sm"
@@ -191,7 +224,7 @@ export function SupplierEditorSheet({
                   onChange={(event) => update({ short_name: event.target.value })}
                 />
               </SupplierField>
-              <SupplierField label="联系人" field="contact_name" errors={errors}>
+              <SupplierField label={copy("联系人")} field="contact_name" errors={errors}>
                 <Input
                   id="supplier-contact_name"
                   className="h-[38px] text-base sm:text-sm"
@@ -202,7 +235,7 @@ export function SupplierEditorSheet({
                   onChange={(event) => update({ contact_name: event.target.value })}
                 />
               </SupplierField>
-              <SupplierField label="电话" field="phone" errors={errors}>
+              <SupplierField label={copy("电话")} field="phone" errors={errors}>
                 <Input
                   id="supplier-phone"
                   type="tel"
@@ -214,7 +247,7 @@ export function SupplierEditorSheet({
                   onChange={(event) => update({ phone: event.target.value })}
                 />
               </SupplierField>
-              <SupplierField label="邮箱" field="email" errors={errors}>
+              <SupplierField label={copy("邮箱")} field="email" errors={errors}>
                 <Input
                   id="supplier-email"
                   type="email"
@@ -226,7 +259,7 @@ export function SupplierEditorSheet({
                   onChange={(event) => update({ email: event.target.value })}
                 />
               </SupplierField>
-              <SupplierField label="网站" field="website" errors={errors}>
+              <SupplierField label={copy("网站")} field="website" errors={errors}>
                 <Input
                   id="supplier-website"
                   type="url"
@@ -243,16 +276,18 @@ export function SupplierEditorSheet({
             </div>
 
             <fieldset>
-              <legend className="text-xs font-semibold">识别颜色</legend>
+              <legend className="text-xs font-semibold">{copy("识别颜色")}</legend>
               <p className="mt-1 text-xs text-muted-foreground">
-                使用受控语义色，颜色不是供应商状态。
+                {copy("使用受控语义色，颜色不是供应商状态。")}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {SUPPLIER_COLOR_PALETTE.map((option) => (
                   <button
                     key={option.value}
                     type="button"
-                    aria-label={`选择${option.label}`}
+                    aria-label={copy("选择{color}", {
+                      color: copy(supplierColorPresentation[option.value]),
+                    })}
                     aria-pressed={draft.color === option.value}
                     className={cn(
                       "grid size-8 place-items-center rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -268,7 +303,7 @@ export function SupplierEditorSheet({
               </div>
             </fieldset>
 
-            <SupplierField label="内部备注" field="notes" errors={errors}>
+            <SupplierField label={copy("内部备注")} field="notes" errors={errors}>
               <Textarea
                 id="supplier-notes"
                 className="min-h-20 text-base sm:min-h-28 sm:text-sm"
@@ -285,7 +320,7 @@ export function SupplierEditorSheet({
                 role="alert"
                 className="rounded-lg border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-2 text-sm text-status-danger-foreground"
               >
-                {errorMessage}
+                {copy("保存供应商失败，请重试")}
               </div>
             ) : null}
           </div>
@@ -298,7 +333,7 @@ export function SupplierEditorSheet({
               disabled={isSaving}
               onClick={() => (dirty ? setDiscardConfirmOpen(true) : onOpenChange(false))}
             >
-              取消
+              {copy("取消")}
             </Button>
             <Button
               type="button"
@@ -306,7 +341,7 @@ export function SupplierEditorSheet({
               disabled={!dirty || isSaving}
               onClick={() => void save().catch(() => undefined)}
             >
-              {isSaving ? "保存中…" : "保存供应商"}
+              {isSaving ? copy("保存中…") : copy("保存供应商")}
             </Button>
           </SheetFooter>
         </SheetContent>
@@ -315,13 +350,15 @@ export function SupplierEditorSheet({
       <AlertDialog open={discardConfirmOpen} onOpenChange={setDiscardConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>放弃供应商草稿？</AlertDialogTitle>
-            <AlertDialogDescription>未保存的联系资料、备注和颜色会被清除。</AlertDialogDescription>
+            <AlertDialogTitle>{copy("放弃供应商草稿？")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {copy("未保存的联系资料、备注和颜色会被清除。")}
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="min-h-11">继续编辑</AlertDialogCancel>
+            <AlertDialogCancel className="min-h-11">{copy("继续编辑")}</AlertDialogCancel>
             <AlertDialogAction className="min-h-11" onClick={discard}>
-              放弃修改
+              {copy("放弃修改")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -341,6 +378,7 @@ function SupplierField({
   errors: Partial<Record<SupplierInputField, string>>;
   children: React.ReactNode;
 }) {
+  const { locale } = useLocale();
   const error = errors[field];
   const id = `supplier-${field}`;
   return (
@@ -349,7 +387,7 @@ function SupplierField({
       {children}
       {error ? (
         <p id={`${id}-error`} className="text-xs text-status-danger-foreground">
-          {error}
+          {translateSettingsOperations(locale, "请检查此字段")}
         </p>
       ) : null}
     </div>

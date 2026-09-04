@@ -34,6 +34,8 @@ import type {
 } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
 import { repairOs } from "@/lib/ui-patterns";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { translateSettingsOperations } from "@/shared/i18n/messages";
 
 export interface OrderWorkflowSettingsSectionProps {
   storeId: string;
@@ -54,6 +56,11 @@ export function OrderWorkflowSettingsSection({
   onRetry,
   onDirtyChange,
 }: OrderWorkflowSettingsSectionProps) {
+  const { locale } = useLocale();
+  const copy = (
+    source: Parameters<typeof translateSettingsOperations>[1],
+    values?: Parameters<typeof translateSettingsOperations>[2],
+  ) => translateSettingsOperations(locale, source, values);
   const [draft, setDraft] = useState<OrderWorkflowDraftState | null>(() =>
     workflow ? createOrderWorkflowDraftState(workflow, storeId) : null,
   );
@@ -115,6 +122,8 @@ export function OrderWorkflowSettingsSection({
             transitionsChanged: 0,
             items: [],
             impactedEntrypoints: [],
+            presentationItems: [],
+            impactedEntrypointCodes: [],
           },
     [draft],
   );
@@ -144,8 +153,8 @@ export function OrderWorkflowSettingsSection({
         isDirty={() => dirtyRef.current}
         busy={false}
         canSave={false}
-        saveUnavailableReason="状态流需等待带版本校验的事务接口获批后才能应用。"
-        label="工单状态流草稿"
+        saveUnavailableReason={copy("状态流需等待带版本校验的事务接口获批后才能应用。")}
+        label={copy("工单状态流草稿")}
         onSave={async () => ({ status: "blocked", focus: focusApplyGate })}
         onDiscard={discardDraft}
         onFocusFallback={focusApplyGate}
@@ -154,14 +163,14 @@ export function OrderWorkflowSettingsSection({
       <RepairOsSectionHeader
         icon={GitBranch}
         iconFrame={false}
-        title="工单状态流"
+        title={copy("工单状态流")}
         className="items-start max-sm:flex-col"
         bodyClassName="items-start"
         descriptionClassName="mt-0.5 whitespace-normal text-xs leading-5"
         description={
           canEdit
-            ? "先编辑店铺级草稿，再集中检查变更；编辑过程不会写入服务器。"
-            : "查看当前店铺的状态、顺序与推荐流转规则。"
+            ? copy("先编辑店铺级草稿，再集中检查变更；编辑过程不会写入服务器。")
+            : copy("查看当前店铺的状态、顺序与推荐流转规则。")
         }
         action={
           canEdit && draft ? (
@@ -172,14 +181,14 @@ export function OrderWorkflowSettingsSection({
               data-ui="workflow-add-status"
               onClick={() => openEditor("new")}
             >
-              <Plus className="size-4" /> 新增状态草稿
+              <Plus className="size-4" /> {copy("新增状态草稿")}
             </Button>
           ) : null
         }
       />
 
       {isLoading && !draft ? (
-        <div className="grid gap-3" aria-busy="true" aria-label="正在读取工单状态流">
+        <div className="grid gap-3" aria-busy="true" aria-label={copy("正在读取工单状态流")}>
           <Skeleton className="h-20 w-full rounded-xl" />
           <Skeleton className="h-20 w-full rounded-xl" />
           <Skeleton className="h-36 w-full rounded-xl" />
@@ -191,16 +200,16 @@ export function OrderWorkflowSettingsSection({
           className="grid-cols-1 gap-3 border-status-danger-foreground/25 bg-status-danger/10 px-3 py-3 text-status-danger-foreground sm:grid-cols-[minmax(0,1fr)_auto]"
           trailing={
             <Button type="button" variant="outline" className="min-h-9" onClick={onRetry}>
-              <RotateCcw className="size-4" /> 重新读取
+              <RotateCcw className="size-4" /> {copy("重新读取")}
             </Button>
           }
         >
           <div className="flex gap-2">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <div>
-              <p className="text-sm font-semibold">状态流读取失败</p>
+              <p className="text-sm font-semibold">{copy("状态流读取失败")}</p>
               <p className="mt-1 text-xs leading-5">
-                当前没有可安全编辑的店铺快照。请重新读取；页面不会建立或保存备用状态。
+                {copy("当前没有可安全编辑的店铺快照。请重新读取；页面不会建立或保存备用状态。")}
               </p>
             </div>
           </div>
@@ -212,21 +221,23 @@ export function OrderWorkflowSettingsSection({
               role="alert"
               className="flex flex-col gap-3 rounded-lg border border-status-warn-foreground/25 bg-status-warn px-3 py-3 text-status-warn-foreground sm:flex-row sm:items-center sm:justify-between"
             >
-              <p className="text-sm">刷新失败，当前本地草稿仍保留；重新读取前不会覆盖。</p>
+              <p className="text-sm">
+                {copy("刷新失败，当前本地草稿仍保留；重新读取前不会覆盖。")}
+              </p>
               <Button
                 type="button"
                 variant="outline"
                 className="min-h-9 shrink-0"
                 onClick={onRetry}
               >
-                <RotateCcw className="size-4" /> 再试一次
+                <RotateCcw className="size-4" /> {copy("再试一次")}
               </Button>
             </div>
           ) : null}
 
           {!canEdit ? (
             <div className="rounded-lg border border-[var(--border-panel)] bg-card px-3 py-3 text-sm text-muted-foreground">
-              当前为只读访问。页面仅展示语义值，不提供不可用的表单控件。
+              {copy("当前为只读访问。页面仅展示语义值，不提供不可用的表单控件。")}
             </div>
           ) : null}
 
@@ -235,9 +246,9 @@ export function OrderWorkflowSettingsSection({
               role="alert"
               className="rounded-lg border border-status-warn-foreground/25 bg-status-warn px-3 py-3 text-status-warn-foreground"
             >
-              <p className="text-sm font-semibold">服务器版本已变化，本地草稿未被覆盖</p>
+              <p className="text-sm font-semibold">{copy("服务器版本已变化，本地草稿未被覆盖")}</p>
               <p className="mt-1 text-xs leading-5">
-                可继续核对本地内容，或明确切换到最新服务器版本。当前不执行自动合并。
+                {copy("可继续核对本地内容，或明确切换到最新服务器版本。当前不执行自动合并。")}
               </p>
               <Button
                 type="button"
@@ -245,7 +256,7 @@ export function OrderWorkflowSettingsSection({
                 className="mt-3 min-h-9"
                 onClick={discardDraft}
               >
-                使用最新服务器版本
+                {copy("使用最新服务器版本")}
               </Button>
             </div>
           ) : null}
@@ -261,12 +272,14 @@ export function OrderWorkflowSettingsSection({
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-semibold">
-                      {dirty ? "本地草稿有待检查变更" : "已与加载版本一致"}
+                      {copy(dirty ? "本地草稿有待检查变更" : "已与加载版本一致")}
                     </p>
-                    <Badge variant="outline">{issues.length} 项安全提示</Badge>
+                    <Badge variant="outline">
+                      {copy("{count} 项安全提示", { count: issues.length })}
+                    </Badge>
                   </div>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    应用状态流仍锁定：需单事务、版本冲突检测及活跃工单兼容性校验。
+                    {copy("应用状态流仍锁定：需单事务、版本冲突检测及活跃工单兼容性校验。")}
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row">
@@ -277,7 +290,7 @@ export function OrderWorkflowSettingsSection({
                     disabled={!dirty}
                     onClick={discardDraft}
                   >
-                    放弃草稿
+                    {copy("放弃草稿")}
                   </Button>
                   <Button
                     ref={reviewTriggerRef}
@@ -287,7 +300,7 @@ export function OrderWorkflowSettingsSection({
                     data-ui="workflow-review-changes"
                     onClick={() => setReviewOpen(true)}
                   >
-                    <LockKeyhole className="size-4" /> 检查变更
+                    <LockKeyhole className="size-4" /> {copy("检查变更")}
                   </Button>
                 </div>
               </div>
@@ -297,10 +310,11 @@ export function OrderWorkflowSettingsSection({
           {!statuses.length ? (
             <div className="rounded-xl border border-dashed border-[var(--border-panel)] bg-card px-4 py-8 text-center">
               <GitBranch className="mx-auto size-7 text-muted-foreground" />
-              <p className="mt-2 text-sm font-semibold">当前店铺没有状态流记录</p>
+              <p className="mt-2 text-sm font-semibold">{copy("当前店铺没有状态流记录")}</p>
               <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-muted-foreground">
-                页面不会使用备用 ID
-                或跨店铺默认值代替真实数据。可重新读取，或仅在本地草稿中规划新状态。
+                {copy(
+                  "页面不会使用备用 ID 或跨店铺默认值代替真实数据。可重新读取，或仅在本地草稿中规划新状态。",
+                )}
               </p>
             </div>
           ) : (

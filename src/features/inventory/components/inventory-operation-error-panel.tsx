@@ -5,6 +5,8 @@ import { CheckCircle2, Eye, Loader2, ShieldAlert, TriangleAlert } from "lucide-r
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey } from "@/shared/i18n/messages";
 
 import type {
   InventoryOperationErrorDetails,
@@ -21,18 +23,21 @@ export type InventoryOperationErrorPanelProps = {
   className?: string;
 };
 
-const copy = {
+const copy: Record<
+  InventoryOperationErrorDetails["kind"],
+  { title: MessageKey; description: MessageKey }
+> = {
   rejected: {
-    title: "操作未被接受",
-    description: "服务端拒绝了这次操作。请按当前字段提示修正后再试；不会自动重放写入。",
+    title: "inventory2b4.operationError.rejected.title",
+    description: "inventory2b4.operationError.rejected.description",
   },
   authorization: {
-    title: "当前账号无法执行此操作",
-    description: "当前门店或账号没有这项写入权限。没有自动重试，也不会改变服务端权限。",
+    title: "inventory2b4.operationError.authorization.title",
+    description: "inventory2b4.operationError.authorization.description",
   },
   "outcome-unknown": {
-    title: "暂时无法确认写入结果",
-    description: "请求中断或服务暂时不可用，写入可能已经完成。请先核对最新状态，不要重复提交。",
+    title: "inventory2b4.operationError.unknown.title",
+    description: "inventory2b4.operationError.unknown.description",
   },
 } as const;
 
@@ -55,11 +60,20 @@ export function InventoryOperationErrorPanel({
   privacyRedacted = false,
   className,
 }: InventoryOperationErrorPanelProps) {
+  const { t } = useLocale();
   const panelRef = useRef<HTMLElement>(null);
   const stateCopy = copy[error.kind];
   const unknownOutcome = error.kind === "outcome-unknown";
   const verifying = isVerifying(verificationStatus);
   const role = verificationStatus === "verified" ? "status" : "alert";
+  const handleVerify = () => {
+    try {
+      void Promise.resolve(onVerify?.()).catch(() => undefined);
+    } catch {
+      // The caller owns the safe failed-state transition. This boundary only
+      // prevents a rejected recovery attempt from escaping the user action.
+    }
+  };
 
   useEffect(() => {
     panelRef.current?.focus({ preventScroll: true });
@@ -98,23 +112,25 @@ export function InventoryOperationErrorPanel({
         </span>
         <div className="min-w-0">
           <h2 className="text-sm font-semibold">
-            {verificationStatus === "verifying" ? "正在读取最新状态" : stateCopy.title}
+            {verificationStatus === "verifying"
+              ? t("inventory2b4.operationError.verifyingTitle")
+              : t(stateCopy.title)}
           </h2>
           <p className="mt-1 text-xs leading-5 text-foreground">
             {verificationStatus === "verified"
-              ? "已读取最新状态；没有自动重放刚才的写入。请根据最新业务账继续操作。"
-              : stateCopy.description}
+              ? t("inventory2b4.operationError.verifiedDescription")
+              : t(stateCopy.description)}
           </p>
         </div>
       </div>
       {privacyRedacted ? (
         <p className="text-xs leading-5 text-muted-foreground">
-          为保护隐私，此状态不显示商品、金额或设备标识。
+          {t("inventory2b4.common.privacyRedacted")}
         </p>
       ) : null}
       {verificationStatus === "failed" ? (
         <p className="text-xs leading-5 text-status-danger-foreground">
-          读取最新状态失败；仍不要重复提交，请稍后再次读取。
+          {t("inventory2b4.operationError.verifyFailed")}
         </p>
       ) : null}
       {unknownOutcome && onVerify && verificationStatus !== "verified" ? (
@@ -123,10 +139,12 @@ export function InventoryOperationErrorPanel({
           variant="outline"
           className="min-h-11 w-full gap-2 sm:w-fit"
           disabled={verifying}
-          onClick={() => void onVerify()}
+          onClick={handleVerify}
         >
           <Eye className="size-4" aria-hidden="true" />
-          {verifying ? "正在读取最新状态…" : "读取最新状态（不会写入）"}
+          {verifying
+            ? t("inventory2b4.operationError.verifying")
+            : t("inventory2b4.operationError.verify")}
         </Button>
       ) : null}
       {unknownOutcome && verificationStatus === "verified" && !acknowledged && onAcknowledge ? (
@@ -136,22 +154,22 @@ export function InventoryOperationErrorPanel({
           className="min-h-11 w-full sm:w-fit"
           onClick={onAcknowledge}
         >
-          我已核对最新状态
+          {t("inventory2b4.operationError.acknowledge")}
         </Button>
       ) : null}
       {unknownOutcome && verificationStatus === "verified" && acknowledged ? (
         <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
-          已确认你已核对最新状态；如需再次写入，请使用当前业务账中的明确动作。
+          {t("inventory2b4.operationError.acknowledged")}
         </p>
       ) : null}
       {unknownOutcome && !onVerify ? (
         <p className="text-xs leading-5 text-muted-foreground">
-          请返回库存或重新打开当前记录核对最新状态；在核对前不要重复提交。
+          {t("inventory2b4.operationError.returnToVerify")}
         </p>
       ) : null}
       {verifying ? (
         <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
-          正在只读核对；不会调用写入操作。
+          {t("inventory2b4.operationError.verifyingStatus")}
         </p>
       ) : null}
     </section>

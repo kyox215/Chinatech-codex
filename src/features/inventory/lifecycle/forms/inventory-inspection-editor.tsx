@@ -10,6 +10,7 @@ import { runInventoryLifecycleCommand } from "@/lib/repairdesk/api";
 import type { InventoryLifecycleListSummary } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 import { inventoryLifecycleKeys } from "../api/query-keys";
 import {
@@ -36,13 +37,9 @@ import {
   resolveInventoryOperationReceipt,
   type InventoryOperationReceipt,
 } from "../../model/inventory-operation-receipt";
+import { localizeInventoryInspection } from "../../products/model/inventory-product-i18n";
 
-const checkOptions = [
-  ["not_tested", "未检测"],
-  ["normal", "正常"],
-  ["abnormal", "异常"],
-  ["not_applicable", "不适用"],
-] as const;
+const checkOptions = ["not_tested", "normal", "abnormal", "not_applicable"] as const;
 
 export function InventoryInspectionEditor({
   summary,
@@ -57,6 +54,7 @@ export function InventoryInspectionEditor({
   onVerifyConflict?: () => Promise<boolean>;
   onSyncCommitted?: () => Promise<boolean>;
 }) {
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const isApple = brand.trim().toLowerCase() === "apple";
   const [battery, setBattery] = useState(
@@ -103,7 +101,8 @@ export function InventoryInspectionEditor({
       setConflict(null);
       setConflictVerification("idle");
       setOperationError(null);
-      setOperationReceipt(resolveInventoryOperationReceipt("inspection.save", result));
+      const receipt = resolveInventoryOperationReceipt("inspection.save", result);
+      setOperationReceipt(receipt);
       setOperationReceiptKey((current) => current + 1);
       void syncCommittedInspection();
     },
@@ -143,22 +142,22 @@ export function InventoryInspectionEditor({
     ? [
         ["face_id_status", "Face ID"],
         ["touch_id_status", "Touch ID"],
-        ["true_tone_status", "原彩显示"],
-        ["activation_lock_status", "激活锁"],
-        ["data_wipe_status", "数据抹除"],
-        ["imei_status", "IMEI 状态"],
+        ["true_tone_status", t("inventory2b4.inspection.trueTone")],
+        ["activation_lock_status", t("inventory2b4.inspection.activationLock")],
+        ["data_wipe_status", t("inventory2b4.inspection.dataWipe")],
+        ["imei_status", t("inventory2b4.inspection.imeiStatus")],
       ]
     : [
-        ["activation_lock_status", "设备锁"],
-        ["data_wipe_status", "数据抹除"],
-        ["imei_status", "设备标识"],
+        ["activation_lock_status", t("inventory2b4.inspection.deviceLock")],
+        ["data_wipe_status", t("inventory2b4.inspection.dataWipe")],
+        ["imei_status", t("inventory2b4.inspection.deviceIdentifier")],
       ];
   const validationIssues: InventoryLifecycleValidationIssue[] = Object.entries(fieldErrors).map(
     ([fieldId, message]) => ({
       fieldId,
       label:
         fieldId === "inventory-inspection-battery-health"
-          ? "电池健康度"
+          ? t("inventory2b4.inspection.batteryHealthPercent")
           : (checkFields.find(([key]) => `inventory-inspection-${key}` === fieldId)?.[1] ??
             fieldId),
       message,
@@ -170,7 +169,9 @@ export function InventoryInspectionEditor({
     if (battery.trim()) {
       const batteryValue = Number(battery);
       if (!Number.isInteger(batteryValue) || batteryValue < 0 || batteryValue > 100) {
-        nextErrors["inventory-inspection-battery-health"] = "请输入 0 到 100 的整数，未知可留空。";
+        nextErrors["inventory-inspection-battery-health"] = t(
+          "inventory2b4.inspection.batteryValidation",
+        );
       }
     }
     if (Object.keys(nextErrors).length > 0) setValidationAttempt((current) => current + 1);
@@ -192,9 +193,9 @@ export function InventoryInspectionEditor({
           <ClipboardCheck className="size-4" aria-hidden="true" />
         </span>
         <div>
-          <h2 className="text-sm font-semibold">录入设备检测</h2>
+          <h2 className="text-sm font-semibold">{t("inventory2b4.inspection.editorTitle")}</h2>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            每次保存都会追加新版本；未检测不会记成 0。
+            {t("inventory2b4.inspection.editorHelp")}
           </p>
         </div>
       </div>
@@ -202,8 +203,8 @@ export function InventoryInspectionEditor({
         {isApple ? (
           <InventoryLifecycleField
             id="inventory-inspection-battery-health"
-            label="电池健康度"
-            hint="未知可留空；填写时必须是 0–100 的整数。"
+            label={t("inventory2b4.inspection.batteryHealthPercent")}
+            hint={t("inventory2b4.inspection.batteryHint")}
             error={fieldErrors["inventory-inspection-battery-health"]}
           >
             <Input
@@ -212,7 +213,7 @@ export function InventoryInspectionEditor({
               min={0}
               max={100}
               inputMode="numeric"
-              placeholder="未知"
+              placeholder={t("inventory2b4.inspection.unknown")}
               value={battery}
               onChange={(event) => {
                 setBattery(event.target.value);
@@ -246,9 +247,9 @@ export function InventoryInspectionEditor({
                   setChecks((current) => ({ ...current, [key]: event.target.value }))
                 }
               >
-                {checkOptions.map(([value, optionLabel]) => (
+                {checkOptions.map((value) => (
                   <option key={value} value={value}>
-                    {optionLabel}
+                    {localizeInventoryInspection(value, value, t)}
                   </option>
                 ))}
               </select>
@@ -307,11 +308,13 @@ export function InventoryInspectionEditor({
           });
         }}
       >
-        {mutation.isPending ? "正在保存…" : "保存检测版本"}
+        {mutation.isPending
+          ? t("inventory2b4.inspection.saving")
+          : t("inventory2b4.inspection.save")}
       </Button>
       {mutation.isPending ? (
         <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
-          正在保存检测版本，完成前不可重复提交。
+          {t("inventory2b4.inspection.pending")}
         </p>
       ) : null}
     </section>

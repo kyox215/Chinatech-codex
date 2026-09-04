@@ -1,10 +1,11 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { resolve } from "node:path";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const evidenceDir = resolve(
   process.env.REPAIRDESK_I18N_EVIDENCE_DIR ?? "test-results/i18n-foundation",
 );
+const captureVisualEvidence = process.env.REPAIRDESK_CAPTURE_I18N_EVIDENCE === "1";
 const workspaceEvidenceEnabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 
 test("server render honors an exact locale cookie and rejects an invalid value", async ({
@@ -23,10 +24,12 @@ test("server render honors an exact locale cookie and rejects an invalid value",
   await expect(page.getByRole("heading", { name: "Accesso a RepairDesk" })).toBeVisible();
   await expect(page.locator("[data-nextjs-dialog], .vite-error-overlay")).toHaveCount(0);
   await hideNextDevIndicator(page);
-  await page.screenshot({
-    path: resolve(evidenceDir, "italian-login-desktop-1440.png"),
-    fullPage: true,
-  });
+  if (captureVisualEvidence) {
+    await page.screenshot({
+      path: resolve(evidenceDir, "italian-login-desktop-1440.png"),
+      fullPage: true,
+    });
+  }
   expect(consoleErrors).toEqual([]);
 
   await context.addCookies([{ name: "repairdesk_locale", value: "en-US", url: baseURL }]);
@@ -102,10 +105,12 @@ test("language switching keeps form state, URL, document identity and persistenc
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.innerWidth);
   await expect(page.locator("[data-nextjs-dialog], .vite-error-overlay")).toHaveCount(0);
   await hideNextDevIndicator(page);
-  await page.screenshot({
-    path: resolve(evidenceDir, "english-register-mobile-390.png"),
-    fullPage: true,
-  });
+  if (captureVisualEvidence) {
+    await page.screenshot({
+      path: resolve(evidenceDir, "english-register-mobile-390.png"),
+      fullPage: true,
+    });
+  }
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
@@ -117,6 +122,7 @@ test("keyboard switching restores focus and preserves scroll position", async ({
   await page.goto("/login", { waitUntil: "domcontentloaded" });
   const trigger = page.locator('[data-language-switcher-trigger="true"]');
   await expect(trigger).toHaveAttribute("aria-label", "选择界面语言");
+  await waitForReactEventHandlers(trigger);
   await trigger.focus();
   await trigger.press("Enter");
   await expect(page.getByRole("menuitemradio", { name: "中文" })).toBeFocused();
@@ -220,9 +226,11 @@ test.describe("localized employee workspace evidence", () => {
     await expect(page.getByRole("heading", { name: "Ordini di riparazione" })).toBeVisible();
     await expect(page.getByRole("link", { name: /Clienti/ })).toBeVisible();
     await hideNextDevIndicator(page);
-    await page.screenshot({
-      path: resolve(evidenceDir, "italian-orders-shell-desktop-1440.png"),
-    });
+    if (captureVisualEvidence) {
+      await page.screenshot({
+        path: resolve(evidenceDir, "italian-orders-shell-desktop-1440.png"),
+      });
+    }
   });
 
   test("English mobile Orders navigation drawer", async ({ page, context }) => {
@@ -240,9 +248,11 @@ test.describe("localized employee workspace evidence", () => {
     await page.waitForTimeout(350);
     expect((await drawer.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(250);
     await hideNextDevIndicator(page);
-    await page.screenshot({
-      path: resolve(evidenceDir, "english-orders-sidebar-mobile-390.png"),
-    });
+    if (captureVisualEvidence) {
+      await page.screenshot({
+        path: resolve(evidenceDir, "english-orders-sidebar-mobile-390.png"),
+      });
+    }
   });
 
   test("offline copy switches in place with the employee shell", async ({ page }) => {
@@ -272,4 +282,16 @@ async function waitForAppBarStoreLink(page: Page) {
       .locator('[data-app-bar="true"]')
       .getByRole("link", { name: "Demo Repair Store", includeHidden: true }),
   ).toHaveAttribute("href", "/settings", { timeout: 20_000 });
+}
+
+async function waitForReactEventHandlers(locator: Locator) {
+  await expect
+    .poll(
+      () =>
+        locator.evaluate((element) =>
+          Object.keys(element).some((key) => key.startsWith("__reactProps$")),
+        ),
+      { message: "language switcher should be hydrated before keyboard interaction" },
+    )
+    .toBe(true);
 }

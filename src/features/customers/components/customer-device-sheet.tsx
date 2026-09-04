@@ -35,6 +35,12 @@ import {
   buildNewOrderWorkspaceHref,
   buildOrderDetailWorkspaceHref,
 } from "@/features/orders/model/order-workspace-intent";
+import { localizeWorkflowStatusLabel } from "@/features/orders/model/order-i18n";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import {
+  localizeCustomerDeviceDeleteReason,
+  localizeCustomerWarranty,
+} from "@/features/customers/model/customer-i18n";
 
 export interface CustomerDeviceSheetProps {
   item?: CustomerDeviceWorkbenchItem;
@@ -42,7 +48,7 @@ export interface CustomerDeviceSheetProps {
   open: boolean;
   deleting: boolean;
   onOpenChange: (open: boolean) => void;
-  onEdit: (device: Device) => void;
+  onEdit: (device: Device, control: HTMLButtonElement) => void;
   onDelete: (deviceId: string) => void;
 }
 
@@ -55,6 +61,7 @@ export function CustomerDeviceSheet({
   onEdit,
   onDelete,
 }: CustomerDeviceSheetProps) {
+  const { locale, t } = useLocale();
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -75,15 +82,25 @@ export function CustomerDeviceSheet({
     [item],
   );
   const primaryOrder = activeOrder ?? unpaidOrder;
-  const primaryActionLabel = activeOrder ? "查看在修" : unpaidOrder ? "查看欠款" : "新建工单";
+  const primaryActionLabel = t(
+    activeOrder
+      ? "customers.detail.viewActive"
+      : unpaidOrder
+        ? "customers.detail.viewUnpaid"
+        : "customers.detail.newOrder",
+  );
 
   if (!item) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className={sheetContentClass}>
+        <SheetContent
+          side="bottom"
+          closeLabel={t("customers.detail.close")}
+          className={sheetContentClass}
+        >
           <SheetHeader className="sr-only">
-            <SheetTitle>设备详情</SheetTitle>
-            <SheetDescription>客户设备维修历史与统计</SheetDescription>
+            <SheetTitle>{t("customers.detail.sheetTitle")}</SheetTitle>
+            <SheetDescription>{t("customers.detail.sheetDescription")}</SheetDescription>
           </SheetHeader>
         </SheetContent>
       </Sheet>
@@ -95,7 +112,11 @@ export function CustomerDeviceSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className={sheetContentClass}>
+      <SheetContent
+        side="bottom"
+        closeLabel={t("customers.detail.close")}
+        className={sheetContentClass}
+      >
         <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-border/70" />
         <SheetHeader className="shrink-0 space-y-2 px-3 pb-2 pt-2 text-left">
           <div className="flex min-w-0 items-start gap-2 pr-10">
@@ -108,29 +129,29 @@ export function CustomerDeviceSheet({
               </SheetTitle>
               <SheetDescription
                 className="mt-0.5 truncate font-mono text-[10px] leading-4 lg:text-[11px]"
-                title={device.serial_or_imei || "无 IMEI"}
+                title={device.serial_or_imei || t("customers.detail.noImei")}
               >
-                {device.serial_or_imei || "无 IMEI"}
+                {device.serial_or_imei || t("customers.detail.noImei")}
               </SheetDescription>
             </div>
           </div>
           <div className="flex min-w-0 flex-wrap gap-1">
             {item.activeOrderCount > 0 ? (
               <RepairOsBadge className="bg-status-info text-[10px] text-status-info-foreground lg:text-[11px] lg:leading-4">
-                在修 {item.activeOrderCount}
+                {t("customers.detail.activeCount", { count: item.activeOrderCount })}
               </RepairOsBadge>
             ) : null}
             {item.financeRedacted ? (
               <RepairOsBadge className="bg-[var(--surface-panel-muted)] text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
-                金额受限
+                {t("customers.detail.financeRestricted")}
               </RepairOsBadge>
             ) : item.unpaidAmount > 0 ? (
               <RepairOsBadge className="bg-status-danger/10 text-[10px] text-status-danger-foreground lg:text-xs lg:leading-4">
-                待收 <MoneyText amount={item.unpaidAmount} />
+                {t("customers.detail.outstanding")} <MoneyText amount={item.unpaidAmount} />
               </RepairOsBadge>
             ) : null}
             <RepairOsBadge className="bg-[var(--surface-panel-muted)] text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-              历史 {item.orderItems.length} 单
+              {t("customers.detail.ordersCount", { count: item.orderItems.length })}
             </RepairOsBadge>
           </div>
           {device.device_notes ? (
@@ -142,16 +163,34 @@ export function CustomerDeviceSheet({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
           <div className="grid min-w-0 grid-cols-2 gap-1.5">
-            <DeviceMetric label="维修次数" value={`${item.repairCount} 次`} />
             <DeviceMetric
-              label="有效工单额"
-              value={item.financeRedacted ? "金额受限" : <MoneyText amount={item.totalQuoted} />}
+              label={t("customers.detail.repairCount")}
+              value={t("customers.detail.repairsCount", { count: item.repairCount })}
             />
             <DeviceMetric
-              label="待收尾款"
-              value={item.financeRedacted ? "金额受限" : <MoneyText amount={item.unpaidAmount} />}
+              label={t("customers.detail.validOrderValue")}
+              value={
+                item.financeRedacted ? (
+                  t("customers.detail.financeRestricted")
+                ) : (
+                  <MoneyText amount={item.totalQuoted} />
+                )
+              }
             />
-            <DeviceMetric label="售后" value={item.warrantyLabel} />
+            <DeviceMetric
+              label={t("customers.detail.outstandingBalance")}
+              value={
+                item.financeRedacted ? (
+                  t("customers.detail.financeRestricted")
+                ) : (
+                  <MoneyText amount={item.unpaidAmount} />
+                )
+              }
+            />
+            <DeviceMetric
+              label={t("customers.detail.warranty")}
+              value={localizeCustomerWarranty(item.warranty, t)}
+            />
           </div>
 
           <div className="mt-2 grid min-w-0 gap-1.5">
@@ -160,7 +199,11 @@ export function CustomerDeviceSheet({
                 <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-status-warn-foreground" />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[11px] font-semibold leading-4 lg:text-xs lg:leading-4">
-                    {activeOrder ? "当前仍在维修流程中" : "还有尾款待收"}
+                    {t(
+                      activeOrder
+                        ? "customers.detail.activeFlow"
+                        : "customers.detail.unpaidRemaining",
+                    )}
                   </div>
                   <div className="truncate text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
                     {primaryOrder.order.public_no} · {primaryOrder.order.issue_description}
@@ -172,7 +215,13 @@ export function CustomerDeviceSheet({
             {!item.canDelete ? (
               <div className="flex min-w-0 items-start gap-2 rounded-xl bg-[var(--surface-panel-muted)] px-2.5 py-2 text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-[18px]">
                 <ShieldCheck className="mt-0.5 size-3.5 shrink-0" />
-                <span className="min-w-0">{item.deleteBlockedReason}</span>
+                <span className="min-w-0">
+                  {localizeCustomerDeviceDeleteReason(
+                    item.deleteBlockedReasonKind,
+                    item.deleteBlockedReason,
+                    t,
+                  )}
+                </span>
               </div>
             ) : null}
           </div>
@@ -181,21 +230,21 @@ export function CustomerDeviceSheet({
             <div className="mb-1.5 flex min-w-0 items-center justify-between gap-2">
               <div className="inline-flex min-w-0 items-center gap-1.5 text-[11px] font-semibold leading-4 lg:text-xs lg:leading-4">
                 <History className="size-3.5 text-primary" />
-                <span>设备历史</span>
+                <span>{t("customers.detail.deviceHistory")}</span>
               </div>
               <span className="font-mono text-[10px] text-muted-foreground tabular-nums lg:text-[11px] lg:leading-4">
-                {item.orderItems.length} 单
+                {t("customers.detail.ordersCount", { count: item.orderItems.length })}
               </span>
             </div>
             {item.orderItems.length ? (
               <div className="grid min-w-0 gap-1.5 pb-1">
                 {item.orderItems.map((orderItem) => (
-                  <DeviceHistoryRow key={orderItem.order.id} item={orderItem} />
+                  <DeviceHistoryRow key={orderItem.order.id} item={orderItem} locale={locale} />
                 ))}
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-4 text-center text-xs text-muted-foreground">
-                暂无关联工单，可直接用这台设备创建新工单。
+                {t("customers.detail.noLinkedOrdersAction")}
               </div>
             )}
           </section>
@@ -230,17 +279,18 @@ export function CustomerDeviceSheet({
               size="sm"
               variant="outline"
               className="h-11 gap-1.5 px-3 text-xs lg:h-9"
-              onClick={() => onEdit(device)}
+              onClick={(event) => onEdit(device, event.currentTarget)}
             >
-              <Edit3 className="size-3.5" /> 编辑
+              <Edit3 className="size-3.5" /> {t("customers.detail.editShort")}
             </Button>
           </div>
           {item.canDelete ? (
             confirmDelete ? (
               <div className="mt-1.5 grid min-w-0 gap-1.5 rounded-xl border border-destructive/30 bg-destructive/5 p-2 sm:w-full">
                 <div className="min-w-0 text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-                  确认删除 {deviceName}
-                  {device.serial_or_imei ? ` · ${device.serial_or_imei}` : ""}？
+                  {t("customers.detail.confirmDeleteDevice", {
+                    device: `${deviceName}${device.serial_or_imei ? ` · ${device.serial_or_imei}` : ""}`,
+                  })}
                 </div>
                 <div className="grid grid-cols-2 gap-1.5">
                   <Button
@@ -251,7 +301,7 @@ export function CustomerDeviceSheet({
                     disabled={deleting}
                     onClick={() => setConfirmDelete(false)}
                   >
-                    取消
+                    {t("customers.detail.cancel")}
                   </Button>
                   <Button
                     type="button"
@@ -262,7 +312,9 @@ export function CustomerDeviceSheet({
                     onClick={() => onDelete(device.id)}
                   >
                     <Trash2 className="size-3.5" />
-                    {deleting ? "删除中" : "确认删除"}
+                    {deleting
+                      ? t("customers.detail.deleting")
+                      : t("customers.detail.confirmDelete")}
                   </Button>
                 </div>
               </div>
@@ -275,7 +327,7 @@ export function CustomerDeviceSheet({
                 disabled={deleting}
                 onClick={() => setConfirmDelete(true)}
               >
-                <Trash2 className="size-3.5" /> 删除设备
+                <Trash2 className="size-3.5" /> {t("customers.detail.deleteDevice")}
               </Button>
             )
           ) : null}
@@ -298,7 +350,14 @@ function DeviceMetric({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function DeviceHistoryRow({ item }: { item: CustomerDeviceWorkbenchItem["orderItems"][number] }) {
+function DeviceHistoryRow({
+  item,
+  locale,
+}: {
+  item: CustomerDeviceWorkbenchItem["orderItems"][number];
+  locale: "zh-CN" | "it-IT" | "en";
+}) {
+  const { t } = useLocale();
   const isClosed = item.state === "closed";
   const balance = Number.isFinite(item.order.balance_amount)
     ? Math.max(0, item.order.balance_amount)
@@ -309,7 +368,10 @@ function DeviceHistoryRow({ item }: { item: CustomerDeviceWorkbenchItem["orderIt
   return (
     <Link
       href={buildOrderDetailWorkspaceHref(item.order.id, { source: "customer" })}
-      aria-label={`查看工单 ${item.order.public_no} ${item.order.issue_description}`}
+      aria-label={t("customers.detail.viewOrder", {
+        number: item.order.public_no,
+        issue: item.order.issue_description,
+      })}
       className={cn(
         "grid min-w-0 gap-1 rounded-xl border border-[var(--border-panel)] bg-card px-2.5 py-2 transition-colors hover:bg-accent/40",
         isClosed && "opacity-70",
@@ -322,12 +384,17 @@ function DeviceHistoryRow({ item }: { item: CustomerDeviceWorkbenchItem["orderIt
           </span>
           <StatusBadge
             status={cancelled ? "cancelled" : item.order.status}
+            label={localizeWorkflowStatusLabel(
+              undefined,
+              cancelled ? "cancelled" : item.order.status,
+              t,
+            )}
             className="max-w-[5.5rem] text-[10px] lg:text-[11px] lg:leading-4"
           />
         </div>
         <span className="inline-flex shrink-0 items-center gap-1 text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
           <CalendarClock className="size-3" />
-          {formatCustomerDateTime(item.order.created_at)}
+          {formatCustomerDateTime(item.order.created_at, locale)}
         </span>
       </div>
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
@@ -338,25 +405,30 @@ function DeviceHistoryRow({ item }: { item: CustomerDeviceWorkbenchItem["orderIt
           {item.order.issue_description}
         </span>
         <span className="shrink-0 font-mono text-[10px] font-semibold tabular-nums lg:text-[13px] lg:leading-5">
-          {financeRedacted ? "金额受限" : <MoneyText amount={item.order.quotation_amount} />}
+          {financeRedacted ? (
+            t("customers.detail.financeRestricted")
+          ) : (
+            <MoneyText amount={item.order.quotation_amount} />
+          )}
         </span>
       </div>
       {financeRedacted ? (
         <div className="text-[9px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
-          结算状态受限
+          {t("customers.detail.settlementRestricted")}
         </div>
       ) : (
         <div className="flex min-w-0 flex-wrap gap-x-2 gap-y-0.5 font-mono text-[9px] leading-3 text-muted-foreground tabular-nums lg:text-xs lg:leading-4">
           <span>
-            定金 <MoneyText amount={item.order.deposit_amount} />
+            {t("customers.detail.deposit")} <MoneyText amount={item.order.deposit_amount} />
           </span>
           {cancelled ? (
             <span className="text-muted-foreground">
-              取消时余额 <MoneyText amount={balance} /> · 不计入待收
+              {t("customers.detail.cancelBalance")} <MoneyText amount={balance} /> ·{" "}
+              {t("customers.detail.notOutstanding")}
             </span>
           ) : (
             <span className={balance > 0 ? "text-status-danger-foreground" : ""}>
-              待收 <MoneyText amount={balance} />
+              {t("customers.detail.outstanding")} <MoneyText amount={balance} />
             </span>
           )}
         </div>

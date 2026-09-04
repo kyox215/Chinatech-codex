@@ -1,8 +1,319 @@
 import type { OrderQueueGroup, OrderResultGroup, OrderWorkflow } from "@/lib/repairdesk/types";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
+import type { AccessoryNoteOption } from "@/features/orders/model/order-accessory-notes";
+import type { QuoteReadinessCode } from "@/features/orders/model/order-diagnosis-quote";
+import type { OrderTransitionReasonConfig } from "@/features/orders/model/order-transition-reasons";
+import type { SimpleOrderFlowStage } from "@/features/orders/model/order-simple-flow";
+import type { OrderTaskGuidanceCode } from "@/features/orders/model/order-task-flow";
+import type { AppLocale } from "@/shared/i18n/locales";
 import type { MessageKey, MessageValues } from "@/shared/i18n/messages";
 
 type Translate = (key: MessageKey, values?: MessageValues) => string;
+
+const repairServiceGroupKeys = new Set([
+  "display",
+  "battery",
+  "charging",
+  "camera",
+  "liquid",
+  "mainboard",
+  "system",
+  "back-cover",
+  "face",
+  "speaker",
+  "microphone",
+  "button",
+]);
+
+const repairServiceGroupEnglishLabels: Record<string, string> = {
+  display: "Display",
+  battery: "Battery",
+  charging: "Charging port",
+  camera: "Camera",
+  liquid: "Liquid damage",
+  mainboard: "Mainboard",
+  system: "System",
+  "back-cover": "Back cover",
+  face: "Face ID / fingerprint",
+  speaker: "Speaker",
+  microphone: "Microphone",
+  button: "Buttons",
+};
+
+const repairServiceGroupCompactLabels: Record<
+  Exclude<AppLocale, "zh-CN">,
+  Record<string, string>
+> = {
+  "it-IT": {
+    display: "Schermo",
+    battery: "Batteria",
+    charging: "Ricarica",
+    camera: "Fotocamera",
+    liquid: "Liquidi",
+    mainboard: "Scheda",
+    system: "Sistema",
+    "back-cover": "Cover",
+    face: "Biometria",
+    speaker: "Audio",
+    microphone: "Microfono",
+    button: "Tasti",
+  },
+  en: {
+    display: "Display",
+    battery: "Battery",
+    charging: "Charging",
+    camera: "Camera",
+    liquid: "Liquid",
+    mainboard: "Mainboard",
+    system: "System",
+    "back-cover": "Cover",
+    face: "Biometrics",
+    speaker: "Speaker",
+    microphone: "Mic",
+    button: "Buttons",
+  },
+};
+
+const repairServiceOptionEnglishLabels: Record<string, string> = {
+  "display:original": "Original part",
+  "display:assembled": "Compatible part",
+  "display:tft": "TFT",
+  "display:incell": "Incell",
+  "display:glass": "Broken outer glass",
+  "display:lcd": "Damaged LCD",
+  "display:touch": "Touch not working",
+  "display:no-display": "Black screen",
+  "display:lines": "Display artifacts / vertical lines",
+  "display:backlight": "Backlight fault",
+  "display:protector": "Screen protector application",
+  "battery:original": "Original battery",
+  "battery:assembled": "Compatible battery",
+  "battery:high-capacity": "High-capacity battery",
+  "battery:health": "Low battery health",
+  "battery:drain": "Fast battery drain",
+  "battery:swollen": "Swollen battery",
+  "battery:shutdown": "Unexpected shutdown",
+  "battery:not-detected": "Battery not detected",
+  "battery:charging-slow": "Slow charging",
+  "battery:calibration": "Battery calibration",
+  "charging:original": "Original charging port",
+  "charging:assembled": "Compatible charging port",
+  "charging:loose": "Loose port",
+  "charging:no-charge": "Not charging",
+  "charging:clean": "Clean charging port",
+  "charging:intermittent": "Intermittent connection",
+  "charging:fast-charge": "Fast charging fault",
+  "charging:data-port": "Computer connection not working",
+  "charging:wireless-charge": "Wireless charging fault",
+  "camera:front": "Front camera fault",
+  "camera:rear": "Rear camera fault",
+  "camera:lens": "Damaged lens",
+  "camera:focus": "Autofocus not working",
+  "camera:shake": "Camera vibration / noise",
+  "camera:flash": "Flash not working",
+  "camera:camera-app": "Camera app does not open",
+  "liquid:cleaning": "Cleaning and diagnosis",
+  "liquid:corrosion": "Board corrosion",
+  "liquid:no-power": "No power after liquid damage",
+  "liquid:screen": "Liquid-damaged display",
+  "liquid:data-rescue": "Data recovery",
+  "liquid:inspection": "Liquid damage report",
+  "mainboard:no-power": "No power",
+  "mainboard:baseband": "No service",
+  "mainboard:short": "Short circuit",
+  "mainboard:charging-ic": "Charging IC",
+  "mainboard:power-ic": "Power IC",
+  "mainboard:wifi-bt": "Wi-Fi / Bluetooth fault",
+  "mainboard:storage": "Internal storage fault",
+  "mainboard:board-repair": "Mainboard repair",
+  "system:restore": "Software restore",
+  "system:data": "Data transfer",
+  "system:account": "Account issue",
+  "system:screen-lock": "Screen lock removal",
+  "system:pin-lock": "PIN / pattern unlock",
+  "system:update": "System update",
+  "system:backup": "Data backup",
+  "system:activation-check": "Activation lock check",
+  "system:app-error": "App / software issue",
+  "back-cover:glass": "Broken rear glass",
+  "back-cover:frame": "Bent frame",
+  "back-cover:camera-glass": "Camera lens glass",
+  "back-cover:wireless-coil": "Wireless charging coil",
+  "back-cover:housing": "Complete rear housing",
+  "back-cover:adhesive": "Replace waterproof seal",
+  "face:face-id": "Face ID fault",
+  "face:fingerprint": "Fingerprint fault",
+  "face:proximity": "Proximity sensor fault",
+  "face:ambient": "Ambient light sensor fault",
+  "face:home-touch": "Home fingerprint button",
+  "face:earpiece-flex": "Earpiece flex cable",
+  "speaker:low": "Low volume",
+  "speaker:noise": "Noise / distortion",
+  "speaker:no-sound": "No loudspeaker sound",
+  "speaker:earpiece": "No earpiece sound",
+  "speaker:mesh-clean": "Clean earpiece mesh",
+  "speaker:speaker-replace": "Speaker replacement",
+  "microphone:no-sound": "No sound",
+  "microphone:noise": "Call noise",
+  "microphone:caller-cannot-hear": "Caller cannot hear",
+  "microphone:recording": "Recording fault",
+  "microphone:bottom-mic": "Bottom microphone",
+  "microphone:top-mic": "Top microphone",
+  "microphone:mic-clean": "Microphone cleaning",
+  "button:power": "Power button",
+  "button:volume": "Volume buttons",
+  "button:silent": "Silent switch",
+  "button:home": "Home button",
+  "button:action": "Action button",
+  "button:camera-control": "Camera Control button",
+  "button:vibration": "Vibration motor",
+  "button:button-flex": "Button flex cable",
+};
+
+export function localizeRepairServiceGroupLabel(
+  group: { key: string; label: string; italian: string },
+  locale: AppLocale,
+) {
+  if (locale === "zh-CN" || !repairServiceGroupKeys.has(group.key)) return group.label;
+  return locale === "it-IT"
+    ? group.italian
+    : (repairServiceGroupEnglishLabels[group.key] ?? group.label);
+}
+
+export function localizeRepairServiceGroupCompactLabel(
+  group: { key: string; label: string; italian: string },
+  locale: AppLocale,
+) {
+  if (locale === "zh-CN") {
+    return (
+      {
+        camera: "摄像",
+        face: "面容",
+        speaker: "扬声",
+        microphone: "麦克",
+      }[group.key] ?? group.label
+    );
+  }
+  if (!repairServiceGroupKeys.has(group.key)) return group.label;
+  return (
+    repairServiceGroupCompactLabels[locale][group.key] ??
+    localizeRepairServiceGroupLabel(group, locale)
+  );
+}
+
+export function localizeRepairServiceOptionLabel(
+  groupKey: string,
+  option: { key: string; label: string; italian: string },
+  locale: AppLocale,
+) {
+  const catalogKey = `${groupKey}:${option.key}`;
+  if (
+    locale === "zh-CN" ||
+    !Object.prototype.hasOwnProperty.call(repairServiceOptionEnglishLabels, catalogKey)
+  ) {
+    return option.label;
+  }
+  return locale === "it-IT"
+    ? option.italian
+    : (repairServiceOptionEnglishLabels[catalogKey] ?? option.label);
+}
+
+const transitionConfigKeys: Partial<
+  Record<RepairOrderStatus, { title: MessageKey; description: MessageKey }>
+> = {
+  mail_in_progress: {
+    title: "orders2b1.transition.mail.title",
+    description: "orders2b1.transition.mail.description",
+  },
+  unfixed_pickup: {
+    title: "orders2b1.transition.unfixed.title",
+    description: "orders2b1.transition.unfixed.description",
+  },
+  cancelled: {
+    title: "orders2b1.transition.cancelled.title",
+    description: "orders2b1.transition.cancelled.description",
+  },
+  rework: {
+    title: "orders2b1.transition.rework.title",
+    description: "orders2b1.transition.rework.description",
+  },
+};
+
+const transitionPresetKeys: Record<string, { label: MessageKey; description: MessageKey }> =
+  Object.fromEntries(
+    [
+      "board-repair",
+      "in-house-failed",
+      "supplier-diagnosis",
+      "data-risk",
+      "repair-risk",
+      "quote-too-high",
+      "board-damage",
+      "parts-unavailable",
+      "data-account-risk",
+      "customer-cancelled",
+      "quote-rejected",
+      "not-arrived",
+      "duplicate-order",
+      "shop-unable",
+      "same-issue",
+      "new-symptom",
+    ].map((id) => [
+      id,
+      {
+        label: `orders2b1.transition.preset.${id}` as MessageKey,
+        description: `orders2b1.transition.preset.${id}.help` as MessageKey,
+      },
+    ]),
+  );
+
+const accessoryKeys: Record<AccessoryNoteOption, MessageKey> = {
+  无: "orders2b1.accessory.none",
+  SIM卡: "orders2b1.accessory.sim",
+  SIM卡托: "orders2b1.accessory.simTray",
+  手机壳: "orders2b1.accessory.case",
+  保护膜: "orders2b1.accessory.protector",
+  充电器: "orders2b1.accessory.charger",
+  数据线: "orders2b1.accessory.cable",
+  盒子: "orders2b1.accessory.box",
+  其他: "orders2b1.accessory.other",
+};
+
+const quoteReadinessKeys: Record<QuoteReadinessCode, MessageKey> = {
+  diagnosis: "orders2b1.quote.missing.diagnosis",
+  items: "orders2b1.quote.missing.items",
+  price_exception: "orders2b1.quote.missing.priceException",
+  deposit: "orders2b1.quote.missing.deposit",
+  permission: "orders2b1.quote.missing.permission",
+  phone: "orders2b1.quote.missing.phone",
+  published_quote: "orders2b1.quote.missing.publishedQuote",
+};
+
+export function localizeOrderTransitionReasonConfig(
+  config: OrderTransitionReasonConfig | undefined,
+  target: RepairOrderStatus,
+  t: Translate,
+) {
+  if (!config) return undefined;
+  const configKeys = transitionConfigKeys[target];
+  return {
+    ...config,
+    title: configKeys ? t(configKeys.title) : config.title,
+    description: configKeys ? t(configKeys.description) : config.description,
+    presets: config.presets.map((preset) => {
+      const keys = transitionPresetKeys[preset.id];
+      return keys ? { ...preset, label: t(keys.label), description: t(keys.description) } : preset;
+    }),
+  };
+}
+
+export function localizeAccessoryNoteOption(option: AccessoryNoteOption, t: Translate) {
+  return t(accessoryKeys[option]);
+}
+
+export function localizeQuoteReadinessLabel(code: QuoteReadinessCode, t: Translate) {
+  return t(quoteReadinessKeys[code]);
+}
 
 const orderQueueHintKeys: Record<OrderQueueGroup, MessageKey> = {
   processing: "orders.processingHint",
@@ -102,6 +413,15 @@ export function localizeWorkflowStatusLabel(
   if (configured && !configured.is_system) return configured.label;
   const key = workflowLabelKeys[code];
   return key ? t(key) : (configured?.label ?? code);
+}
+
+export function localizeOrderWorkflowStatusLabel(
+  status: { code: RepairOrderStatus; label: string; is_system: boolean },
+  t: Translate,
+) {
+  if (!status.is_system) return status.label;
+  const key = workflowLabelKeys[status.code];
+  return key ? t(key) : status.label;
 }
 
 export function localizeBulkTransitionFeedback(
@@ -246,73 +566,76 @@ export function localizeOrderFlowStage(
     : stage;
 }
 
-export function localizeOrderTaskGuidance(
-  guidance: {
-    stage: { key: string; label: string; shortLabel: string; task: string; nextAction: string };
+export function localizeOrderTaskGuidance<
+  T extends {
+    guidanceCode: OrderTaskGuidanceCode | (string & {});
+    stage: SimpleOrderFlowStage;
     label: string;
     task: string;
     nextAction: string;
     workflowStatus: string;
     tone: string;
   },
-  t: Translate,
-) {
-  const stage = localizeOrderFlowStage(guidance.stage, t);
-  const fieldKeys: Record<string, MessageKey | undefined> = {
-    ...Object.fromEntries(simpleStageKeysValues()),
-    取消归档: "dashboard.cancelledLabel",
-    已取消: "dashboard.guidanceCancelledLabel",
-    报价超期: "orders.approvalOverdue",
-    取件超期: "orders.pickupOverdue",
-    客户持有设备: "dashboard.customerCustodyLabel",
-    寄修中: "dashboard.mailInLabel",
-    已修复: "dashboard.repairedLabel",
-    "工单已取消；历史余额仅供记录，不计入待收。": "dashboard.cancelledTask",
-    "优先联系客户确认报价，必要时重新发送报价消息。": "dashboard.approvalOverdueTask",
-    "设备尚未交给门店；需要实机检测或维修前，请先在工单详情确认收机。":
-      "dashboard.customerCustodyTask",
-    "优先通知客户取机，核对尾款和随附物品。": "dashboard.pickupOverdueTask",
-    "设备已转给外部维修方处理，请跟进供应商、寄出原因、预计返回时间和维修结果。":
-      "dashboard.mailInTask",
-    "维修已完成，下一步通知客户取机并核对尾款。": "dashboard.repairedTask",
-    查看取消原因: "dashboard.cancelledNextAction",
-    催取机: "dashboard.pickupOverdueNextAction",
-    登记寄修结果: "dashboard.mailInNextAction",
-    联系客户: "dashboard.contactCustomer",
-    确认收机: "dashboard.confirmIntake",
-  };
-  const localize = (value: string) => {
-    const key = fieldKeys[value];
-    return key ? t(key) : value;
-  };
+>(guidance: T, t: Translate) {
+  const specialKeys: Partial<Record<OrderTaskGuidanceCode, [MessageKey, MessageKey, MessageKey]>> =
+    {
+      cancelled: [
+        "dashboard.guidanceCancelledLabel",
+        "dashboard.cancelledTask",
+        "dashboard.cancelledNextAction",
+      ],
+      approval_overdue: [
+        "orders.approvalOverdue",
+        "dashboard.approvalOverdueTask",
+        "dashboard.contactCustomer",
+      ],
+      device_with_customer: [
+        "dashboard.customerCustodyLabel",
+        "dashboard.customerCustodyTask",
+        "dashboard.confirmIntake",
+      ],
+      pickup_overdue: [
+        "orders.pickupOverdue",
+        "dashboard.pickupOverdueTask",
+        "dashboard.pickupOverdueNextAction",
+      ],
+      mail_in_progress: [
+        "dashboard.mailInLabel",
+        "dashboard.mailInTask",
+        "dashboard.mailInNextAction",
+      ],
+      repaired: [
+        "dashboard.repairedLabel",
+        "dashboard.repairedTask",
+        "dashboard.flowPickupNextAction",
+      ],
+    };
+  const stage =
+    guidance.guidanceCode === "cancelled"
+      ? {
+          ...guidance.stage,
+          label: t("dashboard.cancelledLabel"),
+          shortLabel: t("orders.cancelled"),
+          task: t("dashboard.cancelledTask"),
+          nextAction: t("dashboard.cancelledNextAction"),
+        }
+      : localizeOrderFlowStage(guidance.stage, t);
+  if (guidance.guidanceCode === "stage") {
+    return {
+      ...guidance,
+      stage,
+      label: stage.label,
+      task: stage.task,
+      nextAction: stage.nextAction,
+    };
+  }
+  const keys = specialKeys[guidance.guidanceCode as keyof typeof specialKeys];
+  if (!keys) return guidance;
   return {
     ...guidance,
     stage,
-    label: localize(guidance.label),
-    task: localize(guidance.task),
-    nextAction: localize(guidance.nextAction),
+    label: t(keys[0]),
+    task: t(keys[1]),
+    nextAction: t(keys[2]),
   };
-}
-
-function simpleStageKeysValues() {
-  return [
-    ["接单", "dashboard.flowIntakeLabel"],
-    ["检测报价", "dashboard.flowQuoteLabel"],
-    ["维修处理", "dashboard.flowRepairLabel"],
-    ["通知取机", "dashboard.flowPickupLabel"],
-    ["收款完成", "dashboard.flowClosedLabel"],
-    [
-      "核对客户、设备保管、故障、解锁方式和随附物品，必要时打印工单二维码。",
-      "dashboard.flowIntakeTask",
-    ],
-    ["完成检测、补充诊断结论，保存报价并记录客户确认。", "dashboard.flowQuoteTask"],
-    ["处理配件、外修和实际维修进度，完成后准备通知客户。", "dashboard.flowRepairTask"],
-    ["通知客户取机，核对尾款、随附物品和交付状态。", "dashboard.flowPickupTask"],
-    ["订单已结清并归档，可查看历史记录或发起返修。", "dashboard.flowClosedTask"],
-    ["开始检测", "dashboard.flowIntakeNextAction"],
-    ["确认报价", "dashboard.flowQuoteNextAction"],
-    ["完成维修", "dashboard.flowRepairNextAction"],
-    ["通知取机", "dashboard.flowPickupNextAction"],
-    ["查看记录", "dashboard.flowClosedNextAction"],
-  ] as Array<[string, MessageKey]>;
 }

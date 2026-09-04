@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -21,7 +22,6 @@ import {
 import { toast } from "sonner";
 
 import { ImeiScannerField } from "@/components/imei-scanner-field";
-import { MoneyText } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,54 +51,176 @@ import {
 } from "@/features/buyback/api/buyback-api";
 import { buybackKeys } from "@/features/buyback/api/query-keys";
 import { BUYBACK_SENSITIVE_WORKFLOW_ENABLED } from "@/features/buyback/model/buyback-evidence-policy";
-import { ScanSearchButton } from "@/features/capture";
+import {
+  classifyBuybackSafeError,
+  formatBuybackDate,
+  formatBuybackMoney,
+  localizeBuybackDeduction,
+  localizeBuybackFilter,
+  localizeBuybackNextAction,
+  localizeBuybackOutcome,
+  localizeBuybackOutcomeAction,
+  localizeBuybackRejectReason,
+  localizeBuybackRevision,
+  localizeBuybackRisk,
+  localizeBuybackSafeError,
+} from "@/features/buyback/model/buyback-i18n";
+import { hasBuybackSensitiveText } from "@/features/buyback/model/buyback-sensitive-text";
+import {
+  ScanSearchButton,
+  consumeScanSearchIntent,
+  subscribeScanSearchIntent,
+} from "@/features/capture";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { StoreShellUnavailableState } from "@/features/stores/components/store-shell-unavailable-state";
 import type {
   BuybackQuoteDeductionInput,
   BuybackQuoteOutcome,
   BuybackQuoteSnapshotInput,
+  CreateBuybackQuoteInput,
   InventoryListItem,
+  RecordBuybackQuoteResponseInput,
+  ReviseBuybackQuoteInput,
 } from "@/lib/repairdesk/types";
 import { brandGradientStyle, controls, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import {
   RepairOsBadge,
   RepairOsBusinessCard,
-  RepairOsHeaderActionButton,
   RepairOsInfoTile,
   RepairOsListScaffold,
 } from "@/shared/ui";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey } from "@/shared/i18n/messages";
 
 type ListFilter = "all" | "awaiting" | BuybackQuoteOutcome;
 type WorkspaceState =
   | { mode: "create"; item?: undefined }
-  | { mode: "revise"; item: InventoryListItem };
+  | { mode: "revise"; item: InventoryListItem; knownRevisionIds: string[] };
+type AuthorityBound<T> = { authorityKey: string; value: T };
+type BuybackAttempt = { fingerprint: string; key: string };
+type BuybackRecovery = "checking" | "unknown" | "conflict" | "sync";
+type CreateQuotePayload = Omit<CreateBuybackQuoteInput, "idempotency_key">;
+type ReviseQuotePayload = Omit<ReviseBuybackQuoteInput, "idempotency_key">;
+type ResponsePayload = Omit<RecordBuybackQuoteResponseInput, "idempotency_key">;
+type WorkspaceValidationCode = "model" | "amount" | "battery" | "reason" | "sensitiveReason";
+type BuybackFocusTarget = { authorityKey: string; element: HTMLButtonElement };
+
+const workspaceValidationKeys = {
+  model: "buyback2b5.validation.model",
+  amount: "buyback2b5.validation.amount",
+  battery: "buyback2b5.validation.battery",
+  reason: "buyback2b5.validation.reason",
+  sensitiveReason: "buyback2b5.validation.sensitive",
+} as const satisfies Record<WorkspaceValidationCode, MessageKey>;
 
 const scopeFilters = { sourceTypes: ["buyback"], categories: ["phone"] };
 const brands = ["Apple", "Samsung", "Xiaomi", "Google", "Huawei", "OPPO", "OnePlus"];
 const storageOptions = ["64GB", "128GB", "256GB", "512GB", "1TB"];
 const sheetFloatingStyle = {
   "--repair-os-mobile-floating-offset": "0.75rem",
+  // Keep the fixed footer inside the visual viewport while the shared Sheet fade enters.
+  // The generic bottom-sheet translate starts the entire viewport-height shell off-screen.
+  "--tw-enter-translate-y": "0px",
 } as React.CSSProperties;
 
+function operationFingerprint(operation: string, payload: unknown) {
+  return JSON.stringify({ operation, payload });
+}
+
+function operationAttempt(
+  current: BuybackAttempt | null,
+  operation: string,
+  payload: unknown,
+): BuybackAttempt {
+  const fingerprint = operationFingerprint(operation, payload);
+  return current?.fingerprint === fingerprint ? current : { fingerprint, key: crypto.randomUUID() };
+}
+
+function canonicalQuoteSnapshot(value: unknown) {
+  const quote = recordValue(value);
+  return {
+    reference_low: numberValue(quote.reference_low),
+    reference_high: numberValue(quote.reference_high),
+    final_offer: numberValue(quote.final_offer),
+    deductions: deductionsFromQuote(quote),
+    manual_adjustment_reason:
+      typeof quote.manual_adjustment_reason === "string"
+        ? quote.manual_adjustment_reason
+        : undefined,
+    risk_level: typeof quote.risk_level === "string" ? quote.risk_level : undefined,
+    hard_block: quote.hard_block === true,
+    expires_at: typeof quote.expires_at === "string" ? quote.expires_at : undefined,
+  };
+}
+
+function quoteSnapshotsEqual(actual: unknown, expected: BuybackQuoteSnapshotInput) {
+  return (
+    operationFingerprint("quote.snapshot", canonicalQuoteSnapshot(actual)) ===
+    operationFingerprint("quote.snapshot", canonicalQuoteSnapshot(expected))
+  );
+}
+
+function isConflictError(error: unknown) {
+  return classifyBuybackSafeError(error) === "conflict";
+}
+
+function isUnknownWriteResult(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const source = error as Record<string, unknown>;
+  const status = typeof source.status === "number" ? source.status : 0;
+  const name = typeof source.name === "string" ? source.name : "";
+  const code = typeof source.code === "string" ? source.code.toUpperCase() : "";
+  return (
+    name === "AbortError" ||
+    name === "TimeoutError" ||
+    code === "TIMEOUT" ||
+    code === "ETIMEDOUT" ||
+    status >= 500
+  );
+}
+
 export function BuybackScreen() {
+  const { t } = useLocale();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const searchParamsKey = searchParams.toString();
   const shell = useStoreShellContext();
   const storeId = shell.activeStore?.id;
   const role = shell.activeStore?.role;
+  const authorityKey = shell.authorityFingerprint;
   const [isHydrated, setIsHydrated] = useState(false);
   useEffect(() => setIsHydrated(true), []);
   const canCreate = isHydrated && (role === "owner" || role === "manager" || role === "sales");
   const canRevise = isHydrated && (role === "owner" || role === "manager");
   const canRespond = isHydrated && (role === "owner" || role === "manager" || role === "sales");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [filter, setFilter] = useState<ListFilter>("all");
-  const [workspace, setWorkspace] = useState<WorkspaceState | null>(null);
-  const [selected, setSelected] = useState<InventoryListItem | null>(null);
+  const [workspaceState, setWorkspaceState] = useState<AuthorityBound<WorkspaceState> | null>(null);
+  const [selectedState, setSelectedState] = useState<AuthorityBound<InventoryListItem> | null>(
+    null,
+  );
+  const [renderAuthorityKey, setRenderAuthorityKey] = useState(authorityKey);
+  const currentAuthorityKeyRef = useRef(authorityKey);
+  currentAuthorityKeyRef.current = authorityKey;
+  const workspaceOpenerRef = useRef<BuybackFocusTarget | null>(null);
+  const workspaceSheetAuthorityRef = useRef<string | null>(null);
+  const detailOpenerRef = useRef<BuybackFocusTarget | null>(null);
+  const detailSheetAuthorityRef = useRef<string | null>(null);
+  const detailHandoffRef = useRef(false);
+  const workspace = workspaceState?.authorityKey === authorityKey ? workspaceState.value : null;
+  const selected = selectedState?.authorityKey === authorityKey ? selectedState.value : null;
+  const authorityMatches = renderAuthorityKey === authorityKey;
   const isOnline = useOnlineStatus();
   const list = useQuery({
-    queryKey: buybackKeys.list({ ...scopeFilters, search: search.trim() || undefined }, storeId),
+    queryKey: [
+      ...buybackKeys.list({ ...scopeFilters, search: search.trim() || undefined }, storeId),
+      "authority",
+      authorityKey,
+    ],
     queryFn: ({ signal }) =>
       listBuybackRecords({ ...scopeFilters, search: search.trim() || undefined }, { signal }),
+    enabled: isHydrated && Boolean(storeId) && authorityMatches,
   });
   const items = useMemo(() => {
     const source = list.data ?? [];
@@ -110,75 +232,186 @@ export function BuybackScreen() {
     });
   }, [filter, list.data]);
 
+  useEffect(() => {
+    const query = new URLSearchParams(searchParamsKey).get("q") ?? "";
+    setSearch((current) => (current === query ? current : query));
+  }, [searchParamsKey]);
+
+  useLayoutEffect(() => {
+    if (renderAuthorityKey === authorityKey) return;
+    workspaceOpenerRef.current = null;
+    detailOpenerRef.current = null;
+    detailHandoffRef.current = false;
+    setWorkspaceState(null);
+    setSelectedState(null);
+    setSearch("");
+    setFilter("all");
+    setRenderAuthorityKey(authorityKey);
+  }, [authorityKey, renderAuthorityKey]);
+
+  useEffect(() => {
+    if (new URLSearchParams(searchParamsKey).get("new") === "1" && canCreate) {
+      workspaceSheetAuthorityRef.current = authorityKey;
+      setWorkspaceState((current) =>
+        current?.authorityKey === authorityKey
+          ? current
+          : { authorityKey, value: { mode: "create" } },
+      );
+    }
+  }, [authorityKey, canCreate, searchParamsKey]);
+
+  useEffect(() => {
+    const applyIntent = (value: string) => {
+      if (value) setSearch(value);
+    };
+    applyIntent(consumeScanSearchIntent("buyback"));
+    return subscribeScanSearchIntent("buyback", applyIntent);
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParamsKey);
+    const recordId = params.get("id") ?? params.get("record");
+    if (!recordId) return;
+    const match = (list.data ?? []).find(
+      (item) => item.id === recordId || item.public_no === recordId,
+    );
+    if (match) {
+      detailSheetAuthorityRef.current = authorityKey;
+      setSelectedState({ authorityKey, value: match });
+    } else setSearch((current) => current || recordId);
+  }, [authorityKey, list.data, searchParamsKey]);
+
+  const closeWorkspace = () => {
+    setWorkspaceState(null);
+    if (new URLSearchParams(searchParamsKey).get("new") === "1") {
+      router.replace("/buyback", { scroll: false });
+    }
+  };
+
+  const restoreSheetFocus = (
+    event: Event,
+    openerRef: React.MutableRefObject<BuybackFocusTarget | null>,
+    sheetAuthorityRef: React.MutableRefObject<string | null>,
+  ) => {
+    const sheetAuthority = sheetAuthorityRef.current;
+    const target = openerRef.current;
+    sheetAuthorityRef.current = null;
+    openerRef.current = null;
+    if (sheetAuthority && sheetAuthority !== currentAuthorityKeyRef.current) {
+      event.preventDefault();
+      return;
+    }
+    if (!target) return;
+    event.preventDefault();
+    if (
+      target.authorityKey !== currentAuthorityKeyRef.current ||
+      !target.element.isConnected ||
+      target.element.getClientRects().length === 0
+    ) {
+      return;
+    }
+    target.element.focus({ preventScroll: true });
+  };
+
+  if (!isHydrated || !authorityMatches || (shell.status === "loading" && !storeId)) {
+    return (
+      <Skeleton className="h-[52dvh] w-full rounded-2xl" aria-label={t("buyback2b5.loading")} />
+    );
+  }
+  if (!storeId) {
+    const shellError = shell.status === "error";
+    return (
+      <StoreShellUnavailableState
+        shell={shell}
+        onRetry={shell.retry}
+        title={t(shellError ? "buyback2b5.store.error.title" : "buyback2b5.store.none.title")}
+        description={t(
+          shellError ? "buyback2b5.store.error.detail" : "buyback2b5.store.none.detail",
+        )}
+        retryLabel={t("buyback2b5.store.retry")}
+        actionLabel={t("buyback2b5.store.action")}
+      />
+    );
+  }
+
   return (
     <RepairOsListScaffold
-      title="回收管理"
-      subtitle={`${filterLabel(filter)} · ${items.length} 条`}
-      eyebrow="工作台 / 透明协商报价"
+      title={t("buyback.title")}
+      subtitle={`${localizeBuybackFilter(filter, t)} · ${t("buyback2b5.records", { count: items.length })}`}
+      eyebrow={t("buyback2b5.eyebrow")}
       searchValue={search}
       onSearchChange={setSearch}
-      searchPlaceholder="搜索回收单或设备"
+      searchPlaceholder={t("buyback2b5.search")}
+      searchPrefix={t("buyback2b5.searchPrefix")}
+      clearSearchLabel={t("buyback2b5.clearSearch")}
+      preparingStatus={t("buyback2b5.preparing")}
       searchAction={
-        <ScanSearchButton scope="buyback" onSearch={setSearch} className="size-9 rounded-lg" />
+        <ScanSearchButton scope="buyback" onSearch={setSearch} className="size-11 rounded-lg" />
       }
-      filterAction={
-        <Select value={filter} onValueChange={(value) => setFilter(value as ListFilter)}>
-          <SelectTrigger
-            aria-label="筛选回收记录"
-            className="size-9 rounded-lg px-2 [&>span]:sr-only"
-          >
-            <SelectValue />
-            <Filter className="size-4" />
-          </SelectTrigger>
-          <SelectContent>
-            {(["all", "awaiting", "accepted", "deferred", "rejected"] as const).map((value) => (
-              <SelectItem key={value} value={value}>
-                {filterLabel(value)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      }
+      filterAction={<BuybackFilterSelect value={filter} onChange={setFilter} compact />}
       action={
-        <RepairOsHeaderActionButton
-          ariaLabel="新建透明报价"
+        <Button
+          type="button"
+          size="iconDense"
+          aria-label={t("buyback2b5.new")}
           disabled={!canCreate}
-          onClick={() => setWorkspace({ mode: "create" })}
+          className="size-11 rounded-lg border-0 text-primary-foreground shadow-[var(--shadow-action)]"
+          style={brandGradientStyle}
+          onClick={(event) => {
+            workspaceOpenerRef.current = { authorityKey, element: event.currentTarget };
+            workspaceSheetAuthorityRef.current = authorityKey;
+            setWorkspaceState({ authorityKey, value: { mode: "create" } });
+          }}
         >
           <Plus className="size-4" />
-        </RepairOsHeaderActionButton>
+        </Button>
       }
       desktopAction={
         <Button
           disabled={!canCreate}
           className={cn("gap-2", controls.brandButton)}
           style={brandGradientStyle}
-          onClick={() => setWorkspace({ mode: "create" })}
+          onClick={(event) => {
+            workspaceOpenerRef.current = { authorityKey, element: event.currentTarget };
+            workspaceSheetAuthorityRef.current = authorityKey;
+            setWorkspaceState({ authorityKey, value: { mode: "create" } });
+          }}
         >
-          <Plus className="size-4" /> 新建透明报价
+          <Plus className="size-4" /> {t("buyback2b5.new")}
         </Button>
       }
     >
-      <h1 className="sr-only">回收管理</h1>
+      <h1 className="sr-only">{t("buyback.title")}</h1>
+      <div className="mb-2 hidden min-w-0 items-center gap-2 md:flex">
+        <Input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          aria-label={t("buyback2b5.search")}
+          placeholder={t("buyback2b5.search")}
+          className="h-9 min-w-0 flex-1 text-base sm:text-sm"
+        />
+        <ScanSearchButton scope="buyback" onSearch={setSearch} className="size-9 rounded-lg" />
+        <BuybackFilterSelect value={filter} onChange={setFilter} />
+      </div>
       <section
-        aria-label="回收报价概览"
+        aria-label={t("buyback2b5.overview")}
         className={cn(
           repairOs.mobileInfoCard,
           "mb-2 grid grid-cols-3 divide-x divide-[var(--border-panel)] overflow-hidden p-1.5",
         )}
       >
         <SummaryTile
-          label="待答复"
+          label={t("buyback2b5.summary.awaiting")}
           value={(list.data ?? []).filter((item) => !resolvedOutcome(item)).length}
           icon={Clock3}
         />
         <SummaryTile
-          label="已接受（仅记录）"
+          label={t("buyback2b5.summary.accepted")}
           value={(list.data ?? []).filter((item) => resolvedOutcome(item) === "accepted").length}
           icon={Check}
         />
         <SummaryTile
-          label="需跟进"
+          label={t("buyback2b5.summary.followup")}
           value={(list.data ?? []).filter((item) => resolvedOutcome(item) === "deferred").length}
           icon={MessageCircleMore}
         />
@@ -186,7 +419,7 @@ export function BuybackScreen() {
 
       {!BUYBACK_SENSITIVE_WORKFLOW_ENABLED ? (
         <div className="mb-2 rounded-xl border border-status-info/25 bg-status-info/10 px-2.5 py-1.5 text-[10px] leading-4 text-status-info-foreground sm:text-xs lg:text-xs lg:leading-[18px]">
-          当前只记录报价与客户口头答复，不会付款、采集证件/签名、标记已回收或联动商品库存。
+          {t("buyback2b5.quoteOnly")}
         </div>
       ) : null}
 
@@ -195,7 +428,7 @@ export function BuybackScreen() {
           role="status"
           className="mb-2 rounded-xl border border-status-warn/30 bg-status-warn/10 px-2.5 py-1.5 text-[10px] leading-4 text-status-warn-foreground sm:text-xs lg:text-xs lg:leading-[18px]"
         >
-          当前处于离线状态。可继续查看已有资料，恢复网络后才能保存报价或客户答复。
+          {t("buyback2b5.offline")}
         </div>
       ) : null}
 
@@ -204,33 +437,63 @@ export function BuybackScreen() {
           role="note"
           className="mb-2 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 py-1.5 text-[10px] leading-4 text-muted-foreground sm:text-xs lg:text-xs lg:leading-[18px]"
         >
-          当前角色为只读；新建报价、改价或记录客户答复需要相应负责人权限。
+          {t("buyback2b5.readOnly")}
+        </div>
+      ) : null}
+
+      {list.isError && list.data ? (
+        <div
+          role="status"
+          className="mb-2 rounded-xl border border-status-warn/30 bg-status-warn/10 px-2.5 py-1.5 text-xs text-status-warn-foreground"
+        >
+          {t("buyback2b5.stale")}
+          <Button type="button" variant="ghost" size="sm" onClick={() => void list.refetch()}>
+            {t("buyback2b5.retry")}
+          </Button>
         </div>
       ) : null}
 
       {list.isLoading ? (
-        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        <div
+          role="status"
+          aria-label={t("buyback2b5.loading")}
+          className="grid gap-2 md:grid-cols-2 xl:grid-cols-3"
+        >
           {Array.from({ length: 6 }).map((_, index) => (
             <Skeleton key={index} className="h-28 rounded-xl" />
           ))}
         </div>
-      ) : list.isError ? (
+      ) : list.isError && !list.data ? (
         <EmptyState
-          title="回收记录加载失败"
-          detail="检查网络后重试。"
-          actionLabel="重新加载"
+          title={t("buyback2b5.loadError.title")}
+          detail={
+            list.error ? localizeBuybackSafeError(list.error, t) : t("buyback2b5.loadError.detail")
+          }
+          actionLabel={t("buyback2b5.retry")}
           onAction={() => void list.refetch()}
         />
       ) : items.length === 0 ? (
         <EmptyState
-          title={search || filter !== "all" ? "没有符合条件的记录" : "还没有透明报价"}
+          title={
+            search || filter !== "all"
+              ? t("buyback2b5.empty.filtered.title")
+              : t("buyback2b5.empty.title")
+          }
           detail={
             search || filter !== "all"
-              ? "调整搜索或筛选条件。"
-              : "先录入设备和参考区间，再与客户确认。"
+              ? t("buyback2b5.empty.filtered.detail")
+              : t("buyback2b5.empty.detail")
           }
-          actionLabel={canCreate ? "新建报价" : undefined}
-          onAction={canCreate ? () => setWorkspace({ mode: "create" }) : undefined}
+          actionLabel={canCreate ? t("buyback2b5.empty.action") : undefined}
+          onAction={
+            canCreate
+              ? (event) => {
+                  workspaceOpenerRef.current = { authorityKey, element: event.currentTarget };
+                  workspaceSheetAuthorityRef.current = authorityKey;
+                  setWorkspaceState({ authorityKey, value: { mode: "create" } });
+                }
+              : undefined
+          }
         />
       ) : (
         <section
@@ -238,7 +501,15 @@ export function BuybackScreen() {
           className="grid min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-3"
         >
           {items.map((item) => (
-            <QuoteCard key={item.id} item={item} onOpen={() => setSelected(item)} />
+            <QuoteCard
+              key={item.id}
+              item={item}
+              onOpen={(event) => {
+                detailOpenerRef.current = { authorityKey, element: event.currentTarget };
+                detailSheetAuthorityRef.current = authorityKey;
+                setSelectedState({ authorityKey, value: item });
+              }}
+            />
           ))}
         </section>
       )}
@@ -247,10 +518,16 @@ export function BuybackScreen() {
         <TransparentQuoteWorkspace
           state={workspace}
           isOnline={isOnline}
-          onClose={() => setWorkspace(null)}
+          onClose={closeWorkspace}
+          onCloseAutoFocus={(event) =>
+            restoreSheetFocus(event, workspaceOpenerRef, workspaceSheetAuthorityRef)
+          }
           onSaved={() => {
-            setWorkspace(null);
-            void list.refetch();
+            closeWorkspace();
+          }}
+          onRefresh={async (itemId) => {
+            const refreshed = await list.refetch({ throwOnError: true });
+            return (refreshed.data ?? []).find((item) => item.id === itemId);
           }}
         />
       ) : null}
@@ -261,22 +538,69 @@ export function BuybackScreen() {
           canRespond={canRespond}
           isOnline={isOnline}
           storeId={storeId}
-          onClose={() => setSelected(null)}
-          onRevise={(item) => {
-            setSelected(null);
-            setWorkspace({ mode: "revise", item });
+          onClose={() => setSelectedState(null)}
+          onCloseAutoFocus={(event) => {
+            if (detailHandoffRef.current) {
+              detailHandoffRef.current = false;
+              detailSheetAuthorityRef.current = null;
+              event.preventDefault();
+              return;
+            }
+            restoreSheetFocus(event, detailOpenerRef, detailSheetAuthorityRef);
+          }}
+          onRevise={(item, knownRevisionIds) => {
+            workspaceOpenerRef.current = detailOpenerRef.current;
+            workspaceSheetAuthorityRef.current = authorityKey;
+            detailOpenerRef.current = null;
+            detailHandoffRef.current = true;
+            setSelectedState(null);
+            setWorkspaceState({
+              authorityKey,
+              value: { mode: "revise", item, knownRevisionIds },
+            });
           }}
           onRefresh={async (itemId) => {
-            const refreshed = await list.refetch();
-            setSelected((refreshed.data ?? []).find((item) => item.id === itemId) ?? null);
+            const refreshed = await list.refetch({ throwOnError: true });
+            const item = (refreshed.data ?? []).find((candidate) => candidate.id === itemId);
+            if (item) setSelectedState({ authorityKey, value: item });
+            return item;
           }}
           onSaved={() => {
-            setSelected(null);
-            void list.refetch();
+            setSelectedState(null);
           }}
         />
       ) : null}
     </RepairOsListScaffold>
+  );
+}
+
+function BuybackFilterSelect({
+  value,
+  onChange,
+  compact = false,
+}: {
+  value: ListFilter;
+  onChange: (value: ListFilter) => void;
+  compact?: boolean;
+}) {
+  const { t } = useLocale();
+  return (
+    <Select value={value} onValueChange={(next) => onChange(next as ListFilter)}>
+      <SelectTrigger
+        aria-label={t("buyback2b5.filter.label")}
+        className={compact ? "size-11 rounded-lg px-2 [&>span]:sr-only" : "h-9 w-44 rounded-lg"}
+      >
+        <SelectValue />
+        {compact ? <Filter className="size-4" /> : null}
+      </SelectTrigger>
+      <SelectContent>
+        {(["all", "awaiting", "accepted", "deferred", "rejected"] as const).map((code) => (
+          <SelectItem key={code} value={code}>
+            {localizeBuybackFilter(code, t)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -302,7 +626,14 @@ function SummaryTile({
   );
 }
 
-function QuoteCard({ item, onOpen }: { item: InventoryListItem; onOpen: () => void }) {
+function QuoteCard({
+  item,
+  onOpen,
+}: {
+  item: InventoryListItem;
+  onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void;
+}) {
+  const { locale, t } = useLocale();
   const quote = quoteProjection(item);
   const outcome = resolvedOutcome(item);
   const expired = quote.expires_at ? Date.parse(String(quote.expires_at)) <= Date.now() : false;
@@ -323,30 +654,36 @@ function QuoteCard({ item, onOpen }: { item: InventoryListItem; onOpen: () => vo
           <p className="truncate text-[10px] leading-4 text-muted-foreground lg:text-[13px] lg:leading-5">
             {[item.color, item.storage_capacity, maskIdentifier(item.serial_or_imei)]
               .filter(Boolean)
-              .join(" · ") || "设备资料待补充"}
+              .join(" · ") || t("buyback2b5.device.pending")}
           </p>
         </div>
         <div className="shrink-0 text-right">
           <p className="font-mono text-base font-semibold leading-5 text-primary">
-            <MoneyText amount={numberValue(quote.final_offer)} />
+            {formatBuybackMoney(numberValue(quote.final_offer), locale)}
           </p>
-          <p className="text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">当前报价</p>
+          <p className="text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
+            {t("buyback2b5.card.currentOffer")}
+          </p>
         </div>
       </div>
       <div className="flex min-w-0 items-center gap-1.5 text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
         <span className="truncate">
-          参考 {rangeLabel(quote.reference_low, quote.reference_high)}
+          {t("buyback2b5.card.reference", {
+            amount: rangeLabel(quote.reference_low, quote.reference_high, locale),
+          })}
         </span>
         <span aria-hidden="true">·</span>
-        <span className="shrink-0">扣减 {deductionsFromQuote(quote).length} 项</span>
+        <span className="shrink-0">
+          {t("buyback2b5.card.deductions", { count: deductionsFromQuote(quote).length })}
+        </span>
         <span aria-hidden="true">·</span>
         <span className={cn("shrink-0", expired && "text-status-danger-foreground")}>
-          {expired ? "已过期" : shortDate(quote.expires_at)}
+          {expired ? t("buyback2b5.card.expired") : formatBuybackDate(quote.expires_at, locale, t)}
         </span>
       </div>
       <div className="flex min-w-0 items-center justify-between border-t border-[var(--border-panel)] pt-1.5 text-[10px] leading-4 lg:text-[11px] lg:leading-4">
         <span className="truncate text-muted-foreground">
-          {nextAction(outcome, expired, quote.hard_block === true)}
+          {localizeBuybackNextAction(outcome, expired, quote.hard_block === true, t)}
         </span>
         <ArrowRight className="size-3.5 text-primary" />
       </div>
@@ -361,6 +698,7 @@ function TransparentQuoteDetail({
   isOnline,
   storeId,
   onClose,
+  onCloseAutoFocus,
   onRevise,
   onRefresh,
   onSaved,
@@ -371,10 +709,12 @@ function TransparentQuoteDetail({
   isOnline: boolean;
   storeId?: string;
   onClose: () => void;
-  onRevise: (item: InventoryListItem) => void;
-  onRefresh: (itemId: string) => Promise<void>;
+  onCloseAutoFocus: (event: Event) => void;
+  onRevise: (item: InventoryListItem, knownRevisionIds: string[]) => void;
+  onRefresh: (itemId: string) => Promise<InventoryListItem | undefined>;
   onSaved: () => void;
 }) {
+  const { locale, t } = useLocale();
   const client = useQueryClient();
   const [outcome, setOutcome] = useState<BuybackQuoteOutcome | "">("");
   const [reason, setReason] = useState("");
@@ -382,7 +722,12 @@ function TransparentQuoteDetail({
   const [showNote, setShowNote] = useState(false);
   const [showAllDeductions, setShowAllDeductions] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [responseOperationKey, setResponseOperationKey] = useState("");
+  const [noteSensitive, setNoteSensitive] = useState(false);
+  const [recovery, setRecovery] = useState<BuybackRecovery | null>(null);
+  const responseAttemptRef = useRef<BuybackAttempt | null>(null);
+  const responseSubmitLockRef = useRef(false);
+  const responseActiveRef = useRef(true);
+  const noteRef = useRef<HTMLTextAreaElement>(null);
   const itemId = item?.id;
   const history = useQuery({
     queryKey: buybackKeys.history(item?.id ?? "closed", storeId),
@@ -396,31 +741,90 @@ function TransparentQuoteDetail({
     setShowNote(false);
     setShowAllDeductions(false);
     setShowHistory(false);
-    setResponseOperationKey(itemId ? crypto.randomUUID() : "");
+    setNoteSensitive(false);
+    setRecovery(null);
+    responseAttemptRef.current = null;
+    responseSubmitLockRef.current = false;
   }, [itemId]);
-  const mutation = useMutation({
-    mutationFn: async () => {
-      if (!isOnline || !navigator.onLine) throw new Error("当前离线，恢复网络后再保存答复");
-      if (!item || !outcome) throw new Error("请选择客户答复");
-      const quote = quoteProjection(item);
-      const revisionId =
-        typeof quote.current_revision_id === "string" ? quote.current_revision_id : "";
-      if (!revisionId) throw new Error("当前记录没有可确认的报价版本");
-      return recordTransparentBuybackResponse(item.id, {
-        expected_updated_at: item.updated_at,
-        idempotency_key: responseOperationKey,
-        quote_revision_id: revisionId,
-        outcome,
-        reason_code: outcome === "rejected" ? reason || undefined : undefined,
-        note: note.trim() || undefined,
-      });
-    },
-    onSuccess: async () => {
-      toast.success("已记录客户现场口头答复");
-      await client.invalidateQueries({ queryKey: buybackKeys.all });
+  useEffect(() => {
+    responseActiveRef.current = true;
+    return () => {
+      responseActiveRef.current = false;
+      responseSubmitLockRef.current = true;
+    };
+  }, []);
+  const synchronizeResponse = async () => {
+    if (!responseActiveRef.current) return;
+    setRecovery("checking");
+    try {
+      await client.invalidateQueries({ queryKey: buybackKeys.all }, { throwOnError: true });
+      if (!responseActiveRef.current) return;
+      responseAttemptRef.current = null;
+      responseSubmitLockRef.current = false;
+      toast.success(t("buyback2b5.detail.responseSaved"));
       onSaved();
+    } catch {
+      if (responseActiveRef.current) setRecovery("sync");
+    }
+  };
+  const mutation = useMutation({
+    mutationFn: async ({
+      targetId,
+      payload,
+      key,
+    }: {
+      targetId: string;
+      payload: ResponsePayload;
+      key: string;
+      knownResponseIds: string[] | null;
+    }) => {
+      if (!isOnline || !navigator.onLine) throw { code: "OFFLINE" };
+      return recordTransparentBuybackResponse(targetId, { ...payload, idempotency_key: key });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "保存失败"),
+    onSuccess: () => {
+      void synchronizeResponse();
+    },
+    onError: (error, command) => {
+      if (!responseActiveRef.current) return;
+      if (isConflictError(error)) {
+        toast.error(localizeBuybackSafeError(error, t));
+        responseSubmitLockRef.current = false;
+        setRecovery("conflict");
+        return;
+      }
+      if (!isUnknownWriteResult(error)) {
+        toast.error(localizeBuybackSafeError(error, t));
+        responseSubmitLockRef.current = false;
+        setRecovery(null);
+        return;
+      }
+      setRecovery("checking");
+      void readTransparentBuybackHistory(command.targetId)
+        .then((result) => {
+          if (!responseActiveRef.current) return;
+          const known = command.knownResponseIds ? new Set(command.knownResponseIds) : null;
+          const committed =
+            known !== null &&
+            result.responses.some(
+              (entry) =>
+                !known.has(entry.id) &&
+                entry.quote_revision_id === command.payload.quote_revision_id &&
+                entry.outcome === command.payload.outcome &&
+                (entry.reason_code || undefined) === command.payload.reason_code &&
+                (entry.note || undefined) === command.payload.note,
+            );
+          if (committed) void synchronizeResponse();
+          else {
+            toast.error(t("buyback2b5.operation.unknown"));
+            setRecovery("unknown");
+          }
+        })
+        .catch(() => {
+          if (!responseActiveRef.current) return;
+          toast.error(t("buyback2b5.operation.unknown"));
+          setRecovery("unknown");
+        });
+    },
   });
   if (!item) return null;
   const quote = quoteProjection(item);
@@ -438,21 +842,58 @@ function TransparentQuoteDetail({
   const acceptDisabled =
     isExpired || quote.hard_block === true || numberValue(quote.final_offer) <= 0;
   const responseLocked = currentOutcome === "accepted" || currentOutcome === "rejected";
+  const submitResponse = () => {
+    if (responseSubmitLockRef.current || !item || !outcome || !hasRevision) return;
+    if (note.trim() && hasBuybackSensitiveText(note)) {
+      setNoteSensitive(true);
+      window.requestAnimationFrame(() => noteRef.current?.focus());
+      return;
+    }
+    setNoteSensitive(false);
+    const payload: ResponsePayload = {
+      expected_updated_at: item.updated_at,
+      quote_revision_id: String(quote.current_revision_id),
+      outcome,
+      reason_code: outcome === "rejected" ? reason || undefined : undefined,
+      note: note.trim() || undefined,
+    };
+    const attempt = operationAttempt(responseAttemptRef.current, "response.record", {
+      targetId: item.id,
+      payload,
+    });
+    responseAttemptRef.current = attempt;
+    responseSubmitLockRef.current = true;
+    setRecovery(null);
+    mutation.mutate({
+      targetId: item.id,
+      payload,
+      key: attempt.key,
+      knownResponseIds: history.isSuccess
+        ? (history.data?.responses ?? []).map((entry) => entry.id)
+        : null,
+    });
+  };
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         side="bottom"
+        closeLabel={t("buyback2b5.detail.close")}
+        onCloseAutoFocus={onCloseAutoFocus}
         style={sheetFloatingStyle}
-        className="bottom-1 left-1/2 right-auto flex h-[calc(100svh-0.5rem)] w-[calc(100vw-0.5rem)] -translate-x-1/2 flex-col gap-0 rounded-2xl p-0 md:bottom-4 md:h-[min(90svh,780px)] md:w-[min(980px,calc(100vw-2rem))]"
+        className="bottom-1 left-1/2 right-auto top-1 flex h-auto max-h-none min-h-0 w-[calc(100vw-0.5rem)] -translate-x-1/2 flex-col gap-0 overflow-hidden rounded-2xl p-0 md:bottom-4 md:top-auto md:h-[min(90svh,780px)] md:max-h-[min(90svh,780px)] md:w-[min(980px,calc(100vw-2rem))]"
       >
-        <div className="min-h-0 flex-1 overflow-y-auto p-2 pb-3 sm:p-4 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:content-start lg:gap-2">
+        <div
+          data-buyback-scroll-body="detail"
+          className="min-h-0 flex-1 basis-0 overflow-y-auto overscroll-contain p-2 pb-3 sm:p-4 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:content-start lg:gap-2"
+        >
           <SheetHeader className="text-left lg:col-span-2">
             <SheetTitle className="flex items-center gap-2 text-base">
               <Smartphone className="size-4 text-primary" />
               {item.item_label}
             </SheetTitle>
             <SheetDescription>
-              {item.public_no} · {maskIdentifier(item.serial_or_imei) || "标识已隐藏"}
+              {item.public_no} ·{" "}
+              {maskIdentifier(item.serial_or_imei) || t("buyback2b5.value.hiddenIdentifier")}
             </SheetDescription>
           </SheetHeader>
           <section
@@ -464,28 +905,31 @@ function TransparentQuoteDetail({
             <div className="flex items-end justify-between gap-3">
               <div>
                 <p className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
-                  当前透明报价
+                  {t("buyback2b5.detail.currentOffer")}
                 </p>
                 <p className="font-mono text-2xl font-semibold leading-7 text-primary">
-                  <MoneyText amount={finalOffer} />
+                  {formatBuybackMoney(finalOffer, locale)}
                 </p>
               </div>
               <OutcomeBadge outcome={resolvedOutcome(item)} />
             </div>
             <div className="mt-2 grid grid-cols-2 gap-1.5">
               <MiniTile
-                label="初始参考"
-                value={rangeLabel(quote.reference_low, quote.reference_high)}
+                label={t("buyback2b5.detail.initialReference")}
+                value={rangeLabel(quote.reference_low, quote.reference_high, locale)}
               />
-              <MiniTile label="系统建议" value={`€${suggested.toFixed(2)}`} />
               <MiniTile
-                label="人工差额"
-                value={signedMoney(manualDelta)}
+                label={t("buyback2b5.detail.suggestion")}
+                value={formatBuybackMoney(suggested, locale)}
+              />
+              <MiniTile
+                label={t("buyback2b5.detail.manualDelta")}
+                value={signedMoney(manualDelta, locale)}
                 danger={manualDelta < 0}
               />
               <MiniTile
-                label="风险 / 有效期"
-                value={`${riskLabel(quote)} · ${shortDate(quote.expires_at)}`}
+                label={t("buyback2b5.detail.riskExpiry")}
+                value={`${localizeBuybackRisk(String(quote.risk_level ?? ""), quote.hard_block === true, t)} · ${formatBuybackDate(quote.expires_at, locale, t)}`}
                 danger={isExpired || quote.hard_block === true}
               />
             </div>
@@ -494,9 +938,9 @@ function TransparentQuoteDetail({
             className={cn(repairOs.mobileInfoCard, "mt-2 p-2 lg:col-start-1 lg:row-start-3")}
           >
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-xs font-semibold">价格怎么得出</h3>
+              <h3 className="text-xs font-semibold">{t("buyback2b5.detail.how")}</h3>
               <span className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                共 {deductions.length} 项
+                {t("buyback2b5.detail.deductionCount", { count: deductions.length })}
               </span>
             </div>
             <div id="buyback-deductions-content" className="mt-1.5 space-y-1">
@@ -506,15 +950,15 @@ function TransparentQuoteDetail({
                     key={row.code}
                     className="flex min-h-8 items-center justify-between rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1 text-[11px] lg:text-xs lg:leading-4"
                   >
-                    <span>{row.label}</span>
+                    <span>{localizeBuybackDeduction(row.code, row.label, t)}</span>
                     <span className="font-mono font-semibold text-status-danger-foreground">
-                      -€{row.amount.toFixed(2)}
+                      -{formatBuybackMoney(row.amount, locale)}
                     </span>
                   </div>
                 ))
               ) : (
                 <p className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-                  没有扣减项目。
+                  {t("buyback2b5.detail.noDeductions")}
                 </p>
               )}
             </div>
@@ -527,12 +971,14 @@ function TransparentQuoteDetail({
                 className="mt-1 h-[38px] w-full rounded-lg text-base"
                 onClick={() => setShowAllDeductions((value) => !value)}
               >
-                {showAllDeductions ? "收起扣减" : `查看全部 ${deductions.length} 项扣减`}
+                {showAllDeductions
+                  ? t("buyback2b5.detail.collapseDeductions")
+                  : t("buyback2b5.detail.showDeductions", { count: deductions.length })}
               </Button>
             ) : null}
             {typeof quote.manual_adjustment_reason === "string" ? (
               <p className="mt-1.5 rounded-lg border border-[var(--border-panel)] px-2 py-1.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-                调整说明：{quote.manual_adjustment_reason}
+                {t("buyback2b5.detail.adjustmentReason")}: {quote.manual_adjustment_reason}
               </p>
             ) : null}
           </section>
@@ -544,10 +990,10 @@ function TransparentQuoteDetail({
           >
             <div className="flex items-center justify-between">
               <h3 id="buyback-response-heading" className="text-xs font-semibold">
-                现场记录客户答复
+                {t("buyback2b5.detail.responseTitle")}
               </h3>
               <span className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                非签名确认
+                {t("buyback2b5.detail.verbalOnly")}
               </span>
             </div>
             <RadioGroup
@@ -574,31 +1020,55 @@ function TransparentQuoteDetail({
                         : undefined
                     }
                   />
-                  <span>{outcomeLabel(value)}</span>
+                  <span>{localizeBuybackOutcomeAction(value, t)}</span>
                 </label>
               ))}
             </RadioGroup>
             {outcome === "rejected" ? (
               <Select value={reason} onValueChange={setReason}>
-                <SelectTrigger className="mt-2 h-[38px] rounded-lg">
-                  <SelectValue placeholder="选择拒绝原因" />
+                <SelectTrigger
+                  aria-label={t("buyback2b5.detail.rejectPlaceholder")}
+                  className="mt-2 h-[38px] rounded-lg"
+                >
+                  <SelectValue placeholder={t("buyback2b5.detail.rejectPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="price_gap">价格未达预期</SelectItem>
-                  <SelectItem value="changed_mind">客户改变主意</SelectItem>
-                  <SelectItem value="other_channel">已选择其他渠道</SelectItem>
-                  <SelectItem value="other">其他原因</SelectItem>
+                  {(["price_gap", "changed_mind", "other_channel", "other"] as const).map(
+                    (code) => (
+                      <SelectItem key={code} value={code}>
+                        {localizeBuybackRejectReason(code, t)}
+                      </SelectItem>
+                    ),
+                  )}
                 </SelectContent>
               </Select>
             ) : null}
             {showNote ? (
-              <Textarea
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                maxLength={240}
-                placeholder="可选备注（不要填写证件号或完整电话）"
-                className="mt-1.5 min-h-16 rounded-xl text-base sm:text-sm"
-              />
+              <div>
+                <Textarea
+                  ref={noteRef}
+                  value={note}
+                  onChange={(event) => {
+                    setNote(event.target.value);
+                    setNoteSensitive(false);
+                  }}
+                  maxLength={240}
+                  aria-label={t("buyback2b5.detail.notePlaceholder")}
+                  aria-invalid={noteSensitive}
+                  aria-describedby={noteSensitive ? "buyback-response-note-error" : undefined}
+                  placeholder={t("buyback2b5.detail.notePlaceholder")}
+                  className="mt-1.5 min-h-16 rounded-xl text-base sm:text-sm"
+                />
+                {noteSensitive ? (
+                  <p
+                    id="buyback-response-note-error"
+                    role="alert"
+                    className="mt-1 text-[11px] text-status-danger-foreground"
+                  >
+                    {t("buyback2b5.validation.sensitive")}
+                  </p>
+                ) : null}
+              </div>
             ) : (
               <Button
                 type="button"
@@ -606,7 +1076,7 @@ function TransparentQuoteDetail({
                 className="mt-1 h-[38px] w-full rounded-lg text-base"
                 onClick={() => setShowNote(true)}
               >
-                添加现场备注（可选）
+                {t("buyback2b5.detail.addNote")}
               </Button>
             )}
             {acceptDisabled ? (
@@ -614,44 +1084,74 @@ function TransparentQuoteDetail({
                 id="buyback-accept-block-reason"
                 className="mt-2 text-[11px] text-status-warn-foreground lg:text-xs lg:leading-[18px]"
               >
-                报价已过期或存在阻断风险，不能记录为接受；可以暂缓或拒绝。
+                {t("buyback2b5.detail.acceptBlocked")}
               </p>
             ) : null}
             {responseLocked ? (
               <p className="mt-2 text-[11px] text-status-warn-foreground lg:text-xs lg:leading-[18px]">
-                当前答复已锁定；如需更正，请由负责人先发布新报价版本。
+                {t("buyback2b5.detail.responseLocked")}
               </p>
             ) : null}
             {!hasRevision ? (
               <p className="mt-2 text-[11px] text-status-warn-foreground lg:text-xs lg:leading-[18px]">
-                当前记录缺少可确认的报价版本，请先由负责人重新报价。
+                {t("buyback2b5.detail.noConfirmableRevision")}
               </p>
             ) : null}
             <p className="mt-2 rounded-lg border border-status-info/25 bg-status-info/10 px-2 py-1.5 text-[10px] leading-4 text-status-info-foreground lg:text-xs lg:leading-[18px]">
-              仅记录客户口头答复，不付款、不成交、不入库。
+              {t("buyback2b5.detail.quoteOnly")}
             </p>
-            {mutation.isError ? (
+            {mutation.isError || recovery ? (
               <div
                 role="alert"
                 className="mt-2 rounded-xl border border-status-danger/25 bg-status-danger/10 p-2"
               >
-                <p className="text-[11px] text-status-danger-foreground lg:text-xs lg:leading-[18px]">
-                  保存失败，当前选择和备注已保留。
-                  {mutation.error instanceof Error ? ` ${mutation.error.message}` : ""}
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-1 h-[38px] rounded-lg text-base"
-                  onClick={() =>
-                    void onRefresh(item.id).then(() => {
-                      mutation.reset();
-                      setResponseOperationKey(crypto.randomUUID());
-                    })
+                <p
+                  data-error-kind={
+                    recovery ?? (mutation.isError ? classifyBuybackSafeError(mutation.error) : null)
                   }
+                  className="text-[11px] text-status-danger-foreground lg:text-xs lg:leading-[18px]"
                 >
-                  刷新最新报价
-                </Button>
+                  {recovery === "checking"
+                    ? t("buyback2b5.operation.checking")
+                    : recovery === "unknown"
+                      ? t("buyback2b5.operation.unknown")
+                      : recovery === "sync"
+                        ? t("buyback2b5.operation.syncFailed")
+                        : localizeBuybackSafeError(mutation.error, t)}
+                </p>
+                {recovery && recovery !== "checking" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-1 h-[38px] rounded-lg text-base"
+                    onClick={() => {
+                      if (recovery === "sync") {
+                        void synchronizeResponse();
+                        return;
+                      }
+                      if (recovery === "unknown") {
+                        responseSubmitLockRef.current = false;
+                        setRecovery(null);
+                        mutation.reset();
+                        return;
+                      }
+                      void onRefresh(item.id)
+                        .then((latest) => {
+                          if (!latest) throw new Error("buyback-response-refresh-missing");
+                          responseSubmitLockRef.current = false;
+                          setRecovery(null);
+                          mutation.reset();
+                        })
+                        .catch(() => toast.error(t("buyback2b5.operation.refreshFailed")));
+                    }}
+                  >
+                    {recovery === "sync"
+                      ? t("buyback2b5.operation.retrySync")
+                      : recovery === "unknown"
+                        ? t("buyback2b5.operation.retryWrite")
+                        : t("buyback2b5.detail.refresh")}
+                  </Button>
+                ) : null}
               </div>
             ) : null}
           </section>
@@ -660,36 +1160,39 @@ function TransparentQuoteDetail({
           >
             <button
               type="button"
+              aria-label={
+                showHistory ? t("buyback2b5.detail.collapse") : t("buyback2b5.detail.expand")
+              }
               aria-expanded={showHistory}
               aria-controls="buyback-history-content"
               className="flex min-h-9 w-full items-center justify-between gap-2 rounded-lg text-left text-xs font-semibold"
               onClick={() => setShowHistory((value) => !value)}
             >
               <span className="flex items-center gap-2">
-                <FileClock className="size-4 text-primary" /> 最近报价记录
+                <FileClock className="size-4 text-primary" /> {t("buyback2b5.detail.history")}
               </span>
               <span className="text-[10px] font-normal text-muted-foreground lg:text-[11px] lg:leading-4">
-                {showHistory ? "收起" : "展开"}
+                {showHistory ? t("buyback2b5.detail.collapse") : t("buyback2b5.detail.expand")}
               </span>
             </button>
             <div className="mt-1 grid gap-1 text-[10px] text-muted-foreground sm:grid-cols-2 lg:text-[11px] lg:leading-4">
               {history.isLoading ? (
                 <Skeleton className="h-9 rounded-lg sm:col-span-2" />
               ) : history.isError ? (
-                <p className="sm:col-span-2">历史暂时无法加载，展开后可重试。</p>
+                <p className="sm:col-span-2">{t("buyback2b5.detail.historyHint")}</p>
               ) : (
                 <>
                   <p className="truncate rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
-                    最近报价：
+                    {t("buyback2b5.detail.latestQuote")}:
                     {latestRevision
-                      ? `V${latestRevision.revision_no} · €${latestRevision.quote.final_offer.toFixed(2)}`
-                      : "暂无版本"}
+                      ? `V${latestRevision.revision_no} · ${formatBuybackMoney(latestRevision.quote.final_offer, locale)}`
+                      : t("buyback2b5.detail.noRevision")}
                   </p>
                   <p className="truncate rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
-                    最近答复：
+                    {t("buyback2b5.detail.latestResponse")}:
                     {latestResponse
-                      ? `${outcomeLabel(latestResponse.outcome)} · ${shortDateTime(latestResponse.created_at)}`
-                      : "待客户答复"}
+                      ? `${localizeBuybackOutcome(latestResponse.outcome, t)} · ${formatBuybackDate(latestResponse.created_at, locale, t, true)}`
+                      : t("buyback2b5.detail.awaitingResponse")}
                   </p>
                 </>
               )}
@@ -700,21 +1203,23 @@ function TransparentQuoteDetail({
                   <Skeleton className="h-16 rounded-xl" />
                 ) : history.isError ? (
                   <div className="rounded-xl border border-status-danger/25 bg-status-danger/10 p-3">
-                    <p className="text-xs text-status-danger-foreground">报价历史加载失败。</p>
+                    <p className="text-xs text-status-danger-foreground">
+                      {t("buyback2b5.detail.historyError")}
+                    </p>
                     <Button
                       type="button"
                       variant="outline"
                       className="mt-2 h-[38px] rounded-lg"
                       onClick={() => void history.refetch()}
                     >
-                      重新加载历史
+                      {t("buyback2b5.detail.reloadHistory")}
                     </Button>
                   </div>
                 ) : history.data?.revisions.length || history.data?.responses.length ? (
                   <>
                     <div className="space-y-1">
                       <p className="text-[10px] font-semibold text-muted-foreground lg:text-xs lg:leading-4">
-                        报价版本
+                        {t("buyback2b5.detail.quoteVersions")}
                       </p>
                       {sortNewest(history.data?.revisions)
                         .slice(0, 4)
@@ -728,22 +1233,23 @@ function TransparentQuoteDetail({
                             </span>
                             <div className="min-w-0">
                               <p className="truncate text-xs font-medium">
-                                {revision.change_reason || "报价更新"}
+                                {revision.change_reason ||
+                                  localizeBuybackRevision(revision.kind, t)}
                               </p>
                               <p className="truncate text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                                {revision.actor_name} · {shortDateTime(revision.created_at)}
+                                {revision.actor_name} ·{" "}
+                                {formatBuybackDate(revision.created_at, locale, t, true)}
                               </p>
                             </div>
-                            <MoneyText
-                              amount={revision.quote.final_offer}
-                              className="font-mono text-xs font-semibold"
-                            />
+                            <span className="font-mono text-xs font-semibold">
+                              {formatBuybackMoney(revision.quote.final_offer, locale)}
+                            </span>
                           </div>
                         ))}
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-semibold text-muted-foreground lg:text-xs lg:leading-4">
-                        客户答复
+                        {t("buyback2b5.detail.customerResponses")}
                       </p>
                       {sortNewest(history.data?.responses)
                         .slice(0, 4)
@@ -755,22 +1261,25 @@ function TransparentQuoteDetail({
                             <OutcomeBadge outcome={response.outcome} />
                             <div className="min-w-0">
                               <p className="truncate text-xs font-medium">
-                                {response.note || outcomeLabel(response.outcome)}
+                                {response.note || localizeBuybackOutcome(response.outcome, t)}
                               </p>
                               <p className="truncate text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                                {response.actor_name} · {shortDateTime(response.created_at)}
+                                {response.actor_name} ·{" "}
+                                {formatBuybackDate(response.created_at, locale, t, true)}
                               </p>
                             </div>
                           </div>
                         ))}
                       {!history.data?.responses.length ? (
-                        <p className="text-xs text-muted-foreground">尚未记录客户答复。</p>
+                        <p className="text-xs text-muted-foreground">
+                          {t("buyback2b5.detail.noResponse")}
+                        </p>
                       ) : null}
                     </div>
                   </>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    旧记录尚未版本化；下次改价后会从 V1 开始留痕。
+                    {t("buyback2b5.detail.legacyHistory")}
                   </p>
                 )}
               </div>
@@ -786,31 +1295,41 @@ function TransparentQuoteDetail({
             className="mb-1 flex min-w-0 items-center justify-between gap-2 text-[10px] leading-4 lg:text-[11px]"
           >
             <span className="shrink-0 font-semibold text-primary">
-              最终 <MoneyText amount={finalOffer} />
+              {t("buyback2b5.detail.final")} {formatBuybackMoney(finalOffer, locale)}
             </span>
             <span className="truncate text-right text-muted-foreground">
               {!canRespond
-                ? "当前角色只读：不能记录答复"
+                ? t("buyback2b5.detail.readOnly")
                 : !canRevise
-                  ? "改价需负责人权限"
+                  ? t("buyback2b5.detail.revisePermission")
                   : outcome
-                    ? `已选 ${outcomeLabel(outcome)}`
-                    : "请选择客户答复"}
+                    ? t("buyback2b5.detail.selected", {
+                        outcome: localizeBuybackOutcomeAction(outcome, t),
+                      })
+                    : t("buyback2b5.detail.selectResponse")}
             </span>
           </div>
           <div className="grid grid-cols-[1fr_1.5fr] gap-1.5">
             <Button
               variant="outline"
-              className="h-9 rounded-lg"
-              disabled={!canRevise}
+              className="h-auto min-h-11 whitespace-normal rounded-lg text-center leading-tight"
+              disabled={!canRevise || !history.isSuccess}
               aria-describedby={!canRevise ? "buyback-footer-permission-summary" : undefined}
-              onClick={() => onRevise(item)}
+              onClick={() =>
+                onRevise(
+                  item,
+                  (history.data?.revisions ?? []).map((revision) => revision.id),
+                )
+              }
             >
               <PencilLine className="mr-1 size-4" />
-              改价
+              {t("buyback2b5.detail.revise")}
             </Button>
             <Button
-              className={cn("h-10 rounded-lg", controls.brandButton)}
+              className={cn(
+                "h-auto min-h-11 whitespace-normal rounded-lg text-center leading-tight",
+                controls.brandButton,
+              )}
               style={brandGradientStyle}
               aria-describedby="buyback-footer-permission-summary"
               disabled={
@@ -818,19 +1337,23 @@ function TransparentQuoteDetail({
                 !isOnline ||
                 responseLocked ||
                 !hasRevision ||
-                !responseOperationKey ||
                 !outcome ||
                 (outcome === "rejected" && !reason) ||
-                mutation.isPending
+                mutation.isPending ||
+                recovery !== null
               }
-              onClick={() => mutation.mutate()}
+              onClick={submitResponse}
             >
               {mutation.isPending ? (
                 <Loader2 className="mr-1 size-4 animate-spin" />
               ) : (
                 <Check className="mr-1 size-4" />
               )}
-              {outcome ? `保存${outcomeLabel(outcome)}` : "保存答复"}
+              {outcome
+                ? t("buyback2b5.detail.saveOutcome", {
+                    outcome: localizeBuybackOutcomeAction(outcome, t),
+                  })
+                : t("buyback2b5.detail.saveResponse")}
             </Button>
           </div>
         </div>
@@ -843,13 +1366,18 @@ function TransparentQuoteWorkspace({
   state,
   isOnline,
   onClose,
+  onCloseAutoFocus,
   onSaved,
+  onRefresh,
 }: {
   state: WorkspaceState | null;
   isOnline: boolean;
   onClose: () => void;
+  onCloseAutoFocus: (event: Event) => void;
   onSaved: () => void;
+  onRefresh: (itemId?: string) => Promise<InventoryListItem | undefined>;
 }) {
+  const { locale, t } = useLocale();
   const client = useQueryClient();
   const existing = state?.mode === "revise" ? state.item : undefined;
   const [brand, setBrand] = useState("Apple");
@@ -866,13 +1394,25 @@ function TransparentQuoteWorkspace({
   const [reason, setReason] = useState("");
   const [risk, setRisk] = useState<"low" | "medium" | "high">("low");
   const [recordId, setRecordId] = useState("");
-  const [operationKey, setOperationKey] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
+  const [expectedUpdatedAt, setExpectedUpdatedAt] = useState("");
+  const [validationCodes, setValidationCodes] = useState<WorkspaceValidationCode[]>([]);
+  const [recovery, setRecovery] = useState<BuybackRecovery | null>(null);
+  const workspaceAttemptRef = useRef<BuybackAttempt | null>(null);
+  const workspaceSubmitLockRef = useRef(false);
+  const workspaceActiveRef = useRef(true);
+  const modelRef = useRef<HTMLInputElement>(null);
+  const referenceLowRef = useRef<HTMLInputElement>(null);
+  const batteryRef = useRef<HTMLInputElement>(null);
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     if (!state) return;
     setRecordId(existing?.id ?? crypto.randomUUID());
-    setOperationKey(crypto.randomUUID());
     setExpiresAt(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString());
+    setExpectedUpdatedAt(existing?.updated_at ?? "");
+    setRecovery(null);
+    workspaceAttemptRef.current = null;
+    workspaceSubmitLockRef.current = false;
     if (existing) {
       const current = quoteProjection(existing);
       setBrand(existing.brand);
@@ -909,6 +1449,13 @@ function TransparentQuoteWorkspace({
       setRisk("low");
     }
   }, [existing, state]);
+  useEffect(() => {
+    workspaceActiveRef.current = true;
+    return () => {
+      workspaceActiveRef.current = false;
+      workspaceSubmitLockRef.current = true;
+    };
+  }, []);
   const deductions = useMemo<BuybackQuoteDeductionInput[]>(
     () =>
       [
@@ -922,90 +1469,216 @@ function TransparentQuoteWorkspace({
     amount(referenceHigh) - deductions.reduce((sum, row) => sum + row.amount, 0),
   );
   const isManualOffer = amount(finalOffer) !== suggested;
-  const mutation = useMutation({
-    mutationFn: async () => {
-      if (!isOnline || !navigator.onLine) throw new Error("当前离线，恢复网络后再保存报价");
-      if (!model.trim()) throw new Error("请输入设备型号");
-      const moneyValues = [
-        referenceLow,
-        referenceHigh,
-        screenDeduction,
-        batteryDeduction,
-        finalOffer,
-      ];
-      if (moneyValues.some((value) => !isValidAmountInput(value))) {
-        throw new Error("金额格式无效；可使用 350.50 或 350,50，最多两位小数");
-      }
-      if (battery && (!isValidAmountInput(battery) || amount(battery) > 100)) {
-        throw new Error("电池健康必须是 0–100 之间的数字");
-      }
-      const manual = amount(finalOffer) !== suggested;
-      if (manual && reason.trim().length < 2) throw new Error("手动调整最终报价时请填写原因");
-      const quote: BuybackQuoteSnapshotInput = {
-        reference_low: amount(referenceLow),
-        reference_high: amount(referenceHigh),
-        final_offer: amount(finalOffer),
-        deductions,
-        manual_adjustment_reason: manual ? reason.trim() : undefined,
-        risk_level: risk,
-        hard_block: risk === "high",
-        expires_at: expiresAt,
-      };
-      if (existing)
-        return reviseTransparentBuybackQuote(existing.id, {
-          expected_updated_at: existing.updated_at,
-          idempotency_key: operationKey,
-          quote,
-          change_reason: reason.trim() || "重新检测后更新报价",
-        });
-      return createTransparentBuybackQuote({
-        record_id: recordId,
-        idempotency_key: operationKey,
-        device: {
-          brand,
-          model: model.trim(),
-          color: color.trim() || undefined,
-          storage_capacity: storage,
-          serial_or_imei: imei.trim() || undefined,
-          battery_health: battery ? amount(battery) : undefined,
-        },
-        quote,
-      });
-    },
-    onSuccess: async () => {
-      toast.success(existing ? "新报价版本已保存" : "透明报价已创建");
-      await client.invalidateQueries({ queryKey: buybackKeys.all });
+  const synchronizeWorkspace = async () => {
+    if (!workspaceActiveRef.current) return;
+    setRecovery("checking");
+    try {
+      await client.invalidateQueries({ queryKey: buybackKeys.all }, { throwOnError: true });
+      if (!workspaceActiveRef.current) return;
+      workspaceAttemptRef.current = null;
+      workspaceSubmitLockRef.current = false;
+      toast.success(t(existing ? "buyback2b5.workspace.revised" : "buyback2b5.workspace.created"));
       onSaved();
+    } catch {
+      if (workspaceActiveRef.current) setRecovery("sync");
+    }
+  };
+  const mutation = useMutation({
+    mutationFn: async (
+      command:
+        | { operation: "quote.create"; payload: CreateQuotePayload; key: string }
+        | {
+            operation: "quote.revise";
+            targetId: string;
+            payload: ReviseQuotePayload;
+            key: string;
+            knownRevisionIds: string[];
+          },
+    ) => {
+      if (!isOnline || !navigator.onLine) throw { code: "OFFLINE" };
+      return command.operation === "quote.create"
+        ? createTransparentBuybackQuote({ ...command.payload, idempotency_key: command.key })
+        : reviseTransparentBuybackQuote(command.targetId, {
+            ...command.payload,
+            idempotency_key: command.key,
+          });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "保存失败"),
+    onSuccess: () => {
+      void synchronizeWorkspace();
+    },
+    onError: (error, command) => {
+      if (!workspaceActiveRef.current) return;
+      if (isConflictError(error)) {
+        toast.error(localizeBuybackSafeError(error, t));
+        workspaceSubmitLockRef.current = false;
+        setRecovery("conflict");
+        return;
+      }
+      if (!isUnknownWriteResult(error)) {
+        toast.error(localizeBuybackSafeError(error, t));
+        workspaceSubmitLockRef.current = false;
+        setRecovery(null);
+        return;
+      }
+      setRecovery("checking");
+      const readback =
+        command.operation === "quote.create"
+          ? listBuybackRecords(scopeFilters).then((records) =>
+              records.some((item) => item.id === command.payload.record_id),
+            )
+          : readTransparentBuybackHistory(command.targetId).then((result) => {
+              const known = new Set(command.knownRevisionIds);
+              return result.revisions.some(
+                (revision) =>
+                  !known.has(revision.id) &&
+                  revision.change_reason === command.payload.change_reason &&
+                  quoteSnapshotsEqual(revision.quote, command.payload.quote),
+              );
+            });
+      void readback
+        .then((committed) => {
+          if (!workspaceActiveRef.current) return;
+          if (committed) void synchronizeWorkspace();
+          else {
+            toast.error(t("buyback2b5.operation.unknown"));
+            setRecovery("unknown");
+          }
+        })
+        .catch(() => {
+          if (!workspaceActiveRef.current) return;
+          toast.error(t("buyback2b5.operation.unknown"));
+          setRecovery("unknown");
+        });
+    },
   });
   if (!state) return null;
+  const handleSubmit = () => {
+    const moneyValues = [
+      referenceLow,
+      referenceHigh,
+      screenDeduction,
+      batteryDeduction,
+      finalOffer,
+    ];
+    const codes: WorkspaceValidationCode[] = [];
+    if (!model.trim()) codes.push("model");
+    if (moneyValues.some((value) => !isValidAmountInput(value))) codes.push("amount");
+    if (battery && (!isValidAmountInput(battery) || amount(battery) > 100)) {
+      codes.push("battery");
+    }
+    if ((Boolean(existing) || isManualOffer) && reason.trim() && hasBuybackSensitiveText(reason)) {
+      codes.push("sensitiveReason");
+    } else if (isManualOffer && reason.trim().length < 2) codes.push("reason");
+    setValidationCodes(codes);
+    if (codes.length) {
+      const first = codes[0];
+      window.requestAnimationFrame(() => {
+        if (first === "model") modelRef.current?.focus();
+        else if (first === "amount") referenceLowRef.current?.focus();
+        else if (first === "battery") batteryRef.current?.focus();
+        else reasonRef.current?.focus();
+      });
+      return;
+    }
+    if (workspaceSubmitLockRef.current) return;
+    const quote: BuybackQuoteSnapshotInput = {
+      reference_low: amount(referenceLow),
+      reference_high: amount(referenceHigh),
+      final_offer: amount(finalOffer),
+      deductions,
+      manual_adjustment_reason: isManualOffer ? reason.trim() : undefined,
+      risk_level: risk,
+      hard_block: risk === "high",
+      expires_at: expiresAt,
+    };
+    const command = existing
+      ? {
+          operation: "quote.revise" as const,
+          targetId: existing.id,
+          payload: {
+            expected_updated_at: expectedUpdatedAt,
+            quote,
+            change_reason: reason.trim() || "重新检测后更新报价",
+          } satisfies ReviseQuotePayload,
+          knownRevisionIds: state.mode === "revise" ? state.knownRevisionIds : [],
+        }
+      : {
+          operation: "quote.create" as const,
+          payload: {
+            record_id: recordId,
+            device: {
+              brand,
+              model: model.trim(),
+              color: color.trim() || undefined,
+              storage_capacity: storage,
+              serial_or_imei: imei.trim() || undefined,
+              battery_health: battery ? amount(battery) : undefined,
+            },
+            quote,
+          } satisfies CreateQuotePayload,
+        };
+    const attempt = operationAttempt(
+      workspaceAttemptRef.current,
+      command.operation,
+      command.operation === "quote.revise"
+        ? { targetId: command.targetId, payload: command.payload }
+        : command.payload,
+    );
+    workspaceAttemptRef.current = attempt;
+    workspaceSubmitLockRef.current = true;
+    setRecovery(null);
+    mutation.mutate({ ...command, key: attempt.key });
+  };
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         side="bottom"
+        closeLabel={t("buyback2b5.detail.close")}
+        onCloseAutoFocus={onCloseAutoFocus}
         data-buyback-quote-workspace="true"
         style={sheetFloatingStyle}
-        className="bottom-1 left-1/2 right-auto flex h-[calc(100svh-0.5rem)] w-[calc(100vw-0.5rem)] -translate-x-1/2 flex-col gap-0 rounded-2xl p-0 md:bottom-4 md:h-[min(90svh,780px)] md:w-[min(920px,calc(100vw-2rem))]"
+        className="bottom-1 left-1/2 right-auto top-1 flex h-auto max-h-none min-h-0 w-[calc(100vw-0.5rem)] -translate-x-1/2 flex-col gap-0 overflow-hidden rounded-2xl p-0 md:bottom-4 md:top-auto md:h-[min(90svh,780px)] md:max-h-[min(90svh,780px)] md:w-[min(920px,calc(100vw-2rem))]"
       >
-        <div className="min-h-0 flex-1 overflow-y-auto p-2 pb-3 sm:p-4 lg:grid lg:grid-cols-2 lg:content-start lg:gap-2">
+        <div
+          data-buyback-scroll-body="workspace"
+          className="min-h-0 flex-1 basis-0 overflow-y-auto overscroll-contain p-2 pb-3 sm:p-4 lg:grid lg:grid-cols-2 lg:content-start lg:gap-2"
+        >
           <SheetHeader className="text-left lg:col-span-2">
-            <SheetTitle>{existing ? "重新报价" : "新建透明报价"}</SheetTitle>
-            <SheetDescription>
-              一页完成设备录入、价格说明和保存；不进入付款或商品库存。
-            </SheetDescription>
+            <SheetTitle>
+              {t(existing ? "buyback2b5.workspace.revise" : "buyback2b5.workspace.create")}
+            </SheetTitle>
+            <SheetDescription>{t("buyback2b5.workspace.description")}</SheetDescription>
           </SheetHeader>
+          {validationCodes.length ? (
+            <div
+              role="alert"
+              aria-labelledby="buyback-validation-title"
+              className="mt-2 rounded-xl border border-status-danger/25 bg-status-danger/10 p-2 lg:col-span-2"
+            >
+              <p id="buyback-validation-title" className="text-xs font-semibold">
+                {t("buyback2b5.validation.summary")}
+              </p>
+              <ul className="mt-1 list-disc pl-5 text-xs">
+                {validationCodes.map((code) => (
+                  <li key={code}>{t(workspaceValidationKeys[code])}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <section
             className={cn(
               repairOs.mobileInfoCard,
               "mt-2 p-2 lg:col-start-1 lg:row-start-2 lg:mt-0",
             )}
           >
-            <SectionTitle icon={Smartphone} title="设备" />
+            <SectionTitle icon={Smartphone} title={t("buyback2b5.workspace.device")} />
             <div className="mt-2 grid grid-cols-2 gap-2">
-              <Field label="品牌">
+              <Field label={t("buyback2b5.workspace.brand")}>
                 <Select value={brand} onValueChange={setBrand} disabled={Boolean(existing)}>
-                  <SelectTrigger className="h-[38px] rounded-lg">
+                  <SelectTrigger
+                    aria-label={t("buyback2b5.workspace.brand")}
+                    className="h-[38px] rounded-lg"
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1017,27 +1690,34 @@ function TransparentQuoteWorkspace({
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="型号">
+              <Field label={t("buyback2b5.workspace.model")}>
                 <Input
+                  ref={modelRef}
+                  aria-label={t("buyback2b5.workspace.model")}
+                  aria-invalid={validationCodes.includes("model")}
                   value={model}
                   disabled={Boolean(existing)}
                   onChange={(event) => setModel(event.target.value)}
-                  placeholder="例如 iPhone 15 Pro"
+                  placeholder={t("buyback2b5.workspace.modelPlaceholder")}
                   className="h-[38px] rounded-lg text-base sm:text-sm"
                 />
               </Field>
-              <Field label="颜色">
+              <Field label={t("buyback2b5.workspace.color")}>
                 <Input
+                  aria-label={t("buyback2b5.workspace.color")}
                   value={color}
                   disabled={Boolean(existing)}
                   onChange={(event) => setColor(event.target.value)}
-                  placeholder="例如 原色钛金属"
+                  placeholder={t("buyback2b5.workspace.colorPlaceholder")}
                   className="h-[38px] rounded-lg text-base sm:text-sm"
                 />
               </Field>
-              <Field label="容量">
+              <Field label={t("buyback2b5.workspace.storage")}>
                 <Select value={storage} onValueChange={setStorage} disabled={Boolean(existing)}>
-                  <SelectTrigger className="h-[38px] rounded-lg">
+                  <SelectTrigger
+                    aria-label={t("buyback2b5.workspace.storage")}
+                    className="h-[38px] rounded-lg"
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1051,22 +1731,27 @@ function TransparentQuoteWorkspace({
               </Field>
               {!existing ? (
                 <div className="col-span-2">
-                  <Field label="IMEI（可扫码）">
+                  <Field label={t("buyback2b5.workspace.imei")}>
                     <ImeiScannerField
                       value={imei}
                       onChange={setImei}
                       density="compact"
-                      placeholder="摄像头扫码或手动输入"
+                      placeholder={t("buyback2b5.workspace.imeiPlaceholder")}
+                      inputAriaLabel={t("buyback2b5.workspace.imeiInputAria")}
+                      identifierLabel={t("buyback2b5.workspace.imeiIdentifier")}
                     />
                   </Field>
                 </div>
               ) : null}
-              <Field label="电池健康 %">
+              <Field label={t("buyback2b5.workspace.battery")}>
                 <Input
+                  ref={batteryRef}
+                  aria-label={t("buyback2b5.workspace.battery")}
+                  aria-invalid={validationCodes.includes("battery")}
                   value={battery}
                   onChange={(event) => setBattery(event.target.value)}
                   inputMode="decimal"
-                  placeholder="例如 87"
+                  placeholder={t("buyback2b5.workspace.batteryPlaceholder")}
                   className="h-[38px] rounded-lg text-base sm:text-sm"
                 />
               </Field>
@@ -1078,24 +1763,37 @@ function TransparentQuoteWorkspace({
               "mt-2 p-2 lg:col-start-2 lg:row-start-2 lg:mt-0",
             )}
           >
-            <SectionTitle icon={Euro} title="透明报价" />
+            <SectionTitle icon={Euro} title={t("buyback2b5.workspace.quote")} />
             <div className="mt-2 grid grid-cols-2 gap-2">
-              <Field label="参考最低 €">
-                <MoneyInput label="参考最低 €" value={referenceLow} onChange={setReferenceLow} />
-              </Field>
-              <Field label="参考最高 €">
-                <MoneyInput label="参考最高 €" value={referenceHigh} onChange={setReferenceHigh} />
-              </Field>
-              <Field label="屏幕扣减 €">
+              <Field label={t("buyback2b5.workspace.referenceLow")}>
                 <MoneyInput
-                  label="屏幕扣减 €"
+                  ref={referenceLowRef}
+                  invalid={validationCodes.includes("amount")}
+                  label={t("buyback2b5.workspace.referenceLow")}
+                  value={referenceLow}
+                  onChange={setReferenceLow}
+                />
+              </Field>
+              <Field label={t("buyback2b5.workspace.referenceHigh")}>
+                <MoneyInput
+                  invalid={validationCodes.includes("amount")}
+                  label={t("buyback2b5.workspace.referenceHigh")}
+                  value={referenceHigh}
+                  onChange={setReferenceHigh}
+                />
+              </Field>
+              <Field label={t("buyback2b5.workspace.screenDeduction")}>
+                <MoneyInput
+                  invalid={validationCodes.includes("amount")}
+                  label={t("buyback2b5.workspace.screenDeduction")}
                   value={screenDeduction}
                   onChange={setScreenDeduction}
                 />
               </Field>
-              <Field label="电池扣减 €">
+              <Field label={t("buyback2b5.workspace.batteryDeduction")}>
                 <MoneyInput
-                  label="电池扣减 €"
+                  invalid={validationCodes.includes("amount")}
+                  label={t("buyback2b5.workspace.batteryDeduction")}
                   value={batteryDeduction}
                   onChange={setBatteryDeduction}
                 />
@@ -1105,10 +1803,10 @@ function TransparentQuoteWorkspace({
               <div className="flex items-end justify-between">
                 <div>
                   <p className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
-                    系统建议（参考最高 − 扣减）
+                    {t("buyback2b5.workspace.suggestion")}
                   </p>
                   <p className="font-mono text-xl font-semibold leading-6 text-primary">
-                    <MoneyText amount={suggested} />
+                    {formatBuybackMoney(suggested, locale)}
                   </p>
                 </div>
                 <Button
@@ -1118,49 +1816,128 @@ function TransparentQuoteWorkspace({
                   onClick={() => setFinalOffer(String(suggested))}
                 >
                   <MinusCircle className="mr-1 size-4" />
-                  采用建议
+                  {t("buyback2b5.workspace.useSuggestion")}
                 </Button>
               </div>
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2">
-              <Field label="最终报价 €">
-                <MoneyInput label="最终报价 €" value={finalOffer} onChange={setFinalOffer} />
+              <Field label={t("buyback2b5.workspace.finalOffer")}>
+                <MoneyInput
+                  invalid={validationCodes.includes("amount")}
+                  label={t("buyback2b5.workspace.finalOffer")}
+                  value={finalOffer}
+                  onChange={setFinalOffer}
+                />
               </Field>
-              <Field label="风险">
+              <Field label={t("buyback2b5.workspace.risk")}>
                 <Select value={risk} onValueChange={(value) => setRisk(value as typeof risk)}>
-                  <SelectTrigger className="h-[38px] rounded-lg">
+                  <SelectTrigger
+                    aria-label={t("buyback2b5.workspace.risk")}
+                    className="h-[38px] rounded-lg"
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">低风险</SelectItem>
-                    <SelectItem value="medium">需复核</SelectItem>
-                    <SelectItem value="high">高风险 / 禁止接受</SelectItem>
+                    <SelectItem value="low">{localizeBuybackRisk("low", false, t)}</SelectItem>
+                    <SelectItem value="medium">
+                      {localizeBuybackRisk("medium", false, t)}
+                    </SelectItem>
+                    <SelectItem value="high">{t("buyback2b5.workspace.riskHigh")}</SelectItem>
                   </SelectContent>
                 </Select>
               </Field>
             </div>
-            {isManualOffer ? (
-              <Field label="调整说明（必填）">
+            {isManualOffer || (Boolean(existing) && Boolean(reason)) ? (
+              <Field label={t("buyback2b5.workspace.reason")}>
                 <Textarea
+                  ref={reasonRef}
+                  aria-label={t("buyback2b5.workspace.reason")}
+                  aria-invalid={
+                    validationCodes.includes("reason") ||
+                    validationCodes.includes("sensitiveReason")
+                  }
+                  aria-describedby={
+                    validationCodes.includes("reason") ||
+                    validationCodes.includes("sensitiveReason")
+                      ? "buyback-workspace-reason-error"
+                      : undefined
+                  }
                   value={reason}
                   onChange={(event) => setReason(event.target.value)}
                   maxLength={160}
-                  placeholder="例如：边框明显磕碰，现场与客户协商后调整"
+                  placeholder={t("buyback2b5.workspace.reasonPlaceholder")}
                   className="mt-1 min-h-16 rounded-xl text-base sm:text-sm"
                 />
+                {validationCodes.includes("reason") ||
+                validationCodes.includes("sensitiveReason") ? (
+                  <p
+                    id="buyback-workspace-reason-error"
+                    className="mt-1 text-[11px] text-status-danger-foreground"
+                  >
+                    {t(
+                      validationCodes.includes("sensitiveReason")
+                        ? "buyback2b5.validation.sensitive"
+                        : "buyback2b5.validation.reason",
+                    )}
+                  </p>
+                ) : null}
               </Field>
             ) : null}
             <div className="mt-2 flex items-center gap-2 rounded-xl border border-[var(--border-panel)] px-2 py-1.5 text-[10px] text-muted-foreground lg:text-xs lg:leading-[18px]">
               <CalendarClock className="size-4 shrink-0 text-primary" />
-              报价默认有效 7 天；过期后需要重新报价。
+              {t("buyback2b5.workspace.expiryHint")}
             </div>
-            {mutation.isError ? (
+            {mutation.isError || recovery ? (
               <div
                 role="alert"
+                data-error-kind={
+                  recovery ?? (mutation.isError ? classifyBuybackSafeError(mutation.error) : null)
+                }
                 className="mt-2 rounded-xl border border-status-danger/25 bg-status-danger/10 px-2 py-1.5 text-[11px] text-status-danger-foreground lg:text-xs lg:leading-[18px]"
               >
-                保存失败，当前草稿已保留。
-                {mutation.error instanceof Error ? ` ${mutation.error.message}` : ""}
+                <p>
+                  {recovery === "checking"
+                    ? t("buyback2b5.operation.checking")
+                    : recovery === "unknown"
+                      ? t("buyback2b5.operation.unknown")
+                      : recovery === "sync"
+                        ? t("buyback2b5.operation.syncFailed")
+                        : localizeBuybackSafeError(mutation.error, t)}
+                </p>
+                {recovery && recovery !== "checking" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-1 h-[38px] rounded-lg text-base"
+                    onClick={() => {
+                      if (recovery === "sync") {
+                        void synchronizeWorkspace();
+                        return;
+                      }
+                      if (recovery === "unknown") {
+                        workspaceSubmitLockRef.current = false;
+                        setRecovery(null);
+                        mutation.reset();
+                        return;
+                      }
+                      void onRefresh(existing?.id)
+                        .then((latest) => {
+                          if (!latest) throw new Error("buyback-revise-refresh-missing");
+                          setExpectedUpdatedAt(latest.updated_at);
+                          workspaceSubmitLockRef.current = false;
+                          setRecovery(null);
+                          mutation.reset();
+                        })
+                        .catch(() => toast.error(t("buyback2b5.operation.refreshFailed")));
+                    }}
+                  >
+                    {recovery === "sync"
+                      ? t("buyback2b5.operation.retrySync")
+                      : recovery === "unknown"
+                        ? t("buyback2b5.operation.retryWrite")
+                        : t("buyback2b5.detail.refresh")}
+                  </Button>
+                ) : null}
               </div>
             ) : null}
           </section>
@@ -1171,28 +1948,43 @@ function TransparentQuoteWorkspace({
         >
           <div className="mb-1 flex items-center justify-between gap-2 text-[10px] leading-4 lg:text-[11px] lg:leading-4">
             <span className="font-semibold text-primary">
-              最终报价 <MoneyText amount={amount(finalOffer)} />
+              {t("buyback2b5.workspace.finalOffer")}{" "}
+              {formatBuybackMoney(amount(finalOffer), locale)}
             </span>
             <span className="truncate text-muted-foreground">
-              {isManualOffer ? "人工调整（需说明）" : "采用系统建议"}
+              {isManualOffer ? t("buyback2b5.workspace.manual") : t("buyback2b5.workspace.system")}
             </span>
           </div>
           <div className="grid grid-cols-[1fr_1.5fr] gap-2">
-            <Button variant="outline" className="h-9 rounded-lg" onClick={onClose}>
-              取消
+            <Button
+              variant="outline"
+              className="h-auto min-h-11 whitespace-normal rounded-lg text-center leading-tight"
+              onClick={onClose}
+            >
+              {t("buyback2b5.workspace.cancel")}
             </Button>
             <Button
-              className={cn("h-10 rounded-lg", controls.brandButton)}
+              className={cn(
+                "h-auto min-h-11 whitespace-normal rounded-lg text-center leading-tight",
+                controls.brandButton,
+              )}
               style={brandGradientStyle}
-              disabled={!isOnline || mutation.isPending || !operationKey || !recordId || !expiresAt}
-              onClick={() => mutation.mutate()}
+              disabled={
+                !isOnline ||
+                mutation.isPending ||
+                recovery !== null ||
+                !recordId ||
+                !expiresAt ||
+                (Boolean(existing) && !expectedUpdatedAt)
+              }
+              onClick={handleSubmit}
             >
               {mutation.isPending ? (
                 <Loader2 className="mr-2 size-4 animate-spin" />
               ) : (
                 <Check className="mr-2 size-4" />
               )}
-              {existing ? "保存新版本" : "保存透明报价"}
+              {t(existing ? "buyback2b5.workspace.saveRevision" : "buyback2b5.workspace.save")}
             </Button>
           </div>
         </div>
@@ -1210,17 +2002,23 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 function MoneyInput({
+  ref,
+  invalid,
   label,
   value,
   onChange,
 }: {
+  ref?: React.Ref<HTMLInputElement>;
+  invalid?: boolean;
   label: string;
   value: string;
   onChange: (value: string) => void;
 }) {
   return (
     <Input
+      ref={ref}
       aria-label={label}
+      aria-invalid={invalid}
       value={value}
       onChange={(event) => onChange(event.target.value)}
       inputMode="decimal"
@@ -1262,7 +2060,7 @@ function EmptyState({
   title: string;
   detail: string;
   actionLabel?: string;
-  onAction?: () => void;
+  onAction?: (event: React.MouseEvent<HTMLButtonElement>) => void;
 }) {
   return (
     <div className="mx-auto mt-8 max-w-sm rounded-2xl border border-dashed border-[var(--border-panel)] p-6 text-center">
@@ -1270,7 +2068,7 @@ function EmptyState({
       <h2 className="mt-3 text-sm font-semibold">{title}</h2>
       <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
       {actionLabel && onAction ? (
-        <Button className="mt-4 h-10 rounded-lg" onClick={onAction}>
+        <Button className="mt-4 h-auto min-h-11 rounded-lg" onClick={onAction}>
           {actionLabel}
         </Button>
       ) : null}
@@ -1278,15 +2076,16 @@ function EmptyState({
   );
 }
 function OutcomeBadge({ outcome }: { outcome?: string }) {
-  const meta =
+  const { t } = useLocale();
+  const tone =
     outcome === "accepted"
-      ? ["已接受", "bg-status-success text-status-success-foreground"]
+      ? "bg-status-success text-status-success-foreground"
       : outcome === "deferred"
-        ? ["暂缓", "bg-status-warn text-status-warn-foreground"]
+        ? "bg-status-warn text-status-warn-foreground"
         : outcome === "rejected"
-          ? ["已拒绝", "bg-status-danger text-status-danger-foreground"]
-          : ["待答复", "bg-status-info text-status-info-foreground"];
-  return <RepairOsBadge className={meta[1]}>{meta[0]}</RepairOsBadge>;
+          ? "bg-status-danger text-status-danger-foreground"
+          : "bg-status-info text-status-info-foreground";
+  return <RepairOsBadge className={tone}>{localizeBuybackOutcome(outcome, t)}</RepairOsBadge>;
 }
 function quoteProjection(item: InventoryListItem): Record<string, unknown> {
   const root = recordValue(item.legacy_payload);
@@ -1300,7 +2099,7 @@ function quoteProjection(item: InventoryListItem): Record<string, unknown> {
 }
 function resolvedOutcome(item: InventoryListItem) {
   const value = quoteProjection(item).intent_outcome;
-  return value === "accepted" || value === "deferred" || value === "rejected" ? value : undefined;
+  return typeof value === "string" && value ? value : undefined;
 }
 function deductionsFromQuote(quote: Record<string, unknown>): BuybackQuoteDeductionInput[] {
   return Array.isArray(quote.deductions)
@@ -1308,7 +2107,7 @@ function deductionsFromQuote(quote: Record<string, unknown>): BuybackQuoteDeduct
         .map(recordValue)
         .map((row) => ({
           code: String(row.code ?? "adjustment"),
-          label: String(row.label ?? "价格调整"),
+          label: typeof row.label === "string" ? row.label : "",
           amount: numberValue(row.amount),
         }))
         .filter((row) => row.amount > 0)
@@ -1336,55 +2135,19 @@ function isValidAmountInput(value: string) {
 function amount(value: string) {
   return Math.max(0, Math.round(numberValue(value) * 100) / 100);
 }
-function rangeLabel(low: unknown, high: unknown) {
-  return `€${numberValue(low).toFixed(0)}–€${numberValue(high).toFixed(0)}`;
+function rangeLabel(low: unknown, high: unknown, locale: Parameters<typeof formatBuybackMoney>[1]) {
+  return `${formatBuybackMoney(numberValue(low), locale)}–${formatBuybackMoney(numberValue(high), locale)}`;
 }
 function maskIdentifier(value: unknown) {
   if (typeof value !== "string") return "";
   const compact = value.trim();
   if (!compact) return "";
   const tail = compact.replace(/\s+/g, "").slice(-4);
-  return tail ? `••••${tail}` : "标识已隐藏";
+  return tail ? `••••${tail}` : "";
 }
-function shortDate(value: unknown) {
-  if (typeof value !== "string" || !value) return "未设置";
-  return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(
-    new Date(value),
-  );
-}
-function shortDateTime(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-function filterLabel(value: ListFilter) {
-  return (
-    {
-      all: "全部记录",
-      awaiting: "待答复",
-      accepted: "已接受",
-      deferred: "暂缓跟进",
-      rejected: "已拒绝",
-    } as const
-  )[value];
-}
-function outcomeLabel(value: BuybackQuoteOutcome) {
-  return value === "accepted" ? "接受报价" : value === "deferred" ? "暂缓" : "拒绝";
-}
-function riskLabel(quote: Record<string, unknown>) {
-  if (quote.hard_block === true) return "阻断";
-  return quote.risk_level === "high"
-    ? "高风险"
-    : quote.risk_level === "medium"
-      ? "需复核"
-      : "低风险";
-}
-function signedMoney(value: number) {
-  if (Math.abs(value) < 0.005) return "€0.00";
-  return `${value > 0 ? "+" : "-"}€${Math.abs(value).toFixed(2)}`;
+function signedMoney(value: number, locale: Parameters<typeof formatBuybackMoney>[1]) {
+  if (Math.abs(value) < 0.005) return formatBuybackMoney(0, locale);
+  return `${value > 0 ? "+" : "-"}${formatBuybackMoney(Math.abs(value), locale)}`;
 }
 function latestByCreatedAt<T extends { created_at: string }>(values?: T[]) {
   return values?.reduce<T | undefined>((latest, current) => {
@@ -1397,15 +2160,6 @@ function sortNewest<T extends { created_at: string }>(values?: T[]) {
     (left, right) => Date.parse(right.created_at) - Date.parse(left.created_at),
   );
 }
-function nextAction(outcome: string | undefined, expired: boolean, blocked: boolean) {
-  if (blocked) return "需负责人复核";
-  if (expired) return "报价已过期，建议重报";
-  if (outcome === "accepted") return "已记录口头接受，等待线下后续";
-  if (outcome === "deferred") return "等待客户决定";
-  if (outcome === "rejected") return "本次协商已结束";
-  return "等待记录客户答复";
-}
-
 function useOnlineStatus() {
   const [isOnline, setIsOnline] = useState(true);
   useEffect(() => {

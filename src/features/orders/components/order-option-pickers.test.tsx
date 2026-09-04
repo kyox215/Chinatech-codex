@@ -5,8 +5,11 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import {
   FaultDiagnosisPicker,
+  toFaultPriceItems,
   type SelectedFault,
 } from "@/components/orders/fault-diagnosis-picker";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
+import type { AppLocale } from "@/shared/i18n/locales";
 
 import { AccessoryNotesPicker } from "./accessory-notes-picker";
 import { WarrantyPicker, type WarrantyDraftValue } from "./warranty-picker";
@@ -80,6 +83,16 @@ function CompactFaultHarness() {
   );
 }
 
+function LocalizedFaultHarness({ locale }: { locale: AppLocale }) {
+  const [selected, setSelected] = useState<SelectedFault[]>([]);
+  return (
+    <LocaleProvider initialLocale={locale}>
+      <FaultDiagnosisPicker selected={selected} onChange={setSelected} />
+      <output data-testid="localized-fault-value">{JSON.stringify(selected)}</output>
+    </LocaleProvider>
+  );
+}
+
 describe("order option pickers", () => {
   it("keeps compact fault labels readable in the original three-column layout", () => {
     const { container } = render(<CompactFaultHarness />);
@@ -90,6 +103,54 @@ describe("order option pickers", () => {
     expect(screen.getByRole("button", { name: /^面容\/指纹$/ })).toHaveTextContent("面容");
     expect(screen.getByRole("button", { name: /^麦克风$/ })).toHaveTextContent("麦克");
   });
+
+  it.each([
+    {
+      locale: "it-IT",
+      group: "Display",
+      expand: "Apri le opzioni di Display",
+      option: /Ricambio originale/,
+    },
+    {
+      locale: "en",
+      group: "Display",
+      expand: "Expand Display options",
+      option: /Original part/,
+    },
+  ] as const)(
+    "localizes catalog-backed fault choices but preserves the canonical selected object in $locale",
+    async ({ locale, group, expand, option }) => {
+      const user = userEvent.setup();
+      render(<LocalizedFaultHarness locale={locale} />);
+
+      expect(screen.getByRole("button", { name: group })).not.toHaveTextContent(/[\u4e00-\u9fff]/);
+      await user.click(screen.getByRole("button", { name: expand }));
+      await user.click(screen.getByRole("menuitem", { name: option }));
+
+      const selected = JSON.parse(
+        screen.getByTestId("localized-fault-value").textContent ?? "[]",
+      ) as SelectedFault[];
+      expect(selected).toHaveLength(1);
+      expect(selected[0]).toMatchObject({
+        key: "display:original",
+        categoryKey: "display",
+        categoryLabel: "屏幕",
+        catalog_key: "display:original",
+        name: "屏幕 - 原装",
+        price: 0,
+        note: "Ricambio originale",
+      });
+      expect(toFaultPriceItems(selected)).toEqual([
+        {
+          line_id: selected[0]?.line_id,
+          catalog_key: "display:original",
+          name: "屏幕 - 原装",
+          price: 0,
+          note: "Ricambio originale",
+        },
+      ]);
+    },
+  );
 
   it("keeps generic category selection for services without repair variants", async () => {
     const user = userEvent.setup();

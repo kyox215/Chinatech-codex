@@ -37,6 +37,14 @@ import { RepairOsSectionHeader } from "@/shared/ui";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { buildOrderDetailWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
+import { localizeWorkflowStatusLabel } from "@/features/orders/model/order-i18n";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import {
+  localizeCustomerChannel,
+  localizeCustomerCurrentItem,
+  localizeCustomerLanguage,
+} from "@/features/customers/model/customer-i18n";
+import { formatCustomerWorkbenchDate } from "@/features/customers/model/customer-workbench";
 
 const customerDetailSectionClass = cn(repairOs.mobileInfoCard, "sm:p-2.5 md:rounded-2xl md:p-3");
 const customerDetailSectionTitleClass =
@@ -49,14 +57,15 @@ export function CustomerOverviewPanel({
   data: CustomerDetail;
   onOpenFollowups: () => void;
 }) {
+  const { t } = useLocale();
   const { customer } = data;
   const workbench = buildCustomerWorkbenchSummary(data);
   const { contactSummary, latestOrder, payment } = workbench;
   const currentItems = buildCustomerCurrentItems(data);
   const financeRedacted = Boolean(data.stats.finance_redacted);
   const noteRows = [
-    { label: "客户备注", value: customer.notes?.trim() },
-    { label: "联系备注", value: customer.marketing_notes?.trim() },
+    { label: t("customers.form.customerNotes"), value: customer.notes?.trim() },
+    { label: t("customers.form.contactNotes"), value: customer.marketing_notes?.trim() },
   ].filter((row) => row.value);
 
   return (
@@ -68,30 +77,67 @@ export function CustomerOverviewPanel({
       />
       <section className={customerDetailSectionClass}>
         <RepairOsSectionHeader
-          title="经营摘要"
+          title={t("customers.detail.businessSummary")}
           className="mb-2"
           titleClassName={customerDetailSectionTitleClass}
         />
         <div className="grid min-w-0 grid-cols-2 gap-1.5 sm:gap-2">
-          <CustomerMetric label="设备档案" value={`${data.stats.device_count} 台`} />
-          <CustomerMetric label="有效维修" value={`${data.stats.valid_order_count ?? 0} 次`} />
-          <CustomerMetric label="历史工单" value={`${data.stats.order_count} 条`} />
+          <CustomerMetric
+            label={t("customers.detail.deviceRecords")}
+            value={t("customers.detail.devicesCount", { count: data.stats.device_count })}
+          />
+          <CustomerMetric
+            label={t("customers.detail.activeRepairs")}
+            value={t("customers.detail.repairsCount", { count: data.stats.valid_order_count ?? 0 })}
+          />
+          <CustomerMetric
+            label={t("customers.detail.historyOrders")}
+            value={t("customers.detail.ordersCount", { count: data.stats.order_count })}
+          />
           <CustomerInfoBlock
-            label="主电话"
+            label={t("customers.detail.primaryPhone")}
             value={<PhoneText value={contactSummary.primaryPhone} />}
           />
-          <CustomerInfoBlock label="备用号码" value={`${contactSummary.backupPhoneCount} 个`} />
-          <CustomerInfoBlock label="首选联系" value={contactSummary.channel} />
-          <CustomerInfoBlock label="语言" value={contactSummary.language} />
-          <CustomerMetric
-            label="有效工单额"
-            value={financeRedacted ? "金额受限" : <MoneyText amount={payment.totalQuoted} />}
+          <CustomerInfoBlock
+            label={t("customers.detail.backupPhones")}
+            value={t("customers.detail.phonesCount", { count: contactSummary.backupPhoneCount })}
+          />
+          <CustomerInfoBlock
+            label={t("customers.detail.preferredContact")}
+            value={localizeCustomerChannel(contactSummary.channelKind, contactSummary.channel, t)}
+          />
+          <CustomerInfoBlock
+            label={t("customers.detail.language")}
+            value={localizeCustomerLanguage(
+              contactSummary.languageKind,
+              contactSummary.language,
+              t,
+            )}
           />
           <CustomerMetric
-            label="待收尾款"
-            value={financeRedacted ? "金额受限" : <MoneyText amount={payment.unpaidAmount} />}
+            label={t("customers.detail.validOrderValue")}
+            value={
+              financeRedacted ? (
+                t("customers.detail.financeRestricted")
+              ) : (
+                <MoneyText amount={payment.totalQuoted} />
+              )
+            }
           />
-          <CustomerMetric label="开放事项" value={`${currentItems.length} 项`} />
+          <CustomerMetric
+            label={t("customers.detail.outstandingBalance")}
+            value={
+              financeRedacted ? (
+                t("customers.detail.financeRestricted")
+              ) : (
+                <MoneyText amount={payment.unpaidAmount} />
+              )
+            }
+          />
+          <CustomerMetric
+            label={t("customers.detail.openItems")}
+            value={t("customers.detail.itemsCount", { count: currentItems.length })}
+          />
         </div>
         {noteRows.length ? (
           <>
@@ -106,18 +152,18 @@ export function CustomerOverviewPanel({
       </section>
       <section className={customerDetailSectionClass}>
         <RepairOsSectionHeader
-          title="最近工单"
+          title={t("customers.detail.recentOrders")}
           className="mb-2"
           titleClassName={customerDetailSectionTitleClass}
         />
         {latestOrder ? (
           <CustomerWorkbenchOrderRow item={latestOrder} />
         ) : (
-          <CustomerEmptyLine text="暂无历史工单" />
+          <CustomerEmptyLine text={t("customers.detail.noHistoryOrders")} />
         )}
         <Separator className="my-2" />
         <RepairOsSectionHeader
-          title="最近动态"
+          title={t("customers.detail.recentActivity")}
           className="mb-2"
           titleClassName={customerDetailSectionTitleClass}
         />
@@ -136,11 +182,12 @@ function CustomerCurrentItemsPanel({
   onOpenFollowups: () => void;
   className?: string;
 }) {
+  const { t } = useLocale();
   return (
     <section className={cn(customerDetailSectionClass, className)} data-ui="customer-current-items">
       <RepairOsSectionHeader
-        title="现在要处理"
-        description={`${items.length} 项当前事项`}
+        title={t("customers.detail.currentItems")}
+        description={t("customers.detail.currentItemsDescription", { count: items.length })}
         className="mb-2"
         titleClassName={customerDetailSectionTitleClass}
       />
@@ -154,9 +201,9 @@ function CustomerCurrentItemsPanel({
         <div className="flex min-h-11 items-center gap-2 rounded-xl border border-status-success-foreground/20 bg-status-success/10 px-3 py-2 text-status-success-foreground">
           <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
           <div className="min-w-0">
-            <p className="text-xs font-semibold">目前没有待处理事项</p>
+            <p className="text-xs font-semibold">{t("customers.detail.noCurrentItems")}</p>
             <p className="text-[10px] leading-4 opacity-80 lg:text-xs lg:leading-[18px] lg:opacity-100">
-              客户档案、设备和历史记录仍可继续查看。
+              {t("customers.detail.noCurrentItemsDescription")}
             </p>
           </div>
         </div>
@@ -180,6 +227,8 @@ function CustomerCurrentItemRow({
   item: CustomerCurrentItem;
   onOpenFollowups: () => void;
 }) {
+  const { locale, t } = useLocale();
+  const localizedItem = localizeCustomerCurrentItem(item, t);
   const Icon =
     item.kind === "overdue_followup"
       ? CircleAlert
@@ -197,19 +246,19 @@ function CustomerCurrentItemRow({
       </span>
       <span className="min-w-0 flex-1 text-left">
         <span className="block text-[11px] font-semibold leading-4 lg:text-xs lg:leading-4">
-          {item.title}
+          {localizedItem.title}
         </span>
         <span className="block truncate text-[10px] leading-4 opacity-80 lg:text-[12px] lg:leading-4 lg:opacity-100">
           {item.description}
         </span>
         {item.dueAt ? (
           <span className="mt-0.5 block text-[9px] leading-3 opacity-75 lg:text-[11px] lg:leading-4 lg:opacity-100">
-            截止 {formatCurrentItemTime(item.dueAt)}
+            {t("customers.detail.due", { date: formatCurrentItemTime(item.dueAt, locale) })}
           </span>
         ) : null}
       </span>
       <span className="flex shrink-0 items-center gap-0.5 text-[10px] font-semibold lg:text-xs lg:leading-4">
-        {item.actionLabel}
+        {localizedItem.actionLabel}
         <ChevronRight className="size-3" aria-hidden="true" />
       </span>
     </>
@@ -237,15 +286,8 @@ function CustomerCurrentItemRow({
   );
 }
 
-function formatCurrentItemTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "时间待确认";
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+function formatCurrentItemTime(value: string, locale: "zh-CN" | "it-IT" | "en") {
+  return formatCustomerWorkbenchDate(value, locale);
 }
 
 export function CustomerDevicesPanel({
@@ -257,10 +299,11 @@ export function CustomerDevicesPanel({
 }: {
   data: CustomerDetail;
   deleting: boolean;
-  onAdd: () => void;
-  onEdit: (device: Device) => void;
+  onAdd: (control: HTMLButtonElement) => void;
+  onEdit: (device: Device, control: HTMLButtonElement) => void;
   onDelete: (deviceId: string) => void;
 }) {
+  const { t } = useLocale();
   const deviceItems = buildCustomerDeviceWorkbenchItems(data);
   const [selectedDeviceItem, setSelectedDeviceItem] = useState<
     (typeof deviceItems)[number] | undefined
@@ -269,7 +312,7 @@ export function CustomerDevicesPanel({
   return (
     <section className={customerDetailSectionClass}>
       <RepairOsSectionHeader
-        title="设备档案"
+        title={t("customers.detail.deviceRecords")}
         className="mb-2"
         titleClassName={customerDetailSectionTitleClass}
         action={
@@ -277,9 +320,9 @@ export function CustomerDevicesPanel({
             size="sm"
             variant="outline"
             className="h-11 gap-1.5 text-xs lg:h-8"
-            onClick={onAdd}
+            onClick={(event) => onAdd(event.currentTarget)}
           >
-            <Plus className="size-3.5" /> 添加设备
+            <Plus className="size-3.5" /> {t("customers.detail.addDevice")}
           </Button>
         }
       />
@@ -292,13 +335,13 @@ export function CustomerDevicesPanel({
               customerId={data.customer.id}
               deleting={deleting}
               onOpen={() => setSelectedDeviceItem(item)}
-              onEdit={() => onEdit(item.device)}
+              onEdit={(control) => onEdit(item.device, control)}
               onDelete={() => onDelete(item.device.id)}
             />
           ))
         ) : (
           <div className="rounded-xl border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-4 text-center text-xs text-muted-foreground sm:col-span-2 2xl:col-span-3">
-            暂无设备档案，可先添加设备后复用到新工单。
+            {t("customers.detail.noDevices")}
           </div>
         )}
       </div>
@@ -310,9 +353,9 @@ export function CustomerDevicesPanel({
         onOpenChange={(nextOpen) => {
           if (!nextOpen) setSelectedDeviceItem(undefined);
         }}
-        onEdit={(device) => {
+        onEdit={(device, control) => {
           setSelectedDeviceItem(undefined);
-          onEdit(device);
+          onEdit(device, control);
         }}
         onDelete={(deviceId) => {
           onDelete(deviceId);
@@ -330,13 +373,14 @@ export function CustomerOrdersPanel({
   data: CustomerDetail;
   onFollowup: (orderId: string) => void;
 }) {
+  const { t } = useLocale();
   const workbench = buildCustomerWorkbenchSummary(data);
   const orderItems = workbench.orderItems;
 
   return (
     <section className={customerDetailSectionClass}>
       <RepairOsSectionHeader
-        title="历史工单"
+        title={t("customers.detail.historyOrders")}
         className="mb-2"
         titleClassName={customerDetailSectionTitleClass}
       />
@@ -345,13 +389,21 @@ export function CustomerOrdersPanel({
           <table className="w-full min-w-[760px] table-fixed text-xs xl:min-w-[840px]">
             <thead className="border-b border-border/40 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
               <tr>
-                <th className="w-[118px] px-3 py-2 text-left font-medium xl:w-[130px]">工单</th>
-                <th className="px-2 py-2 text-left font-medium">设备与故障</th>
-                <th className="hidden w-[120px] px-2 py-2 text-left font-medium xl:table-cell">
-                  状态
+                <th className="w-[118px] px-3 py-2 text-left font-medium xl:w-[130px]">
+                  {t("customers.detail.headerOrder")}
                 </th>
-                <th className="w-[150px] px-2 py-2 text-right font-medium xl:w-[170px]">金额</th>
-                <th className="w-[86px] px-2 py-2 text-right font-medium xl:w-[110px]">操作</th>
+                <th className="px-2 py-2 text-left font-medium">
+                  {t("customers.detail.headerDeviceIssue")}
+                </th>
+                <th className="hidden w-[120px] px-2 py-2 text-left font-medium xl:table-cell">
+                  {t("customers.detail.headerStatus")}
+                </th>
+                <th className="w-[150px] px-2 py-2 text-right font-medium xl:w-[170px]">
+                  {t("customers.detail.headerAmount")}
+                </th>
+                <th className="w-[86px] px-2 py-2 text-right font-medium xl:w-[110px]">
+                  {t("customers.detail.headerAction")}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -372,6 +424,11 @@ export function CustomerOrdersPanel({
                         status={
                           isCustomerOrderCancelled(item.order) ? "cancelled" : item.order.status
                         }
+                        label={localizeWorkflowStatusLabel(
+                          undefined,
+                          isCustomerOrderCancelled(item.order) ? "cancelled" : item.order.status,
+                          t,
+                        )}
                         className="max-w-full text-[10px] lg:text-[11px] lg:leading-4"
                       />
                     </div>
@@ -397,12 +454,17 @@ export function CustomerOrdersPanel({
                       status={
                         isCustomerOrderCancelled(item.order) ? "cancelled" : item.order.status
                       }
+                      label={localizeWorkflowStatusLabel(
+                        undefined,
+                        isCustomerOrderCancelled(item.order) ? "cancelled" : item.order.status,
+                        t,
+                      )}
                     />
                   </td>
                   <td className="whitespace-nowrap px-2 py-2 text-right font-mono tabular-nums">
                     {item.financeRedacted || item.order.finance_redacted ? (
                       <div className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
-                        金额受限
+                        {t("customers.detail.financeRestricted")}
                       </div>
                     ) : (
                       <>
@@ -410,12 +472,14 @@ export function CustomerOrdersPanel({
                           <MoneyText amount={item.order.quotation_amount} />
                         </div>
                         <div className="mt-0.5 text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                          定金 <MoneyText amount={item.order.deposit_amount} />
+                          {t("customers.detail.deposit")}{" "}
+                          <MoneyText amount={item.order.deposit_amount} />
                         </div>
                         {isCustomerOrderCancelled(item.order) ? (
                           <div className="text-[10px] leading-4 text-muted-foreground lg:text-[11px]">
-                            取消时余额 <MoneyText amount={Math.max(0, item.order.balance_amount)} />
-                            <span className="block">不计入待收</span>
+                            {t("customers.detail.cancelBalance")}{" "}
+                            <MoneyText amount={Math.max(0, item.order.balance_amount)} />
+                            <span className="block">{t("customers.detail.notOutstanding")}</span>
                           </div>
                         ) : (
                           <div
@@ -426,7 +490,8 @@ export function CustomerOrdersPanel({
                                 : "text-muted-foreground",
                             )}
                           >
-                            待收 <MoneyText amount={Math.max(0, item.order.balance_amount)} />
+                            {t("customers.detail.outstanding")}{" "}
+                            <MoneyText amount={Math.max(0, item.order.balance_amount)} />
                           </div>
                         )}
                       </>
@@ -440,7 +505,7 @@ export function CustomerOrdersPanel({
                         className="h-7 gap-1.5 px-2 text-[11px] lg:text-xs"
                         onClick={() => onFollowup(item.order.id)}
                       >
-                        <Plus className="size-3" /> 待办
+                        <Plus className="size-3" /> {t("customers.detail.followupShort")}
                       </Button>
                     ) : (
                       <Button
@@ -454,7 +519,7 @@ export function CustomerOrdersPanel({
                             source: "customer",
                           })}
                         >
-                          查看
+                          {t("customers.detail.view")}
                         </Link>
                       </Button>
                     )}
@@ -473,7 +538,9 @@ export function CustomerOrdersPanel({
             onFollowup={() => onFollowup(item.order.id)}
           />
         ))}
-        {!orderItems.length ? <CustomerEmptyLine text="暂无历史工单" /> : null}
+        {!orderItems.length ? (
+          <CustomerEmptyLine text={t("customers.detail.noHistoryOrders")} />
+        ) : null}
       </div>
     </section>
   );

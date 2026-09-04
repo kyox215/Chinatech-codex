@@ -4,7 +4,7 @@ export function normalizeAuthEmail(value: string) {
 
 import type { MessageKey } from "@/shared/i18n/messages";
 
-type AuthTranslate = (key: MessageKey) => string;
+type AuthTranslate = (key: MessageKey, values?: Record<string, string | number>) => string;
 
 function authMessage(t: AuthTranslate | undefined, key: MessageKey, fallback: string) {
   return t ? t(key) : fallback;
@@ -73,8 +73,10 @@ export function verificationEmailSentMessage(t?: AuthTranslate) {
   );
 }
 
-export function emailChangeRequestedMessage(email: string) {
-  return `确认邮件已发送到 ${email}。完成邮箱确认前，当前登录邮箱不会改变。`;
+export function emailChangeRequestedMessage(email: string, t?: AuthTranslate) {
+  return t
+    ? t("auth.error.emailChangeRequested", { email })
+    : `确认邮件已发送到 ${email}。完成邮箱确认前，当前登录邮箱不会改变。`;
 }
 
 export function validateNewPassword(password: string, confirmation: string, t?: AuthTranslate) {
@@ -96,25 +98,36 @@ export function validateEmailAddress(value: string, t?: AuthTranslate) {
   return undefined;
 }
 
-export function validateEmailChange({
-  currentEmail,
-  nextEmail,
-  confirmation,
-  currentPassword,
-}: {
-  currentEmail?: string | null;
-  nextEmail: string;
-  confirmation: string;
-  currentPassword: string;
-}) {
+export function validateEmailChange(
+  {
+    currentEmail,
+    nextEmail,
+    confirmation,
+    currentPassword,
+  }: {
+    currentEmail?: string | null;
+    nextEmail: string;
+    confirmation: string;
+    currentPassword: string;
+  },
+  t?: AuthTranslate,
+) {
   const normalizedCurrent = normalizeAuthEmail(currentEmail ?? "");
   const normalizedNext = normalizeAuthEmail(nextEmail);
   const normalizedConfirmation = normalizeAuthEmail(confirmation);
-  const emailError = validateEmailAddress(normalizedNext);
+  const emailError = validateEmailAddress(normalizedNext, t);
   if (emailError) return emailError;
-  if (!normalizedCurrent) return "未读取当前登录邮箱";
-  if (normalizedNext === normalizedCurrent) return "新邮箱不能和当前登录邮箱相同";
-  if (normalizedNext !== normalizedConfirmation) return "两次输入的新邮箱不一致";
-  if (!currentPassword) return "请输入当前密码后再更改邮箱";
+  if (!normalizedCurrent) {
+    return authMessage(t, "auth.error.currentEmailUnavailable", "未读取当前登录邮箱");
+  }
+  if (normalizedNext === normalizedCurrent) {
+    return authMessage(t, "auth.error.emailUnchanged", "新邮箱不能和当前登录邮箱相同");
+  }
+  if (normalizedNext !== normalizedConfirmation) {
+    return authMessage(t, "auth.error.emailMismatch", "两次输入的新邮箱不一致");
+  }
+  if (!currentPassword) {
+    return authMessage(t, "auth.error.currentPasswordRequired", "请输入当前密码后再更改邮箱");
+  }
   return undefined;
 }

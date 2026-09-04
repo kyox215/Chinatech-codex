@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Loader2, Search } from "lucide-react";
 
@@ -12,6 +12,7 @@ import { searchCustomers, type Customer } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
 import { phoneKeyboardProps } from "@/shared/lib/mobile-input";
 import { normalizePhoneRaw, primaryPhoneRaw, splitPhoneCandidates } from "@/shared/lib/phone";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 const EMPTY_CUSTOMERS: Customer[] = [];
 
@@ -22,7 +23,7 @@ export function CustomerPhoneLookup({
   onPick,
   className,
   containerClassName,
-  placeholder = "电话 * / 搜索客户",
+  placeholder,
   limit = 8,
   autoPickExact = true,
   disabled,
@@ -40,6 +41,7 @@ export function CustomerPhoneLookup({
   disabled?: boolean;
   showSearchIcon?: boolean;
 }) {
+  const { t } = useLocale();
   const listboxId = useId();
   const [focused, setFocused] = useState(false);
   const [open, setOpen] = useState(false);
@@ -62,7 +64,7 @@ export function CustomerPhoneLookup({
   });
   const data = debouncedQuery ? (customerQuery.data ?? EMPTY_CUSTOMERS) : EMPTY_CUSTOMERS;
   const isSearching = Boolean(debouncedQuery && customerQuery.isFetching);
-  const queryError = customerQuery.error instanceof Error ? customerQuery.error.message : "";
+  const queryFailed = Boolean(customerQuery.error);
   const exactCustomer = useMemo(
     () =>
       autoPickExact && normalizedPhone && !hasMultiplePhones
@@ -75,12 +77,28 @@ export function CustomerPhoneLookup({
         : undefined,
     [autoPickExact, data, hasMultiplePhones, normalizedPhone, value],
   );
+  const pickCustomerSafely = useCallback(
+    async (customer: Customer) => {
+      try {
+        await onPick(customer);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [onPick],
+  );
 
   useEffect(() => {
     if (!exactCustomer || exactCustomer.id === selectedCustomerId) return;
-    void onPick(exactCustomer);
-    setOpen(false);
-  }, [exactCustomer, onPick, selectedCustomerId]);
+    let active = true;
+    void pickCustomerSafely(exactCustomer).then((picked) => {
+      if (active && picked) setOpen(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [exactCustomer, pickCustomerSafely, selectedCustomerId]);
 
   useEffect(() => {
     setOpen(focused && searchEnabled);
@@ -91,8 +109,9 @@ export function CustomerPhoneLookup({
   }, [debouncedQuery, data.length]);
 
   const pickCustomer = (customer: Customer) => {
-    void onPick(customer);
-    setOpen(false);
+    void pickCustomerSafely(customer).then((picked) => {
+      if (picked) setOpen(false);
+    });
   };
 
   const resultCount = data.length;
@@ -143,7 +162,7 @@ export function CustomerPhoneLookup({
                 if (customer) pickCustomer(customer);
               }
             }}
-            placeholder={placeholder}
+            placeholder={placeholder ?? t("orders2b2.lookup.placeholder")}
             className={cn(
               "h-[38px] font-mono text-base lg:h-9 lg:text-sm",
               className,
@@ -171,17 +190,19 @@ export function CustomerPhoneLookup({
         <div
           id={listboxId}
           role="listbox"
-          aria-label="客户搜索结果"
+          aria-label={t("orders2b2.lookup.results")}
           className="max-h-[min(18rem,calc(100dvh_-_var(--rd-overlay-avoid-bottom,0px)_-_1rem))] min-w-0 overflow-y-auto"
         >
           {!searchEnabled ? (
-            <LookupHint>输入 2 个字或 3 位号码开始搜索</LookupHint>
+            <LookupHint>{t("orders2b2.lookup.start")}</LookupHint>
           ) : isSearching && data.length === 0 ? (
-            <LookupHint icon={<Loader2 className="size-3 animate-spin" />}>搜索中…</LookupHint>
-          ) : queryError ? (
-            <LookupHint tone="danger">搜索失败：{queryError}</LookupHint>
+            <LookupHint icon={<Loader2 className="size-3 animate-spin" />}>
+              {t("orders2b2.lookup.loading")}
+            </LookupHint>
+          ) : queryFailed ? (
+            <LookupHint tone="danger">{t("orders2b2.lookup.failed")}</LookupHint>
           ) : data.length === 0 ? (
-            <LookupHint>未找到客户，可继续手动录入</LookupHint>
+            <LookupHint>{t("orders2b2.lookup.empty")}</LookupHint>
           ) : (
             data.map((customer, index) => {
               const selected = customer.id === selectedCustomerId;
@@ -208,7 +229,7 @@ export function CustomerPhoneLookup({
                     <span className="block break-all font-mono text-xs leading-4 text-muted-foreground sm:text-[11px] lg:text-xs lg:leading-4">
                       {customer.phone_e164}
                       {customer.contact_phones.length
-                        ? ` · 备用 ${customer.contact_phones.length}`
+                        ? ` · ${t("orders2b2.lookup.backupCount", { count: customer.contact_phones.length })}`
                         : ""}
                     </span>
                   </span>
@@ -216,7 +237,7 @@ export function CustomerPhoneLookup({
                     <Check className="size-3.5 shrink-0 text-primary" />
                   ) : (
                     <span className="shrink-0 text-[10px] font-medium text-primary lg:text-xs lg:leading-4">
-                      选择
+                      {t("orders2b2.lookup.select")}
                     </span>
                   )}
                 </button>
@@ -226,7 +247,7 @@ export function CustomerPhoneLookup({
           {isSearching && data.length > 0 ? (
             <div className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
               <Loader2 className="size-3 animate-spin" />
-              正在更新结果…
+              {t("orders2b2.lookup.updating")}
             </div>
           ) : null}
         </div>

@@ -25,6 +25,7 @@ import { CustomerBackupPhonesField } from "@/features/customers/forms/customer-b
 import { CustomerFormField } from "@/features/customers/forms/customer-form-field";
 import { componentOverlay } from "@/lib/component-patterns";
 import type { CustomerDetail, CustomerUpdateInput } from "@/lib/repairdesk/api";
+import { useLocale } from "@/shared/i18n/locale-provider";
 import { uniqueContactPhones } from "@/shared/lib/phone";
 
 const customerChannelOptions = [
@@ -32,8 +33,8 @@ const customerChannelOptions = [
   { value: "sms", label: "SMS" },
 ] as const;
 
-const compactInputClass = "h-8 text-sm sm:h-9";
-const compactTextareaClass = "min-h-20 text-sm";
+const compactInputClass = "h-11 text-base lg:h-9 lg:text-sm";
+const compactTextareaClass = "min-h-20 text-base lg:text-sm";
 
 export function CustomerEditDialog({
   open,
@@ -48,6 +49,7 @@ export function CustomerEditDialog({
   busy: boolean;
   onSave: (input: CustomerUpdateInput) => Promise<unknown>;
 }) {
+  const { t } = useLocale();
   const [form, setForm] = useState<CustomerUpdateInput>(() => buildCustomerForm(data));
   useEffect(() => {
     if (open) setForm(buildCustomerForm(data));
@@ -55,20 +57,33 @@ export function CustomerEditDialog({
   const canSave = form.name.trim() && form.phone_e164.trim();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`${componentOverlay.formContent} !animate-none`}>
+      <DialogContent
+        closeLabel={t("customers.detail.close")}
+        className={`${componentOverlay.formContent} !animate-none`}
+      >
         <DialogHeader className={componentOverlay.header}>
-          <DialogTitle className={componentOverlay.title}>编辑客户</DialogTitle>
+          <DialogTitle className={componentOverlay.title}>
+            {t("customers.form.editTitle")}
+          </DialogTitle>
           <DialogDescription className={componentOverlay.description}>
-            客户姓名和联系方式会实时联动到相关工单显示。
+            {t("customers.form.editDescription")}
           </DialogDescription>
         </DialogHeader>
         <CustomerFields form={form} setForm={setForm} />
         <DialogFooter className={componentOverlay.footer}>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            取消
+          <Button
+            className="min-h-11 whitespace-normal lg:min-h-9"
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+          >
+            {t("customers.form.cancel")}
           </Button>
-          <Button disabled={busy || !canSave} onClick={() => onSave(form)}>
-            {busy ? "保存中…" : "保存"}
+          <Button
+            className="min-h-11 whitespace-normal lg:min-h-9"
+            disabled={busy || !canSave}
+            onClick={() => void onSave(form).catch(() => undefined)}
+          >
+            {busy ? t("customers.form.saving") : t("customers.form.save")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -100,24 +115,27 @@ function CustomerFields({
   form: CustomerUpdateInput;
   setForm: (input: CustomerUpdateInput) => void;
 }) {
+  const { t } = useLocale();
   return (
     <div className="grid min-w-0 gap-2.5 sm:grid-cols-2">
-      <CustomerFormField label="姓名" required>
+      <CustomerFormField label={t("customers.form.name")} required htmlFor="customer-edit-name">
         <Input
+          id="customer-edit-name"
           className={compactInputClass}
           value={form.name}
           onChange={(event) => setForm({ ...form, name: event.target.value })}
         />
       </CustomerFormField>
-      <CustomerFormField label="手机号" required>
+      <CustomerFormField label={t("customers.form.phone")} required htmlFor="customer-edit-phone">
         <Input
+          id="customer-edit-phone"
           value={form.phone_e164}
           onChange={(event) => setForm({ ...form, phone_e164: event.target.value })}
           className={`${compactInputClass} font-mono`}
         />
       </CustomerFormField>
       <div className="sm:col-span-2">
-        <CustomerFormField label="备用联系电话">
+        <CustomerFormField label={t("customers.form.backupPhones")}>
           <CustomerBackupPhonesField
             primaryPhone={form.phone_e164}
             phones={form.contact_phones ?? []}
@@ -126,21 +144,25 @@ function CustomerFields({
           />
         </CustomerFormField>
       </div>
-      <CustomerFormField label="邮箱">
+      <CustomerFormField label={t("customers.form.email")} htmlFor="customer-edit-email">
         <Input
+          id="customer-edit-email"
           className={compactInputClass}
           value={form.email ?? ""}
           onChange={(event) => setForm({ ...form, email: event.target.value })}
         />
       </CustomerFormField>
-      <CustomerFormField label="首选通道">
+      <CustomerFormField
+        label={t("customers.form.preferredChannel")}
+        htmlFor="customer-edit-channel"
+      >
         <Select
           value={form.preferred_channel ?? "whatsapp"}
           onValueChange={(preferred_channel) =>
             setForm({ ...form, preferred_channel: preferred_channel as "whatsapp" | "sms" })
           }
         >
-          <SelectTrigger className={compactInputClass}>
+          <SelectTrigger id="customer-edit-channel" className={compactInputClass}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -153,8 +175,9 @@ function CustomerFields({
         </Select>
       </CustomerFormField>
       <div className="sm:col-span-2">
-        <CustomerFormField label="客户备注">
+        <CustomerFormField label={t("customers.form.customerNotes")} htmlFor="customer-edit-notes">
           <Textarea
+            id="customer-edit-notes"
             className={compactTextareaClass}
             value={form.notes ?? ""}
             onChange={(event) => setForm({ ...form, notes: event.target.value })}
@@ -162,34 +185,38 @@ function CustomerFields({
         </CustomerFormField>
       </div>
       <div className="sm:col-span-2">
-        <CustomerFormField label="联系备注">
+        <CustomerFormField
+          label={t("customers.form.contactNotes")}
+          htmlFor="customer-edit-contact-notes"
+        >
           <Textarea
+            id="customer-edit-contact-notes"
             className={compactTextareaClass}
             value={form.marketing_notes ?? ""}
             onChange={(event) => setForm({ ...form, marketing_notes: event.target.value })}
           />
         </CustomerFormField>
       </div>
-      <label className="flex min-w-0 items-center gap-2 text-sm">
+      <label className="flex min-h-11 min-w-0 items-center gap-2 whitespace-normal text-sm">
         <Checkbox
           checked={form.consent_marketing ?? false}
           onCheckedChange={(checked) => setForm({ ...form, consent_marketing: Boolean(checked) })}
         />
-        允许主动联系
+        {t("customers.form.allowContact")}
       </label>
-      <label className="flex min-w-0 items-center gap-2 text-sm">
+      <label className="flex min-h-11 min-w-0 items-center gap-2 whitespace-normal text-sm">
         <Checkbox
           checked={form.consent_sms ?? false}
           onCheckedChange={(checked) => setForm({ ...form, consent_sms: Boolean(checked) })}
         />
-        允许短信通知
+        {t("customers.form.allowSms")}
       </label>
-      <label className="flex min-w-0 items-center gap-2 text-sm">
+      <label className="flex min-h-11 min-w-0 items-center gap-2 whitespace-normal text-sm">
         <Checkbox
           checked={form.blacklisted ?? false}
           onCheckedChange={(checked) => setForm({ ...form, blacklisted: Boolean(checked) })}
         />
-        加入黑名单
+        {t("customers.form.blacklist")}
       </label>
     </div>
   );

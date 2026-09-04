@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { resolveEntityContextBack } from "@/shared/config/entity-context-routes";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function InventoryLifecyclePageShell({
   title,
@@ -24,6 +25,7 @@ export function InventoryLifecyclePageShell({
   children: ReactNode;
   action?: ReactNode;
 }) {
+  const { t } = useLocale();
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
   const pathname = usePathname() ?? "/";
@@ -68,21 +70,43 @@ export function InventoryLifecyclePageShell({
         className={cn(repairOs.mobileFloatingHeaderShell, "lg:!static lg:!mb-4 lg:!block")}
       >
         <section className={repairOs.mobileFloatingHeaderCard}>
-          <header className={repairOs.mobileFloatingHeaderNav}>
+          <header
+            data-ui="inventory-lifecycle-header-nav"
+            className={cn(
+              repairOs.mobileFloatingHeaderNav,
+              hasDesktopContextBack && "lg:grid-cols-[minmax(0,1fr)_auto]",
+            )}
+          >
             <Button
               type="button"
               variant="ghost"
               size="icon"
               className={cn("size-11 rounded-lg", hasDesktopContextBack && "lg:hidden")}
-              aria-label="返回商品库存"
+              aria-label={t("inventory2b4.detail.back")}
               onClick={onBack}
             >
               <ArrowLeft className="size-5" aria-hidden="true" />
             </Button>
-            <div className="min-w-0 text-center">
-              <div className="flex items-center justify-center gap-1.5">
+            <div
+              data-ui="inventory-lifecycle-header-title"
+              className={cn("min-w-0 text-center", hasDesktopContextBack && "lg:text-left")}
+            >
+              <div
+                className={cn(
+                  "flex items-center justify-center gap-1.5",
+                  hasDesktopContextBack && "lg:justify-start",
+                )}
+              >
                 <Boxes className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
-                <h1 className="truncate text-sm font-semibold">{title}</h1>
+                <h1
+                  className={cn(
+                    "truncate text-sm font-semibold",
+                    hasDesktopContextBack &&
+                      "lg:overflow-visible lg:text-clip lg:whitespace-normal lg:break-words",
+                  )}
+                >
+                  {title}
+                </h1>
               </div>
               {context ? (
                 <p className="truncate text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
@@ -105,6 +129,7 @@ export function InventoryLifecyclePageShell({
 }
 
 export function InventoryLifecycleLoadingCard() {
+  const { t } = useLocale();
   return (
     <section
       role="status"
@@ -112,7 +137,7 @@ export function InventoryLifecycleLoadingCard() {
       aria-busy="true"
       className={cn(repairOs.mobileInfoCard, "space-y-2 p-3")}
     >
-      <span className="sr-only">正在加载生命周期资料…</span>
+      <span className="sr-only">{t("inventory2b4.lifecycle.loading")}</span>
       <div aria-hidden="true" className="h-4 w-32 animate-pulse rounded bg-muted" />
       <div aria-hidden="true" className="h-8 w-full animate-pulse rounded bg-muted" />
       <div aria-hidden="true" className="h-8 w-2/3 animate-pulse rounded bg-muted" />

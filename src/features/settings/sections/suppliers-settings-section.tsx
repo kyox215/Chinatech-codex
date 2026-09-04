@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   ExternalLink,
@@ -40,6 +40,8 @@ import { supplierSwatchClass } from "@/features/suppliers/model/supplier-color-p
 import { cn } from "@/lib/utils";
 import { repairOs } from "@/lib/ui-patterns";
 import type { Supplier, SupplierInput } from "@/lib/repairdesk/types";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { translateSettingsOperations } from "@/shared/i18n/messages";
 
 export interface SuppliersSettingsSectionProps {
   suppliers: Supplier[];
@@ -70,6 +72,11 @@ export function SuppliersSettingsSection({
   onSave,
   onArchive,
 }: SuppliersSettingsSectionProps) {
+  const { locale } = useLocale();
+  const copy = (
+    source: Parameters<typeof translateSettingsOperations>[1],
+    values?: Record<string, string | number>,
+  ) => translateSettingsOperations(locale, source, values);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"active" | "archived" | "all">("active");
   const [editor, setEditor] = useState<{ mode: "new" | "edit"; supplier?: Supplier } | null>(null);
@@ -98,6 +105,14 @@ export function SuppliersSettingsSection({
     archiveSubmitting ||
     Boolean(archiveTarget && archivePendingId && archivePendingId === archiveTarget.id);
 
+  useEffect(() => {
+    if (canManage) return;
+    setEditor(null);
+    setArchiveTarget(null);
+    setArchiveSubmitting(false);
+    archiveSubmittingRef.current = false;
+  }, [canManage]);
+
   const closeArchiveConfirm = () => {
     setArchiveTarget(null);
     requestAnimationFrame(() => returnFocusRef.current?.focus());
@@ -108,8 +123,11 @@ export function SuppliersSettingsSection({
       <RepairOsSectionHeader
         icon={PackageSearch}
         iconFrame={false}
-        title="供应商"
-        description={`${activeCount} 个可用 · ${archivedCount} 个已归档`}
+        title={copy("供应商（复数）")}
+        description={copy("{active} 个可用 · {archived} 个已归档", {
+          active: activeCount,
+          archived: archivedCount,
+        })}
         action={
           canManage ? (
             <Button
@@ -121,7 +139,7 @@ export function SuppliersSettingsSection({
                 setEditor({ mode: "new" });
               }}
             >
-              <Plus className="size-4" /> 添加供应商
+              <Plus className="size-4" /> {copy("添加供应商")}
             </Button>
           ) : null
         }
@@ -129,13 +147,15 @@ export function SuppliersSettingsSection({
 
       {!canRead ? (
         <div className="rounded-xl border border-[var(--border-panel)] bg-card px-4 py-4 text-sm text-muted-foreground">
-          当前账号没有供应商查看权限，页面不会请求或显示供应商资料。
+          {copy("当前账号没有供应商查看权限，页面不会请求或显示供应商资料。")}
         </div>
       ) : (
         <div className="space-y-4">
           {!canManage ? (
             <div className="rounded-xl border border-[var(--border-panel)] bg-card px-4 py-3 text-sm text-muted-foreground">
-              当前为只读访问。只有店主或具备“管理供应商”额外授权的员工可以新增、编辑或归档。
+              {copy(
+                "当前为只读访问。只有店主或具备“管理供应商”额外授权的员工可以新增、编辑或归档。",
+              )}
             </div>
           ) : null}
 
@@ -143,21 +163,24 @@ export function SuppliersSettingsSection({
             <div className="relative min-w-0">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                aria-label="搜索供应商"
+                aria-label={copy("搜索供应商")}
                 className="h-[38px] pl-9 text-base sm:text-sm"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="名称、联系人、电话或邮箱"
+                placeholder={copy("名称、联系人、电话或邮箱")}
               />
             </div>
             <Select value={status} onValueChange={(value) => setStatus(value as typeof status)}>
-              <SelectTrigger className="h-[38px] text-base sm:text-sm" aria-label="筛选供应商状态">
+              <SelectTrigger
+                className="h-[38px] text-base sm:text-sm"
+                aria-label={copy("筛选供应商状态")}
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="active">可用供应商</SelectItem>
-                <SelectItem value="archived">已归档</SelectItem>
-                <SelectItem value="all">全部</SelectItem>
+                <SelectItem value="active">{copy("可用供应商")}</SelectItem>
+                <SelectItem value="archived">{copy("已归档")}</SelectItem>
+                <SelectItem value="all">{copy("全部")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -174,21 +197,21 @@ export function SuppliersSettingsSection({
               className="grid-cols-1 gap-2 border-status-danger-foreground/25 bg-status-danger/10 px-3 py-3 text-status-danger-foreground sm:grid-cols-[minmax(0,1fr)_auto]"
               trailing={
                 <Button type="button" variant="outline" className="min-h-9" onClick={onRetry}>
-                  <RotateCcw className="size-4" /> 重新读取
+                  <RotateCcw className="size-4" /> {copy("重新读取")}
                 </Button>
               }
             >
-              <p className="text-sm font-semibold">供应商读取失败</p>
-              <p className="mt-1 text-xs">当前编辑草稿不会被自动清除。</p>
+              <p className="text-sm font-semibold">{copy("供应商读取失败")}</p>
+              <p className="mt-1 text-xs">{copy("当前编辑草稿不会被自动清除。")}</p>
             </RepairOsBusinessCard>
           ) : !filtered.length ? (
             <div className="rounded-xl border border-dashed border-[var(--border-panel)] bg-card px-4 py-7 text-center">
               <PackageSearch className="mx-auto size-6 text-muted-foreground" />
               <p className="mt-2 text-sm font-semibold">
-                {suppliers.length ? "没有匹配的供应商" : "当前店铺暂无供应商"}
+                {suppliers.length ? copy("没有匹配的供应商") : copy("当前店铺暂无供应商")}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                新店铺不会继承其他店铺的供应商资料。
+                {copy("新店铺不会继承其他店铺的供应商资料。")}
               </p>
             </div>
           ) : (
@@ -213,7 +236,7 @@ export function SuppliersSettingsSection({
                               setEditor({ mode: "edit", supplier });
                             }}
                           >
-                            <Pencil className="size-4" /> 编辑
+                            <Pencil className="size-4" /> {copy("编辑")}
                           </Button>
                           <Button
                             type="button"
@@ -225,7 +248,7 @@ export function SuppliersSettingsSection({
                               setArchiveTarget(supplier);
                             }}
                           >
-                            <Archive className="size-4" /> 归档
+                            <Archive className="size-4" /> {copy("归档")}
                           </Button>
                         </>
                       ) : null}
@@ -243,13 +266,13 @@ export function SuppliersSettingsSection({
                     />
                     <p className="break-words text-sm font-semibold">{supplier.name}</p>
                     {supplier.archived_at ? (
-                      <Badge variant="outline">已归档 · 历史保留</Badge>
+                      <Badge variant="outline">{copy("已归档 · 历史保留")}</Badge>
                     ) : null}
                   </div>
                   <p className="mt-1 break-words text-xs text-muted-foreground">
                     {[supplier.short_name, supplier.contact_name, supplier.phone]
                       .filter(Boolean)
-                      .join(" · ") || "暂无联系摘要"}
+                      .join(" · ") || copy("暂无联系摘要")}
                   </p>
                   {supplier.notes ? (
                     <p className="mt-1 line-clamp-2 break-words text-xs leading-5 text-muted-foreground">
@@ -266,7 +289,7 @@ export function SuppliersSettingsSection({
               role="alert"
               className="rounded-lg border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-2 text-sm text-status-danger-foreground"
             >
-              {actionError}
+              {copy("供应商操作失败，请重试")}
             </div>
           ) : null}
         </div>
@@ -280,7 +303,10 @@ export function SuppliersSettingsSection({
         returnFocusRef={returnFocusRef}
         onOpenChange={(open) => !open && setEditor(null)}
         onDirtyChange={onDirtyChange}
-        onSave={onSave}
+        onSave={(input, id) => {
+          if (!canManage) return Promise.reject(new Error(copy("供应商操作失败，请重试")));
+          return onSave(input, id);
+        }}
       />
 
       <AlertDialog
@@ -291,24 +317,28 @@ export function SuppliersSettingsSection({
       >
         <AlertDialogContent aria-busy={archiveBusy}>
           <AlertDialogHeader>
-            <AlertDialogTitle>归档 {archiveTarget?.name}？</AlertDialogTitle>
+            <AlertDialogTitle>
+              {copy("归档 {supplier}？", { supplier: archiveTarget?.name ?? copy("供应商") })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              归档后历史订单仍保留关联，新订单不再可选。当前没有恢复归档 API，请确认后再继续。
+              {copy(
+                "归档后历史订单仍保留关联，新订单不再可选。当前没有恢复归档 API，请确认后再继续。",
+              )}
             </AlertDialogDescription>
             {actionError ? (
               <p role="alert" className="text-sm text-status-danger-foreground">
-                {actionError}
+                {copy("供应商操作失败，请重试")}
               </p>
             ) : null}
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="min-h-11">取消</AlertDialogCancel>
+            <AlertDialogCancel className="min-h-11">{copy("取消")}</AlertDialogCancel>
             <AlertDialogAction
               className="min-h-11"
               disabled={archiveBusy}
               onClick={(event) => {
                 event.preventDefault();
-                if (!archiveTarget || archiveSubmittingRef.current) return;
+                if (!canManage || !archiveTarget || archiveSubmittingRef.current) return;
                 archiveSubmittingRef.current = true;
                 setArchiveSubmitting(true);
                 void onArchive(archiveTarget.id)
@@ -322,7 +352,7 @@ export function SuppliersSettingsSection({
                   });
               }}
             >
-              {archiveBusy ? "归档中…" : "确认归档"}
+              {archiveBusy ? copy("归档中…") : copy("确认归档")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -332,17 +362,25 @@ export function SuppliersSettingsSection({
 }
 
 function SupplierQuickActions({ supplier }: { supplier: Supplier }) {
+  const { locale } = useLocale();
+  const copy = (
+    source: Parameters<typeof translateSettingsOperations>[1],
+    values?: Record<string, string | number>,
+  ) => translateSettingsOperations(locale, source, values);
   const website =
     supplier.website && /^https?:\/\//i.test(supplier.website) ? supplier.website : null;
   return (
-    <div className="flex items-center gap-1" aria-label={`${supplier.name}快捷联系`}>
+    <div
+      className="flex items-center gap-1"
+      aria-label={copy("{supplier}快捷联系", { supplier: supplier.name })}
+    >
       {supplier.phone ? (
         <Button
           asChild
           size="icon"
           variant="ghost"
           className="size-9"
-          aria-label={`拨打 ${supplier.name}`}
+          aria-label={copy("拨打 {supplier}", { supplier: supplier.name })}
         >
           <a href={`tel:${supplier.phone}`}>
             <Phone className="size-4" />
@@ -355,7 +393,7 @@ function SupplierQuickActions({ supplier }: { supplier: Supplier }) {
           size="icon"
           variant="ghost"
           className="size-9"
-          aria-label={`邮件联系 ${supplier.name}`}
+          aria-label={copy("邮件联系 {supplier}", { supplier: supplier.name })}
         >
           <a href={`mailto:${supplier.email}`}>
             <Mail className="size-4" />
@@ -368,7 +406,7 @@ function SupplierQuickActions({ supplier }: { supplier: Supplier }) {
           size="icon"
           variant="ghost"
           className="size-9"
-          aria-label={`打开 ${supplier.name} 网站`}
+          aria-label={copy("打开 {supplier} 网站", { supplier: supplier.name })}
         >
           <a href={website} target="_blank" rel="noopener noreferrer">
             <ExternalLink className="size-4" />

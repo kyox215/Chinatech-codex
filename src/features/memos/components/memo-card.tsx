@@ -2,6 +2,8 @@ import { CalendarClock, Check, NotebookPen, UserRound } from "lucide-react";
 
 import type { MemoListItem } from "@/features/memos/model/contracts";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { getMemoPresentationCopy, translateMemoPresentation } from "@/shared/i18n/messages";
 
 import { formatMemoDate, MemoStatus } from "./memo-status";
 
@@ -16,6 +18,8 @@ export function MemoCard({
   onOpen: () => void;
   onTransition: () => void;
 }) {
+  const { locale } = useLocale();
+  const copy = getMemoPresentationCopy(locale);
   const completed = memo.kind === "todo" && memo.todo_status === "completed";
   const overdue =
     memo.kind === "todo" &&
@@ -29,7 +33,11 @@ export function MemoCard({
           <button
             type="button"
             className="grid size-8 place-items-center rounded-full outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label={`${completed ? "重新打开" : "完成"}待办：${memo.title}`}
+            aria-label={translateMemoPresentation(
+              locale,
+              completed ? "reopenTodoAria" : "completeTodoAria",
+              { title: memo.title },
+            )}
             aria-pressed={completed}
             disabled={busy}
             onClick={onTransition}
@@ -51,7 +59,7 @@ export function MemoCard({
         ) : (
           <span
             className="grid size-8 place-items-center"
-            aria-label={completed ? "已完成待办" : "待处理待办"}
+            aria-label={completed ? copy.completedTodoAria : copy.pendingTodoAria}
           >
             <span
               className={cn(
@@ -69,7 +77,7 @@ export function MemoCard({
           </span>
         )
       ) : (
-        <span className="grid size-8 place-items-center" aria-label="普通记录">
+        <span className="grid size-8 place-items-center" aria-label={copy.normalNoteAria}>
           <span className="grid size-7 place-items-center rounded-lg bg-primary/10 text-primary">
             <NotebookPen className="size-4" aria-hidden="true" />
           </span>
@@ -79,7 +87,7 @@ export function MemoCard({
       <button
         type="button"
         className="min-h-8 min-w-0 rounded-lg py-0.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        aria-label={`打开备忘：${memo.title}`}
+        aria-label={translateMemoPresentation(locale, "openMemoAria", { title: memo.title })}
         onClick={onOpen}
       >
         <span
@@ -93,7 +101,7 @@ export function MemoCard({
         <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
           <span className="flex min-w-0 items-center gap-1">
             <UserRound className="size-3 shrink-0" aria-hidden="true" />
-            <span className="max-w-32 truncate">{memo.assignee_name ?? "未分配"}</span>
+            <span className="max-w-32 truncate">{memo.assignee_name ?? copy.unassigned}</span>
           </span>
           {memo.kind === "todo" ? (
             <span
@@ -103,12 +111,20 @@ export function MemoCard({
               )}
             >
               <CalendarClock className="size-3 shrink-0" aria-hidden="true" />
-              {memo.due_at ? formatMemoDate(memo.due_at) : "无到期时间"}
+              {memo.due_at ? formatMemoDate(memo.due_at, locale) : copy.noDue}
             </span>
           ) : (
-            <span className="truncate">由 {memo.created_by_name_snapshot} 记录</span>
+            <span className="truncate">
+              {translateMemoPresentation(locale, "recordedBy", {
+                name: memo.created_by_name_snapshot,
+              })}
+            </span>
           )}
-          <span className="whitespace-nowrap">更新 {formatMemoDate(memo.updated_at)}</span>
+          <span className="whitespace-nowrap">
+            {translateMemoPresentation(locale, "updatedAt", {
+              date: formatMemoDate(memo.updated_at, locale),
+            })}
+          </span>
         </span>
       </button>
 

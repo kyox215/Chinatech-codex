@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronDown, Search, ShieldCheck } from "lucide-react";
+import { ArrowRight, ChevronDown, Search, ShieldCheck, type LucideIcon } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { RepairOsBadge, RepairOsBusinessCard } from "@/shared/ui";
@@ -10,6 +10,7 @@ import type { SettingsNavigationGroup } from "@/features/settings/components/set
 import type { SettingsSectionKey } from "@/features/settings/model/settings-section-access";
 import { sortSettingsCoreSections } from "@/features/settings/model/settings-section-registry";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export interface SettingsOverviewReadiness {
   state: "loading" | "ready" | "error" | "unavailable";
@@ -36,6 +37,7 @@ export function SettingsOverviewScreen({
   onSearchValueChange,
   onBeforeNavigate,
 }: SettingsOverviewScreenProps) {
+  const { t } = useLocale();
   const [advancedOpen, setAdvancedOpen] = useState(Boolean(searchValue.trim()));
   const allItems = groups.flatMap((group) => group.items);
   const coreItems = filterItems(
@@ -59,7 +61,17 @@ export function SettingsOverviewScreen({
     searchValue,
   );
   const visiblePlatformTools = filterOverviewDestinations(
-    isPlatformAdmin ? settingsOverviewDestinations : [],
+    isPlatformAdmin
+      ? [
+          {
+            label: t("settings.overview.platformApproval"),
+            description: t("settings.overview.platformApprovalDescription"),
+            href: "/platform",
+            icon: ShieldCheck,
+            keywords: t("settings.overview.platformApprovalKeywords").split("|"),
+          },
+        ]
+      : [],
     searchValue,
   );
 
@@ -73,19 +85,19 @@ export function SettingsOverviewScreen({
   return (
     <div data-settings-overview className="min-w-0 space-y-3">
       <p data-settings-overview-guide className="px-1 text-xs leading-5 text-muted-foreground">
-        先处理常用设置；低频工具收在“更多设置”中。
+        {t("settings.overview.guide")}
       </p>
 
       <div className="relative min-w-0 lg:hidden">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <label htmlFor="settings-overview-search" className="sr-only">
-          搜索设置
+          {t("settings.overview.search")}
         </label>
         <Input
           id="settings-overview-search"
           value={searchValue}
           onChange={(event) => onSearchValueChange(event.target.value)}
-          placeholder="搜索设置"
+          placeholder={t("settings.overview.search")}
           className="h-[38px] pl-9 text-base"
         />
       </div>
@@ -93,7 +105,7 @@ export function SettingsOverviewScreen({
       {coreItems.length > 0 ? (
         <SettingsOverviewGroup
           id="settings-overview-core"
-          title="常用设置"
+          title={t("settings.overview.core")}
           items={coreItems}
           onBeforeNavigate={onBeforeNavigate}
         />
@@ -110,9 +122,9 @@ export function SettingsOverviewScreen({
             onClick={() => setAdvancedOpen((open) => !open)}
             className="flex min-h-11 w-full min-w-0 items-center gap-2 rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2 text-left text-sm font-semibold text-foreground shadow-[var(--shadow-card)] transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <span className="min-w-0 flex-1">更多设置</span>
+            <span className="min-w-0 flex-1">{t("settings.overview.more")}</span>
             <span className="text-xs font-normal text-muted-foreground">
-              {advancedItems.length} 项可用
+              {t("settings.overview.availableCount", { count: advancedItems.length })}
             </span>
             <ChevronDown
               aria-hidden="true"
@@ -130,7 +142,7 @@ export function SettingsOverviewScreen({
       {visiblePlatformTools.length > 0 ? (
         <SettingsOverviewGroup
           id="settings-overview-platform"
-          title="平台工具"
+          title={t("settings.overview.platformTools")}
           items={visiblePlatformTools}
           onBeforeNavigate={onBeforeNavigate}
         />
@@ -138,8 +150,10 @@ export function SettingsOverviewScreen({
 
       {!hasResults ? (
         <RepairOsBusinessCard as="div" className="min-h-24 place-items-center text-center">
-          <span className="text-sm font-medium">没有匹配的设置</span>
-          <span className="mt-1 block text-xs text-muted-foreground">请尝试其他关键词。</span>
+          <span className="text-sm font-medium">{t("settings.overview.noMatches")}</span>
+          <span className="mt-1 block text-xs text-muted-foreground">
+            {t("settings.overview.tryOther")}
+          </span>
         </RepairOsBusinessCard>
       ) : null}
     </div>
@@ -169,7 +183,13 @@ function SettingsOverviewGroup({
 
 type OverviewItem =
   | SettingsNavigationGroup["items"][number]
-  | (typeof settingsOverviewDestinations)[number];
+  | {
+      label: string;
+      description: string;
+      href: string;
+      icon: LucideIcon;
+      keywords: readonly string[];
+    };
 
 function SettingsOverviewCards({
   items,
@@ -178,6 +198,7 @@ function SettingsOverviewCards({
   items: readonly OverviewItem[];
   onBeforeNavigate?: (section: SettingsSectionKey) => boolean;
 }) {
+  const { t } = useLocale();
   return (
     <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2">
       {items.map((item) => {
@@ -211,7 +232,9 @@ function SettingsOverviewCards({
               <span className="flex min-w-0 items-center gap-1.5">
                 <span className="truncate text-sm font-semibold">{item.label}</span>
                 {isSettingsItem && item.access === "readonly" ? (
-                  <RepairOsBadge className="shrink-0">只读</RepairOsBadge>
+                  <RepairOsBadge className="shrink-0">
+                    {t("settings.overview.readonly")}
+                  </RepairOsBadge>
                 ) : null}
               </span>
               <span className="mt-0.5 block line-clamp-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
@@ -225,18 +248,8 @@ function SettingsOverviewCards({
   );
 }
 
-const settingsOverviewDestinations = [
-  {
-    label: "平台审批",
-    description: "处理平台级店铺申请与开通审批。",
-    href: "/platform",
-    icon: ShieldCheck,
-    keywords: ["平台", "审批", "管理员", "开通"],
-  },
-] as const;
-
 function filterOverviewDestinations(
-  destinations: ReadonlyArray<(typeof settingsOverviewDestinations)[number]>,
+  destinations: ReadonlyArray<Extract<OverviewItem, { href: string }>>,
   searchValue: string,
 ) {
   const query = searchValue.trim().toLocaleLowerCase();

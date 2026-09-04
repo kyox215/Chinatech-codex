@@ -24,10 +24,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { createOrderLineId, ensureOrderLineId } from "@/entities/order/model/order-line-identity";
-import {
-  getQuoteDraftReadiness,
-  quoteReadinessLabel,
-} from "@/features/orders/model/order-diagnosis-quote";
+import { getQuoteDraftReadiness } from "@/features/orders/model/order-diagnosis-quote";
+import { localizeQuoteReadinessLabel } from "@/features/orders/model/order-i18n";
 import { componentOverlay } from "@/lib/component-patterns";
 import { formatMoney } from "@/lib/money";
 import type {
@@ -38,6 +36,7 @@ import type {
 } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
 import { moneyDraftValue, parseMoneyDraft } from "@/shared/lib/mobile-input";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 type QuoteDraftRow = {
   id: string;
@@ -71,6 +70,7 @@ export function DiagnosisQuoteDialog({
   onSaveDiagnosis,
   onPublish,
 }: DiagnosisQuoteDialogProps) {
+  const { t } = useLocale();
   const [diagnosis, setDiagnosis] = useState(order.diagnosis_result ?? "");
   const [rows, setRows] = useState<QuoteDraftRow[]>(() => rowsFromOrder(order));
   const [exceptionKind, setExceptionKind] = useState<QuotePriceException["kind"] | "">("");
@@ -119,7 +119,9 @@ export function DiagnosisQuoteDialog({
     try {
       if (canPrepareQuote) {
         if (!readiness.ready) {
-          setLocalError(readiness.missing.map(quoteReadinessLabel).join("；"));
+          setLocalError(
+            readiness.missing.map((code) => localizeQuoteReadinessLabel(code, t)).join("; "),
+          );
           return;
         }
         await onPublish({
@@ -133,13 +135,13 @@ export function DiagnosisQuoteDialog({
       }
       if (!canEditDiagnosis) return;
       if (!diagnosis.trim()) {
-        setLocalError("请填写检测结论");
+        setLocalError(t("orders2b1.quote.missing.diagnosis"));
         return;
       }
       await onSaveDiagnosis(diagnosis.trim());
       onOpenChange(false);
-    } catch (error) {
-      setLocalError(error instanceof Error ? error.message : "保存失败，请重试");
+    } catch {
+      setLocalError(t("orders2b1.quote.saveFailed"));
     }
   };
 
@@ -155,39 +157,41 @@ export function DiagnosisQuoteDialog({
       >
         <DialogHeader className="border-b border-[var(--border-panel)] px-3 py-3 text-left sm:px-4">
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Wrench className="size-4 text-primary" /> 检测与正式报价
+            <Wrench className="size-4 text-primary" /> {t("orders2b1.quote.title")}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            技师可记录检测结论；前台、经理或销售确认项目后发布正式报价。发布不会修改定金。
+            {t("orders2b1.quote.description")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="min-h-0 overflow-y-auto px-3 py-3 sm:px-4">
           <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
             <section className={componentOverlay.section}>
-              <div className="mb-2 text-xs font-semibold">客户报障与检测结论</div>
+              <div className="mb-2 text-xs font-semibold">
+                {t("orders2b1.quote.issueDiagnosis")}
+              </div>
               <div className="rounded-lg bg-[var(--surface-panel-muted)] px-2.5 py-2 text-xs leading-5 text-muted-foreground">
-                {order.issue_description || "客户未提供故障描述"}
+                {order.issue_description || t("orders2b1.quote.noIssue")}
               </div>
               <div className="mt-3 space-y-1">
                 <Label htmlFor="diagnosis-quote-result" className="text-xs font-semibold">
-                  检测结论
+                  {t("orders2b1.quote.diagnosis")}
                 </Label>
                 <Textarea
                   id="diagnosis-quote-result"
-                  aria-label="检测结论"
+                  aria-label={t("orders2b1.quote.diagnosis")}
                   value={diagnosis}
                   disabled={!canEditDiagnosis || isPending}
                   maxLength={8000}
                   rows={8}
                   onChange={(event) => setDiagnosis(event.target.value)}
-                  placeholder="例如：检测确认电池健康度过低，屏幕与主板功能正常"
+                  placeholder={t("orders2b1.quote.diagnosisPlaceholder")}
                   className="min-h-40 resize-y text-base md:text-sm"
                 />
               </div>
               {!canPrepareQuote ? (
                 <div className="mt-3 rounded-lg border border-status-warn-foreground/20 bg-status-warn px-2.5 py-2 text-xs text-status-warn-foreground">
-                  当前账号只能记录检测结论。保存后请交给前台、经理或销售发布价格并通知客户。
+                  {t("orders2b1.quote.diagnosisOnly")}
                 </div>
               ) : null}
             </section>
@@ -195,9 +199,9 @@ export function DiagnosisQuoteDialog({
             <section className={componentOverlay.section} aria-disabled={!canPrepareQuote}>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div>
-                  <div className="text-xs font-semibold">报价项目</div>
+                  <div className="text-xs font-semibold">{t("orders2b1.quote.items")}</div>
                   <div className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
-                    1–50 项，金额最多两位小数
+                    {t("orders2b1.quote.itemsHelp")}
                   </div>
                 </div>
                 {canPrepareQuote ? (
@@ -214,7 +218,7 @@ export function DiagnosisQuoteDialog({
                       ])
                     }
                   >
-                    <Plus className="size-3.5" /> 添加项目
+                    <Plus className="size-3.5" /> {t("orders2b1.quote.addItem")}
                   </Button>
                 ) : null}
               </div>
@@ -227,15 +231,15 @@ export function DiagnosisQuoteDialog({
                   >
                     <div className="min-w-0 space-y-1">
                       <Label htmlFor={`quote-item-${row.id}`} className="sr-only">
-                        报价项目 {index + 1}
+                        {t("orders2b1.quote.item", { index: index + 1 })}
                       </Label>
                       <Input
                         id={`quote-item-${row.id}`}
-                        aria-label={`报价项目 ${index + 1} 名称`}
+                        aria-label={t("orders2b1.quote.itemName", { index: index + 1 })}
                         value={row.name}
                         disabled={!canPrepareQuote || isPending}
                         maxLength={120}
-                        placeholder="例如：更换电池"
+                        placeholder={t("orders2b1.quote.itemPlaceholder")}
                         className="h-9 text-base md:text-sm"
                         onChange={(event) =>
                           patchRow(setRows, row.id, {
@@ -245,11 +249,11 @@ export function DiagnosisQuoteDialog({
                         }
                       />
                       <Input
-                        aria-label={`报价项目 ${index + 1} 备注`}
+                        aria-label={t("orders2b1.quote.itemNote", { index: index + 1 })}
                         value={row.note}
                         disabled={!canPrepareQuote || isPending}
                         maxLength={500}
-                        placeholder="备注（可选）"
+                        placeholder={t("orders2b1.quote.notePlaceholder")}
                         className="h-8 text-base md:text-xs"
                         onChange={(event) =>
                           patchRow(setRows, row.id, { note: event.target.value })
@@ -257,7 +261,7 @@ export function DiagnosisQuoteDialog({
                       />
                     </div>
                     <MoneyKeypadInput
-                      ariaLabel={`报价项目 ${index + 1} 金额`}
+                      ariaLabel={t("orders2b1.quote.itemAmount", { index: index + 1 })}
                       value={row.priceText}
                       disabled={!canPrepareQuote || isPending}
                       onChange={(priceText) => patchRow(setRows, row.id, { priceText })}
@@ -267,7 +271,7 @@ export function DiagnosisQuoteDialog({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      aria-label={`删除报价项目 ${index + 1}`}
+                      aria-label={t("orders2b1.quote.deleteItem", { index: index + 1 })}
                       disabled={!canPrepareQuote || isPending || rows.length <= 1}
                       onClick={() =>
                         setRows((current) => current.filter((item) => item.id !== row.id))
@@ -282,7 +286,7 @@ export function DiagnosisQuoteDialog({
               {canPrepareQuote && hasZeroPrice ? (
                 <div className="mt-3 grid gap-2 rounded-lg border border-status-warn-foreground/20 bg-status-warn/60 p-2 sm:grid-cols-[12rem_minmax(0,1fr)]">
                   <div className="space-y-1">
-                    <Label className="text-xs">零元类型</Label>
+                    <Label className="text-xs">{t("orders2b1.quote.zeroType")}</Label>
                     <Select
                       value={exceptionKind}
                       disabled={isPending}
@@ -291,25 +295,27 @@ export function DiagnosisQuoteDialog({
                       }
                     >
                       <SelectTrigger className="h-9 bg-card text-xs">
-                        <SelectValue placeholder="请选择" />
+                        <SelectValue placeholder={t("orders2b1.quote.choose")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="free">免费处理</SelectItem>
-                        <SelectItem value="warranty">保修处理</SelectItem>
-                        <SelectItem value="diagnostic_only">仅检测</SelectItem>
+                        <SelectItem value="free">{t("orders2b1.quote.free")}</SelectItem>
+                        <SelectItem value="warranty">{t("orders2b1.quote.warranty")}</SelectItem>
+                        <SelectItem value="diagnostic_only">
+                          {t("orders2b1.quote.diagnosticOnly")}
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="quote-price-exception-reason" className="text-xs">
-                      原因
+                      {t("orders2b1.quote.reason")}
                     </Label>
                     <Input
                       id="quote-price-exception-reason"
                       value={exceptionReason}
                       disabled={isPending}
                       maxLength={1000}
-                      placeholder="至少 4 个字符"
+                      placeholder={t("orders2b1.quote.reasonPlaceholder")}
                       className="h-9 bg-card text-base md:text-sm"
                       onChange={(event) => setExceptionReason(event.target.value)}
                     />
@@ -318,10 +324,10 @@ export function DiagnosisQuoteDialog({
               ) : null}
 
               <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-[var(--surface-panel-muted)] p-2 text-center">
-                <QuoteMetric label="报价" value={readiness.quotationAmount} />
-                <QuoteMetric label="现有定金" value={order.deposit_amount} />
+                <QuoteMetric label={t("orders2b1.quote.total")} value={readiness.quotationAmount} />
+                <QuoteMetric label={t("orders2b1.quote.deposit")} value={order.deposit_amount} />
                 <QuoteMetric
-                  label="预计尾款"
+                  label={t("orders2b1.quote.balance")}
                   value={Math.max(0, readiness.quotationAmount - order.deposit_amount)}
                 />
               </div>
@@ -340,11 +346,11 @@ export function DiagnosisQuoteDialog({
             {localError ||
               (canPrepareQuote
                 ? readiness.ready
-                  ? "检测与报价已完整，可以发布正式报价。"
-                  : readiness.missing.map(quoteReadinessLabel).join("；")
+                  ? t("orders2b1.quote.ready")
+                  : readiness.missing.map((code) => localizeQuoteReadinessLabel(code, t)).join("; ")
                 : diagnosis.trim()
-                  ? "检测结论可以保存并交接。"
-                  : "请先填写检测结论。")}
+                  ? t("orders2b1.quote.diagnosisReady")
+                  : t("orders2b1.quote.diagnosisRequired"))}
           </div>
         </div>
 
@@ -355,14 +361,18 @@ export function DiagnosisQuoteDialog({
             disabled={isPending}
             onClick={() => onOpenChange(false)}
           >
-            取消
+            {t("common.cancel")}
           </Button>
           <Button
             type="button"
             disabled={isPending || !canEditDiagnosis || (canPrepareQuote && !readiness.ready)}
             onClick={() => void submit()}
           >
-            {isPending ? "保存中…" : canPrepareQuote ? "发布正式报价" : "保存检测结论"}
+            {isPending
+              ? t("orders2b1.quote.saving")
+              : canPrepareQuote
+                ? t("orders2b1.quote.publish")
+                : t("orders2b1.quote.saveDiagnosis")}
           </Button>
         </DialogFooter>
       </DialogContent>

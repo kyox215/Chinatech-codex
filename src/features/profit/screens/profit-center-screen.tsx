@@ -1,6 +1,6 @@
 "use client";
 
-import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CalendarDays,
@@ -12,7 +12,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   CartesianGrid,
   Legend,
@@ -39,6 +39,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { profitCenterQueryOptions } from "@/features/profit/api/query-options";
+import { storesKeys } from "@/features/stores/api/query-keys";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { exportCostReport, isRepairDeskAuthorizationError } from "@/lib/repairdesk/api";
 import type {
@@ -46,15 +47,18 @@ import type {
   ProfitBreakdownItem,
   ProfitOrderDrilldownItem,
   ProfitPeriodSummary,
+  StoreContext,
 } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
 import { buildOrderDetailWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
 import { RepairOsListScaffold } from "@/shared/ui";
 import { useLocale } from "@/shared/i18n/locale-provider";
+import { getProfitCenterCopy, type ProfitCenterCopy } from "@/shared/i18n/messages";
 
 const FALLBACK_TIMEZONE = "Europe/Rome";
 
-function localDate(date: Date, timeZone = FALLBACK_TIMEZONE) {
+export function localDate(date: Date, timeZone = FALLBACK_TIMEZONE) {
+  if (Number.isNaN(date.getTime())) return "";
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
@@ -65,11 +69,45 @@ function localDate(date: Date, timeZone = FALLBACK_TIMEZONE) {
   return `${value.year}-${value.month}-${value.day}`;
 }
 
-function defaultRange(): ProfitCenterInput {
-  const end = new Date();
-  const start = new Date(end);
-  start.setUTCDate(start.getUTCDate() - 29);
-  return { start_date: localDate(start), end_date: localDate(end) };
+export function defaultRange(now = new Date()): ProfitCenterInput {
+  const end = localDate(now);
+  if (!end) return { start_date: "", end_date: "" };
+  const [year, month, day] = end.split("-").map(Number);
+  const start = new Date(Date.UTC(year, month - 1, day - 29, 12));
+  return { start_date: localDate(start, "UTC"), end_date: end };
+}
+
+function formatCopy(template: string, values: Record<string, string | number>) {
+  return template.replace(/\{(\w+)\}/g, (match, name: string) =>
+    values[name] === undefined ? match : String(values[name]),
+  );
+}
+
+function useDesktopProfitLayout() {
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      const query = window.matchMedia("(min-width: 1024px)");
+      query.addEventListener("change", onStoreChange);
+      return () => query.removeEventListener("change", onStoreChange);
+    },
+    () => window.matchMedia("(min-width: 1024px)").matches,
+    () => false,
+  );
+}
+
+interface ProfitExportRequest {
+  operationId: number;
+  storeId: string;
+  membershipId?: string;
+  role?: string;
+  membershipStatus?: string;
+  authorityEpoch: number;
+  authorityKey: string;
+  input: {
+    expected_store_id: string;
+    start_date: string;
+    end_date: string;
+  };
 }
 
 function percent(numerator: number, denominator: number) {
@@ -104,44 +142,58 @@ function ProfitMetric({
 function PeriodCards({
   expected,
   completed,
+  copy,
 }: {
   expected: ProfitPeriodSummary;
   completed: ProfitPeriodSummary;
+  copy: ProfitCenterCopy;
 }) {
   return (
     <div className="grid min-w-0 grid-cols-2 gap-2.5 lg:grid-cols-4">
       <ProfitMetric
-        label="预计维修毛利"
+        label={copy.expectedMargin}
         value={<MoneyText amount={expected.exact_margin_amount} />}
-        detail={`${expected.exact_order_count} 单成本完整 · ${expected.incomplete_order_count} 单待补成本`}
+        detail={formatCopy(copy.completeOrdersDetail, {
+          complete: expected.exact_order_count,
+          pending: expected.incomplete_order_count,
+        })}
         warning={expected.exact_margin_amount < 0}
       />
       <ProfitMetric
-        label="已完工报价毛利"
+        label={copy.completedMargin}
         value={<MoneyText amount={completed.exact_margin_amount} />}
-        detail={`${completed.exact_order_count} 单成本完整 · 按交付日期`}
+        detail={formatCopy(copy.completedOrdersDetail, { complete: completed.exact_order_count })}
         warning={completed.exact_margin_amount < 0}
       />
       <ProfitMetric
-        label="已知成本"
+        label={copy.knownCost}
         value={<MoneyText amount={expected.known_cost_amount} />}
-        detail={`覆盖率 ${percent(expected.exact_order_count, expected.eligible_order_count)} · 未知不按 0 计算`}
+        detail={formatCopy(copy.coverageDetail, {
+          coverage: percent(expected.exact_order_count, expected.eligible_order_count),
+        })}
       />
       <ProfitMetric
-        label="完整成本订单"
+        label={copy.completeCostOrders}
         value={percent(expected.exact_order_count, expected.eligible_order_count)}
-        detail={`${expected.estimated_order_count} 单含估算 · ${expected.negative_margin_order_count} 单负毛利`}
+        detail={formatCopy(copy.estimateDetail, {
+          estimated: expected.estimated_order_count,
+          negative: expected.negative_margin_order_count,
+        })}
         warning={expected.negative_margin_order_count > 0}
       />
     </div>
   );
 }
 
-function ProfitTrend({ data }: { data: Array<Record<string, string | number>> }) {
+function ProfitTrend({
+  data,
+  copy,
+}: {
+  data: Array<Record<string, string | number>>;
+  copy: ProfitCenterCopy;
+}) {
   if (data.length === 0) {
-    return (
-      <p className="py-10 text-center text-sm text-muted-foreground">当前日期范围暂无趋势数据。</p>
-    );
+    return <p className="py-10 text-center text-sm text-muted-foreground">{copy.trendEmpty}</p>;
   }
   return (
     <>
@@ -154,11 +206,13 @@ function ProfitTrend({ data }: { data: Array<Record<string, string | number>> })
             <Tooltip
               formatter={(value, name) => [
                 typeof value === "number" ? `€${value.toFixed(2)}` : value,
-                name === "expected" ? "预计维修毛利" : "已完工报价毛利",
+                name === "expected" ? copy.expectedMargin : copy.completedMargin,
               ]}
             />
             <Legend
-              formatter={(value) => (value === "expected" ? "预计维修毛利" : "已完工报价毛利")}
+              formatter={(value) =>
+                value === "expected" ? copy.expectedMargin : copy.completedMargin
+              }
             />
             <Line
               type="monotone"
@@ -180,14 +234,16 @@ function ProfitTrend({ data }: { data: Array<Record<string, string | number>> })
         </ResponsiveContainer>
       </div>
       <details className="mt-2 rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-xs">
-        <summary className="cursor-pointer font-medium">查看趋势数据表</summary>
+        <summary className="min-h-11 cursor-pointer py-3 font-medium">
+          {copy.trendTableSummary}
+        </summary>
         <div className="mt-2 max-h-64 overflow-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>日期</TableHead>
-                <TableHead className="text-right">预计毛利</TableHead>
-                <TableHead className="text-right">完工毛利</TableHead>
+                <TableHead>{copy.date}</TableHead>
+                <TableHead className="text-right">{copy.expectedMarginShort}</TableHead>
+                <TableHead className="text-right">{copy.completedMarginShort}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -210,12 +266,18 @@ function ProfitTrend({ data }: { data: Array<Record<string, string | number>> })
   );
 }
 
-function CompletenessBadge({ order }: { order: ProfitOrderDrilldownItem }) {
+function CompletenessBadge({
+  order,
+  copy,
+}: {
+  order: ProfitOrderDrilldownItem;
+  copy: ProfitCenterCopy;
+}) {
   if (order.cost_completeness === "incomplete") {
     return (
       <Badge variant="outline" className="gap-1">
         <CircleHelp className="size-3" />
-        成本不完整
+        {copy.incompleteCost}
       </Badge>
     );
   }
@@ -223,34 +285,137 @@ function CompletenessBadge({ order }: { order: ProfitOrderDrilldownItem }) {
     return (
       <Badge variant="secondary" className="gap-1">
         <AlertTriangle className="size-3" />
-        含估算
+        {copy.estimatedCost}
       </Badge>
     );
   }
   return (
     <Badge variant="outline" className="gap-1">
       <CheckCircle2 className="size-3" />
-      已确认
+      {copy.confirmedCost}
     </Badge>
   );
 }
 
-function OrderDrilldown({ orders }: { orders: ProfitOrderDrilldownItem[] }) {
+function OrderBadges({ order, copy }: { order: ProfitOrderDrilldownItem; copy: ProfitCenterCopy }) {
+  return (
+    <div className="mt-1 flex flex-wrap gap-1">
+      {order.is_refunded ? <Badge variant="destructive">{copy.refundedExcluded}</Badge> : null}
+      {order.is_rework ? <Badge variant="secondary">{copy.rework}</Badge> : null}
+    </div>
+  );
+}
+
+function CurrencyCosts({
+  order,
+  copy,
+}: {
+  order: ProfitOrderDrilldownItem;
+  copy: ProfitCenterCopy;
+}) {
+  if (!order.currency_costs?.length) return null;
+  return (
+    <details className="mt-1.5 text-[11px] leading-4 text-muted-foreground">
+      <summary className="flex min-h-11 cursor-pointer items-center">
+        {formatCopy(copy.originalCurrencySnapshot, { count: order.currency_costs.length })}
+      </summary>
+      <div className="mt-1 space-y-1 rounded-lg bg-muted/30 p-2">
+        {order.currency_costs.map((cost) => (
+          <p className="break-words" key={cost.line_id}>
+            <span className="font-medium text-foreground">{cost.line_name}</span>
+            {" · "}
+            <span className="font-mono">
+              {cost.original_amount.toFixed(2)} {cost.original_currency_code} ×{" "}
+              {cost.fx_rate_to_eur} = €{cost.cost_amount_eur.toFixed(2)}
+            </span>
+          </p>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function OrderDrilldown({
+  orders,
+  copy,
+  isDesktop,
+}: {
+  orders: ProfitOrderDrilldownItem[];
+  copy: ProfitCenterCopy;
+  isDesktop: boolean;
+}) {
   if (orders.length === 0) {
+    return <p className="py-10 text-center text-sm text-muted-foreground">{copy.ordersEmpty}</p>;
+  }
+  if (!isDesktop) {
     return (
-      <p className="py-10 text-center text-sm text-muted-foreground">当前日期范围暂无维修工单。</p>
+      <div className="space-y-2" data-layout="mobile-cards">
+        {orders.map((order) => (
+          <article className="min-w-0 rounded-xl border border-border/70 p-3" key={order.order_id}>
+            <div className="flex min-w-0 items-start justify-between gap-2">
+              <div className="min-w-0">
+                <Link
+                  className="inline-flex min-h-11 items-center font-mono text-sm font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  href={buildOrderDetailWorkspaceHref(order.order_id, { source: "profit" })}
+                >
+                  {order.public_no}
+                </Link>
+                <OrderBadges order={order} copy={copy} />
+              </div>
+              <CompletenessBadge order={order} copy={copy} />
+            </div>
+            <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+              <div>
+                <dt className="text-muted-foreground">{copy.quote}</dt>
+                <dd className="mt-0.5 font-medium">
+                  <MoneyText amount={order.quote_amount} />
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">{copy.knownCost}</dt>
+                <dd className="mt-0.5 font-medium">
+                  <MoneyText amount={order.known_cost_amount} />
+                </dd>
+              </div>
+              <div className="col-span-2">
+                <dt className="text-muted-foreground">{copy.quoteMargin}</dt>
+                <dd
+                  className={cn(
+                    "mt-0.5 font-medium",
+                    order.quote_gross_margin !== null &&
+                      order.quote_gross_margin < 0 &&
+                      "text-destructive",
+                  )}
+                >
+                  {order.quote_gross_margin === null ? (
+                    copy.pendingCost
+                  ) : (
+                    <>
+                      <MoneyText amount={order.quote_gross_margin} />{" "}
+                      <span className="text-muted-foreground">
+                        {order.quote_gross_margin_percent?.toFixed(1)}%
+                      </span>
+                    </>
+                  )}
+                </dd>
+              </div>
+            </dl>
+            <CurrencyCosts order={order} copy={copy} />
+          </article>
+        ))}
+      </div>
     );
   }
   return (
-    <div className="min-w-0 overflow-hidden rounded-xl border border-border/70">
+    <div className="min-w-0 rounded-xl border border-border/70" data-layout="desktop-table">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>工单</TableHead>
-            <TableHead>成本证据</TableHead>
-            <TableHead className="text-right">报价</TableHead>
-            <TableHead className="text-right">已知成本</TableHead>
-            <TableHead className="text-right">报价毛利</TableHead>
+            <TableHead>{copy.order}</TableHead>
+            <TableHead>{copy.costEvidence}</TableHead>
+            <TableHead className="text-right">{copy.quote}</TableHead>
+            <TableHead className="text-right">{copy.knownCost}</TableHead>
+            <TableHead className="text-right">{copy.quoteMargin}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -258,39 +423,16 @@ function OrderDrilldown({ orders }: { orders: ProfitOrderDrilldownItem[] }) {
             <TableRow key={order.order_id}>
               <TableCell>
                 <Link
-                  className="font-mono text-xs font-semibold text-primary hover:underline"
+                  className="inline-flex min-h-11 items-center font-mono text-xs font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   href={buildOrderDetailWorkspaceHref(order.order_id, { source: "profit" })}
                 >
                   {order.public_no}
                 </Link>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {order.is_refunded ? (
-                    <Badge variant="destructive">已退款 · 汇总排除</Badge>
-                  ) : null}
-                  {order.is_rework ? <Badge variant="secondary">返修</Badge> : null}
-                </div>
+                <OrderBadges order={order} copy={copy} />
               </TableCell>
               <TableCell>
-                <CompletenessBadge order={order} />
-                {order.currency_costs?.length ? (
-                  <details className="mt-1.5 text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                    <summary className="cursor-pointer">
-                      原币成本快照 {order.currency_costs.length} 项
-                    </summary>
-                    <div className="mt-1 space-y-1 rounded-lg bg-muted/30 p-2">
-                      {order.currency_costs.map((cost) => (
-                        <p key={cost.line_id}>
-                          <span className="font-medium text-foreground">{cost.line_name}</span>
-                          {" · "}
-                          <span className="font-mono">
-                            {cost.original_amount.toFixed(2)} {cost.original_currency_code} ×{" "}
-                            {cost.fx_rate_to_eur} = €{cost.cost_amount_eur.toFixed(2)}
-                          </span>
-                        </p>
-                      ))}
-                    </div>
-                  </details>
-                ) : null}
+                <CompletenessBadge order={order} copy={copy} />
+                <CurrencyCosts order={order} copy={copy} />
               </TableCell>
               <TableCell className="text-right">
                 <MoneyText amount={order.quote_amount} />
@@ -307,7 +449,7 @@ function OrderDrilldown({ orders }: { orders: ProfitOrderDrilldownItem[] }) {
                 )}
               >
                 {order.quote_gross_margin === null ? (
-                  <span className="text-xs text-muted-foreground">待补成本</span>
+                  <span className="text-xs text-muted-foreground">{copy.pendingCost}</span>
                 ) : (
                   <>
                     <MoneyText amount={order.quote_gross_margin} />
@@ -325,18 +467,71 @@ function OrderDrilldown({ orders }: { orders: ProfitOrderDrilldownItem[] }) {
   );
 }
 
-function BreakdownTable({ items, empty }: { items: ProfitBreakdownItem[]; empty: string }) {
+function BreakdownTable({
+  items,
+  empty,
+  copy,
+  isDesktop,
+}: {
+  items: ProfitBreakdownItem[];
+  empty: string;
+  copy: ProfitCenterCopy;
+  isDesktop: boolean;
+}) {
   if (items.length === 0)
     return <p className="py-6 text-center text-xs text-muted-foreground">{empty}</p>;
+  if (!isDesktop) {
+    return (
+      <div className="space-y-2 p-2" data-layout="mobile-cards">
+        {items.map((item) => (
+          <article className="min-w-0 rounded-lg border border-border/60 p-3" key={item.key}>
+            <p className="break-words text-sm font-medium">{item.label}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {formatCopy(copy.ordersCount, { count: item.order_count })}
+            </p>
+            <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <dt className="text-muted-foreground">{copy.quote}</dt>
+                <dd className="mt-0.5 font-medium">
+                  <MoneyText amount={item.quote_amount} />
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">{copy.knownCost}</dt>
+                <dd className="mt-0.5 font-medium">
+                  <MoneyText amount={item.known_cost_amount} />
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">{copy.exactLineMargin}</dt>
+                <dd
+                  className={cn(
+                    "mt-0.5 font-medium",
+                    item.exact_margin_amount < 0 && "text-destructive",
+                  )}
+                >
+                  <MoneyText amount={item.exact_margin_amount} />
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">{copy.pending}</dt>
+                <dd className="mt-0.5 font-medium">{item.incomplete_line_count}</dd>
+              </div>
+            </dl>
+          </article>
+        ))}
+      </div>
+    );
+  }
   return (
-    <Table>
+    <Table data-layout="desktop-table">
       <TableHeader>
         <TableRow>
-          <TableHead>分组</TableHead>
-          <TableHead className="text-right">报价</TableHead>
-          <TableHead className="text-right">已知成本</TableHead>
-          <TableHead className="text-right">完整行毛利</TableHead>
-          <TableHead className="text-right">待补</TableHead>
+          <TableHead>{copy.group}</TableHead>
+          <TableHead className="text-right">{copy.quote}</TableHead>
+          <TableHead className="text-right">{copy.knownCost}</TableHead>
+          <TableHead className="text-right">{copy.exactLineMargin}</TableHead>
+          <TableHead className="text-right">{copy.pending}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -345,7 +540,7 @@ function BreakdownTable({ items, empty }: { items: ProfitBreakdownItem[]; empty:
             <TableCell>
               <span className="font-medium">{item.label}</span>
               <span className="ml-1 text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                {item.order_count} 单
+                {formatCopy(copy.ordersCount, { count: item.order_count })}
               </span>
             </TableCell>
             <TableCell className="text-right">
@@ -367,9 +562,9 @@ function BreakdownTable({ items, empty }: { items: ProfitBreakdownItem[]; empty:
   );
 }
 
-function ProfitLoading() {
+function ProfitLoading({ label }: { label: string }) {
   return (
-    <div className="space-y-3" aria-label="正在读取维修毛利">
+    <div className="space-y-3" aria-label={label} role="status">
       <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         {Array.from({ length: 4 }, (_, index) => (
           <Skeleton key={index} className="h-28 rounded-2xl" />
@@ -382,42 +577,202 @@ function ProfitLoading() {
 }
 
 export function ProfitCenterScreen() {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
+  const copy = getProfitCenterCopy(locale);
+  const queryClient = useQueryClient();
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
   const canRead = shell.permissions?.canReadRepairProfitReports === true;
   const canExport = shell.permissions?.canExportRepairCosts === true;
+  const cachedStoreContext = queryClient.getQueryData<StoreContext>(storesKeys.context);
+  const cachedIdentityMatches = Boolean(
+    activeStoreId &&
+    cachedStoreContext?.activeStore?.id === activeStoreId &&
+    cachedStoreContext.activeStore.membershipId === shell.activeStore?.membershipId &&
+    cachedStoreContext.activeStore.role === shell.activeStore?.role &&
+    cachedStoreContext.activeStore.status === shell.activeStore?.status,
+  );
+  const hasLiveReadAuthority = Boolean(
+    cachedIdentityMatches && cachedStoreContext?.permissions?.canReadRepairProfitReports === true,
+  );
+  const hasLiveExportAuthority = Boolean(
+    hasLiveReadAuthority && cachedStoreContext?.permissions?.canExportRepairCosts === true,
+  );
+  const isDesktop = useDesktopProfitLayout();
   const initialRange = useMemo(defaultRange, []);
   const [draft, setDraft] = useState(initialRange);
   const [range, setRange] = useState(initialRange);
   const [trendMode, setTrendMode] = useState<"daily" | "monthly">("daily");
-  const [exportNotice, setExportNotice] = useState<string>();
+  const [exportNotice, setExportNotice] = useState<{
+    authorityKey: string;
+    kind: "success" | "failure";
+    fileName?: string;
+  }>();
+  const endDateRef = useRef<HTMLInputElement>(null);
+  const mountedRef = useRef(false);
+  const exportLockRef = useRef<number | null>(null);
+  const operationSequenceRef = useRef(0);
+  const authorityKey = [
+    shell.authorityFingerprint,
+    activeStoreId ?? "no-store",
+    shell.activeStore?.membershipId ?? "no-membership",
+    shell.activeStore?.role ?? "no-role",
+    shell.activeStore?.status ?? "no-status",
+    canRead ? "read" : "no-read",
+    canExport ? "export" : "no-export",
+  ].join("|");
+  const authorityRef = useRef({
+    key: authorityKey,
+    epoch: 0,
+    storeId: activeStoreId,
+    canRead,
+    canExport,
+  });
+  if (authorityRef.current.key !== authorityKey) {
+    authorityRef.current = {
+      key: authorityKey,
+      epoch: authorityRef.current.epoch + 1,
+      storeId: activeStoreId,
+      canRead,
+      canExport,
+    };
+    exportLockRef.current = null;
+  }
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      authorityRef.current = {
+        ...authorityRef.current,
+        epoch: authorityRef.current.epoch + 1,
+      };
+      exportLockRef.current = null;
+    };
+  }, []);
+
+  function isCurrentExportAuthority(request: ProfitExportRequest) {
+    const current = authorityRef.current;
+    if (
+      !mountedRef.current ||
+      current.key !== request.authorityKey ||
+      current.epoch !== request.authorityEpoch ||
+      current.storeId !== request.storeId ||
+      !current.canRead ||
+      !current.canExport
+    ) {
+      return false;
+    }
+    const cached = queryClient.getQueryData<StoreContext>(storesKeys.context);
+    return Boolean(
+      cached?.activeStore?.id === request.storeId &&
+      cached.activeStore.membershipId === request.membershipId &&
+      cached.activeStore.role === request.role &&
+      cached.activeStore.status === request.membershipStatus &&
+      cached.permissions?.canReadRepairProfitReports === true &&
+      cached.permissions?.canExportRepairCosts === true,
+    );
+  }
+
   const rangeInvalid = draft.end_date < draft.start_date;
+  useEffect(() => {
+    if (rangeInvalid) endDateRef.current?.focus();
+  }, [rangeInvalid]);
   const query = useQuery({
     ...profitCenterQueryOptions(range, activeStoreId),
-    enabled: Boolean(activeStoreId && canRead),
-    placeholderData: keepPreviousData,
+    enabled: Boolean(activeStoreId && canRead && hasLiveReadAuthority && !shell.isLoading),
     refetchOnWindowFocus: false,
   });
   const exportMutation = useMutation({
-    mutationFn: () => {
-      if (!activeStoreId) throw new Error("缺少当前店铺");
-      return exportCostReport({
-        expected_store_id: activeStoreId,
-        start_date: range.start_date,
-        end_date: range.end_date,
+    mutationFn: async (request: ProfitExportRequest) => {
+      if (!isCurrentExportAuthority(request)) throw new Error("stale-profit-export-authority");
+      const result = await exportCostReport(request.input);
+      if (!isCurrentExportAuthority(request)) throw new Error("stale-profit-export-authority");
+      return { request, result };
+    },
+    onSuccess: ({ request, result }) => {
+      if (!isCurrentExportAuthority(request)) return;
+      downloadBlob(result.blob, result.fileName);
+      setExportNotice({
+        authorityKey: request.authorityKey,
+        kind: "success",
+        fileName: result.fileName,
       });
     },
-    onSuccess: ({ blob, fileName }) => {
-      downloadBlob(blob, fileName);
-      setExportNotice(`${fileName} 已生成并开始下载。`);
+    onError: (_error, request) => {
+      if (!isCurrentExportAuthority(request)) return;
+      setExportNotice({ authorityKey: request.authorityKey, kind: "failure" });
     },
-    onError: (error) => {
-      setExportNotice(error instanceof Error ? error.message : "生成成本导出失败");
+    onSettled: (_data, _error, request) => {
+      if (exportLockRef.current === request.operationId) exportLockRef.current = null;
     },
   });
 
-  if (!shell.isLoading && !canRead) {
+  function handleExport() {
+    if (
+      exportLockRef.current !== null ||
+      !activeStoreId ||
+      !canRead ||
+      !canExport ||
+      !hasLiveExportAuthority
+    )
+      return;
+    const operationId = ++operationSequenceRef.current;
+    exportLockRef.current = operationId;
+    exportMutation.mutate({
+      operationId,
+      storeId: activeStoreId,
+      membershipId: shell.activeStore?.membershipId,
+      role: shell.activeStore?.role,
+      membershipStatus: shell.activeStore?.status,
+      authorityEpoch: authorityRef.current.epoch,
+      authorityKey: authorityRef.current.key,
+      input: {
+        expected_store_id: activeStoreId,
+        start_date: range.start_date,
+        end_date: range.end_date,
+      },
+    });
+  }
+
+  function handleRefresh() {
+    const current = authorityRef.current;
+    const cached = queryClient.getQueryData<StoreContext>(storesKeys.context);
+    const allowed = Boolean(
+      mountedRef.current &&
+      current.key === authorityKey &&
+      current.storeId === activeStoreId &&
+      current.canRead &&
+      activeStoreId &&
+      cached?.activeStore?.id === activeStoreId &&
+      cached.activeStore.membershipId === shell.activeStore?.membershipId &&
+      cached.activeStore.role === shell.activeStore?.role &&
+      cached.activeStore.status === shell.activeStore?.status &&
+      cached.permissions?.canReadRepairProfitReports === true,
+    );
+    if (!allowed) return;
+    void query.refetch();
+  }
+
+  if (!shell.isLoading && !activeStoreId) {
+    return (
+      <RepairOsListScaffold
+        title={t("profit.title")}
+        subtitle={copy.noStoreDescription}
+        eyebrow={t("page.workspaceFinance")}
+      >
+        <Card className="mx-auto max-w-xl rounded-2xl">
+          <CardContent className="p-3 text-center sm:p-6">
+            <WalletCards className="mx-auto size-8 text-muted-foreground" />
+            <h2 className="mt-3 font-semibold">{copy.noStoreTitle}</h2>
+            <p className="mt-2 text-sm text-muted-foreground">{copy.noStoreDescription}</p>
+          </CardContent>
+        </Card>
+      </RepairOsListScaffold>
+    );
+  }
+
+  if (!shell.isLoading && (!canRead || !hasLiveReadAuthority)) {
     return (
       <RepairOsListScaffold
         title={t("profit.title")}
@@ -429,7 +784,7 @@ export function ProfitCenterScreen() {
             <WalletCards className="mx-auto size-8 text-muted-foreground" />
             <h2 className="mt-3 font-semibold">{t("profit.restrictedTitle")}</h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              成本、毛利、趋势及订单级财务数据均未向当前账号请求或展示。
+              {copy.restrictedDescription}
             </p>
           </CardContent>
         </Card>
@@ -437,8 +792,8 @@ export function ProfitCenterScreen() {
     );
   }
 
-  const hardError = query.isError && !query.data;
-  const authorizationLost = hardError && isRepairDeskAuthorizationError(query.error);
+  const authorizationLost = query.isError && isRepairDeskAuthorizationError(query.error);
+  const hardError = authorizationLost || (query.isError && !query.data);
   const trend = (() => {
     const daily = query.data?.trend ?? [];
     if (trendMode === "daily") {
@@ -458,52 +813,82 @@ export function ProfitCenterScreen() {
     });
     return [...monthly.values()];
   })();
+  const financeActions = (
+    <div className="flex items-center gap-2">
+      {canExport && hasLiveExportAuthority ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExport}
+          disabled={exportLockRef.current !== null || exportMutation.isPending || !activeStoreId}
+        >
+          <Download className="mr-1.5 size-3.5" />
+          {exportMutation.isPending ? copy.exportInProgress : copy.exportCsv}
+        </Button>
+      ) : null}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleRefresh}
+        disabled={query.isFetching || !canRead}
+      >
+        <RefreshCw className={cn("mr-1.5 size-3.5", query.isFetching && "animate-spin")} />
+        {copy.refresh}
+      </Button>
+    </div>
+  );
+  const financeMobileActions = (
+    <div className="flex items-center gap-1">
+      {canExport && hasLiveExportAuthority ? (
+        <Button
+          variant="outline"
+          size="icon"
+          className="min-h-11 min-w-11"
+          aria-label={exportMutation.isPending ? copy.exportInProgress : copy.exportCsv}
+          onClick={handleExport}
+          disabled={exportLockRef.current !== null || exportMutation.isPending || !activeStoreId}
+        >
+          <Download className="size-4" />
+        </Button>
+      ) : null}
+      <Button
+        variant="outline"
+        size="icon"
+        className="min-h-11 min-w-11"
+        aria-label={copy.refresh}
+        onClick={handleRefresh}
+        disabled={query.isFetching || !canRead}
+      >
+        <RefreshCw className={cn("size-4", query.isFetching && "animate-spin")} />
+      </Button>
+    </div>
+  );
 
   return (
     <RepairOsListScaffold
       title={t("profit.title")}
       subtitle={query.isFetching ? t("profit.updating") : `${range.start_date} – ${range.end_date}`}
       eyebrow={t("page.workspaceFinance")}
-      desktopAction={
-        <div className="flex items-center gap-2">
-          {canExport ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => exportMutation.mutate()}
-              disabled={exportMutation.isPending || !activeStoreId}
-            >
-              <Download className="mr-1.5 size-3.5" />
-              {exportMutation.isPending ? "正在导出" : "导出成本 CSV"}
-            </Button>
-          ) : null}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void query.refetch()}
-            disabled={query.isFetching || !canRead}
-          >
-            <RefreshCw className={cn("mr-1.5 size-3.5", query.isFetching && "animate-spin")} />
-            刷新
-          </Button>
-        </div>
-      }
+      action={financeMobileActions}
+      desktopAction={financeActions}
     >
       <div className="min-w-0 space-y-2 sm:space-y-3">
-        {exportNotice ? (
+        {exportNotice?.authorityKey === authorityKey ? (
           <p
             className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2 text-xs"
             role="status"
           >
-            {exportNotice}
+            {exportNotice.kind === "success"
+              ? formatCopy(copy.exportSuccess, { fileName: exportNotice.fileName ?? "" })
+              : copy.exportFailed}
           </p>
         ) : null}
         <Card className="rounded-2xl border-border/70">
           <CardContent className="flex flex-col gap-2 p-2.5 sm:flex-row sm:items-end sm:gap-3 sm:p-4">
             <label className="min-w-0 flex-1 text-xs font-medium text-muted-foreground">
-              开始日期
+              {copy.startDate}
               <Input
-                className="mt-1.5"
+                className="mt-1.5 min-h-11 lg:min-h-0"
                 type="date"
                 value={draft.start_date}
                 onChange={(event) =>
@@ -512,88 +897,107 @@ export function ProfitCenterScreen() {
               />
             </label>
             <label className="min-w-0 flex-1 text-xs font-medium text-muted-foreground">
-              结束日期
+              {copy.endDate}
               <Input
-                className="mt-1.5"
+                ref={endDateRef}
+                className="mt-1.5 min-h-11 lg:min-h-0"
                 type="date"
                 value={draft.end_date}
+                aria-invalid={rangeInvalid || undefined}
+                aria-describedby={rangeInvalid ? "profit-date-range-error" : undefined}
                 onChange={(event) =>
                   setDraft((current) => ({ ...current, end_date: event.target.value }))
                 }
               />
             </label>
             <Button
+              className="min-h-11 lg:min-h-0"
               disabled={rangeInvalid || !draft.start_date || !draft.end_date || query.isFetching}
               onClick={() => setRange(draft)}
             >
               <CalendarDays className="mr-1.5 size-4" />
-              应用日期
+              {copy.applyDate}
             </Button>
           </CardContent>
           {rangeInvalid ? (
-            <p className="px-4 pb-3 text-xs text-destructive">结束日期不能早于开始日期。</p>
+            <p
+              id="profit-date-range-error"
+              className="px-4 pb-3 text-xs text-destructive"
+              role="alert"
+            >
+              {copy.rangeInvalid}
+            </p>
           ) : null}
         </Card>
 
-        {shell.isLoading || (query.isLoading && !query.data) ? <ProfitLoading /> : null}
+        {shell.isLoading || (query.isLoading && !query.data) ? (
+          <ProfitLoading label={copy.loadingAria} />
+        ) : null}
 
         {hardError ? (
           <Card className="rounded-2xl border-destructive/30">
             <CardContent className="p-3 text-center sm:p-6">
               <AlertTriangle className="mx-auto size-7 text-destructive" />
               <h2 className="mt-3 font-semibold">
-                {authorizationLost ? "利润查看权限已失效" : "维修毛利读取失败"}
+                {authorizationLost ? copy.authorizationLostTitle : copy.readFailedTitle}
               </h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                {authorizationLost
-                  ? "页面已停止请求，请联系店主重新分配权限。"
-                  : "没有展示不完整的财务汇总，请稍后重试。"}
+                {authorizationLost ? copy.authorizationLostDescription : copy.readFailedDescription}
               </p>
               {!authorizationLost ? (
-                <Button className="mt-4" variant="outline" onClick={() => void query.refetch()}>
-                  重试
+                <Button className="mt-4" variant="outline" onClick={handleRefresh}>
+                  {copy.retry}
                 </Button>
               ) : null}
             </CardContent>
           </Card>
         ) : null}
 
-        {query.data ? (
+        {query.isError && query.data && !authorizationLost ? (
+          <p
+            className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2 text-xs"
+            role="status"
+          >
+            {copy.refreshFailed}
+          </p>
+        ) : null}
+
+        {query.data && !authorizationLost && activeStoreId && hasLiveReadAuthority ? (
           <>
             <div className="rounded-2xl border border-border/70 bg-muted/30 px-2.5 py-2 text-[11px] leading-4 text-muted-foreground sm:px-3.5 sm:py-3 sm:text-xs sm:leading-5 lg:text-[13px]">
-              按含税最终报价计算的经营毛利，不是会计净利润；收款参考未扣退款。退款订单不进入报价毛利汇总，未知成本不会按
-              0 计算。
+              {copy.methodology}
             </div>
             <PeriodCards
               expected={query.data.summary.expected}
               completed={query.data.summary.completed}
+              copy={copy}
             />
 
             <Card className="rounded-2xl border-border/70">
               <CardHeader className="p-3 pb-1.5 sm:p-4 sm:pb-2">
-                <CardTitle className="text-sm">数据质量与收款参考</CardTitle>
+                <CardTitle className="text-sm">{copy.dataQualityTitle}</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-1.5 p-3 pt-1.5 text-xs sm:gap-2 sm:p-4 sm:pt-2 sm:text-sm lg:grid-cols-4">
                 <div>
-                  <p className="text-xs text-muted-foreground">未知成本行</p>
+                  <p className="text-xs text-muted-foreground">{copy.unknownCostLines}</p>
                   <p className="mt-1 font-semibold">
                     {query.data.summary.data_quality.unknown_line_count}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">退款订单</p>
+                  <p className="text-xs text-muted-foreground">{copy.refundedOrders}</p>
                   <p className="mt-1 font-semibold">
                     {query.data.summary.data_quality.refunded_order_count}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">返修订单</p>
+                  <p className="text-xs text-muted-foreground">{copy.reworkOrders}</p>
                   <p className="mt-1 font-semibold">
                     {query.data.summary.data_quality.rework_order_count}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">收款参考（未扣退款）</p>
+                  <p className="text-xs text-muted-foreground">{copy.collectionReference}</p>
                   <p className="mt-1 font-semibold">
                     <MoneyText amount={query.data.summary.collection_reference.amount} />
                   </p>
@@ -604,7 +1008,7 @@ export function ProfitCenterScreen() {
             <Card className="min-w-0 rounded-2xl border-border/70">
               <CardHeader className="flex-row items-center justify-between gap-2 p-3 pb-1.5 sm:gap-3 sm:p-4 sm:pb-2">
                 <CardTitle className="text-sm">
-                  {trendMode === "daily" ? "每日毛利趋势" : "每月毛利趋势"}
+                  {trendMode === "daily" ? copy.dailyTrend : copy.monthlyTrend}
                 </CardTitle>
                 <div className="flex rounded-lg border border-border/70 bg-muted/30 p-0.5">
                   <Button
@@ -614,7 +1018,7 @@ export function ProfitCenterScreen() {
                     className="min-h-11 px-2 text-xs lg:h-7 lg:min-h-0 lg:px-2.5"
                     onClick={() => setTrendMode("daily")}
                   >
-                    按日
+                    {copy.daily}
                   </Button>
                   <Button
                     type="button"
@@ -623,34 +1027,41 @@ export function ProfitCenterScreen() {
                     className="min-h-11 px-2 text-xs lg:h-7 lg:min-h-0 lg:px-2.5"
                     onClick={() => setTrendMode("monthly")}
                   >
-                    按月
+                    {copy.monthly}
                   </Button>
                 </div>
               </CardHeader>
               <CardContent className="min-w-0 p-3 pt-1.5 sm:p-4 sm:pt-2">
-                <ProfitTrend data={trend} />
+                <ProfitTrend data={trend} copy={copy} />
               </CardContent>
             </Card>
 
             {query.data.breakdowns ? (
               <Card className="min-w-0 rounded-2xl border-border/70">
                 <CardHeader className="p-3 pb-1.5 sm:p-4 sm:pb-2">
-                  <CardTitle className="text-sm">维修类别与供应商毛利拆分</CardTitle>
+                  <CardTitle className="text-sm">{copy.breakdownTitle}</CardTitle>
                 </CardHeader>
                 <CardContent className="grid min-w-0 gap-2.5 p-3 pt-1.5 sm:gap-4 sm:p-4 sm:pt-2 xl:grid-cols-2">
-                  <div className="min-w-0 overflow-auto rounded-xl border border-border/70">
+                  <div className="min-w-0 rounded-xl border border-border/70">
                     <p className="border-b border-border/60 px-3 py-2 text-xs font-semibold">
-                      按维修类别
+                      {copy.byCategory}
                     </p>
-                    <BreakdownTable items={query.data.breakdowns.categories} empty="暂无类别数据" />
+                    <BreakdownTable
+                      items={query.data.breakdowns.categories}
+                      empty={copy.noCategory}
+                      copy={copy}
+                      isDesktop={isDesktop}
+                    />
                   </div>
-                  <div className="min-w-0 overflow-auto rounded-xl border border-border/70">
+                  <div className="min-w-0 rounded-xl border border-border/70">
                     <p className="border-b border-border/60 px-3 py-2 text-xs font-semibold">
-                      按采购供应商
+                      {copy.bySupplier}
                     </p>
                     <BreakdownTable
                       items={query.data.breakdowns.suppliers}
-                      empty="暂无供应商关联数据"
+                      empty={copy.noSupplier}
+                      copy={copy}
+                      isDesktop={isDesktop}
                     />
                   </div>
                 </CardContent>
@@ -660,17 +1071,19 @@ export function ProfitCenterScreen() {
             <Card className="min-w-0 rounded-2xl border-border/70">
               <CardHeader className="p-3 pb-1.5 sm:p-4 sm:pb-2">
                 <CardTitle className="flex items-center justify-between gap-2 text-sm">
-                  <span>订单级核对</span>
+                  <span>{copy.orderReview}</span>
                   {query.data.summary.expected.negative_margin_order_count > 0 ? (
                     <Badge variant="destructive" className="gap-1">
                       <TrendingDown className="size-3" />
-                      {query.data.summary.expected.negative_margin_order_count} 单负毛利
+                      {formatCopy(copy.negativeMarginOrders, {
+                        count: query.data.summary.expected.negative_margin_order_count,
+                      })}
                     </Badge>
                   ) : null}
                 </CardTitle>
               </CardHeader>
               <CardContent className="min-w-0 p-3 pt-1.5 sm:p-4 sm:pt-2">
-                <OrderDrilldown orders={query.data.orders} />
+                <OrderDrilldown orders={query.data.orders} copy={copy} isDesktop={isDesktop} />
               </CardContent>
             </Card>
           </>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { getAiAssistantPresentationCopy } from "@/shared/i18n/messages";
 
 export type AiAssistantVoiceSupport = "checking" | "supported" | "unsupported";
 export type AiAssistantVoicePhase =
@@ -83,6 +85,8 @@ export function useAiAssistantVoiceInput({
   disabled = false,
   lang,
 }: UseAiAssistantVoiceInputOptions): AiAssistantVoiceInputController {
+  const { locale } = useLocale();
+  const copy = getAiAssistantPresentationCopy(locale);
   const [support, setSupport] = useState<AiAssistantVoiceSupport>("checking");
   const [phase, setPhaseState] = useState<AiAssistantVoicePhase>("idle");
   const [message, setMessage] = useState<string>();
@@ -145,7 +149,7 @@ export function useAiAssistantVoiceInput({
     if (!SpeechRecognition) {
       setSupport("unsupported");
       setPhase("error");
-      setMessage("当前浏览器不支持语音输入，请使用键盘输入。");
+      setMessage(copy.voiceUnsupportedHint);
       return;
     }
 
@@ -165,7 +169,7 @@ export function useAiAssistantVoiceInput({
     recognition.onstart = () => {
       if (recognitionRef.current !== recognition) return;
       setPhase("listening");
-      setMessage("正在听…说完后点击麦克风停止。");
+      setMessage(copy.voiceListening);
     };
 
     recognition.onresult = (event) => {
@@ -184,7 +188,7 @@ export function useAiAssistantVoiceInput({
       if (event.error === "aborted" && ignoreEndRef.current) return;
       errorRef.current = true;
       setPhase("error");
-      setMessage(toVoiceErrorMessage(event.error));
+      setMessage(toVoiceErrorMessage(event.error, copy));
     };
 
     recognition.onend = () => {
@@ -199,26 +203,26 @@ export function useAiAssistantVoiceInput({
 
       setPhase("idle");
       if (truncatedRef.current) {
-        setMessage(`语音已填入，内容已按 ${maxLength} 字上限截断，请检查后发送。`);
+        setMessage(copy.voiceTruncated.replace("{max}", String(maxLength)));
       } else if (receivedTranscriptRef.current) {
-        setMessage("语音已填入，可编辑后再发送。");
+        setMessage(copy.voiceFilled);
       } else {
-        setMessage("没有听清内容，请重试或使用键盘输入。");
+        setMessage(copy.voiceNoSpeech);
       }
     };
 
     setSupport("supported");
     setPhase("requesting_permission");
-    setMessage("正在请求麦克风权限…");
+    setMessage(copy.voiceRequesting);
     try {
       recognition.start();
     } catch {
       recognitionRef.current = undefined;
       detachRecognitionHandlers(recognition);
       setPhase("error");
-      setMessage("暂时无法启动语音输入，请重试或使用键盘输入。");
+      setMessage(copy.voiceStartFailed);
     }
-  }, [disabled, lang, maxLength, onValueChange, setPhase, value]);
+  }, [copy, disabled, lang, maxLength, onValueChange, setPhase, value]);
 
   const stop = useCallback(() => {
     const recognition = recognitionRef.current;
@@ -234,22 +238,22 @@ export function useAiAssistantVoiceInput({
         // The browser may have closed the permission request already.
       }
       setPhase("idle");
-      setMessage("已取消语音输入。");
+      setMessage(copy.voiceCancelled);
       return;
     }
 
     if (phaseRef.current !== "listening") return;
     setPhase("processing");
-    setMessage("正在整理语音文字…");
+    setMessage(copy.voiceFormatting);
     try {
       recognition.stop();
     } catch {
       recognitionRef.current = undefined;
       detachRecognitionHandlers(recognition);
       setPhase("error");
-      setMessage("暂时无法完成语音输入，请重试或使用键盘输入。");
+      setMessage(copy.voiceFinishFailed);
     }
-  }, [setPhase]);
+  }, [copy, setPhase]);
 
   const toggle = useCallback(() => {
     if (phaseRef.current === "requesting_permission" || phaseRef.current === "listening") {
@@ -310,21 +314,24 @@ function collectTranscript(results: BrowserSpeechRecognitionResultList) {
   return transcript;
 }
 
-function toVoiceErrorMessage(errorCode: string) {
+function toVoiceErrorMessage(
+  errorCode: string,
+  copy: ReturnType<typeof getAiAssistantPresentationCopy>,
+) {
   switch (errorCode) {
     case "not-allowed":
     case "service-not-allowed":
-      return "未获得麦克风或语音服务权限，请在浏览器设置中允许麦克风，并确认 Siri/听写已开启。";
+      return copy.voicePermission;
     case "no-speech":
-      return "没有听清内容，请重试或使用键盘输入。";
+      return copy.voiceNoSpeech;
     case "audio-capture":
-      return "无法使用麦克风，请检查系统权限或麦克风是否被其他应用占用。";
+      return copy.voiceCapture;
     case "network":
-      return "浏览器语音服务暂时不可用，请重试或使用键盘输入。";
+      return copy.voiceNetwork;
     case "language-not-supported":
-      return "当前语音服务不支持页面语言，请使用键盘输入。";
+      return copy.voiceLanguage;
     default:
-      return "语音输入暂时不可用，请重试或使用键盘输入。";
+      return copy.voiceGeneric;
   }
 }
 

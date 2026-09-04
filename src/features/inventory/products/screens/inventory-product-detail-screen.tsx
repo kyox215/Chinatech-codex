@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 import { inventoryLifecycleSummaryQueryOptions } from "@/features/inventory/lifecycle/api/query-options";
 import { InventoryInspectionEditor } from "@/features/inventory/lifecycle/forms/inventory-inspection-editor";
@@ -17,6 +18,7 @@ import { inventoryProductDetailQueryOptions } from "../api/query-options";
 import { InventoryProductDetailWorkbench } from "../components/inventory-product-detail-workbench";
 
 export function InventoryProductDetailScreen({ id }: { id: string }) {
+  const { t } = useLocale();
   const router = useRouter();
   const shell = useStoreShellContext();
   const storeId = shell.activeStore?.id;
@@ -46,11 +48,11 @@ export function InventoryProductDetailScreen({ id }: { id: string }) {
   ) {
     return (
       <DetailMessage
-        title="无法查看商品"
+        title={t("inventory2b4.detail.unavailableTitle")}
         body={
           shell.permissions?.canReadInventory
-            ? "当前门店尚未启用新版商品库存。"
-            : "当前账号没有商品库存查看权限。"
+            ? t("inventory2b4.detail.featureOff")
+            : t("inventory2b4.detail.noAccess")
         }
         onBack={() => router.push("/inventory")}
       />
@@ -59,8 +61,8 @@ export function InventoryProductDetailScreen({ id }: { id: string }) {
   if (query.isError || !query.data) {
     return (
       <DetailMessage
-        title="商品详情加载失败"
-        body="商品可能不存在，或当前网络暂时不可用。"
+        title={t("inventory2b4.detail.errorTitle")}
+        body={t("inventory2b4.detail.errorBody")}
         onBack={() => router.push("/inventory")}
         action={
           <Button
@@ -70,7 +72,7 @@ export function InventoryProductDetailScreen({ id }: { id: string }) {
             onClick={() => void query.refetch()}
           >
             <RefreshCw className="mr-2 size-4" aria-hidden="true" />
-            重试
+            {t("inventory2b4.detail.retry")}
           </Button>
         }
       />
@@ -132,9 +134,10 @@ export function InventoryProductDetailScreen({ id }: { id: string }) {
 }
 
 function DetailSkeleton() {
+  const { t } = useLocale();
   return (
     <div className={cn(repairOs.mobileFloatingPage, "mx-auto w-full max-w-5xl")} aria-busy="true">
-      <span className="sr-only">正在加载商品详情</span>
+      <span className="sr-only">{t("inventory2b4.detail.loading")}</span>
       <Skeleton className="mb-3 h-24 rounded-3xl" />
       <div className="grid gap-3 lg:grid-cols-2">
         <Skeleton className="h-64 rounded-2xl" />
@@ -155,6 +158,7 @@ function DetailMessage({
   onBack: () => void;
   action?: React.ReactNode;
 }) {
+  const { t } = useLocale();
   return (
     <div className={cn(repairOs.mobileFloatingPage, "grid min-h-[55dvh] place-items-center p-4")}>
       <section className={cn(repairOs.mobileInfoCard, "max-w-sm p-6 text-center")} role="alert">
@@ -163,7 +167,7 @@ function DetailMessage({
         <p className="mt-2 text-sm text-muted-foreground">{body}</p>
         <div className="mt-4 flex flex-wrap justify-center gap-2">
           <Button type="button" variant="outline" className="min-h-11" onClick={onBack}>
-            返回商品库存
+            {t("inventory2b4.detail.back")}
           </Button>
           {action}
         </div>

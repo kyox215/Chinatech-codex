@@ -26,8 +26,15 @@ import {
 } from "@/components/ui/sheet";
 
 import type { StorePurgeManagerState } from "./store-purge-manager-state";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { translateSettingsOperations } from "@/shared/i18n/messages";
 
 export function StorePurgeConfirmationSurface({ state }: { state: StorePurgeManagerState }) {
+  const { locale } = useLocale();
+  const copy = (
+    source: Parameters<typeof translateSettingsOperations>[1],
+    values?: Record<string, string | number>,
+  ) => translateSettingsOperations(locale, source, values);
   const isMobile = useIsMobile();
   const {
     store,
@@ -56,18 +63,22 @@ export function StorePurgeConfirmationSurface({ state }: { state: StorePurgeMana
       <div className="rounded-xl border border-status-danger-foreground/25 bg-status-danger/10 p-3 text-xs leading-5">
         <p className="flex items-center gap-2 font-semibold">
           <ShieldAlert className="size-4" aria-hidden="true" />
-          核对删除目标
+          {copy("核对删除目标")}
         </p>
-        <p className="mt-2">店铺：{store.name}</p>
+        <p className="mt-2">{copy("店铺：{store}", { store: store.name })}</p>
         <p className="break-all font-mono">UUID：{store.id}</p>
         <p className="mt-1 text-muted-foreground">
-          安全预检：
-          {preflight ? (preflight.state === "eligible" ? "已通过" : "存在阻塞") : "正在检查…"}
+          {copy("安全预检：")}
+          {preflight
+            ? preflight.state === "eligible"
+              ? copy("已通过")
+              : copy("存在阻塞")
+            : copy("正在检查…")}
         </p>
       </div>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
-          <Label htmlFor={`purge-phrase-${store.id}`}>请逐字输入以下提示词</Label>
+          <Label htmlFor={`purge-phrase-${store.id}`}>{copy("请逐字输入以下提示词")}</Label>
           <Button
             type="button"
             size="sm"
@@ -75,10 +86,10 @@ export function StorePurgeConfirmationSurface({ state }: { state: StorePurgeMana
             className="min-h-9 shrink-0 gap-1.5 px-2"
             disabled={isActionLocked}
             onClick={() => void copyPhrase()}
-            aria-label="复制删除确认提示词"
+            aria-label={copy("复制删除确认提示词")}
           >
             <Copy className="size-3.5" aria-hidden="true" />
-            {phraseCopied ? "已复制" : "复制提示词"}
+            {phraseCopied ? copy("已复制") : copy("复制提示词")}
           </Button>
         </div>
         <p className="break-words rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 font-mono text-sm font-semibold">
@@ -98,16 +109,16 @@ export function StorePurgeConfirmationSurface({ state }: { state: StorePurgeMana
         />
         {phraseMismatch ? (
           <p role="alert" className="text-[11px] leading-4 text-status-danger-foreground">
-            提示词不匹配，请按上方内容逐字输入，保留大小写和空格。
+            {copy("提示词不匹配，请按上方内容逐字输入，保留大小写和空格。")}
           </p>
         ) : null}
         <p className="text-[11px] leading-4 text-muted-foreground">
-          区分大小写和空格，不会自动修正前后空格。提示词仅用于本次操作确认。
+          {copy("区分大小写和空格，不会自动修正前后空格。提示词仅用于本次操作确认。")}
         </p>
       </div>
       {requiresTotp ? (
         <div className="space-y-1.5">
-          <Label htmlFor={`purge-totp-${store.id}`}>身份验证器中的 6 位安全验证码</Label>
+          <Label htmlFor={`purge-totp-${store.id}`}>{copy("身份验证器中的 6 位安全验证码")}</Label>
           <Input
             id={`purge-totp-${store.id}`}
             value={totpCode}
@@ -127,10 +138,10 @@ export function StorePurgeConfirmationSurface({ state }: { state: StorePurgeMana
           disabled={isActionLocked}
           onChange={(event) => setAcknowledged(event.target.checked)}
         />
-        <span>我确认目标 UUID 正确，并理解后台开始清除后数据无法恢复。</span>
+        <span>{copy("我确认目标 UUID 正确，并理解后台开始清除后数据无法恢复。")}</span>
       </label>
       <p role="status" aria-live="polite" className="sr-only">
-        {phraseCopied ? "删除确认提示词已复制" : ""}
+        {phraseCopied ? copy("删除确认提示词已复制") : ""}
       </p>
     </div>
   );
@@ -143,7 +154,7 @@ export function StorePurgeConfirmationSurface({ state }: { state: StorePurgeMana
         disabled={isActionLocked}
         onClick={() => setOpen(false)}
       >
-        返回
+        {copy("返回")}
       </Button>
       <Button
         type="button"
@@ -152,15 +163,19 @@ export function StorePurgeConfirmationSurface({ state }: { state: StorePurgeMana
         disabled={!ready}
         onClick={() => submitMutation.mutate()}
       >
-        {isActionPending ? "正在提交…" : mode === "request" ? "建立删除申请" : "确认永久删除"}
+        {isActionPending
+          ? copy("正在提交…")
+          : mode === "request"
+            ? copy("建立删除申请")
+            : copy("确认永久删除")}
       </Button>
     </>
   );
-  const title = mode === "request" ? "申请永久删除店铺" : "最终确认永久删除";
+  const title = mode === "request" ? copy("申请永久删除店铺") : copy("最终确认永久删除");
   const description =
     mode === "request"
-      ? "申请后至少等待 24 小时，期间可以取消。系统还会完成加密备份和恢复验证。"
-      : "这是不可逆确认。后台开始清除后将无法恢复店铺、订单、客户、库存和附件。";
+      ? copy("申请后至少等待 24 小时，期间可以取消。系统还会完成加密备份和恢复验证。")
+      : copy("这是不可逆确认。后台开始清除后将无法恢复店铺、订单、客户、库存和附件。");
 
   return isMobile ? (
     <Sheet
@@ -172,7 +187,7 @@ export function StorePurgeConfirmationSurface({ state }: { state: StorePurgeMana
       <SheetContent
         data-testid="purge-confirmation-sheet"
         side="bottom"
-        closeLabel="关闭删除确认窗口"
+        closeLabel={copy("关闭删除确认窗口")}
         className={cn(
           componentOverlay.bottomSheet,
           "flex h-[min(92dvh,52rem)] flex-col gap-0 px-4",
@@ -204,6 +219,7 @@ export function StorePurgeConfirmationSurface({ state }: { state: StorePurgeMana
       <DialogContent
         data-testid="purge-confirmation-dialog"
         className={componentOverlay.modalSm}
+        closeLabel={copy("关闭")}
         showCloseButton={!isActionLocked}
         onEscapeKeyDown={(event) => {
           if (isActionLocked) event.preventDefault();

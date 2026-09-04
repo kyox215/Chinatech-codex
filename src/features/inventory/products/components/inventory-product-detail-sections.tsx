@@ -15,8 +15,16 @@ import {
 import type { InventoryProductDetail } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
-import { MoneyText } from "@/components/orders/badges";
 import { InventoryInfoTile } from "@/features/inventory/components/inventory-ui-primitives";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey, MessageValues } from "@/shared/i18n/messages";
+import {
+  formatInventoryProductDate,
+  formatInventoryProductMoney,
+  localizeInventoryIdentifierKind,
+} from "../model/inventory-product-i18n";
+
+type Translate = (key: MessageKey, values?: MessageValues) => string;
 
 export interface ProductSummaryField {
   label: string;
@@ -49,6 +57,7 @@ export function ProductHeroCard({
   statusClassName: string;
   summaryFields: ProductSummaryField[];
 }) {
+  const { locale, t } = useLocale();
   const [imageFailed, setImageFailed] = useState(false);
   const thumbnailUrl = safeInventoryProductThumbnailUrl(item.thumbnail_url);
 
@@ -71,7 +80,9 @@ export function ProductHeroCard({
           ) : (
             <Icon className="size-7" strokeWidth={1.5} aria-hidden="true" />
           )}
-          {(!thumbnailUrl || imageFailed) && <span className="sr-only">暂无商品图片</span>}
+          {(!thumbnailUrl || imageFailed) && (
+            <span className="sr-only">{t("inventory2b4.detail.noImage")}</span>
+          )}
         </span>
         <div className="min-w-0 flex-1">
           <span
@@ -101,13 +112,16 @@ export function ProductHeroCard({
         ))}
       </div>
       <p className="mt-1.5 text-[10px] leading-3 text-muted-foreground">
-        更新于 {formatCompactDate(item.updated_at)}
+        {t("inventory2b4.detail.updatedAt", {
+          date: formatInventoryProductDate(item.updated_at, locale, t),
+        })}
       </p>
     </section>
   );
 }
 
 export function DeviceWorkbenchSection({ fields }: { fields: WorkbenchField[] }) {
+  const { t } = useLocale();
   return (
     <section
       data-ui="inventory-device-workbench"
@@ -117,11 +131,11 @@ export function DeviceWorkbenchSection({ fields }: { fields: WorkbenchField[] })
       <SectionTitle
         icon={Boxes}
         id="inventory-device-workbench-title"
-        title="设备工作台"
-        trailing={`${fields.length} 项核心资料`}
+        title={t("inventory2b4.detail.deviceWorkbench")}
+        trailing={t("inventory2b4.detail.coreFacts", { count: fields.length })}
       />
       <p className="mt-1 text-[10px] leading-3 text-muted-foreground">
-        关键规格集中展示，未填写的项目会保留提示。
+        {t("inventory2b4.detail.deviceWorkbenchHelp")}
       </p>
       <div className="mt-1.5 grid min-w-0 grid-cols-2 gap-1.5 sm:grid-cols-3">
         {fields.map((field) => (
@@ -133,21 +147,40 @@ export function DeviceWorkbenchSection({ fields }: { fields: WorkbenchField[] })
 }
 
 export function ProductBusinessSection({ item }: { item: InventoryProductDetail }) {
+  const { locale, t } = useLocale();
   const fields: ProductSummaryField[] = [
     {
-      label: "售价",
-      value: item.list_price === undefined ? "未定价" : <MoneyText amount={item.list_price} />,
+      label: t("inventory2b4.detail.listPrice"),
+      value:
+        item.list_price === undefined
+          ? t("inventory2b4.detail.unpriced")
+          : formatInventoryProductMoney(item.list_price, locale, t),
     },
-    { label: "库位", value: item.location?.trim() || "未设置库位" },
     {
-      label: "保修",
-      value: item.warranty_months === undefined ? "未录入" : `${item.warranty_months} 个月`,
+      label: t("inventory2b4.detail.location"),
+      value: item.location?.trim() ? item.location : t("inventory2b4.detail.locationUnset"),
     },
-    { label: "创建", value: formatCompactDate(item.created_at) },
-    { label: "更新", value: formatCompactDate(item.updated_at) },
+    {
+      label: t("inventory2b4.detail.warranty"),
+      value:
+        item.warranty_months === undefined
+          ? t("inventory2b4.detail.notEntered")
+          : t("inventory2b4.detail.months", { count: item.warranty_months }),
+    },
+    {
+      label: t("inventory2b4.detail.created"),
+      value: formatInventoryProductDate(item.created_at, locale, t),
+    },
+    {
+      label: t("inventory2b4.detail.updated"),
+      value: formatInventoryProductDate(item.updated_at, locale, t),
+    },
   ];
   if (item.cost_amount !== undefined) {
-    fields.splice(1, 0, { label: "成本", value: <MoneyText amount={item.cost_amount} /> });
+    fields.splice(1, 0, {
+      label: t("inventory2b4.detail.cost"),
+      value: formatInventoryProductMoney(item.cost_amount, locale, t),
+    });
   }
 
   return (
@@ -156,7 +189,11 @@ export function ProductBusinessSection({ item }: { item: InventoryProductDetail 
       className={cn(repairOs.mobileInfoCard, "p-2 sm:p-3")}
       aria-labelledby="inventory-product-business-title"
     >
-      <SectionTitle icon={ShieldCheck} id="inventory-product-business-title" title="经营信息" />
+      <SectionTitle
+        icon={ShieldCheck}
+        id="inventory-product-business-title"
+        title={t("inventory2b4.detail.business")}
+      />
       <div className="mt-1.5 grid min-w-0 grid-cols-2 gap-1.5 sm:grid-cols-3">
         {fields.map((field) => (
           <InventoryInfoTile
@@ -180,6 +217,7 @@ export function DeviceIdentitySection({
   gtin?: string;
   specifications?: Record<string, string>;
 }) {
+  const { t } = useLocale();
   const specificationEntries = Object.entries(specifications ?? {}).filter(([, value]) =>
     Boolean(value?.trim()),
   );
@@ -196,14 +234,16 @@ export function DeviceIdentitySection({
           <Barcode className="size-3.5" aria-hidden="true" />
         </span>
         <span role="heading" aria-level={3} className="min-w-0 truncate text-sm font-semibold">
-          设备身份
+          {t("inventory2b4.detail.identity")}
         </span>
-        <span className="shrink-0 text-[10px] text-muted-foreground">完整规格</span>
+        <span className="shrink-0 text-[10px] text-muted-foreground">
+          {t("inventory2b4.detail.fullSpecifications")}
+        </span>
         <span className="ml-auto shrink-0 text-[10px] text-muted-foreground group-open:hidden">
-          展开
+          {t("inventory2b4.detail.expand")}
         </span>
         <span className="ml-auto hidden shrink-0 text-[10px] text-muted-foreground group-open:inline">
-          收起
+          {t("inventory2b4.detail.collapse")}
         </span>
       </summary>
       <div className="mt-1.5 grid min-w-0 grid-cols-2 gap-1.5">
@@ -211,7 +251,7 @@ export function DeviceIdentitySection({
           <InventoryInfoTile
             key={identifier.kind}
             frame="bordered"
-            label={identifierLabel(identifier.kind)}
+            label={identifierLabel(identifier.kind, t)}
             value={identifier.masked_value}
             valueClassName="break-all font-mono font-semibold"
           />
@@ -229,7 +269,7 @@ export function DeviceIdentitySection({
           <InventoryInfoTile
             key={key}
             frame="bordered"
-            label={specificationLabel(key)}
+            label={specificationLabel(key, t)}
             value={value}
             valueClassName="break-words font-semibold"
           />
@@ -240,35 +280,55 @@ export function DeviceIdentitySection({
 }
 
 export function ProductNotesSection({ notes }: { notes?: string }) {
+  const { t } = useLocale();
   return (
     <section
       data-ui="inventory-product-notes"
       className={cn(repairOs.mobileInfoCard, "p-2 sm:p-3")}
       aria-labelledby="inventory-product-notes-title"
     >
-      <SectionTitle icon={PackageOpen} id="inventory-product-notes-title" title="备注" />
+      <SectionTitle
+        icon={PackageOpen}
+        id="inventory-product-notes-title"
+        title={t("inventory2b4.detail.notes")}
+      />
       <p className="mt-1.5 whitespace-pre-wrap break-words text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-        {notes?.trim() || "暂无备注。编辑商品时可补充检测结果、配件或售后说明。"}
+        {notes?.trim() ? notes : t("inventory2b4.detail.notesEmpty")}
       </p>
     </section>
   );
 }
 
-export function buildWorkbenchFields(item: InventoryProductDetail): WorkbenchField[] {
+export function buildWorkbenchFields(item: InventoryProductDetail, t: Translate): WorkbenchField[] {
   const networkValue = firstSpecificationValue(item.specifications, [
     "network_variant",
     "connectivity",
     "network",
   ]);
   const fields: WorkbenchField[] = [
-    { id: "storage", label: "存储", value: item.storage_capacity, icon: HardDrive },
-    { id: "ram", label: "内存", value: item.ram_capacity, icon: Cpu },
-    { id: "color", label: "颜色", value: item.color, icon: Palette },
-    { id: "condition", label: "成色", value: item.condition, icon: Sparkles },
-    { id: "network", label: "网络 / 版本", value: networkValue, icon: RadioTower },
+    {
+      id: "storage",
+      label: t("inventory2b4.detail.storage"),
+      value: item.storage_capacity,
+      icon: HardDrive,
+    },
+    { id: "ram", label: t("inventory2b4.detail.ram"), value: item.ram_capacity, icon: Cpu },
+    { id: "color", label: t("inventory2b4.detail.color"), value: item.color, icon: Palette },
+    {
+      id: "condition",
+      label: t("inventory2b4.detail.condition"),
+      value: item.condition,
+      icon: Sparkles,
+    },
+    {
+      id: "network",
+      label: t("inventory2b4.detail.networkVersion"),
+      value: networkValue,
+      icon: RadioTower,
+    },
   ].map((field) => ({
     ...field,
-    value: field.value?.trim() || "未录入",
+    value: field.value?.trim() ? field.value : t("inventory2b4.detail.notEntered"),
     isMissing: !field.value?.trim(),
   }));
   return fields;
@@ -327,30 +387,29 @@ function WorkbenchTile({ icon: Icon, label, value, isMissing }: WorkbenchField) 
   );
 }
 
-function identifierLabel(kind: string) {
-  return (
-    { imei1: "IMEI 1", imei2: "IMEI 2", serial: "序列号", eid: "EID", identifier: "设备标识" }[
-      kind
-    ] ?? kind
-  );
+function identifierLabel(kind: string, t: Translate) {
+  return kind === "identifier"
+    ? t("inventory2b4.detail.identifier")
+    : localizeInventoryIdentifierKind(kind, kind, t);
 }
 
-function specificationLabel(key: string) {
-  return (
-    {
-      network_variant: "网络版本",
-      connectivity: "联网版本",
-      network: "网络",
-      screen_size_inches: "屏幕尺寸",
-      processor: "处理器",
-      disk_type: "硬盘类型",
-      graphics: "显卡",
-      edition: "版本",
-      region: "区域",
-      included_controller_count: "手柄数",
-      short_specification: "简短规格",
-    }[key] ?? key
-  );
+const specificationKeys: Record<string, MessageKey> = {
+  network_variant: "inventory2b4.detail.spec.networkVariant",
+  connectivity: "inventory2b4.detail.spec.connectivity",
+  network: "inventory2b4.detail.spec.network",
+  screen_size_inches: "inventory2b4.detail.spec.screenSize",
+  processor: "inventory2b4.detail.spec.processor",
+  disk_type: "inventory2b4.detail.spec.diskType",
+  graphics: "inventory2b4.detail.spec.graphics",
+  edition: "inventory2b4.detail.spec.edition",
+  region: "inventory2b4.detail.spec.region",
+  included_controller_count: "inventory2b4.detail.spec.controllerCount",
+  short_specification: "inventory2b4.detail.spec.short",
+};
+
+function specificationLabel(key: string, t: Translate) {
+  const messageKey = specificationKeys[key];
+  return messageKey ? t(messageKey) : key;
 }
 
 function firstSpecificationValue(
@@ -362,16 +421,6 @@ function firstSpecificationValue(
     if (value) return value;
   }
   return undefined;
-}
-
-function formatCompactDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "未记录";
-  return new Intl.DateTimeFormat("zh-CN", {
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: "Europe/Rome",
-  }).format(date);
 }
 
 function safeInventoryProductThumbnailUrl(value: string | undefined) {

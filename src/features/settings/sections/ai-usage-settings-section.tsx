@@ -12,6 +12,8 @@ import {
   formatAiUsageMicroUsd,
 } from "@/features/ai-assistant/model/usage-format";
 import { RepairOsBusinessCard, RepairOsSectionHeader } from "@/shared/ui";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { translateSettingsOperations } from "@/shared/i18n/messages";
 
 export interface AiUsageSettingsSectionProps {
   usage?: AiAssistantUsageSummary;
@@ -26,60 +28,78 @@ export function AiUsageSettingsSection({
   isError,
   onRetry,
 }: AiUsageSettingsSectionProps) {
+  const { locale } = useLocale();
+  const copy = createCopy(locale);
   return (
     <section data-ai-usage-settings="true" className="space-y-3">
       <RepairOsBusinessCard as="div" className="block px-3 py-3 sm:px-4">
         <RepairOsSectionHeader
           icon={Sparkles}
           iconFrame={false}
-          title="AI 使用量"
-          description="只读统计当前门店的大模型请求、Token 与美元费用估算。"
+          title={copy("AI 使用量")}
+          description={copy("只读统计当前门店的大模型请求、Token 与美元费用估算。")}
         />
         <p className="mt-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-          “本地处理”不调用大模型，因此不会计入这里的请求、Token 或费用。
+          {copy("“本地处理”不调用大模型，因此不会计入这里的请求、Token 或费用。")}
         </p>
       </RepairOsBusinessCard>
 
-      {isLoading ? <UsageLoadingState /> : null}
-      {isError ? <UsageErrorState onRetry={onRetry} /> : null}
-      {!isLoading && !isError && usage ? <UsageContent usage={usage} /> : null}
+      {isLoading ? <UsageLoadingState copy={copy} /> : null}
+      {isError ? <UsageErrorState onRetry={onRetry} copy={copy} /> : null}
+      {!isLoading && !isError && usage ? (
+        <UsageContent usage={usage} locale={locale} copy={copy} />
+      ) : null}
     </section>
   );
 }
 
-function UsageContent({ usage }: { usage: AiAssistantUsageSummary }) {
+function UsageContent({
+  usage,
+  locale,
+  copy,
+}: {
+  usage: AiAssistantUsageSummary;
+  locale: "zh-CN" | "it-IT" | "en";
+  copy: Copy;
+}) {
   const hasUsage = usage.last_30_days.provider_request_count > 0;
   return (
     <>
       {!hasUsage ? (
         <div className="rounded-xl border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-4 py-5 text-center">
           <DatabaseZap className="mx-auto size-5 text-muted-foreground" aria-hidden="true" />
-          <p className="mt-2 text-sm font-semibold">最近 30 天尚无大模型用量</p>
+          <p className="mt-2 text-sm font-semibold">{copy("最近 30 天尚无大模型用量")}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            选择“大模型辅助”并完成请求后，用量会显示在这里。
+            {copy("选择“大模型辅助”并完成请求后，用量会显示在这里。")}
           </p>
         </div>
       ) : null}
 
-      <UsagePeriodCard title="今天" metric={usage.today} />
-      <UsagePeriodCard title="最近 30 天" metric={usage.last_30_days} />
+      <UsagePeriodCard title={copy("今天")} metric={usage.today} copy={copy} />
+      <UsagePeriodCard title={copy("最近 30 天")} metric={usage.last_30_days} copy={copy} />
 
       <RepairOsBusinessCard as="div" className="block px-3 py-3 sm:px-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold">今日分类</h3>
+            <h3 className="text-sm font-semibold">{copy("今日分类")}</h3>
             <p className="mt-0.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-              每类请求使用独立的门店每日上限。
+              {copy("每类请求使用独立的门店每日上限。")}
             </p>
           </div>
           <Clock3 className="mt-0.5 size-4 text-muted-foreground" aria-hidden="true" />
         </div>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <UsageKindRow icon={Bot} label="工单文字理解" metric={usage.today_by_kind.order_text} />
+          <UsageKindRow
+            icon={Bot}
+            label={copy("工单文字理解")}
+            metric={usage.today_by_kind.order_text}
+            copy={copy}
+          />
           <UsageKindRow
             icon={Camera}
-            label="库存图片识别"
+            label={copy("库存图片识别")}
             metric={usage.today_by_kind.inventory_vision}
+            copy={copy}
           />
         </div>
       </RepairOsBusinessCard>
@@ -89,20 +109,33 @@ function UsageContent({ usage }: { usage: AiAssistantUsageSummary }) {
           role="status"
           className="rounded-xl border border-status-warn-foreground/25 bg-status-warn/30 px-3 py-2 text-xs text-status-warn-foreground"
         >
-          当前有 {formatAiUsageMicroUsd(usage.today.reserved_cost_microusd)}{" "}
-          预留费用尚待结算；已与上方估算费用分开。
+          {copy("当前有 {cost} 预留费用尚待结算；已与上方估算费用分开。", {
+            cost: formatAiUsageMicroUsd(usage.today.reserved_cost_microusd),
+          })}
         </div>
       ) : null}
 
       <p className="px-1 text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
-        更新时间：{formatDateTime(usage.generated_at, usage.timezone)} · Token
-        来自模型响应的用量字段；费用按当前 RepairDesk 价格策略估算，并非最终账单。
+        {copy(
+          "更新时间：{time} · Token 来自模型响应的用量字段；费用按当前 RepairDesk 价格策略估算，并非最终账单。",
+          {
+            time: formatDateTime(usage.generated_at, locale),
+          },
+        )}
       </p>
     </>
   );
 }
 
-function UsagePeriodCard({ title, metric }: { title: string; metric: AiAssistantUsageMetric }) {
+function UsagePeriodCard({
+  title,
+  metric,
+  copy,
+}: {
+  title: string;
+  metric: AiAssistantUsageMetric;
+  copy: Copy;
+}) {
   return (
     <RepairOsBusinessCard as="div" className="block px-3 py-3 sm:px-4">
       <div className="flex items-center justify-between gap-2">
@@ -111,23 +144,28 @@ function UsagePeriodCard({ title, metric }: { title: string; metric: AiAssistant
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
         <UsageMetric
-          label="大模型请求"
+          label={copy("大模型请求")}
           value={formatAiUsageInteger(metric.provider_request_count)}
         />
         <UsageMetric
-          label="输入 Token"
+          label={copy("输入 Token")}
           value={formatAiUsageInteger(metric.input_token_count)}
           detail={
             metric.cached_input_token_count > 0
-              ? `其中缓存 ${formatAiUsageInteger(metric.cached_input_token_count)}`
+              ? copy("其中缓存 {count}", {
+                  count: formatAiUsageInteger(metric.cached_input_token_count),
+                })
               : undefined
           }
         />
-        <UsageMetric label="输出 Token" value={formatAiUsageInteger(metric.output_token_count)} />
         <UsageMetric
-          label="估算费用"
+          label={copy("输出 Token")}
+          value={formatAiUsageInteger(metric.output_token_count)}
+        />
+        <UsageMetric
+          label={copy("估算费用")}
           value={formatAiUsageMicroUsd(metric.settled_cost_microusd)}
-          detail="美元 · 已结算"
+          detail={copy("美元 · 已结算")}
         />
       </div>
     </RepairOsBusinessCard>
@@ -156,10 +194,12 @@ function UsageKindRow({
   icon: Icon,
   label,
   metric,
+  copy,
 }: {
   icon: typeof Bot;
   label: string;
   metric: AiAssistantUsageKindMetric;
+  copy: Copy;
 }) {
   const limit = metric.request_limit;
   const percentage =
@@ -174,13 +214,13 @@ function UsageKindRow({
           <p className="truncate text-xs font-semibold">{label}</p>
           <p className="text-[10px] tabular-nums text-muted-foreground lg:text-[11px] lg:leading-4">
             {formatAiUsageInteger(metric.provider_request_count)} /{" "}
-            {limit === null ? "—" : formatAiUsageInteger(limit)} 次
+            {copy("{count} 次", { count: limit === null ? "—" : formatAiUsageInteger(limit) })}
           </p>
         </div>
       </div>
       <div
         role="progressbar"
-        aria-label={`${label}今日用量`}
+        aria-label={copy("{label}今日用量", { label })}
         aria-valuemin={0}
         aria-valuemax={limit ?? undefined}
         aria-valuenow={metric.provider_request_count}
@@ -192,9 +232,9 @@ function UsageKindRow({
   );
 }
 
-function UsageLoadingState() {
+function UsageLoadingState({ copy }: { copy: Copy }) {
   return (
-    <div data-ai-usage-loading="true" className="space-y-3" aria-label="正在读取 AI 使用量">
+    <div data-ai-usage-loading="true" className="space-y-3" aria-label={copy("正在读取 AI 使用量")}>
       <Skeleton className="h-32 w-full rounded-xl" />
       <Skeleton className="h-32 w-full rounded-xl" />
       <Skeleton className="h-28 w-full rounded-xl" />
@@ -202,7 +242,7 @@ function UsageLoadingState() {
   );
 }
 
-function UsageErrorState({ onRetry }: { onRetry: () => void }) {
+function UsageErrorState({ onRetry, copy }: { onRetry: () => void; copy: Copy }) {
   return (
     <RepairOsBusinessCard
       as="div"
@@ -215,35 +255,35 @@ function UsageErrorState({ onRetry }: { onRetry: () => void }) {
       }
       trailing={
         <Button type="button" size="sm" variant="outline" onClick={onRetry}>
-          <RefreshCcw className="size-3.5" aria-hidden="true" /> 重试
+          <RefreshCcw className="size-3.5" aria-hidden="true" /> {copy("重试")}
         </Button>
       }
     >
-      <span className="block text-sm font-semibold">AI 使用量读取失败</span>
+      <span className="block text-sm font-semibold">{copy("AI 使用量读取失败")}</span>
       <span className="mt-0.5 block text-[11px] leading-4 lg:text-xs lg:leading-4">
-        其他设置与 AI 本地处理不受影响。
+        {copy("其他设置与 AI 本地处理不受影响。")}
       </span>
     </RepairOsBusinessCard>
   );
 }
 
-function formatDateTime(value: string, timeZone: string) {
+function formatDateTime(value: string, locale: "zh-CN" | "it-IT" | "en") {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "未知";
-  try {
-    return new Intl.DateTimeFormat("zh-CN", {
-      timeZone,
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date);
-  } catch {
-    return new Intl.DateTimeFormat("zh-CN", {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date);
-  }
+  if (Number.isNaN(date.getTime())) return translateSettingsOperations(locale, "未知");
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: "Europe/Rome",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+type Copy = (
+  source: Parameters<typeof translateSettingsOperations>[1],
+  values?: Parameters<typeof translateSettingsOperations>[2],
+) => string;
+
+function createCopy(locale: "zh-CN" | "it-IT" | "en"): Copy {
+  return (source, values) => translateSettingsOperations(locale, source, values);
 }

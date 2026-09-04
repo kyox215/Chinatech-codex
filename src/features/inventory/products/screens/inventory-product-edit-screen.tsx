@@ -17,6 +17,7 @@ import type {
 } from "@/lib/repairdesk/types";
 import { repairOs, surfaces } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 import { inventoryCatalogKeys, inventoryProductKeys } from "../api/query-keys";
 import {
@@ -44,7 +45,10 @@ import {
   type InventoryProductFormDraft,
 } from "../model/inventory-product-form";
 import { useInventoryProductLeaveGuard } from "../model/use-inventory-product-leave-guard";
-import { inventorySafeOperationMessage } from "../../model/inventory-operation-error";
+import {
+  getInventoryQuickEntryErrorMessage,
+  localizeInventoryValidation,
+} from "../model/inventory-product-i18n";
 
 type EditDraft = {
   category: InventoryProductCategory;
@@ -92,6 +96,7 @@ function InventoryProductEditContent({
   id: string;
   shell: ReturnType<typeof useStoreShellContext>;
 }) {
+  const { t } = useLocale();
   const router = useRouter();
   const queryClient = useQueryClient();
   const storeId = shell.activeStore?.id;
@@ -127,6 +132,7 @@ function InventoryProductEditContent({
     ),
   });
   const commandRef = useRef<{ fingerprint: string; idempotencyKey: string } | undefined>(undefined);
+  const submitLockRef = useRef(false);
   const leaveTriggerRef = useRef<HTMLElement | null>(null);
   const canEnterCost = shell.permissions?.canAllocateInventoryCosts === true;
   const inspectionEnabled =
@@ -148,8 +154,8 @@ function InventoryProductEditContent({
     onBlocked: (reason) =>
       setError(
         reason === "pending"
-          ? "正在保存商品，请等待结果后再离开。"
-          : "当前商品资料尚未保存，继续编辑或确认离开。",
+          ? t("inventory2b4.quick.screen.pendingLeave")
+          : t("inventory2b4.quick.screen.unsavedEdit"),
       ),
   });
 
@@ -187,13 +193,19 @@ function InventoryProductEditContent({
       if (!result.isSuccess || !result.data) throw new Error("无法读取最新商品资料");
       await Promise.resolve(router.push(`/inventory/${syncTargetId}`));
       setSyncStatus("recovered");
+      submitLockRef.current = false;
     } catch {
       setSyncStatus("committed-refresh-failed");
     }
   };
 
   if (shell.isLoading) {
-    return <EditMessage title="正在加载商品资料" body="请稍候…" />;
+    return (
+      <EditMessage
+        title={t("inventory2b4.quick.edit.loading")}
+        body={t("inventory2b4.quick.edit.wait")}
+      />
+    );
   }
   if (
     !storeId ||
@@ -201,20 +213,30 @@ function InventoryProductEditContent({
     !shell.permissions?.canUpdateInventory ||
     !shell.permissions.inventoryProductsUiEnabled
   ) {
-    return <EditMessage title="无法编辑商品" body="当前账号没有商品编辑权限。" />;
+    return (
+      <EditMessage
+        title={t("inventory2b4.quick.edit.cannotEdit")}
+        body={t("inventory2b4.quick.edit.noPermission")}
+      />
+    );
   }
   if (query.isLoading || (!draft && !query.isError)) {
-    return <EditMessage title="正在加载商品资料" body="请稍候…" />;
+    return (
+      <EditMessage
+        title={t("inventory2b4.quick.edit.loading")}
+        body={t("inventory2b4.quick.edit.wait")}
+      />
+    );
   }
   if (query.isError || !draft) {
     return (
       <EditMessage
-        title="商品资料加载失败"
-        body="商品可能不存在，或网络暂时不可用。"
+        title={t("inventory2b4.quick.edit.loadFailed")}
+        body={t("inventory2b4.quick.edit.loadFailedBody")}
         action={
           <Button onClick={() => void query.refetch()}>
             <RefreshCw className="mr-2 size-4" />
-            重试
+            {t("inventory2b4.detail.retry")}
           </Button>
         }
       />
@@ -222,7 +244,7 @@ function InventoryProductEditContent({
   }
 
   const save = async () => {
-    if (syncBlocked) return;
+    if (submitLockRef.current || syncBlocked) return;
     setError("");
     setRecoveryMessage("");
     setFieldErrors({});
@@ -231,17 +253,27 @@ function InventoryProductEditContent({
       existingColor: query.data?.color,
     });
     if (validation) {
-      setError(validation.message);
+      const localizedValidation = localizeInventoryValidation(
+        validation.code,
+        validation.message,
+        t,
+      );
+      setError(localizedValidation);
       const editFieldId = validation.fieldId
         ? editFieldIdForValidation(validation.fieldId)
         : undefined;
       const fieldKey = validation.fieldId
         ? editFieldKeyForValidation(validation.fieldId)
         : undefined;
-      if (fieldKey) setFieldErrors({ [fieldKey]: validation.message });
+      if (fieldKey) setFieldErrors({ [fieldKey]: localizedValidation });
       if (editFieldId) document.getElementById(editFieldId)?.focus();
       return;
     }
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setError(t("inventory2b4.quick.screen.offline"));
+      return;
+    }
+    submitLockRef.current = true;
     let result: Awaited<ReturnType<typeof mutation.mutateAsync>>;
     try {
       const command = inventoryProductFormToUpdateInput(
@@ -262,6 +294,7 @@ function InventoryProductEditContent({
         ...commandWithoutIdempotency,
       });
     } catch (cause) {
+      submitLockRef.current = false;
       const nextConflict = getInventoryConflictDetails(cause);
       if (nextConflict) {
         setConflict(nextConflict);
@@ -271,7 +304,7 @@ function InventoryProductEditContent({
       } else {
         setConflict(null);
         setRecoveryMessage("");
-        setError(inventorySafeOperationMessage(cause, "商品更新失败，请重试"));
+        setError(getInventoryQuickEntryErrorMessage(cause, "update", t));
       }
       return;
     }
@@ -285,7 +318,7 @@ function InventoryProductEditContent({
     setRecoveryMessage("");
     setError("");
     leaveGuard.markSaved();
-    toast.success("商品资料已更新");
+    toast.success(t("inventory2b4.quick.edit.updated"));
     try {
       await queryClient.invalidateQueries({
         queryKey: inventoryProductKeys.listsForStore(storeId),
@@ -297,6 +330,7 @@ function InventoryProductEditContent({
       if (!latest.isSuccess || !latest.data) throw new Error("无法读取最新商品资料");
       await Promise.resolve(router.push(`/inventory/${result.id}`));
       setSyncStatus("recovered");
+      submitLockRef.current = false;
     } catch {
       setSyncStatus("committed-refresh-failed");
     }
@@ -319,7 +353,7 @@ function InventoryProductEditContent({
       setVersion(result.data.version);
       if (shouldRotateIdempotency) commandRef.current = undefined;
       setConflict(null);
-      setRecoveryMessage("已读取最新资料：你的改动已保留，但尚未自动保存。请检查后再次保存。");
+      setRecoveryMessage(t("inventory2b4.quick.edit.recovered"));
     } finally {
       setIsRecoveringConflict(false);
     }
@@ -328,9 +362,11 @@ function InventoryProductEditContent({
   return (
     <InventoryProductPageFrame
       mode="edit"
-      title={`编辑 ${draft.brand} ${draft.model}`.trim()}
-      subtitle="保存时会检查是否有其他设备已修改"
-      mobileSubtitle="保存时会检查是否有其他设备已修改"
+      title={t("inventory2b4.quick.edit.title", {
+        product: `${draft.brand} ${draft.model}`.trim(),
+      })}
+      subtitle={t("inventory2b4.quick.edit.subtitle")}
+      mobileSubtitle={t("inventory2b4.quick.edit.subtitle")}
       mutationPending={mutation.isPending}
       syncBlocked={syncBlocked}
       syncStatus={syncStatus}
@@ -354,12 +390,12 @@ function InventoryProductEditContent({
       error={error}
       onBack={closeEdit}
       leaveGuard={leaveGuard}
-      primaryLabel="保存修改"
+      primaryLabel={t("inventory2b4.quick.edit.save")}
       onSubmit={(event) => {
         event.preventDefault();
         void save();
       }}
-      secondaryLabel="取消"
+      secondaryLabel={t("inventory2b4.quick.frame.cancel")}
       onSecondary={closeEdit}
     >
       <InventoryProductFormWorkspace
@@ -369,7 +405,7 @@ function InventoryProductEditContent({
         catalogNotice={
           catalogQuery.isError ? (
             <p className="text-[11px] leading-4 text-muted-foreground">
-              店铺目录暂时不可用，仍可使用常用选项或手动填写。
+              {t("inventory2b4.quick.screen.catalogUnavailable")}
             </p>
           ) : null
         }
@@ -385,7 +421,7 @@ function InventoryProductEditContent({
         warrantyInvalid={Boolean(fieldErrors.warranty_months)}
         canEnterCost={canEnterCost}
         inspectionEnabled={inspectionEnabled}
-        identifierDescription="修改或清空后保存；历史值会停用，不会物理删除。"
+        identifierDescription={t("inventory2b4.quick.workspace.identifierDescription")}
         showScanner
         identifierField={InventoryProductIdentifierField}
         allowPrimarySelection

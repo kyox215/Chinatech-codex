@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OrderWorkflowProgress } from "@/features/orders/components/order-workflow-progress";
+import { AccessoryNotesPills } from "@/features/orders/components/accessory-notes-picker";
 import {
   RepairOrderPrintSheet,
   canPrintRepairOrderCustomerDocument,
@@ -56,16 +57,18 @@ import { issueCustomerStatusLinks } from "@/features/customer-status/api/custome
 import { useFixedOrderPdfPrint } from "@/features/orders/print/use-fixed-order-pdf-print";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { orderExceptionMeta } from "@/features/orders/model/canonical-order-status";
-import {
-  getWorkflowNextActions,
-  getWorkflowStatus,
-  getWorkflowStatusLabel,
-} from "@/features/orders/model/order-workflow";
+import { getWorkflowNextActions, getWorkflowStatus } from "@/features/orders/model/order-workflow";
 import {
   getOrderTaskGuidance,
   getOrderWorkflowStatus,
 } from "@/features/orders/model/order-task-flow";
 import { isOrderCancelledForPayment } from "@/features/orders/model/order-payment-state";
+import {
+  localizeDeviceCustody,
+  localizeOrderTaskGuidance,
+  localizeOrderType,
+  localizeWorkflowStatusLabel,
+} from "@/features/orders/model/order-i18n";
 import {
   DEVICE_CUSTODY_WITH_CUSTOMER,
   DEVICE_CUSTODY_WITH_SHOP,
@@ -86,11 +89,13 @@ import {
   patchOrder,
   publishOrderQuote,
   transitionOrder,
+  RepairDeskApiError,
 } from "@/lib/repairdesk/api";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { cn } from "@/lib/utils";
 import { buildWhatsappUrl } from "@/shared/lib/whatsapp-phone";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 type WorkflowNextAction = NonNullable<ReturnType<typeof getWorkflowNextActions>["primary"]>;
 
@@ -99,6 +104,7 @@ const orderTaskPageShell =
 
 export function OrderTaskScreen({ id }: { id: string }) {
   const queryClient = useQueryClient();
+  const { t } = useLocale();
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
   const [transitionAction, setTransitionAction] = useState<WorkflowNextAction | null>(null);
@@ -124,7 +130,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
     },
     (error) => {
       setPrintPreparing(false);
-      toast.error(error.message);
+      toast.error(t("orders2b1.task.actionFailed"));
     },
     {
       scopeKey: `${activeStoreId ?? "no-store"}:${id}`,
@@ -140,7 +146,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
     };
   }, []);
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
+  const { data, error, isLoading, isError, refetch } = useQuery({
     queryKey: ordersKeys.detail(id, activeStoreId),
     queryFn: ({ signal }) => getOrder(id, { signal }),
     staleTime: CACHE_TIMES.detail,
@@ -164,6 +170,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
   });
 
   const order = data?.order;
+  const orderNotFound = error instanceof RepairDeskApiError && error.status === 404;
   const whatsappHref = order ? buildWhatsappUrl(order.customer_phone) : "";
   const cancelled = order ? isOrderCancelledForPayment(order) : false;
   const canTransition = data?.capabilities?.canTransition === true;
@@ -191,14 +198,19 @@ export function OrderTaskScreen({ id }: { id: string }) {
   };
   const activeKioskDevice = kioskDevices.find((device) => device.status === "active");
   const workflowStatus = order ? getOrderWorkflowStatus(order) : "intake";
-  const guidance = order ? getOrderTaskGuidance(order) : null;
-  const next = useMemo(
-    () =>
-      order && !cancelled && !voided
-        ? getWorkflowNextActions(workflow, order.status)
-        : { primary: undefined, secondary: [] },
-    [cancelled, order, voided, workflow],
-  );
+  const guidance = order ? localizeOrderTaskGuidance(getOrderTaskGuidance(order), t) : null;
+  const next = useMemo(() => {
+    if (!order || cancelled || voided) return { primary: undefined, secondary: [] };
+    const actions = getWorkflowNextActions(workflow, order.status);
+    const localizeAction = (action: WorkflowNextAction | undefined) =>
+      action
+        ? { ...action, label: localizeWorkflowStatusLabel(workflow, action.to, t) }
+        : undefined;
+    return {
+      primary: localizeAction(actions.primary),
+      secondary: actions.secondary.map((action) => localizeAction(action) as WorkflowNextAction),
+    };
+  }, [cancelled, order, t, voided, workflow]);
   const exceptionStatus = order?.exception_status;
   const progressTone = exceptionStatus
     ? orderExceptionMeta[exceptionStatus].tone
@@ -210,7 +222,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
 
   const transition = useMutation({
     mutationFn: (input: { to: RepairOrderStatus; reason?: string }) => {
-      if (!order) throw new Error("工单未加载");
+      if (!order) throw new Error(t("orders2b1.task.orderUnavailable"));
       return transitionOrder(id, input.to, {
         reason: input.reason,
         expectedUpdatedAt: order.updated_at,
@@ -218,26 +230,26 @@ export function OrderTaskScreen({ id }: { id: string }) {
       });
     },
     onSuccess: () => {
-      toast.success("任务阶段已更新");
+      toast.success(t("orders2b1.task.transitionSuccess"));
       setTransitionAction(null);
       setTransitionReason("");
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: () => toast.error(t("orders2b1.task.actionFailed")),
   });
   const diagnosisSave = useMutation({
     mutationFn: (diagnosisResult: string) => {
-      if (!order) throw new Error("工单未加载");
+      if (!order) throw new Error(t("orders2b1.task.orderUnavailable"));
       return patchOrder(id, {
         expected_updated_at: order.updated_at,
         changes: { diagnosis_result: diagnosisResult },
       });
     },
     onSuccess: () => {
-      toast.success("检测结论已保存");
+      toast.success(t("orders2b1.task.diagnosisSuccess"));
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: () => toast.error(t("orders2b1.task.actionFailed")),
   });
   const quotePublish = useMutation({
     mutationFn: (input: {
@@ -246,7 +258,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
       faultPrices: NonNullable<typeof order>["fault_prices"];
       priceException?: Parameters<typeof publishOrderQuote>[1]["price_exception"];
     }) => {
-      if (!order) throw new Error("工单未加载");
+      if (!order) throw new Error(t("orders2b1.task.orderUnavailable"));
       return publishOrderQuote(id, {
         expected_updated_at: order.updated_at,
         idempotency_key: input.idempotencyKey,
@@ -256,15 +268,15 @@ export function OrderTaskScreen({ id }: { id: string }) {
       });
     },
     onSuccess: () => {
-      toast.success("正式报价已发布");
+      toast.success(t("orders2b1.task.quoteSuccess"));
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: () => toast.error(t("orders2b1.task.actionFailed")),
   });
   const kioskPickupRequest = useMutation({
     mutationFn: () => {
-      if (!order) throw new Error("工单未加载");
-      if (!activeKioskDevice) throw new Error("没有可用的客户 iPad");
+      if (!order) throw new Error(t("orders2b1.task.orderUnavailable"));
+      if (!activeKioskDevice) throw new Error(t("orders2b1.task.kioskUnavailable"));
       return createKioskSession({
         device_id: activeKioskDevice.id,
         order_id: order.id,
@@ -277,13 +289,18 @@ export function OrderTaskScreen({ id }: { id: string }) {
       });
     },
     onSuccess: async (session) => {
-      toast.success(`已发送到 ${session.device?.label ?? activeKioskDevice?.label ?? "客户 iPad"}`);
+      toast.success(
+        t("orders2b1.task.kioskSent", {
+          device:
+            session.device?.label ?? activeKioskDevice?.label ?? t("orders2b1.task.kioskFallback"),
+        }),
+      );
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: kioskKeys.sessions(activeStoreId) }),
         queryClient.invalidateQueries({ queryKey: ordersKeys.detail(id, activeStoreId) }),
       ]);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: () => toast.error(t("orders2b1.task.actionFailed")),
   });
 
   if (isError) {
@@ -291,9 +308,11 @@ export function OrderTaskScreen({ id }: { id: string }) {
       <main data-order-task-root="true" className={orderTaskPageShell}>
         <div className="grid min-h-[52vh] min-w-0 place-items-center rounded-2xl border border-status-danger-foreground/25 bg-status-danger/10 p-4 text-center md:rounded-[var(--radius-lg)]">
           <div className="mx-auto max-w-md">
-            <h1 className="text-lg font-semibold">任务加载失败</h1>
+            <h1 className="text-lg font-semibold">
+              {t(orderNotFound ? "orders2b1.task.notFound" : "orders2b1.task.loadFailed")}
+            </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {error instanceof Error ? error.message : "请稍后重试。"}
+              {t(orderNotFound ? "orders2b1.task.notFoundHelp" : "orders2b1.task.loadFailedHelp")}
             </p>
             <div className="mt-3 flex justify-center gap-2">
               <Button
@@ -302,10 +321,10 @@ export function OrderTaskScreen({ id }: { id: string }) {
                 className="min-h-9"
                 onClick={() => void refetch()}
               >
-                重新加载
+                {t("orders2b1.task.reload")}
               </Button>
               <Button asChild variant="outline" className="min-h-9">
-                <Link href="/orders">返回订单</Link>
+                <Link href="/orders">{t("orders2b1.task.backOrders")}</Link>
               </Button>
             </div>
           </div>
@@ -347,9 +366,10 @@ export function OrderTaskScreen({ id }: { id: string }) {
           )
       : [];
   const primaryAction = taskActions.find((action) => action.isPrimary) ?? taskActions[0];
-  const currentStatusLabel = getWorkflowStatusLabel(
+  const currentStatusLabel = localizeWorkflowStatusLabel(
     workflow,
     cancelled ? "cancelled" : order.status,
+    t,
   );
   const approvalDecisionRequired =
     canTransition && !cancelled && !voided && isTaskApprovalDecisionRequired(order);
@@ -371,7 +391,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
           variant="outline"
           size="icon"
           className="size-9 rounded-lg lg:hidden"
-          aria-label="返回工单列表"
+          aria-label={t("orders2b1.task.backOrdersAria")}
         >
           <Link href="/orders">
             <ArrowLeft className="size-4" />
@@ -382,10 +402,10 @@ export function OrderTaskScreen({ id }: { id: string }) {
             {order.public_no}
           </div>
           <div className="text-[11px] text-muted-foreground md:hidden lg:text-xs lg:leading-4">
-            扫码任务模式
+            {t("orders2b1.task.scanMode")}
           </div>
           <div className="hidden text-[11px] text-muted-foreground md:block lg:text-xs lg:leading-4">
-            任务工作台
+            {t("orders2b1.task.workspaceMode")}
           </div>
         </div>
         <Button
@@ -393,7 +413,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
           variant="outline"
           size="icon"
           className="size-9 rounded-lg lg:size-8"
-          aria-label="打印客户工单"
+          aria-label={t("orders2b1.task.printAria")}
           disabled={!canPrintCustomerDocument || generationPending}
           aria-busy={generationPending}
           onClick={() => setPrintPaperDialogOpen(true)}
@@ -409,11 +429,13 @@ export function OrderTaskScreen({ id }: { id: string }) {
         <div className="min-w-0">
           <div className="flex min-w-0 items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-xs text-muted-foreground">当前阶段</div>
+              <div className="text-xs text-muted-foreground">
+                {t("orders2b1.task.currentStage")}
+              </div>
               <h1 className="truncate text-xl font-semibold md:text-lg">{guidance.stage.label}</h1>
               <p className="mt-1 hidden truncate text-xs text-muted-foreground md:block">
-                {order.device_label || "-"} · {order.customer_name || "-"} · 技师{" "}
-                {order.technician_name || "-"}
+                {order.device_label || "-"} · {order.customer_name || "-"} ·{" "}
+                {t("orders2b1.task.technician", { name: order.technician_name || "-" })}
               </p>
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1">
@@ -425,6 +447,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
               />
               <OrderTypeBadge
                 type={order.order_type}
+                label={localizeOrderType(order.order_type, t)}
                 className="text-[10px] lg:text-[11px] lg:leading-4"
               />
             </div>
@@ -451,7 +474,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
               <ClipboardList className="size-4" />
             </span>
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold md:text-xs">现在需要做什么</h2>
+              <h2 className="text-sm font-semibold md:text-xs">{t("orders2b1.task.now")}</h2>
               <p className="mt-0.5 text-xs leading-4 text-muted-foreground">{guidance.task}</p>
             </div>
           </div>
@@ -468,34 +491,43 @@ export function OrderTaskScreen({ id }: { id: string }) {
         >
           <h2 className="flex items-center gap-2 text-sm font-semibold">
             <Wrench className="size-4 text-primary" />
-            任务信息
+            {t("orders2b1.task.info")}
           </h2>
           <div className="grid min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-3">
-            <TaskLine label="客户" value={order.customer_name || "-"} />
+            <TaskLine label={t("orders2b1.task.customer")} value={order.customer_name || "-"} />
             <TaskLine
-              label="主电话"
+              label={t("orders2b1.task.phone")}
               value={<PhoneText value={order.customer_phone} className="text-sm" />}
             />
-            <TaskLine label="设备" value={order.device_label || "-"} />
+            <TaskLine label={t("orders2b1.task.device")} value={order.device_label || "-"} />
             <TaskLine
-              label="设备保管"
+              label={t("orders2b1.task.custody")}
               value={
                 <DeviceCustodyBadge
                   status={order.device_custody_status}
                   deliveredAt={order.delivered_at}
+                  label={localizeDeviceCustody(order.device_custody_status, order.delivered_at, t)}
                 />
               }
             />
             <TaskLine label="IMEI" value={order.device_imei || "-"} mono />
-            <TaskLine label="故障" value={order.issue_description || "-"} wide />
-            <TaskLine label="随附物品" value={order.accessory_notes || "-"} wide />
+            <TaskLine
+              label={t("orders2b1.task.issue")}
+              value={order.issue_description || "-"}
+              wide
+            />
+            <TaskLine
+              label={t("orders2b1.task.accessories")}
+              value={<AccessoryNotesPills value={order.accessory_notes} />}
+              wide
+            />
           </div>
           {data.capabilities?.canEditRepair || data.capabilities?.canPrepareQuote ? (
             <div className="mt-1 flex min-w-0 items-center justify-between gap-2 rounded-xl border border-primary/20 bg-primary/5 p-2.5">
               <div className="min-w-0">
-                <div className="text-xs font-semibold">检测与正式报价</div>
+                <div className="text-xs font-semibold">{t("orders2b1.quote.title")}</div>
                 <div className="truncate text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                  {order.diagnosis_result || "尚未记录检测结论"}
+                  {order.diagnosis_result || t("orders2b1.task.noDiagnosis")}
                 </div>
               </div>
               <Button
@@ -504,7 +536,9 @@ export function OrderTaskScreen({ id }: { id: string }) {
                 className="min-h-9 shrink-0 text-xs"
                 onClick={() => setDiagnosisQuoteOpen(true)}
               >
-                {data.capabilities?.canPrepareQuote ? "检测与报价" : "记录检测"}
+                {data.capabilities?.canPrepareQuote
+                  ? t("orders2b1.task.diagnoseQuote")
+                  : t("orders2b1.task.recordDiagnosis")}
               </Button>
             </div>
           ) : null}
@@ -517,21 +551,27 @@ export function OrderTaskScreen({ id }: { id: string }) {
           >
             {order.finance_redacted ? (
               <p className="col-span-3 rounded-xl bg-muted px-3 py-4 text-center text-sm font-medium text-muted-foreground">
-                金额与结算状态受限
+                {t("orders2b1.task.financeRestricted")}
               </p>
             ) : (
               <>
-                <Metric label="总价" value={<MoneyText amount={order.quotation_amount} />} />
-                <Metric label="定金" value={<MoneyText amount={order.deposit_amount} />} />
                 <Metric
-                  label={cancelled ? "取消时余额" : "待付"}
+                  label={t("orders2b1.task.total")}
+                  value={<MoneyText amount={order.quotation_amount} />}
+                />
+                <Metric
+                  label={t("orders2b1.money.deposit")}
+                  value={<MoneyText amount={order.deposit_amount} />}
+                />
+                <Metric
+                  label={t(cancelled ? "orders2b1.money.cancelledBalance" : "orders2b1.task.due")}
                   value={<MoneyText amount={order.balance_amount} />}
                 />
               </>
             )}
             {cancelled && !order.finance_redacted ? (
               <p className="col-span-3 text-right text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                已取消 · 不计入客户待收
+                {t("orders2b1.task.cancelledExcluded")}
               </p>
             ) : null}
           </section>
@@ -553,7 +593,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
               <Button asChild variant="outline" className="h-9 gap-1 rounded-lg">
                 <a href={`tel:${order.customer_phone}`}>
                   <Phone className="size-4" />
-                  电话
+                  {t("orders2b1.task.call")}
                 </a>
               </Button>
               <Button
@@ -565,19 +605,19 @@ export function OrderTaskScreen({ id }: { id: string }) {
                 {whatsappHref ? (
                   <a href={whatsappHref} target="_blank" rel="noreferrer">
                     <MessageCircle className="size-4" />
-                    普通聊天
+                    {t("orders2b1.task.chat")}
                   </a>
                 ) : (
                   <span>
                     <MessageCircle className="size-4" />
-                    号码无效
+                    {t("orders2b1.task.invalidNumber")}
                   </span>
                 )}
               </Button>
               <Button asChild variant="outline" className="h-9 gap-1 rounded-lg">
                 <Link href={`/orders/${order.id}`}>
                   <Bell className="size-4" />
-                  详情
+                  {t("orders2b1.task.details")}
                 </Link>
               </Button>
             </div>
@@ -596,13 +636,13 @@ export function OrderTaskScreen({ id }: { id: string }) {
                 <TabletSmartphone className="size-4" />
                 {order.device_custody_status !== DEVICE_CUSTODY_WITH_SHOP
                   ? order.device_custody_status === DEVICE_CUSTODY_WITH_CUSTOMER
-                    ? "设备未留店，无需取机确认"
-                    : "请先确认设备保管状态"
+                    ? t("orders2b1.task.custodyCustomer")
+                    : t("orders2b1.task.custodyRequired")
                   : kioskPickupRequest.isPending
-                    ? "发送中"
+                    ? t("orders2b1.task.sending")
                     : activeKioskDevice
-                      ? "发送取机确认到 iPad"
-                      : "无可用 iPad"}
+                      ? t("orders2b1.task.sendKiosk")
+                      : t("orders2b1.task.noKiosk")}
               </Button>
             ) : null}
           </section>
@@ -627,7 +667,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
           const config = getOrderTransitionReasonConfig(transitionAction.to);
           const reason = transitionReason.trim();
           if (config?.required && !reason) {
-            toast.error("请先填写处理原因。");
+            toast.error(t("orders2b1.task.reasonRequired"));
             return;
           }
           transition.mutate({ to: transitionAction.to, reason: reason || undefined });
@@ -686,6 +726,7 @@ function TaskTransitionPanel({
   pending: boolean;
   onPick: (action: WorkflowNextAction) => void;
 }) {
+  const { t } = useLocale();
   const hasReasonAction = actions.some((action) =>
     Boolean(getOrderTransitionReasonConfig(action.to)),
   );
@@ -698,15 +739,15 @@ function TaskTransitionPanel({
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-status-warn-foreground" />
             <div className="min-w-0">
               <p className="text-sm font-semibold leading-5 text-status-warn-foreground">
-                需要先处理客户审批
+                {t("orders2b1.task.approvalRequired")}
               </p>
               <p className="mt-0.5 text-[11px] leading-4 text-status-warn-foreground/80 lg:text-xs lg:leading-[18px] lg:text-status-warn-foreground">
-                当前处于报价确认阶段，必须记录客户同意或拒绝后再进入维修、订件、寄修或取消。
+                {t("orders2b1.task.approvalHelp")}
               </p>
             </div>
           </div>
           <Button asChild size="sm" className="min-h-9 justify-center rounded-lg">
-            <Link href={`/orders/${orderId}`}>打开审批处理</Link>
+            <Link href={`/orders/${orderId}`}>{t("orders2b1.task.openApproval")}</Link>
           </Button>
         </div>
       </div>
@@ -723,7 +764,9 @@ function TaskTransitionPanel({
         onClick={() => primaryAction && onPick(primaryAction)}
       >
         <CheckCircle2 className="size-5" />
-        {primaryAction ? `推进至「${primaryAction.label}」` : "暂无下一步"}
+        {primaryAction
+          ? t("orders2b1.task.advance", { label: primaryAction.label })
+          : t("orders2b1.task.noNext")}
         <ArrowRight className="size-4" />
       </Button>
 
@@ -767,12 +810,12 @@ function TaskTransitionPanel({
                     {statusLabel} → {action.label}
                   </span>
                   <span className="block truncate text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-                    {getTaskStatusActionHint(action.to)}
+                    {getTaskStatusActionHint(action.to, t)}
                   </span>
                 </span>
                 {needsReason ? (
                   <span className="rounded bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-status-warn-foreground lg:text-[11px] lg:leading-4">
-                    原因
+                    {t("orders2b1.task.reason")}
                   </span>
                 ) : null}
               </button>
@@ -784,7 +827,7 @@ function TaskTransitionPanel({
       {hasReasonAction ? (
         <p className="flex min-w-0 items-start gap-1.5 rounded-lg bg-status-warn px-2 py-1.5 text-[10px] leading-4 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
           <AlertTriangle className="mt-0.5 size-3 shrink-0" />
-          取消、未修取机和返修等结束/异常分支会要求记录原因，便于后续追溯。
+          {t("orders2b1.task.reasonHelp")}
         </p>
       ) : null}
     </div>
@@ -819,6 +862,7 @@ function TaskTransitionDialog({
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
 }) {
+  const { t } = useLocale();
   const config = action ? getOrderTransitionReasonConfig(action.to) : undefined;
   const canConfirm = Boolean(action) && (!config?.required || Boolean(reason.trim()));
 
@@ -831,7 +875,7 @@ function TaskTransitionDialog({
         <DialogHeader className="border-b border-[var(--border-panel)] px-3 py-2 pr-12 text-left sm:px-4 sm:py-3">
           <DialogTitle className="flex min-w-0 items-center gap-2 text-base">
             <Clock3 className="size-4 text-primary" />
-            任务状态推进
+            {t("orders2b1.task.transitionTitle")}
           </DialogTitle>
           <DialogDescription className="truncate">
             {order.public_no} · {order.device_label || "-"} · {order.customer_name || "-"}
@@ -841,23 +885,23 @@ function TaskTransitionDialog({
         <div className="grid min-h-0 min-w-0 gap-2 overflow-y-auto p-3 sm:gap-3 sm:p-4 md:grid-cols-[minmax(220px,0.58fr)_minmax(0,1fr)]">
           <section className="min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3">
             <p className="text-[10px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
-              当前状态
+              {t("orders2b1.task.currentStatus")}
             </p>
             <p className="mt-1 truncate text-sm font-semibold">{statusLabel}</p>
             <div className="my-3 h-px bg-[var(--border-panel)]" />
             <p className="text-[10px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
-              准备推进
+              {t("orders2b1.task.targetStatus")}
             </p>
             <p className="mt-1 truncate text-sm font-semibold text-primary">
-              {action?.label ?? "未选择"}
+              {action?.label ?? t("orders2b1.task.notSelected")}
             </p>
             <p className="mt-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-[18px]">
               {action?.to === "completed" &&
               order.device_custody_status === DEVICE_CUSTODY_WITH_CUSTOMER
                 ? order.delivered_at
-                  ? "设备此前已交还客户；确认后只会行政结案，不会新增设备交付时间。"
-                  : "设备从未由门店保管；确认后只会行政结案，不会记录设备交付时间。"
-                : "确认后会写入工单时间线；客户通知、收款和附件仍通过各自入口记录。"}
+                  ? t("orders2b1.task.completeDelivered")
+                  : t("orders2b1.task.completeCustomerHeld")
+                : t("orders2b1.task.timelineHelp")}
             </p>
           </section>
 
@@ -872,7 +916,7 @@ function TaskTransitionDialog({
               />
             ) : (
               <div className="rounded-lg border border-dashed border-[var(--border-panel)] px-3 py-6 text-center text-xs text-muted-foreground">
-                请选择一个下一步状态。
+                {t("orders2b1.task.selectNext")}
               </div>
             )}
           </section>
@@ -885,10 +929,10 @@ function TaskTransitionDialog({
             disabled={pending}
             onClick={() => onOpenChange(false)}
           >
-            取消
+            {t("common.cancel")}
           </Button>
           <Button type="button" disabled={pending || !canConfirm} onClick={onConfirm}>
-            {pending ? "推进中..." : "确认推进"}
+            {pending ? t("orders2b1.task.transitioning") : t("orders2b1.task.confirmTransition")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -896,16 +940,16 @@ function TaskTransitionDialog({
   );
 }
 
-function getTaskStatusActionHint(status: RepairOrderStatus) {
-  if (status === "waiting_approval") return "只改为待审批，不自动发消息";
-  if (status === "notified") return "只标记已通知，不自动发消息";
-  if (status === "mail_in_progress") return "转外修处理，需要寄修说明";
-  if (status === "parts_ordered") return "配件已订，等待到货";
-  if (status === "parts_arrived") return "配件到货，可开始维修";
-  if (status === "unfixed_pickup") return "未维修交还，需要原因";
-  if (status === "cancelled") return "终止工单，需要原因";
-  if (status === "completed") return "完成交付并归档";
-  return "更新状态并写入时间线";
+function getTaskStatusActionHint(status: RepairOrderStatus, t: ReturnType<typeof useLocale>["t"]) {
+  if (status === "waiting_approval") return t("orders2b1.task.hint.waitingApproval");
+  if (status === "notified") return t("orders2b1.task.hint.notified");
+  if (status === "mail_in_progress") return t("orders2b1.task.hint.mail");
+  if (status === "parts_ordered") return t("orders2b1.task.hint.partsOrdered");
+  if (status === "parts_arrived") return t("orders2b1.task.hint.partsArrived");
+  if (status === "unfixed_pickup") return t("orders2b1.task.hint.unfixed");
+  if (status === "cancelled") return t("orders2b1.task.hint.cancelled");
+  if (status === "completed") return t("orders2b1.task.hint.completed");
+  return t("orders2b1.task.hint.default");
 }
 
 function isTaskApprovalDecisionRequired(order: {

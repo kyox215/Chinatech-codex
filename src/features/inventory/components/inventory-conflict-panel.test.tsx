@@ -2,7 +2,12 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
+import { translateMessage } from "@/shared/i18n/messages";
+
 import { getInventoryConflictDetails, InventoryConflictPanel } from "./inventory-conflict-panel";
+
+const locales = ["zh-CN", "it-IT", "en"] as const;
 
 describe("inventory conflict contract", () => {
   it("classifies structured 409 codes without reading localized message text", () => {
@@ -25,6 +30,39 @@ describe("inventory conflict contract", () => {
     });
     expect(getInventoryConflictDetails({ status: 409 })).toMatchObject({ kind: "generic" });
     expect(getInventoryConflictDetails(new Error("其他设备已更新"))).toBeNull();
+  });
+
+  it.each(locales)("keeps an explicit caller title authoritative in %s", (locale) => {
+    const title = {
+      "zh-CN": "服务端案件已变化",
+      "it-IT": "Il caso sul server è cambiato",
+      en: "The server case has changed",
+    }[locale];
+    const description = {
+      "zh-CN": "保留本地草稿并读取最新案件。",
+      "it-IT": "Mantieni la bozza locale e carica il caso aggiornato.",
+      en: "Keep the local draft and load the latest case.",
+    }[locale];
+    render(
+      <LocaleProvider initialLocale={locale}>
+        <InventoryConflictPanel
+          conflict={{
+            status: 409,
+            code: "stale_draft",
+            kind: "version",
+            title,
+            description,
+          }}
+          onRecover={vi.fn()}
+        />
+      </LocaleProvider>,
+    );
+
+    expect(screen.getByRole("heading", { name: title })).toBeVisible();
+    expect(screen.getByText(description)).toBeVisible();
+    expect(
+      screen.queryByText(translateMessage(locale, "inventory2b4.conflict.version.title")),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps recovery explicit and never runs a mutation by itself", async () => {

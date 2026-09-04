@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import {
   CatalogCombobox,
   catalogCategoryCopy,
+  type CatalogComboboxPresentation,
   type CatalogPickerSurface,
   type CatalogPickerMode,
   type CatalogOption,
@@ -33,9 +34,24 @@ import {
 } from "../model/inventory-catalog-options";
 import { listDeviceRamOptions, listDeviceStorageOptions } from "../model/device-form-options";
 import {
+  localizeInventoryColor,
+  localizeInventoryColorPolicy,
+  localizeInventoryProductCategory,
+} from "../model/inventory-product-i18n";
+import {
   resolveDeviceColorPolicy,
   type AppleColorApprovalOverlay,
 } from "../model/device-color-policy";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey } from "@/shared/i18n/messages";
+
+const catalogHintKeys: Record<InventoryProductCategory, MessageKey> = {
+  phone: "inventory2b4.quick.catalog.hint.phone",
+  tablet: "inventory2b4.quick.catalog.hint.tablet",
+  computer: "inventory2b4.quick.catalog.hint.computer",
+  game_console: "inventory2b4.quick.catalog.hint.gameConsole",
+  other: "inventory2b4.quick.catalog.hint.other",
+};
 
 type InventoryDeviceCatalogFieldsProps = {
   category: InventoryProductCategory;
@@ -88,6 +104,7 @@ export function InventoryDeviceCatalogFields({
   onStorageChange,
   onColorChange,
 }: InventoryDeviceCatalogFieldsProps) {
+  const { locale, t } = useLocale();
   const brands = useMemo(() => listDeviceCatalogBrands(category), [category]);
   const models = useMemo(() => listDeviceCatalogModels(category, brand), [brand, category]);
   const selectedBrand = useMemo(() => findDeviceCatalogBrand(category, brand), [brand, category]);
@@ -95,7 +112,39 @@ export function InventoryDeviceCatalogFields({
     () => findDeviceCatalogModel(category, brand, model),
     [brand, category, model],
   );
-  const categoryCopy = catalogCategoryCopy[category];
+  const categoryName = localizeInventoryProductCategory(category, category, t);
+  const translatedCategoryCopy = {
+    brandPlaceholder: t("inventory2b4.quick.catalog.brandPlaceholder", {
+      category: categoryName,
+    }),
+    brandHint: t(catalogHintKeys[category]),
+    brandSearchPlaceholder: t("inventory2b4.quick.catalog.searchBrand", {
+      category: categoryName,
+    }),
+    modelHint: t("inventory2b4.quick.catalog.modelHint", { category: categoryName }),
+    modelSearchPlaceholder: t("inventory2b4.quick.catalog.searchModel", {
+      category: categoryName,
+    }),
+    storagePlaceholder:
+      category === "computer"
+        ? t("inventory2b4.quick.catalog.storageComputerExample")
+        : category === "game_console"
+          ? t("inventory2b4.quick.catalog.storageConsoleExample")
+          : t("inventory2b4.quick.catalog.storageExample"),
+  };
+  const categoryCopy = locale === "zh-CN" ? catalogCategoryCopy[category] : translatedCategoryCopy;
+  const catalogPresentation: CatalogComboboxPresentation = {
+    openPickerLabel: t("inventory2b4.quick.catalog.openPicker"),
+    selectionAria: (label) => t("inventory2b4.quick.catalog.selectionAria", { label }),
+    closeSelectionAria: (label) => t("inventory2b4.quick.catalog.closeSelectionAria", { label }),
+    defaultHelper: t("inventory2b4.quick.catalog.defaultHelper"),
+    searchAction: t("inventory2b4.quick.catalog.searchAction"),
+    browseHint: t("inventory2b4.quick.catalog.browseHint"),
+    noResults: t("inventory2b4.quick.catalog.noResults"),
+    manualGroup: t("inventory2b4.quick.catalog.manualGroup"),
+    useValue: (value) => t("inventory2b4.quick.catalog.useValue", { value }),
+    defaultGroup: t("inventory2b4.quick.catalog.defaultGroup"),
+  };
 
   const learnedBrandOptions = useMemo(
     () => learnedCatalogBrandsForCategory(learnedCatalogOptions, category),
@@ -113,13 +162,19 @@ export function InventoryDeviceCatalogFields({
           value: item.name,
           keywords: item.aliases?.join(" "),
           aliases: item.aliases,
-          description: `${categoryLabel(category)} · ${listDeviceCatalogModels(category, item.name).length} 个型号`,
-          group: item.name === selectedBrand?.name ? "当前品牌" : "常用品牌",
-          icon: brandMonogram(item.name),
+          description: t("inventory2b4.quick.catalog.modelCount", {
+            category: categoryName,
+            count: listDeviceCatalogModels(category, item.name).length,
+          }),
+          group:
+            item.name === selectedBrand?.name
+              ? t("inventory2b4.quick.catalog.currentBrand")
+              : t("inventory2b4.quick.catalog.commonBrands"),
+          icon: brandMonogram(item.name, t("inventory2b4.quick.catalog.brandMonogram")),
         })),
         learnedBrandOptions,
       ),
-    [brands, category, learnedBrandOptions, selectedBrand?.name],
+    [brands, category, categoryName, learnedBrandOptions, selectedBrand?.name, t],
   );
 
   const modelOptions = useMemo<CatalogOption[]>(
@@ -129,13 +184,13 @@ export function InventoryDeviceCatalogFields({
           value: item.name,
           keywords: item.aliases?.join(" "),
           aliases: item.aliases,
-          description: item.releasedOn?.slice(0, 4) ?? "系列",
+          description: item.releasedOn?.slice(0, 4) ?? t("inventory2b4.quick.catalog.series"),
           group: item.series,
-          icon: modelMonogram(item),
+          icon: modelMonogram(item, t("inventory2b4.quick.catalog.modelMonogram")),
         })),
         learnedModelOptions,
       ),
-    [learnedModelOptions, models],
+    [learnedModelOptions, models, t],
   );
   const storageOptions = useMemo(
     () => listDeviceStorageOptions(category, selectedModel?.storageOptions),
@@ -162,7 +217,10 @@ export function InventoryDeviceCatalogFields({
     () =>
       colorPolicy.options.map((option) => ({
         value: option.name,
-        label: option.name,
+        label: localizeInventoryColor(
+          { stableId: option.id, value: option.name, label: option.name },
+          t,
+        ).label,
         leading: (
           <span
             aria-hidden="true"
@@ -171,7 +229,7 @@ export function InventoryDeviceCatalogFields({
           />
         ),
       })),
-    [colorPolicy.options],
+    [colorPolicy.options, t],
   );
 
   const handleBrandSelect = (selection: CatalogSelection) => {
@@ -189,10 +247,10 @@ export function InventoryDeviceCatalogFields({
       <div className="grid min-w-0 grid-cols-1 min-[360px]:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-1.5 sm:gap-2.5">
         <CatalogCombobox
           id={`${idPrefix}-brand`}
-          label="品牌 *"
+          label={t("inventory2b4.quick.catalog.brandLabel")}
           value={brand}
           placeholder={categoryCopy.brandPlaceholder}
-          compactPlaceholder="选择品牌"
+          compactPlaceholder={t("inventory2b4.quick.catalog.selectBrand")}
           helperText={categoryCopy.brandHint}
           searchPlaceholder={categoryCopy.brandSearchPlaceholder}
           options={brandOptions}
@@ -206,13 +264,22 @@ export function InventoryDeviceCatalogFields({
           maxLength={120}
           onInputChange={handleBrandInput}
           onSelect={handleBrandSelect}
+          presentation={catalogPresentation}
         />
         <CatalogCombobox
           id={`${idPrefix}-model`}
-          label="型号 / 商品名称 *"
+          label={t("inventory2b4.quick.catalog.modelLabel")}
           value={model}
-          placeholder={selectedBrand ? "选择型号" : "先选品牌"}
-          compactPlaceholder={selectedBrand ? "选择型号" : "先选品牌"}
+          placeholder={
+            selectedBrand
+              ? t("inventory2b4.quick.catalog.selectModel")
+              : t("inventory2b4.quick.catalog.chooseBrandFirst")
+          }
+          compactPlaceholder={
+            selectedBrand
+              ? t("inventory2b4.quick.catalog.selectModel")
+              : t("inventory2b4.quick.catalog.chooseBrandFirst")
+          }
           helperText={categoryCopy.modelHint}
           searchPlaceholder={categoryCopy.modelSearchPlaceholder}
           options={modelOptions}
@@ -225,18 +292,23 @@ export function InventoryDeviceCatalogFields({
           maxLength={160}
           onInputChange={onModelChange}
           onSelect={handleModelSelect}
+          presentation={catalogPresentation}
         />
       </div>
       <p className="text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
         <Search className="mr-1 inline size-3" />
-        选择器按类别、品牌和系列分组；没有收录的设备仍可直接手动录入。
+        {t("inventory2b4.quick.catalog.guide")}
       </p>
 
       <div className="grid min-w-0 grid-cols-2 gap-2">
         {category !== "other" ? (
           <SpecificationField
             id={`${idPrefix}-storage`}
-            label={category === "computer" ? "硬盘 / 存储容量" : "存储容量"}
+            label={
+              category === "computer"
+                ? t("inventory2b4.quick.catalog.diskStorage")
+                : t("inventory2b4.quick.catalog.storage")
+            }
             value={storageCapacity}
             options={storageOptions}
             placeholder={categoryCopy.storagePlaceholder}
@@ -249,10 +321,10 @@ export function InventoryDeviceCatalogFields({
         {(["phone", "tablet", "computer"] as InventoryProductCategory[]).includes(category) ? (
           <SpecificationField
             id={`${idPrefix}-ram`}
-            label="内存（RAM）"
+            label={t("inventory2b4.quick.catalog.ram")}
             value={ramCapacity}
             options={ramOptions}
-            placeholder="例如 8 GB"
+            placeholder={t("inventory2b4.quick.catalog.ramExample")}
             pickerMode={pickerMode}
             disabled={disabled}
             onChange={onRamChange}
@@ -263,13 +335,13 @@ export function InventoryDeviceCatalogFields({
           existingColor={existingColor}
           options={colorOptions}
           policyState={colorPolicy.state}
-          statusMessage={colorPolicy.statusMessage}
+          statusMessage={localizeInventoryColorPolicy(colorPolicy.state, t)}
           invalid={colorInvalid || !colorPolicy.save.canSave}
           errorMessage={
             !colorPolicy.save.canSave
-              ? colorRequired
-                ? "请先选择设备颜色后再保存"
-                : "Apple 设备颜色必须来自已审核的官方颜色映射"
+              ? colorPolicy.save.blockedReason === "color-required"
+                ? t("inventory2b4.validation.colorRequired")
+                : t("inventory2b4.validation.colorNotApproved")
               : undefined
           }
           disabled={disabled}
@@ -283,7 +355,7 @@ export function InventoryDeviceCatalogFields({
       !selectedModel &&
       !hasLearnedCatalogModel(learnedCatalogOptions, category, brand, model) ? (
         <p className="rounded-lg border border-dashed border-[var(--border-panel)] px-2.5 py-2 text-[10px] leading-4 text-muted-foreground">
-          目录中没有“{model}”，已按手动型号保留；仍可继续入库。
+          {t("inventory2b4.quick.catalog.manualModel", { model })}
         </p>
       ) : null}
     </div>
@@ -311,6 +383,7 @@ function SpecificationField({
   disabled?: boolean;
   onChange: (value: string) => void;
 }) {
+  const { t } = useLocale();
   const selectableOptions = options.map((option) => ({ value: option, label: option }));
   const isManualValue = Boolean(value) && !options.includes(value);
   return (
@@ -319,7 +392,7 @@ function SpecificationField({
         id={id}
         label={label}
         value={value}
-        placeholder={`选择${label}`}
+        placeholder={t("inventory2b4.quick.catalog.selectValue", { label })}
         options={selectableOptions}
         mode={pickerMode}
         disabled={disabled}
@@ -331,8 +404,12 @@ function SpecificationField({
         value={isManualValue ? value : ""}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
-        placeholder={`${placeholder}${options.length ? "（其他/手动）" : ""}`}
-        aria-label={`${label}手动补充`}
+        placeholder={
+          options.length
+            ? t("inventory2b4.quick.catalog.manualPlaceholder", { placeholder })
+            : placeholder
+        }
+        aria-label={t("inventory2b4.quick.catalog.manualAria", { label })}
       />
     </fieldset>
   );
@@ -365,6 +442,7 @@ function ColorField({
   pickerMode?: CatalogPickerMode;
   className?: string;
 }) {
+  const { t } = useLocale();
   const isPending = policyState === "pending-official-color";
   const isManualValue = Boolean(value) && !options.some((option) => option.value === value);
   const preservedValue = existingColor?.trim();
@@ -373,9 +451,9 @@ function ColorField({
     <fieldset className={cn("col-span-2 min-w-0 space-y-1.5", className)}>
       <InventorySelectableField
         id={id}
-        label="设备颜色"
+        label={t("inventory2b4.quick.catalog.color")}
         value={displayValue}
-        placeholder="选择设备颜色"
+        placeholder={t("inventory2b4.quick.catalog.selectColor")}
         options={options}
         mode={pickerMode}
         pending={isPending}
@@ -393,7 +471,7 @@ function ColorField({
             value={preservedValue}
             readOnly
             disabled={disabled}
-            aria-label="设备颜色当前值（只读）"
+            aria-label={t("inventory2b4.quick.catalog.colorReadonlyAria")}
           />
         ) : null
       ) : policyState === "generic" ? (
@@ -403,8 +481,8 @@ function ColorField({
           value={isManualValue ? value : ""}
           disabled={disabled}
           onChange={(event) => onChange(event.target.value)}
-          placeholder="例如 蓝色（其他/手动）"
-          aria-label="设备颜色手动补充"
+          placeholder={t("inventory2b4.quick.catalog.colorManualPlaceholder")}
+          aria-label={t("inventory2b4.quick.catalog.colorManualAria")}
         />
       ) : null}
       {invalid && errorMessage ? (
@@ -416,26 +494,20 @@ function ColorField({
   );
 }
 
-function categoryLabel(category: InventoryProductCategory) {
-  return { phone: "手机", tablet: "平板", computer: "电脑", game_console: "游戏机", other: "其他" }[
-    category
-  ];
-}
-
-function brandMonogram(name: string) {
+function brandMonogram(name: string, fallback: string) {
   return (
     name
       .replace(/[^A-Za-z0-9]/g, "")
       .slice(0, 2)
-      .toUpperCase() || "品"
+      .toUpperCase() || fallback
   );
 }
 
-function modelMonogram(model: DeviceCatalogModel) {
+function modelMonogram(model: DeviceCatalogModel, fallback: string) {
   return (
     model.series
       .replace(/[^A-Za-z0-9]/g, "")
       .slice(0, 2)
-      .toUpperCase() || "型"
+      .toUpperCase() || fallback
   );
 }

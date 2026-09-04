@@ -54,6 +54,24 @@ describe("InventoryOperationErrorPanel", () => {
     await waitFor(() => expect(verify).toHaveBeenCalledTimes(1));
   });
 
+  it("contains a rejected read-only verification after the caller records its failed state", async () => {
+    const user = userEvent.setup();
+    const rawSentinel = "PRIVATE-READBACK-SENTINEL";
+    const unhandled: unknown[] = [];
+    const listener = (event: PromiseRejectionEvent) => unhandled.push(event.reason);
+    window.addEventListener("unhandledrejection", listener);
+    const verify = vi.fn().mockRejectedValue(new Error(rawSentinel));
+
+    render(<InventoryOperationErrorPanel error={unknownError} onVerify={verify} />);
+    await user.click(screen.getByRole("button", { name: /读取最新状态/ }));
+    await waitFor(() => expect(verify).toHaveBeenCalledTimes(1));
+    await Promise.resolve();
+
+    expect(unhandled).toEqual([]);
+    expect(screen.queryByText(rawSentinel)).not.toBeInTheDocument();
+    window.removeEventListener("unhandledrejection", listener);
+  });
+
   it("requires an explicit acknowledgement after a successful readback", async () => {
     const user = userEvent.setup();
     const acknowledge = vi.fn();

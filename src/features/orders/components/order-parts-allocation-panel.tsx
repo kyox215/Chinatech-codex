@@ -14,11 +14,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ordersKeys } from "@/features/orders/api/query-keys";
+import { getOrderDetailSafeErrorMessage } from "@/features/orders/model/order-detail-i18n";
 import { procurementKeys } from "@/features/procurement/api/query-keys";
 import { partsProcurementQueryOptions } from "@/features/procurement/api/query-options";
 import { allocateOrderPart, releaseOrderPart } from "@/lib/repairdesk/api";
 import type { FaultPriceItem } from "@/lib/repairdesk/types";
-import { formatMoney } from "@/lib/money";
+import { formatCurrency } from "@/shared/i18n/format";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function OrderPartsAllocationPanel({
   orderId,
@@ -29,6 +31,7 @@ export function OrderPartsAllocationPanel({
   storeId: string;
   faultPrices: FaultPriceItem[];
 }) {
+  const { locale, t } = useLocale();
   const client = useQueryClient();
   const query = useQuery(partsProcurementQueryOptions(storeId, orderId));
   const [lotByLine, setLotByLine] = useState<Record<string, string>>({});
@@ -50,9 +53,9 @@ export function OrderPartsAllocationPanel({
       }),
     onSuccess: async () => {
       await refresh();
-      toast.success("采购批次已分配，内部成本已更新");
+      toast.success(t("orders2b2.parts.allocatedToast"));
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => toast.error(getOrderDetailSafeErrorMessage(error, "save", t)),
   });
   const release = useMutation({
     mutationFn: (allocationId: string) =>
@@ -64,9 +67,9 @@ export function OrderPartsAllocationPanel({
       }),
     onSuccess: async () => {
       await refresh();
-      toast.success("配件已退回原采购批次");
+      toast.success(t("orders2b2.parts.releasedToast"));
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => toast.error(getOrderDetailSafeErrorMessage(error, "save", t)),
   });
 
   return (
@@ -74,20 +77,22 @@ export function OrderPartsAllocationPanel({
       <div className="flex items-start gap-2">
         <Link2 className="mt-0.5 size-3.5 shrink-0 text-primary" />
         <div>
-          <p className="text-[11px] font-semibold lg:text-xs lg:leading-4">配件批次联动</p>
+          <p className="text-[11px] font-semibold lg:text-xs lg:leading-4">
+            {t("orders2b2.parts.title")}
+          </p>
           <p className="text-[9px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-            每个报价行绑定一个可追溯采购批次；当前版本按件分配 1 个。
+            {t("orders2b2.parts.help")}
           </p>
         </div>
       </div>
       {query.isPending ? (
         <p className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
-          正在读取可用采购批次…
+          {t("orders2b2.parts.loading")}
         </p>
       ) : null}
       {query.isError ? (
         <p role="alert" className="text-[10px] text-destructive lg:text-xs lg:leading-[18px]">
-          采购批次读取失败。
+          {t("orders2b2.parts.loadFailed")}
         </p>
       ) : null}
       {query.data &&
@@ -113,19 +118,19 @@ export function OrderPartsAllocationPanel({
                 </p>
                 {active ? (
                   <p className="mt-0.5 text-[9px] text-muted-foreground lg:text-xs lg:leading-4">
-                    {active.part_name} · {active.supplier_name ?? "未关联供应商"} ·{" "}
-                    {formatMoney(active.total_cost_eur)}
+                    {active.part_name} · {active.supplier_name ?? t("orders2b2.parts.noSupplier")} ·{" "}
+                    {formatCurrency(active.total_cost_eur, locale)}
                   </p>
                 ) : (
                   <p className="mt-0.5 text-[9px] text-muted-foreground lg:text-xs lg:leading-4">
-                    尚未绑定采购批次
+                    {t("orders2b2.parts.unbound")}
                   </p>
                 )}
               </div>
               {active ? (
                 <span className="text-[10px] font-medium text-status-success-foreground lg:text-xs lg:leading-4">
                   <PackageCheck className="mr-1 inline size-3" />
-                  已分配
+                  {t("orders2b2.parts.allocated")}
                 </span>
               ) : (
                 <Select
@@ -135,13 +140,16 @@ export function OrderPartsAllocationPanel({
                   }
                 >
                   <SelectTrigger className="h-8 text-[10px] lg:text-xs lg:leading-4">
-                    <SelectValue placeholder="无匹配批次" />
+                    <SelectValue placeholder={t("orders2b2.parts.noMatch")} />
                   </SelectTrigger>
                   <SelectContent>
                     {availableLots.map((lot) => (
                       <SelectItem key={lot.id} value={lot.id}>
-                        {lot.part_name} · 可用 {lot.available_quantity} ·{" "}
-                        {formatMoney(lot.unit_cost_eur)}
+                        {t("orders2b2.parts.available", {
+                          name: lot.part_name,
+                          count: lot.available_quantity,
+                          amount: formatCurrency(lot.unit_cost_eur, locale),
+                        })}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -157,7 +165,7 @@ export function OrderPartsAllocationPanel({
                   onClick={() => release.mutate(active.id)}
                 >
                   <Undo2 className="mr-1 size-3" />
-                  释放
+                  {t("orders2b2.parts.release")}
                 </Button>
               ) : (
                 <Button
@@ -167,7 +175,7 @@ export function OrderPartsAllocationPanel({
                   disabled={!selected || allocate.isPending}
                   onClick={() => allocate.mutate({ lineId, lotId: selected })}
                 >
-                  分配 1 件
+                  {t("orders2b2.parts.allocateOne")}
                 </Button>
               )}
             </div>

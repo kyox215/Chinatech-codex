@@ -31,12 +31,13 @@ import type {
   StoreLifecyclePreflight,
   StorePurgeRequest,
 } from "@/lib/repairdesk/types";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { translateSettingsOperations } from "@/shared/i18n/messages";
 
 import {
   cancellableState,
   isKnownPurgeRequestState,
   isMutationOutcomeResolved,
-  reconciledMutationCopy,
   type MutationOutcome,
   type StorePurgeManagerMode,
 } from "./store-purge-manager-logic";
@@ -48,6 +49,9 @@ export function useStorePurgeManagerState({
   store: ActorStoreMembership;
   capability: StoreLifecycleActionCapability;
 }) {
+  const { locale } = useLocale();
+  const copy = (source: Parameters<typeof translateSettingsOperations>[1]) =>
+    translateSettingsOperations(locale, source);
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<StorePurgeManagerMode>("request");
@@ -61,6 +65,7 @@ export function useStorePurgeManagerState({
   const mutationStartedRef = useRef(false);
   const reconciliationInFlightRef = useRef(false);
   const reconciliationAttemptRef = useRef(false);
+  const beginLockRef = useRef(false);
   const [outcomeUnknown, setOutcomeUnknown] = useState(false);
   const [isMutationReconciling, setIsMutationReconciling] = useState(false);
   const [reconciliationError, setReconciliationError] = useState(false);
@@ -105,9 +110,10 @@ export function useStorePurgeManagerState({
       (nextMode === "request"
         ? !purgeRequest || purgeRequest.state === "cancelled"
         : purgeRequest?.state === "ready_for_confirmation");
-    if (!canBegin) {
+    if (!canBegin || beginLockRef.current) {
       return;
     }
+    beginLockRef.current = true;
     setMode(nextMode);
     setConfirmationPhrase("");
     setTotpCode("");
@@ -117,10 +123,23 @@ export function useStorePurgeManagerState({
     setOpen(true);
     try {
       setPreflight(await createStoreLifecyclePreflight(store.id));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "无法完成删除前安全预检");
+    } catch {
+      toast.error(copy("无法完成删除前安全预检"));
+    } finally {
+      beginLockRef.current = false;
     }
   };
+
+  useEffect(() => {
+    if (capability.allowed) return;
+    if (!mutationStartedRef.current) mutationLockRef.current = false;
+    setOpen(false);
+    setConfirmationPhrase("");
+    setTotpCode("");
+    setAcknowledged(false);
+    setPhraseCopied(false);
+    setPreflight(null);
+  }, [capability.allowed]);
 
   const reconcileMutationOutcome = async () => {
     const outcome = mutationOutcomeRef.current;
@@ -155,7 +174,15 @@ export function useStorePurgeManagerState({
         setReconciliationError(false);
         setOpen(false);
       }
-      toast.success(reconciledMutationCopy(outcome.kind));
+      toast.success(
+        copy(
+          outcome.kind === "cancel"
+            ? "取消结果已从服务器状态核对并同步"
+            : outcome.kind === "confirm"
+              ? "最终确认结果已从服务器状态核对并同步"
+              : "永久删除申请结果已从服务器状态核对并同步",
+        ),
+      );
     } catch {
       setReconciliationError(true);
     } finally {
@@ -167,7 +194,7 @@ export function useStorePurgeManagerState({
   const submitMutation = useMutation({
     mutationFn: async () => {
       if (mutationLockRef.current) {
-        throw new Error("已有店铺删除操作正在处理中，请等待结果");
+        throw new Error("store_purge_action_in_progress");
       }
       mutationLockRef.current = true;
       mutationStartedRef.current = false;
@@ -177,24 +204,24 @@ export function useStorePurgeManagerState({
       };
       try {
         if (!requestQuery.isSuccess) {
-          throw new Error("正在读取永久删除申请状态，请稍后再试");
+          throw new Error("store_purge_status_unavailable");
         }
         const currentRequest = requestQuery.data ?? null;
         if (currentRequest && !isKnownPurgeRequestState(currentRequest.state)) {
           void refetchPurgeRequest();
-          throw new Error("永久删除申请状态正在核对，请稍后再试");
+          throw new Error("store_purge_status_reconciling");
         }
         if (mode === "request" && currentRequest !== null && currentRequest.state !== "cancelled") {
-          throw new Error("已有永久删除申请正在处理，请先核对现有状态");
+          throw new Error("store_purge_request_already_exists");
         }
         if (
           mode === "confirm" &&
           (!currentRequest || currentRequest.state !== "ready_for_confirmation")
         ) {
-          throw new Error("永久删除申请尚未达到最终确认条件，请刷新后再试");
+          throw new Error("store_purge_not_ready_for_confirmation");
         }
         const lifecycle = preflight?.lifecycle ?? store.lifecycle;
-        if (!preflight || !lifecycle) throw new Error("删除前安全预检尚未完成");
+        if (!preflight || !lifecycle) throw new Error("store_purge_preflight_incomplete");
         await verifyRecentLifecycleAal2(totpCode);
         const challenge = await issueStoreLifecycleChallenge({
           expectedStoreId: store.id,
@@ -210,7 +237,7 @@ export function useStorePurgeManagerState({
           confirmationPhrase,
         };
         if (mode === "confirm") {
-          if (!currentRequest) throw new Error("找不到待确认的永久删除申请");
+          if (!currentRequest) throw new Error("store_purge_request_missing");
           mutationStartedRef.current = true;
           return await confirmStorePurgeRequest({
             ...common,
@@ -232,8 +259,8 @@ export function useStorePurgeManagerState({
       setOpen(false);
       toast.success(
         mode === "request"
-          ? "永久删除申请已建立，可在冷静期内取消"
-          : "最终确认已记录，等待后台安全核验和排程",
+          ? copy("永久删除申请已建立，可在冷静期内取消")
+          : copy("最终确认已记录，等待后台安全核验和排程"),
       );
       await queryClient.invalidateQueries({ queryKey: storesKeys.lifecycle(store.id) });
       await clearTenantScopedQueryCache(queryClient);
@@ -242,22 +269,22 @@ export function useStorePurgeManagerState({
       mutationStartedRef.current = false;
       mutationLockRef.current = false;
     },
-    onError: (error) => {
+    onError: (_error) => {
       if (mutationOutcomeRef.current) {
         setOutcomeUnknown(true);
         setOpen(false);
-        toast.error("操作结果暂时无法确认，正在核对服务器状态");
+        toast.error(copy("操作结果暂时无法确认，正在核对服务器状态"));
         void reconcileMutationOutcome();
         return;
       }
-      toast.error(error instanceof Error ? error.message : "提交失败");
+      toast.error(copy("提交失败"));
     },
   });
 
   const cancelMutation = useMutation({
     mutationFn: async () => {
       if (mutationLockRef.current) {
-        throw new Error("已有店铺删除操作正在处理中，请等待结果");
+        throw new Error("store_purge_action_in_progress");
       }
       mutationLockRef.current = true;
       mutationStartedRef.current = false;
@@ -267,10 +294,10 @@ export function useStorePurgeManagerState({
       };
       try {
         if (!requestQuery.isSuccess || !purgeRequest) {
-          throw new Error("找不到可取消的删除申请");
+          throw new Error("store_purge_cancellable_request_missing");
         }
         if (!isKnownPurgeRequestState(purgeRequest.state) || !cancellableState(purgeRequest)) {
-          throw new Error("当前申请状态不可取消，请刷新后再试");
+          throw new Error("store_purge_request_not_cancellable");
         }
         mutationStartedRef.current = true;
         return await cancelStorePurgeRequest({
@@ -289,20 +316,20 @@ export function useStorePurgeManagerState({
       queryClient.setQueryData(requestQueryKey, result);
       await queryClient.invalidateQueries({ queryKey: storesKeys.lifecycle(store.id) });
       await refreshStoreContextQueries(queryClient);
-      toast.success("永久删除申请已取消");
+      toast.success(copy("永久删除申请已取消"));
       mutationOutcomeRef.current = null;
       mutationStartedRef.current = false;
       mutationLockRef.current = false;
     },
-    onError: (error) => {
+    onError: (_error) => {
       if (mutationOutcomeRef.current) {
         setOutcomeUnknown(true);
         setOpen(false);
-        toast.error("取消结果暂时无法确认，正在核对服务器状态");
+        toast.error(copy("取消结果暂时无法确认，正在核对服务器状态"));
         void reconcileMutationOutcome();
         return;
       }
-      toast.error(error instanceof Error ? error.message : "取消失败");
+      toast.error(copy("取消失败"));
     },
   });
 
@@ -342,7 +369,7 @@ export function useStorePurgeManagerState({
       setPhraseCopied(true);
       window.setTimeout(() => setPhraseCopied(false), 1600);
     } catch {
-      toast.error("无法复制提示词，请手动输入");
+      toast.error(copy("无法复制提示词，请手动输入"));
     }
   };
 

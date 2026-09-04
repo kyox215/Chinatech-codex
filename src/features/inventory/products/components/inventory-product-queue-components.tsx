@@ -23,7 +23,7 @@ import type {
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import {
-  InventoryLifecycleProjectionBadge,
+  getInventoryLifecycleProjectionToneClass,
   InventoryLifecycleProjectionStatusIcon,
 } from "@/features/inventory/lifecycle/components/inventory-lifecycle-status";
 import {
@@ -31,7 +31,17 @@ import {
   inventoryLifecycleProjectionStatusMeta,
   projectCompatibleInventoryLifecycle,
 } from "@/features/inventory/lifecycle/model/projection";
-import { MoneyText } from "@/shared/ui";
+import { InventoryStatusBadge } from "@/features/inventory/components/inventory-ui-primitives";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey, MessageValues } from "@/shared/i18n/messages";
+import {
+  localizeInventoryAfterSalesStatus,
+  localizeInventoryProjectionMeta,
+} from "@/features/inventory/lifecycle/model/inventory-lifecycle-i18n";
+import {
+  formatInventoryProductMoney,
+  localizeInventoryProductCategory,
+} from "../model/inventory-product-i18n";
 
 import {
   inventoryProductColorStyle,
@@ -41,6 +51,7 @@ import {
 } from "../../model/inventory-product-reference-image";
 
 export type InventoryProductView = "shelf" | "list";
+type Translate = (key: MessageKey, values?: MessageValues) => string;
 
 /**
  * Inventory-only parity contract for the shared list scaffold.
@@ -106,17 +117,26 @@ export function InventoryLifecycleShortcutBar({
   counts?: Partial<Record<InventoryLifecycleProjectionStatus, number>>;
   onChange: (value: InventoryLifecycleShortcut) => void;
 }) {
+  const { t } = useLocale();
   const shortcuts = [
-    { key: "in_stock" as const, label: "在售", statuses: ["in_stock"] as const },
-    { key: "reserved" as const, label: "预订", statuses: ["reserved"] as const },
+    {
+      key: "in_stock" as const,
+      label: t("inventory2b4.list.shortcut.inStock"),
+      statuses: ["in_stock"] as const,
+    },
+    {
+      key: "reserved" as const,
+      label: t("inventory2b4.list.shortcut.reserved"),
+      statuses: ["reserved"] as const,
+    },
     {
       key: "sold_pending_pickup" as const,
-      label: "待取",
+      label: t("inventory2b4.list.shortcut.pickup"),
       statuses: ["sold_pending_pickup"] as const,
     },
     {
       key: "processing" as const,
-      label: "处理",
+      label: t("inventory2b4.list.shortcut.processing"),
       statuses: ["processing", "after_sales"] as const,
     },
   ];
@@ -125,12 +145,24 @@ export function InventoryLifecycleShortcutBar({
       data-ui="inventory-lifecycle-shortcuts"
       className="mb-2 grid min-w-0 grid-cols-2 gap-1.5 min-[360px]:grid-cols-4"
       role="group"
-      aria-label="生命周期工作入口"
+      aria-label={t("inventory2b4.list.shortcut.aria")}
     >
       {shortcuts.map(({ key, label, statuses }) => {
         const count = statuses.reduce((total, status) => total + (counts?.[status] ?? 0), 0);
         const hasCount = statuses.some((status) => counts?.[status] !== undefined);
-        const meta = inventoryLifecycleProjectionStatusMeta[statuses[0]];
+        const projection = {
+          mode: "exact" as const,
+          status: statuses[0],
+          confidence: "high" as const,
+          needs_review: false,
+          allowed_actions: [],
+        };
+        const meta = localizeInventoryProjectionMeta(
+          projection,
+          inventoryLifecycleProjectionStatusMeta[statuses[0]],
+          undefined,
+          t,
+        );
         return (
           <button
             key={key}
@@ -189,7 +221,13 @@ export function InventoryProductCard({
   item: InventoryProductListItem;
   view: InventoryProductView;
 }) {
+  const { locale, t } = useLocale();
   const Icon = categoryMeta[item.category].icon;
+  const localizedCategory = localizeInventoryProductCategory(
+    item.category,
+    categoryMeta[item.category].label,
+    t,
+  );
   const [failedImageUrls, setFailedImageUrls] = useState<string[]>([]);
   const reference = matchInventoryProductReference(item);
   const colorMatch = matchInventoryProductColor(item);
@@ -200,17 +238,19 @@ export function InventoryProductCard({
     reference,
     failedImageUrls,
   );
-  const imageAlt = [item.brand, item.model, item.specification, categoryMeta[item.category].label]
+  const imageAlt = [item.brand, item.model, item.specification, localizedCategory]
     .filter(Boolean)
     .join("，");
   const shelf = view === "shelf";
   const lifecycle =
     item.lifecycle ?? projectCompatibleInventoryLifecycle(item.legacy_status ?? item.status);
-  const lifecycleMeta = getInventoryLifecycleProjectionMeta(
+  const lifecycleMeta = localizeInventoryProjectionMeta(
     lifecycle,
+    getInventoryLifecycleProjectionMeta(lifecycle, item.legacy_status ?? item.status),
     item.legacy_status ?? item.status,
+    t,
   );
-  const auxiliaryLabels = lifecycleAuxiliaryLabels(lifecycle);
+  const auxiliaryLabels = lifecycleAuxiliaryLabels(lifecycle, t);
   return (
     <Link
       href={`/inventory/${item.id}`}
@@ -233,7 +273,14 @@ export function InventoryProductCard({
         {activeImage ? (
           <img
             src={activeImage.url}
-            alt={activeImage.isReference ? activeImage.reference.alt : imageAlt}
+            alt={
+              activeImage.isReference
+                ? t("inventory2b4.list.referenceAlt", {
+                    brand: item.brand,
+                    model: item.model,
+                  })
+                : imageAlt
+            }
             loading="lazy"
             decoding="async"
             className="size-full object-contain"
@@ -247,15 +294,17 @@ export function InventoryProductCard({
         {activeImage?.isReference ? (
           <span
             className="absolute left-1.5 top-1.5 rounded-full border border-border bg-card px-1.5 py-0.5 text-xs font-semibold leading-4 text-foreground shadow-sm"
-            aria-label="参考图"
+            aria-label={t("inventory2b4.list.referenceImage")}
           >
-            参考图
+            {t("inventory2b4.list.referenceImage")}
           </span>
         ) : null}
         {!activeImage ? (
           <span className="absolute inset-0 grid place-items-center gap-1 text-primary">
             <Icon className="size-7 md:size-10" aria-hidden="true" />
-            <span className="text-[10px] leading-3 text-muted-foreground">暂无图片</span>
+            <span className="text-[10px] leading-3 text-muted-foreground">
+              {t("inventory2b4.list.noImage")}
+            </span>
           </span>
         ) : null}
       </span>
@@ -269,23 +318,26 @@ export function InventoryProductCard({
           <span className="block min-w-0 truncate text-xs font-semibold leading-4">
             {item.brand} {item.model}
           </span>
-          <InventoryLifecycleProjectionBadge
-            projection={lifecycle}
-            legacyStatus={item.status}
-            className="shrink-0"
-          />
+          <InventoryStatusBadge
+            className={cn(
+              getInventoryLifecycleProjectionToneClass(lifecycleMeta.tone),
+              "shrink-0 gap-1",
+            )}
+          >
+            <InventoryLifecycleProjectionStatusIcon status={lifecycle.status} />
+            <span>{lifecycleMeta.label}</span>
+          </InventoryStatusBadge>
         </span>
         <span className="flex min-w-0 items-center gap-1.5 truncate text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
-          <span className="min-w-0 truncate">
-            {specification || categoryMeta[item.category].label}
-          </span>
+          <span className="min-w-0 truncate">{specification || localizedCategory}</span>
           {colorMatch ? <InventoryProductColor color={colorMatch} /> : null}
         </span>
         <span className="mt-0.5 block truncate font-mono text-[10px] leading-4 text-primary lg:text-[11px]">
           SKU {item.sku}
         </span>
         <span className="block truncate text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
-          {[item.location, item.masked_identifier].filter(Boolean).join(" · ") || "暂无库位"}
+          {[item.location, item.masked_identifier].filter(Boolean).join(" · ") ||
+            t("inventory2b4.detail.locationMissing")}
         </span>
         {auxiliaryLabels.length ? (
           <span className="mt-1 flex min-w-0 flex-wrap gap-1">
@@ -301,7 +353,9 @@ export function InventoryProductCard({
         ) : null}
         <span className="mt-1 flex min-w-0 items-center gap-1 text-[9px] leading-3 text-muted-foreground">
           <span className="size-1 shrink-0 rounded-full bg-primary" aria-hidden="true" />
-          <span className="truncate">{lifecycleMeta.nextStep ?? "暂无下一步"}</span>
+          <span className="truncate">
+            {lifecycleMeta.nextStep ?? t("inventory2b4.list.noNextStep")}
+          </span>
         </span>
       </span>
       <span
@@ -312,11 +366,14 @@ export function InventoryProductCard({
       >
         {lifecycle.mode === "exact" && lifecycle.balance !== undefined ? (
           <span className="whitespace-nowrap text-[10px] font-semibold text-muted-foreground md:text-xs">
-            尾款 <MoneyText amount={lifecycle.balance} />
+            <span>{t("inventory2b4.list.balance")}</span>{" "}
+            <span>{formatInventoryProductMoney(lifecycle.balance, locale, t)}</span>
           </span>
         ) : null}
         <span className="whitespace-nowrap text-xs font-semibold md:text-sm">
-          {item.list_price === undefined ? "未填写" : <MoneyText amount={item.list_price} />}
+          {item.list_price === undefined
+            ? t("inventory2b4.list.priceMissing")
+            : formatInventoryProductMoney(item.list_price, locale, t)}
         </span>
       </span>
     </Link>
@@ -325,21 +382,22 @@ export function InventoryProductCard({
 
 export function lifecycleAuxiliaryLabels(
   lifecycle: NonNullable<InventoryProductListItem["lifecycle"]>,
+  t: Translate,
 ) {
   const labels: string[] = [];
-  if (lifecycle.needs_review) labels.push("需核对");
+  if (lifecycle.needs_review) labels.push(t("inventory2b4.list.needsReview"));
   if (lifecycle.mode === "exact" && lifecycle.after_sales_status) {
     labels.push(
-      {
-        open: "待检测",
-        in_progress: "处理中",
-        waiting_customer: "等客户",
-        returned: "已返还",
-        closed: "已关闭",
-      }[lifecycle.after_sales_status],
+      localizeInventoryAfterSalesStatus(
+        lifecycle.after_sales_status,
+        lifecycle.after_sales_status,
+        t,
+      ),
     );
   }
-  if (lifecycle.mode === "exact" && lifecycle.expected_pickup_at) labels.push("已安排取走");
+  if (lifecycle.mode === "exact" && lifecycle.expected_pickup_at) {
+    labels.push(t("inventory2b4.list.pickupArranged"));
+  }
   return labels.slice(0, 2);
 }
 
@@ -372,10 +430,14 @@ export function InventoryProductColor({
 }: {
   color: ReturnType<typeof matchInventoryProductColor>;
 }) {
+  const { t } = useLocale();
   if (!color) return null;
   if (!color.option) {
     return (
-      <span className="shrink-0 truncate" title={`颜色：${color.value}`}>
+      <span
+        className="shrink-0 truncate"
+        title={t("inventory2b4.list.colorTitle", { value: color.value })}
+      >
         {color.value}
       </span>
     );
@@ -383,8 +445,8 @@ export function InventoryProductColor({
   return (
     <span
       className="inline-flex max-w-[45%] shrink-0 items-center gap-1 truncate text-foreground"
-      title={`目录颜色：${color.option.name}`}
-      aria-label={`颜色 ${color.option.name}`}
+      title={t("inventory2b4.list.colorTitle", { value: color.value })}
+      aria-label={t("inventory2b4.list.colorAria", { value: color.value })}
       role="img"
     >
       <span
@@ -392,7 +454,7 @@ export function InventoryProductColor({
         style={inventoryProductColorStyle(color.option)}
         aria-hidden="true"
       />
-      <span className="truncate">{color.option.name}</span>
+      <span className="truncate">{color.value}</span>
     </span>
   );
 }
@@ -428,11 +490,12 @@ export function InventoryProductViewToggle({
   value: InventoryProductView;
   onChange: (value: InventoryProductView) => void;
 }) {
+  const { t } = useLocale();
   return (
     <div
       data-ui="inventory-product-view-toggle"
       role="group"
-      aria-label="商品列表视图"
+      aria-label={t("inventory2b4.list.view.aria")}
       className="grid h-11 w-[88px] shrink-0 grid-cols-2 overflow-hidden rounded-lg bg-card shadow-sm ring-1 ring-inset ring-border"
     >
       <button
@@ -441,12 +504,12 @@ export function InventoryProductViewToggle({
           "grid min-h-11 min-w-0 place-items-center rounded-md text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
           value === "shelf" && "bg-primary text-primary-foreground",
         )}
-        aria-label="智能货架视图"
+        aria-label={t("inventory2b4.list.view.shelfAria")}
         aria-pressed={value === "shelf"}
         onClick={() => onChange("shelf")}
       >
         <LayoutGrid className="size-4" aria-hidden="true" />
-        <span className="sr-only">智能货架</span>
+        <span className="sr-only">{t("inventory2b4.list.view.shelf")}</span>
       </button>
       <button
         type="button"
@@ -454,12 +517,12 @@ export function InventoryProductViewToggle({
           "grid min-h-11 min-w-0 place-items-center rounded-md text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
           value === "list" && "bg-primary text-primary-foreground",
         )}
-        aria-label="紧凑列表视图"
+        aria-label={t("inventory2b4.list.view.listAria")}
         aria-pressed={value === "list"}
         onClick={() => onChange("list")}
       >
         <ListIcon className="size-4" aria-hidden="true" />
-        <span className="sr-only">紧凑列表</span>
+        <span className="sr-only">{t("inventory2b4.list.view.list")}</span>
       </button>
     </div>
   );
@@ -472,6 +535,7 @@ export function InventoryProductCategoryTabs({
   filters: InventoryProductListFilters;
   onChange: (categories: InventoryProductCategory[]) => void;
 }) {
+  const { t } = useLocale();
   const selectedCategories = filters.categories ?? [];
   const allSelected = selectedCategories.length === 0;
   return (
@@ -479,9 +543,13 @@ export function InventoryProductCategoryTabs({
       data-ui="inventory-product-category-tabs"
       className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-1.5 rounded-xl border border-border bg-card p-1.5 shadow-sm"
       role="group"
-      aria-label="商品分类"
+      aria-label={t("inventory2b4.list.categoriesAria")}
     >
       {categoryTabs.map(({ key, label, icon: Icon }) => {
+        const localizedLabel =
+          key === "all"
+            ? t("inventory2b4.list.all")
+            : localizeInventoryProductCategory(key, label, t);
         const active =
           key === "all"
             ? allSelected
@@ -500,7 +568,7 @@ export function InventoryProductCategoryTabs({
             onClick={() => onChange(key === "all" ? [] : [key])}
           >
             <Icon className="size-4 shrink-0" aria-hidden="true" />
-            <span className="truncate">{label}</span>
+            <span className="truncate">{localizedLabel}</span>
           </button>
         );
       })}
@@ -509,8 +577,10 @@ export function InventoryProductCategoryTabs({
 }
 
 export function InventoryProductListSkeleton() {
+  const { t } = useLocale();
   return (
     <div data-ui="inventory-product-list-skeleton" aria-busy="true">
+      <span className="sr-only">{t("inventory2b4.list.loading")}</span>
       <div
         className={cn(
           repairOs.listCardStack,

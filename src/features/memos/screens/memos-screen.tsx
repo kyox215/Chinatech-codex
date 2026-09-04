@@ -44,9 +44,12 @@ import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { RepairOsBusinessCard, RepairOsListScaffold } from "@/shared/ui";
 import { useLocale } from "@/shared/i18n/locale-provider";
+import { getMemoPresentationCopy, translateMemoPresentation } from "@/shared/i18n/messages";
+import { APP_TIME_ZONE } from "@/shared/i18n/locales";
 
 export function MemosScreen() {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
+  const copy = getMemoPresentationCopy(locale);
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
@@ -118,7 +121,7 @@ export function MemosScreen() {
     mutationFn: async (operation: () => Promise<MemoMutationResult>) => operation(),
     onSuccess: async (result) => {
       setConflictMemoId(null);
-      toast.success("备忘录已更新");
+      toast.success(copy.updatedToast);
       setSelected(result.memo);
       queryClient.setQueryData(memosKeys.detail(storeId, result.memo.id), result.memo);
       await refresh();
@@ -134,7 +137,7 @@ export function MemosScreen() {
         setConflictMemoId(selected.id);
         void detailQuery.refetch();
       }
-      toast.error(error instanceof Error ? error.message : "备忘录操作失败");
+      toast.error(error instanceof Error ? error.message : copy.operationFailed);
     },
   });
   const openCreate = () => {
@@ -177,19 +180,20 @@ export function MemosScreen() {
       size="iconDense"
       className="size-9 rounded-lg bg-foreground text-background shadow-none hover:bg-foreground/90"
       onClick={openCreate}
-      aria-label="新建备忘"
+      aria-label={copy.newMemo}
       disabled={!online || mutation.isPending}
     >
       <Plus className="size-4" />
     </Button>
   ) : null;
   if (shell.isLoading) return <MemoLoading />;
-  if (!storeId || !shell.permissions?.canReadMemos) return <MemoDeniedState />;
+  if (!storeId) return <MemoDeniedState noStore />;
+  if (!shell.permissions?.canReadMemos) return <MemoDeniedState />;
   const listMeta = listQuery.data?.pages[0];
   const visibleItems = listQuery.data?.pages.flatMap((result) => result.items) ?? [];
   const filterValue = { view, kind, assigneeId };
   const filterCount = getMemoFilterCount(filterValue);
-  const activeFilterLabels = getMemoFilterLabels(filterValue, assigneesQuery.data ?? []);
+  const activeFilterLabels = getMemoFilterLabels(filterValue, assigneesQuery.data ?? [], locale);
   const visibleTodoCount = visibleItems.filter((memo) => memo.kind === "todo").length;
   const visibleCompletedCount = visibleItems.filter(
     (memo) => memo.kind === "todo" && memo.todo_status === "completed",
@@ -199,7 +203,8 @@ export function MemosScreen() {
   const visibleCompletionPercent = visibleTodoCount
     ? Math.round((visibleCompletedCount / visibleTodoCount) * 100)
     : 0;
-  const todayLabel = new Intl.DateTimeFormat("zh-CN", {
+  const todayLabel = new Intl.DateTimeFormat(locale, {
+    timeZone: APP_TIME_ZONE,
     month: "long",
     day: "numeric",
     weekday: "short",
@@ -212,7 +217,7 @@ export function MemosScreen() {
       className="h-10 rounded-xl bg-foreground px-3 text-background shadow-none hover:bg-foreground/90"
     >
       <Plus className="size-4" />
-      新建备忘
+      {copy.newMemo}
     </Button>
   ) : null;
   const filterButton = (compact = false) => (
@@ -225,12 +230,16 @@ export function MemosScreen() {
         "relative rounded-xl border-[var(--border-panel)] bg-card shadow-none",
         filterCount > 0 && "border-foreground text-foreground",
       )}
-      aria-label={filterCount ? `筛选，已选 ${filterCount} 项` : "筛选"}
+      aria-label={
+        filterCount
+          ? translateMemoPresentation(locale, "filterSelected", { count: filterCount })
+          : copy.filter
+      }
       aria-expanded={filtersOpen}
       onClick={() => setFiltersOpen(true)}
     >
       <SlidersHorizontal className="size-4" />
-      {compact ? null : <span>筛选</span>}
+      {compact ? null : <span>{copy.filter}</span>}
       {filterCount > 0 ? (
         <span
           className={cn(
@@ -244,7 +253,7 @@ export function MemosScreen() {
     </Button>
   );
   const activeFilterSummary = activeFilterLabels.length ? (
-    <div className="flex min-w-0 items-center gap-2" aria-label="当前筛选条件">
+    <div className="flex min-w-0 items-center gap-2" aria-label={copy.currentFilters}>
       <span className="inline-flex min-w-0 items-center rounded-full bg-[var(--surface-panel-muted)] px-3 py-1.5 text-[11px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
         <span className="truncate">{activeFilterLabels.join(" · ")}</span>
       </span>
@@ -253,7 +262,7 @@ export function MemosScreen() {
         variant="ghost"
         size="iconDense"
         className="size-8 shrink-0 rounded-full text-muted-foreground"
-        aria-label="清除筛选条件"
+        aria-label={copy.clearFilters}
         onClick={() => {
           setView("active");
           setKind("all");
@@ -272,8 +281,8 @@ export function MemosScreen() {
           <Input
             value={search}
             type="search"
-            placeholder="搜索备忘录"
-            aria-label="搜索备忘录"
+            placeholder={copy.searchPlaceholder}
+            aria-label={copy.searchPlaceholder}
             className={cn(repairOs.searchInput, "h-10 text-sm")}
             onChange={(event) => setSearch(event.target.value)}
           />
@@ -285,7 +294,7 @@ export function MemosScreen() {
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           {search.trim() ? (
             <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-[var(--surface-panel-muted)] px-3 py-1.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-              <span className="shrink-0">搜索：</span>
+              <span className="shrink-0">{copy.searchPrefix}</span>
               <span className="truncate font-mono text-foreground">{search.trim()}</span>
             </span>
           ) : null}
@@ -306,7 +315,7 @@ export function MemosScreen() {
       action={createAction}
       desktopHeader={desktopToolbar}
       searchValue={search}
-      searchPlaceholder="搜索备忘录"
+      searchPlaceholder={copy.searchPlaceholder}
       onSearchChange={setSearch}
       searchFrame="embedded"
       filterAction={filterButton(true)}
@@ -316,26 +325,24 @@ export function MemosScreen() {
         {!online ? (
           <Alert>
             <WifiOff className="size-4" />
-            <AlertTitle>{listQuery.data ? "当前离线" : "离线且没有缓存"}</AlertTitle>
+            <AlertTitle>
+              {listQuery.data ? copy.offlineCachedTitle : copy.offlineNoCacheTitle}
+            </AlertTitle>
             <AlertDescription>
-              {listQuery.data
-                ? "已显示缓存内容，恢复网络后会自动同步；离线期间不能保存。"
-                : "此设备没有可用的备忘录缓存，请恢复网络后重试。"}
+              {listQuery.data ? copy.offlineCachedDescription : copy.offlineNoCacheDescription}
             </AlertDescription>
           </Alert>
         ) : null}
         {shell.activeStore?.role === "viewer" ? (
           <Alert>
-            <AlertTitle>只读模式</AlertTitle>
-            <AlertDescription>
-              你可以查看本店铺的活动和归档记录，但不能创建或修改。
-            </AlertDescription>
+            <AlertTitle>{copy.readonlyTitle}</AlertTitle>
+            <AlertDescription>{copy.readonlyDescription}</AlertDescription>
           </Alert>
         ) : null}
         {editorOpen && selected && detailQuery.isFetching && !detailMemo ? (
           <Alert aria-live="polite">
-            <AlertTitle>正在载入备忘详情</AlertTitle>
-            <AlertDescription>正在读取最新正文和状态，请稍候。</AlertDescription>
+            <AlertTitle>{copy.detailLoadingTitle}</AlertTitle>
+            <AlertDescription>{copy.detailLoadingDescription}</AlertDescription>
           </Alert>
         ) : null}
         {detailQuery.isError ? (
@@ -345,8 +352,8 @@ export function MemosScreen() {
           <RepairOsBusinessCard className="grid min-h-32 place-items-center p-3 text-center sm:min-h-52 sm:p-5">
             <div>
               <WifiOff className="mx-auto size-8 text-muted-foreground" />
-              <p className="mt-2 text-sm font-semibold">无法载入备忘录</p>
-              <p className="mt-1 text-xs text-muted-foreground">恢复网络后即可查看或新建记录。</p>
+              <p className="mt-2 text-sm font-semibold">{copy.unavailableTitle}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{copy.unavailableDescription}</p>
             </div>
           </RepairOsBusinessCard>
         ) : listQuery.isError ? (
@@ -357,22 +364,27 @@ export function MemosScreen() {
           <>
             <section
               className="min-w-0 overflow-hidden rounded-2xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)]"
-              aria-label="本店备忘清单"
+              aria-label={copy.storeListAria}
             >
               <header className="border-b border-border/50 px-3 py-3 sm:px-4">
                 <div className="flex min-w-0 items-end justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary lg:text-[11px] lg:leading-4 lg:tracking-normal">
-                      Today
+                      {copy.today}
                     </p>
                     <h2 className="truncate text-lg font-semibold tracking-tight">{todayLabel}</h2>
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="font-mono text-xs font-semibold tabular-nums">
-                      已显示 {visibleItems.length} 条
+                      {translateMemoPresentation(locale, "visibleCount", {
+                        count: visibleItems.length,
+                      })}
                     </p>
                     <p className="mt-0.5 text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                      {visiblePendingCount} 待办 · {visibleNoteCount} 记录
+                      {translateMemoPresentation(locale, "visibleSummary", {
+                        todos: visiblePendingCount,
+                        notes: visibleNoteCount,
+                      })}
                     </p>
                   </div>
                 </div>
@@ -381,7 +393,7 @@ export function MemosScreen() {
                     <div
                       className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
                       role="progressbar"
-                      aria-label="已显示待办完成进度"
+                      aria-label={copy.progressAria}
                       aria-valuemin={0}
                       aria-valuemax={visibleTodoCount}
                       aria-valuenow={visibleCompletedCount}

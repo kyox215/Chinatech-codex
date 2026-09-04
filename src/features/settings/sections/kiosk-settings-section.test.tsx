@@ -2,8 +2,13 @@ import { useState } from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { KioskSettingsSection } from "@/features/settings/sections/kiosk-settings-section";
+import {
+  formatKioskDateTime,
+  KioskSettingsSection,
+} from "@/features/settings/sections/kiosk-settings-section";
 import type { KioskDevice, KioskSession } from "@/lib/repairdesk/types";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
+import type { AppLocale } from "@/shared/i18n/locales";
 
 afterEach(cleanup);
 
@@ -101,49 +106,136 @@ describe("KioskSettingsSection", () => {
     fireEvent.click(screen.getByRole("button", { name: "确认提交" }));
 
     const error = await screen.findByRole("alert");
-    expect(error).toHaveTextContent("任务已被其他员工处理");
+    expect(error).toHaveTextContent("操作失败，请重试");
+    expect(error).not.toHaveTextContent("任务已被其他员工处理");
     await waitFor(() => expect(error).toHaveFocus());
     expect(screen.getByLabelText("给客户的退回原因")).toHaveValue("请重新确认电话号码");
     expect(onReturnSession).toHaveBeenCalledWith(session, "请重新确认电话号码");
   });
+
+  it.each([
+    ["zh-CN" as const, "客户 iPad", "生成配对码"],
+    ["it-IT" as const, "iPad cliente", "Genera codice di associazione"],
+    ["en" as const, "Customer iPad", "Generate pairing code"],
+  ])(
+    "localizes fixed staff controls in %s while preserving the default pairing label",
+    async (locale, title, action) => {
+      const onCreatePairing = vi.fn().mockResolvedValue(undefined);
+      renderKiosk({ onCreatePairing }, locale);
+      expect(screen.getByRole("heading", { name: title })).toBeVisible();
+      fireEvent.click(screen.getByRole("button", { name: action }));
+      await waitFor(() => expect(onCreatePairing).toHaveBeenCalledWith("前台 iPad"));
+      await waitFor(() => expect(screen.getByRole("button", { name: action })).toBeEnabled());
+    },
+  );
+
+  it("locks pairing and revoke before awaiting and tears down scoped UI on permission loss", async () => {
+    let resolvePairing!: () => void;
+    const pairing = new Promise<void>((resolve) => {
+      resolvePairing = resolve;
+    });
+    const onCreatePairing = vi.fn().mockReturnValue(pairing);
+    const onRevoke = vi.fn().mockResolvedValue(undefined);
+    const view = renderKiosk({ onCreatePairing, onRevoke }, "en");
+    const pair = screen.getByRole("button", { name: "Generate pairing code" });
+    fireEvent.click(pair);
+    fireEvent.click(pair);
+    expect(onCreatePairing).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      resolvePairing();
+      await pairing;
+    });
+    await waitFor(() => expect(pair).toBeEnabled());
+
+    const revoke = screen.getByRole("button", { name: "Revoke device" });
+    fireEvent.click(revoke);
+    const confirm = screen.getByRole("button", { name: "Confirm revoke" });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+    await waitFor(() => expect(onRevoke).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Confirm revoke" })).not.toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Revoke device" }));
+    expect(screen.getByRole("button", { name: "Confirm revoke" })).toBeVisible();
+    view.rerender(kioskTree({ canManageDevices: false }, "en"));
+    expect(screen.queryByRole("button", { name: "Revoke device" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm revoke" })).not.toBeInTheDocument();
+  });
+
+  it("formats kiosk dates in Rome and never echoes an invalid timestamp", () => {
+    const hostTimezone = process.env.TZ;
+    process.env.TZ = "America/Los_Angeles";
+    const instant = "2026-10-25T01:30:00.000Z";
+    try {
+      expect(formatKioskDateTime(instant, "zh-CN")).toBe("10/25 02:30");
+      expect(formatKioskDateTime(instant, "it-IT")).toBe("25/10, 02:30");
+      expect(formatKioskDateTime(instant, "en")).toBe("10/25, 02:30 AM");
+      expect(formatKioskDateTime("RAW_INVALID_TIMESTAMP", "zh-CN")).toBe("时间不可用");
+      expect(formatKioskDateTime("RAW_INVALID_TIMESTAMP", "it-IT")).toBe("Data non disponibile");
+      expect(formatKioskDateTime("RAW_INVALID_TIMESTAMP", "en")).toBe("Date unavailable");
+    } finally {
+      if (hostTimezone === undefined) delete process.env.TZ;
+      else process.env.TZ = hostTimezone;
+    }
+  });
 });
 
-function renderKiosk(overrides: Partial<React.ComponentProps<typeof KioskSettingsSection>> = {}) {
-  function Harness() {
-    const [returnReasons, setReturnReasons] = useState(overrides.returnReasons ?? {});
-    const props: React.ComponentProps<typeof KioskSettingsSection> = {
-      storeName: "Test Store",
-      devices: [device],
-      sessions: [],
-      canManageDevices: true,
-      canReviewSessions: true,
-      devicesLoading: false,
-      devicesError: false,
-      sessionsLoading: false,
-      sessionsError: false,
-      returnReasons,
-      onRetryDevices: vi.fn(),
-      onRetrySessions: vi.fn(),
-      onReturnReasonChange: (currentSession, value) =>
-        setReturnReasons((current) => ({
-          ...current,
-          [`${currentSession.id}:${currentSession.submission_version}`]: value,
-        })),
-      onReturnReasonConsumed: (currentSession) =>
-        setReturnReasons((current) => {
-          const next = { ...current };
-          delete next[`${currentSession.id}:${currentSession.submission_version}`];
-          return next;
-        }),
-      onCreatePairing: vi.fn().mockResolvedValue(undefined),
-      onRevoke: vi.fn().mockResolvedValue(undefined),
-      onAcceptSession: vi.fn().mockResolvedValue(undefined),
-      onReturnSession: vi.fn().mockResolvedValue(undefined),
-      onCopyCode: vi.fn(),
-      ...overrides,
-    };
-    return <KioskSettingsSection {...props} />;
-  }
+function kioskTree(
+  overrides: Partial<React.ComponentProps<typeof KioskSettingsSection>> = {},
+  locale: AppLocale = "zh-CN",
+) {
+  return (
+    <LocaleProvider initialLocale={locale}>
+      <KioskHarness overrides={overrides} />
+    </LocaleProvider>
+  );
+}
 
-  return render(<Harness />);
+function KioskHarness({
+  overrides,
+}: {
+  overrides: Partial<React.ComponentProps<typeof KioskSettingsSection>>;
+}) {
+  const [returnReasons, setReturnReasons] = useState(overrides.returnReasons ?? {});
+  const props: React.ComponentProps<typeof KioskSettingsSection> = {
+    storeName: "Test Store",
+    devices: [device],
+    sessions: [],
+    canManageDevices: true,
+    canReviewSessions: true,
+    devicesLoading: false,
+    devicesError: false,
+    sessionsLoading: false,
+    sessionsError: false,
+    returnReasons,
+    onRetryDevices: vi.fn(),
+    onRetrySessions: vi.fn(),
+    onReturnReasonChange: (currentSession, value) =>
+      setReturnReasons((current) => ({
+        ...current,
+        [`${currentSession.id}:${currentSession.submission_version}`]: value,
+      })),
+    onReturnReasonConsumed: (currentSession) =>
+      setReturnReasons((current) => {
+        const next = { ...current };
+        delete next[`${currentSession.id}:${currentSession.submission_version}`];
+        return next;
+      }),
+    onCreatePairing: vi.fn().mockResolvedValue(undefined),
+    onRevoke: vi.fn().mockResolvedValue(undefined),
+    onAcceptSession: vi.fn().mockResolvedValue(undefined),
+    onReturnSession: vi.fn().mockResolvedValue(undefined),
+    onCopyCode: vi.fn(),
+    ...overrides,
+  };
+  return <KioskSettingsSection {...props} />;
+}
+
+function renderKiosk(
+  overrides: Partial<React.ComponentProps<typeof KioskSettingsSection>> = {},
+  locale: AppLocale = "zh-CN",
+) {
+  return render(kioskTree(overrides, locale));
 }

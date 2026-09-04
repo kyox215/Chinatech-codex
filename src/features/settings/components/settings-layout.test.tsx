@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { SettingsLayout } from "@/features/settings/components/settings-layout";
 import { getSettingsSection } from "@/features/settings/model/settings-section-registry";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
 
 describe("SettingsLayout", () => {
   it("keeps stable rail and content hooks for the overview", () => {
@@ -26,5 +27,20 @@ describe("SettingsLayout", () => {
     );
 
     expect(screen.getByRole("link", { name: "返回设置总览" })).toHaveAttribute("href", "/settings");
+  });
+
+  it("localizes the tablet return label while keeping its route", () => {
+    render(
+      <LocaleProvider initialLocale="en">
+        <SettingsLayout activeSection={getSettingsSection("store", "en")} rail={<div>Rail</div>}>
+          <div>Store details</div>
+        </SettingsLayout>
+      </LocaleProvider>,
+    );
+
+    expect(screen.getByRole("link", { name: "Back to settings overview" })).toHaveAttribute(
+      "href",
+      "/settings",
+    );
   });
 });

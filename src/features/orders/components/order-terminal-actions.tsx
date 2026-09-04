@@ -57,6 +57,12 @@ import {
   ORDER_WARRANTY_OPTIONS,
   parseWarrantyMonths,
 } from "@/features/orders/model/order-warranty";
+import { localizeWorkflowStatusLabel } from "@/features/orders/model/order-i18n";
+import { getOrderDetailSafeErrorMessage } from "@/features/orders/model/order-detail-i18n";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey, MessageValues } from "@/shared/i18n/messages";
+
+type Translate = (key: MessageKey, values?: MessageValues) => string;
 
 type TerminalMode = "correct" | "reopen" | "void";
 
@@ -73,6 +79,7 @@ export function OrderTerminalActions({
   className?: string;
   variant?: "banner" | "compact";
 }) {
+  const { t } = useLocale();
   const order = detail.order;
   const capabilities = detail.capabilities;
   const [mode, setMode] = useState<TerminalMode | null>(null);
@@ -103,8 +110,9 @@ export function OrderTerminalActions({
         correction,
         targetStatus,
         reopenTargets,
+        t,
       }),
-    [confirmation, correction, mode, order, reason, reopenTargets, targetStatus],
+    [confirmation, correction, mode, order, reason, reopenTargets, t, targetStatus],
   );
 
   const mutation = useMutation({
@@ -139,13 +147,13 @@ export function OrderTerminalActions({
       });
     },
     onSuccess: (result) => {
-      toast.success(result.replayed ? "操作已确认（重复提交未产生新记录）" : successMessage(mode));
+      toast.success(result.replayed ? t("orders2b2.terminal.replayed") : successMessage(mode, t));
       setMode(null);
       setMutationError("");
       onCompleted();
     },
     onError: (error: Error) => {
-      const message = terminalMutationErrorMessage(error);
+      const message = terminalMutationErrorMessage(error, t);
       setMutationError(message);
       toast.error(message);
       if (error instanceof RepairDeskApiError && error.code === "STALE_VERSION") {
@@ -205,20 +213,21 @@ export function OrderTerminalActions({
         setMutationError("");
       }}
       reopenTargets={reopenTargets}
+      workflow={workflow}
     />
   ) : null;
   const visibleError = mutationError || validationError;
   const footer = (
     <>
       <Button variant="outline" disabled={mutation.isPending} onClick={() => setMode(null)}>
-        取消
+        {t("common.cancel")}
       </Button>
       <Button
         variant={mode === "void" ? "destructive" : "default"}
         disabled={mutation.isPending || Boolean(validationError)}
         onClick={() => mutation.mutate()}
       >
-        {mutation.isPending ? "处理中…" : actionLabel(mode)}
+        {mutation.isPending ? t("orders2b2.terminal.processing") : actionLabel(mode, t)}
       </Button>
     </>
   );
@@ -237,7 +246,7 @@ export function OrderTerminalActions({
       >
         <span className="inline-flex min-w-0 items-center gap-1 text-[10px] font-semibold lg:text-xs lg:leading-4">
           <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
-          {voided ? "记录已作废" : "工单已结束 · 编辑已锁定"}
+          {voided ? t("orders2b2.terminal.compact.voided") : t("orders2b2.terminal.compact.ended")}
         </span>
         {!voided ? (
           <div className="ml-auto flex shrink-0 items-center gap-1">
@@ -249,7 +258,7 @@ export function OrderTerminalActions({
                 disabled={mutation.isPending}
                 onClick={() => open("correct")}
               >
-                <FilePenLine className="size-3" /> 纠正
+                <FilePenLine className="size-3" /> {t("orders2b2.terminal.correct")}
               </Button>
             ) : null}
             {capabilities?.canReopen ? (
@@ -260,7 +269,7 @@ export function OrderTerminalActions({
                 disabled={mutation.isPending || reopenTargets.length === 0}
                 onClick={() => open("reopen")}
               >
-                <RotateCcw className="size-3" /> 重新打开
+                <RotateCcw className="size-3" /> {t("orders2b2.terminal.reopen")}
               </Button>
             ) : null}
             {capabilities?.canVoid ? (
@@ -271,7 +280,7 @@ export function OrderTerminalActions({
                     variant="ghost"
                     className="size-6"
                     disabled={mutation.isPending}
-                    aria-label="更多结束工单操作"
+                    aria-label={t("orders2b2.terminal.more")}
                   >
                     <MoreHorizontal className="size-3.5" />
                   </Button>
@@ -281,7 +290,7 @@ export function OrderTerminalActions({
                     className="text-destructive focus:text-destructive"
                     onClick={() => open("void")}
                   >
-                    <Trash2 className="mr-2 size-3.5" /> 安全作废
+                    <Trash2 className="mr-2 size-3.5" /> {t("orders2b2.terminal.void")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -304,12 +313,10 @@ export function OrderTerminalActions({
           <div className="min-w-0">
             <p className="flex items-center gap-1.5 text-sm font-semibold">
               <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
-              {voided ? "该工单记录已作废" : "该工单已结束"}
+              {voided ? t("orders2b2.terminal.title.voided") : t("orders2b2.terminal.title.ended")}
             </p>
             <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-              {voided
-                ? "原订单、付款、附件、消息和审计证据均已保留，并已从有效客户汇总中排除。"
-                : "普通编辑和普通状态流转已锁定；纠正与重新打开会记录原因、版本和审计。"}
+              {voided ? t("orders2b2.terminal.help.voided") : t("orders2b2.terminal.help.ended")}
             </p>
           </div>
           {!voided ? (
@@ -322,7 +329,7 @@ export function OrderTerminalActions({
                   disabled={mutation.isPending}
                   onClick={() => open("correct")}
                 >
-                  <FilePenLine className="size-3.5" /> 纠正记录
+                  <FilePenLine className="size-3.5" /> {t("orders2b2.terminal.correctRecord")}
                 </Button>
               ) : null}
               {capabilities?.canReopen ? (
@@ -333,7 +340,7 @@ export function OrderTerminalActions({
                   disabled={mutation.isPending || reopenTargets.length === 0}
                   onClick={() => open("reopen")}
                 >
-                  <RotateCcw className="size-3.5" /> 重新打开
+                  <RotateCcw className="size-3.5" /> {t("orders2b2.terminal.reopen")}
                 </Button>
               ) : null}
               {capabilities?.canVoid ? (
@@ -344,7 +351,7 @@ export function OrderTerminalActions({
                   disabled={mutation.isPending}
                   onClick={() => open("void")}
                 >
-                  <Trash2 className="size-3.5" /> 安全作废
+                  <Trash2 className="size-3.5" /> {t("orders2b2.terminal.void")}
                 </Button>
               ) : null}
             </div>
@@ -352,7 +359,7 @@ export function OrderTerminalActions({
         </div>
         {!voided && !capabilities?.canVoid && capabilities?.blockedReasons?.void ? (
           <p className="mt-2 text-xs text-status-warn-foreground" role="status">
-            作废受限：{capabilities.blockedReasons.void}
+            {t("orders2b2.terminal.voidBlocked", { reason: capabilities.blockedReasons.void })}
           </p>
         ) : null}
       </section>
@@ -374,8 +381,8 @@ export function OrderTerminalActions({
             className="max-h-[calc(100svh-24px)] overflow-y-auto rounded-t-xl"
           >
             <SheetHeader className="text-left">
-              <SheetTitle>{dialogTitle(mode)}</SheetTitle>
-              <SheetDescription>{dialogDescription(mode, order.public_no)}</SheetDescription>
+              <SheetTitle>{dialogTitle(mode, t)}</SheetTitle>
+              <SheetDescription>{dialogDescription(mode, order.public_no, t)}</SheetDescription>
             </SheetHeader>
             {body}
             {visibleError ? (
@@ -398,8 +405,8 @@ export function OrderTerminalActions({
         >
           <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
             <DialogHeader>
-              <DialogTitle>{dialogTitle(mode)}</DialogTitle>
-              <DialogDescription>{dialogDescription(mode, order.public_no)}</DialogDescription>
+              <DialogTitle>{dialogTitle(mode, t)}</DialogTitle>
+              <DialogDescription>{dialogDescription(mode, order.public_no, t)}</DialogDescription>
             </DialogHeader>
             {body}
             {visibleError ? (
@@ -432,6 +439,7 @@ function TerminalActionForm({
   targetStatus,
   onTargetStatusChange,
   reopenTargets,
+  workflow,
 }: {
   mode: TerminalMode;
   order: OrderDetail["order"];
@@ -445,12 +453,18 @@ function TerminalActionForm({
   targetStatus: RepairOrderStatus;
   onTargetStatusChange: (value: RepairOrderStatus) => void;
   reopenTargets: OrderWorkflow["statuses"];
+  workflow?: OrderWorkflow;
 }) {
+  const { t } = useLocale();
   return (
     <div className="space-y-3 py-2">
       {mode === "correct" ? (
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field id="terminal-correction-issue" label="故障描述" className="sm:col-span-2">
+          <Field
+            id="terminal-correction-issue"
+            label={t("orders2b2.terminal.field.issue")}
+            className="sm:col-span-2"
+          >
             <Textarea
               id="terminal-correction-issue"
               value={correction.issue_description}
@@ -459,7 +473,11 @@ function TerminalActionForm({
               }
             />
           </Field>
-          <Field id="terminal-correction-diagnosis" label="诊断结果" className="sm:col-span-2">
+          <Field
+            id="terminal-correction-diagnosis"
+            label={t("orders2b2.terminal.field.diagnosis")}
+            className="sm:col-span-2"
+          >
             <Textarea
               id="terminal-correction-diagnosis"
               value={correction.diagnosis_result}
@@ -468,7 +486,7 @@ function TerminalActionForm({
               }
             />
           </Field>
-          <Field id="terminal-correction-tag" label="内部标签">
+          <Field id="terminal-correction-tag" label={t("orders2b2.terminal.field.tag")}>
             <Input
               id="terminal-correction-tag"
               value={correction.internal_tag}
@@ -477,7 +495,7 @@ function TerminalActionForm({
               }
             />
           </Field>
-          <Field id="terminal-correction-accessory" label="留存备注">
+          <Field id="terminal-correction-accessory" label={t("orders2b2.terminal.field.accessory")}>
             <Input
               id="terminal-correction-accessory"
               value={correction.accessory_notes}
@@ -486,7 +504,10 @@ function TerminalActionForm({
               }
             />
           </Field>
-          <Field id="terminal-correction-warranty-months" label="质保月数">
+          <Field
+            id="terminal-correction-warranty-months"
+            label={t("orders2b2.terminal.field.warrantyMonths")}
+          >
             <Select
               value={correction.warranty_months}
               onValueChange={(value) =>
@@ -498,7 +519,7 @@ function TerminalActionForm({
               }
             >
               <SelectTrigger id="terminal-correction-warranty-months">
-                <SelectValue placeholder="选择质保月数" />
+                <SelectValue placeholder={t("orders2b2.terminal.selectWarranty")} />
               </SelectTrigger>
               <SelectContent>
                 {ORDER_WARRANTY_OPTIONS.map((option) => (
@@ -509,7 +530,10 @@ function TerminalActionForm({
               </SelectContent>
             </Select>
           </Field>
-          <Field id="terminal-correction-warranty-text" label="质保说明（自动）">
+          <Field
+            id="terminal-correction-warranty-text"
+            label={t("orders2b2.terminal.field.warrantyText")}
+          >
             <Input
               id="terminal-correction-warranty-text"
               value={correction.warranty_text}
@@ -518,7 +542,7 @@ function TerminalActionForm({
           </Field>
           <Field
             id="terminal-correction-warranty-reason"
-            label="质保变更原因"
+            label={t("orders2b2.terminal.field.warrantyReason")}
             className="sm:col-span-2"
           >
             <Input
@@ -532,18 +556,18 @@ function TerminalActionForm({
         </div>
       ) : null}
       {mode === "reopen" ? (
-        <Field id="terminal-reopen-target" label="重新打开到">
+        <Field id="terminal-reopen-target" label={t("orders2b2.terminal.field.reopenTarget")}>
           <Select
             value={targetStatus}
             onValueChange={(value) => onTargetStatusChange(value as RepairOrderStatus)}
           >
             <SelectTrigger id="terminal-reopen-target">
-              <SelectValue placeholder="选择状态" />
+              <SelectValue placeholder={t("orders2b2.terminal.selectStatus")} />
             </SelectTrigger>
             <SelectContent>
               {reopenTargets.map((status) => (
                 <SelectItem key={status.code} value={status.code}>
-                  {status.label}
+                  {localizeWorkflowStatusLabel(workflow, status.code, t)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -551,7 +575,10 @@ function TerminalActionForm({
         </Field>
       ) : null}
       {mode === "void" ? (
-        <Field id="terminal-void-confirmation" label={`输入工单号 ${order.public_no} 确认`}>
+        <Field
+          id="terminal-void-confirmation"
+          label={t("orders2b2.terminal.confirmNumber", { publicNo: order.public_no })}
+        >
           <Input
             id="terminal-void-confirmation"
             value={confirmation}
@@ -559,11 +586,11 @@ function TerminalActionForm({
             autoComplete="off"
           />
           <p className="text-xs leading-5 text-muted-foreground">
-            安全作废不会删除付款、附件、消息或审计；如存在任何资金证据，系统会拒绝。
+            {t("orders2b2.terminal.voidEvidence")}
           </p>
         </Field>
       ) : null}
-      <Field id="terminal-operation-reason" label="操作原因（必填）">
+      <Field id="terminal-operation-reason" label={t("orders2b2.terminal.reason")}>
         <Textarea
           id="terminal-operation-reason"
           value={reason}
@@ -571,7 +598,7 @@ function TerminalActionForm({
           minLength={5}
           maxLength={1000}
           autoFocus
-          placeholder="至少 5 个字符，说明为什么需要本次操作"
+          placeholder={t("orders2b2.terminal.reasonPlaceholder")}
         />
       </Field>
     </div>
@@ -653,6 +680,7 @@ function terminalFormError({
   correction,
   targetStatus,
   reopenTargets,
+  t,
 }: {
   mode: TerminalMode | null;
   order: OrderDetail["order"];
@@ -661,64 +689,75 @@ function terminalFormError({
   correction: CorrectionDraft;
   targetStatus: RepairOrderStatus;
   reopenTargets: OrderWorkflow["statuses"];
+  t: Translate;
 }) {
   if (!mode) return undefined;
-  if (reason.trim().length < 5) return "原因至少需要 5 个字符";
+  if (reason.trim().length < 5) return t("orders2b2.terminal.validation.reason");
   if (mode === "correct") {
-    if (!correction.issue_description.trim()) return "故障描述不能为空";
+    if (!correction.issue_description.trim()) return t("orders2b2.terminal.validation.issue");
     try {
       if (!Object.keys(buildTerminalCorrectionChanges(order, correction, reason)).length) {
-        return "没有需要纠正的内容";
+        return t("orders2b2.terminal.validation.noChanges");
       }
-    } catch (error) {
-      return error instanceof Error ? error.message : "纠正内容无效";
+    } catch {
+      return t("orders2b2.terminal.validation.invalidCorrection");
     }
   }
   if (mode === "reopen") {
-    if (!reopenTargets.length) return "当前工作流没有可重新打开的目标状态";
+    if (!reopenTargets.length) return t("orders2b2.terminal.validation.noTargets");
     if (!reopenTargets.some((status) => status.code === targetStatus)) {
-      return "请选择有效的重新打开状态";
+      return t("orders2b2.terminal.validation.invalidTarget");
     }
   }
   if (mode === "void" && confirmation.trim() !== order.public_no) {
-    return `请输入完整工单号 ${order.public_no} 确认`;
+    return t("orders2b2.terminal.validation.confirmNumber", { publicNo: order.public_no });
   }
   return undefined;
 }
 
-function terminalMutationErrorMessage(error: Error) {
-  if (!(error instanceof RepairDeskApiError)) return error.message;
+function terminalMutationErrorMessage(error: Error, t: Translate) {
+  if (!(error instanceof RepairDeskApiError)) {
+    return getOrderDetailSafeErrorMessage(error, "save", t);
+  }
   const code = error.code?.toUpperCase();
-  const messages: Record<string, string> = {
-    STALE_VERSION: "工单已被其他操作更新，页面正在刷新，请核对后重试。",
-    IDEMPOTENCY_CONFLICT: "本次操作标识已用于不同请求，请关闭后重新提交。",
-    FINANCIAL_HISTORY_REQUIRES_RESOLUTION:
-      "存在付款记录或金额异常，必须先完成财务核对与冲销/退款。",
-    INVALID_REOPEN_TARGET: "目标状态已不可用，请刷新工作流后重试。",
-    ACTOR_FORBIDDEN: "当前账号没有执行此终态操作的权限。",
+  const messages: Record<string, MessageKey> = {
+    STALE_VERSION: "orders2b2.terminal.error.stale",
+    IDEMPOTENCY_CONFLICT: "orders2b2.terminal.error.idempotency",
+    FINANCIAL_HISTORY_REQUIRES_RESOLUTION: "orders2b2.terminal.error.finance",
+    INVALID_REOPEN_TARGET: "orders2b2.terminal.error.target",
+    ACTOR_FORBIDDEN: "orders2b2.terminal.error.permission",
   };
-  return (code && messages[code]) || error.message;
+  const key = code ? messages[code] : undefined;
+  return key ? t(key) : getOrderDetailSafeErrorMessage(error, "save", t);
 }
 
-function actionLabel(mode: TerminalMode | null) {
-  return mode === "correct" ? "确认纠正" : mode === "reopen" ? "确认重新打开" : "确认安全作废";
-}
-function successMessage(mode: TerminalMode | null) {
+function actionLabel(mode: TerminalMode | null, t: Translate) {
   return mode === "correct"
-    ? "纠正记录已保存"
+    ? t("orders2b2.terminal.action.correct")
     : mode === "reopen"
-      ? "工单已重新打开"
-      : "工单已安全作废";
+      ? t("orders2b2.terminal.action.reopen")
+      : t("orders2b2.terminal.action.void");
 }
-function dialogTitle(mode: TerminalMode | null) {
+function successMessage(mode: TerminalMode | null, t: Translate) {
   return mode === "correct"
-    ? "纠正已结束工单"
+    ? t("orders2b2.terminal.success.correct")
     : mode === "reopen"
-      ? "重新打开工单"
-      : "安全作废工单";
+      ? t("orders2b2.terminal.success.reopen")
+      : t("orders2b2.terminal.success.void");
 }
-function dialogDescription(mode: TerminalMode | null, publicNo: string) {
-  if (mode === "correct") return `${publicNo} · 只允许纠正非财务内容，原值与新值会进入审计。`;
-  if (mode === "reopen") return `${publicNo} · 选择非终态目标并填写原因，系统会保留完整时间线。`;
-  return `${publicNo} · 仅 Owner 可执行；记录会退出有效汇总，但业务证据不会删除。`;
+function dialogTitle(mode: TerminalMode | null, t: Translate) {
+  return mode === "correct"
+    ? t("orders2b2.terminal.dialog.correct")
+    : mode === "reopen"
+      ? t("orders2b2.terminal.dialog.reopen")
+      : t("orders2b2.terminal.dialog.void");
+}
+function dialogDescription(mode: TerminalMode | null, publicNo: string, t: Translate) {
+  if (mode === "correct") {
+    return t("orders2b2.terminal.description.correct", { publicNo });
+  }
+  if (mode === "reopen") {
+    return t("orders2b2.terminal.description.reopen", { publicNo });
+  }
+  return t("orders2b2.terminal.description.void", { publicNo });
 }

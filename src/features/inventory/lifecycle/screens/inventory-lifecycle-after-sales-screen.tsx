@@ -10,6 +10,7 @@ import type {
   InventoryAfterSalesStatus,
   InventoryLifecycleAfterSalesCaseDetail,
 } from "@/lib/repairdesk/types";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 import { inventoryLifecycleKeys } from "../api/query-keys";
 import {
@@ -59,6 +60,7 @@ import { resolveInventoryNoActionGuidance } from "../../model/inventory-no-actio
 import { getInventoryLifecycleAfterSalesNextStatuses } from "../model/projection";
 import { InventoryLifecycleTimeline } from "../components/inventory-lifecycle-timeline";
 import { resolveInventoryLedgerTimeline } from "../model/inventory-lifecycle-timeline";
+import { localizeInventoryAfterSalesStatus } from "../model/inventory-lifecycle-i18n";
 
 const statusCopy = {
   open: "待检测",
@@ -69,6 +71,7 @@ const statusCopy = {
 } as const;
 
 export function InventoryLifecycleAfterSalesQueueScreen() {
+  const { t } = useLocale();
   const router = useRouter();
   const shell = useStoreShellContext({ monitorAuthority: true });
   const storeId = shell.activeStore?.id;
@@ -107,8 +110,8 @@ export function InventoryLifecycleAfterSalesQueueScreen() {
   if (!enabled) {
     return (
       <InventoryLifecyclePageShell
-        title="售后队列"
-        context="商品生命周期"
+        title={t("inventory2b4.afterSales.queueTitle")}
+        context={t("inventory2b4.afterSales.context")}
         onBack={() => router.push("/inventory")}
       >
         <InventoryAvailabilityStateCard
@@ -121,8 +124,8 @@ export function InventoryLifecycleAfterSalesQueueScreen() {
   if (query.isLoading) {
     return (
       <InventoryLifecyclePageShell
-        title="售后队列"
-        context="正在读取售后队列"
+        title={t("inventory2b4.afterSales.queueTitle")}
+        context={t("inventory2b4.afterSales.queueLoading")}
         onBack={() => router.push("/inventory")}
       >
         <InventoryAvailabilityStateCard availability={availability} />
@@ -132,8 +135,8 @@ export function InventoryLifecycleAfterSalesQueueScreen() {
   if (query.isError && !query.data) {
     return (
       <InventoryLifecyclePageShell
-        title="售后队列"
-        context="队列不可用"
+        title={t("inventory2b4.afterSales.queueTitle")}
+        context={t("inventory2b4.afterSales.queueUnavailable")}
         onBack={() => router.push("/inventory")}
       >
         <InventoryAvailabilityStateCard
@@ -146,8 +149,8 @@ export function InventoryLifecycleAfterSalesQueueScreen() {
   }
   return (
     <InventoryLifecyclePageShell
-      title="售后队列"
-      context="返修、保修判断与返还"
+      title={t("inventory2b4.afterSales.queueTitle")}
+      context={t("inventory2b4.afterSales.queueDescription")}
       onBack={() => router.push("/inventory")}
     >
       <InventoryAfterSalesQueueBody
@@ -159,6 +162,9 @@ export function InventoryLifecycleAfterSalesQueueScreen() {
 }
 
 export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: string }) {
+  const { t } = useLocale();
+  const translateRef = useRef(t);
+  translateRef.current = t;
   const router = useRouter();
   const queryClient = useQueryClient();
   const shell = useStoreShellContext({ monitorAuthority: true });
@@ -196,9 +202,13 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
     useState<InventoryReadFreshnessVerification>("idle");
   const [availabilityRetrying, setAvailabilityRetrying] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+  const [preflightError, setPreflightError] = useState("");
   const closeTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const submitLock = useRef(false);
   const syncBlocked = Boolean(syncStatus && syncStatus !== "recovered");
-  const idempotencyKey = useRef(crypto.randomUUID());
+  const idempotencyAttempt = useRef<
+    { fingerprint: string; key: string; returnedAt?: string } | undefined
+  >(undefined);
   const afterSalesBaselineRef = useRef<
     | {
         key: string;
@@ -245,12 +255,13 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
   const mutation = useMutation({
     mutationFn: runInventoryLifecycleCommand,
     onSuccess: (result, input) => {
+      submitLock.current = false;
       selfCommitReadbackRef.current = {
         key: currentAfterSalesKey,
         previousVersion: afterSalesBaselineRef.current?.version ?? query.data?.version ?? 0,
         expectedVersion: result.case_version ?? result.version,
       };
-      idempotencyKey.current = crypto.randomUUID();
+      idempotencyAttempt.current = undefined;
       setConflict(null);
       setOperationError(null);
       setOperationVerification("idle");
@@ -262,6 +273,7 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
       void syncCommittedAfterSales();
     },
     onError: (error) => {
+      submitLock.current = false;
       const nextConflict = getInventoryConflictDetails(error);
       setCloseDialogOpen(false);
       setConflict(nextConflict);
@@ -286,6 +298,8 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
     setFreshnessVerification("idle");
     afterSalesBaselineRef.current = undefined;
     selfCommitReadbackRef.current = undefined;
+    idempotencyAttempt.current = undefined;
+    submitLock.current = false;
     mutation.reset();
   }, [currentAfterSalesKey, mutation]);
   useEffect(() => {
@@ -324,6 +338,7 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
       const result = await query.refetch();
       if (!result.isSuccess || !result.data) throw new Error("after-sales-readback-unavailable");
       mutation.reset();
+      idempotencyAttempt.current = undefined;
       setOperationVerification("verified");
     } catch {
       setOperationVerification("failed");
@@ -376,9 +391,8 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
             status: 409,
             code: "stale_draft",
             kind: "version",
-            title: "服务端案件已变化",
-            description:
-              "本地未保存说明与服务端最新版本存在差异。请加载最新资料后再保存；不会自动覆盖或重放写入。",
+            title: translateRef.current("inventory2b4.afterSales.conflictTitle"),
+            description: translateRef.current("inventory2b4.afterSales.conflictDescription"),
           },
       );
       return;
@@ -391,8 +405,8 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
   if (!enabled)
     return (
       <InventoryLifecyclePageShell
-        title="售后详情"
-        context="商品生命周期"
+        title={t("inventory2b4.afterSales.caseTitle")}
+        context={t("inventory2b4.afterSales.context")}
         onBack={() => router.push("/inventory")}
       >
         <InventoryAvailabilityStateCard
@@ -404,8 +418,8 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
   if (query.isLoading)
     return (
       <InventoryLifecyclePageShell
-        title="售后详情"
-        context="正在读取案件"
+        title={t("inventory2b4.afterSales.caseTitle")}
+        context={t("inventory2b4.afterSales.caseLoading")}
         onBack={() => router.push("/inventory/after-sales")}
       >
         <InventoryAvailabilityStateCard availability={availability} />
@@ -420,8 +434,8 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
   if (!item || (query.isError && !query.data && !snapshot))
     return (
       <InventoryLifecyclePageShell
-        title="售后详情"
-        context="案件不可用"
+        title={t("inventory2b4.afterSales.caseTitle")}
+        context={t("inventory2b4.afterSales.caseUnavailable")}
         onBack={() => router.push("/inventory/after-sales")}
       >
         <InventoryAvailabilityStateCard
@@ -463,9 +477,9 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
       setCoverage(latest.coverage_decision ?? "pending");
       setDiagnosis(latest.diagnosis ?? "");
       mutation.reset();
-      idempotencyKey.current = crypto.randomUUID();
+      idempotencyAttempt.current = undefined;
       setConflict(null);
-      setRecoveryMessage("已读取最新案件；本地未保存说明按服务端最新值重载，没有自动重放写入。");
+      setRecoveryMessage(t("inventory2b4.afterSales.recovered"));
     } finally {
       setIsRecoveringConflict(false);
     }
@@ -515,40 +529,67 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
     ? [
         {
           fieldId: "inventory-after-sales-diagnosis",
-          label: "检测与处理说明",
+          label: t("inventory2b4.afterSales.diagnosis"),
           message: diagnosisError,
         },
       ]
     : [];
   const submitLifecycleMutation = () => {
-    if (writePending) return;
+    if (writePending || submitLock.current) return;
     if (!diagnosis.trim()) {
       setValidationAttempt((current) => current + 1);
-      setDiagnosisError("请补充检测与处理说明。");
+      setDiagnosisError(t("inventory2b4.afterSales.diagnosisRequired"));
       return;
     }
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setPreflightError(t("inventory2b4.afterSales.offline"));
+      return;
+    }
+    submitLock.current = true;
+    setPreflightError("");
     setDiagnosisError("");
     setOperationReceipt(null);
     setRecoveryMessage("");
     setFreshnessVerification("idle");
     if (status === "closed") setCloseDialogOpen(false);
+    const command = status === "closed" ? "after_sales.close" : "after_sales.update";
+    const semanticPayload = {
+      case_id: item.case_id,
+      expected_case_version: item.version,
+      status,
+      diagnosis: diagnosis.trim(),
+      coverage_decision: coverage,
+    };
+    const fingerprint = `${command}:${JSON.stringify(semanticPayload)}`;
+    const existingAttempt = idempotencyAttempt.current;
+    const sameAttempt = existingAttempt?.fingerprint === fingerprint;
+    const returnedAt =
+      status === "returned"
+        ? sameAttempt
+          ? existingAttempt.returnedAt
+          : new Date().toISOString()
+        : undefined;
+    const nextAttempt = sameAttempt
+      ? existingAttempt
+      : { fingerprint, key: crypto.randomUUID(), returnedAt };
+    idempotencyAttempt.current = nextAttempt;
     mutation.mutate({
-      command: status === "closed" ? "after_sales.close" : "after_sales.update",
-      idempotency_key: idempotencyKey.current,
+      command,
+      idempotency_key: nextAttempt.key,
       payload: {
-        case_id: item.case_id,
-        expected_case_version: item.version,
-        status,
-        diagnosis: diagnosis.trim(),
-        coverage_decision: coverage,
-        ...(status === "returned" ? { returned_at: new Date().toISOString() } : {}),
+        ...semanticPayload,
+        ...(returnedAt ? { returned_at: returnedAt } : {}),
       },
     });
   };
   return (
     <InventoryAfterSalesCaseWorkspace
-      title="售后详情"
-      context={`${item.sku} · ${statusCopy[item.status]}`}
+      title={t("inventory2b4.afterSales.caseTitle")}
+      context={`${item.sku} · ${localizeInventoryAfterSalesStatus(
+        item.status,
+        statusCopy[item.status] ?? item.status,
+        t,
+      )}`}
       onBack={() => router.push("/inventory/after-sales")}
       overview={<InventoryAfterSalesCaseOverview item={item} />}
       feedback={
@@ -560,6 +601,14 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
               aria-live="polite"
             >
               {recoveryMessage}
+            </p>
+          ) : null}
+          {preflightError ? (
+            <p
+              className="rounded-xl bg-destructive/10 px-3 py-2 text-xs text-destructive"
+              role="alert"
+            >
+              {preflightError}
             </p>
           ) : null}
           {operationReceipt ? (
@@ -596,7 +645,7 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
               onAcknowledge={() => {
                 setOperationAcknowledged(true);
                 setOperationError(null);
-                setRecoveryMessage("已确认只读核对结果；没有自动重放写入。");
+                setRecoveryMessage(t("inventory2b4.afterSales.acknowledged"));
               }}
               onVerify={operationError.kind === "outcome-unknown" ? verifyOperation : undefined}
             />
@@ -630,12 +679,12 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
             }}
             primaryLabel={
               mutation.isPending
-                ? "正在保存…"
+                ? t("inventory2b4.afterSales.savePending")
                 : writeBlocked
-                  ? "当前不可写入"
+                  ? t("inventory2b4.afterSales.writeBlocked")
                   : status === "closed"
-                    ? "确认关闭案件"
-                    : "保存并追加历史"
+                    ? t("inventory2b4.afterSales.close")
+                    : t("inventory2b4.afterSales.save")
             }
             closeTriggerRef={closeTriggerRef}
           />
@@ -646,8 +695,8 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
           <InventoryNoActionGuidanceCard guidance={noActionGuidance} />
         ) : (
           <InventoryLifecycleUnavailableCard
-            title="当前案件暂不可推进"
-            body="服务端未提供当前目标动作；请只读核对最新案件状态。"
+            title={t("inventory2b4.afterSales.noActionTitle")}
+            body={t("inventory2b4.afterSales.noActionBody")}
           />
         )
       }
@@ -660,14 +709,14 @@ export function InventoryLifecycleAfterSalesCaseScreen({ caseId }: { caseId: str
       closeDialog={
         <InventoryConsequenceDialog
           open={closeDialogOpen}
-          title="确认关闭售后案件？"
-          description="关闭会追加一条售后状态记录；不会删除案件，也不会自动重放其他写入。"
+          title={t("inventory2b4.afterSales.closeTitle")}
+          description={t("inventory2b4.afterSales.closeDescription")}
           consequences={[
-            "请先确认检测与处理说明已填写完整。",
-            "关闭后只能按服务端返回的后续动作继续核对。",
+            t("inventory2b4.afterSales.closeConsequenceDiagnosis"),
+            t("inventory2b4.afterSales.closeConsequenceActions"),
           ]}
-          confirmLabel="确认关闭案件"
-          cancelLabel="继续编辑"
+          confirmLabel={t("inventory2b4.afterSales.close")}
+          cancelLabel={t("inventory2b4.sale.cancel.continueEditing")}
           tone="danger"
           pending={mutation.isPending}
           blocked={writeBlocked}

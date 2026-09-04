@@ -24,8 +24,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MEMBER_ROLE_LABELS } from "@/features/settings/model/member-settings-editor";
+import { getMemberRoleLabels } from "@/features/settings/model/member-settings-editor";
 import type { ApprovedStoreRole, OnboardingRequest } from "@/lib/repairdesk/types";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 type PendingDecision = { request: OnboardingRequest; decision: "approve" | "reject" } | null;
 
@@ -52,6 +53,8 @@ export function MemberAccessRequests({
   onApprove,
   onReject,
 }: MemberAccessRequestsProps) {
+  const { locale, t } = useLocale();
+  const roleLabels = getMemberRoleLabels(locale);
   const [roles, setRoles] = useState<Record<string, ApprovedStoreRole>>({});
   const [pendingDecision, setPendingDecision] = useState<PendingDecision>(null);
   const [isResolving, setIsResolving] = useState(false);
@@ -59,7 +62,7 @@ export function MemberAccessRequests({
   const returnFocusRef = useRef<HTMLButtonElement | null>(null);
 
   if (isLoading) {
-    return <Skeleton className="h-24 w-full" aria-label="正在读取加入申请" />;
+    return <Skeleton className="h-24 w-full" aria-label={t("settings.members.requests.loading")} />;
   }
   if (isError) {
     return (
@@ -69,12 +72,12 @@ export function MemberAccessRequests({
         className="grid-cols-1 gap-2 border-status-danger-foreground/25 bg-status-danger/10 px-3 py-3 text-status-danger-foreground sm:grid-cols-[minmax(0,1fr)_auto]"
         trailing={
           <Button type="button" variant="outline" className="min-h-9" onClick={onRetry}>
-            <RotateCcw className="size-4" /> 重新读取申请
+            <RotateCcw className="size-4" /> {t("settings.members.requests.retry")}
           </Button>
         }
       >
-        <p className="text-sm font-semibold">加入申请读取失败</p>
-        <p className="mt-1 text-xs leading-5">成员列表仍可使用；重试只会刷新加入申请。</p>
+        <p className="text-sm font-semibold">{t("settings.members.requests.errorTitle")}</p>
+        <p className="mt-1 text-xs leading-5">{t("settings.members.requests.errorDescription")}</p>
       </RepairOsBusinessCard>
     );
   }
@@ -99,9 +102,11 @@ export function MemberAccessRequests({
           id="member-access-requests-title"
           className="text-xs font-semibold text-muted-foreground"
         >
-          加入申请
+          {t("settings.members.requests.title")}
         </h3>
-        <Badge variant="outline">{requests.length} 条待处理</Badge>
+        <Badge variant="outline">
+          {t("settings.members.requests.pendingCount", { count: requests.length })}
+        </Badge>
       </div>
       {requests.map((request) => {
         const role =
@@ -126,14 +131,14 @@ export function MemberAccessRequests({
                 >
                   <SelectTrigger
                     className="h-[38px] text-base sm:text-sm"
-                    aria-label="批准后的角色"
+                    aria-label={t("settings.members.requests.approvedRole")}
                   >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {roleOptions.map((option) => (
                       <SelectItem key={option} value={option}>
-                        {MEMBER_ROLE_LABELS[option]}
+                        {roleLabels[option]}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -148,7 +153,7 @@ export function MemberAccessRequests({
                       setPendingDecision({ request, decision: "approve" });
                     }}
                   >
-                    <Check className="size-4" /> 批准
+                    <Check className="size-4" /> {t("settings.members.requests.approve")}
                   </Button>
                   <Button
                     type="button"
@@ -160,7 +165,7 @@ export function MemberAccessRequests({
                       setPendingDecision({ request, decision: "reject" });
                     }}
                   >
-                    <X className="size-4" /> 拒绝
+                    <X className="size-4" /> {t("settings.members.requests.reject")}
                   </Button>
                 </div>
               </div>
@@ -172,7 +177,9 @@ export function MemberAccessRequests({
             </p>
             <p className="mt-1 break-all text-xs text-muted-foreground">{request.email}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              申请角色：{MEMBER_ROLE_LABELS[request.requested_role]}
+              {t("settings.members.requests.requestedRole", {
+                role: roleLabels[request.requested_role],
+              })}
             </p>
             {request.request_note ? (
               <p className="mt-2 whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground">
@@ -192,21 +199,27 @@ export function MemberAccessRequests({
         <AlertDialogContent aria-busy={decisionBusy}>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {pendingDecision?.decision === "approve" ? "批准加入当前店铺？" : "拒绝加入申请？"}
+              {pendingDecision?.decision === "approve"
+                ? t("settings.members.requests.approveTitle")
+                : t("settings.members.requests.rejectTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {pendingDecision?.decision === "approve"
-                ? `批准后，该账号会以“${MEMBER_ROLE_LABELS[selectedRole]}”身份进入当前店铺。服务端仍会再次校验店铺、对象和角色。`
-                : "拒绝后，这条待处理申请会结束；申请人可以在以后重新发起申请。"}
+                ? t("settings.members.requests.approveDescription", {
+                    role: roleLabels[selectedRole],
+                  })
+                : t("settings.members.requests.rejectDescription")}
             </AlertDialogDescription>
             {errorMessage ? (
               <p role="alert" className="text-sm text-status-danger-foreground">
-                {errorMessage}
+                {t("settings.members.actionError")}
               </p>
             ) : null}
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="min-h-11">取消</AlertDialogCancel>
+            <AlertDialogCancel className="min-h-11">
+              {t("settings.members.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               className="min-h-11"
               disabled={decisionBusy}
@@ -229,10 +242,10 @@ export function MemberAccessRequests({
               }}
             >
               {decisionBusy
-                ? "处理中…"
+                ? t("settings.members.processing")
                 : pendingDecision?.decision === "approve"
-                  ? "确认批准"
-                  : "确认拒绝"}
+                  ? t("settings.members.requests.confirmApprove")
+                  : t("settings.members.requests.confirmReject")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -25,6 +25,8 @@ import type {
   OrderWorkflowStatusUpdateInput,
 } from "@/lib/repairdesk/types";
 import { componentOverlay } from "@/lib/component-patterns";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { translateSettingsOperations } from "@/shared/i18n/messages";
 
 export interface OrderWorkflowStatusSheetProps {
   open: boolean;
@@ -45,6 +47,11 @@ export function OrderWorkflowStatusSheet({
   onCreate,
   onUpdate,
 }: OrderWorkflowStatusSheetProps) {
+  const { locale } = useLocale();
+  const copy = (
+    source: Parameters<typeof translateSettingsOperations>[1],
+    values?: Parameters<typeof translateSettingsOperations>[2],
+  ) => translateSettingsOperations(locale, source, values);
   const [value, setValue] = useState<StatusEditorValue>(emptyStatusEditorValue);
   const isNew = !status;
 
@@ -101,11 +108,13 @@ export function OrderWorkflowStatusSheet({
           className={`${componentOverlay.mobileHeader} border-b border-[var(--border-panel)] pr-14 text-left`}
         >
           <div className="flex flex-wrap items-center gap-2">
-            <SheetTitle>{isNew ? "新增状态草稿" : `编辑「${status.label}」`}</SheetTitle>
-            {status?.is_system ? <Badge variant="outline">系统状态</Badge> : null}
+            <SheetTitle>
+              {isNew ? copy("新增状态草稿") : copy("编辑「{label}」", { label: status.label })}
+            </SheetTitle>
+            {status?.is_system ? <Badge variant="outline">{copy("系统状态")}</Badge> : null}
           </div>
           <SheetDescription>
-            修改只保存在当前店铺的本地草稿中，关闭编辑器不会发送网络请求。
+            {copy("修改只保存在当前店铺的本地草稿中，关闭编辑器不会发送网络请求。")}
           </SheetDescription>
         </SheetHeader>
 
@@ -126,7 +135,7 @@ export function OrderWorkflowStatusSheet({
             className="min-h-11 sm:min-h-9"
             onClick={() => onOpenChange(false)}
           >
-            取消
+            {copy("取消")}
           </Button>
           <Button
             type="button"
@@ -134,7 +143,7 @@ export function OrderWorkflowStatusSheet({
             disabled={Boolean(fieldError)}
             onClick={commit}
           >
-            {isNew ? "加入本地草稿" : "完成编辑"}
+            {copy(isNew ? "加入本地草稿" : "完成编辑")}
           </Button>
         </SheetFooter>
       </SheetContent>

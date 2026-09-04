@@ -11,6 +11,7 @@ import type {
 } from "@/features/settings/model/settings-section-access";
 import { sortSettingsCoreSections } from "@/features/settings/model/settings-section-registry";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export interface SettingsNavigationItem extends SettingsSectionDefinition {
   access: SettingsSectionAccess;
@@ -44,6 +45,7 @@ export function SettingsNavigation({
   activeSection,
   onBeforeNavigate,
 }: SettingsNavigationProps) {
+  const { t } = useLocale();
   const items = groups
     .flatMap((group) => group.items)
     .filter(
@@ -61,7 +63,7 @@ export function SettingsNavigation({
 
   return (
     <nav
-      aria-label="设置导航"
+      aria-label={t("settings.navigation.aria")}
       data-settings-navigation
       className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-card p-2 shadow-[var(--shadow-card)]"
     >
@@ -72,6 +74,8 @@ export function SettingsNavigation({
             item={item}
             active={activeSection === item.key}
             onBeforeNavigate={onBeforeNavigate}
+            unsavedLabel={t("settings.navigation.unsaved")}
+            readonlyLabel={t("settings.navigation.readonly")}
           />
         ))}
       </div>
@@ -86,7 +90,7 @@ export function SettingsNavigation({
             onClick={() => setAdvancedOpen((open) => !open)}
             className="flex min-h-9 w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <span className="min-w-0 flex-1 truncate">更多设置</span>
+            <span className="min-w-0 flex-1 truncate">{t("settings.navigation.more")}</span>
             <ChevronDown
               aria-hidden="true"
               className={cn("size-4 shrink-0 transition-transform", advancedOpen && "rotate-180")}
@@ -104,6 +108,8 @@ export function SettingsNavigation({
                     item={item}
                     active={activeSection === item.key}
                     onBeforeNavigate={onBeforeNavigate}
+                    unsavedLabel={t("settings.navigation.unsaved")}
+                    readonlyLabel={t("settings.navigation.readonly")}
                   />
                 ))
               : null}
@@ -118,10 +124,14 @@ function SettingsNavigationRow({
   item,
   active,
   onBeforeNavigate,
+  unsavedLabel,
+  readonlyLabel,
 }: {
   item: SettingsNavigationItem;
   active: boolean;
   onBeforeNavigate?: (section: SettingsSectionKey) => boolean;
+  unsavedLabel: string;
+  readonlyLabel: string;
 }) {
   const Icon = item.icon;
   return (
@@ -144,12 +154,12 @@ function SettingsNavigationRow({
           <span className="truncate font-medium">{item.label}</span>
           {item.dirty ? (
             <span className="shrink-0 text-[9px] font-semibold text-status-warn-foreground lg:text-[11px] lg:leading-4">
-              未保存
+              {unsavedLabel}
             </span>
           ) : null}
           {item.access === "readonly" ? (
             <span className="shrink-0 text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
-              只读
+              {readonlyLabel}
             </span>
           ) : null}
         </span>

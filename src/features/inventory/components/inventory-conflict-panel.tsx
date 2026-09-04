@@ -5,6 +5,8 @@ import { RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey } from "@/shared/i18n/messages";
 
 export type InventoryConflictKind = "version" | "projection" | "idempotency" | "state" | "generic";
 
@@ -14,6 +16,7 @@ export type InventoryConflictDetails = {
   kind: InventoryConflictKind;
   title: string;
   description: string;
+  copySource?: "structured-error";
 };
 
 type ConflictLike = {
@@ -83,7 +86,7 @@ export function getInventoryConflictDetails(error: unknown): InventoryConflictDe
     },
   }[kind];
 
-  return { status: 409, code, kind, ...copy };
+  return { status: 409, code, kind, ...copy, copySource: "structured-error" };
 }
 
 export type InventoryConflictPanelProps = {
@@ -95,6 +98,32 @@ export type InventoryConflictPanelProps = {
   className?: string;
 };
 
+const conflictCopyKeys: Record<
+  InventoryConflictKind,
+  { title: MessageKey; description: MessageKey }
+> = {
+  version: {
+    title: "inventory2b4.conflict.version.title",
+    description: "inventory2b4.conflict.version.description",
+  },
+  projection: {
+    title: "inventory2b4.conflict.projection.title",
+    description: "inventory2b4.conflict.projection.description",
+  },
+  idempotency: {
+    title: "inventory2b4.conflict.idempotency.title",
+    description: "inventory2b4.conflict.idempotency.description",
+  },
+  state: {
+    title: "inventory2b4.conflict.state.title",
+    description: "inventory2b4.conflict.state.description",
+  },
+  generic: {
+    title: "inventory2b4.conflict.generic.title",
+    description: "inventory2b4.conflict.generic.description",
+  },
+};
+
 export function InventoryConflictPanel({
   conflict,
   onRecover,
@@ -103,13 +132,18 @@ export function InventoryConflictPanel({
   privacyRedacted = false,
   className,
 }: InventoryConflictPanelProps) {
+  const { t } = useLocale();
+  const stateCopy = conflictCopyKeys[conflict.kind];
+  const title = conflict.copySource === "structured-error" ? t(stateCopy.title) : conflict.title;
+  const description =
+    conflict.copySource === "structured-error" ? t(stateCopy.description) : conflict.description;
   const [localError, setLocalError] = useState("");
   const recover = async () => {
     setLocalError("");
     try {
       await onRecover();
     } catch {
-      setLocalError("刷新失败，当前内容没有自动提交；请稍后再次刷新。");
+      setLocalError(t("inventory2b4.conflict.recoveryError"));
     }
   };
 
@@ -132,18 +166,18 @@ export function InventoryConflictPanel({
           <RefreshCw className={cn("size-4", pending && "animate-spin")} />
         </span>
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold">{conflict.title}</h2>
-          <p className="mt-1 text-xs leading-5 text-foreground">{conflict.description}</p>
+          <h2 className="text-sm font-semibold">{title}</h2>
+          <p className="mt-1 text-xs leading-5 text-foreground">{description}</p>
         </div>
       </div>
       <p className="text-xs leading-5 text-muted-foreground">
         {preserveDraft
-          ? "刷新后会保留当前未保存的改动供你检查；不会自动保存或重放刚才的写入。"
-          : "恢复动作只读取服务端最新状态，不会自动重放刚才的写入。"}
+          ? t("inventory2b4.conflict.preserveDraft")
+          : t("inventory2b4.conflict.readOnlyRecovery")}
       </p>
       {privacyRedacted ? (
         <p className="text-xs leading-5 text-muted-foreground">
-          为保护隐私，此状态不显示商品、金额或设备标识。
+          {t("inventory2b4.common.privacyRedacted")}
         </p>
       ) : null}
       {localError ? (
@@ -158,11 +192,15 @@ export function InventoryConflictPanel({
         disabled={pending}
         onClick={() => void recover()}
       >
-        {pending ? "正在刷新…" : preserveDraft ? "刷新并保留我的改动" : "刷新最新状态"}
+        {pending
+          ? t("inventory2b4.conflict.refreshing")
+          : preserveDraft
+            ? t("inventory2b4.conflict.refreshPreserve")
+            : t("inventory2b4.conflict.refresh")}
       </Button>
       {pending ? (
         <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
-          正在读取最新状态；不会提交任何写入。
+          {t("inventory2b4.conflict.pending")}
         </p>
       ) : null}
     </section>

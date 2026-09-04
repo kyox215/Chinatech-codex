@@ -21,6 +21,7 @@ import {
 import type { CatalogPickerSurface } from "@/features/inventory/components/inventory-phone-catalog-fields";
 import type { InventoryProductFormDraft } from "../model/inventory-product-form";
 import type { AppleColorApprovalOverlay } from "../model/device-color-policy";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export type InventoryProductFormWorkspaceProps = {
   draft: InventoryProductFormDraft;
@@ -108,7 +109,7 @@ export function InventoryProductFormWorkspace({
   catalogNotice,
   canEnterCost = false,
   inspectionEnabled = false,
-  identifierDescription = "修改或清空后保存；历史值会停用，不会物理删除。",
+  identifierDescription,
   showScanner = false,
   identifierField,
   allowPrimarySelection = true,
@@ -135,6 +136,7 @@ export function InventoryProductFormWorkspace({
   onWarrantyChange,
   onNotesChange,
 }: InventoryProductFormWorkspaceProps) {
+  const { t } = useLocale();
   const viewportMode = useViewportMode();
   if (layoutMode === "auto" && viewportMode === "pending") {
     return (
@@ -143,7 +145,7 @@ export function InventoryProductFormWorkspace({
         data-inventory-product-form-shell="viewport-pending"
         className="min-h-32 animate-pulse rounded-[var(--radius-lg)] border border-border/60 bg-muted/20"
         aria-busy="true"
-        aria-label="正在准备设备录入布局"
+        aria-label={t("inventory2b4.quick.workspace.preparing")}
       />
     );
   }
@@ -197,7 +199,9 @@ export function InventoryProductFormWorkspace({
         <InventoryProductIdentifierSection
           draft={draft}
           idPrefix={idPrefix}
-          description={identifierDescription}
+          description={
+            identifierDescription ?? t("inventory2b4.quick.workspace.identifierDescription")
+          }
           showScanner={showScanner}
           IdentifierField={identifierField}
           allowPrimarySelection={allowPrimarySelection}

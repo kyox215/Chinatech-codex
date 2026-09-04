@@ -13,12 +13,13 @@ import {
 } from "@/components/ui/dialog";
 import type { PrintPaperMode } from "@/features/orders/components/print-portal";
 import type { PreparedFixedPdf } from "@/features/orders/print/fixed-order-pdf-delivery";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
-const paperLabels: Record<PrintPaperMode, string> = {
-  "a5-landscape": "A5 横向",
-  "a4-landscape-full": "A4 横向铺满",
-  "a4-portrait-half": "A4 上半裁切",
-  "a4-portrait-duplicate": "A4 双联",
+const paperLabelKeys: Record<PrintPaperMode, Parameters<ReturnType<typeof useLocale>["t"]>[0]> = {
+  "a5-landscape": "orders2b2.printPaper.a5",
+  "a4-landscape-full": "orders2b2.printPaper.a4Landscape",
+  "a4-portrait-half": "orders2b2.printPaper.a4Half",
+  "a4-portrait-duplicate": "orders2b2.printPaper.a4Duplicate",
 };
 
 export function FixedPdfReadyDialog({
@@ -38,6 +39,7 @@ export function FixedPdfReadyDialog({
   onOpenPdf: () => void;
   onDownload: () => void;
 }) {
+  const { t } = useLocale();
   return (
     <Dialog open={Boolean(prepared)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
@@ -49,10 +51,10 @@ export function FixedPdfReadyDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle>PDF 已准备好</DialogTitle>
+          <DialogTitle>{t("orders2b2.pdf.title")}</DialogTitle>
           <DialogDescription>
-            {prepared ? `${paperLabels[prepared.paperMode]} · ` : ""}
-            手机端请打开系统菜单后选择“打印”。PDF 内容和清晰度不会改变。
+            {prepared ? `${t(paperLabelKeys[prepared.paperMode])} · ` : ""}
+            {t("orders2b2.pdf.help")}
           </DialogDescription>
         </DialogHeader>
 
@@ -66,9 +68,7 @@ export function FixedPdfReadyDialog({
         ) : null}
 
         <div role="status" aria-live="polite" className="text-xs text-muted-foreground">
-          {prepared?.metrics.cacheHit
-            ? "已复用当前订单的高质量 PDF，可立即打开。"
-            : "已按 3× 高质量生成并保存在当前页面内存中。"}
+          {prepared?.metrics.cacheHit ? t("orders2b2.pdf.cached") : t("orders2b2.pdf.generated")}
         </div>
 
         <DialogFooter className="grid gap-2 sm:grid-cols-2">
@@ -81,23 +81,23 @@ export function FixedPdfReadyDialog({
               onClick={onShare}
             >
               <Printer className="size-4" aria-hidden="true" />
-              打印或分享 PDF
+              {t("orders2b2.pdf.share")}
             </Button>
           ) : (
             <Button type="button" className="h-10 w-full" onClick={onOpenPdf}>
               <ExternalLink className="size-4" aria-hidden="true" />
-              打开 PDF
+              {t("orders2b2.pdf.open")}
             </Button>
           )}
           {prepared?.canShare ? (
             <Button type="button" variant="outline" className="h-9 w-full" onClick={onOpenPdf}>
               <ExternalLink className="size-4" aria-hidden="true" />
-              查看 PDF
+              {t("orders2b2.pdf.view")}
             </Button>
           ) : (
             <Button type="button" variant="outline" className="h-9 w-full" onClick={onDownload}>
               <Download className="size-4" aria-hidden="true" />
-              下载 PDF
+              {t("orders2b2.pdf.download")}
             </Button>
           )}
         </DialogFooter>
@@ -105,7 +105,7 @@ export function FixedPdfReadyDialog({
         {prepared?.canShare ? (
           <Button type="button" variant="ghost" className="h-9 w-full" onClick={onDownload}>
             <Download className="size-4" aria-hidden="true" />
-            下载备用文件
+            {t("orders2b2.pdf.backup")}
           </Button>
         ) : null}
       </DialogContent>

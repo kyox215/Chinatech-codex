@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -79,6 +80,11 @@ import {
 } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { RepairOsBusinessCard, RepairOsInfoTile } from "@/shared/ui";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import {
+  localizeCustomerTab,
+  localizeCustomerWorkSummary,
+} from "@/features/customers/model/customer-i18n";
 
 type CustomerDetailSurface = "page" | "dialog";
 
@@ -91,9 +97,13 @@ export function CustomerDetailScreen({
   surface?: CustomerDetailSurface;
   onClose?: () => void;
 }) {
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const router = useRouter();
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
+  const lastInvokingControlRef = useRef<HTMLElement | null>(null);
+  const followupReturnFocusRef = useRef<HTMLElement | null>(null);
+  const deviceReturnFocusRef = useRef<HTMLElement | null>(null);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
   const [tab, setTab] = useState<CustomerDetailTabKey>("overview");
   const [editOpen, setEditOpen] = useState(false);
@@ -128,7 +138,7 @@ export function CustomerDetailScreen({
     ],
   );
 
-  const { data, isError, isFetching, isLoading, refetch } = useQuery({
+  const { data, isError, isFetching, isPending, refetch } = useQuery({
     queryKey: customersKeys.detail(id, activeStoreId),
     queryFn: ({ signal }) => getCustomerDetail(id, { signal }),
     staleTime: CACHE_TIMES.detail,
@@ -172,70 +182,70 @@ export function CustomerDetailScreen({
   const update = useMutation({
     mutationFn: (input: CustomerUpdateInput) => updateCustomer(id, input),
     onSuccess: () => {
-      toast.success("客户已更新");
+      toast.success(t("customers.detail.updated"));
       setEditOpen(false);
       invalidate();
     },
-    onError: () => toast.error("客户保存失败，请重试"),
+    onError: () => toast.error(t("customers.detail.updateFailed")),
   });
 
   const upsertDevice = useMutation({
     mutationFn: (input: CustomerDeviceInput) => upsertCustomerDevice(id, input),
     onSuccess: () => {
-      toast.success("设备已保存");
+      toast.success(t("customers.detail.deviceSaved"));
       setDeviceOpen(false);
       setEditingDevice(undefined);
       invalidate();
     },
-    onError: () => toast.error("设备保存失败，请重试"),
+    onError: () => toast.error(t("customers.detail.deviceSaveFailed")),
   });
 
   const deleteDevice = useMutation({
     mutationFn: (deviceId: string) => deleteCustomerDevice(id, deviceId),
     onSuccess: () => {
-      toast.success("设备已删除");
+      toast.success(t("customers.detail.deviceDeleted"));
       invalidate();
     },
-    onError: () => toast.error("设备删除失败，请重试"),
+    onError: () => toast.error(t("customers.detail.deviceDeleteFailed")),
   });
 
   const followup = useMutation({
     mutationFn: (input: CustomerFollowupInput) => createCustomerFollowup(id, input),
     onSuccess: () => {
-      toast.success("客户待办已创建");
+      toast.success(t("customers.detail.followupCreated"));
       setFollowupOpen(false);
       invalidate();
     },
-    onError: () => toast.error("待办保存失败，请重试"),
+    onError: () => toast.error(t("customers.detail.followupSaveFailed")),
   });
 
   const completeFollowup = useMutation({
     mutationFn: (followupId: string) => completeCustomerFollowup(id, followupId),
     onSuccess: () => {
-      toast.success("客户待办已完成");
+      toast.success(t("customers.detail.followupCompleted"));
       invalidate();
     },
-    onError: () => toast.error("待办更新失败，请重试"),
+    onError: () => toast.error(t("customers.detail.followupUpdateFailed")),
   });
 
   const message = useMutation({
     mutationFn: (input: CustomerMessageInput) => sendCustomerMessage(id, input),
     onSuccess: () => {
-      toast.success("客户消息已记录");
+      toast.success(t("customers.detail.messageRecorded"));
       setMessageOpen(false);
       invalidate();
     },
-    onError: () => toast.error("联系记录保存失败，请重试"),
+    onError: () => toast.error(t("customers.detail.messageSaveFailed")),
   });
 
   const tags = useMutation({
     mutationFn: (tagIds: string[]) => setCustomerTags(id, tagIds),
     onSuccess: () => {
-      toast.success("客户标签已更新");
+      toast.success(t("customers.detail.tagsUpdated"));
       setTagsOpen(false);
       invalidate();
     },
-    onError: () => toast.error("标签保存失败，请重试"),
+    onError: () => toast.error(t("customers.detail.tagsSaveFailed")),
   });
 
   const goBackToCustomers = () => {
@@ -243,7 +253,7 @@ export function CustomerDetailScreen({
     else router.push("/customers");
   };
 
-  if (isLoading) {
+  if (!data && !isError && (shell.status === "loading" || (Boolean(activeStoreId) && isPending))) {
     return (
       <div
         className={cn(
@@ -252,6 +262,9 @@ export function CustomerDetailScreen({
             : cn(detailWorkspace.root, "flex h-full min-h-0 flex-col space-y-3 p-3 sm:p-4"),
         )}
       >
+        <span role="status" aria-label={t("customers.detail.loading")} className="sr-only">
+          {t("customers.detail.loading")}
+        </span>
         {surface === "dialog" && onClose ? (
           <div className="flex shrink-0 justify-end">
             <Button
@@ -260,7 +273,7 @@ export function CustomerDetailScreen({
               size="icon"
               className="size-8 rounded-lg"
               onClick={onClose}
-              aria-label="关闭客户详情"
+              aria-label={t("customers.detail.close")}
             >
               <X className="size-4" />
             </Button>
@@ -286,7 +299,10 @@ export function CustomerDetailScreen({
   }
 
   const { customer, orders, followups, interactions } = data;
-  const tabs = buildCustomerDetailTabs(data);
+  const tabs = buildCustomerDetailTabs(data).map((item) => ({
+    ...item,
+    label: localizeCustomerTab(item.key, item.label, t),
+  }));
   const detailStyle =
     surface === "page" && mobileHeaderHeight
       ? ({
@@ -294,8 +310,23 @@ export function CustomerDetailScreen({
         } as CSSProperties)
       : undefined;
   const openCustomerFollowup = () => {
+    followupReturnFocusRef.current = lastInvokingControlRef.current;
     setFollowupOrderId(undefined);
     setFollowupOpen(true);
+  };
+  const openCustomerFollowupFromControl = (control: HTMLButtonElement) => {
+    followupReturnFocusRef.current = control;
+    setFollowupOrderId(undefined);
+    setFollowupOpen(true);
+  };
+  const rememberInvokingControl = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const target = event.target;
+    const control = target instanceof Element ? target.closest("button, a[href]") : null;
+    if (!(control instanceof HTMLElement)) return;
+    lastInvokingControlRef.current = control;
+    queueMicrotask(() => {
+      if (lastInvokingControlRef.current === control) lastInvokingControlRef.current = null;
+    });
   };
   const detailPanel =
     tab === "overview" ? (
@@ -304,11 +335,13 @@ export function CustomerDetailScreen({
       <CustomerDevicesPanel
         data={data}
         deleting={deleteDevice.isPending}
-        onAdd={() => {
+        onAdd={(control) => {
+          deviceReturnFocusRef.current = control;
           setEditingDevice(undefined);
           setDeviceOpen(true);
         }}
-        onEdit={(device) => {
+        onEdit={(device, control) => {
+          deviceReturnFocusRef.current = control;
           setEditingDevice(device);
           setDeviceOpen(true);
         }}
@@ -318,6 +351,7 @@ export function CustomerDetailScreen({
       <CustomerOrdersPanel
         data={data}
         onFollowup={(orderId) => {
+          followupReturnFocusRef.current = lastInvokingControlRef.current;
           setFollowupOrderId(orderId);
           setFollowupOpen(true);
         }}
@@ -348,17 +382,19 @@ export function CustomerDetailScreen({
 
   return (
     <div
+      data-ui={surface === "page" ? "customer-detail-page" : "customer-detail-workspace"}
       className={cn(
         "w-full min-w-0 max-w-full overflow-x-hidden",
         surface === "page"
           ? cn(
               "mx-auto max-w-[430px] px-2",
               repairOs.mobileFloatingPage,
-              "md:!max-w-2xl md:!pb-20 md:!pt-[var(--repair-os-mobile-floating-offset,calc(env(safe-area-inset-top)+10.75rem))] md:px-5 lg:!max-w-7xl lg:!space-y-3 lg:!pb-8 lg:!pt-5 lg:px-6",
+              "md:!max-w-2xl md:!pb-20 md:!pt-5 md:px-5 lg:!max-w-7xl lg:!space-y-3 lg:!pb-8 lg:!pt-5 lg:px-6",
             )
           : cn(detailWorkspace.root, "flex h-full min-h-0 flex-col"),
       )}
       style={detailStyle}
+      onClickCapture={rememberInvokingControl}
     >
       {surface === "page" ? (
         <CustomerMobileFloatingHeader
@@ -394,16 +430,20 @@ export function CustomerDetailScreen({
               disabled={isFetching}
               onClick={() => void refetch()}
             >
-              <RefreshCw className={cn("size-3", isFetching && "animate-spin")} /> 重试
+              <RefreshCw className={cn("size-3", isFetching && "animate-spin")} />{" "}
+              {t("customers.detail.retry")}
             </Button>
           }
           trailingClassName="justify-self-end"
         >
-          <span className="block min-w-0 truncate">更新没有成功，当前仍显示上次内容。</span>
+          <span className="block min-w-0 whitespace-normal break-words">
+            {t("customers.detail.refreshWarning")}
+          </span>
         </RepairOsBusinessCard>
       ) : null}
 
       <div
+        data-ui="customer-detail-desktop-hero"
         className={cn(
           surface === "page"
             ? "hidden lg:block"
@@ -421,10 +461,11 @@ export function CustomerDetailScreen({
       </div>
 
       <div
+        data-ui="customer-detail-main-tabs"
         className={cn(
           surface === "dialog"
             ? "shrink-0 px-2 sm:px-3 md:px-4"
-            : "hidden lg:sticky lg:top-14 lg:z-20 lg:block lg:bg-background/95 lg:pt-2 lg:backdrop-blur",
+            : "hidden md:sticky md:top-14 md:z-20 md:block md:bg-background/95 md:pt-2 md:backdrop-blur",
         )}
       >
         <CustomerDetailTabs
@@ -455,7 +496,7 @@ export function CustomerDetailScreen({
         <CustomerDesktopSummaryRail
           data={data}
           onMessage={() => setMessageOpen(true)}
-          onFollowup={openCustomerFollowup}
+          onFollowup={openCustomerFollowupFromControl}
         />
       </div>
 
@@ -463,7 +504,7 @@ export function CustomerDetailScreen({
         <CustomerMobileActionBar
           customerId={customer.id}
           onMessage={() => setMessageOpen(true)}
-          onFollowup={openCustomerFollowup}
+          onFollowup={openCustomerFollowupFromControl}
         />
       ) : null}
 
@@ -482,6 +523,7 @@ export function CustomerDetailScreen({
         }}
         device={editingDevice}
         busy={upsertDevice.isPending}
+        returnFocusRef={deviceReturnFocusRef}
         onSave={(input) => upsertDevice.mutateAsync(input)}
       />
       <CustomerFollowupDialog
@@ -493,6 +535,7 @@ export function CustomerDetailScreen({
         busy={followup.isPending}
         orders={orders}
         selectedOrderId={followupOrderId}
+        returnFocusRef={followupReturnFocusRef}
         onSave={(input) => followup.mutateAsync(input)}
       />
       <CustomerMessageDialog
@@ -536,8 +579,9 @@ function CustomerMobileFloatingHeader({
   onEdit: () => void;
   headerRef: RefObject<HTMLDivElement | null>;
 }) {
+  const { t } = useLocale();
   const { customer, stats } = data;
-  const summary = getCustomerDetailWorkSummary(data);
+  const summary = localizeCustomerWorkSummary(getCustomerDetailWorkSummary(data), t);
   const { isMobile, state: sidebarState } = useSidebar();
   const workspaceInset = isMobile
     ? undefined
@@ -548,7 +592,8 @@ function CustomerMobileFloatingHeader({
   return (
     <div
       ref={headerRef}
-      className={cn(repairOs.mobileFloatingHeaderShell, "md:!block lg:!hidden")}
+      data-ui="customer-detail-mobile-header"
+      className={cn(repairOs.mobileFloatingHeaderShell, "md:!hidden")}
       style={workspaceInset ? { left: workspaceInset } : undefined}
     >
       <section className={cn(repairOs.mobileFloatingHeaderCard, "md:max-w-2xl")}>
@@ -558,13 +603,15 @@ function CustomerMobileFloatingHeader({
             variant="ghost"
             size="icon"
             className="size-11 rounded-xl"
-            aria-label="返回客户列表"
+            aria-label={t("customers.detail.back")}
             onClick={onBack}
           >
             <ArrowLeft className="size-4" />
           </Button>
           <div className="min-w-0 text-center">
-            <p className="truncate text-xs font-semibold leading-4">客户详情</p>
+            <h1 className="whitespace-normal break-words text-xs font-semibold leading-4">
+              {t("customers.detail.title")}
+            </h1>
             <p className="truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
               {summary.label} · {customer.preferred_channel === "sms" ? "SMS" : "WhatsApp"}
             </p>
@@ -574,7 +621,7 @@ function CustomerMobileFloatingHeader({
             variant="outline"
             size="icon"
             className="size-11 rounded-xl bg-card"
-            aria-label="编辑客户"
+            aria-label={t("customers.detail.edit")}
             onClick={onEdit}
           >
             <Edit3 className="size-4" />
@@ -588,7 +635,7 @@ function CustomerMobileFloatingHeader({
                 <p className="min-w-0 truncate text-sm font-semibold leading-5">{customer.name}</p>
                 {customer.blacklisted_at ? (
                   <span className="shrink-0 rounded-full bg-status-danger px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-danger-foreground lg:text-[11px] lg:leading-4">
-                    黑名单
+                    {t("customers.detail.blacklisted")}
                   </span>
                 ) : null}
               </div>
@@ -630,8 +677,9 @@ function CustomerMobileActionBar({
 }: {
   customerId: string;
   onMessage: () => void;
-  onFollowup: () => void;
+  onFollowup: (control: HTMLButtonElement) => void;
 }) {
+  const { t } = useLocale();
   const { isMobile, state: sidebarState } = useSidebar();
   const workspaceInset = isMobile
     ? undefined
@@ -641,6 +689,7 @@ function CustomerMobileActionBar({
 
   return (
     <div
+      data-ui="customer-detail-mobile-actions"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur transition-[left] lg:hidden"
       style={workspaceInset ? { left: workspaceInset } : undefined}
     >
@@ -657,7 +706,7 @@ function CustomerMobileActionBar({
               customerId,
             })}
           >
-            <Wrench className="size-4" /> 新建工单
+            <Wrench className="size-4" /> {t("customers.detail.newOrder")}
           </Link>
         </Button>
         <Button
@@ -667,16 +716,16 @@ function CustomerMobileActionBar({
           className="h-11 gap-1.5 bg-card"
           onClick={onMessage}
         >
-          <Send className="size-4" /> 发消息
+          <Send className="size-4" /> {t("customers.detail.messageShort")}
         </Button>
         <Button
           type="button"
           size="sm"
           variant="outline"
           className="h-11 gap-1.5 bg-card"
-          onClick={onFollowup}
+          onClick={(event) => onFollowup(event.currentTarget)}
         >
-          <Bell className="size-4" /> 加待办
+          <Bell className="size-4" /> {t("customers.detail.followupShort")}
         </Button>
       </div>
     </div>
@@ -690,37 +739,44 @@ function CustomerDesktopSummaryRail({
 }: {
   data: CustomerDetail;
   onMessage: () => void;
-  onFollowup: () => void;
+  onFollowup: (control: HTMLButtonElement) => void;
 }) {
+  const { t } = useLocale();
   const { customer, stats } = data;
-  const summary = getCustomerDetailWorkSummary(data);
+  const summary = localizeCustomerWorkSummary(getCustomerDetailWorkSummary(data), t);
   const openFollowups = data.followups.filter((followup) => followup.status === "open").length;
 
   return (
     <aside className="hidden min-w-0 xl:block">
       <section className={cn(repairOs.adminSection, "sticky top-4 space-y-3 p-3")}>
         <p className="truncate text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 lg:text-[11px] lg:leading-4 lg:tracking-normal lg:text-muted-foreground">
-          客户工作栏
+          {t("customers.detail.workspace")}
         </p>
 
         <div className="grid grid-cols-3 gap-2">
-          <CustomerRailMetric label="设备" value={stats.device_count} />
+          <CustomerRailMetric label={t("customers.detail.device")} value={stats.device_count} />
           <CustomerRailMetric
-            label="历史 / 有效"
+            label={t("customers.detail.historyActive")}
             value={`${stats.order_count} / ${stats.valid_order_count ?? 0}`}
           />
-          <CustomerRailMetric label="待办" value={openFollowups} />
+          <CustomerRailMetric label={t("customers.detail.followups")} value={openFollowups} />
           <CustomerRailMetric
-            label={stats.finance_redacted ? "金额" : "待收"}
+            label={t(
+              stats.finance_redacted ? "customers.detail.amount" : "customers.detail.outstanding",
+            )}
             value={
-              stats.finance_redacted ? "受限" : <MoneyText amount={stats.unpaid_amount ?? 0} />
+              stats.finance_redacted ? (
+                t("customers.detail.restricted")
+              ) : (
+                <MoneyText amount={stats.unpaid_amount ?? 0} />
+              )
             }
           />
         </div>
 
         <div className="rounded-lg bg-[var(--surface-panel-muted)] px-2.5 py-2">
           <p className="truncate text-[10px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
-            下一步
+            {t("customers.detail.next")}
           </p>
           <p className="mt-0.5 line-clamp-2 text-xs font-medium leading-5">{summary.actionLabel}</p>
         </div>
@@ -738,7 +794,7 @@ function CustomerDesktopSummaryRail({
                 customerId: customer.id,
               })}
             >
-              <Wrench className="size-3.5" /> 工单
+              <Wrench className="size-3.5" /> {t("customers.detail.orders")}
             </Link>
           </Button>
           <Button
@@ -748,21 +804,21 @@ function CustomerDesktopSummaryRail({
             className="h-8 gap-1.5 text-xs"
             onClick={onMessage}
           >
-            <Send className="size-3.5" /> 消息
+            <Send className="size-3.5" /> {t("customers.detail.messageShort")}
           </Button>
           <Button
             type="button"
             size="sm"
             variant="outline"
             className="h-8 gap-1.5 text-xs"
-            onClick={onFollowup}
+            onClick={(event) => onFollowup(event.currentTarget)}
           >
-            <Bell className="size-3.5" /> 待办
+            <Bell className="size-3.5" /> {t("customers.detail.followupShort")}
           </Button>
         </div>
 
         <div className="min-w-0 border-t border-[var(--border-panel)] pt-3">
-          <h3 className="mb-2 text-xs font-semibold">最近动态</h3>
+          <h3 className="mb-2 text-xs font-semibold">{t("customers.detail.recentActivity")}</h3>
           <CustomerTimelineList data={data} limit={4} />
         </div>
       </section>
@@ -792,6 +848,7 @@ function CustomerDetailLoadError({
   surface: CustomerDetailSurface;
   onClose?: () => void;
 }) {
+  const { t } = useLocale();
   return (
     <div
       className={cn(
@@ -811,9 +868,11 @@ function CustomerDetailLoadError({
         }
         leadingClassName="pt-0.5"
       >
-        <span className="block text-sm font-semibold text-foreground">客户详情加载失败</span>
+        <span className="block text-sm font-semibold text-foreground">
+          {t("customers.detail.loadErrorTitle")}
+        </span>
         <span className="mt-1 block break-words text-xs leading-5 text-muted-foreground">
-          请检查网络后重新加载，已有客户资料不会受影响。
+          {t("customers.detail.loadErrorDescription")}
         </span>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {surface === "dialog" && onClose ? (
@@ -824,19 +883,19 @@ function CustomerDetailLoadError({
               onClick={onClose}
             >
               <X className="size-3.5" />
-              关闭
+              {t("customers.detail.close")}
             </Button>
           ) : (
             <Button asChild variant="outline" className="h-11 gap-1.5 text-xs lg:h-9">
               <Link href="/customers">
                 <ArrowLeft className="size-3.5" />
-                返回客户
+                {t("customers.detail.backShort")}
               </Link>
             </Button>
           )}
           <Button type="button" className="h-11 gap-1.5 text-xs lg:h-9" onClick={onRetry}>
             <RefreshCw className="size-3.5" />
-            重新加载
+            {t("customers.detail.reload")}
           </Button>
         </div>
       </RepairOsBusinessCard>

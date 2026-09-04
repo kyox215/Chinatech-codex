@@ -18,6 +18,7 @@ import {
   warrantyReasonRequired,
 } from "@/features/orders/model/order-warranty";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export type WarrantyDraftValue = {
   warranty_months: number;
@@ -76,6 +77,7 @@ export function WarrantyPicker({
   contentClassName?: string;
   reasonFieldTarget?: string;
 }) {
+  const { t } = useLocale();
   const quiet = appearance === "quiet";
   const normalizedDefault = normalizeWarrantyMonths(defaultMonths);
   const months =
@@ -126,7 +128,7 @@ export function WarrantyPicker({
                 className={cn(compact && "text-xs")}
               >
                 {option.label}
-                {isDefault ? "（默认）" : ""}
+                {isDefault ? t("orders2b2.warranty.default") : ""}
               </SelectItem>
             );
           })}
@@ -138,7 +140,7 @@ export function WarrantyPicker({
             data-new-order-field={reasonFieldTarget}
             value={reason ?? ""}
             onChange={(event) => updateReason(event.target.value)}
-            placeholder="请输入非默认质保原因"
+            placeholder={t("orders2b2.warranty.reasonPlaceholder")}
             className={cn(
               "h-8 text-xs",
               compact && "h-7",
@@ -148,7 +150,7 @@ export function WarrantyPicker({
           />
           <p className="flex items-center gap-1 text-[11px] text-status-warn-foreground">
             <AlertCircle className="size-3 shrink-0" />
-            非默认质保会记录原因、员工和时间。
+            {t("orders2b2.warranty.help")}
           </p>
         </div>
       )}

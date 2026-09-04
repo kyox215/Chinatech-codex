@@ -5,9 +5,14 @@ import {
   getCustomerPaymentState,
   getCustomerRepairState,
 } from "@/features/customers/model/customer-list";
+import {
+  localizeCustomerPaymentState,
+  localizeCustomerRepairState,
+} from "@/features/customers/model/customer-i18n";
 import type { CustomerListItem } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
 import { RepairOsBadge } from "@/shared/ui";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 type CustomerStatusFacts = Pick<
   CustomerListItem,
@@ -23,6 +28,7 @@ export function CustomerStatusBadges({
   compact?: boolean;
   className?: string;
 }) {
+  const { t } = useLocale();
   const repair = getCustomerRepairState(customer);
   const payment = getCustomerPaymentState(customer);
   const sizeClass = compact ? "text-[9px]" : "text-[11px]";
@@ -40,7 +46,7 @@ export function CustomerStatusBadges({
         )}
       >
         <Wrench className={iconClass} aria-hidden="true" />
-        {repair.label}
+        {localizeCustomerRepairState(repair, t)}
       </RepairOsBadge>
       <RepairOsBadge
         className={cn(
@@ -62,10 +68,10 @@ export function CustomerStatusBadges({
         )}
         {payment.kind === "outstanding" ? (
           <>
-            待收 <MoneyText amount={payment.amount} />
+            {localizeCustomerPaymentState(payment, t)} <MoneyText amount={payment.amount} />
           </>
         ) : (
-          payment.label
+          localizeCustomerPaymentState(payment, t)
         )}
       </RepairOsBadge>
     </span>

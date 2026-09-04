@@ -1910,9 +1910,52 @@ function isKnownRouterError(error: unknown) {
   );
 }
 
-function failInventoryProductsRead(error: unknown) {
-  if (isKnownRouterError(error)) return fail(error);
+function failInventoryProductsRead(
+  error: unknown,
+  shouldExposeKnownError: (knownError: unknown) => boolean = () => true,
+) {
+  if (isKnownRouterError(error) && shouldExposeKnownError(error)) return fail(error);
   return privateJson({ error: "请求处理失败，请稍后重试" }, 500);
+}
+
+const inventoryProductEditDataSafeErrors = [
+  {
+    code: "INVENTORY_IDENTIFIER_READ_FORBIDDEN",
+    message: "当前员工身份无效",
+    status: 403,
+  },
+  {
+    code: "INVENTORY_IDENTIFIER_RATE_LIMIT_UNAVAILABLE",
+    message: "设备标识暂时不可读取，请稍后重试",
+    status: 503,
+  },
+  {
+    code: "INVENTORY_IDENTIFIER_RATE_LIMITED",
+    message: "读取设备标识过于频繁，请稍后重试",
+    status: 429,
+  },
+  {
+    code: "INVENTORY_PRODUCT_LEGACY_READ_ONLY",
+    message: "历史商品没有可编辑库存单元，只能查看",
+    status: 409,
+  },
+] as const;
+
+function isSafeInventoryProductEditDataError(error: unknown) {
+  return (
+    error instanceof Error &&
+    "status" in error &&
+    typeof error.status === "number" &&
+    "code" in error &&
+    typeof error.code === "string" &&
+    (!("details" in error) || error.details === undefined) &&
+    inventoryProductEditDataSafeErrors.some(
+      (safeError) =>
+        safeError.code === error.code &&
+        safeError.message === error.message &&
+        safeError.status === error.status,
+    )
+  );
 }
 
 function routeConflict(code: string, message: string) {
@@ -2621,7 +2664,11 @@ export async function handleRepairDeskPost(
         assertInventoryUpdatePermission(actor);
         assertInventoryProductDeviceDataV2Enabled();
         assertInventoryV2CommandEnabled(actor.storeId ?? "");
-        return ok(await api.getInventoryProductEditData(id, actor));
+        try {
+          return ok(await api.getInventoryProductEditData(id, actor));
+        } catch (error) {
+          return failInventoryProductsRead(error, isSafeInventoryProductEditDataError);
+        }
       }
       case "customer/get": {
         const { id } = idBodySchema.parse(body);

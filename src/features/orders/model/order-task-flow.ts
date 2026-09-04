@@ -16,6 +16,15 @@ export const orderTaskStages = simpleOrderFlowStages;
 
 export const orderTaskStageIndex = simpleOrderFlowStageIndexes;
 
+export type OrderTaskGuidanceCode =
+  | "cancelled"
+  | "approval_overdue"
+  | "device_with_customer"
+  | "pickup_overdue"
+  | "mail_in_progress"
+  | "repaired"
+  | "stage";
+
 export function getOrderTaskStage(status: OrderWorkflowStatusCode) {
   return getSimpleOrderFlowStageForWorkflow(status);
 }
@@ -50,6 +59,7 @@ export function getOrderTaskGuidance(
       tone: "neutral",
     };
     return {
+      guidanceCode: "cancelled" as const,
       stage: cancelledStage,
       workflowStatus,
       label: "已取消",
@@ -61,6 +71,7 @@ export function getOrderTaskGuidance(
 
   if (input.approval_overdue) {
     return {
+      guidanceCode: "approval_overdue" as const,
       stage,
       workflowStatus,
       label: "报价超期",
@@ -72,6 +83,7 @@ export function getOrderTaskGuidance(
 
   if (input.device_custody_status === "with_customer") {
     return {
+      guidanceCode: "device_with_customer" as const,
       stage,
       workflowStatus,
       label: "客户持有设备",
@@ -83,6 +95,7 @@ export function getOrderTaskGuidance(
 
   if (input.pickup_overdue) {
     return {
+      guidanceCode: "pickup_overdue" as const,
       stage,
       workflowStatus,
       label: "取件超期",
@@ -94,6 +107,7 @@ export function getOrderTaskGuidance(
 
   if (input.status === "mail_in_progress") {
     return {
+      guidanceCode: "mail_in_progress" as const,
       stage,
       workflowStatus,
       label: "寄修中",
@@ -105,6 +119,7 @@ export function getOrderTaskGuidance(
 
   if (input.status === "repaired") {
     return {
+      guidanceCode: "repaired" as const,
       stage,
       workflowStatus,
       label: "已修复",
@@ -115,6 +130,7 @@ export function getOrderTaskGuidance(
   }
 
   return {
+    guidanceCode: "stage" as const,
     stage,
     workflowStatus,
     label: stage.label,

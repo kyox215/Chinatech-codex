@@ -194,3 +194,9 @@ Verified gate from `TASK-20260716-005-device-custody-status-implementation`: cre
 | 2026-07-26 | Verified rolling cutoff, unique catalog IDs, aliases, manual fallback, color accessibility, 2400-test regression, 27-page build and 1440/390 browser flows                                                               | TASK-20260726-002-eu-phone-catalog                              | Integration Lead + QA reviewer                   | production_verified                           |
 | 2026-07-31 | Verified cross-store placeholder isolation, exact-store QueryObserver behavior, independent-port E2E configuration, 2540 tests and Chromium/WebKit 22/22; stale shared servers are invalid evidence | TASK-20260731-003-inventory-product-mobile-density | Integration Lead + QA reviewer | production_verified |
 | 2026-08-31 | Verified locale parity/SSR/state/customer isolation, 3,071 tests, Chromium/WebKit 9/9, exact-SHA production smoke and four sanitized screenshots | TASK-20260831-001-project-i18n-clean-rebuild | Integration Lead + QA/Security/Architecture reviewers | production_verified |
+
+## 2026-09-03 — Lightweight final-four i18n verification
+
+- Module gate: 13 files / 84 tests PASS, zero stderr/React act warnings; independent QA direct-i18n P0/P1 zero.
+- Browser evidence must remain accurately labeled CONDITIONAL: Memos/Toolkit pass, while Platform/AI stop on an unrelated Escape focus-return P2 after current locale/viewport/dynamic/ARIA/overflow checks.
+- Reusable lesson: order frozen i18n assertions before unrelated component-quality assertions so a backlog discovery does not erase scoped evidence; never relabel a partial browser story as 4/4 PASS.

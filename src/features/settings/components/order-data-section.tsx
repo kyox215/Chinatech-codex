@@ -60,11 +60,19 @@ import {
   type OrderDataImportMode,
   type OrderDataImportPreview,
 } from "@/lib/repairdesk/api";
+import type { OrderDataImportIssue } from "@/lib/repairdesk/types";
 import { brandGradientStyle, repairOs } from "@/lib/ui-patterns";
 import { RepairOsSectionHeader } from "@/shared/ui";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { AppLocale } from "@/shared/i18n/locales";
+import { translateSettingsOperations } from "@/shared/i18n/messages";
 
 type DownloadKind = "template" | "orders" | "customers";
 type FlowNotice = { kind: "info" | "success" | "error"; message: string };
+type SettingsCopy = (
+  source: Parameters<typeof translateSettingsOperations>[1],
+  values?: Parameters<typeof translateSettingsOperations>[2],
+) => string;
 const PREVIEW_INITIAL_ROWS = 10;
 const PREVIEW_RENDER_LIMIT = 100;
 
@@ -79,12 +87,23 @@ export function OrderDataSection({
   applyEnabled: boolean;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
+  const { locale } = useLocale();
+  const copy = (
+    source: Parameters<typeof translateSettingsOperations>[1],
+    values?: Parameters<typeof translateSettingsOperations>[2],
+  ) => translateSettingsOperations(locale, source, values);
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const flowFocusRef = useRef<HTMLDivElement>(null);
   const previewFocusRef = useRef<HTMLElement>(null);
   const resultFocusRef = useRef<HTMLDivElement>(null);
   const storeIdRef = useRef(storeId);
+  const applyEnabledRef = useRef(applyEnabled);
+  const mountedRef = useRef(true);
+  const epochRef = useRef(0);
+  const downloadLockRef = useRef(false);
+  const previewLockRef = useRef(false);
+  const applyLockRef = useRef(false);
   const [file, setFile] = useState<File>();
   const [mode, setMode] = useState<OrderDataImportMode>("update_only");
   const [preview, setPreview] = useState<OrderDataImportPreview>();
@@ -114,9 +133,47 @@ export function OrderDataSection({
   }, [clearFileInput]);
 
   useEffect(() => {
+    if (storeIdRef.current !== storeId) {
+      const previousStoreId = storeIdRef.current;
+      epochRef.current += 1;
+      void queryClient.cancelQueries({
+        queryKey: ordersKeys.dataBatches(previousStoreId),
+        exact: true,
+      });
+    }
     storeIdRef.current = storeId;
+    downloadLockRef.current = false;
+    previewLockRef.current = false;
+    applyLockRef.current = false;
     resetFlow();
-  }, [resetFlow, storeId]);
+  }, [queryClient, resetFlow, storeId]);
+
+  useEffect(() => {
+    if (applyEnabledRef.current && !applyEnabled) {
+      epochRef.current += 1;
+      downloadLockRef.current = false;
+      previewLockRef.current = false;
+      applyLockRef.current = false;
+      resetFlow();
+      void queryClient.cancelQueries({ queryKey: ordersKeys.dataBatches(storeId), exact: true });
+    }
+    applyEnabledRef.current = applyEnabled;
+  }, [applyEnabled, queryClient, resetFlow, storeId]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      epochRef.current += 1;
+      void queryClient.cancelQueries({
+        queryKey: ordersKeys.dataBatches(storeIdRef.current),
+        exact: true,
+      });
+    };
+  }, [queryClient]);
+
+  const isCurrent = (epoch: number, expectedStoreId: string) =>
+    mountedRef.current && epochRef.current === epoch && storeIdRef.current === expectedStoreId;
 
   useEffect(() => {
     if (!preview) return;
@@ -129,7 +186,7 @@ export function OrderDataSection({
     queryFn: async () => {
       const result = await listOrderDataBatchHistory(storeId);
       if (result.storeId !== storeIdRef.current) {
-        throw new Error("店铺上下文已经变化，请重新读取批次历史");
+        throw new Error("store_context_changed");
       }
       return result;
     },
@@ -144,25 +201,33 @@ export function OrderDataSection({
     }: {
       kind: DownloadKind;
       expectedStoreId: string;
+      epoch: number;
     }) => {
       if (kind === "template") return downloadOrderDataTemplate(expectedStoreId);
       if (kind === "customers") return exportCustomerStats(expectedStoreId);
       return exportOrderData(expectedStoreId);
     },
     onMutate: ({ kind }) => {
-      setNotice({ kind: "info", message: downloadPendingLabel(kind) });
+      setNotice({ kind: "info", message: downloadPendingLabel(kind, copy) });
     },
     onSuccess: ({ blob, fileName }, variables) => {
-      if (variables.expectedStoreId !== storeIdRef.current) return;
+      if (!isCurrent(variables.epoch, variables.expectedStoreId)) return;
       downloadBlob(blob, fileName);
-      setNotice({ kind: "success", message: `${fileName} 已生成并开始下载。` });
+      setNotice({
+        kind: "success",
+        message: copy("{fileName} 已生成并开始下载。", { fileName }),
+      });
       void queryClient.invalidateQueries({
         queryKey: ordersKeys.dataBatches(variables.expectedStoreId),
       });
     },
-    onError: (error) => {
-      setNotice({ kind: "error", message: errorMessage(error, "生成文件失败") });
+    onError: (_error, variables) => {
+      if (!isCurrent(variables.epoch, variables.expectedStoreId)) return;
+      setNotice({ kind: "error", message: copy("生成文件失败") });
       focusSoon(flowFocusRef);
+    },
+    onSettled: (_data, _error, variables) => {
+      if (isCurrent(variables.epoch, variables.expectedStoreId)) downloadLockRef.current = false;
     },
   });
 
@@ -171,13 +236,19 @@ export function OrderDataSection({
       file: File;
       expectedStoreId: string;
       mode: OrderDataImportMode;
-    }) => previewOrderDataImport(variables),
+      epoch: number;
+    }) =>
+      previewOrderDataImport({
+        file: variables.file,
+        expectedStoreId: variables.expectedStoreId,
+        mode: variables.mode,
+      }),
     onMutate: () => {
-      setNotice({ kind: "info", message: "正在安全解析文件并生成预览…" });
+      setNotice({ kind: "info", message: copy("正在安全解析文件并生成预览…") });
     },
     onSuccess: (result, variables) => {
       if (
-        variables.expectedStoreId !== storeIdRef.current ||
+        !isCurrent(variables.epoch, variables.expectedStoreId) ||
         result.storeId !== variables.expectedStoreId
       ) {
         return;
@@ -191,17 +262,23 @@ export function OrderDataSection({
         kind: result.summary.invalid > 0 ? "error" : "success",
         message:
           result.summary.invalid > 0
-            ? `预览完成：发现 ${result.summary.invalid} 行错误，应用已锁定。`
-            : `预览完成：${result.summary.ready} 行可应用。`,
+            ? copy("预览完成：发现 {count} 行错误，应用已锁定。", {
+                count: result.summary.invalid,
+              })
+            : copy("预览完成：{count} 行可应用。", { count: result.summary.ready }),
       });
       void queryClient.invalidateQueries({
         queryKey: ordersKeys.dataBatches(variables.expectedStoreId),
       });
       focusSoon(previewFocusRef);
     },
-    onError: (error) => {
-      setNotice({ kind: "error", message: errorMessage(error, "预览失败") });
+    onError: (_error, variables) => {
+      if (!isCurrent(variables.epoch, variables.expectedStoreId)) return;
+      setNotice({ kind: "error", message: copy("预览失败") });
       focusSoon(flowFocusRef);
+    },
+    onSettled: (_data, _error, variables) => {
+      if (isCurrent(variables.epoch, variables.expectedStoreId)) previewLockRef.current = false;
     },
   });
 
@@ -210,9 +287,10 @@ export function OrderDataSection({
       batchId: string;
       expectedStoreId: string;
       expiresAt: string;
+      epoch: number;
     }) => {
       if (new Date(variables.expiresAt).getTime() <= Date.now()) {
-        throw new Error("导入预览已过期，请重新选择文件并生成预览");
+        throw new Error("order_data_preview_expired");
       }
       const result = await applyOrderDataImport({
         batchId: variables.batchId,
@@ -222,37 +300,79 @@ export function OrderDataSection({
     },
     onMutate: () => {
       setApplyConfirmOpen(false);
-      setNotice({ kind: "info", message: "正在锁定批次并应用工单数据，请勿关闭页面…" });
+      setNotice({
+        kind: "info",
+        message: copy("正在锁定批次并应用工单数据，请勿关闭页面…"),
+      });
     },
-    onSuccess: async ({ result, expectedStoreId }) => {
-      if (expectedStoreId !== storeIdRef.current) return;
+    onSuccess: async ({ result, expectedStoreId }, variables) => {
+      if (!isCurrent(variables.epoch, expectedStoreId)) return;
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ordersKeys.all }),
         queryClient.invalidateQueries({ queryKey: customersKeys.all }),
         queryClient.invalidateQueries({ queryKey: ordersKeys.dataBatches(expectedStoreId) }),
       ]);
+      if (!isCurrent(variables.epoch, expectedStoreId)) return;
       setApplyResult(result);
       setConfirmed(false);
       if (result.status === "partial") {
         setNotice({
           kind: "error",
-          message: `部分完成：成功 ${result.applied}，冲突 ${result.conflicts}，失败 ${result.failed}，跳过 ${result.skipped}。同一批次已锁定。`,
+          message: copy(
+            "部分完成：成功 {applied}，冲突 {conflicts}，失败 {failed}，跳过 {skipped}。同一批次已锁定。",
+            {
+              applied: result.applied,
+              conflicts: result.conflicts,
+              failed: result.failed,
+              skipped: result.skipped,
+            },
+          ),
         });
         focusSoon(resultFocusRef);
         return;
       }
-      setNotice({ kind: "success", message: `导入完成：已应用 ${result.applied} 行。` });
+      setNotice({
+        kind: "success",
+        message: copy("导入完成：已应用 {count} 行。", { count: result.applied }),
+      });
       setPreview(undefined);
       setFile(undefined);
       clearFileInput();
       focusSoon(resultFocusRef);
     },
-    onError: (error) => {
+    onError: (_error, variables) => {
+      if (!isCurrent(variables.epoch, variables.expectedStoreId)) return;
       setConfirmed(false);
-      setNotice({ kind: "error", message: errorMessage(error, "应用导入失败") });
+      setNotice({ kind: "error", message: copy("应用导入失败") });
       focusSoon(flowFocusRef);
     },
+    onSettled: (_data, _error, variables) => {
+      if (isCurrent(variables.epoch, variables.expectedStoreId)) applyLockRef.current = false;
+    },
   });
+
+  const startDownload = (kind: DownloadKind) => {
+    if (downloadLockRef.current || busy) return;
+    downloadLockRef.current = true;
+    downloadMutation.mutate({ kind, expectedStoreId: storeId, epoch: epochRef.current });
+  };
+
+  const startPreview = () => {
+    if (previewLockRef.current || busy || !file) return;
+    previewLockRef.current = true;
+    previewMutation.mutate({ file, expectedStoreId: storeId, mode, epoch: epochRef.current });
+  };
+
+  const startApply = () => {
+    if (applyLockRef.current || !preview || !canApply) return;
+    applyLockRef.current = true;
+    applyMutation.mutate({
+      batchId: preview.batchId,
+      expectedStoreId: storeId,
+      expiresAt: preview.expiresAt,
+      epoch: epochRef.current,
+    });
+  };
 
   const busy = downloadMutation.isPending || previewMutation.isPending || applyMutation.isPending;
   const dirty = Boolean(file || preview);
@@ -278,13 +398,16 @@ export function OrderDataSection({
     !busy,
   );
   const disabledReason = preview
-    ? applyDisabledReason({
-        preview,
-        applyEnabled,
-        previewExpired,
-        currentBatchLocked,
-        confirmed,
-      })
+    ? applyDisabledReason(
+        {
+          preview,
+          applyEnabled,
+          previewExpired,
+          currentBatchLocked,
+          confirmed,
+        },
+        copy,
+      )
     : "";
   const previewDisplayLimit = showExpandedPreview ? PREVIEW_RENDER_LIMIT : PREVIEW_INITIAL_ROWS;
   const visiblePreviewRows = preview?.rows.slice(0, previewDisplayLimit) ?? [];
@@ -311,21 +434,27 @@ export function OrderDataSection({
     if (!nextFile.name.toLowerCase().endsWith(".xlsx")) {
       setFile(undefined);
       clearFileInput();
-      setNotice({ kind: "error", message: "只支持 .xlsx 文件，不支持 .xls 或含宏工作簿。" });
+      setNotice({
+        kind: "error",
+        message: copy("只支持 .xlsx 文件，不支持 .xls 或含宏工作簿。"),
+      });
       focusSoon(flowFocusRef);
       return;
     }
     if (nextFile.size === 0 || nextFile.size > ORDER_DATA_MAX_FILE_BYTES) {
       setFile(undefined);
       clearFileInput();
-      setNotice({ kind: "error", message: "文件为空或超过 4 MB 限制。" });
+      setNotice({ kind: "error", message: copy("文件为空或超过 4 MB 限制。") });
       focusSoon(flowFocusRef);
       return;
     }
     setFile(nextFile);
     setNotice({
       kind: "info",
-      message: `已选择 ${nextFile.name}（${formatBytes(nextFile.size)}），尚未上传。`,
+      message: copy("已选择 {fileName}（{size}），尚未上传。", {
+        fileName: nextFile.name,
+        size: formatBytes(nextFile.size),
+      }),
     });
   };
 
@@ -334,7 +463,7 @@ export function OrderDataSection({
     setPreview(undefined);
     setApplyResult(undefined);
     setConfirmed(false);
-    setNotice({ kind: "info", message: "已清除本地文件和预览。" });
+    setNotice({ kind: "info", message: copy("已清除本地文件和预览。") });
     clearFileInput();
     fileInputRef.current?.focus();
   };
@@ -351,8 +480,8 @@ export function OrderDataSection({
         isDirty={() => dirtyRef.current}
         busy={previewMutation.isPending || applyMutation.isPending}
         canSave={false}
-        saveUnavailableReason="所选文件和导入预览不能跨页面保存；可舍弃后离开。"
-        label="工单数据文件或导入预览"
+        saveUnavailableReason={copy("所选文件和导入预览不能跨页面保存；可舍弃后离开。")}
+        label={copy("工单数据文件或导入预览")}
         onSave={async () => ({ status: "blocked", focus: () => flowFocusRef.current?.focus() })}
         onDiscard={discardFlow}
         onFocusFallback={() => flowFocusRef.current?.focus()}
@@ -362,8 +491,8 @@ export function OrderDataSection({
         <RepairOsSectionHeader
           icon={FileSpreadsheet}
           iconFrame={false}
-          title="工单数据文件"
-          description="下载只包含当前店铺的安全字段；文件可能含客户资料。"
+          title={copy("工单数据文件")}
+          description={copy("下载只包含当前店铺的安全字段；文件可能含客户资料。")}
         />
         <div className="grid gap-2 sm:grid-cols-3">
           {(["template", "orders", "customers"] as const).map((kind) => (
@@ -372,17 +501,17 @@ export function OrderDataSection({
               icon={kind === "customers" ? Users : kind === "orders" ? FileSpreadsheet : Download}
               title={
                 downloadMutation.isPending && downloadMutation.variables?.kind === kind
-                  ? downloadPendingLabel(kind)
-                  : downloadLabel(kind)
+                  ? downloadPendingLabel(kind, copy)
+                  : downloadLabel(kind, copy)
               }
               disabled={busy}
-              onClick={() => downloadMutation.mutate({ kind, expectedStoreId: storeId })}
+              onClick={() => startDownload(kind)}
             />
           ))}
         </div>
         <div className="mt-3 flex items-start gap-2 rounded-md border border-status-warn-foreground/25 bg-status-warn px-3 py-2 text-xs leading-5 text-status-warn-foreground">
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-          <span>导出文件包含客户资料，只保存在受控设备中；不通过个人聊天工具转发。</span>
+          <span>{copy("导出文件包含客户资料，只保存在受控设备中；不通过个人聊天工具转发。")}</span>
         </div>
       </section>
 
@@ -390,13 +519,13 @@ export function OrderDataSection({
         <RepairOsSectionHeader
           icon={Upload}
           iconFrame={false}
-          title="导入工单"
-          description="选择文件 → 选择模式 → 服务端预览。预览本身不会修改工单。"
+          title={copy("导入工单")}
+          description={copy("选择文件 → 选择模式 → 服务端预览。预览本身不会修改工单。")}
         />
         <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(180px,220px)_auto] lg:items-end">
           <div className="min-w-0 space-y-1.5 sm:col-span-2 lg:col-span-1">
             <Label htmlFor="order-data-file" className="text-xs">
-              XLSX 文件（最大 4 MB）
+              {copy("XLSX 文件（最大 4 MB）")}
             </Label>
             <Input
               ref={fileInputRef}
@@ -410,7 +539,7 @@ export function OrderDataSection({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="order-data-mode" className="text-xs">
-              导入模式
+              {copy("导入模式")}
             </Label>
             <Select
               value={mode}
@@ -422,7 +551,9 @@ export function OrderDataSection({
                 setConfirmed(false);
                 setShowExpandedPreview(false);
                 setNotice(
-                  file ? { kind: "info", message: "导入模式已变化，请重新生成预览。" } : undefined,
+                  file
+                    ? { kind: "info", message: copy("导入模式已变化，请重新生成预览。") }
+                    : undefined,
                 );
               }}
             >
@@ -431,10 +562,10 @@ export function OrderDataSection({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="update_only" className="min-h-8">
-                  只更新已有工单
+                  {copy("只更新已有工单")}
                 </SelectItem>
                 <SelectItem value="create_and_update" className="min-h-8">
-                  新增并更新
+                  {copy("新增并更新")}
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -444,14 +575,14 @@ export function OrderDataSection({
             variant="outline"
             className="min-h-9 w-full gap-1.5 lg:w-auto"
             disabled={!file || busy}
-            onClick={() => file && previewMutation.mutate({ file, expectedStoreId: storeId, mode })}
+            onClick={startPreview}
           >
             {previewMutation.isPending ? (
               <LoaderCircle className="size-4 animate-spin" />
             ) : (
               <Upload className="size-4" />
             )}
-            {previewMutation.isPending ? "正在生成" : "生成预览"}
+            {previewMutation.isPending ? copy("正在生成") : copy("生成预览")}
           </Button>
         </div>
 
@@ -460,7 +591,8 @@ export function OrderDataSection({
             <div className="min-w-0">
               <p className="break-all text-xs font-medium text-foreground">{file.name}</p>
               <p className="mt-0.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-                {formatBytes(file.size)} · {formatMode(mode)} · 文件仅保留在当前浏览器流程中
+                {formatBytes(file.size)} · {formatMode(mode, copy)} ·{" "}
+                {copy("文件仅保留在当前浏览器流程中")}
               </p>
             </div>
             <Button
@@ -470,7 +602,7 @@ export function OrderDataSection({
               disabled={busy}
               onClick={clearSelectedFile}
             >
-              <Trash2 className="size-4" /> 清除文件
+              <Trash2 className="size-4" /> {copy("清除文件")}
             </Button>
           </div>
         ) : null}
@@ -500,43 +632,51 @@ export function OrderDataSection({
           ref={previewFocusRef}
           tabIndex={-1}
           className={repairOs.adminSection}
-          aria-label="导入预览"
+          aria-label={copy("导入预览")}
         >
           <RepairOsSectionHeader
             icon={CheckCircle2}
             iconFrame={false}
-            title="导入预览"
-            description="请核对当前店铺、模式、有效期、工单号和修改字段。"
+            title={copy("导入预览")}
+            description={copy("请核对当前店铺、模式、有效期、工单号和修改字段。")}
             action={
               <Button
                 type="button"
                 variant="outline"
                 className="min-h-9 gap-1.5"
-                onClick={() => downloadTextReport(buildOrderDataPreviewReport(preview))}
+                onClick={() =>
+                  downloadTextReport(
+                    buildOrderDataPreviewReport(sanitizeOrderDataPreviewReport(preview, copy)),
+                  )
+                }
               >
-                <Download className="size-4" /> 完整预览报告
+                <Download className="size-4" /> {copy("完整预览报告")}
               </Button>
             }
           />
 
           <dl className="grid gap-2 rounded-lg border border-border bg-muted/20 p-3 text-xs sm:grid-cols-2 xl:grid-cols-4">
-            <PreviewContext label="当前店铺" value={storeName} />
-            <PreviewContext label="导入模式" value={formatMode(preview.mode)} />
-            <PreviewContext label="文件" value={file?.name ?? "已生成预览"} breakAll />
+            <PreviewContext label={copy("当前店铺")} value={storeName} />
+            <PreviewContext label={copy("导入模式")} value={formatMode(preview.mode, copy)} />
             <PreviewContext
-              label="预览有效期"
-              value={formatDateTime(preview.expiresAt)}
+              label={copy("文件")}
+              value={file?.name ?? copy("已生成预览")}
+              breakAll
+            />
+            <PreviewContext
+              label={copy("预览有效期")}
+              value={formatDateTime(preview.expiresAt, locale)}
               danger={previewExpired}
             />
           </dl>
 
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            <OrderDataSummaryValue label="总行数" value={preview.summary.total} />
-            <OrderDataSummaryValue label="新增" value={preview.summary.create} />
-            <OrderDataSummaryValue label="更新" value={preview.summary.update} />
-            <OrderDataSummaryValue label="跳过" value={preview.summary.skipped} />
+            <OrderDataSummaryValue label={copy("总行数")} value={preview.summary.total} />
+            <OrderDataSummaryValue label={copy("新增")} value={preview.summary.create} />
+            <OrderDataSummaryValue label={copy("更新")} value={preview.summary.update} />
+            <OrderDataSummaryValue label={copy("跳过")} value={preview.summary.skipped} />
             <OrderDataSummaryValue
-              label="错误"
+              label={copy("错误")}
               value={preview.summary.invalid}
               danger={preview.summary.invalid > 0}
             />
@@ -548,7 +688,7 @@ export function OrderDataSection({
               role="alert"
             >
               <Clock3 className="mt-0.5 size-4 shrink-0" />
-              <span>这份预览已过期，不能应用。请清除后重新选择文件并生成新预览。</span>
+              <span>{copy("这份预览已过期，不能应用。请清除后重新选择文件并生成新预览。")}</span>
             </div>
           ) : null}
 
@@ -559,8 +699,15 @@ export function OrderDataSection({
               role={applyResult.status === "partial" ? "alert" : "status"}
               className="mt-3 rounded-md border border-status-warn-foreground/25 bg-status-warn px-3 py-2 text-xs leading-5 text-status-warn-foreground"
             >
-              应用结果：成功 {applyResult.applied} 行，冲突 {applyResult.conflicts} 行，失败{" "}
-              {applyResult.failed} 行，跳过 {applyResult.skipped} 行。同一批次已锁定，不能重复提交。
+              {copy(
+                "应用结果：成功 {applied} 行，冲突 {conflicts} 行，失败 {failed} 行，跳过 {skipped} 行。同一批次已锁定，不能重复提交。",
+                {
+                  applied: applyResult.applied,
+                  conflicts: applyResult.conflicts,
+                  failed: applyResult.failed,
+                  skipped: applyResult.skipped,
+                },
+              )}
             </div>
           ) : null}
 
@@ -568,16 +715,23 @@ export function OrderDataSection({
             <div className="mt-3 space-y-2">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs font-medium text-foreground">
-                  未应用行：当前显示 {visibleApplyRows.length} / {applyResult?.rows?.length ?? 0}
+                  {copy("未应用行：当前显示 {visible} / {total}", {
+                    visible: visibleApplyRows.length,
+                    total: applyResult?.rows?.length ?? 0,
+                  })}
                 </p>
                 {applyResult ? (
                   <Button
                     type="button"
                     variant="outline"
                     className="min-h-9 gap-1.5 self-start"
-                    onClick={() => downloadTextReport(buildOrderDataApplyReport(applyResult))}
+                    onClick={() =>
+                      downloadTextReport(
+                        buildOrderDataApplyReport(sanitizeOrderDataApplyReport(applyResult, copy)),
+                      )
+                    }
                   >
-                    <Download className="size-4" /> 下载完整错误报告
+                    <Download className="size-4" /> {copy("下载完整错误报告")}
                   </Button>
                 ) : null}
               </div>
@@ -588,15 +742,15 @@ export function OrderDataSection({
                     className="grid min-w-0 gap-1 border-b border-border px-3 py-2 last:border-0 sm:grid-cols-[90px_110px_minmax(0,1fr)]"
                   >
                     <span className="text-xs font-medium text-foreground">
-                      第 {row.rowNumber} 行
+                      {copy("第 {row} 行", { row: row.rowNumber })}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {applyStatusLabel(row.status)}
+                      {applyStatusLabel(row.status, copy)}
                     </span>
                     <span className="break-words text-xs leading-5 text-muted-foreground">
                       {row.errors.length > 0
-                        ? row.errors.map((issue) => issue.message).join("；")
-                        : "未应用或已跳过"}
+                        ? row.errors.map((issue) => orderDataIssueLabel(issue, copy)).join("；")
+                        : copy("未应用或已跳过")}
                     </span>
                   </div>
                 ))}
@@ -608,12 +762,15 @@ export function OrderDataSection({
             <div className="mt-3 space-y-2">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs font-medium text-foreground">
-                  预览明细：当前显示 {visiblePreviewRows.length} / {preview.rows.length}
+                  {copy("预览明细：当前显示 {visible} / {total}", {
+                    visible: visiblePreviewRows.length,
+                    total: preview.rows.length,
+                  })}
                 </p>
                 <div className="flex flex-col items-start gap-1 sm:items-end">
                   {preview.rows.length > PREVIEW_RENDER_LIMIT ? (
                     <p className="text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-                      页面最多展开前 100 行；完整内容请下载预览报告。
+                      {copy("页面最多展开前 100 行；完整内容请下载预览报告。")}
                     </p>
                   ) : null}
                   {preview.rows.length > PREVIEW_INITIAL_ROWS ? (
@@ -624,8 +781,10 @@ export function OrderDataSection({
                       onClick={() => setShowExpandedPreview((expanded) => !expanded)}
                     >
                       {showExpandedPreview
-                        ? "收起预览明细"
-                        : `展开前 ${Math.min(PREVIEW_RENDER_LIMIT, preview.rows.length)} 行`}
+                        ? copy("收起预览明细")
+                        : copy("展开前 {count} 行", {
+                            count: Math.min(PREVIEW_RENDER_LIMIT, preview.rows.length),
+                          })}
                     </Button>
                   ) : null}
                 </div>
@@ -638,21 +797,29 @@ export function OrderDataSection({
                   >
                     <div className="min-w-0">
                       <p className="text-xs font-medium text-foreground">
-                        {row.publicNo ? `工单 ${row.publicNo}` : `第 ${row.rowNumber} 行`}
+                        {row.publicNo
+                          ? copy("工单 {publicNo}", { publicNo: row.publicNo })
+                          : copy("第 {row} 行", { row: row.rowNumber })}
                       </p>
                       <p className="mt-0.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-                        表格第 {row.rowNumber} 行
+                        {copy("表格第 {row} 行", { row: row.rowNumber })}
                       </p>
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {previewStatusLabel(row.status, row.action)}
+                      {previewStatusLabel(row.status, row.action, copy)}
                     </span>
                     <span className="break-words text-xs leading-5 text-muted-foreground">
                       {[...row.errors, ...row.warnings].length > 0
-                        ? [...row.errors, ...row.warnings].map((issue) => issue.message).join("；")
+                        ? [...row.errors, ...row.warnings]
+                            .map((issue) => orderDataIssueLabel(issue, copy))
+                            .join("；")
                         : row.changedFields.length > 0
-                          ? `将修改：${row.changedFields.join("、")}`
-                          : "无字段变更"}
+                          ? copy("将修改：{fields}", {
+                              fields: row.changedFields
+                                .map((field) => orderDataFieldLabel(field, copy))
+                                .join(copy("、")),
+                            })
+                          : copy("无字段变更")}
                     </span>
                   </div>
                 ))}
@@ -679,7 +846,9 @@ export function OrderDataSection({
                   htmlFor="confirm-order-data-import"
                   className="flex min-h-9 flex-1 cursor-pointer items-center text-xs leading-5"
                 >
-                  确认这份预览属于“{storeName}”，并按预览结果处理当前店铺工单
+                  {copy("确认这份预览属于“{storeName}”，并按预览结果处理当前店铺工单", {
+                    storeName,
+                  })}
                 </Label>
               </div>
               {disabledReason ? (
@@ -688,7 +857,7 @@ export function OrderDataSection({
                 </p>
               ) : (
                 <p className="text-[11px] leading-5 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
-                  新增类导入不能一键完全恢复；提交前还会显示最后确认。
+                  {copy("新增类导入不能一键完全恢复；提交前还会显示最后确认。")}
                 </p>
               )}
             </div>
@@ -700,7 +869,7 @@ export function OrderDataSection({
               onClick={() => setApplyConfirmOpen(true)}
             >
               <CheckCircle2 className="size-4" />
-              检查并应用
+              {copy("检查并应用")}
             </Button>
           </div>
         </section>
@@ -714,7 +883,10 @@ export function OrderDataSection({
           aria-live="polite"
           className="rounded-md border border-status-success-foreground/25 bg-status-success/20 px-3 py-3 text-xs leading-5 text-status-success-foreground"
         >
-          导入完成：已应用 {applyResult.applied} 行，跳过 {applyResult.skipped} 行。同一批次已锁定。
+          {copy("导入完成：已应用 {applied} 行，跳过 {skipped} 行。同一批次已锁定。", {
+            applied: applyResult.applied,
+            skipped: applyResult.skipped,
+          })}
         </div>
       ) : null}
 
@@ -722,8 +894,8 @@ export function OrderDataSection({
         <RepairOsSectionHeader
           icon={History}
           iconFrame={false}
-          title="最近批次"
-          description="按当前店铺读取最近 20 个脱敏摘要；不返回工作簿内容或字段前后值。"
+          title={copy("最近批次")}
+          description={copy("按当前店铺读取最近 20 个脱敏摘要；不返回工作簿内容或字段前后值。")}
           action={
             historyOpen ? (
               <Button
@@ -738,7 +910,7 @@ export function OrderDataSection({
                 ) : (
                   <History className="size-4" />
                 )}
-                刷新历史
+                {copy("刷新历史")}
               </Button>
             ) : undefined
           }
@@ -746,7 +918,7 @@ export function OrderDataSection({
         {!historyOpen ? (
           <div className="grid gap-3 rounded-lg border border-border bg-muted/20 px-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <p className="text-xs leading-5 text-muted-foreground">
-              历史读取是独立动作，不会自动加载，也不会暴露客户字段。批次回滚仍未开放。
+              {copy("历史读取是独立动作，不会自动加载，也不会暴露客户字段。批次回滚仍未开放。")}
             </p>
             <Button
               type="button"
@@ -754,7 +926,7 @@ export function OrderDataSection({
               className="min-h-9 gap-1.5"
               onClick={() => setHistoryOpen(true)}
             >
-              <History className="size-4" /> 查看最近批次
+              <History className="size-4" /> {copy("查看最近批次")}
             </Button>
           </div>
         ) : batchHistoryQuery.isLoading ? (
@@ -763,26 +935,26 @@ export function OrderDataSection({
             aria-live="polite"
             className="flex min-h-20 items-center gap-2 text-xs text-muted-foreground"
           >
-            <LoaderCircle className="size-4 animate-spin" /> 正在读取当前店铺批次摘要…
+            <LoaderCircle className="size-4 animate-spin" /> {copy("正在读取当前店铺批次摘要…")}
           </div>
         ) : batchHistoryQuery.isError ? (
           <div
             role="alert"
             className="grid gap-3 rounded-lg border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-3 text-xs text-status-danger-foreground sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
           >
-            <span>{errorMessage(batchHistoryQuery.error, "批次历史读取失败")}</span>
+            <span>{copy("批次历史读取失败")}</span>
             <Button
               type="button"
               variant="outline"
               className="min-h-9"
               onClick={() => void batchHistoryQuery.refetch()}
             >
-              重新读取
+              {copy("重新读取")}
             </Button>
           </div>
         ) : !batchHistory || batchHistory.items.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border px-3 py-5 text-center text-xs text-muted-foreground">
-            当前店铺还没有可显示的工单数据批次。
+            {copy("当前店铺还没有可显示的工单数据批次。")}
           </div>
         ) : (
           <div className="space-y-2">
@@ -794,29 +966,33 @@ export function OrderDataSection({
                 >
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-foreground">
-                      {batchKindLabel(batch.kind)}
+                      {batchKindLabel(batch.kind, copy)}
                     </p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-                      {batchStatusLabel(batch.status)}
+                      {batchStatusLabel(batch.status, copy)}
                     </p>
                   </div>
                   <div className="min-w-0 text-xs">
                     <p className="text-muted-foreground">
-                      {batch.mode ? formatMode(batch.mode) : "不适用"}
+                      {batch.mode ? formatMode(batch.mode, copy) : copy("不适用")}
                     </p>
                     <p className="mt-0.5 break-words text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-                      {batch.actorDisplayName ?? "操作人已不可用"}
+                      {batch.actorDisplayName ?? copy("操作人已不可用")}
                     </p>
                   </div>
                   <p className="break-words text-xs leading-5 text-muted-foreground">
-                    {batchSummaryText(batch.summary)}
+                    {batchSummaryText(batch.summary, copy)}
                   </p>
                   <div className="text-[11px] leading-5 text-muted-foreground lg:text-xs lg:leading-[18px]">
-                    <p>创建：{formatDateTime(batch.createdAt)}</p>
+                    <p>{copy("创建：{time}", { time: formatDateTime(batch.createdAt, locale) })}</p>
                     <p>
                       {batch.appliedAt
-                        ? `应用：${formatDateTime(batch.appliedAt)}`
-                        : `到期：${formatDateTime(batch.expiresAt)}`}
+                        ? copy("应用：{time}", {
+                            time: formatDateTime(batch.appliedAt, locale),
+                          })
+                        : copy("到期：{time}", {
+                            time: formatDateTime(batch.expiresAt, locale),
+                          })}
                     </p>
                   </div>
                 </div>
@@ -824,7 +1000,7 @@ export function OrderDataSection({
             </div>
             {batchHistory.hasMore ? (
               <p className="text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-                这里只显示最近 20 个批次；更早历史未在本页加载。
+                {copy("这里只显示最近 20 个批次；更早历史未在本页加载。")}
               </p>
             ) : null}
           </div>
@@ -832,7 +1008,9 @@ export function OrderDataSection({
         <div className="mt-3 flex gap-2 rounded-md border border-status-warn-foreground/25 bg-status-warn px-3 py-2 text-[11px] leading-5 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
           <Clock3 className="mt-0.5 size-3.5 shrink-0" />
           <span>
-            “到期”表示预览不可再应用，不等于已完成 PII 清理。可靠的保留期调度与监控仍需单独批准。
+            {copy(
+              "“到期”表示预览不可再应用，不等于已完成 PII 清理。可靠的保留期调度与监控仍需单独批准。",
+            )}
           </span>
         </div>
       </section>
@@ -840,46 +1018,44 @@ export function OrderDataSection({
       <AlertDialog open={applyConfirmOpen} onOpenChange={setApplyConfirmOpen}>
         <AlertDialogContent className="max-h-[min(88dvh,720px)] overflow-y-auto sm:max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>确认应用工单数据？</AlertDialogTitle>
+            <AlertDialogTitle>{copy("确认应用工单数据？")}</AlertDialogTitle>
             <AlertDialogDescription>
-              这是对当前店铺的批量写入。请最后核对店铺、模式、数量和恢复边界。
+              {copy("这是对当前店铺的批量写入。请最后核对店铺、模式、数量和恢复边界。")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {preview ? (
             <dl className="grid gap-2 rounded-lg border border-border bg-muted/20 p-3 text-xs sm:grid-cols-2">
-              <PreviewContext label="当前店铺" value={storeName} />
-              <PreviewContext label="导入模式" value={formatMode(preview.mode)} />
+              <PreviewContext label={copy("当前店铺")} value={storeName} />
+              <PreviewContext label={copy("导入模式")} value={formatMode(preview.mode, copy)} />
               <PreviewContext
-                label="新增 / 更新"
+                label={copy("新增 / 更新")}
                 value={`${preview.summary.create} / ${preview.summary.update}`}
               />
-              <PreviewContext label="预览有效期" value={formatDateTime(preview.expiresAt)} />
+              <PreviewContext
+                label={copy("预览有效期")}
+                value={formatDateTime(preview.expiresAt, locale)}
+              />
             </dl>
           ) : null}
           <div className="flex gap-2 rounded-md border border-status-warn-foreground/25 bg-status-warn px-3 py-2 text-xs leading-5 text-status-warn-foreground">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <span>
-              更新行仍会在服务端执行版本校验；新增行不会自动删除，发生部分成功时需下载错误报告并重新生成预览。
+              {copy(
+                "更新行仍会在服务端执行版本校验；新增行不会自动删除，发生部分成功时需下载错误报告并重新生成预览。",
+              )}
             </span>
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel className="min-h-12" disabled={applyMutation.isPending}>
-              返回预览
+              {copy("返回预览")}
             </AlertDialogCancel>
             <AlertDialogAction
               className="min-h-12 border-0 text-primary-foreground"
               style={brandGradientStyle}
               disabled={!preview || !canApply || applyMutation.isPending}
-              onClick={() =>
-                preview &&
-                applyMutation.mutate({
-                  batchId: preview.batchId,
-                  expectedStoreId: storeId,
-                  expiresAt: preview.expiresAt,
-                })
-              }
+              onClick={startApply}
             >
-              {applyMutation.isPending ? "正在应用" : "确认并应用"}
+              {applyMutation.isPending ? copy("正在应用") : copy("确认并应用")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -927,31 +1103,31 @@ function downloadTextReport(report: OrderDataTextReport) {
   downloadBlob(new Blob([report.content], { type: "text/csv;charset=utf-8" }), report.fileName);
 }
 
-function previewStatusLabel(status: string, action: string) {
-  if (status === "invalid") return "错误";
-  if (status === "conflict") return "冲突";
-  if (status === "failed") return "失败";
-  if (status === "skipped") return "跳过";
-  if (status === "applied") return "已应用";
-  return action === "create" ? "新增" : "更新";
+function previewStatusLabel(status: string, action: string, copy: SettingsCopy) {
+  if (status === "invalid") return copy("错误");
+  if (status === "conflict") return copy("冲突");
+  if (status === "failed") return copy("失败");
+  if (status === "skipped") return copy("跳过");
+  if (status === "applied") return copy("已应用");
+  return copy(action === "create" ? "新增" : "更新");
 }
 
-function applyStatusLabel(status: string) {
-  if (status === "conflict") return "冲突";
-  if (status === "failed") return "失败";
-  if (status === "skipped") return "跳过";
-  return "已应用";
+function applyStatusLabel(status: string, copy: SettingsCopy) {
+  if (status === "conflict") return copy("冲突");
+  if (status === "failed") return copy("失败");
+  if (status === "skipped") return copy("跳过");
+  return copy("已应用");
 }
 
-function batchKindLabel(kind: string) {
-  if (kind === "order_export") return "工单导出";
-  if (kind === "customer_stats") return "客户统计";
-  if (kind === "template") return "空白模板";
-  return "工单导入";
+function batchKindLabel(kind: string, copy: SettingsCopy) {
+  if (kind === "order_export") return copy("工单导出");
+  if (kind === "customer_stats") return copy("客户统计");
+  if (kind === "template") return copy("空白模板");
+  return copy("工单导入");
 }
 
-function batchStatusLabel(status: string) {
-  const labels: Record<string, string> = {
+function batchStatusLabel(status: string, copy: SettingsCopy) {
+  const labels: Record<string, Parameters<SettingsCopy>[0]> = {
     building: "生成中",
     completed: "已完成",
     previewed: "已预览",
@@ -963,53 +1139,61 @@ function batchStatusLabel(status: string) {
     rolled_back: "已恢复",
     rollback_partial: "部分恢复",
   };
-  return labels[status] ?? "未知状态";
+  return copy(labels[status] ?? "未知状态");
 }
 
-function batchSummaryText(summary: {
-  total?: number;
-  ready?: number;
-  create?: number;
-  update?: number;
-  invalid?: number;
-  skipped?: number;
-  rows?: number;
-  applied?: number;
-  conflicts?: number;
-  failed?: number;
-}) {
+function batchSummaryText(
+  summary: {
+    total?: number;
+    ready?: number;
+    create?: number;
+    update?: number;
+    invalid?: number;
+    skipped?: number;
+    rows?: number;
+    applied?: number;
+    conflicts?: number;
+    failed?: number;
+  },
+  copy: SettingsCopy,
+) {
   const values = [
-    summary.rows !== undefined ? `导出 ${summary.rows}` : "",
-    summary.total !== undefined ? `总计 ${summary.total}` : "",
-    summary.ready !== undefined ? `可应用 ${summary.ready}` : "",
-    summary.create !== undefined ? `新增 ${summary.create}` : "",
-    summary.update !== undefined ? `更新 ${summary.update}` : "",
-    summary.applied !== undefined ? `成功 ${summary.applied}` : "",
-    summary.conflicts !== undefined ? `冲突 ${summary.conflicts}` : "",
-    summary.failed !== undefined ? `失败 ${summary.failed}` : "",
-    summary.invalid !== undefined ? `错误 ${summary.invalid}` : "",
-    summary.skipped !== undefined ? `跳过 ${summary.skipped}` : "",
+    summary.rows !== undefined ? copy("导出 {count}", { count: summary.rows }) : "",
+    summary.total !== undefined ? copy("总计 {count}", { count: summary.total }) : "",
+    summary.ready !== undefined ? copy("可应用 {count}", { count: summary.ready }) : "",
+    summary.create !== undefined ? copy("新增 {count}", { count: summary.create }) : "",
+    summary.update !== undefined ? copy("更新 {count}", { count: summary.update }) : "",
+    summary.applied !== undefined ? copy("成功 {count}", { count: summary.applied }) : "",
+    summary.conflicts !== undefined ? copy("冲突 {count}", { count: summary.conflicts }) : "",
+    summary.failed !== undefined ? copy("失败 {count}", { count: summary.failed }) : "",
+    summary.invalid !== undefined ? copy("错误 {count}", { count: summary.invalid }) : "",
+    summary.skipped !== undefined ? copy("跳过 {count}", { count: summary.skipped }) : "",
   ].filter(Boolean);
-  return values.join(" · ") || "无计数摘要";
+  return values.join(" · ") || copy("无计数摘要");
 }
 
-function applyDisabledReason(input: {
-  preview: OrderDataImportPreview;
-  applyEnabled: boolean;
-  previewExpired: boolean;
-  currentBatchLocked: boolean;
-  confirmed: boolean;
-}) {
+function applyDisabledReason(
+  input: {
+    preview: OrderDataImportPreview;
+    applyEnabled: boolean;
+    previewExpired: boolean;
+    currentBatchLocked: boolean;
+    confirmed: boolean;
+  },
+  copy: SettingsCopy,
+) {
   if (!input.applyEnabled) {
-    return "最终应用当前保持关闭；需先完成状态流、默认质保、最大批次和保留期发布门禁。";
+    return copy("最终应用当前保持关闭；需先完成状态流、默认质保、最大批次和保留期发布门禁。");
   }
-  if (input.previewExpired) return "预览已过期，请重新生成。";
-  if (input.currentBatchLocked) return "同一批次已经处理并锁定，不能重复提交。";
+  if (input.previewExpired) return copy("预览已过期，请重新生成。");
+  if (input.currentBatchLocked) return copy("同一批次已经处理并锁定，不能重复提交。");
   if (input.preview.summary.invalid > 0) {
-    return `仍有 ${input.preview.summary.invalid} 行错误，请修正文件后重新生成预览。`;
+    return copy("仍有 {count} 行错误，请修正文件后重新生成预览。", {
+      count: input.preview.summary.invalid,
+    });
   }
-  if (input.preview.summary.ready === 0) return "没有可应用的数据行。";
-  if (!input.confirmed) return "请先确认当前店铺和预览内容。";
+  if (input.preview.summary.ready === 0) return copy("没有可应用的数据行。");
+  if (!input.confirmed) return copy("请先确认当前店铺和预览内容。");
   return "";
 }
 
@@ -1023,26 +1207,49 @@ function noticeClassName(kind: FlowNotice["kind"]) {
   return `mt-3 flex gap-2 rounded-md border px-3 py-2 text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring ${tone}`;
 }
 
-function downloadLabel(kind: DownloadKind) {
-  if (kind === "orders") return "导出工单";
-  if (kind === "customers") return "客户统计";
-  return "空白模板";
+function downloadLabel(kind: DownloadKind, copy: SettingsCopy) {
+  if (kind === "orders") return copy("导出工单");
+  if (kind === "customers") return copy("客户统计");
+  return copy("空白模板");
 }
 
-function downloadPendingLabel(kind: DownloadKind) {
-  if (kind === "orders") return "正在导出工单…";
-  if (kind === "customers") return "正在生成统计…";
-  return "正在生成模板…";
+function downloadPendingLabel(kind: DownloadKind, copy: SettingsCopy) {
+  if (kind === "orders") return copy("正在导出工单…");
+  if (kind === "customers") return copy("正在生成统计…");
+  return copy("正在生成模板…");
 }
 
-function formatMode(mode: OrderDataImportMode) {
-  return mode === "create_and_update" ? "新增并更新" : "只更新已有工单";
+function formatMode(mode: OrderDataImportMode, copy: SettingsCopy) {
+  return copy(mode === "create_and_update" ? "新增并更新" : "只更新已有工单");
 }
 
-function formatDateTime(value: string) {
+function orderDataFieldLabel(field: string, copy: SettingsCopy) {
+  const labels: Record<string, Parameters<SettingsCopy>[0]> = {
+    customer_name: "客户姓名",
+    customer_phone_e164: "客户电话",
+    contact_phones: "其他联系电话",
+    device_brand: "设备品牌",
+    device_model: "设备型号",
+    device_imei: "IMEI 或序列号",
+    device_notes: "设备备注",
+    device_custody_status: "设备保管状态",
+    issue_description: "故障描述",
+    diagnosis_result: "检测结论",
+    internal_tag: "内部标签",
+    accessory_notes: "随附物品",
+    warranty_text: "质保说明",
+    warranty_months: "质保月数",
+    deposit_amount: "定金",
+    fault_prices: "维修项目与报价",
+  };
+  return copy(labels[field] ?? "其他字段");
+}
+
+function formatDateTime(value: string, locale: AppLocale = "zh-CN") {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "时间无效";
-  return new Intl.DateTimeFormat("zh-CN", {
+  if (Number.isNaN(date.getTime())) return translateSettingsOperations(locale, "时间无效");
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: "Europe/Rome",
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
@@ -1053,10 +1260,145 @@ function formatBytes(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
 
-function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error && error.message ? error.message : fallback;
-}
-
 function focusSoon(ref: { current: HTMLElement | null }) {
   window.setTimeout(() => ref.current?.focus(), 0);
+}
+
+type Copy = (
+  source: Parameters<typeof translateSettingsOperations>[1],
+  values?: Parameters<typeof translateSettingsOperations>[2],
+) => string;
+
+function orderDataIssueLabel(issue: OrderDataImportIssue, copy: Copy) {
+  switch (issue.code) {
+    case "version_conflict":
+    case "duplicate_target":
+    case "shared_record_conflict":
+    case "customer_phone_collision":
+    case "identifier_conflict":
+    case "finance_requires_order_screen":
+      return copy("导入行存在冲突，请修正后重新生成预览。");
+    case "required":
+    case "invalid_action":
+    case "invalid_phone":
+    case "invalid_warranty":
+    case "invalid_deposit":
+    case "invalid_order_type":
+    case "invalid_device_custody":
+    case "clear_not_allowed":
+    case "deposit_exceeds_quote":
+    case "create_disabled":
+      return copy("导入行包含无效字段，请修正后重新生成预览。");
+    case "order_not_found":
+      return copy("当前店铺未找到对应工单。");
+    case "duplicate_external_ref":
+    case "existing_customer_reused":
+    case "shared_record_update":
+    case "no_changes":
+      return copy("请检查此行的导入提示。");
+    case "apply_failed":
+      return copy("该行未能应用，请重新生成预览。");
+    default:
+      return copy("导入行需要检查。");
+  }
+}
+
+const orderDataReportIssueCodes = new Set([
+  "version_conflict",
+  "duplicate_target",
+  "shared_record_conflict",
+  "customer_phone_collision",
+  "identifier_conflict",
+  "required",
+  "invalid_action",
+  "invalid_phone",
+  "invalid_warranty",
+  "invalid_deposit",
+  "invalid_order_type",
+  "invalid_device_custody",
+  "clear_not_allowed",
+  "deposit_exceeds_quote",
+  "create_disabled",
+  "finance_requires_order_screen",
+  "order_not_found",
+  "duplicate_external_ref",
+  "existing_customer_reused",
+  "shared_record_update",
+  "no_changes",
+  "apply_failed",
+]);
+
+const orderDataReportFields = new Set([
+  "order_type",
+  "device_custody_status",
+  "customer_name",
+  "customer_phone",
+  "customer_phone_e164",
+  "customer_phone_raw",
+  "contact_phones",
+  "device_brand",
+  "device_model",
+  "device_imei",
+  "device_notes",
+  "issue_description",
+  "diagnosis_result",
+  "internal_tag",
+  "accessory_notes",
+  "warranty_text",
+  "warranty_months",
+  "deposit_amount",
+  "fault_prices",
+  "导入动作",
+  "版本时间",
+  "订单类型",
+  "设备保管枚举",
+  "客户姓名",
+  "客户电话",
+  "设备品牌",
+  "设备型号",
+  "IMEI或序列号",
+  "设备备注",
+  "故障描述",
+  "诊断结果",
+  "内部标签",
+  "随附物品",
+  "质保文本",
+  "质保月数",
+  "定金",
+  "外部来源",
+  "外部记录ID",
+]);
+
+function sanitizeOrderDataIssueForReport(issue: OrderDataImportIssue, copy: Copy) {
+  const knownCode = orderDataReportIssueCodes.has(issue.code);
+  return {
+    code: knownCode ? issue.code : "unknown_issue",
+    message: orderDataIssueLabel(
+      { code: knownCode ? issue.code : "unknown_issue", message: "" },
+      copy,
+    ),
+    ...(issue.field && orderDataReportFields.has(issue.field) ? { field: issue.field } : {}),
+  };
+}
+
+function sanitizeOrderDataPreviewReport(preview: OrderDataImportPreview, copy: Copy) {
+  return {
+    ...preview,
+    rows: preview.rows.map((row) => ({
+      ...row,
+      changedFields: row.changedFields.filter((field) => orderDataReportFields.has(field)),
+      warnings: row.warnings.map((issue) => sanitizeOrderDataIssueForReport(issue, copy)),
+      errors: row.errors.map((issue) => sanitizeOrderDataIssueForReport(issue, copy)),
+    })),
+  };
+}
+
+function sanitizeOrderDataApplyReport(result: OrderDataImportApplyResult, copy: Copy) {
+  return {
+    ...result,
+    rows: result.rows?.map((row) => ({
+      ...row,
+      errors: row.errors.map((issue) => sanitizeOrderDataIssueForReport(issue, copy)),
+    })),
+  };
 }

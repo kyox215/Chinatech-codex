@@ -305,6 +305,10 @@ export interface RepairOsListScaffoldProps {
   desktopHeaderAddon?: ReactNode;
   searchValue?: string;
   searchPlaceholder?: string;
+  searchPrefix?: string;
+  clearSearchLabel?: string;
+  filterLabel?: string;
+  preparingStatus?: string;
   onSearchChange?: (value: string) => void;
   searchFrame?: "standalone" | "embedded";
   searchAction?: ReactNode;
@@ -327,6 +331,10 @@ export function RepairOsListScaffold({
   desktopHeaderAddon,
   searchValue,
   searchPlaceholder = "搜索",
+  searchPrefix = "搜索：",
+  clearSearchLabel = "清除搜索",
+  filterLabel = "筛选",
+  preparingStatus = `正在准备${title}`,
   onSearchChange,
   searchFrame = "embedded",
   searchAction,
@@ -395,7 +403,7 @@ export function RepairOsListScaffold({
       >
         <h1 className="text-sm font-semibold leading-5 text-foreground">{title}</h1>
         <span className="sr-only" role="status" aria-live="polite">
-          正在准备{title}
+          {preparingStatus}
         </span>
         <div aria-hidden="true" className="space-y-2">
           <div className="h-10 w-full animate-pulse rounded-xl bg-muted" />
@@ -476,7 +484,7 @@ export function RepairOsListScaffold({
                         variant="outline"
                         size="iconDense"
                         className="size-9 rounded-lg bg-card"
-                        aria-label="筛选"
+                        aria-label={filterLabel}
                         disabled
                       >
                         <Filter className="size-3.5" />
@@ -488,13 +496,13 @@ export function RepairOsListScaffold({
               {trimmedSearchValue ? (
                 <div className="flex min-w-0 items-center gap-1.5">
                   <span className="inline-flex min-w-0 max-w-[calc(100%-3rem)] items-center gap-1 rounded-full border border-[var(--border-panel)] bg-card px-2.5 py-1 text-[11px] font-medium leading-4 text-muted-foreground">
-                    <span className="shrink-0">搜索：</span>
+                    <span className="shrink-0">{searchPrefix}</span>
                     <span className="truncate font-mono text-foreground">{trimmedSearchValue}</span>
                   </span>
                   <button
                     type="button"
                     className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    aria-label="清除搜索"
+                    aria-label={clearSearchLabel}
                     onClick={() => onSearchChange?.("")}
                   >
                     <X className="size-3.5" />

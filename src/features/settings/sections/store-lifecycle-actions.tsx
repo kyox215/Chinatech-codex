@@ -41,6 +41,8 @@ import type {
   StoreLifecycleMutationResult,
   StoreLifecyclePreflight,
 } from "@/lib/repairdesk/types";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { translateSettingsOperations } from "@/shared/i18n/messages";
 
 interface StoreLifecycleActionsProps {
   store: ActorStoreMembership;
@@ -59,6 +61,11 @@ export function StoreLifecycleActions({
   preflightError,
   onRunPreflight,
 }: StoreLifecycleActionsProps) {
+  const { locale } = useLocale();
+  const copy = (
+    source: Parameters<typeof translateSettingsOperations>[1],
+    values?: Record<string, string | number>,
+  ) => translateSettingsOperations(locale, source, values);
   const router = useRouter();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
@@ -74,6 +81,7 @@ export function StoreLifecycleActions({
   >("idle");
   const [persistentError, setPersistentError] = useState("");
   const requestSentRef = useRef(false);
+  const closeSubmittingRef = useRef(false);
   const lifecycleQuery = useQuery({
     queryKey: storesKeys.lifecycle(store.id),
     queryFn: () => getStoreLifecycleState(store.id),
@@ -101,6 +109,7 @@ export function StoreLifecycleActions({
     setPersistentResult("idle");
     setPersistentError("");
     requestSentRef.current = false;
+    closeSubmittingRef.current = false;
   }, [store.id, lifecycle?.revision]);
 
   useEffect(() => {
@@ -119,7 +128,7 @@ export function StoreLifecycleActions({
     setPersistentResult("success");
     setConfirmOpen(false);
     setTotpCode("");
-    toast.success("店铺已进入可恢复关闭流程");
+    toast.success(copy("店铺已进入可恢复关闭流程"));
     if (result.active_store_cleared) {
       router.replace("/settings/closed-stores");
       router.refresh();
@@ -153,13 +162,13 @@ export function StoreLifecycleActions({
       await new Promise((resolve) => window.setTimeout(resolve, 700 * (attempt + 1)));
     }
     setPersistentResult("unknown");
-    setPersistentError("暂时无法确认结果。请稍后刷新“已关闭店铺”，不要重复提交关闭请求。");
+    setPersistentError("unknown");
   };
 
   const closeMutation = useMutation({
     mutationFn: async () => {
       if (!lifecycle || !preflight || !validEligible) {
-        throw new Error("检查结果已过期，请重新检查");
+        throw new Error(copy("检查结果已过期，请重新检查"));
       }
       await verifyRecentLifecycleAal2(totpCode);
       const challenge = await issueStoreLifecycleChallenge({
@@ -187,9 +196,12 @@ export function StoreLifecycleActions({
         await reconcileOperation();
         return;
       }
-      const message = error instanceof Error ? error.message : "关闭店铺失败";
+      const message = copy("关闭店铺失败");
       setPersistentError(message);
       toast.error(message);
+    },
+    onSettled: () => {
+      closeSubmittingRef.current = false;
     },
   });
 
@@ -233,11 +245,11 @@ export function StoreLifecycleActions({
       {!preflight && !isPreflighting && !preflightError ? (
         <StepCard
           icon={ShieldCheck}
-          title="先检查是否可以关闭"
-          description="检查只会读取未完成工单、欠款和仍在店里的设备，不会修改任何资料。"
+          title={copy("先检查是否可以关闭")}
+          description={copy("检查只会读取未完成工单、欠款和仍在店里的设备，不会修改任何资料。")}
         >
           <Button type="button" className="min-h-11 w-full sm:w-auto" onClick={onRunPreflight}>
-            检查是否可以关闭
+            {copy("检查是否可以关闭")}
           </Button>
         </StepCard>
       ) : null}
@@ -246,8 +258,8 @@ export function StoreLifecycleActions({
         <StepCard
           icon={Loader2}
           iconClassName="animate-spin"
-          title="正在检查店铺…"
-          description="这通常只需要几秒钟。检查期间不会关闭店铺。"
+          title={copy("正在检查店铺…")}
+          description={copy("这通常只需要几秒钟。检查期间不会关闭店铺。")}
         />
       ) : null}
 
@@ -255,14 +267,14 @@ export function StoreLifecycleActions({
         <StepCard
           icon={AlertTriangle}
           tone="danger"
-          title="暂时无法完成检查"
-          description="没有对店铺做任何更改。你可以稍后重新检查。"
+          title={copy("暂时无法完成检查")}
+          description={copy("没有对店铺做任何更改。你可以稍后重新检查。")}
         >
           <p role="alert" className="text-xs text-status-danger-foreground">
-            {preflightError}
+            {copy("店铺安全预检失败，请重试")}
           </p>
           <Button type="button" variant="outline" onClick={onRunPreflight}>
-            重新检查
+            {copy("重新检查")}
           </Button>
         </StepCard>
       ) : null}
@@ -271,11 +283,11 @@ export function StoreLifecycleActions({
         <StepCard
           icon={Clock3}
           tone="warn"
-          title="检查结果已过期"
-          description="为了防止关错店铺，需要重新检查最新情况。"
+          title={copy("检查结果已过期")}
+          description={copy("为了防止关错店铺，需要重新检查最新情况。")}
         >
           <Button type="button" variant="outline" onClick={onRunPreflight}>
-            重新检查
+            {copy("重新检查")}
           </Button>
         </StepCard>
       ) : null}
@@ -284,12 +296,12 @@ export function StoreLifecycleActions({
         <StepCard
           icon={AlertTriangle}
           tone="warn"
-          title="这家店现在还不能关闭"
-          description="请先处理以下事项，完成后再重新检查。"
+          title={copy("这家店现在还不能关闭")}
+          description={copy("请先处理以下事项，完成后再重新检查。")}
         >
           <StoreCloseBlockerList blockers={preflight.blockers} />
           <Button type="button" variant="outline" onClick={onRunPreflight}>
-            处理后重新检查
+            {copy("处理后重新检查")}
           </Button>
         </StepCard>
       ) : null}
@@ -298,19 +310,21 @@ export function StoreLifecycleActions({
         <StepCard
           icon={CheckCircle2}
           tone="success"
-          title="可以继续关闭"
-          description={`检查结果还可使用 ${formatRemaining(expiresAt - now)}。`}
+          title={copy("可以继续关闭")}
+          description={copy("检查结果还可使用 {time}。", {
+            time: formatRemaining(expiresAt - now, locale),
+          })}
         >
           <StoreCloseImpactList preflight={preflight} />
           <Button type="button" variant="destructive" onClick={openConfirmation}>
-            继续关闭
+            {copy("继续关闭")}
           </Button>
         </StepCard>
       ) : null}
 
       {persistentError ? (
         <p role="alert" className="text-sm text-status-danger-foreground">
-          {persistentError}
+          {copy("关闭店铺失败")}
         </p>
       ) : null}
 
@@ -332,7 +346,11 @@ export function StoreLifecycleActions({
         onReasonChange={setReason}
         onAcknowledgedChange={setAcknowledged}
         onTotpChange={setTotpCode}
-        onConfirm={() => closeMutation.mutate()}
+        onConfirm={() => {
+          if (closeSubmittingRef.current) return;
+          closeSubmittingRef.current = true;
+          closeMutation.mutate();
+        }}
       />
     </div>
   );

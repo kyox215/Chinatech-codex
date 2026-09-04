@@ -21,6 +21,104 @@ describe("InventoryProductForm pure contract", () => {
     ],
   } as const;
 
+  it("returns stable validation codes and field identities without parsing display copy", () => {
+    const validate = (
+      mutate: (draft: InventoryProductFormDraft) => void,
+      options: Parameters<typeof validateInventoryProductFormDraft>[1] = {},
+    ) => {
+      const draft = createInventoryProductFormDraft("phone");
+      draft.brand = "Samsung";
+      draft.model = "Galaxy Synthetic";
+      mutate(draft);
+      return validateInventoryProductFormDraft(draft, options);
+    };
+
+    expect(validate((draft) => (draft.brand = ""))).toMatchObject({
+      code: "brand_required",
+      fieldId: "product-brand",
+    });
+    expect(validate((draft) => (draft.model = ""))).toMatchObject({
+      code: "model_required",
+      fieldId: "product-model",
+    });
+    expect(validate((draft) => (draft.notes = "x".repeat(2_001)))).toMatchObject({
+      code: "notes_too_long",
+      fieldId: "product-notes",
+    });
+    expect(
+      validate((draft) => {
+        draft.inspection_touched = true;
+        draft.inspection_battery_health = "101";
+      }),
+    ).toMatchObject({ code: "battery_invalid", fieldId: "product-battery-health" });
+    expect(validate((draft) => (draft.identifiers.imei2 = "490154203237518"))).toMatchObject({
+      code: "imei2_requires_imei1",
+      fieldId: "product-imei1",
+    });
+    expect(validate(() => undefined, { requireImei1: true })).toMatchObject({
+      code: "imei1_required",
+      fieldId: "product-imei1",
+    });
+    expect(validate((draft) => (draft.gtin = "12345678"))).toMatchObject({
+      code: "gtin_invalid",
+      fieldId: "product-gtin",
+    });
+    expect(validate((draft) => (draft.identifiers.imei1 = "123"))).toMatchObject({
+      code: "imei_invalid",
+      fieldId: "product-imei1",
+    });
+    expect(validate((draft) => (draft.identifiers.serial = "x"))).toMatchObject({
+      code: "serial_invalid",
+      fieldId: "product-serial",
+    });
+    expect(validate((draft) => (draft.identifiers.eid = "123"))).toMatchObject({
+      code: "eid_invalid",
+      fieldId: "product-eid",
+    });
+    expect(
+      validate((draft) => {
+        draft.identifiers.imei1 = "490154203237518";
+        draft.identifiers.serial = "490154203237518";
+      }),
+    ).toMatchObject({ code: "identifier_duplicate", fieldId: "product-serial" });
+    expect(
+      validate((draft) => {
+        draft.identifiers.eid = "12345678901234567890123456789012";
+      }),
+    ).toMatchObject({ code: "primary_identifier_required", fieldId: "product-imei1" });
+    expect(
+      validate((draft) => {
+        draft.identifiers.eid = "12345678901234567890123456789012";
+        draft.primary_identifier_kind = "eid";
+      }),
+    ).toMatchObject({ code: "eid_primary_forbidden", fieldId: "product-eid" });
+    expect(validate((draft) => (draft.list_price = "1.234"))).toMatchObject({
+      code: "list_price_invalid",
+      fieldId: "product-price",
+    });
+    expect(
+      validate((draft) => (draft.cost_amount = "1.234"), { canEnterCost: true }),
+    ).toMatchObject({ code: "cost_amount_invalid", fieldId: "product-cost" });
+    expect(validate((draft) => (draft.warranty_months = "121"))).toMatchObject({
+      code: "warranty_invalid",
+      fieldId: "product-warranty",
+    });
+    expect(validate((draft) => (draft.color = ""), { colorRequired: true })).toMatchObject({
+      code: "color_required",
+      fieldId: "product-color",
+    });
+    expect(
+      validate(
+        (draft) => {
+          draft.brand = "Apple";
+          draft.model = "iPhone 15 Pro";
+          draft.color = "Unapproved Dynamic Color";
+        },
+        { approvedAppleColorOverlay: approvedAppleColors },
+      ),
+    ).toMatchObject({ code: "color_not_approved", fieldId: "product-color" });
+  });
+
   it("omits a new Apple color from create while official mapping is pending", () => {
     const draft = createInventoryProductFormDraft("phone");
     draft.brand = "Apple";

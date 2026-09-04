@@ -10,6 +10,7 @@ import { useStoreShellContext } from "@/features/stores/api/use-store-shell-cont
 import { getInventoryProduct } from "@/lib/repairdesk/api";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 import { inventoryLifecycleSummaryQueryOptions } from "../api/query-options";
 import { inventoryLifecycleKeys } from "../api/query-keys";
@@ -40,6 +41,7 @@ export function InventoryLifecycleReservationScreen({
   itemId: string;
   mode?: "reservation" | "sale";
 }) {
+  const { t } = useLocale();
   const router = useRouter();
   const queryClient = useQueryClient();
   const shell = useStoreShellContext({ monitorAuthority: true });
@@ -110,8 +112,12 @@ export function InventoryLifecycleReservationScreen({
   if (shell.isLoading || productQuery.isLoading || summaryQuery.isLoading) {
     return (
       <InventoryLifecyclePageShell
-        title={mode === "sale" ? "快速成交" : "新建预订"}
-        context="正在读取商品库存"
+        title={
+          mode === "sale"
+            ? t("inventory2b4.reservation.saleTitle")
+            : t("inventory2b4.reservation.title")
+        }
+        context={t("inventory2b4.reservation.context.loading")}
         onBack={() => router.push("/inventory")}
       >
         <InventoryAvailabilityStateCard availability={availability} />
@@ -122,8 +128,12 @@ export function InventoryLifecycleReservationScreen({
   if (!canRead) {
     return (
       <InventoryLifecyclePageShell
-        title={mode === "sale" ? "快速成交" : "新建预订"}
-        context="商品库存"
+        title={
+          mode === "sale"
+            ? t("inventory2b4.reservation.saleTitle")
+            : t("inventory2b4.reservation.title")
+        }
+        context={t("inventory2b4.reservation.context.inventory")}
         onBack={() => router.push("/inventory")}
       >
         <InventoryAvailabilityStateCard
@@ -137,8 +147,12 @@ export function InventoryLifecycleReservationScreen({
   if (productQuery.isError || !productQuery.data) {
     return (
       <InventoryLifecyclePageShell
-        title={mode === "sale" ? "快速成交" : "新建预订"}
-        context="商品库存"
+        title={
+          mode === "sale"
+            ? t("inventory2b4.reservation.saleTitle")
+            : t("inventory2b4.reservation.title")
+        }
+        context={t("inventory2b4.reservation.context.inventory")}
         onBack={() => router.push("/inventory")}
       >
         <InventoryAvailabilityStateCard
@@ -192,21 +206,30 @@ export function InventoryLifecycleReservationScreen({
         })
       : null;
   const disabledReason = summaryUnavailable
-    ? "商品生命周期数据接口尚未启用，预订提交已禁用。"
+    ? t("inventory2b4.reservation.disabled.unavailable")
     : staleReadBlocked
-      ? "生命周期资料不是最新，已锁定写入；请只读刷新最新状态。"
+      ? t("inventory2b4.reservation.disabled.stale")
       : canReserve
         ? undefined
-        : "服务端尚未返回可用动作（allowed_actions），或当前商品不允许预订，提交已禁用。";
+        : t("inventory2b4.reservation.disabled.noAction");
 
   return (
     <InventoryLifecyclePageShell
-      title={mode === "sale" ? "快速成交" : "新建预订"}
+      title={
+        mode === "sale"
+          ? t("inventory2b4.reservation.saleTitle")
+          : t("inventory2b4.reservation.title")
+      }
       context={`${product.brand} ${product.model} · ${product.sku}`}
       status={summary ? <InventoryLifecycleStatusBadge status={summary.business_status} /> : null}
       onBack={() => router.push(`/inventory/${encodeURIComponent(itemId)}`)}
     >
       <section className={cn(repairOs.mobileInfoCard, "p-3 sm:p-4")}>
+        {mode === "sale" ? (
+          <p className="mb-3 text-xs leading-5 text-muted-foreground">
+            {t("inventory2b4.reservation.saleDescription")}
+          </p>
+        ) : null}
         <div className="flex min-w-0 items-start gap-3">
           <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
             <PackageOpen className="size-6" aria-hidden="true" />
@@ -217,7 +240,8 @@ export function InventoryLifecycleReservationScreen({
             </p>
             <p className="mt-1 truncate font-mono text-xs text-primary">{product.sku}</p>
             <p className="mt-1 truncate text-xs text-muted-foreground">
-              {[product.specification, product.location].filter(Boolean).join(" · ") || "商品资料"}
+              {[product.specification, product.location].filter(Boolean).join(" · ") ||
+                t("inventory2b4.reservation.productDetails")}
             </p>
           </div>
         </div>

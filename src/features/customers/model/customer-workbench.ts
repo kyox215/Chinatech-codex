@@ -1,4 +1,6 @@
 import type { CustomerDetail, Device, OrderListItem } from "@/lib/repairdesk/api";
+import { APP_TIME_ZONE, type AppLocale } from "@/shared/i18n/locales";
+import { translateMessage } from "@/shared/i18n/messages";
 
 import {
   isCustomerOrderBillable,
@@ -7,6 +9,19 @@ import {
 } from "./customer-order-state";
 
 export type CustomerOrderWorkbenchState = "active" | "unpaid" | "settled" | "closed";
+
+export function formatCustomerWorkbenchDate(value: string, locale: AppLocale = "zh-CN") {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime()))
+    return translateMessage(locale, "customers.dateUnavailable");
+  return new Intl.DateTimeFormat(locale, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: APP_TIME_ZONE,
+  }).format(date);
+}
 
 export interface CustomerPaymentSummary {
   totalQuoted: number;
@@ -36,10 +51,19 @@ export interface CustomerDeviceWorkbenchItem {
   totalQuoted: number;
   unpaidAmount: number;
   financeRedacted: boolean;
+  warranty: CustomerWarrantyFact;
   warrantyLabel: string;
   canDelete: boolean;
+  deleteBlockedReasonKind?: "has_order_history";
   deleteBlockedReason?: string;
 }
+
+export type CustomerWarrantyFact =
+  | { kind: "none" }
+  | { kind: "custom"; value: string }
+  | { kind: "months"; count: number }
+  | { kind: "no_coverage" }
+  | { kind: "unset" };
 
 export interface CustomerWorkbenchSummary {
   orderItems: CustomerOrderWorkbenchItem[];
@@ -51,7 +75,9 @@ export interface CustomerWorkbenchSummary {
   contactSummary: {
     primaryPhone: string;
     backupPhoneCount: number;
+    channelKind: "whatsapp" | "sms";
     channel: "WhatsApp" | "SMS";
+    languageKind: "zh" | "en" | "it";
     language: "中文" | "English" | "Italiano";
     lastContactedAt?: string;
   };
@@ -63,8 +89,10 @@ export interface CustomerCurrentItem {
   id: string;
   kind: "overdue_followup" | "followup" | "pickup" | "active_order" | "unpaid";
   tone: CustomerCurrentItemTone;
+  titleKind: "overdue_followup" | "followup" | "notify" | "pickup" | "active_order" | "unpaid";
   title: string;
   description: string;
+  actionKind: "view_order" | "view_followup" | "notify" | "deliver";
   actionLabel: string;
   orderId?: string;
   followupId?: string;
@@ -86,6 +114,7 @@ export function buildCustomerDeviceWorkbenchItems(
       (item) => isCustomerOrderClosed(item.order) && isCustomerOrderBillable(item.order),
     );
 
+    const warranty = warrantyFactFromOrder(latestClosedOrder?.order);
     return {
       device,
       orderItems: linkedOrders,
@@ -102,8 +131,10 @@ export function buildCustomerDeviceWorkbenchItems(
         0,
       ),
       financeRedacted: financeRedacted || linkedOrders.some((item) => item.order.finance_redacted),
-      warrantyLabel: warrantyLabelFromOrder(latestClosedOrder?.order),
+      warranty,
+      warrantyLabel: warrantyLabelFromFact(warranty),
       canDelete: linkedOrders.length === 0,
+      deleteBlockedReasonKind: linkedOrders.length ? "has_order_history" : undefined,
       deleteBlockedReason: linkedOrders.length
         ? "已有历史工单，设备档案需要保留用于维修记录追踪"
         : undefined,
@@ -129,7 +160,10 @@ export function buildCustomerWorkbenchSummary(data: CustomerDetail): CustomerWor
     contactSummary: {
       primaryPhone: data.customer.phone_e164,
       backupPhoneCount: data.customer.contact_phones.length,
+      channelKind: data.customer.preferred_channel === "sms" ? "sms" : "whatsapp",
       channel: data.customer.preferred_channel === "sms" ? "SMS" : "WhatsApp",
+      languageKind:
+        data.customer.language === "zh" ? "zh" : data.customer.language === "en" ? "en" : "it",
       language:
         data.customer.language === "zh"
           ? "中文"
@@ -158,8 +192,10 @@ export function buildCustomerCurrentItems(
         id: `followup:${followup.id}`,
         kind: overdue ? "overdue_followup" : "followup",
         tone: overdue ? "danger" : "warn",
+        titleKind: overdue ? "overdue_followup" : "followup",
         title: overdue ? "逾期待办" : "待处理待办",
         description: followup.title,
+        actionKind: followup.order_id ? "view_order" : "view_followup",
         actionLabel: followup.order_id ? "查看工单" : "查看跟进",
         orderId: followup.order_id,
         followupId: followup.id,
@@ -180,8 +216,10 @@ export function buildCustomerCurrentItems(
         id: `order:${item.order.id}:active`,
         kind: pickup ? "pickup" : "active_order",
         tone: notificationPending ? "warn" : pickup ? "success" : "info",
+        titleKind: notificationPending ? "notify" : pickup ? "pickup" : "active_order",
         title: notificationPending ? "待通知客户" : pickup ? "待客户取机" : "维修处理中",
         description: `${item.order.public_no} · ${item.deviceLabel}`,
+        actionKind: notificationPending ? "notify" : pickup ? "deliver" : "view_order",
         actionLabel: notificationPending ? "去通知" : pickup ? "去交付" : "查看工单",
         orderId: item.order.id,
         sortTime: updatedAt,
@@ -199,8 +237,10 @@ export function buildCustomerCurrentItems(
           id: `order:${item.order.id}:unpaid`,
           kind: "unpaid",
           tone: "danger",
+          titleKind: "unpaid",
           title: "待收款",
           description: `${item.order.public_no} · ${formatEuro(item.order.balance_amount)}`,
+          actionKind: "view_order",
           actionLabel: "查看工单",
           orderId: item.order.id,
           sortTime: orderTime(item.order),
@@ -312,12 +352,22 @@ function formatEuro(value: unknown) {
   }).format(safeAmount(value));
 }
 
-function warrantyLabelFromOrder(order?: OrderListItem) {
-  if (!order) return "暂无售后记录";
-  const warrantyText = order.warranty_text?.trim();
-  if (warrantyText) return warrantyText;
+function warrantyFactFromOrder(order?: OrderListItem): CustomerWarrantyFact {
+  if (!order) return { kind: "none" };
+  const warrantyText = order.warranty_text;
+  if (warrantyText?.trim()) return { kind: "custom", value: warrantyText };
   if (typeof order.warranty_months === "number") {
-    return order.warranty_months > 0 ? `${order.warranty_months}个月售后` : "无售后";
+    return order.warranty_months > 0
+      ? { kind: "months", count: order.warranty_months }
+      : { kind: "no_coverage" };
   }
+  return { kind: "unset" };
+}
+
+function warrantyLabelFromFact(fact: CustomerWarrantyFact) {
+  if (fact.kind === "custom") return fact.value;
+  if (fact.kind === "months") return `${fact.count}个月售后`;
+  if (fact.kind === "no_coverage") return "无售后";
+  if (fact.kind === "none") return "暂无售后记录";
   return "售后未设置";
 }

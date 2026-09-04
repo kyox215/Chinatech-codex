@@ -1,27 +1,30 @@
 import type { OnboardingStatus, StoreRole } from "@/lib/repairdesk/types";
+import { DEFAULT_LOCALE, type AppLocale } from "@/shared/i18n/locales";
+import { translateMessage, type MessageKey } from "@/shared/i18n/messages";
 
 export type AccountEmailVerificationState = "verified" | "unverified" | "unknown";
 
 export interface AccountSettingsSummary {
   email: string;
   emailVerificationState: AccountEmailVerificationState;
-  accountNature: "平台管理员账号" | "门店成员账号" | "个人账号";
+  accountNature: string;
   activeStoreName: string;
   currentStoreRole: string;
 }
 
-const storeRoleLabels: Record<StoreRole, string> = {
-  owner: "店主",
-  manager: "经理",
-  technician: "技师",
-  sales: "前台",
-  viewer: "只读",
+const storeRoleLabelKeys: Record<StoreRole, MessageKey> = {
+  owner: "settings.account.role.owner",
+  manager: "settings.account.role.manager",
+  technician: "settings.account.role.technician",
+  sales: "settings.account.role.sales",
+  viewer: "settings.account.role.viewer",
 };
 
 export function buildAccountSettingsSummary(
   status:
     | Pick<OnboardingStatus, "email" | "emailVerified" | "isPlatformAdmin" | "activeStore">
     | undefined,
+  locale: AppLocale = DEFAULT_LOCALE,
 ): AccountSettingsSummary | undefined {
   if (!status) return undefined;
   const email = status.email?.trim() ?? "";
@@ -34,14 +37,18 @@ export function buildAccountSettingsSummary(
         : status.emailVerified === false
           ? "unverified"
           : "unknown",
-    accountNature: status.isPlatformAdmin
-      ? "平台管理员账号"
-      : status.activeStore
-        ? "门店成员账号"
-        : "个人账号",
-    activeStoreName: status.activeStore?.name ?? "尚未选择店铺",
+    accountNature: translateMessage(
+      locale,
+      status.isPlatformAdmin
+        ? "settings.account.platformNature"
+        : status.activeStore
+          ? "settings.account.storeNature"
+          : "settings.account.personalNature",
+    ),
+    activeStoreName:
+      status.activeStore?.name ?? translateMessage(locale, "settings.account.noStore"),
     currentStoreRole: status.activeStore?.role
-      ? storeRoleLabels[status.activeStore.role]
-      : "当前无店铺角色",
+      ? translateMessage(locale, storeRoleLabelKeys[status.activeStore.role])
+      : translateMessage(locale, "settings.account.noStoreRole"),
   };
 }

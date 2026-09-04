@@ -13,6 +13,8 @@ import type { CustomerDetail } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
 import { uniqueContactPhones } from "@/shared/lib/phone";
 import { buildNewOrderWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
+import { localizeCustomerWorkSummary } from "@/features/customers/model/customer-i18n";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function CustomerHero({
   data,
@@ -29,8 +31,9 @@ export function CustomerHero({
   showBackLink?: boolean;
   onClose?: () => void;
 }) {
+  const { t } = useLocale();
   const { customer } = data;
-  const summary = getCustomerDetailWorkSummary(data);
+  const summary = localizeCustomerWorkSummary(getCustomerDetailWorkSummary(data), t);
   const backupPhones = uniqueContactPhones(customer.phone_e164, customer.contact_phones);
   return (
     <div className={cn(repairOs.adminSection, "mb-3 min-w-0 max-w-full p-2.5 sm:p-3")}>
@@ -41,17 +44,19 @@ export function CustomerHero({
               <>
                 <Button asChild variant="ghost" size="sm" className="h-7 gap-1 px-1.5 text-xs">
                   <Link href="/customers">
-                    <ArrowLeft className="size-3.5" /> 返回客户
+                    <ArrowLeft className="size-3.5" /> {t("customers.detail.backShort")}
                   </Link>
                 </Button>
                 <span className="opacity-50">/</span>
               </>
             ) : null}
-            <span className={pageHeader.eyebrow}>客户详情</span>
+            <span className={pageHeader.eyebrow}>{t("customers.detail.title")}</span>
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <h1 className={cn(pageHeader.title, "min-w-0 max-w-full truncate")}>{customer.name}</h1>
-            {customer.blacklisted_at && <Badge variant="destructive">黑名单</Badge>}
+            {customer.blacklisted_at && (
+              <Badge variant="destructive">{t("customers.detail.blacklisted")}</Badge>
+            )}
             <Badge variant="secondary">
               {customer.preferred_channel === "sms" ? "SMS" : "WhatsApp"}
             </Badge>
@@ -78,14 +83,14 @@ export function CustomerHero({
                 customerId: customer.id,
               })}
             >
-              <Wrench className="size-4" /> 新建工单
+              <Wrench className="size-4" /> {t("customers.detail.newOrder")}
             </Link>
           </Button>
           <Button size="sm" variant="outline" className="h-8 gap-1.5 sm:h-9" onClick={onMessage}>
-            <Send className="size-4" /> 发送消息
+            <Send className="size-4" /> {t("customers.detail.sendMessage")}
           </Button>
           <Button size="sm" variant="outline" className="h-8 gap-1.5 sm:h-9" onClick={onFollowup}>
-            <Bell className="size-4" /> 添加待办
+            <Bell className="size-4" /> {t("customers.detail.addFollowup")}
           </Button>
           <Button
             type="button"
@@ -93,7 +98,7 @@ export function CustomerHero({
             variant="outline"
             className="size-8 sm:size-9"
             onClick={onEdit}
-            aria-label="编辑客户资料"
+            aria-label={t("customers.detail.edit")}
           >
             <Edit3 className="size-4" />
           </Button>
@@ -104,7 +109,7 @@ export function CustomerHero({
               variant="outline"
               className="size-8 sm:size-9"
               onClick={onClose}
-              aria-label="关闭客户详情"
+              aria-label={t("customers.detail.close")}
             >
               <X className="size-4" />
             </Button>
@@ -114,7 +119,7 @@ export function CustomerHero({
 
       {backupPhones.length > 0 && (
         <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-          <span>备用号码</span>
+          <span>{t("customers.detail.backupPhones")}</span>
           {backupPhones.map((phone) => (
             <span
               key={phone}
@@ -132,7 +137,7 @@ export function CustomerHero({
       <div className="mt-2 grid max-w-xl grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2.5 py-1.5">
         <div className="min-w-0">
           <p className="truncate text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-            客户处理建议
+            {t("customers.detail.suggestion")}
           </p>
           <p className="truncate text-xs font-medium leading-5">{summary.actionLabel}</p>
         </div>

@@ -17,6 +17,7 @@ import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { RepairOsBusinessCard } from "@/shared/ui";
 import type { CustomerDetail, CustomerTag } from "@/lib/repairdesk/api";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function CustomerTagsDialog({
   open,
@@ -31,22 +32,39 @@ export function CustomerTagsDialog({
   busy: boolean;
   onSave: (ids: string[]) => Promise<unknown>;
 }) {
+  const { t } = useLocale();
   const [selected, setSelected] = useState<string[]>(() => data.tags.map((tag) => tag.id));
   const allTags = useMemo(() => {
     const known = new Map<string, CustomerTag>();
     data.tags.forEach((tag) => known.set(tag.id, tag));
     const defaults: CustomerTag[] = [
       { id: "tag_vip", name: "VIP", color: "var(--primary)" },
-      { id: "tag_repeat", name: "复购", color: "var(--status-success-foreground)" },
-      { id: "tag_business", name: "企业", color: "var(--status-info-foreground)" },
-      { id: "tag_price_sensitive", name: "价格敏感", color: "var(--status-warn-foreground)" },
-      { id: "tag_followup", name: "需联系", color: "var(--status-danger-foreground)" },
+      {
+        id: "tag_repeat",
+        name: t("customers.form.tagRepeat"),
+        color: "var(--status-success-foreground)",
+      },
+      {
+        id: "tag_business",
+        name: t("customers.form.tagBusiness"),
+        color: "var(--status-info-foreground)",
+      },
+      {
+        id: "tag_price_sensitive",
+        name: t("customers.form.tagPriceSensitive"),
+        color: "var(--status-warn-foreground)",
+      },
+      {
+        id: "tag_followup",
+        name: t("customers.form.tagFollowup"),
+        color: "var(--status-danger-foreground)",
+      },
     ];
     defaults.forEach((tag) => {
       if (!known.has(tag.id)) known.set(tag.id, tag);
     });
     return Array.from(known.values());
-  }, [data.tags]);
+  }, [data.tags, t]);
   useEffect(() => {
     if (open) setSelected(data.tags.map((tag) => tag.id));
   }, [data.tags, open]);
@@ -59,11 +77,16 @@ export function CustomerTagsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={componentOverlay.formContent}>
+      <DialogContent
+        closeLabel={t("customers.detail.close")}
+        className={componentOverlay.formContent}
+      >
         <DialogHeader className={componentOverlay.header}>
-          <DialogTitle className={componentOverlay.title}>管理客户标签</DialogTitle>
+          <DialogTitle className={componentOverlay.title}>
+            {t("customers.form.tagsTitle")}
+          </DialogTitle>
           <DialogDescription className={componentOverlay.description}>
-            标签会用于客户筛选、售后跟进和客户服务分组。
+            {t("customers.form.tagsDescription")}
           </DialogDescription>
         </DialogHeader>
         <div className="min-w-0 space-y-2">
@@ -102,17 +125,25 @@ export function CustomerTagsDialog({
                 bodyClassName="flex min-w-0 items-center gap-2"
               >
                 <span className="size-2.5 rounded-full" style={{ background: tag.color }} />
-                <span className="min-w-0 truncate">{tag.name}</span>
+                <span className="min-w-0 whitespace-normal break-words">{tag.name}</span>
               </RepairOsBusinessCard>
             );
           })}
         </div>
         <DialogFooter className={componentOverlay.footer}>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            取消
+          <Button
+            className="min-h-11 whitespace-normal lg:min-h-9"
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+          >
+            {t("customers.form.cancel")}
           </Button>
-          <Button disabled={busy} onClick={() => onSave(selected)}>
-            {busy ? "保存中…" : "保存标签"}
+          <Button
+            className="min-h-11 whitespace-normal lg:min-h-9"
+            disabled={busy}
+            onClick={() => void onSave(selected).catch(() => undefined)}
+          >
+            {busy ? t("customers.form.saving") : t("customers.form.saveTags")}
           </Button>
         </DialogFooter>
       </DialogContent>

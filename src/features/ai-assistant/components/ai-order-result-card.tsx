@@ -30,6 +30,9 @@ import type {
 } from "@/features/ai-assistant/model/contracts";
 import { RepairDeskApiError, runAiOrderInlineAction } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { getAiAssistantPresentationCopy } from "@/shared/i18n/messages";
+import { APP_TIME_ZONE, type AppLocale } from "@/shared/i18n/locales";
 
 export function AiOrderResultCard({
   card,
@@ -42,6 +45,8 @@ export function AiOrderResultCard({
   onOpenOrder: () => void;
   onCardUpdated: (card: AiOrderCard) => void;
 }) {
+  const { locale } = useLocale();
+  const copy = getAiAssistantPresentationCopy(locale);
   const detailsId = useId();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -76,7 +81,7 @@ export function AiOrderResultCard({
       setSelectedAction(undefined);
       idempotencyKeyRef.current = undefined;
     } catch (caught) {
-      setError(actionErrorMessage(caught));
+      setError(actionErrorMessage(caught, locale));
     } finally {
       setPending(false);
     }
@@ -104,13 +109,14 @@ export function AiOrderResultCard({
         </span>
         <span className="flex min-w-0 items-center justify-end gap-1 text-right">
           <Clock3 className="size-3 shrink-0" aria-hidden="true" />
-          <span className="truncate">{formatCardDate(card.updated_at)}</span>
+          <span className="truncate">{formatCardDate(card.updated_at, locale)}</span>
         </span>
       </div>
 
       {card.matched_reasons.length > 0 ? (
         <p className="mt-2 line-clamp-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-          匹配：{card.matched_reasons.join(" · ")}
+          {copy.matched}
+          {card.matched_reasons.join(" · ")}
         </p>
       ) : null}
 
@@ -124,7 +130,7 @@ export function AiOrderResultCard({
             aria-expanded={detailsOpen}
             aria-controls={detailsId}
           >
-            查看当前页内详情
+            {copy.details}
             <ChevronDown
               className={cn("size-3.5 transition-transform", detailsOpen && "rotate-180")}
               aria-hidden="true"
@@ -133,11 +139,13 @@ export function AiOrderResultCard({
         </CollapsibleTrigger>
         <CollapsibleContent id={detailsId} className="pt-1">
           <dl className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-xl bg-[var(--surface-panel-muted)] px-3 py-2 text-[11px] lg:text-xs lg:leading-4">
-            <dt className="text-muted-foreground">配件标记</dt>
-            <dd className="text-right font-medium">{partsStatusLabel(card.parts_status)}</dd>
-            <dt className="text-muted-foreground">完成时间</dt>
+            <dt className="text-muted-foreground">{copy.parts}</dt>
             <dd className="text-right font-medium">
-              {card.completed_at ? formatCardDate(card.completed_at) : "未记录完成"}
+              {partsStatusLabel(card.parts_status, locale)}
+            </dd>
+            <dt className="text-muted-foreground">{copy.completedAt}</dt>
+            <dd className="text-right font-medium">
+              {card.completed_at ? formatCardDate(card.completed_at, locale) : copy.noCompleted}
             </dd>
           </dl>
         </CollapsibleContent>
@@ -186,13 +194,17 @@ export function AiOrderResultCard({
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>确认{action.label}</AlertDialogTitle>
+                <AlertDialogTitle>
+                  {copy.confirmAction.replace("{action}", action.label)}
+                </AlertDialogTitle>
                 <AlertDialogDescription>
-                  工单 {card.public_no}：{action.description}
+                  {copy.orderDescription
+                    .replace("{order}", card.public_no)
+                    .replace("{description}", action.description)}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <div className="rounded-xl bg-[var(--surface-panel-muted)] px-3 py-2 text-xs text-muted-foreground">
-                这只会更新 RepairDesk 工单流程状态；不会创建供应商订单、付款或分配库存。
+                {copy.actionBoundary}
               </div>
               {error ? (
                 <p role="alert" className="text-sm text-status-danger-foreground">
@@ -200,14 +212,14 @@ export function AiOrderResultCard({
                 </p>
               ) : null}
               <AlertDialogFooter>
-                <AlertDialogCancel disabled={pending}>取消</AlertDialogCancel>
+                <AlertDialogCancel disabled={pending}>{copy.cancel}</AlertDialogCancel>
                 <Button
                   type="button"
                   disabled={pending || !isOnline}
                   onClick={() => void confirmAction()}
                 >
                   {pending ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : null}
-                  {pending ? "处理中…" : `确认${action.label}`}
+                  {pending ? copy.processing : copy.confirmAction.replace("{action}", action.label)}
                 </Button>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -218,41 +230,47 @@ export function AiOrderResultCard({
           size="sm"
           className={cn("min-h-11 min-w-0", card.allowed_actions.length === 0 && "col-span-2")}
         >
-          <Link href={card.href} onClick={onOpenOrder} aria-label={`打开订单 ${card.public_no}`}>
-            打开订单 <ExternalLink className="size-3.5" aria-hidden="true" />
+          <Link
+            href={card.href}
+            onClick={onOpenOrder}
+            aria-label={copy.openOrderAria.replace("{order}", card.public_no)}
+          >
+            {copy.openOrder} <ExternalLink className="size-3.5" aria-hidden="true" />
           </Link>
         </Button>
       </div>
       {!isOnline && card.allowed_actions.length > 0 ? (
         <p className="mt-1 text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
-          离线时可查看结果，但不能提交订单操作。
+          {copy.offlineAction}
         </p>
       ) : null}
     </article>
   );
 }
 
-function actionErrorMessage(error: unknown) {
+function actionErrorMessage(error: unknown, locale: AppLocale) {
+  const copy = getAiAssistantPresentationCopy(locale);
   if (error instanceof RepairDeskApiError && error.status === 409) return error.message;
   if (error instanceof RepairDeskApiError && (error.status === 401 || error.status === 403)) {
-    return "当前权限或工单范围已变化，请刷新查询结果。";
+    return copy.actionAuthChanged;
   }
-  return "订单操作暂时失败，未确认成功前请不要重复修改；可使用同一按钮重试。";
+  return copy.actionFailed;
 }
 
-function partsStatusLabel(value: AiOrderCard["parts_status"]) {
-  if (value === "needed") return "待订件";
-  if (value === "ordered") return "配件已订";
-  if (value === "arrived") return "配件已到";
-  if (value === "out_of_stock") return "缺货";
-  return "无需配件 / 未标记";
+function partsStatusLabel(value: AiOrderCard["parts_status"], locale: AppLocale) {
+  const copy = getAiAssistantPresentationCopy(locale);
+  if (value === "needed") return copy.partsNeeded;
+  if (value === "ordered") return copy.partsOrdered;
+  if (value === "arrived") return copy.partsArrived;
+  if (value === "out_of_stock") return copy.partsOut;
+  return copy.partsNone;
 }
 
-function formatCardDate(value: string) {
+function formatCardDate(value: string, locale: AppLocale) {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("zh-CN", {
-    timeZone: "Europe/Rome",
+  if (Number.isNaN(date.getTime())) return getAiAssistantPresentationCopy(locale).dateUnavailable;
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: APP_TIME_ZONE,
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",

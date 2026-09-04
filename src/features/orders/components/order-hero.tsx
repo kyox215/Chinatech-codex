@@ -37,6 +37,12 @@ import {
   type OrderTaskStage,
 } from "@/features/orders/model/order-task-flow";
 import { formatOrderDateTime } from "@/features/orders/model/order-date";
+import { localizeOrderDetailBadge } from "@/features/orders/model/order-detail-i18n";
+import {
+  localizeOrderFlowStage,
+  localizeOrderTaskGuidance,
+  localizeOrderType,
+} from "@/features/orders/model/order-i18n";
 import { getOrderSideStatusBadges } from "@/features/orders/model/order-side-statuses";
 import {
   deriveOrderFinancialState,
@@ -44,11 +50,13 @@ import {
 } from "@/features/orders/model/order-payment-state";
 import { detailWorkspace } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function OrderHero({
   order,
   onPrint,
   printDisabled = false,
+  printPending = false,
   printDisabledReason,
   onRevokeCustomerStatusLinks,
   customerStatusRevokePending = false,
@@ -76,6 +84,7 @@ export function OrderHero({
   order: OrderDetail["order"];
   onPrint: () => void;
   printDisabled?: boolean;
+  printPending?: boolean;
   printDisabledReason?: string;
   onRevokeCustomerStatusLinks?: () => void;
   customerStatusRevokePending?: boolean;
@@ -100,15 +109,22 @@ export function OrderHero({
   contextualStatus?: ReactNode;
   printRecovery?: ReactNode;
 }) {
+  const { locale, t } = useLocale();
   const sideBadges = getOrderSideStatusBadges(order);
-  const guidance = getOrderTaskGuidance(order);
-  const activeStage = currentStage ?? guidance.stage;
+  const guidance = localizeOrderTaskGuidance(getOrderTaskGuidance(order), t);
+  const activeStageSource = currentStage ?? guidance.stage;
+  const activeStage = {
+    ...activeStageSource,
+    ...localizeOrderFlowStage(activeStageSource, t),
+  };
+  const localizedStages = orderTaskStages.map((stage) => localizeOrderFlowStage(stage, t));
   const safeCurrentStageIndex = Math.max(
     0,
     Math.min(currentStageIndex, orderTaskStages.length - 1),
   );
   const primaryActionLabel =
-    nextActionLabel ?? (approvalDecisionAvailable ? "处理客户审批" : guidance.nextAction);
+    nextActionLabel ??
+    (approvalDecisionAvailable ? t("orders2b2.hero.approval") : guidance.nextAction);
   const progressPercent = Math.max(
     0,
     Math.min(100, (safeCurrentStageIndex / Math.max(1, orderTaskStages.length - 1)) * 100),
@@ -119,13 +135,16 @@ export function OrderHero({
   const showFinanceReadiness = !order.finance_redacted && !isOrderCancelledForPayment(order);
   const financialState = deriveOrderFinancialState(order);
   const readiness = [
-    { label: "客户电话", done: Boolean(order.customer_phone?.trim()) },
-    { label: "设备型号", done: Boolean(order.device_label?.trim()) },
+    { label: t("orders2b2.hero.customerPhone"), done: Boolean(order.customer_phone?.trim()) },
+    { label: t("orders2b2.hero.deviceModel"), done: Boolean(order.device_label?.trim()) },
     ...(showFinanceReadiness
       ? [
-          { label: "维修报价", done: order.fault_prices.length > 0 || order.quotation_amount > 0 },
           {
-            label: "尾款",
+            label: t("orders2b2.hero.repairQuote"),
+            done: order.fault_prices.length > 0 || order.quotation_amount > 0,
+          },
+          {
+            label: t("orders2b2.hero.balance"),
             done:
               financialState.settlement === "settled" ||
               financialState.settlement === "zero_charge" ||
@@ -146,8 +165,10 @@ export function OrderHero({
               size="icon"
               variant="outline"
               className="relative size-11 border-status-warn-foreground/30 text-status-warn-foreground lg:size-7"
-              aria-label={`${printDisabledReason ?? "当前工单暂不可打印"}，查看解决方法`}
-              title={printDisabledReason ?? "当前工单暂不可打印"}
+              aria-label={t("orders2b2.hero.printRecovery", {
+                reason: printDisabledReason ?? t("orders2b2.hero.printUnavailable"),
+              })}
+              title={printDisabledReason ?? t("orders2b2.hero.printUnavailable")}
             >
               <Printer className="size-4" />
               <span
@@ -159,7 +180,7 @@ export function OrderHero({
           <PopoverContent
             align="end"
             className="w-[min(380px,calc(100vw-24px))] p-2"
-            aria-label="打印配置提示"
+            aria-label={t("orders2b2.hero.printConfig")}
           >
             {printRecovery}
           </PopoverContent>
@@ -170,10 +191,18 @@ export function OrderHero({
           variant="outline"
           className="size-11 lg:size-7"
           disabled={printDisabled}
-          aria-busy={printDisabled && printDisabledReason === "正在准备打印内容"}
+          aria-busy={printPending}
           onClick={onPrint}
-          aria-label={printDisabled ? (printDisabledReason ?? "当前工单暂不可打印") : "打印"}
-          title={printDisabled ? (printDisabledReason ?? "当前工单暂不可打印") : "打印"}
+          aria-label={
+            printDisabled
+              ? (printDisabledReason ?? t("orders2b2.hero.printUnavailable"))
+              : t("orders2b2.hero.print")
+          }
+          title={
+            printDisabled
+              ? (printDisabledReason ?? t("orders2b2.hero.printUnavailable"))
+              : t("orders2b2.hero.print")
+          }
         >
           <Printer className="size-4" />
         </Button>
@@ -184,7 +213,7 @@ export function OrderHero({
             size="icon"
             variant="outline"
             className="size-11 lg:size-7"
-            aria-label="更多工单操作"
+            aria-label={t("orders2b2.hero.more")}
           >
             <MoreHorizontal className="size-4" />
           </Button>
@@ -192,12 +221,14 @@ export function OrderHero({
         <DropdownMenuContent align="end">
           <DropdownMenuItem
             onClick={() => {
-              navigator.clipboard
-                ?.writeText(window.location.href)
-                .then(() => toast.success("链接已复制"));
+              const copy = navigator.clipboard?.writeText(window.location.href);
+              if (!copy) return;
+              void copy
+                .then(() => toast.success(t("orders2b2.hero.linkCopied")))
+                .catch(() => toast.error(t("orders2b2.hero.copyFailed")));
             }}
           >
-            复制链接
+            {t("orders2b2.hero.copyLink")}
           </DropdownMenuItem>
           {onRevokeCustomerStatusLinks ? (
             <DropdownMenuItem
@@ -205,7 +236,9 @@ export function OrderHero({
               onClick={onRevokeCustomerStatusLinks}
             >
               <QrCode className="mr-2 size-3.5" />
-              {customerStatusRevokePending ? "正在重置二维码" : "重置固定二维码"}
+              {customerStatusRevokePending
+                ? t("orders2b2.hero.resettingQr")
+                : t("orders2b2.hero.resetQr")}
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuSeparator />
@@ -215,7 +248,7 @@ export function OrderHero({
             onClick={onCancel}
           >
             <XCircle className="mr-2 size-3.5" />
-            {canCancel ? "取消工单" : "当前状态不可取消"}
+            {canCancel ? t("orders2b2.hero.cancelOrder") : t("orders2b2.hero.cancelUnavailable")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -229,7 +262,7 @@ export function OrderHero({
             style={{ background: "var(--gradient-brand)" }}
           >
             <Save className="size-3.5" />
-            {editPending ? "保存中" : "保存"}
+            {editPending ? t("orders2b2.hero.saving") : t("orders2b2.hero.save")}
           </Button>
           <Button
             size="sm"
@@ -238,7 +271,7 @@ export function OrderHero({
             disabled={editPending}
             onClick={onCancelEdit}
           >
-            <X className="size-3.5" /> 取消
+            <X className="size-3.5" /> {t("orders2b2.hero.cancel")}
           </Button>
         </>
       ) : onEdit ? (
@@ -248,7 +281,7 @@ export function OrderHero({
           className="h-11 min-w-11 gap-1 px-3 text-xs lg:h-7 lg:min-w-0 lg:px-2 lg:text-[11px]"
           onClick={onEdit}
         >
-          <Pencil className="size-3.5" /> 编辑
+          <Pencil className="size-3.5" /> {t("orders2b2.hero.edit")}
         </Button>
       ) : null}
       {surface === "dialog" && onClose ? (
@@ -258,7 +291,7 @@ export function OrderHero({
           variant="outline"
           className="size-11 lg:size-7"
           onClick={onClose}
-          aria-label="关闭工单详情"
+          aria-label={t("orders2b2.close")}
         >
           <X className="size-4" />
         </Button>
@@ -286,7 +319,7 @@ export function OrderHero({
                 variant="outline"
                 size="icon"
                 className="size-7 shrink-0 lg:hidden"
-                aria-label="返回工单列表"
+                aria-label={t("orders2b2.backOrdersAria")}
               >
                 <Link href="/orders">
                   <ArrowLeft className="size-4" />
@@ -311,13 +344,14 @@ export function OrderHero({
                   <StatusBadge
                     key={badge.key}
                     status={order.status}
-                    label={badge.label}
+                    label={localizeOrderDetailBadge(badge, t)}
                     tone={badge.tone}
                     className="max-w-[7rem] truncate text-[10px] lg:text-[11px] lg:leading-4"
                   />
                 ))}
                 <OrderTypeBadge
                   type={order.order_type}
+                  label={localizeOrderType(order.order_type, t)}
                   className="text-[10px] lg:text-[11px] lg:leading-4"
                 />
                 {order.original_order_id && (
@@ -325,18 +359,24 @@ export function OrderHero({
                     href={`/orders/${order.original_order_id}`}
                     className="inline-flex items-center gap-1 rounded border bg-status-warn px-1.5 py-0.5 text-[10px] leading-none text-status-warn-foreground hover:underline lg:text-xs lg:leading-4"
                   >
-                    <Wrench className="size-3" /> 返修来源
+                    <Wrench className="size-3" /> {t("orders2b2.hero.reworkSource")}
                   </Link>
                 )}
               </div>
               <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
                 <span className="inline-flex min-w-0 items-center gap-1">
                   <Clock3 className="size-3 shrink-0" />
-                  <span className="truncate">送修 {formatOrderDateTime(order.created_at)}</span>
+                  <span className="truncate">
+                    {t("orders2b2.hero.createdAt", {
+                      date: formatOrderDateTime(order.created_at, locale),
+                    })}
+                  </span>
                 </span>
                 <span className="inline-flex min-w-0 items-center gap-1">
                   <UserRound className="size-3 shrink-0" />
-                  <span className="truncate">负责人 {order.technician_name || "-"}</span>
+                  <span className="truncate">
+                    {t("orders2b2.hero.technician", { name: order.technician_name || "-" })}
+                  </span>
                 </span>
                 <span className="inline-flex min-w-0 items-center gap-1">
                   <Store className="size-3 shrink-0" />
@@ -364,13 +404,15 @@ export function OrderHero({
               className="flex h-7 min-w-0 items-center gap-2 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/55 px-2"
             >
               <div className="flex min-w-0 shrink items-center gap-1 text-[10px] lg:text-xs lg:leading-4">
-                <span className="shrink-0 text-muted-foreground">当前</span>
+                <span className="shrink-0 text-muted-foreground">
+                  {t("orders2b2.hero.current")}
+                </span>
                 <span className="truncate font-semibold text-primary">{activeStage.label}</span>
               </div>
               <div
                 data-order-stage-rail="true"
                 role="list"
-                aria-label={`工单进度，当前阶段：${activeStage.label}`}
+                aria-label={t("orders2b2.hero.progressAria", { stage: activeStage.label })}
                 className="relative min-w-[130px] flex-1 px-1"
               >
                 <div className="absolute left-2 right-2 top-1/2 h-px -translate-y-1/2 rounded-full bg-border/80" />
@@ -379,7 +421,7 @@ export function OrderHero({
                   style={{ width: `${progressPercent}%` }}
                 />
                 <div className="relative grid items-center gap-1" style={stageGridStyle}>
-                  {orderTaskStages.map((stage, index) => {
+                  {localizedStages.map((stage, index) => {
                     const completed = index < safeCurrentStageIndex;
                     const active = index === safeCurrentStageIndex;
                     const displayStage = active ? activeStage : stage;
@@ -388,7 +430,13 @@ export function OrderHero({
                         key={stage.key}
                         role="listitem"
                         aria-current={active ? "step" : undefined}
-                        aria-label={`${index + 1}. ${displayStage.label}${completed ? "，已完成" : active ? "，当前阶段" : "，未完成"}`}
+                        aria-label={`${index + 1}. ${displayStage.label}${
+                          completed
+                            ? t("orders2b2.hero.stepComplete")
+                            : active
+                              ? t("orders2b2.hero.stepCurrent")
+                              : t("orders2b2.hero.stepPending")
+                        }`}
                         title={displayStage.label}
                         className={cn(
                           "mx-auto grid size-3.5 place-items-center rounded-full border bg-card text-[7px] font-semibold leading-none shadow-sm lg:text-[11px] lg:leading-4",
@@ -408,7 +456,7 @@ export function OrderHero({
               </div>
               <div className="flex min-w-0 shrink items-center justify-end gap-1 text-right">
                 <span className="hidden shrink-0 text-[10px] text-muted-foreground lg:inline lg:text-xs lg:leading-4">
-                  下一步
+                  {t("orders2b2.hero.next")}
                 </span>
                 <span
                   className="max-w-[9rem] truncate text-[11px] font-semibold"
@@ -420,13 +468,15 @@ export function OrderHero({
                   <span
                     data-order-readiness="true"
                     className="shrink-0 rounded-full bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-warn-foreground lg:text-[11px] lg:leading-4"
-                    title={missingItems.map((item) => `缺 ${item.label}`).join("、")}
+                    title={missingItems
+                      .map((item) => t("orders2b2.hero.missingItem", { item: item.label }))
+                      .join(", ")}
                   >
-                    缺 {missingCount}
+                    {t("orders2b2.hero.missing", { count: missingCount })}
                   </span>
                 ) : (
                   <span className="shrink-0 rounded-full bg-status-success px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-success-foreground lg:text-[11px] lg:leading-4">
-                    就绪
+                    {t("orders2b2.hero.ready")}
                   </span>
                 )}
               </div>
@@ -436,7 +486,7 @@ export function OrderHero({
               <div className="mb-0.5 flex min-w-0 items-center justify-between gap-2">
                 <div className="min-w-0">
                   <span className="text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
-                    当前流程
+                    {t("orders2b2.hero.currentFlow")}
                   </span>
                   <span className="ml-1.5 text-xs font-semibold text-primary">
                     {activeStage.label}
@@ -444,7 +494,7 @@ export function OrderHero({
                 </div>
                 <div className="flex min-w-0 items-center justify-end gap-1.5 text-right leading-4">
                   <span className="hidden text-[10px] text-muted-foreground sm:inline lg:text-xs lg:leading-4">
-                    下一步
+                    {t("orders2b2.hero.next")}
                   </span>
                   <span
                     className="max-w-[10rem] truncate text-xs font-semibold"
@@ -454,11 +504,12 @@ export function OrderHero({
                   </span>
                   {missingCount ? (
                     <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-warn-foreground lg:text-[11px] lg:leading-4">
-                      <AlertTriangle className="size-3" /> 缺 {missingCount}
+                      <AlertTriangle className="size-3" />
+                      {t("orders2b2.hero.missing", { count: missingCount })}
                     </span>
                   ) : (
                     <span className="shrink-0 rounded-full bg-status-success px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-success-foreground lg:text-[11px] lg:leading-4">
-                      就绪
+                      {t("orders2b2.hero.ready")}
                     </span>
                   )}
                 </div>
@@ -473,7 +524,7 @@ export function OrderHero({
                   style={{ width: `${progressPercent}%` }}
                 />
                 <div className="relative grid gap-1" style={stageGridStyle}>
-                  {orderTaskStages.map((stage, index) => {
+                  {localizedStages.map((stage, index) => {
                     const completed = index < safeCurrentStageIndex;
                     const active = index === safeCurrentStageIndex;
                     const displayStage = active ? activeStage : stage;
@@ -513,7 +564,7 @@ export function OrderHero({
                       key={item.label}
                       className="truncate rounded-full bg-status-warn px-1.5 py-0.5 text-[9px] font-medium leading-3 text-status-warn-foreground lg:text-[11px] lg:leading-4"
                     >
-                      缺 {item.label}
+                      {t("orders2b2.hero.missingItem", { item: item.label })}
                     </span>
                   ))}
                 </div>

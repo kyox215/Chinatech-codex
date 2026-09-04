@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,22 +15,27 @@ import { Input } from "@/components/ui/input";
 import { CustomerFormField } from "@/features/customers/forms/customer-form-field";
 import { componentOverlay } from "@/lib/component-patterns";
 import type { CustomerDeviceInput, Device } from "@/lib/repairdesk/api";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
-const compactInputClass = "h-8 text-sm sm:h-9";
+const compactInputClass = "h-11 text-base lg:h-9 lg:text-sm";
 
 export function CustomerDeviceDialog({
   open,
   onOpenChange,
   device,
   busy,
+  returnFocusRef,
   onSave,
 }: {
   open: boolean;
   onOpenChange: (value: boolean) => void;
   device?: Device;
   busy: boolean;
+  returnFocusRef?: RefObject<HTMLElement | null>;
   onSave: (input: CustomerDeviceInput) => Promise<unknown>;
 }) {
+  const { t } = useLocale();
+  const outsideDismissedRef = useRef(false);
   const [form, setForm] = useState<CustomerDeviceInput>(() => ({
     id: device?.id,
     brand: device?.brand ?? "",
@@ -40,6 +45,7 @@ export function CustomerDeviceDialog({
   }));
   useEffect(() => {
     if (open) {
+      outsideDismissedRef.current = false;
       setForm({
         id: device?.id,
         brand: device?.brand ?? "",
@@ -51,39 +57,70 @@ export function CustomerDeviceDialog({
   }, [device, open]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`${componentOverlay.formContent} !animate-none`}>
+      <DialogContent
+        closeLabel={t("customers.detail.close")}
+        className={`${componentOverlay.formContent} !animate-none`}
+        onPointerDownOutside={() => {
+          outsideDismissedRef.current = true;
+        }}
+        onCloseAutoFocus={(event) => {
+          if (outsideDismissedRef.current) {
+            outsideDismissedRef.current = false;
+            return;
+          }
+          const intendedOpener = returnFocusRef?.current;
+          if (!intendedOpener?.isConnected || intendedOpener.getClientRects().length === 0) return;
+          event.preventDefault();
+          intendedOpener.focus({ preventScroll: true });
+        }}
+      >
         <DialogHeader className={componentOverlay.header}>
           <DialogTitle className={componentOverlay.title}>
-            {device ? "编辑设备" : "添加设备"}
+            {t(device ? "customers.form.editDeviceTitle" : "customers.form.addDeviceTitle")}
           </DialogTitle>
           <DialogDescription className={componentOverlay.description}>
-            设备档案用于新建工单预填；历史工单仍保留创建时快照。
+            {t("customers.form.deviceDescription")}
           </DialogDescription>
         </DialogHeader>
         <div className="grid min-w-0 gap-2.5 sm:grid-cols-2">
-          <CustomerFormField label="品牌" required>
+          <CustomerFormField
+            label={t("customers.form.brand")}
+            required
+            htmlFor="customer-device-brand"
+          >
             <Input
+              id="customer-device-brand"
               className={compactInputClass}
               value={form.brand}
               onChange={(event) => setForm({ ...form, brand: event.target.value })}
             />
           </CustomerFormField>
-          <CustomerFormField label="型号" required>
+          <CustomerFormField
+            label={t("customers.form.model")}
+            required
+            htmlFor="customer-device-model"
+          >
             <Input
+              id="customer-device-model"
               className={compactInputClass}
               value={form.model}
               onChange={(event) => setForm({ ...form, model: event.target.value })}
             />
           </CustomerFormField>
-          <CustomerFormField label="IMEI / 序列号">
+          <CustomerFormField label={t("customers.form.serial")} htmlFor="customer-device-serial">
             <Input
+              id="customer-device-serial"
               value={form.serial_or_imei ?? ""}
               onChange={(event) => setForm({ ...form, serial_or_imei: event.target.value })}
               className={`${compactInputClass} font-mono`}
             />
           </CustomerFormField>
-          <CustomerFormField label="设备备注">
+          <CustomerFormField
+            label={t("customers.form.deviceNotes")}
+            htmlFor="customer-device-notes"
+          >
             <Input
+              id="customer-device-notes"
               className={compactInputClass}
               value={form.device_notes ?? ""}
               onChange={(event) => setForm({ ...form, device_notes: event.target.value })}
@@ -91,14 +128,19 @@ export function CustomerDeviceDialog({
           </CustomerFormField>
         </div>
         <DialogFooter className={componentOverlay.footer}>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            取消
+          <Button
+            className="min-h-11 whitespace-normal lg:min-h-9"
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+          >
+            {t("customers.form.cancel")}
           </Button>
           <Button
             disabled={busy || !form.brand.trim() || !form.model.trim()}
-            onClick={() => onSave(form)}
+            className="min-h-11 whitespace-normal lg:min-h-9"
+            onClick={() => void onSave(form).catch(() => undefined)}
           >
-            {busy ? "保存中…" : "保存设备"}
+            {busy ? t("customers.form.saving") : t("customers.form.saveDevice")}
           </Button>
         </DialogFooter>
       </DialogContent>

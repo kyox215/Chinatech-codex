@@ -230,6 +230,29 @@ describe("order repository role projection", () => {
     ).toBe(false);
   });
 
+  it("projects photo upload only from the exact scoped permission while keeping terminal evidence open", () => {
+    for (const role of ["owner", "manager", "sales"] as const) {
+      expect(projectOrderCapabilities(order(), actor(role)).canUploadPhoto).toBe(true);
+    }
+    expect(projectOrderCapabilities(order(), actor("technician")).canUploadPhoto).toBe(true);
+    expect(
+      projectOrderCapabilities(
+        order({ assignee_membership_id: "membership_other" }),
+        actor("technician"),
+      ).canUploadPhoto,
+    ).toBe(false);
+    expect(projectOrderCapabilities(order(), actor("viewer")).canUploadPhoto).toBe(false);
+    expect(
+      projectOrderCapabilities(
+        order({ status: "completed", workflow_status: "closed", workflow_bucket: "done" }),
+        actor("owner"),
+      ).canUploadPhoto,
+    ).toBe(true);
+    expect(
+      projectOrderCapabilities(order({ record_state: "voided" }), actor("owner")).canUploadPhoto,
+    ).toBe(false);
+  });
+
   it("offers cancelled return only when the store still holds the device", () => {
     expect(
       projectOrderCapabilities(

@@ -32,7 +32,14 @@ import {
 import type { InventoryDetailNextAction } from "@/features/inventory/model/inventory-detail-next-action";
 import { InventoryNoActionGuidanceCard } from "@/features/inventory/components/inventory-no-action-guidance-card";
 import { resolveInventoryNoActionGuidance } from "@/features/inventory/model/inventory-no-action-guidance";
+import { useLocale } from "@/shared/i18n/locale-provider";
 import { InventoryLifecycleTimeline } from "./inventory-lifecycle-timeline";
+import {
+  formatInventoryLifecycleDate,
+  localizeInventoryLifecycleStatus,
+  localizeInventoryProjectionMeta,
+} from "../model/inventory-lifecycle-i18n";
+import { localizeInventoryInspection } from "@/features/inventory/products/model/inventory-product-i18n";
 import {
   buildInventoryLifecycleMilestones,
   resolveInventoryMilestoneTimeline,
@@ -76,6 +83,18 @@ export const lifecycleStatusMeta: Record<
   },
 };
 
+const lifecycleSummaryDescriptionKeys: Record<
+  LifecycleStatus,
+  Parameters<ReturnType<typeof useLocale>["t"]>[0]
+> = {
+  in_stock: "inventory2b4.lifecycle.summary.in_stock",
+  reserved: "inventory2b4.lifecycle.summary.reserved",
+  sold_pending_pickup: "inventory2b4.lifecycle.summary.sold_pending_pickup",
+  delivered: "inventory2b4.lifecycle.summary.delivered",
+  after_sales: "inventory2b4.lifecycle.summary.after_sales",
+  removed: "inventory2b4.lifecycle.summary.removed",
+};
+
 export function InventoryLifecycleStatusBadge({
   status,
   className,
@@ -84,9 +103,10 @@ export function InventoryLifecycleStatusBadge({
   className?: string;
 }) {
   const meta = lifecycleStatusMeta[status];
+  const { t } = useLocale();
   return (
     <InventoryStatusBadge className={cn(meta.className, className)}>
-      {meta.label}
+      {localizeInventoryLifecycleStatus(status, meta.label, t)}
     </InventoryStatusBadge>
   );
 }
@@ -122,7 +142,13 @@ export function InventoryLifecycleProjectionBadge({
   legacyStatus?: InventoryItemStatus | string | null;
   className?: string;
 }) {
-  const meta = getInventoryLifecycleProjectionMeta(projection, legacyStatus);
+  const { t } = useLocale();
+  const meta = localizeInventoryProjectionMeta(
+    projection,
+    getInventoryLifecycleProjectionMeta(projection, legacyStatus),
+    legacyStatus,
+    t,
+  );
   const Icon = projectionIcons[meta.icon];
   return (
     <InventoryStatusBadge className={cn(projectionToneClasses[meta.tone], "gap-1", className)}>
@@ -162,10 +188,17 @@ export function InventoryLifecycleSummaryCard({
   onAction?: () => void;
   onReadOnly?: () => void | Promise<void>;
 }) {
+  const { locale, t } = useLocale();
   const projection = summary.projection;
-  const meta = lifecycleStatusMeta[summary.business_status];
   const projectionMeta =
-    projection?.mode === "exact" ? getInventoryLifecycleProjectionMeta(projection) : undefined;
+    projection?.mode === "exact"
+      ? localizeInventoryProjectionMeta(
+          projection,
+          getInventoryLifecycleProjectionMeta(projection),
+          undefined,
+          t,
+        )
+      : undefined;
   const allowedActions =
     projection?.mode === "exact" ? projection.allowed_actions : summary.allowed_actions;
   const canReserve = allowedActions?.includes("reservation.create") === true;
@@ -177,12 +210,12 @@ export function InventoryLifecycleSummaryCard({
         ? `/inventory/${encodeURIComponent(itemId)}/reserve`
         : null;
   const nextLabel = summary.after_sales?.case_id
-    ? "继续处理售后"
+    ? t("inventory2b4.lifecycle.action.continueAfterSales")
     : summary.sale_order_id
       ? summary.business_status === "reserved"
-        ? "收款 / 完成成交"
-        : "打开销售与保修"
-      : "开始预订";
+        ? t("inventory2b4.lifecycle.action.collectOrComplete")
+        : t("inventory2b4.lifecycle.action.openSaleWarranty")
+      : t("inventory2b4.lifecycle.action.startReservation");
   const resolvedHref =
     nextAction?.kind === "action" ? nextAction.href : nextAction ? undefined : nextHref;
   const resolvedLabel =
@@ -191,7 +224,7 @@ export function InventoryLifecycleSummaryCard({
       : nextAction?.kind === "loading"
         ? nextAction.label
         : nextAction?.kind === "none"
-          ? "当前没有可执行动作"
+          ? t("inventory2b4.lifecycle.action.none")
           : nextLabel;
   const resolvedLoading = nextAction?.kind === "loading";
   const resolvedNone = nextAction?.kind === "none";
@@ -219,11 +252,12 @@ export function InventoryLifecycleSummaryCard({
               id="inventory-lifecycle-summary-title"
               className="truncate text-[11px] font-semibold lg:text-sm"
             >
-              当前业务
+              {t("inventory2b4.lifecycle.currentBusiness")}
             </h2>
           </div>
           <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
-            {projectionMeta?.description ?? meta.description}
+            {projectionMeta?.description ??
+              t(lifecycleSummaryDescriptionKeys[summary.business_status])}
           </p>
         </div>
         {!hidePrimaryStatus && projection?.mode === "exact" ? (
@@ -235,15 +269,26 @@ export function InventoryLifecycleSummaryCard({
 
       <div className="mt-2 grid min-w-0 grid-cols-2 gap-1.5 sm:grid-cols-4">
         <LifecycleFact label="SKU" value={summary.sku} mono />
-        <LifecycleFact label="预订到期" value={formatDate(summary.reservation_expires_at)} />
-        <LifecycleFact label="预计取走" value={formatDate(summary.expected_pickup_at)} />
-        <LifecycleFact label="保修至" value={formatDate(summary.warranty_ends_at)} />
+        <LifecycleFact
+          label={t("inventory2b4.lifecycle.reservationExpires")}
+          value={formatInventoryLifecycleDate(summary.reservation_expires_at, locale, t)}
+        />
+        <LifecycleFact
+          label={t("inventory2b4.lifecycle.expectedPickup")}
+          value={formatInventoryLifecycleDate(summary.expected_pickup_at, locale, t)}
+        />
+        <LifecycleFact
+          label={t("inventory2b4.lifecycle.warrantyEnds")}
+          value={formatInventoryLifecycleDate(summary.warranty_ends_at, locale, t)}
+        />
       </div>
 
       <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5 border-t border-[var(--border-panel)] pt-2">
         <span className="inline-flex min-h-7 items-center gap-1 rounded-lg bg-[var(--surface-panel-muted)] px-2 text-[10px] text-muted-foreground">
           <History className="size-3" aria-hidden="true" />
-          版本 {summary.order_version ?? summary.unit_version ?? "—"}
+          {t("inventory2b4.lifecycle.version", {
+            version: summary.order_version ?? summary.unit_version ?? "—",
+          })}
         </span>
         {noActionGuidance ? (
           <InventoryNoActionGuidanceCard
@@ -282,14 +327,17 @@ export function InventoryLifecycleSummaryCard({
 }
 
 export function InventoryLifecycleUnavailableCard({
-  title = "商品生命周期暂不可用",
-  body = "当前门店的生命周期开关尚未启用，或服务端尚未返回完整业务资料。现有库存数据不会被修改。",
+  title,
+  body,
   onBack,
 }: {
   title?: string;
   body?: string;
   onBack?: () => void;
 }) {
+  const { t } = useLocale();
+  const displayTitle = title ?? t("inventory2b4.lifecycle.unavailable.title");
+  const displayBody = body ?? t("inventory2b4.lifecycle.unavailable.body");
   return (
     <section
       data-ui="inventory-lifecycle-unavailable"
@@ -303,8 +351,8 @@ export function InventoryLifecycleUnavailableCard({
           aria-hidden="true"
         />
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold">{title}</h2>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">{body}</p>
+          <h2 className="text-sm font-semibold">{displayTitle}</h2>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">{displayBody}</p>
           {onBack ? (
             <Button
               type="button"
@@ -312,7 +360,7 @@ export function InventoryLifecycleUnavailableCard({
               className="mt-3 min-h-11 text-xs"
               onClick={onBack}
             >
-              返回商品库存
+              {t("inventory2b4.detail.back")}
             </Button>
           ) : null}
         </div>
@@ -335,14 +383,19 @@ export function InventoryDeviceHealthCard({
   /** Detail pages can keep the first health summary focused on battery/Face ID. */
   showExtendedChecks?: boolean;
 }) {
+  const { locale, t } = useLocale();
   const isApple = brand?.trim().toLowerCase() === "apple";
   const checks = [
-    { key: "battery_health", label: "电池健康", icon: ShieldCheck },
+    { key: "battery_health", label: t("inventory2b4.inspection.batteryHealth"), icon: ShieldCheck },
     { key: "face_id_status", label: "Face ID", icon: ShieldCheck },
     { key: "touch_id_status", label: "Touch ID", icon: ShieldCheck },
-    { key: "true_tone_status", label: "原彩显示", icon: ShieldCheck },
-    { key: "activation_lock_status", label: "激活锁", icon: ShieldCheck },
-    { key: "data_wipe_status", label: "数据抹除", icon: ShieldCheck },
+    { key: "true_tone_status", label: t("inventory2b4.inspection.trueTone"), icon: ShieldCheck },
+    {
+      key: "activation_lock_status",
+      label: t("inventory2b4.inspection.activationLock"),
+      icon: ShieldCheck,
+    },
+    { key: "data_wipe_status", label: t("inventory2b4.inspection.dataWipe"), icon: ShieldCheck },
   ].filter(
     (check) =>
       isApple ||
@@ -366,9 +419,11 @@ export function InventoryDeviceHealthCard({
       <div className="flex items-center gap-1.5">
         <ShieldCheck className="size-3.5 text-primary" aria-hidden="true" />
         <h2 id="inventory-device-health-title" className="text-[11px] font-semibold lg:text-sm">
-          设备检测
+          {t("inventory2b4.inspection.deviceInspection")}
         </h2>
-        <span className="ml-auto text-[10px] text-muted-foreground">未检测不会显示为 0</span>
+        <span className="ml-auto text-[10px] text-muted-foreground">
+          {t("inventory2b4.inspection.zeroHelp")}
+        </span>
       </div>
       <div className="mt-2 grid min-w-0 grid-cols-2 gap-1.5 sm:grid-cols-3">
         {visibleChecks.map(({ key, label, icon: Icon }) => {
@@ -378,7 +433,11 @@ export function InventoryDeviceHealthCard({
               ? specifications?.[key]
               : String(inspectionValue);
           const value =
-            key === "battery_health" && raw ? `${raw}%` : raw ? inspectionStatusLabel(raw) : raw;
+            key === "battery_health" && raw
+              ? `${raw}%`
+              : raw
+                ? localizeInventoryInspection(raw, raw, t)
+                : raw;
           return (
             <div key={key} className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] p-2">
               <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
@@ -391,14 +450,18 @@ export function InventoryDeviceHealthCard({
                   !value && "text-muted-foreground",
                 )}
               >
-                {value || "尚未检测"}
+                {value || t("inventory2b4.inspection.notYetTested")}
               </p>
             </div>
           );
         })}
       </div>
       <p className="mt-1.5 text-[10px] leading-3 text-muted-foreground">
-        检测时间：{inspection?.inspected_at ? formatFullDate(inspection.inspected_at) : "未检测"}
+        {t("inventory2b4.inspection.time", {
+          date: inspection?.inspected_at
+            ? formatInventoryLifecycleDate(inspection.inspected_at, locale, t)
+            : t("inventory2b4.inspection.notTested"),
+        })}
       </p>
     </section>
   );
@@ -417,15 +480,6 @@ export function InventoryLifecycleHistoryCard({
   );
 }
 
-function formatFullDate(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
 function LifecycleFact({
   label,
   value,
@@ -442,23 +496,5 @@ function LifecycleFact({
         {value}
       </p>
     </div>
-  );
-}
-
-function formatDate(value?: string) {
-  if (!value) return "未安排";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "未安排";
-  return new Intl.DateTimeFormat("zh-CN", { day: "2-digit", month: "2-digit" }).format(parsed);
-}
-
-function inspectionStatusLabel(value: string) {
-  return (
-    {
-      not_tested: "未检测",
-      normal: "正常",
-      abnormal: "异常",
-      not_applicable: "不适用",
-    }[value] ?? value
   );
 }

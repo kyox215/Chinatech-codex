@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/sheet";
 import { componentOverlay, memoQuickEntry } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { getMemoPresentationCopy } from "@/shared/i18n/messages";
 
 export function MemoEditorOverlay({
   compact,
@@ -32,10 +34,13 @@ export function MemoEditorOverlay({
   children: ReactNode;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { locale } = useLocale();
+  const closeLabel = getMemoPresentationCopy(locale).closeMemo;
   return compact ? (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
+        closeLabel={closeLabel}
         className={cn(
           componentOverlay.bottomSheet,
           memoQuickEntry.surface,
@@ -53,6 +58,7 @@ export function MemoEditorOverlay({
   ) : (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        closeLabel={closeLabel}
         className={cn(
           componentOverlay.formContent,
           memoQuickEntry.surface,

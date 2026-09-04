@@ -4,6 +4,9 @@ import { useState } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ImeiScannerField } from "./imei-scanner-field";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
+import type { AppLocale } from "@/shared/i18n/locales";
+import { translateMessage } from "@/shared/i18n/messages";
 
 const toastMocks = vi.hoisted(() => ({
   error: vi.fn(),
@@ -99,6 +102,325 @@ afterEach(() => {
 });
 
 describe("ImeiScannerField", () => {
+  function StatefulScanner({
+    initialValue = "490154203237518",
+    onCommitSource,
+  }: {
+    initialValue?: string;
+    onCommitSource?: (source: "manual" | "scan") => void;
+  }) {
+    const [value, setValue] = useState(initialValue);
+
+    return (
+      <ImeiScannerField
+        value={value}
+        onChange={setValue}
+        identifierLabel="IMEI-DYNAMIC-设备"
+        onCommitSource={onCommitSource}
+      />
+    );
+  }
+
+  it.each(["zh-CN", "it-IT", "en"] satisfies readonly AppLocale[])(
+    "keeps heavy candidate, paste, clear, status, and toast states localized for %s",
+    async (locale) => {
+      const user = userEvent.setup();
+      const onCommitSource = vi.fn();
+      const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+      const rawCaptureSentinel = "OCR-CAMERA-RAW-SENTINEL";
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { readText: vi.fn().mockResolvedValue("IMEI: 490154203237518") },
+      });
+      zxingMocks.decodeFromConstraints.mockImplementation(
+        async (_constraints, _video, callback) => {
+          callback({
+            getText: () => `${rawCaptureSentinel} IMEI1: 490154203237518 IMEI2: 356938035643809`,
+          });
+          return { stop: zxingMocks.stop };
+        },
+      );
+
+      try {
+        render(
+          <LocaleProvider initialLocale={locale}>
+            <StatefulScanner onCommitSource={onCommitSource} />
+          </LocaleProvider>,
+        );
+
+        const input = screen.getByPlaceholderText(
+          translateMessage(locale, "inventory2b4.scanner.placeholder"),
+        );
+        await user.click(
+          screen.getByRole("button", {
+            name: translateMessage(locale, "inventory2b4.scanner.clearAction", {
+              identifier: "IMEI-DYNAMIC-设备",
+            }),
+          }),
+        );
+        expect(input).toHaveValue("");
+
+        await user.click(
+          screen.getByRole("button", {
+            name: translateMessage(locale, "inventory2b4.scanner.pasteAction", {
+              identifier: "IMEI-DYNAMIC-设备",
+            }),
+          }),
+        );
+        expect(input).toHaveValue("490154203237518");
+        expect(toastMocks.success).toHaveBeenCalledWith(
+          translateMessage(locale, "inventory2b4.scanner.pasted"),
+        );
+        expect(onCommitSource).toHaveBeenCalledWith("manual");
+
+        await user.click(
+          screen.getByRole("button", {
+            name: translateMessage(locale, "inventory2b4.scanner.cameraAction", {
+              identifier: "IMEI-DYNAMIC-设备",
+            }),
+          }),
+        );
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          translateMessage(locale, "inventory2b4.scanner.candidatesMany", { count: 2 }),
+        );
+        expect(
+          screen.getByText(
+            translateMessage(locale, "inventory2b4.scanner.statusCandidates", { count: 2 }),
+          ),
+        ).toBeInTheDocument();
+        expect(screen.queryByText(rawCaptureSentinel)).not.toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", { name: /•••• 3809/ }));
+        await user.click(
+          screen.getByRole("button", {
+            name: translateMessage(locale, "inventory2b4.scanner.useSelected"),
+          }),
+        );
+        expect(input).toHaveValue("356938035643809");
+        expect(toastMocks.success).toHaveBeenCalledWith(
+          translateMessage(locale, "inventory2b4.scanner.recorded"),
+        );
+        expect(onCommitSource).toHaveBeenLastCalledWith("scan");
+        expect(
+          JSON.stringify([
+            toastMocks.error.mock.calls,
+            toastMocks.success.mock.calls,
+            toastMocks.warning.mock.calls,
+          ]),
+        ).not.toContain(rawCaptureSentinel);
+      } finally {
+        if (clipboardDescriptor) {
+          Object.defineProperty(navigator, "clipboard", clipboardDescriptor);
+        } else {
+          delete (navigator as unknown as { clipboard?: Clipboard }).clipboard;
+        }
+      }
+    },
+  );
+
+  it.each(["zh-CN", "it-IT", "en"] satisfies readonly AppLocale[])(
+    "sanitizes internal camera failures for %s",
+    async (locale) => {
+      const user = userEvent.setup();
+      const rawCameraSentinel = "CAMERA-INTERNAL-RAW-SENTINEL";
+      zxingMocks.decodeFromConstraints.mockRejectedValue(new Error(rawCameraSentinel));
+
+      render(
+        <LocaleProvider initialLocale={locale}>
+          <ImeiScannerField value="" onChange={vi.fn()} />
+        </LocaleProvider>,
+      );
+      await user.click(
+        screen.getByRole("button", {
+          name: translateMessage(locale, "inventory2b4.scanner.cameraAction", {
+            identifier: "IMEI",
+          }),
+        }),
+      );
+
+      expect(
+        await screen.findByText(translateMessage(locale, "inventory2b4.scanner.cameraGeneric")),
+      ).toBeInTheDocument();
+      expect(document.body).not.toHaveTextContent(rawCameraSentinel);
+      expect(
+        JSON.stringify([
+          toastMocks.error.mock.calls,
+          toastMocks.success.mock.calls,
+          toastMocks.warning.mock.calls,
+        ]),
+      ).not.toContain(rawCameraSentinel);
+    },
+  );
+
+  it.each(["zh-CN", "it-IT", "en"] satisfies readonly AppLocale[])(
+    "sanitizes internal image OCR failures for %s",
+    async (locale) => {
+      const user = userEvent.setup();
+      const rawDecoderSentinel = "DECODER-INTERNAL-RAW-SENTINEL";
+      const rawOcrSentinel = "OCR-INTERNAL-RAW-SENTINEL";
+      const imageDecodeDescriptor = Object.getOwnPropertyDescriptor(
+        HTMLImageElement.prototype,
+        "decode",
+      );
+      const createObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, "createObjectURL");
+      const revokeObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, "revokeObjectURL");
+      const textDetectorDescriptor = Object.getOwnPropertyDescriptor(window, "TextDetector");
+
+      zxingMocks.decodeFromConstraints.mockResolvedValue({ stop: zxingMocks.stop });
+      zxingMocks.decodeFromImageElement.mockRejectedValue(new Error(rawDecoderSentinel));
+      localOcrMocks.recognizeTextWithLocalOcr.mockRejectedValue(new Error(rawOcrSentinel));
+      Object.defineProperty(HTMLImageElement.prototype, "decode", {
+        configurable: true,
+        value: vi.fn().mockResolvedValue(undefined),
+      });
+      Object.defineProperty(URL, "createObjectURL", {
+        configurable: true,
+        value: vi.fn(() => "blob:imei-photo-safe-error"),
+      });
+      Object.defineProperty(URL, "revokeObjectURL", {
+        configurable: true,
+        value: vi.fn(),
+      });
+      delete (window as Partial<Window & { TextDetector?: unknown }>).TextDetector;
+
+      try {
+        render(
+          <LocaleProvider initialLocale={locale}>
+            <ImeiScannerField value="" onChange={vi.fn()} />
+          </LocaleProvider>,
+        );
+        await user.click(
+          screen.getByRole("button", {
+            name: translateMessage(locale, "inventory2b4.scanner.cameraAction", {
+              identifier: "IMEI",
+            }),
+          }),
+        );
+        await user.click(
+          await screen.findByRole("button", {
+            name: translateMessage(locale, "inventory2b4.scanner.upload"),
+          }),
+        );
+        const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+        expect(fileInput).not.toBeNull();
+        await user.upload(fileInput!, new File(["image"], "imei.png", { type: "image/png" }));
+
+        const safeMessage = translateMessage(locale, "inventory2b4.scanner.recognitionFailed");
+        expect(await screen.findByText(safeMessage)).toBeInTheDocument();
+        expect(toastMocks.error).toHaveBeenCalledWith(safeMessage);
+        expect(document.body).not.toHaveTextContent(rawDecoderSentinel);
+        expect(document.body).not.toHaveTextContent(rawOcrSentinel);
+        expect(
+          JSON.stringify([
+            toastMocks.error.mock.calls,
+            toastMocks.success.mock.calls,
+            toastMocks.warning.mock.calls,
+          ]),
+        ).not.toContain(rawDecoderSentinel);
+        expect(
+          JSON.stringify([
+            toastMocks.error.mock.calls,
+            toastMocks.success.mock.calls,
+            toastMocks.warning.mock.calls,
+          ]),
+        ).not.toContain(rawOcrSentinel);
+      } finally {
+        if (imageDecodeDescriptor) {
+          Object.defineProperty(HTMLImageElement.prototype, "decode", imageDecodeDescriptor);
+        } else {
+          delete (HTMLImageElement.prototype as Partial<HTMLImageElement>).decode;
+        }
+        if (createObjectUrlDescriptor) {
+          Object.defineProperty(URL, "createObjectURL", createObjectUrlDescriptor);
+        }
+        if (revokeObjectUrlDescriptor) {
+          Object.defineProperty(URL, "revokeObjectURL", revokeObjectUrlDescriptor);
+        }
+        if (textDetectorDescriptor) {
+          Object.defineProperty(window, "TextDetector", textDetectorDescriptor);
+        } else {
+          delete (window as Partial<Window & { TextDetector?: unknown }>).TextDetector;
+        }
+      }
+    },
+  );
+
+  it.each([
+    [
+      "zh-CN",
+      "扫描或输入 IMEI",
+      "摄像头扫码录入 IMEI-DYNAMIC-设备",
+      "扫描 IMEI",
+      "当前浏览器不支持摄像头扫码。请使用照片上传或手动输入。",
+    ],
+    [
+      "it-IT",
+      "Scansiona o inserisci l’IMEI",
+      "Scansiona IMEI-DYNAMIC-设备 con la fotocamera",
+      "Scansiona IMEI",
+      "Questo browser non supporta la scansione con fotocamera. Carica una foto o inserisci il valore manualmente.",
+    ],
+    [
+      "en",
+      "Scan or enter IMEI",
+      "Scan IMEI-DYNAMIC-设备 with camera",
+      "Scan IMEI",
+      "This browser does not support camera scanning. Upload a photo or enter the value manually.",
+    ],
+  ] satisfies ReadonlyArray<[AppLocale, string, string, string, string]>)(
+    "localizes scanner chrome for %s while preserving the caller identifier",
+    async (locale, placeholder, cameraAction, title, unsupportedMessage) => {
+      const user = userEvent.setup();
+      Object.defineProperty(navigator, "mediaDevices", {
+        configurable: true,
+        value: undefined,
+      });
+
+      render(
+        <LocaleProvider initialLocale={locale}>
+          <ImeiScannerField value="" onChange={vi.fn()} identifierLabel="IMEI-DYNAMIC-设备" />
+        </LocaleProvider>,
+      );
+
+      expect(screen.getByPlaceholderText(placeholder)).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: cameraAction }));
+      expect(await screen.findByRole("dialog", { name: title })).toBeInTheDocument();
+      expect(await screen.findByText(unsupportedMessage)).toBeInTheDocument();
+    },
+  );
+
+  it.each([
+    ["zh-CN", "图片格式或尺寸不安全", "摄像头扫码录入 IMEI"],
+    [
+      "it-IT",
+      "Il formato o le dimensioni dell’immagine non sono sicuri",
+      "Scansiona IMEI con la fotocamera",
+    ],
+    ["en", "The image format or dimensions are unsafe", "Scan IMEI with camera"],
+  ] satisfies ReadonlyArray<[AppLocale, string, string]>)(
+    "sanitizes image inspection failures for %s",
+    async (locale, safeMessage, cameraAction) => {
+      const user = userEvent.setup();
+      imageInspectionMocks.inspectAiInventoryImage.mockRejectedValueOnce(
+        new Error("PROVIDER-SECRET-SENTINEL"),
+      );
+
+      render(
+        <LocaleProvider initialLocale={locale}>
+          <ImeiScannerField value="" onChange={vi.fn()} />
+        </LocaleProvider>,
+      );
+      await user.click(screen.getByRole("button", { name: cameraAction }));
+      const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+      expect(fileInput).not.toBeNull();
+      await user.upload(fileInput!, new File(["image"], "imei.png", { type: "image/png" }));
+
+      expect(await screen.findByText(safeMessage)).toBeInTheDocument();
+      expect(screen.queryByText("PROVIDER-SECRET-SENTINEL")).not.toBeInTheDocument();
+      expect(toastMocks.error).toHaveBeenCalledWith(safeMessage);
+    },
+  );
+
   it("forwards aria-required to the manual IMEI input", () => {
     render(<ImeiScannerField value="" onChange={vi.fn()} inputAriaLabel="IMEI 1" ariaRequired />);
 

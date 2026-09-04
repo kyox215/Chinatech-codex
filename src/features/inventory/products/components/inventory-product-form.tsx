@@ -38,9 +38,17 @@ import type {
 } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 import { identifierLabels, inventoryProductIdentifierKinds } from "../model/device-data";
 import { listDeviceConditionOptions } from "../model/device-form-options";
 import type { AppleColorApprovalOverlay } from "../model/device-color-policy";
+import {
+  localizeInventoryCondition,
+  localizeInventoryIdentifierKind,
+  localizeInventoryInspection,
+  localizeInventoryProductCategory,
+  localizeInventorySpecificationLabel,
+} from "../model/inventory-product-i18n";
 
 export type InventoryProductFormCategory = {
   value: InventoryProductCategory;
@@ -147,6 +155,7 @@ export function InventoryProductForm({
   onInspectionBatteryHealthChange,
   onInspectionFaceIdStatusChange,
 }: InventoryProductFormProps) {
+  const { t } = useLocale();
   const resolvedInspectionCapabilities = inspectionEnabled
     ? resolveDeviceInspectionCapabilities(draft.category, draft.brand, draft.model)
     : undefined;
@@ -162,9 +171,14 @@ export function InventoryProductForm({
     <section className={cn(repairOs.mobileInfoCard, "space-y-2 p-2.5 md:p-4")}>
       <fieldset>
         <legend className="mb-1.5 text-xs font-semibold">
-          类别 <span className="text-status-danger-foreground">*</span>
+          {t("inventory2b4.quick.form.category")}{" "}
+          <span className="text-status-danger-foreground">*</span>
         </legend>
-        <div className="grid grid-cols-5 gap-1.5" role="radiogroup" aria-label="商品类别">
+        <div
+          className="grid grid-cols-5 gap-1.5"
+          role="radiogroup"
+          aria-label={t("inventory2b4.quick.form.categoryAria")}
+        >
           {categories.map(({ value, label, icon: Icon }, index) => (
             <button
               id={`${idPrefix}-category-${value}`}
@@ -184,7 +198,7 @@ export function InventoryProductForm({
               onKeyDown={onCategoryKeyDown ? (event) => onCategoryKeyDown(event, index) : undefined}
             >
               {Icon ? <Icon className="size-3.5" aria-hidden="true" /> : null}
-              {label}
+              {localizeInventoryProductCategory(value, label, t)}
             </button>
           ))}
         </div>
@@ -224,14 +238,16 @@ export function InventoryProductForm({
         >
           <div className="flex items-center gap-1.5">
             <BatteryMedium className="size-4 text-primary" aria-hidden="true" />
-            <h2 className="text-xs font-semibold">设备检测</h2>
-            <span className="text-[10px] text-muted-foreground">可选，保存后保留检测记录</span>
+            <h2 className="text-xs font-semibold">{t("inventory2b4.quick.form.inspection")}</h2>
+            <span className="text-[10px] text-muted-foreground">
+              {t("inventory2b4.quick.form.inspectionHint")}
+            </span>
           </div>
           <div className="grid min-w-0 gap-2 sm:grid-cols-2">
             {inspectionCapabilities.battery_health ? (
               <div className="min-w-0 space-y-1">
                 <label htmlFor={`${idPrefix}-battery-health`} className="text-[11px] font-medium">
-                  电池健康度（%）
+                  {t("inventory2b4.quick.form.batteryHealth")}
                 </label>
                 <input
                   id={`${idPrefix}-battery-health`}
@@ -239,7 +255,7 @@ export function InventoryProductForm({
                   inputMode="numeric"
                   pattern="[0-9]*"
                   value={draft.inspection_battery_health}
-                  placeholder="例如 91"
+                  placeholder={t("inventory2b4.quick.form.batteryExample")}
                   maxLength={3}
                   aria-invalid={inspectionBatteryInvalid || undefined}
                   aria-describedby={
@@ -256,7 +272,7 @@ export function InventoryProductForm({
                     id={`${idPrefix}-battery-health-error`}
                     className="text-xs text-status-danger-foreground"
                   >
-                    电池健康度必须是 0 到 100 的整数或空值
+                    {t("inventory2b4.quick.validation.batteryInvalid")}
                   </p>
                 ) : null}
               </div>
@@ -270,9 +286,12 @@ export function InventoryProductForm({
                 {inspectionCapabilities.face_id_status ? (
                   <InventorySelectableField
                     id={`${idPrefix}-face-id-status`}
-                    label="Face ID 检测状态"
+                    label={t("inventory2b4.quick.form.faceIdStatus")}
                     value={draft.inspection_face_id_status}
-                    options={faceIdStatusOptions}
+                    options={faceIdStatusOptions.map((option) => ({
+                      ...option,
+                      label: localizeInventoryInspection(option.value, option.label, t),
+                    }))}
                     mode={pickerMode}
                     onChange={(value) =>
                       onInspectionFaceIdStatusChange?.(value as InventoryProductFaceIdStatus)
@@ -280,14 +299,14 @@ export function InventoryProductForm({
                   />
                 ) : (
                   <div className="flex min-h-10 items-center rounded-lg border border-border bg-muted/30 px-3 text-xs text-muted-foreground">
-                    不适用
+                    {t("inventory2b4.inspection.notApplicable")}
                   </div>
                 )}
               </div>
             ) : null}
           </div>
           <p className="text-[10px] leading-4 text-muted-foreground">
-            只显示目录中明确支持的项目；未收录或手动型号不会自动推断检测能力。
+            {t("inventory2b4.quick.form.inspectionScope")}
           </p>
         </section>
       ) : null}
@@ -350,13 +369,14 @@ export function InventoryProductIdentifierSection({
   ) => void;
   onPrimaryIdentifierChange?: (kind: InventoryProductIdentifierKind) => void;
 }) {
+  const { t } = useLocale();
   return (
     <section
       data-ui="inventory-product-form-identifiers"
       className={cn(repairOs.mobileInfoCard, "space-y-2 p-2.5 md:p-4")}
     >
       <div>
-        <h2 className="text-sm font-semibold">设备标识</h2>
+        <h2 className="text-sm font-semibold">{t("inventory2b4.quick.form.identifiers")}</h2>
         <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
           {description}
         </p>
@@ -369,7 +389,7 @@ export function InventoryProductIdentifierSection({
       >
         {inventoryProductIdentifierKinds.map((kind) => {
           const id = `${idPrefix}-${kind}`;
-          const label = identifierLabels[kind];
+          const label = localizeInventoryIdentifierKind(kind, identifierLabels[kind], t);
           const invalid = invalidKinds?.[kind] === true;
           const required = requiredKinds?.[kind] === true;
           return (
@@ -382,7 +402,9 @@ export function InventoryProductIdentifierSection({
                   ) : null}
                 </label>
                 {kind === "eid" ? (
-                  <span className="text-[10px] text-muted-foreground">EID 不作为主要标识</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {t("inventory2b4.quick.form.eidNotPrimary")}
+                  </span>
                 ) : allowPrimarySelection ? (
                   <button
                     type="button"
@@ -395,10 +417,14 @@ export function InventoryProductIdentifierSection({
                     aria-pressed={draft.primary_identifier_kind === kind}
                     onClick={() => onPrimaryIdentifierChange?.(kind)}
                   >
-                    {draft.primary_identifier_kind === kind ? "主要标识" : "设为主要"}
+                    {draft.primary_identifier_kind === kind
+                      ? t("inventory2b4.quick.form.primaryIdentifier")
+                      : t("inventory2b4.quick.form.setPrimary")}
                   </button>
                 ) : (
-                  <span className="text-[10px] text-muted-foreground">保存时自动选择主要标识</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {t("inventory2b4.quick.form.autoPrimary")}
+                  </span>
                 )}
               </div>
               <IdentifierField
@@ -412,13 +438,13 @@ export function InventoryProductIdentifierSection({
                 value={draft.identifiers[kind]}
                 onChange={(value) => onIdentifierChange(kind, value)}
                 onCommitSource={(source) => onIdentifierSource(kind, source)}
-                placeholder={`扫描或输入${label}`}
+                placeholder={t("inventory2b4.quick.form.identifierPlaceholder", { label })}
                 density="compact"
                 showScanner={showScanner}
               />
               {invalid ? (
                 <p id={`${id}-error`} className="text-xs text-status-danger-foreground">
-                  请检查{label}格式
+                  {t("inventory2b4.quick.form.checkIdentifier", { label })}
                 </p>
               ) : null}
             </div>
@@ -490,11 +516,14 @@ export function InventoryProductFormDetails({
   onWarrantyChange,
   onNotesChange,
 }: InventoryProductFormDetailsProps) {
+  const { t } = useLocale();
   const [detailsOpen, setDetailsOpen] = useState(layoutMode === "desktop");
   useEffect(() => {
     setDetailsOpen(layoutMode === "desktop");
   }, [layoutMode]);
-  const specFields = detailsSpecificationFields(draft.category);
+  const specFields = detailsSpecificationFields(draft.category, t);
+  const disclosureSpecFields = specFields.filter((field) => specificationPresets[field.key]);
+  const secondarySpecFields = specFields.filter((field) => !specificationPresets[field.key]);
   return (
     <section data-ui="inventory-product-form-details" className="grid gap-1.5">
       <section
@@ -516,9 +545,9 @@ export function InventoryProductFormDetails({
         >
           <ProductDetailField
             id={`${idPrefix}-price`}
-            label="计划售价"
+            label={t("inventory2b4.quick.form.plannedSale")}
             value={draft.list_price}
-            placeholder="未填写"
+            placeholder={t("inventory2b4.quick.form.notEntered")}
             inputMode="decimal"
             invalid={listPriceInvalid}
             onChange={onListPriceChange}
@@ -526,14 +555,48 @@ export function InventoryProductFormDetails({
           {canEnterCost ? (
             <ProductDetailField
               id={`${idPrefix}-cost`}
-              label="入库成本"
+              label={t("inventory2b4.quick.form.acquisitionCost")}
               value={draft.cost_amount}
-              placeholder="未填写"
+              placeholder={t("inventory2b4.quick.form.notEntered")}
               inputMode="decimal"
               invalid={costInvalid}
               onChange={onCostChange}
             />
           ) : null}
+        </section>
+        <section
+          data-ui="inventory-product-form-disclosure-fields"
+          className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 md:p-4")}
+        >
+          {disclosureSpecFields.map((field) => (
+            <PresetWithManualField
+              key={field.key}
+              id={`${idPrefix}-spec-${field.key}`}
+              label={localizeInventorySpecificationLabel(field.key, field.label, t)}
+              value={draft.specifications[field.key] ?? ""}
+              placeholder={field.placeholder}
+              options={specificationPresets[field.key] ?? []}
+              mode={layoutMode === "desktop" ? "desktop" : "mobile"}
+              onChange={(value) => onSpecificationChange(field.key, value)}
+            />
+          ))}
+          <PresetWithManualField
+            id={`${idPrefix}-warranty`}
+            label={t("inventory2b4.quick.form.warrantyMonths")}
+            value={draft.warranty_months}
+            placeholder={t("inventory2b4.quick.form.notEntered")}
+            options={warrantyPresets.map((value) => ({
+              value,
+              label:
+                value === "0"
+                  ? t("inventory2b4.quick.form.noWarranty")
+                  : t("inventory2b4.quick.form.warrantyValue", { months: value }),
+            }))}
+            mode={layoutMode === "desktop" ? "desktop" : "mobile"}
+            inputMode="numeric"
+            invalid={warrantyInvalid}
+            onChange={onWarrantyChange}
+          />
         </section>
       </section>
       <button
@@ -547,9 +610,11 @@ export function InventoryProductFormDetails({
         onClick={() => setDetailsOpen((open) => !open)}
       >
         <span>
-          <span className="block text-sm font-semibold">更多信息</span>
+          <span className="block text-sm font-semibold">
+            {t("inventory2b4.quick.form.moreInformation")}
+          </span>
           <span className="block text-[10px] leading-4 text-muted-foreground">
-            条码、规格、库位、保修和备注
+            {t("inventory2b4.quick.form.moreInformationHint")}
           </span>
         </span>
         {detailsOpen ? (
@@ -567,18 +632,18 @@ export function InventoryProductFormDetails({
           >
             <ProductDetailField
               id={`${idPrefix}-gtin`}
-              label="EAN / GTIN（同款条码）"
+              label={t("inventory2b4.quick.form.gtin")}
               value={draft.gtin}
-              placeholder="8、13 或 14 位商品条码"
+              placeholder={t("inventory2b4.quick.form.gtinPlaceholder")}
               inputMode="numeric"
               invalid={gtinInvalid}
               onChange={onGtinChange}
             />
-            {specFields.map((field) => (
+            {secondarySpecFields.map((field) => (
               <ProductDetailField
                 key={field.key}
                 id={`${idPrefix}-spec-${field.key}`}
-                label={field.label}
+                label={localizeInventorySpecificationLabel(field.key, field.label, t)}
                 value={draft.specifications[field.key] ?? ""}
                 placeholder={field.placeholder}
                 onChange={(value) => onSpecificationChange(field.key, value)}
@@ -592,30 +657,21 @@ export function InventoryProductFormDetails({
           >
             <ProductDetailField
               id={`${idPrefix}-location`}
-              label="库位"
+              label={t("inventory2b4.quick.form.location")}
               value={draft.location}
-              placeholder="例如 A-02"
+              placeholder={t("inventory2b4.quick.form.locationExample")}
               onChange={onLocationChange}
-            />
-            <ProductDetailField
-              id={`${idPrefix}-warranty`}
-              label="保修（月）"
-              value={draft.warranty_months}
-              placeholder="未填写"
-              inputMode="numeric"
-              invalid={warrantyInvalid}
-              onChange={onWarrantyChange}
             />
             <div className="col-span-2 min-w-0 space-y-1">
               <Label htmlFor={`${idPrefix}-notes`} className="text-xs">
-                内部备注
+                {t("inventory2b4.quick.form.internalNotes")}
               </Label>
               <Textarea
                 id={`${idPrefix}-notes`}
                 className="min-h-20 resize-y text-base !text-base lg:!text-sm"
                 maxLength={2000}
                 value={draft.notes}
-                placeholder="可选"
+                placeholder={t("inventory2b4.quick.form.optional")}
                 onChange={(event) => onNotesChange(event.target.value)}
               />
             </div>
@@ -623,6 +679,68 @@ export function InventoryProductFormDetails({
         </div>
       ) : null}
     </section>
+  );
+}
+
+const specificationPresets: Record<
+  string,
+  readonly { value: string; label: string }[] | undefined
+> = {
+  network_variant: ["EU", "Global", "US", "CN", "JP"].map((value) => ({ value, label: value })),
+  connectivity: ["Wi-Fi", "Wi-Fi + Cellular"].map((value) => ({ value, label: value })),
+  edition: ["Standard", "Slim", "Digital", "OLED", "Pro"].map((value) => ({
+    value,
+    label: value,
+  })),
+  region: ["EU", "US", "JP", "CN"].map((value) => ({ value, label: value })),
+  disk_type: ["SSD", "HDD", "NVMe"].map((value) => ({ value, label: value })),
+};
+
+const warrantyPresets = ["0", "3", "6", "12", "24"] as const;
+
+function PresetWithManualField({
+  id,
+  label,
+  value,
+  options,
+  mode,
+  onChange,
+  placeholder,
+  inputMode,
+  invalid,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  options: readonly { value: string; label: string }[];
+  mode: "desktop" | "mobile";
+  onChange: (value: string) => void;
+  placeholder?: string;
+  inputMode?: HTMLAttributes<HTMLInputElement>["inputMode"];
+  invalid?: boolean;
+}) {
+  const { t } = useLocale();
+  return (
+    <fieldset className="min-w-0 space-y-1.5">
+      <InventorySelectableField
+        id={`${id}-preset`}
+        label={t("inventory2b4.quick.form.presets", { label })}
+        value={options.some((option) => option.value === value) ? value : ""}
+        placeholder={t("inventory2b4.quick.form.choosePreset")}
+        options={options}
+        mode={mode}
+        onChange={onChange}
+      />
+      <ProductDetailField
+        id={id}
+        label={label}
+        value={value}
+        placeholder={placeholder}
+        inputMode={inputMode}
+        invalid={invalid}
+        onChange={onChange}
+      />
+    </fieldset>
   );
 }
 
@@ -643,6 +761,7 @@ function ProductDetailField({
   inputMode?: HTMLAttributes<HTMLInputElement>["inputMode"];
   invalid?: boolean;
 }) {
+  const { t } = useLocale();
   const errorId = `${id}-error`;
   return (
     <div className="min-w-0 space-y-1">
@@ -661,7 +780,7 @@ function ProductDetailField({
       />
       {invalid ? (
         <p id={errorId} className="text-xs text-status-danger-foreground">
-          请检查此字段
+          {t("inventory2b4.quick.form.checkField")}
         </p>
       ) : null}
     </div>
@@ -681,16 +800,20 @@ function ConditionField({
   invalid?: boolean;
   mode: "desktop" | "mobile";
 }) {
-  const options = listDeviceConditionOptions();
+  const { t } = useLocale();
+  const options = listDeviceConditionOptions().map((option) => ({
+    ...option,
+    label: localizeInventoryCondition(option.value, option.label, t),
+  }));
   const isManualValue = Boolean(value) && !options.some((option) => option.value === value);
   const errorId = `${id}-error`;
   return (
     <div className="min-w-0 space-y-1">
       <InventorySelectableField
         id={`${id}-preset`}
-        label="成色"
+        label={t("inventory2b4.quick.form.condition")}
         value={value}
-        placeholder="选择成色"
+        placeholder={t("inventory2b4.quick.form.selectCondition")}
         options={options}
         mode={mode}
         invalid={invalid}
@@ -701,44 +824,79 @@ function ConditionField({
         id={id}
         className="h-11 min-h-11 min-w-0 text-base !text-base lg:h-9 lg:min-h-0 lg:!text-sm"
         value={isManualValue ? value : ""}
-        placeholder="例如 全新、良好、有使用痕迹"
+        placeholder={t("inventory2b4.quick.form.conditionExample")}
         aria-invalid={invalid}
         aria-describedby={invalid ? errorId : undefined}
         onChange={(event) => onChange(event.target.value)}
       />
       {invalid ? (
         <p id={errorId} className="text-xs text-status-danger-foreground">
-          请检查此字段
+          {t("inventory2b4.quick.form.checkField")}
         </p>
       ) : null}
     </div>
   );
 }
 
-function detailsSpecificationFields(category: InventoryProductCategory) {
+function detailsSpecificationFields(
+  category: InventoryProductCategory,
+  t: ReturnType<typeof useLocale>["t"],
+) {
   if (category === "computer") {
     return [
-      { key: "processor", label: "处理器", placeholder: "例如 Apple M3" },
-      { key: "disk_type", label: "硬盘类型", placeholder: "例如 SSD" },
-      { key: "graphics", label: "显卡", placeholder: "例如 集成显卡" },
+      {
+        key: "processor",
+        label: "处理器",
+        placeholder: t("inventory2b4.quick.form.processorExample"),
+      },
+      {
+        key: "disk_type",
+        label: "硬盘类型",
+        placeholder: t("inventory2b4.quick.form.diskTypeExample"),
+      },
+      { key: "graphics", label: "显卡", placeholder: t("inventory2b4.quick.form.graphicsExample") },
     ];
   }
   if (category === "game_console") {
     return [
-      { key: "edition", label: "版本", placeholder: "例如 Slim、OLED" },
-      { key: "region", label: "区域", placeholder: "例如 EU" },
-      { key: "included_controller_count", label: "手柄数", placeholder: "例如 2" },
+      { key: "edition", label: "版本", placeholder: t("inventory2b4.quick.form.editionExample") },
+      { key: "region", label: "区域", placeholder: t("inventory2b4.quick.form.regionExample") },
+      {
+        key: "included_controller_count",
+        label: "手柄数",
+        placeholder: t("inventory2b4.quick.form.controllerExample"),
+      },
     ];
   }
   if (category === "phone")
-    return [{ key: "network_variant", label: "网络版本", placeholder: "例如 EU" }];
+    return [
+      {
+        key: "network_variant",
+        label: "网络版本",
+        placeholder: t("inventory2b4.quick.form.networkExample"),
+      },
+    ];
   if (category === "tablet") {
     return [
-      { key: "connectivity", label: "联网版本", placeholder: "例如 Wi-Fi + Cellular" },
-      { key: "screen_size_inches", label: "屏幕尺寸", placeholder: "例如 11 英寸" },
+      {
+        key: "connectivity",
+        label: "联网版本",
+        placeholder: t("inventory2b4.quick.form.connectivityExample"),
+      },
+      {
+        key: "screen_size_inches",
+        label: "屏幕尺寸",
+        placeholder: t("inventory2b4.quick.form.screenExample"),
+      },
     ];
   }
-  return [{ key: "short_specification", label: "简短规格", placeholder: "可选" }];
+  return [
+    {
+      key: "short_specification",
+      label: "简短规格",
+      placeholder: t("inventory2b4.quick.form.optional"),
+    },
+  ];
 }
 
 const faceIdStatusOptions: Array<{ value: InventoryProductFaceIdStatus; label: string }> = [

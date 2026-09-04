@@ -11,9 +11,11 @@ import {
   getCustomerOutstandingAmount,
   getCustomerWorkSummary,
 } from "@/features/customers/model/customer-list";
+import { localizeCustomerWorkSummary } from "@/features/customers/model/customer-i18n";
 import type { CustomerListItem, CustomerTag } from "@/lib/repairdesk/api";
 import { repairOs } from "@/lib/ui-patterns";
 import { RepairOsBadge, RepairOsBusinessCard } from "@/shared/ui";
+import { useLocale } from "@/shared/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
 const customerTagPriority = new Map([
@@ -24,11 +26,19 @@ const customerTagPriority = new Map([
   ["tag_repeat", 4],
 ]);
 
-function customerInitial(name: string) {
-  return name.trim().slice(0, 1).toUpperCase() || "客";
+function customerInitial(name: string, fallback: string) {
+  return name.trim().slice(0, 1).toUpperCase() || fallback;
 }
 
-function CustomerIdentityMark({ name, compact = false }: { name: string; compact?: boolean }) {
+function CustomerIdentityMark({
+  name,
+  fallback,
+  compact = false,
+}: {
+  name: string;
+  fallback: string;
+  compact?: boolean;
+}) {
   return (
     <span
       aria-hidden="true"
@@ -38,7 +48,7 @@ function CustomerIdentityMark({ name, compact = false }: { name: string; compact
         "lg:text-xs lg:leading-4",
       )}
     >
-      {customerInitial(name)}
+      {customerInitial(name, fallback)}
     </span>
   );
 }
@@ -122,15 +132,19 @@ export function CustomerRow({
   customer: CustomerListItem;
   onOpenDetail?: (customerId: string, trigger?: HTMLButtonElement) => void;
 }) {
+  const { t } = useLocale();
   const href = getCustomerDetailHref(customer.id);
-  const workSummary = getCustomerWorkSummary(customer);
+  const workSummary = localizeCustomerWorkSummary(getCustomerWorkSummary(customer), t);
   const outstanding = getCustomerOutstandingAmount(customer);
 
   return (
     <tr className="h-14 border-b border-border/30 transition-colors hover:bg-accent/30 focus-within:bg-accent/30">
       <td className="min-w-0 px-3 py-2.5">
         <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">
-          <CustomerIdentityMark name={customer.name} />
+          <CustomerIdentityMark
+            name={customer.name}
+            fallback={t("customers.list.avatarFallback")}
+          />
           <div className="min-w-0">
             <span
               data-ui="customer-row-name"
@@ -146,15 +160,18 @@ export function CustomerRow({
       </td>
       <td className="min-w-0 px-2 py-2">
         <div className="truncate text-xs font-medium" title={customer.latest_device_label ?? ""}>
-          {customer.latest_device_label ?? "暂无设备"}
+          {customer.latest_device_label ?? t("customers.list.noDevice")}
         </div>
-        <div className="truncate text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-          {customer.device_count} 台设备 · {customer.order_count} 个工单
+        <div className="whitespace-normal break-words text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
+          {t("customers.list.deviceOrders", {
+            devices: customer.device_count,
+            orders: customer.order_count,
+          })}
         </div>
       </td>
       <td className="whitespace-nowrap px-2 py-2 text-right text-xs">
         {customer.finance_redacted ? (
-          <span className="text-muted-foreground">金额受限</span>
+          <span className="text-muted-foreground">{t("customers.list.financeRestricted")}</span>
         ) : (
           <div className="space-y-0.5">
             <MoneyText amount={getCustomerLifetimeQuotedAmount(customer)} />
@@ -164,14 +181,20 @@ export function CustomerRow({
                 outstanding > 0 ? "text-status-warn-foreground" : "text-muted-foreground",
               )}
             >
-              {outstanding > 0 ? `待收 €${outstanding.toFixed(2)}` : "已结清"}
+              {outstanding > 0
+                ? t("customers.list.outstanding", { amount: outstanding.toFixed(2) })
+                : t("customers.list.settled")}
             </div>
           </div>
         )}
       </td>
       <td className="min-w-0 px-2 py-2 text-[11px] lg:text-xs lg:leading-4">
-        <div className="truncate font-semibold text-foreground">{workSummary.actionLabel}</div>
-        <div className="truncate text-muted-foreground">{workSummary.detail}</div>
+        <div className="whitespace-normal break-words font-semibold text-foreground">
+          {workSummary.actionLabel}
+        </div>
+        <div className="whitespace-normal break-words text-muted-foreground">
+          {workSummary.detail}
+        </div>
       </td>
       <td className="px-2 py-2 text-right">
         {onOpenDetail ? (
@@ -180,15 +203,18 @@ export function CustomerRow({
             variant="ghost"
             size="sm"
             className="h-8 gap-1 px-2 text-xs"
-            aria-label={`查看客户 ${customer.name}`}
+            aria-label={t("customers.list.viewCustomer", { name: customer.name })}
             onClick={(event) => onOpenDetail(customer.id, event.currentTarget)}
           >
-            查看 <ArrowUpRight className="size-3" />
+            {t("customers.list.view")} <ArrowUpRight className="size-3" />
           </Button>
         ) : (
           <Button asChild variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs">
-            <Link href={href} aria-label={`查看客户 ${customer.name}`}>
-              查看 <ArrowUpRight className="size-3" />
+            <Link
+              href={href}
+              aria-label={t("customers.list.viewCustomer", { name: customer.name })}
+            >
+              {t("customers.list.view")} <ArrowUpRight className="size-3" />
             </Link>
           </Button>
         )}
@@ -198,16 +224,17 @@ export function CustomerRow({
 }
 
 export function CustomerMobileCard({ customer }: { customer: CustomerListItem }) {
+  const { t } = useLocale();
   const href = getCustomerDetailHref(customer.id);
-  const workSummary = getCustomerWorkSummary(customer);
+  const workSummary = localizeCustomerWorkSummary(getCustomerWorkSummary(customer), t);
   const outstanding = getCustomerOutstandingAmount(customer);
 
   return (
     <Link
       href={href}
-      title={`查看客户 ${customer.name}`}
-      aria-label={`打开客户详情：${customer.name}`}
-      className="block min-w-0 touch-manipulation rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      title={t("customers.list.viewCustomer", { name: customer.name })}
+      aria-label={t("customers.list.openCustomer", { name: customer.name })}
+      className="block min-h-11 min-w-0 touch-manipulation rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <RepairOsBusinessCard
         className={cn(
@@ -217,10 +244,16 @@ export function CustomerMobileCard({ customer }: { customer: CustomerListItem })
         trailing={
           <div className="flex min-w-[4.5rem] flex-col items-end text-right text-xs">
             <span className="text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-              {customer.finance_redacted ? "工单" : outstanding > 0 ? "待收" : "工单额"}
+              {customer.finance_redacted
+                ? t("customers.list.orders")
+                : outstanding > 0
+                  ? t("customers.list.due")
+                  : t("customers.list.orderValue")}
             </span>
             {customer.finance_redacted ? (
-              <span className={repairOs.cardAmount}>{customer.order_count} 单</span>
+              <span className={repairOs.cardAmount}>
+                {t("customers.list.orderCount", { count: customer.order_count })}
+              </span>
             ) : outstanding > 0 ? (
               <span className={cn(repairOs.cardAmount, "text-status-warn-foreground")}>
                 €{outstanding.toFixed(2)}
@@ -238,7 +271,11 @@ export function CustomerMobileCard({ customer }: { customer: CustomerListItem })
         }
       >
         <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">
-          <CustomerIdentityMark name={customer.name} compact />
+          <CustomerIdentityMark
+            name={customer.name}
+            fallback={t("customers.list.avatarFallback")}
+            compact
+          />
           <div className="min-w-0">
             <span
               data-ui="customer-mobile-name"
@@ -252,13 +289,13 @@ export function CustomerMobileCard({ customer }: { customer: CustomerListItem })
         </div>
         <div className="mt-1.5 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
           <p className={cn(repairOs.cardMeta, "min-w-0 truncate")}>
-            {customer.latest_device_label ?? "暂无设备"}
+            {customer.latest_device_label ?? t("customers.list.noDevice")}
           </p>
           <RepairOsBadge className="gap-1 bg-[var(--surface-panel-muted)] text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
             <Smartphone className="size-2.5" /> {customer.device_count} / {customer.order_count}
           </RepairOsBadge>
         </div>
-        <div className="mt-1.5 min-w-0 truncate text-[11px] lg:text-xs lg:leading-4">
+        <div className="mt-1.5 min-w-0 whitespace-normal break-words text-[11px] lg:text-xs lg:leading-4">
           <span className="font-semibold text-foreground">{workSummary.actionLabel}</span>
           <span className="ml-1 text-muted-foreground">· {workSummary.detail}</span>
         </div>

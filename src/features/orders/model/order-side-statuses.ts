@@ -13,6 +13,7 @@ export interface OrderSideStatusBadge {
   label: string;
   tone: StatusTone;
   description: string;
+  supplierName?: string;
 }
 
 export function getOrderSideStatusBadges(
@@ -69,6 +70,7 @@ export function getOrderSideStatusBadges(
       key: "logistics-mail",
       label: supplierName ? `寄修 ${supplierName}` : "寄修中",
       tone: "progress",
+      ...(supplierName ? { supplierName } : {}),
       description: supplierName
         ? `设备已转外修处理，供应商：${supplierName}`
         : "设备已转给外部维修方处理，请跟进寄修进度和返回结果。",
@@ -78,6 +80,7 @@ export function getOrderSideStatusBadges(
       key: "external-repair",
       label: supplierName ? `外修 ${supplierName}` : "送修单",
       tone: "progress",
+      ...(supplierName ? { supplierName } : {}),
       description: supplierName
         ? `该订单关联外修供应商：${supplierName}`
         : "该订单属于送修/寄修类型，外修进度作为辅助状态展示。",

@@ -29,6 +29,8 @@
 
 ## Active task index
 
+- [TASK-20260901-002-site-i18n-optimization-release](tasks/TASK-20260901-002-site-i18n-optimization-release/TASK.md): Owner-approved release of the completed employee `zh-CN` / `it-IT` / `en` sequence through Memos, Toolkit, Platform and AI client. Targeted/module QA passes with direct-i18n P0/P1 zero; browser evidence retains a separate mobile overlay focus P2. Exact-scope preflight and release gates remain in progress.
+
 - [TASK-20260831-001-project-i18n-clean-rebuild](tasks/TASK-20260831-001-project-i18n-clean-rebuild/TASK.md): Closed production employee-interface i18n release with exact `zh-CN` / `it-IT` / `en`, strict Cookie SSR, customer-language isolation, Chromium/WebKit 9/9, 3,071 tests, four screenshots and exact `main@119e39da` / Vercel READY evidence.
 
 - [TASK-20260731-003-inventory-product-mobile-density](tasks/TASK-20260731-003-inventory-product-mobile-density/TASK.md): Closed production product-inventory density release with four real read-only specialist agents, tenant-safe placeholder data, compact list/intake/detail/edit, Chromium/WebKit 22/22, public `main@44b1d80c`, exact Preview/Production READY and no production data write.

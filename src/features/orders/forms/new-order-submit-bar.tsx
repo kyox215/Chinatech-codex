@@ -6,8 +6,10 @@ import { ArrowLeft, Banknote } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DeviceCustodyBadge } from "@/components/orders/badges";
+import { localizeDeviceCustody } from "@/features/orders/model/order-i18n";
 import { cn } from "@/lib/utils";
 import type { DeviceCustodyStatus } from "@/lib/repairdesk/types";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function NewOrderSubmitBar({
   valid,
@@ -26,6 +28,7 @@ export function NewOrderSubmitBar({
   surface?: "page" | "dialog";
   validationSummaryId?: string;
 }) {
+  const { t } = useLocale();
   const isDialog = surface === "dialog";
   const barRef = useRef<HTMLDivElement>(null);
 
@@ -82,7 +85,7 @@ export function NewOrderSubmitBar({
             className="hidden h-9 gap-1.5 rounded-lg text-xs md:inline-flex lg:h-8"
             onClick={onCancel}
           >
-            <ArrowLeft className="size-3.5" /> 返回工单
+            <ArrowLeft className="size-3.5" /> {t("orders2b1.new.back")}
           </Button>
         ) : (
           <Button
@@ -93,17 +96,18 @@ export function NewOrderSubmitBar({
             asChild
           >
             <Link href="/orders">
-              <ArrowLeft className="size-3.5" /> 返回工单
+              <ArrowLeft className="size-3.5" /> {t("orders2b1.new.back")}
             </Link>
           </Button>
         )}
         <div className="flex min-w-0 flex-col gap-0.5 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1 md:ml-auto">
           <div className="flex min-w-0 items-center justify-between gap-1.5 md:justify-start">
             <span className="text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
-              设备保管
+              {t("orders2b1.new.custody")}
             </span>
             <DeviceCustodyBadge
               status={custodyStatus}
+              label={localizeDeviceCustody(custodyStatus, undefined, t)}
               className="text-[10px] lg:text-xs lg:leading-4"
             />
           </div>
@@ -127,7 +131,7 @@ export function NewOrderSubmitBar({
             style={{ background: "var(--gradient-brand)" }}
           >
             <Banknote className="size-3.5" />
-            {pending ? "处理中…" : "创建工单"}
+            {t(pending ? "orders2b1.new.processing" : "orders2b1.new.create")}
           </Button>
         </div>
       </div>

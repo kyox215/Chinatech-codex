@@ -15,6 +15,7 @@ import {
 import { COMPACT_WORKSPACE_BREAKPOINT } from "@/hooks/use-mobile";
 import { componentOverlay } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 import type { InventoryProductIntakeState } from "../screens/inventory-product-intake-screen";
 
@@ -40,6 +41,7 @@ export function InventoryProductCreateDialog({
   onOpenChange: (open: boolean) => void;
   onCreated: (id: string) => void | Promise<void>;
 }) {
+  const { t } = useLocale();
   const [intakeState, setIntakeState] = useState(cleanIntakeState);
   const [discardPromptOpen, setDiscardPromptOpen] = useState(false);
   const [closeNotice, setCloseNotice] = useState("");
@@ -57,7 +59,7 @@ export function InventoryProductCreateDialog({
 
   const requestClose = useCallback(() => {
     if (intakeState.isPending) {
-      setCloseNotice("正在保存商品，请等待结果后再关闭。");
+      setCloseNotice(t("inventory2b4.quick.dialog.pendingClose"));
       return;
     }
     if (intakeState.isDirty) {
@@ -67,7 +69,7 @@ export function InventoryProductCreateDialog({
       return;
     }
     forceClose();
-  }, [forceClose, intakeState.isDirty, intakeState.isPending]);
+  }, [forceClose, intakeState.isDirty, intakeState.isPending, t]);
 
   const continueEditing = useCallback(() => {
     setDiscardPromptOpen(false);
@@ -76,11 +78,11 @@ export function InventoryProductCreateDialog({
 
   const confirmDiscard = useCallback(() => {
     if (intakeState.isPending) {
-      setCloseNotice("正在保存商品，请等待结果后再关闭。");
+      setCloseNotice(t("inventory2b4.quick.dialog.pendingClose"));
       return;
     }
     forceClose();
-  }, [forceClose, intakeState.isPending]);
+  }, [forceClose, intakeState.isPending, t]);
 
   const handleStateChange = useCallback((state: InventoryProductIntakeState) => {
     setIntakeState(state);
@@ -88,14 +90,14 @@ export function InventoryProductCreateDialog({
   }, []);
 
   const handleAuthorityInvalidated = useCallback(() => {
-    toast.warning("门店或权限已变化，未保存的商品草稿已清除。");
+    toast.warning(t("inventory2b4.quick.dialog.authorityChanged"));
     forceClose();
-  }, [forceClose]);
+  }, [forceClose, t]);
 
   const handleCreated = useCallback(
     async (id: string) => {
-      forceClose();
       await onCreated(id);
+      forceClose();
     },
     [forceClose, onCreated],
   );
@@ -129,10 +131,6 @@ export function InventoryProductCreateDialog({
             requestAnimationFrame(() => {
               dialogContentRef.current?.focus({ preventScroll: true });
             });
-          } else {
-            window.setTimeout(() => {
-              document.getElementById("product-brand")?.focus({ preventScroll: true });
-            }, 0);
           }
         }}
         onCloseAutoFocus={(event) => {
@@ -159,10 +157,8 @@ export function InventoryProductCreateDialog({
         }}
       >
         <DialogHeader className="sr-only">
-          <DialogTitle>快速录入商品</DialogTitle>
-          <DialogDescription>
-            在当前商品库存页面的弹窗中填写类别、品牌、型号、设备标识与经营资料。
-          </DialogDescription>
+          <DialogTitle>{t("inventory2b4.quick.dialog.title")}</DialogTitle>
+          <DialogDescription>{t("inventory2b4.quick.dialog.description")}</DialogDescription>
         </DialogHeader>
 
         <div
@@ -175,7 +171,7 @@ export function InventoryProductCreateDialog({
               fallback={
                 <div className="flex h-[min(28rem,calc(100svh-16px))] items-center justify-center gap-2 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] text-sm text-muted-foreground">
                   <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                  <span role="status">正在准备商品录入</span>
+                  <span role="status">{t("inventory2b4.quick.dialog.preparing")}</span>
                 </div>
               }
             >
@@ -226,13 +222,13 @@ export function InventoryProductCreateDialog({
               }}
             >
               <h2 id="inventory-product-discard-title" className="font-semibold">
-                放弃本次未保存商品？
+                {t("inventory2b4.quick.dialog.discardTitle")}
               </h2>
               <p
                 id="inventory-product-discard-description"
                 className="mt-1 text-sm text-muted-foreground"
               >
-                只会丢弃当前弹窗里的未保存内容，不会影响已经录入的库存商品。
+                {t("inventory2b4.quick.dialog.discardDescription")}
               </p>
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <Button
@@ -243,7 +239,7 @@ export function InventoryProductCreateDialog({
                   disabled={intakeState.isPending}
                   onClick={continueEditing}
                 >
-                  继续填写
+                  {t("inventory2b4.quick.frame.continueCreate")}
                 </Button>
                 <Button
                   ref={discardAndCloseRef}
@@ -252,7 +248,7 @@ export function InventoryProductCreateDialog({
                   disabled={intakeState.isPending}
                   onClick={confirmDiscard}
                 >
-                  放弃并关闭
+                  {t("inventory2b4.quick.dialog.discardAndClose")}
                 </Button>
               </div>
             </section>

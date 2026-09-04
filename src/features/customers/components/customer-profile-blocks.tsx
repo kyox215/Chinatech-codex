@@ -16,7 +16,14 @@ import {
   buildNewOrderWorkspaceHref,
   buildOrderDetailWorkspaceHref,
 } from "@/features/orders/model/order-workspace-intent";
+import { localizeWorkflowStatusLabel } from "@/features/orders/model/order-i18n";
 import { RepairOsBadge, RepairOsBusinessCard, RepairOsInfoTile } from "@/shared/ui";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import {
+  localizeCustomerDeviceDeleteReason,
+  localizeCustomerWarranty,
+} from "@/features/customers/model/customer-i18n";
+import { formatCustomerWorkbenchDate } from "@/features/customers/model/customer-workbench";
 
 const customerTagPriority = new Map([
   ["tag_followup", 0],
@@ -27,9 +34,12 @@ const customerTagPriority = new Map([
 ]);
 
 export function CustomerDetailTagList({ tags }: { tags: CustomerTag[] }) {
+  const { t } = useLocale();
   if (!tags.length)
     return (
-      <span className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">无标签</span>
+      <span className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
+        {t("customers.detail.noTags")}
+      </span>
     );
   const orderedTags = [...tags].sort(
     (a, b) =>
@@ -95,15 +105,17 @@ export function CustomerDeviceCard({
   customerId: string;
   deleting: boolean;
   onOpen: () => void;
-  onEdit: () => void;
+  onEdit: (control: HTMLButtonElement) => void;
   onDelete: () => void;
 }) {
+  const { t } = useLocale();
   const { device, latestOrder } = item;
   const hasHistory = item.orderItems.length > 0;
   const deviceName = `${device.brand} ${device.model}`;
   const stopCardClick = (event: ReactMouseEvent<HTMLElement>) => {
     event.stopPropagation();
   };
+  const stopCardKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => event.stopPropagation();
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
@@ -114,7 +126,7 @@ export function CustomerDeviceCard({
     <RepairOsBusinessCard
       role="button"
       tabIndex={0}
-      aria-label={`查看设备详情 ${device.brand} ${device.model}`}
+      aria-label={t("customers.detail.viewDevice", { brand: device.brand, model: device.model })}
       onClick={onOpen}
       onKeyDown={handleKeyDown}
       className="grid-cols-[minmax(0,1fr)] gap-1.5 px-2.5 py-1.5 transition-colors hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -129,7 +141,7 @@ export function CustomerDeviceCard({
             {device.brand} {device.model}
           </div>
           <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground sm:text-xs lg:text-[11px] lg:leading-4">
-            {device.serial_or_imei || "无 IMEI"}
+            {device.serial_or_imei || t("customers.detail.noImei")}
           </div>
         </div>
         <Smartphone className="size-4 shrink-0 text-muted-foreground" />
@@ -141,32 +153,44 @@ export function CustomerDeviceCard({
       )}
       <div className="grid min-w-0 grid-cols-2 gap-1.5">
         <RepairOsInfoTile
-          label="维修次数"
-          value={`${item.repairCount} 次`}
+          label={t("customers.detail.repairCount")}
+          value={t("customers.detail.repairsCount", { count: item.repairCount })}
           frame="plain"
           className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
           labelClassName="text-[9px] lg:text-[11px] lg:leading-4"
           valueClassName="truncate font-mono text-xs font-semibold leading-4 tabular-nums"
         />
         <RepairOsInfoTile
-          label="有效工单额"
-          value={item.financeRedacted ? "金额受限" : <MoneyText amount={item.totalQuoted} />}
+          label={t("customers.detail.validOrderValue")}
+          value={
+            item.financeRedacted ? (
+              t("customers.detail.financeRestricted")
+            ) : (
+              <MoneyText amount={item.totalQuoted} />
+            )
+          }
           frame="plain"
           className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
           labelClassName="text-[9px] lg:text-[11px] lg:leading-4"
           valueClassName="truncate font-mono text-xs font-semibold leading-4 tabular-nums"
         />
         <RepairOsInfoTile
-          label="待收"
-          value={item.financeRedacted ? "金额受限" : <MoneyText amount={item.unpaidAmount} />}
+          label={t("customers.detail.outstanding")}
+          value={
+            item.financeRedacted ? (
+              t("customers.detail.financeRestricted")
+            ) : (
+              <MoneyText amount={item.unpaidAmount} />
+            )
+          }
           frame="plain"
           className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
           labelClassName="text-[9px] lg:text-[11px] lg:leading-4"
           valueClassName="truncate font-mono text-xs font-semibold leading-4 tabular-nums"
         />
         <RepairOsInfoTile
-          label="售后"
-          value={item.warrantyLabel}
+          label={t("customers.detail.warranty")}
+          value={localizeCustomerWarranty(item.warranty, t)}
           frame="plain"
           className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
           labelClassName="text-[9px] lg:text-[11px] lg:leading-4"
@@ -180,6 +204,7 @@ export function CustomerDeviceCard({
               href={buildOrderDetailWorkspaceHref(latestOrder.order.id, { source: "customer" })}
               className="truncate font-mono text-[10px] font-semibold text-primary hover:underline lg:text-[11px] lg:leading-4"
               onClick={stopCardClick}
+              onKeyDown={stopCardKeyDown}
             >
               {latestOrder.order.public_no}
             </Link>
@@ -187,6 +212,13 @@ export function CustomerDeviceCard({
               status={
                 isCustomerOrderCancelled(latestOrder.order) ? "cancelled" : latestOrder.order.status
               }
+              label={localizeWorkflowStatusLabel(
+                undefined,
+                isCustomerOrderCancelled(latestOrder.order)
+                  ? "cancelled"
+                  : latestOrder.order.status,
+                t,
+              )}
               className="max-w-[5.5rem] text-[10px] lg:text-[11px] lg:leading-4"
             />
           </div>
@@ -194,32 +226,40 @@ export function CustomerDeviceCard({
             className="mt-0.5 line-clamp-1 text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4"
             title={latestOrder.order.issue_description}
           >
-            最近：{latestOrder.order.issue_description}
+            {t("customers.detail.latest", { issue: latestOrder.order.issue_description })}
           </p>
         </div>
       ) : (
         <div className="rounded-lg border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-2 text-[10px] font-medium leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-          暂无关联工单
+          {t("customers.detail.noLinkedOrders")}
         </div>
       )}
       {item.activeOrderCount > 0 ? (
         <RepairOsBadge className="w-fit bg-status-info text-[10px] text-status-info-foreground lg:text-[11px] lg:leading-4">
-          在修 {item.activeOrderCount}
+          {t("customers.detail.activeCount", { count: item.activeOrderCount })}
         </RepairOsBadge>
       ) : null}
       {hasHistory ? (
         <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-[var(--border-panel)] bg-card/60 px-2 py-1.5 text-[10px] leading-4 text-muted-foreground lg:text-[11px]">
           <span className="inline-flex min-w-0 items-center gap-1.5">
             <History className="size-3.5 shrink-0" />
-            <span className="truncate">设备历史 · {item.orderItems.length} 单</span>
+            <span className="whitespace-normal break-words">
+              {t("customers.detail.deviceHistoryCount", { count: item.orderItems.length })}
+            </span>
           </span>
-          <span className="shrink-0 text-primary">点开查看</span>
+          <span className="shrink-0 text-primary">{t("customers.detail.openToView")}</span>
         </div>
       ) : null}
       {!item.canDelete ? (
         <div className="flex min-w-0 items-start gap-1.5 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] font-medium leading-4 text-muted-foreground lg:text-xs lg:leading-[18px]">
           <ShieldCheck className="mt-0.5 size-3.5 shrink-0" />
-          <span>{item.deleteBlockedReason}</span>
+          <span>
+            {localizeCustomerDeviceDeleteReason(
+              item.deleteBlockedReasonKind,
+              item.deleteBlockedReason,
+              t,
+            )}
+          </span>
         </div>
       ) : null}
       <div className="flex flex-wrap gap-1.5">
@@ -231,8 +271,9 @@ export function CustomerDeviceCard({
               deviceId: device.id,
             })}
             onClick={stopCardClick}
+            onKeyDown={stopCardKeyDown}
           >
-            <Wrench className="size-3.5" /> 新建工单
+            <Wrench className="size-3.5" /> {t("customers.detail.newOrder")}
           </Link>
         </Button>
         <Button
@@ -241,10 +282,11 @@ export function CustomerDeviceCard({
           className="h-11 gap-1.5 lg:h-8"
           onClick={(event) => {
             event.stopPropagation();
-            onEdit();
+            onEdit(event.currentTarget);
           }}
+          onKeyDown={stopCardKeyDown}
         >
-          <Edit3 className="size-3.5" /> 编辑
+          <Edit3 className="size-3.5" /> {t("customers.detail.editShort")}
         </Button>
         {item.canDelete ? (
           <Button
@@ -256,14 +298,17 @@ export function CustomerDeviceCard({
               event.stopPropagation();
               if (
                 window.confirm(
-                  `确认删除 ${deviceName}${device.serial_or_imei ? ` · ${device.serial_or_imei}` : ""}？`,
+                  t("customers.detail.confirmDeleteDevice", {
+                    device: `${deviceName}${device.serial_or_imei ? ` · ${device.serial_or_imei}` : ""}`,
+                  }),
                 )
               ) {
                 onDelete();
               }
             }}
+            onKeyDown={stopCardKeyDown}
           >
-            <Trash2 className="size-3.5" /> 删除
+            <Trash2 className="size-3.5" /> {t("customers.detail.delete")}
           </Button>
         ) : null}
       </div>
@@ -278,6 +323,7 @@ export function CustomerOrderRow({
   order: OrderListItem;
   onFollowup: () => void;
 }) {
+  const { t } = useLocale();
   const cancelled = isCustomerOrderCancelled(order);
   const financeRedacted = Boolean(order.finance_redacted);
 
@@ -288,7 +334,7 @@ export function CustomerOrderRow({
         <>
           {financeRedacted ? (
             <span className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
-              金额受限
+              {t("customers.detail.financeRestricted")}
             </span>
           ) : (
             <MoneyText amount={order.quotation_amount} />
@@ -300,7 +346,7 @@ export function CustomerOrderRow({
               className="h-11 gap-1.5 lg:h-8"
               onClick={onFollowup}
             >
-              <Bell className="size-3.5" /> 待办
+              <Bell className="size-3.5" /> {t("customers.detail.followupShort")}
             </Button>
           )}
         </>
@@ -318,7 +364,14 @@ export function CustomerOrderRow({
           {order.device_label}
         </div>
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs lg:text-[11px] lg:leading-4">
-          <StatusBadge status={cancelled ? "cancelled" : order.status} />
+          <StatusBadge
+            status={cancelled ? "cancelled" : order.status}
+            label={localizeWorkflowStatusLabel(
+              undefined,
+              cancelled ? "cancelled" : order.status,
+              t,
+            )}
+          />
           <span className="min-w-0 max-w-full truncate" title={order.issue_description}>
             {order.issue_description}
           </span>
@@ -335,6 +388,7 @@ export function CustomerWorkbenchOrderRow({
   item: CustomerOrderWorkbenchItem;
   onFollowup?: () => void;
 }) {
+  const { t } = useLocale();
   const { order } = item;
   const unpaid = Math.max(0, order.balance_amount);
   const cancelled = isCustomerOrderCancelled(order);
@@ -347,22 +401,23 @@ export function CustomerWorkbenchOrderRow({
         <div className="grid min-w-0 justify-items-end gap-1">
           {financeRedacted ? (
             <span className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
-              金额受限
+              {t("customers.detail.financeRestricted")}
             </span>
           ) : (
             <>
               <MoneyText amount={order.quotation_amount} />
               <div className="grid justify-items-end gap-0.5 font-mono text-[10px] leading-3 text-muted-foreground tabular-nums lg:text-[11px] lg:leading-4">
                 <span>
-                  定金 <MoneyText amount={order.deposit_amount} />
+                  {t("customers.detail.deposit")} <MoneyText amount={order.deposit_amount} />
                 </span>
                 {cancelled ? (
                   <span className="text-muted-foreground">
-                    取消时余额 <MoneyText amount={unpaid} /> · 不计入待收
+                    {t("customers.detail.cancelBalance")} <MoneyText amount={unpaid} /> ·{" "}
+                    {t("customers.detail.notOutstanding")}
                   </span>
                 ) : (
                   <span className={unpaid > 0 ? "text-status-danger-foreground" : ""}>
-                    待收 <MoneyText amount={unpaid} />
+                    {t("customers.detail.outstanding")} <MoneyText amount={unpaid} />
                   </span>
                 )}
               </div>
@@ -375,7 +430,7 @@ export function CustomerWorkbenchOrderRow({
               className="h-11 gap-1.5 lg:h-8"
               onClick={onFollowup}
             >
-              <Bell className="size-3.5" /> 待办
+              <Bell className="size-3.5" /> {t("customers.detail.followupShort")}
             </Button>
           ) : null}
         </div>
@@ -390,7 +445,14 @@ export function CustomerWorkbenchOrderRow({
           >
             {order.public_no}
           </Link>
-          <StatusBadge status={cancelled ? "cancelled" : order.status} />
+          <StatusBadge
+            status={cancelled ? "cancelled" : order.status}
+            label={localizeWorkflowStatusLabel(
+              undefined,
+              cancelled ? "cancelled" : order.status,
+              t,
+            )}
+          />
         </div>
         <div className="mt-0.5 truncate text-xs font-medium sm:text-sm" title={item.deviceLabel}>
           {item.deviceLabel}
@@ -411,10 +473,11 @@ export function CustomerWorkbenchOrderRow({
 }
 
 export function CustomerTimelineList({ data, limit }: { data: CustomerDetail; limit?: number }) {
+  const { locale, t } = useLocale();
   const orderItems = data.orders.map((order) => ({
     id: `order-${order.id}`,
     at: order.created_at,
-    title: `工单 ${order.public_no}`,
+    title: t("customers.detail.timelineOrder", { number: order.public_no }),
     meta: order.device_label,
     body: order.issue_description,
   }));
@@ -428,15 +491,20 @@ export function CustomerTimelineList({ data, limit }: { data: CustomerDetail; li
   const followupItems = data.followups.map((followup) => ({
     id: `followup-${followup.id}`,
     at: followup.updated_at,
-    title: followup.status === "done" ? "完成待办" : "客户待办",
+    title:
+      followup.status === "done"
+        ? t("customers.detail.timelineFollowupDone")
+        : t("customers.detail.timelineFollowup"),
     meta: followup.title,
-    body: followup.note || `到期 ${formatCustomerDateTime(followup.due_at)}`,
+    body:
+      followup.note ||
+      t("customers.detail.timelineDue", { date: formatCustomerDateTime(followup.due_at, locale) }),
   }));
   const items = [...orderItems, ...interactionItems, ...followupItems]
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
     .slice(0, limit);
 
-  if (!items.length) return <CustomerEmptyLine text="暂无动态" />;
+  if (!items.length) return <CustomerEmptyLine text={t("customers.detail.noActivity")} />;
   return (
     <ol className="min-w-0 space-y-1.5 border-l border-border/50 pl-3 sm:space-y-2 sm:pl-3.5">
       {items.map((item) => (
@@ -453,7 +521,7 @@ export function CustomerTimelineList({ data, limit }: { data: CustomerDetail; li
               ) : null}
             </div>
             <time className="shrink-0 text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-              {formatCustomerDateTime(item.at)}
+              {formatCustomerDateTime(item.at, locale)}
             </time>
           </div>
           <p className="line-clamp-1 text-[10px] leading-[14px] text-muted-foreground sm:text-[11px] sm:leading-4 lg:text-[11px] lg:leading-4">
@@ -485,11 +553,6 @@ export function CustomerEmptyLine({ text }: { text: string }) {
   );
 }
 
-export function formatCustomerDateTime(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
+export function formatCustomerDateTime(value: string, locale: "zh-CN" | "it-IT" | "en" = "zh-CN") {
+  return formatCustomerWorkbenchDate(value, locale);
 }

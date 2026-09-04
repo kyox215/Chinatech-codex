@@ -22,6 +22,7 @@ describe("order task flow", () => {
         device_custody_status: "with_customer",
       }),
     ).toMatchObject({
+      guidanceCode: "device_with_customer",
       label: "客户持有设备",
       nextAction: "确认收机",
     });
@@ -96,6 +97,7 @@ describe("order task flow", () => {
         pickup_overdue: false,
       }),
     ).toMatchObject({
+      guidanceCode: "approval_overdue",
       label: "报价超期",
       nextAction: "联系客户",
       tone: "danger",
@@ -112,6 +114,7 @@ describe("order task flow", () => {
         pickup_overdue: false,
       }),
     ).toMatchObject({
+      guidanceCode: "repaired",
       workflowStatus: "repair",
       stage: expect.objectContaining({ key: "repair", label: "维修处理" }),
       label: "已修复",
@@ -130,6 +133,7 @@ describe("order task flow", () => {
         pickup_overdue: true,
       }),
     ).toMatchObject({
+      guidanceCode: "cancelled",
       workflowStatus: "closed",
       stage: expect.objectContaining({ label: "取消归档", tone: "neutral" }),
       label: "已取消",
@@ -137,5 +141,27 @@ describe("order task flow", () => {
       nextAction: "查看取消原因",
       tone: "neutral",
     });
+  });
+
+  it.each([
+    ["cancelled", { status: "cancelled", exception_status: "cancelled" }],
+    ["approval_overdue", { approval_overdue: true }],
+    ["device_with_customer", { device_custody_status: "with_customer" }],
+    ["pickup_overdue", { pickup_overdue: true }],
+    ["mail_in_progress", { status: "mail_in_progress" }],
+    ["repaired", { status: "repaired" }],
+    ["stage", {}],
+  ] as const)("returns stable guidance code %s", (guidanceCode, overrides) => {
+    expect(
+      getOrderTaskGuidance({
+        status: "new",
+        workflow_status: "intake",
+        exception_status: undefined,
+        approval_overdue: false,
+        pickup_overdue: false,
+        device_custody_status: null,
+        ...overrides,
+      }),
+    ).toMatchObject({ guidanceCode });
   });
 });

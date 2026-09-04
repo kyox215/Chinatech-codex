@@ -5,8 +5,32 @@ import Link from "next/link";
 import { ExternalLink, RefreshCw, Settings2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import type { StoreOutputIdentity } from "@/entities/store/model/store-output-identity";
+import type {
+  StoreOutputIdentity,
+  StoreOutputIdentityMissingField,
+} from "@/entities/store/model/store-output-identity";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey, MessageValues } from "@/shared/i18n/messages";
+
+type Translate = (key: MessageKey, values?: MessageValues) => string;
+
+const identityReasonKeys = {
+  settings_loading: "orders2b2.identity.reason.loading",
+  settings_load_failed: "orders2b2.identity.reason.loadFailed",
+  store_context_mismatch: "orders2b2.identity.reason.mismatch",
+  legacy_identity: "orders2b2.identity.reason.legacy",
+  missing_store_name: "orders2b2.identity.reason.missingName",
+} as const satisfies Partial<Record<NonNullable<StoreOutputIdentity["blockCode"]>, MessageKey>>;
+
+const missingFieldKeys: Record<StoreOutputIdentityMissingField, MessageKey> = {
+  store_name: "orders2b2.identity.field.storeName",
+  store_address: "orders2b2.identity.field.storeAddress",
+  contact: "orders2b2.identity.field.contact",
+  public_base_url: "orders2b2.identity.field.publicUrl",
+  message_signature: "orders2b2.identity.field.signature",
+  print_footer: "orders2b2.identity.field.footer",
+};
 
 type RecoveryCallback = () => void | Promise<unknown>;
 
@@ -29,6 +53,7 @@ export function StoreOutputIdentityRecovery({
   openSettingsInNewTab = false,
   className,
 }: StoreOutputIdentityRecoveryProps) {
+  const { t } = useLocale();
   const [pendingAction, setPendingAction] = useState<"retry" | "reload" | null>(null);
   const [actionError, setActionError] = useState("");
 
@@ -41,18 +66,18 @@ export function StoreOutputIdentityRecovery({
 
   const isWaiting = identity.recoveryTarget === "wait";
   const settingsDestination = getSettingsDestination(identity.recoveryTarget);
-  const settingsLabel = getSettingsLabel(identity.recoveryTarget, canUpdateSettings);
+  const settingsLabel = getSettingsLabel(identity.recoveryTarget, canUpdateSettings, t);
   const callbackAction =
     identity.recoveryTarget === "retry_settings"
       ? {
           key: "retry" as const,
-          label: "重新读取店铺资料",
+          label: t("orders2b2.identity.retrySettings"),
           callback: onRetrySettings,
         }
       : identity.recoveryTarget === "reload_store_context"
         ? {
             key: "reload" as const,
-            label: "重新加载当前店铺",
+            label: t("orders2b2.identity.reloadStore"),
             callback: onReloadStoreContext,
           }
         : undefined;
@@ -65,7 +90,7 @@ export function StoreOutputIdentityRecovery({
     try {
       await callback();
     } catch {
-      setActionError("恢复操作未成功，请稍后重试。若问题持续，请联系店主或经理。");
+      setActionError(t("orders2b2.identity.recoveryFailed"));
     } finally {
       setPendingAction(null);
     }
@@ -83,20 +108,16 @@ export function StoreOutputIdentityRecovery({
     >
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="break-words text-xs leading-5">
-            {identity.blockReason ?? "当前店铺资料尚未达到客户输出要求。"}
-          </p>
+          <p className="break-words text-xs leading-5">{localizeIdentityReason(identity, t)}</p>
           {settingsDestination && !canUpdateSettings ? (
             <p className="mt-1 text-[11px] leading-4">
               {canReadSettings
-                ? "当前账号只能查看设置；请联系店主或经理完成修改。"
-                : "当前账号无法打开店铺设置；请联系店主或经理处理。"}
+                ? t("orders2b2.identity.readonly")
+                : t("orders2b2.identity.noAccess")}
             </p>
           ) : null}
           {canRecheckSettings ? (
-            <p className="mt-1 text-[11px] leading-4">
-              修改完成后返回本页，点击“重新检查资料”继续。
-            </p>
+            <p className="mt-1 text-[11px] leading-4">{t("orders2b2.identity.recheckHelp")}</p>
           ) : null}
           {actionError ? (
             <p className="mt-1 text-[11px] leading-4" data-store-output-recovery-error>
@@ -121,7 +142,9 @@ export function StoreOutputIdentityRecovery({
                   target={openSettingsInNewTab ? "_blank" : undefined}
                   rel={openSettingsInNewTab ? "noopener noreferrer" : undefined}
                   aria-label={
-                    openSettingsInNewTab ? `${settingsLabel}（在新标签页打开）` : settingsLabel
+                    openSettingsInNewTab
+                      ? t("orders2b2.identity.newTab", { label: settingsLabel })
+                      : settingsLabel
                   }
                 >
                   <Settings2 aria-hidden="true" />
@@ -144,7 +167,9 @@ export function StoreOutputIdentityRecovery({
                   aria-hidden="true"
                   className={cn(pendingAction === "retry" && "animate-spin")}
                 />
-                {pendingAction === "retry" ? "正在检查…" : "重新检查资料"}
+                {pendingAction === "retry"
+                  ? t("orders2b2.identity.checking")
+                  : t("orders2b2.identity.recheck")}
               </Button>
             ) : null}
             {!settingsDestination && callbackAction?.callback ? (
@@ -161,7 +186,9 @@ export function StoreOutputIdentityRecovery({
                   aria-hidden="true"
                   className={cn(pendingAction === callbackAction.key && "animate-spin")}
                 />
-                {pendingAction === callbackAction.key ? "正在恢复…" : callbackAction.label}
+                {pendingAction === callbackAction.key
+                  ? t("orders2b2.identity.recovering")
+                  : callbackAction.label}
               </Button>
             ) : null}
           </div>
@@ -180,12 +207,30 @@ function getSettingsDestination(recoveryTarget: StoreOutputIdentity["recoveryTar
 function getSettingsLabel(
   recoveryTarget: StoreOutputIdentity["recoveryTarget"],
   canUpdateSettings: boolean,
+  t: Translate,
 ) {
   if (recoveryTarget === "store") {
-    return canUpdateSettings ? "前往店铺资料" : "查看店铺资料";
+    return canUpdateSettings
+      ? t("orders2b2.identity.editStore")
+      : t("orders2b2.identity.viewStore");
   }
   if (recoveryTarget === "notifications") {
-    return canUpdateSettings ? "前往通知与打印" : "查看通知与打印";
+    return canUpdateSettings
+      ? t("orders2b2.identity.editNotifications")
+      : t("orders2b2.identity.viewNotifications");
   }
   return undefined;
+}
+
+function localizeIdentityReason(identity: StoreOutputIdentity, t: Translate) {
+  if (identity.blockCode === "missing_required_fields") {
+    return t("orders2b2.identity.reason.missingFields", {
+      fields: identity.missingFields
+        .map((field) => t(missingFieldKeys[field]))
+        .join(t("orders2b2.event.fieldSeparator")),
+    });
+  }
+  const key = identity.blockCode ? identityReasonKeys[identity.blockCode] : undefined;
+  if (key) return t(key);
+  return identity.blockReason ?? t("orders2b2.identity.reason.default");
 }

@@ -25,6 +25,41 @@ describe("StoreShellUnavailableState", () => {
 
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
+
+  it.each(["platform_admin", "onboarding_required"] as const)(
+    "accepts localized presentation overrides without changing the %s destination",
+    (status) => {
+      render(
+        <StoreShellUnavailableState
+          shell={makeShell(status)}
+          title="Localized title"
+          description="Localized description"
+          actionLabel="Localized action"
+        />,
+      );
+
+      expect(screen.getByRole("heading", { name: "Localized title" })).toBeInTheDocument();
+      expect(screen.getByText("Localized description")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Localized action" })).toHaveAttribute(
+        "href",
+        status === "platform_admin" ? "/platform" : "/onboarding",
+      );
+    },
+  );
+
+  it("accepts a localized retry label without changing retry behavior", () => {
+    const onRetry = vi.fn();
+    render(
+      <StoreShellUnavailableState
+        shell={makeShell("error")}
+        onRetry={onRetry}
+        retryLabel="Localized retry"
+      />,
+    );
+
+    screen.getByRole("button", { name: "Localized retry" }).click();
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
 });
 
 function makeShell(status: StoreShellContextSnapshot["status"]): StoreShellContextSnapshot {

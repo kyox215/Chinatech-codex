@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Coins, LoaderCircle, RefreshCcw, RotateCcw, Save } from "lucide-react";
 
@@ -29,9 +29,12 @@ import type { StoreFaultCostDefaultsResult } from "@/lib/repairdesk/types";
 import { brandGradientStyle, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { RepairOsSectionHeader } from "@/shared/ui";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { translateSettingsOperations } from "@/shared/i18n/messages";
 
 type CostDraft = Record<string, string>;
 type CostNotice = { kind: "success" | "error" | "info"; message: string };
+type CostValidationCode = "decimal_precision" | "amount_too_large";
 
 interface CostDraftState {
   storeId: string;
@@ -46,11 +49,42 @@ export interface RepairCostDefaultsCardProps {
 }
 
 export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefaultsCardProps) {
+  const { locale } = useLocale();
+  const copy = (
+    source: Parameters<typeof translateSettingsOperations>[1],
+    values?: Parameters<typeof translateSettingsOperations>[2],
+  ) => translateSettingsOperations(locale, source, values);
   const queryClient = useQueryClient();
   const queryKey = useMemo(() => ["orders", "cost-defaults", storeId] as const, [storeId]);
   const [draftState, setDraftState] = useState<CostDraftState>();
   const [notice, setNotice] = useState<CostNotice>();
   const [hasSaveConflict, setHasSaveConflict] = useState(false);
+  const mountedRef = useRef(true);
+  const storeIdRef = useRef(storeId);
+  const epochRef = useRef(0);
+  const saveLockRef = useRef(false);
+
+  useEffect(() => {
+    if (storeIdRef.current !== storeId) {
+      storeIdRef.current = storeId;
+      epochRef.current += 1;
+      saveLockRef.current = false;
+      setDraftState(undefined);
+      setNotice(undefined);
+      setHasSaveConflict(false);
+    }
+  }, [storeId]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      epochRef.current += 1;
+    };
+  }, []);
+
+  const isCurrent = (epoch: number, expectedStoreId: string) =>
+    mountedRef.current && epochRef.current === epoch && storeIdRef.current === expectedStoreId;
 
   const defaultsQuery = useQuery({
     queryKey,
@@ -85,10 +119,11 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
       expectedStoreId: string;
       expectedVersion: number;
       values: CostDraft;
+      epoch: number;
     }) => {
       const parsed = validateCostDraft(request.values);
       if (Object.keys(parsed.errors).length > 0) {
-        throw new Error("请先修正标记的成本金额");
+        throw new Error("invalid_cost_draft");
       }
       return updateStoreFaultCostDefaults({
         expected_store_id: request.expectedStoreId,
@@ -101,25 +136,28 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
       });
     },
     onSuccess: (result, request) => {
-      if (request.expectedStoreId !== storeId) return;
+      if (!isCurrent(request.epoch, request.expectedStoreId)) return;
       queryClient.setQueryData(queryKey, result);
       setDraftState(draftStateFromResult(storeId, result));
       setHasSaveConflict(false);
-      setNotice({ kind: "success", message: "维修项目默认成本已保存。" });
+      setNotice({ kind: "success", message: copy("维修项目默认成本已保存。") });
     },
-    onError: (error) => {
+    onError: (error, request) => {
       if (error instanceof RepairDeskApiError && error.status === 409) {
+        if (!isCurrent(request.epoch, request.expectedStoreId)) return;
         setHasSaveConflict(true);
         setNotice({
           kind: "error",
-          message: "默认成本已被其他会话更新。请重新加载最新值后再修改。",
+          message: copy("默认成本已被其他会话更新。请重新加载最新值后再修改。"),
         });
         return;
       }
-      setNotice({
-        kind: "error",
-        message: error instanceof Error && error.message ? error.message : "保存默认成本失败",
-      });
+      if (isCurrent(request.epoch, request.expectedStoreId)) {
+        setNotice({ kind: "error", message: copy("保存默认成本失败") });
+      }
+    },
+    onSettled: (_data, _error, request) => {
+      if (isCurrent(request.epoch, request.expectedStoreId)) saveLockRef.current = false;
     },
   });
 
@@ -132,17 +170,19 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
   );
 
   const save = async () => {
-    if (!draftState || !canSave) return false;
+    if (!draftState || !canSave || saveLockRef.current) return false;
     if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setNotice({ kind: "error", message: "默认成本包含敏感数据，请联网后再保存。" });
+      setNotice({ kind: "error", message: copy("默认成本包含敏感数据，请联网后再保存。") });
       return false;
     }
-    setNotice({ kind: "info", message: "正在保存维修项目默认成本…" });
+    saveLockRef.current = true;
+    setNotice({ kind: "info", message: copy("正在保存维修项目默认成本…") });
     try {
       await saveMutation.mutateAsync({
         expectedStoreId: storeId,
         expectedVersion: draftState.version,
         values: draftState.values,
+        epoch: epochRef.current,
       });
       return true;
     } catch {
@@ -153,34 +193,39 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
   const discardChanges = () => {
     if (!draftState) return;
     setDraftState({ ...draftState, values: { ...draftState.baseline } });
-    setNotice({ kind: "info", message: "未保存的默认成本修改已撤销。" });
+    setNotice({ kind: "info", message: copy("未保存的默认成本修改已撤销。") });
   };
 
   const reloadLatest = async () => {
-    setNotice({ kind: "info", message: "正在重新加载最新默认成本…" });
+    const epoch = epochRef.current;
+    const expectedStoreId = storeId;
+    setNotice({ kind: "info", message: copy("正在重新加载最新默认成本…") });
     const result = await defaultsQuery.refetch();
+    if (!isCurrent(epoch, expectedStoreId)) return;
     if (result.isError || !result.data) {
-      setNotice({ kind: "error", message: "重新加载失败，请稍后重试。" });
+      setNotice({ kind: "error", message: copy("重新加载失败，请稍后重试。") });
       return;
     }
     setDraftState(draftStateFromResult(storeId, result.data));
     setHasSaveConflict(false);
     saveMutation.reset();
-    setNotice({ kind: "success", message: "已加载最新默认成本。" });
+    setNotice({ kind: "success", message: copy("已加载最新默认成本。") });
   };
 
   if (defaultsQuery.isError && !draftState) {
     return (
       <section
-        aria-label="维修项目默认成本"
+        aria-label={copy("维修项目默认成本")}
         className={cn(repairOs.adminSection, "p-2.5 sm:p-3", className)}
       >
-        <RepairOsSectionHeader icon={Coins} iconFrame={false} title="维修项目默认成本" />
+        <RepairOsSectionHeader icon={Coins} iconFrame={false} title={copy("维修项目默认成本")} />
         <div
           role="alert"
           className="flex flex-col gap-2 rounded-xl border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-2.5 text-status-danger-foreground sm:flex-row sm:items-center sm:justify-between"
         >
-          <p className="text-xs leading-5">无法读取默认成本，请确认网络和当前权限后重试。</p>
+          <p className="text-xs leading-5">
+            {copy("无法读取默认成本，请确认网络和当前权限后重试。")}
+          </p>
           <Button
             type="button"
             size="sm"
@@ -188,7 +233,7 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
             className="min-h-10 shrink-0 bg-card"
             onClick={() => void defaultsQuery.refetch()}
           >
-            <RefreshCcw className="size-3.5" /> 重新加载
+            <RefreshCcw className="size-3.5" /> {copy("重新加载")}
           </Button>
         </div>
       </section>
@@ -198,15 +243,15 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
   if (defaultsQuery.isLoading || !draftState) {
     return (
       <section
-        aria-label="维修项目默认成本"
+        aria-label={copy("维修项目默认成本")}
         aria-busy="true"
         className={cn(repairOs.adminSection, "space-y-3 p-2.5 sm:p-3", className)}
       >
         <RepairOsSectionHeader
           icon={Coins}
           iconFrame={false}
-          title="维修项目默认成本"
-          description="正在读取当前店铺配置"
+          title={copy("维修项目默认成本")}
+          description={copy("正在读取当前店铺配置")}
         />
         <div className="grid gap-2 sm:grid-cols-2">
           <div className="h-14 animate-pulse rounded-xl bg-muted" />
@@ -218,7 +263,7 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
 
   return (
     <section
-      aria-label="维修项目默认成本"
+      aria-label={copy("维修项目默认成本")}
       aria-busy={saveMutation.isPending}
       className={cn(repairOs.adminSection, "p-2.5 sm:p-3", className)}
     >
@@ -229,12 +274,12 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
         canSave={canSave}
         saveUnavailableReason={
           isConflict
-            ? "默认成本版本已变化，请先重新加载最新值"
+            ? copy("默认成本版本已变化，请先重新加载最新值")
             : Object.keys(validation.errors).length > 0
-              ? "请先修正标记的成本金额"
-              : "当前默认成本暂时无法保存"
+              ? copy("请先修正标记的成本金额")
+              : copy("当前默认成本暂时无法保存")
         }
-        label="维修项目默认成本"
+        label={copy("维修项目默认成本")}
         onSave={async () => ((await save()) ? { status: "resolved" } : { status: "blocked" })}
         onDiscard={() => {
           discardChanges();
@@ -245,23 +290,27 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
       <RepairOsSectionHeader
         icon={Coins}
         iconFrame={false}
-        title="维修项目默认成本"
-        description="仅作为之后新建订单项目的成本快照"
+        title={copy("维修项目默认成本")}
+        description={copy("仅作为之后新建订单项目的成本快照")}
         action={
           <Badge
             variant="outline"
             className="font-mono text-[10px] tabular-nums lg:text-[11px] lg:leading-4"
           >
-            {configuredCount}/{repairServiceCatalogItems.length} 已设置
+            {copy("{configured}/{total} 已设置", {
+              configured: configuredCount,
+              total: repairServiceCatalogItems.length,
+            })}
           </Badge>
         }
       />
 
       <div className="mb-3 rounded-xl border border-status-warn-foreground/20 bg-status-warn/10 px-3 py-2.5 text-status-warn-foreground">
-        <p className="text-xs font-semibold">成本仅供获授权管理人员查看</p>
+        <p className="text-xs font-semibold">{copy("成本仅供获授权管理人员查看")}</p>
         <p className="mt-1 text-[11px] leading-4 lg:text-xs lg:leading-[18px]">
-          空白表示成本未知，输入 0
-          表示明确零成本。保存后只影响之后新建的维修项目，不会改写已有订单。
+          {copy(
+            "空白表示成本未知，输入 0 表示明确零成本。保存后只影响之后新建的维修项目，不会改写已有订单。",
+          )}
         </p>
       </div>
 
@@ -271,7 +320,7 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
           className="mb-3 flex flex-col gap-2 rounded-xl border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-2.5 text-status-danger-foreground sm:flex-row sm:items-center sm:justify-between"
         >
           <p className="text-xs leading-5">
-            默认成本版本已变化。为避免覆盖他人的更新，请重新加载后再编辑。
+            {copy("默认成本版本已变化。为避免覆盖他人的更新，请重新加载后再编辑。")}
           </p>
           <Button
             type="button"
@@ -286,7 +335,7 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
             ) : (
               <RefreshCcw className="size-3.5" />
             )}
-            重新加载最新值
+            {copy("重新加载最新值")}
           </Button>
         </div>
       ) : null}
@@ -339,13 +388,17 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
                             htmlFor={inputId}
                             className="block truncate text-[11px] font-medium lg:text-xs lg:leading-4"
                           >
-                            {item.isMain ? `${item.label}默认成本` : item.label}
+                            {item.isMain
+                              ? copy("{label}默认成本", { label: item.label })
+                              : item.label}
                           </Label>
                           <p
                             id={descriptionId}
                             className="mt-0.5 truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4"
                           >
-                            {item.isMain ? `主项目 · ${item.italian}` : item.italian}
+                            {item.isMain
+                              ? copy("主项目 · {label}", { label: item.italian })
+                              : item.italian}
                           </p>
                         </div>
                         <div className="min-w-0">
@@ -356,11 +409,11 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
                               inputMode="decimal"
                               autoComplete="off"
                               maxLength={12}
-                              placeholder="空白"
+                              placeholder={copy("空白")}
                               className="h-10 pr-8 text-right font-mono text-base tabular-nums sm:h-9 sm:text-sm"
                               value={values[item.catalogKey] ?? ""}
                               disabled={saveMutation.isPending || isConflict}
-                              aria-label={`${item.name}默认成本`}
+                              aria-label={copy("{label}默认成本", { label: item.name })}
                               aria-invalid={Boolean(error)}
                               aria-describedby={
                                 error ? `${descriptionId} ${errorId}` : descriptionId
@@ -398,7 +451,7 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
                               id={errorId}
                               className="mt-1 text-[9px] leading-3 text-status-danger-foreground lg:text-xs lg:leading-[18px]"
                             >
-                              {error}
+                              {costValidationLabel(error, copy)}
                             </p>
                           ) : null}
                         </div>
@@ -430,7 +483,7 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
 
       <div className="mt-3 flex min-w-0 flex-col gap-2 border-t border-[var(--border-panel)] pt-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
-          {isDirty ? "存在未保存的默认成本修改。" : "当前默认成本已与服务器同步。"}
+          {isDirty ? copy("存在未保存的默认成本修改。") : copy("当前默认成本已与服务器同步。")}
         </p>
         <div className="flex min-w-0 flex-col-reverse gap-2 sm:flex-row">
           <Button
@@ -440,7 +493,7 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
             disabled={!isDirty || saveMutation.isPending}
             onClick={discardChanges}
           >
-            <RotateCcw className="size-3.5" /> 撤销未保存修改
+            <RotateCcw className="size-3.5" /> {copy("撤销未保存修改")}
           </Button>
           <Button
             type="button"
@@ -454,7 +507,7 @@ export function RepairCostDefaultsCard({ storeId, className }: RepairCostDefault
             ) : (
               <Save className="size-3.5" />
             )}
-            {saveMutation.isPending ? "保存中…" : "保存默认成本"}
+            {saveMutation.isPending ? copy("保存中…") : copy("保存默认成本")}
           </Button>
         </div>
       </div>
@@ -491,7 +544,7 @@ function areCostDraftsEqual(left: CostDraft, right: CostDraft) {
 
 function validateCostDraft(values: CostDraft) {
   const amounts: Record<string, number | null> = {};
-  const errors: Record<string, string> = {};
+  const errors: Record<string, CostValidationCode> = {};
   for (const item of repairServiceCatalogItems) {
     const parsed = parseCostDraft(values[item.catalogKey] ?? "");
     amounts[item.catalogKey] = parsed.value;
@@ -500,16 +553,26 @@ function validateCostDraft(values: CostDraft) {
   return { amounts, errors };
 }
 
-function parseCostDraft(value: string): { value: number | null; error?: string } {
+function parseCostDraft(value: string): { value: number | null; error?: CostValidationCode } {
   const trimmed = value.trim();
   if (!trimmed) return { value: null };
   const normalized = trimmed.replace(",", ".");
   if (!/^\d+(?:\.\d{0,2})?$/.test(normalized)) {
-    return { value: null, error: "请输入最多两位小数" };
+    return { value: null, error: "decimal_precision" };
   }
   const numeric = Number(normalized);
   if (!Number.isFinite(numeric) || numeric > 999_999.99) {
-    return { value: null, error: "金额不能超过 999999.99" };
+    return { value: null, error: "amount_too_large" };
   }
   return { value: numeric };
+}
+
+function costValidationLabel(
+  code: CostValidationCode,
+  copy: (
+    source: Parameters<typeof translateSettingsOperations>[1],
+    values?: Parameters<typeof translateSettingsOperations>[2],
+  ) => string,
+) {
+  return code === "amount_too_large" ? copy("金额不能超过 999999.99") : copy("请输入最多两位小数");
 }

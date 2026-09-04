@@ -7,6 +7,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import type { StoreShellContextSnapshot } from "@/features/stores/model/store-shell-context";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import type {
+  Customer,
   CustomerIntakeCandidate,
   CustomerIntakeNewCustomerPolicy,
 } from "@/lib/repairdesk/api";
@@ -95,6 +96,67 @@ describe("customer identity lookup mobile stability", () => {
     });
   });
 
+  it("closes the reusable lookup only after an asynchronous customer pick succeeds", async () => {
+    const user = userEvent.setup();
+    const customer = {
+      id: "customer-pick-success",
+      name: "Alice Dynamic",
+      phone_e164: "+393335719865",
+      phone_raw: "3335719865",
+      contact_phones: [],
+      consent_marketing: false,
+      consent_sms: true,
+    } satisfies Customer;
+    let resolvePick: (() => void) | undefined;
+    const onPick = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolvePick = resolve;
+        }),
+    );
+    apiMocks.searchCustomers.mockResolvedValue([customer]);
+
+    renderWithClient(<CustomerPhoneLookupHarness onPick={onPick} />);
+    const input = screen.getByRole("combobox");
+    await user.type(input, "Alice");
+    await user.click(await screen.findByRole("option", { name: /Alice Dynamic/ }));
+
+    expect(onPick).toHaveBeenCalledWith(customer);
+    expect(screen.getByRole("listbox", { name: "客户搜索结果" })).toBeInTheDocument();
+    resolvePick?.();
+    await waitFor(() =>
+      expect(screen.queryByRole("listbox", { name: "客户搜索结果" })).not.toBeInTheDocument(),
+    );
+  });
+
+  it("contains a rejected asynchronous reusable customer pick and preserves its search state", async () => {
+    const user = userEvent.setup();
+    const customer = {
+      id: "customer-pick-reject",
+      name: "Alice Dynamic",
+      phone_e164: "+393335719865",
+      phone_raw: "3335719865",
+      contact_phones: [],
+      consent_marketing: false,
+      consent_sms: true,
+    } satisfies Customer;
+    const onPick = vi.fn().mockRejectedValue(new Error("CUSTOMER_PICK_SECRET_SENTINEL"));
+    apiMocks.searchCustomers.mockResolvedValue([customer]);
+
+    renderWithClient(<CustomerPhoneLookupHarness onPick={onPick} />);
+    await user.type(screen.getByRole("combobox"), "Alice");
+    await user.click(await screen.findByRole("option", { name: /Alice Dynamic/ }));
+
+    await waitFor(() => expect(onPick).toHaveBeenCalledWith(customer));
+    await waitFor(() =>
+      expect(screen.getByRole("listbox", { name: "客户搜索结果" })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("combobox")).toHaveValue("Alice");
+    expect(screen.getByRole("combobox")).toHaveAttribute("aria-expanded", "true");
+    expect(onPick).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("CUSTOMER_PICK_SECRET_SENTINEL")).not.toBeInTheDocument();
+  });
+
   it("still searches by name when phone is empty", async () => {
     const user = userEvent.setup();
 
@@ -169,7 +231,8 @@ describe("customer identity lookup mobile stability", () => {
     renderWithClient(<CustomerIdentityLookupHarness initialPhone="3335719865" />);
 
     const phone = screen.getByRole("combobox", { name: "客户电话号码" });
-    expect(await screen.findByRole("alert")).toHaveTextContent("lookup unavailable");
+    expect(await screen.findByRole("alert")).toHaveTextContent("暂时无法确认是否已有客户。");
+    expect(screen.queryByText("lookup unavailable")).not.toBeInTheDocument();
     expect(phone).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("listbox", { name: "客户匹配结果" })).not.toBeInTheDocument();
   });
@@ -337,10 +400,12 @@ function makeIntakeCandidate(
   };
 }
 
-function CustomerPhoneLookupHarness() {
+function CustomerPhoneLookupHarness({
+  onPick = () => undefined,
+}: { onPick?: (customer: Customer) => void | Promise<void> } = {}) {
   const [value, setValue] = useState("");
 
-  return <CustomerPhoneLookup value={value} onChange={setValue} onPick={() => undefined} />;
+  return <CustomerPhoneLookup value={value} onChange={setValue} onPick={onPick} />;
 }
 
 function renderWithClient(children: ReactNode) {

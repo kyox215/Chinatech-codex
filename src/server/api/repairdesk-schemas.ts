@@ -26,6 +26,7 @@ import {
   BUYBACK_EVIDENCE_UPLOAD_MAX_BASE64_LENGTH,
   BUYBACK_EVIDENCE_UPLOAD_MAX_BYTES,
 } from "@/features/buyback/model/buyback-evidence-policy";
+import { hasBuybackSensitiveText } from "@/features/buyback/model/buyback-sensitive-text";
 import {
   approvalStatus,
   repairOrderType,
@@ -1859,10 +1860,14 @@ const buybackSafeNoteSchema = (min: number, max: number) =>
     .trim()
     .min(min)
     .max(max)
-    .refine(
-      (value) => !/\d{8,}/.test(value.replace(/\D/g, "")),
-      "说明中不能填写完整电话、IMEI 或证件号码",
-    );
+    .refine((value) => !hasBuybackSensitiveText(value), "说明中不能填写完整电话、IMEI 或证件号码");
+
+const buybackDeductionLabelSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(60)
+  .refine((value) => !hasBuybackSensitiveText(value), "说明中不能填写完整电话、IMEI 或证件号码");
 
 const buybackQuoteSnapshotSchema = z
   .object({
@@ -1877,7 +1882,7 @@ const buybackQuoteSnapshotSchema = z
               .string()
               .trim()
               .regex(/^[a-z0-9_:-]{1,40}$/),
-            label: z.string().trim().min(1).max(60),
+            label: buybackDeductionLabelSchema,
             amount: buybackMoneySchema,
           })
           .strict(),

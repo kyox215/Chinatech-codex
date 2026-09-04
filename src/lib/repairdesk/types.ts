@@ -1272,6 +1272,7 @@ export interface OrderCapabilities {
   canTransition: boolean;
   canConfirmCancelledReturn: boolean;
   canCreateKioskSession: boolean;
+  canUploadPhoto?: boolean;
   canCorrect: boolean;
   canReopen: boolean;
   canVoid: boolean;

@@ -30,7 +30,7 @@ import {
   STORE_INVENTORY_WARRANTY_RANGE,
   STORE_RULE_DEFAULTS,
 } from "@/entities/store/model/store-setting-defaults";
-import { ORDER_WARRANTY_OPTIONS, formatWarrantyText } from "@/features/orders/model/order-warranty";
+import { ORDER_WARRANTY_OPTIONS } from "@/features/orders/model/order-warranty";
 import { CostBackfillCard } from "@/features/settings/components/cost-backfill-card";
 import { CostCurrencySettingsCard } from "@/features/settings/components/cost-currency-settings-card";
 import { RepairCostDefaultsCard } from "@/features/settings/components/repair-cost-defaults-card";
@@ -44,6 +44,8 @@ import {
 import type { StoreSettingsDraftValues } from "@/features/settings/model/store-settings-draft";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { translateSettingsOperations } from "@/shared/i18n/messages";
 import { RepairOsSectionHeader } from "@/shared/ui";
 
 export interface RulesSettingsSectionProps {
@@ -75,6 +77,11 @@ export function RulesSettingsSection({
   fieldErrors,
   onDraftChange,
 }: RulesSettingsSectionProps) {
+  const { locale } = useLocale();
+  const copy = (
+    source: Parameters<typeof translateSettingsOperations>[1],
+    values?: Parameters<typeof translateSettingsOperations>[2],
+  ) => translateSettingsOperations(locale, source, values);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [costsOpen, setCostsOpen] = useState(false);
   const [restoredToDraft, setRestoredToDraft] = useState(false);
@@ -92,12 +99,12 @@ export function RulesSettingsSection({
   const inventoryWarrantyNumber = Number(inventoryWarrantyInput);
   const inventoryWarrantyLocalError =
     inventoryWarrantyInput.trim() === ""
-      ? "请输入库存默认保修月数"
+      ? copy("请输入库存默认保修月数")
       : !Number.isFinite(inventoryWarrantyNumber) || !Number.isInteger(inventoryWarrantyNumber)
-        ? "库存默认保修必须是整数"
+        ? copy("库存默认保修必须是整数")
         : inventoryWarrantyNumber < STORE_INVENTORY_WARRANTY_RANGE.min ||
             inventoryWarrantyNumber > STORE_INVENTORY_WARRANTY_RANGE.max
-          ? "库存默认保修必须在 0–120 个月之间"
+          ? copy("库存默认保修必须在 0–120 个月之间")
           : undefined;
   const inventoryWarrantyError =
     getSettingsFieldError(fieldErrors, "default_inventory_warranty_months") ??
@@ -119,27 +126,29 @@ export function RulesSettingsSection({
         <RepairOsSectionHeader
           icon={Settings2}
           iconFrame={false}
-          title="默认规则"
+          title={copy("默认规则")}
           action={
             <Badge variant="outline" className="text-[10px] lg:text-[11px] lg:leading-4">
-              {canUpdateSettings ? "可编辑" : "只读"}
+              {copy(canUpdateSettings ? "可编辑" : "只读")}
             </Badge>
           }
         />
 
         <div className="mb-3 rounded-xl border border-status-info-foreground/20 bg-status-info/10 px-3 py-2.5 text-status-info-foreground">
           <p className="inline-flex items-center gap-1.5 text-xs font-semibold">
-            <ShieldCheck className="size-3.5" /> 只影响之后新建的业务对象
+            <ShieldCheck className="size-3.5" /> {copy("只影响之后新建的业务对象")}
           </p>
           <p className="mt-1 text-[11px] leading-4 lg:text-xs lg:leading-4">
-            保存后，新打开的快速接单、新维修单和新库存商品会采用这些默认值；已经打开的接单会话、已有维修单、库存记录及已售保修快照不会被改写。
+            {copy(
+              "保存后，新打开的快速接单、新维修单和新库存商品会采用这些默认值；已经打开的接单会话、已有维修单、库存记录及已售保修快照不会被改写。",
+            )}
           </p>
         </div>
 
         {canUpdateSettings ? (
           <div className="grid min-w-0 gap-3 xl:grid-cols-2">
             <SettingsField
-              label="快速接单模式"
+              label={copy("快速接单模式")}
               htmlFor="new-order-mode-professional"
               error={getSettingsFieldError(fieldErrors, "new_order_entry_mode")}
             >
@@ -165,9 +174,9 @@ export function RulesSettingsSection({
                 >
                   <RadioGroupItem id="new-order-mode-simple" value="simple" className="mt-0.5" />
                   <span>
-                    <span className="block text-xs font-semibold">简易模式</span>
+                    <span className="block text-xs font-semibold">{copy("简易模式")}</span>
                     <span className="mt-1 block text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-                      用四个步骤引导新员工完成客户、设备、维修报价和确认。
+                      {copy("用四个步骤引导新员工完成客户、设备、维修报价和确认。")}
                     </span>
                   </span>
                 </label>
@@ -186,9 +195,9 @@ export function RulesSettingsSection({
                     className="mt-0.5"
                   />
                   <span>
-                    <span className="block text-xs font-semibold">专业模式</span>
+                    <span className="block text-xs font-semibold">{copy("专业模式")}</span>
                     <span className="mt-1 block text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-                      保持当前快速接单工作台，一次显示全部字段。
+                      {copy("保持当前快速接单工作台，一次显示全部字段。")}
                     </span>
                   </span>
                 </label>
@@ -197,11 +206,11 @@ export function RulesSettingsSection({
                 id="new-order-mode-description"
                 className="text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4"
               >
-                模式变更会在下次打开快速接单时生效。
+                {copy("模式变更会在下次打开快速接单时生效。")}
               </p>
             </SettingsField>
             <SettingsField
-              label="新维修单默认质保"
+              label={copy("新维修单默认质保")}
               htmlFor="order-warranty"
               error={getSettingsFieldError(fieldErrors, "default_order_warranty_months")}
             >
@@ -232,14 +241,14 @@ export function RulesSettingsSection({
                 <SelectContent>
                   {ORDER_WARRANTY_OPTIONS.map((option) => (
                     <SelectItem key={option.months} value={String(option.months)}>
-                      {option.label}
+                      {formatOrderWarranty(option.months, copy)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </SettingsField>
             <SettingsField
-              label="新库存商品默认保修月数"
+              label={copy("新库存商品默认保修月数")}
               htmlFor="inventory-warranty"
               error={inventoryWarrantyError}
             >
@@ -274,27 +283,27 @@ export function RulesSettingsSection({
                 }}
               />
               <p className="text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-                0 表示新库存默认无保修；允许范围 0–120 个月。
+                {copy("0 表示新库存默认无保修；允许范围 0–120 个月。")}
               </p>
             </SettingsField>
           </div>
         ) : (
           <dl className="grid min-w-0 gap-2 sm:grid-cols-2">
             <ReadOnlyRule
-              label="快速接单模式"
+              label={copy("快速接单模式")}
               value={
                 draft.new_order_entry_mode === "simple"
-                  ? "简易模式（四步引导）"
-                  : "专业模式（全部字段）"
+                  ? copy("简易模式（四步引导）")
+                  : copy("专业模式（全部字段）")
               }
             />
             <ReadOnlyRule
-              label="新维修单默认质保"
-              value={formatWarrantyText(draft.default_order_warranty_months)}
+              label={copy("新维修单默认质保")}
+              value={formatOrderWarranty(draft.default_order_warranty_months, copy)}
             />
             <ReadOnlyRule
-              label="新库存商品默认保修"
-              value={formatInventoryWarranty(draft.default_inventory_warranty_months)}
+              label={copy("新库存商品默认保修")}
+              value={formatInventoryWarranty(draft.default_inventory_warranty_months, copy)}
             />
           </dl>
         )}
@@ -306,10 +315,10 @@ export function RulesSettingsSection({
               className="text-[11px] text-muted-foreground lg:text-xs lg:leading-4"
             >
               {restoredToDraft && isDraftDirty
-                ? "默认值已应用到草稿，仍需点击“保存”才会生效。"
+                ? copy("默认值已应用到草稿，仍需点击“保存”才会生效。")
                 : isDefault
-                  ? "当前草稿已是系统默认。"
-                  : "恢复默认只修改当前草稿，不会绕过保存与版本冲突检查。"}
+                  ? copy("当前草稿已是系统默认。")
+                  : copy("恢复默认只修改当前草稿，不会绕过保存与版本冲突检查。")}
             </p>
             <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
               <AlertDialogTrigger asChild>
@@ -323,25 +332,39 @@ export function RulesSettingsSection({
                   }}
                 >
                   <RotateCcw className="size-3.5" />
-                  恢复系统默认
+                  {copy("恢复系统默认")}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>把系统默认值应用到草稿？</AlertDialogTitle>
+                  <AlertDialogTitle>{copy("把系统默认值应用到草稿？")}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    快速接单将恢复为专业模式； 维修默认质保将从{" "}
-                    {formatWarrantyText(draft.default_order_warranty_months)} 调整为{" "}
-                    {formatWarrantyText(STORE_RULE_DEFAULTS.default_order_warranty_months)}
-                    ；库存默认保修将从{" "}
-                    {formatInventoryWarranty(draft.default_inventory_warranty_months)} 调整为{" "}
-                    {formatInventoryWarranty(STORE_RULE_DEFAULTS.default_inventory_warranty_months)}
-                    。这里只更新草稿，确认后仍需单独保存。
+                    {copy(
+                      "快速接单将恢复为专业模式；维修默认质保将从 {currentOrder} 调整为 {defaultOrder}；库存默认保修将从 {currentInventory} 调整为 {defaultInventory}。这里只更新草稿，确认后仍需单独保存。",
+                      {
+                        currentOrder: formatOrderWarranty(
+                          draft.default_order_warranty_months,
+                          copy,
+                        ),
+                        defaultOrder: formatOrderWarranty(
+                          STORE_RULE_DEFAULTS.default_order_warranty_months,
+                          copy,
+                        ),
+                        currentInventory: formatInventoryWarranty(
+                          draft.default_inventory_warranty_months,
+                          copy,
+                        ),
+                        defaultInventory: formatInventoryWarranty(
+                          STORE_RULE_DEFAULTS.default_inventory_warranty_months,
+                          copy,
+                        ),
+                      },
+                    )}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel type="button" className="min-h-11">
-                    取消
+                    {copy("取消")}
                   </AlertDialogCancel>
                   <AlertDialogAction
                     type="button"
@@ -351,7 +374,7 @@ export function RulesSettingsSection({
                       setRestoredToDraft(true);
                     }}
                   >
-                    应用默认值到草稿
+                    {copy("应用默认值到草稿")}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -377,9 +400,9 @@ export function RulesSettingsSection({
               className="flex min-h-11 w-full min-w-0 items-center gap-2 px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-4"
             >
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold">财务与成本</span>
+                <span className="block truncate text-sm font-semibold">{copy("财务与成本")}</span>
                 <span className="mt-0.5 block truncate text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-                  维修成本、币种、采购与历史回填
+                  {copy("维修成本、币种、采购与历史回填")}
                 </span>
               </span>
               <ChevronDown
@@ -443,7 +466,25 @@ function ReadOnlyRule({ label, value }: { label: string; value: string }) {
   );
 }
 
-function formatInventoryWarranty(months: number) {
-  if (!Number.isFinite(months)) return "未填写";
-  return months === 0 ? "无保修（0 个月）" : `${months} 个月`;
+function formatInventoryWarranty(
+  months: number,
+  copy: (
+    source: Parameters<typeof translateSettingsOperations>[1],
+    values?: Parameters<typeof translateSettingsOperations>[2],
+  ) => string,
+) {
+  if (!Number.isFinite(months)) return copy("未填写");
+  return months === 0 ? copy("无保修（0 个月）") : copy("{months} 个月", { months });
+}
+
+function formatOrderWarranty(
+  months: number,
+  copy: (
+    source: Parameters<typeof translateSettingsOperations>[1],
+    values?: Parameters<typeof translateSettingsOperations>[2],
+  ) => string,
+) {
+  if (months === 0) return copy("无保修");
+  if (months === 24) return copy("两年");
+  return copy("{months}个月", { months });
 }

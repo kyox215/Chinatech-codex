@@ -2,7 +2,7 @@
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Filter, Plus, RefreshCw, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -27,9 +27,11 @@ import type {
 } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
 import { RepairOsListScaffold } from "@/shared/ui";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { localizeInventoryProjectionMeta } from "@/features/inventory/lifecycle/model/inventory-lifecycle-i18n";
+import { localizeInventoryProductStatus } from "../model/inventory-product-i18n";
 
 import { inventoryProductsQueryOptions } from "../api/query-options";
-import { inventoryProductKeys } from "../api/query-keys";
 import { InventoryProductCreateDialog } from "../components/inventory-product-create-dialog";
 import {
   InventoryLifecycleShortcutBar,
@@ -48,9 +50,9 @@ import {
 const INVENTORY_PRODUCT_VIEW_STORAGE_KEY = "repairdesk.inventory.product-view";
 
 export function InventoryProductListScreen() {
+  const { t } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
   const shell = useStoreShellContext();
   const storeId = shell.activeStore?.id;
   const [search, setSearch] = useState("");
@@ -183,12 +185,9 @@ export function InventoryProductListScreen() {
 
   const handleProductCreated = useCallback(
     async (id: string) => {
-      await queryClient.invalidateQueries({
-        queryKey: inventoryProductKeys.listsForStore(storeId),
-      });
-      router.push(`/inventory/${id}`);
+      await Promise.resolve(router.push(`/inventory/${id}`));
     },
-    [queryClient, router, storeId],
+    [router],
   );
 
   const createAction = canCreateProduct ? (
@@ -196,7 +195,7 @@ export function InventoryProductListScreen() {
       type="button"
       size="iconDense"
       className="size-11 rounded-lg"
-      aria-label="快速录入商品"
+      aria-label={t("inventory2b4.list.create")}
       data-inventory-product-create-trigger="true"
       onClick={openCreate}
     >
@@ -212,11 +211,11 @@ export function InventoryProductListScreen() {
   ) {
     return (
       <InventoryProductMessage
-        title="商品库存暂不可用"
+        title={t("inventory2b4.list.unavailableTitle")}
         body={
           shell.permissions?.canReadInventory
-            ? "当前门店尚未启用新版商品库存。"
-            : "当前账号没有商品库存查看权限。"
+            ? t("inventory2b4.list.featureOff")
+            : t("inventory2b4.list.noAccess")
         }
       />
     );
@@ -225,8 +224,16 @@ export function InventoryProductListScreen() {
   return (
     <RepairOsListScaffold
       className={inventoryProductListScaffoldClassName}
-      title="商品库存"
-      subtitle={query.data ? `共 ${query.data.total} 件` : "店内单件商品"}
+      title={t("inventory2b4.list.title")}
+      subtitle={
+        query.data
+          ? t("inventory2b4.list.count", { count: query.data.total })
+          : t("inventory2b4.list.subtitle")
+      }
+      searchPrefix={t("inventory2b4.list.searchPrefix")}
+      clearSearchLabel={t("inventory2b4.list.clearSearch")}
+      filterLabel={t("inventory2b4.list.filter")}
+      preparingStatus={t("inventory2b4.list.preparing")}
       action={createAction}
       desktopAction={createAction}
       desktopHeaderAddon={
@@ -237,8 +244,8 @@ export function InventoryProductListScreen() {
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="搜索商品、SKU、型号"
-                aria-label="搜索商品、SKU、型号"
+                placeholder={t("inventory2b4.list.search")}
+                aria-label={t("inventory2b4.list.search")}
                 className="h-11 pl-9"
               />
             </div>
@@ -247,7 +254,11 @@ export function InventoryProductListScreen() {
               type="button"
               variant="outline"
               className="relative min-h-11 shrink-0 gap-2"
-              aria-label={activeFilterCount ? `筛选，已应用 ${activeFilterCount} 项` : "筛选商品"}
+              aria-label={
+                activeFilterCount
+                  ? t("inventory2b4.list.filterAppliedAria", { count: activeFilterCount })
+                  : t("inventory2b4.list.filterProducts")
+              }
               onClick={() => {
                 setDraft(filters);
                 setDraftLifecycleStatusFilter(lifecycleStatusFilter);
@@ -255,7 +266,7 @@ export function InventoryProductListScreen() {
               }}
             >
               <Filter className="size-4" />
-              筛选
+              {t("inventory2b4.list.filter")}
               {activeFilterCount ? (
                 <span className="grid min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-5 text-primary-foreground lg:text-[11px]">
                   {activeFilterCount}
@@ -270,7 +281,7 @@ export function InventoryProductListScreen() {
         </div>
       }
       searchValue={search}
-      searchPlaceholder="搜索商品、SKU、型号"
+      searchPlaceholder={t("inventory2b4.list.search")}
       onSearchChange={setSearch}
       filterAction={
         <div className="flex min-w-0 shrink-0 items-center gap-1">
@@ -280,7 +291,11 @@ export function InventoryProductListScreen() {
             variant="outline"
             size="icon"
             className="relative size-11 rounded-lg bg-card"
-            aria-label={activeFilterCount ? `筛选，已应用 ${activeFilterCount} 项` : "筛选商品"}
+            aria-label={
+              activeFilterCount
+                ? t("inventory2b4.list.filterAppliedAria", { count: activeFilterCount })
+                : t("inventory2b4.list.filterProducts")
+            }
             onClick={() => {
               setDraft(filters);
               setDraftLifecycleStatusFilter(lifecycleStatusFilter);
@@ -297,13 +312,13 @@ export function InventoryProductListScreen() {
         </div>
       }
     >
-      <h1 className="sr-only">商品库存</h1>
+      <h1 className="sr-only">{t("inventory2b4.list.title")}</h1>
       <p className="sr-only" role="status" aria-live="polite">
         {query.isFetching && !query.isLoading
-          ? "正在更新商品结果"
+          ? t("inventory2b4.list.updating")
           : query.data
-            ? `已显示 ${query.data.items.length} 件商品`
-            : "正在准备商品结果"}
+            ? t("inventory2b4.list.shown", { count: query.data.items.length })
+            : t("inventory2b4.list.preparingResults")}
       </p>
       <div className="mb-2 lg:hidden">
         <InventoryProductCategoryTabs
@@ -329,7 +344,7 @@ export function InventoryProductListScreen() {
       {activeFilterCount ? (
         <div className="mb-2 flex flex-wrap items-center gap-1.5" aria-live="polite">
           <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary lg:text-xs lg:leading-4">
-            已应用 {activeFilterCount} 项筛选
+            {t("inventory2b4.list.filtersApplied", { count: activeFilterCount })}
           </span>
           <Button
             type="button"
@@ -341,7 +356,7 @@ export function InventoryProductListScreen() {
               setLifecycleStatusFilter([]);
             }}
           >
-            清除筛选
+            {t("inventory2b4.list.clearFilters")}
           </Button>
         </div>
       ) : null}
@@ -349,12 +364,12 @@ export function InventoryProductListScreen() {
       {query.isLoading || shell.isLoading ? <InventoryProductListSkeleton /> : null}
       {query.isError ? (
         <InventoryProductMessage
-          title="商品库存加载失败"
-          body="请检查网络后重试，现有商品没有被修改。"
+          title={t("inventory2b4.list.errorTitle")}
+          body={t("inventory2b4.list.errorBody")}
           action={
             <Button type="button" variant="outline" onClick={() => void query.refetch()}>
               <RefreshCw className="mr-2 size-4" />
-              重试
+              {t("inventory2b4.list.retry")}
             </Button>
           }
         />
@@ -363,15 +378,15 @@ export function InventoryProductListScreen() {
         <InventoryProductMessage
           title={
             hasSelectedCategory && !search && activeFilterCount === 0
-              ? "当前分类暂无商品"
+              ? t("inventory2b4.list.emptyCategory")
               : search || hasActiveSelection
-                ? "没有符合条件的商品"
-                : "还没有商品"
+                ? t("inventory2b4.list.emptyFiltered")
+                : t("inventory2b4.list.empty")
           }
           body={
             search || hasActiveSelection
-              ? "更换搜索词或清除筛选。"
-              : "录入手机、平板、电脑或游戏机。"
+              ? t("inventory2b4.list.emptyFilteredBody")
+              : t("inventory2b4.list.emptyBody")
           }
           action={
             hasSelectedCategory && !search && activeFilterCount === 0 ? (
@@ -380,7 +395,7 @@ export function InventoryProductListScreen() {
                 variant="outline"
                 onClick={() => setFilters({ ...filters, categories: [] })}
               >
-                查看全部
+                {t("inventory2b4.list.viewAll")}
               </Button>
             ) : (
               createAction
@@ -439,6 +454,37 @@ function InventoryProductFilterSheet({
   onLifecycleStatusesChange: (statuses: InventoryLifecycleProjectionStatus[]) => void;
   onApply: () => void;
 }) {
+  const { t } = useLocale();
+  const lifecycleLabels = Object.fromEntries(
+    Object.entries(inventoryLifecycleProjectionStatusMeta).map(([key, meta]) => {
+      const status = key as InventoryLifecycleProjectionStatus;
+      return [
+        key,
+        localizeInventoryProjectionMeta(
+          {
+            mode: "exact",
+            status,
+            confidence: "high",
+            needs_review: false,
+            allowed_actions: [],
+          },
+          meta,
+          undefined,
+          t,
+        ).label,
+      ];
+    }),
+  );
+  const productStatusLabels = Object.fromEntries(
+    Object.keys(statusLabels).map((status) => [
+      status,
+      localizeInventoryProductStatus(
+        status,
+        statusLabels[status as InventoryProductDisplayStatus],
+        t,
+      ),
+    ]),
+  );
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -446,31 +492,26 @@ function InventoryProductFilterSheet({
         className="flex max-h-[88dvh] flex-col overflow-hidden rounded-t-3xl sm:left-auto sm:right-0 sm:top-0 sm:h-full sm:max-h-none sm:w-[400px] sm:rounded-none"
       >
         <SheetHeader>
-          <SheetTitle>筛选商品</SheetTitle>
-          <SheetDescription>按状态、品牌或库位缩小结果。</SheetDescription>
+          <SheetTitle>{t("inventory2b4.list.filterProducts")}</SheetTitle>
+          <SheetDescription>{t("inventory2b4.list.filterDescription")}</SheetDescription>
         </SheetHeader>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto py-3">
           {lifecycleExact ? (
             <FilterGroup
-              title="精确状态"
+              title={t("inventory2b4.list.exactStatus")}
               values={Object.keys(inventoryLifecycleProjectionStatusMeta)}
               selected={lifecycleStatuses}
-              labels={Object.fromEntries(
-                Object.entries(inventoryLifecycleProjectionStatusMeta).map(([key, meta]) => [
-                  key,
-                  meta.label,
-                ]),
-              )}
+              labels={lifecycleLabels}
               onChange={(values) =>
                 onLifecycleStatusesChange(values as InventoryLifecycleProjectionStatus[])
               }
             />
           ) : (
             <FilterGroup
-              title="状态"
+              title={t("inventory2b4.list.status")}
               values={Object.keys(statusLabels)}
               selected={draft.statuses ?? []}
-              labels={statusLabels}
+              labels={productStatusLabels}
               onChange={(values) =>
                 onDraftChange({ ...draft, statuses: values as InventoryProductDisplayStatus[] })
               }
@@ -478,7 +519,7 @@ function InventoryProductFilterSheet({
           )}
           {brands.length ? (
             <FilterGroup
-              title="品牌"
+              title={t("inventory2b4.list.brand")}
               values={brands}
               selected={draft.brands ?? []}
               onChange={(values) => onDraftChange({ ...draft, brands: values })}
@@ -486,7 +527,7 @@ function InventoryProductFilterSheet({
           ) : null}
           {locations.length ? (
             <FilterGroup
-              title="库位"
+              title={t("inventory2b4.list.location")}
               values={locations}
               selected={draft.locations ?? []}
               onChange={(values) => onDraftChange({ ...draft, locations: values })}
@@ -503,11 +544,11 @@ function InventoryProductFilterSheet({
               onLifecycleStatusesChange([]);
             }}
           >
-            重置
+            {t("inventory2b4.list.reset")}
           </Button>
           <SheetClose asChild>
             <Button type="button" className="min-h-11" onClick={onApply}>
-              应用筛选
+              {t("inventory2b4.list.applyFilters")}
             </Button>
           </SheetClose>
         </SheetFooter>

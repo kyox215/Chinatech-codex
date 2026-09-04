@@ -684,6 +684,7 @@ export function projectOrderCapabilities(
       !order.delivered_at &&
       permitted("order:transition"),
     canCreateKioskSession: !voided && permitted("order:update_intake"),
+    canUploadPhoto: !voided && permitted("order:photo_upload"),
     canCorrect: terminal && !voided && permitted("order:correct"),
     canReopen: terminal && !voided && permitted("order:reopen"),
     canVoid: terminal && !voided && !hasFinancialEvidence && permitted("order:void"),

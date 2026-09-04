@@ -136,3 +136,10 @@ Verified custody contract: Frontend keeps repair type, accessories, custody and 
 | 2026-07-26 | Added searchable brand/model and responsive RAM/storage/color selectors; physical finishes require name, bordered swatch and non-color selected state   | TASK-20260726-002-eu-phone-catalog                       | Integration Lead + UX/QA reviewers           | production_verified         |
 | 2026-07-31 | Released product-inventory 84–88px mobile cards, five-column intake, compact detail and fixed actions; product action bars must neutralize shared margins at base and `sm` breakpoints | TASK-20260731-003-inventory-product-mobile-density | Integration Lead + UX/QA reviewers | production_verified |
 | 2026-08-31 | Released typed Chinese/Italian/English employee locale, strict Cookie SSR, in-place accessible switching, customer-language isolation and shared formatter foundation | TASK-20260831-001-project-i18n-clean-rebuild | Integration Lead + QA/Security/Architecture reviewers | production_verified |
+
+## 2026-09-03 — Release 2B local i18n candidate
+
+- Memos, Toolkit, Platform and AI client fixed presentation complete the remaining local `zh-CN` / `it-IT` / `en` batch. Dynamic values and canonical request/payload data remain unchanged.
+- Evidence: 13 files / 84 tests PASS, typecheck/static gates PASS, independent direct-i18n QA P0/P1 zero.
+- Known debt: Platform and AI mobile controlled overlays do not restore launcher focus after Escape in the synthetic Chromium story. This is proposed P2 and must be handled separately; it is not permission to reopen business behavior.
+- State: local/uncommitted; no production authority.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type RefObject } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,9 +16,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { CustomerFormField } from "@/features/customers/forms/customer-form-field";
 import { componentOverlay } from "@/lib/component-patterns";
 import type { CustomerFollowupInput, OrderListItem } from "@/lib/repairdesk/api";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
-const compactInputClass = "h-8 text-sm sm:h-9";
-const compactTextareaClass = "min-h-20 text-sm";
+const compactInputClass = "h-11 text-base lg:h-9 lg:text-sm";
+const compactTextareaClass = "min-h-20 text-base lg:text-sm";
 
 export function CustomerFollowupDialog({
   open,
@@ -26,6 +27,7 @@ export function CustomerFollowupDialog({
   busy,
   orders,
   selectedOrderId,
+  returnFocusRef,
   onSave,
 }: {
   open: boolean;
@@ -33,8 +35,10 @@ export function CustomerFollowupDialog({
   busy: boolean;
   orders: OrderListItem[];
   selectedOrderId?: string;
+  returnFocusRef?: RefObject<HTMLElement | null>;
   onSave: (input: CustomerFollowupInput) => Promise<unknown>;
 }) {
+  const { t } = useLocale();
   const defaultDueAt = useMemo(
     () => new Date(Date.now() + 86_400_000).toISOString().slice(0, 16),
     [],
@@ -58,28 +62,48 @@ export function CustomerFollowupDialog({
   }, [defaultDueAt, open, selectedOrderId]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={componentOverlay.formContent}>
+      <DialogContent
+        closeLabel={t("customers.detail.close")}
+        className={componentOverlay.formContent}
+        onCloseAutoFocus={(event) => {
+          const intendedOpener = returnFocusRef?.current;
+          if (!intendedOpener?.isConnected || intendedOpener.getClientRects().length === 0) return;
+          event.preventDefault();
+          intendedOpener.focus({ preventScroll: true });
+        }}
+      >
         <DialogHeader className={componentOverlay.header}>
-          <DialogTitle className={componentOverlay.title}>添加客户待办</DialogTitle>
+          <DialogTitle className={componentOverlay.title}>
+            {t("customers.form.followupTitle")}
+          </DialogTitle>
           <DialogDescription className={componentOverlay.description}>
-            用于售后满意度、报价确认或取机提醒。
+            {t("customers.form.followupDescription")}
           </DialogDescription>
         </DialogHeader>
         <div className="min-w-0 space-y-2.5">
-          <CustomerFormField label="标题" required>
+          <CustomerFormField
+            label={t("customers.form.title")}
+            required
+            htmlFor="customer-followup-title"
+          >
             <Input
+              id="customer-followup-title"
               className={compactInputClass}
               value={form.title}
               onChange={(event) => setForm({ ...form, title: event.target.value })}
             />
           </CustomerFormField>
-          <CustomerFormField label="关联工单">
+          <CustomerFormField
+            label={t("customers.form.relatedOrder")}
+            htmlFor="customer-followup-order"
+          >
             <select
+              id="customer-followup-order"
               value={form.order_id ?? ""}
               onChange={(event) => setForm({ ...form, order_id: event.target.value || undefined })}
-              className="h-8 w-full rounded-md border border-[var(--border-panel)] bg-background px-3 text-sm sm:h-9"
+              className="h-11 w-full rounded-md border border-[var(--border-panel)] bg-background px-3 text-base lg:h-9 lg:text-sm"
             >
-              <option value="">不关联</option>
+              <option value="">{t("customers.form.noRelatedOrder")}</option>
               {orders.map((order) => (
                 <option key={order.id} value={order.id}>
                   {order.public_no} · {order.device_label}
@@ -87,23 +111,30 @@ export function CustomerFollowupDialog({
               ))}
             </select>
           </CustomerFormField>
-          <CustomerFormField label="到期时间" required>
+          <CustomerFormField
+            label={t("customers.form.dueAt")}
+            required
+            htmlFor="customer-followup-due-at"
+          >
             <Input
+              id="customer-followup-due-at"
               className={compactInputClass}
               type="datetime-local"
               value={form.due_at}
               onChange={(event) => setForm({ ...form, due_at: event.target.value })}
             />
           </CustomerFormField>
-          <CustomerFormField label="负责人">
+          <CustomerFormField label={t("customers.form.owner")} htmlFor="customer-followup-owner">
             <Input
+              id="customer-followup-owner"
               className={compactInputClass}
               value={form.owner_name ?? ""}
               onChange={(event) => setForm({ ...form, owner_name: event.target.value })}
             />
           </CustomerFormField>
-          <CustomerFormField label="备注">
+          <CustomerFormField label={t("customers.form.notes")} htmlFor="customer-followup-notes">
             <Textarea
+              id="customer-followup-notes"
               className={compactTextareaClass}
               value={form.note ?? ""}
               onChange={(event) => setForm({ ...form, note: event.target.value })}
@@ -111,14 +142,19 @@ export function CustomerFollowupDialog({
           </CustomerFormField>
         </div>
         <DialogFooter className={componentOverlay.footer}>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            取消
+          <Button
+            className="min-h-11 whitespace-normal lg:min-h-9"
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+          >
+            {t("customers.form.cancel")}
           </Button>
           <Button
             disabled={busy || !form.title.trim() || !form.due_at}
-            onClick={() => onSave(form)}
+            className="min-h-11 whitespace-normal lg:min-h-9"
+            onClick={() => void onSave(form).catch(() => undefined)}
           >
-            {busy ? "创建中…" : "创建待办"}
+            {busy ? t("customers.form.creating") : t("customers.form.createFollowup")}
           </Button>
         </DialogFooter>
       </DialogContent>

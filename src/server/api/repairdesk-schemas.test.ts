@@ -15,6 +15,7 @@ import {
   batchTransitionBodySchema,
   buybackFinalizeInputSchema,
   buybackQuoteCreateBodySchema,
+  buybackQuoteReviseBodySchema,
   buybackQuoteResponseBodySchema,
   createOrderSchema,
   correctTerminalOrderInputSchema,
@@ -155,6 +156,296 @@ describe("repairdesk API schemas", () => {
       ).toThrow(/完整电话、IMEI 或证件号码/);
     }
   });
+
+  it("rejects sensitive text in every append-only buyback field without normalizing payload text", () => {
+    const quote = {
+      reference_low: 300,
+      reference_high: 400,
+      final_offer: 365,
+      deductions: [{ code: "battery", label: "电池健康调整", amount: 35 }],
+      risk_level: "low" as const,
+      hard_block: false,
+      expires_at: "2026-08-06T12:00:00.000Z",
+    };
+    const create = (nextQuote: typeof quote & { manual_adjustment_reason?: string }) => ({
+      input: {
+        record_id: "00000000-0000-4000-8000-000000000801",
+        idempotency_key: "00000000-0000-4000-8000-000000000802",
+        device: {
+          brand: "Apple",
+          model: "iPhone 15 Pro",
+          serial_or_imei: "490154203237518",
+        },
+        quote: nextQuote,
+      },
+    });
+    expect(() =>
+      buybackQuoteCreateBodySchema.parse(
+        create({
+          ...quote,
+          deductions: [{ code: "battery", label: "CA\u034f12345AA", amount: 35 }],
+        }),
+      ),
+    ).toThrow(/完整电话、IMEI 或证件号码/);
+    expect(() =>
+      buybackQuoteCreateBodySchema.parse(
+        create({
+          ...quote,
+          manual_adjustment_reason: "passaporto AB12CD34EF consegnato domani",
+        }),
+      ),
+    ).toThrow(/完整电话、IMEI 或证件号码/);
+    expect(() =>
+      buybackQuoteReviseBodySchema.parse({
+        id: "00000000-0000-4000-8000-000000000801",
+        input: {
+          expected_updated_at: "2026-07-30T12:00:00.000Z",
+          idempotency_key: "00000000-0000-4000-8000-000000000803",
+          quote,
+          change_reason: "documento: AB/12/CD/34/EF note operative lunghe",
+        },
+      }),
+    ).toThrow(/完整电话、IMEI 或证件号码/);
+    expect(() =>
+      buybackQuoteResponseBodySchema.parse({
+        id: "00000000-0000-4000-8000-000000000801",
+        input: {
+          expected_updated_at: "2026-07-30T12:00:00.000Z",
+          idempotency_key: "00000000-0000-4000-8000-000000000803",
+          quote_revision_id: "00000000-0000-4000-8000-000000000804",
+          outcome: "deferred",
+          note: "telefono 333 123 4567 - 03/09/2026",
+        },
+      }),
+    ).toThrow(/完整电话、IMEI 或证件号码/);
+
+    for (const label of ["49/015420/323751/8", "CA/12345/AA", "3331234567 42000"]) {
+      expect(() =>
+        buybackQuoteCreateBodySchema.parse(
+          create({
+            ...quote,
+            deductions: [{ code: "battery", label, amount: 35 }],
+          }),
+        ),
+      ).toThrow(/完整电话、IMEI 或证件号码/);
+    }
+    for (const manualAdjustmentReason of [
+      "AA/1234567",
+      "AA12\ufe0f34567",
+      "passaporto AB 12 CD 34 EF",
+      "333 123 4567 42000",
+    ]) {
+      expect(() =>
+        buybackQuoteCreateBodySchema.parse(
+          create({ ...quote, manual_adjustment_reason: manualAdjustmentReason }),
+        ),
+      ).toThrow(/完整电话、IMEI 或证件号码/);
+    }
+    expect(() =>
+      buybackQuoteReviseBodySchema.parse({
+        id: "00000000-0000-4000-8000-000000000801",
+        input: {
+          expected_updated_at: "2026-07-30T12:00:00.000Z",
+          idempotency_key: "00000000-0000-4000-8000-000000000803",
+          quote,
+          change_reason: "IMEI 490154203237518 - 03/09/2026",
+        },
+      }),
+    ).toThrow(/完整电话、IMEI 或证件号码/);
+    expect(() =>
+      buybackQuoteReviseBodySchema.parse({
+        id: "00000000-0000-4000-8000-000000000801",
+        input: {
+          expected_updated_at: "2026-07-30T12:00:00.000Z",
+          idempotency_key: "00000000-0000-4000-8000-000000000803",
+          quote,
+          change_reason: "0669821234 42000",
+        },
+      }),
+    ).toThrow(/完整电话、IMEI 或证件号码/);
+    expect(() =>
+      buybackQuoteResponseBodySchema.parse({
+        id: "00000000-0000-4000-8000-000000000801",
+        input: {
+          expected_updated_at: "2026-07-30T12:00:00.000Z",
+          idempotency_key: "00000000-0000-4000-8000-000000000803",
+          quote_revision_id: "00000000-0000-4000-8000-000000000804",
+          outcome: "deferred",
+          note: "00393331234567",
+        },
+      }),
+    ).toThrow(/完整电话、IMEI 或证件号码/);
+    expect(() =>
+      buybackQuoteResponseBodySchema.parse({
+        id: "00000000-0000-4000-8000-000000000801",
+        input: {
+          expected_updated_at: "2026-07-30T12:00:00.000Z",
+          idempotency_key: "00000000-0000-4000-8000-000000000803",
+          quote_revision_id: "00000000-0000-4000-8000-000000000804",
+          outcome: "deferred",
+          note: "3331234567 42000",
+        },
+      }),
+    ).toThrow(/完整电话、IMEI 或证件号码/);
+    expect(() =>
+      buybackQuoteResponseBodySchema.parse({
+        id: "00000000-0000-4000-8000-000000000801",
+        input: {
+          expected_updated_at: "2026-07-30T12:00:00.000Z",
+          idempotency_key: "00000000-0000-4000-8000-000000000803",
+          quote_revision_id: "00000000-0000-4000-8000-000000000804",
+          outcome: "deferred",
+          note: "护照 AB 12 34 56",
+        },
+      }),
+    ).toThrow(/完整电话、IMEI 或证件号码/);
+
+    const rejectedSentinel = "documento: ZX12YY34 consegnato domani";
+    const rejected = buybackQuoteResponseBodySchema.safeParse({
+      id: "00000000-0000-4000-8000-000000000801",
+      input: {
+        expected_updated_at: "2026-07-30T12:00:00.000Z",
+        idempotency_key: "00000000-0000-4000-8000-000000000803",
+        quote_revision_id: "00000000-0000-4000-8000-000000000804",
+        outcome: "deferred",
+        note: rejectedSentinel,
+      },
+    });
+    expect(rejected.success).toBe(false);
+    if (!rejected.success) {
+      expect(rejected.error.issues.map((issue) => issue.message)).toContain(
+        "说明中不能填写完整电话、IMEI 或证件号码",
+      );
+      expect(JSON.stringify(rejected.error.issues)).not.toContain(rejectedSentinel);
+    }
+
+    const preserved = buybackQuoteCreateBodySchema.parse(
+      create({
+        ...quote,
+        manual_adjustment_reason: "  Ｒｉｃｏｎｔｒｏｌｌａｒｅ display@120Hz  ",
+      }),
+    );
+    expect(preserved.input.device.serial_or_imei).toBe("490154203237518");
+    expect(preserved.input.quote.manual_adjustment_reason).toBe(
+      "Ｒｉｃｏｎｔｒｏｌｌａｒｅ display@120Hz",
+    );
+
+    const createPayload = create({
+      ...quote,
+      manual_adjustment_reason: "客户希望明天下午再确认",
+    });
+    const revisePayload = {
+      id: "00000000-0000-4000-8000-000000000801",
+      input: {
+        expected_updated_at: "2026-07-30T12:00:00.000Z",
+        idempotency_key: "00000000-0000-4000-8000-000000000803",
+        quote,
+        change_reason: "Ricontrollare display e batteria",
+      },
+    };
+    const responsePayload = {
+      id: "00000000-0000-4000-8000-000000000801",
+      input: {
+        expected_updated_at: "2026-07-30T12:00:00.000Z",
+        idempotency_key: "00000000-0000-4000-8000-000000000803",
+        quote_revision_id: "00000000-0000-4000-8000-000000000804",
+        outcome: "deferred" as const,
+        note: "Cliente richiamerà il negozio domani",
+      },
+    };
+    expect(buybackQuoteCreateBodySchema.parse(createPayload)).toEqual(createPayload);
+    expect(buybackQuoteReviseBodySchema.parse(revisePayload)).toEqual(revisePayload);
+    expect(buybackQuoteResponseBodySchema.parse(responsePayload)).toEqual(responsePayload);
+  });
+
+  it.each([
+    "Ricontrollare lo schermo il 03/09/2026",
+    "Importo concordato €420",
+    "iPhone 15 Pro, ordine BB-20260903-001",
+    "Modello SM-S928B con display@120Hz",
+    "Codice AB12CD34EF senza etichetta documento",
+    "Numero non classificato 12345678",
+    "Passaporto da controllare tra 2 giorni",
+    "Patente da verificare il 03/09/2026",
+    "Carta identità in negozio per 2 giorni",
+    "residence permit to check in 2 days",
+    "driver licence to verify on 03/09/2026",
+    "护照在门店保管 2 天",
+  ])("keeps ordinary buyback note compatibility for %s", (note) => {
+    expect(
+      buybackQuoteResponseBodySchema.parse({
+        id: "00000000-0000-4000-8000-000000000801",
+        input: {
+          expected_updated_at: "2026-07-30T12:00:00.000Z",
+          idempotency_key: "00000000-0000-4000-8000-000000000803",
+          quote_revision_id: "00000000-0000-4000-8000-000000000804",
+          outcome: "deferred",
+          note,
+        },
+      }).input.note,
+    ).toBe(note);
+  });
+
+  it.each([
+    "Passaporto da controllare tra 2 giorni",
+    "Residence permit to check in 2 days",
+    "护照在门店保管 2 天",
+  ])("preserves ordinary document prose across every protected buyback field: %s", (prose) => {
+    const quote = {
+      reference_low: 300,
+      reference_high: 400,
+      final_offer: 365,
+      deductions: [{ code: "battery", label: "电池健康调整", amount: 35 }],
+      risk_level: "low" as const,
+      hard_block: false,
+      expires_at: "2026-08-06T12:00:00.000Z",
+    };
+    const createInput = (nextQuote: typeof quote & { manual_adjustment_reason?: string }) => ({
+      input: {
+        record_id: "00000000-0000-4000-8000-000000000801",
+        idempotency_key: "00000000-0000-4000-8000-000000000802",
+        device: { brand: "Apple", model: "iPhone 15 Pro" },
+        quote: nextQuote,
+      },
+    });
+
+    const deduction = buybackQuoteCreateBodySchema.parse(
+      createInput({
+        ...quote,
+        deductions: [{ code: "battery", label: `  ${prose}  `, amount: 35 }],
+      }),
+    );
+    expect(deduction.input.quote.deductions[0]?.label).toBe(prose);
+
+    const manual = buybackQuoteCreateBodySchema.parse(
+      createInput({ ...quote, manual_adjustment_reason: `  ${prose}  ` }),
+    );
+    expect(manual.input.quote.manual_adjustment_reason).toBe(prose);
+
+    const revised = buybackQuoteReviseBodySchema.parse({
+      id: "00000000-0000-4000-8000-000000000801",
+      input: {
+        expected_updated_at: "2026-07-30T12:00:00.000Z",
+        idempotency_key: "00000000-0000-4000-8000-000000000803",
+        quote,
+        change_reason: `  ${prose}  `,
+      },
+    });
+    expect(revised.input.change_reason).toBe(prose);
+
+    const response = buybackQuoteResponseBodySchema.parse({
+      id: "00000000-0000-4000-8000-000000000801",
+      input: {
+        expected_updated_at: "2026-07-30T12:00:00.000Z",
+        idempotency_key: "00000000-0000-4000-8000-000000000803",
+        quote_revision_id: "00000000-0000-4000-8000-000000000804",
+        outcome: "deferred",
+        note: `  ${prose}  `,
+      },
+    });
+    expect(response.input.note).toBe(prose);
+  });
+
   it("accepts only explicit customer identity conflict resolutions", () => {
     const base = {
       expected_store_id: "00000000-0000-4000-8000-000000000800",

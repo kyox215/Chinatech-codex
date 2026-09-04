@@ -5,6 +5,8 @@ import { useEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { localizeInventoryOperationReceipt } from "@/features/inventory/lifecycle/model/inventory-lifecycle-i18n";
 
 import type { InventoryOperationReceipt } from "../model/inventory-operation-receipt";
 
@@ -34,6 +36,8 @@ export function InventoryOperationReceiptPanel({
   privacyRedacted = false,
   className,
 }: InventoryOperationReceiptPanelProps) {
+  const { t } = useLocale();
+  const displayReceipt = localizeInventoryOperationReceipt(receipt, t);
   const panelRef = useRef<HTMLElement>(null);
   const lastFocusSignatureRef = useRef<string | undefined>(undefined);
   const signature = `${receiptKey ?? ""}|${receipt.command}|${receipt.kind}|${receipt.title}`;
@@ -72,20 +76,20 @@ export function InventoryOperationReceiptPanel({
           )}
         </span>
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold">{receipt.title}</h2>
-          <p className="mt-1 text-xs leading-5 text-foreground">{receipt.description}</p>
+          <h2 className="text-sm font-semibold">{displayReceipt.title}</h2>
+          <p className="mt-1 text-xs leading-5 text-foreground">{displayReceipt.description}</p>
         </div>
       </div>
-      <p className="text-xs leading-5 text-foreground">{receipt.ledgerSemantics}</p>
+      <p className="text-xs leading-5 text-foreground">{displayReceipt.ledgerSemantics}</p>
       <p className="text-xs leading-5 text-muted-foreground">
         {isReplay
-          ? "服务端返回幂等凭证；本次确认的是此前已成功的命令，未创建新的写入。"
-          : "本次命令已确认成功。"}
+          ? t("inventory2b4.operationReceipt.replay")
+          : t("inventory2b4.operationReceipt.confirmed")}
       </p>
-      <p className="text-xs leading-5 text-muted-foreground">{receipt.nextStep}</p>
+      <p className="text-xs leading-5 text-muted-foreground">{displayReceipt.nextStep}</p>
       {privacyRedacted ? (
         <p className="text-xs leading-5 text-muted-foreground">
-          为保护隐私，此状态不显示商品、金额或设备标识。
+          {t("inventory2b4.common.privacyRedacted")}
         </p>
       ) : null}
       {nextAction ? (

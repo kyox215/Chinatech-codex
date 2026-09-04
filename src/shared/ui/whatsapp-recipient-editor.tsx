@@ -17,6 +17,16 @@ import {
   resolveWhatsappPhone,
   whatsappCountryOptions,
 } from "@/shared/lib/whatsapp-phone";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey } from "@/shared/i18n/messages";
+
+const recipientErrorKeys = {
+  empty: "orders2b2.recipient.error.empty",
+  invalid_country: "orders2b2.recipient.error.invalidCountry",
+  too_short: "orders2b2.recipient.error.tooShort",
+  too_long: "orders2b2.recipient.error.tooLong",
+  invalid_number: "orders2b2.recipient.error.invalidNumber",
+} as const satisfies Record<string, MessageKey>;
 
 export function WhatsappRecipientEditor({
   id,
@@ -33,8 +43,9 @@ export function WhatsappRecipientEditor({
   onPhoneChange: (value: string) => void;
   onCountryChange: (country: CountryCode, phone: string) => void;
 }) {
+  const { locale, t } = useLocale();
   const resolution = resolveWhatsappPhone(phone, country);
-  const countryNames = useMemo(() => new Intl.DisplayNames(["zh-CN"], { type: "region" }), []);
+  const countryNames = useMemo(() => new Intl.DisplayNames([locale], { type: "region" }), [locale]);
   const options = useMemo(
     () =>
       whatsappCountryOptions
@@ -45,9 +56,9 @@ export function WhatsappRecipientEditor({
         .sort((left, right) => {
           if (left.country === "IT") return -1;
           if (right.country === "IT") return 1;
-          return left.label.localeCompare(right.label, "zh-CN");
+          return left.label.localeCompare(right.label, locale);
         }),
-    [countryNames],
+    [countryNames, locale],
   );
   const helpId = `${id}-help`;
 
@@ -56,7 +67,7 @@ export function WhatsappRecipientEditor({
       <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
         <div className="min-w-0">
           <Label htmlFor={`${id}-country`} className="text-xs">
-            国家/地区
+            {t("orders2b2.recipient.country")}
           </Label>
           <Select
             value={country}
@@ -80,7 +91,7 @@ export function WhatsappRecipientEditor({
         </div>
         <div className="min-w-0">
           <Label htmlFor={id} className="text-xs">
-            WhatsApp 电话号码
+            {t("orders2b2.recipient.phone")}
           </Label>
           <Input
             id={id}
@@ -93,7 +104,7 @@ export function WhatsappRecipientEditor({
             aria-describedby={helpId}
             onChange={(event) => onPhoneChange(event.target.value)}
             className="mt-1 h-10 min-w-0 font-mono text-base sm:h-9 sm:text-sm"
-            placeholder="例如 380 151 2196"
+            placeholder={t("orders2b2.recipient.placeholder")}
           />
         </div>
       </div>
@@ -107,13 +118,11 @@ export function WhatsappRecipientEditor({
       >
         {resolution.valid
           ? resolution.usedDefaultCountry
-            ? `已按所选地区补全。WhatsApp 将打开：${resolution.display}`
-            : `WhatsApp 将打开：${resolution.display}`
-          : resolution.message}
+            ? t("orders2b2.recipient.prefixed", { phone: resolution.display })
+            : t("orders2b2.recipient.open", { phone: resolution.display })
+          : t(recipientErrorKeys[resolution.error])}
       </p>
-      <p className="text-[11px] text-muted-foreground">
-        这里只验证号码格式；格式正确不代表该号码已经注册 WhatsApp。
-      </p>
+      <p className="text-[11px] text-muted-foreground">{t("orders2b2.recipient.help")}</p>
     </div>
   );
 }

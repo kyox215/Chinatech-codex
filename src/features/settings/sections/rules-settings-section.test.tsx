@@ -3,16 +3,50 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { STORE_RULE_DEFAULTS } from "@/entities/store/model/store-setting-defaults";
 import { RulesSettingsSection } from "@/features/settings/sections/rules-settings-section";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
+import type { AppLocale } from "@/shared/i18n/locales";
 
 vi.mock("@/features/settings/components/repair-cost-defaults-card", () => ({
-  RepairCostDefaultsCard: () => (
-    <div data-testid="settings-test-cost-card">
+  RepairCostDefaultsCard: ({ storeId }: { storeId: string }) => (
+    <div data-testid="settings-test-defaults-card" data-store-id={storeId}>
       <label>
         测试成本草稿
         <input aria-label="测试成本草稿" defaultValue="初始成本" />
       </label>
       <div data-testid="settings-test-cost-guard" />
     </div>
+  ),
+}));
+
+vi.mock("@/features/settings/components/cost-currency-settings-card", () => ({
+  CostCurrencySettingsCard: ({ storeId }: { storeId: string }) => (
+    <div data-testid="settings-test-currency-card" data-store-id={storeId} />
+  ),
+}));
+
+vi.mock("@/features/settings/components/parts-procurement-card", () => ({
+  PartsProcurementCard: ({
+    storeId,
+    multiCurrencyEnabled,
+  }: {
+    storeId: string;
+    multiCurrencyEnabled: boolean;
+  }) => (
+    <div
+      data-testid="settings-test-parts-card"
+      data-store-id={storeId}
+      data-multi-currency={String(multiCurrencyEnabled)}
+    />
+  ),
+}));
+
+vi.mock("@/features/settings/components/cost-backfill-card", () => ({
+  CostBackfillCard: ({ storeId, canApply }: { storeId: string; canApply: boolean }) => (
+    <div
+      data-testid="settings-test-backfill-card"
+      data-store-id={storeId}
+      data-can-apply={String(canApply)}
+    />
   ),
 }));
 
@@ -61,7 +95,7 @@ describe("RulesSettingsSection", () => {
 
     fireEvent.click(within(dialog).getByRole("button", { name: "应用默认值到草稿" }));
     expect(onDraftChange).toHaveBeenCalledWith({ ...STORE_RULE_DEFAULTS });
-    expect(screen.getByRole("status")).toHaveTextContent("仍需点击“保存”才会生效");
+    expect(screen.getByText(/仍需点击“保存”才会生效/)).toBeVisible();
   });
 
   it("uses semantic read-only values and renders no disabled form controls", () => {
@@ -122,7 +156,9 @@ describe("RulesSettingsSection", () => {
     const content = document.querySelector<HTMLElement>("[data-settings-rules-costs-content]");
     expect(content).not.toBeNull();
     expect(content).toHaveAttribute("hidden", "");
-    expect(document.querySelector("[data-testid='settings-test-cost-card']")).toBeInTheDocument();
+    expect(
+      document.querySelector("[data-testid='settings-test-defaults-card']"),
+    ).toBeInTheDocument();
     expect(document.querySelector("[data-testid='settings-test-cost-guard']")).toBeInTheDocument();
 
     fireEvent.click(toggle);
@@ -134,12 +170,77 @@ describe("RulesSettingsSection", () => {
     expect(content).toHaveAttribute("hidden", "");
     expect(document.querySelector("[data-testid='settings-test-cost-guard']")).toBeInTheDocument();
     expect(
-      document.querySelector<HTMLInputElement>("[data-testid='settings-test-cost-card'] input"),
+      document.querySelector<HTMLInputElement>("[data-testid='settings-test-defaults-card'] input"),
     ).toHaveValue("编辑后的成本");
     expect(screen.queryByRole("textbox", { name: "测试成本草稿" })).not.toBeInTheDocument();
 
     fireEvent.click(toggle);
     expect(screen.getByRole("textbox", { name: "测试成本草稿" })).toHaveValue("编辑后的成本");
+  });
+
+  it.each([
+    ["zh-CN", "默认规则", "新库存商品默认保修月数", "简易模式"],
+    [
+      "it-IT",
+      "Regole predefinite",
+      "Mesi di garanzia predefiniti per nuovo inventario",
+      "Modalità guidata",
+    ],
+    ["en", "Default rules", "Default warranty months for new inventory", "Guided mode"],
+  ] as const)(
+    "localizes fixed presentation while preserving canonical draft values in %s",
+    (locale, heading, inventoryLabel, simpleLabel) => {
+      const onDraftChange = vi.fn();
+      renderRules({ locale, onDraftChange });
+
+      expect(screen.getByText(heading)).toBeVisible();
+      fireEvent.change(screen.getByLabelText(inventoryLabel), { target: { value: "36" } });
+      fireEvent.click(screen.getByRole("radio", { name: new RegExp(simpleLabel) }));
+      expect(onDraftChange).toHaveBeenNthCalledWith(1, {
+        default_inventory_warranty_months: 36,
+      });
+      expect(onDraftChange).toHaveBeenNthCalledWith(2, { new_order_entry_mode: "simple" });
+    },
+  );
+
+  it.each([
+    ["defaults", { canManageOrderCosts: true }, "settings-test-defaults-card"],
+    ["currency", { canManageCostCurrencies: true }, "settings-test-currency-card"],
+    ["parts", { canAllocatePartsCosts: true }, "settings-test-parts-card"],
+    ["backfill", { canPreviewCostBackfill: true }, "settings-test-backfill-card"],
+  ] as const)("mounts only the independently authorized %s child", (_name, capability, testId) => {
+    renderRules({ activeStoreId: "store-a", ...capability });
+
+    expect(screen.getByTestId(testId)).toHaveAttribute("data-store-id", "store-a");
+    for (const candidate of [
+      "settings-test-defaults-card",
+      "settings-test-currency-card",
+      "settings-test-parts-card",
+      "settings-test-backfill-card",
+    ]) {
+      if (candidate !== testId) expect(screen.queryByTestId(candidate)).not.toBeInTheDocument();
+    }
+  });
+
+  it("passes stable child capabilities without granting hidden sibling reads", () => {
+    renderRules({
+      activeStoreId: "store-a",
+      canAllocatePartsCosts: true,
+      canReadCostCurrencies: true,
+      canPreviewCostBackfill: true,
+      canApplyCostBackfill: false,
+    });
+
+    expect(screen.getByTestId("settings-test-parts-card")).toHaveAttribute(
+      "data-multi-currency",
+      "true",
+    );
+    expect(screen.getByTestId("settings-test-backfill-card")).toHaveAttribute(
+      "data-can-apply",
+      "false",
+    );
+    expect(screen.queryByTestId("settings-test-currency-card")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("settings-test-defaults-card")).not.toBeInTheDocument();
   });
 });
 
@@ -151,8 +252,14 @@ function renderRules({
   },
   canUpdateSettings = true,
   canManageOrderCosts = false,
+  canAllocatePartsCosts = false,
+  canReadCostCurrencies = false,
+  canManageCostCurrencies = false,
+  canPreviewCostBackfill = false,
+  canApplyCostBackfill = false,
   activeStoreId,
   onDraftChange = vi.fn(),
+  locale = "zh-CN",
 }: {
   draft?: {
     default_order_warranty_months: 0 | 3 | 6 | 12 | 24;
@@ -161,22 +268,35 @@ function renderRules({
   };
   canUpdateSettings?: boolean;
   canManageOrderCosts?: boolean;
+  canAllocatePartsCosts?: boolean;
+  canReadCostCurrencies?: boolean;
+  canManageCostCurrencies?: boolean;
+  canPreviewCostBackfill?: boolean;
+  canApplyCostBackfill?: boolean;
   activeStoreId?: string;
   onDraftChange?: (patch: {
     default_order_warranty_months?: 0 | 3 | 6 | 12 | 24;
     default_inventory_warranty_months?: number;
     new_order_entry_mode?: "simple" | "professional";
   }) => void;
+  locale?: AppLocale;
 } = {}) {
   return render(
-    <RulesSettingsSection
-      draft={draft}
-      isDraftDirty
-      canUpdateSettings={canUpdateSettings}
-      activeStoreId={activeStoreId}
-      canManageOrderCosts={canManageOrderCosts}
-      fieldErrors={{}}
-      onDraftChange={onDraftChange}
-    />,
+    <LocaleProvider initialLocale={locale}>
+      <RulesSettingsSection
+        draft={draft}
+        isDraftDirty
+        canUpdateSettings={canUpdateSettings}
+        activeStoreId={activeStoreId}
+        canManageOrderCosts={canManageOrderCosts}
+        canAllocatePartsCosts={canAllocatePartsCosts}
+        canReadCostCurrencies={canReadCostCurrencies}
+        canManageCostCurrencies={canManageCostCurrencies}
+        canPreviewCostBackfill={canPreviewCostBackfill}
+        canApplyCostBackfill={canApplyCostBackfill}
+        fieldErrors={{}}
+        onDraftChange={onDraftChange}
+      />
+    </LocaleProvider>,
   );
 }

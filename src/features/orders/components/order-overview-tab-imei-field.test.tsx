@@ -87,6 +87,29 @@ afterEach(() => {
 });
 
 describe("ImeiField", () => {
+  it("preserves the legacy scanner entry copy and consumes a rejected quick save", async () => {
+    const user = userEvent.setup();
+    const onQuickSave = vi.fn().mockRejectedValue(new Error("SERVER_SENTINEL"));
+
+    render(
+      <ImeiField
+        value="490154203237518"
+        edit={null}
+        onQuickSave={onQuickSave}
+        quickPending={false}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "扫码录入 IMEI / 序列号" }));
+    expect(screen.getByText("IMEI / 序列号")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("扫描或输入 IMEI / 序列号")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "保存 IMEI" }));
+
+    await waitFor(() => expect(onQuickSave).toHaveBeenCalledWith("490154203237518"));
+    expect(screen.getByRole("button", { name: "保存 IMEI" })).toBeInTheDocument();
+    expect(screen.queryByText("SERVER_SENTINEL")).not.toBeInTheDocument();
+  });
+
   it("saves a selected uploaded-image IMEI candidate from the read-only order detail popover", async () => {
     const user = userEvent.setup();
     const onQuickSave = vi.fn().mockResolvedValue(undefined);

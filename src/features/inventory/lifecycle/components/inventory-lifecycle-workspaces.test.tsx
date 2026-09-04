@@ -11,13 +11,16 @@ import type {
   InventoryLifecycleAfterSalesQueueItem,
   InventoryLifecycleSaleDetail,
 } from "@/lib/repairdesk/types";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
 
 import { InventoryConsequenceDialog } from "../../components/inventory-consequence-dialog";
 import {
+  InventoryLifecycleSaleMoneyOverview,
   InventoryLifecycleSalePaymentPanel,
   type InventoryLifecycleSaleSubmit,
 } from "./inventory-lifecycle-sale-panels";
 import {
+  InventoryAfterSalesCaseOverview,
   InventoryAfterSalesCaseEditor,
   InventoryAfterSalesCaseWorkspace,
   InventoryAfterSalesQueueBody,
@@ -129,6 +132,91 @@ describe("Inventory lifecycle workspaces", () => {
     );
   });
   afterEach(() => vi.unstubAllGlobals());
+
+  it.each([
+    ["zh-CN", "待检测", "售后队列摘要"],
+    ["it-IT", "Da ispezionare", "Riepilogo coda post-vendita"],
+    ["en", "Awaiting inspection", "After-sales queue summary"],
+  ] as const)(
+    "localizes the real queue chrome in %s while preserving dynamic case data",
+    (locale, status, summaryName) => {
+      render(
+        <LocaleProvider initialLocale={locale}>
+          <InventoryAfterSalesQueueBody
+            items={[{ ...queueItem, issue_summary: "动态案件-SENTINEL" }]}
+            onOpen={vi.fn()}
+          />
+        </LocaleProvider>,
+      );
+
+      expect(screen.getByRole("region", { name: summaryName })).toBeVisible();
+      expect(screen.getAllByText(status)).toHaveLength(2);
+      expect(screen.getByText("动态案件-SENTINEL")).toBeVisible();
+      if (locale !== "zh-CN") {
+        expect(screen.queryByText("待检测")).not.toBeInTheDocument();
+        expect(screen.queryByText("打开案件")).not.toBeInTheDocument();
+      }
+    },
+  );
+
+  it.each(["zh-CN", "it-IT", "en"] as const)(
+    "preserves future status, coverage and payment codes in real %s presentations",
+    (locale) => {
+      const onStatusChange = vi.fn();
+      const futureCase = {
+        ...queueItem,
+        status: "future_case_status",
+        issue_summary: "DYNAMIC FUTURE CASE",
+        coverage_decision: "future_coverage_code",
+        diagnosis: "DYNAMIC DIAGNOSIS",
+        events: [],
+      } as unknown as InventoryLifecycleAfterSalesCaseDetail;
+      const futureSale = {
+        ...saleForWriteLock,
+        payments: [
+          {
+            kind: "future_payment_kind",
+            amount: 25,
+            method: "future_payment_method",
+            occurred_at: "2026-08-11T08:00:00.000Z",
+          },
+        ],
+      } as unknown as InventoryLifecycleSaleDetail;
+      render(
+        <LocaleProvider initialLocale={locale}>
+          <InventoryAfterSalesQueueBody
+            items={[futureCase as unknown as InventoryLifecycleAfterSalesQueueItem]}
+            onOpen={vi.fn()}
+          />
+          <InventoryAfterSalesCaseOverview item={futureCase} />
+          <InventoryAfterSalesCaseEditor
+            status={"future_case_status" as never}
+            nextStatuses={["future_next_status" as never]}
+            coverage="future_coverage_code"
+            diagnosis="DYNAMIC DIAGNOSIS"
+            writePending={false}
+            onStatusChange={onStatusChange}
+            onCoverageChange={vi.fn()}
+            onDiagnosisChange={vi.fn()}
+            onPrimary={vi.fn()}
+            primaryLabel="DYNAMIC ACTION"
+          />
+          <InventoryLifecycleSaleMoneyOverview sale={futureSale} />
+        </LocaleProvider>,
+      );
+
+      expect(screen.getAllByText("future_case_status").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("future_coverage_code").length).toBeGreaterThan(0);
+      expect(screen.getByRole("option", { name: "future_next_status" })).toHaveValue(
+        "future_next_status",
+      );
+      expect(screen.getByText(/future_payment_kind · future_payment_method/)).toBeVisible();
+      fireEvent.change(screen.getByLabelText(/下一状态|Stato successivo|Next status/), {
+        target: { value: "future_next_status" },
+      });
+      expect(onStatusChange).toHaveBeenCalledWith("future_next_status");
+    },
+  );
 
   it("keeps queue actions explicit and local to the adapter callback", () => {
     const onOpen = vi.fn();

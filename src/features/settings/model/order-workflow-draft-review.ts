@@ -15,6 +15,7 @@ export interface OrderWorkflowDraftIssue {
   code: string;
   message: string;
   statusId?: string;
+  presentationValues?: Record<string, string | number>;
   severity: "error" | "warning";
 }
 
@@ -28,6 +29,8 @@ export interface OrderWorkflowChangeSummary {
   transitionsChanged: number;
   items: string[];
   impactedEntrypoints: string[];
+  presentationItems: { code: string; values?: Record<string, string | number> }[];
+  impactedEntrypointCodes: string[];
 }
 
 export function validateOrderWorkflowDraft(state: OrderWorkflowDraftState) {
@@ -40,10 +43,18 @@ export function validateOrderWorkflowDraft(state: OrderWorkflowDraftState) {
     codeCounts.set(code, (codeCounts.get(code) ?? 0) + 1);
     statusByCode.set(code, status);
     if (!workflowCodePattern.test(code)) {
-      issues.push(issue("invalid_code", `「${code || "未命名状态"}」的代码格式不正确`, status.id));
+      issues.push(
+        issue("invalid_code", `「${code || "未命名状态"}」的代码格式不正确`, status.id, {
+          label: code || "",
+        }),
+      );
     }
     if (!status.label.trim() || status.label.trim().length > 24) {
-      issues.push(issue("invalid_label", `「${code}」的状态名称需为 1–24 个字符`, status.id));
+      issues.push(
+        issue("invalid_label", `「${code}」的状态名称需为 1–24 个字符`, status.id, {
+          label: code,
+        }),
+      );
     }
     if (status.short_label.trim().length > 8) {
       issues.push(
@@ -51,17 +62,22 @@ export function validateOrderWorkflowDraft(state: OrderWorkflowDraftState) {
           "invalid_short_label",
           `「${status.label || code}」的短标签不能超过 8 个字符`,
           status.id,
+          { label: status.label || code },
         ),
       );
     }
     if (status.store_id !== state.storeId) {
       issues.push(
-        issue("store_mismatch", `「${status.label || code}」不属于当前店铺草稿`, status.id),
+        issue("store_mismatch", `「${status.label || code}」不属于当前店铺草稿`, status.id, {
+          label: status.label || code,
+        }),
       );
     }
     if (status.is_system && !status.enabled) {
       issues.push(
-        issue("system_disabled", `系统状态「${status.label}」不能在当前安全阶段停用`, status.id),
+        issue("system_disabled", `系统状态「${status.label}」不能在当前安全阶段停用`, status.id, {
+          label: status.label,
+        }),
       );
     }
     const baseStatus = state.base.statuses.find((item) => item.id === status.id);
@@ -71,6 +87,7 @@ export function validateOrderWorkflowDraft(state: OrderWorkflowDraftState) {
           "system_bucket_changed",
           `系统状态「${status.label}」的主流程分组不能在当前安全阶段修改`,
           status.id,
+          { label: status.label },
         ),
       );
     }
@@ -80,12 +97,14 @@ export function validateOrderWorkflowDraft(state: OrderWorkflowDraftState) {
           "custom_status_unmapped",
           `自定义状态「${status.label || code}」尚未绑定主流程语义，暂不能应用到真实工单`,
           status.id,
+          { label: status.label || code },
         ),
       );
     }
   }
   for (const [code, count] of codeCounts) {
-    if (count > 1) issues.push(issue("duplicate_code", `状态代码「${code}」重复`));
+    if (count > 1)
+      issues.push(issue("duplicate_code", `状态代码「${code}」重复`, undefined, { label: code }));
   }
 
   const defaults = statuses.filter((status) => status.is_default_create_status);
@@ -103,18 +122,37 @@ export function validateOrderWorkflowDraft(state: OrderWorkflowDraftState) {
   for (const transition of state.value.transitions) {
     const key = transitionKey(transition.from_status_code, transition.to_status_code);
     if (transition.store_id !== state.storeId) {
-      issues.push(issue("store_mismatch", `流转关系「${key}」不属于当前店铺草稿`));
+      issues.push(
+        issue("store_mismatch", `流转关系「${key}」不属于当前店铺草稿`, undefined, {
+          label: key,
+        }),
+      );
     }
     if (seenTransitions.has(key))
-      issues.push(issue("duplicate_transition", `流转关系「${key}」重复`));
+      issues.push(
+        issue("duplicate_transition", `流转关系「${key}」重复`, undefined, { label: key }),
+      );
     seenTransitions.add(key);
     if (transition.from_status_code === transition.to_status_code) {
-      issues.push(issue("self_transition", `状态「${transition.from_status_code}」不能流转到自身`));
+      issues.push(
+        issue(
+          "self_transition",
+          `状态「${transition.from_status_code}」不能流转到自身`,
+          undefined,
+          {
+            label: transition.from_status_code,
+          },
+        ),
+      );
     }
     const from = statusByCode.get(transition.from_status_code);
     const to = statusByCode.get(transition.to_status_code);
     if (!from || !to) {
-      issues.push(issue("missing_transition_status", `流转关系「${key}」引用了不存在的状态`));
+      issues.push(
+        issue("missing_transition_status", `流转关系「${key}」引用了不存在的状态`, undefined, {
+          label: key,
+        }),
+      );
       continue;
     }
     if (transition.enabled && (!from.enabled || !to.enabled)) {
@@ -122,6 +160,8 @@ export function validateOrderWorkflowDraft(state: OrderWorkflowDraftState) {
         issue(
           "disabled_transition_status",
           `已启用流转「${from.label} → ${to.label}」引用了停用状态`,
+          undefined,
+          { from: from.label, to: to.label },
         ),
       );
     }
@@ -139,6 +179,7 @@ export function validateOrderWorkflowDraft(state: OrderWorkflowDraftState) {
           "invalid_primary",
           `「${status.label}」的启用流转必须且只能有一个推荐下一步`,
           status.id,
+          { label: status.label },
         ),
       );
     }
@@ -197,6 +238,28 @@ export function summarizeOrderWorkflowChanges(
     ...(transitionsChanged ? [`${transitionsChanged} 条流转关系发生变化`] : []),
     ...(metadataChanged ? ["状态分组或语义色发生变化"] : []),
   ];
+  const presentationItems: OrderWorkflowChangeSummary["presentationItems"] = [
+    ...addedStatuses.map((status) => ({
+      code: "added_status",
+      values: { label: status.label || status.code },
+    })),
+    ...removed.map((status) => ({ code: "removed_status", values: { label: status.label } })),
+    ...renamedStatuses.map((status) => ({
+      code: "renamed_status",
+      values: { from: baseById.get(status.id)?.label ?? "", to: status.label },
+    })),
+    ...(availabilityStatuses.length
+      ? [{ code: "availability_changed", values: { count: availabilityStatuses.length } }]
+      : []),
+    ...(baseDefault !== valueDefault
+      ? [{ code: "default_changed", values: { from: baseDefault ?? "", to: valueDefault ?? "" } }]
+      : []),
+    ...(orderChanged ? [{ code: "order_changed" }] : []),
+    ...(transitionsChanged
+      ? [{ code: "transitions_changed", values: { count: transitionsChanged } }]
+      : []),
+    ...(metadataChanged ? [{ code: "metadata_changed" }] : []),
+  ];
   const impactedEntrypoints = new Set<string>();
   if (addedStatuses.length || availabilityStatuses.length || orderChanged) {
     impactedEntrypoints.add("工单列表与状态筛选");
@@ -222,6 +285,21 @@ export function summarizeOrderWorkflowChanges(
     transitionsChanged,
     items,
     impactedEntrypoints: [...impactedEntrypoints],
+    presentationItems,
+    impactedEntrypointCodes: [
+      ...(addedStatuses.length || availabilityStatuses.length || orderChanged
+        ? ["list_filters"]
+        : []),
+      ...(baseDefault !== valueDefault ||
+      availabilityStatuses.some((status) => status.allowed_for_create)
+        ? ["new_order_default"]
+        : []),
+      ...(transitionsChanged ? ["detail_task_bulk"] : []),
+      ...(renamedStatuses.length || metadataChanged ? ["badges_timeline"] : []),
+      ...(addedStatuses.length || availabilityStatuses.some((status) => !status.enabled)
+        ? ["existing_order_compatibility"]
+        : []),
+    ],
   };
 }
 
@@ -274,6 +352,11 @@ function transitionKey(from: string, to: string) {
   return `${from}→${to}`;
 }
 
-function issue(code: string, message: string, statusId?: string): OrderWorkflowDraftIssue {
-  return { code, message, statusId, severity: "error" };
+function issue(
+  code: string,
+  message: string,
+  statusId?: string,
+  presentationValues?: Record<string, string | number>,
+): OrderWorkflowDraftIssue {
+  return { code, message, statusId, presentationValues, severity: "error" };
 }

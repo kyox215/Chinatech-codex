@@ -13,6 +13,7 @@ import type {
 } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 import { InventoryLifecyclePageShell } from "./inventory-lifecycle-page-shell";
 import {
@@ -21,6 +22,11 @@ import {
   type InventoryLifecycleValidationIssue,
 } from "./inventory-lifecycle-field-feedback";
 import { InventoryLifecycleUnavailableCard } from "./inventory-lifecycle-status";
+import {
+  formatInventoryLifecycleDate,
+  localizeInventoryAfterSalesStatus,
+  localizeInventoryCoverage,
+} from "../model/inventory-lifecycle-i18n";
 
 const statusCopy = {
   open: "待检测",
@@ -77,33 +83,44 @@ export type InventoryAfterSalesQueueBodyProps = {
 export function InventoryAfterSalesQueueBody({
   items,
   onOpen,
-  emptyTitle = "当前没有进行中的售后",
-  emptyBody = "新案件会从已交付商品的销售详情中登记。",
+  emptyTitle,
+  emptyBody,
   privacyRedacted = false,
 }: InventoryAfterSalesQueueBodyProps) {
+  const { locale, t } = useLocale();
   const visibleItems = privacyRedacted ? [] : items;
   return (
     <div data-inventory-lifecycle-body="after-sales-queue" className="grid gap-2">
-      <section className="grid grid-cols-3 gap-2" aria-label="售后队列摘要">
-        <QueueMetric label="全部进行中" value={visibleItems.length} icon={ClipboardList} />
+      <section
+        className="grid grid-cols-3 gap-2"
+        aria-label={t("inventory2b4.afterSales.summaryAria")}
+      >
         <QueueMetric
-          label="待检测"
+          label={t("inventory2b4.afterSales.active")}
+          value={visibleItems.length}
+          icon={ClipboardList}
+        />
+        <QueueMetric
+          label={t("inventory2b4.afterSales.open")}
           value={visibleItems.filter((item) => item.status === "open").length}
           icon={Wrench}
         />
         <QueueMetric
-          label="等客户"
+          label={t("inventory2b4.afterSales.waitingCustomer")}
           value={visibleItems.filter((item) => item.status === "waiting_customer").length}
           icon={RefreshCw}
         />
       </section>
       {privacyRedacted ? (
         <InventoryLifecycleUnavailableCard
-          title="售后资料已按隐私边界裁剪"
-          body="当前预览不显示案件标识、商品信息或客户内容。"
+          title={t("inventory2b4.afterSales.privacyTitle")}
+          body={t("inventory2b4.afterSales.privacyBody")}
         />
       ) : visibleItems.length === 0 ? (
-        <InventoryLifecycleUnavailableCard title={emptyTitle} body={emptyBody} />
+        <InventoryLifecycleUnavailableCard
+          title={emptyTitle ?? t("inventory2b4.afterSales.emptyTitle")}
+          body={emptyBody ?? t("inventory2b4.afterSales.emptyBody")}
+        />
       ) : null}
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {visibleItems.map((item) => (
@@ -115,7 +132,7 @@ export function InventoryAfterSalesQueueBody({
               repairOs.mobileInfoCard,
               "group min-h-28 w-full p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             )}
-            aria-label={`打开案件 ${item.issue_summary}`}
+            aria-label={t("inventory2b4.afterSales.openCase", { issue: item.issue_summary })}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -123,13 +140,17 @@ export function InventoryAfterSalesQueueBody({
                 <h2 className="mt-1 line-clamp-2 text-sm font-semibold">{item.issue_summary}</h2>
               </div>
               <span className="shrink-0 rounded-full bg-status-warn px-2 py-1 text-[10px] text-status-warn-foreground">
-                {statusCopy[item.status]}
+                {localizeInventoryAfterSalesStatus(
+                  item.status,
+                  statusCopy[item.status] ?? item.status,
+                  t,
+                )}
               </span>
             </div>
             <div className="mt-3 flex items-center justify-between text-[10px] text-muted-foreground">
-              <span>{formatDate(item.received_at)}</span>
+              <span>{formatInventoryLifecycleDate(item.received_at, locale, t)}</span>
               <span className="inline-flex min-h-11 items-center gap-1 text-primary">
-                打开案件
+                {t("inventory2b4.afterSales.openAction")}
                 <ArrowRight className="size-3" aria-hidden="true" />
               </span>
             </div>
@@ -146,6 +167,7 @@ export function InventoryAfterSalesCaseOverview({
 }: {
   item: InventoryLifecycleAfterSalesCaseDetail;
 }) {
+  const { locale, t } = useLocale();
   return (
     <section className={cn(repairOs.mobileInfoCard, "p-3 sm:p-4")}>
       <div className="flex items-start justify-between gap-2">
@@ -154,17 +176,33 @@ export function InventoryAfterSalesCaseOverview({
           <h2 className="mt-1 text-sm font-semibold">{item.issue_summary}</h2>
         </div>
         <span className="shrink-0 rounded-full bg-status-warn px-2 py-1 text-[10px] text-status-warn-foreground">
-          {statusCopy[item.status]}
+          {localizeInventoryAfterSalesStatus(
+            item.status,
+            statusCopy[item.status] ?? item.status,
+            t,
+          )}
         </span>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
         <div className="rounded-xl bg-[var(--surface-panel-muted)] p-2">
-          <span className="text-[10px] text-muted-foreground">收回时间</span>
-          <strong className="mt-1 block">{formatDate(item.received_at)}</strong>
+          <span className="text-[10px] text-muted-foreground">
+            {t("inventory2b4.afterSales.receivedAt")}
+          </span>
+          <strong className="mt-1 block">
+            {formatInventoryLifecycleDate(item.received_at, locale, t)}
+          </strong>
         </div>
         <div className="rounded-xl bg-[var(--surface-panel-muted)] p-2">
-          <span className="text-[10px] text-muted-foreground">保障判断</span>
-          <strong className="mt-1 block">{coverageLabel(item.coverage_decision)}</strong>
+          <span className="text-[10px] text-muted-foreground">
+            {t("inventory2b4.afterSales.coverage")}
+          </span>
+          <strong className="mt-1 block">
+            {localizeInventoryCoverage(
+              item.coverage_decision ?? "pending",
+              coverageLabel(item.coverage_decision),
+              t,
+            )}
+          </strong>
         </div>
       </div>
     </section>
@@ -207,19 +245,20 @@ export function InventoryAfterSalesCaseEditor({
   onCoverageChange,
   onDiagnosisChange,
   onPrimary,
-  primaryLabel = "保存并追加历史",
+  primaryLabel,
   closeTriggerRef,
 }: InventoryAfterSalesCaseEditorProps) {
+  const { t } = useLocale();
   return (
     <fieldset disabled={writePending} className="contents">
       <section className={cn(repairOs.mobileInfoCard, "grid gap-3 p-3 sm:p-4")}>
         <div className="flex items-center gap-2">
           <Wrench className="size-4 text-primary" aria-hidden="true" />
-          <h2 className="text-sm font-semibold">推进案件</h2>
+          <h2 className="text-sm font-semibold">{t("inventory2b4.afterSales.advance")}</h2>
         </div>
         <div className="grid gap-1.5">
           <Label className="text-xs" htmlFor="inventory-after-sales-next-status">
-            下一状态
+            {t("inventory2b4.afterSales.nextStatus")}
           </Label>
           <select
             id="inventory-after-sales-next-status"
@@ -229,14 +268,18 @@ export function InventoryAfterSalesCaseEditor({
           >
             {nextStatuses.map((nextStatus) => (
               <option key={nextStatus} value={nextStatus}>
-                {statusCopy[nextStatus]}
+                {localizeInventoryAfterSalesStatus(
+                  nextStatus,
+                  statusCopy[nextStatus] ?? nextStatus,
+                  t,
+                )}
               </option>
             ))}
           </select>
         </div>
         <div className="grid gap-1.5">
           <Label className="text-xs" htmlFor="inventory-after-sales-coverage">
-            保障判断
+            {t("inventory2b4.afterSales.coverage")}
           </Label>
           <select
             id="inventory-after-sales-coverage"
@@ -244,9 +287,14 @@ export function InventoryAfterSalesCaseEditor({
             value={coverage}
             onChange={(event) => onCoverageChange(event.target.value)}
           >
-            <option value="pending">待判断</option>
-            <option value="covered">在保障范围</option>
-            <option value="not_covered">不在保障范围</option>
+            {coverage !== "pending" && coverage !== "covered" && coverage !== "not_covered" ? (
+              <option value={coverage}>{coverage}</option>
+            ) : null}
+            <option value="pending">{localizeInventoryCoverage("pending", "待判断", t)}</option>
+            <option value="covered">{localizeInventoryCoverage("covered", "在保障范围", t)}</option>
+            <option value="not_covered">
+              {localizeInventoryCoverage("not_covered", "不在保障范围", t)}
+            </option>
           </select>
         </div>
         <InventoryLifecycleValidationSummary
@@ -256,7 +304,7 @@ export function InventoryAfterSalesCaseEditor({
         />
         <InventoryLifecycleField
           id="inventory-after-sales-diagnosis"
-          label="检测与处理说明"
+          label={t("inventory2b4.afterSales.diagnosis")}
           required
           error={diagnosisError}
         >
@@ -276,11 +324,11 @@ export function InventoryAfterSalesCaseEditor({
           disabled={writePending}
           onClick={onPrimary}
         >
-          {primaryLabel}
+          {primaryLabel ?? t("inventory2b4.afterSales.save")}
         </Button>
         {mutationPending ? (
           <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
-            正在处理售后状态，完成前不可重复提交。
+            {t("inventory2b4.afterSales.pending")}
           </p>
         ) : null}
       </section>
@@ -350,12 +398,9 @@ function QueueMetric({
   );
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(
-    new Date(value),
-  );
-}
-
-function coverageLabel(value?: "pending" | "covered" | "not_covered") {
-  return value === "covered" ? "保障范围内" : value === "not_covered" ? "不在保障范围" : "待判断";
+function coverageLabel(value?: string) {
+  if (!value || value === "pending") return "待判断";
+  if (value === "covered") return "保障范围内";
+  if (value === "not_covered") return "不在保障范围";
+  return value;
 }

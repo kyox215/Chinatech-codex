@@ -4,6 +4,8 @@ import { CircleAlert, EyeOff, Loader2, LockKeyhole, PowerOff, RefreshCw } from "
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey } from "@/shared/i18n/messages";
 
 import type { InventoryAvailabilityResolution } from "../model/inventory-availability";
 
@@ -14,35 +16,38 @@ export type InventoryAvailabilityStateCardProps = {
   className?: string;
 };
 
-const copy = {
+const copy: Record<
+  Exclude<InventoryAvailabilityResolution["state"], "available">,
+  { title: MessageKey; body: MessageKey; role: "status" | "alert" }
+> = {
   loading: {
-    title: "正在读取生命周期资料",
-    body: "正在准备安全的只读页面；尚未显示业务记录，也不会猜测写入动作。",
+    title: "inventory2b4.availabilityCard.loading.title",
+    body: "inventory2b4.availabilityCard.loading.body",
     role: "status" as const,
   },
   "no-permission": {
-    title: "当前账号没有访问权限",
-    body: "为保护门店资料，当前页面不显示商品、金额、客户或记录标识。",
+    title: "inventory2b4.availabilityCard.noPermission.title",
+    body: "inventory2b4.availabilityCard.noPermission.body",
     role: "alert" as const,
   },
   "feature-off": {
-    title: "生命周期工作流未启用",
-    body: "当前门店未开启此工作流；现有库存浏览保持不变。",
+    title: "inventory2b4.availabilityCard.featureOff.title",
+    body: "inventory2b4.availabilityCard.featureOff.body",
     role: "status" as const,
   },
   "not-found-or-hidden": {
-    title: "记录不存在或当前不可访问",
-    body: "没有显示记录详情，也没有执行任何写入。请返回库存或联系有权限的同事核对。",
+    title: "inventory2b4.availabilityCard.notFound.title",
+    body: "inventory2b4.availabilityCard.notFound.body",
     role: "alert" as const,
   },
   "service-unavailable": {
-    title: "暂时无法读取生命周期资料",
-    body: "服务暂时不可用；没有执行写入。可以只读重试，成功后再继续。",
+    title: "inventory2b4.availabilityCard.unavailable.title",
+    body: "inventory2b4.availabilityCard.unavailable.body",
     role: "alert" as const,
   },
   retrying: {
-    title: "正在只读重试",
-    body: "正在读取最新资料，不会调用生命周期写入命令。",
+    title: "inventory2b4.availabilityCard.retrying.title",
+    body: "inventory2b4.availabilityCard.retrying.body",
     role: "status" as const,
   },
 } as const;
@@ -53,6 +58,7 @@ export function InventoryAvailabilityStateCard({
   onBack,
   className,
 }: InventoryAvailabilityStateCardProps) {
+  const { t } = useLocale();
   if (availability.state === "available") return null;
   const stateCopy = copy[availability.state];
   const isLoading = availability.state === "loading";
@@ -97,8 +103,8 @@ export function InventoryAvailabilityStateCard({
           />
         </span>
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold">{stateCopy.title}</h2>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">{stateCopy.body}</p>
+          <h2 className="text-sm font-semibold">{t(stateCopy.title)}</h2>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">{t(stateCopy.body)}</p>
         </div>
       </div>
       {availability.state === "service-unavailable" && availability.retryable && onRetry ? (
@@ -109,7 +115,7 @@ export function InventoryAvailabilityStateCard({
           onClick={() => void onRetry()}
         >
           <RefreshCw className="size-4" aria-hidden="true" />
-          只读重试
+          {t("inventory2b4.availabilityCard.retry")}
         </Button>
       ) : null}
       {(availability.state === "no-permission" ||
@@ -122,7 +128,7 @@ export function InventoryAvailabilityStateCard({
           className="min-h-11 w-full sm:w-fit"
           onClick={onBack}
         >
-          返回商品库存
+          {t("inventory2b4.detail.back")}
         </Button>
       ) : null}
     </section>

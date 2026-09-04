@@ -22,10 +22,3 @@ export type MemoEditorProps = {
   onArchive?: () => Promise<void>;
   onRestore?: () => Promise<void>;
 };
-
-export function toDateTimeLocal(value?: string | null) {
-  if (!value) return "";
-  const date = new Date(value);
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
-}

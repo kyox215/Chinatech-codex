@@ -45,7 +45,6 @@ import {
   defaultCustomerForm,
   getCustomerActiveFilterCount,
   getCustomerDetailHref,
-  getCustomerListSubtitle,
   getCustomerPageRange,
   getCustomerQuickGroup,
   parseCustomerListUrlState,
@@ -53,6 +52,7 @@ import {
   serializeCustomerListUrlState,
   type CustomerQuickGroup,
 } from "@/features/customers/model/customer-list";
+import { localizeCustomerQuickGroup } from "@/features/customers/model/customer-i18n";
 import { buildNewOrderWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
 import {
   ScanSearchButton,
@@ -69,11 +69,7 @@ import {
   type CustomerListFilters,
 } from "@/lib/repairdesk/api";
 import { controls, density, layoutGuards, repairOs } from "@/lib/ui-patterns";
-import {
-  RepairOsBusinessCard,
-  RepairOsHeaderActionButton,
-  RepairOsListScaffold,
-} from "@/shared/ui";
+import { RepairOsBusinessCard, RepairOsListScaffold } from "@/shared/ui";
 import { useLocale } from "@/shared/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import { useViewportMode } from "@/hooks/use-mobile";
@@ -214,7 +210,7 @@ export function CustomerListScreen() {
     mutationFn: ({ input }: { input: CustomerCreateInput; intent: CustomerCreateIntent }) =>
       createCustomer(input),
     onSuccess: ({ id }, { intent }) => {
-      toast.success("客户已创建");
+      toast.success(t("customers.list.created"));
       setCreateOpen(false);
       void queryClient.invalidateQueries({ queryKey: customersKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: customersKeys.detail(id, activeStoreId) });
@@ -224,7 +220,7 @@ export function CustomerListScreen() {
           : getCustomerDetailHref(id),
       );
     },
-    onError: () => toast.error("客户保存失败，请检查后重试"),
+    onError: () => toast.error(t("customers.list.saveFailed")),
   });
 
   const customers = data?.items ?? [];
@@ -261,12 +257,39 @@ export function CustomerListScreen() {
   if (!data && !isError && (shell.status === "loading" || (Boolean(activeStoreId) && isPending))) {
     return <CustomerListSkeleton />;
   }
-  if (!activeStoreId) return <StoreShellUnavailableState shell={shell} onRetry={shell.retry} />;
+  if (!activeStoreId) {
+    const isError = shell.status === "error";
+    const isPlatform = shell.status === "platform_admin";
+    return (
+      <StoreShellUnavailableState
+        shell={shell}
+        onRetry={shell.retry}
+        title={t(
+          isError
+            ? "customers.list.storeErrorTitle"
+            : isPlatform
+              ? "customers.list.platformTitle"
+              : "customers.list.onboardingTitle",
+        )}
+        description={t(
+          isError
+            ? "customers.list.storeErrorDescription"
+            : isPlatform
+              ? "customers.list.platformDescription"
+              : "customers.list.onboardingDescription",
+        )}
+        retryLabel={t("customers.list.storeRetry")}
+        actionLabel={t(
+          isPlatform ? "customers.list.platformAction" : "customers.list.onboardingAction",
+        )}
+      />
+    );
+  }
 
   const quickChips = customerHeaderChips.map((chip) => ({
     key: chip.value,
-    label: chip.label,
-    shortLabel: chip.shortLabel,
+    label: localizeCustomerQuickGroup(chip.value, chip.label, t),
+    shortLabel: localizeCustomerQuickGroup(chip.value, chip.shortLabel, t, true),
     count: chip.count,
     active: activeQuickGroup === chip.value,
     onClick: () => changeQuickGroup(chip.value),
@@ -278,18 +301,28 @@ export function CustomerListScreen() {
       subtitle={t("page.recordsTotal", { count: total })}
       eyebrow={t("page.workspaceCustomers")}
       action={
-        <RepairOsHeaderActionButton ariaLabel="新建客户" onClick={() => setCreateOpen(true)}>
+        <Button
+          type="button"
+          size="icon"
+          className={cn("size-11 rounded-lg", controls.brandButton)}
+          aria-label={t("customers.list.new")}
+          onClick={() => setCreateOpen(true)}
+        >
           <Plus className="size-4" />
-        </RepairOsHeaderActionButton>
+        </Button>
       }
       searchValue={searchDraft}
       onSearchChange={updateSearchDraft}
-      searchPlaceholder="姓名、电话或设备"
+      searchPlaceholder={t("customers.list.searchPlaceholder")}
+      searchPrefix={t("customers.list.searchPrefix")}
+      clearSearchLabel={t("customers.list.clearSearch")}
+      filterLabel={t("customers.list.filters")}
+      preparingStatus={t("customers.list.preparing")}
       searchAction={
         <ScanSearchButton
           scope="customers"
           onSearch={updateSearchDraft}
-          className="size-10 rounded-xl bg-card"
+          className="size-11 rounded-xl bg-card"
           iconClassName="size-4"
         />
       }
@@ -298,8 +331,8 @@ export function CustomerListScreen() {
           type="button"
           variant="outline"
           size="icon"
-          className="relative size-10 rounded-xl bg-card"
-          aria-label="更多筛选"
+          className="relative size-11 rounded-xl bg-card"
+          aria-label={t("customers.list.filters")}
           onClick={() => setFilterSurface("mobile")}
         >
           <Filter className="size-4" />
@@ -311,7 +344,7 @@ export function CustomerListScreen() {
         </Button>
       }
       chips={quickChips}
-      chipsLabel="客户分组"
+      chipsLabel={t("customers.list.groups")}
       chipsVariant="underline"
       desktopHeader={
         <section
@@ -324,7 +357,7 @@ export function CustomerListScreen() {
               <Input
                 value={searchDraft}
                 onChange={(event) => updateSearchDraft(event.target.value)}
-                placeholder="搜索姓名、电话或设备"
+                placeholder={t("customers.list.searchPlaceholderDesktop")}
                 className="h-9 pl-9"
               />
             </div>
@@ -342,7 +375,7 @@ export function CustomerListScreen() {
               className="h-9 shrink-0 gap-1.5"
               onClick={() => setFilterSurface("desktop")}
             >
-              <Filter className="size-3.5" /> 更多筛选
+              <Filter className="size-3.5" /> {t("customers.list.filters")}
               {activeFilterCount > 0 ? (
                 <Badge variant="secondary">{activeFilterCount}</Badge>
               ) : null}
@@ -351,10 +384,10 @@ export function CustomerListScreen() {
               className={cn("h-9 shrink-0 gap-1.5", controls.brandButton)}
               onClick={() => setCreateOpen(true)}
             >
-              <Plus className="size-4" /> 新建客户
+              <Plus className="size-4" /> {t("customers.list.new")}
             </Button>
           </div>
-          <div className="mt-2 grid grid-cols-4 gap-2" aria-label="客户分组">
+          <div className="mt-2 grid grid-cols-4 gap-2" aria-label={t("customers.list.groups")}>
             {customerHeaderChips.map((chip) => (
               <button
                 key={chip.value}
@@ -362,13 +395,15 @@ export function CustomerListScreen() {
                 aria-pressed={activeQuickGroup === chip.value}
                 onClick={() => changeQuickGroup(chip.value)}
                 className={cn(
-                  "flex h-9 min-w-0 items-center justify-center gap-1 rounded-lg border px-2 text-xs font-medium transition-colors",
+                  "flex min-h-9 min-w-0 items-center justify-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium transition-colors",
                   activeQuickGroup === chip.value
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-border/70 bg-card text-muted-foreground hover:bg-accent/50 hover:text-foreground",
                 )}
               >
-                <span className="truncate">{chip.label}</span>
+                <span className="min-w-0 whitespace-normal break-words text-center leading-4">
+                  {localizeCustomerQuickGroup(chip.value, chip.label, t)}
+                </span>
                 <span className="font-mono tabular-nums">{chip.count}</span>
               </button>
             ))}
@@ -385,7 +420,7 @@ export function CustomerListScreen() {
           className="w-[min(22rem,calc(100vw-16px))] max-w-[calc(100vw-16px)] p-0"
         >
           <SheetHeader className="sr-only">
-            <SheetTitle>更多客户筛选</SheetTitle>
+            <SheetTitle>{t("customers.list.filterDialogTitle")}</SheetTitle>
           </SheetHeader>
           <CustomerFilters
             filters={baseFilters}
@@ -409,13 +444,15 @@ export function CustomerListScreen() {
               className="h-7 shrink-0 gap-1 px-2 text-xs"
               onClick={refreshCustomerData}
             >
-              <RefreshCw className="size-3" /> 重试
+              <RefreshCw className="size-3" /> {t("customers.list.retry")}
             </Button>
           }
           className="mb-2 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2 text-xs text-status-warn-foreground shadow-none hover:bg-status-warn/10"
           bodyClassName="min-w-0"
         >
-          <span className="min-w-0 truncate">更新没有成功，当前仍显示上次结果。</span>
+          <span className="min-w-0 whitespace-normal break-words">
+            {t("customers.list.refreshWarning")}
+          </span>
         </RepairOsBusinessCard>
       ) : null}
 
@@ -432,12 +469,16 @@ export function CustomerListScreen() {
             <Search className="size-5" />
           </span>
           <h3 className="mt-3 text-base font-semibold leading-5">
-            {hasCustomerConstraints ? "没有找到符合条件的客户" : "还没有客户档案"}
+            {t(
+              hasCustomerConstraints
+                ? "customers.list.emptyFilteredTitle"
+                : "customers.list.emptyTitle",
+            )}
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
             {hasCustomerConstraints
-              ? "换个分组或清除条件后再试。"
-              : "先新建客户，之后可直接创建维修工单。"}
+              ? t("customers.list.emptyFilteredDescription")
+              : t("customers.list.emptyDescription")}
           </p>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {hasCustomerConstraints ? (
@@ -445,16 +486,22 @@ export function CustomerListScreen() {
                 type="button"
                 variant="outline"
                 size="sm"
+                className="min-h-11 whitespace-normal"
                 onClick={() => {
                   updateSearchDraft("");
                   updateFilters({ work: "all" });
                 }}
               >
-                清除条件
+                {t("customers.list.clearConditions")}
               </Button>
             ) : null}
-            <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus className="size-3.5" /> 新建客户
+            <Button
+              type="button"
+              size="sm"
+              className="min-h-11 whitespace-normal"
+              onClick={() => setCreateOpen(true)}
+            >
+              <Plus className="size-3.5" /> {t("customers.list.new")}
             </Button>
           </div>
         </RepairOsBusinessCard>
@@ -462,7 +509,13 @@ export function CustomerListScreen() {
         <>
           <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
             <span>
-              共 {total} 位{total > 0 && ` · ${pageRange.start}-${pageRange.end}`}
+              {total > 0
+                ? t("customers.list.totalRange", {
+                    count: total,
+                    start: pageRange.start,
+                    end: pageRange.end,
+                  })
+                : t("customers.list.total", { count: total })}
             </span>
             {isFetching ? (
               <LoaderCircle
@@ -472,7 +525,7 @@ export function CustomerListScreen() {
               />
             ) : null}
             <span className="sr-only" role="status" aria-live="polite">
-              {isFetching ? "正在更新客户数据" : ""}
+              {isFetching ? t("customers.list.refreshing") : ""}
             </span>
           </div>
           {viewportMode === "desktop" ? (
@@ -490,19 +543,19 @@ export function CustomerListScreen() {
                 <thead className="text-xs text-muted-foreground">
                   <tr className="border-b border-border/40">
                     <th scope="col" className="w-[29%] px-3 py-2 text-left font-medium">
-                      客户
+                      {t("customers.list.headerCustomer")}
                     </th>
                     <th scope="col" className="w-[21%] px-2 py-2 text-left font-medium">
-                      设备
+                      {t("customers.list.headerDevice")}
                     </th>
                     <th scope="col" className="w-[13%] px-2 py-2 text-right font-medium">
-                      金额
+                      {t("customers.list.headerAmount")}
                     </th>
                     <th scope="col" className="w-[29%] px-2 py-2 text-left font-medium">
-                      现在要做什么
+                      {t("customers.list.headerNextAction")}
                     </th>
                     <th scope="col" className="w-[8%] px-2 py-2 text-right font-medium">
-                      查看
+                      {t("customers.list.headerView")}
                     </th>
                   </tr>
                 </thead>
@@ -529,20 +582,20 @@ export function CustomerListScreen() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 gap-1 text-xs"
+                  className="h-11 gap-1 text-xs lg:h-8"
                   disabled={page <= 1 || isPlaceholderData}
                   onClick={() => setPage((current) => Math.max(1, current - 1))}
                 >
-                  <ChevronLeft className="size-3.5" /> 上一页
+                  <ChevronLeft className="size-3.5" /> {t("customers.list.previous")}
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 gap-1 text-xs"
+                  className="h-11 gap-1 text-xs lg:h-8"
                   disabled={page >= pageCount || isPlaceholderData}
                   onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
                 >
-                  下一页 <ChevronRight className="size-3.5" />
+                  {t("customers.list.next")} <ChevronRight className="size-3.5" />
                 </Button>
               </div>
             }
@@ -551,18 +604,28 @@ export function CustomerListScreen() {
             trailingClassName="shrink-0"
           >
             <span className="text-muted-foreground">
-              第 {displayPage} / {pageCount} 页 · 每页 {CUSTOMER_LIST_PAGE_SIZE}
+              {t("customers.list.pageSummary", {
+                page: displayPage,
+                pageCount,
+                pageSize: CUSTOMER_LIST_PAGE_SIZE,
+              })}
             </span>
           </RepairOsBusinessCard>
         </>
       )}
 
       {createOpen ? (
-        <Suspense fallback={null}>
+        <Suspense
+          fallback={
+            <span role="status" aria-live="polite" className="sr-only">
+              {t("customers.list.createLoading")}
+            </span>
+          }
+        >
           <CustomerFormDialog
             open={createOpen}
             onOpenChange={setCreateOpen}
-            title="新建客户"
+            title={t("customers.list.new")}
             busy={create.isPending}
             activeStoreId={activeStoreId}
             initial={defaultCustomerForm}
@@ -581,14 +644,17 @@ export function CustomerListScreen() {
       <Dialog open={Boolean(previewCustomerId)} onOpenChange={(open) => !open && closePreview()}>
         <DialogContent showCloseButton={false} className={componentOverlay.detailWorkspace}>
           <DialogHeader className="sr-only">
-            <DialogTitle>客户详情预览</DialogTitle>
-            <DialogDescription>查看客户资料、设备、历史工单和回访记录。</DialogDescription>
+            <DialogTitle>{t("customers.list.previewTitle")}</DialogTitle>
+            <DialogDescription>{t("customers.list.previewDescription")}</DialogDescription>
           </DialogHeader>
           {previewCustomerId ? (
             <Suspense
               fallback={
                 <div className="grid min-h-48 place-items-center text-muted-foreground">
-                  <LoaderCircle className="size-5 animate-spin" aria-label="正在加载客户详情" />
+                  <LoaderCircle
+                    className="size-5 animate-spin"
+                    aria-label={t("customers.list.previewLoading")}
+                  />
                 </div>
               }
             >
@@ -606,6 +672,7 @@ export function CustomerListScreen() {
 }
 
 function CustomerLoadError({ onRetry }: { onRetry: () => void }) {
+  const { t } = useLocale();
   return (
     <RepairOsBusinessCard
       as="div"
@@ -616,12 +683,12 @@ function CustomerLoadError({ onRetry }: { onRetry: () => void }) {
       <span className="mx-auto grid size-10 place-items-center rounded-full bg-status-danger/10 text-status-danger-foreground">
         <AlertTriangle className="size-5" />
       </span>
-      <h3 className="mt-3 text-base font-semibold">客户暂时无法加载</h3>
+      <h3 className="mt-3 text-base font-semibold">{t("customers.list.loadErrorTitle")}</h3>
       <p className="mt-1 text-xs leading-5 text-muted-foreground">
-        请检查网络后重新加载，已有客户资料不会受影响。
+        {t("customers.list.loadErrorDescription")}
       </p>
       <Button className="mt-4 h-9 gap-1.5" onClick={onRetry}>
-        <RefreshCw className="size-3.5" /> 重新加载
+        <RefreshCw className="size-3.5" /> {t("customers.list.reload")}
       </Button>
     </RepairOsBusinessCard>
   );

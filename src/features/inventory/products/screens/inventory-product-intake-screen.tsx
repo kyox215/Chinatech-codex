@@ -13,6 +13,7 @@ import { createInventoryProduct } from "@/lib/repairdesk/api";
 import type { CreateInventoryProductInput, InventoryProductCategory } from "@/lib/repairdesk/types";
 import { repairOs, surfaces } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 import { inventoryCatalogKeys, inventoryProductKeys } from "../api/query-keys";
 import { inventoryCatalogQueryOptions } from "../api/query-options";
@@ -36,7 +37,11 @@ import {
   type InventoryProductFormDraft,
 } from "../model/inventory-product-form";
 import { useInventoryProductLeaveGuard } from "../model/use-inventory-product-leave-guard";
-import { inventorySafeOperationMessage } from "../../model/inventory-operation-error";
+import {
+  getInventoryQuickEntryErrorMessage,
+  localizeInventoryProductCategory,
+  localizeInventoryValidation,
+} from "../model/inventory-product-i18n";
 
 type Draft = {
   category: InventoryProductCategory;
@@ -199,6 +204,7 @@ export function InventoryProductIntakeScreen({
   onStateChange,
   onAuthorityInvalidated,
 }: InventoryProductIntakeScreenProps = {}) {
+  const { t } = useLocale();
   const router = useRouter();
   const queryClient = useQueryClient();
   const shell = useStoreShellContext({ monitorAuthority: true });
@@ -248,8 +254,8 @@ export function InventoryProductIntakeScreen({
       setError({
         message:
           reason === "pending"
-            ? "正在保存商品，请等待结果后再离开。"
-            : "当前商品资料尚未保存，继续填写或确认离开。",
+            ? t("inventory2b4.quick.screen.pendingLeave")
+            : t("inventory2b4.quick.screen.unsavedCreate"),
       }),
   });
 
@@ -279,9 +285,9 @@ export function InventoryProductIntakeScreen({
     createdContinueRef.current = false;
     submitLockRef.current = false;
     mutation.reset();
-    setError({ message: "门店或权限已变化，旧草稿已清除，请重新录入。" });
+    setError({ message: t("inventory2b4.quick.screen.authorityChanged") });
     onAuthorityInvalidatedRef.current?.();
-  }, [mutation, shell.authorityFingerprint, shell.isLoading]);
+  }, [mutation, shell.authorityFingerprint, shell.isLoading, t]);
 
   useEffect(() => {
     const nextState = {
@@ -305,6 +311,14 @@ export function InventoryProductIntakeScreen({
     };
   }, []);
 
+  useEffect(() => {
+    if (!shouldAutoFocusBrand(surface)) return;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById("product-brand")?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [surface]);
+
   const closeIntake = (event?: React.MouseEvent<HTMLButtonElement>) => {
     const leave = () => {
       if (onCancel) {
@@ -324,8 +338,8 @@ export function InventoryProductIntakeScreen({
   if (shell.isLoading) {
     return (
       <IntakeMessage
-        title="正在载入录入权限"
-        body="确认当前门店和账号权限后即可开始录入。"
+        title={t("inventory2b4.quick.screen.loadingPermission")}
+        body={t("inventory2b4.quick.screen.loadingPermissionBody")}
         onBack={closeIntake}
         surface={surface}
       />
@@ -340,11 +354,11 @@ export function InventoryProductIntakeScreen({
   ) {
     return (
       <IntakeMessage
-        title="无法录入商品"
+        title={t("inventory2b4.quick.screen.cannotCreate")}
         body={
           shell.permissions?.canCreateInventory
-            ? "当前门店尚未启用商品快速录入。"
-            : "当前账号没有商品录入权限。"
+            ? t("inventory2b4.quick.screen.featureOff")
+            : t("inventory2b4.quick.screen.noCreatePermission")
         }
         onBack={closeIntake}
         surface={surface}
@@ -398,19 +412,22 @@ export function InventoryProductIntakeScreen({
   const save = async (continueEntry: boolean) => {
     if (submitLockRef.current || syncBlocked) return;
     if (pendingCatalogTransition) {
-      setError({ message: "请先确认品牌或型号切换，再保存商品。" });
+      setError({ message: t("inventory2b4.quick.screen.confirmCatalogFirst") });
       focusCatalogTransitionConfirmation();
       return;
     }
     if (pendingCategory) {
-      setError({ message: "请先确认商品类别切换，再保存商品。" });
+      setError({ message: t("inventory2b4.quick.screen.confirmCategoryFirst") });
       focusCategoryConfirmation();
       return;
     }
     setError(undefined);
     const validation = validateDraft(draft, canEnterCost);
     if (validation) {
-      setError(validation);
+      setError({
+        ...validation,
+        message: localizeInventoryValidation(validation.code, validation.message, t),
+      });
       const fieldId = validation.fieldId ?? "product-category-phone";
       if (
         [
@@ -432,7 +449,7 @@ export function InventoryProductIntakeScreen({
       return;
     }
     if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setError({ message: "当前离线，恢复联网后再保存；草稿会保留在当前页面。" });
+      setError({ message: t("inventory2b4.quick.screen.offline") });
       return;
     }
 
@@ -443,7 +460,7 @@ export function InventoryProductIntakeScreen({
       result = await mutation.mutateAsync(toInput(draft, idempotencyKey, canEnterCost));
     } catch (cause) {
       submitLockRef.current = false;
-      setError({ message: inventorySafeOperationMessage(cause, "商品保存失败，请重试") });
+      setError({ message: getInventoryQuickEntryErrorMessage(cause, "create", t) });
       return;
     }
 
@@ -464,7 +481,7 @@ export function InventoryProductIntakeScreen({
       submitLockRef.current = false;
       return;
     }
-    toast.success(`商品 ${result.sku} 已录入`);
+    toast.success(t("inventory2b4.quick.screen.created", { sku: result.sku }));
     if (continueEntry) {
       setDraft(sameProductDraft(draft));
       requestAnimationFrame(() =>
@@ -626,9 +643,9 @@ export function InventoryProductIntakeScreen({
     <InventoryProductPageFrame
       mode="intake"
       surface={surface}
-      title="快速录入商品"
-      subtitle="品牌、型号与设备标识即可开始，其他资料可随时补充"
-      mobileSubtitle="三个字段即可保存"
+      title={t("inventory2b4.quick.dialog.title")}
+      subtitle={t("inventory2b4.quick.screen.subtitle")}
+      mobileSubtitle={t("inventory2b4.quick.screen.mobileSubtitle")}
       mutationPending={mutation.isPending}
       syncBlocked={syncBlocked}
       error={error?.message}
@@ -646,7 +663,7 @@ export function InventoryProductIntakeScreen({
       onBack={closeIntake}
       leaveGuard={surface === "page" ? (leaveGuard as InventoryProductPageLeaveGuard) : undefined}
       onContinue={() => void save(true)}
-      primaryLabel="保存并查看商品"
+      primaryLabel={t("inventory2b4.quick.screen.saveAndView")}
       onSubmit={(event) => {
         event.preventDefault();
         void save(false);
@@ -674,8 +691,8 @@ export function InventoryProductIntakeScreen({
         inspectionEnabled={inspectionEnabled}
         identifierDescription={
           surface === "dialog"
-            ? "弹窗内可粘贴或手工输入；完整页面仍保留摄像头扫码与本机图片识别。"
-            : "可用摄像头扫码、照片识别、粘贴或手工输入；原图仅在本机处理。"
+            ? t("inventory2b4.quick.screen.identifierDialogHint")
+            : t("inventory2b4.quick.screen.identifierPageHint")
         }
         showScanner={surface === "page"}
         identifierField={InventoryProductIdentifierField}
@@ -695,12 +712,14 @@ export function InventoryProductIntakeScreen({
               aria-live="polite"
             >
               <p className="text-[11px] leading-4 sm:text-xs">
-                切换到“
-                {
-                  inventoryProductFormCategories.find((item) => item.value === pendingCategory)
-                    ?.label
-                }
-                ”会清除当前品牌、型号、规格和设备标识。
+                {t("inventory2b4.quick.screen.categoryChangeWarning", {
+                  category: localizeInventoryProductCategory(
+                    pendingCategory,
+                    inventoryProductFormCategories.find((item) => item.value === pendingCategory)
+                      ?.label ?? pendingCategory,
+                    t,
+                  ),
+                })}
               </p>
               <div className="grid grid-cols-2 gap-1.5">
                 <Button
@@ -710,7 +729,7 @@ export function InventoryProductIntakeScreen({
                   className="min-h-11"
                   onClick={() => setPendingCategory(undefined)}
                 >
-                  继续编辑
+                  {t("inventory2b4.quick.frame.continueEdit")}
                 </Button>
                 <Button
                   type="button"
@@ -725,7 +744,7 @@ export function InventoryProductIntakeScreen({
                     );
                   }}
                 >
-                  清空并切换
+                  {t("inventory2b4.quick.screen.clearAndSwitch")}
                 </Button>
               </div>
             </div>
@@ -742,7 +761,7 @@ export function InventoryProductIntakeScreen({
             ) : null}
             {catalogQuery.isError ? (
               <p className="text-[11px] leading-4 text-muted-foreground">
-                店铺目录暂时不可用，仍可使用常用选项或手动填写。
+                {t("inventory2b4.quick.screen.catalogUnavailable")}
               </p>
             ) : null}
           </>
@@ -885,9 +904,13 @@ function CatalogTransitionConfirm({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  const label = kind === "brand" ? "品牌" : "型号";
+  const { t } = useLocale();
+  const label =
+    kind === "brand" ? t("inventory2b4.quick.screen.brand") : t("inventory2b4.quick.screen.model");
   const clearSummary =
-    kind === "brand" ? "型号、内存、容量、颜色和型号专属规格" : "内存、容量、颜色和型号专属规格";
+    kind === "brand"
+      ? t("inventory2b4.quick.screen.brandDependents")
+      : t("inventory2b4.quick.screen.modelDependents");
   return (
     <div
       data-ui="inventory-product-catalog-transition-confirm"
@@ -896,11 +919,11 @@ function CatalogTransitionConfirm({
       aria-live="polite"
     >
       <p className="text-[11px] leading-4 sm:text-xs">
-        更换{label}会清除{clearSummary}；IMEI / 序列号、售价、成本、库位、保修和备注会保留。
+        {t("inventory2b4.quick.screen.catalogChangeWarning", { label, summary: clearSummary })}
       </p>
       <div className="grid grid-cols-2 gap-1.5">
         <Button type="button" variant="ghost" size="sm" className="min-h-11" onClick={onCancel}>
-          保留原资料
+          {t("inventory2b4.quick.screen.keepOriginal")}
         </Button>
         <Button
           type="button"
@@ -909,7 +932,7 @@ function CatalogTransitionConfirm({
           className="min-h-11 bg-background"
           onClick={onConfirm}
         >
-          清理并切换
+          {t("inventory2b4.quick.screen.clearCatalogAndSwitch")}
         </Button>
       </div>
     </div>
@@ -927,6 +950,7 @@ function IntakeMessage({
   onBack: () => void;
   surface?: "page" | "dialog";
 }) {
+  const { t } = useLocale();
   const Root = surface === "page" ? "main" : "div";
   return (
     <Root
@@ -941,7 +965,7 @@ function IntakeMessage({
         <h1 className="font-semibold">{title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{body}</p>
         <Button type="button" variant="outline" className="mt-4" onClick={onBack}>
-          返回商品库存
+          {t("inventory2b4.quick.frame.backInventory")}
         </Button>
       </section>
     </Root>

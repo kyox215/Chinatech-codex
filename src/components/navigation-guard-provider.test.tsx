@@ -134,7 +134,8 @@ describe("NavigationGuardProvider", () => {
 
   it("returns a failed outcome instead of swallowing transition errors", async () => {
     const onOutcome = vi.fn();
-    const error = new Error("route failed");
+    const error = new Error("NAVIGATION_SECRET_SENTINEL");
+    error.stack = "STACK_SECRET_SENTINEL";
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     render(
       <NavigationGuardProvider>
@@ -149,7 +150,10 @@ describe("NavigationGuardProvider", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "失败导航" }));
     await waitFor(() => expect(onOutcome).toHaveBeenCalledWith({ status: "failed", error }));
-    expect(consoleError).toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledWith("[navigation-guard] transition failed");
+    expect(JSON.stringify(consoleError.mock.calls)).not.toMatch(
+      /NAVIGATION_SECRET_SENTINEL|STACK_SECRET_SENTINEL/,
+    );
     consoleError.mockRestore();
   });
 

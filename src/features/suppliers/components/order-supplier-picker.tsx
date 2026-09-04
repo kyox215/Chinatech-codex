@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/sheet";
 import type { Supplier } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function OrderSupplierPicker({
   supplier,
@@ -30,8 +31,8 @@ export function OrderSupplierPicker({
   onChange,
   mode = "dropdown",
   size = "compact",
-  label = "配件供",
-  title = "选择配件供应商",
+  label,
+  title,
   className,
 }: {
   supplier?: Supplier;
@@ -44,8 +45,11 @@ export function OrderSupplierPicker({
   title?: string;
   className?: string;
 }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
-  const supplierLabel = supplier?.short_name || supplier?.name || "未选";
+  const resolvedLabel = label ?? t("orders2b2.supplier.label");
+  const resolvedTitle = title ?? t("orders2b2.supplier.title");
+  const supplierLabel = supplier?.short_name || supplier?.name || t("orders2b2.supplier.none");
   const trigger = (
     <Button
       type="button"
@@ -64,7 +68,7 @@ export function OrderSupplierPicker({
           : "bg-muted/60 text-muted-foreground hover:bg-muted",
         className,
       )}
-      aria-label={supplier ? `${label} ${supplier.name}` : title}
+      aria-label={supplier ? `${resolvedLabel} ${supplier.name}` : resolvedTitle}
     >
       {isUpdating ? (
         <Loader2
@@ -74,7 +78,7 @@ export function OrderSupplierPicker({
         <PackageSearch className={cn("shrink-0", size === "micro" ? "size-2.5" : "size-3")} />
       )}
       <span className="truncate">
-        {label}：{supplierLabel}
+        {resolvedLabel}：{supplierLabel}
       </span>
     </Button>
   );
@@ -87,11 +91,9 @@ export function OrderSupplierPicker({
           <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 pr-14 text-left">
             <SheetTitle className="flex items-center gap-2 text-base">
               <PackageSearch className="size-4 text-primary" />
-              {title}
+              {resolvedTitle}
             </SheetTitle>
-            <SheetDescription className="text-xs">
-              只显示当前店铺设置中的活跃供应商。
-            </SheetDescription>
+            <SheetDescription className="text-xs">{t("orders2b2.supplier.help")}</SheetDescription>
           </SheetHeader>
           <div className="max-h-[58svh] overflow-y-auto px-3 py-3">
             <SupplierOptionsList
@@ -113,7 +115,7 @@ export function OrderSupplierPicker({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuLabel className="text-xs">{title}</DropdownMenuLabel>
+        <DropdownMenuLabel className="text-xs">{resolvedTitle}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <SupplierOptionsList
           supplier={supplier}
@@ -140,6 +142,7 @@ function SupplierOptionsList({
   onChange: (supplierId: string | null) => void;
   asDropdownItems?: boolean;
 }) {
+  const { t } = useLocale();
   if (asDropdownItems) {
     return (
       <>
@@ -158,7 +161,7 @@ function SupplierOptionsList({
           ))
         ) : (
           <DropdownMenuItem disabled className="text-xs">
-            请先到设置页维护供应商
+            {t("orders2b2.supplier.settings")}
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
@@ -167,7 +170,7 @@ function SupplierOptionsList({
           disabled={isUpdating || !supplier}
           onSelect={() => onChange(null)}
         >
-          清除配件供应商
+          {t("orders2b2.supplier.clear")}
         </DropdownMenuItem>
       </>
     );
@@ -193,7 +196,7 @@ function SupplierOptionsList({
             <span className="min-w-0">
               <span className="block truncate font-semibold">{item.name}</span>
               <span className="block truncate text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-                {item.short_name || item.phone || "当前店铺供应商"}
+                {item.short_name || item.phone || t("orders2b2.supplier.current")}
               </span>
             </span>
             {item.id === supplier?.id ? <Check className="size-4" /> : null}
@@ -201,7 +204,7 @@ function SupplierOptionsList({
         ))
       ) : (
         <div className="rounded-lg border border-dashed border-[var(--border-panel)] px-3 py-5 text-center text-xs text-muted-foreground">
-          请先到设置页维护供应商
+          {t("orders2b2.supplier.settings")}
         </div>
       )}
       <Button
@@ -212,7 +215,7 @@ function SupplierOptionsList({
         className="h-9 justify-center rounded-lg text-xs text-muted-foreground"
         onClick={() => onChange(null)}
       >
-        清除配件供应商
+        {t("orders2b2.supplier.clear")}
       </Button>
     </div>
   );

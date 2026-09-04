@@ -62,4 +62,33 @@ describe("InventoryProductPageFrame", () => {
     expect(onBack).toHaveBeenCalledTimes(1);
     expect(onSecondary).toHaveBeenCalledTimes(1);
   });
+
+  it("keeps long Italian Quick Entry actions wrap-safe without shrinking the touch target", () => {
+    render(
+      <InventoryProductPageFrame
+        mode="intake"
+        title="Inserimento rapido"
+        subtitle="Prodotto sintetico"
+        onBack={vi.fn()}
+        onContinue={vi.fn()}
+        continueLabel="Salva e continua l’inserimento"
+        primaryLabel="Salva e visualizza prodotto"
+      >
+        <p>DATI SINTETICI</p>
+      </InventoryProductPageFrame>,
+    );
+
+    const actions = screen
+      .getByTestId("inventory-product-page-frame")
+      .querySelector('[data-ui="inventory-product-actions"]');
+    for (const label of ["Salva e continua l’inserimento", "Salva e visualizza prodotto"]) {
+      expect(within(actions as HTMLElement).getByRole("button", { name: label })).toHaveClass(
+        "h-auto",
+        "min-h-11",
+        "whitespace-normal",
+        "text-center",
+        "leading-tight",
+      );
+    }
+  });
 });

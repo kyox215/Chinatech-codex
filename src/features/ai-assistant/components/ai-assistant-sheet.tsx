@@ -43,6 +43,8 @@ import {
 import { brandGradientStyle } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/shared/i18n/locale-provider";
+import { getAiAssistantPresentationCopy } from "@/shared/i18n/messages";
+import type { AppLocale } from "@/shared/i18n/locales";
 
 type AssistantStatus = "idle" | "loading" | "result" | "error" | "cancelled";
 
@@ -51,6 +53,8 @@ type AssistantErrorState = {
   message: string;
   retryable: boolean;
 };
+
+const canonicalSuggestions = ["查找未付款工单", "查看逾期工单", "搜索正在维修的订单"] as const;
 
 export interface AiAssistantSheetProps {
   open: boolean;
@@ -67,8 +71,6 @@ export interface AiAssistantSheetProps {
   onModelUsageChanged: () => void;
   storeKey: string;
 }
-
-const suggestions = ["查找未付款工单", "查看逾期工单", "搜索正在维修的订单"] as const;
 
 export function AiAssistantSheet({
   open,
@@ -87,6 +89,7 @@ export function AiAssistantSheet({
 }: AiAssistantSheetProps) {
   const { locale: serverSafeLocale } = useLocale();
   const locale = typeof document === "undefined" ? serverSafeLocale : currentAiAssistantLocale();
+  const copy = getAiAssistantPresentationCopy(locale);
   const [input, setInput] = useState("");
   const [lastQuestion, setLastQuestion] = useState("");
   const [processingMode, setProcessingMode] = useState<AiAssistantProcessingMode>("local");
@@ -223,7 +226,7 @@ export function AiAssistantSheet({
           setStatus("cancelled");
           return;
         }
-        setError(toAssistantError(caught));
+        setError(toAssistantError(caught, locale));
         setStatus("error");
       }
     },
@@ -273,7 +276,7 @@ export function AiAssistantSheet({
       controllerRef.current = undefined;
       setIsLoadingMore(false);
       if (isAbortError(caught)) return;
-      setLoadMoreError(toAssistantError(caught).message);
+      setLoadMoreError(toAssistantError(caught, locale).message);
     }
   }, [canSubmit, isLoadingMore, isOnline, lastProcessingMode, lastQuestion, locale, response]);
 
@@ -288,19 +291,17 @@ export function AiAssistantSheet({
 
   const voiceButtonLabel =
     voiceInput.support === "unsupported"
-      ? "当前浏览器不支持语音输入"
+      ? copy.voiceUnsupported
       : voiceInput.phase === "requesting_permission"
-        ? "取消语音输入"
+        ? copy.voiceCancel
         : voiceInput.phase === "listening"
-          ? "停止语音输入"
+          ? copy.voiceStop
           : voiceInput.phase === "processing"
-            ? "正在处理语音输入"
-            : "开始语音输入";
+            ? copy.voiceProcessing
+            : copy.voiceStart;
   const voiceStatusMessage =
     voiceInput.message ??
-    (voiceInput.support === "unsupported"
-      ? "当前浏览器不支持语音输入，请使用键盘输入。"
-      : undefined);
+    (voiceInput.support === "unsupported" ? copy.voiceUnsupportedHint : undefined);
   const voiceButtonActive =
     voiceInput.phase === "requesting_permission" || voiceInput.phase === "listening";
 
@@ -308,6 +309,7 @@ export function AiAssistantSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
+        closeLabel={copy.close}
         data-ai-assistant-sheet="true"
         className="flex w-full max-w-[30rem] flex-col gap-0 p-0 sm:w-[min(30rem,calc(100vw-24px))] sm:p-0"
         onOpenAutoFocus={(event) => {
@@ -323,56 +325,62 @@ export function AiAssistantSheet({
             >
               <Sparkles className="size-4" aria-hidden="true" />
             </span>
-            RepairDesk AI 小助手
+            {copy.assistantTitle}
           </SheetTitle>
-          <SheetDescription className="text-xs">
-            先核对系统实际采用的范围；只有点击按钮才会打开订单或提交受限操作。
-          </SheetDescription>
+          <SheetDescription className="text-xs">{copy.assistantDescription}</SheetDescription>
         </SheetHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--surface-workspace)] px-3 py-3 sm:px-4">
-          {!isOnline ? <OfflineState /> : null}
+          {!isOnline ? <OfflineState locale={locale} /> : null}
 
           {capabilitiesLoading ? (
             <CenteredState
               icon={<LoaderCircle className="size-5 animate-spin" />}
-              title="正在确认使用权限"
-              message="读取当前门店的 AI 功能配置…"
+              title={copy.checkingAccess}
+              message={copy.readingConfig}
             />
           ) : capabilitiesError ? (
             <CenteredState
               icon={<AlertTriangle className="size-5" />}
-              title="暂时无法读取 AI 配置"
-              message="订单手工搜索仍可正常使用。"
+              title={copy.configUnavailable}
+              message={copy.manualStillWorks}
               action={
                 <Button type="button" variant="outline" size="sm" onClick={onRetryCapabilities}>
-                  重试
+                  {copy.retry}
                 </Button>
               }
             />
           ) : !canSubmit ? (
-            <CapabilityUnavailableState reason={capabilities?.reason} />
+            <CapabilityUnavailableState reason={capabilities?.reason} locale={locale} />
           ) : (
             <div className="space-y-3">
               {status === "idle" ? (
-                <IdleState online={isOnline} onSuggestion={(value) => void submit(value)} />
+                <IdleState
+                  locale={locale}
+                  online={isOnline}
+                  onSuggestion={(value) => void submit(value)}
+                />
               ) : null}
 
               {lastQuestion && status !== "idle" ? (
                 <div className="ml-auto max-w-[88%] rounded-2xl rounded-br-md bg-primary px-3 py-2 text-sm text-primary-foreground shadow-[var(--shadow-card)]">
                   <span className="mb-0.5 block text-[10px] font-medium text-primary-foreground/75 lg:text-[11px] lg:leading-4">
-                    处理方式 · {lastProcessingMode === "local" ? "本地处理" : "大模型辅助"}
+                    {copy.processingMode} ·{" "}
+                    {lastProcessingMode === "local" ? copy.local : copy.model}
                   </span>
                   <span>{lastQuestion}</span>
                 </div>
               ) : null}
 
-              {status === "loading" ? <LoadingState mode={lastProcessingMode} /> : null}
-              {status === "cancelled" ? <CancelledState /> : null}
+              {status === "loading" ? (
+                <LoadingState mode={lastProcessingMode} locale={locale} />
+              ) : null}
+              {status === "cancelled" ? <CancelledState locale={locale} /> : null}
               {status === "error" && error ? (
                 <ErrorState
                   error={error}
                   onRetry={() => void submit(lastQuestion, true, lastProcessingMode)}
+                  locale={locale}
                 />
               ) : null}
               {status === "result" && response ? (
@@ -399,6 +407,7 @@ export function AiAssistantSheet({
                         : current,
                     )
                   }
+                  locale={locale}
                 />
               ) : null}
             </div>
@@ -439,7 +448,7 @@ export function AiAssistantSheet({
             onRetryUsage={onRetryUsage}
           />
           <label htmlFor="ai-assistant-message" className="sr-only">
-            输入工单查询问题
+            {copy.inputLabel}
           </label>
           <Textarea
             ref={messageInputRef}
@@ -456,7 +465,7 @@ export function AiAssistantSheet({
               event.preventDefault();
               void submit();
             }}
-            placeholder="例如：请列出仍在处理且未付款的工单"
+            placeholder={copy.inputPlaceholder}
             className="min-h-20 resize-none text-base sm:text-sm"
           />
           {voiceStatusMessage ? (
@@ -475,7 +484,7 @@ export function AiAssistantSheet({
           ) : null}
           <div className="flex items-center justify-between gap-2">
             <span className="min-w-0 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-              {input.length}/800 · 结果来自当前 RepairDesk 数据
+              {input.length}/800 · {copy.inputHint}
             </span>
             <div className="flex shrink-0 items-center gap-1.5">
               <Button
@@ -512,7 +521,7 @@ export function AiAssistantSheet({
                   variant="outline"
                   size="sm"
                 >
-                  取消
+                  {copy.cancel}
                 </Button>
               ) : (
                 <Button
@@ -522,7 +531,7 @@ export function AiAssistantSheet({
                   className="gap-1.5"
                 >
                   <Send className="size-3.5" aria-hidden="true" />
-                  发送
+                  {copy.send}
                 </Button>
               )}
             </div>
@@ -534,12 +543,15 @@ export function AiAssistantSheet({
 }
 
 function IdleState({
+  locale,
   online,
   onSuggestion,
 }: {
+  locale: AppLocale;
   online: boolean;
   onSuggestion: (value: string) => void;
 }) {
+  const copy = getAiAssistantPresentationCopy(locale);
   return (
     <div className="space-y-4 py-4 text-center">
       <div
@@ -549,55 +561,60 @@ function IdleState({
         <Bot className="size-6" aria-hidden="true" />
       </div>
       <div>
-        <h3 className="text-sm font-semibold">想查哪一张工单？</h3>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          可按订单号、客户、设备、付款或处理状态查询。结果会以安全卡片显示。
-        </p>
+        <h3 className="text-sm font-semibold">{copy.idleTitle}</h3>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">{copy.idleDescription}</p>
       </div>
       <div className="grid gap-2 text-left">
-        {suggestions.map((suggestion) => (
+        {canonicalSuggestions.map((message, index) => (
           <button
-            key={suggestion}
+            key={message}
             type="button"
             disabled={!online}
-            onClick={() => onSuggestion(suggestion)}
+            onClick={() => onSuggestion(message)}
             className="rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {suggestion}
+            {copy.suggestions[index]}
           </button>
         ))}
       </div>
       <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
         <ShieldCheck className="size-3.5" aria-hidden="true" />
-        只读模式 · 不向模型返回订单详情
+        {copy.readonlyHint}
       </div>
     </div>
   );
 }
 
-function LoadingState({ mode }: { mode: AiAssistantProcessingMode }) {
+function LoadingState({ mode, locale }: { mode: AiAssistantProcessingMode; locale: AppLocale }) {
+  const copy = getAiAssistantPresentationCopy(locale);
   return (
     <div className="rounded-2xl border border-[var(--border-panel)] bg-card p-3 shadow-[var(--shadow-card)]">
       <div className="flex items-center gap-2 text-sm font-medium">
         <LoaderCircle className="size-4 animate-spin text-primary" aria-hidden="true" />
-        {mode === "local"
-          ? "正在本地解析并查询 RepairDesk…"
-          : "正在使用大模型辅助解析并由系统核对查询条件…"}
+        {mode === "local" ? copy.loadingLocal : copy.loadingModel}
       </div>
-      <p className="mt-1 pl-6 text-xs text-muted-foreground">通常几秒内完成，最多等待 20 秒。</p>
+      <p className="mt-1 pl-6 text-xs text-muted-foreground">{copy.waitHint}</p>
     </div>
   );
 }
 
-function CancelledState() {
+function CancelledState({ locale }: { locale: AppLocale }) {
   return (
     <div className="rounded-2xl border border-[var(--border-panel)] bg-card p-3 text-sm text-muted-foreground">
-      已取消本次查询。输入内容仍保留，可修改后重新发送。
+      {getAiAssistantPresentationCopy(locale).cancelled}
     </div>
   );
 }
 
-function ErrorState({ error, onRetry }: { error: AssistantErrorState; onRetry: () => void }) {
+function ErrorState({
+  error,
+  onRetry,
+  locale,
+}: {
+  error: AssistantErrorState;
+  onRetry: () => void;
+  locale: AppLocale;
+}) {
   return (
     <div className="rounded-2xl border border-status-danger-foreground/25 bg-status-danger/40 p-3 text-status-danger-foreground">
       <div className="flex items-start gap-2">
@@ -607,7 +624,7 @@ function ErrorState({ error, onRetry }: { error: AssistantErrorState; onRetry: (
           <p className="mt-1 text-xs leading-5">{error.message}</p>
           {error.retryable ? (
             <Button type="button" variant="outline" size="sm" className="mt-2" onClick={onRetry}>
-              重试查询
+              {getAiAssistantPresentationCopy(locale).retryQuery}
             </Button>
           ) : null}
         </div>
@@ -625,6 +642,7 @@ function ResultState({
   loadMoreError,
   isOnline,
   onCardUpdated,
+  locale,
 }: {
   response: AiOrderAssistantResponse;
   onNavigate: () => void;
@@ -634,7 +652,9 @@ function ResultState({
   loadMoreError?: string;
   isOnline: boolean;
   onCardUpdated: (card: AiOrderAssistantResponse["cards"][number]) => void;
+  locale: AppLocale;
 }) {
+  const copy = getAiAssistantPresentationCopy(locale);
   const shouldStartOpen =
     response.cards.length === 0 ||
     response.interpretation_status === "corrected" ||
@@ -646,13 +666,15 @@ function ResultState({
     .slice(0, 3)
     .map((filter) => filter.value)
     .join(" · ");
-  const interpretationLabel = interpretationStatusLabel(response.interpretation_status);
+  const interpretationLabel = interpretationStatusLabel(response.interpretation_status, locale);
 
   return (
     <div className="space-y-2">
       <p className="sr-only" role="status" aria-live="polite">
-        共找到 {response.total} 条工单，当前显示 {response.cards.length} 条，采用{" "}
-        {response.applied_filters.length} 个查询条件。
+        {copy.resultStatus
+          .replace("{total}", String(response.total))
+          .replace("{shown}", String(response.cards.length))
+          .replace("{filters}", String(response.applied_filters.length))}
       </p>
       <div className="rounded-2xl rounded-tl-md border border-[var(--border-panel)] bg-card p-3 shadow-[var(--shadow-card)]">
         <div className="flex items-start gap-2">
@@ -666,11 +688,13 @@ function ResultState({
             <p className="text-sm leading-5">{response.message}</p>
             <p className="mt-1 text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
               {response.result_truncated
-                ? `显示 ${response.cards.length} / 共 ${response.total} 条 · `
+                ? copy.shownTotal
+                    .replace("{shown}", String(response.cards.length))
+                    .replace("{total}", String(response.total))
                 : response.kind === "search_results"
-                  ? `共 ${response.total} 条 · `
+                  ? copy.total.replace("{total}", String(response.total))
                   : null}
-              RepairDesk 实时查询
+              {copy.realtime}
             </p>
           </div>
         </div>
@@ -682,11 +706,11 @@ function ResultState({
                 <button
                   type="button"
                   className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  aria-label={scopeOpen ? "收起查询范围" : "展开查询范围"}
+                  aria-label={scopeOpen ? copy.collapseScope : copy.expandScope}
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block text-[10px] font-semibold text-muted-foreground lg:text-xs lg:leading-4">
-                      已核对查询范围
+                      {copy.verifiedScope}
                     </span>
                     <span className="block truncate text-xs text-foreground" title={scopeSummary}>
                       {scopeSummary}
@@ -711,12 +735,12 @@ function ResultState({
                 className="h-auto min-h-11 shrink-0 px-3"
                 onClick={onAdjustQuery}
               >
-                修改
+                {copy.adjust}
               </Button>
             </div>
             <CollapsibleContent>
               <section
-                aria-label="系统实际采用的查询条件"
+                aria-label={copy.appliedFiltersAria}
                 className="mt-1.5 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2"
               >
                 <dl className="space-y-1.5">
@@ -729,7 +753,7 @@ function ResultState({
                       <dd className="min-w-0 break-words text-foreground">
                         {filter.value}
                         <span className="ml-1 text-muted-foreground">
-                          · {filterSourceLabel(filter.source)}
+                          · {filterSourceLabel(filter.source, locale)}
                         </span>
                       </dd>
                     </div>
@@ -743,9 +767,7 @@ function ResultState({
         {response.cards.length === 0 && response.kind === "search_results" ? (
           <div className="mt-3 flex items-center gap-2 border-t border-[var(--border-panel)] pt-3">
             <SearchX className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <p className="min-w-0 flex-1 text-xs text-muted-foreground">
-              已按上方范围完成查询，没有用近似条件替代原意。
-            </p>
+            <p className="min-w-0 flex-1 text-xs text-muted-foreground">{copy.noApproximation}</p>
           </div>
         ) : null}
       </div>
@@ -779,25 +801,31 @@ function ResultState({
               <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
             ) : null}
             {isLoadingMore
-              ? "正在加载下一批…"
-              : `继续加载（已显示 ${response.cards.length} / ${response.total}）`}
+              ? copy.loadingMore
+              : copy.loadMore
+                  .replace("{shown}", String(response.cards.length))
+                  .replace("{total}", String(response.total))}
           </Button>
         </div>
       ) : response.result_truncated ? (
         <p className="rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2 text-xs text-muted-foreground">
-          当前安全会话无法继续加载；请缩小查询范围后重试。
+          {copy.truncated}
         </p>
       ) : null}
     </div>
   );
 }
 
-function interpretationStatusLabel(status: AiOrderAssistantResponse["interpretation_status"]) {
-  if (status === "corrected") return "已按原句修正模型偏差";
-  if (status === "defaulted") return "已采用安全默认范围";
-  if (status === "needs_confirmation") return "需要确认后再查询";
-  if (status === "permission_limited") return "已按当前权限限制范围";
-  return "已确认查询条件";
+function interpretationStatusLabel(
+  status: AiOrderAssistantResponse["interpretation_status"],
+  locale: AppLocale,
+) {
+  const copy = getAiAssistantPresentationCopy(locale);
+  if (status === "corrected") return copy.statusCorrected;
+  if (status === "defaulted") return copy.statusDefaulted;
+  if (status === "needs_confirmation") return copy.statusConfirm;
+  if (status === "permission_limited") return copy.statusLimited;
+  return copy.statusVerified;
 }
 
 function mergeAssistantPages(
@@ -817,13 +845,18 @@ function mergeAssistantPages(
   return { ...next, cards: [...cards.values()] };
 }
 
-function filterSourceLabel(source: AiOrderAssistantResponse["applied_filters"][number]["source"]) {
-  if (source === "user_explicit") return "用户明确";
-  if (source === "server_derived") return "系统核对";
-  return "系统默认";
+function filterSourceLabel(
+  source: AiOrderAssistantResponse["applied_filters"][number]["source"],
+  locale: AppLocale,
+) {
+  const copy = getAiAssistantPresentationCopy(locale);
+  if (source === "user_explicit") return copy.sourceUser;
+  if (source === "server_derived") return copy.sourceServer;
+  return copy.sourceDefault;
 }
 
-function OfflineState() {
+function OfflineState({ locale }: { locale: AppLocale }) {
+  const copy = getAiAssistantPresentationCopy(locale);
   return (
     <div
       role="status"
@@ -832,24 +865,27 @@ function OfflineState() {
     >
       <WifiOff className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
       <div>
-        <p className="text-sm font-semibold">当前离线</p>
-        <p className="mt-0.5 text-xs leading-5">不会排队发送 AI 请求；恢复网络后可继续。</p>
+        <p className="text-sm font-semibold">{copy.offline}</p>
+        <p className="mt-0.5 text-xs leading-5">{copy.offlineHint}</p>
       </div>
     </div>
   );
 }
 
-function CapabilityUnavailableState({ reason }: { reason?: AiAssistantCapabilities["reason"] }) {
+function CapabilityUnavailableState({
+  reason,
+  locale,
+}: {
+  reason?: AiAssistantCapabilities["reason"];
+  locale: AppLocale;
+}) {
+  const copy = getAiAssistantPresentationCopy(locale);
   const permissionDenied = reason === "permission_denied";
   return (
     <CenteredState
       icon={permissionDenied ? <ShieldCheck className="size-5" /> : <Sparkles className="size-5" />}
-      title={permissionDenied ? "当前账号没有使用权限" : "AI 小助手当前未开放"}
-      message={
-        permissionDenied
-          ? "请继续使用订单页面的手工搜索；权限由当前门店角色决定。"
-          : "此门店尚未启用只读订单助手，原有查询功能不受影响。"
-      }
+      title={permissionDenied ? copy.deniedTitle : copy.unavailableTitle}
+      message={permissionDenied ? copy.deniedHint : copy.unavailableHint}
     />
   );
 }
@@ -877,59 +913,60 @@ function CenteredState({
   );
 }
 
-function toAssistantError(error: unknown): AssistantErrorState {
+function toAssistantError(error: unknown, locale: AppLocale): AssistantErrorState {
+  const copy = getAiAssistantPresentationCopy(locale);
   if (isRepairDeskRequestTimeoutError(error)) {
     return {
-      title: "查询超时",
-      message: "本次没有完成，输入内容已保留。可重试或继续使用手工搜索。",
+      title: copy.timeoutTitle,
+      message: copy.timeoutMessage,
       retryable: true,
     };
   }
   if (error instanceof RepairDeskApiError) {
     if (error.code === "AI_DISABLED") {
-      return { title: "功能已关闭", message: "AI 小助手当前未开放。", retryable: false };
+      return { title: copy.disabledError, message: copy.unavailableTitle, retryable: false };
     }
     if (error.code === "AI_NOT_AUTHORIZED") {
-      return { title: "没有使用权限", message: "当前门店角色不能执行此查询。", retryable: false };
+      return { title: copy.unauthorizedError, message: copy.unauthorizedMessage, retryable: false };
     }
     if (error.code === "AI_QUOTA_EXHAUSTED") {
       return {
-        title: "今日 AI 用量已达上限",
-        message: "请继续使用订单页面的手工搜索。",
+        title: copy.quotaError,
+        message: copy.manualSearch,
         retryable: false,
       };
     }
     if (error.code === "AI_MISCONFIGURED") {
       return {
-        title: "AI 服务尚未配置完成",
-        message: "请继续使用订单页面的手工搜索。",
+        title: copy.misconfigured,
+        message: copy.manualSearch,
         retryable: false,
       };
     }
     if (error.code === "AI_SENSITIVE_INPUT") {
       return {
-        title: "请改用手工搜索",
-        message: "系统检测到可能的客户或设备敏感信息，本次不会发送至外部 AI。",
+        title: copy.sensitiveTitle,
+        message: copy.sensitiveMessage,
         retryable: false,
       };
     }
     if (error.code === "AI_BUDGET_UNAVAILABLE") {
       return {
-        title: "AI 用量账本暂不可用",
-        message: "为避免未记账费用，本次已安全停止；请使用手工搜索。",
+        title: copy.budgetTitle,
+        message: copy.budgetMessage,
         retryable: true,
       };
     }
     if (error.code === "AI_REQUEST_CANCELLED") {
-      return { title: "已取消", message: "本次请求已取消。", retryable: true };
+      return { title: copy.cancelledTitle, message: copy.cancelledMessage, retryable: true };
     }
     if (error.code === "AI_PROVIDER_RATE_LIMITED") {
-      return { title: "AI 服务繁忙", message: "稍后可重试，手工搜索仍可使用。", retryable: true };
+      return { title: copy.busyTitle, message: copy.busyMessage, retryable: true };
     }
   }
   return {
-    title: "暂时无法完成查询",
-    message: "输入内容已保留。请重试或继续使用订单页面的手工搜索。",
+    title: copy.genericTitle,
+    message: copy.genericMessage,
     retryable: true,
   };
 }

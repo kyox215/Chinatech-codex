@@ -8,7 +8,9 @@ import {
   parseAccessoryNotes,
   type AccessoryNoteOption,
 } from "@/features/orders/model/order-accessory-notes";
+import { localizeAccessoryNoteOption } from "@/features/orders/model/order-i18n";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function AccessoryNotesPills({
   value,
@@ -17,13 +19,16 @@ export function AccessoryNotesPills({
   value?: string | null;
   className?: string;
 }) {
+  const { t } = useLocale();
   const parsed = parseAccessoryNotes(value);
   const labels = [
-    ...parsed.selected.filter((option) => option !== "其他"),
+    ...parsed.selected
+      .filter((option) => option !== "其他")
+      .map((option) => localizeAccessoryNoteOption(option, t)),
     ...(parsed.customText
-      ? [`其他：${parsed.customText}`]
+      ? [t("orders2b1.accessory.otherValue", { value: parsed.customText })]
       : parsed.selected.includes("其他")
-        ? ["其他"]
+        ? [localizeAccessoryNoteOption("其他", t)]
         : []),
   ];
   if (!labels.length) return <span className="text-muted-foreground">—</span>;
@@ -55,6 +60,7 @@ export function AccessoryNotesPicker({
   triggerClassName?: string;
   contentClassName?: string;
 }) {
+  const { t } = useLocale();
   const parsed = parseAccessoryNotes(value);
   const customSelected = parsed.selected.includes("其他");
 
@@ -70,18 +76,24 @@ export function AccessoryNotesPicker({
   return (
     <div className={cn("min-w-0 space-y-1.5", compact && "space-y-1")}>
       <MultiSelectDropdown<AccessoryNoteOption>
-        options={ACCESSORY_NOTE_OPTIONS.map((option) => ({ value: option, label: option }))}
+        options={ACCESSORY_NOTE_OPTIONS.map((option) => ({
+          value: option,
+          label: localizeAccessoryNoteOption(option, t),
+        }))}
         value={parsed.selected}
         onChange={updateSelection}
-        placeholder="选择随附物品"
+        placeholder={t("orders2b1.accessory.select")}
         compact={compact}
         className={triggerClassName}
         contentClassName={contentClassName}
         exclusiveValues={["无"]}
         renderSummary={(selectedOptions) => {
-          if (!selectedOptions.length) return "选择随附物品";
+          if (!selectedOptions.length) return t("orders2b1.accessory.select");
           if (selectedOptions.length === 1) return selectedOptions[0]?.label;
-          return `${selectedOptions[0]?.label}等${selectedOptions.length}项`;
+          return t("orders2b1.accessory.summary", {
+            first: selectedOptions[0]?.label ?? "",
+            count: selectedOptions.length,
+          });
         }}
       />
       {customSelected && (
@@ -95,7 +107,7 @@ export function AccessoryNotesPicker({
               }),
             )
           }
-          placeholder="补充其他随附物品"
+          placeholder={t("orders2b1.accessory.customPlaceholder")}
           className={cn("h-8 text-xs", compact && "h-7")}
         />
       )}

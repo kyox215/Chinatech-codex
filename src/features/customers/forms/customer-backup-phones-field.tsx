@@ -5,6 +5,7 @@ import { ArrowUp, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 import { uniqueContactPhones } from "@/shared/lib/phone";
 
 export interface CustomerBackupPhonesFieldProps {
@@ -24,6 +25,7 @@ export function CustomerBackupPhonesField({
   onPromotePhone,
   compact = false,
 }: CustomerBackupPhonesFieldProps) {
+  const { t } = useLocale();
   const filteredPhones = uniqueContactPhones(primaryPhone, phones);
   const visiblePhones = filteredPhones.length > 0 ? filteredPhones : [""];
 
@@ -55,10 +57,10 @@ export function CustomerBackupPhonesField({
       {visiblePhones.map((phone, index) => (
         <div key={index} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] gap-1.5">
           <Input
-            aria-label="备用联系电话"
+            aria-label={t("orders2b2.backupPhone.label")}
             value={phone}
             onChange={(event) => updatePhone(index, event.target.value)}
-            placeholder="备用联系电话"
+            placeholder={t("orders2b2.backupPhone.label")}
             className={cn(
               compact
                 ? "h-8 font-mono text-sm sm:h-8"
@@ -70,7 +72,7 @@ export function CustomerBackupPhonesField({
             variant="outline"
             size="icon"
             className={cn(compact ? "size-8" : "size-11 lg:size-9")}
-            aria-label="设为主号码"
+            aria-label={t("orders2b2.backupPhone.promote")}
             onClick={() => promotePhone(index)}
             disabled={!phone.trim()}
           >
@@ -81,7 +83,7 @@ export function CustomerBackupPhonesField({
             variant="outline"
             size="icon"
             className={cn(compact ? "size-8" : "size-11 lg:size-9")}
-            aria-label="删除备用号码"
+            aria-label={t("orders2b2.backupPhone.delete")}
             onClick={() => removePhone(index)}
             disabled={filteredPhones.length === 0 && !phone.trim()}
           >
@@ -96,10 +98,10 @@ export function CustomerBackupPhonesField({
         className={cn("gap-1.5 text-xs", compact ? "h-8" : "h-11 lg:h-9")}
         onClick={() => onPhonesChange([...visiblePhones, ""])}
       >
-        <Plus className="size-3.5" /> 添加备用号码
+        <Plus className="size-3.5" /> {t("orders2b2.backupPhone.add")}
       </Button>
       <p className={cn("text-xs text-muted-foreground", compact && "text-[10px] leading-3")}>
-        第一个手机号是主号码；备用号码可用于取机期间联系客户。
+        {t("orders2b2.backupPhone.help")}
       </p>
     </div>
   );

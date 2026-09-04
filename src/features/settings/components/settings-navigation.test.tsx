@@ -6,7 +6,11 @@ import {
   SettingsNavigation,
   type SettingsNavigationGroup,
 } from "@/features/settings/components/settings-navigation";
-import { SETTINGS_SECTION_GROUPS } from "@/features/settings/model/settings-section-registry";
+import {
+  getSettingsSectionGroups,
+  SETTINGS_SECTION_GROUPS,
+} from "@/features/settings/model/settings-section-registry";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
 
 describe("SettingsNavigation", () => {
   it("shows accessible core links and keeps advanced settings behind a collapsed fold", () => {
@@ -57,6 +61,30 @@ describe("SettingsNavigation", () => {
     fireEvent.click(screen.getByRole("link", { name: /店铺/ }));
     expect(onBeforeNavigate).toHaveBeenCalledWith("store");
   });
+
+  it("localizes navigation chrome without changing link destinations or state", () => {
+    render(
+      <LocaleProvider initialLocale="it-IT">
+        <SettingsNavigation groups={groups("it-IT")} activeSection="store" />
+      </LocaleProvider>,
+    );
+
+    const navigation = screen.getByRole("navigation", { name: "Navigazione impostazioni" });
+    expect(withinNavigationLinks(navigation)).toEqual([
+      "/settings?section=store",
+      "/settings?section=members",
+      "/settings?section=rules",
+      "/settings?section=notifications",
+    ]);
+    expect(screen.getByRole("link", { name: /Negozio/ })).toHaveAttribute("aria-current", "page");
+    expect(
+      screen.getByRole("link", { name: /Personale.*Non salvato.*Sola lettura/ }),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Altre impostazioni" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
 });
 
 function renderNavigation(activeSection: "store" | null) {
@@ -75,8 +103,8 @@ function NavigationHarness({ activeSection }: { activeSection: "store" | null })
   );
 }
 
-function groups(): readonly SettingsNavigationGroup[] {
-  return SETTINGS_SECTION_GROUPS.map((group) => ({
+function groups(locale?: "it-IT"): readonly SettingsNavigationGroup[] {
+  return (locale ? getSettingsSectionGroups(locale) : SETTINGS_SECTION_GROUPS).map((group) => ({
     key: group.key,
     label: group.label,
     items: group.sections.map((section) => ({
@@ -91,4 +119,8 @@ function groups(): readonly SettingsNavigationGroup[] {
       summary: section.key === "members" ? "只读" : undefined,
     })),
   }));
+}
+
+function withinNavigationLinks(navigation: HTMLElement) {
+  return Array.from(navigation.querySelectorAll("a")).map((link) => link.getAttribute("href"));
 }

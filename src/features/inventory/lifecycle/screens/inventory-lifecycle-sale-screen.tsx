@@ -12,6 +12,7 @@ import type {
 } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 import { inventoryLifecycleKeys } from "../api/query-keys";
 import { inventoryLifecycleSaleQueryOptions } from "../api/query-options";
@@ -67,19 +68,12 @@ function shortId(value: string) {
   return value.slice(0, 8).toUpperCase();
 }
 
-const methods = [
-  ["cash", "现金"],
-  ["card", "银行卡"],
-  ["bancomat", "Bancomat"],
-  ["transfer", "转账"],
-  ["other", "其他"],
-] as const;
-
 export function InventoryLifecycleItemSaleScreen({ itemId }: { itemId: string }) {
   return <InventoryLifecycleReservationScreen itemId={itemId} mode="sale" />;
 }
 
 export function InventoryLifecycleSaleScreen({ saleOrderId }: { saleOrderId: string }) {
+  const { t } = useLocale();
   const router = useRouter();
   const queryClient = useQueryClient();
   const shell = useStoreShellContext({ monitorAuthority: true });
@@ -101,7 +95,9 @@ export function InventoryLifecycleSaleScreen({ saleOrderId }: { saleOrderId: str
   const [recoveryMessage, setRecoveryMessage] = useState("");
   const [operationReceipt, setOperationReceipt] = useState<InventoryOperationReceipt | null>(null);
   const [operationReceiptKey, setOperationReceiptKey] = useState(0);
-  const idempotencyKeys = useRef(new Map<InventoryLifecycleCommand, string>());
+  const idempotencyAttempts = useRef(
+    new Map<InventoryLifecycleCommand, { fingerprint: string; key: string }>(),
+  );
   const lastCommandRef = useRef<InventoryLifecycleCommand | undefined>(undefined);
   const [conflict, setConflict] = useState<InventoryConflictDetails | null>(null);
   const [isRecoveringConflict, setIsRecoveringConflict] = useState(false);
@@ -113,6 +109,8 @@ export function InventoryLifecycleSaleScreen({ saleOrderId }: { saleOrderId: str
   const [freshnessVerification, setFreshnessVerification] =
     useState<InventoryReadFreshnessVerification>("idle");
   const [availabilityRetrying, setAvailabilityRetrying] = useState(false);
+  const [preflightError, setPreflightError] = useState("");
+  const submitLock = useRef(false);
   const syncBlocked = Boolean(syncStatus && syncStatus !== "recovered");
   const availability = resolveInventoryAvailability({
     shellLoading: shell.isLoading,
@@ -141,7 +139,8 @@ export function InventoryLifecycleSaleScreen({ saleOrderId }: { saleOrderId: str
   const mutation = useMutation({
     mutationFn: runInventoryLifecycleCommand,
     onSuccess: (result, input) => {
-      idempotencyKeys.current.delete(input.command);
+      submitLock.current = false;
+      idempotencyAttempts.current.delete(input.command);
       lastCommandRef.current = undefined;
       setConflict(null);
       setOperationError(null);
@@ -153,6 +152,7 @@ export function InventoryLifecycleSaleScreen({ saleOrderId }: { saleOrderId: str
       void syncCommittedSale();
     },
     onError: (error) => {
+      submitLock.current = false;
       const nextConflict = getInventoryConflictDetails(error);
       setConflict(nextConflict);
       setOperationError(nextConflict ? null : classifyInventoryOperationError(error));
@@ -160,7 +160,7 @@ export function InventoryLifecycleSaleScreen({ saleOrderId }: { saleOrderId: str
       setOperationVerification("idle");
       setOperationAcknowledged(false);
       if (nextConflict?.kind === "idempotency" && lastCommandRef.current) {
-        idempotencyKeys.current.delete(lastCommandRef.current);
+        idempotencyAttempts.current.delete(lastCommandRef.current);
       }
     },
   });
@@ -176,6 +176,9 @@ export function InventoryLifecycleSaleScreen({ saleOrderId }: { saleOrderId: str
     setFreshnessVerification("idle");
     setOperationVerification("idle");
     setOperationAcknowledged(false);
+    idempotencyAttempts.current.clear();
+    lastCommandRef.current = undefined;
+    submitLock.current = false;
     mutation.reset();
   }, [currentSaleKey, mutation]);
   useEffect(() => {
@@ -202,12 +205,15 @@ export function InventoryLifecycleSaleScreen({ saleOrderId }: { saleOrderId: str
       const result = await query.refetch();
       if (!result.isSuccess || !result.data) throw new Error("sale-readback-unavailable");
       mutation.reset();
+      if (lastCommandRef.current) idempotencyAttempts.current.delete(lastCommandRef.current);
+      lastCommandRef.current = undefined;
       setOperationVerification("verified");
     } catch {
       setOperationVerification("failed");
     }
   };
   const submitCommand: InventoryLifecycleSaleSubmit = (commandName, payload) => {
+    if (submitLock.current) return;
     if (
       syncBlocked ||
       operationWriteBlocked ||
@@ -216,9 +222,17 @@ export function InventoryLifecycleSaleScreen({ saleOrderId }: { saleOrderId: str
       isRecoveringConflict
     )
       return;
-    const existingKey = idempotencyKeys.current.get(commandName);
-    const idempotencyKey = existingKey ?? crypto.randomUUID();
-    idempotencyKeys.current.set(commandName, idempotencyKey);
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setPreflightError(t("inventory2b4.sale.offline"));
+      return;
+    }
+    submitLock.current = true;
+    setPreflightError("");
+    const fingerprint = JSON.stringify(payload);
+    const existingAttempt = idempotencyAttempts.current.get(commandName);
+    const idempotencyKey =
+      existingAttempt?.fingerprint === fingerprint ? existingAttempt.key : crypto.randomUUID();
+    idempotencyAttempts.current.set(commandName, { fingerprint, key: idempotencyKey });
     lastCommandRef.current = commandName;
     setConflict(null);
     setOperationError(null);
@@ -232,14 +246,14 @@ export function InventoryLifecycleSaleScreen({ saleOrderId }: { saleOrderId: str
   const recoverConflict = async () => {
     if (isRecoveringConflict) return;
     setIsRecoveringConflict(true);
-    if (lastCommandRef.current) idempotencyKeys.current.delete(lastCommandRef.current);
+    if (lastCommandRef.current) idempotencyAttempts.current.delete(lastCommandRef.current);
     lastCommandRef.current = undefined;
     mutation.reset();
     try {
       const result = await query.refetch();
       if (!result.isSuccess || !result.data) throw new Error("无法读取最新销售账");
       setConflict(null);
-      setRecoveryMessage("已读取最新销售账；没有自动重放刚才的写入，请重新核对可用动作。");
+      setRecoveryMessage(t("inventory2b4.sale.recovered"));
     } finally {
       setIsRecoveringConflict(false);
     }
@@ -248,8 +262,8 @@ export function InventoryLifecycleSaleScreen({ saleOrderId }: { saleOrderId: str
   if (!enabled) {
     return (
       <InventoryLifecyclePageShell
-        title="销售与取走"
-        context="商品生命周期"
+        title={t("inventory2b4.sale.title")}
+        context={t("inventory2b4.sale.context")}
         onBack={() => router.push("/inventory")}
       >
         <InventoryAvailabilityStateCard
@@ -262,8 +276,8 @@ export function InventoryLifecycleSaleScreen({ saleOrderId }: { saleOrderId: str
   if (query.isLoading) {
     return (
       <InventoryLifecyclePageShell
-        title="销售与取走"
-        context="正在读取业务账"
+        title={t("inventory2b4.sale.title")}
+        context={t("inventory2b4.sale.contextLoading")}
         onBack={() => router.push("/inventory")}
       >
         <InventoryAvailabilityStateCard availability={availability} />
@@ -277,8 +291,8 @@ export function InventoryLifecycleSaleScreen({ saleOrderId }: { saleOrderId: str
   if (!sale || (query.isError && !query.data && !snapshot)) {
     return (
       <InventoryLifecyclePageShell
-        title="销售与取走"
-        context="业务账不可用"
+        title={t("inventory2b4.sale.title")}
+        context={t("inventory2b4.sale.contextUnavailable")}
         onBack={() => router.push("/inventory")}
       >
         <InventoryAvailabilityStateCard
@@ -346,8 +360,14 @@ export function InventoryLifecycleSaleScreen({ saleOrderId }: { saleOrderId: str
   });
   return (
     <InventoryLifecycleSaleWorkspace
-      title={sale.status === "reserved" ? "预订与收款" : "销售与取走"}
-      context={`${sale.sku} · 业务单 ${shortId(sale.sale_order_id)}`}
+      title={
+        sale.status === "reserved"
+          ? t("inventory2b4.sale.reservationTitle")
+          : t("inventory2b4.sale.title")
+      }
+      context={`${sale.sku} · ${t("inventory2b4.sale.contextOrder", {
+        id: shortId(sale.sale_order_id),
+      })}`}
       status={<InventoryLifecycleStatusBadge status={sale.business_status} />}
       onBack={() => router.push(`/inventory/${encodeURIComponent(sale.inventory_item_id)}`)}
     >
@@ -359,6 +379,11 @@ export function InventoryLifecycleSaleScreen({ saleOrderId }: { saleOrderId: str
           aria-live="polite"
         >
           {recoveryMessage}
+        </p>
+      ) : null}
+      {preflightError ? (
+        <p className="rounded-xl bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
+          {preflightError}
         </p>
       ) : null}
       {operationReceipt ? (
@@ -392,7 +417,7 @@ export function InventoryLifecycleSaleScreen({ saleOrderId }: { saleOrderId: str
           onAcknowledge={() => {
             setOperationAcknowledged(true);
             setOperationError(null);
-            setRecoveryMessage("已确认只读核对结果；没有自动重放写入。");
+            setRecoveryMessage(t("inventory2b4.sale.acknowledged"));
           }}
           onVerify={operationError.kind === "outcome-unknown" ? verifyOperation : undefined}
         />
@@ -442,7 +467,7 @@ export function InventoryLifecycleSaleScreen({ saleOrderId }: { saleOrderId: str
       {secondaryActions.length ? (
         <details className={cn(repairOs.mobileInfoCard, "p-3 sm:p-4")}>
           <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold">
-            更多管理操作
+            {t("inventory2b4.sale.moreActions")}
           </summary>
           <div className="mt-2 grid gap-2">
             {secondaryActions.includes("warranty.adjust") ? (

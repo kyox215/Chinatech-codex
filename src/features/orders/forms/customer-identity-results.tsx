@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { LookupNotice } from "@/features/orders/forms/customer-identity-status";
 import type { CustomerIntakeCandidate } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function CustomerIdentityResultsPanel({
   listboxId,
@@ -38,6 +39,7 @@ export function CustomerIdentityResultsPanel({
   onRetry: () => void;
   onRequestNewCustomer: () => void;
 }) {
+  const { t } = useLocale();
   const phoneBasis = Boolean(phone);
 
   return (
@@ -48,41 +50,41 @@ export function CustomerIdentityResultsPanel({
       <div className="flex min-w-0 items-start justify-between gap-2 px-2 py-1.5">
         <div className="min-w-0">
           <p className="truncate text-[11px] font-bold leading-4 lg:text-xs lg:leading-4">
-            {phoneBasis ? "按电话匹配客户" : "按姓名匹配客户"}
+            {t(phoneBasis ? "orders2b1.new.results.byPhone" : "orders2b1.new.results.byName")}
           </p>
           <p className="truncate text-[9.5px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
             {phoneBasis
               ? name
-                ? `电话 ${phone} · 姓名仅排序同号结果`
-                : `电话 ${phone}`
-              : `姓名 ${name}`}
+                ? t("orders2b1.new.results.phoneAndName", { phone })
+                : t("orders2b1.new.results.phone", { phone })
+              : t("orders2b1.new.results.name", { name })}
           </p>
         </div>
         {trustedResult ? (
           <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary lg:text-xs lg:leading-4">
-            {candidates.length} 位候选
+            {t("orders2b1.new.results.candidates", { count: candidates.length })}
           </span>
         ) : null}
       </div>
 
       {!isOnline ? (
         <LookupNotice tone="danger" icon={<AlertTriangle className="size-3.5" />}>
-          离线时无法确认客户身份，请联网后重试；不会把离线状态当作无匹配。
+          {t("orders2b1.new.results.offline")}
         </LookupNotice>
       ) : isSearching ? (
         <div aria-busy="true" className="grid gap-1 px-1 pb-1">
           <LookupNotice icon={<Loader2 className="size-3.5 animate-spin" />}>
-            正在核对客户…
+            {t("orders2b1.new.results.checking")}
           </LookupNotice>
           <div className="h-[38px] animate-pulse rounded-lg bg-card" />
           <div className="h-[38px] animate-pulse rounded-lg bg-card" />
         </div>
       ) : queryError ? (
         <LookupNotice tone="danger" icon={<AlertTriangle className="size-3.5" />}>
-          <span className="min-w-0 flex-1">暂时无法确认是否已有客户：{queryError}</span>
+          <span className="min-w-0 flex-1">{t("orders2b1.new.results.error")}</span>
           <Button type="button" size="sm" variant="outline" className="h-8" onClick={onRetry}>
             <RefreshCw className="mr-1 size-3" />
-            重试
+            {t("common.retry")}
           </Button>
         </LookupNotice>
       ) : (
@@ -90,7 +92,7 @@ export function CustomerIdentityResultsPanel({
           <div
             id={listboxId}
             role="listbox"
-            aria-label="客户匹配结果"
+            aria-label={t("orders2b1.new.results.aria")}
             className="max-h-[min(18rem,calc(100dvh_-_var(--rd-overlay-avoid-bottom,0px)_-_8rem))] min-w-0 overflow-y-auto px-1"
           >
             {candidates.length ? (
@@ -111,9 +113,9 @@ export function CustomerIdentityResultsPanel({
               <LookupNotice>
                 {phoneBasis
                   ? phoneReadyForCreation
-                    ? `未找到使用 ${phone} 的客户，不会显示电话号码不同的同名客户。`
-                    : "暂未找到电话候选；请继续输入完整号码后再决定是否新建。"
-                  : `未找到姓名为 ${name} 的客户。`}
+                    ? t("orders2b1.new.results.noPhone", { phone })
+                    : t("orders2b1.new.results.morePhone")
+                  : t("orders2b1.new.results.noName", { name })}
               </LookupNotice>
             )}
           </div>
@@ -128,9 +130,9 @@ export function CustomerIdentityResultsPanel({
               <UserPlus className="mr-1.5 size-3.5 shrink-0" />
               {phoneBasis
                 ? phoneReadyForCreation
-                  ? "不使用这些结果，按当前资料新建客户"
-                  : "请先输入完整电话号码"
-                : "先填写电话，再按当前资料新建"}
+                  ? t("orders2b1.new.results.createCurrent")
+                  : t("orders2b1.new.results.enterPhone")
+                : t("orders2b1.new.results.phoneFirst")}
             </Button>
           </div>
         </>
@@ -158,7 +160,8 @@ function CustomerIdentityCandidateOption({
   onHighlight: () => void;
   onPick: () => void;
 }) {
-  const badge = customerMatchBadge(candidate, phoneBasis, hasNameQuery);
+  const { t } = useLocale();
+  const badge = customerMatchBadge(candidate, phoneBasis, hasNameQuery, t);
   return (
     <button
       id={id}
@@ -178,7 +181,7 @@ function CustomerIdentityCandidateOption({
       </span>
       <span className="min-w-0">
         <span className="block truncate text-xs font-bold leading-4">
-          {candidate.customer.name || "未命名客户"}
+          {candidate.customer.name || t("orders2b1.new.lookup.unnamed")}
         </span>
         <span className="block truncate font-mono text-[10.5px] font-medium leading-4 text-muted-foreground lg:text-xs lg:leading-4">
           {candidate.customer.phone_e164}
@@ -191,7 +194,7 @@ function CustomerIdentityCandidateOption({
         <Check className="size-3.5 shrink-0 text-primary" />
       ) : (
         <span className="shrink-0 text-[10px] font-semibold text-primary lg:text-xs lg:leading-4">
-          选择
+          {t("orders2b1.new.results.select")}
         </span>
       )}
     </button>
@@ -202,19 +205,25 @@ function customerMatchBadge(
   candidate: CustomerIntakeCandidate,
   phoneBasis: boolean,
   hasNameQuery: boolean,
+  t: ReturnType<typeof useLocale>["t"],
 ) {
   if (!phoneBasis) {
-    if (candidate.nameMatchKind === "exact") return "姓名一致";
+    if (candidate.nameMatchKind === "exact") return t("orders2b1.new.results.nameExact");
     if (candidate.nameMatchKind === "prefix" || candidate.nameMatchKind === "contains") {
-      return "姓名相似";
+      return t("orders2b1.new.results.nameSimilar");
     }
-    return "姓名候选";
+    return t("orders2b1.new.results.nameCandidate");
   }
-  const phoneLabel = candidate.exactMatch ? "电话相同" : "电话候选";
+  const phoneLabel = t(
+    candidate.exactMatch
+      ? "orders2b1.new.results.phoneExact"
+      : "orders2b1.new.results.phoneCandidate",
+  );
   if (!hasNameQuery) return phoneLabel;
-  if (candidate.nameMatchKind === "exact") return `${phoneLabel} · 姓名一致`;
+  if (candidate.nameMatchKind === "exact")
+    return `${phoneLabel} · ${t("orders2b1.new.results.nameExact")}`;
   if (candidate.nameMatchKind === "prefix" || candidate.nameMatchKind === "contains") {
-    return `${phoneLabel} · 姓名相似`;
+    return `${phoneLabel} · ${t("orders2b1.new.results.nameSimilar")}`;
   }
-  return `${phoneLabel} · 姓名不同，请确认`;
+  return t("orders2b1.new.results.nameDifferent", { phone: phoneLabel });
 }

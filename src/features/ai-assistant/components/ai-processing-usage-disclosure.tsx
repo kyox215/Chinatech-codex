@@ -16,6 +16,9 @@ import {
   formatAiUsageMicroUsd,
 } from "@/features/ai-assistant/model/usage-format";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { getAiAssistantPresentationCopy } from "@/shared/i18n/messages";
+import type { AppLocale } from "@/shared/i18n/locales";
 
 export function AiProcessingUsageDisclosure({
   open,
@@ -50,7 +53,9 @@ export function AiProcessingUsageDisclosure({
   usageError: boolean;
   onRetryUsage: () => void;
 }) {
-  const modeLabel = processingMode === "local" ? "本地处理" : "大模型辅助";
+  const { locale } = useLocale();
+  const copy = getAiAssistantPresentationCopy(locale);
+  const modeLabel = processingMode === "local" ? copy.local : copy.model;
   const metric = usage?.today_by_kind.order_text;
   const summary = compactSummary({
     processingMode,
@@ -62,6 +67,7 @@ export function AiProcessingUsageDisclosure({
     usageLoading,
     usageError,
     metric,
+    locale,
   });
 
   return (
@@ -73,11 +79,11 @@ export function AiProcessingUsageDisclosure({
       <CollapsibleTrigger asChild>
         <button
           type="button"
-          aria-label={`${open ? "收起" : "展开"}处理方式和用量`}
+          aria-label={open ? copy.disclosureAriaOpen : copy.disclosureAriaClosed}
           className="flex min-h-11 w-full min-w-0 items-center gap-2 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="shrink-0 text-[11px] font-semibold text-foreground lg:text-xs lg:leading-4">
-            处理方式
+            {copy.processingMode}
           </span>
           <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-foreground">
             {processingMode === "local" ? (
@@ -111,16 +117,16 @@ export function AiProcessingUsageDisclosure({
         >
           <div className="flex items-center justify-between gap-2 px-0.5">
             <legend className="text-[11px] font-semibold text-foreground lg:text-xs lg:leading-4">
-              选择处理方式
+              {copy.selectMode}
             </legend>
             <span className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-              每次发送前可切换
+              {copy.switchEach}
             </span>
           </div>
           <ToggleGroup
             type="single"
             value={processingMode}
-            aria-label="查询处理方式"
+            aria-label={copy.modeAria}
             data-ai-processing-mode={processingMode}
             onValueChange={(value) => {
               if (value === "local" || value === "model") onProcessingModeChange(value);
@@ -130,15 +136,17 @@ export function AiProcessingUsageDisclosure({
             <ModeToggle
               value="local"
               icon={<Cpu className="size-3.5" />}
-              label="本地处理"
-              hint="固定规则 · 不调用模型"
+              label={copy.local}
+              hint={copy.localHint}
+              useLabel={copy.useMode}
             />
             {canUseModel ? (
               <ModeToggle
                 value="model"
                 icon={<Sparkles className="size-3.5" />}
-                label="大模型辅助"
-                hint="复杂语句 · 计入用量"
+                label={copy.model}
+                hint={copy.modelHint}
+                useLabel={copy.useMode}
               />
             ) : null}
           </ToggleGroup>
@@ -150,26 +158,17 @@ export function AiProcessingUsageDisclosure({
             loading={usageLoading}
             error={usageError}
             onRetry={onRetryUsage}
+            locale={locale}
           />
         ) : null}
 
         <div className="rounded-xl bg-[var(--surface-panel-muted)] px-3 py-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-[18px]">
-          {processingMode === "model" ? (
-            <p>
-              本次文字会在门店权限、出站检查和用量限制后发送至
-              OpenAI；请勿输入电话、邮箱、IMEI、证件、地址或银行卡信息。
-            </p>
-          ) : (
-            <p>
-              本地处理只使用 RepairDesk 固定规则，不会把本次文字发送给大模型，也不产生 Token
-              费用；仍需联网查询当前门店数据。
-            </p>
-          )}
-          {!canUseModel ? <p className="mt-1">当前门店未开放外部大模型处理。</p> : null}
+          {processingMode === "model" ? <p>{copy.modelPrivacy}</p> : <p>{copy.localPrivacy}</p>}
+          {!canUseModel ? <p className="mt-1">{copy.modelUnavailable}</p> : null}
           {voiceSupported ? (
             <p className="mt-1 flex items-start gap-1.5">
               <Mic className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
-              <span>语音由浏览器/设备语音服务转成文字；RepairDesk 不保存录音。</span>
+              <span>{copy.voicePrivacy}</span>
             </p>
           ) : null}
         </div>
@@ -183,17 +182,19 @@ function ModeToggle({
   icon,
   label,
   hint,
+  useLabel,
 }: {
   value: AiAssistantProcessingMode;
   icon: ReactNode;
   label: string;
   hint: string;
+  useLabel: string;
 }) {
   return (
     <ToggleGroupItem
       type="button"
       value={value}
-      aria-label={`使用${label}`}
+      aria-label={useLabel.replace("{mode}", label)}
       className="h-auto min-h-14 min-w-0 flex-col items-start gap-0.5 rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2 text-left data-[state=on]:border-primary/50 data-[state=on]:bg-primary/10 data-[state=on]:text-foreground"
     >
       <span className="flex items-center gap-1.5 text-xs font-semibold" aria-hidden="true">
@@ -211,15 +212,18 @@ function UsageDetails({
   loading,
   error,
   onRetry,
+  locale,
 }: {
   usage?: AiAssistantUsageSummary;
   loading: boolean;
   error: boolean;
   onRetry: () => void;
+  locale: AppLocale;
 }) {
+  const copy = getAiAssistantPresentationCopy(locale);
   if (loading) {
     return (
-      <div className="grid min-w-0 grid-cols-3 gap-1.5" aria-label="正在读取今日大模型用量">
+      <div className="grid min-w-0 grid-cols-3 gap-1.5" aria-label={copy.usageLoadingAria}>
         <Skeleton className="h-11 min-w-0 rounded-lg" />
         <Skeleton className="h-11 min-w-0 rounded-lg" />
         <Skeleton className="h-11 min-w-0 rounded-lg" />
@@ -230,10 +234,8 @@ function UsageDetails({
     return (
       <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-status-warn-foreground/25 bg-status-warn/25 px-2.5 py-2 text-status-warn-foreground">
         <div className="min-w-0">
-          <p className="truncate text-xs font-semibold">今日用量暂时无法读取</p>
-          <p className="truncate text-[10px] lg:text-[11px] lg:leading-4">
-            不影响本地或大模型查询。
-          </p>
+          <p className="truncate text-xs font-semibold">{copy.usageError}</p>
+          <p className="truncate text-[10px] lg:text-[11px] lg:leading-4">{copy.usageErrorHint}</p>
         </div>
         <Button
           type="button"
@@ -242,28 +244,32 @@ function UsageDetails({
           className="h-7 shrink-0"
           onClick={onRetry}
         >
-          <RefreshCcw className="size-3" aria-hidden="true" /> 重试
+          <RefreshCcw className="size-3" aria-hidden="true" /> {copy.retry}
         </Button>
       </div>
     );
   }
   const metric = usage.today_by_kind.order_text;
-  const limit = metric.request_limit === null ? "—" : formatAiUsageInteger(metric.request_limit);
+  const limit =
+    metric.request_limit === null ? "—" : formatAiUsageInteger(metric.request_limit, locale);
   const tokens = metric.input_token_count + metric.output_token_count;
   return (
     <div>
       <div className="grid min-w-0 grid-cols-3 gap-1.5">
         <UsageMetric
-          label="请求 / 上限"
-          value={`${formatAiUsageInteger(metric.provider_request_count)} / ${limit}`}
+          label={copy.requestsLimit}
+          value={`${formatAiUsageInteger(metric.provider_request_count, locale)} / ${limit}`}
         />
-        <UsageMetric label="Token" value={formatAiUsageInteger(tokens)} />
-        <UsageMetric label="费用估算" value={formatAiUsageMicroUsd(metric.settled_cost_microusd)} />
+        <UsageMetric label="Token" value={formatAiUsageInteger(tokens, locale)} />
+        <UsageMetric
+          label={copy.cost}
+          value={formatAiUsageMicroUsd(metric.settled_cost_microusd)}
+        />
       </div>
       <p className="mt-1 truncate text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
-        本地处理不计入
+        {copy.localExcluded}
         {metric.reserved_cost_microusd > 0
-          ? ` · 另有 ${formatAiUsageMicroUsd(metric.reserved_cost_microusd)} 预留中`
+          ? copy.reserved.replace("{cost}", formatAiUsageMicroUsd(metric.reserved_cost_microusd))
           : ""}
       </p>
     </div>
@@ -296,6 +302,7 @@ function compactSummary({
   usageLoading,
   usageError,
   metric,
+  locale,
 }: {
   processingMode: AiAssistantProcessingMode;
   canSubmit: boolean;
@@ -306,16 +313,21 @@ function compactSummary({
   usageLoading: boolean;
   usageError: boolean;
   metric?: AiAssistantUsageSummary["today_by_kind"]["order_text"];
+  locale: AppLocale;
 }) {
-  if (capabilitiesLoading) return "正在确认权限";
-  if (capabilitiesError || !canSubmit) return "当前不可用";
+  const copy = getAiAssistantPresentationCopy(locale);
+  if (capabilitiesLoading) return copy.checking;
+  if (capabilitiesError || !canSubmit) return copy.unavailable;
   if (!canReadUsage) {
-    return processingMode === "local" ? "不调用模型" : "发送至 OpenAI";
+    return processingMode === "local" ? copy.noModel : copy.sendsOpenAi;
   }
-  if (usageLoading) return "用量读取中";
-  if (usageError || !metric) return "用量暂不可用";
-  const limit = metric.request_limit === null ? "—" : formatAiUsageInteger(metric.request_limit);
-  const usageText = `今日 ${formatAiUsageInteger(metric.provider_request_count)}/${limit}`;
-  if (isSubmitting) return `${usageText} · 查询中`;
-  return processingMode === "local" ? `本次不计入 · ${usageText}` : usageText;
+  if (usageLoading) return copy.usageLoading;
+  if (usageError || !metric) return copy.usageUnavailable;
+  const limit =
+    metric.request_limit === null ? "—" : formatAiUsageInteger(metric.request_limit, locale);
+  const usageText = copy.todayUsage
+    .replace("{used}", formatAiUsageInteger(metric.provider_request_count, locale))
+    .replace("{limit}", limit);
+  if (isSubmitting) return `${usageText} · ${copy.querying}`;
+  return processingMode === "local" ? `${copy.excludedThis} · ${usageText}` : usageText;
 }

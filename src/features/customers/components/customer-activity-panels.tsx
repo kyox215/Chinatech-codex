@@ -15,6 +15,12 @@ import type { CustomerDetail } from "@/lib/repairdesk/api";
 import { RepairOsBusinessCard, RepairOsSectionHeader } from "@/shared/ui";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import {
+  localizeCustomerChannel,
+  localizeCustomerFollowupStatus,
+  localizeCustomerLanguage,
+} from "@/features/customers/model/customer-i18n";
 
 const customerDetailSectionClass = cn(repairOs.mobileInfoCard, "sm:p-2.5 md:rounded-2xl md:p-3");
 const customerDetailSectionTitleClass = "text-[11px] leading-4 sm:text-sm lg:text-sm lg:leading-5";
@@ -26,15 +32,16 @@ export function CustomerMessagesPanel({
   interactions: CustomerDetail["interactions"];
   onMessage: () => void;
 }) {
+  const { locale, t } = useLocale();
   return (
     <section className={customerDetailSectionClass}>
       <RepairOsSectionHeader
-        title="联系记录"
+        title={t("customers.detail.contactRecords")}
         className="mb-2"
         titleClassName={customerDetailSectionTitleClass}
         action={
           <Button size="sm" variant="outline" className="h-11 gap-1.5 lg:h-8" onClick={onMessage}>
-            <Send className="size-3.5" /> 发送消息
+            <Send className="size-3.5" /> {t("customers.detail.sendMessage")}
           </Button>
         }
       />
@@ -50,7 +57,9 @@ export function CustomerMessagesPanel({
                   {interaction.channel === "whatsapp" ? "WhatsApp" : "SMS"} ·{" "}
                   {interaction.operator_name}
                 </span>
-                <span className="shrink-0">{formatCustomerDateTime(interaction.created_at)}</span>
+                <span className="shrink-0">
+                  {formatCustomerDateTime(interaction.created_at, locale)}
+                </span>
               </div>
               <p className="mt-1.5 whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground">
                 {interaction.message_body}
@@ -58,7 +67,7 @@ export function CustomerMessagesPanel({
             </RepairOsBusinessCard>
           ))
         ) : (
-          <CustomerEmptyLine text="暂无联系记录" />
+          <CustomerEmptyLine text={t("customers.detail.noContactRecords")} />
         )}
       </div>
     </section>
@@ -74,10 +83,11 @@ export function CustomerProfilePanel({
   tags: CustomerDetail["tags"];
   onManageTags: () => void;
 }) {
+  const { locale, t } = useLocale();
   return (
     <section className={customerDetailSectionClass}>
       <RepairOsSectionHeader
-        title="客户资料"
+        title={t("customers.detail.profile")}
         className="mb-2"
         titleClassName={customerDetailSectionTitleClass}
         action={
@@ -87,13 +97,13 @@ export function CustomerProfilePanel({
             className="h-11 gap-1.5 lg:h-8"
             onClick={onManageTags}
           >
-            <Tags className="size-3.5" /> 管理标签
+            <Tags className="size-3.5" /> {t("customers.detail.manageTags")}
           </Button>
         }
       />
       <div className="mb-2 min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
         <p className="mb-1 text-[10px] font-medium leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-          服务标签
+          {t("customers.detail.serviceTags")}
         </p>
         {tags.length ? (
           <div className="flex min-w-0 flex-wrap gap-1">
@@ -110,38 +120,45 @@ export function CustomerProfilePanel({
           </div>
         ) : (
           <p className="text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-            暂无标签
+            {t("customers.detail.noTags")}
           </p>
         )}
       </div>
       <div className="grid min-w-0 grid-cols-2 gap-2">
         <CustomerInfoBlock
-          label="联系权限"
-          value={customer.consent_marketing && !customer.blacklisted_at ? "允许联系" : "勿主动联系"}
-        />
-        <CustomerInfoBlock
-          label="首选通道"
-          value={customer.preferred_channel === "sms" ? "SMS" : "WhatsApp"}
-        />
-        <CustomerInfoBlock
-          label="语言"
+          label={t("customers.detail.contactPermission")}
           value={
-            customer.language === "zh"
-              ? "中文"
-              : customer.language === "en"
-                ? "English"
-                : "Italiano"
+            customer.consent_marketing && !customer.blacklisted_at
+              ? t("customers.detail.contactAllowed")
+              : t("customers.detail.contactBlocked")
           }
         />
         <CustomerInfoBlock
-          label="最近联系"
+          label={t("customers.detail.preferredChannel")}
+          value={localizeCustomerChannel(
+            customer.preferred_channel ?? "whatsapp",
+            customer.preferred_channel ?? "whatsapp",
+            t,
+          )}
+        />
+        <CustomerInfoBlock
+          label={t("customers.detail.language")}
+          value={localizeCustomerLanguage(customer.language ?? "it", customer.language ?? "it", t)}
+        />
+        <CustomerInfoBlock
+          label={t("customers.detail.lastContact")}
           value={
-            customer.last_contacted_at ? formatCustomerDateTime(customer.last_contacted_at) : "—"
+            customer.last_contacted_at
+              ? formatCustomerDateTime(customer.last_contacted_at, locale)
+              : "—"
           }
         />
       </div>
       <Separator className="my-2" />
-      <CustomerInfoBlock label="服务备注" value={customer.marketing_notes || "暂无服务备注"} />
+      <CustomerInfoBlock
+        label={t("customers.detail.serviceNotes")}
+        value={customer.marketing_notes || t("customers.detail.noServiceNotes")}
+      />
     </section>
   );
 }
@@ -155,15 +172,16 @@ export function CustomerFollowupsPanel({
   onAdd: () => void;
   onComplete: (followupId: string) => void;
 }) {
+  const { locale, t } = useLocale();
   return (
     <section className={customerDetailSectionClass}>
       <RepairOsSectionHeader
-        title="客户待办"
+        title={t("customers.detail.customerFollowups")}
         className="mb-2"
         titleClassName={customerDetailSectionTitleClass}
         action={
           <Button size="sm" variant="outline" className="h-11 gap-1.5 lg:h-8" onClick={onAdd}>
-            <Plus className="size-3.5" /> 添加待办
+            <Plus className="size-3.5" /> {t("customers.detail.addFollowup")}
           </Button>
         }
       />
@@ -181,7 +199,7 @@ export function CustomerFollowupsPanel({
                     className="h-11 gap-1.5 lg:h-8"
                     onClick={() => onComplete(item.id)}
                   >
-                    <CheckCircle2 className="size-3.5" /> 标记完成
+                    <CheckCircle2 className="size-3.5" /> {t("customers.detail.markComplete")}
                   </Button>
                 ) : null
               }
@@ -196,15 +214,14 @@ export function CustomerFollowupsPanel({
                     {item.title}
                   </span>
                   <Badge variant={item.status === "done" ? "secondary" : "outline"}>
-                    {item.status === "done"
-                      ? "已完成"
-                      : item.status === "cancelled"
-                        ? "已取消"
-                        : "待处理"}
+                    {item.status === "cancelled"
+                      ? t("customers.detail.followupCancelled")
+                      : localizeCustomerFollowupStatus(item.status, item.status, t)}
                   </Badge>
                 </div>
                 <p className="mt-1 text-[11px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                  {formatCustomerDateTime(item.due_at)} · {item.owner_name || "未分配"}
+                  {formatCustomerDateTime(item.due_at, locale)} ·{" "}
+                  {item.owner_name || t("customers.detail.unassigned")}
                 </p>
                 {item.note && (
                   <p className="mt-1 break-words text-xs text-muted-foreground">{item.note}</p>
@@ -213,7 +230,7 @@ export function CustomerFollowupsPanel({
             </RepairOsBusinessCard>
           ))
         ) : (
-          <CustomerEmptyLine text="暂无客户待办" />
+          <CustomerEmptyLine text={t("customers.detail.noFollowups")} />
         )}
       </div>
     </section>
@@ -221,10 +238,11 @@ export function CustomerFollowupsPanel({
 }
 
 export function CustomerTimelinePanel({ data }: { data: CustomerDetail }) {
+  const { t } = useLocale();
   return (
     <section className={customerDetailSectionClass}>
       <RepairOsSectionHeader
-        title="操作记录"
+        title={t("customers.detail.operationLog")}
         className="mb-2"
         titleClassName={customerDetailSectionTitleClass}
       />

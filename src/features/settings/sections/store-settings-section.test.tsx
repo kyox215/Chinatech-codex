@@ -118,7 +118,8 @@ describe("StoreSettingsSectionContent", () => {
       );
       expect(screen.getByLabelText("客户门户域名")).toHaveFocus();
     });
-    expect(screen.getByText("客户门户域名无效")).toBeVisible();
+    expect(screen.getByText("请检查此字段")).toBeVisible();
+    expect(screen.queryByText("客户门户域名无效")).not.toBeInTheDocument();
   });
 
   it("uses semantic read-only values without hiding independent store creation", () => {
@@ -167,9 +168,12 @@ describe("StoreSettingsSectionContent", () => {
     });
 
     expect(screen.queryByText(/店铺切换失败：network unavailable/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/店铺创建失败：name already exists/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/店铺创建失败。名称已保留，可修改后再次尝试。/),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /管理店铺与安全/ }));
-    expect(screen.getByText(/店铺创建失败：name already exists/)).toBeVisible();
+    expect(screen.getByText(/店铺创建失败。名称已保留，可修改后再次尝试。/)).toBeVisible();
+    expect(screen.queryByText(/name already exists/)).not.toBeInTheDocument();
     expect(screen.getByLabelText("新店铺名称")).toHaveValue("Second Lab");
   });
 

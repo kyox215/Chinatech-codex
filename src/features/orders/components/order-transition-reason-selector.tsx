@@ -8,8 +8,10 @@ import {
   getOrderTransitionReasonConfig,
   type OrderTransitionReasonPreset,
 } from "@/features/orders/model/order-transition-reasons";
+import { localizeOrderTransitionReasonConfig } from "@/features/orders/model/order-i18n";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function OrderTransitionReasonSelector({
   target,
@@ -24,7 +26,12 @@ export function OrderTransitionReasonSelector({
   disabled?: boolean;
   compact?: boolean;
 }) {
-  const config = getOrderTransitionReasonConfig(target);
+  const { t } = useLocale();
+  const config = localizeOrderTransitionReasonConfig(
+    getOrderTransitionReasonConfig(target),
+    target,
+    t,
+  );
   const selectedPreset = useMemo(
     () => config?.presets.find((preset) => preset.reason === value.trim()),
     [config?.presets, value],
@@ -34,7 +41,7 @@ export function OrderTransitionReasonSelector({
     return (
       <Textarea
         rows={compact ? 3 : 4}
-        placeholder="补充说明（可选）"
+        placeholder={t("orders2b1.transition.optionalNote")}
         value={value}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
@@ -68,11 +75,15 @@ export function OrderTransitionReasonSelector({
         <span
           className={cn("font-medium text-muted-foreground", compact ? "text-[10px]" : "text-xs")}
         >
-          处理说明{config.required ? "（必填）" : "（可选）"}
+          {t(
+            config.required
+              ? "orders2b1.transition.reasonRequired"
+              : "orders2b1.transition.reasonOptional",
+          )}
         </span>
         <Textarea
           rows={compact ? 3 : 4}
-          placeholder="也可以直接编辑成更准确的说明"
+          placeholder={t("orders2b1.transition.customPlaceholder")}
           value={value}
           disabled={disabled}
           onChange={(event) => onChange(event.target.value)}

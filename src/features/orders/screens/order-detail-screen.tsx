@@ -113,7 +113,6 @@ import {
 } from "@/lib/repairdesk/api";
 import {
   CameraCaptureSheet,
-  attachmentKindLabels,
   formatAttachmentSize,
   revokeAttachmentDraft,
   type AttachmentDraft,
@@ -215,7 +214,6 @@ import {
   deviceCustodyLabel,
   deviceCustodyStatusFromOrder,
   isDeviceCustodyReasonValid,
-  formatDeviceCustodyEvent,
   isDeviceCustodyStatus,
 } from "@/features/orders/model/device-custody";
 import { warrantyReasonRequired } from "@/features/orders/model/order-warranty";
@@ -227,7 +225,6 @@ import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { componentOverlay } from "@/lib/component-patterns";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
-import { formatMoney } from "@/lib/money";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { invalidateOrderReadCaches, patchOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
@@ -257,6 +254,21 @@ import {
 import { fadeUp, stagger } from "@/lib/motion";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/shared/i18n/format";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import {
+  getOrderDetailSafeErrorMessage,
+  localizeOrderAttachmentKind,
+  localizeOrderDetailBadge,
+  localizeOrderDetailEvent,
+  localizeOrderMessageChannel,
+  localizeOrderMessageStatus,
+} from "@/features/orders/model/order-detail-i18n";
+import {
+  localizeDeviceCustody,
+  localizeOrderFlowStage,
+  localizeWorkflowStatusLabel,
+} from "@/features/orders/model/order-i18n";
 import type {
   OrderApprovalDecisionInput,
   OrderAttachment,
@@ -296,6 +308,7 @@ export function OrderDetailScreen({
   surface?: "page" | "dialog";
   onClose?: () => void;
 }) {
+  const { locale, t } = useLocale();
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
   const viewportMode = useViewportMode();
@@ -392,7 +405,7 @@ export function OrderDetailScreen({
     },
     (error) => {
       setPrintPreparing(false);
-      toast.error(error.message);
+      toast.error(getOrderDetailSafeErrorMessage(error, "print", t));
     },
     {
       scopeKey: `${activeStoreId ?? "no-store"}:${id}`,
@@ -527,10 +540,15 @@ export function OrderDetailScreen({
       });
     },
     onSuccess: (_r, vars) => {
-      toast.success(`已流转为「${getWorkflowStatusLabel(workflow, vars.to)}」`);
+      toast.success(
+        t("orders2b2.success.transition", {
+          status: localizeWorkflowStatusLabel(workflow, vars.to, t),
+        }),
+      );
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (error: unknown) =>
+      toast.error(getOrderDetailSafeErrorMessage(error, "transition", t)),
   });
 
   const cancelledReturn = useMutation({
@@ -539,11 +557,12 @@ export function OrderDetailScreen({
       return confirmCancelledOrderReturn(id, data.order.updated_at, crypto.randomUUID());
     },
     onSuccess: () => {
-      toast.success("设备退还已确认");
+      toast.success(t("orders2b2.success.cancelledReturn"));
       closeCancelledReturnOverlay();
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (error: unknown) =>
+      toast.error(getOrderDetailSafeErrorMessage(error, "cancelledReturn", t)),
   });
 
   const custodyUpdate = useMutation({
@@ -583,12 +602,16 @@ export function OrderDetailScreen({
             : {}),
       });
       toast.success(
-        input.target === DEVICE_CUSTODY_WITH_SHOP ? "已确认门店收到设备" : "已确认设备由客人保管",
+        t(
+          input.target === DEVICE_CUSTODY_WITH_SHOP
+            ? "orders2b2.success.custodyShop"
+            : "orders2b2.success.custodyCustomer",
+        ),
       );
       closeCustodyOverlay();
       invalidate();
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: unknown) => toast.error(getOrderDetailSafeErrorMessage(error, "custody", t)),
   });
 
   const orderUpdate = useMutation({
@@ -619,7 +642,13 @@ export function OrderDetailScreen({
     },
     onSuccess: (result) => {
       patchOrderReadCaches(queryClient, id, { updated_at: result.updatedAt });
-      toast.success(getOrderEditSaveSuccessMessage(result.completedSteps));
+      toast.success(
+        t(
+          result.completedSteps.length === 1 && result.completedSteps[0] === "finance"
+            ? "orders2b2.success.finance"
+            : "orders2b2.success.save",
+        ),
+      );
       void discardCurrentEditOfflineDraft();
       setIsEditing(false);
       setEditBaseline(null);
@@ -650,7 +679,22 @@ export function OrderDetailScreen({
         patchOrderReadCaches(queryClient, id, { updated_at: error.latestUpdatedAt });
         invalidate();
       }
-      toast.error(getOrderEditSaveErrorMessage(error));
+      const failure = error instanceof OrderEditSaveExecutionError ? error.reason : error;
+      const operation =
+        error instanceof OrderEditSaveExecutionError && error.failedStep === "finance"
+          ? "finance"
+          : "save";
+      const failureMessage = getOrderDetailSafeErrorMessage(failure, operation, t);
+      if (error instanceof OrderEditSaveExecutionError && error.completedSteps.length > 0) {
+        const completed = error.completedSteps
+          .map((step) =>
+            t(step === "finance" ? "orders2b2.saveStep.finance" : "orders2b2.saveStep.routine"),
+          )
+          .join(t("orders2b2.saveStep.separator"));
+        toast.error(t("orders2b2.error.partial", { failure: failureMessage, completed }));
+        return;
+      }
+      toast.error(failureMessage);
     },
   });
 
@@ -665,10 +709,10 @@ export function OrderDetailScreen({
       });
     },
     onSuccess: () => {
-      toast.success("IMEI / 序列号已保存");
+      toast.success(t("orders2b2.success.imei"));
       invalidate();
     },
-    onError: (error: Error) => toast.error(getImeiSaveErrorMessage(error)),
+    onError: (error: unknown) => toast.error(getOrderDetailSafeErrorMessage(error, "imei", t)),
   });
 
   const faultUpdate = useMutation({
@@ -680,9 +724,10 @@ export function OrderDetailScreen({
       });
     },
     onSuccess: () => {
-      toast.success("故障描述已保存");
+      toast.success(t("orders2b2.success.diagnosis"));
       invalidate();
     },
+    onError: (error: unknown) => toast.error(getOrderDetailSafeErrorMessage(error, "diagnosis", t)),
   });
 
   const quotePublish = useMutation({
@@ -702,10 +747,12 @@ export function OrderDetailScreen({
       });
     },
     onSuccess: (result) => {
-      toast.success(result.replayed ? "正式报价已存在" : "正式报价已发布");
+      toast.success(
+        t(result.replayed ? "orders2b2.success.quoteReplayed" : "orders2b2.success.quotePublished"),
+      );
       invalidate();
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: unknown) => toast.error(getOrderDetailSafeErrorMessage(error, "quote", t)),
   });
 
   const deviceUnlockUpdate = useMutation({
@@ -717,10 +764,10 @@ export function OrderDetailScreen({
       });
     },
     onSuccess: () => {
-      toast.success("手机密码已保存");
+      toast.success(t("orders2b2.success.unlock"));
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (error: unknown) => toast.error(getOrderDetailSafeErrorMessage(error, "unlock", t)),
   });
 
   const partsSupplierUpdate = useMutation({
@@ -735,10 +782,10 @@ export function OrderDetailScreen({
       });
     },
     onSuccess: () => {
-      toast.success("配件供应商已更新");
+      toast.success(t("orders2b2.success.supplier"));
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (error: unknown) => toast.error(getOrderDetailSafeErrorMessage(error, "supplier", t)),
   });
 
   const assigneeUpdate = useMutation({
@@ -753,19 +800,20 @@ export function OrderDetailScreen({
       });
     },
     onSuccess: () => {
-      toast.success("工单负责人已更新");
+      toast.success(t("orders2b2.success.assignee"));
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (error: unknown) => toast.error(getOrderDetailSafeErrorMessage(error, "assignee", t)),
   });
 
   const attachmentUpload = useMutation({
     mutationFn: (input: OrderAttachmentUploadInput) => uploadOrderAttachment(id, input),
     onSuccess: () => {
-      toast.success("设备照片已保存到工单");
+      toast.success(t("orders2b2.success.attachment"));
       invalidate();
     },
-    onError: (e: Error) => toast.error(`上传失败：${e.message}`),
+    onError: (error: unknown) =>
+      toast.error(getOrderDetailSafeErrorMessage(error, "attachment", t)),
   });
 
   const financeUpdate = useMutation({
@@ -781,11 +829,11 @@ export function OrderDetailScreen({
       }),
     onSuccess: () => {
       setMobileFinanceSaveError("");
-      toast.success("报价已保存");
+      toast.success(t("orders2b2.success.finance"));
       invalidate();
     },
-    onError: (e: Error) => {
-      const message = getFinanceSaveErrorMessage(e);
+    onError: (error: unknown) => {
+      const message = getOrderDetailSafeErrorMessage(error, "finance", t);
       setMobileFinanceSaveError(message);
       toast.error(message);
     },
@@ -802,24 +850,28 @@ export function OrderDetailScreen({
       });
     },
     onSuccess: () => {
-      toast.success("已确认报价消息发送，工单进入待客户审批");
+      toast.success(t("orders2b2.success.quoteSent"));
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (error: unknown) =>
+      toast.error(getOrderDetailSafeErrorMessage(error, "quoteConfirmation", t)),
   });
 
   const approvalDecision = useMutation({
     mutationFn: (input: OrderApprovalDecisionInput) => decideOrderApproval(id, input),
     onSuccess: (result) => {
       toast.success(
-        result.decision === "approved"
-          ? `客户已同意，工单进入「${getWorkflowStatusLabel(workflow, result.to)}」`
-          : `客户已拒绝，工单进入「${getWorkflowStatusLabel(workflow, result.to)}」`,
+        t(
+          result.decision === "approved"
+            ? "orders2b2.success.approved"
+            : "orders2b2.success.rejected",
+          { status: localizeWorkflowStatusLabel(workflow, result.to, t) },
+        ),
       );
       setApprovalDecisionOpen(false);
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (error: unknown) => toast.error(getOrderDetailSafeErrorMessage(error, "approval", t)),
   });
 
   const whatsappNotification = useMutation({
@@ -839,12 +891,15 @@ export function OrderDetailScreen({
     onSuccess: (result) => {
       toast.success(
         result.statusChanged && result.to
-          ? `WhatsApp 已记录，并已流转为「${getWorkflowStatusLabel(workflow, result.to)}」`
-          : "WhatsApp 通知已记录",
+          ? t("orders2b2.success.notificationTransition", {
+              status: localizeWorkflowStatusLabel(workflow, result.to, t),
+            })
+          : t("orders2b2.success.notification"),
       );
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (error: unknown) =>
+      toast.error(getOrderDetailSafeErrorMessage(error, "notification", t)),
   });
 
   const kioskSignatureRequest = useMutation({
@@ -864,13 +919,17 @@ export function OrderDetailScreen({
       });
     },
     onSuccess: async (session) => {
-      toast.success(`已发送到 ${session.device?.label ?? activeKioskDevice?.label ?? "客户 iPad"}`);
+      toast.success(
+        t("orders2b2.success.kiosk", {
+          device: session.device?.label ?? activeKioskDevice?.label ?? "iPad",
+        }),
+      );
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: kioskKeys.sessions(activeStoreId) }),
         queryClient.invalidateQueries({ queryKey: ordersKeys.detail(id, activeStoreId) }),
       ]);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (error: unknown) => toast.error(getOrderDetailSafeErrorMessage(error, "kiosk", t)),
   });
 
   const mobileFinance = useMemo(() => {
@@ -891,13 +950,13 @@ export function OrderDetailScreen({
         }),
         error: undefined,
       };
-    } catch (error) {
+    } catch {
       return {
         plan: null,
-        error: error instanceof Error ? error.message : "无法生成保存计划。",
+        error: getOrderDetailSafeErrorMessage(undefined, "save", t),
       };
     }
-  }, [data?.capabilities, editBaseline, persistedEditDraft]);
+  }, [data?.capabilities, editBaseline, persistedEditDraft, t]);
   const editSavePlan = editSavePlanState.plan;
   const baselineFinanceDraft = useMemo(
     () =>
@@ -931,14 +990,18 @@ export function OrderDetailScreen({
   const editValidationError = useMemo(
     () =>
       remoteEditConflict
-        ? "这张工单已在另一台设备更新，请先载入最新版本再保存。"
+        ? t("orders2b2.conflict.description")
         : (editSavePlanState.error ??
-          getEditValidationError(editDraft, {
-            routineChanges: editSavePlan?.routineChanges ?? {},
-            financeChanged: editFinanceChanged,
-            financeError: editFinance?.error,
-            defaultWarrantyMonths,
-          })),
+          getEditValidationError(
+            editDraft,
+            {
+              routineChanges: editSavePlan?.routineChanges ?? {},
+              financeChanged: editFinanceChanged,
+              financeError: editFinance?.error,
+              defaultWarrantyMonths,
+            },
+            t,
+          )),
     [
       defaultWarrantyMonths,
       editDraft,
@@ -947,6 +1010,7 @@ export function OrderDetailScreen({
       editSavePlan?.routineChanges,
       editSavePlanState.error,
       remoteEditConflict,
+      t,
     ],
   );
   const editCanSave = Boolean(
@@ -967,7 +1031,7 @@ export function OrderDetailScreen({
       !data.capabilities?.canEditRepair &&
       !data.capabilities?.canAdjustFinance
     ) {
-      toast.error("当前工单状态或账号权限不允许编辑");
+      toast.error(t("orders2b2.permission.edit"));
       return;
     }
     const draft = buildEditForm(data, defaultWarrantyMonths);
@@ -976,7 +1040,7 @@ export function OrderDetailScreen({
     setFinanceDraft(createFinanceDraftState(draft.fault_prices, draft.deposit_amount ?? 0));
     setDesktopDetailView("overview");
     setIsEditing(true);
-  }, [data, defaultWarrantyMonths]);
+  }, [data, defaultWarrantyMonths, t]);
 
   const cancelEditing = useCallback(() => {
     void discardCurrentEditOfflineDraft();
@@ -998,8 +1062,8 @@ export function OrderDetailScreen({
     setFinanceDraft(
       createFinanceDraftState(latestDraft.fault_prices, latestDraft.deposit_amount ?? 0),
     );
-    toast.success("已载入服务器最新版本");
-  }, [data, defaultWarrantyMonths, discardCurrentEditOfflineDraft]);
+    toast.success(t("orders2b2.conflict.loaded"));
+  }, [data, defaultWarrantyMonths, discardCurrentEditOfflineDraft, t]);
 
   useEffect(() => {
     if (!data || !editServerVersionChanged || hasLocalEditChanges) return;
@@ -1035,7 +1099,7 @@ export function OrderDetailScreen({
       return;
     }
     if (editValidationError || (editFinanceChanged && !editFinance.canSave)) {
-      toast.error(editValidationError ?? editFinance.error ?? "请检查工单信息。");
+      toast.error(editValidationError ?? editFinance.error ?? t("orders2b2.validation.checkOrder"));
       return;
     }
     editSaveInFlightRef.current = true;
@@ -1058,12 +1122,13 @@ export function OrderDetailScreen({
     editValidationError,
     orderUpdate,
     persistedEditDraft,
+    t,
   ]);
   const restoreEditOfflineDraft = useCallback(async () => {
     const result = await restoreEditOfflinePromptDraft();
     if (!result) return;
     if (result.status === "conflict") {
-      toast.error(result.message);
+      toast.error(getOrderDetailSafeErrorMessage({ status: 409 }, "save", t));
       return;
     }
     if (data) setEditBaseline(buildEditForm(data, defaultWarrantyMonths));
@@ -1072,12 +1137,12 @@ export function OrderDetailScreen({
       createFinanceDraftState(result.draft.fault_prices, result.draft.deposit_amount ?? 0),
     );
     setIsEditing(true);
-    toast.success("本机编辑草稿已恢复");
-  }, [data, defaultWarrantyMonths, restoreEditOfflinePromptDraft]);
+    toast.success(t("orders2b2.draft.restored"));
+  }, [data, defaultWarrantyMonths, restoreEditOfflinePromptDraft, t]);
   const discardEditOfflinePrompt = useCallback(async () => {
     const discarded = await discardEditOfflinePromptDraft();
-    if (discarded) toast.success("本机编辑草稿已丢弃");
-  }, [discardEditOfflinePromptDraft]);
+    if (discarded) toast.success(t("orders2b2.draft.discarded"));
+  }, [discardEditOfflinePromptDraft, t]);
 
   if (
     !data &&
@@ -1098,13 +1163,19 @@ export function OrderDetailScreen({
     );
   }
   if (!activeStoreId) {
-    return <StoreShellUnavailableState shell={shell} onRetry={shell.retry} />;
+    return (
+      <StoreShellUnavailableState
+        shell={shell}
+        onRetry={shell.retry}
+        title={t("orders2b2.storeUnavailable.title")}
+        description={t("orders2b2.storeUnavailable.description")}
+        actionLabel={t("orders2b2.storeUnavailable.action")}
+        retryLabel={t("orders2b2.storeUnavailable.retry")}
+      />
+    );
   }
   if (detailIsError || !data) {
-    const message =
-      detailError instanceof Error && detailError.message
-        ? detailError.message
-        : "工单详情加载失败，请刷新后重试。";
+    const message = getOrderDetailSafeErrorMessage(detailError, "load", t);
     return (
       <div
         className={cn(
@@ -1116,7 +1187,7 @@ export function OrderDetailScreen({
       >
         <section className="rounded-xl border border-status-danger-foreground/20 bg-status-danger px-4 py-4 text-status-danger-foreground">
           <div className="flex min-w-0 items-start justify-between gap-3">
-            <p className="min-w-0 text-sm font-semibold">工单详情加载失败</p>
+            <p className="min-w-0 text-sm font-semibold">{t("orders2b2.loadFailed")}</p>
             {surface === "dialog" && onClose ? (
               <Button
                 type="button"
@@ -1124,7 +1195,7 @@ export function OrderDetailScreen({
                 size="icon"
                 className="size-8 shrink-0 rounded-lg bg-background/80"
                 onClick={onClose}
-                aria-label="关闭工单详情"
+                aria-label={t("orders2b2.close")}
               >
                 <X className="size-4" />
               </Button>
@@ -1139,7 +1210,7 @@ export function OrderDetailScreen({
               className="h-8 rounded-lg bg-background/80 text-xs"
               onClick={() => void refetchDetail()}
             >
-              重新加载
+              {t("orders2b2.reload")}
             </Button>
             {surface === "page" ? (
               <Button
@@ -1149,7 +1220,7 @@ export function OrderDetailScreen({
                 className="h-8 rounded-lg bg-background/80 text-xs"
               >
                 <Link href="/orders">
-                  <ArrowLeft className="size-3.5" /> 返回工单
+                  <ArrowLeft className="size-3.5" /> {t("orders2b2.backOrders")}
                 </Link>
               </Button>
             ) : null}
@@ -1174,7 +1245,8 @@ export function OrderDetailScreen({
   const cancelled = isOrderCancelledState(order);
   const isTerminalOrder = isOrderTerminalState(order);
   const canPrintCustomerDocument = canPrintRepairOrderCustomerDocument(order);
-  const printDisabledReason = printPreparing || generationPending ? "正在准备打印内容" : undefined;
+  const printDisabledReason =
+    printPreparing || generationPending ? t("orders2b2.print.preparing") : undefined;
   const printCustomerDocument = async (paperMode: PrintPaperMode) => {
     rememberOrderPrintPaperMode(paperMode);
     setPrintPaperMode(paperMode);
@@ -1186,27 +1258,31 @@ export function OrderDetailScreen({
         const links = await issueCustomerStatusLinks([order.id], { signal: context.signal });
         if (!context.isCurrent()) return;
         const link = links.find((item) => item.order_id === order.id);
-        if (!link?.url) throw new Error("订单二维码准备失败，请重试");
+        if (!link?.url) throw new Error(t("orders2b2.customerStatus.prepareFailed"));
         setCustomerStatusUrl(link.url);
       } finally {
         setPrintPreparing(false);
       }
     });
-    if (outcome === "busy") toast.info("打印内容正在准备或预览已打开");
+    if (outcome === "busy") toast.info(t("orders2b2.print.busy"));
   };
   const canRevokeCustomerStatusLinks = shell.activeStore?.role === "owner";
   const revokePrintedCustomerStatusLinks = async () => {
     if (!canRevokeCustomerStatusLinks || customerStatusRevokePending) return;
-    if (!window.confirm("重置这张工单的固定二维码？此前打印的二维码将立即失效。")) {
+    if (!window.confirm(t("orders2b2.customerStatus.resetConfirm"))) {
       return;
     }
     setCustomerStatusRevokePending(true);
     try {
       const revokedCount = await revokeCustomerStatusLinks(order.id);
       setCustomerStatusUrl("");
-      toast.success(revokedCount > 0 ? "固定二维码已重置" : "二维码无需重置");
+      toast.success(
+        revokedCount > 0
+          ? t("orders2b2.customerStatus.resetDone")
+          : t("orders2b2.customerStatus.resetNone"),
+      );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "无法停用客户查询二维码");
+      toast.error(getOrderDetailSafeErrorMessage(error, "customerStatus", t));
     } finally {
       setCustomerStatusRevokePending(false);
     }
@@ -1304,17 +1380,28 @@ export function OrderDetailScreen({
   const safeDesktopDetailView =
     desktopDetailView === "costs" && !canReadInternalCosts ? "overview" : desktopDetailView;
   const desktopDetailTabs: OrderDetailTab<DesktopDetailView>[] = [
-    { key: "overview", label: "概览" },
-    { key: "records", label: `记录与信息 ${events.length + messages.length}` },
-    { key: "photos", label: `设备照片 ${photoAttachments.length}` },
+    { key: "overview", label: t("orders2b2.tab.overview") },
+    {
+      key: "records",
+      label: t("orders2b2.tab.records", { count: events.length + messages.length }),
+    },
+    {
+      key: "photos",
+      label: t("orders2b2.tab.photos", { count: photoAttachments.length }),
+    },
     ...(canReadInternalCosts
-      ? ([{ key: "costs", label: "内部成本" }] satisfies OrderDetailTab<DesktopDetailView>[])
+      ? ([
+          { key: "costs", label: t("orders2b2.tab.costs") },
+        ] satisfies OrderDetailTab<DesktopDetailView>[])
       : []),
   ];
   const desktopRecordsTabs: OrderDetailTab<DesktopRecordsView>[] = [
-    { key: "key-info", label: "关键信息" },
-    { key: "messages", label: `历史通知 ${messages.length}` },
-    { key: "timeline", label: `时间线 ${events.length}` },
+    { key: "key-info", label: t("orders2b2.tab.keyInfo") },
+    {
+      key: "messages",
+      label: t("orders2b2.tab.notifications", { count: messages.length }),
+    },
+    { key: "timeline", label: t("orders2b2.tab.timeline", { count: events.length }) },
   ];
   const renderCustodyPanel = () => (
     <div className={cn("min-w-0", surface === "dialog" && "mx-auto w-full max-w-[780px]")}>
@@ -1326,9 +1413,9 @@ export function OrderDetailScreen({
         >
           <PackageCheck className="size-4 shrink-0" />
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold">设备退还尚未确认</p>
+            <p className="text-xs font-semibold">{t("orders2b2.custody.returnPending")}</p>
             <p className="truncate text-[11px] opacity-80 lg:text-xs lg:leading-4 lg:opacity-100">
-              该工单已移入历史，退还提醒仍保留。
+              {t("orders2b2.custody.returnReminder")}
             </p>
           </div>
           {data.capabilities?.canConfirmCancelledReturn ? (
@@ -1343,7 +1430,7 @@ export function OrderDetailScreen({
                 setCancelledReturnOpen(true);
               }}
             >
-              确认已退还
+              {t("orders2b2.custody.confirmReturned")}
             </Button>
           ) : null}
         </section>
@@ -1414,7 +1501,7 @@ export function OrderDetailScreen({
           : cn(detailWorkspace.root, "flex h-full flex-col"),
       )}
     >
-      <h1 className="sr-only">订单详情</h1>
+      <h1 className="sr-only">{t("orders2b2.title")}</h1>
       {orderDetailRenderMode === "compact" ? (
         <>
           <MobileOrderDetailView
@@ -1463,7 +1550,7 @@ export function OrderDetailScreen({
             }}
             onFinanceSave={async () => {
               if (!mobileFinance?.canSave) {
-                const message = mobileFinance?.error ?? "请检查报价金额后再保存。";
+                const message = t("orders2b2.validation.checkOrder");
                 setMobileFinanceSaveError(message);
                 toast.error(message);
                 return false;
@@ -1558,6 +1645,7 @@ export function OrderDetailScreen({
               onPrint={() => setPrintPaperDialogOpen(true)}
               printDisabled={!canPrintCustomerDocument || generationPending}
               printDisabledReason={printDisabledReason}
+              printPending={printPreparing || generationPending}
               onRevokeCustomerStatusLinks={
                 canRevokeCustomerStatusLinks
                   ? () => void revokePrintedCustomerStatusLinks()
@@ -1584,12 +1672,18 @@ export function OrderDetailScreen({
               onClose={onClose}
               currentStage={desktopCurrentStage}
               currentStageIndex={desktopStageIndex}
-              nextActionLabel={canDecideApproval ? "处理客户审批" : next.primary?.label}
+              nextActionLabel={
+                canDecideApproval
+                  ? t("orders2b2.hero.approval")
+                  : next.primary
+                    ? localizeWorkflowStatusLabel(workflow, next.primary.to, t)
+                    : undefined
+              }
               taskHint={
                 canDecideApproval
-                  ? "客户已在等待报价结果，先记录同意或拒绝，再进入维修、订件、寄修或未修取机。"
+                  ? t("orders2b2.approval.taskHint")
                   : next.primary
-                    ? getStatusActionHint(next.primary.to, order)
+                    ? getStatusActionHint(next.primary.to, order, t)
                     : undefined
               }
               approvalDecisionAvailable={canDecideApproval}
@@ -1623,7 +1717,7 @@ export function OrderDetailScreen({
                 tabs={isEditing ? desktopDetailTabs.slice(0, 1) : desktopDetailTabs}
                 activeTab={safeDesktopDetailView}
                 onChange={changeDesktopDetailView}
-                ariaLabel="工单详情内容"
+                ariaLabel={t("orders2b2.tabsAria")}
                 idPrefix="order-detail-workspace"
                 className="!m-0 min-w-0"
               />
@@ -1635,7 +1729,9 @@ export function OrderDetailScreen({
                   className="h-11 min-w-11 shrink-0 px-3 text-xs lg:h-8 lg:min-w-0 lg:px-2.5"
                   onClick={() => setDiagnosisQuoteOpen(true)}
                 >
-                  {data.capabilities?.canPrepareQuote ? "检测报价" : "记录检测"}
+                  {data.capabilities?.canPrepareQuote
+                    ? t("orders2b2.diagnosis.openPrepare")
+                    : t("orders2b2.diagnosis.openRecord")}
                 </Button>
               ) : null}
             </div>
@@ -1644,6 +1740,7 @@ export function OrderDetailScreen({
           <div className={cn("min-w-0", surface === "dialog" && "min-h-0 flex-1 overflow-y-auto")}>
             <motion.div
               data-order-desktop-single-workspace="true"
+              data-order-detail-content-end="true"
               variants={stagger(0.05)}
               initial="hidden"
               animate="show"
@@ -1651,7 +1748,11 @@ export function OrderDetailScreen({
             >
               <OrderEditOfflineDraftNotice
                 state={editOfflineState}
-                errorMessage={editOfflineErrorMessage}
+                errorMessage={
+                  editOfflineErrorMessage
+                    ? getOrderDetailSafeErrorMessage(undefined, "save", t)
+                    : null
+                }
                 lastSavedAt={editOfflineLastSavedAt}
                 prompt={editOfflineDraftPrompt}
                 pendingRestoreNotice={editOfflineRestoreNotice}
@@ -1669,9 +1770,9 @@ export function OrderDetailScreen({
                   <div className="flex min-w-0 items-start gap-2">
                     <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                     <div className="min-w-0">
-                      <div className="text-xs font-semibold">另一台设备已更新这张工单</div>
+                      <div className="text-xs font-semibold">{t("orders2b2.conflict.title")}</div>
                       <p className="mt-0.5 text-[11px] leading-4 opacity-80 lg:text-xs lg:leading-[18px] lg:opacity-100">
-                        为避免覆盖，当前保存已暂停。载入最新版本会替换本页尚未保存的修改。
+                        {t("orders2b2.conflict.description")}
                       </p>
                     </div>
                   </div>
@@ -1683,18 +1784,29 @@ export function OrderDetailScreen({
                     onClick={() => void loadLatestEditVersion()}
                   >
                     <RefreshCw className="mr-1 size-3.5" aria-hidden="true" />
-                    载入最新版本
+                    {t("orders2b2.conflict.reload")}
                   </Button>
                 </section>
+              ) : null}
+              {isEditing && editValidationError && !remoteEditConflict ? (
+                <p
+                  role="alert"
+                  data-order-edit-validation="true"
+                  className="rounded-lg border border-status-danger-foreground/20 bg-status-danger px-3 py-2 text-xs text-status-danger-foreground"
+                >
+                  {editValidationError}
+                </p>
               ) : null}
               {surface !== "dialog" && canOpenDiagnosisQuote ? (
                 <section className="flex min-w-0 items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-primary/20 bg-primary/5 px-3 py-2">
                   <div className="min-w-0">
-                    <div className="text-xs font-semibold">检测与正式报价工作区</div>
+                    <div className="text-xs font-semibold">
+                      {t("orders2b2.diagnosis.workspaceTitle")}
+                    </div>
                     <div className="truncate text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
                       {latestPublishedQuoteId
-                        ? "已有正式报价；修改后会生成新的报价版本并重置旧审批"
-                        : "补充检测结论、维修项目和价格，然后发布正式报价"}
+                        ? t("orders2b2.diagnosis.versionNotice")
+                        : t("orders2b2.diagnosis.newNotice")}
                     </div>
                   </div>
                   <Button
@@ -1703,7 +1815,9 @@ export function OrderDetailScreen({
                     className="h-8 shrink-0 text-xs"
                     onClick={() => setDiagnosisQuoteOpen(true)}
                   >
-                    {data.capabilities?.canPrepareQuote ? "打开检测报价" : "记录检测结论"}
+                    {data.capabilities?.canPrepareQuote
+                      ? t("orders2b2.diagnosis.actionPrepare")
+                      : t("orders2b2.diagnosis.actionRecord")}
                   </Button>
                 </section>
               ) : null}
@@ -1762,13 +1876,13 @@ export function OrderDetailScreen({
                     signatureAttachments={signatureAttachments}
                     photoUploadPending={attachmentUpload.isPending}
                     onPhotoCapture={
-                      isVoided
-                        ? undefined
-                        : (trigger) => {
+                      data.capabilities?.canUploadPhoto === true && !isVoided
+                        ? (trigger) => {
                             desktopPhotoTriggerRef.current = trigger;
                             desktopPhotoOutsideDismissedRef.current = false;
                             setDesktopPhotoCaptureOpen(true);
                           }
+                        : undefined
                     }
                     onRequestKioskSignature={
                       canCreateKioskSession ? () => kioskSignatureRequest.mutate() : undefined
@@ -1831,13 +1945,13 @@ export function OrderDetailScreen({
                         attachments={photoAttachments}
                         uploadPending={attachmentUpload.isPending}
                         onCapture={
-                          isVoided
-                            ? undefined
-                            : (trigger) => {
+                          data.capabilities?.canUploadPhoto === true && !isVoided
+                            ? (trigger) => {
                                 desktopPhotoTriggerRef.current = trigger;
                                 desktopPhotoOutsideDismissedRef.current = false;
                                 setDesktopPhotoCaptureOpen(true);
                               }
+                            : undefined
                         }
                         surface={surface}
                       />
@@ -1910,6 +2024,7 @@ export function OrderDetailScreen({
               >
                 <DesktopStatusTransitionPanel
                   order={order}
+                  workflow={workflow}
                   statusLabel={getWorkflowStatusLabel(workflow, order.status)}
                   currentStage={desktopCurrentStage}
                   actions={desktopStatusActions}
@@ -1957,19 +2072,21 @@ export function OrderDetailScreen({
           approvalQuoteReady={approvalQuoteReady}
           approvalQuoteBlockedReason={
             data.capabilities?.canSendQuote !== true
-              ? "当前账号没有发送正式报价的权限，请交给前台、经理或销售处理。"
+              ? t("orders2b2.notify.blockedPermission")
               : !latestPublishedQuoteId
-                ? "请先发布正式报价，再通知客户审批。"
+                ? t("orders2b2.notify.quoteBlocked")
                 : order.status !== "quoted"
-                  ? "当前工单不在已报价阶段，请刷新并检查最新状态。"
-                  : "客户缺少可用的 WhatsApp 电话。"
+                  ? t("orders2b2.notify.blockedStatus")
+                  : t("orders2b2.notify.blockedPhone")
           }
           onConfirm={async (input) => {
             if (
               input.templateKind === "approval_request" &&
               (order.status === "quoted" || order.status === "waiting_approval")
             ) {
-              if (!latestPublishedQuoteId) throw new Error("请先发布最新正式报价");
+              if (!latestPublishedQuoteId) {
+                throw new Error(t("orders2b2.notify.latestQuoteRequired"));
+              }
               await quoteSentConfirmation.mutateAsync({
                 body: input.body,
                 quoteEventId: latestPublishedQuoteId,
@@ -2001,7 +2118,13 @@ export function OrderDetailScreen({
         onOpenChange={setApprovalDecisionOpen}
         order={order}
         pending={approvalDecision.isPending}
-        onConfirm={(input) => approvalDecision.mutateAsync(input)}
+        onConfirm={async (input) => {
+          try {
+            await approvalDecision.mutateAsync(input);
+          } catch {
+            // The mutation onError owns safe feedback; keep the decision draft open.
+          }
+        }}
       />
       {canCollectPayment && !order.finance_redacted ? (
         <PaymentDialog
@@ -2010,7 +2133,9 @@ export function OrderDetailScreen({
           balance={order.balance_amount}
           onPay={async (amount, method, idempotencyKey) => {
             await recordPayment(id, amount, method, order.updated_at, idempotencyKey);
-            toast.success(`已收款 ${formatMoney(amount)}`);
+            toast.success(
+              t("orders2b2.success.payment", { amount: formatCurrency(amount, locale) }),
+            );
             invalidate();
           }}
         />
@@ -2051,7 +2176,7 @@ export function OrderDetailScreen({
         }}
         onConfirm={() => cancelledReturn.mutate()}
       />
-      {!isVoided ? (
+      {data.capabilities?.canUploadPhoto === true && !isVoided ? (
         <CameraCaptureSheet
           open={desktopPhotoCaptureOpen}
           onOpenChange={setDesktopPhotoCaptureOpen}
@@ -2064,7 +2189,7 @@ export function OrderDetailScreen({
           onCapture={(draft) => {
             void uploadAttachmentDraft(draft, async (input) => {
               await attachmentUpload.mutateAsync(input);
-            });
+            }).catch(() => undefined);
           }}
         />
       ) : null}
@@ -2083,7 +2208,9 @@ export function OrderDetailScreen({
       <FixedPdfReadyDialog
         prepared={preparedPdf}
         pending={deliveryPending}
-        errorMessage={deliveryError}
+        errorMessage={
+          deliveryError ? getOrderDetailSafeErrorMessage(undefined, "print", t) : undefined
+        }
         onClose={dismissPreparedPdf}
         onShare={() => void sharePreparedPdf()}
         onOpenPdf={openPreparedPdf}
@@ -2104,26 +2231,27 @@ function CancelledReturnOverlay({
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
 }) {
+  const { t } = useLocale();
   const isDesktop = useDesktopActionSurface();
   const footer = (
     <>
       <Button type="button" variant="ghost" disabled={pending} onClick={() => onOpenChange(false)}>
-        返回
+        {t("orders2b2.custody.back")}
       </Button>
       <Button type="button" disabled={pending} onClick={onConfirm}>
         <PackageCheck className="size-4" />
-        {pending ? "确认中..." : "确认退还"}
+        {pending ? t("orders2b2.custody.confirming") : t("orders2b2.custody.confirmReturn")}
       </Button>
     </>
   );
-  const description = "此操作只记录设备已交还客户，不会自动收款、退款或更改订单金额。";
+  const description = t("orders2b2.custody.returnHelp");
 
   if (isDesktop) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent aria-busy={pending} className={componentOverlay.modalSm}>
           <DialogHeader>
-            <DialogTitle>确认设备已退还</DialogTitle>
+            <DialogTitle>{t("orders2b2.custody.returnTitle")}</DialogTitle>
             <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
           <DialogFooter>{footer}</DialogFooter>
@@ -2140,11 +2268,11 @@ function CancelledReturnOverlay({
         className="rounded-t-2xl p-0 sm:mx-auto sm:max-w-xl"
       >
         <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
-          <SheetTitle>确认设备已退还</SheetTitle>
+          <SheetTitle>{t("orders2b2.custody.returnTitle")}</SheetTitle>
           <SheetDescription>{description}</SheetDescription>
         </SheetHeader>
         <p className="sr-only" role="status" aria-live="polite">
-          {pending ? "正在确认设备退还" : ""}
+          {pending ? t("orders2b2.custody.returnSaving") : ""}
         </p>
         <SheetFooter className="!grid grid-cols-2 gap-2 border-t border-[var(--border-panel)] p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
           {footer}
@@ -2179,22 +2307,31 @@ function OrderCustodyChangeOverlay({
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
 }) {
+  const { t } = useLocale();
   const isDesktop = useDesktopActionSurface();
-  const title = target === DEVICE_CUSTODY_WITH_SHOP ? "确认门店已收到设备" : "确认设备已交给客人";
+  const title =
+    target === DEVICE_CUSTODY_WITH_SHOP
+      ? t("orders2b2.custody.receiveTitle")
+      : t("orders2b2.custody.customerTitle");
   const description =
     target === DEVICE_CUSTODY_WITH_SHOP
-      ? "确认后设备可进入检测、维修或取机流程。"
+      ? t("orders2b2.custody.receiveHelp")
       : current === DEVICE_CUSTODY_WITH_SHOP
-        ? "确认后会记录交付时间；已登记的手机密码、PIN 或解锁图案会继续保留。"
-        : "补录为客户持有，不会生成历史交付时间；已登记的解锁信息会继续保留。";
+        ? t("orders2b2.custody.deliverHelp")
+        : t("orders2b2.custody.backfillCustomerHelp");
   const body = (
     <div className="grid min-w-0 gap-3 p-4">
       <label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
         <span>
-          操作说明
+          {t("orders2b2.custody.reason")}
           {reasonRequired
-            ? `（必填${minimumReasonLength > 1 ? `，至少 ${minimumReasonLength} 个字符` : ""}）`
-            : "（可选）"}
+            ? t("orders2b2.custody.required", {
+                minimum:
+                  minimumReasonLength > 1
+                    ? t("orders2b2.custody.minimum", { count: minimumReasonLength })
+                    : "",
+              })
+            : t("orders2b2.custody.optional")}
         </span>
         <Textarea
           value={reason}
@@ -2203,19 +2340,21 @@ function OrderCustodyChangeOverlay({
           disabled={pending}
           className="min-h-24 resize-none text-sm"
           placeholder={
-            reasonRequired ? "请说明历史补录或结束后修正的原因" : "例如：客人临时带走设备"
+            reasonRequired
+              ? t("orders2b2.custody.reasonRequiredPlaceholder")
+              : t("orders2b2.custody.reasonOptionalPlaceholder")
           }
         />
       </label>
       <p className="sr-only" role="status" aria-live="polite">
-        {pending ? "正在保存设备交接记录" : ""}
+        {pending ? t("orders2b2.custody.saving") : ""}
       </p>
     </div>
   );
   const footer = (
     <>
       <Button type="button" variant="ghost" disabled={pending} onClick={() => onOpenChange(false)}>
-        取消
+        {t("common.cancel")}
       </Button>
       <Button
         type="button"
@@ -2227,7 +2366,7 @@ function OrderCustodyChangeOverlay({
         }
         onClick={onConfirm}
       >
-        {pending ? "保存中..." : "确认保存"}
+        {pending ? t("orders2b2.hero.saving") : t("orders2b2.custody.confirmSave")}
       </Button>
     </>
   );
@@ -2297,6 +2436,7 @@ function OrderDeviceCustodyCard({
   className?: string;
   variant?: "card" | "inline";
 }) {
+  const { locale, t } = useLocale();
   const status = deviceCustodyStatusFromOrder(order);
   const cancelled = isOrderCancelledState(order);
   const isVoided = order.record_state === "voided" || Boolean(order.deleted_at);
@@ -2306,17 +2446,19 @@ function OrderDeviceCustodyCard({
     workflowBucket === "done" ||
     (workflowBucket === undefined && order.workflow_status === "closed");
   const canUpdateResolved = canUpdate && !isVoided;
-  const latestHandoff = getLatestCustodyHandoff(events);
+  const latestHandoff = getLatestCustodyHandoff(events, t, locale);
   const description =
     status === DEVICE_CUSTODY_WITH_SHOP
       ? cancelled
-        ? "工单已取消，但设备仍在店内；退还后必须确认交接。"
-        : "设备当前由门店保管，可登记解锁信息并进入检测或维修流程。"
+        ? t("orders2b2.custody.cancelledShop")
+        : t("orders2b2.custody.shop")
       : status === DEVICE_CUSTODY_WITH_CUSTOMER
         ? order.delivered_at
-          ? `设备已交给客人 · ${formatOrderDateTime(order.delivered_at)}`
-          : "设备由客人自行保管；已登记的解锁信息会继续保留。"
-        : "这是一张旧工单，尚未记录设备是否留在门店；继续关键流程前必须补录。";
+          ? t("orders2b2.custody.delivered", {
+              date: formatOrderDateTime(order.delivered_at, locale),
+            })
+          : t("orders2b2.custody.customer")
+        : t("orders2b2.custody.unknown");
 
   const actions: ReactNode[] = [];
   const allowsTarget = (target: DeviceCustodyStatus) =>
@@ -2345,7 +2487,9 @@ function OrderDeviceCustodyCard({
             disabled={pending}
             onClick={() => onRequestChange(target)}
           >
-            {target === DEVICE_CUSTODY_WITH_SHOP ? "补录为留店" : "补录为未留店"}
+            {target === DEVICE_CUSTODY_WITH_SHOP
+              ? t("orders2b2.custody.backfillShop")
+              : t("orders2b2.custody.backfillCustomer")}
           </Button>
         )),
     );
@@ -2369,7 +2513,7 @@ function OrderDeviceCustodyCard({
         onClick={onConfirmCancelledReturn}
       >
         <PackageCheck className="size-3.5" />
-        确认已退还
+        {t("orders2b2.custody.confirmReturned")}
       </Button>,
     );
   } else if (!isTerminal && canUpdateResolved && status) {
@@ -2390,7 +2534,9 @@ function OrderDeviceCustodyCard({
           disabled={pending}
           onClick={() => onRequestChange(target)}
         >
-          {target === DEVICE_CUSTODY_WITH_SHOP ? "确认收机" : "确认交还客人"}
+          {target === DEVICE_CUSTODY_WITH_SHOP
+            ? t("orders2b2.custody.receive")
+            : t("orders2b2.custody.deliver")}
         </Button>,
       );
   } else if (isTerminal && canCorrectTerminal && canUpdateResolved && status) {
@@ -2411,7 +2557,7 @@ function OrderDeviceCustodyCard({
           disabled={pending}
           onClick={() => onRequestChange(target)}
         >
-          历史修正
+          {t("orders2b2.custody.correct")}
         </Button>,
       );
     }
@@ -2443,10 +2589,11 @@ function OrderDeviceCustodyCard({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <h2 className="text-xs font-semibold">设备保管</h2>
+            <h2 className="text-xs font-semibold">{t("orders2b2.overview.custody")}</h2>
             <DeviceCustodyBadge
               status={status}
               deliveredAt={order.delivered_at}
+              label={localizeDeviceCustody(status, order.delivered_at, t)}
               className="text-[10px] lg:text-[11px] lg:leading-4"
             />
           </div>
@@ -2465,25 +2612,28 @@ function OrderDeviceCustodyCard({
                 variant !== "inline" && "md:break-words md:text-[10px] md:leading-4 lg:text-[11px]",
               )}
             >
-              最近交接：{latestHandoff.summary} · {formatOrderDateTime(latestHandoff.createdAt)} ·
-              {latestHandoff.operator}
+              {t("orders2b2.custody.latest", {
+                summary: latestHandoff.summary,
+                date: formatOrderDateTime(latestHandoff.createdAt, locale),
+                operator: latestHandoff.operator,
+              })}
             </p>
           ) : null}
           {isTerminal && !canCorrectTerminal && status === null ? (
             <p className="mt-1 text-[10px] font-medium text-status-warn-foreground lg:text-xs lg:leading-[18px]">
-              已结束工单需由店主或经理填写说明后补录。
+              {t("orders2b2.custody.terminalNeedsManager")}
             </p>
           ) : null}
           {status !== DEVICE_CUSTODY_WITH_SHOP &&
           deviceCustodyBlocksStatus(order.status, workflowBucket) ? (
             <p className="mt-1 text-[10px] font-semibold text-status-danger-foreground lg:text-xs lg:leading-[18px]">
-              当前维修流程与设备保管状态冲突，请先核对并确认收机。
+              {t("orders2b2.custody.conflictCustomer")}
             </p>
           ) : null}
           {status === DEVICE_CUSTODY_WITH_SHOP &&
           deviceCustodyBlocksStatus(order.status, workflowBucket) ? (
             <p className="mt-1 text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-[18px]">
-              当前流程需要设备留在门店；请先完成、取消或流转到允许交还的阶段。
+              {t("orders2b2.custody.conflictShop")}
             </p>
           ) : null}
         </div>
@@ -2495,24 +2645,36 @@ function OrderDeviceCustodyCard({
   );
 }
 
-function getLatestCustodyHandoff(events: OrderEvent[]) {
+function getLatestCustodyHandoff(
+  events: OrderEvent[],
+  t: ReturnType<typeof useLocale>["t"],
+  locale: ReturnType<typeof useLocale>["locale"],
+) {
   for (const event of [...events].sort(
     (left, right) => Date.parse(right.created_at) - Date.parse(left.created_at),
   )) {
-    const formatted = formatDeviceCustodyEvent(event.payload);
-    if (formatted) {
+    const action = typeof event.payload.action === "string" ? event.payload.action : "";
+    if (action.includes("custody")) {
       return {
-        summary: formatted,
+        summary: localizeOrderDetailEvent(event, undefined, t, locale),
         createdAt: event.created_at,
-        operator: event.operator_name || "系统",
+        operator: event.operator_name || "-",
       };
     }
     const initialStatus = event.payload.device_custody_status;
     if (event.event_type === "created" && isDeviceCustodyStatus(initialStatus)) {
       return {
-        summary: `创建时登记为${deviceCustodyLabel(initialStatus)}`,
+        summary: localizeOrderDetailEvent(
+          {
+            event_type: "note",
+            payload: { action: "device_custody_backfilled", to: initialStatus },
+          },
+          undefined,
+          t,
+          locale,
+        ),
         createdAt: event.created_at,
-        operator: event.operator_name || "系统",
+        operator: event.operator_name || "-",
       };
     }
   }
@@ -2554,6 +2716,7 @@ function OrderRecordsWorkspace({
   activeView?: DesktopRecordsView;
   onViewChange?: (view: DesktopRecordsView) => void;
 }) {
+  const { t } = useLocale();
   const showAssignee = Boolean(onAssigneeChange);
   const showSupplier = Boolean(partsSupplier || supplierOptions.length || onPartsSupplierChange);
 
@@ -2603,7 +2766,7 @@ function OrderRecordsWorkspace({
             tabs={tabs}
             activeTab={activeView}
             onChange={onViewChange}
-            ariaLabel="记录与信息分类"
+            ariaLabel={t("orders2b2.records.aria")}
             idPrefix="order-records-group"
             className="!m-0"
           />
@@ -2661,6 +2824,7 @@ function OrderAssigneeCard({
   pending: boolean;
   onChange: (membershipId: string | null) => void;
 }) {
+  const { t } = useLocale();
   return (
     <section
       data-order-record-control-card="assignee"
@@ -2669,10 +2833,10 @@ function OrderAssigneeCard({
       <div className="min-w-0">
         <h3 className="inline-flex min-w-0 items-center gap-1.5 text-sm font-semibold">
           <UserRound className="size-3.5 shrink-0 text-primary" />
-          <span className="truncate">负责人</span>
+          <span className="truncate">{t("orders2b2.overview.assignee")}</span>
         </h3>
         <p className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-          选择当前工单的处理负责人。
+          {t("orders2b2.records.assigneeHelp")}
         </p>
       </div>
       <div className="mt-auto pt-2">
@@ -2682,10 +2846,10 @@ function OrderAssigneeCard({
           disabled={pending}
         >
           <SelectTrigger className="h-8 rounded-md text-xs">
-            <SelectValue placeholder={order.technician_name || "未分配"} />
+            <SelectValue placeholder={order.technician_name || t("orders2b2.mobile.unassigned")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="unassigned">未分配</SelectItem>
+            <SelectItem value="unassigned">{t("orders2b2.mobile.unassigned")}</SelectItem>
             {options.map((option) => (
               <SelectItem key={option.id} value={option.id}>
                 {option.display_name}
@@ -2709,6 +2873,7 @@ function OrderPartsSupplierCard({
   isUpdating: boolean;
   onChange?: (supplierId: string | null) => void;
 }) {
+  const { t } = useLocale();
   return (
     <section
       data-order-parts-supplier-card="true"
@@ -2719,10 +2884,10 @@ function OrderPartsSupplierCard({
         <div className="min-w-0">
           <h3 className="inline-flex min-w-0 items-center gap-1.5 text-sm font-semibold">
             <PackageSearch className="size-3.5 shrink-0 text-primary" />
-            <span className="truncate">配件供应商</span>
+            <span className="truncate">{t("orders2b2.supplier.label")}</span>
           </h3>
           <p className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-            选择当前工单使用的门店供应商。
+            {t("orders2b2.records.supplierHelp")}
           </p>
         </div>
       </div>
@@ -2750,12 +2915,13 @@ function OrderPartsSupplierCard({
 }
 
 function OrderMessagesLog({ messages }: { messages: OrderDetail["messages"] }) {
+  const { locale, t } = useLocale();
   return (
     <section data-order-records-messages="true" className={detailWorkspace.flatPanel}>
       <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
         <h3 className="inline-flex min-w-0 items-center gap-1.5 text-sm font-semibold">
           <MessageCircle className="size-3.5 text-primary" />
-          <span className="truncate">通知历史</span>
+          <span className="truncate">{t("orders2b2.overview.notifications")}</span>
         </h3>
         <span className="shrink-0 rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-muted-foreground lg:text-[11px] lg:leading-4">
           {messages.length}
@@ -2763,7 +2929,7 @@ function OrderMessagesLog({ messages }: { messages: OrderDetail["messages"] }) {
       </div>
       {messages.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[var(--border-panel)] p-3 text-center text-xs text-muted-foreground">
-          暂无通知记录
+          {t("orders2b2.overview.noNotifications")}
         </div>
       ) : (
         <ul className="grid min-w-0 gap-1.5">
@@ -2777,7 +2943,7 @@ function OrderMessagesLog({ messages }: { messages: OrderDetail["messages"] }) {
                 <span className="inline-flex min-w-0 items-center gap-1.5 font-medium">
                   <span className="size-1.5 shrink-0 rounded-full bg-primary/70" />
                   <span className="truncate">
-                    {message.channel === "whatsapp" ? "WhatsApp" : "短信"}
+                    {localizeOrderMessageChannel(message.channel, t)}
                   </span>
                 </span>
                 <span
@@ -2788,14 +2954,14 @@ function OrderMessagesLog({ messages }: { messages: OrderDetail["messages"] }) {
                       : "bg-status-info text-status-info-foreground",
                   )}
                 >
-                  {message.status === "read" ? "已读" : message.status}
+                  {localizeOrderMessageStatus(message.status, t)}
                 </span>
               </div>
               <p className="line-clamp-2 break-words text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
                 {message.message_body}
               </p>
               <p className="truncate font-mono text-[10px] leading-3 text-muted-foreground/70 lg:text-[11px] lg:leading-4 lg:text-muted-foreground">
-                {new Date(message.sent_at).toLocaleString("zh-CN")}
+                {formatOrderDateTime(message.sent_at, locale)}
               </p>
             </li>
           ))}
@@ -2812,12 +2978,13 @@ function OrderTimelineLog({
   events: OrderDetail["events"];
   workflow: Parameters<typeof getWorkflowStatusLabel>[0];
 }) {
+  const { locale, t } = useLocale();
   return (
     <section data-order-records-timeline="true" className={detailWorkspace.flatPanel}>
       <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
         <h3 className="inline-flex min-w-0 items-center gap-1.5 text-sm font-semibold">
           <FileText className="size-3.5 text-primary" />
-          <span className="truncate">时间线日志</span>
+          <span className="truncate">{t("orders2b2.tab.timeline", { count: events.length })}</span>
         </h3>
         <span className="shrink-0 rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-muted-foreground lg:text-[11px] lg:leading-4">
           {events.length}
@@ -2825,7 +2992,7 @@ function OrderTimelineLog({
       </div>
       {events.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[var(--border-panel)] p-3 text-center text-xs text-muted-foreground">
-          暂无时间线记录
+          {t("orders2b2.overview.noTimeline")}
         </div>
       ) : (
         <ol className="grid min-w-0 gap-1.5">
@@ -2846,15 +3013,17 @@ function OrderTimelineLog({
                 >
                   {index + 1}
                 </span>
-                <span className="font-mono tabular-nums">{formatShortDate(event.created_at)}</span>
+                <span className="font-mono tabular-nums">
+                  {formatShortDate(event.created_at, locale)}
+                </span>
                 <span className="font-mono tabular-nums sm:block">
-                  {formatClockTime(event.created_at)}
+                  {formatClockTime(event.created_at, locale)}
                 </span>
               </div>
               <div className="min-w-0">
                 <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                   <span className="truncate text-sm font-medium">
-                    {renderEvent(event.event_type, event.payload, workflow)}
+                    {localizeOrderDetailEvent(event, workflow, t, locale)}
                   </span>
                   <span className="shrink-0 rounded-md bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
                     {event.operator_name}
@@ -2899,6 +3068,7 @@ function ApprovalDecisionSheet({
   onOpenChange: (open: boolean) => void;
   onConfirm: (input: OrderApprovalDecisionInput) => Promise<unknown>;
 }) {
+  const { t } = useLocale();
   const custodyStatus = deviceCustodyStatusFromOrder(order);
   const custodyReady = custodyStatus === DEVICE_CUSTODY_WITH_SHOP;
   const [decision, setDecision] = useState<OrderApprovalDecisionInput["decision"]>("approved");
@@ -2946,9 +3116,9 @@ function ApprovalDecisionSheet({
               disabled={pending}
               onClick={() => setDecision("approved")}
             >
-              <span className="block text-xs font-semibold">客户同意</span>
+              <span className="block text-xs font-semibold">{t("orders2b2.approval.accept")}</span>
               <span className="mt-0.5 block truncate text-[10px] opacity-75 lg:text-xs lg:leading-4 lg:opacity-100">
-                进入维修、订件或寄修
+                {t("orders2b2.approval.acceptHelp")}
               </span>
             </button>
             <button
@@ -2962,15 +3132,15 @@ function ApprovalDecisionSheet({
               disabled={pending || custodyStatus === null}
               onClick={() => setDecision("rejected")}
             >
-              <span className="block text-xs font-semibold">客户拒绝</span>
+              <span className="block text-xs font-semibold">{t("orders2b2.approval.reject")}</span>
               <span className="mt-0.5 block truncate text-[10px] opacity-75 lg:text-xs lg:leading-4 lg:opacity-100">
-                未修取机或取消
+                {t("orders2b2.approval.rejectHelp")}
               </span>
             </button>
           </div>
 
           <label className="grid gap-1 text-[11px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
-            下一步状态
+            {t("orders2b2.approval.next")}
             {decision === "approved" ? (
               <Select
                 value={approvedNext}
@@ -2981,9 +3151,19 @@ function ApprovalDecisionSheet({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {custodyReady ? <SelectItem value="repairing">开始维修</SelectItem> : null}
-                  <SelectItem value="parts_ordered">需要订件</SelectItem>
-                  {custodyReady ? <SelectItem value="mail_in_progress">转入寄修</SelectItem> : null}
+                  {custodyReady ? (
+                    <SelectItem value="repairing">
+                      {localizeWorkflowStatusLabel(undefined, "repairing", t)}
+                    </SelectItem>
+                  ) : null}
+                  <SelectItem value="parts_ordered">
+                    {localizeWorkflowStatusLabel(undefined, "parts_ordered", t)}
+                  </SelectItem>
+                  {custodyReady ? (
+                    <SelectItem value="mail_in_progress">
+                      {localizeWorkflowStatusLabel(undefined, "mail_in_progress", t)}
+                    </SelectItem>
+                  ) : null}
                 </SelectContent>
               </Select>
             ) : (
@@ -2996,8 +3176,14 @@ function ApprovalDecisionSheet({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {custodyReady ? <SelectItem value="unfixed_pickup">未修取机</SelectItem> : null}
-                  <SelectItem value="cancelled">取消工单</SelectItem>
+                  {custodyReady ? (
+                    <SelectItem value="unfixed_pickup">
+                      {localizeWorkflowStatusLabel(undefined, "unfixed_pickup", t)}
+                    </SelectItem>
+                  ) : null}
+                  <SelectItem value="cancelled">
+                    {localizeWorkflowStatusLabel(undefined, "cancelled", t)}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -3005,15 +3191,17 @@ function ApprovalDecisionSheet({
           {!custodyReady ? (
             <p className="rounded-lg border border-status-warn-foreground/25 bg-status-warn/45 px-2.5 py-2 text-[10px] leading-4 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
               {custodyStatus === null
-                ? "请先补录设备保管状态；当前只能在客户同意后继续订件。"
-                : "设备仍由客户持有；可继续订件，开始维修、寄修或未修取机前需先确认收机。"}
+                ? t("orders2b2.approval.custodyUnknown")
+                : t("orders2b2.approval.custodyCustomer")}
             </p>
           ) : null}
         </div>
 
         <div className="space-y-2">
           <label className="grid gap-1 text-[11px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
-            {decision === "approved" ? "备注" : "拒绝原因"}
+            {decision === "approved"
+              ? t("orders2b2.approval.note")
+              : t("orders2b2.approval.rejectReason")}
             <Textarea
               value={reason}
               onChange={(event) => setReason(event.target.value)}
@@ -3021,14 +3209,14 @@ function ApprovalDecisionSheet({
               className="min-h-20 resize-none rounded-lg text-xs lg:min-h-[104px]"
               placeholder={
                 decision === "approved"
-                  ? "例如：客户 WhatsApp 确认同意报价。"
-                  : "例如：维修风险过高，客户确认不继续维修并取回设备。"
+                  ? t("orders2b2.approval.notePlaceholder")
+                  : t("orders2b2.approval.rejectPlaceholder")
               }
             />
           </label>
 
           <p className="rounded-lg bg-[var(--surface-panel-muted)] px-2.5 py-2 text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-            审批结果会写入时间线；客户消息保持为独立沟通记录。
+            {t("orders2b2.approval.auditHelp")}
           </p>
         </div>
       </section>
@@ -3045,7 +3233,7 @@ function ApprovalDecisionSheet({
         disabled={pending}
         onClick={() => onOpenChange(false)}
       >
-        取消
+        {t("common.cancel")}
       </Button>
       <Button
         type="button"
@@ -3060,7 +3248,7 @@ function ApprovalDecisionSheet({
           });
         }}
       >
-        {pending ? "保存中..." : "确认处理"}
+        {pending ? t("orders2b2.hero.saving") : t("orders2b2.approval.confirm")}
       </Button>
     </>
   );
@@ -3075,10 +3263,10 @@ function ApprovalDecisionSheet({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <MessageCircle className="size-4 text-primary" />
-              客户审批处理
+              {t("orders2b2.hero.approval")}
             </DialogTitle>
             <DialogDescription>
-              {order.public_no} · 记录客户对当前报价的同意或拒绝，并推进到对应处理状态。
+              {t("orders2b2.approval.description", { publicNo: order.public_no })}
             </DialogDescription>
           </DialogHeader>
           {body}
@@ -3098,10 +3286,10 @@ function ApprovalDecisionSheet({
           <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
             <SheetTitle className="flex items-center gap-2 text-base">
               <MessageCircle className="size-4 text-primary" />
-              客户审批处理
+              {t("orders2b2.hero.approval")}
             </SheetTitle>
             <SheetDescription>
-              {order.public_no} · 记录客户对当前报价的同意或拒绝，并推进到对应处理状态。
+              {t("orders2b2.approval.description", { publicNo: order.public_no })}
             </SheetDescription>
           </SheetHeader>
           {body}
@@ -3135,6 +3323,7 @@ function OrderEditOfflineDraftNotice({
   onRestore: () => void;
   onDiscard: () => void;
 }) {
+  const { locale, t } = useLocale();
   const showStatus =
     isEditing &&
     (state === "saving" ||
@@ -3148,26 +3337,24 @@ function OrderEditOfflineDraftNotice({
     prompt?.hasConflict || state === "error" || state === "unavailable" ? "danger" : "info";
   const title = prompt
     ? prompt.hasConflict
-      ? "发现旧版本本机编辑草稿"
-      : "发现未保存的本机编辑草稿"
+      ? t("orders2b2.offline.oldDraft")
+      : t("orders2b2.offline.unsavedDraft")
     : state === "saving"
-      ? "正在保存本机编辑草稿"
+      ? t("orders2b2.offline.saving")
       : state === "saved"
-        ? "本机编辑草稿已保存"
+        ? t("orders2b2.offline.saved")
         : state === "unavailable" || state === "error"
-          ? "本机编辑草稿暂不可用"
-          : "本机编辑草稿";
+          ? t("orders2b2.offline.unavailable")
+          : t("orders2b2.offline.draft");
   const description = prompt
     ? prompt.hasConflict
-      ? "工单已经更新，为避免覆盖其他人的修改，当前草稿不能直接恢复。"
-      : "草稿仅保存在当前浏览器；恢复后仍需在线点击保存。"
+      ? t("orders2b2.offline.conflict")
+      : t("orders2b2.offline.restoreHelp")
     : (pendingRestoreNotice ??
       (state === "saved" && lastSavedAt
-        ? `最近保存：${formatDateTime(lastSavedAt)}。草稿仅保存在当前浏览器。`
-        : (errorMessage ?? "编辑内容会保存在当前浏览器，在线保存后才会进入系统。")));
-  const unlockNotice = hasSensitiveUnlockDraft
-    ? "手机密码、PIN 或图案不会进入普通本机草稿，刷新后需要重新输入或在线保存。"
-    : null;
+        ? t("orders2b2.offline.lastSaved", { date: formatDateTime(lastSavedAt, locale) })
+        : t("orders2b2.offline.defaultHelp")));
+  const unlockNotice = hasSensitiveUnlockDraft ? t("orders2b2.offline.unlockHelp") : null;
 
   return (
     <section
@@ -3199,7 +3386,7 @@ function OrderEditOfflineDraftNotice({
                 className="h-8 rounded-lg px-3 text-xs"
                 onClick={onRestore}
               >
-                恢复编辑
+                {t("orders2b2.offline.restore")}
               </Button>
             ) : null}
             <Button
@@ -3210,7 +3397,7 @@ function OrderEditOfflineDraftNotice({
               onClick={onDiscard}
             >
               <Trash2 className="mr-1 size-3.5" />
-              丢弃草稿
+              {t("orders2b2.offline.discard")}
             </Button>
           </div>
         ) : null}
@@ -3326,6 +3513,7 @@ function MobileOrderDetailView({
   custodyPanel: ReactNode;
   className?: string;
 }) {
+  const { locale, t } = useLocale();
   const { order, customer } = data;
   const cancelled = isOrderCancelledState(order);
   const isVoided = order.record_state === "voided" || Boolean(order.deleted_at);
@@ -3346,7 +3534,7 @@ function MobileOrderDetailView({
   const customerDisplayName =
     rawCustomerName && normalizePhoneDigits(rawCustomerName) !== normalizePhoneDigits(phone)
       ? rawCustomerName
-      : "未命名客户";
+      : t("orders2b1.new.lookup.unnamed");
   const paidAmount = inferOrderPaidAmount(order);
   const currentStage = cancelled
     ? getOrderTaskGuidance(order).stage
@@ -3438,7 +3626,7 @@ function MobileOrderDetailView({
     if (action === "approval") {
       return (
         <Button key={action} {...commonProps} onClick={onApprovalDecision}>
-          <CheckCircle2 className="mr-1 size-3.5" /> 审批报价
+          <CheckCircle2 className="mr-1 size-3.5" /> {t("orders2b2.overview.approvalAction")}
         </Button>
       );
     }
@@ -3462,7 +3650,7 @@ function MobileOrderDetailView({
           {...commonProps}
           onClick={() => setStatusSheetOpen(true)}
         >
-          <Clock3 className="mr-1 size-3.5" /> 流转
+          <Clock3 className="mr-1 size-3.5" /> {t("orders2b2.overview.flowAction")}
         </Button>
       );
     }
@@ -3473,7 +3661,7 @@ function MobileOrderDetailView({
         {...commonProps}
         onClick={onPay}
       >
-        <CreditCard className="mr-1 size-3.5" /> 收款
+        <CreditCard className="mr-1 size-3.5" /> {t("orders2b2.overview.collect")}
       </Button>
     );
   };
@@ -3508,7 +3696,9 @@ function MobileOrderDetailView({
         workflow={workflow}
         currentStageIndex={currentStageIndex}
         currentStage={currentStage}
-        nextLabel={next.primary?.label}
+        nextLabel={
+          next.primary ? localizeWorkflowStatusLabel(workflow, next.primary.to, t) : undefined
+        }
         onHeightChange={handleFloatingHeaderHeight}
         onPrint={onPrint}
         printDisabled={printDisabled}
@@ -3524,31 +3714,43 @@ function MobileOrderDetailView({
 
       {approvalDecisionAvailable ? (
         <section className={cn(mobileDetailCardClass, "border-primary/25 bg-primary/5")}>
-          <MobileSectionTitle icon={MessageCircle} title="客户审批" />
+          <MobileSectionTitle icon={MessageCircle} title={t("orders2b2.mobile.approval")} />
           <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-            报价已发送或待确认；页面底部的主操作用于记录客户同意或拒绝。
+            {t("orders2b2.mobile.approvalHelp")}
           </p>
         </section>
       ) : null}
 
       <section data-mobile-order-first-card="true" className={mobileDetailCardClass}>
-        <MobileSectionTitle icon={Calendar} title="基础信息" />
+        <MobileSectionTitle icon={Calendar} title={t("orders2b2.mobile.basic")} />
         <div className="mt-1.5 grid min-w-0 grid-cols-2 gap-1 sm:grid-cols-4">
-          <MobileMeta icon={Calendar} label="送修时间" value={formatDateTime(order.created_at)} />
+          <MobileMeta
+            icon={Calendar}
+            label={t("orders2b2.overview.createdAt")}
+            value={formatDateTime(order.created_at, locale)}
+          />
           <MobileMeta
             icon={Clock3}
-            label="状态时间"
-            value={formatDateTime(currentStatusChangedAt)}
+            label={t("orders2b2.overview.statusAt")}
+            value={formatDateTime(currentStatusChangedAt, locale)}
           />
-          <MobileMeta icon={UserRound} label="负责人" value={order.technician_name || "-"} />
-          <MobileMeta icon={Store} label="门店" value={storeSettings?.store_name || "未配置"} />
+          <MobileMeta
+            icon={UserRound}
+            label={t("orders2b2.overview.assignee")}
+            value={order.technician_name || "-"}
+          />
+          <MobileMeta
+            icon={Store}
+            label={t("orders2b2.overview.store")}
+            value={storeSettings?.store_name || t("orders2b2.overview.notConfigured")}
+          />
         </div>
       </section>
 
       {onAssigneeChange || hasMobileSupplierManagement ? (
         <section className={mobileDetailCardClass}>
           <div className="mb-1.5 flex min-w-0 items-center justify-between gap-2">
-            <MobileSectionTitle icon={UserRound} title="人员与供应商" />
+            <MobileSectionTitle icon={UserRound} title={t("orders2b2.mobile.peopleSuppliers")} />
             {onAssigneeChange || onPartsSupplierChange ? (
               <Button
                 type="button"
@@ -3557,7 +3759,7 @@ function MobileOrderDetailView({
                 aria-expanded={assignmentEditing}
                 onClick={() => setAssignmentEditing((editing) => !editing)}
               >
-                {assignmentEditing ? "完成" : "调整"}
+                {assignmentEditing ? t("orders2b2.mobile.done") : t("orders2b2.mobile.adjust")}
               </Button>
             ) : null}
           </div>
@@ -3565,16 +3767,20 @@ function MobileOrderDetailView({
             <div className="grid min-w-0 grid-cols-2 gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-2 text-[11px] lg:text-xs lg:leading-4">
               <div className="min-w-0">
                 <span className="text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                  负责人
+                  {t("orders2b2.overview.assignee")}
                 </span>
-                <p className="truncate font-semibold">{order.technician_name || "未分配"}</p>
+                <p className="truncate font-semibold">
+                  {order.technician_name || t("orders2b2.mobile.unassigned")}
+                </p>
               </div>
               <div className="min-w-0">
                 <span className="text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                  配件供应商
+                  {t("orders2b2.overview.externalSupplier")}
                 </span>
                 <p className="truncate font-semibold">
-                  {partsSupplier?.short_name || partsSupplier?.name || "未选择"}
+                  {partsSupplier?.short_name ||
+                    partsSupplier?.name ||
+                    t("orders2b2.overview.notConfigured")}
                 </p>
               </div>
             </div>
@@ -3589,7 +3795,7 @@ function MobileOrderDetailView({
             >
               {onAssigneeChange ? (
                 <div className="min-w-0">
-                  <MobileSectionTitle icon={UserRound} title="负责人" />
+                  <MobileSectionTitle icon={UserRound} title={t("orders2b2.overview.assignee")} />
                   <div className="mt-1">
                     <Select
                       value={order.assignee_membership_id ?? "unassigned"}
@@ -3599,10 +3805,14 @@ function MobileOrderDetailView({
                       disabled={assigneePending}
                     >
                       <SelectTrigger className="h-[38px] min-w-0 rounded-md px-2 text-base lg:h-8 lg:text-xs">
-                        <SelectValue placeholder={order.technician_name || "未分配"} />
+                        <SelectValue
+                          placeholder={order.technician_name || t("orders2b2.mobile.unassigned")}
+                        />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="unassigned">未分配</SelectItem>
+                        <SelectItem value="unassigned">
+                          {t("orders2b2.mobile.unassigned")}
+                        </SelectItem>
                         {assigneeOptions.map((option) => (
                           <SelectItem key={option.id} value={option.id}>
                             {option.display_name}
@@ -3616,7 +3826,10 @@ function MobileOrderDetailView({
 
               {hasMobileSupplierManagement ? (
                 <div className="min-w-0">
-                  <MobileSectionTitle icon={PackageSearch} title="配件供应商" />
+                  <MobileSectionTitle
+                    icon={PackageSearch}
+                    title={t("orders2b2.overview.externalSupplier")}
+                  />
                   <div className="mt-1 min-w-0">
                     {onPartsSupplierChange ? (
                       <OrderSupplierPicker
@@ -3642,7 +3855,7 @@ function MobileOrderDetailView({
           )}
           {hasMobileSupplierManagement ? (
             <p className="mt-1 truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-              供应商只读取当前店铺设置。
+              {t("orders2b2.mobile.supplierScope")}
             </p>
           ) : null}
         </section>
@@ -3653,7 +3866,7 @@ function MobileOrderDetailView({
         aria-expanded={timelineOpen}
         aria-controls="mobile-order-timeline"
         aria-haspopup="dialog"
-        aria-label={`查看全部历史记录，共 ${events.length} 条`}
+        aria-label={t("orders2b2.mobile.historyCount", { count: events.length })}
         className={cn(
           mobileDetailCardClass,
           "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 text-left transition-colors active:bg-[var(--surface-panel-muted)]",
@@ -3661,26 +3874,26 @@ function MobileOrderDetailView({
         onClick={() => setTimelineOpen(true)}
       >
         <div className="min-w-0">
-          <MobileSectionTitle icon={Clock3} title="历史记录" />
+          <MobileSectionTitle icon={Clock3} title={t("orders2b2.mobile.history")} />
           <p className="mt-1 truncate text-[11px] font-medium leading-4 lg:text-xs lg:leading-4">
             {latestEvent
-              ? renderEvent(latestEvent.event_type, latestEvent.payload, workflow)
-              : "暂无操作记录"}
+              ? localizeOrderDetailEvent(latestEvent, workflow, t, locale)
+              : t("orders2b2.mobile.historyEmpty")}
           </p>
           <p className="truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
             {latestEvent
-              ? `${formatDateTime(latestEvent.created_at)} · ${latestEvent.operator_name || "系统"}`
-              : "状态流转、报价、收款、照片上传都会记录在这里"}
+              ? `${formatDateTime(latestEvent.created_at, locale)} · ${latestEvent.operator_name || t("orders2b2.mobile.system")}`
+              : t("orders2b2.mobile.historyHelp")}
           </p>
         </div>
         <span className="rounded-lg border border-[var(--border-panel)] px-2 py-1 text-[10px] font-medium text-primary lg:text-[11px] lg:leading-4">
-          查看全部
+          {t("orders2b2.mobile.historyAll")}
         </span>
       </button>
 
       <div className="grid min-w-0 grid-cols-1 gap-1.5 min-[390px]:grid-cols-2">
         <section className={mobileDetailCardClass}>
-          <MobileSectionTitle icon={UserRound} title="客户信息" />
+          <MobileSectionTitle icon={UserRound} title={t("orders2b2.overview.customerInfo")} />
           <div className="mt-1.5 grid min-w-0 grid-cols-[28px_minmax(0,1fr)] items-center gap-1.5">
             <div className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-xs font-semibold text-primary ring-1 ring-inset ring-primary/15">
               {customerDisplayName.slice(0, 1).toUpperCase()}
@@ -3707,9 +3920,13 @@ function MobileOrderDetailView({
               size="sm"
               className="h-9 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5 lg:text-xs"
             >
-              <a href={`tel:${phone}`} aria-label="拨打电话" title="拨打电话">
+              <a
+                href={`tel:${phone}`}
+                aria-label={t("orders2b2.mobile.phoneCall")}
+                title={t("orders2b2.mobile.phoneCall")}
+              >
                 <Phone className="shrink-0" />
-                <span className="min-w-0 truncate">电话</span>
+                <span className="min-w-0 truncate">{t("orders2b2.mobile.phone")}</span>
               </a>
             </Button>
             {onRequestKioskSignature ? (
@@ -3724,10 +3941,10 @@ function MobileOrderDetailView({
                 <TabletSmartphone className="shrink-0" />
                 <span className="min-w-0 truncate">
                   {kioskSignaturePending
-                    ? "发送中"
+                    ? t("orders2b2.overview.sending")
                     : kioskSignatureAvailable
-                      ? "发送到 iPad"
-                      : "无可用 iPad"}
+                      ? t("orders2b2.overview.sendKiosk")
+                      : t("orders2b2.overview.noKiosk")}
                 </span>
               </Button>
             ) : null}
@@ -3737,7 +3954,7 @@ function MobileOrderDetailView({
         <section className={mobileDetailCardClass}>
           <MobileSectionTitle
             icon={Smartphone}
-            title="设备信息"
+            title={t("orders2b2.overview.deviceIssue")}
             action={
               data.capabilities?.canEditIntake || data.capabilities?.canEditRepair ? (
                 <div className="flex shrink-0 items-center gap-1">
@@ -3749,7 +3966,7 @@ function MobileOrderDetailView({
                       className="h-9 min-w-9 rounded-lg px-2 text-[11px] lg:text-xs"
                       onClick={() => setDeviceUnlockEditing(true)}
                     >
-                      密码
+                      {t("orders2b2.unlock.entry")}
                     </Button>
                   ) : null}
                   {data.capabilities?.canEditIntake ? (
@@ -3776,9 +3993,12 @@ function MobileOrderDetailView({
             <DetailRows
               rows={[
                 ["IMEI", deviceImei || "-"],
-                ["质保", order.warranty_text || "-"],
-                ["设备保管", deviceCustodyLabel(custodyStatus)],
-                ["随附物品", accessoryNotes || "-"],
+                [t("orders2b2.overview.warranty"), order.warranty_text || "-"],
+                [
+                  t("orders2b2.overview.custody"),
+                  localizeDeviceCustody(custodyStatus, undefined, t),
+                ],
+                [t("orders2b2.overview.accessories"), accessoryNotes || "-"],
               ]}
             />
             <DeviceUnlockViewer order={order} compact className="mt-1.5" />
@@ -3805,7 +4025,7 @@ function MobileOrderDetailView({
       <section className={mobileDetailCardClass}>
         <MobileSectionTitle
           icon={FileText}
-          title="故障描述"
+          title={t("orders2b2.overview.issue")}
           action={
             data.capabilities?.canEditIntake || data.capabilities?.canEditRepair ? (
               <Button
@@ -3815,7 +4035,7 @@ function MobileOrderDetailView({
                 className="h-9 min-w-9 rounded-lg px-2 text-[11px] lg:text-xs"
                 onClick={() => setFaultEditing(true)}
               >
-                编辑
+                {t("orders2b2.hero.edit")}
               </Button>
             ) : undefined
           }
@@ -3824,7 +4044,8 @@ function MobileOrderDetailView({
           {order.issue_description || "-"}
         </p>
         <p className="mt-0.5 truncate text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-          诊断结果：{order.diagnosis_result || "尚未填写"}
+          {t("orders2b2.overview.diagnosis")}：
+          {order.diagnosis_result || t("orders2b2.overview.notConfigured")}
         </p>
         {order.fault_prices.length ? (
           <div className="mt-1 flex min-w-0 flex-wrap gap-1">
@@ -3833,7 +4054,7 @@ function MobileOrderDetailView({
                 key={`${item.name}-${index}`}
                 className="max-w-full truncate rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium leading-3 text-primary lg:text-[11px] lg:leading-4"
               >
-                {item.name || "未命名项目"}
+                {item.name || t("orders2b2.mobile.unnamedItem")}
               </span>
             ))}
           </div>
@@ -3860,9 +4081,9 @@ function MobileOrderDetailView({
 
       {order.finance_redacted ? (
         <section className={mobileDetailCardClass}>
-          <MobileSectionTitle icon={WalletCards} title="报价与支付" />
+          <MobileSectionTitle icon={WalletCards} title={t("orders2b2.overview.quotePanel")} />
           <div className="mt-1.5 rounded-lg border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-4 text-center text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
-            金额与结算状态受限
+            {t("orders2b2.overview.financeRestricted")}
           </div>
         </section>
       ) : (
@@ -3873,7 +4094,7 @@ function MobileOrderDetailView({
           >
             <MobileSectionTitle
               icon={ReceiptText}
-              title="维修项目与报价"
+              title={t("orders2b2.overview.quoteItems")}
               action={
                 canAdjustFinance ? (
                   <Button
@@ -3883,7 +4104,7 @@ function MobileOrderDetailView({
                     className="h-9 min-w-9 rounded-lg px-2 text-[11px] lg:text-xs lg:leading-4"
                     onClick={() => onFinanceEditingChange(!financeEditing)}
                   >
-                    {financeEditing ? "收起" : "编辑"}
+                    {financeEditing ? t("orders2b2.mobile.done") : t("orders2b2.hero.edit")}
                   </Button>
                 ) : undefined
               }
@@ -3921,14 +4142,14 @@ function MobileOrderDetailView({
                       className="flex min-w-0 items-center gap-1 text-[11px] leading-4 lg:text-xs"
                     >
                       <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                        {item.name || "未命名项目"}
+                        {item.name || t("orders2b2.mobile.unnamedItem")}
                       </span>
                       <MoneyText amount={item.price} className="shrink-0 font-semibold" />
                     </div>
                   ))
                 ) : (
                   <div className="rounded-md border border-dashed border-[var(--border-panel)] px-1.5 py-2 text-center text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
-                    暂无报价项目
+                    {t("orders2b2.overview.noQuoteItems")}
                   </div>
                 )}
               </div>
@@ -3936,7 +4157,7 @@ function MobileOrderDetailView({
           </section>
 
           <section className={mobileDetailCardClass}>
-            <MobileSectionTitle icon={WalletCards} title="支付信息" />
+            <MobileSectionTitle icon={WalletCards} title={t("orders2b2.overview.amountSummary")} />
             <MobilePaymentSummary
               total={order.quotation_amount}
               deposit={order.deposit_amount}
@@ -3948,8 +4169,8 @@ function MobileOrderDetailView({
         </div>
       )}
 
-      <section className={mobileDetailCardClass}>
-        <MobileSectionTitle icon={ImageIcon} title="设备照片" />
+      <section className={mobileDetailCardClass} data-order-detail-content-end="true">
+        <MobileSectionTitle icon={ImageIcon} title={t("orders2b2.overview.photos")} />
         <div className="mt-1.5 grid grid-cols-3 gap-1.5">
           {photoAttachments.slice(0, 2).map((attachment) => (
             <PhotoPreview
@@ -3959,9 +4180,9 @@ function MobileOrderDetailView({
             />
           ))}
           {photoAttachments.length === 0 ? null : photoAttachments.length === 1 ? (
-            <PhotoPlaceholder label="补充" />
+            <PhotoPlaceholder label={t("orders2b2.overview.extraPhoto")} />
           ) : null}
-          {!isVoided ? (
+          {data.capabilities?.canUploadPhoto === true && !isVoided ? (
             <button
               type="button"
               className={cn(
@@ -3977,19 +4198,21 @@ function MobileOrderDetailView({
             >
               <span className="grid place-items-center gap-1">
                 <Camera className="size-4" />
-                {attachmentUploadPending ? "上传中" : "拍照"}
+                {attachmentUploadPending
+                  ? t("orders2b2.overview.uploading")
+                  : t("orders2b2.overview.capture")}
               </span>
             </button>
           ) : null}
         </div>
         {photoAttachments.length ? (
           <p className="mt-1 text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-            已保存 {photoAttachments.length} 张照片到工单，更多操作可在历史记录查看。
+            {t("orders2b2.mobile.photoSaved", { count: photoAttachments.length })}
           </p>
         ) : null}
       </section>
 
-      {!isVoided ? (
+      {data.capabilities?.canUploadPhoto === true && !isVoided ? (
         <CameraCaptureSheet
           open={photoCaptureOpen}
           onOpenChange={setPhotoCaptureOpen}
@@ -4000,7 +4223,7 @@ function MobileOrderDetailView({
           }}
           onCloseAutoFocus={handleMobilePhotoCloseAutoFocus}
           onCapture={(draft) => {
-            void uploadAttachmentDraft(draft, onAttachmentUpload);
+            void uploadAttachmentDraft(draft, onAttachmentUpload).catch(() => undefined);
           }}
         />
       ) : null}
@@ -4034,6 +4257,7 @@ function MobileOrderDetailView({
       <MobileStatusTransitionSheet
         open={statusSheetOpen}
         order={order}
+        workflow={workflow}
         statusLabel={getWorkflowStatusLabel(workflow, order.status)}
         currentStage={currentStage}
         actions={statusActions}
@@ -4091,6 +4315,7 @@ function MobileTimelineSheet({
   workflow?: OrderWorkflow;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { locale, t } = useLocale();
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -4102,16 +4327,14 @@ function MobileTimelineSheet({
           <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
             <SheetTitle className="flex items-center gap-2 text-base">
               <Clock3 className="size-4 text-primary" />
-              历史操作记录
+              {t("orders2b2.mobile.history")}
             </SheetTitle>
-            <SheetDescription>
-              状态流转、报价、收款、通知和附件上传都会记录在这里。
-            </SheetDescription>
+            <SheetDescription>{t("orders2b2.mobile.historyHelp")}</SheetDescription>
           </SheetHeader>
           <div className={cn(componentOverlay.body, "space-y-2 pt-3")}>
             {events.length === 0 ? (
               <div className="rounded-xl border border-dashed border-[var(--border-panel)] px-3 py-6 text-center text-xs text-muted-foreground">
-                暂无操作记录
+                {t("orders2b2.mobile.historyEmpty")}
               </div>
             ) : (
               events.map((event) => (
@@ -4121,14 +4344,14 @@ function MobileTimelineSheet({
                 >
                   <div className="flex min-w-0 items-start justify-between gap-2">
                     <p className="min-w-0 flex-1 text-xs font-semibold leading-5">
-                      {renderEvent(event.event_type, event.payload, workflow)}
+                      {localizeOrderDetailEvent(event, workflow, t, locale)}
                     </p>
                     <span className="shrink-0 rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-0.5 text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4 lg:text-foreground/80">
-                      {event.operator_name || "系统"}
+                      {event.operator_name || t("orders2b2.mobile.system")}
                     </span>
                   </div>
                   <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
-                    {formatDateTime(event.created_at)}
+                    {formatDateTime(event.created_at, locale)}
                   </p>
                 </div>
               ))
@@ -4157,6 +4380,7 @@ function ImeiCaptureSheet({
   onChange: (value: string) => void;
   onSave: () => Promise<void>;
 }) {
+  const { t } = useLocale();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [mode, setMode] = useState<"choice" | "barcode" | "ocr">("choice");
   const [scannerToken, setScannerToken] = useState(0);
@@ -4224,7 +4448,7 @@ function ImeiCaptureSheet({
       onChange(candidate.value);
       toast.success("已识别并填入 IMEI");
     } catch (error) {
-      const message = getImeiOcrErrorMessage(error);
+      const message = getOrderDetailSafeErrorMessage(error, "ocr", t);
       setError(message);
       toast.error(message);
     } finally {
@@ -4236,7 +4460,7 @@ function ImeiCaptureSheet({
     try {
       await onSave();
     } catch (error) {
-      const message = getImeiSaveErrorMessage(error);
+      const message = getOrderDetailSafeErrorMessage(error, "imei", t);
       setError(message);
     }
   };
@@ -4466,16 +4690,17 @@ function DeviceUnlockEditSheet({
   onOpenChange: (open: boolean) => void;
   onSave: (input: DeviceUnlockInput) => Promise<void>;
 }) {
+  const { t } = useLocale();
   const [draft, setDraft] = useState<DeviceUnlockInput>(() => deviceUnlockInputFromOrder(order));
   const [error, setError] = useState("");
   const validationError = useMemo(() => {
     try {
       normalizeDeviceUnlockInput(draft);
       return "";
-    } catch (error) {
-      return error instanceof Error ? error.message : "手机密码格式不正确";
+    } catch {
+      return getOrderDetailSafeErrorMessage(undefined, "unlock", t);
     }
-  }, [draft]);
+  }, [draft, t]);
   const helperError = error || validationError;
 
   useEffect(() => {
@@ -4494,7 +4719,7 @@ function DeviceUnlockEditSheet({
       await onSave(draft);
       onOpenChange(false);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "手机密码保存失败";
+      const message = getOrderDetailSafeErrorMessage(error, "unlock", t);
       setError(message);
       toast.error(message);
     }
@@ -4508,9 +4733,9 @@ function DeviceUnlockEditSheet({
       >
         <div className="flex h-full min-w-0 flex-col overflow-hidden">
           <SheetHeader className="border-b border-[var(--border-panel)] px-3 py-2 pr-11 text-left">
-            <SheetTitle className="text-sm leading-5">编辑手机密码</SheetTitle>
+            <SheetTitle className="text-sm leading-5">{t("orders2b2.unlock.edit")}</SheetTitle>
             <SheetDescription className="text-[10px] leading-3 lg:text-[11px] lg:leading-4">
-              {order.public_no} · 默认只在详情里遮挡查看，不进入列表、打印或消息正文。
+              {t("orders2b2.unlock.help", { publicNo: order.public_no })}
             </SheetDescription>
           </SheetHeader>
           <div
@@ -4531,7 +4756,7 @@ function DeviceUnlockEditSheet({
               disabled={pending}
               onClick={() => onOpenChange(false)}
             >
-              取消
+              {t("common.cancel")}
             </Button>
             <Button
               type="button"
@@ -4539,7 +4764,7 @@ function DeviceUnlockEditSheet({
               disabled={pending || Boolean(validationError)}
               onClick={() => void save()}
             >
-              {pending ? "保存中..." : "保存"}
+              {pending ? t("orders2b2.hero.saving") : t("orders2b2.hero.save")}
             </Button>
           </SheetFooter>
         </div>
@@ -4567,6 +4792,7 @@ function FaultDescriptionEditSheet({
     changes: Pick<PatchOrderChanges, "issue_description" | "diagnosis_result">,
   ) => Promise<void>;
 }) {
+  const { t } = useLocale();
   const [issue, setIssue] = useState(order.issue_description || "");
   const [diagnosis, setDiagnosis] = useState(order.diagnosis_result || "");
   const [error, setError] = useState("");
@@ -4592,7 +4818,7 @@ function FaultDescriptionEditSheet({
     const normalizedIssue = issue.trim();
     const normalizedDiagnosis = diagnosis.trim();
     if (canEditIntake && !normalizedIssue) {
-      setError("故障描述不能为空。");
+      setError(t("orders2b2.validation.issue"));
       return;
     }
 
@@ -4605,13 +4831,13 @@ function FaultDescriptionEditSheet({
         changes.diagnosis_result = normalizedDiagnosis || undefined;
       }
       if (!Object.keys(changes).length) {
-        setError("没有可保存的修改。");
+        setError(t("orders2b2.fault.noChanges"));
         return;
       }
       await onSave(changes);
       onOpenChange(false);
     } catch (error) {
-      const message = getOrderPatchSaveErrorMessage(error);
+      const message = getOrderDetailSafeErrorMessage(error, "diagnosis", t);
       setError(message);
       toast.error(message);
     }
@@ -4629,16 +4855,19 @@ function FaultDescriptionEditSheet({
               <div className="min-w-0">
                 <SheetTitle className="flex min-w-0 items-center gap-2 text-sm leading-5">
                   <FileText className="size-4 shrink-0 text-primary" />
-                  <span className="truncate">编辑故障描述</span>
+                  <span className="truncate">{t("orders2b2.fault.edit")}</span>
                 </SheetTitle>
                 <SheetDescription className="mt-0.5 truncate text-[10px] leading-3 lg:text-[11px] lg:leading-4">
-                  {order.public_no} · {quoteItems.length} 个维修项目
+                  {t("orders2b2.fault.projects", {
+                    publicNo: order.public_no,
+                    count: quoteItems.length,
+                  })}
                 </SheetDescription>
               </div>
               <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-primary/15 bg-primary/5 text-center">
                 <div className="min-w-0 border-r border-primary/10 px-2 py-1">
                   <p className="text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-                    故障缺
+                    {t("orders2b2.fault.missingIssue")}
                   </p>
                   <p className="font-mono text-xs font-semibold leading-4 text-primary">
                     {missingIssueCount}
@@ -4646,7 +4875,7 @@ function FaultDescriptionEditSheet({
                 </div>
                 <div className="min-w-0 px-2 py-1">
                   <p className="text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-                    诊断缺
+                    {t("orders2b2.fault.missingDiagnosis")}
                   </p>
                   <p className="font-mono text-xs font-semibold leading-4 text-primary">
                     {missingDiagnosisCount}
@@ -4666,7 +4895,7 @@ function FaultDescriptionEditSheet({
               <section className={cn(componentOverlay.flatSection, "space-y-1.5 p-2")}>
                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
                   <p className="text-[10px] font-medium leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-                    维修项目来源
+                    {t("orders2b2.fault.source")}
                   </p>
                   <div className="flex shrink-0 gap-1">
                     <Button
@@ -4677,7 +4906,7 @@ function FaultDescriptionEditSheet({
                       disabled={pending || !canEditIntake || missingIssueCount === 0}
                       onClick={() => appendItems("issue", quoteItems)}
                     >
-                      全入故障
+                      {t("orders2b2.fault.allIssue")}
                     </Button>
                     <Button
                       type="button"
@@ -4687,7 +4916,7 @@ function FaultDescriptionEditSheet({
                       disabled={pending || !canEditRepair || missingDiagnosisCount === 0}
                       onClick={() => appendItems("diagnosis", quoteItems)}
                     >
-                      全入诊断
+                      {t("orders2b2.fault.allDiagnosis")}
                     </Button>
                   </div>
                 </div>
@@ -4716,10 +4945,10 @@ function FaultDescriptionEditSheet({
                           size="sm"
                           className="h-6 px-1.5 text-[10px] lg:text-[11px] lg:leading-4"
                           disabled={pending || !canEditIntake || inIssue}
-                          aria-label={`将 ${item.name} 加入故障描述`}
+                          aria-label={t("orders2b2.fault.addIssue", { name: item.name })}
                           onClick={() => appendItems("issue", [item])}
                         >
-                          {inIssue ? "已故障" : "故障"}
+                          {inIssue ? t("orders2b2.fault.issueAdded") : t("orders2b2.fault.issue")}
                         </Button>
                         <Button
                           type="button"
@@ -4727,10 +4956,12 @@ function FaultDescriptionEditSheet({
                           size="sm"
                           className="h-6 px-1.5 text-[10px] lg:text-[11px] lg:leading-4"
                           disabled={pending || !canEditRepair || inDiagnosis}
-                          aria-label={`将 ${item.name} 加入诊断结果`}
+                          aria-label={t("orders2b2.fault.addDiagnosis", { name: item.name })}
                           onClick={() => appendItems("diagnosis", [item])}
                         >
-                          {inDiagnosis ? "已诊断" : "诊断"}
+                          {inDiagnosis
+                            ? t("orders2b2.fault.diagnosisAdded")
+                            : t("orders2b2.fault.diagnosis")}
                         </Button>
                       </div>
                     );
@@ -4740,7 +4971,7 @@ function FaultDescriptionEditSheet({
             ) : (
               <section className={cn(componentOverlay.flatSection, "p-2")}>
                 <p className="grid rounded-lg border border-dashed border-[var(--border-panel)] px-2 py-3 text-center text-[10px] leading-4 text-muted-foreground md:min-h-40 md:place-items-center lg:text-xs lg:leading-4">
-                  暂无可带入项目，可直接手动填写。
+                  {t("orders2b2.fault.empty")}
                 </p>
               </section>
             )}
@@ -4748,7 +4979,10 @@ function FaultDescriptionEditSheet({
             <section className={cn(componentOverlay.flatSection, "space-y-2 p-2")}>
               <label className="grid gap-1 text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
                 <span className="flex items-center justify-between gap-2">
-                  <span>故障描述{canEditIntake ? "" : "（只读）"}</span>
+                  <span>
+                    {t("orders2b2.overview.issue")}
+                    {canEditIntake ? "" : t("orders2b2.fault.readonly")}
+                  </span>
                   <span className="font-mono text-[9px] font-normal text-muted-foreground lg:text-[11px] lg:leading-4">
                     {issue.trim().length}
                   </span>
@@ -4758,12 +4992,15 @@ function FaultDescriptionEditSheet({
                   onChange={(event) => setIssue(event.target.value)}
                   disabled={pending || !canEditIntake}
                   className="min-h-24 resize-none rounded-lg text-xs md:min-h-[230px]"
-                  placeholder="描述客户反馈、故障表现、可复现条件等"
+                  placeholder={t("orders2b2.fault.issuePlaceholder")}
                 />
               </label>
               <label className="grid gap-1 text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
                 <span className="flex items-center justify-between gap-2">
-                  <span>诊断结果{canEditRepair ? "" : "（只读）"}</span>
+                  <span>
+                    {t("orders2b2.overview.diagnosis")}
+                    {canEditRepair ? "" : t("orders2b2.fault.readonly")}
+                  </span>
                   <span className="font-mono text-[9px] font-normal text-muted-foreground lg:text-[11px] lg:leading-4">
                     {diagnosis.trim().length}
                   </span>
@@ -4773,7 +5010,7 @@ function FaultDescriptionEditSheet({
                   onChange={(event) => setDiagnosis(event.target.value)}
                   disabled={pending || !canEditRepair}
                   className="min-h-20 resize-none rounded-lg text-xs md:min-h-[180px]"
-                  placeholder="填写检测结果、风险、建议处理方式"
+                  placeholder={t("orders2b2.fault.diagnosisPlaceholder")}
                 />
               </label>
             </section>
@@ -4793,7 +5030,7 @@ function FaultDescriptionEditSheet({
               disabled={pending}
               onClick={() => onOpenChange(false)}
             >
-              取消
+              {t("common.cancel")}
             </Button>
             <Button
               type="button"
@@ -4802,7 +5039,7 @@ function FaultDescriptionEditSheet({
               disabled={pending}
               onClick={() => void save()}
             >
-              {pending ? "保存中..." : "保存"}
+              {pending ? t("orders2b2.hero.saving") : t("orders2b2.hero.save")}
             </Button>
           </SheetFooter>
         </div>
@@ -4818,8 +5055,9 @@ function PhotoPreview({
   attachment: OrderAttachment;
   onOpen?: () => void;
 }) {
+  const { t } = useLocale();
   const source = attachment.signed_url || attachment.public_url;
-  const label = attachmentKindLabels[attachment.kind] || "照片";
+  const label = localizeOrderAttachmentKind(attachment.kind, t);
 
   if (!source) {
     return (
@@ -4839,11 +5077,11 @@ function PhotoPreview({
       type="button"
       className="group relative h-14 overflow-hidden rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onClick={onOpen}
-      aria-label={`查看照片 ${attachment.file_name || label}`}
+      aria-label={t("orders2b2.overview.openPhoto", { file: attachment.file_name || label })}
     >
       <img src={source} alt={attachment.file_name || label} className="size-full object-cover" />
       <span className="absolute inset-0 hidden place-items-center bg-background/20 text-[9px] font-semibold text-foreground backdrop-blur-[1px] group-hover:grid group-focus-visible:grid lg:text-[11px] lg:leading-4">
-        查看
+        {t("orders2b2.overview.view")}
       </span>
       <span className="absolute inset-x-1 bottom-1 rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur lg:text-[11px] lg:leading-4">
         {label} · {formatAttachmentSize(attachment.file_size)}
@@ -4854,6 +5092,7 @@ function PhotoPreview({
 
 function DesktopStatusTransitionPanel({
   order,
+  workflow,
   statusLabel,
   currentStage,
   actions,
@@ -4862,6 +5101,7 @@ function DesktopStatusTransitionPanel({
   onTransition,
 }: {
   order: OrderDetail["order"];
+  workflow?: OrderWorkflow;
   statusLabel: string;
   currentStage: OrderTaskStage;
   actions: WorkflowTransitionAction[];
@@ -4869,16 +5109,18 @@ function DesktopStatusTransitionPanel({
   onOpenChange: (open: boolean) => void;
   onTransition: (to: RepairOrderStatus, reason?: string) => void;
 }) {
+  const { t } = useLocale();
+  const stageLabel = localizeOrderFlowStage(currentStage, t).label;
   return (
     <section className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-card/95 p-2.5 shadow-sm">
       <header className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
             <Clock3 className="size-4 shrink-0 text-primary" />
-            <span className="truncate">状态流转</span>
+            <span className="truncate">{t("orders2b2.transition.title")}</span>
           </h3>
           <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-            当前：{currentStage.label} · {statusLabel}。可手动选择任一启用状态，确认后会写入时间线。
+            {t("orders2b2.transition.currentHelp", { stage: stageLabel, status: statusLabel })}
           </p>
         </div>
         <Button
@@ -4888,7 +5130,7 @@ function DesktopStatusTransitionPanel({
           className="size-7 shrink-0 rounded-lg"
           disabled={pending}
           onClick={() => onOpenChange(false)}
-          aria-label="收起状态流转"
+          aria-label={t("orders2b2.transition.collapse")}
         >
           <X className="size-4" />
         </Button>
@@ -4896,6 +5138,7 @@ function DesktopStatusTransitionPanel({
       <StatusTransitionPanelBody
         open
         order={order}
+        workflow={workflow}
         statusLabel={statusLabel}
         currentStage={currentStage}
         actions={actions}
@@ -4910,6 +5153,7 @@ function DesktopStatusTransitionPanel({
 function StatusTransitionPanelBody({
   open,
   order,
+  workflow,
   statusLabel,
   currentStage,
   actions,
@@ -4919,6 +5163,7 @@ function StatusTransitionPanelBody({
 }: {
   open: boolean;
   order: OrderDetail["order"];
+  workflow?: OrderWorkflow;
   statusLabel: string;
   currentStage: OrderTaskStage;
   actions: WorkflowTransitionAction[];
@@ -4926,6 +5171,8 @@ function StatusTransitionPanelBody({
   onOpenChange: (open: boolean) => void;
   onTransition: (to: RepairOrderStatus, reason?: string) => void;
 }) {
+  const { t } = useLocale();
+  const stageLabel = localizeOrderFlowStage(currentStage, t).label;
   const hasCommunicationStatus = actions.some((action) => isCommunicationStatus(action.to));
   const [reasonAction, setReasonAction] = useState<WorkflowTransitionAction | null>(null);
   const [reasonDraft, setReasonDraft] = useState("");
@@ -4964,7 +5211,7 @@ function StatusTransitionPanelBody({
           <div className="flex min-w-0 items-center justify-between gap-2">
             <div className="min-w-0">
               <p className="text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-                当前工单
+                {t("orders2b2.transition.currentOrder")}
               </p>
               <p className="truncate font-mono text-xs font-semibold leading-4 text-primary">
                 {order.public_no}
@@ -4974,19 +5221,21 @@ function StatusTransitionPanelBody({
           </div>
           <div className="rounded-lg bg-[var(--surface-panel)] px-2 py-1.5">
             <p className="text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-              当前阶段
+              {t("orders2b2.transition.currentStage")}
             </p>
-            <p className="mt-0.5 truncate text-xs font-semibold">{currentStage.label}</p>
+            <p className="mt-0.5 truncate text-xs font-semibold">{stageLabel}</p>
           </div>
           <p className="text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
             {reasonAction
               ? reasonAction.to === "completed" &&
                 deviceCustodyStatusFromOrder(order) === DEVICE_CUSTODY_WITH_CUSTOMER
                 ? order.delivered_at
-                  ? "设备此前已交还客户；确认后只会行政结案，不会新增设备交付时间。"
-                  : "设备从未由门店保管；确认后只会行政结案，不会记录设备交付时间。"
-                : `准备流转为「${reasonAction.label}」，确认后会写入状态时间线。`
-              : "可手动切换到任一启用工单状态；客户消息会保留为独立沟通记录。"}
+                  ? t("orders2b2.transition.adminDelivered")
+                  : t("orders2b2.transition.adminCustomer")
+                : t("orders2b2.transition.preparing", {
+                    status: localizeWorkflowStatusLabel(workflow, reasonAction.to, t),
+                  })
+              : t("orders2b2.transition.help")}
           </p>
         </section>
 
@@ -5011,7 +5260,7 @@ function StatusTransitionPanelBody({
                   setReasonDraft("");
                 }}
               >
-                返回
+                {t("orders2b2.custody.back")}
               </Button>
               <Button
                 type="button"
@@ -5025,7 +5274,7 @@ function StatusTransitionPanelBody({
                   onTransition(reasonAction.to, reason || undefined);
                 }}
               >
-                确认流转
+                {t("orders2b2.transition.confirm")}
               </Button>
             </div>
           </section>
@@ -5033,7 +5282,7 @@ function StatusTransitionPanelBody({
           <div className="space-y-1.5 lg:grid lg:grid-cols-2 lg:gap-1.5 lg:space-y-0 xl:grid-cols-3">
             {actions.length ? (
               actions.map((action, index) => {
-                const hint = getStatusActionHint(action.to, order);
+                const hint = getStatusActionHint(action.to, order, t);
                 const destructive = action.to === "cancelled";
                 const needsReason = Boolean(getOrderTransitionReasonConfig(action.to));
                 return (
@@ -5070,16 +5319,16 @@ function StatusTransitionPanelBody({
                     <span className="min-w-0 flex-1">
                       <span className="flex min-w-0 items-center gap-1.5">
                         <span className="truncate text-xs font-semibold leading-4">
-                          {statusLabel} → {action.label}
+                          {statusLabel} → {localizeWorkflowStatusLabel(workflow, action.to, t)}
                         </span>
                         {action.isPrimary ? (
                           <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-primary lg:text-[11px] lg:leading-4">
-                            推荐
+                            {t("orders2b2.transition.recommended")}
                           </span>
                         ) : null}
                         {needsReason ? (
                           <span className="shrink-0 rounded bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-status-warn-foreground lg:text-[11px] lg:leading-4">
-                            原因
+                            {t("orders2b2.transition.reason")}
                           </span>
                         ) : null}
                       </span>
@@ -5092,7 +5341,7 @@ function StatusTransitionPanelBody({
               })
             ) : (
               <div className="rounded-lg border border-dashed border-[var(--border-panel)] px-3 py-4 text-center text-xs text-muted-foreground lg:col-span-2 xl:col-span-3">
-                当前没有其他已启用状态可切换。
+                {t("orders2b2.transition.empty")}
               </div>
             )}
           </div>
@@ -5101,8 +5350,7 @@ function StatusTransitionPanelBody({
 
       {hasCommunicationStatus && !reasonAction ? (
         <p className="rounded-lg bg-status-warn px-2.5 py-2 text-[10px] leading-4 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
-          提醒：选择“待审批”或“已通知”只会改状态，不会自动发送
-          WhatsApp。需要发送给客户时请走通知入口。
+          {t("orders2b2.transition.communication")}
         </p>
       ) : null}
     </div>
@@ -5112,6 +5360,7 @@ function StatusTransitionPanelBody({
 function MobileStatusTransitionSheet({
   open,
   order,
+  workflow,
   statusLabel,
   currentStage,
   actions,
@@ -5121,6 +5370,7 @@ function MobileStatusTransitionSheet({
 }: {
   open: boolean;
   order: OrderDetail["order"];
+  workflow?: OrderWorkflow;
   statusLabel: string;
   currentStage: OrderTaskStage;
   actions: WorkflowTransitionAction[];
@@ -5128,6 +5378,8 @@ function MobileStatusTransitionSheet({
   onOpenChange: (open: boolean) => void;
   onTransition: (to: RepairOrderStatus, reason?: string) => void;
 }) {
+  const { t } = useLocale();
+  const stageLabel = localizeOrderFlowStage(currentStage, t).label;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -5138,16 +5390,16 @@ function MobileStatusTransitionSheet({
           <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
             <SheetTitle className="flex items-center gap-2 text-base">
               <Clock3 className="size-4 text-primary" />
-              状态流转
+              {t("orders2b2.transition.title")}
             </SheetTitle>
             <SheetDescription>
-              当前：{currentStage.label} · {statusLabel}。
-              {"可手动选择任一启用状态，确认后会写入时间线。"}
+              {t("orders2b2.transition.currentHelp", { stage: stageLabel, status: statusLabel })}
             </SheetDescription>
           </SheetHeader>
           <StatusTransitionPanelBody
             open={open}
             order={order}
+            workflow={workflow}
             statusLabel={statusLabel}
             currentStage={currentStage}
             actions={actions}
@@ -5190,13 +5442,21 @@ function MobileStickyWorkflowHeader({
   onCancel: () => void;
   canCancel: boolean;
 }) {
+  const { t } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
   const openedFromOrdersList = searchParams.get("from") === "orders";
   const shellRef = useRef<HTMLDivElement | null>(null);
   const cancelled = isOrderCancelledState(order);
-  const statusLabel = cancelled ? "已取消" : getWorkflowStatusLabel(workflow, order.status);
-  const nextText = nextLabel ? `下一步：${nextLabel}` : currentStage.nextAction;
+  const localizedCurrentStage = localizeOrderFlowStage(currentStage, t);
+  const statusLabel = localizeWorkflowStatusLabel(
+    workflow,
+    cancelled ? "cancelled" : order.status,
+    t,
+  );
+  const nextText = nextLabel
+    ? `${t("orders2b2.hero.next")}：${nextLabel}`
+    : localizedCurrentStage.nextAction;
   const sideBadges = getOrderSideStatusBadges(order).slice(0, 3);
 
   useEffect(() => {
@@ -5229,7 +5489,7 @@ function MobileStickyWorkflowHeader({
           <Button asChild variant="ghost" size="iconDense" className="size-9 rounded-lg">
             <Link
               href="/orders"
-              aria-label="返回工单列表"
+              aria-label={t("orders2b2.backOrdersAria")}
               onClick={(event) => {
                 if (!openedFromOrdersList) return;
                 event.preventDefault();
@@ -5240,9 +5500,9 @@ function MobileStickyWorkflowHeader({
             </Link>
           </Button>
           <div className="min-w-0 text-center">
-            <p className="truncate text-xs font-semibold leading-4">订单详情</p>
+            <p className="truncate text-xs font-semibold leading-4">{t("orders2b2.title")}</p>
             <p className="truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-              {currentStage.label} · {statusLabel}
+              {localizedCurrentStage.label} · {statusLabel}
             </p>
           </div>
           <div className="flex items-center gap-1">
@@ -5252,9 +5512,15 @@ function MobileStickyWorkflowHeader({
               size="icon"
               className="size-9 rounded-lg"
               aria-label={
-                printDisabled ? (printDisabledReason ?? "当前工单暂不可打印") : "打印工单"
+                printDisabled
+                  ? (printDisabledReason ?? t("orders2b2.hero.printUnavailable"))
+                  : t("orders2b2.hero.print")
               }
-              title={printDisabled ? (printDisabledReason ?? "当前工单暂不可打印") : "打印工单"}
+              title={
+                printDisabled
+                  ? (printDisabledReason ?? t("orders2b2.hero.printUnavailable"))
+                  : t("orders2b2.hero.print")
+              }
               disabled={printDisabled}
               onClick={onPrint}
             >
@@ -5266,7 +5532,7 @@ function MobileStickyWorkflowHeader({
                   variant="ghost"
                   size="icon"
                   className="size-9 rounded-lg"
-                  aria-label="更多操作"
+                  aria-label={t("orders2b2.hero.more")}
                 >
                   <MoreVertical className="size-4" />
                 </Button>
@@ -5278,7 +5544,11 @@ function MobileStickyWorkflowHeader({
                     onClick={onRevokeCustomerStatusLinks}
                   >
                     <ScanLine className="mr-2 size-3.5" />
-                    {customerStatusRevokePending ? "正在重置二维码" : "重置固定二维码"}
+                    {t(
+                      customerStatusRevokePending
+                        ? "orders2b2.hero.resettingQr"
+                        : "orders2b2.hero.resetQr",
+                    )}
                   </DropdownMenuItem>
                 ) : null}
                 <DropdownMenuItem
@@ -5286,7 +5556,7 @@ function MobileStickyWorkflowHeader({
                   disabled={!canCancel}
                   onClick={onCancel}
                 >
-                  {canCancel ? "取消工单" : "当前状态不可取消"}
+                  {t(canCancel ? "orders2b2.hero.cancelOrder" : "orders2b2.hero.cancelUnavailable")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -5300,7 +5570,7 @@ function MobileStickyWorkflowHeader({
                 {order.public_no}
               </p>
               <p className="truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-                {currentStage.label} · {nextText}
+                {localizedCurrentStage.label} · {nextText}
               </p>
             </div>
             <StatusBadge
@@ -5315,7 +5585,7 @@ function MobileStickyWorkflowHeader({
                 <StatusBadge
                   key={badge.key}
                   status={order.status}
-                  label={badge.label}
+                  label={localizeOrderDetailBadge(badge, t)}
                   tone={badge.tone}
                   className="max-w-[7.5rem] scale-90 truncate text-[10px]"
                 />
@@ -5348,14 +5618,27 @@ function MobileSectionTitle({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 items-center justify-between gap-1">
-      <div className="flex min-w-0 items-center gap-1">
-        <Icon className="size-3 shrink-0 text-primary" />
-        <h2 className="truncate text-[11px] font-semibold leading-4 lg:text-xs lg:leading-4">
+    <div
+      data-mobile-section-title="true"
+      className="flex min-w-0 flex-col items-stretch gap-1 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div className="flex min-w-0 items-start gap-1">
+        <Icon className="mt-0.5 size-3 shrink-0 text-primary" />
+        <h2
+          data-mobile-section-title-text="true"
+          className="min-w-0 whitespace-normal break-words text-[11px] font-semibold leading-4 lg:text-xs lg:leading-4"
+        >
           {title}
         </h2>
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {action ? (
+        <div
+          data-mobile-section-title-action="true"
+          className="flex shrink-0 self-end sm:self-auto"
+        >
+          {action}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -5386,9 +5669,23 @@ function DetailRows({ rows }: { rows: [string, string][] }) {
   return (
     <dl className="mt-1.5 grid min-w-0 gap-1 text-[11px] leading-4 lg:text-xs lg:leading-4">
       {rows.map(([label, value]) => (
-        <div key={label} className="grid min-w-0 grid-cols-[34px_minmax(0,1fr)] gap-1.5">
-          <dt className="text-muted-foreground">{label}</dt>
-          <dd className="truncate font-medium">{value}</dd>
+        <div
+          key={label}
+          data-order-detail-row="true"
+          className="grid min-w-0 grid-cols-1 gap-x-2 gap-y-0.5 sm:grid-cols-[minmax(96px,0.35fr)_minmax(0,1fr)]"
+        >
+          <dt
+            data-order-detail-row-label="true"
+            className="min-w-0 whitespace-normal break-words text-muted-foreground"
+          >
+            {label}
+          </dt>
+          <dd
+            data-order-detail-row-value="true"
+            className="min-w-0 whitespace-pre-wrap break-words font-medium"
+          >
+            {value}
+          </dd>
         </div>
       ))}
     </dl>
@@ -5471,6 +5768,7 @@ function MobileFinanceEditor({
   onCancel: () => void;
   onSave: () => Promise<boolean>;
 }) {
+  const { t } = useLocale();
   const patchFault = (index: number, patch: Partial<FinanceDraftState["faults"][number]>) => {
     const faults = [...draft.faults];
     faults[index] = { ...faults[index], ...patch };
@@ -5496,7 +5794,7 @@ function MobileFinanceEditor({
     <div className="mt-1.5 min-w-0 space-y-1.5">
       <div className="min-w-0">
         <p className="mb-1 text-[10px] font-semibold leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-          选择维修项目
+          {t("orders2b2.finance.select")}
         </p>
         <FaultDiagnosisPicker
           selected={selectedFaults}
@@ -5520,13 +5818,13 @@ function MobileFinanceEditor({
                   patchFault(index, { name: value, catalog_key: undefined })
                 }
                 disabled={pending}
-                placeholder="项目"
+                placeholder={t("orders2b2.finance.item")}
               />
               <MobileDenseFinanceInput
                 value={item.priceText}
                 onValueChange={(value) => patchFault(index, { priceText: value })}
                 disabled={pending}
-                placeholder="金额"
+                placeholder={t("orders2b2.finance.amount")}
                 inputMode="decimal"
                 align="right"
                 mono
@@ -5540,7 +5838,7 @@ function MobileFinanceEditor({
                 onClick={() =>
                   onChange({ ...draft, faults: draft.faults.filter((_, i) => i !== index) })
                 }
-                aria-label="删除报价项目"
+                aria-label={t("orders2b2.overview.deleteItem")}
               >
                 <Trash2 className="size-3 text-muted-foreground" />
               </Button>
@@ -5548,7 +5846,7 @@ function MobileFinanceEditor({
           ))
         ) : (
           <div className="rounded-md border border-dashed border-[var(--border-panel)] px-2 py-2 text-center text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
-            暂无报价项目
+            {t("orders2b2.overview.noQuoteItems")}
           </div>
         )}
       </div>
@@ -5564,22 +5862,22 @@ function MobileFinanceEditor({
           onChange({ ...draft, faults });
         }}
       >
-        <Plus className="mr-1 size-3" /> 添加自定义项目
+        <Plus className="mr-1 size-3" /> {t("orders2b2.finance.add")}
       </Button>
 
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_86px] items-end gap-1.5">
         <div className="grid grid-cols-2 gap-1 text-[10px] lg:text-[11px] lg:leading-4">
           <div className="rounded-md bg-[var(--surface-panel-muted)] px-2 py-1">
-            <span className="block text-muted-foreground">总额</span>
+            <span className="block text-muted-foreground">{t("orders2b2.finance.total")}</span>
             <MoneyText amount={normalized.quotation} className="font-semibold text-primary" />
           </div>
           <div className="rounded-md bg-[var(--surface-panel-muted)] px-2 py-1">
-            <span className="block text-muted-foreground">尾款</span>
+            <span className="block text-muted-foreground">{t("orders2b2.finance.balance")}</span>
             <MoneyText amount={normalized.balance} className="font-semibold" />
           </div>
         </div>
         <label className="grid min-w-0 gap-0.5 text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-          <span>押金</span>
+          <span>{t("orders2b2.finance.deposit")}</span>
           <MobileDenseFinanceInput
             value={draft.depositText}
             onValueChange={(value) => onChange({ ...draft, depositText: value })}
@@ -5594,7 +5892,7 @@ function MobileFinanceEditor({
 
       {normalized.error || saveError ? (
         <p className="rounded-md bg-status-danger px-2 py-1 text-[10px] leading-3 text-status-danger-foreground lg:text-xs lg:leading-[18px]">
-          {normalized.error ?? saveError}
+          {normalized.error ? t("orders2b2.validation.checkOrder") : saveError}
         </p>
       ) : null}
 
@@ -5607,7 +5905,7 @@ function MobileFinanceEditor({
           onClick={onCancel}
           disabled={pending}
         >
-          取消
+          {t("common.cancel")}
         </Button>
         <Button
           type="button"
@@ -5616,7 +5914,7 @@ function MobileFinanceEditor({
           onClick={() => void onSave().catch(() => undefined)}
           disabled={pending || !normalized.canSave}
         >
-          <Save className="mr-1 size-3" /> 保存
+          <Save className="mr-1 size-3" /> {t("orders2b2.hero.save")}
         </Button>
       </div>
     </div>
@@ -5628,87 +5926,6 @@ function parseFinancePickerPrice(text: string) {
   if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) return 0;
   const value = Number(normalized);
   return Number.isFinite(value) && value >= 0 ? value : 0;
-}
-
-function getFinanceSaveErrorMessage(error: Error) {
-  const message = (error.message || "保存失败，请稍后重试。").replace(/^Error:\s*/i, "").trim();
-  if (/工单已被更新|版本|expected_updated_at|conflict/i.test(message)) {
-    return "工单刚刚被更新，报价未保存。请刷新后重新确认报价。";
-  }
-  if (/写入财务时间线|写入审计日志|日志/i.test(message)) {
-    return "报价可能已保存，但记录日志失败。请刷新页面确认，必要时联系管理员。";
-  }
-  if (/押金|金额|报价|项目|fault|price/i.test(message)) {
-    return message.startsWith("保存失败") ? message : `保存失败：${message}`;
-  }
-  if (/未登录|店铺|权限|unauthorized|forbidden/i.test(message)) {
-    return message.startsWith("保存失败") ? message : `保存失败：${message}`;
-  }
-  return message.startsWith("保存失败") ? message : `保存失败：${message}`;
-}
-
-function getOrderEditSaveSuccessMessage(steps: Array<"routine" | "finance">) {
-  if (steps.includes("routine") && steps.includes("finance")) return "普通资料与报价已保存";
-  if (steps.includes("finance")) return "报价已保存";
-  return "工单信息已保存";
-}
-
-function getOrderEditSaveErrorMessage(error: unknown) {
-  if (!(error instanceof OrderEditSaveExecutionError)) {
-    return getOrderPatchSaveErrorMessage(error);
-  }
-  const reason = error.reason instanceof Error ? error.reason : new Error(error.message);
-  if (error.failedStep === "finance") {
-    const financeMessage = getFinanceSaveErrorMessage(reason);
-    return error.completedSteps.includes("routine")
-      ? `普通资料已保存；${financeMessage}`
-      : financeMessage;
-  }
-  return getOrderPatchSaveErrorMessage(reason);
-}
-
-function getOrderPatchSaveErrorMessage(error: unknown) {
-  const raw = error instanceof Error && error.message ? error.message : "保存失败，请稍后重试。";
-  const message = raw.replace(/^Error:\s*/i, "").trim();
-  if (/工单已被更新|版本|expected_updated_at|conflict/i.test(message)) {
-    return "保存失败：工单刚刚被其他操作更新，本次草稿仍保留；请重新打开编辑并核对后再保存。";
-  }
-  if (/写入.*时间线|写入.*审计|日志/i.test(message)) {
-    return "普通资料可能已保存，但记录日志失败。请刷新页面确认，避免重复提交。";
-  }
-  if (/没有可保存的字段|缺少版本|字段|schema|column/i.test(message)) {
-    return `保存失败：${message}`;
-  }
-  if (/未登录|店铺|权限|unauthorized|forbidden/i.test(message)) {
-    return `保存失败：${message}`;
-  }
-  return message.startsWith("保存失败") ? message : `保存失败：${message}`;
-}
-
-function getImeiSaveErrorMessage(error: unknown) {
-  const raw = error instanceof Error && error.message ? error.message : "";
-  const message = raw.replace(/^Error:\s*/i, "").trim();
-  if (/IMEI|序列号/i.test(message) && /不能为空|empty|required/i.test(message)) {
-    return "IMEI / 序列号不能为空，请先扫描、上传照片或手动输入。";
-  }
-  if (/工单已被更新|版本|expected_updated_at|conflict/i.test(message)) {
-    return "IMEI / 序列号未保存：工单刚刚被其他操作更新，请刷新后再保存。";
-  }
-  if (/未登录|店铺|权限|unauthorized|forbidden/i.test(message)) {
-    return "IMEI / 序列号未保存：当前账号没有权限或登录状态已失效。";
-  }
-  return "IMEI / 序列号保存失败，请刷新后重试。";
-}
-
-function getImeiOcrErrorMessage(error: unknown) {
-  const message = error instanceof Error ? error.message : "";
-  if (/当前浏览器暂不支持本机 OCR/.test(message)) {
-    return "当前浏览器暂不支持本机 OCR。请改用二维码/条码扫描或手动输入。";
-  }
-  if (/超时|timeout/i.test(message)) {
-    return "OCR 识别超时，请换一张更清晰的照片或手动输入。";
-  }
-  return "OCR 识别失败，请重新拍摄或手动输入。";
 }
 
 function validateImeiOcrImageFile(file: File) {
@@ -5783,24 +6000,27 @@ function getDefaultApprovedNextStatus(order: OrderDetail["order"]): RepairOrderS
   return "repairing";
 }
 
-function getStatusActionHint(status: RepairOrderStatus, order?: OrderDetail["order"]) {
-  if (status === "waiting_approval") return "进入客户审批阶段；不会自动发送报价消息。";
-  if (status === "notified") return "标记客户已通知；不会自动发送取机消息。";
-  if (status === "mail_in_progress")
-    return "用于店内未修起、主板外修或供应商复检；需要记录寄修说明。";
-  if (status === "parts_ordered") return "记录为已订配件，后续可流转到配件到货。";
-  if (status === "parts_arrived") return "记录为配件已到，下一步通常进入维修。";
-  if (status === "unfixed_pickup") return "用于无法维修但客户取回设备的情况。";
-  if (status === "rework") return "从结案或未修取机回到返修流程。";
-  if (status === "cancelled") return "需要填写取消原因后才能完成取消。";
+function getStatusActionHint(
+  status: RepairOrderStatus,
+  order: OrderDetail["order"] | undefined,
+  t: ReturnType<typeof useLocale>["t"],
+) {
+  if (status === "waiting_approval") return t("orders2b2.transition.hint.waiting");
+  if (status === "notified") return t("orders2b2.transition.hint.notified");
+  if (status === "mail_in_progress") return t("orders2b2.transition.hint.mail");
+  if (status === "parts_ordered") return t("orders2b2.transition.hint.partsOrdered");
+  if (status === "parts_arrived") return t("orders2b2.transition.hint.partsArrived");
+  if (status === "unfixed_pickup") return t("orders2b2.transition.hint.unfixed");
+  if (status === "rework") return t("orders2b2.transition.hint.rework");
+  if (status === "cancelled") return t("orders2b2.transition.hint.cancelled");
   if (status === "completed") {
     return order && deviceCustodyStatusFromOrder(order) === DEVICE_CUSTODY_WITH_CUSTOMER
       ? order.delivered_at
-        ? "设备此前已交还客户；仅行政结案，不新增设备交付时间。"
-        : "设备未留店；仅行政结案，不记录设备交付时间。"
-      : "完成交付并归档当前工单。";
+        ? t("orders2b2.transition.adminDelivered")
+        : t("orders2b2.transition.adminCustomer")
+      : t("orders2b2.transition.hint.completed");
   }
-  return "仅更新工单状态并写入时间线。";
+  return t("orders2b2.transition.hint.default");
 }
 
 function mergeSelectedFaultsIntoFinanceDraft(
@@ -5843,6 +6063,7 @@ function MobilePaymentSummary({
   cancelled?: boolean;
   className?: string;
 }) {
+  const { t } = useLocale();
   const hasBalance = balance > 0;
 
   return (
@@ -5850,7 +6071,7 @@ function MobilePaymentSummary({
       <div className="rounded-lg border border-primary/15 bg-primary/5 px-2 py-1.5">
         <div className="flex min-w-0 items-start justify-between gap-2">
           <span className="shrink-0 text-[10px] font-semibold leading-4 text-primary lg:text-[11px] lg:leading-4">
-            总金额
+            {t("orders2b2.finance.total")}
           </span>
           <MoneyText
             amount={total}
@@ -5861,12 +6082,12 @@ function MobilePaymentSummary({
 
       <div className="grid min-w-0 grid-cols-2 gap-1.5">
         <MobilePaymentTile
-          label="已收定金"
+          label={t("orders2b2.finance.depositPaid")}
           amount={deposit}
           valueClassName={deposit > 0 ? "text-status-success-foreground" : undefined}
         />
         <MobilePaymentTile
-          label={cancelled ? "取消时余额" : "待付尾款"}
+          label={cancelled ? t("orders2b2.finance.cancelBalance") : t("orders2b2.finance.due")}
           amount={balance}
           valueClassName={
             cancelled
@@ -5879,7 +6100,7 @@ function MobilePaymentSummary({
       </div>
       {cancelled ? (
         <p className="text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
-          已取消 · 此余额不计入待收
+          {t("orders2b2.finance.cancelledHelp")}
         </p>
       ) : null}
     </div>
@@ -5919,6 +6140,7 @@ function MobileWorkflowTimeline({
   createdAt: string;
   compact?: boolean;
 }) {
+  const { locale, t } = useLocale();
   const stageGridStyle = {
     gridTemplateColumns: `repeat(${orderTaskStages.length}, minmax(0, 1fr))`,
   };
@@ -5928,7 +6150,7 @@ function MobileWorkflowTimeline({
       {orderTaskStages.map((stage, index) => {
         const done = index < currentIndex;
         const current = index === currentIndex;
-        const displayStage = current ? (currentStage ?? stage) : stage;
+        const displayStage = localizeOrderFlowStage(current ? (currentStage ?? stage) : stage, t);
         return (
           <div key={stage.key} className="relative min-w-0 text-center">
             {index > 0 ? (
@@ -5971,7 +6193,11 @@ function MobileWorkflowTimeline({
             </p>
             {!compact ? (
               <p className="truncate text-[9px] text-muted-foreground/70 lg:text-[11px] lg:leading-4 lg:text-muted-foreground">
-                {index === 0 ? formatShortDate(createdAt) : current ? "当前" : ""}
+                {index === 0
+                  ? formatShortDate(createdAt, locale)
+                  : current
+                    ? t("orders2b2.hero.current")
+                    : ""}
               </p>
             ) : null}
           </div>
@@ -5996,90 +6222,28 @@ function normalizePhoneDigits(value: string) {
   return value.replace(/\D/g, "");
 }
 
-function formatDateTime(value: string) {
-  return formatOrderDateTime(value);
+function formatDateTime(value: string, locale: ReturnType<typeof useLocale>["locale"]) {
+  return formatOrderDateTime(value, locale);
 }
 
-function formatShortDate(value: string) {
-  return new Date(value).toLocaleDateString("zh-CN", {
+function formatShortDate(value: string, locale: ReturnType<typeof useLocale>["locale"]) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return formatOrderDateTime(value, locale);
+  return date.toLocaleDateString(locale, {
+    timeZone: "Europe/Rome",
     month: "2-digit",
     day: "2-digit",
   });
 }
 
-function formatClockTime(value: string) {
-  return new Date(value).toLocaleTimeString("zh-CN", {
+function formatClockTime(value: string, locale: ReturnType<typeof useLocale>["locale"]) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return formatOrderDateTime(value, locale);
+  return date.toLocaleTimeString(locale, {
+    timeZone: "Europe/Rome",
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function renderEvent(
-  type: string,
-  payload: Record<string, unknown>,
-  workflow: Parameters<typeof getWorkflowStatusLabel>[0],
-) {
-  const label = (value: unknown) =>
-    typeof value === "string" ? getWorkflowStatusLabel(workflow, value) : String(value ?? "");
-  switch (type) {
-    case "created":
-      return "工单创建";
-    case "status_changed": {
-      const custodyEvent = formatDeviceCustodyEvent(payload);
-      if (custodyEvent) return custodyEvent;
-      const reason =
-        typeof payload.reason === "string" && payload.reason.trim()
-          ? `，原因：${payload.reason.trim()}`
-          : "";
-      return `状态变更：${label(payload.from)} → ${label(payload.to)}${reason}`;
-    }
-    case "quoted":
-      return `提交报价 ${formatMoney(Number(payload.amount ?? 0))}`;
-    case "approval_sent":
-      return payload.status_changed ? "已发送审批并进入待审批" : "已发送审批消息";
-    case "approval_result": {
-      const result = payload.result === "approved" ? "通过" : "拒绝";
-      const route =
-        typeof payload.from === "string" && typeof payload.to === "string"
-          ? `：${label(payload.from)} → ${label(payload.to)}`
-          : "";
-      const reason =
-        typeof payload.reason === "string" && payload.reason.trim()
-          ? `，原因：${payload.reason.trim()}`
-          : "";
-      return `客户审批${result}${route}${reason}`;
-    }
-    case "payment":
-      return `收款 ${formatMoney(Number(payload.amount ?? 0))}（${payload.method}）`;
-    case "message_sent":
-      return payload.status_changed
-        ? `已发送 WhatsApp 通知并流转：${label(payload.from)} → ${label(payload.to)}`
-        : "已发送 WhatsApp 通知";
-    case "note": {
-      const custodyEvent = formatDeviceCustodyEvent(payload);
-      if (custodyEvent) return custodyEvent;
-      if (payload.action === "order_updated") return "工单信息已更新";
-      if (payload.action === "warranty_changed") {
-        const reason =
-          typeof payload.reason === "string" && payload.reason ? `，原因：${payload.reason}` : "";
-        return `质保已调整：${payload.from_text ?? payload.from_months} → ${payload.to_text ?? payload.to_months}${reason}`;
-      }
-      if (payload.action === "order_patched") {
-        const fields = Array.isArray(payload.changed_fields)
-          ? payload.changed_fields.filter((field): field is string => typeof field === "string")
-          : [];
-        return fields.length ? `工单资料已更新：${fields.join("、")}` : "工单资料已更新";
-      }
-      if (payload.action === "order_finance_updated") return "工单财务已更新";
-      if (payload.action === "attachment_uploaded") {
-        const fileName = typeof payload.file_name === "string" ? payload.file_name : "附件";
-        return `已上传设备照片：${fileName}`;
-      }
-      return "备注";
-    }
-    default:
-      return type;
-  }
 }
 
 function getEditValidationError(
@@ -6095,22 +6259,23 @@ function getEditValidationError(
     financeError?: string;
     defaultWarrantyMonths?: number;
   },
+  t: ReturnType<typeof useLocale>["t"],
 ): string | undefined {
-  if (!draft) return "缺少工单草稿。";
+  if (!draft) return t("orders2b2.validation.missingDraft");
   if (routineChanges.customer_name !== undefined && !draft.customer_name.trim()) {
-    return "客户姓名不能为空。";
+    return t("orders2b2.validation.customerName");
   }
   if (routineChanges.customer_phone !== undefined && !draft.customer_phone.trim()) {
-    return "手机号不能为空。";
+    return t("orders2b2.validation.phone");
   }
   if (
     (routineChanges.device_brand !== undefined || routineChanges.device_model !== undefined) &&
     (!draft.device_brand.trim() || !draft.device_model.trim())
   ) {
-    return "设备品牌和型号不能为空。";
+    return t("orders2b2.validation.device");
   }
   if (routineChanges.issue_description !== undefined && !draft.issue_description.trim()) {
-    return "故障描述不能为空。";
+    return t("orders2b2.validation.issue");
   }
   if (
     (routineChanges.warranty_text !== undefined ||
@@ -6119,7 +6284,7 @@ function getEditValidationError(
     warrantyReasonRequired(draft.warranty_months ?? defaultWarrantyMonths, defaultWarrantyMonths) &&
     !draft.warranty_change_reason?.trim()
   ) {
-    return "非默认质保需要填写原因。";
+    return t("orders2b2.validation.warrantyReason");
   }
   return financeChanged ? financeError : undefined;
 }

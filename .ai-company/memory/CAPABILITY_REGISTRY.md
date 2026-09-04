@@ -50,4 +50,6 @@
 
 | CAP-INVENTORY-DENSITY-20260731 | Integration Lead + Architecture/Product/UX/Data/QA read-only reviewers | C1 | candidate | Deliver and serialize an app-only tenant-safe product-inventory density release with latest-main reconciliation, cross-browser proof, synthetic evidence and exact-SHA production deployment | medium/high | review_after_next_inventory_responsive_release | TASK-20260731-003 used four real specialist agents, remediated a reviewer-found cross-store placeholder P1 and merge-induced overflow, passed 389/2540 plus Chromium/WebKit 22/22, and deployed public `main@44b1d80c` READY without data writes; no permission/autonomy upgrade | Owner |
 
+| CAP-I18N-FINAL4-20260903 | Integration Lead + bounded implementer + QA/browser reviewers | C1 | candidate | Deliver a four-group employee fixed-presentation i18n batch while preserving dynamic/canonical business contracts and separating non-i18n findings | medium | review_after_next_four_page_i18n_batch | TASK-20260901-002 passes 84 targeted tests and direct-i18n QA P0/P1 zero; browser authoring required repeated fixture correction and remained conditional, so no capability, permission or autonomy upgrade | Owner |
+
 没有登记和有效评估的能力默认视为 C0/C1，不得用于高风险自治执行。

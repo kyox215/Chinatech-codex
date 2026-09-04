@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 
 import { indicatorSpring } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export type OrderDetailTab<T extends string = string> = {
   key: T;
@@ -15,7 +16,7 @@ export function OrderDetailTabs<T extends string>({
   tabs,
   activeTab,
   onChange,
-  ariaLabel = "工单详情视图",
+  ariaLabel,
   idPrefix,
   className,
 }: {
@@ -26,6 +27,7 @@ export function OrderDetailTabs<T extends string>({
   idPrefix?: string;
   className?: string;
 }) {
+  const { t } = useLocale();
   const generatedId = useId().replace(/:/g, "");
   const resolvedIdPrefix = idPrefix ?? `order-detail-tabs-${generatedId}`;
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -54,7 +56,7 @@ export function OrderDetailTabs<T extends string>({
     >
       <div
         role="tablist"
-        aria-label={ariaLabel}
+        aria-label={ariaLabel ?? t("orders2b2.tabsAria")}
         className="flex min-w-0 items-center gap-0.5 overflow-x-auto rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel)] p-0.5 shadow-[var(--shadow-card)] backdrop-blur sm:flex-wrap sm:p-1"
       >
         {tabs.map((tab, index) => {

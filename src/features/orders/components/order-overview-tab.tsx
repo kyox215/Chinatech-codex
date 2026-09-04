@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 
 import { ImeiScannerField } from "@/components/imei-scanner-field";
-import { ApprovalBadge, DeviceCustodyBadge, MoneyText } from "@/components/orders/badges";
+import { DeviceCustodyBadge, MoneyText, StatusBadge } from "@/components/orders/badges";
 import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
 import {
   AccessoryNotesPicker,
@@ -44,11 +44,9 @@ import { CustomerBackupPhonesField } from "@/features/customers/forms/customer-b
 import { PhoneContactMenu } from "@/features/orders/components/order-contact-menu";
 import { WarrantyPicker, WarrantyTag } from "@/features/orders/components/warranty-picker";
 import { CustomerPhoneLookup } from "@/features/orders/forms/customer-phone-lookup";
-import { getWorkflowStatusLabel } from "@/features/orders/model/order-workflow";
 import {
   DEVICE_CUSTODY_WITH_SHOP,
   deviceCustodyStatusFromOrder,
-  formatDeviceCustodyEvent,
 } from "@/features/orders/model/device-custody";
 import {
   findCurrentOrderStatusChangedAt,
@@ -85,6 +83,13 @@ import type {
 } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
 import { splitPhoneCandidates, uniqueContactPhones } from "@/shared/lib/phone";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import {
+  localizeOrderDetailApproval,
+  localizeOrderDetailEvent,
+  localizeOrderDetailFinancialState,
+} from "@/features/orders/model/order-detail-i18n";
+import { localizeDeviceCustody } from "@/features/orders/model/order-i18n";
 
 type DetailSurface = "page" | "dialog";
 
@@ -362,11 +367,14 @@ function OrderOverviewDesktopContextStrip({
   workflow?: OrderWorkflow;
   onShowRecords?: () => void;
 }) {
+  const { locale, t } = useLocale();
   const latestEvent = events[0];
-  const latestLabel = latestEvent ? getLatestEventSummary(latestEvent, workflow) : "暂无历史记录";
+  const latestLabel = latestEvent
+    ? localizeOrderDetailEvent(latestEvent, workflow, t, locale)
+    : t("orders2b2.overview.noHistory");
   const latestMeta = latestEvent
-    ? `${formatDateTime(latestEvent.created_at)} · ${latestEvent.operator_name}`
-    : "记录会在流转、通知和收款后生成";
+    ? `${formatDateTime(latestEvent.created_at, locale)} · ${latestEvent.operator_name}`
+    : t("orders2b2.overview.historyHelp");
   const currentStatusChangedAt = findCurrentOrderStatusChangedAt({
     status: order.status,
     createdAt: order.created_at,
@@ -380,21 +388,28 @@ function OrderOverviewDesktopContextStrip({
     >
       <OverviewMeta
         icon={Calendar}
-        label="送修时间"
-        value={formatDateTime(order.created_at)}
+        label={t("orders2b2.overview.acceptedAt")}
+        value={formatDateTime(order.created_at, locale)}
         compact
       />
       <OverviewMeta
         icon={Clock3}
-        label="状态时间"
-        value={formatDateTime(currentStatusChangedAt)}
+        label={t("orders2b2.overview.statusAt")}
+        value={formatDateTime(currentStatusChangedAt, locale)}
         compact
       />
-      <OverviewMeta icon={UserRound} label="负责人" value={order.technician_name || "-"} compact />
+      <OverviewMeta
+        icon={UserRound}
+        label={t("orders2b2.overview.assignee")}
+        value={order.technician_name || "-"}
+        compact
+      />
       <OverviewMeta
         icon={Store}
-        label={supplier ? "外修 / 门店" : "门店"}
-        value={supplier?.short_name || storeSettings?.store_name || "未配置"}
+        label={supplier ? t("orders2b2.overview.externalStore") : t("orders2b2.overview.store")}
+        value={
+          supplier?.short_name || storeSettings?.store_name || t("orders2b2.overview.notConfigured")
+        }
         compact
         color={supplier?.color}
       />
@@ -418,7 +433,7 @@ function OrderOverviewDesktopContextStrip({
         </span>
         {onShowRecords ? (
           <span className="shrink-0 rounded-md bg-card px-1.5 py-0.5 text-[10px] font-medium text-primary lg:text-[11px] lg:leading-4">
-            记录
+            {t("orders2b2.overview.records")}
           </span>
         ) : null}
       </button>
@@ -455,6 +470,7 @@ export function OrderDetailActionDock({
   primaryAction?: OrderDetailPrimaryAction;
   surface?: DetailSurface;
 }) {
+  const { t } = useLocale();
   const { isMobile, state: sidebarState } = useSidebar();
   const cancelled = isOrderCancelledForPayment(order);
   const financeRedacted = Boolean(order.finance_redacted);
@@ -484,7 +500,9 @@ export function OrderDetailActionDock({
         deposit: order.deposit_amount,
         balance: order.balance_amount,
       };
-  const flowActionLabel = approvalDecisionAvailable ? "审批处理" : "流转";
+  const flowActionLabel = approvalDecisionAvailable
+    ? t("orders2b2.overview.approvalAction")
+    : t("orders2b2.overview.flowAction");
   const notifyPrimary = primaryAction === "notify";
   const flowPrimary = primaryAction === "flow" || primaryAction === "approval";
   const paymentPrimary = primaryAction === "payment";
@@ -523,32 +541,31 @@ export function OrderDetailActionDock({
             className="flex min-h-9 min-w-[180px] max-w-[260px] items-center justify-between gap-2 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/45 px-2 text-[10px] text-muted-foreground lg:text-xs lg:leading-4"
           >
             {financeRedacted ? (
-              <span className="truncate font-medium">金额与结算状态受限</span>
+              <span className="truncate font-medium">
+                {t("orders2b2.overview.financeRestricted")}
+              </span>
             ) : (
               <>
                 <span className="inline-flex min-w-0 items-center gap-1 font-medium">
                   {cancelled ? (
-                    "已取消"
+                    t("orders2b2.overview.cancelled")
                   ) : financialState.settlement === "settled" ||
                     financialState.settlement === "zero_charge" ? (
                     <>
                       <CheckCircle2 className="size-3 text-status-success-foreground" />
-                      已结清
+                      {t("orders2b2.overview.settled")}
                     </>
                   ) : (
-                    financialState.label
+                    localizeOrderDetailFinancialState(financialState, t)
                   )}
                 </span>
                 <span className="truncate">
                   {isEditing
-                    ? "报价草稿待保存"
-                    : `项目 ${order.fault_prices.length} · ${
-                        order.approval_status === "approved"
-                          ? "审批通过"
-                          : order.approval_status === "rejected"
-                            ? "审批拒绝"
-                            : "审批待确认"
-                      }`}
+                    ? t("orders2b2.overview.quoteDraft")
+                    : t("orders2b2.overview.itemsApproval", {
+                        count: order.fault_prices.length,
+                        approval: localizeOrderDetailApproval(order.approval_status, t),
+                      })}
                 </span>
               </>
             )}
@@ -606,7 +623,7 @@ export function OrderDetailActionDock({
               onClick={onPay}
             >
               <CreditCard className="size-3.5" />
-              {cancelled ? "不可收款" : "收款"}
+              {cancelled ? t("orders2b2.overview.cannotCollect") : t("orders2b2.overview.collect")}
             </Button>
           </div>
         </div>
@@ -624,6 +641,7 @@ export function OrderDetailHeaderFinanceSummary({
   isEditing: boolean;
   financeDraft: FinanceDraftState;
 }) {
+  const { t } = useLocale();
   const cancelled = isOrderCancelledForPayment(order);
   const paidAmount = inferOrderPaidAmount(order);
   const normalizedDraft = useMemo(
@@ -645,12 +663,12 @@ export function OrderDetailHeaderFinanceSummary({
   return (
     <section
       data-order-header-finance="true"
-      aria-label="工单金额摘要"
+      aria-label={t("orders2b2.overview.amountSummary")}
       className="min-w-0 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/45 p-1"
     >
       {order.finance_redacted ? (
         <div className="grid h-9 place-items-center rounded-md bg-card px-2 text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
-          金额与结算状态受限
+          {t("orders2b2.overview.financeRestricted")}
         </div>
       ) : (
         <OrderWorkspaceMoneyStrip
@@ -679,9 +697,10 @@ export function OrderKeyInfoCard({
   surface?: DetailSurface;
   custodyControl?: React.ReactNode;
 }) {
+  const { locale, t } = useLocale();
   return (
     <DetailPanel surface={surface} className={className} dataPanel="key-info">
-      <h3 className="mb-2 text-sm font-semibold sm:mb-3">关键信息</h3>
+      <h3 className="mb-2 text-sm font-semibold sm:mb-3">{t("orders2b2.overview.keyInfo")}</h3>
       <dl
         data-order-key-info-grid="true"
         className={cn(
@@ -689,14 +708,17 @@ export function OrderKeyInfoCard({
           surface === "dialog" && "sm:grid-cols-2 sm:gap-x-2",
         )}
       >
-        <Row label="创建时间" value={new Date(order.created_at).toLocaleString("zh-CN")} />
         <Row
-          label="完成时间"
-          value={order.completed_at ? new Date(order.completed_at).toLocaleString("zh-CN") : "—"}
+          label={t("orders2b2.overview.createdAt")}
+          value={formatDateTime(order.created_at, locale)}
         />
         <Row
-          label="交付时间"
-          value={order.delivered_at ? new Date(order.delivered_at).toLocaleString("zh-CN") : "—"}
+          label={t("orders2b2.overview.completedAt")}
+          value={order.completed_at ? formatDateTime(order.completed_at, locale) : "—"}
+        />
+        <Row
+          label={t("orders2b2.overview.deliveredAt")}
+          value={order.delivered_at ? formatDateTime(order.delivered_at, locale) : "—"}
         />
         {custodyControl ? (
           <div className={cn("min-w-0", surface === "dialog" && "sm:col-span-2")}>
@@ -704,11 +726,12 @@ export function OrderKeyInfoCard({
           </div>
         ) : (
           <Row
-            label="设备保管"
+            label={t("orders2b2.overview.custody")}
             value={
               <DeviceCustodyBadge
                 status={order.device_custody_status}
                 deliveredAt={order.delivered_at}
+                label={localizeDeviceCustody(order.device_custody_status, order.delivered_at, t)}
                 className="text-[10px] lg:text-xs lg:leading-4"
               />
             }
@@ -716,7 +739,7 @@ export function OrderKeyInfoCard({
         )}
         {supplier && (
           <Row
-            label="外修供应商"
+            label={t("orders2b2.overview.externalSupplier")}
             value={
               <span className="inline-flex min-w-0 items-center gap-1.5">
                 <span
@@ -728,7 +751,9 @@ export function OrderKeyInfoCard({
             }
           />
         )}
-        {order.cancel_reason && <Row label="取消原因" value={order.cancel_reason} />}
+        {order.cancel_reason && (
+          <Row label={t("orders2b2.overview.cancelReason")} value={order.cancel_reason} />
+        )}
       </dl>
     </DetailPanel>
   );
@@ -747,25 +772,28 @@ function DesktopRecordsSummaryPanel({
   surface: DetailSurface;
   onShowRecords?: () => void;
 }) {
+  const { locale, t } = useLocale();
   const latestEvent = events[0];
   const latestMessage = messages[0];
   const latestEventLabel = latestEvent
-    ? getLatestEventSummary(latestEvent, workflow)
-    : "暂无时间线记录";
+    ? localizeOrderDetailEvent(latestEvent, workflow, t, locale)
+    : t("orders2b2.overview.noTimeline");
   const latestEventMeta = latestEvent
-    ? `${formatDateTime(latestEvent.created_at)} · ${latestEvent.operator_name}`
-    : "状态、收款、附件和审批会记录在这里";
-  const latestMessageText = latestMessage?.message_body?.trim() || "暂无通知记录";
+    ? `${formatDateTime(latestEvent.created_at, locale)} · ${latestEvent.operator_name}`
+    : t("orders2b2.overview.timelineHelp");
+  const latestMessageText =
+    latestMessage?.message_body?.trim() || t("orders2b2.overview.noNotifications");
   const latestMessageMeta = latestMessage
-    ? `${latestMessage.channel === "whatsapp" ? "WhatsApp" : "短信"} · ${formatDateTime(
+    ? `${latestMessage.channel === "whatsapp" ? "WhatsApp" : t("orders2b2.channel.sms")} · ${formatDateTime(
         latestMessage.sent_at,
+        locale,
       )}`
-    : "通知发送后会显示最近沟通";
+    : t("orders2b2.overview.notificationHelp");
 
   return (
     <DetailPanel surface={surface} dataPanel="records-summary" className="h-full">
       <PanelHeader
-        title="记录摘要"
+        title={t("orders2b2.overview.recordsSummary")}
         action={
           onShowRecords ? (
             <Button
@@ -775,7 +803,7 @@ function DesktopRecordsSummaryPanel({
               className="h-11 min-w-11 px-3 text-xs lg:h-7 lg:min-w-0 lg:px-2 lg:text-[11px]"
               onClick={onShowRecords}
             >
-              记录
+              {t("orders2b2.overview.records")}
             </Button>
           ) : null
         }
@@ -783,14 +811,14 @@ function DesktopRecordsSummaryPanel({
       <div className="grid min-w-0 gap-1.5">
         <CompactSummaryRow
           icon={History}
-          label="最近时间线"
+          label={t("orders2b2.overview.latestTimeline")}
           value={latestEventLabel}
           meta={latestEventMeta}
           count={events.length}
         />
         <CompactSummaryRow
           icon={MessageCircle}
-          label="通知历史"
+          label={t("orders2b2.overview.notifications")}
           value={latestMessageText}
           meta={latestMessageMeta}
           count={messages.length}
@@ -853,6 +881,7 @@ function OrderOverviewFinancePanel({
   canAdjustFinance: boolean;
   surface: DetailSurface;
 }) {
+  const { t } = useLocale();
   const dense = surface === "dialog";
   const cancelled = isOrderCancelledForPayment(order);
   const financeRedacted = Boolean(order.finance_redacted);
@@ -887,9 +916,9 @@ function OrderOverviewFinancePanel({
   if (order.finance_redacted) {
     return (
       <DetailPanel surface={surface} dataPanel="finance">
-        <PanelHeader title="报价处理" />
+        <PanelHeader title={t("orders2b2.overview.quotePanel")} />
         <div className="rounded-lg border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-5 text-center text-xs font-medium text-muted-foreground">
-          金额与结算状态受限
+          {t("orders2b2.overview.financeRestricted")}
         </div>
       </DetailPanel>
     );
@@ -897,11 +926,11 @@ function OrderOverviewFinancePanel({
 
   return (
     <DetailPanel surface={surface} dataPanel="finance">
-      <PanelHeader title="报价处理" editing={canEditFinance} />
+      <PanelHeader title={t("orders2b2.overview.quotePanel")} editing={canEditFinance} />
       <div className={cn("min-w-0", dense ? "space-y-1.5" : "space-y-2 sm:space-y-3")}>
         {financeRedacted ? (
           <div className="grid min-h-16 place-items-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 text-xs font-medium text-muted-foreground">
-            金额受限
+            {t("orders2b2.overview.amountRestricted")}
           </div>
         ) : dense ? null : (
           <OrderWorkspaceMoneyStrip
@@ -914,8 +943,18 @@ function OrderOverviewFinancePanel({
 
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="inline-flex min-w-0 items-center gap-1 text-[10px] font-medium text-muted-foreground">
-            <span className="shrink-0">客户</span>
-            <ApprovalBadge status={order.approval_status} />
+            <span className="shrink-0">{t("orders2b2.overview.customer")}</span>
+            <StatusBadge
+              status={order.status}
+              label={localizeOrderDetailApproval(order.approval_status, t)}
+              tone={
+                order.approval_status === "approved"
+                  ? "success"
+                  : order.approval_status === "rejected"
+                    ? "danger"
+                    : "warn"
+              }
+            />
           </span>
           <span
             className={cn(
@@ -930,12 +969,13 @@ function OrderOverviewFinancePanel({
                     : "border-status-warn-foreground/25 bg-status-warn text-status-warn-foreground",
             )}
           >
-            结算{" · "}
-            {financeRedacted
-              ? "财务信息受限"
-              : financialState.settlement === "cancelled"
-                ? "已取消 · 取消时余额不计入待收"
-                : financialState.label}
+            {t("orders2b2.overview.settlement", {
+              status: financeRedacted
+                ? t("orders2b2.overview.financialRestricted")
+                : financialState.settlement === "cancelled"
+                  ? t("orders2b2.overview.cancelledBalance")
+                  : localizeOrderDetailFinancialState(financialState, t),
+            })}
           </span>
         </div>
 
@@ -953,7 +993,7 @@ function OrderOverviewFinancePanel({
             />
             {approvalTouched ? (
               <p className="rounded-md bg-status-warn px-2 py-1 text-[10px] leading-3 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
-                修改报价或定金会重新计算尾款，并可能需要重新确认客户审批。
+                {t("orders2b2.overview.quoteEditWarning")}
               </p>
             ) : null}
           </>
@@ -978,6 +1018,7 @@ export function DesktopOrderPhotosPanel({
   surface: DetailSurface;
   className?: string;
 }) {
+  const { t } = useLocale();
   const [photoPreviewId, setPhotoPreviewId] = useState<string | null>(null);
   const previews = attachments.slice(0, 3);
   const hiddenCount = Math.max(0, attachments.length - previews.length);
@@ -992,7 +1033,7 @@ export function DesktopOrderPhotosPanel({
   return (
     <DetailPanel surface={surface} dataPanel="photos" className={className}>
       <PanelHeader
-        title="设备照片"
+        title={t("orders2b2.overview.photos")}
         action={
           onCapture ? (
             <Button
@@ -1004,7 +1045,7 @@ export function DesktopOrderPhotosPanel({
               onClick={(event) => onCapture(event.currentTarget)}
             >
               <Camera className="size-3.5" />
-              {uploadPending ? "上传中" : "拍照"}
+              {uploadPending ? t("orders2b2.overview.uploading") : t("orders2b2.overview.capture")}
             </Button>
           ) : null
         }
@@ -1024,11 +1065,11 @@ export function DesktopOrderPhotosPanel({
         ))}
         {attachments.length === 0 ? (
           <>
-            <DesktopPhotoPlaceholder label="正面" />
-            <DesktopPhotoPlaceholder label="背面" />
+            <DesktopPhotoPlaceholder label={t("orders2b2.photo.front")} />
+            <DesktopPhotoPlaceholder label={t("orders2b2.photo.back")} />
           </>
         ) : attachments.length === 1 ? (
-          <DesktopPhotoPlaceholder label="补充" />
+          <DesktopPhotoPlaceholder label={t("orders2b2.overview.extraPhoto")} />
         ) : null}
         {onCapture ? (
           <button
@@ -1042,13 +1083,15 @@ export function DesktopOrderPhotosPanel({
           >
             <span className="grid place-items-center gap-1">
               <Camera className="size-4" />
-              {uploadPending ? "上传中" : "补拍"}
+              {uploadPending ? t("orders2b2.overview.uploading") : t("orders2b2.overview.retake")}
             </span>
           </button>
         ) : null}
       </div>
       <div className="mt-1.5 flex min-w-0 items-center justify-between gap-2 rounded-md bg-[var(--surface-panel-muted)] px-2 py-1 text-[11px] leading-4 lg:text-xs">
-        <span className="truncate text-muted-foreground">已保存照片</span>
+        <span className="truncate text-muted-foreground">
+          {t("orders2b2.overview.savedPhotos")}
+        </span>
         <span className="shrink-0 font-mono font-semibold tabular-nums">
           {attachments.length}
           {hiddenCount ? ` +${hiddenCount}` : ""}
@@ -1070,6 +1113,7 @@ function DesktopPhotoPreview({
   attachment: OrderAttachment;
   onOpen?: () => void;
 }) {
+  const { t } = useLocale();
   const source = attachment.signed_url || attachment.public_url;
 
   if (!source) {
@@ -1082,7 +1126,7 @@ function DesktopPhotoPreview({
           <ImageIcon className="size-4" />
         </div>
         <span className="absolute inset-x-1 bottom-1 truncate rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur lg:text-[11px] lg:leading-4">
-          {attachment.file_name || "设备照片"}
+          {attachment.file_name || t("orders2b2.photo.device")}
         </span>
       </div>
     );
@@ -1094,18 +1138,20 @@ function DesktopPhotoPreview({
       data-order-photo-preview="true"
       className="group relative h-12 min-w-0 overflow-hidden rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onClick={onOpen}
-      aria-label={`查看照片 ${attachment.file_name || "设备照片"}`}
+      aria-label={t("orders2b2.overview.openPhoto", {
+        file: attachment.file_name || t("orders2b2.photo.device"),
+      })}
     >
       <img
         src={source}
-        alt={attachment.file_name || "设备照片"}
+        alt={attachment.file_name || t("orders2b2.photo.device")}
         className="size-full object-cover"
       />
       <span className="absolute inset-0 hidden place-items-center bg-background/20 text-[9px] font-semibold text-foreground backdrop-blur-[1px] group-hover:grid group-focus-visible:grid lg:text-[11px] lg:leading-4">
-        查看
+        {t("orders2b2.overview.view")}
       </span>
       <span className="absolute inset-x-1 bottom-1 truncate rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur lg:text-[11px] lg:leading-4">
-        {attachment.file_name || "设备照片"}
+        {attachment.file_name || t("orders2b2.photo.device")}
       </span>
     </button>
   );
@@ -1171,15 +1217,16 @@ function CustomerPanel({
   kioskSignatureAvailable: boolean;
   signatureAttachments: OrderAttachment[];
 }) {
+  const { t } = useLocale();
   const dense = surface === "dialog";
   return (
     <DetailPanel surface={surface} dataPanel="customer">
-      <PanelHeader title="客户信息" editing={Boolean(edit)} />
+      <PanelHeader title={t("orders2b2.overview.customerInfo")} editing={Boolean(edit)} />
       <div className={cn("min-w-0", dense ? "space-y-1.5" : "space-y-2 sm:space-y-3")}>
         <section className="grid min-w-0 gap-1.5">
           <CustomerNameField order={order} customer={customer} edit={edit} />
           {surface !== "dialog" ? (
-            <InfoField label="技师" tone="soft">
+            <InfoField label={t("orders2b2.overview.technician")} tone="soft">
               <ReadonlyValue value={order.technician_name} />
             </InfoField>
           ) : null}
@@ -1210,9 +1257,10 @@ function CustomerNameField({
   customer?: Customer;
   edit: OrderEditContext | null;
 }) {
+  const { t } = useLocale();
   return (
     <DraftTextField
-      label="客户"
+      label={t("orders2b2.overview.customer")}
       value={edit?.draft.customer_name ?? order.customer_name ?? customer?.name ?? ""}
       required
       tone="hero"
@@ -1231,17 +1279,18 @@ function CustomerPhoneField({
   customer?: Customer;
   edit: OrderEditContext | null;
 }) {
+  const { t } = useLocale();
   const value = getDraftPrimaryPhone(
     edit?.draft.customer_phone ?? order.customer_phone ?? customer?.phone_e164 ?? "",
   );
   if (edit) {
     return (
-      <InfoField label="主电话 *" tone="soft">
+      <InfoField label={`${t("orders2b2.overview.primaryPhone")} *`} tone="soft">
         <CustomerPhoneLookup
           value={value}
           selectedCustomerId={customer?.id}
           autoPickExact={false}
-          placeholder="搜索或输入主电话"
+          placeholder={t("orders2b2.overview.searchPhone")}
           className={cn(inlineEditInputClass, "!h-[38px] font-mono !text-base lg:!h-9 lg:!text-sm")}
           showSearchIcon={false}
           onChange={(customer_phone) =>
@@ -1263,13 +1312,13 @@ function CustomerPhoneField({
           }
         />
         <p className="mt-1 text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-          选择结果会带入姓名和电话；不会改变工单归属客户。
+          {t("orders2b2.overview.customerPickHelp")}
         </p>
       </InfoField>
     );
   }
   return (
-    <InfoField label="主电话" tone="soft">
+    <InfoField label={t("orders2b2.overview.primaryPhone")} tone="soft">
       <PhoneContactMenu phone={order.customer_phone ?? customer?.phone_e164 ?? ""} />
     </InfoField>
   );
@@ -1282,6 +1331,7 @@ function BackupPhones({
   order: OrderDetail["order"];
   edit: OrderEditContext | null;
 }) {
+  const { t } = useLocale();
   const draftCustomerPhone = edit?.draft.customer_phone ?? "";
   const primaryPhone = getDraftPrimaryPhone(draftCustomerPhone);
   const parsedBackupPhones = getDraftBackupPhones(draftCustomerPhone);
@@ -1310,7 +1360,7 @@ function BackupPhones({
     };
 
     return (
-      <InfoField label="备用联系电话" tone="soft">
+      <InfoField label={t("orders2b2.overview.backupPhones")} tone="soft">
         <CustomerBackupPhonesField
           primaryPhone={primaryPhone}
           phones={backupPhoneDrafts}
@@ -1335,7 +1385,7 @@ function BackupPhones({
   const backupPhones = uniqueContactPhones(order.customer_phone, order.contact_phones);
   if (!backupPhones.length) return null;
   return (
-    <InfoField label="备用联系电话">
+    <InfoField label={t("orders2b2.overview.backupPhones")}>
       <div className="flex min-w-0 flex-wrap gap-1">
         {backupPhones.map((phone) => (
           <PhoneContactMenu
@@ -1363,6 +1413,7 @@ function CustomerSignatureSection({
   kioskSignatureAvailable?: boolean;
   signatureAttachments?: OrderAttachment[];
 }) {
+  const { t } = useLocale();
   const dense = useDenseDetail();
   const hasKioskAction = Boolean(onRequestKioskSignature);
   const latestSignature = signatureAttachments[0];
@@ -1370,20 +1421,20 @@ function CustomerSignatureSection({
   const ActionIcon = hasKioskAction ? TabletSmartphone : Signature;
   const actionLabel = hasKioskAction
     ? kioskSignaturePending
-      ? "发送中"
+      ? t("orders2b2.overview.sending")
       : kioskSignatureAvailable
         ? hasSignatureEvidence
-          ? "重新发送"
-          : "发送到 iPad"
-        : "无 iPad"
+          ? t("orders2b2.overview.resend")
+          : t("orders2b2.overview.sendKiosk")
+        : t("orders2b2.overview.noKiosk")
     : hasSignatureEvidence
-      ? "重新签名"
-      : "请客户签名";
+      ? t("orders2b2.overview.signAgain")
+      : t("orders2b2.overview.requestSignature");
   const statusLabel = latestSignature
-    ? "签名证据已保存"
+    ? t("orders2b2.overview.signatureSaved")
     : order.customer_signature
-      ? "签名已采集"
-      : "尚未签名";
+      ? t("orders2b2.overview.signatureCaptured")
+      : t("orders2b2.overview.signatureMissing");
   return (
     <section className="min-w-0">
       <div
@@ -1399,7 +1450,7 @@ function CustomerSignatureSection({
             "lg:text-xs lg:leading-4",
           )}
         >
-          客户签名
+          {t("orders2b2.overview.signature")}
         </h4>
         {hasKioskAction ? (
           <Button
@@ -1437,7 +1488,7 @@ function CustomerSignatureSection({
               className="inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-primary underline-offset-2 hover:underline lg:text-xs lg:leading-4"
             >
               <ImageIcon className="size-3 shrink-0" />
-              查看签名
+              {t("orders2b2.overview.viewSignature")}
             </a>
           ) : null}
         </div>
@@ -1473,10 +1524,14 @@ function DeviceIssuePanel({
   repairEdit: OrderEditContext | null;
   surface: DetailSurface;
 }) {
+  const { t } = useLocale();
   const dense = surface === "dialog";
   return (
     <DetailPanel surface={surface} dataPanel="device">
-      <PanelHeader title="设备与故障" editing={Boolean(intakeEdit || repairEdit)} />
+      <PanelHeader
+        title={t("orders2b2.overview.deviceIssue")}
+        editing={Boolean(intakeEdit || repairEdit)}
+      />
       <div className={cn("min-w-0", dense ? "space-y-1.5" : "space-y-2 sm:space-y-3")}>
         <section
           className={cn(
@@ -1485,7 +1540,7 @@ function DeviceIssuePanel({
           )}
         >
           <DraftTextField
-            label="品牌"
+            label={t("orders2b2.overview.brand")}
             value={intakeEdit?.draft.device_brand ?? deviceBrand}
             required
             tone="hero"
@@ -1493,7 +1548,7 @@ function DeviceIssuePanel({
             onChange={(value) => patchDraft(intakeEdit, { device_brand: value })}
           />
           <DraftTextField
-            label="型号"
+            label={t("orders2b2.overview.model")}
             value={intakeEdit?.draft.device_model ?? deviceModel}
             required
             tone="hero"
@@ -1516,7 +1571,7 @@ function DeviceIssuePanel({
           )}
         >
           <DraftTextField
-            label="设备备注"
+            label={t("orders2b2.overview.deviceNotes")}
             value={repairEdit?.draft.device_notes ?? deviceNotes ?? ""}
             tone="note"
             className={dense ? "line-clamp-2" : undefined}
@@ -1541,7 +1596,7 @@ function DeviceIssuePanel({
           )}
         >
           <DraftTextField
-            label="故障描述"
+            label={t("orders2b2.overview.issue")}
             value={intakeEdit?.draft.issue_description ?? order.issue_description}
             required
             multiline
@@ -1551,7 +1606,7 @@ function DeviceIssuePanel({
             onChange={(value) => patchDraft(intakeEdit, { issue_description: value })}
           />
           <DraftTextField
-            label="诊断结果"
+            label={t("orders2b2.overview.diagnosis")}
             value={repairEdit?.draft.diagnosis_result ?? order.diagnosis_result ?? ""}
             multiline
             tone="soft"
@@ -1582,8 +1637,9 @@ function AccessoryNotesField({
   edit: OrderEditContext | null;
   onChange: (value: string) => void;
 }) {
+  const { t } = useLocale();
   return (
-    <InfoField label="随附物品" tone="note">
+    <InfoField label={t("orders2b2.overview.accessories")} tone="note">
       {edit ? (
         <AccessoryNotesPicker value={value} onChange={onChange} compact />
       ) : (
@@ -1602,9 +1658,10 @@ function DeviceUnlockDetailField({
   edit: OrderEditContext | null;
   dense: boolean;
 }) {
+  const { t } = useLocale();
   const custodyStatus = deviceCustodyStatusFromOrder(order);
   return (
-    <InfoField label="手机密码" tone="note">
+    <InfoField label={t("orders2b2.overview.unlock")} tone="note">
       {edit ? (
         <div className="min-w-0 space-y-1">
           <DeviceUnlockEditor
@@ -1613,7 +1670,7 @@ function DeviceUnlockDetailField({
             compact
           />
           <p className="break-words text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-[18px]">
-            手机密码不会保存到本机草稿，刷新后需重新输入或在线保存。
+            {t("orders2b2.overview.unlockDraftHelp")}
           </p>
         </div>
       ) : (
@@ -1622,6 +1679,7 @@ function DeviceUnlockDetailField({
             <DeviceCustodyBadge
               status={custodyStatus}
               deliveredAt={order.delivered_at}
+              label={localizeDeviceCustody(custodyStatus, order.delivered_at, t)}
               className="text-[10px] lg:text-[11px] lg:leading-4"
             />
           ) : null}
@@ -1641,12 +1699,13 @@ function WarrantyField({
   edit: OrderEditContext | null;
   defaultWarrantyMonths: number;
 }) {
+  const { t } = useLocale();
   const valueMonths = edit?.draft.warranty_months ?? order.warranty_months;
   const valueText = edit?.draft.warranty_text ?? order.warranty_text;
   const reason = edit?.draft.warranty_change_reason ?? order.warranty_change_reason;
 
   return (
-    <InfoField label="质保" tone="soft">
+    <InfoField label={t("orders2b2.overview.warranty")} tone="soft">
       {edit ? (
         <WarrantyPicker
           valueMonths={valueMonths}
@@ -1668,7 +1727,7 @@ function WarrantyField({
           <WarrantyTag months={valueMonths} text={valueText} />
           {order.warranty_change_reason && (
             <div className="break-words text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-              原因：{order.warranty_change_reason}
+              {t("orders2b2.overview.reason", { reason: order.warranty_change_reason })}
             </div>
           )}
         </div>
@@ -1690,6 +1749,7 @@ function FinanceInlineEditor({
   onChange: (draft: FinanceDraftState) => void;
   dense: boolean;
 }) {
+  const { t } = useLocale();
   const patchFault = (index: number, patch: Partial<FinanceDraftState["faults"][number]>) => {
     const faults = [...draft.faults];
     faults[index] = { ...faults[index], ...patch };
@@ -1700,7 +1760,7 @@ function FinanceInlineEditor({
   return (
     <section className={cn("min-w-0", dense ? "space-y-1" : "space-y-1.5")}>
       <h4 className="text-[11px] font-semibold text-muted-foreground sm:text-xs lg:text-xs lg:leading-4">
-        报价项目
+        {t("orders2b2.overview.quoteItems")}
       </h4>
       {draft.faults.length ? (
         <div className={cn("min-w-0", dense ? "space-y-1" : "space-y-1.5")}>
@@ -1710,9 +1770,9 @@ function FinanceInlineEditor({
               className="grid min-w-0 grid-cols-[minmax(0,1fr)_86px_24px] items-start gap-x-1.5 gap-y-0.5 rounded-md border border-border/60 bg-surface-muted/35 px-2 py-1.5 sm:rounded-lg"
             >
               <Input
-                aria-label={`报价项目 ${index + 1} 名称`}
+                aria-label={t("orders2b2.overview.itemName", { index: index + 1 })}
                 value={item.name}
-                placeholder="项目名称"
+                placeholder={t("orders2b2.overview.itemPlaceholder")}
                 className={cn(inlineFinanceInputClass, "min-w-0 text-xs font-medium")}
                 onChange={(event) =>
                   patchFault(index, {
@@ -1722,7 +1782,7 @@ function FinanceInlineEditor({
                 }
               />
               <MoneyDraftField
-                ariaLabel={`报价项目 ${index + 1} 金额`}
+                ariaLabel={t("orders2b2.overview.itemAmount", { index: index + 1 })}
                 value={item.priceText}
                 placeholder="0"
                 onChange={(value) => patchFault(index, { priceText: value })}
@@ -1735,14 +1795,14 @@ function FinanceInlineEditor({
                 onClick={() =>
                   onChange({ ...draft, faults: draft.faults.filter((_, i) => i !== index) })
                 }
-                aria-label="删除报价项目"
+                aria-label={t("orders2b2.overview.deleteItem")}
               >
                 <Trash2 className="size-3 text-muted-foreground" />
               </Button>
               <Input
-                aria-label={`报价项目 ${index + 1} 备注`}
+                aria-label={t("orders2b2.overview.itemNote", { index: index + 1 })}
                 value={item.note}
-                placeholder="备注"
+                placeholder={t("orders2b2.overview.notePlaceholder")}
                 className={cn(
                   inlineFinanceInputClass,
                   "col-span-2 min-w-0 text-[11px] text-muted-foreground lg:text-xs lg:leading-4",
@@ -1754,7 +1814,7 @@ function FinanceInlineEditor({
         </div>
       ) : (
         <div className="rounded-md border border-dashed border-[var(--border-panel)] px-2 py-2 text-center text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
-          暂无报价项目
+          {t("orders2b2.overview.noQuoteItems")}
         </div>
       )}
 
@@ -1769,12 +1829,12 @@ function FinanceInlineEditor({
           }
         >
           <Plus className="mr-1 size-3" />
-          添加项目
+          {t("orders2b2.overview.addItem")}
         </Button>
         <label className="grid min-w-0 gap-0.5 text-[10px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
-          <span>定金</span>
+          <span>{t("orders2b2.overview.deposit")}</span>
           <MoneyDraftField
-            ariaLabel="定金"
+            ariaLabel={t("orders2b2.overview.deposit")}
             value={draft.depositText}
             placeholder="0"
             onChange={(value) => onChange({ ...draft, depositText: value })}
@@ -1789,11 +1849,15 @@ function FinanceInlineEditor({
       ) : (
         <div className="grid grid-cols-2 gap-1 text-[10px] lg:text-xs lg:leading-4">
           <div className="rounded-md bg-[var(--surface-panel-muted)] px-2 py-1">
-            <span className="block text-muted-foreground">编辑后总额</span>
+            <span className="block text-muted-foreground">
+              {t("orders2b2.overview.editedTotal")}
+            </span>
             <MoneyText amount={normalized.quotation} className="font-semibold text-primary" />
           </div>
           <div className="rounded-md bg-[var(--surface-panel-muted)] px-2 py-1">
-            <span className="block text-muted-foreground">编辑后尾款</span>
+            <span className="block text-muted-foreground">
+              {t("orders2b2.overview.editedBalance")}
+            </span>
             <MoneyText amount={normalized.balance} className="font-semibold" />
           </div>
         </div>
@@ -1829,13 +1893,16 @@ function MoneyDraftField({
 }
 
 function FinanceDisplay({ order }: { order: OrderDetail["order"] }) {
+  const { t } = useLocale();
   return (
     <section className="min-w-0">
       <h4 className="mb-1.5 text-[11px] font-semibold text-muted-foreground sm:mb-2 sm:text-xs lg:text-xs lg:leading-4">
-        报价项目
+        {t("orders2b2.overview.quoteItems")}
       </h4>
       {order.fault_prices.length === 0 ? (
-        <OrderWorkspaceEmptyBlock className="text-xs">暂无报价项目</OrderWorkspaceEmptyBlock>
+        <OrderWorkspaceEmptyBlock className="text-xs">
+          {t("orders2b2.overview.noQuoteItems")}
+        </OrderWorkspaceEmptyBlock>
       ) : (
         <ul className="min-w-0 space-y-1">
           {order.fault_prices.map((item, index) => (
@@ -1989,8 +2056,12 @@ export function ImeiField({
                 size="sm"
                 disabled={quickPending || !onQuickSave || !draft.trim()}
                 onClick={async () => {
-                  await onQuickSave?.(draft);
-                  setOpen(false);
+                  try {
+                    await onQuickSave?.(draft);
+                    setOpen(false);
+                  } catch {
+                    // The mutation's existing onError renders the safe error. Consume its rejection.
+                  }
                 }}
               >
                 {quickPending ? "保存中…" : "保存 IMEI"}
@@ -2071,47 +2142,9 @@ function OverviewMeta({
   );
 }
 
-function formatDateTime(value?: string) {
+function formatDateTime(value: string | undefined, locale: ReturnType<typeof useLocale>["locale"]) {
   if (!value) return "-";
-  return formatOrderDateTime(value);
-}
-
-function getLatestEventSummary(event: OrderDetail["events"][number], workflow?: OrderWorkflow) {
-  switch (event.event_type) {
-    case "created":
-      return "工单已创建";
-    case "status_changed":
-      return formatDeviceCustodyEvent(event.payload) ?? "状态已流转";
-    case "quoted":
-      return "报价已更新";
-    case "approval_sent":
-      return "报价已发送给客户";
-    case "approval_result":
-      return renderApprovalResultSummary(event.payload, workflow);
-    case "payment":
-      return "收款已登记";
-    case "message_sent":
-      return "客户通知已发送";
-    case "delivered":
-      return "设备已交付";
-    case "note":
-      return formatDeviceCustodyEvent(event.payload) ?? "新增备注";
-    default:
-      return "工单记录已更新";
-  }
-}
-
-function renderApprovalResultSummary(payload: Record<string, unknown>, workflow?: OrderWorkflow) {
-  const result = payload.result === "approved" ? "通过" : "拒绝";
-  const from =
-    typeof payload.from === "string" ? getWorkflowStatusLabel(workflow, payload.from) : "";
-  const to = typeof payload.to === "string" ? getWorkflowStatusLabel(workflow, payload.to) : "";
-  const route = from && to ? `：${from} → ${to}` : "";
-  const reason =
-    typeof payload.reason === "string" && payload.reason.trim()
-      ? `，原因：${payload.reason.trim()}`
-      : "";
-  return `客户审批${result}${route}${reason}`;
+  return formatOrderDateTime(value, locale);
 }
 
 function PanelHeader({
@@ -2125,6 +2158,7 @@ function PanelHeader({
   action?: React.ReactNode;
   className?: string;
 }) {
+  const { t } = useLocale();
   const dense = useDenseDetail();
   const trailing =
     action ??
@@ -2136,7 +2170,7 @@ function PanelHeader({
           "lg:text-xs lg:leading-4",
         )}
       >
-        编辑中
+        {t("orders2b2.overview.editing")}
       </span>
     ) : null);
 

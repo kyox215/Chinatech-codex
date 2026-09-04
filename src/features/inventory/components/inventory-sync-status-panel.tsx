@@ -4,6 +4,8 @@ import { CheckCircle2, Loader2, RefreshCw, ShieldAlert } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey } from "@/shared/i18n/messages";
 
 export type InventorySyncStatus =
   | "committed-refreshing"
@@ -21,35 +23,42 @@ export type InventorySyncStatusPanelProps = {
   className?: string;
 };
 
-const copy = {
+const copy: Record<
+  InventorySyncStatus,
+  {
+    title: MessageKey;
+    description: MessageKey;
+    role: "status" | "alert";
+    tone: "pending" | "failed" | "success" | "offline";
+  }
+> = {
   "committed-refreshing": {
-    title: "写入已完成，正在同步最新状态",
-    description: "请不要重复提交。正在读取服务端最新状态；此过程不会再次写入。",
+    title: "inventory2b4.sync.refreshing.title",
+    description: "inventory2b4.sync.refreshing.description",
     role: "status" as const,
     tone: "pending" as const,
   },
   "committed-refresh-failed": {
-    title: "写入已完成，但同步最新状态失败",
-    description: "请不要重复提交。重试同步只读取最新状态，不会再次写入。",
+    title: "inventory2b4.sync.failed.title",
+    description: "inventory2b4.sync.failed.description",
     role: "alert" as const,
     tone: "failed" as const,
   },
   "committed-context-stale": {
-    title: "写入已完成，但当前门店上下文已变化",
-    description:
-      "请不要重复提交。为保护门店边界，当前页面不会打开或重试旧记录；请返回当前库存后重新读取。",
+    title: "inventory2b4.sync.context.title",
+    description: "inventory2b4.sync.context.description",
     role: "alert" as const,
     tone: "failed" as const,
   },
   recovered: {
-    title: "已读取最新状态",
-    description: "写入已完成；当前页面已恢复可用。后续提交会使用新的状态和写入标识。",
+    title: "inventory2b4.sync.recovered.title",
+    description: "inventory2b4.sync.recovered.description",
     role: "status" as const,
     tone: "success" as const,
   },
   "offline-draft": {
-    title: "当前仍是离线草稿",
-    description: "尚未写入服务端。恢复联网后再保存；不要把草稿当成已完成写入。",
+    title: "inventory2b4.sync.offline.title",
+    description: "inventory2b4.sync.offline.description",
     role: "status" as const,
     tone: "offline" as const,
   },
@@ -70,6 +79,7 @@ export function InventorySyncStatusPanel({
   privacyRedacted = false,
   className,
 }: InventorySyncStatusPanelProps) {
+  const { t } = useLocale();
   const stateCopy = copy[status];
   const isSyncFailure = status === "committed-refresh-failed";
   const isCommitted = status !== "offline-draft";
@@ -103,15 +113,15 @@ export function InventorySyncStatusPanel({
           )}
         </span>
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold">{stateCopy.title}</h2>
-          <p className="mt-1 text-xs leading-5 text-foreground">{stateCopy.description}</p>
+          <h2 className="text-sm font-semibold">{t(stateCopy.title)}</h2>
+          <p className="mt-1 text-xs leading-5 text-foreground">{t(stateCopy.description)}</p>
         </div>
       </div>
       {isCommitted ? (
         <p className="text-xs leading-5 text-muted-foreground">
           {privacyRedacted
-            ? "为保护隐私，此状态不显示商品、金额或设备标识。"
-            : "恢复动作只读取缓存或服务端最新状态，不会自动重放刚才的写入。"}
+            ? t("inventory2b4.common.privacyRedacted")
+            : t("inventory2b4.sync.readOnlyRecovery")}
         </p>
       ) : null}
       {isSyncFailure && onRetry ? (
@@ -123,7 +133,7 @@ export function InventorySyncStatusPanel({
             disabled={pending}
             onClick={() => void onRetry()}
           >
-            {pending ? "正在读取最新状态…" : "重试同步"}
+            {pending ? t("inventory2b4.sync.reading") : t("inventory2b4.sync.retry")}
           </Button>
           {onOpenCommitted ? (
             <Button
@@ -133,14 +143,14 @@ export function InventorySyncStatusPanel({
               disabled={pending}
               onClick={() => void onOpenCommitted()}
             >
-              打开已完成记录
+              {t("inventory2b4.sync.openCommitted")}
             </Button>
           ) : null}
         </div>
       ) : null}
       {status === "committed-refreshing" ? (
         <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
-          正在读取最新状态；原写入按钮已暂时停用。
+          {t("inventory2b4.sync.pending")}
         </p>
       ) : null}
     </section>

@@ -31,9 +31,15 @@ import {
   resolveRepairServiceCatalogItem,
 } from "@/entities/order/model/repair-service-catalog";
 import { ensureOrderLineId } from "@/entities/order/model/order-line-identity";
+import {
+  localizeRepairServiceGroupCompactLabel,
+  localizeRepairServiceGroupLabel,
+  localizeRepairServiceOptionLabel,
+} from "@/features/orders/model/order-i18n";
 import { componentOverlay, toneClasses } from "@/lib/component-patterns";
 import type { FaultPriceItem } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 import { useTouchSafeDropdownTrigger } from "@/shared/lib/touch-safe-dropdown-trigger";
 
 export interface SelectedFault extends FaultPriceItem {
@@ -290,16 +296,12 @@ function FaultCategoryButton({
   onToggle: (option: FaultOption) => void;
   onClear: () => void;
 }) {
+  const { locale, t } = useLocale();
   const active = selected.filter((item) => item.categoryKey === group.key);
   const Icon = group.icon;
   const compact = density === "compact";
-  const compactLabel =
-    {
-      camera: "摄像",
-      face: "面容",
-      speaker: "扬声",
-      microphone: "麦克",
-    }[group.key] ?? group.label;
+  const groupLabel = localizeRepairServiceGroupLabel(group, locale);
+  const compactLabel = localizeRepairServiceGroupCompactLabel(group, locale);
   const quiet = appearance === "quiet";
   const [open, setOpen] = useState(false);
   const [menuMode, setMenuMode] = useState<"repair" | "inspection">("repair");
@@ -334,7 +336,7 @@ function FaultCategoryButton({
       >
         <button
           type="button"
-          aria-label={group.label}
+          aria-label={groupLabel}
           aria-pressed={active.length > 0}
           onClick={group.repairOptions.length > 0 ? () => setOpen(true) : onMainToggle}
           className={cn(
@@ -367,11 +369,11 @@ function FaultCategoryButton({
                     : "text-[13px] leading-5 lg:text-[13px] lg:leading-5",
               )}
             >
-              {compact ? compactLabel : group.label}
+              {compact ? compactLabel : groupLabel}
             </span>
             {!compact && active.length > 1 && (
               <span className="block text-[11px] leading-3 text-primary/80 lg:text-xs lg:leading-4">
-                {active.length} 项
+                {t("orders2b1.new.itemsCount", { count: active.length })}
               </span>
             )}
           </span>
@@ -379,7 +381,7 @@ function FaultCategoryButton({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            aria-label={`展开${group.label}细分选项`}
+            aria-label={t("orders2b1.new.fault.expand", { label: groupLabel })}
             className={cn(
               "grid h-full place-items-center border-l border-[var(--border-panel)] text-muted-foreground transition-colors [touch-action:pan-y] hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               "min-w-11 lg:min-w-8",
@@ -431,7 +433,7 @@ function FaultCategoryButton({
                     compact ? "text-xs leading-4" : "text-[13px] leading-5",
                   )}
                 >
-                  返回维修方案
+                  {t("orders2b1.new.fault.back")}
                 </span>
                 <span
                   className={cn(
@@ -441,7 +443,7 @@ function FaultCategoryButton({
                       : "text-[11px] leading-4 lg:text-xs lg:leading-4",
                   )}
                 >
-                  Torna alle opzioni di riparazione
+                  {t("orders2b1.new.fault.backHelp")}
                 </span>
               </span>
             </DropdownMenuItem>
@@ -451,6 +453,7 @@ function FaultCategoryButton({
         {visibleOptions.map((option) => {
           const key = faultKey(group, option);
           const checked = active.some((item) => item.key === key);
+          const optionLabel = localizeRepairServiceOptionLabel(group.key, option, locale);
           return (
             <DropdownMenuItem
               key={option.key}
@@ -482,7 +485,7 @@ function FaultCategoryButton({
                     compact ? "text-xs leading-4" : "text-[13px] leading-5",
                   )}
                 >
-                  {option.label}
+                  {optionLabel}
                 </span>
                 <span
                   className={cn(
@@ -526,7 +529,7 @@ function FaultCategoryButton({
                     compact ? "text-xs leading-4" : "text-[13px] leading-5",
                   )}
                 >
-                  需要检查
+                  {t("orders2b1.new.fault.inspect")}
                 </span>
                 <span
                   className={cn(
@@ -536,7 +539,7 @@ function FaultCategoryButton({
                       : "text-[11px] leading-4 lg:text-xs lg:leading-4",
                   )}
                 >
-                  Da verificare
+                  {t("orders2b1.new.fault.inspectHelp")}
                 </span>
               </span>
             </DropdownMenuItem>
@@ -557,7 +560,7 @@ function FaultCategoryButton({
                 onClear();
               }}
             >
-              取消选择
+              {t("orders2b1.new.fault.clear")}
             </DropdownMenuItem>
           </>
         )}

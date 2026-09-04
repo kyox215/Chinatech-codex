@@ -1115,7 +1115,11 @@ describe("order assistant service", () => {
         },
       ],
     });
-    const serialized = JSON.stringify(response);
+    const { request_id: requestId, ...responseContent } = response;
+    expect(requestId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+    const serialized = JSON.stringify(responseContent);
     expect(serialized).not.toContain("+39 333 1234567");
     expect(serialized).not.toContain("990000000000002");
     expect(serialized).not.toContain("999");

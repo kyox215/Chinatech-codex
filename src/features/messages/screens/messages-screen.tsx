@@ -34,12 +34,14 @@ import {
 } from "@/features/messages/model/template-renderer";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { storesKeys } from "@/features/stores/api/query-keys";
 import {
   getStoreSettings,
   listMessageTemplates,
   resetMessageTemplate,
   updateMessageTemplate,
   type MessageTemplate,
+  type StoreContext,
 } from "@/lib/repairdesk/api";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { cn } from "@/lib/utils";
@@ -51,22 +53,45 @@ import {
 } from "@/shared/ui";
 import { brandGradientStyle, controls, repairOs } from "@/lib/ui-patterns";
 import { useLocale } from "@/shared/i18n/locale-provider";
+import { getMessagesScreenCopy, type MessagesScreenCopy } from "@/shared/i18n/messages";
 
 const domainMeta = {
   order: {
-    title: "工单通知",
+    copyKey: "domainOrder",
     icon: Smartphone,
   },
   customer: {
-    title: "客户消息",
+    copyKey: "domainCustomer",
     icon: Users,
   },
 } as const;
 
 const messageTemplateVariableNames = MESSAGE_TEMPLATE_VARIABLES.map((variable) => variable.name);
 
+interface MessageTemplateMutationAuthority {
+  operationId: number;
+  templateId: string;
+  storeId: string;
+  membershipId?: string;
+  role?: string;
+  membershipStatus?: string;
+  authorityEpoch: number;
+  authorityKey: string;
+}
+
+interface MessageTemplateSaveRequest extends MessageTemplateMutationAuthority {
+  input: {
+    label: string;
+    body_template: string;
+    enabled: boolean;
+  };
+}
+
+type MessageTemplateResetRequest = MessageTemplateMutationAuthority;
+
 export function MessagesScreen() {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
+  const copy = getMessagesScreenCopy(locale);
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
@@ -81,6 +106,48 @@ export function MessagesScreen() {
   const [enabledDraft, setEnabledDraft] = useState(true);
   const [draftStoreId, setDraftStoreId] = useState<string>();
   const [draftTemplateId, setDraftTemplateId] = useState<string>();
+  const [draftAuthorityKey, setDraftAuthorityKey] = useState<string>();
+  const mountedRef = useRef(false);
+  const saveLockRef = useRef<number | null>(null);
+  const resetLockRef = useRef<number | null>(null);
+  const operationSequenceRef = useRef(0);
+  const authorityKey = [
+    shell.authorityFingerprint,
+    activeStoreId ?? "no-store",
+    canReadMessageTemplates ? "read" : "no-read",
+    canUpdateMessageTemplates ? "update" : "no-update",
+  ].join("|");
+  const authorityRef = useRef({
+    key: authorityKey,
+    epoch: 0,
+    storeId: activeStoreId,
+    canRead: canReadMessageTemplates,
+    canUpdate: canUpdateMessageTemplates,
+  });
+  if (authorityRef.current.key !== authorityKey) {
+    authorityRef.current = {
+      key: authorityKey,
+      epoch: authorityRef.current.epoch + 1,
+      storeId: activeStoreId,
+      canRead: canReadMessageTemplates,
+      canUpdate: canUpdateMessageTemplates,
+    };
+    saveLockRef.current = null;
+    resetLockRef.current = null;
+  }
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      authorityRef.current = {
+        ...authorityRef.current,
+        epoch: authorityRef.current.epoch + 1,
+      };
+      saveLockRef.current = null;
+      resetLockRef.current = null;
+    };
+  }, []);
 
   const templatesQuery = useQuery({
     queryKey: messageSettingsKeys.templatesScoped(activeStoreId),
@@ -92,7 +159,7 @@ export function MessagesScreen() {
     queryKey: messageSettingsKeys.storeScoped(activeStoreId),
     queryFn: ({ signal }) => getStoreSettings({ signal }),
     staleTime: CACHE_TIMES.settings,
-    enabled: Boolean(activeStoreId && canReadStoreSettings),
+    enabled: Boolean(activeStoreId && canReadMessageTemplates && canReadStoreSettings),
   });
 
   const templates = useMemo(() => templatesQuery.data ?? [], [templatesQuery.data]);
@@ -106,6 +173,7 @@ export function MessagesScreen() {
     if (!selectedTemplate || !activeStoreId) {
       setDraftStoreId(undefined);
       setDraftTemplateId(undefined);
+      setDraftAuthorityKey(undefined);
       return;
     }
     setSelectedId(selectedTemplate.id);
@@ -114,13 +182,15 @@ export function MessagesScreen() {
     setEnabledDraft(selectedTemplate.enabled);
     setDraftStoreId(activeStoreId);
     setDraftTemplateId(selectedTemplate.id);
-  }, [activeStoreId, selectedTemplate]);
+    setDraftAuthorityKey(authorityKey);
+  }, [activeStoreId, authorityKey, selectedTemplate]);
 
   const draftMatchesActiveTemplate = Boolean(
     selectedTemplate &&
     activeStoreId &&
     draftStoreId === activeStoreId &&
-    draftTemplateId === selectedTemplate.id,
+    draftTemplateId === selectedTemplate.id &&
+    draftAuthorityKey === authorityKey,
   );
   const activeLabelDraft = draftMatchesActiveTemplate
     ? labelDraft
@@ -144,6 +214,13 @@ export function MessagesScreen() {
     () => renderTemplate(activeBodyDraft, createPreviewTemplateContext(storeQuery.data)),
     [activeBodyDraft, storeQuery.data],
   );
+  const previewAvailability = !canReadStoreSettings
+    ? "unavailable"
+    : storeQuery.isLoading
+      ? "loading"
+      : storeQuery.isError
+        ? "failed"
+        : "ready";
   const templateHealth = useMemo(
     () =>
       evaluateTemplateHealth({
@@ -177,38 +254,147 @@ export function MessagesScreen() {
     });
   }
 
+  function isCurrentAuthority(request: MessageTemplateMutationAuthority) {
+    const current = authorityRef.current;
+    return Boolean(
+      mountedRef.current &&
+      current.epoch === request.authorityEpoch &&
+      current.key === request.authorityKey &&
+      current.storeId === request.storeId &&
+      current.canRead &&
+      current.canUpdate,
+    );
+  }
+
+  function isCurrentCachedAuthority(request: MessageTemplateMutationAuthority) {
+    const current = queryClient.getQueryData<StoreContext>(storesKeys.context);
+    return Boolean(
+      current?.activeStore?.id === request.storeId &&
+      current.activeStore.membershipId === request.membershipId &&
+      current.activeStore.role === request.role &&
+      current.activeStore.status === request.membershipStatus &&
+      current.permissions?.canReadMessageTemplates === true &&
+      current.permissions?.canUpdateMessageTemplates === true,
+    );
+  }
+
+  function canApplyMutationResult(request: MessageTemplateMutationAuthority) {
+    return isCurrentAuthority(request) && isCurrentCachedAuthority(request);
+  }
+
   const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedTemplate) throw new Error("请选择模板");
-      if (!canUpdateMessageTemplates) throw new Error("当前账号没有修改消息模板的权限");
-      if (!draftMatchesActiveTemplate) throw new Error("模板草稿与当前店铺不一致");
-      return updateMessageTemplate(selectedTemplate.id, {
-        label: activeLabelDraft,
-        body_template: activeBodyDraft,
-        enabled: activeEnabledDraft,
-      });
+    mutationFn: async (request: MessageTemplateSaveRequest) => {
+      if (!canApplyMutationResult(request)) throw new Error("STALE_MESSAGE_TEMPLATE_AUTHORITY");
+      const template = await updateMessageTemplate(request.templateId, request.input);
+      if (!canApplyMutationResult(request)) throw new Error("STALE_MESSAGE_TEMPLATE_AUTHORITY");
+      return template;
     },
-    onSuccess: (template) => {
-      toast.success("模板已保存");
+    onSuccess: (template, request) => {
+      if (
+        !canApplyMutationResult(request) ||
+        template.id !== request.templateId ||
+        (template.store_id !== undefined && template.store_id !== request.storeId)
+      ) {
+        return;
+      }
+      toast.success(copy.saved);
       setSelectedId(template.id);
       queryClient.invalidateQueries({ queryKey: messageSettingsKeys.templates });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "保存失败"),
+    onError: (_error, request) => {
+      if (canApplyMutationResult(request)) toast.error(copy.saveFailed);
+    },
+    onSettled: (_data, _error, request) => {
+      if (saveLockRef.current === request.operationId) saveLockRef.current = null;
+    },
   });
 
   const resetMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedTemplate) throw new Error("请选择模板");
-      if (!canUpdateMessageTemplates) throw new Error("当前账号没有修改消息模板的权限");
-      return resetMessageTemplate(selectedTemplate.id);
+    mutationFn: async (request: MessageTemplateResetRequest) => {
+      if (!canApplyMutationResult(request)) throw new Error("STALE_MESSAGE_TEMPLATE_AUTHORITY");
+      const template = await resetMessageTemplate(request.templateId);
+      if (!canApplyMutationResult(request)) throw new Error("STALE_MESSAGE_TEMPLATE_AUTHORITY");
+      return template;
     },
-    onSuccess: (template) => {
-      toast.success("已恢复默认模板");
+    onSuccess: (template, request) => {
+      if (
+        !canApplyMutationResult(request) ||
+        template.id !== request.templateId ||
+        (template.store_id !== undefined && template.store_id !== request.storeId)
+      ) {
+        return;
+      }
+      toast.success(copy.resetDone);
       setSelectedId(template.id);
       queryClient.invalidateQueries({ queryKey: messageSettingsKeys.templates });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "恢复失败"),
+    onError: (_error, request) => {
+      if (canApplyMutationResult(request)) toast.error(copy.resetFailed);
+    },
+    onSettled: (_data, _error, request) => {
+      if (resetLockRef.current === request.operationId) resetLockRef.current = null;
+    },
   });
+
+  function handleSave() {
+    if (
+      saveLockRef.current !== null ||
+      resetLockRef.current !== null ||
+      !selectedTemplate ||
+      !activeStoreId ||
+      !canUpdateMessageTemplates ||
+      !draftMatchesActiveTemplate ||
+      !canSaveTemplate
+    ) {
+      return;
+    }
+    const operationId = ++operationSequenceRef.current;
+    saveLockRef.current = operationId;
+    saveMutation.mutate({
+      operationId,
+      templateId: selectedTemplate.id,
+      storeId: activeStoreId,
+      membershipId: shell.activeStore?.membershipId,
+      role: shell.activeStore?.role,
+      membershipStatus: shell.activeStore?.status,
+      authorityEpoch: authorityRef.current.epoch,
+      authorityKey: authorityRef.current.key,
+      input: {
+        label: activeLabelDraft,
+        body_template: activeBodyDraft,
+        enabled: activeEnabledDraft,
+      },
+    });
+  }
+
+  function handleReset() {
+    if (
+      resetLockRef.current !== null ||
+      saveLockRef.current !== null ||
+      !selectedTemplate ||
+      !activeStoreId ||
+      !canUpdateMessageTemplates ||
+      !findDefaultMessageTemplate(
+        selectedTemplate.domain,
+        selectedTemplate.kind,
+        selectedTemplate.channel,
+      )
+    ) {
+      return;
+    }
+    const operationId = ++operationSequenceRef.current;
+    resetLockRef.current = operationId;
+    resetMutation.mutate({
+      operationId,
+      templateId: selectedTemplate.id,
+      storeId: activeStoreId,
+      membershipId: shell.activeStore?.membershipId,
+      role: shell.activeStore?.role,
+      membershipStatus: shell.activeStore?.status,
+      authorityEpoch: authorityRef.current.epoch,
+      authorityKey: authorityRef.current.key,
+    });
+  }
 
   if (shell.isLoading || (canReadMessageTemplates && templatesQuery.isLoading)) {
     return <MessagesLoading />;
@@ -227,9 +413,9 @@ export function MessagesScreen() {
           className="mx-auto w-full max-w-4xl"
           role="status"
         >
-          <span className="block text-sm font-semibold">无法打开消息模板</span>
+          <span className="block text-sm font-semibold">{copy.noPermissionTitle}</span>
           <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-            当前账号不具备读取消息模板的店铺权限，页面未发送模板查询。
+            {copy.noPermissionDescription}
           </span>
         </RepairOsBusinessCard>
       </RepairOsListScaffold>
@@ -243,9 +429,19 @@ export function MessagesScreen() {
         subtitle={t("page.readFailed")}
         eyebrow={t("page.workspaceMessages")}
         chips={[
-          { key: "enabled", label: "启用", shortLabel: "启", count: "-" },
-          { key: "order", label: "工单", shortLabel: "单", count: "-" },
-          { key: "customer", label: "客户", shortLabel: "客", count: "-" },
+          {
+            key: "enabled",
+            label: copy.chipEnabled,
+            shortLabel: copy.chipEnabledShort,
+            count: "-",
+          },
+          { key: "order", label: copy.chipOrder, shortLabel: copy.chipOrderShort, count: "-" },
+          {
+            key: "customer",
+            label: copy.chipCustomer,
+            shortLabel: copy.chipCustomerShort,
+            count: "-",
+          },
         ]}
       >
         <RepairOsBusinessCard
@@ -265,15 +461,15 @@ export function MessagesScreen() {
               className="min-h-9 bg-card lg:h-8 lg:min-h-0"
               onClick={() => templatesQuery.refetch()}
             >
-              重新加载
+              {copy.reload}
             </Button>
           }
           trailingClassName="shrink-0"
           aria-live="polite"
         >
-          <span className="block text-sm font-semibold">读取消息模板失败</span>
+          <span className="block text-sm font-semibold">{copy.loadFailedTitle}</span>
           <span className="mt-0.5 block text-[11px] leading-4 text-status-danger-foreground/80 lg:text-xs lg:leading-[18px] lg:text-status-danger-foreground">
-            请重新加载模板列表后继续编辑。
+            {copy.loadFailedDescription}
           </span>
         </RepairOsBusinessCard>
       </RepairOsListScaffold>
@@ -288,9 +484,9 @@ export function MessagesScreen() {
       action={
         canUpdateMessageTemplates ? (
           <RepairOsHeaderActionButton
-            ariaLabel="保存模板"
-            disabled={!canSaveTemplate || saveMutation.isPending}
-            onClick={() => saveMutation.mutate()}
+            ariaLabel={copy.saveTemplate}
+            disabled={!canSaveTemplate || saveMutation.isPending || resetMutation.isPending}
+            onClick={handleSave}
           >
             <Check className="size-4" />
           </RepairOsHeaderActionButton>
@@ -302,20 +498,30 @@ export function MessagesScreen() {
             size="sm"
             className={cn("h-9 gap-1.5", controls.brandButton)}
             style={brandGradientStyle}
-            disabled={!canSaveTemplate || saveMutation.isPending}
-            onClick={() => saveMutation.mutate()}
+            disabled={!canSaveTemplate || saveMutation.isPending || resetMutation.isPending}
+            onClick={handleSave}
           >
-            <Check className="mr-1.5 size-3.5" /> 保存模板
+            <Check className="mr-1.5 size-3.5" /> {copy.saveTemplate}
           </Button>
         ) : undefined
       }
       searchValue={search}
       onSearchChange={setSearch}
-      searchPlaceholder="搜索模板"
+      searchPlaceholder={copy.searchPlaceholder}
       chips={[
-        { key: "enabled", label: "启用", shortLabel: "启", count: enabledCount },
-        { key: "order", label: "工单", shortLabel: "单", count: orderCount },
-        { key: "customer", label: "客户", shortLabel: "客", count: customerCount },
+        {
+          key: "enabled",
+          label: copy.chipEnabled,
+          shortLabel: copy.chipEnabledShort,
+          count: enabledCount,
+        },
+        { key: "order", label: copy.chipOrder, shortLabel: copy.chipOrderShort, count: orderCount },
+        {
+          key: "customer",
+          label: copy.chipCustomer,
+          shortLabel: copy.chipCustomerShort,
+          count: customerCount,
+        },
       ]}
     >
       {!canUpdateMessageTemplates ? (
@@ -323,7 +529,7 @@ export function MessagesScreen() {
           data-ui="messages-template-readonly"
           className="mb-3 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 text-xs text-muted-foreground"
         >
-          当前账号可查看和预览消息模板，但不能修改、恢复或保存。
+          {copy.readonlyNotice}
         </div>
       ) : null}
       <section className="grid min-w-0 gap-3 lg:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[320px_minmax(0,1fr)]">
@@ -333,7 +539,7 @@ export function MessagesScreen() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="搜索模板"
+              placeholder={copy.searchPlaceholder}
               className={cn(repairOs.searchInput, "pl-8")}
             />
           </div>
@@ -345,6 +551,7 @@ export function MessagesScreen() {
                 templates={filteredTemplates.filter((template) => template.domain === domain)}
                 selectedId={selectedTemplate?.id}
                 onSelect={setSelectedId}
+                copy={copy}
               />
             ))}
           </div>
@@ -356,7 +563,7 @@ export function MessagesScreen() {
               <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
                 <div className="min-w-0 space-y-1.5">
                   <Label htmlFor="template-label" className="text-xs">
-                    后台标签
+                    {copy.staffLabel}
                   </Label>
                   <Input
                     id="template-label"
@@ -378,7 +585,7 @@ export function MessagesScreen() {
                         checked={activeEnabledDraft}
                         disabled={!canUpdateMessageTemplates}
                         onCheckedChange={setEnabledDraft}
-                        aria-label={activeEnabledDraft ? "停用消息模板" : "启用消息模板"}
+                        aria-label={activeEnabledDraft ? copy.disableTemplate : copy.enableTemplate}
                       />
                     }
                     trailingClassName="shrink-0 self-center"
@@ -387,7 +594,7 @@ export function MessagesScreen() {
                       htmlFor="template-enabled"
                       className="block cursor-pointer text-xs sm:text-sm"
                     >
-                      {activeEnabledDraft ? "启用" : "停用"}
+                      {activeEnabledDraft ? copy.enabled : copy.disabled}
                     </Label>
                   </RepairOsBusinessCard>
                 </div>
@@ -396,7 +603,7 @@ export function MessagesScreen() {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <Label htmlFor="template-body" className="text-xs">
-                    模板正文
+                    {copy.bodyLabel}
                   </Label>
                   <span
                     className={cn(
@@ -406,9 +613,10 @@ export function MessagesScreen() {
                         : "text-muted-foreground",
                     )}
                   >
-                    {unknownVariables.length
-                      ? `未知变量 ${unknownVariables.length} 个`
-                      : `已用变量 ${usedVariables.length} 个`}
+                    {formatMessagesCopy(
+                      unknownVariables.length ? copy.unknownVariableCount : copy.usedVariableCount,
+                      { count: unknownVariables.length || usedVariables.length },
+                    )}
                   </span>
                 </div>
                 <Textarea
@@ -434,6 +642,7 @@ export function MessagesScreen() {
                     className="min-h-9 gap-1.5 lg:h-8 lg:min-h-0"
                     disabled={
                       resetMutation.isPending ||
+                      saveMutation.isPending ||
                       !canUpdateMessageTemplates ||
                       !findDefaultMessageTemplate(
                         selectedTemplate.domain,
@@ -441,20 +650,23 @@ export function MessagesScreen() {
                         selectedTemplate.channel,
                       )
                     }
-                    onClick={() => resetMutation.mutate()}
+                    onClick={handleReset}
                   >
-                    <RotateCcw className="mr-1.5 size-3.5" /> 恢复默认
+                    <RotateCcw className="mr-1.5 size-3.5" /> {copy.resetDefault}
                   </Button>
                   <Button
                     size="sm"
                     className={cn("min-h-10 gap-1.5 lg:h-8 lg:min-h-0", controls.brandButton)}
                     style={brandGradientStyle}
                     disabled={
-                      !canUpdateMessageTemplates || !canSaveTemplate || saveMutation.isPending
+                      !canUpdateMessageTemplates ||
+                      !canSaveTemplate ||
+                      saveMutation.isPending ||
+                      resetMutation.isPending
                     }
-                    onClick={() => saveMutation.mutate()}
+                    onClick={handleSave}
                   >
-                    <Check className="mr-1.5 size-3.5" /> 保存
+                    <Check className="mr-1.5 size-3.5" /> {copy.save}
                   </Button>
                 </div>
               </div>
@@ -463,20 +675,29 @@ export function MessagesScreen() {
             <aside className="grid min-w-0 gap-3 xl:grid-cols-2 min-[1440px]:block min-[1440px]:space-y-4">
               <section className={cn(repairOs.adminSection, "min-w-0")}>
                 <RepairOsSectionHeader
-                  title="变量助手"
-                  description="点击变量插入到当前光标位置。"
+                  title={copy.variableAssistant}
+                  description={copy.variableAssistantDescription}
                   action={
                     <Badge variant={unknownVariables.length ? "destructive" : "secondary"}>
-                      {templateHealth.label}
+                      {
+                        getTemplateHealthPresentation(templateHealth, activeEnabledDraft, copy)
+                          .label
+                      }
                     </Badge>
                   }
                 />
 
-                <TemplateHealthPanel health={templateHealth} />
+                <TemplateHealthPanel
+                  health={templateHealth}
+                  unknownVariables={unknownVariables}
+                  enabled={activeEnabledDraft}
+                  copy={copy}
+                />
 
                 <div className="mt-2 grid min-w-0 gap-1.5 2xl:grid-cols-2">
                   {MESSAGE_TEMPLATE_VARIABLES.map((variable) => {
                     const used = usedVariables.includes(variable.name);
+                    const variableLabel = getVariablePresentationLabel(variable.name, copy);
                     return (
                       <RepairOsBusinessCard
                         key={variable.name}
@@ -497,10 +718,10 @@ export function MessagesScreen() {
                             {`{{${variable.name}}}`}
                           </span>
                         }
-                        title={`插入 ${variable.label}`}
+                        title={formatMessagesCopy(copy.insertVariable, { label: variableLabel })}
                       >
                         <span className="min-w-0 truncate text-[11px] font-medium lg:text-xs lg:leading-4">
-                          {variable.label}
+                          {variableLabel}
                         </span>
                       </RepairOsBusinessCard>
                     );
@@ -510,16 +731,28 @@ export function MessagesScreen() {
 
               <section className={cn(repairOs.adminSection, "min-w-0")}>
                 <RepairOsSectionHeader
-                  title="实时预览"
-                  description={templateHealth.detail}
+                  title={copy.livePreview}
+                  description={
+                    getTemplateHealthPresentation(templateHealth, activeEnabledDraft, copy).detail
+                  }
                   action={
                     <Badge className={templateHealthToneClass(templateHealth.tone)}>
-                      {templateHealth.canSend ? "可发送" : activeEnabledDraft ? "不可发送" : "停用"}
+                      {templateHealth.canSend
+                        ? copy.canSend
+                        : activeEnabledDraft
+                          ? copy.cannotSend
+                          : copy.disabled}
                     </Badge>
                   }
                 />
                 <pre className="mt-2 max-h-[360px] min-w-0 whitespace-pre-wrap break-words rounded-md border border-[var(--border-panel)] bg-surface-muted p-2.5 text-xs leading-relaxed text-foreground [overflow-wrap:anywhere] xl:max-h-[520px]">
-                  {preview || " "}
+                  {previewAvailability === "ready"
+                    ? preview || " "
+                    : previewAvailability === "loading"
+                      ? copy.previewLoading
+                      : previewAvailability === "failed"
+                        ? copy.previewFailed
+                        : copy.previewUnavailable}
                 </pre>
               </section>
             </aside>
@@ -535,9 +768,9 @@ export function MessagesScreen() {
               </span>
             }
           >
-            <span className="block text-sm font-semibold text-foreground">暂无消息模板</span>
+            <span className="block text-sm font-semibold text-foreground">{copy.emptyTitle}</span>
             <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-              新增默认模板后可以在这里编辑启用状态、变量和预览。
+              {copy.emptyDescription}
             </span>
           </RepairOsBusinessCard>
         )}
@@ -546,7 +779,17 @@ export function MessagesScreen() {
   );
 }
 
-function TemplateHealthPanel({ health }: { health: ReturnType<typeof evaluateTemplateHealth> }) {
+function TemplateHealthPanel({
+  health,
+  unknownVariables,
+  enabled,
+  copy,
+}: {
+  health: ReturnType<typeof evaluateTemplateHealth>;
+  unknownVariables: string[];
+  enabled: boolean;
+  copy: MessagesScreenCopy;
+}) {
   if (!health.issues.length) {
     return (
       <RepairOsBusinessCard
@@ -561,7 +804,7 @@ function TemplateHealthPanel({ health }: { health: ReturnType<typeof evaluateTem
         leadingClassName="mt-0.5"
       >
         <span className="block text-[11px] leading-4 lg:text-xs lg:leading-4">
-          模板检查通过，变量和正文都可以用于发送。
+          {enabled ? copy.healthPassed : copy.healthDisabledDetail}
         </span>
       </RepairOsBusinessCard>
     );
@@ -593,7 +836,9 @@ function TemplateHealthPanel({ health }: { health: ReturnType<typeof evaluateTem
           )}
           leadingClassName="mt-0.5"
         >
-          <span className="block text-[11px] leading-4 lg:text-xs lg:leading-4">{issue.label}</span>
+          <span className="block text-[11px] leading-4 lg:text-xs lg:leading-4">
+            {getTemplateHealthIssuePresentation(issue.key, enabled, unknownVariables, copy)}
+          </span>
         </RepairOsBusinessCard>
       ))}
     </div>
@@ -612,11 +857,13 @@ function TemplateGroup({
   templates,
   selectedId,
   onSelect,
+  copy,
 }: {
   domain: keyof typeof domainMeta;
   templates: MessageTemplate[];
   selectedId?: string;
   onSelect: (id: string) => void;
+  copy: MessagesScreenCopy;
 }) {
   const meta = domainMeta[domain];
   const Icon = meta.icon;
@@ -625,7 +872,7 @@ function TemplateGroup({
     <div className="min-w-0">
       <div className="mb-1.5 flex items-center gap-2 px-1 text-[11px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
         <Icon className="size-3.5" />
-        {meta.title}
+        {copy[meta.copyKey]}
       </div>
       <div className="space-y-1.5">
         {templates.length ? (
@@ -652,7 +899,7 @@ function TemplateGroup({
                     )}
                   />
                   <span className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                    {template.enabled ? "启用" : "停用"}
+                    {template.enabled ? copy.enabled : copy.disabled}
                   </span>
                 </span>
               }
@@ -678,7 +925,7 @@ function TemplateGroup({
               </span>
             }
           >
-            <span className="block truncate">无匹配模板</span>
+            <span className="block truncate">{copy.noMatches}</span>
           </RepairOsBusinessCard>
         )}
       </div>
@@ -687,16 +934,22 @@ function TemplateGroup({
 }
 
 function MessagesLoading() {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
+  const copy = getMessagesScreenCopy(locale);
   return (
     <RepairOsListScaffold
       title={t("messages.title")}
       subtitle={t("messages.loading")}
       eyebrow={t("page.workspaceMessages")}
       chips={[
-        { key: "enabled", label: "启用", shortLabel: "启", count: "-" },
-        { key: "order", label: "工单", shortLabel: "单", count: "-" },
-        { key: "customer", label: "客户", shortLabel: "客", count: "-" },
+        { key: "enabled", label: copy.chipEnabled, shortLabel: copy.chipEnabledShort, count: "-" },
+        { key: "order", label: copy.chipOrder, shortLabel: copy.chipOrderShort, count: "-" },
+        {
+          key: "customer",
+          label: copy.chipCustomer,
+          shortLabel: copy.chipCustomerShort,
+          count: "-",
+        },
       ]}
     >
       <section className="grid gap-3 lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -713,6 +966,81 @@ function MessagesLoading() {
       </section>
     </RepairOsListScaffold>
   );
+}
+
+function getTemplateHealthPresentation(
+  health: ReturnType<typeof evaluateTemplateHealth>,
+  enabled: boolean,
+  copy: MessagesScreenCopy,
+) {
+  if (!enabled) {
+    return health.tone === "danger"
+      ? { label: copy.healthDisabledInvalid, detail: copy.healthDisabledInvalidDetail }
+      : { label: copy.healthDisabled, detail: copy.healthDisabledDetail };
+  }
+  if (health.tone === "danger") {
+    return { label: copy.healthBlocked, detail: copy.healthBlockedDetail };
+  }
+  if (health.tone === "warning") {
+    return { label: copy.healthWarning, detail: copy.healthWarningDetail };
+  }
+  return { label: copy.healthEnabled, detail: copy.healthEnabledDetail };
+}
+
+function getTemplateHealthIssuePresentation(
+  issueKey: string,
+  enabled: boolean,
+  unknownVariables: string[],
+  copy: MessagesScreenCopy,
+) {
+  if (issueKey === "empty_body") {
+    return enabled ? copy.issueEmptyEnabled : copy.issueEmptyDisabled;
+  }
+  if (issueKey === "unknown_variables") {
+    return formatMessagesCopy(copy.issueUnknownVariables, {
+      variables: unknownVariables.map((name) => `{{${name}}}`).join(" "),
+    });
+  }
+  if (issueKey === "long_template") return copy.issueLong;
+  return copy.issueFallback;
+}
+
+function getVariablePresentationLabel(name: string, copy: MessagesScreenCopy) {
+  const keys: Record<string, keyof MessagesScreenCopy> = {
+    customer_name: "variableCustomerName",
+    order_no: "variableOrderNo",
+    device_label: "variableDeviceLabel",
+    fault_lines: "variableFaultLines",
+    order_status: "variableOrderStatus",
+    quotation: "variableQuotation",
+    deposit: "variableDeposit",
+    balance: "variableBalance",
+    balance_line: "variableBalanceLine",
+    diagnosis: "variableDiagnosis",
+    diagnosis_line: "variableDiagnosisLine",
+    parts_update_line: "variablePartsUpdateLine",
+    issue_line: "variableIssueLine",
+    cancel_reason_line: "variableCancelReasonLine",
+    order_url: "variableOrderUrl",
+    order_url_line: "variableOrderUrlLine",
+    store_name: "variableStoreName",
+    store_address: "variableStoreAddress",
+    public_base_url: "variablePublicBaseUrl",
+    message_signature: "variableMessageSignature",
+    default_order_warranty_months: "variableDefaultWarrantyMonths",
+    latest_order_line: "variableLatestOrderLine",
+    device_count: "variableDeviceCount",
+    customer_url: "variableCustomerUrl",
+    customer_url_line: "variableCustomerUrlLine",
+  };
+  return copy[keys[name] ?? "variableFallback"];
+}
+
+function formatMessagesCopy(template: string, values: Record<string, string | number>) {
+  return template.replace(/\{(\w+)\}/g, (match, name: string) => {
+    const value = values[name];
+    return value === undefined ? match : String(value);
+  });
 }
 
 function filterTemplates(templates: MessageTemplate[], search: string) {

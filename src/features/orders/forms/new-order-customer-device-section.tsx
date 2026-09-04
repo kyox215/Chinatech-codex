@@ -24,8 +24,8 @@ import {
 import {
   DEVICE_CUSTODY_WITH_CUSTOMER,
   DEVICE_CUSTODY_WITH_SHOP,
-  deviceCustodyLabels,
 } from "@/features/orders/model/device-custody";
+import { localizeDeviceCustody } from "@/features/orders/model/order-i18n";
 import type { DeviceCustodyStatus } from "@/lib/repairdesk/types";
 import type {
   CustomerHistoryDeviceCandidate,
@@ -34,6 +34,7 @@ import type {
 } from "@/lib/repairdesk/api";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 import { useTouchSafeDropdownTrigger } from "@/shared/lib/touch-safe-dropdown-trigger";
 
 type NewOrderCustomerDeviceBaseProps = {
@@ -98,6 +99,7 @@ export function NewOrderCustomerSection({
   onNewCustomerIntentChange,
   surface = "page",
 }: NewOrderCustomerSectionProps) {
+  const { t } = useLocale();
   const shellClass = getShellClass(surface);
 
   return (
@@ -108,8 +110,8 @@ export function NewOrderCustomerSection({
     >
       <OrderWorkspaceSectionHeader
         icon={UserRound}
-        title="客户信息"
-        description="电话优先匹配客户档案"
+        title={t("orders2b1.new.customerInfo")}
+        description={t("orders2b1.new.customerInfoHelp")}
         className="mb-1.5"
       />
       <CustomerIdentityLookup
@@ -179,6 +181,7 @@ export function NewOrderDeviceInfoSection({
   onSelectHistoryDevice,
   surface = "page",
 }: NewOrderDeviceSectionProps) {
+  const { t } = useLocale();
   const shellClass = getShellClass(surface);
   const hasDeviceDraft = Boolean(form.brand.trim() || form.model.trim() || form.imei.trim());
   const modelSuggestions = deviceModelSuggestionsForBrand(form.brand);
@@ -187,8 +190,8 @@ export function NewOrderDeviceInfoSection({
     <section data-new-order-section="device-info" className={cn(shellClass, "space-y-1.5")}>
       <OrderWorkspaceSectionHeader
         icon={Smartphone}
-        title="设备信息"
-        description="记录设备资料与当前保管方"
+        title={t("orders2b1.new.deviceInfo")}
+        description={t("orders2b1.new.deviceInfoHelp")}
         className="mb-1.5"
       />
       <NewOrderDeviceCustodySelector form={form} setForm={setForm} />
@@ -196,10 +199,10 @@ export function NewOrderDeviceInfoSection({
         <div className="mb-1.5 rounded-xl border border-[var(--border-panel)] bg-card p-1.5 shadow-[var(--shadow-card)]">
           <div className="mb-1 flex items-center justify-between gap-2 px-1">
             <span className="truncate text-[10px] font-bold leading-3 text-muted-foreground lg:text-xs lg:leading-4">
-              历史维修型号
+              {t("orders2b1.new.historyModels")}
             </span>
             <span className="shrink-0 text-[9px] font-medium leading-3 text-primary lg:text-[11px] lg:leading-4">
-              手动选择
+              {t("orders2b1.new.manualSelect")}
             </span>
           </div>
           <div className="grid grid-cols-2 gap-1">
@@ -214,7 +217,9 @@ export function NewOrderDeviceInfoSection({
                   {device.brand} {device.model}
                 </span>
                 <span className="mt-0.5 block truncate font-mono text-[9px] font-medium leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-                  {device.serial_or_imei || device.order_public_no || "历史记录"}
+                  {device.serial_or_imei ||
+                    device.order_public_no ||
+                    t("orders2b1.new.historyRecord")}
                 </span>
               </button>
             ))}
@@ -225,12 +230,12 @@ export function NewOrderDeviceInfoSection({
         <DensePillField
           fieldTarget="device-brand"
           inputId="new-order-device-brand"
-          label="品牌"
+          label={t("orders2b1.new.brand")}
           required
           trailingInteractive
           trailing={
             <DenseOptionMenu
-              label="品牌"
+              label={t("orders2b1.new.brand")}
               value={form.brand}
               options={brandSuggestions}
               onSelect={(brand) => setForm({ ...form, brand, deviceId: undefined })}
@@ -244,21 +249,21 @@ export function NewOrderDeviceInfoSection({
               setForm({ ...form, brand: event.target.value, deviceId: undefined })
             }
             className={cn(visualInputClass, "pr-10")}
-            placeholder="选择品牌"
+            placeholder={t("orders2b1.new.brandPlaceholder")}
           />
         </DensePillField>
         <DensePillField
           fieldTarget="device-model"
           inputId="new-order-device-model"
-          label="型号"
+          label={t("orders2b1.new.model")}
           required
           trailingInteractive
           trailing={
             <DenseOptionMenu
-              label="型号"
+              label={t("orders2b1.new.model")}
               value={form.model}
               options={modelSuggestions}
-              emptyText="暂无预设型号，可直接输入"
+              emptyText={t("orders2b1.new.modelEmpty")}
               onSelect={(model) =>
                 setForm({
                   ...form,
@@ -286,7 +291,7 @@ export function NewOrderDeviceInfoSection({
               });
             }}
             className={cn(visualInputClass, "pr-10")}
-            placeholder="例如 iPhone 13"
+            placeholder={t("orders2b1.new.modelPlaceholder")}
           />
         </DensePillField>
         <DenseScannerBlock label="IMEI">
@@ -294,8 +299,8 @@ export function NewOrderDeviceInfoSection({
             <ImeiScannerField
               value={form.imei}
               onChange={(imei) => setForm({ ...form, imei, deviceId: undefined })}
-              placeholder="IMEI / 序列号"
-              inputAriaLabel="IMEI 或序列号"
+              placeholder={t("orders2b1.new.imeiPlaceholder")}
+              inputAriaLabel={t("orders2b1.new.imeiAria")}
               density="compact"
               appearance="quiet"
               showPaste={false}
@@ -303,7 +308,7 @@ export function NewOrderDeviceInfoSection({
           </div>
           <span className="ml-1 hidden h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-[9px] font-medium text-primary min-[430px]:inline-flex lg:text-[11px] lg:leading-4">
             <ScanLine className="size-3.5" />
-            校验
+            {t("orders2b1.new.validate")}
           </span>
         </DenseScannerBlock>
       </div>
@@ -316,23 +321,24 @@ export function NewOrderDeviceUnlockSection({
   setForm,
   surface = "page",
 }: NewOrderCustomerDeviceBaseProps) {
+  const { t } = useLocale();
   const shellClass = getShellClass(surface);
 
   return (
     <section data-new-order-section="device-unlock" className={cn(shellClass, "space-y-1.5")}>
       <OrderWorkspaceSectionHeader
         icon={Smartphone}
-        title="手机密码"
-        description="可选；留店或未留店都可以登记，默认隐藏"
+        title={t("orders2b1.new.unlockTitle")}
+        description={t("orders2b1.new.unlockHelp")}
         className="mb-1.5"
       />
       <div className="rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)]">
         <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
           <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-            手机密码
+            {t("orders2b1.new.unlockTitle")}
           </Label>
           <span className="shrink-0 text-[9px] font-medium leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-            默认隐藏
+            {t("orders2b1.new.hiddenByDefault")}
           </span>
         </div>
         <DeviceUnlockEditor
@@ -341,7 +347,7 @@ export function NewOrderDeviceUnlockSection({
           compact
         />
         <p className="mt-1 rounded-lg bg-status-warn/45 px-2 py-1 text-[9px] leading-3 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
-          本机草稿不保存手机密码、PIN 或图案；在线创建工单时会正常保存。
+          {t("orders2b1.new.unlockNotDrafted")}
         </p>
       </div>
     </section>
@@ -352,6 +358,7 @@ function NewOrderDeviceCustodySelector({
   form,
   setForm,
 }: Pick<NewOrderCustomerDeviceBaseProps, "form" | "setForm">) {
+  const { t } = useLocale();
   const options: Array<{
     value: DeviceCustodyStatus;
     description: string;
@@ -359,12 +366,12 @@ function NewOrderDeviceCustodySelector({
   }> = [
     {
       value: DEVICE_CUSTODY_WITH_SHOP,
-      description: "当前由门店保管，仅作记录",
+      description: t("orders2b1.new.custodyShopHelp"),
       icon: Store,
     },
     {
       value: DEVICE_CUSTODY_WITH_CUSTOMER,
-      description: "当前由客户保管，仅作记录",
+      description: t("orders2b1.new.custodyCustomerHelp"),
       icon: UserRound,
     },
   ];
@@ -376,7 +383,7 @@ function NewOrderDeviceCustodySelector({
       aria-required="true"
     >
       <legend className="text-[10.5px] font-semibold leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-        设备保管状态 <span className="text-destructive">*</span>
+        {t("orders2b1.new.custodyRequired")} <span className="text-destructive">*</span>
       </legend>
       <div className="grid min-w-0 grid-cols-2 gap-1.5">
         {options.map((option) => {
@@ -403,7 +410,7 @@ function NewOrderDeviceCustodySelector({
               <span className="flex min-w-0 items-center gap-1.5">
                 <Icon className="size-3.5 shrink-0" />
                 <span className="truncate text-[11px] font-semibold leading-4 lg:text-xs lg:leading-4">
-                  {deviceCustodyLabels[option.value]}
+                  {localizeDeviceCustody(option.value, undefined, t)}
                 </span>
                 {selected ? <Check className="ml-auto size-3.5 shrink-0" /> : null}
               </span>
@@ -416,7 +423,7 @@ function NewOrderDeviceCustodySelector({
       </div>
       {form.deviceCustodyStatus === null ? (
         <p className="rounded-lg bg-status-warn/45 px-2 py-1 text-[9px] leading-3 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
-          请选择当前设备保管状态。
+          {t("orders2b1.new.custodyMissing")}
         </p>
       ) : null}
     </fieldset>
@@ -498,7 +505,7 @@ function DenseOptionMenu({
   label,
   value,
   options,
-  emptyText = "暂无选项",
+  emptyText,
   onSelect,
 }: {
   label: string;
@@ -507,6 +514,7 @@ function DenseOptionMenu({
   emptyText?: string;
   onSelect: (value: string) => void;
 }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const normalizedValue = value.trim().toLowerCase();
   const touchSafeTrigger = useTouchSafeDropdownTrigger(setOpen);
@@ -517,7 +525,7 @@ function DenseOptionMenu({
         <button
           type="button"
           className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors [touch-action:pan-y] hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          aria-label={`选择${label}`}
+          aria-label={t("orders2b1.new.chooseField", { label })}
           {...touchSafeTrigger}
         >
           <ChevronDown className="size-4" />
@@ -549,7 +557,7 @@ function DenseOptionMenu({
           })
         ) : (
           <DropdownMenuItem disabled className="min-h-9 rounded-lg px-2.5 py-1.5 text-xs">
-            {emptyText}
+            {emptyText ?? t("orders2b1.new.noOptions")}
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>

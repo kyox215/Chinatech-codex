@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PencilLine } from "lucide-react";
 import { toast } from "sonner";
@@ -29,6 +29,8 @@ import {
 } from "@/lib/repairdesk/api";
 import type { ActorStoreMembership, StoreLifecycleActionCapability } from "@/lib/repairdesk/types";
 import { componentOverlay } from "@/lib/component-patterns";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { translateSettingsOperations } from "@/shared/i18n/messages";
 
 export function StoreRenameOverlay({
   store,
@@ -39,12 +41,16 @@ export function StoreRenameOverlay({
   capability: StoreLifecycleActionCapability;
   hasUnsavedProfileDraft: boolean;
 }) {
+  const { locale } = useLocale();
+  const copy = (source: Parameters<typeof translateSettingsOperations>[1]) =>
+    translateSettingsOperations(locale, source);
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(store.name);
   const [syncCustomerName, setSyncCustomerName] = useState(!hasUnsavedProfileDraft);
   const [totpCode, setTotpCode] = useState("");
   const [operationId, setOperationId] = useState("");
+  const renameSubmittingRef = useRef(false);
   const lifecycleQuery = useQuery({
     queryKey: storesKeys.lifecycle(store.id),
     queryFn: () => getStoreLifecycleState(store.id),
@@ -56,13 +62,21 @@ export function StoreRenameOverlay({
     setName(store.name);
     setSyncCustomerName(!hasUnsavedProfileDraft);
     setTotpCode("");
+    renameSubmittingRef.current = false;
     setOperationId(crypto.randomUUID());
   }, [hasUnsavedProfileDraft, open, store.name]);
+
+  useEffect(() => {
+    if (capability.allowed) return;
+    setOpen(false);
+    setTotpCode("");
+    setOperationId("");
+  }, [capability.allowed]);
 
   const mutation = useMutation({
     mutationFn: async () => {
       const lifecycle = lifecycleQuery.data;
-      if (!lifecycle) throw new Error("店铺状态还没有读取完成");
+      if (!lifecycle) throw new Error(copy("店铺状态还没有读取完成"));
       await verifyRecentLifecycleAal2(totpCode);
       const challenge = await issueStoreLifecycleChallenge({
         expectedStoreId: store.id,
@@ -81,11 +95,14 @@ export function StoreRenameOverlay({
     onSuccess: async (result) => {
       queryClient.setQueryData(storesKeys.lifecycle(store.id), result.lifecycle);
       await refreshStoreContextQueries(queryClient);
-      toast.success("店铺名称已修改");
+      toast.success(copy("店铺名称已修改"));
       setOpen(false);
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "修改店铺名称失败"),
-    onSettled: () => setTotpCode(""),
+    onError: () => toast.error(copy("修改店铺名称失败")),
+    onSettled: () => {
+      renameSubmittingRef.current = false;
+      setTotpCode("");
+    },
   });
 
   const requiresTotp = lifecycleMfaRequired();
@@ -109,7 +126,7 @@ export function StoreRenameOverlay({
         onClick={() => setOpen(true)}
       >
         <PencilLine className="size-3.5" aria-hidden="true" />
-        修改名称
+        {copy("修改名称")}
       </Button>
       <Dialog
         open={open}
@@ -119,6 +136,7 @@ export function StoreRenameOverlay({
       >
         <DialogContent
           className={componentOverlay.modalSm}
+          closeLabel={copy("关闭")}
           showCloseButton={!mutation.isPending}
           onEscapeKeyDown={(event) => {
             if (mutation.isPending) event.preventDefault();
@@ -128,16 +146,18 @@ export function StoreRenameOverlay({
           }}
         >
           <DialogHeader>
-            <DialogTitle>修改店铺名称</DialogTitle>
-            <DialogDescription>只修改名称，不会关闭店铺或移动任何资料。</DialogDescription>
+            <DialogTitle>{copy("修改店铺名称")}</DialogTitle>
+            <DialogDescription>
+              {copy("只修改名称，不会关闭店铺或移动任何资料。")}
+            </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 space-y-4 overflow-y-auto">
             <div className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2.5">
-              <p className="text-xs text-muted-foreground">当前名称</p>
+              <p className="text-xs text-muted-foreground">{copy("当前名称")}</p>
               <p className="mt-1 break-words text-sm font-semibold">{store.name}</p>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="store-workspace-new-name">新名称</Label>
+              <Label htmlFor="store-workspace-new-name">{copy("新名称")}</Label>
               <Input
                 id="store-workspace-new-name"
                 value={name}
@@ -155,23 +175,23 @@ export function StoreRenameOverlay({
                 disabled={hasUnsavedProfileDraft || mutation.isPending}
                 onChange={(event) => setSyncCustomerName(event.target.checked)}
               />
-              <span>同时更新收据和客户消息显示名称</span>
+              <span>{copy("同时更新收据和客户消息显示名称")}</span>
             </label>
             {hasUnsavedProfileDraft ? (
               <p className="text-xs leading-5 text-status-warn-foreground">
-                店铺资料还有未保存修改。请先保存或放弃修改，再同步客户显示名称。
+                {copy("店铺资料还有未保存修改。请先保存或放弃修改，再同步客户显示名称。")}
               </p>
             ) : null}
             {requiresTotp ? (
               <div className="space-y-1.5">
-                <Label htmlFor="store-rename-totp">身份验证器中的 6 位安全验证码</Label>
+                <Label htmlFor="store-rename-totp">{copy("身份验证器中的 6 位安全验证码")}</Label>
                 <Input
                   id="store-rename-totp"
                   value={totpCode}
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   maxLength={6}
-                  placeholder="例如 Google Authenticator 中的验证码"
+                  placeholder={copy("例如 Google Authenticator 中的验证码")}
                   disabled={mutation.isPending}
                   onChange={(event) =>
                     setTotpCode(event.target.value.replace(/\D/g, "").slice(0, 6))
@@ -181,7 +201,7 @@ export function StoreRenameOverlay({
             ) : null}
             {mutation.isError ? (
               <p role="alert" className="text-sm text-status-danger-foreground">
-                {mutation.error instanceof Error ? mutation.error.message : "修改失败"}
+                {copy("修改店铺名称失败")}
               </p>
             ) : null}
           </div>
@@ -192,10 +212,18 @@ export function StoreRenameOverlay({
               disabled={mutation.isPending}
               onClick={() => setOpen(false)}
             >
-              取消
+              {copy("取消")}
             </Button>
-            <Button type="button" disabled={!ready} onClick={() => mutation.mutate()}>
-              {mutation.isPending ? "正在修改…" : "确认修改名称"}
+            <Button
+              type="button"
+              disabled={!ready}
+              onClick={() => {
+                if (renameSubmittingRef.current) return;
+                renameSubmittingRef.current = true;
+                mutation.mutate();
+              }}
+            >
+              {mutation.isPending ? copy("正在修改…") : copy("确认修改名称")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -4,6 +4,7 @@ import { useId, useRef, type KeyboardEvent } from "react";
 
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export type CustomerDetailTab<T extends string = string> = {
   key: T;
@@ -26,6 +27,7 @@ export function CustomerDetailTabs<T extends string>({
   panelIdPrefix?: string;
   className?: string;
 }) {
+  const { t } = useLocale();
   const generatedId = useId();
   const prefix = idPrefix ?? `customer-tabs-${generatedId.replace(/:/g, "")}`;
   const controlsPrefix = panelIdPrefix ?? prefix;
@@ -47,7 +49,7 @@ export function CustomerDetailTabs<T extends string>({
     <div
       className={cn("mb-2 grid w-full min-w-0 grid-cols-5 gap-1", className)}
       role="tablist"
-      aria-label="客户详情分组"
+      aria-label={t("customers.detail.tabsLabel")}
     >
       {tabs.map((item, index) => (
         <button
@@ -69,7 +71,9 @@ export function CustomerDetailTabs<T extends string>({
             activeTab === item.key && repairOs.chipActive,
           )}
         >
-          <span className="truncate">{item.label}</span>
+          <span className="min-w-0 whitespace-normal break-words text-center leading-4">
+            {item.label}
+          </span>
           {item.count !== undefined ? (
             <span
               className={cn(

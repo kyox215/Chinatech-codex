@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { PrintPaperMode } from "@/features/orders/components/print-portal";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 const STORAGE_KEY = "repairdesk.order-print-paper-mode";
 
@@ -41,14 +42,13 @@ export function OrderPrintPaperDialog({
   onOpenChange: (open: boolean) => void;
   onSelect: (mode: PrintPaperMode) => void;
 }) {
+  const { t } = useLocale();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>选择打印纸张</DialogTitle>
-          <DialogDescription>
-            将生成固定尺寸 PDF；工单内容和排版完全相同，只改变纸张承载方式。
-          </DialogDescription>
+          <DialogTitle>{t("orders2b2.printPaper.title")}</DialogTitle>
+          <DialogDescription>{t("orders2b2.printPaper.help")}</DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-2">
           <Button
@@ -58,8 +58,8 @@ export function OrderPrintPaperDialog({
           >
             <Printer className="size-5 shrink-0" />
             <span>
-              <strong className="block">A5 横向</strong>
-              <small className="font-normal opacity-80">A5 纸直接打印</small>
+              <strong className="block">{t("orders2b2.printPaper.a5")}</strong>
+              <small className="font-normal opacity-80">{t("orders2b2.printPaper.a5Help")}</small>
             </span>
           </Button>
           <Button
@@ -70,8 +70,10 @@ export function OrderPrintPaperDialog({
           >
             <Maximize2 className="size-5 shrink-0" />
             <span>
-              <strong className="block">A4 横向铺满</strong>
-              <small className="font-normal text-muted-foreground">等比放大到整张 A4</small>
+              <strong className="block">{t("orders2b2.printPaper.a4Landscape")}</strong>
+              <small className="font-normal text-muted-foreground">
+                {t("orders2b2.printPaper.a4LandscapeHelp")}
+              </small>
             </span>
           </Button>
           <Button
@@ -82,8 +84,10 @@ export function OrderPrintPaperDialog({
           >
             <Scissors className="size-5 shrink-0" />
             <span>
-              <strong className="block">A4 上半裁切</strong>
-              <small className="font-normal text-muted-foreground">打印在上半页，沿线裁切</small>
+              <strong className="block">{t("orders2b2.printPaper.a4Half")}</strong>
+              <small className="font-normal text-muted-foreground">
+                {t("orders2b2.printPaper.a4HalfHelp")}
+              </small>
             </span>
           </Button>
           <Button
@@ -94,8 +98,10 @@ export function OrderPrintPaperDialog({
           >
             <Copy className="size-5 shrink-0" />
             <span>
-              <strong className="block">A4 双联</strong>
-              <small className="font-normal text-muted-foreground">同页两份，沿中线裁切</small>
+              <strong className="block">{t("orders2b2.printPaper.a4Duplicate")}</strong>
+              <small className="font-normal text-muted-foreground">
+                {t("orders2b2.printPaper.a4DuplicateHelp")}
+              </small>
             </span>
           </Button>
         </div>

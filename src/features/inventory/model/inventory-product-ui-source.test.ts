@@ -55,8 +55,8 @@ describe("inventory product UI guardrails", () => {
 
   it("keeps the list canary's single accessible heading and mobile search target", () => {
     const listSource = screenSource["inventory-product-list-screen.tsx"];
-    expect(listSource).toContain('<h1 className="sr-only">商品库存</h1>');
-    expect(listSource).toContain('placeholder="搜索商品、SKU、型号"');
+    expect(listSource).toContain('<h1 className="sr-only">{t("inventory2b4.list.title")}</h1>');
+    expect(listSource).toContain('placeholder={t("inventory2b4.list.search")}');
     expect(listSource).toContain('className="h-11 pl-9"');
   });
 

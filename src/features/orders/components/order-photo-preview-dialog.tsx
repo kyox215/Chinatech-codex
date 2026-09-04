@@ -11,8 +11,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { attachmentKindLabels, formatAttachmentSize } from "@/features/capture";
+import { formatAttachmentSize } from "@/features/capture";
+import { localizeOrderAttachmentKind } from "@/features/orders/model/order-detail-i18n";
 import type { OrderAttachment } from "@/lib/repairdesk/types";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function OrderPhotoPreviewDialog({
   attachments,
@@ -23,6 +25,7 @@ export function OrderPhotoPreviewDialog({
   activeId: string | null;
   onActiveIdChange: (id: string | null) => void;
 }) {
+  const { t } = useLocale();
   const activeIndex = activeId
     ? attachments.findIndex((attachment) => attachment.id === activeId)
     : -1;
@@ -44,11 +47,13 @@ export function OrderPhotoPreviewDialog({
         className="w-[calc(100vw-16px)] max-w-[430px] rounded-2xl border border-[var(--border-panel)] bg-card p-2 shadow-[var(--shadow-elevated)] sm:max-w-2xl sm:p-3"
       >
         <DialogHeader className="px-1 pt-1">
-          <DialogTitle className="truncate text-sm">{active?.file_name || "设备照片"}</DialogTitle>
+          <DialogTitle className="truncate text-sm">
+            {active?.file_name || t("orders2b2.photo.device")}
+          </DialogTitle>
           <DialogDescription className="truncate text-[11px]">
             {active
-              ? `${attachmentKindLabels[active.kind] || "照片"} · ${formatAttachmentSize(active.file_size)}`
-              : "查看已保存的设备照片"}
+              ? `${localizeOrderAttachmentKind(active.kind, t)} · ${formatAttachmentSize(active.file_size)}`
+              : t("orders2b2.photo.savedDescription")}
           </DialogDescription>
         </DialogHeader>
 
@@ -56,7 +61,7 @@ export function OrderPhotoPreviewDialog({
           {source ? (
             <img
               src={source}
-              alt={active?.file_name || "设备照片"}
+              alt={active?.file_name || t("orders2b2.photo.device")}
               className="max-h-[70svh] w-full object-contain"
             />
           ) : (
@@ -73,7 +78,7 @@ export function OrderPhotoPreviewDialog({
                 size="icon"
                 className="absolute left-2 top-1/2 size-8 -translate-y-1/2 rounded-full bg-background/85"
                 onClick={() => move(-1)}
-                aria-label="上一张照片"
+                aria-label={t("orders2b2.photo.previous")}
               >
                 <ChevronLeft className="size-4" />
               </Button>
@@ -83,7 +88,7 @@ export function OrderPhotoPreviewDialog({
                 size="icon"
                 className="absolute right-2 top-1/2 size-8 -translate-y-1/2 rounded-full bg-background/85"
                 onClick={() => move(1)}
-                aria-label="下一张照片"
+                aria-label={t("orders2b2.photo.next")}
               >
                 <ChevronRight className="size-4" />
               </Button>
@@ -102,7 +107,7 @@ export function OrderPhotoPreviewDialog({
             className="h-8 rounded-lg text-xs"
             onClick={() => onActiveIdChange(null)}
           >
-            关闭
+            {t("orders2b2.photo.close")}
           </Button>
         </DialogFooter>
       </DialogContent>

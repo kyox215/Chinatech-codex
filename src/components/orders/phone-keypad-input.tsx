@@ -13,6 +13,7 @@ import {
   normalizePhoneKeypadDraft,
   type PhoneKeypadKey,
 } from "@/shared/lib/mobile-input";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 const phoneKeypadRows: PhoneKeypadKey[][] = [
   ["1", "2", "3"],
@@ -45,7 +46,7 @@ export function PhoneKeypadInput({
   value,
   onChange,
   ariaLabel,
-  placeholder = "输入电话号码",
+  placeholder,
   disabled,
   className,
   triggerClassName,
@@ -57,6 +58,8 @@ export function PhoneKeypadInput({
   onOpenChange,
   onCandidateKeyDown,
 }: PhoneKeypadInputProps) {
+  const { t } = useLocale();
+  const resolvedPlaceholder = placeholder ?? t("orders2b1.keypad.phonePlaceholder");
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => normalizePhoneKeypadDraft(value));
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -74,7 +77,7 @@ export function PhoneKeypadInput({
   }, [keyboardSurface, open]);
 
   const displayDraft = open ? draft : normalizePhoneKeypadDraft(value);
-  const displayValue = displayDraft || placeholder;
+  const displayValue = displayDraft || resolvedPlaceholder;
 
   const setOpenState = (nextOpen: boolean) => {
     if (disabled) return;
@@ -134,7 +137,7 @@ export function PhoneKeypadInput({
         aria-activedescendant={ariaActiveDescendant}
         disabled={disabled}
         value={normalizePhoneKeypadDraft(value)}
-        placeholder={placeholder}
+        placeholder={resolvedPlaceholder}
         className={cn(
           "flex min-w-0 font-mono tabular-nums",
           className,
@@ -189,7 +192,7 @@ export function PhoneKeypadInput({
       <VirtualKeyboardDock
         open={open}
         onOpenChange={setOpenState}
-        label={`${ariaLabel} 虚拟数字键盘`}
+        label={t("orders2b1.keypad.phoneLabel", { label: ariaLabel })}
         triggerRef={triggerRef}
         panelClassName={contentClassName}
       >
@@ -197,7 +200,11 @@ export function PhoneKeypadInput({
           <div className="mb-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-right font-mono text-sm font-semibold tabular-nums">
             {draft || "0"}
           </div>
-          <div className="grid gap-1.5" role="group" aria-label={`${ariaLabel} 虚拟数字键盘`}>
+          <div
+            className="grid gap-1.5"
+            role="group"
+            aria-label={t("orders2b1.keypad.phoneLabel", { label: ariaLabel })}
+          >
             {phoneKeypadRows.map((row, rowIndex) => (
               <div key={rowIndex} className="grid grid-cols-3 gap-1.5">
                 {row.map((key) => (
@@ -212,7 +219,7 @@ export function PhoneKeypadInput({
                     data-phone-keypad-done="true"
                   >
                     <Check className="mr-1 size-3.5" />
-                    完成
+                    {t("orders2b1.keypad.done")}
                   </Button>
                 ) : null}
               </div>
@@ -231,6 +238,7 @@ function PhoneKeypadButton({
   keypadKey: PhoneKeypadKey;
   onClick: () => void;
 }) {
+  const { t } = useLocale();
   if (keypadKey === "backspace") {
     return (
       <Button
@@ -239,7 +247,7 @@ function PhoneKeypadButton({
         size="sm"
         className="h-10 rounded-lg"
         onClick={onClick}
-        aria-label="删除最后一位电话号码"
+        aria-label={t("orders2b1.keypad.deletePhone")}
         data-phone-keypad-key={keypadKey}
       >
         <Delete className="size-4" />
@@ -258,7 +266,7 @@ function PhoneKeypadButton({
         data-phone-keypad-key={keypadKey}
       >
         <RotateCcw className="mr-1 size-3.5" />
-        清空
+        {t("orders2b1.keypad.clear")}
       </Button>
     );
   }

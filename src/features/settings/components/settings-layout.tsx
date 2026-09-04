@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 import type { SettingsSectionDefinition } from "@/features/settings/model/settings-section-registry";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export interface SettingsLayoutProps {
   activeSection: SettingsSectionDefinition | null;
@@ -11,6 +12,7 @@ export interface SettingsLayoutProps {
 }
 
 export function SettingsLayout({ activeSection, rail, children }: SettingsLayoutProps) {
+  const { t } = useLocale();
   return (
     <div
       data-settings-layout
@@ -28,7 +30,7 @@ export function SettingsLayout({ activeSection, rail, children }: SettingsLayout
             className="mb-3 hidden min-h-9 items-center gap-2 rounded-lg border border-[var(--border-panel)] bg-card px-3 text-xs font-medium text-foreground shadow-[var(--shadow-card)] transition-colors hover:bg-accent md:flex lg:hidden"
           >
             <ArrowLeft className="size-4" />
-            返回设置总览
+            {t("settings.backOverview")}
           </Link>
         ) : null}
         {children}

@@ -25,6 +25,8 @@ import type { StoreSettingsDraftValues } from "@/features/settings/model/store-s
 import { getStoreOutputDraftProjectionCopy } from "@/features/settings/model/store-output-draft-projection";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { translateSettingsOperations } from "@/shared/i18n/messages";
 import { RepairOsSectionHeader } from "@/shared/ui";
 
 export interface NotificationsSettingsSectionProps {
@@ -52,12 +54,18 @@ export function NotificationsSettingsSection({
   printPreview,
   onDraftChange,
 }: NotificationsSettingsSectionProps) {
+  const { locale } = useLocale();
+  const copy = (
+    source: Parameters<typeof translateSettingsOperations>[1],
+    values?: Parameters<typeof translateSettingsOperations>[2],
+  ) => translateSettingsOperations(locale, source, values);
   return (
     <div data-settings-notifications-section className="min-w-0 space-y-3">
       <NotificationFieldsCard
         draft={draft}
         canUpdateSettings={canUpdateSettings}
         fieldErrors={fieldErrors}
+        copy={copy}
         onDraftChange={onDraftChange}
       />
       <NotificationPreviewCard
@@ -68,6 +76,7 @@ export function NotificationsSettingsSection({
         canReadMessageTemplates={canReadMessageTemplates}
         messagePreview={messagePreview}
         printPreview={printPreview}
+        copy={copy}
       />
     </div>
   );
@@ -77,27 +86,28 @@ function NotificationFieldsCard({
   draft,
   canUpdateSettings,
   fieldErrors,
+  copy,
   onDraftChange,
 }: Pick<
   NotificationsSettingsSectionProps,
   "draft" | "canUpdateSettings" | "fieldErrors" | "onDraftChange"
->) {
+> & { copy: Copy }) {
   return (
     <section className={cn(repairOs.adminSection, "p-2.5 sm:p-3")}>
       <RepairOsSectionHeader
         icon={Printer}
         iconFrame={false}
-        title="输出配置"
+        title={copy("输出配置")}
         action={
           <Badge variant="outline" className="text-[10px] lg:text-[11px] lg:leading-4">
-            {canUpdateSettings ? "可编辑" : "只读"}
+            {copy(canUpdateSettings ? "可编辑" : "只读")}
           </Badge>
         }
       />
       {canUpdateSettings ? (
         <div className="grid min-w-0 gap-3 xl:grid-cols-2">
           <SettingsField
-            label="客户消息签名"
+            label={copy("客户消息签名")}
             htmlFor="message-signature"
             icon={MessageSquare}
             error={getSettingsFieldError(fieldErrors, "message_signature")}
@@ -121,7 +131,7 @@ function NotificationFieldsCard({
             </p>
           </SettingsField>
           <SettingsField
-            label="打印页脚"
+            label={copy("打印页脚")}
             htmlFor="print-footer"
             icon={Printer}
             error={getSettingsFieldError(fieldErrors, "print_footer")}
@@ -147,25 +157,31 @@ function NotificationFieldsCard({
         </div>
       ) : (
         <dl className="grid min-w-0 gap-2 sm:grid-cols-2">
-          <ReadOnlyOutputValue label="客户消息签名" value={draft.message_signature} />
-          <ReadOnlyOutputValue label="打印页脚" value={draft.print_footer} />
+          <ReadOnlyOutputValue
+            label={copy("客户消息签名")}
+            value={draft.message_signature}
+            copy={copy}
+          />
+          <ReadOnlyOutputValue label={copy("打印页脚")} value={draft.print_footer} copy={copy} />
         </dl>
       )}
       <p className="mt-2 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-        这里只保存当前店铺的消息签名与打印页脚；消息模板正文继续在“消息模板”中维护。未保存草稿只更新下方预览，不会立即改变客户输出。
+        {copy(
+          "这里只保存当前店铺的消息签名与打印页脚；消息模板正文继续在“消息模板”中维护。未保存草稿只更新下方预览，不会立即改变客户输出。",
+        )}
       </p>
     </section>
   );
 }
 
-function ReadOnlyOutputValue({ label, value }: { label: string; value: string }) {
+function ReadOnlyOutputValue({ label, value, copy }: { label: string; value: string; copy: Copy }) {
   return (
     <div className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2.5">
       <dt className="text-[10px] font-medium text-muted-foreground lg:text-[11px] lg:leading-4">
         {label}
       </dt>
       <dd className="mt-1 whitespace-pre-wrap break-words text-xs font-semibold leading-4">
-        {value.trim() || "未填写"}
+        {value.trim() || copy("未填写")}
       </dd>
     </div>
   );
@@ -179,6 +195,7 @@ function NotificationPreviewCard({
   canReadMessageTemplates,
   messagePreview,
   printPreview,
+  copy,
 }: Pick<
   NotificationsSettingsSectionProps,
   | "savedOutputIdentity"
@@ -188,7 +205,7 @@ function NotificationPreviewCard({
   | "canReadMessageTemplates"
   | "messagePreview"
   | "printPreview"
->) {
+> & { copy: Copy }) {
   const [preview, setPreview] = useState<"message" | "print" | null>(null);
   const projection = isDraftDirty
     ? getStoreOutputDraftProjectionCopy(
@@ -199,9 +216,11 @@ function NotificationPreviewCard({
   const recoveryHref =
     savedOutputIdentity.recoveryTarget === "store" ? "/settings?section=store" : null;
   const outputWarning = !savedOutputIdentity.canOutput
-    ? (projection ?? savedOutputIdentity.blockReason)
+    ? projection
+      ? copy(projection)
+      : outputIdentityWarning(savedOutputIdentity, copy)
     : isDraftDirty && !draftOutputIdentity.canOutput
-      ? projection
+      ? projection && copy(projection)
       : null;
 
   return (
@@ -213,7 +232,7 @@ function NotificationPreviewCard({
           className="rounded-xl border border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2.5 text-status-warn-foreground"
         >
           <p className="text-xs font-semibold">
-            {savedOutputIdentity.canOutput ? "保存后将暂停客户输出" : "客户输出当前保持关闭"}
+            {copy(savedOutputIdentity.canOutput ? "保存后将暂停客户输出" : "客户输出当前保持关闭")}
           </p>
           <p className="mt-1 text-[11px] leading-4 lg:text-xs lg:leading-4">{outputWarning}</p>
           {recoveryHref ? (
@@ -224,7 +243,9 @@ function NotificationPreviewCard({
               variant="outline"
               className="mt-2 min-h-11 w-full border-status-warn-foreground/30 bg-background sm:w-auto sm:min-h-9"
             >
-              <Link href={recoveryHref}>{canUpdateSettings ? "补充店铺资料" : "查看店铺资料"}</Link>
+              <Link href={recoveryHref}>
+                {copy(canUpdateSettings ? "补充店铺资料" : "查看店铺资料")}
+              </Link>
             </Button>
           ) : null}
         </div>
@@ -239,7 +260,7 @@ function NotificationPreviewCard({
         {!outputWarning ? (
           <span className="inline-flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
             <MessageSquare className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
-            预览与消息模板
+            {copy("预览与消息模板")}
           </span>
         ) : null}
         <Button
@@ -249,7 +270,7 @@ function NotificationPreviewCard({
           onClick={() => setPreview("message")}
         >
           <MessageSquare className="size-3.5" />
-          预览客户消息
+          {copy("预览客户消息")}
         </Button>
         <Button
           type="button"
@@ -258,9 +279,9 @@ function NotificationPreviewCard({
           onClick={() => setPreview("print")}
         >
           <Printer className="size-3.5" />
-          预览打印资料
+          {copy("预览打印资料")}
         </Button>
-        <MessageTemplatesAction canReadMessageTemplates={canReadMessageTemplates} />
+        <MessageTemplatesAction canReadMessageTemplates={canReadMessageTemplates} copy={copy} />
       </div>
 
       <Dialog open={preview !== null} onOpenChange={(open) => !open && setPreview(null)}>
@@ -269,27 +290,29 @@ function NotificationPreviewCard({
             <DialogTitle>
               {preview === "message"
                 ? isDraftDirty
-                  ? "未保存草稿 · 客户消息"
-                  : "客户消息预览"
+                  ? copy("未保存草稿 · 客户消息")
+                  : copy("客户消息预览")
                 : isDraftDirty
-                  ? "未保存草稿 · 打印资料"
-                  : "打印资料预览"}
+                  ? copy("未保存草稿 · 打印资料")
+                  : copy("打印资料预览")}
             </DialogTitle>
             <DialogDescription>
               {isDraftDirty
-                ? "这是当前草稿的预览；保存后才会影响客户输出。"
-                : "这是当前已保存店铺资料生成的预览。"}
+                ? copy("这是当前草稿的预览；保存后才会影响客户输出。")
+                : copy("这是当前已保存店铺资料生成的预览。")}
             </DialogDescription>
           </DialogHeader>
           {preview === "message" ? (
             <OutputPreview
-              title={isDraftDirty ? "未保存草稿 · 客户消息" : "客户消息预览"}
+              title={isDraftDirty ? copy("未保存草稿 · 客户消息") : copy("客户消息预览")}
+              kind="message"
               icon={MessageSquare}
               value={messagePreview}
             />
           ) : preview === "print" ? (
             <OutputPreview
-              title={isDraftDirty ? "未保存草稿 · 打印资料" : "打印资料预览"}
+              title={isDraftDirty ? copy("未保存草稿 · 打印资料") : copy("打印资料预览")}
+              kind="print"
               icon={Printer}
               value={printPreview}
             />
@@ -304,12 +327,14 @@ function OutputPreview({
   title,
   icon: Icon,
   value,
+  kind,
 }: {
   title: string;
   icon: typeof Printer;
   value: string;
+  kind: "message" | "print";
 }) {
-  const titleId = `settings-output-preview-${title.includes("消息") ? "message" : "print"}`;
+  const titleId = `settings-output-preview-${kind}`;
   return (
     <div className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-card p-3">
       <p id={titleId} className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold">
@@ -329,7 +354,8 @@ function OutputPreview({
 
 function MessageTemplatesAction({
   canReadMessageTemplates,
-}: Pick<NotificationsSettingsSectionProps, "canReadMessageTemplates">) {
+  copy,
+}: Pick<NotificationsSettingsSectionProps, "canReadMessageTemplates"> & { copy: Copy }) {
   return canReadMessageTemplates ? (
     <Button
       asChild
@@ -340,7 +366,7 @@ function MessageTemplatesAction({
     >
       <Link href="/messages">
         <MessagesSquare className="size-3.5" aria-hidden="true" />
-        打开消息模板
+        {copy("打开消息模板")}
         <ArrowRight className="size-3.5" />
       </Link>
     </Button>
@@ -350,7 +376,31 @@ function MessageTemplatesAction({
       data-settings-message-templates
       className="min-h-11 shrink-0 px-2 text-[10px] lg:min-h-9 lg:text-[11px] lg:leading-4"
     >
-      当前账号无模板读取权限
+      {copy("当前账号无模板读取权限")}
     </Badge>
   );
+}
+
+type Copy = (
+  source: Parameters<typeof translateSettingsOperations>[1],
+  values?: Parameters<typeof translateSettingsOperations>[2],
+) => string;
+
+function outputIdentityWarning(identity: StoreOutputIdentity, copy: Copy) {
+  switch (identity.blockCode) {
+    case "settings_loading":
+      return copy("正在读取当前店铺资料");
+    case "settings_load_failed":
+      return copy("无法读取当前店铺资料");
+    case "store_context_mismatch":
+      return copy("当前店铺资料与设置所属店铺不一致");
+    case "legacy_identity":
+      return copy("检测到需要重新确认的旧店铺身份资料，请先更新店铺资料");
+    case "missing_store_name":
+      return copy("请先在设置中填写当前店铺名称");
+    case "missing_required_fields":
+      return copy("请先补齐当前店铺资料");
+    default:
+      return copy("读取失败，请稍后重试。");
+  }
 }

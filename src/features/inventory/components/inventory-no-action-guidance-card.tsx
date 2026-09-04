@@ -4,7 +4,10 @@ import { CircleAlert, ClipboardCheck, Eye, Loader2, ShieldCheck } from "lucide-r
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import type { MessageKey } from "@/shared/i18n/messages";
 
+import { localizeInventoryNoActionGuidance } from "../lifecycle/model/inventory-lifecycle-i18n";
 import type { InventoryNoActionGuidance } from "../model/inventory-no-action-guidance";
 
 export type InventoryNoActionGuidanceCardProps = {
@@ -14,40 +17,37 @@ export type InventoryNoActionGuidanceCardProps = {
   className?: string;
 };
 
-const copy = {
+const copy: Record<
+  InventoryNoActionGuidance["state"],
+  { title: MessageKey; role: "alert" | "status"; icon: typeof CircleAlert }
+> = {
   "projection-unavailable": {
-    title: "生命周期投影暂不可用",
-    body: "已读取当前资料，但服务端未返回可用的生命周期投影；页面不会猜测写入动作。请只读核对库存与业务事实。",
+    title: "inventory2b4.noAction.title.projectionUnavailable",
     role: "alert" as const,
     icon: CircleAlert,
   },
   "facts-need-review": {
-    title: "资料需要人工核对",
-    body: "已确认的业务事实存在待核对项；页面暂不提供写入动作。请只读核对库存、订单或案件资料。",
+    title: "inventory2b4.noAction.title.factsNeedReview",
     role: "alert" as const,
     icon: ClipboardCheck,
   },
   "terminal-complete": {
-    title: "当前流程已完成",
-    body: "已确认当前业务事实处于完成或终止状态；下一步仅查看记录或返回库存，不会重复写入。",
+    title: "inventory2b4.noAction.title.terminalComplete",
     role: "status" as const,
     icon: ShieldCheck,
   },
   "server-readonly": {
-    title: "服务端未提供可执行动作",
-    body: "服务端已确认当前没有可执行动作；页面不会猜测权限原因。请只读核对最新状态或返回库存。",
+    title: "inventory2b4.noAction.title.serverReadonly",
     role: "status" as const,
     icon: Eye,
   },
   "target-unavailable": {
-    title: "当前目标动作不可用",
-    body: "服务端返回了其他业务动作，但当前页面目标未被允许。请只读核对最新状态，不会把它解释为权限结论。",
+    title: "inventory2b4.noAction.title.targetUnavailable",
     role: "status" as const,
     icon: Eye,
   },
   loading: {
-    title: "正在读取下一动作",
-    body: "正在读取服务端事实；在读取完成前不会猜测或展示写入动作。",
+    title: "inventory2b4.noAction.title.loading",
     role: "status" as const,
     icon: Loader2,
   },
@@ -59,12 +59,13 @@ export function InventoryNoActionGuidanceCard({
   privacyRedacted = false,
   className,
 }: InventoryNoActionGuidanceCardProps) {
+  const { t } = useLocale();
   const stateCopy = copy[guidance.state];
   const isLoading = guidance.state === "loading";
   const Icon = stateCopy.icon;
   const body = privacyRedacted
-    ? "已读取安全状态；业务详情已裁剪。请只读核对当前页面，不会执行写入。"
-    : stateCopy.body;
+    ? t("inventory2b4.noAction.redacted")
+    : localizeInventoryNoActionGuidance(guidance, t);
 
   return (
     <section
@@ -88,7 +89,7 @@ export function InventoryNoActionGuidanceCard({
           />
         </span>
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold">{stateCopy.title}</h3>
+          <h3 className="text-sm font-semibold">{t(stateCopy.title)}</h3>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">{body}</p>
         </div>
       </div>
@@ -100,7 +101,7 @@ export function InventoryNoActionGuidanceCard({
           onClick={() => void onReadOnly()}
         >
           <Eye className="size-4" aria-hidden="true" />
-          只读核对最新状态
+          {t("inventory2b4.noAction.readOnly")}
         </Button>
       ) : null}
     </section>

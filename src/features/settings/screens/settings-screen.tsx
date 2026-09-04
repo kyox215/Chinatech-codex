@@ -45,10 +45,6 @@ import { suppliersKeys } from "@/features/suppliers/api/query-keys";
 import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import { buildAccountSettingsSummary } from "@/features/settings/model/account-settings-summary";
 import {
-  getOrderDataAccessDescription,
-  getOrderDataAccessSummary,
-} from "@/features/settings/model/order-data-access-copy";
-import {
   getSettingsFieldError as fieldError,
   getSettingsFieldErrorId as fieldErrorId,
 } from "@/features/settings/model/settings-field-errors";
@@ -82,8 +78,8 @@ import {
 } from "@/features/settings/model/settings-section-access";
 import {
   getSettingsSection,
+  getSettingsSectionGroups,
   parseSettingsView,
-  SETTINGS_SECTION_GROUPS,
 } from "@/features/settings/model/settings-section-registry";
 import {
   acceptStoreBoundTransientValue,
@@ -93,6 +89,8 @@ import {
 import { storesKeys } from "@/features/stores/api/query-keys";
 import { RepairOsBusinessCard, RepairOsListScaffold, RepairOsSectionHeader } from "@/shared/ui";
 import { useLocale } from "@/shared/i18n/locale-provider";
+import { translateSettingsOperations, type MessageKey } from "@/shared/i18n/messages";
+import type { OrderDataAccessCode } from "@/lib/repairdesk/types";
 import {
   acceptKioskSession,
   createStore,
@@ -183,6 +181,49 @@ interface StoreBoundKioskReturnDrafts {
 
 const emptyKioskReturnDrafts: StoreBoundKioskReturnDrafts = { drafts: {} };
 
+const orderDataAccessPresentationKeys: Record<
+  OrderDataAccessCode,
+  { summary: MessageKey; description: MessageKey }
+> = {
+  available: {
+    summary: "settings.orderDataAccess.summary.available",
+    description: "settings.orderDataAccess.summary.available",
+  },
+  available_export_only: {
+    summary: "settings.orderDataAccess.summary.availableExportOnly",
+    description: "settings.orderDataAccess.summary.availableExportOnly",
+  },
+  feature_disabled: {
+    summary: "settings.orderDataAccess.summary.featureDisabled",
+    description: "settings.orderDataAccess.description.featureDisabled",
+  },
+  store_context_required: {
+    summary: "settings.orderDataAccess.summary.storeContextRequired",
+    description: "settings.orderDataAccess.description.storeContextRequired",
+  },
+  owner_role_required: {
+    summary: "settings.orderDataAccess.summary.ownerRoleRequired",
+    description: "settings.orderDataAccess.description.ownerRoleRequired",
+  },
+  primary_owner_required: {
+    summary: "settings.orderDataAccess.summary.primaryOwnerRequired",
+    description: "settings.orderDataAccess.description.primaryOwnerRequired",
+  },
+  store_unavailable: {
+    summary: "settings.orderDataAccess.summary.storeUnavailable",
+    description: "settings.orderDataAccess.description.storeUnavailable",
+  },
+};
+
+const unavailableOrderDataAccessPresentationKeys = {
+  summary: "settings.orderDataAccess.summary.unavailable",
+  description: "settings.orderDataAccess.description.unavailable",
+} as const satisfies { summary: MessageKey; description: MessageKey };
+
+function getOrderDataAccessPresentationKeys(code: OrderDataAccessCode | undefined) {
+  return code ? orderDataAccessPresentationKeys[code] : unavailableOrderDataAccessPresentationKeys;
+}
+
 function canSaveDraftInSection(section: SettingsSectionKey) {
   return section === "store" || section === "notifications" || section === "rules";
 }
@@ -193,8 +234,41 @@ function isStoreSettingsDraftSection(
   return section === "store" || section === "notifications" || section === "rules";
 }
 
+const SETTINGS_FIELDS_BY_SECTION: Record<StoreSettingsSection, ReadonlySet<string>> = {
+  store: new Set([
+    "input.store_name",
+    "input.store_address",
+    "input.store_phone",
+    "input.store_whatsapp",
+    "input.store_email",
+    "input.public_base_url",
+  ]),
+  notifications: new Set(["input.message_signature", "input.print_footer"]),
+  rules: new Set([
+    "input.default_order_warranty_months",
+    "input.default_inventory_warranty_months",
+    "input.new_order_entry_mode",
+  ]),
+};
+
+function sanitizeSettingsFieldErrors(
+  errors: Record<string, string[]>,
+  section: StoreSettingsSection,
+  safeMessage: string,
+) {
+  return Object.fromEntries(
+    Object.keys(errors)
+      .filter((field) => SETTINGS_FIELDS_BY_SECTION[section].has(field))
+      .map((field) => [field, [safeMessage]]),
+  );
+}
+
 export function SettingsScreen() {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
+  const operationsCopy = (
+    source: Parameters<typeof translateSettingsOperations>[1],
+    values?: Record<string, string | number>,
+  ) => translateSettingsOperations(locale, source, values);
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { runGuardedTransition } = useNavigationGuard();
@@ -226,6 +300,7 @@ export function SettingsScreen() {
   const canManageCostCurrencies = settingsCapabilities?.canManageCostCurrencies === true;
   const canPreviewCostBackfill = settingsCapabilities?.canPreviewCostBackfill === true;
   const canApplyCostBackfill = settingsCapabilities?.canApplyCostBackfill === true;
+  const canReadStoreSettings = settingsCapabilities?.canReadStoreSettings === true;
   const canUpdateStoreSettings = settingsCapabilities?.canUpdateStoreSettings === true;
   const canConfigureWorkflow = settingsCapabilities?.canConfigureWorkflow === true;
   const canListMembers = settingsCapabilities?.canListMembers === true;
@@ -301,6 +376,7 @@ export function SettingsScreen() {
   const [accountNameDraft, setAccountNameDraft] = useState("");
   const accountNameDraftRef = useRef("");
   const accountNameBaseRef = useRef("");
+  const accountNameSaveLockRef = useRef(false);
   const [newStoreName, setNewStoreName] = useState("");
   const [newStoreAddress, setNewStoreAddress] = useState("");
   const [supplierActionError, setSupplierActionError] = useState("");
@@ -323,8 +399,30 @@ export function SettingsScreen() {
   const persistedKioskReturnDraftStateRef =
     useRef<StoreBoundKioskReturnDrafts>(emptyKioskReturnDrafts);
   const activeStoreScopeRef = useRef({ storeId: activeStoreId, epoch: 0 });
+  const settingsSaveAuthorityRef = useRef({
+    storeId: activeStoreId,
+    canRead: canReadStoreSettings,
+    canUpdate: canUpdateStoreSettings,
+    epoch: 0,
+  });
+  const currentSettingsSaveAuthority = settingsSaveAuthorityRef.current;
+  if (
+    currentSettingsSaveAuthority.storeId !== activeStoreId ||
+    currentSettingsSaveAuthority.canRead !== canReadStoreSettings ||
+    currentSettingsSaveAuthority.canUpdate !== canUpdateStoreSettings
+  ) {
+    settingsSaveAuthorityRef.current = {
+      storeId: activeStoreId,
+      canRead: canReadStoreSettings,
+      canUpdate: canUpdateStoreSettings,
+      epoch: currentSettingsSaveAuthority.epoch + 1,
+    };
+  }
   const inviteCodeRequestEpochRef = useRef(0);
   const kioskPairingRequestEpochRef = useRef(0);
+  const createStoreSubmittingRef = useRef(false);
+  const createStoreAttemptRef = useRef<{ fingerprint: string; requestId: string } | null>(null);
+  const lifecyclePreflightSubmittingRef = useRef(false);
 
   useEffect(() => {
     const currentScope = activeStoreScopeRef.current;
@@ -335,6 +433,9 @@ export function SettingsScreen() {
     };
     inviteCodeRequestEpochRef.current += 1;
     kioskPairingRequestEpochRef.current += 1;
+    createStoreSubmittingRef.current = false;
+    createStoreAttemptRef.current = null;
+    lifecyclePreflightSubmittingRef.current = false;
     setLatestInviteCodeState(null);
     setLatestKioskPairingCodeState(null);
     settingsDraftsRef.current = null;
@@ -352,17 +453,64 @@ export function SettingsScreen() {
   }, [activeStoreId]);
 
   useEffect(() => {
-    const next = activeStoreId
-      ? {
-          storeId: activeStoreId,
-          drafts: readKioskReturnDrafts(window.sessionStorage, activeStoreId),
-        }
-      : emptyKioskReturnDrafts;
+    if (!settingsCapabilities || canUpdateStoreSettings) return;
+    createStoreSubmittingRef.current = false;
+    createStoreAttemptRef.current = null;
+    lifecyclePreflightSubmittingRef.current = false;
+  }, [canUpdateStoreSettings, settingsCapabilities]);
+
+  useEffect(() => {
+    if (!settingsCapabilities || (canReadStoreSettings && canUpdateStoreSettings)) return;
+    saveInFlightRef.current = false;
+    const next =
+      canReadStoreSettings && settingsData && settingsData.store_id === activeStoreId
+        ? createStoreSettingsDrafts(settingsData)
+        : null;
+    settingsDraftsRef.current = next;
+    setSettingsDrafts(next);
+    setSaveStatusBySection(initialSaveStatus);
+    setSettingsFieldErrors({});
+  }, [
+    activeStoreId,
+    canReadStoreSettings,
+    canUpdateStoreSettings,
+    settingsCapabilities,
+    settingsData,
+  ]);
+
+  useEffect(() => {
+    if (!settingsCapabilities || canManageKioskDevices) return;
+    kioskPairingRequestEpochRef.current += 1;
+    setLatestKioskPairingCodeState(null);
+  }, [canManageKioskDevices, settingsCapabilities]);
+
+  useEffect(() => {
+    const next =
+      activeStoreId && canReviewKioskSessions
+        ? {
+            storeId: activeStoreId,
+            drafts: readKioskReturnDrafts(window.sessionStorage, activeStoreId),
+          }
+        : emptyKioskReturnDrafts;
     kioskReturnDraftStateRef.current = next;
     persistedKioskReturnDraftStateRef.current = next;
     setKioskReturnDraftState(next);
     setPersistedKioskReturnDraftState(next);
-  }, [activeStoreId]);
+  }, [activeStoreId, canReviewKioskSessions]);
+
+  useEffect(() => {
+    if (!settingsCapabilities || canReviewKioskSessions || !activeStoreId) return;
+    const next = { storeId: activeStoreId, drafts: {} };
+    kioskReturnDraftStateRef.current = next;
+    persistedKioskReturnDraftStateRef.current = next;
+    setKioskReturnDraftState(next);
+    setPersistedKioskReturnDraftState(next);
+    try {
+      writeKioskReturnDrafts(window.sessionStorage, activeStoreId, {});
+    } catch {
+      // Permission loss still clears in-memory customer content; storage cleanup is best-effort.
+    }
+  }, [activeStoreId, canReviewKioskSessions, settingsCapabilities]);
 
   useEffect(() => {
     if (!latestInviteCodeState?.expiresAt) return;
@@ -491,31 +639,51 @@ export function SettingsScreen() {
     mutationFn: async ({
       section,
       request,
+      authorityEpoch,
     }: {
       section: StoreSettingsSection;
       request: StoreSettingsSectionUpdateRequest;
+      authorityEpoch: number;
     }) => {
-      if (!activeStoreId) throw new Error("设置未加载或店铺已切换");
-      if (!canUpdateStoreSettings) throw new Error("当前账号没有修改店铺设置的权限");
+      const authority = settingsSaveAuthorityRef.current;
+      if (
+        !authority.storeId ||
+        authority.storeId !== request.expectedStoreId ||
+        authority.epoch !== authorityEpoch ||
+        !authority.canRead ||
+        !authority.canUpdate
+      ) {
+        throw new Error("settings_store_update_forbidden");
+      }
       const settings = await updateStoreSettings(request);
-      return { settings, requestedStoreId: activeStoreId, section };
+      return {
+        settings,
+        requestedStoreId: request.expectedStoreId,
+        requestAuthorityEpoch: authorityEpoch,
+        section,
+      };
     },
-    onSuccess: ({ settings, requestedStoreId, section }) => {
-      const currentStoreId = queryClient.getQueryData<{
-        activeStore?: { id: string };
-      }>(storesKeys.context)?.activeStore?.id;
+    onSuccess: ({ settings, requestedStoreId, requestAuthorityEpoch, section }) => {
+      const currentContext = queryClient.getQueryData<Awaited<ReturnType<typeof getStoreContext>>>(
+        storesKeys.context,
+      );
+      const authority = settingsSaveAuthorityRef.current;
       if (
         settings.store_id !== requestedStoreId ||
-        currentStoreId !== requestedStoreId ||
-        activeStoreScopeRef.current.storeId !== requestedStoreId
+        currentContext?.activeStore?.id !== requestedStoreId ||
+        currentContext.permissions?.canReadStoreSettings !== true ||
+        currentContext.permissions?.canUpdateStoreSettings !== true ||
+        authority.storeId !== requestedStoreId ||
+        authority.epoch !== requestAuthorityEpoch ||
+        !authority.canRead ||
+        !authority.canUpdate
       ) {
-        settingsDraftsRef.current = null;
-        setSettingsDrafts(null);
-        toast.error("店铺上下文已变化，旧设置响应未应用，请重新加载当前店铺");
         return;
       }
       toast.success(
-        section === "rules" ? "设置已保存；接单模式将在下次打开快速接单时生效" : "设置已保存",
+        section === "rules"
+          ? operationsCopy("设置已保存；接单模式将在下次打开快速接单时生效")
+          : operationsCopy("设置已保存"),
       );
       const current = settingsDraftsRef.current;
       if (current?.storeId === requestedStoreId) {
@@ -530,6 +698,21 @@ export function SettingsScreen() {
       queryClient.invalidateQueries({ queryKey: messageSettingsKeys.templates });
     },
     onError: (error, variables) => {
+      const currentContext = queryClient.getQueryData<Awaited<ReturnType<typeof getStoreContext>>>(
+        storesKeys.context,
+      );
+      const authority = settingsSaveAuthorityRef.current;
+      if (
+        currentContext?.activeStore?.id !== variables.request.expectedStoreId ||
+        currentContext.permissions?.canReadStoreSettings !== true ||
+        currentContext.permissions?.canUpdateStoreSettings !== true ||
+        authority.storeId !== variables.request.expectedStoreId ||
+        authority.epoch !== variables.authorityEpoch ||
+        !authority.canRead ||
+        !authority.canUpdate
+      ) {
+        return;
+      }
       const status: SettingsSaveStatus =
         error instanceof RepairDeskApiError && error.code === SETTINGS_ERROR_CODES.versionConflict
           ? "conflict"
@@ -541,8 +724,13 @@ export function SettingsScreen() {
               : "error";
       setSaveStatusBySection((statuses) => ({ ...statuses, [variables.section]: status }));
       if (error instanceof RepairDeskApiError && error.fieldErrors) {
-        setSettingsFieldErrors(error.fieldErrors);
-        queueMicrotask(() => focusFirstSettingsError(error.fieldErrors));
+        const safeFieldErrors = sanitizeSettingsFieldErrors(
+          error.fieldErrors,
+          variables.section,
+          t("settings.save.status.validation"),
+        );
+        setSettingsFieldErrors(safeFieldErrors);
+        queueMicrotask(() => focusFirstSettingsError(safeFieldErrors));
       }
       if (
         error instanceof RepairDeskApiError &&
@@ -577,10 +765,29 @@ export function SettingsScreen() {
           focus: () => focusFirstSettingsError(validation.fieldErrors),
         };
       }
-      await saveMutation.mutateAsync({ section, request: validation.data });
+      const authority = settingsSaveAuthorityRef.current;
+      if (
+        authority.storeId !== validation.data.expectedStoreId ||
+        !authority.canRead ||
+        !authority.canUpdate
+      ) {
+        return { status: "blocked" };
+      }
+      await saveMutation.mutateAsync({
+        section,
+        request: validation.data,
+        authorityEpoch: authority.epoch,
+      });
       return { status: "resolved" };
     } catch (error) {
-      const fieldErrors = error instanceof RepairDeskApiError ? error.fieldErrors : undefined;
+      const fieldErrors =
+        error instanceof RepairDeskApiError && error.fieldErrors
+          ? sanitizeSettingsFieldErrors(
+              error.fieldErrors,
+              section,
+              t("settings.save.status.validation"),
+            )
+          : undefined;
       return {
         status: "blocked",
         focus: fieldErrors ? () => focusFirstSettingsError(fieldErrors) : focusSettingsSaveState,
@@ -633,7 +840,7 @@ export function SettingsScreen() {
   const updateAccountMutation = useMutation({
     mutationFn: async () => updateAccountProfile({ display_name: accountName }),
     onSuccess: async (status) => {
-      toast.success("账号名称已保存");
+      toast.success(t("settings.accountSection.saved"));
       accountNameDraftRef.current = status.displayName;
       accountNameBaseRef.current = status.displayName;
       setAccountNameDraft(status.displayName);
@@ -646,8 +853,18 @@ export function SettingsScreen() {
         queryClient.invalidateQueries({ queryKey: ordersKeys.options() }),
       ]);
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "账号名称保存失败"),
+    onError: () => toast.error(t("settings.accountSection.saveErrorShort")),
   });
+  const updateAccountNameOnce = async () => {
+    if (accountNameSaveLockRef.current) return false;
+    accountNameSaveLockRef.current = true;
+    try {
+      await updateAccountMutation.mutateAsync();
+      return true;
+    } finally {
+      accountNameSaveLockRef.current = false;
+    }
+  };
   const saveAccountNameDraft = async (): Promise<NavigationGuardResolution> => {
     if (!accountNameDirty) return { status: "resolved" };
     if (!accountName) {
@@ -657,7 +874,12 @@ export function SettingsScreen() {
       };
     }
     try {
-      await updateAccountMutation.mutateAsync();
+      if (!(await updateAccountNameOnce())) {
+        return {
+          status: "blocked",
+          focus: () => document.getElementById("account-display-name")?.focus(),
+        };
+      }
       return { status: "resolved" };
     } catch {
       return {
@@ -714,7 +936,7 @@ export function SettingsScreen() {
     try {
       writeKioskReturnDrafts(window.sessionStorage, storeId, persistedDrafts);
     } catch {
-      toast.warning("审核已完成，但本机退回原因草稿清理失败");
+      toast.warning(operationsCopy("审核已完成，但本机退回原因草稿清理失败"));
     }
   };
   const saveKioskReturnDrafts = async (): Promise<NavigationGuardResolution> => {
@@ -783,11 +1005,11 @@ export function SettingsScreen() {
       invalidateSupplierCaches(request.requestedStoreId);
       if (!isCurrentStoreRequest(request)) return;
       setSupplierActionError("");
-      toast.success(request.id ? "供应商已保存" : "供应商已添加");
+      toast.success(request.id ? operationsCopy("供应商已保存") : operationsCopy("供应商已添加"));
     },
-    onError: (error, request) => {
+    onError: (_error, request) => {
       if (!isCurrentStoreRequest(request)) return;
-      const message = error instanceof Error ? error.message : "保存供应商失败";
+      const message = operationsCopy("保存供应商失败，请重试");
       setSupplierActionError(message);
       toast.error(message);
     },
@@ -800,11 +1022,11 @@ export function SettingsScreen() {
       invalidateSupplierCaches(request.requestedStoreId);
       if (!isCurrentStoreRequest(request)) return;
       setSupplierActionError("");
-      toast.success("供应商已归档");
+      toast.success(operationsCopy("供应商已归档"));
     },
-    onError: (error, request) => {
+    onError: (_error, request) => {
       if (!isCurrentStoreRequest(request)) return;
-      const message = error instanceof Error ? error.message : "归档供应商失败";
+      const message = operationsCopy("归档供应商失败，请重试");
       setSupplierActionError(message);
       toast.error(message);
     },
@@ -818,23 +1040,28 @@ export function SettingsScreen() {
       setLatestKioskPairingCodeState(null);
     },
     onSuccess: async (context) => {
-      toast.success(`已创建 ${context.activeStore?.name ?? "新店铺"}`);
+      toast.success(
+        operationsCopy("已创建 {store}", {
+          store: context.activeStore?.name ?? operationsCopy("新店铺"),
+        }),
+      );
+      createStoreAttemptRef.current = null;
       setNewStoreName("");
       setNewStoreAddress("");
       await queryClient.invalidateQueries();
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "创建店铺失败"),
+    onError: () => toast.error(operationsCopy("创建店铺失败，请重试")),
   });
   const lifecyclePreflightMutation = useMutation({
     mutationFn: (request: { requestedStoreId: string; requestEpoch: number }) =>
       createStoreLifecyclePreflight(request.requestedStoreId),
     onSuccess: (_preflight, request) => {
       if (!isCurrentStoreRequest(request)) return;
-      toast.success("店铺安全预检已完成");
+      toast.success(operationsCopy("店铺安全预检已完成"));
     },
-    onError: (error, request) => {
+    onError: (_error, request) => {
       if (!isCurrentStoreRequest(request)) return;
-      toast.error(error instanceof Error ? error.message : "店铺安全预检失败");
+      toast.error(operationsCopy("店铺安全预检失败，请重试"));
     },
   });
   const createKioskPairingMutation = useMutation({
@@ -863,17 +1090,17 @@ export function SettingsScreen() {
       });
       if (nextValue) {
         setLatestKioskPairingCodeState(nextValue);
-        toast.success("iPad 配对码已生成");
+        toast.success(operationsCopy("iPad 配对码已生成"));
       } else {
-        toast.error("店铺上下文已变化，旧配对码未显示，请重新生成");
+        toast.error(operationsCopy("店铺上下文已变化，旧配对码未显示，请重新生成"));
       }
       await queryClient.invalidateQueries({
         queryKey: kioskKeys.devices(request.requestedStoreId),
       });
     },
-    onError: (error, request) => {
+    onError: (_error, request) => {
       if (!isCurrentStoreRequest(request)) return;
-      toast.error(error instanceof Error ? error.message : "生成配对码失败");
+      toast.error(operationsCopy("生成配对码失败，请重试"));
     },
   });
   const revokeKioskDeviceMutation = useMutation({
@@ -884,11 +1111,11 @@ export function SettingsScreen() {
         queryKey: kioskKeys.devices(request.requestedStoreId),
       });
       if (!isCurrentStoreRequest(request)) return;
-      toast.success("客户 iPad 已撤销");
+      toast.success(operationsCopy("客户 iPad 已撤销"));
     },
-    onError: (error, request) => {
+    onError: (_error, request) => {
       if (!isCurrentStoreRequest(request)) return;
-      toast.error(error instanceof Error ? error.message : "撤销 iPad 失败");
+      toast.error(operationsCopy("撤销 iPad 失败，请重试"));
     },
   });
   const acceptKioskSessionMutation = useMutation({
@@ -909,11 +1136,11 @@ export function SettingsScreen() {
         queryClient.invalidateQueries({ queryKey: customersKeys.all }),
       ]);
       if (!isCurrentStoreRequest(request)) return;
-      toast.success("客户提交已接受");
+      toast.success(operationsCopy("客户提交已接受"));
     },
-    onError: (error, request) => {
+    onError: (_error, request) => {
       if (!isCurrentStoreRequest(request)) return;
-      toast.error(error instanceof Error ? error.message : "接受 iPad 提交失败");
+      toast.error(operationsCopy("接受 iPad 提交失败，请重试"));
     },
   });
   const returnKioskSessionMutation = useMutation({
@@ -934,11 +1161,11 @@ export function SettingsScreen() {
         queryKey: kioskKeys.sessions(request.requestedStoreId),
       });
       if (!isCurrentStoreRequest(request)) return;
-      toast.success("已退回给客户重填");
+      toast.success(operationsCopy("已退回给客户重填"));
     },
-    onError: (error, request) => {
+    onError: (_error, request) => {
       if (!isCurrentStoreRequest(request)) return;
-      toast.error(error instanceof Error ? error.message : "退回 iPad 提交失败");
+      toast.error(operationsCopy("退回 iPad 提交失败，请重试"));
     },
   });
   const inviteMemberMutation = useMutation({
@@ -955,19 +1182,19 @@ export function SettingsScreen() {
         (item) => item.email.trim().toLowerCase() === normalizedEmail,
       );
       if (invitation?.email_delivery_status === "sent") {
-        toast.success("邀请邮件已发送");
+        toast.success(t("settings.members.toast.invitationSent"));
       } else if (invitation?.email_delivery_status === "failed") {
-        toast.warning("邀请已创建，但邮件未成功发送。请检查配置后重新发送。");
+        toast.warning(t("settings.members.toast.invitationDeliveryFailed"));
       } else {
-        toast.info("邀请已保存，邮件状态待确认");
+        toast.info(t("settings.members.toast.invitationPending"));
       }
       await queryClient.invalidateQueries({
         queryKey: storesKeys.membersScoped(request.requestedStoreId),
       });
     },
-    onError: (error, request) => {
+    onError: (_error, request) => {
       if (!isCurrentStoreRequest(request)) return;
-      const message = error instanceof Error ? error.message : "邀请失败";
+      const message = t("settings.members.toast.invitationError");
       setMemberActionError(message);
       toast.error(message);
     },
@@ -996,22 +1223,22 @@ export function SettingsScreen() {
       if (nextValue) {
         setLatestInviteCodeState(nextValue);
         setMemberActionError("");
-        toast.success("邀请码已生成，请复制保存");
+        toast.success(t("settings.members.toast.codeCreated"));
       } else if (isLatestRequest) {
-        toast.error("店铺上下文已变化，旧邀请码未显示，请重新生成");
+        toast.error(t("settings.members.toast.codeContextChanged"));
       }
       await queryClient.invalidateQueries({
         queryKey: storesKeys.membersScoped(request.requestedStoreId),
       });
     },
-    onError: (error, request) => {
+    onError: (_error, request) => {
       if (
         request.requestedStoreId !== activeStoreScopeRef.current.storeId ||
         request.requestEpoch !== inviteCodeRequestEpochRef.current
       ) {
         return;
       }
-      const message = error instanceof Error ? error.message : "生成邀请码失败";
+      const message = t("settings.members.toast.codeCreateError");
       setMemberActionError(message);
       toast.error(message);
     },
@@ -1022,14 +1249,14 @@ export function SettingsScreen() {
     onSuccess: async (result, request) => {
       if (!reconcileMemberMutationResult(request, result)) return;
       setMemberActionError("");
-      toast.success("邀请码已撤销");
+      toast.success(t("settings.members.toast.codeRevoked"));
       await queryClient.invalidateQueries({
         queryKey: storesKeys.membersScoped(request.requestedStoreId),
       });
     },
-    onError: (error, request) => {
+    onError: (_error, request) => {
       if (!isCurrentStoreRequest(request)) return;
-      const message = error instanceof Error ? error.message : "撤销邀请码失败";
+      const message = t("settings.members.toast.codeRevokeError");
       setMemberActionError(message);
       toast.error(message);
     },
@@ -1040,14 +1267,14 @@ export function SettingsScreen() {
     onSuccess: async (result, request) => {
       if (!reconcileMemberMutationResult(request, result)) return;
       setMemberActionError("");
-      toast.success("邀请已撤销");
+      toast.success(t("settings.members.toast.invitationRevoked"));
       await queryClient.invalidateQueries({
         queryKey: storesKeys.membersScoped(request.requestedStoreId),
       });
     },
-    onError: (error, request) => {
+    onError: (_error, request) => {
       if (!isCurrentStoreRequest(request)) return;
-      const message = error instanceof Error ? error.message : "撤销邀请失败";
+      const message = t("settings.members.toast.invitationRevokeError");
       setMemberActionError(message);
       toast.error(message);
     },
@@ -1080,7 +1307,9 @@ export function SettingsScreen() {
     onSuccess: async ({ kind, result }, request) => {
       if (!reconcileMemberMutationResult(request, result)) return;
       toast.success(
-        kind === "role" ? "员工角色已保存，请重新打开后配置额外授权" : "员工额外权限已保存",
+        kind === "role"
+          ? t("settings.members.toast.roleSaved")
+          : t("settings.members.toast.permissionsSaved"),
       );
       await Promise.all([
         queryClient.invalidateQueries({
@@ -1092,9 +1321,9 @@ export function SettingsScreen() {
         queryClient.invalidateQueries({ queryKey: ordersKeys.lists() }),
       ]);
     },
-    onError: (error, request) => {
+    onError: (_error, request) => {
       if (!isCurrentStoreRequest(request)) return;
-      const message = error instanceof Error ? error.message : "保存员工变更失败";
+      const message = t("settings.members.saveError");
       setMemberSaveError(message);
       toast.error(message);
     },
@@ -1112,7 +1341,7 @@ export function SettingsScreen() {
     },
     onSuccess: async (result, request) => {
       if (!reconcileMemberMutationResult(request, result)) return;
-      toast.success("员工已停用");
+      toast.success(t("settings.members.toast.disabled"));
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: storesKeys.membersScoped(request.requestedStoreId),
@@ -1120,9 +1349,9 @@ export function SettingsScreen() {
         queryClient.invalidateQueries({ queryKey: storesKeys.context }),
       ]);
     },
-    onError: (error, request) => {
+    onError: (_error, request) => {
       if (!isCurrentStoreRequest(request)) return;
-      const message = error instanceof Error ? error.message : "停用员工失败";
+      const message = t("settings.members.toast.disableError");
       setMemberActionError(message);
       toast.error(message);
     },
@@ -1140,7 +1369,7 @@ export function SettingsScreen() {
     },
     onSuccess: async (result, request) => {
       if (!reconcileMemberMutationResult(request, result)) return;
-      toast.success("员工已恢复");
+      toast.success(t("settings.members.toast.restored"));
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: storesKeys.membersScoped(request.requestedStoreId),
@@ -1148,9 +1377,9 @@ export function SettingsScreen() {
         queryClient.invalidateQueries({ queryKey: storesKeys.context }),
       ]);
     },
-    onError: (error, request) => {
+    onError: (_error, request) => {
       if (!isCurrentStoreRequest(request)) return;
-      const message = error instanceof Error ? error.message : "恢复员工失败";
+      const message = t("settings.members.toast.restoreError");
       setMemberActionError(message);
       toast.error(message);
     },
@@ -1178,7 +1407,7 @@ export function SettingsScreen() {
         (current) => current?.filter((item) => item.id !== result.id) ?? [],
       );
       setMemberActionError("");
-      toast.success("加入申请已批准");
+      toast.success(t("settings.members.toast.requestApproved"));
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: storesKeys.membersScoped(request.requestedStoreId),
@@ -1186,9 +1415,9 @@ export function SettingsScreen() {
         queryClient.invalidateQueries({ queryKey: platformKeys.onboardingStatus }),
       ]);
     },
-    onError: (error, request) => {
+    onError: (_error, request) => {
       if (!isCurrentStoreRequest(request)) return;
-      const message = error instanceof Error ? error.message : "批准失败";
+      const message = t("settings.members.toast.requestApproveError");
       setMemberActionError(message);
       toast.error(message);
     },
@@ -1208,11 +1437,11 @@ export function SettingsScreen() {
         (current) => current?.filter((item) => item.id !== result.id) ?? [],
       );
       setMemberActionError("");
-      toast.success("加入申请已拒绝");
+      toast.success(t("settings.members.toast.requestRejected"));
     },
-    onError: (error, request) => {
+    onError: (_error, request) => {
       if (!isCurrentStoreRequest(request)) return;
-      const message = error instanceof Error ? error.message : "拒绝失败";
+      const message = t("settings.members.toast.requestRejectError");
       setMemberActionError(message);
       toast.error(message);
     },
@@ -1247,15 +1476,15 @@ export function SettingsScreen() {
               className="min-h-11 bg-card px-3"
               onClick={() => storeContextQuery.refetch()}
             >
-              重新加载
+              {t("settings.context.reload")}
             </Button>
           }
           leadingClassName="self-center"
           trailingClassName="col-span-2 justify-self-start sm:col-span-1 sm:justify-self-end"
         >
-          <span className="block text-sm font-semibold">无法读取店铺与权限信息</span>
+          <span className="block text-sm font-semibold">{t("settings.context.errorTitle")}</span>
           <span className="mt-0.5 block text-[11px] leading-4 text-status-danger-foreground/80 lg:text-xs lg:leading-[18px] lg:text-status-danger-foreground">
-            请重新加载当前店铺上下文后继续使用设置。
+            {t("settings.context.errorDescription")}
           </span>
         </RepairOsBusinessCard>
       </RepairOsListScaffold>
@@ -1282,12 +1511,12 @@ export function SettingsScreen() {
             </span>
           }
         >
-          <span className="block text-sm font-semibold">这家店已进入可恢复关闭流程</span>
+          <span className="block text-sm font-semibold">{t("settings.recovery.title")}</span>
           <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-            资料仍然保留。请前往“已关闭与删除”查看状态、恢复营业或申请永久删除。
+            {t("settings.recovery.description")}
           </span>
           <Button asChild type="button" className="mt-3 min-h-10">
-            <Link href="/settings/closed-stores">查看已关闭与删除</Link>
+            <Link href="/settings/closed-stores">{t("settings.recovery.action")}</Link>
           </Button>
         </RepairOsBusinessCard>
       </RepairOsListScaffold>
@@ -1299,7 +1528,7 @@ export function SettingsScreen() {
   }
 
   const supplierRows = suppliersQuery.data ?? [];
-  const accountSummary = buildAccountSettingsSummary(accountQuery.data);
+  const accountSummary = buildAccountSettingsSummary(accountQuery.data, locale);
   const savedStoreSettings = settingsData?.store_id === activeStoreId ? settingsData : null;
   const savedStoreReadiness = savedStoreSettings
     ? getStoreSettingsReadiness(savedStoreSettings)
@@ -1339,8 +1568,11 @@ export function SettingsScreen() {
   const printPreview = notificationSectionDraftSettings
     ? buildStorePrintPreview(notificationSectionDraftSettings)
     : "";
-  const activeSection = selectedSection ? getSettingsSection(selectedSection) : null;
-  const navigationGroups: readonly SettingsNavigationGroup[] = SETTINGS_SECTION_GROUPS.map(
+  const orderDataAccessPresentation = getOrderDataAccessPresentationKeys(
+    storeContextQuery.data?.orderDataAccess?.code,
+  );
+  const activeSection = selectedSection ? getSettingsSection(selectedSection, locale) : null;
+  const navigationGroups: readonly SettingsNavigationGroup[] = getSettingsSectionGroups(locale).map(
     (group) => ({
       key: group.key,
       label: group.label,
@@ -1352,9 +1584,9 @@ export function SettingsScreen() {
           dirty: sectionDirtyState[section.key],
           summary:
             section.key === "order-data" && (access === "blocked" || access === "unavailable")
-              ? getOrderDataAccessSummary(storeContextQuery.data?.orderDataAccess)
+              ? t(orderDataAccessPresentation.summary)
               : access === "readonly"
-                ? "只读"
+                ? t("settings.navigation.readonly")
                 : undefined,
         };
       }),
@@ -1428,10 +1660,12 @@ export function SettingsScreen() {
         busy={saveMutation.isPending}
         label={
           guardSections.length > 1
-            ? `${guardSections.length} 个设置分组`
+            ? t("settings.guard.groups", { count: guardSections.length })
             : guardSection
-              ? `${getSettingsSection(guardSection).label}分组`
-              : "当前设置分组"
+              ? t("settings.guard.section", {
+                  section: getSettingsSection(guardSection, locale).label,
+                })
+              : t("settings.guard.current")
         }
         onSave={saveAllDirtyStoreSettingsSections}
         onDiscard={discardAllDirtyStoreSettingsSections}
@@ -1444,7 +1678,7 @@ export function SettingsScreen() {
           isAccountNameDraftDirty(accountNameDraftRef.current, accountNameBaseRef.current)
         }
         busy={updateAccountMutation.isPending}
-        label="账号显示名称"
+        label={t("settings.guard.accountName")}
         onSave={saveAccountNameDraft}
         onDiscard={discardAccountNameDraft}
         onFocusFallback={() => document.getElementById("account-display-name")?.focus()}
@@ -1454,7 +1688,7 @@ export function SettingsScreen() {
         dirty={kioskReturnDraftDirty}
         isDirty={isKioskReturnDraftDirty}
         busy={false}
-        label="客户 iPad 退回原因草稿"
+        label={t("settings.guard.kioskReturnDraft")}
         onSave={saveKioskReturnDrafts}
         onDiscard={discardKioskReturnDrafts}
         onFocusFallback={focusKioskReturnDraft}
@@ -1502,7 +1736,7 @@ export function SettingsScreen() {
                 unavailable={selectedSectionAccess === "unavailable"}
                 description={
                   selectedSection === "order-data"
-                    ? getOrderDataAccessDescription(storeContextQuery.data?.orderDataAccess)
+                    ? t(orderDataAccessPresentation.description)
                     : undefined
                 }
               />
@@ -1512,16 +1746,16 @@ export function SettingsScreen() {
                 className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2 text-xs text-muted-foreground"
               >
                 {selectedSection === "store"
-                  ? "当前账号不能修改当前店铺资料，但仍可按账号资格创建新的独立店铺。"
+                  ? t("settings.section.readonlyStore")
                   : selectedSection === "ai-usage"
-                    ? "AI 使用量是当前门店的只读汇总，不需要保存。"
-                    : "当前账号可查看此分组，但不能修改配置。"}
+                    ? t("settings.section.readonlyAiUsage")
+                    : t("settings.section.readonlyGeneric")}
               </div>
             ) : null}
 
             {canRenderSelectedSection && selectedSection === "account" && accountQuery.isError ? (
               <SettingsSectionDataState
-                label="账号资料"
+                label={getSettingsSection("account", locale).label}
                 error
                 onRetry={() => void accountQuery.refetch()}
               />
@@ -1530,14 +1764,14 @@ export function SettingsScreen() {
             {canRenderSelectedSection &&
             canSaveDraftInSection(selectedSection) &&
             (settingsQuery.isLoading || (!activeDraft && !settingsQuery.isError)) ? (
-              <SettingsSectionDataState label="店铺设置" />
+              <SettingsSectionDataState label={getSettingsSection("store", locale).label} />
             ) : null}
 
             {canRenderSelectedSection &&
             canSaveDraftInSection(selectedSection) &&
             settingsQuery.isError ? (
               <SettingsSectionDataState
-                label="店铺设置"
+                label={getSettingsSection("store", locale).label}
                 error
                 onRetry={() => void settingsQuery.refetch()}
               />
@@ -1561,9 +1795,7 @@ export function SettingsScreen() {
                     isSaving={updateAccountMutation.isPending}
                     saveError={
                       updateAccountMutation.isError
-                        ? updateAccountMutation.error instanceof Error
-                          ? updateAccountMutation.error.message
-                          : "账号名称保存失败"
+                        ? t("settings.accountSection.saveErrorShort")
                         : undefined
                     }
                     hasSaved={updateAccountMutation.isSuccess && !hasAccountNameChange}
@@ -1574,7 +1806,7 @@ export function SettingsScreen() {
                     }}
                     onSave={() => {
                       if (!hasAccountNameChange || updateAccountMutation.isPending) return;
-                      updateAccountMutation.mutate();
+                      void updateAccountNameOnce().catch(() => undefined);
                     }}
                   />
                 ) : null}
@@ -1586,9 +1818,7 @@ export function SettingsScreen() {
                     isCreating={createStoreMutation.isPending}
                     createError={
                       createStoreMutation.isError
-                        ? createStoreMutation.error instanceof Error
-                          ? createStoreMutation.error.message
-                          : "创建店铺失败"
+                        ? operationsCopy("创建店铺失败，请重试")
                         : undefined
                     }
                     newStoreName={newStoreName}
@@ -1603,16 +1833,28 @@ export function SettingsScreen() {
                     }}
                     onCreateStore={() => {
                       const name = newStoreName.trim();
-                      if (name.length < 2) return;
+                      const address = newStoreAddress.trim() || undefined;
+                      if (name.length < 2 || createStoreSubmittingRef.current) return;
+                      const fingerprint = JSON.stringify({ name, address });
+                      if (createStoreAttemptRef.current?.fingerprint !== fingerprint) {
+                        createStoreAttemptRef.current = {
+                          fingerprint,
+                          requestId: crypto.randomUUID(),
+                        };
+                      }
+                      const requestId = createStoreAttemptRef.current.requestId;
+                      createStoreSubmittingRef.current = true;
                       void runGuardedTransition({
                         kind: "store-create",
-                        label: `创建店铺 ${name}`,
+                        label: operationsCopy("创建独立店铺"),
                         run: () =>
                           createStoreMutation.mutateAsync({
-                            request_id: crypto.randomUUID(),
+                            request_id: requestId,
                             name,
-                            address: newStoreAddress.trim() || undefined,
+                            address,
                           }),
+                      }).finally(() => {
+                        createStoreSubmittingRef.current = false;
                       });
                     }}
                     lifecyclePreflight={
@@ -1628,9 +1870,7 @@ export function SettingsScreen() {
                     lifecyclePreflightError={
                       lifecyclePreflightMutation.isError &&
                       lifecyclePreflightMutation.variables?.requestedStoreId === activeStoreId
-                        ? lifecyclePreflightMutation.error instanceof Error
-                          ? lifecyclePreflightMutation.error.message
-                          : "未知错误"
+                        ? operationsCopy("店铺安全预检失败，请重试")
                         : undefined
                     }
                     canRunLifecyclePreflight={
@@ -1639,11 +1879,18 @@ export function SettingsScreen() {
                     lifecycleAccess={storeContextQuery.data?.lifecycleAccess}
                     onRunLifecyclePreflight={() => {
                       const request = currentStoreRequestScope();
-                      if (!request.requestedStoreId) return;
-                      lifecyclePreflightMutation.mutate({
-                        requestedStoreId: request.requestedStoreId,
-                        requestEpoch: request.requestEpoch,
-                      });
+                      if (!request.requestedStoreId || lifecyclePreflightSubmittingRef.current)
+                        return;
+                      lifecyclePreflightSubmittingRef.current = true;
+                      void lifecyclePreflightMutation
+                        .mutateAsync({
+                          requestedStoreId: request.requestedStoreId,
+                          requestEpoch: request.requestEpoch,
+                        })
+                        .catch(() => undefined)
+                        .finally(() => {
+                          lifecyclePreflightSubmittingRef.current = false;
+                        });
                     }}
                     draft={activeDrafts?.sections.store.value}
                     savedReadiness={savedStoreReadiness ?? undefined}
@@ -1743,7 +1990,9 @@ export function SettingsScreen() {
                     onCreateInviteLink={(input) => {
                       const requestedStoreId = activeStoreScopeRef.current.storeId;
                       if (!requestedStoreId || !canInviteMembers) {
-                        return Promise.reject(new Error("当前账号不能生成邀请码"));
+                        return Promise.reject(
+                          new Error(t("settings.members.toast.codeNotAllowed")),
+                        );
                       }
                       const requestEpoch = inviteCodeRequestEpochRef.current + 1;
                       inviteCodeRequestEpochRef.current = requestEpoch;
@@ -1768,7 +2017,11 @@ export function SettingsScreen() {
                         activeStoreScopeRef.current.storeId,
                       );
                       if (!currentCode) return;
-                      void copySensitiveCode(currentCode, "邀请码已复制");
+                      void copySensitiveCode(
+                        currentCode,
+                        t("settings.members.toast.codeCopied"),
+                        t("settings.members.toast.codeCopyError"),
+                      );
                     }}
                     onApproveAccessRequest={(id, approvedRole) =>
                       approveAccessRequestMutation
@@ -1789,7 +2042,9 @@ export function SettingsScreen() {
                 {canRenderSelectedSection && selectedSection === "kiosk" ? (
                   <KioskSettingsSection
                     key={activeStoreId}
-                    storeName={storeContextQuery.data?.activeStore?.name ?? "当前店铺"}
+                    storeName={
+                      storeContextQuery.data?.activeStore?.name ?? operationsCopy("当前店铺")
+                    }
                     devices={kioskDevicesQuery.data ?? []}
                     sessions={kioskSessionsQuery.data ?? []}
                     pairing={latestKioskPairing}
@@ -1807,7 +2062,9 @@ export function SettingsScreen() {
                     onCreatePairing={(label) => {
                       const requestedStoreId = activeStoreScopeRef.current.storeId;
                       if (!requestedStoreId || !canManageKioskDevices) {
-                        return Promise.reject(new Error("当前账号没有管理客户 iPad 的权限"));
+                        return Promise.reject(
+                          new Error(operationsCopy("当前账号没有管理客户 iPad 的权限")),
+                        );
                       }
                       const requestEpoch = kioskPairingRequestEpochRef.current + 1;
                       kioskPairingRequestEpochRef.current = requestEpoch;
@@ -1817,13 +2074,16 @@ export function SettingsScreen() {
                           input: { label },
                           requestedStoreId,
                           requestEpoch,
-                          storeName: storeContextQuery.data?.activeStore?.name ?? "当前店铺",
+                          storeName:
+                            storeContextQuery.data?.activeStore?.name ?? operationsCopy("当前店铺"),
                         })
                         .then(() => undefined);
                     }}
                     onRevoke={(id) => {
                       if (!canManageKioskDevices) {
-                        return Promise.reject(new Error("当前账号没有管理客户 iPad 的权限"));
+                        return Promise.reject(
+                          new Error(operationsCopy("当前账号没有管理客户 iPad 的权限")),
+                        );
                       }
                       return revokeKioskDeviceMutation
                         .mutateAsync({ ...currentStoreRequestScope(), id })
@@ -1831,7 +2091,9 @@ export function SettingsScreen() {
                     }}
                     onAcceptSession={(session) => {
                       if (!canReviewKioskSessions) {
-                        return Promise.reject(new Error("当前账号没有审核客户提交的权限"));
+                        return Promise.reject(
+                          new Error(operationsCopy("当前账号没有审核客户提交的权限")),
+                        );
                       }
                       return acceptKioskSessionMutation
                         .mutateAsync({
@@ -1843,7 +2105,9 @@ export function SettingsScreen() {
                     }}
                     onReturnSession={(session, reason) => {
                       if (!canReviewKioskSessions) {
-                        return Promise.reject(new Error("当前账号没有审核客户提交的权限"));
+                        return Promise.reject(
+                          new Error(operationsCopy("当前账号没有审核客户提交的权限")),
+                        );
                       }
                       return returnKioskSessionMutation
                         .mutateAsync({
@@ -1860,7 +2124,11 @@ export function SettingsScreen() {
                         activeStoreScopeRef.current.storeId,
                       );
                       if (!currentPairing) return;
-                      void copySensitiveCode(currentPairing.code, "iPad 配对码已复制");
+                      void copySensitiveCode(
+                        currentPairing.code,
+                        operationsCopy("iPad 配对码已复制"),
+                        t("settings.members.toast.codeCopyError"),
+                      );
                     }}
                   />
                 ) : null}
@@ -1909,7 +2177,9 @@ export function SettingsScreen() {
                   <OrderDataSection
                     key={activeStoreId}
                     storeId={activeStoreId}
-                    storeName={storeContextQuery.data?.activeStore?.name ?? "当前店铺"}
+                    storeName={
+                      storeContextQuery.data?.activeStore?.name ?? operationsCopy("当前店铺")
+                    }
                     applyEnabled={canApplyOrderData}
                     onDirtyChange={setOrderDataSectionDirty}
                   />
@@ -1952,7 +2222,7 @@ export function SettingsScreen() {
                 />
               ) : (
                 <SettingsSaveBar
-                  label={activeSection?.label ?? "当前分组"}
+                  label={activeSection?.label ?? t("settings.section.current")}
                   status={selectedSaveStatus}
                   dirty={hasChanges}
                   disabled={saveMutation.isPending}
@@ -1995,6 +2265,7 @@ function SettingsSectionDataState({
   error?: boolean;
   onRetry?: () => void;
 }) {
+  const { t } = useLocale();
   if (!error) {
     return (
       <div data-ui="settings-section-loading" className="space-y-2" aria-busy="true">
@@ -2024,14 +2295,16 @@ function SettingsSectionDataState({
             className="min-h-11 px-3"
             onClick={onRetry}
           >
-            重新加载
+            {t("settings.section.dataReload")}
           </Button>
         ) : null
       }
     >
-      <span className="block text-sm font-semibold">读取{label}失败</span>
+      <span className="block text-sm font-semibold">
+        {t("settings.section.dataErrorTitle", { label })}
+      </span>
       <span className="mt-0.5 block text-[11px] leading-4 lg:text-xs lg:leading-4">
-        其他设置不受影响，请重试当前分组。
+        {t("settings.section.dataErrorDescription")}
       </span>
     </RepairOsBusinessCard>
   );
@@ -2046,13 +2319,14 @@ function SettingsSectionAccessState({
   unavailable: boolean;
   description?: string;
 }) {
-  const sectionLabel = getSettingsSection(section).label;
+  const { locale, t } = useLocale();
+  const sectionLabel = getSettingsSection(section, locale).label;
   return (
     <section
       data-ui={
         unavailable ? "settings-permission-unavailable" : `settings-${section}-no-permission`
       }
-      aria-label={`${sectionLabel}访问状态`}
+      aria-label={t("settings.section.accessAria", { section: sectionLabel })}
       className="rounded-xl border border-[var(--border-panel)] bg-card px-4 py-4 shadow-[var(--shadow-card)]"
     >
       <div className="flex items-start gap-3">
@@ -2061,16 +2335,18 @@ function SettingsSectionAccessState({
         </span>
         <div className="min-w-0">
           <h2 className="text-sm font-semibold">
-            {unavailable ? `无法确认${sectionLabel}权限` : `无法打开${sectionLabel}`}
+            {unavailable
+              ? t("settings.section.accessUnavailableTitle", { section: sectionLabel })
+              : t("settings.section.accessBlockedTitle", { section: sectionLabel })}
           </h2>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
             {description ??
               (unavailable
-                ? "当前店铺的权限状态不可用，请重新加载页面后再试。"
-                : "当前账号不具备此分组所需的店铺权限。页面未读取或显示相关业务数据。")}
+                ? t("settings.section.accessUnavailableDescription")
+                : t("settings.section.accessBlockedDescription"))}
           </p>
           <Button asChild type="button" size="sm" variant="outline" className="mt-3 min-h-9">
-            <Link href="/settings">返回设置总览</Link>
+            <Link href="/settings">{t("settings.backOverview")}</Link>
           </Button>
         </div>
       </div>
@@ -2078,13 +2354,13 @@ function SettingsSectionAccessState({
   );
 }
 
-async function copySensitiveCode(value: string, successMessage: string) {
+async function copySensitiveCode(value: string, successMessage: string, failureMessage: string) {
   try {
     if (!navigator.clipboard?.writeText) throw new Error("clipboard_unavailable");
     await navigator.clipboard.writeText(value);
     toast.success(successMessage);
   } catch {
-    toast.error("复制失败，请长按或手动选择代码复制");
+    toast.error(failureMessage);
   }
 }
 

@@ -23,6 +23,7 @@ import { MemberList } from "@/features/settings/sections/member-list";
 import type { MemberEditorDraft } from "@/features/settings/model/member-settings-editor";
 import { cn } from "@/lib/utils";
 import { repairOs } from "@/lib/ui-patterns";
+import { useLocale } from "@/shared/i18n/locale-provider";
 import type {
   ApprovedStoreRole,
   OnboardingRequest,
@@ -81,6 +82,7 @@ export interface MembersSettingsSectionProps {
 }
 
 export function MembersSettingsSection(props: MembersSettingsSectionProps) {
+  const { t } = useLocale();
   const [editingMember, setEditingMember] = useState<StoreMember | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [confirmSubmitting, setConfirmSubmitting] = useState(false);
@@ -88,20 +90,20 @@ export function MembersSettingsSection(props: MembersSettingsSectionProps) {
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const confirmTitle =
     confirmAction?.kind === "disable"
-      ? "停用这名员工？"
+      ? t("settings.members.confirm.disableTitle")
       : confirmAction?.kind === "restore"
-        ? "恢复这名员工？"
+        ? t("settings.members.confirm.restoreTitle")
         : confirmAction?.kind === "revoke-invitation"
-          ? "撤销待接受邀请？"
-          : "撤销当前邀请码？";
+          ? t("settings.members.confirm.revokeInvitationTitle")
+          : t("settings.members.confirm.revokeLinkTitle");
   const confirmDescription =
     confirmAction?.kind === "disable"
-      ? "停用后该成员不能继续进入当前店铺，额外授权会被撤销；以后可以由有权限的管理员恢复。"
+      ? t("settings.members.confirm.disableDescription")
       : confirmAction?.kind === "restore"
-        ? "恢复后该成员会以当前保存的角色重新进入店铺。旧的额外授权不会自动恢复。"
+        ? t("settings.members.confirm.restoreDescription")
         : confirmAction?.kind === "revoke-invitation"
-          ? "撤销后这条邀请不能再被接受；需要时可以重新创建邀请。"
-          : "撤销后未使用的代码也会立即失效；已经加入的成员不会被移除。";
+          ? t("settings.members.confirm.revokeInvitationDescription")
+          : t("settings.members.confirm.revokeLinkDescription");
 
   const closeConfirm = () => {
     setConfirmAction(null);
@@ -113,8 +115,8 @@ export function MembersSettingsSection(props: MembersSettingsSectionProps) {
       <RepairOsSectionHeader
         icon={Users}
         iconFrame={false}
-        title="员工与权限"
-        description="角色决定默认权限；额外授权只叠加服务端允许的历史、财务和供应商能力。"
+        title={t("settings.members.title")}
+        description={t("settings.members.description")}
       />
 
       {props.isLoading ? (
@@ -134,12 +136,12 @@ export function MembersSettingsSection(props: MembersSettingsSectionProps) {
               className="min-h-10"
               onClick={props.onRetryMembers}
             >
-              <RotateCcw className="size-4" /> 重新读取成员
+              <RotateCcw className="size-4" /> {t("settings.members.retry")}
             </Button>
           }
         >
-          <p className="text-sm font-semibold">成员数据读取失败</p>
-          <p className="mt-1 text-xs leading-5">当前草稿和店铺上下文不会被清除。</p>
+          <p className="text-sm font-semibold">{t("settings.members.errorTitle")}</p>
+          <p className="mt-1 text-xs leading-5">{t("settings.members.errorDescription")}</p>
         </RepairOsBusinessCard>
       ) : (
         <div className="space-y-4">
@@ -150,11 +152,9 @@ export function MembersSettingsSection(props: MembersSettingsSectionProps) {
               className="grid-cols-1 gap-1.5 border-status-warn-foreground/25 bg-status-warn/10 px-3 py-2 text-status-warn-foreground"
             >
               <p className="text-xs font-semibold">
-                {props.accessRequests.length} 个加入申请待审核
+                {t("settings.members.reviewCount", { count: props.accessRequests.length })}
               </p>
-              <p className="text-[11px] leading-4">
-                处理申请后，成员才能按批准的角色进入当前店铺。
-              </p>
+              <p className="text-[11px] leading-4">{t("settings.members.reviewHint")}</p>
             </RepairOsBusinessCard>
           ) : null}
           <MemberList
@@ -219,7 +219,7 @@ export function MembersSettingsSection(props: MembersSettingsSectionProps) {
               className="rounded-lg border border-status-danger-foreground/25 bg-status-danger/10 px-3 py-2 text-sm text-status-danger-foreground"
             >
               <AlertTriangle className="mr-2 inline size-4" />
-              {props.actionError}
+              {t("settings.members.actionError")}
             </div>
           ) : null}
         </div>
@@ -248,12 +248,14 @@ export function MembersSettingsSection(props: MembersSettingsSectionProps) {
             <AlertDialogDescription>{confirmDescription}</AlertDialogDescription>
             {props.actionError ? (
               <p role="alert" className="text-sm text-status-danger-foreground">
-                {props.actionError}
+                {t("settings.members.actionError")}
               </p>
             ) : null}
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="min-h-11">取消</AlertDialogCancel>
+            <AlertDialogCancel className="min-h-11">
+              {t("settings.members.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               className="min-h-11"
               disabled={confirmSubmitting}
@@ -281,7 +283,9 @@ export function MembersSettingsSection(props: MembersSettingsSectionProps) {
                   });
               }}
             >
-              {confirmSubmitting ? "处理中…" : "确认操作"}
+              {confirmSubmitting
+                ? t("settings.members.processing")
+                : t("settings.members.confirm.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

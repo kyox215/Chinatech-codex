@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { CustomerListFilters, CustomerTag } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function CustomerFilters({
   filters,
@@ -19,6 +20,7 @@ export function CustomerFilters({
   onChange: (filters: CustomerListFilters) => void;
   onClose: () => void;
 }) {
+  const { t } = useLocale();
   const toggleTag = (tagId: string) => {
     const current = filters.tagIds ?? [];
     const next = current.includes(tagId)
@@ -32,35 +34,39 @@ export function CustomerFilters({
     <div className="flex h-full flex-col">
       <div className="border-b px-3 py-2 sm:px-4 sm:py-3">
         <div className="flex items-center gap-2 font-semibold">
-          <Tags className="size-4" /> 更多筛选
+          <Tags className="size-4" /> {t("customers.list.filters")}
         </div>
         <p className="mt-1 text-xs leading-4 text-muted-foreground">
-          这里只放不常用的条件。常用的“处理中、待收款、要跟进”请直接点列表顶部。
+          {t("customers.filters.description")}
         </p>
       </div>
       <div className="flex-1 space-y-3 overflow-y-auto p-3 sm:space-y-6 sm:p-4">
         <section>
-          <div className="mb-2 text-xs font-semibold text-muted-foreground">客户记录</div>
+          <div className="mb-2 text-xs font-semibold text-muted-foreground">
+            {t("customers.filters.records")}
+          </div>
           <CustomerSegmented
-            label="客户记录"
+            label={t("customers.filters.records")}
             value={advancedWork}
             options={[
-              ["all", "不限"],
-              ["with_devices", "有设备"],
-              ["repeat", "老客户"],
+              ["all", t("customers.filters.any")],
+              ["with_devices", t("customers.filters.withDevices")],
+              ["repeat", t("customers.filters.repeat")],
             ]}
             onChange={(work) => onChange({ ...filters, work: work as CustomerListFilters["work"] })}
           />
         </section>
         <section>
-          <div className="mb-2 text-xs font-semibold text-muted-foreground">跟进时间</div>
+          <div className="mb-2 text-xs font-semibold text-muted-foreground">
+            {t("customers.filters.followupTime")}
+          </div>
           <CustomerSegmented
-            label="跟进时间"
+            label={t("customers.filters.followupTime")}
             value={filters.followup ?? "all"}
             options={[
-              ["all", "不限"],
-              ["due", "今天前要跟进"],
-              ["overdue", "已经过期"],
+              ["all", t("customers.filters.any")],
+              ["due", t("customers.filters.due")],
+              ["overdue", t("customers.filters.overdue")],
             ]}
             onChange={(followup) =>
               onChange({ ...filters, followup: followup as CustomerListFilters["followup"] })
@@ -68,14 +74,16 @@ export function CustomerFilters({
           />
         </section>
         <section>
-          <div className="mb-2 text-xs font-semibold text-muted-foreground">联系许可</div>
+          <div className="mb-2 text-xs font-semibold text-muted-foreground">
+            {t("customers.filters.contactPermission")}
+          </div>
           <CustomerSegmented
-            label="联系许可"
+            label={t("customers.filters.contactPermission")}
             value={filters.marketing ?? "all"}
             options={[
-              ["all", "不限"],
-              ["allowed", "允许联系"],
-              ["blocked", "勿主动联系"],
+              ["all", t("customers.filters.any")],
+              ["allowed", t("customers.filters.allowed")],
+              ["blocked", t("customers.filters.blocked")],
             ]}
             onChange={(marketing) =>
               onChange({ ...filters, marketing: marketing as CustomerListFilters["marketing"] })
@@ -83,13 +91,15 @@ export function CustomerFilters({
           />
         </section>
         <section>
-          <div className="mb-2 text-xs font-semibold text-muted-foreground">辅助标签</div>
+          <div className="mb-2 text-xs font-semibold text-muted-foreground">
+            {t("customers.filters.tags")}
+          </div>
           <div className="space-y-1.5">
             {tags.length ? (
               tags.map((tag) => (
                 <label
                   key={tag.id}
-                  className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-accent"
+                  className="flex min-h-11 cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-accent"
                 >
                   <Checkbox
                     checked={filters.tagIds?.includes(tag.id) ?? false}
@@ -101,7 +111,7 @@ export function CustomerFilters({
               ))
             ) : (
               <p className="rounded-lg bg-[var(--surface-panel-muted)] px-3 py-2 text-xs text-muted-foreground">
-                暂无辅助标签
+                {t("customers.filters.noTags")}
               </p>
             )}
           </div>
@@ -111,6 +121,7 @@ export function CustomerFilters({
         <Button
           type="button"
           variant="outline"
+          className="min-h-11 whitespace-normal"
           onClick={() =>
             onChange({
               ...filters,
@@ -121,10 +132,10 @@ export function CustomerFilters({
             })
           }
         >
-          清除更多条件
+          {t("customers.filters.clear")}
         </Button>
-        <Button className="w-full" onClick={onClose}>
-          应用筛选
+        <Button className="min-h-11 w-full whitespace-normal" onClick={onClose}>
+          {t("customers.filters.apply")}
         </Button>
       </div>
     </div>
@@ -151,7 +162,7 @@ export function CustomerSegmented({
           onClick={() => onChange(key)}
           aria-pressed={value === key}
           className={cn(
-            "rounded-md border px-2 py-1 text-xs",
+            "min-h-11 whitespace-normal break-words rounded-md border px-2 py-1 text-xs",
             value === key
               ? "border-primary bg-primary/10 text-primary"
               : "bg-surface hover:bg-accent",

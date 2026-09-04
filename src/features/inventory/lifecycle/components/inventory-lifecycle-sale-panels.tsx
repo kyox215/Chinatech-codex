@@ -12,7 +12,15 @@ import type {
 } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 import { InventoryConsequenceDialog } from "../../components/inventory-consequence-dialog";
+import {
+  formatInventoryLifecycleDate,
+  formatInventoryLifecycleMoney,
+  localizeInventoryCancelDisposition,
+  localizeInventoryPaymentKind,
+  localizeInventoryPaymentMethod,
+} from "../model/inventory-lifecycle-i18n";
 import {
   InventoryLifecycleField,
   InventoryLifecycleValidationSummary,
@@ -32,17 +40,32 @@ export function InventoryLifecycleSaleMoneyOverview({
 }: {
   sale: InventoryLifecycleSaleDetail;
 }) {
+  const { locale, t } = useLocale();
   const facts = [
-    ["约定售价", euro(sale.agreed_price)],
-    ["累计已收", euro(sale.signed_paid_amount)],
-    ["待收尾款", euro(sale.balance)],
-    ["预计取走", formatDate(sale.expected_pickup_at)],
+    [
+      t("inventory2b4.sale.agreedPrice"),
+      formatInventoryLifecycleMoney(sale.agreed_price, locale, t),
+    ],
+    [
+      t("inventory2b4.sale.paid"),
+      formatInventoryLifecycleMoney(sale.signed_paid_amount, locale, t),
+    ],
+    [t("inventory2b4.sale.balance"), formatInventoryLifecycleMoney(sale.balance, locale, t)],
+    [
+      t("inventory2b4.sale.expectedPickup"),
+      sale.expected_pickup_at
+        ? formatInventoryLifecycleDate(sale.expected_pickup_at, locale, t)
+        : t("inventory2b4.sale.unscheduled"),
+    ],
   ];
   return (
-    <section className={cn(repairOs.mobileInfoCard, "p-3 sm:p-4")} aria-label="销售金额摘要">
+    <section
+      className={cn(repairOs.mobileInfoCard, "p-3 sm:p-4")}
+      aria-label={t("inventory2b4.sale.overviewAria")}
+    >
       <div className="flex items-center gap-2">
         <Banknote className="size-4 text-primary" aria-hidden="true" />
-        <h2 className="text-sm font-semibold">金额与交付</h2>
+        <h2 className="text-sm font-semibold">{t("inventory2b4.sale.moneyDelivery")}</h2>
       </div>
       <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {facts.map(([label, value]) => (
@@ -54,7 +77,7 @@ export function InventoryLifecycleSaleMoneyOverview({
       </div>
       {sale.payments.length ? (
         <div className="mt-3 border-t border-[var(--border-panel)] pt-2">
-          <h3 className="text-[11px] font-semibold">不可变付款记录</h3>
+          <h3 className="text-[11px] font-semibold">{t("inventory2b4.sale.paymentHistory")}</h3>
           <ol className="mt-1.5 grid gap-1.5">
             {sale.payments.map((payment, index) => (
               <li
@@ -62,13 +85,20 @@ export function InventoryLifecycleSaleMoneyOverview({
                 className="flex items-center justify-between gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px]"
               >
                 <span>
-                  {paymentKindLabel(payment.kind)} · {paymentMethodLabel(payment.method)}
+                  {localizeInventoryPaymentKind(payment.kind, paymentKindLabel(payment.kind), t)} ·{" "}
+                  {localizeInventoryPaymentMethod(
+                    payment.method,
+                    paymentMethodLabel(payment.method),
+                    t,
+                  )}
                 </span>
                 <strong>
                   {["refund", "reversal"].includes(payment.kind) ? "−" : "+"}
-                  {euro(payment.amount)}
+                  {formatInventoryLifecycleMoney(payment.amount, locale, t)}
                 </strong>
-                <time className="text-muted-foreground">{formatDate(payment.occurred_at)}</time>
+                <time className="text-muted-foreground">
+                  {formatInventoryLifecycleDate(payment.occurred_at, locale, t)}
+                </time>
               </li>
             ))}
           </ol>
@@ -89,6 +119,7 @@ export function InventoryLifecycleSalePaymentPanel({
   writeBlocked,
   submit,
 }: InventoryLifecycleSalePanelProps) {
+  const { locale, t } = useLocale();
   const [amount, setAmount] = useState(String(sale.balance));
   const [method, setMethod] = useState("cash");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -97,9 +128,9 @@ export function InventoryLifecycleSalePaymentPanel({
     const value = Number(amount.trim().replace(",", "."));
     const nextErrors: Record<string, string> = {};
     if (!amount.trim() || !Number.isFinite(value) || value <= 0) {
-      nextErrors["inventory-sale-payment-amount"] = "请输入大于 0 的收款金额。";
+      nextErrors["inventory-sale-payment-amount"] = t("inventory2b4.sale.payment.invalid");
     } else if (value > sale.balance) {
-      nextErrors["inventory-sale-payment-amount"] = "收款金额不能超过当前待收余额。";
+      nextErrors["inventory-sale-payment-amount"] = t("inventory2b4.sale.payment.exceeds");
     }
     if (Object.keys(nextErrors).length > 0) setValidationAttempt((current) => current + 1);
     setErrors(nextErrors);
@@ -109,13 +140,17 @@ export function InventoryLifecycleSalePaymentPanel({
     ? [
         {
           fieldId: "inventory-sale-payment-amount",
-          label: "本次收款",
+          label: t("inventory2b4.sale.payment.amount"),
           message: errors["inventory-sale-payment-amount"],
         },
       ]
     : [];
   return (
-    <ActionCard icon={Banknote} title="追加收款" description="付款记录只追加，不可覆盖历史。">
+    <ActionCard
+      icon={Banknote}
+      title={t("inventory2b4.sale.payment.title")}
+      description={t("inventory2b4.sale.payment.description")}
+    >
       <InventoryLifecycleValidationSummary
         issues={issues}
         focusRequestKey={validationAttempt}
@@ -124,7 +159,7 @@ export function InventoryLifecycleSalePaymentPanel({
       <fieldset disabled={pending || writeBlocked} className="contents">
         <Field
           id="inventory-sale-payment-amount"
-          label="本次收款"
+          label={t("inventory2b4.sale.payment.amount")}
           required
           error={errors["inventory-sale-payment-amount"]}
         >
@@ -162,12 +197,14 @@ export function InventoryLifecycleSalePaymentPanel({
             });
           }}
         >
-          确认追加 {euro(Number(amount || 0))}
+          {t("inventory2b4.sale.payment.confirm", {
+            amount: formatInventoryLifecycleMoney(Number(amount || 0), locale, t),
+          })}
         </Button>
       </fieldset>
       {pending ? (
         <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
-          正在处理收款，完成前不可重复提交。
+          {t("inventory2b4.sale.payment.pending")}
         </p>
       ) : null}
     </ActionCard>
@@ -180,11 +217,12 @@ export function CompleteSalePanel({
   writeBlocked,
   submit,
 }: InventoryLifecycleSalePanelProps) {
+  const { t } = useLocale();
   return (
     <ActionCard
       icon={PackageCheck}
-      title="完成成交"
-      description="仅在约定价与累计已收完全一致时可成交。"
+      title={t("inventory2b4.sale.complete.title")}
+      description={t("inventory2b4.sale.complete.description")}
     >
       <fieldset disabled={pending || writeBlocked} className="contents">
         <Button
@@ -198,7 +236,7 @@ export function CompleteSalePanel({
             })
           }
         >
-          完成销售并写入库存出库
+          {t("inventory2b4.sale.complete.confirm")}
         </Button>
       </fieldset>
     </ActionCard>
@@ -211,6 +249,7 @@ export function InventoryLifecycleSalePickupPanel({
   writeBlocked,
   submit,
 }: InventoryLifecycleSalePanelProps) {
+  const { t } = useLocale();
   const [months, setMonths] = useState("");
   const [reason, setReason] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -221,10 +260,14 @@ export function InventoryLifecycleSalePickupPanel({
       months !== "" &&
       (!Number.isInteger(Number(months)) || Number(months) < 0 || Number(months) > 120)
     ) {
-      nextErrors["inventory-sale-pickup-warranty-months"] = "请输入 0 到 120 的整数月数。";
+      nextErrors["inventory-sale-pickup-warranty-months"] = t(
+        "inventory2b4.sale.validation.months",
+      );
     }
     if (sale.balance > 0 && reason.trim().length === 0) {
-      nextErrors["inventory-sale-pickup-override-reason"] = "余额未清时必须填写例外原因。";
+      nextErrors["inventory-sale-pickup-override-reason"] = t(
+        "inventory2b4.sale.validation.override",
+      );
     }
     if (Object.keys(nextErrors).length > 0) setValidationAttempt((current) => current + 1);
     setErrors(nextErrors);
@@ -234,14 +277,16 @@ export function InventoryLifecycleSalePickupPanel({
     .filter(([, message]) => Boolean(message))
     .map(([fieldId, message]) => ({
       fieldId,
-      label: fieldId.endsWith("months") ? "商业保修（月）" : "余额未清例外原因",
+      label: fieldId.endsWith("months")
+        ? t("inventory2b4.sale.warrantyMonths")
+        : t("inventory2b4.sale.overrideReason"),
       message,
     }));
   return (
     <ActionCard
       icon={CalendarCheck}
-      title="确认客户取走"
-      description="商业保修从实际取走时间开始；留空使用当前门店默认值。"
+      title={t("inventory2b4.sale.pickup.title")}
+      description={t("inventory2b4.sale.pickup.description")}
     >
       <InventoryLifecycleValidationSummary
         issues={issues}
@@ -251,13 +296,13 @@ export function InventoryLifecycleSalePickupPanel({
       <fieldset disabled={pending || writeBlocked} className="contents">
         <Field
           id="inventory-sale-pickup-warranty-months"
-          label="商业保修（月）"
+          label={t("inventory2b4.sale.warrantyMonths")}
           error={errors["inventory-sale-pickup-warranty-months"]}
         >
           <Input
             id="inventory-sale-pickup-warranty-months"
             inputMode="numeric"
-            placeholder="门店默认"
+            placeholder={t("inventory2b4.sale.storeDefault")}
             value={months}
             onChange={(event) => {
               setMonths(event.target.value);
@@ -279,7 +324,7 @@ export function InventoryLifecycleSalePickupPanel({
         {sale.balance > 0 ? (
           <Field
             id="inventory-sale-pickup-override-reason"
-            label="余额未清例外原因"
+            label={t("inventory2b4.sale.overrideReason")}
             required
             error={errors["inventory-sale-pickup-override-reason"]}
           >
@@ -318,12 +363,12 @@ export function InventoryLifecycleSalePickupPanel({
             });
           }}
         >
-          确认已取走并开始保修
+          {t("inventory2b4.sale.pickup.confirm")}
         </Button>
       </fieldset>
       {pending ? (
         <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
-          正在处理取走确认，完成前不可重复提交。
+          {t("inventory2b4.sale.pickup.pending")}
         </p>
       ) : null}
     </ActionCard>
@@ -336,6 +381,7 @@ export function WarrantyPanel({
   writeBlocked,
   submit,
 }: InventoryLifecycleSalePanelProps) {
+  const { t } = useLocale();
   const [months, setMonths] = useState(String(sale.commercial_warranty?.months ?? 12));
   const [reason, setReason] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -343,9 +389,10 @@ export function WarrantyPanel({
   const validate = () => {
     const nextErrors: Record<string, string> = {};
     if (!Number.isInteger(Number(months)) || Number(months) < 0 || Number(months) > 120) {
-      nextErrors["inventory-sale-warranty-months"] = "请输入 0 到 120 的整数月数。";
+      nextErrors["inventory-sale-warranty-months"] = t("inventory2b4.sale.validation.months");
     }
-    if (!reason.trim()) nextErrors["inventory-sale-warranty-reason"] = "请补充调整原因。";
+    if (!reason.trim())
+      nextErrors["inventory-sale-warranty-reason"] = t("inventory2b4.sale.warranty.reasonRequired");
     if (Object.keys(nextErrors).length > 0) setValidationAttempt((current) => current + 1);
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -354,14 +401,16 @@ export function WarrantyPanel({
     .filter(([, message]) => Boolean(message))
     .map(([fieldId, message]) => ({
       fieldId,
-      label: fieldId.endsWith("months") ? "新商业保修（月）" : "调整原因",
+      label: fieldId.endsWith("months")
+        ? t("inventory2b4.sale.warranty.newMonths")
+        : t("inventory2b4.sale.warranty.reason"),
       message,
     }));
   return (
     <ActionCard
       icon={ShieldCheck}
-      title="调整商业保修"
-      description="法定保障保持独立；本操作新增版本，不覆盖历史。"
+      title={t("inventory2b4.sale.warranty.title")}
+      description={t("inventory2b4.sale.warranty.description")}
     >
       <InventoryLifecycleValidationSummary
         issues={issues}
@@ -371,7 +420,7 @@ export function WarrantyPanel({
       <fieldset disabled={pending || writeBlocked} className="contents">
         <Field
           id="inventory-sale-warranty-months"
-          label="新商业保修（月）"
+          label={t("inventory2b4.sale.warranty.newMonths")}
           required
           error={errors["inventory-sale-warranty-months"]}
         >
@@ -399,7 +448,7 @@ export function WarrantyPanel({
         </Field>
         <Field
           id="inventory-sale-warranty-reason"
-          label="调整原因"
+          label={t("inventory2b4.sale.warranty.reason")}
           required
           error={errors["inventory-sale-warranty-reason"]}
         >
@@ -438,12 +487,12 @@ export function WarrantyPanel({
             });
           }}
         >
-          保存新的商业保修版本
+          {t("inventory2b4.sale.warranty.confirm")}
         </Button>
       </fieldset>
       {pending ? (
         <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
-          正在保存商业保修，完成前不可重复提交。
+          {t("inventory2b4.sale.warranty.pending")}
         </p>
       ) : null}
     </ActionCard>
@@ -456,14 +505,15 @@ export function AfterSalesIntakePanel({
   writeBlocked,
   submit,
 }: InventoryLifecycleSalePanelProps) {
+  const { t } = useLocale();
   const [issue, setIssue] = useState("");
   const [error, setError] = useState("");
   const [validationAttempt, setValidationAttempt] = useState(0);
   return (
     <ActionCard
       icon={RefreshCw}
-      title="登记返修 / 售后"
-      description="建立独立案件，不覆盖原销售与首次交付。"
+      title={t("inventory2b4.sale.afterSales.title")}
+      description={t("inventory2b4.sale.afterSales.description")}
     >
       <InventoryLifecycleValidationSummary
         issues={
@@ -471,7 +521,7 @@ export function AfterSalesIntakePanel({
             ? [
                 {
                   fieldId: "inventory-sale-after-sales-issue",
-                  label: "客户反映问题",
+                  label: t("inventory2b4.sale.afterSales.issue"),
                   message: error,
                 },
               ]
@@ -481,7 +531,12 @@ export function AfterSalesIntakePanel({
         onFocusField={(fieldId) => document.getElementById(fieldId)?.focus()}
       />
       <fieldset disabled={pending || writeBlocked} className="contents">
-        <Field id="inventory-sale-after-sales-issue" label="客户反映问题" required error={error}>
+        <Field
+          id="inventory-sale-after-sales-issue"
+          label={t("inventory2b4.sale.afterSales.issue")}
+          required
+          error={error}
+        >
           <Textarea
             id="inventory-sale-after-sales-issue"
             required
@@ -501,7 +556,7 @@ export function AfterSalesIntakePanel({
           onClick={() => {
             if (!issue.trim()) {
               setValidationAttempt((current) => current + 1);
-              setError("请补充客户反映的问题。");
+              setError(t("inventory2b4.sale.afterSales.issueRequired"));
               return;
             }
             submit("after_sales.create", {
@@ -512,12 +567,12 @@ export function AfterSalesIntakePanel({
             });
           }}
         >
-          建立售后案件
+          {t("inventory2b4.sale.afterSales.confirm")}
         </Button>
       </fieldset>
       {pending ? (
         <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
-          正在建立售后案件，完成前不可重复提交。
+          {t("inventory2b4.sale.afterSales.pending")}
         </p>
       ) : null}
     </ActionCard>
@@ -530,14 +585,18 @@ export function CancelPanel({
   writeBlocked,
   submit,
 }: InventoryLifecycleSalePanelProps) {
+  const { t } = useLocale();
   const [reason, setReason] = useState("");
   const [disposition, setDisposition] = useState("pending");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState("");
   const [validationAttempt, setValidationAttempt] = useState(0);
   const cancelTriggerRef = useRef<HTMLElement | null>(null);
-  const dispositionLabel =
-    disposition === "refund_pending" ? "待退款" : disposition === "retain" ? "确认保留" : "待决定";
+  const dispositionLabel = localizeInventoryCancelDisposition(
+    disposition,
+    disposition === "refund_pending" ? "待退款" : disposition === "retain" ? "确认保留" : "待决定",
+    t,
+  );
 
   const confirmCancel = () => {
     if (pending) return;
@@ -557,40 +616,56 @@ export function CancelPanel({
       return true;
     }
     setValidationAttempt((current) => current + 1);
-    setError("请补充取消原因；确认前不会打开危险操作。");
+    setError(t("inventory2b4.sale.cancel.reasonRequired"));
     return false;
   };
 
   return (
     <ActionCard
       icon={RefreshCw}
-      title="取消预订"
-      description="定金处理只记录决定；不会自动声称已退款或没收。"
+      title={t("inventory2b4.sale.cancel.title")}
+      description={t("inventory2b4.sale.cancel.description")}
       danger
     >
       <InventoryLifecycleValidationSummary
         issues={
           error
-            ? [{ fieldId: "inventory-sale-cancel-reason", label: "取消原因", message: error }]
+            ? [
+                {
+                  fieldId: "inventory-sale-cancel-reason",
+                  label: t("inventory2b4.sale.cancel.reason"),
+                  message: error,
+                },
+              ]
             : []
         }
         focusRequestKey={validationAttempt}
         onFocusField={(fieldId) => document.getElementById(fieldId)?.focus()}
       />
       <fieldset disabled={pending || writeBlocked} className="contents">
-        <Field id="inventory-sale-cancel-disposition" label="定金处理状态">
+        <Field
+          id="inventory-sale-cancel-disposition"
+          label={t("inventory2b4.sale.cancel.disposition")}
+        >
           <select
             id="inventory-sale-cancel-disposition"
             className="h-11 w-full rounded-md border bg-background px-3 text-sm"
             value={disposition}
             onChange={(event) => setDisposition(event.target.value)}
           >
-            <option value="pending">待决定</option>
-            <option value="refund_pending">待退款</option>
-            <option value="retain">确认保留</option>
+            {(["pending", "refund_pending", "retain"] as const).map((value) => (
+              <option key={value} value={value}>
+                {localizeInventoryCancelDisposition(value, value, t)}
+              </option>
+            ))}
           </select>
         </Field>
-        <Field id="inventory-sale-cancel-reason" label="取消原因" required error={error}>
+        <Field
+          id="inventory-sale-cancel-reason"
+          label={t("inventory2b4.sale.cancel.reason")}
+          required
+          error={error}
+        >
           <Textarea
             id="inventory-sale-cancel-reason"
             required
@@ -613,20 +688,20 @@ export function CancelPanel({
             if (!pending && !writeBlocked && validate()) setConfirmOpen(true);
           }}
         >
-          确认取消预订
+          {t("inventory2b4.sale.cancel.confirm")}
         </Button>
       </fieldset>
       <InventoryConsequenceDialog
         open={confirmOpen}
-        title="确认取消此预订？"
-        description="确认后库存将重新变为可售；取消动作会按当前版本写入审计历史。"
+        title={t("inventory2b4.sale.cancel.dialogTitle")}
+        description={t("inventory2b4.sale.cancel.dialogDescription")}
         consequences={[
-          "库存：取消完成后该设备回到可售队列。",
-          `定金处理：${dispositionLabel}（不会自动声称已退款或没收）。`,
-          "审计：取消原因、当前定金处理选择和版本会保留在历史中。",
+          t("inventory2b4.sale.cancel.inventoryConsequence"),
+          t("inventory2b4.sale.cancel.depositConsequence", { disposition: dispositionLabel }),
+          t("inventory2b4.sale.cancel.auditConsequence"),
         ]}
-        confirmLabel="确认取消预订"
-        cancelLabel="继续编辑"
+        confirmLabel={t("inventory2b4.sale.cancel.confirm")}
+        cancelLabel={t("inventory2b4.sale.cancel.continueEditing")}
         tone="danger"
         pending={pending}
         blocked={writeBlocked}
@@ -636,7 +711,7 @@ export function CancelPanel({
       />
       {pending ? (
         <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
-          正在处理取消，完成前不可重复提交。
+          {t("inventory2b4.sale.cancel.pending")}
         </p>
       ) : null}
     </ActionCard>
@@ -710,8 +785,9 @@ function Field({
   );
 }
 function Method({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const { t } = useLocale();
   return (
-    <Field id="inventory-sale-payment-method" label="支付方式">
+    <Field id="inventory-sale-payment-method" label={t("inventory2b4.sale.payment.method")}>
       <select
         id="inventory-sale-payment-method"
         className="h-11 w-full rounded-md border bg-background px-3 text-sm"
@@ -720,42 +796,36 @@ function Method({ value, onChange }: { value: string; onChange: (value: string) 
       >
         {methods.map(([key, label]) => (
           <option key={key} value={key}>
-            {label}
+            {localizeInventoryPaymentMethod(key, label, t)}
           </option>
         ))}
       </select>
     </Field>
   );
 }
-function euro(value: number) {
-  return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(value);
-}
-function formatDate(value?: string) {
-  return value
-    ? new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(
-        new Date(value),
-      )
-    : "未安排";
-}
 function shortId(value: string) {
   return value.slice(0, 8).toUpperCase();
 }
 function paymentKindLabel(kind: InventoryLifecycleSaleDetail["payments"][number]["kind"]) {
-  return {
-    deposit: "定金",
-    balance: "尾款",
-    payment: "收款",
-    refund: "退款",
-    reversal: "冲正",
-  }[kind];
+  return (
+    {
+      deposit: "定金",
+      balance: "尾款",
+      payment: "收款",
+      refund: "退款",
+      reversal: "冲正",
+    }[kind] ?? kind
+  );
 }
 
 function paymentMethodLabel(method: InventoryLifecycleSaleDetail["payments"][number]["method"]) {
-  return {
-    cash: "现金",
-    card: "银行卡",
-    bancomat: "Bancomat",
-    transfer: "转账",
-    other: "其他",
-  }[method];
+  return (
+    {
+      cash: "现金",
+      card: "银行卡",
+      bancomat: "Bancomat",
+      transfer: "转账",
+      other: "其他",
+    }[method] ?? method
+  );
 }

@@ -2,6 +2,8 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { InventoryLifecycleListSummary, InventoryProductDetail } from "@/lib/repairdesk/types";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
+import type { AppLocale } from "@/shared/i18n/locales";
 
 import { InventoryProductDetailWorkbench } from "./inventory-product-detail-workbench";
 
@@ -53,8 +55,15 @@ const baseProps = (
   };
 };
 
-function renderWorkbench(props: React.ComponentProps<typeof InventoryProductDetailWorkbench>) {
-  return render(<InventoryProductDetailWorkbench {...props} />);
+function renderWorkbench(
+  props: React.ComponentProps<typeof InventoryProductDetailWorkbench>,
+  locale: AppLocale = "zh-CN",
+) {
+  return render(
+    <LocaleProvider initialLocale={locale}>
+      <InventoryProductDetailWorkbench {...props} />
+    </LocaleProvider>,
+  );
 }
 
 function requireHTMLElement(element: Element | null): HTMLElement {
@@ -75,6 +84,73 @@ beforeEach(() => {
 });
 
 describe("InventoryProductDetailWorkbench Storybook composition contract", () => {
+  it.each([
+    [
+      "zh-CN",
+      "商品详情",
+      "设备工作台",
+      "经营信息",
+      "设备身份",
+      "编辑商品",
+      "2026年8月11日 09:42",
+      "€899.00",
+    ],
+    [
+      "it-IT",
+      "Dettagli prodotto",
+      "Area di lavoro dispositivo",
+      "Informazioni commerciali",
+      "Identità dispositivo",
+      "Modifica prodotto",
+      "11 ago 2026, 09:42",
+      "€899,00",
+    ],
+    [
+      "en",
+      "Product details",
+      "Device workbench",
+      "Business information",
+      "Device identity",
+      "Edit product",
+      "Aug 11, 2026, 9:42 AM",
+      "€899.00",
+    ],
+  ] as const)(
+    "localizes owned detail chrome in %s while preserving custom values",
+    (locale, title, workbench, business, identity, action, date, money) => {
+      const item = productFixture();
+      item.brand = "动态品牌 Ω";
+      item.model = "Modello 客制";
+      item.location = "展柜 Z-9";
+      item.notes = "保留 note Ω";
+      item.color = "Custom 朱红";
+      item.specifications = { custom_spec_原值: "Spec 值 Ω" };
+
+      const { container } = renderWorkbench(
+        baseProps({ item, lifecycleSummary: undefined, lifecycleSummaryState: "dormant" }),
+        locale,
+      );
+
+      expect(screen.getByRole("heading", { level: 1, name: title })).toBeVisible();
+      expect(screen.getByRole("heading", { name: workbench })).toBeVisible();
+      expect(screen.getByRole("heading", { name: business })).toBeVisible();
+      expect(screen.getByRole("heading", { name: identity })).toBeVisible();
+      expect(screen.getAllByRole("button", { name: action }).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(date).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(money).length).toBeGreaterThan(0);
+      for (const value of [
+        "动态品牌 Ω Modello 客制",
+        "展柜 Z-9",
+        "保留 note Ω",
+        "Custom 朱红",
+        "custom_spec_原值",
+        "Spec 值 Ω",
+      ]) {
+        expect(container.textContent).toContain(value);
+      }
+    },
+  );
+
   it("passes the merged inspection summary to the production render slot", () => {
     const item = productFixture();
     item.inspection = {

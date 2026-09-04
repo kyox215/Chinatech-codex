@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronDown, Copy, Link2, MailPlus, RotateCcw } from "lucide-react";
 
 import { RepairOsBusinessCard } from "@/shared/ui";
@@ -16,11 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MEMBER_ROLE_LABELS } from "@/features/settings/model/member-settings-editor";
+import { getMemberRoleLabels } from "@/features/settings/model/member-settings-editor";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { DEFAULT_LOCALE, type AppLocale } from "@/shared/i18n/locales";
+import { translateMessage, type MessageKey } from "@/shared/i18n/messages";
 import type {
   ApprovedStoreRole,
   StoreInvitation,
+  StoreInvitationEmailDeliveryStatus,
   StoreInviteLink,
   StoreInviteLinkCreateInput,
   StoreInviteInput,
@@ -61,6 +65,8 @@ export function MemberInviteTools({
   onRequestRevokeInvitation,
   onRequestRevokeLink,
 }: MemberInviteToolsProps) {
+  const { locale, t } = useLocale();
+  const roleLabels = getMemberRoleLabels(locale);
   const defaultRole = roleOptions[0] ?? "viewer";
   const [inviteOpen, setInviteOpen] = useState(true);
   const [linkOpen, setLinkOpen] = useState(false);
@@ -71,6 +77,45 @@ export function MemberInviteTools({
     expires_in_days: 7,
     max_uses: 1,
   });
+  const inviteSubmittingRef = useRef(false);
+  const linkSubmittingRef = useRef(false);
+  const resendSubmittingRef = useRef(new Set<string>());
+
+  const submitInvite = () => {
+    if (inviteSubmittingRef.current) return;
+    inviteSubmittingRef.current = true;
+    void onInvite({ ...invite, email: invite.email.trim() })
+      .then(() => setInvite({ email: "", role: defaultRole }))
+      .catch(() => undefined)
+      .finally(() => {
+        inviteSubmittingRef.current = false;
+      });
+  };
+  const submitInviteLink = () => {
+    if (linkSubmittingRef.current) return;
+    linkSubmittingRef.current = true;
+    void onCreateLink({
+      ...link,
+      label: link.label?.trim() || undefined,
+    })
+      .then(() => setLink((current) => ({ ...current, label: "" })))
+      .catch(() => undefined)
+      .finally(() => {
+        linkSubmittingRef.current = false;
+      });
+  };
+  const resendInvitation = (item: StoreInvitation) => {
+    if (resendSubmittingRef.current.has(item.id)) return;
+    resendSubmittingRef.current.add(item.id);
+    void onInvite({
+      email: item.email,
+      role: item.role as ApprovedStoreRole,
+    })
+      .catch(() => undefined)
+      .finally(() => {
+        resendSubmittingRef.current.delete(item.id);
+      });
+  };
 
   return (
     <div className="grid gap-2 xl:grid-cols-2">
@@ -78,13 +123,13 @@ export function MemberInviteTools({
         <InvitePanel
           open={inviteOpen}
           onOpenChange={setInviteOpen}
-          title="邮件邀请员工"
-          summary={`${invitations.length} 个待接受`}
+          title={t("settings.members.invite.emailTitle")}
+          summary={t("settings.members.invite.pendingCount", { count: invitations.length })}
           icon={<MailPlus className="size-4" />}
         >
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_10rem]">
             <div className="space-y-1.5 md:col-span-2">
-              <Label htmlFor="invite-email">员工邮箱</Label>
+              <Label htmlFor="invite-email">{t("settings.members.invite.staffEmail")}</Label>
               <Input
                 id="invite-email"
                 type="email"
@@ -95,11 +140,11 @@ export function MemberInviteTools({
                 }
               />
               <p className="text-xs leading-5 text-muted-foreground">
-                系统会向该邮箱发送一次性加入链接；员工完成登录或注册后才能访问店铺。
+                {t("settings.members.invite.emailHint")}
               </p>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="invite-role">角色</Label>
+              <Label htmlFor="invite-role">{t("settings.members.roleLabel")}</Label>
               <Select
                 value={invite.role}
                 onValueChange={(role) =>
@@ -112,7 +157,7 @@ export function MemberInviteTools({
                 <SelectContent>
                   {roleOptions.map((role) => (
                     <SelectItem key={role} value={role}>
-                      {MEMBER_ROLE_LABELS[role]}
+                      {roleLabels[role]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -124,15 +169,11 @@ export function MemberInviteTools({
               disabled={
                 isInviting || invite.email.trim().length < 3 || !roleOptions.includes(invite.role)
               }
-              onClick={() =>
-                void onInvite({ ...invite, email: invite.email.trim() })
-                  .then(() => {
-                    setInvite({ email: "", role: defaultRole });
-                  })
-                  .catch(() => undefined)
-              }
+              onClick={submitInvite}
             >
-              {isInviting ? "正在发送…" : "发送邀请邮件"}
+              {isInviting
+                ? t("settings.members.invite.sending")
+                : t("settings.members.invite.send")}
             </Button>
           </div>
         </InvitePanel>
@@ -142,14 +183,14 @@ export function MemberInviteTools({
         <InvitePanel
           open={linkOpen}
           onOpenChange={setLinkOpen}
-          title="邀请码"
-          summary={`${inviteLinks.length} 个有效`}
+          title={t("settings.members.invite.codeTitle")}
+          summary={t("settings.members.invite.activeCount", { count: inviteLinks.length })}
           icon={<Link2 className="size-4" />}
         >
           {canInvite ? (
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="invite-code-label">备注</Label>
+                <Label htmlFor="invite-code-label">{t("settings.members.invite.note")}</Label>
                 <Input
                   id="invite-code-label"
                   className="h-[38px] text-base sm:text-sm"
@@ -158,7 +199,7 @@ export function MemberInviteTools({
                   onChange={(event) =>
                     setLink((current) => ({ ...current, label: event.target.value }))
                   }
-                  placeholder="例如 临时员工"
+                  placeholder={t("settings.members.invite.notePlaceholder")}
                 />
               </div>
               <InviteRoleSelect
@@ -169,7 +210,7 @@ export function MemberInviteTools({
               <div className="grid grid-cols-2 gap-2">
                 <NumberField
                   id="invite-code-days"
-                  label="有效天数"
+                  label={t("settings.members.invite.validDays")}
                   value={link.expires_in_days ?? 7}
                   max={30}
                   onChange={(value) =>
@@ -178,7 +219,7 @@ export function MemberInviteTools({
                 />
                 <NumberField
                   id="invite-code-uses"
-                  label="可用次数"
+                  label={t("settings.members.invite.maxUses")}
                   value={link.max_uses ?? 1}
                   max={50}
                   onChange={(value) => setLink((current) => ({ ...current, max_uses: value }))}
@@ -188,16 +229,11 @@ export function MemberInviteTools({
                 type="button"
                 className="min-h-11 sm:col-span-2"
                 disabled={isCreatingLink || !roleOptions.includes(link.role)}
-                onClick={() =>
-                  void onCreateLink({
-                    ...link,
-                    label: link.label?.trim() || undefined,
-                  })
-                    .then(() => setLink((current) => ({ ...current, label: "" })))
-                    .catch(() => undefined)
-                }
+                onClick={submitInviteLink}
               >
-                {isCreatingLink ? "生成中…" : "生成当前店铺邀请码"}
+                {isCreatingLink
+                  ? t("settings.members.invite.generating")
+                  : t("settings.members.invite.generate")}
               </Button>
             </div>
           ) : null}
@@ -208,11 +244,13 @@ export function MemberInviteTools({
               className="mt-3 grid-cols-1 gap-2 border-primary/25 bg-primary/5 px-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto]"
               trailing={
                 <Button type="button" variant="outline" className="min-h-11" onClick={onCopyCode}>
-                  <Copy className="size-4" /> 复制
+                  <Copy className="size-4" /> {t("settings.members.invite.copy")}
                 </Button>
               }
             >
-              <p className="text-xs text-muted-foreground">只显示本次生成的代码</p>
+              <p className="text-xs text-muted-foreground">
+                {t("settings.members.invite.latestCodeOnly")}
+              </p>
               <code className="mt-1 block select-all break-all font-mono text-sm font-semibold">
                 {latestInviteCode}
               </code>
@@ -227,9 +265,9 @@ export function MemberInviteTools({
                 className="grid-cols-1 gap-2 px-3 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
                 trailing={
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{MEMBER_ROLE_LABELS[item.role]}</Badge>
+                    <Badge variant="outline">{roleLabels[item.role]}</Badge>
                     <span className="text-xs text-muted-foreground">
-                      {item.used_count}/{item.max_uses ?? "不限"}
+                      {item.used_count}/{item.max_uses ?? t("settings.members.invite.unlimited")}
                     </span>
                     {canRevoke ? (
                       <Button
@@ -239,15 +277,19 @@ export function MemberInviteTools({
                         disabled={isRevokingLink}
                         onClick={(event) => onRequestRevokeLink(item, event.currentTarget)}
                       >
-                        撤销
+                        {t("settings.members.invite.revoke")}
                       </Button>
                     ) : null}
                   </div>
                 }
               >
-                <p className="break-words text-sm font-medium">{item.label || "未命名邀请码"}</p>
+                <p className="break-words text-sm font-medium">
+                  {item.label || t("settings.members.invite.unnamedCode")}
+                </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  到期 {formatMemberDate(item.expires_at)}
+                  {t("settings.members.invite.expires", {
+                    date: formatMemberDate(item.expires_at, locale),
+                  })}
                 </p>
               </RepairOsBusinessCard>
             ))}
@@ -261,7 +303,7 @@ export function MemberInviteTools({
             id="pending-invitations-title"
             className="text-xs font-semibold text-muted-foreground"
           >
-            待接受邀请
+            {t("settings.members.invite.pendingTitle")}
           </h3>
           {invitations.map((item) => (
             <RepairOsBusinessCard
@@ -270,14 +312,14 @@ export function MemberInviteTools({
               className="grid-cols-1 gap-2 border-dashed px-3 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
               trailing={
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline">{MEMBER_ROLE_LABELS[item.role]}</Badge>
+                  <Badge variant="outline">{roleLabels[item.role]}</Badge>
                   <Badge
                     variant={item.email_delivery_status === "failed" ? "destructive" : "secondary"}
                   >
-                    {emailDeliveryLabel(item.email_delivery_status)}
+                    {emailDeliveryLabel(item.email_delivery_status, locale)}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    {formatMemberDate(item.expires_at)}
+                    {formatMemberDate(item.expires_at, locale)}
                   </span>
                   {canInvite && item.role !== "owner" ? (
                     <Button
@@ -285,14 +327,9 @@ export function MemberInviteTools({
                       variant="outline"
                       className="min-h-11"
                       disabled={isInviting}
-                      onClick={() =>
-                        void onInvite({
-                          email: item.email,
-                          role: item.role as ApprovedStoreRole,
-                        }).catch(() => undefined)
-                      }
+                      onClick={() => resendInvitation(item)}
                     >
-                      <RotateCcw className="size-4" /> 重新发送
+                      <RotateCcw className="size-4" /> {t("settings.members.invite.resend")}
                     </Button>
                   ) : null}
                   {canRevoke ? (
@@ -303,7 +340,7 @@ export function MemberInviteTools({
                       disabled={isRevokingInvitation}
                       onClick={(event) => onRequestRevokeInvitation(item, event.currentTarget)}
                     >
-                      撤销
+                      {t("settings.members.invite.revoke")}
                     </Button>
                   ) : null}
                 </div>
@@ -366,9 +403,11 @@ function InviteRoleSelect({
   roleOptions: readonly ApprovedStoreRole[];
   onChange: (role: ApprovedStoreRole) => void;
 }) {
+  const { locale, t } = useLocale();
+  const roleLabels = getMemberRoleLabels(locale);
   return (
     <div className="space-y-1.5">
-      <Label htmlFor="invite-code-role">角色</Label>
+      <Label htmlFor="invite-code-role">{t("settings.members.roleLabel")}</Label>
       <Select value={value} onValueChange={(role) => onChange(role as ApprovedStoreRole)}>
         <SelectTrigger id="invite-code-role" className="h-[38px] text-base sm:text-sm">
           <SelectValue />
@@ -376,7 +415,7 @@ function InviteRoleSelect({
         <SelectContent>
           {roleOptions.map((role) => (
             <SelectItem key={role} value={role}>
-              {MEMBER_ROLE_LABELS[role]}
+              {roleLabels[role]}
             </SelectItem>
           ))}
         </SelectContent>
@@ -414,15 +453,26 @@ function NumberField({
   );
 }
 
-export function formatMemberDate(value: string) {
+export function formatMemberDate(value: string, locale: AppLocale = DEFAULT_LOCALE) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat(locale, {
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: "Europe/Rome",
+  }).format(date);
 }
 
-export function emailDeliveryLabel(status: StoreInvitation["email_delivery_status"]) {
-  if (status === "sent") return "邮件已发送";
-  if (status === "pending") return "正在发送";
-  if (status === "failed") return "发送失败";
-  return "尚未发送";
+const emailDeliveryKeys: Record<StoreInvitationEmailDeliveryStatus, MessageKey> = {
+  sent: "settings.members.invite.emailSent",
+  pending: "settings.members.invite.emailPending",
+  failed: "settings.members.invite.emailFailed",
+  not_requested: "settings.members.invite.emailNotSent",
+};
+
+export function emailDeliveryLabel(
+  status: StoreInvitation["email_delivery_status"],
+  locale: AppLocale = DEFAULT_LOCALE,
+) {
+  return translateMessage(locale, emailDeliveryKeys[status ?? "not_requested"]);
 }

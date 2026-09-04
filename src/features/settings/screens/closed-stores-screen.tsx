@@ -48,8 +48,23 @@ import { componentOverlay } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
 import { RepairOsBusinessCard, RepairOsListScaffold } from "@/shared/ui";
 import { StorePurgeManager } from "@/features/settings/sections/store-purge-manager";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { translateSettingsOperations } from "@/shared/i18n/messages";
+import type { AppLocale } from "@/shared/i18n/locales";
+
+function useOperationsCopy() {
+  const { locale } = useLocale();
+  return {
+    locale,
+    copy: (
+      source: Parameters<typeof translateSettingsOperations>[1],
+      values?: Record<string, string | number>,
+    ) => translateSettingsOperations(locale, source, values),
+  };
+}
 
 export function ClosedStoresScreen() {
+  const { copy } = useOperationsCopy();
   const contextQuery = useQuery({
     queryKey: storesKeys.context,
     queryFn: ({ signal }) => getStoreContext({ signal }),
@@ -58,15 +73,15 @@ export function ClosedStoresScreen() {
 
   return (
     <RepairOsListScaffold
-      title="已关闭与删除"
-      subtitle="已关闭店铺可以恢复；永久删除必须经过冷静期、备份验证和二次身份确认。"
-      eyebrow="设置 / 已关闭与删除"
+      title={copy("已关闭与删除")}
+      subtitle={copy("已关闭店铺可以恢复；永久删除必须经过冷静期、备份验证和二次身份确认。")}
+      eyebrow={copy("设置 / 已关闭与删除")}
     >
       <div className="mx-auto w-full max-w-3xl space-y-2 py-2 sm:space-y-3 sm:py-4">
         {contextQuery.isLoading ? (
           <RepairOsBusinessCard as="div" className="flex items-center gap-2 p-2.5 sm:gap-3 sm:p-4">
             <Loader2 className="size-4 animate-spin" />
-            <span className="text-sm">正在读取店铺状态…</span>
+            <span className="text-sm">{copy("正在读取店铺状态…")}</span>
           </RepairOsBusinessCard>
         ) : null}
         {contextQuery.isError ? (
@@ -75,26 +90,26 @@ export function ClosedStoresScreen() {
             role="alert"
             className="border-status-danger-foreground/25 bg-status-danger/10 p-2.5 sm:p-4"
           >
-            <p className="text-sm font-semibold">暂时无法读取已关闭店铺</p>
+            <p className="text-sm font-semibold">{copy("暂时无法读取已关闭店铺")}</p>
             <Button
               type="button"
               variant="outline"
               className="mt-3"
               onClick={() => contextQuery.refetch()}
             >
-              重新加载
+              {copy("重新加载")}
             </Button>
           </RepairOsBusinessCard>
         ) : null}
         {contextQuery.isSuccess && recoveryStores.length === 0 ? (
           <RepairOsBusinessCard as="div" className="p-3 text-center sm:p-5">
             <Store className="mx-auto size-8 text-muted-foreground" />
-            <p className="mt-3 text-sm font-semibold">没有可恢复的已关闭店铺</p>
+            <p className="mt-3 text-sm font-semibold">{copy("没有可恢复的已关闭店铺")}</p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              正常营业的店铺仍在店铺设置中管理。
+              {copy("正常营业的店铺仍在店铺设置中管理。")}
             </p>
             <Button asChild type="button" variant="outline" className="mt-4">
-              <Link href="/settings?section=store">返回店铺设置</Link>
+              <Link href="/settings?section=store">{copy("返回店铺设置")}</Link>
             </Button>
           </RepairOsBusinessCard>
         ) : null}
@@ -107,20 +122,21 @@ export function ClosedStoresScreen() {
 }
 
 function ClosedStoreCard({ store }: { store: ActorStoreMembership }) {
+  const { locale, copy } = useOperationsCopy();
   const [restored, setRestored] = useState(false);
   const phase = store.lifecycle?.phase;
   const statusLabel =
     phase === "closing"
-      ? "正在关闭，可以恢复"
+      ? copy("正在关闭，可以恢复")
       : phase === "archived"
-        ? "已关闭，可以恢复或申请永久删除"
+        ? copy("已关闭，可以恢复或申请永久删除")
         : phase === "purge_scheduled"
-          ? "永久删除已排程，尚未开始时可以取消"
+          ? copy("永久删除已排程，尚未开始时可以取消")
           : phase === "purging"
-            ? "正在永久清除，已不可恢复"
+            ? copy("正在永久清除，已不可恢复")
             : phase === "purge_failed"
-              ? "永久清除已暂停，等待平台处理"
-              : "店铺已关闭";
+              ? copy("永久清除已暂停，等待平台处理")
+              : copy("店铺已关闭");
   const timestamp = store.lifecycle?.close_requested_at ?? store.lifecycle?.archived_at;
   return (
     <RepairOsBusinessCard as="div" role="region" aria-label={store.name} className="p-2.5 sm:p-4">
@@ -130,16 +146,18 @@ function ClosedStoreCard({ store }: { store: ActorStoreMembership }) {
           <p className="mt-1 text-xs font-medium text-status-warn-foreground">{statusLabel}</p>
           {timestamp ? (
             <p className="mt-1 text-xs text-muted-foreground">
-              关闭时间：{new Date(timestamp).toLocaleString("zh-CN")}
+              {copy("关闭时间：{date}", { date: formatClosedStoreTimestamp(timestamp, locale) })}
             </p>
           ) : null}
           <p className="mt-1 font-mono text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-            识别码尾号 {store.id.replaceAll("-", "").slice(-8)}
+            {copy("识别码尾号 {suffix}", {
+              suffix: store.id.replaceAll("-", "").slice(-8),
+            })}
           </p>
         </div>
         {restored ? (
           <Button asChild type="button">
-            <Link href="/">进入店铺</Link>
+            <Link href="/">{copy("进入店铺")}</Link>
           </Button>
         ) : (
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -177,9 +195,9 @@ function ClosedStoreCard({ store }: { store: ActorStoreMembership }) {
         >
           <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
           <div>
-            <p className="font-semibold">店铺已恢复使用</p>
+            <p className="font-semibold">{copy("店铺已恢复使用")}</p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              旧邀请、旧链接、客户 iPad 凭据和已停用员工没有自动恢复。
+              {copy("旧邀请、旧链接、客户 iPad 凭据和已停用员工没有自动恢复。")}
             </p>
           </div>
         </div>
@@ -197,6 +215,7 @@ function StoreRestoreOverlay({
   capability: StoreLifecycleActionCapability;
   onRestored: () => void;
 }) {
+  const { copy } = useOperationsCopy();
   const isMobile = useIsMobile();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -205,6 +224,7 @@ function StoreRestoreOverlay({
   const [operationId, setOperationId] = useState("");
   const [persistentError, setPersistentError] = useState("");
   const requestSentRef = useRef(false);
+  const restoreSubmittingRef = useRef(false);
   const lifecycleQuery = useQuery({
     queryKey: storesKeys.lifecycle(store.id),
     queryFn: () => getStoreLifecycleState(store.id),
@@ -216,8 +236,16 @@ function StoreRestoreOverlay({
     setTotpCode("");
     setPersistentError("");
     requestSentRef.current = false;
+    restoreSubmittingRef.current = false;
     setOperationId(crypto.randomUUID());
   }, [open]);
+
+  useEffect(() => {
+    if (capability.allowed) return;
+    setOpen(false);
+    setTotpCode("");
+    setOperationId("");
+  }, [capability.allowed]);
 
   const finishRestore = async (result: Awaited<ReturnType<typeof restoreStoreWorkspace>>) => {
     queryClient.setQueryData(storesKeys.lifecycle(store.id), result.lifecycle);
@@ -225,7 +253,7 @@ function StoreRestoreOverlay({
     await refreshStoreContextQueries(queryClient);
     setOpen(false);
     onRestored();
-    toast.success("店铺已恢复使用");
+    toast.success(copy("店铺已恢复使用"));
     router.refresh();
   };
 
@@ -253,7 +281,7 @@ function StoreRestoreOverlay({
       }
       await new Promise((resolve) => window.setTimeout(resolve, 700 * (attempt + 1)));
     }
-    const message = "暂时无法确认恢复结果。请稍后刷新本页，不要重复提交恢复请求。";
+    const message = copy("暂时无法确认恢复结果。请稍后刷新本页，不要重复提交恢复请求。");
     setPersistentError(message);
     toast.error(message);
   };
@@ -261,7 +289,7 @@ function StoreRestoreOverlay({
   const mutation = useMutation({
     mutationFn: async () => {
       const lifecycle = lifecycleQuery.data ?? store.lifecycle;
-      if (!lifecycle) throw new Error("店铺状态还没有读取完成");
+      if (!lifecycle) throw new Error(copy("店铺状态还没有读取完成"));
       await verifyRecentLifecycleAal2(totpCode);
       const challenge = await issueStoreLifecycleChallenge({
         expectedStoreId: store.id,
@@ -277,16 +305,19 @@ function StoreRestoreOverlay({
       });
     },
     onSuccess: finishRestore,
-    onError: async (error) => {
+    onError: async (_error) => {
       if (requestSentRef.current && operationId) {
         await reconcileRestore();
         return;
       }
-      const message = error instanceof Error ? error.message : "恢复店铺失败";
+      const message = copy("恢复店铺失败");
       setPersistentError(message);
       toast.error(message);
     },
-    onSettled: () => setTotpCode(""),
+    onSettled: () => {
+      restoreSubmittingRef.current = false;
+      setTotpCode("");
+    },
   });
   const requiresTotp = lifecycleMfaRequired();
   const ready =
@@ -300,7 +331,7 @@ function StoreRestoreOverlay({
   if (!capability.allowed) {
     return (
       <div className="max-w-xs text-right text-xs leading-5 text-muted-foreground">
-        {restoreUnavailableCopy(capability.code)}
+        {restoreUnavailableCopy(capability.code, copy)}
       </div>
     );
   }
@@ -308,16 +339,18 @@ function StoreRestoreOverlay({
   const body = (
     <div className="space-y-2 sm:space-y-4">
       <div className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2.5 text-xs sm:p-3 sm:text-sm">
-        <p className="font-semibold">恢复后</p>
+        <p className="font-semibold">{copy("恢复后")}</p>
         <ul className="mt-1.5 space-y-1 text-xs leading-4 text-muted-foreground sm:mt-2 sm:space-y-1.5 sm:leading-5">
-          <li>• 可以重新进入店铺并创建、修改业务资料</li>
-          <li>• 现有订单、客户和库存资料继续保留</li>
-          <li>• 旧邀请、旧链接、客户 iPad 凭据和已停用员工不会自动恢复</li>
+          <li>{copy("• 可以重新进入店铺并创建、修改业务资料")}</li>
+          <li>{copy("• 现有订单、客户和库存资料继续保留")}</li>
+          <li>{copy("• 旧邀请、旧链接、客户 iPad 凭据和已停用员工不会自动恢复")}</li>
         </ul>
       </div>
       {requiresTotp ? (
         <div className="space-y-1.5">
-          <Label htmlFor={`store-restore-totp-${store.id}`}>身份验证器中的 6 位安全验证码</Label>
+          <Label htmlFor={`store-restore-totp-${store.id}`}>
+            {copy("身份验证器中的 6 位安全验证码")}
+          </Label>
           <Input
             id={`store-restore-totp-${store.id}`}
             value={totpCode}
@@ -346,10 +379,18 @@ function StoreRestoreOverlay({
         disabled={mutation.isPending}
         onClick={() => setOpen(false)}
       >
-        取消
+        {copy("取消")}
       </Button>
-      <Button type="button" disabled={!ready} onClick={() => mutation.mutate()}>
-        {mutation.isPending ? "正在恢复…" : "确认恢复营业"}
+      <Button
+        type="button"
+        disabled={!ready}
+        onClick={() => {
+          if (restoreSubmittingRef.current) return;
+          restoreSubmittingRef.current = true;
+          mutation.mutate();
+        }}
+      >
+        {mutation.isPending ? copy("正在恢复…") : copy("确认恢复营业")}
       </Button>
     </>
   );
@@ -358,7 +399,7 @@ function StoreRestoreOverlay({
     <>
       <Button type="button" variant="outline" onClick={() => setOpen(true)}>
         <ArchiveRestore className="mr-1.5 size-4" />
-        查看与恢复
+        {copy("查看与恢复")}
       </Button>
       {isMobile ? (
         <Sheet
@@ -369,12 +410,12 @@ function StoreRestoreOverlay({
         >
           <SheetContent
             side="bottom"
-            closeLabel="关闭恢复窗口"
+            closeLabel={copy("关闭恢复窗口")}
             className={cn(componentOverlay.bottomSheet, "flex h-[min(88dvh,46rem)] flex-col gap-0")}
           >
             <SheetHeader className="shrink-0 pb-2 text-left sm:pb-3">
-              <SheetTitle>恢复 {store.name}？</SheetTitle>
-              <SheetDescription>店铺资料仍然保留，确认后可重新营业。</SheetDescription>
+              <SheetTitle>{copy("恢复 {store}？", { store: store.name })}</SheetTitle>
+              <SheetDescription>{copy("店铺资料仍然保留，确认后可重新营业。")}</SheetDescription>
             </SheetHeader>
             <div className="min-h-0 flex-1 overflow-y-auto pb-2 sm:pb-4">{body}</div>
             <SheetFooter className="shrink-0 gap-1.5 border-t border-[var(--border-panel)] pt-2 sm:space-x-0 sm:gap-2 sm:pt-3">
@@ -389,10 +430,14 @@ function StoreRestoreOverlay({
             if (!mutation.isPending) setOpen(next);
           }}
         >
-          <DialogContent className={componentOverlay.modalSm} showCloseButton={!mutation.isPending}>
+          <DialogContent
+            className={componentOverlay.modalSm}
+            closeLabel={copy("关闭")}
+            showCloseButton={!mutation.isPending}
+          >
             <DialogHeader>
-              <DialogTitle>恢复 {store.name}？</DialogTitle>
-              <DialogDescription>店铺资料仍然保留，确认后可重新营业。</DialogDescription>
+              <DialogTitle>{copy("恢复 {store}？", { store: store.name })}</DialogTitle>
+              <DialogDescription>{copy("店铺资料仍然保留，确认后可重新营业。")}</DialogDescription>
             </DialogHeader>
             {body}
             <DialogFooter className="gap-2 sm:space-x-0">{footer}</DialogFooter>
@@ -403,10 +448,25 @@ function StoreRestoreOverlay({
   );
 }
 
-function restoreUnavailableCopy(code: StoreLifecycleActionCapability["code"]) {
-  if (code === "feature_disabled") return "恢复功能正在准备中，目前不会改动店铺。";
-  if (code === "enforcement_unhealthy") return "店铺写入保护尚未启用，当前不能恢复。";
-  if (code === "migration_unavailable") return "店铺保护尚未安装完成，当前不能恢复。";
-  if (code === "primary_owner_required") return "只有系统登记的店铺主账号可以恢复。";
-  return "当前店铺暂时不能恢复。";
+function restoreUnavailableCopy(
+  code: StoreLifecycleActionCapability["code"],
+  copy: ReturnType<typeof useOperationsCopy>["copy"],
+) {
+  if (code === "feature_disabled") return copy("恢复功能正在准备中，目前不会改动店铺。");
+  if (code === "enforcement_unhealthy") return copy("店铺写入保护尚未启用，当前不能恢复。");
+  if (code === "migration_unavailable") return copy("店铺保护尚未安装完成，当前不能恢复。");
+  if (code === "primary_owner_required") return copy("只有系统登记的店铺主账号可以恢复。");
+  return copy("当前店铺暂时不能恢复。");
+}
+
+export function formatClosedStoreTimestamp(value: string, locale: AppLocale) {
+  const timestamp = new Date(value);
+  if (Number.isNaN(timestamp.getTime())) {
+    return translateSettingsOperations(locale, "时间不可用");
+  }
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Europe/Rome",
+  }).format(timestamp);
 }

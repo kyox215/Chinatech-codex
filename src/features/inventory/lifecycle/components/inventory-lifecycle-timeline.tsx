@@ -5,12 +5,17 @@ import { useId } from "react";
 
 import { cn } from "@/lib/utils";
 import { repairOs } from "@/lib/ui-patterns";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 import type {
   InventoryLifecycleTimelineEntry,
   InventoryLifecycleTimelineResult,
   InventoryLifecycleTimelineSource,
 } from "../model/inventory-lifecycle-timeline";
+import {
+  formatInventoryLifecycleDate,
+  localizeInventoryTimeline,
+} from "../model/inventory-lifecycle-i18n";
 
 export type InventoryLifecycleTimelineProps = {
   source: InventoryLifecycleTimelineSource;
@@ -22,20 +27,6 @@ export type InventoryLifecycleTimelineProps = {
   className?: string;
 };
 
-const sourceLabels: Record<InventoryLifecycleTimelineSource, string> = {
-  "milestone-summary": "摘要里程碑",
-  "ledger-event": "服务端事件账",
-};
-
-function formatTimelineDate(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
 export function InventoryLifecycleTimeline({
   source,
   items,
@@ -45,12 +36,31 @@ export function InventoryLifecycleTimeline({
   privacyRedacted = false,
   className,
 }: InventoryLifecycleTimelineProps) {
+  const { locale, t } = useLocale();
   const headingId = useId();
-  const resolvedItems = result?.items ?? items ?? [];
-  const scope = result?.scope;
+  const rawItems = result?.items ?? items ?? [];
+  const localized = localizeInventoryTimeline(
+    result ?? {
+      items: [...rawItems],
+      scope: {
+        source,
+        totalValid: rawItems.length,
+        displayedCount: rawItems.length,
+        label: "",
+      },
+    },
+    t,
+  );
+  const resolvedItems = localized.items;
+  const scope = localized.scope;
   const isLoading = status === "loading";
   const displayTitle =
-    title ?? (source === "milestone-summary" ? "关键里程碑（摘要）" : "案件历史（服务端事件账）");
+    title ??
+    t(
+      source === "milestone-summary"
+        ? "inventory2b4.timeline.title.milestones"
+        : "inventory2b4.timeline.title.events",
+    );
 
   return (
     <section
@@ -71,7 +81,11 @@ export function InventoryLifecycleTimeline({
           {displayTitle}
         </h2>
         <span className="ml-auto shrink-0 rounded-full bg-[var(--surface-panel-muted)] px-2 py-1 text-[9px] text-muted-foreground">
-          {sourceLabels[source]}
+          {t(
+            source === "milestone-summary"
+              ? "inventory2b4.timeline.source.milestones"
+              : "inventory2b4.timeline.source.events",
+          )}
         </span>
       </div>
 
@@ -81,15 +95,18 @@ export function InventoryLifecycleTimeline({
           aria-live="polite"
           className="mt-2 text-[10px] leading-4 text-muted-foreground"
         >
-          正在读取时间线；当前不会把未读到的事件当作事实。
+          {t("inventory2b4.timeline.loading")}
         </p>
       ) : privacyRedacted ? (
         <p role="status" className="mt-2 text-[10px] leading-4 text-muted-foreground">
-          时间线详情已按隐私边界裁剪；请只读核对当前页面。
+          {t("inventory2b4.timeline.redacted")}
         </p>
       ) : resolvedItems.length ? (
         <>
-          <ol className="mt-2 grid min-w-0 gap-1.5" aria-label={`${displayTitle}列表`}>
+          <ol
+            className="mt-2 grid min-w-0 gap-1.5"
+            aria-label={t("inventory2b4.timeline.listAria", { title: displayTitle })}
+          >
             {resolvedItems.map((item) => (
               <li
                 key={item.id}
@@ -98,29 +115,27 @@ export function InventoryLifecycleTimeline({
                 <div className="flex min-w-0 items-start justify-between gap-2">
                   <strong className="min-w-0 break-words font-semibold">{item.label}</strong>
                   <time dateTime={item.at} className="shrink-0 text-muted-foreground">
-                    {formatTimelineDate(item.at)}
+                    {formatInventoryLifecycleDate(item.at, locale, t)}
                   </time>
                 </div>
                 {item.fromStatusLabel || item.toStatusLabel ? (
                   <p className="break-words text-[10px] leading-4 text-muted-foreground">
-                    {item.fromStatusLabel ?? "新建"} → {item.toStatusLabel ?? "当前状态"}
+                    {item.fromStatusLabel ?? t("inventory2b4.timeline.createdState")} →{" "}
+                    {item.toStatusLabel ?? t("inventory2b4.timeline.currentState")}
                   </p>
                 ) : null}
               </li>
             ))}
           </ol>
-          <p className="mt-1.5 text-[10px] leading-4 text-muted-foreground">
-            {scope?.label ??
-              (source === "milestone-summary"
-                ? `当前摘要确认 ${resolvedItems.length} 项关键里程碑（不是完整审计历史）`
-                : `服务端返回范围内 ${resolvedItems.length} 项事件`)}
-          </p>
+          <p className="mt-1.5 text-[10px] leading-4 text-muted-foreground">{scope.label}</p>
         </>
       ) : (
         <p className="mt-2 text-[10px] leading-4 text-muted-foreground">
-          {source === "milestone-summary"
-            ? "当前摘要没有可显示的关键里程碑。"
-            : "服务端返回范围内暂无可显示事件。"}
+          {t(
+            source === "milestone-summary"
+              ? "inventory2b4.timeline.empty.milestones"
+              : "inventory2b4.timeline.empty.events",
+          )}
         </p>
       )}
     </section>

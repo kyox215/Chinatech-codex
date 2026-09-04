@@ -1,6 +1,6 @@
 # RepairDesk 员工界面多语言声明
 
-Last verified: 2026-09-01
+Last verified: 2026-09-03
 Owner: RepairDesk Frontend / Integration Lead
 Audience: Product, frontend, QA, support, security and release
 
@@ -59,6 +59,27 @@ Cookie 名为 `repairdesk_locale`，值必须精确等于三个 locale 之一。
 2. 禁止拼接句子；用 `{name}` 形式插值，并在三种语言测试参数一致性。
 3. 原始数据、内部错误码、搜索归一化及稳定排序 locale 不可机械替换。
 4. 运行 `node scripts/audit-i18n-ui-text.mjs --summary` 复现历史 TSX 口径；运行 `node scripts/audit-i18n-ui-text.mjs --include-ts --summary` 生成扩展的 TSX + TS runtime/API 候选清单与 extension/domain 计数。两者都是待分类审计输入，不是全仓零汉字 PASS/FAIL 门禁。
+
+### 5.1 Release 2B 本地候选状态（2026-09-03）
+
+员工深层界面的本地候选已按领域完成 Orders New/Task、Order Detail、Customers、Inventory、
+Buyback、Settings、Messages、Finance，以及最后一批 Memos、Toolkit、Platform 和 AI 客户端固定
+界面文案。最后一批覆盖三种 locale 的固定 UI、ARIA、校验、状态和既有通用兜底；动态备忘录、
+资源、申请、订单、人员、店铺、用户输入和服务端 AI 内容保持原文。
+
+Toolkit 的 `platform: "桌面"` 与 AI 三条中文建议请求是规范业务值，不是漏译：前者保持原载荷，
+后者只将按钮显示本地化，实际请求仍提交原中文 canonical message。Platform 的批准/拒绝行为、
+API、查询、权限和载荷没有因翻译改变。Memos 的 `datetime-local` 使用已单独验证的
+Europe/Rome 映射，但其余权限、缓存和业务重构不属于轻量 i18n 批次。
+
+最后一批通过 13 个目标文件、84 项测试、类型检查和范围内静态检查；独立模块 QA 的直接
+i18n P0/P1 为零。受控 Chromium 验证完整通过 Memos 与 Toolkit；Platform 和 AI 在页面三语、
+390/1440、动态值、ARIA 和无溢出检查之后，被现有移动 Dialog/Sheet 的 Escape 焦点返回问题
+提前终止。该问题登记为独立 P2，不应被描述成翻译缺陷；AI 的跨语言请求路径仍以组件测试和
+源码 canonical 映射为证据。
+
+上述状态是本地、未提交、未部署候选，不代表 `main` 或生产网站已经包含 Release 2B。提交、
+推送、部署和生产验证必须由单独的 Owner 发布决定启动。
 
 ## 6. Offline、Service Worker 和缓存
 

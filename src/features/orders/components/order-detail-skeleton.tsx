@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowLeft, X } from "lucide-react";
 
@@ -6,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { ViewportMode } from "@/hooks/use-mobile";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function OrderDetailSkeleton({
   surface = "page",
@@ -16,6 +19,7 @@ export function OrderDetailSkeleton({
   onClose?: () => void;
   renderMode?: ViewportMode;
 }) {
+  const { t } = useLocale();
   const showCompactHeader = surface === "page" && renderMode !== "desktop";
 
   return (
@@ -34,7 +38,7 @@ export function OrderDetailSkeleton({
       aria-busy="true"
     >
       <span className="sr-only" role="status" aria-live="polite">
-        正在准备工单详情
+        {t("orders2b2.loading")}
       </span>
       {showCompactHeader ? (
         <div data-order-detail-skeleton-nav="true">
@@ -44,14 +48,14 @@ export function OrderDetailSkeleton({
                 <Button asChild variant="ghost" size="icon" className="size-8 rounded-lg">
                   <Link
                     href="/orders"
-                    aria-label="返回工单列表"
+                    aria-label={t("orders2b2.backOrdersAria")}
                     data-order-detail-skeleton-back="true"
                   >
                     <ArrowLeft className="size-4" />
                   </Link>
                 </Button>
                 <div className="min-w-0 text-center">
-                  <p className="truncate text-xs font-semibold leading-4">订单详情</p>
+                  <p className="truncate text-xs font-semibold leading-4">{t("orders2b2.title")}</p>
                   <Skeleton aria-hidden="true" className="mx-auto mt-1 h-2.5 w-20" />
                 </div>
                 <Skeleton aria-hidden="true" className="size-8 rounded-lg" />
@@ -78,7 +82,7 @@ export function OrderDetailSkeleton({
             size="icon"
             className="size-8 rounded-lg bg-card/95 shadow-[var(--shadow-card)]"
             onClick={onClose}
-            aria-label="关闭工单详情"
+            aria-label={t("orders2b2.close")}
           >
             <X className="size-4" />
           </Button>

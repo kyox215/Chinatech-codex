@@ -5,6 +5,8 @@ import type {
   CustomerListItem,
   CustomerStats,
 } from "@/lib/repairdesk/api";
+import { APP_TIME_ZONE, type AppLocale } from "@/shared/i18n/locales";
+import { translateMessage } from "@/shared/i18n/messages";
 
 import { isCustomerOrderClosed } from "./customer-order-state";
 
@@ -33,6 +35,13 @@ export interface CustomerPageRange {
 }
 
 export type CustomerWorkSummaryTone = "info" | "warning" | "success" | "neutral";
+export type CustomerWorkSummaryKind =
+  | "followup_due"
+  | "active"
+  | "outstanding"
+  | "repeat"
+  | "device"
+  | "new";
 
 export type CustomerRepairState =
   | { kind: "active"; count: number; label: string }
@@ -44,6 +53,8 @@ export type CustomerPaymentState =
   | { kind: "redacted"; label: string };
 
 export interface CustomerWorkSummary {
+  kind: CustomerWorkSummaryKind;
+  count?: number;
   label: string;
   detail: string;
   actionLabel: string;
@@ -174,6 +185,13 @@ export function getCustomerListSubtitle(filters: CustomerListFilters, total: num
   return `${groupLabel ?? "全部"} · 共 ${Math.max(0, total)} 位`;
 }
 
+export function getCustomerListSubtitleFact(filters: CustomerListFilters, total: number) {
+  return {
+    group: getCustomerQuickGroup(filters),
+    total: Math.max(0, total),
+  } as const;
+}
+
 export function parseCustomerListUrlState(params: { get: (key: string) => string | null }) {
   const group = params.get("group");
   let filters: CustomerListFilters = { work: "all", followup: "all", marketing: "all" };
@@ -245,6 +263,7 @@ export function getCustomerWorkSummary(
     : Number.NaN;
   if (Number.isFinite(followupAt) && followupAt <= Date.now()) {
     return {
+      kind: "followup_due",
       label: "要跟进",
       detail: "客户跟进已经到时间",
       actionLabel: "联系客户并记录结果",
@@ -253,6 +272,8 @@ export function getCustomerWorkSummary(
   }
   if (customer.active_order_count > 0) {
     return {
+      kind: "active",
+      count: customer.active_order_count,
       label: `在修 ${customer.active_order_count}`,
       detail: "客户还有正在处理的维修单",
       actionLabel: "跟进维修进度",
@@ -261,6 +282,7 @@ export function getCustomerWorkSummary(
   }
   if (!customer.finance_redacted && (customer.unpaid_amount ?? 0) > 0) {
     return {
+      kind: "outstanding",
       label: "有待收",
       detail: "客户还有待确认尾款",
       actionLabel: "确认尾款",
@@ -269,6 +291,8 @@ export function getCustomerWorkSummary(
   }
   if ((customer.valid_order_count ?? 0) > 1) {
     return {
+      kind: "repeat",
+      count: customer.valid_order_count,
       label: "老客户",
       detail: `${customer.valid_order_count} 个有效工单`,
       actionLabel: "复用历史设备",
@@ -277,6 +301,8 @@ export function getCustomerWorkSummary(
   }
   if (customer.device_count > 0) {
     return {
+      kind: "device",
+      count: customer.device_count,
       label: "有设备",
       detail: `${customer.device_count} 台设备`,
       actionLabel: "新工单可复用",
@@ -284,6 +310,7 @@ export function getCustomerWorkSummary(
     };
   }
   return {
+    kind: "new",
     label: "新客户",
     detail: "还没有设备或工单记录",
     actionLabel: "完善客户资料",
@@ -388,11 +415,16 @@ export function clampCustomerPageAfterLoad({
   return Math.min(Math.max(1, page), Math.max(1, pageCount));
 }
 
-export function formatCustomerDate(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", {
+export function formatCustomerDate(value: string, locale: AppLocale = "zh-CN") {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) {
+    return translateMessage(locale, "customers.dateUnavailable");
+  }
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+    timeZone: APP_TIME_ZONE,
+  }).format(date);
 }

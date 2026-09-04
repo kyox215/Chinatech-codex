@@ -15,8 +15,10 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { componentOverlay } from "@/lib/component-patterns";
-import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
+import { getOrderDetailSafeErrorMessage } from "@/features/orders/model/order-detail-i18n";
+import { formatCurrency } from "@/shared/i18n/format";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 const paymentMethods = ["现金", "刷卡"] as const;
 
@@ -31,10 +33,12 @@ export function PaymentDialog({
   balance: number;
   onPay: (amount: number, method: string, idempotencyKey: string) => Promise<void>;
 }) {
+  const { locale, t } = useLocale();
   const [amountText, setAmountText] = useState(() => formatPaymentDraft(balance));
   const [method, setMethod] = useState("现金");
   const [busy, setBusy] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState("");
+  const [submitError, setSubmitError] = useState("");
   const amount = parsePaymentAmount(amountText);
   const balanceAmount = Math.max(0, Number.isFinite(balance) ? balance : 0);
   const remainingAmount =
@@ -43,17 +47,18 @@ export function PaymentDialog({
   const willSettle = canPay && remainingAmount === 0;
   const validationMessage =
     amountText.trim() && amount === undefined
-      ? "请输入有效金额，可以使用小数点或逗号。"
+      ? t("orders2b2.payment.invalid")
       : amount !== undefined && amount > balanceAmount
-        ? "收款金额不能超过未结清尾款。"
+        ? t("orders2b2.payment.over")
         : amount !== undefined && amount <= 0
-          ? "收款金额必须大于 0。"
+          ? t("orders2b2.payment.positive")
           : "";
 
   useEffect(() => {
     if (!open) return;
     setAmountText(formatPaymentDraft(balanceAmount));
     setBusy(false);
+    setSubmitError("");
     setIdempotencyKey(crypto.randomUUID());
   }, [balanceAmount, open]);
 
@@ -65,6 +70,7 @@ export function PaymentDialog({
         if (v) {
           setAmountText(formatPaymentDraft(balanceAmount));
           setBusy(false);
+          setSubmitError("");
           setIdempotencyKey(crypto.randomUUID());
         }
       }}
@@ -79,21 +85,19 @@ export function PaymentDialog({
         <DialogHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
           <DialogTitle className="flex items-center gap-2 text-base">
             <CreditCard className="size-4 text-primary" />
-            登记收款
+            {t("orders2b2.payment.title")}
           </DialogTitle>
-          <DialogDescription className="text-xs">
-            核对尾款并登记本次收款，收款后会写入工单时间线。
-          </DialogDescription>
+          <DialogDescription className="text-xs">{t("orders2b2.payment.help")}</DialogDescription>
         </DialogHeader>
 
         <div className="grid min-h-0 min-w-0 gap-0 overflow-y-auto md:grid-cols-[minmax(0,1fr)_260px]">
           <section className="min-w-0 space-y-2.5 p-3 sm:p-4">
             <div className="grid min-w-0 gap-2.5 sm:grid-cols-[minmax(0,1fr)_minmax(180px,0.72fr)]">
               <div className="min-w-0">
-                <Label className="text-xs">本次收款金额</Label>
+                <Label className="text-xs">{t("orders2b2.payment.amount")}</Label>
                 <div className="mt-1 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
                   <MoneyKeypadInput
-                    ariaLabel="本次收款金额"
+                    ariaLabel={t("orders2b2.payment.amount")}
                     value={amountText}
                     onChange={(value) => {
                       setAmountText(value);
@@ -113,7 +117,7 @@ export function PaymentDialog({
                       setIdempotencyKey(crypto.randomUUID());
                     }}
                   >
-                    全额
+                    {t("orders2b2.payment.full")}
                   </Button>
                 </div>
                 <p
@@ -122,12 +126,15 @@ export function PaymentDialog({
                     validationMessage ? "text-status-danger-foreground" : "text-muted-foreground",
                   )}
                 >
-                  {validationMessage || `最多可收 ${formatMoney(balanceAmount)}`}
+                  {validationMessage ||
+                    t("orders2b2.payment.maximum", {
+                      amount: formatCurrency(balanceAmount, locale),
+                    })}
                 </p>
               </div>
 
               <div className="min-w-0">
-                <Label className="text-xs">支付方式</Label>
+                <Label className="text-xs">{t("orders2b2.payment.method")}</Label>
                 <div
                   data-order-payment-methods="true"
                   className="mt-1 grid min-w-0 grid-cols-2 gap-1.5"
@@ -155,7 +162,9 @@ export function PaymentDialog({
                         ) : (
                           <CreditCard className="size-3.5 shrink-0" />
                         )}
-                        <span className="truncate">{item}</span>
+                        <span className="truncate">
+                          {t(item === "现金" ? "orders2b2.payment.cash" : "orders2b2.payment.card")}
+                        </span>
                       </button>
                     );
                   })}
@@ -185,10 +194,10 @@ export function PaymentDialog({
                 </span>
                 <div className="min-w-0">
                   <p className="truncate text-xs font-semibold">
-                    {willSettle ? "本次收款后可结清工单" : "本次收款后仍有尾款"}
+                    {willSettle ? t("orders2b2.payment.settled") : t("orders2b2.payment.remaining")}
                   </p>
                   <p className="truncate text-[11px] leading-4 text-muted-foreground">
-                    完成收款后，可继续流转到取机或结案步骤。
+                    {t("orders2b2.payment.next")}
                   </p>
                 </div>
               </div>
@@ -200,43 +209,65 @@ export function PaymentDialog({
             className="min-w-0 border-t border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/65 p-2.5 md:border-l md:border-t-0"
           >
             <div className="grid min-w-0 gap-1.5">
-              <PaymentSummaryLine label="未结清尾款" value={formatMoney(balanceAmount)} strong />
               <PaymentSummaryLine
-                label="本次收款"
-                value={amount === undefined ? "待填写" : formatMoney(amount)}
+                label={t("orders2b2.payment.balance")}
+                value={formatCurrency(balanceAmount, locale)}
+                strong
               />
               <PaymentSummaryLine
-                label="收款后剩余"
-                value={formatMoney(remainingAmount)}
+                label={t("orders2b2.payment.this")}
+                value={
+                  amount === undefined
+                    ? t("orders2b2.payment.pendingValue")
+                    : formatCurrency(amount, locale)
+                }
+              />
+              <PaymentSummaryLine
+                label={t("orders2b2.payment.after")}
+                value={formatCurrency(remainingAmount, locale)}
                 strong={!willSettle}
                 dataAttr="data-order-payment-remaining"
               />
             </div>
             <div className="mt-2 rounded-lg border border-[var(--border-panel)] bg-card/80 px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
-              收款金额会与当前工单版本一起提交，若其他人已修改报价或尾款，系统会要求刷新后再操作。
+              {t("orders2b2.payment.versionHelp")}
             </div>
+            {submitError ? (
+              <p role="alert" className="mt-2 text-xs text-status-danger-foreground">
+                {submitError}
+              </p>
+            ) : null}
           </aside>
         </div>
 
         <DialogFooter className="border-t border-[var(--border-panel)] px-4 py-3 sm:gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            取消
+            {t("common.cancel")}
           </Button>
           <Button
             disabled={!canPay}
             onClick={async () => {
               if (amount === undefined) return;
               setBusy(true);
+              setSubmitError("");
               try {
                 await onPay(amount, method, idempotencyKey || crypto.randomUUID());
                 onOpenChange(false);
+              } catch (error) {
+                setSubmitError(getOrderDetailSafeErrorMessage(error, "payment", t));
               } finally {
                 setBusy(false);
               }
             }}
           >
             <CreditCard className="mr-1.5 size-3.5" />
-            {busy ? "登记中..." : `确认收款（${method}）`}
+            {busy
+              ? t("orders2b2.payment.recording")
+              : t("orders2b2.payment.confirm", {
+                  method: t(
+                    method === "现金" ? "orders2b2.payment.cash" : "orders2b2.payment.card",
+                  ),
+                })}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,6 +1,6 @@
 # 员工界面未翻译 UI 审计与迁移路线
 
-Last verified: 2026-09-01
+Last verified: 2026-09-03
 Baseline commit: `8e349b06f9e44883eb3348b434f96ad3f0d409d3`
 
 ## 结论
@@ -8,6 +8,17 @@ Baseline commit: `8e349b06f9e44883eb3348b434f96ad3f0d409d3`
 历史 TSX 口径当前包含 **5,592 次 Han-script 出现、4,081 个唯一候选**；扩展 TSX + TS runtime/API 口径包含 **8,153 次出现、5,753 个唯一候选**（TSX 5,592，TS 2,561）。这些数字是待分类的审计输入，不是同数量的翻译缺陷。旧实现、不可达路径、测试/Story/mock、中文源 catalog、canonical code、动态业务数据和安全内部错误都必须在人工复核后分类。
 
 首批迁移冻结为一个可完整验证的员工故事：Dashboard 快捷/优先区 → `/orders` Orders Queue。该范围在基线上共有 **240 个直接 TSX 候选**。Release A 不包含新建工单、详情/任务、客户、库存、回收、设置、打印/PDF、通知或客户/法律内容，也不改变 API、schema、权限、筛选值、URL、payload 或持久化数据。
+
+截至 2026-09-03，本地 Release 2B 候选已继续覆盖 Orders New/Task、Order Detail、Customers、
+Inventory、Buyback、Settings、Messages、Finance、Memos、Toolkit、Platform 和 AI 客户端固定
+界面。最后四组的生产文件复核结果为：Memos 范围内固定 Han 残留为零；Toolkit/Platform 的
+Han 仅存在于中文目录、中文格式分支或规范业务载荷；AI 仅保留三条规范中文建议请求值，显示
+标签已三语化。动态数据、客户/法律内容和服务端 AI 输出仍不是“漏译”。本报告的全仓历史数字
+不因这批局部迁移自动改写；要更新总量必须重新运行同一审计命令并重新分类。
+
+该 Release 2B 状态尚未提交或部署。受控浏览器最终故事完整通过 Memos/Toolkit，Platform/AI
+在完成本地化页面检查后被非 i18n 的移动弹层焦点返回 P2 提前终止，因此浏览器证据是有条件的，
+不能写成 4/4 通过。
 
 ## 审计方法
 
@@ -147,5 +158,8 @@ Orders 移动筛选使用 modal focus trap；弹层打开时外部语言切换�
 | Release C | Customers 与 Inventory 当前生产列表/详情 | 先做生产可达性复核；严格区分 catalog 选项与客户/库存数据 |
 | Release D | Transparent Buyback、Settings、Messages/其他员工工具 | 各领域独立状态矩阵与权限复核 |
 | 独立内容批次 | 打印/PDF、通知、保修、票据、客户和法律文案 | 需要内容所有者、法律/业务审批与客户语言策略，不与员工 UI 机械合并 |
+
+表中 Release B–D 的员工固定界面范围已形成上述本地候选；它们在独立发布完成前仍不是生产状态。
+打印/PDF、通知、保修、票据、客户和法律内容，以及动态/服务端内容，继续保持独立审批边界。
 
 每一批都应重复“可达性审计 → 冻结 allowlist → typed catalog/display adapter → 三语单元与浏览器验证 → 逐项例外 → 独立发布门禁”，并在关闭时更新本报告，而不是宣称一次性完成全站翻译。
