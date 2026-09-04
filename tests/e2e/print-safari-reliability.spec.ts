@@ -4,6 +4,7 @@ import { PDFDocument } from "pdf-lib";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 const evidenceDir = "screenshots/TASK-20260724-005-a5-order-print";
+const mobilePrintButtonName = /^(?:打印|Stampa|Print)$/;
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for print/Safari checks.");
 
@@ -356,7 +357,7 @@ for (const mobileWidth of [390, 430] as const) {
     page.on("popup", () => {
       popupCount += 1;
     });
-    await page.getByRole("button", { name: "打印工单" }).click();
+    await page.getByRole("button", { name: mobilePrintButtonName }).click();
     await expect(page.getByRole("button", { name: "A5 横向" })).toBeVisible();
     await page.screenshot({
       path: `screenshots/TASK-20260724-007-in-page-pdf-print/mobile-print-options-${mobileWidth}.png`,
@@ -395,7 +396,7 @@ for (const mobileWidth of [390, 430] as const) {
     expect(pdfDocument.getPage(0).getWidth()).toBeCloseTo(595.2756, 3);
     expect(pdfDocument.getPage(0).getHeight()).toBeCloseTo(419.5276, 3);
 
-    await page.getByRole("button", { name: "打印工单" }).click();
+    await page.getByRole("button", { name: mobilePrintButtonName }).click();
     await page.getByRole("button", { name: "A5 横向" }).click();
     await expect(readyDialog).toBeVisible({ timeout: 10_000 });
     const metrics = await page.evaluate(

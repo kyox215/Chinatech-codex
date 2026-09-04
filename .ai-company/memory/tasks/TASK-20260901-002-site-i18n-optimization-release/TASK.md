@@ -152,7 +152,16 @@ updated_at: "2026-09-04T08:00:00Z"
 
 ## Current state
 
-- **Done:** all planned direct employee i18n implementation; direct-i18n P0/P1 review; exact staged-scope QA P0/P1 zero; full lint/typecheck/test/build baseline; Playwright serial/one-worker defaults; explicit evidence-capture gate; Chromium CI policy; targeted stability validation; Chromium core 31/31; WebKit Scanner/Camera 22/22; WebKit screenshot/hydration remediation.
-- **Remaining:** refresh the exact manifest/Context Packet/lease, run the final release static preflight, commit, push, verify hosted exact-SHA gates, deploy the existing production project, smoke the canonical domains and record closeout.
-- **Blocked:** none; stop immediately if any existing release stop condition appears.
-- **Next:** reconcile `origin/main`, acquire and verify the integration lease, audit/stage the exact task-owned manifest and run the release diff/static gates.
+- **Done:** all planned direct employee i18n implementation; direct-i18n P0/P1 review; full local/static/browser release gates; exact release commit `a274f756b46b017e9560e948cc3fcd51cc78d2d8` pushed to `origin/main`; matching Vercel production deployment READY.
+- **Remaining:** repair the hosted mobile print E2E locator that still expects the superseded Chinese-only accessible name `打印工单`; run one related Chromium/WebKit verification; push the corrective test/memory commit; require hosted exact-SHA green, canonical-domain smoke and final evidence closeout.
+- **Blocked:** hosted E2E run `33863005589` is red in both Chromium and WebKit because the test cannot locate the now-localized mobile print button (`打印` / `Stampa` / `Print`). Product printing has no failure evidence.
+- **Next:** advance the Registry instruction, issue/verify Context Packet v7, replace the two stale Chinese-only button locators with the exact three-locale accessible-name contract, and run only the affected mobile print cases.
+
+## Hosted print-locator corrective packet — 2026-09-04
+
+- **Trigger:** exact-SHA hosted E2E run `33863005589` failed the 390px and 430px mobile fixed-PDF flows in both browsers at the same locator before any print action occurred.
+- **Root cause:** the production mobile print control now correctly uses `orders2b2.hero.print`, whose accessible names are `打印`, `Stampa` and `Print`; the historical spec still queried only `打印工单` at two call sites.
+- **Allowlist:** `tests/e2e/print-safari-reliability.spec.ts` plus this task's memory/evidence/closeout files. No application source, workflow, dependency, environment, data or infrastructure change is authorized.
+- **Acceptance:** both stale call sites use the same exact tri-locale accessible-name locator; scoped formatting/lint passes; the two mobile widths pass in Chromium and WebKit with retries zero; a normal corrective commit is pushed and the new exact SHA passes hosted CI/E2E and production READY/canonical smoke.
+- **Verification budget:** one targeted local correction and one related dual-browser verification. Do not rerun broad local application gates because no product/build input changes.
+- **Rollback:** normal forward revert of the corrective commit. No data rollback applies.

@@ -101,3 +101,11 @@ Registry Context Packet.
 - The E2E now waits for the existing React event-prop attachment before starting the keyboard path. No application behavior, assertion, retry, timeout or dependency changed.
 - Scoped ESLint/Prettier passed and the exact WebKit keyboard/focus/scroll test passed 1/1 with one worker and retry zero.
 - Combined browser evidence is Chromium 31/31 and WebKit 31/31 for language switching plus Scanner/Camera. Next: exact manifest/lease preflight and controlled release.
+
+## 2026-09-04 — Hosted print E2E exposes one stale Chinese-only locator
+
+- Release commit `a274f756b46b017e9560e948cc3fcd51cc78d2d8` was pushed normally and its Vercel production deployment is READY on the canonical aliases.
+- Hosted E2E run `33863005589` failed both Chromium and WebKit mobile print jobs at 390px and 430px before clicking print: the spec queried `打印工单`, while the localized control now exposes exact names `打印`, `Stampa` and `Print`.
+- This is a test-compatibility defect directly caused by the accepted localization change; there is no product print failure evidence.
+- The corrective packet is limited to the two stale locators, related verification and release memory. Application source, dependencies, workflows, data, environment and infrastructure remain frozen.
+- Next: issue/verify Context Packet v7, apply the shared tri-locale locator, run the affected Chromium/WebKit mobile cases once, then publish a normal corrective commit and require new exact-SHA hosted/production evidence.
