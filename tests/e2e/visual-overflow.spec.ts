@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 const enabled =
   process.env.REPAIRDESK_E2E_ORDER_AUDIT === "1" ||
   process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 
 test.skip(!enabled, "Set a RepairDesk E2E bypass flag for responsive route checks.");
 
@@ -61,6 +62,49 @@ async function expectNoPageOverflow(page: Page) {
 }
 
 test.describe("responsive overflow guard", () => {
+  for (const locale of ["it-IT", "en"] as const) {
+    for (const viewport of [
+      { width: 320, height: 568 },
+      { width: 375, height: 812 },
+    ]) {
+      test(`localized messages summary stays inside its mobile header in ${locale} at ${viewport.width}px`, async ({
+        page,
+      }) => {
+        await page.setViewportSize(viewport);
+        await page
+          .context()
+          .addCookies([{ name: "repairdesk_locale", value: locale, url: baseURL }]);
+        await gotoRouteReady(page, "/messages", "main");
+
+        await expect(page.locator('[data-ui="repair-os-header-stepper"]')).toHaveCount(0);
+        const summary = page.locator('[data-ui="repair-os-header-underline-nav"]');
+        await expect(summary).toBeVisible();
+        const geometry = await summary.evaluate((element) => {
+          const container = element.getBoundingClientRect();
+          const items = Array.from(element.children).map((child) => {
+            const rect = child.getBoundingClientRect();
+            return { left: rect.left, right: rect.right };
+          });
+          return {
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth,
+            items,
+            left: container.left,
+            right: container.right,
+          };
+        });
+
+        expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth);
+        expect(geometry.items).toHaveLength(3);
+        for (const item of geometry.items) {
+          expect(item.left).toBeGreaterThanOrEqual(geometry.left);
+          expect(item.right).toBeLessThanOrEqual(geometry.right);
+        }
+        await expectNoPageOverflow(page);
+      });
+    }
+  }
+
   for (const viewport of viewports) {
     test(`primary routes fit within ${viewport.width}px`, async ({ page }) => {
       test.setTimeout(120_000);

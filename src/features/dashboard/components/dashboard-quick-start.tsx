@@ -162,7 +162,10 @@ export function DashboardMobileQuickStart({ onCreateOrder }: { onCreateOrder?: (
               >
                 <action.icon className="size-3.5" aria-hidden />
               </span>
-              <span className="block whitespace-nowrap text-[11px] font-semibold leading-4 min-[360px]:text-xs lg:text-xs lg:leading-4">
+              <span
+                data-dashboard-quick-title={action.id}
+                className="block w-full min-w-0 truncate whitespace-nowrap text-[11px] font-semibold leading-4 min-[360px]:text-xs lg:text-xs lg:leading-4"
+              >
                 {t("dashboard.quickOrder")}
               </span>
               <span
@@ -199,7 +202,10 @@ export function DashboardMobileQuickStart({ onCreateOrder }: { onCreateOrder?: (
             <span className="grid size-7 place-items-center rounded-lg bg-primary/10 text-primary">
               <ScanLine className="size-3.5" aria-hidden />
             </span>
-            <span className="block whitespace-nowrap text-[11px] font-semibold leading-4 min-[360px]:text-xs lg:text-xs lg:leading-4">
+            <span
+              data-dashboard-quick-title="scan-order"
+              className="block w-full min-w-0 truncate whitespace-nowrap text-[11px] font-semibold leading-4 min-[360px]:text-xs lg:text-xs lg:leading-4"
+            >
               {t("dashboard.scanOrder")}
             </span>
             <span className="mt-0.5 hidden truncate text-[10px] leading-3.5 text-muted-foreground min-[400px]:block lg:text-[11px] lg:leading-4">
@@ -224,7 +230,10 @@ export function DashboardMobileQuickStart({ onCreateOrder }: { onCreateOrder?: (
               <span className="grid size-7 place-items-center rounded-lg bg-primary/10 text-primary">
                 <action.icon className="size-3.5" aria-hidden />
               </span>
-              <span className="block whitespace-nowrap text-[11px] font-semibold leading-4 min-[360px]:text-xs lg:text-xs lg:leading-4">
+              <span
+                data-dashboard-quick-title={action.id}
+                className="block w-full min-w-0 truncate whitespace-nowrap text-[11px] font-semibold leading-4 min-[360px]:text-xs lg:text-xs lg:leading-4"
+              >
                 {t("dashboard.buybackShort")}
               </span>
               <span className="mt-0.5 hidden truncate text-[10px] leading-3.5 text-muted-foreground min-[400px]:block lg:text-[11px] lg:leading-4">

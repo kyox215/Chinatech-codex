@@ -1,6 +1,16 @@
 # Handoff / Resume — TASK-20260901-002-site-i18n-optimization-release
 
-## Resume packet — 2026-09-04 corrective release integration
+## Final closeout — 2026-09-04
+
+- **Status:** **B) RELEASED / CLOSED**.
+- **Accepted source:** `bc892381b2fef0adeca27b5a6599f638ba126c5b`, tree `93aebaf21114b303ae42ebf345abb58ffcd697f3`, aligned with `origin/main`.
+- **Hosted gate:** GitHub Actions run `33866260693` completed successfully for the exact SHA.
+- **Production:** Vercel deployment `dpl_Uutsq62tprPP3njcQGe1zwCzTh85` is READY and owns `www.chinatech.in` and `chinatech.in`; public read-only smoke returns HTTPS 200.
+- **Rollback:** prior READY `f70dd754b4d4c2b8e049d817761d37735c132766` / `dpl_DxdSwxKvdxRfVM5bktkSk4WstfNz`, or a normal forward revert. Never force-push.
+- **Residual work:** registered P2/P3 backlog only; it does not reopen this release.
+- **Data boundary:** no schema, migration, environment, secret, production-data or customer-data mutation occurred.
+
+## Historical resume packet — 2026-09-04 corrective release integration
 
 - **Status:** print correction `f70dd754b4d4c2b8e049d817761d37735c132766` is on `origin/main`, its dual-engine print E2E is green and matching production deployment is READY. A final two-spec test-only correction is pending for five deterministic Chromium i18n races.
 - **Workspace/branch:** canonical root `/Users/kyox215/Documents/文稿 - kyox215的MacBook Pro/Codex/2026-05-17/zip-github`, branch `main`, current `HEAD = origin/main = f70dd754b4d4c2b8e049d817761d37735c132766` before the final corrective commit.

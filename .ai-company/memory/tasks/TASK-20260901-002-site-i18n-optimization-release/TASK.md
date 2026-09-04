@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260901-002-site-i18n-optimization-release"
 title: "完成 RepairDesk 中意英界面本地化并发布"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "Hexiang Huang / Owner"
 departments: ["ARCH", "DOC", "FE", "PRODUCT", "QA", "RELEASE", "SEC", "UX"]
 created_at: "2026-09-01T07:54:13Z"
-updated_at: "2026-09-04T08:00:00Z"
+updated_at: "2026-09-04T12:30:00Z"
+closed_at: "2026-09-04T12:30:00Z"
 ---
 
 # Task — 完成 RepairDesk 中意英界面本地化并发布
@@ -152,10 +153,11 @@ updated_at: "2026-09-04T08:00:00Z"
 
 ## Current state
 
-- **Done:** all planned direct employee i18n implementation; direct-i18n P0/P1 review; full local/static/browser release gates; exact release commit `a274f756b46b017e9560e948cc3fcd51cc78d2d8` pushed to `origin/main`; matching Vercel production deployment READY.
-- **Remaining:** repair the five deterministic hosted Chromium i18n test races shared by runs `33863005646` and `33864592446`; run the exact five-test verification; push the final test/memory correction; require a new exact-SHA hosted green run and final evidence closeout.
-- **Blocked:** the final CI gate is red even though verify, dual-engine print E2E, Vercel READY, canonical smoke and production error/5xx observation are green. Four Inventory tests read the pending request array before the debounced route begins; one Order Detail test closes while a final read-only route callback is still settling.
-- **Next:** advance the Registry instruction, issue/verify Context Packet v8, add request-aware polling at the two Inventory interception points and wait for Order Detail route callbacks before teardown, then run only the five affected Chromium cases.
+- **Release state:** **B) RELEASED / CLOSED**.
+- **Done:** all planned direct employee i18n implementation and reviews; final deterministic hosted-test correction; exact final SHA `bc892381b2fef0adeca27b5a6599f638ba126c5b` and tree `93aebaf21114b303ae42ebf345abb58ffcd697f3` are on `origin/main`; GitHub Actions run `33866260693` completed successfully; matching Vercel production deployment `dpl_Uutsq62tprPP3njcQGe1zwCzTh85` is READY on `www.chinatech.in` and `chinatech.in`.
+- **Remaining:** none for the authorized i18n release contract. P2/P3 backlog entries remain separate future work and do not reopen this task.
+- **Blocked:** none.
+- **Next:** use `bc892381...` / `dpl_Uutsq62tprPP3njcQGe1zwCzTh85` as the accepted production baseline. If rollback is required, promote prior READY `f70dd754...` / `dpl_DxdSwxKvdxRfVM5bktkSk4WstfNz` or create a normal forward revert; never force-push.
 
 ## Hosted print-locator corrective packet — 2026-09-04
 

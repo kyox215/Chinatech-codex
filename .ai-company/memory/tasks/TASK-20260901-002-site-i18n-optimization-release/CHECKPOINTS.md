@@ -117,3 +117,11 @@ Registry Context Packet.
 - Artifact and source evidence show the Inventory loading UI becomes visible before the debounced request reaches Playwright, while Order Detail finishes its business assertions before a final read-only `order/get` callback settles. No product failure, mutation, retry or timeout issue is implicated.
 - Corrective scope is limited to request-aware polling at two Inventory points and route-callback settlement in the single heavy Order Detail test, plus task evidence.
 - Next: issue/verify Context Packet v8, apply the bounded test-only correction, run exactly the five affected Chromium cases once, then create/push a normal final correction and require new exact-SHA hosted green.
+
+## 2026-09-04T12:30:00Z — B) RELEASED / CLOSED
+
+- The bounded deterministic-race correction is integrated at exact SHA `bc892381b2fef0adeca27b5a6599f638ba126c5b`, tree `93aebaf21114b303ae42ebf345abb58ffcd697f3`, aligned with `origin/main` after fetch.
+- GitHub Actions run `33866260693` is completed/success for that exact SHA, including the required verify and i18n browser gates.
+- Vercel production deployment `dpl_Uutsq62tprPP3njcQGe1zwCzTh85` is READY and owns the canonical aliases `www.chinatech.in` and `chinatech.in`; public read-only apex/www/login smoke resolves to HTTPS 200 and the bounded two-hour error query returns no entries.
+- Release contract is fully accepted as **B) RELEASED**. No database, migration, environment, secret, production-data or customer-data mutation occurred.
+- Rollback anchor: `f70dd754b4d4c2b8e049d817761d37735c132766` / `dpl_DxdSwxKvdxRfVM5bktkSk4WstfNz`; source rollback remains a normal forward revert.

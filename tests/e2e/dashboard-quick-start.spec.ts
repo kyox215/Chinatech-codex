@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const evidenceDir = "screenshots/TASK-20260725-001-mobile-dashboard-scan-density";
 
 const viewports = [
@@ -203,8 +204,52 @@ test("dashboard explains a permission denial without offering an endless retry",
   await expect(page.getByRole("button", { name: "重试" })).toHaveCount(0);
 });
 
+for (const locale of ["it-IT", "en"] as const) {
+  for (const viewport of [
+    { width: 320, height: 568 },
+    { width: 375, height: 812 },
+  ]) {
+    test(`dashboard quick labels stay inside their cards in ${locale} at ${viewport.width}px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await page.context().addCookies([{ name: "repairdesk_locale", value: locale, url: baseURL }]);
+      await gotoReady(page, "/");
+
+      await expectNoPageOverflow(page);
+      for (const action of ["new-order", "scan-order", "buyback-quote"] as const) {
+        const quickAction = page.locator(`[data-dashboard-quick-start="${action}"]:visible`);
+        const title = quickAction.locator(`[data-dashboard-quick-title="${action}"]`);
+        await expect(title).toBeVisible();
+
+        const geometry = await title.evaluate((element) => {
+          const titleRect = element.getBoundingClientRect();
+          const actionRect = element.closest("a, button")?.getBoundingClientRect();
+          const style = window.getComputedStyle(element);
+          return {
+            actionLeft: actionRect?.left ?? Number.NaN,
+            actionRight: actionRect?.right ?? Number.NaN,
+            titleLeft: titleRect.left,
+            titleRight: titleRect.right,
+            overflow: style.overflow,
+            textOverflow: style.textOverflow,
+            whiteSpace: style.whiteSpace,
+          };
+        });
+
+        expect(geometry.titleLeft).toBeGreaterThanOrEqual(geometry.actionLeft);
+        expect(geometry.titleRight).toBeLessThanOrEqual(geometry.actionRight);
+        expect(geometry.overflow).toBe("hidden");
+        expect(geometry.textOverflow).toBe("ellipsis");
+        expect(geometry.whiteSpace).toBe("nowrap");
+      }
+    });
+  }
+}
+
 test("dashboard remains readable with long Italian handoff copy on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 });
+  await page.context().addCookies([{ name: "repairdesk_locale", value: "it-IT", url: baseURL }]);
   await mockDashboardSummary(page, {
     items: [
       priorityItem({
@@ -223,13 +268,7 @@ test("dashboard remains readable with long Italian handoff copy on mobile", asyn
   await gotoReady(page, "/");
 
   await expectNoPageOverflow(page);
-  for (const action of ["new-order", "scan-order", "buyback-quote"]) {
-    const box = await page
-      .locator(`[data-dashboard-quick-start="${action}"]:visible`)
-      .boundingBox();
-    expect(box?.width ?? 0).toBeGreaterThan(80);
-    expect(box?.height ?? 0).toBeLessThan(90);
-  }
+  await expect(page.locator('[data-ui="dashboard-priority-card"]')).toBeVisible();
 });
 
 test("mobile dashboard order scanner opens with a manual fallback", async ({ page }) => {

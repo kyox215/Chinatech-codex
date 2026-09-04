@@ -1,14 +1,14 @@
 # CEO Report — Lightweight i18n restart closeout
 
-Date: 2026-09-03
-Status: Owner-approved release; exact-scope gates in progress
+Date: 2026-09-04
+Status: B) RELEASED / CLOSED
 
 ## Outcome
 
-The scoped `zh-CN` / `it-IT` / `en` delivery is implemented locally through the remaining Memos,
-Toolkit, Platform and AI client groups. Previously completed Release 2B groups remain accepted.
-No commit, push, deployment, remote SQL, migration or production data action occurred after the
-Owner's lightweight restart.
+The scoped `zh-CN` / `it-IT` / `en` delivery is released and closed. Exact production SHA
+`bc892381b2fef0adeca27b5a6599f638ba126c5b` passed hosted CI run `33866260693`; Vercel deployment
+`dpl_Uutsq62tprPP3njcQGe1zwCzTh85` is READY on `www.chinatech.in` and `chinatech.in`. No remote SQL,
+migration, environment/secret, production-data or customer-data mutation occurred.
 
 ## Acceptance matrix
 
@@ -20,7 +20,7 @@ Owner's lightweight restart.
 | Dynamic values and canonical API/query/cache/payload/permission/workflow behavior remain unchanged | PASS                       | exact mounted fixtures, payload assertions, independent QA and diff review                               |
 | Localization-caused responsive/a11y issues                                                         | PASS for direct i18n P0/P1 | static layout review plus controlled 390/1440 browser checks; no direct-i18n P0/P1                       |
 | Final unified browser story                                                                        | CONDITIONAL                | Memos/Toolkit pass; Platform/AI stop on unrelated Escape focus-return P2 after page/locale/layout checks |
-| Release to `main` and production                                                                   | AUTHORIZED / IN PROGRESS   | Owner approval recorded as E-094; exact-scope gates still required                                       |
+| Release to `main` and production                                                                   | PASS / RELEASED            | E-100: exact SHA hosted green; matching Vercel deployment READY on both canonical aliases                 |
 
 ## Verification
 
@@ -60,8 +60,8 @@ rollback uses a normal forward revert and production rollback promotes the recor
 deployment. Screenshot/test-result artifacts are synthetic and contain no production credentials or
 customer PII.
 
-## Owner decision
+## Final release record
 
-Owner replied `批准` on 2026-09-03, authorizing exact-scope integration/commit, non-force push to
-`main`, hosted exact-SHA gates and deployment to the existing Vercel production project. Database,
-migration, environment, secret, production-data and unrelated project-health changes remain excluded.
+Owner approval was executed within the exact-scope contract. Accepted production baseline:
+`bc892381...` / `dpl_Uutsq62tprPP3njcQGe1zwCzTh85`. Rollback baseline:
+`f70dd754...` / `dpl_DxdSwxKvdxRfVM5bktkSk4WstfNz`. The release is formally **B) RELEASED / CLOSED**.

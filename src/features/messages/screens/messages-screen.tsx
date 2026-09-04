@@ -443,6 +443,7 @@ export function MessagesScreen() {
             count: "-",
           },
         ]}
+        chipsVariant="underline"
       >
         <RepairOsBusinessCard
           as="div"
@@ -523,6 +524,7 @@ export function MessagesScreen() {
           count: customerCount,
         },
       ]}
+      chipsVariant="underline"
     >
       {!canUpdateMessageTemplates ? (
         <div
@@ -951,6 +953,7 @@ function MessagesLoading() {
           count: "-",
         },
       ]}
+      chipsVariant="underline"
     >
       <section className="grid gap-3 lg:grid-cols-[300px_minmax(0,1fr)]">
         <div className={cn(repairOs.adminSection, "space-y-2.5 p-2.5 sm:p-3")}>
