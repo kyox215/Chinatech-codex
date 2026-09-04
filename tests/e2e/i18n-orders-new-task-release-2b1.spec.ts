@@ -81,19 +81,19 @@ for (const { locale, width } of cases) {
     ).toHaveAccessibleDescription(translateMessage(locale, "orders2b1.new.dialogDescription"));
     await expect(newOrderDialog.locator('[data-new-order-root="true"]')).toBeVisible();
     await expect(newOrderDialog).toContainText(translateMessage(locale, "orders2b1.new.title"));
-    const dialogClose = newOrderDialog.getByRole("button", {
-      name: translateMessage(locale, "orders2b1.new.closeAria"),
-    });
-    if (width === 390 || width === 430 || width >= 1024) {
-      await expect(dialogClose).toBeVisible();
-    } else {
-      await expect(dialogClose).toHaveCount(0);
-      await expect(
-        newOrderDialog.getByRole("button", {
-          name: translateMessage(locale, "orders2b1.new.back"),
-        }),
-      ).toBeVisible();
-    }
+    const visibleDialogClose = newOrderDialog.locator(
+      'button[data-new-order-dialog-close="true"]:visible',
+    );
+    await expect(visibleDialogClose).toHaveCount(1);
+    await expect(visibleDialogClose).toHaveAccessibleName(
+      translateMessage(locale, "orders2b1.new.closeAria"),
+    );
+    await expect(
+      newOrderDialog.locator('[data-new-order-dialog-mobile-header="true"]:visible'),
+    ).toHaveCount(width < 1024 ? 1 : 0);
+    await expect(
+      newOrderDialog.locator('[data-new-order-desktop-header="true"]:visible'),
+    ).toHaveCount(width >= 1024 ? 1 : 0);
     const category = newOrderDialog
       .getByRole("button", { name: repairCategoryName(locale), exact: true })
       .first();

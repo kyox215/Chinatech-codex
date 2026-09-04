@@ -3734,11 +3734,13 @@ function MobileOrderDetailView({
             label={t("orders2b2.overview.statusAt")}
             value={formatDateTime(currentStatusChangedAt, locale)}
           />
-          <MobileMeta
-            icon={UserRound}
-            label={t("orders2b2.overview.assignee")}
-            value={order.technician_name || "-"}
-          />
+          {!(onAssigneeChange || hasMobileSupplierManagement) ? (
+            <MobileMeta
+              icon={UserRound}
+              label={t("orders2b2.overview.assignee")}
+              value={order.technician_name || "-"}
+            />
+          ) : null}
           <MobileMeta
             icon={Store}
             label={t("orders2b2.overview.store")}
@@ -4047,18 +4049,6 @@ function MobileOrderDetailView({
           {t("orders2b2.overview.diagnosis")}：
           {order.diagnosis_result || t("orders2b2.overview.notConfigured")}
         </p>
-        {order.fault_prices.length ? (
-          <div className="mt-1 flex min-w-0 flex-wrap gap-1">
-            {order.fault_prices.slice(0, 3).map((item, index) => (
-              <span
-                key={`${item.name}-${index}`}
-                className="max-w-full truncate rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium leading-3 text-primary lg:text-[11px] lg:leading-4"
-              >
-                {item.name || t("orders2b2.mobile.unnamedItem")}
-              </span>
-            ))}
-          </div>
-        ) : null}
       </section>
 
       <FaultDescriptionEditSheet
@@ -5501,9 +5491,6 @@ function MobileStickyWorkflowHeader({
           </Button>
           <div className="min-w-0 text-center">
             <p className="truncate text-xs font-semibold leading-4">{t("orders2b2.title")}</p>
-            <p className="truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-              {localizedCurrentStage.label} · {statusLabel}
-            </p>
           </div>
           <div className="flex items-center gap-1">
             <Button

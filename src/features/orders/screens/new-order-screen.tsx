@@ -52,7 +52,6 @@ import { customerIntakePolicyBlocksSubmit } from "@/features/customers/model/cus
 import { NewOrderQuotationSection } from "@/features/orders/forms/new-order-quotation-section";
 import { NewOrderSubmitBar } from "@/features/orders/forms/new-order-submit-bar";
 import { NewOrderGuidedWorkspace } from "@/features/orders/forms/new-order-guided-workspace";
-import { OrderWorkspaceMoneyStrip } from "@/features/orders/components/order-workspace-primitives";
 import {
   useNewOrderOfflineAutosave,
   type NewOrderOfflineAutosaveState,
@@ -204,9 +203,9 @@ export function NewOrderScreen({
     ...orderWorkflowQueryOptions(activeStoreId),
     enabled: Boolean(activeStoreId),
   });
+  const defaultWarrantyMonths = storeSettings?.default_order_warranty_months ?? 6;
   const operatorName = hydratedOnboardingStatus?.displayName ?? t("orders2b1.new.currentAccount");
   const operatorRole = hydratedOnboardingStatus?.activeStore?.role;
-  const defaultWarrantyMonths = storeSettings?.default_order_warranty_months ?? 6;
   const createStatuses = useMemo(
     () =>
       getWorkflowStatuses(workflow).filter((status) => status.enabled && status.allowed_for_create),
@@ -874,10 +873,7 @@ export function NewOrderScreen({
       <h1 className="sr-only">{t("orders2b1.new.title")}</h1>
       {surface === "page" ? (
         <NewOrderMobileHeader
-          operatorName={operatorName}
-          statusLabel={createStatusLabel}
           valid={Boolean(valid)}
-          total={activeTotal}
           missingItems={missingItems}
           offlineStatus={offlineStatus}
           onHeightChange={handleFloatingHeaderHeight}
@@ -954,19 +950,14 @@ export function NewOrderScreen({
 
         {surface === "dialog" && onCancel ? (
           <NewOrderDialogMobileHeader
-            operatorName={operatorName}
-            statusLabel={createStatusLabel}
             valid={Boolean(valid)}
+            offlineStatus={offlineStatus}
             onClose={onCancel}
           />
         ) : null}
 
         <NewOrderDesktopHeader
-          operatorName={operatorName}
-          statusLabel={createStatusLabel}
           valid={Boolean(valid)}
-          total={activeTotal}
-          deposit={activeDeposit}
           missingItems={missingItems}
           surface={surface}
           offlineStatus={offlineStatus}
@@ -1549,33 +1540,24 @@ function getNewOrderMissingItems({
 }
 
 function NewOrderDesktopHeader({
-  operatorName,
-  statusLabel,
   valid,
-  total,
-  deposit,
   missingItems,
   surface,
   offlineStatus,
   onClose,
 }: {
-  operatorName: string;
-  statusLabel: string;
   valid: boolean;
-  total: number;
-  deposit: number;
   missingItems: NewOrderMissingItem[];
   surface: "page" | "dialog";
   offlineStatus: NewOrderOfflineStatusSummary;
   onClose?: () => void;
 }) {
   const { t } = useLocale();
-  const balance = Math.max(0, total - deposit);
   return (
     <section
       data-new-order-desktop-header="true"
       className={cn(
-        "relative mb-3 hidden min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-3 shadow-none lg:grid lg:grid-cols-[minmax(180px,0.8fr)_minmax(280px,1.2fr)] lg:items-center lg:gap-3 xl:grid-cols-[minmax(220px,0.75fr)_minmax(340px,1fr)_minmax(330px,1.05fr)]",
+        "relative mb-3 hidden min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-3 shadow-none lg:grid lg:grid-cols-[minmax(180px,0.8fr)_minmax(280px,1.2fr)] lg:items-center lg:gap-3 xl:grid-cols-[minmax(220px,0.75fr)_minmax(340px,1fr)]",
         surface === "page" && "shadow-[var(--shadow-workspace)]",
         surface === "dialog" && onClose && "pr-12",
       )}
@@ -1594,17 +1576,14 @@ function NewOrderDesktopHeader({
         </Button>
       ) : null}
       <div className="min-w-0">
-        <div className="text-[11px] font-medium leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-          {t(surface === "dialog" ? "orders2b1.new.dialogMode" : "orders2b1.new.workspaceMode")}
-        </div>
-        <p className="truncate text-lg font-semibold leading-6">{t("orders2b1.new.title")}</p>
-        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-          <span className="truncate">{operatorName}</span>
-          <span className="size-1 rounded-full bg-muted-foreground/35" />
-          <span className="truncate">
-            {t("orders2b1.new.createdStatus", { status: statusLabel })}
-          </span>
-        </div>
+        {surface === "dialog" ? (
+          <>
+            <div className="text-[11px] font-medium leading-4 text-muted-foreground lg:text-xs lg:leading-4">
+              {t("orders2b1.new.dialogMode")}
+            </div>
+            <p className="truncate text-lg font-semibold leading-6">{t("orders2b1.new.title")}</p>
+          </>
+        ) : null}
         <NewOrderOfflineStatusLine status={offlineStatus} className="mt-2" />
       </div>
 
@@ -1646,56 +1625,31 @@ function NewOrderDesktopHeader({
           </div>
         )}
       </div>
-
-      <div
-        data-new-order-header-finance="true"
-        className="grid min-w-0 gap-1.5 md:col-span-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center xl:col-span-1 xl:grid-cols-1"
-      >
-        <OrderWorkspaceMoneyStrip
-          total={total}
-          deposit={deposit}
-          balance={balance}
-          compact
-          variant="finance"
-        />
-        <div className="flex min-w-0 items-center justify-self-start gap-1.5 rounded-full bg-primary/5 px-2 py-1 text-[10px] font-semibold text-primary xl:justify-self-end lg:text-xs lg:leading-4">
-          <ClipboardList className="size-3" />
-          <span className="truncate">{statusLabel}</span>
-        </div>
-      </div>
     </section>
   );
 }
 
 function NewOrderDialogMobileHeader({
-  operatorName,
-  statusLabel,
   valid,
+  offlineStatus,
   onClose,
 }: {
-  operatorName: string;
-  statusLabel: string;
   valid: boolean;
+  offlineStatus: NewOrderOfflineStatusSummary;
   onClose: () => void;
 }) {
   const { t } = useLocale();
   return (
     <section
       data-new-order-dialog-mobile-header="true"
-      className="mb-1.5 flex min-w-0 items-center justify-between gap-1.5 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-1.5 shadow-none md:hidden"
+      className="mb-1.5 flex min-w-0 items-center justify-between gap-1.5 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-1.5 shadow-none lg:hidden"
     >
       <div className="min-w-0 flex-1">
         <div className="text-[9px] font-medium leading-3 text-muted-foreground">
           {t("orders2b1.new.dialogMode")}
         </div>
         <div className="truncate text-sm font-semibold leading-5">{t("orders2b1.new.title")}</div>
-        <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground">
-          <span className="truncate">{operatorName}</span>
-          <span className="size-1 rounded-full bg-muted-foreground/35" />
-          <span className="truncate">
-            {t("orders2b1.new.createdStatus", { status: statusLabel })}
-          </span>
-        </div>
+        <NewOrderOfflineStatusLine status={offlineStatus} compact className="mt-1" />
       </div>
       <span
         className={cn(
@@ -1841,18 +1795,12 @@ function compareDate(a?: string, b?: string) {
 }
 
 function NewOrderMobileHeader({
-  operatorName,
-  statusLabel,
   valid,
-  total,
   missingItems,
   offlineStatus,
   onHeightChange,
 }: {
-  operatorName: string;
-  statusLabel: string;
   valid: boolean;
-  total: number;
   missingItems: NewOrderMissingItem[];
   offlineStatus: NewOrderOfflineStatusSummary;
   onHeightChange?: (height: number) => void;
@@ -1860,9 +1808,6 @@ function NewOrderMobileHeader({
   const { t } = useLocale();
   const shellRef = useRef<HTMLDivElement | null>(null);
   const [missingExpanded, setMissingExpanded] = useState(false);
-  const helperText = valid
-    ? t("orders2b1.new.createdStatus", { status: statusLabel })
-    : t("orders2b1.new.missingCount", { count: missingItems.length || 1 });
 
   useEffect(() => {
     if (valid) setMissingExpanded(false);
@@ -1896,7 +1841,6 @@ function NewOrderMobileHeader({
             <p className="truncate text-xs font-semibold leading-4">
               {t("orders2b1.new.shortTitle")}
             </p>
-            <p className="truncate text-[9px] leading-3 text-muted-foreground">{operatorName}</p>
           </div>
           <Button asChild variant="ghost" size="iconDense" className="size-9 rounded-lg">
             <Link href="/orders" aria-label={t("orders2b1.new.backOrders")}>
@@ -1920,24 +1864,6 @@ function NewOrderMobileHeader({
         </div>
 
         <div className={cn(repairOs.mobileFloatingHeaderBody, "mt-1.5 pt-1.5")}>
-          <div
-            className={cn(
-              "flex min-w-0 items-start gap-1.5 rounded-lg px-2 py-1.5 text-[10px] leading-4",
-              valid
-                ? "bg-status-success/45 text-status-success-foreground"
-                : "bg-[var(--surface-panel-muted)] text-muted-foreground",
-            )}
-          >
-            <ClipboardList
-              className={cn(
-                "mt-0.5 size-3.5 shrink-0",
-                valid ? "text-status-success-foreground" : "text-primary",
-              )}
-            />
-            <span className="min-w-0 flex-1">
-              <span>{helperText}</span>
-            </span>
-          </div>
           {!valid && missingItems.length > 0 ? (
             <div className="mt-1.5">
               <Button

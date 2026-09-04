@@ -97,7 +97,6 @@ export function NewOrderQuotationSection({
   const balance = Math.max(0, total - form.deposit);
   const roleLabel = getOperatorRoleLabel(operatorRole, t);
   const availableCreateStatuses = createStatuses;
-  const quoteModeNote = t("orders2b1.new.quoteModeHelp");
   const hasCatalogCostLines = form.faults.some((item) => Boolean(item.catalog_key));
 
   return (
@@ -127,18 +126,7 @@ export function NewOrderQuotationSection({
           data-new-order-quote-draft="true"
           className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/70 p-1"
         >
-          <div
-            id="new-order-quote-mode-note"
-            className="mb-1 flex min-h-7 min-w-0 items-center overflow-hidden rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1 text-[10px] leading-4 text-muted-foreground lg:text-xs lg:leading-4"
-            role="status"
-            aria-live="polite"
-          >
-            <span className="min-w-0 truncate" title={quoteModeNote}>
-              {quoteModeNote}
-            </span>
-          </div>
-
-          <fieldset className="min-w-0 space-y-1.5" aria-describedby="new-order-quote-mode-note">
+          <fieldset className="min-w-0 space-y-1.5">
             <div className="mb-1.5 rounded-xl border border-[var(--border-panel)] bg-card p-1">
               <div className="px-1 pb-1 text-[10px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4">
                 {t("orders2b1.new.commonRepairs")}
@@ -329,14 +317,7 @@ export function NewOrderQuotationSection({
             <div className="truncate text-[10px] font-semibold leading-3 text-foreground lg:text-xs lg:leading-4">
               {t("orders2b1.new.settings")}
             </div>
-            <div className="truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-              {t("orders2b1.new.settingsHelp")}
-            </div>
           </div>
-          <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-1.5 text-[9px] font-medium leading-none text-muted-foreground lg:text-[11px] lg:leading-4">
-            <ShieldCheck className="size-3 text-primary" />
-            {roleLabel}
-          </span>
         </div>
 
         <div className="min-w-0" data-new-order-setting="warranty">

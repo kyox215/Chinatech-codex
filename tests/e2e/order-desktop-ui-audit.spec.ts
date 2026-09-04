@@ -894,13 +894,15 @@ async function openAndExpectNewOrderWorkspace(page: Page, width: number) {
   await expect(
     page.locator('[data-new-order-section="quotation"] [data-new-order-field="deposit"]'),
   ).toHaveCount(1);
-  const newOrderMoneyStrip = page.locator(
-    '[data-new-order-header-finance="true"] [data-order-workspace-money-strip="true"]',
+  const desktopHeader = page.locator('[data-new-order-desktop-header="true"]');
+  await expect(desktopHeader.locator('[data-order-workspace-money-strip="true"]')).toHaveCount(0);
+  const newOrderMoneyStrips = page.locator(
+    '[data-new-order-section="quotation"] [data-order-workspace-money-strip="true"]:visible',
   );
-  await expectFirstVisible(newOrderMoneyStrip, "新建工单顶部金额条");
-  await expectFirstVisible(newOrderMoneyStrip.getByText("总额").first(), "新建金额总额");
-  await expectFirstVisible(newOrderMoneyStrip.getByText("定金").first(), "新建金额定金");
-  await expectFirstVisible(newOrderMoneyStrip.getByText("尾款").first(), "新建金额尾款");
+  await expect(newOrderMoneyStrips).toHaveCount(1);
+  await expectFirstVisible(newOrderMoneyStrips.getByText("总额").first(), "新建金额总额");
+  await expectFirstVisible(newOrderMoneyStrips.getByText("定金").first(), "新建金额定金");
+  await expectFirstVisible(newOrderMoneyStrips.getByText("尾款").first(), "新建金额尾款");
   await expect(
     page.locator('[data-new-order-desktop-header="true"]').getByText("预计总额"),
   ).toHaveCount(0);

@@ -1685,19 +1685,13 @@ export function OrderListScreen() {
                 data-order-desktop-list="true"
                 className="min-w-0 max-w-full overflow-x-hidden overflow-y-hidden pb-1"
               >
-                <div className="mb-2 flex min-w-0 items-center justify-between gap-2 px-1">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold">{t("orders.desktopTitle")}</div>
-                    <div className="text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-                      {canUseBulkActions ? t("orders.desktopHintBulk") : t("orders.desktopHint")}
-                    </div>
-                  </div>
-                  {canUseBulkActions ? (
+                {canUseBulkActions ? (
+                  <div className="mb-2 flex min-w-0 justify-end gap-2 px-1">
                     <span className="text-xs text-muted-foreground">
                       {t("orders.selectedCount", { count: selected.length })}
                     </span>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
                 <div className="space-y-1.5">
                   <div
                     className={cn(

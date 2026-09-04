@@ -270,21 +270,17 @@ describe("NewOrderScreen i18n", () => {
     ["zh-CN", "新建维修工单", "创建工单"],
     ["it-IT", "Nuovo ordine di riparazione", "Crea ordine"],
     ["en", "New repair order", "Create order"],
-  ] as const)(
-    "renders fixed employee chrome in %s and preserves dynamic names",
-    (locale, title, create) => {
-      const { container } = render(
-        <LocaleProvider initialLocale={locale}>
-          <NewOrderScreen />
-        </LocaleProvider>,
-      );
-      expect(screen.getAllByText(title).length).toBeGreaterThan(0);
-      expect(screen.getAllByText("Marco Rossi").length).toBeGreaterThan(0);
-      expect(screen.getByRole("button", { name: create })).toBeVisible();
-      if (locale !== "zh-CN") expect(container.textContent).not.toMatch(/[一-鿿]/);
-      expect(mocks.createOrder).not.toHaveBeenCalled();
-    },
-  );
+  ] as const)("renders the localized new-order chrome in %s", (locale, title, create) => {
+    const { container } = render(
+      <LocaleProvider initialLocale={locale}>
+        <NewOrderScreen />
+      </LocaleProvider>,
+    );
+    expect(screen.getAllByText(title).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: create })).toBeVisible();
+    if (locale !== "zh-CN") expect(container.textContent).not.toMatch(/[一-鿿]/);
+    expect(mocks.createOrder).not.toHaveBeenCalled();
+  });
 
   it("submits deep-equivalent canonical Create inputs in all three locales", async () => {
     const captured: CreateOrderInput[] = [];

@@ -333,14 +333,6 @@ export function NewOrderDeviceUnlockSection({
         className="mb-1.5"
       />
       <div className="rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)]">
-        <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
-          <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-            {t("orders2b1.new.unlockTitle")}
-          </Label>
-          <span className="shrink-0 text-[9px] font-medium leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-            {t("orders2b1.new.hiddenByDefault")}
-          </span>
-        </div>
         <DeviceUnlockEditor
           value={form.deviceUnlock}
           onChange={(deviceUnlock) => setForm({ ...form, deviceUnlock })}
