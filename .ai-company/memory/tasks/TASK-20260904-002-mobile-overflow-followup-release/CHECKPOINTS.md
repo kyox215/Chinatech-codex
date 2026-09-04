@@ -44,3 +44,12 @@
 - **Decisions:** the production-server E2E failure is not waived as a product result: its pages showed the intended production denial of the synthetic system actor. The one allowed root-cause re-verification used the repository's development E2E contract and passed every scoped story.
 - **Risks/blockers:** final independent QA/Release response and exact cached staging checks remain before commit. Hosted exact-SHA CI/Vercel/canonical verification remains after push.
 - **Next:** obtain final reviewer verdicts, fresh-fetch and reverify the lease, stage only the frozen manifest, then ordinary commit/push if every gate remains green.
+
+## 2026-09-04T12:58:49Z — Application release accepted
+
+- **Phase:** production closeout.
+- **Completed:** exact candidate committed as `e0ea10189e6eea56fcf0905256cd597394c9295f` (tree `a6acf2b0...`), normally pushed to `main`, and automatically deployed by the existing Vercel Git integration. Hosted CI `33874066754` and E2E `33874066756` are fully successful. Deployment `dpl_8AeSm9zBkJeCTgxeYTA1fofdks6C` is READY and owns both canonical aliases.
+- **Evidence:** E-014 and E-015; root/apex/login/Messages read-only smoke resolves to HTTPS 200; bounded 30-minute deployment error query is empty.
+- **Decisions:** release accepted; previous READY `bc892381...` / `dpl_Uutsq62tprPP3njcQGe1zwCzTh85` is the rollback anchor. No migration/data rollback applies.
+- **Risks/blockers:** no P0/P1. Registered P2/P3 remain separate future work. This closeout-only memory update changes no application/build input and reuses the exact application release evidence.
+- **Next:** commit and push only this closeout memory delta, verify final main/production provenance, close Registry task/run/window and release the integration lease.

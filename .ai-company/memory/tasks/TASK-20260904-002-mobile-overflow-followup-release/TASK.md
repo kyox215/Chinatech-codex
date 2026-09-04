@@ -2,14 +2,15 @@
 schema_version: 1
 task_id: "TASK-20260904-002-mobile-overflow-followup-release"
 title: "补充移动端消息设置溢出审计并在全局门禁通过后发布"
-status: "active"
+status: "closed"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "Hexiang Huang / Owner"
 departments: ["INT", "UX", "QA", "RELEASE", "DOC"]
 created_at: "2026-09-04T12:16:55Z"
-updated_at: "2026-09-04T12:38:00Z"
+updated_at: "2026-09-04T12:58:49Z"
+closed_at: "2026-09-04T12:58:49Z"
 ---
 # Task — 补充移动端消息设置溢出审计并在全局门禁通过后发布
 
@@ -53,8 +54,8 @@ updated_at: "2026-09-04T12:38:00Z"
 - [x] 若发现问题，仅作最小、可逆、移动端限定修复并通过相称验证
 - [x] 三语范围、原发布任务 `B) RELEASED`、精确 SHA/tree、stable/frozen 文件与 clean main 基线有直接证据
 - [x] 最终 QA/Release 审查无未处置 P0/P1，构建与核心浏览器门禁通过或有明确阻塞
-- [ ] 全局门禁通过后仅正常推送 `main` 并部署既有项目；否则停在发布前并报告
-- [ ] 无数据库、migration、生产数据或强制推送操作
+- [x] 全局门禁通过后仅正常推送 `main` 并部署既有项目；否则停在发布前并报告
+- [x] 无数据库、migration、生产数据或强制推送操作
 
 ## Facts, assumptions, and unknowns
 

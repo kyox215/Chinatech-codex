@@ -1,13 +1,13 @@
 ---
 schema_version: 1
 current_task_id: "TASK-20260904-002-mobile-overflow-followup-release"
-status: "active"
-phase: "release_candidate_ready"
+status: "closed"
+phase: "released_and_verified"
 task_class: "T3"
 risk_level: "R3"
 autonomy_level: "L2"
 owner: "Hexiang Huang / Owner"
-last_checkpoint_at: "2026-09-04T12:38:00Z"
+last_checkpoint_at: "2026-09-04T12:58:49Z"
 checkpoint_required: false
 last_rehydrated_at: null
 ---
@@ -19,16 +19,16 @@ last_rehydrated_at: null
 
 ## Current state
 
-Messages and Settings follow-up audit is complete. The reproduced Messages mobile badge escape and the prior Dashboard title overlap are fixed with mobile-only presentation changes. Node 22 build and the scoped Chromium matrix pass. The prior i18n production task is formally B) RELEASED/CLOSED. Exact candidate staging, ordinary main push, hosted exact-SHA gates and production verification remain.
+Messages and Settings follow-up audit is complete. The reproduced Messages mobile badge escape and the prior Dashboard title overlap are fixed with mobile-only presentation changes. Release SHA `e0ea10189e6eea56fcf0905256cd597394c9295f` passed hosted CI/E2E and Vercel deployment `dpl_8AeSm9zBkJeCTgxeYTA1fofdks6C` is READY on both canonical domains.
 
 ## Blocking decisions
 
-- No product P0/P1 is open. Release remains gated on final independent GO, exact staging, fresh origin/main and valid integration lease.
+- No product or release P0/P1 is open.
 - Database, migration, environment, secret, production-data, force-push and unrelated health-audit work remain prohibited.
 
 ## Next action
 
-Obtain final QA/Release GO, freeze and stage only the declared manifest, then perform normal main push and existing Vercel deployment verification.
+No remaining action for this task. Preserve registered P2/P3 items as separate future work.
 
 ## Resume protocol
 
