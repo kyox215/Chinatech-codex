@@ -485,6 +485,51 @@ describe("OrderDetailScreen i18n", () => {
     mocks.uploadOrderAttachment.mockResolvedValue({});
   });
 
+  it.each(locales)(
+    "collapses %s finance categories without cancelling or changing the draft",
+    (locale) => {
+      mocks.viewport = "compact";
+      const view = renderDetail(locale, "page");
+      const quote = view.container.querySelector("#mobile-order-quote") as HTMLElement;
+      fireEvent.click(
+        within(quote).getByRole("button", {
+          name: translateMessage(locale, "orders2b2.hero.edit"),
+        }),
+      );
+      const item = within(quote).getAllByRole("textbox", {
+        name: translateMessage(locale, "orders2b2.finance.item"),
+      })[0]!;
+      fireEvent.change(item, { target: { value: "保留报价草稿" } });
+      const amount = within(quote).getAllByRole("textbox", {
+        name: translateMessage(locale, "orders2b2.finance.amount"),
+      })[0]!;
+      fireEvent.change(amount, { target: { value: "0.5" } });
+      fireEvent.click(
+        within(quote).getByRole("button", {
+          name: translateMessage(locale, "orders2b2.finance.collapseCategories"),
+        }),
+      );
+      expect(quote.querySelector('[data-fault-diagnosis-picker="true"]')).not.toBeVisible();
+      expect(item).toHaveValue("保留报价草稿");
+      expect(amount).toHaveValue("0.5");
+      expect(
+        within(quote).getByRole("button", {
+          name: translateMessage(locale, "orders2b2.hero.save"),
+        }),
+      ).toBeVisible();
+      expect(
+        within(quote).getByRole("button", { name: translateMessage(locale, "common.cancel") }),
+      ).toBeVisible();
+      expect(mocks.patchOrderFinance).not.toHaveBeenCalled();
+      fireEvent.click(
+        within(quote).getByRole("button", {
+          name: translateMessage(locale, "orders2b2.finance.expandCategories"),
+        }),
+      );
+      expect(quote.querySelector('[data-fault-diagnosis-picker="true"]')).toBeVisible();
+    },
+  );
+
   it.each([
     ["zh-CN", "详情"],
     ["it-IT", "Dettagli"],

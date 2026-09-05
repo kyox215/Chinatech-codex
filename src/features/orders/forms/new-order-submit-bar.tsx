@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { ArrowLeft, Banknote } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DeviceCustodyBadge } from "@/components/orders/badges";
@@ -127,10 +127,10 @@ export function NewOrderSubmitBar({
             disabled={pending}
             aria-disabled={!valid || pending}
             aria-describedby={!valid ? validationSummaryId : undefined}
-            className="h-10 w-full shrink-0 gap-1.5 rounded-lg border-0 px-4 text-sm font-semibold text-primary-foreground md:w-auto"
+            className="h-11 min-h-11 w-full shrink-0 gap-1.5 rounded-lg border-0 px-4 text-sm font-semibold text-primary-foreground md:w-auto"
             style={{ background: "var(--gradient-brand)" }}
           >
-            <Banknote className="size-3.5" />
+            <Plus className="size-3.5" />
             {t(pending ? "orders2b1.new.processing" : "orders2b1.new.create")}
           </Button>
         </div>

@@ -39,7 +39,65 @@ function MoneyKeypadHarness({
   );
 }
 
+function NativeNumericHarness() {
+  const [value, setValue] = useState(0);
+  return (
+    <MoneyKeypadInput
+      keyboardMode="native"
+      ariaLabel="原生报价"
+      value={value ? String(value) : ""}
+      onChange={(next) => setValue(Number(next) || 0)}
+    />
+  );
+}
+
 describe("MoneyKeypadInput", () => {
+  it("keeps a focused native draft through external prop updates and adopts the prop on blur", async () => {
+    setViewport(430);
+    const user = userEvent.setup();
+    const view = render(
+      <MoneyKeypadInput
+        keyboardMode="native"
+        ariaLabel="外部更新金额"
+        value="12"
+        onChange={() => undefined}
+      />,
+    );
+    const input = screen.getByRole("textbox", { name: "外部更新金额" });
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, "0.");
+    view.rerender(
+      <MoneyKeypadInput
+        keyboardMode="native"
+        ariaLabel="外部更新金额"
+        value="99"
+        onChange={() => undefined}
+      />,
+    );
+    expect(input).toHaveValue("0.");
+    await user.tab();
+    expect(input).toHaveValue("99");
+  });
+
+  it("preserves native decimal drafts on mobile even with numeric parent state", async () => {
+    setViewport(390);
+    const user = userEvent.setup();
+    render(<NativeNumericHarness />);
+    const input = screen.getByRole("textbox", { name: "原生报价" });
+    expect(input).toHaveAttribute("inputmode", "decimal");
+    await user.type(input, "0.");
+    expect(input).toHaveValue("0.");
+    await user.type(input, "5");
+    expect(input).toHaveValue("0.5");
+    await user.clear(input);
+    expect(input).toHaveValue("");
+    await user.type(input, "0,5");
+    expect(input).toHaveValue("0.5");
+    await user.tab();
+    expect(input).toHaveValue("0.5");
+    expect(document.querySelector('[data-virtual-keyboard-dock="true"]')).toBeNull();
+  });
   it("edits money through the app keypad without rendering a native input", async () => {
     setViewport(768);
     const user = userEvent.setup();

@@ -401,6 +401,41 @@ describe("OrderTaskScreen i18n", () => {
     });
   });
 
+  it.each([
+    { count: 1, primary: true },
+    { count: 2, primary: true },
+    { count: 2, primary: false },
+  ])(
+    "renders each transition once for $count actions and primary=$primary",
+    ({ count, primary }) => {
+      const first = { ...mocks.query.transitions[0]!, is_primary: primary };
+      mocks.query.transitions =
+        count === 1
+          ? [first]
+          : [
+              first,
+              {
+                ...first,
+                id: "transition-ready",
+                to_status_code: "ready",
+                is_primary: false,
+                sort_order: 20,
+              },
+            ];
+      const view = render(
+        <LocaleProvider initialLocale="zh-CN">
+          <OrderTaskScreen id={taskOrder.id} />
+        </LocaleProvider>,
+      );
+      const panel = view.container.querySelector(
+        '[data-order-task-transition-panel="true"]',
+      ) as HTMLElement;
+      expect(within(panel).getAllByRole("button")).toHaveLength(count);
+      expect(within(panel).getByRole("button", { name: advancePattern("zh-CN") })).toBeEnabled();
+      expect(mocks.transitionOrder).not.toHaveBeenCalled();
+    },
+  );
+
   it.each(locales)("renders loading, not-found and read-error states in %s", (locale) => {
     mocks.query.isLoading = true;
     mocks.query.order = null;

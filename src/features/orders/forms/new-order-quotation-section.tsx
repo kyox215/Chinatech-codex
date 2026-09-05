@@ -65,13 +65,13 @@ export function NewOrderQuotationSection({
       ? cn(detailWorkspace.flatPanel, "p-1.5")
       : cn(
           repairOs.mobileInfoCard,
-          "p-2",
+          "p-2.5",
           "md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:shadow-none",
         ),
   );
   const Shell = "section";
   const controlClass =
-    "h-[38px] rounded-lg border-0 bg-[var(--surface-panel-muted)] text-base leading-none shadow-none focus-visible:ring-1 md:text-[13px] lg:h-8";
+    "h-11 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/60 text-base leading-none shadow-none focus-visible:ring-1 md:text-base lg:text-sm";
   const serviceSelectTriggerClass =
     "h-[38px] rounded-lg border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 text-xs font-medium shadow-none focus:ring-1 focus:ring-ring focus-visible:ring-1 lg:h-10";
   const serviceDropdownContentClass = "z-[90] rounded-xl shadow-[var(--shadow-overlay)]";
@@ -94,50 +94,49 @@ export function NewOrderQuotationSection({
           icon={ReceiptText}
           title={t("orders2b1.new.quoteTitle")}
           description={t("orders2b1.new.quoteHelp")}
-          className="mb-1.5"
+          className="mb-2 [&_h3]:text-sm [&_h3]:leading-5 [&_p]:mt-0.5 [&_p]:whitespace-normal [&_p]:text-[11px] [&_p]:leading-4 [&_svg]:size-3.5"
           action={
-            <span className="rounded-full bg-primary/5 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-primary lg:text-[11px] lg:leading-4">
+            <span className="rounded-lg bg-primary/5 px-2 py-1 text-xs font-semibold leading-4 text-primary">
               {t("orders2b1.new.itemsCount", { count: form.faults.length })}
             </span>
           }
         />
 
-        <div
-          data-new-order-quote-draft="true"
-          className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/70 p-1"
-        >
-          <fieldset className="min-w-0 space-y-1.5">
-            <div className="mb-1.5 rounded-xl border border-[var(--border-panel)] bg-card p-1">
-              <div className="px-1 pb-1 text-[10px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4">
+        <div data-new-order-quote-draft="true" className="min-w-0">
+          <fieldset className="min-w-0 space-y-2">
+            <div className="min-w-0 space-y-2">
+              <div className="text-xs font-semibold leading-5 text-muted-foreground">
                 {t("orders2b1.new.commonRepairs")}
               </div>
               <FaultDiagnosisPicker
                 selected={form.faults}
                 onChange={(faults) => setForm({ ...form, faults })}
-                className="gap-1 sm:gap-1.5"
+                className="gap-2"
                 density="compact"
                 appearance="quiet"
                 compactColumns={3}
               />
             </div>
             <div className="mb-1 flex min-w-0 items-center justify-between gap-2 px-0.5">
-              <span className="truncate text-[10px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4">
+              <span className="text-xs font-semibold leading-5 text-muted-foreground">
                 {t("orders2b1.new.quoteItems")}
               </span>
             </div>
-            <div className="min-w-0 space-y-1.5">
+            <div className="min-w-0 space-y-2">
               {form.faults.length === 0 ? (
                 <OrderWorkspaceEmptyBlock>
                   {t("orders2b1.new.quoteOptional")}
                 </OrderWorkspaceEmptyBlock>
               ) : (
-                <div className="max-h-60 min-w-0 space-y-1.5 overflow-y-auto pr-0.5">
+                <div className="min-w-0 space-y-2">
                   {form.faults.map((item, index) => (
                     <OrderWorkspaceQuoteRow
                       key={item.key}
                       priceFullWidth={false}
+                      appearance="quote-editor"
                       price={
                         <MoneyKeypadInput
+                          keyboardMode="native"
                           ariaLabel={t("orders2b1.new.quoteAria", { index: index + 1 })}
                           value={moneyDraftValue(Number(item.price) || 0)}
                           onChange={(value) =>
@@ -152,7 +151,7 @@ export function NewOrderQuotationSection({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="size-9 shrink-0 lg:size-8"
+                          className="h-11 w-9 shrink-0 rounded-lg"
                           onClick={() =>
                             setForm({
                               ...form,
@@ -161,7 +160,7 @@ export function NewOrderQuotationSection({
                           }
                           aria-label={t("orders2b1.new.deleteQuote")}
                         >
-                          <Trash2 className="size-3 text-muted-foreground sm:size-4" />
+                          <Trash2 className="size-4 text-muted-foreground" />
                         </Button>
                       }
                     >
@@ -171,22 +170,23 @@ export function NewOrderQuotationSection({
                           onChange={(event) => onPatchFault(index, { name: event.target.value })}
                           className={cn(controlClass, "px-2")}
                           placeholder={t("orders2b1.new.customItem")}
+                          aria-label={t("orders2b1.new.customItem")}
                         />
                       ) : (
-                        <>
+                        <div className="flex min-h-11 min-w-0 flex-col justify-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/60 px-2.5 py-1.5">
                           <div
-                            className="truncate text-[10px] font-medium leading-4 sm:text-[11px] lg:text-[13px] lg:leading-5"
+                            className="truncate text-xs font-semibold leading-5"
                             title={item.name}
                           >
                             {item.name}
                           </div>
                           <div
-                            className="truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4"
+                            className="truncate text-[11px] leading-4 text-muted-foreground"
                             title={item.note}
                           >
                             {item.note}
                           </div>
-                        </>
+                        </div>
                       )}
                     </OrderWorkspaceQuoteRow>
                   ))}
@@ -196,7 +196,7 @@ export function NewOrderQuotationSection({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-9 w-full justify-center gap-1.5 rounded-lg border-[var(--border-panel)] bg-card text-[11px] font-semibold shadow-none lg:h-8 lg:text-xs"
+                className="h-11 w-full justify-center gap-1.5 rounded-lg border-dashed border-[var(--border-panel)] bg-card text-xs font-semibold text-muted-foreground shadow-none"
                 onClick={onAddCustomFault}
               >
                 <Plus className="size-3.5" /> {t("orders2b1.new.addCustomItem")}
@@ -207,13 +207,15 @@ export function NewOrderQuotationSection({
               deposit={form.deposit}
               balance={balance}
               variant="finance"
-              className="mt-1.5"
+              appearance="quote-editor"
+              className="mt-2"
               depositControl={
                 <MoneyKeypadInput
+                  keyboardMode="native"
                   ariaLabel={t("orders2b1.money.deposit")}
                   value={moneyDraftValue(form.deposit)}
                   onChange={(value) => setForm({ ...form, deposit: parseMoneyDraft(value) })}
-                  triggerClassName="h-5 min-h-0 border-0 bg-transparent px-0 py-0 font-mono text-[11px] font-semibold leading-4 shadow-none hover:bg-transparent focus-visible:ring-1 lg:text-xs"
+                  triggerClassName={cn(controlClass, "bg-card px-2")}
                   placeholder="0"
                 />
               }

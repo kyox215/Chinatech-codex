@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { Check, ChevronDown, ScanLine, Smartphone, Store, UserRound } from "lucide-react";
+import { Check, ChevronDown, Smartphone, Store, UserRound } from "lucide-react";
 
 import { ImeiScannerField } from "@/components/imei-scanner-field";
 import {
@@ -306,10 +306,6 @@ export function NewOrderDeviceInfoSection({
               showPaste={false}
             />
           </div>
-          <span className="ml-1 hidden h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-[9px] font-medium text-primary min-[430px]:inline-flex lg:text-[11px] lg:leading-4">
-            <ScanLine className="size-3.5" />
-            {t("orders2b1.new.validate")}
-          </span>
         </DenseScannerBlock>
       </div>
     </section>

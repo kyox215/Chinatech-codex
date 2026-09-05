@@ -727,6 +727,7 @@ function TaskTransitionPanel({
   onPick: (action: WorkflowNextAction) => void;
 }) {
   const { t } = useLocale();
+  const secondaryActions = actions.filter((action) => action !== primaryAction);
   const hasReasonAction = actions.some((action) =>
     Boolean(getOrderTransitionReasonConfig(action.to)),
   );
@@ -770,9 +771,9 @@ function TaskTransitionPanel({
         <ArrowRight className="size-4" />
       </Button>
 
-      {actions.length > 1 ? (
+      {secondaryActions.length > 0 ? (
         <div className="grid min-w-0 gap-1.5 md:grid-cols-2">
-          {actions.map((action) => {
+          {secondaryActions.map((action) => {
             const needsReason = Boolean(getOrderTransitionReasonConfig(action.to));
             return (
               <button

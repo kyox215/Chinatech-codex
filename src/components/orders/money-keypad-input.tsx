@@ -36,6 +36,7 @@ export interface MoneyKeypadInputProps {
   triggerClassName?: string;
   valueClassName?: string;
   contentClassName?: string;
+  keyboardMode?: "native";
 }
 
 export function MoneyKeypadInput({
@@ -51,17 +52,20 @@ export function MoneyKeypadInput({
   triggerClassName,
   valueClassName,
   contentClassName,
+  keyboardMode,
 }: MoneyKeypadInputProps) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => normalizeMoneyKeypadDraft(value));
+  const [nativeEditing, setNativeEditing] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const nativeInputRef = useRef<HTMLInputElement | null>(null);
-  const keyboardSurface = useVirtualKeyboardSurface();
+  const preferredKeyboardSurface = useVirtualKeyboardSurface();
+  const keyboardSurface = keyboardMode === "native" ? "native" : preferredKeyboardSurface;
 
   useEffect(() => {
-    if (!open) setDraft(normalizeMoneyKeypadDraft(value));
-  }, [open, value]);
+    if (!open && !nativeEditing) setDraft(normalizeMoneyKeypadDraft(value));
+  }, [nativeEditing, open, value]);
 
   useEffect(() => {
     if (keyboardSurface !== "native" || !open) return;
@@ -102,14 +106,26 @@ export function MoneyKeypadInput({
           aria-label={ariaLabel}
           aria-invalid={invalid || undefined}
           disabled={disabled}
-          value={normalizeMoneyKeypadDraft(value)}
+          value={
+            keyboardMode === "native" && nativeEditing ? draft : normalizeMoneyKeypadDraft(value)
+          }
           placeholder={placeholder}
           className={cn(
             "h-full w-full min-w-0 border-0 bg-transparent px-0 font-mono tabular-nums shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50",
             align === "right" ? "text-right" : "text-left",
             valueClassName,
           )}
-          onChange={(event) => onChange(normalizeMoneyKeypadDraft(event.target.value))}
+          onFocus={() => {
+            if (keyboardMode !== "native") return;
+            setDraft(normalizeMoneyKeypadDraft(value));
+            setNativeEditing(true);
+          }}
+          onBlur={() => setNativeEditing(false)}
+          onChange={(event) => {
+            const next = normalizeMoneyKeypadDraft(event.target.value);
+            if (keyboardMode === "native") setDraft(next);
+            onChange(next);
+          }}
         />
       </div>
     );

@@ -321,14 +321,14 @@ function FaultCategoryButton({
         className={cn(
           "grid min-w-0 overflow-hidden border text-left transition-colors",
           compact && quiet
-            ? "min-h-11 grid-cols-[minmax(0,1fr)_2.75rem] rounded-lg lg:min-h-10 lg:grid-cols-[minmax(0,1fr)_2rem]"
+            ? "min-h-11 grid-cols-[minmax(0,1fr)_2.75rem] rounded-lg lg:min-h-11 lg:grid-cols-[minmax(0,1fr)_2rem]"
             : compact
               ? "min-h-11 grid-cols-[minmax(0,1fr)_2.75rem] rounded-lg lg:min-h-9 lg:grid-cols-[minmax(0,1fr)_2rem]"
               : "min-h-11 grid-cols-[minmax(0,1fr)_2.75rem] rounded-lg lg:min-h-10 lg:grid-cols-[minmax(0,1fr)_2rem]",
           quiet
             ? active.length
               ? "border-primary/35 bg-primary/10 text-primary ring-1 ring-inset ring-primary/10"
-              : "border-[var(--border-panel)] bg-card text-foreground shadow-[var(--shadow-card)] hover:bg-accent/30"
+              : "border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/40 text-foreground hover:bg-accent/30"
             : active.length
               ? "border-primary/45 bg-primary/5 text-foreground ring-1 ring-inset ring-primary/10"
               : "border-[var(--border-panel)] bg-card hover:bg-accent",
@@ -342,28 +342,32 @@ function FaultCategoryButton({
           className={cn(
             "flex min-w-0 items-center text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             compact && quiet
-              ? "min-h-11 gap-0.5 px-0.5 py-1 lg:min-h-10 lg:gap-1 lg:px-1"
+              ? "min-h-11 gap-1 px-1.5 py-1 lg:min-h-11 lg:gap-1 lg:px-1.5"
               : compact
                 ? "min-h-11 gap-0.5 px-0.5 py-1 lg:min-h-9 lg:gap-1 lg:px-1"
                 : "min-h-11 gap-1.5 px-2 py-1.5 lg:min-h-10",
           )}
         >
-          <Icon
-            className={cn(
-              compact && quiet
-                ? "size-2 shrink-0 lg:size-3"
-                : compact
-                  ? "size-2 shrink-0 lg:size-3.5"
-                  : "size-4 shrink-0",
-              active.length ? "text-primary" : "text-muted-foreground",
-            )}
-          />
+          {active.length > 0 && quiet ? (
+            <Check className="size-3 shrink-0 text-primary" />
+          ) : (
+            <Icon
+              className={cn(
+                compact && quiet
+                  ? "size-3 shrink-0"
+                  : compact
+                    ? "size-2 shrink-0 lg:size-3.5"
+                    : "size-4 shrink-0",
+                active.length ? "text-primary" : "text-muted-foreground",
+              )}
+            />
+          )}
           <span className="min-w-0">
             <span
               className={cn(
                 "block truncate font-medium",
                 compact && quiet
-                  ? "text-[10px] leading-4 lg:text-xs lg:leading-4"
+                  ? "text-xs font-semibold leading-4"
                   : compact
                     ? "text-[10px] leading-4 lg:text-xs lg:leading-4"
                     : "text-[13px] leading-5 lg:text-[13px] lg:leading-5",
@@ -403,7 +407,7 @@ function FaultCategoryButton({
         sideOffset={6}
         className={cn(
           componentOverlay.popoverContent,
-          "max-h-[min(18rem,calc(100dvh_-_var(--rd-overlay-avoid-bottom,0px)_-_1rem))] w-[min(16rem,calc(100vw-24px))] overflow-y-auto rounded-[var(--radius-lg)] p-1 shadow-[var(--shadow-card)]",
+          "max-h-[min(18rem,calc(100dvh_-_var(--rd-overlay-avoid-bottom,0px)_-_1rem))] w-[min(16rem,calc(100vw-24px))] overflow-y-auto rounded-[var(--radius-lg)] p-1.5 shadow-[var(--shadow-overlay)]",
         )}
       >
         {menuMode === "inspection" && (
@@ -464,7 +468,7 @@ function FaultCategoryButton({
               className={cn(
                 "gap-1.5 rounded-md px-2 py-1 outline-none",
                 compact
-                  ? "min-h-11 text-xs lg:min-h-9"
+                  ? "min-h-11 text-[13px] lg:min-h-11"
                   : "min-h-11 gap-2 px-2.5 py-1.5 text-[13px] lg:min-h-9",
                 checked && "bg-primary/10 text-primary focus:bg-primary/10 focus:text-primary",
               )}

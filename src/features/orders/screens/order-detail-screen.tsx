@@ -1858,16 +1858,6 @@ export function OrderDetailScreen({
                         : t("orders2b2.diagnosis.newNotice")}
                     </div>
                   </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-8 shrink-0 text-xs"
-                    onClick={() => setDiagnosisQuoteOpen(true)}
-                  >
-                    {data.capabilities?.canPrepareQuote
-                      ? t("orders2b2.diagnosis.actionPrepare")
-                      : t("orders2b2.diagnosis.actionRecord")}
-                  </Button>
                 </section>
               ) : null}
               {
@@ -3437,6 +3427,8 @@ function MobileOrderDetailView({
   const [imeiEditing, setImeiEditing] = useState(false);
   const [imeiDraft, setImeiDraft] = useState(deviceImei);
   const [faultEditing, setFaultEditing] = useState(false);
+  const [financeCategoriesOpen, setFinanceCategoriesOpen] = useState(true);
+  const financeCategoriesId = useId();
   useEffect(() => {
     onFaultSessionChange(faultEditing);
     return () => onFaultSessionChange(false);
@@ -3528,7 +3520,7 @@ function MobileOrderDetailView({
   ) => {
     const commonProps = {
       className: cn(
-        "h-9 min-w-0 rounded-lg text-xs",
+        "h-11 min-h-11 min-w-0 rounded-lg text-xs",
         primary && "flex-[1.25] border-0 text-primary-foreground",
         !primary && "flex-1",
       ),
@@ -3663,7 +3655,7 @@ function MobileOrderDetailView({
                 aria-expanded={assignmentEditing}
                 onClick={() => setAssignmentEditing((editing) => !editing)}
               >
-                {assignmentEditing ? t("orders2b2.mobile.done") : t("orders2b2.mobile.adjust")}
+                {assignmentEditing ? t("orders2b2.mobile.collapse") : t("orders2b2.mobile.adjust")}
               </Button>
             ) : null}
           </div>
@@ -3976,7 +3968,11 @@ function MobileOrderDetailView({
           <div className="grid min-w-0 grid-cols-2 gap-1.5">
             <section
               id="mobile-order-quote"
-              className={cn(mobileDetailCardClass, financeEditing && "col-span-2")}
+              className={cn(
+                mobileDetailCardClass,
+                financeEditing &&
+                  "col-span-2 p-2.5 [&_[data-mobile-section-title=true]]:flex-row [&_[data-mobile-section-title=true]]:items-center [&_[data-mobile-section-title=true]]:justify-between [&_[data-mobile-section-title-action=true]]:self-auto",
+              )}
             >
               <MobileSectionTitle
                 icon={ReceiptText}
@@ -3987,16 +3983,33 @@ function MobileOrderDetailView({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-9 min-w-9 rounded-lg px-2 text-[11px] lg:text-xs lg:leading-4"
-                      onClick={() => onFinanceEditingChange(!financeEditing)}
+                      className="h-11 min-h-11 min-w-11 rounded-lg px-2 text-[11px] shadow-none lg:text-xs lg:leading-4"
+                      disabled={financePending}
+                      aria-expanded={financeEditing ? financeCategoriesOpen : undefined}
+                      aria-controls={financeEditing ? financeCategoriesId : undefined}
+                      onClick={() => {
+                        if (financeEditing) setFinanceCategoriesOpen((open) => !open);
+                        else {
+                          setFinanceCategoriesOpen(true);
+                          onFinanceEditingChange(true);
+                        }
+                      }}
                     >
-                      {financeEditing ? t("orders2b2.mobile.done") : t("orders2b2.hero.edit")}
+                      {financeEditing
+                        ? t(
+                            financeCategoriesOpen
+                              ? "orders2b2.finance.collapseCategories"
+                              : "orders2b2.finance.expandCategories",
+                          )
+                        : t("orders2b2.hero.edit")}
                     </Button>
                   ) : undefined
                 }
               />
               {financeEditing ? (
                 <MobileFinanceEditor
+                  categoriesOpen={financeCategoriesOpen}
+                  categoriesId={financeCategoriesId}
                   draft={financeDraft}
                   normalized={normalizedFinance}
                   saveError={financeSaveError}
@@ -5235,49 +5248,42 @@ function MobileDenseFinanceInput({
   align?: "left" | "right";
   mono?: boolean;
 }) {
+  const className = cn(
+    "h-11 min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/60 px-2.5 text-base shadow-none focus-visible:ring-1 md:text-base lg:text-sm",
+    mono && "font-mono tabular-nums",
+  );
   if (inputMode === "decimal") {
     return (
       <MoneyKeypadInput
+        keyboardMode="native"
         ariaLabel={placeholder}
         value={value}
         onChange={onValueChange}
         disabled={disabled}
-        placeholder={placeholder}
+        placeholder="0"
         align={align}
-        triggerClassName={cn(
-          "h-7 rounded-md border border-[var(--border-panel)] bg-card px-2 py-0 text-base shadow-sm md:text-[11px]",
-          mono && "font-mono tabular-nums",
-        )}
-        valueClassName={cn("text-base md:text-[11px]", mono && "font-mono tabular-nums")}
+        triggerClassName={className}
+        valueClassName="text-base lg:text-sm"
       />
     );
   }
-
   return (
-    <span
-      className={cn(
-        "relative block h-7 min-w-0 overflow-hidden rounded-md border border-[var(--border-panel)] bg-card shadow-sm transition-colors focus-within:border-primary/45 focus-within:ring-2 focus-within:ring-primary/10",
-        disabled && "opacity-60",
-      )}
-    >
-      <Input
-        type="text"
-        inputMode={inputMode}
-        value={value}
-        onChange={(event) => onValueChange(event.target.value)}
-        disabled={disabled}
-        placeholder={placeholder}
-        className={cn(
-          "absolute top-1/2 h-9 w-[133.333%] -translate-y-1/2 scale-75 border-0 bg-transparent px-2 py-0 text-base shadow-none focus-visible:ring-0 md:text-[11px]",
-          align === "right" ? "right-0 origin-right text-right" : "left-0 origin-left",
-          mono && "font-mono tabular-nums",
-        )}
-      />
-    </span>
+    <Input
+      type="text"
+      inputMode={inputMode}
+      value={value}
+      onChange={(event) => onValueChange(event.target.value)}
+      disabled={disabled}
+      placeholder={placeholder}
+      aria-label={placeholder}
+      className={cn(className, align === "right" && "text-right")}
+    />
   );
 }
 
 function MobileFinanceEditor({
+  categoriesOpen,
+  categoriesId,
   draft,
   normalized,
   saveError,
@@ -5286,6 +5292,8 @@ function MobileFinanceEditor({
   onCancel,
   onSave,
 }: {
+  categoriesOpen: boolean;
+  categoriesId: string;
   draft: FinanceDraftState;
   normalized: ReturnType<typeof normalizeFinanceDraft>;
   saveError: string;
@@ -5317,26 +5325,31 @@ function MobileFinanceEditor({
   );
 
   return (
-    <div className="mt-1.5 min-w-0 space-y-1.5">
-      <div className="min-w-0">
-        <p className="mb-1 text-[10px] font-semibold leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
+    <fieldset
+      disabled={pending}
+      data-order-finance-editor="true"
+      className="mt-2 min-w-0 space-y-2"
+    >
+      <div id={categoriesId} hidden={!categoriesOpen} className="min-w-0">
+        <p className="mb-2 text-xs font-semibold leading-5 text-muted-foreground">
           {t("orders2b2.finance.select")}
         </p>
         <FaultDiagnosisPicker
           selected={selectedFaults}
           onChange={(items) => onChange(mergeSelectedFaultsIntoFinanceDraft(draft, items))}
-          className="gap-1.5"
+          className="gap-2"
           density="compact"
+          appearance="quiet"
           compactColumns={3}
         />
       </div>
 
-      <div className="space-y-1">
+      <div className="space-y-2">
         {draft.faults.length ? (
           draft.faults.map((item, index) => (
             <div
               key={item.line_id ?? index}
-              className="grid min-w-0 grid-cols-[minmax(0,1fr)_74px_24px] gap-1"
+              className="grid min-w-0 grid-cols-[minmax(0,1fr)_82px_36px] items-center gap-2 sm:grid-cols-[minmax(0,1fr)_96px_36px]"
             >
               <MobileDenseFinanceInput
                 value={item.name}
@@ -5359,14 +5372,14 @@ function MobileFinanceEditor({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="size-7 rounded-md"
+                className="h-11 w-9 rounded-lg"
                 disabled={pending}
                 onClick={() =>
                   onChange({ ...draft, faults: draft.faults.filter((_, i) => i !== index) })
                 }
                 aria-label={t("orders2b2.overview.deleteItem")}
               >
-                <Trash2 className="size-3 text-muted-foreground" />
+                <Trash2 className="size-4 text-muted-foreground" />
               </Button>
             </div>
           ))
@@ -5381,7 +5394,7 @@ function MobileFinanceEditor({
         type="button"
         variant="outline"
         size="sm"
-        className="h-7 w-full rounded-md text-[10px] lg:text-[11px] lg:leading-4"
+        className="h-11 w-full rounded-lg border-dashed text-xs font-semibold text-muted-foreground shadow-none"
         disabled={pending}
         onClick={() => {
           const faults = [...draft.faults, emptyFinanceFaultDraft()];
@@ -5391,24 +5404,30 @@ function MobileFinanceEditor({
         <Plus className="mr-1 size-3" /> {t("orders2b2.finance.add")}
       </Button>
 
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_86px] items-end gap-1.5">
-        <div className="grid grid-cols-2 gap-1 text-[10px] lg:text-[11px] lg:leading-4">
-          <div className="rounded-md bg-[var(--surface-panel-muted)] px-2 py-1">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,0.35fr)] items-end gap-2 border-t border-[var(--border-panel)] pt-2">
+        <div className="grid grid-cols-2 gap-2 text-xs leading-4">
+          <div className="min-w-0 rounded-xl bg-[var(--surface-panel-muted)] px-2.5 py-2">
             <span className="block text-muted-foreground">{t("orders2b2.finance.total")}</span>
-            <MoneyText amount={normalized.quotation} className="font-semibold text-primary" />
+            <MoneyText
+              amount={normalized.quotation}
+              className="mt-1 block truncate text-base font-semibold text-primary"
+            />
           </div>
-          <div className="rounded-md bg-[var(--surface-panel-muted)] px-2 py-1">
+          <div className="min-w-0 rounded-xl bg-[var(--surface-panel-muted)] px-2.5 py-2">
             <span className="block text-muted-foreground">{t("orders2b2.finance.balance")}</span>
-            <MoneyText amount={normalized.balance} className="font-semibold" />
+            <MoneyText
+              amount={normalized.balance}
+              className="mt-1 block truncate text-base font-semibold"
+            />
           </div>
         </div>
-        <label className="grid min-w-0 gap-0.5 text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
+        <label className="grid min-w-0 gap-1 text-xs leading-4 text-muted-foreground">
           <span>{t("orders2b2.finance.deposit")}</span>
           <MobileDenseFinanceInput
             value={draft.depositText}
             onValueChange={(value) => onChange({ ...draft, depositText: value })}
             disabled={pending}
-            placeholder="0"
+            placeholder={t("orders2b2.finance.deposit")}
             inputMode="decimal"
             align="right"
             mono
@@ -5417,17 +5436,20 @@ function MobileFinanceEditor({
       </div>
 
       {normalized.error || saveError ? (
-        <p className="rounded-md bg-status-danger px-2 py-1 text-[10px] leading-3 text-status-danger-foreground lg:text-xs lg:leading-[18px]">
+        <p
+          role="alert"
+          className="rounded-md bg-status-danger px-2 py-1 text-[10px] leading-3 text-status-danger-foreground lg:text-xs lg:leading-[18px]"
+        >
           {normalized.error ? t("orders2b2.validation.checkOrder") : saveError}
         </p>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-1.5">
+      <div className="grid grid-cols-2 gap-2">
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="h-7 rounded-md text-[10px] lg:text-[11px] lg:leading-4"
+          className="h-11 rounded-lg text-sm font-semibold shadow-none"
           onClick={onCancel}
           disabled={pending}
         >
@@ -5436,14 +5458,14 @@ function MobileFinanceEditor({
         <Button
           type="button"
           size="sm"
-          className="h-7 rounded-md text-[10px] lg:text-[11px] lg:leading-4"
+          className="h-11 rounded-lg text-sm font-semibold shadow-none"
           onClick={() => void onSave().catch(() => undefined)}
           disabled={pending || !normalized.canSave}
         >
           <Save className="mr-1 size-3" /> {t("orders2b2.hero.save")}
         </Button>
       </div>
-    </div>
+    </fieldset>
   );
 }
 

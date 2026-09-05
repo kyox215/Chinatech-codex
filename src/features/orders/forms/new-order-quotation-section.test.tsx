@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { initialNewOrderForm } from "@/features/orders/model/new-order-form";
@@ -7,6 +7,54 @@ import type { OrderWorkflowStatus } from "@/lib/repairdesk/api";
 import { NewOrderQuotationSection } from "./new-order-quotation-section";
 
 describe("NewOrderQuotationSection", () => {
+  it("keeps catalog names static and custom names editable beside native quote amounts", () => {
+    const onPatchFault = vi.fn();
+    const setForm = vi.fn();
+    const form = {
+      ...initialNewOrderForm,
+      faults: [
+        {
+          key: "display:original",
+          categoryKey: "display",
+          categoryLabel: "屏幕",
+          name: "屏幕 - 原装",
+          note: "Ricambio originale",
+          price: 85,
+        },
+        {
+          key: "custom:1",
+          categoryKey: "custom",
+          categoryLabel: "自定义",
+          name: "清洁保养",
+          note: "",
+          price: 15,
+        },
+      ],
+    };
+    render(
+      <NewOrderQuotationSection
+        form={form}
+        setForm={setForm}
+        total={100}
+        operatorName="示例操作员"
+        onPatchFault={onPatchFault}
+        onAddCustomFault={vi.fn()}
+        createStatuses={[]}
+      />,
+    );
+    expect(screen.getByText("屏幕 - 原装")).toBeVisible();
+    expect(screen.queryByDisplayValue("屏幕 - 原装")).not.toBeInTheDocument();
+    const custom = screen.getByRole("textbox", { name: "自定义项目" });
+    fireEvent.change(custom, { target: { value: "保养项目" } });
+    expect(onPatchFault).toHaveBeenCalledWith(1, { name: "保养项目" });
+    expect(screen.getByRole("textbox", { name: "报价项目 1 金额" })).toHaveAttribute(
+      "inputmode",
+      "decimal",
+    );
+    fireEvent.click(screen.getAllByRole("button", { name: "删除报价项目" })[1]!);
+    expect(setForm).toHaveBeenCalledWith({ ...form, faults: [form.faults[0]] });
+  });
+
   it("keeps one editable deposit control inside the quote draft", () => {
     const { container } = render(
       <NewOrderQuotationSection

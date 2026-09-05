@@ -1490,7 +1490,7 @@ export function OrderListScreen() {
             className="h-7 px-2 text-xs text-primary"
             onClick={clearMobileHiddenFilters}
           >
-            {t("orders.clearAllFilters")}
+            {t("orders.clearAdvancedFilters")}
           </Button>
         </div>
       ) : null}

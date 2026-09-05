@@ -61,6 +61,7 @@ export function OrderWorkspaceMoneyStrip({
   variant = "status",
   cancelled = false,
   depositControl,
+  appearance = "default",
 }: {
   total: number;
   deposit: number;
@@ -71,8 +72,45 @@ export function OrderWorkspaceMoneyStrip({
   variant?: OrderWorkspaceMoneyStripVariant;
   cancelled?: boolean;
   depositControl?: ReactNode;
+  appearance?: "default" | "quote-editor";
 }) {
   const { t } = useLocale();
+  if (appearance === "quote-editor") {
+    return (
+      <div
+        data-order-workspace-money-strip="true"
+        className={cn(
+          "grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.7fr)] items-end gap-2 border-t border-[var(--border-panel)] pt-2",
+          className,
+        )}
+      >
+        {[
+          { label: t("orders2b1.money.total"), amount: total, primary: true },
+          { label: t("orders2b1.money.balance"), amount: balance, primary: false },
+        ].map((item) => (
+          <div
+            key={item.label}
+            className="min-w-0 rounded-xl bg-[var(--surface-panel-muted)] px-2.5 py-2"
+          >
+            <div className="text-xs leading-4 text-muted-foreground">{item.label}</div>
+            <MoneyText
+              amount={item.amount}
+              className={cn(
+                "mt-1 block truncate text-base font-semibold tabular-nums",
+                item.primary && "text-primary",
+              )}
+            />
+          </div>
+        ))}
+        <div data-new-order-field="deposit" className="min-w-0 space-y-1">
+          <div className="text-xs leading-4 text-muted-foreground">
+            {t("orders2b1.money.deposit")}
+          </div>
+          {depositControl ?? <MoneyText amount={deposit} />}
+        </div>
+      </div>
+    );
+  }
   const financeVariant = variant === "finance";
   const totalTone: OrderWorkspaceMoneyTone = financeVariant
     ? "info"
@@ -207,12 +245,14 @@ export function OrderWorkspaceQuoteRow({
   action,
   priceFullWidth = false,
   className,
+  appearance = "default",
 }: {
   children: ReactNode;
   price: ReactNode;
   action?: ReactNode;
   priceFullWidth?: boolean;
   className?: string;
+  appearance?: "default" | "quote-editor";
 }) {
   return (
     <div
@@ -222,6 +262,8 @@ export function OrderWorkspaceQuoteRow({
         priceFullWidth
           ? "grid-cols-[minmax(0,1fr)_auto]"
           : "grid-cols-[minmax(0,1fr)_78px_auto] sm:grid-cols-[minmax(0,1fr)_96px_auto]",
+        appearance === "quote-editor" &&
+          "grid-cols-[minmax(0,1fr)_82px_36px] gap-2 rounded-none border-0 bg-transparent p-0 sm:grid-cols-[minmax(0,1fr)_96px_36px] sm:gap-2 sm:p-0",
         className,
       )}
     >
