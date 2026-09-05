@@ -7,6 +7,7 @@ import { formatOrderDateTime } from "@/features/orders/model/order-date";
 import { fallbackOrderWorkflowStatuses } from "@/features/orders/model/order-workflow";
 import { orders } from "@/lib/mock/fixtures";
 import type { FinanceDraftState } from "@/features/orders/model/order-finance-draft";
+import { RepairDeskApiError, RepairDeskTransportError } from "@/lib/repairdesk/api";
 import type { UpdateOrderInput } from "@/lib/repairdesk/api";
 import type { RepairDeskOptions } from "@/lib/repairdesk/types";
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
@@ -485,9 +486,9 @@ describe("OrderDetailScreen i18n", () => {
   });
 
   it.each([
-    ["zh-CN", "概览"],
-    ["it-IT", "Panoramica"],
-    ["en", "Overview"],
+    ["zh-CN", "详情"],
+    ["it-IT", "Dettagli"],
+    ["en", "Details"],
   ] as const)("renders localized core chrome and locale-aware Rome time in %s", (locale, tab) => {
     renderDetail(locale);
     expect(
@@ -683,7 +684,7 @@ describe("OrderDetailScreen i18n", () => {
       const view = renderDetail(locale);
       fireEvent.click(
         screen.getByRole("tab", {
-          name: translateMessage(locale, "orders2b2.tab.records", { count: 0 }),
+          name: translateMessage(locale, "orders.workspace.details"),
         }),
       );
 
@@ -723,7 +724,7 @@ describe("OrderDetailScreen i18n", () => {
       const view = renderDetail(locale);
       await user.click(
         screen.getByRole("tab", {
-          name: translateMessage(locale, "orders2b2.tab.records", { count: 0 }),
+          name: translateMessage(locale, "orders.workspace.details"),
         }),
       );
 
@@ -904,7 +905,7 @@ describe("OrderDetailScreen i18n", () => {
       expect(screen.queryAllByTestId("camera-capture-sheet")).toHaveLength(canUploadPhoto ? 1 : 0);
       fireEvent.click(
         screen.getByRole("tab", {
-          name: translateMessage("en", "orders2b2.tab.photos", { count: 0 }),
+          name: translateMessage("en", "orders.workspace.details"),
         }),
       );
       expect(Boolean(screen.queryByRole("button", { name: "Harness photos panel capture" }))).toBe(
@@ -912,7 +913,7 @@ describe("OrderDetailScreen i18n", () => {
       );
       fireEvent.click(
         screen.getByRole("tab", {
-          name: translateMessage("en", "orders2b2.tab.records", { count: 0 }),
+          name: translateMessage("en", "orders.workspace.details"),
         }),
       );
       expect(Boolean(view.container.querySelector("[data-order-records-controls='true']"))).toBe(
@@ -1056,14 +1057,13 @@ describe("OrderDetailScreen i18n", () => {
     expect(
       screen.getByRole("button", { name: translateMessage(locale, "orders2b2.unlock.entry") }),
     ).toBeVisible();
-    expect(
-      screen.getByRole("button", {
-        name: translateMessage(locale, "orders2b2.mobile.historyCount", { count: 0 }),
-      }),
-    ).toBeVisible();
-    expect(
-      screen.getByText(translateMessage(locale, "orders2b2.mobile.historyEmpty")),
-    ).toBeVisible();
+    fireEvent.click(
+      screen.getByRole("tab", { name: translateMessage(locale, "orders.workspace.history") }),
+    );
+    expect(screen.getByRole("tabpanel")).toBeVisible();
+    expect(screen.getByRole("tabpanel")).toHaveTextContent(
+      translateMessage(locale, "orders2b2.overview.noTimeline"),
+    );
   });
 
   it.each(locales)("keeps the localized %s compact read-only assignee fallback", (locale) => {
@@ -1097,6 +1097,10 @@ describe("OrderDetailScreen i18n", () => {
     };
 
     renderDetail(locale, "page");
+
+    fireEvent.click(
+      screen.getByRole("tab", { name: translateMessage(locale, "orders.workspace.history") }),
+    );
 
     expect(
       screen.getByText(translateMessage(locale, "orders2b2.mobile.system"), { exact: false }),
@@ -1408,4 +1412,135 @@ describe("OrderDetailScreen i18n", () => {
       ],
     });
   });
+
+  it.each(["desktop", "compact"] as const)(
+    "keeps an active %s fault draft after 503 and can reload successfully",
+    async (viewport) => {
+      mocks.viewport = viewport;
+      const user = userEvent.setup();
+      const surface = viewport === "desktop" ? "dialog" : "page";
+      const view = renderDetail("en", surface);
+      const openButton =
+        viewport === "desktop"
+          ? screen.getByRole("button", { name: "Edit fault and diagnosis" })
+          : within(
+              document.querySelector("[data-order-detail-issue-summary]")!.parentElement!,
+            ).getByRole("button", { name: "Edit" });
+      await user.click(openButton);
+      const editor = () =>
+        within(document.querySelector("[data-order-fault-editor]") as HTMLElement);
+      await user.clear(editor().getAllByRole("textbox")[0]!);
+      await user.type(editor().getAllByRole("textbox")[0]!, "Synthetic retained draft");
+      const fresh = {
+        ...detailOrder,
+        updated_at: "2026-09-05T14:00:00Z",
+        issue_description: "Fresh remote fault",
+      };
+      mocks.detail = { ...mocks.detail, order: fresh };
+      mocks.queryError = new RepairDeskApiError("private", 503);
+      mocks.refetch.mockResolvedValue({ error: mocks.queryError });
+      const rerender = () =>
+        view.rerender(
+          <LocaleProvider initialLocale="en">
+            <OrderDetailScreen id={detailOrder.id} surface={surface} onClose={vi.fn()} />
+          </LocaleProvider>,
+        );
+      rerender();
+      expect(editor().getAllByRole("textbox")[0]).toHaveValue("Synthetic retained draft");
+      await user.click(editor().getByRole("button", { name: "Load latest version" }));
+      await user.click(editor().getByRole("button", { name: "Discard draft and reload" }));
+      await waitFor(() =>
+        expect(editor().getAllByRole("textbox")[0]).toHaveValue("Synthetic retained draft"),
+      );
+      expect(editor().getByRole("button", { name: "Save" })).toBeDisabled();
+      mocks.queryError = null;
+      mocks.refetch.mockResolvedValue({ data: { order: fresh } });
+      rerender();
+      await user.click(editor().getByRole("button", { name: "Load latest version" }));
+      await user.click(editor().getByRole("button", { name: "Discard draft and reload" }));
+      await waitFor(() =>
+        expect(editor().getAllByRole("textbox")[0]).toHaveValue("Fresh remote fault"),
+      );
+    },
+  );
+
+  it.each([401, 403, 404])(
+    "blocks active fault draft on authoritative read status %s",
+    async (status) => {
+      const user = userEvent.setup();
+      const view = renderDetail("en");
+      await user.click(screen.getByRole("button", { name: "Edit fault and diagnosis" }));
+      mocks.queryError = new RepairDeskApiError("private", status);
+      view.rerender(
+        <LocaleProvider initialLocale="en">
+          <OrderDetailScreen id={detailOrder.id} surface="dialog" onClose={vi.fn()} />
+        </LocaleProvider>,
+      );
+      expect(document.querySelector("[data-order-fault-editor]")).toBeNull();
+      expect(screen.getByText("Could not load order details")).toBeVisible();
+    },
+  );
+
+  it.each(["store", "order", "missing-data", "no-editor", "unknown"])(
+    "does not retain stale fault UI for %s",
+    async (scenario) => {
+      const user = userEvent.setup();
+      const view = renderDetail("en");
+      if (scenario !== "no-editor")
+        await user.click(screen.getByRole("button", { name: "Edit fault and diagnosis" }));
+      mocks.queryError =
+        scenario === "unknown" ? new Error("private") : new RepairDeskApiError("private", 503);
+      if (scenario === "store")
+        mocks.activeStore = { id: "another-store", name: "Other", role: "owner" };
+      if (scenario === "missing-data") mocks.detail = null;
+      view.rerender(
+        <LocaleProvider initialLocale="en">
+          <OrderDetailScreen
+            id={scenario === "order" ? "another-order" : detailOrder.id}
+            surface="dialog"
+            onClose={vi.fn()}
+          />
+        </LocaleProvider>,
+      );
+      expect(document.querySelector("[data-order-fault-editor]")).toBeNull();
+      expect(screen.getByText("Could not load order details")).toBeVisible();
+    },
+  );
+  it.each(["403-transport", "404-503", "store-return"])(
+    "never revives a blocked fault session after %s",
+    async (scenario) => {
+      const user = userEvent.setup();
+      const view = renderDetail("en");
+      await user.click(screen.getByRole("button", { name: "Edit fault and diagnosis" }));
+      const rerender = () =>
+        view.rerender(
+          <LocaleProvider initialLocale="en">
+            <OrderDetailScreen id={detailOrder.id} surface="dialog" onClose={vi.fn()} />
+          </LocaleProvider>,
+        );
+      if (scenario === "store-return")
+        mocks.activeStore = { id: "other-store", name: "Other", role: "owner" };
+      else
+        mocks.queryError = new RepairDeskApiError(
+          "private",
+          scenario === "403-transport" ? 403 : 404,
+        );
+      rerender();
+      expect(document.querySelector("[data-order-fault-editor]")).toBeNull();
+      mocks.activeStore = { id: "store-1", name: "Original", role: "owner" };
+      mocks.queryError =
+        scenario === "403-transport"
+          ? new RepairDeskTransportError(new TypeError("private"))
+          : new RepairDeskApiError("private", 503);
+      rerender();
+      expect(document.querySelector("[data-order-fault-editor]")).toBeNull();
+      expect(screen.getByText("Could not load order details")).toBeVisible();
+      // A successful read restores the detail, but only a new explicit action opens a new editor.
+      mocks.queryError = null;
+      rerender();
+      expect(document.querySelector("[data-order-fault-editor]")).toBeNull();
+      await user.click(screen.getByRole("button", { name: "Edit fault and diagnosis" }));
+      expect(document.querySelector("[data-order-fault-editor]")).not.toBeNull();
+    },
+  );
 });

@@ -197,7 +197,7 @@ export function MemberEditorSheet({
       >
         <SheetContent
           side="right"
-          className="flex h-full w-[calc(100vw-16px)] max-w-[calc(100vw-8px)] flex-col gap-0 p-0 sm:w-[min(40rem,calc(100vw-24px))]"
+          className={`${componentOverlay.editorSurface} flex h-full w-[calc(100vw-16px)] max-w-[calc(100vw-8px)] flex-col gap-0 p-0 sm:w-[min(40rem,calc(100vw-24px))]`}
           aria-busy={isSaving || isSubmitting}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
@@ -205,7 +205,7 @@ export function MemberEditorSheet({
           }}
         >
           <SheetHeader
-            className={`${componentOverlay.mobileHeader} border-b border-[var(--border-panel)] pr-14 text-left`}
+            className={`${componentOverlay.mobileHeader} ${componentOverlay.editorHeader} pr-14 text-left`}
           >
             <SheetTitle>{member.display_name || member.email}</SheetTitle>
             <SheetDescription>
@@ -216,7 +216,7 @@ export function MemberEditorSheet({
             </SheetDescription>
           </SheetHeader>
 
-          <div className={`${componentOverlay.mobileBody} flex-1`}>
+          <div className={`${componentOverlay.mobileBody} ${componentOverlay.editorBody} flex-1`}>
             <section className={componentOverlay.section}>
               <Label className="text-xs font-semibold">
                 {t("settings.members.editor.storeRole")}
@@ -335,7 +335,9 @@ export function MemberEditorSheet({
             ) : null}
           </div>
 
-          <SheetFooter className={`${componentOverlay.mobileFooter} bg-card`}>
+          <SheetFooter
+            className={`${componentOverlay.mobileFooter} ${componentOverlay.editorFooter} bg-card`}
+          >
             <Button
               ref={discardTriggerRef}
               type="button"

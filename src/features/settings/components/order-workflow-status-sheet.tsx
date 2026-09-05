@@ -98,14 +98,14 @@ export function OrderWorkflowStatusSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="flex h-full w-[min(30rem,calc(100vw-12px))] max-w-none flex-col p-0 sm:w-[min(30rem,calc(100vw-24px))]"
+        className={`${componentOverlay.editorSurface} flex h-full w-[min(30rem,calc(100vw-12px))] max-w-none flex-col p-0 sm:w-[min(30rem,calc(100vw-24px))]`}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           onRestoreFocus();
         }}
       >
         <SheetHeader
-          className={`${componentOverlay.mobileHeader} border-b border-[var(--border-panel)] pr-14 text-left`}
+          className={`${componentOverlay.mobileHeader} ${componentOverlay.editorHeader} pr-14 text-left`}
         >
           <div className="flex flex-wrap items-center gap-2">
             <SheetTitle>
@@ -118,7 +118,9 @@ export function OrderWorkflowStatusSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <div className={`${componentOverlay.mobileBody} flex-1 sm:px-5`}>
+        <div
+          className={`${componentOverlay.mobileBody} ${componentOverlay.editorBody} flex-1 sm:px-5`}
+        >
           <OrderWorkflowStatusForm
             value={value}
             setValue={setValue}
@@ -128,7 +130,9 @@ export function OrderWorkflowStatusSheet({
           />
         </div>
 
-        <SheetFooter className={`${componentOverlay.mobileFooter} bg-card sm:px-5`}>
+        <SheetFooter
+          className={`${componentOverlay.mobileFooter} ${componentOverlay.editorFooter} bg-card sm:px-5`}
+        >
           <Button
             type="button"
             variant="outline"

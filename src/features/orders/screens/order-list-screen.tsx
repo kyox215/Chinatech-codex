@@ -227,6 +227,18 @@ export function OrderListScreen() {
   const [printPaperMode, setPrintPaperMode] = useState<PrintPaperMode>(readOrderPrintPaperMode);
   const [customerStatusUrls, setCustomerStatusUrls] = useState<Record<string, string>>({});
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
+  const detailCloseRequestRef = useRef<((reason: "close" | "escape" | "outside") => void) | null>(
+    null,
+  );
+  const [detailFaultEditorActive, setDetailFaultEditorActive] = useState(false);
+  const listInvokerRef = useRef<HTMLElement | null>(null);
+  const detailReturnFocusRef = useRef<HTMLElement | null>(null);
+  const rememberListInvoker = (event: SyntheticEvent) => {
+    const target = event.target;
+    if (!(target instanceof Element) || target.closest("[data-order-detail-dialog-shell]")) return;
+    const control = target.closest('button, [role="button"], a[href]');
+    if (control instanceof HTMLElement) listInvokerRef.current = control;
+  };
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const [newOrderPrefill, setNewOrderPrefill] = useState<NewOrderPrefill>();
   const previousNewOrderOpenRef = useRef(false);
@@ -285,10 +297,6 @@ export function OrderListScreen() {
       delete document.body.dataset.mobileWorkspaceActive;
     };
   }, []);
-
-  useEffect(() => {
-    if (viewportMode !== "compact" && mobileFiltersOpen) setMobileFiltersOpen(false);
-  }, [mobileFiltersOpen, viewportMode]);
 
   useEffect(() => {
     const updateOnlineState = () => setIsOnline(navigator.onLine);
@@ -558,26 +566,15 @@ export function OrderListScreen() {
       repaired: 0,
       repaired_notified: 0,
     };
-    if (!activeView) {
-      return [
-        {
-          key: "all" as const,
-          label: filters.view === "archive" ? t("orders.allHistory") : t("orders.allOrders"),
-          shortLabel: t("orders.allShort"),
-          tone: "neutral" as const,
-          count: totalOrders,
-          hint: filters.view === "archive" ? t("orders.allHistory") : t("orders.allOrders"),
-        },
-      ];
-    }
+    if (!activeView) return [];
     return [
       {
         key: "all" as const,
-        label: t("orders.allTasks"),
-        shortLabel: t("orders.allShort"),
+        label: t("orders.allStatuses"),
+        shortLabel: t("orders.allStatuses"),
         tone: "neutral" as const,
         count: queueCounts.all,
-        hint: t("orders.allTasks"),
+        hint: t("orders.allStatuses"),
       },
       ...orderQueueGroups.map((key) => {
         const localized = localizeOrderQueueGroup(key, t);
@@ -1106,6 +1103,9 @@ export function OrderListScreen() {
     if (outcome === "busy") toast.info(t("orders.printBusy"));
   };
   const openDetail = (id: string) => {
+    detailReturnFocusRef.current =
+      listInvokerRef.current ??
+      (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     scheduleOrderDetailPrefetch(id, "intent");
     setDetailOrderId(id);
   };
@@ -1125,6 +1125,10 @@ export function OrderListScreen() {
 
   const handleDetailOpenChange = (open: boolean) => {
     if (open) return;
+    if (detailCloseRequestRef.current) {
+      detailCloseRequestRef.current("close");
+      return;
+    }
     setDetailOrderId(null);
   };
 
@@ -1226,6 +1230,8 @@ export function OrderListScreen() {
     <div
       className={cn(repairOs.mobileListFloatingPage, "md:pb-8")}
       data-order-list-refreshing={isFetching ? "true" : "false"}
+      onClickCapture={rememberListInvoker}
+      onKeyDownCapture={rememberListInvoker}
       aria-busy={listTransitionPending || isFetching}
       style={
         mobileHeaderHeight > 0
@@ -1294,19 +1300,11 @@ export function OrderListScreen() {
               ) : null}
             </Button>
           }
-          viewModeControl={
-            <OrderListViewMode
-              value={orderListView}
-              canBrowseArchive={canBrowseOrderArchive}
-              compact
-              disabled={!isOnline}
-              onChange={changeOrderListView}
-            />
-          }
+          rangeLabel={t(`orders.range.${orderListView}`)}
         />
       ) : null}
 
-      {viewportMode === "compact" ? (
+      {
         <Dialog open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
           <DialogContent
             closeLabel={t("orders.closeFilters")}
@@ -1317,6 +1315,15 @@ export function OrderListScreen() {
               <DialogDescription>{t("orders.mobileFilterDescription")}</DialogDescription>
             </DialogHeader>
             <div className="space-y-3 sm:space-y-4">
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-semibold">{t("orders.displayRange")}</legend>
+                <OrderListViewMode
+                  value={orderListView}
+                  canBrowseArchive={canBrowseOrderArchive}
+                  disabled={!isOnline || listInteractionBlocked}
+                  onChange={changeOrderListView}
+                />
+              </fieldset>
               <fieldset className="space-y-2">
                 <legend className="text-sm font-semibold">{t("orders.typeFilter")}</legend>
                 <div className="grid grid-cols-2 gap-2">
@@ -1434,7 +1441,7 @@ export function OrderListScreen() {
             </div>
           </DialogContent>
         </Dialog>
-      ) : null}
+      }
 
       <OrderListTransitionFeedback
         pendingLabel={activePendingListIntent?.label}
@@ -1503,24 +1510,32 @@ export function OrderListScreen() {
           data-order-desktop-unified-toolbar="true"
           className={cn(repairOs.mobileInfoCard, "mb-3 mt-3 min-w-0 space-y-2 p-2.5")}
         >
-          <OrderStatusFilterControls
-            embedded
-            className="min-w-0"
-            groups={statusGroupItems}
-            subTabs={statusSubTabs}
-            groupValue={statusGroup}
-            statusValue={statusCode}
-            onGroupChange={handleStatusGroupChange}
-            onStatusChange={handleStatusCodeChange}
-          />
+          {statusGroupItems.length > 0 ? (
+            <OrderStatusFilterControls
+              embedded
+              className="min-w-0"
+              groups={statusGroupItems}
+              subTabs={statusSubTabs}
+              groupValue={statusGroup}
+              statusValue={statusCode}
+              onGroupChange={handleStatusGroupChange}
+              onStatusChange={handleStatusCodeChange}
+            />
+          ) : null}
 
           <div className={cn(layoutGuards.wrapRow, "min-w-0 items-stretch justify-end")}>
-            <OrderListViewMode
-              value={orderListView}
-              canBrowseArchive={canBrowseOrderArchive}
-              disabled={!isOnline}
-              onChange={changeOrderListView}
-            />
+            <span className="self-center text-sm font-medium" data-order-current-range="true">
+              {t(`orders.range.${orderListView}`)}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setMobileFiltersOpen(true)}
+              aria-label={t("orders.mobileFilterTitle")}
+            >
+              <Filter className="size-4" />
+              {t("orders.mobileFilterTitle")}
+            </Button>
             <div className="relative min-w-0 flex-[1_1_260px]">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -1930,11 +1945,33 @@ export function OrderListScreen() {
       <Dialog open={Boolean(detailOrderId)} onOpenChange={handleDetailOpenChange}>
         <DialogContent
           data-order-detail-dialog-shell="true"
+          onCloseAutoFocus={(event) => {
+            const opener = detailReturnFocusRef.current;
+            if (!opener?.isConnected || opener.getClientRects().length === 0) return;
+            event.preventDefault();
+            opener.focus({ preventScroll: true });
+          }}
           showCloseButton={false}
-          className={componentOverlay.orderDetailWorkspace}
+          className={
+            detailFaultEditorActive
+              ? cn(componentOverlay.modalLg, "max-h-[calc(100svh-24px)] overflow-hidden p-0 sm:p-0")
+              : componentOverlay.orderDetailWorkspace
+          }
+          onEscapeKeyDown={(event) => {
+            if (!detailCloseRequestRef.current) return;
+            event.preventDefault();
+            detailCloseRequestRef.current("escape");
+          }}
+          onInteractOutside={(event) => {
+            if (!detailCloseRequestRef.current) return;
+            event.preventDefault();
+            detailCloseRequestRef.current("outside");
+          }}
         >
           <DialogHeader className="sr-only">
-            <DialogTitle>{t("orders.detailDialogTitle")}</DialogTitle>
+            <DialogTitle>
+              {t(detailFaultEditorActive ? "orders.faultEditor.title" : "orders.detailDialogTitle")}
+            </DialogTitle>
             <DialogDescription>{t("orders.detailDialogDescription")}</DialogDescription>
           </DialogHeader>
           {detailOrderId && (
@@ -1949,6 +1986,8 @@ export function OrderListScreen() {
               <LazyOrderDetailScreen
                 id={detailOrderId}
                 surface="dialog"
+                faultCloseRequestRef={detailCloseRequestRef}
+                onFaultEditorActiveChange={setDetailFaultEditorActive}
                 onClose={() => handleDetailOpenChange(false)}
               />
             </Suspense>

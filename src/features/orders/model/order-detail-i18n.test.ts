@@ -1,3 +1,8 @@
+import {
+  RepairDeskApiError,
+  RepairDeskRequestTimeoutError,
+  RepairDeskTransportError,
+} from "@/lib/repairdesk/api";
 import { describe, expect, it } from "vitest";
 
 import { fallbackOrderWorkflow } from "@/features/orders/model/order-workflow";
@@ -6,6 +11,7 @@ import { translateMessage } from "@/shared/i18n/messages";
 
 import {
   getOrderDetailSafeErrorMessage,
+  isTransientFaultEditorReadFailure,
   localizeOrderAttachmentKind,
   localizeOrderDetailBadge,
   localizeOrderDetailApproval,
@@ -270,4 +276,32 @@ describe("order detail stable i18n adapters", () => {
       expect(localizeOrderMessageStatus("custom-status", t)).toBe("custom-status");
     },
   );
+});
+
+describe("fault editor transient read allowlist", () => {
+  it.each([408, 429, 500, 503, 599])("accepts typed transient status %s", (status) => {
+    expect(isTransientFaultEditorReadFailure(new RepairDeskApiError("private", status))).toBe(true);
+  });
+  it("accepts the existing request timeout and rejects unknown failures", () => {
+    expect(isTransientFaultEditorReadFailure(new RepairDeskRequestTimeoutError())).toBe(true);
+    expect(isTransientFaultEditorReadFailure(new Error("network"))).toBe(false);
+    expect(isTransientFaultEditorReadFailure(new TypeError("network"))).toBe(false);
+    expect(
+      isTransientFaultEditorReadFailure(new RepairDeskTransportError(new TypeError("network"))),
+    ).toBe(true);
+    expect(isTransientFaultEditorReadFailure({ status: 503 })).toBe(false);
+  });
+  it.each(["AUTH_REQUIRED", "UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND", "ORDER_NOT_FOUND"])(
+    "denies %s before transient status",
+    (code) => {
+      expect(isTransientFaultEditorReadFailure(new RepairDeskApiError("private", 503, code))).toBe(
+        false,
+      );
+    },
+  );
+  it.each([400, 401, 403, 404, 409, 600])("denies status %s", (status) => {
+    expect(isTransientFaultEditorReadFailure(new RepairDeskApiError("private", status))).toBe(
+      false,
+    );
+  });
 });

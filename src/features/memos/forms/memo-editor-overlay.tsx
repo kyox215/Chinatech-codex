@@ -43,12 +43,15 @@ export function MemoEditorOverlay({
         closeLabel={closeLabel}
         className={cn(
           componentOverlay.bottomSheet,
+          componentOverlay.editorSurface,
           memoQuickEntry.surface,
           memoQuickEntry.mobile,
           "inset-x-0 flex w-full min-w-0 max-w-full flex-col overflow-x-hidden",
         )}
       >
-        <SheetHeader className={cn(memoQuickEntry.header, "min-w-0 max-w-full")}>
+        <SheetHeader
+          className={cn(memoQuickEntry.header, componentOverlay.editorHeader, "min-w-0 max-w-full")}
+        >
           <SheetTitle className={memoQuickEntry.title}>{title}</SheetTitle>
           <SheetDescription className={memoQuickEntry.description}>{description}</SheetDescription>
         </SheetHeader>
@@ -61,13 +64,14 @@ export function MemoEditorOverlay({
         closeLabel={closeLabel}
         className={cn(
           componentOverlay.formContent,
+          componentOverlay.editorSurface,
           memoQuickEntry.surface,
           memoQuickEntry.desktop,
           "flex flex-col overflow-hidden",
         )}
         closeClassName="right-2 top-2 size-9 hover:bg-transparent focus:ring-[var(--memo-quick-entry-focus)] sm:right-2 sm:top-2"
       >
-        <DialogHeader className={memoQuickEntry.header}>
+        <DialogHeader className={cn(memoQuickEntry.header, componentOverlay.editorHeader)}>
           <DialogTitle className={memoQuickEntry.title}>{title}</DialogTitle>
           <DialogDescription className={memoQuickEntry.description}>
             {description}

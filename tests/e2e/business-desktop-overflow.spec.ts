@@ -168,7 +168,7 @@ async function auditOrderDialogs(page: Page, viewport: DesktopViewport) {
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog", { name: "预览 WhatsApp 通知" })).toHaveCount(0);
   }
-  await clickFirstVisible(page.getByRole("tab", { name: /记录与信息/ }), "工单记录标签");
+  await clickFirstVisible(page.getByRole("tab", { name: /历史记录/ }), "工单记录标签");
   const orderRecordsBox = await expectOpenDialogsFit(
     page,
     "/orders detail records tab",

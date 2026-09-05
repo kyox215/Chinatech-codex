@@ -17,6 +17,7 @@ import {
   listOrderDataBatchHistory,
   isRepairDeskRequestTimeoutError,
   RepairDeskApiError,
+  RepairDeskTransportError,
   runAiInventoryVisionRecognition,
   runAiOrderAssistantTurn,
   searchCustomerIntakeCandidates,
@@ -534,6 +535,46 @@ describe("repairdesk api client", () => {
     const [, init] = fetchMock.mock.calls[0];
     expect(init?.body).toBeInstanceOf(FormData);
     expect(init?.headers).toEqual({});
+  });
+
+  it("marks a fetch TypeError without changing its compatible name, message or cause", async () => {
+    const original = new TypeError("Synthetic fetch failure");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(original));
+    const error = await getStoreContext().catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(RepairDeskTransportError);
+    expect(error).toBeInstanceOf(TypeError);
+    expect(error).toMatchObject({ name: "TypeError", message: original.message, cause: original });
+  });
+
+  it("does not classify caller cancellation or unrelated fetch errors as transport failures", async () => {
+    const original = new TypeError("Synthetic caller cancellation");
+    const controller = new AbortController();
+    controller.abort();
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(original));
+    expect(
+      await getStoreContext({ signal: controller.signal }).catch((error: unknown) => error),
+    ).toBe(original);
+    const unknown = new Error("Synthetic unknown failure");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(unknown));
+    expect(await getStoreContext().catch((error: unknown) => error)).toBe(unknown);
+    const abort = new DOMException("Synthetic abort", "AbortError");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(abort));
+    expect(await getStoreContext().catch((error: unknown) => error)).toBe(abort);
+  });
+
+  it("keeps HTTP authorization errors distinct from transport failures", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: "Synthetic forbidden", code: "FORBIDDEN" }), {
+          status: 403,
+        }),
+      ),
+    );
+    const error = await getStoreContext().catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(RepairDeskApiError);
+    expect(error).not.toBeInstanceOf(RepairDeskTransportError);
+    expect(error).toMatchObject({ status: 403, code: "FORBIDDEN" });
   });
 
   it("turns request timeouts into a friendly error", async () => {

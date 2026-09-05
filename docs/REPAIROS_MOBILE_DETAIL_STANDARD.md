@@ -114,17 +114,18 @@ min-w-0 overflow-hidden
 - 两列小卡可用于客户/设备、维修/支付等并列摘要；窄屏不足时必须单列或保持 `min-w-0` 截断。
 - 颜色只服务关键状态、异常、下一步和主动作，不做大面积色块背景。
 
-推荐正文顺序：
+订单详情的“详情”分组推荐正文顺序（历史使用顶部“历史记录”分组，见第 9 节）：
 
 1. 客户审批处理卡，可选。
 2. 基础信息卡，放创建时间、负责人、门店，不重复大号主编号。
-3. 历史记录卡，展示最近一次操作并可打开完整时间线。
-4. 客户信息卡。
-5. 设备信息卡。
-6. 故障描述卡。
-7. 维修项目与报价卡。
-8. 支付信息卡。
-9. 设备照片卡。
+3. 客户信息卡。
+4. 设备信息卡。
+5. 故障描述卡。
+6. 维修项目与报价卡。
+7. 支付信息卡。
+8. 设备照片卡。
+
+订单不再增加重复的正文历史卡或完整时间线 Sheet。其他实体详情变体的历史入口仍遵循各自合同。
 
 ### 3.1 商品库存详情变体
 
@@ -248,11 +249,14 @@ min-w-0 overflow-hidden
 
 ## 9. 历史记录与状态流转
 
-移动详情页必须有清晰的历史入口：
+订单详情页必须使用清晰且一致的顶部历史入口：
 
-- 正文靠前展示最近一次操作。
-- 点击打开完整时间线 Sheet。
+- 移动浮动页头、桌面页面和桌面工作区统一提供“详情 / 历史记录”两个分组。
+- “历史记录”完整展示时间线事件与通知记录；该分组替代订单旧有的正文最近操作卡和完整时间线 Sheet，不重新添加重复入口。
+- 若桌面保留最近操作快捷入口，激活后切换到顶部“历史记录”分组并将键盘焦点移到对应 tab。
 - 状态流转、报价、收款、通知、附件上传都必须可追溯。
+
+分组状态、滚动位置和故障编辑规则见本文件末尾 Orders workspace grouping。其他实体详情可按自己的页面合同保留历史卡或 Sheet，本节不修改那些变体。
 
 状态流转规则：
 
@@ -318,3 +322,13 @@ document.documentElement.scrollWidth <= window.innerWidth
 10. 390px、430px、768px、834px、1024px 是否无横向溢出，且没有卡片遮挡。
 11. 该页是否只在真实有序流程中才显示进度；普通商品等对象详情必须无进度条。
 12. 顶部和正文是否无装饰性滚动条、无横向拖动分组，手机长正文是否避免嵌套纵向滚动区。
+
+### Orders workspace grouping (TASK-20260905-004)
+
+Order detail uses two top-level groups, Details and History, on compact pages and desktop pages/workspaces. Compact tabs are inside the measured floating header. Details retains device/customer, responsibility, finance and photos; History shows both complete timeline events and notification bodies. Panels retain local state and individual scroll positions; switching order resets the selected group, while locale switching preserves it.
+
+Fault/diagnosis editing uses two visible text fields, independent intake/repair permission checks, and optional collapsed name-only repair references on compact screens. Desktop uses the existing large Dialog with text first and a narrow reference column. The opening version is the save baseline; remote changes never replace dirty text. Save errors retain drafts; conflict reload explicitly confirms discarding the draft. Every close path is guarded while pending and confirms dirty discard. Diagnosis may be explicitly cleared.
+
+### 故障编辑面板补充（2026-09-05）
+
+故障与诊断编辑使用独立字段帮助、必填/选填/只读标识和可见草稿状态。移动文本域使用16px输入字号及约112/96px稳定高度；主体单滚动，底部双44px操作和安全区保持可达。参考项目仅追加名称，不改变报价金额；追加后的文本状态和单一live区域共同反馈结果。放弃及重载在原浮层中显示确认步骤，默认继续编辑，Escape/X返回草稿，外部点击不放弃，重载失败保留草稿。DeviceUnlockEditSheet仅是移动详情表面，桌面使用其他现有流程，不将其计为同一表面覆盖。

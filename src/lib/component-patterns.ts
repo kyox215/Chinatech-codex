@@ -104,6 +104,16 @@ export const componentForm = {
 } as const;
 
 export const componentOverlay = {
+  // Opt-in editor presentation. Existing modal defaults and controller lifecycles stay intact.
+  editorSurface:
+    "border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] shadow-[var(--shadow-overlay)] [&_input:not([type=checkbox])]:transition-colors [&_textarea]:transition-colors [&_button]:duration-150 motion-reduce:[&_input]:transition-none motion-reduce:[&_textarea]:transition-none motion-reduce:[&_button]:transition-none",
+  editorHeader: "min-w-0 space-y-1 border-b border-[var(--border-panel)] pb-3 text-left",
+  editorBody: "min-w-0 [&_input:not([type=checkbox])]:bg-background [&_textarea]:bg-background",
+  editorFooter:
+    "gap-2 border-t border-[var(--border-panel)] pt-3 [&>button]:min-h-11 [&>button]:whitespace-normal lg:[&>button]:min-h-9",
+  editorField:
+    "rounded-lg border-[var(--border-panel)] bg-background text-base shadow-none transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:ring-2 motion-reduce:transition-none md:text-base",
+  editorStatus: "min-w-0 text-xs leading-5 text-muted-foreground",
   content:
     "border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] text-popover-foreground shadow-[var(--shadow-overlay)]",
   responsiveContent:

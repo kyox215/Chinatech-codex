@@ -22,11 +22,10 @@ export function OrderListViewMode({
 }) {
   const { t } = useLocale();
   const viewOptions = [
-    { value: "active", label: t("orders.allTasks"), icon: ListTodo },
-    { value: "archive", label: t("orders.allHistory"), icon: Archive },
-    { value: "all", label: t("orders.allOrders"), icon: List },
+    { value: "active", label: t("orders.range.active"), icon: ListTodo },
+    { value: "archive", label: t("orders.range.archive"), icon: Archive },
+    { value: "all", label: t("orders.range.all"), icon: List },
   ] as const;
-  if (!canBrowseArchive) return null;
 
   return (
     <div
@@ -37,36 +36,38 @@ export function OrderListViewMode({
       role="group"
       aria-label={t("orders.displayRange")}
     >
-      {viewOptions.map((option) => {
-        const Icon = option.icon;
-        const active = option.value === value;
-        return (
-          <Button
-            key={option.value}
-            type="button"
-            disabled={disabled}
-            size="sm"
-            variant={active ? "default" : "ghost"}
-            className={cn(
-              "h-9 gap-1 px-2 text-xs",
-              compact &&
-                "h-8 min-w-0 gap-[var(--order-mobile-gap,0.25rem)] rounded-[var(--order-mobile-radius,0.625rem)] px-[var(--order-mobile-pad,0.375rem)] text-[length:var(--order-mobile-meta,0.625rem)]",
-            )}
-            aria-pressed={active}
-            title={option.label}
-            onClick={() => onChange(option.value)}
-          >
-            <Icon
+      {viewOptions
+        .filter((option) => canBrowseArchive || option.value === "active")
+        .map((option) => {
+          const Icon = option.icon;
+          const active = option.value === value;
+          return (
+            <Button
+              key={option.value}
+              type="button"
+              disabled={disabled}
+              size="sm"
+              variant={active ? "default" : "ghost"}
               className={cn(
-                "size-3.5 shrink-0",
-                compact && "size-[var(--order-mobile-icon,0.875rem)]",
+                "h-9 gap-1 px-2 text-xs",
+                compact &&
+                  "h-8 min-w-0 gap-[var(--order-mobile-gap,0.25rem)] rounded-[var(--order-mobile-radius,0.625rem)] px-[var(--order-mobile-pad,0.375rem)] text-[length:var(--order-mobile-meta,0.625rem)]",
               )}
-              aria-hidden="true"
-            />
-            <span className="truncate">{option.label}</span>
-          </Button>
-        );
-      })}
+              aria-pressed={active}
+              title={option.label}
+              onClick={() => onChange(option.value)}
+            >
+              <Icon
+                className={cn(
+                  "size-3.5 shrink-0",
+                  compact && "size-[var(--order-mobile-icon,0.875rem)]",
+                )}
+                aria-hidden="true"
+              />
+              <span className="truncate">{option.label}</span>
+            </Button>
+          );
+        })}
     </div>
   );
 }

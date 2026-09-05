@@ -1,3 +1,8 @@
+import {
+  RepairDeskApiError,
+  RepairDeskRequestTimeoutError,
+  RepairDeskTransportError,
+} from "@/lib/repairdesk/api";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type { OrderEvent, OrderWorkflow } from "@/lib/repairdesk/types";
 import { formatCurrency } from "@/shared/i18n/format";
@@ -64,6 +69,26 @@ function readStableApiFailure(error: unknown) {
     code: typeof candidate.code === "string" ? candidate.code : undefined,
     status: typeof candidate.status === "number" ? candidate.status : undefined,
   };
+}
+
+/** Only an active same-scope fault editor may use this narrow read-failure exception. */
+export function isTransientFaultEditorReadFailure(error: unknown) {
+  const { code, status } = readStableApiFailure(error);
+  if (
+    status === 401 ||
+    status === 403 ||
+    status === 404 ||
+    ["AUTH_REQUIRED", "UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND", "ORDER_NOT_FOUND"].includes(
+      code ?? "",
+    )
+  )
+    return false;
+  if (error instanceof RepairDeskRequestTimeoutError) return true;
+  if (error instanceof RepairDeskApiError)
+    return (
+      status === 408 || status === 429 || (status !== undefined && status >= 500 && status < 600)
+    );
+  return error instanceof RepairDeskTransportError;
 }
 
 export function getOrderDetailSafeErrorMessage(

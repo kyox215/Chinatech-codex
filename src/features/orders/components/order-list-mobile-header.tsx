@@ -78,7 +78,7 @@ export function MobileOrdersFloatingHeader({
   onSearchChange,
   onSearchSubmit,
   onSearchClear,
-  viewModeControl,
+  rangeLabel,
   headerRef,
 }: {
   groups: {
@@ -104,7 +104,7 @@ export function MobileOrdersFloatingHeader({
   onSearchChange: (value: string) => void;
   onSearchSubmit: () => void;
   onSearchClear: () => void;
-  viewModeControl?: ReactNode;
+  rangeLabel?: string;
   headerRef?: Ref<HTMLDivElement>;
 }) {
   const { t } = useLocale();
@@ -169,7 +169,7 @@ export function MobileOrdersFloatingHeader({
                 {pendingLabel
                   ? t("orders.loadingGroup", { group: pendingLabel })
                   : t("orders.groupCount", {
-                      group: activeGroup?.label ?? t("orders.allShort"),
+                      group: [rangeLabel, activeGroup?.label].filter(Boolean).join(" · "),
                       count: totalOrders,
                     })}
               </span>
@@ -257,61 +257,61 @@ export function MobileOrdersFloatingHeader({
               {filterAction}
             </div>
 
-            {viewModeControl}
+            {groups.length > 0 ? (
+              <div
+                className={cn("grid min-w-0", orderMobileQueueGrid)}
+                role="group"
+                aria-label={t("orders.pendingStages")}
+              >
+                {groups.map((group) => {
+                  const active = groupValue === group.key;
+                  const pending = pendingGroupValue === group.key;
+                  const Icon = groupIcons[group.key] ?? ListTodo;
+                  const visualLabel =
+                    group.key === "all" ? group.label : group.shortLabel || group.label;
 
-            <div
-              className={cn("grid min-w-0", orderMobileQueueGrid)}
-              role="group"
-              aria-label={t("orders.pendingStages")}
-            >
-              {groups.map((group) => {
-                const active = groupValue === group.key;
-                const pending = pendingGroupValue === group.key;
-                const Icon = groupIcons[group.key] ?? ListTodo;
-                const visualLabel =
-                  group.key === "all" ? group.label : group.shortLabel || group.label;
-
-                return (
-                  <button
-                    key={group.key}
-                    type="button"
-                    disabled={interactionDisabled}
-                    onClick={() => onGroupChange(group.key)}
-                    className={cn(
-                      "grid h-8 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-[clamp(0.125rem,0.64vw,0.25rem)] rounded-[var(--order-mobile-radius)] border px-[var(--order-mobile-pad)] py-0.5 text-left transition-colors active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-                      group.key === "all" &&
-                        (groups.length === 1 ? "col-span-4" : orderMobileQueueAllSpan),
-                      groupToneClass(group.tone, active),
-                    )}
-                    aria-pressed={active}
-                    aria-busy={pending}
-                    aria-label={t("orders.stageLabel", {
-                      index: groups.indexOf(group) + 1,
-                      stage: group.label,
-                      count: group.count,
-                    })}
-                  >
-                    <span className="flex min-w-0 items-center gap-[clamp(0.125rem,0.64vw,0.25rem)] text-[length:var(--order-mobile-meta)] font-semibold leading-none">
-                      <Icon
-                        className="hidden size-[var(--order-mobile-icon)] shrink-0 min-[360px]:block"
-                        aria-hidden="true"
-                      />
-                      <span className="truncate">{visualLabel}</span>
-                    </span>
-                    {pending ? (
-                      <LoaderCircle
-                        className="size-[var(--order-mobile-icon)] animate-spin"
-                        aria-hidden="true"
-                      />
-                    ) : (
-                      <span className="font-mono text-[length:var(--order-mobile-meta)] font-semibold leading-none tabular-nums opacity-80">
-                        {group.count > 999 ? "999+" : group.count}
+                  return (
+                    <button
+                      key={group.key}
+                      type="button"
+                      disabled={interactionDisabled}
+                      onClick={() => onGroupChange(group.key)}
+                      className={cn(
+                        "grid h-8 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-[clamp(0.125rem,0.64vw,0.25rem)] rounded-[var(--order-mobile-radius)] border px-[var(--order-mobile-pad)] py-0.5 text-left transition-colors active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                        group.key === "all" &&
+                          (groups.length === 1 ? "col-span-4" : orderMobileQueueAllSpan),
+                        groupToneClass(group.tone, active),
+                      )}
+                      aria-pressed={active}
+                      aria-busy={pending}
+                      aria-label={t("orders.stageLabel", {
+                        index: groups.indexOf(group) + 1,
+                        stage: group.label,
+                        count: group.count,
+                      })}
+                    >
+                      <span className="flex min-w-0 items-center gap-[clamp(0.125rem,0.64vw,0.25rem)] text-[length:var(--order-mobile-meta)] font-semibold leading-none">
+                        <Icon
+                          className="hidden size-[var(--order-mobile-icon)] shrink-0 min-[360px]:block"
+                          aria-hidden="true"
+                        />
+                        <span className="truncate">{visualLabel}</span>
                       </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+                      {pending ? (
+                        <LoaderCircle
+                          className="size-[var(--order-mobile-icon)] animate-spin"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <span className="font-mono text-[length:var(--order-mobile-meta)] font-semibold leading-none tabular-nums opacity-80">
+                          {group.count > 999 ? "999+" : group.count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
 
             <span
               className="sr-only"
@@ -319,7 +319,7 @@ export function MobileOrdersFloatingHeader({
               aria-live={searchValue || pendingLabel ? "off" : "polite"}
             >
               {t("orders.currentCount", {
-                group: activeGroup?.label ?? t("orders.allTasks"),
+                group: activeGroup?.label ?? rangeLabel ?? t("orders.allStatuses"),
                 count: activeGroup?.count ?? totalOrders,
               })}
             </span>

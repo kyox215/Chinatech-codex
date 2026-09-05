@@ -79,9 +79,9 @@ export function CustomerTagsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         closeLabel={t("customers.detail.close")}
-        className={componentOverlay.formContent}
+        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface}`}
       >
-        <DialogHeader className={componentOverlay.header}>
+        <DialogHeader className={componentOverlay.editorHeader}>
           <DialogTitle className={componentOverlay.title}>
             {t("customers.form.tagsTitle")}
           </DialogTitle>
@@ -130,7 +130,7 @@ export function CustomerTagsDialog({
             );
           })}
         </div>
-        <DialogFooter className={componentOverlay.footer}>
+        <DialogFooter className={`${componentOverlay.footer} ${componentOverlay.editorFooter}`}>
           <Button
             className="min-h-11 whitespace-normal lg:min-h-9"
             variant="ghost"

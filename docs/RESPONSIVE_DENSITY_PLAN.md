@@ -873,3 +873,13 @@ production data, schema/migration, or bulk catalog import is included. The Owner
 autonomous design → Preview → implementation → validation → follow-up Preview; do not require a
 separate per-design Owner-approval gate. This appended status does not alter the historical
 design-only contract above.
+
+### Order list range and detail groups (TASK-20260905-004)
+
+The order list exposes active/archive/all as Pending / Archived / All in the first group of the existing filter dialog, available on desktop and compact screens. Current range remains in the header; only Pending renders status chips (including All statuses). There is no separate top range row or empty archive status wrapper. Preserve archive browsing permission independently from archive exact search.
+
+Order detail has Details / History tabs at 390, 430, 768, 1024, 1280 and 1440. The fault editor uses Sheet below 1024 and modalLg Dialog at desktop widths, visible fault and diagnosis textareas at 16px, a scrolling body and a padded safe-area footer. Timeline and message text remain fully readable rather than clipped.
+
+### Small editor responsive contract (2026-09-05)
+
+Fault editing uses an independent bottom Sheet at 390/430/768 and an 860px desktop Dialog at 1024/1280/1440 with a 240px reference column. Desktop footer state stays left while Cancel/Save use intrinsic widths on the right; mobile actions share two columns. Both edit and inline-confirmation steps preserve bottom safe-area padding. The existing desktop order-list workspace hosts the editor as an inline step within its one modal, retaining the hidden detail body and restoring its edit trigger. Related customer, memo and settings editor shells retain their current sizing/orientation and scrolling; long forms must prove last-field and footer reachability, not fit every field into one screenshot.

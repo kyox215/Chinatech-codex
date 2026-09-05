@@ -179,7 +179,7 @@ export function SupplierEditorSheet({
         <SheetContent
           side="right"
           closeLabel={copy("关闭")}
-          className="flex h-full w-[calc(100vw-16px)] max-w-[calc(100vw-8px)] flex-col gap-0 p-0 sm:w-[min(38rem,calc(100vw-24px))]"
+          className={`${componentOverlay.editorSurface} flex h-full w-[calc(100vw-16px)] max-w-[calc(100vw-8px)] flex-col gap-0 p-0 sm:w-[min(38rem,calc(100vw-24px))]`}
           aria-busy={isSaving}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
@@ -187,7 +187,7 @@ export function SupplierEditorSheet({
           }}
         >
           <SheetHeader
-            className={`${componentOverlay.mobileHeader} border-b border-[var(--border-panel)] pr-14 text-left`}
+            className={`${componentOverlay.mobileHeader} ${componentOverlay.editorHeader} pr-14 text-left`}
           >
             <SheetTitle>
               {mode === "new"
@@ -199,7 +199,7 @@ export function SupplierEditorSheet({
             </SheetDescription>
           </SheetHeader>
 
-          <div className={`${componentOverlay.mobileBody} flex-1`}>
+          <div className={`${componentOverlay.mobileBody} ${componentOverlay.editorBody} flex-1`}>
             <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-4">
               <SupplierField label={copy("名称")} field="name" errors={errors}>
                 <Input
@@ -325,7 +325,9 @@ export function SupplierEditorSheet({
             ) : null}
           </div>
 
-          <SheetFooter className={`${componentOverlay.mobileFooter} bg-card`}>
+          <SheetFooter
+            className={`${componentOverlay.mobileFooter} ${componentOverlay.editorFooter} bg-card`}
+          >
             <Button
               type="button"
               variant="outline"

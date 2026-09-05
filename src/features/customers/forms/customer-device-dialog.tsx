@@ -17,7 +17,7 @@ import { componentOverlay } from "@/lib/component-patterns";
 import type { CustomerDeviceInput, Device } from "@/lib/repairdesk/api";
 import { useLocale } from "@/shared/i18n/locale-provider";
 
-const compactInputClass = "h-11 text-base lg:h-9 lg:text-sm";
+const compactInputClass = `${componentOverlay.editorField} h-11 lg:h-9 lg:text-sm`;
 
 export function CustomerDeviceDialog({
   open,
@@ -59,7 +59,7 @@ export function CustomerDeviceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         closeLabel={t("customers.detail.close")}
-        className={`${componentOverlay.formContent} !animate-none`}
+        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface}`}
         onPointerDownOutside={() => {
           outsideDismissedRef.current = true;
         }}
@@ -74,9 +74,9 @@ export function CustomerDeviceDialog({
           intendedOpener.focus({ preventScroll: true });
         }}
       >
-        <DialogHeader className={componentOverlay.header}>
+        <DialogHeader className={componentOverlay.editorHeader}>
           <DialogTitle className={componentOverlay.title}>
-            {t(device ? "customers.form.editDeviceTitle" : "customers.form.addDeviceTitle")}
+            {t(form.id ? "customers.form.editDeviceTitle" : "customers.form.addDeviceTitle")}
           </DialogTitle>
           <DialogDescription className={componentOverlay.description}>
             {t("customers.form.deviceDescription")}
@@ -127,7 +127,7 @@ export function CustomerDeviceDialog({
             />
           </CustomerFormField>
         </div>
-        <DialogFooter className={componentOverlay.footer}>
+        <DialogFooter className={`${componentOverlay.footer} ${componentOverlay.editorFooter}`}>
           <Button
             className="min-h-11 whitespace-normal lg:min-h-9"
             variant="ghost"

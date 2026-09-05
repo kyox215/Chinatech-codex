@@ -5,6 +5,13 @@ const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 test.skip(!enabled, "Enable the controlled RepairDesk mock auth environment.");
 
 async function gotoOrders(page: Page) {
+  await page.context().addCookies([
+    {
+      name: "repairdesk_locale",
+      value: "zh-CN",
+      url: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000",
+    },
+  ]);
   await page.goto("/orders", { waitUntil: "domcontentloaded" });
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
   await expect(page.locator('[data-order-mobile-list="true"]')).toBeVisible();
@@ -40,19 +47,19 @@ test("uses a fluid two-row queue header and compact mobile cards", async ({ page
   await page.setViewportSize(mobileViewports[0]);
   await gotoOrders(page);
 
-  await expect(page.getByRole("button", { name: "筛选订单" })).toBeVisible();
-  await expect(queueButton(page, "等待客户取机")).toBeVisible();
-  await expect(page.getByText("队列：等待客户取机")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /筛选订单/ })).toBeVisible();
+  await expect(queueButton(page, "已通知取机")).toBeVisible();
+  await expect(page.getByText("队列：已通知取机")).toHaveCount(0);
 
   for (const viewport of mobileViewports) {
     await page.setViewportSize(viewport);
     await expectNoOverflow(page);
 
-    const all = await queueButton(page, "全部任务").boundingBox();
-    const processing = await queueButton(page, "正在处理").boundingBox();
-    const ordered = await queueButton(page, "等待配件").boundingBox();
+    const all = await queueButton(page, "全部状态").boundingBox();
+    const processing = await queueButton(page, "处理中").boundingBox();
+    const ordered = await queueButton(page, "待配件").boundingBox();
     const arrived = await queueButton(page, "配件已到").boundingBox();
-    const pickup = await queueButton(page, "等待客户取机").boundingBox();
+    const pickup = await queueButton(page, "已通知取机").boundingBox();
     const header = await page.locator('[data-order-mobile-header-card="true"]').boundingBox();
     const title = await page
       .locator('[data-order-mobile-title-block="true"] > p')
@@ -61,7 +68,8 @@ test("uses a fluid two-row queue header and compact mobile cards", async ({ page
     const subtitle = await page.locator('[data-order-mobile-header-context="true"]').boundingBox();
     const titleBlock = await page.locator('[data-order-mobile-title-block="true"]').boundingBox();
     const searchRow = await page.locator('[data-order-mobile-search-row="true"]').boundingBox();
-    const rangeGroup = await page.getByRole("group", { name: "订单显示范围" }).boundingBox();
+    await expect(page.getByRole("group", { name: "订单显示范围" })).toHaveCount(0);
+    await expect(page.locator('[data-order-mobile-header-context="true"]')).toContainText("待处理");
 
     expect(all).not.toBeNull();
     expect(processing).not.toBeNull();
@@ -73,7 +81,6 @@ test("uses a fluid two-row queue header and compact mobile cards", async ({ page
     expect(subtitle).not.toBeNull();
     expect(titleBlock).not.toBeNull();
     expect(searchRow).not.toBeNull();
-    expect(rangeGroup).not.toBeNull();
     expect((subtitle?.y ?? 0) - ((title?.y ?? 0) + (title?.height ?? 0))).toBeGreaterThanOrEqual(3);
     expect((subtitle?.y ?? 0) - ((title?.y ?? 0) + (title?.height ?? 0))).toBeLessThanOrEqual(5);
     expect(
@@ -82,12 +89,6 @@ test("uses a fluid two-row queue header and compact mobile cards", async ({ page
     expect(
       (searchRow?.y ?? 0) - ((titleBlock?.y ?? 0) + (titleBlock?.height ?? 0)),
     ).toBeLessThanOrEqual(10);
-    expect(
-      (rangeGroup?.y ?? 0) - ((searchRow?.y ?? 0) + (searchRow?.height ?? 0)),
-    ).toBeGreaterThanOrEqual(9);
-    expect(
-      (rangeGroup?.y ?? 0) - ((searchRow?.y ?? 0) + (searchRow?.height ?? 0)),
-    ).toBeLessThanOrEqual(11);
     expect(Math.abs((all?.y ?? 0) - (processing?.y ?? 0))).toBeLessThanOrEqual(1);
     expect(Math.abs((processing?.y ?? 0) - (ordered?.y ?? 0))).toBeLessThanOrEqual(1);
     expect(Math.abs((arrived?.y ?? 0) - (pickup?.y ?? 0))).toBeLessThanOrEqual(1);
@@ -196,11 +197,11 @@ test("blocks stale rows, commits only the latest queue, and restores after failu
     await route.continue();
   });
 
-  const ordered = queueButton(page, "等待配件");
+  const ordered = queueButton(page, "待配件");
   await ordered.evaluate((button) => (button as HTMLButtonElement).click());
   await expect(ordered).toHaveAttribute("aria-busy", "true");
   await expect(page.locator('[data-order-mobile-header-context="true"]')).toContainText(
-    "正在加载等待配件",
+    "正在加载待配件",
   );
   await expect(page.locator('[data-order-list-blocked="true"]')).toBeVisible();
   await page.screenshot({
@@ -210,14 +211,14 @@ test("blocks stale rows, commits only the latest queue, and restores after failu
   releaseOrderedRequest?.();
 
   await queueButton(page, "配件已到").click();
-  await queueButton(page, "待通知取机").click();
-  await expect(queueButton(page, "待通知取机")).toHaveAttribute("aria-busy", "true");
+  await queueButton(page, "已维修").click();
+  await expect(queueButton(page, "已维修")).toHaveAttribute("aria-busy", "true");
   await expect(page.locator('[data-order-list-blocked="true"]')).toBeHidden();
-  await expect(queueButton(page, "待通知取机")).toHaveAttribute("aria-pressed", "true");
+  await expect(queueButton(page, "已维修")).toHaveAttribute("aria-pressed", "true");
   expect(workflowRequests).toBe(initialWorkflowRequests);
   expect(optionsRequests).toBe(initialOptionsRequests);
 
-  const repairedNotified = queueButton(page, "等待客户取机");
+  const repairedNotified = queueButton(page, "已通知取机");
   failingGroup = "repaired_notified";
   failingAttempts = 2;
   await repairedNotified.click();
@@ -225,7 +226,7 @@ test("blocks stale rows, commits only the latest queue, and restores after failu
     hasText: "已恢复上一次成功队列",
   });
   await expect(failureAlert).toBeVisible();
-  await expect(queueButton(page, "待通知取机")).toHaveAttribute("aria-pressed", "true");
+  await expect(queueButton(page, "已维修")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator('[data-order-list-blocked="true"]')).toBeHidden();
 
   await page.getByRole("button", { name: "重试" }).click();
@@ -255,10 +256,10 @@ test("keeps the last successful queue visible and stops transitions while offlin
   const offlineStatus = page.getByRole("status").filter({ hasText: "当前离线，显示最近数据" });
   await expect(offlineStatus).toBeVisible();
 
-  await expect(queueButton(page, "等待配件")).toBeDisabled();
+  await expect(queueButton(page, "待配件")).toBeDisabled();
   await expect(page.getByRole("textbox", { name: "搜索工单、客户、电话或 IMEI" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "扫描订单二维码" })).toBeDisabled();
-  await expect(queueButton(page, "全部任务")).toHaveAttribute("aria-pressed", "true");
+  await expect(queueButton(page, "全部状态")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator('[data-order-list-blocked="true"]')).toBeHidden();
   expect(listPageRequests).toBe(0);
 

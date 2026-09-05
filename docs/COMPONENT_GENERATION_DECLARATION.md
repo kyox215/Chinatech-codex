@@ -499,3 +499,11 @@ No production data, schema/migration, or bulk catalog import is included. The Ow
 autonomous design → Preview → implementation → validation → follow-up Preview; future work does
 not require a separate per-design Owner-approval gate. This is appended current status and does
 not alter the historical design-only facts above.
+
+### Opt-in compact editor presentation (2026-09-05)
+
+The eleven audited small editors opt into `componentOverlay.editorSurface`, `editorHeader`, `editorBody`, `editorFooter`, `editorField` and `editorStatus` as applicable. These additive slots preserve existing primitive defaults, modal orientation, business controls and Memo quick-entry tokens. Sensitive member, store rename and device-unlock changes are presentation only; supplier/member retain their existing immediate-unmount lifecycle and confirmation controllers.
+
+The fault editor uses a single edit/confirm-discard/confirm-reload step inside one modal root. A desktop list detail workspace embeds that body in its existing Dialog, hides and makes the existing detail body inert, and routes host dismissal through the editor's pending/dirty guard. Dedicated detail routes retain Dialog/Sheet. Preserve the exact invoking element across permission refreshes and restore it after returning to detail; the workspace restores the actual row/control when it closes. Confirmation defaults to continuing editing, announces its consequence through a description association and retains bottom safe-area padding. CSS remains the sole modal transform owner; reduced motion disables added transitions.
+
+An active fault editor may retain already-loaded data after a typed fetch transport error, request timeout or explicit transient HTTP status only for its original order and store. The HTTP client marks only TypeErrors originating at the fetch boundary while preserving their TypeError name/message/cause compatibility. Authorization/not-found codes take priority; missing data, changed scope and unknown failures keep the existing blocking screen. Draft retention is in memory, with successful reload required to replace the baseline.

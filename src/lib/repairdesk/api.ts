@@ -241,6 +241,13 @@ export class RepairDeskApiError extends Error {
   }
 }
 
+/** A TypeError raised at the fetch boundary, distinct from unknown application TypeErrors. */
+export class RepairDeskTransportError extends TypeError {
+  constructor(original: TypeError) {
+    super(original.message, { cause: original });
+  }
+}
+
 export class RepairDeskRequestTimeoutError extends Error {
   constructor(message = "请求超时，请稍后重试") {
     super(message);
@@ -1162,6 +1169,9 @@ async function requestRaw(
   } catch (error) {
     if (didTimeout) {
       throw new RepairDeskRequestTimeoutError();
+    }
+    if (!controller.signal.aborted && error instanceof TypeError) {
+      throw new RepairDeskTransportError(error);
     }
     throw error;
   } finally {

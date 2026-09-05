@@ -33,8 +33,8 @@ const customerChannelOptions = [
   { value: "sms", label: "SMS" },
 ] as const;
 
-const compactInputClass = "h-11 text-base lg:h-9 lg:text-sm";
-const compactTextareaClass = "min-h-20 text-base lg:text-sm";
+const compactInputClass = `${componentOverlay.editorField} h-11 lg:h-9 lg:text-sm`;
+const compactTextareaClass = `${componentOverlay.editorField} min-h-20 lg:text-sm`;
 
 export function CustomerEditDialog({
   open,
@@ -59,9 +59,9 @@ export function CustomerEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         closeLabel={t("customers.detail.close")}
-        className={`${componentOverlay.formContent} !animate-none`}
+        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface}`}
       >
-        <DialogHeader className={componentOverlay.header}>
+        <DialogHeader className={componentOverlay.editorHeader}>
           <DialogTitle className={componentOverlay.title}>
             {t("customers.form.editTitle")}
           </DialogTitle>
@@ -70,7 +70,7 @@ export function CustomerEditDialog({
           </DialogDescription>
         </DialogHeader>
         <CustomerFields form={form} setForm={setForm} />
-        <DialogFooter className={componentOverlay.footer}>
+        <DialogFooter className={`${componentOverlay.footer} ${componentOverlay.editorFooter}`}>
           <Button
             className="min-h-11 whitespace-normal lg:min-h-9"
             variant="ghost"

@@ -18,8 +18,8 @@ import { componentOverlay } from "@/lib/component-patterns";
 import type { CustomerFollowupInput, OrderListItem } from "@/lib/repairdesk/api";
 import { useLocale } from "@/shared/i18n/locale-provider";
 
-const compactInputClass = "h-11 text-base lg:h-9 lg:text-sm";
-const compactTextareaClass = "min-h-20 text-base lg:text-sm";
+const compactInputClass = `${componentOverlay.editorField} h-11 lg:h-9 lg:text-sm`;
+const compactTextareaClass = `${componentOverlay.editorField} min-h-20 lg:text-sm`;
 
 export function CustomerFollowupDialog({
   open,
@@ -64,7 +64,7 @@ export function CustomerFollowupDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         closeLabel={t("customers.detail.close")}
-        className={componentOverlay.formContent}
+        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface}`}
         onCloseAutoFocus={(event) => {
           const intendedOpener = returnFocusRef?.current;
           if (!intendedOpener?.isConnected || intendedOpener.getClientRects().length === 0) return;
@@ -72,7 +72,7 @@ export function CustomerFollowupDialog({
           intendedOpener.focus({ preventScroll: true });
         }}
       >
-        <DialogHeader className={componentOverlay.header}>
+        <DialogHeader className={componentOverlay.editorHeader}>
           <DialogTitle className={componentOverlay.title}>
             {t("customers.form.followupTitle")}
           </DialogTitle>
@@ -141,7 +141,7 @@ export function CustomerFollowupDialog({
             />
           </CustomerFormField>
         </div>
-        <DialogFooter className={componentOverlay.footer}>
+        <DialogFooter className={`${componentOverlay.footer} ${componentOverlay.editorFooter}`}>
           <Button
             className="min-h-11 whitespace-normal lg:min-h-9"
             variant="ghost"

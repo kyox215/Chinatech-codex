@@ -80,7 +80,7 @@ function renderHeader({
         onSearchClear={vi.fn()}
         scanAction={<button aria-label="扫码搜索">扫码</button>}
         filterAction={<button aria-label="筛选订单">筛选</button>}
-        viewModeControl={<div>范围切换</div>}
+        rangeLabel="待处理"
       />
     </SidebarProvider>,
   );

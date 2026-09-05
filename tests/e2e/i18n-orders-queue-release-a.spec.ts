@@ -241,9 +241,13 @@ test("Orders pagination remains on page two after switching language", async ({ 
   await page.goto("/orders", { waitUntil: "domcontentloaded" });
   await hideNextDevIndicator(page);
   await expect(page.locator('[data-order-row="true"]').first()).toBeVisible();
-  const allOrdersView = page.getByRole("button", { name: "Tutti gli ordini", exact: true });
+  await page.getByRole("button", { name: "Filtra ordini di riparazione", exact: true }).click();
+  const allOrdersView = page
+    .getByRole("group", { name: "Intervallo ordini" })
+    .getByRole("button", { name: "Tutti", exact: true });
   await allOrdersView.click();
   await expect(allOrdersView).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Escape");
   await expect(page.locator('[data-order-row="true"]').first()).toBeVisible();
   const nextPage = page.getByRole("button", { name: "Pagina successiva", exact: true });
   await expect(nextPage).toBeEnabled();
@@ -253,10 +257,14 @@ test("Orders pagination remains on page two after switching language", async ({ 
   await page.locator('[data-language-switcher-trigger="true"]:visible').click();
   await page.getByRole("menuitemradio", { name: "English" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await expect(page.getByRole("button", { name: "All orders", exact: true })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expect(page.locator('[data-order-current-range="true"]')).toHaveText("All");
+  await page.getByRole("button", { name: "Filter repair orders", exact: true }).click();
+  await expect(
+    page
+      .getByRole("group", { name: "Order display range" })
+      .getByRole("button", { name: "All", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Escape");
   await expect(page.getByText("2 / 2", { exact: true })).toBeVisible();
   expect(page.url()).toBe(initialUrl);
   expect(writesByPage.get(page)).toEqual([]);
@@ -333,7 +341,14 @@ test("Orders permissions response hides restricted controls", async ({ page }) =
   await page.goto("/orders", { waitUntil: "domcontentloaded" });
   await hideNextDevIndicator(page);
   await expect(page.locator('[data-order-desktop-list="true"]')).toBeVisible();
-  await expect(page.getByRole("button", { name: "All history", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Filter repair orders", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Archived", exact: true })).toHaveCount(0);
+  await expect(
+    page
+      .getByRole("group", { name: "Order display range" })
+      .getByRole("button", { name: "Pending", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Print", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Bulk transition", exact: true })).toHaveCount(0);
   await expect(page.getByRole("checkbox")).toHaveCount(0);

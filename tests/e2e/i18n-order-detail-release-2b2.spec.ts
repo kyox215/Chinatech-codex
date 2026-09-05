@@ -100,6 +100,51 @@ for (const { locale, width } of directCases) {
     await expectNoUnexpectedFixedHan(root, locale);
     await expectContentAboveFixedDock(page, root, width);
     await saveEvidenceScreenshot(page, testInfo, `direct-${locale}-${width}`);
+    const prefix = width < 1024 ? "order-detail-mobile" : "order-detail-workspace";
+    await page.locator(`#${prefix}-tab-records`).click();
+    await expect(root.locator('[data-order-records-timeline="true"]')).toBeVisible();
+    await expect(root.locator('[data-order-records-messages="true"]')).toBeVisible();
+    await expectExactVisible(root, synthetic.historyAction);
+    await saveEvidenceScreenshot(page, testInfo, `history-${locale}-${width}`);
+    await page.locator(`#${prefix}-tab-overview`).click();
+    const editorTrigger =
+      width < 1024
+        ? root
+            .locator('[data-order-detail-issue-summary="true"]')
+            .locator("..")
+            .getByRole("button", {
+              name: translateMessage(locale, "orders2b2.hero.edit"),
+              exact: true,
+            })
+        : root.getByRole("button", {
+            name: translateMessage(locale, "orders.faultEditor.title"),
+            exact: true,
+          });
+    await editorTrigger.click();
+    const editor = page.getByRole("dialog", {
+      name: translateMessage(locale, "orders.faultEditor.title"),
+    });
+    await expect(editor.getByRole("textbox")).toHaveCount(2);
+    for (const field of await editor.getByRole("textbox").all()) {
+      await expect(field).toBeVisible();
+      expect(
+        await field.evaluate((node) => parseFloat(getComputedStyle(node).fontSize)),
+      ).toBeGreaterThanOrEqual(16);
+    }
+    if (width < 1024) {
+      expect(await editor.locator("details").getAttribute("open")).toBeNull();
+      expect(
+        await page.evaluate(() =>
+          ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName ?? ""),
+        ),
+      ).toBe(false);
+    }
+    await expectNoHorizontalOverflow(page);
+    await saveEvidenceScreenshot(page, testInfo, `editor-${locale}-${width}`);
+    await page.keyboard.press("Escape");
+    await expect(editor).toHaveCount(0);
+    await expect(editorTrigger).toBeFocused();
+
     await assertEvidence(page, evidence, []);
   });
 }
@@ -129,16 +174,22 @@ for (const { locale, width } of workspaceCases) {
     );
     await expectDynamicDetail(root);
 
-    await page.locator("#order-detail-workspace-tab-records").click();
+    const historyShortcut = root
+      .locator('[data-order-panel="records-summary"]')
+      .getByRole("button", {
+        name: translateMessage(locale, "orders2b2.overview.records"),
+        exact: true,
+      });
+    await historyShortcut.focus();
+    await expect(historyShortcut).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#order-detail-workspace-tab-records")).toBeFocused();
     await expect(page.locator("#order-detail-workspace-tab-records")).toHaveAttribute(
       "aria-selected",
       "true",
     );
-    await page.locator("#order-records-group-tab-timeline").click();
-    await expect(page.locator("#order-records-group-tab-timeline")).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    await expect(root.locator('[data-order-records-timeline="true"]')).toBeVisible();
+    await expect(root.locator('[data-order-records-messages="true"]')).toBeVisible();
     await expectExactVisible(root, synthetic.historyAction);
     await expectExactVisible(root, synthetic.operator);
     await expect(root.locator('[data-order-action-dock="true"]')).toBeVisible();
@@ -779,9 +830,31 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 async function saveEvidenceScreenshot(page: Page, testInfo: TestInfo, name: string) {
+  const selectedTabs = page.locator('[data-order-detail-tabs="true"] [aria-selected="true"]');
+  for (const tab of await selectedTabs.all()) {
+    await expect
+      .poll(() =>
+        tab.evaluate((element) => {
+          const indicator = element.querySelector("span");
+          if (!indicator) return false;
+          const expected = element.getBoundingClientRect();
+          const actual = indicator.getBoundingClientRect();
+          return (
+            Math.abs(expected.left - actual.left) <= 1 &&
+            Math.abs(expected.width - actual.width) <= 1
+          );
+        }),
+      )
+      .toBe(true);
+  }
   await page.screenshot({
-    path: resolve("screenshots", "release2b2", testInfo.project.name, `${name}.png`),
+    path: resolve(
+      process.env.REPAIRDESK_EVIDENCE_DIR ?? "screenshots/release2b2",
+      testInfo.project.name,
+      `${name}.png`,
+    ),
     animations: "disabled",
+    style: "nextjs-portal { display: none !important; }",
   });
 }
 

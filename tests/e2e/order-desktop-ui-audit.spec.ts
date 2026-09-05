@@ -116,7 +116,7 @@ test.describe("order desktop UI audit", () => {
         detail.locator('[data-order-detail-view-switcher="true"]'),
         "工单详情视图切换",
       );
-      await expect(detail.getByRole("tab", { name: "概览" })).toHaveAttribute(
+      await expect(detail.getByRole("tab", { name: "详情" })).toHaveAttribute(
         "aria-selected",
         "true",
       );
@@ -134,7 +134,7 @@ test.describe("order desktop UI audit", () => {
       await expectFirstVisible(detailMoneyStrip.getByText("总额").first(), "详情金额总额");
       await expectFirstVisible(detailMoneyStrip.getByText("定金").first(), "详情金额定金");
       await expectFirstVisible(detailMoneyStrip.getByText("尾款").first(), "详情金额尾款");
-      await expect(detail.locator('[data-order-panel="photos"]')).toHaveCount(0);
+      await expectFirstVisible(detail.locator('[data-order-panel="photos"]'), "详情设备照片");
       await expect(detail.getByRole("tab", { name: "内部成本" })).toHaveCount(0);
       await expect(detail.locator('[data-order-internal-costs="true"]')).toHaveCount(0);
       await expectFirstVisible(
@@ -153,16 +153,8 @@ test.describe("order desktop UI audit", () => {
             window.getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean).length,
         );
       expect(overviewColumns, `工单概览两栏 at ${viewport.width}px`).toBe(2);
-      const overviewDensity = await detail
-        .locator('[data-order-desktop-single-workspace="true"]')
-        .evaluate((workspace) => {
-          const scroller = workspace.parentElement;
-          if (!scroller) return Number.POSITIVE_INFINITY;
-          return scroller.scrollHeight - scroller.clientHeight;
-        });
-      expect(overviewDensity, `工单默认概览纵向滚动差 at ${viewport.width}px`).toBeLessThanOrEqual(
-        1,
-      );
+      await detail.locator('[data-order-panel="photos"]').scrollIntoViewIfNeeded();
+      await expectFirstVisible(detail.locator('[data-order-panel="photos"]'), "详情照片可达");
       await expectFirstVisible(
         detail.locator('[data-order-action-dock="true"]'),
         "工单详情桌面动作工作区",
@@ -187,7 +179,7 @@ test.describe("order desktop UI audit", () => {
       }
 
       if (layoutOnly) {
-        await clickFirstVisible(detail.getByRole("tab", { name: /记录与信息/ }), "记录与信息分组");
+        await clickFirstVisible(detail.getByRole("tab", { name: /历史记录/ }), "记录与信息分组");
         await expectDesktopRecordsWorkspace(detail, viewport.width, "/orders dialog records");
         await expectNoPageOverflow(page, "/orders records tab", viewport.width);
         if (process.env.REPAIRDESK_CAPTURE_TASK_SCREENSHOT === "1" && viewport.width === 1440) {
@@ -196,7 +188,7 @@ test.describe("order desktop UI audit", () => {
             fullPage: false,
           });
         }
-        await clickFirstVisible(detail.getByRole("tab", { name: /设备照片/ }), "设备照片分组");
+        await clickFirstVisible(detail.getByRole("tab", { name: /详情/ }), "设备照片分组");
         await expectFirstVisible(detail.locator('[data-order-panel="photos"]'), "工单设备照片卡");
         await expectNoPageOverflow(page, "/orders photos tab", viewport.width);
         if (process.env.REPAIRDESK_CAPTURE_TASK_SCREENSHOT === "1" && viewport.width === 1440) {
@@ -324,7 +316,7 @@ test.describe("order desktop UI audit", () => {
         0,
         "记录页重复发送通知",
       );
-      await clickFirstVisible(detail.getByRole("tab", { name: /记录与信息/ }), "记录与信息分组");
+      await clickFirstVisible(detail.getByRole("tab", { name: /历史记录/ }), "记录与信息分组");
       await expectDesktopRecordsWorkspace(detail, viewport.width, "/orders dialog records");
       await expectNoPageOverflow(page, "/orders records tab", viewport.width);
       if (process.env.REPAIRDESK_CAPTURE_TASK_SCREENSHOT === "1" && viewport.width === 1440) {
@@ -335,14 +327,14 @@ test.describe("order desktop UI audit", () => {
       }
 
       await clickFirstVisible(hero.getByRole("button", { name: "编辑" }), "记录页进入编辑");
-      await expect(detail.getByRole("tab", { name: "概览" })).toHaveAttribute(
+      await expect(detail.getByRole("tab", { name: "详情" })).toHaveAttribute(
         "aria-selected",
         "true",
       );
-      await expect(detail.locator('[data-order-panel="key-info"]')).toHaveCount(0);
+      await expect(detail.locator('[data-order-panel="key-info"]')).toHaveCount(1);
       await clickFirstVisible(hero.getByRole("button", { name: "取消" }), "记录页取消编辑");
 
-      await clickFirstVisible(detail.getByRole("tab", { name: /设备照片/ }), "设备照片分组");
+      await clickFirstVisible(detail.getByRole("tab", { name: /详情/ }), "设备照片分组");
       await expectFirstVisible(detail.locator('[data-order-panel="photos"]'), "工单设备照片卡");
       await expectNoPageOverflow(page, "/orders photos tab", viewport.width);
 
@@ -838,7 +830,7 @@ async function expectInlineEditWorkspace(
     `${route} photos are not squeezed into the main edit grid`,
   ).toBe(0);
   if (isDialog) {
-    await expect(detail.locator('[data-order-panel="photos"]')).toHaveCount(0);
+    await expectFirstVisible(detail.locator('[data-order-panel="photos"]'), "详情设备照片");
   } else {
     await expectFirstVisible(detail.locator('[data-order-panel="photos"]'), "编辑态设备照片卡");
   }
@@ -1077,6 +1069,7 @@ async function expectDirectDesktopDetailPage(page: Page, width: number) {
   );
   await expectInlineEditWorkspace(page, detail, width, "/orders direct detail edit");
 
+  await detail.getByRole("tab", { name: "历史记录", exact: true }).click();
   await expectDesktopRecordsWorkspace(detail, width, "/orders direct records");
   await expectNoPageOverflow(page, "/orders direct records", width);
 }
@@ -1176,164 +1169,28 @@ async function expectDesktopTaskPage(page: Page, width: number) {
 
 async function expectDesktopRecordsWorkspace(detail: Locator, width: number, label: string) {
   const records = detail.locator('[data-order-records-workspace="true"]');
-  await records.waitFor({ state: "visible", timeout: 5000 });
-  await expectFirstVisible(records, `${label} records workspace`);
-  const isDialog = (await getOrderDetailSurface(detail)) === "dialog";
-  const controls = records.locator('[data-order-records-controls="true"]');
-  const groupedRecords = records.locator('[data-order-records-group="true"]');
-  if ((await countVisible(groupedRecords)) > 0) {
-    await expectFirstVisible(records.locator('[data-order-panel="key-info"]'), `${label} key info`);
-    const keyInfoColumns = await records
-      .locator('[data-order-key-info-grid="true"]')
-      .evaluate(
-        (element) =>
-          window.getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean).length,
-      );
-    expect(keyInfoColumns, `${label} key info columns`).toBe(2);
-    await expect(records.locator('[data-order-records-messages="true"]')).toBeHidden();
-    await expect(records.locator('[data-order-records-timeline="true"]')).toBeHidden();
-
-    await clickFirstVisible(records.getByRole("tab", { name: /历史通知/ }), "历史通知分组");
-    await expectFirstVisible(
-      records.locator('[data-order-records-messages="true"]'),
-      `${label} message log`,
-    );
-    await clickFirstVisible(records.getByRole("tab", { name: /时间线/ }), "时间线分组");
-    await expectFirstVisible(
-      records.locator('[data-order-records-timeline="true"]'),
-      `${label} timeline log`,
-    );
-  } else {
-    await expectFirstVisible(
-      records.locator('[data-order-records-messages="true"]'),
-      `${label} message log`,
-    );
-    await expectFirstVisible(
-      records.locator('[data-order-records-timeline="true"]'),
-      `${label} timeline log`,
-    );
-  }
-
-  const rowCount = await records.locator('[data-order-record-row="true"]').count();
-  expect(rowCount, `${label} timeline rows`).toBeGreaterThanOrEqual(1);
-
-  if (isDialog) {
-    const scrollDelta = await records.evaluate((element) => {
-      const workspace = element.closest<HTMLElement>(
-        '[data-order-desktop-single-workspace="true"]',
-      );
-      const scroller = workspace?.parentElement;
-      if (!scroller) return Number.POSITIVE_INFINITY;
-      return Math.round(scroller.scrollHeight - scroller.clientHeight);
-    });
-    expect(scrollDelta, `${label} negligible records scroll delta`).toBeLessThanOrEqual(12);
-  }
-
-  if (isDialog && (await countVisible(controls)) > 0) {
-    const alignment = await records.evaluate((element) => {
-      const controlRow = element.querySelector<HTMLElement>('[data-order-records-controls="true"]');
-      const group = element.querySelector<HTMLElement>('[data-order-records-group="true"]');
-      const timeline = element.querySelector<HTMLElement>('[data-order-records-timeline="true"]');
-      const cards = Array.from(
-        element.querySelectorAll<HTMLElement>("[data-order-record-control-card]"),
-      ).filter((card) => window.getComputedStyle(card).display !== "none");
-      const controlRect = controlRow?.getBoundingClientRect();
-      const groupRect = group?.getBoundingClientRect();
-      const timelineRect = timeline?.getBoundingClientRect();
-      return {
-        controls: controlRect
-          ? {
-              left: Math.round(controlRect.left),
-              right: Math.round(controlRect.right),
-              width: Math.round(controlRect.width),
-            }
-          : null,
-        group: groupRect
-          ? {
-              left: Math.round(groupRect.left),
-              right: Math.round(groupRect.right),
-              width: Math.round(groupRect.width),
-            }
-          : null,
-        timeline: timelineRect
-          ? {
-              left: Math.round(timelineRect.left),
-              right: Math.round(timelineRect.right),
-              width: Math.round(timelineRect.width),
-            }
-          : null,
-        cards: cards.map((card) => {
-          const rect = card.getBoundingClientRect();
-          return {
-            top: Math.round(rect.top),
-            bottom: Math.round(rect.bottom),
-            width: Math.round(rect.width),
-          };
-        }),
-      };
-    });
-    expect(alignment.controls, `${label} responsibility controls`).not.toBeNull();
-    expect(alignment.group, `${label} grouped records`).not.toBeNull();
-    expect(alignment.timeline, `${label} timeline panel`).not.toBeNull();
-    if (alignment.controls && alignment.group && alignment.timeline) {
-      expect(
-        Math.abs(alignment.controls.left - alignment.group.left),
-        `${label} left column line`,
-      ).toBeLessThanOrEqual(1);
-      expect(
-        Math.abs(alignment.controls.right - alignment.group.right),
-        `${label} right column line`,
-      ).toBeLessThanOrEqual(1);
-      expect(
-        Math.abs(alignment.timeline.left - alignment.group.left),
-        `${label} timeline left line`,
-      ).toBeLessThanOrEqual(1);
-      expect(
-        Math.abs(alignment.timeline.right - alignment.group.right),
-        `${label} timeline right line`,
-      ).toBeLessThanOrEqual(1);
-    }
-    if (alignment.cards.length === 2) {
-      expect(
-        Math.abs(alignment.cards[0]!.width - alignment.cards[1]!.width),
-        `${label} control card widths`,
-      ).toBeLessThanOrEqual(1);
-      expect(
-        Math.abs(alignment.cards[0]!.top - alignment.cards[1]!.top),
-        `${label} control card tops`,
-      ).toBeLessThanOrEqual(1);
-      expect(
-        Math.abs(alignment.cards[0]!.bottom - alignment.cards[1]!.bottom),
-        `${label} control card bottoms`,
-      ).toBeLessThanOrEqual(1);
-    }
-  }
-
-  const layout = await records.evaluate((element) => {
-    const columns = window
-      .getComputedStyle(element)
-      .gridTemplateColumns.split(" ")
-      .filter(Boolean).length;
-    const rect = element.getBoundingClientRect();
-    return {
-      columns,
-      left: Math.round(rect.left),
-      right: Math.round(rect.right),
-      width: Math.round(rect.width),
-      viewportWidth: window.innerWidth,
-    };
-  });
-  if (isDialog) {
-    expect(layout.columns, `${label} dialog record columns at ${width}px`).toBe(1);
-  } else {
-    expect(layout.columns, `${label} desktop record columns at ${width}px`).toBeGreaterThanOrEqual(
-      2,
-    );
-  }
-  expect(layout.left, `${label} left overflow`).toBeGreaterThanOrEqual(-1);
-  expect(layout.right, `${label} right overflow`).toBeLessThanOrEqual(layout.viewportWidth + 1);
-  expect(layout.width, `${label} readable width`).toBeGreaterThanOrEqual(
-    Math.min(700, width - 160),
+  await expectFirstVisible(records, `${label} history`);
+  await expect(records.getByRole("tablist")).toHaveCount(0);
+  await expectFirstVisible(
+    records.locator('[data-order-records-messages="true"]'),
+    `${label} messages`,
+  );
+  await expectFirstVisible(
+    records.locator('[data-order-records-timeline="true"]'),
+    `${label} timeline`,
+  );
+  expect(
+    await records.locator('[data-order-record-row="true"]').count(),
+    `${label} timeline rows`,
+  ).toBeGreaterThanOrEqual(1);
+  const rect = await records.boundingBox();
+  expect(rect).not.toBeNull();
+  expect(rect!.x).toBeGreaterThanOrEqual(-1);
+  expect(rect!.x + rect!.width).toBeLessThanOrEqual(width + 1);
+  await records.locator('[data-order-records-messages="true"]').scrollIntoViewIfNeeded();
+  await expectFirstVisible(
+    records.locator('[data-order-records-messages="true"]'),
+    `${label} last log reachable`,
   );
 }
 
