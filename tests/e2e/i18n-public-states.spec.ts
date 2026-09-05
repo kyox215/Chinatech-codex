@@ -11,6 +11,9 @@ if (process.env.CI && !mockEnabled) {
   throw new Error("Public-state i18n CI requires REPAIRDESK_E2E_BUSINESS_DESKTOP=1.");
 }
 
+// Chinese public-state assertions use a fixed locale; dedicated tests cover first-visit detection.
+test.use({ locale: "zh-CN" });
+
 test("Kiosk owns only Italian public copy and bounded page headers", async ({ page, request }) => {
   const response = await page.goto("/kiosk", { waitUntil: "domcontentloaded" });
 

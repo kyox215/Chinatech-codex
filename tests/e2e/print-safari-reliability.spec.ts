@@ -6,6 +6,10 @@ const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 const evidenceDir = "screenshots/TASK-20260724-005-a5-order-print";
 const mobilePrintButtonName = /^(?:打印|Stampa|Print)$/;
 
+// This suite uses Chinese semantic assertions; first-visit language detection is covered
+// separately by i18n-language tests and production locale checks.
+test.use({ locale: "zh-CN" });
+
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for print/Safari checks.");
 
 // Superseded by fixed-PDF coverage below; this preserves the former CSS-print contract for history.
