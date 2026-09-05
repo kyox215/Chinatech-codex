@@ -37,9 +37,9 @@ const cameraTitles = {
   en: "Take photo",
 } as const;
 const orderPhotoTriggerLabels = {
-  "zh-CN": "拍照",
-  "it-IT": "Scatta foto",
-  en: "Take photo",
+  "zh-CN": "拍照 正面",
+  "it-IT": "Scatta foto Fronte",
+  en: "Take photo Front",
 } as const;
 const commandScanLabels = {
   "zh-CN": "扫码查询",
@@ -337,6 +337,7 @@ for (const [locale, width, height] of cases) {
       const orderDetail = page.locator('[data-order-detail-root="true"]').first();
       await expect(orderDetail).toBeVisible({ timeout: 30_000 });
       const orderPhotoTrigger = orderDetail
+        .locator('[data-order-detail-photo-slot="front"]')
         .getByRole("button", { name: orderPhotoTriggerLabels[locale], exact: true })
         .filter({ visible: true })
         .first();
