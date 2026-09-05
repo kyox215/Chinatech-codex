@@ -5,6 +5,10 @@ Owner: Architecture + Documentation / Integration Lead
 Scope: current module boundaries, import rules, migration phases, and quality gates for RepairDesk.
 Last reviewed: 2026-07-18 CEST by `TASK-20260718-011-ai-assistant-cost-governance`
 
+## Order cost application boundary (2026-09-05 local candidate)
+
+The local candidate removes the order-specific internal cost UI and direct application routes. New order payloads reject legacy cost fields before schema parsing, while historical cost tables, database triggers, and projection maintenance remain intact for audit continuity. Inventory purchase costs, procurement allocations, profit, export, backfill, and currency tools continue through their own feature gates and permissions. Removing the application entry points does not retire the database schema or historical data. This candidate has not been published.
+
 This project is a modular Next.js App Router application. URLs stay in `src/app`, while business UI, data hooks, and server rules move into feature modules over time.
 
 ## Target Structure

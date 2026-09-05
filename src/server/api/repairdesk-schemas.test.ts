@@ -8,7 +8,6 @@ import {
   BUYBACK_TERMS_SHA256,
   BUYBACK_TERMS_TEXT_IT,
 } from "@/features/buyback/model/buyback-agreement";
-import { repairServiceCatalogItems } from "@/entities/order";
 
 import {
   approvalStatusSchema,
@@ -33,7 +32,6 @@ import {
   onboardingRequestBodySchema,
   orderListFiltersSchema,
   orderListPageInputSchema,
-  orderLineCostsUpdateBodySchema,
   patchOrderInputSchema,
   paymentBodySchema,
   profitCenterReadBodySchema,
@@ -59,7 +57,6 @@ import {
   storeRenameBodySchema,
   storeRestoreBodySchema,
   storeSettingsUpdateBodySchema,
-  storeFaultCostDefaultsUpdateBodySchema,
   supplierCreateBodySchema,
   transitionOrderBodySchema,
   updateOrderCustodyBodySchema,
@@ -501,61 +498,6 @@ describe("repairdesk API schemas", () => {
         currency_code: "EUR",
       }),
     ).toThrow();
-  });
-
-  it("keeps blank costs distinct from zero and requires a complete default catalog", () => {
-    const items = repairServiceCatalogItems.map((item) => ({
-      catalog_key: item.catalogKey,
-      catalog_name: item.name,
-      default_cost_amount: item.catalogKey === "display:main" ? 0 : null,
-    }));
-    expect(
-      storeFaultCostDefaultsUpdateBodySchema
-        .parse({
-          expected_store_id: "00000000-0000-4000-8000-000000000001",
-          expected_version: 0,
-          items,
-        })
-        .items.find((item) => item.catalog_key === "display:main")?.default_cost_amount,
-    ).toBe(0);
-    expect(() =>
-      storeFaultCostDefaultsUpdateBodySchema.parse({
-        expected_store_id: "00000000-0000-4000-8000-000000000001",
-        expected_version: 0,
-        items: items.slice(1),
-      }),
-    ).toThrow("完整");
-  });
-
-  it("validates manual and blank order cost corrections", () => {
-    const base = {
-      id: "00000000-0000-4000-8000-000000000010",
-      input: {
-        expected_store_id: "00000000-0000-4000-8000-000000000001",
-        expected_version: 1,
-      },
-    };
-    expect(
-      orderLineCostsUpdateBodySchema.parse({
-        ...base,
-        input: {
-          ...base.input,
-          items: [
-            { line_id: "00000000-0000-4000-8000-000000000011", mode: "manual", amount: 0 },
-            { line_id: "00000000-0000-4000-8000-000000000012", mode: "blank" },
-          ],
-        },
-      }).input.items,
-    ).toHaveLength(2);
-    expect(() =>
-      orderLineCostsUpdateBodySchema.parse({
-        ...base,
-        input: {
-          ...base.input,
-          items: [{ line_id: "00000000-0000-4000-8000-000000000011", mode: "manual" }],
-        },
-      }),
-    ).toThrow("请输入成本");
   });
 
   it("accepts valid report-local dates and rejects reversed or oversized profit ranges", () => {

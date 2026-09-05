@@ -24,11 +24,6 @@ import {
 import { WarrantyPicker } from "@/features/orders/components/warranty-picker";
 import { FormItem } from "@/features/orders/forms/new-order-fields";
 import type { NewOrderFormState } from "@/features/orders/model/new-order-form";
-import {
-  isNewOrderCostInputDisabled,
-  parseOrderCostDraftAmount,
-  type NewOrderCostDraft,
-} from "@/features/orders/model/order-cost-draft";
 import { deviceCustodyAllowsStatus } from "@/features/orders/model/device-custody";
 import { localizeOrderWorkflowStatusLabel } from "@/features/orders/model/order-i18n";
 import { repairOrderType, type RepairOrderType } from "@/lib/mock/enums";
@@ -46,13 +41,6 @@ export function NewOrderQuotationSection({
   operatorRole,
   onPatchFault,
   onAddCustomFault,
-  canManageOrderCosts = false,
-  costDrafts = {},
-  costDefaultsPending = false,
-  costDefaultsError = false,
-  isOnline = true,
-  onCostDraftChange,
-  onRetryCostDefaults,
   createStatuses,
   defaultWarrantyMonths = 6,
   surface = "page",
@@ -65,13 +53,6 @@ export function NewOrderQuotationSection({
   operatorRole?: string;
   onPatchFault: (index: number, patch: Partial<FaultPriceItem>) => void;
   onAddCustomFault: () => void;
-  canManageOrderCosts?: boolean;
-  costDrafts?: Record<string, NewOrderCostDraft>;
-  costDefaultsPending?: boolean;
-  costDefaultsError?: boolean;
-  isOnline?: boolean;
-  onCostDraftChange?: (lineId: string, text: string) => void;
-  onRetryCostDefaults?: () => void;
   createStatuses: OrderWorkflowStatus[];
   defaultWarrantyMonths?: number;
   surface?: "page" | "dialog";
@@ -97,7 +78,6 @@ export function NewOrderQuotationSection({
   const balance = Math.max(0, total - form.deposit);
   const roleLabel = getOperatorRoleLabel(operatorRole, t);
   const availableCreateStatuses = createStatuses;
-  const hasCatalogCostLines = form.faults.some((item) => Boolean(item.catalog_key));
 
   return (
     <Shell className={cn(shellClass, "space-y-2", layout === "professional" && "lg:contents")}>
@@ -145,17 +125,6 @@ export function NewOrderQuotationSection({
                 {t("orders2b1.new.quoteItems")}
               </span>
             </div>
-            {canManageOrderCosts && hasCatalogCostLines && costDefaultsError ? (
-              <div
-                role="alert"
-                className="mb-1.5 flex items-center justify-between gap-2 rounded-lg border border-status-danger-foreground/20 bg-status-danger/10 px-2 py-1.5 text-[10px] leading-4 text-status-danger-foreground lg:text-xs lg:leading-[18px]"
-              >
-                <span>{t("orders2b1.new.costLoadFailed")}</span>
-                <Button type="button" variant="outline" size="sm" onClick={onRetryCostDefaults}>
-                  {t("common.retry")}
-                </Button>
-              </div>
-            ) : null}
             <div className="min-w-0 space-y-1.5">
               {form.faults.length === 0 ? (
                 <OrderWorkspaceEmptyBlock>
@@ -166,72 +135,17 @@ export function NewOrderQuotationSection({
                   {form.faults.map((item, index) => (
                     <OrderWorkspaceQuoteRow
                       key={item.key}
-                      priceFullWidth={canManageOrderCosts && Boolean(item.line_id)}
+                      priceFullWidth={false}
                       price={
-                        canManageOrderCosts && item.line_id ? (
-                          <div className="grid min-w-0 grid-cols-2 gap-1.5">
-                            <label className="min-w-0">
-                              <span className="mb-0.5 block truncate text-[8px] font-semibold text-muted-foreground lg:text-xs lg:leading-4">
-                                {t("orders2b1.new.internalCost")}
-                              </span>
-                              <Input
-                                value={costDrafts[item.line_id]?.text ?? ""}
-                                inputMode="decimal"
-                                autoComplete="off"
-                                placeholder={
-                                  costDefaultsPending
-                                    ? t("orders2b1.new.loading")
-                                    : costDefaultsError
-                                      ? t("orders2b1.new.readFailed")
-                                      : t("orders2b1.new.leaveEmpty")
-                                }
-                                disabled={isNewOrderCostInputDisabled({
-                                  catalogKey: item.catalog_key,
-                                  isOnline,
-                                  defaultsPending: costDefaultsPending,
-                                  defaultsError: costDefaultsError,
-                                })}
-                                aria-label={t("orders2b1.new.costAria", { index: index + 1 })}
-                                className={cn(controlClass, "px-2 font-mono")}
-                                onChange={(event) =>
-                                  onCostDraftChange?.(item.line_id!, event.target.value)
-                                }
-                              />
-                            </label>
-                            <label className="min-w-0">
-                              <span className="mb-0.5 block truncate text-[8px] font-semibold text-muted-foreground lg:text-xs lg:leading-4">
-                                {t("orders2b1.new.customerQuote")}
-                              </span>
-                              <MoneyKeypadInput
-                                ariaLabel={t("orders2b1.new.quoteAria", { index: index + 1 })}
-                                value={moneyDraftValue(Number(item.price) || 0)}
-                                onChange={(value) =>
-                                  onPatchFault(index, { price: parseMoneyDraft(value) })
-                                }
-                                triggerClassName={cn(controlClass, "px-2 font-mono")}
-                                placeholder="0"
-                              />
-                            </label>
-                            {costExceedsQuote(
-                              costDrafts[item.line_id]?.text ?? "",
-                              Number(item.price),
-                            ) ? (
-                              <span className="col-span-2 text-[8px] font-medium leading-3 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
-                                {t("orders2b1.new.costAboveQuote")}
-                              </span>
-                            ) : null}
-                          </div>
-                        ) : (
-                          <MoneyKeypadInput
-                            ariaLabel={t("orders2b1.new.quoteAria", { index: index + 1 })}
-                            value={moneyDraftValue(Number(item.price) || 0)}
-                            onChange={(value) =>
-                              onPatchFault(index, { price: parseMoneyDraft(value) })
-                            }
-                            triggerClassName={cn(controlClass, "px-2 font-mono")}
-                            placeholder="0"
-                          />
-                        )
+                        <MoneyKeypadInput
+                          ariaLabel={t("orders2b1.new.quoteAria", { index: index + 1 })}
+                          value={moneyDraftValue(Number(item.price) || 0)}
+                          onChange={(value) =>
+                            onPatchFault(index, { price: parseMoneyDraft(value) })
+                          }
+                          triggerClassName={cn(controlClass, "px-2 font-mono")}
+                          placeholder="0"
+                        />
                       }
                       action={
                         <Button
@@ -454,11 +368,6 @@ export function NewOrderQuotationSection({
       </div>
     </Shell>
   );
-}
-
-function costExceedsQuote(costText: string, quote: number) {
-  const cost = parseOrderCostDraftAmount(costText);
-  return cost !== null && Number.isFinite(quote) && cost > quote;
 }
 
 function getOperatorRoleLabel(role: string | undefined, t: ReturnType<typeof useLocale>["t"]) {

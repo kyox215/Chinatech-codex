@@ -49,6 +49,49 @@ const order = {
 } as OrderDetail["order"];
 
 describe("OrderHero", () => {
+  it("maps completed legacy status to the final mini segment without danger styling", () => {
+    const { container } = render(
+      <LocaleProvider initialLocale="en">
+        <OrderHero
+          order={{ ...order, status: "completed", workflow_status: undefined }}
+          onPrint={vi.fn()}
+          onCancel={vi.fn()}
+          onSaveEdit={vi.fn()}
+          onCancelEdit={vi.fn()}
+        />
+      </LocaleProvider>,
+    );
+
+    const progress = container.querySelector('[data-order-mini-progress="true"]');
+    expect(progress).toBeTruthy();
+    expect(progress?.querySelectorAll("[data-order-mini-progress-segment]")).toHaveLength(5);
+    expect(progress?.querySelector('[data-order-mini-progress-segment="4"]')).toHaveClass(
+      "bg-primary",
+    );
+    expect(progress?.querySelector('[data-order-mini-progress-segment="4"]')).not.toHaveClass(
+      "bg-status-danger-foreground",
+    );
+  });
+
+  it("maps cancelled orders to a terminal mini segment with danger styling", () => {
+    const { container } = render(
+      <LocaleProvider initialLocale="en">
+        <OrderHero
+          order={{ ...order, status: "cancelled", workflow_status: undefined }}
+          onPrint={vi.fn()}
+          onCancel={vi.fn()}
+          onSaveEdit={vi.fn()}
+          onCancelEdit={vi.fn()}
+        />
+      </LocaleProvider>,
+    );
+
+    const progress = container.querySelector('[data-order-mini-progress="true"]');
+    expect(progress?.querySelector('[data-order-mini-progress-segment="4"]')).toHaveClass(
+      "bg-status-danger-foreground",
+    );
+  });
+
   it.each(locales)(
     "consumes clipboard rejection and shows a safe localized error in %s",
     async (locale) => {

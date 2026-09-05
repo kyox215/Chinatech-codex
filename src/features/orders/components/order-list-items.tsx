@@ -32,6 +32,7 @@ import {
   localizeOrderTaskGuidance,
 } from "@/features/orders/model/order-i18n";
 import { localizeOrderFinancialLabel } from "@/features/orders/model/order-i18n";
+import { OrderMiniProgress } from "@/features/orders/components/order-mini-progress";
 
 export interface OrderMobileCardProps {
   order: OrderListItem;
@@ -341,29 +342,13 @@ function MobileWorkflowStrip({
           {Math.min(currentIndex + 1, orderTaskStages.length)}/{orderTaskStages.length}
         </span>
       </div>
-      <div className="mt-1 grid min-w-0 grid-cols-5 gap-0.5">
-        {orderTaskStages.map((stage, index) => {
-          const active = index <= currentIndex;
-          const current = index === currentIndex;
-
-          return (
-            <span
-              key={stage.key}
-              title={localizeOrderFlowStage(stage, t).label}
-              className={cn(
-                "h-1 min-w-0 rounded-full",
-                current
-                  ? danger
-                    ? "bg-status-danger-foreground"
-                    : "bg-primary"
-                  : active
-                    ? "bg-primary/45"
-                    : "bg-border",
-              )}
-            />
-          );
-        })}
-      </div>
+      <OrderMiniProgress
+        workflowStatus={workflowStatus}
+        currentLabel={currentLabel}
+        nextAction={nextAction}
+        danger={danger}
+        className="mt-1"
+      />
     </div>
   );
 }

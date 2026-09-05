@@ -31,12 +31,7 @@ const mocks = vi.hoisted(() => ({
     displayName: "Marco Rossi",
     activeStore: { id: "store-1", role: "technician" } as { id: string; role: string } | undefined,
   },
-  storeContext: {
-    activeStore: { id: "store-1" },
-    permissions: { can_manage_order_costs: false },
-  },
   storeSettings: { new_order_entry_mode: "professional", default_order_warranty_months: 6 },
-  costDefaults: { isPending: false, isError: false, items: [] as unknown[] },
   offline: {
     state: "ready" as NewOrderOfflineAutosaveState,
     lastSavedAt: null as string | null,
@@ -149,20 +144,10 @@ vi.mock("@/features/orders/forms/new-order-customer-device-section", () => ({
 vi.mock("@/features/orders/forms/new-order-quotation-section", () => ({
   NewOrderQuotationSection: ({
     setForm,
-    canManageOrderCosts,
-    costDefaultsPending,
-    costDefaultsError,
   }: {
     setForm: Dispatch<SetStateAction<NewOrderFormState>>;
-    canManageOrderCosts: boolean;
-    costDefaultsPending: boolean;
-    costDefaultsError: boolean;
   }) => (
-    <div
-      data-testid="finance-contract"
-      data-can-manage={String(canManageOrderCosts)}
-      data-readonly={String(costDefaultsPending || costDefaultsError)}
-    >
+    <div data-testid="finance-contract">
       <button
         type="button"
         onClick={() =>
@@ -216,16 +201,7 @@ vi.mock("@tanstack/react-query", () => ({
   useQuery: ({ queryKey }: { queryKey: readonly unknown[] }) => {
     const key = JSON.stringify(queryKey);
     if (key.includes("onboarding-status")) return { ...mocks.queryBase, data: mocks.onboarding };
-    if (key.includes('"stores","context"')) return { ...mocks.queryBase, data: mocks.storeContext };
     if (key.includes("store-settings")) return { ...mocks.queryBase, data: mocks.storeSettings };
-    if (key.includes("cost-defaults")) {
-      return {
-        ...mocks.queryBase,
-        isPending: mocks.costDefaults.isPending,
-        isError: mocks.costDefaults.isError,
-        data: { items: mocks.costDefaults.items },
-      };
-    }
     return { ...mocks.queryBase, data: undefined };
   },
 }));
@@ -249,8 +225,6 @@ describe("NewOrderScreen i18n", () => {
     mocks.mutationPending = false;
     mocks.onboarding.activeStore = { id: "store-1", role: "technician" };
     mocks.onboarding.userId = "user-1";
-    mocks.storeContext.permissions.can_manage_order_costs = false;
-    Object.assign(mocks.costDefaults, { isPending: false, isError: false, items: [] });
     Object.assign(mocks.offline, {
       state: "ready",
       lastSavedAt: null,
@@ -437,28 +411,6 @@ describe("NewOrderScreen i18n", () => {
       await waitFor(() => expect(dialog).not.toBeInTheDocument());
     },
   );
-
-  it.each(locales)("passes hidden and read-only finance contracts in %s", async (locale) => {
-    const hidden = render(
-      <LocaleProvider initialLocale={locale}>
-        <NewOrderScreen />
-      </LocaleProvider>,
-    );
-    expect(screen.getByTestId("finance-contract")).toHaveAttribute("data-can-manage", "false");
-    hidden.unmount();
-
-    mocks.storeContext.permissions.can_manage_order_costs = true;
-    mocks.costDefaults.isPending = true;
-    render(
-      <LocaleProvider initialLocale={locale}>
-        <NewOrderScreen />
-      </LocaleProvider>,
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId("finance-contract")).toHaveAttribute("data-can-manage", "true"),
-    );
-    expect(screen.getByTestId("finance-contract")).toHaveAttribute("data-readonly", "true");
-  });
 
   it.each(locales)(
     "localizes restore and preserves restored dynamic data in %s",

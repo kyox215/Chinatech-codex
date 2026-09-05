@@ -6,18 +6,6 @@ import { RulesSettingsSection } from "@/features/settings/sections/rules-setting
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
 import type { AppLocale } from "@/shared/i18n/locales";
 
-vi.mock("@/features/settings/components/repair-cost-defaults-card", () => ({
-  RepairCostDefaultsCard: ({ storeId }: { storeId: string }) => (
-    <div data-testid="settings-test-defaults-card" data-store-id={storeId}>
-      <label>
-        测试成本草稿
-        <input aria-label="测试成本草稿" defaultValue="初始成本" />
-      </label>
-      <div data-testid="settings-test-cost-guard" />
-    </div>
-  ),
-}));
-
 vi.mock("@/features/settings/components/cost-currency-settings-card", () => ({
   CostCurrencySettingsCard: ({ storeId }: { storeId: string }) => (
     <div data-testid="settings-test-currency-card" data-store-id={storeId} />
@@ -140,44 +128,6 @@ describe("RulesSettingsSection", () => {
     expect(dialog).not.toHaveTextContent("NaN");
   });
 
-  it("does not mount or name internal cost controls without the dedicated permission", () => {
-    renderRules({ canManageOrderCosts: false, activeStoreId: "store-a" });
-
-    expect(screen.queryByLabelText("维修项目默认成本")).not.toBeInTheDocument();
-    expect(screen.queryByText("成本仅供获授权管理人员查看")).not.toBeInTheDocument();
-    expect(screen.queryByText("配件采购成本与库存")).not.toBeInTheDocument();
-    expect(screen.queryByText("采购成本币种与汇率")).not.toBeInTheDocument();
-  });
-
-  it("keeps cost editors and their unsaved guard mounted while the fold is closed", () => {
-    renderRules({ canManageOrderCosts: true, activeStoreId: "store-a" });
-
-    const toggle = screen.getByRole("button", { name: /^财务与成本/ });
-    const content = document.querySelector<HTMLElement>("[data-settings-rules-costs-content]");
-    expect(content).not.toBeNull();
-    expect(content).toHaveAttribute("hidden", "");
-    expect(
-      document.querySelector("[data-testid='settings-test-defaults-card']"),
-    ).toBeInTheDocument();
-    expect(document.querySelector("[data-testid='settings-test-cost-guard']")).toBeInTheDocument();
-
-    fireEvent.click(toggle);
-    const input = screen.getByRole("textbox", { name: "测试成本草稿" });
-    fireEvent.change(input, { target: { value: "编辑后的成本" } });
-    expect(input).toHaveValue("编辑后的成本");
-
-    fireEvent.click(toggle);
-    expect(content).toHaveAttribute("hidden", "");
-    expect(document.querySelector("[data-testid='settings-test-cost-guard']")).toBeInTheDocument();
-    expect(
-      document.querySelector<HTMLInputElement>("[data-testid='settings-test-defaults-card'] input"),
-    ).toHaveValue("编辑后的成本");
-    expect(screen.queryByRole("textbox", { name: "测试成本草稿" })).not.toBeInTheDocument();
-
-    fireEvent.click(toggle);
-    expect(screen.getByRole("textbox", { name: "测试成本草稿" })).toHaveValue("编辑后的成本");
-  });
-
   it.each([
     ["zh-CN", "默认规则", "新库存商品默认保修月数", "简易模式"],
     [
@@ -204,7 +154,6 @@ describe("RulesSettingsSection", () => {
   );
 
   it.each([
-    ["defaults", { canManageOrderCosts: true }, "settings-test-defaults-card"],
     ["currency", { canManageCostCurrencies: true }, "settings-test-currency-card"],
     ["parts", { canAllocatePartsCosts: true }, "settings-test-parts-card"],
     ["backfill", { canPreviewCostBackfill: true }, "settings-test-backfill-card"],
@@ -213,7 +162,6 @@ describe("RulesSettingsSection", () => {
 
     expect(screen.getByTestId(testId)).toHaveAttribute("data-store-id", "store-a");
     for (const candidate of [
-      "settings-test-defaults-card",
       "settings-test-currency-card",
       "settings-test-parts-card",
       "settings-test-backfill-card",
@@ -240,7 +188,6 @@ describe("RulesSettingsSection", () => {
       "false",
     );
     expect(screen.queryByTestId("settings-test-currency-card")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("settings-test-defaults-card")).not.toBeInTheDocument();
   });
 });
 
@@ -251,7 +198,6 @@ function renderRules({
     new_order_entry_mode: "professional" as const,
   },
   canUpdateSettings = true,
-  canManageOrderCosts = false,
   canAllocatePartsCosts = false,
   canReadCostCurrencies = false,
   canManageCostCurrencies = false,
@@ -267,7 +213,6 @@ function renderRules({
     new_order_entry_mode: "simple" | "professional";
   };
   canUpdateSettings?: boolean;
-  canManageOrderCosts?: boolean;
   canAllocatePartsCosts?: boolean;
   canReadCostCurrencies?: boolean;
   canManageCostCurrencies?: boolean;
@@ -288,7 +233,6 @@ function renderRules({
         isDraftDirty
         canUpdateSettings={canUpdateSettings}
         activeStoreId={activeStoreId}
-        canManageOrderCosts={canManageOrderCosts}
         canAllocatePartsCosts={canAllocatePartsCosts}
         canReadCostCurrencies={canReadCostCurrencies}
         canManageCostCurrencies={canManageCostCurrencies}

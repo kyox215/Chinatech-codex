@@ -104,6 +104,29 @@ describe("member settings editor", () => {
     ).toBe(false);
   });
 
+  it("preserves stored cost grants when the editor hides them", () => {
+    const manager: StoreMember = {
+      ...member,
+      role: "manager",
+      permission_grants: ["finance:cost_manage", "finance:cost_export", "inventory:cost_allocate"],
+    };
+
+    expect(createMemberEditorDraft(manager).permissions).toEqual([
+      "finance:aggregate_read",
+      "finance:profit_read",
+      "finance:cost_manage",
+      "finance:cost_export",
+      "inventory:cost_allocate",
+    ]);
+    expect(visibleMemberPermissionOptions("manager", false)).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ action: "finance:cost_manage" }),
+        expect.objectContaining({ action: "finance:cost_export" }),
+        expect.objectContaining({ action: "inventory:cost_allocate" }),
+      ]),
+    );
+  });
+
   it("adds prerequisite grants for phase-two cost capabilities", () => {
     const exportDraft = updateMemberEditorPermission(
       { role: "manager", permissions: [] },

@@ -210,9 +210,6 @@ vi.mock("@/features/orders/components/fixed-pdf-ready-dialog", () => ({
 vi.mock("@/features/orders/components/order-terminal-actions", () => ({
   OrderTerminalActions: () => null,
 }));
-vi.mock("@/features/orders/components/order-internal-cost-card", () => ({
-  OrderInternalCostCard: () => null,
-}));
 vi.mock("@/components/orders/diagnosis-quote-dialog", () => ({
   DiagnosisQuoteDialog: () => null,
 }));
@@ -238,9 +235,13 @@ vi.mock("@/features/orders/components/order-overview-tab", () => ({
   ),
   OrderDetailHeaderFinanceSummary: () => null,
   OrderKeyInfoCard: () => null,
-  DesktopOrderPhotosPanel: ({ onCapture }: { onCapture?: (trigger: HTMLButtonElement) => void }) =>
+  DesktopOrderPhotosPanel: ({
+    onCapture,
+  }: {
+    onCapture?: (kind: "other", trigger: HTMLButtonElement) => void;
+  }) =>
     onCapture ? (
-      <button type="button" onClick={(event) => onCapture(event.currentTarget)}>
+      <button type="button" onClick={(event) => onCapture("other", event.currentTarget)}>
         Harness photos panel capture
       </button>
     ) : null,
@@ -259,7 +260,7 @@ vi.mock("@/features/orders/components/order-overview-tab", () => ({
     onEditDraftChange?: (draft: UpdateOrderInput) => void;
     onFinanceDraftChange?: (draft: FinanceDraftState) => void;
     custodyControl?: ReactNode;
-    onPhotoCapture?: (trigger: HTMLButtonElement) => void;
+    onPhotoCapture?: (kind: "other", trigger: HTMLButtonElement) => void;
   }) => (
     <div>
       <span>{order.customer_name}</span>
@@ -267,7 +268,7 @@ vi.mock("@/features/orders/components/order-overview-tab", () => ({
       <span>{order.issue_description}</span>
       {custodyControl}
       {onPhotoCapture ? (
-        <button type="button" onClick={(event) => onPhotoCapture(event.currentTarget)}>
+        <button type="button" onClick={(event) => onPhotoCapture("other", event.currentTarget)}>
           Harness open photo capture
         </button>
       ) : null}
@@ -420,7 +421,6 @@ function makeDetail() {
       canCollectPayment: false,
       canCreateKioskSession: false,
       canUploadPhoto: true,
-      canReadInternalCosts: false,
     },
   };
 }
@@ -605,7 +605,7 @@ describe("OrderDetailScreen i18n", () => {
   });
 
   it.each(locales)(
-    "makes zero supplier, assignee, cost and nested mutation requests without %s capabilities",
+    "makes zero supplier, assignee, finance and nested mutation requests without %s capabilities",
     (locale) => {
       const detail = makeDetail();
       detail.capabilities = {
@@ -615,7 +615,6 @@ describe("OrderDetailScreen i18n", () => {
         canAdjustFinance: false,
         canTransition: false,
         canCreateKioskSession: false,
-        canReadInternalCosts: false,
       };
       mocks.detail = detail;
       const view = renderDetail(locale);
@@ -626,9 +625,6 @@ describe("OrderDetailScreen i18n", () => {
       );
 
       expect(view.container.querySelector("[data-order-records-controls='true']")).toBeNull();
-      expect(
-        screen.queryByRole("tab", { name: translateMessage(locale, "orders2b2.tab.costs") }),
-      ).not.toBeInTheDocument();
       expect(mocks.patchOrder).not.toHaveBeenCalled();
       expect(mocks.patchOrderFinance).not.toHaveBeenCalled();
       expect(mocks.transitionOrder).not.toHaveBeenCalled();
@@ -722,78 +718,72 @@ describe("OrderDetailScreen i18n", () => {
       role: "owner",
       canEditIntake: true,
       canEditRepair: true,
-      canReadInternalCosts: true,
+      canAdjustFinance: true,
       canAssignSuppliers: true,
       canAssignOrders: true,
       canUploadPhoto: true,
       editVisible: true,
       controlsVisible: true,
-      costsVisible: true,
     },
     {
       actor: "manager",
       role: "manager",
       canEditIntake: true,
       canEditRepair: true,
-      canReadInternalCosts: true,
+      canAdjustFinance: true,
       canAssignSuppliers: false,
       canAssignOrders: true,
       canUploadPhoto: true,
       editVisible: true,
       controlsVisible: true,
-      costsVisible: true,
     },
     {
       actor: "assigned technician",
       role: "technician",
       canEditIntake: false,
       canEditRepair: true,
-      canReadInternalCosts: false,
+      canAdjustFinance: false,
       canAssignSuppliers: false,
       canAssignOrders: false,
       canUploadPhoto: true,
       editVisible: true,
       controlsVisible: false,
-      costsVisible: false,
     },
     {
       actor: "unassigned technician",
       role: "technician",
       canEditIntake: false,
       canEditRepair: false,
-      canReadInternalCosts: false,
+      canAdjustFinance: false,
       canAssignSuppliers: false,
       canAssignOrders: false,
       canUploadPhoto: false,
       editVisible: false,
       controlsVisible: false,
-      costsVisible: false,
     },
     {
       actor: "sales",
       role: "sales",
       canEditIntake: true,
       canEditRepair: false,
-      canReadInternalCosts: false,
+      canAdjustFinance: false,
       canAssignSuppliers: false,
       canAssignOrders: false,
       canUploadPhoto: true,
       editVisible: true,
       controlsVisible: false,
-      costsVisible: false,
     },
     {
       actor: "viewer",
       role: "viewer",
       canEditIntake: false,
       canEditRepair: false,
-      canReadInternalCosts: false,
+      canAdjustFinance: false,
       canAssignSuppliers: false,
       canAssignOrders: false,
       canUploadPhoto: false,
       editVisible: false,
       controlsVisible: false,
-      costsVisible: false,
     },
   ])(
     "honors the projected $actor capability matrix without implicit requests",
@@ -801,21 +791,19 @@ describe("OrderDetailScreen i18n", () => {
       role,
       canEditIntake,
       canEditRepair,
-      canReadInternalCosts,
+      canAdjustFinance,
       canAssignSuppliers,
       canAssignOrders,
       canUploadPhoto,
       editVisible,
       controlsVisible,
-      costsVisible,
     }) => {
       const detail = makeDetail();
       detail.capabilities = {
         ...detail.capabilities,
         canEditIntake,
         canEditRepair,
-        canAdjustFinance: canReadInternalCosts,
-        canReadInternalCosts,
+        canAdjustFinance,
         canUploadPhoto,
       };
       mocks.detail = detail;
@@ -867,9 +855,6 @@ describe("OrderDetailScreen i18n", () => {
       expect(Boolean(view.container.querySelector("[data-order-records-controls='true']"))).toBe(
         controlsVisible,
       );
-      expect(
-        Boolean(screen.queryByRole("tab", { name: translateMessage("en", "orders2b2.tab.costs") })),
-      ).toBe(costsVisible);
       expect(mocks.patchOrder).not.toHaveBeenCalled();
       expect(mocks.patchOrderFinance).not.toHaveBeenCalled();
       expect(mocks.transitionOrder).not.toHaveBeenCalled();
@@ -893,9 +878,9 @@ describe("OrderDetailScreen i18n", () => {
 
       expect(
         Boolean(
-          screen.queryByRole("button", {
-            name: translateMessage("en", "orders2b2.overview.capture"),
-          }),
+          screen.queryAllByRole("button", {
+            name: new RegExp(translateMessage("en", "orders2b2.overview.capture")),
+          }).length > 0,
         ),
       ).toBe(expectedEntry);
       expect(screen.queryAllByTestId("camera-capture-sheet")).toHaveLength(expectedEntry ? 2 : 0);
@@ -928,11 +913,11 @@ describe("OrderDetailScreen i18n", () => {
 
       const entry =
         surface === "desktop"
-          ? screen.queryByRole("button", { name: "Harness open photo capture" })
-          : screen.queryByRole("button", {
-              name: translateMessage("en", "orders2b2.overview.capture"),
-            });
-      expect(Boolean(entry)).toBe(expectedEntry);
+          ? Boolean(screen.queryByRole("button", { name: "Harness open photo capture" }))
+          : screen.queryAllByRole("button", {
+              name: new RegExp(translateMessage("en", "orders2b2.overview.capture")),
+            }).length > 0;
+      expect(entry).toBe(expectedEntry);
       expect(screen.queryAllByTestId("camera-capture-sheet")).toHaveLength(
         expectedEntry ? (surface === "compact" ? 2 : 1) : 0,
       );
@@ -1004,7 +989,7 @@ describe("OrderDetailScreen i18n", () => {
     expect(screen.getAllByText(translateMessage(locale, "orders2b2.title")).length).toBeGreaterThan(
       0,
     );
-    expect(screen.getByText(translateMessage(locale, "orders2b2.mobile.basic"))).toBeVisible();
+    expect(screen.getByTestId("mobile-order-header-meta")).toBeVisible();
     expect(
       screen.getByRole("button", { name: translateMessage(locale, "orders2b2.unlock.entry") }),
     ).toBeVisible();
@@ -1016,6 +1001,19 @@ describe("OrderDetailScreen i18n", () => {
     expect(
       screen.getByText(translateMessage(locale, "orders2b2.mobile.historyEmpty")),
     ).toBeVisible();
+  });
+
+  it.each(locales)("keeps the localized %s compact read-only assignee fallback", (locale) => {
+    mocks.viewport = "compact";
+    mocks.detail = {
+      ...makeDetail(),
+      order: { ...detailOrder, technician_name: "动态中文负责人" },
+    };
+
+    renderDetail(locale, "page");
+
+    expect(screen.getByText("动态中文负责人")).toBeVisible();
+    expect(screen.getByText(translateMessage(locale, "orders2b2.overview.assignee"))).toBeVisible();
   });
 
   it.each(locales)("uses the localized %s compact operator fallback", (locale) => {

@@ -36,7 +36,7 @@ import {
 } from "@/lib/mock/enums";
 import { normalizePositiveCentAmount } from "@/lib/money";
 import { storePermissionActions } from "@/entities/staff/model/store-permission-policy";
-import { repairServiceCatalogItems, resolveRepairServiceCatalogItem } from "@/entities/order";
+import { resolveRepairServiceCatalogItem } from "@/entities/order";
 import { STORE_PURGE_CONFIRMATION_MAX_LENGTH } from "@/entities/store/model/store-purge-confirmation";
 import { storeSettingsSectionUpdateSchema } from "@/features/settings/model/store-settings-update-contract";
 import { supplierInputSchema } from "@/features/suppliers/model/supplier-input-contract";
@@ -813,6 +813,15 @@ const catalogKeySchema = z
   .max(120, "维修项目目录标识过长")
   .regex(/^[a-z0-9-]+:[a-z0-9-]+$/, "维修项目目录标识无效");
 
+const costAmountSchema = z
+  .number()
+  .finite()
+  .min(0, "成本不能为负数")
+  .max(999_999.99, "成本金额过大")
+  .refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-8, {
+    message: "成本最多保留两位小数",
+  });
+
 export const faultPriceItemSchema = z
   .object({
     line_id: orderLineIdSchema.optional(),
@@ -831,35 +840,6 @@ export const faultPriceItemSchema = z
         code: z.ZodIssueCode.custom,
         path: ["catalog_key"],
         message: "维修项目目录与名称不匹配",
-      });
-    }
-  });
-
-const createOrderCostInputSchema = z
-  .object({
-    line_id: orderLineIdSchema,
-    catalog_key: catalogKeySchema.optional(),
-    mode: z.enum(["default", "manual", "blank"]),
-    amount: z
-      .number()
-      .finite()
-      .min(0, "成本不能为负数")
-      .max(999_999.99, "成本金额过大")
-      .refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-8, {
-        message: "成本最多保留两位小数",
-      })
-      .optional(),
-  })
-  .strict()
-  .superRefine((item, context) => {
-    if (item.mode === "manual" && item.amount === undefined) {
-      context.addIssue({ code: z.ZodIssueCode.custom, path: ["amount"], message: "请输入成本" });
-    }
-    if (item.mode !== "manual" && item.amount !== undefined) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["amount"],
-        message: "默认或留空模式不能提交金额",
       });
     }
   });
@@ -954,39 +934,12 @@ export const createOrderSchema = z
     warranty_months: z.coerce.number().optional(),
     warranty_change_reason: optionalText,
     fault_prices: z.array(faultPriceItemSchema),
-    cost_inputs: z.array(createOrderCostInputSchema).optional(),
     deposit_amount: z.coerce.number().optional(),
     assignee_membership_id: z.string().uuid().optional(),
   })
   .strip()
   .superRefine((input, context) => {
     validateUniqueLineIds(input.fault_prices, context);
-    if (!input.cost_inputs) return;
-    const byId = new Map(input.fault_prices.map((item) => [item.line_id, item]));
-    const costIds = input.cost_inputs.map((item) => item.line_id);
-    if (new Set(costIds).size !== costIds.length) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["cost_inputs"],
-        message: "同一维修项目不能重复提交成本",
-      });
-    }
-    for (const [index, cost] of input.cost_inputs.entries()) {
-      const line = byId.get(cost.line_id);
-      if (!line) {
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["cost_inputs", index, "line_id"],
-          message: "成本必须对应当前维修项目",
-        });
-      } else if (cost.catalog_key && cost.catalog_key !== line.catalog_key) {
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["cost_inputs", index, "catalog_key"],
-          message: "成本目录与维修项目不匹配",
-        });
-      }
-    }
   }) satisfies z.ZodType<CreateOrderInput>;
 
 export const orderCreateOperationStatusSchema = z
@@ -1139,116 +1092,6 @@ export const publishOrderQuoteInputSchema = z
       });
     }
   }) satisfies z.ZodType<PublishOrderQuoteInput>;
-
-const costAmountSchema = z
-  .number()
-  .finite()
-  .min(0, "成本不能为负数")
-  .max(999_999.99, "成本金额过大")
-  .refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-8, {
-    message: "成本最多保留两位小数",
-  });
-
-export const storeFaultCostDefaultsUpdateBodySchema = z
-  .object({
-    expected_store_id: z.string().uuid("店铺标识无效"),
-    expected_version: z.number().int().nonnegative(),
-    items: z
-      .array(
-        z
-          .object({
-            catalog_key: catalogKeySchema,
-            catalog_name: z.string().trim().min(1).max(120),
-            default_cost_amount: costAmountSchema.nullable(),
-          })
-          .strict()
-          .superRefine((item, context) => {
-            const catalog = resolveRepairServiceCatalogItem({
-              catalogKey: item.catalog_key,
-              name: item.catalog_name,
-            });
-            if (!catalog || catalog.catalogKey !== item.catalog_key) {
-              context.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ["catalog_key"],
-                message: "维修项目目录与名称不匹配",
-              });
-            }
-          }),
-      )
-      .min(1)
-      .max(200),
-  })
-  .strict()
-  .superRefine((input, context) => {
-    const keys = input.items.map((item) => item.catalog_key);
-    if (new Set(keys).size !== keys.length) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["items"],
-        message: "目录项目不能重复",
-      });
-    }
-    const expectedKeys = new Set(repairServiceCatalogItems.map((item) => item.catalogKey));
-    if (keys.length !== expectedKeys.size || keys.some((key) => !expectedKeys.has(key))) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["items"],
-        message: "请提交完整的维修项目默认成本列表",
-      });
-    }
-  });
-
-export const storeFaultCostDefaultsReadBodySchema = z
-  .object({ expected_store_id: z.string().uuid("店铺标识无效") })
-  .strict();
-
-const updateOrderLineCostItemSchema = z
-  .object({
-    line_id: orderLineIdSchema,
-    mode: z.enum(["manual", "blank"]),
-    amount: costAmountSchema.optional(),
-  })
-  .strict()
-  .superRefine((item, context) => {
-    if (item.mode === "manual" && item.amount === undefined) {
-      context.addIssue({ code: z.ZodIssueCode.custom, path: ["amount"], message: "请输入成本" });
-    }
-    if (item.mode === "blank" && item.amount !== undefined) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["amount"],
-        message: "留空不能提交金额",
-      });
-    }
-  });
-
-export const orderLineCostsReadBodySchema = z
-  .object({ id: z.string().trim().min(1, "工单标识无效").max(120) })
-  .strict();
-
-export const orderLineCostsUpdateBodySchema = z
-  .object({
-    id: z.string().trim().min(1, "工单标识无效").max(120),
-    input: z
-      .object({
-        expected_store_id: z.string().uuid("店铺标识无效"),
-        expected_version: z.number().int().nonnegative(),
-        items: z.array(updateOrderLineCostItemSchema).max(50),
-      })
-      .strict(),
-  })
-  .strict()
-  .superRefine((body, context) => {
-    const ids = body.input.items.map((item) => item.line_id);
-    if (new Set(ids).size !== ids.length) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["input", "items"],
-        message: "成本项目不能重复",
-      });
-    }
-  });
 
 const reportLocalDateSchema = z
   .string()

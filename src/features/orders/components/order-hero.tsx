@@ -3,9 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
-  AlertTriangle,
   ArrowLeft,
-  Check,
   Clock3,
   MoreHorizontal,
   Pencil,
@@ -33,9 +31,10 @@ import {
 import type { OrderDetail } from "@/lib/repairdesk/api";
 import {
   getOrderTaskGuidance,
-  orderTaskStages,
+  getOrderWorkflowStatus,
   type OrderTaskStage,
 } from "@/features/orders/model/order-task-flow";
+import { OrderMiniProgress } from "@/features/orders/components/order-mini-progress";
 import { formatOrderDateTime } from "@/features/orders/model/order-date";
 import { localizeOrderDetailBadge } from "@/features/orders/model/order-detail-i18n";
 import {
@@ -44,10 +43,6 @@ import {
   localizeOrderType,
 } from "@/features/orders/model/order-i18n";
 import { getOrderSideStatusBadges } from "@/features/orders/model/order-side-statuses";
-import {
-  deriveOrderFinancialState,
-  isOrderCancelledForPayment,
-} from "@/features/orders/model/order-payment-state";
 import { detailWorkspace } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/shared/i18n/locale-provider";
@@ -66,6 +61,7 @@ export function OrderHero({
   onSaveEdit,
   onCancelEdit,
   storeName = "",
+  statusChangedAt,
   isEditing = false,
   editPending = false,
   editSaveDisabled = false,
@@ -73,7 +69,6 @@ export function OrderHero({
   surface = "page",
   onClose,
   currentStage,
-  currentStageIndex = 0,
   nextActionLabel,
   taskHint,
   approvalDecisionAvailable = false,
@@ -94,6 +89,7 @@ export function OrderHero({
   onSaveEdit: () => void;
   onCancelEdit: () => void;
   storeName?: string;
+  statusChangedAt?: string;
   isEditing?: boolean;
   editPending?: boolean;
   editSaveDisabled?: boolean;
@@ -101,7 +97,6 @@ export function OrderHero({
   surface?: "page" | "dialog";
   onClose?: () => void;
   currentStage?: OrderTaskStage;
-  currentStageIndex?: number;
   nextActionLabel?: string;
   taskHint?: string;
   approvalDecisionAvailable?: boolean;
@@ -117,45 +112,20 @@ export function OrderHero({
     ...activeStageSource,
     ...localizeOrderFlowStage(activeStageSource, t),
   };
-  const localizedStages = orderTaskStages.map((stage) => localizeOrderFlowStage(stage, t));
-  const safeCurrentStageIndex = Math.max(
-    0,
-    Math.min(currentStageIndex, orderTaskStages.length - 1),
-  );
   const primaryActionLabel =
     nextActionLabel ??
     (approvalDecisionAvailable ? t("orders2b2.hero.approval") : guidance.nextAction);
-  const progressPercent = Math.max(
-    0,
-    Math.min(100, (safeCurrentStageIndex / Math.max(1, orderTaskStages.length - 1)) * 100),
-  );
-  const stageGridStyle = {
-    gridTemplateColumns: `repeat(${orderTaskStages.length}, minmax(0, 1fr))`,
-  };
-  const showFinanceReadiness = !order.finance_redacted && !isOrderCancelledForPayment(order);
-  const financialState = deriveOrderFinancialState(order);
-  const readiness = [
-    { label: t("orders2b2.hero.customerPhone"), done: Boolean(order.customer_phone?.trim()) },
-    { label: t("orders2b2.hero.deviceModel"), done: Boolean(order.device_label?.trim()) },
-    ...(showFinanceReadiness
-      ? [
-          {
-            label: t("orders2b2.hero.repairQuote"),
-            done: order.fault_prices.length > 0 || order.quotation_amount > 0,
-          },
-          {
-            label: t("orders2b2.hero.balance"),
-            done:
-              financialState.settlement === "settled" ||
-              financialState.settlement === "zero_charge" ||
-              financialState.settlement === "refunded" ||
-              activeStage.key !== "pickup",
-          },
-        ]
-      : []),
-  ];
-  const missingCount = readiness.filter((item) => !item.done).length;
-  const missingItems = readiness.filter((item) => !item.done);
+  const isTerminal =
+    order.status === "completed" ||
+    order.status === "cancelled" ||
+    order.status === "voided" ||
+    order.status === "deleted" ||
+    order.workflow_status === "closed";
+  const isDanger =
+    order.status === "cancelled" ||
+    order.exception_status === "cancelled" ||
+    order.record_state === "voided" ||
+    Boolean(order.deleted_at);
   const heroActions = (
     <div className="flex min-w-0 shrink-0 items-center justify-end gap-1">
       {printDisabled && printRecovery ? (
@@ -366,12 +336,24 @@ export function OrderHero({
               <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
                 <span className="inline-flex min-w-0 items-center gap-1">
                   <Clock3 className="size-3 shrink-0" />
-                  <span className="truncate">
+                  <time className="truncate" dateTime={order.created_at}>
                     {t("orders2b2.hero.createdAt", {
                       date: formatOrderDateTime(order.created_at, locale),
                     })}
-                  </span>
+                  </time>
                 </span>
+                {statusChangedAt ? (
+                  <span
+                    className="inline-flex min-w-0 items-center gap-1"
+                    aria-label={t("orders2b2.overview.statusAt")}
+                  >
+                    <Clock3 className="size-3 shrink-0" aria-hidden="true" />
+                    <time className="truncate" dateTime={statusChangedAt}>
+                      {t("orders2b2.overview.statusAt")} {"·"}{" "}
+                      {formatOrderDateTime(statusChangedAt, locale)}
+                    </time>
+                  </span>
+                ) : null}
                 <span className="inline-flex min-w-0 items-center gap-1">
                   <UserRound className="size-3 shrink-0" />
                   <span className="truncate">
@@ -380,7 +362,9 @@ export function OrderHero({
                 </span>
                 <span className="inline-flex min-w-0 items-center gap-1">
                   <Store className="size-3 shrink-0" />
-                  <span className="truncate">{storeName}</span>
+                  <span className="truncate" aria-label={t("orders2b2.overview.store")}>
+                    {storeName}
+                  </span>
                 </span>
               </div>
             </div>
@@ -398,179 +382,14 @@ export function OrderHero({
               "grid items-center gap-1.5 lg:grid-cols-[minmax(0,1fr)_minmax(250px,290px)]",
           )}
         >
-          {surface === "dialog" ? (
-            <div
-              data-order-progress-compact="true"
-              className="flex h-7 min-w-0 items-center gap-2 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/55 px-2"
-            >
-              <div className="flex min-w-0 shrink items-center gap-1 text-[10px] lg:text-xs lg:leading-4">
-                <span className="shrink-0 text-muted-foreground">
-                  {t("orders2b2.hero.current")}
-                </span>
-                <span className="truncate font-semibold text-primary">{activeStage.label}</span>
-              </div>
-              <div
-                data-order-stage-rail="true"
-                role="list"
-                aria-label={t("orders2b2.hero.progressAria", { stage: activeStage.label })}
-                className="relative min-w-[130px] flex-1 px-1"
-              >
-                <div className="absolute left-2 right-2 top-1/2 h-px -translate-y-1/2 rounded-full bg-border/80" />
-                <div
-                  className="absolute left-2 top-1/2 h-0.5 max-w-[calc(100%-1rem)] -translate-y-1/2 rounded-full bg-primary transition-all"
-                  style={{ width: `${progressPercent}%` }}
-                />
-                <div className="relative grid items-center gap-1" style={stageGridStyle}>
-                  {localizedStages.map((stage, index) => {
-                    const completed = index < safeCurrentStageIndex;
-                    const active = index === safeCurrentStageIndex;
-                    const displayStage = active ? activeStage : stage;
-                    return (
-                      <span
-                        key={stage.key}
-                        role="listitem"
-                        aria-current={active ? "step" : undefined}
-                        aria-label={`${index + 1}. ${displayStage.label}${
-                          completed
-                            ? t("orders2b2.hero.stepComplete")
-                            : active
-                              ? t("orders2b2.hero.stepCurrent")
-                              : t("orders2b2.hero.stepPending")
-                        }`}
-                        title={displayStage.label}
-                        className={cn(
-                          "mx-auto grid size-3.5 place-items-center rounded-full border bg-card text-[7px] font-semibold leading-none shadow-sm lg:text-[11px] lg:leading-4",
-                          completed && "border-primary bg-primary text-primary-foreground",
-                          active &&
-                            "border-primary bg-primary/10 text-primary ring-1 ring-primary/25",
-                          !completed &&
-                            !active &&
-                            "border-[var(--border-panel)] bg-[var(--surface-panel)] text-muted-foreground",
-                        )}
-                      >
-                        {completed ? <Check className="size-2.5" aria-hidden="true" /> : index + 1}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="flex min-w-0 shrink items-center justify-end gap-1 text-right">
-                <span className="hidden shrink-0 text-[10px] text-muted-foreground lg:inline lg:text-xs lg:leading-4">
-                  {t("orders2b2.hero.next")}
-                </span>
-                <span
-                  className="max-w-[9rem] truncate text-[11px] font-semibold"
-                  title={taskHint ?? guidance.task}
-                >
-                  {primaryActionLabel}
-                </span>
-                {missingCount ? (
-                  <span
-                    data-order-readiness="true"
-                    className="shrink-0 rounded-full bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-warn-foreground lg:text-[11px] lg:leading-4"
-                    title={missingItems
-                      .map((item) => t("orders2b2.hero.missingItem", { item: item.label }))
-                      .join(", ")}
-                  >
-                    {t("orders2b2.hero.missing", { count: missingCount })}
-                  </span>
-                ) : (
-                  <span className="shrink-0 rounded-full bg-status-success px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-success-foreground lg:text-[11px] lg:leading-4">
-                    {t("orders2b2.hero.ready")}
-                  </span>
-                )}
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="mb-0.5 flex min-w-0 items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <span className="text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
-                    {t("orders2b2.hero.currentFlow")}
-                  </span>
-                  <span className="ml-1.5 text-xs font-semibold text-primary">
-                    {activeStage.label}
-                  </span>
-                </div>
-                <div className="flex min-w-0 items-center justify-end gap-1.5 text-right leading-4">
-                  <span className="hidden text-[10px] text-muted-foreground sm:inline lg:text-xs lg:leading-4">
-                    {t("orders2b2.hero.next")}
-                  </span>
-                  <span
-                    className="max-w-[10rem] truncate text-xs font-semibold"
-                    title={taskHint ?? guidance.task}
-                  >
-                    {primaryActionLabel}
-                  </span>
-                  {missingCount ? (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-warn-foreground lg:text-[11px] lg:leading-4">
-                      <AlertTriangle className="size-3" />
-                      {t("orders2b2.hero.missing", { count: missingCount })}
-                    </span>
-                  ) : (
-                    <span className="shrink-0 rounded-full bg-status-success px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-success-foreground lg:text-[11px] lg:leading-4">
-                      {t("orders2b2.hero.ready")}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div
-                data-order-stage-rail="true"
-                className="relative min-w-0 overflow-hidden px-1 py-0.5"
-              >
-                <div className="absolute left-6 right-6 top-[11px] h-0.5 rounded-full bg-border/70" />
-                <div
-                  className="absolute left-6 top-[11px] h-0.5 max-w-[calc(100%-3rem)] rounded-full bg-primary transition-all"
-                  style={{ width: `${progressPercent}%` }}
-                />
-                <div className="relative grid gap-1" style={stageGridStyle}>
-                  {localizedStages.map((stage, index) => {
-                    const completed = index < safeCurrentStageIndex;
-                    const active = index === safeCurrentStageIndex;
-                    const displayStage = active ? activeStage : stage;
-                    return (
-                      <div key={stage.key} className="min-w-0 text-center">
-                        <span
-                          className={cn(
-                            "mx-auto grid place-items-center rounded-full border bg-card text-[8px] font-semibold shadow-sm lg:text-[11px] lg:leading-4",
-                            "size-4",
-                            completed && "border-primary bg-primary text-primary-foreground",
-                            active &&
-                              "border-primary bg-primary/10 text-primary ring-1 ring-primary/25",
-                            !completed &&
-                              !active &&
-                              "border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-muted-foreground",
-                          )}
-                        >
-                          {completed ? <Check className="size-3" /> : index + 1}
-                        </span>
-                        <p
-                          className={cn(
-                            "mt-0.5 truncate text-[8px] leading-[9px] text-muted-foreground lg:text-[11px] lg:leading-4",
-                            active && "font-semibold text-primary",
-                          )}
-                        >
-                          {displayStage.label}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-              {missingItems.length ? (
-                <div data-order-readiness="true" className="mt-1 flex min-w-0 flex-wrap gap-1">
-                  {missingItems.map((item) => (
-                    <span
-                      key={item.label}
-                      className="truncate rounded-full bg-status-warn px-1.5 py-0.5 text-[9px] font-medium leading-3 text-status-warn-foreground lg:text-[11px] lg:leading-4"
-                    >
-                      {t("orders2b2.hero.missingItem", { item: item.label })}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-            </>
-          )}
+          <OrderMiniProgress
+            workflowStatus={getOrderWorkflowStatus(order)}
+            currentLabel={activeStage.label}
+            nextAction={primaryActionLabel}
+            danger={isDanger}
+            isTerminal={isTerminal}
+            className="h-1.5"
+          />
           {surface === "dialog" && financeSummary ? (
             <div className="min-w-0 border-l border-[var(--border-panel)] pl-1.5">
               {financeSummary}

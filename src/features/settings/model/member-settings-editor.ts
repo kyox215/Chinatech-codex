@@ -50,8 +50,8 @@ export const MEMBER_PERMISSION_OPTIONS: readonly MemberPermissionOption[] = [
   },
   {
     action: "finance:cost_manage",
-    label: "管理维修项目成本",
-    description: "可查看、输入并修改工单项目成本和店铺默认成本。",
+    label: "管理库存与采购成本",
+    description: "可管理库存成本、采购批次成本及相关财务数据。",
     group: "history-finance",
     sensitive: true,
   },
@@ -71,8 +71,8 @@ export const MEMBER_PERMISSION_OPTIONS: readonly MemberPermissionOption[] = [
   },
   {
     action: "inventory:cost_allocate",
-    label: "分配维修配件成本",
-    description: "包含成本管理权限，可把采购批次分配到维修项目。",
+    label: "分配库存采购成本",
+    description: "可将采购批次成本分配到库存与配件采购记录。",
     group: "history-finance",
     sensitive: true,
   },

@@ -21,6 +21,32 @@ export function resolveAppLocale(value: unknown): AppLocale {
   return isAppLocale(value) ? value : DEFAULT_LOCALE;
 }
 
+export function resolvePreferredLocale(acceptLanguage?: string | null): AppLocale {
+  let preferred: AppLocale = DEFAULT_LOCALE;
+  let highestQuality = 0;
+
+  for (const preference of (acceptLanguage ?? "").split(",")) {
+    const parts = preference.trim().split(";");
+    const language = parts[0].trim();
+    if (parts.length > 2 || !/^[a-z]{1,8}(?:-[a-z0-9]{1,8})*$/i.test(language)) continue;
+
+    const baseLanguage = language.toLowerCase().split("-")[0];
+    const locale = APP_LOCALES.find((candidate) => candidate.split("-")[0] === baseLanguage);
+    if (!locale) continue;
+
+    const weight = parts[1]?.trim();
+    const match = weight?.match(/^q\s*=\s*(0(?:\.\d{0,3})?|1(?:\.0{0,3})?)$/i);
+    if (weight !== undefined && !match) continue;
+    const quality = match ? Number(match[1]) : 1;
+    if (quality > highestQuality) {
+      preferred = locale;
+      highestQuality = quality;
+    }
+  }
+
+  return preferred;
+}
+
 export function readLocaleCookie(cookieHeader: string): AppLocale | undefined {
   const cookie = cookieHeader
     .split(";")

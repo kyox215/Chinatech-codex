@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Image as ImageIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,12 @@ export function OrderPhotoPreviewDialog({
     : -1;
   const active = activeIndex >= 0 ? attachments[activeIndex] : undefined;
   const source = active?.signed_url || active?.public_url;
-  const open = Boolean(active && source);
+  const [imageFailed, setImageFailed] = useState(false);
+  useEffect(() => {
+    setImageFailed(false);
+  }, [active?.id, source]);
+  const displaySource = source && !imageFailed ? source : undefined;
+  const open = Boolean(active);
   const hasMultiple = attachments.length > 1;
 
   const move = (direction: -1 | 1) => {
@@ -58,15 +64,19 @@ export function OrderPhotoPreviewDialog({
         </DialogHeader>
 
         <div className="relative mt-2 grid max-h-[70svh] min-h-[280px] place-items-center overflow-hidden rounded-xl bg-black">
-          {source ? (
+          {displaySource ? (
             <img
-              src={source}
+              src={displaySource}
               alt={active?.file_name || t("orders2b2.photo.device")}
               className="max-h-[70svh] w-full object-contain"
+              onError={() => setImageFailed(true)}
             />
           ) : (
-            <div className="grid place-items-center text-muted-foreground">
+            <div className="grid place-items-center gap-2 px-4 text-center text-muted-foreground">
               <ImageIcon className="size-8" />
+              <p role="status" className="text-xs">
+                {t("orders2b2.photo.unavailable")}
+              </p>
             </div>
           )}
 

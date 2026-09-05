@@ -39,7 +39,10 @@ import {
   OrderWorkspaceQuoteDisplayRow,
 } from "@/features/orders/components/order-workspace-primitives";
 import { OrderPhotoPreviewDialog } from "@/features/orders/components/order-photo-preview-dialog";
-import { OrderInternalCostCard } from "@/features/orders/components/order-internal-cost-card";
+import {
+  OrderDetailPhotoSlots,
+  type OrderDetailPhotoCaptureKind,
+} from "@/features/orders/components/order-detail-photo-slots";
 import { CustomerBackupPhonesField } from "@/features/customers/forms/customer-backup-phones-field";
 import { PhoneContactMenu } from "@/features/orders/components/order-contact-menu";
 import { WarrantyPicker, WarrantyTag } from "@/features/orders/components/warranty-picker";
@@ -48,10 +51,7 @@ import {
   DEVICE_CUSTODY_WITH_SHOP,
   deviceCustodyStatusFromOrder,
 } from "@/features/orders/model/device-custody";
-import {
-  findCurrentOrderStatusChangedAt,
-  formatOrderDateTime,
-} from "@/features/orders/model/order-date";
+import { formatOrderDateTime } from "@/features/orders/model/order-date";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -131,11 +131,6 @@ export function OrderOverviewTab({
   canEditIntake = false,
   canEditRepair = false,
   canAdjustFinance = false,
-  activeStoreId,
-  canReadInternalCosts = false,
-  canManageInternalCosts = false,
-  canAllocatePartsCosts = false,
-  onRepairQuoteLines,
   defaultWarrantyMonths = 6,
   onQuickImeiSave,
   quickImeiPending = false,
@@ -171,11 +166,6 @@ export function OrderOverviewTab({
   canEditIntake?: boolean;
   canEditRepair?: boolean;
   canAdjustFinance?: boolean;
-  activeStoreId?: string;
-  canReadInternalCosts?: boolean;
-  canManageInternalCosts?: boolean;
-  canAllocatePartsCosts?: boolean;
-  onRepairQuoteLines?: () => void;
   defaultWarrantyMonths?: number;
   onQuickImeiSave?: (imei: string) => void | Promise<void>;
   quickImeiPending?: boolean;
@@ -189,7 +179,7 @@ export function OrderOverviewTab({
   photoAttachments?: OrderAttachment[];
   signatureAttachments?: OrderAttachment[];
   photoUploadPending?: boolean;
-  onPhotoCapture?: (trigger: HTMLButtonElement) => void;
+  onPhotoCapture?: (kind: OrderDetailPhotoCaptureKind, trigger: HTMLButtonElement) => void;
   onRequestKioskSignature?: () => void;
   kioskSignaturePending?: boolean;
   kioskSignatureAvailable?: boolean;
@@ -252,9 +242,6 @@ export function OrderOverviewTab({
       <div className="min-w-0 space-y-2">
         {surface !== "dialog" ? (
           <OrderOverviewDesktopContextStrip
-            order={order}
-            supplier={supplier}
-            storeSettings={storeSettings}
             events={events}
             workflow={workflow}
             onShowRecords={onShowRecords}
@@ -338,31 +325,15 @@ export function OrderOverviewTab({
           </div>
         ) : null}
       </div>
-      {surface !== "dialog" && canReadInternalCosts && activeStoreId ? (
-        <OrderInternalCostCard
-          orderId={order.id}
-          storeId={activeStoreId}
-          faultPrices={order.fault_prices}
-          canManage={canManageInternalCosts}
-          canAllocatePartsCosts={canAllocatePartsCosts}
-          onRepairQuoteLines={onRepairQuoteLines}
-        />
-      ) : null}
     </motion.div>
   );
 }
 
 function OrderOverviewDesktopContextStrip({
-  order,
-  supplier,
-  storeSettings,
   events,
   workflow,
   onShowRecords,
 }: {
-  order: OrderDetail["order"];
-  supplier?: Supplier;
-  storeSettings?: StoreSettings;
   events: OrderDetail["events"];
   workflow?: OrderWorkflow;
   onShowRecords?: () => void;
@@ -375,44 +346,8 @@ function OrderOverviewDesktopContextStrip({
   const latestMeta = latestEvent
     ? `${formatDateTime(latestEvent.created_at, locale)} · ${latestEvent.operator_name}`
     : t("orders2b2.overview.historyHelp");
-  const currentStatusChangedAt = findCurrentOrderStatusChangedAt({
-    status: order.status,
-    createdAt: order.created_at,
-    events,
-  });
-
   return (
-    <section
-      data-order-detail-context-strip="true"
-      className="grid min-w-0 gap-2 rounded-lg border border-[var(--border-panel)] bg-card/95 p-2 shadow-sm md:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_minmax(220px,1.2fr)]"
-    >
-      <OverviewMeta
-        icon={Calendar}
-        label={t("orders2b2.overview.acceptedAt")}
-        value={formatDateTime(order.created_at, locale)}
-        compact
-      />
-      <OverviewMeta
-        icon={Clock3}
-        label={t("orders2b2.overview.statusAt")}
-        value={formatDateTime(currentStatusChangedAt, locale)}
-        compact
-      />
-      <OverviewMeta
-        icon={UserRound}
-        label={t("orders2b2.overview.assignee")}
-        value={order.technician_name || "-"}
-        compact
-      />
-      <OverviewMeta
-        icon={Store}
-        label={supplier ? t("orders2b2.overview.externalStore") : t("orders2b2.overview.store")}
-        value={
-          supplier?.short_name || storeSettings?.store_name || t("orders2b2.overview.notConfigured")
-        }
-        compact
-        color={supplier?.color}
-      />
+    <section data-order-detail-context-strip="true" className="min-w-0">
       <button
         type="button"
         data-order-latest-event="true"
@@ -1014,14 +949,12 @@ export function DesktopOrderPhotosPanel({
 }: {
   attachments: OrderAttachment[];
   uploadPending: boolean;
-  onCapture?: (trigger: HTMLButtonElement) => void;
+  onCapture?: (kind: OrderDetailPhotoCaptureKind, trigger: HTMLButtonElement) => void;
   surface: DetailSurface;
   className?: string;
 }) {
   const { t } = useLocale();
   const [photoPreviewId, setPhotoPreviewId] = useState<string | null>(null);
-  const previews = attachments.slice(0, 3);
-  const hiddenCount = Math.max(0, attachments.length - previews.length);
 
   useEffect(() => {
     if (!photoPreviewId) return;
@@ -1032,139 +965,20 @@ export function DesktopOrderPhotosPanel({
 
   return (
     <DetailPanel surface={surface} dataPanel="photos" className={className}>
-      <PanelHeader
-        title={t("orders2b2.overview.photos")}
-        action={
-          onCapture ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 shrink-0 gap-1 px-2 text-[11px] lg:text-xs lg:leading-4"
-              disabled={uploadPending || !onCapture}
-              onClick={(event) => onCapture(event.currentTarget)}
-            >
-              <Camera className="size-3.5" />
-              {uploadPending ? t("orders2b2.overview.uploading") : t("orders2b2.overview.capture")}
-            </Button>
-          ) : null
-        }
+      <PanelHeader title={t("orders2b2.overview.photos")} />
+      <OrderDetailPhotoSlots
+        attachments={attachments}
+        canUpload={Boolean(onCapture)}
+        uploadPending={uploadPending}
+        onCapture={onCapture}
+        onOpenAttachment={(attachment) => setPhotoPreviewId(attachment.id)}
       />
-      <div
-        className={cn(
-          "grid min-w-0 gap-1.5",
-          surface === "dialog" ? "grid-cols-3" : "grid-cols-2 lg:grid-cols-3",
-        )}
-      >
-        {previews.map((attachment) => (
-          <DesktopPhotoPreview
-            key={attachment.id}
-            attachment={attachment}
-            onOpen={() => setPhotoPreviewId(attachment.id)}
-          />
-        ))}
-        {attachments.length === 0 ? (
-          <>
-            <DesktopPhotoPlaceholder label={t("orders2b2.photo.front")} />
-            <DesktopPhotoPlaceholder label={t("orders2b2.photo.back")} />
-          </>
-        ) : attachments.length === 1 ? (
-          <DesktopPhotoPlaceholder label={t("orders2b2.overview.extraPhoto")} />
-        ) : null}
-        {onCapture ? (
-          <button
-            type="button"
-            className={cn(
-              "grid h-12 min-w-0 place-items-center rounded-lg border border-dashed border-primary/35 bg-primary/5 px-2 text-center text-[10px] font-semibold text-primary transition-colors hover:bg-primary/10 disabled:opacity-60 lg:text-xs lg:leading-4",
-              attachments.length >= 2 && (surface === "dialog" ? "" : "col-span-2 lg:col-span-1"),
-            )}
-            disabled={uploadPending}
-            onClick={(event) => onCapture(event.currentTarget)}
-          >
-            <span className="grid place-items-center gap-1">
-              <Camera className="size-4" />
-              {uploadPending ? t("orders2b2.overview.uploading") : t("orders2b2.overview.retake")}
-            </span>
-          </button>
-        ) : null}
-      </div>
-      <div className="mt-1.5 flex min-w-0 items-center justify-between gap-2 rounded-md bg-[var(--surface-panel-muted)] px-2 py-1 text-[11px] leading-4 lg:text-xs">
-        <span className="truncate text-muted-foreground">
-          {t("orders2b2.overview.savedPhotos")}
-        </span>
-        <span className="shrink-0 font-mono font-semibold tabular-nums">
-          {attachments.length}
-          {hiddenCount ? ` +${hiddenCount}` : ""}
-        </span>
-      </div>
       <OrderPhotoPreviewDialog
         attachments={attachments}
         activeId={photoPreviewId}
         onActiveIdChange={setPhotoPreviewId}
       />
     </DetailPanel>
-  );
-}
-
-function DesktopPhotoPreview({
-  attachment,
-  onOpen,
-}: {
-  attachment: OrderAttachment;
-  onOpen?: () => void;
-}) {
-  const { t } = useLocale();
-  const source = attachment.signed_url || attachment.public_url;
-
-  if (!source) {
-    return (
-      <div
-        data-order-photo-preview="true"
-        className="relative h-12 min-w-0 overflow-hidden rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]"
-      >
-        <div className="grid size-full place-items-center text-primary">
-          <ImageIcon className="size-4" />
-        </div>
-        <span className="absolute inset-x-1 bottom-1 truncate rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur lg:text-[11px] lg:leading-4">
-          {attachment.file_name || t("orders2b2.photo.device")}
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      data-order-photo-preview="true"
-      className="group relative h-12 min-w-0 overflow-hidden rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      onClick={onOpen}
-      aria-label={t("orders2b2.overview.openPhoto", {
-        file: attachment.file_name || t("orders2b2.photo.device"),
-      })}
-    >
-      <img
-        src={source}
-        alt={attachment.file_name || t("orders2b2.photo.device")}
-        className="size-full object-cover"
-      />
-      <span className="absolute inset-0 hidden place-items-center bg-background/20 text-[9px] font-semibold text-foreground backdrop-blur-[1px] group-hover:grid group-focus-visible:grid lg:text-[11px] lg:leading-4">
-        {t("orders2b2.overview.view")}
-      </span>
-      <span className="absolute inset-x-1 bottom-1 truncate rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur lg:text-[11px] lg:leading-4">
-        {attachment.file_name || t("orders2b2.photo.device")}
-      </span>
-    </button>
-  );
-}
-
-function DesktopPhotoPlaceholder({ label }: { label: string }) {
-  return (
-    <div className="grid h-12 min-w-0 place-items-center rounded-lg border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/55 px-2 text-center">
-      <span className="grid place-items-center gap-1 text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
-        <ImageIcon className="size-4 text-muted-foreground/70" />
-        {label}
-      </span>
-    </div>
   );
 }
 

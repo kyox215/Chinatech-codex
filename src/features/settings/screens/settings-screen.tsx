@@ -294,7 +294,6 @@ export function SettingsScreen() {
   const canManageSuppliers = settingsCapabilities?.canManageSuppliers === true;
   const canManageOrderData = settingsCapabilities?.canManageOrderData === true;
   const canApplyOrderData = settingsCapabilities?.canApplyOrderData === true;
-  const canManageOrderCosts = settingsCapabilities?.can_manage_order_costs === true;
   const canAllocatePartsCosts = settingsCapabilities?.canAllocatePartsCosts === true;
   const canReadCostCurrencies = settingsCapabilities?.canReadCostCurrencies === true;
   const canManageCostCurrencies = settingsCapabilities?.canManageCostCurrencies === true;
@@ -2156,14 +2155,10 @@ export function SettingsScreen() {
                     isDraftDirty={sectionDirtyState.rules}
                     canUpdateSettings={canUpdateStoreSettings}
                     activeStoreId={
-                      canManageOrderCosts ||
-                      canAllocatePartsCosts ||
-                      canManageCostCurrencies ||
-                      canPreviewCostBackfill
+                      canAllocatePartsCosts || canManageCostCurrencies || canPreviewCostBackfill
                         ? activeStoreId
                         : undefined
                     }
-                    canManageOrderCosts={canManageOrderCosts}
                     canAllocatePartsCosts={canAllocatePartsCosts}
                     canReadCostCurrencies={canReadCostCurrencies}
                     canManageCostCurrencies={canManageCostCurrencies}

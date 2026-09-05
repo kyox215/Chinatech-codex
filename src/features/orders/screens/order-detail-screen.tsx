@@ -17,7 +17,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
   Camera,
-  Calendar,
   Check,
   CheckCircle2,
   Clock3,
@@ -113,7 +112,6 @@ import {
 } from "@/lib/repairdesk/api";
 import {
   CameraCaptureSheet,
-  formatAttachmentSize,
   revokeAttachmentDraft,
   type AttachmentDraft,
 } from "@/features/capture";
@@ -152,7 +150,6 @@ import {
 import { hasOrderEditRemoteConflict } from "@/features/orders/model/order-edit-conflict";
 import { OrderPhotoPreviewDialog } from "@/features/orders/components/order-photo-preview-dialog";
 import { OrderTerminalActions } from "@/features/orders/components/order-terminal-actions";
-import { OrderInternalCostCard } from "@/features/orders/components/order-internal-cost-card";
 import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
 import {
   useEditOrderOfflineAutosave,
@@ -166,6 +163,11 @@ import {
   OrderKeyInfoCard,
   OrderOverviewTab,
 } from "@/features/orders/components/order-overview-tab";
+import {
+  OrderDetailPhotoSlots,
+  type OrderDetailPhotoCaptureKind,
+} from "@/features/orders/components/order-detail-photo-slots";
+import { OrderMiniProgress } from "@/features/orders/components/order-mini-progress";
 import {
   OrderDetailTabs,
   type OrderDetailTab,
@@ -258,7 +260,6 @@ import { formatCurrency } from "@/shared/i18n/format";
 import { useLocale } from "@/shared/i18n/locale-provider";
 import {
   getOrderDetailSafeErrorMessage,
-  localizeOrderAttachmentKind,
   localizeOrderDetailBadge,
   localizeOrderDetailEvent,
   localizeOrderMessageChannel,
@@ -285,7 +286,7 @@ import type {
 } from "@/lib/repairdesk/types";
 
 type WorkflowTransitionAction = ReturnType<typeof getWorkflowTransitionActions>[number];
-type DesktopDetailView = "overview" | "records" | "photos" | "costs";
+type DesktopDetailView = "overview" | "records" | "photos";
 type DesktopRecordsView = "key-info" | "messages" | "timeline";
 const imeiOcrImageAccept =
   "image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif";
@@ -363,6 +364,8 @@ export function OrderDetailScreen({
   const [approvalDecisionOpen, setApprovalDecisionOpen] = useState(false);
   const [desktopTransitionOpen, setDesktopTransitionOpen] = useState(false);
   const [desktopPhotoCaptureOpen, setDesktopPhotoCaptureOpen] = useState(false);
+  const [desktopPhotoCaptureKind, setDesktopPhotoCaptureKind] =
+    useState<OrderDetailPhotoCaptureKind>("other");
   const desktopPhotoTriggerRef = useRef<HTMLButtonElement | null>(null);
   const desktopPhotoOutsideDismissedRef = useRef(false);
   const handleDesktopPhotoCloseAutoFocus = useCallback((event: Event) => {
@@ -374,7 +377,6 @@ export function OrderDetailScreen({
   }, []);
   const [desktopDetailView, setDesktopDetailView] = useState<DesktopDetailView>("overview");
   const [desktopRecordsView, setDesktopRecordsView] = useState<DesktopRecordsView>("key-info");
-  const [desktopCostsVisited, setDesktopCostsVisited] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editBaseline, setEditBaseline] = useState<UpdateOrderInput | null>(null);
   const [editDraft, setEditDraft] = useState<UpdateOrderInput | null>(null);
@@ -427,11 +429,9 @@ export function OrderDetailScreen({
   useEffect(() => {
     setDesktopDetailView("overview");
     setDesktopRecordsView("key-info");
-    setDesktopCostsVisited(false);
   }, [id]);
 
   const changeDesktopDetailView = useCallback((view: DesktopDetailView) => {
-    if (view === "costs") setDesktopCostsVisited(true);
     setDesktopDetailView(view);
   }, []);
 
@@ -1376,9 +1376,12 @@ export function OrderDetailScreen({
   const photoAttachments = (data.attachments ?? []).filter(
     (attachment) => attachment.mime_type.startsWith("image/") && attachment.kind !== "signature",
   );
-  const canReadInternalCosts = Boolean(data.capabilities?.canReadInternalCosts && activeStoreId);
-  const safeDesktopDetailView =
-    desktopDetailView === "costs" && !canReadInternalCosts ? "overview" : desktopDetailView;
+  const currentStatusChangedAt = findCurrentOrderStatusChangedAt({
+    status: order.status,
+    createdAt: order.created_at,
+    events,
+  });
+  const safeDesktopDetailView = desktopDetailView;
   const desktopDetailTabs: OrderDetailTab<DesktopDetailView>[] = [
     { key: "overview", label: t("orders2b2.tab.overview") },
     {
@@ -1389,11 +1392,6 @@ export function OrderDetailScreen({
       key: "photos",
       label: t("orders2b2.tab.photos", { count: photoAttachments.length }),
     },
-    ...(canReadInternalCosts
-      ? ([
-          { key: "costs", label: t("orders2b2.tab.costs") },
-        ] satisfies OrderDetailTab<DesktopDetailView>[])
-      : []),
   ];
   const desktopRecordsTabs: OrderDetailTab<DesktopRecordsView>[] = [
     { key: "key-info", label: t("orders2b2.tab.keyInfo") },
@@ -1509,7 +1507,11 @@ export function OrderDetailScreen({
             deviceLabel={deviceLabel}
             deviceImei={deviceImei}
             accessoryNotes={accessoryNotes}
-            storeSettings={storeSettings}
+            storeName={
+              storeOutputIdentity.storeName ||
+              shell.activeStore?.name ||
+              t("orders2b2.overview.notConfigured")
+            }
             workflow={workflow}
             topNotice={
               <OrderTerminalActions
@@ -1609,28 +1611,6 @@ export function OrderDetailScreen({
             }
             custodyPanel={renderCustodyPanel()}
           />
-          {data.capabilities?.canReadInternalCosts && activeStoreId ? (
-            <OrderInternalCostCard
-              orderId={order.id}
-              storeId={activeStoreId}
-              faultPrices={order.fault_prices}
-              canManage={Boolean(data.capabilities.canManageInternalCosts)}
-              canAllocatePartsCosts={Boolean(data.capabilities.canAllocatePartsCosts)}
-              onRepairQuoteLines={
-                data.capabilities?.canAdjustFinance && !isVoided && !isTerminalOrder
-                  ? () => {
-                      setMobileFinanceEditing(true);
-                      window.requestAnimationFrame(() => {
-                        document.getElementById("mobile-order-quote")?.scrollIntoView({
-                          behavior: "smooth",
-                          block: "center",
-                        });
-                      });
-                    }
-                  : undefined
-              }
-            />
-          ) : null}
         </>
       ) : (
         <div
@@ -1663,7 +1643,12 @@ export function OrderDetailScreen({
               }
               onSaveEdit={() => void saveEditing()}
               onCancelEdit={cancelEditing}
-              storeName={storeOutputIdentity.storeName}
+              storeName={
+                storeOutputIdentity.storeName ||
+                shell.activeStore?.name ||
+                t("orders2b2.overview.notConfigured")
+              }
+              statusChangedAt={currentStatusChangedAt}
               isEditing={isEditing}
               editPending={orderUpdate.isPending}
               editSaveDisabled={!editCanSave}
@@ -1671,7 +1656,6 @@ export function OrderDetailScreen({
               surface={surface}
               onClose={onClose}
               currentStage={desktopCurrentStage}
-              currentStageIndex={desktopStageIndex}
               nextActionLabel={
                 canDecideApproval
                   ? t("orders2b2.hero.approval")
@@ -1847,15 +1831,6 @@ export function OrderDetailScreen({
                     canEditIntake={Boolean(data.capabilities?.canEditIntake)}
                     canEditRepair={Boolean(data.capabilities?.canEditRepair)}
                     canAdjustFinance={Boolean(data.capabilities?.canAdjustFinance)}
-                    activeStoreId={activeStoreId}
-                    canReadInternalCosts={Boolean(data.capabilities?.canReadInternalCosts)}
-                    canManageInternalCosts={Boolean(data.capabilities?.canManageInternalCosts)}
-                    canAllocatePartsCosts={Boolean(data.capabilities?.canAllocatePartsCosts)}
-                    onRepairQuoteLines={
-                      data.capabilities?.canAdjustFinance && !isVoided && !isTerminalOrder
-                        ? startEditing
-                        : undefined
-                    }
                     defaultWarrantyMonths={defaultWarrantyMonths}
                     onQuickImeiSave={
                       data.capabilities?.canEditIntake
@@ -1877,7 +1852,8 @@ export function OrderDetailScreen({
                     photoUploadPending={attachmentUpload.isPending}
                     onPhotoCapture={
                       data.capabilities?.canUploadPhoto === true && !isVoided
-                        ? (trigger) => {
+                        ? (kind, trigger) => {
+                            setDesktopPhotoCaptureKind(kind);
                             desktopPhotoTriggerRef.current = trigger;
                             desktopPhotoOutsideDismissedRef.current = false;
                             setDesktopPhotoCaptureOpen(true);
@@ -1946,7 +1922,8 @@ export function OrderDetailScreen({
                         uploadPending={attachmentUpload.isPending}
                         onCapture={
                           data.capabilities?.canUploadPhoto === true && !isVoided
-                            ? (trigger) => {
+                            ? (kind, trigger) => {
+                                setDesktopPhotoCaptureKind(kind);
                                 desktopPhotoTriggerRef.current = trigger;
                                 desktopPhotoOutsideDismissedRef.current = false;
                                 setDesktopPhotoCaptureOpen(true);
@@ -1954,29 +1931,6 @@ export function OrderDetailScreen({
                             : undefined
                         }
                         surface={surface}
-                      />
-                    </section>
-                  ) : null}
-                  {canReadInternalCosts &&
-                  (desktopCostsVisited || safeDesktopDetailView === "costs") ? (
-                    <section
-                      id="order-detail-workspace-panel-costs"
-                      role="tabpanel"
-                      aria-labelledby="order-detail-workspace-tab-costs"
-                      hidden={safeDesktopDetailView !== "costs"}
-                      className={cn("min-w-0", detailWorkspace.orderDetailReadable)}
-                    >
-                      <OrderInternalCostCard
-                        orderId={order.id}
-                        storeId={activeStoreId}
-                        faultPrices={order.fault_prices}
-                        canManage={Boolean(data.capabilities?.canManageInternalCosts)}
-                        canAllocatePartsCosts={Boolean(data.capabilities?.canAllocatePartsCosts)}
-                        onRepairQuoteLines={
-                          data.capabilities?.canAdjustFinance && !isVoided && !isTerminalOrder
-                            ? startEditing
-                            : undefined
-                        }
                       />
                     </section>
                   ) : null}
@@ -2180,7 +2134,7 @@ export function OrderDetailScreen({
         <CameraCaptureSheet
           open={desktopPhotoCaptureOpen}
           onOpenChange={setDesktopPhotoCaptureOpen}
-          attachmentKind="fault_photo"
+          attachmentKind={desktopPhotoCaptureKind}
           purpose="order-attachment"
           onOutsideDismiss={() => {
             desktopPhotoOutsideDismissedRef.current = true;
@@ -2447,6 +2401,7 @@ function OrderDeviceCustodyCard({
     (workflowBucket === undefined && order.workflow_status === "closed");
   const canUpdateResolved = canUpdate && !isVoided;
   const latestHandoff = getLatestCustodyHandoff(events, t, locale);
+  const custodyBlocked = deviceCustodyBlocksStatus(order.status, workflowBucket);
   const description =
     status === DEVICE_CUSTODY_WITH_SHOP
       ? cancelled
@@ -2563,13 +2518,22 @@ function OrderDeviceCustodyCard({
     }
   }
 
+  const isExceptional =
+    status === null ||
+    cancelled ||
+    custodyBlocked ||
+    (isTerminal && !canCorrectTerminal && status === null);
+
   return (
     <section
       data-order-device-custody="true"
+      data-order-custody-mode={isExceptional ? "expanded" : "compact"}
       className={cn(
-        variant === "inline"
-          ? "grid min-w-0 gap-1.5 rounded-md bg-[var(--surface-panel-muted)]/55 px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-          : "grid min-w-0 gap-1.5 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] px-2.5 py-2 shadow-[var(--shadow-card)] md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:px-3",
+        isExceptional
+          ? variant === "inline"
+            ? "grid min-w-0 gap-1.5 rounded-md bg-[var(--surface-panel-muted)]/55 px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+            : "grid min-w-0 gap-1.5 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] px-2.5 py-2 shadow-[var(--shadow-card)] md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:px-3"
+          : "flex min-w-0 items-center gap-1.5 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel)] px-2 py-1.5 shadow-sm",
         status === null && "border-status-warn-foreground/30 bg-status-warn/35",
         className,
       )}
@@ -2578,7 +2542,7 @@ function OrderDeviceCustodyCard({
         <span
           className={cn(
             "grid shrink-0 place-items-center rounded-lg bg-[var(--surface-panel-muted)] text-primary",
-            variant === "inline" ? "size-6" : "size-7",
+            "size-6",
           )}
         >
           {status === DEVICE_CUSTODY_WITH_CUSTOMER ? (
@@ -2597,15 +2561,17 @@ function OrderDeviceCustodyCard({
               className="text-[10px] lg:text-[11px] lg:leading-4"
             />
           </div>
-          <p
-            className={cn(
-              "mt-0.5 break-words text-[10px] text-muted-foreground lg:text-[12px] lg:leading-4",
-              variant === "inline" ? "line-clamp-2 leading-3" : "leading-3.5",
-            )}
-          >
-            {description}
-          </p>
-          {latestHandoff ? (
+          {isExceptional ? (
+            <p
+              className={cn(
+                "mt-0.5 break-words text-[10px] text-muted-foreground lg:text-[12px] lg:leading-4",
+                variant === "inline" ? "line-clamp-2 leading-3" : "leading-3.5",
+              )}
+            >
+              {description}
+            </p>
+          ) : null}
+          {latestHandoff && isExceptional ? (
             <p
               className={cn(
                 "mt-0.5 truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4",
@@ -2624,14 +2590,12 @@ function OrderDeviceCustodyCard({
               {t("orders2b2.custody.terminalNeedsManager")}
             </p>
           ) : null}
-          {status !== DEVICE_CUSTODY_WITH_SHOP &&
-          deviceCustodyBlocksStatus(order.status, workflowBucket) ? (
+          {status !== DEVICE_CUSTODY_WITH_SHOP && custodyBlocked ? (
             <p className="mt-1 text-[10px] font-semibold text-status-danger-foreground lg:text-xs lg:leading-[18px]">
               {t("orders2b2.custody.conflictCustomer")}
             </p>
           ) : null}
-          {status === DEVICE_CUSTODY_WITH_SHOP &&
-          deviceCustodyBlocksStatus(order.status, workflowBucket) ? (
+          {status === DEVICE_CUSTODY_WITH_SHOP && custodyBlocked ? (
             <p className="mt-1 text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-[18px]">
               {t("orders2b2.custody.conflictShop")}
             </p>
@@ -3411,7 +3375,7 @@ function MobileOrderDetailView({
   deviceLabel,
   deviceImei,
   accessoryNotes,
-  storeSettings,
+  storeName,
   workflow,
   topNotice,
   transitionPending,
@@ -3463,7 +3427,7 @@ function MobileOrderDetailView({
   deviceLabel: string;
   deviceImei: string;
   accessoryNotes?: string;
-  storeSettings?: StoreSettings;
+  storeName: string;
   workflow?: OrderWorkflow;
   topNotice?: ReactNode;
   transitionPending: boolean;
@@ -3545,6 +3509,8 @@ function MobileOrderDetailView({
   const [faultEditing, setFaultEditing] = useState(false);
   const [deviceUnlockEditing, setDeviceUnlockEditing] = useState(false);
   const [photoCaptureOpen, setPhotoCaptureOpen] = useState(false);
+  const [mobilePhotoCaptureKind, setMobilePhotoCaptureKind] =
+    useState<OrderDetailPhotoCaptureKind>("other");
   const [photoPreviewId, setPhotoPreviewId] = useState<string | null>(null);
   const mobilePhotoTriggerRef = useRef<HTMLButtonElement | null>(null);
   const mobilePhotoOutsideDismissedRef = useRef(false);
@@ -3678,7 +3644,7 @@ function MobileOrderDetailView({
   }, [deviceImei, imeiEditing]);
 
   const handleFloatingHeaderHeight = useCallback((height: number) => {
-    setFloatingHeaderOffset(`${Math.ceil(height + 8)}px`);
+    setFloatingHeaderOffset(`${Math.ceil(height)}px`);
   }, []);
 
   return (
@@ -3694,8 +3660,9 @@ function MobileOrderDetailView({
       <MobileStickyWorkflowHeader
         order={order}
         workflow={workflow}
-        currentStageIndex={currentStageIndex}
         currentStage={currentStage}
+        currentStatusChangedAt={currentStatusChangedAt}
+        storeName={storeName}
         nextLabel={
           next.primary ? localizeWorkflowStatusLabel(workflow, next.primary.to, t) : undefined
         }
@@ -3721,60 +3688,37 @@ function MobileOrderDetailView({
         </section>
       ) : null}
 
-      <section data-mobile-order-first-card="true" className={mobileDetailCardClass}>
-        <MobileSectionTitle icon={Calendar} title={t("orders2b2.mobile.basic")} />
-        <div className="mt-1.5 grid min-w-0 grid-cols-2 gap-1 sm:grid-cols-4">
-          <MobileMeta
-            icon={Calendar}
-            label={t("orders2b2.overview.createdAt")}
-            value={formatDateTime(order.created_at, locale)}
-          />
-          <MobileMeta
-            icon={Clock3}
-            label={t("orders2b2.overview.statusAt")}
-            value={formatDateTime(currentStatusChangedAt, locale)}
-          />
-          {!(onAssigneeChange || hasMobileSupplierManagement) ? (
-            <MobileMeta
-              icon={UserRound}
-              label={t("orders2b2.overview.assignee")}
-              value={order.technician_name || "-"}
-            />
+      <section className={mobileDetailCardClass}>
+        <div className="mb-1.5 flex min-w-0 items-center justify-between gap-2">
+          <MobileSectionTitle icon={UserRound} title={t("orders2b2.mobile.peopleSuppliers")} />
+          {onAssigneeChange || onPartsSupplierChange ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 rounded-lg px-3 text-[11px] lg:h-8 lg:text-xs"
+              aria-expanded={assignmentEditing}
+              onClick={() => setAssignmentEditing((editing) => !editing)}
+            >
+              {assignmentEditing ? t("orders2b2.mobile.done") : t("orders2b2.mobile.adjust")}
+            </Button>
           ) : null}
-          <MobileMeta
-            icon={Store}
-            label={t("orders2b2.overview.store")}
-            value={storeSettings?.store_name || t("orders2b2.overview.notConfigured")}
-          />
         </div>
-      </section>
-
-      {onAssigneeChange || hasMobileSupplierManagement ? (
-        <section className={mobileDetailCardClass}>
-          <div className="mb-1.5 flex min-w-0 items-center justify-between gap-2">
-            <MobileSectionTitle icon={UserRound} title={t("orders2b2.mobile.peopleSuppliers")} />
-            {onAssigneeChange || onPartsSupplierChange ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="h-9 rounded-lg px-3 text-[11px] lg:h-8 lg:text-xs"
-                aria-expanded={assignmentEditing}
-                onClick={() => setAssignmentEditing((editing) => !editing)}
-              >
-                {assignmentEditing ? t("orders2b2.mobile.done") : t("orders2b2.mobile.adjust")}
-              </Button>
-            ) : null}
-          </div>
-          {!assignmentEditing ? (
-            <div className="grid min-w-0 grid-cols-2 gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-2 text-[11px] lg:text-xs lg:leading-4">
-              <div className="min-w-0">
-                <span className="text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                  {t("orders2b2.overview.assignee")}
-                </span>
-                <p className="truncate font-semibold">
-                  {order.technician_name || t("orders2b2.mobile.unassigned")}
-                </p>
-              </div>
+        {!assignmentEditing ? (
+          <div
+            className={cn(
+              "grid min-w-0 gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-2 text-[11px] lg:text-xs lg:leading-4",
+              hasMobileSupplierManagement ? "grid-cols-2" : "grid-cols-1",
+            )}
+          >
+            <div className="min-w-0">
+              <span className="text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
+                {t("orders2b2.overview.assignee")}
+              </span>
+              <p className="truncate font-semibold">
+                {order.technician_name || t("orders2b2.mobile.unassigned")}
+              </p>
+            </div>
+            {hasMobileSupplierManagement ? (
               <div className="min-w-0">
                 <span className="text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
                   {t("orders2b2.overview.externalSupplier")}
@@ -3785,83 +3729,81 @@ function MobileOrderDetailView({
                     t("orders2b2.overview.notConfigured")}
                 </p>
               </div>
-            </div>
-          ) : (
-            <div
-              className={cn(
-                "grid min-w-0 gap-1.5",
-                onAssigneeChange && hasMobileSupplierManagement
-                  ? "grid-cols-1 min-[380px]:grid-cols-2"
-                  : "grid-cols-1",
-              )}
-            >
-              {onAssigneeChange ? (
-                <div className="min-w-0">
-                  <MobileSectionTitle icon={UserRound} title={t("orders2b2.overview.assignee")} />
-                  <div className="mt-1">
-                    <Select
-                      value={order.assignee_membership_id ?? "unassigned"}
-                      onValueChange={(value) =>
-                        onAssigneeChange(value === "unassigned" ? null : value)
-                      }
-                      disabled={assigneePending}
-                    >
-                      <SelectTrigger className="h-[38px] min-w-0 rounded-md px-2 text-base lg:h-8 lg:text-xs">
-                        <SelectValue
-                          placeholder={order.technician_name || t("orders2b2.mobile.unassigned")}
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unassigned">
-                          {t("orders2b2.mobile.unassigned")}
-                        </SelectItem>
-                        {assigneeOptions.map((option) => (
-                          <SelectItem key={option.id} value={option.id}>
-                            {option.display_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              ) : null}
-
-              {hasMobileSupplierManagement ? (
-                <div className="min-w-0">
-                  <MobileSectionTitle
-                    icon={PackageSearch}
-                    title={t("orders2b2.overview.externalSupplier")}
-                  />
-                  <div className="mt-1 min-w-0">
-                    {onPartsSupplierChange ? (
-                      <OrderSupplierPicker
-                        supplier={partsSupplier}
-                        suppliers={supplierOptions}
-                        isUpdating={partsSupplierPending}
-                        onChange={onPartsSupplierChange}
-                        mode="sheet"
-                        size="compact"
+            ) : null}
+          </div>
+        ) : (
+          <div
+            className={cn(
+              "grid min-w-0 gap-1.5",
+              onAssigneeChange && hasMobileSupplierManagement
+                ? "grid-cols-1 min-[380px]:grid-cols-2"
+                : "grid-cols-1",
+            )}
+          >
+            {onAssigneeChange ? (
+              <div className="min-w-0">
+                <MobileSectionTitle icon={UserRound} title={t("orders2b2.overview.assignee")} />
+                <div className="mt-1">
+                  <Select
+                    value={order.assignee_membership_id ?? "unassigned"}
+                    onValueChange={(value) =>
+                      onAssigneeChange(value === "unassigned" ? null : value)
+                    }
+                    disabled={assigneePending}
+                  >
+                    <SelectTrigger className="h-[38px] min-w-0 rounded-md px-2 text-base lg:h-8 lg:text-xs">
+                      <SelectValue
+                        placeholder={order.technician_name || t("orders2b2.mobile.unassigned")}
                       />
-                    ) : partsSupplier ? (
-                      <div className="inline-flex max-w-full items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary lg:text-xs lg:leading-4">
-                        <PackageSearch className="size-3 shrink-0" />
-                        <span className="truncate">
-                          {partsSupplier.short_name || partsSupplier.name}
-                        </span>
-                      </div>
-                    ) : null}
-                  </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unassigned">{t("orders2b2.mobile.unassigned")}</SelectItem>
+                      {assigneeOptions.map((option) => (
+                        <SelectItem key={option.id} value={option.id}>
+                          {option.display_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              ) : null}
-            </div>
-          )}
-          {hasMobileSupplierManagement ? (
-            <p className="mt-1 truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-              {t("orders2b2.mobile.supplierScope")}
-            </p>
-          ) : null}
-        </section>
-      ) : null}
+              </div>
+            ) : null}
+
+            {hasMobileSupplierManagement ? (
+              <div className="min-w-0">
+                <MobileSectionTitle
+                  icon={PackageSearch}
+                  title={t("orders2b2.overview.externalSupplier")}
+                />
+                <div className="mt-1 min-w-0">
+                  {onPartsSupplierChange ? (
+                    <OrderSupplierPicker
+                      supplier={partsSupplier}
+                      suppliers={supplierOptions}
+                      isUpdating={partsSupplierPending}
+                      onChange={onPartsSupplierChange}
+                      mode="sheet"
+                      size="compact"
+                    />
+                  ) : partsSupplier ? (
+                    <div className="inline-flex max-w-full items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary lg:text-xs lg:leading-4">
+                      <PackageSearch className="size-3 shrink-0" />
+                      <span className="truncate">
+                        {partsSupplier.short_name || partsSupplier.name}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
+        {hasMobileSupplierManagement ? (
+          <p className="mt-1 truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
+            {t("orders2b2.mobile.supplierScope")}
+          </p>
+        ) : null}
+      </section>
 
       <button
         type="button"
@@ -3894,7 +3836,7 @@ function MobileOrderDetailView({
       </button>
 
       <div className="grid min-w-0 grid-cols-1 gap-1.5 min-[390px]:grid-cols-2">
-        <section className={mobileDetailCardClass}>
+        <section className={cn(mobileDetailCardClass, "min-[390px]:col-span-2")}>
           <MobileSectionTitle icon={UserRound} title={t("orders2b2.overview.customerInfo")} />
           <div className="mt-1.5 grid min-w-0 grid-cols-[28px_minmax(0,1fr)] items-center gap-1.5">
             <div className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-xs font-semibold text-primary ring-1 ring-inset ring-primary/15">
@@ -3915,7 +3857,7 @@ function MobileOrderDetailView({
               </span>
             </div>
           ) : null}
-          <div className="mt-1.5 grid min-w-0 grid-cols-1 gap-1">
+          <div className="mt-1.5 grid min-w-0 grid-cols-2 gap-1">
             <Button
               asChild
               variant="outline"
@@ -3936,7 +3878,7 @@ function MobileOrderDetailView({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="col-span-2 h-9 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5 lg:text-xs"
+                className="h-9 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5 lg:text-xs"
                 disabled={!kioskSignatureAvailable || kioskSignaturePending}
                 onClick={onRequestKioskSignature}
               >
@@ -3953,7 +3895,7 @@ function MobileOrderDetailView({
           </div>
         </section>
 
-        <section className={mobileDetailCardClass}>
+        <section className={cn(mobileDetailCardClass, "min-[390px]:col-span-2")}>
           <MobileSectionTitle
             icon={Smartphone}
             title={t("orders2b2.overview.deviceIssue")}
@@ -3996,14 +3938,69 @@ function MobileOrderDetailView({
               rows={[
                 ["IMEI", deviceImei || "-"],
                 [t("orders2b2.overview.warranty"), order.warranty_text || "-"],
-                [
-                  t("orders2b2.overview.custody"),
-                  localizeDeviceCustody(custodyStatus, undefined, t),
-                ],
                 [t("orders2b2.overview.accessories"), accessoryNotes || "-"],
               ]}
             />
             <DeviceUnlockViewer order={order} compact className="mt-1.5" />
+            <div className="mt-2 border-t border-[var(--border-panel)] pt-2">
+              <MobileSectionTitle
+                icon={FileText}
+                title={t("orders2b2.overview.issue")}
+                action={
+                  data.capabilities?.canEditIntake || data.capabilities?.canEditRepair ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9 min-w-9 rounded-lg px-2 text-[11px] lg:text-xs"
+                      onClick={() => setFaultEditing(true)}
+                    >
+                      {t("orders2b2.hero.edit")}
+                    </Button>
+                  ) : undefined
+                }
+              />
+              <div data-order-detail-issue-summary="true" className="mt-1 min-w-0">
+                <p className="line-clamp-2 whitespace-pre-wrap break-words text-xs font-medium leading-4 text-foreground">
+                  {order.issue_description || "-"}
+                </p>
+                <p className="mt-0.5 line-clamp-1 whitespace-pre-wrap break-words text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
+                  {t("orders2b2.overview.diagnosis")}：
+                  {order.diagnosis_result || t("orders2b2.overview.notConfigured")}
+                </p>
+                <details className="mt-1 min-w-0 text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
+                  <summary className="cursor-pointer font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    {t("orders2b2.mobile.expandDetails")}
+                  </summary>
+                  <div className="mt-1 grid min-w-0 gap-1 rounded-md bg-[var(--surface-panel-muted)] px-2 py-1.5">
+                    <p className="whitespace-pre-wrap break-words">
+                      <span className="font-semibold text-foreground">
+                        {t("orders2b2.overview.issue")}：
+                      </span>
+                      {order.issue_description || "-"}
+                    </p>
+                    <p className="whitespace-pre-wrap break-words">
+                      <span className="font-semibold text-foreground">
+                        {t("orders2b2.overview.diagnosis")}：
+                      </span>
+                      {order.diagnosis_result || t("orders2b2.overview.notConfigured")}
+                    </p>
+                  </div>
+                </details>
+              </div>
+              {order.fault_prices.length ? (
+                <div className="mt-1 flex min-w-0 flex-wrap gap-1">
+                  {order.fault_prices.slice(0, 3).map((item, index) => (
+                    <span
+                      key={`${item.name}-${index}`}
+                      className="max-w-full truncate rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium leading-3 text-primary lg:text-[11px] lg:leading-4"
+                    >
+                      {item.name || t("orders2b2.mobile.unnamedItem")}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
         </section>
       </div>
@@ -4023,33 +4020,6 @@ function MobileOrderDetailView({
           setImeiEditing(false);
         }}
       />
-
-      <section className={mobileDetailCardClass}>
-        <MobileSectionTitle
-          icon={FileText}
-          title={t("orders2b2.overview.issue")}
-          action={
-            data.capabilities?.canEditIntake || data.capabilities?.canEditRepair ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-9 min-w-9 rounded-lg px-2 text-[11px] lg:text-xs"
-                onClick={() => setFaultEditing(true)}
-              >
-                {t("orders2b2.hero.edit")}
-              </Button>
-            ) : undefined
-          }
-        />
-        <p className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-xs font-medium leading-4 text-foreground">
-          {order.issue_description || "-"}
-        </p>
-        <p className="mt-0.5 truncate text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-          {t("orders2b2.overview.diagnosis")}：
-          {order.diagnosis_result || t("orders2b2.overview.notConfigured")}
-        </p>
-      </section>
 
       <FaultDescriptionEditSheet
         open={faultEditing}
@@ -4161,40 +4131,19 @@ function MobileOrderDetailView({
 
       <section className={mobileDetailCardClass} data-order-detail-content-end="true">
         <MobileSectionTitle icon={ImageIcon} title={t("orders2b2.overview.photos")} />
-        <div className="mt-1.5 grid grid-cols-3 gap-1.5">
-          {photoAttachments.slice(0, 2).map((attachment) => (
-            <PhotoPreview
-              key={attachment.id}
-              attachment={attachment}
-              onOpen={() => setPhotoPreviewId(attachment.id)}
-            />
-          ))}
-          {photoAttachments.length === 0 ? null : photoAttachments.length === 1 ? (
-            <PhotoPlaceholder label={t("orders2b2.overview.extraPhoto")} />
-          ) : null}
-          {data.capabilities?.canUploadPhoto === true && !isVoided ? (
-            <button
-              type="button"
-              className={cn(
-                "grid min-h-14 place-items-center rounded-lg border border-dashed border-primary/35 bg-primary/5 text-[10px] font-medium text-primary disabled:opacity-60 lg:text-xs lg:leading-4",
-                photoAttachments.length === 0 && "col-span-3 min-h-20",
-              )}
-              disabled={attachmentUploadPending}
-              onClick={(event) => {
-                mobilePhotoTriggerRef.current = event.currentTarget;
-                mobilePhotoOutsideDismissedRef.current = false;
-                setPhotoCaptureOpen(true);
-              }}
-            >
-              <span className="grid place-items-center gap-1">
-                <Camera className="size-4" />
-                {attachmentUploadPending
-                  ? t("orders2b2.overview.uploading")
-                  : t("orders2b2.overview.capture")}
-              </span>
-            </button>
-          ) : null}
-        </div>
+        <OrderDetailPhotoSlots
+          attachments={photoAttachments}
+          canUpload={data.capabilities?.canUploadPhoto === true && !isVoided}
+          uploadPending={attachmentUploadPending}
+          onCapture={(kind, trigger) => {
+            setMobilePhotoCaptureKind(kind);
+            mobilePhotoTriggerRef.current = trigger;
+            mobilePhotoOutsideDismissedRef.current = false;
+            setPhotoCaptureOpen(true);
+          }}
+          onOpenAttachment={(attachment) => setPhotoPreviewId(attachment.id)}
+          className="mt-1.5"
+        />
         {photoAttachments.length ? (
           <p className="mt-1 text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
             {t("orders2b2.mobile.photoSaved", { count: photoAttachments.length })}
@@ -4206,7 +4155,7 @@ function MobileOrderDetailView({
         <CameraCaptureSheet
           open={photoCaptureOpen}
           onOpenChange={setPhotoCaptureOpen}
-          attachmentKind="fault_photo"
+          attachmentKind={mobilePhotoCaptureKind}
           purpose="order-attachment"
           onOutsideDismiss={() => {
             mobilePhotoOutsideDismissedRef.current = true;
@@ -5038,48 +4987,6 @@ function FaultDescriptionEditSheet({
   );
 }
 
-function PhotoPreview({
-  attachment,
-  onOpen,
-}: {
-  attachment: OrderAttachment;
-  onOpen?: () => void;
-}) {
-  const { t } = useLocale();
-  const source = attachment.signed_url || attachment.public_url;
-  const label = localizeOrderAttachmentKind(attachment.kind, t);
-
-  if (!source) {
-    return (
-      <div className="relative h-14 overflow-hidden rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]">
-        <div className="grid size-full place-items-center text-primary">
-          <ImageIcon className="size-4" />
-        </div>
-        <span className="absolute inset-x-1 bottom-1 rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur lg:text-[11px] lg:leading-4">
-          {label} · {formatAttachmentSize(attachment.file_size)}
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      className="group relative h-14 overflow-hidden rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      onClick={onOpen}
-      aria-label={t("orders2b2.overview.openPhoto", { file: attachment.file_name || label })}
-    >
-      <img src={source} alt={attachment.file_name || label} className="size-full object-cover" />
-      <span className="absolute inset-0 hidden place-items-center bg-background/20 text-[9px] font-semibold text-foreground backdrop-blur-[1px] group-hover:grid group-focus-visible:grid lg:text-[11px] lg:leading-4">
-        {t("orders2b2.overview.view")}
-      </span>
-      <span className="absolute inset-x-1 bottom-1 rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur lg:text-[11px] lg:leading-4">
-        {label} · {formatAttachmentSize(attachment.file_size)}
-      </span>
-    </button>
-  );
-}
-
 function DesktopStatusTransitionPanel({
   order,
   workflow,
@@ -5406,8 +5313,9 @@ function MobileStatusTransitionSheet({
 function MobileStickyWorkflowHeader({
   order,
   workflow,
-  currentStageIndex,
   currentStage,
+  currentStatusChangedAt,
+  storeName,
   nextLabel,
   onHeightChange,
   onPrint,
@@ -5420,8 +5328,9 @@ function MobileStickyWorkflowHeader({
 }: {
   order: OrderDetail["order"];
   workflow?: OrderWorkflow;
-  currentStageIndex: number;
   currentStage: OrderTaskStage;
+  currentStatusChangedAt: string;
+  storeName: string;
   nextLabel?: string;
   onHeightChange?: (height: number) => void;
   onPrint: () => void;
@@ -5432,7 +5341,7 @@ function MobileStickyWorkflowHeader({
   onCancel: () => void;
   canCancel: boolean;
 }) {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
   const openedFromOrdersList = searchParams.get("from") === "orders";
@@ -5445,8 +5354,15 @@ function MobileStickyWorkflowHeader({
     t,
   );
   const nextText = nextLabel
-    ? `${t("orders2b2.hero.next")}：${nextLabel}`
+    ? nextLabel.replace(/^(?:下一步|Next|Prossimo passo)[:：]\s*/i, "")
     : localizedCurrentStage.nextAction;
+  const terminal =
+    cancelled ||
+    order.status === "completed" ||
+    order.record_state === "voided" ||
+    Boolean(order.deleted_at) ||
+    order.workflow_status === "closed";
+  const progressDanger = cancelled || order.record_state === "voided" || Boolean(order.deleted_at);
   const sideBadges = getOrderSideStatusBadges(order).slice(0, 3);
 
   useEffect(() => {
@@ -5579,12 +5495,49 @@ function MobileStickyWorkflowHeader({
               ))}
             </div>
           ) : null}
+          <div
+            data-mobile-order-meta-row="true"
+            data-testid="mobile-order-header-meta"
+            className="mt-1.5 grid min-w-0 grid-cols-3 gap-1 border-t border-[var(--border-panel)] pt-1.5 text-[9px] leading-3 text-muted-foreground"
+          >
+            <span
+              className="min-w-0 truncate"
+              aria-label={`${t("orders2b2.overview.createdAt")}: ${formatDateTime(order.created_at, locale)}`}
+              title={formatDateTime(order.created_at, locale)}
+            >
+              <Clock3 className="mr-0.5 inline-block size-2.5" aria-hidden="true" />
+              <time dateTime={order.created_at}>
+                {formatCompactDateTime(order.created_at, locale)}
+              </time>
+            </span>
+            <span
+              className="min-w-0 truncate"
+              aria-label={`${t("orders2b2.overview.statusAt")}: ${formatDateTime(currentStatusChangedAt, locale)}`}
+              title={formatDateTime(currentStatusChangedAt, locale)}
+            >
+              <CheckCircle2 className="mr-0.5 inline-block size-2.5" aria-hidden="true" />
+              <time dateTime={currentStatusChangedAt}>
+                {formatCompactDateTime(currentStatusChangedAt, locale)}
+              </time>
+            </span>
+            <span
+              className="min-w-0 truncate"
+              aria-label={`${t("orders2b2.overview.store")}: ${storeName}`}
+              title={storeName}
+            >
+              <Store className="mr-0.5 inline-block size-2.5" aria-hidden="true" />
+              {storeName}
+            </span>
+          </div>
           <div className="mt-1 border-t border-[var(--border-panel)] pt-1">
-            <MobileWorkflowTimeline
-              compact
-              currentIndex={currentStageIndex}
-              currentStage={currentStage}
-              createdAt={order.created_at}
+            <OrderMiniProgress
+              workflowStatus={
+                isOrderCancelledState(order) ? "closed" : getOrderWorkflowStatus(order)
+              }
+              currentLabel={localizedCurrentStage.label}
+              nextAction={nextLabel || localizedCurrentStage.nextAction}
+              danger={progressDanger}
+              isTerminal={terminal}
             />
           </div>
         </div>
@@ -5630,36 +5583,14 @@ function MobileSectionTitle({
   );
 }
 
-function MobileMeta({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof Calendar;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="min-w-0">
-      <div className="flex items-center gap-1 text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-        <Icon className="size-3 shrink-0" />
-        <span className="truncate">{label}</span>
-      </div>
-      <p className="mt-0.5 truncate text-[11px] font-medium leading-4 lg:text-xs lg:leading-4">
-        {value}
-      </p>
-    </div>
-  );
-}
-
 function DetailRows({ rows }: { rows: [string, string][] }) {
   return (
-    <dl className="mt-1.5 grid min-w-0 gap-1 text-[11px] leading-4 lg:text-xs lg:leading-4">
+    <dl className="mt-1.5 grid min-w-0 grid-cols-2 gap-1 text-[11px] leading-4 lg:text-xs lg:leading-4">
       {rows.map(([label, value]) => (
         <div
           key={label}
           data-order-detail-row="true"
-          className="grid min-w-0 grid-cols-1 gap-x-2 gap-y-0.5 sm:grid-cols-[minmax(96px,0.35fr)_minmax(0,1fr)]"
+          className="grid min-w-0 grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-1 gap-y-0.5 sm:grid-cols-[minmax(96px,0.35fr)_minmax(0,1fr)]"
         >
           <dt
             data-order-detail-row-label="true"
@@ -6116,95 +6047,6 @@ function MobilePaymentTile({
   );
 }
 
-function MobileWorkflowTimeline({
-  currentIndex,
-  currentStage,
-  createdAt,
-  compact = false,
-}: {
-  currentIndex: number;
-  currentStage?: OrderTaskStage;
-  createdAt: string;
-  compact?: boolean;
-}) {
-  const { locale, t } = useLocale();
-  const stageGridStyle = {
-    gridTemplateColumns: `repeat(${orderTaskStages.length}, minmax(0, 1fr))`,
-  };
-
-  return (
-    <div className={cn("grid min-w-0 gap-0.5", compact ? "mt-1" : "mt-4")} style={stageGridStyle}>
-      {orderTaskStages.map((stage, index) => {
-        const done = index < currentIndex;
-        const current = index === currentIndex;
-        const displayStage = localizeOrderFlowStage(current ? (currentStage ?? stage) : stage, t);
-        return (
-          <div key={stage.key} className="relative min-w-0 text-center">
-            {index > 0 ? (
-              <span
-                className={cn(
-                  "absolute -left-1/2 h-0.5 w-full bg-border",
-                  compact ? "top-2" : "top-3",
-                )}
-                aria-hidden
-              />
-            ) : null}
-            <span
-              className={cn(
-                "relative z-10 mx-auto grid place-items-center rounded-full border font-semibold",
-                compact ? "size-4 text-[8px]" : "size-6 text-[10px]",
-                done && "border-primary bg-primary text-primary-foreground",
-                current &&
-                  (compact
-                    ? "border-primary bg-card text-primary shadow-[0_0_0_2px_color-mix(in_oklch,var(--primary)_14%,transparent)]"
-                    : "border-primary bg-card text-primary shadow-[0_0_0_4px_color-mix(in_oklch,var(--primary)_12%,transparent)]"),
-                !done && !current && "border-border bg-surface-muted text-muted-foreground",
-              )}
-            >
-              {done ? (
-                <Check className={compact ? "size-2.5" : "size-3.5"} />
-              ) : (
-                displayStage.shortLabel
-              )}
-            </span>
-            <p
-              className={cn(
-                "truncate",
-                compact
-                  ? "mt-0.5 text-[8px] leading-3 lg:text-[11px] lg:leading-4"
-                  : "mt-1 text-[10px] lg:text-[11px] lg:leading-4",
-                current ? "font-semibold text-primary" : "text-muted-foreground",
-              )}
-            >
-              {displayStage.label}
-            </p>
-            {!compact ? (
-              <p className="truncate text-[9px] text-muted-foreground/70 lg:text-[11px] lg:leading-4 lg:text-muted-foreground">
-                {index === 0
-                  ? formatShortDate(createdAt, locale)
-                  : current
-                    ? t("orders2b2.hero.current")
-                    : ""}
-              </p>
-            ) : null}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function PhotoPlaceholder({ label }: { label: string }) {
-  return (
-    <div className="grid h-14 place-items-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-center text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-      <span className="grid place-items-center gap-0.5">
-        <ImageIcon className="size-3.5 opacity-70" />
-        {label}
-      </span>
-    </div>
-  );
-}
-
 function normalizePhoneDigits(value: string) {
   return value.replace(/\D/g, "");
 }
@@ -6220,6 +6062,18 @@ function formatShortDate(value: string, locale: ReturnType<typeof useLocale>["lo
     timeZone: "Europe/Rome",
     month: "2-digit",
     day: "2-digit",
+  });
+}
+
+function formatCompactDateTime(value: string, locale: ReturnType<typeof useLocale>["locale"]) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return formatOrderDateTime(value, locale);
+  return date.toLocaleString(locale, {
+    timeZone: "Europe/Rome",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 

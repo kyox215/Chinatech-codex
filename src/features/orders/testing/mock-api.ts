@@ -704,15 +704,6 @@ export async function getOrder(id: string, _actor?: AuditActor) {
       canCorrect: terminal && !voided,
       canReopen: terminal && !voided,
       canVoid: terminal && !voided && !hasFinancialEvidence,
-      canReadInternalCosts:
-        process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1" &&
-        (!_actor ||
-          _actor.isSystem ||
-          can(_actor, "finance:profit_read") ||
-          can(_actor, "finance:cost_manage")),
-      canManageInternalCosts:
-        process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1" &&
-        (!_actor || _actor.isSystem || can(_actor, "finance:cost_manage")),
       canAllocatePartsCosts:
         process.env.REPAIRDESK_ORDER_COSTS_ENABLED === "1" &&
         process.env.REPAIRDESK_PARTS_PROCUREMENT_ENABLED === "1" &&

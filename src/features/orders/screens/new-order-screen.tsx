@@ -30,8 +30,6 @@ import {
   getCustomerDetail,
   getOnboardingStatus,
   getOrderCreateOperationStatus,
-  getStoreContext,
-  getStoreFaultCostDefaults,
   isRepairDeskRequestTimeoutError,
   RepairDeskApiError,
 } from "@/lib/repairdesk/api";
@@ -77,15 +75,6 @@ import {
 } from "@/features/orders/model/new-order-simple-mode-feature";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { orderWorkflowQueryOptions } from "@/features/orders/api/query-options";
-import { ordersKeys } from "@/features/orders/api/query-keys";
-import { storesKeys } from "@/features/stores/api/query-keys";
-import {
-  buildCreateOrderCostInputs,
-  hasTouchedNewOrderCostDrafts,
-  syncNewOrderCostDrafts,
-  updateNewOrderCostDraft,
-  type NewOrderCostDraft,
-} from "@/features/orders/model/order-cost-draft";
 import { synchronizeCreatedOrderNavigation } from "@/features/orders/api/cache-sync";
 import { getWorkflowStatuses } from "@/features/orders/model/order-workflow";
 import { localizeOrderWorkflowStatusLabel } from "@/features/orders/model/order-i18n";
@@ -113,8 +102,6 @@ export function NewOrderScreen({
   const queryClient = useQueryClient();
   const { registerGuard } = useNavigationGuard();
   const [form, setForm] = useState<NewOrderFormState>(initialNewOrderForm);
-  const [costDrafts, setCostDrafts] = useState<Record<string, NewOrderCostDraft>>({});
-  const [isOnline, setIsOnline] = useState(true);
   const [historyDevices, setHistoryDevices] = useState<CustomerHistoryDeviceCandidate[]>([]);
   const [discardDraftDialogOpen, setDiscardDraftDialogOpen] = useState(false);
   const [identityConflict, setIdentityConflict] = useState<NewOrderIdentityConflict | null>(null);
@@ -141,17 +128,6 @@ export function NewOrderScreen({
   }, []);
 
   useEffect(() => {
-    const syncOnline = () => setIsOnline(navigator.onLine);
-    syncOnline();
-    window.addEventListener("online", syncOnline);
-    window.addEventListener("offline", syncOnline);
-    return () => {
-      window.removeEventListener("online", syncOnline);
-      window.removeEventListener("offline", syncOnline);
-    };
-  }, []);
-
-  useEffect(() => {
     if (surface !== "page") return;
     document.body.dataset.mobileWorkspaceActive = "true";
     return () => {
@@ -167,21 +143,6 @@ export function NewOrderScreen({
   });
   const hydratedOnboardingStatus = hydrated ? onboardingStatus : undefined;
   const activeStoreId = hydratedOnboardingStatus?.activeStore?.id;
-  const { data: storeContext } = useQuery({
-    queryKey: storesKeys.context,
-    queryFn: ({ signal }) => getStoreContext({ signal }),
-    retry: false,
-    staleTime: CACHE_TIMES.shell,
-  });
-  const costStoreId = storeContext?.activeStore?.id;
-  const canManageOrderCosts = storeContext?.permissions?.can_manage_order_costs === true;
-  const costDefaultsQuery = useQuery({
-    queryKey: [...ordersKeys.all, "cost-defaults", costStoreId] as const,
-    queryFn: () => getStoreFaultCostDefaults(costStoreId!),
-    enabled: Boolean(costStoreId && canManageOrderCosts && costStoreId === activeStoreId),
-    retry: false,
-    staleTime: CACHE_TIMES.settings,
-  });
   const offlineScope = useMemo(
     () =>
       activeStoreId && hydratedOnboardingStatus?.userId
@@ -287,20 +248,6 @@ export function NewOrderScreen({
   const activeDeposit = form.deposit;
   const draftFaultPrices = useMemo(() => toFaultPriceItems(validFaultDrafts), [validFaultDrafts]);
   const validFaultPrices = draftFaultPrices;
-  const hasCatalogCostLines = validFaultPrices.some((item) => Boolean(item.catalog_key));
-  const costDefaultsBlocked =
-    canManageOrderCosts &&
-    hasCatalogCostLines &&
-    (costDefaultsQuery.isPending || costDefaultsQuery.isError);
-  useEffect(() => {
-    if (!canManageOrderCosts) {
-      setCostDrafts({});
-      return;
-    }
-    setCostDrafts((current) =>
-      syncNewOrderCostDrafts(current, draftFaultPrices, costDefaultsQuery.data?.items),
-    );
-  }, [canManageOrderCosts, costDefaultsQuery.data?.items, draftFaultPrices]);
   const createStatusLabel = selectedCreateStatus
     ? localizeOrderWorkflowStatusLabel(selectedCreateStatus, t)
     : defaultCreateStatus
@@ -475,15 +422,9 @@ export function NewOrderScreen({
       }
       const custodyStatus = form.deviceCustodyStatus;
       if (!custodyStatus) throw new Error(t("orders2b1.new.error.custody"));
-      if (costDefaultsBlocked) {
-        throw new Error(t("orders2b1.new.error.cost"));
-      }
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         if (identityResolution.mode !== "auto") {
           throw new Error(t("orders2b1.new.error.identityOnline"));
-        }
-        if (canManageOrderCosts && Object.values(costDrafts).some((draft) => draft.touched)) {
-          throw new Error(t("orders2b1.new.error.costOnline"));
         }
         if (!isRepairDeskOfflineSyncEnabled()) {
           throw new Error(t("orders2b1.new.error.offlineDisabled"));
@@ -516,9 +457,6 @@ export function NewOrderScreen({
         warranty_change_reason: form.warrantyChangeReason || undefined,
         device_unlock: normalizeUnlockForCustody(custodyStatus, form.deviceUnlock),
         fault_prices: validFaultPrices,
-        ...(canManageOrderCosts && validFaultPrices.length > 0
-          ? { cost_inputs: buildCreateOrderCostInputs(validFaultPrices, costDrafts) }
-          : {}),
         deposit_amount: activeDeposit,
       });
       return { kind: "online", id: result.id, replayed: result.replayed };
@@ -567,7 +505,6 @@ export function NewOrderScreen({
     form.brand.trim() &&
     form.model.trim() &&
     activeDeposit <= activeTotal &&
-    !costDefaultsBlocked &&
     !customerIdentityCreationBlocked &&
     !sessionStoreChanged &&
     deviceCustodyAllowsStatus(
@@ -583,20 +520,11 @@ export function NewOrderScreen({
         form,
         total,
         defaultWarrantyMonths,
-        costDefaultsBlocked,
         customerIdentityCreationBlocked,
         selectedCreateStatus,
         t,
       }),
-    [
-      costDefaultsBlocked,
-      customerIdentityCreationBlocked,
-      defaultWarrantyMonths,
-      form,
-      selectedCreateStatus,
-      total,
-      t,
-    ],
+    [customerIdentityCreationBlocked, defaultWarrantyMonths, form, selectedCreateStatus, total, t],
   );
 
   const handleGuidedNext = () => {
@@ -694,14 +622,12 @@ export function NewOrderScreen({
   const guardSnapshotRef = useRef({
     surface,
     offlineDraft,
-    hasTouchedCostDrafts: hasTouchedNewOrderCostDrafts(costDrafts),
     createPending: create.isPending,
     createRecoveryState: createRecovery.state,
   });
   guardSnapshotRef.current = {
     surface,
     offlineDraft,
-    hasTouchedCostDrafts: hasTouchedNewOrderCostDrafts(costDrafts),
     createPending: create.isPending,
     createRecoveryState: createRecovery.state,
   };
@@ -717,7 +643,6 @@ export function NewOrderScreen({
           return (
             Boolean(snapshot.offlineDraft.draftPrompt) ||
             snapshot.offlineDraft.isCurrentDraftDirty() ||
-            snapshot.hasTouchedCostDrafts ||
             snapshot.createPending ||
             snapshot.createRecoveryState !== "idle"
           );
@@ -736,7 +661,6 @@ export function NewOrderScreen({
           return (
             !snapshot.offlineDraft.draftPrompt &&
             !snapshot.offlineDraft.hasSensitiveUnlockDraft &&
-            !snapshot.hasTouchedCostDrafts &&
             !snapshot.createPending &&
             snapshot.createRecoveryState === "idle" &&
             snapshot.offlineDraft.state !== "unavailable"
@@ -753,9 +677,6 @@ export function NewOrderScreen({
           if (snapshot.offlineDraft.hasSensitiveUnlockDraft) {
             return t("orders2b1.new.unlockDraftWarning");
           }
-          if (snapshot.hasTouchedCostDrafts) {
-            return t("orders2b1.new.error.costOnline");
-          }
           if (snapshot.offlineDraft.state === "unavailable") {
             return t("orders2b1.new.offline.unavailable");
           }
@@ -767,8 +688,7 @@ export function NewOrderScreen({
             snapshot.createPending ||
             snapshot.createRecoveryState !== "idle" ||
             snapshot.offlineDraft.draftPrompt ||
-            snapshot.offlineDraft.hasSensitiveUnlockDraft ||
-            snapshot.hasTouchedCostDrafts
+            snapshot.offlineDraft.hasSensitiveUnlockDraft
           ) {
             return { status: "blocked" };
           }
@@ -782,7 +702,6 @@ export function NewOrderScreen({
           }
           await snapshot.offlineDraft.discardCurrentDraft();
           setForm(initialNewOrderForm);
-          setCostDrafts({});
           setHistoryDevices([]);
           return { status: "resolved" };
         },
@@ -830,18 +749,6 @@ export function NewOrderScreen({
       operatorRole={operatorRole}
       onPatchFault={patchFault}
       onAddCustomFault={addCustomFault}
-      canManageOrderCosts={canManageOrderCosts}
-      costDrafts={costDrafts}
-      costDefaultsPending={costDefaultsQuery.isPending && canManageOrderCosts}
-      costDefaultsError={costDefaultsQuery.isError && canManageOrderCosts}
-      isOnline={isOnline}
-      onRetryCostDefaults={() => void costDefaultsQuery.refetch()}
-      onCostDraftChange={(lineId, text) =>
-        setCostDrafts((current) => ({
-          ...current,
-          [lineId]: updateNewOrderCostDraft(text),
-        }))
-      }
       createStatuses={createStatuses}
       defaultWarrantyMonths={defaultWarrantyMonths}
       surface={surface}
@@ -1260,9 +1167,7 @@ function getCreateOrderErrorMessage(error: Error, t: ReturnType<typeof useLocale
   const knownMessages = [
     t("orders2b1.new.error.storeChanged"),
     t("orders2b1.new.error.custody"),
-    t("orders2b1.new.error.cost"),
     t("orders2b1.new.error.identityOnline"),
-    t("orders2b1.new.error.costOnline"),
     t("orders2b1.new.error.offlineDisabled"),
   ];
   return knownMessages.includes(message) ? message : t("orders2b1.new.error.generic");
@@ -1437,7 +1342,6 @@ function getNewOrderMissingItems({
   form,
   total,
   defaultWarrantyMonths,
-  costDefaultsBlocked,
   customerIdentityCreationBlocked,
   selectedCreateStatus,
   t,
@@ -1445,7 +1349,6 @@ function getNewOrderMissingItems({
   form: NewOrderFormState;
   total: number;
   defaultWarrantyMonths: number;
-  costDefaultsBlocked: boolean;
   customerIdentityCreationBlocked: boolean;
   selectedCreateStatus: { code: string; bucket?: string | null } | undefined;
   t: ReturnType<typeof useLocale>["t"];
@@ -1513,15 +1416,6 @@ function getNewOrderMissingItems({
           sectionId: "quotation",
           label: t("orders2b1.new.validation.depositShort"),
           target: "deposit",
-        }
-      : null,
-    costDefaultsBlocked
-      ? {
-          code: "cost_defaults_pending",
-          fieldId: "faults",
-          sectionId: "quotation",
-          label: t("orders2b1.new.validation.cost"),
-          target: "quotation",
         }
       : null,
     warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) &&

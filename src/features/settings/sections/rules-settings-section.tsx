@@ -33,7 +33,6 @@ import {
 import { ORDER_WARRANTY_OPTIONS } from "@/features/orders/model/order-warranty";
 import { CostBackfillCard } from "@/features/settings/components/cost-backfill-card";
 import { CostCurrencySettingsCard } from "@/features/settings/components/cost-currency-settings-card";
-import { RepairCostDefaultsCard } from "@/features/settings/components/repair-cost-defaults-card";
 import { PartsProcurementCard } from "@/features/settings/components/parts-procurement-card";
 import { SettingsField } from "@/features/settings/components/settings-field";
 import type { SettingsFieldErrors } from "@/features/settings/model/settings-field-errors";
@@ -53,7 +52,6 @@ export interface RulesSettingsSectionProps {
   isDraftDirty: boolean;
   canUpdateSettings: boolean;
   activeStoreId?: string;
-  canManageOrderCosts?: boolean;
   canAllocatePartsCosts?: boolean;
   canReadCostCurrencies?: boolean;
   canManageCostCurrencies?: boolean;
@@ -68,7 +66,6 @@ export function RulesSettingsSection({
   isDraftDirty,
   canUpdateSettings,
   activeStoreId,
-  canManageOrderCosts = false,
   canAllocatePartsCosts = false,
   canReadCostCurrencies = false,
   canManageCostCurrencies = false,
@@ -383,10 +380,7 @@ export function RulesSettingsSection({
         ) : null}
       </section>
       {activeStoreId &&
-      (canManageOrderCosts ||
-        canManageCostCurrencies ||
-        canAllocatePartsCosts ||
-        canPreviewCostBackfill) ? (
+      (canManageCostCurrencies || canAllocatePartsCosts || canPreviewCostBackfill) ? (
         <Collapsible
           open={costsOpen}
           onOpenChange={setCostsOpen}
@@ -424,9 +418,6 @@ export function RulesSettingsSection({
               aria-hidden={!costsOpen}
               className="space-y-3"
             >
-              {canManageOrderCosts ? (
-                <RepairCostDefaultsCard key={activeStoreId} storeId={activeStoreId} />
-              ) : null}
               {canManageCostCurrencies ? (
                 <CostCurrencySettingsCard
                   key={`cost-currencies-${activeStoreId}`}

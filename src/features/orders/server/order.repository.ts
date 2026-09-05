@@ -132,10 +132,7 @@ import {
   hasOrderAmountAnomaly,
   resolveRepairServiceCatalogItem,
 } from "@/entities/order";
-import {
-  isOrderCostsEnabled,
-  isPartsProcurementEnabled,
-} from "@/features/orders/server/order-cost-feature";
+import { isPartsProcurementEnabled } from "@/features/orders/server/order-cost-feature";
 import { isOrderArchivedForQueue } from "@/features/orders/model/order-list-visibility";
 import {
   countOrderQueueGroups,
@@ -688,11 +685,6 @@ export function projectOrderCapabilities(
     canCorrect: terminal && !voided && permitted("order:correct"),
     canReopen: terminal && !voided && permitted("order:reopen"),
     canVoid: terminal && !voided && !hasFinancialEvidence && permitted("order:void"),
-    canReadInternalCosts:
-      !voided &&
-      isOrderCostsEnabled() &&
-      (permitted("finance:profit_read") || permitted("finance:cost_manage")),
-    canManageInternalCosts: !voided && isOrderCostsEnabled() && permitted("finance:cost_manage"),
     canAllocatePartsCosts:
       !voided && isPartsProcurementEnabled() && permitted("inventory:cost_allocate"),
     blockedReasons,
@@ -3984,13 +3976,6 @@ export async function createOrder(
           warranty_changed_by: warrantyChangedFromDefault ? actorId : null,
           warranty_changed_at: warrantyChangedFromDefault ? now : null,
           fault_prices: validFaults,
-          cost_inputs: (input.cost_inputs ?? [])
-            .filter((item) => item.mode !== "default")
-            .map((item) => ({
-              line_id: item.line_id,
-              mode: item.mode,
-              ...(item.mode === "manual" ? { amount: item.amount } : {}),
-            })),
           operator_name: operatorName,
         },
       },

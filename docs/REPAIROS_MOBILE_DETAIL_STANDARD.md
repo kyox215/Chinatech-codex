@@ -76,13 +76,21 @@ repairOs.mobileInfoCardMuted;
 | ------------------ | ---------------------------------------------------------------------------------------------------------- |
 | 顶部卡外壳         | `max-w-[430px]`、`rounded-xl`、`border-[var(--border-panel)]`、`bg-card/95`、`shadow-[var(--shadow-card)]` |
 | 导航列             | 左侧 `36px`，中间 `minmax(0,1fr)`，右侧 `auto`                                                             |
-| 返回/打印/更多按钮 | 普通入口 `size-9 rounded-lg`；主动作 `size-10`，图标 `size-4` 到 `size-[18px]`                              |
+| 返回/打印/更多按钮 | 普通入口 `size-9 rounded-lg`；主动作 `size-10`，图标 `size-4` 到 `size-[18px]`                             |
 | 页面标题           | `text-xs font-semibold leading-4`                                                                          |
 | 状态上下文         | `text-[9px] leading-3 text-muted-foreground`                                                               |
 | 主编号             | `font-mono text-[12px] font-semibold leading-4 text-primary`                                               |
 | 辅助 badge         | `text-[10px]`，最多 3 个，超长必须截断                                                                     |
 
 主流程只表达 `接单 / 检测报价 / 维修处理 / 通知取机 / 收款完成`。底层 `workflow_status` 可以继续保留收机、检测、报价、配件、维修、取机、结案等兼容状态，移动 UI 通过 `order-simple-flow.ts` 聚合展示。邮寄中、外修、通知状态、审批状态、异常状态都属于辅助状态标签或独立处理面板。
+
+### 2.1 订单详情紧凑状态区
+
+订单详情的悬浮卡在同一行提供创建时间、当前状态变更时间和当前门店。时间必须使用带 `dateTime` 的 `<time>`，可视文本保持紧凑（至少包含月/日和时分），无障碍名称必须区分创建与状态变更并包含完整时间。门店显示当前 shell 的真实门店名称；缺失时使用明确的“未配置”占位，不使用供应商名称替代。
+
+设备保管在正常状态下使用单行图标、状态和操作条，移动端高度控制在 44px 内。取消、退回待确认、状态冲突、缺失保管状态等异常才展开说明和最近交接信息；权限、确认弹层和焦点回收保持原有行为。
+
+订单详情的 MINI 进度复用订单列表的五段 `h-1` 轨道。详情轨道不显示阶段文字或数字，当前和终态语义通过本地化的无障碍名称提供；订单列表可以继续显示自己的阶段标签。顶部高度变化必须通过 `ResizeObserver` 更新 `--repair-os-mobile-floating-offset`，正文第一张卡与悬浮卡外框保持 6–10px 间距。
 
 ## 3. 信息卡形态
 
@@ -224,6 +232,8 @@ min-w-0 overflow-hidden
 - 设备照片、签名、取件凭证必须通过 `@/lib/repairdesk/api` 上传并从 `OrderDetail.attachments` 渲染。
 - 上传成功后必须 invalidate 当前详情，并写入时间线。
 - 不允许把生产照片长期留在本地 state 里当业务结果。
+- 订单详情照片固定分为“正面、背面、其他”三组：`device_front` 归正面，`device_back` 归背面，`screen_on`、`fault_photo` 和 `other` 归其他；签名永不进入设备照片组。
+- 每组保留空槽标签和现有权限边界；有多张照片时每张都必须可从组内入口到达。每个上传槽使用独立的可访问名称，并把正面、背面或其他映射到现有 `CameraCaptureSheet` 的对应 `attachmentKind`。缺失或失败的图片地址保留文件信息并显示不可用状态。
 
 ## 8. 数据与业务逻辑边界
 

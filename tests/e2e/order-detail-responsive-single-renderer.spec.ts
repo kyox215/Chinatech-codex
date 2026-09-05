@@ -121,7 +121,7 @@ test.describe("order detail responsive single renderer", () => {
     await page.setViewportSize({ width: 1024, height: 768 });
     await expectOrderDetailMode(page, "compact");
     await expect(projectInput).toHaveValue(marker);
-    await expect(quote.getByRole("button", { name: "收起", exact: true })).toBeVisible();
+    await expect(quote.getByRole("button", { name: "完成", exact: true })).toBeVisible();
     await expect(projectInput).toBeFocused();
     expect(mutationCount()).toBe(0);
   });

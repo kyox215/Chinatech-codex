@@ -564,14 +564,42 @@ describe("inventory catalog search route release gate", () => {
 });
 
 describe("repairdesk router internal cost boundary", () => {
+  it("does not dispatch retired order cost routes even when the former feature flag is on", async () => {
+    vi.stubEnv("REPAIRDESK_ORDER_COSTS_ENABLED", "1");
+    for (const path of [
+      "orders/cost-defaults/read",
+      "orders/cost-defaults/update",
+      "orders/internal-costs/read",
+      "orders/internal-costs/history",
+      "orders/internal-costs/update",
+    ]) {
+      const response = await handleRepairDeskPost(path, {}, actor("owner"));
+      expect(response.status, path).toBe(404);
+    }
+    vi.unstubAllEnvs();
+  });
+
   it("detects every explicit cost payload before schema stripping", () => {
     expect(hasOwnOrderCostInputs({ fault_prices: [] })).toBe(false);
     expect(hasOwnOrderCostInputs({ cost_inputs: [] })).toBe(true);
     expect(hasOwnOrderCostInputs({ cost_inputs: null })).toBe(true);
     expect(hasOwnOrderCostInputs({ cost: 15 })).toBe(true);
+    expect(hasOwnOrderCostInputs({ default_cost_amount: null })).toBe(true);
+    expect(hasOwnOrderCostInputs({ internalCostAmount: 0 })).toBe(true);
+    expect(hasOwnOrderCostInputs({ nested: [{ unit_cost_amount: [] }] })).toBe(true);
     expect(hasOwnOrderCostInputs({ fault_prices: [{ unit_cost: 15 }] })).toBe(true);
     expect(hasOwnOrderCostInputs({ nested: { internalCost: 15 } })).toBe(true);
     expect(hasOwnOrderCostInputs(Object.create({ cost_inputs: [] }))).toBe(false);
+  });
+
+  it("rejects legacy order cost fields before create validation or repository access", async () => {
+    const response = await handleRepairDeskPost(
+      "orders/create",
+      { nested: [{ default_cost_amount: null }] },
+      actor("owner"),
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "订单内部成本字段已停用" });
   });
 });
 

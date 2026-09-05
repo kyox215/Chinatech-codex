@@ -253,88 +253,6 @@ export interface FaultPriceItem {
   note?: string;
 }
 
-export type OrderCostInputMode = "default" | "manual" | "blank";
-
-export interface CreateOrderCostInput {
-  line_id: string;
-  catalog_key?: string;
-  mode: OrderCostInputMode;
-  amount?: number;
-}
-
-export type OrderLineCostSource =
-  | "store_default"
-  | "manual"
-  | "manual_blank"
-  | "historical_unknown"
-  | "purchase_lot"
-  | "supplier_document"
-  | "backfill_estimate";
-
-export type OrderLineCostEvidenceStatus = "unknown" | "estimated" | "confirmed" | "reconciled";
-
-export interface InternalCostCurrencySnapshot {
-  original_amount: number;
-  original_currency_code: string;
-  fx_rate_to_eur: number;
-  fx_rate_at?: string;
-  fx_rate_source?: string;
-}
-
-export interface OrderLineCostItem {
-  line_id: string;
-  catalog_key?: string;
-  name: string;
-  cost_amount: number | null;
-  source: OrderLineCostSource;
-  evidence_status?: OrderLineCostEvidenceStatus;
-  currency_snapshot?: InternalCostCurrencySnapshot;
-  source_reference_type?: string;
-  source_reference_id?: string;
-}
-
-export interface OrderLineCostsResult {
-  order_id: string;
-  version: number;
-  currency_code: CurrencyCode;
-  items: OrderLineCostItem[];
-  unidentified_line_count: number;
-}
-
-export type OrderLineCostRevisionKind =
-  | "migration_snapshot"
-  | "created"
-  | "corrected"
-  | "activated"
-  | "deactivated"
-  | "allocated"
-  | "reversed"
-  | "backfill_applied"
-  | "backfill_reverted"
-  | "reconciled";
-
-export interface OrderLineCostRevisionItem {
-  id: string;
-  line_id: string;
-  projection_revision: number;
-  change_kind: OrderLineCostRevisionKind;
-  catalog_key?: string;
-  cost_amount: number | null;
-  source: OrderLineCostSource;
-  evidence_status: OrderLineCostEvidenceStatus;
-  is_active: boolean;
-  currency_snapshot?: InternalCostCurrencySnapshot;
-  source_reference_type?: string;
-  source_reference_id?: string;
-  reason?: string;
-  created_at: string;
-}
-
-export interface OrderCostHistoryResult {
-  order_id: string;
-  items: OrderLineCostRevisionItem[];
-}
-
 export interface ProfitPeriodSummary {
   order_count: number;
   eligible_order_count: number;
@@ -699,36 +617,6 @@ export interface ReleaseOrderPartInput {
   allocation_id: string;
   reason: string;
   idempotency_key: string;
-}
-
-export interface UpdateOrderLineCostInput {
-  line_id: string;
-  mode: Exclude<OrderCostInputMode, "default">;
-  amount?: number;
-}
-
-export interface UpdateOrderLineCostsRequest {
-  expected_store_id: string;
-  expected_version: number;
-  items: UpdateOrderLineCostInput[];
-}
-
-export interface StoreFaultCostDefaultItem {
-  catalog_key: string;
-  catalog_name: string;
-  default_cost_amount: number | null;
-}
-
-export interface StoreFaultCostDefaultsResult {
-  version: number;
-  currency_code: CurrencyCode;
-  items: StoreFaultCostDefaultItem[];
-}
-
-export interface UpdateStoreFaultCostDefaultsRequest {
-  expected_store_id: string;
-  expected_version: number;
-  items: StoreFaultCostDefaultItem[];
 }
 
 export type QuotePriceExceptionKind = "free" | "warranty" | "diagnostic_only";
@@ -1276,8 +1164,6 @@ export interface OrderCapabilities {
   canCorrect: boolean;
   canReopen: boolean;
   canVoid: boolean;
-  canReadInternalCosts?: boolean;
-  canManageInternalCosts?: boolean;
   canAllocatePartsCosts?: boolean;
   blockedReasons?: Partial<Record<OrderCapabilityKey, string>>;
   reopenTargets?: Array<{ code: RepairOrderStatus; label: string }>;
@@ -1434,7 +1320,6 @@ export interface CreateOrderInput {
   warranty_months?: number;
   warranty_change_reason?: string;
   fault_prices: FaultPriceItem[];
-  cost_inputs?: CreateOrderCostInput[];
   deposit_amount?: number;
   assignee_membership_id?: string;
 }
