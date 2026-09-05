@@ -521,6 +521,68 @@ describe("OrderDetailScreen i18n", () => {
     }
   });
 
+  it("keeps active shop custody compact and expands a customer-held conflict", () => {
+    mocks.viewport = "compact";
+    for (const workflowStatus of ["diagnosing", "repairing", "notified"] as const) {
+      mocks.detail = {
+        ...makeDetail(),
+        order: {
+          ...detailOrder,
+          status: workflowStatus,
+          workflow_status: workflowStatus,
+          device_custody_status: "with_shop",
+        },
+      };
+      const view = renderDetail("en", "page");
+      const custody = view.container.querySelector<HTMLElement>(
+        '[data-order-device-custody="true"]',
+      );
+      expect(custody).not.toBeNull();
+      expect(custody).toHaveAttribute("data-order-custody-mode", "compact");
+      view.unmount();
+    }
+
+    mocks.detail = {
+      ...makeDetail(),
+      order: {
+        ...detailOrder,
+        status: "diagnosing",
+        workflow_status: "diagnosing",
+        device_custody_status: "with_customer",
+      },
+    };
+    const conflictView = renderDetail("en", "page");
+    const conflict = conflictView.container.querySelector<HTMLElement>(
+      '[data-order-device-custody="true"]',
+    );
+    expect(conflict).not.toBeNull();
+    expect(conflict).toHaveAttribute("data-order-custody-mode", "expanded");
+    expect(conflict).toHaveTextContent(
+      translateMessage("en", "orders2b2.custody.conflictCustomer"),
+    );
+    conflictView.unmount();
+
+    mocks.detail = {
+      ...makeDetail(),
+      order: {
+        ...detailOrder,
+        status: "completed",
+        workflow_status: "done",
+        device_custody_status: null,
+      },
+    };
+    const unknownView = renderDetail("en", "page");
+    const unknown = unknownView.container.querySelector<HTMLElement>(
+      '[data-order-device-custody="true"]',
+    );
+    expect(unknown).not.toBeNull();
+    expect(unknown).toHaveAttribute("data-order-custody-mode", "expanded");
+    expect(unknown).toHaveTextContent(
+      translateMessage("en", "orders2b2.custody.terminalNeedsManager"),
+    );
+    unknownView.unmount();
+  });
+
   it("keeps cancelled-return canonical inputs locale-invariant across all locales", async () => {
     const calls: unknown[][] = [];
 
@@ -548,6 +610,7 @@ describe("OrderDetailScreen i18n", () => {
         '[data-order-device-custody="true"]',
       );
       expect(custody).not.toBeNull();
+      expect(custody).toHaveAttribute("data-order-custody-mode", "expanded");
 
       await user.click(
         within(custody!).getByRole("button", {

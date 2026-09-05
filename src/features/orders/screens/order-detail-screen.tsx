@@ -2521,7 +2521,7 @@ function OrderDeviceCustodyCard({
   const isExceptional =
     status === null ||
     cancelled ||
-    custodyBlocked ||
+    (status !== DEVICE_CUSTODY_WITH_SHOP && custodyBlocked) ||
     (isTerminal && !canCorrectTerminal && status === null);
 
   return (
@@ -2595,7 +2595,7 @@ function OrderDeviceCustodyCard({
               {t("orders2b2.custody.conflictCustomer")}
             </p>
           ) : null}
-          {status === DEVICE_CUSTODY_WITH_SHOP && custodyBlocked ? (
+          {status === DEVICE_CUSTODY_WITH_SHOP && custodyBlocked && isExceptional ? (
             <p className="mt-1 text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-[18px]">
               {t("orders2b2.custody.conflictShop")}
             </p>

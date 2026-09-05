@@ -249,7 +249,7 @@ test("heavy it-IT 768px uploads exact front, back and other photos through the r
     }),
   );
   await expect(
-    page.getByText(translateMessage("it-IT", "orders2b2.success.attachment")),
+    page.getByText(translateMessage("it-IT", "orders2b2.success.attachment")).last(),
   ).toBeVisible();
   const blockedExternalUpload = externalApiUrl("order/attachment/upload");
   await probeBlockedExternalWrite(page, blockedExternalUpload);
@@ -260,7 +260,7 @@ test("heavy it-IT 768px uploads exact front, back and other photos through the r
   await assertEvidence(
     page,
     evidence,
-    [`POST ${apiUrl("order/attachment/upload")}`],
+    photoCases.map(() => `POST ${apiUrl("order/attachment/upload")}`),
     [`POST ${blockedExternalUpload}`],
   );
 });
@@ -533,6 +533,7 @@ function isAllowedRead(request: Request) {
   if (method === "GET" || method === "HEAD") {
     if (url.pathname === "/orders" || url.pathname === "/orders/ord_1") return true;
     if (url.pathname.startsWith("/_next/")) return true;
+    if (url.pathname === "/recovery-probe.txt") return true;
     if (url.pathname === "/favicon.ico") return true;
     if (url.pathname === "/manifest.webmanifest") return true;
     if (url.pathname === "/__nextjs_font/geist-latin.woff2") return true;

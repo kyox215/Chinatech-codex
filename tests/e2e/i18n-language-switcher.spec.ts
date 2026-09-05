@@ -7,11 +7,9 @@ const evidenceDir = resolve(
 );
 const captureVisualEvidence = process.env.REPAIRDESK_CAPTURE_I18N_EVIDENCE === "1";
 const workspaceEvidenceEnabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
+test.use({ locale: "zh-CN" });
 
-test("server render honors an exact locale cookie and rejects an invalid value", async ({
-  page,
-  context,
-}) => {
+test("server render honors an exact locale cookie", async ({ page, context }) => {
   const consoleErrors: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
@@ -31,11 +29,22 @@ test("server render honors an exact locale cookie and rejects an invalid value",
     });
   }
   expect(consoleErrors).toEqual([]);
+});
 
-  await context.addCookies([{ name: "repairdesk_locale", value: "en-US", url: baseURL }]);
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
-  await expect(page.getByRole("heading", { name: "RepairDesk 登录" })).toBeVisible();
+test("server render falls back from an invalid cookie to the en-US device locale", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ locale: "en-US" });
+  try {
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await context.addCookies([{ name: "repairdesk_locale", value: "en-US", url: baseURL }]);
+    await page.goto(new URL("/login", baseURL).toString(), { waitUntil: "domcontentloaded" });
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    await expect(page.getByRole("heading", { name: "Sign in to RepairDesk" })).toBeVisible();
+  } finally {
+    await context.close();
+  }
 });
 
 test("fixed Italian customer routes do not replace the employee locale cookie", async ({
