@@ -229,8 +229,8 @@ describe("Transparent Buyback screen i18n", () => {
         "min-h-0",
         "overflow-hidden",
         "md:top-auto",
-        "md:h-[min(90svh,780px)]",
-        "md:max-h-[min(90svh,780px)]",
+        kind === "workspace" ? "md:h-[min(94svh,900px)]" : "md:h-[min(90svh,780px)]",
+        kind === "workspace" ? "md:max-h-[min(94svh,900px)]" : "md:max-h-[min(90svh,780px)]",
       );
       expect(sheet).toHaveStyle("--tw-enter-translate-y: 0px");
       expect(scrollBody).toHaveClass(

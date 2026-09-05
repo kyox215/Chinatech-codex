@@ -5,6 +5,14 @@ const cleanScreenshotStyle = "nextjs-portal,[data-sonner-toast]{display:none!imp
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for transparent buyback checks.");
 
+test.beforeEach(async ({ context, baseURL }) => {
+  await context.addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL! }]);
+});
+
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "wait" });
+});
+
 test("a failed buyback request is never presented as an empty list", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.route("**/api/repairdesk/inventory/list", async (route) => {
@@ -17,7 +25,7 @@ test("a failed buyback request is never presented as an empty list", async ({ pa
 
   await page.goto("/buyback", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "回收记录加载失败" })).toBeVisible();
-  await expect(page.getByText("检查网络后重试。")).toBeVisible();
+  await expect(page.getByText("操作暂时未完成。草稿已保留，请稍后重试。")).toBeVisible();
   await expect(page.getByRole("button", { name: "重新加载" })).toBeVisible();
 });
 
@@ -42,7 +50,7 @@ test("loading, true-empty, and filtered-empty states are distinguishable", async
   await expect(page.getByRole("heading", { name: "还没有透明报价" })).toBeVisible();
   await page.unrouteAll({ behavior: "wait" });
   await page.reload({ waitUntil: "domcontentloaded" });
-  const search = page.getByPlaceholder("搜索回收单或设备");
+  const search = page.getByPlaceholder("搜索回收单或设备").filter({ visible: true });
   await search.fill("绝对不存在的设备");
   await expect(page.getByRole("heading", { name: "没有符合条件的记录" })).toBeVisible();
 });
@@ -74,7 +82,7 @@ for (const viewport of [
     });
 
     await page.goto("/buyback", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: "回收管理" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "回收管理" }).first()).toBeVisible();
     await expect(page.locator('[data-buyback-list="true"]')).toHaveCount(1);
     await expect(page.locator('[data-buyback-desktop-list="true"]')).toHaveCount(0);
     await expect(page.locator('[data-buyback-mobile-list="true"]')).toHaveCount(0);
@@ -93,7 +101,7 @@ for (const viewport of [
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("heading", { name: "新建透明报价" })).toBeVisible();
     await expect(page.locator('[data-buyback-quote-workspace="true"]')).toHaveCount(1);
-    await expect(dialog.getByText("一页完成设备录入、价格说明和保存")).toBeVisible();
+    await expect(dialog.getByText("报价仅用于现场协商记录，不代表付款或收机完成。")).toBeVisible();
     await expectNoDialogOverflow(dialog);
     await dialog.getByPlaceholder("例如 iPhone 15 Pro").fill(`iPhone 15 ${viewport.width}`);
     await dialog.getByPlaceholder("例如 原色钛金属").fill("原色钛金属");
@@ -103,7 +111,9 @@ for (const viewport of [
     await dialog.getByRole("button", { name: "采用建议" }).click();
     if (viewport.width <= 430) {
       await expectMinimumTouchTarget(dialog.getByRole("button", { name: "采用建议" }));
-      await expectMinimumTouchTarget(dialog.getByRole("button", { name: "摄像头扫码录入 IMEI" }));
+      await expectMinimumTouchTarget(
+        dialog.getByRole("button", { name: "摄像头扫码录入 回收设备 IMEI", exact: true }),
+      );
       await expectAllPrimaryTouchTargets(dialog);
       await expectAllEditableInputsAtLeast16(dialog);
     }
@@ -145,15 +155,15 @@ for (const viewport of [
       detail.getByRole("heading", { name: `Apple iPhone 15 ${viewport.width}` }),
     ).toBeVisible();
     await expect(detail.getByText("价格怎么得出")).toBeVisible();
-    await expect(detail.getByText("现场记录客户答复")).toBeVisible();
+    await expect(detail.getByText("记录客户答复")).toBeVisible();
     await expect(detail.getByText("非签名确认")).toBeVisible();
     await expect(detail.getByText("系统建议", { exact: true })).toBeVisible();
     await expect(detail.getByText("人工差额", { exact: true })).toBeVisible();
     await expect(detail.getByText("风险 / 有效期", { exact: true })).toBeVisible();
     await expect(detail.getByText("仅记录客户口头答复，不付款、不成交、不入库。")).toBeVisible();
-    await expect(detail.getByText(/最近报价：V1/)).toBeVisible();
+    await expect(detail.getByText(/最近报价[:：]V1/)).toBeVisible();
     await expect(detail.locator('[role="progressbar"]')).toHaveCount(0);
-    await expect(detail.getByRole("button", { name: /最近报价记录/ })).toBeVisible();
+    await expect(detail.locator('button[aria-controls="buyback-history-content"]')).toBeVisible();
     await expectNoDialogOverflow(detail);
     await expectNoPageOverflow(page);
     await expectFooterDoesNotCoverContent(detail, "detail");
@@ -197,7 +207,9 @@ test("sales cannot revise while technician cannot create or respond", async ({ p
   await page.goto("/buyback", { waitUntil: "domcontentloaded" });
   await expectNoPageOverflow(page);
   await page.getByText("Apple iPhone 13", { exact: true }).first().click();
-  await expect(page.getByRole("dialog").getByRole("button", { name: "改价" })).toBeDisabled();
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: "重新报价", exact: true }),
+  ).toBeDisabled();
   await expect(page.getByText("改价需负责人权限")).toBeVisible();
   await page.getByRole("dialog").getByRole("button", { name: "关闭" }).last().click();
 
@@ -252,12 +264,15 @@ test("a 409 response keeps the selected outcome and note until the latest quote 
   await page.getByText("Apple iPhone 15 冲突草稿验证", { exact: true }).click();
   const detail = page.getByRole("dialog");
   await detail.getByText("暂缓", { exact: true }).click();
-  await detail.getByRole("button", { name: "添加现场备注（可选）" }).click();
+  await detail.getByRole("button", { name: "添加备注" }).click();
   const note = detail.getByPlaceholder("可选备注（不要填写证件号或完整电话）");
   await note.fill("客户需要回家确认，明天下午再联系。");
   await detail.getByRole("button", { name: "保存暂缓" }).click();
-  await expect(detail.getByRole("alert")).toContainText("当前选择和备注已保留");
-  await expect(detail.getByRole("alert")).toContainText("请刷新后重试");
+  await expect(detail.getByRole("alert")).toContainText(
+    "记录已被其他操作更新。请刷新最新资料后再重试。",
+  );
+  await expect(note).toHaveValue("客户需要回家确认，明天下午再联系。");
+  await expect(detail.getByRole("radio", { name: "暂缓" })).toBeChecked();
   await expect(detail).toBeVisible();
   await detail.getByRole("button", { name: "刷新最新报价" }).click();
   await expect(note).toHaveValue("客户需要回家确认，明天下午再联系。");
@@ -289,6 +304,7 @@ for (const width of [360, 390, 430, 768, 1024, 1440]) {
           manual_adjustment_reason:
             "现场检测后发现多项外观与功能问题，已向客户逐项解释并记录人工调整原因。",
         };
+        item.legacy_payload = legacy;
       }
       await route.fulfill({
         response,
@@ -304,7 +320,7 @@ for (const width of [360, 390, 430, 768, 1024, 1440]) {
       .click();
     const detail = page.getByRole("dialog");
     await detail.getByRole("button", { name: /查看全部 10 项扣减/ }).click();
-    await detail.getByRole("button", { name: "添加现场备注（可选）" }).click();
+    await detail.getByRole("button", { name: "添加备注" }).click();
     await detail
       .getByPlaceholder("可选备注（不要填写证件号或完整电话）")
       .fill("这是一段用于验证紧凑页面布局的现场备注。".repeat(10).slice(0, 240));
@@ -344,11 +360,157 @@ test("history permission failures stay local and do not reveal response data", a
   await page.getByText("Apple iPhone 13", { exact: true }).first().click();
   const detail = page.getByRole("dialog");
   await expect(detail.getByText("历史暂时无法加载，展开后可重试。")).toBeVisible();
-  await detail.getByRole("button", { name: /最近报价记录/ }).click();
+  await detail.locator('button[aria-controls="buyback-history-content"]').click();
   await expect(detail.getByText("报价历史加载失败。")).toBeVisible();
   await expect(detail.getByText(/演示员工/)).toHaveCount(0);
   await expect(detail.getByRole("button", { name: /保存答复/ })).toBeDisabled();
 });
+
+for (const width of [390, 430, 1440]) {
+  test(`grouped quote workspace keeps selectors, validation and offline drafts usable at ${width}px`, async ({
+    page,
+    context,
+  }, testInfo) => {
+    await useStoreRole(page, "owner");
+    await page.setViewportSize({ width, height: width < 700 ? 932 : 1000 });
+    await page.goto("/buyback", { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "新建透明报价" }).filter({ visible: true }).click();
+    const dialog = page.locator('[data-buyback-quote-workspace="true"]');
+    const model = dialog.getByRole("textbox", { name: "型号", exact: true });
+    await model.fill("iPhone 15 Pro Max 超长型号与中文说明（合成样本）");
+    await dialog.getByRole("textbox", { name: "颜色", exact: true }).fill("原色钛金属（合成样本）");
+    for (const [label, last] of [
+      ["品牌", "OnePlus"],
+      ["容量", "1TB"],
+      ["风险", "高风险 / 禁止接受"],
+    ]) {
+      const trigger = dialog.getByRole("combobox", { name: label, exact: true });
+      await trigger.click();
+      await expect(page.getByRole("option", { selected: true })).toBeFocused();
+      const lastOption = page.getByRole("option", { name: last, exact: true });
+      await lastOption.scrollIntoViewIfNeeded();
+      await page.keyboard.press("End");
+      await expect(lastOption).toBeFocused();
+      await page.keyboard.press("Enter");
+      await expect(trigger).toContainText(last);
+      await expect(trigger).toBeFocused();
+      await trigger.click();
+      await page.keyboard.press("Escape");
+      await expect(trigger).toBeFocused();
+    }
+    await expectNoDialogOverflow(dialog);
+    await expectNoPageOverflow(page);
+    const cards = await dialog.locator("[data-buyback-workspace-card]").evaluateAll((elements) =>
+      elements.map((element) => {
+        const box = element.getBoundingClientRect();
+        return { x: box.x, y: box.y, width: box.width };
+      }),
+    );
+    if (width >= 1024) expect(Math.abs(cards[0]!.y - cards[1]!.y)).toBeLessThan(1);
+    else expect(cards[1]!.y).toBeGreaterThan(cards[0]!.y);
+    await dialog.getByRole("textbox", { name: "最终报价 €", exact: true }).fill("450");
+    await dialog.getByRole("button", { name: "保存透明报价", exact: true }).click();
+    const reason = dialog.getByRole("textbox", { name: "调整说明（必填）", exact: true });
+    await expect(reason).toBeFocused();
+    await expect(reason).toHaveAttribute("aria-invalid", "true");
+    await expect(dialog.getByRole("alert")).toBeVisible();
+    await expectFooterDoesNotCoverContent(dialog, "workspace");
+    const errorScreenshot = screenshotPath(testInfo.project.name, String(width), "workspace-error");
+    if (errorScreenshot)
+      await page.screenshot({ path: errorScreenshot, style: cleanScreenshotStyle });
+    await reason.fill("现场外观检测后协商调整，合成验证内容。");
+    await context.setOffline(true);
+    await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+    await expect(dialog.getByRole("button", { name: "保存透明报价", exact: true })).toBeDisabled();
+    await expect(reason).toHaveValue("现场外观检测后协商调整，合成验证内容。");
+    await expectNoDialogOverflow(dialog);
+    await expectNoPageOverflow(page);
+    const offlineScreenshot = screenshotPath(
+      testInfo.project.name,
+      String(width),
+      "workspace-offline",
+    );
+    if (offlineScreenshot)
+      await page.screenshot({ path: offlineScreenshot, style: cleanScreenshotStyle });
+    await context.setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event("online")));
+    await expect(dialog.getByRole("button", { name: "保存透明报价", exact: true })).toBeEnabled();
+  });
+}
+
+test("grouped quote revision preserves read-only device fields", async ({ page }, testInfo) => {
+  await useStoreRole(page, "owner");
+  await page.setViewportSize({ width: 430, height: 932 });
+  await page.goto("/buyback", { waitUntil: "domcontentloaded" });
+  await page
+    .getByRole("button", { name: "新建透明报价", exact: true })
+    .filter({ visible: true })
+    .click();
+  const create = page.locator('[data-buyback-quote-workspace="true"]');
+  await create.getByRole("textbox", { name: "型号", exact: true }).fill("iPhone 15 只读字段验证");
+  await create.getByRole("button", { name: "保存透明报价", exact: true }).click();
+  await expect(create).toBeHidden();
+  await page.getByText("Apple iPhone 15 只读字段验证", { exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "重新报价", exact: true }).click();
+  const dialog = page.locator('[data-buyback-quote-workspace="true"]');
+  await expect(dialog.getByRole("textbox", { name: "型号", exact: true })).toBeDisabled();
+  await expect(dialog.getByRole("textbox", { name: "颜色", exact: true })).toBeDisabled();
+  await expect(dialog.getByRole("combobox", { name: "品牌", exact: true })).toBeDisabled();
+  await expect(dialog.getByRole("combobox", { name: "容量", exact: true })).toBeDisabled();
+  await expect(dialog.getByRole("textbox", { name: "最终报价 €", exact: true })).toBeEnabled();
+  await expectNoDialogOverflow(dialog);
+  await expectNoPageOverflow(page);
+  const screenshot = screenshotPath(testInfo.project.name, "430", "revision-device-readonly");
+  if (screenshot) await page.screenshot({ path: screenshot, style: cleanScreenshotStyle });
+});
+
+for (const copy of [
+  {
+    locale: "it-IT",
+    create: "Nuova offerta trasparente",
+    hint: "Inserisci i dati del dispositivo; puoi scansionare o digitare l’IMEI.",
+  },
+  {
+    locale: "en",
+    create: "New transparent quote",
+    hint: "Enter the device details; scan or type the IMEI.",
+  },
+]) {
+  test(`grouped quote workspace wraps translated copy in ${copy.locale}`, async ({
+    page,
+    context,
+    baseURL,
+  }, testInfo) => {
+    await context.addCookies([{ name: "repairdesk_locale", value: copy.locale, url: baseURL! }]);
+    await useStoreRole(page, "owner");
+    await page.setViewportSize({ width: 390, height: 932 });
+    await page.goto("/buyback", { waitUntil: "domcontentloaded" });
+    await page
+      .getByRole("button", { name: copy.create, exact: true })
+      .filter({ visible: true })
+      .click();
+    const dialog = page.locator('[data-buyback-quote-workspace="true"]');
+    await expect(dialog.getByText(copy.hint, { exact: true })).toBeVisible();
+    await expectNoDialogOverflow(dialog);
+    await expectNoPageOverflow(page);
+    await expectFooterDoesNotCoverContent(dialog, "workspace");
+    await expectAllEditableInputsAtLeast16(dialog);
+    const fixedHeader = dialog
+      .locator('[data-buyback-scroll-body="workspace"]')
+      .locator("xpath=preceding-sibling::*[1]");
+    const close = dialog.getByRole("button", {
+      name: copy.locale === "it-IT" ? "Chiudi" : "Close",
+      exact: true,
+    });
+    const headerBox = await fixedHeader.boundingBox();
+    const closeBox = await close.boundingBox();
+    expect(closeBox!.y + closeBox!.height).toBeLessThanOrEqual(headerBox!.y + headerBox!.height);
+    const bodyBox = await dialog.locator('[data-buyback-scroll-body="workspace"]').boundingBox();
+    expect(bodyBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height - 1);
+    const screenshot = screenshotPath(testInfo.project.name, copy.locale, "workspace-quote");
+    if (screenshot) await page.screenshot({ path: screenshot, style: cleanScreenshotStyle });
+  });
+}
 
 function screenshotPath(project: string, viewport: string, state: string) {
   const root = process.env.REPAIRDESK_E2E_BUYBACK_SCREENSHOT_DIR;

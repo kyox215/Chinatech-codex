@@ -13,7 +13,6 @@ import {
   Filter,
   Loader2,
   MessageCircleMore,
-  MinusCircle,
   PencilLine,
   Plus,
   RefreshCw,
@@ -84,6 +83,7 @@ import type {
 } from "@/lib/repairdesk/types";
 import { brandGradientStyle, controls, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import { componentOverlay } from "@/lib/component-patterns";
 import {
   RepairOsBadge,
   RepairOsBusinessCard,
@@ -117,6 +117,15 @@ const workspaceValidationKeys = {
 const scopeFilters = { sourceTypes: ["buyback"], categories: ["phone"] };
 const brands = ["Apple", "Samsung", "Xiaomi", "Google", "Huawei", "OPPO", "OnePlus"];
 const storageOptions = ["64GB", "128GB", "256GB", "512GB", "1TB"];
+
+const quoteWorkspace = {
+  field: cn(
+    componentOverlay.editorField,
+    "h-11 min-w-0 rounded-[10px] bg-[var(--surface-panel-muted)] px-3 text-base shadow-none lg:text-sm",
+  ),
+  grid: "mt-4 grid min-w-0 grid-cols-2 gap-x-3 gap-y-4",
+  card: cn(repairOs.mobileInfoCard, "rounded-2xl p-4 shadow-none lg:p-5"),
+} as const;
 const sheetFloatingStyle = {
   "--repair-os-mobile-floating-offset": "0.75rem",
   // Keep the fixed footer inside the visual viewport while the shared Sheet fade enters.
@@ -1637,335 +1646,369 @@ function TransparentQuoteWorkspace({
         onCloseAutoFocus={onCloseAutoFocus}
         data-buyback-quote-workspace="true"
         style={sheetFloatingStyle}
-        className="bottom-1 left-1/2 right-auto top-1 flex h-auto max-h-none min-h-0 w-[calc(100vw-0.5rem)] -translate-x-1/2 flex-col gap-0 overflow-hidden rounded-2xl p-0 md:bottom-4 md:top-auto md:h-[min(90svh,780px)] md:max-h-[min(90svh,780px)] md:w-[min(920px,calc(100vw-2rem))]"
+        className={cn(
+          componentOverlay.editorSurface,
+          "bottom-1 left-1/2 right-auto top-1 flex h-auto max-h-none min-h-0 w-[calc(100vw-0.5rem)] -translate-x-1/2 flex-col gap-0 overflow-hidden rounded-[20px] p-0 sm:gap-0 sm:p-0 md:bottom-4 md:top-auto md:h-[min(94svh,900px)] md:max-h-[min(94svh,900px)] md:w-[min(920px,calc(100vw-2rem))] lg:rounded-[22px] [&>button]:right-3 [&>button]:top-4 [&>button]:rounded-full [&>button]:bg-muted lg:[&>button]:right-5 lg:[&>button]:top-5",
+        )}
       >
-        <div
-          data-buyback-scroll-body="workspace"
-          className="min-h-0 flex-1 basis-0 overflow-y-auto overscroll-contain p-2 pb-3 sm:p-4 lg:grid lg:grid-cols-2 lg:content-start lg:gap-2"
+        <SheetHeader
+          className={cn(
+            componentOverlay.editorHeader,
+            "shrink-0 flex-row items-start gap-3 space-y-0 bg-card px-4 py-5 pe-14 sm:space-y-0 lg:items-center lg:px-6 lg:py-6 lg:pe-16",
+          )}
         >
-          <SheetHeader className="text-left lg:col-span-2">
-            <SheetTitle>
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-primary/15 bg-primary/5 text-primary lg:size-11">
+            <Euro className="size-6" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <SheetTitle className="text-xl leading-7 lg:text-[22px]">
               {t(existing ? "buyback2b5.workspace.revise" : "buyback2b5.workspace.create")}
             </SheetTitle>
-            <SheetDescription>{t("buyback2b5.workspace.description")}</SheetDescription>
-          </SheetHeader>
-          {validationCodes.length ? (
-            <div
-              role="alert"
-              aria-labelledby="buyback-validation-title"
-              className="mt-2 rounded-xl border border-status-danger/25 bg-status-danger/10 p-2 lg:col-span-2"
-            >
-              <p id="buyback-validation-title" className="text-xs font-semibold">
-                {t("buyback2b5.validation.summary")}
-              </p>
-              <ul className="mt-1 list-disc pl-5 text-xs">
-                {validationCodes.map((code) => (
-                  <li key={code}>{t(workspaceValidationKeys[code])}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          <section
-            className={cn(
-              repairOs.mobileInfoCard,
-              "mt-2 p-2 lg:col-start-1 lg:row-start-2 lg:mt-0",
-            )}
-          >
-            <SectionTitle icon={Smartphone} title={t("buyback2b5.workspace.device")} />
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <Field label={t("buyback2b5.workspace.brand")}>
-                <Select value={brand} onValueChange={setBrand} disabled={Boolean(existing)}>
-                  <SelectTrigger
-                    aria-label={t("buyback2b5.workspace.brand")}
-                    className="h-[38px] rounded-lg"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {brands.map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label={t("buyback2b5.workspace.model")}>
-                <Input
-                  ref={modelRef}
-                  aria-label={t("buyback2b5.workspace.model")}
-                  aria-invalid={validationCodes.includes("model")}
-                  value={model}
-                  disabled={Boolean(existing)}
-                  onChange={(event) => setModel(event.target.value)}
-                  placeholder={t("buyback2b5.workspace.modelPlaceholder")}
-                  className="h-[38px] rounded-lg text-base sm:text-sm"
-                />
-              </Field>
-              <Field label={t("buyback2b5.workspace.color")}>
-                <Input
-                  aria-label={t("buyback2b5.workspace.color")}
-                  value={color}
-                  disabled={Boolean(existing)}
-                  onChange={(event) => setColor(event.target.value)}
-                  placeholder={t("buyback2b5.workspace.colorPlaceholder")}
-                  className="h-[38px] rounded-lg text-base sm:text-sm"
-                />
-              </Field>
-              <Field label={t("buyback2b5.workspace.storage")}>
-                <Select value={storage} onValueChange={setStorage} disabled={Boolean(existing)}>
-                  <SelectTrigger
-                    aria-label={t("buyback2b5.workspace.storage")}
-                    className="h-[38px] rounded-lg"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {storageOptions.map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              {!existing ? (
-                <div className="col-span-2">
-                  <Field label={t("buyback2b5.workspace.imei")}>
-                    <ImeiScannerField
-                      value={imei}
-                      onChange={setImei}
-                      density="compact"
-                      placeholder={t("buyback2b5.workspace.imeiPlaceholder")}
-                      inputAriaLabel={t("buyback2b5.workspace.imeiInputAria")}
-                      identifierLabel={t("buyback2b5.workspace.imeiIdentifier")}
-                    />
-                  </Field>
-                </div>
-              ) : null}
-              <Field label={t("buyback2b5.workspace.battery")}>
-                <Input
-                  ref={batteryRef}
-                  aria-label={t("buyback2b5.workspace.battery")}
-                  aria-invalid={validationCodes.includes("battery")}
-                  value={battery}
-                  onChange={(event) => setBattery(event.target.value)}
-                  inputMode="decimal"
-                  placeholder={t("buyback2b5.workspace.batteryPlaceholder")}
-                  className="h-[38px] rounded-lg text-base sm:text-sm"
-                />
-              </Field>
-            </div>
-          </section>
-          <section
-            className={cn(
-              repairOs.mobileInfoCard,
-              "mt-2 p-2 lg:col-start-2 lg:row-start-2 lg:mt-0",
-            )}
-          >
-            <SectionTitle icon={Euro} title={t("buyback2b5.workspace.quote")} />
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <Field label={t("buyback2b5.workspace.referenceLow")}>
-                <MoneyInput
-                  ref={referenceLowRef}
-                  invalid={validationCodes.includes("amount")}
-                  label={t("buyback2b5.workspace.referenceLow")}
-                  value={referenceLow}
-                  onChange={setReferenceLow}
-                />
-              </Field>
-              <Field label={t("buyback2b5.workspace.referenceHigh")}>
-                <MoneyInput
-                  invalid={validationCodes.includes("amount")}
-                  label={t("buyback2b5.workspace.referenceHigh")}
-                  value={referenceHigh}
-                  onChange={setReferenceHigh}
-                />
-              </Field>
-              <Field label={t("buyback2b5.workspace.screenDeduction")}>
-                <MoneyInput
-                  invalid={validationCodes.includes("amount")}
-                  label={t("buyback2b5.workspace.screenDeduction")}
-                  value={screenDeduction}
-                  onChange={setScreenDeduction}
-                />
-              </Field>
-              <Field label={t("buyback2b5.workspace.batteryDeduction")}>
-                <MoneyInput
-                  invalid={validationCodes.includes("amount")}
-                  label={t("buyback2b5.workspace.batteryDeduction")}
-                  value={batteryDeduction}
-                  onChange={setBatteryDeduction}
-                />
-              </Field>
-            </div>
-            <div className="mt-2 rounded-xl bg-primary/8 p-2">
-              <div className="flex items-end justify-between">
-                <div>
-                  <p className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
-                    {t("buyback2b5.workspace.suggestion")}
-                  </p>
-                  <p className="font-mono text-xl font-semibold leading-6 text-primary">
-                    {formatBuybackMoney(suggested, locale)}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-9 rounded-lg px-3 text-xs"
-                  onClick={() => setFinalOffer(String(suggested))}
-                >
-                  <MinusCircle className="mr-1 size-4" />
-                  {t("buyback2b5.workspace.useSuggestion")}
-                </Button>
-              </div>
-            </div>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <Field label={t("buyback2b5.workspace.finalOffer")}>
-                <MoneyInput
-                  invalid={validationCodes.includes("amount")}
-                  label={t("buyback2b5.workspace.finalOffer")}
-                  value={finalOffer}
-                  onChange={setFinalOffer}
-                />
-              </Field>
-              <Field label={t("buyback2b5.workspace.risk")}>
-                <Select value={risk} onValueChange={(value) => setRisk(value as typeof risk)}>
-                  <SelectTrigger
-                    aria-label={t("buyback2b5.workspace.risk")}
-                    className="h-[38px] rounded-lg"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">{localizeBuybackRisk("low", false, t)}</SelectItem>
-                    <SelectItem value="medium">
-                      {localizeBuybackRisk("medium", false, t)}
-                    </SelectItem>
-                    <SelectItem value="high">{t("buyback2b5.workspace.riskHigh")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-            {isManualOffer || (Boolean(existing) && Boolean(reason)) ? (
-              <Field label={t("buyback2b5.workspace.reason")}>
-                <Textarea
-                  ref={reasonRef}
-                  aria-label={t("buyback2b5.workspace.reason")}
-                  aria-invalid={
-                    validationCodes.includes("reason") ||
-                    validationCodes.includes("sensitiveReason")
-                  }
-                  aria-describedby={
-                    validationCodes.includes("reason") ||
-                    validationCodes.includes("sensitiveReason")
-                      ? "buyback-workspace-reason-error"
-                      : undefined
-                  }
-                  value={reason}
-                  onChange={(event) => setReason(event.target.value)}
-                  maxLength={160}
-                  placeholder={t("buyback2b5.workspace.reasonPlaceholder")}
-                  className="mt-1 min-h-16 rounded-xl text-base sm:text-sm"
-                />
-                {validationCodes.includes("reason") ||
-                validationCodes.includes("sensitiveReason") ? (
-                  <p
-                    id="buyback-workspace-reason-error"
-                    className="mt-1 text-[11px] text-status-danger-foreground"
-                  >
-                    {t(
-                      validationCodes.includes("sensitiveReason")
-                        ? "buyback2b5.validation.sensitive"
-                        : "buyback2b5.validation.reason",
-                    )}
-                  </p>
-                ) : null}
-              </Field>
-            ) : null}
-            <div className="mt-2 flex items-center gap-2 rounded-xl border border-[var(--border-panel)] px-2 py-1.5 text-[10px] text-muted-foreground lg:text-xs lg:leading-[18px]">
-              <CalendarClock className="size-4 shrink-0 text-primary" />
-              {t("buyback2b5.workspace.expiryHint")}
-            </div>
-            {mutation.isError || recovery ? (
+            <SheetDescription className="mt-1 text-xs leading-5 sm:text-xs">
+              {t("buyback2b5.workspace.description")}
+            </SheetDescription>
+          </div>
+        </SheetHeader>
+        <div
+          data-buyback-scroll-body="workspace"
+          className="min-h-0 flex-1 basis-0 overflow-y-auto overscroll-contain bg-[var(--surface-panel-muted)]"
+        >
+          <div className="grid min-w-0 items-start gap-3 p-2.5 pb-4 lg:grid-cols-2 lg:gap-4 lg:p-5">
+            {validationCodes.length ? (
               <div
                 role="alert"
-                data-error-kind={
-                  recovery ?? (mutation.isError ? classifyBuybackSafeError(mutation.error) : null)
-                }
-                className="mt-2 rounded-xl border border-status-danger/25 bg-status-danger/10 px-2 py-1.5 text-[11px] text-status-danger-foreground lg:text-xs lg:leading-[18px]"
+                aria-labelledby="buyback-validation-title"
+                className="rounded-xl border border-status-danger/25 bg-status-danger/10 p-3 lg:col-span-2"
               >
-                <p>
-                  {recovery === "checking"
-                    ? t("buyback2b5.operation.checking")
-                    : recovery === "unknown"
-                      ? t("buyback2b5.operation.unknown")
-                      : recovery === "sync"
-                        ? t("buyback2b5.operation.syncFailed")
-                        : localizeBuybackSafeError(mutation.error, t)}
+                <p id="buyback-validation-title" className="text-xs font-semibold">
+                  {t("buyback2b5.validation.summary")}
                 </p>
-                {recovery && recovery !== "checking" ? (
+                <ul className="mt-1 list-disc pl-5 text-xs">
+                  {validationCodes.map((code) => (
+                    <li key={code}>{t(workspaceValidationKeys[code])}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            <section data-buyback-workspace-card="device" className={quoteWorkspace.card}>
+              <SectionTitle icon={Smartphone} title={t("buyback2b5.workspace.device")} />
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                {t("buyback2b5.workspace.deviceHint")}
+              </p>
+              <div className={quoteWorkspace.grid}>
+                <Field label={t("buyback2b5.workspace.brand")}>
+                  <Select value={brand} onValueChange={setBrand} disabled={Boolean(existing)}>
+                    <SelectTrigger
+                      aria-label={t("buyback2b5.workspace.brand")}
+                      className={cn(
+                        quoteWorkspace.field,
+                        "h-auto min-h-11 [&>span]:line-clamp-none [&>span]:whitespace-normal [&>span]:text-left [&>span]:leading-5",
+                      )}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {brands.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label={t("buyback2b5.workspace.model")}>
+                  <Input
+                    ref={modelRef}
+                    aria-label={t("buyback2b5.workspace.model")}
+                    aria-invalid={validationCodes.includes("model")}
+                    value={model}
+                    disabled={Boolean(existing)}
+                    onChange={(event) => setModel(event.target.value)}
+                    placeholder={t("buyback2b5.workspace.modelPlaceholder")}
+                    className={quoteWorkspace.field}
+                  />
+                </Field>
+                <Field label={t("buyback2b5.workspace.color")}>
+                  <Input
+                    aria-label={t("buyback2b5.workspace.color")}
+                    value={color}
+                    disabled={Boolean(existing)}
+                    onChange={(event) => setColor(event.target.value)}
+                    placeholder={t("buyback2b5.workspace.colorPlaceholder")}
+                    className={quoteWorkspace.field}
+                  />
+                </Field>
+                <Field label={t("buyback2b5.workspace.storage")}>
+                  <Select value={storage} onValueChange={setStorage} disabled={Boolean(existing)}>
+                    <SelectTrigger
+                      aria-label={t("buyback2b5.workspace.storage")}
+                      className={cn(
+                        quoteWorkspace.field,
+                        "h-auto min-h-11 [&>span]:line-clamp-none [&>span]:whitespace-normal [&>span]:text-left [&>span]:leading-5",
+                      )}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {storageOptions.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                {!existing ? (
+                  <div className="col-span-2 [&_input]:h-11 [&_input]:rounded-[10px] [&_input]:border-[var(--border-panel)] [&_input]:bg-[var(--surface-panel-muted)] [&_input]:font-sans [&_button]:size-11 [&_button]:rounded-[10px]">
+                    <Field label={t("buyback2b5.workspace.imei")}>
+                      <ImeiScannerField
+                        value={imei}
+                        onChange={setImei}
+                        density="compact"
+                        placeholder={t("buyback2b5.workspace.imeiPlaceholder")}
+                        inputAriaLabel={t("buyback2b5.workspace.imeiInputAria")}
+                        identifierLabel={t("buyback2b5.workspace.imeiIdentifier")}
+                      />
+                    </Field>
+                  </div>
+                ) : null}
+                <Field label={t("buyback2b5.workspace.battery")}>
+                  <Input
+                    ref={batteryRef}
+                    aria-label={t("buyback2b5.workspace.battery")}
+                    aria-invalid={validationCodes.includes("battery")}
+                    value={battery}
+                    onChange={(event) => setBattery(event.target.value)}
+                    inputMode="decimal"
+                    placeholder={t("buyback2b5.workspace.batteryPlaceholder")}
+                    className={quoteWorkspace.field}
+                  />
+                </Field>
+              </div>
+            </section>
+            <section data-buyback-workspace-card="quote" className={quoteWorkspace.card}>
+              <SectionTitle icon={Euro} title={t("buyback2b5.workspace.quote")} />
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                {t("buyback2b5.workspace.quoteHint")}
+              </p>
+              <div className={quoteWorkspace.grid}>
+                <Field label={t("buyback2b5.workspace.referenceLow")}>
+                  <MoneyInput
+                    ref={referenceLowRef}
+                    invalid={validationCodes.includes("amount")}
+                    label={t("buyback2b5.workspace.referenceLow")}
+                    value={referenceLow}
+                    onChange={setReferenceLow}
+                  />
+                </Field>
+                <Field label={t("buyback2b5.workspace.referenceHigh")}>
+                  <MoneyInput
+                    invalid={validationCodes.includes("amount")}
+                    label={t("buyback2b5.workspace.referenceHigh")}
+                    value={referenceHigh}
+                    onChange={setReferenceHigh}
+                  />
+                </Field>
+                <Field label={t("buyback2b5.workspace.screenDeduction")}>
+                  <MoneyInput
+                    invalid={validationCodes.includes("amount")}
+                    label={t("buyback2b5.workspace.screenDeduction")}
+                    value={screenDeduction}
+                    onChange={setScreenDeduction}
+                  />
+                </Field>
+                <Field label={t("buyback2b5.workspace.batteryDeduction")}>
+                  <MoneyInput
+                    invalid={validationCodes.includes("amount")}
+                    label={t("buyback2b5.workspace.batteryDeduction")}
+                    value={batteryDeduction}
+                    onChange={setBatteryDeduction}
+                  />
+                </Field>
+              </div>
+              <div className="mt-4 rounded-xl border border-primary/15 bg-primary/5 px-3 py-4 lg:px-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                  <div className="min-w-0 flex-1 basis-40">
+                    <p className="text-[11px] leading-5 text-muted-foreground">
+                      {t("buyback2b5.workspace.suggestion")}
+                    </p>
+                    <p className="mt-1 break-words text-[28px] font-semibold leading-8 tracking-tight text-primary tabular-nums">
+                      {formatBuybackMoney(suggested, locale)}
+                    </p>
+                  </div>
                   <Button
                     type="button"
                     variant="outline"
-                    className="mt-1 h-[38px] rounded-lg text-base"
-                    onClick={() => {
-                      if (recovery === "sync") {
-                        void synchronizeWorkspace();
-                        return;
-                      }
-                      if (recovery === "unknown") {
-                        workspaceSubmitLockRef.current = false;
-                        setRecovery(null);
-                        mutation.reset();
-                        return;
-                      }
-                      void onRefresh(existing?.id)
-                        .then((latest) => {
-                          if (!latest) throw new Error("buyback-revise-refresh-missing");
-                          setExpectedUpdatedAt(latest.updated_at);
+                    className="h-auto min-h-11 shrink-0 whitespace-normal rounded-[10px] border-primary/20 bg-card px-3 py-2 text-xs leading-4 text-primary lg:min-h-9"
+                    onClick={() => setFinalOffer(String(suggested))}
+                  >
+                    <Check className="mr-1 size-4 shrink-0" aria-hidden="true" />
+                    {t("buyback2b5.workspace.useSuggestion")}
+                  </Button>
+                </div>
+              </div>
+              <div className={quoteWorkspace.grid}>
+                <Field label={t("buyback2b5.workspace.finalOffer")}>
+                  <MoneyInput
+                    invalid={validationCodes.includes("amount")}
+                    label={t("buyback2b5.workspace.finalOffer")}
+                    value={finalOffer}
+                    onChange={setFinalOffer}
+                    emphasized
+                  />
+                </Field>
+                <Field label={t("buyback2b5.workspace.risk")}>
+                  <Select value={risk} onValueChange={(value) => setRisk(value as typeof risk)}>
+                    <SelectTrigger
+                      aria-label={t("buyback2b5.workspace.risk")}
+                      className={cn(
+                        quoteWorkspace.field,
+                        "h-auto min-h-11 [&>span]:line-clamp-none [&>span]:whitespace-normal [&>span]:text-left [&>span]:leading-5",
+                      )}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">{localizeBuybackRisk("low", false, t)}</SelectItem>
+                      <SelectItem value="medium">
+                        {localizeBuybackRisk("medium", false, t)}
+                      </SelectItem>
+                      <SelectItem value="high">{t("buyback2b5.workspace.riskHigh")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+              {isManualOffer || (Boolean(existing) && Boolean(reason)) ? (
+                <Field label={t("buyback2b5.workspace.reason")} className="mt-4">
+                  <Textarea
+                    ref={reasonRef}
+                    aria-label={t("buyback2b5.workspace.reason")}
+                    aria-invalid={
+                      validationCodes.includes("reason") ||
+                      validationCodes.includes("sensitiveReason")
+                    }
+                    aria-describedby={
+                      validationCodes.includes("reason") ||
+                      validationCodes.includes("sensitiveReason")
+                        ? "buyback-workspace-reason-error"
+                        : undefined
+                    }
+                    value={reason}
+                    onChange={(event) => setReason(event.target.value)}
+                    maxLength={160}
+                    placeholder={t("buyback2b5.workspace.reasonPlaceholder")}
+                    className={cn(
+                      componentOverlay.editorField,
+                      "min-h-20 rounded-[10px] bg-[var(--surface-panel-muted)] text-base leading-6 lg:text-sm",
+                    )}
+                  />
+                  {validationCodes.includes("reason") ||
+                  validationCodes.includes("sensitiveReason") ? (
+                    <p
+                      id="buyback-workspace-reason-error"
+                      className="mt-1 text-[11px] text-status-danger-foreground"
+                    >
+                      {t(
+                        validationCodes.includes("sensitiveReason")
+                          ? "buyback2b5.validation.sensitive"
+                          : "buyback2b5.validation.reason",
+                      )}
+                    </p>
+                  ) : null}
+                </Field>
+              ) : null}
+              <div className="mt-4 flex items-start gap-2 border-t border-[var(--border-panel)] pt-4 text-[11px] leading-5 text-muted-foreground">
+                <CalendarClock className="size-4 shrink-0 text-primary" />
+                {t("buyback2b5.workspace.expiryHint")}
+              </div>
+              {mutation.isError || recovery ? (
+                <div
+                  role="alert"
+                  data-error-kind={
+                    recovery ?? (mutation.isError ? classifyBuybackSafeError(mutation.error) : null)
+                  }
+                  className="mt-2 rounded-xl border border-status-danger/25 bg-status-danger/10 px-2 py-1.5 text-[11px] text-status-danger-foreground lg:text-xs lg:leading-[18px]"
+                >
+                  <p>
+                    {recovery === "checking"
+                      ? t("buyback2b5.operation.checking")
+                      : recovery === "unknown"
+                        ? t("buyback2b5.operation.unknown")
+                        : recovery === "sync"
+                          ? t("buyback2b5.operation.syncFailed")
+                          : localizeBuybackSafeError(mutation.error, t)}
+                  </p>
+                  {recovery && recovery !== "checking" ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="mt-1 h-[38px] rounded-lg text-base"
+                      onClick={() => {
+                        if (recovery === "sync") {
+                          void synchronizeWorkspace();
+                          return;
+                        }
+                        if (recovery === "unknown") {
                           workspaceSubmitLockRef.current = false;
                           setRecovery(null);
                           mutation.reset();
-                        })
-                        .catch(() => toast.error(t("buyback2b5.operation.refreshFailed")));
-                    }}
-                  >
-                    {recovery === "sync"
-                      ? t("buyback2b5.operation.retrySync")
-                      : recovery === "unknown"
-                        ? t("buyback2b5.operation.retryWrite")
-                        : t("buyback2b5.detail.refresh")}
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
-          </section>
+                          return;
+                        }
+                        void onRefresh(existing?.id)
+                          .then((latest) => {
+                            if (!latest) throw new Error("buyback-revise-refresh-missing");
+                            setExpectedUpdatedAt(latest.updated_at);
+                            workspaceSubmitLockRef.current = false;
+                            setRecovery(null);
+                            mutation.reset();
+                          })
+                          .catch(() => toast.error(t("buyback2b5.operation.refreshFailed")));
+                      }}
+                    >
+                      {recovery === "sync"
+                        ? t("buyback2b5.operation.retrySync")
+                        : recovery === "unknown"
+                          ? t("buyback2b5.operation.retryWrite")
+                          : t("buyback2b5.detail.refresh")}
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+          </div>
         </div>
         <div
           data-buyback-fixed-footer="workspace"
-          className="shrink-0 border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+          className="shrink-0 border-t border-[var(--border-panel)] bg-card px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:px-5 lg:py-4"
         >
-          <div className="mb-1 flex items-center justify-between gap-2 text-[10px] leading-4 lg:text-[11px] lg:leading-4">
-            <span className="font-semibold text-primary">
-              {t("buyback2b5.workspace.finalOffer")}{" "}
-              {formatBuybackMoney(amount(finalOffer), locale)}
-            </span>
-            <span className="truncate text-muted-foreground">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-xs leading-5 text-muted-foreground">
+              <span>{t("buyback2b5.workspace.finalOffer")}</span>
+              <strong className="break-all text-xl font-semibold tracking-tight text-primary tabular-nums">
+                {formatBuybackMoney(amount(finalOffer), locale)}
+              </strong>
+            </div>
+            <span className="flex min-w-0 items-center gap-1 text-[10px] leading-4 text-muted-foreground lg:text-[11px]">
+              {!isManualOffer ? (
+                <Check
+                  className="size-3.5 shrink-0 text-status-success-foreground"
+                  aria-hidden="true"
+                />
+              ) : null}
               {isManualOffer ? t("buyback2b5.workspace.manual") : t("buyback2b5.workspace.system")}
             </span>
           </div>
           <div className="grid grid-cols-[1fr_1.5fr] gap-2">
             <Button
               variant="outline"
-              className="h-auto min-h-11 whitespace-normal rounded-lg text-center leading-tight"
+              className="h-auto min-h-11 whitespace-normal rounded-[10px] text-center leading-tight"
               onClick={onClose}
             >
               {t("buyback2b5.workspace.cancel")}
             </Button>
             <Button
               className={cn(
-                "h-auto min-h-11 whitespace-normal rounded-lg text-center leading-tight",
+                "h-auto min-h-11 whitespace-normal rounded-[10px] text-center leading-tight",
                 controls.brandButton,
               )}
               style={brandGradientStyle}
@@ -1993,10 +2036,18 @@ function TransparentQuoteWorkspace({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="min-w-0">
-      <Label className="text-[11px] text-muted-foreground lg:text-xs lg:leading-4">{label}</Label>
+    <div className={cn("min-w-0", className)}>
+      <Label className="text-xs font-medium leading-5 text-muted-foreground">{label}</Label>
       <div className="mt-1.5">{children}</div>
     </div>
   );
@@ -2007,9 +2058,11 @@ function MoneyInput({
   label,
   value,
   onChange,
+  emphasized,
 }: {
   ref?: React.Ref<HTMLInputElement>;
   invalid?: boolean;
+  emphasized?: boolean;
   label: string;
   value: string;
   onChange: (value: string) => void;
@@ -2022,14 +2075,18 @@ function MoneyInput({
       value={value}
       onChange={(event) => onChange(event.target.value)}
       inputMode="decimal"
-      className="h-[38px] rounded-lg font-mono text-base sm:text-sm"
+      className={cn(
+        quoteWorkspace.field,
+        "tabular-nums",
+        emphasized && "border-primary/30 bg-primary/3 font-semibold text-primary",
+      )}
     />
   );
 }
 function SectionTitle({ icon: Icon, title }: { icon: typeof Smartphone; title: string }) {
   return (
-    <h3 className="flex items-center gap-2 text-xs font-semibold">
-      <span className="grid size-7 place-items-center rounded-lg bg-primary/10 text-primary">
+    <h3 className="flex items-center gap-2.5 text-base font-semibold">
+      <span className="grid size-8 shrink-0 place-items-center rounded-[10px] bg-primary/5 text-primary">
         <Icon className="size-4" />
       </span>
       {title}

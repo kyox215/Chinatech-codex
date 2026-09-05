@@ -1203,6 +1203,8 @@ const zhCN = {
   "buyback2b5.workspace.revise": "重新报价",
   "buyback2b5.workspace.description": "报价仅用于现场协商记录，不代表付款或收机完成。",
   "buyback2b5.workspace.device": "设备",
+  "buyback2b5.workspace.deviceHint": "填写设备信息，IMEI 可扫描或手动输入。",
+  "buyback2b5.workspace.quoteHint": "参考价格与扣减分别记录，报价变化有据可查。",
   "buyback2b5.workspace.brand": "品牌",
   "buyback2b5.workspace.model": "型号",
   "buyback2b5.workspace.modelPlaceholder": "例如 iPhone 15 Pro",
@@ -5247,6 +5249,10 @@ const itIT: Record<MessageKey, string> = {
   "buyback2b5.workspace.description":
     "L’offerta registra solo la trattativa in negozio e non conferma un pagamento o un ritiro.",
   "buyback2b5.workspace.device": "Dispositivo",
+  "buyback2b5.workspace.deviceHint":
+    "Inserisci i dati del dispositivo; puoi scansionare o digitare l’IMEI.",
+  "buyback2b5.workspace.quoteHint":
+    "Registra separatamente prezzi di riferimento e detrazioni per rendere chiara ogni variazione.",
   "buyback2b5.workspace.brand": "Marca",
   "buyback2b5.workspace.model": "Modello",
   "buyback2b5.workspace.modelPlaceholder": "Ad esempio iPhone 15 Pro",
@@ -9591,6 +9597,9 @@ const en: Record<MessageKey, string> = {
   "buyback2b5.workspace.description":
     "The quote records the in-store negotiation only; it does not confirm payment or device collection.",
   "buyback2b5.workspace.device": "Device",
+  "buyback2b5.workspace.deviceHint": "Enter the device details; scan or type the IMEI.",
+  "buyback2b5.workspace.quoteHint":
+    "Record reference prices and deductions separately to explain each price change.",
   "buyback2b5.workspace.brand": "Brand",
   "buyback2b5.workspace.model": "Model",
   "buyback2b5.workspace.modelPlaceholder": "For example, iPhone 15 Pro",
