@@ -3988,18 +3988,6 @@ function MobileOrderDetailView({
                   </div>
                 </details>
               </div>
-              {order.fault_prices.length ? (
-                <div className="mt-1 flex min-w-0 flex-wrap gap-1">
-                  {order.fault_prices.slice(0, 3).map((item, index) => (
-                    <span
-                      key={`${item.name}-${index}`}
-                      className="max-w-full truncate rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium leading-3 text-primary lg:text-[11px] lg:leading-4"
-                    >
-                      {item.name || t("orders2b2.mobile.unnamedItem")}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
             </div>
           </div>
         </section>

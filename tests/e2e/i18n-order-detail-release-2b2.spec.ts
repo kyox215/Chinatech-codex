@@ -94,7 +94,7 @@ for (const { locale, width } of directCases) {
     await expectResponsiveActions(root, width);
     if (width < 1024) {
       await expectCompleteMobileDeviceTitle(root, locale);
-      await expectSeparatedDetailRows(root);
+      await expectSeparatedDetailRows(root, locale);
     }
     await expectNoHorizontalOverflow(page);
     await expectNoUnexpectedFixedHan(root, locale);
@@ -159,12 +159,14 @@ test("heavy zh-CN 390px hides every photo entry without capability and sends zer
 
   const root = page.locator('[data-order-detail-root="true"]');
   await expect(root).toBeVisible();
-  await expect(
-    root.getByRole("button", {
-      name: translateMessage("zh-CN", "orders2b2.overview.capture"),
-      exact: true,
-    }),
-  ).toHaveCount(0);
+  for (const photoKey of ["front", "back", "other"] as const) {
+    await expect(
+      root.getByRole("button", {
+        name: `${translateMessage("zh-CN", "orders2b2.overview.capture")} ${translateMessage("zh-CN", `orders2b2.photo.${photoKey}`)}`,
+        exact: true,
+      }),
+    ).toHaveCount(0);
+  }
   await expect(
     page.getByRole("dialog", { name: translateMessage("zh-CN", "camera.title") }),
   ).toHaveCount(0);
@@ -174,23 +176,30 @@ test("heavy zh-CN 390px hides every photo entry without capability and sends zer
   await assertEvidence(page, evidence, []);
 });
 
-test("heavy it-IT 768px uploads one exact synthetic fault_photo through the real sheet", async ({
+test("heavy it-IT 768px uploads exact front, back and other photos through the real sheet", async ({
   page,
 }, testInfo) => {
   const uploadBodies: Array<Record<string, unknown>> = [];
+  const photoCases = [
+    { key: "front", kind: "device_front", fileName: "release-2b2-front.jpg" },
+    { key: "back", kind: "device_back", fileName: "release-2b2-back.jpg" },
+    { key: "other", kind: "other", fileName: "release-2b2-other.jpg" },
+  ] as const;
   await page.route(apiUrl("order/attachment/upload"), async (route) => {
-    uploadBodies.push(route.request().postDataJSON() as Record<string, unknown>);
+    const body = route.request().postDataJSON() as Record<string, unknown>;
+    const input = body.input as Record<string, unknown>;
+    uploadBodies.push(body);
     await route.fulfill({
       json: {
         data: {
-          id: "attachment-release-2b2",
+          id: `attachment-${String(input.kind)}`,
           order_id: "ord_1",
-          kind: "fault_photo",
-          file_name: "release-2b2-fault.jpg",
+          kind: input.kind,
+          file_name: input.file_name,
           mime_type: "image/jpeg",
-          file_size: 35,
+          file_size: input.file_size,
           storage_bucket: "synthetic-release-2b2",
-          storage_path: "orders/ord_1/release-2b2-fault.jpg",
+          storage_path: `orders/ord_1/${String(input.file_name)}`,
           created_at: "2026-09-02T08:00:00.000Z",
           updated_at: "2026-09-02T08:00:00.000Z",
         },
@@ -206,37 +215,42 @@ test("heavy it-IT 768px uploads one exact synthetic fault_photo through the real
   await page.waitForLoadState("networkidle");
 
   const root = page.locator('[data-order-detail-root="true"]');
-  await root
-    .getByRole("button", {
-      name: translateMessage("it-IT", "orders2b2.overview.capture"),
-      exact: true,
-    })
-    .click();
   const camera = page.getByRole("dialog", { name: translateMessage("it-IT", "camera.title") });
-  await expect(camera).toBeVisible();
-  const bytes = Buffer.from("release-2b2-synthetic-photo-evidence");
-  await camera.locator('input[type="file"][accept="image/*"]').setInputFiles({
-    name: "release-2b2-fault.jpg",
-    mimeType: "image/jpeg",
-    buffer: bytes,
-  });
-  await expect.poll(() => uploadBodies.length).toBe(1);
-  expect(uploadBodies).toEqual([
-    {
-      id: "ord_1",
-      input: {
-        kind: "fault_photo",
-        file_name: "release-2b2-fault.jpg",
-        mime_type: "image/jpeg",
-        file_size: bytes.length,
-        data_base64: bytes.toString("base64"),
-      },
-    },
-  ]);
+  for (const [index, photo] of photoCases.entries()) {
+    const bytes = Buffer.from(`release-2b2-synthetic-${photo.key}`);
+    await root
+      .getByRole("button", {
+        name: `${translateMessage("it-IT", "orders2b2.overview.capture")} ${translateMessage("it-IT", `orders2b2.photo.${photo.key}`)}`,
+        exact: true,
+      })
+      .click();
+    await expect(camera).toBeVisible();
+    await camera.locator('input[type="file"][accept="image/*"]').setInputFiles({
+      name: photo.fileName,
+      mimeType: "image/jpeg",
+      buffer: bytes,
+    });
+    await expect.poll(() => uploadBodies.length).toBe(index + 1);
+    await expect(camera).toHaveCount(0);
+  }
+  expect(uploadBodies).toEqual(
+    photoCases.map((photo) => {
+      const bytes = Buffer.from(`release-2b2-synthetic-${photo.key}`);
+      return {
+        id: "ord_1",
+        input: {
+          kind: photo.kind,
+          file_name: photo.fileName,
+          mime_type: "image/jpeg",
+          file_size: bytes.length,
+          data_base64: bytes.toString("base64"),
+        },
+      };
+    }),
+  );
   await expect(
     page.getByText(translateMessage("it-IT", "orders2b2.success.attachment")),
   ).toBeVisible();
-  await expect(camera).toHaveCount(0);
   const blockedExternalUpload = externalApiUrl("order/attachment/upload");
   await probeBlockedExternalWrite(page, blockedExternalUpload);
   await expectDynamicDetail(root);
@@ -625,9 +639,13 @@ async function expectCompleteMobileDeviceTitle(
   ).toEqual({ clipped: false, overflow: "visible", textOverflow: "clip", whiteSpace: "normal" });
 }
 
-async function expectSeparatedDetailRows(root: ReturnType<Page["locator"]>) {
+async function expectSeparatedDetailRows(root: ReturnType<Page["locator"]>, locale: AppLocale) {
   const rows = root.locator('[data-order-detail-row="true"]:visible');
-  await expect(rows).toHaveCount(4);
+  await expect(rows).toHaveCount(3);
+  const custody = root.locator('[data-order-device-custody="true"]:visible');
+  await expect(custody).toHaveCount(1);
+  await expect(custody).toHaveAttribute("data-order-custody-mode", "compact");
+  await expect(custody).toContainText(translateMessage(locale, "orders.custodyShop"));
   const intersections = await rows.evaluateAll((elements) =>
     elements.map((element) => {
       const label = element.querySelector<HTMLElement>('[data-order-detail-row-label="true"]');
@@ -638,7 +656,7 @@ async function expectSeparatedDetailRows(root: ReturnType<Page["locator"]>) {
       return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
     }),
   );
-  expect(intersections).toEqual([false, false, false, false]);
+  expect(intersections).toEqual([false, false, false]);
 }
 
 async function expectContentAboveFixedDock(
