@@ -196,6 +196,7 @@ export function MemberEditorSheet({
         }}
       >
         <SheetContent
+          mobileEditor
           side="right"
           className={`${componentOverlay.editorSurface} flex h-full w-[calc(100vw-16px)] max-w-[calc(100vw-8px)] flex-col gap-0 p-0 sm:w-[min(40rem,calc(100vw-24px))]`}
           aria-busy={isSaving || isSubmitting}

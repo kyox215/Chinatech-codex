@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useRef, type RefObject } from "react";
 
+import {
+  useCompactEditorSession,
+  EditorDiscardConfirmation,
+  editorConfirmationClass,
+} from "@/shared/lib/use-compact-editor-session";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -36,30 +41,27 @@ export function CustomerDeviceDialog({
 }) {
   const { t } = useLocale();
   const outsideDismissedRef = useRef(false);
-  const [form, setForm] = useState<CustomerDeviceInput>(() => ({
-    id: device?.id,
-    brand: device?.brand ?? "",
-    model: device?.model ?? "",
-    serial_or_imei: device?.serial_or_imei ?? "",
-    device_notes: device?.device_notes ?? "",
-  }));
-  useEffect(() => {
-    if (open) {
-      outsideDismissedRef.current = false;
-      setForm({
-        id: device?.id,
-        brand: device?.brand ?? "",
-        model: device?.model ?? "",
-        serial_or_imei: device?.serial_or_imei ?? "",
-        device_notes: device?.device_notes ?? "",
-      });
-    }
-  }, [device, open]);
+  const session = useCompactEditorSession<CustomerDeviceInput>({
+    open,
+    scopeKey: device?.id ?? "new",
+    initial: {
+      id: device?.id,
+      brand: device?.brand ?? "",
+      model: device?.model ?? "",
+      serial_or_imei: device?.serial_or_imei ?? "",
+      device_notes: device?.device_notes ?? "",
+    },
+    busy,
+    onOpenChange,
+  });
+  const { draft: form, setDraft: setForm } = session;
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={session.requestClose}>
       <DialogContent
+        mobileEditor
+        data-confirm-discard={session.confirmDiscard}
         closeLabel={t("customers.detail.close")}
-        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface}`}
+        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface} ${editorConfirmationClass}`}
         onPointerDownOutside={() => {
           outsideDismissedRef.current = true;
         }}
@@ -74,6 +76,18 @@ export function CustomerDeviceDialog({
           intendedOpener.focus({ preventScroll: true });
         }}
       >
+        {session.confirmDiscard ? (
+          <EditorDiscardConfirmation
+            returnFocus={session.returnFocus}
+            keep={session.keep}
+            discard={session.discard}
+          />
+        ) : null}
+        {session.saveFailed ? (
+          <p role="alert" className="text-sm text-destructive">
+            {t("orders.faultEditor.errorState")}
+          </p>
+        ) : null}
         <DialogHeader className={componentOverlay.editorHeader}>
           <DialogTitle className={componentOverlay.title}>
             {t(form.id ? "customers.form.editDeviceTitle" : "customers.form.addDeviceTitle")}
@@ -131,14 +145,14 @@ export function CustomerDeviceDialog({
           <Button
             className="min-h-11 whitespace-normal lg:min-h-9"
             variant="ghost"
-            onClick={() => onOpenChange(false)}
+            onClick={() => session.requestClose(false)}
           >
             {t("customers.form.cancel")}
           </Button>
           <Button
             disabled={busy || !form.brand.trim() || !form.model.trim()}
             className="min-h-11 whitespace-normal lg:min-h-9"
-            onClick={() => void onSave(form).catch(() => undefined)}
+            onClick={() => void session.save(onSave)}
           >
             {busy ? t("customers.form.saving") : t("customers.form.saveDevice")}
           </Button>

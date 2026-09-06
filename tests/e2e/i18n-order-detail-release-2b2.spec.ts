@@ -107,19 +107,10 @@ for (const { locale, width } of directCases) {
     await expectExactVisible(root, synthetic.historyAction);
     await saveEvidenceScreenshot(page, testInfo, `history-${locale}-${width}`);
     await page.locator(`#${prefix}-tab-overview`).click();
-    const editorTrigger =
-      width < 1024
-        ? root
-            .locator('[data-order-detail-issue-summary="true"]')
-            .locator("..")
-            .getByRole("button", {
-              name: translateMessage(locale, "orders2b2.hero.edit"),
-              exact: true,
-            })
-        : root.getByRole("button", {
-            name: translateMessage(locale, "orders.faultEditor.title"),
-            exact: true,
-          });
+    const editorTrigger = root.getByRole("button", {
+      name: translateMessage(locale, "orders.faultEditor.title"),
+      exact: true,
+    });
     await editorTrigger.click();
     const editor = page.getByRole("dialog", {
       name: translateMessage(locale, "orders.faultEditor.title"),
@@ -266,6 +257,9 @@ test("heavy it-IT 768px uploads exact front, back and other photos through the r
   await page.waitForLoadState("networkidle");
 
   const root = page.locator('[data-order-detail-root="true"]');
+  await root
+    .getByRole("tab", { name: translateMessage("it-IT", "orders2b2.photo.device") })
+    .click();
   const camera = page.getByRole("dialog", { name: translateMessage("it-IT", "camera.title") });
   for (const [index, photo] of photoCases.entries()) {
     const bytes = Buffer.from(`release-2b2-synthetic-${photo.key}`);

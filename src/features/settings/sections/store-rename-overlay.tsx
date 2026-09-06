@@ -135,6 +135,7 @@ export function StoreRenameOverlay({
         }}
       >
         <DialogContent
+          mobileEditor
           className={`${componentOverlay.modalSm} ${componentOverlay.editorSurface}`}
           closeLabel={copy("关闭")}
           showCloseButton={!mutation.isPending}

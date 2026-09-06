@@ -97,6 +97,7 @@ export function OrderWorkflowStatusSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
+        mobileEditor
         side="right"
         className={`${componentOverlay.editorSurface} flex h-full w-[min(30rem,calc(100vw-12px))] max-w-none flex-col p-0 sm:w-[min(30rem,calc(100vw-24px))]`}
         onCloseAutoFocus={(event) => {

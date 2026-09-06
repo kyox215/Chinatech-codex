@@ -38,7 +38,7 @@ export function OrderSupplierPicker({
   supplier?: Supplier;
   suppliers: Supplier[];
   isUpdating?: boolean;
-  onChange: (supplierId: string | null) => void;
+  onChange: (supplierId: string | null) => void | Promise<unknown>;
   mode?: "dropdown" | "sheet";
   size?: "micro" | "compact" | "comfortable";
   label?: string;
@@ -47,6 +47,21 @@ export function OrderSupplierPicker({
 }) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const selectSupplier = async (supplierId: string | null) => {
+    if (saving || isUpdating) return;
+    setSaving(true);
+    setFailed(false);
+    try {
+      await onChange(supplierId);
+      setOpen(false);
+    } catch {
+      setFailed(true);
+    } finally {
+      setSaving(false);
+    }
+  };
   const resolvedLabel = label ?? t("orders2b2.supplier.label");
   const resolvedTitle = title ?? t("orders2b2.supplier.title");
   const supplierLabel = supplier?.short_name || supplier?.name || t("orders2b2.supplier.none");
@@ -55,7 +70,7 @@ export function OrderSupplierPicker({
       type="button"
       variant={size === "comfortable" ? "outline" : "ghost"}
       size="sm"
-      disabled={isUpdating}
+      disabled={isUpdating || saving}
       className={cn(
         "max-w-full justify-start gap-1 rounded-md font-medium leading-none",
         size === "comfortable"
@@ -85,7 +100,12 @@ export function OrderSupplierPicker({
 
   if (mode === "sheet") {
     return (
-      <Sheet open={open} onOpenChange={setOpen}>
+      <Sheet
+        open={open}
+        onOpenChange={(value) => {
+          if (!saving && !isUpdating) setOpen(value);
+        }}
+      >
         <SheetTrigger asChild>{trigger}</SheetTrigger>
         <SheetContent side="bottom" className="max-h-[82svh] rounded-t-2xl p-0">
           <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 pr-14 text-left">
@@ -95,15 +115,17 @@ export function OrderSupplierPicker({
             </SheetTitle>
             <SheetDescription className="text-xs">{t("orders2b2.supplier.help")}</SheetDescription>
           </SheetHeader>
+          {failed ? (
+            <p role="alert" className="px-3 text-sm text-destructive">
+              {t("orders.faultEditor.errorState")}
+            </p>
+          ) : null}
           <div className="max-h-[58svh] overflow-y-auto px-3 py-3">
             <SupplierOptionsList
               supplier={supplier}
               suppliers={suppliers}
-              isUpdating={isUpdating}
-              onChange={(supplierId) => {
-                onChange(supplierId);
-                setOpen(false);
-              }}
+              isUpdating={isUpdating || saving}
+              onChange={selectSupplier}
             />
           </div>
         </SheetContent>
@@ -112,7 +134,12 @@ export function OrderSupplierPicker({
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      open={open}
+      onOpenChange={(value) => {
+        if (!saving && !isUpdating) setOpen(value);
+      }}
+    >
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
         <DropdownMenuLabel className="text-xs">{resolvedTitle}</DropdownMenuLabel>
@@ -120,8 +147,8 @@ export function OrderSupplierPicker({
         <SupplierOptionsList
           supplier={supplier}
           suppliers={suppliers}
-          isUpdating={isUpdating}
-          onChange={onChange}
+          isUpdating={isUpdating || saving}
+          onChange={selectSupplier}
           asDropdownItems
         />
       </DropdownMenuContent>
@@ -139,7 +166,7 @@ function SupplierOptionsList({
   supplier?: Supplier;
   suppliers: Supplier[];
   isUpdating: boolean;
-  onChange: (supplierId: string | null) => void;
+  onChange: (supplierId: string | null) => void | Promise<unknown>;
   asDropdownItems?: boolean;
 }) {
   const { t } = useLocale();
@@ -152,7 +179,10 @@ function SupplierOptionsList({
               key={item.id}
               className="text-xs"
               disabled={isUpdating || item.id === supplier?.id}
-              onSelect={() => onChange(item.id)}
+              onSelect={(event) => {
+                event.preventDefault();
+                void onChange(item.id);
+              }}
             >
               <SupplierColorSwatch supplier={item} />
               <span className="min-w-0 flex-1 truncate">{item.name}</span>
@@ -168,7 +198,10 @@ function SupplierOptionsList({
         <DropdownMenuItem
           className="text-xs text-muted-foreground"
           disabled={isUpdating || !supplier}
-          onSelect={() => onChange(null)}
+          onSelect={(event) => {
+            event.preventDefault();
+            void onChange(null);
+          }}
         >
           {t("orders2b2.supplier.clear")}
         </DropdownMenuItem>

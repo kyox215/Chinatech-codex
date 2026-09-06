@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Check } from "lucide-react";
 
+import {
+  useCompactEditorSession,
+  EditorDiscardConfirmation,
+  editorConfirmationClass,
+} from "@/shared/lib/use-compact-editor-session";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,7 +38,14 @@ export function CustomerTagsDialog({
   onSave: (ids: string[]) => Promise<unknown>;
 }) {
   const { t } = useLocale();
-  const [selected, setSelected] = useState<string[]>(() => data.tags.map((tag) => tag.id));
+  const session = useCompactEditorSession({
+    open,
+    scopeKey: data.customer.id,
+    initial: data.tags.map((tag) => tag.id),
+    busy,
+    onOpenChange,
+  });
+  const { draft: selected, setDraft: setSelected } = session;
   const allTags = useMemo(() => {
     const known = new Map<string, CustomerTag>();
     data.tags.forEach((tag) => known.set(tag.id, tag));
@@ -65,10 +77,6 @@ export function CustomerTagsDialog({
     });
     return Array.from(known.values());
   }, [data.tags, t]);
-  useEffect(() => {
-    if (open) setSelected(data.tags.map((tag) => tag.id));
-  }, [data.tags, open]);
-
   const toggle = (id: string) => {
     setSelected((current) =>
       current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
@@ -76,11 +84,25 @@ export function CustomerTagsDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={session.requestClose}>
       <DialogContent
+        mobileEditor
+        data-confirm-discard={session.confirmDiscard}
         closeLabel={t("customers.detail.close")}
-        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface}`}
+        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface} ${editorConfirmationClass}`}
       >
+        {session.confirmDiscard ? (
+          <EditorDiscardConfirmation
+            returnFocus={session.returnFocus}
+            keep={session.keep}
+            discard={session.discard}
+          />
+        ) : null}
+        {session.saveFailed ? (
+          <p role="alert" className="text-sm text-destructive">
+            {t("orders.faultEditor.errorState")}
+          </p>
+        ) : null}
         <DialogHeader className={componentOverlay.editorHeader}>
           <DialogTitle className={componentOverlay.title}>
             {t("customers.form.tagsTitle")}
@@ -134,14 +156,14 @@ export function CustomerTagsDialog({
           <Button
             className="min-h-11 whitespace-normal lg:min-h-9"
             variant="ghost"
-            onClick={() => onOpenChange(false)}
+            onClick={() => session.requestClose(false)}
           >
             {t("customers.form.cancel")}
           </Button>
           <Button
             className="min-h-11 whitespace-normal lg:min-h-9"
             disabled={busy}
-            onClick={() => void onSave(selected).catch(() => undefined)}
+            onClick={() => void session.save(onSave)}
           >
             {busy ? t("customers.form.saving") : t("customers.form.saveTags")}
           </Button>

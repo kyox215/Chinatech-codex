@@ -106,6 +106,7 @@ export function CustomerDetailScreen({
   const deviceReturnFocusRef = useRef<HTMLElement | null>(null);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
   const [tab, setTab] = useState<CustomerDetailTabKey>("overview");
+  const editReturnFocusRef = useRef<HTMLElement | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [deviceOpen, setDeviceOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | undefined>();
@@ -404,7 +405,10 @@ export function CustomerDetailScreen({
           activeTab={tab}
           onTabChange={setTab}
           onBack={goBackToCustomers}
-          onEdit={() => setEditOpen(true)}
+          onEdit={(control) => {
+            editReturnFocusRef.current = control;
+            setEditOpen(true);
+          }}
         />
       ) : null}
 
@@ -454,7 +458,10 @@ export function CustomerDetailScreen({
           data={data}
           onMessage={() => setMessageOpen(true)}
           onFollowup={openCustomerFollowup}
-          onEdit={() => setEditOpen(true)}
+          onEdit={() => {
+            editReturnFocusRef.current = lastInvokingControlRef.current;
+            setEditOpen(true);
+          }}
           showBackLink={false}
           onClose={surface === "dialog" ? onClose : undefined}
         />
@@ -509,6 +516,7 @@ export function CustomerDetailScreen({
       ) : null}
 
       <CustomerEditDialog
+        returnFocusRef={editReturnFocusRef}
         open={editOpen}
         onOpenChange={setEditOpen}
         data={data}
@@ -576,7 +584,7 @@ function CustomerMobileFloatingHeader({
   activeTab: CustomerDetailTabKey;
   onTabChange: (tab: CustomerDetailTabKey) => void;
   onBack: () => void;
-  onEdit: () => void;
+  onEdit: (control: HTMLButtonElement) => void;
   headerRef: RefObject<HTMLDivElement | null>;
 }) {
   const { t } = useLocale();
@@ -622,7 +630,7 @@ function CustomerMobileFloatingHeader({
             size="icon"
             className="size-11 rounded-xl bg-card"
             aria-label={t("customers.detail.edit")}
-            onClick={onEdit}
+            onClick={(event) => onEdit(event.currentTarget)}
           >
             <Edit3 className="size-4" />
           </Button>
@@ -632,7 +640,14 @@ function CustomerMobileFloatingHeader({
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
             <div className="min-w-0">
               <div className="flex min-w-0 items-center gap-1.5">
-                <p className="min-w-0 truncate text-sm font-semibold leading-5">{customer.name}</p>
+                <button
+                  type="button"
+                  onClick={(event) => onEdit(event.currentTarget)}
+                  aria-label={t("customers.detail.edit")}
+                  className="min-w-0 truncate text-left text-sm font-semibold leading-5 focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {customer.name}
+                </button>
                 {customer.blacklisted_at ? (
                   <span className="shrink-0 rounded-full bg-status-danger px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-danger-foreground lg:text-[11px] lg:leading-4">
                     {t("customers.detail.blacklisted")}

@@ -126,26 +126,30 @@ vi.mock("@/features/capture", async (importOriginal) => {
         size: number;
         mimeType: string;
         createdAt: string;
-      }) => void;
+      }) => void | Promise<unknown>;
       onOpenChange: (open: boolean) => void;
     }) => (
       <div data-testid="camera-capture-sheet">
         {open ? (
           <button
             type="button"
-            onClick={() => {
+            onClick={async () => {
               const file = new File(["x"], "dynamic-photo.jpg", { type: "image/jpeg" });
-              onCapture({
-                id: "attachment-draft",
-                kind: "fault_photo",
-                file,
-                previewUrl: "blob:dynamic-photo",
-                name: file.name,
-                size: file.size,
-                mimeType: file.type,
-                createdAt: "2026-09-02T10:00:00.000Z",
-              });
-              onOpenChange(false);
+              try {
+                await onCapture({
+                  id: "attachment-draft",
+                  kind: "fault_photo",
+                  file,
+                  previewUrl: "blob:dynamic-photo",
+                  name: file.name,
+                  size: file.size,
+                  mimeType: file.type,
+                  createdAt: "2026-09-02T10:00:00.000Z",
+                });
+                onOpenChange(false);
+              } catch {
+                /* real camera retains the draft for retry */
+              }
             }}
           >
             Harness capture photo
@@ -485,50 +489,158 @@ describe("OrderDetailScreen i18n", () => {
     mocks.uploadOrderAttachment.mockResolvedValue({});
   });
 
-  it.each(locales)(
-    "collapses %s finance categories without cancelling or changing the draft",
-    (locale) => {
-      mocks.viewport = "compact";
-      const view = renderDetail(locale, "page");
-      const quote = view.container.querySelector("#mobile-order-quote") as HTMLElement;
-      fireEvent.click(
-        within(quote).getByRole("button", {
-          name: translateMessage(locale, "orders2b2.hero.edit"),
-        }),
-      );
-      const item = within(quote).getAllByRole("textbox", {
-        name: translateMessage(locale, "orders2b2.finance.item"),
-      })[0]!;
-      fireEvent.change(item, { target: { value: "保留报价草稿" } });
-      const amount = within(quote).getAllByRole("textbox", {
-        name: translateMessage(locale, "orders2b2.finance.amount"),
-      })[0]!;
-      fireEvent.change(amount, { target: { value: "0.5" } });
-      fireEvent.click(
-        within(quote).getByRole("button", {
-          name: translateMessage(locale, "orders2b2.finance.collapseCategories"),
-        }),
-      );
-      expect(quote.querySelector('[data-fault-diagnosis-picker="true"]')).not.toBeVisible();
-      expect(item).toHaveValue("保留报价草稿");
-      expect(amount).toHaveValue("0.5");
+  it("does not overwrite remote unlock changes from a stable local draft", async () => {
+    mocks.viewport = "compact";
+    const view = renderDetail("en", "page");
+    fireEvent.click(
+      screen.getByRole("button", { name: translateMessage("en", "orders2b2.unlock.entry") }),
+    );
+    const editor = screen.getByRole("dialog", {
+      name: translateMessage("en", "orders2b2.unlock.edit"),
+    });
+    fireEvent.click(editor.querySelector('[data-device-unlock-method="text"]')!);
+    const input = within(editor).getByRole("textbox");
+    fireEvent.change(input, { target: { value: "synthetic-local-unlock" } });
+    mocks.detail = {
+      ...makeDetail(),
+      order: {
+        ...detailOrder,
+        updated_at: "2026-09-02T11:00:00.000Z",
+        device_unlock_method: "text",
+        device_unlock_value: "synthetic-remote-unlock",
+      },
+    };
+    view.rerender(
+      <LocaleProvider initialLocale="en">
+        <OrderDetailScreen id={detailOrder.id} surface="page" onClose={vi.fn()} />
+      </LocaleProvider>,
+    );
+    expect(input).toHaveValue("synthetic-local-unlock");
+    fireEvent.click(
+      within(editor).getByRole("button", {
+        name: translateMessage("en", "orders2b2.hero.save"),
+      }),
+    );
+    await waitFor(() =>
       expect(
-        within(quote).getByRole("button", {
-          name: translateMessage(locale, "orders2b2.hero.save"),
-        }),
-      ).toBeVisible();
+        within(editor).getByText(translateMessage("en", "orders2b2.conflict.title")),
+      ).toBeVisible(),
+    );
+    expect(mocks.patchOrder).not.toHaveBeenCalled();
+  });
+
+  it("keeps repair-only device notes unchanged when intake can edit the brand", async () => {
+    mocks.viewport = "compact";
+    mocks.detail = {
+      ...makeDetail(),
+      capabilities: { ...makeDetail().capabilities, canEditRepair: false },
+    };
+    renderDetail("en", "page");
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: translateMessage("en", "orders2b2.overview.deviceIssue"),
+      }),
+    );
+    const editor = screen.getByRole("dialog", {
+      name: translateMessage("en", "orders2b2.overview.deviceIssue"),
+    });
+    const notes = within(editor).getByRole("textbox", {
+      name: translateMessage("en", "customers.form.deviceNotes"),
+    });
+    expect(notes).toBeDisabled();
+    fireEvent.change(
+      within(editor).getByRole("textbox", { name: translateMessage("en", "customers.form.brand") }),
+      { target: { value: "Synthetic brand" } },
+    );
+    fireEvent.click(
+      within(editor).getByRole("button", {
+        name: translateMessage("en", "orders2b2.hero.save"),
+      }),
+    );
+    await waitFor(() => expect(mocks.patchOrder).toHaveBeenCalledTimes(1));
+    expect(mocks.patchOrder.mock.calls[0]?.[1].changes).toMatchObject({
+      device_brand: "Synthetic brand",
+    });
+    expect(mocks.patchOrder.mock.calls[0]?.[1].changes).not.toHaveProperty("device_notes");
+  });
+
+  it("rejects a quote draft when the opening order version has changed", async () => {
+    mocks.viewport = "compact";
+    const view = renderDetail("en", "page");
+    const quote = view.container.querySelector("#mobile-order-quote") as HTMLElement;
+    fireEvent.click(
+      within(quote).getByRole("button", {
+        name: translateMessage("en", "orders2b2.overview.quoteItems"),
+      }),
+    );
+    const editor = screen.getByRole("dialog", {
+      name: translateMessage("en", "orders2b2.overview.quoteItems"),
+    });
+    const item = within(editor).getAllByRole("textbox", {
+      name: translateMessage("en", "orders2b2.finance.item"),
+    })[0]!;
+    fireEvent.change(item, { target: { value: "Synthetic stale quote" } });
+    mocks.detail = {
+      ...makeDetail(),
+      order: { ...detailOrder, updated_at: "2026-09-02T11:00:00.000Z" },
+    };
+    view.rerender(
+      <LocaleProvider initialLocale="en">
+        <OrderDetailScreen id={detailOrder.id} surface="page" onClose={vi.fn()} />
+      </LocaleProvider>,
+    );
+    fireEvent.click(
+      within(editor).getByRole("button", {
+        name: translateMessage("en", "orders2b2.hero.save"),
+      }),
+    );
+    await waitFor(() =>
       expect(
-        within(quote).getByRole("button", { name: translateMessage(locale, "common.cancel") }),
-      ).toBeVisible();
-      expect(mocks.patchOrderFinance).not.toHaveBeenCalled();
-      fireEvent.click(
-        within(quote).getByRole("button", {
-          name: translateMessage(locale, "orders2b2.finance.expandCategories"),
-        }),
-      );
-      expect(quote.querySelector('[data-fault-diagnosis-picker="true"]')).toBeVisible();
-    },
-  );
+        within(editor).getByText(translateMessage("en", "orders2b2.conflict.description")),
+      ).toBeVisible(),
+    );
+    expect(item).toHaveValue("Synthetic stale quote");
+    expect(mocks.patchOrderFinance).not.toHaveBeenCalled();
+  });
+
+  it.each(locales)("keeps %s quote drafts in a stable editor and confirms discard", (locale) => {
+    mocks.viewport = "compact";
+    const view = renderDetail(locale, "page");
+    const quote = view.container.querySelector("#mobile-order-quote") as HTMLElement;
+    fireEvent.click(
+      within(quote).getByRole("button", {
+        name: translateMessage(locale, "orders2b2.overview.quoteItems"),
+      }),
+    );
+    const editor = screen.getByRole("dialog", {
+      name: translateMessage(locale, "orders2b2.overview.quoteItems"),
+    });
+    const item = within(editor).getAllByRole("textbox", {
+      name: translateMessage(locale, "orders2b2.finance.item"),
+    })[0]!;
+    fireEvent.change(item, { target: { value: "保留报价草稿" } });
+    expect(quote.querySelector("input")).toBeNull();
+    expect(
+      within(editor).getByRole("button", { name: translateMessage(locale, "orders2b2.hero.save") }),
+    ).toBeVisible();
+    fireEvent.click(
+      within(editor).getAllByRole("button", {
+        name: translateMessage(locale, "common.cancel"),
+      })[0]!,
+    );
+    expect(
+      within(editor).getByRole("button", {
+        name: translateMessage(locale, "orders.faultEditor.keep"),
+      }),
+    ).toBeVisible();
+    fireEvent.click(
+      within(editor).getByRole("button", {
+        name: translateMessage(locale, "orders.faultEditor.keep"),
+      }),
+    );
+    expect(item).toHaveValue("保留报价草稿");
+    expect(mocks.patchOrderFinance).not.toHaveBeenCalled();
+  });
 
   it.each([
     ["zh-CN", "详情"],
@@ -984,6 +1096,9 @@ describe("OrderDetailScreen i18n", () => {
       mocks.detail = detail;
       mocks.viewport = "compact";
       renderDetail("en", "page");
+      fireEvent.click(
+        screen.getByRole("tab", { name: translateMessage("en", "orders2b2.photo.device") }),
+      );
 
       expect(
         Boolean(
@@ -1020,6 +1135,10 @@ describe("OrderDetailScreen i18n", () => {
       mocks.viewport = surface;
       renderDetail("en", surface === "compact" ? "page" : "dialog");
 
+      if (surface === "compact")
+        fireEvent.click(
+          screen.getByRole("tab", { name: translateMessage("en", "orders2b2.photo.device") }),
+        );
       const entry =
         surface === "desktop"
           ? Boolean(screen.queryByRole("button", { name: "Harness open photo capture" }))
@@ -1236,7 +1355,7 @@ describe("OrderDetailScreen i18n", () => {
   );
 
   it.each(locales)(
-    "contains a detached rejected %s attachment upload after the real capture close sequence",
+    "retains a rejected %s attachment upload in the capture session without provider text",
     async (locale) => {
       const sentinel = "ATTACHMENT_SECRET_SENTINEL";
       const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -1263,9 +1382,7 @@ describe("OrderDetailScreen i18n", () => {
       );
       expect(mocks.toastError).toHaveBeenCalledTimes(1);
       expect(mocks.uploadOrderAttachment).toHaveBeenCalledTimes(1);
-      expect(
-        screen.queryByRole("button", { name: "Harness capture photo" }),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Harness capture photo" })).toBeInTheDocument();
       expect(JSON.stringify(consoleError.mock.calls)).not.toContain(sentinel);
       expect(JSON.stringify(mocks.toastError.mock.calls)).not.toContain(sentinel);
       consoleError.mockRestore();
@@ -1468,9 +1585,7 @@ describe("OrderDetailScreen i18n", () => {
       const openButton =
         viewport === "desktop"
           ? screen.getByRole("button", { name: "Edit fault and diagnosis" })
-          : within(
-              document.querySelector("[data-order-detail-issue-summary]")!.parentElement!,
-            ).getByRole("button", { name: "Edit" });
+          : screen.getByRole("button", { name: "Edit fault and diagnosis" });
       await user.click(openButton);
       const editor = () =>
         within(document.querySelector("[data-order-fault-editor]") as HTMLElement);

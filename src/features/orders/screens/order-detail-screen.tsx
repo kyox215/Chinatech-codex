@@ -148,6 +148,12 @@ import {
   executeOrderEditSavePlan,
   OrderEditSaveExecutionError,
 } from "@/features/orders/model/order-edit-save";
+import {
+  EditorDiscardConfirmation,
+  editorConfirmationClass,
+  useCompactEditorSession,
+} from "@/shared/lib/use-compact-editor-session";
+import { OrderIdentityEditor } from "@/features/orders/components/order-identity-editor";
 import { hasOrderEditRemoteConflict } from "@/features/orders/model/order-edit-conflict";
 import { OrderPhotoPreviewDialog } from "@/features/orders/components/order-photo-preview-dialog";
 import { OrderTerminalActions } from "@/features/orders/components/order-terminal-actions";
@@ -403,6 +409,7 @@ export function OrderDetailScreen({
   const [editBaseline, setEditBaseline] = useState<UpdateOrderInput | null>(null);
   const [editDraft, setEditDraft] = useState<UpdateOrderInput | null>(null);
   const [mobileFinanceEditing, setMobileFinanceEditing] = useState(false);
+  const mobileFinanceVersionRef = useRef<string | null>(null);
   const [mobileFinanceSaveError, setMobileFinanceSaveError] = useState("");
   const [customerStatusUrl, setCustomerStatusUrl] = useState("");
   const [printPreparing, setPrintPreparing] = useState(false);
@@ -580,7 +587,9 @@ export function OrderDetailScreen({
 
   useEffect(() => {
     setNotifyOpen(false);
-  }, [activeStoreId]);
+    setMobileFinanceEditing(false);
+    mobileFinanceVersionRef.current = null;
+  }, [activeStoreId, id]);
 
   const transition = useMutation({
     mutationFn: (vars: { to: RepairOrderStatus; reason?: string }) => {
@@ -807,10 +816,16 @@ export function OrderDetailScreen({
   });
 
   const deviceUnlockUpdate = useMutation({
-    mutationFn: (device_unlock: DeviceUnlockInput) => {
+    mutationFn: ({
+      device_unlock,
+      expectedUpdatedAt,
+    }: {
+      device_unlock: DeviceUnlockInput;
+      expectedUpdatedAt: string;
+    }) => {
       if (!data) throw new Error("工单未加载");
       return patchOrder(id, {
-        expected_updated_at: data.order.updated_at,
+        expected_updated_at: expectedUpdatedAt,
         changes: { device_unlock },
       });
     },
@@ -1561,7 +1576,7 @@ export function OrderDetailScreen({
                 className="mb-2"
               />
             }
-            transitionPending={transition.isPending}
+            transitionPending={transition.isPending || mobileFinanceEditing}
             onTransition={(to, reason) => transition.mutate({ to, reason })}
             onImeiSave={async (imei) => {
               await quickImeiUpdate.mutateAsync(imei);
@@ -1577,19 +1592,31 @@ export function OrderDetailScreen({
             }}
             faultPending={faultUpdate.isPending}
             onFaultSessionChange={handleFaultSessionChange}
-            onDeviceUnlockSave={async (deviceUnlock) => {
-              await deviceUnlockUpdate.mutateAsync(deviceUnlock);
+            onDeviceUnlockSave={async (deviceUnlock, expectedUpdatedAt) => {
+              await deviceUnlockUpdate.mutateAsync({
+                device_unlock: deviceUnlock,
+                expectedUpdatedAt,
+              });
             }}
             deviceUnlockPending={deviceUnlockUpdate.isPending}
             onAttachmentUpload={async (input) => {
               await attachmentUpload.mutateAsync(input);
             }}
             attachmentUploadPending={attachmentUpload.isPending}
+            editorScopeKey={`${activeStoreId}:${id}`}
+            identityInitial={buildEditForm(data, defaultWarrantyMonths)}
+            identityPending={orderUpdate.isPending}
+            onIdentitySave={(baseline, draft) =>
+              orderUpdate.mutateAsync({ baseline, draft, capabilities: data.capabilities! })
+            }
             financeDraft={financeDraft}
             financeEditing={mobileFinanceEditing}
             financeSaveError={mobileFinanceSaveError}
             onFinanceEditingChange={(editing) => {
-              if (editing) setMobileFinanceSaveError("");
+              if (editing) {
+                setMobileFinanceSaveError("");
+                mobileFinanceVersionRef.current = order.updated_at;
+              }
               setMobileFinanceEditing(editing);
             }}
             onFinanceDraftChange={(draft) => {
@@ -1597,6 +1624,17 @@ export function OrderDetailScreen({
               setFinanceDraft(draft);
             }}
             onFinanceSave={async () => {
+              if (
+                hasOrderEditRemoteConflict({
+                  baselineUpdatedAt: mobileFinanceVersionRef.current,
+                  currentUpdatedAt: order.updated_at,
+                  hasLocalChanges: true,
+                  isEditing: mobileFinanceEditing,
+                })
+              ) {
+                setMobileFinanceSaveError(t("orders2b2.conflict.description"));
+                return false;
+              }
               if (!mobileFinance?.canSave) {
                 const message = t("orders2b2.validation.checkOrder");
                 setMobileFinanceSaveError(message);
@@ -1605,7 +1643,7 @@ export function OrderDetailScreen({
               }
               setMobileFinanceSaveError("");
               await financeUpdate.mutateAsync({
-                expectedUpdatedAt: order.updated_at,
+                expectedUpdatedAt: mobileFinanceVersionRef.current || order.updated_at,
                 faultPrices: mobileFinance.faultPrices,
                 deposit: mobileFinance.deposit,
               });
@@ -1618,7 +1656,7 @@ export function OrderDetailScreen({
             approvalDecisionAvailable={canDecideApproval}
             whatsappDisabled={mobileFinanceEditing || financeUpdate.isPending || !canNotify}
             onPay={() => setPayOpen(true)}
-            paymentDisabled={!canCollectPayment}
+            paymentDisabled={mobileFinanceEditing || financeUpdate.isPending || !canCollectPayment}
             primaryAction={desktopPrimaryAction}
             onPrint={() => setPrintPaperDialogOpen(true)}
             printDisabled={!canPrintCustomerDocument || generationPending}
@@ -1645,14 +1683,14 @@ export function OrderDetailScreen({
             partsSupplierPending={partsSupplierUpdate.isPending}
             onPartsSupplierChange={
               supplierPermissions.canAssignSuppliers && data.capabilities?.canEditRepair
-                ? (supplierId) => partsSupplierUpdate.mutate(supplierId)
+                ? (supplierId) => partsSupplierUpdate.mutateAsync(supplierId)
                 : undefined
             }
             assigneeOptions={assigneeOptions}
             assigneePending={assigneeUpdate.isPending}
             onAssigneeChange={
               canAssignOrders && data.capabilities?.canEditIntake
-                ? (membershipId) => assigneeUpdate.mutate(membershipId)
+                ? (membershipId) => assigneeUpdate.mutateAsync(membershipId)
                 : undefined
             }
             custodyPanel={renderCustodyPanel()}
@@ -1953,7 +1991,7 @@ export function OrderDetailScreen({
                           onChange={
                             supplierPermissions.canAssignSuppliers &&
                             data.capabilities?.canEditRepair
-                              ? (supplierId) => partsSupplierUpdate.mutate(supplierId)
+                              ? (supplierId) => partsSupplierUpdate.mutateAsync(supplierId)
                               : undefined
                           }
                         />
@@ -2028,7 +2066,9 @@ export function OrderDetailScreen({
               onFlow={() => setDesktopTransitionOpen((open) => !open)}
               flowDisabled={transition.isPending || desktopStatusActions.length === 0}
               onPay={() => setPayOpen(true)}
-              paymentDisabled={!canCollectPayment}
+              paymentDisabled={
+                mobileFinanceEditing || financeUpdate.isPending || !canCollectPayment
+              }
               onNotify={() => setNotifyOpen(true)}
               notifyDisabled={!canNotify}
               primaryAction={desktopPrimaryAction}
@@ -2193,11 +2233,11 @@ export function OrderDetailScreen({
             desktopPhotoOutsideDismissedRef.current = true;
           }}
           onCloseAutoFocus={handleDesktopPhotoCloseAutoFocus}
-          onCapture={(draft) => {
-            void uploadAttachmentDraft(draft, async (input) => {
+          onCapture={(draft) =>
+            uploadAttachmentDraft(draft, async (input) => {
               await attachmentUpload.mutateAsync(input);
-            }).catch(() => undefined);
-          }}
+            })
+          }
         />
       ) : null}
       <RepairOrderPrintSheet
@@ -2586,7 +2626,7 @@ function OrderDeviceCustodyCard({
           ? variant === "inline"
             ? "grid min-w-0 gap-1.5 rounded-md bg-[var(--surface-panel-muted)]/55 px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
             : "grid min-w-0 gap-1.5 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] px-2.5 py-2 shadow-[var(--shadow-card)] md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:px-3"
-          : "flex min-w-0 items-center gap-1.5 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel)] px-2 py-1.5 shadow-sm",
+          : "flex min-w-0 max-lg:flex-wrap items-center gap-1.5 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel)] px-2 py-1.5 shadow-sm",
         status === null && "border-status-warn-foreground/30 bg-status-warn/35",
         className,
       )}
@@ -3308,6 +3348,10 @@ function MobileOrderDetailView({
   deviceUnlockPending,
   onAttachmentUpload,
   attachmentUploadPending,
+  editorScopeKey,
+  identityInitial,
+  identityPending,
+  onIdentitySave,
   financeDraft,
   financeEditing,
   financeSaveError,
@@ -3358,11 +3402,15 @@ function MobileOrderDetailView({
   onReload: () => Promise<OrderDetail["order"] | void>;
   faultPending: boolean;
   onFaultSessionChange: (active: boolean) => void;
-  onDeviceUnlockSave: (input: DeviceUnlockInput) => Promise<void>;
+  onDeviceUnlockSave: (input: DeviceUnlockInput, expectedUpdatedAt: string) => Promise<void>;
   deviceUnlockPending: boolean;
   onAttachmentUpload: (input: OrderAttachmentUploadInput) => Promise<void>;
   attachmentUploadPending: boolean;
   financeDraft: FinanceDraftState;
+  editorScopeKey: string;
+  identityInitial: UpdateOrderInput;
+  identityPending: boolean;
+  onIdentitySave: (baseline: UpdateOrderInput, draft: UpdateOrderInput) => Promise<unknown>;
   financeEditing: boolean;
   financeSaveError: string;
   onFinanceEditingChange: (editing: boolean) => void;
@@ -3390,10 +3438,10 @@ function MobileOrderDetailView({
   partsSupplier?: Supplier;
   supplierOptions: Supplier[];
   partsSupplierPending: boolean;
-  onPartsSupplierChange?: (supplierId: string | null) => void;
+  onPartsSupplierChange?: (supplierId: string | null) => void | Promise<unknown>;
   assigneeOptions: OrderAssigneeOption[];
   assigneePending: boolean;
-  onAssigneeChange?: (membershipId: string | null) => void;
+  onAssigneeChange?: (membershipId: string | null) => void | Promise<unknown>;
   custodyPanel: ReactNode;
   className?: string;
 }) {
@@ -3424,6 +3472,12 @@ function MobileOrderDetailView({
     ? getOrderTaskGuidance(order).stage
     : (orderTaskStages[Math.min(currentStageIndex, orderTaskStages.length - 1)] ??
       orderTaskStages[0]);
+  const identityTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const financeTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const assignmentTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const unlockTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const mobileFaultTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [identityGroup, setIdentityGroup] = useState<"customer" | "device" | null>(null);
   const [imeiEditing, setImeiEditing] = useState(false);
   const [imeiDraft, setImeiDraft] = useState(deviceImei);
   const [faultEditing, setFaultEditing] = useState(false);
@@ -3447,9 +3501,9 @@ function MobileOrderDetailView({
     }
     mobilePhotoOutsideDismissedRef.current = false;
   }, []);
-  const [mobileTab, setMobileTab] = useState<DesktopDetailView>("overview");
-  const mobileScrollPositions = useRef({ overview: 0, records: 0 });
-  const changeMobileTab = (view: DesktopDetailView) => {
+  const [mobileTab, setMobileTab] = useState<"overview" | "photos" | "records">("overview");
+  const mobileScrollPositions = useRef({ overview: 0, photos: 0, records: 0 });
+  const changeMobileTab = (view: "overview" | "photos" | "records") => {
     mobileScrollPositions.current[mobileTab] = window.scrollY;
     setMobileTab(view);
     window.requestAnimationFrame(() =>
@@ -3458,10 +3512,38 @@ function MobileOrderDetailView({
   };
   useEffect(() => {
     setMobileTab("overview");
-    mobileScrollPositions.current = { overview: 0, records: 0 };
+    mobileScrollPositions.current = { overview: 0, photos: 0, records: 0 };
   }, [order.id]);
   const [statusSheetOpen, setStatusSheetOpen] = useState(false);
   const [assignmentEditing, setAssignmentEditing] = useState(false);
+  const [assignmentFailed, setAssignmentFailed] = useState(false);
+  const [assignmentSaving, setAssignmentSaving] = useState(false);
+  const financeInputFocusRef = useRef<HTMLElement | null>(null);
+  const [financeDiscard, setFinanceDiscard] = useState(false);
+  const financeOpeningDraftRef = useRef(financeDraft);
+  useEffect(() => {
+    if (!financeEditing) {
+      financeOpeningDraftRef.current = financeDraft;
+      setFinanceDiscard(false);
+    }
+  }, [financeDraft, financeEditing]);
+  const closeFinance = (next: boolean) => {
+    if (financePending) return;
+    if (!next && JSON.stringify(financeDraft) !== JSON.stringify(financeOpeningDraftRef.current)) {
+      financeInputFocusRef.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setFinanceDiscard(true);
+      return;
+    }
+    onFinanceEditingChange(next);
+  };
+  useEffect(() => {
+    setIdentityGroup(null);
+    setAssignmentEditing(false);
+    setDeviceUnlockEditing(false);
+    setPhotoCaptureOpen(false);
+    setPhotoPreviewId(null);
+  }, [order.id, editorScopeKey]);
   const [floatingHeaderOffset, setFloatingHeaderOffset] = useState(
     "calc(env(safe-area-inset-top) + 10.75rem)",
   );
@@ -3599,10 +3681,12 @@ function MobileOrderDetailView({
           <OrderDetailTabs
             tabs={[
               { key: "overview", label: t("orders.workspace.details") },
+              { key: "photos", label: t("orders2b2.photo.device") },
               { key: "records", label: t("orders.workspace.history") },
             ]}
             activeTab={mobileTab}
             onChange={changeMobileTab}
+            compact
             idPrefix="order-detail-mobile"
             className="!my-1"
           />
@@ -3627,6 +3711,7 @@ function MobileOrderDetailView({
 
       <section
         id="order-detail-mobile-panel-overview"
+        data-order-detail-content-end="true"
         role="tabpanel"
         aria-labelledby="order-detail-mobile-tab-overview"
         hidden={mobileTab !== "overview"}
@@ -3645,117 +3730,100 @@ function MobileOrderDetailView({
         ) : null}
 
         <section className={mobileDetailCardClass}>
-          <div className="mb-1.5 flex min-w-0 items-center justify-between gap-2">
-            <MobileSectionTitle icon={UserRound} title={t("orders2b2.mobile.peopleSuppliers")} />
-            {onAssigneeChange || onPartsSupplierChange ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="h-9 rounded-lg px-3 text-[11px] lg:h-8 lg:text-xs"
-                aria-expanded={assignmentEditing}
-                onClick={() => setAssignmentEditing((editing) => !editing)}
-              >
-                {assignmentEditing ? t("orders2b2.mobile.collapse") : t("orders2b2.mobile.adjust")}
-              </Button>
-            ) : null}
+          <MobileSectionTitle icon={UserRound} title={t("orders2b2.mobile.peopleSuppliers")} />
+          <div className="mt-1 grid min-w-0 grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              className="min-h-11 min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-left text-xs focus-visible:ring-2 focus-visible:ring-ring"
+              disabled={!onAssigneeChange || isVoided}
+              aria-expanded={assignmentEditing}
+              aria-controls={assignmentEditing ? "mobile-order-assignee-editor" : undefined}
+              onClick={(event) => {
+                assignmentTriggerRef.current = event.currentTarget;
+                setAssignmentFailed(false);
+                setAssignmentEditing(true);
+              }}
+            >
+              <span className="block text-[10px] text-muted-foreground">
+                {t("orders2b2.overview.assignee")}
+              </span>
+              <span className="block truncate font-semibold">
+                {order.technician_name || t("orders2b2.mobile.unassigned")}
+              </span>
+            </button>
+            {onPartsSupplierChange && !isVoided ? (
+              <OrderSupplierPicker
+                supplier={partsSupplier}
+                suppliers={supplierOptions}
+                isUpdating={partsSupplierPending}
+                onChange={onPartsSupplierChange}
+                mode="sheet"
+                size="comfortable"
+                className="!h-auto min-h-11"
+              />
+            ) : (
+              <p className="min-w-0 self-center truncate text-xs">
+                {partsSupplier?.name || t("orders2b2.overview.notConfigured")}
+              </p>
+            )}
           </div>
-          {!assignmentEditing ? (
-            <div
-              className={cn(
-                "grid min-w-0 gap-2 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-2 text-[11px] lg:text-xs lg:leading-4",
-                hasMobileSupplierManagement ? "grid-cols-2" : "grid-cols-1",
-              )}
+          <Sheet
+            open={assignmentEditing}
+            onOpenChange={(next) => {
+              if (!assignmentSaving && !assigneePending) setAssignmentEditing(next);
+            }}
+          >
+            <SheetContent
+              mobileEditor
+              side="bottom"
+              className="max-h-[80dvh] rounded-t-xl"
+              onCloseAutoFocus={(event) => {
+                event.preventDefault();
+                assignmentTriggerRef.current?.focus({ preventScroll: true });
+              }}
             >
-              <div className="min-w-0">
-                <span className="text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                  {t("orders2b2.overview.assignee")}
-                </span>
-                <p className="truncate font-semibold">
-                  {order.technician_name || t("orders2b2.mobile.unassigned")}
+              <SheetHeader>
+                <SheetTitle>{t("orders2b2.overview.assignee")}</SheetTitle>
+                <SheetDescription>{order.public_no}</SheetDescription>
+              </SheetHeader>
+              {assignmentFailed ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {t("orders.faultEditor.errorState")}
                 </p>
-              </div>
-              {hasMobileSupplierManagement ? (
-                <div className="min-w-0">
-                  <span className="text-[9px] text-muted-foreground lg:text-[11px] lg:leading-4">
-                    {t("orders2b2.overview.externalSupplier")}
-                  </span>
-                  <p className="truncate font-semibold">
-                    {partsSupplier?.short_name ||
-                      partsSupplier?.name ||
-                      t("orders2b2.overview.notConfigured")}
-                  </p>
-                </div>
               ) : null}
-            </div>
-          ) : (
-            <div
-              className={cn(
-                "grid min-w-0 gap-1.5",
-                onAssigneeChange && hasMobileSupplierManagement
-                  ? "grid-cols-1 min-[380px]:grid-cols-2"
-                  : "grid-cols-1",
-              )}
-            >
-              {onAssigneeChange ? (
-                <div className="min-w-0">
-                  <MobileSectionTitle icon={UserRound} title={t("orders2b2.overview.assignee")} />
-                  <div className="mt-1">
-                    <Select
-                      value={order.assignee_membership_id ?? "unassigned"}
-                      onValueChange={(value) =>
-                        onAssigneeChange(value === "unassigned" ? null : value)
+              <div
+                id="mobile-order-assignee-editor"
+                className="mt-3 grid max-h-[60dvh] gap-1 overflow-y-auto"
+              >
+                {[
+                  { id: "unassigned", display_name: t("orders2b2.mobile.unassigned") },
+                  ...assigneeOptions,
+                ].map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    disabled={assignmentSaving || assigneePending}
+                    aria-pressed={(order.assignee_membership_id ?? "unassigned") === option.id}
+                    className="min-h-11 rounded-lg px-3 py-2 text-left text-sm hover:bg-accent aria-pressed:bg-primary/10 aria-pressed:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={async () => {
+                      setAssignmentSaving(true);
+                      setAssignmentFailed(false);
+                      try {
+                        await onAssigneeChange?.(option.id === "unassigned" ? null : option.id);
+                        setAssignmentEditing(false);
+                      } catch {
+                        setAssignmentFailed(true);
+                      } finally {
+                        setAssignmentSaving(false);
                       }
-                      disabled={assigneePending}
-                    >
-                      <SelectTrigger className="h-[38px] min-w-0 rounded-md px-2 text-base lg:h-8 lg:text-xs">
-                        <SelectValue
-                          placeholder={order.technician_name || t("orders2b2.mobile.unassigned")}
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unassigned">
-                          {t("orders2b2.mobile.unassigned")}
-                        </SelectItem>
-                        {assigneeOptions.map((option) => (
-                          <SelectItem key={option.id} value={option.id}>
-                            {option.display_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              ) : null}
-
-              {hasMobileSupplierManagement ? (
-                <div className="min-w-0">
-                  <MobileSectionTitle
-                    icon={PackageSearch}
-                    title={t("orders2b2.overview.externalSupplier")}
-                  />
-                  <div className="mt-1 min-w-0">
-                    {onPartsSupplierChange ? (
-                      <OrderSupplierPicker
-                        supplier={partsSupplier}
-                        suppliers={supplierOptions}
-                        isUpdating={partsSupplierPending}
-                        onChange={onPartsSupplierChange}
-                        mode="sheet"
-                        size="compact"
-                      />
-                    ) : partsSupplier ? (
-                      <div className="inline-flex max-w-full items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary lg:text-xs lg:leading-4">
-                        <PackageSearch className="size-3 shrink-0" />
-                        <span className="truncate">
-                          {partsSupplier.short_name || partsSupplier.name}
-                        </span>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          )}
+                    }}
+                  >
+                    {option.display_name}
+                  </button>
+                ))}
+              </div>
+            </SheetContent>
+          </Sheet>
           {hasMobileSupplierManagement ? (
             <p className="mt-1 truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
               {t("orders2b2.mobile.supplierScope")}
@@ -3765,13 +3833,34 @@ function MobileOrderDetailView({
 
         <div className="grid min-w-0 grid-cols-1 gap-1.5 min-[390px]:grid-cols-2">
           <section className={cn(mobileDetailCardClass, "min-[390px]:col-span-2")}>
-            <MobileSectionTitle icon={UserRound} title={t("orders2b2.overview.customerInfo")} />
+            <button
+              type="button"
+              className="w-full text-left focus-visible:ring-2 focus-visible:ring-ring"
+              disabled={!data.capabilities?.canEditIntake || isVoided}
+              onClick={(event) => {
+                identityTriggerRef.current = event.currentTarget;
+                setIdentityGroup("customer");
+              }}
+              aria-label={t("orders2b2.overview.customerInfo")}
+            >
+              <MobileSectionTitle icon={UserRound} title={t("orders2b2.overview.customerInfo")} />
+            </button>
             <div className="mt-1.5 grid min-w-0 grid-cols-[28px_minmax(0,1fr)] items-center gap-1.5">
               <div className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-xs font-semibold text-primary ring-1 ring-inset ring-primary/15">
                 {customerDisplayName.slice(0, 1).toUpperCase()}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-xs font-semibold leading-4">{customerDisplayName}</p>
+                <button
+                  type="button"
+                  disabled={!data.capabilities?.canEditIntake || isVoided}
+                  onClick={(event) => {
+                    identityTriggerRef.current = event.currentTarget;
+                    setIdentityGroup("customer");
+                  }}
+                  className="block max-w-full truncate text-left text-xs font-semibold leading-4 focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {customerDisplayName}
+                </button>
                 <PhoneText
                   value={phone}
                   className="block truncate text-[11px] leading-4 lg:text-xs"
@@ -3836,7 +3925,10 @@ function MobileOrderDetailView({
                         variant="outline"
                         size="sm"
                         className="h-9 min-w-9 rounded-lg px-2 text-[11px] lg:text-xs"
-                        onClick={() => setDeviceUnlockEditing(true)}
+                        onClick={(event) => {
+                          unlockTriggerRef.current = event.currentTarget;
+                          setDeviceUnlockEditing(true);
+                        }}
                       >
                         {t("orders2b2.unlock.entry")}
                       </Button>
@@ -3853,7 +3945,7 @@ function MobileOrderDetailView({
                         }}
                       >
                         <ScanLine className="mr-1 size-4" />
-                        扫码
+                        {t("action.scan.label")}
                       </Button>
                     ) : null}
                   </div>
@@ -3861,7 +3953,18 @@ function MobileOrderDetailView({
               }
             />
             <div className="mt-1.5 min-w-0">
-              <p className="truncate text-xs font-semibold leading-4">{deviceLabel}</p>
+              <button
+                type="button"
+                disabled={!data.capabilities?.canEditIntake || isVoided}
+                aria-label={t("orders2b2.overview.deviceIssue")}
+                onClick={(event) => {
+                  identityTriggerRef.current = event.currentTarget;
+                  setIdentityGroup("device");
+                }}
+                className="truncate text-xs font-semibold leading-4"
+              >
+                {deviceLabel}
+              </button>
               <DetailRows
                 rows={[
                   ["IMEI", deviceImei || "-"],
@@ -3871,24 +3974,17 @@ function MobileOrderDetailView({
               />
               <DeviceUnlockViewer order={order} compact className="mt-1.5" />
               <div className="mt-2 border-t border-[var(--border-panel)] pt-2">
-                <MobileSectionTitle
-                  icon={FileText}
-                  title={t("orders2b2.overview.issue")}
-                  action={
-                    data.capabilities?.canEditIntake || data.capabilities?.canEditRepair ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-9 min-w-9 rounded-lg px-2 text-[11px] lg:text-xs"
-                        onClick={() => setFaultEditing(true)}
-                      >
-                        {t("orders2b2.hero.edit")}
-                      </Button>
-                    ) : undefined
-                  }
-                />
-                <div data-order-detail-issue-summary="true" className="mt-1 min-w-0">
+                <MobileSectionTitle icon={FileText} title={t("orders2b2.overview.issue")} />
+                <button
+                  type="button"
+                  data-order-detail-issue-summary="true"
+                  className="mt-1 block w-full min-w-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={t("orders.faultEditor.title")}
+                  onClick={(event) => {
+                    mobileFaultTriggerRef.current = event.currentTarget;
+                    setFaultEditing(true);
+                  }}
+                >
                   <p className="line-clamp-2 whitespace-pre-wrap break-words text-xs font-medium leading-4 text-foreground">
                     {order.issue_description || "-"}
                   </p>
@@ -3896,31 +3992,26 @@ function MobileOrderDetailView({
                     {t("orders2b2.overview.diagnosis")}：
                     {order.diagnosis_result || t("orders2b2.overview.notConfigured")}
                   </p>
-                  <details className="mt-1 min-w-0 text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
-                    <summary className="cursor-pointer font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                      {t("orders2b2.mobile.expandDetails")}
-                    </summary>
-                    <div className="mt-1 grid min-w-0 gap-1 rounded-md bg-[var(--surface-panel-muted)] px-2 py-1.5">
-                      <p className="whitespace-pre-wrap break-words">
-                        <span className="font-semibold text-foreground">
-                          {t("orders2b2.overview.issue")}：
-                        </span>
-                        {order.issue_description || "-"}
-                      </p>
-                      <p className="whitespace-pre-wrap break-words">
-                        <span className="font-semibold text-foreground">
-                          {t("orders2b2.overview.diagnosis")}：
-                        </span>
-                        {order.diagnosis_result || t("orders2b2.overview.notConfigured")}
-                      </p>
-                    </div>
-                  </details>
-                </div>
+                  <span className="mt-1 block text-[10px] text-primary">
+                    {t("orders2b2.mobile.expandDetails")}
+                  </span>
+                </button>
               </div>
             </div>
           </section>
         </div>
 
+        <OrderIdentityEditor
+          group={identityGroup}
+          returnFocusRef={identityTriggerRef}
+          scopeKey={editorScopeKey}
+          initial={identityInitial}
+          pending={identityPending}
+          canEdit={Boolean(data.capabilities?.canEditIntake) && !isVoided}
+          canEditRepair={Boolean(data.capabilities?.canEditRepair) && !isVoided}
+          onClose={() => setIdentityGroup(null)}
+          onSave={onIdentitySave}
+        />
         <ImeiCaptureSheet
           open={imeiEditing}
           onOpenChange={(open) => {
@@ -3939,6 +4030,7 @@ function MobileOrderDetailView({
 
         <OrderFaultDescriptionEditor
           open={faultEditing}
+          returnFocusRef={mobileFaultTriggerRef}
           order={order}
           canEditIntake={Boolean(data.capabilities?.canEditIntake)}
           canEditRepair={Boolean(data.capabilities?.canEditRepair)}
@@ -3950,7 +4042,9 @@ function MobileOrderDetailView({
         />
 
         <DeviceUnlockEditSheet
+          returnFocusRef={unlockTriggerRef}
           open={deviceUnlockEditing}
+          scopeKey={editorScopeKey}
           order={order}
           pending={deviceUnlockPending}
           onOpenChange={setDeviceUnlockEditing}
@@ -3966,73 +4060,21 @@ function MobileOrderDetailView({
           </section>
         ) : (
           <div className="grid min-w-0 grid-cols-2 gap-1.5">
-            <section
-              id="mobile-order-quote"
-              className={cn(
-                mobileDetailCardClass,
-                financeEditing &&
-                  "col-span-2 p-2.5 [&_[data-mobile-section-title=true]]:flex-row [&_[data-mobile-section-title=true]]:items-center [&_[data-mobile-section-title=true]]:justify-between [&_[data-mobile-section-title-action=true]]:self-auto",
-              )}
-            >
-              <MobileSectionTitle
-                icon={ReceiptText}
-                title={t("orders2b2.overview.quoteItems")}
-                action={
-                  canAdjustFinance ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-11 min-h-11 min-w-11 rounded-lg px-2 text-[11px] shadow-none lg:text-xs lg:leading-4"
-                      disabled={financePending}
-                      aria-expanded={financeEditing ? financeCategoriesOpen : undefined}
-                      aria-controls={financeEditing ? financeCategoriesId : undefined}
-                      onClick={() => {
-                        if (financeEditing) setFinanceCategoriesOpen((open) => !open);
-                        else {
-                          setFinanceCategoriesOpen(true);
-                          onFinanceEditingChange(true);
-                        }
-                      }}
-                    >
-                      {financeEditing
-                        ? t(
-                            financeCategoriesOpen
-                              ? "orders2b2.finance.collapseCategories"
-                              : "orders2b2.finance.expandCategories",
-                          )
-                        : t("orders2b2.hero.edit")}
-                    </Button>
-                  ) : undefined
-                }
-              />
-              {financeEditing ? (
-                <MobileFinanceEditor
-                  categoriesOpen={financeCategoriesOpen}
-                  categoriesId={financeCategoriesId}
-                  draft={financeDraft}
-                  normalized={normalizedFinance}
-                  saveError={financeSaveError}
-                  pending={financePending}
-                  onChange={onFinanceDraftChange}
-                  onCancel={() => {
-                    onFinanceDraftChange(
-                      createFinanceDraftState(order.fault_prices, order.deposit_amount),
-                    );
-                    onFinanceEditingChange(false);
-                  }}
-                  onSave={async () => {
-                    try {
-                      const saved = await onFinanceSave();
-                      if (saved) onFinanceEditingChange(false);
-                      return saved;
-                    } catch {
-                      // Mutation error toast is handled by the parent mutation.
-                      return false;
-                    }
-                  }}
-                />
-              ) : (
+            <section id="mobile-order-quote" className={mobileDetailCardClass}>
+              <button
+                type="button"
+                className="w-full min-w-0 text-left focus-visible:ring-2 focus-visible:ring-ring"
+                disabled={!canAdjustFinance || financePending || isVoided}
+                aria-label={t("orders2b2.overview.quoteItems")}
+                aria-expanded={financeEditing}
+                aria-controls={financeEditing ? "mobile-order-finance-editor" : undefined}
+                onClick={(event) => {
+                  financeTriggerRef.current = event.currentTarget;
+                  setFinanceCategoriesOpen(true);
+                  onFinanceEditingChange(true);
+                }}
+              >
+                <MobileSectionTitle icon={ReceiptText} title={t("orders2b2.overview.quoteItems")} />
                 <div className="mt-1.5 space-y-1">
                   {order.fault_prices.length ? (
                     order.fault_prices.map((item, index) => (
@@ -4052,8 +4094,59 @@ function MobileOrderDetailView({
                     </div>
                   )}
                 </div>
-              )}
+              </button>
             </section>
+            <Dialog open={financeEditing} onOpenChange={closeFinance}>
+              <DialogContent
+                mobileEditor
+                id="mobile-order-finance-editor"
+                onCloseAutoFocus={(event) => {
+                  event.preventDefault();
+                  financeTriggerRef.current?.focus({ preventScroll: true });
+                }}
+                data-confirm-discard={financeDiscard}
+                closeLabel={t("common.cancel")}
+                className={cn(
+                  componentOverlay.editorSurface,
+                  editorConfirmationClass,
+                  "max-h-[calc(100dvh-1rem)] overflow-y-auto p-3",
+                )}
+              >
+                <DialogHeader>
+                  <DialogTitle>{t("orders2b2.overview.quoteItems")}</DialogTitle>
+                  <DialogDescription>{order.public_no}</DialogDescription>
+                </DialogHeader>
+                {financeDiscard ? (
+                  <EditorDiscardConfirmation
+                    returnFocus={financeInputFocusRef}
+                    keep={() => setFinanceDiscard(false)}
+                    discard={() => {
+                      onFinanceDraftChange(financeOpeningDraftRef.current);
+                      onFinanceEditingChange(false);
+                    }}
+                  />
+                ) : null}
+                <MobileFinanceEditor
+                  categoriesOpen={financeCategoriesOpen}
+                  categoriesId={financeCategoriesId}
+                  draft={financeDraft}
+                  normalized={normalizedFinance}
+                  saveError={financeSaveError}
+                  pending={financePending}
+                  onChange={onFinanceDraftChange}
+                  onCancel={() => closeFinance(false)}
+                  onSave={async () => {
+                    try {
+                      const saved = await onFinanceSave();
+                      if (saved) onFinanceEditingChange(false);
+                      return saved;
+                    } catch {
+                      return false;
+                    }
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
 
             <section className={mobileDetailCardClass}>
               <MobileSectionTitle
@@ -4070,7 +4163,13 @@ function MobileOrderDetailView({
             </section>
           </div>
         )}
-
+      </section>
+      <section
+        id="order-detail-mobile-panel-photos"
+        role="tabpanel"
+        aria-labelledby="order-detail-mobile-tab-photos"
+        hidden={mobileTab !== "photos"}
+      >
         <section className={mobileDetailCardClass} data-order-detail-content-end="true">
           <MobileSectionTitle icon={ImageIcon} title={t("orders2b2.overview.photos")} />
           <OrderDetailPhotoSlots
@@ -4103,9 +4202,7 @@ function MobileOrderDetailView({
               mobilePhotoOutsideDismissedRef.current = true;
             }}
             onCloseAutoFocus={handleMobilePhotoCloseAutoFocus}
-            onCapture={(draft) => {
-              void uploadAttachmentDraft(draft, onAttachmentUpload).catch(() => undefined);
-            }}
+            onCapture={(draft) => uploadAttachmentDraft(draft, onAttachmentUpload)}
           />
         ) : null}
 
@@ -4504,36 +4601,41 @@ function ImeiCaptureSheet({
 }
 
 function DeviceUnlockEditSheet({
+  returnFocusRef,
   open,
+  scopeKey,
   order,
   pending,
   onOpenChange,
   onSave,
 }: {
+  returnFocusRef: React.RefObject<HTMLButtonElement | null>;
   open: boolean;
+  scopeKey: string;
   order: OrderDetail["order"];
   pending: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (input: DeviceUnlockInput) => Promise<void>;
+  onSave: (input: DeviceUnlockInput, expectedUpdatedAt: string) => Promise<void>;
 }) {
   const { t } = useLocale();
-  const [draft, setDraft] = useState<DeviceUnlockInput>(() => deviceUnlockInputFromOrder(order));
+  const session = useCompactEditorSession({
+    open,
+    scopeKey,
+    initial: { value: deviceUnlockInputFromOrder(order), updatedAt: order.updated_at },
+    busy: pending,
+    onOpenChange,
+  });
+  const { draft, setDraft } = session;
   const [error, setError] = useState("");
   const validationError = useMemo(() => {
     try {
-      normalizeDeviceUnlockInput(draft);
+      normalizeDeviceUnlockInput(draft.value);
       return "";
     } catch {
       return getOrderDetailSafeErrorMessage(undefined, "unlock", t);
     }
   }, [draft, t]);
   const helperError = error || validationError;
-
-  useEffect(() => {
-    if (!open) return;
-    setDraft(deviceUnlockInputFromOrder(order));
-    setError("");
-  }, [open, order]);
 
   const save = async () => {
     setError("");
@@ -4542,7 +4644,18 @@ function DeviceUnlockEditSheet({
       return;
     }
     try {
-      await onSave(draft);
+      if (
+        hasOrderEditRemoteConflict({
+          baselineUpdatedAt: session.baseline.updatedAt,
+          currentUpdatedAt: order.updated_at,
+          hasLocalChanges: session.dirty,
+          isEditing: open,
+        })
+      ) {
+        setError(t("orders2b2.conflict.title"));
+        return;
+      }
+      await onSave(draft.value, session.baseline.updatedAt);
       onOpenChange(false);
     } catch (error) {
       const message = getOrderDetailSafeErrorMessage(error, "unlock", t);
@@ -4552,11 +4665,24 @@ function DeviceUnlockEditSheet({
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={session.requestClose}>
       <SheetContent
+        mobileEditor
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          returnFocusRef.current?.focus({ preventScroll: true });
+        }}
+        data-confirm-discard={session.confirmDiscard}
         side="bottom"
-        className={`${componentOverlay.editorSurface} mx-auto h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] rounded-t-xl p-0 md:h-auto md:max-h-[calc(100svh-64px)] md:w-[min(520px,calc(100vw-32px))] md:max-w-[calc(100vw-32px)] md:rounded-xl`}
+        className={`${componentOverlay.editorSurface} ${editorConfirmationClass} mx-auto h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] rounded-t-xl p-0 md:h-auto md:max-h-[calc(100svh-64px)] md:w-[min(520px,calc(100vw-32px))] md:max-w-[calc(100vw-32px)] md:rounded-xl`}
       >
+        {session.confirmDiscard ? (
+          <EditorDiscardConfirmation
+            returnFocus={session.returnFocus}
+            keep={session.keep}
+            discard={session.discard}
+          />
+        ) : null}
         <div className="flex h-full min-w-0 flex-col overflow-hidden">
           <SheetHeader className={`${componentOverlay.editorHeader} px-3 py-3 pr-11`}>
             <SheetTitle className="text-sm leading-5">{t("orders2b2.unlock.edit")}</SheetTitle>
@@ -4571,7 +4697,10 @@ function DeviceUnlockEditSheet({
               "min-h-0 flex-1 space-y-2 overflow-y-auto p-3",
             )}
           >
-            <DeviceUnlockEditor value={draft} onChange={setDraft} />
+            <DeviceUnlockEditor
+              value={draft.value}
+              onChange={(value) => setDraft((current) => ({ ...current, value }))}
+            />
             {helperError ? (
               <p className="rounded-lg bg-status-danger px-2 py-1.5 text-[10px] font-medium leading-3 text-status-danger-foreground lg:text-xs lg:leading-[18px]">
                 {helperError}
@@ -4586,7 +4715,7 @@ function DeviceUnlockEditSheet({
               variant="outline"
               className="h-10 lg:h-9"
               disabled={pending}
-              onClick={() => onOpenChange(false)}
+              onClick={() => session.requestClose(false)}
             >
               {t("common.cancel")}
             </Button>
@@ -5211,7 +5340,7 @@ function DetailRows({ rows }: { rows: [string, string][] }) {
         <div
           key={label}
           data-order-detail-row="true"
-          className="grid min-w-0 grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-1 gap-y-0.5 sm:grid-cols-[minmax(96px,0.35fr)_minmax(0,1fr)]"
+          className="grid min-w-0 grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-1 gap-y-0.5 last:col-span-2 sm:grid-cols-[minmax(96px,0.35fr)_minmax(0,1fr)]"
         >
           <dt
             data-order-detail-row-label="true"
@@ -5337,10 +5466,10 @@ function MobileFinanceEditor({
         <FaultDiagnosisPicker
           selected={selectedFaults}
           onChange={(items) => onChange(mergeSelectedFaultsIntoFinanceDraft(draft, items))}
-          className="gap-2"
+          className="gap-1"
           density="compact"
           appearance="quiet"
-          compactColumns={3}
+          compactColumns={4}
         />
       </div>
 
@@ -5444,7 +5573,10 @@ function MobileFinanceEditor({
         </p>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-2">
+      <div
+        data-editor-footer
+        className="sticky bottom-0 grid grid-cols-2 gap-2 bg-[var(--surface-workspace-strong)] py-2"
+      >
         <Button
           type="button"
           variant="outline"

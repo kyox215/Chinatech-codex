@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, type RefObject } from "react";
+import { useMemo, type RefObject } from "react";
 
+import {
+  useCompactEditorSession,
+  EditorDiscardConfirmation,
+  editorConfirmationClass,
+} from "@/shared/lib/use-compact-editor-session";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -43,28 +48,27 @@ export function CustomerFollowupDialog({
     () => new Date(Date.now() + 86_400_000).toISOString().slice(0, 16),
     [],
   );
-  const [form, setForm] = useState<CustomerFollowupInput>({
-    title: "维修后联系客户",
-    due_at: defaultDueAt,
-    owner_name: "",
-    note: "",
+  const session = useCompactEditorSession<CustomerFollowupInput>({
+    open,
+    scopeKey: selectedOrderId ?? "new",
+    initial: {
+      title: "维修后联系客户",
+      due_at: defaultDueAt,
+      owner_name: "",
+      note: "",
+      order_id: selectedOrderId,
+    },
+    busy,
+    onOpenChange,
   });
-  useEffect(() => {
-    if (open) {
-      setForm({
-        title: "维修后联系客户",
-        due_at: defaultDueAt,
-        owner_name: "",
-        note: "",
-        order_id: selectedOrderId,
-      });
-    }
-  }, [defaultDueAt, open, selectedOrderId]);
+  const { draft: form, setDraft: setForm } = session;
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={session.requestClose}>
       <DialogContent
+        mobileEditor
+        data-confirm-discard={session.confirmDiscard}
         closeLabel={t("customers.detail.close")}
-        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface}`}
+        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface} ${editorConfirmationClass}`}
         onCloseAutoFocus={(event) => {
           const intendedOpener = returnFocusRef?.current;
           if (!intendedOpener?.isConnected || intendedOpener.getClientRects().length === 0) return;
@@ -72,6 +76,18 @@ export function CustomerFollowupDialog({
           intendedOpener.focus({ preventScroll: true });
         }}
       >
+        {session.confirmDiscard ? (
+          <EditorDiscardConfirmation
+            returnFocus={session.returnFocus}
+            keep={session.keep}
+            discard={session.discard}
+          />
+        ) : null}
+        {session.saveFailed ? (
+          <p role="alert" className="text-sm text-destructive">
+            {t("orders.faultEditor.errorState")}
+          </p>
+        ) : null}
         <DialogHeader className={componentOverlay.editorHeader}>
           <DialogTitle className={componentOverlay.title}>
             {t("customers.form.followupTitle")}
@@ -145,14 +161,14 @@ export function CustomerFollowupDialog({
           <Button
             className="min-h-11 whitespace-normal lg:min-h-9"
             variant="ghost"
-            onClick={() => onOpenChange(false)}
+            onClick={() => session.requestClose(false)}
           >
             {t("customers.form.cancel")}
           </Button>
           <Button
             disabled={busy || !form.title.trim() || !form.due_at}
             className="min-h-11 whitespace-normal lg:min-h-9"
-            onClick={() => void onSave(form).catch(() => undefined)}
+            onClick={() => void session.save(onSave)}
           >
             {busy ? t("customers.form.creating") : t("customers.form.createFollowup")}
           </Button>

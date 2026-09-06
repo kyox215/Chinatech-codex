@@ -4,6 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Camera, ImagePlus, Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  EditorDiscardConfirmation,
+  editorConfirmationClass,
+} from "@/shared/lib/use-compact-editor-session";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -36,7 +40,7 @@ interface CameraCaptureSheetProps {
   purpose?: "draft" | "order-attachment";
   onOutsideDismiss?: () => void;
   onCloseAutoFocus?: (event: Event) => void;
-  onCapture: (draft: AttachmentDraft) => void;
+  onCapture: (draft: AttachmentDraft) => void | Promise<unknown>;
 }
 
 const cameraCaptureErrorToastId = "repairdesk-camera-capture-error";
@@ -73,6 +77,12 @@ export function CameraCaptureSheet({
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
   const [cameraErrorKind, setCameraErrorKind] = useState<ScannerErrorKind | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const uploadInFlight = useRef(false);
+  const [uploadFailed, setUploadFailed] = useState(false);
+  const captureInputFocusRef = useRef<HTMLElement | null>(null);
+  const retryButtonRef = useRef<HTMLButtonElement>(null);
+  const [discard, setDiscard] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const outsideDismissedRef = useRef(false);
   const cameraErrorToastIdRef = useRef<string | number | null>(null);
@@ -104,6 +114,15 @@ export function CameraCaptureSheet({
   }, [photoUrl]);
 
   const handleOpenChange = (nextOpen: boolean) => {
+    if (uploadInFlight.current) return;
+    if (!nextOpen && photoBlob) {
+      captureInputFocusRef.current =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : retryButtonRef.current;
+      setDiscard(true);
+      return;
+    }
     if (!nextOpen) dismissCameraErrorToast();
     onOpenChange(nextOpen);
   };
@@ -115,6 +134,8 @@ export function CameraCaptureSheet({
       clearPhoto();
       setCameraErrorKind(null);
       setIsPaused(false);
+      setUploadFailed(false);
+      setDiscard(false);
       return;
     }
 
@@ -208,14 +229,31 @@ export function CameraCaptureSheet({
     setPhotoUrl(URL.createObjectURL(blob));
   };
 
+  const submitFile = async (file: File) => {
+    if (uploadInFlight.current) return;
+    uploadInFlight.current = true;
+    setUploading(true);
+    setUploadFailed(false);
+    try {
+      const result = onCapture(createAttachmentDraft(file, attachmentKind));
+      if (result && typeof result.then === "function") await result;
+      clearPhoto();
+      stopCamera();
+      onOpenChange(false);
+    } catch {
+      setUploadFailed(true);
+    } finally {
+      uploadInFlight.current = false;
+      setUploading(false);
+    }
+  };
   const confirmCapture = () => {
     if (!photoBlob) return;
-    const file = new File([photoBlob], `repairdesk-photo-${Date.now()}.jpg`, {
-      type: "image/jpeg",
-    });
-    onCapture(createAttachmentDraft(file, attachmentKind));
-    clearPhoto();
-    handleOpenChange(false);
+    void submitFile(
+      new File([photoBlob], `repairdesk-photo-${Date.now()}.jpg`, {
+        type: photoBlob.type || "image/jpeg",
+      }),
+    );
   };
 
   const handleSelectedImage = (file: File | undefined) => {
@@ -229,10 +267,11 @@ export function CameraCaptureSheet({
       toast.error(`${file.name}: ${error}`);
       return;
     }
-    onCapture(createAttachmentDraft(file, attachmentKind));
     clearPhoto();
+    setPhotoBlob(file);
+    setPhotoUrl(URL.createObjectURL(file));
     stopCamera();
-    handleOpenChange(false);
+    void submitFile(file);
   };
 
   const retake = () => {
@@ -247,6 +286,8 @@ export function CameraCaptureSheet({
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
+        aria-busy={uploading}
+        data-confirm-discard={discard}
         side="bottom"
         closeLabel={t("common.close")}
         onPointerDownOutside={() => {
@@ -256,7 +297,32 @@ export function CameraCaptureSheet({
         onCloseAutoFocus={handleCloseAutoFocus}
         className="max-h-[calc(100svh-16px)] rounded-t-xl p-0 sm:mx-auto sm:max-w-xl"
       >
-        <div className="flex max-h-[calc(100svh-16px)] min-w-0 flex-col overflow-hidden">
+        <div
+          data-confirm-discard={discard}
+          className={cn(
+            "flex max-h-[calc(100svh-16px)] min-w-0 flex-col overflow-hidden",
+            editorConfirmationClass,
+          )}
+        >
+          {discard ? (
+            <EditorDiscardConfirmation
+              returnFocus={captureInputFocusRef}
+              keep={() => {
+                setDiscard(false);
+                requestAnimationFrame(() => retryButtonRef.current?.focus({ preventScroll: true }));
+              }}
+              discard={() => {
+                setDiscard(false);
+                clearPhoto();
+                onOpenChange(false);
+              }}
+            />
+          ) : null}
+          {uploadFailed ? (
+            <p role="alert" className="p-3 text-sm text-destructive">
+              {t("orders.faultEditor.errorState")}
+            </p>
+          ) : null}
           <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
             <SheetTitle className="flex items-center gap-2 text-base">
               <Camera className="size-4 text-primary" />
@@ -332,13 +398,21 @@ export function CameraCaptureSheet({
                     variant="outline"
                     size="sm"
                     className="min-h-11"
+                    disabled={uploading}
                     onClick={retake}
                   >
                     <RotateCcw className="mr-1.5 size-3.5" />
                     {t("common.retake")}
                   </Button>
-                  <Button type="button" size="sm" className="min-h-11" onClick={confirmCapture}>
-                    {t("common.usePhoto")}
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="min-h-11"
+                    ref={retryButtonRef}
+                    disabled={uploading}
+                    onClick={confirmCapture}
+                  >
+                    {uploading ? t("orders2b2.overview.uploading") : t("common.usePhoto")}
                   </Button>
                 </>
               ) : (

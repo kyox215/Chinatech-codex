@@ -9,6 +9,10 @@ test.skip(
   "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 or REPAIRDESK_E2E_ORDER_AUDIT=1 for responsive order detail checks.",
 );
 
+test.beforeEach(async ({ context, baseURL }) => {
+  await context.addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL! }]);
+});
+
 test.describe("order detail responsive single renderer", () => {
   for (const width of [390, 834]) {
     test(`uses one compact renderer at ${width}px`, async ({ page }) => {
@@ -105,12 +109,13 @@ test.describe("order detail responsive single renderer", () => {
     const detail = page.locator('[data-order-detail-root="true"]');
     const quote = detail.locator("#mobile-order-quote");
     await expect(quote).toBeVisible();
-    await quote.getByRole("button", { name: "编辑", exact: true }).click();
+    await quote.getByRole("button", { name: /维修项目|报价项目/ }).click();
+    const editor = page.locator("#mobile-order-finance-editor");
 
-    let projectInput = quote.locator('input[placeholder="项目"]').first();
+    let projectInput = editor.locator('input[placeholder="项目"]').first();
     if ((await projectInput.count()) === 0) {
-      await quote.getByRole("button", { name: /添加自定义项目/ }).click();
-      projectInput = quote.locator('input[placeholder="项目"]').first();
+      await editor.getByRole("button", { name: /添加自定义项目/ }).click();
+      projectInput = editor.locator('input[placeholder="项目"]').first();
     }
     await expect(projectInput).toBeVisible();
     const marker = "compact-resize-draft";
@@ -121,7 +126,7 @@ test.describe("order detail responsive single renderer", () => {
     await page.setViewportSize({ width: 1024, height: 768 });
     await expectOrderDetailMode(page, "compact");
     await expect(projectInput).toHaveValue(marker);
-    await expect(quote.getByRole("button", { name: "完成", exact: true })).toBeVisible();
+    await expect(editor.getByRole("button", { name: "保存", exact: true })).toBeVisible();
     await expect(projectInput).toBeFocused();
     expect(mutationCount()).toBe(0);
   });

@@ -107,6 +107,8 @@ export const componentOverlay = {
   // Opt-in editor presentation. Existing modal defaults and controller lifecycles stay intact.
   editorSurface:
     "border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] shadow-[var(--shadow-overlay)] [&_input:not([type=checkbox])]:transition-colors [&_textarea]:transition-colors [&_button]:duration-150 motion-reduce:[&_input]:transition-none motion-reduce:[&_textarea]:transition-none motion-reduce:[&_button]:transition-none",
+  mobileEditor:
+    "max-lg:data-[state=open]:slide-in-from-bottom max-lg:data-[state=closed]:slide-out-to-bottom max-lg:!inset-x-0 max-lg:!top-auto max-lg:!bottom-0 max-lg:!mx-auto max-lg:!h-auto max-lg:!max-h-[calc(100dvh-1rem)] max-lg:!w-full max-lg:!max-w-full max-lg:!translate-x-0 max-lg:!translate-y-0 max-lg:!rounded-b-none max-lg:!rounded-t-[var(--radius-lg)] max-lg:!overflow-y-auto max-lg:!pb-[calc(env(safe-area-inset-bottom)+0.75rem)] max-lg:[&_input:not([type=checkbox])]:!text-base max-lg:[&_textarea]:!text-base max-lg:[&_[data-editor-footer]]:sticky max-lg:[&_[data-editor-footer]]:bottom-0 max-lg:[&_[data-editor-footer]]:z-10 max-lg:[&_[data-editor-footer]]:bg-[var(--surface-workspace-strong)]",
   editorHeader: "min-w-0 space-y-1 border-b border-[var(--border-panel)] pb-3 text-left",
   editorBody: "min-w-0 [&_input:not([type=checkbox])]:bg-background [&_textarea]:bg-background",
   editorFooter:

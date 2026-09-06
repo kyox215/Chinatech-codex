@@ -9,6 +9,10 @@ const enabled =
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_ORDER_AUDIT=1 for new order mobile touch checks.");
 
+test.beforeEach(async ({ context, baseURL }) => {
+  await context.addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL! }]);
+});
+
 test.use({
   viewport: { width: 390, height: 844 },
   isMobile: true,
@@ -38,16 +42,17 @@ test("new order dropdown arrows distinguish touch scroll from tap", async ({
     .first()
     .click();
 
-  const faultTrigger = page.getByRole("button", { name: "展开屏幕细分选项" });
-  await tapTriggerAndExpectMenu(page, faultTrigger, /原装/);
+  const faultTrigger = page.getByRole("button", { name: "屏幕", exact: true });
+  await faultTrigger.tap();
+  await expect(page.getByRole("dialog", { name: "屏幕", exact: true })).toBeVisible();
   await page.screenshot({
     path: `${screenshotDir}/new-order-mobile-repair-options.png`,
     fullPage: true,
   });
-  await page.getByRole("menuitem", { name: /需要检查/ }).click();
+  await page.getByRole("button", { name: /需要检查/ }).click();
   await expect(
     page
-      .getByRole("menu")
+      .getByRole("dialog", { name: "屏幕", exact: true })
       .getByText(/外屏碎裂/)
       .first(),
   ).toBeVisible();
