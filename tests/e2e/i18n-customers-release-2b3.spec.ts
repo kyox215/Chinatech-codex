@@ -164,11 +164,14 @@ for (const { locale, width } of detailCases) {
       await root.getByRole("tab").nth(2).click();
       await expect(root).toContainText(synthetic.warranty);
     } else if (width === 768) {
-      await expect(mobileHeader).toBeHidden();
-      await expect(appBar).toBeVisible();
+      await expect(mobileHeader).toBeVisible();
+      await expect(appBar).toBeHidden();
       await expect(desktopHero).toBeHidden();
       await expect(mobileActions).toBeVisible();
-      await expect(page.locator('[data-app-bar="true"]:visible')).toHaveCount(1);
+      await expect(page.locator('[data-ui="customer-detail-mobile-header"]:visible')).toHaveCount(
+        1,
+      );
+      await expect(page.locator('[data-app-bar="true"]:visible')).toHaveCount(0);
       await expectVisibleTabs(root, 5);
       await expect(root.getByRole("tablist")).toHaveCount(1);
       const devicesTab = root.getByRole("tab", {
@@ -290,8 +293,9 @@ test("heavy it-IT 768px preserves tab identity and dialog focus contracts", asyn
   await expect(root).toContainText(synthetic.customer);
   await switchLocale(page, "it-IT");
   await expect(page).toHaveURL(initialUrl);
-  await expect(page.locator('[data-ui="customer-detail-mobile-header"]')).toBeHidden();
-  await expect(page.locator('[data-app-bar="true"]:visible')).toHaveCount(1);
+  await expect(page.locator('[data-ui="customer-detail-mobile-header"]')).toBeVisible();
+  await expect(page.locator('[data-ui="customer-detail-mobile-header"]:visible')).toHaveCount(1);
+  await expect(page.locator('[data-app-bar="true"]:visible')).toHaveCount(0);
   await expectVisibleTabs(root, 5);
   await expect(root.getByRole("tablist")).toHaveCount(1);
   const devicesTab = root.getByRole("tab", {
@@ -780,6 +784,8 @@ async function expectNoUnexpectedFixedHan(root: Locator, locale: AppLocale) {
 }
 
 async function switchLocale(page: Page, locale: AppLocale) {
+  const compact = (page.viewportSize()?.width ?? 1440) < 1024;
+  if (compact) await page.keyboard.press("Control+b");
   const trigger = page.locator('[data-language-switcher-trigger="true"]:visible').first();
   await trigger.focus();
   await page.keyboard.press("Enter");
@@ -787,6 +793,7 @@ async function switchLocale(page: Page, locale: AppLocale) {
   await option.focus();
   await page.keyboard.press("Enter");
   await expect(page.locator("html")).toHaveAttribute("lang", locale);
+  if (compact) await page.keyboard.press("Escape");
   expect(
     await page.evaluate(
       () => (window as Window & { __release2b3Document?: string }).__release2b3Document,
@@ -802,6 +809,7 @@ async function probeBlockedExternalWrite(page: Page, url: string) {
 
 async function saveScreenshot(page: Page, testInfo: TestInfo, name: string) {
   const engine = testInfo.project.name;
+  await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
   await page.screenshot({
     path: resolve(process.cwd(), "screenshots", "release2b3", engine, `${name}.png`),
     fullPage: true,

@@ -25,7 +25,9 @@ describe("AppBar responsive route contract", () => {
     expect(getAppBarVisibilityClass("/orders/new")).toBe("max-lg:hidden");
     expect(getAppBarVisibilityClass("/settings/closed-stores")).toBe("max-lg:hidden");
     expect(getAppBarVisibilityClass("/toolkit")).toBe("max-lg:hidden");
-    expect(getAppBarVisibilityClass("/customers/id")).toBe("max-md:hidden");
+    expect(getAppBarVisibilityClass("/customers/id")).toBe("max-lg:hidden");
+    expect(getAppBarVisibilityClass("/customers/id/")).toBe("max-lg:hidden");
+    expect(getAppBarVisibilityClass("/customers/id/other")).toBe("max-md:hidden");
     expect(getAppBarVisibilityClass("/inventory/id")).toBe("max-md:hidden");
     expect(getAppBarVisibilityClass("/inventory/new")).toBe("max-md:hidden");
     expect(getAppBarVisibilityClass("/orders/id")).toBe("max-md:hidden");

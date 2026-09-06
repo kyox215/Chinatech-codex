@@ -334,6 +334,9 @@ test("A13 customer tablet and desktop each expose one editing surface", async ({
     await expect(page.locator('[data-ui="customer-detail-desktop-hero"]')).toBeVisible({
       visible: width >= 1024,
     });
+    await expect(page.locator('[data-app-bar="true"]')).toBeVisible({
+      visible: width >= 1024,
+    });
     await trigger.click();
     const editor = page.getByRole("dialog").filter({ visible: true });
     await expect(editor).toHaveCount(1);
