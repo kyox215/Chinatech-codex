@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 import {
   Battery,
   Camera,
@@ -16,6 +16,15 @@ import {
   Zap,
 } from "lucide-react";
 
+import { useViewportMode } from "@/hooks/use-mobile";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -187,14 +196,14 @@ export function FaultDiagnosisPicker({
   className,
   density = "default",
   appearance = "outlined",
-  compactColumns = 3,
+  compactColumns = 4,
 }: {
   selected: SelectedFault[];
   onChange: (items: SelectedFault[]) => void;
   className?: string;
   density?: "default" | "compact";
   appearance?: "outlined" | "quiet";
-  compactColumns?: 3;
+  compactColumns?: 3 | 4;
 }) {
   const setGroupSelection = (group: FaultGroup, option: FaultOption) => {
     const key = faultKey(group, option);
@@ -259,7 +268,11 @@ export function FaultDiagnosisPicker({
       data-compact-columns={compact ? compactColumns : undefined}
       className={cn(
         "grid min-w-0",
-        compact ? "grid-cols-3 gap-1.5" : "grid-cols-2 gap-1.5 sm:grid-cols-3",
+        compact
+          ? compactColumns === 4
+            ? "grid-cols-4 gap-1"
+            : "grid-cols-3 gap-1"
+          : "grid-cols-2 gap-1.5 sm:grid-cols-3",
         className,
       )}
     >
@@ -314,6 +327,16 @@ function FaultCategoryButton({
     setOpen(nextOpen);
   };
   const visibleOptions = menuMode === "inspection" ? group.options : group.repairOptions;
+
+  if (compact)
+    return (
+      <CompactFaultCategory
+        group={group}
+        selected={selected}
+        onToggle={onToggle}
+        onClear={onClear}
+      />
+    );
 
   return (
     <DropdownMenu open={open} onOpenChange={handleOpenChange}>
@@ -570,5 +593,182 @@ function FaultCategoryButton({
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+function CompactFaultCategory({
+  group,
+  selected,
+  onToggle,
+  onClear,
+}: {
+  group: FaultGroup;
+  selected: SelectedFault[];
+  onToggle: (option: FaultOption) => void;
+  onClear: () => void;
+}) {
+  const { locale, t } = useLocale();
+  const viewport = useViewportMode();
+  const id = useId();
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [desktop, setDesktop] = useState(false);
+  const [inspection, setInspection] = useState(false);
+  const active = selected.filter((item) => item.categoryKey === group.key);
+  const label = localizeRepairServiceGroupLabel(group, locale);
+  const Icon = group.icon;
+  const changeOpen = (next: boolean) => {
+    if (next) {
+      setDesktop(viewport === "desktop");
+      setInspection(
+        active.some((item) => group.options.some((option) => faultKey(group, option) === item.key)),
+      );
+    }
+    setOpen(next);
+  };
+  const trigger = (
+    <button
+      ref={triggerRef}
+      type="button"
+      aria-label={label}
+      aria-expanded={open}
+      aria-controls={open ? id : undefined}
+      aria-haspopup="dialog"
+      data-fault-category={group.key}
+      onClick={() => changeOpen(true)}
+      className={cn(
+        "flex h-[33px] min-h-[33px] w-full min-w-0 items-center gap-0.5 rounded-md border px-1 text-left text-[11px] min-[390px]:text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        active.length
+          ? "border-primary/35 bg-primary/10 text-primary"
+          : "border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-foreground",
+      )}
+    >
+      {active.length ? (
+        <Check
+          className={cn("size-3 shrink-0", locale !== "zh-CN" && "max-[430px]:hidden")}
+          aria-hidden="true"
+        />
+      ) : (
+        <Icon
+          className={cn("size-3 shrink-0", locale !== "zh-CN" && "max-[430px]:hidden")}
+          aria-hidden="true"
+        />
+      )}
+      <span className="min-w-0 flex-1 truncate">
+        {localizeRepairServiceGroupCompactLabel(group, locale)}
+      </span>
+      <ChevronDown
+        className={cn("size-3 shrink-0", locale !== "zh-CN" && "max-[359px]:hidden")}
+        aria-hidden="true"
+      />
+    </button>
+  );
+  const options = inspection
+    ? group.options
+    : group.repairOptions.length
+      ? group.repairOptions
+      : [getMainFaultOption(group)];
+  const body = (
+    <div
+      id={id}
+      className="grid max-h-[60dvh] min-w-0 gap-1 overflow-y-auto overscroll-contain p-2"
+    >
+      <button
+        type="button"
+        className="min-h-11 rounded-md border px-3 text-left text-sm"
+        onClick={() => setInspection((value) => !value)}
+      >
+        {t(inspection ? "orders2b1.new.fault.back" : "orders2b1.new.fault.inspect")}
+      </button>
+      <div
+        role="group"
+        aria-label={label}
+        className="grid min-w-0 gap-1"
+        onKeyDown={(event) => {
+          if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+          const buttons = Array.from(
+            event.currentTarget.querySelectorAll<HTMLButtonElement>("button"),
+          );
+          const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
+          const next =
+            event.key === "Home"
+              ? 0
+              : event.key === "End"
+                ? buttons.length - 1
+                : (current + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) %
+                  buttons.length;
+          event.preventDefault();
+          buttons[next]?.focus();
+        }}
+      >
+        {options.map((option) => {
+          const checked = active.some((item) => item.key === faultKey(group, option));
+          return (
+            <button
+              key={option.key}
+              type="button"
+              aria-pressed={checked}
+              className={cn(
+                "flex min-h-11 min-w-0 items-center gap-2 rounded-md px-3 py-2 text-left text-sm focus-visible:ring-2 focus-visible:ring-ring",
+                checked ? "bg-primary/10 text-primary" : "hover:bg-accent",
+              )}
+              onClick={() => {
+                onToggle(option);
+                if (!inspection) setOpen(false);
+              }}
+            >
+              <Check
+                aria-hidden="true"
+                className={cn("size-4 shrink-0", !checked && "opacity-0")}
+              />
+              <span className="min-w-0 whitespace-normal break-words">
+                {localizeRepairServiceOptionLabel(group.key, option, locale)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {active.length ? (
+        <button
+          type="button"
+          className="min-h-11 rounded-md px-3 text-left text-sm text-destructive"
+          onClick={() => {
+            onClear();
+            setOpen(false);
+          }}
+        >
+          {t("orders2b1.new.fault.clear")}
+        </button>
+      ) : null}
+    </div>
+  );
+  return (
+    <>
+      <Popover open={open && desktop} onOpenChange={changeOpen}>
+        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <PopoverContent align="start" className="z-[90] w-72 p-0" aria-label={label}>
+          {body}
+        </PopoverContent>
+      </Popover>
+      <Sheet open={open && !desktop} onOpenChange={changeOpen}>
+        <SheetContent
+          side="bottom"
+          className="max-h-[80dvh] rounded-t-xl p-0"
+          closeLabel={t("common.cancel")}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            triggerRef.current?.focus({ preventScroll: true });
+          }}
+        >
+          <SheetHeader className="px-3 py-3 text-left">
+            <SheetTitle>{label}</SheetTitle>
+            <SheetDescription className="sr-only">
+              {t("orders2b1.new.fault.inspectHelp")}
+            </SheetDescription>
+          </SheetHeader>
+          {body}
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }

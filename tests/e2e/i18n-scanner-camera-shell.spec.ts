@@ -336,6 +336,7 @@ for (const [locale, width, height] of cases) {
       await page.goto("/orders/ord_1", { waitUntil: "domcontentloaded" });
       const orderDetail = page.locator('[data-order-detail-root="true"]').first();
       await expect(orderDetail).toBeVisible({ timeout: 30_000 });
+      if (width < 1024) await orderDetail.locator('[data-order-detail-tab="photos"]').click();
       const orderPhotoTrigger = orderDetail
         .locator('[data-order-detail-photo-slot="front"]')
         .getByRole("button", { name: orderPhotoTriggerLabels[locale], exact: true })

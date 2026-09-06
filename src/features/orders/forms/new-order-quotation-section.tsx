@@ -111,10 +111,10 @@ export function NewOrderQuotationSection({
               <FaultDiagnosisPicker
                 selected={form.faults}
                 onChange={(faults) => setForm({ ...form, faults })}
-                className="gap-2"
+                className="gap-1"
                 density="compact"
                 appearance="quiet"
-                compactColumns={3}
+                compactColumns={4}
               />
             </div>
             <div className="mb-1 flex min-w-0 items-center justify-between gap-2 px-0.5">

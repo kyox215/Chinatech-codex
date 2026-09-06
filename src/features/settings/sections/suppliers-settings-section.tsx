@@ -256,29 +256,44 @@ export function SuppliersSettingsSection({
                   }
                   trailingClassName="min-w-0"
                 >
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <span
-                      className={cn(
-                        "size-3 shrink-0 rounded-full",
-                        supplierSwatchClass(supplier.color),
-                      )}
-                      aria-hidden
-                    />
-                    <p className="break-words text-sm font-semibold">{supplier.name}</p>
-                    {supplier.archived_at ? (
-                      <Badge variant="outline">{copy("已归档 · 历史保留")}</Badge>
-                    ) : null}
-                  </div>
-                  <p className="mt-1 break-words text-xs text-muted-foreground">
-                    {[supplier.short_name, supplier.contact_name, supplier.phone]
-                      .filter(Boolean)
-                      .join(" · ") || copy("暂无联系摘要")}
-                  </p>
-                  {supplier.notes ? (
-                    <p className="mt-1 line-clamp-2 break-words text-xs leading-5 text-muted-foreground">
-                      {supplier.notes}
+                  <button
+                    type="button"
+                    disabled={!canManage || Boolean(supplier.archived_at)}
+                    className="w-full min-w-0 text-left focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={
+                      canManage && !supplier.archived_at
+                        ? `${copy("编辑")} ${supplier.name}`
+                        : supplier.name
+                    }
+                    onClick={(event) => {
+                      returnFocusRef.current = event.currentTarget;
+                      setEditor({ mode: "edit", supplier });
+                    }}
+                  >
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <span
+                        className={cn(
+                          "size-3 shrink-0 rounded-full",
+                          supplierSwatchClass(supplier.color),
+                        )}
+                        aria-hidden
+                      />
+                      <p className="break-words text-sm font-semibold">{supplier.name}</p>
+                      {supplier.archived_at ? (
+                        <Badge variant="outline">{copy("已归档 · 历史保留")}</Badge>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 break-words text-xs text-muted-foreground">
+                      {[supplier.short_name, supplier.contact_name, supplier.phone]
+                        .filter(Boolean)
+                        .join(" · ") || copy("暂无联系摘要")}
                     </p>
-                  ) : null}
+                    {supplier.notes ? (
+                      <p className="mt-1 line-clamp-2 break-words text-xs leading-5 text-muted-foreground">
+                        {supplier.notes}
+                      </p>
+                    ) : null}
+                  </button>
                 </RepairOsBusinessCard>
               ))}
             </div>

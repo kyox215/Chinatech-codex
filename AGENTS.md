@@ -2,6 +2,8 @@
 
 Use these rules when generating or editing pages in this repository.
 
+- Content editing follows the Owner-selected A contract in [`docs/GLOBAL_CONTENT_EDITING_STANDARD.md`](docs/GLOBAL_CONTENT_EDITING_STANDARD.md): compact mobile bottom editors, independent desktop surfaces, direct value entry and existing business save/permission semantics.
+
 ## Cross-Session Orchestration (Phase 0A)
 
 - `.ai-company/orchestration.json` enables the project-scoped cross-session control plane in `shadow` mode. For every new top-level window and every non-micro task that could overlap a non-terminal task, automatically load and follow `$cross-session-orchestration` before repository or formal Task Memory writes. The Owner does not need to name the Skill, window, task ID, run, worker, worktree, or department.

@@ -105,78 +105,61 @@ function OrderDetailPhotoSlot({
 
   return (
     <div data-order-detail-photo-slot={slot.key} className="grid min-w-0 gap-1">
-      {attachment ? (
-        <button
-          type="button"
-          className="group relative grid h-14 min-w-0 place-items-center overflow-hidden rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={() => {
-            if (source && !imageFailed) onOpenAttachment?.(attachment);
-          }}
-          disabled={!source || imageFailed}
-          aria-label={
-            source && !imageFailed
-              ? t("orders2b2.overview.openPhoto", {
-                  file: attachment.file_name || t(slot.label),
-                })
-              : `${t(slot.label)}: ${t("orders2b2.photo.unavailable")}`
-          }
+      <button
+        type="button"
+        className="relative grid h-20 min-w-0 place-items-center overflow-hidden rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+        disabled={uploadPending || (!canUpload && (!attachment || !source || imageFailed))}
+        onClick={(event) => {
+          if (canUpload && onCapture) onCapture(slot.kind, event.currentTarget);
+          else if (attachment && source && !imageFailed) onOpenAttachment?.(attachment);
+        }}
+        aria-label={
+          canUpload
+            ? `${t("orders2b2.overview.capture")} ${t(slot.label)}`
+            : `${t(slot.label)}: ${t("orders2b2.photo.device")}`
+        }
+      >
+        {source && !imageFailed ? (
+          <img
+            src={source}
+            alt=""
+            className="absolute inset-0 size-full object-cover"
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          <ImageIcon className="size-5" aria-hidden="true" />
+        )}
+        <span className="relative z-10 flex max-w-full items-center gap-1 rounded bg-background/90 px-1.5 py-1 text-xs">
+          {canUpload ? <Camera className="size-3.5 shrink-0" aria-hidden="true" /> : null}
+          {t(slot.label)}
+          {attachments.length ? ` (${attachments.length})` : ""}
+        </span>
+      </button>
+      {attachment && (!source || imageFailed) ? (
+        <p
+          role="status"
+          className="line-clamp-2 break-words text-[10px] leading-3 text-muted-foreground"
         >
-          {source && !imageFailed ? (
-            <img
-              src={source}
-              alt={attachment.file_name || t(slot.label)}
-              className="size-full object-cover"
-              onError={() => setImageFailed(true)}
-            />
-          ) : (
-            <span className="grid min-w-0 place-items-center gap-0.5 px-1 text-center text-[9px] text-muted-foreground">
-              <ImageIcon className="size-4 text-primary" aria-hidden="true" />
-              <span className="line-clamp-2 break-words">
-                {attachment.file_name || t("orders2b2.photo.unavailable")}
-              </span>
-            </span>
-          )}
-          <span className="absolute inset-x-1 bottom-1 truncate rounded bg-background/85 px-1 py-0.5 text-center text-[8px] font-medium leading-3 text-muted-foreground backdrop-blur lg:text-[11px] lg:leading-4">
-            {t(slot.label)}
-            {attachments.length > 1 ? ` +${attachments.length - 1}` : ""}
-          </span>
-        </button>
-      ) : (
-        <div className="grid h-14 min-w-0 place-items-center rounded-lg border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-1 text-center text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
-          <span className="grid place-items-center gap-0.5">
-            <ImageIcon className="size-3.5 opacity-70" aria-hidden="true" />
-            {t(slot.label)}
-          </span>
-        </div>
-      )}
-      {attachments.length > 1 ? (
-        <div className="flex min-w-0 flex-wrap justify-center gap-1" aria-label={t(slot.label)}>
+          {t("orders2b2.photo.unavailable")}: {attachment.file_name || t(slot.label)}
+        </p>
+      ) : null}
+      {attachments.length ? (
+        <div className="flex min-w-0 flex-wrap gap-1" aria-label={t(slot.label)}>
           {attachments.map((item, index) => (
             <button
               key={item.id}
               type="button"
-              className="size-6 rounded border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-[9px] font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="min-h-8 min-w-8 rounded border border-[var(--border-panel)] bg-background px-2 text-xs text-primary focus-visible:ring-2 focus-visible:ring-ring"
+              disabled={!item.signed_url && !item.public_url}
               onClick={() => onOpenAttachment?.(item)}
-              aria-label={`${t(slot.label)} ${index + 1}: ${item.file_name || t("orders2b2.photo.device")}`}
+              aria-label={t("orders2b2.overview.openPhoto", {
+                file: `${t(slot.label)} ${index + 1}: ${item.file_name || t("orders2b2.photo.device")}`,
+              })}
             >
               {index + 1}
             </button>
           ))}
         </div>
-      ) : null}
-      {canUpload && onCapture ? (
-        <button
-          type="button"
-          className="inline-flex min-h-8 min-w-0 items-center justify-center gap-1 rounded-md border border-dashed border-primary/35 bg-primary/5 px-1 text-[9px] font-medium leading-3 text-primary transition-colors hover:bg-primary/10 disabled:opacity-60 lg:text-[11px] lg:leading-4"
-          disabled={uploadPending}
-          onClick={(event) => onCapture(slot.kind, event.currentTarget)}
-          aria-label={`${t("orders2b2.overview.capture")} ${t(slot.label)}`}
-        >
-          <Camera className="size-3 shrink-0" aria-hidden="true" />
-          <span className="truncate">
-            {uploadPending ? t("orders2b2.overview.uploading") : t("orders2b2.overview.capture")}
-          </span>
-        </button>
       ) : null}
     </div>
   );

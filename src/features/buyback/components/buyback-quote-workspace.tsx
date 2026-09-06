@@ -1226,9 +1226,9 @@ function QuickEstimateStep({
   const hasStorage = Boolean(draft.storage_capacity.trim());
   const hasBattery = Boolean(draft.battery_health.trim());
   const hasMarketReference = result.resaleReference > 0;
-  const showModelPicker = !hasModel || editingStage === "model";
-  const showStoragePicker = hasModel && (!hasStorage || editingStage === "storage");
-  const showBatteryPicker = hasModel && hasStorage && (!hasBattery || editingStage === "battery");
+  const showModelPicker = !hasModel;
+  const showStoragePicker = hasModel && !hasStorage;
+  const showBatteryPicker = hasModel && hasStorage && !hasBattery;
   const applyMarketSuggestion = (model: string, storageCapacity: string) => {
     const suggestion = estimateAppleMarketPricing({
       brand: "Apple",
@@ -1245,278 +1245,340 @@ function QuickEstimateStep({
     setSelectedSeries(selectedModelSeries);
   }, [draft.model, selectedModelSeries]);
 
-  return (
-    <div className="space-y-1.5">
-      {showModelPicker ? (
-        <section className={quoteCardClass}>
-          <SectionTitle
-            icon={Smartphone}
-            title="选择 iPhone"
-            subtitle="第一步只选型号，系统不会提前要求客户资料。"
-          />
-          <IPhoneSeriesPicker
-            groups={modelGroups}
-            value={selectedSeries}
-            onChange={(value) => setSelectedSeries(value)}
-          />
-          <div className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
-            <div className="flex min-w-0 items-center justify-between gap-2">
-              <p className="truncate text-[10px] font-medium leading-4">
-                {activeSeriesGroup?.label ?? "当前系列"}
-              </p>
-              <p className="shrink-0 text-[9px] leading-3 text-muted-foreground">
-                {visibleModels.length} 款可选
-              </p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-1.5 min-[390px]:grid-cols-2 sm:grid-cols-3">
-            {visibleModels.map((model) => {
-              const selected = draft.model === model.model;
-              return (
-                <RepairOsBusinessCard
-                  key={model.model}
-                  as="button"
-                  type="button"
-                  aria-pressed={selected}
-                  className={cn(
-                    repairOs.businessCardDense,
-                    "min-h-14 min-w-0 rounded-lg px-2.5 py-2 text-left transition-colors active:scale-[0.99] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                    selected && "border-primary/50 bg-primary/10 text-primary",
-                  )}
-                  bodyClassName="min-w-0"
-                  trailingClassName="flex justify-end self-start"
-                  trailing={
-                    <span
-                      className={cn(
-                        "grid size-4 shrink-0 place-items-center rounded-full border border-transparent",
-                        selected && "border-primary/40 text-primary",
-                      )}
-                      aria-hidden="true"
-                    >
-                      {selected ? <CheckCircle2 className="size-3" /> : null}
-                    </span>
-                  }
-                  onClick={() => {
-                    updateDraft("brand", "Apple");
-                    updateDraft("model", model.model);
-                    updateDraft("storage_capacity", "");
-                    updateDraft("market_price", "");
-                    setEditingStage(null);
-                  }}
-                >
-                  <p className="truncate text-[12px] font-semibold leading-4">{model.model}</p>
-                  <p className="mt-0.5 truncate text-[10px] leading-3 text-muted-foreground">
-                    {model.releaseYear} · 起 {model.baseStorageGb}GB
-                  </p>
-                </RepairOsBusinessCard>
-              );
-            })}
-          </div>
-          {!hasModel ? <EstimateUnlockHint label="选好型号后继续选择容量" /> : null}
-        </section>
-      ) : (
-        <EstimateSelectionSummary
-          icon={Smartphone}
-          label="已选型号"
-          value={draft.model}
-          meta={
-            selectedModel
-              ? `${selectedModel.releaseYear} · 官方起步 ${selectedModel.baseStorageGb}GB`
-              : "Apple iPhone"
-          }
-          onEdit={() => setEditingStage("model")}
-        />
-      )}
-
-      {showStoragePicker ? (
-        <section className={quoteCardClass}>
-          <SectionTitle
-            icon={ClipboardCheck}
-            title="选择容量"
-            subtitle="第二步只选容量；非官方容量会降低可信度。"
-          />
-          <StorageChoicePicker
-            choices={storageChoices}
-            value={draft.storage_capacity}
-            onChange={(value) => {
-              updateDraft("storage_capacity", value);
-              applyMarketSuggestion(draft.model, value);
-              setEditingStage(null);
-            }}
-          />
-          <p className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
-            {getAppleIPhoneStorageHint(draft.model)}
+  const modelEditor = (
+    <section className={quoteCardClass}>
+      <SectionTitle
+        icon={Smartphone}
+        title="选择 iPhone"
+        subtitle="第一步只选型号，系统不会提前要求客户资料。"
+      />
+      <IPhoneSeriesPicker
+        groups={modelGroups}
+        value={selectedSeries}
+        onChange={(value) => setSelectedSeries(value)}
+      />
+      <div className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <p className="truncate text-[10px] font-medium leading-4">
+            {activeSeriesGroup?.label ?? "当前系列"}
           </p>
-          {!hasStorage ? <EstimateUnlockHint label="选好容量后继续选择电池健康区间" /> : null}
-        </section>
-      ) : hasModel && hasStorage ? (
-        <EstimateSelectionSummary
-          icon={ClipboardCheck}
-          label="已选容量"
-          value={draft.storage_capacity}
-          meta={
-            selectedStorage?.official === false
-              ? "非官方容量，成交前需复核"
-              : "官方容量，参与行情估算"
-          }
-          onEdit={() => setEditingStage("storage")}
-        />
-      ) : null}
-
-      {showBatteryPicker ? (
-        <section className={quoteCardClass}>
-          <SectionTitle
-            icon={Battery}
-            title="电池健康"
-            subtitle="第三步按 3% 档位扣价，必要时可输入精确值。"
-          />
-          <BatteryBandPicker
-            value={draft.battery_health}
-            onChange={(value) => {
-              updateDraft("battery_health", value);
-              setEditingStage(null);
-            }}
-          />
-          <details className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
-            <summary className="cursor-pointer text-[11px] font-medium text-foreground">
-              输入精确电池健康
-            </summary>
-            <TextField
-              label="电池健康"
-              value={draft.battery_health}
-              onChange={(value) => updateDraft("battery_health", value)}
-              inputMode="numeric"
-              suffix="%"
-              className="mt-2"
-            />
-          </details>
-          {selectedBatteryBand ? (
-            <p className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
-              当前按「{selectedBatteryBand.label} · {selectedBatteryBand.rangeLabel}」估算：
-              {selectedBatteryBand.helper}。
-            </p>
-          ) : (
-            <EstimateUnlockHint label="选好电池健康后继续选择屏幕和机身状态" />
-          )}
-        </section>
-      ) : hasModel && hasStorage && hasBattery ? (
-        <EstimateSelectionSummary
-          icon={Battery}
+          <p className="shrink-0 text-[9px] leading-3 text-muted-foreground">
+            {visibleModels.length} 款可选
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-1.5 min-[390px]:grid-cols-2 sm:grid-cols-3">
+        {visibleModels.map((model) => {
+          const selected = draft.model === model.model;
+          return (
+            <RepairOsBusinessCard
+              key={model.model}
+              as="button"
+              type="button"
+              aria-pressed={selected}
+              className={cn(
+                repairOs.businessCardDense,
+                "min-h-14 min-w-0 rounded-lg px-2.5 py-2 text-left transition-colors active:scale-[0.99] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                selected && "border-primary/50 bg-primary/10 text-primary",
+              )}
+              bodyClassName="min-w-0"
+              trailingClassName="flex justify-end self-start"
+              trailing={
+                <span
+                  className={cn(
+                    "grid size-4 shrink-0 place-items-center rounded-full border border-transparent",
+                    selected && "border-primary/40 text-primary",
+                  )}
+                  aria-hidden="true"
+                >
+                  {selected ? <CheckCircle2 className="size-3" /> : null}
+                </span>
+              }
+              onClick={() => {
+                updateDraft("brand", "Apple");
+                updateDraft("model", model.model);
+                updateDraft("storage_capacity", "");
+                updateDraft("market_price", "");
+                setEditingStage(null);
+              }}
+            >
+              <p className="truncate text-[12px] font-semibold leading-4">{model.model}</p>
+              <p className="mt-0.5 truncate text-[10px] leading-3 text-muted-foreground">
+                {model.releaseYear} · 起 {model.baseStorageGb}GB
+              </p>
+            </RepairOsBusinessCard>
+          );
+        })}
+      </div>
+      {!hasModel ? <EstimateUnlockHint label="选好型号后继续选择容量" /> : null}
+    </section>
+  );
+  const storageEditor = (
+    <section className={quoteCardClass}>
+      <SectionTitle
+        icon={ClipboardCheck}
+        title="选择容量"
+        subtitle="第二步只选容量；非官方容量会降低可信度。"
+      />
+      <StorageChoicePicker
+        choices={storageChoices}
+        value={draft.storage_capacity}
+        onChange={(value) => {
+          updateDraft("storage_capacity", value);
+          applyMarketSuggestion(draft.model, value);
+          setEditingStage(null);
+        }}
+      />
+      <p className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
+        {getAppleIPhoneStorageHint(draft.model)}
+      </p>
+      {!hasStorage ? <EstimateUnlockHint label="选好容量后继续选择电池健康区间" /> : null}
+    </section>
+  );
+  const batteryEditor = (
+    <section className={quoteCardClass}>
+      <SectionTitle
+        icon={Battery}
+        title="电池健康"
+        subtitle="第三步按 3% 档位扣价，必要时可输入精确值。"
+      />
+      <BatteryBandPicker
+        value={draft.battery_health}
+        onChange={(value) => {
+          updateDraft("battery_health", value);
+          setEditingStage(null);
+        }}
+      />
+      <details className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
+        <summary className="cursor-pointer text-[11px] font-medium text-foreground">
+          输入精确电池健康
+        </summary>
+        <TextField
           label="电池健康"
-          value={selectedBatteryBand?.label ?? `${draft.battery_health}%`}
-          meta={
-            selectedBatteryBand
-              ? `${selectedBatteryBand.rangeLabel} · 扣减 €${selectedBatteryBand.deduction}`
-              : "按精确百分比估算"
-          }
-          onEdit={() => setEditingStage("battery")}
+          value={draft.battery_health}
+          onChange={(value) => updateDraft("battery_health", value)}
+          inputMode="numeric"
+          suffix="%"
+          className="mt-2"
         />
-      ) : null}
+      </details>
+      {selectedBatteryBand ? (
+        <p className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
+          当前按「{selectedBatteryBand.label} · {selectedBatteryBand.rangeLabel}」估算：
+          {selectedBatteryBand.helper}。
+        </p>
+      ) : (
+        <EstimateUnlockHint label="选好电池健康后继续选择屏幕和机身状态" />
+      )}
+    </section>
+  );
+  return (
+    <div className="relative min-h-0" data-buyback-estimate-workspace>
+      <div className="space-y-1.5" inert={editingStage !== null}>
+        {showModelPicker ? (
+          modelEditor
+        ) : (
+          <EstimateSelectionSummary
+            icon={Smartphone}
+            label="已选型号"
+            value={draft.model}
+            meta={
+              selectedModel
+                ? `${selectedModel.releaseYear} · 官方起步 ${selectedModel.baseStorageGb}GB`
+                : "Apple iPhone"
+            }
+            onEdit={() => setEditingStage("model")}
+          />
+        )}
 
-      {hasModel && hasStorage && hasBattery ? (
-        <section className={quoteCardClass}>
-          <SectionTitle
-            icon={ShieldCheck}
-            title="口头估价条件"
-            subtitle="只记录会影响区间的条件，详细检测在客户同意后做。"
+        {showStoragePicker ? (
+          storageEditor
+        ) : hasModel && hasStorage ? (
+          <EstimateSelectionSummary
+            icon={ClipboardCheck}
+            label="已选容量"
+            value={draft.storage_capacity}
+            meta={
+              selectedStorage?.official === false
+                ? "非官方容量，成交前需复核"
+                : "官方容量，参与行情估算"
+            }
+            onEdit={() => setEditingStage("storage")}
           />
-          <div className="grid grid-cols-1 gap-1.5">
-            <ChoiceGroup
-              label="屏幕"
-              value={draft.screen_condition}
-              onChange={(value) => updateDraft("screen_condition", value)}
-              options={[
-                ["normal", "正常"],
-                ["light_scratches", "轻微划痕"],
-                ["deep_scratches", "明显划痕"],
-                ["cracked", "裂屏"],
-                ["display_issue", "显示异常"],
-              ]}
-            />
-            <ChoiceGroup
-              label="机身"
-              value={draft.body_condition}
-              onChange={(value) => updateDraft("body_condition", value)}
-              options={[
-                ["normal", "正常"],
-                ["light_wear", "轻微磨损"],
-                ["heavy_wear", "明显磨损"],
-                ["bent", "变形"],
-              ]}
-            />
-            <div className="grid grid-cols-2 gap-1.5">
-              <ToggleRow
-                label="带原装盒"
-                checked={draft.box_included}
-                onChange={(value) => updateDraft("box_included", value)}
-              />
-              <ToggleRow
-                label="有发票/凭证"
-                checked={draft.purchase_proof}
-                onChange={(value) => updateDraft("purchase_proof", value)}
-              />
-            </div>
-          </div>
-        </section>
-      ) : null}
+        ) : null}
 
-      {hasModel && hasStorage && hasBattery ? (
-        <section className={quoteCardClass}>
-          <SectionTitle
-            icon={TrendingUp}
-            title="口头报价区间"
-            subtitle="客户同意后再进入完整功能检测和资料采集。"
+        {showBatteryPicker ? (
+          batteryEditor
+        ) : hasModel && hasStorage && hasBattery ? (
+          <EstimateSelectionSummary
+            icon={Battery}
+            label="电池健康"
+            value={selectedBatteryBand?.label ?? `${draft.battery_health}%`}
+            meta={
+              selectedBatteryBand
+                ? `${selectedBatteryBand.rangeLabel} · 扣减 €${selectedBatteryBand.deduction}`
+                : "按精确百分比估算"
+            }
+            onEdit={() => setEditingStage("battery")}
           />
-          <MarketGuidePanel
-            result={result}
-            onApplyMarket={() => {
-              if (!result.marketSuggestion) return;
-              updateDraft("market_price", String(result.marketSuggestion.resaleReference));
-            }}
-            onApplyTargetProfit={() => {
-              if (!result.marketSuggestion) return;
-              updateDraft("target_profit", String(result.marketSuggestion.targetProfit));
-            }}
-          />
-          <AutoCosmeticAssessmentCard result={result} />
-          <div className="grid grid-cols-3 gap-1 rounded-lg bg-[var(--surface-panel-muted)] p-1">
-            <InfoMetric label="参考售价" value={`€${result.resaleReference.toFixed(0)}`} />
-            <InfoMetric label="区间" value={`€${result.suggestedLow}-${result.suggestedHigh}`} />
-            <InfoMetric label="建议" value={`€${result.finalOffer.toFixed(0)}`} strong />
-          </div>
-          <QuoteFormulaCard result={result} />
-          <DeductionPreview result={result} />
-          {!hasMarketReference ? (
-            <details className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
-              <summary className="cursor-pointer text-[11px] font-medium text-foreground">
-                手动补充价格参数
-              </summary>
-              <div className="mt-2 grid grid-cols-3 gap-1.5">
-                <TextField
-                  label="市场"
-                  value={draft.market_price}
-                  onChange={(value) => updateDraft("market_price", value)}
-                  inputMode="decimal"
-                  prefix="€"
+        ) : null}
+
+        {hasModel && hasStorage && hasBattery ? (
+          <section className={quoteCardClass}>
+            <SectionTitle
+              icon={ShieldCheck}
+              title="口头估价条件"
+              subtitle="只记录会影响区间的条件，详细检测在客户同意后做。"
+            />
+            <div className="grid grid-cols-1 gap-1.5">
+              <ChoiceGroup
+                label="屏幕"
+                value={draft.screen_condition}
+                onChange={(value) => updateDraft("screen_condition", value)}
+                options={[
+                  ["normal", "正常"],
+                  ["light_scratches", "轻微划痕"],
+                  ["deep_scratches", "明显划痕"],
+                  ["cracked", "裂屏"],
+                  ["display_issue", "显示异常"],
+                ]}
+              />
+              <ChoiceGroup
+                label="机身"
+                value={draft.body_condition}
+                onChange={(value) => updateDraft("body_condition", value)}
+                options={[
+                  ["normal", "正常"],
+                  ["light_wear", "轻微磨损"],
+                  ["heavy_wear", "明显磨损"],
+                  ["bent", "变形"],
+                ]}
+              />
+              <div className="grid grid-cols-2 gap-1.5">
+                <ToggleRow
+                  label="带原装盒"
+                  checked={draft.box_included}
+                  onChange={(value) => updateDraft("box_included", value)}
                 />
-                <TextField
-                  label="成本"
-                  value={draft.estimated_repair_cost}
-                  onChange={(value) => updateDraft("estimated_repair_cost", value)}
-                  inputMode="decimal"
-                  prefix="€"
-                />
-                <TextField
-                  label="利润"
-                  value={draft.target_profit}
-                  onChange={(value) => updateDraft("target_profit", value)}
-                  inputMode="decimal"
-                  prefix="€"
+                <ToggleRow
+                  label="有发票/凭证"
+                  checked={draft.purchase_proof}
+                  onChange={(value) => updateDraft("purchase_proof", value)}
                 />
               </div>
-            </details>
-          ) : null}
-        </section>
+            </div>
+          </section>
+        ) : null}
+
+        {hasModel && hasStorage && hasBattery ? (
+          <section className={quoteCardClass}>
+            <SectionTitle
+              icon={TrendingUp}
+              title="口头报价区间"
+              subtitle="客户同意后再进入完整功能检测和资料采集。"
+            />
+            <MarketGuidePanel
+              result={result}
+              onApplyMarket={() => {
+                if (!result.marketSuggestion) return;
+                updateDraft("market_price", String(result.marketSuggestion.resaleReference));
+              }}
+              onApplyTargetProfit={() => {
+                if (!result.marketSuggestion) return;
+                updateDraft("target_profit", String(result.marketSuggestion.targetProfit));
+              }}
+            />
+            <AutoCosmeticAssessmentCard result={result} />
+            <div className="grid grid-cols-3 gap-1 rounded-lg bg-[var(--surface-panel-muted)] p-1">
+              <InfoMetric label="参考售价" value={`€${result.resaleReference.toFixed(0)}`} />
+              <InfoMetric label="区间" value={`€${result.suggestedLow}-${result.suggestedHigh}`} />
+              <InfoMetric label="建议" value={`€${result.finalOffer.toFixed(0)}`} strong />
+            </div>
+            <QuoteFormulaCard result={result} />
+            <DeductionPreview result={result} />
+            {!hasMarketReference ? (
+              <details className="rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-[10px] leading-4 text-muted-foreground">
+                <summary className="cursor-pointer text-[11px] font-medium text-foreground">
+                  手动补充价格参数
+                </summary>
+                <div className="mt-2 grid grid-cols-3 gap-1.5">
+                  <TextField
+                    label="市场"
+                    value={draft.market_price}
+                    onChange={(value) => updateDraft("market_price", value)}
+                    inputMode="decimal"
+                    prefix="€"
+                  />
+                  <TextField
+                    label="成本"
+                    value={draft.estimated_repair_cost}
+                    onChange={(value) => updateDraft("estimated_repair_cost", value)}
+                    inputMode="decimal"
+                    prefix="€"
+                  />
+                  <TextField
+                    label="利润"
+                    value={draft.target_profit}
+                    onChange={(value) => updateDraft("target_profit", value)}
+                    inputMode="decimal"
+                    prefix="€"
+                  />
+                </div>
+              </details>
+            ) : null}
+          </section>
+        ) : null}
+      </div>
+      {editingStage ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="编辑估价选择"
+          className="absolute inset-0 z-20 min-h-0 overflow-y-auto rounded-xl border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] p-2 shadow-[var(--shadow-overlay)]"
+          ref={(node) => {
+            if (node && !node.contains(document.activeElement))
+              node.querySelector<HTMLButtonElement>("button")?.focus();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              setEditingStage(null);
+            }
+            if (event.key === "Tab") {
+              const controls = Array.from(
+                event.currentTarget.querySelectorAll<HTMLElement>(
+                  "button:not([disabled]), input:not([disabled]), select:not([disabled])",
+                ),
+              );
+              const first = controls[0],
+                last = controls[controls.length - 1];
+              if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last?.focus();
+              } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first?.focus();
+              }
+            }
+          }}
+        >
+          <div className="sticky top-0 z-10 mb-2 flex justify-end bg-[var(--surface-workspace-strong)]">
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setEditingStage(null)}
+            >
+              返回估价
+            </Button>
+          </div>
+          {editingStage === "model"
+            ? modelEditor
+            : editingStage === "storage"
+              ? storageEditor
+              : batteryEditor}
+        </div>
       ) : null}
     </div>
   );
@@ -1537,23 +1599,17 @@ function EstimateSelectionSummary({
 }) {
   return (
     <RepairOsBusinessCard
+      as="button"
+      type="button"
+      onClick={onEdit}
+      aria-label={`${label}: ${value}`}
       className={cn(repairOs.businessCardDense, "rounded-xl px-2 py-1.5")}
       leading={
         <span className="grid size-7 place-items-center rounded-lg bg-primary/10 text-primary">
           <Icon className="size-3.5" />
         </span>
       }
-      trailing={
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-8 shrink-0 rounded-lg px-2.5 text-[11px]"
-          onClick={onEdit}
-        >
-          更改
-        </Button>
-      }
+      trailing={<ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />}
       bodyClassName="min-w-0"
       trailingClassName="flex justify-end"
     >

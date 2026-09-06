@@ -311,3 +311,7 @@ export default function ExamplePage() {
 - 是否暗色默认可读，亮色主题不丢边框和层级。
 - 是否同步导航和命令面板。
 - 是否通过 lint/build。
+
+## Content editing reuse
+
+Before adding an editing entry, follow the active [global content editing standard](GLOBAL_CONTENT_EDITING_STANDARD.md). Reuse direct values and stable compact bottom editors; preserve desktop workspaces and business workflow exceptions.

@@ -53,7 +53,7 @@ describe("OrderDetailPhotoSlots", () => {
     expect(screen.getByRole("button", { name: "Take photo Front" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Take photo Back" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Take photo Other photo" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Other photo 2: other-2.jpg" }));
+    fireEvent.click(screen.getByRole("button", { name: /Other photo 2: other-2.jpg/ }));
     expect(onOpenAttachment).toHaveBeenCalledWith(expect.objectContaining({ id: "other-2" }));
     fireEvent.click(screen.getByRole("button", { name: "Take photo Other photo" }));
     expect(onCapture).toHaveBeenCalledWith("other", expect.any(HTMLButtonElement));

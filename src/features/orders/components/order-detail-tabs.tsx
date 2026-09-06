@@ -19,6 +19,7 @@ export function OrderDetailTabs<T extends string>({
   ariaLabel,
   idPrefix,
   className,
+  compact = false,
 }: {
   tabs: readonly OrderDetailTab<T>[];
   activeTab: T;
@@ -26,6 +27,7 @@ export function OrderDetailTabs<T extends string>({
   ariaLabel?: string;
   idPrefix?: string;
   className?: string;
+  compact?: boolean;
 }) {
   const { t } = useLocale();
   const generatedId = useId().replace(/:/g, "");
@@ -51,13 +53,17 @@ export function OrderDetailTabs<T extends string>({
       data-order-detail-tabs="true"
       className={cn(
         "relative z-10 mb-3 mt-1.5 w-fit min-w-0 max-w-full sm:mb-3 sm:mt-2",
+        compact && "w-full",
         className,
       )}
     >
       <div
         role="tablist"
         aria-label={ariaLabel ?? t("orders2b2.tabsAria")}
-        className="flex min-w-0 items-center gap-0.5 overflow-x-auto rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel)] p-0.5 shadow-[var(--shadow-card)] backdrop-blur sm:flex-wrap sm:p-1"
+        className={cn(
+          "flex min-w-0 items-center gap-0.5 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel)] p-0.5 shadow-[var(--shadow-card)] backdrop-blur",
+          compact ? "w-full" : "overflow-x-auto sm:flex-wrap sm:p-1",
+        )}
       >
         {tabs.map((tab, index) => {
           const active = activeTab === tab.key;
@@ -78,6 +84,8 @@ export function OrderDetailTabs<T extends string>({
               onKeyDown={(event) => handleKeyDown(event, index)}
               className={cn(
                 "relative min-h-11 min-w-11 shrink-0 rounded-md px-3 py-2 text-xs font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-xs lg:min-h-0 lg:min-w-0 lg:py-1.5 lg:text-xs lg:leading-4",
+                compact &&
+                  "min-h-[30px] min-w-0 flex-1 shrink px-1 py-1 text-[11px] sm:px-1 sm:py-1",
                 active ? "text-primary" : "text-muted-foreground hover:text-foreground",
               )}
             >

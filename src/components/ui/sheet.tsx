@@ -5,6 +5,7 @@ import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";
 
+import { componentOverlay } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
 
 const Sheet = SheetPrimitive.Root;
@@ -53,24 +54,55 @@ interface SheetContentProps
   extends
     React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
     VariantProps<typeof sheetVariants> {
+  mobileEditor?: boolean;
   closeLabel?: string;
 }
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(({ side = "right", className, children, closeLabel = "关闭", ...props }, ref) => (
-  <SheetPortal>
-    <SheetOverlay />
-    <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
-      <SheetPrimitive.Close className="absolute right-1 top-1 grid size-9 place-items-center rounded-lg text-muted-foreground opacity-70 ring-offset-background transition-opacity hover:bg-accent hover:text-foreground hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary sm:right-3 sm:top-3 lg:size-8">
-        <X className="h-4 w-4" />
-        <span className="sr-only">{closeLabel}</span>
-      </SheetPrimitive.Close>
-      {children}
-    </SheetPrimitive.Content>
-  </SheetPortal>
-));
+>(
+  (
+    { side = "right", className, children, mobileEditor = false, closeLabel = "关闭", ...props },
+    ref,
+  ) => {
+    const editorOpener = React.useRef<HTMLElement | null>(null);
+    return (
+      <SheetPortal>
+        <SheetOverlay />
+        <SheetPrimitive.Content
+          data-mobile-editor={mobileEditor || undefined}
+          ref={ref}
+          className={cn(
+            sheetVariants({ side }),
+            className,
+            mobileEditor && componentOverlay.mobileEditor,
+          )}
+          {...props}
+          onOpenAutoFocus={(event) => {
+            if (mobileEditor)
+              editorOpener.current =
+                document.activeElement instanceof HTMLElement ? document.activeElement : null;
+            props.onOpenAutoFocus?.(event);
+          }}
+          onCloseAutoFocus={(event) => {
+            props.onCloseAutoFocus?.(event);
+            if (mobileEditor && !event.defaultPrevented && editorOpener.current?.isConnected) {
+              event.preventDefault();
+              editorOpener.current.focus({ preventScroll: true });
+            }
+          }}
+        >
+          <SheetPrimitive.Close className="absolute right-1 top-1 grid size-9 place-items-center rounded-lg text-muted-foreground opacity-70 ring-offset-background transition-opacity hover:bg-accent hover:text-foreground hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary sm:right-3 sm:top-3 lg:size-8">
+            <X className="h-4 w-4" />
+            <span className="sr-only">{closeLabel}</span>
+          </SheetPrimitive.Close>
+          {children}
+        </SheetPrimitive.Content>
+      </SheetPortal>
+    );
+  },
+);
 SheetContent.displayName = SheetPrimitive.Content.displayName;
 
 const SheetHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (

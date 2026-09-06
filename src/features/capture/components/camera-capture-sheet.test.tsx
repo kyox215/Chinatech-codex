@@ -314,4 +314,29 @@ describe("CameraCaptureSheet", () => {
     );
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+  it("retains an album image after an asynchronous upload failure and allows retry", async () => {
+    const onCapture = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(undefined);
+    const onOpenChange = vi.fn();
+    render(
+      <CameraCaptureSheet
+        open
+        onOpenChange={onOpenChange}
+        onCapture={onCapture}
+        purpose="order-attachment"
+      />,
+    );
+    const file = new File(["synthetic"], "keep.jpg", { type: "image/jpeg" });
+    fireEvent.change(document.querySelector<HTMLInputElement>('input[type="file"]')!, {
+      target: { files: [file] },
+    });
+    await screen.findByRole("alert");
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    expect(screen.getByAltText("已拍照片预览")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "使用照片" }));
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+    expect(onCapture).toHaveBeenCalledTimes(2);
+  });
 });
