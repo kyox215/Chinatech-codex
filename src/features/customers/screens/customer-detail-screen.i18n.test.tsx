@@ -434,7 +434,7 @@ describe("CustomerDetailScreen i18n", () => {
     },
   );
 
-  it("keeps the floating customer header mobile-only and removes its md page offset", () => {
+  it("keeps the floating customer header through tablet widths and switches at the 1024px shell", () => {
     renderScreen("en");
 
     const page = document.querySelector('[data-ui="customer-detail-page"]');
@@ -443,15 +443,17 @@ describe("CustomerDetailScreen i18n", () => {
     const mobileActions = document.querySelector('[data-ui="customer-detail-mobile-actions"]');
     const mainTabs = document.querySelector('[data-ui="customer-detail-main-tabs"]');
 
-    expect(page).toHaveClass("md:!pt-5", "md:!pb-20", "lg:!pt-5", "lg:!pb-8");
+    expect(page).toHaveClass("md:!pb-20", "lg:!pt-5", "lg:!pb-8");
+    expect(page).not.toHaveClass("md:!pt-5");
     expect(page?.className).not.toContain("md:!pt-[var(--repair-os-mobile-floating-offset");
-    expect(mobileHeader).toHaveClass("md:!hidden");
+    expect(mobileHeader).toHaveClass("lg:!hidden");
+    expect(mobileHeader).not.toHaveClass("md:!hidden");
     expect(mobileHeader).not.toHaveClass("md:!block");
     expect(desktopHero).toHaveClass("hidden", "lg:block");
     expect(mobileActions).toHaveClass("lg:hidden");
     expect(mobileActions).not.toHaveClass("md:hidden");
-    expect(mainTabs).toHaveClass("hidden", "md:sticky", "md:block");
-    expect(mainTabs).not.toHaveClass("lg:block");
+    expect(mainTabs).toHaveClass("hidden", "lg:sticky", "lg:block");
+    expect(mainTabs).not.toHaveClass("md:block");
 
     const deviceTab = document.querySelector<HTMLButtonElement>(
       "#customer-detail-main-tab-devices",

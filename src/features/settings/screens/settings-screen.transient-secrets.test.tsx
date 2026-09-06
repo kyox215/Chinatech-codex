@@ -84,9 +84,15 @@ beforeAll(() => {
   };
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
-    value: vi.fn(() => ({
-      matches: false,
-      media: "",
+    // Match the real test viewport: native desktop fields and compact keypad tests
+    // must agree with the 1024px shell rather than declaring every media query false.
+    value: vi.fn((query: string) => ({
+      matches: query.includes("min-width")
+        ? window.innerWidth >= Number(query.match(/min-width:\s*(\d+)px/)?.[1] ?? Infinity)
+        : query.includes("max-width")
+          ? window.innerWidth <= Number(query.match(/max-width:\s*(\d+)px/)?.[1] ?? -1)
+          : false,
+      media: query,
       onchange: null,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -112,6 +118,7 @@ beforeAll(() => {
 describe("SettingsScreen store-bound transient secrets", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
     window.sessionStorage.clear();
     navigationMocks.search = "section=members";
     navigationMocks.push.mockReset();
@@ -916,7 +923,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
     const user = userEvent.setup();
     render(settingsTree(queryClient));
 
-    const phoneInput = await screen.findByLabelText("电话");
+    const phoneInput = await screen.findByRole("textbox", { name: "电话" });
     await user.type(phoneInput, "invalid phone!");
     const saveBar = document.querySelector<HTMLElement>("[data-settings-save-bar]");
     expect(saveBar).not.toBeNull();
@@ -1085,6 +1092,100 @@ describe("SettingsScreen store-bound transient secrets", () => {
     expect(
       screen.queryByText("默认值已应用到草稿，仍需点击“保存”才会生效。"),
     ).not.toBeInTheDocument();
+  });
+
+  it("saves the compact rules keypad draft with the same canonical payload and retains failures", async () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+    navigationMocks.search = "section=rules";
+    const pending = deferred<StoreSettings>();
+    apiMocks.updateStoreSettings.mockReturnValueOnce(pending.promise);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const user = userEvent.setup();
+    render(settingsTree(queryClient));
+    const warranty = await screen.findByRole("button", { name: "新库存商品默认保修月数" });
+    await user.click(warranty);
+    const keypad = document.querySelector<HTMLElement>("[data-numeric-keypad]")!;
+    await user.click(within(keypad).getByRole("button", { name: "清空" }));
+    await user.click(within(keypad).getByRole("button", { name: "2" }));
+    await user.click(within(keypad).getByRole("button", { name: "4" }));
+    await user.click(within(keypad).getByRole("button", { name: "完成" }));
+    expect(warranty).toHaveTextContent("24");
+    expect(warranty).toHaveFocus();
+    expect(apiMocks.updateStoreSettings).not.toHaveBeenCalled();
+    const save = within(document.querySelector<HTMLElement>("[data-settings-save-bar]")!).getByRole(
+      "button",
+      { name: "保存设置" },
+    );
+    fireEvent.click(save);
+    fireEvent.click(save);
+    await waitFor(() => expect(apiMocks.updateStoreSettings).toHaveBeenCalledTimes(1));
+    expect(apiMocks.updateStoreSettings).toHaveBeenCalledWith({
+      section: "rules",
+      expectedStoreId: "store-a",
+      expectedUpdatedAt: "2026-07-12T00:00:00.000Z",
+      input: {
+        default_order_warranty_months: 6,
+        default_inventory_warranty_months: 24,
+        new_order_entry_mode: "professional",
+      },
+    });
+    expect(document.querySelector("[data-settings-save-state]")).toBeNull();
+    pending.reject(new Error("RAW_MOBILE_RULES_SAVE_SENTINEL"));
+    await waitFor(() =>
+      expect(document.querySelector("[data-settings-save-state]")).toHaveAttribute(
+        "data-save-status",
+        "error",
+      ),
+    );
+    const errorState = document.querySelector<HTMLElement>("[data-settings-save-state]")!;
+    expect(within(errorState).getByRole("button", { name: "重新保存" })).toBeVisible();
+    expect(apiMocks.updateStoreSettings).toHaveBeenCalledTimes(1);
+    expect(document.body).not.toHaveTextContent("RAW_MOBILE_RULES_SAVE_SENTINEL");
+    expect(warranty).toHaveTextContent("24");
+  });
+
+  it("sends a compact supplier phone keypad draft through the unchanged create consumer once", async () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+    navigationMocks.search = "section=suppliers";
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const user = userEvent.setup();
+    render(settingsTree(queryClient));
+    await user.click(await screen.findByRole("button", { name: "添加供应商" }));
+    for (const [label, value] of [
+      ["名称", "Supplier API"],
+      ["简称", "SUP"],
+      ["联系人", "Mario"],
+      ["邮箱", "api@example.test"],
+      ["网站", "https://example.test"],
+      ["内部备注", "Dynamic supplier note"],
+    ])
+      fireEvent.change(screen.getByLabelText(label), { target: { value } });
+    await user.click(screen.getByRole("button", { name: "电话" }));
+    const keypad = document.querySelector<HTMLElement>("[data-phone-keypad]")!;
+    await user.click(within(keypad).getByRole("button", { name: "+39" }));
+    for (let index = 0; index < 3; index++)
+      await user.click(within(keypad).getByRole("button", { name: "3" }));
+    await user.click(within(keypad).getByRole("button", { name: "完成" }));
+    expect(apiMocks.createSupplier).not.toHaveBeenCalled();
+    const save = screen.getByRole("button", { name: "保存供应商" });
+    fireEvent.click(save);
+    fireEvent.click(save);
+    await waitFor(() => expect(apiMocks.createSupplier).toHaveBeenCalledTimes(1));
+    expect(apiMocks.createSupplier).toHaveBeenCalledWith({
+      name: "Supplier API",
+      short_name: "SUP",
+      color: "#2563eb",
+      contact_name: "Mario",
+      phone: "+39333",
+      email: "api@example.test",
+      website: "https://example.test",
+      notes: "Dynamic supplier note",
+    });
+    expect(apiMocks.createSupplier.mock.calls[0][0]).not.toHaveProperty("locale");
   });
 
   it.each([
