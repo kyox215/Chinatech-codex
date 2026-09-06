@@ -3,7 +3,14 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { PDFDocument } from "pdf-lib";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
-const evidenceDir = "screenshots/TASK-20260724-005-a5-order-print";
+const evidenceDir =
+  process.env.REPAIRDESK_PRINT_EVIDENCE_DIR ?? "screenshots/TASK-20260724-005-a5-order-print";
+const optimizedEvidenceDir = process.env.REPAIRDESK_PRINT_EVIDENCE_DIR
+  ? `${evidenceDir}/fixed-pdf`
+  : "screenshots/TASK-20260724-007-in-page-pdf-print";
+const mobilePerformanceEvidenceDir = process.env.REPAIRDESK_PRINT_EVIDENCE_DIR
+  ? `${evidenceDir}/mobile-performance`
+  : "screenshots/TASK-20260724-008-mobile-print-performance";
 const mobilePrintButtonName = /^(?:打印|Stampa|Print)$/;
 
 // This suite uses Chinese semantic assertions; first-visit language detection is covered
@@ -266,7 +273,7 @@ test("fixed PDF prints all four modes from the current page without a visible po
     if (index === 0) {
       await expect(page.getByText("正在准备订单二维码…")).toBeVisible();
       await page.screenshot({
-        path: "screenshots/TASK-20260724-007-in-page-pdf-print/current-page-progress.png",
+        path: `${optimizedEvidenceDir}/current-page-progress.png`,
         fullPage: true,
       });
     }
@@ -282,7 +289,6 @@ test("fixed PDF prints all four modes from the current page without a visible po
     expect(document.getPage(0).getWidth()).toBeCloseTo(mode.width, 3);
     expect(document.getPage(0).getHeight()).toBeCloseTo(mode.height, 3);
     if (index === 0) {
-      const optimizedEvidenceDir = "screenshots/TASK-20260724-007-in-page-pdf-print";
       await mkdir(optimizedEvidenceDir, { recursive: true });
       await writeFile(`${optimizedEvidenceDir}/optimized-a5.pdf`, Uint8Array.from(bytes));
     }
@@ -364,7 +370,7 @@ for (const mobileWidth of [390, 430] as const) {
     await page.getByRole("button", { name: mobilePrintButtonName }).click();
     await expect(page.getByRole("button", { name: "A5 横向" })).toBeVisible();
     await page.screenshot({
-      path: `screenshots/TASK-20260724-007-in-page-pdf-print/mobile-print-options-${mobileWidth}.png`,
+      path: `${optimizedEvidenceDir}/mobile-print-options-${mobileWidth}.png`,
       fullPage: true,
     });
     await page.getByRole("button", { name: "A5 横向" }).click();
@@ -373,7 +379,7 @@ for (const mobileWidth of [390, 430] as const) {
     await expect(readyDialog).toBeVisible({ timeout: 30_000 });
     await expect(readyDialog.getByText("PDF 已准备好")).toBeVisible();
     await page.screenshot({
-      path: `screenshots/TASK-20260724-008-mobile-print-performance/mobile-pdf-ready-${mobileWidth}.png`,
+      path: `${mobilePerformanceEvidenceDir}/mobile-pdf-ready-${mobileWidth}.png`,
       fullPage: true,
     });
 
@@ -588,8 +594,7 @@ for (const viewport of [
     await page.locator('[data-dashboard-quick-start="new-order"]:visible').click();
     const firstDialog = page.locator('[data-new-order-dialog="true"]');
     await expect(firstDialog).toBeVisible();
-    await firstDialog.getByPlaceholder("例如 iPhone 13").fill("Safari retry test");
-    await firstDialog.getByRole("button", { name: "关闭新建维修工单" }).click();
+    await discardChangedIntake(page, firstDialog, "Safari retry test");
     await expect(firstDialog).toHaveCount(0);
 
     const immediateState = await page.evaluate(() => {
@@ -614,7 +619,7 @@ for (const viewport of [
     await page.mouse.click(immediateState.center.x, immediateState.center.y);
     const secondDialog = page.locator('[data-new-order-dialog="true"]');
     await expect(secondDialog).toBeVisible();
-    await expect(secondDialog.getByPlaceholder("例如 iPhone 13")).toHaveValue("");
+    await expectFreshIntake(page, secondDialog);
     await expect(secondDialog.locator('[data-new-order-root="true"]')).toBeVisible();
     await page.screenshot({
       path: `${evidenceDir}/second-intake-${browserName}-${viewport.width}.png`,
@@ -632,15 +637,123 @@ test("order-list intake dialog reopens with a fresh empty session", async ({ pag
   await openButton.click();
   const dialog = page.getByRole("dialog", { name: "新建维修工单" });
   await expect(dialog).toBeVisible();
-  const model = dialog.getByPlaceholder("例如 iPhone 13");
-  await model.fill("Session should reset");
-  await dialog.getByRole("button", { name: "关闭新建维修工单" }).click();
+  await discardChangedIntake(page, dialog, "Session should reset");
   await expect(dialog).toHaveCount(0);
 
   await openButton.click();
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByPlaceholder("例如 iPhone 13")).toHaveValue("");
+  await expectFreshIntake(page, dialog);
 });
+
+test("intake close during autosave explains the busy state and preserves the draft", async ({
+  page,
+  browserName,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await gotoReady(page, "/orders");
+  await page.locator('[data-order-list-new-button="true"]').click();
+  const dialog = page.locator('[data-new-order-dialog="true"]');
+  await expect(dialog).toBeVisible();
+  // Trigger at the visible saving state rather than racing the browser driver's
+  // click latency against a short IndexedDB transaction.
+  await page.evaluate(() => {
+    const testWindow = window as Window & { __intakeCloseSavingStatus?: string };
+    const observer = new MutationObserver(() => {
+      const saving = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-new-order-offline-status="true"]'),
+      ).find(
+        (node) =>
+          node.getClientRects().length > 0 && node.textContent?.includes("正在保存本机草稿"),
+      );
+      if (!saving) return;
+      const close = document.querySelector<HTMLButtonElement>('[aria-label="关闭新建维修工单"]');
+      if (!close) return;
+      observer.disconnect();
+      testWindow.__intakeCloseSavingStatus = saving.textContent ?? "";
+      close.click();
+    });
+    observer.observe(document.body, { subtree: true, childList: true, characterData: true });
+  });
+  const model = dialog.getByPlaceholder("例如 iPhone 13");
+  await model.fill("Keep this draft while saving");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as Window & { __intakeCloseSavingStatus?: string }).__intakeCloseSavingStatus ??
+          "",
+      ),
+    )
+    .toContain("正在保存本机草稿");
+  await expect(page.getByText("新建工单正在处理中，请稍候再试", { exact: true })).toBeVisible();
+  await expect(dialog).toBeVisible();
+  await expect(model).toHaveValue("Keep this draft while saving");
+  await expect(dialog.locator('[data-new-order-offline-status="true"]:visible')).toContainText(
+    "本机草稿已保存",
+  );
+  await page.screenshot({ path: `${evidenceDir}/intake-close-busy-${browserName}-1440.png` });
+  await dialog.getByRole("button", { name: "关闭新建维修工单" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('[data-navigation-guard-dialog="true"]')).toHaveCount(0);
+});
+
+async function intakeModelField(page: Page, dialog: Locator) {
+  if ((page.viewportSize()?.width ?? 1440) < 768) {
+    await dialog.locator('[data-mobile-edit="device"]').click();
+    return page
+      .locator('[data-new-order-mobile-panel="device"]')
+      .getByPlaceholder("例如 iPhone 13");
+  }
+  return dialog.getByPlaceholder("例如 iPhone 13");
+}
+
+async function finishIntakeDeviceEditor(page: Page) {
+  if ((page.viewportSize()?.width ?? 1440) >= 768) return;
+  const panel = page.locator('[data-new-order-mobile-panel="device"]');
+  await panel.locator("xpath=..").getByRole("button", { name: "完成", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+}
+
+async function discardChangedIntake(page: Page, dialog: Locator, model: string) {
+  await (await intakeModelField(page, dialog)).fill(model);
+  await finishIntakeDeviceEditor(page);
+  // Closing during the real autosave is intentionally blocked. Wait for it to finish,
+  // then keep a File-only draft so every engine must exercise the unsaved guard.
+  await expect(dialog.locator('[data-new-order-offline-status="true"]:visible')).toContainText(
+    "本机草稿已保存",
+  );
+  await dialog.locator('[data-new-order-section="supplements"] input[type="file"]').setInputFiles({
+    name: "synthetic-unsaved-intake.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
+  await expect(dialog.locator('[data-photo-state="pending"]')).toHaveCount(1);
+  await dialog.getByRole("button", { name: "关闭新建维修工单" }).click();
+  const guard = page.locator('[data-navigation-guard-dialog="true"]');
+  await expect(guard).toBeVisible();
+  await guard.getByRole("button", { name: "取消", exact: true }).click();
+  await expect(guard).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('[data-photo-state="pending"]')).toHaveCount(1);
+  if ((page.viewportSize()?.width ?? 1440) < 768) {
+    await expect(dialog.locator('[data-mobile-edit="device"]')).toContainText(model);
+  } else {
+    await expect(dialog.getByPlaceholder("例如 iPhone 13")).toHaveValue(model);
+  }
+  await dialog.getByRole("button", { name: "关闭新建维修工单" }).click();
+  await expect(guard).toBeVisible();
+  await guard.getByRole("button", { name: "放弃修改", exact: true }).click();
+  await expect(guard).toHaveCount(0);
+}
+
+async function expectFreshIntake(page: Page, dialog: Locator) {
+  await expect(dialog.locator("[data-photo-state]")).toHaveCount(0);
+  await expect(await intakeModelField(page, dialog)).toHaveValue("");
+  await finishIntakeDeviceEditor(page);
+}
 
 async function gotoReady(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });

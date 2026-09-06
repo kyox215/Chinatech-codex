@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -830,8 +831,12 @@ export function NewOrderScreen({
           }
           snapshot.photos.discard();
           await snapshot.offlineDraft.discardCurrentDraft();
-          setForm(initialNewOrderForm);
-          setHistoryDevices([]);
+          // The guard reads isDirty again as soon as this promise resolves.
+          // Publish the reset before it decides whether the requested close may run.
+          flushSync(() => {
+            setForm(initialNewOrderForm);
+            setHistoryDevices([]);
+          });
           return { status: "resolved" };
         },
         focusFallback: () => {

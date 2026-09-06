@@ -782,9 +782,15 @@ describe("NewOrderScreen i18n", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Populate customer" }));
     expect(screen.getByTestId("customer-state")).toHaveTextContent("动态中文客户");
+    mocks.isCurrentDraftDirty.mockImplementation(() =>
+      Boolean(mocks.autosaveOptions.mock.lastCall?.[0].form.customerName),
+    );
     let discardResult: { status: string } | undefined;
     await act(async () => {
       discardResult = await guard.discard();
+      // The navigation provider checks this immediately after the promise resolves,
+      // before act/React has an opportunity to flush deferred state updates.
+      expect(guard.isDirty()).toBe(false);
     });
     expect(discardResult).toEqual({ status: "resolved" });
     expect(mocks.discardCurrentDraft).toHaveBeenCalledTimes(1);
