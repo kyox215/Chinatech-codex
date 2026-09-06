@@ -100,7 +100,13 @@ for (const locale of locales)
         await screenshot(page, `order-desktop-${locale}-${width}`);
       }
       await page.goto("/orders/new");
-      const form = page.locator('[data-new-order-form="true"]');
+      // As in the existing new-order stories, let streaming and store bootstrap settle.
+      // Assert one renderer after readiness instead of matching hidden initialization DOM.
+      await page.waitForLoadState("networkidle");
+      const forms = page.locator('[data-new-order-form="true"]');
+      await expect(forms).toHaveCount(1);
+      const form = forms.filter({ visible: true });
+      await expect(form).toHaveCount(1);
       await expect(form).toBeVisible();
       const grid = form.locator('[data-fault-diagnosis-picker="true"]');
       await expect(grid.locator("[data-fault-category]")).toHaveCount(12);
