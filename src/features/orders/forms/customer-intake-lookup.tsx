@@ -377,7 +377,6 @@ export function CustomerIdentityReview({
     );
   return (
     <div className="min-w-0 space-y-2" data-customer-identity-review>
-      <p className="text-xs text-muted-foreground">{t("orders.customer.currentProfile")}</p>
       {duplicate ? (
         <p role="status" className="text-xs text-status-warn-foreground">
           {t("orders.customer.duplicatePhone")}
@@ -403,6 +402,12 @@ export function CustomerIdentityReview({
           readOnly
         />
       ) : null}
+      <details className="text-[11px] leading-4 text-muted-foreground">
+        <summary className="w-fit cursor-pointer rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {t("orders.customer.reviewHelp")}
+        </summary>
+        <p className="mt-1">{t("orders.customer.currentProfile")}</p>
+      </details>
     </div>
   );
 }

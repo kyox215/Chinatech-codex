@@ -346,10 +346,15 @@ test("A13 customer tablet and desktop each expose one editing surface", async ({
   }
 });
 
-for (const width of [320, 390, 430, 768]) {
-  test(`A14 aligned quote identity and notes ${width}px`, async ({ page }) => {
+for (const [width, height] of [
+  [320, 568],
+  [390, 844],
+  [430, 844],
+  [768, 1000],
+  [320, 350],
+]) {
+  test(`A14 aligned quote identity and notes ${width}x${height}`, async ({ page }) => {
     test.setTimeout(60000);
-    const height = width === 320 ? 568 : width === 768 ? 1000 : 844;
     await page
       .context()
       .addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
@@ -364,6 +369,12 @@ for (const width of [320, 390, 430, 768]) {
       .click();
     const quote = page.locator("#mobile-order-finance-editor");
     await bottomEditor(page, quote, width, height);
+    expect((await quote.locator("[data-editor-header]").boundingBox())!.height).toBe(52);
+    const categoryGrid = quote.locator('[data-fault-diagnosis-picker="true"]');
+    const categoryHeight = await categoryGrid.evaluate(
+      (node) => node.getBoundingClientRect().height,
+    );
+    expect(categoryHeight).toBe(107);
     const rows = quote.locator('[data-order-workspace-quote-row="true"]');
     for (const row of await rows.all()) {
       const rects = await row.evaluate((node) =>
@@ -387,7 +398,8 @@ for (const width of [320, 390, 430, 768]) {
       .locator("[data-order-workspace-money-strip] > div")
       .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().height));
     expect(Math.max(...tiles) - Math.min(...tiles)).toBeLessThanOrEqual(1);
-    if (width === 390) await screenshot(page, "a14-quote-390");
+    tiles.forEach((height) => expect(height).toBe(49));
+    await screenshot(page, width === 390 ? "a14-quote-390" : `dense-quote-${width}x${height}`);
     await page.keyboard.press("Escape");
     await expect(quote).toHaveCount(0);
 
@@ -441,6 +453,7 @@ for (const width of [320, 390, 430, 768]) {
       await expect(camera).toBeFocused();
       await expect(device).toBeVisible();
     }
+    if (width !== 390) await screenshot(page, `dense-device-${width}x${height}`);
     await close.click();
     await expect(device).toHaveCount(0);
 
@@ -455,7 +468,10 @@ for (const width of [320, 390, 430, 768]) {
       tr("zh-CN", "orders.notes.label"),
     );
     await expect(notes.getByText(tr("zh-CN", "orders.faultEditor.references"))).toHaveCount(0);
-    if (width === 390) await screenshot(page, "a14-notes-390");
+    expect(
+      await notes.getByRole("textbox").evaluate((node) => node.getBoundingClientRect().height),
+    ).toBe(104);
+    await screenshot(page, width === 390 ? "a14-notes-390" : `dense-notes-${width}x${height}`);
     await page.keyboard.press("Escape");
     await page
       .getByRole("button", { name: tr("zh-CN", "orders2b2.overview.customerInfo"), exact: true })
@@ -479,13 +495,19 @@ for (const width of [320, 390, 430, 768]) {
       await expect(customer.getByRole("listitem").first()).toContainText("13800000000");
       await screenshot(page, "a14-customer-390");
     }
+    if (width !== 390) await screenshot(page, `dense-customer-${width}x${height}`);
+    for (const control of await customer.locator("input,textarea").all()) {
+      expect(
+        await control.evaluate((node) => parseFloat(getComputedStyle(node).fontSize)),
+      ).toBeGreaterThanOrEqual(16);
+    }
     await noOverflow(page);
     expect(errors).toEqual([]);
   });
 }
 
-for (const width of [1024, 1440]) {
-  test(`A14 desktop new quote ${width}px`, async ({ page }) => {
+for (const width of [320, 390, 430, 768, 1024, 1440]) {
+  test(`A14 new quote shared density ${width}px`, async ({ page }) => {
     await page
       .context()
       .addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
@@ -493,6 +515,19 @@ for (const width of [1024, 1440]) {
     await page.goto("/orders/new");
     await page.waitForLoadState("networkidle");
     const form = page.locator('[data-new-order-form="true"]').filter({ visible: true });
+    for (const id of ["new-order-device-brand", "new-order-device-model"]) {
+      const field = form.locator(`#${id}`);
+      expect(
+        await field.evaluate((node) => {
+          const style = getComputedStyle(node);
+          return node.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        }),
+      ).toBeGreaterThanOrEqual(80);
+    }
+    if (width === 390) {
+      await form.locator("#new-order-device-brand").scrollIntoViewIfNeeded();
+      await screenshot(page, "dense-new-device-readable-390");
+    }
     await form.locator("[data-fault-category]").first().getByRole("button").first().click();
     const rows = form.locator("[data-order-workspace-quote-row]");
     await expect(rows.first()).toBeVisible();
@@ -544,4 +579,73 @@ test("A14 Italian short-height keypad keeps close save and done reachable", asyn
   await editor.getByRole("button", { name: tr("it-IT", "orders.faultEditor.keep") }).click();
   await expect(price).toContainText("1");
   await noOverflow(page);
+});
+
+test("A14 dense notes keep the draft through pending and failed save", async ({ page }) => {
+  await page.context().addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/orders/ord_1");
+  await page
+    .getByRole("button", { name: tr("zh-CN", "orders.faultEditor.title"), exact: true })
+    .click();
+  const notes = page
+    .getByRole("dialog")
+    .filter({ has: page.locator('[data-order-fault-editor="true"]') });
+  const draft = "合成测试备注：保留配件并检查屏幕。".repeat(12);
+  await notes.getByRole("textbox").fill(draft);
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/repairdesk/order/patch", async (route) => {
+    await pending;
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "Synthetic save unavailable" }),
+    });
+  });
+  await notes
+    .getByRole("button", { name: tr("zh-CN", "orders2b2.hero.save"), exact: true })
+    .click();
+  await expect(notes.getByRole("textbox")).toBeDisabled();
+  await screenshot(page, "dense-notes-pending-390");
+  release();
+  await expect(notes.getByRole("alert")).toBeVisible();
+  await expect(notes.getByRole("textbox")).toHaveValue(draft);
+  await expect(notes.getByRole("textbox")).toBeEnabled();
+  await screenshot(page, "dense-notes-error-390");
+  await page.keyboard.press("Escape");
+  await notes
+    .getByRole("button", { name: tr("zh-CN", "orders.faultEditor.keep"), exact: true })
+    .click();
+  await expect(notes.getByRole("textbox")).toHaveValue(draft);
+  await noOverflow(page);
+});
+
+test("A14 dense inline fields expose the enclosing keyboard focus ring", async ({ page }) => {
+  await page.context().addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/orders/ord_1");
+  await page
+    .getByRole("button", { name: tr("zh-CN", "orders2b2.overview.deviceIssue"), exact: true })
+    .click();
+  const device = page.locator('[data-order-identity-editor="device"]');
+  const brand = device.getByRole("textbox", {
+    name: tr("zh-CN", "customers.form.brand"),
+    exact: true,
+  });
+  await brand.focus();
+  expect(
+    await brand.evaluate((node) => {
+      const field = node.parentElement!.parentElement!;
+      const style = getComputedStyle(field);
+      return (
+        field.matches(":focus-within") &&
+        style.boxShadow !== "none" &&
+        style.boxShadow.includes("2px")
+      );
+    }),
+  ).toBe(true);
+  await screenshot(page, "dense-device-keyboard-focus-390");
 });

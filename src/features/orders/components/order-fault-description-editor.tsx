@@ -213,23 +213,20 @@ export function OrderFaultDescriptionEditor({
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       data-order-fault-editor="true"
     >
-      <header
-        className={cn(
-          componentOverlay.mobileHeader,
-          componentOverlay.editorHeader,
-          "shrink-0 pr-12 lg:px-5 lg:py-4",
-          embedded && "relative",
-        )}
-      >
+      <header className={cn(componentOverlay.denseEditorHeader, embedded && "relative")}>
         <Title
           ref={headingRef}
           tabIndex={-1}
           className="flex items-center gap-2 text-base leading-6 outline-none"
         >
-          <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className={componentOverlay.denseEditorIcon} aria-hidden="true">
+            <FileText />
+          </span>
           {t("orders.faultEditor.title")}
         </Title>
-        <Description className="text-xs text-muted-foreground">{order.public_no}</Description>
+        <Description className="min-w-0 truncate text-[10px] text-muted-foreground">
+          {order.public_no}
+        </Description>
         {embedded ? (
           <Button
             variant="ghost"
@@ -290,12 +287,14 @@ export function OrderFaultDescriptionEditor({
           className={cn(
             componentOverlay.body,
             componentOverlay.editorBody,
-            "space-y-3 py-3 lg:px-5 lg:py-4",
+            componentOverlay.denseEditorBody,
           )}
         >
-          <section className="grid min-w-0 gap-4">
-            <div className="grid gap-1.5">
-              <div className="flex items-center justify-between gap-3">
+          <section className="grid min-w-0 gap-2">
+            <div className="grid gap-1">
+              <div
+                className={canEditIntake ? "sr-only" : "flex items-center justify-between gap-3"}
+              >
                 <label className="text-sm font-medium" htmlFor={`${id}-issue`}>
                   {t("orders.notes.label")}
                 </label>
@@ -318,11 +317,14 @@ export function OrderFaultDescriptionEditor({
                 aria-invalid={issueInvalid}
                 className={cn(
                   componentOverlay.editorField,
-                  "h-28 min-h-28 resize-none leading-6 lg:resize-y",
+                  "h-[104px] min-h-[104px] resize-none leading-6 lg:resize-y",
                 )}
               />
-              <p id={`${id}-issue-help`} className="text-xs leading-5 text-muted-foreground">
+              <p id={`${id}-issue-help`} className="sr-only">
                 {t("orders.faultEditor.issueHelp")}
+              </p>
+              <p className="text-right text-[10px] leading-4 text-muted-foreground" aria-live="off">
+                {t("orders.notes.characterCount", { count: issue.length })}
               </p>
               {issueInvalid ? (
                 <p
@@ -362,24 +364,29 @@ export function OrderFaultDescriptionEditor({
       <footer
         hidden={step !== "edit"}
         className={cn(
-          componentOverlay.mobileFooter,
-          "shrink-0 !flex-col gap-2 bg-[var(--surface-panel-muted)] lg:!flex-row lg:items-center lg:justify-between lg:px-5",
+          "shrink-0 border-t border-[var(--border-panel)] px-3 pt-1.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]",
         )}
       >
-        <p className={componentOverlay.editorStatus} data-editor-state="true">
+        <p
+          className={cn(
+            componentOverlay.editorStatus,
+            dirty || blocked || error || conflict ? "mb-1" : "sr-only",
+          )}
+          data-editor-state="true"
+        >
           {stateText}
         </p>
-        <div className="grid grid-cols-2 gap-2 lg:flex lg:shrink-0">
+        <div className="grid grid-cols-2 gap-2">
           <Button
             variant="outline"
-            className="min-h-11 lg:min-h-9 lg:min-w-20"
+            className="min-h-11 lg:min-w-20"
             disabled={blocked}
             onClick={() => close(false)}
           >
             {t("common.cancel")}
           </Button>
           <Button
-            className="min-h-11 lg:min-h-9 lg:min-w-24"
+            className="min-h-11 lg:min-w-24"
             disabled={blocked || conflict || !hasChanges}
             onClick={() => void save()}
           >
@@ -418,6 +425,7 @@ export function OrderFaultDescriptionEditor({
         className={cn(
           componentOverlay.modalLg,
           componentOverlay.editorSurface,
+          componentOverlay.denseEditorSurface,
           "flex max-h-[calc(100svh-24px)] flex-col gap-0 p-0 sm:p-0",
         )}
       >
@@ -435,6 +443,7 @@ export function OrderFaultDescriptionEditor({
         className={cn(
           componentOverlay.bottomSheet,
           componentOverlay.editorSurface,
+          componentOverlay.denseEditorSurface,
           "flex flex-col gap-0 p-0 sm:p-0",
         )}
       >

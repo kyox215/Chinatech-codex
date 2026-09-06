@@ -79,43 +79,40 @@ export function OrderWorkspaceMoneyStrip({
     return (
       <div
         data-order-workspace-money-strip="true"
-        className={cn(
-          "grid min-w-0 grid-cols-3 items-stretch gap-1.5 border-t border-[var(--border-panel)] pt-2",
-          className,
-        )}
+        className={cn("grid min-w-0 grid-cols-3 items-stretch gap-1.5", className)}
       >
-        <div className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1">
-          <div className="text-xs leading-4 text-muted-foreground">
+        <div className="min-w-0 rounded-lg bg-primary/5 px-2 py-1">
+          <div className="text-[10px] leading-4 text-muted-foreground">
             {t("orders2b1.money.total")}
           </div>
           <MoneyText
             amount={total}
-            className="mt-0.5 flex h-9 items-center justify-end truncate font-mono text-base font-semibold tabular-nums text-primary"
+            className="flex h-[25px] items-center justify-end truncate font-mono text-base font-semibold tabular-nums text-primary"
           />
         </div>
         <div
           data-new-order-field="deposit"
           className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1"
         >
-          <div className="text-xs leading-4 text-muted-foreground">
+          <div className="text-[10px] leading-4 text-muted-foreground">
             {t("orders2b1.money.deposit")}
           </div>
-          <div className="mt-0.5 min-w-0 [&>button]:h-9 [&>button]:rounded-none [&>button]:border-x-0 [&>button]:border-t-0 [&>button]:bg-transparent [&>button]:px-0 [&>button]:font-semibold [&>div]:h-9 [&>div]:rounded-none [&>div]:border-x-0 [&>div]:border-t-0 [&>div]:bg-transparent [&>div]:px-0 [&>div]:font-semibold">
+          <div className="min-w-0 [&>button]:!h-[25px] [&>button]:min-h-0 [&>button]:rounded-none [&>button]:border-x-0 [&>button]:border-t-0 [&>button]:bg-transparent [&>button]:px-0 [&>button]:font-semibold [&>div]:!h-[25px] [&>div]:rounded-none [&>div]:border-x-0 [&>div]:border-t-0 [&>div]:bg-transparent [&>div]:px-0 [&>div]:font-semibold [&_input]:!h-[25px]">
             {depositControl ?? (
               <MoneyText
                 amount={deposit}
-                className="flex h-9 items-center justify-end font-mono text-base font-semibold"
+                className="flex h-[25px] items-center justify-end font-mono text-base font-semibold"
               />
             )}
           </div>
         </div>
         <div className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1">
-          <div className="text-xs leading-4 text-muted-foreground">
+          <div className="text-[10px] leading-4 text-muted-foreground">
             {t("orders2b1.money.balance")}
           </div>
           <MoneyText
             amount={balance}
-            className="mt-0.5 flex h-9 items-center justify-end truncate font-mono text-base font-semibold tabular-nums"
+            className="flex h-[25px] items-center justify-end truncate font-mono text-base font-semibold tabular-nums"
           />
         </div>
       </div>
@@ -277,21 +274,35 @@ export function OrderWorkspaceQuoteRow({
           ? "grid-cols-[minmax(0,1fr)_auto]"
           : "grid-cols-[minmax(0,1fr)_78px_auto] sm:grid-cols-[minmax(0,1fr)_96px_auto]",
         appearance === "quote-editor" &&
-          "grid-cols-[minmax(0,1fr)_82px_36px] gap-2 rounded-none border-0 bg-transparent p-0 sm:grid-cols-[minmax(0,1fr)_96px_36px] sm:gap-2 sm:p-0",
+          "grid-cols-[minmax(0,1fr)_82px_28px] items-start gap-x-1 gap-y-1 rounded-none border-0 border-b border-[var(--border-panel)] bg-transparent px-0 py-1 sm:grid-cols-[minmax(0,1fr)_96px_28px] sm:gap-x-1 sm:px-0 sm:py-1 [&>div:nth-child(3)>button]:w-7",
         className,
       )}
     >
-      <div className="min-w-0">{children}</div>
+      <div
+        className={cn(
+          "min-w-0",
+          appearance === "quote-editor" && "flex min-h-9 flex-wrap items-center gap-x-1.5",
+        )}
+      >
+        <div className={cn("min-w-0", appearance === "quote-editor" && "flex-[1_1_5rem]")}>
+          {children}
+        </div>
+        {appearance === "quote-editor" && note ? (
+          <div className="min-w-0 max-w-full text-[11px] text-muted-foreground [overflow-wrap:anywhere]">
+            {note}
+          </div>
+        ) : null}
+      </div>
       <div className={cn("min-w-0", priceFullWidth && "col-span-2 row-start-2")}>{price}</div>
       {action ? (
         <div className={cn("shrink-0", priceFullWidth && "col-start-2 row-start-1")}>{action}</div>
       ) : null}
-      {note || priceMessage ? (
+      {(appearance !== "quote-editor" && note) || priceMessage ? (
         <div
           data-order-quote-secondary
           className="col-span-full grid min-w-0 grid-cols-subgrid items-start gap-x-2"
         >
-          <div className="min-w-0">{note}</div>
+          <div className="min-w-0">{appearance !== "quote-editor" ? note : null}</div>
           <div className="col-span-2 min-w-0">{priceMessage}</div>
         </div>
       ) : null}

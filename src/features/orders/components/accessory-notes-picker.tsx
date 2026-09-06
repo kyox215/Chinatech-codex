@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { MultiSelectDropdown } from "@/components/ui/multi-select-dropdown";
 import {
@@ -55,6 +56,7 @@ export function AccessoryNotesPicker({
   triggerClassName,
   contentClassName,
   disabled = false,
+  quickChoices = false,
 }: {
   value?: string | null;
   onChange: (value: string) => void;
@@ -62,6 +64,7 @@ export function AccessoryNotesPicker({
   triggerClassName?: string;
   contentClassName?: string;
   disabled?: boolean;
+  quickChoices?: boolean;
 }) {
   const { t } = useLocale();
   const parsed = parseAccessoryNotes(value);
@@ -80,7 +83,48 @@ export function AccessoryNotesPicker({
   };
 
   return (
-    <div className={cn("min-w-0 space-y-1.5", compact && "space-y-1")}>
+    <div className={cn("relative min-w-0 space-y-1.5", compact && "space-y-1")}>
+      {quickChoices ? (
+        <div
+          data-accessory-quick-choices
+          className="grid grid-cols-2 gap-1 min-[360px]:grid-cols-4"
+        >
+          {(["SIM卡", "手机壳", "充电器", "数据线"] as const).map((option) => {
+            const selected = parsed.selected.includes(option);
+            return (
+              <button
+                key={option}
+                type="button"
+                disabled={disabled}
+                aria-pressed={selected}
+                className={cn(
+                  "flex min-h-8 min-w-0 items-center justify-center gap-1 rounded-md border border-[var(--border-panel)] px-1 py-1 text-[11px] leading-4 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
+                  selected && "border-primary/25 bg-primary/5 text-primary",
+                )}
+                onClick={() =>
+                  updateSelection(
+                    selected
+                      ? parsed.selected.filter((value) => value !== option)
+                      : [...parsed.selected.filter((value) => value !== "无"), option],
+                  )
+                }
+              >
+                <span
+                  className={cn(
+                    "grid size-3 shrink-0 place-items-center rounded border border-current",
+                    selected && "bg-primary text-primary-foreground",
+                  )}
+                >
+                  {selected ? <Check className="size-2.5" /> : null}
+                </span>
+                <span className="min-w-0 break-words">
+                  {localizeAccessoryNoteOption(option, t)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
       <MultiSelectDropdown<AccessoryNoteOption>
         options={ACCESSORY_NOTE_OPTIONS.map((option) => ({
           value: option,
@@ -91,10 +135,15 @@ export function AccessoryNotesPicker({
         onChange={updateSelection}
         placeholder={t("orders2b1.accessory.select")}
         compact={compact}
-        className={triggerClassName}
+        className={cn(
+          quickChoices &&
+            "absolute -top-6 right-0 h-5 max-w-[60%] border-0 bg-transparent px-0 text-[10px] text-primary shadow-none",
+          triggerClassName,
+        )}
         contentClassName={contentClassName}
         exclusiveValues={["无"]}
         renderSummary={(selectedOptions) => {
+          if (quickChoices) return t("orders2b1.accessory.select");
           if (!selectedOptions.length) return t("orders2b1.accessory.select");
           if (selectedOptions.length === 1) return selectedOptions[0]?.label;
           return t("orders2b1.accessory.summary", {
@@ -103,6 +152,13 @@ export function AccessoryNotesPicker({
           });
         }}
       />
+      {quickChoices &&
+      (parsed.selected.some(
+        (option) => !["SIM卡", "手机壳", "充电器", "数据线", "其他"].includes(option),
+      ) ||
+        parsed.customText) ? (
+        <AccessoryNotesPills value={value} />
+      ) : null}
       {customSelected && (
         <Input
           disabled={disabled}
@@ -117,7 +173,7 @@ export function AccessoryNotesPicker({
             )
           }
           placeholder={t("orders2b1.accessory.customPlaceholder")}
-          className={cn("h-8 text-xs", compact && "h-7")}
+          className={cn("h-8 text-base", compact && "h-7", quickChoices && "h-9")}
         />
       )}
     </div>

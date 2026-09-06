@@ -128,7 +128,7 @@ export function NewOrderQuotationSection({
                   {t("orders2b1.new.quoteOptional")}
                 </OrderWorkspaceEmptyBlock>
               ) : (
-                <div className="min-w-0 space-y-2">
+                <div className="min-w-0 space-y-0">
                   {form.faults.map((item, index) => (
                     <OrderWorkspaceQuoteRow
                       key={item.key}
@@ -136,9 +136,9 @@ export function NewOrderQuotationSection({
                       appearance="quote-editor"
                       note={
                         item.note ? (
-                          <p className="px-2 text-[11px] leading-4 text-muted-foreground [overflow-wrap:anywhere]">
+                          <span className="text-[11px] leading-4 text-muted-foreground [overflow-wrap:anywhere]">
                             {item.note}
-                          </p>
+                          </span>
                         ) : undefined
                       }
                       price={
@@ -179,9 +179,9 @@ export function NewOrderQuotationSection({
                           aria-label={t("orders2b1.new.customItem")}
                         />
                       ) : (
-                        <div className="flex h-9 min-w-0 items-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/60 px-2.5">
+                        <div className="flex min-h-9 min-w-0 items-center">
                           <div
-                            className="truncate text-xs font-semibold leading-5"
+                            className="text-sm font-semibold leading-5 [overflow-wrap:anywhere]"
                             title={item.name}
                           >
                             {item.name}

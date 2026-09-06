@@ -520,3 +520,8 @@ An active fault editor may retain already-loaded data after a typed fetch transp
 ### A14 editor reuse boundary (2026-09-06)
 
 Reuse `editorLayout` plus `DialogBody`/`componentOverlay.editorScroll` for a three-part editor before creating a new scrolling shell. Keep the close control outside the single body scroller, 44px mobile editor actions, direct-child discard confirmation, and the existing keypad host. Opt in finite consumers; never silently wrap all dialogs. Device suggestions use `DenseOptionMenu` extracted from the new-order form; capture/accessories use the existing components with latest disabled/pending callback guards. Quote `note`/`priceMessage` slots are secondary tracks, not children of first-row controls. Customer read-only matching reuses the same store-scoped lookup/result projection as new-order selection, with no mutation or identity reassignment.
+
+
+### A14 high-density opt-in slots (2026-09-06)
+
+Grouped order editors use the additive `componentOverlay.denseEditor*` slots for a 52px header, 8–10px content rhythm and 44px close/save controls. `denseInlineField` supplies the focus-within ring when its input deliberately has no inner border. Do not apply the density slots to unrelated dialogs or change the universal Input defaults. Reuse `AccessoryNotesPicker` with `quickChoices` for the approved device edit surface; it composes the existing full dropdown and disabled/exclusive/custom logic. `OrderWorkspaceQuoteRow` uses inline wrapping name/specification presentation only for `appearance="quote-editor"`; the shared error track remains independent, and regular display rows preserve their layout.

@@ -242,7 +242,7 @@ export function NewOrderDeviceInfoSection({
             onChange={(event) =>
               setForm({ ...form, brand: event.target.value, deviceId: undefined })
             }
-            className={cn(visualInputClass, "pr-10")}
+            className={visualInputClass}
             placeholder={t("orders2b1.new.brandPlaceholder")}
           />
         </DensePillField>
@@ -284,7 +284,7 @@ export function NewOrderDeviceInfoSection({
                 deviceId: undefined,
               });
             }}
-            className={cn(visualInputClass, "pr-10")}
+            className={visualInputClass}
             placeholder={t("orders2b1.new.modelPlaceholder")}
           />
         </DensePillField>

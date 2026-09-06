@@ -45,16 +45,13 @@ export function CustomerIdentityResultsPanel({
   const phoneBasis = Boolean(phone);
 
   return (
-    <div
-      data-customer-identity-results="true"
-      className="min-w-0 max-w-full overflow-hidden rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-1 shadow-[var(--shadow-card)]"
-    >
-      <div className="flex min-w-0 items-start justify-between gap-2 px-2 py-1.5">
+    <div data-customer-identity-results="true" className="min-w-0 max-w-full overflow-hidden">
+      <div className="flex min-w-0 items-center justify-between gap-2 pb-1">
         <div className="min-w-0">
           <p className="truncate text-[11px] font-bold leading-4 lg:text-xs lg:leading-4">
             {t(phoneBasis ? "orders2b1.new.results.byPhone" : "orders2b1.new.results.byName")}
           </p>
-          <p className="truncate text-[9.5px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
+          <p className="sr-only">
             {phoneBasis
               ? name
                 ? t("orders2b1.new.results.phoneAndName", { phone })
@@ -95,7 +92,7 @@ export function CustomerIdentityResultsPanel({
             id={listboxId}
             role={readOnly ? "list" : "listbox"}
             aria-label={t("orders2b1.new.results.aria")}
-            className="max-h-[min(18rem,calc(100dvh_-_var(--rd-overlay-avoid-bottom,0px)_-_8rem))] min-w-0 overflow-y-auto px-1"
+            className="max-h-[min(18rem,calc(100dvh_-_var(--rd-overlay-avoid-bottom,0px)_-_8rem))] min-w-0 overflow-y-auto"
           >
             {candidates.length ? (
               candidates.map((candidate, index) => (
@@ -181,8 +178,9 @@ function CustomerIdentityCandidateOption({
       role={readOnly ? "listitem" : "option"}
       aria-selected={readOnly ? undefined : selected}
       className={cn(
-        "mb-1 grid min-h-9 w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1 text-left outline-none transition-colors last:mb-0 hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring",
+        "mb-1 grid min-h-11 w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-1 text-left outline-none transition-colors last:mb-0 hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring",
         highlighted && "border-primary/35 ring-1 ring-primary/20",
+        selected && "border-primary/20 bg-primary/5",
       )}
       onMouseEnter={readOnly ? undefined : onHighlight}
       onFocus={readOnly ? undefined : onHighlight}
@@ -192,18 +190,19 @@ function CustomerIdentityCandidateOption({
         <UserRound className="size-3.5" />
       </span>
       <span className="min-w-0">
-        <span className="block truncate font-mono text-xs font-bold leading-4">
+        <span className="block truncate font-mono text-sm font-semibold leading-5">
           {candidate.customer.phone_e164}
         </span>
         {name && !duplicateName ? (
           <span className="block truncate text-[11px] leading-4 text-muted-foreground">{name}</span>
         ) : null}
-        <span className="block truncate text-[9px] font-semibold leading-3 text-primary lg:text-xs lg:leading-4">
-          {badge}
-        </span>
+        <span className="block truncate text-[9px] leading-3 text-primary">{badge}</span>
       </span>
       {selected ? (
-        <Check className="size-3.5 shrink-0 text-primary" />
+        <span className="flex max-w-16 items-center gap-0.5 text-[9px] leading-3 text-primary">
+          <Check className="size-3 shrink-0" />
+          {readOnly ? t("orders.customer.currentLabel") : null}
+        </span>
       ) : !readOnly ? (
         <span className="shrink-0 text-[10px] font-semibold text-primary lg:text-xs lg:leading-4">
           {t("orders2b1.new.results.select")}

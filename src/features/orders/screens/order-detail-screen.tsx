@@ -4127,13 +4127,21 @@ function MobileOrderDetailView({
                 closeLabel={t("common.cancel")}
                 className={cn(
                   componentOverlay.editorSurface,
+                  componentOverlay.denseEditorSurface,
                   editorConfirmationClass,
                   "max-h-[calc(100dvh-1rem)] overflow-y-auto p-3",
                 )}
               >
-                <DialogHeader className={componentOverlay.editorHeader}>
-                  <DialogTitle>{t("orders2b2.overview.quoteItems")}</DialogTitle>
-                  <DialogDescription>{order.public_no}</DialogDescription>
+                <DialogHeader className={componentOverlay.denseEditorHeader}>
+                  <span className={componentOverlay.denseEditorIcon} aria-hidden="true">
+                    <ReceiptText />
+                  </span>
+                  <DialogTitle className="text-base leading-5">
+                    {t("orders2b2.overview.quoteItems")}
+                  </DialogTitle>
+                  <DialogDescription className="min-w-0 truncate text-[10px]">
+                    {order.public_no}
+                  </DialogDescription>
                 </DialogHeader>
                 {financeDiscard ? (
                   <EditorDiscardConfirmation
@@ -5396,6 +5404,8 @@ function MobileDenseFinanceInput({
   const className = cn(
     "h-9 min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/60 px-2.5 text-base shadow-none focus-visible:ring-1 md:text-base lg:text-sm",
     mono && "font-mono tabular-nums",
+    inputMode === "text" &&
+      "border-transparent bg-transparent px-0 font-medium hover:border-[var(--border-panel)] focus-visible:border-ring",
   );
   if (inputMode === "decimal") {
     return (
@@ -5480,13 +5490,13 @@ function MobileFinanceEditor({
 
   return (
     <fieldset disabled={pending} data-order-finance-editor="true" className="contents">
-      <div className="mt-2 grid min-h-[60px] min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto] overflow-hidden">
+      <div className="grid min-h-[60px] min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto] overflow-hidden">
         <div
           data-editor-body
-          className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-0.5"
+          className={`${componentOverlay.denseEditorBody} min-h-0 flex-1 overflow-y-auto overscroll-contain`}
         >
           <div id={categoriesId} hidden={!categoriesOpen} className="min-w-0">
-            <p className="mb-2 text-xs font-semibold leading-5 text-muted-foreground">
+            <p className="mb-1 text-[11px] font-semibold leading-4 text-muted-foreground">
               {t("orders2b2.finance.select")}
             </p>
             <FaultDiagnosisPicker
@@ -5499,7 +5509,7 @@ function MobileFinanceEditor({
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-0">
             {draft.faults.length ? (
               draft.faults.map((item, index) => (
                 <OrderWorkspaceQuoteRow
@@ -5507,9 +5517,9 @@ function MobileFinanceEditor({
                   appearance="quote-editor"
                   note={
                     item.note ? (
-                      <p className="px-2.5 text-[11px] leading-4 text-muted-foreground [overflow-wrap:anywhere]">
+                      <span className="text-[11px] leading-4 text-muted-foreground [overflow-wrap:anywhere]">
                         {item.note}
-                      </p>
+                      </span>
                     ) : undefined
                   }
                   priceMessage={
@@ -5609,10 +5619,7 @@ function MobileFinanceEditor({
             </p>
           ) : null}
         </div>
-        <div
-          data-editor-footer
-          className="grid shrink-0 grid-cols-2 gap-2 bg-[var(--surface-workspace-strong)] py-2"
-        >
+        <div data-editor-footer className={componentOverlay.denseEditorFooter}>
           <Button
             type="button"
             variant="outline"

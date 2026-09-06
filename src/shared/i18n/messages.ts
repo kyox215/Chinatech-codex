@@ -1633,6 +1633,9 @@ const zhCN = {
   "orders.workspace.history": "历史记录",
   "orders.faultEditor.title": "编辑备注",
   "orders.notes.label": "备注",
+  "orders.notes.characterCount": "{count} 字",
+  "orders.customer.reviewHelp": "匹配仅供核对",
+  "orders.customer.currentLabel": "当前客户",
   "orders.customer.currentProfile": "正在编辑当前工单的客户资料。匹配结果仅供核对。",
   "orders.customer.duplicatePhone": "此号码已属于其他客户，请核对后再保存。",
   "orders.faultEditor.discard": "放弃未保存的修改？",
@@ -5731,6 +5734,9 @@ const itIT: Record<MessageKey, string> = {
   "orders.workspace.history": "Cronologia",
   "orders.faultEditor.title": "Modifica note",
   "orders.notes.label": "Note",
+  "orders.notes.characterCount": "{count} caratteri",
+  "orders.customer.reviewHelp": "Confronta i risultati",
+  "orders.customer.currentLabel": "Cliente attuale",
   "orders.customer.currentProfile":
     "Stai modificando il cliente di questo ordine. I risultati servono solo per verifica.",
   "orders.customer.duplicatePhone":
@@ -10081,6 +10087,9 @@ const en: Record<MessageKey, string> = {
   "orders.workspace.history": "History",
   "orders.faultEditor.title": "Edit notes",
   "orders.notes.label": "Notes",
+  "orders.notes.characterCount": "{count} characters",
+  "orders.customer.reviewHelp": "Matches for reference",
+  "orders.customer.currentLabel": "Current customer",
   "orders.customer.currentProfile":
     "Editing this order’s current customer. Matches are shown for reference.",
   "orders.customer.duplicatePhone":

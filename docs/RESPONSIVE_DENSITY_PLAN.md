@@ -887,3 +887,10 @@ Fault editing uses an independent bottom Sheet at 390/430/768 and an 860px deskt
 ### Owner-selected A density (2026-09-06)
 
 Follow [GLOBAL_CONTENT_EDITING_STANDARD.md](GLOBAL_CONTENT_EDITING_STANDARD.md). Order detail/new quote categories use exactly 4×3 whole-cell 33px targets and 4px gaps (107px). Compact inputs remain 16px and primary actions 44px. Inline assignment/finance expansion is replaced by stable bottom editing; preserve parent page position, independent desktop presentation and last-field/footer reachability at compressed heights.
+
+
+### A14 dense editor refinement (2026-09-06)
+
+The Owner-approved device/customer/notes/quote editors use a 52px header and 8–10px body gaps while keeping 44px close/save controls and 16px real mobile inputs. At 360px and above the device identity uses a 2:3 brand/model pair and four accessory quick choices; at 320px these reflow to full identity rows and two accessory columns. This does not remove the existing scanner/clear/full-accessory controls. Device notes remain last. Notes default to 104px, customer phone/name labels share a compact input row, and full matching guidance remains disclosed.
+
+For `quote-editor` only, specification is inline with the name and may wrap in that column. Price/remove retain their first-row track, amount errors occupy a secondary track, and total/deposit/balance cells are 49px. New and detail entry points share these primitives. Keep the existing 107px category grid and internal keyboard, and independently verify 320/390/430/768 and desktop 1024/1440; include 320×350 close/footer/keypad reachability. Density is never a reason to drop an existing field or state.
