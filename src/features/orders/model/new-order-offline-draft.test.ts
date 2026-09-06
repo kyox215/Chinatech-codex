@@ -15,6 +15,20 @@ import {
 import { initialNewOrderForm, type NewOrderFormState } from "./new-order-form";
 
 describe("new order offline draft mapping", () => {
+  it("saves note-only drafts while excluding photo files and unlock secrets", () => {
+    const form = { ...initialNewOrderForm, issueDescription: " Synthetic note " };
+    expect(isNewOrderFormWorthOfflineAutosave(form)).toBe(true);
+    expect(buildNewOrderOfflineDraftPayload(form).issueDescription).toBe("Synthetic note");
+    expect(getNewOrderOfflineDraftFingerprint(form)).not.toBe(
+      getNewOrderOfflineDraftFingerprint(initialNewOrderForm),
+    );
+    const payload = buildNewOrderOfflineDraftPayload({
+      ...form,
+      deviceUnlock: { method: "pin", value: "0123" },
+    });
+    expect(JSON.stringify(payload)).not.toContain("0123");
+    expect(payload).not.toHaveProperty("photos");
+  });
   it("maps a linked customer and device into relationship metadata", async () => {
     const form = makeForm({
       customerId: "customer_1",

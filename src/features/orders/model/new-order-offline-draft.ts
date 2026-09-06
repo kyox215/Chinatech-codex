@@ -65,7 +65,7 @@ export function buildNewOrderOfflineDraftPayload(
     deviceNotes: form.deviceNotes.trim(),
     deviceCustody: form.deviceCustodyStatus,
     imei: form.imei.trim(),
-    issueDescription: "",
+    issueDescription: form.issueDescription.trim(),
     accessoryNotes: form.accessoryNotes.trim(),
     warrantyDraft: {
       text: form.warrantyText.trim(),
@@ -165,6 +165,7 @@ export function restoreNewOrderFormFromOfflineDraft(
       brand: readString(payload.deviceBrand) ?? "",
       model: readString(payload.deviceModel) ?? "",
       imei: readString(payload.imei) ?? "",
+      issueDescription: readString(payload.issueDescription) ?? "",
       deviceCustodyStatus: restoredCustody,
       accessoryNotes: readString(payload.accessoryNotes) ?? "",
       warrantyText: readString(warrantyDraft.text) ?? initialNewOrderForm.warrantyText,
@@ -192,6 +193,7 @@ export function isNewOrderFormWorthOfflineAutosave(form: NewOrderFormState): boo
     form.brand.trim() ||
     form.model.trim() ||
     form.imei.trim() ||
+    form.issueDescription.trim() ||
     form.accessoryNotes.trim() ||
     form.warrantyChangeReason.trim() ||
     normalizeMoneyNumber(form.deposit) > 0 ||

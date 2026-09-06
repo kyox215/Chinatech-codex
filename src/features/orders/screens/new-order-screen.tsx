@@ -4,7 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ClipboardList, CircleAlert, RotateCcw, Trash2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  ClipboardList,
+  CircleAlert,
+  RotateCcw,
+  Trash2,
+  X,
+} from "lucide-react";
 
 import { toFaultPriceItems } from "@/components/orders/fault-diagnosis-picker";
 import {
@@ -22,7 +30,8 @@ import {
   type NavigationGuardResolution,
 } from "@/components/navigation-guard-provider";
 import { Button } from "@/components/ui/button";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { NewOrderMobileWorkspace } from "@/features/orders/forms/new-order-mobile-workspace";
 import { toast } from "sonner";
 
 import {
@@ -32,6 +41,7 @@ import {
   getOrderCreateOperationStatus,
   isRepairDeskRequestTimeoutError,
   RepairDeskApiError,
+  RepairDeskTransportError,
 } from "@/lib/repairdesk/api";
 import type {
   CustomerDetail,
@@ -49,7 +59,8 @@ import {
 import { customerIntakePolicyBlocksSubmit } from "@/features/customers/model/customer-intake-search";
 import { NewOrderQuotationSection } from "@/features/orders/forms/new-order-quotation-section";
 import { NewOrderSubmitBar } from "@/features/orders/forms/new-order-submit-bar";
-import { NewOrderGuidedWorkspace } from "@/features/orders/forms/new-order-guided-workspace";
+import { NewOrderSupplements } from "@/features/orders/forms/new-order-supplements";
+import { useNewOrderPhotos } from "@/features/orders/api/use-new-order-photos";
 import {
   useNewOrderOfflineAutosave,
   type NewOrderOfflineAutosaveState,
@@ -102,6 +113,11 @@ export function NewOrderScreen({
   const queryClient = useQueryClient();
   const { registerGuard } = useNavigationGuard();
   const [form, setForm] = useState<NewOrderFormState>(initialNewOrderForm);
+  const isMobile = useIsMobile();
+  const [mobileValidation, setMobileValidation] = useState<{
+    target: string;
+    generation: number;
+  } | null>(null);
   const [historyDevices, setHistoryDevices] = useState<CustomerHistoryDeviceCandidate[]>([]);
   const [discardDraftDialogOpen, setDiscardDraftDialogOpen] = useState(false);
   const [identityConflict, setIdentityConflict] = useState<NewOrderIdentityConflict | null>(null);
@@ -114,11 +130,14 @@ export function NewOrderScreen({
     state: "idle",
   });
   const createOperationIdRef = useRef<string | null>(null);
+  const createInFlightRef = useRef(false);
   const [floatingHeaderOffset, setFloatingHeaderOffset] = useState(
     "calc(env(safe-area-inset-top) + 5.5rem)",
   );
   const [hydrated, setHydrated] = useState(false);
-  const [guidedStep, setGuidedStep] = useState(0);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+  const createdOrderIdRef = useRef<string | null>(null);
+  const [leavePhotosOpen, setLeavePhotosOpen] = useState(false);
   const [diagnosisDeferred, setDiagnosisDeferred] = useState(false);
   const [sessionStoreId, setSessionStoreId] = useState<string | null>(null);
   const [sessionEntryMode, setSessionEntryMode] = useState<"simple" | "professional" | null>(null);
@@ -150,9 +169,20 @@ export function NewOrderScreen({
         : null,
     [activeStoreId, hydratedOnboardingStatus?.userId],
   );
+  const sessionInvalidatedRef = useRef(false);
+  const sessionOfflineScopeRef = useRef(offlineScope);
+  if (!sessionOfflineScopeRef.current && offlineScope)
+    sessionOfflineScopeRef.current = offlineScope;
+  const initialScope = sessionOfflineScopeRef.current;
+  if (
+    initialScope &&
+    (initialScope.storeId !== offlineScope?.storeId || initialScope.userId !== offlineScope?.userId)
+  )
+    sessionInvalidatedRef.current = true;
   const offlineDraft = useNewOrderOfflineAutosave({
     form,
-    scope: offlineScope,
+    scope: initialScope,
+    enabled: !createdOrderId && !sessionInvalidatedRef.current,
   });
   const storeSettingsQuery = useQuery({
     ...storeSettingsQueryOptions(activeStoreId),
@@ -182,7 +212,32 @@ export function NewOrderScreen({
         ? "simple"
         : "professional"
       : sessionEntryMode;
-  const sessionStoreChanged = isNewOrderSessionStoreChanged(sessionStoreId, activeStoreId);
+  if (isNewOrderSessionStoreChanged(sessionStoreId, activeStoreId))
+    sessionInvalidatedRef.current = true;
+  const sessionStoreChanged = sessionInvalidatedRef.current;
+  const photoScope = offlineScope ? `${offlineScope.storeId}:${offlineScope.userId}` : null;
+  const photoDraft = useNewOrderPhotos(photoScope, !sessionStoreChanged && Boolean(photoScope));
+  const activePhotoScopeRef = useRef(photoScope);
+  activePhotoScopeRef.current = photoScope;
+  const completionRef = useRef({ mounted: true, scope: photoScope, generation: 0 });
+  if (completionRef.current.scope !== photoScope) {
+    completionRef.current.scope = photoScope;
+    completionRef.current.generation += 1;
+  }
+  useEffect(() => {
+    completionRef.current.mounted = true;
+    return () => {
+      completionRef.current.mounted = false;
+      completionRef.current.generation += 1;
+    };
+  }, []);
+  const isCompletionCurrent = useCallback(
+    (generation: number) =>
+      completionRef.current.mounted &&
+      !sessionInvalidatedRef.current &&
+      completionRef.current.generation === generation,
+    [],
+  );
 
   useEffect(() => {
     if (activeStoreId && sessionStoreId === null) setSessionStoreId(activeStoreId);
@@ -248,12 +303,6 @@ export function NewOrderScreen({
   const activeDeposit = form.deposit;
   const draftFaultPrices = useMemo(() => toFaultPriceItems(validFaultDrafts), [validFaultDrafts]);
   const validFaultPrices = draftFaultPrices;
-  const createStatusLabel = selectedCreateStatus
-    ? localizeOrderWorkflowStatusLabel(selectedCreateStatus, t)
-    : defaultCreateStatus
-      ? localizeOrderWorkflowStatusLabel(defaultCreateStatus, t)
-      : form.status;
-
   const selectHistoryDevice = useCallback((device: CustomerHistoryDeviceCandidate) => {
     setForm((current) => ({
       ...current,
@@ -363,12 +412,15 @@ export function NewOrderScreen({
     };
   }, [prefill?.customerId, prefill?.deviceId, prefill?.identifier, prefill?.key, t]);
 
-  const completeOnlineOrderCreated = useCallback(
+  const finishOnlineOrderCreated = useCallback(
     async (id: string, options: { recovered?: boolean; replayed?: boolean } = {}) => {
+      const generation = completionRef.current.generation;
+      if (!isCompletionCurrent(generation)) return;
       createOperationIdRef.current = null;
       setIdentityConflict(null);
       setSharedPhoneConfirmOpen(false);
       setCreateRecovery({ state: "idle" });
+      photoDraft.discard();
       void offlineDraft.discardCurrentDraft();
       toast.success(
         t(
@@ -380,13 +432,65 @@ export function NewOrderScreen({
       await synchronizeCreatedOrderNavigation(queryClient, id, activeStoreId).catch(
         () => undefined,
       );
+      if (!isCompletionCurrent(generation)) return;
       if (onCreated) {
         onCreated(id);
       } else {
         router.push(`/orders/${id}`);
       }
     },
-    [activeStoreId, offlineDraft, onCreated, queryClient, router, t],
+    [
+      activeStoreId,
+      isCompletionCurrent,
+      offlineDraft,
+      onCreated,
+      photoDraft,
+      queryClient,
+      router,
+      t,
+    ],
+  );
+
+  const completeOnlineOrderCreated = useCallback(
+    async (id: string, options: { recovered?: boolean; replayed?: boolean } = {}) => {
+      const generation = completionRef.current.generation;
+      if (!isCompletionCurrent(generation)) return;
+      if (createdOrderIdRef.current && createdOrderIdRef.current !== id) return;
+      createdOrderIdRef.current = id;
+      setCreatedOrderId(id);
+      setIdentityConflict(null);
+      setSharedPhoneConfirmOpen(false);
+      setCreateRecovery({ state: "idle" });
+      await offlineDraft.discardCurrentDraft();
+      if (!isCompletionCurrent(generation)) return;
+      const scopeAtCreate = photoScope;
+      const uploaded = await photoDraft.upload(id);
+      if (
+        !uploaded &&
+        isCompletionCurrent(generation) &&
+        scopeAtCreate === activePhotoScopeRef.current
+      ) {
+        await synchronizeCreatedOrderNavigation(queryClient, id, activeStoreId).catch(
+          () => undefined,
+        );
+      }
+      if (
+        uploaded &&
+        isCompletionCurrent(generation) &&
+        scopeAtCreate === activePhotoScopeRef.current
+      ) {
+        await finishOnlineOrderCreated(id, options);
+      }
+    },
+    [
+      activeStoreId,
+      finishOnlineOrderCreated,
+      isCompletionCurrent,
+      offlineDraft,
+      photoDraft,
+      photoScope,
+      queryClient,
+    ],
   );
 
   const confirmCreateOperation = useCallback(
@@ -417,12 +521,14 @@ export function NewOrderScreen({
       | { kind: "online"; id: string; replayed?: boolean }
       | { kind: "offline_queued"; operationId: string }
     > => {
+      if (createdOrderIdRef.current) throw new Error(t("orders.newFlow.createdPhotos"));
       if (sessionStoreChanged) {
         throw new Error(t("orders2b1.new.error.storeChanged"));
       }
       const custodyStatus = form.deviceCustodyStatus;
       if (!custodyStatus) throw new Error(t("orders2b1.new.error.custody"));
       if (typeof navigator !== "undefined" && !navigator.onLine) {
+        if (photoDraft.photos.length) throw new Error(t("orders.newFlow.offlinePhotos"));
         if (identityResolution.mode !== "auto") {
           throw new Error(t("orders2b1.new.error.identityOnline"));
         }
@@ -450,7 +556,7 @@ export function NewOrderScreen({
         device_model: form.model,
         device_imei: form.imei,
         device_custody_status: custodyStatus,
-        issue_description: "",
+        issue_description: form.issueDescription,
         accessory_notes: form.accessoryNotes || undefined,
         warranty_text: form.warrantyText || undefined,
         warranty_months: form.warrantyMonths,
@@ -462,6 +568,7 @@ export function NewOrderScreen({
       return { kind: "online", id: result.id, replayed: result.replayed };
     },
     onSuccess: (result) => {
+      createInFlightRef.current = false;
       if (result.kind === "offline_queued") {
         toast.success(t("orders2b1.new.toast.queued"));
         if (onCancel) {
@@ -474,6 +581,7 @@ export function NewOrderScreen({
       void completeOnlineOrderCreated(result.id, { replayed: result.replayed });
     },
     onError: (error: Error) => {
+      createInFlightRef.current = false;
       if (
         error instanceof RepairDeskApiError &&
         error.status === 409 &&
@@ -481,13 +589,15 @@ export function NewOrderScreen({
       ) {
         const conflict = readNewOrderIdentityConflict(error.details);
         if (conflict) {
-          setGuidedStep(0);
           setIdentityConflict(conflict);
           setCreateRecovery({ state: "idle" });
           return;
         }
       }
-      if (isRepairDeskRequestTimeoutError(error) && createOperationIdRef.current) {
+      if (
+        (error instanceof RepairDeskTransportError || isRepairDeskRequestTimeoutError(error)) &&
+        createOperationIdRef.current
+      ) {
         toast.message(t("orders2b1.new.recovery.confirming"));
         void confirmCreateOperation(createOperationIdRef.current);
         return;
@@ -498,8 +608,15 @@ export function NewOrderScreen({
     },
   });
 
+  const submitCreate = (resolution: CustomerIdentityResolution) => {
+    if (createInFlightRef.current || createdOrderIdRef.current || sessionStoreChanged) return;
+    createInFlightRef.current = true;
+    create.mutate(resolution);
+  };
+
   const customerIdentityCreationBlocked = customerIntakePolicyBlocksSubmit(customerIdentityIntent);
   const valid =
+    (effectiveEntryMode !== "simple" || diagnosisDeferred || validFaultDrafts.length > 0) &&
     form.deviceCustodyStatus !== null &&
     form.customerPhone.trim() &&
     form.brand.trim() &&
@@ -515,8 +632,8 @@ export function NewOrderScreen({
     (!warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) ||
       form.warrantyChangeReason.trim());
   const missingItems = useMemo(
-    () =>
-      getNewOrderMissingItems({
+    () => [
+      ...getNewOrderMissingItems({
         form,
         total,
         defaultWarrantyMonths,
@@ -524,34 +641,30 @@ export function NewOrderScreen({
         selectedCreateStatus,
         t,
       }),
-    [customerIdentityCreationBlocked, defaultWarrantyMonths, form, selectedCreateStatus, total, t],
+      ...(effectiveEntryMode === "simple" && !diagnosisDeferred && !validFaultDrafts.length
+        ? [
+            {
+              code: "diagnosis_required",
+              fieldId: "faults",
+              sectionId: "quotation" as const,
+              label: t("orders2b1.new.validation.diagnosis"),
+              target: "quotation",
+            },
+          ]
+        : []),
+    ],
+    [
+      customerIdentityCreationBlocked,
+      defaultWarrantyMonths,
+      diagnosisDeferred,
+      effectiveEntryMode,
+      form,
+      selectedCreateStatus,
+      total,
+      t,
+      validFaultDrafts.length,
+    ],
   );
-
-  const handleGuidedNext = () => {
-    const sectionId = guidedStep === 0 ? "customer" : guidedStep === 1 ? "device" : "quotation";
-    const currentStepItems = missingItems.filter((item) => item.sectionId === sectionId);
-    if (guidedStep === 2 && !diagnosisDeferred && !form.faults.some((fault) => fault.name.trim())) {
-      currentStepItems.push({
-        code: "diagnosis_required",
-        fieldId: "faults",
-        sectionId: "quotation",
-        label: t("orders2b1.new.validation.diagnosis"),
-        target: "quotation",
-      });
-    }
-    if (currentStepItems.length) {
-      setValidationAttempted(true);
-      setSubmitValidationMessage(
-        t("orders2b1.new.validation.handle", {
-          items: currentStepItems.map((item) => item.label).join(" / "),
-        }),
-      );
-      focusNewOrderMissingItem(currentStepItems[0]);
-      return;
-    }
-    setSubmitValidationMessage("");
-    setGuidedStep((current) => Math.min(3, current + 1));
-  };
 
   useEffect(() => {
     if (valid) {
@@ -599,6 +712,7 @@ export function NewOrderScreen({
   }, [offlineDraft, t]);
 
   const offlineStatus = {
+    created: Boolean(createdOrderId),
     state: offlineDraft.state,
     lastSavedAt: offlineDraft.lastSavedAt,
     errorMessage: offlineDraft.errorMessage,
@@ -606,6 +720,7 @@ export function NewOrderScreen({
     scopeReady: Boolean(offlineScope),
   };
   const createSubmitBlocked =
+    Boolean(createdOrderId) ||
     create.isPending ||
     createRecovery.state === "confirming" ||
     createRecovery.state === "uncertain";
@@ -624,12 +739,16 @@ export function NewOrderScreen({
     offlineDraft,
     createPending: create.isPending,
     createRecoveryState: createRecovery.state,
+    photos: photoDraft,
+    createdOrderId,
   });
   guardSnapshotRef.current = {
     surface,
     offlineDraft,
     createPending: create.isPending,
     createRecoveryState: createRecovery.state,
+    photos: photoDraft,
+    createdOrderId,
   };
 
   useEffect(
@@ -639,8 +758,9 @@ export function NewOrderScreen({
         label: () => t("orders2b1.new.shortTitle"),
         isDirty: () => {
           const snapshot = guardSnapshotRef.current;
-          if (snapshot.surface !== "page") return false;
+          if (snapshot.createdOrderId) return snapshot.photos.hasUnsaved;
           return (
+            snapshot.photos.hasUnsaved ||
             Boolean(snapshot.offlineDraft.draftPrompt) ||
             snapshot.offlineDraft.isCurrentDraftDirty() ||
             snapshot.createPending ||
@@ -650,6 +770,7 @@ export function NewOrderScreen({
         isBusy: () => {
           const snapshot = guardSnapshotRef.current;
           return (
+            snapshot.photos.state === "uploading" ||
             snapshot.createPending ||
             snapshot.createRecoveryState === "confirming" ||
             snapshot.createRecoveryState === "uncertain" ||
@@ -659,6 +780,7 @@ export function NewOrderScreen({
         canSave: () => {
           const snapshot = guardSnapshotRef.current;
           return (
+            !snapshot.photos.hasUnsaved &&
             !snapshot.offlineDraft.draftPrompt &&
             !snapshot.offlineDraft.hasSensitiveUnlockDraft &&
             !snapshot.createPending &&
@@ -668,6 +790,7 @@ export function NewOrderScreen({
         },
         saveUnavailableReason: () => {
           const snapshot = guardSnapshotRef.current;
+          if (snapshot.photos.hasUnsaved) return t("orders.newFlow.photoLocal");
           if (snapshot.createPending || snapshot.createRecoveryState !== "idle") {
             return t("orders2b1.new.recovery.confirmingHelp");
           }
@@ -685,6 +808,7 @@ export function NewOrderScreen({
         save: async (): Promise<NavigationGuardResolution> => {
           const snapshot = guardSnapshotRef.current;
           if (
+            snapshot.photos.hasUnsaved ||
             snapshot.createPending ||
             snapshot.createRecoveryState !== "idle" ||
             snapshot.offlineDraft.draftPrompt ||
@@ -697,9 +821,14 @@ export function NewOrderScreen({
         },
         discard: async (): Promise<NavigationGuardResolution> => {
           const snapshot = guardSnapshotRef.current;
-          if (snapshot.createPending || snapshot.createRecoveryState !== "idle") {
+          if (
+            snapshot.photos.state === "uploading" ||
+            snapshot.createPending ||
+            snapshot.createRecoveryState !== "idle"
+          ) {
             return { status: "blocked" };
           }
+          snapshot.photos.discard();
           await snapshot.offlineDraft.discardCurrentDraft();
           setForm(initialNewOrderForm);
           setHistoryDevices([]);
@@ -735,15 +864,19 @@ export function NewOrderScreen({
       historyDevices={historyDevices}
       onSelectHistoryDevice={selectHistoryDevice}
       surface={surface}
-    />
+    >
+      <NewOrderDeviceUnlockSection form={form} setForm={setForm} surface={surface} />
+    </NewOrderDeviceInfoSection>
   );
-  const unlockSectionNode = (
-    <NewOrderDeviceUnlockSection form={form} setForm={setForm} surface={surface} />
-  );
-  const quotationSectionNode = (layout: "professional" | "guided" = "professional") => (
+  const quotationSectionNode = (
+    part: "quote" | "settings" = "quote",
+    draft = form,
+    setDraft = setForm,
+    expanded = false,
+  ) => (
     <NewOrderQuotationSection
-      form={form}
-      setForm={setForm}
+      form={draft}
+      setForm={setDraft}
       total={total}
       operatorName={operatorName}
       operatorRole={operatorRole}
@@ -752,7 +885,10 @@ export function NewOrderScreen({
       createStatuses={createStatuses}
       defaultWarrantyMonths={defaultWarrantyMonths}
       surface={surface}
-      layout={layout}
+      layout="professional"
+      part={part}
+      mobileOverview={isMobile}
+      expanded={expanded}
     />
   );
 
@@ -762,12 +898,13 @@ export function NewOrderScreen({
       data-new-order-surface={surface}
       className={cn(
         layoutGuards.noPageOverflow,
+        "@container/new-order",
         surface === "dialog"
           ? cn(
               detailWorkspace.root,
               "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] sm:h-[calc(100svh-32px)] sm:max-h-[calc(100svh-32px)]",
             )
-          : "mx-auto w-full min-w-0 max-w-[430px] overflow-x-hidden px-2 sm:max-w-2xl md:max-w-7xl md:px-5 md:pt-3 lg:px-6",
+          : "mx-auto w-full min-w-0 max-w-[430px] overflow-x-hidden px-3.5 sm:max-w-2xl md:max-w-7xl md:px-5 md:pt-3 lg:px-6",
       )}
       style={
         surface === "page"
@@ -780,8 +917,6 @@ export function NewOrderScreen({
       <h1 className="sr-only">{t("orders2b1.new.title")}</h1>
       {surface === "page" ? (
         <NewOrderMobileHeader
-          valid={Boolean(valid)}
-          missingItems={missingItems}
           offlineStatus={offlineStatus}
           onHeightChange={handleFloatingHeaderHeight}
         />
@@ -794,18 +929,7 @@ export function NewOrderScreen({
         }}
         onSubmit={(event) => {
           event.preventDefault();
-          if (effectiveEntryMode === "simple" && guidedStep < 3) {
-            handleGuidedNext();
-            return;
-          }
-          if (createRecovery.state === "confirming" || createRecovery.state === "uncertain") {
-            toast.message(
-              createRecovery.state === "confirming"
-                ? t("orders2b1.new.recovery.confirming")
-                : t("orders2b1.new.recovery.uncertainHelp"),
-            );
-            return;
-          }
+          if (createSubmitBlocked || createdOrderIdRef.current) return;
           if (!valid) {
             const normalizedMissingItems = missingItems.length
               ? missingItems
@@ -817,27 +941,20 @@ export function NewOrderScreen({
                 items: normalizedMissingItems.map((item) => item.label).join(" / "),
               }),
             );
+            if (isMobile)
+              setMobileValidation((current) => ({
+                target: normalizedMissingItems[0].target,
+                generation: (current?.generation ?? 0) + 1,
+              }));
             focusNewOrderMissingItem(normalizedMissingItems[0]);
-            toast.error(
-              form.deviceCustodyStatus === null
-                ? t("orders2b1.new.error.custody")
-                : customerIdentityCreationBlocked
-                  ? t("orders2b1.new.validation.identity")
-                  : form.deposit > total
-                    ? t("orders2b1.new.validation.deposit")
-                    : warrantyReasonRequired(form.warrantyMonths, defaultWarrantyMonths) &&
-                        !form.warrantyChangeReason.trim()
-                      ? t("orders2b1.new.validation.warranty")
-                      : t("orders2b1.new.validation.required"),
-            );
             return;
           }
           setIdentityConflict(null);
-          create.mutate({ mode: "auto" });
+          submitCreate({ mode: "auto" });
         }}
         className={cn(
-          "min-w-0 pb-0 scroll-pb-[calc(var(--new-order-submit-offset,7rem)+0.75rem)] sm:pb-20 sm:scroll-pb-20",
-          surface === "page" && cn(repairOs.mobileFloatingPage, "md:pb-20 lg:pt-0"),
+          "min-w-0 scroll-pb-[calc(var(--new-order-submit-offset,7rem)+0.75rem)]",
+          surface === "page" && cn(repairOs.mobileFloatingPage, "!pb-0 lg:pt-0"),
           surface === "dialog" &&
             "h-full max-h-[calc(100svh-16px)] overflow-y-auto p-2 pt-2 sm:max-h-[calc(100svh-32px)] sm:p-3 sm:pt-3 md:p-4 md:pt-3 lg:flex lg:min-h-0 lg:flex-col lg:pb-3",
         )}
@@ -845,16 +962,6 @@ export function NewOrderScreen({
         <p id="new-order-validation-summary" className="sr-only" role="alert" aria-live="assertive">
           {submitValidationMessage}
         </p>
-        {surface === "page" ? (
-          <div className="mb-2 hidden min-w-0 justify-end gap-2 lg:flex lg:mb-3">
-            <Button variant="outline" size="icon" className="size-9 shrink-0 rounded-full" asChild>
-              <Link href="/orders" aria-label={t("common.close")}>
-                <X className="size-4" />
-              </Link>
-            </Button>
-          </div>
-        ) : null}
-
         {surface === "dialog" && onCancel ? (
           <NewOrderDialogMobileHeader
             valid={Boolean(valid)}
@@ -864,8 +971,6 @@ export function NewOrderScreen({
         ) : null}
 
         <NewOrderDesktopHeader
-          valid={Boolean(valid)}
-          missingItems={missingItems}
           surface={surface}
           offlineStatus={offlineStatus}
           onClose={surface === "dialog" ? onCancel : undefined}
@@ -935,101 +1040,202 @@ export function NewOrderScreen({
           </div>
         ) : null}
 
+        {createdOrderId ? (
+          <section
+            data-new-order-photo-result="true"
+            role="status"
+            className="mb-3 space-y-2 rounded-xl border border-border bg-status-warn p-3 text-status-warn-foreground"
+          >
+            <p className="font-semibold">{t("orders.newFlow.createdPhotos")}</p>
+            <p className="text-sm">
+              {t(
+                photoDraft.state === "idle" || photoDraft.state === "uploading"
+                  ? "orders.newFlow.photoUploading"
+                  : photoDraft.state === "blocked"
+                    ? "orders.newFlow.photoBlocked"
+                    : photoDraft.photos.some((photo) => photo.uploadState === "uncertain")
+                      ? "orders.newFlow.photoUncertain"
+                      : "orders.newFlow.photoRemaining",
+              )}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {photoDraft.canRetry && photoDraft.state !== "idle" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={sessionStoreChanged}
+                  onClick={() => void completeOnlineOrderCreated(createdOrderId)}
+                >
+                  {t("orders.newFlow.retryPhotos")}
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                disabled={
+                  photoDraft.state === "idle" ||
+                  photoDraft.state === "uploading" ||
+                  sessionStoreChanged
+                }
+                onClick={() => {
+                  if (photoDraft.hasUnsaved) setLeavePhotosOpen(true);
+                  else void finishOnlineOrderCreated(createdOrderId);
+                }}
+              >
+                {t("orders.newFlow.viewOrder")}
+              </Button>
+            </div>
+          </section>
+        ) : null}
         {effectiveEntryMode === null ? (
           <section
             data-new-order-mode-loading="true"
-            className={cn(
-              repairOs.mobileInfoCard,
-              "mx-auto w-full max-w-[760px] animate-pulse p-4 md:rounded-[var(--radius-lg)] md:shadow-none",
-            )}
+            className={cn(repairOs.mobileInfoCard, "animate-pulse p-4")}
             aria-busy="true"
           >
-            <p className="text-sm font-semibold">{t("orders2b1.new.modeLoading")}</p>
-            <div className="mt-3 h-24 rounded-xl bg-[var(--surface-panel-muted)]" />
+            <p className="text-sm">{t("orders2b1.new.modeLoading")}</p>
           </section>
-        ) : effectiveEntryMode === "simple" ? (
-          <NewOrderGuidedWorkspace
-            step={guidedStep}
-            form={form}
-            total={total}
-            statusLabel={createStatusLabel}
-            diagnosisDeferred={diagnosisDeferred}
-            pending={createSubmitBlocked || sessionStoreChanged}
-            customer={customerSectionNode}
-            device={deviceSectionNode}
-            unlock={unlockSectionNode}
-            quotation={
-              <>
-                <section
-                  className={cn(
-                    repairOs.mobileInfoCard,
-                    "p-3 md:rounded-[var(--radius-lg)] md:shadow-none",
-                  )}
-                >
-                  <p className="text-xs font-semibold">{t("orders2b1.new.quoteItems")}</p>
-                  <p className="mt-1 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-                    {t("orders2b1.new.validation.diagnosis")}
-                  </p>
-                  <Button
-                    type="button"
-                    variant={diagnosisDeferred ? "default" : "outline"}
-                    className="mt-2 min-h-9"
-                    onClick={() => setDiagnosisDeferred((current) => !current)}
-                  >
-                    {diagnosisDeferred ? <CheckCircle2 className="size-4" /> : null}
-                    {t("orders2b1.new.diagnosisDeferred")}
-                  </Button>
-                </section>
-                {quotationSectionNode("guided")}
-              </>
-            }
-            onStepChange={setGuidedStep}
-            onNext={handleGuidedNext}
-            onCancel={onCancel}
-          />
         ) : (
           <>
-            <div
-              data-new-order-workspace-grid="true"
-              className={cn(
-                "grid min-w-0 items-start gap-1.5 sm:gap-2 md:grid-cols-[minmax(280px,0.85fr)_minmax(420px,1.35fr)] md:gap-3",
-                "lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.34fr)_minmax(0,0.8fr)]",
-                surface === "dialog" &&
-                  "xl:grid-cols-[minmax(320px,0.9fr)_minmax(500px,1.4fr)_minmax(280px,0.8fr)]",
+            <fieldset disabled={createSubmitBlocked || sessionStoreChanged} className="min-w-0">
+              {isMobile ? (
+                <NewOrderMobileWorkspace
+                  form={form}
+                  setForm={setForm}
+                  historyDevices={historyDevices}
+                  onPickCustomer={handlePickCustomer}
+                  onClearCustomerContext={() => {
+                    setHistoryDevices([]);
+                    setIdentityConflict(null);
+                    setCustomerIdentityIntent(null);
+                    setSharedPhoneConfirmOpen(false);
+                    createOperationIdRef.current = null;
+                  }}
+                  onNewCustomerIntentChange={setCustomerIdentityIntent}
+                  disabled={createSubmitBlocked || sessionStoreChanged}
+                  validationRequest={mobileValidation}
+                  quote={
+                    <>
+                      {quotationSectionNode()}
+                      {effectiveEntryMode === "simple" ? (
+                        <Button
+                          type="button"
+                          variant={diagnosisDeferred ? "default" : "outline"}
+                          aria-pressed={diagnosisDeferred}
+                          className="min-h-11 whitespace-normal"
+                          onClick={() => setDiagnosisDeferred((current) => !current)}
+                        >
+                          {t("orders2b1.new.diagnosisDeferred")}
+                        </Button>
+                      ) : null}
+                    </>
+                  }
+                  photos={
+                    <NewOrderSupplements
+                      compact
+                      notes={form.issueDescription}
+                      onNotesChange={(issueDescription) =>
+                        setForm((current) => ({ ...current, issueDescription }))
+                      }
+                      photos={photoDraft.photos}
+                      onAdd={photoDraft.add}
+                      onRemove={photoDraft.remove}
+                      disabled={createSubmitBlocked || sessionStoreChanged}
+                      locked={Boolean(createdOrderId)}
+                    />
+                  }
+                  settings={(draft, setDraft) =>
+                    quotationSectionNode("settings", draft, setDraft, true)
+                  }
+                  settingsSummary={`${t(form.type === "quick_repair" ? "orders2b1.new.quickRepair" : "orders2b1.new.dropoffRepair")} · ${selectedCreateStatus ? localizeOrderWorkflowStatusLabel(selectedCreateStatus, t) : form.status} · ${form.warrantyText}`}
+                />
+              ) : (
+                <div
+                  data-new-order-workspace-grid="true"
+                  data-new-order-single-page="true"
+                  className="grid min-w-0 items-start gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] md:gap-3 @[1040px]/new-order:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)_minmax(0,0.85fr)]"
+                >
+                  <div className="grid min-w-0 content-start gap-2 md:col-start-1 md:row-start-1">
+                    {customerSectionNode}
+                    {deviceSectionNode}
+                  </div>
+                  {quotationSectionNode()}
+                  <div className="grid min-w-0 content-start gap-2 md:col-span-2 md:row-start-2 md:grid-cols-2 @[1040px]/new-order:col-span-1 @[1040px]/new-order:col-start-3 @[1040px]/new-order:row-start-1 @[1040px]/new-order:grid-cols-1">
+                    {quotationSectionNode("settings")}
+                    {effectiveEntryMode === "simple" ? (
+                      <section className={cn(repairOs.mobileInfoCard, "p-2.5")}>
+                        <Button
+                          type="button"
+                          variant={diagnosisDeferred ? "default" : "outline"}
+                          aria-pressed={diagnosisDeferred}
+                          className="min-h-11 w-full whitespace-normal"
+                          onClick={() => setDiagnosisDeferred((current) => !current)}
+                        >
+                          {diagnosisDeferred ? <CheckCircle2 className="size-4" /> : null}
+                          {t("orders2b1.new.diagnosisDeferred")}
+                        </Button>
+                        <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                          {t("orders2b1.new.validation.diagnosis")}
+                        </p>
+                      </section>
+                    ) : null}
+                    <NewOrderSupplements
+                      notes={form.issueDescription}
+                      onNotesChange={(issueDescription) =>
+                        setForm((current) => ({ ...current, issueDescription }))
+                      }
+                      photos={photoDraft.photos}
+                      onAdd={photoDraft.add}
+                      onRemove={photoDraft.remove}
+                      disabled={createSubmitBlocked || sessionStoreChanged}
+                      locked={Boolean(createdOrderId)}
+                    />
+                  </div>
+                </div>
               )}
-            >
-              <div className="grid min-w-0 content-start gap-1.5 sm:gap-3 md:col-start-1 md:row-start-1 lg:row-span-2 lg:pr-0.5">
-                {customerSectionNode}
-                {deviceSectionNode}
-              </div>
-              {quotationSectionNode()}
-              <div className="grid min-w-0 content-start gap-1.5 sm:gap-3 md:col-start-1 md:row-start-2 lg:col-start-3 lg:row-start-1">
-                {unlockSectionNode}
-              </div>
-            </div>
-
+            </fieldset>
             <div data-new-order-content-end="true" aria-hidden="true" className="h-px w-full" />
             <div
               data-new-order-submit-spacer="true"
               aria-hidden="true"
               className="h-[calc(var(--new-order-submit-offset,7rem)+0.75rem)] w-full shrink-0 md:hidden"
             />
-
-            <NewOrderSubmitBar
-              valid={Boolean(valid)}
-              pending={createSubmitBlocked || sessionStoreChanged}
-              statusMessage={
-                sessionStoreChanged ? t("orders2b1.new.storeChangedShort") : createSubmitMessage
-              }
-              custodyStatus={form.deviceCustodyStatus}
-              onCancel={onCancel}
-              surface={surface}
-              validationSummaryId="new-order-validation-summary"
-            />
+            {!createdOrderId ? (
+              <NewOrderSubmitBar
+                valid={Boolean(valid)}
+                pending={createSubmitBlocked || sessionStoreChanged}
+                statusMessage={
+                  sessionStoreChanged ? t("orders2b1.new.storeChangedShort") : createSubmitMessage
+                }
+                custodyStatus={form.deviceCustodyStatus}
+                onCancel={onCancel}
+                surface={surface}
+                validationSummaryId="new-order-validation-summary"
+                total={total}
+                missingCount={missingItems.length}
+              />
+            ) : null}
           </>
         )}
       </form>
 
+      <AlertDialog open={leavePhotosOpen} onOpenChange={setLeavePhotosOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("orders.newFlow.leavePhotosTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("orders.newFlow.leavePhotosHelp")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (createdOrderId) void finishOnlineOrderCreated(createdOrderId);
+              }}
+            >
+              {t("orders.newFlow.leavePhotos")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog open={discardDraftDialogOpen} onOpenChange={setDiscardDraftDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1074,7 +1280,7 @@ export function NewOrderScreen({
                 disabled={create.isPending}
                 onClick={() => {
                   if (!identityConflict) return;
-                  create.mutate({
+                  submitCreate({
                     mode: "use_existing",
                     customer_id: candidate.customerId,
                     conflict_token: identityConflict.conflictToken,
@@ -1117,7 +1323,7 @@ export function NewOrderScreen({
               disabled={create.isPending}
               onClick={() => {
                 if (!identityConflict) return;
-                create.mutate({
+                submitCreate({
                   mode: "create_distinct_shared_phone",
                   conflict_token: identityConflict.conflictToken,
                   reason: "other",
@@ -1169,6 +1375,7 @@ function getCreateOrderErrorMessage(error: Error, t: ReturnType<typeof useLocale
     t("orders2b1.new.error.custody"),
     t("orders2b1.new.error.identityOnline"),
     t("orders2b1.new.error.offlineDisabled"),
+    t("orders.newFlow.offlinePhotos"),
   ];
   return knownMessages.includes(message) ? message : t("orders2b1.new.error.generic");
 }
@@ -1261,6 +1468,7 @@ function NewOrderCreateRecoveryCard({
 }
 
 type NewOrderOfflineStatusSummary = {
+  created?: boolean;
   state: NewOrderOfflineAutosaveState;
   lastSavedAt: string | null;
   errorMessage: string | null;
@@ -1328,14 +1536,14 @@ function focusNewOrderMissingItem(item: NewOrderMissingItem | undefined) {
   if (!item) return;
   const target = document.querySelector<HTMLElement>(`[data-new-order-field="${item.target}"]`);
   if (!target) return;
+  const services = target.closest<HTMLElement>("#new-order-service-fields");
+  if (services?.hidden)
+    document
+      .querySelector<HTMLButtonElement>('[aria-controls="new-order-service-fields"]')
+      ?.click();
+  target.tabIndex = -1;
   target.scrollIntoView({ behavior: "smooth", block: "center" });
-  window.setTimeout(() => {
-    const focusable = target.matches(validationFocusableSelector)
-      ? target
-      : target.querySelector<HTMLElement>(validationFocusableSelector);
-    focusable?.focus({ preventScroll: true });
-    if (item.target === "customer-report-edit") focusable?.click();
-  }, 250);
+  target.focus({ preventScroll: true });
 }
 
 function getNewOrderMissingItems({
@@ -1434,92 +1642,36 @@ function getNewOrderMissingItems({
 }
 
 function NewOrderDesktopHeader({
-  valid,
-  missingItems,
   surface,
   offlineStatus,
   onClose,
 }: {
-  valid: boolean;
-  missingItems: NewOrderMissingItem[];
   surface: "page" | "dialog";
   offlineStatus: NewOrderOfflineStatusSummary;
   onClose?: () => void;
 }) {
   const { t } = useLocale();
   return (
-    <section
+    <header
       data-new-order-desktop-header="true"
-      className={cn(
-        "relative mb-3 hidden min-w-0 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] p-3 shadow-none lg:grid lg:grid-cols-[minmax(180px,0.8fr)_minmax(280px,1.2fr)] lg:items-center lg:gap-3 xl:grid-cols-[minmax(220px,0.75fr)_minmax(340px,1fr)]",
-        surface === "page" && "shadow-[var(--shadow-workspace)]",
-        surface === "dialog" && onClose && "pr-12",
-      )}
+      className="mb-3 hidden min-h-11 min-w-0 items-center justify-between gap-3 lg:flex"
     >
+      <h2 className="text-base font-semibold">{t("orders2b1.new.title")}</h2>
+      <NewOrderOfflineStatusLine status={offlineStatus} compact className="ml-auto" />
       {surface === "dialog" && onClose ? (
         <Button
           data-new-order-dialog-close="true"
           type="button"
           variant="ghost"
           size="icon"
-          className="absolute right-2 top-2 size-8 rounded-xl text-muted-foreground hover:bg-[var(--surface-panel-muted)] hover:text-foreground"
+          className="size-11 shrink-0"
           aria-label={t("orders2b1.new.closeAria")}
           onClick={onClose}
         >
           <X className="size-4" />
         </Button>
       ) : null}
-      <div className="min-w-0">
-        {surface === "dialog" ? (
-          <>
-            <div className="text-[11px] font-medium leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-              {t("orders2b1.new.dialogMode")}
-            </div>
-            <p className="truncate text-lg font-semibold leading-6">{t("orders2b1.new.title")}</p>
-          </>
-        ) : null}
-        <NewOrderOfflineStatusLine status={offlineStatus} className="mt-2" />
-      </div>
-
-      <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 py-2">
-        <div className="mb-1.5 flex min-w-0 items-center justify-between gap-2">
-          <span className="truncate text-[11px] font-semibold leading-4 lg:text-xs lg:leading-4">
-            {valid
-              ? t("orders2b1.new.complete")
-              : t("orders2b1.new.missingCount", { count: missingItems.length || 1 })}
-          </span>
-          <span
-            className={cn(
-              "inline-flex h-5 shrink-0 items-center gap-1 rounded-full px-2 text-[10px] font-semibold lg:text-[11px] lg:leading-4",
-              valid
-                ? "bg-status-success text-status-success-foreground"
-                : "bg-status-warn text-status-warn-foreground",
-            )}
-          >
-            {valid ? <CheckCircle2 className="size-3" /> : <CircleAlert className="size-3" />}
-            {t(valid ? "orders2b1.new.ready" : "orders2b1.new.incomplete")}
-          </span>
-        </div>
-        {valid ? (
-          <p className="rounded-md bg-status-success/35 px-2 py-1.5 text-[10px] font-medium text-status-success-foreground lg:text-xs lg:leading-[18px]">
-            {t("orders2b1.new.readyHelp")}
-          </p>
-        ) : (
-          <div data-new-order-missing-items="true" className="flex min-w-0 flex-wrap gap-1.5">
-            {(missingItems.length ? missingItems : [fallbackNewOrderMissingItem(t)]).map((item) => (
-              <button
-                key={`${item.target}-${item.label}`}
-                type="button"
-                className="inline-flex h-9 items-center rounded-md border border-status-warn-foreground/20 bg-background px-2 text-[10px] font-medium text-status-warn-foreground transition-colors hover:bg-status-warn/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:h-7 lg:text-xs lg:leading-4"
-                onClick={() => focusNewOrderMissingItem(item)}
-              >
-                {t("orders2b1.new.addField", { label: item.label })}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
+    </header>
   );
 }
 
@@ -1561,7 +1713,7 @@ function NewOrderDialogMobileHeader({
         type="button"
         variant="ghost"
         size="icon"
-        className="size-9 shrink-0 rounded-lg text-muted-foreground hover:bg-[var(--surface-panel-muted)] hover:text-foreground"
+        className="size-11 shrink-0 rounded-lg text-muted-foreground hover:bg-[var(--surface-panel-muted)] hover:text-foreground"
         aria-label={t("orders2b1.new.closeAria")}
         onClick={onClose}
       >
@@ -1689,117 +1841,48 @@ function compareDate(a?: string, b?: string) {
 }
 
 function NewOrderMobileHeader({
-  valid,
-  missingItems,
   offlineStatus,
   onHeightChange,
 }: {
-  valid: boolean;
-  missingItems: NewOrderMissingItem[];
   offlineStatus: NewOrderOfflineStatusSummary;
   onHeightChange?: (height: number) => void;
 }) {
   const { t } = useLocale();
   const shellRef = useRef<HTMLDivElement | null>(null);
-  const [missingExpanded, setMissingExpanded] = useState(false);
-
-  useEffect(() => {
-    if (valid) setMissingExpanded(false);
-  }, [valid]);
-
   useEffect(() => {
     const node = shellRef.current;
     if (!node || !onHeightChange) return;
-
-    const update = () => {
-      onHeightChange(node.getBoundingClientRect().height);
-    };
-
+    const update = () => onHeightChange(node.getBoundingClientRect().height);
     update();
     if (typeof ResizeObserver === "undefined") {
       window.addEventListener("resize", update);
       return () => window.removeEventListener("resize", update);
     }
-
     const observer = new ResizeObserver(update);
     observer.observe(node);
     return () => observer.disconnect();
   }, [onHeightChange]);
-
   return (
-    <div ref={shellRef} className={repairOs.mobileFloatingHeaderShell}>
-      <section className={cn(repairOs.mobileFloatingHeaderCard, "px-2.5 pb-2")}>
-        <header className={repairOs.mobileFloatingHeaderNav}>
-          <SidebarTrigger className="size-9 rounded-lg border border-[var(--border-panel)] bg-card shadow-none" />
-          <div className="min-w-0 text-center">
-            <p className="truncate text-xs font-semibold leading-4">
-              {t("orders2b1.new.shortTitle")}
-            </p>
-          </div>
-          <Button asChild variant="ghost" size="iconDense" className="size-9 rounded-lg">
+    <div ref={shellRef} className={cn(repairOs.mobileFloatingHeaderShell, "!px-0 !pt-0 !pb-2")}>
+      <section
+        className={cn(
+          repairOs.mobileFloatingHeaderCard,
+          "!max-w-none !rounded-none !border-x-0 !border-t-0 !px-3 !py-0 !shadow-none",
+        )}
+      >
+        <header className={cn(repairOs.mobileFloatingHeaderNav, "min-h-[52px]")}>
+          <Button asChild variant="ghost" size="icon" className="size-11 shrink-0">
             <Link href="/orders" aria-label={t("orders2b1.new.backOrders")}>
-              <X className="size-4" />
+              <ArrowLeft className="size-4" />
             </Link>
           </Button>
+          <p className="min-w-0 truncate text-sm font-semibold">{t("orders2b1.new.shortTitle")}</p>
+          <NewOrderOfflineStatusLine
+            status={offlineStatus}
+            compact
+            className="ml-auto max-w-[45%] !bg-transparent !px-0 !py-0"
+          />
         </header>
-
-        <div className="mt-1.5 flex min-w-0 items-center justify-between gap-2">
-          <span
-            className={cn(
-              "inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-[10px] font-semibold",
-              valid
-                ? "bg-status-success text-status-success-foreground"
-                : "bg-status-warn text-status-warn-foreground",
-            )}
-          >
-            {valid ? <CheckCircle2 className="size-3" /> : <CircleAlert className="size-3" />}
-            {t(valid ? "orders2b1.new.ready" : "orders2b1.new.incomplete")}
-          </span>
-        </div>
-
-        <div className={cn(repairOs.mobileFloatingHeaderBody, "mt-1.5 pt-1.5")}>
-          {!valid && missingItems.length > 0 ? (
-            <div className="mt-1.5">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-9 w-full justify-between rounded-lg px-2 text-[10px] font-semibold"
-                aria-expanded={missingExpanded}
-                aria-controls="new-order-mobile-missing-list"
-                onClick={() => setMissingExpanded((expanded) => !expanded)}
-              >
-                <span>
-                  {t(
-                    missingExpanded
-                      ? "orders2b1.new.collapseMissing"
-                      : "orders2b1.new.expandMissing",
-                  )}
-                </span>
-                <span>{t("orders2b1.new.itemsCount", { count: missingItems.length })}</span>
-              </Button>
-              {missingExpanded ? (
-                <ul
-                  id="new-order-mobile-missing-list"
-                  className="mt-1 grid max-h-52 gap-1 overflow-y-auto rounded-lg bg-[var(--surface-panel-muted)] p-1.5 text-[10px]"
-                >
-                  {missingItems.map((item) => (
-                    <li key={`${item.code}-${item.fieldId}`}>
-                      <button
-                        type="button"
-                        className="min-h-9 w-full rounded-md px-2 text-left font-medium text-status-warn-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        onClick={() => focusNewOrderMissingItem(item)}
-                      >
-                        {t("orders2b1.new.addField", { label: item.label })}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          ) : null}
-          <NewOrderOfflineStatusLine status={offlineStatus} compact className="mt-1" />
-        </div>
       </section>
     </div>
   );
@@ -1815,7 +1898,9 @@ function NewOrderOfflineStatusLine({
   className?: string;
 }) {
   const { locale, t } = useLocale();
-  const copy = getNewOrderOfflineStatusCopy(status, locale, t);
+  const copy = status.created
+    ? t("orders.newFlow.createdPhotos")
+    : getNewOrderOfflineStatusCopy(status, locale, t);
   const isError = status.state === "error" || status.state === "unavailable";
   if (!copy && !status.hasSensitiveUnlockDraft) return null;
 
@@ -1843,7 +1928,7 @@ function NewOrderOfflineStatusLine({
       />
       <span className="min-w-0 flex-1">
         <span className="line-clamp-2">{copy}</span>
-        {status.hasSensitiveUnlockDraft ? (
+        {status.hasSensitiveUnlockDraft && !status.created ? (
           <span className="mt-0.5 block text-[9px] leading-3 lg:text-xs lg:leading-4">
             {t("orders2b1.new.unlockDraftWarning")}
           </span>

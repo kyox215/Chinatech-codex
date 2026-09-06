@@ -108,6 +108,7 @@ export function ImeiScannerField({
   showPaste = true,
   showScanner = true,
   startScannerToken,
+  onScannerOpenChange,
   appearance = "outlined",
   inputId,
   inputAriaLabel,
@@ -127,6 +128,7 @@ export function ImeiScannerField({
   showPaste?: boolean;
   showScanner?: boolean;
   startScannerToken?: number;
+  onScannerOpenChange?: (open: boolean) => void;
   appearance?: "outlined" | "quiet";
   inputId?: string;
   inputAriaLabel?: string;
@@ -141,6 +143,11 @@ export function ImeiScannerField({
   const actionIdentifierLabel = identifierLabel ?? "IMEI";
   const resolvedPlaceholder = placeholder ?? t("inventory2b4.scanner.placeholder");
   const [scannerOpen, setScannerOpen] = useState(false);
+  const scannerOpenCallbackRef = useRef(onScannerOpenChange);
+  scannerOpenCallbackRef.current = onScannerOpenChange;
+  useEffect(() => {
+    scannerOpenCallbackRef.current?.(scannerOpen);
+  }, [scannerOpen]);
   const [isStarting, setIsStarting] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isImageProcessing, setIsImageProcessing] = useState(false);

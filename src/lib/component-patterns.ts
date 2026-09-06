@@ -123,7 +123,7 @@ export const componentOverlay = {
     "grid size-7 shrink-0 place-items-center rounded-lg border border-primary/10 bg-primary/5 text-primary [&>svg]:size-4",
   denseEditorBody: "min-w-0 space-y-2 px-3 py-2.5",
   denseEditorFooter:
-    "grid shrink-0 grid-cols-2 gap-2 border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 pt-1.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] sm:space-x-0 [&>button]:min-h-11 [&>button]:whitespace-normal",
+    "grid shrink-0 grid-cols-2 gap-2 border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 pt-1.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] sm:space-x-0 lg:flex lg:justify-end lg:[&>button]:w-auto lg:[&>button]:min-w-24 [&>button]:min-h-11 [&>button]:whitespace-normal",
   denseInlineField:
     "grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-lg border border-[var(--border-panel)] bg-background px-2 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring [&>label]:text-[11px] [&>label]:text-muted-foreground",
   editorBody: "min-w-0 [&_input:not([type=checkbox])]:bg-background [&_textarea]:bg-background",

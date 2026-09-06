@@ -145,9 +145,7 @@ test.describe("fixed heavy localized order journeys", () => {
     await page.goto("/orders/new", { waitUntil: "domcontentloaded" });
     await page.waitForLoadState("networkidle");
     const form = page.locator('[data-new-order-form="true"]');
-    const phone = form.getByRole("combobox", {
-      name: translateMessage("zh-CN", "orders2b1.new.lookup.phoneAria"),
-    });
+    const phone = form.locator('[data-mobile-edit="customer"]');
     await form
       .getByRole("button", { name: translateMessage("zh-CN", "orders2b1.new.create") })
       .click({ force: true });
@@ -156,14 +154,19 @@ test.describe("fixed heavy localized order journeys", () => {
     );
     await expect(phone).toHaveAttribute("aria-invalid", "true");
     await expect(phone).toHaveAttribute("aria-describedby", /new-order-validation-summary/);
-    await expect
-      .poll(() => phone.evaluate((element) => document.activeElement === element))
-      .toBe(true);
+    await expect(
+      page
+        .getByRole("dialog")
+        .getByRole("button", { name: translateMessage("zh-CN", "common.close"), exact: true }),
+    ).toBeFocused();
+    expect(await page.evaluate(() => document.activeElement?.matches("input,textarea"))).toBe(
+      false,
+    );
 
     await setBrowserOnlineState(page, false);
     await enterPhone(page, "zh-CN", "33300");
     await expect(
-      form.getByText(translateMessage("zh-CN", "orders2b1.new.results.offline")),
+      page.getByText(translateMessage("zh-CN", "orders2b1.new.results.offline")),
     ).toBeVisible();
     await setBrowserOnlineState(page, true);
 
@@ -520,6 +523,12 @@ async function installSyntheticHttpStatusBridge(page: Page) {
 }
 
 async function enterPhone(page: Page, locale: AppLocale, digits: string) {
+  const mobile = page.locator('[data-mobile-edit="customer"]');
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
+    await expect(mobile).toBeVisible();
+    if ((await page.locator('[data-new-order-mobile-panel="customer"]').count()) === 0)
+      await mobile.click();
+  }
   const field = page.getByRole("combobox", {
     name: translateMessage(locale, "orders2b1.new.lookup.phoneAria"),
   });
@@ -548,9 +557,21 @@ async function completeMinimumDevice(
   brand: string,
   model: string,
 ) {
+  const page = form.page();
+  const mobile = (await page.locator('[data-mobile-edit="device"]').count()) > 0;
+  const locale = (await page.locator("html").getAttribute("lang")) as AppLocale;
+  if (mobile && (await page.locator('[data-new-order-mobile-panel="customer"]').count()))
+    await page
+      .getByRole("button", { name: translateMessage(locale, "orders2b1.keypad.done"), exact: true })
+      .click();
   await form.locator('[data-new-order-field="device-custody"] button').first().click();
-  await form.locator("#new-order-device-brand").fill(brand);
-  await form.locator("#new-order-device-model").fill(model);
+  if (mobile) await page.locator('[data-mobile-edit="device"]').click();
+  await page.locator("#new-order-device-brand").fill(brand);
+  await page.locator("#new-order-device-model").fill(model);
+  if (mobile)
+    await page
+      .getByRole("button", { name: translateMessage(locale, "orders2b1.keypad.done"), exact: true })
+      .click();
 }
 
 async function setBrowserOnlineState(page: Page, online: boolean) {
@@ -575,16 +596,12 @@ async function switchLanguage(page: Page, languageName: string) {
 
 async function expectPreservedHeavyDraft(page: Page, locale: AppLocale, expectedScroll: number) {
   const form = page.locator('[data-new-order-form="true"]');
+  const selected = form.locator('[data-new-order-section="customer"]');
+  await expect(selected).toContainText(heavyCustomer.customer.phone_e164);
+  await expect(selected).toContainText(heavyCustomer.customer.name);
   await expect(
-    form.getByRole("combobox", {
-      name: translateMessage(locale, "orders2b1.new.lookup.phoneAria"),
-    }),
-  ).toHaveValue(heavyCustomer.customer.phone_e164);
-  await expect(
-    form.getByRole("combobox", {
-      name: translateMessage(locale, "orders2b1.new.lookup.nameAria"),
-    }),
-  ).toHaveValue(heavyCustomer.customer.name);
+    selected.getByRole("button", { name: translateMessage(locale, "orders.newFlow.customerEdit") }),
+  ).toBeDisabled();
   await expect(form.locator("#new-order-device-brand")).toHaveValue("华为");
   await expect(form.locator("#new-order-device-model")).toHaveValue("Mate 自定义");
   await expect(form).toContainText(heavyCustomer.customer.name);

@@ -1,10 +1,12 @@
 "use client";
 
-import { type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { Check, Smartphone, Store, UserRound } from "lucide-react";
+import { type Dispatch, type ReactNode, type SetStateAction, useState } from "react";
+import { Check, ChevronDown, Pencil, ScanLine, Smartphone, Store, UserRound } from "lucide-react";
 
 import { ImeiScannerField } from "@/components/imei-scanner-field";
 import { DenseOptionMenu } from "@/features/orders/components/dense-option-menu";
+import { Button } from "@/components/ui/button";
+import { AccessoryNotesPicker } from "@/features/orders/components/accessory-notes-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DeviceUnlockEditor } from "@/features/orders/components/device-unlock-fields";
@@ -44,8 +46,11 @@ type NewOrderCustomerSectionProps = NewOrderCustomerDeviceBaseProps & {
 };
 
 type NewOrderDeviceSectionProps = NewOrderCustomerDeviceBaseProps & {
+  children?: ReactNode;
   historyDevices: CustomerHistoryDeviceCandidate[];
   onSelectHistoryDevice: (device: CustomerHistoryDeviceCandidate) => void;
+  editorOnly?: boolean;
+  onScan?: () => void;
 };
 
 type NewOrderCustomerDeviceSectionProps = NewOrderCustomerSectionProps & NewOrderDeviceSectionProps;
@@ -95,6 +100,7 @@ export function NewOrderCustomerSection({
 }: NewOrderCustomerSectionProps) {
   const { t } = useLocale();
   const shellClass = getShellClass(surface);
+  const [editingSelected, setEditingSelected] = useState(false);
 
   return (
     <section
@@ -105,44 +111,68 @@ export function NewOrderCustomerSection({
       <OrderWorkspaceSectionHeader
         icon={UserRound}
         title={t("orders2b1.new.customerInfo")}
-        description={t("orders2b1.new.customerInfoHelp")}
         className="mb-1.5"
       />
-      <CustomerIdentityLookup
-        phone={form.customerPhone}
-        name={form.customerName}
-        selectedCustomerId={form.customerId}
-        inputClassName={visualInputClass}
-        inputContainerClassName="relative h-[38px] w-full min-w-0 overflow-hidden lg:h-9"
-        onPhoneChange={(customerPhone) => {
-          onClearCustomerContext();
-          setForm((current) => ({
-            ...current,
-            customerPhone,
-            customerId: undefined,
-            deviceId: undefined,
-          }));
-        }}
-        onNameChange={(customerName) => {
-          onClearCustomerContext();
-          setForm((current) => ({
-            ...current,
-            customerName,
-            customerId: undefined,
-            deviceId: undefined,
-          }));
-        }}
-        onPickCustomer={onPickCustomer}
-        onNewCustomerIntentChange={onNewCustomerIntentChange}
-        onClearCustomerSelection={() => {
-          onClearCustomerContext();
-          setForm((current) => ({
-            ...current,
-            customerId: undefined,
-            deviceId: undefined,
-          }));
-        }}
-      />
+      {form.customerId && !editingSelected ? (
+        <div className="flex min-w-0 items-center gap-2 rounded-lg bg-primary/5 px-2 py-1">
+          <UserRound className="size-5 shrink-0 text-primary" />
+          <div className="min-w-0 flex-1">
+            <p className="break-words text-base font-semibold">{form.customerPhone}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {form.customerName || t("orders2b1.new.lookup.unnamed")}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-11 shrink-0"
+            aria-label={t("orders.newFlow.customerEdit")}
+            onClick={() => setEditingSelected(true)}
+          >
+            <Pencil className="size-4" />
+          </Button>
+        </div>
+      ) : (
+        <CustomerIdentityLookup
+          phone={form.customerPhone}
+          name={form.customerName}
+          selectedCustomerId={form.customerId}
+          inputClassName={visualInputClass}
+          inputContainerClassName="relative h-[38px] w-full min-w-0 overflow-hidden lg:h-9"
+          onPhoneChange={(customerPhone) => {
+            onClearCustomerContext();
+            setForm((current) => ({
+              ...current,
+              customerPhone,
+              customerId: undefined,
+              deviceId: undefined,
+            }));
+          }}
+          onNameChange={(customerName) => {
+            onClearCustomerContext();
+            setForm((current) => ({
+              ...current,
+              customerName,
+              customerId: undefined,
+              deviceId: undefined,
+            }));
+          }}
+          onPickCustomer={(candidate) => {
+            setEditingSelected(false);
+            return onPickCustomer(candidate);
+          }}
+          onNewCustomerIntentChange={onNewCustomerIntentChange}
+          onClearCustomerSelection={() => {
+            onClearCustomerContext();
+            setForm((current) => ({
+              ...current,
+              customerId: undefined,
+              deviceId: undefined,
+            }));
+          }}
+        />
+      )}
     </section>
   );
 }
@@ -174,6 +204,9 @@ export function NewOrderDeviceInfoSection({
   historyDevices,
   onSelectHistoryDevice,
   surface = "page",
+  children,
+  editorOnly = false,
+  onScan,
 }: NewOrderDeviceSectionProps) {
   const { t } = useLocale();
   const shellClass = getShellClass(surface);
@@ -181,15 +214,19 @@ export function NewOrderDeviceInfoSection({
   const modelSuggestions = deviceModelSuggestionsForBrand(form.brand);
 
   return (
-    <section data-new-order-section="device-info" className={cn(shellClass, "space-y-1.5")}>
-      <OrderWorkspaceSectionHeader
-        icon={Smartphone}
-        title={t("orders2b1.new.deviceInfo")}
-        description={t("orders2b1.new.deviceInfoHelp")}
-        className="mb-1.5"
-      />
-      <NewOrderDeviceCustodySelector form={form} setForm={setForm} />
-      {form.customerId && !hasDeviceDraft && historyDevices.length > 0 && (
+    <section
+      data-new-order-section="device-info"
+      className={cn(editorOnly ? "min-w-0" : shellClass, "space-y-1.5")}
+    >
+      {!editorOnly ? (
+        <OrderWorkspaceSectionHeader
+          icon={Smartphone}
+          title={t("orders2b1.new.deviceInfo")}
+          className="mb-1.5"
+        />
+      ) : null}
+      {!editorOnly ? <NewOrderDeviceCustodySelector form={form} setForm={setForm} /> : null}
+      {!editorOnly && form.customerId && !hasDeviceDraft && historyDevices.length > 0 && (
         <div className="mb-1.5 rounded-xl border border-[var(--border-panel)] bg-card p-1.5 shadow-[var(--shadow-card)]">
           <div className="mb-1 flex items-center justify-between gap-2 px-1">
             <span className="truncate text-[10px] font-bold leading-3 text-muted-foreground lg:text-xs lg:leading-4">
@@ -289,7 +326,7 @@ export function NewOrderDeviceInfoSection({
           />
         </DensePillField>
         <DenseScannerBlock label="IMEI">
-          <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 items-center [&>div]:min-w-0 [&>div]:flex-1">
             <ImeiScannerField
               value={form.imei}
               onChange={(imei) => setForm({ ...form, imei, deviceId: undefined })}
@@ -298,45 +335,70 @@ export function NewOrderDeviceInfoSection({
               density="compact"
               appearance="quiet"
               showPaste={false}
+              showScanner={!onScan}
             />
+            {onScan ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-11 shrink-0"
+                onClick={onScan}
+                aria-label={t("inventory2b4.scanner.title")}
+              >
+                <ScanLine className="size-4" />
+              </Button>
+            ) : null}
           </div>
         </DenseScannerBlock>
       </div>
+      {!editorOnly ? (
+        <div className="flex min-w-0 items-center gap-2 border-t border-border pt-1.5">
+          <span className="w-14 shrink-0 text-[11px] text-muted-foreground">
+            {t("orders2b1.new.accessories")}
+          </span>
+          <AccessoryNotesPicker
+            value={form.accessoryNotes}
+            onChange={(accessoryNotes) => setForm({ ...form, accessoryNotes })}
+            compact
+            triggerClassName="h-9 min-w-0 flex-1 border-0 bg-transparent text-xs shadow-none"
+          />
+        </div>
+      ) : null}
+      {children}
     </section>
   );
 }
 
-export function NewOrderDeviceUnlockSection({
-  form,
-  setForm,
-  surface = "page",
-}: NewOrderCustomerDeviceBaseProps) {
+export function NewOrderDeviceUnlockSection({ form, setForm }: NewOrderCustomerDeviceBaseProps) {
   const { t } = useLocale();
-  const shellClass = getShellClass(surface);
-
   return (
-    <section data-new-order-section="device-unlock" className={cn(shellClass, "space-y-1.5")}>
-      <OrderWorkspaceSectionHeader
-        icon={Smartphone}
-        title={t("orders2b1.new.unlockTitle")}
-        description={t("orders2b1.new.unlockHelp")}
-        className="mb-1.5"
+    <details
+      data-new-order-section="device-unlock"
+      className="group min-w-0 border-t border-border pt-1"
+    >
+      <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between gap-2 rounded-md text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+        <span className="text-muted-foreground">{t("orders2b1.new.unlockTitle")}</span>
+        <span className="min-w-0 flex-1 text-right">
+          {form.deviceUnlock.method === "none"
+            ? t("orders.newFlow.optional")
+            : t("orders.newFlow.filled")}
+        </span>
+        <ChevronDown className="size-3.5 group-open:rotate-180" />
+      </summary>
+      <DeviceUnlockEditor
+        value={form.deviceUnlock}
+        onChange={(deviceUnlock) => setForm({ ...form, deviceUnlock })}
+        compact
       />
-      <div className="rounded-xl border border-[var(--border-panel)] bg-card px-2 py-1.5 shadow-[var(--shadow-card)]">
-        <DeviceUnlockEditor
-          value={form.deviceUnlock}
-          onChange={(deviceUnlock) => setForm({ ...form, deviceUnlock })}
-          compact
-        />
-        <p className="mt-1 rounded-lg bg-status-warn/45 px-2 py-1 text-[9px] leading-3 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
-          {t("orders2b1.new.unlockNotDrafted")}
-        </p>
-      </div>
-    </section>
+      <p className="mt-1 rounded-lg bg-status-warn/45 px-2 py-1 text-[11px] leading-4 text-status-warn-foreground">
+        {t("orders2b1.new.unlockNotDrafted")}
+      </p>
+    </details>
   );
 }
 
-function NewOrderDeviceCustodySelector({
+export function NewOrderDeviceCustodySelector({
   form,
   setForm,
 }: Pick<NewOrderCustomerDeviceBaseProps, "form" | "setForm">) {
@@ -361,12 +423,15 @@ function NewOrderDeviceCustodySelector({
   return (
     <fieldset
       data-new-order-field="device-custody"
-      className="grid min-w-0 gap-1.5"
+      className="grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] items-center gap-1.5"
       aria-required="true"
     >
-      <legend className="text-[10.5px] font-semibold leading-4 text-muted-foreground lg:text-xs lg:leading-4">
+      <legend className="sr-only text-[10.5px] font-semibold leading-4 text-muted-foreground lg:text-xs lg:leading-4">
         {t("orders2b1.new.custodyRequired")} <span className="text-destructive">*</span>
       </legend>
+      <span aria-hidden="true" className="text-[11px] text-muted-foreground">
+        {t("orders2b1.new.custody")} <span className="text-destructive">*</span>
+      </span>
       <div className="grid min-w-0 grid-cols-2 gap-1.5">
         {options.map((option) => {
           const selected = form.deviceCustodyStatus === option.value;
@@ -377,7 +442,7 @@ function NewOrderDeviceCustodySelector({
               type="button"
               aria-pressed={selected}
               className={cn(
-                "min-h-9 min-w-0 rounded-lg border px-2 py-1 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                "min-h-9 min-w-0 rounded-lg border px-1.5 py-1 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
                 selected
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-[var(--border-panel)] bg-card text-foreground hover:bg-accent/40",
@@ -396,18 +461,11 @@ function NewOrderDeviceCustodySelector({
                 </span>
                 {selected ? <Check className="ml-auto size-3.5 shrink-0" /> : null}
               </span>
-              <span className="mt-0.5 block truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-                {option.description}
-              </span>
+              <span className="sr-only">{option.description}</span>
             </button>
           );
         })}
       </div>
-      {form.deviceCustodyStatus === null ? (
-        <p className="rounded-lg bg-status-warn/45 px-2 py-1 text-[9px] leading-3 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
-          {t("orders2b1.new.custodyMissing")}
-        </p>
-      ) : null}
     </fieldset>
   );
 }
@@ -447,11 +505,11 @@ function DensePillField({
   return (
     <div
       data-new-order-field={fieldTarget}
-      className="rd-new-order-field grid min-h-[38px] min-w-0 grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-1.5 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-0 shadow-[var(--shadow-card)]"
+      className="rd-new-order-field grid min-h-[38px] min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-1.5 rounded-lg border border-transparent border-b-border bg-card px-0 py-0 shadow-none focus-within:border-ring focus-within:ring-1 focus-within:ring-ring"
     >
       <Label
         htmlFor={inputId}
-        className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground lg:text-xs lg:leading-4"
+        className="whitespace-normal text-[10.5px] font-semibold leading-4 text-muted-foreground lg:text-xs lg:leading-4"
       >
         {label}
         {required ? <span className="text-destructive"> *</span> : null}
@@ -485,8 +543,8 @@ function DensePillField({
 
 function DenseScannerBlock({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="rd-new-order-field grid min-h-[38px] min-w-0 grid-cols-[3.25rem_minmax(0,1fr)] items-center gap-1.5 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-0 shadow-[var(--shadow-card)] lg:min-h-10">
-      <Label className="truncate text-[10.5px] font-semibold leading-4 text-muted-foreground lg:text-xs lg:leading-4">
+    <div className="rd-new-order-field grid min-h-[38px] min-w-0 grid-cols-[3.25rem_minmax(0,1fr)] items-center gap-1.5 rounded-lg border border-transparent border-b-border bg-card px-0 py-0 shadow-none focus-within:border-ring focus-within:ring-1 focus-within:ring-ring lg:min-h-10">
+      <Label className="whitespace-normal text-[10.5px] font-semibold leading-4 text-muted-foreground lg:text-xs lg:leading-4">
         {label}
       </Label>
       <div className="grid min-w-0 grid-cols-[1rem_minmax(0,1fr)] items-center gap-1.5">

@@ -1,25 +1,25 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Link from "next/link";
-import { ArrowLeft, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { DeviceCustodyBadge } from "@/components/orders/badges";
-import { localizeDeviceCustody } from "@/features/orders/model/order-i18n";
 import { cn } from "@/lib/utils";
 import type { DeviceCustodyStatus } from "@/lib/repairdesk/types";
+import { formatCurrency } from "@/shared/i18n/format";
 import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function NewOrderSubmitBar({
   valid,
   pending,
   statusMessage,
-  custodyStatus,
-  onCancel,
+  total = 0,
+  missingCount = 0,
   surface = "page",
   validationSummaryId,
 }: {
+  total?: number;
+  missingCount?: number;
   valid: boolean;
   pending: boolean;
   statusMessage?: string;
@@ -28,7 +28,7 @@ export function NewOrderSubmitBar({
   surface?: "page" | "dialog";
   validationSummaryId?: string;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const isDialog = surface === "dialog";
   const barRef = useRef<HTMLDivElement>(null);
 
@@ -66,57 +66,26 @@ export function NewOrderSubmitBar({
       ref={barRef}
       data-new-order-submit-bar="true"
       className={cn(
-        "pointer-events-none fixed inset-x-0 bottom-0 z-40 bg-background/85 px-2 pb-[calc(env(safe-area-inset-bottom)+0.4rem)] pt-1 backdrop-blur-xl md:pointer-events-auto md:sticky md:bottom-3 md:mt-3 md:px-0 md:pb-0 md:pt-0",
+        "pointer-events-none fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card px-3.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 md:pointer-events-auto md:sticky md:bottom-3 md:mt-3 md:px-0 md:pb-0 md:pt-0",
         isDialog ? "md:mx-0" : "md:mx-0 md:bg-transparent md:backdrop-blur-none",
       )}
     >
       <div
         data-new-order-submit-card="true"
         className={cn(
-          "pointer-events-auto mx-auto grid max-w-[430px] min-w-0 grid-cols-1 items-center gap-1 rounded-xl border border-[var(--border-panel)] bg-card px-1.5 py-1.5 shadow-[var(--shadow-card)] md:flex md:max-w-none md:justify-between md:gap-2 md:bg-[var(--surface-panel)] md:px-2 md:py-2 md:shadow-[var(--shadow-workspace)]",
+          "pointer-events-auto mx-auto grid max-w-[430px] min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl bg-card py-0 shadow-none md:flex md:max-w-none md:justify-between md:gap-2 md:bg-[var(--surface-panel)] md:px-2 md:py-2 md:shadow-[var(--shadow-workspace)]",
           isDialog ? "md:rounded-xl md:px-3" : "md:rounded-[var(--radius-lg)] md:px-3",
         )}
       >
-        {onCancel ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            type="button"
-            className="hidden h-9 gap-1.5 rounded-lg text-xs md:inline-flex lg:h-8"
-            onClick={onCancel}
-          >
-            <ArrowLeft className="size-3.5" /> {t("orders2b1.new.back")}
-          </Button>
-        ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            type="button"
-            className="hidden h-9 gap-1.5 rounded-lg text-xs md:inline-flex lg:h-8"
-            asChild
-          >
-            <Link href="/orders">
-              <ArrowLeft className="size-3.5" /> {t("orders2b1.new.back")}
-            </Link>
-          </Button>
-        )}
-        <div className="flex min-w-0 flex-col gap-0.5 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1 md:ml-auto">
-          <div className="flex min-w-0 items-center justify-between gap-1.5 md:justify-start">
-            <span className="text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
-              {t("orders2b1.new.custody")}
-            </span>
-            <DeviceCustodyBadge
-              status={custodyStatus}
-              label={localizeDeviceCustody(custodyStatus, undefined, t)}
-              className="text-[10px] lg:text-xs lg:leading-4"
-            />
-          </div>
+        <div className="min-w-0 px-1.5">
+          <span className="block text-[10px] text-muted-foreground">
+            {t(valid ? "orders.newFlow.ready" : "orders2b1.new.incomplete")}
+          </span>
+          <span className="font-mono text-xs font-medium text-muted-foreground">
+            {formatCurrency(total, locale)}
+          </span>
           {statusMessage ? (
-            <p
-              role="status"
-              aria-live="polite"
-              className="text-[10px] text-muted-foreground lg:text-xs lg:leading-4"
-            >
+            <p role="status" className="text-[10px] leading-3 text-muted-foreground">
               {statusMessage}
             </p>
           ) : null}
@@ -124,14 +93,18 @@ export function NewOrderSubmitBar({
         <div className="contents md:flex md:min-w-0 md:items-center">
           <Button
             type="submit"
+            aria-label={t(pending ? "orders2b1.new.processing" : "orders2b1.new.create")}
             disabled={pending}
-            aria-disabled={!valid || pending}
+            aria-disabled={pending}
             aria-describedby={!valid ? validationSummaryId : undefined}
-            className="h-11 min-h-11 w-full shrink-0 gap-1.5 rounded-lg border-0 px-4 text-sm font-semibold text-primary-foreground md:w-auto"
-            style={{ background: "var(--gradient-brand)" }}
+            className="h-11 min-h-11 w-full shrink-0 gap-1.5 rounded-lg border-0 px-4 whitespace-normal text-xs font-semibold leading-4 text-primary-foreground md:w-auto"
           >
             <Plus className="size-3.5" />
-            {t(pending ? "orders2b1.new.processing" : "orders2b1.new.create")}
+            {pending
+              ? t("orders2b1.new.processing")
+              : !valid
+                ? t("orders.newFlow.missingAction", { count: missingCount || 1 })
+                : t("orders2b1.new.create")}
           </Button>
         </div>
       </div>

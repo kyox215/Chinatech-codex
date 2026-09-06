@@ -7,6 +7,15 @@ import { translateMessage } from "@/shared/i18n/messages";
 
 import { NewOrderDialog } from "./new-order-dialog";
 
+vi.mock("@/components/navigation-guard-provider", () => ({
+  useNavigationGuard: () => ({
+    runGuardedTransition: ({ run }: { run: () => void }) => {
+      run();
+      return Promise.resolve({ status: "executed" });
+    },
+  }),
+}));
+
 vi.mock("@/features/orders/screens/new-order-screen", async () => {
   await new Promise((resolve) => setTimeout(resolve, 250));
   return {

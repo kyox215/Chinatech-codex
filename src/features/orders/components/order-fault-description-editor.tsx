@@ -317,7 +317,7 @@ export function OrderFaultDescriptionEditor({
                 aria-invalid={issueInvalid}
                 className={cn(
                   componentOverlay.editorField,
-                  "h-[104px] min-h-[104px] resize-none leading-6 lg:resize-y",
+                  "h-[104px] lg:h-[200px] min-h-[104px] lg:h-[200px] resize-none leading-6 lg:resize-y",
                 )}
               />
               <p id={`${id}-issue-help`} className="sr-only">

@@ -1,6 +1,7 @@
 "use client";
 
 import { lazy, Suspense } from "react";
+import { useNavigationGuard } from "@/components/navigation-guard-provider";
 import { LoaderCircle } from "lucide-react";
 
 import {
@@ -34,9 +35,23 @@ export function NewOrderDialog({
   onCreated: (id: string) => void;
 }) {
   const { t } = useLocale();
+  const { runGuardedTransition } = useNavigationGuard();
+  const close = () => {
+    void runGuardedTransition({
+      kind: "route",
+      label: t("common.close"),
+      run: () => onOpenChange(false),
+    });
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next) onOpenChange(true);
+        else close();
+      }}
+    >
       <DialogContent
         initialFocus="container"
         data-new-order-dialog="true"
@@ -60,7 +75,7 @@ export function NewOrderDialog({
               key={sessionKey}
               surface="dialog"
               prefill={prefill}
-              onCancel={() => onOpenChange(false)}
+              onCancel={close}
               onCreated={onCreated}
             />
           </Suspense>

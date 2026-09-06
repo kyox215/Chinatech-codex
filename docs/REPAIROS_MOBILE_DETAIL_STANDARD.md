@@ -334,13 +334,13 @@ document.documentElement.scrollWidth <= window.innerWidth
 
 ### Orders workspace grouping (TASK-20260905-004)
 
-Order detail uses two top-level groups, Details and History, on compact pages and desktop pages/workspaces. Compact tabs are inside the measured floating header. Details retains device/customer, responsibility, finance and photos; History shows both complete timeline events and notification bodies. Panels retain local state and individual scroll positions; switching order resets the selected group, while locale switching preserves it.
+Order detail uses three top-level groups: Overview, Photos and Records. Compact tabs are inside the measured floating header. Overview retains device/customer, responsibility and finance; Photos has its own attachment workspace; Records shows complete timeline events and notification bodies. Panels retain local state and individual scroll positions; switching order resets the selected group, while locale switching preserves it.
 
 A14 notes editing uses one visible issue_description textbox and the existing intake permission. Historical diagnosis_result stays read-only in detail and is omitted from note saves. The repair reference panel is removed; desktop keeps its independent Dialog shell. The opening version is the save baseline; remote changes never replace dirty text. Save errors retain drafts; conflict reload explicitly confirms discarding the draft. Every close path is guarded while pending and confirms dirty discard. Existing diagnosis data is preserved by note edits.
 
-### 故障编辑面板补充（2026-09-05）
+### 单备注编辑面板（A14，2026-09-06）
 
-故障与诊断编辑使用独立字段帮助、必填/选填/只读标识和可见草稿状态。移动文本域使用16px输入字号及约112/96px稳定高度；主体单滚动，底部双44px操作和安全区保持可达。参考项目仅追加名称，不改变报价金额；追加后的文本状态和单一live区域共同反馈结果。放弃及重载在原浮层中显示确认步骤，默认继续编辑，Escape/X返回草稿，外部点击不放弃，重载失败保留草稿。DeviceUnlockEditSheet仅是移动详情表面，桌面使用其他现有流程，不将其计为同一表面覆盖。
+单一issue_description文本域沿用接单编辑权限；历史diagnosis_result只读展示、不进入备注保存载荷。手机文本域16px、104px高；桌面独立Dialog提供200px文本域和右对齐按钮。主体单滚动，关闭与保存保持44px。旧双字段/参考项目追加方案已由A14替代。放弃及重载保留原浮层确认步骤，默认继续编辑，Escape/X返回草稿；pending禁止退出，错误与冲突保留草稿。
 
 当前全局复用规则与有限覆盖/例外清单见 [GLOBAL_CONTENT_EDITING_STANDARD.md](GLOBAL_CONTENT_EDITING_STANDARD.md)。
 
@@ -354,3 +354,8 @@ This presentation contract does not change the confirmation Sheet/Dialog, final 
 ### A14 compact order editors (2026-09-06)
 
 Name/price/delete share a 36px visual row with separate specification/error tracks; Add custom is 36px. Money summary labels and value baselines align across equal tiles, with one subtle deposit edit boundary. Inputs remain 16px on mobile and final Save/Cancel remain 44px. Identity/finance/unlock editors opt into a non-scrolling header/close and footer with one scrolling body. Brand/model suggestions precede IMEI capture, accessories and device notes. Notes editing preserves legacy diagnosis without merging or clearing it. Customer matches display phone first, preserve the current customer identity and only warn on duplicate numbers; new orders retain explicit selection. Refer to GLOBAL_CONTENT_EDITING_STANDARD.md for the finite consumer and evidence boundary.
+
+
+### A14 手机新建工单摘要编辑（2026-09-06）
+
+新建页面在手机宽度复用Floating Card令牌，顶部52px导航、手机号优先的接机摘要、显式保管及附物/解锁短入口。报价维持12组4×3、33px/4px和左右选择语义，金额三列；照片三槽、单备注、设置及唯一创建入口。客户/设备/补充编辑使用一个活动Sheet，历史与新客户在同层返回；IMEI扫描替换该Sheet后返回保留设备草稿。关闭/完成44px、输入16px，320×350正文和数字键盘各有有界滚动，关闭/完成可达。打开不聚焦文本，显式客户选择关闭并回焦；电话Enter关闭不允许按钮默认点击重开键盘。桌面维持独立工作台。创建后主体只读，上传以真实canUploadPhoto为准，部分成功只能恢复未成功照片。

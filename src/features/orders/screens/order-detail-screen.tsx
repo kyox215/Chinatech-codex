@@ -295,7 +295,7 @@ import type {
 } from "@/lib/repairdesk/types";
 
 type WorkflowTransitionAction = ReturnType<typeof getWorkflowTransitionActions>[number];
-type DesktopDetailView = "overview" | "records";
+type DesktopDetailView = "overview" | "records" | "photos";
 const imeiOcrImageAccept =
   "image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif";
 const imeiOcrImageMimeTypes = new Set([
@@ -389,7 +389,7 @@ export function OrderDetailScreen({
   }, []);
   const [desktopDetailView, setDesktopDetailView] = useState<DesktopDetailView>("overview");
   const desktopScrollerRef = useRef<HTMLDivElement>(null);
-  const desktopScrollPositions = useRef({ overview: 0, records: 0 });
+  const desktopScrollPositions = useRef({ overview: 0, records: 0, photos: 0 });
   const [desktopFaultEditing, setDesktopFaultEditing] = useState(false);
   const desktopFaultTriggerRef = useRef<HTMLButtonElement>(null);
   const [faultSessionScope, setFaultSessionScope] = useState<{
@@ -463,7 +463,7 @@ export function OrderDetailScreen({
   useEffect(() => {
     setDesktopDetailView("overview");
     setDesktopFaultEditing(false);
-    desktopScrollPositions.current = { overview: 0, records: 0 };
+    desktopScrollPositions.current = { overview: 0, records: 0, photos: 0 };
   }, [id]);
 
   const changeDesktopDetailView = useCallback(
@@ -1459,6 +1459,7 @@ export function OrderDetailScreen({
   const safeDesktopDetailView = desktopDetailView;
   const desktopDetailTabs: OrderDetailTab<DesktopDetailView>[] = [
     { key: "overview", label: t("orders.workspace.details") },
+    { key: "photos", label: t("orders2b2.overview.photos") },
     { key: "records", label: t("orders.workspace.history") },
   ];
   const renderCustodyPanel = () => (
@@ -1787,7 +1788,7 @@ export function OrderDetailScreen({
           {
             <div
               data-order-detail-view-switcher="true"
-              className="relative z-10 mx-auto mb-2 flex w-fit max-w-full min-w-0 items-center gap-2"
+              className="relative z-10 mx-auto mb-2 flex w-full max-w-[1320px] min-w-0 flex-wrap items-center justify-between gap-2"
             >
               <OrderDetailTabs
                 tabs={isEditing ? desktopDetailTabs.slice(0, 1) : desktopDetailTabs}
@@ -1797,33 +1798,38 @@ export function OrderDetailScreen({
                 idPrefix="order-detail-workspace"
                 className="!m-0 min-w-0"
               />
-              {!isEditing &&
-              (data.capabilities?.canEditIntake || data.capabilities?.canEditRepair) ? (
-                <Button
-                  ref={desktopFaultTriggerRef}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    handleFaultSessionChange(true);
-                    setDesktopFaultEditing(true);
-                  }}
-                >
-                  {t("orders.faultEditor.title")}
-                </Button>
-              ) : null}
-              {canOpenDiagnosisQuote ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-11 min-w-11 shrink-0 px-3 text-xs lg:h-8 lg:min-w-0 lg:px-2.5"
-                  onClick={() => setDiagnosisQuoteOpen(true)}
-                >
-                  {data.capabilities?.canPrepareQuote
-                    ? t("orders2b2.diagnosis.openPrepare")
-                    : t("orders2b2.diagnosis.openRecord")}
-                </Button>
-              ) : null}
+              <div
+                className="flex min-w-0 flex-wrap items-center justify-end gap-2"
+                data-order-detail-editor-actions="true"
+              >
+                {!isEditing &&
+                (data.capabilities?.canEditIntake || data.capabilities?.canEditRepair) ? (
+                  <Button
+                    ref={desktopFaultTriggerRef}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      handleFaultSessionChange(true);
+                      setDesktopFaultEditing(true);
+                    }}
+                  >
+                    {t("orders.faultEditor.title")}
+                  </Button>
+                ) : null}
+                {canOpenDiagnosisQuote ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-11 min-w-11 shrink-0 px-3 text-xs lg:h-8 lg:min-w-0 lg:px-2.5"
+                    onClick={() => setDiagnosisQuoteOpen(true)}
+                  >
+                    {data.capabilities?.canPrepareQuote
+                      ? t("orders2b1.quote.total")
+                      : t("orders2b2.diagnosis.openRecord")}
+                  </Button>
+                ) : null}
+              </div>
             </div>
           }
 
@@ -1946,6 +1952,7 @@ export function OrderDetailScreen({
                     workflow={workflow}
                     onShowRecords={showDesktopRecords}
                     photoAttachments={photoAttachments}
+                    showPhotoPanel={false}
                     signatureAttachments={signatureAttachments}
                     photoUploadPending={attachmentUpload.isPending}
                     onPhotoCapture={
@@ -2004,25 +2011,31 @@ export function OrderDetailScreen({
                       ) : null}
                     </div>
                   ) : null}
-                  {surface === "dialog" ? (
-                    <DesktopOrderPhotosPanel
-                      attachments={photoAttachments}
-                      uploadPending={attachmentUpload.isPending}
-                      onCapture={
-                        data.capabilities?.canUploadPhoto === true && !isVoided
-                          ? (kind, trigger) => {
-                              setDesktopPhotoCaptureKind(kind);
-                              desktopPhotoTriggerRef.current = trigger;
-                              desktopPhotoOutsideDismissedRef.current = false;
-                              setDesktopPhotoCaptureOpen(true);
-                            }
-                          : undefined
-                      }
-                      surface={surface}
-                    />
-                  ) : null}
                 </section>
               }
+              <section
+                id="order-detail-workspace-panel-photos"
+                hidden={safeDesktopDetailView !== "photos"}
+                role="tabpanel"
+                aria-labelledby="order-detail-workspace-tab-photos"
+                className={cn("min-w-0", detailWorkspace.orderDetailContent)}
+              >
+                <DesktopOrderPhotosPanel
+                  attachments={photoAttachments}
+                  uploadPending={attachmentUpload.isPending}
+                  onCapture={
+                    data.capabilities?.canUploadPhoto === true && !isVoided
+                      ? (kind, trigger) => {
+                          setDesktopPhotoCaptureKind(kind);
+                          desktopPhotoTriggerRef.current = trigger;
+                          desktopPhotoOutsideDismissedRef.current = false;
+                          setDesktopPhotoCaptureOpen(true);
+                        }
+                      : undefined
+                  }
+                  surface={surface}
+                />
+              </section>
               <section
                 data-order-records-workspace="true"
                 id="order-detail-workspace-panel-records"

@@ -1062,7 +1062,7 @@ describe("OrderDetailScreen i18n", () => {
       expect(screen.queryAllByTestId("camera-capture-sheet")).toHaveLength(canUploadPhoto ? 1 : 0);
       fireEvent.click(
         screen.getByRole("tab", {
-          name: translateMessage("en", "orders.workspace.details"),
+          name: translateMessage("en", "orders2b2.overview.photos"),
         }),
       );
       expect(Boolean(screen.queryByRole("button", { name: "Harness photos panel capture" }))).toBe(

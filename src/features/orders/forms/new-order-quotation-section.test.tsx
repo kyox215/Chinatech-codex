@@ -91,7 +91,7 @@ describe("NewOrderQuotationSection", () => {
     expect(screen.queryByText("定金与服务")).not.toBeInTheDocument();
   });
 
-  it("keeps order settings in the original compact full-row plus two-by-two structure", () => {
+  it("keeps order settings in the collapsible service settings while accessories belong to the device", () => {
     const { container } = render(
       <NewOrderQuotationSection
         form={initialNewOrderForm}
@@ -124,7 +124,7 @@ describe("NewOrderQuotationSection", () => {
     const grid = settings?.querySelector('[data-new-order-settings-grid="true"]');
     expect(settings?.querySelector('[data-new-order-setting="warranty"]')).not.toBeNull();
     expect(grid).toHaveClass("grid-cols-[minmax(0,1fr)_minmax(0,1fr)]");
-    expect(grid?.children).toHaveLength(4);
+    expect(grid?.children).toHaveLength(3);
     expect(settings?.querySelector('[data-new-order-setting="operator"]')?.children[1]).toHaveClass(
       "h-[38px]",
       "rounded-lg",

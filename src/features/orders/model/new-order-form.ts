@@ -14,6 +14,7 @@ export interface NewOrderFormState {
   model: string;
   imei: string;
   deviceNotes: string;
+  issueDescription: string;
   deviceCustodyStatus: DeviceCustodyStatus | null;
   deviceUnlock: DeviceUnlockInput;
   internalTag: string;
@@ -34,6 +35,7 @@ export const initialNewOrderForm: NewOrderFormState = {
   model: "",
   imei: "",
   deviceNotes: "",
+  issueDescription: "",
   deviceCustodyStatus: null,
   deviceUnlock: { method: "none" },
   internalTag: "",

@@ -69,6 +69,18 @@ describe("PhoneKeypadInput", () => {
     expect(screen.getByTestId("value")).toBeEmptyDOMElement();
   });
 
+  it("closes on Enter without the button default click reopening the keypad", async () => {
+    setViewport(390);
+    const user = userEvent.setup();
+    render(<PhoneKeypadHarness />);
+    const trigger = screen.getByRole("button", { name: "客户电话号码" });
+    await user.click(trigger);
+    await user.keyboard("2025550100{Enter}");
+    expect(document.querySelector("[data-phone-keypad]")).toBeNull();
+    expect(screen.getByTestId("value")).toHaveTextContent("2025550100");
+    expect(trigger).toHaveFocus();
+  });
+
   it("uses a native tel input for desktop typing without opening the app keypad", async () => {
     setViewport(1280);
     const user = userEvent.setup();

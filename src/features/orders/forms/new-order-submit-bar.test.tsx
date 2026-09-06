@@ -33,21 +33,24 @@ describe("NewOrderSubmitBar", () => {
     expect(screen.getByRole("button", { name: "创建工单" })).toHaveClass("h-11", "min-h-11");
   });
 
-  it("keeps status text in the original custody-summary-then-submit layout", () => {
-    const { container } = render(
+  it("keeps incomplete status alongside one reachable create action", () => {
+    render(
       <form data-new-order-form="true">
         <NewOrderSubmitBar
           valid={false}
           pending={false}
           custodyStatus={null}
           statusMessage="请补全必填字段"
+          validationSummaryId="missing-fields"
         />
       </form>,
     );
 
     expect(screen.getByRole("status")).toHaveTextContent("请补全必填字段");
-    expect(container.querySelector('[data-new-order-submit-card="true"]')).toHaveClass(
-      "grid-cols-1",
-    );
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    const create = screen.getByRole("button", { name: "创建工单" });
+    expect(create).toBeEnabled();
+    expect(create).toHaveAttribute("aria-describedby", "missing-fields");
+    expect(create).toHaveAttribute("type", "submit");
   });
 });

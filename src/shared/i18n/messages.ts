@@ -1,6 +1,48 @@
 import type { AppLocale } from "@/shared/i18n/locales";
 
 const zhCN = {
+  "orders.newFlow.devicePhotos": "设备照片",
+  "orders.newFlow.discardEdit": "放弃本次修改？",
+  "orders.newFlow.discardEditHelp": "尚未完成的修改将被放弃，工单原有信息会保留。",
+  "orders.newFlow.editHelp": "完成后返回工单总览，关闭时可保留编辑。",
+  "orders.newFlow.keepEditing": "继续编辑",
+  "orders.newFlow.discardChanges": "放弃修改",
+  "orders.newFlow.noHistory": "暂无历史设备，可返回手动填写。",
+  "orders.newFlow.ready": "信息已齐全",
+  "orders.newFlow.photoUploading": "工单已创建，照片正在上传…",
+  "orders.newFlow.photoRemaining": "部分照片尚未上传，可以继续处理未发送的照片。",
+
+  "orders.newFlow.supplements": "照片与备注",
+  "orders.newFlow.photos": "补充照片",
+  "orders.newFlow.notes": "备注",
+  "orders.newFlow.optional": "选填",
+  "orders.newFlow.filled": "已填写",
+  "orders.newFlow.photoHelp": "照片将在工单创建后上传。",
+  "orders.newFlow.photoLocal": "照片仅保留在当前页面，不包含在本机文字草稿中。",
+  "orders.newFlow.photoInvalid": "请选择不超过8MB的JPEG、PNG、WebP或HEIC照片。",
+  "orders.newFlow.photoPreview": "暂存照片预览",
+  "orders.newFlow.photo.pending": "等待上传",
+  "orders.newFlow.photo.uploading": "上传中",
+  "orders.newFlow.photo.uploaded": "已保存",
+  "orders.newFlow.photo.failed": "未上传，可重试",
+  "orders.newFlow.photo.uncertain": "结果待核对",
+  "orders.newFlow.createdPhotos": "工单已创建 · 照片尚未全部保存",
+  "orders.newFlow.photoBlocked": "目前无法确认照片上传权限，请重试核验或进入工单处理。",
+  "orders.newFlow.photoUncertain":
+    "部分照片的上传结果待核对，系统不会重复上传。请在工单照片中核对。",
+  "orders.newFlow.retryPhotos": "继续上传未发送照片",
+  "orders.newFlow.viewOrder": "查看已创建工单",
+  "orders.newFlow.leavePhotosTitle": "离开前确认照片",
+  "orders.newFlow.leavePhotosHelp":
+    "工单已经创建。未保存照片只在当前页面，离开后将丢失；结果待核对的照片可能已保存，请进入工单核对。",
+  "orders.newFlow.leavePhotos": "离开并查看工单",
+  "orders.newFlow.offlinePhotos": "照片仍在当前页面。请联网后创建，或移除照片后保存离线工单。",
+  "orders.newFlow.customerEdit": "编辑或改选客户",
+  "orders.newFlow.missingAction": "还差 {count} 项 · 继续填写",
+  "orders.newFlow.adjust": "调整",
+  "orders.newFlow.front": "设备正面",
+  "orders.newFlow.back": "设备背面",
+
   "metadata.title": "RepairDesk — 维修工单后台",
   "metadata.description": "现代化手机维修接单管理后台",
   "notFound.title": "页面未找到",
@@ -3952,6 +3994,54 @@ export type MessageKey = keyof typeof zhCN;
 export type MessageValues = Record<string, string | number>;
 
 const itIT: Record<MessageKey, string> = {
+  "orders.newFlow.devicePhotos": "Foto dispositivo",
+  "orders.newFlow.discardEdit": "Scartare le modifiche?",
+  "orders.newFlow.discardEditHelp":
+    "Le modifiche non confermate verranno scartate. I dati precedenti restano invariati.",
+  "orders.newFlow.editHelp":
+    "Conferma per tornare al riepilogo. Puoi continuare a modificare prima di chiudere.",
+  "orders.newFlow.keepEditing": "Continua a modificare",
+  "orders.newFlow.discardChanges": "Scarta modifiche",
+  "orders.newFlow.noHistory": "Nessun dispositivo precedente. Torna indietro per inserirlo.",
+  "orders.newFlow.ready": "Dati completi",
+  "orders.newFlow.photoUploading": "Ordine creato, caricamento delle foto…",
+  "orders.newFlow.photoRemaining":
+    "Alcune foto non sono state inviate. Puoi continuare il caricamento.",
+
+  "orders.newFlow.supplements": "Foto e note",
+  "orders.newFlow.photos": "Aggiungi foto",
+  "orders.newFlow.notes": "Note",
+  "orders.newFlow.optional": "Facoltativo",
+  "orders.newFlow.filled": "Compilato",
+  "orders.newFlow.photoHelp": "Le foto verranno caricate dopo la creazione dell’ordine.",
+  "orders.newFlow.photoLocal":
+    "Le foto restano in questa pagina e non sono incluse nella bozza locale.",
+  "orders.newFlow.photoInvalid": "Scegli foto JPEG, PNG, WebP o HEIC fino a 8 MB.",
+  "orders.newFlow.photoPreview": "Anteprima foto in attesa",
+  "orders.newFlow.photo.pending": "In attesa",
+  "orders.newFlow.photo.uploading": "Caricamento",
+  "orders.newFlow.photo.uploaded": "Salvata",
+  "orders.newFlow.photo.failed": "Non caricata, riprova",
+  "orders.newFlow.photo.uncertain": "Esito da verificare",
+  "orders.newFlow.createdPhotos": "Ordine creato · foto ancora da salvare",
+  "orders.newFlow.photoBlocked":
+    "Impossibile confermare il permesso di caricamento. Riprova o apri l’ordine.",
+  "orders.newFlow.photoUncertain":
+    "Alcuni esiti vanno verificati. Le foto non saranno ricaricate automaticamente; controlla le foto nell’ordine.",
+  "orders.newFlow.retryPhotos": "Carica le foto non inviate",
+  "orders.newFlow.viewOrder": "Apri l’ordine creato",
+  "orders.newFlow.leavePhotosTitle": "Conferma le foto prima di uscire",
+  "orders.newFlow.leavePhotosHelp":
+    "L’ordine è stato creato. Le foto non salvate andranno perse uscendo; quelle con esito incerto potrebbero essere già salvate e vanno verificate nell’ordine.",
+  "orders.newFlow.leavePhotos": "Esci e apri l’ordine",
+  "orders.newFlow.offlinePhotos":
+    "Le foto restano qui. Crea l’ordine online oppure rimuovile per salvare l’ordine offline.",
+  "orders.newFlow.customerEdit": "Modifica o cambia cliente",
+  "orders.newFlow.missingAction": "Completa {count} campi",
+  "orders.newFlow.adjust": "Modifica",
+  "orders.newFlow.front": "Fronte dispositivo",
+  "orders.newFlow.back": "Retro dispositivo",
+
   "metadata.title": "RepairDesk — Gestione riparazioni",
   "metadata.description": "Gestionale moderno per ordini di riparazione smartphone",
   "notFound.title": "Pagina non trovata",
@@ -8334,6 +8424,54 @@ const itIT: Record<MessageKey, string> = {
 };
 
 const en: Record<MessageKey, string> = {
+  "orders.newFlow.devicePhotos": "Device photos",
+  "orders.newFlow.discardEdit": "Discard these changes?",
+  "orders.newFlow.discardEditHelp":
+    "Unconfirmed changes will be discarded. The existing order draft will be kept.",
+  "orders.newFlow.editHelp":
+    "Confirm to return to the overview. You can keep editing before closing.",
+  "orders.newFlow.keepEditing": "Keep editing",
+  "orders.newFlow.discardChanges": "Discard changes",
+  "orders.newFlow.noHistory": "No previous devices. Go back to enter one manually.",
+  "orders.newFlow.ready": "Information complete",
+  "orders.newFlow.photoUploading": "Order created, uploading photos…",
+  "orders.newFlow.photoRemaining":
+    "Some photos have not been sent. You can continue uploading them.",
+
+  "orders.newFlow.supplements": "Photos and notes",
+  "orders.newFlow.photos": "Add photos",
+  "orders.newFlow.notes": "Notes",
+  "orders.newFlow.optional": "Optional",
+  "orders.newFlow.filled": "Added",
+  "orders.newFlow.photoHelp": "Photos will upload after the order is created.",
+  "orders.newFlow.photoLocal":
+    "Photos stay on this page and are not included in the saved text draft.",
+  "orders.newFlow.photoInvalid": "Choose JPEG, PNG, WebP or HEIC photos up to 8 MB.",
+  "orders.newFlow.photoPreview": "Staged photo preview",
+  "orders.newFlow.photo.pending": "Waiting",
+  "orders.newFlow.photo.uploading": "Uploading",
+  "orders.newFlow.photo.uploaded": "Saved",
+  "orders.newFlow.photo.failed": "Not uploaded, retry available",
+  "orders.newFlow.photo.uncertain": "Check upload result",
+  "orders.newFlow.createdPhotos": "Order created · some photos are not saved",
+  "orders.newFlow.photoBlocked":
+    "Photo upload permission could not be confirmed. Retry or open the order.",
+  "orders.newFlow.photoUncertain":
+    "Some upload results need checking. These photos will not upload again automatically; check the order photos.",
+  "orders.newFlow.retryPhotos": "Upload remaining photos",
+  "orders.newFlow.viewOrder": "View created order",
+  "orders.newFlow.leavePhotosTitle": "Confirm before leaving photos",
+  "orders.newFlow.leavePhotosHelp":
+    "The order is already created. Unsaved photos will be lost when you leave. Photos with uncertain results may already be saved; check them in the order.",
+  "orders.newFlow.leavePhotos": "Leave and view order",
+  "orders.newFlow.offlinePhotos":
+    "Photos are still on this page. Create online or remove photos to save an offline order.",
+  "orders.newFlow.customerEdit": "Edit or change customer",
+  "orders.newFlow.missingAction": "Complete {count} fields",
+  "orders.newFlow.adjust": "Adjust",
+  "orders.newFlow.front": "Device front",
+  "orders.newFlow.back": "Device back",
+
   "metadata.title": "RepairDesk — Repair management",
   "metadata.description": "Modern smartphone repair order management",
   "notFound.title": "Page not found",

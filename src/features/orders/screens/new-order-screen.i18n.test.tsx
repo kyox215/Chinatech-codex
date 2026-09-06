@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { NewOrderOfflineAutosaveState } from "@/features/orders/api/use-new-order-offline-autosave";
 import type { NewOrderFormState } from "@/features/orders/model/new-order-form";
-import { RepairDeskApiError } from "@/lib/repairdesk/api";
+import { RepairDeskApiError, RepairDeskTransportError } from "@/lib/repairdesk/api";
 import type { CreateOrderInput } from "@/lib/repairdesk/types";
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
 import { translateMessage } from "@/shared/i18n/messages";
@@ -19,7 +19,10 @@ const mocks = vi.hoisted(() => ({
   registerGuard: vi.fn(() => vi.fn()),
   push: vi.fn(),
   createOrder: vi.fn(),
+  getOrder: vi.fn(),
+  uploadPhoto: vi.fn(),
   createStatus: vi.fn(),
+  synchronize: vi.fn(),
   toastError: vi.fn(),
   toastMessage: vi.fn(),
   toastSuccess: vi.fn(),
@@ -51,7 +54,12 @@ const mocks = vi.hoisted(() => ({
   queueCurrentDraftForSync: vi.fn(),
   retryPreflight: vi.fn(),
   saveNow: vi.fn(),
+  autosaveOptions: vi.fn(),
   isCurrentDraftDirty: vi.fn(),
+}));
+
+vi.mock("@/features/orders/api/cache-sync", () => ({
+  synchronizeCreatedOrderNavigation: mocks.synchronize,
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }) }));
@@ -75,21 +83,26 @@ vi.mock("@/lib/repairdesk/api", async (importOriginal) => {
   return {
     ...actual,
     createOrder: mocks.createOrder,
+    getOrder: mocks.getOrder,
+    uploadOrderAttachment: mocks.uploadPhoto,
     getOrderCreateOperationStatus: mocks.createStatus,
     isRepairDeskRequestTimeoutError: (error: unknown) => error === mocks.timeoutError,
   };
 });
 vi.mock("@/features/orders/api/use-new-order-offline-autosave", () => ({
-  useNewOrderOfflineAutosave: () => ({
-    ...mocks.offline,
-    restorePromptDraft: mocks.restorePromptDraft,
-    discardPromptDraft: mocks.discardPromptDraft,
-    discardCurrentDraft: mocks.discardCurrentDraft,
-    queueCurrentDraftForSync: mocks.queueCurrentDraftForSync,
-    retryPreflight: mocks.retryPreflight,
-    saveNow: mocks.saveNow,
-    isCurrentDraftDirty: mocks.isCurrentDraftDirty,
-  }),
+  useNewOrderOfflineAutosave: (options: unknown) => (
+    mocks.autosaveOptions(options),
+    {
+      ...mocks.offline,
+      restorePromptDraft: mocks.restorePromptDraft,
+      discardPromptDraft: mocks.discardPromptDraft,
+      discardCurrentDraft: mocks.discardCurrentDraft,
+      queueCurrentDraftForSync: mocks.queueCurrentDraftForSync,
+      retryPreflight: mocks.retryPreflight,
+      saveNow: mocks.saveNow,
+      isCurrentDraftDirty: mocks.isCurrentDraftDirty,
+    }
+  ),
 }));
 vi.mock("@/features/orders/forms/new-order-customer-device-section", () => ({
   NewOrderCustomerSection: ({
@@ -144,38 +157,40 @@ vi.mock("@/features/orders/forms/new-order-customer-device-section", () => ({
 vi.mock("@/features/orders/forms/new-order-quotation-section", () => ({
   NewOrderQuotationSection: ({
     setForm,
+    part,
   }: {
     setForm: Dispatch<SetStateAction<NewOrderFormState>>;
-  }) => (
-    <div data-testid="finance-contract">
-      <button
-        type="button"
-        onClick={() =>
-          setForm((current) => ({
-            ...current,
-            deposit: 25,
-            faults: [
-              {
-                line_id: "00000000-0000-4000-8000-000000000111",
-                key: "display:original",
-                categoryKey: "display",
-                categoryLabel: "屏幕",
-                catalog_key: "display:original",
-                name: "原装屏幕",
-                note: "客户自定义备注",
-                price: 120,
-              },
-            ],
-          }))
-        }
-      >
-        Populate quote
-      </button>
-    </div>
-  ),
-}));
-vi.mock("@/features/orders/forms/new-order-guided-workspace", () => ({
-  NewOrderGuidedWorkspace: () => <div data-testid="guided-workspace" />,
+    part?: string;
+  }) =>
+    part === "settings" ? (
+      <div data-testid="service-settings" />
+    ) : (
+      <div data-testid="finance-contract">
+        <button
+          type="button"
+          onClick={() =>
+            setForm((current) => ({
+              ...current,
+              deposit: 25,
+              faults: [
+                {
+                  line_id: "00000000-0000-4000-8000-000000000111",
+                  key: "display:original",
+                  categoryKey: "display",
+                  categoryLabel: "屏幕",
+                  catalog_key: "display:original",
+                  name: "原装屏幕",
+                  note: "客户自定义备注",
+                  price: 120,
+                },
+              ],
+            }))
+          }
+        >
+          Populate quote
+        </button>
+      </div>
+    ),
 }));
 vi.mock("@tanstack/react-query", () => ({
   queryOptions: <T,>(options: T) => options,
@@ -213,7 +228,11 @@ const locales = ["zh-CN", "it-IT", "en"] as const;
 describe("NewOrderScreen i18n", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.synchronize.mockResolvedValue(undefined);
     mocks.createOrder.mockResolvedValue({ id: "order-created-1" });
+    mocks.getOrder.mockResolvedValue({ capabilities: { canUploadPhoto: true } });
+    mocks.uploadPhoto.mockResolvedValue({});
+    mocks.storeSettings.new_order_entry_mode = "professional";
     mocks.createStatus.mockResolvedValue({ status: "created", id: "order-created-1" });
     mocks.saveNow.mockResolvedValue(true);
     mocks.restorePromptDraft.mockImplementation(async () =>
@@ -255,6 +274,155 @@ describe("NewOrderScreen i18n", () => {
     if (locale !== "zh-CN") expect(container.textContent).not.toMatch(/[一-鿿]/);
     expect(mocks.createOrder).not.toHaveBeenCalled();
   });
+
+  it("creates once with the note and retains uncertain photos until explicit leave confirmation", async () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:synthetic-photo");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    mocks.uploadPhoto.mockRejectedValue(new Error("unknown upload result"));
+    let allowPhotos!: () => void;
+    mocks.getOrder.mockReturnValueOnce(
+      new Promise((resolve) => {
+        allowPhotos = () => resolve({ capabilities: { canUploadPhoto: true } });
+      }),
+    );
+    const onCreated = vi.fn();
+    const view = render(
+      <LocaleProvider initialLocale="en">
+        <NewOrderScreen onCreated={onCreated} />
+      </LocaleProvider>,
+    );
+    populateValidForm();
+    fireEvent.click(screen.getByText("Notes · Optional"));
+    fireEvent.change(screen.getByRole("textbox", { name: "Notes" }), {
+      target: { value: "Synthetic intake note" },
+    });
+    fireEvent.change(view.container.querySelector('input[type="file"]')!, {
+      target: { files: [new File(["synthetic"], "photo.png", { type: "image/png" })] },
+    });
+    fireEvent.submit(view.container.querySelector("form")!);
+    fireEvent.submit(view.container.querySelector("form")!);
+    await waitFor(() => expect(screen.getByText("Order created, uploading photos…")).toBeVisible());
+    expect(screen.getByRole("button", { name: "View created order" })).toBeDisabled();
+    expect(view.container.textContent).not.toContain("not created");
+    await act(async () => allowPhotos());
+    await waitFor(() =>
+      expect(view.container.querySelector('[data-photo-state="uncertain"]')).not.toBeNull(),
+    );
+    expect(mocks.createOrder).toHaveBeenCalledTimes(1);
+    expect(mocks.createOrder.mock.calls[0][0].issue_description).toBe("Synthetic intake note");
+    expect(mocks.uploadPhoto).toHaveBeenCalledTimes(1);
+    expect(onCreated).not.toHaveBeenCalled();
+    fireEvent.submit(view.container.querySelector("form")!);
+    expect(mocks.createOrder).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "View created order" }));
+    expect(screen.getByRole("alertdialog")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(view.container.querySelector('[data-photo-state="uncertain"]')).not.toBeNull();
+    expect(onCreated).not.toHaveBeenCalled();
+  });
+
+  it("keeps staged photos on an offline submission without creating or queuing an order", async () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:synthetic-photo");
+    const online = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    const view = render(
+      <LocaleProvider initialLocale="en">
+        <NewOrderScreen />
+      </LocaleProvider>,
+    );
+    populateValidForm();
+    fireEvent.change(view.container.querySelector('input[type="file"]')!, {
+      target: { files: [new File(["synthetic"], "photo.png", { type: "image/png" })] },
+    });
+    fireEvent.submit(view.container.querySelector("form")!);
+    await waitFor(() =>
+      expect(mocks.toastError).toHaveBeenCalledWith(
+        translateMessage("en", "orders.newFlow.offlinePhotos"),
+      ),
+    );
+    expect(mocks.createOrder).not.toHaveBeenCalled();
+    expect(mocks.queueCurrentDraftForSync).not.toHaveBeenCalled();
+    expect(view.container.querySelector('[data-photo-state="pending"]')).not.toBeNull();
+    online.mockRestore();
+  });
+
+  it("uses a recovered created ID for photos and completes without another create", async () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:synthetic-photo");
+    mocks.createOrder.mockRejectedValueOnce(mocks.timeoutError);
+    const onCreated = vi.fn();
+    const view = render(
+      <LocaleProvider initialLocale="en">
+        <NewOrderScreen onCreated={onCreated} />
+      </LocaleProvider>,
+    );
+    populateValidForm();
+    fireEvent.change(view.container.querySelector('input[type="file"]')!, {
+      target: { files: [new File(["synthetic"], "photo.png", { type: "image/png" })] },
+    });
+    fireEvent.submit(view.container.querySelector("form")!);
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith("order-created-1"));
+    expect(mocks.createOrder).toHaveBeenCalledTimes(1);
+    expect(mocks.uploadPhoto.mock.calls[0][0]).toBe("order-created-1");
+    expect(mocks.uploadPhoto).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps simple-mode diagnosis required until selection or explicit deferral on the same page", async () => {
+    mocks.storeSettings.new_order_entry_mode = "simple";
+    vi.stubEnv("NEXT_PUBLIC_REPAIRDESK_NEW_ORDER_SIMPLE_MODE_ENABLED", "1");
+    const view = render(
+      <LocaleProvider initialLocale="en">
+        <NewOrderScreen />
+      </LocaleProvider>,
+    );
+    fireEvent.click(screen.getByText("Populate customer"));
+    fireEvent.click(screen.getByText("Populate device"));
+    fireEvent.submit(view.container.querySelector("form")!);
+    await act(async () => {});
+    expect(mocks.createOrder).not.toHaveBeenCalled();
+    expect(view.container.querySelector('[data-new-order-single-page="true"]')).not.toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: translateMessage("en", "orders2b1.new.diagnosisDeferred"),
+      }),
+    );
+    fireEvent.submit(view.container.querySelector("form")!);
+    await waitFor(() => expect(mocks.createOrder).toHaveBeenCalledTimes(1));
+    vi.unstubAllEnvs();
+  });
+
+  it.each(["store", "unmount"])(
+    "does not navigate when %s changes during post-create cache refresh",
+    async (change) => {
+      let release!: () => void;
+      mocks.synchronize.mockReturnValueOnce(
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+      );
+      const onCreated = vi.fn();
+      const view = render(
+        <LocaleProvider initialLocale="en">
+          <NewOrderScreen onCreated={onCreated} />
+        </LocaleProvider>,
+      );
+      populateValidForm();
+      fireEvent.submit(view.container.querySelector("form")!);
+      await waitFor(() => expect(mocks.synchronize).toHaveBeenCalled());
+      if (change === "unmount") view.unmount();
+      else {
+        mocks.onboarding.activeStore = { id: "store-other", role: "technician" };
+        view.rerender(
+          <LocaleProvider initialLocale="en">
+            <NewOrderScreen onCreated={onCreated} />
+          </LocaleProvider>,
+        );
+      }
+      await act(async () => {
+        release();
+      });
+      expect(onCreated).not.toHaveBeenCalled();
+      expect(mocks.push).not.toHaveBeenCalled();
+    },
+  );
 
   it("submits deep-equivalent canonical Create inputs in all three locales", async () => {
     const captured: CreateOrderInput[] = [];
@@ -299,10 +467,14 @@ describe("NewOrderScreen i18n", () => {
     expect(new Set(captured.map((input) => input.operation_id)).size).toBe(3);
   });
 
-  it.each(locales)(
-    "confirms a timed-out Create with the original operation id in %s",
-    async (locale) => {
-      mocks.createOrder.mockRejectedValueOnce(mocks.timeoutError);
+  it.each(locales.flatMap((locale) => [false, true].map((transport) => ({ locale, transport }))))(
+    "confirms Create with the original operation id in $locale (transport=$transport)",
+    async ({ locale, transport }) => {
+      mocks.createOrder.mockRejectedValueOnce(
+        transport
+          ? new RepairDeskTransportError(new TypeError("response lost"))
+          : mocks.timeoutError,
+      );
       const view = render(
         <LocaleProvider initialLocale={locale}>
           <NewOrderScreen onCreated={vi.fn()} />
@@ -496,11 +668,15 @@ describe("NewOrderScreen i18n", () => {
     },
   );
 
-  it.each(locales)(
-    "checks six unknown Create statuses, shows uncertain, and retries the same operation id in %s",
-    async (locale) => {
+  it.each(locales.flatMap((locale) => [false, true].map((transport) => ({ locale, transport }))))(
+    "checks unknown Create and retries the same operation in $locale (transport=$transport)",
+    async ({ locale, transport }) => {
       vi.useFakeTimers();
-      mocks.createOrder.mockRejectedValueOnce(mocks.timeoutError);
+      mocks.createOrder.mockRejectedValueOnce(
+        transport
+          ? new RepairDeskTransportError(new TypeError("response lost"))
+          : mocks.timeoutError,
+      );
       mocks.createStatus.mockResolvedValue({ status: "pending" });
       const onCreated = vi.fn();
       const view = render(
@@ -554,6 +730,37 @@ describe("NewOrderScreen i18n", () => {
       expect(onCreated).toHaveBeenCalledWith("order-recovered-1");
     },
   );
+
+  it("keeps the original autosave scope disabled through A to B to A", () => {
+    const tree = () => (
+      <LocaleProvider initialLocale="en">
+        <NewOrderScreen />
+      </LocaleProvider>
+    );
+    const view = render(tree());
+    populateValidForm();
+    expect(mocks.autosaveOptions.mock.lastCall?.[0]).toMatchObject({
+      scope: { storeId: "store-1", userId: "user-1" },
+      enabled: true,
+    });
+    mocks.onboarding.activeStore = { id: "store-b", role: "technician" };
+    view.rerender(tree());
+    expect(mocks.autosaveOptions.mock.lastCall?.[0]).toMatchObject({
+      scope: { storeId: "store-1", userId: "user-1" },
+      enabled: false,
+    });
+    mocks.onboarding.activeStore = { id: "store-1", role: "technician" };
+    view.rerender(tree());
+    expect(mocks.autosaveOptions.mock.lastCall?.[0]).toMatchObject({
+      scope: { storeId: "store-1", userId: "user-1" },
+      enabled: false,
+    });
+    fireEvent.submit(view.container.querySelector("form")!);
+    expect(mocks.createOrder).not.toHaveBeenCalled();
+    expect(
+      mocks.autosaveOptions.mock.calls.some(([options]) => options.scope?.storeId === "store-b"),
+    ).toBe(false);
+  });
 
   it.each(locales)("completes localized dirty-leave save and discard in %s", async (locale) => {
     mocks.isCurrentDraftDirty.mockReturnValue(true);
@@ -663,6 +870,7 @@ function restoredCanonicalForm(): NewOrderFormState {
     model: "自定义型号",
     imei: "",
     deviceNotes: "",
+    issueDescription: "",
     deviceCustodyStatus: "with_shop",
     deviceUnlock: { method: "none" },
     internalTag: "",

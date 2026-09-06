@@ -1,7 +1,7 @@
 "use client";
 
-import type { Dispatch, SetStateAction } from "react";
-import { Plus, ReceiptText, ShieldCheck, Trash2 } from "lucide-react";
+import { useState, type Dispatch, type SetStateAction } from "react";
+import { ChevronDown, Plus, ReceiptText, ShieldCheck, Trash2 } from "lucide-react";
 
 import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
 import { FaultDiagnosisPicker } from "@/components/orders/fault-diagnosis-picker";
@@ -14,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AccessoryNotesPicker } from "@/features/orders/components/accessory-notes-picker";
 import {
   OrderWorkspaceEmptyBlock,
   OrderWorkspaceMoneyStrip,
@@ -45,6 +44,9 @@ export function NewOrderQuotationSection({
   defaultWarrantyMonths = 6,
   surface = "page",
   layout = "professional",
+  part = "all",
+  mobileOverview = false,
+  expanded = false,
 }: {
   form: NewOrderFormState;
   setForm: Dispatch<SetStateAction<NewOrderFormState>>;
@@ -57,18 +59,24 @@ export function NewOrderQuotationSection({
   defaultWarrantyMonths?: number;
   surface?: "page" | "dialog";
   layout?: "professional" | "guided";
+  part?: "all" | "quote" | "settings";
+  mobileOverview?: boolean;
+  expanded?: boolean;
 }) {
   const { t } = useLocale();
-  const shellClass = cn(
-    "h-fit min-w-0 sm:p-3",
-    surface === "dialog"
-      ? cn(detailWorkspace.flatPanel, "p-1.5")
-      : cn(
-          repairOs.mobileInfoCard,
-          "p-2.5",
-          "md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:shadow-none",
-        ),
-  );
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const shellClass = mobileOverview
+    ? "min-w-0"
+    : cn(
+        "h-fit min-w-0 sm:p-3",
+        surface === "dialog"
+          ? cn(detailWorkspace.flatPanel, "p-1.5")
+          : cn(
+              repairOs.mobileInfoCard,
+              "p-2.5",
+              "md:rounded-[var(--radius-lg)] md:bg-[var(--surface-panel)] md:shadow-none",
+            ),
+      );
   const Shell = "section";
   const controlClass =
     "h-9 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/60 text-base leading-none shadow-none focus-visible:ring-1 md:text-base lg:text-sm";
@@ -80,293 +88,317 @@ export function NewOrderQuotationSection({
   const availableCreateStatuses = createStatuses;
 
   return (
-    <Shell className={cn(shellClass, "space-y-2", layout === "professional" && "lg:contents")}>
-      <div
-        data-new-order-section="quotation"
-        data-new-order-field="quotation"
-        className={cn(
-          "min-w-0",
-          layout === "professional" &&
-            "lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:rounded-[var(--radius-lg)] lg:border lg:border-[var(--border-panel)] lg:bg-[var(--surface-panel)] lg:p-3",
-        )}
-      >
-        <OrderWorkspaceSectionHeader
-          icon={ReceiptText}
-          title={t("orders2b1.new.quoteTitle")}
-          description={t("orders2b1.new.quoteHelp")}
-          className="mb-2 [&_h3]:text-sm [&_h3]:leading-5 [&_p]:mt-0.5 [&_p]:whitespace-normal [&_p]:text-[11px] [&_p]:leading-4 [&_svg]:size-3.5"
-          action={
-            <span className="rounded-lg bg-primary/5 px-2 py-1 text-xs font-semibold leading-4 text-primary">
-              {t("orders2b1.new.itemsCount", { count: form.faults.length })}
-            </span>
-          }
-        />
-
-        <div data-new-order-quote-draft="true" className="min-w-0">
-          <fieldset className="min-w-0 space-y-2">
-            <div className="min-w-0 space-y-2">
-              <div className="text-xs font-semibold leading-5 text-muted-foreground">
-                {t("orders2b1.new.commonRepairs")}
-              </div>
-              <FaultDiagnosisPicker
-                selected={form.faults}
-                onChange={(faults) => setForm({ ...form, faults })}
-                className="gap-1"
-                density="compact"
-                appearance="quiet"
-                compactColumns={4}
-              />
-            </div>
-            <div className="mb-1 flex min-w-0 items-center justify-between gap-2 px-0.5">
-              <span className="text-xs font-semibold leading-5 text-muted-foreground">
-                {t("orders2b1.new.quoteItems")}
+    <Shell className={cn(layout === "professional" ? "contents" : "min-w-0 space-y-2")}>
+      {part !== "settings" ? (
+        <div
+          data-new-order-section="quotation"
+          data-new-order-field="quotation"
+          className={cn(shellClass, layout === "professional" && "md:col-start-2 md:row-start-1")}
+        >
+          <OrderWorkspaceSectionHeader
+            icon={ReceiptText}
+            title={t("orders2b1.new.quoteTitle")}
+            className="mb-2 [&_h3]:text-sm [&_h3]:leading-5 [&_p]:mt-0.5 [&_p]:whitespace-normal [&_p]:text-[11px] [&_p]:leading-4 [&_svg]:size-3.5"
+            action={
+              <span className="rounded-lg bg-primary/5 px-2 py-1 text-xs font-semibold leading-4 text-primary">
+                {t("orders2b1.new.itemsCount", { count: form.faults.length })}
               </span>
-            </div>
-            <div className="min-w-0 space-y-2">
-              {form.faults.length === 0 ? (
-                <OrderWorkspaceEmptyBlock>
-                  {t("orders2b1.new.quoteOptional")}
-                </OrderWorkspaceEmptyBlock>
-              ) : (
-                <div className="min-w-0 space-y-0">
-                  {form.faults.map((item, index) => (
-                    <OrderWorkspaceQuoteRow
-                      key={item.key}
-                      priceFullWidth={false}
-                      appearance="quote-editor"
-                      note={
-                        item.note ? (
-                          <span className="text-[11px] leading-4 text-muted-foreground [overflow-wrap:anywhere]">
-                            {item.note}
-                          </span>
-                        ) : undefined
-                      }
-                      price={
-                        <MoneyKeypadInput
-                          ariaLabel={t("orders2b1.new.quoteAria", { index: index + 1 })}
-                          value={moneyDraftValue(Number(item.price) || 0)}
-                          onChange={(value) =>
-                            onPatchFault(index, { price: parseMoneyDraft(value) })
-                          }
-                          triggerClassName={cn(controlClass, "px-2 font-mono")}
-                          placeholder="0"
-                        />
-                      }
-                      action={
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 shrink-0 rounded-lg"
-                          onClick={() =>
-                            setForm({
-                              ...form,
-                              faults: form.faults.filter((_, faultIndex) => faultIndex !== index),
-                            })
-                          }
-                          aria-label={t("orders2b1.new.deleteQuote")}
-                        >
-                          <Trash2 className="size-4 text-muted-foreground" />
-                        </Button>
-                      }
-                    >
-                      {item.categoryKey === "custom" ? (
-                        <Input
-                          value={item.name}
-                          onChange={(event) => onPatchFault(index, { name: event.target.value })}
-                          className={cn(controlClass, "px-2")}
-                          placeholder={t("orders2b1.new.customItem")}
-                          aria-label={t("orders2b1.new.customItem")}
-                        />
-                      ) : (
-                        <div className="flex min-h-9 min-w-0 items-center">
-                          <div
-                            className="text-sm font-semibold leading-5 [overflow-wrap:anywhere]"
-                            title={item.name}
+            }
+          />
+
+          <div data-new-order-quote-draft="true" className="min-w-0">
+            <fieldset className="min-w-0 space-y-2">
+              <div className="min-w-0 space-y-2">
+                <FaultDiagnosisPicker
+                  selected={form.faults}
+                  onChange={(faults) => setForm({ ...form, faults })}
+                  className="gap-1"
+                  density="compact"
+                  appearance="quiet"
+                  compactColumns={4}
+                />
+              </div>
+              <div className="min-w-0 space-y-2">
+                {form.faults.length === 0 ? (
+                  <OrderWorkspaceEmptyBlock>
+                    {t("orders2b1.new.quoteOptional")}
+                  </OrderWorkspaceEmptyBlock>
+                ) : (
+                  <div className="min-w-0 space-y-0">
+                    {form.faults.map((item, index) => (
+                      <OrderWorkspaceQuoteRow
+                        key={item.key}
+                        priceFullWidth={false}
+                        appearance="quote-editor"
+                        className={
+                          mobileOverview
+                            ? "py-0 [&>div:first-child]:min-h-[35px] [&_input]:h-[35px] [&>div>button]:h-[35px]"
+                            : undefined
+                        }
+                        note={
+                          item.note ? (
+                            <span className="text-[11px] leading-4 text-muted-foreground [overflow-wrap:anywhere]">
+                              {item.note}
+                            </span>
+                          ) : undefined
+                        }
+                        price={
+                          <MoneyKeypadInput
+                            ariaLabel={t("orders2b1.new.quoteAria", { index: index + 1 })}
+                            value={moneyDraftValue(Number(item.price) || 0)}
+                            onChange={(value) =>
+                              onPatchFault(index, { price: parseMoneyDraft(value) })
+                            }
+                            triggerClassName={cn(controlClass, "px-2 font-mono")}
+                            placeholder="0"
+                          />
+                        }
+                        action={
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 shrink-0 rounded-lg"
+                            onClick={() =>
+                              setForm({
+                                ...form,
+                                faults: form.faults.filter((_, faultIndex) => faultIndex !== index),
+                              })
+                            }
+                            aria-label={t("orders2b1.new.deleteQuote")}
                           >
-                            {item.name}
+                            <Trash2 className="size-4 text-muted-foreground" />
+                          </Button>
+                        }
+                      >
+                        {item.categoryKey === "custom" ? (
+                          <Input
+                            value={item.name}
+                            onChange={(event) => onPatchFault(index, { name: event.target.value })}
+                            className={cn(controlClass, "px-2")}
+                            placeholder={t("orders2b1.new.customItem")}
+                            aria-label={t("orders2b1.new.customItem")}
+                          />
+                        ) : (
+                          <div
+                            className={cn(
+                              "flex min-h-9 min-w-0 items-center",
+                              mobileOverview && "min-h-[35px]",
+                            )}
+                          >
+                            <div
+                              className="text-sm font-semibold leading-5 [overflow-wrap:anywhere]"
+                              title={item.name}
+                            >
+                              {item.name}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </OrderWorkspaceQuoteRow>
-                  ))}
-                </div>
-              )}
+                        )}
+                      </OrderWorkspaceQuoteRow>
+                    ))}
+                  </div>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "h-9 w-full justify-center gap-1.5 rounded-lg border-dashed border-[var(--border-panel)] bg-card text-xs font-semibold text-muted-foreground shadow-none",
+                    mobileOverview && "h-6 justify-start border-0 bg-transparent px-0 text-primary",
+                  )}
+                  onClick={onAddCustomFault}
+                >
+                  <Plus className="size-3.5" /> {t("orders2b1.new.addCustomItem")}
+                </Button>
+              </div>
+              <OrderWorkspaceMoneyStrip
+                total={total}
+                deposit={form.deposit}
+                balance={balance}
+                variant="finance"
+                appearance="quote-editor"
+                className={cn(
+                  "mt-2",
+                  mobileOverview &&
+                    "gap-0 rounded-xl border border-border bg-card py-1 [&>div]:rounded-none [&>div]:bg-transparent [&>div+div]:border-l [&>div+div]:border-border",
+                )}
+                depositControl={
+                  <MoneyKeypadInput
+                    ariaLabel={t("orders2b1.money.deposit")}
+                    value={moneyDraftValue(form.deposit)}
+                    onChange={(value) => setForm({ ...form, deposit: parseMoneyDraft(value) })}
+                    triggerClassName={cn(controlClass, "bg-card px-2")}
+                    placeholder="0"
+                  />
+                }
+              />
+            </fieldset>
+          </div>
+        </div>
+      ) : null}
+
+      {part !== "quote" ? (
+        <div data-new-order-section="settings" className={cn(shellClass, "space-y-2")}>
+          {!expanded ? (
+            <>
               <Button
                 type="button"
-                variant="outline"
-                size="sm"
-                className="h-9 w-full justify-center gap-1.5 rounded-lg border-dashed border-[var(--border-panel)] bg-card text-xs font-semibold text-muted-foreground shadow-none"
-                onClick={onAddCustomFault}
+                variant="ghost"
+                className="h-9 w-full justify-between px-0 text-xs font-semibold"
+                aria-expanded={settingsOpen}
+                aria-controls="new-order-service-fields"
+                onClick={() => setSettingsOpen((open) => !open)}
               >
-                <Plus className="size-3.5" /> {t("orders2b1.new.addCustomItem")}
+                <span>{t("orders2b1.new.settings")}</span>
+                <ChevronDown className={cn("size-3.5", settingsOpen && "rotate-180")} />
               </Button>
-            </div>
-            <OrderWorkspaceMoneyStrip
-              total={total}
-              deposit={form.deposit}
-              balance={balance}
-              variant="finance"
-              appearance="quote-editor"
-              className="mt-2"
-              depositControl={
-                <MoneyKeypadInput
-                  ariaLabel={t("orders2b1.money.deposit")}
-                  value={moneyDraftValue(form.deposit)}
-                  onChange={(value) => setForm({ ...form, deposit: parseMoneyDraft(value) })}
-                  triggerClassName={cn(controlClass, "bg-card px-2")}
-                  placeholder="0"
-                />
-              }
-            />
-          </fieldset>
-        </div>
-      </div>
-
-      <div
-        data-new-order-section="settings"
-        className="min-w-0 space-y-1.5 rounded-xl border border-[var(--border-panel)] bg-card p-2 lg:col-start-3 lg:row-start-2 lg:h-fit lg:space-y-2 lg:p-3"
-      >
-        <div className="flex min-w-0 items-center justify-between gap-1.5 px-0.5">
-          <div className="min-w-0">
-            <div className="truncate text-[10px] font-semibold leading-3 text-foreground lg:text-xs lg:leading-4">
-              {t("orders2b1.new.settings")}
-            </div>
-          </div>
-        </div>
-
-        <div className="min-w-0" data-new-order-setting="warranty">
-          <FormItem
-            label={t("orders2b1.new.warranty")}
-            className="[&>label]:text-[9.5px] [&>label]:font-medium [&>label]:leading-3 lg:[&>label]:text-xs lg:[&>label]:leading-4"
+              <p className="text-[11px] leading-4 text-muted-foreground">
+                {form.warrantyText} ·{" "}
+                {t(
+                  form.type === "quick_repair"
+                    ? "orders2b1.new.quickRepair"
+                    : "orders2b1.new.dropoffRepair",
+                )}{" "}
+                ·{" "}
+                {availableCreateStatuses.find((status) => status.code === form.status)
+                  ? localizeOrderWorkflowStatusLabel(
+                      availableCreateStatuses.find((status) => status.code === form.status)!,
+                      t,
+                    )
+                  : form.status}
+              </p>
+              <p className="text-[11px] leading-4 text-muted-foreground">
+                {t("orders2b1.new.operator")}: {operatorName} / {roleLabel}
+              </p>
+            </>
+          ) : null}
+          <div
+            id="new-order-service-fields"
+            hidden={!settingsOpen && !expanded}
+            className="space-y-2"
           >
-            <WarrantyPicker
-              valueMonths={form.warrantyMonths}
-              valueText={form.warrantyText}
-              reason={form.warrantyChangeReason}
-              defaultMonths={defaultWarrantyMonths}
-              compact
-              triggerClassName={serviceSelectTriggerClass}
-              contentClassName={serviceDropdownContentClass}
-              reasonFieldTarget="warranty-reason"
-              onChange={(warranty) =>
-                setForm({
-                  ...form,
-                  warrantyMonths: warranty.warranty_months,
-                  warrantyText: warranty.warranty_text,
-                  warrantyChangeReason: warranty.warranty_change_reason ?? "",
-                })
-              }
-            />
-          </FormItem>
-        </div>
-
-        <div
-          className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-x-1.5 gap-y-1.5 sm:gap-x-2"
-          data-new-order-settings-grid="true"
-        >
-          <div className="grid min-w-0 gap-0.5" data-new-order-setting="operator">
-            <div
-              className="truncate text-[9.5px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4"
-              data-new-order-setting-label="true"
-            >
-              {t("orders2b1.new.operator")}
-            </div>
-            <div
-              className={cn(serviceSelectTriggerClass, "flex min-w-0 items-center gap-1.5 border")}
-              data-new-order-setting-control="true"
-              title={operatorName || t("orders2b1.new.currentAccount")}
-            >
-              <ShieldCheck className="size-3.5 shrink-0 text-primary" />
-              <span className="min-w-0 flex-1 truncate text-xs font-semibold leading-4 text-foreground">
-                {operatorName || t("orders2b1.new.currentAccount")}
-              </span>
-              <span className="max-w-[4.75rem] shrink-0 truncate rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium leading-none text-primary lg:text-[11px] lg:leading-4">
-                {roleLabel}
-              </span>
-            </div>
-          </div>
-          <div className="grid min-w-0 gap-0.5" data-new-order-setting="accessories">
-            <div
-              className="truncate text-[9.5px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4"
-              data-new-order-setting-label="true"
-            >
-              {t("orders2b1.new.accessories")}
-            </div>
-            <AccessoryNotesPicker
-              value={form.accessoryNotes}
-              onChange={(accessoryNotes) => setForm({ ...form, accessoryNotes })}
-              compact
-              triggerClassName={serviceSelectTriggerClass}
-              contentClassName={serviceDropdownContentClass}
-            />
-          </div>
-          <div className="grid min-w-0 gap-0.5" data-new-order-setting="type">
-            <div
-              className="text-[9.5px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4"
-              data-new-order-setting-label="true"
-            >
-              {t("orders2b1.new.type")}
-            </div>
-            <Select
-              value={form.type}
-              onValueChange={(type) => setForm({ ...form, type: type as RepairOrderType })}
-            >
-              <SelectTrigger className={serviceSelectTriggerClass}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className={serviceDropdownContentClass}>
-                {repairOrderType.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {t(
-                      type === "quick_repair"
-                        ? "orders2b1.new.quickRepair"
-                        : "orders2b1.new.dropoffRepair",
-                    )}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid min-w-0 gap-0.5" data-new-order-setting="status">
-            <div
-              className="text-[9.5px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4"
-              data-new-order-setting-label="true"
-            >
-              {t("orders2b1.new.status")}
-            </div>
-            <Select
-              value={form.status}
-              onValueChange={(value) => setForm({ ...form, status: value })}
-            >
-              <SelectTrigger
-                data-new-order-field="create-status"
-                className={serviceSelectTriggerClass}
+            <div className="min-w-0" data-new-order-setting="warranty">
+              <FormItem
+                label={t("orders2b1.new.warranty")}
+                className="[&>label]:text-[9.5px] [&>label]:font-medium [&>label]:leading-3 lg:[&>label]:text-xs lg:[&>label]:leading-4"
               >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className={serviceDropdownContentClass}>
-                {availableCreateStatuses.map((status) => (
-                  <SelectItem
-                    key={status.code}
-                    value={status.code}
-                    disabled={
-                      !deviceCustodyAllowsStatus(
-                        form.deviceCustodyStatus,
-                        status.code,
-                        status.bucket,
-                      )
-                    }
+                <WarrantyPicker
+                  valueMonths={form.warrantyMonths}
+                  valueText={form.warrantyText}
+                  reason={form.warrantyChangeReason}
+                  defaultMonths={defaultWarrantyMonths}
+                  compact
+                  triggerClassName={serviceSelectTriggerClass}
+                  contentClassName={serviceDropdownContentClass}
+                  reasonFieldTarget="warranty-reason"
+                  onChange={(warranty) =>
+                    setForm({
+                      ...form,
+                      warrantyMonths: warranty.warranty_months,
+                      warrantyText: warranty.warranty_text,
+                      warrantyChangeReason: warranty.warranty_change_reason ?? "",
+                    })
+                  }
+                />
+              </FormItem>
+            </div>
+
+            <div
+              className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-x-1.5 gap-y-1.5 sm:gap-x-2"
+              data-new-order-settings-grid="true"
+            >
+              <div className="grid min-w-0 gap-0.5" data-new-order-setting="operator">
+                <div
+                  className="truncate text-[9.5px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4"
+                  data-new-order-setting-label="true"
+                >
+                  {t("orders2b1.new.operator")}
+                </div>
+                <div
+                  className={cn(
+                    serviceSelectTriggerClass,
+                    "flex min-w-0 items-center gap-1.5 border",
+                  )}
+                  data-new-order-setting-control="true"
+                  title={operatorName || t("orders2b1.new.currentAccount")}
+                >
+                  <ShieldCheck className="size-3.5 shrink-0 text-primary" />
+                  <span className="min-w-0 flex-1 truncate text-xs font-semibold leading-4 text-foreground">
+                    {operatorName || t("orders2b1.new.currentAccount")}
+                  </span>
+                  <span className="max-w-[4.75rem] shrink-0 truncate rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium leading-none text-primary lg:text-[11px] lg:leading-4">
+                    {roleLabel}
+                  </span>
+                </div>
+              </div>
+              <div className="grid min-w-0 gap-0.5" data-new-order-setting="type">
+                <div
+                  className="text-[9.5px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4"
+                  data-new-order-setting-label="true"
+                >
+                  {t("orders2b1.new.type")}
+                </div>
+                <Select
+                  value={form.type}
+                  onValueChange={(type) => setForm({ ...form, type: type as RepairOrderType })}
+                >
+                  <SelectTrigger className={serviceSelectTriggerClass}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className={serviceDropdownContentClass}>
+                    {repairOrderType.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {t(
+                          type === "quick_repair"
+                            ? "orders2b1.new.quickRepair"
+                            : "orders2b1.new.dropoffRepair",
+                        )}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid min-w-0 gap-0.5" data-new-order-setting="status">
+                <div
+                  className="text-[9.5px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4"
+                  data-new-order-setting-label="true"
+                >
+                  {t("orders2b1.new.status")}
+                </div>
+                <Select
+                  value={form.status}
+                  onValueChange={(value) => setForm({ ...form, status: value })}
+                >
+                  <SelectTrigger
+                    data-new-order-field="create-status"
+                    className={serviceSelectTriggerClass}
                   >
-                    {localizeOrderWorkflowStatusLabel(status, t)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className={serviceDropdownContentClass}>
+                    {availableCreateStatuses.map((status) => (
+                      <SelectItem
+                        key={status.code}
+                        value={status.code}
+                        disabled={
+                          !deviceCustodyAllowsStatus(
+                            form.deviceCustodyStatus,
+                            status.code,
+                            status.bucket,
+                          )
+                        }
+                      >
+                        {localizeOrderWorkflowStatusLabel(status, t)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
     </Shell>
   );
 }

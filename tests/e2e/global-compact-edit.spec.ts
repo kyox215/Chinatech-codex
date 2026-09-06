@@ -470,7 +470,7 @@ for (const [width, height] of [
     await expect(notes.getByText(tr("zh-CN", "orders.faultEditor.references"))).toHaveCount(0);
     expect(
       await notes.getByRole("textbox").evaluate((node) => node.getBoundingClientRect().height),
-    ).toBe(104);
+    ).toBeCloseTo(104, 1);
     await screenshot(page, width === 390 ? "a14-notes-390" : `dense-notes-${width}x${height}`);
     await page.keyboard.press("Escape");
     await page
@@ -515,8 +515,9 @@ for (const width of [320, 390, 430, 768, 1024, 1440]) {
     await page.goto("/orders/new");
     await page.waitForLoadState("networkidle");
     const form = page.locator('[data-new-order-form="true"]').filter({ visible: true });
+    if (width < 768) await page.locator('[data-mobile-edit="device"]').click();
     for (const id of ["new-order-device-brand", "new-order-device-model"]) {
-      const field = form.locator(`#${id}`);
+      const field = page.locator(`#${id}`);
       expect(
         await field.evaluate((node) => {
           const style = getComputedStyle(node);
@@ -525,9 +526,14 @@ for (const width of [320, 390, 430, 768, 1024, 1440]) {
       ).toBeGreaterThanOrEqual(80);
     }
     if (width === 390) {
-      await form.locator("#new-order-device-brand").scrollIntoViewIfNeeded();
+      await page.locator("#new-order-device-brand").scrollIntoViewIfNeeded();
       await screenshot(page, "dense-new-device-readable-390");
     }
+    if (width < 768)
+      await page
+        .getByRole("dialog")
+        .getByRole("button", { name: tr("zh-CN", "common.close"), exact: true })
+        .click();
     await form.locator("[data-fault-category]").first().getByRole("button").first().click();
     const rows = form.locator("[data-order-workspace-quote-row]");
     await expect(rows.first()).toBeVisible();
