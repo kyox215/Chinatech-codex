@@ -309,7 +309,7 @@ export function MemoEditor({
           id="memo-title"
           value={title}
           required
-          autoFocus={!memo}
+          autoFocus={!memo && !compact}
           aria-invalid={title.length > 120 || (title.length > 0 && !title.trim())}
           aria-describedby="memo-title-help"
           maxLength={120}

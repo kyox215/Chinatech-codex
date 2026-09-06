@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type Ref } from "react";
 import { Check, Delete, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { VirtualKeyboardDock } from "@/components/ui/virtual-keyboard-dock";
+import { useKeypadControlGuard } from "@/hooks/use-keypad-control-guard";
 import { useVirtualKeyboardSurface } from "@/hooks/use-virtual-keyboard-surface";
 import { cn } from "@/lib/utils";
 import {
@@ -24,11 +25,19 @@ const phoneKeypadRows: PhoneKeypadKey[][] = [
 ];
 
 export interface PhoneKeypadInputProps {
+  preserveFormatting?: boolean;
+  maxLength?: number;
+  autoComplete?: string;
+  id?: string;
+  invalid?: boolean;
+  describedBy?: string;
+  inputRef?: Ref<HTMLInputElement | HTMLButtonElement>;
   value: string;
   onChange: (value: string) => void;
   ariaLabel: string;
   placeholder?: string;
   disabled?: boolean;
+  readOnly?: boolean;
   className?: string;
   triggerClassName?: string;
   valueClassName?: string;
@@ -43,11 +52,19 @@ export interface PhoneKeypadInputProps {
 }
 
 export function PhoneKeypadInput({
+  preserveFormatting = false,
+  maxLength,
+  autoComplete = "tel",
+  id,
+  invalid,
+  describedBy,
+  inputRef,
   value,
   onChange,
   ariaLabel,
   placeholder,
   disabled,
+  readOnly,
   className,
   triggerClassName,
   valueClassName,
@@ -76,18 +93,28 @@ export function PhoneKeypadInput({
     queueMicrotask(() => nativeInputRef.current?.focus());
   }, [keyboardSurface, open]);
 
+  const canEdit = useKeypadControlGuard({
+    controlRef: triggerRef,
+    open,
+    disabled,
+    readOnly,
+    onClose: () => setOpenState(false),
+  });
+
   const displayDraft = open ? draft : normalizePhoneKeypadDraft(value);
   const displayValue = displayDraft || resolvedPlaceholder;
 
   const setOpenState = (nextOpen: boolean) => {
-    if (disabled) return;
+    if (nextOpen && !canEdit()) return;
     setOpen(nextOpen);
     onOpenChange?.(nextOpen);
     if (nextOpen) setDraft(normalizePhoneKeypadDraft(value));
   };
 
   const updateDraft = (key: PhoneKeypadKey) => {
-    const nextDraft = applyPhoneKeypadKey(draft, key);
+    if (!canEdit()) return;
+    const nextDraft = applyPhoneKeypadKey(open ? draft : normalizePhoneKeypadDraft(value), key);
+    if (maxLength !== undefined && nextDraft.length > maxLength) return;
     setDraft(nextDraft);
     onChange(nextDraft);
   };
@@ -123,20 +150,29 @@ export function PhoneKeypadInput({
   if (keyboardSurface === "native") {
     return (
       <Input
-        ref={nativeInputRef}
+        ref={(node) => {
+          nativeInputRef.current = node;
+          if (typeof inputRef === "function") inputRef(node);
+          else if (inputRef) inputRef.current = node;
+        }}
+        id={id}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
         type="tel"
         inputMode="tel"
-        autoComplete="tel"
+        autoComplete={autoComplete}
+        maxLength={maxLength}
         data-phone-native-input="true"
         data-phone-keypad-native-input="true"
         aria-label={ariaLabel}
-        role="combobox"
-        aria-autocomplete="list"
+        role={ariaControls ? "combobox" : undefined}
+        aria-autocomplete={ariaControls ? "list" : undefined}
         aria-controls={ariaControls}
-        aria-expanded={ariaExpanded}
+        aria-expanded={ariaControls ? ariaExpanded : open}
         aria-activedescendant={ariaActiveDescendant}
         disabled={disabled}
-        value={normalizePhoneKeypadDraft(value)}
+        readOnly={readOnly}
+        value={preserveFormatting ? value : normalizePhoneKeypadDraft(value)}
         placeholder={resolvedPlaceholder}
         className={cn(
           "flex min-w-0 font-mono tabular-nums",
@@ -144,7 +180,11 @@ export function PhoneKeypadInput({
           triggerClassName,
           valueClassName,
         )}
-        onChange={(event) => onChange(normalizePhoneKeypadDraft(event.target.value))}
+        onChange={(event) =>
+          onChange(
+            preserveFormatting ? event.target.value : normalizePhoneKeypadDraft(event.target.value),
+          )
+        }
         onFocus={() => onOpenChange?.(true)}
         onBlur={() => onOpenChange?.(false)}
         onKeyDown={(event) => {
@@ -158,17 +198,26 @@ export function PhoneKeypadInput({
   return (
     <>
       <button
-        ref={triggerRef}
+        ref={(node) => {
+          triggerRef.current = node;
+          if (typeof inputRef === "function") inputRef(node);
+          else if (inputRef) inputRef.current = node;
+        }}
+        id={id}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
         type="button"
-        role="combobox"
-        aria-autocomplete="list"
+        role={ariaControls ? "combobox" : undefined}
+        aria-autocomplete={ariaControls ? "list" : undefined}
         data-phone-keypad-trigger="true"
+        data-keypad-active={open || undefined}
         aria-label={ariaLabel}
         aria-controls={ariaControls}
-        aria-expanded={ariaExpanded}
+        aria-expanded={ariaControls ? ariaExpanded : open}
         aria-activedescendant={ariaActiveDescendant}
-        disabled={disabled}
+        disabled={disabled || readOnly}
         className={cn(
+          "data-[keypad-active=true]:border-primary data-[keypad-active=true]:bg-primary/5 data-[keypad-active=true]:ring-1 data-[keypad-active=true]:ring-primary/25",
           "flex h-9 w-full min-w-0 items-center rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
           className,
           triggerClassName,

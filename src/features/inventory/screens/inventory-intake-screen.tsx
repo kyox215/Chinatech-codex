@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ImeiScannerField } from "@/components/imei-scanner-field";
 import { Input } from "@/components/ui/input";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { Label } from "@/components/ui/label";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
@@ -769,7 +770,9 @@ export function InventoryIntakeScreen() {
           {step === 4 ? (
             <div className="grid gap-3 sm:grid-cols-2">
               <Field id="inventory-cost" label="成本（€） *">
-                <Input
+                <NumericKeypadInput
+                  type="text"
+                  decimalPlaces={2}
                   id="inventory-cost"
                   className={inputClass}
                   inputMode="decimal"
@@ -785,7 +788,9 @@ export function InventoryIntakeScreen() {
                 ) : null}
               </Field>
               <Field id="inventory-list-price" label="建议售价（€） *">
-                <Input
+                <NumericKeypadInput
+                  type="text"
+                  decimalPlaces={2}
                   id="inventory-list-price"
                   className={inputClass}
                   inputMode="decimal"
@@ -805,7 +810,8 @@ export function InventoryIntakeScreen() {
                 ) : null}
               </Field>
               <Field id="inventory-warranty" label="质保月数 *">
-                <Input
+                <NumericKeypadInput
+                  type="text"
                   id="inventory-warranty"
                   className={inputClass}
                   inputMode="numeric"

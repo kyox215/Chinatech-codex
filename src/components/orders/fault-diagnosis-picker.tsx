@@ -333,6 +333,7 @@ function FaultCategoryButton({
       <CompactFaultCategory
         group={group}
         selected={selected}
+        onMainToggle={onMainToggle}
         onToggle={onToggle}
         onClear={onClear}
       />
@@ -514,16 +515,11 @@ function FaultCategoryButton({
                 >
                   {optionLabel}
                 </span>
-                <span
-                  className={cn(
-                    "block truncate text-muted-foreground",
-                    compact
-                      ? "text-[10px] leading-3 lg:text-xs lg:leading-4"
-                      : "text-[11px] leading-4 lg:text-xs lg:leading-4",
-                  )}
-                >
-                  {option.italian}
-                </span>
+                {optionLabel.trim() !== option.italian.trim() ? (
+                  <span className="block truncate text-[11px] leading-4 text-muted-foreground">
+                    {option.italian}
+                  </span>
+                ) : null}
               </span>
             </DropdownMenuItem>
           );
@@ -599,11 +595,13 @@ function FaultCategoryButton({
 function CompactFaultCategory({
   group,
   selected,
+  onMainToggle,
   onToggle,
   onClear,
 }: {
   group: FaultGroup;
   selected: SelectedFault[];
+  onMainToggle: () => void;
   onToggle: (option: FaultOption) => void;
   onClear: () => void;
 }) {
@@ -621,7 +619,10 @@ function CompactFaultCategory({
     if (next) {
       setDesktop(viewport === "desktop");
       setInspection(
-        active.some((item) => group.options.some((option) => faultKey(group, option) === item.key)),
+        !group.repairOptions.length ||
+          active.some((item) =>
+            group.options.some((option) => faultKey(group, option) === item.key),
+          ),
       );
     }
     setOpen(next);
@@ -630,56 +631,32 @@ function CompactFaultCategory({
     <button
       ref={triggerRef}
       type="button"
-      aria-label={label}
+      aria-label={t("orders2b1.new.fault.expand", { label })}
       aria-expanded={open}
       aria-controls={open ? id : undefined}
       aria-haspopup="dialog"
-      data-fault-category={group.key}
+      data-fault-category-expand={group.key}
       onClick={() => changeOpen(true)}
-      className={cn(
-        "flex h-[33px] min-h-[33px] w-full min-w-0 items-center gap-0.5 rounded-md border px-1 text-left text-[11px] min-[390px]:text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        active.length
-          ? "border-primary/35 bg-primary/10 text-primary"
-          : "border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-foreground",
-      )}
+      className="grid h-[33px] min-w-0 place-items-center border-l border-[var(--border-panel)] hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      {active.length ? (
-        <Check
-          className={cn("size-3 shrink-0", locale !== "zh-CN" && "max-[430px]:hidden")}
-          aria-hidden="true"
-        />
-      ) : (
-        <Icon
-          className={cn("size-3 shrink-0", locale !== "zh-CN" && "max-[430px]:hidden")}
-          aria-hidden="true"
-        />
-      )}
-      <span className="min-w-0 flex-1 truncate">
-        {localizeRepairServiceGroupCompactLabel(group, locale)}
-      </span>
-      <ChevronDown
-        className={cn("size-3 shrink-0", locale !== "zh-CN" && "max-[359px]:hidden")}
-        aria-hidden="true"
-      />
+      <ChevronDown className="size-3" aria-hidden="true" />
     </button>
   );
-  const options = inspection
-    ? group.options
-    : group.repairOptions.length
-      ? group.repairOptions
-      : [getMainFaultOption(group)];
+  const options = inspection || !group.repairOptions.length ? group.options : group.repairOptions;
   const body = (
     <div
       id={id}
       className="grid max-h-[60dvh] min-w-0 gap-1 overflow-y-auto overscroll-contain p-2"
     >
-      <button
-        type="button"
-        className="min-h-11 rounded-md border px-3 text-left text-sm"
-        onClick={() => setInspection((value) => !value)}
-      >
-        {t(inspection ? "orders2b1.new.fault.back" : "orders2b1.new.fault.inspect")}
-      </button>
+      {group.repairOptions.length > 0 ? (
+        <button
+          type="button"
+          className="min-h-11 rounded-md border px-3 text-left text-sm"
+          onClick={() => setInspection((value) => !value)}
+        >
+          {t(inspection ? "orders2b1.new.fault.back" : "orders2b1.new.fault.inspect")}
+        </button>
+      ) : null}
       <div
         role="group"
         aria-label={label}
@@ -745,7 +722,39 @@ function CompactFaultCategory({
   return (
     <>
       <Popover open={open && desktop} onOpenChange={changeOpen}>
-        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <div
+          data-fault-category={group.key}
+          className={cn(
+            "grid h-[33px] min-w-0 grid-cols-[minmax(0,2fr)_minmax(0,1fr)] overflow-hidden rounded-md border",
+            active.length
+              ? "border-primary/35 bg-primary/10 text-primary"
+              : "border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-foreground",
+          )}
+        >
+          <button
+            type="button"
+            aria-label={label}
+            aria-pressed={active.length > 0}
+            onClick={onMainToggle}
+            className="flex h-[33px] min-w-0 items-center gap-0.5 px-1 text-left text-[11px] font-medium hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-[390px]:text-xs"
+          >
+            {active.length ? (
+              <Check
+                className={cn("size-3 shrink-0", locale !== "zh-CN" && "max-[430px]:hidden")}
+                aria-hidden="true"
+              />
+            ) : (
+              <Icon
+                className={cn("size-3 shrink-0", locale !== "zh-CN" && "max-[430px]:hidden")}
+                aria-hidden="true"
+              />
+            )}
+            <span className="min-w-0 truncate">
+              {localizeRepairServiceGroupCompactLabel(group, locale)}
+            </span>
+          </button>
+          <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        </div>
         <PopoverContent align="start" className="z-[90] w-72 p-0" aria-label={label}>
           {body}
         </PopoverContent>

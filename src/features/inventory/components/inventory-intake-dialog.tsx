@@ -34,6 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -406,7 +407,10 @@ export function InventoryIntakeDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className={cn(componentOverlay.formContent, dialogContentClass)}>
+      <DialogContent
+        initialFocus="container"
+        className={cn(componentOverlay.formContent, dialogContentClass)}
+      >
         {step === "form" ? (
           <form className="flex max-h-[calc(100svh-24px)] min-h-0 flex-col" onSubmit={handleSubmit}>
             <DialogHeader className={cn(componentOverlay.header, dialogHeaderClass)}>
@@ -1116,6 +1120,7 @@ function ControlledField({
   label: string;
   hint?: React.ReactNode;
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "name" | "value" | "onChange">) {
+  const FieldInput = inputProps.type === "number" ? NumericKeypadInput : Input;
   const id = `inventory-intake-${name}`;
   return (
     <div className={formLayout.field}>
@@ -1123,7 +1128,9 @@ function ControlledField({
         {label}
         {inputProps.required ? <span className="text-destructive"> *</span> : null}
       </Label>
-      <Input
+      <FieldInput
+        type="text"
+        aria-label={label}
         id={id}
         value={draft[name]}
         className={inputClass}

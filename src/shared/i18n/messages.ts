@@ -2947,6 +2947,8 @@ const zhCN = {
   "orders2b2.finance.expandCategories": "选择项目",
   "orders2b2.finance.item": "项目",
   "orders2b2.finance.amount": "金额",
+  "orders2b2.finance.missingAmount": "未填",
+  "orders2b2.finance.completeItem": "请补全每项报价的名称和金额；免费项目请明确输入 0。",
   "orders2b2.finance.add": "添加自定义项目",
   "orders2b2.finance.total": "总额",
   "orders2b2.finance.balance": "尾款",
@@ -7177,6 +7179,9 @@ const itIT: Record<MessageKey, string> = {
   "orders2b2.finance.expandCategories": "Scegli interventi",
   "orders2b2.finance.item": "Voce",
   "orders2b2.finance.amount": "Importo",
+  "orders2b2.finance.missingAmount": "Da inserire",
+  "orders2b2.finance.completeItem":
+    "Completa nome e importo di ogni voce; inserisci 0 per le voci gratuite.",
   "orders2b2.finance.add": "Aggiungi voce personalizzata",
   "orders2b2.finance.total": "Totale",
   "orders2b2.finance.balance": "Saldo",
@@ -11505,6 +11510,9 @@ const en: Record<MessageKey, string> = {
   "orders2b2.finance.expandCategories": "Select items",
   "orders2b2.finance.item": "Item",
   "orders2b2.finance.amount": "Amount",
+  "orders2b2.finance.missingAmount": "Required",
+  "orders2b2.finance.completeItem":
+    "Enter a name and amount for each quote item; enter 0 for free items.",
   "orders2b2.finance.add": "Add custom item",
   "orders2b2.finance.total": "Total",
   "orders2b2.finance.balance": "Balance",

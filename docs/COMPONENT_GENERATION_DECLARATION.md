@@ -20,6 +20,10 @@ Last reviewed: 2026-08-09 CEST by `TASK-20260809-005-global-compact-selector-typ
 3. **可维护**：业务逻辑、数据获取、展示组件边界清楚。
 4. **可验证**：有 loading / empty / error / disabled 等关键状态，能通过 lint/build。
 
+### 已有编辑与数字原语（2026-09-06 A13）
+
+新增同类字段必须复用 `DialogContent` / `SheetContent` 的显式编辑焦点约定、`VirtualKeyboardDock`、`MoneyKeypadInput`、`PhoneKeypadInput` 和明确数字语义的 `NumericKeypadInput`。金额两位小数与十位汇率不可混用；旧原生表单必须保留真实约束校验与 FormData，不能改为 hidden/readonly 代理后声称等效。完整交互与有限覆盖见 `GLOBAL_CONTENT_EDITING_STANDARD.md` 的 On-demand numeric editing。报价行/汇总沿用 OrderWorkspace 共享原语，禁止页面再造键盘、报价金额条或编辑风格。
+
 ## 2. 生成前决策
 
 新增组件前先按顺序判断：

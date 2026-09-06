@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -76,6 +76,37 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe("InventoryIntakeDialog AI review", () => {
+  it("keeps the compact legacy numeric keypad scoped and Done/Escape separate from save", async () => {
+    const width = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+    try {
+      const user = userEvent.setup();
+      const close = vi.fn();
+      renderDialog({ canUseVisionIntake: false, onOpenChange: close });
+      const dialog = screen.getByRole("dialog", { name: "新增库存商品" });
+      expect(dialog).toHaveFocus();
+      const amount = screen.getByRole("button", { name: "入库成本" });
+      await user.click(amount);
+      expect(
+        dialog.querySelector("[data-virtual-keyboard-host] [data-numeric-keypad]"),
+      ).not.toBeNull();
+      await user.click(screen.getByRole("button", { name: "1" }));
+      await user.click(screen.getByRole("button", { name: "完成" }));
+      expect(amount).toHaveFocus();
+      expect(close).not.toHaveBeenCalled();
+      expect(apiMocks.createInventoryIntake).not.toHaveBeenCalled();
+      await user.click(amount);
+      fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+      await waitFor(() => expect(dialog.querySelector("[data-numeric-keypad]")).toBeNull());
+      expect(dialog).toBeVisible();
+      expect(amount).toHaveFocus();
+      expect(screen.getByRole("button", { name: "保存商品" })).toBeVisible();
+      expect(close).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
+    }
+  });
+
   it("applies only confirmed fields to the controlled form and saves only on 保存商品", async () => {
     const user = userEvent.setup();
     const onDone = vi.fn();

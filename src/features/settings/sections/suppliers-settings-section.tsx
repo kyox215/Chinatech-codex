@@ -1,5 +1,6 @@
 "use client";
 
+import { supplierSecondaryName } from "@/features/suppliers/model/supplier-display";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
@@ -284,7 +285,7 @@ export function SuppliersSettingsSection({
                       ) : null}
                     </div>
                     <p className="mt-1 break-words text-xs text-muted-foreground">
-                      {[supplier.short_name, supplier.contact_name, supplier.phone]
+                      {[supplierSecondaryName(supplier), supplier.contact_name, supplier.phone]
                         .filter(Boolean)
                         .join(" · ") || copy("暂无联系摘要")}
                     </p>

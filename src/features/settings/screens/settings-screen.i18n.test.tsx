@@ -62,9 +62,15 @@ beforeAll(() => {
   };
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
-    value: vi.fn(() => ({
-      matches: false,
-      media: "",
+    // Match the real test viewport: native desktop fields and compact keypad tests
+    // must agree with the 1024px shell rather than declaring every media query false.
+    value: vi.fn((query: string) => ({
+      matches: query.includes("min-width")
+        ? window.innerWidth >= Number(query.match(/min-width:\s*(\d+)px/)?.[1] ?? Infinity)
+        : query.includes("max-width")
+          ? window.innerWidth <= Number(query.match(/max-width:\s*(\d+)px/)?.[1] ?? -1)
+          : false,
+      media: query,
       onchange: null,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -78,6 +84,7 @@ beforeAll(() => {
 describe("SettingsScreen i18n shell", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
     navigationMocks.search = "";
     apiMocks.getStoreContext.mockResolvedValue(storeContext());
     apiMocks.getStoreSettings.mockResolvedValue(storeSettings());

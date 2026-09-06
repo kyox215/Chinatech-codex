@@ -10,6 +10,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { PhoneKeypadInput } from "@/components/orders/phone-keypad-input";
 import { Input } from "@/components/ui/input";
 import type { UpdateOrderInput } from "@/lib/repairdesk/api";
 import { componentOverlay } from "@/lib/component-patterns";
@@ -111,12 +112,23 @@ export function OrderIdentityEditor({
           {fields.map(([key, label]) => (
             <label key={key} className="grid min-w-0 gap-1 text-xs">
               {label}
-              <Input
-                className={componentOverlay.editorField}
-                value={draft[key] ?? ""}
-                disabled={pending || (key === "device_notes" ? !canEditRepair : !canEdit)}
-                onChange={(event) => setDraft({ ...draft, [key]: event.target.value })}
-              />
+              {key === "customer_phone" ? (
+                <PhoneKeypadInput
+                  preserveFormatting
+                  ariaLabel={label}
+                  value={String(draft[key] ?? "")}
+                  onChange={(value) => setDraft({ ...draft, [key]: value })}
+                  disabled={!canEdit || pending}
+                  className={`${componentOverlay.editorField} h-11 lg:h-9`}
+                />
+              ) : (
+                <Input
+                  className={componentOverlay.editorField}
+                  value={draft[key] ?? ""}
+                  disabled={pending || (key === "device_notes" ? !canEditRepair : !canEdit)}
+                  onChange={(event) => setDraft({ ...draft, [key]: event.target.value })}
+                />
+              )}
             </label>
           ))}
         </div>

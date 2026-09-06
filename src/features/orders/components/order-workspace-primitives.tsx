@@ -80,33 +80,43 @@ export function OrderWorkspaceMoneyStrip({
       <div
         data-order-workspace-money-strip="true"
         className={cn(
-          "grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.7fr)] items-end gap-2 border-t border-[var(--border-panel)] pt-2",
+          "grid min-w-0 grid-cols-3 items-stretch gap-1.5 border-t border-[var(--border-panel)] pt-2",
           className,
         )}
       >
-        {[
-          { label: t("orders2b1.money.total"), amount: total, primary: true },
-          { label: t("orders2b1.money.balance"), amount: balance, primary: false },
-        ].map((item) => (
-          <div
-            key={item.label}
-            className="min-w-0 rounded-xl bg-[var(--surface-panel-muted)] px-2.5 py-2"
-          >
-            <div className="text-xs leading-4 text-muted-foreground">{item.label}</div>
-            <MoneyText
-              amount={item.amount}
-              className={cn(
-                "mt-1 block truncate text-base font-semibold tabular-nums",
-                item.primary && "text-primary",
-              )}
-            />
+        <div className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
+          <div className="text-xs leading-4 text-muted-foreground">
+            {t("orders2b1.money.total")}
           </div>
-        ))}
-        <div data-new-order-field="deposit" className="min-w-0 space-y-1">
+          <MoneyText
+            amount={total}
+            className="mt-1 flex h-9 items-center truncate text-base font-semibold tabular-nums text-primary"
+          />
+        </div>
+        <div
+          data-new-order-field="deposit"
+          className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
+        >
           <div className="text-xs leading-4 text-muted-foreground">
             {t("orders2b1.money.deposit")}
           </div>
-          {depositControl ?? <MoneyText amount={deposit} />}
+          <div className="mt-1 min-w-0 [&>button]:h-9 [&>div]:h-9">
+            {depositControl ?? (
+              <MoneyText
+                amount={deposit}
+                className="flex h-9 items-center text-base font-semibold"
+              />
+            )}
+          </div>
+        </div>
+        <div className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
+          <div className="text-xs leading-4 text-muted-foreground">
+            {t("orders2b1.money.balance")}
+          </div>
+          <MoneyText
+            amount={balance}
+            className="mt-1 flex h-9 items-center truncate text-base font-semibold tabular-nums"
+          />
         </div>
       </div>
     );

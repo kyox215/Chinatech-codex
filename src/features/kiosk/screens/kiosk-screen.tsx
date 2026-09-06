@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { PhoneKeypadInput } from "@/components/orders/phone-keypad-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { KIOSK_PUBLIC_ERROR_CODES } from "@/features/kiosk/model/kiosk-public-error";
@@ -400,27 +401,25 @@ function KioskSessionForm({
             />
           </KioskField>
           <KioskField label="Telefono" htmlFor="customer-phone">
-            <Input
+            <PhoneKeypadInput
+              preserveFormatting
+              ariaLabel="Telefono"
               id="customer-phone"
               className="h-11"
               disabled={pending}
-              inputMode="tel"
               value={form.customer_phone ?? ""}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, customer_phone: event.target.value }))
-              }
+              onChange={(value) => setForm((current) => ({ ...current, customer_phone: value }))}
             />
           </KioskField>
           <KioskField label="Telefono alternativo" htmlFor="backup-phone">
-            <Input
+            <PhoneKeypadInput
+              preserveFormatting
+              ariaLabel="Telefono alternativo"
               id="backup-phone"
               className="h-11"
               disabled={pending}
-              inputMode="tel"
               value={form.backup_phone ?? ""}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, backup_phone: event.target.value }))
-              }
+              onChange={(value) => setForm((current) => ({ ...current, backup_phone: value }))}
             />
           </KioskField>
           <KioskField label="Note" htmlFor="note">

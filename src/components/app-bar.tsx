@@ -56,7 +56,9 @@ export function usesRepairOsMobileHeader(pathname: string) {
 }
 
 export function getAppBarVisibilityClass(pathname: string) {
-  if (usesRepairOsMobileHeader(pathname)) return "max-lg:hidden";
+  if (usesRepairOsMobileHeader(pathname) || /^\/customers\/[^/]+\/?$/.test(pathname)) {
+    return "max-lg:hidden";
+  }
   if (repairOsMobileHeaderPrefixes.test(pathname)) return "max-md:hidden";
   return "";
 }

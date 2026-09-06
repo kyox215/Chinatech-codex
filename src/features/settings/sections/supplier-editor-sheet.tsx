@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneKeypadInput } from "@/components/orders/phone-keypad-input";
 import { Label } from "@/components/ui/label";
 import {
   Sheet,
@@ -237,15 +238,16 @@ export function SupplierEditorSheet({
                 />
               </SupplierField>
               <SupplierField label={copy("电话")} field="phone" errors={errors}>
-                <Input
+                <PhoneKeypadInput
+                  preserveFormatting
+                  ariaLabel={copy("电话")}
                   id="supplier-phone"
-                  type="tel"
                   className="h-[38px] text-base sm:text-sm"
                   maxLength={40}
                   value={draft.phone ?? ""}
-                  aria-invalid={Boolean(errors.phone)}
-                  aria-describedby={errors.phone ? "supplier-phone-error" : undefined}
-                  onChange={(event) => update({ phone: event.target.value })}
+                  invalid={Boolean(errors.phone)}
+                  describedBy={errors.phone ? "supplier-phone-error" : undefined}
+                  onChange={(value) => update({ phone: value })}
                 />
               </SupplierField>
               <SupplierField label={copy("邮箱")} field="email" errors={errors}>

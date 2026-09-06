@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { Banknote, CalendarCheck, PackageCheck, RefreshCw, ShieldCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { Textarea } from "@/components/ui/textarea";
 import type {
   InventoryLifecycleCommand,
@@ -163,7 +163,9 @@ export function InventoryLifecycleSalePaymentPanel({
           required
           error={errors["inventory-sale-payment-amount"]}
         >
-          <Input
+          <NumericKeypadInput
+            type="text"
+            decimalPlaces={2}
             id="inventory-sale-payment-amount"
             required
             inputMode="decimal"
@@ -299,7 +301,8 @@ export function InventoryLifecycleSalePickupPanel({
           label={t("inventory2b4.sale.warrantyMonths")}
           error={errors["inventory-sale-pickup-warranty-months"]}
         >
-          <Input
+          <NumericKeypadInput
+            type="text"
             id="inventory-sale-pickup-warranty-months"
             inputMode="numeric"
             placeholder={t("inventory2b4.sale.storeDefault")}
@@ -424,7 +427,8 @@ export function WarrantyPanel({
           required
           error={errors["inventory-sale-warranty-months"]}
         >
-          <Input
+          <NumericKeypadInput
+            type="text"
             id="inventory-sale-warranty-months"
             required
             inputMode="numeric"

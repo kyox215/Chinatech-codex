@@ -19,6 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { Label } from "@/components/ui/label";
 import { costBackfillKeys } from "@/features/profit/api/query-keys";
 import {
@@ -259,7 +260,7 @@ export function CostBackfillCard({ storeId, canApply }: { storeId: string; canAp
         </Label>
         <Label className="text-xs">
           {copy("最大候选数")}
-          <Input
+          <NumericKeypadInput
             type="number"
             min={1}
             max={5000}

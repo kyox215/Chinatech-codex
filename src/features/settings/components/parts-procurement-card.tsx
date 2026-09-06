@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -336,7 +337,7 @@ export function PartsProcurementCard({
           </Label>
           <Label className="text-xs">
             {copy("数量")}
-            <Input
+            <NumericKeypadInput
               type="number"
               min={1}
               step={1}
@@ -371,7 +372,7 @@ export function PartsProcurementCard({
           ) : null}
           <Label className="text-xs">
             {copy("单位成本")} {multiCurrencyEnabled ? currencyCode : "€"}
-            <Input
+            <NumericKeypadInput
               type="number"
               min={0}
               step="0.01"

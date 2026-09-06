@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useIsCompactWorkspace } from "@/hooks/use-mobile";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -42,6 +43,7 @@ export function StoreRenameOverlay({
   hasUnsavedProfileDraft: boolean;
 }) {
   const { locale } = useLocale();
+  const compact = useIsCompactWorkspace();
   const copy = (source: Parameters<typeof translateSettingsOperations>[1]) =>
     translateSettingsOperations(locale, source);
   const queryClient = useQueryClient();
@@ -163,7 +165,7 @@ export function StoreRenameOverlay({
                 id="store-workspace-new-name"
                 value={name}
                 maxLength={80}
-                autoFocus
+                autoFocus={!compact}
                 disabled={mutation.isPending}
                 onChange={(event) => setName(event.target.value)}
               />

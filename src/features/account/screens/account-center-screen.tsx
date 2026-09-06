@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneKeypadInput } from "@/components/orders/phone-keypad-input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getOnboardingStatus, updateAccountProfile } from "@/lib/repairdesk/api";
@@ -296,13 +297,14 @@ export function AccountCenterScreen() {
                   />
                 </Field>
                 <Field label={t("account.phone")} htmlFor="account-phone">
-                  <Input
+                  <PhoneKeypadInput
+                    preserveFormatting
+                    ariaLabel={t("account.phone")}
                     id="account-phone"
                     value={phoneDraft}
                     autoComplete="tel"
-                    inputMode="tel"
                     placeholder="+39 333 123 4567"
-                    onChange={(event) => setPhoneDraft(event.target.value)}
+                    onChange={(value) => setPhoneDraft(value)}
                   />
                 </Field>
               </div>

@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { Switch } from "@/components/ui/switch";
 import { costCurrencyQueryOptions } from "@/features/procurement/api/query-options";
 import { procurementKeys } from "@/features/procurement/api/query-keys";
@@ -319,7 +319,7 @@ function CurrencyRow({
         <span className="shrink-0 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
           1 {code} =
         </span>
-        <Input
+        <NumericKeypadInput
           aria-label={copy("{code} 兑 EUR 汇率", { code })}
           type="number"
           inputMode="decimal"

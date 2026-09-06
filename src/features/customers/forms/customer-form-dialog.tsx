@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { PhoneKeypadInput } from "@/components/orders/phone-keypad-input";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -145,6 +146,7 @@ export function CustomerFormDialog({
   return (
     <Dialog open={open} onOpenChange={requestOpenChange}>
       <DialogContent
+        initialFocus="container"
         closeLabel={t("customers.detail.close")}
         className={cn(
           componentOverlay.formContent,
@@ -193,18 +195,17 @@ export function CustomerFormDialog({
                   required
                   htmlFor="customer-create-phone"
                 >
-                  <Input
+                  <PhoneKeypadInput
+                    preserveFormatting
                     id="customer-create-phone"
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel"
+                    ariaLabel={t("customers.form.phone")}
                     value={form.phone_e164}
-                    onChange={(event) => {
-                      setForm({ ...form, phone_e164: event.target.value });
+                    onChange={(phone_e164) => {
+                      setForm({ ...form, phone_e164 });
                       setSaveError(undefined);
                     }}
                     className={`${compactInputClass} font-mono`}
-                    aria-describedby="customer-create-identity-status"
+                    describedBy="customer-create-identity-status"
                   />
                 </CustomerFormField>
                 <CustomerFormField

@@ -390,7 +390,7 @@ export function CustomerDetailScreen({
           ? cn(
               "mx-auto max-w-[430px] px-2",
               repairOs.mobileFloatingPage,
-              "md:!max-w-2xl md:!pb-20 md:!pt-5 md:px-5 lg:!max-w-7xl lg:!space-y-3 lg:!pb-8 lg:!pt-5 lg:px-6",
+              "md:!max-w-2xl md:!pb-20 md:px-5 lg:!max-w-7xl lg:!space-y-3 lg:!pb-8 lg:!pt-5 lg:px-6",
             )
           : cn(detailWorkspace.root, "flex h-full min-h-0 flex-col"),
       )}
@@ -472,7 +472,7 @@ export function CustomerDetailScreen({
         className={cn(
           surface === "dialog"
             ? "shrink-0 px-2 sm:px-3 md:px-4"
-            : "hidden md:sticky md:top-14 md:z-20 md:block md:bg-background/95 md:pt-2 md:backdrop-blur",
+            : "hidden lg:sticky lg:top-14 lg:z-20 lg:block lg:bg-background/95 lg:pt-2 lg:backdrop-blur",
         )}
       >
         <CustomerDetailTabs
@@ -601,7 +601,7 @@ function CustomerMobileFloatingHeader({
     <div
       ref={headerRef}
       data-ui="customer-detail-mobile-header"
-      className={cn(repairOs.mobileFloatingHeaderShell, "md:!hidden")}
+      className={cn(repairOs.mobileFloatingHeaderShell, "lg:!hidden")}
       style={workspaceInset ? { left: workspaceInset } : undefined}
     >
       <section className={cn(repairOs.mobileFloatingHeaderCard, "md:max-w-2xl")}>
@@ -624,16 +624,6 @@ function CustomerMobileFloatingHeader({
               {summary.label} · {customer.preferred_channel === "sms" ? "SMS" : "WhatsApp"}
             </p>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="size-11 rounded-xl bg-card"
-            aria-label={t("customers.detail.edit")}
-            onClick={(event) => onEdit(event.currentTarget)}
-          >
-            <Edit3 className="size-4" />
-          </Button>
         </header>
 
         <div className={repairOs.mobileFloatingHeaderBody}>

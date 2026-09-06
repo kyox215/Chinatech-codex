@@ -6,6 +6,7 @@ import { Loader2, Search, UserRound, X } from "lucide-react";
 import type { Customer, InventoryLifecycleListSummary } from "@/lib/repairdesk/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -447,7 +448,9 @@ function MoneyField({
         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
           €
         </span>
-        <Input
+        <NumericKeypadInput
+          type="text"
+          decimalPlaces={2}
           id={id}
           inputMode="decimal"
           value={value}

@@ -38,6 +38,7 @@ export function NewOrderDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        initialFocus="container"
         data-new-order-dialog="true"
         showCloseButton={false}
         className={componentOverlay.formWorkspace}
