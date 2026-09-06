@@ -257,9 +257,10 @@ test("heavy it-IT 768px uploads exact front, back and other photos through the r
   await page.waitForLoadState("networkidle");
 
   const root = page.locator('[data-order-detail-root="true"]');
-  await root
-    .getByRole("tab", { name: translateMessage("it-IT", "orders2b2.photo.device") })
-    .click();
+  const photosTab = root.getByRole("tab", {
+    name: translateMessage("it-IT", "orders2b2.photo.device"),
+  });
+  await photosTab.click();
   const camera = page.getByRole("dialog", { name: translateMessage("it-IT", "camera.title") });
   for (const [index, photo] of photoCases.entries()) {
     const bytes = Buffer.from(`release-2b2-synthetic-${photo.key}`);
@@ -298,6 +299,12 @@ test("heavy it-IT 768px uploads exact front, back and other photos through the r
   ).toBeVisible();
   const blockedExternalUpload = externalApiUrl("order/attachment/upload");
   await probeBlockedExternalWrite(page, blockedExternalUpload);
+  await expect(photosTab).toHaveAttribute("aria-selected", "true");
+  const detailsTab = root.getByRole("tab", {
+    name: translateMessage("it-IT", "orders.workspace.details"),
+  });
+  await detailsTab.click();
+  await expect(detailsTab).toHaveAttribute("aria-selected", "true");
   await expectDynamicDetail(root);
   await expectNoHorizontalOverflow(page);
   await expectNoUnexpectedFixedHan(root, "it-IT");
