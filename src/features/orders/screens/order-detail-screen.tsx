@@ -2615,7 +2615,7 @@ function OrderDeviceCustodyCard({
             ? "grid min-w-0 gap-1.5 rounded-md bg-[var(--surface-panel-muted)]/55 px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
             : "grid min-w-0 gap-1.5 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] px-2.5 py-2 shadow-[var(--shadow-card)] md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:px-3"
           : variant === "embedded"
-            ? "flex min-w-0 flex-wrap items-center gap-1.5 rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-0.5"
+            ? "grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-0.5"
             : "flex min-w-0 flex-wrap items-center gap-1.5 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel)] px-2 py-1.5 shadow-sm",
         status === null && "border-status-warn-foreground/30 bg-status-warn/35",
         className,
@@ -2692,7 +2692,16 @@ function OrderDeviceCustodyCard({
           ) : null}
         </div>
       </div>
-      {actions.length ? <div className={componentAction.statusGroup}>{actions}</div> : null}
+      {actions.length ? (
+        <div
+          className={cn(
+            componentAction.statusGroup,
+            variant === "embedded" && !isExceptional && "ml-0 w-full [&>button]:py-0.5",
+          )}
+        >
+          {actions}
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -517,3 +517,50 @@ test("compact terminal status keeps desktop correction, reopen and dangerous men
   await expect(more).toBeFocused();
   await noOverflow(page);
 });
+
+test("status presentation it-IT 320 keeps wider font metrics inside the compact row", async ({
+  page,
+}) => {
+  await ready(page, "it-IT", 320, 844);
+  await page.evaluate(() => document.fonts.ready);
+  // A slightly wider font crosses the old flex-wrap boundary (only ~6px spare).
+  // Deterministic spacing exercises that geometry on every OS without requiring a local font.
+  await page.addStyleTag({
+    content:
+      "[data-order-device-custody], [data-order-device-custody] * { letter-spacing: .35px !important; }",
+  });
+  const card = page.locator('[data-order-device-custody="true"]:visible');
+  const action = card.getByRole("button", {
+    name: tr("it-IT", "orders2b2.custody.receive"),
+    exact: true,
+  });
+  const metrics = await card.evaluate((node) => {
+    const action = node.querySelector("button")!;
+    return {
+      rowHeight: node.getBoundingClientRect().height,
+      actionHeight: action.getBoundingClientRect().height,
+      font: getComputedStyle(action).fontFamily,
+      letterSpacing: getComputedStyle(action).letterSpacing,
+      rowWidth: node.getBoundingClientRect().width,
+      actionWidth: action.getBoundingClientRect().width,
+      clipped:
+        action.scrollWidth > action.clientWidth + 1 ||
+        action.scrollHeight > action.clientHeight + 1,
+    };
+  });
+  await test.info().attach("custody-wider-font-metrics", {
+    body: JSON.stringify(metrics, null, 2),
+    contentType: "application/json",
+  });
+  expect(metrics.rowHeight).toBeLessThanOrEqual(40);
+  expect(metrics.actionHeight).toBeGreaterThanOrEqual(36);
+  expect(metrics.clipped).toBe(false);
+  await noOverflow(page);
+  await capture(page, "status-wider-font-it-320");
+  await action.focus();
+  await expect(action).toBeFocused();
+  await action.press("Enter");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(action).toBeFocused();
+});
