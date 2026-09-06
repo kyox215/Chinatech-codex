@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { PhoneKeypadInput } from "@/components/orders/phone-keypad-input";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -158,10 +159,12 @@ function CustomerFields({
         />
       </CustomerFormField>
       <CustomerFormField label={t("customers.form.phone")} required htmlFor="customer-edit-phone">
-        <Input
+        <PhoneKeypadInput
+          preserveFormatting
+          ariaLabel={t("customers.form.phone")}
           id="customer-edit-phone"
           value={form.phone_e164}
-          onChange={(event) => setForm({ ...form, phone_e164: event.target.value })}
+          onChange={(phone_e164) => setForm({ ...form, phone_e164 })}
           className={`${compactInputClass} font-mono`}
         />
       </CustomerFormField>

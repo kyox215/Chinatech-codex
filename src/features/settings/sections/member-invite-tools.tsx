@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -440,7 +441,7 @@ function NumberField({
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
-      <Input
+      <NumericKeypadInput
         id={id}
         type="number"
         min={1}

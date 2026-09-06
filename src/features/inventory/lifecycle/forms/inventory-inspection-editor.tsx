@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ClipboardCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { runInventoryLifecycleCommand } from "@/lib/repairdesk/api";
 import type { InventoryLifecycleListSummary } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
@@ -207,7 +207,7 @@ export function InventoryInspectionEditor({
             hint={t("inventory2b4.inspection.batteryHint")}
             error={fieldErrors["inventory-inspection-battery-health"]}
           >
-            <Input
+            <NumericKeypadInput
               id="inventory-inspection-battery-health"
               type="number"
               min={0}

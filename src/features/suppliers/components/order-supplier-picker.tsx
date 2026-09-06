@@ -1,8 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { Check, Loader2, PackageSearch } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, ExternalLink, Loader2, PackageSearch } from "lucide-react";
 
+import { useQueryClient } from "@tanstack/react-query";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { storesKeys } from "@/features/stores/api/query-keys";
+import {
+  resolveStoreShellContext,
+  type StoreShellContextSnapshot,
+} from "@/features/stores/model/store-shell-context";
+import type { ShellBootstrap } from "@/features/stores/model/shell-bootstrap";
+import { ordersKeys } from "@/features/orders/api/query-keys";
+import { supplierSecondaryName } from "@/features/suppliers/model/supplier-display";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -68,6 +78,7 @@ export function OrderSupplierPicker({
   const trigger = (
     <Button
       type="button"
+      data-order-supplier-trigger="true"
       variant={size === "comfortable" ? "outline" : "ghost"}
       size="sm"
       disabled={isUpdating || saving}
@@ -114,6 +125,7 @@ export function OrderSupplierPicker({
               {resolvedTitle}
             </SheetTitle>
             <SheetDescription className="text-xs">{t("orders2b2.supplier.help")}</SheetDescription>
+            <SupplierManagementEntry />
           </SheetHeader>
           {failed ? (
             <p role="alert" className="px-3 text-sm text-destructive">
@@ -143,6 +155,7 @@ export function OrderSupplierPicker({
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
         <DropdownMenuLabel className="text-xs">{resolvedTitle}</DropdownMenuLabel>
+        <SupplierManagementEntry asDropdownItem />
         <DropdownMenuSeparator />
         <SupplierOptionsList
           supplier={supplier}
@@ -219,7 +232,7 @@ function SupplierOptionsList({
             disabled={isUpdating || item.id === supplier?.id}
             onClick={() => onChange(item.id)}
             className={cn(
-              "grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[var(--border-panel)] bg-card/80 px-3 py-2 text-left text-xs transition-colors",
+              "grid min-h-11 min-w-0 grid-cols-[12px_minmax(0,1fr)_16px] items-center gap-2 rounded-lg border border-[var(--border-panel)] bg-card/80 px-3 py-2 text-left text-xs transition-colors",
               item.id === supplier?.id
                 ? "border-primary/35 bg-primary/10 text-primary"
                 : "hover:bg-accent/15",
@@ -228,9 +241,11 @@ function SupplierOptionsList({
             <SupplierColorSwatch supplier={item} />
             <span className="min-w-0">
               <span className="block truncate font-semibold">{item.name}</span>
-              <span className="block truncate text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-                {item.short_name || item.phone || t("orders2b2.supplier.current")}
-              </span>
+              {supplierSecondaryName(item) || item.phone ? (
+                <span className="block truncate text-[11px] leading-4 text-muted-foreground">
+                  {supplierSecondaryName(item) || item.phone}
+                </span>
+              ) : null}
             </span>
             {item.id === supplier?.id ? <Check className="size-4" /> : null}
           </button>
@@ -262,4 +277,123 @@ function SupplierColorSwatch({ supplier }: { supplier: Supplier }) {
       aria-hidden
     />
   );
+}
+
+function SupplierManagementEntry({ asDropdownItem = false }: { asDropdownItem?: boolean }) {
+  const { locale } = useLocale();
+  const shell = useStoreShellContext();
+  const queryClient = useQueryClient();
+  const storeId = shell.activeStore?.id;
+  const allowed = Boolean(
+    shell.userId &&
+    storeId &&
+    shell.activeStore?.membershipId &&
+    shell.activeStore.role === "owner" &&
+    shell.status === "ready" &&
+    !shell.isLoading &&
+    !shell.isRefreshing &&
+    !shell.isDegraded &&
+    shell.permissions?.canManageSuppliers,
+  );
+  const session = useRef<{ identity: string; returning: boolean } | null>(null);
+  const identity = supplierManagementIdentity(shell);
+  useEffect(() => {
+    session.current = null;
+    const refreshOnReturn = async () => {
+      const opening = session.current;
+      if (
+        document.visibilityState === "hidden" ||
+        !allowed ||
+        !opening ||
+        opening.returning ||
+        opening.identity !== identity
+      )
+        return;
+      opening.returning = true;
+      try {
+        // A new tab can change the shared active-store cookie before this tab's
+        // cached shell notices. Confirm fresh authority before touching a store key.
+        const previousUpdates =
+          queryClient.getQueryState(storesKeys.bootstrap)?.dataUpdateCount ?? 0;
+        await queryClient.refetchQueries(
+          { queryKey: storesKeys.bootstrap, exact: true },
+          { throwOnError: true },
+        );
+        if (session.current !== opening) return;
+        session.current = null;
+        const bootstrap = queryClient.getQueryData<ShellBootstrap>(storesKeys.bootstrap);
+        const authorityState = queryClient.getQueryState(storesKeys.bootstrap);
+        if (
+          !bootstrap ||
+          authorityState?.status !== "success" ||
+          authorityState.fetchStatus !== "idle" ||
+          authorityState.dataUpdateCount <= previousUpdates
+        )
+          return;
+        const fresh = resolveStoreShellContext({
+          onboardingStatus: bootstrap.onboarding,
+          storeContext: bootstrap.storeContext,
+        });
+        if (
+          fresh.status !== "ready" ||
+          fresh.isLoading ||
+          fresh.isRefreshing ||
+          fresh.isDegraded ||
+          fresh.activeStore?.role !== "owner" ||
+          !fresh.permissions?.canManageSuppliers ||
+          supplierManagementIdentity(fresh) !== opening.identity
+        )
+          return;
+        await queryClient.invalidateQueries({
+          queryKey: ordersKeys.options(fresh.activeStore.id),
+          exact: true,
+        });
+      } catch {
+        // A failed authority refresh must never reuse stale options authority.
+        if (session.current === opening) session.current = null;
+      }
+    };
+    const onReturn = () => {
+      void refreshOnReturn();
+    };
+    window.addEventListener("focus", onReturn);
+    document.addEventListener("visibilitychange", onReturn);
+    return () => {
+      session.current = null;
+      window.removeEventListener("focus", onReturn);
+      document.removeEventListener("visibilitychange", onReturn);
+    };
+  }, [allowed, identity, queryClient]);
+  if (!allowed) return null;
+  const label =
+    locale === "zh-CN"
+      ? "编辑供应商列表（新页面）"
+      : locale === "it-IT"
+        ? "Modifica fornitori (nuova scheda)"
+        : "Edit suppliers (new tab)";
+  const link = (
+    <a
+      href="/settings?section=suppliers"
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={() => {
+        session.current = { identity, returning: false };
+      }}
+      className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
+      {label}
+    </a>
+  );
+  return asDropdownItem ? (
+    <DropdownMenuItem asChild onSelect={(event) => event.preventDefault()}>
+      {link}
+    </DropdownMenuItem>
+  ) : (
+    link
+  );
+}
+
+function supplierManagementIdentity(shell: StoreShellContextSnapshot) {
+  return `${shell.authorityFingerprint}:${shell.userId}:${shell.activeStore?.id}:${shell.activeStore?.membershipId}:${shell.activeStore?.role}`;
 }

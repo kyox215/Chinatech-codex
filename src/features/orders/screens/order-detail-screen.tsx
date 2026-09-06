@@ -1,6 +1,10 @@
 "use client";
 
 import {
+  OrderWorkspaceQuoteRow,
+  OrderWorkspaceMoneyStrip,
+} from "@/features/orders/components/order-workspace-primitives";
+import {
   useCallback,
   useEffect,
   useId,
@@ -5365,6 +5369,7 @@ function MobileDenseFinanceInput({
   value,
   onValueChange,
   disabled,
+  invalid,
   placeholder,
   inputMode = "text",
   align = "left",
@@ -5373,6 +5378,7 @@ function MobileDenseFinanceInput({
   value: string;
   onValueChange: (value: string) => void;
   disabled?: boolean;
+  invalid?: boolean;
   placeholder: string;
   inputMode?: "text" | "decimal" | "numeric";
   align?: "left" | "right";
@@ -5385,12 +5391,12 @@ function MobileDenseFinanceInput({
   if (inputMode === "decimal") {
     return (
       <MoneyKeypadInput
-        keyboardMode="native"
         ariaLabel={placeholder}
         value={value}
         onChange={onValueChange}
         disabled={disabled}
-        placeholder="0"
+        placeholder={placeholder}
+        invalid={invalid}
         align={align}
         triggerClassName={className}
         valueClassName="text-base lg:text-sm"
@@ -5406,6 +5412,7 @@ function MobileDenseFinanceInput({
       disabled={disabled}
       placeholder={placeholder}
       aria-label={placeholder}
+      aria-invalid={invalid || undefined}
       className={cn(className, align === "right" && "text-right")}
     />
   );
@@ -5454,6 +5461,14 @@ function MobileFinanceEditor({
     [draft.faults],
   );
 
+  const validationMessage = normalized.error
+    ? normalized.error.startsWith("押金")
+      ? t("orders2b1.quote.missing.deposit")
+      : normalized.error === "请补全报价项目名称和金额。"
+        ? t("orders2b2.finance.completeItem")
+        : t("orders2b2.payment.invalid")
+    : saveError;
+
   return (
     <fieldset
       disabled={pending}
@@ -5477,41 +5492,65 @@ function MobileFinanceEditor({
       <div className="space-y-2">
         {draft.faults.length ? (
           draft.faults.map((item, index) => (
-            <div
+            <OrderWorkspaceQuoteRow
               key={item.line_id ?? index}
-              className="grid min-w-0 grid-cols-[minmax(0,1fr)_82px_36px] items-center gap-2 sm:grid-cols-[minmax(0,1fr)_96px_36px]"
+              appearance="quote-editor"
+              price={
+                <div className="min-w-0 space-y-0.5">
+                  <MobileDenseFinanceInput
+                    value={item.priceText}
+                    onValueChange={(value) => patchFault(index, { priceText: value })}
+                    disabled={pending}
+                    placeholder={t("orders2b2.finance.amount")}
+                    invalid={Boolean(
+                      (item.name.trim() || item.note.trim()) && !item.priceText.trim(),
+                    )}
+                    inputMode="decimal"
+                    align="right"
+                    mono
+                  />
+                  {(item.name.trim() || item.note.trim()) && !item.priceText.trim() ? (
+                    <p className="px-1 text-[11px] leading-4 text-status-danger-foreground">
+                      {t("orders2b2.finance.missingAmount")}
+                    </p>
+                  ) : null}
+                </div>
+              }
+              action={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-11 w-9 rounded-lg"
+                  disabled={pending}
+                  onClick={() =>
+                    onChange({ ...draft, faults: draft.faults.filter((_, i) => i !== index) })
+                  }
+                  aria-label={t("orders2b2.overview.deleteItem")}
+                >
+                  <Trash2 className="size-4 text-muted-foreground" />
+                </Button>
+              }
             >
-              <MobileDenseFinanceInput
-                value={item.name}
-                onValueChange={(value) =>
-                  patchFault(index, { name: value, catalog_key: undefined })
-                }
-                disabled={pending}
-                placeholder={t("orders2b2.finance.item")}
-              />
-              <MobileDenseFinanceInput
-                value={item.priceText}
-                onValueChange={(value) => patchFault(index, { priceText: value })}
-                disabled={pending}
-                placeholder={t("orders2b2.finance.amount")}
-                inputMode="decimal"
-                align="right"
-                mono
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-11 w-9 rounded-lg"
-                disabled={pending}
-                onClick={() =>
-                  onChange({ ...draft, faults: draft.faults.filter((_, i) => i !== index) })
-                }
-                aria-label={t("orders2b2.overview.deleteItem")}
-              >
-                <Trash2 className="size-4 text-muted-foreground" />
-              </Button>
-            </div>
+              <div className="min-w-0 space-y-0.5">
+                <MobileDenseFinanceInput
+                  value={item.name}
+                  onValueChange={(value) =>
+                    patchFault(index, { name: value, catalog_key: undefined })
+                  }
+                  disabled={pending}
+                  placeholder={t("orders2b2.finance.item")}
+                />
+                {item.note ? (
+                  <p
+                    className="truncate px-2.5 text-[11px] leading-4 text-muted-foreground"
+                    title={item.note}
+                  >
+                    {item.note}
+                  </p>
+                ) : null}
+              </div>
+            </OrderWorkspaceQuoteRow>
           ))
         ) : (
           <div className="rounded-md border border-dashed border-[var(--border-panel)] px-2 py-2 text-center text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
@@ -5534,25 +5573,12 @@ function MobileFinanceEditor({
         <Plus className="mr-1 size-3" /> {t("orders2b2.finance.add")}
       </Button>
 
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,0.35fr)] items-end gap-2 border-t border-[var(--border-panel)] pt-2">
-        <div className="grid grid-cols-2 gap-2 text-xs leading-4">
-          <div className="min-w-0 rounded-xl bg-[var(--surface-panel-muted)] px-2.5 py-2">
-            <span className="block text-muted-foreground">{t("orders2b2.finance.total")}</span>
-            <MoneyText
-              amount={normalized.quotation}
-              className="mt-1 block truncate text-base font-semibold text-primary"
-            />
-          </div>
-          <div className="min-w-0 rounded-xl bg-[var(--surface-panel-muted)] px-2.5 py-2">
-            <span className="block text-muted-foreground">{t("orders2b2.finance.balance")}</span>
-            <MoneyText
-              amount={normalized.balance}
-              className="mt-1 block truncate text-base font-semibold"
-            />
-          </div>
-        </div>
-        <label className="grid min-w-0 gap-1 text-xs leading-4 text-muted-foreground">
-          <span>{t("orders2b2.finance.deposit")}</span>
+      <OrderWorkspaceMoneyStrip
+        total={normalized.quotation}
+        deposit={parseFinancePickerPrice(draft.depositText)}
+        balance={normalized.balance}
+        appearance="quote-editor"
+        depositControl={
           <MobileDenseFinanceInput
             value={draft.depositText}
             onValueChange={(value) => onChange({ ...draft, depositText: value })}
@@ -5562,15 +5588,15 @@ function MobileFinanceEditor({
             align="right"
             mono
           />
-        </label>
-      </div>
+        }
+      />
 
       {normalized.error || saveError ? (
         <p
           role="alert"
           className="rounded-md bg-status-danger px-2 py-1 text-[10px] leading-3 text-status-danger-foreground lg:text-xs lg:leading-[18px]"
         >
-          {normalized.error ? t("orders2b2.validation.checkOrder") : saveError}
+          {validationMessage}
         </p>
       ) : null}
 

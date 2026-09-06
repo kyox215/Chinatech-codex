@@ -39,6 +39,7 @@ export function MemoEditorOverlay({
   return compact ? (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
+        initialFocus="container"
         side="bottom"
         closeLabel={closeLabel}
         className={cn(
@@ -61,6 +62,7 @@ export function MemoEditorOverlay({
   ) : (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        initialFocus="container"
         closeLabel={closeLabel}
         className={cn(
           componentOverlay.formContent,

@@ -3,7 +3,7 @@
 import { ArrowUp, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PhoneKeypadInput } from "@/components/orders/phone-keypad-input";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/shared/i18n/locale-provider";
 import { uniqueContactPhones } from "@/shared/lib/phone";
@@ -56,10 +56,11 @@ export function CustomerBackupPhonesField({
     <div className={cn("min-w-0 space-y-2", compact && "space-y-1.5")}>
       {visiblePhones.map((phone, index) => (
         <div key={index} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] gap-1.5">
-          <Input
-            aria-label={t("orders2b2.backupPhone.label")}
+          <PhoneKeypadInput
+            preserveFormatting
+            ariaLabel={t("orders2b2.backupPhone.label")}
             value={phone}
-            onChange={(event) => updatePhone(index, event.target.value)}
+            onChange={(value) => updatePhone(index, value)}
             placeholder={t("orders2b2.backupPhone.label")}
             className={cn(
               compact

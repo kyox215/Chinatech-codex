@@ -1,3 +1,4 @@
+import { fillNumericInput } from "./input-keypad-helpers";
 import {
   expect,
   test,
@@ -1518,4 +1519,80 @@ function viewportHeight(width: number) {
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+for (const width of [390, 430, 768, 1024, 1280, 1440]) {
+  test(`A13 inventory numeric adoption ${width}px`, async ({ page }, testInfo) => {
+    const control: FixtureControl = {
+      locale: "zh-CN",
+      width,
+      state: "ready",
+      routeKind: "new",
+      pendingCustomerSearch: [],
+      pendingAfterSales: [],
+    };
+    await preparePage(page, "zh-CN", control);
+    await page.setViewportSize({ width, height: width < 768 ? 844 : 1000 });
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto("/inventory/new");
+    const price = page.locator("#product-price");
+    await expect(price).toBeVisible();
+    if (width < 1024) {
+      expect(await page.evaluate(() => document.activeElement?.matches("input, textarea"))).toBe(
+        false,
+      );
+      await expect(price).toHaveAttribute("data-numeric-keypad-trigger", "true");
+      await fillNumericInput(price, "399.25");
+      await price.click();
+      const dock = page.locator("[data-numeric-keypad]");
+      await dock.locator('[data-numeric-key="backspace"]').click();
+      await dock.locator('[data-numeric-key="5"]').click();
+      await page.addStyleTag({ content: "nextjs-portal { visibility: hidden !important; }" });
+      await page.screenshot({
+        path: resolve(
+          process.cwd(),
+          "screenshots",
+          "release2b4",
+          testInfo.project.name,
+          `a13-inventory-keypad-${width}` + ".png",
+        ),
+        fullPage: false,
+      });
+      await page.keyboard.press("Escape");
+      await expect(price).toBeFocused();
+      await expect(price).toContainText("399.25");
+    } else {
+      await expect(price).toHaveAttribute("data-numeric-form-control", "native");
+      await fillNumericInput(price, "399.25");
+      await expect(price).toHaveValue("399.25");
+      await page.addStyleTag({ content: "nextjs-portal { visibility: hidden !important; }" });
+      await page.screenshot({
+        path: resolve(
+          process.cwd(),
+          "screenshots",
+          "release2b4",
+          testInfo.project.name,
+          `a13-inventory-native-${width}` + ".png",
+        ),
+        fullPage: false,
+      });
+    }
+    if (width === 390) {
+      await page.setViewportSize({ width: 1024, height: 1000 });
+      await expect(page.locator("#product-price")).toHaveAttribute(
+        "data-numeric-form-control",
+        "native",
+      );
+      await expect(page.locator("#product-price")).toHaveValue("399.25");
+      await page.setViewportSize({ width: 390, height: 844 });
+      await expect(page.locator("#product-price")).toHaveAttribute(
+        "data-numeric-keypad-trigger",
+        "true",
+      );
+      await expect(page.locator("#product-price")).toContainText("399.25");
+    }
+    await expectNoHorizontalOverflow(page);
+    expect(errors).toEqual([]);
+  });
 }

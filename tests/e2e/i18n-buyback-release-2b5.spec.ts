@@ -1,3 +1,4 @@
+import { fillNumericInput } from "./input-keypad-helpers";
 import {
   expect,
   test,
@@ -141,9 +142,12 @@ for (const locale of locales) {
       await workspace
         .getByRole("textbox", { name: translateMessage(locale, "buyback2b5.workspace.color") })
         .fill(synthetic.draftColor);
-      await workspace
-        .getByRole("textbox", { name: translateMessage(locale, "buyback2b5.workspace.battery") })
-        .fill("87");
+      await fillNumericInput(
+        workspace.getByLabel(translateMessage(locale, "buyback2b5.workspace.battery"), {
+          exact: true,
+        }),
+        "87",
+      );
       await expectFooterReachable(workspace, "workspace");
       if (width <= 768) {
         await expectCriticalTouchTarget(
@@ -398,11 +402,12 @@ test("revise conflict preserves draft, refreshes CAS and rotates idempotency", a
   const workspace = page.getByRole("dialog", {
     name: translateMessage("it-IT", "buyback2b5.workspace.revise"),
   });
-  await workspace
-    .getByRole("textbox", {
-      name: translateMessage("it-IT", "buyback2b5.workspace.screenDeduction"),
-    })
-    .fill("5");
+  await fillNumericInput(
+    workspace.getByLabel(translateMessage("it-IT", "buyback2b5.workspace.screenDeduction"), {
+      exact: true,
+    }),
+    "5",
+  );
   await workspace
     .getByRole("textbox", { name: translateMessage("it-IT", "buyback2b5.workspace.reason") })
     .fill(synthetic.draftReason);
@@ -830,22 +835,26 @@ async function fillCanonicalDraft(dialog: Locator, locale: AppLocale) {
   await dialog
     .getByRole("textbox", { name: translateMessage(locale, "buyback2b5.workspace.color") })
     .fill(synthetic.draftColor);
-  await dialog
-    .getByRole("textbox", { name: translateMessage(locale, "buyback2b5.workspace.battery") })
-    .fill("87");
-  await dialog
-    .getByRole("textbox", {
-      name: translateMessage(locale, "buyback2b5.workspace.screenDeduction"),
-    })
-    .fill("12.5");
-  await dialog
-    .getByRole("textbox", {
-      name: translateMessage(locale, "buyback2b5.workspace.batteryDeduction"),
-    })
-    .fill("7.25");
-  await dialog
-    .getByRole("textbox", { name: translateMessage(locale, "buyback2b5.workspace.finalOffer") })
-    .fill("399.25");
+  await fillNumericInput(
+    dialog.getByLabel(translateMessage(locale, "buyback2b5.workspace.battery"), { exact: true }),
+    "87",
+  );
+  await fillNumericInput(
+    dialog.getByLabel(translateMessage(locale, "buyback2b5.workspace.screenDeduction"), {
+      exact: true,
+    }),
+    "12.5",
+  );
+  await fillNumericInput(
+    dialog.getByLabel(translateMessage(locale, "buyback2b5.workspace.batteryDeduction"), {
+      exact: true,
+    }),
+    "7.25",
+  );
+  await fillNumericInput(
+    dialog.getByLabel(translateMessage(locale, "buyback2b5.workspace.finalOffer"), { exact: true }),
+    "399.25",
+  );
   await expect(
     dialog.getByRole("textbox", { name: translateMessage(locale, "buyback2b5.workspace.reason") }),
   ).toBeVisible();
@@ -1221,3 +1230,44 @@ function viewportHeight(width: number) {
   if (width === 768) return 1024;
   return 900;
 }
+
+test("A13 buyback numeric keypad remains reachable on a short screen", async ({
+  page,
+}, testInfo) => {
+  const control = createControl();
+  const evidence = await preparePage(page, "zh-CN", control);
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto("/buyback");
+  await expectReadyList(page, "zh-CN");
+  await newQuoteCandidate(page, "zh-CN").click();
+  const workspace = page.locator('[data-buyback-quote-workspace="true"]');
+  await expect(workspace).toBeVisible();
+  expect(await page.evaluate(() => document.activeElement?.matches("input, textarea"))).toBe(false);
+  const amount = workspace.getByRole("button", {
+    name: translateMessage("zh-CN", "buyback2b5.workspace.screenDeduction"),
+    exact: true,
+  });
+  await fillNumericInput(amount, "12.5");
+  await amount.click();
+  const keypad = workspace.locator("[data-virtual-keyboard-host] [data-numeric-keypad]");
+  await expect(keypad).toBeVisible();
+  await expect(keypad.locator("[data-numeric-keypad-done]")).toBeInViewport();
+  await expect(
+    workspace.getByRole("button", {
+      name: translateMessage("zh-CN", "buyback2b5.detail.close"),
+      exact: true,
+    }),
+  ).toBeInViewport();
+  await expectNoHorizontalOverflow(page);
+  await page.addStyleTag({ content: "nextjs-portal { visibility: hidden !important; }" });
+  await page.screenshot({
+    path: testInfo.outputPath("a13-buyback-numeric-320.png"),
+    fullPage: false,
+  });
+  await page.keyboard.press("Escape");
+  await expect(keypad).toHaveCount(0);
+  await expect(amount).toBeFocused();
+  await expect(amount).toContainText("12.5");
+  await expectFooterReachable(workspace, "workspace");
+  await assertEvidence(page, evidence, []);
+});

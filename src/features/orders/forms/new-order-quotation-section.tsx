@@ -136,7 +136,6 @@ export function NewOrderQuotationSection({
                       appearance="quote-editor"
                       price={
                         <MoneyKeypadInput
-                          keyboardMode="native"
                           ariaLabel={t("orders2b1.new.quoteAria", { index: index + 1 })}
                           value={moneyDraftValue(Number(item.price) || 0)}
                           onChange={(value) =>
@@ -211,7 +210,6 @@ export function NewOrderQuotationSection({
               className="mt-2"
               depositControl={
                 <MoneyKeypadInput
-                  keyboardMode="native"
                   ariaLabel={t("orders2b1.money.deposit")}
                   value={moneyDraftValue(form.deposit)}
                   onChange={(value) => setForm({ ...form, deposit: parseMoneyDraft(value) })}

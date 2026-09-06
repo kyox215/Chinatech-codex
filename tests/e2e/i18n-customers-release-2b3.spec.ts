@@ -1,3 +1,4 @@
+import { fillPhoneInput } from "./input-keypad-helpers";
 import {
   expect,
   test,
@@ -222,7 +223,11 @@ test("heavy zh-CN 390px contains identity no-match and failed create", async ({
   const dialog = page.getByRole("dialog", {
     name: translateMessage("zh-CN", "customers.list.new"),
   });
-  await dialog.getByLabel(translateMessage("zh-CN", "customers.form.phone")).fill(synthetic.phone);
+  await fillPhoneInput(
+    page,
+    dialog.getByLabel(translateMessage("zh-CN", "customers.form.phone")),
+    synthetic.phone,
+  );
   await dialog
     .getByLabel(translateMessage("zh-CN", "customers.form.name"))
     .fill(synthetic.customer);

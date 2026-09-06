@@ -82,6 +82,7 @@ export function EditOrderDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        initialFocus="container"
         className={`${componentOverlay.modalLg} max-h-[calc(100svh-24px)] overflow-y-auto p-4 sm:p-5`}
       >
         <DialogHeader>

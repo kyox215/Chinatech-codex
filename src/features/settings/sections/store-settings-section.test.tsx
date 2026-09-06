@@ -16,7 +16,10 @@ import type {
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }),
 }));
-vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => false }));
+vi.mock("@/hooks/use-mobile", () => ({
+  useIsMobile: () => false,
+  useIsCompactWorkspace: () => false,
+}));
 
 afterEach(cleanup);
 

@@ -55,6 +55,7 @@ interface SheetContentProps
     React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
     VariantProps<typeof sheetVariants> {
   mobileEditor?: boolean;
+  initialFocus?: "container";
   closeLabel?: string;
 }
 
@@ -63,31 +64,60 @@ const SheetContent = React.forwardRef<
   SheetContentProps
 >(
   (
-    { side = "right", className, children, mobileEditor = false, closeLabel = "关闭", ...props },
+    {
+      side = "right",
+      className,
+      children,
+      mobileEditor = false,
+      initialFocus,
+      closeLabel = "关闭",
+      ...props
+    },
     ref,
   ) => {
     const editorOpener = React.useRef<HTMLElement | null>(null);
+    const contentRef = React.useRef<HTMLDivElement | null>(null);
+    const editor = mobileEditor || initialFocus === "container";
     return (
       <SheetPortal>
         <SheetOverlay />
         <SheetPrimitive.Content
           data-mobile-editor={mobileEditor || undefined}
-          ref={ref}
+          data-keypad-scope={editor || undefined}
+          ref={(node) => {
+            contentRef.current = node;
+            if (typeof ref === "function") ref(node);
+            else if (ref) ref.current = node;
+          }}
           className={cn(
             sheetVariants({ side }),
             className,
             mobileEditor && componentOverlay.mobileEditor,
+            editor && "[&:has([data-virtual-keyboard-dock])]:!overflow-y-auto",
           )}
           {...props}
           onOpenAutoFocus={(event) => {
-            if (mobileEditor)
+            if (editor)
               editorOpener.current =
                 document.activeElement instanceof HTMLElement ? document.activeElement : null;
             props.onOpenAutoFocus?.(event);
+            if (editor && !event.defaultPrevented && window.innerWidth < 1024) {
+              event.preventDefault();
+              contentRef.current?.focus({ preventScroll: true });
+            }
+          }}
+          onEscapeKeyDown={(event) => {
+            const keyboard = contentRef.current?.querySelector("[data-virtual-keyboard-dock]");
+            if (keyboard) {
+              event.preventDefault();
+              keyboard.dispatchEvent(new Event("rd-keypad-dismiss", { bubbles: true }));
+              return;
+            }
+            props.onEscapeKeyDown?.(event);
           }}
           onCloseAutoFocus={(event) => {
             props.onCloseAutoFocus?.(event);
-            if (mobileEditor && !event.defaultPrevented && editorOpener.current?.isConnected) {
+            if (editor && !event.defaultPrevented && editorOpener.current?.isConnected) {
               event.preventDefault();
               editorOpener.current.focus({ preventScroll: true });
             }
@@ -98,6 +128,9 @@ const SheetContent = React.forwardRef<
             <span className="sr-only">{closeLabel}</span>
           </SheetPrimitive.Close>
           {children}
+          {editor ? (
+            <div data-virtual-keyboard-host className="sticky bottom-0 z-40 min-w-0 empty:hidden" />
+          ) : null}
         </SheetPrimitive.Content>
       </SheetPortal>
     );

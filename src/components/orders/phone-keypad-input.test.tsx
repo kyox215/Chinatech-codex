@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DesktopVirtualKeyboardPreferenceContext } from "@/components/desktop-virtual-keyboard-preference-context";
 
@@ -81,7 +81,7 @@ describe("PhoneKeypadInput", () => {
     expect(nativeInput).toHaveAttribute("inputmode", "tel");
     expect(nativeInput).toHaveAttribute("data-phone-native-input", "true");
     expect(nativeInput).toHaveAttribute("data-phone-keypad-native-input", "true");
-    expect(nativeInput).toHaveAttribute("role", "combobox");
+    expect(nativeInput).not.toHaveAttribute("role", "combobox");
 
     await user.click(nativeInput);
     await user.type(nativeInput, "+39333a4");
@@ -98,7 +98,45 @@ describe("PhoneKeypadInput", () => {
     const { container } = render(<PhoneKeypadHarness desktopVirtualKeyboardEnabled />);
 
     expect(container.querySelector('[data-phone-native-input="true"]')).toBeNull();
-    await user.click(screen.getByRole("combobox", { name: "客户电话号码" }));
+    await user.click(screen.getByRole("button", { name: "客户电话号码" }));
     expect(await screen.findByRole("group", { name: "客户电话号码 虚拟数字键盘" })).toBeVisible();
   });
+});
+
+it("preserves legacy native formatting and enforces maxLength in the virtual editor", async () => {
+  const user = userEvent.setup();
+  const change = vi.fn();
+  setViewport(1280);
+  const { unmount } = render(
+    <PhoneKeypadInput
+      id="supplier-phone"
+      ariaLabel="Phone"
+      value="+39 12"
+      preserveFormatting
+      maxLength={6}
+      autoComplete="tel"
+      onChange={change}
+    />,
+  );
+  const native = screen.getByRole("textbox", { name: "Phone" });
+  expect(native).toHaveValue("+39 12");
+  expect(native).toHaveAttribute("maxlength", "6");
+  expect(native).toHaveAttribute("autocomplete", "tel");
+  setViewport(390);
+  unmount();
+  render(
+    <PhoneKeypadInput
+      id="supplier-phone"
+      ariaLabel="Phone"
+      value="+39123"
+      preserveFormatting
+      maxLength={6}
+      onChange={change}
+    />,
+  );
+  await user.click(screen.getByRole("button", { name: "Phone" }));
+  await user.click(screen.getByRole("button", { name: "4" }));
+  expect(change).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "删除最后一位电话号码" }));
+  expect(change).toHaveBeenLastCalledWith("+3912");
 });

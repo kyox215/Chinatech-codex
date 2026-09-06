@@ -30,6 +30,8 @@ import { MoneyText } from "@/components/orders/badges";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneKeypadInput } from "@/components/orders/phone-keypad-input";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { Label } from "@/components/ui/label";
 import {
   Sheet,
@@ -537,6 +539,7 @@ export function BuybackQuoteWorkspace({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
+        initialFocus="container"
         side="bottom"
         className={cn(
           componentOverlay.bottomSheet,
@@ -2503,7 +2506,7 @@ function FunctionStep({
             value={draft.serial_or_imei}
             onChange={(value) => updateDraft("serial_or_imei", value)}
             placeholder="扫描或输入 IMEI / SN"
-            inputMode="numeric"
+            inputMode="text"
           />
           <div className="grid gap-1.5 rounded-lg bg-[var(--surface-panel-muted)] p-2">
             <ToggleRow
@@ -3167,6 +3170,8 @@ function TextField({
   className?: string;
   hideLabel?: boolean;
 }) {
+  const FieldInput =
+    inputMode === "numeric" || inputMode === "decimal" ? NumericKeypadInput : Input;
   return (
     <div className={cn("min-w-0 space-y-0.5", className)}>
       {!hideLabel ? <Label className="text-[10px] text-muted-foreground">{label}</Label> : null}
@@ -3176,17 +3181,31 @@ function TextField({
             {prefix}
           </span>
         ) : null}
-        <Input
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          inputMode={inputMode}
-          className={cn(
-            "h-[38px] rounded-lg px-2 text-base md:text-sm",
-            prefix && "pl-5",
-            suffix && "pr-7",
-          )}
-        />
+        {inputMode === "tel" ? (
+          <PhoneKeypadInput
+            preserveFormatting
+            ariaLabel={label}
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            className="h-[38px] rounded-lg px-2 text-base md:text-sm"
+          />
+        ) : (
+          <FieldInput
+            type="text"
+            aria-label={label}
+            {...(inputMode === "decimal" ? { decimalPlaces: 2 } : {})}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            placeholder={placeholder}
+            inputMode={inputMode}
+            className={cn(
+              "h-[38px] rounded-lg px-2 text-base md:text-sm",
+              prefix && "pl-5",
+              suffix && "pr-7",
+            )}
+          />
+        )}
         {suffix ? (
           <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
             {suffix}

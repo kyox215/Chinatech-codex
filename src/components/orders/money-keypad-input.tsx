@@ -5,6 +5,7 @@ import { Check, Delete, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { VirtualKeyboardDock } from "@/components/ui/virtual-keyboard-dock";
+import { useKeypadControlGuard } from "@/hooks/use-keypad-control-guard";
 import { useVirtualKeyboardSurface } from "@/hooks/use-virtual-keyboard-surface";
 import { cn } from "@/lib/utils";
 import {
@@ -29,6 +30,7 @@ export interface MoneyKeypadInputProps {
   ariaLabel: string;
   placeholder?: string;
   disabled?: boolean;
+  readOnly?: boolean;
   invalid?: boolean;
   align?: "left" | "right";
   currencySymbol?: string;
@@ -45,6 +47,7 @@ export function MoneyKeypadInput({
   ariaLabel,
   placeholder = "0",
   disabled,
+  readOnly,
   invalid,
   align = "right",
   currencySymbol = "€",
@@ -73,17 +76,26 @@ export function MoneyKeypadInput({
     queueMicrotask(() => nativeInputRef.current?.focus());
   }, [keyboardSurface, open]);
 
+  const canEdit = useKeypadControlGuard({
+    controlRef: triggerRef,
+    open,
+    disabled,
+    readOnly,
+    onClose: () => setOpen(false),
+  });
+
   const displayDraft = open ? draft : normalizeMoneyKeypadDraft(value);
   const displayValue = displayDraft || placeholder;
 
   const updateDraft = (key: MoneyKeypadKey) => {
+    if (!canEdit()) return;
     const nextDraft = applyMoneyKeypadKey(draft, key);
     setDraft(nextDraft);
     onChange(nextDraft);
   };
 
   const handleOpenChange = (nextOpen: boolean) => {
-    if (disabled) return;
+    if (nextOpen && !canEdit()) return;
     setOpen(nextOpen);
     if (nextOpen) setDraft(normalizeMoneyKeypadDraft(value));
   };
@@ -106,9 +118,8 @@ export function MoneyKeypadInput({
           aria-label={ariaLabel}
           aria-invalid={invalid || undefined}
           disabled={disabled}
-          value={
-            keyboardMode === "native" && nativeEditing ? draft : normalizeMoneyKeypadDraft(value)
-          }
+          readOnly={readOnly}
+          value={nativeEditing ? draft : normalizeMoneyKeypadDraft(value)}
           placeholder={placeholder}
           className={cn(
             "h-full w-full min-w-0 border-0 bg-transparent px-0 font-mono tabular-nums shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50",
@@ -116,14 +127,13 @@ export function MoneyKeypadInput({
             valueClassName,
           )}
           onFocus={() => {
-            if (keyboardMode !== "native") return;
             setDraft(normalizeMoneyKeypadDraft(value));
             setNativeEditing(true);
           }}
           onBlur={() => setNativeEditing(false)}
           onChange={(event) => {
             const next = normalizeMoneyKeypadDraft(event.target.value);
-            if (keyboardMode === "native") setDraft(next);
+            setDraft(next);
             onChange(next);
           }}
         />
@@ -137,11 +147,13 @@ export function MoneyKeypadInput({
         ref={triggerRef}
         type="button"
         data-money-keypad-trigger="true"
+        data-keypad-active={open || undefined}
         aria-label={ariaLabel}
         aria-expanded={open}
         aria-invalid={invalid || undefined}
-        disabled={disabled}
+        disabled={disabled || readOnly}
         className={cn(
+          "data-[keypad-active=true]:border-primary data-[keypad-active=true]:bg-primary/5 data-[keypad-active=true]:ring-1 data-[keypad-active=true]:ring-primary/25",
           "grid h-9 w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-1 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
           invalid && "border-status-danger-foreground/50",
           className,
@@ -172,7 +184,7 @@ export function MoneyKeypadInput({
           <div className="mb-2 grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-1 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
             <span className="font-mono text-xs text-muted-foreground">{currencySymbol}</span>
             <span className="truncate text-right font-mono text-sm font-semibold tabular-nums">
-              {draft || "0"}
+              {draft || placeholder}
             </span>
           </div>
           <div

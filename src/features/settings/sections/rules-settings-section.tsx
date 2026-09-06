@@ -17,7 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Input } from "@/components/ui/input";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
@@ -249,7 +249,7 @@ export function RulesSettingsSection({
               htmlFor="inventory-warranty"
               error={inventoryWarrantyError}
             >
-              <Input
+              <NumericKeypadInput
                 id="inventory-warranty"
                 type="number"
                 inputMode="numeric"

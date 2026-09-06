@@ -32,6 +32,7 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
   mobileEditor?: boolean;
+  initialFocus?: "container";
   showCloseButton?: boolean;
   closeClassName?: string;
   closeLabel?: string;
@@ -46,6 +47,7 @@ const DialogContent = React.forwardRef<
       className,
       children,
       mobileEditor = false,
+      initialFocus,
       showCloseButton = true,
       closeClassName,
       closeLabel = "关闭",
@@ -54,33 +56,57 @@ const DialogContent = React.forwardRef<
     ref,
   ) => {
     const editorOpener = React.useRef<HTMLElement | null>(null);
+    const contentRef = React.useRef<HTMLDivElement | null>(null);
+    const editor = mobileEditor || initialFocus === "container";
     return (
       <DialogPortal>
         <DialogOverlay />
         <DialogPrimitive.Content
-          ref={ref}
+          ref={(node) => {
+            contentRef.current = node;
+            if (typeof ref === "function") ref(node);
+            else if (ref) ref.current = node;
+          }}
           data-mobile-editor={mobileEditor || undefined}
+          data-keypad-scope={editor || undefined}
           className={cn(
             "fixed left-[50%] top-[50%] z-50 grid max-h-[calc(100svh-24px)] w-[min(32rem,calc(100vw-24px))] translate-x-[-50%] translate-y-[-50%] gap-3 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] p-3 shadow-[var(--shadow-overlay)] outline-none duration-150 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 sm:gap-4 sm:p-5",
             className,
             mobileEditor && componentOverlay.mobileEditor,
+            editor && "[&:has([data-virtual-keyboard-dock])]:!overflow-y-auto",
           )}
           {...props}
           onOpenAutoFocus={(event) => {
-            if (mobileEditor)
+            if (editor)
               editorOpener.current =
                 document.activeElement instanceof HTMLElement ? document.activeElement : null;
             props.onOpenAutoFocus?.(event);
+            if (editor && !event.defaultPrevented && window.innerWidth < 1024) {
+              event.preventDefault();
+              contentRef.current?.focus({ preventScroll: true });
+            }
+          }}
+          onEscapeKeyDown={(event) => {
+            const keyboard = contentRef.current?.querySelector("[data-virtual-keyboard-dock]");
+            if (keyboard) {
+              event.preventDefault();
+              keyboard.dispatchEvent(new Event("rd-keypad-dismiss", { bubbles: true }));
+              return;
+            }
+            props.onEscapeKeyDown?.(event);
           }}
           onCloseAutoFocus={(event) => {
             props.onCloseAutoFocus?.(event);
-            if (mobileEditor && !event.defaultPrevented && editorOpener.current?.isConnected) {
+            if (editor && !event.defaultPrevented && editorOpener.current?.isConnected) {
               event.preventDefault();
               editorOpener.current.focus({ preventScroll: true });
             }
           }}
         >
           {children}
+          {editor ? (
+            <div data-virtual-keyboard-host className="sticky bottom-0 z-40 min-w-0 empty:hidden" />
+          ) : null}
           {showCloseButton ? (
             <DialogPrimitive.Close
               aria-label={closeLabel}

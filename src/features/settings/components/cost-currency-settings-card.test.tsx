@@ -56,6 +56,31 @@ describe("CostCurrencySettingsCard", () => {
     );
   });
 
+  it("edits ten-place rates on compact keypad and sends the existing numeric payload", async () => {
+    const previousWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+    try {
+      const user = userEvent.setup();
+      renderCard();
+      const usd = await screen.findByRole("button", { name: "USD 兑 EUR 汇率" });
+      expect(screen.getByRole("button", { name: "EUR 兑 EUR 汇率" })).toBeDisabled();
+      await user.click(usd);
+      await user.click(screen.getByRole("button", { name: "清空" }));
+      for (const key of "0.0000000001") await user.click(screen.getByRole("button", { name: key }));
+      await user.click(screen.getByRole("button", { name: "完成" }));
+      expect(usd).toHaveTextContent("0.0000000001");
+      await user.click(screen.getByRole("button", { name: "保存汇率设置" }));
+      await waitFor(() => expect(apiMocks.updateCostCurrencySettings).toHaveBeenCalledTimes(1));
+      expect(
+        apiMocks.updateCostCurrencySettings.mock.calls[0][0].items.find(
+          (item: { currency_code: string }) => item.currency_code === "USD",
+        ).rate_to_eur,
+      ).toBe(1e-10);
+    } finally {
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: previousWidth });
+    }
+  });
+
   it("locks EUR at one and saves a complete owner-managed currency set", async () => {
     const user = userEvent.setup();
     renderCard();

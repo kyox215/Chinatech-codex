@@ -53,6 +53,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -1944,7 +1945,10 @@ function InventoryActionDialog({
         onOpenChange(open);
       }}
     >
-      <DialogContent className={cn(componentOverlay.formContent, inventoryDialogContentClass)}>
+      <DialogContent
+        initialFocus="container"
+        className={cn(componentOverlay.formContent, inventoryDialogContentClass)}
+      >
         {action === "update" ? (
           <ActionForm
             title={currentItem.finance_redacted ? "编辑挂牌价" : "编辑价格 / 成本"}
@@ -3183,13 +3187,21 @@ function Field(
   },
 ) {
   const { label, name, required, hint, ...inputProps } = props;
+  const FieldInput =
+    inputProps.type === "number" ||
+    inputProps.inputMode === "decimal" ||
+    inputProps.inputMode === "numeric"
+      ? NumericKeypadInput
+      : Input;
   return (
     <div className={formLayout.field}>
       <Label htmlFor={name}>
         {label}
         {required ? <span className="text-destructive"> *</span> : null}
       </Label>
-      <Input
+      <FieldInput
+        type="text"
+        aria-label={label}
         id={name}
         name={name}
         required={required}

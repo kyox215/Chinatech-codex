@@ -26,6 +26,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneKeypadInput } from "@/components/orders/phone-keypad-input";
 import { Textarea } from "@/components/ui/textarea";
 import type { StoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import { SettingsField } from "@/features/settings/components/settings-field";
@@ -480,20 +481,16 @@ function StoreProfileCard({
               icon={Phone}
               error={localizeSettingsFieldError(fieldErrors, "store_phone", copy)}
             >
-              <Input
+              <PhoneKeypadInput
+                preserveFormatting
+                ariaLabel={copy("电话")}
                 id="store-phone"
-                type="tel"
                 className="h-10 text-sm"
                 value={draft.store_phone}
                 autoComplete="tel"
-                inputMode="tel"
-                aria-invalid={Boolean(getSettingsFieldError(fieldErrors, "store_phone"))}
-                aria-describedby={getSettingsFieldErrorId(
-                  fieldErrors,
-                  "store_phone",
-                  "store-phone",
-                )}
-                onChange={(event) => onDraftChange({ store_phone: event.target.value })}
+                invalid={Boolean(getSettingsFieldError(fieldErrors, "store_phone"))}
+                describedBy={getSettingsFieldErrorId(fieldErrors, "store_phone", "store-phone")}
+                onChange={(value) => onDraftChange({ store_phone: value })}
               />
             </SettingsField>
             <SettingsField
@@ -502,20 +499,20 @@ function StoreProfileCard({
               icon={MessageSquare}
               error={localizeSettingsFieldError(fieldErrors, "store_whatsapp", copy)}
             >
-              <Input
+              <PhoneKeypadInput
+                preserveFormatting
+                ariaLabel="WhatsApp"
                 id="store-whatsapp"
-                type="tel"
                 className="h-10 text-sm"
                 value={draft.store_whatsapp}
                 autoComplete="tel"
-                inputMode="tel"
-                aria-invalid={Boolean(getSettingsFieldError(fieldErrors, "store_whatsapp"))}
-                aria-describedby={getSettingsFieldErrorId(
+                invalid={Boolean(getSettingsFieldError(fieldErrors, "store_whatsapp"))}
+                describedBy={getSettingsFieldErrorId(
                   fieldErrors,
                   "store_whatsapp",
                   "store-whatsapp",
                 )}
-                onChange={(event) => onDraftChange({ store_whatsapp: event.target.value })}
+                onChange={(value) => onDraftChange({ store_whatsapp: value })}
               />
             </SettingsField>
           </div>

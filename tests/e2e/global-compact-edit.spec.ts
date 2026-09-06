@@ -14,6 +14,8 @@ async function screenshot(page: Page, name: string) {
     ? `${screenshotDir}/${name}.png`
     : test.info().outputPath(`${name}.png`);
   mkdirSync(dirname(path), { recursive: true });
+  // Hide only Next development instrumentation, never business controls.
+  await page.addStyleTag({ content: "nextjs-portal { visibility: hidden !important; }" });
   // Capture settled CSS/Framer states, rather than the first visible animation frame.
   await page.waitForTimeout(300);
   await page.screenshot({ path, fullPage: false });
@@ -75,6 +77,9 @@ for (const locale of locales)
           .click();
         const editor = page.locator("#mobile-order-finance-editor");
         await bottomEditor(page, editor, width, height);
+        expect(await page.evaluate(() => document.activeElement?.matches("input, textarea"))).toBe(
+          false,
+        );
         const grid = editor.locator('[data-fault-diagnosis-picker="true"]');
         await expect(grid.locator("[data-fault-category]")).toHaveCount(12);
         expect(Math.round((await grid.boundingBox())!.height)).toBe(107);
@@ -111,7 +116,10 @@ for (const locale of locales)
       const grid = form.locator('[data-fault-diagnosis-picker="true"]');
       await expect(grid.locator("[data-fault-category]")).toHaveCount(12);
       expect(Math.round((await grid.boundingBox())!.height)).toBe(107);
-      const trigger = grid.locator("[data-fault-category]").first();
+      const main = grid.locator("[data-fault-category]").first().getByRole("button").first();
+      await main.click();
+      await expect(main).toHaveAttribute("aria-pressed", "true");
+      const trigger = grid.locator("[data-fault-category-expand]").first();
       await trigger.click();
       const options = page.getByRole("dialog").filter({ visible: true }).last();
       await expect(options).toBeVisible();
@@ -172,4 +180,165 @@ test("pointer opening restores the actual content trigger for order and customer
   await page.keyboard.press("Escape");
   await expect(customerEditor).toHaveCount(0);
   await expect(customer).toBeFocused();
+});
+
+for (const width of [320, 390, 768]) {
+  test(`A13 scoped editors and supplier ${width}px`, async ({ page }) => {
+    test.setTimeout(90000);
+    const height = width === 320 ? 568 : width === 390 ? 844 : 1000;
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page
+      .context()
+      .addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
+    await page.setViewportSize({ width, height });
+    await page.route("**/api/repairdesk/options", async (route) => {
+      const response = await route.fetch();
+      const body = await response.json();
+      body.data.suppliers = [
+        {
+          id: "a13-supplier-one",
+          name: "Synthetic Parts",
+          short_name: "Synthetic Parts",
+          color: "var(--primary)",
+        },
+        {
+          id: "a13-supplier-two",
+          name: "Synthetic Components",
+          short_name: "SC",
+          color: "var(--primary)",
+        },
+      ];
+      await route.fulfill({ response, json: body });
+    });
+    await page.goto("/orders/ord_1");
+    await expect(page.locator('[data-order-detail-root="true"]')).toBeVisible();
+    await expect(page.locator("[data-nextjs-dialog], .vite-error-overlay")).toHaveCount(0);
+    expect(await page.locator("body").innerText()).not.toBe("");
+    await page
+      .locator("#mobile-order-quote")
+      .getByRole("button", { name: tr("zh-CN", "orders2b2.overview.quoteItems") })
+      .click();
+    const editor = page.locator("#mobile-order-finance-editor");
+    await bottomEditor(page, editor, width, height);
+    expect(await page.evaluate(() => document.activeElement?.matches("input, textarea"))).toBe(
+      false,
+    );
+    await editor.getByRole("button", { name: tr("zh-CN", "orders2b2.finance.add") }).click();
+    const emptyRow = editor.locator("[data-order-workspace-quote-row]").last();
+    await expect(emptyRow.locator("[data-money-keypad-trigger]")).not.toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    await emptyRow.getByRole("textbox").fill("Synthetic incomplete quote");
+    await expect(emptyRow.locator("[data-money-keypad-trigger]")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    await emptyRow
+      .getByRole("button", { name: tr("zh-CN", "orders2b2.overview.deleteItem") })
+      .click();
+    const battery = editor.locator('[data-fault-category="battery"]').getByRole("button").first();
+    await battery.click();
+    const newPrice = editor
+      .locator("[data-order-workspace-quote-row]")
+      .last()
+      .locator("[data-money-keypad-trigger]");
+    await expect(newPrice).toHaveAttribute("aria-invalid", "true");
+    await expect(editor.getByRole("alert")).toContainText(
+      tr("zh-CN", "orders2b2.finance.completeItem"),
+    );
+    await newPrice.click();
+    await editor.locator('[data-money-keypad-key="0"]').click();
+    await editor.locator("[data-money-keypad-done]").click();
+    await expect(newPrice).not.toHaveAttribute("aria-invalid", "true");
+    await expect(newPrice).toContainText("0");
+    await battery.click();
+    const price = editor.locator("[data-money-keypad-trigger]").first();
+    await price.click();
+    const keypad = editor.locator("[data-virtual-keyboard-host] [data-money-keypad]");
+    await expect(keypad).toBeVisible();
+    await keypad.locator('[data-money-keypad-key="clear"]').click();
+    await keypad.locator('[data-money-keypad-key="1"]').click();
+    await keypad.locator('[data-money-keypad-key="."]').click();
+    await keypad.locator('[data-money-keypad-key="5"]').click();
+    await expect(keypad).toContainText("1.5");
+    await expect(keypad.locator("[data-money-keypad-done]")).toBeInViewport();
+    await noOverflow(page);
+    await screenshot(page, `a13-quote-keypad-${width}`);
+    await page.keyboard.press("Escape");
+    await expect(keypad).toHaveCount(0);
+    await expect(editor).toBeVisible();
+    await expect(price).toBeFocused();
+    await expect(price).toContainText("1.5");
+    await price.click();
+    await editor.locator("[data-money-keypad-done]").click();
+    await expect(editor).toBeVisible();
+    await expect(price).toBeFocused();
+    const name = editor
+      .getByRole("textbox", { name: tr("zh-CN", "orders2b2.finance.item"), exact: true })
+      .first();
+    await price.click();
+    await name.click();
+    await expect(name).toBeFocused();
+    await expect(keypad).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await editor.getByRole("button", { name: tr("zh-CN", "orders.faultEditor.keep") }).click();
+    await expect(price).toContainText("1.5");
+    await page.keyboard.press("Escape");
+    await editor
+      .getByRole("button", { name: tr("zh-CN", "orders.faultEditor.confirmDiscard") })
+      .click();
+    await expect(editor).toHaveCount(0);
+
+    await page.locator("[data-order-supplier-trigger]").filter({ visible: true }).last().click();
+    const supplier = page.getByRole("dialog").filter({ visible: true }).last();
+    const manage = supplier.getByRole("link", { name: "编辑供应商列表（新页面）" });
+    await expect(manage).toHaveAttribute("href", "/settings?section=suppliers");
+    await expect(manage).toHaveAttribute("target", "_blank");
+    await expect(manage).toHaveAttribute("rel", "noopener noreferrer");
+    await screenshot(page, `a13-supplier-picker-${width}`);
+    await page.keyboard.press("Escape");
+    await page.goto("/customers/cus_1");
+    await expect(page.getByRole("button", { name: "编辑客户资料" })).toHaveCount(1);
+    await page.getByRole("button", { name: "编辑客户资料" }).click();
+    const customer = page.getByRole("dialog").filter({ visible: true }).last();
+    await bottomEditor(page, customer, width, height);
+    expect(await page.evaluate(() => document.activeElement?.matches("input, textarea"))).toBe(
+      false,
+    );
+    await customer.locator("#customer-edit-phone").click();
+    const phoneKeypad = customer.locator("[data-phone-keypad]");
+    await expect(phoneKeypad).toBeVisible();
+    await expect(phoneKeypad.locator("[data-phone-keypad-done]")).toBeInViewport();
+    await screenshot(page, `a13-customer-keypad-${width}`);
+    await phoneKeypad.locator("[data-phone-keypad-done]").click();
+    const save = customer.getByRole("button", { name: "保存", exact: true });
+    await save.scrollIntoViewIfNeeded();
+    await expect(save).toBeInViewport();
+    await noOverflow(page);
+    expect(errors).toEqual([]);
+  });
+}
+
+test("A13 customer tablet and desktop each expose one editing surface", async ({ page }) => {
+  await page.context().addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
+  for (const width of [768, 1024]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto("/customers/cus_1");
+    const trigger = page.getByRole("button", { name: "编辑客户资料" });
+    await expect(trigger).toHaveCount(1);
+    await expect(page.locator('[data-ui="customer-detail-mobile-header"]')).toBeVisible({
+      visible: width < 1024,
+    });
+    await expect(page.locator('[data-ui="customer-detail-desktop-hero"]')).toBeVisible({
+      visible: width >= 1024,
+    });
+    await trigger.click();
+    const editor = page.getByRole("dialog").filter({ visible: true });
+    await expect(editor).toHaveCount(1);
+    await expect(editor).toBeVisible();
+    await noOverflow(page);
+    await page.keyboard.press("Escape");
+  }
 });

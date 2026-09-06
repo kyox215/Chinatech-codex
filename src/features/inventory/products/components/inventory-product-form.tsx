@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { InventoryDeviceCatalogFields } from "./inventory-device-catalog-fields";
@@ -249,7 +250,9 @@ export function InventoryProductForm({
                 <label htmlFor={`${idPrefix}-battery-health`} className="text-[11px] font-medium">
                   {t("inventory2b4.quick.form.batteryHealth")}
                 </label>
-                <input
+                <NumericKeypadInput
+                  min={0}
+                  aria-label={t("inventory2b4.quick.form.batteryHealth")}
                   id={`${idPrefix}-battery-health`}
                   type="text"
                   inputMode="numeric"
@@ -762,13 +765,18 @@ function ProductDetailField({
   invalid?: boolean;
 }) {
   const { t } = useLocale();
+  const FieldInput =
+    inputMode === "numeric" || inputMode === "decimal" ? NumericKeypadInput : Input;
   const errorId = `${id}-error`;
   return (
     <div className="min-w-0 space-y-1">
       <Label htmlFor={id} className="text-xs">
         {label}
       </Label>
-      <Input
+      <FieldInput
+        type="text"
+        aria-label={label}
+        {...(inputMode === "decimal" ? { decimalPlaces: 2 } : {})}
         id={id}
         className="h-11 min-h-11 min-w-0 text-base !text-base lg:h-9 lg:min-h-0 lg:!text-sm"
         value={value}

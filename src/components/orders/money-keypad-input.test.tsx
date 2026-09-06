@@ -39,11 +39,11 @@ function MoneyKeypadHarness({
   );
 }
 
-function NativeNumericHarness() {
+function NativeNumericHarness({ forced = true }: { forced?: boolean }) {
   const [value, setValue] = useState(0);
   return (
     <MoneyKeypadInput
-      keyboardMode="native"
+      keyboardMode={forced ? "native" : undefined}
       ariaLabel="原生报价"
       value={value ? String(value) : ""}
       onChange={(next) => setValue(Number(next) || 0)}
@@ -98,6 +98,20 @@ describe("MoneyKeypadInput", () => {
     expect(input).toHaveValue("0.5");
     expect(document.querySelector('[data-virtual-keyboard-dock="true"]')).toBeNull();
   });
+  it("preserves decimal drafts for the resolved desktop native surface with numeric parent state", async () => {
+    setViewport(1440);
+    const user = userEvent.setup();
+    render(<NativeNumericHarness forced={false} />);
+    const input = screen.getByRole("textbox", { name: "原生报价" });
+    await user.type(input, "0.");
+    expect(input).toHaveValue("0.");
+    await user.type(input, "5");
+    expect(input).toHaveValue("0.5");
+    await user.clear(input);
+    await user.type(input, "0,5");
+    expect(input).toHaveValue("0.5");
+  });
+
   it("edits money through the app keypad without rendering a native input", async () => {
     setViewport(768);
     const user = userEvent.setup();

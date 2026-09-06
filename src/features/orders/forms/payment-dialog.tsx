@@ -76,6 +76,7 @@ export function PaymentDialog({
       }}
     >
       <DialogContent
+        initialFocus="container"
         data-order-desktop-payment-dialog="true"
         className={cn(
           componentOverlay.modalMd,

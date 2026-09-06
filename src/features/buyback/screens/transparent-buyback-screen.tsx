@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { ImeiScannerField } from "@/components/imei-scanner-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
@@ -1644,6 +1645,7 @@ function TransparentQuoteWorkspace({
         side="bottom"
         closeLabel={t("buyback2b5.detail.close")}
         onCloseAutoFocus={onCloseAutoFocus}
+        initialFocus="container"
         data-buyback-quote-workspace="true"
         style={sheetFloatingStyle}
         className={cn(
@@ -1773,7 +1775,8 @@ function TransparentQuoteWorkspace({
                   </div>
                 ) : null}
                 <Field label={t("buyback2b5.workspace.battery")}>
-                  <Input
+                  <NumericKeypadInput
+                    type="text"
                     ref={batteryRef}
                     aria-label={t("buyback2b5.workspace.battery")}
                     aria-invalid={validationCodes.includes("battery")}
@@ -2068,7 +2071,9 @@ function MoneyInput({
   onChange: (value: string) => void;
 }) {
   return (
-    <Input
+    <NumericKeypadInput
+      type="text"
+      decimalPlaces={2}
       ref={ref}
       aria-label={label}
       aria-invalid={invalid}
