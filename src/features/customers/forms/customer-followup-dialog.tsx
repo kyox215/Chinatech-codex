@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogBody,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -66,6 +67,7 @@ export function CustomerFollowupDialog({
     <Dialog open={open} onOpenChange={session.requestClose}>
       <DialogContent
         mobileEditor
+        editorLayout
         data-confirm-discard={session.confirmDiscard}
         closeLabel={t("customers.detail.close")}
         className={`${componentOverlay.formContent} ${componentOverlay.editorSurface} ${editorConfirmationClass}`}
@@ -96,67 +98,71 @@ export function CustomerFollowupDialog({
             {t("customers.form.followupDescription")}
           </DialogDescription>
         </DialogHeader>
-        <div className="min-w-0 space-y-2.5">
-          <CustomerFormField
-            label={t("customers.form.title")}
-            required
-            htmlFor="customer-followup-title"
-          >
-            <Input
-              id="customer-followup-title"
-              className={compactInputClass}
-              value={form.title}
-              onChange={(event) => setForm({ ...form, title: event.target.value })}
-            />
-          </CustomerFormField>
-          <CustomerFormField
-            label={t("customers.form.relatedOrder")}
-            htmlFor="customer-followup-order"
-          >
-            <select
-              id="customer-followup-order"
-              value={form.order_id ?? ""}
-              onChange={(event) => setForm({ ...form, order_id: event.target.value || undefined })}
-              className="h-11 w-full rounded-md border border-[var(--border-panel)] bg-background px-3 text-base lg:h-9 lg:text-sm"
+        <DialogBody>
+          <div className="min-w-0 space-y-2.5">
+            <CustomerFormField
+              label={t("customers.form.title")}
+              required
+              htmlFor="customer-followup-title"
             >
-              <option value="">{t("customers.form.noRelatedOrder")}</option>
-              {orders.map((order) => (
-                <option key={order.id} value={order.id}>
-                  {order.public_no} · {order.device_label}
-                </option>
-              ))}
-            </select>
-          </CustomerFormField>
-          <CustomerFormField
-            label={t("customers.form.dueAt")}
-            required
-            htmlFor="customer-followup-due-at"
-          >
-            <Input
-              id="customer-followup-due-at"
-              className={compactInputClass}
-              type="datetime-local"
-              value={form.due_at}
-              onChange={(event) => setForm({ ...form, due_at: event.target.value })}
-            />
-          </CustomerFormField>
-          <CustomerFormField label={t("customers.form.owner")} htmlFor="customer-followup-owner">
-            <Input
-              id="customer-followup-owner"
-              className={compactInputClass}
-              value={form.owner_name ?? ""}
-              onChange={(event) => setForm({ ...form, owner_name: event.target.value })}
-            />
-          </CustomerFormField>
-          <CustomerFormField label={t("customers.form.notes")} htmlFor="customer-followup-notes">
-            <Textarea
-              id="customer-followup-notes"
-              className={compactTextareaClass}
-              value={form.note ?? ""}
-              onChange={(event) => setForm({ ...form, note: event.target.value })}
-            />
-          </CustomerFormField>
-        </div>
+              <Input
+                id="customer-followup-title"
+                className={compactInputClass}
+                value={form.title}
+                onChange={(event) => setForm({ ...form, title: event.target.value })}
+              />
+            </CustomerFormField>
+            <CustomerFormField
+              label={t("customers.form.relatedOrder")}
+              htmlFor="customer-followup-order"
+            >
+              <select
+                id="customer-followup-order"
+                value={form.order_id ?? ""}
+                onChange={(event) =>
+                  setForm({ ...form, order_id: event.target.value || undefined })
+                }
+                className="h-11 w-full rounded-md border border-[var(--border-panel)] bg-background px-3 text-base lg:h-9 lg:text-sm"
+              >
+                <option value="">{t("customers.form.noRelatedOrder")}</option>
+                {orders.map((order) => (
+                  <option key={order.id} value={order.id}>
+                    {order.public_no} · {order.device_label}
+                  </option>
+                ))}
+              </select>
+            </CustomerFormField>
+            <CustomerFormField
+              label={t("customers.form.dueAt")}
+              required
+              htmlFor="customer-followup-due-at"
+            >
+              <Input
+                id="customer-followup-due-at"
+                className={compactInputClass}
+                type="datetime-local"
+                value={form.due_at}
+                onChange={(event) => setForm({ ...form, due_at: event.target.value })}
+              />
+            </CustomerFormField>
+            <CustomerFormField label={t("customers.form.owner")} htmlFor="customer-followup-owner">
+              <Input
+                id="customer-followup-owner"
+                className={compactInputClass}
+                value={form.owner_name ?? ""}
+                onChange={(event) => setForm({ ...form, owner_name: event.target.value })}
+              />
+            </CustomerFormField>
+            <CustomerFormField label={t("customers.form.notes")} htmlFor="customer-followup-notes">
+              <Textarea
+                id="customer-followup-notes"
+                className={compactTextareaClass}
+                value={form.note ?? ""}
+                onChange={(event) => setForm({ ...form, note: event.target.value })}
+              />
+            </CustomerFormField>
+          </div>
+        </DialogBody>
         <DialogFooter className={`${componentOverlay.footer} ${componentOverlay.editorFooter}`}>
           <Button
             className="min-h-11 whitespace-normal lg:min-h-9"

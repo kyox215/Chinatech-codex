@@ -542,7 +542,7 @@ describe("OrderDetailScreen i18n", () => {
       }),
     );
     const editor = screen.getByRole("dialog", {
-      name: translateMessage("en", "orders2b2.overview.deviceIssue"),
+      name: translateMessage("en", "orders2b1.new.deviceInfo"),
     });
     const notes = within(editor).getByRole("textbox", {
       name: translateMessage("en", "customers.form.deviceNotes"),
@@ -1584,8 +1584,8 @@ describe("OrderDetailScreen i18n", () => {
       const view = renderDetail("en", surface);
       const openButton =
         viewport === "desktop"
-          ? screen.getByRole("button", { name: "Edit fault and diagnosis" })
-          : screen.getByRole("button", { name: "Edit fault and diagnosis" });
+          ? screen.getByRole("button", { name: "Edit notes" })
+          : screen.getByRole("button", { name: "Edit notes" });
       await user.click(openButton);
       const editor = () =>
         within(document.querySelector("[data-order-fault-editor]") as HTMLElement);
@@ -1629,7 +1629,7 @@ describe("OrderDetailScreen i18n", () => {
     async (status) => {
       const user = userEvent.setup();
       const view = renderDetail("en");
-      await user.click(screen.getByRole("button", { name: "Edit fault and diagnosis" }));
+      await user.click(screen.getByRole("button", { name: "Edit notes" }));
       mocks.queryError = new RepairDeskApiError("private", status);
       view.rerender(
         <LocaleProvider initialLocale="en">
@@ -1647,7 +1647,7 @@ describe("OrderDetailScreen i18n", () => {
       const user = userEvent.setup();
       const view = renderDetail("en");
       if (scenario !== "no-editor")
-        await user.click(screen.getByRole("button", { name: "Edit fault and diagnosis" }));
+        await user.click(screen.getByRole("button", { name: "Edit notes" }));
       mocks.queryError =
         scenario === "unknown" ? new Error("private") : new RepairDeskApiError("private", 503);
       if (scenario === "store")
@@ -1671,7 +1671,7 @@ describe("OrderDetailScreen i18n", () => {
     async (scenario) => {
       const user = userEvent.setup();
       const view = renderDetail("en");
-      await user.click(screen.getByRole("button", { name: "Edit fault and diagnosis" }));
+      await user.click(screen.getByRole("button", { name: "Edit notes" }));
       const rerender = () =>
         view.rerender(
           <LocaleProvider initialLocale="en">
@@ -1699,7 +1699,7 @@ describe("OrderDetailScreen i18n", () => {
       mocks.queryError = null;
       rerender();
       expect(document.querySelector("[data-order-fault-editor]")).toBeNull();
-      await user.click(screen.getByRole("button", { name: "Edit fault and diagnosis" }));
+      await user.click(screen.getByRole("button", { name: "Edit notes" }));
       expect(document.querySelector("[data-order-fault-editor]")).not.toBeNull();
     },
   );

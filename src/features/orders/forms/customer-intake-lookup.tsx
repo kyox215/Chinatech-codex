@@ -350,3 +350,59 @@ function getLookupLiveStatus({
   if (trustedResult) return t("orders2b1.new.lookup.checked", { count: candidateCount });
   return "";
 }
+
+/** Review matches without allowing a candidate to overwrite an order's linked profile. */
+export function CustomerIdentityReview({
+  phone,
+  customerId,
+  enabled,
+}: {
+  phone: string;
+  customerId: string;
+  enabled: boolean;
+}) {
+  const { t } = useLocale();
+  const listboxId = useId();
+  const lookup = useCustomerIdentityCandidates({
+    phone,
+    name: "",
+    limit: 8,
+    deviceLimit: 1,
+    enabled,
+  });
+  const duplicate =
+    lookup.trustedResult &&
+    lookup.candidates.some(
+      (candidate) => candidate.customer.id !== customerId && candidate.exactMatch,
+    );
+  return (
+    <div className="min-w-0 space-y-2" data-customer-identity-review>
+      <p className="text-xs text-muted-foreground">{t("orders.customer.currentProfile")}</p>
+      {duplicate ? (
+        <p role="status" className="text-xs text-status-warn-foreground">
+          {t("orders.customer.duplicatePhone")}
+        </p>
+      ) : null}
+      {lookup.searchEnabled ? (
+        <CustomerIdentityResultsPanel
+          listboxId={listboxId}
+          phone={lookup.normalizedPhone}
+          name=""
+          phoneReadyForCreation={lookup.phoneReadyForCreation}
+          isOnline={lookup.isOnline}
+          isSearching={lookup.isSearching}
+          queryError={lookup.queryError}
+          trustedResult={lookup.trustedResult}
+          candidates={lookup.candidates}
+          highlightedIndex={null}
+          selectedCustomerId={customerId}
+          onHighlight={() => undefined}
+          onPickCustomer={() => undefined}
+          onRetry={lookup.retry}
+          onRequestNewCustomer={() => undefined}
+          readOnly
+        />
+      ) : null}
+    </div>
+  );
+}

@@ -12,7 +12,7 @@ import type {
   CustomerIntakeNewCustomerPolicy,
 } from "@/lib/repairdesk/api";
 
-import { CustomerIdentityLookup } from "./customer-intake-lookup";
+import { CustomerIdentityLookup, CustomerIdentityReview } from "./customer-intake-lookup";
 import { CustomerPhoneLookup } from "./customer-phone-lookup";
 
 const apiMocks = vi.hoisted(() => ({
@@ -342,6 +342,57 @@ describe("customer identity lookup mobile stability", () => {
 
     expect(screen.getByText("请先填写可区分的客户姓名")).toBeInTheDocument();
     expect(onNewCustomerIntentChange).toHaveBeenLastCalledWith("blocked_missing_name");
+  });
+  it("shows detail matches as phone-first readonly rows and warns without selecting another customer", async () => {
+    apiMocks.searchCustomerIntakeCandidates.mockResolvedValue([
+      makeIntakeCandidate({ id: "other", name: "3335719865", phoneRaw: "3335719865" }),
+    ]);
+    renderWithClient(<CustomerIdentityReview phone="3335719865" customerId="current" enabled />);
+    const row = await screen.findByRole("listitem");
+    expect(within(row).getAllByText("3335719865", { exact: true })).toHaveLength(1);
+    expect(screen.getByRole("status")).toHaveTextContent("此号码已属于其他客户");
+    expect(screen.queryByRole("option")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /选择|新建客户/ })).not.toBeInTheDocument();
+  });
+  it("does not query when detail matching permission or editor activation is absent", () => {
+    renderWithClient(
+      <CustomerIdentityReview phone="3335719865" customerId="current" enabled={false} />,
+    );
+    expect(apiMocks.searchCustomerIntakeCandidates).not.toHaveBeenCalled();
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+  });
+  it("ignores a late candidate from the previous store", async () => {
+    let oldResult!: (value: CustomerIntakeCandidate[]) => void;
+    apiMocks.searchCustomerIntakeCandidates.mockImplementationOnce(
+      () =>
+        new Promise<CustomerIntakeCandidate[]>((resolve) => {
+          oldResult = resolve;
+        }),
+    );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const view = () => (
+      <QueryClientProvider client={client}>
+        <CustomerIdentityReview phone="3335719865" customerId="current" enabled />
+      </QueryClientProvider>
+    );
+    const result = render(view());
+    await waitFor(() => expect(apiMocks.searchCustomerIntakeCandidates).toHaveBeenCalledTimes(1));
+    const shell = makeShellContext();
+    vi.mocked(useStoreShellContext).mockReturnValue({
+      ...shell,
+      activeStore: { ...shell.activeStore!, id: "second-store" },
+    });
+    apiMocks.searchCustomerIntakeCandidates.mockResolvedValue([
+      makeIntakeCandidate({ name: "Current store customer", phoneRaw: "3335719865" }),
+    ]);
+    result.rerender(view());
+    expect(await screen.findByText("Current store customer")).toBeVisible();
+    oldResult([
+      makeIntakeCandidate({ name: "Old store private customer", phoneRaw: "3335719865" }),
+    ]);
+    await waitFor(() =>
+      expect(screen.queryByText("Old store private customer")).not.toBeInTheDocument(),
+    );
   });
 });
 

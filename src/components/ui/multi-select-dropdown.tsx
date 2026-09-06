@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,12 @@ export function MultiSelectDropdown<TValue extends string = string>({
   className,
   contentClassName,
 }: MultiSelectDropdownProps<TValue>) {
+  const [open, setOpen] = useState(false);
+  const disabledRef = useRef(disabled);
+  disabledRef.current = disabled;
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
   const selectedSet = new Set(value);
   const exclusiveSet = new Set(exclusiveValues);
   const selectedOptions = options.filter((option) => selectedSet.has(option.value));
@@ -57,6 +63,7 @@ export function MultiSelectDropdown<TValue extends string = string>({
       : placeholder);
 
   const toggleValue = (optionValue: TValue, checked: boolean) => {
+    if (disabledRef.current) return;
     if (!checked) {
       onChange(value.filter((item) => item !== optionValue));
       return;
@@ -72,7 +79,12 @@ export function MultiSelectDropdown<TValue extends string = string>({
   };
 
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      open={open && !disabled}
+      onOpenChange={(next) => {
+        if (!next || !disabledRef.current) setOpen(next);
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <Button
           type="button"
@@ -106,7 +118,7 @@ export function MultiSelectDropdown<TValue extends string = string>({
           <DropdownMenuCheckboxItem
             key={option.value}
             checked={selectedSet.has(option.value)}
-            disabled={option.disabled}
+            disabled={disabled || option.disabled}
             onSelect={(event) => event.preventDefault()}
             onCheckedChange={(checked) => toggleValue(option.value, Boolean(checked))}
             className="min-h-8 gap-2"

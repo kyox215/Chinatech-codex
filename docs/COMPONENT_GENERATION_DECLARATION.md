@@ -514,4 +514,9 @@ An active fault editor may retain already-loaded data after a typed fetch transp
 
 ### Owner-selected A content editing (2026-09-06)
 
-[Global content editing standard](GLOBAL_CONTENT_EDITING_STANDARD.md) is active. `mobileEditor` is an explicit opt-in on DialogContent/SheetContent; `editorSurface` alone never repositions a modal. The approved repair-category variant uses one 33px whole-cell trigger in a 4×3 grid with 4px gaps. Save/Cancel remain 44px, inputs remain 16px, and existing inventory selector/capture target requirements remain unchanged. Preserve one focus owner, stable draft sessions and existing feature guards.
+[Global content editing standard](GLOBAL_CONTENT_EDITING_STANDARD.md) is active. `mobileEditor` is an explicit opt-in on DialogContent/SheetContent; `editorSurface` alone never repositions a modal. The approved repair-category variant uses a 33px split control (left two-thirds selects; right one-third expands) in a 4×3 grid with 4px gaps. Save/Cancel remain 44px, inputs remain 16px, and existing inventory selector/capture target requirements remain unchanged. Preserve one focus owner, stable draft sessions and existing feature guards.
+
+
+### A14 editor reuse boundary (2026-09-06)
+
+Reuse `editorLayout` plus `DialogBody`/`componentOverlay.editorScroll` for a three-part editor before creating a new scrolling shell. Keep the close control outside the single body scroller, 44px mobile editor actions, direct-child discard confirmation, and the existing keypad host. Opt in finite consumers; never silently wrap all dialogs. Device suggestions use `DenseOptionMenu` extracted from the new-order form; capture/accessories use the existing components with latest disabled/pending callback guards. Quote `note`/`priceMessage` slots are secondary tracks, not children of first-row controls. Customer read-only matching reuses the same store-scoped lookup/result projection as new-order selection, with no mutation or identity reassignment.

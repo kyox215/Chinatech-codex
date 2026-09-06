@@ -1631,13 +1631,16 @@ const zhCN = {
   "orders.range.all": "全部",
   "orders.workspace.details": "详情",
   "orders.workspace.history": "历史记录",
-  "orders.faultEditor.title": "编辑故障与诊断",
+  "orders.faultEditor.title": "编辑备注",
+  "orders.notes.label": "备注",
+  "orders.customer.currentProfile": "正在编辑当前工单的客户资料。匹配结果仅供核对。",
+  "orders.customer.duplicatePhone": "此号码已属于其他客户，请核对后再保存。",
   "orders.faultEditor.discard": "放弃未保存的修改？",
   "orders.faultEditor.reload": "重新加载最新数据并放弃当前草稿？",
   "orders.faultEditor.added": "已向{target}追加{count}个项目名称。",
   "orders.faultEditor.references": "参考维修项目",
   "orders.faultEditor.referencesHelp": "只追加项目名称，不修改报价金额。",
-  "orders.faultEditor.issueHelp": "记录客户描述的症状、发生条件与复现方式。",
+  "orders.faultEditor.issueHelp": "记录本次维修的补充说明。",
   "orders.faultEditor.diagnosisHelp": "记录检测结论、风险与下一步处理；可稍后补充。",
   "orders.faultEditor.required": "必填",
   "orders.faultEditor.optional": "选填",
@@ -5726,15 +5729,19 @@ const itIT: Record<MessageKey, string> = {
   "orders.range.all": "Tutti",
   "orders.workspace.details": "Dettagli",
   "orders.workspace.history": "Cronologia",
-  "orders.faultEditor.title": "Modifica guasto e diagnosi",
+  "orders.faultEditor.title": "Modifica note",
+  "orders.notes.label": "Note",
+  "orders.customer.currentProfile":
+    "Stai modificando il cliente di questo ordine. I risultati servono solo per verifica.",
+  "orders.customer.duplicatePhone":
+    "Questo numero appartiene già a un altro cliente. Verifica prima di salvare.",
   "orders.faultEditor.discard": "Scartare le modifiche non salvate?",
   "orders.faultEditor.reload": "Ricaricare i dati aggiornati e scartare la bozza?",
   "orders.faultEditor.added": "Aggiunti {count} nomi a {target}.",
   "orders.faultEditor.references": "Interventi di riferimento",
   "orders.faultEditor.referencesHelp":
     "Aggiunge solo i nomi, senza modificare gli importi del preventivo.",
-  "orders.faultEditor.issueHelp":
-    "Descrivi i sintomi segnalati, quando si verificano e come riprodurli.",
+  "orders.faultEditor.issueHelp": "Registra le note aggiuntive per questa riparazione.",
   "orders.faultEditor.diagnosisHelp":
     "Annota risultati, rischi e prossimi passi. Puoi completarli in seguito.",
   "orders.faultEditor.required": "Obbligatorio",
@@ -10072,14 +10079,18 @@ const en: Record<MessageKey, string> = {
   "orders.range.all": "All",
   "orders.workspace.details": "Details",
   "orders.workspace.history": "History",
-  "orders.faultEditor.title": "Edit fault and diagnosis",
+  "orders.faultEditor.title": "Edit notes",
+  "orders.notes.label": "Notes",
+  "orders.customer.currentProfile":
+    "Editing this order’s current customer. Matches are shown for reference.",
+  "orders.customer.duplicatePhone":
+    "This phone belongs to another customer. Check it before saving.",
   "orders.faultEditor.discard": "Discard unsaved changes?",
   "orders.faultEditor.reload": "Reload latest data and discard this draft?",
   "orders.faultEditor.added": "Added {count} item names to {target}.",
   "orders.faultEditor.references": "Repair references",
   "orders.faultEditor.referencesHelp": "Append item names only. Quote amounts stay unchanged.",
-  "orders.faultEditor.issueHelp":
-    "Record reported symptoms, when they occur and how to reproduce them.",
+  "orders.faultEditor.issueHelp": "Record additional notes for this repair.",
   "orders.faultEditor.diagnosisHelp":
     "Record findings, risks and next steps. You can add these later.",
   "orders.faultEditor.required": "Required",

@@ -138,6 +138,7 @@ export function StoreRenameOverlay({
       >
         <DialogContent
           mobileEditor
+          editorLayout
           className={`${componentOverlay.modalSm} ${componentOverlay.editorSurface}`}
           closeLabel={copy("关闭")}
           showCloseButton={!mutation.isPending}
@@ -154,7 +155,10 @@ export function StoreRenameOverlay({
               {copy("只修改名称，不会关闭店铺或移动任何资料。")}
             </DialogDescription>
           </DialogHeader>
-          <div className={`${componentOverlay.editorBody} min-h-0 space-y-4 overflow-y-auto`}>
+          <div
+            data-editor-body
+            className={`${componentOverlay.editorBody} min-h-0 flex-1 space-y-4 overflow-y-auto`}
+          >
             <div className="rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-2.5">
               <p className="text-xs text-muted-foreground">{copy("当前名称")}</p>
               <p className="mt-1 break-words text-sm font-semibold">{store.name}</p>

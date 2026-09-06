@@ -71,7 +71,7 @@ export function NewOrderQuotationSection({
   );
   const Shell = "section";
   const controlClass =
-    "h-11 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/60 text-base leading-none shadow-none focus-visible:ring-1 md:text-base lg:text-sm";
+    "h-9 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/60 text-base leading-none shadow-none focus-visible:ring-1 md:text-base lg:text-sm";
   const serviceSelectTriggerClass =
     "h-[38px] rounded-lg border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 text-xs font-medium shadow-none focus:ring-1 focus:ring-ring focus-visible:ring-1 lg:h-10";
   const serviceDropdownContentClass = "z-[90] rounded-xl shadow-[var(--shadow-overlay)]";
@@ -134,6 +134,13 @@ export function NewOrderQuotationSection({
                       key={item.key}
                       priceFullWidth={false}
                       appearance="quote-editor"
+                      note={
+                        item.note ? (
+                          <p className="px-2 text-[11px] leading-4 text-muted-foreground [overflow-wrap:anywhere]">
+                            {item.note}
+                          </p>
+                        ) : undefined
+                      }
                       price={
                         <MoneyKeypadInput
                           ariaLabel={t("orders2b1.new.quoteAria", { index: index + 1 })}
@@ -150,7 +157,7 @@ export function NewOrderQuotationSection({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-11 w-9 shrink-0 rounded-lg"
+                          className="h-9 w-9 shrink-0 rounded-lg"
                           onClick={() =>
                             setForm({
                               ...form,
@@ -172,18 +179,12 @@ export function NewOrderQuotationSection({
                           aria-label={t("orders2b1.new.customItem")}
                         />
                       ) : (
-                        <div className="flex min-h-11 min-w-0 flex-col justify-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/60 px-2.5 py-1.5">
+                        <div className="flex h-9 min-w-0 items-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/60 px-2.5">
                           <div
                             className="truncate text-xs font-semibold leading-5"
                             title={item.name}
                           >
                             {item.name}
-                          </div>
-                          <div
-                            className="truncate text-[11px] leading-4 text-muted-foreground"
-                            title={item.note}
-                          >
-                            {item.note}
                           </div>
                         </div>
                       )}
@@ -195,7 +196,7 @@ export function NewOrderQuotationSection({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-11 w-full justify-center gap-1.5 rounded-lg border-dashed border-[var(--border-panel)] bg-card text-xs font-semibold text-muted-foreground shadow-none"
+                className="h-9 w-full justify-center gap-1.5 rounded-lg border-dashed border-[var(--border-panel)] bg-card text-xs font-semibold text-muted-foreground shadow-none"
                 onClick={onAddCustomFault}
               >
                 <Plus className="size-3.5" /> {t("orders2b1.new.addCustomItem")}

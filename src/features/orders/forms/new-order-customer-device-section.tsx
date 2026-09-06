@@ -1,15 +1,10 @@
 "use client";
 
-import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { Check, ChevronDown, Smartphone, Store, UserRound } from "lucide-react";
+import { type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { Check, Smartphone, Store, UserRound } from "lucide-react";
 
 import { ImeiScannerField } from "@/components/imei-scanner-field";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DenseOptionMenu } from "@/features/orders/components/dense-option-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DeviceUnlockEditor } from "@/features/orders/components/device-unlock-fields";
@@ -35,7 +30,6 @@ import type {
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/shared/i18n/locale-provider";
-import { useTouchSafeDropdownTrigger } from "@/shared/lib/touch-safe-dropdown-trigger";
 
 type NewOrderCustomerDeviceBaseProps = {
   form: NewOrderFormState;
@@ -486,70 +480,6 @@ function DensePillField({
         </div>
       ) : null}
     </div>
-  );
-}
-
-function DenseOptionMenu({
-  label,
-  value,
-  options,
-  emptyText,
-  onSelect,
-}: {
-  label: string;
-  value: string;
-  options: readonly string[];
-  emptyText?: string;
-  onSelect: (value: string) => void;
-}) {
-  const { t } = useLocale();
-  const [open, setOpen] = useState(false);
-  const normalizedValue = value.trim().toLowerCase();
-  const touchSafeTrigger = useTouchSafeDropdownTrigger(setOpen);
-
-  return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors [touch-action:pan-y] hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          aria-label={t("orders2b1.new.chooseField", { label })}
-          {...touchSafeTrigger}
-        >
-          <ChevronDown className="size-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        collisionPadding={12}
-        side="top"
-        sideOffset={6}
-        className="z-[90] max-h-[min(18rem,calc(100dvh_-_var(--rd-overlay-avoid-bottom,0px)_-_1rem))] w-[min(18rem,calc(100vw-24px))] overflow-y-auto rounded-xl p-1 shadow-[var(--shadow-overlay)]"
-      >
-        {options.length ? (
-          options.map((option) => {
-            const selected = option.trim().toLowerCase() === normalizedValue;
-            return (
-              <DropdownMenuItem
-                key={option}
-                onSelect={() => onSelect(option)}
-                className={cn(
-                  "min-h-9 gap-2 rounded-lg px-2.5 py-1 text-xs",
-                  selected && "bg-primary/10 text-primary focus:bg-primary/10 focus:text-primary",
-                )}
-              >
-                <span className="min-w-0 flex-1 truncate font-medium">{option}</span>
-                {selected ? <Check className="size-3.5 shrink-0" /> : null}
-              </DropdownMenuItem>
-            );
-          })
-        ) : (
-          <DropdownMenuItem disabled className="min-h-9 rounded-lg px-2.5 py-1.5 text-xs">
-            {emptyText ?? t("orders2b1.new.noOptions")}
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 

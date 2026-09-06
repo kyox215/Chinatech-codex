@@ -84,38 +84,38 @@ export function OrderWorkspaceMoneyStrip({
           className,
         )}
       >
-        <div className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
+        <div className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1">
           <div className="text-xs leading-4 text-muted-foreground">
             {t("orders2b1.money.total")}
           </div>
           <MoneyText
             amount={total}
-            className="mt-1 flex h-9 items-center truncate text-base font-semibold tabular-nums text-primary"
+            className="mt-0.5 flex h-9 items-center justify-end truncate font-mono text-base font-semibold tabular-nums text-primary"
           />
         </div>
         <div
           data-new-order-field="deposit"
-          className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
+          className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1"
         >
           <div className="text-xs leading-4 text-muted-foreground">
             {t("orders2b1.money.deposit")}
           </div>
-          <div className="mt-1 min-w-0 [&>button]:h-9 [&>div]:h-9">
+          <div className="mt-0.5 min-w-0 [&>button]:h-9 [&>button]:rounded-none [&>button]:border-x-0 [&>button]:border-t-0 [&>button]:bg-transparent [&>button]:px-0 [&>button]:font-semibold [&>div]:h-9 [&>div]:rounded-none [&>div]:border-x-0 [&>div]:border-t-0 [&>div]:bg-transparent [&>div]:px-0 [&>div]:font-semibold">
             {depositControl ?? (
               <MoneyText
                 amount={deposit}
-                className="flex h-9 items-center text-base font-semibold"
+                className="flex h-9 items-center justify-end font-mono text-base font-semibold"
               />
             )}
           </div>
         </div>
-        <div className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
+        <div className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1">
           <div className="text-xs leading-4 text-muted-foreground">
             {t("orders2b1.money.balance")}
           </div>
           <MoneyText
             amount={balance}
-            className="mt-1 flex h-9 items-center truncate text-base font-semibold tabular-nums"
+            className="mt-0.5 flex h-9 items-center justify-end truncate font-mono text-base font-semibold tabular-nums"
           />
         </div>
       </div>
@@ -256,6 +256,8 @@ export function OrderWorkspaceQuoteRow({
   priceFullWidth = false,
   className,
   appearance = "default",
+  note,
+  priceMessage,
 }: {
   children: ReactNode;
   price: ReactNode;
@@ -263,6 +265,8 @@ export function OrderWorkspaceQuoteRow({
   priceFullWidth?: boolean;
   className?: string;
   appearance?: "default" | "quote-editor";
+  note?: ReactNode;
+  priceMessage?: ReactNode;
 }) {
   return (
     <div
@@ -281,6 +285,15 @@ export function OrderWorkspaceQuoteRow({
       <div className={cn("min-w-0", priceFullWidth && "col-span-2 row-start-2")}>{price}</div>
       {action ? (
         <div className={cn("shrink-0", priceFullWidth && "col-start-2 row-start-1")}>{action}</div>
+      ) : null}
+      {note || priceMessage ? (
+        <div
+          data-order-quote-secondary
+          className="col-span-full grid min-w-0 grid-cols-subgrid items-start gap-x-2"
+        >
+          <div className="min-w-0">{note}</div>
+          <div className="col-span-2 min-w-0">{priceMessage}</div>
+        </div>
       ) : null}
     </div>
   );

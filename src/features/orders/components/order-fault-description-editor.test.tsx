@@ -28,15 +28,18 @@ beforeEach(() => {
 });
 const fields = () => screen.getAllByRole("textbox");
 describe("fault editor draft and conditional-write contract", () => {
-  it("clears diagnosis explicitly and sends the opening baseline", async () => {
+  it("edits one note, preserves legacy diagnosis and sends only issue at the opening version", async () => {
     const user = userEvent.setup();
     render(<OrderFaultDescriptionEditor {...props} />);
-    await user.clear(fields()[1]!);
+    expect(fields()).toHaveLength(1);
+    await user.clear(fields()[0]!);
+    await user.type(fields()[0]!, "Updated note");
     await user.click(screen.getByRole("button", { name: "保存" }));
     expect(props.onSave).toHaveBeenCalledWith({
-      changes: { diagnosis_result: "" },
+      changes: { issue_description: "Updated note" },
       expectedUpdatedAt: order.updated_at,
     });
+    expect(order.diagnosis_result).toBe("Original diagnosis");
     expect(props.onOpenChange).toHaveBeenCalledWith(false);
   });
   it("retains dirty text on remote refresh and requires an explicit reload", async () => {
@@ -52,21 +55,32 @@ describe("fault editor draft and conditional-write contract", () => {
     await user.click(screen.getByRole("button", { name: "放弃草稿并载入" }));
     await waitFor(() => expect(fields()[0]).toHaveValue("Remote"));
   });
-  it("keeps failed drafts and excludes readonly intake from payload", async () => {
+  it("keeps failed note drafts without a diagnosis update", async () => {
     const user = userEvent.setup();
     props.onSave.mockRejectedValue(new Error("offline"));
-    render(<OrderFaultDescriptionEditor {...props} canEditIntake={false} />);
-    expect(fields()[0]).toHaveAttribute("readonly");
-    await user.clear(fields()[1]!);
-    await user.type(fields()[1]!, "New diagnosis");
+    render(<OrderFaultDescriptionEditor {...props} />);
+    await user.clear(fields()[0]!);
+    await user.type(fields()[0]!, "New note");
     await user.click(screen.getByRole("button", { name: "保存" }));
     expect(props.onSave).toHaveBeenCalledWith({
-      changes: { diagnosis_result: "New diagnosis" },
+      changes: { issue_description: "New note" },
       expectedUpdatedAt: order.updated_at,
     });
     expect(await screen.findByRole("alert")).toHaveTextContent("Save failed");
-    expect(fields()[1]).toHaveValue("New diagnosis");
+    expect(fields()[0]).toHaveValue("New note");
     expect(props.onOpenChange).not.toHaveBeenCalled();
+  });
+  it("repair permission alone never grants note editing", () => {
+    render(<OrderFaultDescriptionEditor {...props} canEditIntake={false} />);
+    expect(fields()).toHaveLength(1);
+    expect(fields()[0]).toHaveAttribute("readonly");
+    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
+  });
+  it("leaves an existing empty note untouched and does not manufacture a value", () => {
+    render(<OrderFaultDescriptionEditor {...props} order={{ ...order, issue_description: "" }} />);
+    expect(fields()[0]).toHaveValue("");
+    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
+    expect(props.onSave).not.toHaveBeenCalled();
   });
   it("guards pending Escape/X and duplicate submissions", async () => {
     const user = userEvent.setup();
@@ -115,7 +129,7 @@ describe("fault editor draft and conditional-write contract", () => {
   it("saves only intake changes with repair readonly and rejects blank faults", async () => {
     const user = userEvent.setup();
     render(<OrderFaultDescriptionEditor {...props} canEditRepair={false} />);
-    expect(fields()[1]).toHaveAttribute("readonly");
+    expect(fields()).toHaveLength(1);
     await user.clear(fields()[0]!);
     await user.type(fields()[0]!, "   ");
     await user.click(screen.getByRole("button", { name: "保存" }));
@@ -176,9 +190,8 @@ describe("editor presentation states and inline confirmation", () => {
     await user.type(fields()[0]!, "   ");
     expect(screen.getByText("只有空白变化，无需保存")).toBeVisible();
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
-    expect(fields()[0]!.getAttribute("aria-describedby")).not.toBe(
-      fields()[1]!.getAttribute("aria-describedby"),
-    );
+    expect(fields()).toHaveLength(1);
+    expect(fields()[0]).toHaveAttribute("aria-describedby");
   });
   it("returns from confirmation with Escape/X and discards only once on explicit action", async () => {
     const user = userEvent.setup();

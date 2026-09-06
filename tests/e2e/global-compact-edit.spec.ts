@@ -345,3 +345,203 @@ test("A13 customer tablet and desktop each expose one editing surface", async ({
     await page.keyboard.press("Escape");
   }
 });
+
+for (const width of [320, 390, 430, 768]) {
+  test(`A14 aligned quote identity and notes ${width}px`, async ({ page }) => {
+    test.setTimeout(60000);
+    const height = width === 320 ? 568 : width === 768 ? 1000 : 844;
+    await page
+      .context()
+      .addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
+    await page.setViewportSize({ width, height });
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto("/orders/ord_1");
+    await expect(page.locator('[data-order-detail-root="true"]')).toBeVisible();
+    await page
+      .locator("#mobile-order-quote")
+      .getByRole("button", { name: tr("zh-CN", "orders2b2.overview.quoteItems") })
+      .click();
+    const quote = page.locator("#mobile-order-finance-editor");
+    await bottomEditor(page, quote, width, height);
+    const rows = quote.locator('[data-order-workspace-quote-row="true"]');
+    for (const row of await rows.all()) {
+      const rects = await row.evaluate((node) =>
+        Array.from(node.children)
+          .slice(0, 3)
+          .map((child) => {
+            const control =
+              child.querySelector(
+                "input, [data-money-keypad-trigger], [data-money-keypad-native-input], button",
+              ) ?? child;
+            const rect = control.getBoundingClientRect();
+            return { y: rect.y, height: rect.height };
+          }),
+      );
+      expect(
+        Math.max(...rects.map((r) => r.y)) - Math.min(...rects.map((r) => r.y)),
+      ).toBeLessThanOrEqual(1);
+      rects.forEach((r) => expect(r.height).toBe(36));
+    }
+    const tiles = await quote
+      .locator("[data-order-workspace-money-strip] > div")
+      .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().height));
+    expect(Math.max(...tiles) - Math.min(...tiles)).toBeLessThanOrEqual(1);
+    if (width === 390) await screenshot(page, "a14-quote-390");
+    await page.keyboard.press("Escape");
+    await expect(quote).toHaveCount(0);
+
+    await page
+      .getByRole("button", { name: tr("zh-CN", "orders2b2.overview.deviceIssue"), exact: true })
+      .click();
+    const device = page.locator('[data-order-identity-editor="device"]');
+    await bottomEditor(page, device, width, height);
+    const close = device
+      .getByRole("button", { name: "取消", exact: true })
+      .filter({ has: page.locator("svg.lucide-x") });
+    await device
+      .locator("[data-editor-body]")
+      .evaluate((node) => (node.scrollTop = node.scrollHeight));
+    const closeRect = (await close.boundingBox())!;
+    expect(closeRect.width).toBeGreaterThanOrEqual(44);
+    expect(closeRect.height).toBeGreaterThanOrEqual(44);
+    expect(
+      await close.evaluate((node) => {
+        const r = node.getBoundingClientRect();
+        return node.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+      }),
+    ).toBe(true);
+    const footerButtons = device.locator("[data-editor-footer] > button");
+    const footerRects = await footerButtons.evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const r = node.getBoundingClientRect();
+        return { y: r.y, width: r.width, height: r.height };
+      }),
+    );
+    expect(Math.abs(footerRects[0]!.y - footerRects[1]!.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(footerRects[0]!.width - footerRects[1]!.width)).toBeLessThanOrEqual(1);
+    footerRects.forEach((r) => expect(r.height).toBeGreaterThanOrEqual(44));
+    await device.locator("[data-editor-body]").evaluate((node) => (node.scrollTop = 0));
+    if (width === 390) {
+      await expect(
+        device.getByRole("heading", { name: tr("zh-CN", "orders2b1.new.deviceInfo"), exact: true }),
+      ).toBeVisible();
+      await screenshot(page, "a14-device-390");
+      const camera = device.getByRole("button").filter({ has: page.locator("svg.lucide-camera") });
+      await camera.click();
+      const capture = page.getByRole("dialog").filter({
+        has: page.getByRole("heading", {
+          name: tr("zh-CN", "inventory2b4.scanner.title"),
+          exact: true,
+        }),
+      });
+      await expect(capture).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(capture).toHaveCount(0);
+      await expect(camera).toBeFocused();
+      await expect(device).toBeVisible();
+    }
+    await close.click();
+    await expect(device).toHaveCount(0);
+
+    await page
+      .getByRole("button", { name: tr("zh-CN", "orders.faultEditor.title"), exact: true })
+      .click();
+    const notes = page
+      .getByRole("dialog")
+      .filter({ has: page.locator('[data-order-fault-editor="true"]') });
+    await expect(notes.getByRole("textbox")).toHaveCount(1);
+    await expect(notes.getByRole("textbox")).toHaveAccessibleName(
+      tr("zh-CN", "orders.notes.label"),
+    );
+    await expect(notes.getByText(tr("zh-CN", "orders.faultEditor.references"))).toHaveCount(0);
+    if (width === 390) await screenshot(page, "a14-notes-390");
+    await page.keyboard.press("Escape");
+    await page
+      .getByRole("button", { name: tr("zh-CN", "orders2b2.overview.customerInfo"), exact: true })
+      .click();
+    const customer = page.locator('[data-order-identity-editor="customer"]');
+    await bottomEditor(page, customer, width, height);
+    await expect(customer.locator("[data-customer-identity-review]")).toBeVisible();
+    await expect(
+      customer.getByText(tr("zh-CN", "orders.faultEditor.dirty"), { exact: true }),
+    ).toHaveCount(0);
+    await expect(customer.locator("[data-customer-identity-results]")).toBeVisible();
+    await expect(customer.getByRole("option")).toHaveCount(0);
+    if (width === 390) {
+      const phone = customer.locator("[data-phone-keypad-trigger]");
+      await phone.click();
+      await page.locator('[data-phone-keypad-key="clear"]').click();
+      for (const digit of "13800000000")
+        await page.locator(`[data-phone-keypad-key="${digit}"]`).click();
+      await page.locator("[data-phone-keypad-done]").click();
+      await expect(customer.getByRole("listitem")).toHaveCount(1);
+      await expect(customer.getByRole("listitem").first()).toContainText("13800000000");
+      await screenshot(page, "a14-customer-390");
+    }
+    await noOverflow(page);
+    expect(errors).toEqual([]);
+  });
+}
+
+for (const width of [1024, 1440]) {
+  test(`A14 desktop new quote ${width}px`, async ({ page }) => {
+    await page
+      .context()
+      .addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto("/orders/new");
+    await page.waitForLoadState("networkidle");
+    const form = page.locator('[data-new-order-form="true"]').filter({ visible: true });
+    await form.locator("[data-fault-category]").first().getByRole("button").first().click();
+    const rows = form.locator("[data-order-workspace-quote-row]");
+    await expect(rows.first()).toBeVisible();
+    await noOverflow(page);
+    await screenshot(page, `a14-new-quote-${width}`);
+  });
+}
+
+test("A14 Italian short-height keypad keeps close save and done reachable", async ({ page }) => {
+  await page.context().addCookies([{ name: "repairdesk_locale", value: "it-IT", url: baseURL() }]);
+  await page.setViewportSize({ width: 320, height: 350 });
+  await page.goto("/orders/ord_1");
+  await page
+    .locator("#mobile-order-quote")
+    .getByRole("button", { name: tr("it-IT", "orders2b2.overview.quoteItems") })
+    .click();
+  const editor = page.locator("#mobile-order-finance-editor");
+  const price = editor.locator("[data-money-keypad-trigger]").first();
+  await price.click();
+  const keypad = editor.locator("[data-money-keypad]");
+  await keypad.locator('[data-money-keypad-key="clear"]').click();
+  await keypad.locator('[data-money-keypad-key="1"]').click();
+  const close = editor.getByRole("button").filter({ has: page.locator("svg.lucide-x") });
+  const save = editor
+    .locator("[data-editor-footer]")
+    .getByRole("button", { name: tr("it-IT", "orders2b2.hero.save"), exact: true });
+  const done = keypad.locator("[data-money-keypad-done]");
+  await done.scrollIntoViewIfNeeded();
+  for (const control of [close, save, done]) {
+    await expect(control).toBeInViewport();
+    expect(
+      await control.evaluate((node) => {
+        const rect = node.getBoundingClientRect();
+        return node.contains(
+          document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2),
+        );
+      }),
+    ).toBe(true);
+  }
+  await screenshot(page, "a14-keypad-it-320x350");
+  await page.keyboard.press("Escape");
+  await expect(keypad).toHaveCount(0);
+  await expect(editor).toBeVisible();
+  await expect(price).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(
+    editor.getByRole("button", { name: tr("it-IT", "orders.faultEditor.keep") }),
+  ).toBeVisible();
+  await editor.getByRole("button", { name: tr("it-IT", "orders.faultEditor.keep") }).click();
+  await expect(price).toContainText("1");
+  await noOverflow(page);
+});

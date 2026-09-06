@@ -1,0 +1,32 @@
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, expect, it, vi } from "vitest";
+import { AccessoryNotesPicker } from "./accessory-notes-picker";
+import { DenseOptionMenu } from "./dense-option-menu";
+afterEach(cleanup);
+it("none remains exclusive and locking closes accessory options", async () => {
+  const user = userEvent.setup();
+  const onChange = vi.fn();
+  const result = render(<AccessoryNotesPicker value="SIM卡，手机壳" onChange={onChange} />);
+  await user.click(screen.getByRole("button"));
+  await user.click(screen.getByRole("menuitemcheckbox", { name: "无" }));
+  expect(onChange).toHaveBeenCalledWith("无");
+  onChange.mockClear();
+  result.rerender(<AccessoryNotesPicker value="SIM卡" onChange={onChange} disabled />);
+  await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+  expect(screen.getByRole("button")).toBeDisabled();
+  expect(onChange).not.toHaveBeenCalled();
+});
+it("a disabled suggestion menu does not reopen when permission returns", async () => {
+  const user = userEvent.setup();
+  const onSelect = vi.fn();
+  const props = { label: "品牌", value: "Apple", options: ["Apple", "Samsung"], onSelect };
+  const result = render(<DenseOptionMenu {...props} />);
+  await user.click(screen.getByRole("button"));
+  expect(screen.getByRole("menu")).toBeVisible();
+  result.rerender(<DenseOptionMenu {...props} disabled />);
+  await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+  result.rerender(<DenseOptionMenu {...props} />);
+  expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  expect(onSelect).not.toHaveBeenCalled();
+});

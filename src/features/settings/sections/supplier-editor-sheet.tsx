@@ -179,6 +179,7 @@ export function SupplierEditorSheet({
       >
         <SheetContent
           mobileEditor
+          editorLayout
           side="right"
           closeLabel={copy("关闭")}
           className={`${componentOverlay.editorSurface} flex h-full w-[calc(100vw-16px)] max-w-[calc(100vw-8px)] flex-col gap-0 p-0 sm:w-[min(38rem,calc(100vw-24px))]`}
@@ -201,7 +202,10 @@ export function SupplierEditorSheet({
             </SheetDescription>
           </SheetHeader>
 
-          <div className={`${componentOverlay.mobileBody} ${componentOverlay.editorBody} flex-1`}>
+          <div
+            data-editor-body
+            className={`${componentOverlay.mobileBody} ${componentOverlay.editorBody} min-h-0 flex-1 overflow-y-auto`}
+          >
             <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-4">
               <SupplierField label={copy("名称")} field="name" errors={errors}>
                 <Input

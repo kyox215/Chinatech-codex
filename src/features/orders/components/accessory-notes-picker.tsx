@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { MultiSelectDropdown } from "@/components/ui/multi-select-dropdown";
 import {
@@ -53,18 +54,23 @@ export function AccessoryNotesPicker({
   compact = false,
   triggerClassName,
   contentClassName,
+  disabled = false,
 }: {
   value?: string | null;
   onChange: (value: string) => void;
   compact?: boolean;
   triggerClassName?: string;
   contentClassName?: string;
+  disabled?: boolean;
 }) {
   const { t } = useLocale();
   const parsed = parseAccessoryNotes(value);
   const customSelected = parsed.selected.includes("其他");
+  const disabledRef = useRef(disabled);
+  disabledRef.current = disabled;
 
   const updateSelection = (nextSelected: AccessoryNoteOption[]) => {
+    if (disabledRef.current) return;
     onChange(
       formatAccessoryNotes({
         selected: nextSelected,
@@ -80,6 +86,7 @@ export function AccessoryNotesPicker({
           value: option,
           label: localizeAccessoryNoteOption(option, t),
         }))}
+        disabled={disabled}
         value={parsed.selected}
         onChange={updateSelection}
         placeholder={t("orders2b1.accessory.select")}
@@ -98,8 +105,10 @@ export function AccessoryNotesPicker({
       />
       {customSelected && (
         <Input
+          disabled={disabled}
           value={parsed.customText}
           onChange={(event) =>
+            !disabledRef.current &&
             onChange(
               formatAccessoryNotes({
                 selected: parsed.selected,

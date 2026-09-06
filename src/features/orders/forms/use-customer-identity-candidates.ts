@@ -26,11 +26,13 @@ export function useCustomerIdentityCandidates({
   name,
   limit,
   deviceLimit,
+  enabled = true,
 }: {
   phone: string;
   name: string;
   limit: number;
   deviceLimit: number;
+  enabled?: boolean;
 }) {
   const isOnline = useOnlineStatus();
   const shell = useStoreShellContext();
@@ -39,9 +41,8 @@ export function useCustomerIdentityCandidates({
   const normalizedName = name.trim();
   const nameHasDigits = /\d/.test(normalizedName);
   const phonePresent = Boolean(normalizedPhone.trim());
-  const searchEnabled = phonePresent
-    ? phoneRaw.length >= 3
-    : normalizedName.length >= 2 && !nameHasDigits;
+  const searchEnabled =
+    enabled && (phonePresent ? phoneRaw.length >= 3 : normalizedName.length >= 2 && !nameHasDigits);
   const currentIntentKey = searchEnabled
     ? JSON.stringify({ phone: normalizedPhone, name: normalizedName })
     : "";
@@ -64,7 +65,7 @@ export function useCustomerIdentityCandidates({
   const candidateQuery = useQuery({
     queryKey: customersKeys.intakeSearch(searchInput, shell.activeStore?.id),
     queryFn: () => searchCustomerIntakeCandidates(searchInput),
-    enabled: Boolean(debouncedIntentKey && isOnline),
+    enabled: Boolean(enabled && debouncedIntentKey && isOnline),
     staleTime: 90_000,
     gcTime: 5 * 60_000,
     retry: false,
@@ -78,7 +79,9 @@ export function useCustomerIdentityCandidates({
     (!intentIsCurrent || (candidateQuery.isFetching && candidateQuery.data === undefined)),
   );
   const rawCandidates =
-    intentIsCurrent && isOnline ? (candidateQuery.data ?? EMPTY_CANDIDATES) : EMPTY_CANDIDATES;
+    enabled && intentIsCurrent && isOnline
+      ? (candidateQuery.data ?? EMPTY_CANDIDATES)
+      : EMPTY_CANDIDATES;
   const candidates = useMemo(
     () =>
       rawCandidates
