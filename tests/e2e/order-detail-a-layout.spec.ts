@@ -6,10 +6,32 @@ import { translateMessage as tr } from "@/shared/i18n/messages";
 test.skip(process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP !== "1", "Uses only synthetic local orders.");
 const evidenceDir = process.env.ORDER_DETAIL_A_EVIDENCE_DIR;
 const locales = ["zh-CN", "it-IT", "en"] as const;
-async function capture(page: Page, name: string) {
+async function capture(page: Page, name: string, fullPage = false) {
   const path = evidenceDir ? `${evidenceDir}/${name}.png` : test.info().outputPath(`${name}.png`);
   mkdirSync(dirname(path), { recursive: true });
-  await page.screenshot({ path, animations: "disabled" });
+  // Framer layout indicators run outside CSS animation handling; wait for their geometry to settle.
+  await page.evaluate(async () => {
+    let previous = "";
+    let stableFrames = 0;
+    for (let frame = 0; frame < 90 && stableFrames < 6; frame++) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      const indicator = document.querySelector(
+        '[data-order-detail-tabs] [aria-selected="true"] > span',
+      );
+      const rect = indicator?.getBoundingClientRect();
+      const current = rect
+        ? [rect.x, rect.y, rect.width, rect.height].map((value) => value.toFixed(2)).join(",")
+        : "none";
+      stableFrames = current === previous ? stableFrames + 1 : 0;
+      previous = current;
+    }
+  });
+  await page.screenshot({
+    path,
+    fullPage,
+    animations: "disabled",
+    style: "nextjs-portal { visibility: hidden !important; }",
+  });
 }
 async function ready(page: Page, locale: (typeof locales)[number], width = 390, height = 844) {
   await page
@@ -249,9 +271,249 @@ test("A editors preserve page geometry, focus and failed quote draft", async ({ 
   await expect(main).not.toContainText("DEMO retained failed draft");
   await page.locator("#order-detail-mobile-tab-photos").click();
   await expect(page.locator("[data-order-detail-photo-slots]")).toBeVisible();
+  await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
   await capture(page, "order-photos");
   await page.locator("#order-detail-mobile-tab-records").click();
   await expect(page.locator("[data-order-records-timeline]")).toBeVisible();
   await capture(page, "order-history");
+  await noOverflow(page);
+});
+
+// These scenarios intercept the local fixture only; no business mutation reaches a server.
+for (const state of [
+  "receive",
+  "deliver",
+  "return",
+  "unknown",
+  "correction",
+  "readonly",
+] as const) {
+  test(`status action ${state} preserves confirmation and narrow labels`, async ({ page }) => {
+    let writes = 0;
+    await page.route("**/api/repairdesk/order/custody", async (route) => {
+      writes++;
+      await route.fulfill({ status: 500, json: { error: { code: "INTERNAL_ERROR" } } });
+    });
+    await page.route("**/api/repairdesk/order/get", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      Object.assign(payload.data.order, {
+        status:
+          state === "return"
+            ? "cancelled"
+            : state === "correction"
+              ? "completed"
+              : payload.data.order.status,
+        workflow_status:
+          state === "return" || state === "correction"
+            ? "closed"
+            : payload.data.order.workflow_status,
+        workflow_bucket:
+          state === "return"
+            ? "cancelled"
+            : state === "correction"
+              ? "done"
+              : payload.data.order.workflow_bucket,
+        exception_status: null,
+        device_custody_status:
+          state === "unknown"
+            ? null
+            : ["deliver", "return", "correction"].includes(state)
+              ? "with_shop"
+              : "with_customer",
+        delivered_at: null,
+      });
+      Object.assign(payload.data.capabilities, {
+        canEditIntake: state !== "readonly",
+        canCorrect: state !== "readonly",
+        canConfirmCancelledReturn: state !== "readonly",
+        canReopen: state === "correction",
+        canVoid: false,
+      });
+      await route.fulfill({ response, json: payload });
+    });
+    await ready(page, "it-IT", 320, 568);
+    const card = page.locator('[data-order-device-custody="true"]:visible');
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await capture(page, `status-${state}-full-it-320`, true);
+    await card.evaluate((node) => node.scrollIntoView({ block: "center", behavior: "instant" }));
+    await noOverflow(page);
+    const actions = card.getByRole("button");
+    await expect(actions).toHaveCount(state === "readonly" ? 0 : state === "unknown" ? 2 : 1);
+    await capture(page, `status-${state}-it-320`);
+
+    if (state !== "readonly") {
+      const action = actions.first();
+      await action.focus();
+      await expect(action).toBeFocused();
+      await capture(page, `status-${state}-focus-it-320`);
+      await page.keyboard.press("Enter");
+      const dialog = page.getByRole("dialog");
+      await expect(dialog).toBeVisible();
+      expect(writes).toBe(0);
+      await capture(page, `status-${state}-confirmation-it-320`);
+      await page.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+      await expect(action).toBeFocused();
+    }
+  });
+}
+
+test("status action receive keeps pending guard, failure draft and version payload", async ({
+  page,
+}) => {
+  await ready(page, "zh-CN");
+  const card = page.locator('[data-order-device-custody="true"]:visible');
+  const action = card.getByRole("button", {
+    name: tr("zh-CN", "orders2b2.custody.receive"),
+    exact: true,
+  });
+  await action.click();
+  const dialog = page.getByRole("dialog");
+  const reason = dialog.getByRole("textbox");
+  await reason.fill("DEMO custody reason retained");
+  let attempts = 0;
+  let requestBody: { id: string; input: Record<string, unknown> } | undefined;
+  let release: () => void = () => {};
+  const heldResponse = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/repairdesk/order/custody", async (route) => {
+    attempts++;
+    requestBody = route.request().postDataJSON();
+    await heldResponse;
+    await route.fulfill({
+      status: 500,
+      json: { error: { code: "INTERNAL_ERROR", message: "Synthetic local custody failure" } },
+    });
+  });
+  await dialog
+    .getByRole("button", { name: tr("zh-CN", "orders2b2.custody.confirmSave"), exact: true })
+    .click();
+  await expect.poll(() => attempts).toBe(1);
+  await expect(dialog).toHaveAttribute("aria-busy", "true");
+  await expect(reason).toBeDisabled();
+  await expect(card.locator("button")).toBeDisabled();
+  await expect(
+    dialog.getByRole("button", { name: tr("zh-CN", "orders2b2.hero.saving"), exact: true }),
+  ).toBeDisabled();
+  await capture(page, "status-receive-pending-zh-390");
+  expect(requestBody).toMatchObject({
+    id: "ord_1",
+    input: { device_custody_status: "with_shop", reason: "DEMO custody reason retained" },
+  });
+  expect(requestBody?.input.expected_updated_at).toEqual(expect.any(String));
+  expect(requestBody?.input.idempotency_key).toEqual(expect.any(String));
+  release();
+  await expect(dialog).toHaveAttribute("aria-busy", "false");
+  await expect(reason).toHaveValue("DEMO custody reason retained");
+  await expect(page.locator("[data-sonner-toast]")).toContainText(
+    tr("zh-CN", "orders2b2.error.unavailable", {
+      operation: tr("zh-CN", "orders2b2.operation.custody"),
+    }),
+  );
+  await capture(page, "status-receive-failure-zh-390");
+  expect(attempts).toBe(1);
+  await page.keyboard.press("Escape");
+  await expect(action).toBeFocused();
+});
+
+for (const locale of locales) {
+  for (const width of [320, 390, 430, 768, 1024, 1440]) {
+    test(`status presentation ${locale} ${width} stays reachable and flat`, async ({ page }) => {
+      await ready(page, locale, width, width < 768 ? 844 : 1000);
+      const card = page.locator('[data-order-device-custody="true"]:visible');
+      await card.scrollIntoViewIfNeeded();
+      const action = card.getByRole("button");
+      await expect(action).toHaveAccessibleName(tr(locale, "orders2b2.custody.receive"));
+      const metrics = await action.evaluate((node) => {
+        const style = getComputedStyle(node);
+        const rect = node.getBoundingClientRect();
+        return {
+          height: rect.height,
+          width: rect.width,
+          border: style.borderTopWidth,
+          shadow: style.boxShadow,
+          wrap: style.whiteSpace,
+          clipped: node.scrollWidth > node.clientWidth + 1,
+        };
+      });
+      expect(metrics.height).toBeGreaterThanOrEqual(width < 1024 ? 36 : 28);
+      expect(metrics.border).toBe("0px");
+      expect(metrics.wrap).toBe("normal");
+      expect(metrics.clipped).toBe(false);
+      expect(metrics.shadow === "none" || !metrics.shadow.match(/rgba?\((?!0, 0, 0, 0\))/)).toBe(
+        true,
+      );
+      if (width < 1024) expect((await card.boundingBox())!.height).toBeLessThanOrEqual(40);
+      await noOverflow(page);
+      await capture(page, `status-presentation-${locale}-${width}`);
+      await action.focus();
+      await expect(action).toBeFocused();
+      const focusedShadow = await action.evaluate((node) => getComputedStyle(node).boxShadow);
+      expect(focusedShadow).not.toBe(metrics.shadow);
+      await action.press("Enter");
+      const confirmation = page.getByRole("dialog");
+      await expect(confirmation).toBeVisible();
+      await expect(
+        confirmation.getByRole("button", {
+          name: tr(locale, "orders2b2.custody.confirmSave"),
+          exact: true,
+        }),
+      ).toBeEnabled();
+      await noOverflow(page);
+      if (width >= 1024) await capture(page, `status-confirmation-${locale}-${width}`);
+      await page.keyboard.press("Escape");
+      await expect(action).toBeFocused();
+    });
+  }
+}
+
+test("compact terminal status keeps desktop correction, reopen and dangerous menu separate", async ({
+  page,
+}) => {
+  await page.route("**/api/repairdesk/order/get", async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    Object.assign(payload.data.order, {
+      status: "completed",
+      workflow_status: "closed",
+      workflow_bucket: "done",
+      device_custody_status: "with_shop",
+      delivered_at: null,
+    });
+    Object.assign(payload.data.capabilities, { canCorrect: true, canReopen: true, canVoid: true });
+    await route.fulfill({ response, json: payload });
+  });
+  await ready(page, "it-IT", 1024, 900);
+  const terminal = page.locator('[data-order-terminal-actions="true"]:visible');
+  await capture(page, "status-terminal-compact-it-1024");
+  for (const key of ["orders2b2.terminal.correct", "orders2b2.terminal.reopen"] as const) {
+    const action = terminal.getByRole("button", { name: tr("it-IT", key), exact: true });
+    await action.focus();
+    await expect(action).toBeFocused();
+    await action.press("Enter");
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  }
+  const more = terminal.getByRole("button", {
+    name: tr("it-IT", "orders2b2.terminal.more"),
+    exact: true,
+  });
+  await more.focus();
+  await expect(more).toBeFocused();
+  await capture(page, "status-terminal-focus-it-1024");
+  await more.press("Enter");
+  const destructive = page.getByRole("menuitem", {
+    name: tr("it-IT", "orders2b2.terminal.void"),
+    exact: true,
+  });
+  await expect(destructive).toBeVisible();
+  await destructive.focus();
+  await expect(destructive).toBeFocused();
+  await capture(page, "status-terminal-danger-menu-it-1024");
+  await page.keyboard.press("Escape");
+  await expect(more).toBeFocused();
   await noOverflow(page);
 });

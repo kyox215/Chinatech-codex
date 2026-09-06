@@ -343,3 +343,9 @@ Fault/diagnosis editing uses two visible text fields, independent intake/repair 
 故障与诊断编辑使用独立字段帮助、必填/选填/只读标识和可见草稿状态。移动文本域使用16px输入字号及约112/96px稳定高度；主体单滚动，底部双44px操作和安全区保持可达。参考项目仅追加名称，不改变报价金额；追加后的文本状态和单一live区域共同反馈结果。放弃及重载在原浮层中显示确认步骤，默认继续编辑，Escape/X返回草稿，外部点击不放弃，重载失败保留草稿。DeviceUnlockEditSheet仅是移动详情表面，桌面使用其他现有流程，不将其计为同一表面覆盖。
 
 当前全局复用规则与有限覆盖/例外清单见 [GLOBAL_CONTENT_EDITING_STANDARD.md](GLOBAL_CONTENT_EDITING_STANDARD.md)。
+
+## Compact status actions (2026-09-06)
+
+Inside an existing status strip, custody receive/deliver, unknown backfill, cancelled return and terminal correction entry actions use `Button variant="ghost"` with the opt-in `componentAction.status` family. Place state at the start and the wrapping action group at the end. Entry actions have no permanent shadow or raised border; retain visible hover, pressed, keyboard focus and disabled states. Mobile targets are at least 36 px tall (ordinary embedded row approximately 40 px); desktop uses an independent 28 px minimum. Long labels wrap naturally, including at 320 px, without fixed heights or clipping. Warning/correction entries retain warning text and contextual explanation; compact terminal menus keep destructive items distinct.
+
+This presentation contract does not change the confirmation Sheet/Dialog, final confirmation button hierarchy, permissions, pending guard, reason validation, version, payload or custody transitions. Dedicated terminal workflow banners and final confirmation footers retain their stronger hierarchy. Read-only custody badges and next-action guidance remain non-interactive. Finite audit and synthetic screenshots belong to TASK-20260906-004.

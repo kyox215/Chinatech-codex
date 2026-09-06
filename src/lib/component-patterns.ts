@@ -214,6 +214,13 @@ export const componentDensity = {
 } as const;
 
 export const componentAction = {
+  // Opt-in entry actions inside an existing status surface. Confirmation footers keep their hierarchy.
+  status:
+    "h-auto min-h-9 min-w-9 max-w-full gap-1.5 whitespace-normal break-words rounded-md border-0 bg-transparent px-2.5 py-1.5 text-left text-xs leading-4 font-medium text-primary shadow-none hover:bg-primary/10 hover:text-primary active:bg-primary/15 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:opacity-50 lg:min-h-7 lg:min-w-7 lg:px-2 lg:py-1 lg:text-[11px] [&_svg]:size-3.5",
+  statusWarning:
+    "text-status-warn-foreground hover:bg-status-warn hover:text-status-warn-foreground active:bg-status-warn/80",
+  statusGroup: "ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1",
+
   row: "flex flex-wrap items-center gap-2",
   iconButton: "inline-flex size-9 items-center justify-center rounded-md",
   primary: "border-0 text-primary-foreground",

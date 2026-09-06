@@ -229,7 +229,7 @@ import {
 } from "@/features/orders/model/order-date";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
-import { componentOverlay } from "@/lib/component-patterns";
+import { componentAction, componentOverlay } from "@/lib/component-patterns";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { invalidateOrderReadCaches, patchOrderReadCaches } from "@/features/orders/api/cache-sync";
@@ -1462,13 +1462,13 @@ export function OrderDetailScreen({
       {cancelled && custodyStatus === DEVICE_CUSTODY_WITH_SHOP && !order.delivered_at ? (
         <section
           className={cn(
-            "mb-2 flex min-w-0 items-center gap-2 border border-status-warn-foreground/25 bg-status-warn/55 px-3 py-2 text-status-warn-foreground md:rounded-lg",
+            "mb-2 flex min-w-0 flex-wrap items-center gap-2 border border-status-warn-foreground/25 bg-status-warn/55 px-3 py-2 text-status-warn-foreground md:rounded-lg",
           )}
         >
           <PackageCheck className="size-4 shrink-0" />
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 basis-40">
             <p className="text-xs font-semibold">{t("orders2b2.custody.returnPending")}</p>
-            <p className="truncate text-[11px] opacity-80 lg:text-xs lg:leading-4 lg:opacity-100">
+            <p className="break-words text-[11px] opacity-80 lg:text-xs lg:leading-4 lg:opacity-100">
               {t("orders2b2.custody.returnReminder")}
             </p>
           </div>
@@ -1476,8 +1476,8 @@ export function OrderDetailScreen({
             <Button
               type="button"
               size="sm"
-              variant="outline"
-              className="h-8 shrink-0 bg-background/80 text-xs"
+              variant="ghost"
+              className={cn(componentAction.status, componentAction.statusWarning, "ml-auto")}
               onClick={() => {
                 cancelledReturnTriggerRef.current =
                   document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -2528,12 +2528,8 @@ function OrderDeviceCustodyCard({
             key={`backfill-${target}`}
             type="button"
             size="sm"
-            variant="outline"
-            className={cn(
-              variant === "inline"
-                ? "h-11 min-w-11 px-3 text-xs lg:h-7 lg:min-w-0 lg:px-2 lg:text-[11px] lg:leading-4"
-                : "h-9 text-xs",
-            )}
+            variant="ghost"
+            className={componentAction.status}
             disabled={pending}
             onClick={() => onRequestChange(target)}
           >
@@ -2552,13 +2548,10 @@ function OrderDeviceCustodyCard({
     actions.push(
       <Button
         key="cancelled-return"
+        variant="ghost"
         type="button"
         size="sm"
-        className={cn(
-          variant === "inline"
-            ? "h-11 min-w-11 px-3 text-xs lg:h-7 lg:min-w-0 lg:px-2 lg:text-[11px] lg:leading-4"
-            : "h-9 text-xs",
-        )}
+        className={cn(componentAction.status, componentAction.statusWarning)}
         disabled={pending}
         onClick={onConfirmCancelledReturn}
       >
@@ -2575,12 +2568,8 @@ function OrderDeviceCustodyCard({
           key="custody-toggle"
           type="button"
           size="sm"
-          variant="outline"
-          className={cn(
-            variant === "inline"
-              ? "h-11 min-w-11 px-3 text-xs lg:h-7 lg:min-w-0 lg:px-2 lg:text-[11px] lg:leading-4"
-              : "h-9 text-xs",
-          )}
+          variant="ghost"
+          className={componentAction.status}
           disabled={pending}
           onClick={() => onRequestChange(target)}
         >
@@ -2598,12 +2587,8 @@ function OrderDeviceCustodyCard({
           key="terminal-correction"
           type="button"
           size="sm"
-          variant="outline"
-          className={cn(
-            variant === "inline"
-              ? "h-11 min-w-11 px-3 text-xs lg:h-7 lg:min-w-0 lg:px-2 lg:text-[11px] lg:leading-4"
-              : "h-9 text-xs",
-          )}
+          variant="ghost"
+          className={cn(componentAction.status, componentAction.statusWarning)}
           disabled={pending}
           onClick={() => onRequestChange(target)}
         >
@@ -2622,6 +2607,7 @@ function OrderDeviceCustodyCard({
   return (
     <section
       data-order-device-custody="true"
+      aria-busy={pending}
       data-order-custody-mode={isExceptional ? "expanded" : "compact"}
       className={cn(
         isExceptional
@@ -2629,8 +2615,8 @@ function OrderDeviceCustodyCard({
             ? "grid min-w-0 gap-1.5 rounded-md bg-[var(--surface-panel-muted)]/55 px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
             : "grid min-w-0 gap-1.5 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] px-2.5 py-2 shadow-[var(--shadow-card)] md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:px-3"
           : variant === "embedded"
-            ? "flex min-w-0 flex-wrap items-center gap-1.5 rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-1"
-            : "flex min-w-0 max-lg:flex-wrap items-center gap-1.5 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel)] px-2 py-1.5 shadow-sm",
+            ? "flex min-w-0 flex-wrap items-center gap-1.5 rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-0.5"
+            : "flex min-w-0 flex-wrap items-center gap-1.5 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel)] px-2 py-1.5 shadow-sm",
         status === null && "border-status-warn-foreground/30 bg-status-warn/35",
         className,
       )}
@@ -2706,9 +2692,7 @@ function OrderDeviceCustodyCard({
           ) : null}
         </div>
       </div>
-      {actions.length ? (
-        <div className="flex min-w-0 flex-wrap gap-1 md:justify-end">{actions}</div>
-      ) : null}
+      {actions.length ? <div className={componentAction.statusGroup}>{actions}</div> : null}
     </section>
   );
 }

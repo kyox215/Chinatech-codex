@@ -52,6 +52,7 @@ import {
 } from "@/lib/repairdesk/api";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import { cn } from "@/lib/utils";
+import { componentAction } from "@/lib/component-patterns";
 import {
   formatWarrantyText,
   ORDER_WARRANTY_OPTIONS,
@@ -249,12 +250,12 @@ export function OrderTerminalActions({
           {voided ? t("orders2b2.terminal.compact.voided") : t("orders2b2.terminal.compact.ended")}
         </span>
         {!voided ? (
-          <div className="ml-auto flex shrink-0 items-center gap-1">
+          <div className={componentAction.statusGroup}>
             {capabilities?.canCorrect ? (
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-6 gap-1 px-1.5 text-[10px] lg:text-xs lg:leading-4"
+                className={cn(componentAction.status, componentAction.statusWarning)}
                 disabled={mutation.isPending}
                 onClick={() => open("correct")}
               >
@@ -265,7 +266,7 @@ export function OrderTerminalActions({
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-6 gap-1 px-1.5 text-[10px] lg:text-xs lg:leading-4"
+                className={cn(componentAction.status, componentAction.statusWarning)}
                 disabled={mutation.isPending || reopenTargets.length === 0}
                 onClick={() => open("reopen")}
               >
@@ -278,7 +279,7 @@ export function OrderTerminalActions({
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="size-6"
+                    className={cn(componentAction.status, "w-9 px-0 lg:w-7")}
                     disabled={mutation.isPending}
                     aria-label={t("orders2b2.terminal.more")}
                   >
