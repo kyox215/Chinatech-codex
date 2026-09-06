@@ -62,7 +62,9 @@ export function OrderDetailTabs<T extends string>({
         aria-label={ariaLabel ?? t("orders2b2.tabsAria")}
         className={cn(
           "flex min-w-0 items-center gap-0.5 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel)] p-0.5 shadow-[var(--shadow-card)] backdrop-blur",
-          compact ? "w-full" : "overflow-x-auto sm:flex-wrap sm:p-1",
+          compact
+            ? "w-full rounded-lg border-0 bg-[var(--surface-panel-muted)] shadow-none"
+            : "overflow-x-auto sm:flex-wrap sm:p-1",
         )}
       >
         {tabs.map((tab, index) => {
@@ -92,7 +94,10 @@ export function OrderDetailTabs<T extends string>({
               {active && (
                 <motion.span
                   layoutId={`${resolvedIdPrefix}-active-indicator`}
-                  className="absolute inset-0 -z-10 rounded-md border border-primary/20 bg-primary/10"
+                  className={cn(
+                    "absolute inset-0 -z-10 rounded-md",
+                    compact ? "bg-card shadow-sm" : "border border-primary/20 bg-primary/10",
+                  )}
                   transition={indicatorSpring}
                 />
               )}

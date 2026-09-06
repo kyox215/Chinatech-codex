@@ -674,11 +674,12 @@ async function expectCompleteMobileDeviceTitle(
   root: ReturnType<Page["locator"]>,
   locale: AppLocale,
 ) {
-  const title = root
-    .locator('[data-mobile-section-title="true"]')
-    .filter({ hasText: translateMessage(locale, "orders2b2.overview.deviceIssue") })
-    .locator('[data-mobile-section-title-text="true"]');
-  await expect(title).toHaveText(translateMessage(locale, "orders2b2.overview.deviceIssue"));
+  const title = root.locator('[data-mobile-order-identity="true"]').getByRole("button", {
+    name: translateMessage(locale, "orders2b2.overview.deviceIssue"),
+    exact: true,
+  });
+  await expect(title).toContainText(translateMessage(locale, "orders2b1.task.device"));
+  await expect(title).toContainText(`${synthetic.brand} ${synthetic.model}`);
   expect(
     await title.evaluate((element) => {
       const style = getComputedStyle(element);

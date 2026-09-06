@@ -41,6 +41,7 @@ jobs:
           tests/e2e/i18n-orders-new-task-release-2b1.spec.ts
           tests/e2e/i18n-order-detail-release-2b2.spec.ts
           tests/e2e/global-compact-edit.spec.ts
+          tests/e2e/order-detail-a-layout.spec.ts
           tests/e2e/i18n-customers-release-2b3.spec.ts
           tests/e2e/i18n-inventory-release-2b4.spec.ts
           tests/e2e/i18n-buyback-release-2b5.spec.ts

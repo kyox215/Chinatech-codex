@@ -20,6 +20,7 @@ import {
   Camera,
   Check,
   CheckCircle2,
+  ChevronRight,
   Clock3,
   CreditCard,
   FileText,
@@ -1514,7 +1515,8 @@ export function OrderDetailScreen({
             document.activeElement instanceof HTMLElement ? document.activeElement : null;
           setCancelledReturnOpen(true);
         }}
-        className="mb-2"
+        variant="embedded"
+        className="mb-0"
       />
     </div>
   );
@@ -2481,7 +2483,7 @@ function OrderDeviceCustodyCard({
   onRequestChange: (target: DeviceCustodyStatus) => void;
   onConfirmCancelledReturn: () => void;
   className?: string;
-  variant?: "card" | "inline";
+  variant?: "card" | "inline" | "embedded";
 }) {
   const { locale, t } = useLocale();
   const status = deviceCustodyStatusFromOrder(order);
@@ -2626,7 +2628,9 @@ function OrderDeviceCustodyCard({
           ? variant === "inline"
             ? "grid min-w-0 gap-1.5 rounded-md bg-[var(--surface-panel-muted)]/55 px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
             : "grid min-w-0 gap-1.5 rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-panel)] px-2.5 py-2 shadow-[var(--shadow-card)] md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:px-3"
-          : "flex min-w-0 max-lg:flex-wrap items-center gap-1.5 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel)] px-2 py-1.5 shadow-sm",
+          : variant === "embedded"
+            ? "flex min-w-0 flex-wrap items-center gap-1.5 rounded-md bg-[var(--surface-panel-muted)] px-1.5 py-1"
+            : "flex min-w-0 max-lg:flex-wrap items-center gap-1.5 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel)] px-2 py-1.5 shadow-sm",
         status === null && "border-status-warn-foreground/30 bg-status-warn/35",
         className,
       )}
@@ -2646,7 +2650,14 @@ function OrderDeviceCustodyCard({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <h2 className="text-xs font-semibold">{t("orders2b2.overview.custody")}</h2>
+            <h2
+              className={cn(
+                "text-xs font-semibold",
+                variant === "embedded" && !isExceptional && "sr-only",
+              )}
+            >
+              {t("orders2b2.overview.custody")}
+            </h2>
             <DeviceCustodyBadge
               status={status}
               deliveredAt={order.delivered_at}
@@ -3472,6 +3483,7 @@ function MobileOrderDetailView({
     ? getOrderTaskGuidance(order).stage
     : (orderTaskStages[Math.min(currentStageIndex, orderTaskStages.length - 1)] ??
       orderTaskStages[0]);
+  const customerSummaryId = useId();
   const identityTriggerRef = useRef<HTMLButtonElement | null>(null);
   const financeTriggerRef = useRef<HTMLButtonElement | null>(null);
   const assignmentTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -3574,9 +3586,6 @@ function MobileOrderDetailView({
           ),
         )
       : [];
-  const hasMobileSupplierManagement = Boolean(
-    partsSupplier || supplierOptions.length || onPartsSupplierChange,
-  );
   const availableMobileActions = (
     [
       approvalDecisionAvailable ? "approval" : null,
@@ -3688,7 +3697,7 @@ function MobileOrderDetailView({
             onChange={changeMobileTab}
             compact
             idPrefix="order-detail-mobile"
-            className="!my-1"
+            className="!my-0.5"
           />
         }
         order={order}
@@ -3718,7 +3727,6 @@ function MobileOrderDetailView({
         className="space-y-1.5"
       >
         {topNotice}
-        {custodyPanel}
 
         {approvalDecisionAvailable ? (
           <section className={cn(mobileDetailCardClass, "border-primary/25 bg-primary/5")}>
@@ -3729,12 +3737,183 @@ function MobileOrderDetailView({
           </section>
         ) : null}
 
-        <section className={mobileDetailCardClass}>
+        <section data-mobile-order-identity="true" className={mobileDetailCardClass}>
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+            <button
+              type="button"
+              className="flex min-h-11 min-w-0 items-center gap-2 rounded-md text-left focus-visible:ring-2 focus-visible:ring-ring"
+              disabled={!data.capabilities?.canEditIntake || isVoided}
+              onClick={(event) => {
+                identityTriggerRef.current = event.currentTarget;
+                setIdentityGroup("customer");
+              }}
+              aria-label={t("orders2b2.overview.customerInfo")}
+              aria-describedby={customerSummaryId}
+            >
+              <UserRound className="size-4 shrink-0 text-primary" aria-hidden="true" />
+              <span id={customerSummaryId} className="min-w-0 flex-1">
+                <span className="block break-words text-xs font-semibold leading-4">
+                  {customerDisplayName}
+                </span>
+                <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                  <PhoneText value={phone} className="text-[11px] leading-4" />
+                  {customer?.preferred_channel ? (
+                    <span className="text-[9px] leading-3 text-muted-foreground">
+                      {customer.preferred_channel}
+                    </span>
+                  ) : null}
+                </span>
+              </span>
+              <ChevronRight
+                className="size-3.5 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+            </button>
+            <div className="flex shrink-0 gap-1">
+              <Button asChild variant="ghost" size="icon" className="size-9 rounded-lg">
+                <a
+                  href={`tel:${phone}`}
+                  aria-label={t("orders2b2.mobile.phoneCall")}
+                  title={t("orders2b2.mobile.phoneCall")}
+                >
+                  <Phone className="size-3.5" />
+                </a>
+              </Button>
+              {onRequestKioskSignature ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-9 rounded-lg"
+                  disabled={!kioskSignatureAvailable || kioskSignaturePending}
+                  onClick={onRequestKioskSignature}
+                  aria-label={
+                    kioskSignaturePending
+                      ? t("orders2b2.overview.sending")
+                      : kioskSignatureAvailable
+                        ? t("orders2b2.overview.sendKiosk")
+                        : t("orders2b2.overview.noKiosk")
+                  }
+                  title={
+                    kioskSignaturePending
+                      ? t("orders2b2.overview.sending")
+                      : kioskSignatureAvailable
+                        ? t("orders2b2.overview.sendKiosk")
+                        : t("orders2b2.overview.noKiosk")
+                  }
+                >
+                  <TabletSmartphone className="size-3.5" />
+                </Button>
+              ) : null}
+            </div>
+          </div>
+          <div className="mt-1 border-t border-[var(--border-panel)] pt-1">
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
+              <button
+                type="button"
+                disabled={!data.capabilities?.canEditIntake || isVoided}
+                aria-label={t("orders2b2.overview.deviceIssue")}
+                onClick={(event) => {
+                  identityTriggerRef.current = event.currentTarget;
+                  setIdentityGroup("device");
+                }}
+                className="flex min-h-11 min-w-0 items-center gap-2 rounded-md text-left focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Smartphone className="size-4 shrink-0 text-primary" aria-hidden="true" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[10px] leading-3 text-muted-foreground">
+                    {t("orders2b1.task.device")}
+                  </span>
+                  <span className="block break-words text-xs font-semibold leading-4">
+                    {deviceLabel}
+                  </span>
+                </span>
+                <ChevronRight
+                  className="size-3.5 shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
+              </button>
+              <div className="flex shrink-0 items-center gap-1">
+                {data.capabilities?.canEditRepair ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 min-w-9 rounded-lg px-1.5 text-[10px]"
+                    onClick={(event) => {
+                      unlockTriggerRef.current = event.currentTarget;
+                      setDeviceUnlockEditing(true);
+                    }}
+                  >
+                    {t("orders2b2.unlock.entry")}
+                  </Button>
+                ) : null}
+                {data.capabilities?.canEditIntake ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-9 rounded-lg"
+                    aria-label={t("action.scan.label")}
+                    title={t("action.scan.label")}
+                    onClick={() => {
+                      setImeiDraft(deviceImei);
+                      setImeiEditing(true);
+                    }}
+                  >
+                    <ScanLine className="size-4" />
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+            <DetailRows
+              rows={[
+                ["IMEI", deviceImei || "-"],
+                [t("orders2b2.overview.warranty"), order.warranty_text || "-"],
+                [t("orders2b2.overview.accessories"), accessoryNotes || "-"],
+              ]}
+            />
+            <DeviceUnlockViewer order={order} compact className="mt-1 !px-1.5 !py-1" />
+            <div data-mobile-order-custody-group="true" className="mt-1">
+              {custodyPanel}
+            </div>
+          </div>
+        </section>
+
+        <section data-mobile-order-fault="true" className={mobileDetailCardClass}>
+          <button
+            type="button"
+            data-order-detail-issue-summary="true"
+            className="block w-full min-w-0 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={t("orders.faultEditor.title")}
+            onClick={(event) => {
+              mobileFaultTriggerRef.current = event.currentTarget;
+              setFaultEditing(true);
+            }}
+          >
+            <div className="flex min-w-0 items-center justify-between gap-2">
+              <MobileSectionTitle icon={FileText} title={t("orders2b2.overview.issue")} />
+              <ChevronRight
+                className="size-3.5 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+            </div>
+            <p className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-xs font-medium leading-4 text-foreground">
+              {order.issue_description || "-"}
+            </p>
+            <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap break-words text-[10px] leading-4 text-muted-foreground">
+              {t("orders2b2.overview.diagnosis")}：
+              {order.diagnosis_result || t("orders2b2.overview.notConfigured")}
+            </p>
+          </button>
+        </section>
+
+        <section data-mobile-order-people="true" className={mobileDetailCardClass}>
           <MobileSectionTitle icon={UserRound} title={t("orders2b2.mobile.peopleSuppliers")} />
           <div className="mt-1 grid min-w-0 grid-cols-2 gap-1.5">
             <button
               type="button"
-              className="min-h-11 min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 text-left text-xs focus-visible:ring-2 focus-visible:ring-ring"
+              className="min-h-11 min-w-0 rounded-lg px-1 py-1 text-left text-xs hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
               disabled={!onAssigneeChange || isVoided}
               aria-expanded={assignmentEditing}
               aria-controls={assignmentEditing ? "mobile-order-assignee-editor" : undefined}
@@ -3747,8 +3926,14 @@ function MobileOrderDetailView({
               <span className="block text-[10px] text-muted-foreground">
                 {t("orders2b2.overview.assignee")}
               </span>
-              <span className="block truncate font-semibold">
-                {order.technician_name || t("orders2b2.mobile.unassigned")}
+              <span className="flex min-w-0 items-center justify-between gap-1 font-semibold">
+                <span className="min-w-0 break-words">
+                  {order.technician_name || t("orders2b2.mobile.unassigned")}
+                </span>
+                <ChevronRight
+                  className="size-3.5 shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
               </span>
             </button>
             {onPartsSupplierChange && !isVoided ? (
@@ -3759,10 +3944,10 @@ function MobileOrderDetailView({
                 onChange={onPartsSupplierChange}
                 mode="sheet"
                 size="comfortable"
-                className="!h-auto min-h-11"
+                className="!h-auto min-h-11 border-0 bg-transparent px-1 shadow-none [&>span]:whitespace-normal [&>span]:break-words [&>span]:text-left [&>span]:leading-4"
               />
             ) : (
-              <p className="min-w-0 self-center truncate text-xs">
+              <p className="min-w-0 self-center break-words text-xs">
                 {partsSupplier?.name || t("orders2b2.overview.notConfigured")}
               </p>
             )}
@@ -3824,182 +4009,7 @@ function MobileOrderDetailView({
               </div>
             </SheetContent>
           </Sheet>
-          {hasMobileSupplierManagement ? (
-            <p className="mt-1 truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-              {t("orders2b2.mobile.supplierScope")}
-            </p>
-          ) : null}
         </section>
-
-        <div className="grid min-w-0 grid-cols-1 gap-1.5 min-[390px]:grid-cols-2">
-          <section className={cn(mobileDetailCardClass, "min-[390px]:col-span-2")}>
-            <button
-              type="button"
-              className="w-full text-left focus-visible:ring-2 focus-visible:ring-ring"
-              disabled={!data.capabilities?.canEditIntake || isVoided}
-              onClick={(event) => {
-                identityTriggerRef.current = event.currentTarget;
-                setIdentityGroup("customer");
-              }}
-              aria-label={t("orders2b2.overview.customerInfo")}
-            >
-              <MobileSectionTitle icon={UserRound} title={t("orders2b2.overview.customerInfo")} />
-            </button>
-            <div className="mt-1.5 grid min-w-0 grid-cols-[28px_minmax(0,1fr)] items-center gap-1.5">
-              <div className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-xs font-semibold text-primary ring-1 ring-inset ring-primary/15">
-                {customerDisplayName.slice(0, 1).toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <button
-                  type="button"
-                  disabled={!data.capabilities?.canEditIntake || isVoided}
-                  onClick={(event) => {
-                    identityTriggerRef.current = event.currentTarget;
-                    setIdentityGroup("customer");
-                  }}
-                  className="block max-w-full truncate text-left text-xs font-semibold leading-4 focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {customerDisplayName}
-                </button>
-                <PhoneText
-                  value={phone}
-                  className="block truncate text-[11px] leading-4 lg:text-xs"
-                />
-              </div>
-            </div>
-            {customer?.preferred_channel ? (
-              <div className="mt-1 flex min-w-0">
-                <span className="truncate rounded bg-status-success px-1.5 py-0.5 text-[9px] font-medium leading-3 text-status-success-foreground lg:text-[11px] lg:leading-4">
-                  {customer.preferred_channel}
-                </span>
-              </div>
-            ) : null}
-            <div className="mt-1.5 grid min-w-0 grid-cols-2 gap-1">
-              <Button
-                asChild
-                variant="outline"
-                size="sm"
-                className="h-9 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5 lg:text-xs"
-              >
-                <a
-                  href={`tel:${phone}`}
-                  aria-label={t("orders2b2.mobile.phoneCall")}
-                  title={t("orders2b2.mobile.phoneCall")}
-                >
-                  <Phone className="shrink-0" />
-                  <span className="min-w-0 truncate">{t("orders2b2.mobile.phone")}</span>
-                </a>
-              </Button>
-              {onRequestKioskSignature ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-9 w-full min-w-0 gap-1 overflow-hidden rounded-lg px-1.5 text-[11px] font-semibold [&_svg]:size-3.5 lg:text-xs"
-                  disabled={!kioskSignatureAvailable || kioskSignaturePending}
-                  onClick={onRequestKioskSignature}
-                >
-                  <TabletSmartphone className="shrink-0" />
-                  <span className="min-w-0 truncate">
-                    {kioskSignaturePending
-                      ? t("orders2b2.overview.sending")
-                      : kioskSignatureAvailable
-                        ? t("orders2b2.overview.sendKiosk")
-                        : t("orders2b2.overview.noKiosk")}
-                  </span>
-                </Button>
-              ) : null}
-            </div>
-          </section>
-
-          <section className={cn(mobileDetailCardClass, "min-[390px]:col-span-2")}>
-            <MobileSectionTitle
-              icon={Smartphone}
-              title={t("orders2b2.overview.deviceIssue")}
-              action={
-                data.capabilities?.canEditIntake || data.capabilities?.canEditRepair ? (
-                  <div className="flex shrink-0 items-center gap-1">
-                    {data.capabilities?.canEditRepair ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-9 min-w-9 rounded-lg px-2 text-[11px] lg:text-xs"
-                        onClick={(event) => {
-                          unlockTriggerRef.current = event.currentTarget;
-                          setDeviceUnlockEditing(true);
-                        }}
-                      >
-                        {t("orders2b2.unlock.entry")}
-                      </Button>
-                    ) : null}
-                    {data.capabilities?.canEditIntake ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-9 min-w-9 rounded-lg px-2 text-[11px] lg:text-xs"
-                        onClick={() => {
-                          setImeiDraft(deviceImei);
-                          setImeiEditing(true);
-                        }}
-                      >
-                        <ScanLine className="mr-1 size-4" />
-                        {t("action.scan.label")}
-                      </Button>
-                    ) : null}
-                  </div>
-                ) : undefined
-              }
-            />
-            <div className="mt-1.5 min-w-0">
-              <button
-                type="button"
-                disabled={!data.capabilities?.canEditIntake || isVoided}
-                aria-label={t("orders2b2.overview.deviceIssue")}
-                onClick={(event) => {
-                  identityTriggerRef.current = event.currentTarget;
-                  setIdentityGroup("device");
-                }}
-                className="truncate text-xs font-semibold leading-4"
-              >
-                {deviceLabel}
-              </button>
-              <DetailRows
-                rows={[
-                  ["IMEI", deviceImei || "-"],
-                  [t("orders2b2.overview.warranty"), order.warranty_text || "-"],
-                  [t("orders2b2.overview.accessories"), accessoryNotes || "-"],
-                ]}
-              />
-              <DeviceUnlockViewer order={order} compact className="mt-1.5" />
-              <div className="mt-2 border-t border-[var(--border-panel)] pt-2">
-                <MobileSectionTitle icon={FileText} title={t("orders2b2.overview.issue")} />
-                <button
-                  type="button"
-                  data-order-detail-issue-summary="true"
-                  className="mt-1 block w-full min-w-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  aria-label={t("orders.faultEditor.title")}
-                  onClick={(event) => {
-                    mobileFaultTriggerRef.current = event.currentTarget;
-                    setFaultEditing(true);
-                  }}
-                >
-                  <p className="line-clamp-2 whitespace-pre-wrap break-words text-xs font-medium leading-4 text-foreground">
-                    {order.issue_description || "-"}
-                  </p>
-                  <p className="mt-0.5 line-clamp-1 whitespace-pre-wrap break-words text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-                    {t("orders2b2.overview.diagnosis")}：
-                    {order.diagnosis_result || t("orders2b2.overview.notConfigured")}
-                  </p>
-                  <span className="mt-1 block text-[10px] text-primary">
-                    {t("orders2b2.mobile.expandDetails")}
-                  </span>
-                </button>
-              </div>
-            </div>
-          </section>
-        </div>
 
         <OrderIdentityEditor
           group={identityGroup}
@@ -4059,43 +4069,47 @@ function MobileOrderDetailView({
             </div>
           </section>
         ) : (
-          <div className="grid min-w-0 grid-cols-2 gap-1.5">
-            <section id="mobile-order-quote" className={mobileDetailCardClass}>
-              <button
-                type="button"
-                className="w-full min-w-0 text-left focus-visible:ring-2 focus-visible:ring-ring"
-                disabled={!canAdjustFinance || financePending || isVoided}
-                aria-label={t("orders2b2.overview.quoteItems")}
-                aria-expanded={financeEditing}
-                aria-controls={financeEditing ? "mobile-order-finance-editor" : undefined}
-                onClick={(event) => {
-                  financeTriggerRef.current = event.currentTarget;
-                  setFinanceCategoriesOpen(true);
-                  onFinanceEditingChange(true);
-                }}
-              >
+          <section id="mobile-order-quote" className={mobileDetailCardClass}>
+            <button
+              type="button"
+              className="w-full min-w-0 text-left focus-visible:ring-2 focus-visible:ring-ring"
+              disabled={!canAdjustFinance || financePending || isVoided}
+              aria-label={t("orders2b2.overview.quoteItems")}
+              aria-expanded={financeEditing}
+              aria-controls={financeEditing ? "mobile-order-finance-editor" : undefined}
+              onClick={(event) => {
+                financeTriggerRef.current = event.currentTarget;
+                setFinanceCategoriesOpen(true);
+                onFinanceEditingChange(true);
+              }}
+            >
+              <div className="flex items-center justify-between gap-2">
                 <MobileSectionTitle icon={ReceiptText} title={t("orders2b2.overview.quoteItems")} />
-                <div className="mt-1.5 space-y-1">
-                  {order.fault_prices.length ? (
-                    order.fault_prices.map((item, index) => (
-                      <div
-                        key={`${item.name}-${index}`}
-                        className="flex min-w-0 items-center gap-1 text-[11px] leading-4 lg:text-xs"
-                      >
-                        <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                          {item.name || t("orders2b2.mobile.unnamedItem")}
-                        </span>
-                        <MoneyText amount={item.price} className="shrink-0 font-semibold" />
-                      </div>
-                    ))
-                  ) : (
-                    <div className="rounded-md border border-dashed border-[var(--border-panel)] px-1.5 py-2 text-center text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
-                      {t("orders2b2.overview.noQuoteItems")}
+                <ChevronRight
+                  className="size-3.5 shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
+              </div>
+              <div className="mt-1.5 space-y-1">
+                {order.fault_prices.length ? (
+                  order.fault_prices.map((item, index) => (
+                    <div
+                      key={`${item.name}-${index}`}
+                      className="flex min-w-0 items-center gap-1 text-[11px] leading-4 lg:text-xs"
+                    >
+                      <span className="min-w-0 flex-1 break-words text-foreground">
+                        {item.name || t("orders2b2.mobile.unnamedItem")}
+                      </span>
+                      <MoneyText amount={item.price} className="shrink-0 font-semibold" />
                     </div>
-                  )}
-                </div>
-              </button>
-            </section>
+                  ))
+                ) : (
+                  <div className="rounded-md border border-dashed border-[var(--border-panel)] px-1.5 py-2 text-center text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
+                    {t("orders2b2.overview.noQuoteItems")}
+                  </div>
+                )}
+              </div>
+            </button>
             <Dialog open={financeEditing} onOpenChange={closeFinance}>
               <DialogContent
                 mobileEditor
@@ -4148,20 +4162,14 @@ function MobileOrderDetailView({
               </DialogContent>
             </Dialog>
 
-            <section className={mobileDetailCardClass}>
-              <MobileSectionTitle
-                icon={WalletCards}
-                title={t("orders2b2.overview.amountSummary")}
-              />
-              <MobilePaymentSummary
-                total={order.quotation_amount}
-                deposit={order.deposit_amount}
-                balance={order.balance_amount}
-                cancelled={cancelled}
-                className="mt-1.5"
-              />
-            </section>
-          </div>
+            <MobilePaymentSummary
+              total={order.quotation_amount}
+              deposit={order.deposit_amount}
+              balance={order.balance_amount}
+              cancelled={cancelled}
+              className="-mx-2 -mb-2 mt-2 border-t border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2"
+            />
+          </section>
         )}
       </section>
       <section
@@ -5155,7 +5163,10 @@ function MobileStickyWorkflowHeader({
             </Link>
           </Button>
           <div className="min-w-0 text-center">
-            <p className="truncate text-xs font-semibold leading-4">{t("orders2b2.title")}</p>
+            <p className="text-xs font-semibold leading-4">{t("orders2b2.title")}</p>
+            <p className="break-words text-[9px] leading-3 text-muted-foreground">
+              {localizedCurrentStage.label} · {nextText}
+            </p>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -5215,20 +5226,17 @@ function MobileStickyWorkflowHeader({
           </div>
         </header>
 
-        <div className={repairOs.mobileFloatingHeaderBody}>
+        <div className={cn(repairOs.mobileFloatingHeaderBody, "mt-0 border-0 pt-0")}>
           <div className="flex min-w-0 items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className="truncate font-mono text-[12px] font-semibold leading-4 text-primary">
+              <p className="break-words font-mono text-[12px] font-semibold leading-4 text-primary">
                 {order.public_no}
-              </p>
-              <p className="truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-                {localizedCurrentStage.label} · {nextText}
               </p>
             </div>
             <StatusBadge
               status={cancelled ? "cancelled" : order.status}
               label={statusLabel}
-              className="mt-0.5 scale-90"
+              className="mt-0.5 max-w-[50%] scale-90 whitespace-normal break-words"
             />
           </div>
           {sideBadges.length ? (
@@ -5239,7 +5247,7 @@ function MobileStickyWorkflowHeader({
                   status={order.status}
                   label={localizeOrderDetailBadge(badge, t)}
                   tone={badge.tone}
-                  className="max-w-[7.5rem] scale-90 truncate text-[10px]"
+                  className="max-w-full scale-90 whitespace-normal break-words text-[10px]"
                 />
               ))}
             </div>
@@ -5247,7 +5255,7 @@ function MobileStickyWorkflowHeader({
           <div
             data-mobile-order-meta-row="true"
             data-testid="mobile-order-header-meta"
-            className="mt-1.5 grid min-w-0 grid-cols-3 gap-1 border-t border-[var(--border-panel)] pt-1.5 text-[9px] leading-3 text-muted-foreground"
+            className="mt-1 grid min-w-0 grid-cols-3 gap-1 border-t border-[var(--border-panel)] pt-1 text-[9px] leading-3 text-muted-foreground"
           >
             <span
               className="min-w-0 truncate"
@@ -5278,7 +5286,7 @@ function MobileStickyWorkflowHeader({
               {storeName}
             </span>
           </div>
-          <div className="mt-1 border-t border-[var(--border-panel)] pt-1">
+          <div className="mt-1">
             <OrderMiniProgress
               workflowStatus={
                 isOrderCancelledState(order) ? "closed" : getOrderWorkflowStatus(order)
@@ -5747,20 +5755,9 @@ function MobilePaymentSummary({
   const hasBalance = balance > 0;
 
   return (
-    <div className={cn("min-w-0 space-y-1.5", className)} data-mobile-payment-summary="true">
-      <div className="rounded-lg border border-primary/15 bg-primary/5 px-2 py-1.5">
-        <div className="flex min-w-0 items-start justify-between gap-2">
-          <span className="shrink-0 text-[10px] font-semibold leading-4 text-primary lg:text-[11px] lg:leading-4">
-            {t("orders2b2.finance.total")}
-          </span>
-          <MoneyText
-            amount={total}
-            className="min-w-0 text-right font-mono text-lg font-bold leading-6 text-foreground"
-          />
-        </div>
-      </div>
-
-      <div className="grid min-w-0 grid-cols-2 gap-1.5">
+    <div className={cn("min-w-0", className)} data-mobile-payment-summary="true">
+      <div className="grid min-w-0 grid-cols-3 gap-2">
+        <MobilePaymentTile label={t("orders2b2.finance.total")} amount={total} />
         <MobilePaymentTile
           label={t("orders2b2.finance.depositPaid")}
           amount={deposit}
@@ -5797,13 +5794,13 @@ function MobilePaymentTile({
   valueClassName?: string;
 }) {
   return (
-    <div className="min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2 py-1.5">
-      <div className="truncate text-[10px] font-medium leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
+    <div className="min-w-0">
+      <div className="break-words text-[10px] font-medium leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
         {label}
       </div>
       <MoneyText
         amount={amount}
-        className={cn("mt-0.5 min-w-0 text-right font-mono text-xs font-semibold", valueClassName)}
+        className={cn("mt-0.5 min-w-0 break-words font-mono text-sm font-semibold", valueClassName)}
       />
     </div>
   );

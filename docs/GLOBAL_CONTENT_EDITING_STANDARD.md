@@ -42,3 +42,9 @@ The table records the finite audited business surfaces above. It is not a claim 
 Use existing `componentOverlay` slots and tokens from `src/styles.css`. Keep business open/draft/save/guard ownership in its feature. `useCompactEditorSession` is for in-memory grouped editing; do not use it to change persistence protocols or sensitive-data retention.
 
 Validate representative 320/390/430/768 compact and 1024/1440 desktop surfaces, zh/it/en labels, keyboard/Escape/focus, long lists and last fields, dirty/error/pending/conflict/readonly states. Check a compressed available height separately from a real device keyboard test. Record the actual limits of screenshots and synthetic APIs.
+
+## Order detail A layout (2026-09-06)
+
+The compact order overview groups customer and device summaries in one card, keeps fault/diagnosis in its own compact card, places assignee/supplier side by side, and combines quotation rows with a three-column total/deposit/balance summary. Normal custody is a small row within the device group; exceptional custody, cancelled return and existing notices retain their full semantics. Phone, kiosk, scan and unlock controls remain separate interactive targets beside the content trigger. Compact header tabs use an equal-width neutral segmented surface; desktop keeps its independent workspace.
+
+At 390×844, the ordinary local fixture with two quote rows must show the full amount summary above the fixed dock. At 320×568 and with long text, content remains reachable by normal page scrolling. No fixed content height or clipping is used to meet the compact target. This layout keeps the existing editor sessions, permissions, finance redaction, failed drafts, version/concurrency checks, payloads and append-only photos. Evidence belongs to TASK-20260906-003.
