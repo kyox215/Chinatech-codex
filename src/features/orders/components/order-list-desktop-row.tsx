@@ -39,10 +39,10 @@ import { getWorkflowNextActions } from "@/features/orders/model/order-workflow";
 import { orderExceptionMeta } from "@/features/orders/model/canonical-order-status";
 import {
   getOrderTaskGuidance,
-  orderTaskStageIndex,
-  orderTaskStages,
+  getOrderWorkflowStatus,
 } from "@/features/orders/model/order-task-flow";
 import { cn } from "@/lib/utils";
+import { OrderMiniProgress } from "@/features/orders/components/order-mini-progress";
 import type { Supplier } from "@/lib/repairdesk/types";
 import { orderQueueDesktopGrid } from "@/features/orders/components/order-list-layout";
 import { ORDER_DETAIL_HOVER_DELAY_MS } from "@/features/preload/model/order-detail-preload";
@@ -124,9 +124,7 @@ export function DesktopOrderQueueRow({
   const nextText = allNextActions.length
     ? t("orders.nextStepText", { label: nextLabel })
     : nextLabel;
-  const stageIndex =
-    orderTaskStageIndex[guidance.stage.key as keyof typeof orderTaskStageIndex] ?? 0;
-  const stageStep = stageIndex + 1;
+  const workflowStatus = getOrderWorkflowStatus(order);
   const partsSupplier = suppliers.find((supplier) => supplier.id === order.parts_supplier_id);
   const customerName = getCustomerDisplayName(order.customer_name, order.customer_phone, t);
 
@@ -211,6 +209,12 @@ export function DesktopOrderQueueRow({
       </div>
 
       <div className="min-w-0 px-1.5 py-1.5">
+        <p
+          className="mb-1 truncate font-mono text-xs font-semibold text-primary"
+          title={order.public_no}
+        >
+          {order.public_no}
+        </p>
         <div className="flex min-w-0 flex-wrap items-center gap-1">
           <OrderQueueStageBadge
             order={order}
@@ -237,34 +241,23 @@ export function DesktopOrderQueueRow({
         >
           {nextText}
         </p>
-        <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
-          <span className="shrink-0 font-mono text-[10px] leading-none text-muted-foreground lg:text-[11px] lg:leading-4">
-            {stageStep}/{orderTaskStages.length}
-          </span>
-          <div
-            className="grid min-w-0 flex-1 grid-cols-5 gap-0.5"
-            aria-label={t("orders.progressAria", {
-              index: stageStep,
-              total: orderTaskStages.length,
-            })}
-          >
-            {orderTaskStages.map((stage, index) => (
-              <span
-                key={stage.key}
-                className={cn("h-1 rounded-full bg-muted", index <= stageIndex && "bg-primary")}
-              />
-            ))}
-          </div>
-        </div>
+        <OrderMiniProgress
+          workflowStatus={workflowStatus}
+          currentLabel={guidance.label || guidance.stage.label}
+          nextAction={guidance.nextAction}
+          danger={hasOverdueException || Boolean(exceptionStatus)}
+          isTerminal={workflowStatus === "closed"}
+          className="mt-1.5"
+        />
       </div>
 
       <div className="min-w-0 px-2 py-1.5" data-order-customer-identity="true">
         <PhoneText
           value={order.customer_phone}
-          className="block truncate text-[11px] font-semibold leading-4 text-foreground lg:text-[13px] lg:leading-5"
+          className="block truncate text-xs font-semibold leading-4 text-primary xl:text-[13px] xl:leading-5"
         />
         <div
-          className="truncate text-[11px] leading-4 text-muted-foreground lg:text-[13px] lg:leading-5"
+          className="truncate text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4"
           title={customerName}
         >
           {customerName}
@@ -292,14 +285,16 @@ export function DesktopOrderQueueRow({
         <div className="truncate font-medium leading-4" title={order.device_label}>
           {order.device_label || "-"}
         </div>
-        <DeviceCustodyBadge
-          status={order.device_custody_status}
-          deliveredAt={order.delivered_at}
-          label={localizeDeviceCustody(order.device_custody_status, order.delivered_at, t)}
-          className="mt-0.5 max-w-full text-[9px] lg:text-[11px] lg:leading-4"
-        />
+        {order.device_custody_status !== "with_shop" ? (
+          <DeviceCustodyBadge
+            status={order.device_custody_status}
+            deliveredAt={order.delivered_at}
+            label={localizeDeviceCustody(order.device_custody_status, order.delivered_at, t)}
+            className="mt-0.5 max-w-full text-[9px] lg:text-[11px] lg:leading-4"
+          />
+        ) : null}
         <div
-          className="truncate text-[11px] leading-4 text-muted-foreground lg:text-[13px] lg:leading-5"
+          className="truncate text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4"
           title={order.issue_description}
         >
           {order.issue_description || "-"}
@@ -309,7 +304,7 @@ export function DesktopOrderQueueRow({
             {order.finance_redacted
               ? t("orders.quoteRestricted")
               : primaryRepair?.name || t("orders.quotePending")}
-            {extraRepairCount ? ` +${extraRepairCount}` : ""}
+            {!order.finance_redacted && extraRepairCount ? ` +${extraRepairCount}` : ""}
           </span>
           {primaryRepair && !order.finance_redacted ? (
             <MoneyText
@@ -325,10 +320,7 @@ export function DesktopOrderQueueRow({
           </div>
         ) : null}
         {order.device_imei ? (
-          <div
-            className="hidden truncate font-mono text-[10px] leading-4 text-muted-foreground xl:block lg:text-[11px]"
-            title={order.device_imei}
-          >
+          <div className="sr-only" title={order.device_imei}>
             IMEI {order.device_imei.slice(-10)}
           </div>
         ) : null}
@@ -382,7 +374,7 @@ export function DesktopOrderQueueRow({
         ) : null}
       </div>
 
-      <div className="min-w-0 px-2 py-1.5 text-[11px] text-muted-foreground lg:text-[13px] lg:leading-5">
+      <div className="min-w-0 px-2 py-1.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
         <div
           className="truncate font-semibold leading-4 text-foreground"
           title={order.technician_name}

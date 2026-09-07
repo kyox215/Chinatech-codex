@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, type FocusEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { AlertTriangle, PackageSearch, Smartphone, UserRound } from "lucide-react";
+import { AlertTriangle, ChevronRight, LockKeyhole, PackageSearch, Wrench } from "lucide-react";
 
 import { DeviceCustodyBadge, MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
 import { orderMobileFluidDensity } from "@/features/orders/components/order-list-layout";
@@ -15,11 +15,9 @@ import { orderExceptionMeta } from "@/features/orders/model/canonical-order-stat
 import {
   getOrderTaskGuidance,
   getOrderWorkflowStatus,
-  getWorkflowProgressValue,
-  orderTaskStages,
 } from "@/features/orders/model/order-task-flow";
 import type { OrderListItem } from "@/lib/repairdesk/api";
-import type { OrderWorkflowStatusCode, Supplier } from "@/lib/repairdesk/types";
+import type { Supplier } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { ORDER_DETAIL_HOVER_DELAY_MS } from "@/features/preload/model/order-detail-preload";
@@ -28,7 +26,6 @@ import { useLocale } from "@/shared/i18n/locale-provider";
 import {
   localizeDeviceCustody,
   localizeOrderException,
-  localizeOrderFlowStage,
   localizeOrderTaskGuidance,
 } from "@/features/orders/model/order-i18n";
 import { localizeOrderFinancialLabel } from "@/features/orders/model/order-i18n";
@@ -65,7 +62,6 @@ export function OrderMobileCard({
   const customerNameIsPhone =
     normalizedCustomerName.length > 0 && normalizedCustomerName === normalizedPhone;
   const customerLabel = order.customer_name?.trim() || order.customer_phone || "-";
-  const showPhoneLine = Boolean(order.customer_phone && !customerNameIsPhone);
   const firstFaultPrice = order.fault_prices[0];
   const extraFaultCount = Math.max(0, order.fault_prices.length - 1);
   const primaryRepairLabel = order.finance_redacted
@@ -76,14 +72,6 @@ export function OrderMobileCard({
   const createdDate = formatOrderListDate(order.created_at, locale);
   const relativeCreatedDate = formatOrderRelativeDate(order.created_at, Date.now(), locale);
   const paymentLabel = localizeOrderFinancialLabel(financialState, t);
-  const paymentStatusClass =
-    financialState.settlement === "settled" || financialState.settlement === "zero_charge"
-      ? "bg-status-success text-status-success-foreground"
-      : financialState.settlement === "partial"
-        ? "bg-status-warn text-status-warn-foreground"
-        : financialState.settlement === "unpaid"
-          ? "bg-status-danger text-status-danger-foreground"
-          : "bg-muted text-muted-foreground";
   const detailAccessibleName = t("orders.mobileDetailsAria", {
     id: order.public_no,
     customer: customerLabel,
@@ -172,184 +160,156 @@ export function OrderMobileCard({
         aria-label={detailAccessibleName}
         onClick={onOpenIntent}
       />
-      <div className="grid gap-[var(--order-mobile-inline)] p-[var(--order-mobile-pad)] transition-colors group-hover:bg-accent/10 group-active:bg-accent/20">
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-[var(--order-mobile-gap)]">
-          <div className="flex min-w-0 items-center gap-[var(--order-mobile-gap)]">
-            <span className="grid size-5 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-              <UserRound className="size-[var(--order-mobile-icon)]" aria-hidden="true" />
-            </span>
-            <p className="min-w-0 truncate text-[length:var(--order-mobile-title)] font-semibold leading-4 text-foreground">
-              {customerLabel}
-            </p>
-            {showPhoneLine ? (
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2 px-2.5 pb-2 pt-2.5 transition-colors group-hover:bg-accent/10 group-active:bg-accent/20">
+        <div className="grid min-w-0 content-start gap-1">
+          <div className="flex min-w-0 items-center gap-1.5" data-order-mobile-identity="true">
+            {order.customer_phone ? (
               <PhoneText
                 value={order.customer_phone}
-                className="hidden min-w-0 truncate text-[length:var(--order-mobile-meta)] leading-3 min-[375px]:block"
+                className="min-w-0 truncate text-xs font-semibold leading-4 tracking-tight text-primary"
               />
+            ) : (
+              <span className="truncate text-xs font-semibold">{customerLabel}</span>
+            )}
+            {order.customer_name?.trim() && !customerNameIsPhone && order.customer_phone ? (
+              <span
+                className="max-w-[76px] truncate text-[10px] leading-4 text-muted-foreground"
+                title={order.customer_name}
+              >
+                {order.customer_name}
+              </span>
             ) : null}
           </div>
-
-          <div className="flex min-w-0 shrink-0 items-center gap-[var(--order-mobile-gap)]">
-            <p className="max-w-[96px] truncate font-mono text-[length:var(--order-mobile-meta)] font-semibold leading-3 text-primary">
-              {order.public_no}
-            </p>
-            <OrderQueueStageBadge
-              order={order}
-              className="h-[18px] max-w-[88px] px-1 text-[length:var(--order-mobile-meta)]"
-            />
-          </div>
-        </div>
-
-        <div className="flex min-w-0 items-center gap-[var(--order-mobile-gap)] rounded-[calc(var(--order-mobile-radius)-0.125rem)] bg-surface-muted/70 px-[var(--order-mobile-pad)] py-0.5">
-          <Smartphone
-            className="size-[var(--order-mobile-icon)] shrink-0 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <p className="min-w-0 flex-1 truncate text-[length:var(--order-mobile-copy)] font-semibold leading-4 text-foreground">
+          <p
+            className="truncate text-[13px] font-semibold leading-[18px] tracking-tight"
+            title={deviceLabel}
+          >
             {deviceLabel}
           </p>
-          {showCustodyBadge ? (
-            <DeviceCustodyBadge
-              status={order.device_custody_status}
-              deliveredAt={order.delivered_at}
-              label={localizeDeviceCustody(order.device_custody_status, order.delivered_at, t)}
-              className="max-w-[86px] px-1 py-0.5 text-[length:var(--order-mobile-meta)]"
-            />
-          ) : null}
-          {extraFaultCount > 0 ? (
-            <span className="shrink-0 rounded bg-primary/10 px-1 text-[length:var(--order-mobile-meta)] leading-3 text-primary">
-              +{extraFaultCount}
-            </span>
-          ) : null}
-          {supplierControl}
           <p
-            className="max-w-[112px] shrink-0 truncate text-right text-[length:var(--order-mobile-meta)] leading-3 text-muted-foreground"
-            title={t("orders.technicianTimeTitle", {
-              technician: order.technician_name || t("orders.unassigned"),
-              date: createdDate,
-              relative: relativeCreatedDate,
-            })}
+            className="flex min-w-0 items-center gap-1 text-[10px] leading-4 text-muted-foreground"
+            title={
+              order.finance_redacted ? primaryRepairLabel : `${primaryRepairLabel} · ${issueLabel}`
+            }
           >
-            {order.technician_name || t("orders.unassigned")} · {createdDate}
+            {order.finance_redacted ? (
+              <LockKeyhole className="size-3 shrink-0" aria-hidden="true" />
+            ) : (
+              <Wrench className="size-3 shrink-0" aria-hidden="true" />
+            )}
+            <span className="truncate">
+              {primaryRepairLabel}
+              {!order.finance_redacted && extraFaultCount > 0 ? ` +${extraFaultCount}` : ""}
+              {!order.finance_redacted ? ` · ${issueLabel}` : ""}
+            </span>
           </p>
         </div>
-
-        <p className="min-w-0 truncate px-0.5 text-[length:var(--order-mobile-meta)] leading-3 text-muted-foreground">
-          <span className="font-semibold text-foreground">{primaryRepairLabel}</span>
-          <span aria-hidden="true"> · </span>
-          {issueLabel}
-        </p>
-
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-[var(--order-mobile-cluster)] border-t border-[var(--border-panel)] pt-[var(--order-mobile-inline)]">
-          <MobileWorkflowStrip
-            workflowStatus={workflowStatus}
-            currentLabel={currentStageLabel}
-            nextAction={guidance.nextAction}
-            danger={hasOverdueException}
+        <div
+          className="flex min-w-0 max-w-[130px] flex-col items-end gap-1 text-right"
+          data-order-mobile-card-payment="true"
+        >
+          <OrderQueueStageBadge
+            order={order}
+            className="max-w-full whitespace-normal px-1.5 py-0.5 text-[9px] leading-3 text-right"
           />
-
-          <div
-            data-order-mobile-card-payment="true"
-            className="flex min-w-0 items-end gap-[var(--order-mobile-gap)] rounded-[calc(var(--order-mobile-radius)-0.125rem)] bg-surface-muted/55 px-[var(--order-mobile-pad)] py-1 text-right"
-          >
+          {order.finance_redacted ? (
             <span
-              className={cn(
-                "inline-flex max-w-[76px] justify-center truncate rounded px-1 py-0.5 text-[length:var(--order-mobile-meta)] font-semibold leading-3",
-                paymentStatusClass,
-              )}
+              className="inline-flex items-center gap-1 text-[10px] leading-4 text-muted-foreground"
+              data-order-financial-label="true"
             >
-              {paymentLabel}
+              <LockKeyhole className="size-3" aria-hidden="true" />
+              {t("orders.amountRestricted")}
             </span>
-            {order.finance_redacted ? null : (
+          ) : (
+            <>
               <p
                 className={cn(
-                  "flex items-baseline justify-end gap-1 whitespace-nowrap text-[length:var(--order-mobile-meta)] leading-3",
+                  "flex flex-wrap items-baseline justify-end gap-x-1 text-[9px] leading-4",
                   paymentAmountClass,
                 )}
               >
                 <span className="text-muted-foreground">{paymentAmountLabel}</span>
                 <MoneyText
                   amount={paymentAmount}
-                  className="text-[length:var(--order-mobile-title)] font-bold"
+                  className="whitespace-nowrap text-xs font-semibold"
                 />
               </p>
-            )}
-          </div>
-        </div>
-
-        {exceptionStatus || hasOverdueException ? (
-          <div className="flex min-w-0 items-center gap-[var(--order-mobile-gap)] rounded-md bg-status-danger/10 px-[var(--order-mobile-pad)] py-1 text-[length:var(--order-mobile-meta)] font-medium leading-3 text-status-danger-foreground">
-            <AlertTriangle
-              className="size-[var(--order-mobile-icon)] shrink-0"
-              aria-hidden="true"
-            />
-            {exceptionStatus ? (
-              <StatusBadge
-                status={order.status}
-                label={localizeOrderException(exceptionStatus, t).shortLabel}
-                tone={orderExceptionMeta[exceptionStatus].tone}
-                className="px-1 py-0.5 text-[length:var(--order-mobile-meta)]"
-              />
-            ) : null}
-            <span className="min-w-0 truncate">
-              {hasOverdueException ? t("orders.overdueHint") : t("orders.exceptionHint")}
-            </span>
-          </div>
-        ) : null}
-      </div>
-    </article>
-  );
-}
-
-function MobileWorkflowStrip({
-  workflowStatus,
-  currentLabel,
-  nextAction,
-  danger,
-}: {
-  workflowStatus: OrderWorkflowStatusCode;
-  currentLabel: string;
-  nextAction: string;
-  danger: boolean;
-}) {
-  const { t } = useLocale();
-  const currentIndex = getWorkflowProgressValue(workflowStatus);
-  const currentStage = orderTaskStages[currentIndex];
-  const localizedCurrentStage = currentStage ? localizeOrderFlowStage(currentStage, t) : undefined;
-
-  return (
-    <div
-      className="min-w-0"
-      aria-label={t("orders.workflowAria", {
-        current: localizedCurrentStage?.label ?? currentLabel ?? workflowStatus,
-        next: nextAction,
-      })}
-    >
-      <div className="flex min-w-0 items-center justify-between gap-[var(--order-mobile-gap)]">
-        <span
-          className={cn(
-            "inline-flex h-[18px] min-w-0 max-w-[150px] items-center gap-1 truncate rounded-md px-1 text-[length:var(--order-mobile-meta)] font-semibold leading-none",
-            danger
-              ? "bg-status-danger/10 text-status-danger-foreground"
-              : "bg-primary/10 text-primary",
+              <p className="flex max-w-full flex-wrap items-center justify-end gap-x-1 gap-y-0.5 text-[9px] leading-3 text-muted-foreground">
+                {hasOutstandingBalance ? (
+                  <span className="whitespace-nowrap">
+                    <span>{t("orders.amountTotal")} </span>
+                    <MoneyText amount={order.quotation_amount} className="whitespace-nowrap" />
+                  </span>
+                ) : null}
+                <span className="max-w-full break-words" data-order-financial-label="true">
+                  {paymentLabel}
+                </span>
+              </p>
+            </>
           )}
-          title={`${currentLabel} · ${nextAction}`}
-        >
-          <span className="size-1.5 shrink-0 rounded-full bg-current" />
-          <span className="truncate">{nextAction}</span>
-        </span>
-        <span className="shrink-0 font-mono text-[length:var(--order-mobile-meta)] leading-none text-muted-foreground tabular-nums">
-          {Math.min(currentIndex + 1, orderTaskStages.length)}/{orderTaskStages.length}
-        </span>
+        </div>
       </div>
+      {showCustodyBadge || supplierControl ? (
+        <div className="flex min-w-0 flex-wrap items-center gap-1 px-2.5 pb-1.5">
+          {showCustodyBadge ? (
+            <DeviceCustodyBadge
+              status={order.device_custody_status}
+              deliveredAt={order.delivered_at}
+              label={localizeDeviceCustody(order.device_custody_status, order.delivered_at, t)}
+              className="max-w-full px-1 py-0.5 text-[9px]"
+            />
+          ) : null}
+          {supplierControl}
+        </div>
+      ) : null}
       <OrderMiniProgress
         workflowStatus={workflowStatus}
-        currentLabel={currentLabel}
-        nextAction={nextAction}
-        danger={danger}
-        className="mt-1"
+        currentLabel={currentStageLabel}
+        nextAction={guidance.nextAction}
+        danger={hasOverdueException || Boolean(exceptionStatus)}
+        isTerminal={workflowStatus === "closed"}
+        className="mx-2.5 mb-1.5"
       />
-    </div>
+      <div className="flex min-w-0 items-center justify-between gap-2 border-t border-[var(--border-panel)] px-2.5 py-1.5 text-[9px] leading-3">
+        <span
+          className={cn(
+            "flex min-w-0 items-center gap-0.5 text-muted-foreground",
+            hasOverdueException && "text-status-danger-foreground",
+          )}
+          title={`${currentStageLabel} · ${guidance.nextAction}`}
+        >
+          <span className="truncate">{guidance.nextAction}</span>
+          <ChevronRight className="size-3 shrink-0" aria-hidden="true" />
+        </span>
+        <span
+          className="flex min-w-0 max-w-[58%] shrink-0 items-center gap-2 text-muted-foreground"
+          title={t("orders.technicianTimeTitle", {
+            technician: order.technician_name || t("orders.unassigned"),
+            date: createdDate,
+            relative: relativeCreatedDate,
+          })}
+        >
+          <span className="truncate font-mono font-medium">{order.public_no}</span>
+          <span className="shrink-0">{createdDate}</span>
+        </span>
+      </div>
+      {exceptionStatus || hasOverdueException ? (
+        <div className="flex min-w-0 items-center gap-1.5 border-t border-[var(--border-panel)] bg-status-danger/10 px-2.5 py-1 text-[9px] leading-3 text-status-danger-foreground">
+          <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
+          {exceptionStatus ? (
+            <StatusBadge
+              status={order.status}
+              label={localizeOrderException(exceptionStatus, t).shortLabel}
+              tone={orderExceptionMeta[exceptionStatus].tone}
+              className="px-1 py-0.5 text-[9px]"
+            />
+          ) : null}
+          <span className="min-w-0 truncate">
+            {hasOverdueException ? t("orders.overdueHint") : t("orders.exceptionHint")}
+          </span>
+        </div>
+      ) : null}
+    </article>
   );
 }
 

@@ -28,139 +28,66 @@ async function expectNoOverflow(page: Page) {
 }
 
 function queueButton(page: Page, label: string) {
-  return page.getByRole("button", {
-    name: new RegExp(`^第 \\d+ 阶段：${label}，\\d+ 条$`),
-  });
+  return page.getByRole("button", { name: new RegExp(`^${label}，\\d+ 条工单$`) });
+}
+async function chooseQueue(page: Page, label: string) {
+  await page.locator('[data-order-queue-trigger="true"]').click();
+  await queueButton(page, label).click();
 }
 
-test("uses a fluid two-row queue header and compact mobile cards", async ({ page }, testInfo) => {
-  const mobileViewports = [
-    { width: 320, height: 568 },
-    { width: 375, height: 812 },
-    { width: 390, height: 844 },
-    { width: 393, height: 852 },
-    { width: 402, height: 874 },
-    { width: 430, height: 932 },
-    { width: 440, height: 956 },
-  ];
-
-  await page.setViewportSize(mobileViewports[0]);
+test("uses a compact queue disclosure, phone-first cards and the existing five-segment rail", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 390, height: 844 });
   await gotoOrders(page);
-
-  await expect(page.getByRole("button", { name: /筛选订单/ })).toBeVisible();
-  await expect(queueButton(page, "已通知取机")).toBeVisible();
-  await expect(page.getByText("队列：已通知取机")).toHaveCount(0);
-
-  for (const viewport of mobileViewports) {
-    await page.setViewportSize(viewport);
+  await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
+  for (const width of [390, 430, 768, 1024, 1280, 1440]) {
+    await page.setViewportSize({ width, height: width < 768 ? 844 : 960 });
     await expectNoOverflow(page);
-
-    const all = await queueButton(page, "全部状态").boundingBox();
-    const processing = await queueButton(page, "处理中").boundingBox();
-    const ordered = await queueButton(page, "待配件").boundingBox();
-    const arrived = await queueButton(page, "配件已到").boundingBox();
-    const pickup = await queueButton(page, "已通知取机").boundingBox();
-    const header = await page.locator('[data-order-mobile-header-card="true"]').boundingBox();
-    const title = await page
-      .locator('[data-order-mobile-title-block="true"] > p')
-      .first()
-      .boundingBox();
-    const subtitle = await page.locator('[data-order-mobile-header-context="true"]').boundingBox();
-    const titleBlock = await page.locator('[data-order-mobile-title-block="true"]').boundingBox();
-    const searchRow = await page.locator('[data-order-mobile-search-row="true"]').boundingBox();
-    await expect(page.getByRole("group", { name: "订单显示范围" })).toHaveCount(0);
-    await expect(page.locator('[data-order-mobile-header-context="true"]')).toContainText("待处理");
-
-    expect(all).not.toBeNull();
-    expect(processing).not.toBeNull();
-    expect(ordered).not.toBeNull();
-    expect(arrived).not.toBeNull();
-    expect(pickup).not.toBeNull();
-    expect(header).not.toBeNull();
-    expect(title).not.toBeNull();
-    expect(subtitle).not.toBeNull();
-    expect(titleBlock).not.toBeNull();
-    expect(searchRow).not.toBeNull();
-    expect((subtitle?.y ?? 0) - ((title?.y ?? 0) + (title?.height ?? 0))).toBeGreaterThanOrEqual(3);
-    expect((subtitle?.y ?? 0) - ((title?.y ?? 0) + (title?.height ?? 0))).toBeLessThanOrEqual(5);
-    expect(
-      (searchRow?.y ?? 0) - ((titleBlock?.y ?? 0) + (titleBlock?.height ?? 0)),
-    ).toBeGreaterThanOrEqual(7);
-    expect(
-      (searchRow?.y ?? 0) - ((titleBlock?.y ?? 0) + (titleBlock?.height ?? 0)),
-    ).toBeLessThanOrEqual(10);
-    expect(Math.abs((all?.y ?? 0) - (processing?.y ?? 0))).toBeLessThanOrEqual(1);
-    expect(Math.abs((processing?.y ?? 0) - (ordered?.y ?? 0))).toBeLessThanOrEqual(1);
-    expect(Math.abs((arrived?.y ?? 0) - (pickup?.y ?? 0))).toBeLessThanOrEqual(1);
-    expect(Math.abs((processing?.y ?? 0) - (arrived?.y ?? 0))).toBeGreaterThan(28);
-    expect(processing?.height ?? 0).toBeGreaterThanOrEqual(32);
-    // The balanced rhythm adds hierarchy spacing without enlarging queue controls.
-    expect(header?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(224);
-
+    const compact = width < 1024;
+    const rows = page.locator(
+      compact ? '[data-order-mobile-card="true"]' : '[data-order-row="true"]',
+    );
+    await expect(rows.first()).toBeVisible();
+    await expect(
+      page.locator(
+        compact ? '[data-order-desktop-list="true"]' : '[data-order-mobile-list="true"]',
+      ),
+    ).toHaveCount(0);
+    await expect(rows.first().locator("[data-order-mini-progress-segment]")).toHaveCount(5);
+    if (compact) {
+      const trigger = page.locator('[data-order-queue-trigger="true"]');
+      await expect(trigger).toBeVisible();
+      expect((await trigger.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+      await expect(page.locator("[data-order-queue-option]")).toHaveCount(0);
+      await trigger.click();
+      const queue = page.getByRole("dialog", { name: "工作队列" });
+      await expect(queue).toBeVisible();
+      await expect(queue.locator("[data-order-queue-option]")).toHaveCount(7);
+      expect(
+        await queue
+          .locator("[data-order-queue-option]")
+          .evaluateAll((elements) =>
+            elements.every((el) => el.getBoundingClientRect().height >= 52),
+          ),
+      ).toBe(true);
+      await expectNoOverflow(page);
+      await page.keyboard.press("Escape");
+      await expect(queue).toHaveCount(0);
+      await expect(trigger).toBeFocused();
+    }
     await page.screenshot({
-      path: testInfo.outputPath(`orders-${viewport.width}-fluid-density.png`),
-      fullPage: false,
+      path: testInfo.outputPath(`orders-v2-${width}.png`),
+      animations: "disabled",
     });
   }
-
   await page.setViewportSize({ width: 390, height: 844 });
-  const groupHeader = page
-    .locator('[data-order-mobile-list="true"] [data-order-result-group]')
-    .first();
-  await expect(groupHeader).toBeVisible();
-  const firstGroupHeader = await groupHeader.boundingBox();
-  expect(firstGroupHeader?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(40);
-  const standardCards = page.locator(
-    '[data-order-mobile-card="true"][data-order-mobile-card-risk="false"]',
-  );
-  await expect(standardCards.first()).toBeVisible();
-  const firstCard = await standardCards.first().boundingBox();
-  expect(firstCard?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(108);
-  const completeCardCount = await standardCards.evaluateAll(
-    (cards) =>
-      cards.filter((card) => {
-        const box = card.getBoundingClientRect();
-        return box.top >= 0 && box.bottom <= window.innerHeight;
-      }).length,
-  );
-  expect(completeCardCount).toBeGreaterThanOrEqual(3);
-
   await page.evaluate(() => window.scrollTo({ top: 180, behavior: "instant" }));
   await expect(page.locator('[data-order-mobile-header-collapsed="true"]')).toBeVisible();
-  const collapsedHeader = await page
-    .locator('[data-order-mobile-header-card="true"]')
-    .boundingBox();
-  expect(collapsedHeader?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(44);
-  await page.screenshot({
-    path: testInfo.outputPath("orders-390-collapsed-density.png"),
-    fullPage: false,
-  });
-  const collapsedCompleteCardCount = await standardCards.evaluateAll(
-    (cards) =>
-      cards.filter((card) => {
-        const box = card.getBoundingClientRect();
-        return box.top >= 0 && box.bottom <= window.innerHeight;
-      }).length,
-  );
-  expect(collapsedCompleteCardCount).toBeGreaterThanOrEqual(5);
-
-  await page.setViewportSize({ width: 768, height: 1024 });
-  await expect(page.getByRole("button", { name: "筛选", exact: true })).toHaveCount(0);
+  await expect(page.locator('[data-order-queue-trigger="true"]')).toBeVisible();
+  await expect(page.locator('[data-order-range-trigger="true"]')).toBeVisible();
   await expectNoOverflow(page);
-  await page.screenshot({
-    path: testInfo.outputPath("orders-768-desktop-toolbar.png"),
-    clip: { x: 0, y: 0, width: 768, height: 330 },
-  });
-
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await expect(page.getByRole("button", { name: "筛选", exact: true })).toHaveCount(0);
-  await expect(page.locator('[data-order-desktop-list="true"]')).toHaveCount(1);
-  await expect(page.locator('[data-order-mobile-list="true"]')).toHaveCount(0);
-  await expectNoOverflow(page);
-  await page.screenshot({
-    path: testInfo.outputPath("orders-1440-desktop-toolbar.png"),
-    clip: { x: 0, y: 0, width: 1440, height: 330 },
-  });
 });
 
 test("blocks stale rows, commits only the latest queue, and restores after failure", async ({
@@ -197,9 +124,9 @@ test("blocks stale rows, commits only the latest queue, and restores after failu
     await route.continue();
   });
 
-  const ordered = queueButton(page, "待配件");
-  await ordered.evaluate((button) => (button as HTMLButtonElement).click());
-  await expect(ordered).toHaveAttribute("aria-busy", "true");
+  const trigger = page.locator('[data-order-queue-trigger="true"]');
+  await chooseQueue(page, "待配件");
+  await expect(trigger).toHaveAttribute("aria-busy", "true");
   await expect(page.locator('[data-order-mobile-header-context="true"]')).toContainText(
     "正在加载待配件",
   );
@@ -210,28 +137,27 @@ test("blocks stale rows, commits only the latest queue, and restores after failu
   });
   releaseOrderedRequest?.();
 
-  await queueButton(page, "配件已到").click();
-  await queueButton(page, "已维修").click();
-  await expect(queueButton(page, "已维修")).toHaveAttribute("aria-busy", "true");
+  await chooseQueue(page, "配件已到");
+  await chooseQueue(page, "已维修");
+  await expect(trigger).toHaveAttribute("aria-busy", "true");
   await expect(page.locator('[data-order-list-blocked="true"]')).toBeHidden();
-  await expect(queueButton(page, "已维修")).toHaveAttribute("aria-pressed", "true");
+  await expect(trigger).toHaveAttribute("aria-label", /已维修/);
   expect(workflowRequests).toBe(initialWorkflowRequests);
   expect(optionsRequests).toBe(initialOptionsRequests);
 
-  const repairedNotified = queueButton(page, "已通知取机");
   failingGroup = "repaired_notified";
   failingAttempts = 2;
-  await repairedNotified.click();
+  await chooseQueue(page, "已通知取机");
   const failureAlert = page.getByRole("alert").filter({
     hasText: "已恢复上一次成功队列",
   });
   await expect(failureAlert).toBeVisible();
-  await expect(queueButton(page, "已维修")).toHaveAttribute("aria-pressed", "true");
+  await expect(trigger).toHaveAttribute("aria-label", /已维修/);
   await expect(page.locator('[data-order-list-blocked="true"]')).toBeHidden();
 
   await page.getByRole("button", { name: "重试" }).click();
   await expect(failureAlert).toBeHidden();
-  await expect(repairedNotified).toHaveAttribute("aria-pressed", "true");
+  await expect(trigger).toHaveAttribute("aria-label", /已通知取机/);
   await expectNoOverflow(page);
 });
 
@@ -256,10 +182,13 @@ test("keeps the last successful queue visible and stops transitions while offlin
   const offlineStatus = page.getByRole("status").filter({ hasText: "当前离线，显示最近数据" });
   await expect(offlineStatus).toBeVisible();
 
-  await expect(queueButton(page, "待配件")).toBeDisabled();
+  await expect(page.locator('[data-order-queue-trigger="true"]')).toBeDisabled();
   await expect(page.getByRole("textbox", { name: "搜索工单、客户、电话或 IMEI" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "扫描订单二维码" })).toBeDisabled();
-  await expect(queueButton(page, "全部状态")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-order-queue-trigger="true"]')).toHaveAttribute(
+    "aria-label",
+    /全部状态/,
+  );
   await expect(page.locator('[data-order-list-blocked="true"]')).toBeHidden();
   expect(listPageRequests).toBe(0);
 

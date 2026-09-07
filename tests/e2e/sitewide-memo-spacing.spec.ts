@@ -70,11 +70,11 @@ test("orders keeps its dense queue controls while adopting the same outer rhythm
 
   const headerCard = page.locator('[data-order-mobile-header-card="true"]');
   await expect(headerCard).toBeVisible();
-  const queueButtons = page.getByRole("group", { name: "待处理状态" }).getByRole("button");
+  const queueButtons = page.locator('[data-order-queue-trigger="true"]');
   await expect(queueButtons.first()).toBeVisible();
   const queueBox = await queueButtons.first().boundingBox();
-  expect(queueBox?.height).toBeGreaterThanOrEqual(32);
-  expect(queueBox?.height).toBeLessThanOrEqual(40);
+  expect(queueBox?.height).toBeGreaterThanOrEqual(44);
+  expect(queueBox?.height).toBeLessThanOrEqual(48);
   await expectNoOverflow(page);
   await hideNextDevUi(page);
   await page.screenshot({

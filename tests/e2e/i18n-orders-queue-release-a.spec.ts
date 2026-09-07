@@ -93,7 +93,23 @@ test("it-IT desktop Orders queue renders localized mock UI without overflow", as
   await hideNextDevIndicator(page);
   await expect(page.locator("html")).toHaveAttribute("lang", "it-IT");
   await expect(page.getByRole("heading", { name: "Ordini di riparazione" })).toBeVisible();
-  await expect(page.getByText("Da gestire ora", { exact: true })).toBeVisible();
+  const queueRail = page.locator('[data-order-desktop-flow-rail="true"]');
+  await expect(queueRail.getByRole("button")).toHaveCount(7);
+  for (const label of [
+    "Tutte le code",
+    "In lavorazione",
+    "Ricambio ordinato",
+    "Ricambio arrivato",
+    "Arrivo notificato",
+    "Riparato",
+    "Ritiro notificato",
+  ]) {
+    await expect(queueRail.getByRole("button", { name: new RegExp(label) })).toBeVisible();
+  }
+  await expect(queueRail.getByRole("button", { name: /Tutte le code/ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   await expect(page.locator('[data-order-desktop-list="true"]')).toBeVisible();
   await expect(page.locator('[data-order-row="true"]').first()).toBeVisible();
   const queueLabels = await page.locator("[data-order-queue-stage]").allTextContents();

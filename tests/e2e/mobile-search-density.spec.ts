@@ -25,8 +25,8 @@ for (const viewport of [
     const orderSearch = page.getByRole("textbox", {
       name: "搜索工单、客户、电话或 IMEI",
     });
-    await expect(orderSearch).toHaveAttribute("placeholder", "工单 / 客户 / IMEI");
-    await expectEmbeddedSearch(orderSearch, 38);
+    await expect(orderSearch).toHaveAttribute("placeholder", "电话 / 工单 / 设备");
+    await expectEmbeddedSearch(orderSearch, 44);
 
     for (const actionName of [/扫描订单二维码/, /筛选订单/]) {
       const action = page.getByRole("button", { name: actionName });
