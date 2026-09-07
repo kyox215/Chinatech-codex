@@ -314,32 +314,34 @@ export function OrderStatusFilterControls({
       data-order-desktop-flow-filter="true"
       className={cn(embedded ? "min-w-0" : cn(repairOs.mobileInfoCard, "p-2"), className)}
     >
-      <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <span
-            className={cn(
-              "grid shrink-0 place-items-center rounded-md bg-primary/10 text-primary",
-              embedded ? "size-7" : "size-6",
-            )}
-          >
-            <ListChecks className="size-3" />
-          </span>
-          <div className="min-w-0">
-            <div className="text-xs font-semibold leading-4">{t("orders.processNow")}</div>
-            <div className="truncate text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-              {groupValue === "all"
-                ? t("orders.processNowHint")
-                : t("orders.currentGroupCount", {
-                    label: activeGroup?.label ?? groupValue,
-                    count: activeGroup?.count ?? 0,
-                  })}
+      {!embedded ? (
+        <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <span
+              className={cn(
+                "grid shrink-0 place-items-center rounded-md bg-primary/10 text-primary",
+                embedded ? "size-7" : "size-6",
+              )}
+            >
+              <ListChecks className="size-3" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-xs font-semibold leading-4">{t("orders.processNow")}</div>
+              <div className="truncate text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
+                {groupValue === "all"
+                  ? t("orders.processNowHint")
+                  : t("orders.currentGroupCount", {
+                      label: activeGroup?.label ?? groupValue,
+                      count: activeGroup?.count ?? 0,
+                    })}
+              </div>
             </div>
           </div>
+          <span className="hidden text-[10px] text-muted-foreground sm:inline lg:text-[11px] lg:leading-4">
+            {t("orders.taskView")}
+          </span>
         </div>
-        <span className="hidden text-[10px] text-muted-foreground sm:inline lg:text-[11px] lg:leading-4">
-          {t("orders.taskView")}
-        </span>
-      </div>
+      ) : null}
 
       <div
         data-order-desktop-flow-rail="true"
@@ -356,9 +358,13 @@ export function OrderStatusFilterControls({
               aria-pressed={active}
               onClick={() => onGroupChange(group.key)}
               className={cn(
-                "relative grid min-h-8 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 overflow-hidden rounded-md border py-1 text-left transition-all",
+                "relative grid min-h-10 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 overflow-hidden rounded-md border py-1 text-left transition-colors",
                 embedded ? "px-1.5" : "px-2",
-                queueToneButtonClass(tone, active, isAll),
+                embedded
+                  ? active
+                    ? "border-primary/25 bg-primary/5 text-primary"
+                    : "border-transparent bg-transparent text-muted-foreground hover:bg-accent/60"
+                  : queueToneButtonClass(tone, active, isAll),
               )}
               title={`${group.label} · ${group.count}`}
             >
@@ -372,10 +378,10 @@ export function OrderStatusFilterControls({
               )}
               <div className="min-w-0">
                 <div className="flex min-w-0 items-center gap-1.5">
-                  <span className="truncate text-xs font-semibold">
-                    {embedded && !isAll ? (group.shortLabel ?? group.label) : group.label}
+                  <span className="min-w-0 break-words text-[11px] font-medium leading-4">
+                    {isAll && embedded ? t("orders.allQueues") : group.label}
                   </span>
-                  {embedded && isAll ? null : (
+                  {embedded ? null : (
                     <span
                       className={cn(
                         "grid size-3.5 shrink-0 place-items-center rounded-full text-[8px] font-semibold tabular-nums lg:text-[11px] lg:leading-4",

@@ -7,4 +7,4 @@ export const orderMobileFluidDensity =
 export const orderMobileQueueGrid = "grid-cols-4 gap-[var(--order-mobile-cluster,0.375rem)]";
 export const orderMobileQueueAllSpan = "col-span-2";
 export const orderMobileSkeletonHeaderOffsetClass =
-  "[--orders-mobile-header-offset:calc(env(safe-area-inset-top)+12rem)]";
+  "[--orders-mobile-header-offset:calc(env(safe-area-inset-top)+10.5rem)]";

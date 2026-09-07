@@ -30,7 +30,9 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
+  DialogFooter,
   DialogDescription,
   DialogHeader,
   DialogTitle,
@@ -142,6 +144,8 @@ import {
   parseOrderWorkspaceIntent,
 } from "@/features/orders/model/order-workspace-intent";
 import { useLocale } from "@/shared/i18n/locale-provider";
+import { simpleOrderFlowStages } from "@/features/orders/model/order-simple-flow";
+import { localizeOrderFlowStage } from "@/features/orders/model/order-i18n";
 import { localizeOrderQueueGroup } from "@/features/orders/model/order-i18n";
 
 const LazyOrderDetailScreen = lazy(() =>
@@ -1260,7 +1264,7 @@ export function OrderListScreen() {
                 type="button"
                 variant="outline"
                 size="iconDense"
-                className="size-9 rounded-lg border-primary/30 bg-primary/10 text-primary"
+                className="size-11 rounded-lg border-primary/30 bg-primary/10 text-primary"
                 aria-label={t("shell.openAi")}
                 data-ai-assistant-trigger="mobile-orders"
                 onClick={aiAssistant.openAssistant}
@@ -1279,7 +1283,7 @@ export function OrderListScreen() {
             <OrderQrScannerButton
               disabled={!isOnline}
               ariaLabel={t("orders.scanOrderQr")}
-              className="size-9 rounded-lg bg-card"
+              className="size-11 rounded-lg border-0 bg-transparent shadow-none"
               iconClassName="size-3.5"
             />
           }
@@ -1288,7 +1292,7 @@ export function OrderListScreen() {
               type="button"
               variant="outline"
               size="iconDense"
-              className="relative size-9 rounded-lg bg-card"
+              className="relative size-11 rounded-lg border-0 bg-transparent shadow-none"
               aria-label={t("orders.mobileFilterAria", { count: mobileHiddenFilterCount })}
               onClick={() => setMobileFiltersOpen(true)}
             >
@@ -1300,6 +1304,15 @@ export function OrderListScreen() {
               ) : null}
             </Button>
           }
+          rangeAction={
+            <OrderListViewMode
+              disclosure
+              value={orderListView}
+              canBrowseArchive={canBrowseOrderArchive}
+              disabled={!isOnline || listInteractionBlocked}
+              onChange={changeOrderListView}
+            />
+          }
           rangeLabel={t(`orders.range.${orderListView}`)}
         />
       ) : null}
@@ -1308,13 +1321,22 @@ export function OrderListScreen() {
         <Dialog open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
           <DialogContent
             closeLabel={t("orders.closeFilters")}
-            className="max-h-[min(82svh,680px)] w-[calc(100%-1.5rem)] max-w-lg overflow-y-auto rounded-2xl p-3 sm:p-4"
+            mobileEditor
+            editorLayout
+            initialFocus="container"
+            closeClassName="!size-11"
+            className={cn(
+              componentOverlay.content,
+              "max-h-[min(90svh,760px)] max-w-lg gap-0 p-0 sm:p-0 max-lg:!max-w-lg",
+            )}
           >
-            <DialogHeader>
-              <DialogTitle>{t("orders.mobileFilterTitle")}</DialogTitle>
+            <DialogHeader
+              className={cn(componentOverlay.denseEditorHeader, "block space-y-1 pr-14")}
+            >
+              <DialogTitle className="text-sm">{t("orders.mobileFilterTitle")}</DialogTitle>
               <DialogDescription>{t("orders.mobileFilterDescription")}</DialogDescription>
             </DialogHeader>
-            <div className="space-y-3 sm:space-y-4">
+            <DialogBody className="space-y-3 p-3 sm:space-y-4">
               <fieldset className="space-y-2">
                 <legend className="text-sm font-semibold">{t("orders.displayRange")}</legend>
                 <OrderListViewMode
@@ -1323,6 +1345,33 @@ export function OrderListScreen() {
                   disabled={!isOnline || listInteractionBlocked}
                   onChange={changeOrderListView}
                 />
+              </fieldset>
+              <fieldset className="space-y-2">
+                <legend className="text-xs font-semibold">{t("orders.mainWorkflow")}</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  {simpleOrderFlowStages.map((stage) => {
+                    const active = stage.workflowStatuses.every((status) =>
+                      filters.workflowStatuses?.includes(status),
+                    );
+                    return (
+                      <Button
+                        key={stage.key}
+                        type="button"
+                        variant={active ? "default" : "outline"}
+                        disabled={!isOnline || listInteractionBlocked}
+                        className="min-h-11 whitespace-normal px-2 text-xs"
+                        aria-pressed={active}
+                        onClick={() =>
+                          updateMobileFilters({
+                            workflowStatuses: active ? undefined : [...stage.workflowStatuses],
+                          })
+                        }
+                      >
+                        {localizeOrderFlowStage(stage, t).label}
+                      </Button>
+                    );
+                  })}
+                </div>
               </fieldset>
               <fieldset className="space-y-2">
                 <legend className="text-sm font-semibold">{t("orders.typeFilter")}</legend>
@@ -1339,7 +1388,7 @@ export function OrderListScreen() {
                         key={value}
                         type="button"
                         variant={active ? "default" : "outline"}
-                        className="h-[38px] text-base"
+                        className="min-h-11 whitespace-normal text-xs"
                         aria-pressed={active}
                         onClick={() => updateMobileFilters({ types: active ? undefined : [value] })}
                       >
@@ -1365,7 +1414,7 @@ export function OrderListScreen() {
                         key={value ?? "all"}
                         type="button"
                         variant={active ? "default" : "outline"}
-                        className="h-[38px] px-2 text-base"
+                        className="min-h-11 whitespace-normal px-2 text-xs"
                         aria-pressed={active}
                         onClick={() => updateMobileFilters({ paid: value })}
                       >
@@ -1391,7 +1440,7 @@ export function OrderListScreen() {
                         key={value ?? "all"}
                         type="button"
                         variant={active ? "default" : "outline"}
-                        className="h-[38px] px-2 text-base"
+                        className="min-h-11 whitespace-normal px-2 text-xs"
                         aria-pressed={active}
                         onClick={() => updateMobileFilters({ overdue: value })}
                       >
@@ -1412,7 +1461,7 @@ export function OrderListScreen() {
                           key={technician}
                           type="button"
                           variant={active ? "default" : "outline"}
-                          className="min-h-9"
+                          className="min-h-11 whitespace-normal text-xs"
                           aria-pressed={active}
                           onClick={() =>
                             updateMobileFilters({ technicians: active ? undefined : [technician] })
@@ -1425,20 +1474,45 @@ export function OrderListScreen() {
                   </div>
                 </fieldset>
               ) : null}
-              <div className="grid grid-cols-2 gap-2 border-t border-[var(--border-panel)] pt-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-9"
-                  onClick={clearMobileHiddenFilters}
-                >
-                  {t("orders.clearAdvancedFilters")}
-                </Button>
-                <Button type="button" className="h-10" onClick={() => setMobileFiltersOpen(false)}>
-                  {t("orders.viewResults")}
-                </Button>
-              </div>
-            </div>
+              {canReadSuppliers && visibleSuppliers.length > 0 ? (
+                <fieldset className="space-y-2">
+                  <legend className="text-xs font-semibold">{t("orders.supplierFilter")}</legend>
+                  <div className="grid grid-cols-2 gap-2">
+                    {visibleSuppliers.map((supplier) => {
+                      const active = filters.supplierIds?.includes(supplier.id) ?? false;
+                      return (
+                        <Button
+                          key={supplier.id}
+                          type="button"
+                          variant={active ? "default" : "outline"}
+                          disabled={!isOnline || listInteractionBlocked}
+                          className="min-h-11 whitespace-normal px-2 text-xs"
+                          aria-pressed={active}
+                          onClick={() =>
+                            updateMobileFilters({ supplierIds: active ? undefined : [supplier.id] })
+                          }
+                        >
+                          {supplier.short_name || supplier.name}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              ) : null}
+            </DialogBody>
+            <DialogFooter className={componentOverlay.denseEditorFooter}>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11"
+                onClick={clearMobileHiddenFilters}
+              >
+                {t("orders.clearAdvancedFilters")}
+              </Button>
+              <Button type="button" className="h-11" onClick={() => setMobileFiltersOpen(false)}>
+                {t("orders.viewResults")}
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       }
@@ -1487,7 +1561,7 @@ export function OrderListScreen() {
             disabled={!isOnline}
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-xs text-primary"
+            className="h-11 px-2 text-xs text-primary"
             onClick={clearMobileHiddenFilters}
           >
             {t("orders.clearAdvancedFilters")}
@@ -1508,12 +1582,12 @@ export function OrderListScreen() {
       {viewportMode === "desktop" ? (
         <div
           data-order-desktop-unified-toolbar="true"
-          className={cn(repairOs.mobileInfoCard, "mb-3 mt-3 min-w-0 space-y-2 p-2.5")}
+          className={cn(repairOs.mobileInfoCard, "mb-3 mt-1 flex min-w-0 flex-col gap-2 p-2.5")}
         >
           {statusGroupItems.length > 0 ? (
             <OrderStatusFilterControls
               embedded
-              className="min-w-0"
+              className="order-1 min-w-0"
               groups={statusGroupItems}
               subTabs={statusSubTabs}
               groupValue={statusGroup}
@@ -1523,7 +1597,7 @@ export function OrderListScreen() {
             />
           ) : null}
 
-          <div className={cn(layoutGuards.wrapRow, "min-w-0 items-stretch justify-end")}>
+          <div className={cn(layoutGuards.wrapRow, "order-0 min-w-0 items-center justify-end")}>
             <span className="self-center text-sm font-medium" data-order-current-range="true">
               {t(`orders.range.${orderListView}`)}
             </span>
@@ -1536,7 +1610,7 @@ export function OrderListScreen() {
               <Filter className="size-4" />
               {t("orders.mobileFilterTitle")}
             </Button>
-            <div className="relative min-w-0 flex-[1_1_260px]">
+            <div className="relative order-first min-w-0 flex-[1_1_260px]">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={searchInput.draftValue}
@@ -1549,7 +1623,10 @@ export function OrderListScreen() {
                 }}
                 placeholder={t("orders.searchLabel")}
                 aria-label={t("orders.searchLabel")}
-                className={cn(controls.searchInput, "pr-16")}
+                className={cn(
+                  repairOs.searchInput,
+                  "h-11 rounded-lg bg-[var(--surface-panel-muted)] pl-9 pr-16",
+                )}
                 aria-busy={searchBusy}
               />
               <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">

@@ -99,7 +99,14 @@ describe("order detail preload intent", () => {
     expect(card).toHaveTextContent("R2026001");
     expect(card).toHaveTextContent("Apple iPhone");
     expect(card).toHaveTextContent("待确认维修项目 · Display");
-    expect(card).toHaveTextContent("Tecnico · 2026/07/07");
+    expect(card?.querySelector('[title*="Tecnico"]')).toHaveAttribute(
+      "title",
+      expect.stringContaining("2026/07/07"),
+    );
+    expect(card?.querySelectorAll("[data-order-mini-progress-segment]")).toHaveLength(5);
+    expect(
+      card?.querySelector("[data-order-mobile-identity]")?.firstElementChild,
+    ).toHaveTextContent(makeOrder().customer_phone);
     expect(card).toHaveTextContent("待审批");
     expect(card).toHaveTextContent("待收");
     expect(card).not.toHaveTextContent("定金");
@@ -144,6 +151,56 @@ describe("order detail preload intent", () => {
     expect(card).toHaveTextContent("Amount restricted");
     expect(card).not.toHaveTextContent("报价超期");
     expect(card).not.toHaveTextContent("客户持有");
+  });
+
+  it("labels a cancelled mobile balance as a record amount instead of money due", () => {
+    render(<OrderMobileCard order={makeOrder({ status: "cancelled" })} />);
+    const payment = document.querySelector('[data-order-mobile-card-payment="true"]');
+    expect(payment).toHaveTextContent("记录");
+    expect(payment).not.toHaveTextContent("待收");
+    expect(payment).toHaveTextContent("100.00");
+  });
+
+  it.each<{ label: string; order: Partial<OrderListItem> }>([
+    { label: "待审批", order: { approval_status: "pending" } },
+    { label: "报价已拒绝", order: { approval_status: "rejected" } },
+    {
+      label: "报价已拒绝 · 款项待核对",
+      order: { approval_status: "rejected", deposit_amount: 20, balance_amount: 80 },
+    },
+    {
+      label: "已付押金",
+      order: {
+        approval_status: "approved",
+        payment_status: "partial",
+        deposit_amount: 20,
+        balance_amount: 80,
+      },
+    },
+    { label: "已取消", order: { status: "cancelled" } },
+    { label: "金额受限", order: { finance_redacted: true } },
+  ])("visually exposes the mobile financial state: $label", ({ label, order }) => {
+    render(<OrderMobileCard order={makeOrder(order)} />);
+    const state = document.querySelector('[data-order-financial-label="true"]');
+    expect(state).toBeVisible();
+    expect(state).toHaveTextContent(label);
+    expect(state?.closest('.sr-only, [hidden], [aria-hidden="true"]')).toBeNull();
+    if (order.finance_redacted) {
+      const card = document.querySelector('[data-order-mobile-card="true"]');
+      expect(card).not.toHaveTextContent("€");
+      expect(card).not.toHaveTextContent("Display");
+    }
+  });
+
+  it("does not duplicate a same-phone customer name in the compact identity", () => {
+    render(
+      <OrderMobileCard
+        order={makeOrder({ customer_name: "+39 000 0000", customer_phone: "+390000000" })}
+      />,
+    );
+    const identity = document.querySelector("[data-order-mobile-identity]");
+    expect(identity).toHaveTextContent("+390000000");
+    expect(identity).not.toHaveTextContent("+39 000 0000");
   });
 
   it("renders desktop system and custom workflow labels in Italian", async () => {
@@ -214,7 +271,7 @@ describe("order detail preload intent", () => {
     );
     expect(document.body).toHaveTextContent("Pausa");
     expect(document.body).toHaveTextContent("Riparazione rapida");
-    expect(document.body).toHaveTextContent("In negozio");
+    expect(document.body).not.toHaveTextContent("In negozio");
     expect(document.body).toHaveTextContent("PIN");
     expect(document.body).toHaveTextContent("Stato negozio");
   });

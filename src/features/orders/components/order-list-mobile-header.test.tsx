@@ -1,9 +1,12 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SidebarProvider } from "@/components/ui/sidebar";
 
 import { MobileOrdersFloatingHeader } from "./order-list-mobile-header";
+import { OrderListQueueMenu } from "./order-list-queue-menu";
+import { OrderListViewMode } from "./order-list-view-mode";
 
 vi.mock("@/features/realtime", () => ({
   RealtimeSyncIndicator: () => null,
@@ -88,50 +91,89 @@ function renderHeader({
 }
 
 describe("MobileOrdersFloatingHeader", () => {
-  it("keeps scan, filter and all seven queues in the touch-first header", () => {
+  it("shows a static summary without queues while the independent range can return to active", async () => {
+    const onQueue = vi.fn();
+    const onRange = vi.fn();
+    render(
+      <>
+        <OrderListQueueMenu
+          groups={[]}
+          value="all"
+          total={12}
+          rangeLabel="已归档"
+          onChange={onQueue}
+        />
+        <OrderListViewMode disclosure value="archive" canBrowseArchive onChange={onRange} />
+      </>,
+    );
+    const summary = document.querySelector('[data-order-static-results="true"]');
+    expect(summary).toBeVisible();
+    expect(summary).toHaveTextContent("12");
+    expect(screen.queryByRole("button", { name: /切换工作队列/ })).not.toBeInTheDocument();
+    await userEvent.click(summary!);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /订单显示范围/ }));
+    await userEvent.click(screen.getByRole("button", { name: "待处理" }));
+    expect(onRange).toHaveBeenCalledWith("active");
+    expect(onQueue).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+  it("keeps the header compact and discloses all seven named queues with their counts", async () => {
     const { container, onGroupChange } = renderHeader();
-
+    const user = userEvent.setup();
     expect(screen.getByRole("button", { name: "扫码搜索" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "筛选订单" })).toBeInTheDocument();
     expect(
       screen.getByRole("textbox", { name: "搜索工单、客户、电话或 IMEI" }).parentElement,
     ).toHaveClass("bg-[var(--surface-panel-muted)]");
-    expect(screen.queryByText(/队列：/)).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "第 7 阶段：等待客户取机，42 条" }),
-    ).toBeInTheDocument();
-
-    const queueGroup = screen.getByRole("group", { name: "待处理状态" });
-    expect(queueGroup).toHaveClass("grid-cols-4");
-    expect(screen.getByRole("button", { name: "第 1 阶段：全部任务，174 条" })).toHaveClass(
-      "col-span-2",
+    expect(container.querySelectorAll("[data-order-queue-option]")).toHaveLength(0);
+    const trigger = screen.getByRole("button", { name: /切换工作队列/ });
+    await user.click(trigger);
+    expect(screen.getByRole("dialog", { name: "工作队列" })).toBeInTheDocument();
+    expect(document.querySelectorAll("[data-order-queue-option]")).toHaveLength(7);
+    expect(screen.getByRole("button", { name: "等待客户取机，42 条工单" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "全部任务，174 条工单" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
     );
-    expect(screen.getByText("待取机")).toBeInTheDocument();
-    expect(screen.queryByText("等待客户取机")).not.toBeInTheDocument();
-    expect(container.querySelectorAll('[aria-label$=" 条"]')).toHaveLength(7);
-
-    fireEvent.click(screen.getByRole("button", { name: "第 3 阶段：等待配件，24 条" }));
+    await user.click(screen.getByRole("button", { name: "等待配件，24 条工单" }));
     expect(onGroupChange).toHaveBeenCalledWith("ordered");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
-  it("shows immediate pending state on the selected queue", () => {
+  it("shows pending intent while keeping the current queue and scope explicit", async () => {
     renderHeader({ pendingGroupValue: "ordered" });
-
     expect(screen.getByText("正在加载等待配件…")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "第 3 阶段：等待配件，24 条" })).toHaveAttribute(
+    await userEvent.click(screen.getByRole("button", { name: /切换工作队列/ }));
+    expect(screen.getByRole("button", { name: "等待配件，24 条工单" })).toHaveAttribute(
       "aria-busy",
       "true",
     );
+    expect(screen.getByRole("dialog")).toHaveTextContent("待处理");
   });
 
   it("disables queue and search changes while the list is offline", () => {
     const { onGroupChange } = renderHeader({ interactionDisabled: true });
-
     expect(screen.getByRole("textbox", { name: "搜索工单、客户、电话或 IMEI" })).toBeDisabled();
-    const ordered = screen.getByRole("button", { name: "第 3 阶段：等待配件，24 条" });
-    expect(ordered).toBeDisabled();
-    fireEvent.click(ordered);
+    const trigger = screen.getByRole("button", { name: /切换工作队列/ });
+    expect(trigger).toBeDisabled();
+    fireEvent.click(trigger);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(onGroupChange).not.toHaveBeenCalled();
+  });
+
+  it("closes on Escape without opening the text keyboard and returns focus", async () => {
+    renderHeader();
+    const user = userEvent.setup();
+    const trigger = screen.getByRole("button", { name: /切换工作队列/ });
+    await user.click(trigger);
+    expect(document.activeElement?.tagName).not.toBe("INPUT");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(screen.queryByRole("button", { name: /排序/ })).not.toBeInTheDocument();
+    expect(screen.getByText("进度优先")).toBeInTheDocument();
   });
 
   it("renders the contextual AI action without removing the new-order action", () => {

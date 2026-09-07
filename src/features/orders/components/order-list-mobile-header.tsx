@@ -1,65 +1,19 @@
 "use client";
 
 import { useEffect, useState, type ReactNode, type Ref } from "react";
-import type { LucideIcon } from "lucide-react";
-import {
-  BadgeCheck,
-  Bell,
-  CheckCircle2,
-  ListTodo,
-  LoaderCircle,
-  PackageCheck,
-  PackagePlus,
-  Plus,
-  Search,
-  Wrench,
-  X,
-} from "lucide-react";
-
+import { ArrowDownWideNarrow, LoaderCircle, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { brandGradientStyle, repairOs } from "@/lib/ui-patterns";
-import type { StatusTone } from "@/lib/mock/enums";
+import { orderMobileFluidDensity } from "@/features/orders/components/order-list-layout";
 import {
-  orderMobileFluidDensity,
-  orderMobileQueueAllSpan,
-  orderMobileQueueGrid,
-} from "@/features/orders/components/order-list-layout";
+  OrderListQueueMenu,
+  type OrderQueueChoice,
+} from "@/features/orders/components/order-list-queue-menu";
 import { RealtimeSyncIndicator } from "@/features/realtime";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/shared/i18n/locale-provider";
-
-const groupIcons: Record<string, LucideIcon> = {
-  all: ListTodo,
-  processing: Wrench,
-  ordered: PackagePlus,
-  arrived: PackageCheck,
-  arrived_notified: Bell,
-  repaired: CheckCircle2,
-  repaired_notified: BadgeCheck,
-};
-
-function groupToneClass(tone: StatusTone | undefined, active: boolean) {
-  if (tone === "info") {
-    return active
-      ? "border-status-info-foreground/45 bg-status-info text-status-info-foreground ring-1 ring-inset ring-status-info-foreground/25"
-      : "border-status-info-foreground/25 bg-status-info/65 text-status-info-foreground";
-  }
-  if (tone === "warn") {
-    return active
-      ? "border-status-warn-foreground/45 bg-status-warn text-status-warn-foreground ring-1 ring-inset ring-status-warn-foreground/25"
-      : "border-status-warn-foreground/25 bg-status-warn/65 text-status-warn-foreground";
-  }
-  if (tone === "success") {
-    return active
-      ? "border-status-success-foreground/45 bg-status-success text-status-success-foreground ring-1 ring-inset ring-status-success-foreground/25"
-      : "border-status-success-foreground/25 bg-status-success/65 text-status-success-foreground";
-  }
-  return active
-    ? "border-primary bg-primary text-primary-foreground shadow-[var(--shadow-action)]"
-    : "border-[var(--border-panel)] bg-surface-muted text-muted-foreground";
-}
 
 export function MobileOrdersFloatingHeader({
   groups,
@@ -72,6 +26,7 @@ export function MobileOrdersFloatingHeader({
   aiAction,
   scanAction,
   filterAction,
+  rangeAction,
   searchValue,
   searchBusy,
   interactionDisabled = false,
@@ -81,14 +36,7 @@ export function MobileOrdersFloatingHeader({
   rangeLabel,
   headerRef,
 }: {
-  groups: {
-    key: string;
-    label: string;
-    shortLabel?: string;
-    count: number;
-    hint?: string;
-    tone?: StatusTone;
-  }[];
+  groups: OrderQueueChoice[];
   groupValue: string;
   pendingGroupValue?: string;
   pendingLabel?: string;
@@ -98,6 +46,7 @@ export function MobileOrdersFloatingHeader({
   aiAction?: ReactNode;
   scanAction?: ReactNode;
   filterAction?: ReactNode;
+  rangeAction?: ReactNode;
   searchValue: string;
   searchBusy: boolean;
   interactionDisabled?: boolean;
@@ -111,7 +60,6 @@ export function MobileOrdersFloatingHeader({
   const activeGroup = groups.find((group) => group.key === groupValue);
   const [collapsed, setCollapsed] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
-
   useEffect(() => {
     let frame = 0;
     const update = () => {
@@ -133,45 +81,32 @@ export function MobileOrdersFloatingHeader({
       if (frame) window.cancelAnimationFrame(frame);
     };
   }, [searchFocused]);
-
-  const setHeaderRef = (node: HTMLDivElement | null) => {
-    if (typeof headerRef === "function") headerRef(node);
-    else if (headerRef) (headerRef as { current: HTMLDivElement | null }).current = node;
-  };
-
   return (
-    <div ref={setHeaderRef} className={repairOs.mobileListHeaderShell}>
+    <div ref={headerRef} className={repairOs.mobileListHeaderShell}>
       <section
         data-order-mobile-header-card="true"
         data-order-mobile-header-collapsed={collapsed ? "true" : "false"}
         className={cn(
           repairOs.mobileFloatingHeaderCard,
           orderMobileFluidDensity,
-          "rounded-[var(--order-mobile-radius)] px-[var(--order-mobile-pad)] py-0",
+          "rounded-[var(--order-mobile-radius)] px-1.5 py-1",
         )}
       >
         <header
           className={cn(
             repairOs.mobileFloatingHeaderNav,
-            "gap-[var(--order-mobile-cluster)] py-[3px]",
+            "grid-cols-[44px_minmax(0,1fr)_auto] gap-1 py-0",
           )}
         >
-          <SidebarTrigger className="size-9 rounded-lg border border-[var(--border-panel)] bg-card shadow-none" />
-          <div data-order-mobile-title-block="true" className="min-w-0 space-y-1 text-center">
-            <p className="truncate text-[length:var(--order-mobile-title)] font-semibold leading-5">
-              {t("orders.title")}
-            </p>
+          <SidebarTrigger className="size-11 rounded-lg bg-transparent shadow-none" />
+          <div data-order-mobile-title-block="true" className="min-w-0 text-center">
+            <p className="truncate text-sm font-semibold leading-5">{t("orders.title")}</p>
             <p
               data-order-mobile-header-context="true"
-              className="flex items-center justify-center gap-1 truncate text-[length:var(--order-mobile-meta)] leading-3 text-muted-foreground"
+              className="mt-0.5 flex min-w-0 items-center justify-center gap-1 text-[9px] leading-3 text-muted-foreground"
             >
               <span className="truncate">
-                {pendingLabel
-                  ? t("orders.loadingGroup", { group: pendingLabel })
-                  : t("orders.groupCount", {
-                      group: [rangeLabel, activeGroup?.label].filter(Boolean).join(" · "),
-                      count: totalOrders,
-                    })}
+                {pendingLabel ? t("orders.loadingGroup", { group: pendingLabel }) : rangeLabel}
               </span>
               <RealtimeSyncIndicator compact />
             </p>
@@ -181,151 +116,107 @@ export function MobileOrdersFloatingHeader({
             <Button
               type="button"
               size="iconDense"
-              className="size-9 rounded-lg border-0 text-primary-foreground shadow-[var(--shadow-action)]"
+              className="size-11 rounded-lg border-0 text-primary-foreground shadow-[var(--shadow-action)]"
               style={brandGradientStyle}
               onClick={onCreateOrder}
               aria-label={t("orders.new")}
             >
-              <Plus className="size-4" />
+              <Plus className="size-5" />
             </Button>
           </div>
         </header>
-
         {!collapsed ? (
-          <div className="min-w-0 space-y-2.5 border-t border-[var(--border-panel)] pt-[var(--order-mobile-inline)]">
-            <div
-              data-order-mobile-search-row="true"
-              className={cn(
-                "grid min-w-0 gap-[var(--order-mobile-cluster)]",
-                scanAction || filterAction
-                  ? cn(
-                      "grid-cols-[minmax(0,1fr)]",
-                      scanAction && filterAction
-                        ? "grid-cols-[minmax(0,1fr)_36px_36px]"
-                        : "grid-cols-[minmax(0,1fr)_36px]",
-                    )
+          <div
+            data-order-mobile-search-row="true"
+            className={cn(
+              "mt-1.5 grid min-w-0 gap-1 pb-1",
+              scanAction && filterAction
+                ? "grid-cols-[minmax(0,1fr)_44px_44px]"
+                : scanAction || filterAction
+                  ? "grid-cols-[minmax(0,1fr)_44px]"
                   : "grid-cols-1",
-                "[&>*]:min-h-9 [&>*]:min-w-9",
-              )}
+              "[&>button]:min-h-11 [&>button]:min-w-11",
+            )}
+          >
+            <div
+              className={cn(repairOs.searchBarEmbedded, "h-11 gap-1.5 rounded-lg px-2 shadow-none")}
+              aria-busy={searchBusy}
             >
-              <div
-                className={cn(
-                  repairOs.searchBarEmbedded,
-                  "h-[38px] gap-[var(--order-mobile-cluster)] rounded-[var(--order-mobile-radius)] px-[var(--order-mobile-pad)] shadow-none",
-                )}
-                aria-busy={searchBusy}
-              >
-                <Search
-                  className="size-[var(--order-mobile-icon)] shrink-0 text-muted-foreground"
+              <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <Input
+                value={searchValue}
+                disabled={interactionDisabled}
+                onChange={(event) => onSearchChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  onSearchSubmit();
+                }}
+                placeholder={t("orders.searchPlaceholder")}
+                aria-label={t("orders.searchLabel")}
+                className={cn(repairOs.searchInput, "h-full text-base")}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+              />
+              {searchBusy ? (
+                <LoaderCircle
+                  className="size-3.5 shrink-0 animate-spin text-primary"
                   aria-hidden="true"
                 />
-                <Input
-                  value={searchValue}
+              ) : null}
+              {searchValue ? (
+                <button
+                  type="button"
                   disabled={interactionDisabled}
-                  onChange={(event) => onSearchChange(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key !== "Enter") return;
-                    event.preventDefault();
-                    onSearchSubmit();
-                  }}
-                  placeholder={t("orders.searchPlaceholder")}
-                  aria-label={t("orders.searchLabel")}
-                  className={cn(repairOs.searchInput, "h-full text-base")}
-                  onFocus={() => setSearchFocused(true)}
-                  onBlur={() => setSearchFocused(false)}
-                />
-                {searchBusy ? (
-                  <LoaderCircle
-                    className="size-3.5 shrink-0 animate-spin text-primary"
-                    aria-hidden="true"
-                  />
-                ) : null}
-                {searchValue ? (
-                  <button
-                    type="button"
-                    disabled={interactionDisabled}
-                    className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                    onClick={onSearchClear}
-                    aria-label={t("orders.clearSearch")}
-                    title={t("orders.clearSearch")}
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                ) : null}
-              </div>
-              {scanAction}
-              {filterAction}
+                  className="grid size-11 shrink-0 place-items-center rounded-lg text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                  onClick={onSearchClear}
+                  aria-label={t("orders.clearSearch")}
+                >
+                  <X className="size-3.5" />
+                </button>
+              ) : null}
             </div>
-
-            {groups.length > 0 ? (
-              <div
-                className={cn("grid min-w-0", orderMobileQueueGrid)}
-                role="group"
-                aria-label={t("orders.pendingStages")}
-              >
-                {groups.map((group) => {
-                  const active = groupValue === group.key;
-                  const pending = pendingGroupValue === group.key;
-                  const Icon = groupIcons[group.key] ?? ListTodo;
-                  const visualLabel =
-                    group.key === "all" ? group.label : group.shortLabel || group.label;
-
-                  return (
-                    <button
-                      key={group.key}
-                      type="button"
-                      disabled={interactionDisabled}
-                      onClick={() => onGroupChange(group.key)}
-                      className={cn(
-                        "grid h-8 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-[clamp(0.125rem,0.64vw,0.25rem)] rounded-[var(--order-mobile-radius)] border px-[var(--order-mobile-pad)] py-0.5 text-left transition-colors active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-                        group.key === "all" &&
-                          (groups.length === 1 ? "col-span-4" : orderMobileQueueAllSpan),
-                        groupToneClass(group.tone, active),
-                      )}
-                      aria-pressed={active}
-                      aria-busy={pending}
-                      aria-label={t("orders.stageLabel", {
-                        index: groups.indexOf(group) + 1,
-                        stage: group.label,
-                        count: group.count,
-                      })}
-                    >
-                      <span className="flex min-w-0 items-center gap-[clamp(0.125rem,0.64vw,0.25rem)] text-[length:var(--order-mobile-meta)] font-semibold leading-none">
-                        <Icon
-                          className="hidden size-[var(--order-mobile-icon)] shrink-0 min-[360px]:block"
-                          aria-hidden="true"
-                        />
-                        <span className="truncate">{visualLabel}</span>
-                      </span>
-                      {pending ? (
-                        <LoaderCircle
-                          className="size-[var(--order-mobile-icon)] animate-spin"
-                          aria-hidden="true"
-                        />
-                      ) : (
-                        <span className="font-mono text-[length:var(--order-mobile-meta)] font-semibold leading-none tabular-nums opacity-80">
-                          {group.count > 999 ? "999+" : group.count}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
-
-            <span
-              className="sr-only"
-              role={searchValue || pendingLabel ? undefined : "status"}
-              aria-live={searchValue || pendingLabel ? "off" : "polite"}
-            >
-              {t("orders.currentCount", {
-                group: activeGroup?.label ?? rangeLabel ?? t("orders.allStatuses"),
-                count: activeGroup?.count ?? totalOrders,
-              })}
-            </span>
+            {scanAction}
+            {filterAction}
           </div>
         ) : null}
       </section>
+      <div
+        className="mx-auto grid w-full min-w-0 max-w-[430px] grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 pt-1 md:max-w-none"
+        data-order-mobile-list-controls="true"
+      >
+        <OrderListQueueMenu
+          groups={groups}
+          value={groupValue}
+          pendingValue={pendingGroupValue}
+          total={totalOrders}
+          rangeLabel={rangeLabel}
+          disabled={interactionDisabled}
+          onChange={onGroupChange}
+        />
+        {rangeAction ?? (
+          <span className="min-w-0 truncate text-[10px] text-muted-foreground">{rangeLabel}</span>
+        )}
+        <span
+          className="flex max-w-[86px] items-center gap-1 px-1 text-[9px] leading-3 text-muted-foreground"
+          title={t("orders.queueSortHelp")}
+          data-order-sort-description="true"
+        >
+          <ArrowDownWideNarrow className="size-3 shrink-0" aria-hidden="true" />
+          <span>{t("orders.queueSortShort")}</span>
+          <span className="sr-only">{t("orders.queueSortHelp")}</span>
+        </span>
+      </div>
+      <span
+        className="sr-only"
+        role={searchValue || pendingLabel ? undefined : "status"}
+        aria-live={searchValue || pendingLabel ? "off" : "polite"}
+      >
+        {t("orders.currentCount", {
+          group: activeGroup?.label ?? rangeLabel ?? t("orders.allStatuses"),
+          count: activeGroup?.count ?? totalOrders,
+        })}
+      </span>
     </div>
   );
 }
