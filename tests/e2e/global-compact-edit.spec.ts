@@ -25,6 +25,115 @@ async function noOverflow(page: Page) {
     true,
   );
 }
+async function readableQuoteGrid(grid: Locator) {
+  await expect(grid.locator("[data-fault-category]")).toHaveCount(12);
+  const metrics = await grid.locator("[data-fault-category]").evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const box = node.getBoundingClientRect();
+      const [main, expand] = Array.from(node.querySelectorAll("button"));
+      const mainBox = main.getBoundingClientRect();
+      const expandBox = expand.getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(main.querySelector("span")!);
+      return {
+        x: Math.round(box.x),
+        y: Math.round(box.y),
+        height: box.height,
+        split: mainBox.width / expandBox.width,
+        readable: Array.from(range.getClientRects()).every(
+          (rect) =>
+            rect.left >= mainBox.left - 1 &&
+            rect.right <= mainBox.right + 1 &&
+            rect.top >= mainBox.top - 1 &&
+            rect.bottom <= mainBox.bottom + 1,
+        ),
+      };
+    }),
+  );
+  expect(new Set(metrics.map((m) => m.x)).size).toBe(4);
+  expect(new Set(metrics.map((m) => m.y)).size).toBe(3);
+  for (const metric of metrics) {
+    expect(metric.height).toBeGreaterThanOrEqual(36);
+    expect(metric.split).toBeCloseTo(2, 1);
+    expect(metric.readable).toBe(true);
+  }
+  expect(await grid.evaluate((node) => getComputedStyle(node).rowGap)).toBe("4px");
+}
+
+async function readableQuoteRows(root: Locator) {
+  const clippedAmounts = await root
+    .locator(
+      "[data-money-keypad-trigger] > span:last-child, [data-order-workspace-money-strip] > div > span",
+    )
+    .evaluateAll(
+      (nodes) =>
+        nodes.filter((node) => {
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          const lines = new Set(
+            Array.from(range.getClientRects()).map((rect) => Math.round(rect.top)),
+          );
+          return (
+            lines.size > 1 ||
+            node.scrollWidth > node.clientWidth + 1 ||
+            node.scrollHeight > node.clientHeight + 1
+          );
+        }).length,
+    );
+  expect(clippedAmounts).toBe(0);
+  for (const row of await root.locator("[data-order-workspace-quote-row]").all()) {
+    const geometry = await row.evaluate((node) => {
+      const [identity, price, action] = Array.from(node.children);
+      const name = identity.querySelector("textarea, input") ?? identity.firstElementChild!;
+      const note = identity.children[1];
+      const nameBox = name.getBoundingClientRect();
+      const priceBox = price.getBoundingClientRect();
+      const actionBox = action?.getBoundingClientRect();
+      return {
+        wrappedName: name.scrollHeight <= name.clientHeight + 1,
+        priceSeparate: nameBox.right <= priceBox.left + 1,
+        actionSeparate: !actionBox || priceBox.right <= actionBox.left + 1,
+        noteBelow: !note || note.getBoundingClientRect().top >= nameBox.bottom - 1,
+        priceAligned: Math.abs(nameBox.top - priceBox.top) <= 1,
+      };
+    });
+    expect(geometry).toEqual({
+      wrappedName: true,
+      priceSeparate: true,
+      actionSeparate: true,
+      noteBelow: true,
+      priceAligned: true,
+    });
+  }
+  const tiles = await root
+    .locator("[data-order-workspace-money-strip] > div")
+    .evaluateAll((nodes) =>
+      nodes.map((node) => ({
+        height: node.getBoundingClientRect().height,
+        readable: node.scrollWidth <= node.clientWidth + 1,
+      })),
+    );
+  expect(tiles).toHaveLength(3);
+  expect(
+    Math.max(...tiles.map((tile) => tile.height)) - Math.min(...tiles.map((tile) => tile.height)),
+  ).toBeLessThanOrEqual(1);
+  expect(tiles.every((tile) => tile.readable)).toBe(true);
+}
+
+const quoteCopy = {
+  "zh-CN": {
+    name: "屏幕维修与连接器深度清洁及功能检测",
+    note: "原装高亮度总成 · 保留原有显示校准及多点触控功能测试",
+  },
+  "it-IT": {
+    name: "Sostituzione schermo e pulizia approfondita dei connettori",
+    note: "Ricambio originale ad alta luminosità · calibrazione e verifica completa del funzionamento multitouch",
+  },
+  en: {
+    name: "Display replacement and thorough connector cleaning",
+    note: "Original high-brightness assembly · calibration and complete multi-touch functionality verification",
+  },
+} as const;
 async function bottomEditor(page: Page, editor: Locator, width: number, height: number) {
   await expect(editor).toBeVisible();
   await expect
@@ -43,7 +152,7 @@ async function bottomEditor(page: Page, editor: Locator, width: number, height: 
 }
 
 for (const locale of locales)
-  for (const width of [320, 390, 430, 768, 1024, 1440]) {
+  for (const width of [320, 390, 430, 768, 1024, 1280, 1440]) {
     test(`compact A ${locale} ${width}px`, async ({ page }) => {
       test.setTimeout(60000);
       const height = width < 768 ? 844 : 1000;
@@ -53,6 +162,23 @@ for (const locale of locales)
         .context()
         .addCookies([{ name: "repairdesk_locale", value: locale, url: baseURL() }]);
       await page.setViewportSize({ width, height });
+      const longQuote = quoteCopy[locale];
+      const quoteAmount = width === 320 ? "123456.78" : "1234.56";
+      await page.route("**/api/repairdesk/order/get", async (route) => {
+        const response = await route.fetch();
+        const payload = await response.json();
+        payload.data.order.fault_prices = [
+          {
+            ...payload.data.order.fault_prices[0],
+            name: longQuote.name,
+            note: longQuote.note,
+            price: Number(quoteAmount),
+          },
+        ];
+        payload.data.order.quotation_amount = Number(quoteAmount);
+        payload.data.order.balance_amount = Number(quoteAmount) - payload.data.order.deposit_amount;
+        await route.fulfill({ response, json: payload });
+      });
       await page.goto("/orders/ord_1");
       await expect(page.locator('[data-order-detail-root="true"]')).toBeVisible();
       await noOverflow(page);
@@ -81,8 +207,8 @@ for (const locale of locales)
           false,
         );
         const grid = editor.locator('[data-fault-diagnosis-picker="true"]');
-        await expect(grid.locator("[data-fault-category]")).toHaveCount(12);
-        expect(Math.round((await grid.boundingBox())!.height)).toBe(107);
+        await readableQuoteGrid(grid);
+        await readableQuoteRows(editor);
         await screenshot(page, `order-quote-${locale}-${width}`);
         const input = editor
           .getByRole("textbox", { name: tr(locale, "orders2b2.finance.item"), exact: true })
@@ -101,8 +227,33 @@ for (const locale of locales)
         await expect(quote).not.toContainText("Synthetic retained draft");
       } else {
         await expect(page.locator('[data-order-desktop-single-workspace="true"]')).toBeVisible();
-        await expect(page.getByText("屏幕总成", { exact: true }).first()).toBeVisible();
+        await expect(page.getByText(longQuote.name, { exact: true }).first()).toBeVisible();
+        await expect(page.getByText(longQuote.note, { exact: true }).first()).toBeVisible();
+        await page.getByText(longQuote.name, { exact: true }).first().scrollIntoViewIfNeeded();
         await screenshot(page, `order-desktop-${locale}-${width}`);
+        await page
+          .getByRole("button", { name: tr(locale, "orders2b2.hero.edit"), exact: true })
+          .click();
+        const name = page.getByRole("textbox", {
+          name: tr(locale, "orders2b2.overview.itemName", { index: 1 }),
+          exact: true,
+        });
+        const note = page.getByRole("textbox", {
+          name: tr(locale, "orders2b2.overview.itemNote", { index: 1 }),
+          exact: true,
+        });
+        await expect(name).toHaveValue(longQuote.name);
+        await expect(note).toHaveValue(longQuote.note);
+        await note.scrollIntoViewIfNeeded();
+        for (const field of [name, note]) {
+          expect(await field.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(
+            true,
+          );
+        }
+        await screenshot(page, `quote-multilingual-detail-edit-${locale}-${width}`);
+        await page
+          .getByRole("button", { name: tr(locale, "orders2b2.hero.cancel"), exact: true })
+          .click();
       }
       await page.goto("/orders/new");
       // As in the existing new-order stories, let streaming and store bootstrap settle.
@@ -114,19 +265,74 @@ for (const locale of locales)
       await expect(form).toHaveCount(1);
       await expect(form).toBeVisible();
       const grid = form.locator('[data-fault-diagnosis-picker="true"]');
-      await expect(grid.locator("[data-fault-category]")).toHaveCount(12);
-      expect(Math.round((await grid.boundingBox())!.height)).toBe(107);
+      await readableQuoteGrid(grid);
+      if (width < 768) {
+        const title = page
+          .getByText(tr(locale, "orders2b1.new.shortTitle"), { exact: true })
+          .filter({ visible: true });
+        expect((await title.boundingBox())!.width).toBeGreaterThan(60);
+        expect(await title.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+      }
       const main = grid.locator("[data-fault-category]").first().getByRole("button").first();
       await main.click();
       await expect(main).toHaveAttribute("aria-pressed", "true");
+      const amountRow = form.locator("[data-order-workspace-quote-row]").first();
+      if (width < 1024) {
+        await amountRow.locator("[data-money-keypad-trigger]").click();
+        await page.locator('[data-money-keypad-key="clear"]').click();
+        for (const key of quoteAmount)
+          await page.locator(`[data-money-keypad-key="${key}"]`).click();
+        await page.locator("[data-money-keypad-done]").click();
+        await expect(amountRow.locator("[data-money-keypad-trigger]")).toContainText(quoteAmount);
+      } else {
+        await amountRow.getByRole("textbox").fill(quoteAmount);
+        await amountRow.getByRole("textbox").blur();
+        await expect(amountRow.getByRole("textbox")).toHaveValue(quoteAmount);
+      }
+      await form
+        .getByRole("button", { name: tr(locale, "orders2b1.new.addCustomItem"), exact: true })
+        .click();
+      await form
+        .getByRole("textbox", { name: tr(locale, "orders2b1.new.customItem"), exact: true })
+        .fill(longQuote.name);
+      const deposit = form.locator("[data-order-workspace-money-strip]");
+      if (width < 1024) {
+        await deposit.locator("[data-money-keypad-trigger]").click();
+        await page.locator('[data-money-keypad-key="clear"]').click();
+        for (const key of "1234.56") await page.locator(`[data-money-keypad-key="${key}"]`).click();
+        await page.locator("[data-money-keypad-done]").click();
+        await expect(deposit.locator("[data-money-keypad-trigger]")).toContainText("1234.56");
+      } else {
+        await deposit.getByRole("textbox").fill("1234.56");
+        await deposit.getByRole("textbox").blur();
+      }
+      await readableQuoteRows(form);
+      await screenshot(page, `quote-multilingual-new-${locale}-${width}`);
       const trigger = grid.locator("[data-fault-category-expand]").first();
       await trigger.click();
       const options = page.getByRole("dialog").filter({ visible: true }).last();
       await expect(options).toBeVisible();
       await expect(options).toHaveCSS("opacity", "1");
       if (width < 1024) await bottomEditor(page, options, width, height);
+      await options
+        .getByRole("button", { name: tr(locale, "orders2b1.new.fault.inspect"), exact: true })
+        .click();
       await options.getByRole("group").getByRole("button").last().focus();
+      await options.getByRole("group").getByRole("button").last().scrollIntoViewIfNeeded();
       await expect(options.getByRole("group").getByRole("button").last()).toBeFocused();
+      await expect(options.getByRole("group").getByRole("button").last()).toBeInViewport();
+      const clippedOptions = await options
+        .getByRole("group")
+        .getByRole("button")
+        .evaluateAll(
+          (nodes) =>
+            nodes.filter(
+              (node) =>
+                node.scrollWidth > node.clientWidth + 1 ||
+                node.scrollHeight > node.clientHeight + 1,
+            ).length,
+        );
+      expect(clippedOptions).toBe(0);
       await screenshot(page, `new-order-options-${locale}-${width}`);
       await page.keyboard.press("Escape");
       await expect(trigger).toBeFocused();
@@ -371,10 +577,7 @@ for (const [width, height] of [
     await bottomEditor(page, quote, width, height);
     expect((await quote.locator("[data-editor-header]").boundingBox())!.height).toBe(52);
     const categoryGrid = quote.locator('[data-fault-diagnosis-picker="true"]');
-    const categoryHeight = await categoryGrid.evaluate(
-      (node) => node.getBoundingClientRect().height,
-    );
-    expect(categoryHeight).toBe(107);
+    await readableQuoteGrid(categoryGrid);
     const rows = quote.locator('[data-order-workspace-quote-row="true"]');
     for (const row of await rows.all()) {
       const rects = await row.evaluate((node) =>
@@ -383,7 +586,7 @@ for (const [width, height] of [
           .map((child) => {
             const control =
               child.querySelector(
-                "input, [data-money-keypad-trigger], [data-money-keypad-native-input], button",
+                "textarea, input, [data-money-keypad-trigger], [data-money-keypad-native-input], button",
               ) ?? child;
             const rect = control.getBoundingClientRect();
             return { y: rect.y, height: rect.height };
@@ -392,13 +595,13 @@ for (const [width, height] of [
       expect(
         Math.max(...rects.map((r) => r.y)) - Math.min(...rects.map((r) => r.y)),
       ).toBeLessThanOrEqual(1);
-      rects.forEach((r) => expect(r.height).toBe(36));
+      rects.forEach((r) => expect(r.height).toBeGreaterThanOrEqual(36));
     }
     const tiles = await quote
       .locator("[data-order-workspace-money-strip] > div")
       .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().height));
     expect(Math.max(...tiles) - Math.min(...tiles)).toBeLessThanOrEqual(1);
-    tiles.forEach((height) => expect(height).toBe(49));
+    tiles.forEach((height) => expect(height).toBeGreaterThanOrEqual(60));
     await screenshot(page, width === 390 ? "a14-quote-390" : `dense-quote-${width}x${height}`);
     await page.keyboard.press("Escape");
     await expect(quote).toHaveCount(0);

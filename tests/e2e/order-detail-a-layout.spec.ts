@@ -351,6 +351,17 @@ for (const state of [
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();
       expect(writes).toBe(0);
+      const clippedButtons = await dialog
+        .locator("button:visible")
+        .evaluateAll(
+          (nodes) =>
+            nodes.filter(
+              (node) =>
+                node.scrollWidth > node.clientWidth + 1 ||
+                node.scrollHeight > node.clientHeight + 1,
+            ).length,
+        );
+      expect(clippedButtons).toBe(0);
       await capture(page, `status-${state}-confirmation-it-320`);
       await page.keyboard.press("Escape");
       await expect(dialog).toHaveCount(0);

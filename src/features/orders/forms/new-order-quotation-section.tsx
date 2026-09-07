@@ -6,7 +6,6 @@ import { ChevronDown, Plus, ReceiptText, ShieldCheck, Trash2 } from "lucide-reac
 import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
 import { FaultDiagnosisPicker } from "@/components/orders/fault-diagnosis-picker";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -18,6 +17,7 @@ import {
   OrderWorkspaceEmptyBlock,
   OrderWorkspaceMoneyStrip,
   OrderWorkspaceQuoteRow,
+  OrderWorkspaceQuoteTextField,
   OrderWorkspaceSectionHeader,
 } from "@/features/orders/components/order-workspace-primitives";
 import { WarrantyPicker } from "@/features/orders/components/warranty-picker";
@@ -98,7 +98,7 @@ export function NewOrderQuotationSection({
           <OrderWorkspaceSectionHeader
             icon={ReceiptText}
             title={t("orders2b1.new.quoteTitle")}
-            className="mb-2 [&_h3]:text-sm [&_h3]:leading-5 [&_p]:mt-0.5 [&_p]:whitespace-normal [&_p]:text-[11px] [&_p]:leading-4 [&_svg]:size-3.5"
+            className="mb-2 [&_h3]:overflow-visible [&_h3]:whitespace-normal [&_h3]:text-sm [&_h3]:leading-5 [&_p]:mt-0.5 [&_p]:whitespace-normal [&_p]:text-[11px] [&_p]:leading-4 [&_svg]:size-3.5"
             action={
               <span className="rounded-lg bg-primary/5 px-2 py-1 text-xs font-semibold leading-4 text-primary">
                 {t("orders2b1.new.itemsCount", { count: form.faults.length })}
@@ -130,11 +130,6 @@ export function NewOrderQuotationSection({
                         key={item.key}
                         priceFullWidth={false}
                         appearance="quote-editor"
-                        className={
-                          mobileOverview
-                            ? "py-0 [&>div:first-child]:min-h-[35px] [&_input]:h-[35px] [&>div>button]:h-[35px]"
-                            : undefined
-                        }
                         note={
                           item.note ? (
                             <span className="text-[11px] leading-4 text-muted-foreground [overflow-wrap:anywhere]">
@@ -149,7 +144,8 @@ export function NewOrderQuotationSection({
                             onChange={(value) =>
                               onPatchFault(index, { price: parseMoneyDraft(value) })
                             }
-                            triggerClassName={cn(controlClass, "px-2 font-mono")}
+                            triggerClassName={cn(controlClass, "h-auto min-h-9 px-1 font-mono")}
+                            valueClassName="overflow-visible whitespace-nowrap text-clip leading-5"
                             placeholder="0"
                           />
                         }
@@ -172,12 +168,12 @@ export function NewOrderQuotationSection({
                         }
                       >
                         {item.categoryKey === "custom" ? (
-                          <Input
+                          <OrderWorkspaceQuoteTextField
                             value={item.name}
-                            onChange={(event) => onPatchFault(index, { name: event.target.value })}
-                            className={cn(controlClass, "px-2")}
+                            onValueChange={(name) => onPatchFault(index, { name })}
+                            className="border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/60 px-2 focus-visible:ring-1"
                             placeholder={t("orders2b1.new.customItem")}
-                            aria-label={t("orders2b1.new.customItem")}
+                            ariaLabel={t("orders2b1.new.customItem")}
                           />
                         ) : (
                           <div

@@ -2,7 +2,8 @@
 
 import { lazy, Suspense } from "react";
 import { useNavigationGuard } from "@/components/navigation-guard-provider";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 import {
   Dialog,
@@ -65,9 +66,24 @@ export function NewOrderDialog({
         {open ? (
           <Suspense
             fallback={
-              <div className="flex h-full min-h-[20rem] items-center justify-center gap-2 text-sm text-muted-foreground">
-                <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                <span role="status">{t("orders2b1.new.dialogLoading")}</span>
+              <div
+                data-new-order-loading="true"
+                className="relative flex h-full min-h-[20rem] items-center justify-center gap-2 px-4 text-sm text-muted-foreground"
+              >
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-2 top-2 size-11"
+                  aria-label={t("common.close")}
+                  onClick={close}
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </Button>
+                <LoaderCircle className="size-4 shrink-0 animate-spin" aria-hidden="true" />
+                <span role="status" className="min-w-0 whitespace-normal [overflow-wrap:anywhere]">
+                  {t("orders2b1.new.dialogLoading")}
+                </span>
               </div>
             }
           >

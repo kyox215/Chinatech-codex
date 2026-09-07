@@ -37,6 +37,7 @@ import {
   OrderWorkspaceEmptyBlock,
   OrderWorkspaceMoneyStrip,
   OrderWorkspaceQuoteDisplayRow,
+  OrderWorkspaceQuoteTextField,
 } from "@/features/orders/components/order-workspace-primitives";
 import { OrderPhotoPreviewDialog } from "@/features/orders/components/order-photo-preview-dialog";
 import {
@@ -1590,14 +1591,14 @@ function FinanceInlineEditor({
               key={index}
               className="grid min-w-0 grid-cols-[minmax(0,1fr)_86px_24px] items-start gap-x-1.5 gap-y-0.5 rounded-md border border-border/60 bg-surface-muted/35 px-2 py-1.5 sm:rounded-lg"
             >
-              <Input
-                aria-label={t("orders2b2.overview.itemName", { index: index + 1 })}
+              <OrderWorkspaceQuoteTextField
+                ariaLabel={t("orders2b2.overview.itemName", { index: index + 1 })}
                 value={item.name}
                 placeholder={t("orders2b2.overview.itemPlaceholder")}
-                className={cn(inlineFinanceInputClass, "min-w-0 text-xs font-medium")}
-                onChange={(event) =>
+                className="min-h-6 rounded-none border-0 border-b border-transparent bg-transparent px-0 py-0 text-sm font-medium focus-visible:border-primary/45 focus-visible:ring-0"
+                onValueChange={(name) =>
                   patchFault(index, {
-                    name: event.target.value,
+                    name,
                     catalog_key: undefined,
                   })
                 }
@@ -1620,15 +1621,12 @@ function FinanceInlineEditor({
               >
                 <Trash2 className="size-3 text-muted-foreground" />
               </Button>
-              <Input
-                aria-label={t("orders2b2.overview.itemNote", { index: index + 1 })}
+              <OrderWorkspaceQuoteTextField
+                ariaLabel={t("orders2b2.overview.itemNote", { index: index + 1 })}
                 value={item.note}
                 placeholder={t("orders2b2.overview.notePlaceholder")}
-                className={cn(
-                  inlineFinanceInputClass,
-                  "col-span-2 min-w-0 text-[11px] text-muted-foreground lg:text-xs lg:leading-4",
-                )}
-                onChange={(event) => patchFault(index, { note: event.target.value })}
+                className="col-span-2 min-h-6 rounded-none border-0 border-b border-transparent bg-transparent px-0 py-0 text-sm text-muted-foreground focus-visible:border-primary/45 focus-visible:ring-0"
+                onValueChange={(note) => patchFault(index, { note })}
               />
             </div>
           ))}

@@ -1,8 +1,9 @@
 "use client";
 
-import type { ComponentType, ReactNode } from "react";
+import { useLayoutEffect, useRef, type ComponentType, type ReactNode } from "react";
 
 import { MoneyText } from "@/components/orders/badges";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/shared/i18n/locale-provider";
 
@@ -81,38 +82,44 @@ export function OrderWorkspaceMoneyStrip({
         data-order-workspace-money-strip="true"
         className={cn("grid min-w-0 grid-cols-3 items-stretch gap-1.5", className)}
       >
-        <div className="min-w-0 rounded-lg bg-primary/5 px-2 py-1">
-          <div className="text-[10px] leading-4 text-muted-foreground">
+        <div className="flex min-w-0 flex-col justify-between gap-1 rounded-lg bg-primary/5 px-2 py-1.5 max-[389px]:px-[3px]">
+          <div className="whitespace-normal text-[10px] leading-4 text-muted-foreground [overflow-wrap:anywhere]">
             {t("orders2b1.money.total")}
           </div>
           <MoneyText
             amount={total}
-            className="flex h-[25px] items-center justify-end truncate font-mono text-base font-semibold tabular-nums text-primary"
+            className={cn(
+              "block min-h-8 whitespace-nowrap text-right font-mono text-base font-semibold leading-8 tabular-nums text-primary max-[389px]:text-xs",
+              Math.abs(total) >= 10000 && "text-sm",
+            )}
           />
         </div>
         <div
           data-new-order-field="deposit"
-          className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1"
+          className="flex min-w-0 flex-col justify-between gap-1 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 max-[389px]:px-[3px]"
         >
-          <div className="text-[10px] leading-4 text-muted-foreground">
+          <div className="whitespace-normal text-[10px] leading-4 text-muted-foreground [overflow-wrap:anywhere]">
             {t("orders2b1.money.deposit")}
           </div>
-          <div className="min-w-0 [&>button]:!h-[25px] [&>button]:min-h-0 [&>button]:rounded-none [&>button]:border-x-0 [&>button]:border-t-0 [&>button]:bg-transparent [&>button]:px-0 [&>button]:font-semibold [&>div]:!h-[25px] [&>div]:rounded-none [&>div]:border-x-0 [&>div]:border-t-0 [&>div]:bg-transparent [&>div]:px-0 [&>div]:font-semibold [&_input]:!h-[25px]">
+          <div className="min-w-0 [&>button]:!h-auto [&>button]:min-h-8 [&>button]:rounded-none [&>button]:border-x-0 [&>button]:border-t-0 [&>button]:bg-transparent [&>button]:px-0 [&>button]:font-semibold [&>button>span:last-child]:overflow-visible [&>button>span:last-child]:text-clip [&>button>span:last-child]:whitespace-nowrap [&>button>span:last-child]:leading-5 max-[389px]:[&>button]:grid-cols-1 max-[389px]:[&>button]:gap-0 max-[389px]:[&>button>span:first-child]:text-left max-[389px]:[&>button>span:first-child]:text-[10px] max-[389px]:[&>button>span:first-child]:leading-3 [&>div]:!h-8 [&>div]:rounded-none [&>div]:border-x-0 [&>div]:border-t-0 [&>div]:bg-transparent [&>div]:px-0 [&>div]:font-semibold [&_input]:!h-8">
             {depositControl ?? (
               <MoneyText
                 amount={deposit}
-                className="flex h-[25px] items-center justify-end font-mono text-base font-semibold"
+                className="block min-h-8 whitespace-nowrap text-right font-mono text-base font-semibold leading-8 max-[389px]:text-xs"
               />
             )}
           </div>
         </div>
-        <div className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1">
-          <div className="text-[10px] leading-4 text-muted-foreground">
+        <div className="flex min-w-0 flex-col justify-between gap-1 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 max-[389px]:px-[3px]">
+          <div className="whitespace-normal text-[10px] leading-4 text-muted-foreground [overflow-wrap:anywhere]">
             {t("orders2b1.money.balance")}
           </div>
           <MoneyText
             amount={balance}
-            className="flex h-[25px] items-center justify-end truncate font-mono text-base font-semibold tabular-nums"
+            className={cn(
+              "block min-h-8 whitespace-nowrap text-right font-mono text-base font-semibold leading-8 tabular-nums max-[389px]:text-xs",
+              Math.abs(balance) >= 10000 && "text-sm",
+            )}
           />
         </div>
       </div>
@@ -274,21 +281,14 @@ export function OrderWorkspaceQuoteRow({
           ? "grid-cols-[minmax(0,1fr)_auto]"
           : "grid-cols-[minmax(0,1fr)_78px_auto] sm:grid-cols-[minmax(0,1fr)_96px_auto]",
         appearance === "quote-editor" &&
-          "grid-cols-[minmax(0,1fr)_82px_28px] items-start gap-x-1 gap-y-1 rounded-none border-0 border-b border-[var(--border-panel)] bg-transparent px-0 py-1 sm:grid-cols-[minmax(0,1fr)_96px_28px] sm:gap-x-1 sm:px-0 sm:py-1 [&>div:nth-child(3)>button]:w-7",
+          "grid-cols-[minmax(0,1fr)_112px_28px] items-start gap-x-1.5 gap-y-1 rounded-none border-0 border-b border-[var(--border-panel)] bg-transparent px-0 py-1.5 sm:grid-cols-[minmax(0,1fr)_112px_28px] sm:gap-x-1.5 sm:px-0 sm:py-1.5 [&>div:nth-child(3)>button]:w-7",
         className,
       )}
     >
-      <div
-        className={cn(
-          "min-w-0",
-          appearance === "quote-editor" && "flex min-h-9 flex-wrap items-center gap-x-1.5",
-        )}
-      >
-        <div className={cn("min-w-0", appearance === "quote-editor" && "flex-[1_1_5rem]")}>
-          {children}
-        </div>
+      <div className={cn("min-w-0", appearance === "quote-editor" && "grid min-h-9 gap-y-0.5")}>
+        <div className="min-w-0">{children}</div>
         {appearance === "quote-editor" && note ? (
-          <div className="min-w-0 max-w-full text-[11px] text-muted-foreground [overflow-wrap:anywhere]">
+          <div className="min-w-0 whitespace-normal text-[11px] leading-4 text-muted-foreground [overflow-wrap:anywhere]">
             {note}
           </div>
         ) : null}
@@ -310,6 +310,121 @@ export function OrderWorkspaceQuoteRow({
   );
 }
 
+export function OrderWorkspaceQuoteTextField({
+  value,
+  onValueChange,
+  ariaLabel,
+  placeholder,
+  disabled,
+  invalid,
+  className,
+}: {
+  value: string;
+  onValueChange: (value: string) => void;
+  ariaLabel: string;
+  placeholder?: string;
+  disabled?: boolean;
+  invalid?: boolean;
+  className?: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const field = ref.current;
+    if (!field) return;
+    const resize = () => {
+      field.style.height = "0px";
+      const style = getComputedStyle(field);
+      const border =
+        (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0);
+      field.style.height = `${field.scrollHeight + border}px`;
+    };
+    resize();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", resize);
+      return () => window.removeEventListener("resize", resize);
+    }
+    let width = field.getBoundingClientRect().width;
+    let resizeFrame: number | undefined;
+    const observer = new ResizeObserver(() => {
+      const nextWidth = field.getBoundingClientRect().width;
+      if (nextWidth === 0 || nextWidth === width) return;
+      width = nextWidth;
+      if (resizeFrame !== undefined) cancelAnimationFrame(resizeFrame);
+      // ResizeObserver delivers before paint; writing this observed height inside its
+      // callback can produce an undelivered-notification loop in WebKit.
+      resizeFrame = requestAnimationFrame(() => {
+        resizeFrame = undefined;
+        resize();
+      });
+    });
+    observer.observe(field);
+    return () => {
+      observer.disconnect();
+      if (resizeFrame !== undefined) cancelAnimationFrame(resizeFrame);
+    };
+  }, [value]);
+  return (
+    <Textarea
+      ref={ref}
+      data-order-quote-text-field="true"
+      rows={1}
+      value={value}
+      aria-label={ariaLabel}
+      placeholder={placeholder}
+      disabled={disabled}
+      aria-invalid={invalid || undefined}
+      onChange={(event) => onValueChange(event.target.value.replace(/[\r\n]/g, ""))}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" || event.nativeEvent.isComposing || event.keyCode === 229) return;
+        // Match the former single-line input: Enter may submit, but never adds a name newline.
+        event.preventDefault();
+        const form = event.currentTarget.form;
+        if (!form) return;
+        const defaultButton = Array.from(
+          form.ownerDocument.querySelectorAll<HTMLButtonElement | HTMLInputElement>(
+            "button, input",
+          ),
+        ).find(
+          (control) =>
+            control.form === form &&
+            (control.type === "submit" ||
+              (control instanceof HTMLInputElement && control.type === "image")),
+        );
+        if (defaultButton) {
+          if (!defaultButton.matches(":disabled")) defaultButton.click();
+          return;
+        }
+        // These growing fields replace text inputs, including their implicit-submit blocking.
+        const blockingTypes = new Set([
+          "text",
+          "search",
+          "tel",
+          "url",
+          "email",
+          "password",
+          "date",
+          "month",
+          "week",
+          "time",
+          "datetime-local",
+          "number",
+        ]);
+        const blockers = Array.from(form.elements).filter(
+          (control) =>
+            (control instanceof HTMLInputElement && blockingTypes.has(control.type)) ||
+            control.hasAttribute("data-order-quote-text-field"),
+        );
+        if (blockers.length <= 1) form.requestSubmit();
+      }}
+      className={cn(
+        "min-h-9 resize-none overflow-hidden whitespace-pre-wrap rounded-lg px-2 py-1.5 text-base leading-5 shadow-none [overflow-wrap:anywhere] md:text-base lg:text-sm",
+        className,
+        "h-auto",
+      )}
+    />
+  );
+}
+
 export function OrderWorkspaceQuoteDisplayRow({
   name,
   note,
@@ -326,15 +441,18 @@ export function OrderWorkspaceQuoteDisplayRow({
     <OrderWorkspaceQuoteRow
       className={className}
       price={
-        <MoneyText amount={amount} className="block truncate text-right text-xs font-medium" />
+        <MoneyText
+          amount={amount}
+          className="block whitespace-normal text-right text-xs font-medium [overflow-wrap:anywhere]"
+        />
       }
     >
-      <div className="truncate text-xs font-medium" title={name}>
+      <div className="whitespace-normal text-xs font-medium [overflow-wrap:anywhere]" title={name}>
         {name || t("orders2b1.quote.unnamedItem")}
       </div>
       {note ? (
         <div
-          className="truncate text-[11px] leading-4 text-muted-foreground lg:text-[11px]"
+          className="whitespace-normal text-[11px] leading-4 text-muted-foreground [overflow-wrap:anywhere] lg:text-[11px]"
           title={note}
         >
           {note}

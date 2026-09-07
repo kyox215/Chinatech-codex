@@ -270,8 +270,8 @@ export function FaultDiagnosisPicker({
         "grid min-w-0",
         compact
           ? compactColumns === 4
-            ? "grid-cols-4 gap-1"
-            : "grid-cols-3 gap-1"
+            ? "auto-rows-fr grid-cols-4 gap-1"
+            : "auto-rows-fr grid-cols-3 gap-1"
           : "grid-cols-2 gap-1.5 sm:grid-cols-3",
         className,
       )}
@@ -637,7 +637,7 @@ function CompactFaultCategory({
       aria-haspopup="dialog"
       data-fault-category-expand={group.key}
       onClick={() => changeOpen(true)}
-      className="grid h-[33px] min-w-0 place-items-center border-l border-[var(--border-panel)] hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="grid min-h-[34px] min-w-0 self-stretch place-items-center border-l border-[var(--border-panel)] hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <ChevronDown className="size-3" aria-hidden="true" />
     </button>
@@ -698,7 +698,7 @@ function CompactFaultCategory({
                 aria-hidden="true"
                 className={cn("size-4 shrink-0", !checked && "opacity-0")}
               />
-              <span className="min-w-0 whitespace-normal break-words">
+              <span className="min-w-0 whitespace-normal [overflow-wrap:anywhere]">
                 {localizeRepairServiceOptionLabel(group.key, option, locale)}
               </span>
             </button>
@@ -725,7 +725,7 @@ function CompactFaultCategory({
         <div
           data-fault-category={group.key}
           className={cn(
-            "grid h-[33px] min-w-0 grid-cols-[minmax(0,2fr)_minmax(0,1fr)] overflow-hidden rounded-md border",
+            "grid min-h-9 min-w-0 grid-cols-[minmax(0,2fr)_minmax(0,1fr)] overflow-hidden rounded-md border",
             active.length
               ? "border-primary/35 bg-primary/10 text-primary"
               : "border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-foreground",
@@ -736,7 +736,7 @@ function CompactFaultCategory({
             aria-label={label}
             aria-pressed={active.length > 0}
             onClick={onMainToggle}
-            className="flex h-[33px] min-w-0 items-center gap-0.5 px-1 text-left text-[11px] font-medium hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-[390px]:text-xs"
+            className="flex min-h-[34px] min-w-0 items-center gap-0.5 px-0.5 py-1.5 text-left text-[11px] font-medium leading-[14px] hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-[390px]:text-xs min-[390px]:leading-[14px]"
           >
             {active.length ? (
               <Check
@@ -749,7 +749,7 @@ function CompactFaultCategory({
                 aria-hidden="true"
               />
             )}
-            <span className="min-w-0 truncate">
+            <span className="min-w-0 whitespace-normal [overflow-wrap:anywhere]">
               {localizeRepairServiceGroupCompactLabel(group, locale)}
             </span>
           </button>

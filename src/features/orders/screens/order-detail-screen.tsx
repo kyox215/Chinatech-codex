@@ -3,6 +3,7 @@
 import {
   OrderWorkspaceQuoteRow,
   OrderWorkspaceMoneyStrip,
+  OrderWorkspaceQuoteTextField,
 } from "@/features/orders/components/order-workspace-primitives";
 import {
   useCallback,
@@ -2301,12 +2302,25 @@ function CancelledReturnOverlay({
   const isDesktop = useDesktopActionSurface();
   const footer = (
     <>
-      <Button type="button" variant="ghost" disabled={pending} onClick={() => onOpenChange(false)}>
+      <Button
+        type="button"
+        variant="ghost"
+        className="h-auto min-h-11 min-w-0 whitespace-normal py-2 text-center"
+        disabled={pending}
+        onClick={() => onOpenChange(false)}
+      >
         {t("orders2b2.custody.back")}
       </Button>
-      <Button type="button" disabled={pending} onClick={onConfirm}>
+      <Button
+        type="button"
+        className="h-auto min-h-11 min-w-0 whitespace-normal py-2 text-center"
+        disabled={pending}
+        onClick={onConfirm}
+      >
         <PackageCheck className="size-4" />
-        {pending ? t("orders2b2.custody.confirming") : t("orders2b2.custody.confirmReturn")}
+        <span className="min-w-0 [overflow-wrap:anywhere]">
+          {pending ? t("orders2b2.custody.confirming") : t("orders2b2.custody.confirmReturn")}
+        </span>
       </Button>
     </>
   );
@@ -2419,11 +2433,18 @@ function OrderCustodyChangeOverlay({
   );
   const footer = (
     <>
-      <Button type="button" variant="ghost" disabled={pending} onClick={() => onOpenChange(false)}>
+      <Button
+        type="button"
+        variant="ghost"
+        className="h-auto min-h-11 min-w-0 whitespace-normal py-2 text-center"
+        disabled={pending}
+        onClick={() => onOpenChange(false)}
+      >
         {t("common.cancel")}
       </Button>
       <Button
         type="button"
+        className="h-auto min-h-11 min-w-0 whitespace-normal py-2 text-center [overflow-wrap:anywhere]"
         disabled={
           pending ||
           !target ||
@@ -5430,8 +5451,21 @@ function MobileDenseFinanceInput({
         placeholder={placeholder}
         invalid={invalid}
         align={align}
-        triggerClassName={className}
-        valueClassName="text-base lg:text-sm"
+        triggerClassName={cn(className, "h-auto min-h-9 px-1")}
+        valueClassName="overflow-visible whitespace-nowrap text-clip text-base leading-5 lg:text-sm"
+      />
+    );
+  }
+  if (inputMode === "text") {
+    return (
+      <OrderWorkspaceQuoteTextField
+        value={value}
+        onValueChange={onValueChange}
+        disabled={disabled}
+        placeholder={placeholder}
+        ariaLabel={placeholder}
+        invalid={invalid}
+        className={cn(className, "leading-5", align === "right" && "text-right")}
       />
     );
   }

@@ -1875,17 +1875,24 @@ function NewOrderMobileHeader({
           "!max-w-none !rounded-none !border-x-0 !border-t-0 !px-3 !py-0 !shadow-none",
         )}
       >
-        <header className={cn(repairOs.mobileFloatingHeaderNav, "min-h-[52px]")}>
+        <header
+          className={cn(
+            repairOs.mobileFloatingHeaderNav,
+            "min-h-[52px] !grid-cols-[44px_minmax(0,1fr)_minmax(0,1fr)] !gap-1.5",
+          )}
+        >
           <Button asChild variant="ghost" size="icon" className="size-11 shrink-0">
             <Link href="/orders" aria-label={t("orders2b1.new.backOrders")}>
               <ArrowLeft className="size-4" />
             </Link>
           </Button>
-          <p className="min-w-0 truncate text-sm font-semibold">{t("orders2b1.new.shortTitle")}</p>
+          <p className="min-w-0 whitespace-normal py-2 text-sm font-semibold leading-5 [overflow-wrap:anywhere]">
+            {t("orders2b1.new.shortTitle")}
+          </p>
           <NewOrderOfflineStatusLine
             status={offlineStatus}
             compact
-            className="ml-auto max-w-[45%] !bg-transparent !px-0 !py-0"
+            className="min-w-0 !max-w-none !bg-transparent !px-0 !py-0"
           />
         </header>
       </section>
