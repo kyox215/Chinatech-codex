@@ -44,8 +44,11 @@ describe("NewOrderQuotationSection", () => {
     );
     expect(screen.getByText("屏幕 - 原装")).toBeVisible();
     expect(screen.queryByDisplayValue("屏幕 - 原装")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "自定义项目" }));
     const custom = screen.getByRole("textbox", { name: "自定义项目" });
     fireEvent.change(custom, { target: { value: "保养项目" } });
+    expect(onPatchFault).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
     expect(onPatchFault).toHaveBeenCalledWith(1, { name: "保养项目" });
     expect(screen.getByRole("textbox", { name: "报价项目 1 金额" })).toHaveAttribute(
       "inputmode",

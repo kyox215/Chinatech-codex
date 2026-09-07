@@ -1594,6 +1594,7 @@ function FinanceInlineEditor({
               <OrderWorkspaceQuoteTextField
                 ariaLabel={t("orders2b2.overview.itemName", { index: index + 1 })}
                 value={item.name}
+                readOnly={Boolean(item.catalog_key)}
                 placeholder={t("orders2b2.overview.itemPlaceholder")}
                 className="min-h-6 rounded-none border-0 border-b border-transparent bg-transparent px-0 py-0 text-sm font-medium focus-visible:border-primary/45 focus-visible:ring-0"
                 onValueChange={(name) =>
@@ -1624,6 +1625,7 @@ function FinanceInlineEditor({
               <OrderWorkspaceQuoteTextField
                 ariaLabel={t("orders2b2.overview.itemNote", { index: index + 1 })}
                 value={item.note}
+                readOnly
                 placeholder={t("orders2b2.overview.notePlaceholder")}
                 containerClassName="col-span-2"
                 className="min-h-6 rounded-none border-0 border-b border-transparent bg-transparent px-0 py-0 text-sm text-muted-foreground focus-visible:border-primary/45 focus-visible:ring-0"

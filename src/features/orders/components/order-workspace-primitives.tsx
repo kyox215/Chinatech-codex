@@ -1,19 +1,21 @@
 "use client";
 
-import {
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ComponentType,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useId, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 
 import { MoneyText } from "@/components/orders/badges";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogBody,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { componentOverlay } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/shared/i18n/locale-provider";
 
@@ -291,7 +293,7 @@ export function OrderWorkspaceQuoteRow({
           ? "grid-cols-[minmax(0,1fr)_auto]"
           : "grid-cols-[minmax(0,1fr)_78px_auto] sm:grid-cols-[minmax(0,1fr)_96px_auto]",
         appearance === "quote-editor" &&
-          "grid-cols-[minmax(0,1fr)_112px_28px] items-start gap-x-1.5 gap-y-1 rounded-none border-0 border-b border-[var(--border-panel)] bg-transparent px-0 py-1.5 sm:grid-cols-[minmax(0,1fr)_112px_28px] sm:gap-x-1.5 sm:px-0 sm:py-1.5 [&>div:nth-child(3)>button]:w-7",
+          "grid-cols-[minmax(0,1fr)_120px_28px] items-start gap-x-1.5 gap-y-1 rounded-none border-0 border-b border-[var(--border-panel)] bg-transparent px-0 py-1.5 sm:grid-cols-[minmax(0,1fr)_120px_28px] sm:gap-x-1.5 sm:px-0 sm:py-1.5 [&>div:nth-child(3)>button]:w-7",
         className,
       )}
     >
@@ -320,35 +322,7 @@ export function OrderWorkspaceQuoteRow({
   );
 }
 
-function useQuoteDisclosureEscape(
-  ref: RefObject<HTMLElement | null>,
-  isExpanded: () => boolean,
-  collapse: () => void,
-) {
-  useLayoutEffect(() => {
-    const ownerWindow = ref.current?.ownerDocument.defaultView;
-    if (!ownerWindow) return;
-    const handleEscape = (event: KeyboardEvent) => {
-      if (
-        event.key !== "Escape" ||
-        event.isComposing ||
-        !isExpanded() ||
-        !(event.target instanceof Node) ||
-        !ref.current?.contains(event.target)
-      )
-        return;
-      // Radix listens on document capture. Claim only this expanded control's
-      // Escape before that listener so the surrounding editor stays open.
-      event.preventDefault();
-      event.stopPropagation();
-      collapse();
-    };
-    ownerWindow.addEventListener("keydown", handleEscape, true);
-    return () => ownerWindow.removeEventListener("keydown", handleEscape, true);
-  }, [ref, isExpanded, collapse]);
-}
-
-export function OrderWorkspaceQuoteTextField({
+function OrderWorkspaceQuotePopup({
   value,
   onValueChange,
   ariaLabel,
@@ -358,9 +332,9 @@ export function OrderWorkspaceQuoteTextField({
   className,
   containerClassName,
 }: {
-  value: string;
-  onValueChange: (value: string) => void;
-  ariaLabel: string;
+  value: ReactNode;
+  onValueChange?: (value: string) => void;
+  ariaLabel?: string;
   placeholder?: string;
   disabled?: boolean;
   invalid?: boolean;
@@ -369,146 +343,148 @@ export function OrderWorkspaceQuoteTextField({
 }) {
   const { t } = useLocale();
   const id = useId();
-  const [expanded, setExpanded] = useState(false);
-  const controlRef = useRef<HTMLDivElement>(null);
-  const ref = useRef<HTMLTextAreaElement>(null);
-  const toggleRef = useRef<HTMLButtonElement>(null);
-  useQuoteDisclosureEscape(
-    controlRef,
-    () => expanded,
-    () => {
-      setExpanded(false);
-      toggleRef.current?.focus();
-    },
-  );
-  useLayoutEffect(() => {
-    const field = ref.current;
-    if (!field) return;
-    const resize = () => {
-      const style = getComputedStyle(field);
-      const border =
-        (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0);
-      if (!expanded) {
-        const line = parseFloat(style.lineHeight) || 20;
-        const padding =
-          (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
-        field.style.height = `${Math.max(line + padding + border, parseFloat(style.minHeight) || 0)}px`;
-        return;
-      }
-      field.style.height = "0px";
-      field.style.height = `${field.scrollHeight + border}px`;
-    };
-    resize();
-    if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", resize);
-      return () => window.removeEventListener("resize", resize);
-    }
-    let width = field.getBoundingClientRect().width;
-    let resizeFrame: number | undefined;
-    const observer = new ResizeObserver(() => {
-      const nextWidth = field.getBoundingClientRect().width;
-      if (nextWidth === 0 || nextWidth === width) return;
-      width = nextWidth;
-      if (resizeFrame !== undefined) cancelAnimationFrame(resizeFrame);
-      // ResizeObserver delivers before paint; writing this observed height inside its
-      // callback can produce an undelivered-notification loop in WebKit.
-      resizeFrame = requestAnimationFrame(() => {
-        resizeFrame = undefined;
-        resize();
-      });
-    });
-    observer.observe(field);
-    return () => {
-      observer.disconnect();
-      if (resizeFrame !== undefined) cancelAnimationFrame(resizeFrame);
-    };
-  }, [value, expanded]);
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState("");
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const editable = Boolean(onValueChange);
+  const title = ariaLabel || t("orders2b2.overview.quoteItems");
+  const close = () => setOpen(false);
+  const save = () => {
+    if (disabled || !onValueChange) return;
+    onValueChange(draft.replace(/[\r\n]/g, ""));
+    close();
+  };
   return (
-    <div
-      ref={controlRef}
-      data-order-quote-text-control="true"
-      data-expanded={expanded}
-      className={cn("grid min-w-0 grid-cols-[minmax(0,1fr)_24px] items-start", containerClassName)}
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next && disabled) return;
+        if (next) setDraft(typeof value === "string" ? value : "");
+        setOpen(next);
+      }}
     >
-      <Textarea
-        ref={ref}
+      <div
+        data-order-quote-text-control={editable || undefined}
+        data-order-quote-disclosure={!editable || undefined}
+        className={cn("min-w-0", containerClassName)}
+      >
+        <DialogTrigger asChild>
+          <button
+            ref={triggerRef}
+            type="button"
+            data-keypad-defer-dismiss
+            disabled={disabled}
+            aria-label={ariaLabel}
+            aria-invalid={invalid || undefined}
+            aria-controls={open ? id : undefined}
+            className={cn(
+              "flex w-full min-w-0 items-center gap-1 rounded-sm text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+              className,
+            )}
+          >
+            <span className="min-w-0 flex-1 truncate">{value || placeholder || title}</span>
+            <ChevronDown className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+          </button>
+        </DialogTrigger>
+      </div>
+      <DialogContent
+        ref={contentRef}
         id={id}
-        data-order-quote-text-field="true"
-        rows={1}
-        wrap={expanded ? "soft" : "off"}
-        value={value}
-        aria-label={ariaLabel}
-        placeholder={placeholder}
-        disabled={disabled}
-        aria-invalid={invalid || undefined}
-        onFocus={() => setExpanded(true)}
-        onClick={() => setExpanded(true)}
-        onChange={(event) => onValueChange(event.target.value.replace(/[\r\n]/g, ""))}
-        onKeyDown={(event) => {
-          if (event.key !== "Enter" || event.nativeEvent.isComposing || event.keyCode === 229)
-            return;
-          // Match the former single-line input: Enter may submit, but never adds a name newline.
+        data-order-quote-popup="true"
+        data-quote-editable={editable}
+        mobileEditor
+        editorLayout
+        aria-describedby={undefined}
+        closeLabel={t("common.close")}
+        onOpenAutoFocus={(event) => {
           event.preventDefault();
-          const form = event.currentTarget.form;
-          if (!form) return;
-          const defaultButton = Array.from(
-            form.ownerDocument.querySelectorAll<HTMLButtonElement | HTMLInputElement>(
-              "button, input",
-            ),
-          ).find(
-            (control) =>
-              control.form === form &&
-              (control.type === "submit" ||
-                (control instanceof HTMLInputElement && control.type === "image")),
-          );
-          if (defaultButton) {
-            if (!defaultButton.matches(":disabled")) defaultButton.click();
-            return;
-          }
-          // These growing fields replace text inputs, including their implicit-submit blocking.
-          const blockingTypes = new Set([
-            "text",
-            "search",
-            "tel",
-            "url",
-            "email",
-            "password",
-            "date",
-            "month",
-            "week",
-            "time",
-            "datetime-local",
-            "number",
-          ]);
-          const blockers = Array.from(form.elements).filter(
-            (control) =>
-              (control instanceof HTMLInputElement && blockingTypes.has(control.type)) ||
-              control.hasAttribute("data-order-quote-text-field"),
-          );
-          if (blockers.length <= 1) form.requestSubmit();
+          contentRef.current?.focus({ preventScroll: true });
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          triggerRef.current?.focus({ preventScroll: true });
+        }}
+        onEscapeKeyDown={(event) => {
+          if (event.isComposing) event.preventDefault();
         }}
         className={cn(
-          "min-h-9 resize-none overflow-hidden whitespace-pre-wrap rounded-lg px-2 py-1.5 text-base leading-5 shadow-none [overflow-wrap:anywhere] md:text-base lg:text-sm",
-          className,
-          "h-auto",
-          expanded ? "whitespace-pre-wrap" : "whitespace-nowrap",
+          componentOverlay.editorSurface,
+          componentOverlay.denseEditorSurface,
+          "max-h-[calc(100dvh-1rem)]",
         )}
-      />
-      <Button
-        ref={toggleRef}
-        type="button"
-        variant="ghost"
-        size="icon"
-        disabled={disabled}
-        aria-label={expanded ? `${t("common.close")} · ${ariaLabel}` : ariaLabel}
-        aria-expanded={expanded}
-        aria-controls={id}
-        className="h-full max-h-9 w-6 rounded-md text-muted-foreground"
-        onClick={() => setExpanded((value) => !value)}
       >
-        <ChevronDown className={cn("size-3", expanded && "rotate-180")} aria-hidden="true" />
-      </Button>
-    </div>
+        <DialogHeader className={componentOverlay.denseEditorHeader}>
+          <DialogTitle className="min-w-0 break-words text-base leading-5">{title}</DialogTitle>
+        </DialogHeader>
+        <DialogBody className={componentOverlay.denseEditorBody}>
+          {editable ? (
+            <Textarea
+              rows={4}
+              value={draft}
+              aria-label={title}
+              placeholder={placeholder}
+              disabled={disabled}
+              aria-invalid={invalid || undefined}
+              onChange={(event) => setDraft(event.target.value.replace(/[\r\n]/g, ""))}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" || event.nativeEvent.isComposing || event.keyCode === 229)
+                  return;
+                event.preventDefault();
+                event.stopPropagation();
+                save();
+              }}
+              className="min-h-28 resize-none text-base leading-6 md:text-base"
+            />
+          ) : (
+            <div className="whitespace-pre-wrap break-words text-sm leading-6 [overflow-wrap:anywhere]">
+              {value}
+            </div>
+          )}
+        </DialogBody>
+        <DialogFooter className={componentOverlay.denseEditorFooter}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={close}
+            className={!editable ? "col-span-2" : undefined}
+          >
+            {t(editable ? "common.cancel" : "common.close")}
+          </Button>
+          {editable ? (
+            <Button type="button" disabled={disabled} onClick={save}>
+              {t("orders2b2.hero.save")}
+            </Button>
+          ) : null}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function OrderWorkspaceQuoteTextField({
+  readOnly = false,
+  ...props
+}: {
+  value: string;
+  onValueChange: (value: string) => void;
+  ariaLabel: string;
+  placeholder?: string;
+  disabled?: boolean;
+  invalid?: boolean;
+  readOnly?: boolean;
+  className?: string;
+  containerClassName?: string;
+}) {
+  return (
+    <OrderWorkspaceQuotePopup
+      {...props}
+      onValueChange={readOnly ? undefined : props.onValueChange}
+      className={cn(
+        "min-h-9 rounded-lg border px-2 py-1.5 text-base leading-5 md:text-base lg:text-sm",
+        props.className,
+      )}
+    />
   );
 }
 
@@ -519,33 +495,7 @@ export function OrderWorkspaceQuoteDisclosure({
   children: ReactNode;
   className?: string;
 }) {
-  const ref = useRef<HTMLDetailsElement>(null);
-  useQuoteDisclosureEscape(
-    ref,
-    () => Boolean(ref.current?.open),
-    () => {
-      if (!ref.current) return;
-      ref.current.open = false;
-      ref.current.querySelector("summary")?.focus();
-    },
-  );
-  return (
-    <details
-      ref={ref}
-      data-order-quote-disclosure="true"
-      className={cn("group min-w-0", className)}
-    >
-      <summary className="flex min-w-0 cursor-pointer list-none items-start gap-1 rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-        <span className="min-w-0 flex-1 truncate group-open:overflow-visible group-open:whitespace-normal group-open:[overflow-wrap:anywhere]">
-          {children}
-        </span>
-        <ChevronDown
-          className="mt-0.5 size-3 shrink-0 text-muted-foreground group-open:rotate-180"
-          aria-hidden="true"
-        />
-      </summary>
-    </details>
-  );
+  return <OrderWorkspaceQuotePopup value={children} className={className} />;
 }
 
 export function OrderWorkspaceQuoteDisplayRow({

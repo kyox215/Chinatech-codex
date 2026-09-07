@@ -1,253 +1,213 @@
 import { useState } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
 import {
   OrderWorkspaceQuoteDisclosure,
   OrderWorkspaceQuoteTextField,
 } from "./order-workspace-primitives";
 
-describe("OrderWorkspaceQuoteTextField", () => {
-  it("defers observed width resizing and cancels pending writes on unmount", () => {
-    let notify: ResizeObserverCallback = () => undefined;
-    const frames: FrameRequestCallback[] = [];
-    const disconnect = vi.fn();
-    const cancelFrame = vi.fn();
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        constructor(callback: ResizeObserverCallback) {
-          notify = callback;
-        }
-        observe() {}
-        disconnect = disconnect;
-      },
-    );
-    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-      frames.push(callback);
-      return frames.length;
-    });
-    vi.stubGlobal("cancelAnimationFrame", cancelFrame);
-    try {
-      const { unmount } = render(
-        <OrderWorkspaceQuoteTextField
-          value="Long quote"
-          onValueChange={vi.fn()}
-          ariaLabel="Quote name"
-        />,
-      );
-      const field = screen.getByRole("textbox");
-      fireEvent.focus(field);
-      disconnect.mockClear();
-      let width = 120;
-      vi.spyOn(field, "getBoundingClientRect").mockImplementation(() => ({ width }) as DOMRect);
-      Object.defineProperty(field, "scrollHeight", { configurable: true, value: 77 });
-      const initialHeight = field.style.height;
-      notify([], {} as ResizeObserver);
-      expect(field.style.height).toBe(initialHeight);
-      expect(frames).toHaveLength(1);
-      frames[0](0);
-      expect(parseFloat(field.style.height)).toBeGreaterThanOrEqual(77);
-      width = 0;
-      notify([], {} as ResizeObserver);
-      expect(frames).toHaveLength(1);
-      width = 110;
-      notify([], {} as ResizeObserver);
-      expect(frames).toHaveLength(2);
-      unmount();
-      expect(disconnect).toHaveBeenCalledOnce();
-      expect(cancelFrame).toHaveBeenCalledWith(2);
-    } finally {
-      vi.unstubAllGlobals();
-      vi.restoreAllMocks();
-    }
-  });
-
-  it("wraps presentation while retaining single-line values and IME Enter behavior", () => {
-    const submit = vi.fn();
-    function Harness() {
-      const [value, setValue] = useState("Ricambio originale · 屏幕");
-      return (
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            submit();
-          }}
-        >
+describe("OrderWorkspaceQuoteTextField popup", () => {
+  it("keeps the keypad through a popup pointerdown, cancels a gesture, then hands one click to the popup", async () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+    const user = userEvent.setup();
+    render(
+      <Dialog open>
+        <DialogContent mobileEditor aria-describedby={undefined}>
+          <MoneyKeypadInput value="12" onChange={vi.fn()} ariaLabel="Amount" />
           <OrderWorkspaceQuoteTextField
-            value={value}
-            onValueChange={setValue}
+            value="Original"
+            onValueChange={vi.fn()}
             ariaLabel="Quote name"
           />
-        </form>
-      );
+          <input aria-label="Unmarked input" />
+        </DialogContent>
+      </Dialog>,
+    );
+    const amount = screen.getByRole("button", { name: "Amount" });
+    const trigger = screen.getByRole("button", { name: "Quote name" });
+    fireEvent.click(amount);
+    expect(document.querySelector("[data-money-keypad]")).not.toBeNull();
+    fireEvent.pointerDown(trigger);
+    expect(document.querySelector("[data-money-keypad]")).not.toBeNull();
+    fireEvent.pointerCancel(trigger);
+    expect(document.querySelector("[data-order-quote-popup]")).toBeNull();
+    expect(document.querySelector("[data-money-keypad]")).not.toBeNull();
+    fireEvent.pointerDown(trigger);
+    fireEvent.pointerUp(trigger);
+    fireEvent.click(trigger);
+    const popup = document.querySelector("[data-order-quote-popup]");
+    await waitFor(() => expect(document.querySelector("[data-money-keypad]")).toBeNull());
+    expect(popup).toHaveFocus();
+    expect(screen.getByRole("textbox", { name: "Quote name" })).not.toHaveFocus();
+    fireEvent.keyDown(popup!, { key: "Escape" });
+    await waitFor(() => expect(document.querySelector("[data-order-quote-popup]")).toBeNull());
+    expect(trigger).toHaveFocus();
+    fireEvent.click(amount);
+    fireEvent.pointerDown(screen.getByRole("textbox", { name: "Unmarked input" }));
+    expect(document.querySelector("[data-money-keypad]")).toBeNull();
+    for (const key of ["{Enter}", " "]) {
+      fireEvent.click(amount);
+      trigger.focus();
+      await user.keyboard(key);
+      const nextPopup = document.querySelector("[data-order-quote-popup]");
+      expect(nextPopup).toHaveFocus();
+      expect(document.querySelector("[data-money-keypad]")).toBeNull();
+      fireEvent.keyDown(nextPopup!, { key: "Escape" });
+      await waitFor(() => expect(document.querySelector("[data-order-quote-popup]")).toBeNull());
+      expect(trigger).toHaveFocus();
     }
-    render(<Harness />);
-    const field = screen.getByRole("textbox", { name: "Quote name" });
-    expect(field).not.toHaveFocus();
-    fireEvent.change(field, { target: { value: "Ricambio\noriginale\r\n屏幕" } });
-    expect(field).toHaveValue("Ricambiooriginale屏幕");
-    fireEvent.keyDown(field, { key: "Enter", isComposing: true });
-    fireEvent.keyDown(field, { key: "Enter", keyCode: 229 });
-    expect(submit).not.toHaveBeenCalled();
-    fireEvent.keyDown(field, { key: "Enter" });
-    expect(submit).toHaveBeenCalledTimes(1);
-    expect(field).toHaveValue("Ricambiooriginale屏幕");
   });
 
-  it("keeps one compact input until explicit expansion and restores toggle focus on Escape", () => {
-    const outerEscape = vi.fn();
-    document.addEventListener("keydown", outerEscape, true);
+  it("opens only on explicit activation, keeps a local draft, and cancels with focus return", async () => {
+    const change = vi.fn();
     render(
       <OrderWorkspaceQuoteTextField
-        value="A very long original component description"
-        onValueChange={vi.fn()}
+        value="Original name"
+        onValueChange={change}
         ariaLabel="Quote name"
       />,
     );
-    const field = screen.getByRole("textbox");
-    const toggle = screen.getByRole("button");
-    expect(field).toHaveAttribute("wrap", "off");
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    fireEvent.click(toggle);
-    expect(field).toHaveAttribute("wrap", "soft");
-    expect(field).not.toHaveFocus();
-    fireEvent.keyDown(toggle, { key: "Escape" });
-    expect(field).toHaveAttribute("wrap", "off");
-    expect(toggle).toHaveFocus();
-    expect(screen.getAllByRole("textbox")).toHaveLength(1);
-    expect(outerEscape).not.toHaveBeenCalled();
-    fireEvent.keyDown(toggle, { key: "Escape" });
-    expect(outerEscape).toHaveBeenCalledOnce();
-    document.removeEventListener("keydown", outerEscape, true);
+    const trigger = screen.getByRole("button", { name: "Quote name" });
+    trigger.focus();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole("dialog");
+    const input = within(dialog).getByRole("textbox");
+    expect(dialog).toHaveFocus();
+    expect(input).not.toHaveFocus();
+    fireEvent.change(input, { target: { value: "Uncommitted name" } });
+    expect(change).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(trigger).toHaveTextContent("Original name");
+    fireEvent.click(trigger);
+    expect(screen.getByRole("textbox")).toHaveValue("Original name");
+    expect(change).not.toHaveBeenCalled();
   });
 
-  it("discloses the same read-only text and collapses it with Escape", () => {
-    render(
-      <OrderWorkspaceQuoteDisclosure>
-        Original high-brightness display specification
-      </OrderWorkspaceQuoteDisclosure>,
-    );
-    const summary = screen
-      .getByText("Original high-brightness display specification")
-      .closest("summary")!;
-    const details = summary.parentElement!;
-    expect(details).not.toHaveAttribute("open");
-    fireEvent.click(summary);
-    expect(details).toHaveAttribute("open");
-    fireEvent.keyDown(summary, { key: "Escape" });
-    expect(details).not.toHaveAttribute("open");
-    expect(summary).toHaveFocus();
-  });
+  it.each([false, true])(
+    "saves only the parent quote draft, never an outer form (default disabled=%s)",
+    async (defaultDisabled) => {
+      const submit = vi.fn();
+      const click = vi.fn();
+      const change = vi.fn();
+      function Harness() {
+        const [value, setValue] = useState("Original");
+        return (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              submit();
+            }}
+          >
+            <OrderWorkspaceQuoteTextField
+              value={value}
+              onValueChange={(next) => {
+                change(next);
+                setValue(next);
+              }}
+              ariaLabel="Quote name"
+            />
+            <button type="submit" disabled={defaultDisabled} onClick={click}>
+              Outer save
+            </button>
+          </form>
+        );
+      }
+      render(<Harness />);
+      const trigger = screen.getByRole("button", { name: "Quote name" });
+      fireEvent.click(trigger);
+      const input = screen.getByRole("textbox");
+      fireEvent.change(input, { target: { value: "New\nname\r\n屏幕" } });
+      expect(input).toHaveValue("Newname屏幕");
+      fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+      fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
+      expect(change).not.toHaveBeenCalled();
+      fireEvent.keyDown(input, { key: "Enter" });
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(change).toHaveBeenCalledExactlyOnceWith("Newname屏幕");
+      expect(trigger).toHaveTextContent("Newname屏幕");
+      expect(submit).not.toHaveBeenCalled();
+      expect(click).not.toHaveBeenCalled();
+    },
+  );
 
-  it("preserves disabled and invalid editing state", () => {
+  it("saves via the explicit popup button outside any form", async () => {
+    const change = vi.fn();
     render(
       <OrderWorkspaceQuoteTextField
-        value="Intervento personalizzato"
+        value="Original"
+        onValueChange={change}
+        ariaLabel="Quote name"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Quote name" }));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Saved name" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    expect(change).toHaveBeenCalledExactlyOnceWith("Saved name");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("shows catalog content without an editable field or save action", () => {
+    const change = vi.fn();
+    render(
+      <OrderWorkspaceQuoteTextField
+        value="Original catalog component"
+        onValueChange={change}
+        ariaLabel="Quote name"
+        readOnly
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Quote name" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("Original catalog component")).toBeVisible();
+    expect(within(dialog).queryByRole("textbox")).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "保存" })).not.toBeInTheDocument();
+    expect(change).not.toHaveBeenCalled();
+  });
+
+  it("closes only the inner popup with Escape and does not reopen on returned focus", async () => {
+    const outerClose = vi.fn();
+    render(
+      <Dialog open onOpenChange={outerClose}>
+        <DialogContent aria-describedby={undefined}>
+          <OrderWorkspaceQuoteDisclosure>
+            Original complete specification
+          </OrderWorkspaceQuoteDisclosure>
+        </DialogContent>
+      </Dialog>,
+    );
+    const trigger = screen.getByRole("button", { name: "Original complete specification" });
+    fireEvent.click(trigger);
+    const popup = document.querySelector('[data-order-quote-popup="true"]')!;
+    fireEvent.keyDown(popup, { key: "Escape" });
+    await waitFor(() =>
+      expect(document.querySelector('[data-order-quote-popup="true"]')).toBeNull(),
+    );
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(outerClose).not.toHaveBeenCalled();
+  });
+
+  it("preserves disabled and invalid state on the compact trigger", () => {
+    render(
+      <OrderWorkspaceQuoteTextField
+        value="Original"
         onValueChange={vi.fn()}
         ariaLabel="Quote name"
         disabled
         invalid
       />,
     );
-    const field = screen.getByRole("textbox", { name: "Quote name" });
-    expect(field).toBeDisabled();
-    expect(field).toHaveAttribute("aria-invalid", "true");
-  });
-
-  it("does not activate a later submit button when the default is disabled", () => {
-    const submit = vi.fn();
-    const click = vi.fn();
-    render(
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          submit();
-        }}
-      >
-        <OrderWorkspaceQuoteTextField
-          value="Display"
-          onValueChange={vi.fn()}
-          ariaLabel="Quote name"
-        />
-        <button type="submit" disabled>
-          Default
-        </button>
-        <button type="submit" onClick={click}>
-          Later
-        </button>
-      </form>,
-    );
-    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
-    expect(submit).not.toHaveBeenCalled();
-    expect(click).not.toHaveBeenCalled();
-  });
-
-  it("clicks the default submit button so its cancellation handler remains effective", () => {
-    const submit = vi.fn();
-    const click = vi.fn();
-    render(
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          submit();
-        }}
-      >
-        <OrderWorkspaceQuoteTextField
-          value="Display"
-          onValueChange={vi.fn()}
-          ariaLabel="Quote name"
-        />
-        <button
-          type="submit"
-          onClick={(event) => {
-            event.preventDefault();
-            click();
-          }}
-        >
-          Default
-        </button>
-      </form>,
-    );
-    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
-    expect(click).toHaveBeenCalledTimes(1);
-    expect(submit).not.toHaveBeenCalled();
-  });
-
-  it.each(["text", "number", "hidden"])(
-    "retains implicit submission blocking for another %s input",
-    (type) => {
-      const submit = vi.fn();
-      render(
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            submit();
-          }}
-        >
-          <OrderWorkspaceQuoteTextField
-            value="Display"
-            onValueChange={vi.fn()}
-            ariaLabel="Quote name"
-          />
-          <input type={type} aria-label="Other field" />
-        </form>,
-      );
-      fireEvent.keyDown(screen.getByRole("textbox", { name: "Quote name" }), { key: "Enter" });
-      expect(submit).toHaveBeenCalledTimes(type === "hidden" ? 1 : 0);
-    },
-  );
-
-  it("keeps Enter inert outside a form", () => {
-    const change = vi.fn();
-    render(
-      <OrderWorkspaceQuoteTextField
-        value="Display"
-        onValueChange={change}
-        ariaLabel="Quote name"
-      />,
-    );
-    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
-    expect(change).not.toHaveBeenCalled();
+    const trigger = screen.getByRole("button", { name: "Quote name" });
+    expect(trigger).toBeDisabled();
+    expect(trigger).toHaveAttribute("aria-invalid", "true");
+    fireEvent.click(trigger);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

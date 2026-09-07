@@ -364,25 +364,42 @@ test("heavy en 1440px preserves finance draft then one pending transition across
   await root
     .getByRole("button", { name: translateMessage("en", "orders2b2.hero.edit"), exact: true })
     .click();
-  const quoteNameEn = root.getByLabel(
-    translateMessage("en", "orders2b2.overview.itemName", { index: 1 }),
-  );
+  await root
+    .getByRole("button", {
+      name: translateMessage("en", "orders2b2.overview.addItem"),
+      exact: true,
+    })
+    .click();
+  const quoteNameEn = root.getByRole("button", {
+    name: translateMessage("en", "orders2b2.overview.itemName", { index: 2 }),
+    exact: true,
+  });
   const financeDraft = "Employee finance draft Ω";
-  await quoteNameEn.fill(financeDraft);
-  await quoteNameEn.focus();
+  await quoteNameEn.click();
+  const quotePopup = page.locator('[data-order-quote-popup="true"]');
+  await expect(quotePopup).toBeFocused();
+  await quotePopup.getByRole("textbox").fill(financeDraft);
+  await quotePopup
+    .getByRole("button", { name: translateMessage("en", "orders2b2.hero.save"), exact: true })
+    .click();
+  await expect(quotePopup).toHaveCount(0);
+  await expect(quoteNameEn).toBeFocused();
   const financeScroll = await setStableScroll(page, 20);
   await switchLocale(page, "it-IT");
   await expectPreservedIdentity(page, root, initialUrl, financeScroll, {
     inputLabel: translateMessage("it-IT", "orders2b2.overview.customer"),
   });
   await expect(
-    root.getByLabel(translateMessage("it-IT", "orders2b2.overview.itemName", { index: 1 })),
-  ).toHaveValue(financeDraft);
+    root.getByRole("button", {
+      name: translateMessage("it-IT", "orders2b2.overview.itemName", { index: 2 }),
+      exact: true,
+    }),
+  ).toContainText(financeDraft);
   await switchLocale(page, "en");
   await expectPreservedIdentity(page, root, initialUrl, financeScroll, {
     inputLabel: translateMessage("en", "orders2b2.overview.customer"),
   });
-  await expect(quoteNameEn).toHaveValue(financeDraft);
+  await expect(quoteNameEn).toContainText(financeDraft);
   await root
     .getByRole("button", { name: translateMessage("en", "orders2b2.hero.cancel"), exact: true })
     .click();

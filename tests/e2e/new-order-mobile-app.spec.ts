@@ -154,8 +154,16 @@ for (const [locale, width, height] of [
       .getByRole("button", { name: tr(locale, "orders2b1.new.addCustomItem"), exact: true })
       .click();
     await page
+      .getByRole("button", { name: tr(locale, "orders2b1.new.customItem"), exact: true })
+      .click();
+    await page
       .getByRole("textbox", { name: tr(locale, "orders2b1.new.customItem"), exact: true })
       .fill("Labor");
+    await page
+      .locator('[data-order-quote-popup="true"]')
+      .getByRole("button", { name: tr(locale, "orders2b2.hero.save"), exact: true })
+      .click();
+    await expect(page.locator('[data-order-quote-popup="true"]')).toHaveCount(0);
     await page.evaluate(() => scrollTo(0, 0));
     if (height > 400) await shot(page, `main-two-quotes-${locale}-${width}`);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(

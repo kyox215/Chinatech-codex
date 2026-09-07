@@ -75,6 +75,8 @@ async function readableQuoteRows(root: Locator) {
           height: node.clientHeight,
           scrollHeight: node.scrollHeight,
           font: css.font,
+          fontSize: css.fontSize,
+          textWidth: range.getBoundingClientRect().width,
           lineHeight: css.lineHeight,
           overflow: css.overflow,
           clipped:
@@ -129,44 +131,71 @@ async function readableQuoteRows(root: Locator) {
 }
 
 async function discloseQuoteContent(page: Page, root: Locator, name: string) {
-  const control = root.locator("[data-order-quote-text-control]").first();
-  const readout = root.locator("[data-order-quote-disclosure]").first();
-  let compactHeight = 0;
-  if (await control.count()) {
-    await expect(control).toHaveAttribute("data-expanded", "false");
-    compactHeight = (await control.boundingBox())!.height;
-    expect(compactHeight).toBeLessThanOrEqual(36);
-    const textBox = (await control.getByRole("textbox").boundingBox())!;
-    const toggleBox = (await control.getByRole("button").boundingBox())!;
-    expect(textBox.x + textBox.width).toBeLessThanOrEqual(toggleBox.x + 0.1);
-    expect(toggleBox.width).toBe(24);
-    await control.getByRole("button").click();
-    await expect(control).toHaveAttribute("data-expanded", "true");
-    await expect(control.getByRole("textbox")).not.toBeFocused();
-    expect(
-      await control
-        .getByRole("textbox")
-        .evaluate((node) => node.scrollHeight <= node.clientHeight + 1),
-    ).toBe(true);
+  const controls = [
+    root.locator("[data-order-quote-text-control]").first(),
+    root.locator("[data-order-quote-disclosure]").first(),
+    root.locator("[data-order-quote-disclosure]").last(),
+  ];
+  for (const [index, control] of controls.entries()) {
+    if (!(await control.count())) continue;
+    const trigger = control.locator("button");
+    const height = (await control.boundingBox())!.height;
+    expect(height).toBeLessThanOrEqual(36.1);
+    await trigger.press("Enter");
+    const popup = page.locator('[data-order-quote-popup="true"]');
+    await expect(popup).toBeVisible();
+    await expect(popup).toBeFocused();
+    expect(await page.evaluate(() => document.activeElement?.matches("input, textarea"))).toBe(
+      false,
+    );
+    expect((await control.boundingBox())!.height).toBeCloseTo(height, 1);
+    const editable = (await popup.getByRole("textbox").count()) > 0;
+    if (editable) {
+      const input = popup.getByRole("textbox");
+      const original = await input.inputValue();
+      const triggerText = await trigger.textContent();
+      await input.fill("Cancelled popup draft");
+      await popup.locator("[data-editor-footer] > button").first().click();
+      await expect(popup).toHaveCount(0);
+      expect(await trigger.textContent()).toBe(triggerText);
+      await expect(trigger).toBeFocused();
+      await trigger.click();
+      await expect(popup.getByRole("textbox")).toHaveValue(original);
+      await expect(popup).toBeFocused();
+    }
+    if (!editable)
+      await expect(popup.locator("[data-editor-body]")).toContainText(
+        (await trigger.textContent())!.trim(),
+      );
+    await noOverflow(page);
+    await screenshot(page, `${name}-popup-${index}`);
+    await page.keyboard.press("Escape");
+    await expect(popup).toHaveCount(0);
+    await expect(root).toBeVisible();
+    await expect(trigger).toBeFocused();
+    expect((await control.boundingBox())!.height).toBeCloseTo(height, 1);
   }
-  if (await readout.count()) {
-    await expect(readout).not.toHaveAttribute("open");
-    await readout.locator("summary").press("Enter");
-    await expect(readout).toHaveAttribute("open", "");
-    expect(await readout.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
-  }
-  await screenshot(page, name);
-  if (await readout.count()) {
-    await readout.locator("summary").press("Escape");
-    await expect(readout).not.toHaveAttribute("open");
-    await expect(readout.locator("summary")).toBeFocused();
-  }
-  if (await control.count()) {
-    await control.getByRole("button").press("Escape");
-    await expect(control).toHaveAttribute("data-expanded", "false");
-    await expect(control.getByRole("button")).toBeFocused();
-    expect((await control.boundingBox())!.height).toBe(compactHeight);
-  }
+}
+
+async function editQuoteName(
+  page: Page,
+  trigger: Locator,
+  value: string,
+  locale: (typeof locales)[number],
+) {
+  const before = await trigger.textContent();
+  const triggerElement = await trigger.elementHandle();
+  await trigger.click();
+  const popup = page.locator('[data-order-quote-popup="true"]');
+  await expect(popup).toBeFocused();
+  const input = popup.getByRole("textbox");
+  await expect(input).not.toBeFocused();
+  await input.fill(value);
+  expect(await triggerElement!.textContent()).toBe(before);
+  await popup.getByRole("button", { name: tr(locale, "orders2b2.hero.save"), exact: true }).click();
+  await expect(popup).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect(trigger).toContainText(value);
 }
 
 const quoteCopy = {
@@ -200,6 +229,97 @@ async function bottomEditor(page: Page, editor: Locator, width: number, height: 
   await noOverflow(page);
 }
 
+for (const locale of locales) {
+  test(`A15 quote popup short screen ${locale}`, async ({ page }) => {
+    test.setTimeout(60000);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.context().addCookies([{ name: "repairdesk_locale", value: locale, url: baseURL() }]);
+    await page.setViewportSize({ width: 320, height: 350 });
+    const longNote = quoteCopy[locale].note.repeat(12);
+    await page.route("**/api/repairdesk/order/get", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      payload.data.order.fault_prices[0].note = longNote;
+      payload.data.order.fault_prices[0].catalog_key = "display:main";
+      await route.fulfill({ response, json: payload });
+    });
+    const loaded = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === "/api/repairdesk/order/get" && response.ok(),
+    );
+    await page.goto("/orders/ord_1");
+    await loaded;
+    await expect(page.locator('[data-order-detail-root="true"]')).toBeVisible();
+    await page
+      .locator("#mobile-order-quote")
+      .getByRole("button", { name: tr(locale, "orders2b2.overview.quoteItems") })
+      .click();
+    const outer = page.locator("#mobile-order-finance-editor");
+    const row = outer.locator("[data-order-workspace-quote-row]").first();
+    const note = row.locator("[data-order-quote-disclosure]").last().getByRole("button");
+    const rowHeight = (await row.boundingBox())!.height;
+    await note.click();
+    const popup = page.locator('[data-order-quote-popup="true"]');
+    await expect(popup).toBeFocused();
+    await expect(popup.getByRole("textbox")).toHaveCount(0);
+    const body = popup.locator("[data-editor-body]");
+    await expect(body).toContainText(longNote);
+    expect(await body.evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true);
+    await body.evaluate((node) => {
+      node.scrollTop = node.scrollHeight;
+    });
+    expect(
+      await body.evaluate((node) => node.scrollHeight - node.scrollTop - node.clientHeight),
+    ).toBeLessThanOrEqual(1);
+    await expect(popup.locator("[data-editor-footer] > button")).toBeInViewport();
+    await noOverflow(page);
+    await screenshot(page, `popup-readonly-short-${locale}`);
+    await page.keyboard.press("Escape");
+    await expect(popup).toHaveCount(0);
+    await expect(outer).toBeVisible();
+    await expect(note).toBeFocused();
+    expect((await row.boundingBox())!.height).toBeCloseTo(rowHeight, 1);
+    await outer
+      .getByRole("button", { name: tr(locale, "orders2b2.finance.add"), exact: true })
+      .click();
+    const trigger = outer.locator("[data-order-quote-text-control]").last().getByRole("button");
+    const customRow = outer.locator("[data-order-workspace-quote-row]").last();
+    await customRow.locator("[data-money-keypad-trigger]").click();
+    await page.locator('[data-money-keypad-key="0"]').click();
+    await page.locator("[data-money-keypad-done]").click();
+    const customHeight = (await customRow.boundingBox())!.height;
+    await trigger.click();
+    await expect(popup).toBeFocused();
+    const input = popup.getByRole("textbox");
+    await expect(input).not.toBeFocused();
+    await expect(input).toHaveCSS("font-size", "16px");
+    await input.fill("Cancelled popup draft");
+    await popup.getByRole("button", { name: tr(locale, "common.cancel"), exact: true }).click();
+    await expect(popup).toHaveCount(0);
+    await expect(trigger).not.toContainText("Cancelled popup draft");
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    await expect(input).toHaveValue("");
+    await input.fill(quoteCopy[locale].name);
+    const save = popup.getByRole("button", {
+      name: tr(locale, "orders2b2.hero.save"),
+      exact: true,
+    });
+    await expect(save).toBeInViewport();
+    await expect(popup.locator("[data-editor-footer] > button").first()).toBeInViewport();
+    await screenshot(page, `popup-editable-short-${locale}`);
+    await save.click();
+    await expect(popup).toHaveCount(0);
+    await expect(trigger).toContainText(quoteCopy[locale].name);
+    await expect(trigger).toBeFocused();
+    await expect(outer).toBeVisible();
+    expect((await customRow.boundingBox())!.height).toBeCloseTo(customHeight, 1);
+    await noOverflow(page);
+    expect(errors).toEqual([]);
+  });
+}
+
 for (const locale of locales)
   for (const width of [320, 390, 430, 768, 1024, 1280, 1440]) {
     test(`compact A ${locale} ${width}px`, async ({ page }) => {
@@ -219,6 +339,7 @@ for (const locale of locales)
         payload.data.order.fault_prices = [
           {
             ...payload.data.order.fault_prices[0],
+            catalog_key: "display:main",
             name: longQuote.name,
             note: longQuote.note,
             price: Number(quoteAmount),
@@ -268,19 +389,15 @@ for (const locale of locales)
         await readableQuoteRows(editor);
         await screenshot(page, `order-quote-${locale}-${width}`);
         await discloseQuoteContent(page, editor, `order-quote-expanded-${locale}-${width}`);
-        const input = editor
-          .getByRole("textbox", { name: tr(locale, "orders2b2.finance.item"), exact: true })
-          .first();
-        await input.fill("Synthetic retained draft");
-        await input.focus();
-        await page.keyboard.press("Escape");
-        await expect(input).toHaveAttribute("wrap", "off");
+        await editor
+          .getByRole("button", { name: tr(locale, "orders2b2.finance.add"), exact: true })
+          .click();
+        const input = editor.locator("[data-order-quote-text-control]").last().getByRole("button");
+        await editQuoteName(page, input, "Synthetic retained draft", locale);
         await page.keyboard.press("Escape");
         await editor.getByRole("button", { name: tr(locale, "orders.faultEditor.keep") }).click();
-        await expect(input).toHaveValue("Synthetic retained draft");
-        await expect(
-          editor.locator("[data-order-quote-text-control]").first().getByRole("button"),
-        ).toBeFocused();
+        await expect(input).toContainText("Synthetic retained draft");
+        await expect(input).toBeFocused();
         await page.keyboard.press("Escape");
         await editor
           .getByRole("button", { name: tr(locale, "orders.faultEditor.confirmDiscard") })
@@ -301,16 +418,16 @@ for (const locale of locales)
         await page
           .getByRole("button", { name: tr(locale, "orders2b2.hero.edit"), exact: true })
           .click();
-        const name = page.getByRole("textbox", {
+        const name = page.getByRole("button", {
           name: tr(locale, "orders2b2.overview.itemName", { index: 1 }),
           exact: true,
         });
-        const note = page.getByRole("textbox", {
+        const note = page.getByRole("button", {
           name: tr(locale, "orders2b2.overview.itemNote", { index: 1 }),
           exact: true,
         });
-        await expect(name).toHaveValue(longQuote.name);
-        await expect(note).toHaveValue(longQuote.note);
+        await expect(name).toContainText(longQuote.name);
+        await expect(note).toContainText(longQuote.note);
         await note.scrollIntoViewIfNeeded();
         for (const field of [name, note]) {
           expect(await field.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(
@@ -364,12 +481,12 @@ for (const locale of locales)
       await form
         .getByRole("button", { name: tr(locale, "orders2b1.new.addCustomItem"), exact: true })
         .click();
-      await form
-        .getByRole("textbox", { name: tr(locale, "orders2b1.new.customItem"), exact: true })
-        .fill(longQuote.name);
-      await form
-        .getByRole("textbox", { name: tr(locale, "orders2b1.new.customItem"), exact: true })
-        .press("Escape");
+      await editQuoteName(
+        page,
+        form.getByRole("button", { name: tr(locale, "orders2b1.new.customItem"), exact: true }),
+        longQuote.name,
+        locale,
+      );
       const deposit = form.locator("[data-order-workspace-money-strip]");
       if (width < 1024) {
         await deposit.locator("[data-money-keypad-trigger]").click();
@@ -512,7 +629,12 @@ for (const width of [320, 390, 768]) {
       "aria-invalid",
       "true",
     );
-    await emptyRow.getByRole("textbox").fill("Synthetic incomplete quote");
+    await editQuoteName(
+      page,
+      emptyRow.getByRole("button", { name: tr("zh-CN", "orders2b2.finance.item"), exact: true }),
+      "Synthetic incomplete quote",
+      "zh-CN",
+    );
     await expect(emptyRow.locator("[data-money-keypad-trigger]")).toHaveAttribute(
       "aria-invalid",
       "true",
@@ -558,12 +680,15 @@ for (const width of [320, 390, 768]) {
     await expect(editor).toBeVisible();
     await expect(price).toBeFocused();
     const name = editor
-      .getByRole("textbox", { name: tr("zh-CN", "orders2b2.finance.item"), exact: true })
+      .getByRole("button", { name: tr("zh-CN", "orders2b2.finance.item"), exact: true })
       .first();
     await price.click();
     await name.click();
-    await expect(name).toBeFocused();
+    await expect(page.locator('[data-order-quote-popup="true"]')).toBeFocused();
     await expect(keypad).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(page.locator('[data-order-quote-popup="true"]')).toHaveCount(0);
+    await expect(name).toBeFocused();
     await page.keyboard.press("Escape");
     await editor.getByRole("button", { name: tr("zh-CN", "orders.faultEditor.keep") }).click();
     await expect(price).toContainText("1.5");
