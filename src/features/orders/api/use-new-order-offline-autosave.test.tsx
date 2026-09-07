@@ -1,5 +1,6 @@
 import { act, render, waitFor } from "@testing-library/react";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import { createRepairDeskOfflineOrderService } from "@/features/offline/model/offline-order-service";
@@ -18,6 +19,40 @@ const scope: RepairDeskOfflineScope = { storeId: "store_1", userId: "user_1" };
 type HookValue = ReturnType<typeof useNewOrderOfflineAutosave>;
 
 describe("useNewOrderOfflineAutosave", () => {
+  it("reports the committed reset as clean before passive effects after discarding a saved draft", async () => {
+    const harness = createServiceHarness();
+    const serviceFactory = () => harness.service;
+    let latest: HookValue | undefined;
+    let resetForm: (() => void) | undefined;
+    let dirtyAtResetCommit: boolean | undefined;
+
+    function CommitHarness() {
+      const [form, setForm] = useState(makeForm({ model: "Synthetic Safari draft" }));
+      const value = useNewOrderOfflineAutosave({ form, scope, debounceMs: 0, serviceFactory });
+      resetForm = () => setForm(initialNewOrderForm);
+      useLayoutEffect(() => {
+        latest = value;
+        if (!form.model && dirtyAtResetCommit === undefined) {
+          dirtyAtResetCommit = value.isCurrentDraftDirty();
+        }
+      }, [form, value]);
+      return null;
+    }
+
+    render(<CommitHarness />);
+    await waitFor(() => expect(latest?.state).toBe("saved"));
+    expect(requireHook(latest).isCurrentDraftDirty()).toBe(false);
+    await act(async () => {
+      expect(await requireHook(latest).discardCurrentDraft()).toBe(true);
+      expect(requireHook(latest).isCurrentDraftDirty()).toBe(true);
+      flushSync(() => resetForm?.());
+      expect(dirtyAtResetCommit).toBe(false);
+      expect(requireHook(latest).isCurrentDraftDirty()).toBe(false);
+    });
+    const drafts = await harness.store.listOrderDrafts({ ...scope, status: "draft_local" });
+    expect(drafts.ok && drafts.value).toEqual([]);
+  });
+
   it("autosaves safe fields with only a sensitive re-entry marker", async () => {
     const harness = createServiceHarness();
     let latest: HookValue | undefined;
