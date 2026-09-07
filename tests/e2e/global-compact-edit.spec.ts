@@ -546,10 +546,32 @@ test("A14 Italian short-height keypad keeps close save and done reachable", asyn
   await page.context().addCookies([{ name: "repairdesk_locale", value: "it-IT", url: baseURL() }]);
   await page.setViewportSize({ width: 320, height: 350 });
   await page.goto("/orders/ord_1");
-  await page
+  const quoteTrigger = page
     .locator("#mobile-order-quote")
-    .getByRole("button", { name: tr("it-IT", "orders2b2.overview.quoteItems") })
-    .click();
+    .getByRole("button", { name: tr("it-IT", "orders2b2.overview.quoteItems") });
+  await expect(quoteTrigger).toBeVisible();
+  // Native scroll-into-view ignores the fixed header and action dock. Position the
+  // actual click point in the visible content strip before exercising the keypad.
+  await quoteTrigger.evaluate((node) => {
+    const top =
+      document.querySelector("[data-mobile-order-header]")?.getBoundingClientRect().bottom ?? 0;
+    const bottom =
+      document.querySelector("[data-mobile-order-action-dock]")?.getBoundingClientRect().top ??
+      innerHeight;
+    const rect = node.getBoundingClientRect();
+    window.scrollBy(0, rect.y + rect.height / 2 - (top + bottom) / 2);
+  });
+  await expect
+    .poll(() =>
+      quoteTrigger.evaluate((node) => {
+        const rect = node.getBoundingClientRect();
+        return node.contains(
+          document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2),
+        );
+      }),
+    )
+    .toBe(true);
+  await quoteTrigger.click();
   const editor = page.locator("#mobile-order-finance-editor");
   const price = editor.locator("[data-money-keypad-trigger]").first();
   await price.click();
