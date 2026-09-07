@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DesktopVirtualKeyboardPreferenceContext } from "@/components/desktop-virtual-keyboard-preference-context";
 
@@ -137,6 +137,43 @@ describe("MoneyKeypadInput", () => {
 
     await user.click(screen.getByRole("button", { name: "清空" }));
     expect(screen.getByTestId("value")).toBeEmptyDOMElement();
+  });
+
+  it("keeps keypad actions inside the portal while finishing an amount of 100", async () => {
+    setViewport(390);
+    const user = userEvent.setup();
+    const onQuoteClick = vi.fn();
+    const onBackCoverClick = vi.fn();
+    render(
+      <div onClick={onQuoteClick}>
+        <MoneyKeypadHarness />
+        <button type="button" onClick={onBackCoverClick}>
+          后盖
+        </button>
+      </div>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "报价金额" }));
+    onQuoteClick.mockClear();
+
+    await user.click(screen.getByRole("button", { name: "1" }));
+    await user.click(screen.getByRole("button", { name: "删除最后一位金额" }));
+    expect(screen.getByTestId("value")).toBeEmptyDOMElement();
+    await user.click(screen.getByRole("button", { name: "2" }));
+    await user.click(screen.getByRole("button", { name: "清空" }));
+    expect(screen.getByTestId("value")).toBeEmptyDOMElement();
+    await user.click(screen.getByRole("button", { name: "1" }));
+    await user.click(screen.getByRole("button", { name: "00" }));
+    expect(screen.getByTestId("value")).toHaveTextContent("100");
+    await user.click(screen.getByRole("button", { name: "完成" }));
+
+    expect(document.querySelector('[data-virtual-keyboard-dock="true"]')).toBeNull();
+    expect(screen.getByRole("button", { name: "报价金额" })).toHaveTextContent("100");
+    expect(onQuoteClick).not.toHaveBeenCalled();
+    expect(onBackCoverClick).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "后盖" }));
+    expect(onBackCoverClick).toHaveBeenCalledOnce();
   });
 
   it("uses a native decimal input on desktop by default", async () => {

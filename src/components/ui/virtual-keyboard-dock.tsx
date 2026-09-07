@@ -154,6 +154,9 @@ export function VirtualKeyboardDock({
         ref={panelRef}
         role="dialog"
         aria-label={label}
+        // Portal clicks still bubble through the owning form's React tree.
+        // Keep pointerdown available to Radix's outside-interaction tracking.
+        onClick={(event) => event.stopPropagation()}
         className={cn(
           "pointer-events-auto w-[min(430px,calc(100vw-24px))] rounded-xl border border-[var(--border-panel)] bg-card p-2 shadow-[var(--shadow-overlay)]",
           scopeHost && "max-h-[55dvh] max-w-full overflow-y-auto overscroll-contain",

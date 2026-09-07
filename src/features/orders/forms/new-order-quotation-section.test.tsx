@@ -1,12 +1,105 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { initialNewOrderForm } from "@/features/orders/model/new-order-form";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import {
+  initialNewOrderForm,
+  type NewOrderFormState,
+} from "@/features/orders/model/new-order-form";
 import type { OrderWorkflowStatus } from "@/lib/repairdesk/api";
 
 import { NewOrderQuotationSection } from "./new-order-quotation-section";
 
+function ScreenQuoteHarness() {
+  const [form, setForm] = useState<NewOrderFormState>({
+    ...initialNewOrderForm,
+    faults: [
+      {
+        key: "display:main",
+        line_id: "00000000-0000-4000-8000-000000000411",
+        categoryKey: "display",
+        categoryLabel: "屏幕",
+        catalog_key: "display:main",
+        name: "屏幕",
+        price: 0,
+      },
+    ],
+  });
+
+  return (
+    <NewOrderQuotationSection
+      form={form}
+      setForm={setForm}
+      total={form.faults.reduce((sum, item) => sum + item.price, 0)}
+      operatorName="测试账号"
+      onPatchFault={(index, patch) =>
+        setForm((current) => ({
+          ...current,
+          faults: current.faults.map((item, itemIndex) =>
+            itemIndex === index ? { ...item, ...patch } : item,
+          ),
+        }))
+      }
+      onAddCustomFault={() => undefined}
+      createStatuses={[]}
+      surface="dialog"
+    />
+  );
+}
+
 describe("NewOrderQuotationSection", () => {
+  it.each(["mouse", "touch"] as const)(
+    "finishes the screen amount without selecting back cover using %s input",
+    async (pointerType) => {
+      const previousWidth = window.innerWidth;
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+      const user = userEvent.setup();
+      const onOpenChange = vi.fn();
+      const click = (target: HTMLElement) =>
+        pointerType === "touch" ? user.pointer([{ target, keys: "[TouchA]" }]) : user.click(target);
+
+      try {
+        render(
+          <Dialog open onOpenChange={onOpenChange}>
+            <DialogContent>
+              {/* JSDOM does not load the Tailwind pointer-events utility. */}
+              <style>{".pointer-events-auto { pointer-events: auto; }"}</style>
+              <DialogTitle>报价</DialogTitle>
+              <DialogDescription>编辑屏幕报价</DialogDescription>
+              <ScreenQuoteHarness />
+            </DialogContent>
+          </Dialog>,
+        );
+
+        const backCover = screen.getByRole("button", { name: "后盖" });
+        expect(backCover).toHaveAttribute("aria-pressed", "false");
+        const amount = screen.getByRole("button", { name: "报价项目 1 金额" });
+        await click(amount);
+        await click(screen.getByRole("button", { name: "1" }));
+        await click(screen.getByRole("button", { name: "0" }));
+        await click(screen.getByRole("button", { name: "0" }));
+        await click(screen.getByRole("button", { name: "完成" }));
+
+        expect(amount).toHaveTextContent("100");
+        expect(backCover).toHaveAttribute("aria-pressed", "false");
+        expect(screen.queryByRole("button", { name: "报价项目 2 金额" })).not.toBeInTheDocument();
+        expect(document.querySelector('[data-virtual-keyboard-dock="true"]')).toBeNull();
+        expect(onOpenChange).not.toHaveBeenCalled();
+
+        fireEvent.pointerDown(document.body, { pointerType: "mouse", button: 0 });
+        expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+      } finally {
+        cleanup();
+        Object.defineProperty(window, "innerWidth", {
+          configurable: true,
+          value: previousWidth,
+        });
+      }
+    },
+  );
+
   it("keeps catalog names static and custom names editable beside native quote amounts", () => {
     const onPatchFault = vi.fn();
     const setForm = vi.fn();
