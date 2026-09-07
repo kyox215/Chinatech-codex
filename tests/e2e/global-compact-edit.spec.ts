@@ -251,10 +251,41 @@ for (const locale of locales) {
     await page.goto("/orders/ord_1");
     await loaded;
     await expect(page.locator('[data-order-detail-root="true"]')).toBeVisible();
-    await page
+    const quoteEntry = page
       .locator("#mobile-order-quote")
-      .getByRole("button", { name: tr(locale, "orders2b2.overview.quoteItems") })
-      .click();
+      .getByRole("button", { name: tr(locale, "orders2b2.overview.quoteItems") });
+    await expect
+      .poll(() =>
+        quoteEntry.evaluate((element) => {
+          const header = document.querySelector('[data-mobile-order-header="true"]');
+          const dock = document.querySelector('[data-mobile-order-action-dock="true"]');
+          if (!header || !dock) return null;
+          const rect = element.getBoundingClientRect();
+          const top = Math.max(0, header.getBoundingClientRect().bottom);
+          const bottom = Math.min(innerHeight, dock.getBoundingClientRect().top);
+          if (bottom <= top) return null;
+          // A short screen's usable center differs from the viewport center.
+          window.scrollBy({
+            top: rect.y + rect.height / 2 - (top + bottom) / 2,
+            behavior: "instant",
+          });
+          const next = element.getBoundingClientRect();
+          const x = next.x + next.width / 2;
+          const y = next.y + next.height / 2;
+          const visibleTop = Math.max(0, header.getBoundingClientRect().bottom);
+          const visibleBottom = Math.min(innerHeight, dock.getBoundingClientRect().top);
+          const hit = document.elementFromPoint(x, y);
+          return {
+            visibleTop,
+            visibleBottom,
+            centerY: y,
+            centerInside: y > visibleTop && y < visibleBottom,
+            targetHit: Boolean(hit && element.contains(hit)),
+          };
+        }),
+      )
+      .toMatchObject({ centerInside: true, targetHit: true });
+    await quoteEntry.click();
     const outer = page.locator("#mobile-order-finance-editor");
     const row = outer.locator("[data-order-workspace-quote-row]").first();
     const note = row.locator("[data-order-quote-disclosure]").last().getByRole("button");

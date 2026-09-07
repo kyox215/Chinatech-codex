@@ -1104,49 +1104,65 @@ async function expectCompleteLifecycleDesktopTitle(
   const heading = header.getByRole("heading", { level: 1 });
   await expect(heading).toBeVisible();
   await expect(heading).toHaveText(expectedTitle);
-  const geometry = await header.evaluate((element) => {
-    const title = element.querySelector<HTMLElement>(
-      '[data-ui="inventory-lifecycle-header-title"]',
-    );
-    const headingElement = title?.querySelector<HTMLElement>("h1");
-    const action = element.lastElementChild as HTMLElement | null;
-    if (!title || !headingElement || !action) return null;
-    const headerStyle = getComputedStyle(element);
-    const headingStyle = getComputedStyle(headingElement);
-    const titleRect = title.getBoundingClientRect();
-    const actionRect = action.getBoundingClientRect();
-    const range = document.createRange();
-    range.selectNodeContents(headingElement);
-    const textRect = range.getBoundingClientRect();
-    return {
-      gridColumns: headerStyle.gridTemplateColumns.trim().split(/\s+/).length,
-      overflowX: headingStyle.overflowX,
-      textOverflow: headingStyle.textOverflow,
-      whiteSpace: headingStyle.whiteSpace,
-      titleRight: titleRect.right,
-      actionLeft: actionRect.left,
-      textLeft: textRect.left,
-      textRight: textRect.right,
-      titleLeft: titleRect.left,
-      headingClientWidth: headingElement.clientWidth,
-      headingScrollWidth: headingElement.scrollWidth,
-    };
-  });
-  expect(geometry).not.toBeNull();
-  if (kind === "after-sales") {
-    expect(geometry!.gridColumns).toBe(3);
-  } else {
-    expect(geometry).toMatchObject({
-      gridColumns: 2,
-      overflowX: "visible",
-      textOverflow: "clip",
-      whiteSpace: "normal",
+  await expect
+    .poll(async () => {
+      // Loading and ready shells can share a title but own different DOM nodes.
+      // Resolve the live page and measure all original constraints in one sample.
+      return page.evaluate((expected) => {
+        const pages = document.querySelectorAll('[data-ui="inventory-lifecycle-page"]');
+        if (pages.length !== 1) return null;
+        const headers = pages[0]!.querySelectorAll('[data-ui="inventory-lifecycle-header-nav"]');
+        if (headers.length !== 1) return null;
+        const element = headers[0]!;
+        const title = element.querySelector<HTMLElement>(
+          '[data-ui="inventory-lifecycle-header-title"]',
+        );
+        const headingElement = title?.querySelector<HTMLElement>("h1");
+        const action = element.lastElementChild as HTMLElement | null;
+        if (!title || !headingElement || !action) return null;
+        if (
+          [element, title, headingElement, action].some(
+            (node) => !node.isConnected || node.ownerDocument !== document,
+          ) ||
+          headingElement.textContent?.trim() !== expected
+        )
+          return null;
+        const headerStyle = getComputedStyle(element);
+        const headingStyle = getComputedStyle(headingElement);
+        const titleRect = title.getBoundingClientRect();
+        const actionRect = action.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(headingElement);
+        const textRect = range.getBoundingClientRect();
+        return {
+          gridColumns: headerStyle.gridTemplateColumns.trim().split(/\s+/).length,
+          overflowX: headingStyle.overflowX,
+          textOverflow: headingStyle.textOverflow,
+          whiteSpace: headingStyle.whiteSpace,
+          titleRight: titleRect.right,
+          actionLeft: actionRect.left,
+          textLeft: textRect.left,
+          textRight: textRect.right,
+          titleLeft: titleRect.left,
+          headingClientWidth: headingElement.clientWidth,
+          headingScrollWidth: headingElement.scrollWidth,
+          headingFits: headingElement.scrollWidth <= headingElement.clientWidth + 1,
+          titleBeforeAction: titleRect.right <= actionRect.left + 1,
+          textAfterLeftEdge: textRect.left >= titleRect.left - 1,
+          textBeforeRightEdge: textRect.right <= titleRect.right + 1,
+        };
+      }, expectedTitle);
+    })
+    .toMatchObject({
+      gridColumns: kind === "after-sales" ? 3 : 2,
+      ...(kind === "after-sales"
+        ? {}
+        : { overflowX: "visible", textOverflow: "clip", whiteSpace: "normal" }),
+      headingFits: true,
+      titleBeforeAction: true,
+      textAfterLeftEdge: true,
+      textBeforeRightEdge: true,
     });
-  }
-  expect(geometry!.headingScrollWidth).toBeLessThanOrEqual(geometry!.headingClientWidth + 1);
-  expect(geometry!.titleRight).toBeLessThanOrEqual(geometry!.actionLeft + 1);
-  expect(geometry!.textLeft).toBeGreaterThanOrEqual(geometry!.titleLeft - 1);
-  expect(geometry!.textRight).toBeLessThanOrEqual(geometry!.titleRight + 1);
 }
 
 async function expectQuickEntryActionDock(
