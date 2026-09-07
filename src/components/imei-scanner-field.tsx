@@ -108,6 +108,7 @@ export function ImeiScannerField({
   showPaste = true,
   showScanner = true,
   startScannerToken,
+  onScannerOpenChange,
   appearance = "outlined",
   inputId,
   inputAriaLabel,
@@ -117,7 +118,9 @@ export function ImeiScannerField({
   ariaDescribedBy,
   ariaRequired,
   onCommitSource,
+  disabled = false,
 }: {
+  disabled?: boolean;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -125,6 +128,7 @@ export function ImeiScannerField({
   showPaste?: boolean;
   showScanner?: boolean;
   startScannerToken?: number;
+  onScannerOpenChange?: (open: boolean) => void;
   appearance?: "outlined" | "quiet";
   inputId?: string;
   inputAriaLabel?: string;
@@ -139,6 +143,11 @@ export function ImeiScannerField({
   const actionIdentifierLabel = identifierLabel ?? "IMEI";
   const resolvedPlaceholder = placeholder ?? t("inventory2b4.scanner.placeholder");
   const [scannerOpen, setScannerOpen] = useState(false);
+  const scannerOpenCallbackRef = useRef(onScannerOpenChange);
+  scannerOpenCallbackRef.current = onScannerOpenChange;
+  useEffect(() => {
+    scannerOpenCallbackRef.current?.(scannerOpen);
+  }, [scannerOpen]);
   const [isStarting, setIsStarting] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isImageProcessing, setIsImageProcessing] = useState(false);
@@ -156,6 +165,7 @@ export function ImeiScannerField({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const captureViewportRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const scannerTriggerRef = useRef<HTMLButtonElement | null>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
   const centerCropDecodeIntervalRef = useRef<number | null>(null);
   const capturePreviewCleanupRef = useRef<(() => void) | null>(null);
@@ -163,6 +173,8 @@ export function ImeiScannerField({
   const scannerRunIdRef = useRef(0);
   const activeCameraModeRef = useRef<ImeiScannerCameraMode>("enhanced");
   const rememberedCameraModeRef = useRef<ImeiScannerCameraMode | null>(readRememberedCameraMode());
+  const disabledRef = useRef(disabled);
+  disabledRef.current = disabled;
   const onChangeRef = useRef(onChange);
   const onCommitSourceRef = useRef(onCommitSource);
   const lastStartScannerTokenRef = useRef(startScannerToken);
@@ -266,6 +278,7 @@ export function ImeiScannerField({
 
   const commitCandidate = useCallback(
     (candidate: ImeiCandidate) => {
+      if (disabledRef.current) return;
       setWarning(candidate.reason ?? "");
       onChangeRef.current(candidate.value);
       onCommitSourceRef.current?.("scan");
@@ -342,6 +355,7 @@ export function ImeiScannerField({
 
   const commitValue = useCallback(
     (rawValue: string, source: CommitSource) => {
+      if (disabledRef.current) return false;
       if (source === "clear") {
         setWarning("");
         onChangeRef.current("");
@@ -672,11 +686,18 @@ export function ImeiScannerField({
   }, [stopScanner]);
 
   useEffect(() => {
-    if (!showScanner || startScannerToken === undefined) return;
+    if (disabled || !showScanner || startScannerToken === undefined) return;
     if (lastStartScannerTokenRef.current === startScannerToken) return;
     lastStartScannerTokenRef.current = startScannerToken;
     setScannerOpen(true);
-  }, [showScanner, startScannerToken]);
+  }, [disabled, showScanner, startScannerToken]);
+
+  useEffect(() => {
+    if (!disabled) return;
+    stopScanner();
+    setScannerOpen(false);
+    resetCaptureState();
+  }, [disabled, resetCaptureState, stopScanner]);
 
   return (
     <div className={cn("space-y-1.5", compact && "space-y-1")}>
@@ -703,6 +724,7 @@ export function ImeiScannerField({
       >
         <Input
           {...imeiKeyboardProps}
+          disabled={disabled}
           id={inputId}
           aria-label={inputAriaLabel}
           aria-invalid={ariaInvalid || undefined}
@@ -729,7 +751,11 @@ export function ImeiScannerField({
               compact && "size-11 lg:size-8",
               quiet && "rounded-lg bg-[var(--surface-panel-muted)] text-foreground",
             )}
-            onClick={() => setScannerOpen(true)}
+            ref={scannerTriggerRef}
+            disabled={disabled}
+            onClick={() => {
+              if (!disabledRef.current) setScannerOpen(true);
+            }}
             aria-label={t("inventory2b4.scanner.cameraAction", {
               identifier: actionIdentifierLabel,
             })}
@@ -747,7 +773,9 @@ export function ImeiScannerField({
               compact && "size-11 lg:size-8",
               quiet && "rounded-lg bg-[var(--surface-panel-muted)] text-foreground",
             )}
+            disabled={disabled}
             onClick={async () => {
+              if (disabledRef.current) return;
               try {
                 const text = await navigator.clipboard.readText();
                 commitValue(text, "paste");
@@ -768,6 +796,7 @@ export function ImeiScannerField({
             variant="ghost"
             size="icon"
             className={cn("shrink-0", compact && "size-11 lg:size-8")}
+            disabled={disabled}
             onClick={() => commitValue("", "clear")}
             aria-label={t("inventory2b4.scanner.clearAction", {
               identifier: actionIdentifierLabel,
@@ -779,8 +808,21 @@ export function ImeiScannerField({
       </div>
       {warning && <p className="text-xs text-status-warn-foreground">{warning}</p>}
 
-      <Dialog open={showScanner && scannerOpen} onOpenChange={setScannerOpen}>
-        <DialogContent className="grid max-h-[calc(100svh-12px)] w-[min(32rem,calc(100vw-16px))] max-w-md grid-rows-[minmax(0,1fr)_auto] gap-0 overflow-hidden p-0">
+      <Dialog
+        open={!disabled && showScanner && scannerOpen}
+        onOpenChange={(next) => {
+          if (!next || !disabledRef.current) setScannerOpen(next);
+        }}
+      >
+        <DialogContent
+          onCloseAutoFocus={(event) => {
+            if (scannerTriggerRef.current?.isConnected && !disabledRef.current) {
+              event.preventDefault();
+              scannerTriggerRef.current.focus({ preventScroll: true });
+            }
+          }}
+          className="grid max-h-[calc(100svh-12px)] w-[min(32rem,calc(100vw-16px))] max-w-md grid-rows-[minmax(0,1fr)_auto] gap-0 overflow-hidden p-0"
+        >
           <input
             ref={fileInputRef}
             type="file"

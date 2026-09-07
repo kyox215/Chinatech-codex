@@ -1473,3 +1473,35 @@ describe("ImeiScannerField", () => {
     await waitFor(() => expect(zxingMocks.stop).toHaveBeenCalled());
   });
 });
+
+describe("disabled capture ownership", () => {
+  it("blocks native and camera controls while disabled", () => {
+    const onChange = vi.fn();
+    render(<ImeiScannerField value="" onChange={onChange} disabled />);
+    expect(screen.getByRole("textbox")).toBeDisabled();
+    screen.getAllByRole("button").forEach((button) => expect(button).toBeDisabled());
+    expect(onChange).not.toHaveBeenCalled();
+  });
+  it("ignores a clipboard result arriving after the source becomes disabled", async () => {
+    const user = userEvent.setup();
+    let resolve!: (value: string) => void;
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        readText: vi.fn(
+          () =>
+            new Promise<string>((done) => {
+              resolve = done;
+            }),
+        ),
+      },
+    });
+    const onChange = vi.fn();
+    const result = render(<ImeiScannerField value="" onChange={onChange} />);
+    await user.click(screen.getByRole("button", { name: /粘贴/ }));
+    result.rerender(<ImeiScannerField value="" onChange={onChange} disabled />);
+    resolve("490154203237518");
+    await waitFor(() => expect(screen.getByRole("textbox")).toBeDisabled());
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});

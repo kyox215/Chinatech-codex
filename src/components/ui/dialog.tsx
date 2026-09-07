@@ -32,6 +32,7 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
   mobileEditor?: boolean;
+  editorLayout?: boolean;
   initialFocus?: "container";
   showCloseButton?: boolean;
   closeClassName?: string;
@@ -47,6 +48,7 @@ const DialogContent = React.forwardRef<
       className,
       children,
       mobileEditor = false,
+      editorLayout = false,
       initialFocus,
       showCloseButton = true,
       closeClassName,
@@ -67,13 +69,15 @@ const DialogContent = React.forwardRef<
             if (typeof ref === "function") ref(node);
             else if (ref) ref.current = node;
           }}
+          data-editor-layout={editorLayout || undefined}
           data-mobile-editor={mobileEditor || undefined}
           data-keypad-scope={editor || undefined}
           className={cn(
             "fixed left-[50%] top-[50%] z-50 grid max-h-[calc(100svh-24px)] w-[min(32rem,calc(100vw-24px))] translate-x-[-50%] translate-y-[-50%] gap-3 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] p-3 shadow-[var(--shadow-overlay)] outline-none duration-150 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 sm:gap-4 sm:p-5",
             className,
             mobileEditor && componentOverlay.mobileEditor,
-            editor && "[&:has([data-virtual-keyboard-dock])]:!overflow-y-auto",
+            editor && !editorLayout && "[&:has([data-virtual-keyboard-dock])]:!overflow-y-auto",
+            editorLayout && componentOverlay.editorLayout,
           )}
           {...props}
           onOpenAutoFocus={(event) => {
@@ -112,6 +116,7 @@ const DialogContent = React.forwardRef<
               aria-label={closeLabel}
               className={cn(
                 "absolute right-1 top-1 z-30 inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground ring-offset-background transition-colors hover:bg-[var(--surface-panel-muted)] hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none sm:right-3 sm:top-3 lg:size-8",
+                editor && "size-11 lg:size-8",
                 closeClassName,
               )}
             >
@@ -128,6 +133,7 @@ DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
+    data-editor-header
     className={cn(
       "flex flex-col space-y-1 pe-12 text-center sm:space-y-1.5 sm:text-left",
       className,
@@ -136,6 +142,10 @@ const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
   />
 );
 DialogHeader.displayName = "DialogHeader";
+
+const DialogBody = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div data-editor-body className={cn(componentOverlay.editorScroll, className)} {...props} />
+);
 
 const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
@@ -182,6 +192,7 @@ export {
   DialogContent,
   DialogHeader,
   DialogFooter,
+  DialogBody,
   DialogTitle,
   DialogDescription,
 };

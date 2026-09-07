@@ -255,14 +255,16 @@ iOS Safari / Chrome 会在聚焦字号小于 `16px` 的可编辑控件时自动�
 
 工单详情弹窗属于沉浸式工作面，外壳必须固定为 viewport-safe 高度，切换概览、记录、附件库存时不改变 Dialog 尺寸；iPad/桌面概览区必须使用 `detailWorkspace.orderDetailGrid` 的员工优先两列落位：左侧先显示报价处理、下方堆叠客户与设备，右侧显示工单关键信息与最近记录；`768px+` 保持左侧约 `2fr`、右侧约 `1fr`，所有列 `min-w-0`。手机详情保持独立移动结构，任何断点都不能产生页面级横向滚动。
 
-新建工单工作区采用“客户设备 + 报价处理”的稳定布局：
+新建工单工作区采用单页高密度布局（A14，2026-09-06）：
 
-- `>= 768px` 使用两栏：客户、设备和手机密码在左，报价处理在右并跨越左栏内容高度；`< 768px` 保持客户、设备、报价、手机密码的 DOM/键盘顺序并降为单栏。
+- 手机 `<768px` 使用手机号优先的客户/设备摘要卡，保管无默认并始终直接可选；随附/解锁为短入口。故障与报价直接编辑，三列金额、正面/背面/其他三照片槽、单备注和低频设置依次排列；只保留一个可点击定位缺项的创建入口。`768px+` 继续独立桌面工作台，按容器可用宽度两栏、1040px起三栏，不放大手机Sheet。
 - 新建流程不显示“客户报障 / 问题明确 / 需检测确认”，也不通过报障模式暂停报价、清空项目或归零定金。历史本机草稿中的 `pausedRepairItems` 与 `pausedDepositAmountCents` 只做读取兼容，恢复后按普通报价和定金处理；新草稿不再写这些字段。
 - 设备保管状态是新建时必须确认的独立记录标签。切换“门店保管 / 客户保管”不得修改或过滤手机密码、报价项目、定金、随附物品和初始状态。
-- 手机密码始终显示并可填写，与保管状态无关；普通本机草稿仍不得保存密码、PIN 或图案明文。
+- 手机一次只打开一个编辑Sheet；客户、设备、随附、解锁、备注、设置先保留内存编辑草稿，完成后回总览，脏关闭在同层确认。历史设备在同一Sheet切换，IMEI扫描替换设备面板并在结束后返回原草稿；自动识别仍只接受校验有效的15位IMEI。打开聚焦关闭控件，不自动弹文本键盘；电话/金额使用现有虚拟键盘。解锁摘要不暴露密码，普通本机草稿不得保存密码、PIN、图案或照片File。
 - 定金输入必须位于报价草稿的“总额 / 定金 / 尾款”金额组内，同一区域只能有一个可编辑定金控件。
-- 响应式门禁至少覆盖 `390 / 430 / 768 / 834 / 1024 / 1280 / 1440`，断言页面无横向溢出、无客户报障节点、密码编辑器可见且报价区只有一个定金输入。
+- 响应式门禁覆盖 `320 / 390 / 430 / 768 / 1024 / 1280 / 1440`，检查无横向溢出、品牌/型号可读、解锁展开与键盘可达、报价只有一个定金输入。缺项只由底部创建入口汇总，点击定位并聚焦字段容器，不自动弹文本键盘。专业模式可不报价；简单模式仍要求选择故障或明确稍后检测。
+- 本机草稿绑定打开接单时的门店/用户，任一身份失效后停止写入与提交，A→B→A不会复活旧会话。创建传输失败与超时都保留同一operation并查询原结果，不创建第二单。
+- 备注写既有issue_description并纳入文字草稿。照片仅暂存本页，创建返回ID后核验真实canUploadPhoto再逐项上传；照片失败不再次创建订单。成功项不重传，响应不确定项不自动重试；未保存照片离开须明确确认。含照片时不走离线创建，文字草稿保存保持。
 
 编辑/新建弹窗桌面建议：
 
@@ -886,4 +888,11 @@ Fault editing uses an independent bottom Sheet at 390/430/768 and an 860px deskt
 
 ### Owner-selected A density (2026-09-06)
 
-Follow [GLOBAL_CONTENT_EDITING_STANDARD.md](GLOBAL_CONTENT_EDITING_STANDARD.md). Order detail/new quote categories use exactly 4×3 whole-cell 33px targets and 4px gaps (107px). Compact inputs remain 16px and primary actions 44px. Inline assignment/finance expansion is replaced by stable bottom editing; preserve parent page position, independent desktop presentation and last-field/footer reachability at compressed heights.
+Follow [GLOBAL_CONTENT_EDITING_STANDARD.md](GLOBAL_CONTENT_EDITING_STANDARD.md). Instruction15 keeps quotation rows single-line at all widths and reveals long names/specifications only in a popup. Reuse the mobile bottom Dialog and desktop centered Dialog; never enlarge the underlying row. The popup has a scrolling body, separate 44px actions, container initial focus and trigger focus return. Each callsite keeps its original editability; the popup does not introduce new catalog-name or specification restrictions. Categories retain 4×3 fixed 36px cells, 4px gaps and the existing 2:1 direct-selection/options split; numeric inputs remain 16px and amounts stay on one line.
+
+
+### A14 dense editor refinement (2026-09-06)
+
+The Owner-approved device/customer/notes/quote editors use a 52px header and 8–10px body gaps while keeping 44px close/save controls and 16px real mobile inputs. At 360px and above the device identity uses a 2:3 brand/model pair and four accessory quick choices; at 320px these reflow to full identity rows and two accessory columns. This does not remove the existing scanner/clear/full-accessory controls. Device notes remain last. Notes default to 104px, customer phone/name labels share a compact input row, and full matching guidance remains disclosed.
+
+For `quote-editor`, name and specification each remain compact until explicit disclosure/edit; long content does not automatically increase row height. Shared text controls preserve a single editor and restore focus when collapsed with Escape. Price/remove retain independent first-row columns and amount errors a secondary track. Total/deposit/balance remain three equal-height columns with unbroken numeric tokens. New/detail entry points share these primitives. Category selection/disclosure remains2:1; opened options show complete text and scroll to the last item. Verify zh/it/en default/expanded/collapsed states at320/390 and desktop1280, retaining the broader responsive evidence and320×350 keyboard contract.

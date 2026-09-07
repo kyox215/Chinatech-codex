@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -118,8 +119,13 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
       closeSequenceRef.current = sequence;
       closingRef.current = true;
       pendingRef.current = null;
-      setPending(null);
-      setIsResolving(false);
+      // Cleanup may enter from an effect; leave that stack before committing removal.
+      await Promise.resolve();
+      if (closeSequenceRef.current !== sequence) return;
+      flushSync(() => {
+        setPending(null);
+        setIsResolving(false);
+      });
 
       const detached = await waitForGuardDialogToClose(closingDialog);
       if (closeSequenceRef.current !== sequence) return;
@@ -377,71 +383,73 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
   return (
     <NavigationGuardContext.Provider value={value}>
       {children}
-      <AlertDialog
-        open={Boolean(pending)}
-        onOpenChange={(open) => {
-          if (!open && !isResolving) cancelPending(false);
-        }}
-      >
-        <AlertDialogContent
-          ref={guardDialogRef}
-          data-navigation-guard-dialog="true"
-          aria-busy={isResolving}
-          onEscapeKeyDown={(event) => {
-            if (isResolving) event.preventDefault();
-          }}
-          onOpenAutoFocus={(event) => {
-            event.preventDefault();
-            requestAnimationFrame(() => cancelRef.current?.focus());
+      {pending ? (
+        <AlertDialog
+          open={Boolean(pending)}
+          onOpenChange={(open) => {
+            if (!open && !isResolving) cancelPending(false);
           }}
         >
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("orders2b1.nav.title")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {pending
-                ? pending.transition.label
-                  ? t("orders2b1.nav.descriptionTo", {
-                      source: pending.source.label(),
-                      target: pending.transition.label,
-                    })
-                  : t("orders2b1.nav.descriptionAction", { source: pending.source.label() })
-                : t("orders2b1.nav.handleFirst")}
-            </AlertDialogDescription>
-            {pending?.source.canSave?.() === false ? (
-              <p className="text-sm text-status-warn-foreground" role="status">
-                {pending.source.saveUnavailableReason?.() ?? t("orders2b1.nav.saveUnavailable")}
-              </p>
-            ) : null}
-          </AlertDialogHeader>
-          <p className="sr-only" aria-live="polite">
-            {isResolving ? t("orders2b1.nav.resolvingLabel") : ""}
-          </p>
-          <AlertDialogFooter>
-            <AlertDialogCancel ref={cancelRef} className="min-h-11" disabled={isResolving}>
-              {t("common.cancel")}
-            </AlertDialogCancel>
-            <Button
-              type="button"
-              variant="destructive"
-              className="min-h-11"
-              disabled={isResolving || pending?.source.isBusy()}
-              onClick={() => void resolveWithDiscard()}
-            >
-              {t("orders2b1.nav.discard")}
-            </Button>
-            <Button
-              type="button"
-              className="min-h-11"
-              disabled={
-                isResolving || pending?.source.isBusy() || pending?.source.canSave?.() === false
-              }
-              onClick={() => void resolveWithSave()}
-            >
-              {isResolving ? t("orders2b1.nav.resolving") : t("orders2b1.nav.saveContinue")}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          <AlertDialogContent
+            ref={guardDialogRef}
+            data-navigation-guard-dialog="true"
+            aria-busy={isResolving}
+            onEscapeKeyDown={(event) => {
+              if (isResolving) event.preventDefault();
+            }}
+            onOpenAutoFocus={(event) => {
+              event.preventDefault();
+              requestAnimationFrame(() => cancelRef.current?.focus());
+            }}
+          >
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("orders2b1.nav.title")}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {pending
+                  ? pending.transition.label
+                    ? t("orders2b1.nav.descriptionTo", {
+                        source: pending.source.label(),
+                        target: pending.transition.label,
+                      })
+                    : t("orders2b1.nav.descriptionAction", { source: pending.source.label() })
+                  : t("orders2b1.nav.handleFirst")}
+              </AlertDialogDescription>
+              {pending?.source.canSave?.() === false ? (
+                <p className="text-sm text-status-warn-foreground" role="status">
+                  {pending.source.saveUnavailableReason?.() ?? t("orders2b1.nav.saveUnavailable")}
+                </p>
+              ) : null}
+            </AlertDialogHeader>
+            <p className="sr-only" aria-live="polite">
+              {isResolving ? t("orders2b1.nav.resolvingLabel") : ""}
+            </p>
+            <AlertDialogFooter>
+              <AlertDialogCancel ref={cancelRef} className="min-h-11" disabled={isResolving}>
+                {t("common.cancel")}
+              </AlertDialogCancel>
+              <Button
+                type="button"
+                variant="destructive"
+                className="min-h-11"
+                disabled={isResolving || pending?.source.isBusy()}
+                onClick={() => void resolveWithDiscard()}
+              >
+                {t("orders2b1.nav.discard")}
+              </Button>
+              <Button
+                type="button"
+                className="min-h-11"
+                disabled={
+                  isResolving || pending?.source.isBusy() || pending?.source.canSave?.() === false
+                }
+                onClick={() => void resolveWithSave()}
+              >
+                {isResolving ? t("orders2b1.nav.resolving") : t("orders2b1.nav.saveContinue")}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ) : null}
     </NavigationGuardContext.Provider>
   );
 }

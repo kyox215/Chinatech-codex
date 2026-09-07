@@ -109,10 +109,26 @@ export const componentOverlay = {
     "border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] shadow-[var(--shadow-overlay)] [&_input:not([type=checkbox])]:transition-colors [&_textarea]:transition-colors [&_button]:duration-150 motion-reduce:[&_input]:transition-none motion-reduce:[&_textarea]:transition-none motion-reduce:[&_button]:transition-none",
   mobileEditor:
     "max-lg:data-[state=open]:slide-in-from-bottom max-lg:data-[state=closed]:slide-out-to-bottom max-lg:!inset-x-0 max-lg:!top-auto max-lg:!bottom-0 max-lg:!mx-auto max-lg:!h-auto max-lg:!max-h-[calc(100dvh-1rem)] max-lg:!w-full max-lg:!max-w-full max-lg:!translate-x-0 max-lg:!translate-y-0 max-lg:!rounded-b-none max-lg:!rounded-t-[var(--radius-lg)] max-lg:!overflow-y-auto max-lg:!pb-[calc(env(safe-area-inset-bottom)+0.75rem)] max-lg:[&_input:not([type=checkbox])]:!text-base max-lg:[&_textarea]:!text-base max-lg:[&_[data-editor-footer]]:sticky max-lg:[&_[data-editor-footer]]:bottom-0 max-lg:[&_[data-editor-footer]]:z-10 max-lg:[&_[data-editor-footer]]:bg-[var(--surface-workspace-strong)]",
+  editorLayout:
+    "!flex !flex-col !overflow-clip max-lg:!overflow-y-clip [&>[data-editor-header]]:shrink-0 [&_[data-editor-footer]]:shrink-0 [&_[data-editor-footer]]:!static [&>[data-virtual-keyboard-host]]:shrink-0 [&>[data-virtual-keyboard-host]]:!static [&_[data-virtual-keyboard-dock]>div]:max-h-[min(55dvh,calc(100dvh-13rem))]",
+  editorScroll:
+    "min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-0.5 [scrollbar-gutter:stable]",
   editorHeader: "min-w-0 space-y-1 border-b border-[var(--border-panel)] pb-3 text-left",
+  // A14 opt-in: grouped order editors only; ordinary dialogs keep their existing spacing.
+  denseEditorSurface:
+    "!gap-0 !p-0 max-lg:!pb-0 [&>button:last-child]:!right-1 [&>button:last-child]:!top-1 [&>button:last-child]:!size-11",
+  denseEditorHeader:
+    "flex min-h-[52px] min-w-0 shrink-0 flex-row items-center gap-2 space-y-0 border-b border-[var(--border-panel)] px-3 py-2 pr-14 text-left",
+  denseEditorIcon:
+    "grid size-7 shrink-0 place-items-center rounded-lg border border-primary/10 bg-primary/5 text-primary [&>svg]:size-4",
+  denseEditorBody: "min-w-0 space-y-2 px-3 py-2.5",
+  denseEditorFooter:
+    "grid shrink-0 grid-cols-2 gap-2 border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 pt-1.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] sm:space-x-0 lg:flex lg:justify-end lg:[&>button]:w-auto lg:[&>button]:min-w-24 [&>button]:min-h-11 [&>button]:whitespace-normal",
+  denseInlineField:
+    "grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-lg border border-[var(--border-panel)] bg-background px-2 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring [&>label]:text-[11px] [&>label]:text-muted-foreground",
   editorBody: "min-w-0 [&_input:not([type=checkbox])]:bg-background [&_textarea]:bg-background",
   editorFooter:
-    "gap-2 border-t border-[var(--border-panel)] pt-3 [&>button]:min-h-11 [&>button]:whitespace-normal lg:[&>button]:min-h-9",
+    "grid grid-cols-2 flex-row gap-2 border-t border-[var(--border-panel)] pt-3 sm:space-x-0 lg:flex lg:flex-row [&>button]:min-h-11 [&>button]:whitespace-normal lg:[&>button]:min-h-9",
   editorField:
     "rounded-lg border-[var(--border-panel)] bg-background text-base shadow-none transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:ring-2 motion-reduce:transition-none md:text-base",
   editorStatus: "min-w-0 text-xs leading-5 text-muted-foreground",

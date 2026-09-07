@@ -44,8 +44,11 @@ describe("NewOrderQuotationSection", () => {
     );
     expect(screen.getByText("屏幕 - 原装")).toBeVisible();
     expect(screen.queryByDisplayValue("屏幕 - 原装")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "自定义项目" }));
     const custom = screen.getByRole("textbox", { name: "自定义项目" });
     fireEvent.change(custom, { target: { value: "保养项目" } });
+    expect(onPatchFault).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
     expect(onPatchFault).toHaveBeenCalledWith(1, { name: "保养项目" });
     expect(screen.getByRole("textbox", { name: "报价项目 1 金额" })).toHaveAttribute(
       "inputmode",
@@ -91,7 +94,7 @@ describe("NewOrderQuotationSection", () => {
     expect(screen.queryByText("定金与服务")).not.toBeInTheDocument();
   });
 
-  it("keeps order settings in the original compact full-row plus two-by-two structure", () => {
+  it("keeps order settings in the collapsible service settings while accessories belong to the device", () => {
     const { container } = render(
       <NewOrderQuotationSection
         form={initialNewOrderForm}
@@ -124,7 +127,7 @@ describe("NewOrderQuotationSection", () => {
     const grid = settings?.querySelector('[data-new-order-settings-grid="true"]');
     expect(settings?.querySelector('[data-new-order-setting="warranty"]')).not.toBeNull();
     expect(grid).toHaveClass("grid-cols-[minmax(0,1fr)_minmax(0,1fr)]");
-    expect(grid?.children).toHaveLength(4);
+    expect(grid?.children).toHaveLength(3);
     expect(settings?.querySelector('[data-new-order-setting="operator"]')?.children[1]).toHaveClass(
       "h-[38px]",
       "rounded-lg",

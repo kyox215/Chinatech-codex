@@ -25,6 +25,193 @@ async function noOverflow(page: Page) {
     true,
   );
 }
+async function readableQuoteGrid(grid: Locator) {
+  await expect(grid.locator("[data-fault-category]")).toHaveCount(12);
+  const metrics = await grid.locator("[data-fault-category]").evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const box = node.getBoundingClientRect();
+      const [main, expand] = Array.from(node.querySelectorAll("button"));
+      const mainBox = main.getBoundingClientRect();
+      const expandBox = expand.getBoundingClientRect();
+      return {
+        x: Math.round(box.x),
+        y: Math.round(box.y),
+        height: box.height,
+        split: mainBox.width / expandBox.width,
+        singleLine: getComputedStyle(main.querySelector("span")!).whiteSpace === "nowrap",
+        fullAccessibleLabel: Boolean(main.getAttribute("aria-label")),
+      };
+    }),
+  );
+  expect(new Set(metrics.map((m) => m.x)).size).toBe(4);
+  expect(new Set(metrics.map((m) => m.y)).size).toBe(3);
+  for (const metric of metrics) {
+    expect(metric.height).toBeCloseTo(36, 1);
+    expect(metric.split).toBeCloseTo(2, 1);
+    expect(metric.singleLine).toBe(true);
+    expect(metric.fullAccessibleLabel).toBe(true);
+  }
+  expect(await grid.evaluate((node) => getComputedStyle(node).rowGap)).toBe("4px");
+}
+
+async function readableQuoteRows(root: Locator) {
+  const amountMetrics = await root
+    .locator(
+      "[data-money-keypad-trigger] > span:last-child, [data-order-workspace-money-strip] > div > span",
+    )
+    .evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const lines = new Set(
+          Array.from(range.getClientRects()).map((rect) => Math.round(rect.top)),
+        );
+        const css = getComputedStyle(node);
+        return {
+          text: node.textContent,
+          label: node.parentElement?.getAttribute("aria-label"),
+          width: node.clientWidth,
+          scrollWidth: node.scrollWidth,
+          height: node.clientHeight,
+          scrollHeight: node.scrollHeight,
+          font: css.font,
+          fontSize: css.fontSize,
+          textWidth: range.getBoundingClientRect().width,
+          lineHeight: css.lineHeight,
+          overflow: css.overflow,
+          clipped:
+            lines.size > 1 ||
+            node.scrollWidth > node.clientWidth + 1 ||
+            node.scrollHeight > node.clientHeight + 1,
+        };
+      }),
+    );
+  await test.info().attach("quote-amount-metrics", {
+    body: JSON.stringify(amountMetrics, null, 2),
+    contentType: "application/json",
+  });
+  expect(amountMetrics.filter((node) => node.clipped)).toEqual([]);
+  for (const row of await root.locator("[data-order-workspace-quote-row]").all()) {
+    const geometry = await row.evaluate((node) => {
+      const [identity, price, action] = Array.from(node.children);
+      const name = identity.querySelector("textarea, input") ?? identity.firstElementChild!;
+      const note = identity.children[1];
+      const nameBox = name.getBoundingClientRect();
+      const priceBox = price.getBoundingClientRect();
+      const actionBox = action?.getBoundingClientRect();
+      return {
+        wrappedName: name.scrollHeight <= name.clientHeight + 1,
+        priceSeparate: nameBox.right <= priceBox.left + 1,
+        actionSeparate: !actionBox || priceBox.right <= actionBox.left + 1,
+        noteBelow: !note || note.getBoundingClientRect().top >= nameBox.bottom - 1,
+        priceAligned: Math.abs(nameBox.top - priceBox.top) <= 1,
+      };
+    });
+    expect(geometry).toEqual({
+      wrappedName: true,
+      priceSeparate: true,
+      actionSeparate: true,
+      noteBelow: true,
+      priceAligned: true,
+    });
+  }
+  const tiles = await root
+    .locator("[data-order-workspace-money-strip] > div")
+    .evaluateAll((nodes) =>
+      nodes.map((node) => ({
+        height: node.getBoundingClientRect().height,
+        readable: node.scrollWidth <= node.clientWidth + 1,
+      })),
+    );
+  expect(tiles).toHaveLength(3);
+  expect(
+    Math.max(...tiles.map((tile) => tile.height)) - Math.min(...tiles.map((tile) => tile.height)),
+  ).toBeLessThanOrEqual(1);
+  expect(tiles.every((tile) => tile.readable)).toBe(true);
+}
+
+async function discloseQuoteContent(page: Page, root: Locator, name: string) {
+  const controls = [
+    root.locator("[data-order-quote-text-control]").first(),
+    root.locator("[data-order-quote-disclosure]").first(),
+    root.locator("[data-order-quote-disclosure]").last(),
+  ];
+  for (const [index, control] of controls.entries()) {
+    if (!(await control.count())) continue;
+    const trigger = control.locator("button");
+    const height = (await control.boundingBox())!.height;
+    expect(height).toBeLessThanOrEqual(36.1);
+    await trigger.press("Enter");
+    const popup = page.locator('[data-order-quote-popup="true"]');
+    await expect(popup).toBeVisible();
+    await expect(popup).toBeFocused();
+    expect(await page.evaluate(() => document.activeElement?.matches("input, textarea"))).toBe(
+      false,
+    );
+    expect((await control.boundingBox())!.height).toBeCloseTo(height, 1);
+    const editable = (await popup.getByRole("textbox").count()) > 0;
+    if (editable) {
+      const input = popup.getByRole("textbox");
+      const original = await input.inputValue();
+      const triggerText = await trigger.textContent();
+      await input.fill("Cancelled popup draft");
+      await popup.locator("[data-editor-footer] > button").first().click();
+      await expect(popup).toHaveCount(0);
+      expect(await trigger.textContent()).toBe(triggerText);
+      await expect(trigger).toBeFocused();
+      await trigger.click();
+      await expect(popup.getByRole("textbox")).toHaveValue(original);
+      await expect(popup).toBeFocused();
+    }
+    if (!editable)
+      await expect(popup.locator("[data-editor-body]")).toContainText(
+        (await trigger.textContent())!.trim(),
+      );
+    await noOverflow(page);
+    await screenshot(page, `${name}-popup-${index}`);
+    await page.keyboard.press("Escape");
+    await expect(popup).toHaveCount(0);
+    await expect(root).toBeVisible();
+    await expect(trigger).toBeFocused();
+    expect((await control.boundingBox())!.height).toBeCloseTo(height, 1);
+  }
+}
+
+async function editQuoteName(
+  page: Page,
+  trigger: Locator,
+  value: string,
+  locale: (typeof locales)[number],
+) {
+  const before = await trigger.textContent();
+  const triggerElement = await trigger.elementHandle();
+  await trigger.click();
+  const popup = page.locator('[data-order-quote-popup="true"]');
+  await expect(popup).toBeFocused();
+  const input = popup.getByRole("textbox");
+  await expect(input).not.toBeFocused();
+  await input.fill(value);
+  expect(await triggerElement!.textContent()).toBe(before);
+  await popup.getByRole("button", { name: tr(locale, "orders2b2.hero.save"), exact: true }).click();
+  await expect(popup).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect(trigger).toContainText(value);
+}
+
+const quoteCopy = {
+  "zh-CN": {
+    name: "屏幕维修与连接器深度清洁及功能检测",
+    note: "原装高亮度总成 · 保留原有显示校准及多点触控功能测试",
+  },
+  "it-IT": {
+    name: "Sostituzione schermo e pulizia approfondita dei connettori",
+    note: "Ricambio originale ad alta luminosità · calibrazione e verifica completa del funzionamento multitouch",
+  },
+  en: {
+    name: "Display replacement and thorough connector cleaning",
+    note: "Original high-brightness assembly · calibration and complete multi-touch functionality verification",
+  },
+} as const;
 async function bottomEditor(page: Page, editor: Locator, width: number, height: number) {
   await expect(editor).toBeVisible();
   await expect
@@ -42,8 +229,130 @@ async function bottomEditor(page: Page, editor: Locator, width: number, height: 
   await noOverflow(page);
 }
 
+for (const locale of locales) {
+  test(`A15 quote popup short screen ${locale}`, async ({ page }) => {
+    test.setTimeout(60000);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.context().addCookies([{ name: "repairdesk_locale", value: locale, url: baseURL() }]);
+    await page.setViewportSize({ width: 320, height: 350 });
+    const longNote = quoteCopy[locale].note.repeat(12);
+    await page.route("**/api/repairdesk/order/get", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      payload.data.order.fault_prices[0].note = longNote;
+      payload.data.order.fault_prices[0].catalog_key = "display:main";
+      await route.fulfill({ response, json: payload });
+    });
+    const loaded = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === "/api/repairdesk/order/get" && response.ok(),
+    );
+    await page.goto("/orders/ord_1");
+    await loaded;
+    await expect(page.locator('[data-order-detail-root="true"]')).toBeVisible();
+    const quoteEntry = page
+      .locator("#mobile-order-quote")
+      .getByRole("button", { name: tr(locale, "orders2b2.overview.quoteItems") });
+    await expect
+      .poll(() =>
+        quoteEntry.evaluate((element) => {
+          const header = document.querySelector('[data-mobile-order-header="true"]');
+          const dock = document.querySelector('[data-mobile-order-action-dock="true"]');
+          if (!header || !dock) return null;
+          const rect = element.getBoundingClientRect();
+          const top = Math.max(0, header.getBoundingClientRect().bottom);
+          const bottom = Math.min(innerHeight, dock.getBoundingClientRect().top);
+          if (bottom <= top) return null;
+          // A short screen's usable center differs from the viewport center.
+          window.scrollBy({
+            top: rect.y + rect.height / 2 - (top + bottom) / 2,
+            behavior: "instant",
+          });
+          const next = element.getBoundingClientRect();
+          const x = next.x + next.width / 2;
+          const y = next.y + next.height / 2;
+          const visibleTop = Math.max(0, header.getBoundingClientRect().bottom);
+          const visibleBottom = Math.min(innerHeight, dock.getBoundingClientRect().top);
+          const hit = document.elementFromPoint(x, y);
+          return {
+            visibleTop,
+            visibleBottom,
+            centerY: y,
+            centerInside: y > visibleTop && y < visibleBottom,
+            targetHit: Boolean(hit && element.contains(hit)),
+          };
+        }),
+      )
+      .toMatchObject({ centerInside: true, targetHit: true });
+    await quoteEntry.click();
+    const outer = page.locator("#mobile-order-finance-editor");
+    const row = outer.locator("[data-order-workspace-quote-row]").first();
+    const note = row.locator("[data-order-quote-disclosure]").last().getByRole("button");
+    const rowHeight = (await row.boundingBox())!.height;
+    await note.click();
+    const popup = page.locator('[data-order-quote-popup="true"]');
+    await expect(popup).toBeFocused();
+    await expect(popup.getByRole("textbox")).toHaveCount(0);
+    const body = popup.locator("[data-editor-body]");
+    await expect(body).toContainText(longNote);
+    expect(await body.evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true);
+    await body.evaluate((node) => {
+      node.scrollTop = node.scrollHeight;
+    });
+    expect(
+      await body.evaluate((node) => node.scrollHeight - node.scrollTop - node.clientHeight),
+    ).toBeLessThanOrEqual(1);
+    await expect(popup.locator("[data-editor-footer] > button")).toBeInViewport();
+    await noOverflow(page);
+    await screenshot(page, `popup-readonly-short-${locale}`);
+    await page.keyboard.press("Escape");
+    await expect(popup).toHaveCount(0);
+    await expect(outer).toBeVisible();
+    await expect(note).toBeFocused();
+    expect((await row.boundingBox())!.height).toBeCloseTo(rowHeight, 1);
+    await outer
+      .getByRole("button", { name: tr(locale, "orders2b2.finance.add"), exact: true })
+      .click();
+    const trigger = outer.locator("[data-order-quote-text-control]").last().getByRole("button");
+    const customRow = outer.locator("[data-order-workspace-quote-row]").last();
+    await customRow.locator("[data-money-keypad-trigger]").click();
+    await page.locator('[data-money-keypad-key="0"]').click();
+    await page.locator("[data-money-keypad-done]").click();
+    const customHeight = (await customRow.boundingBox())!.height;
+    await trigger.click();
+    await expect(popup).toBeFocused();
+    const input = popup.getByRole("textbox");
+    await expect(input).not.toBeFocused();
+    await expect(input).toHaveCSS("font-size", "16px");
+    await input.fill("Cancelled popup draft");
+    await popup.getByRole("button", { name: tr(locale, "common.cancel"), exact: true }).click();
+    await expect(popup).toHaveCount(0);
+    await expect(trigger).not.toContainText("Cancelled popup draft");
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    await expect(input).toHaveValue("");
+    await input.fill(quoteCopy[locale].name);
+    const save = popup.getByRole("button", {
+      name: tr(locale, "orders2b2.hero.save"),
+      exact: true,
+    });
+    await expect(save).toBeInViewport();
+    await expect(popup.locator("[data-editor-footer] > button").first()).toBeInViewport();
+    await screenshot(page, `popup-editable-short-${locale}`);
+    await save.click();
+    await expect(popup).toHaveCount(0);
+    await expect(trigger).toContainText(quoteCopy[locale].name);
+    await expect(trigger).toBeFocused();
+    await expect(outer).toBeVisible();
+    expect((await customRow.boundingBox())!.height).toBeCloseTo(customHeight, 1);
+    await noOverflow(page);
+    expect(errors).toEqual([]);
+  });
+}
+
 for (const locale of locales)
-  for (const width of [320, 390, 430, 768, 1024, 1440]) {
+  for (const width of [320, 390, 430, 768, 1024, 1280, 1440]) {
     test(`compact A ${locale} ${width}px`, async ({ page }) => {
       test.setTimeout(60000);
       const height = width < 768 ? 844 : 1000;
@@ -53,7 +362,33 @@ for (const locale of locales)
         .context()
         .addCookies([{ name: "repairdesk_locale", value: locale, url: baseURL() }]);
       await page.setViewportSize({ width, height });
+      const longQuote = quoteCopy[locale];
+      const quoteAmount = width === 320 ? "123456.78" : "1234.56";
+      await page.route("**/api/repairdesk/order/get", async (route) => {
+        const response = await route.fetch();
+        const payload = await response.json();
+        payload.data.order.fault_prices = [
+          {
+            ...payload.data.order.fault_prices[0],
+            catalog_key: "display:main",
+            name: longQuote.name,
+            note: longQuote.note,
+            price: Number(quoteAmount),
+          },
+        ];
+        payload.data.order.quotation_amount = Number(quoteAmount);
+        payload.data.order.balance_amount = Number(quoteAmount) - payload.data.order.deposit_amount;
+        await route.fulfill({ response, json: payload });
+      });
+      // This first navigation may compile the route in CI. Wait for its actual
+      // order response, then retain the normal 5s renderer visibility assertion.
+      const orderLoaded = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === "/api/repairdesk/order/get" && response.ok(),
+      );
       await page.goto("/orders/ord_1");
+      const loadedOrder = await (await orderLoaded).json();
+      expect(loadedOrder.data.order.id).toBe("ord_1");
       await expect(page.locator('[data-order-detail-root="true"]')).toBeVisible();
       await noOverflow(page);
       if (width < 1024) {
@@ -81,17 +416,15 @@ for (const locale of locales)
           false,
         );
         const grid = editor.locator('[data-fault-diagnosis-picker="true"]');
-        await expect(grid.locator("[data-fault-category]")).toHaveCount(12);
-        expect(Math.round((await grid.boundingBox())!.height)).toBe(107);
+        await readableQuoteGrid(grid);
+        await readableQuoteRows(editor);
         await screenshot(page, `order-quote-${locale}-${width}`);
-        const input = editor
-          .getByRole("textbox", { name: tr(locale, "orders2b2.finance.item"), exact: true })
-          .first();
-        await input.fill("Synthetic retained draft");
-        await input.focus();
+        await discloseQuoteContent(page, editor, `order-quote-expanded-${locale}-${width}`);
+        const input = editor.locator("[data-order-quote-text-control]").first().getByRole("button");
+        await editQuoteName(page, input, "Synthetic retained draft", locale);
         await page.keyboard.press("Escape");
         await editor.getByRole("button", { name: tr(locale, "orders.faultEditor.keep") }).click();
-        await expect(input).toHaveValue("Synthetic retained draft");
+        await expect(input).toContainText("Synthetic retained draft");
         await expect(input).toBeFocused();
         await page.keyboard.press("Escape");
         await editor
@@ -101,8 +434,47 @@ for (const locale of locales)
         await expect(quote).not.toContainText("Synthetic retained draft");
       } else {
         await expect(page.locator('[data-order-desktop-single-workspace="true"]')).toBeVisible();
-        await expect(page.getByText("屏幕总成", { exact: true }).first()).toBeVisible();
+        await expect(page.getByText(longQuote.name, { exact: true }).first()).toBeVisible();
+        await expect(page.getByText(longQuote.note, { exact: true }).first()).toBeVisible();
+        await page.getByText(longQuote.name, { exact: true }).first().scrollIntoViewIfNeeded();
         await screenshot(page, `order-desktop-${locale}-${width}`);
+        await discloseQuoteContent(
+          page,
+          page.locator('[data-order-desktop-single-workspace="true"]'),
+          `order-desktop-expanded-${locale}-${width}`,
+        );
+        await page
+          .getByRole("button", { name: tr(locale, "orders2b2.hero.edit"), exact: true })
+          .click();
+        const name = page.getByRole("button", {
+          name: tr(locale, "orders2b2.overview.itemName", { index: 1 }),
+          exact: true,
+        });
+        const note = page.getByRole("button", {
+          name: tr(locale, "orders2b2.overview.itemNote", { index: 1 }),
+          exact: true,
+        });
+        await expect(name).toContainText(longQuote.name);
+        await expect(note).toContainText(longQuote.note);
+        await note.scrollIntoViewIfNeeded();
+        for (const field of [name, note]) {
+          expect(await field.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(
+            true,
+          );
+        }
+        await screenshot(page, `quote-multilingual-detail-edit-${locale}-${width}`);
+        await discloseQuoteContent(
+          page,
+          page.locator('[data-order-desktop-single-workspace="true"]'),
+          `quote-detail-edit-expanded-${locale}-${width}`,
+        );
+        await editQuoteName(page, name, "Synthetic retained catalog-name draft", locale);
+        await editQuoteName(page, note, "Synthetic retained specification draft", locale);
+        await expect(name).toContainText("Synthetic retained catalog-name draft");
+        await expect(note).toContainText("Synthetic retained specification draft");
+        await page
+          .getByRole("button", { name: tr(locale, "orders2b2.hero.cancel"), exact: true })
+          .click();
       }
       await page.goto("/orders/new");
       // As in the existing new-order stories, let streaming and store bootstrap settle.
@@ -114,19 +486,78 @@ for (const locale of locales)
       await expect(form).toHaveCount(1);
       await expect(form).toBeVisible();
       const grid = form.locator('[data-fault-diagnosis-picker="true"]');
-      await expect(grid.locator("[data-fault-category]")).toHaveCount(12);
-      expect(Math.round((await grid.boundingBox())!.height)).toBe(107);
+      await readableQuoteGrid(grid);
+      if (width < 768) {
+        const title = page
+          .getByText(tr(locale, "orders2b1.new.shortTitle"), { exact: true })
+          .filter({ visible: true });
+        expect((await title.boundingBox())!.width).toBeGreaterThan(60);
+        expect(await title.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+      }
       const main = grid.locator("[data-fault-category]").first().getByRole("button").first();
       await main.click();
       await expect(main).toHaveAttribute("aria-pressed", "true");
+      const amountRow = form.locator("[data-order-workspace-quote-row]").first();
+      if (width < 1024) {
+        await amountRow.locator("[data-money-keypad-trigger]").click();
+        await page.locator('[data-money-keypad-key="clear"]').click();
+        for (const key of quoteAmount)
+          await page.locator(`[data-money-keypad-key="${key}"]`).click();
+        await page.locator("[data-money-keypad-done]").click();
+        await expect(amountRow.locator("[data-money-keypad-trigger]")).toContainText(quoteAmount);
+      } else {
+        await amountRow.getByRole("textbox").fill(quoteAmount);
+        await amountRow.getByRole("textbox").blur();
+        await expect(amountRow.getByRole("textbox")).toHaveValue(quoteAmount);
+      }
+      await form
+        .getByRole("button", { name: tr(locale, "orders2b1.new.addCustomItem"), exact: true })
+        .click();
+      await editQuoteName(
+        page,
+        form.getByRole("button", { name: tr(locale, "orders2b1.new.customItem"), exact: true }),
+        longQuote.name,
+        locale,
+      );
+      const deposit = form.locator("[data-order-workspace-money-strip]");
+      if (width < 1024) {
+        await deposit.locator("[data-money-keypad-trigger]").click();
+        await page.locator('[data-money-keypad-key="clear"]').click();
+        for (const key of "1234.56") await page.locator(`[data-money-keypad-key="${key}"]`).click();
+        await page.locator("[data-money-keypad-done]").click();
+        await expect(deposit.locator("[data-money-keypad-trigger]")).toContainText("1234.56");
+      } else {
+        await deposit.getByRole("textbox").fill("1234.56");
+        await deposit.getByRole("textbox").blur();
+      }
+      await readableQuoteRows(form);
+      await screenshot(page, `quote-multilingual-new-${locale}-${width}`);
+      await discloseQuoteContent(page, form, `quote-new-expanded-${locale}-${width}`);
       const trigger = grid.locator("[data-fault-category-expand]").first();
       await trigger.click();
       const options = page.getByRole("dialog").filter({ visible: true }).last();
       await expect(options).toBeVisible();
       await expect(options).toHaveCSS("opacity", "1");
       if (width < 1024) await bottomEditor(page, options, width, height);
+      await options
+        .getByRole("button", { name: tr(locale, "orders2b1.new.fault.inspect"), exact: true })
+        .click();
       await options.getByRole("group").getByRole("button").last().focus();
+      await options.getByRole("group").getByRole("button").last().scrollIntoViewIfNeeded();
       await expect(options.getByRole("group").getByRole("button").last()).toBeFocused();
+      await expect(options.getByRole("group").getByRole("button").last()).toBeInViewport();
+      const clippedOptions = await options
+        .getByRole("group")
+        .getByRole("button")
+        .evaluateAll(
+          (nodes) =>
+            nodes.filter(
+              (node) =>
+                node.scrollWidth > node.clientWidth + 1 ||
+                node.scrollHeight > node.clientHeight + 1,
+            ).length,
+        );
+      expect(clippedOptions).toBe(0);
       await screenshot(page, `new-order-options-${locale}-${width}`);
       await page.keyboard.press("Escape");
       await expect(trigger).toBeFocused();
@@ -230,7 +661,12 @@ for (const width of [320, 390, 768]) {
       "aria-invalid",
       "true",
     );
-    await emptyRow.getByRole("textbox").fill("Synthetic incomplete quote");
+    await editQuoteName(
+      page,
+      emptyRow.getByRole("button", { name: tr("zh-CN", "orders2b2.finance.item"), exact: true }),
+      "Synthetic incomplete quote",
+      "zh-CN",
+    );
     await expect(emptyRow.locator("[data-money-keypad-trigger]")).toHaveAttribute(
       "aria-invalid",
       "true",
@@ -276,12 +712,15 @@ for (const width of [320, 390, 768]) {
     await expect(editor).toBeVisible();
     await expect(price).toBeFocused();
     const name = editor
-      .getByRole("textbox", { name: tr("zh-CN", "orders2b2.finance.item"), exact: true })
+      .getByRole("button", { name: tr("zh-CN", "orders2b2.finance.item"), exact: true })
       .first();
     await price.click();
     await name.click();
-    await expect(name).toBeFocused();
+    await expect(page.locator('[data-order-quote-popup="true"]')).toBeFocused();
     await expect(keypad).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(page.locator('[data-order-quote-popup="true"]')).toHaveCount(0);
+    await expect(name).toBeFocused();
     await page.keyboard.press("Escape");
     await editor.getByRole("button", { name: tr("zh-CN", "orders.faultEditor.keep") }).click();
     await expect(price).toContainText("1.5");
@@ -344,4 +783,333 @@ test("A13 customer tablet and desktop each expose one editing surface", async ({
     await noOverflow(page);
     await page.keyboard.press("Escape");
   }
+});
+
+for (const [width, height] of [
+  [320, 568],
+  [390, 844],
+  [430, 844],
+  [768, 1000],
+  [320, 350],
+]) {
+  test(`A14 aligned quote identity and notes ${width}x${height}`, async ({ page }) => {
+    test.setTimeout(60000);
+    await page
+      .context()
+      .addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
+    await page.setViewportSize({ width, height });
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto("/orders/ord_1");
+    await expect(page.locator('[data-order-detail-root="true"]')).toBeVisible();
+    await page
+      .locator("#mobile-order-quote")
+      .getByRole("button", { name: tr("zh-CN", "orders2b2.overview.quoteItems") })
+      .click();
+    const quote = page.locator("#mobile-order-finance-editor");
+    await bottomEditor(page, quote, width, height);
+    expect((await quote.locator("[data-editor-header]").boundingBox())!.height).toBe(52);
+    const categoryGrid = quote.locator('[data-fault-diagnosis-picker="true"]');
+    await readableQuoteGrid(categoryGrid);
+    const rows = quote.locator('[data-order-workspace-quote-row="true"]');
+    for (const row of await rows.all()) {
+      const rects = await row.evaluate((node) =>
+        Array.from(node.children)
+          .slice(0, 3)
+          .map((child) => {
+            const control =
+              child.querySelector(
+                "textarea, input, [data-money-keypad-trigger], [data-money-keypad-native-input], button",
+              ) ?? child;
+            const rect = control.getBoundingClientRect();
+            return { y: rect.y, height: rect.height };
+          }),
+      );
+      expect(
+        Math.max(...rects.map((r) => r.y)) - Math.min(...rects.map((r) => r.y)),
+      ).toBeLessThanOrEqual(1);
+      rects.forEach((r) => expect(r.height).toBeGreaterThanOrEqual(36));
+    }
+    const tiles = await quote
+      .locator("[data-order-workspace-money-strip] > div")
+      .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().height));
+    expect(Math.max(...tiles) - Math.min(...tiles)).toBeLessThanOrEqual(1);
+    tiles.forEach((height) => expect(height).toBeGreaterThanOrEqual(60));
+    await screenshot(page, width === 390 ? "a14-quote-390" : `dense-quote-${width}x${height}`);
+    await page.keyboard.press("Escape");
+    await expect(quote).toHaveCount(0);
+
+    await page
+      .getByRole("button", { name: tr("zh-CN", "orders2b2.overview.deviceIssue"), exact: true })
+      .click();
+    const device = page.locator('[data-order-identity-editor="device"]');
+    await bottomEditor(page, device, width, height);
+    const close = device
+      .getByRole("button", { name: "取消", exact: true })
+      .filter({ has: page.locator("svg.lucide-x") });
+    await device
+      .locator("[data-editor-body]")
+      .evaluate((node) => (node.scrollTop = node.scrollHeight));
+    const closeRect = (await close.boundingBox())!;
+    expect(closeRect.width).toBeGreaterThanOrEqual(44);
+    expect(closeRect.height).toBeGreaterThanOrEqual(44);
+    expect(
+      await close.evaluate((node) => {
+        const r = node.getBoundingClientRect();
+        return node.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+      }),
+    ).toBe(true);
+    const footerButtons = device.locator("[data-editor-footer] > button");
+    const footerRects = await footerButtons.evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const r = node.getBoundingClientRect();
+        return { y: r.y, width: r.width, height: r.height };
+      }),
+    );
+    expect(Math.abs(footerRects[0]!.y - footerRects[1]!.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(footerRects[0]!.width - footerRects[1]!.width)).toBeLessThanOrEqual(1);
+    footerRects.forEach((r) => expect(r.height).toBeGreaterThanOrEqual(44));
+    await device.locator("[data-editor-body]").evaluate((node) => (node.scrollTop = 0));
+    if (width === 390) {
+      await expect(
+        device.getByRole("heading", { name: tr("zh-CN", "orders2b1.new.deviceInfo"), exact: true }),
+      ).toBeVisible();
+      await screenshot(page, "a14-device-390");
+      const camera = device.getByRole("button").filter({ has: page.locator("svg.lucide-camera") });
+      await camera.click();
+      const capture = page.getByRole("dialog").filter({
+        has: page.getByRole("heading", {
+          name: tr("zh-CN", "inventory2b4.scanner.title"),
+          exact: true,
+        }),
+      });
+      await expect(capture).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(capture).toHaveCount(0);
+      await expect(camera).toBeFocused();
+      await expect(device).toBeVisible();
+    }
+    if (width !== 390) await screenshot(page, `dense-device-${width}x${height}`);
+    await close.click();
+    await expect(device).toHaveCount(0);
+
+    await page
+      .getByRole("button", { name: tr("zh-CN", "orders.faultEditor.title"), exact: true })
+      .click();
+    const notes = page
+      .getByRole("dialog")
+      .filter({ has: page.locator('[data-order-fault-editor="true"]') });
+    await expect(notes.getByRole("textbox")).toHaveCount(1);
+    await expect(notes.getByRole("textbox")).toHaveAccessibleName(
+      tr("zh-CN", "orders.notes.label"),
+    );
+    await expect(notes.getByText(tr("zh-CN", "orders.faultEditor.references"))).toHaveCount(0);
+    expect(
+      await notes.getByRole("textbox").evaluate((node) => node.getBoundingClientRect().height),
+    ).toBeCloseTo(104, 1);
+    await screenshot(page, width === 390 ? "a14-notes-390" : `dense-notes-${width}x${height}`);
+    await page.keyboard.press("Escape");
+    await page
+      .getByRole("button", { name: tr("zh-CN", "orders2b2.overview.customerInfo"), exact: true })
+      .click();
+    const customer = page.locator('[data-order-identity-editor="customer"]');
+    await bottomEditor(page, customer, width, height);
+    await expect(customer.locator("[data-customer-identity-review]")).toBeVisible();
+    await expect(
+      customer.getByText(tr("zh-CN", "orders.faultEditor.dirty"), { exact: true }),
+    ).toHaveCount(0);
+    await expect(customer.locator("[data-customer-identity-results]")).toBeVisible();
+    await expect(customer.getByRole("option")).toHaveCount(0);
+    if (width === 390) {
+      const phone = customer.locator("[data-phone-keypad-trigger]");
+      await phone.click();
+      await page.locator('[data-phone-keypad-key="clear"]').click();
+      for (const digit of "13800000000")
+        await page.locator(`[data-phone-keypad-key="${digit}"]`).click();
+      await page.locator("[data-phone-keypad-done]").click();
+      await expect(customer.getByRole("listitem")).toHaveCount(1);
+      await expect(customer.getByRole("listitem").first()).toContainText("13800000000");
+      await screenshot(page, "a14-customer-390");
+    }
+    if (width !== 390) await screenshot(page, `dense-customer-${width}x${height}`);
+    for (const control of await customer.locator("input,textarea").all()) {
+      expect(
+        await control.evaluate((node) => parseFloat(getComputedStyle(node).fontSize)),
+      ).toBeGreaterThanOrEqual(16);
+    }
+    await noOverflow(page);
+    expect(errors).toEqual([]);
+  });
+}
+
+for (const width of [320, 390, 430, 768, 1024, 1440]) {
+  test(`A14 new quote shared density ${width}px`, async ({ page }) => {
+    await page
+      .context()
+      .addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto("/orders/new");
+    await page.waitForLoadState("networkidle");
+    const form = page.locator('[data-new-order-form="true"]').filter({ visible: true });
+    if (width < 768) await page.locator('[data-mobile-edit="device"]').click();
+    for (const id of ["new-order-device-brand", "new-order-device-model"]) {
+      const field = page.locator(`#${id}`);
+      expect(
+        await field.evaluate((node) => {
+          const style = getComputedStyle(node);
+          return node.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        }),
+      ).toBeGreaterThanOrEqual(80);
+    }
+    if (width === 390) {
+      await page.locator("#new-order-device-brand").scrollIntoViewIfNeeded();
+      await screenshot(page, "dense-new-device-readable-390");
+    }
+    if (width < 768)
+      await page
+        .getByRole("dialog")
+        .getByRole("button", { name: tr("zh-CN", "common.close"), exact: true })
+        .click();
+    await form.locator("[data-fault-category]").first().getByRole("button").first().click();
+    const rows = form.locator("[data-order-workspace-quote-row]");
+    await expect(rows.first()).toBeVisible();
+    await noOverflow(page);
+    await screenshot(page, `a14-new-quote-${width}`);
+  });
+}
+
+test("A14 Italian short-height keypad keeps close save and done reachable", async ({ page }) => {
+  await page.context().addCookies([{ name: "repairdesk_locale", value: "it-IT", url: baseURL() }]);
+  await page.setViewportSize({ width: 320, height: 350 });
+  await page.goto("/orders/ord_1");
+  const quoteTrigger = page
+    .locator("#mobile-order-quote")
+    .getByRole("button", { name: tr("it-IT", "orders2b2.overview.quoteItems") });
+  await expect(quoteTrigger).toBeVisible();
+  // Native scroll-into-view ignores the fixed header and action dock. Position the
+  // actual click point in the visible content strip before exercising the keypad.
+  await quoteTrigger.evaluate((node) => {
+    const top =
+      document.querySelector("[data-mobile-order-header]")?.getBoundingClientRect().bottom ?? 0;
+    const bottom =
+      document.querySelector("[data-mobile-order-action-dock]")?.getBoundingClientRect().top ??
+      innerHeight;
+    const rect = node.getBoundingClientRect();
+    window.scrollBy(0, rect.y + rect.height / 2 - (top + bottom) / 2);
+  });
+  await expect
+    .poll(() =>
+      quoteTrigger.evaluate((node) => {
+        const rect = node.getBoundingClientRect();
+        return node.contains(
+          document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2),
+        );
+      }),
+    )
+    .toBe(true);
+  await quoteTrigger.click();
+  const editor = page.locator("#mobile-order-finance-editor");
+  const price = editor.locator("[data-money-keypad-trigger]").first();
+  await price.click();
+  const keypad = editor.locator("[data-money-keypad]");
+  await keypad.locator('[data-money-keypad-key="clear"]').click();
+  await keypad.locator('[data-money-keypad-key="1"]').click();
+  const close = editor.getByRole("button").filter({ has: page.locator("svg.lucide-x") });
+  const save = editor
+    .locator("[data-editor-footer]")
+    .getByRole("button", { name: tr("it-IT", "orders2b2.hero.save"), exact: true });
+  const done = keypad.locator("[data-money-keypad-done]");
+  await done.scrollIntoViewIfNeeded();
+  for (const control of [close, save, done]) {
+    await expect(control).toBeInViewport();
+    expect(
+      await control.evaluate((node) => {
+        const rect = node.getBoundingClientRect();
+        return node.contains(
+          document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2),
+        );
+      }),
+    ).toBe(true);
+  }
+  await screenshot(page, "a14-keypad-it-320x350");
+  await page.keyboard.press("Escape");
+  await expect(keypad).toHaveCount(0);
+  await expect(editor).toBeVisible();
+  await expect(price).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(
+    editor.getByRole("button", { name: tr("it-IT", "orders.faultEditor.keep") }),
+  ).toBeVisible();
+  await editor.getByRole("button", { name: tr("it-IT", "orders.faultEditor.keep") }).click();
+  await expect(price).toContainText("1");
+  await noOverflow(page);
+});
+
+test("A14 dense notes keep the draft through pending and failed save", async ({ page }) => {
+  await page.context().addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/orders/ord_1");
+  await page
+    .getByRole("button", { name: tr("zh-CN", "orders.faultEditor.title"), exact: true })
+    .click();
+  const notes = page
+    .getByRole("dialog")
+    .filter({ has: page.locator('[data-order-fault-editor="true"]') });
+  const draft = "合成测试备注：保留配件并检查屏幕。".repeat(12);
+  await notes.getByRole("textbox").fill(draft);
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/repairdesk/order/patch", async (route) => {
+    await pending;
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "Synthetic save unavailable" }),
+    });
+  });
+  await notes
+    .getByRole("button", { name: tr("zh-CN", "orders2b2.hero.save"), exact: true })
+    .click();
+  await expect(notes.getByRole("textbox")).toBeDisabled();
+  await screenshot(page, "dense-notes-pending-390");
+  release();
+  await expect(notes.getByRole("alert")).toBeVisible();
+  await expect(notes.getByRole("textbox")).toHaveValue(draft);
+  await expect(notes.getByRole("textbox")).toBeEnabled();
+  await screenshot(page, "dense-notes-error-390");
+  await page.keyboard.press("Escape");
+  await notes
+    .getByRole("button", { name: tr("zh-CN", "orders.faultEditor.keep"), exact: true })
+    .click();
+  await expect(notes.getByRole("textbox")).toHaveValue(draft);
+  await noOverflow(page);
+});
+
+test("A14 dense inline fields expose the enclosing keyboard focus ring", async ({ page }) => {
+  await page.context().addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/orders/ord_1");
+  await page
+    .getByRole("button", { name: tr("zh-CN", "orders2b2.overview.deviceIssue"), exact: true })
+    .click();
+  const device = page.locator('[data-order-identity-editor="device"]');
+  const brand = device.getByRole("textbox", {
+    name: tr("zh-CN", "customers.form.brand"),
+    exact: true,
+  });
+  await brand.focus();
+  expect(
+    await brand.evaluate((node) => {
+      const field = node.parentElement!.parentElement!;
+      const style = getComputedStyle(field);
+      return (
+        field.matches(":focus-within") &&
+        style.boxShadow !== "none" &&
+        style.boxShadow.includes("2px")
+      );
+    }),
+  ).toBe(true);
+  await screenshot(page, "dense-device-keyboard-focus-390");
 });

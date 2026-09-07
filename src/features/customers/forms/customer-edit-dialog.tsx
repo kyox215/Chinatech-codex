@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
+  DialogBody,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -71,6 +72,7 @@ export function CustomerEditDialog({
     <Dialog open={open} onOpenChange={session.requestClose}>
       <DialogContent
         mobileEditor
+        editorLayout
         onCloseAutoFocus={(event) => {
           if (returnFocusRef?.current?.isConnected) {
             event.preventDefault();
@@ -101,7 +103,9 @@ export function CustomerEditDialog({
             {t("customers.form.editDescription")}
           </DialogDescription>
         </DialogHeader>
-        <CustomerFields form={form} setForm={setForm} />
+        <DialogBody>
+          <CustomerFields form={form} setForm={setForm} />
+        </DialogBody>
         <DialogFooter className={`${componentOverlay.footer} ${componentOverlay.editorFooter}`}>
           <Button
             className="min-h-11 whitespace-normal lg:min-h-9"

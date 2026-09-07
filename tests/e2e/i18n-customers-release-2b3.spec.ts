@@ -785,7 +785,11 @@ async function expectNoUnexpectedFixedHan(root: Locator, locale: AppLocale) {
 
 async function switchLocale(page: Page, locale: AppLocale) {
   const compact = (page.viewportSize()?.width ?? 1440) < 1024;
-  if (compact) await page.keyboard.press("Control+b");
+  const sidebar = page.locator('[data-sidebar="sidebar"][data-mobile="true"]');
+  if (compact) {
+    if (!(await sidebar.isVisible())) await page.keyboard.press("Control+b");
+    await expect(sidebar).toBeVisible();
+  }
   const trigger = page.locator('[data-language-switcher-trigger="true"]:visible').first();
   await trigger.focus();
   await page.keyboard.press("Enter");
@@ -793,7 +797,12 @@ async function switchLocale(page: Page, locale: AppLocale) {
   await option.focus();
   await page.keyboard.press("Enter");
   await expect(page.locator("html")).toHaveAttribute("lang", locale);
-  if (compact) await page.keyboard.press("Escape");
+  await expect(option).toBeHidden();
+  await expect(trigger).toBeFocused();
+  if (compact) {
+    await page.keyboard.press("Escape");
+    await expect(sidebar).toBeHidden();
+  }
   expect(
     await page.evaluate(
       () => (window as Window & { __release2b3Document?: string }).__release2b3Document,

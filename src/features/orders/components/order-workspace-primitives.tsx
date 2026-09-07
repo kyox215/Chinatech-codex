@@ -1,8 +1,21 @@
 "use client";
 
-import type { ComponentType, ReactNode } from "react";
+import { useId, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
 
 import { MoneyText } from "@/components/orders/badges";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogBody,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { componentOverlay } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/shared/i18n/locale-provider";
 
@@ -79,43 +92,46 @@ export function OrderWorkspaceMoneyStrip({
     return (
       <div
         data-order-workspace-money-strip="true"
-        className={cn(
-          "grid min-w-0 grid-cols-3 items-stretch gap-1.5 border-t border-[var(--border-panel)] pt-2",
-          className,
-        )}
+        className={cn("grid min-w-0 grid-cols-3 items-stretch gap-1.5", className)}
       >
-        <div className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
-          <div className="text-xs leading-4 text-muted-foreground">
+        <div className="flex min-w-0 flex-col justify-between gap-1 rounded-lg bg-primary/5 px-2 py-1.5 max-[389px]:px-[3px]">
+          <div className="whitespace-normal text-[10px] leading-4 text-muted-foreground [overflow-wrap:anywhere]">
             {t("orders2b1.money.total")}
           </div>
           <MoneyText
             amount={total}
-            className="mt-1 flex h-9 items-center truncate text-base font-semibold tabular-nums text-primary"
+            className={cn(
+              "block min-h-8 whitespace-nowrap text-right font-mono text-base font-semibold leading-8 tabular-nums text-primary max-[389px]:text-xs",
+              Math.abs(total) >= 10000 && "text-sm",
+            )}
           />
         </div>
         <div
           data-new-order-field="deposit"
-          className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
+          className="flex min-w-0 flex-col justify-between gap-1 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 max-[389px]:px-[3px]"
         >
-          <div className="text-xs leading-4 text-muted-foreground">
+          <div className="whitespace-normal text-[10px] leading-4 text-muted-foreground [overflow-wrap:anywhere]">
             {t("orders2b1.money.deposit")}
           </div>
-          <div className="mt-1 min-w-0 [&>button]:h-9 [&>div]:h-9">
+          <div className="min-w-0 [&>button]:!h-auto [&>button]:min-h-8 [&>button]:rounded-none [&>button]:border-x-0 [&>button]:border-t-0 [&>button]:bg-transparent [&>button]:px-0 [&>button]:font-semibold [&>button>span:last-child]:overflow-visible [&>button>span:last-child]:text-clip [&>button>span:last-child]:whitespace-nowrap [&>button>span:last-child]:leading-6 max-[389px]:[&>button]:grid-cols-1 max-[389px]:[&>button]:gap-0 max-[389px]:[&>button>span:first-child]:text-left max-[389px]:[&>button>span:first-child]:text-[10px] max-[389px]:[&>button>span:first-child]:leading-3 [&>div]:!h-8 [&>div]:rounded-none [&>div]:border-x-0 [&>div]:border-t-0 [&>div]:bg-transparent [&>div]:px-0 [&>div]:font-semibold [&_input]:!h-8">
             {depositControl ?? (
               <MoneyText
                 amount={deposit}
-                className="flex h-9 items-center text-base font-semibold"
+                className="block min-h-8 whitespace-nowrap text-right font-mono text-base font-semibold leading-8 max-[389px]:text-xs"
               />
             )}
           </div>
         </div>
-        <div className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
-          <div className="text-xs leading-4 text-muted-foreground">
+        <div className="flex min-w-0 flex-col justify-between gap-1 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5 max-[389px]:px-[3px]">
+          <div className="whitespace-normal text-[10px] leading-4 text-muted-foreground [overflow-wrap:anywhere]">
             {t("orders2b1.money.balance")}
           </div>
           <MoneyText
             amount={balance}
-            className="mt-1 flex h-9 items-center truncate text-base font-semibold tabular-nums"
+            className={cn(
+              "block min-h-8 whitespace-nowrap text-right font-mono text-base font-semibold leading-8 tabular-nums max-[389px]:text-xs",
+              Math.abs(balance) >= 10000 && "text-sm",
+            )}
           />
         </div>
       </div>
@@ -256,6 +272,8 @@ export function OrderWorkspaceQuoteRow({
   priceFullWidth = false,
   className,
   appearance = "default",
+  note,
+  priceMessage,
 }: {
   children: ReactNode;
   price: ReactNode;
@@ -263,6 +281,8 @@ export function OrderWorkspaceQuoteRow({
   priceFullWidth?: boolean;
   className?: string;
   appearance?: "default" | "quote-editor";
+  note?: ReactNode;
+  priceMessage?: ReactNode;
 }) {
   return (
     <div
@@ -273,17 +293,214 @@ export function OrderWorkspaceQuoteRow({
           ? "grid-cols-[minmax(0,1fr)_auto]"
           : "grid-cols-[minmax(0,1fr)_78px_auto] sm:grid-cols-[minmax(0,1fr)_96px_auto]",
         appearance === "quote-editor" &&
-          "grid-cols-[minmax(0,1fr)_82px_36px] gap-2 rounded-none border-0 bg-transparent p-0 sm:grid-cols-[minmax(0,1fr)_96px_36px] sm:gap-2 sm:p-0",
+          "grid-cols-[minmax(0,1fr)_120px_28px] items-start gap-x-1.5 gap-y-1 rounded-none border-0 border-b border-[var(--border-panel)] bg-transparent px-0 py-1.5 sm:grid-cols-[minmax(0,1fr)_120px_28px] sm:gap-x-1.5 sm:px-0 sm:py-1.5 [&>div:nth-child(3)>button]:w-7",
         className,
       )}
     >
-      <div className="min-w-0">{children}</div>
+      <div className={cn("min-w-0", appearance === "quote-editor" && "grid min-h-9 gap-y-0.5")}>
+        <div className="min-w-0">{children}</div>
+        {appearance === "quote-editor" && note ? (
+          <OrderWorkspaceQuoteDisclosure className="text-[11px] leading-4 text-muted-foreground">
+            {note}
+          </OrderWorkspaceQuoteDisclosure>
+        ) : null}
+      </div>
       <div className={cn("min-w-0", priceFullWidth && "col-span-2 row-start-2")}>{price}</div>
       {action ? (
         <div className={cn("shrink-0", priceFullWidth && "col-start-2 row-start-1")}>{action}</div>
       ) : null}
+      {(appearance !== "quote-editor" && note) || priceMessage ? (
+        <div
+          data-order-quote-secondary
+          className="col-span-full grid min-w-0 grid-cols-subgrid items-start gap-x-2"
+        >
+          <div className="min-w-0">{appearance !== "quote-editor" ? note : null}</div>
+          <div className="col-span-2 min-w-0">{priceMessage}</div>
+        </div>
+      ) : null}
     </div>
   );
+}
+
+function OrderWorkspaceQuotePopup({
+  value,
+  onValueChange,
+  ariaLabel,
+  placeholder,
+  disabled,
+  invalid,
+  className,
+  containerClassName,
+}: {
+  value: ReactNode;
+  onValueChange?: (value: string) => void;
+  ariaLabel?: string;
+  placeholder?: string;
+  disabled?: boolean;
+  invalid?: boolean;
+  className?: string;
+  containerClassName?: string;
+}) {
+  const { t } = useLocale();
+  const id = useId();
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState("");
+  const openingValue = useRef("");
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const editable = Boolean(onValueChange);
+  const title = ariaLabel || t("orders2b2.overview.quoteItems");
+  const close = () => setOpen(false);
+  const save = () => {
+    if (disabled || !onValueChange) return;
+    const nextValue = draft.replace(/[\r\n]/g, "");
+    if (nextValue !== openingValue.current) onValueChange(nextValue);
+    close();
+  };
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next && disabled) return;
+        if (next) {
+          openingValue.current = typeof value === "string" ? value : "";
+          setDraft(openingValue.current);
+        }
+        setOpen(next);
+      }}
+    >
+      <div
+        data-order-quote-text-control={editable || undefined}
+        data-order-quote-disclosure={!editable || undefined}
+        className={cn("min-w-0", containerClassName)}
+      >
+        <DialogTrigger asChild>
+          <button
+            ref={triggerRef}
+            type="button"
+            data-keypad-defer-dismiss
+            disabled={disabled}
+            aria-label={ariaLabel}
+            aria-invalid={invalid || undefined}
+            aria-controls={open ? id : undefined}
+            className={cn(
+              "flex w-full min-w-0 items-center gap-1 rounded-sm text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+              className,
+            )}
+          >
+            <span className="min-w-0 flex-1 truncate">{value || placeholder || title}</span>
+            <ChevronDown className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+          </button>
+        </DialogTrigger>
+      </div>
+      <DialogContent
+        ref={contentRef}
+        id={id}
+        data-order-quote-popup="true"
+        data-quote-editable={editable}
+        mobileEditor
+        editorLayout
+        aria-describedby={undefined}
+        closeLabel={t("common.close")}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          contentRef.current?.focus({ preventScroll: true });
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          triggerRef.current?.focus({ preventScroll: true });
+        }}
+        onEscapeKeyDown={(event) => {
+          if (event.isComposing) event.preventDefault();
+        }}
+        className={cn(
+          componentOverlay.editorSurface,
+          componentOverlay.denseEditorSurface,
+          "max-h-[calc(100dvh-1rem)]",
+        )}
+      >
+        <DialogHeader className={componentOverlay.denseEditorHeader}>
+          <DialogTitle className="min-w-0 break-words text-base leading-5">{title}</DialogTitle>
+        </DialogHeader>
+        <DialogBody className={componentOverlay.denseEditorBody}>
+          {editable ? (
+            <Textarea
+              rows={4}
+              value={draft}
+              aria-label={title}
+              placeholder={placeholder}
+              disabled={disabled}
+              aria-invalid={invalid || undefined}
+              onChange={(event) => setDraft(event.target.value.replace(/[\r\n]/g, ""))}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" || event.nativeEvent.isComposing || event.keyCode === 229)
+                  return;
+                event.preventDefault();
+                event.stopPropagation();
+                save();
+              }}
+              className="min-h-28 resize-none text-base leading-6 md:text-base"
+            />
+          ) : (
+            <div className="whitespace-pre-wrap break-words text-sm leading-6 [overflow-wrap:anywhere]">
+              {value}
+            </div>
+          )}
+        </DialogBody>
+        <DialogFooter className={componentOverlay.denseEditorFooter}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={close}
+            className={!editable ? "col-span-2" : undefined}
+          >
+            {t(editable ? "common.cancel" : "common.close")}
+          </Button>
+          {editable ? (
+            <Button type="button" disabled={disabled} onClick={save}>
+              {t("orders2b2.hero.save")}
+            </Button>
+          ) : null}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function OrderWorkspaceQuoteTextField({
+  readOnly = false,
+  ...props
+}: {
+  value: string;
+  onValueChange: (value: string) => void;
+  ariaLabel: string;
+  placeholder?: string;
+  disabled?: boolean;
+  invalid?: boolean;
+  readOnly?: boolean;
+  className?: string;
+  containerClassName?: string;
+}) {
+  return (
+    <OrderWorkspaceQuotePopup
+      {...props}
+      onValueChange={readOnly ? undefined : props.onValueChange}
+      className={cn(
+        "min-h-9 rounded-lg border px-2 py-1.5 text-base leading-5 md:text-base lg:text-sm",
+        props.className,
+      )}
+    />
+  );
+}
+
+export function OrderWorkspaceQuoteDisclosure({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <OrderWorkspaceQuotePopup value={children} className={className} />;
 }
 
 export function OrderWorkspaceQuoteDisplayRow({
@@ -300,21 +517,24 @@ export function OrderWorkspaceQuoteDisplayRow({
   const { t } = useLocale();
   return (
     <OrderWorkspaceQuoteRow
-      className={className}
+      className={cn(
+        "grid-cols-[minmax(0,1fr)_112px_auto] sm:grid-cols-[minmax(0,1fr)_112px_auto]",
+        className,
+      )}
       price={
-        <MoneyText amount={amount} className="block truncate text-right text-xs font-medium" />
+        <MoneyText
+          amount={amount}
+          className="block whitespace-nowrap text-right text-xs font-medium"
+        />
       }
     >
-      <div className="truncate text-xs font-medium" title={name}>
+      <OrderWorkspaceQuoteDisclosure className="text-xs font-medium">
         {name || t("orders2b1.quote.unnamedItem")}
-      </div>
+      </OrderWorkspaceQuoteDisclosure>
       {note ? (
-        <div
-          className="truncate text-[11px] leading-4 text-muted-foreground lg:text-[11px]"
-          title={note}
-        >
+        <OrderWorkspaceQuoteDisclosure className="text-[11px] leading-4 text-muted-foreground">
           {note}
-        </div>
+        </OrderWorkspaceQuoteDisclosure>
       ) : null}
     </OrderWorkspaceQuoteRow>
   );

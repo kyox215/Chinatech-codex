@@ -144,7 +144,10 @@ export function PhoneKeypadInput({
       updateDraft("clear");
       return;
     }
-    if (event.key === "Enter") setOpenState(false);
+    if (event.key === "Enter") {
+      event.preventDefault();
+      setOpenState(false);
+    }
   };
 
   if (keyboardSurface === "native") {

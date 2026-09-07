@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogBody,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -87,6 +88,7 @@ export function CustomerTagsDialog({
     <Dialog open={open} onOpenChange={session.requestClose}>
       <DialogContent
         mobileEditor
+        editorLayout
         data-confirm-discard={session.confirmDiscard}
         closeLabel={t("customers.detail.close")}
         className={`${componentOverlay.formContent} ${componentOverlay.editorSurface} ${editorConfirmationClass}`}
@@ -111,47 +113,49 @@ export function CustomerTagsDialog({
             {t("customers.form.tagsDescription")}
           </DialogDescription>
         </DialogHeader>
-        <div className="min-w-0 space-y-2">
-          {allTags.map((tag) => {
-            const isSelected = selected.includes(tag.id);
-            return (
-              <RepairOsBusinessCard
-                key={tag.id}
-                as="label"
-                leading={
-                  <>
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggle(tag.id)}
-                      className="peer sr-only"
-                    />
-                    <span
-                      className={cn(
-                        "grid size-4 shrink-0 place-content-center rounded-sm border border-primary shadow transition-colors peer-focus-visible:outline-none peer-focus-visible:ring-1 peer-focus-visible:ring-ring",
-                        isSelected
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-background text-transparent",
-                      )}
-                      aria-hidden="true"
-                    >
-                      <Check className="size-4" />
-                    </span>
-                  </>
-                }
-                leadingClassName="grid place-items-center"
-                className={cn(
-                  repairOs.businessCardDense,
-                  "cursor-pointer select-none items-center text-sm",
-                )}
-                bodyClassName="flex min-w-0 items-center gap-2"
-              >
-                <span className="size-2.5 rounded-full" style={{ background: tag.color }} />
-                <span className="min-w-0 whitespace-normal break-words">{tag.name}</span>
-              </RepairOsBusinessCard>
-            );
-          })}
-        </div>
+        <DialogBody>
+          <div className="min-w-0 space-y-2">
+            {allTags.map((tag) => {
+              const isSelected = selected.includes(tag.id);
+              return (
+                <RepairOsBusinessCard
+                  key={tag.id}
+                  as="label"
+                  leading={
+                    <>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggle(tag.id)}
+                        className="peer sr-only"
+                      />
+                      <span
+                        className={cn(
+                          "grid size-4 shrink-0 place-content-center rounded-sm border border-primary shadow transition-colors peer-focus-visible:outline-none peer-focus-visible:ring-1 peer-focus-visible:ring-ring",
+                          isSelected
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-background text-transparent",
+                        )}
+                        aria-hidden="true"
+                      >
+                        <Check className="size-4" />
+                      </span>
+                    </>
+                  }
+                  leadingClassName="grid place-items-center"
+                  className={cn(
+                    repairOs.businessCardDense,
+                    "cursor-pointer select-none items-center text-sm",
+                  )}
+                  bodyClassName="flex min-w-0 items-center gap-2"
+                >
+                  <span className="size-2.5 rounded-full" style={{ background: tag.color }} />
+                  <span className="min-w-0 whitespace-normal break-words">{tag.name}</span>
+                </RepairOsBusinessCard>
+              );
+            })}
+          </div>
+        </DialogBody>
         <DialogFooter className={`${componentOverlay.footer} ${componentOverlay.editorFooter}`}>
           <Button
             className="min-h-11 whitespace-normal lg:min-h-9"

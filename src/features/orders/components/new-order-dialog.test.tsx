@@ -7,6 +7,15 @@ import { translateMessage } from "@/shared/i18n/messages";
 
 import { NewOrderDialog } from "./new-order-dialog";
 
+vi.mock("@/components/navigation-guard-provider", () => ({
+  useNavigationGuard: () => ({
+    runGuardedTransition: ({ run }: { run: () => void }) => {
+      run();
+      return Promise.resolve({ status: "executed" });
+    },
+  }),
+}));
+
 vi.mock("@/features/orders/screens/new-order-screen", async () => {
   await new Promise((resolve) => setTimeout(resolve, 250));
   return {
@@ -39,13 +48,15 @@ function renderDialog(locale: AppLocale, onOpenChange = vi.fn(), onCreated = vi.
 }
 
 describe("NewOrderDialog i18n", () => {
-  it("localizes the Suspense loading status without changing lazy loading", () => {
-    renderDialog("en");
+  it("keeps a visible guarded close action while the localized screen is loading", () => {
+    const { onOpenChange } = renderDialog("en");
 
     expect(screen.getByText(translateMessage("en", "orders2b1.new.dialogLoading"))).toHaveAttribute(
       "role",
       "status",
     );
+    fireEvent.click(screen.getByRole("button", { name: translateMessage("en", "common.close") }));
+    expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
   });
 
   it.each(["zh-CN", "it-IT", "en"] as const)(

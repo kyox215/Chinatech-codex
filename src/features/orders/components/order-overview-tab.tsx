@@ -37,6 +37,7 @@ import {
   OrderWorkspaceEmptyBlock,
   OrderWorkspaceMoneyStrip,
   OrderWorkspaceQuoteDisplayRow,
+  OrderWorkspaceQuoteTextField,
 } from "@/features/orders/components/order-workspace-primitives";
 import { OrderPhotoPreviewDialog } from "@/features/orders/components/order-photo-preview-dialog";
 import {
@@ -101,7 +102,7 @@ type OrderEditContext = {
 type InfoTone = "plain" | "hero" | "soft" | "note" | "metric" | "metricStrong";
 
 const overviewPanelClass =
-  "min-w-0 overflow-hidden border-border/70 bg-card/95 p-2.5 shadow-sm sm:p-4";
+  "min-w-0 overflow-hidden border-border/70 bg-card/95 p-2.5 shadow-sm sm:p-3";
 const inlineEditInputClass =
   "!h-6 !rounded-none !border-0 !border-b !border-transparent !bg-transparent !px-0 !py-0 !shadow-none focus-visible:!border-primary/45 focus-visible:!ring-0";
 const inlineEditTextareaClass =
@@ -142,6 +143,7 @@ export function OrderOverviewTab({
   workflow,
   onShowRecords,
   photoAttachments = [],
+  showPhotoPanel = true,
   signatureAttachments = [],
   photoUploadPending = false,
   onPhotoCapture,
@@ -177,6 +179,7 @@ export function OrderOverviewTab({
   workflow?: OrderWorkflow;
   onShowRecords?: () => void;
   photoAttachments?: OrderAttachment[];
+  showPhotoPanel?: boolean;
   signatureAttachments?: OrderAttachment[];
   photoUploadPending?: boolean;
   onPhotoCapture?: (kind: OrderDetailPhotoCaptureKind, trigger: HTMLButtonElement) => void;
@@ -237,7 +240,10 @@ export function OrderOverviewTab({
   return (
     <motion.div
       variants={fadeUp}
-      className={cn("min-w-0", surface !== "page" && detailWorkspace.orderDetailContent)}
+      className={cn(
+        "@container/order-overview min-w-0",
+        surface !== "page" && detailWorkspace.orderDetailContent,
+      )}
     >
       <div className="min-w-0 space-y-2">
         {surface !== "dialog" ? (
@@ -289,7 +295,7 @@ export function OrderOverviewTab({
         ) : (
           <div
             data-order-detail-main-grid="true"
-            className="grid min-w-0 items-stretch gap-2 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(400px,1.28fr)_minmax(280px,0.92fr)]"
+            className="grid min-w-0 items-stretch gap-2 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)] @[1040px]/order-overview:grid-cols-[minmax(0,0.9fr)_minmax(0,1.28fr)_minmax(0,0.92fr)]"
           >
             {customerPanel}
             {devicePanel}
@@ -299,7 +305,7 @@ export function OrderOverviewTab({
         {surface !== "dialog" ? (
           <div
             data-order-detail-secondary-grid="true"
-            className="grid min-w-0 gap-2 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)] xl:grid-cols-[minmax(250px,0.9fr)_minmax(400px,1.28fr)_minmax(280px,0.92fr)]"
+            className="grid min-w-0 gap-2 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)] @[1040px]/order-overview:grid-cols-[minmax(0,0.9fr)_minmax(0,1.28fr)_minmax(0,0.92fr)]"
           >
             <OrderKeyInfoCard
               order={order}
@@ -308,13 +314,15 @@ export function OrderOverviewTab({
               className="h-full"
               custodyControl={custodyControl}
             />
-            <DesktopOrderPhotosPanel
-              attachments={photoAttachments}
-              uploadPending={photoUploadPending}
-              onCapture={onPhotoCapture}
-              surface={surface}
-              className="h-full"
-            />
+            {showPhotoPanel ? (
+              <DesktopOrderPhotosPanel
+                attachments={photoAttachments}
+                uploadPending={photoUploadPending}
+                onCapture={onPhotoCapture}
+                surface={surface}
+                className="h-full"
+              />
+            ) : null}
             <DesktopRecordsSummaryPanel
               events={events}
               messages={messages}
@@ -1583,14 +1591,14 @@ function FinanceInlineEditor({
               key={index}
               className="grid min-w-0 grid-cols-[minmax(0,1fr)_86px_24px] items-start gap-x-1.5 gap-y-0.5 rounded-md border border-border/60 bg-surface-muted/35 px-2 py-1.5 sm:rounded-lg"
             >
-              <Input
-                aria-label={t("orders2b2.overview.itemName", { index: index + 1 })}
+              <OrderWorkspaceQuoteTextField
+                ariaLabel={t("orders2b2.overview.itemName", { index: index + 1 })}
                 value={item.name}
                 placeholder={t("orders2b2.overview.itemPlaceholder")}
-                className={cn(inlineFinanceInputClass, "min-w-0 text-xs font-medium")}
-                onChange={(event) =>
+                className="min-h-6 rounded-none border-0 border-b border-transparent bg-transparent px-0 py-0 text-sm font-medium focus-visible:border-primary/45 focus-visible:ring-0"
+                onValueChange={(name) =>
                   patchFault(index, {
-                    name: event.target.value,
+                    name,
                     catalog_key: undefined,
                   })
                 }
@@ -1613,15 +1621,13 @@ function FinanceInlineEditor({
               >
                 <Trash2 className="size-3 text-muted-foreground" />
               </Button>
-              <Input
-                aria-label={t("orders2b2.overview.itemNote", { index: index + 1 })}
+              <OrderWorkspaceQuoteTextField
+                ariaLabel={t("orders2b2.overview.itemNote", { index: index + 1 })}
                 value={item.note}
                 placeholder={t("orders2b2.overview.notePlaceholder")}
-                className={cn(
-                  inlineFinanceInputClass,
-                  "col-span-2 min-w-0 text-[11px] text-muted-foreground lg:text-xs lg:leading-4",
-                )}
-                onChange={(event) => patchFault(index, { note: event.target.value })}
+                containerClassName="col-span-2"
+                className="min-h-6 rounded-none border-0 border-b border-transparent bg-transparent px-0 py-0 text-sm text-muted-foreground focus-visible:border-primary/45 focus-visible:ring-0"
+                onValueChange={(note) => patchFault(index, { note })}
               />
             </div>
           ))}

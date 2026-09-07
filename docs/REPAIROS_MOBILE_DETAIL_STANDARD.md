@@ -167,11 +167,13 @@ min-w-0 overflow-hidden
 
 ### 订单报价编辑紧凑变体（2026-09-05）
 
-订单详情与新建报价共用 12 类四列三行选择器：左侧 2/3 的图标和短标签直接选择，右侧 1/3 箭头展开细项，选中显示主色与勾选。Owner 已选 A 的明确密度变体为 33px 分类目标、4px 行距，共107px；主要保存/取消操作保持44px，真实手机输入至少16px；卡内使用 8–10px 间距、短字段并排，不叠加内卡或明细内滚动。
+订单详情与新建报价共用12类四列三行选择器：左侧2/3直接选择，右侧1/3展开完整类别名称及细项，选中显示主色与勾选。Instruction14将分类保持固定36px单行与4px间距，长语言不自动增高；主要保存/取消44px，真实手机输入至少16px，卡内8–10px间距。
 
-报价金额与定金复用 `MoneyKeypadInput`：小于 1024px 按需打开 `VirtualKeyboardDock`，桌面遵循既有原生输入/虚拟键盘偏好；编辑器打开先聚焦非输入容器，金额中间草稿与保存值保持原语义。明细按名称、欧元价格、删除排列；新建目录名称只读，自定义名称可编辑。总额、定金、尾款使用 `OrderWorkspaceMoneyStrip appearance="quote-editor"` 同排等高，项目行使用 `OrderWorkspaceQuoteRow`；计价及创建载荷不变。空报价显示未填并提示补值，明确输入 0 仍按原校验处理。
+报价金额与定金复用 `MoneyKeypadInput`，小于1024px按需打开原键盘，桌面遵循既有偏好。Instruction15 的名称和规格始终单行，点击后复用共享报价弹窗，不增加原行高度。各入口保留原有编辑能力，包括原可编辑的目录名称与桌面规格；仅原展示型内容只读。弹窗使用本地草稿，取消不改父草稿，无改动保存仅关闭；实际修改后的保存或非输入法Enter只更新父报价草稿，不提交外层表单。手机使用底部弹窗、桌面使用居中弹窗，均先聚焦容器，不自动打开键盘。Escape只关闭内层并回到原触发器，回焦不重开；正文可滚动，关闭/保存44px始终可达。金额三列、完整数字、16px编辑、计价载荷、空值和显式0规则保持。
 
 详情点击报价内容打开稳定底部编辑器，草稿与保存/取消保留；人员/供应商从当前值直接打开选择面板，成功才关闭。移动详情底部核心动作至少 44px，并沿用原底部避让；历史记录继续使用顶部页签，不增加重复入口。
+
+报价数字保持整串单行，不能拆开小数位。小于390px三列摘要可分开货币符号并使用紧凑只读金额字号；真实编辑输入仍16px，名称和规格只有在显式打开的弹窗内换行，原报价行保持单行。
 
 ## 5. 颜色与层级
 
@@ -334,13 +336,13 @@ document.documentElement.scrollWidth <= window.innerWidth
 
 ### Orders workspace grouping (TASK-20260905-004)
 
-Order detail uses two top-level groups, Details and History, on compact pages and desktop pages/workspaces. Compact tabs are inside the measured floating header. Details retains device/customer, responsibility, finance and photos; History shows both complete timeline events and notification bodies. Panels retain local state and individual scroll positions; switching order resets the selected group, while locale switching preserves it.
+Order detail uses three top-level groups: Overview, Photos and Records. Compact tabs are inside the measured floating header. Overview retains device/customer, responsibility and finance; Photos has its own attachment workspace; Records shows complete timeline events and notification bodies. Panels retain local state and individual scroll positions; switching order resets the selected group, while locale switching preserves it.
 
-Fault/diagnosis editing uses two visible text fields, independent intake/repair permission checks, and optional collapsed name-only repair references on compact screens. Desktop uses the existing large Dialog with text first and a narrow reference column. The opening version is the save baseline; remote changes never replace dirty text. Save errors retain drafts; conflict reload explicitly confirms discarding the draft. Every close path is guarded while pending and confirms dirty discard. Diagnosis may be explicitly cleared.
+A14 notes editing uses one visible issue_description textbox and the existing intake permission. Historical diagnosis_result stays read-only in detail and is omitted from note saves. The repair reference panel is removed; desktop keeps its independent Dialog shell. The opening version is the save baseline; remote changes never replace dirty text. Save errors retain drafts; conflict reload explicitly confirms discarding the draft. Every close path is guarded while pending and confirms dirty discard. Existing diagnosis data is preserved by note edits.
 
-### 故障编辑面板补充（2026-09-05）
+### 单备注编辑面板（A14，2026-09-06）
 
-故障与诊断编辑使用独立字段帮助、必填/选填/只读标识和可见草稿状态。移动文本域使用16px输入字号及约112/96px稳定高度；主体单滚动，底部双44px操作和安全区保持可达。参考项目仅追加名称，不改变报价金额；追加后的文本状态和单一live区域共同反馈结果。放弃及重载在原浮层中显示确认步骤，默认继续编辑，Escape/X返回草稿，外部点击不放弃，重载失败保留草稿。DeviceUnlockEditSheet仅是移动详情表面，桌面使用其他现有流程，不将其计为同一表面覆盖。
+单一issue_description文本域沿用接单编辑权限；历史diagnosis_result只读展示、不进入备注保存载荷。手机文本域16px、104px高；桌面独立Dialog提供200px文本域和右对齐按钮。主体单滚动，关闭与保存保持44px。旧双字段/参考项目追加方案已由A14替代。放弃及重载保留原浮层确认步骤，默认继续编辑，Escape/X返回草稿；pending禁止退出，错误与冲突保留草稿。
 
 当前全局复用规则与有限覆盖/例外清单见 [GLOBAL_CONTENT_EDITING_STANDARD.md](GLOBAL_CONTENT_EDITING_STANDARD.md)。
 
@@ -349,3 +351,13 @@ Fault/diagnosis editing uses two visible text fields, independent intake/repair 
 Inside an existing status strip, custody receive/deliver, unknown backfill, cancelled return and terminal correction entry actions use `Button variant="ghost"` with the opt-in `componentAction.status` family. Place state at the start and the wrapping action group at the end. Entry actions have no permanent shadow or raised border; retain visible hover, pressed, keyboard focus and disabled states. Mobile targets are at least 36 px tall (ordinary embedded row approximately 40 px); desktop uses an independent 28 px minimum. Long labels wrap naturally, including at 320 px, without fixed heights or clipping. Warning/correction entries retain warning text and contextual explanation; compact terminal menus keep destructive items distinct.
 
 This presentation contract does not change the confirmation Sheet/Dialog, final confirmation button hierarchy, permissions, pending guard, reason validation, version, payload or custody transitions. Dedicated terminal workflow banners and final confirmation footers retain their stronger hierarchy. Read-only custody badges and next-action guidance remain non-interactive. Finite audit and synthetic screenshots belong to TASK-20260906-004.
+
+
+### A14 compact order editors (2026-09-06)
+
+Name/price/delete share a 36px visual row with separate specification/error tracks; Add custom is 36px. Money summary labels and value baselines align across equal tiles, with one subtle deposit edit boundary. Inputs remain 16px on mobile and final Save/Cancel remain 44px. Identity/finance/unlock editors opt into a non-scrolling header/close and footer with one scrolling body. Brand/model suggestions precede IMEI capture, accessories and device notes. Notes editing preserves legacy diagnosis without merging or clearing it. Customer matches display phone first, preserve the current customer identity and only warn on duplicate numbers; new orders retain explicit selection. Refer to GLOBAL_CONTENT_EDITING_STANDARD.md for the finite consumer and evidence boundary.
+
+
+### A14 手机新建工单摘要编辑（2026-09-06）
+
+新建页面在手机宽度复用Floating Card令牌，顶部52px导航、手机号优先摘要、显式保管及附物/解锁短入口。报价维持12组4×3、固定36px单行、4px间距和左右选择语义；长名称/规格点击弹窗展示，沿用各入口原有可编辑性；原可编辑目录名称及桌面规格仍可编辑，仅原展示型内容只读，金额三列。照片三槽、单备注、设置及唯一创建入口保留。客户/设备/补充编辑使用一个活动Sheet，历史、新客户及IMEI扫描返回保留草稿。关闭/完成44px、输入16px；320×350正文和键盘各有有界滚动。弹窗打开不聚焦文本，关闭并回焦；电话Enter不重开键盘。桌面独立工作台，创建后主体只读，上传遵循canUploadPhoto，部分成功只恢复未成功照片.

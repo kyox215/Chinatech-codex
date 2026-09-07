@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { createRepairDeskIndexedDbOfflineStore } from "@/features/offline/model/offline-indexeddb-store";
 import {
@@ -70,7 +70,9 @@ export function useNewOrderOfflineAutosave({
   const scopeStoreId = scope?.storeId;
   const scopeUserId = scope?.userId;
 
-  useEffect(() => {
+  // A navigation guard can read immediately after a synchronous form reset.
+  // Publish the committed form before that read, without waiting for passive effects.
+  useLayoutEffect(() => {
     latestFormRef.current = form;
   }, [form]);
 

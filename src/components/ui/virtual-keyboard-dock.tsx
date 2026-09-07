@@ -66,7 +66,7 @@ export function VirtualKeyboardDock({
       if (!scopeHost && event.key === "Escape") onOpenChange(false);
     };
 
-    const handlePointerDown = (event: globalThis.PointerEvent) => {
+    const dismissOutside = (event: globalThis.PointerEvent | globalThis.MouseEvent) => {
       const target = event.target;
       if (!(target instanceof Node)) return;
       if (panelRef.current?.contains(target)) return;
@@ -74,16 +74,28 @@ export function VirtualKeyboardDock({
       restoreFocus.current = false;
       onOpenChange(false);
     };
+    const defersDismiss = (target: EventTarget | null) =>
+      target instanceof Element && Boolean(target.closest("[data-keypad-defer-dismiss]"));
+    const handlePointerDown = (event: globalThis.PointerEvent) => {
+      // Removing a scoped dock can move this opt-in popup trigger before pointerup.
+      // Keep its geometry until the same click activates the next surface.
+      if (!defersDismiss(event.target)) dismissOutside(event);
+    };
+    const handleClick = (event: globalThis.MouseEvent) => {
+      if (defersDismiss(event.target)) dismissOutside(event);
+    };
     const dismiss = () => onOpenChange(false);
     scopeHost?.addEventListener("rd-keypad-dismiss", dismiss);
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("click", handleClick);
 
     return () => {
       scopeHost?.removeEventListener("rd-keypad-dismiss", dismiss);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("click", handleClick);
     };
   }, [onOpenChange, open, triggerRef, scopeHost]);
 

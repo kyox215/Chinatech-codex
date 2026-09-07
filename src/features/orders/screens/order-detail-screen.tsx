@@ -3,6 +3,7 @@
 import {
   OrderWorkspaceQuoteRow,
   OrderWorkspaceMoneyStrip,
+  OrderWorkspaceQuoteTextField,
 } from "@/features/orders/components/order-workspace-primitives";
 import {
   useCallback,
@@ -295,7 +296,7 @@ import type {
 } from "@/lib/repairdesk/types";
 
 type WorkflowTransitionAction = ReturnType<typeof getWorkflowTransitionActions>[number];
-type DesktopDetailView = "overview" | "records";
+type DesktopDetailView = "overview" | "records" | "photos";
 const imeiOcrImageAccept =
   "image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif";
 const imeiOcrImageMimeTypes = new Set([
@@ -389,7 +390,7 @@ export function OrderDetailScreen({
   }, []);
   const [desktopDetailView, setDesktopDetailView] = useState<DesktopDetailView>("overview");
   const desktopScrollerRef = useRef<HTMLDivElement>(null);
-  const desktopScrollPositions = useRef({ overview: 0, records: 0 });
+  const desktopScrollPositions = useRef({ overview: 0, records: 0, photos: 0 });
   const [desktopFaultEditing, setDesktopFaultEditing] = useState(false);
   const desktopFaultTriggerRef = useRef<HTMLButtonElement>(null);
   const [faultSessionScope, setFaultSessionScope] = useState<{
@@ -463,7 +464,7 @@ export function OrderDetailScreen({
   useEffect(() => {
     setDesktopDetailView("overview");
     setDesktopFaultEditing(false);
-    desktopScrollPositions.current = { overview: 0, records: 0 };
+    desktopScrollPositions.current = { overview: 0, records: 0, photos: 0 };
   }, [id]);
 
   const changeDesktopDetailView = useCallback(
@@ -1459,6 +1460,7 @@ export function OrderDetailScreen({
   const safeDesktopDetailView = desktopDetailView;
   const desktopDetailTabs: OrderDetailTab<DesktopDetailView>[] = [
     { key: "overview", label: t("orders.workspace.details") },
+    { key: "photos", label: t("orders2b2.overview.photos") },
     { key: "records", label: t("orders.workspace.history") },
   ];
   const renderCustodyPanel = () => (
@@ -1787,7 +1789,7 @@ export function OrderDetailScreen({
           {
             <div
               data-order-detail-view-switcher="true"
-              className="relative z-10 mx-auto mb-2 flex w-fit max-w-full min-w-0 items-center gap-2"
+              className="relative z-10 mx-auto mb-2 flex w-full max-w-[1320px] min-w-0 flex-wrap items-center justify-between gap-2"
             >
               <OrderDetailTabs
                 tabs={isEditing ? desktopDetailTabs.slice(0, 1) : desktopDetailTabs}
@@ -1797,33 +1799,38 @@ export function OrderDetailScreen({
                 idPrefix="order-detail-workspace"
                 className="!m-0 min-w-0"
               />
-              {!isEditing &&
-              (data.capabilities?.canEditIntake || data.capabilities?.canEditRepair) ? (
-                <Button
-                  ref={desktopFaultTriggerRef}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    handleFaultSessionChange(true);
-                    setDesktopFaultEditing(true);
-                  }}
-                >
-                  {t("orders.faultEditor.title")}
-                </Button>
-              ) : null}
-              {canOpenDiagnosisQuote ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-11 min-w-11 shrink-0 px-3 text-xs lg:h-8 lg:min-w-0 lg:px-2.5"
-                  onClick={() => setDiagnosisQuoteOpen(true)}
-                >
-                  {data.capabilities?.canPrepareQuote
-                    ? t("orders2b2.diagnosis.openPrepare")
-                    : t("orders2b2.diagnosis.openRecord")}
-                </Button>
-              ) : null}
+              <div
+                className="flex min-w-0 flex-wrap items-center justify-end gap-2"
+                data-order-detail-editor-actions="true"
+              >
+                {!isEditing &&
+                (data.capabilities?.canEditIntake || data.capabilities?.canEditRepair) ? (
+                  <Button
+                    ref={desktopFaultTriggerRef}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      handleFaultSessionChange(true);
+                      setDesktopFaultEditing(true);
+                    }}
+                  >
+                    {t("orders.faultEditor.title")}
+                  </Button>
+                ) : null}
+                {canOpenDiagnosisQuote ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-11 min-w-11 shrink-0 px-3 text-xs lg:h-8 lg:min-w-0 lg:px-2.5"
+                    onClick={() => setDiagnosisQuoteOpen(true)}
+                  >
+                    {data.capabilities?.canPrepareQuote
+                      ? t("orders2b1.quote.total")
+                      : t("orders2b2.diagnosis.openRecord")}
+                  </Button>
+                ) : null}
+              </div>
             </div>
           }
 
@@ -1946,6 +1953,7 @@ export function OrderDetailScreen({
                     workflow={workflow}
                     onShowRecords={showDesktopRecords}
                     photoAttachments={photoAttachments}
+                    showPhotoPanel={false}
                     signatureAttachments={signatureAttachments}
                     photoUploadPending={attachmentUpload.isPending}
                     onPhotoCapture={
@@ -2004,25 +2012,31 @@ export function OrderDetailScreen({
                       ) : null}
                     </div>
                   ) : null}
-                  {surface === "dialog" ? (
-                    <DesktopOrderPhotosPanel
-                      attachments={photoAttachments}
-                      uploadPending={attachmentUpload.isPending}
-                      onCapture={
-                        data.capabilities?.canUploadPhoto === true && !isVoided
-                          ? (kind, trigger) => {
-                              setDesktopPhotoCaptureKind(kind);
-                              desktopPhotoTriggerRef.current = trigger;
-                              desktopPhotoOutsideDismissedRef.current = false;
-                              setDesktopPhotoCaptureOpen(true);
-                            }
-                          : undefined
-                      }
-                      surface={surface}
-                    />
-                  ) : null}
                 </section>
               }
+              <section
+                id="order-detail-workspace-panel-photos"
+                hidden={safeDesktopDetailView !== "photos"}
+                role="tabpanel"
+                aria-labelledby="order-detail-workspace-tab-photos"
+                className={cn("min-w-0", detailWorkspace.orderDetailContent)}
+              >
+                <DesktopOrderPhotosPanel
+                  attachments={photoAttachments}
+                  uploadPending={attachmentUpload.isPending}
+                  onCapture={
+                    data.capabilities?.canUploadPhoto === true && !isVoided
+                      ? (kind, trigger) => {
+                          setDesktopPhotoCaptureKind(kind);
+                          desktopPhotoTriggerRef.current = trigger;
+                          desktopPhotoOutsideDismissedRef.current = false;
+                          setDesktopPhotoCaptureOpen(true);
+                        }
+                      : undefined
+                  }
+                  surface={surface}
+                />
+              </section>
               <section
                 data-order-records-workspace="true"
                 id="order-detail-workspace-panel-records"
@@ -2288,12 +2302,25 @@ function CancelledReturnOverlay({
   const isDesktop = useDesktopActionSurface();
   const footer = (
     <>
-      <Button type="button" variant="ghost" disabled={pending} onClick={() => onOpenChange(false)}>
+      <Button
+        type="button"
+        variant="ghost"
+        className="h-auto min-h-11 min-w-0 whitespace-normal py-2 text-center"
+        disabled={pending}
+        onClick={() => onOpenChange(false)}
+      >
         {t("orders2b2.custody.back")}
       </Button>
-      <Button type="button" disabled={pending} onClick={onConfirm}>
+      <Button
+        type="button"
+        className="h-auto min-h-11 min-w-0 whitespace-normal py-2 text-center"
+        disabled={pending}
+        onClick={onConfirm}
+      >
         <PackageCheck className="size-4" />
-        {pending ? t("orders2b2.custody.confirming") : t("orders2b2.custody.confirmReturn")}
+        <span className="min-w-0 [overflow-wrap:anywhere]">
+          {pending ? t("orders2b2.custody.confirming") : t("orders2b2.custody.confirmReturn")}
+        </span>
       </Button>
     </>
   );
@@ -2406,11 +2433,18 @@ function OrderCustodyChangeOverlay({
   );
   const footer = (
     <>
-      <Button type="button" variant="ghost" disabled={pending} onClick={() => onOpenChange(false)}>
+      <Button
+        type="button"
+        variant="ghost"
+        className="h-auto min-h-11 min-w-0 whitespace-normal py-2 text-center"
+        disabled={pending}
+        onClick={() => onOpenChange(false)}
+      >
         {t("common.cancel")}
       </Button>
       <Button
         type="button"
+        className="h-auto min-h-11 min-w-0 whitespace-normal py-2 text-center [overflow-wrap:anywhere]"
         disabled={
           pending ||
           !target ||
@@ -3889,7 +3923,7 @@ function MobileOrderDetailView({
             }}
           >
             <div className="flex min-w-0 items-center justify-between gap-2">
-              <MobileSectionTitle icon={FileText} title={t("orders2b2.overview.issue")} />
+              <MobileSectionTitle icon={FileText} title={t("orders.notes.label")} />
               <ChevronRight
                 className="size-3.5 shrink-0 text-muted-foreground"
                 aria-hidden="true"
@@ -3898,11 +3932,17 @@ function MobileOrderDetailView({
             <p className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-xs font-medium leading-4 text-foreground">
               {order.issue_description || "-"}
             </p>
-            <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap break-words text-[10px] leading-4 text-muted-foreground">
-              {t("orders2b2.overview.diagnosis")}：
-              {order.diagnosis_result || t("orders2b2.overview.notConfigured")}
-            </p>
           </button>
+          {order.diagnosis_result ? (
+            <details className="mt-2 min-w-0 border-t border-[var(--border-panel)] pt-1">
+              <summary className="min-h-8 cursor-pointer text-xs leading-8 text-muted-foreground">
+                {t("orders2b2.overview.diagnosis")}
+              </summary>
+              <p className="whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+                {order.diagnosis_result}
+              </p>
+            </details>
+          ) : null}
         </section>
 
         <section data-mobile-order-people="true" className={mobileDetailCardClass}>
@@ -4010,6 +4050,7 @@ function MobileOrderDetailView({
 
         <OrderIdentityEditor
           group={identityGroup}
+          customerId={data.order.customer_id}
           returnFocusRef={identityTriggerRef}
           scopeKey={editorScopeKey}
           initial={identityInitial}
@@ -4094,7 +4135,7 @@ function MobileOrderDetailView({
                       key={`${item.name}-${index}`}
                       className="flex min-w-0 items-center gap-1 text-[11px] leading-4 lg:text-xs"
                     >
-                      <span className="min-w-0 flex-1 break-words text-foreground">
+                      <span className="min-w-0 flex-1 truncate text-foreground">
                         {item.name || t("orders2b2.mobile.unnamedItem")}
                       </span>
                       <MoneyText amount={item.price} className="shrink-0 font-semibold" />
@@ -4110,6 +4151,7 @@ function MobileOrderDetailView({
             <Dialog open={financeEditing} onOpenChange={closeFinance}>
               <DialogContent
                 mobileEditor
+                editorLayout
                 id="mobile-order-finance-editor"
                 onCloseAutoFocus={(event) => {
                   event.preventDefault();
@@ -4119,13 +4161,21 @@ function MobileOrderDetailView({
                 closeLabel={t("common.cancel")}
                 className={cn(
                   componentOverlay.editorSurface,
+                  componentOverlay.denseEditorSurface,
                   editorConfirmationClass,
                   "max-h-[calc(100dvh-1rem)] overflow-y-auto p-3",
                 )}
               >
-                <DialogHeader>
-                  <DialogTitle>{t("orders2b2.overview.quoteItems")}</DialogTitle>
-                  <DialogDescription>{order.public_no}</DialogDescription>
+                <DialogHeader className={componentOverlay.denseEditorHeader}>
+                  <span className={componentOverlay.denseEditorIcon} aria-hidden="true">
+                    <ReceiptText />
+                  </span>
+                  <DialogTitle className="text-base leading-5">
+                    {t("orders2b2.overview.quoteItems")}
+                  </DialogTitle>
+                  <DialogDescription className="min-w-0 truncate text-[10px]">
+                    {order.public_no}
+                  </DialogDescription>
                 </DialogHeader>
                 {financeDiscard ? (
                   <EditorDiscardConfirmation
@@ -4673,6 +4723,7 @@ function DeviceUnlockEditSheet({
     <Sheet open={open} onOpenChange={session.requestClose}>
       <SheetContent
         mobileEditor
+        editorLayout
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           returnFocusRef.current?.focus({ preventScroll: true });
@@ -4688,7 +4739,7 @@ function DeviceUnlockEditSheet({
             discard={session.discard}
           />
         ) : null}
-        <div className="flex h-full min-w-0 flex-col overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <SheetHeader className={`${componentOverlay.editorHeader} px-3 py-3 pr-11`}>
             <SheetTitle className="text-sm leading-5">{t("orders2b2.unlock.edit")}</SheetTitle>
             <SheetDescription className="text-[10px] leading-3 lg:text-[11px] lg:leading-4">
@@ -5385,8 +5436,10 @@ function MobileDenseFinanceInput({
   mono?: boolean;
 }) {
   const className = cn(
-    "h-11 min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/60 px-2.5 text-base shadow-none focus-visible:ring-1 md:text-base lg:text-sm",
+    "h-9 min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/60 px-2.5 text-base shadow-none focus-visible:ring-1 md:text-base lg:text-sm",
     mono && "font-mono tabular-nums",
+    inputMode === "text" &&
+      "border-transparent bg-transparent px-0 font-medium hover:border-[var(--border-panel)] focus-visible:border-ring",
   );
   if (inputMode === "decimal") {
     return (
@@ -5398,8 +5451,21 @@ function MobileDenseFinanceInput({
         placeholder={placeholder}
         invalid={invalid}
         align={align}
-        triggerClassName={className}
-        valueClassName="text-base lg:text-sm"
+        triggerClassName={cn(className, "h-auto min-h-9 px-1")}
+        valueClassName="overflow-visible whitespace-nowrap text-clip text-base leading-6 lg:text-sm"
+      />
+    );
+  }
+  if (inputMode === "text") {
+    return (
+      <OrderWorkspaceQuoteTextField
+        value={value}
+        onValueChange={onValueChange}
+        disabled={disabled}
+        placeholder={placeholder}
+        ariaLabel={placeholder}
+        invalid={invalid}
+        className={cn(className, "leading-5", align === "right" && "text-right")}
       />
     );
   }
@@ -5470,159 +5536,151 @@ function MobileFinanceEditor({
     : saveError;
 
   return (
-    <fieldset
-      disabled={pending}
-      data-order-finance-editor="true"
-      className="mt-2 min-w-0 space-y-2"
-    >
-      <div id={categoriesId} hidden={!categoriesOpen} className="min-w-0">
-        <p className="mb-2 text-xs font-semibold leading-5 text-muted-foreground">
-          {t("orders2b2.finance.select")}
-        </p>
-        <FaultDiagnosisPicker
-          selected={selectedFaults}
-          onChange={(items) => onChange(mergeSelectedFaultsIntoFinanceDraft(draft, items))}
-          className="gap-1"
-          density="compact"
-          appearance="quiet"
-          compactColumns={4}
-        />
-      </div>
-
-      <div className="space-y-2">
-        {draft.faults.length ? (
-          draft.faults.map((item, index) => (
-            <OrderWorkspaceQuoteRow
-              key={item.line_id ?? index}
-              appearance="quote-editor"
-              price={
-                <div className="min-w-0 space-y-0.5">
-                  <MobileDenseFinanceInput
-                    value={item.priceText}
-                    onValueChange={(value) => patchFault(index, { priceText: value })}
-                    disabled={pending}
-                    placeholder={t("orders2b2.finance.amount")}
-                    invalid={Boolean(
-                      (item.name.trim() || item.note.trim()) && !item.priceText.trim(),
-                    )}
-                    inputMode="decimal"
-                    align="right"
-                    mono
-                  />
-                  {(item.name.trim() || item.note.trim()) && !item.priceText.trim() ? (
-                    <p className="px-1 text-[11px] leading-4 text-status-danger-foreground">
-                      {t("orders2b2.finance.missingAmount")}
-                    </p>
-                  ) : null}
-                </div>
-              }
-              action={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-11 w-9 rounded-lg"
-                  disabled={pending}
-                  onClick={() =>
-                    onChange({ ...draft, faults: draft.faults.filter((_, i) => i !== index) })
-                  }
-                  aria-label={t("orders2b2.overview.deleteItem")}
-                >
-                  <Trash2 className="size-4 text-muted-foreground" />
-                </Button>
-              }
-            >
-              <div className="min-w-0 space-y-0.5">
-                <MobileDenseFinanceInput
-                  value={item.name}
-                  onValueChange={(value) =>
-                    patchFault(index, { name: value, catalog_key: undefined })
-                  }
-                  disabled={pending}
-                  placeholder={t("orders2b2.finance.item")}
-                />
-                {item.note ? (
-                  <p
-                    className="truncate px-2.5 text-[11px] leading-4 text-muted-foreground"
-                    title={item.note}
-                  >
-                    {item.note}
-                  </p>
-                ) : null}
-              </div>
-            </OrderWorkspaceQuoteRow>
-          ))
-        ) : (
-          <div className="rounded-md border border-dashed border-[var(--border-panel)] px-2 py-2 text-center text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
-            {t("orders2b2.overview.noQuoteItems")}
+    <fieldset disabled={pending} data-order-finance-editor="true" className="contents">
+      <div className="grid min-h-[60px] min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto] overflow-hidden">
+        <div
+          data-editor-body
+          className={`${componentOverlay.denseEditorBody} min-h-0 flex-1 overflow-y-auto overscroll-contain`}
+        >
+          <div id={categoriesId} hidden={!categoriesOpen} className="min-w-0">
+            <p className="mb-1 text-[11px] font-semibold leading-4 text-muted-foreground">
+              {t("orders2b2.finance.select")}
+            </p>
+            <FaultDiagnosisPicker
+              selected={selectedFaults}
+              onChange={(items) => onChange(mergeSelectedFaultsIntoFinanceDraft(draft, items))}
+              className="gap-1"
+              density="compact"
+              appearance="quiet"
+              compactColumns={4}
+            />
           </div>
-        )}
-      </div>
 
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="h-11 w-full rounded-lg border-dashed text-xs font-semibold text-muted-foreground shadow-none"
-        disabled={pending}
-        onClick={() => {
-          const faults = [...draft.faults, emptyFinanceFaultDraft()];
-          onChange({ ...draft, faults });
-        }}
-      >
-        <Plus className="mr-1 size-3" /> {t("orders2b2.finance.add")}
-      </Button>
+          <div className="space-y-0">
+            {draft.faults.length ? (
+              draft.faults.map((item, index) => (
+                <OrderWorkspaceQuoteRow
+                  key={item.line_id ?? index}
+                  appearance="quote-editor"
+                  note={item.note || undefined}
+                  priceMessage={
+                    (item.name.trim() || item.note.trim()) && !item.priceText.trim() ? (
+                      <p className="px-1 text-[11px] leading-4 text-status-danger-foreground">
+                        {t("orders2b2.finance.missingAmount")}
+                      </p>
+                    ) : undefined
+                  }
+                  price={
+                    <MobileDenseFinanceInput
+                      value={item.priceText}
+                      onValueChange={(value) => patchFault(index, { priceText: value })}
+                      disabled={pending}
+                      placeholder={t("orders2b2.finance.amount")}
+                      invalid={Boolean(
+                        (item.name.trim() || item.note.trim()) && !item.priceText.trim(),
+                      )}
+                      inputMode="decimal"
+                      align="right"
+                      mono
+                    />
+                  }
+                  action={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 rounded-lg"
+                      disabled={pending}
+                      onClick={() =>
+                        onChange({ ...draft, faults: draft.faults.filter((_, i) => i !== index) })
+                      }
+                      aria-label={t("orders2b2.overview.deleteItem")}
+                    >
+                      <Trash2 className="size-4 text-muted-foreground" />
+                    </Button>
+                  }
+                >
+                  <div className="min-w-0 space-y-0.5">
+                    <MobileDenseFinanceInput
+                      value={item.name}
+                      onValueChange={(value) =>
+                        patchFault(index, { name: value, catalog_key: undefined })
+                      }
+                      disabled={pending}
+                      placeholder={t("orders2b2.finance.item")}
+                    />
+                  </div>
+                </OrderWorkspaceQuoteRow>
+              ))
+            ) : (
+              <div className="rounded-md border border-dashed border-[var(--border-panel)] px-2 py-2 text-center text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
+                {t("orders2b2.overview.noQuoteItems")}
+              </div>
+            )}
+          </div>
 
-      <OrderWorkspaceMoneyStrip
-        total={normalized.quotation}
-        deposit={parseFinancePickerPrice(draft.depositText)}
-        balance={normalized.balance}
-        appearance="quote-editor"
-        depositControl={
-          <MobileDenseFinanceInput
-            value={draft.depositText}
-            onValueChange={(value) => onChange({ ...draft, depositText: value })}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 w-full rounded-lg border-dashed text-xs font-semibold text-muted-foreground shadow-none"
             disabled={pending}
-            placeholder={t("orders2b2.finance.deposit")}
-            inputMode="decimal"
-            align="right"
-            mono
+            onClick={() => {
+              const faults = [...draft.faults, emptyFinanceFaultDraft()];
+              onChange({ ...draft, faults });
+            }}
+          >
+            <Plus className="mr-1 size-3" /> {t("orders2b2.finance.add")}
+          </Button>
+
+          <OrderWorkspaceMoneyStrip
+            total={normalized.quotation}
+            deposit={parseFinancePickerPrice(draft.depositText)}
+            balance={normalized.balance}
+            appearance="quote-editor"
+            depositControl={
+              <MobileDenseFinanceInput
+                value={draft.depositText}
+                onValueChange={(value) => onChange({ ...draft, depositText: value })}
+                disabled={pending}
+                placeholder={t("orders2b2.finance.deposit")}
+                inputMode="decimal"
+                align="right"
+                mono
+              />
+            }
           />
-        }
-      />
 
-      {normalized.error || saveError ? (
-        <p
-          role="alert"
-          className="rounded-md bg-status-danger px-2 py-1 text-[10px] leading-3 text-status-danger-foreground lg:text-xs lg:leading-[18px]"
-        >
-          {validationMessage}
-        </p>
-      ) : null}
-
-      <div
-        data-editor-footer
-        className="sticky bottom-0 grid grid-cols-2 gap-2 bg-[var(--surface-workspace-strong)] py-2"
-      >
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-11 rounded-lg text-sm font-semibold shadow-none"
-          onClick={onCancel}
-          disabled={pending}
-        >
-          {t("common.cancel")}
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          className="h-11 rounded-lg text-sm font-semibold shadow-none"
-          onClick={() => void onSave().catch(() => undefined)}
-          disabled={pending || !normalized.canSave}
-        >
-          <Save className="mr-1 size-3" /> {t("orders2b2.hero.save")}
-        </Button>
+          {normalized.error || saveError ? (
+            <p
+              role="alert"
+              className="rounded-md bg-status-danger px-2 py-1 text-[10px] leading-3 text-status-danger-foreground lg:text-xs lg:leading-[18px]"
+            >
+              {validationMessage}
+            </p>
+          ) : null}
+        </div>
+        <div data-editor-footer className={componentOverlay.denseEditorFooter}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-11 rounded-lg text-sm font-semibold shadow-none"
+            onClick={onCancel}
+            disabled={pending}
+          >
+            {t("common.cancel")}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-11 rounded-lg text-sm font-semibold shadow-none"
+            onClick={() => void onSave().catch(() => undefined)}
+            disabled={pending || !normalized.canSave}
+          >
+            <Save className="mr-1 size-3" /> {t("orders2b2.hero.save")}
+          </Button>
+        </div>
       </div>
     </fieldset>
   );

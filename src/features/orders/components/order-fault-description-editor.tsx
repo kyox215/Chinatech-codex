@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type RefObject } from "react";
-import { ChevronDown, Check, FileText, X } from "lucide-react";
+import { FileText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -11,12 +11,6 @@ import { componentOverlay } from "@/lib/component-patterns";
 import type { OrderDetail, PatchOrderChanges } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/shared/i18n/locale-provider";
-import {
-  appendFaultDescriptionItems,
-  getFaultDescriptionSourceItems,
-  hasFaultDescriptionItem,
-  type FaultDescriptionSourceItem,
-} from "@/features/orders/model/order-fault-description";
 
 export type FaultDescriptionSave = {
   changes: Pick<PatchOrderChanges, "issue_description" | "diagnosis_result">;
@@ -38,7 +32,6 @@ export function OrderFaultDescriptionEditor({
   open,
   order,
   canEditIntake,
-  canEditRepair,
   pending,
   onOpenChange,
   onSave,
@@ -66,30 +59,24 @@ export function OrderFaultDescriptionEditor({
   const id = useId();
   const [baseline, setBaseline] = useState(() => baselineOf(order));
   const [issue, setIssue] = useState(baseline.issue);
-  const [diagnosis, setDiagnosis] = useState(baseline.diagnosis);
   const [error, setError] = useState("");
-  const [announcement, setAnnouncement] = useState("");
   const [conflict, setConflict] = useState(false);
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState<"edit" | "confirmDiscard" | "confirmReload">("edit");
   const headingRef = useRef<HTMLHeadingElement>(null);
   const issueRef = useRef<HTMLTextAreaElement>(null);
-  const diagnosisRef = useRef<HTMLTextAreaElement>(null);
   const continueRef = useRef<HTMLButtonElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const inFlight = useRef(false);
   const wasOpen = useRef(false);
   const trigger = useRef<HTMLElement | null>(null);
-  const dirty = issue !== baseline.issue || diagnosis !== baseline.diagnosis;
+  const dirty = issue !== baseline.issue;
   const blocked = pending || busy;
-  const quoteItems = getFaultDescriptionSourceItems(order.fault_prices);
   const reset = (next: Baseline) => {
     setBaseline(next);
     setIssue(next.issue);
-    setDiagnosis(next.diagnosis);
     setError("");
     setConflict(false);
-    setAnnouncement("");
     setStep("edit");
   };
   useEffect(() => {
@@ -152,32 +139,12 @@ export function OrderFaultDescriptionEditor({
   useEffect(() => {
     if (!embedded || !open) return;
     requestAnimationFrame(() =>
-      (canEditIntake
-        ? issueRef.current
-        : canEditRepair
-          ? diagnosisRef.current
-          : headingRef.current
-      )?.focus({ preventScroll: true }),
+      (canEditIntake ? issueRef.current : headingRef.current)?.focus({ preventScroll: true }),
     );
-  }, [embedded, open, canEditIntake, canEditRepair]);
-  const append = (target: "issue" | "diagnosis", items: FaultDescriptionSourceItem[]) => {
-    if (blocked || conflict || (target === "issue" ? !canEditIntake : !canEditRepair)) return;
-    const current = target === "issue" ? issue : diagnosis;
-    const count = items.filter((item) => !hasFaultDescriptionItem(current, item)).length;
-    setAnnouncement(
-      t("orders.faultEditor.added", {
-        count,
-        target: t(target === "issue" ? "orders2b2.overview.issue" : "orders2b2.overview.diagnosis"),
-      }),
-    );
-    if (target === "issue") setIssue((current) => appendFaultDescriptionItems(current, items));
-    else setDiagnosis((current) => appendFaultDescriptionItems(current, items));
-  };
+  }, [embedded, open, canEditIntake]);
   const changes: FaultDescriptionSave["changes"] = {};
   if (canEditIntake && issue.trim() !== baseline.issue.trim())
     changes.issue_description = issue.trim();
-  if (canEditRepair && diagnosis.trim() !== baseline.diagnosis.trim())
-    changes.diagnosis_result = diagnosis.trim();
   const save = async () => {
     if (inFlight.current || blocked || conflict || !Object.keys(changes).length) return;
     if (canEditIntake && !issue.trim()) {
@@ -246,29 +213,26 @@ export function OrderFaultDescriptionEditor({
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       data-order-fault-editor="true"
     >
-      <header
-        className={cn(
-          componentOverlay.mobileHeader,
-          componentOverlay.editorHeader,
-          "shrink-0 pr-12 lg:px-5 lg:py-4",
-          embedded && "relative",
-        )}
-      >
+      <header className={cn(componentOverlay.denseEditorHeader, embedded && "relative")}>
         <Title
           ref={headingRef}
           tabIndex={-1}
           className="flex items-center gap-2 text-base leading-6 outline-none"
         >
-          <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className={componentOverlay.denseEditorIcon} aria-hidden="true">
+            <FileText />
+          </span>
           {t("orders.faultEditor.title")}
         </Title>
-        <Description className="text-xs text-muted-foreground">{order.public_no}</Description>
+        <Description className="min-w-0 truncate text-[10px] text-muted-foreground">
+          {order.public_no}
+        </Description>
         {embedded ? (
           <Button
             variant="ghost"
             size="icon"
             aria-label={t("common.cancel")}
-            className="absolute right-3 top-3 size-8"
+            className="absolute right-1 top-1 size-11 lg:right-3 lg:top-3 lg:size-8"
             disabled={blocked}
             onClick={() => close(false)}
           >
@@ -323,14 +287,16 @@ export function OrderFaultDescriptionEditor({
           className={cn(
             componentOverlay.body,
             componentOverlay.editorBody,
-            "space-y-4 py-4 lg:grid lg:grid-cols-[minmax(0,1fr)_240px] lg:items-start lg:gap-x-5 lg:gap-y-3 lg:space-y-0 lg:px-5 lg:py-5",
+            componentOverlay.denseEditorBody,
           )}
         >
-          <section className="grid min-w-0 gap-4">
-            <div className="grid gap-1.5">
-              <div className="flex items-center justify-between gap-3">
+          <section className="grid min-w-0 gap-2">
+            <div className="grid gap-1">
+              <div
+                className={canEditIntake ? "sr-only" : "flex items-center justify-between gap-3"}
+              >
                 <label className="text-sm font-medium" htmlFor={`${id}-issue`}>
-                  {t("orders2b2.overview.issue")}
+                  {t("orders.notes.label")}
                 </label>
                 <span className="text-xs text-muted-foreground">
                   {t(canEditIntake ? "orders.faultEditor.required" : "orders2b2.fault.readonly")}
@@ -351,11 +317,14 @@ export function OrderFaultDescriptionEditor({
                 aria-invalid={issueInvalid}
                 className={cn(
                   componentOverlay.editorField,
-                  "h-28 min-h-28 resize-none leading-6 lg:resize-y",
+                  "h-[104px] lg:h-[200px] min-h-[104px] lg:h-[200px] resize-none leading-6 lg:resize-y",
                 )}
               />
-              <p id={`${id}-issue-help`} className="text-xs leading-5 text-muted-foreground">
+              <p id={`${id}-issue-help`} className="sr-only">
                 {t("orders.faultEditor.issueHelp")}
+              </p>
+              <p className="text-right text-[10px] leading-4 text-muted-foreground" aria-live="off">
+                {t("orders.notes.characterCount", { count: issue.length })}
               </p>
               {issueInvalid ? (
                 <p
@@ -367,144 +336,7 @@ export function OrderFaultDescriptionEditor({
                 </p>
               ) : null}
             </div>
-            <div className="grid gap-1.5">
-              <div className="flex items-center justify-between gap-3">
-                <label className="text-sm font-medium" htmlFor={`${id}-diagnosis`}>
-                  {t("orders2b2.overview.diagnosis")}
-                </label>
-                <span className="text-xs text-muted-foreground">
-                  {t(canEditRepair ? "orders.faultEditor.optional" : "orders2b2.fault.readonly")}
-                </span>
-              </div>
-              <Textarea
-                ref={diagnosisRef}
-                id={`${id}-diagnosis`}
-                value={diagnosis}
-                onChange={(event) => setDiagnosis(event.target.value)}
-                readOnly={!canEditRepair}
-                disabled={blocked}
-                aria-describedby={`${id}-diagnosis-help`}
-                className={cn(
-                  componentOverlay.editorField,
-                  "h-24 min-h-24 resize-none leading-6 lg:resize-y",
-                )}
-              />
-              <p id={`${id}-diagnosis-help`} className="text-xs leading-5 text-muted-foreground">
-                {t("orders.faultEditor.diagnosisHelp")}
-              </p>
-            </div>
           </section>
-          <details
-            className="group min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3"
-            open={desktop ? true : undefined}
-          >
-            <summary className="flex min-h-8 cursor-pointer list-none items-center gap-2 text-sm font-medium [&::-webkit-details-marker]:hidden">
-              <span className="min-w-0 flex-1">{t("orders.faultEditor.references")}</span>
-              <span className="text-xs tabular-nums text-muted-foreground">
-                {quoteItems.length}
-              </span>
-              <ChevronDown
-                className="size-4 shrink-0 transition-transform duration-150 group-open:rotate-180 motion-reduce:transition-none"
-                aria-hidden="true"
-              />
-            </summary>
-            <div className="mt-2 grid min-w-0 gap-2">
-              <p className="text-xs leading-5 text-muted-foreground">
-                {t("orders.faultEditor.referencesHelp")}
-              </p>
-              <div className="grid gap-1.5">
-                {(["issue", "diagnosis"] as const).map((target) => (
-                  <Button
-                    key={target}
-                    size="sm"
-                    variant="outline"
-                    className="h-auto min-h-9 whitespace-normal py-1.5 text-xs"
-                    disabled={
-                      blocked ||
-                      conflict ||
-                      (target === "issue" ? !canEditIntake : !canEditRepair) ||
-                      !quoteItems.length ||
-                      quoteItems.every((item) =>
-                        hasFaultDescriptionItem(target === "issue" ? issue : diagnosis, item),
-                      )
-                    }
-                    onClick={() => append(target, quoteItems)}
-                  >
-                    {t(
-                      target === "issue"
-                        ? "orders.faultEditor.allIssue"
-                        : "orders.faultEditor.allDiagnosis",
-                    )}
-                  </Button>
-                ))}
-              </div>
-              {quoteItems.length ? (
-                quoteItems.map((item, index) => (
-                  <div
-                    key={`${item.name}-${index}`}
-                    className="min-w-0 space-y-2 border-t border-[var(--border-panel)] pt-2"
-                  >
-                    <p className="whitespace-pre-wrap break-words text-sm leading-5 [overflow-wrap:anywhere]">
-                      {item.name}
-                    </p>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {(["issue", "diagnosis"] as const).map((target) => {
-                        const appended = hasFaultDescriptionItem(
-                          target === "issue" ? issue : diagnosis,
-                          item,
-                        );
-                        return (
-                          <Button
-                            key={target}
-                            size="sm"
-                            variant="ghost"
-                            className="h-auto min-h-9 whitespace-normal px-1 py-1.5 text-xs"
-                            disabled={
-                              blocked ||
-                              conflict ||
-                              (target === "issue" ? !canEditIntake : !canEditRepair) ||
-                              appended
-                            }
-                            aria-label={t(
-                              target === "issue"
-                                ? "orders2b2.fault.addIssue"
-                                : "orders2b2.fault.addDiagnosis",
-                              { name: item.name },
-                            )}
-                            onClick={() => append(target, [item])}
-                          >
-                            {appended ? (
-                              <Check className="size-3 shrink-0" aria-hidden="true" />
-                            ) : null}
-                            {t(
-                              appended
-                                ? target === "issue"
-                                  ? "orders.faultEditor.inIssue"
-                                  : "orders.faultEditor.inDiagnosis"
-                                : target === "issue"
-                                  ? "orders.faultEditor.toIssue"
-                                  : "orders.faultEditor.toDiagnosis",
-                            )}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs leading-5 text-muted-foreground">
-                  {t("orders2b2.fault.empty")}
-                </p>
-              )}
-            </div>
-          </details>
-          <p
-            role="status"
-            aria-live="polite"
-            className={cn(componentOverlay.editorStatus, "empty:hidden lg:col-span-2")}
-          >
-            {announcement}
-          </p>
           {conflict || (error && !issueInvalid) ? (
             <div className="space-y-2 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-3 lg:col-span-2">
               {conflict ? (
@@ -532,24 +364,29 @@ export function OrderFaultDescriptionEditor({
       <footer
         hidden={step !== "edit"}
         className={cn(
-          componentOverlay.mobileFooter,
-          "shrink-0 !flex-col gap-2 bg-[var(--surface-panel-muted)] lg:!flex-row lg:items-center lg:justify-between lg:px-5",
+          "shrink-0 border-t border-[var(--border-panel)] px-3 pt-1.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]",
         )}
       >
-        <p className={componentOverlay.editorStatus} data-editor-state="true">
+        <p
+          className={cn(
+            componentOverlay.editorStatus,
+            dirty || blocked || error || conflict ? "mb-1" : "sr-only",
+          )}
+          data-editor-state="true"
+        >
           {stateText}
         </p>
-        <div className="grid grid-cols-2 gap-2 lg:flex lg:shrink-0">
+        <div className="grid grid-cols-2 gap-2">
           <Button
             variant="outline"
-            className="min-h-11 lg:min-h-9 lg:min-w-20"
+            className="min-h-11 lg:min-w-20"
             disabled={blocked}
             onClick={() => close(false)}
           >
             {t("common.cancel")}
           </Button>
           <Button
-            className="min-h-11 lg:min-h-9 lg:min-w-24"
+            className="min-h-11 lg:min-w-24"
             disabled={blocked || conflict || !hasChanges}
             onClick={() => void save()}
           >
@@ -574,24 +411,21 @@ export function OrderFaultDescriptionEditor({
     onOpenAutoFocus: (event: Event) => {
       event.preventDefault();
       if (!desktop) headingRef.current?.focus({ preventScroll: true });
-      else
-        (canEditIntake
-          ? issueRef.current
-          : canEditRepair
-            ? diagnosisRef.current
-            : headingRef.current
-        )?.focus({ preventScroll: true });
+      else (canEditIntake ? issueRef.current : headingRef.current)?.focus({ preventScroll: true });
     },
   };
   if (embedded) return open ? body : null;
   return desktop ? (
     <Dialog open={open} onOpenChange={close}>
       <DialogContent
+        initialFocus="container"
+        editorLayout
         {...events}
         closeLabel={t("common.cancel")}
         className={cn(
           componentOverlay.modalLg,
           componentOverlay.editorSurface,
+          componentOverlay.denseEditorSurface,
           "flex max-h-[calc(100svh-24px)] flex-col gap-0 p-0 sm:p-0",
         )}
       >
@@ -601,12 +435,15 @@ export function OrderFaultDescriptionEditor({
   ) : (
     <Sheet open={open} onOpenChange={close}>
       <SheetContent
+        initialFocus="container"
+        editorLayout
         {...events}
         side="bottom"
         closeLabel={t("common.cancel")}
         className={cn(
           componentOverlay.bottomSheet,
           componentOverlay.editorSurface,
+          componentOverlay.denseEditorSurface,
           "flex flex-col gap-0 p-0 sm:p-0",
         )}
       >

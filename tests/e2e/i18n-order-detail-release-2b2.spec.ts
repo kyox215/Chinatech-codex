@@ -83,7 +83,9 @@ for (const { locale, width } of directCases) {
     );
     await expect(page.locator("[data-order-detail-renderer]")).toHaveCount(1);
     await expect(root).toContainText(translateMessage(locale, "orders2b2.title"));
-    await expect(root).toContainText(translateMessage(locale, "orders2b2.overview.issue"));
+    await expect(root).toContainText(
+      translateMessage(locale, width < 1024 ? "orders.notes.label" : "orders2b2.overview.issue"),
+    );
     if (width >= 1024) {
       await expect(root).toContainText(
         translateMessage(locale, "orders2b2.overview.approvalNotRequired"),
@@ -91,6 +93,17 @@ for (const { locale, width } of directCases) {
     }
     if (locale !== "zh-CN") await expect(root).not.toContainText("not_required");
     await expectDynamicDetail(root);
+    if (width < 1024) {
+      const history = root.locator("details").filter({
+        has: page.locator("summary", {
+          hasText: translateMessage(locale, "orders2b2.overview.diagnosis"),
+        }),
+      });
+      await history.locator("summary").click();
+      await expect(history.locator("p")).toHaveText(synthetic.diagnosis);
+      await expect(history.locator("p")).toBeVisible();
+      await history.locator("summary").click();
+    }
     await expectResponsiveActions(root, width);
     if (width < 1024) {
       await expectCompleteMobileDeviceTitle(root, locale);
@@ -115,7 +128,11 @@ for (const { locale, width } of directCases) {
     const editor = page.getByRole("dialog", {
       name: translateMessage(locale, "orders.faultEditor.title"),
     });
-    await expect(editor.getByRole("textbox")).toHaveCount(2);
+    await expect(editor.getByRole("textbox")).toHaveCount(1);
+    await expect(editor.getByRole("textbox")).toHaveAccessibleName(
+      translateMessage(locale, "orders.notes.label"),
+    );
+    await expect(editor.getByRole("textbox")).toHaveValue(synthetic.issue);
     for (const field of await editor.getByRole("textbox").all()) {
       await expect(field).toBeVisible();
       expect(
@@ -123,7 +140,7 @@ for (const { locale, width } of directCases) {
       ).toBeGreaterThanOrEqual(16);
     }
     if (width < 1024) {
-      expect(await editor.locator("details").getAttribute("open")).toBeNull();
+      await expect(editor.locator("details")).toHaveCount(0);
       expect(
         await page.evaluate(() =>
           ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName ?? ""),
@@ -347,25 +364,42 @@ test("heavy en 1440px preserves finance draft then one pending transition across
   await root
     .getByRole("button", { name: translateMessage("en", "orders2b2.hero.edit"), exact: true })
     .click();
-  const quoteNameEn = root.getByLabel(
-    translateMessage("en", "orders2b2.overview.itemName", { index: 1 }),
-  );
+  await root
+    .getByRole("button", {
+      name: translateMessage("en", "orders2b2.overview.addItem"),
+      exact: true,
+    })
+    .click();
+  const quoteNameEn = root.getByRole("button", {
+    name: translateMessage("en", "orders2b2.overview.itemName", { index: 2 }),
+    exact: true,
+  });
   const financeDraft = "Employee finance draft Ω";
-  await quoteNameEn.fill(financeDraft);
-  await quoteNameEn.focus();
+  await quoteNameEn.click();
+  const quotePopup = page.locator('[data-order-quote-popup="true"]');
+  await expect(quotePopup).toBeFocused();
+  await quotePopup.getByRole("textbox").fill(financeDraft);
+  await quotePopup
+    .getByRole("button", { name: translateMessage("en", "orders2b2.hero.save"), exact: true })
+    .click();
+  await expect(quotePopup).toHaveCount(0);
+  await expect(quoteNameEn).toBeFocused();
   const financeScroll = await setStableScroll(page, 20);
   await switchLocale(page, "it-IT");
   await expectPreservedIdentity(page, root, initialUrl, financeScroll, {
     inputLabel: translateMessage("it-IT", "orders2b2.overview.customer"),
   });
   await expect(
-    root.getByLabel(translateMessage("it-IT", "orders2b2.overview.itemName", { index: 1 })),
-  ).toHaveValue(financeDraft);
+    root.getByRole("button", {
+      name: translateMessage("it-IT", "orders2b2.overview.itemName", { index: 2 }),
+      exact: true,
+    }),
+  ).toContainText(financeDraft);
   await switchLocale(page, "en");
   await expectPreservedIdentity(page, root, initialUrl, financeScroll, {
     inputLabel: translateMessage("en", "orders2b2.overview.customer"),
   });
-  await expect(quoteNameEn).toHaveValue(financeDraft);
+  await expect(quoteNameEn).toContainText(financeDraft);
   await root
     .getByRole("button", { name: translateMessage("en", "orders2b2.hero.cancel"), exact: true })
     .click();

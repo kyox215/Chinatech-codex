@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogBody,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -59,6 +60,7 @@ export function CustomerDeviceDialog({
     <Dialog open={open} onOpenChange={session.requestClose}>
       <DialogContent
         mobileEditor
+        editorLayout
         data-confirm-discard={session.confirmDiscard}
         closeLabel={t("customers.detail.close")}
         className={`${componentOverlay.formContent} ${componentOverlay.editorSurface} ${editorConfirmationClass}`}
@@ -96,51 +98,53 @@ export function CustomerDeviceDialog({
             {t("customers.form.deviceDescription")}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid min-w-0 gap-2.5 sm:grid-cols-2">
-          <CustomerFormField
-            label={t("customers.form.brand")}
-            required
-            htmlFor="customer-device-brand"
-          >
-            <Input
-              id="customer-device-brand"
-              className={compactInputClass}
-              value={form.brand}
-              onChange={(event) => setForm({ ...form, brand: event.target.value })}
-            />
-          </CustomerFormField>
-          <CustomerFormField
-            label={t("customers.form.model")}
-            required
-            htmlFor="customer-device-model"
-          >
-            <Input
-              id="customer-device-model"
-              className={compactInputClass}
-              value={form.model}
-              onChange={(event) => setForm({ ...form, model: event.target.value })}
-            />
-          </CustomerFormField>
-          <CustomerFormField label={t("customers.form.serial")} htmlFor="customer-device-serial">
-            <Input
-              id="customer-device-serial"
-              value={form.serial_or_imei ?? ""}
-              onChange={(event) => setForm({ ...form, serial_or_imei: event.target.value })}
-              className={`${compactInputClass} font-mono`}
-            />
-          </CustomerFormField>
-          <CustomerFormField
-            label={t("customers.form.deviceNotes")}
-            htmlFor="customer-device-notes"
-          >
-            <Input
-              id="customer-device-notes"
-              className={compactInputClass}
-              value={form.device_notes ?? ""}
-              onChange={(event) => setForm({ ...form, device_notes: event.target.value })}
-            />
-          </CustomerFormField>
-        </div>
+        <DialogBody>
+          <div className="grid min-w-0 gap-2.5 sm:grid-cols-2">
+            <CustomerFormField
+              label={t("customers.form.brand")}
+              required
+              htmlFor="customer-device-brand"
+            >
+              <Input
+                id="customer-device-brand"
+                className={compactInputClass}
+                value={form.brand}
+                onChange={(event) => setForm({ ...form, brand: event.target.value })}
+              />
+            </CustomerFormField>
+            <CustomerFormField
+              label={t("customers.form.model")}
+              required
+              htmlFor="customer-device-model"
+            >
+              <Input
+                id="customer-device-model"
+                className={compactInputClass}
+                value={form.model}
+                onChange={(event) => setForm({ ...form, model: event.target.value })}
+              />
+            </CustomerFormField>
+            <CustomerFormField label={t("customers.form.serial")} htmlFor="customer-device-serial">
+              <Input
+                id="customer-device-serial"
+                value={form.serial_or_imei ?? ""}
+                onChange={(event) => setForm({ ...form, serial_or_imei: event.target.value })}
+                className={`${compactInputClass} font-mono`}
+              />
+            </CustomerFormField>
+            <CustomerFormField
+              label={t("customers.form.deviceNotes")}
+              htmlFor="customer-device-notes"
+            >
+              <Input
+                id="customer-device-notes"
+                className={compactInputClass}
+                value={form.device_notes ?? ""}
+                onChange={(event) => setForm({ ...form, device_notes: event.target.value })}
+              />
+            </CustomerFormField>
+          </div>
+        </DialogBody>
         <DialogFooter className={`${componentOverlay.footer} ${componentOverlay.editorFooter}`}>
           <Button
             className="min-h-11 whitespace-normal lg:min-h-9"

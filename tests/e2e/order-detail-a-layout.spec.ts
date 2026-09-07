@@ -243,9 +243,15 @@ test("A editors preserve page geometry, focus and failed quote draft", async ({ 
   expect((await main.boundingBox())!.height).toBe(initial!.height);
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
   const input = editor
-    .getByRole("textbox", { name: tr("zh-CN", "orders2b2.finance.item"), exact: true })
+    .getByRole("button", { name: tr("zh-CN", "orders2b2.finance.item"), exact: true })
     .nth(0);
-  await input.fill("DEMO retained failed draft");
+  await input.click();
+  const quotePopup = page.locator('[data-order-quote-popup="true"]');
+  await expect(quotePopup).toBeFocused();
+  await quotePopup.getByRole("textbox").fill("DEMO retained failed draft");
+  await quotePopup.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(quotePopup).toHaveCount(0);
+  await expect(input).toBeFocused();
   let attempts = 0;
   await page.route("**/api/repairdesk/order/finance", async (route) => {
     attempts++;
@@ -261,7 +267,7 @@ test("A editors preserve page geometry, focus and failed quote draft", async ({ 
       operation: tr("zh-CN", "orders2b2.operation.finance"),
     }),
   );
-  await expect(input).toHaveValue("DEMO retained failed draft");
+  await expect(input).toContainText("DEMO retained failed draft");
   await capture(page, "order-quote-save-failure");
   await page.keyboard.press("Escape");
   await editor
@@ -351,6 +357,17 @@ for (const state of [
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();
       expect(writes).toBe(0);
+      const clippedButtons = await dialog
+        .locator("button:visible")
+        .evaluateAll(
+          (nodes) =>
+            nodes.filter(
+              (node) =>
+                node.scrollWidth > node.clientWidth + 1 ||
+                node.scrollHeight > node.clientHeight + 1,
+            ).length,
+        );
+      expect(clippedButtons).toBe(0);
       await capture(page, `status-${state}-confirmation-it-320`);
       await page.keyboard.press("Escape");
       await expect(dialog).toHaveCount(0);
