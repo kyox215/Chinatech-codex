@@ -389,10 +389,7 @@ for (const locale of locales)
         await readableQuoteRows(editor);
         await screenshot(page, `order-quote-${locale}-${width}`);
         await discloseQuoteContent(page, editor, `order-quote-expanded-${locale}-${width}`);
-        await editor
-          .getByRole("button", { name: tr(locale, "orders2b2.finance.add"), exact: true })
-          .click();
-        const input = editor.locator("[data-order-quote-text-control]").last().getByRole("button");
+        const input = editor.locator("[data-order-quote-text-control]").first().getByRole("button");
         await editQuoteName(page, input, "Synthetic retained draft", locale);
         await page.keyboard.press("Escape");
         await editor.getByRole("button", { name: tr(locale, "orders.faultEditor.keep") }).click();
@@ -440,6 +437,10 @@ for (const locale of locales)
           page.locator('[data-order-desktop-single-workspace="true"]'),
           `quote-detail-edit-expanded-${locale}-${width}`,
         );
+        await editQuoteName(page, name, "Synthetic retained catalog-name draft", locale);
+        await editQuoteName(page, note, "Synthetic retained specification draft", locale);
+        await expect(name).toContainText("Synthetic retained catalog-name draft");
+        await expect(note).toContainText("Synthetic retained specification draft");
         await page
           .getByRole("button", { name: tr(locale, "orders2b2.hero.cancel"), exact: true })
           .click();

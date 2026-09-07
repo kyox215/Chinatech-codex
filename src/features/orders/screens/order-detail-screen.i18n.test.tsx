@@ -430,6 +430,27 @@ function makeDetail() {
   };
 }
 
+async function editQuoteName(editor: HTMLElement, locale: (typeof locales)[number], value: string) {
+  const item = within(editor).getAllByRole("button", {
+    name: translateMessage(locale, "orders2b2.finance.item"),
+  })[0]!;
+  fireEvent.click(item);
+  const popup = screen.getByRole("dialog", {
+    name: translateMessage(locale, "orders2b2.finance.item"),
+  });
+  expect(popup).toHaveFocus();
+  fireEvent.change(within(popup).getByRole("textbox"), { target: { value } });
+  expect(item).toHaveTextContent(detailOrder.fault_prices[0]!.name);
+  fireEvent.click(
+    within(popup).getByRole("button", {
+      name: translateMessage(locale, "orders2b2.hero.save"),
+    }),
+  );
+  await waitFor(() => expect(document.querySelector("[data-order-quote-popup]")).toBeNull());
+  expect(item).toHaveTextContent(value);
+  return item;
+}
+
 function makeRepairDeskOptions(
   permissions: Partial<RepairDeskOptions["permissions"]> = {},
 ): RepairDeskOptions {
@@ -576,10 +597,7 @@ describe("OrderDetailScreen i18n", () => {
     const editor = screen.getByRole("dialog", {
       name: translateMessage("en", "orders2b2.overview.quoteItems"),
     });
-    const item = within(editor).getAllByRole("textbox", {
-      name: translateMessage("en", "orders2b2.finance.item"),
-    })[0]!;
-    fireEvent.change(item, { target: { value: "Synthetic stale quote" } });
+    const item = await editQuoteName(editor, "en", "Synthetic stale quote");
     mocks.detail = {
       ...makeDetail(),
       order: { ...detailOrder, updated_at: "2026-09-02T11:00:00.000Z" },
@@ -599,48 +617,96 @@ describe("OrderDetailScreen i18n", () => {
         within(editor).getByText(translateMessage("en", "orders2b2.conflict.description")),
       ).toBeVisible(),
     );
-    expect(item).toHaveValue("Synthetic stale quote");
+    expect(item).toHaveTextContent("Synthetic stale quote");
     expect(mocks.patchOrderFinance).not.toHaveBeenCalled();
   });
 
-  it.each(locales)("keeps %s quote drafts in a stable editor and confirms discard", (locale) => {
+  it("keeps unchanged catalog name saves clean and clears the catalog key only after a real edit", async () => {
     mocks.viewport = "compact";
-    const view = renderDetail(locale, "page");
+    const view = renderDetail("en", "page");
     const quote = view.container.querySelector("#mobile-order-quote") as HTMLElement;
-    fireEvent.click(
-      within(quote).getByRole("button", {
-        name: translateMessage(locale, "orders2b2.overview.quoteItems"),
-      }),
-    );
-    const editor = screen.getByRole("dialog", {
-      name: translateMessage(locale, "orders2b2.overview.quoteItems"),
+    const quoteTrigger = within(quote).getByRole("button", {
+      name: translateMessage("en", "orders2b2.overview.quoteItems"),
     });
-    const item = within(editor).getAllByRole("textbox", {
-      name: translateMessage(locale, "orders2b2.finance.item"),
-    })[0]!;
-    fireEvent.change(item, { target: { value: "保留报价草稿" } });
-    expect(quote.querySelector("input")).toBeNull();
-    expect(
-      within(editor).getByRole("button", { name: translateMessage(locale, "orders2b2.hero.save") }),
-    ).toBeVisible();
-    fireEvent.click(
-      within(editor).getAllByRole("button", {
-        name: translateMessage(locale, "common.cancel"),
-      })[0]!,
-    );
-    expect(
-      within(editor).getByRole("button", {
-        name: translateMessage(locale, "orders.faultEditor.keep"),
-      }),
-    ).toBeVisible();
+    fireEvent.click(quoteTrigger);
+    let editor = screen.getByRole("dialog", {
+      name: translateMessage("en", "orders2b2.overview.quoteItems"),
+    });
     fireEvent.click(
       within(editor).getByRole("button", {
-        name: translateMessage(locale, "orders.faultEditor.keep"),
+        name: translateMessage("en", "orders2b2.finance.item"),
       }),
     );
-    expect(item).toHaveValue("保留报价草稿");
+    const popup = screen.getByRole("dialog", {
+      name: translateMessage("en", "orders2b2.finance.item"),
+    });
+    fireEvent.click(
+      within(popup).getByRole("button", { name: translateMessage("en", "orders2b2.hero.save") }),
+    );
+    await waitFor(() => expect(document.querySelector("[data-order-quote-popup]")).toBeNull());
     expect(mocks.patchOrderFinance).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(editor).getAllByRole("button", { name: translateMessage("en", "common.cancel") })[0]!,
+    );
+    await waitFor(() => expect(editor).not.toBeInTheDocument());
+    fireEvent.click(quoteTrigger);
+    editor = screen.getByRole("dialog", {
+      name: translateMessage("en", "orders2b2.overview.quoteItems"),
+    });
+    await editQuoteName(editor, "en", "Original catalog name edited");
+    fireEvent.click(
+      within(editor).getByRole("button", { name: translateMessage("en", "orders2b2.hero.save") }),
+    );
+    await waitFor(() => expect(mocks.patchOrderFinance).toHaveBeenCalledTimes(1));
+    const input = mocks.patchOrderFinance.mock.calls[0]?.[1];
+    expect(input).toMatchObject({
+      expected_updated_at: detailOrder.updated_at,
+      deposit_amount: 10,
+      fault_prices: [{ name: "Original catalog name edited", price: 120, note: "客户自定义备注" }],
+    });
+    expect(input.fault_prices[0]).not.toHaveProperty("catalog_key");
   });
+
+  it.each(locales)(
+    "keeps %s quote drafts in a stable editor and confirms discard",
+    async (locale) => {
+      mocks.viewport = "compact";
+      const view = renderDetail(locale, "page");
+      const quote = view.container.querySelector("#mobile-order-quote") as HTMLElement;
+      fireEvent.click(
+        within(quote).getByRole("button", {
+          name: translateMessage(locale, "orders2b2.overview.quoteItems"),
+        }),
+      );
+      const editor = screen.getByRole("dialog", {
+        name: translateMessage(locale, "orders2b2.overview.quoteItems"),
+      });
+      const item = await editQuoteName(editor, locale, "保留报价草稿");
+      expect(quote.querySelector("input")).toBeNull();
+      expect(
+        within(editor).getByRole("button", {
+          name: translateMessage(locale, "orders2b2.hero.save"),
+        }),
+      ).toBeVisible();
+      fireEvent.click(
+        within(editor).getAllByRole("button", {
+          name: translateMessage(locale, "common.cancel"),
+        })[0]!,
+      );
+      expect(
+        within(editor).getByRole("button", {
+          name: translateMessage(locale, "orders.faultEditor.keep"),
+        }),
+      ).toBeVisible();
+      fireEvent.click(
+        within(editor).getByRole("button", {
+          name: translateMessage(locale, "orders.faultEditor.keep"),
+        }),
+      );
+      expect(item).toHaveTextContent("保留报价草稿");
+      expect(mocks.patchOrderFinance).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     ["zh-CN", "详情"],

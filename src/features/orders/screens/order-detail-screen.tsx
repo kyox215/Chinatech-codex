@@ -5425,7 +5425,6 @@ function MobileDenseFinanceInput({
   inputMode = "text",
   align = "left",
   mono = false,
-  readOnly = false,
 }: {
   value: string;
   onValueChange: (value: string) => void;
@@ -5435,7 +5434,6 @@ function MobileDenseFinanceInput({
   inputMode?: "text" | "decimal" | "numeric";
   align?: "left" | "right";
   mono?: boolean;
-  readOnly?: boolean;
 }) {
   const className = cn(
     "h-9 min-w-0 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/60 px-2.5 text-base shadow-none focus-visible:ring-1 md:text-base lg:text-sm",
@@ -5462,7 +5460,6 @@ function MobileDenseFinanceInput({
     return (
       <OrderWorkspaceQuoteTextField
         value={value}
-        readOnly={readOnly}
         onValueChange={onValueChange}
         disabled={disabled}
         placeholder={placeholder}
@@ -5606,7 +5603,6 @@ function MobileFinanceEditor({
                   <div className="min-w-0 space-y-0.5">
                     <MobileDenseFinanceInput
                       value={item.name}
-                      readOnly={Boolean(item.catalog_key)}
                       onValueChange={(value) =>
                         patchFault(index, { name: value, catalog_key: undefined })
                       }

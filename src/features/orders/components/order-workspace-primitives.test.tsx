@@ -153,6 +153,23 @@ describe("OrderWorkspaceQuoteTextField popup", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
+  it("closes an unchanged value without calling the parent name callback", async () => {
+    const change = vi.fn();
+    render(
+      <OrderWorkspaceQuoteTextField
+        value="Original catalog name"
+        onValueChange={change}
+        ariaLabel="Quote name"
+      />,
+    );
+    const trigger = screen.getByRole("button", { name: "Quote name" });
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(change).not.toHaveBeenCalled();
+    expect(trigger).toHaveFocus();
+  });
+
   it("shows catalog content without an editable field or save action", () => {
     const change = vi.fn();
     render(

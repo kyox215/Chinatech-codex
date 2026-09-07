@@ -345,6 +345,7 @@ function OrderWorkspaceQuotePopup({
   const id = useId();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
+  const openingValue = useRef("");
   const triggerRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const editable = Boolean(onValueChange);
@@ -352,7 +353,8 @@ function OrderWorkspaceQuotePopup({
   const close = () => setOpen(false);
   const save = () => {
     if (disabled || !onValueChange) return;
-    onValueChange(draft.replace(/[\r\n]/g, ""));
+    const nextValue = draft.replace(/[\r\n]/g, "");
+    if (nextValue !== openingValue.current) onValueChange(nextValue);
     close();
   };
   return (
@@ -360,7 +362,10 @@ function OrderWorkspaceQuotePopup({
       open={open}
       onOpenChange={(next) => {
         if (next && disabled) return;
-        if (next) setDraft(typeof value === "string" ? value : "");
+        if (next) {
+          openingValue.current = typeof value === "string" ? value : "";
+          setDraft(openingValue.current);
+        }
         setOpen(next);
       }}
     >

@@ -888,7 +888,7 @@ Fault editing uses an independent bottom Sheet at 390/430/768 and an 860px deskt
 
 ### Owner-selected A density (2026-09-06)
 
-Follow [GLOBAL_CONTENT_EDITING_STANDARD.md](GLOBAL_CONTENT_EDITING_STANDARD.md). Instruction15 keeps quotation rows single-line at all widths and reveals long names/specifications only in a popup. Reuse the mobile bottom Dialog and desktop centered Dialog; never enlarge the underlying row. The popup has a scrolling body, separate 44px actions, container initial focus and trigger focus return. Categories retain 4×3 fixed 36px cells, 4px gaps and the existing 2:1 direct-selection/options split; numeric inputs remain 16px and amounts stay on one line.
+Follow [GLOBAL_CONTENT_EDITING_STANDARD.md](GLOBAL_CONTENT_EDITING_STANDARD.md). Instruction15 keeps quotation rows single-line at all widths and reveals long names/specifications only in a popup. Reuse the mobile bottom Dialog and desktop centered Dialog; never enlarge the underlying row. The popup has a scrolling body, separate 44px actions, container initial focus and trigger focus return. Each callsite keeps its original editability; the popup does not introduce new catalog-name or specification restrictions. Categories retain 4×3 fixed 36px cells, 4px gaps and the existing 2:1 direct-selection/options split; numeric inputs remain 16px and amounts stay on one line.
 
 
 ### A14 dense editor refinement (2026-09-06)
