@@ -17,6 +17,7 @@ import {
   OrderWorkspaceEmptyBlock,
   OrderWorkspaceMoneyStrip,
   OrderWorkspaceQuoteRow,
+  OrderWorkspaceQuoteDisclosure,
   OrderWorkspaceQuoteTextField,
   OrderWorkspaceSectionHeader,
 } from "@/features/orders/components/order-workspace-primitives";
@@ -130,13 +131,7 @@ export function NewOrderQuotationSection({
                         key={item.key}
                         priceFullWidth={false}
                         appearance="quote-editor"
-                        note={
-                          item.note ? (
-                            <span className="text-[11px] leading-4 text-muted-foreground [overflow-wrap:anywhere]">
-                              {item.note}
-                            </span>
-                          ) : undefined
-                        }
+                        note={item.note || undefined}
                         price={
                           <MoneyKeypadInput
                             ariaLabel={t("orders2b1.new.quoteAria", { index: index + 1 })}
@@ -145,7 +140,7 @@ export function NewOrderQuotationSection({
                               onPatchFault(index, { price: parseMoneyDraft(value) })
                             }
                             triggerClassName={cn(controlClass, "h-auto min-h-9 px-1 font-mono")}
-                            valueClassName="overflow-visible whitespace-nowrap text-clip leading-5"
+                            valueClassName="overflow-visible whitespace-nowrap text-clip leading-6"
                             placeholder="0"
                           />
                         }
@@ -182,12 +177,9 @@ export function NewOrderQuotationSection({
                               mobileOverview && "min-h-[35px]",
                             )}
                           >
-                            <div
-                              className="text-sm font-semibold leading-5 [overflow-wrap:anywhere]"
-                              title={item.name}
-                            >
+                            <OrderWorkspaceQuoteDisclosure className="w-full text-sm font-semibold leading-5">
                               {item.name}
-                            </div>
+                            </OrderWorkspaceQuoteDisclosure>
                           </div>
                         )}
                       </OrderWorkspaceQuoteRow>

@@ -1625,7 +1625,8 @@ function FinanceInlineEditor({
                 ariaLabel={t("orders2b2.overview.itemNote", { index: index + 1 })}
                 value={item.note}
                 placeholder={t("orders2b2.overview.notePlaceholder")}
-                className="col-span-2 min-h-6 rounded-none border-0 border-b border-transparent bg-transparent px-0 py-0 text-sm text-muted-foreground focus-visible:border-primary/45 focus-visible:ring-0"
+                containerClassName="col-span-2"
+                className="min-h-6 rounded-none border-0 border-b border-transparent bg-transparent px-0 py-0 text-sm text-muted-foreground focus-visible:border-primary/45 focus-visible:ring-0"
                 onValueChange={(note) => patchFault(index, { note })}
               />
             </div>

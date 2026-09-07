@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { flushSync } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -171,13 +179,18 @@ export function NewOrderScreen({
     [activeStoreId, hydratedOnboardingStatus?.userId],
   );
   const sessionInvalidatedRef = useRef(false);
-  const sessionOfflineScopeRef = useRef(offlineScope);
-  if (!sessionOfflineScopeRef.current && offlineScope)
-    sessionOfflineScopeRef.current = offlineScope;
-  const initialScope = sessionOfflineScopeRef.current;
+  const sessionOfflineScopeRef = useRef<typeof offlineScope>(null);
+  const committedScope = sessionOfflineScopeRef.current;
+  const initialScope = committedScope ?? offlineScope;
+  useLayoutEffect(() => {
+    // Bind only a committed first scope; abandoned startup renders own no draft.
+    if (!sessionOfflineScopeRef.current && offlineScope)
+      sessionOfflineScopeRef.current = offlineScope;
+  }, [offlineScope]);
   if (
-    initialScope &&
-    (initialScope.storeId !== offlineScope?.storeId || initialScope.userId !== offlineScope?.userId)
+    committedScope &&
+    (committedScope.storeId !== onboardingStatus?.activeStore?.id ||
+      committedScope.userId !== onboardingStatus?.userId)
   )
     sessionInvalidatedRef.current = true;
   const offlineDraft = useNewOrderOfflineAutosave({
@@ -213,7 +226,7 @@ export function NewOrderScreen({
         ? "simple"
         : "professional"
       : sessionEntryMode;
-  if (isNewOrderSessionStoreChanged(sessionStoreId, activeStoreId))
+  if (isNewOrderSessionStoreChanged(sessionStoreId, onboardingStatus?.activeStore?.id))
     sessionInvalidatedRef.current = true;
   const sessionStoreChanged = sessionInvalidatedRef.current;
   const photoScope = offlineScope ? `${offlineScope.storeId}:${offlineScope.userId}` : null;

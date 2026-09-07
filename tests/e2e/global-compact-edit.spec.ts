@@ -33,54 +33,62 @@ async function readableQuoteGrid(grid: Locator) {
       const [main, expand] = Array.from(node.querySelectorAll("button"));
       const mainBox = main.getBoundingClientRect();
       const expandBox = expand.getBoundingClientRect();
-      const range = document.createRange();
-      range.selectNodeContents(main.querySelector("span")!);
       return {
         x: Math.round(box.x),
         y: Math.round(box.y),
         height: box.height,
         split: mainBox.width / expandBox.width,
-        readable: Array.from(range.getClientRects()).every(
-          (rect) =>
-            rect.left >= mainBox.left - 1 &&
-            rect.right <= mainBox.right + 1 &&
-            rect.top >= mainBox.top - 1 &&
-            rect.bottom <= mainBox.bottom + 1,
-        ),
+        singleLine: getComputedStyle(main.querySelector("span")!).whiteSpace === "nowrap",
+        fullAccessibleLabel: Boolean(main.getAttribute("aria-label")),
       };
     }),
   );
   expect(new Set(metrics.map((m) => m.x)).size).toBe(4);
   expect(new Set(metrics.map((m) => m.y)).size).toBe(3);
   for (const metric of metrics) {
-    expect(metric.height).toBeGreaterThanOrEqual(36);
+    expect(metric.height).toBeCloseTo(36, 1);
     expect(metric.split).toBeCloseTo(2, 1);
-    expect(metric.readable).toBe(true);
+    expect(metric.singleLine).toBe(true);
+    expect(metric.fullAccessibleLabel).toBe(true);
   }
   expect(await grid.evaluate((node) => getComputedStyle(node).rowGap)).toBe("4px");
 }
 
 async function readableQuoteRows(root: Locator) {
-  const clippedAmounts = await root
+  const amountMetrics = await root
     .locator(
       "[data-money-keypad-trigger] > span:last-child, [data-order-workspace-money-strip] > div > span",
     )
-    .evaluateAll(
-      (nodes) =>
-        nodes.filter((node) => {
-          const range = document.createRange();
-          range.selectNodeContents(node);
-          const lines = new Set(
-            Array.from(range.getClientRects()).map((rect) => Math.round(rect.top)),
-          );
-          return (
+    .evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const lines = new Set(
+          Array.from(range.getClientRects()).map((rect) => Math.round(rect.top)),
+        );
+        const css = getComputedStyle(node);
+        return {
+          text: node.textContent,
+          label: node.parentElement?.getAttribute("aria-label"),
+          width: node.clientWidth,
+          scrollWidth: node.scrollWidth,
+          height: node.clientHeight,
+          scrollHeight: node.scrollHeight,
+          font: css.font,
+          lineHeight: css.lineHeight,
+          overflow: css.overflow,
+          clipped:
             lines.size > 1 ||
             node.scrollWidth > node.clientWidth + 1 ||
-            node.scrollHeight > node.clientHeight + 1
-          );
-        }).length,
+            node.scrollHeight > node.clientHeight + 1,
+        };
+      }),
     );
-  expect(clippedAmounts).toBe(0);
+  await test.info().attach("quote-amount-metrics", {
+    body: JSON.stringify(amountMetrics, null, 2),
+    contentType: "application/json",
+  });
+  expect(amountMetrics.filter((node) => node.clipped)).toEqual([]);
   for (const row of await root.locator("[data-order-workspace-quote-row]").all()) {
     const geometry = await row.evaluate((node) => {
       const [identity, price, action] = Array.from(node.children);
@@ -118,6 +126,47 @@ async function readableQuoteRows(root: Locator) {
     Math.max(...tiles.map((tile) => tile.height)) - Math.min(...tiles.map((tile) => tile.height)),
   ).toBeLessThanOrEqual(1);
   expect(tiles.every((tile) => tile.readable)).toBe(true);
+}
+
+async function discloseQuoteContent(page: Page, root: Locator, name: string) {
+  const control = root.locator("[data-order-quote-text-control]").first();
+  const readout = root.locator("[data-order-quote-disclosure]").first();
+  let compactHeight = 0;
+  if (await control.count()) {
+    await expect(control).toHaveAttribute("data-expanded", "false");
+    compactHeight = (await control.boundingBox())!.height;
+    expect(compactHeight).toBeLessThanOrEqual(36);
+    const textBox = (await control.getByRole("textbox").boundingBox())!;
+    const toggleBox = (await control.getByRole("button").boundingBox())!;
+    expect(textBox.x + textBox.width).toBeLessThanOrEqual(toggleBox.x + 0.1);
+    expect(toggleBox.width).toBe(24);
+    await control.getByRole("button").click();
+    await expect(control).toHaveAttribute("data-expanded", "true");
+    await expect(control.getByRole("textbox")).not.toBeFocused();
+    expect(
+      await control
+        .getByRole("textbox")
+        .evaluate((node) => node.scrollHeight <= node.clientHeight + 1),
+    ).toBe(true);
+  }
+  if (await readout.count()) {
+    await expect(readout).not.toHaveAttribute("open");
+    await readout.locator("summary").press("Enter");
+    await expect(readout).toHaveAttribute("open", "");
+    expect(await readout.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+  }
+  await screenshot(page, name);
+  if (await readout.count()) {
+    await readout.locator("summary").press("Escape");
+    await expect(readout).not.toHaveAttribute("open");
+    await expect(readout.locator("summary")).toBeFocused();
+  }
+  if (await control.count()) {
+    await control.getByRole("button").press("Escape");
+    await expect(control).toHaveAttribute("data-expanded", "false");
+    await expect(control.getByRole("button")).toBeFocused();
+    expect((await control.boundingBox())!.height).toBe(compactHeight);
+  }
 }
 
 const quoteCopy = {
@@ -179,7 +228,15 @@ for (const locale of locales)
         payload.data.order.balance_amount = Number(quoteAmount) - payload.data.order.deposit_amount;
         await route.fulfill({ response, json: payload });
       });
+      // This first navigation may compile the route in CI. Wait for its actual
+      // order response, then retain the normal 5s renderer visibility assertion.
+      const orderLoaded = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === "/api/repairdesk/order/get" && response.ok(),
+      );
       await page.goto("/orders/ord_1");
+      const loadedOrder = await (await orderLoaded).json();
+      expect(loadedOrder.data.order.id).toBe("ord_1");
       await expect(page.locator('[data-order-detail-root="true"]')).toBeVisible();
       await noOverflow(page);
       if (width < 1024) {
@@ -210,15 +267,20 @@ for (const locale of locales)
         await readableQuoteGrid(grid);
         await readableQuoteRows(editor);
         await screenshot(page, `order-quote-${locale}-${width}`);
+        await discloseQuoteContent(page, editor, `order-quote-expanded-${locale}-${width}`);
         const input = editor
           .getByRole("textbox", { name: tr(locale, "orders2b2.finance.item"), exact: true })
           .first();
         await input.fill("Synthetic retained draft");
         await input.focus();
         await page.keyboard.press("Escape");
+        await expect(input).toHaveAttribute("wrap", "off");
+        await page.keyboard.press("Escape");
         await editor.getByRole("button", { name: tr(locale, "orders.faultEditor.keep") }).click();
         await expect(input).toHaveValue("Synthetic retained draft");
-        await expect(input).toBeFocused();
+        await expect(
+          editor.locator("[data-order-quote-text-control]").first().getByRole("button"),
+        ).toBeFocused();
         await page.keyboard.press("Escape");
         await editor
           .getByRole("button", { name: tr(locale, "orders.faultEditor.confirmDiscard") })
@@ -231,6 +293,11 @@ for (const locale of locales)
         await expect(page.getByText(longQuote.note, { exact: true }).first()).toBeVisible();
         await page.getByText(longQuote.name, { exact: true }).first().scrollIntoViewIfNeeded();
         await screenshot(page, `order-desktop-${locale}-${width}`);
+        await discloseQuoteContent(
+          page,
+          page.locator('[data-order-desktop-single-workspace="true"]'),
+          `order-desktop-expanded-${locale}-${width}`,
+        );
         await page
           .getByRole("button", { name: tr(locale, "orders2b2.hero.edit"), exact: true })
           .click();
@@ -251,6 +318,11 @@ for (const locale of locales)
           );
         }
         await screenshot(page, `quote-multilingual-detail-edit-${locale}-${width}`);
+        await discloseQuoteContent(
+          page,
+          page.locator('[data-order-desktop-single-workspace="true"]'),
+          `quote-detail-edit-expanded-${locale}-${width}`,
+        );
         await page
           .getByRole("button", { name: tr(locale, "orders2b2.hero.cancel"), exact: true })
           .click();
@@ -295,6 +367,9 @@ for (const locale of locales)
       await form
         .getByRole("textbox", { name: tr(locale, "orders2b1.new.customItem"), exact: true })
         .fill(longQuote.name);
+      await form
+        .getByRole("textbox", { name: tr(locale, "orders2b1.new.customItem"), exact: true })
+        .press("Escape");
       const deposit = form.locator("[data-order-workspace-money-strip]");
       if (width < 1024) {
         await deposit.locator("[data-money-keypad-trigger]").click();
@@ -308,6 +383,7 @@ for (const locale of locales)
       }
       await readableQuoteRows(form);
       await screenshot(page, `quote-multilingual-new-${locale}-${width}`);
+      await discloseQuoteContent(page, form, `quote-new-expanded-${locale}-${width}`);
       const trigger = grid.locator("[data-fault-category-expand]").first();
       await trigger.click();
       const options = page.getByRole("dialog").filter({ visible: true }).last();

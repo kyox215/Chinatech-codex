@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { startTransition, Suspense, useState } from "react";
 import type { ButtonHTMLAttributes, Dispatch, SetStateAction } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -730,6 +731,73 @@ describe("NewOrderScreen i18n", () => {
       expect(onCreated).toHaveBeenCalledWith("order-recovered-1");
     },
   );
+
+  it.each([
+    {
+      name: "does not bind an uncommitted startup scope or freeze the first committed store",
+      initialStore: undefined,
+      observedStore: "store-1",
+      enabled: true,
+    },
+    {
+      name: "keeps an established session frozen after observing another authority in an abandoned render",
+      initialStore: "store-1",
+      observedStore: "store-b",
+      enabled: false,
+    },
+  ])("$name", async ({ initialStore, observedStore, enabled }) => {
+    mocks.onboarding.activeStore = initialStore
+      ? { id: initialStore, role: "technician" }
+      : undefined;
+    let advance: Dispatch<SetStateAction<number>> | undefined;
+    let suspend = false;
+    const pending = new Promise<void>(() => undefined);
+    function SuspendStartup({ revision }: { revision: number }) {
+      if (suspend && revision === 1) throw pending;
+      return null;
+    }
+    function StartupHarness() {
+      const [revision, setRevision] = useState(0);
+      advance = setRevision;
+      return (
+        <LocaleProvider initialLocale="en">
+          <Suspense fallback={<div>Startup pending</div>}>
+            <NewOrderScreen />
+            <SuspendStartup revision={revision} />
+          </Suspense>
+        </LocaleProvider>
+      );
+    }
+    render(<StartupHarness />);
+    await act(async () => {
+      mocks.onboarding.activeStore = { id: observedStore, role: "technician" };
+      suspend = true;
+      startTransition(() => advance?.(1));
+    });
+    expect(mocks.autosaveOptions.mock.lastCall?.[0].scope?.storeId).toBe(
+      initialStore ?? observedStore,
+    );
+    act(() => {
+      mocks.onboarding.activeStore = initialStore
+        ? { id: initialStore, role: "technician" }
+        : undefined;
+      suspend = false;
+      advance?.(2);
+    });
+    act(() => {
+      mocks.onboarding.activeStore = { id: "store-1", role: "technician" };
+      advance?.(3);
+    });
+    expect(mocks.autosaveOptions.mock.lastCall?.[0]).toMatchObject({
+      scope: { storeId: "store-1", userId: "user-1" },
+      enabled,
+    });
+    const submit = screen.getByRole("button", {
+      name: translateMessage("en", enabled ? "orders2b1.new.create" : "orders2b1.new.processing"),
+    });
+    if (enabled) expect(submit).toBeEnabled();
+    else expect(submit).toBeDisabled();
+  });
 
   it("keeps the original autosave scope disabled through A to B to A", () => {
     const tree = () => (

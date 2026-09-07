@@ -4135,7 +4135,7 @@ function MobileOrderDetailView({
                       key={`${item.name}-${index}`}
                       className="flex min-w-0 items-center gap-1 text-[11px] leading-4 lg:text-xs"
                     >
-                      <span className="min-w-0 flex-1 break-words text-foreground">
+                      <span className="min-w-0 flex-1 truncate text-foreground">
                         {item.name || t("orders2b2.mobile.unnamedItem")}
                       </span>
                       <MoneyText amount={item.price} className="shrink-0 font-semibold" />
@@ -5452,7 +5452,7 @@ function MobileDenseFinanceInput({
         invalid={invalid}
         align={align}
         triggerClassName={cn(className, "h-auto min-h-9 px-1")}
-        valueClassName="overflow-visible whitespace-nowrap text-clip text-base leading-5 lg:text-sm"
+        valueClassName="overflow-visible whitespace-nowrap text-clip text-base leading-6 lg:text-sm"
       />
     );
   }
@@ -5562,13 +5562,7 @@ function MobileFinanceEditor({
                 <OrderWorkspaceQuoteRow
                   key={item.line_id ?? index}
                   appearance="quote-editor"
-                  note={
-                    item.note ? (
-                      <span className="text-[11px] leading-4 text-muted-foreground [overflow-wrap:anywhere]">
-                        {item.note}
-                      </span>
-                    ) : undefined
-                  }
+                  note={item.note || undefined}
                   priceMessage={
                     (item.name.trim() || item.note.trim()) && !item.priceText.trim() ? (
                       <p className="px-1 text-[11px] leading-4 text-status-danger-foreground">

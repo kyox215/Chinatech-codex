@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useEffect, useState } from "react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -79,6 +79,84 @@ describe("NavigationGuardProvider", () => {
     expect(transitionState).toEqual({ guardConnected: false, pointerEvents: "" });
     expect(second).not.toHaveBeenCalled();
     expect(discard).toHaveBeenCalledTimes(1);
+  });
+
+  it("releases the whole guard before one transition when exit animation acknowledgement is late", async () => {
+    vi.useFakeTimers();
+    const nativeStyle = window.getComputedStyle.bind(window);
+    const computedStyle = vi.spyOn(window, "getComputedStyle").mockImplementation((element) => {
+      const style = nativeStyle(element);
+      const guardLayer =
+        element.hasAttribute("data-navigation-guard-dialog") ||
+        element.classList.contains("bg-[var(--overlay-scrim)]");
+      if (!guardLayer) return style;
+      // Model browser Presence retaining both layers until animationend is delivered.
+      return new Proxy(style, {
+        get(target, property) {
+          if (property === "animationName")
+            return element.getAttribute("data-state") === "closed" ? "guard-exit" : "guard-enter";
+          const value = Reflect.get(target, property, target);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const discard = vi.fn();
+    const run = vi.fn();
+    let dirty = true;
+    function ImmediateGuard() {
+      const { registerGuard } = useNavigationGuard();
+      useEffect(
+        () =>
+          registerGuard({
+            id: "slow-presence",
+            label: () => "录入草稿",
+            isDirty: () => dirty,
+            isBusy: () => false,
+            discard: () => {
+              dirty = false;
+              discard();
+              return { status: "resolved" };
+            },
+            save: async () => ({ status: "blocked" }),
+          }),
+        [registerGuard],
+      );
+      return null;
+    }
+    const view = render(
+      <NavigationGuardProvider>
+        <ImmediateGuard />
+        <TransitionButton label="关闭录入" run={run} />
+      </NavigationGuardProvider>,
+    );
+    try {
+      fireEvent.click(screen.getByRole("button", { name: "关闭录入" }));
+      const guard = screen.getByRole("alertdialog");
+      const overlay = document.querySelector('[class~="bg-[var(--overlay-scrim)]"]');
+      expect(overlay).not.toBeNull();
+      run.mockImplementation(() => {
+        expect(guard.isConnected).toBe(false);
+        expect(overlay?.isConnected).toBe(false);
+        expect(document.body.style.pointerEvents).not.toBe("none");
+      });
+      fireEvent.click(screen.getByRole("button", { name: "放弃修改" }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(600);
+        fireEvent.animationEnd(guard, { animationName: "guard-exit" });
+        if (overlay) fireEvent.animationEnd(overlay, { animationName: "guard-exit" });
+        await vi.advanceTimersByTimeAsync(32);
+      });
+      expect(dirty).toBe(false);
+      expect(run).toHaveBeenCalledTimes(1);
+      expect(discard).toHaveBeenCalledTimes(1);
+      expect(consoleError).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+      computedStyle.mockRestore();
+      consoleError.mockRestore();
+      vi.useRealTimers();
+    }
   });
 
   it("uses native beforeunload only while dirty and restores history methods on unmount", () => {

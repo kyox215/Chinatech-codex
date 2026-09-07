@@ -725,7 +725,7 @@ function CompactFaultCategory({
         <div
           data-fault-category={group.key}
           className={cn(
-            "grid min-h-9 min-w-0 grid-cols-[minmax(0,2fr)_minmax(0,1fr)] overflow-hidden rounded-md border",
+            "grid h-9 min-w-0 grid-cols-[minmax(0,2fr)_minmax(0,1fr)] overflow-hidden rounded-md border",
             active.length
               ? "border-primary/35 bg-primary/10 text-primary"
               : "border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-foreground",
@@ -749,13 +749,14 @@ function CompactFaultCategory({
                 aria-hidden="true"
               />
             )}
-            <span className="min-w-0 whitespace-normal [overflow-wrap:anywhere]">
+            <span className="min-w-0 truncate">
               {localizeRepairServiceGroupCompactLabel(group, locale)}
             </span>
           </button>
           <PopoverTrigger asChild>{trigger}</PopoverTrigger>
         </div>
         <PopoverContent align="start" className="z-[90] w-72 p-0" aria-label={label}>
+          <p className="px-3 pt-3 text-sm font-semibold">{label}</p>
           {body}
         </PopoverContent>
       </Popover>

@@ -2,7 +2,10 @@ import { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { OrderWorkspaceQuoteTextField } from "./order-workspace-primitives";
+import {
+  OrderWorkspaceQuoteDisclosure,
+  OrderWorkspaceQuoteTextField,
+} from "./order-workspace-primitives";
 
 describe("OrderWorkspaceQuoteTextField", () => {
   it("defers observed width resizing and cancels pending writes on unmount", () => {
@@ -34,6 +37,8 @@ describe("OrderWorkspaceQuoteTextField", () => {
         />,
       );
       const field = screen.getByRole("textbox");
+      fireEvent.focus(field);
+      disconnect.mockClear();
       let width = 120;
       vi.spyOn(field, "getBoundingClientRect").mockImplementation(() => ({ width }) as DOMRect);
       Object.defineProperty(field, "scrollHeight", { configurable: true, value: 77 });
@@ -88,6 +93,51 @@ describe("OrderWorkspaceQuoteTextField", () => {
     fireEvent.keyDown(field, { key: "Enter" });
     expect(submit).toHaveBeenCalledTimes(1);
     expect(field).toHaveValue("Ricambiooriginale屏幕");
+  });
+
+  it("keeps one compact input until explicit expansion and restores toggle focus on Escape", () => {
+    const outerEscape = vi.fn();
+    document.addEventListener("keydown", outerEscape, true);
+    render(
+      <OrderWorkspaceQuoteTextField
+        value="A very long original component description"
+        onValueChange={vi.fn()}
+        ariaLabel="Quote name"
+      />,
+    );
+    const field = screen.getByRole("textbox");
+    const toggle = screen.getByRole("button");
+    expect(field).toHaveAttribute("wrap", "off");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
+    expect(field).toHaveAttribute("wrap", "soft");
+    expect(field).not.toHaveFocus();
+    fireEvent.keyDown(toggle, { key: "Escape" });
+    expect(field).toHaveAttribute("wrap", "off");
+    expect(toggle).toHaveFocus();
+    expect(screen.getAllByRole("textbox")).toHaveLength(1);
+    expect(outerEscape).not.toHaveBeenCalled();
+    fireEvent.keyDown(toggle, { key: "Escape" });
+    expect(outerEscape).toHaveBeenCalledOnce();
+    document.removeEventListener("keydown", outerEscape, true);
+  });
+
+  it("discloses the same read-only text and collapses it with Escape", () => {
+    render(
+      <OrderWorkspaceQuoteDisclosure>
+        Original high-brightness display specification
+      </OrderWorkspaceQuoteDisclosure>,
+    );
+    const summary = screen
+      .getByText("Original high-brightness display specification")
+      .closest("summary")!;
+    const details = summary.parentElement!;
+    expect(details).not.toHaveAttribute("open");
+    fireEvent.click(summary);
+    expect(details).toHaveAttribute("open");
+    fireEvent.keyDown(summary, { key: "Escape" });
+    expect(details).not.toHaveAttribute("open");
+    expect(summary).toHaveFocus();
   });
 
   it("preserves disabled and invalid editing state", () => {
