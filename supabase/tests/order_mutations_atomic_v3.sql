@@ -10,7 +10,7 @@ select ok((select relrowsecurity from pg_class where oid = 'public.repairdesk_or
 select ok(has_table_privilege('service_role', 'public.repairdesk_order_mutation_operations', 'select'), 'service can read receipts');
 select ok(has_table_privilege('service_role', 'public.repairdesk_order_mutation_operations', 'insert'), 'service can insert receipts');
 select ok(not has_table_privilege('service_role', 'public.repairdesk_order_mutation_operations', 'update'), 'service cannot mutate receipts');
-select ok(not has_table_privilege('service_role', 'public.repairdesk_order_mutation_operations', 'delete'), 'service cannot delete receipts');
+select ok(has_table_privilege('service_role', 'public.repairdesk_order_mutation_operations', 'delete'), 'service delete is limited by lifecycle and verified-purge triggers');
 select ok(not has_table_privilege('authenticated', 'public.repairdesk_order_mutation_operations', 'select'), 'authenticated cannot read receipts');
 
 insert into auth.users(id,email,created_at,updated_at) values

@@ -1,7 +1,5 @@
--- PROPOSAL ONLY: blocked pending explicit Owner approval for service_role DELETE.
--- Not part of automatic SQL tests; the migration change has not been applied.
--- Expected acceptance: 22 checks; actual database execution: NOT RUN.
--- Rollback-only synthetic lifecycle coverage for append-only order mutation receipts.
+-- Synthetic lifecycle coverage for append-only order mutation receipts.
+-- The surrounding transaction rolls back every fixture row and metadata change.
 begin;
 create extension if not exists pgtap with schema extensions;
 select no_plan();
@@ -25,12 +23,15 @@ insert into public.customers(id,store_id,name,phone_e164,phone_raw) values
 insert into public.devices(id,store_id,customer_id,brand,model,serial_or_imei) values
  ('98000000-0000-4000-8000-000000000310','98000000-0000-4000-8000-000000000010','98000000-0000-4000-8000-000000000210','Test','A',''),
  ('98000000-0000-4000-8000-000000000320','98000000-0000-4000-8000-000000000020','98000000-0000-4000-8000-000000000220','Test','B','');
+insert into public.order_workflow_statuses(store_id,code,label,short_label,bucket,enabled,allowed_for_create) values
+ ('98000000-0000-4000-8000-000000000010','new','New','New','intake',true,true),
+ ('98000000-0000-4000-8000-000000000020','new','New','New','intake',true,true);
 insert into public.repair_orders(id,store_id,customer_id,device_id,order_type,status,workflow_status,issue_description,
- quotation_amount,deposit_amount,balance_amount,is_paid,device_custody_status,technician_name) values
+ quotation_amount,deposit_amount,balance_amount,is_paid,device_custody_status,technician_name,fault_prices) values
  ('98000000-0000-4000-8000-000000000110','98000000-0000-4000-8000-000000000010','98000000-0000-4000-8000-000000000210','98000000-0000-4000-8000-000000000310',
- 'quick_repair','new','intake','Synthetic A',100,0,100,false,'with_customer','Synthetic'),
+ 'quick_repair','new','intake','Synthetic A',100,0,100,false,'with_customer','Synthetic','[{"name":"Synthetic repair","price":100,"currency_code":"EUR"}]'),
  ('98000000-0000-4000-8000-000000000120','98000000-0000-4000-8000-000000000020','98000000-0000-4000-8000-000000000220','98000000-0000-4000-8000-000000000320',
- 'quick_repair','new','intake','Synthetic B',100,0,100,false,'with_customer','Synthetic');
+ 'quick_repair','new','intake','Synthetic B',100,0,100,false,'with_customer','Synthetic','[{"name":"Synthetic repair","price":100,"currency_code":"EUR"}]');
 
 set local role service_role;
 select lives_ok($q$

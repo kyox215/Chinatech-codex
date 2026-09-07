@@ -13,7 +13,7 @@
 
 ## 数据库变更与发布顺序
 
-新增 [前向迁移](../supabase/migrations/20260907215255_order_mutations_atomic_v3.sql)：订单编辑回执表和 `repairdesk_mutate_order_v3`。不回填历史业务数据，不删除订单或分类账，不变更客户端数据库权限。
+新增 [前向迁移](../supabase/migrations/20260907231616_20260907215255_order_mutations_atomic_v3.sql)：订单编辑回执表和 `repairdesk_mutate_order_v3`。文件版本与生产迁移登记的 `20260907231616` 对齐，名称保留原候选标识；不回填历史业务数据，不删除订单或分类账，不变更客户端数据库权限。
 
 已只读确认当前生产项目 `xluzcoduqsdvjoouqhkc` 尚无该新函数。GitHub main 连接 Vercel 生产部署，因此应用调用与数据库扩展必须按以下顺序发布：
 
@@ -49,27 +49,13 @@
 - Chromium 16/16、WebKit 16/16：金额输入覆盖六宽度，批量部分失败、权限失败、网络失败与重试均有截图。全部使用模拟业务数据，拦截写请求。
 - [桌面金额输入](../screenshots/TASK-20260907-006-orders-keyboard-audit/chromium-1440-virtual.png)、[手机金额输入](../screenshots/TASK-20260907-006-orders-keyboard-audit/chromium-390-virtual.png)、[批量部分失败桌面](../screenshots/TASK-20260907-007-orders-full-remediation/bulk-partial-1440.png)、[平板](../screenshots/TASK-20260907-007-orders-full-remediation/bulk-partial-768.png)、[手机](../screenshots/TASK-20260907-007-orders-full-remediation/bulk-partial-390.png)。
 
-## 剩余阻塞：新回执表的清理兼容授权
+## 2026-09-08 回执清理授权与闭合验证
 
-门店清理目录会自动包含新回执表，而当前仅 SELECT/INSERT 的 ACL 会让清理执行器无法删除该表记录。普通订单编辑不受此问题影响；候选不能以这个状态宣称完整可发布。
+老板已明确批准新回执表在受限清理路径中使用 `service_role DELETE`。实现只在 `repairdesk_order_mutation_operations` 上增加该权限，并附加两个既有门店生命周期门禁：`repairdesk_enforce_active_store_write()` 与 `repairdesk_enforce_verified_memo_purge_delete()`。浏览器角色仍没有读取、修改或删除权限，`service_role` 也没有 UPDATE 或 TRUNCATE 权限；普通删除、伪造 GUC、跨店、错误 worker、非 service JWT 与过期租约都会被拒绝。
 
-拟仅在本表复用现有门店生命周期和已验证清理租约门禁。不扩大浏览器权限，不允许普通业务删除，不修改全局清理规则：
+- [生命周期验收](../supabase/tests/order_mutation_receipt_lifecycle.sql) 使用合成数据和事务回滚，22/22 通过；唯一允许的删除是经真实 `repairdesk_purge_store_table_batch_v3_rpc` 走已验证租约的目标门店回执批次。
+- 原子订单 SQL 验收 51/51 通过，确认新 ACL 与既有幂等、事务、财务和状态规则一起生效。
+- 独立数据/安全 delta 审查结论为 PASS：权限仅限本表，两个门禁均已覆盖，没有未解决发布阻塞。
+- 集成候选在 Node 22.12.0 通过 lint、typecheck、agents:check、530 个测试文件 / 4,685 项、构建 30/30 页面，以及受控模拟环境中 Chromium 与 WebKit 各 16/16 的订单键盘与批量恢复测试。lint 仍只有既有的一条 React ref warning。
 
-```diff
--grant select, insert on public.repairdesk_order_mutation_operations to service_role;
-+grant select, insert, delete on public.repairdesk_order_mutation_operations to service_role;
-+
-+create trigger repairdesk_lifecycle_fence_repairdesk_order_mutation_operations
-+before insert or update or delete on public.repairdesk_order_mutation_operations
-+for each row execute function public.repairdesk_enforce_active_store_write();
-+
-+create trigger repairdesk_verified_purge_delete_order_mutation_operations
-+before delete on public.repairdesk_order_mutation_operations
-+for each row execute function private.repairdesk_enforce_verified_memo_purge_delete();
-```
-
-自动审批拒绝了上述本地补丁，理由为 service_role DELETE 属于具体权限边界扩大，需老板明确授权；未绕过、未应用。对应 [22 项合成验收提案](../supabase/tests/order_mutation_receipt_lifecycle.sql.proposed) 尚未运行，不计为通过。
-
-批准后先应用此局部补丁并在隔离数据库通过全部生命周期/租约/跨店拒绝测试，再完成独立 delta 审查。生产还需先确认迁移历史与恢复证据，只应用本次新增迁移并只读核验，最后推送 main；此前不触发生产发布。
-
-独立 `gpt-5.6-terra / max` 最终安全与数据审查：已实施范围条件通过；清理兼容 H-01 为发布阻塞。22 项提案已静态审查通过，真实执行待授权；未将条件通过写成发布通过。
+生产项目已成功应用这条前向迁移，登记为 `20260907231616 / 20260907215255_order_mutations_atomic_v3`。只读核验确认新回执表为空、RLS 已启用、仅 `service_role` 具备受触发器约束的 SELECT/INSERT/DELETE，浏览器角色没有读取或删除权；两个清理门禁和 invoker、空 `search_path` 的 RPC 均已存在。迁移没有回填或删除订单、客户、付款或回执业务数据。接下来仅需推送 main 并检查既有部署流程；如需调整，使用后续前向迁移保留审计证据。

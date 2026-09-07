@@ -16,7 +16,16 @@ create table public.repairdesk_order_mutation_operations (
 );
 alter table public.repairdesk_order_mutation_operations enable row level security;
 revoke all on public.repairdesk_order_mutation_operations from public, anon, authenticated, service_role;
-grant select, insert on public.repairdesk_order_mutation_operations to service_role;
+-- Purge needs DELETE, but the two existing lifecycle gates below allow it only
+-- for a live, service-role tenant-purge lease. Ordinary receipt deletion stays
+-- rejected even for service_role.
+grant select, insert, delete on public.repairdesk_order_mutation_operations to service_role;
+create trigger repairdesk_lifecycle_fence_repairdesk_order_mutation_operations
+before insert or update or delete on public.repairdesk_order_mutation_operations
+for each row execute function public.repairdesk_enforce_active_store_write();
+create trigger repairdesk_verified_purge_delete_order_mutation_operations
+before delete on public.repairdesk_order_mutation_operations
+for each row execute function private.repairdesk_enforce_verified_memo_purge_delete();
 
 create or replace function public.repairdesk_mutate_order_v3(
   p_store_id uuid, p_actor_id uuid, p_order_id uuid,
