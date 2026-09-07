@@ -62,6 +62,14 @@ const operationKeys: Record<OrderDetailOperation, MessageKey> = {
 
 type StableApiFailure = { code?: unknown; status?: unknown };
 
+const mutationFailureMessageKeys: Record<string, MessageKey> = {
+  quote_below_received_amount: "orders2b2.error.quoteBelowReceived",
+  deposit_correction_required: "orders2b2.error.depositCorrectionRequired",
+  ORDER_MUTATION_MIGRATION_REQUIRED: "orders2b2.error.mutationUnavailable",
+  ORDER_MUTATION_TRANSACTION_FAILED: "orders2b2.error.mutationTransactionFailed",
+  idempotency_conflict: "orders2b2.error.idempotencyConflict",
+};
+
 function readStableApiFailure(error: unknown) {
   if (!error || typeof error !== "object") return {};
   const candidate = error as StableApiFailure;
@@ -98,6 +106,9 @@ export function getOrderDetailSafeErrorMessage(
 ) {
   const { code, status } = readStableApiFailure(error);
   const operationLabel = t(operationKeys[operation]);
+  if (code && Object.prototype.hasOwnProperty.call(mutationFailureMessageKeys, code)) {
+    return t(mutationFailureMessageKeys[code]);
+  }
   if (status === 404 || code === "NOT_FOUND" || code === "ORDER_NOT_FOUND") {
     return t("orders2b2.error.notFound", { operation: operationLabel });
   }

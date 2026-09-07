@@ -2508,12 +2508,8 @@ export async function handleRepairDeskPost(
         const { id, input } = updateOrderBodySchema.parse(body);
         assertOrderUpdatePermission(actor, input);
         return ok(
-          await auditGeneric(
+          await runWithRealtime(
             actor,
-            "update",
-            "repair_order",
-            id,
-            input,
             () => api.updateOrder(id, input, actor),
             realtimeBroadcasts.orderUpdated,
           ),
@@ -2523,12 +2519,8 @@ export async function handleRepairDeskPost(
         const { id, input } = patchOrderBodySchema.parse(body);
         assertOrderPatchPermission(actor, input);
         return ok(
-          await auditGeneric(
+          await runWithRealtime(
             actor,
-            "update",
-            "repair_order",
-            id,
-            input,
             () => api.patchOrder(id, input, actor),
             realtimeBroadcasts.orderUpdated,
           ),
@@ -2556,12 +2548,8 @@ export async function handleRepairDeskPost(
         const { id, input } = patchOrderFinanceBodySchema.parse(body);
         assertOrderFinancePermission(actor, input);
         return ok(
-          await auditGeneric(
+          await runWithRealtime(
             actor,
-            "payment",
-            "repair_order",
-            id,
-            input,
             () => api.patchOrderFinance(id, input, actor),
             realtimeBroadcasts.orderUpdated,
           ),
@@ -3775,6 +3763,7 @@ export function resolveOrderUpdatePermissionActions(input: UpdateOrderInput): Pe
 
 export function resolveOrderPatchPermissionActions(input: PatchOrderInput): PermissionAction[] {
   const actions = new Set<PermissionAction>();
+  if (input.finance) actions.add("payment:adjust");
   if (hasOwnField(input.changes, "assignee_membership_id")) actions.add("order:assign");
   const repairFields = new Set([
     "diagnosis_result",

@@ -1,3 +1,4 @@
+import { classifyOrderTransitionFailure } from "./order-bulk-transition";
 import type { OrderQueueGroup, OrderResultGroup, OrderWorkflow } from "@/lib/repairdesk/types";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type { AccessoryNoteOption } from "@/features/orders/model/order-accessory-notes";
@@ -422,6 +423,27 @@ export function localizeOrderWorkflowStatusLabel(
   if (!status.is_system) return status.label;
   const key = workflowLabelKeys[status.code];
   return key ? t(key) : status.label;
+}
+
+const bulkFailureMessageKeys: Record<string, MessageKey> = {
+  FORBIDDEN: "orders.bulkFailure.forbidden",
+  NOT_FOUND: "orders.bulkFailure.notFound",
+  CONFLICT: "orders.bulkFailure.conflict",
+  TARGET_DISABLED: "orders.bulkFailure.targetDisabled",
+  TRANSITION_NOT_ALLOWED: "orders.bulkFailure.notAllowed",
+  REASON_REQUIRED: "orders.bulkFailure.reasonRequired",
+  APPROVAL_REQUIRED: "orders.bulkFailure.approvalRequired",
+  CUSTODY_REQUIRED: "orders.bulkFailure.custodyRequired",
+  DEVICE_NOT_IN_STORE: "orders.bulkFailure.deviceNotInStore",
+  ORDER_LOCKED: "orders.bulkFailure.locked",
+  UNAVAILABLE: "orders.bulkFailure.unavailable",
+  TRANSITION_FAILED: "orders.bulkFailure.generic",
+};
+
+export function localizeOrderTransitionFailure(reason: string, t: Translate) {
+  return t(
+    bulkFailureMessageKeys[classifyOrderTransitionFailure(reason)] ?? "orders.bulkFailure.generic",
+  );
 }
 
 export function localizeBulkTransitionFeedback(

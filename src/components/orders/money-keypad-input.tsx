@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Check, Delete, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -100,6 +100,34 @@ export function MoneyKeypadInput({
     if (nextOpen) setDraft(normalizeMoneyKeypadDraft(value));
   };
 
+  const handlePhysicalKey = (event: KeyboardEvent<HTMLElement>) => {
+    if (!canEdit() || event.defaultPrevented || event.nativeEvent.isComposing) return;
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+
+    if (open && (event.key === "Enter" || event.key === "Escape")) {
+      event.preventDefault();
+      event.stopPropagation();
+      handleOpenChange(false);
+      triggerRef.current?.focus();
+      return;
+    }
+
+    const key: MoneyKeypadKey | undefined = /^\d$/.test(event.key)
+      ? (event.key as MoneyKeypadKey)
+      : event.key === "." || event.key === ","
+        ? "."
+        : event.key === "Backspace"
+          ? "backspace"
+          : event.key === "Delete"
+            ? "clear"
+            : undefined;
+    if (!key) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    updateDraft(key);
+  };
+
   if (keyboardSurface === "native") {
     return (
       <div
@@ -159,7 +187,11 @@ export function MoneyKeypadInput({
           className,
           triggerClassName,
         )}
-        onClick={() => handleOpenChange(!open)}
+        onClick={() => {
+          triggerRef.current?.focus();
+          handleOpenChange(!open);
+        }}
+        onKeyDown={handlePhysicalKey}
       >
         <span className="shrink-0 font-mono text-muted-foreground">{currencySymbol}</span>
         <span
@@ -180,7 +212,11 @@ export function MoneyKeypadInput({
         triggerRef={triggerRef}
         panelClassName={contentClassName}
       >
-        <div data-money-keypad="true">
+        <div
+          data-money-keypad="true"
+          onKeyDown={handlePhysicalKey}
+          onClick={() => triggerRef.current?.focus()}
+        >
           <div className="mb-2 grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-1 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
             <span className="font-mono text-xs text-muted-foreground">{currencySymbol}</span>
             <span className="truncate text-right font-mono text-sm font-semibold tabular-nums">

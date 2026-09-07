@@ -1299,7 +1299,7 @@ export type CustomerIdentityResolution =
 
 export interface CreateOrderInput {
   expected_store_id?: string;
-  operation_id?: string;
+  operation_id: string;
   customer_id?: string;
   device_id?: string;
   customer_name?: string;
@@ -1327,6 +1327,7 @@ export interface CreateOrderInput {
 export type OrderCreateOperationStatus = { status: "pending" } | { status: "created"; id: string };
 
 export interface UpdateOrderInput {
+  idempotency_key?: string;
   expected_updated_at: string;
   customer_name: string;
   customer_phone: string;
@@ -1366,11 +1367,14 @@ export interface PatchOrderChanges {
 }
 
 export interface PatchOrderInput {
+  finance?: { fault_prices: FaultPriceItem[]; deposit_amount?: number };
+  idempotency_key?: string;
   expected_updated_at: string;
   changes: PatchOrderChanges;
 }
 
 export interface PatchOrderFinanceInput {
+  idempotency_key?: string;
   expected_updated_at: string;
   fault_prices: FaultPriceItem[];
   deposit_amount?: number;

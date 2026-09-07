@@ -8,6 +8,7 @@ import {
   localizeDeviceUnlockMethod,
   localizeOrderFinancialLabel,
   localizeBulkTransitionFeedback,
+  localizeOrderTransitionFailure,
   localizeOrderTaskGuidance,
   localizeOrderQueueGroup,
   localizeOrderResultGroup,
@@ -24,6 +25,7 @@ import {
 import { simpleOrderFlowStages } from "@/features/orders/model/order-simple-flow";
 import { getOrderTaskGuidance } from "@/features/orders/model/order-task-flow";
 import { orderQueueGroups } from "@/features/orders/model/order-queue-classification";
+import { orderTransitionFailureCodes } from "./order-bulk-transition";
 
 const t = (locale: "zh-CN" | "it-IT" | "en") => {
   return (
@@ -33,6 +35,23 @@ const t = (locale: "zh-CN" | "it-IT" | "en") => {
 };
 
 describe("order display adapters", () => {
+  it.each(["zh-CN", "it-IT", "en"] as const)(
+    "localizes every bulk reason safely in %s",
+    (locale) => {
+      for (const code of orderTransitionFailureCodes) {
+        const message = localizeOrderTransitionFailure(code, t(locale));
+        expect(message).not.toContain(code);
+        expect(message).not.toContain("orders.bulkFailure");
+        if (locale !== "zh-CN") expect(message).not.toMatch(/[一-龥]/);
+      }
+      expect(localizeOrderTransitionFailure("SECRET_SENTINEL", t(locale))).toBe(
+        t(locale)("orders.bulkFailure.generic"),
+      );
+      expect(localizeOrderTransitionFailure("工单已被更新，请刷新后再试", t(locale))).toBe(
+        t(locale)("orders.bulkFailure.conflict"),
+      );
+    },
+  );
   it.each(orderQueueGroups)("localizes queue group %s", (group) => {
     const zh = localizeOrderQueueGroup(group, t("zh-CN"));
     const en = localizeOrderQueueGroup(group, t("en"));

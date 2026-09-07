@@ -65,6 +65,36 @@ import {
 } from "./repairdesk-schemas";
 
 describe("repairdesk API schemas", () => {
+  it("requires a UUID create intent instead of silently allocating one", () => {
+    const input = {
+      order_type: "quick_repair",
+      status: "new",
+      issue_description: "Synthetic",
+      fault_prices: [],
+    };
+    expect(createOrderSchema.safeParse(input).success).toBe(false);
+    expect(createOrderSchema.safeParse({ ...input, operation_id: "not-a-uuid" }).success).toBe(
+      false,
+    );
+    expect(
+      createOrderSchema.safeParse({
+        ...input,
+        operation_id: "00000000-0000-4000-8000-000000007700",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("preserves mixed edit finance while rejecting untrusted fingerprint fields", () => {
+    const input = {
+      expected_updated_at: "2026-09-07T10:00:00Z",
+      changes: { customer_name: "Synthetic" },
+      finance: { fault_prices: [{ name: "Repair", price: 120 }], deposit_amount: 0 },
+    };
+    expect(patchOrderInputSchema.parse(input)).toEqual(input);
+    expect(patchOrderInputSchema.safeParse({ ...input, request_hash: "untrusted" }).success).toBe(
+      false,
+    );
+  });
   it("strictly validates transparent quote money and verbal responses", () => {
     const quote = {
       reference_low: 300,
@@ -1315,6 +1345,7 @@ describe("repairdesk API schemas", () => {
 
   it("validates order types from the canonical runtime enum", () => {
     const validOrder = {
+      operation_id: "00000000-0000-4000-8000-000000000801",
       status: "new",
       issue_description: "屏幕碎裂",
       fault_prices: [],
@@ -1336,6 +1367,7 @@ describe("repairdesk API schemas", () => {
 
   it("accepts store workflow codes but rejects malformed status values", () => {
     const validOrder = {
+      operation_id: "00000000-0000-4000-8000-000000000801",
       order_type: "quick_repair",
       issue_description: "屏幕碎裂",
       fault_prices: [],
@@ -1361,6 +1393,7 @@ describe("repairdesk API schemas", () => {
   it("accepts and validates device unlock metadata", () => {
     expect(
       createOrderSchema.parse({
+        operation_id: "00000000-0000-4000-8000-000000000801",
         order_type: "quick_repair",
         status: "new",
         issue_description: "屏幕碎裂",
@@ -1485,6 +1518,7 @@ describe("repairdesk API schemas", () => {
 
     expect(
       createOrderSchema.parse({
+        operation_id: "00000000-0000-4000-8000-000000000801",
         order_type: "quick_repair",
         status: "new",
         issue_description: "屏幕碎裂",
@@ -1494,6 +1528,7 @@ describe("repairdesk API schemas", () => {
     ).toBe("");
     expect(
       createOrderSchema.parse({
+        operation_id: "00000000-0000-4000-8000-000000000801",
         order_type: "quick_repair",
         status: "new",
         issue_description: "屏幕碎裂",
@@ -1503,6 +1538,7 @@ describe("repairdesk API schemas", () => {
     ).toBe("SN-TEST_20260708:01");
     expect(() =>
       createOrderSchema.parse({
+        operation_id: "00000000-0000-4000-8000-000000000801",
         order_type: "quick_repair",
         status: "new",
         issue_description: "屏幕碎裂",
@@ -1512,6 +1548,7 @@ describe("repairdesk API schemas", () => {
     ).toThrow("IMEI / 序列号不能超过 64 个字符");
     expect(() =>
       createOrderSchema.parse({
+        operation_id: "00000000-0000-4000-8000-000000000801",
         order_type: "quick_repair",
         status: "new",
         issue_description: "屏幕碎裂",

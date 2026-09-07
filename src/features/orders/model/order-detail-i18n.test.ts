@@ -24,6 +24,46 @@ import {
 const locales = ["zh-CN", "it-IT", "en"] as const;
 
 describe("order detail stable i18n adapters", () => {
+  it.each(locales)(
+    "keeps financial mutation codes specific before generic conflict handling in %s",
+    (locale) => {
+      const t = (
+        key: Parameters<typeof translateMessage>[1],
+        values?: Record<string, string | number>,
+      ) => translateMessage(locale, key, values);
+      const cases = [
+        ["quote_below_received_amount", "orders2b2.error.quoteBelowReceived"],
+        ["deposit_correction_required", "orders2b2.error.depositCorrectionRequired"],
+        ["ORDER_MUTATION_MIGRATION_REQUIRED", "orders2b2.error.mutationUnavailable"],
+        ["ORDER_MUTATION_TRANSACTION_FAILED", "orders2b2.error.mutationTransactionFailed"],
+        ["idempotency_conflict", "orders2b2.error.idempotencyConflict"],
+      ] as const;
+      const sentinel = "SECRET_SENTINEL_MUTATION_PAYLOAD";
+      for (const [code, key] of cases) {
+        const message = getOrderDetailSafeErrorMessage(
+          { status: 409, code, message: sentinel, details: { secret: sentinel } },
+          "save",
+          t,
+        );
+        expect(message).toBe(t(key));
+        expect(message).not.toBe(
+          t("orders2b2.error.conflict", { operation: t("orders2b2.operation.save") }),
+        );
+        expect(message).not.toContain(sentinel);
+        if (locale !== "zh-CN") expect(message).not.toMatch(/[一-龥]/);
+      }
+      expect(
+        getOrderDetailSafeErrorMessage(
+          { status: 409, code: "ORDER_WRITE_CONFLICT", message: sentinel },
+          "save",
+          t,
+        ),
+      ).toBe(t("orders2b2.error.conflict", { operation: t("orders2b2.operation.save") }));
+      expect(
+        getOrderDetailSafeErrorMessage({ code: "__proto__", message: sentinel }, "save", t),
+      ).toBe(t("orders2b2.error.generic", { operation: t("orders2b2.operation.save") }));
+    },
+  );
   it.each([
     ["zh-CN", "无需审批"],
     ["it-IT", "Non richiesta"],

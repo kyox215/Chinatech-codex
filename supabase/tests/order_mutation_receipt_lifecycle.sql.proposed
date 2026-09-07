@@ -1,0 +1,105 @@
+-- PROPOSAL ONLY: blocked pending explicit Owner approval for service_role DELETE.
+-- Not part of automatic SQL tests; the migration change has not been applied.
+-- Expected acceptance: 22 checks; actual database execution: NOT RUN.
+-- Rollback-only synthetic lifecycle coverage for append-only order mutation receipts.
+begin;
+create extension if not exists pgtap with schema extensions;
+select no_plan();
+select ok(has_table_privilege('service_role','public.repairdesk_order_mutation_operations','delete'), 'purge executor has table DELETE privilege');
+select ok(not has_table_privilege('service_role','public.repairdesk_order_mutation_operations','update'), 'ordinary receipt updates remain denied');
+select ok(not has_table_privilege('service_role','public.repairdesk_order_mutation_operations','truncate'), 'receipt TRUNCATE remains denied');
+select ok(not has_table_privilege('authenticated','public.repairdesk_order_mutation_operations','delete'), 'browser cannot delete receipts');
+select is((select count(*) from pg_trigger where tgrelid='public.repairdesk_order_mutation_operations'::regclass and not tgisinternal and tgname in (
+ 'repairdesk_lifecycle_fence_repairdesk_order_mutation_operations',
+ 'repairdesk_verified_purge_delete_order_mutation_operations'
+)),2::bigint,'receipt table has lifecycle and verified-delete fences');
+select ok(exists(select 1 from public.repairdesk_store_purge_catalog()
+ where table_name='repairdesk_order_mutation_operations' and depends_on ? 'repair_orders'), 'purge catalog orders receipts before their parent orders');
+
+insert into public.stores(id,store_code,name,slug,status) values
+ ('98000000-0000-4000-8000-000000000010','RECEIPT_LIFE_A','Synthetic Receipt A','synthetic-receipt-a','active'),
+ ('98000000-0000-4000-8000-000000000020','RECEIPT_LIFE_B','Synthetic Receipt B','synthetic-receipt-b','active');
+insert into public.customers(id,store_id,name,phone_e164,phone_raw) values
+ ('98000000-0000-4000-8000-000000000210','98000000-0000-4000-8000-000000000010','Synthetic A','+390000000210','390000000210'),
+ ('98000000-0000-4000-8000-000000000220','98000000-0000-4000-8000-000000000020','Synthetic B','+390000000220','390000000220');
+insert into public.devices(id,store_id,customer_id,brand,model,serial_or_imei) values
+ ('98000000-0000-4000-8000-000000000310','98000000-0000-4000-8000-000000000010','98000000-0000-4000-8000-000000000210','Test','A',''),
+ ('98000000-0000-4000-8000-000000000320','98000000-0000-4000-8000-000000000020','98000000-0000-4000-8000-000000000220','Test','B','');
+insert into public.repair_orders(id,store_id,customer_id,device_id,order_type,status,workflow_status,issue_description,
+ quotation_amount,deposit_amount,balance_amount,is_paid,device_custody_status,technician_name) values
+ ('98000000-0000-4000-8000-000000000110','98000000-0000-4000-8000-000000000010','98000000-0000-4000-8000-000000000210','98000000-0000-4000-8000-000000000310',
+ 'quick_repair','new','intake','Synthetic A',100,0,100,false,'with_customer','Synthetic'),
+ ('98000000-0000-4000-8000-000000000120','98000000-0000-4000-8000-000000000020','98000000-0000-4000-8000-000000000220','98000000-0000-4000-8000-000000000320',
+ 'quick_repair','new','intake','Synthetic B',100,0,100,false,'with_customer','Synthetic');
+
+set local role service_role;
+select lives_ok($q$
+ insert into public.repairdesk_order_mutation_operations(store_id,actor_id,operation_id,order_id,request_hash,mode,response_summary) values
+ ('98000000-0000-4000-8000-000000000010','98000000-0000-4000-8000-000000000001','98000000-0000-4000-8000-000000000410','98000000-0000-4000-8000-000000000110',repeat('a',64),'patch','{"ok":true}'),
+ ('98000000-0000-4000-8000-000000000020','98000000-0000-4000-8000-000000000001','98000000-0000-4000-8000-000000000420','98000000-0000-4000-8000-000000000120',repeat('a',64),'patch','{"ok":true}')
+$q$, 'active lifecycle accepts append-only receipts');
+select throws_ok($q$update public.repairdesk_order_mutation_operations set response_summary='{}' where store_id='98000000-0000-4000-8000-000000000010'$q$,
+ '42501',null,'service role cannot alter committed receipts');
+select throws_ok($q$delete from public.repairdesk_order_mutation_operations where store_id='98000000-0000-4000-8000-000000000010'$q$,
+ 'P0001','MEMO_HARD_DELETE_FORBIDDEN','ordinary DELETE is rejected by the shared receipt purge gate');
+reset role;
+
+update public.store_lifecycles set phase='archived',archived_at=now() where store_id='98000000-0000-4000-8000-000000000010';
+set local role service_role;
+select throws_ok($q$insert into public.repairdesk_order_mutation_operations(store_id,actor_id,operation_id,order_id,request_hash,mode,response_summary) values
+ ('98000000-0000-4000-8000-000000000010','98000000-0000-4000-8000-000000000001','98000000-0000-4000-8000-000000000411','98000000-0000-4000-8000-000000000110',repeat('a',64),'patch','{"ok":true}')$q$,
+ 'P0001','STORE_LIFECYCLE_WRITE_BLOCKED','archived lifecycle rejects new receipts');
+select throws_ok($q$delete from public.repairdesk_order_mutation_operations where store_id='98000000-0000-4000-8000-000000000010'$q$,
+ 'P0001','STORE_LIFECYCLE_WRITE_BLOCKED','archived lifecycle rejects ordinary DELETE');
+set local request.jwt.claim.role='service_role';
+set local repairdesk.purge_store_id='98000000-0000-4000-8000-000000000010';
+set local repairdesk.purge_operation='delete';
+set local repairdesk.purge_worker_id='synthetic-receipt-worker';
+set local repairdesk.purge_job_id='98000000-0000-4000-8000-000000000501';
+select throws_ok($q$delete from public.repairdesk_order_mutation_operations where store_id='98000000-0000-4000-8000-000000000010'$q$,
+ 'P0001','STORE_LIFECYCLE_WRITE_BLOCKED','GUC flags without a real leased job cannot authorize deletion');
+reset role;
+
+-- A synthetic lease graph, not a scheduled production job. All rows roll back.
+insert into public.store_lifecycle_preflights(id,store_id,lifecycle_revision,catalog_fingerprint,snapshot_hash,state,actor_id,expires_at) values
+ ('98000000-0000-4000-8000-000000000601','98000000-0000-4000-8000-000000000010',1,repeat('a',64),repeat('b',64),'eligible','98000000-0000-4000-8000-000000000001',now()+interval '1 hour');
+insert into public.store_export_jobs(id,store_id,preflight_id,state,schema_version,app_version,actor_id) values
+ ('98000000-0000-4000-8000-000000000701','98000000-0000-4000-8000-000000000010','98000000-0000-4000-8000-000000000601','restore_verified','synthetic','synthetic','98000000-0000-4000-8000-000000000001');
+insert into public.store_purge_jobs(id,store_id,export_job_id,preflight_id,operation_id,approval_ref_hash,state,destructive_step_started,lease_owner,lease_expires_at,purge_after,actor_id) values
+ ('98000000-0000-4000-8000-000000000501','98000000-0000-4000-8000-000000000010','98000000-0000-4000-8000-000000000701','98000000-0000-4000-8000-000000000601',
+ '98000000-0000-4000-8000-000000000801',repeat('c',64),'running',true,'synthetic-receipt-worker',now()+interval '5 minutes',now(),'98000000-0000-4000-8000-000000000001');
+update public.store_lifecycles set phase='active',archived_at=null where store_id='98000000-0000-4000-8000-000000000010';
+set local role service_role;
+select throws_ok($q$delete from public.repairdesk_order_mutation_operations where store_id='98000000-0000-4000-8000-000000000010'$q$,
+ 'P0001','MEMO_HARD_DELETE_FORBIDDEN','even a live purge lease cannot delete an active-store receipt');
+reset role;
+update public.store_lifecycles set phase='purging' where store_id='98000000-0000-4000-8000-000000000010';
+set local role service_role;
+set local repairdesk.purge_worker_id='wrong-worker';
+select throws_ok($q$delete from public.repairdesk_order_mutation_operations where store_id='98000000-0000-4000-8000-000000000010'$q$,
+ 'P0001','STORE_LIFECYCLE_WRITE_BLOCKED','wrong worker cannot use another worker lease');
+set local repairdesk.purge_worker_id='synthetic-receipt-worker';
+set local request.jwt.claim.role='authenticated';
+select throws_ok($q$delete from public.repairdesk_order_mutation_operations where store_id='98000000-0000-4000-8000-000000000010'$q$,
+ 'P0001','STORE_LIFECYCLE_WRITE_BLOCKED','a non-service JWT cannot authorize purge writes');
+set local request.jwt.claim.role='service_role';
+select throws_ok($q$delete from public.repairdesk_order_mutation_operations where store_id='98000000-0000-4000-8000-000000000020'$q$,
+ 'P0001','MEMO_HARD_DELETE_FORBIDDEN','a valid store A lease cannot delete store B receipts');
+reset role;
+update public.store_purge_jobs set lease_expires_at=now()-interval '1 second' where id='98000000-0000-4000-8000-000000000501';
+set local role service_role;
+select throws_ok($q$select public.repairdesk_purge_store_table_batch_v3_rpc('98000000-0000-4000-8000-000000000501','synthetic-receipt-worker','repairdesk_order_mutation_operations',10)$q$,
+ 'P0001','STORE_PURGE_LEASE_INVALID','expired lease is rejected before batch deletion');
+reset role;
+update public.store_purge_jobs set lease_expires_at=now()+interval '5 minutes' where id='98000000-0000-4000-8000-000000000501';
+set local role service_role;
+select is((public.repairdesk_purge_store_table_batch_v3_rpc('98000000-0000-4000-8000-000000000501','synthetic-receipt-worker','repairdesk_order_mutation_operations',10)->>'deleted_count')::integer,
+ 1,'verified purge removes its own receipt through the real batch executor');
+select is((select count(*) from public.repairdesk_order_mutation_operations where store_id='98000000-0000-4000-8000-000000000010'),0::bigint,'purged store has no residual receipt');
+select is((select count(*) from public.repairdesk_order_mutation_operations where store_id='98000000-0000-4000-8000-000000000020'),1::bigint,'other store receipt remains untouched');
+select is((select count(*) from public.repair_orders where id='98000000-0000-4000-8000-000000000110'),1::bigint,'receipt cleanup leaves parent order for the next dependency-ordered step');
+select is((public.repairdesk_purge_store_table_batch_v3_rpc('98000000-0000-4000-8000-000000000501','synthetic-receipt-worker','repairdesk_order_mutation_operations',10)->>'deleted_count')::integer,
+ 0,'retry of a completed receipt batch is harmless');
+reset role;
+select * from finish();
+rollback;

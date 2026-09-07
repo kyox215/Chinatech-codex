@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { OrderWorkflow, OrderWorkflowTransition } from "@/lib/repairdesk/types";
 
 import {
   fallbackOrderWorkflowStatuses,
@@ -6,9 +7,97 @@ import {
   getOrderListSubStatusTabs,
   getWorkflowStatuses,
   getWorkflowTransitionActions,
+  getWorkflowNextActions,
+  getCommonWorkflowTargets,
 } from "./order-workflow";
 
 const workflow = { statuses: fallbackOrderWorkflowStatuses, transitions: [] };
+
+const transition = (
+  from: string,
+  to: string,
+  overrides: Partial<OrderWorkflowTransition> = {},
+): OrderWorkflowTransition => ({
+  id: `${from}-${to}`,
+  store_id: "test-store",
+  from_status_code: from,
+  to_status_code: to,
+  enabled: true,
+  is_primary: false,
+  sort_order: 0,
+  created_at: "",
+  updated_at: "",
+  ...overrides,
+});
+
+describe("enabled workflow action targets", () => {
+  const configured: OrderWorkflow = {
+    statuses: [
+      ...fallbackOrderWorkflowStatuses.map((status) =>
+        status.code === "diagnosing" ? { ...status, enabled: false } : status,
+      ),
+      {
+        ...fallbackOrderWorkflowStatuses[0],
+        id: "custom",
+        code: "shop_check",
+        label: "Store check",
+        is_system: false,
+      },
+    ],
+    transitions: [
+      transition("new", "diagnosing", { is_primary: true }),
+      transition("new", "repairing", { enabled: false }),
+      transition("new", "shop_check"),
+      transition("new", "missing_target"),
+      transition("rework", "diagnosing"),
+      transition("rework", "shop_check"),
+      transition("rework", "parts_ordered"),
+    ],
+  };
+
+  it("excludes disabled destinations, disabled transitions and missing destinations", () => {
+    expect(getWorkflowNextActions(configured, "new")).toEqual({
+      primary: {
+        to: "shop_check",
+        label: "Store check",
+        tone: configured.statuses[0].tone,
+        isPrimary: false,
+      },
+      secondary: [],
+    });
+  });
+
+  it("intersects enabled destinations across every selected current status, including custom states", () => {
+    expect(getCommonWorkflowTargets(configured, ["new", "rework"])).toEqual(["shop_check"]);
+    expect(getCommonWorkflowTargets(configured, ["new", "quoted"])).toEqual([]);
+    expect(getCommonWorkflowTargets(configured, [])).toEqual([]);
+  });
+
+  it("removes a common target when either its state or one selected transition is disabled", () => {
+    expect(
+      getCommonWorkflowTargets(
+        {
+          ...configured,
+          statuses: configured.statuses.map((status) =>
+            status.code === "shop_check" ? { ...status, enabled: false } : status,
+          ),
+        },
+        ["new", "rework"],
+      ),
+    ).toEqual([]);
+    expect(
+      getCommonWorkflowTargets(
+        {
+          ...configured,
+          transitions: configured.transitions.map((item) =>
+            item.id === "rework-shop_check" ? { ...item, enabled: false } : item,
+          ),
+        },
+        ["new", "rework"],
+      ),
+    ).toEqual([]);
+  });
+});
 
 describe("order workflow list status groups", () => {
   it("groups the default workflow into repair shop phases", () => {

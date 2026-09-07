@@ -49,6 +49,7 @@ async function createMockOrder(input: Partial<CreateOrderInput> = {}, operator =
       fault_prices: [{ name: "屏幕", price: 120, note: "原厂 品质" }],
       deposit_amount: 20,
       ...input,
+      operation_id: input.operation_id ?? crypto.randomUUID(),
     },
     operator,
   );
@@ -1616,5 +1617,66 @@ describe("mock order inline editing workflow", () => {
     await expect(
       createMockOrder({ status: "missing_registry_status" as CreateOrderInput["status"] }),
     ).rejects.toThrow("尚未绑定主流程阶段");
+  });
+});
+
+describe("mock authoritative create intent", () => {
+  it("replays only the same actor, store and complete payload", async () => {
+    const input: CreateOrderInput = {
+      operation_id: crypto.randomUUID(),
+      customer_name: "Intent Synthetic",
+      customer_phone: "+393330077601",
+      device_brand: "Test",
+      device_model: "Intent",
+      order_type: "quick_repair",
+      status: "new",
+      issue_description: "Synthetic",
+      fault_prices: [{ name: "Repair", price: 100 }],
+      deposit_amount: 0,
+    };
+    const result = await createOrder(input, "Intent Owner");
+    await expect(createOrder(input, "Intent Owner")).resolves.toEqual({
+      id: result.id,
+      replayed: true,
+    });
+    await expect(
+      createOrder({ ...input, issue_description: "Different" }, "Intent Owner"),
+    ).rejects.toThrow("不同请求");
+    const { getOrderCreateOperationStatus } = await import("./mock-api");
+    await expect(
+      getOrderCreateOperationStatus(input.operation_id, "Intent Owner"),
+    ).resolves.toEqual({ status: "created", id: result.id });
+    await expect(
+      getOrderCreateOperationStatus(input.operation_id, "Different Actor"),
+    ).resolves.toEqual({ status: "pending" });
+  });
+});
+
+describe("mock guarded atomic financial edits", () => {
+  it("rejects quote below received and rolls back the routine half of a mixed edit", async () => {
+    const id = await createMockOrder({
+      fault_prices: [{ name: "Repair", price: 100 }],
+      deposit_amount: 0,
+    });
+    const created = await getOrder(id);
+    await recordPayment(id, 50, "现金", "Cashier", created.order.updated_at, crypto.randomUUID());
+    const before = await getOrder(id);
+    await expect(
+      patchOrder(id, {
+        expected_updated_at: before.order.updated_at,
+        changes: { issue_description: "Must roll back" },
+        finance: { fault_prices: [{ name: "Repair", price: 20 }], deposit_amount: 0 },
+      }),
+    ).rejects.toThrow("报价不能低于已收金额");
+    const rejected = await getOrder(id);
+    expect(rejected.order.issue_description).toBe(before.order.issue_description);
+    expect(rejected.order.updated_at).toBe(before.order.updated_at);
+    expect(rejected.order.balance_amount).toBe(50);
+    await patchOrderFinance(id, {
+      expected_updated_at: before.order.updated_at,
+      fault_prices: [{ name: "Repair", price: 120 }],
+      deposit_amount: 0,
+    });
+    expect((await getOrder(id)).order.balance_amount).toBe(70);
   });
 });

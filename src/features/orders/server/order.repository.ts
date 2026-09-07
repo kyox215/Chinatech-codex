@@ -52,6 +52,8 @@ import type {
   WhatsappNotificationResult,
 } from "@/lib/repairdesk/types";
 import { getSupabaseAdmin } from "@/server/supabase";
+import { mutateOrderAtomic } from "@/features/orders/server/order-mutation";
+import { classifyOrderTransitionFailure } from "@/features/orders/model/order-bulk-transition";
 import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unlock";
 import {
   DEVICE_CUSTODY_WITH_CUSTOMER,
@@ -81,7 +83,6 @@ import {
   workflowStatusFromLegacyStatus,
 } from "@/features/orders/model/canonical-order-status";
 import {
-  formatWarrantyText,
   normalizeWarrantyMonths,
   normalizeWarrantyPayload,
   parseWarrantyMonths,
@@ -800,83 +801,6 @@ function isApprovalDecisionBypass(
   if (to === "waiting_approval") return false;
   if (from === "waiting_approval" && approvalFlowStatus !== "approved") return true;
   return from === "quoted" && approvalStatus === "pending";
-}
-
-function faultPriceSignature(value: unknown) {
-  const rows = Array.isArray(value) ? value : [];
-  return JSON.stringify(
-    rows.map((raw) => {
-      const item = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-      return {
-        name: String(item.name ?? "").trim(),
-        price: money(item.price),
-        note: String(item.note ?? "").trim(),
-        currency_code: String(item.currency_code ?? CURRENCY_CODE),
-      };
-    }),
-  );
-}
-
-function quoteApprovalWasTouched(row: DbRecord) {
-  const approvalStatus = maybeString(row.approval_status);
-  return (
-    approvalStatus === "approved" ||
-    approvalStatus === "rejected" ||
-    maybeString(row.approval_flow_status) === "waiting_customer" ||
-    Boolean(row.approval_sent_at) ||
-    Boolean(row.approval_confirmed_at)
-  );
-}
-
-const quoteReapprovalReopenStatuses = new Set([
-  "parts_ordered",
-  "parts_arrived",
-  "repairing",
-  "repaired",
-  "notified",
-  "waiting_pickup",
-]);
-
-function buildQuoteApprovalResetUpdate({
-  currentRow,
-  nextFaults,
-  quotation,
-  deposit,
-  balance,
-}: {
-  currentRow: DbRecord;
-  nextFaults: unknown[];
-  quotation: number;
-  deposit: number;
-  balance: number;
-}): DbRecord {
-  const quoteChanged =
-    money(currentRow.quotation_amount) !== quotation ||
-    money(currentRow.deposit_amount) !== deposit ||
-    money(currentRow.balance_amount) !== balance ||
-    faultPriceSignature(currentRow.fault_prices) !== faultPriceSignature(nextFaults);
-
-  if (!quoteChanged || !quoteApprovalWasTouched(currentRow)) return {};
-
-  const currentStatus = requiredString(currentRow.status) as RepairOrderStatus;
-  const resetUpdate: DbRecord = {
-    approval_status: "pending",
-    approval_flow_status: approvalFlowStatusFromLegacyStatus(currentStatus, "pending"),
-    approval_sent_at: null,
-    approval_confirmed_at: null,
-  };
-
-  if (quoteReapprovalReopenStatuses.has(currentStatus)) {
-    Object.assign(resetUpdate, {
-      status: "quoted",
-      ...deriveCanonicalUpdateFromLegacyStatus("quoted", new Date().toISOString()),
-      approval_status: "pending",
-      approval_sent_at: null,
-      approval_confirmed_at: null,
-    });
-  }
-
-  return resetUpdate;
 }
 
 function canonicalWorkflowStatusFromBucket(
@@ -1985,7 +1909,7 @@ export async function batchTransition(
       await transitionOrder(id, to, { operator });
       count++;
     } catch (error) {
-      failures.push({ id, reason: (error as Error).message });
+      failures.push({ id, reason: classifyOrderTransitionFailure(error) });
     }
   }
   return { ok: failures.length === 0, count, failures };
@@ -2845,13 +2769,6 @@ async function readDefaultOrderWarrantyMonths(supabase: SupabaseAdmin, storeId: 
   return parseWarrantyMonths(maybeString(row.default_order_warranty_text), 6);
 }
 
-function currentWarrantyMonths(row: DbRecord, defaultMonths: number) {
-  if (row.warranty_months !== undefined && row.warranty_months !== null) {
-    return normalizeWarrantyMonths(Number(row.warranty_months), defaultMonths);
-  }
-  return parseWarrantyMonths(maybeString(row.warranty_text), defaultMonths);
-}
-
 async function assertRoutineOrderMutationAllowed(
   supabase: SupabaseAdmin,
   storeId: string,
@@ -2947,112 +2864,6 @@ function snapshotFromRecord(value: unknown, device?: DeviceSnapshot): DeviceSnap
   };
 }
 
-async function updateVersionedOrderRow({
-  supabase,
-  id,
-  storeId,
-  expectedUpdatedAt,
-  update,
-  context,
-}: {
-  supabase: SupabaseAdmin;
-  id: string;
-  storeId: string;
-  expectedUpdatedAt: string;
-  update: DbRecord;
-  context: string;
-}) {
-  const { data, error } = await supabase
-    .from("repair_orders")
-    .update(update)
-    .eq("store_id", storeId)
-    .eq("id", id)
-    .eq("updated_at", expectedUpdatedAt)
-    .select("updated_at")
-    .maybeSingle();
-
-  if (error && isMissingRepairOrderColumnError(error)) {
-    const { stripped, removed } = stripOptionalOrderWriteFields(update);
-    if (removed) {
-      const retry = await supabase
-        .from("repair_orders")
-        .update(stripped)
-        .eq("store_id", storeId)
-        .eq("id", id)
-        .eq("updated_at", expectedUpdatedAt)
-        .select("updated_at")
-        .maybeSingle();
-      fail(retry.error, context);
-      if (!retry.data) throw new Error("工单已被更新，请刷新后再试");
-      return requiredString((retry.data as DbRecord).updated_at);
-    }
-  }
-
-  fail(error, context);
-  if (!data) throw new Error("工单已被更新，请刷新后再试");
-  return requiredString((data as DbRecord).updated_at);
-}
-
-async function writeMergedPatchEvent(
-  supabase: SupabaseAdmin,
-  orderId: string,
-  changedFields: string[],
-  now: string,
-  operator: string,
-  storeId: string,
-) {
-  const cutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-  const { data: previous, error: previousError } = await supabase
-    .from("order_events")
-    .select("id,payload")
-    .eq("store_id", storeId)
-    .eq("order_id", orderId)
-    .eq("event_type", "note")
-    .gte("created_at", cutoff)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  fail(previousError, "读取编辑时间线失败");
-
-  const previousPayload =
-    previous && typeof (previous as DbRecord).payload === "object"
-      ? ((previous as DbRecord).payload as Record<string, unknown>)
-      : undefined;
-
-  if (previous && previousPayload?.action === "order_patched") {
-    const existingFields = Array.isArray(previousPayload.changed_fields)
-      ? previousPayload.changed_fields.filter((field): field is string => typeof field === "string")
-      : [];
-    const payload = {
-      ...previousPayload,
-      changed_fields: Array.from(new Set([...existingFields, ...changedFields])),
-      currency_code: CURRENCY_CODE,
-    };
-    const { error } = await supabase
-      .from("order_events")
-      .update({ payload, operator_name: operator, created_at: now })
-      .eq("store_id", storeId)
-      .eq("id", requiredString((previous as DbRecord).id));
-    fail(error, "更新时间线失败");
-    return;
-  }
-
-  const { error } = await supabase.from("order_events").insert({
-    id: crypto.randomUUID(),
-    store_id: storeId,
-    order_id: orderId,
-    event_type: "note",
-    payload: {
-      action: "order_patched",
-      changed_fields: changedFields,
-      currency_code: CURRENCY_CODE,
-    },
-    operator_name: operator,
-    created_at: now,
-  });
-  fail(error, "写入编辑时间线失败");
-}
-
 export async function updateOrder(
   id: string,
   input: UpdateOrderInput,
@@ -3060,7 +2871,6 @@ export async function updateOrder(
 ): Promise<{ ok: boolean }> {
   const requestActor = typeof operator === "string" ? undefined : operator;
   const storeId = requireStoreIdFromActor(requestActor);
-  const operatorName = operatorNameFromActor(operator);
   const customerName = input.customer_name.trim();
   const customerPhone = input.customer_phone.trim();
   const deviceBrand = input.device_brand.trim();
@@ -3080,8 +2890,7 @@ export async function updateOrder(
   if (deposit > quotation) throw new Error("押金不能超过总报价");
 
   const supabase = getSupabaseAdmin();
-  const accessRow = await readOrderCustodyRow(supabase, storeId, id, requestActor, "读取工单失败");
-  await assertRoutineOrderMutationAllowed(supabase, storeId, accessRow);
+  await readOrderCustodyRow(supabase, storeId, id, requestActor, "读取工单失败");
   const { data: current, error: readError } = await supabase
     .from("repair_orders")
     .select(
@@ -3093,9 +2902,6 @@ export async function updateOrder(
   fail(readError, "读取工单失败");
 
   const currentRow = current as DbRecord;
-  if (requiredString(currentRow.updated_at) !== input.expected_updated_at) {
-    throw new Error("工单已被更新，请刷新后再试");
-  }
   const customerId = requiredString(currentRow.customer_id);
   const deviceId = requiredString(currentRow.device_id);
   if (!customerId || !deviceId) throw new Error("工单缺少客户或设备关联");
@@ -3110,18 +2916,6 @@ export async function updateOrder(
     customerContactPhones,
   );
 
-  const oldQuotation = money(currentRow.quotation_amount);
-  const oldDeposit = money(currentRow.deposit_amount);
-  const oldBalance = money(currentRow.balance_amount);
-  const paidAmount = Math.max(0, oldQuotation - oldDeposit - oldBalance);
-  const nextBalance = Math.max(0, quotation - deposit - paidAmount);
-  const approvalResetUpdate = buildQuoteApprovalResetUpdate({
-    currentRow,
-    nextFaults: validFaults,
-    quotation,
-    deposit,
-    balance: nextBalance,
-  });
   const tagInput = normalizeOrderTagInput({
     internalTag: input.internal_tag,
     accessoryNotes: input.accessory_notes,
@@ -3129,7 +2923,6 @@ export async function updateOrder(
   const deviceUnlock = input.device_unlock
     ? normalizeDeviceUnlockInput(input.device_unlock)
     : undefined;
-  const now = new Date().toISOString();
   const defaultWarrantyMonths = await readDefaultOrderWarrantyMonths(supabase, storeId);
   const warranty = normalizeWarrantyPayload({
     warranty_months: input.warranty_months,
@@ -3137,20 +2930,14 @@ export async function updateOrder(
     warranty_change_reason: input.warranty_change_reason,
     defaultWarrantyMonths,
   });
-  const previousWarrantyMonths = currentWarrantyMonths(currentRow, defaultWarrantyMonths);
-  const previousWarrantyReason = maybeString(currentRow.warranty_change_reason);
-  const warrantyChanged =
-    previousWarrantyMonths !== warranty.warranty_months ||
-    (previousWarrantyReason ?? "") !== (warranty.warranty_change_reason ?? "");
-  const actorId = typeof operator === "string" ? undefined : operator.id;
-
-  await updateVersionedOrderRow({
+  return mutateOrderAtomic({
     supabase,
-    id,
     storeId,
-    expectedUpdatedAt: input.expected_updated_at,
-    context: "更新工单失败",
-    update: {
+    actorId: requestActor?.id ?? "",
+    orderId: id,
+    mode: "update",
+    request: input,
+    orderChanges: {
       issue_description: issueDescription,
       diagnosis_result: input.diagnosis_result?.trim() || null,
       internal_tag: tagInput.internalTag || null,
@@ -3165,91 +2952,24 @@ export async function updateOrder(
       warranty_text: warranty.warranty_text,
       warranty_months: warranty.warranty_months,
       warranty_change_reason: warranty.warranty_change_reason ?? null,
-      ...(warrantyChanged
-        ? { warranty_changed_by: actorId ?? null, warranty_changed_at: now }
-        : {}),
       contact_phones: customerContactPhones,
       quotation_amount: quotation,
       deposit_amount: deposit,
-      balance_amount: nextBalance,
-      is_paid: nextBalance === 0,
-      payment_status: paymentStatusFromMoney({
-        isPaid: nextBalance === 0,
-        depositAmount: deposit,
-        balanceAmount: nextBalance,
-      }),
       fault_prices: validFaults,
-      currency_code: CURRENCY_CODE,
-      ...approvalResetUpdate,
       device_snapshot: {
         brand: deviceBrand,
         model: deviceModel,
         serial_or_imei: input.device_imei?.trim() ?? "",
         ...(input.device_notes?.trim() ? { device_notes: input.device_notes.trim() } : {}),
       },
-      updated_at: now,
     },
-  });
-
-  const { error: customerError } = await supabase
-    .from("customers")
-    .update({
+    customerChanges: {
       name: customerName,
       phone_e164: phoneBook.primary,
       phone_raw: phoneBook.primaryRaw,
       contact_phones: customerContactPhones,
-      updated_at: now,
-    })
-    .eq("store_id", storeId)
-    .eq("id", customerId);
-  fail(customerError, "更新客户失败");
-
-  const { error: eventError } = await supabase.from("order_events").insert({
-    id: crypto.randomUUID(),
-    store_id: storeId,
-    order_id: id,
-    event_type: "note",
-    payload: {
-      action: "order_updated",
-      quotation_amount: quotation,
-      deposit_amount: deposit,
-      balance_amount: nextBalance,
-      internal_tag: tagInput.internalTag,
-      accessory_notes: tagInput.accessoryNotes,
-      device_unlock_changed: Boolean(deviceUnlock),
-      device_unlock_method: deviceUnlock?.method ?? null,
-      warranty_months: warranty.warranty_months,
-      warranty_text: warranty.warranty_text,
-      approval_reset: Boolean(approvalResetUpdate.approval_status),
-      currency_code: CURRENCY_CODE,
     },
-    operator_name: operatorName,
-    created_at: now,
   });
-  fail(eventError, "写入更新时间线失败");
-
-  if (warrantyChanged) {
-    const { error } = await supabase.from("order_events").insert({
-      id: crypto.randomUUID(),
-      store_id: storeId,
-      order_id: id,
-      event_type: "note",
-      payload: {
-        action: "warranty_changed",
-        from_months: previousWarrantyMonths,
-        from_text: formatWarrantyText(previousWarrantyMonths),
-        to_months: warranty.warranty_months,
-        to_text: warranty.warranty_text,
-        reason: warranty.warranty_change_reason ?? null,
-        default_months: defaultWarrantyMonths,
-      },
-      operator_name: operatorName,
-      created_at: now,
-    });
-    fail(error, "写入质保变更时间线失败");
-  }
-
-  return { ok: true };
 }
 
 export async function patchOrder(
@@ -3259,7 +2979,6 @@ export async function patchOrder(
 ): Promise<PatchOrderResult> {
   const requestActor = typeof operator === "string" ? undefined : operator;
   const storeId = requireStoreIdFromActor(requestActor);
-  const operatorName = operatorNameFromActor(operator);
   if (!id) throw new Error("工单 ID 不能为空");
   if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
 
@@ -3274,7 +2993,6 @@ export async function patchOrder(
 
   const supabase = getSupabaseAdmin();
   const accessRow = await readOrderStatusRow(supabase, storeId, id, requestActor, "读取工单失败");
-  await assertRoutineOrderMutationAllowed(supabase, storeId, accessRow);
   if (
     Object.prototype.hasOwnProperty.call(input.changes, "assignee_membership_id") &&
     accessRow.__assignment_supported !== true
@@ -3292,9 +3010,6 @@ export async function patchOrder(
   fail(readError, "读取工单失败");
 
   const currentRow = current as DbRecord;
-  if (requiredString(currentRow.updated_at) !== input.expected_updated_at) {
-    throw new Error("工单已被更新，请刷新后再试");
-  }
 
   const customerId = requiredString(currentRow.customer_id);
   if (!customerId) throw new Error("工单缺少客户关联");
@@ -3310,11 +3025,8 @@ export async function patchOrder(
       : [];
   const orderUpdate: DbRecord = {};
   const customerUpdate: DbRecord = {};
-  const changedFields: string[] = [];
 
   for (const [field, rawValue] of editableEntries) {
-    changedFields.push(PATCH_FIELD_LABELS[field]);
-
     if (field === "assignee_membership_id") {
       if (!requestActor?.isSystem && !can(requestActor, "order:assign")) {
         throw new ForbiddenError("当前角色无权分配工单负责人");
@@ -3322,11 +3034,9 @@ export async function patchOrder(
       const membershipId = typeof rawValue === "string" ? rawValue.trim() : "";
       if (!membershipId) {
         orderUpdate.assignee_membership_id = null;
-        orderUpdate.technician_name = "未分配";
       } else {
         const assignee = await readAssignableOrderMember(supabase, storeId, membershipId);
         orderUpdate.assignee_membership_id = assignee.id;
-        orderUpdate.technician_name = assignee.displayName;
       }
       continue;
     }
@@ -3447,37 +3157,28 @@ export async function patchOrder(
     orderUpdate.device_snapshot = nextSnapshot;
   }
 
-  const now = new Date().toISOString();
-  if (
-    editableEntries.some(([field]) =>
-      ["warranty_text", "warranty_months", "warranty_change_reason"].includes(field),
-    )
-  ) {
-    orderUpdate.warranty_changed_by = requestActor?.id ?? null;
-    orderUpdate.warranty_changed_at = now;
+  if (input.finance) {
+    const faults = normalizeFaultPriceInput(input.finance.fault_prices, { generateLineIds: true });
+    const quotation = faults.reduce((sum, item) => sum + item.price, 0);
+    const deposit = Number(input.finance.deposit_amount ?? 0);
+    if (!Number.isFinite(deposit) || deposit < 0 || deposit > quotation)
+      throw new Error("初始订金必须在零与报价之间");
+    Object.assign(orderUpdate, {
+      fault_prices: faults,
+      quotation_amount: quotation,
+      deposit_amount: deposit,
+    });
   }
-  orderUpdate.updated_at = now;
-  const updatedAt = await updateVersionedOrderRow({
+  return mutateOrderAtomic({
     supabase,
-    id,
     storeId,
-    expectedUpdatedAt: input.expected_updated_at,
-    update: orderUpdate,
-    context: "更新工单失败",
+    actorId: requestActor?.id ?? "",
+    orderId: id,
+    mode: input.finance ? "update" : "patch",
+    request: input,
+    orderChanges: orderUpdate,
+    customerChanges: customerUpdate,
   });
-
-  if (Object.keys(customerUpdate).length > 0) {
-    customerUpdate.updated_at = now;
-    const { error: customerError } = await supabase
-      .from("customers")
-      .update(customerUpdate)
-      .eq("store_id", storeId)
-      .eq("id", customerId);
-    fail(customerError, "更新客户失败");
-  }
-
-  await writeMergedPatchEvent(supabase, id, changedFields, now, operatorName, storeId);
-  return { ok: true, updated_at: updatedAt };
 }
 
 export async function patchOrderFinance(
@@ -3487,7 +3188,6 @@ export async function patchOrderFinance(
 ): Promise<PatchOrderResult> {
   const requestActor = typeof operator === "string" ? undefined : operator;
   const storeId = requireStoreIdFromActor(requestActor);
-  const operatorName = operatorNameFromActor(operator);
   if (!id) throw new Error("工单 ID 不能为空");
   if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
 
@@ -3498,78 +3198,19 @@ export async function patchOrderFinance(
   if (deposit > quotation) throw new Error("押金不能超过总报价");
 
   const supabase = getSupabaseAdmin();
-  const accessRow = await readOrderStatusRow(supabase, storeId, id, requestActor, "读取工单失败");
-  await assertRoutineOrderMutationAllowed(supabase, storeId, accessRow);
-  const { data: current, error: readError } = await supabase
-    .from("repair_orders")
-    .select(
-      "id,updated_at,status,quotation_amount,deposit_amount,balance_amount,fault_prices,approval_status,approval_flow_status,approval_sent_at,approval_confirmed_at",
-    )
-    .eq("store_id", storeId)
-    .eq("id", id)
-    .single();
-  fail(readError, "读取工单失败");
-
-  const currentRow = current as DbRecord;
-  if (requiredString(currentRow.updated_at) !== input.expected_updated_at) {
-    throw new Error("工单已被更新，请刷新后再试");
-  }
-
-  const oldQuotation = money(currentRow.quotation_amount);
-  const oldDeposit = money(currentRow.deposit_amount);
-  const oldBalance = money(currentRow.balance_amount);
-  const paidAmount = Math.max(0, oldQuotation - oldDeposit - oldBalance);
-  const nextBalance = Math.max(0, quotation - deposit - paidAmount);
-  const now = new Date().toISOString();
-  const approvalResetUpdate = buildQuoteApprovalResetUpdate({
-    currentRow,
-    nextFaults: validFaults,
-    quotation,
-    deposit,
-    balance: nextBalance,
-  });
-  const updatedAt = await updateVersionedOrderRow({
+  return mutateOrderAtomic({
     supabase,
-    id,
     storeId,
-    expectedUpdatedAt: input.expected_updated_at,
-    update: {
-      quotation_amount: quotation,
-      deposit_amount: deposit,
-      balance_amount: nextBalance,
-      is_paid: nextBalance === 0,
-      payment_status: paymentStatusFromMoney({
-        isPaid: nextBalance === 0,
-        depositAmount: deposit,
-        balanceAmount: nextBalance,
-      }),
+    actorId: requestActor?.id ?? "",
+    orderId: id,
+    mode: "finance",
+    request: input,
+    orderChanges: {
       fault_prices: validFaults,
-      currency_code: CURRENCY_CODE,
-      ...approvalResetUpdate,
-      updated_at: now,
-    },
-    context: "更新财务失败",
-  });
-
-  const { error: eventError } = await supabase.from("order_events").insert({
-    id: crypto.randomUUID(),
-    store_id: storeId,
-    order_id: id,
-    event_type: "note",
-    payload: {
-      action: "order_finance_updated",
       quotation_amount: quotation,
       deposit_amount: deposit,
-      balance_amount: nextBalance,
-      approval_reset: Boolean(approvalResetUpdate.approval_status),
-      currency_code: CURRENCY_CODE,
     },
-    operator_name: operatorName,
-    created_at: now,
   });
-  fail(eventError, "写入财务时间线失败");
-
-  return { ok: true, updated_at: updatedAt };
 }
 
 async function writeWhatsappMessage({
@@ -3845,7 +3486,17 @@ export async function createOrder(
   const storeId = requireStoreIdFromActor(requestActor);
   assertNewOrderExpectedStore(input.expected_store_id, storeId);
   const operatorName = operatorNameFromActor(operator);
-  const operationId = input.operation_id?.trim() || crypto.randomUUID();
+  const operationId = input.operation_id?.trim();
+  if (
+    !operationId ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(operationId)
+  ) {
+    throw new OrderCustomerIdentityError(
+      "缺少有效的创建操作标识，请重新打开创建表单",
+      "invalid_operation_id",
+      400,
+    );
+  }
   if (
     input.assignee_membership_id &&
     !requestActor?.isSystem &&
@@ -3863,10 +3514,6 @@ export async function createOrder(
   if (input.device_id && !input.customer_id) throw new Error("选择现有设备时必须同时选择客户");
 
   const supabase = getSupabaseAdmin();
-  if (operationId) {
-    const existing = await findCreatedOrderByOperationId(supabase, storeId, operationId);
-    if (existing) return { id: existing.id, replayed: true };
-  }
   const requestedAssignee = input.assignee_membership_id?.trim();
   if (requestedAssignee && !(await isOrderAssignmentSupported(supabase, storeId))) {
     throw new Error("负责人功能尚未完成数据库迁移，请联系店主");
@@ -4016,23 +3663,29 @@ export async function getOrderCreateOperationStatus(
   actor?: AuditActor,
 ): Promise<{ status: "pending" } | { status: "created"; id: string }> {
   const storeId = requireStoreIdFromActor(actor);
-  const existing = await findCreatedOrderByOperationId(getSupabaseAdmin(), storeId, operationId);
+  if (!actor?.id) throw new ForbiddenError("缺少当前操作人员身份");
+  const existing = await findCreatedOrderByOperationId(
+    getSupabaseAdmin(),
+    storeId,
+    actor.id,
+    operationId,
+  );
   return existing ? { status: "created", id: existing.id } : { status: "pending" };
 }
 
 async function findCreatedOrderByOperationId(
   supabase: SupabaseAdmin,
   storeId: string,
+  actorId: string,
   operationId: string,
 ): Promise<{ id: string } | null> {
   const { data, error } = await supabase
-    .from("order_events")
+    .from("repairdesk_order_create_operations")
     .select("order_id")
     .eq("store_id", storeId)
-    .eq("event_type", "created")
-    .contains("payload", { operation_id: operationId })
-    .order("created_at", { ascending: false })
-    .limit(1)
+    .eq("actor_id", actorId)
+    .eq("operation_id", operationId)
+    .eq("status", "created")
     .maybeSingle();
   fail(error, "确认创建结果失败");
   const id = maybeString((data as DbRecord | null)?.order_id);

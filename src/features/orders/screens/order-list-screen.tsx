@@ -68,7 +68,15 @@ import { OrderResultGroupHeader } from "@/features/orders/components/order-resul
 import { OrderSearchFeedback } from "@/features/orders/components/order-search-feedback";
 import { OrderListSkeleton } from "@/features/orders/components/order-list-skeleton";
 import { OrderListViewMode } from "@/features/orders/components/order-list-view-mode";
-import { OrderListTransitionFeedback } from "@/features/orders/components/order-list-transition-feedback";
+import {
+  OrderBulkTransitionFeedback,
+  OrderListTransitionFeedback,
+} from "@/features/orders/components/order-list-transition-feedback";
+import {
+  classifyOrderTransitionFailure,
+  getFailedOrderTransitionIds,
+  type OrderBulkTransitionRecovery,
+} from "@/features/orders/model/order-bulk-transition";
 import { OrderStatusFilterControls } from "@/features/orders/components/order-list-filters";
 import { MobileOrdersFloatingHeader } from "@/features/orders/components/order-list-mobile-header";
 import { OrderQrScannerButton } from "@/features/orders/components/order-qr-scanner";
@@ -225,6 +233,8 @@ export function OrderListScreen() {
     pageSize: ORDER_QUEUE_PAGE_SIZE,
   });
   const [selected, setSelected] = useState<string[]>([]);
+  const [bulkRecovery, setBulkRecovery] = useState<OrderBulkTransitionRecovery | null>(null);
+  const bulkRequestLockRef = useRef(false);
   const [printOrders, setPrintOrders] = useState<OrderListItem[]>([]);
   const [pendingPrintOrders, setPendingPrintOrders] = useState<OrderListItem[]>([]);
   const [printPaperDialogOpen, setPrintPaperDialogOpen] = useState(false);
@@ -401,6 +411,18 @@ export function OrderListScreen() {
     [currentSelection],
   );
   const queueRequestHash = useMemo(() => orderListRequestHash(queueInput), [queueInput]);
+  const bulkScopeKey = JSON.stringify([activeStoreId, shell.userId, queueRequestHash]);
+  const bulkScopeRef = useRef(bulkScopeKey);
+  const bulkScopeVersionRef = useRef(0);
+  useEffect(() => {
+    bulkScopeVersionRef.current += 1;
+    bulkScopeRef.current = bulkScopeKey;
+    setSelected([]);
+    setBulkRecovery(null);
+  }, [bulkScopeKey]);
+  useEffect(() => {
+    if (!selected.length) setBulkRecovery(null);
+  }, [selected.length]);
 
   const {
     data: queueSummary,
@@ -848,29 +870,100 @@ export function OrderListScreen() {
   };
 
   const bulk = useMutation({
-    mutationFn: ({ ids, to }: { ids: string[]; to: RepairOrderStatus }) => batchTransition(ids, to),
-    onSuccess: (r, vars) => {
-      toast.success(
-        localizeBulkTransitionFeedback(
-          {
-            count: r.count,
-            failures: r.failures.length,
-            to: vars.to,
-          },
-          workflow,
-          t,
-        ),
-      );
-      setSelected([]);
+    mutationFn: ({
+      ids,
+      to,
+    }: {
+      ids: string[];
+      to: RepairOrderStatus;
+      scopeKey: string;
+      scopeVersion: number;
+      orders: { id: string; publicNo?: string }[];
+    }) => batchTransition(ids, to),
+    onSuccess: (result, vars) => {
       refreshOrderData();
+      if (
+        vars.scopeKey !== bulkScopeRef.current ||
+        vars.scopeVersion !== bulkScopeVersionRef.current
+      )
+        return;
+      const failedIds = getFailedOrderTransitionIds(vars.ids, result.failures);
+      const failures = failedIds.map((id) => ({
+        id,
+        publicNo: vars.orders.find((order) => order.id === id)?.publicNo,
+        reason: classifyOrderTransitionFailure(
+          result.failures.find((failure) => failure.id === id)?.reason,
+        ),
+      }));
+      if (!failures.length) {
+        toast.success(
+          localizeBulkTransitionFeedback(
+            { count: result.count, failures: 0, to: vars.to },
+            workflow,
+            t,
+          ),
+        );
+      }
+      setSelected(failedIds);
+      setBulkRecovery(
+        failures.length
+          ? { scopeKey: vars.scopeKey, to: vars.to, successCount: result.count, failures }
+          : null,
+      );
+    },
+    onError: (error: unknown, vars) => {
+      if (
+        vars.scopeKey !== bulkScopeRef.current ||
+        vars.scopeVersion !== bulkScopeVersionRef.current
+      )
+        return;
+      const reason = classifyOrderTransitionFailure(error);
+      setSelected(vars.ids);
+      setBulkRecovery({
+        scopeKey: vars.scopeKey,
+        to: vars.to,
+        successCount: 0,
+        requestFailed: true,
+        failures: vars.orders.map((order) => ({ ...order, reason })),
+      });
+    },
+    onSettled: () => {
+      bulkRequestLockRef.current = false;
     },
   });
 
-  const allSelected = data.length > 0 && selected.length === data.length;
+  const visibleBulkFailures =
+    bulkRecovery?.scopeKey === bulkScopeKey
+      ? bulkRecovery.failures.filter((failure) => selected.includes(failure.id))
+      : [];
+  const activeBulkRecovery =
+    bulkRecovery && visibleBulkFailures.length
+      ? { ...bulkRecovery, failures: visibleBulkFailures }
+      : null;
+  const submitBulkTransition = (ids: string[], to: RepairOrderStatus) => {
+    if (bulkRequestLockRef.current || !ids.length || !isOnline || !canBatchTransitionOrders) return;
+    bulkRequestLockRef.current = true;
+    bulk.mutate({
+      ids: [...ids],
+      to,
+      scopeKey: bulkScopeKey,
+      scopeVersion: bulkScopeVersionRef.current,
+      orders: ids.map((id) => ({
+        id,
+        publicNo:
+          data.find((order) => order.id === id)?.public_no ??
+          activeBulkRecovery?.failures.find((failure) => failure.id === id)?.publicNo,
+      })),
+    });
+  };
+
+  const allSelected = data.length > 0 && data.every((order) => selected.includes(order.id));
 
   // Targets allowed across ALL selected rows (for bulk dropdown).
   const rawBulkTargets = useMemo(() => {
-    if (!selected.length) return [] as RepairOrderStatus[];
+    if (!selected.length || selected.some((id) => !data.some((order) => order.id === id))) {
+      return [] as RepairOrderStatus[];
+    }
     const currents = data.filter((o) => selected.includes(o.id)).map((o) => o.status);
     return getCommonWorkflowTargets(workflow, currents);
   }, [selected, data, workflow]);
@@ -1517,6 +1610,21 @@ export function OrderListScreen() {
         </Dialog>
       }
 
+      {activeBulkRecovery ? (
+        <OrderBulkTransitionFeedback
+          recovery={activeBulkRecovery}
+          workflow={workflow}
+          pending={bulk.isPending}
+          retryDisabled={!isOnline || !canBatchTransitionOrders || listTransitionPending}
+          onRetry={() =>
+            submitBulkTransition(
+              activeBulkRecovery.failures.map((failure) => failure.id),
+              activeBulkRecovery.to,
+            )
+          }
+        />
+      ) : null}
+
       <OrderListTransitionFeedback
         pendingLabel={activePendingListIntent?.label}
         offlineMessage={!isOnline ? t("orders.offlineCached") : undefined}
@@ -1795,6 +1903,7 @@ export function OrderListScreen() {
                       {canUseBulkActions ? (
                         <Checkbox
                           checked={allSelected}
+                          disabled={bulk.isPending}
                           onCheckedChange={(v) => setSelected(v ? data.map((o) => o.id) : [])}
                           aria-label={t("orders.selectPage")}
                         />
@@ -1845,9 +1954,11 @@ export function OrderListScreen() {
                                   onCancelPrefetch={() => cancelOrderDetailPrefetch(order.id)}
                                   onCheckedChange={(value) =>
                                     setSelected((previous) =>
-                                      value
-                                        ? [...previous, order.id]
-                                        : previous.filter((id) => id !== order.id),
+                                      bulkRequestLockRef.current
+                                        ? previous
+                                        : value
+                                          ? [...new Set([...previous, order.id])]
+                                          : previous.filter((id) => id !== order.id),
                                     )
                                   }
                                   onPrint={() => requestPrintRows([order])}
@@ -1931,6 +2042,8 @@ export function OrderListScreen() {
                 variant="ghost"
                 size="icon"
                 className="size-7"
+                aria-label={t("orders.bulkClearSelection")}
+                disabled={bulk.isPending}
                 onClick={() => setSelected([])}
               >
                 <X className="size-4" />
@@ -1942,7 +2055,11 @@ export function OrderListScreen() {
               {canBatchTransitionOrders ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button size="sm" variant="outline" disabled={!bulkTargets.length}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!bulkTargets.length || bulk.isPending || !isOnline}
+                    >
                       {t("orders.bulkTransition")}
                     </Button>
                   </DropdownMenuTrigger>
@@ -1958,7 +2075,8 @@ export function OrderListScreen() {
                     {bulkTargets.map((s) => (
                       <DropdownMenuItem
                         key={s}
-                        onClick={() => bulk.mutate({ ids: selected, to: s })}
+                        disabled={bulk.isPending || !isOnline}
+                        onClick={() => submitBulkTransition(selected, s)}
                       >
                         {localizeWorkflowStatusLabel(workflow, s, t)}
                       </DropdownMenuItem>

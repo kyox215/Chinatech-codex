@@ -928,7 +928,7 @@ describe("order repository create operation recovery", () => {
     mocks.supabase.rpc.mockReset();
   });
 
-  it("finds a created order by store-scoped create operation id", async () => {
+  it("finds a created order by actor/store-scoped authoritative operation receipt", async () => {
     const query = createSupabaseQuery({
       data: { order_id: "order_recovered" },
       error: null,
@@ -940,15 +940,15 @@ describe("order repository create operation recovery", () => {
       getOrderCreateOperationStatus("00000000-0000-4000-8000-000000000901", actor("owner")),
     ).resolves.toEqual({ status: "created", id: "order_recovered" });
 
-    expect(mocks.supabase.from).toHaveBeenCalledWith("order_events");
+    expect(mocks.supabase.from).toHaveBeenCalledWith("repairdesk_order_create_operations");
     expect(query.eq).toHaveBeenCalledWith("store_id", "store_1");
-    expect(query.eq).toHaveBeenCalledWith("event_type", "created");
-    expect(query.contains).toHaveBeenCalledWith("payload", {
-      operation_id: "00000000-0000-4000-8000-000000000901",
-    });
+    expect(query.eq).toHaveBeenCalledWith("actor_id", actor("owner").id);
+    expect(query.eq).toHaveBeenCalledWith("status", "created");
+    expect(query.eq).toHaveBeenCalledWith("operation_id", "00000000-0000-4000-8000-000000000901");
+    expect(query.contains).not.toHaveBeenCalled();
   });
 
-  it("reports pending when no create event has been written yet", async () => {
+  it("reports pending when no authoritative created receipt exists", async () => {
     mocks.supabase.from.mockReturnValueOnce(
       createSupabaseQuery({
         data: null,

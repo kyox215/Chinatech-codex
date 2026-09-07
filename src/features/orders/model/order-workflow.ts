@@ -141,7 +141,12 @@ export function getWorkflowNextActions(
 ) {
   const statuses = getWorkflowStatuses(workflow);
   const transitions = (workflow?.transitions ?? [])
-    .filter((transition) => transition.enabled && transition.from_status_code === current)
+    .filter(
+      (transition) =>
+        transition.enabled &&
+        transition.from_status_code === current &&
+        statuses.some((status) => status.code === transition.to_status_code && status.enabled),
+    )
     .sort((a, b) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order);
   const actions = transitions.map((transition) => {
     const status = statuses.find((item) => item.code === transition.to_status_code);
@@ -187,6 +192,7 @@ export function getCommonWorkflowTargets(
       ),
   );
   return statuses
+    .filter((status) => status.enabled)
     .map((status) => status.code)
     .filter((code) => targetSets.every((targets) => targets.has(code)) && !currents.includes(code));
 }

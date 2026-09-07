@@ -68,6 +68,7 @@ describe("customer mock api pagination", () => {
     const phone = "+393339997070";
     const create = (suffix: string) =>
       createOrder({
+        operation_id: crypto.randomUUID(),
         customer_name: "取消金额回归",
         customer_phone: phone,
         device_brand: "Samsung",

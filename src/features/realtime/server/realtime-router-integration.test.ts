@@ -114,6 +114,7 @@ describe("repairdesk router realtime integration", () => {
     mocks.createOrder.mockRejectedValueOnce(new Error("create failed"));
 
     const response = await handleRepairDeskPost("orders/create", {
+      operation_id: "00000000-0000-4000-8000-000000000905",
       order_type: "quick_repair",
       status: "new",
       issue_description: "Schermo rotto",
@@ -121,6 +122,7 @@ describe("repairdesk router realtime integration", () => {
     });
 
     expect(response.status).toBe(400);
+    expect(mocks.createOrder).toHaveBeenCalledTimes(1);
     expect(mocks.queueRepairDeskRealtimeBroadcast).not.toHaveBeenCalled();
   });
 

@@ -915,7 +915,7 @@ export const createOrderSchema = z
     expected_store_id: z.string().uuid().optional(),
     customer_id: optionalText,
     device_id: optionalText,
-    operation_id: z.string().uuid().optional(),
+    operation_id: z.string().uuid(),
     customer_name: optionalText,
     customer_phone: optionalText,
     customer_identity_resolution: customerIdentityResolutionSchema.optional(),
@@ -950,6 +950,7 @@ export const orderCreateOperationStatusSchema = z
 
 export const updateOrderInputSchema = z
   .object({
+    idempotency_key: z.string().uuid().optional(),
     expected_updated_at: z.string().min(1, "缺少版本时间"),
     customer_name: z.string(),
     customer_phone: z.string(),
@@ -1002,7 +1003,15 @@ export const patchOrderChangesSchema = z
 
 export const patchOrderInputSchema = z
   .object({
+    idempotency_key: z.string().uuid().optional(),
     expected_updated_at: z.string().min(1, "缺少版本时间"),
+    finance: z
+      .object({
+        fault_prices: z.array(faultPriceItemSchema),
+        deposit_amount: z.coerce.number().optional(),
+      })
+      .strict()
+      .optional(),
     changes: patchOrderChangesSchema.refine((changes) => Object.keys(changes).length > 0, {
       message: "没有可保存的字段",
     }),
@@ -1011,6 +1020,7 @@ export const patchOrderInputSchema = z
 
 export const patchOrderFinanceInputSchema = z
   .object({
+    idempotency_key: z.string().uuid().optional(),
     expected_updated_at: z.string().min(1, "缺少版本时间"),
     fault_prices: z.array(faultPriceItemSchema),
     deposit_amount: z.coerce.number().optional(),

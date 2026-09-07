@@ -604,6 +604,17 @@ describe("repairdesk router internal cost boundary", () => {
 });
 
 describe("repairdesk router order write permissions", () => {
+  it("requires payment adjustment permission for mixed routine/finance patches", () => {
+    const input = {
+      expected_updated_at: "2026-09-07T10:00:00Z",
+      changes: { customer_name: "Synthetic" },
+      finance: { fault_prices: [{ name: "Repair", price: 120 }], deposit_amount: 0 },
+    };
+    expect(resolveOrderPatchPermissionActions(input)).toContain("payment:adjust");
+    expect(() => assertOrderPatchPermission(actor("owner"), input)).not.toThrow();
+    expect(() => assertOrderPatchPermission(actor("sales"), input)).toThrow();
+    expect(() => assertOrderPatchPermission(actor("technician"), input)).toThrow();
+  });
   it("separates diagnosis scope from final quote publication and sending", () => {
     const quoteInput = {
       expected_updated_at: "2026-07-17T18:00:00.000Z",

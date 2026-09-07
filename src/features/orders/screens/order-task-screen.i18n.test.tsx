@@ -416,8 +416,8 @@ describe("OrderTaskScreen i18n", () => {
               first,
               {
                 ...first,
-                id: "transition-ready",
-                to_status_code: "ready",
+                id: "transition-repaired",
+                to_status_code: "repaired",
                 is_primary: false,
                 sort_order: 20,
               },

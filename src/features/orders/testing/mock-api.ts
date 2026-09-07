@@ -40,6 +40,7 @@ import type {
 } from "@/lib/repairdesk/types";
 import { repairOrderStatus, statusMeta, type RepairOrderStatus } from "@/lib/mock/enums";
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
+import { classifyOrderTransitionFailure } from "@/features/orders/model/order-bulk-transition";
 import { classifyOrderSearchQuery } from "@/features/orders/model/order-search-query";
 import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unlock";
 import {
@@ -1247,7 +1248,7 @@ export async function batchTransition(
       await transitionOrder(id, to, { operator });
       count++;
     } catch (e) {
-      failures.push({ id, reason: (e as Error).message });
+      failures.push({ id, reason: classifyOrderTransitionFailure(e) });
     }
   }
   return { ok: failures.length === 0, count, failures };
@@ -1446,7 +1447,22 @@ export async function updateOrder(
   if (deposit > quotation) throw new Error("押金不能超过总报价");
 
   const paidAmount = Math.max(0, o.quotation_amount - o.deposit_amount - o.balance_amount);
-  const nextBalance = Math.max(0, quotation - deposit - paidAmount);
+  if (quotation < o.deposit_amount + paidAmount) {
+    throw new Error("报价不能低于已收金额，请先通过收款纠正流程处理");
+  }
+  if (
+    deposit !== o.deposit_amount &&
+    (paidAmount > 0 ||
+      getEvents(id).some((event) => event.event_type === "payment") ||
+      o.approval_status === "approved" ||
+      o.approval_status === "rejected" ||
+      o.approval_flow_status === "waiting_customer" ||
+      o.approval_sent_at ||
+      o.approval_confirmed_at)
+  ) {
+    throw new Error("已有收款或审批记录，不能通过编辑修改初始订金，请使用初始订金纠正流程");
+  }
+  const nextBalance = quotation - deposit - paidAmount;
   const approvalReset = shouldResetMockQuoteApproval(
     o,
     validFaults,
@@ -1578,6 +1594,34 @@ export async function patchOrder(
   if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
   if (o.updated_at !== input.expected_updated_at) throw new Error("工单已被更新，请刷新后再试");
 
+  if (input.finance) {
+    const beforeOrder = structuredClone(o);
+    const customer = getCustomer(o.customer_id);
+    const beforeCustomer = customer ? structuredClone(customer) : undefined;
+    const beforeEvents = structuredClone(extraEvents);
+    try {
+      const routine = await patchOrder(
+        id,
+        { expected_updated_at: input.expected_updated_at, changes: input.changes },
+        operator,
+      );
+      return await patchOrderFinance(
+        id,
+        { ...input.finance, expected_updated_at: routine.updated_at },
+        operator,
+      );
+    } catch (error) {
+      for (const key of Object.keys(o)) delete (o as unknown as Record<string, unknown>)[key];
+      Object.assign(o, beforeOrder);
+      if (customer && beforeCustomer) {
+        for (const key of Object.keys(customer))
+          delete (customer as unknown as Record<string, unknown>)[key];
+        Object.assign(customer, beforeCustomer);
+      }
+      extraEvents.splice(0, extraEvents.length, ...beforeEvents);
+      throw error;
+    }
+  }
   const rawEntries = Object.entries(input.changes).filter(([, value]) => value !== undefined);
   const unsupportedField = rawEntries.find(([field]) => !(field in PATCH_FIELD_LABELS))?.[0];
   if (unsupportedField) throw new Error(`${unsupportedField} 不可通过快速编辑修改`);
@@ -1725,7 +1769,22 @@ export async function patchOrderFinance(
   if (deposit > quotation) throw new Error("押金不能超过总报价");
 
   const paidAmount = Math.max(0, o.quotation_amount - o.deposit_amount - o.balance_amount);
-  const nextBalance = Math.max(0, quotation - deposit - paidAmount);
+  if (quotation < o.deposit_amount + paidAmount) {
+    throw new Error("报价不能低于已收金额，请先通过收款纠正流程处理");
+  }
+  if (
+    deposit !== o.deposit_amount &&
+    (paidAmount > 0 ||
+      getEvents(id).some((event) => event.event_type === "payment") ||
+      o.approval_status === "approved" ||
+      o.approval_status === "rejected" ||
+      o.approval_flow_status === "waiting_customer" ||
+      o.approval_sent_at ||
+      o.approval_confirmed_at)
+  ) {
+    throw new Error("已有收款或审批记录，不能通过编辑修改初始订金，请使用初始订金纠正流程");
+  }
+  const nextBalance = quotation - deposit - paidAmount;
   const approvalReset = shouldResetMockQuoteApproval(
     o,
     validFaults,
@@ -2442,6 +2501,15 @@ function mockQuoteFingerprint(value: string) {
   return (hash >>> 0).toString(16);
 }
 
+const mockCreateOperations = new Map<string, { id: string; fingerprint: string }>();
+function mockCreateScope(operationId: string, actor: MockOperator) {
+  return JSON.stringify([
+    typeof actor === "string" ? "mock" : actor.storeId,
+    typeof actor === "string" ? actor : actor.id,
+    operationId,
+  ]);
+}
+
 // GET /api/customers/suggest?q=
 export async function createOrder(
   input: CreateOrderInput,
@@ -2451,9 +2519,19 @@ export async function createOrder(
     assertNewOrderExpectedStore(input.expected_store_id, operator.storeId);
   }
   const operationId = input.operation_id?.trim();
-  if (operationId) {
-    const existing = findCreatedOrderByOperationId(operationId);
-    if (existing) return { id: existing.id, replayed: true };
+  if (
+    !operationId ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(operationId)
+  ) {
+    throw new Error("缺少有效的创建操作标识");
+  }
+  const operationScope = mockCreateScope(operationId, operator);
+  const fingerprint = JSON.stringify({ ...input, customer_identity_resolution: undefined });
+  const existing = mockCreateOperations.get(operationScope);
+  if (existing) {
+    if (existing.fingerprint !== fingerprint)
+      throw new Error("本次创建标识已用于不同请求，请刷新后重试");
+    return { id: existing.id, replayed: true };
   }
   const requestedStatus = workflowStatuses.find((status) => status.code === input.status);
   if (requestedStatus && (!requestedStatus.enabled || !requestedStatus.allowed_for_create)) {
@@ -2661,24 +2739,14 @@ export async function createOrder(
     operator_name: operatorName(operator),
     created_at: now,
   });
+  mockCreateOperations.set(operationScope, { id, fingerprint });
   return { id };
 }
 
 export async function getOrderCreateOperationStatus(
   operationId: string,
+  actor: MockOperator = "前台",
 ): Promise<{ status: "pending" } | { status: "created"; id: string }> {
-  const existing = findCreatedOrderByOperationId(operationId);
+  const existing = mockCreateOperations.get(mockCreateScope(operationId, actor));
   return existing ? { status: "created", id: existing.id } : { status: "pending" };
-}
-
-function findCreatedOrderByOperationId(operationId: string): { id: string } | null {
-  const event = extraEvents.find(
-    (item) =>
-      item.event_type === "created" &&
-      typeof item.payload === "object" &&
-      item.payload !== null &&
-      !Array.isArray(item.payload) &&
-      (item.payload as Record<string, unknown>).operation_id === operationId,
-  );
-  return event?.order_id ? { id: event.order_id } : null;
 }

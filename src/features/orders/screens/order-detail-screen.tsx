@@ -693,6 +693,17 @@ export function OrderDetailScreen({
       };
     }) => {
       const plan = buildOrderEditSavePlan(input);
+      if (plan.steps.length > 1 && plan.financeChange) {
+        const saved = await patchOrder(id, {
+          expected_updated_at: input.baseline.expected_updated_at,
+          changes: plan.routineChanges,
+          finance: {
+            fault_prices: plan.financeChange.faultPrices,
+            deposit_amount: plan.financeChange.depositAmount,
+          },
+        });
+        return { updatedAt: saved.updated_at, completedSteps: plan.steps, plan };
+      }
       const result = await executeOrderEditSavePlan({
         plan,
         expectedUpdatedAt: input.baseline.expected_updated_at,

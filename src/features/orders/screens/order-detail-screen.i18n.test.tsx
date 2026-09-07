@@ -1493,12 +1493,11 @@ describe("OrderDetailScreen i18n", () => {
   });
 
   it.each(locales)(
-    "preserves completed steps in a safe localized %s partial-save error",
+    "keeps a failed %s mixed edit intact and retries one atomic request",
     async (locale) => {
-      const providerSentinel = "PROVIDER_SECRET_PARTIAL_SAVE";
-      mocks.patchOrderFinance.mockRejectedValueOnce({ status: 503, message: providerSentinel });
+      const providerSentinel = "PROVIDER_SECRET_ATOMIC_SAVE";
+      mocks.patchOrder.mockRejectedValueOnce({ status: 503, message: providerSentinel });
       const view = renderDetail(locale);
-
       fireEvent.click(
         screen.getByRole("button", { name: translateMessage(locale, "orders2b2.hero.edit") }),
       );
@@ -1506,27 +1505,30 @@ describe("OrderDetailScreen i18n", () => {
       fireEvent.click(
         screen.getByRole("button", { name: translateMessage(locale, "orders2b2.hero.save") }),
       );
-
-      await waitFor(() => expect(mocks.patchOrder).toHaveBeenCalledTimes(1));
-      await waitFor(() => expect(mocks.patchOrderFinance).toHaveBeenCalledTimes(1));
-      const expectedFailure = translateMessage(locale, "orders2b2.error.unavailable", {
-        operation: translateMessage(locale, "orders2b2.operation.finance"),
-      });
       await waitFor(() =>
         expect(mocks.toastError).toHaveBeenCalledWith(
-          translateMessage(locale, "orders2b2.error.partial", {
-            failure: expectedFailure,
-            completed: translateMessage(locale, "orders2b2.saveStep.routine"),
+          translateMessage(locale, "orders2b2.error.unavailable", {
+            operation: translateMessage(locale, "orders2b2.operation.save"),
           }),
         ),
       );
+      expect(mocks.patchOrder).toHaveBeenCalledTimes(1);
+      expect(mocks.patchOrderFinance).not.toHaveBeenCalled();
       expect(JSON.stringify(mocks.toastError.mock.calls)).not.toContain(providerSentinel);
+      expect(mocks.toastSuccess).not.toHaveBeenCalled();
+      const firstRequest = structuredClone(mocks.patchOrder.mock.calls[0]);
+      fireEvent.click(
+        screen.getByRole("button", { name: translateMessage(locale, "orders2b2.hero.save") }),
+      );
+      await waitFor(() => expect(mocks.patchOrder).toHaveBeenCalledTimes(2));
+      expect(mocks.patchOrder.mock.calls[1]).toEqual(firstRequest);
+      expect(mocks.patchOrderFinance).not.toHaveBeenCalled();
       view.unmount();
     },
   );
 
-  it("submits byte-equivalent routine and finance inputs in all locales", async () => {
-    const calls: Array<{ routine: unknown[]; finance: unknown[] }> = [];
+  it("submits one byte-equivalent mixed mutation in all locales", async () => {
+    const calls: unknown[][] = [];
     for (const locale of locales) {
       const view = renderDetail(locale);
       fireEvent.click(
@@ -1537,31 +1539,26 @@ describe("OrderDetailScreen i18n", () => {
         screen.getByRole("button", { name: translateMessage(locale, "orders2b2.hero.save") }),
       );
       await waitFor(() => expect(mocks.patchOrder).toHaveBeenCalledTimes(1));
-      await waitFor(() => expect(mocks.patchOrderFinance).toHaveBeenCalledTimes(1));
-      calls.push({
-        routine: structuredClone(mocks.patchOrder.mock.calls[0]!),
-        finance: structuredClone(mocks.patchOrderFinance.mock.calls[0]!),
-      });
+      expect(mocks.patchOrderFinance).not.toHaveBeenCalled();
+      calls.push(structuredClone(mocks.patchOrder.mock.calls[0]!));
       expect(mocks.patchOrder.mock.calls[0]?.[1]).toMatchObject({
         expected_updated_at: detailOrder.updated_at,
         changes: { customer_name: "动态中文客户改" },
-      });
-      expect(mocks.patchOrderFinance.mock.calls[0]?.[1]).toMatchObject({
-        expected_updated_at: "2026-09-02T10:02:00.000Z",
-        fault_prices: [
-          {
-            line_id: "00000000-0000-4000-8000-000000000221",
-            catalog_key: "display:original",
-            name: "原装屏幕",
-            price: 160,
-            note: "客户自定义备注",
-          },
-        ],
-        deposit_amount: 20,
+        finance: {
+          fault_prices: [
+            {
+              line_id: "00000000-0000-4000-8000-000000000221",
+              catalog_key: "display:original",
+              name: "原装屏幕",
+              price: 160,
+              note: "客户自定义备注",
+            },
+          ],
+          deposit_amount: 20,
+        },
       });
       view.unmount();
       mocks.patchOrder.mockClear();
-      mocks.patchOrderFinance.mockClear();
     }
     expect(calls[1]).toEqual(calls[0]);
     expect(calls[2]).toEqual(calls[0]);

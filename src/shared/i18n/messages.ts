@@ -580,6 +580,25 @@ const zhCN = {
   "orders.mobileDetailsAria": "工单 {id}，{customer}，{device}，{stage}，{payment}",
   "orders.printPreparing": "正在准备打印内容",
   "orders.bulkTransitionSuccess": "已将 {count} 条流转为「{label}」{failure}",
+  "orders.bulkRecoveryTitle": "批量流转需要处理",
+  "orders.bulkRetry": "重试失败工单",
+  "orders.bulkRetrying": "正在重试…",
+  "orders.bulkClearSelection": "清除选择",
+  "orders.bulkFailureOrder": "所选工单 {index}",
+  "orders.bulkRequestFailed": "未能确认批量流转结果，已保留 {count} 条工单，请核对后重试。",
+  "orders.bulkAllFailed": "{count} 条工单未能流转，已保留选择。",
+  "orders.bulkFailure.forbidden": "当前无权流转此工单，请核对账号权限。",
+  "orders.bulkFailure.notFound": "工单已不可用，请刷新列表核对。",
+  "orders.bulkFailure.conflict": "工单已发生变化，请刷新后重试。",
+  "orders.bulkFailure.targetDisabled": "目标状态不可用或已停用，请选择其他状态。",
+  "orders.bulkFailure.notAllowed": "当前工单不能流转到该状态，请逐单核对。",
+  "orders.bulkFailure.reasonRequired": "此流转需要填写原因，请进入工单处理。",
+  "orders.bulkFailure.approvalRequired": "请进入工单记录客户的审批决定。",
+  "orders.bulkFailure.custodyRequired": "请先进入工单确认设备保管状态。",
+  "orders.bulkFailure.deviceNotInStore": "设备未留在门店，请先确认收机。",
+  "orders.bulkFailure.locked": "工单已结束或作废，请进入工单使用专用操作。",
+  "orders.bulkFailure.unavailable": "服务暂不可用，请稍后重试。",
+  "orders.bulkFailure.generic": "流转失败，请核对工单后重试。",
   "orders.bulkTransitionComplete": "已将 {count} 条流转为「{label}」。",
   "orders.bulkTransitionPartial": "已将 {count} 条流转为「{label}」，另有 {failures} 条失败。",
   "orders.targetQueue": "目标队列",
@@ -2420,6 +2439,12 @@ const zhCN = {
   "orders2b2.error.permission": "{operation}失败：当前账号没有权限或登录已失效。",
   "orders2b2.error.conflict": "{operation}失败：工单已被更新，请载入最新版本后重试。",
   "orders2b2.error.unavailable": "{operation}暂时不可用，请稍后重试。",
+  "orders2b2.error.quoteBelowReceived": "报价不能低于已收金额，请先处理收款纠正。",
+  "orders2b2.error.depositCorrectionRequired":
+    "已有收款或审批记录，不能通过编辑修改初始订金，请使用初始订金纠正流程。",
+  "orders2b2.error.mutationUnavailable": "工单保存服务尚未就绪，请稍后重试。",
+  "orders2b2.error.mutationTransactionFailed": "保存未完成，请保留当前内容重试。",
+  "orders2b2.error.idempotencyConflict": "本次保存标识已用于不同内容，请重新载入工单。",
   "orders2b2.error.generic": "{operation}失败，请重试。",
   "orders2b2.error.partial": "{failure} 已完成：{completed}。",
   "orders2b2.badge.mail": "寄修中",
@@ -4632,6 +4657,29 @@ const itIT: Record<MessageKey, string> = {
   "orders.mobileDetailsAria": "Ordine {id}, {customer}, {device}, {stage}, {payment}",
   "orders.printPreparing": "Preparazione della stampa…",
   "orders.bulkTransitionSuccess": "{count} ordini spostati in “{label}”{failure}",
+  "orders.bulkRecoveryTitle": "Transizione in blocco da verificare",
+  "orders.bulkRetry": "Riprova ordini non riusciti",
+  "orders.bulkRetrying": "Nuovo tentativo…",
+  "orders.bulkClearSelection": "Cancella selezione",
+  "orders.bulkFailureOrder": "Ordine selezionato {index}",
+  "orders.bulkRequestFailed":
+    "Impossibile confermare il risultato. {count} ordini restano selezionati: verifica prima di riprovare.",
+  "orders.bulkAllFailed": "Transizione non riuscita per {count} ordini; selezione mantenuta.",
+  "orders.bulkFailure.forbidden":
+    "Non hai il permesso di modificare questo ordine. Verifica il tuo accesso.",
+  "orders.bulkFailure.notFound": "Ordine non disponibile. Aggiorna e verifica l’elenco.",
+  "orders.bulkFailure.conflict": "L’ordine è cambiato. Aggiorna e riprova.",
+  "orders.bulkFailure.targetDisabled":
+    "Lo stato di destinazione non è disponibile o è disabilitato. Scegli un altro stato.",
+  "orders.bulkFailure.notAllowed": "Transizione non consentita. Verifica questo ordine.",
+  "orders.bulkFailure.reasonRequired": "È richiesta una motivazione. Apri l’ordine per inserirla.",
+  "orders.bulkFailure.approvalRequired": "Apri l’ordine per registrare la decisione del cliente.",
+  "orders.bulkFailure.custodyRequired": "Apri l’ordine e conferma dove si trova il dispositivo.",
+  "orders.bulkFailure.deviceNotInStore":
+    "Il dispositivo non è in negozio. Conferma prima la ricezione.",
+  "orders.bulkFailure.locked": "Ordine chiuso o annullato. Aprilo per usare l’azione dedicata.",
+  "orders.bulkFailure.unavailable": "Servizio non disponibile. Riprova più tardi.",
+  "orders.bulkFailure.generic": "Transizione non riuscita. Verifica l’ordine e riprova.",
   "orders.bulkTransitionComplete": "{count} ordini spostati in “{label}”.",
   "orders.bulkTransitionPartial": "{count} ordini spostati in “{label}”; {failures} non riusciti.",
   "orders.targetQueue": "Coda di destinazione",
@@ -6650,6 +6698,16 @@ const itIT: Record<MessageKey, string> = {
   "orders2b2.error.conflict":
     "{operation} non riuscito: l’ordine è cambiato. Carica l’ultima versione.",
   "orders2b2.error.unavailable": "{operation} temporaneamente non disponibile. Riprova più tardi.",
+  "orders2b2.error.quoteBelowReceived":
+    "Il preventivo non può essere inferiore all’importo già incassato. Correggi prima gli incassi.",
+  "orders2b2.error.depositCorrectionRequired":
+    "Sono già presenti incassi o approvazioni. Per modificare l’acconto iniziale, usa la procedura di correzione dell’acconto.",
+  "orders2b2.error.mutationUnavailable":
+    "Il servizio di salvataggio ordini non è ancora pronto. Riprova più tardi.",
+  "orders2b2.error.mutationTransactionFailed":
+    "Salvataggio non completato. Mantieni i dati attuali e riprova.",
+  "orders2b2.error.idempotencyConflict":
+    "Questo identificativo di salvataggio è già stato usato per dati diversi. Ricarica l’ordine.",
   "orders2b2.error.generic": "{operation} non riuscito. Riprova.",
   "orders2b2.error.partial": "{failure} Già completato: {completed}.",
   "orders2b2.badge.mail": "Riparazione esterna",
@@ -9067,6 +9125,30 @@ const en: Record<MessageKey, string> = {
   "orders.mobileDetailsAria": "Order {id}, {customer}, {device}, {stage}, {payment}",
   "orders.printPreparing": "Preparing print content…",
   "orders.bulkTransitionSuccess": "Moved {count} orders to “{label}”{failure}",
+  "orders.bulkRecoveryTitle": "Bulk transition needs attention",
+  "orders.bulkRetry": "Retry failed orders",
+  "orders.bulkRetrying": "Retrying…",
+  "orders.bulkClearSelection": "Clear selection",
+  "orders.bulkFailureOrder": "Selected order {index}",
+  "orders.bulkRequestFailed":
+    "The result could not be confirmed. {count} orders remain selected; check before retrying.",
+  "orders.bulkAllFailed": "Could not transition {count} orders; selection retained.",
+  "orders.bulkFailure.forbidden":
+    "You cannot transition this order. Check your account permissions.",
+  "orders.bulkFailure.notFound": "This order is unavailable. Refresh and check the list.",
+  "orders.bulkFailure.conflict": "The order has changed. Refresh and retry.",
+  "orders.bulkFailure.targetDisabled":
+    "The target status is unavailable or disabled. Choose another status.",
+  "orders.bulkFailure.notAllowed": "This transition is not allowed. Review the order.",
+  "orders.bulkFailure.reasonRequired": "A reason is required. Open the order to enter it.",
+  "orders.bulkFailure.approvalRequired":
+    "Open the order to record the customer’s approval decision.",
+  "orders.bulkFailure.custodyRequired": "Open the order to confirm device custody first.",
+  "orders.bulkFailure.deviceNotInStore": "The device is not in the shop. Confirm receipt first.",
+  "orders.bulkFailure.locked":
+    "This order is closed or voided. Open it to use the dedicated action.",
+  "orders.bulkFailure.unavailable": "The service is unavailable. Try again later.",
+  "orders.bulkFailure.generic": "The transition failed. Check the order and retry.",
   "orders.bulkTransitionComplete": "Moved {count} orders to “{label}”.",
   "orders.bulkTransitionPartial": "Moved {count} orders to “{label}”; {failures} failed.",
   "orders.targetQueue": "Target queue",
@@ -11055,6 +11137,15 @@ const en: Record<MessageKey, string> = {
   "orders2b2.error.conflict":
     "{operation} failed: the order changed. Load the latest version and retry.",
   "orders2b2.error.unavailable": "{operation} is temporarily unavailable. Try again later.",
+  "orders2b2.error.quoteBelowReceived":
+    "The quote cannot be lower than the amount already received. Correct the payments first.",
+  "orders2b2.error.depositCorrectionRequired":
+    "Payments or approval records already exist. Use the initial deposit correction flow to change the initial deposit.",
+  "orders2b2.error.mutationUnavailable": "The order saving service is not ready. Try again later.",
+  "orders2b2.error.mutationTransactionFailed":
+    "The save did not complete. Keep your current changes and retry.",
+  "orders2b2.error.idempotencyConflict":
+    "This save identifier was already used for different content. Reload the order.",
   "orders2b2.error.generic": "{operation} failed. Try again.",
   "orders2b2.error.partial": "{failure} Already completed: {completed}.",
   "orders2b2.badge.mail": "Mail-in repair",

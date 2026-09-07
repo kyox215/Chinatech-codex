@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -198,5 +198,51 @@ describe("MoneyKeypadInput", () => {
 
     await user.click(screen.getByRole("button", { name: "报价金额" }));
     expect(await screen.findByRole("group", { name: "报价金额 虚拟金额键盘" })).toBeVisible();
+  });
+  it("does not treat browser shortcuts or composition as money input", async () => {
+    setViewport(768);
+    const user = userEvent.setup();
+    render(<MoneyKeypadHarness />);
+    const trigger = screen.getByRole("button", { name: "报价金额" });
+    await user.click(trigger);
+    fireEvent.keyDown(trigger, { key: "1", ctrlKey: true });
+    fireEvent.keyDown(trigger, { key: "2", metaKey: true });
+    fireEvent.keyDown(trigger, { key: "3", altKey: true });
+    fireEvent.keyDown(trigger, { key: "4", isComposing: true });
+    expect(screen.getByTestId("value")).toBeEmptyDOMElement();
+  });
+
+  it("accepts physical money keys while the virtual keypad is open", async () => {
+    setViewport(1280);
+    const user = userEvent.setup();
+    render(<MoneyKeypadHarness desktopVirtualKeyboardEnabled />);
+    const trigger = screen.getByRole("button", { name: "报价金额" });
+
+    await user.click(trigger);
+    await user.keyboard("12,50");
+    expect(screen.getByTestId("value")).toHaveTextContent("12.50");
+    await user.keyboard("{Backspace}7");
+    expect(screen.getByTestId("value")).toHaveTextContent("12.57");
+    await user.keyboard("{Delete}3.25");
+    expect(screen.getByTestId("value")).toHaveTextContent("3.25");
+    await user.keyboard("{Enter}");
+    expect(screen.queryByRole("group", { name: "报价金额 虚拟金额键盘" })).toBeNull();
+    expect(trigger).toHaveFocus();
+    expect(screen.getByTestId("value")).toHaveTextContent("3.25");
+  });
+
+  it("continues physical input after clicking a virtual key and restores focus on Escape", async () => {
+    setViewport(1280);
+    const user = userEvent.setup();
+    render(<MoneyKeypadHarness desktopVirtualKeyboardEnabled />);
+    const trigger = screen.getByRole("button", { name: "报价金额" });
+
+    await user.click(trigger);
+    await user.click(screen.getByRole("button", { name: "1" }));
+    await user.keyboard("2.5");
+    expect(screen.getByTestId("value")).toHaveTextContent("12.5");
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("group", { name: "报价金额 虚拟金额键盘" })).toBeNull();
+    expect(trigger).toHaveFocus();
   });
 });
