@@ -60,13 +60,13 @@ describe("InventoryProductFormWorkspace", () => {
     expect(screen.queryByLabelText("入库成本")).not.toBeInTheDocument();
   });
 
-  it("surfaces acquisition cost beside sale price only with the existing permission", () => {
+  it("keeps cost outside the sales workspace even when the account may allocate costs", () => {
     renderWorkspace({ canEnterCost: true });
 
     expect(screen.getByLabelText("计划售价")).toBeInTheDocument();
-    expect(screen.getByLabelText("入库成本")).toBeInTheDocument();
+    expect(screen.queryByLabelText("入库成本")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /更多信息/ }));
-    expect(screen.getByLabelText("入库成本")).toBeInTheDocument();
+    expect(screen.queryByLabelText("入库成本")).not.toBeInTheDocument();
   });
 
   it("renders exactly one explicit desktop workbench shell with primary details visible", () => {
@@ -76,6 +76,7 @@ describe("InventoryProductFormWorkspace", () => {
     expect(shell).toBeInTheDocument();
     expect(document.querySelectorAll("[data-inventory-product-form-shell]")).toHaveLength(1);
     expect(shell).toHaveClass("lg:grid-cols-3");
+    expect(shell?.children).toHaveLength(3);
     expect(shell).not.toHaveClass("min-[1440px]:grid-cols-4");
     expect(
       document.querySelector('[data-ui="inventory-product-form-primary-details"]'),

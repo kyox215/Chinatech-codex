@@ -70,6 +70,29 @@ describe("store settings update contract", () => {
     }
   });
 
+  it("accepts only supported sales print languages in notifications", () => {
+    const base = {
+      section: "notifications",
+      expectedStoreId: "10000000-0000-4000-8000-000000000001",
+      expectedUpdatedAt: updatedAt,
+      input: { print_footer: "Synthetic footer", message_signature: "Synthetic" },
+    };
+    for (const language of ["it", "en", "zh"]) {
+      expect(
+        storeSettingsSectionUpdateSchema.parse({
+          ...base,
+          input: { ...base.input, inventory_sales_print_language: language },
+        }),
+      ).toMatchObject({ input: { inventory_sales_print_language: language } });
+    }
+    expect(() =>
+      storeSettingsSectionUpdateSchema.parse({
+        ...base,
+        input: { ...base.input, inventory_sales_print_language: "de" },
+      }),
+    ).toThrow();
+  });
+
   it("returns stable field paths for the UI", () => {
     const parsed = storeSettingsSectionUpdateSchema.safeParse({
       section: "store",

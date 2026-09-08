@@ -1,3 +1,4 @@
+import { RepairDeskApiError } from "@/lib/repairdesk/api";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -12,6 +13,8 @@ import { translateMessage } from "@/shared/i18n/messages";
 import { inventoryCatalogKeys, inventoryProductKeys } from "../api/query-keys";
 
 const apiMocks = vi.hoisted(() => ({
+  readInventorySalesList: vi.fn(),
+  readInventorySalesSummary: vi.fn(),
   createInventoryProduct: vi.fn(),
   getInventoryProductEditData: vi.fn(),
   listInventoryProducts: vi.fn(),
@@ -47,6 +50,8 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/lib/repairdesk/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/repairdesk/api")>()),
+  readInventorySalesList: apiMocks.readInventorySalesList,
+  readInventorySalesSummary: apiMocks.readInventorySalesSummary,
   createInventoryProduct: apiMocks.createInventoryProduct,
   getInventoryProductEditData: apiMocks.getInventoryProductEditData,
   listInventoryProducts: apiMocks.listInventoryProducts,
@@ -63,6 +68,12 @@ import { InventoryProductListScreen } from "./inventory-product-list-screen";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  apiMocks.readInventorySalesList.mockRejectedValue(
+    new RepairDeskApiError("off", 503, "feature_disabled"),
+  );
+  apiMocks.readInventorySalesSummary.mockRejectedValue(
+    new RepairDeskApiError("off", 503, "feature_disabled"),
+  );
   vi.stubGlobal("ResizeObserver", ResizeObserverMock);
   if (!HTMLElement.prototype.scrollIntoView) {
     HTMLElement.prototype.scrollIntoView = () => {};
@@ -338,7 +349,7 @@ describe("inventory product UI access gates", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
-  it("retains brand autofocus on desktop and restores the visible create trigger on close", async () => {
+  it("keeps the approved desktop dialog unfocused on text entry and restores the visible create trigger on close", async () => {
     setViewport(1280);
     apiMocks.listInventoryProducts.mockResolvedValue({
       items: [product()],
@@ -368,7 +379,8 @@ describe("inventory product UI access gates", () => {
 
     const dialog = await screen.findByRole("dialog");
     const brand = await within(dialog).findByLabelText(/品牌/);
-    await waitFor(() => expect(brand).toHaveFocus());
+    await waitFor(() => expect(dialog).toHaveFocus());
+    expect(brand).not.toHaveFocus();
 
     fireEvent.click(within(dialog).getByRole("button", { name: "关闭商品录入弹窗" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -966,7 +978,7 @@ describe("inventory product UI access gates", () => {
     renderWithQuery(<InventoryProductListScreen />);
 
     expect(await screen.findByText("暂无图片")).toBeVisible();
-    expect(screen.getByRole("link", { name: /Samsung Galaxy S24/ })).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: /Samsung Galaxy S24/ })[0]).toHaveAttribute(
       "href",
       "/inventory/product-1",
     );
@@ -994,7 +1006,11 @@ describe("inventory product UI access gates", () => {
     renderWithQuery(<InventoryProductListScreen />);
 
     expect(await screen.findByText("128 GB")).toBeVisible();
-    expect(screen.queryByText("128 GB · Blue")).not.toBeInTheDocument();
+    expect(
+      within(
+        document.querySelector('[data-ui="inventory-product-card"]') as HTMLElement,
+      ).queryByText("128 GB · Blue"),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("img", { name: "颜色 Blue" })).toBeVisible();
   });
 
@@ -1035,20 +1051,20 @@ describe("inventory product UI access gates", () => {
     const toggle = screen.getByRole("group", { name: "商品列表视图" });
     const shelf = within(toggle).getByRole("button", { name: "智能货架视图" });
     const list = within(toggle).getByRole("button", { name: "紧凑列表视图" });
-    expect(shelf).toHaveAttribute("aria-pressed", "true");
-    expect(list).toHaveAttribute("aria-pressed", "false");
+    expect(shelf).toHaveAttribute("aria-pressed", "false");
+    expect(list).toHaveAttribute("aria-pressed", "true");
     expect(shelf).toHaveClass("min-h-11");
-    fireEvent.click(list);
+    fireEvent.click(shelf);
     await waitFor(() =>
-      expect(document.querySelector('[data-inventory-product-view="list"]')).toBeTruthy(),
+      expect(document.querySelector('[data-inventory-product-view="shelf"]')).toBeTruthy(),
     );
-    expect(window.localStorage.getItem("repairdesk.inventory.product-view")).toBe("list");
+    expect(window.localStorage.getItem("repairdesk.inventory.product-view")).toBe("shelf");
     unmount();
 
     window.localStorage.setItem("repairdesk.inventory.product-view", "invalid");
     renderWithQuery(<InventoryProductListScreen />);
     await screen.findByText("暂无图片");
-    expect(document.querySelector('[data-inventory-product-view="shelf"]')).toBeTruthy();
+    expect(document.querySelector('[data-inventory-product-view="list"]')).toBeTruthy();
   });
 
   it("keeps the default compatibility view fail-closed for pipeline statuses", async () => {
@@ -1063,7 +1079,7 @@ describe("inventory product UI access gates", () => {
     });
     renderWithQuery(<InventoryProductListScreen />);
 
-    expect(await screen.findByText("待处理")).toBeVisible();
+    expect((await screen.findAllByText("待处理"))[0]).toBeVisible();
     expect(screen.queryByRole("group", { name: "生命周期工作入口" })).not.toBeInTheDocument();
     expect(screen.queryByText("尾款")).not.toBeInTheDocument();
   });
@@ -1152,7 +1168,7 @@ describe("inventory product UI access gates", () => {
     expect(within(shortcutGroup).getAllByRole("button")).toHaveLength(4);
     expect(shortcutGroup).toHaveClass("grid-cols-2", "min-[360px]:grid-cols-4");
     expect(screen.getByText("尾款")).toBeVisible();
-    expect(screen.getByText("售后处理中")).toBeVisible();
+    expect(screen.getAllByText("售后处理中")[0]).toBeVisible();
     for (const link of document.querySelectorAll<HTMLAnchorElement>('a[href^="/inventory/"]')) {
       expect(link.querySelector("button")).toBeNull();
     }
@@ -1163,7 +1179,13 @@ describe("inventory product UI access gates", () => {
     expect(reservedShortcut).toBeDefined();
     fireEvent.click(reservedShortcut!);
     await waitFor(() =>
-      expect(document.querySelectorAll('a[href^="/inventory/"]')).toHaveLength(1),
+      expect(
+        new Set(
+          Array.from(document.querySelectorAll('a[href^="/inventory/"]')).map((link) =>
+            link.getAttribute("href"),
+          ),
+        ).size,
+      ).toBe(1),
     );
     expect(apiMocks.createInventoryProduct).not.toHaveBeenCalled();
     expect(apiMocks.updateInventoryProduct).not.toHaveBeenCalled();
@@ -1620,7 +1642,8 @@ describe("inventory product UI access gates", () => {
     const model = document.getElementById("product-model")!;
     const network = document.getElementById("product-spec-network_variant")!;
     const disclosure = document.getElementById("product-spec-network_variant-preset")!;
-    await waitFor(() => expect(brand).toHaveFocus());
+    brand.focus();
+    expect(brand).toHaveFocus();
     fireEvent.change(brand, { target: { value: "Brand-DYNAMIC-品牌" } });
     fireEvent.change(model, { target: { value: "Model-DYNAMIC-型号" } });
     fireEvent.change(network, { target: { value: "Network-DYNAMIC-网络" } });

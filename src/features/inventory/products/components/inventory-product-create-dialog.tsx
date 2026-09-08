@@ -12,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { COMPACT_WORKSPACE_BREAKPOINT } from "@/hooks/use-mobile";
 import { componentOverlay } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/shared/i18n/locale-provider";
@@ -123,15 +122,13 @@ export function InventoryProductCreateDialog({
         showCloseButton={false}
         className={cn(
           componentOverlay.formWorkspace,
-          "sm:w-[min(860px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
+          "sm:w-[min(1120px,calc(100vw-32px))] sm:max-w-[calc(100vw-32px)]",
         )}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
-          if (window.innerWidth < COMPACT_WORKSPACE_BREAKPOINT) {
-            requestAnimationFrame(() => {
-              dialogContentRef.current?.focus({ preventScroll: true });
-            });
-          }
+          requestAnimationFrame(() => {
+            dialogContentRef.current?.focus({ preventScroll: true });
+          });
         }}
         onCloseAutoFocus={(event) => {
           event.preventDefault();

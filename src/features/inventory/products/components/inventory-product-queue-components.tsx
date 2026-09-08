@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, type ComponentType, type ReactNode } from "react";
 import {
+  ChevronRight,
   Gamepad2,
   Laptop,
   LayoutGrid,
@@ -198,6 +199,22 @@ export function InventoryProductResults({
   view: InventoryProductView;
 }) {
   const shelf = view === "shelf";
+  if (!shelf) {
+    return (
+      <div
+        data-inventory-product-shelf="true"
+        data-inventory-product-view="list"
+        className="min-w-0"
+      >
+        <div className="grid min-w-0 gap-1.5 md:grid-cols-2 lg:hidden">
+          {items.map((item) => (
+            <InventoryProductCard key={item.id} item={item} view="list" />
+          ))}
+        </div>
+        <InventoryProductTable items={items} />
+      </div>
+    );
+  }
   return (
     <div
       data-inventory-product-shelf="true"
@@ -214,12 +231,134 @@ export function InventoryProductResults({
   );
 }
 
+/** Independent desktop composition; mobile keeps its compact touch cards. */
+export function InventoryProductTable({ items }: { items: InventoryProductListItem[] }) {
+  const { locale, t } = useLocale();
+  return (
+    <div
+      data-ui="inventory-product-table"
+      className="hidden min-w-0 overflow-hidden rounded-xl border border-border bg-card lg:block"
+    >
+      <table className="w-full table-fixed text-left text-xs">
+        <caption className="sr-only">{t("inventory2b4.list.title")}</caption>
+        <colgroup>
+          <col className="w-[25%]" />
+          <col className="w-[20%]" />
+          <col className="w-[18%]" />
+          <col className="w-[17%]" />
+          <col className="w-[14%]" />
+          <col className="w-[6%]" />
+        </colgroup>
+        <thead className="bg-muted/40 text-[10px] text-muted-foreground">
+          <tr>
+            {["device", "specification", "identifier", "status", "price", "open"].map((key) => (
+              <th key={key} scope="col" className="px-3 py-2 font-medium">
+                {t(`inventorySales.table.${key}` as MessageKey)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border/60">
+          {items.map((item) => {
+            const Icon = categoryMeta[item.category].icon;
+            const lifecycle =
+              item.lifecycle ??
+              projectCompatibleInventoryLifecycle(item.legacy_status ?? item.status);
+            const meta = localizeInventoryProjectionMeta(
+              lifecycle,
+              getInventoryLifecycleProjectionMeta(lifecycle, item.legacy_status ?? item.status),
+              item.legacy_status ?? item.status,
+              t,
+            );
+            return (
+              <tr key={item.id} className="group hover:bg-muted/30">
+                <th scope="row" className="px-3 py-2 font-normal">
+                  <Link
+                    href={`/inventory/${item.id}`}
+                    className="flex min-h-11 min-w-0 items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+                      <Icon className="size-4" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate font-semibold">
+                        {item.brand} {item.model}
+                      </span>
+                      <span className="block truncate font-mono text-[10px] text-muted-foreground">
+                        {item.sku}
+                      </span>
+                    </span>
+                  </Link>
+                </th>
+                <td className="px-3 py-2">
+                  <span className="line-clamp-2 break-words text-[11px]">
+                    {item.specification ||
+                      localizeInventoryProductCategory(
+                        item.category,
+                        categoryMeta[item.category].label,
+                        t,
+                      )}
+                  </span>
+                </td>
+                <td className="px-3 py-2">
+                  <span className="block truncate font-mono text-[10px]">
+                    {item.masked_identifier || "—"}
+                  </span>
+                  <span className="block truncate text-[10px] text-muted-foreground">
+                    {item.location || "—"}
+                  </span>
+                </td>
+                <td className="px-3 py-2">
+                  <InventoryStatusBadge
+                    className={getInventoryLifecycleProjectionToneClass(meta.tone)}
+                  >
+                    {meta.label}
+                  </InventoryStatusBadge>
+                  <span className="mt-1 block truncate text-[10px] text-muted-foreground">
+                    {meta.nextStep}
+                  </span>
+                </td>
+                <td className="px-3 py-2">
+                  <strong className="block whitespace-nowrap text-xs">
+                    {item.list_price === undefined
+                      ? t("inventory2b4.list.priceMissing")
+                      : formatInventoryProductMoney(item.list_price, locale, t)}
+                  </strong>
+                  {lifecycle.mode === "exact" && lifecycle.balance !== undefined ? (
+                    <span className="block text-[10px] text-muted-foreground">
+                      {t("inventory2b4.list.balance")}{" "}
+                      {formatInventoryProductMoney(lifecycle.balance, locale, t)}
+                    </span>
+                  ) : null}
+                </td>
+                <td className="pr-2">
+                  <Link
+                    href={`/inventory/${item.id}`}
+                    aria-label={t("inventorySales.openProduct", {
+                      name: `${item.brand} ${item.model}`,
+                    })}
+                    className="grid min-h-11 min-w-11 place-items-center rounded-lg text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <ChevronRight className="size-4" aria-hidden="true" />
+                  </Link>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function InventoryProductCard({
   item,
   view,
+  salesSummary,
 }: {
   item: InventoryProductListItem;
   view: InventoryProductView;
+  salesSummary?: { label: string; nextStep: string; finance: ReactNode };
 }) {
   const { locale, t } = useLocale();
   const Icon = categoryMeta[item.category].icon;
@@ -259,15 +398,15 @@ export function InventoryProductCard({
         repairOs.businessCardDense,
         shelf
           ? "flex min-h-0 flex-col gap-0 overflow-hidden p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          : "min-h-[104px] grid-cols-[86px_minmax(0,1fr)_auto] items-stretch gap-2 overflow-hidden p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex md:flex-row md:items-stretch md:gap-2 md:p-2",
+          : "min-h-[88px] grid-cols-[56px_minmax(0,1fr)_auto] items-stretch gap-2 overflow-hidden p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ",
       )}
     >
       <span
         className={cn(
-          "relative grid size-[86px] shrink-0 place-items-center overflow-hidden rounded-xl bg-primary/10 text-primary",
+          "relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-xl bg-primary/10 text-primary",
           shelf
             ? "aspect-[4/3] h-auto w-full rounded-b-none rounded-t-2xl"
-            : "md:size-[86px] md:aspect-square",
+            : "md:size-14 md:aspect-square",
         )}
       >
         {activeImage ? (
@@ -301,7 +440,7 @@ export function InventoryProductCard({
         ) : null}
         {!activeImage ? (
           <span className="absolute inset-0 grid place-items-center gap-1 text-primary">
-            <Icon className="size-7 md:size-10" aria-hidden="true" />
+            <Icon className="size-7 md:size-7" aria-hidden="true" />
             <span className="text-[10px] leading-3 text-muted-foreground">
               {t("inventory2b4.list.noImage")}
             </span>
@@ -324,20 +463,28 @@ export function InventoryProductCard({
               "shrink-0 gap-1",
             )}
           >
-            <InventoryLifecycleProjectionStatusIcon status={lifecycle.status} />
-            <span>{lifecycleMeta.label}</span>
+            {!salesSummary ? (
+              <InventoryLifecycleProjectionStatusIcon status={lifecycle.status} />
+            ) : null}
+            <span>{salesSummary?.label ?? lifecycleMeta.label}</span>
           </InventoryStatusBadge>
         </span>
         <span className="flex min-w-0 items-center gap-1.5 truncate text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
           <span className="min-w-0 truncate">{specification || localizedCategory}</span>
           {colorMatch ? <InventoryProductColor color={colorMatch} /> : null}
         </span>
-        <span className="mt-0.5 block truncate font-mono text-[10px] leading-4 text-primary lg:text-[11px]">
+        <span
+          className={cn(
+            "mt-0.5 truncate font-mono text-[10px] leading-4 text-primary lg:text-[11px]",
+            shelf ? "block" : "hidden",
+          )}
+        >
           SKU {item.sku}
         </span>
         <span className="block truncate text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
-          {[item.location, item.masked_identifier].filter(Boolean).join(" · ") ||
-            t("inventory2b4.detail.locationMissing")}
+          {(shelf
+            ? [item.location, item.masked_identifier].filter(Boolean).join(" · ")
+            : item.masked_identifier) || t("inventory2b4.detail.locationMissing")}
         </span>
         {auxiliaryLabels.length ? (
           <span className="mt-1 flex min-w-0 flex-wrap gap-1">
@@ -354,7 +501,9 @@ export function InventoryProductCard({
         <span className="mt-1 flex min-w-0 items-center gap-1 text-[9px] leading-3 text-muted-foreground">
           <span className="size-1 shrink-0 rounded-full bg-primary" aria-hidden="true" />
           <span className="truncate">
-            {lifecycleMeta.nextStep ?? t("inventory2b4.list.noNextStep")}
+            {salesSummary
+              ? salesSummary.nextStep
+              : (lifecycleMeta.nextStep ?? t("inventory2b4.list.noNextStep"))}
           </span>
         </span>
       </span>
@@ -364,7 +513,8 @@ export function InventoryProductCard({
           shelf ? "mt-auto px-2.5 pb-2.5 pt-1.5" : "md:mt-0 md:self-center md:px-2 md:py-0",
         )}
       >
-        {lifecycle.mode === "exact" && lifecycle.balance !== undefined ? (
+        {salesSummary?.finance}
+        {!salesSummary && lifecycle.mode === "exact" && lifecycle.balance !== undefined ? (
           <span className="whitespace-nowrap text-[10px] font-semibold text-muted-foreground md:text-xs">
             <span>{t("inventory2b4.list.balance")}</span>{" "}
             <span>{formatInventoryProductMoney(lifecycle.balance, locale, t)}</span>
@@ -541,37 +691,41 @@ export function InventoryProductCategoryTabs({
   return (
     <div
       data-ui="inventory-product-category-tabs"
-      className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-1.5 rounded-xl border border-border bg-card p-1.5 shadow-sm"
+      className="grid min-w-0 grid-cols-5 gap-1.5 rounded-xl border border-border bg-card p-1.5 shadow-sm"
       role="group"
       aria-label={t("inventory2b4.list.categoriesAria")}
     >
-      {categoryTabs.map(({ key, label, icon: Icon }) => {
-        const localizedLabel =
-          key === "all"
-            ? t("inventory2b4.list.all")
-            : localizeInventoryProductCategory(key, label, t);
-        const active =
-          key === "all"
-            ? allSelected
-            : selectedCategories.length === 1 && selectedCategories[0] === key;
-        return (
-          <button
-            key={key}
-            type="button"
-            className={cn(
-              "flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-lg px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm",
-              active
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted",
-            )}
-            aria-pressed={active}
-            onClick={() => onChange(key === "all" ? [] : [key])}
-          >
-            <Icon className="size-4 shrink-0" aria-hidden="true" />
-            <span className="truncate">{localizedLabel}</span>
-          </button>
-        );
-      })}
+      {categoryTabs
+        .filter(({ key }) => key !== "other" || selectedCategories.includes("other"))
+        .map(({ key, label, icon: Icon }) => {
+          const localizedLabel =
+            key === "all"
+              ? t("inventory2b4.list.all")
+              : localizeInventoryProductCategory(key, label, t);
+          const active =
+            key === "all"
+              ? allSelected
+              : selectedCategories.length === 1 && selectedCategories[0] === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              className={cn(
+                "flex min-h-11 min-w-11 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:flex-row lg:gap-1 lg:px-2",
+                active
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted",
+              )}
+              aria-pressed={active}
+              onClick={() => onChange(key === "all" ? [] : [key])}
+            >
+              <Icon className="size-4 shrink-0" aria-hidden="true" />
+              <span className="break-words text-center text-[10px] leading-3 lg:text-xs">
+                {localizedLabel}
+              </span>
+            </button>
+          );
+        })}
     </div>
   );
 }

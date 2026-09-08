@@ -118,6 +118,7 @@ export function InventoryProductDetailWorkbench({
   onEdit,
   onNavigate,
   renderInspectionEditor,
+  salesContent,
 }: {
   item: InventoryProductDetail;
   lifecycleSummary?: InventoryLifecycleListSummary | null;
@@ -128,6 +129,7 @@ export function InventoryProductDetailWorkbench({
   onNavigate: (href: string) => void;
   /** Production injects the mutation-owning editor; stories provide no editor. */
   renderInspectionEditor?: (summary: InventoryLifecycleListSummary) => ReactNode;
+  salesContent?: ReactNode;
 }) {
   const { locale, t } = useLocale();
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
@@ -208,7 +210,7 @@ export function InventoryProductDetailWorkbench({
       data-ui="inventory-product-detail-workbench"
       className={cn(
         repairOs.mobileFloatingPage,
-        "mx-auto w-full max-w-[430px] overflow-x-hidden px-2 pb-20 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] lg:max-w-5xl lg:px-0 lg:pb-8 lg:pt-0",
+        "mx-auto w-full max-w-[430px] overflow-x-hidden px-2 pb-20 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] md:max-w-[760px] lg:max-w-5xl lg:px-0 lg:pb-8 lg:pt-0",
       )}
       style={
         mobileHeaderHeight
@@ -235,7 +237,7 @@ export function InventoryProductDetailWorkbench({
           canEdit={canEdit}
           onEdit={onEdit}
         />
-        <div className="grid min-w-0 gap-1.5 lg:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.18fr)] lg:items-start lg:gap-3">
+        <div className="grid min-w-0 gap-1.5 lg:grid-cols-[minmax(280px,0.82fr)_minmax(0,1.18fr)] lg:items-start lg:gap-3">
           <div className="grid min-w-0 content-start gap-1.5 lg:gap-3">
             <ProductHeroCard
               item={item}
@@ -251,6 +253,7 @@ export function InventoryProductDetailWorkbench({
             <DeviceWorkbenchSection fields={buildWorkbenchFields(item, t)} />
           </div>
           <div className="grid min-w-0 content-start gap-1.5 lg:gap-3">
+            {salesContent}
             {lifecycleSummaryState === "loading" ? <InventoryLifecycleLoadingCard /> : null}
             {lifecycleSummaryState === "unavailable" ? <InventoryLifecycleUnavailableCard /> : null}
             {lifecycleSummaryState !== "dormant" && lifecycleSummary ? (
@@ -288,10 +291,12 @@ export function InventoryProductDetailWorkbench({
           </div>
         </div>
       </div>
-      <InventoryDetailActionDock
-        action={nextAction}
-        onAction={() => handleNextAction(nextAction, onNavigate)}
-      />
+      {!salesContent ? (
+        <InventoryDetailActionDock
+          action={nextAction}
+          onAction={() => handleNextAction(nextAction, onNavigate)}
+        />
+      ) : null}
     </div>
   );
 }

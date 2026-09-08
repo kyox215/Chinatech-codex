@@ -21,6 +21,11 @@ if (!enabled) {
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const baseOrigin = new URL(baseURL).origin;
+const evidenceRoot = resolve(
+  process.cwd(),
+  process.env.REPAIRDESK_I18N_EVIDENCE_DIR ?? "screenshots",
+  "release2b4",
+);
 const locales = ["zh-CN", "it-IT", "en"] as const;
 const widths = [390, 430, 768, 1024, 1280, 1440] as const;
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -71,6 +76,8 @@ const routeCases: ReadonlyArray<{ kind: RouteKind; path: string }> = [
 
 const pagePaths = new Set(routeCases.map(({ path }) => path));
 const readPosts = new Set([
+  "/api/repairdesk/inventory/sales/list",
+  "/api/repairdesk/inventory/sales/summary",
   "/api/repairdesk/inventory/products/list",
   "/api/repairdesk/inventory/products/get",
   "/api/repairdesk/inventory/products/edit-data",
@@ -139,7 +146,7 @@ for (const locale of locales) {
             evidence.allowedReads
               .slice(readsBeforeRoute)
               .filter((entry) =>
-                /\/api\/repairdesk\/inventory\/(?:products|lifecycle)\//u.test(entry),
+                /\/api\/repairdesk\/inventory\/(?:products|lifecycle|sales)\//u.test(entry),
               ),
           ).toEqual([]);
         }
@@ -629,6 +636,17 @@ async function installSyntheticHttpStatusBridge(page: Page) {
 }
 
 async function installInventoryFixtures(page: Page, options: FixtureControl) {
+  // Release 2B-4 keeps the legacy inventory/lifecycle contract under sales-dormant mode.
+  // Active sales flows have their own fixtures and are not covered by this fallback.
+  for (const path of ["inventory/sales/list", "inventory/sales/summary"]) {
+    await page.route(apiUrl(path), (route) =>
+      route.fulfill({
+        status: 200,
+        headers: { "x-repairdesk-test-status": "503" },
+        json: { error: "Synthetic sales feature is disabled", code: "feature_disabled" },
+      }),
+    );
+  }
   await page.route(apiUrl("shell/bootstrap"), (route) =>
     route.fulfill({ json: { data: shellBootstrapFixture(options) } }),
   );
@@ -1388,6 +1406,12 @@ function safePostData(request: Request): unknown {
 
 function hasExpectedReadBody(pathname: string, body: unknown) {
   if (!isPlainRecord(body)) return false;
+  if (pathname === "/api/repairdesk/inventory/sales/list") {
+    return hasExactBody(body, { search: "", queue: "all", offset: 0, limit: 30 });
+  }
+  if (pathname === "/api/repairdesk/inventory/sales/summary") {
+    return hasExactBody(body, { id: synthetic.productId });
+  }
   if (pathname === "/api/repairdesk/inventory/products/list") {
     return hasExactBody(body, {});
   }
@@ -1511,7 +1535,7 @@ function expectLifecycleCommand(
 async function saveEvidenceScreenshot(page: Page, testInfo: TestInfo, name: string) {
   const engine = testInfo.project.name.includes("webkit") ? "webkit" : "chromium";
   await page.screenshot({
-    path: resolve(process.cwd(), "screenshots", "release2b4", engine, `${name}.png`),
+    path: resolve(evidenceRoot, engine, `${name}.png`),
     fullPage: true,
     animations: "disabled",
   });
@@ -1567,9 +1591,7 @@ for (const width of [390, 430, 768, 1024, 1280, 1440]) {
       await page.addStyleTag({ content: "nextjs-portal { visibility: hidden !important; }" });
       await page.screenshot({
         path: resolve(
-          process.cwd(),
-          "screenshots",
-          "release2b4",
+          evidenceRoot,
           testInfo.project.name,
           `a13-inventory-keypad-${width}` + ".png",
         ),
@@ -1585,9 +1607,7 @@ for (const width of [390, 430, 768, 1024, 1280, 1440]) {
       await page.addStyleTag({ content: "nextjs-portal { visibility: hidden !important; }" });
       await page.screenshot({
         path: resolve(
-          process.cwd(),
-          "screenshots",
-          "release2b4",
+          evidenceRoot,
           testInfo.project.name,
           `a13-inventory-native-${width}` + ".png",
         ),

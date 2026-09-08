@@ -23,6 +23,87 @@ const missingStoreIdError = {
 };
 
 describe("message settings repository tenant boundaries", () => {
+  it("keeps old settings readable before the new sales schema exists", async () => {
+    mocks.supabase.from.mockReturnValueOnce(
+      createSupabaseQuery({ data: storeSettingsRow(), error: null }),
+    );
+    await expect(getStoreSettings("store_1")).resolves.toMatchObject({
+      inventory_sales_print_language: "it",
+    });
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
+  });
+  it("refuses new print-language writes before schema enable without touching DB", async () => {
+    const previous = process.env.INVENTORY_SALES_SCHEMA_READY;
+    process.env.INVENTORY_SALES_SCHEMA_READY = "0";
+    try {
+      await expect(
+        updateStoreSettingsRow({
+          storeId: "store_1",
+          actorId: "actor",
+          expectedUpdatedAt: "2026-09-01T10:00:00Z",
+          input: { inventory_sales_print_language: "en" },
+        }),
+      ).rejects.toThrow("尚未开放");
+      expect(mocks.supabase.from).not.toHaveBeenCalled();
+    } finally {
+      if (previous === undefined) delete process.env.INVENTORY_SALES_SCHEMA_READY;
+      else process.env.INVENTORY_SALES_SCHEMA_READY = previous;
+    }
+  });
+
+  it("preserves old settings writes when sales schema is absent", async () => {
+    const previous = process.env.INVENTORY_SALES_SCHEMA_READY;
+    process.env.INVENTORY_SALES_SCHEMA_READY = "0";
+    const query = createSupabaseQuery({ data: storeSettingsRow(), error: null });
+    mocks.supabase.from.mockReturnValueOnce(query);
+    try {
+      await updateStoreSettingsRow({
+        storeId: "store_partner",
+        expectedUpdatedAt: "2026-09-01T10:00:00Z",
+        input: { print_footer: "Updated footer" },
+      });
+      expect(query.update).toHaveBeenCalledWith(
+        expect.objectContaining({ print_footer: "Updated footer" }),
+      );
+      expect((query.update as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).not.toHaveProperty(
+        "inventory_sales_print_language",
+      );
+      expect(query.select).toHaveBeenCalledWith("*");
+    } finally {
+      if (previous === undefined) delete process.env.INVENTORY_SALES_SCHEMA_READY;
+      else process.env.INVENTORY_SALES_SCHEMA_READY = previous;
+    }
+  });
+  it.each(["it", "en", "zh"] as const)(
+    "writes %s only to authenticated store with existing CAS",
+    async (language) => {
+      const previous = process.env.INVENTORY_SALES_SCHEMA_READY;
+      process.env.INVENTORY_SALES_SCHEMA_READY = "1";
+      const query = createSupabaseQuery({
+        data: storeSettingsRow({ inventory_sales_print_language: language }),
+        error: null,
+      });
+      mocks.supabase.from.mockReturnValueOnce(query);
+      try {
+        await expect(
+          updateStoreSettingsRow({
+            storeId: "store_partner",
+            expectedUpdatedAt: "2026-09-01T10:00:00Z",
+            input: { inventory_sales_print_language: language },
+          }),
+        ).resolves.toMatchObject({ inventory_sales_print_language: language });
+        expect(query.update).toHaveBeenCalledWith(
+          expect.objectContaining({ inventory_sales_print_language: language }),
+        );
+        expect(query.eq).toHaveBeenCalledWith("store_id", "store_partner");
+        expect(query.eq).toHaveBeenCalledWith("updated_at", "2026-09-01T10:00:00Z");
+      } finally {
+        if (previous === undefined) delete process.env.INVENTORY_SALES_SCHEMA_READY;
+        else process.env.INVENTORY_SALES_SCHEMA_READY = previous;
+      }
+    },
+  );
+
   beforeEach(() => {
     mocks.supabase.from.mockReset();
   });

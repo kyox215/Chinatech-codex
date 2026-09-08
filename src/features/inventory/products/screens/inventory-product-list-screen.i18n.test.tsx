@@ -1,3 +1,5 @@
+import { RepairDeskApiError } from "@/lib/repairdesk/api";
+import { syntheticSalesReceipt, syntheticSalesSummary } from "../../sales/ui/sales-ui.fixture";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,7 +9,11 @@ import { LocaleProvider, useLocale } from "@/shared/i18n/locale-provider";
 import type { AppLocale } from "@/shared/i18n/locales";
 import { translateMessage } from "@/shared/i18n/messages";
 
-const apiMocks = vi.hoisted(() => ({ listInventoryProducts: vi.fn() }));
+const apiMocks = vi.hoisted(() => ({
+  readInventorySalesList: vi.fn(),
+  readInventorySalesSummary: vi.fn(),
+  listInventoryProducts: vi.fn(),
+}));
 const routerMocks = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
@@ -21,6 +27,8 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/lib/repairdesk/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/repairdesk/api")>()),
+  readInventorySalesList: apiMocks.readInventorySalesList,
+  readInventorySalesSummary: apiMocks.readInventorySalesSummary,
   listInventoryProducts: apiMocks.listInventoryProducts,
 }));
 vi.mock("@/features/stores/api/use-store-shell-context", () => ({
@@ -34,6 +42,12 @@ import { InventoryProductListScreen } from "./inventory-product-list-screen";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  apiMocks.readInventorySalesList.mockRejectedValue(
+    new RepairDeskApiError("off", 503, "feature_disabled"),
+  );
+  apiMocks.readInventorySalesSummary.mockRejectedValue(
+    new RepairDeskApiError("off", 503, "feature_disabled"),
+  );
   routerMocks.searchParams = new URLSearchParams();
   shellMocks.value = shellContext();
   apiMocks.listInventoryProducts.mockResolvedValue(productResult());
@@ -54,16 +68,54 @@ afterEach(() => {
 });
 
 describe("InventoryProductListScreen i18n", () => {
+  it("uses one sales projection and sends category selection to its bounded list API", async () => {
+    const row = {
+      ...syntheticSalesSummary(),
+      product: { ...syntheticSalesReceipt().document!.product, identifier: "•••• 3809" },
+      customer: null,
+    };
+    apiMocks.readInventorySalesList.mockResolvedValue({
+      rows: [row],
+      counts: { all: 1, available: 1, awaiting_payment: 0, paid_pending_pickup: 0, delivered: 0 },
+      total: 1,
+      offset: 0,
+      limit: 30,
+      capabilities: row.capabilities,
+    });
+    renderList("en");
+    expect((await screen.findAllByText("Synthetic Phone"))[0]).toBeVisible();
+    expect(apiMocks.listInventoryProducts).not.toHaveBeenCalled();
+    expect(screen.queryByText("356938035643809")).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Phone" })[0]);
+    await waitFor(() =>
+      expect(apiMocks.readInventorySalesList).toHaveBeenLastCalledWith(
+        expect.objectContaining({ categories: ["phone"], queue: "all", limit: 30, offset: 0 }),
+      ),
+    );
+  });
+  it.each([401, 403, 500])(
+    "does not fall back to legacy inventory for sales HTTP %s",
+    async (status) => {
+      apiMocks.readInventorySalesList.mockRejectedValue(
+        new RepairDeskApiError("Synthetic error", status),
+      );
+      renderList("en");
+      await screen.findByRole("heading", {
+        name: translateMessage("en", "inventory2b4.list.errorTitle"),
+      });
+      expect(apiMocks.listInventoryProducts).not.toHaveBeenCalled();
+    },
+  );
   it.each([
-    ["zh-CN", "商品库存", "搜索商品、SKU、型号", "快速录入商品", "手机"],
+    ["zh-CN", "商品售卖", "搜索商品、SKU、型号", "快速录入商品", "手机"],
     [
       "it-IT",
-      "Inventario prodotti",
+      "Vendita prodotti",
       "Cerca marca, modello, SKU o posizione",
       "Nuovo prodotto",
       "Telefono",
     ],
-    ["en", "Product inventory", "Search brand, model, SKU, or location", "New product", "Phone"],
+    ["en", "Product sales", "Search brand, model, SKU, or location", "New product", "Phone"],
   ] as const)(
     "localizes stable list chrome in %s and preserves product facts",
     async (locale, title, searchLabel, createLabel, categoryLabel) => {
@@ -84,7 +136,7 @@ describe("InventoryProductListScreen i18n", () => {
       ]) {
         expect(container.textContent).toContain(value);
       }
-      expect(apiMocks.listInventoryProducts).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(apiMocks.listInventoryProducts).toHaveBeenCalledTimes(1));
     },
   );
 
@@ -114,12 +166,12 @@ describe("InventoryProductListScreen i18n", () => {
 
   it("keeps URL query input and requests stable while switching locale", async () => {
     renderList("en", true);
-    expect(await findVisibleHeading("Product inventory")).toBeVisible();
-    expect(apiMocks.listInventoryProducts).toHaveBeenCalledTimes(1);
+    expect(await findVisibleHeading("Product sales")).toBeVisible();
+    await waitFor(() => expect(apiMocks.listInventoryProducts).toHaveBeenCalledTimes(1));
 
     fireEvent.click(screen.getByRole("button", { name: "switch-locale" }));
-    expect(await findVisibleHeading("Inventario prodotti")).toBeVisible();
-    expect(apiMocks.listInventoryProducts).toHaveBeenCalledTimes(1);
+    expect(await findVisibleHeading("Vendita prodotti")).toBeVisible();
+    await waitFor(() => expect(apiMocks.listInventoryProducts).toHaveBeenCalledTimes(1));
     expect(routerMocks.replace).not.toHaveBeenCalled();
     expect(routerMocks.push).not.toHaveBeenCalled();
   });
@@ -127,7 +179,7 @@ describe("InventoryProductListScreen i18n", () => {
   it("preserves search, filters, view, focus, scroll and canonical reads during locale switch", async () => {
     routerMocks.searchParams = new URLSearchParams("page=2&scope=dynamic");
     const { container } = renderList("en", true);
-    await findVisibleHeading("Product inventory");
+    await findVisibleHeading("Product sales");
 
     const searchInputs = screen.getAllByLabelText(
       translateMessage("en", "inventory2b4.list.search"),
@@ -163,7 +215,7 @@ describe("InventoryProductListScreen i18n", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "switch-locale" }));
 
-    expect(await findVisibleHeading("Inventario prodotti")).toBeVisible();
+    expect(await findVisibleHeading("Vendita prodotti")).toBeVisible();
     expect(screen.getByDisplayValue("SKU-动态-001")).toBe(searchInputs[0]);
     expect(document.activeElement).toBe(searchInputs[0]);
     expect(window.scrollY).toBe(91);
@@ -184,6 +236,12 @@ describe("InventoryProductListScreen i18n", () => {
       const listView = screen.getAllByRole("button", {
         name: translateMessage(locale, "inventory2b4.list.view.listAria"),
       })[0]!;
+      expect(listView).toHaveAttribute("aria-pressed", "true");
+      fireEvent.click(
+        screen.getAllByRole("button", {
+          name: translateMessage(locale, "inventory2b4.list.view.shelfAria"),
+        })[0]!,
+      );
       expect(listView).toHaveAttribute("aria-pressed", "false");
       fireEvent.click(listView);
       expect(listView).toHaveAttribute("aria-pressed", "true");
@@ -199,7 +257,7 @@ describe("InventoryProductListScreen i18n", () => {
       expect(sheet).toHaveAccessibleDescription(
         translateMessage(locale, "inventory2b4.list.filterDescription"),
       );
-      fireEvent.click(within(sheet).getByRole("checkbox", { name: "动态品牌 Ω" }));
+      fireEvent.click(await within(sheet).findByRole("checkbox", { name: "动态品牌 Ω" }));
       fireEvent.click(
         within(sheet).getByRole("button", {
           name: translateMessage(locale, "inventory2b4.list.applyFilters"),

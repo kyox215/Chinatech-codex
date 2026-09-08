@@ -16,11 +16,24 @@ import { InventoryInspectionEditor } from "@/features/inventory/lifecycle/forms/
 
 import { inventoryProductDetailQueryOptions } from "../api/query-options";
 import { InventoryProductDetailWorkbench } from "../components/inventory-product-detail-workbench";
+import { inventorySalesSummaryOptions } from "../../sales/api/queries";
+import { SalesWorkspace } from "../../sales/ui/sales-workspace";
+import { isSalesDormant, salesErrorKey } from "../../sales/ui/sales-ui-adapter";
+import { salesCopy } from "../../sales/ui/sales-copy";
 
 export function InventoryProductDetailScreen({ id }: { id: string }) {
-  const { t } = useLocale();
+  const shell = useStoreShellContext({ monitorAuthority: true });
+  return <InventoryProductDetailContent key={shell.authorityFingerprint} id={id} shell={shell} />;
+}
+function InventoryProductDetailContent({
+  id,
+  shell,
+}: {
+  id: string;
+  shell: ReturnType<typeof useStoreShellContext>;
+}) {
+  const { t, locale } = useLocale();
   const router = useRouter();
-  const shell = useStoreShellContext();
   const storeId = shell.activeStore?.id;
   const query = useQuery({
     ...inventoryProductDetailQueryOptions(id, storeId),
@@ -30,12 +43,23 @@ export function InventoryProductDetailScreen({ id }: { id: string }) {
       shell.permissions.inventoryProductsUiEnabled,
     ),
   });
+  const sales = useQuery({
+    ...inventorySalesSummaryOptions(id, storeId ?? ""),
+    enabled: Boolean(
+      storeId &&
+      shell.permissions?.canReadInventory &&
+      shell.permissions.inventoryProductsUiEnabled,
+    ),
+    retry: false,
+  });
+  const salesDormant = isSalesDormant(sales.error);
   const lifecycleSummaryQuery = useQuery({
     ...inventoryLifecycleSummaryQueryOptions(id, storeId),
     enabled: Boolean(
       storeId &&
       shell.permissions?.canReadInventory &&
       shell.permissions.inventoryProductsUiEnabled &&
+      salesDormant &&
       shell.permissions.inventoryLifecycleUiEnabled === true,
     ),
   });
@@ -88,6 +112,7 @@ export function InventoryProductDetailScreen({ id }: { id: string }) {
     !lifecycleSummaryQuery.isError;
   const canEdit = Boolean(
     shell.permissions?.canUpdateInventory &&
+    (salesDormant || (sales.isSuccess && sales.data && !sales.data.order)) &&
     item.edit_backing !== "legacy_read_only" &&
     !["sold", "removed"].includes(item.status),
   );
@@ -107,6 +132,30 @@ export function InventoryProductDetailScreen({ id }: { id: string }) {
           : "dormant"
       }
       canEdit={canEdit}
+      salesContent={
+        sales.isSuccess && sales.data ? (
+          <SalesWorkspace
+            summary={sales.data}
+            storeId={storeId}
+            onRefresh={() => sales.refetch()}
+          />
+        ) : salesDormant ? undefined : (
+          <div
+            className={cn(repairOs.mobileInfoCard, "p-3 text-sm")}
+            role={sales.isError ? "alert" : "status"}
+          >
+            {salesCopy(
+              locale,
+              sales.isError ? salesErrorKey(sales.error) : sales.isSuccess ? "error" : "loading",
+            )}
+            {sales.isError ? (
+              <Button variant="outline" onClick={() => void sales.refetch()}>
+                {salesCopy(locale, "retry")}
+              </Button>
+            ) : null}
+          </div>
+        )
+      }
       onBack={() => router.push("/inventory")}
       onEdit={() => router.push(`/inventory/${item.id}/edit`)}
       onNavigate={(href) => router.push(href)}

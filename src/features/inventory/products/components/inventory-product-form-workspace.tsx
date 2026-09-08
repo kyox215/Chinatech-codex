@@ -107,7 +107,6 @@ export function InventoryProductFormWorkspace({
   warrantyInvalid = false,
   categoryNotice,
   catalogNotice,
-  canEnterCost = false,
   inspectionEnabled = false,
   identifierDescription,
   showScanner = false,
@@ -184,35 +183,34 @@ export function InventoryProductFormWorkspace({
       onInspectionFaceIdStatusChange={onInspectionFaceIdStatusChange}
     />
   );
+  const identifierSection = (
+    <InventoryProductIdentifierSection
+      draft={draft}
+      idPrefix={idPrefix}
+      description={identifierDescription ?? t("inventory2b4.quick.workspace.identifierDescription")}
+      showScanner={showScanner}
+      IdentifierField={identifierField}
+      allowPrimarySelection={allowPrimarySelection}
+      layoutMode={resolvedLayoutMode}
+      invalidKinds={invalidKinds}
+      requiredKinds={requiredIdentifierKinds}
+      onIdentifierChange={onIdentifierChange}
+      onIdentifierSource={onIdentifierSource}
+      onPrimaryIdentifierChange={onPrimaryIdentifierChange}
+    />
+  );
   const detailsForm = (
     <InventoryProductFormDetails
       draft={draft}
       idPrefix={idPrefix}
-      canEnterCost={canEnterCost}
+      canEnterCost={false}
       layoutMode={resolvedLayoutMode}
       conditionInvalid={conditionInvalid}
       gtinInvalid={gtinInvalid}
       listPriceInvalid={listPriceInvalid}
       costInvalid={costInvalid}
       warrantyInvalid={warrantyInvalid}
-      identifierSection={
-        <InventoryProductIdentifierSection
-          draft={draft}
-          idPrefix={idPrefix}
-          description={
-            identifierDescription ?? t("inventory2b4.quick.workspace.identifierDescription")
-          }
-          showScanner={showScanner}
-          IdentifierField={identifierField}
-          allowPrimarySelection={allowPrimarySelection}
-          layoutMode={resolvedLayoutMode}
-          invalidKinds={invalidKinds}
-          requiredKinds={requiredIdentifierKinds}
-          onIdentifierChange={onIdentifierChange}
-          onIdentifierSource={onIdentifierSource}
-          onPrimaryIdentifierChange={onPrimaryIdentifierChange}
-        />
-      }
+      identifierSection={resolvedLayoutMode === "desktop" ? undefined : identifierSection}
       onConditionChange={onConditionChange}
       onGtinChange={onGtinChange}
       onSpecificationChange={onSpecificationChange}
@@ -231,10 +229,13 @@ export function InventoryProductFormWorkspace({
         data-inventory-product-form-shell="desktop-workbench"
         className="grid min-w-0 gap-3 lg:grid-cols-3"
       >
-        <div data-inventory-product-form-primary="true" className="min-w-0 lg:col-span-2">
+        <div data-inventory-product-form-primary="true" className="min-w-0">
           {primaryForm}
         </div>
-        <div data-inventory-product-form-details-column="true" className="min-w-0 lg:col-span-1">
+        <div data-inventory-product-form-identifiers-column="true" className="min-w-0">
+          {identifierSection}
+        </div>
+        <div data-inventory-product-form-details-column="true" className="min-w-0">
           {detailsForm}
         </div>
       </div>

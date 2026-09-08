@@ -3155,6 +3155,7 @@ export interface StoreSettings {
   default_order_warranty_months: number;
   default_inventory_warranty_months: number;
   new_order_entry_mode?: NewOrderEntryMode;
+  inventory_sales_print_language?: "it" | "en" | "zh";
   print_footer: string;
   message_signature: string;
   updated_by?: string;
@@ -3173,6 +3174,7 @@ export interface StoreSettingsUpdateInput {
   default_order_warranty_months?: number;
   default_inventory_warranty_months?: number;
   new_order_entry_mode?: NewOrderEntryMode;
+  inventory_sales_print_language?: "it" | "en" | "zh";
   print_footer?: string;
   message_signature?: string;
 }
@@ -3189,6 +3191,7 @@ export interface StoreSettingsStoreSectionInput {
 }
 
 export interface StoreSettingsNotificationsSectionInput {
+  inventory_sales_print_language?: "it" | "en" | "zh";
   print_footer: string;
   message_signature: string;
 }
@@ -3369,3 +3372,18 @@ export interface MessageTemplatePreviewResult {
   body: string;
   variables: string[];
 }
+
+export type {
+  InventorySalesList,
+  InventorySalesListInput,
+  InventorySalesCapabilities,
+  InventorySalesCommandBody,
+  InventorySalesCommandResult,
+  InventorySalesSummary,
+  InventorySalesDetail,
+  InventorySalesOrder,
+  InventorySalesPayment,
+  InventorySalesReceipt,
+  InventorySalesReceiptInput,
+  InventorySalesLanguage,
+} from "@/features/inventory/sales/model/contracts";

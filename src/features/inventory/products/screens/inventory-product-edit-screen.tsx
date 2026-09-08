@@ -50,6 +50,10 @@ import {
   localizeInventoryValidation,
 } from "../model/inventory-product-i18n";
 
+import { inventorySalesSummaryOptions } from "../../sales/api/queries";
+import { isSalesDormant, salesErrorKey } from "../../sales/ui/sales-ui-adapter";
+import { salesCopy } from "../../sales/ui/sales-copy";
+
 type EditDraft = {
   category: InventoryProductCategory;
   brand: string;
@@ -96,7 +100,7 @@ function InventoryProductEditContent({
   id: string;
   shell: ReturnType<typeof useStoreShellContext>;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const router = useRouter();
   const queryClient = useQueryClient();
   const storeId = shell.activeStore?.id;
@@ -108,6 +112,16 @@ function InventoryProductEditContent({
       shell.permissions?.canUpdateInventory &&
       shell.permissions.inventoryProductsUiEnabled,
     ),
+  });
+  const sales = useQuery({
+    ...inventorySalesSummaryOptions(id, storeId ?? ""),
+    enabled: Boolean(
+      storeId &&
+      shell.permissions?.canReadInventory &&
+      shell.permissions?.canUpdateInventory &&
+      shell.permissions.inventoryProductsUiEnabled,
+    ),
+    retry: false,
   });
   const [draft, setDraft] = useState<EditDraft>();
   const [baseDraft, setBaseDraft] = useState<EditDraft>();
@@ -237,6 +251,23 @@ function InventoryProductEditContent({
           <Button onClick={() => void query.refetch()}>
             <RefreshCw className="mr-2 size-4" />
             {t("inventory2b4.detail.retry")}
+          </Button>
+        }
+      />
+    );
+  }
+
+  if (!isSalesDormant(sales.error) && (!sales.isSuccess || !sales.data || sales.data.order)) {
+    return (
+      <EditMessage
+        title={t("inventory2b4.quick.edit.cannotEdit")}
+        body={salesCopy(
+          locale,
+          sales.data?.order ? "occupied" : sales.isError ? salesErrorKey(sales.error) : "loading",
+        )}
+        action={
+          <Button onClick={() => router.push(`/inventory/${id}`)}>
+            {t("inventory2b4.detail.back")}
           </Button>
         }
       />

@@ -42,6 +42,7 @@ const storeInputSchema = z
 
 const notificationsInputSchema = z
   .object({
+    inventory_sales_print_language: z.enum(["it", "en", "zh"]).optional(),
     print_footer: z.string().trim().max(500, "打印页脚不能超过 500 个字符"),
     message_signature: z.string().trim().max(300, "消息签名不能超过 300 个字符"),
   })

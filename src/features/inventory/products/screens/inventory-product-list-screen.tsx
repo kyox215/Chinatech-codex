@@ -47,6 +47,15 @@ import {
   type InventoryProductView,
 } from "../components/inventory-product-queue-components";
 
+import { inventorySalesListOptions } from "../../sales/api/queries";
+import type { InventorySalesListInput } from "../../sales/model/contracts";
+import { isSalesDormant } from "../../sales/ui/sales-ui-adapter";
+import {
+  SalesListResults,
+  SalesQueueBar,
+  salesListProduct,
+} from "../../sales/ui/sales-list-results";
+
 const INVENTORY_PRODUCT_VIEW_STORAGE_KEY = "repairdesk.inventory.product-view";
 
 export function InventoryProductListScreen() {
@@ -66,7 +75,7 @@ export function InventoryProductListScreen() {
   const [draftLifecycleStatusFilter, setDraftLifecycleStatusFilter] = useState<
     InventoryLifecycleProjectionStatus[]
   >([]);
-  const [view, setView] = useState<InventoryProductView>("shelf");
+  const [view, setView] = useState<InventoryProductView>("list");
   const [viewReady, setViewReady] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createSessionKey, setCreateSessionKey] = useState(0);
@@ -76,7 +85,7 @@ export function InventoryProductListScreen() {
       const stored = window.localStorage.getItem(INVENTORY_PRODUCT_VIEW_STORAGE_KEY);
       if (isInventoryProductView(stored)) setView(stored);
     } catch {
-      // Private browsing and disabled storage should keep the SSR-safe shelf default.
+      // Private browsing and disabled storage should keep the SSR-safe compact-list default.
     } finally {
       setViewReady(true);
     }
@@ -93,14 +102,52 @@ export function InventoryProductListScreen() {
     () => ({ ...filters, search: deferredSearch.trim() || undefined }),
     [deferredSearch, filters],
   );
-  const query = useQuery({
-    ...inventoryProductsQueryOptions(queryFilters, storeId),
+  const [salesQueue, setSalesQueue] = useState<InventorySalesListInput["queue"]>("all");
+  const [salesOffset, setSalesOffset] = useState(0);
+  useEffect(() => {
+    setSalesOffset(0);
+  }, [queryFilters, salesQueue]);
+  const salesQuery = useQuery({
+    ...inventorySalesListOptions(
+      {
+        ...queryFilters,
+        search: deferredSearch.trim(),
+        queue: salesQueue,
+        offset: salesOffset,
+        limit: 30,
+      },
+      storeId ?? "",
+    ),
     enabled: Boolean(
       storeId &&
       shell.permissions?.canReadInventory &&
       shell.permissions.inventoryProductsUiEnabled,
     ),
+    retry: false,
   });
+  const salesDormant = isSalesDormant(salesQuery.error);
+  const legacyQuery = useQuery({
+    ...inventoryProductsQueryOptions(queryFilters, storeId),
+    enabled: Boolean(
+      salesDormant &&
+      storeId &&
+      shell.permissions?.canReadInventory &&
+      shell.permissions.inventoryProductsUiEnabled,
+    ),
+  });
+  const query = salesDormant
+    ? legacyQuery
+    : {
+        ...salesQuery,
+        data: salesQuery.data
+          ? {
+              items: salesQuery.data.rows.map(salesListProduct),
+              total: salesQuery.data.total,
+              facets: salesQuery.data.facets ?? { brands: [], locations: [] },
+              lifecycle_projection: undefined,
+            }
+          : undefined,
+      };
   const lifecycleExact = query.data?.lifecycle_projection?.mode === "exact";
   const lifecycleShortcut: InventoryLifecycleShortcut =
     lifecycleStatusFilter.length === 1 && lifecycleStatusFilter[0] === "in_stock"
@@ -116,13 +163,13 @@ export function InventoryProductListScreen() {
             ? "processing"
             : "all";
   const displayItems = useMemo(() => {
-    const items = query.data?.items ?? [];
+    const items = query.isError ? [] : (query.data?.items ?? []);
     if (!lifecycleExact || !lifecycleStatusFilter.length) return items;
     return items.filter(
       (item) =>
         item.lifecycle?.mode === "exact" && lifecycleStatusFilter.includes(item.lifecycle.status),
     );
-  }, [lifecycleExact, lifecycleStatusFilter, query.data?.items]);
+  }, [lifecycleExact, lifecycleStatusFilter, query.data?.items, query.isError]);
   const activeFilterCount =
     (filters.statuses?.length ?? 0) +
     (filters.brands?.length ?? 0) +
@@ -326,6 +373,13 @@ export function InventoryProductListScreen() {
           onChange={(categories) => setFilters({ ...filters, categories })}
         />
       </div>
+      {salesQuery.isSuccess ? (
+        <SalesQueueBar
+          value={salesQueue}
+          counts={salesQuery.data.counts}
+          onChange={setSalesQueue}
+        />
+      ) : null}
       {lifecycleExact ? (
         <InventoryLifecycleShortcutBar
           value={lifecycleShortcut}
@@ -403,7 +457,11 @@ export function InventoryProductListScreen() {
           }
         />
       ) : null}
-      {displayItems.length ? <InventoryProductResults items={displayItems} view={view} /> : null}
+      {salesQuery.isSuccess ? (
+        <SalesListResults data={salesQuery.data} view={view} onPage={setSalesOffset} />
+      ) : displayItems.length ? (
+        <InventoryProductResults items={displayItems} view={view} />
+      ) : null}
 
       <InventoryProductFilterSheet
         open={filterOpen}

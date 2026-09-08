@@ -169,7 +169,7 @@ export function InventoryProductForm({
     inspectionCapabilities?.face_id_status || draft.inspection_face_id_status === "not_applicable",
   );
   return (
-    <section className={cn(repairOs.mobileInfoCard, "space-y-2 p-2.5 md:p-4")}>
+    <section className={cn(repairOs.mobileInfoCard, "space-y-2 p-2.5 lg:p-3")}>
       <fieldset>
         <legend className="mb-1.5 text-xs font-semibold">
           {t("inventory2b4.quick.form.category")}{" "}
@@ -376,7 +376,7 @@ export function InventoryProductIdentifierSection({
   return (
     <section
       data-ui="inventory-product-form-identifiers"
-      className={cn(repairOs.mobileInfoCard, "space-y-2 p-2.5 md:p-4")}
+      className={cn(repairOs.mobileInfoCard, "space-y-2 p-2.5 lg:p-3")}
     >
       <div>
         <h2 className="text-sm font-semibold">{t("inventory2b4.quick.form.identifiers")}</h2>
@@ -387,7 +387,7 @@ export function InventoryProductIdentifierSection({
       <div
         className={cn(
           "grid min-w-0 gap-2",
-          layoutMode === "desktop" ? "lg:grid-cols-2" : "min-[390px]:grid-cols-2",
+          layoutMode === "desktop" ? "grid-cols-1" : "min-[390px]:grid-cols-2",
         )}
       >
         {inventoryProductIdentifierKinds.map((kind) => {
@@ -531,7 +531,7 @@ export function InventoryProductFormDetails({
     <section data-ui="inventory-product-form-details" className="grid gap-1.5">
       <section
         data-ui="inventory-product-form-primary-details"
-        className={cn(repairOs.mobileInfoCard, "grid min-w-0 gap-2 p-2.5 md:p-4")}
+        className={cn(repairOs.mobileInfoCard, "grid min-w-0 gap-2 p-2.5 lg:p-3")}
       >
         <ConditionField
           id={`${idPrefix}-condition`}
@@ -544,7 +544,7 @@ export function InventoryProductFormDetails({
         <section
           data-ui="inventory-product-form-commercial"
           data-inventory-product-form-primary-commercial="true"
-          className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 md:p-4")}
+          className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 lg:p-3")}
         >
           <ProductDetailField
             id={`${idPrefix}-price`}
@@ -569,7 +569,7 @@ export function InventoryProductFormDetails({
         </section>
         <section
           data-ui="inventory-product-form-disclosure-fields"
-          className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 md:p-4")}
+          className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 lg:p-3")}
         >
           {disclosureSpecFields.map((field) => (
             <PresetWithManualField
@@ -631,7 +631,7 @@ export function InventoryProductFormDetails({
         <div id={`${idPrefix}-details-content`} className="grid gap-1.5">
           <section
             data-ui="inventory-product-form-specifications"
-            className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 md:p-4")}
+            className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 lg:p-3")}
           >
             <ProductDetailField
               id={`${idPrefix}-gtin`}
@@ -656,7 +656,7 @@ export function InventoryProductFormDetails({
 
           <section
             data-ui="inventory-product-form-commercial"
-            className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 md:p-4")}
+            className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 lg:p-3")}
           >
             <ProductDetailField
               id={`${idPrefix}-location`}

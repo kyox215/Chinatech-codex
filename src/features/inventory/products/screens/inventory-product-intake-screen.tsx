@@ -8,7 +8,6 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
-import { COMPACT_WORKSPACE_BREAKPOINT } from "@/hooks/use-mobile";
 import { createInventoryProduct } from "@/lib/repairdesk/api";
 import type { CreateInventoryProductInput, InventoryProductCategory } from "@/lib/repairdesk/types";
 import { repairOs, surfaces } from "@/lib/ui-patterns";
@@ -310,14 +309,6 @@ export function InventoryProductIntakeScreen({
       delete document.body.dataset.mobileWorkspaceActive;
     };
   }, []);
-
-  useEffect(() => {
-    if (!shouldAutoFocusBrand(surface)) return;
-    const frame = requestAnimationFrame(() => {
-      document.getElementById("product-brand")?.focus({ preventScroll: true });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [surface]);
 
   const closeIntake = (event?: React.MouseEvent<HTMLButtonElement>) => {
     const leave = () => {
@@ -677,7 +668,7 @@ export function InventoryProductIntakeScreen({
         categoryDisabled={Boolean(pendingCategory || pendingCatalogTransition)}
         catalogDisabled={Boolean(pendingCategory || pendingCatalogTransition)}
         learnedCatalogOptions={catalogQuery.data?.items}
-        autoFocusBrand={shouldAutoFocusBrand(surface)}
+        autoFocusBrand={false}
         brandInvalid={error?.fieldId === "product-brand"}
         modelInvalid={error?.fieldId === "product-model"}
         inspectionBatteryInvalid={error?.fieldId === "product-battery-health"}
@@ -811,14 +802,6 @@ export function InventoryProductIntakeScreen({
         onNotesChange={(notes) => setDraft((current) => ({ ...current, notes }))}
       />
     </InventoryProductPageFrame>
-  );
-}
-
-function shouldAutoFocusBrand(surface: "page" | "dialog") {
-  return (
-    surface === "dialog" &&
-    typeof window !== "undefined" &&
-    window.innerWidth >= COMPACT_WORKSPACE_BREAKPOINT
   );
 }
 

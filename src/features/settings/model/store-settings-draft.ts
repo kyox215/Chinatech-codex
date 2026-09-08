@@ -115,11 +115,19 @@ export function buildStoreSettingsSectionUpdateRequest<S extends StoreSettingsSe
 ): Extract<StoreSettingsSectionUpdateRequest, { section: S }> {
   const current = drafts.sections[section];
   if (current.conflict) throw new Error("当前分组存在版本冲突，请先处理冲突");
+  const input = { ...current.value };
+  if (section === "notifications") {
+    const base = current.base as StoreSettingsDraftValues["notifications"];
+    const notificationInput = input as StoreSettingsDraftValues["notifications"];
+    // Ordinary settings saves must remain compatible when the sales schema is dormant.
+    if (notificationInput.inventory_sales_print_language === base.inventory_sales_print_language)
+      delete notificationInput.inventory_sales_print_language;
+  }
   return {
     section,
     expectedStoreId: drafts.storeId,
     expectedUpdatedAt: current.baseUpdatedAt,
-    input: { ...current.value },
+    input,
   } as Extract<StoreSettingsSectionUpdateRequest, { section: S }>;
 }
 
@@ -303,6 +311,9 @@ function notificationsValueFromSettings(
   settings: StoreSettings,
 ): StoreSettingsDraftValues["notifications"] {
   return {
+    ...(settings.inventory_sales_print_language
+      ? { inventory_sales_print_language: settings.inventory_sales_print_language }
+      : {}),
     print_footer: settings.print_footer,
     message_signature: settings.message_signature,
   };

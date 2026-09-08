@@ -1,3 +1,13 @@
+import type {
+  InventorySalesList,
+  InventorySalesListInput,
+  InventorySalesCommandBody,
+  InventorySalesCommandResult,
+  InventorySalesSummary,
+  InventorySalesDetail,
+  InventorySalesReceipt,
+  InventorySalesReceiptInput,
+} from "@/features/inventory/sales/model/contracts";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type { RepairDeskRealtimeDomain } from "@/features/realtime/model/realtime-events";
 import type {
@@ -1780,3 +1790,20 @@ export type {
   MemoUpdateInput,
   StoreMemo,
 } from "@/features/memos/model/contracts";
+
+export async function runInventorySalesCommand(input: InventorySalesCommandBody) {
+  return postJson<InventorySalesCommandResult>("inventory/sales/command", input);
+}
+export async function readInventorySalesSummary(id: string) {
+  return postJson<InventorySalesSummary | null>("inventory/sales/summary", { id });
+}
+export async function readInventorySalesDetail(id: string) {
+  return postJson<InventorySalesDetail | null>("inventory/sales/detail", { id });
+}
+export async function readInventorySalesReceipt(input: InventorySalesReceiptInput) {
+  return postJson<InventorySalesReceipt | null>("inventory/sales/receipt", input);
+}
+
+export async function readInventorySalesList(input: InventorySalesListInput) {
+  return postJson<InventorySalesList>("inventory/sales/list", input);
+}

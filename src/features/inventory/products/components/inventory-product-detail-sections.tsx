@@ -12,6 +12,14 @@ import {
   Smartphone,
 } from "lucide-react";
 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
 import type { InventoryProductDetail } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
@@ -59,6 +67,7 @@ export function ProductHeroCard({
 }) {
   const { locale, t } = useLocale();
   const [imageFailed, setImageFailed] = useState(false);
+  const [nameOpen, setNameOpen] = useState(false);
   const thumbnailUrl = safeInventoryProductThumbnailUrl(item.thumbnail_url);
 
   return (
@@ -93,8 +102,16 @@ export function ProductHeroCard({
           >
             <span className="truncate">{statusLabel}</span>
           </span>
-          <h2 className="mt-1 line-clamp-2 break-words text-sm font-semibold leading-5 min-[400px]:text-base">
-            {item.brand} {item.model}
+          <h2 className="text-sm font-semibold leading-5 min-[400px]:text-base">
+            <button
+              type="button"
+              className="min-h-11 w-full rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => setNameOpen(true)}
+            >
+              <span className="line-clamp-2 break-words">
+                {item.brand} {item.model}
+              </span>
+            </button>
           </h2>
           <p className="truncate font-mono text-[10px] leading-4 text-primary lg:text-[11px]">
             SKU {item.sku}
@@ -116,12 +133,28 @@ export function ProductHeroCard({
           date: formatInventoryProductDate(item.updated_at, locale, t),
         })}
       </p>
+      <Dialog open={nameOpen} onOpenChange={setNameOpen}>
+        <DialogContent
+          initialFocus="container"
+          closeLabel={t("inventorySales.close")}
+          className="max-h-[calc(100svh-24px)] overflow-y-auto"
+        >
+          <DialogHeader>
+            <DialogTitle>{t("inventorySales.fullDetails")}</DialogTitle>
+            <DialogDescription>SKU {item.sku}</DialogDescription>
+          </DialogHeader>
+          <p className="whitespace-pre-wrap break-words text-base leading-6">
+            {item.brand} {item.model}
+          </p>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
 
 export function DeviceWorkbenchSection({ fields }: { fields: WorkbenchField[] }) {
   const { t } = useLocale();
+  const [selectedField, setSelectedField] = useState<WorkbenchField | null>(null);
   return (
     <section
       data-ui="inventory-device-workbench"
@@ -137,11 +170,31 @@ export function DeviceWorkbenchSection({ fields }: { fields: WorkbenchField[] })
       <p className="mt-1 text-[10px] leading-3 text-muted-foreground">
         {t("inventory2b4.detail.deviceWorkbenchHelp")}
       </p>
-      <div className="mt-1.5 grid min-w-0 grid-cols-2 gap-1.5 sm:grid-cols-3">
+      <div className="mt-1.5 grid min-w-0 grid-cols-3 gap-1.5">
         {fields.map((field) => (
-          <WorkbenchTile key={field.id} {...field} />
+          <WorkbenchTile key={field.id} {...field} onOpen={() => setSelectedField(field)} />
         ))}
       </div>
+      <Dialog
+        open={Boolean(selectedField)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedField(null);
+        }}
+      >
+        <DialogContent
+          initialFocus="container"
+          closeLabel={t("inventorySales.close")}
+          className="max-h-[calc(100svh-24px)] overflow-y-auto"
+        >
+          <DialogHeader>
+            <DialogTitle>{selectedField?.label}</DialogTitle>
+            <DialogDescription>{t("inventorySales.fullDetails")}</DialogDescription>
+          </DialogHeader>
+          <p className="whitespace-pre-wrap break-words text-base leading-6">
+            {selectedField?.value}
+          </p>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
@@ -176,12 +229,6 @@ export function ProductBusinessSection({ item }: { item: InventoryProductDetail 
       value: formatInventoryProductDate(item.updated_at, locale, t),
     },
   ];
-  if (item.cost_amount !== undefined) {
-    fields.splice(1, 0, {
-      label: t("inventory2b4.detail.cost"),
-      value: formatInventoryProductMoney(item.cost_amount, locale, t),
-    });
-  }
 
   return (
     <section
@@ -351,7 +398,7 @@ function SectionTitle({
         <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
           <Icon className="size-3.5" aria-hidden="true" />
         </span>
-        <h3 id={id} className="truncate text-sm font-semibold">
+        <h3 id={id} className="truncate text-[11px] font-semibold leading-4 lg:text-sm">
           {title}
         </h3>
       </div>
@@ -364,9 +411,20 @@ function SectionTitle({
   );
 }
 
-function WorkbenchTile({ icon: Icon, label, value, isMissing }: WorkbenchField) {
+function WorkbenchTile({
+  icon: Icon,
+  label,
+  value,
+  isMissing,
+  onOpen,
+}: WorkbenchField & { onOpen: () => void }) {
   return (
-    <div className="grid min-h-14 min-w-0 grid-cols-[28px_minmax(0,1fr)] items-center gap-1 rounded-lg bg-[var(--surface-panel-muted)] p-1.5">
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`${label}: ${value}`}
+      className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring grid min-h-14 min-w-0 grid-cols-[28px_minmax(0,1fr)] items-center gap-1 rounded-lg bg-[var(--surface-panel-muted)] p-1.5"
+    >
       <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
         <Icon className="size-3.5" aria-hidden="true" />
       </span>
@@ -383,7 +441,7 @@ function WorkbenchTile({ icon: Icon, label, value, isMissing }: WorkbenchField) 
           {value}
         </strong>
       </span>
-    </div>
+    </button>
   );
 }
 
