@@ -2,6 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
 
 import { customersKeys } from "@/features/customers/api/query-keys";
+import { inventorySalesKeys } from "@/features/inventory/sales/api/query-keys";
 import { aiAssistantKeys } from "@/features/ai-assistant/api";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
 import { inventoryLifecycleKeys } from "@/features/inventory/lifecycle/api/query-keys";
@@ -21,6 +22,52 @@ import {
 import type { StoreContext } from "@/lib/repairdesk/types";
 
 describe("tenant cache helpers", () => {
+  it.each(["switch", "authority", "lost"] as const)(
+    "cancels in-flight sales and removes cached customer/receipt on %s",
+    async (mode) => {
+      const client = new QueryClient();
+      const key = inventorySalesKeys.summary("item", "old-store");
+      const receiptKey = inventorySalesKeys.receipt(
+        "sale",
+        "payment",
+        "payment",
+        "it",
+        "old-store",
+      );
+      const customerKey = customersKeys.detail("customer", "old-store");
+      const listKey = inventorySalesKeys.list({}, "old-store");
+      const detailKey = inventorySalesKeys.detail("sale", "old-store");
+      client.setQueryData(listKey, { synthetic: "sales list" });
+      client.setQueryData(detailKey, { synthetic: "sales detail" });
+      client.setQueryData(receiptKey, { synthetic: "private receipt" });
+      client.setQueryData(customerKey, { synthetic: "customer" });
+      let signal: AbortSignal | undefined;
+      let release: (value: unknown) => void = () => undefined;
+      const pending = client
+        .fetchQuery({
+          queryKey: key,
+          queryFn: (context) => {
+            signal = context.signal;
+            return new Promise((resolve) => {
+              release = resolve;
+            });
+          },
+        })
+        .catch(() => undefined);
+      if (mode === "switch")
+        await applySwitchedStoreContext(client, { stores: [], activeStoreExplicit: false });
+      else if (mode === "authority") await clearAuthoritySensitiveQueryCache(client);
+      else clearAuthorityLostQueryCache(client);
+      expect(signal?.aborted).toBe(true);
+      release({ stale: "must not reappear" });
+      await pending;
+      expect(client.getQueryData(listKey)).toBeUndefined();
+      expect(client.getQueryData(detailKey)).toBeUndefined();
+      expect(client.getQueryData(key)).toBeUndefined();
+      expect(client.getQueryData(receiptKey)).toBeUndefined();
+      expect(client.getQueryData(customerKey)).toBeUndefined();
+    },
+  );
   it("cancels and clears old tenant data while preserving the switched store context", async () => {
     const queryClient = new QueryClient();
     const cancelQueries = vi.spyOn(queryClient, "cancelQueries");

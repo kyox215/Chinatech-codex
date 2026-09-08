@@ -1,3 +1,20 @@
+import {
+  inventorySalesListBodySchema,
+  inventorySalesCommandBodySchema,
+  inventorySalesIdBodySchema,
+  inventorySalesReceiptBodySchema,
+} from "@/features/inventory/sales/model/contracts";
+import {
+  assertInventorySalesCommandAccess,
+  assertInventorySalesReadAccess,
+} from "@/features/inventory/sales/server/sales-access";
+import {
+  readInventorySalesList,
+  runInventorySalesCommand,
+  readInventorySalesSummary,
+  readInventorySalesDetail,
+  readInventorySalesReceipt,
+} from "@/features/inventory/sales/server/sales.repository";
 import { randomUUID } from "node:crypto";
 
 import { NextResponse } from "next/server";
@@ -465,6 +482,11 @@ import {
 } from "./repairdesk-schemas";
 
 const supabaseSource = {
+  readInventorySalesList,
+  runInventorySalesCommand,
+  readInventorySalesSummary,
+  readInventorySalesDetail,
+  readInventorySalesReceipt,
   listToolkitResources,
   createToolkitLink,
   prepareToolkitFileUpload,
@@ -951,6 +973,16 @@ async function source() {
   };
   return {
     ...mock,
+    // Synthetic product browsing must never pretend a new sales transaction succeeded.
+    runInventorySalesCommand: async () => {
+      throw Object.assign(new Error("商品售卖服务未连接"), { status: 503, code: "unavailable" });
+    },
+    readInventorySalesList: async () => {
+      throw Object.assign(new Error("商品售卖服务未连接"), { status: 503, code: "unavailable" });
+    },
+    readInventorySalesSummary: async () => null,
+    readInventorySalesDetail: async () => null,
+    readInventorySalesReceipt: async () => null,
     searchInventoryCatalog: async () => ({ items: [] }),
     readInventoryLifecycleAfterSalesCase: async (id: string) =>
       lifecycleE2eEnabled && id === lifecycleE2eCaseId
@@ -2918,6 +2950,42 @@ export async function handleRepairDeskPost(
             realtimeBroadcasts.inventoryProductUpdated,
           ),
         );
+      }
+      case "inventory/sales/command": {
+        const input = inventorySalesCommandBodySchema.parse(body);
+        assertInventorySalesCommandAccess(actor, input);
+        return ok(
+          await runWithRealtime(actor, () => api.runInventorySalesCommand(input, actor), {
+            domain: "inventory",
+            mutation: "updated",
+            queryGroups: [
+              "inventory.all",
+              "inventory.products",
+              "inventory.sales",
+              "inventory.lifecycle",
+            ],
+          }),
+        );
+      }
+      case "inventory/sales/list": {
+        const input = inventorySalesListBodySchema.parse(body);
+        assertInventorySalesReadAccess(actor);
+        return ok(await api.readInventorySalesList(input, actor));
+      }
+      case "inventory/sales/summary": {
+        const { id } = inventorySalesIdBodySchema.parse(body);
+        assertInventorySalesReadAccess(actor);
+        return ok(await api.readInventorySalesSummary(id, actor));
+      }
+      case "inventory/sales/detail": {
+        const { id } = inventorySalesIdBodySchema.parse(body);
+        assertInventorySalesReadAccess(actor);
+        return ok(await api.readInventorySalesDetail(id, actor));
+      }
+      case "inventory/sales/receipt": {
+        const input = inventorySalesReceiptBodySchema.parse(body);
+        assertInventorySalesReadAccess(actor, true);
+        return ok(await api.readInventorySalesReceipt(input, actor));
       }
       case "inventory/lifecycle/command": {
         const input = inventoryLifecycleCommandBodySchema.parse(body);

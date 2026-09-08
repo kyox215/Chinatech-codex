@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { consumeSensitiveIdentifierRead } from "./inventory-sensitive-identifier-read";
 
 import type {
   AuditActor,
@@ -476,35 +476,6 @@ export async function getInventoryProductEditData(
     after: { identifier_count: device.identifiers.length },
   });
   return { ...detail, ...device } as unknown as InventoryProductEditData;
-}
-
-async function consumeSensitiveIdentifierRead(actor: AuditActor, storeId: string) {
-  const membershipId = actor.activeMembershipId;
-  if (!membershipId) {
-    throw inventoryProductHttpError("INVENTORY_IDENTIFIER_READ_FORBIDDEN", "当前员工身份无效", 403);
-  }
-  const scopeHash = createHash("sha256")
-    .update(`inventory-identifiers:${storeId}:${membershipId}`)
-    .digest("hex");
-  const { data, error } = await getSupabaseAdmin().rpc(
-    "repairdesk_consume_authenticated_rate_limit_rpc",
-    { p_scope_hash: scopeHash, p_bucket: "read" },
-  );
-  if (error) {
-    throw inventoryProductHttpError(
-      "INVENTORY_IDENTIFIER_RATE_LIMIT_UNAVAILABLE",
-      "设备标识暂时不可读取，请稍后重试",
-      503,
-    );
-  }
-  const result = data as { allowed?: boolean } | null;
-  if (!result?.allowed) {
-    throw inventoryProductHttpError(
-      "INVENTORY_IDENTIFIER_RATE_LIMITED",
-      "读取设备标识过于频繁，请稍后重试",
-      429,
-    );
-  }
 }
 
 function inventoryProductHttpError(code: string, message: string, status: number) {

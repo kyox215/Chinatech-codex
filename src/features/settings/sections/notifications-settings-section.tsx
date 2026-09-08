@@ -29,6 +29,8 @@ import { useLocale } from "@/shared/i18n/locale-provider";
 import { translateSettingsOperations } from "@/shared/i18n/messages";
 import { RepairOsSectionHeader } from "@/shared/ui";
 
+import { salesCopy } from "@/features/inventory/sales/ui/sales-copy";
+
 export interface NotificationsSettingsSectionProps {
   draft: StoreSettingsDraftValues["notifications"];
   savedOutputIdentity: StoreOutputIdentity;
@@ -68,6 +70,24 @@ export function NotificationsSettingsSection({
         copy={copy}
         onDraftChange={onDraftChange}
       />
+      <label className={cn(repairOs.adminSection, "grid min-w-0 gap-2 p-3 text-xs")}>
+        {salesCopy(locale, "printLanguage")}
+        <select
+          aria-label={salesCopy(locale, "printLanguage")}
+          value={draft.inventory_sales_print_language ?? "it"}
+          disabled={!canUpdateSettings}
+          onChange={(event) =>
+            onDraftChange({
+              inventory_sales_print_language: event.target.value as "it" | "en" | "zh",
+            })
+          }
+          className="min-h-11 w-full rounded-lg border border-input bg-background px-2 text-base lg:text-sm"
+        >
+          <option value="it">Italiano</option>
+          <option value="en">English</option>
+          <option value="zh">中文</option>
+        </select>
+      </label>
       <NotificationPreviewCard
         savedOutputIdentity={savedOutputIdentity}
         draftOutputIdentity={draftOutputIdentity}

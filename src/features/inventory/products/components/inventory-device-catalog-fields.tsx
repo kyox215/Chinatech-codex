@@ -244,7 +244,7 @@ export function InventoryDeviceCatalogFields({
 
   return (
     <div className="min-w-0 space-y-2">
-      <div className="grid min-w-0 grid-cols-1 min-[360px]:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-1.5 sm:gap-2.5">
+      <div className="grid min-w-0 grid-cols-1 min-[360px]:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-1.5 sm:gap-2 lg:grid-cols-1">
         <CatalogCombobox
           id={`${idPrefix}-brand`}
           label={t("inventory2b4.quick.catalog.brandLabel")}

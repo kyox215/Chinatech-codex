@@ -1,3 +1,4 @@
+import { RepairDeskApiError } from "@/lib/repairdesk/api";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,6 +10,8 @@ import type { AppLocale } from "@/shared/i18n/locales";
 import { translateMessage } from "@/shared/i18n/messages";
 
 const apiMocks = vi.hoisted(() => ({
+  readInventorySalesList: vi.fn(),
+  readInventorySalesSummary: vi.fn(),
   getInventoryProduct: vi.fn(),
   readInventoryLifecycleSummary: vi.fn(),
   runInventoryLifecycleCommand: vi.fn(),
@@ -30,6 +33,8 @@ const shellMocks = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({ useRouter: () => routerMocks }));
 vi.mock("@/lib/repairdesk/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/repairdesk/api")>()),
+  readInventorySalesList: apiMocks.readInventorySalesList,
+  readInventorySalesSummary: apiMocks.readInventorySalesSummary,
   getInventoryProduct: apiMocks.getInventoryProduct,
   readInventoryLifecycleSummary: apiMocks.readInventoryLifecycleSummary,
   runInventoryLifecycleCommand: apiMocks.runInventoryLifecycleCommand,
@@ -42,6 +47,12 @@ import { InventoryProductDetailScreen } from "./inventory-product-detail-screen"
 
 beforeEach(() => {
   vi.clearAllMocks();
+  apiMocks.readInventorySalesList.mockRejectedValue(
+    new RepairDeskApiError("off", 503, "feature_disabled"),
+  );
+  apiMocks.readInventorySalesSummary.mockRejectedValue(
+    new RepairDeskApiError("off", 503, "feature_disabled"),
+  );
   shellMocks.value = {
     isLoading: false,
     activeStore: { id: "store-1" },

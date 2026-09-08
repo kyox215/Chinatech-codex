@@ -15,6 +15,28 @@ import {
 } from "./store-settings-draft";
 
 describe("store settings section drafts", () => {
+  it("omits an unchanged sales language from ordinary settings writes but persists an explicit change", () => {
+    const initial = createStoreSettingsDrafts(
+      settings({
+        store_id: "10000000-0000-4000-8000-000000000001",
+        inventory_sales_print_language: "it",
+      }),
+    );
+    const footer = updateStoreSettingsDraft(initial, "notifications", {
+      print_footer: "Synthetic footer",
+    });
+    expect(
+      buildStoreSettingsSectionUpdateRequest(footer, "notifications").input,
+    ).not.toHaveProperty("inventory_sales_print_language");
+    const language = updateStoreSettingsDraft(initial, "notifications", {
+      inventory_sales_print_language: "en",
+    });
+    expect(buildStoreSettingsSectionUpdateRequest(language, "notifications").input).toHaveProperty(
+      "inventory_sales_print_language",
+      "en",
+    );
+    expect(initial.sections.notifications.value.inventory_sales_print_language).toBe("it");
+  });
   it("builds a request for only the edited section", () => {
     const initial = createStoreSettingsDrafts(settings());
     const edited = updateStoreSettingsDraft(initial, "notifications", {

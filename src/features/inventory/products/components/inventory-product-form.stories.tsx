@@ -52,7 +52,7 @@ function createPreviewDraft(scenario: PreviewScenario): InventoryProductFormDraf
     list_price: "499",
     cost_amount: "310",
     location: "A-02",
-    warranty_months: "6",
+    warranty_months: "24",
     notes: isPending
       ? "Apple 官方颜色映射待审核；历史颜色只读保留。"
       : "本地 Storybook 合成预览，不写入业务数据。",

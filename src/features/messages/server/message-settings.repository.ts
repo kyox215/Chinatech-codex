@@ -80,6 +80,12 @@ export async function updateStoreSettingsRow(request: {
   storeId?: string;
 }): Promise<StoreSettings | null> {
   const resolvedStoreId = requireRepositoryStoreId(request.storeId, "保存店铺设置");
+  if (
+    request.input.inventory_sales_print_language !== undefined &&
+    process.env.INVENTORY_SALES_SCHEMA_READY !== "1"
+  ) {
+    throw new Error("商品售卖打印设置尚未开放");
+  }
   const supabase = getSupabaseAdmin();
   const now = nextSettingsUpdatedAt(request.expectedUpdatedAt);
   const update = sanitizeStoreSettingsInput(request.input);
@@ -212,6 +218,11 @@ function sanitizeStoreSettingsInput(input: StoreSettingsUpdateInput) {
   if (input.new_order_entry_mode !== undefined) {
     update.new_order_entry_mode = normalizeNewOrderEntryMode(input.new_order_entry_mode);
   }
+  if (input.inventory_sales_print_language !== undefined) {
+    if (!["it", "en", "zh"].includes(input.inventory_sales_print_language))
+      throw new Error("打印语言无效");
+    update.inventory_sales_print_language = input.inventory_sales_print_language;
+  }
   if (input.print_footer !== undefined) update.print_footer = input.print_footer.trim();
   if (input.message_signature !== undefined) {
     update.message_signature = input.message_signature.trim();
@@ -259,6 +270,10 @@ function storeSettingsFromRow(row: DbRecord): StoreSettings {
     default_order_warranty_months: Number(row.default_order_warranty_months ?? 6),
     default_inventory_warranty_months: Number(row.default_inventory_warranty_months ?? 12),
     new_order_entry_mode: normalizeNewOrderEntryMode(row.new_order_entry_mode),
+    inventory_sales_print_language:
+      row.inventory_sales_print_language === "en" || row.inventory_sales_print_language === "zh"
+        ? row.inventory_sales_print_language
+        : "it",
     print_footer: String(row.print_footer ?? ""),
     message_signature: String(row.message_signature ?? ""),
     updated_by: typeof row.updated_by === "string" ? row.updated_by : undefined,

@@ -7,6 +7,7 @@ import {
   inventoryCatalogKeys,
   inventoryProductKeys,
 } from "@/features/inventory/products/api/query-keys";
+import { inventorySalesKeys } from "@/features/inventory/sales/api/query-keys";
 import { inventoryLifecycleKeys } from "@/features/inventory/lifecycle/api/query-keys";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
@@ -67,6 +68,7 @@ const tenantScopedQueryRoots = [
   inventoryCatalogKeys.all,
   inventoryProductKeys.all,
   inventoryLifecycleKeys.all,
+  inventorySalesKeys.all,
   kioskKeys.all,
   suppliersKeys.all,
   messageSettingsKeys.store,
@@ -88,6 +90,7 @@ const authoritySensitiveQueryRoots = [
   inventoryCatalogKeys.all,
   inventoryProductKeys.all,
   inventoryLifecycleKeys.all,
+  inventorySalesKeys.all,
   kioskKeys.all,
   suppliersKeys.all,
   messageSettingsKeys.store,

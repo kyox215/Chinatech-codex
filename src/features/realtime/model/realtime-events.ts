@@ -31,6 +31,8 @@ export const repairDeskRealtimeQueryGroups = [
   "customers.all",
   "inventory.all",
   "inventory.products",
+  "inventory.sales",
+  "inventory.lifecycle",
   "buyback.all",
   "settings.store",
   "settings.templates",

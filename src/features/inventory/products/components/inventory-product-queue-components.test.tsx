@@ -19,9 +19,9 @@ describe("InventoryProductCategoryTabs", () => {
     render(<InventoryProductCategoryTabs filters={{ categories: [] }} onChange={onChange} />);
 
     const group = screen.getByRole("group", { name: "商品分类" });
-    expect(group).toHaveClass("grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))]");
+    expect(group).toHaveClass("grid-cols-5");
     const buttons = screen.getAllByRole("button");
-    expect(buttons).toHaveLength(6);
+    expect(buttons).toHaveLength(5);
     for (const button of buttons) {
       expect(button).toHaveClass("min-h-11", "min-w-11", "text-xs");
     }
