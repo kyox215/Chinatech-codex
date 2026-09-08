@@ -10,6 +10,46 @@ import {
 } from "./order-workspace-primitives";
 
 describe("OrderWorkspaceQuoteTextField popup", () => {
+  it("localizes the trigger while editing and preserving the original value", async () => {
+    const change = vi.fn();
+    const view = render(
+      <OrderWorkspaceQuoteTextField
+        value="屏幕"
+        displayValue="Display"
+        onValueChange={change}
+        ariaLabel="Quote name"
+      />,
+    );
+    const trigger = screen.getByRole("button", { name: "Quote name" });
+    expect(trigger).toHaveTextContent("Display");
+    fireEvent.click(trigger);
+    expect(screen.getByRole("textbox")).toHaveValue("屏幕");
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(change).not.toHaveBeenCalled();
+    expect(trigger).toHaveFocus();
+
+    fireEvent.click(trigger);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Temporary" } });
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(change).not.toHaveBeenCalled();
+    view.rerender(
+      <OrderWorkspaceQuoteTextField
+        value="屏幕"
+        displayValue="Schermo"
+        onValueChange={change}
+        ariaLabel="Quote name"
+      />,
+    );
+    expect(trigger).toHaveTextContent("Schermo");
+    fireEvent.click(trigger);
+    expect(screen.getByRole("textbox")).toHaveValue("屏幕");
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Custom repair" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    expect(change).toHaveBeenCalledExactlyOnceWith("Custom repair");
+  });
+
   it("keeps the keypad through a popup pointerdown, cancels a gesture, then hands one click to the popup", async () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
     const user = userEvent.setup();

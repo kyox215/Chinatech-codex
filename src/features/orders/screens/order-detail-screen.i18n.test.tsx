@@ -621,6 +621,59 @@ describe("OrderDetailScreen i18n", () => {
     expect(mocks.patchOrderFinance).not.toHaveBeenCalled();
   });
 
+  it.each(locales)(
+    "localizes the %s catalog display while opening its canonical edit value",
+    async (locale) => {
+      mocks.viewport = "compact";
+      mocks.detail = {
+        ...makeDetail(),
+        order: {
+          ...detailOrder,
+          fault_prices: [
+            { catalog_key: "display:main", name: "屏幕", price: 120, note: "原始备注" },
+          ],
+        },
+      };
+      const view = renderDetail(locale, "page");
+      const quote = view.container.querySelector("#mobile-order-quote") as HTMLElement;
+      const displayedName = locale === "zh-CN" ? "屏幕" : "Display";
+      expect(quote).toHaveTextContent(displayedName);
+      fireEvent.click(
+        within(quote).getByRole("button", {
+          name: translateMessage(locale, "orders2b2.overview.quoteItems"),
+        }),
+      );
+      const editor = screen.getByRole("dialog", {
+        name: translateMessage(locale, "orders2b2.overview.quoteItems"),
+      });
+      const nameTrigger = within(editor).getByRole("button", {
+        name: translateMessage(locale, "orders2b2.finance.item"),
+      });
+      expect(nameTrigger).toHaveTextContent(displayedName);
+      fireEvent.click(nameTrigger);
+      const popup = screen.getByRole("dialog", {
+        name: translateMessage(locale, "orders2b2.finance.item"),
+      });
+      expect(within(popup).getByRole("textbox")).toHaveValue("屏幕");
+      fireEvent.click(
+        within(popup).getByRole("button", {
+          name: translateMessage(locale, "orders2b2.hero.save"),
+        }),
+      );
+      await waitFor(() => expect(document.querySelector("[data-order-quote-popup]")).toBeNull());
+      expect(nameTrigger).toHaveFocus();
+      expect(nameTrigger).toHaveTextContent(displayedName);
+      expect(mocks.patchOrderFinance).not.toHaveBeenCalled();
+      fireEvent.click(
+        within(editor).getAllByRole("button", {
+          name: translateMessage(locale, "common.cancel"),
+        })[0]!,
+      );
+      await waitFor(() => expect(editor).not.toBeInTheDocument());
+      expect(mocks.patchOrderFinance).not.toHaveBeenCalled();
+    },
+  );
+
   it("keeps unchanged catalog name saves clean and clears the catalog key only after a real edit", async () => {
     mocks.viewport = "compact";
     const view = renderDetail("en", "page");

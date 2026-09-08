@@ -86,19 +86,19 @@ export function OrderListQueueMenu({
         <Button
           variant="ghost"
           disabled={disabled}
-          className="h-11 min-w-0 justify-start gap-1.5 px-1 text-xs font-semibold"
+          className="h-auto min-h-11 min-w-0 justify-start gap-1 px-1 py-1 text-xs font-semibold"
           data-order-queue-trigger="true"
           aria-busy={Boolean(pendingValue)}
           aria-label={t("orders.chooseQueue", { queue: active?.label ?? t("orders.allStatuses") })}
         >
-          <span className="min-w-0 truncate">
+          <span className="min-w-0 flex-1 whitespace-normal break-words text-left leading-4">
             {value === "all" ? t("orders.allQueues") : active?.shortLabel || active?.label}
           </span>
           {pendingValue ? (
             <LoaderCircle className="size-3 shrink-0 animate-spin text-primary" />
           ) : (
             <span
-              className="rounded bg-primary/10 px-1.5 font-mono text-[10px] tabular-nums text-primary"
+              className="shrink-0 rounded bg-primary/10 px-1 font-mono text-[10px] tabular-nums text-primary"
               title={t("orders.queueResults", { count: total })}
             >
               {total > 999 ? "999+" : total}

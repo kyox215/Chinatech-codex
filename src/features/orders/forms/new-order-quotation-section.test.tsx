@@ -9,6 +9,7 @@ import {
   type NewOrderFormState,
 } from "@/features/orders/model/new-order-form";
 import type { OrderWorkflowStatus } from "@/lib/repairdesk/api";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
 
 import { NewOrderQuotationSection } from "./new-order-quotation-section";
 
@@ -50,6 +51,60 @@ function ScreenQuoteHarness() {
 }
 
 describe("NewOrderQuotationSection", () => {
+  it.each(["zh-CN", "it-IT", "en"] as const)(
+    "renders a selected catalog name in %s while leaving the form unchanged",
+    (locale) => {
+      const setForm = vi.fn();
+      const onPatchFault = vi.fn();
+      const form: NewOrderFormState = {
+        ...initialNewOrderForm,
+        faults: [
+          {
+            key: "display:main",
+            categoryKey: "display",
+            categoryLabel: "屏幕",
+            catalog_key: "display:main",
+            name: "屏幕",
+            note: "客户原始备注",
+            price: 80,
+          },
+          {
+            key: "custom:1",
+            categoryKey: "custom",
+            categoryLabel: "自定义",
+            name: "客户自定义项目",
+            price: 20,
+          },
+        ],
+      };
+      render(
+        <LocaleProvider initialLocale={locale}>
+          <NewOrderQuotationSection
+            form={form}
+            setForm={setForm}
+            total={100}
+            operatorName="Synthetic operator"
+            onPatchFault={onPatchFault}
+            onAddCustomFault={vi.fn()}
+            createStatuses={[]}
+          />
+        </LocaleProvider>,
+      );
+      const disclosure = document.querySelector('[data-order-quote-disclosure="true"]');
+      expect(disclosure).toHaveTextContent(locale === "zh-CN" ? "屏幕" : "Display");
+      expect(screen.getByText("客户自定义项目")).toBeVisible();
+      expect(form.faults[0]).toMatchObject({
+        catalog_key: "display:main",
+        name: "屏幕",
+        note: "客户原始备注",
+        price: 80,
+      });
+      expect(setForm).not.toHaveBeenCalled();
+      expect(onPatchFault).not.toHaveBeenCalled();
+      cleanup();
+    },
+  );
+
   it.each(["mouse", "touch"] as const)(
     "finishes the screen amount without selecting back cover using %s input",
     async (pointerType) => {
