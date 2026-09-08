@@ -94,7 +94,7 @@ describe("real sales command components", () => {
     const dialog = await screen.findByRole("dialog");
     await waitFor(() => expect(document.activeElement).toBe(dialog));
     if (action === "escape") fireEvent.keyDown(dialog, { key: "Escape" });
-    else fireEvent.click(screen.getByRole("button", { name: "Close", exact: true }));
+    else fireEvent.click(screen.getByRole("button", { name: "Close" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(opener));
   });
