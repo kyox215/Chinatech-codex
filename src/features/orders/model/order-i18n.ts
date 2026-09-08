@@ -1,4 +1,8 @@
 import { classifyOrderTransitionFailure } from "./order-bulk-transition";
+import {
+  getRepairServiceCatalogItem,
+  repairServiceCatalogGroups,
+} from "@/entities/order/model/repair-service-catalog";
 import type { OrderQueueGroup, OrderResultGroup, OrderWorkflow } from "@/lib/repairdesk/types";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type { AccessoryNoteOption } from "@/features/orders/model/order-accessory-notes";
@@ -217,6 +221,27 @@ export function localizeRepairServiceOptionLabel(
   return locale === "it-IT"
     ? option.italian
     : (repairServiceOptionEnglishLabels[catalogKey] ?? option.label);
+}
+
+export function localizeRepairServiceItemName(
+  item: { catalog_key?: string | null; name: string },
+  locale: AppLocale,
+) {
+  const catalogItem = getRepairServiceCatalogItem(item.catalog_key);
+  // A catalog key alone must never replace a name the operator has customized.
+  if (locale === "zh-CN" || !catalogItem || catalogItem.name !== item.name.trim()) {
+    return item.name;
+  }
+  const group = repairServiceCatalogGroups.find((entry) => entry.key === catalogItem.groupKey);
+  if (!group) return item.name;
+  const groupLabel = localizeRepairServiceGroupLabel(group, locale);
+  if (catalogItem.isMain) return groupLabel;
+  const optionLabel = localizeRepairServiceOptionLabel(
+    group.key,
+    { key: catalogItem.optionKey, label: catalogItem.label, italian: catalogItem.italian },
+    locale,
+  );
+  return `${groupLabel} - ${optionLabel}`;
 }
 
 const transitionConfigKeys: Partial<

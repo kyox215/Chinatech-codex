@@ -1,4 +1,4 @@
-import { fillNumericInput } from "./input-keypad-helpers";
+import { fillNumericInput, setKeyboardDeviceViewport } from "./input-keypad-helpers";
 import {
   expect,
   test,
@@ -1236,7 +1236,7 @@ test("A13 buyback numeric keypad remains reachable on a short screen", async ({
 }, testInfo) => {
   const control = createControl();
   const evidence = await preparePage(page, "zh-CN", control);
-  await page.setViewportSize({ width: 320, height: 568 });
+  await setKeyboardDeviceViewport(page, { width: 320, height: 568 });
   await page.goto("/buyback");
   await expectReadyList(page, "zh-CN");
   await newQuoteCandidate(page, "zh-CN").click();

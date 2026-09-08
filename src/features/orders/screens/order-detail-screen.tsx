@@ -278,6 +278,7 @@ import {
 import {
   localizeDeviceCustody,
   localizeOrderFlowStage,
+  localizeRepairServiceItemName,
   localizeWorkflowStatusLabel,
 } from "@/features/orders/model/order-i18n";
 import type {
@@ -4147,7 +4148,8 @@ function MobileOrderDetailView({
                       className="flex min-w-0 items-center gap-1 text-[11px] leading-4 lg:text-xs"
                     >
                       <span className="min-w-0 flex-1 truncate text-foreground">
-                        {item.name || t("orders2b2.mobile.unnamedItem")}
+                        {localizeRepairServiceItemName(item, locale) ||
+                          t("orders2b2.mobile.unnamedItem")}
                       </span>
                       <MoneyText amount={item.price} className="shrink-0 font-semibold" />
                     </div>
@@ -5429,6 +5431,7 @@ function DetailRows({ rows }: { rows: [string, string][] }) {
 
 function MobileDenseFinanceInput({
   value,
+  displayValue,
   onValueChange,
   disabled,
   invalid,
@@ -5438,6 +5441,7 @@ function MobileDenseFinanceInput({
   mono = false,
 }: {
   value: string;
+  displayValue?: string;
   onValueChange: (value: string) => void;
   disabled?: boolean;
   invalid?: boolean;
@@ -5471,6 +5475,7 @@ function MobileDenseFinanceInput({
     return (
       <OrderWorkspaceQuoteTextField
         value={value}
+        displayValue={displayValue}
         onValueChange={onValueChange}
         disabled={disabled}
         placeholder={placeholder}
@@ -5516,7 +5521,7 @@ function MobileFinanceEditor({
   onCancel: () => void;
   onSave: () => Promise<boolean>;
 }) {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
   const patchFault = (index: number, patch: Partial<FinanceDraftState["faults"][number]>) => {
     const faults = [...draft.faults];
     faults[index] = { ...faults[index], ...patch };
@@ -5614,6 +5619,7 @@ function MobileFinanceEditor({
                   <div className="min-w-0 space-y-0.5">
                     <MobileDenseFinanceInput
                       value={item.name}
+                      displayValue={localizeRepairServiceItemName(item, locale)}
                       onValueChange={(value) =>
                         patchFault(index, { name: value, catalog_key: undefined })
                       }

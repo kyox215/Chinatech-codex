@@ -324,6 +324,7 @@ export function OrderWorkspaceQuoteRow({
 
 function OrderWorkspaceQuotePopup({
   value,
+  displayValue,
   onValueChange,
   ariaLabel,
   placeholder,
@@ -333,6 +334,7 @@ function OrderWorkspaceQuotePopup({
   containerClassName,
 }: {
   value: ReactNode;
+  displayValue?: string;
   onValueChange?: (value: string) => void;
   ariaLabel?: string;
   placeholder?: string;
@@ -388,7 +390,9 @@ function OrderWorkspaceQuotePopup({
               className,
             )}
           >
-            <span className="min-w-0 flex-1 truncate">{value || placeholder || title}</span>
+            <span className="min-w-0 flex-1 truncate">
+              {(displayValue ?? value) || placeholder || title}
+            </span>
             <ChevronDown className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
           </button>
         </DialogTrigger>
@@ -443,7 +447,7 @@ function OrderWorkspaceQuotePopup({
             />
           ) : (
             <div className="whitespace-pre-wrap break-words text-sm leading-6 [overflow-wrap:anywhere]">
-              {value}
+              {displayValue ?? value}
             </div>
           )}
         </DialogBody>
@@ -472,6 +476,7 @@ export function OrderWorkspaceQuoteTextField({
   ...props
 }: {
   value: string;
+  displayValue?: string;
   onValueChange: (value: string) => void;
   ariaLabel: string;
   placeholder?: string;
