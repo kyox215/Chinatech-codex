@@ -2,6 +2,7 @@ import { expect, test, type Page, type Locator } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { translateMessage as tr } from "@/shared/i18n/messages";
+import { setKeyboardDeviceViewport } from "./input-keypad-helpers";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 test.skip(!enabled, "Requires the local synthetic business fixture.");
@@ -235,7 +236,7 @@ for (const locale of locales) {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.context().addCookies([{ name: "repairdesk_locale", value: locale, url: baseURL() }]);
-    await page.setViewportSize({ width: 320, height: 350 });
+    await setKeyboardDeviceViewport(page, { width: 320, height: 350 });
     const longNote = quoteCopy[locale].note.repeat(12);
     await page.route("**/api/repairdesk/order/get", async (route) => {
       const response = await route.fetch();
@@ -361,7 +362,7 @@ for (const locale of locales)
       await page
         .context()
         .addCookies([{ name: "repairdesk_locale", value: locale, url: baseURL() }]);
-      await page.setViewportSize({ width, height });
+      await setKeyboardDeviceViewport(page, { width, height });
       const longQuote = quoteCopy[locale];
       const quoteAmount = width === 320 ? "123456.78" : "1234.56";
       await page.route("**/api/repairdesk/order/get", async (route) => {
@@ -570,7 +571,7 @@ test("customer long form retains draft and keeps footer reachable at compressed 
   page,
 }) => {
   await page.context().addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
-  await page.setViewportSize({ width: 320, height: 350 });
+  await setKeyboardDeviceViewport(page, { width: 320, height: 350 });
   await page.goto("/customers/cus_1");
   await expect(page.getByRole("button", { name: "编辑客户资料" }).first()).toBeVisible();
   await page.getByRole("button", { name: "编辑客户资料" }).last().click();
@@ -592,7 +593,7 @@ test("pointer opening restores the actual content trigger for order and customer
   page,
 }) => {
   await page.context().addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
-  await page.setViewportSize({ width: 390, height: 844 });
+  await setKeyboardDeviceViewport(page, { width: 390, height: 844 });
   await page.goto("/orders/ord_1");
   const opener = page
     .locator("#mobile-order-quote")
@@ -622,7 +623,7 @@ for (const width of [320, 390, 768]) {
     await page
       .context()
       .addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
-    await page.setViewportSize({ width, height });
+    await setKeyboardDeviceViewport(page, { width, height });
     await page.route("**/api/repairdesk/options", async (route) => {
       const response = await route.fetch();
       const body = await response.json();
@@ -763,7 +764,7 @@ for (const width of [320, 390, 768]) {
 test("A13 customer tablet and desktop each expose one editing surface", async ({ page }) => {
   await page.context().addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
   for (const width of [768, 1024]) {
-    await page.setViewportSize({ width, height: 1000 });
+    await setKeyboardDeviceViewport(page, { width, height: 1000 });
     await page.goto("/customers/cus_1");
     const trigger = page.getByRole("button", { name: "编辑客户资料" });
     await expect(trigger).toHaveCount(1);
@@ -797,7 +798,7 @@ for (const [width, height] of [
     await page
       .context()
       .addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
-    await page.setViewportSize({ width, height });
+    await setKeyboardDeviceViewport(page, { width, height });
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto("/orders/ord_1");
@@ -947,7 +948,7 @@ for (const width of [320, 390, 430, 768, 1024, 1440]) {
     await page
       .context()
       .addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
-    await page.setViewportSize({ width, height: 1000 });
+    await setKeyboardDeviceViewport(page, { width, height: 1000 });
     await page.goto("/orders/new");
     await page.waitForLoadState("networkidle");
     const form = page.locator('[data-new-order-form="true"]').filter({ visible: true });
@@ -980,7 +981,7 @@ for (const width of [320, 390, 430, 768, 1024, 1440]) {
 
 test("A14 Italian short-height keypad keeps close save and done reachable", async ({ page }) => {
   await page.context().addCookies([{ name: "repairdesk_locale", value: "it-IT", url: baseURL() }]);
-  await page.setViewportSize({ width: 320, height: 350 });
+  await setKeyboardDeviceViewport(page, { width: 320, height: 350 });
   await page.goto("/orders/ord_1");
   const quoteTrigger = page
     .locator("#mobile-order-quote")
@@ -1047,7 +1048,7 @@ test("A14 Italian short-height keypad keeps close save and done reachable", asyn
 
 test("A14 dense notes keep the draft through pending and failed save", async ({ page }) => {
   await page.context().addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
-  await page.setViewportSize({ width: 390, height: 844 });
+  await setKeyboardDeviceViewport(page, { width: 390, height: 844 });
   await page.goto("/orders/ord_1");
   await page
     .getByRole("button", { name: tr("zh-CN", "orders.faultEditor.title"), exact: true })
@@ -1089,7 +1090,7 @@ test("A14 dense notes keep the draft through pending and failed save", async ({ 
 
 test("A14 dense inline fields expose the enclosing keyboard focus ring", async ({ page }) => {
   await page.context().addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
-  await page.setViewportSize({ width: 390, height: 844 });
+  await setKeyboardDeviceViewport(page, { width: 390, height: 844 });
   await page.goto("/orders/ord_1");
   await page
     .getByRole("button", { name: tr("zh-CN", "orders2b2.overview.deviceIssue"), exact: true })
