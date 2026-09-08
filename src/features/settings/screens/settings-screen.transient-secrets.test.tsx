@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { mockTouchKeyboardDevice } from "@/shared/lib/virtual-keyboard-device.test-utils";
 
 import { storesKeys } from "@/features/stores/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
@@ -1095,6 +1096,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
   });
 
   it("saves the compact rules keypad draft with the same canonical payload and retains failures", async () => {
+    mockTouchKeyboardDevice();
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
     navigationMocks.search = "section=rules";
     const pending = deferred<StoreSettings>();
@@ -1147,6 +1149,7 @@ describe("SettingsScreen store-bound transient secrets", () => {
   });
 
   it("sends a compact supplier phone keypad draft through the unchanged create consumer once", async () => {
+    mockTouchKeyboardDevice();
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
     navigationMocks.search = "section=suppliers";
     const queryClient = new QueryClient({

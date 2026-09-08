@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mockTouchKeyboardDevice } from "@/shared/lib/virtual-keyboard-device.test-utils";
 
 import type {
   CostCurrencySettingsResult,
@@ -57,6 +58,7 @@ describe("CostCurrencySettingsCard", () => {
   });
 
   it("edits ten-place rates on compact keypad and sends the existing numeric payload", async () => {
+    mockTouchKeyboardDevice();
     const previousWidth = window.innerWidth;
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
     try {

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { mockTouchKeyboardDevice } from "@/shared/lib/virtual-keyboard-device.test-utils";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
 import {
@@ -51,6 +52,7 @@ describe("OrderWorkspaceQuoteTextField popup", () => {
   });
 
   it("keeps the keypad through a popup pointerdown, cancels a gesture, then hands one click to the popup", async () => {
+    mockTouchKeyboardDevice();
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
     const user = userEvent.setup();
     render(

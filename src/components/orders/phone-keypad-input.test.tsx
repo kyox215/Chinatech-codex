@@ -3,45 +3,35 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { DesktopVirtualKeyboardPreferenceContext } from "@/components/desktop-virtual-keyboard-preference-context";
-
 import { PhoneKeypadInput } from "./phone-keypad-input";
 
-function setViewport(width: number) {
+function setViewport(width: number, touchDevice = false) {
   Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
+  vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
+    touchDevice ? "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X)" : "Mozilla/5.0 (Windows NT 10.0)",
+  );
 }
 
 afterEach(() => {
   cleanup();
   setViewport(1024);
+  vi.restoreAllMocks();
 });
 
-function PhoneKeypadHarness({
-  desktopVirtualKeyboardEnabled = false,
-}: {
-  desktopVirtualKeyboardEnabled?: boolean;
-}) {
+function PhoneKeypadHarness() {
   const [value, setValue] = useState("");
 
   return (
-    <DesktopVirtualKeyboardPreferenceContext.Provider
-      value={{
-        desktopVirtualKeyboardEnabled,
-        preferenceReady: true,
-        setDesktopVirtualKeyboardEnabled: () => undefined,
-      }}
-    >
-      <div>
-        <PhoneKeypadInput ariaLabel="客户电话号码" value={value} onChange={setValue} />
-        <span data-testid="value">{value}</span>
-      </div>
-    </DesktopVirtualKeyboardPreferenceContext.Provider>
+    <div>
+      <PhoneKeypadInput ariaLabel="客户电话号码" value={value} onChange={setValue} />
+      <span data-testid="value">{value}</span>
+    </div>
   );
 }
 
 describe("PhoneKeypadInput", () => {
-  it("keeps the app keypad on mobile and tablet breakpoints", async () => {
-    setViewport(768);
+  it("keeps the app keypad on a touch tablet", async () => {
+    setViewport(768, true);
     const user = userEvent.setup();
     const { container } = render(<PhoneKeypadHarness />);
 
@@ -70,7 +60,7 @@ describe("PhoneKeypadInput", () => {
   });
 
   it("closes on Enter without the button default click reopening the keypad", async () => {
-    setViewport(390);
+    setViewport(390, true);
     const user = userEvent.setup();
     render(<PhoneKeypadHarness />);
     const trigger = screen.getByRole("button", { name: "客户电话号码" });
@@ -104,10 +94,10 @@ describe("PhoneKeypadInput", () => {
     expect(document.querySelector('[data-virtual-keyboard-dock="true"]')).toBeNull();
   });
 
-  it("allows a desktop user to opt back into the app keypad", async () => {
-    setViewport(1280);
+  it("keeps a wide iPad on the app keypad", async () => {
+    setViewport(1280, true);
     const user = userEvent.setup();
-    const { container } = render(<PhoneKeypadHarness desktopVirtualKeyboardEnabled />);
+    const { container } = render(<PhoneKeypadHarness />);
 
     expect(container.querySelector('[data-phone-native-input="true"]')).toBeNull();
     await user.click(screen.getByRole("button", { name: "客户电话号码" }));
@@ -134,7 +124,7 @@ it("preserves legacy native formatting and enforces maxLength in the virtual edi
   expect(native).toHaveValue("+39 12");
   expect(native).toHaveAttribute("maxlength", "6");
   expect(native).toHaveAttribute("autocomplete", "tel");
-  setViewport(390);
+  setViewport(390, true);
   unmount();
   render(
     <PhoneKeypadInput

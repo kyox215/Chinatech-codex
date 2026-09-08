@@ -3,39 +3,29 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { DesktopVirtualKeyboardPreferenceContext } from "@/components/desktop-virtual-keyboard-preference-context";
-
 import { MoneyKeypadInput } from "./money-keypad-input";
 
-function setViewport(width: number) {
+function setViewport(width: number, touchDevice = false) {
   Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
+  vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
+    touchDevice ? "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X)" : "Mozilla/5.0 (Windows NT 10.0)",
+  );
 }
 
 afterEach(() => {
   cleanup();
   setViewport(1024);
+  vi.restoreAllMocks();
 });
 
-function MoneyKeypadHarness({
-  desktopVirtualKeyboardEnabled = false,
-}: {
-  desktopVirtualKeyboardEnabled?: boolean;
-}) {
+function MoneyKeypadHarness() {
   const [value, setValue] = useState("");
 
   return (
-    <DesktopVirtualKeyboardPreferenceContext.Provider
-      value={{
-        desktopVirtualKeyboardEnabled,
-        preferenceReady: true,
-        setDesktopVirtualKeyboardEnabled: () => undefined,
-      }}
-    >
-      <div>
-        <MoneyKeypadInput ariaLabel="报价金额" value={value} onChange={setValue} />
-        <span data-testid="value">{value}</span>
-      </div>
-    </DesktopVirtualKeyboardPreferenceContext.Provider>
+    <div>
+      <MoneyKeypadInput ariaLabel="报价金额" value={value} onChange={setValue} />
+      <span data-testid="value">{value}</span>
+    </div>
   );
 }
 
@@ -53,7 +43,7 @@ function NativeNumericHarness({ forced = true }: { forced?: boolean }) {
 
 describe("MoneyKeypadInput", () => {
   it("keeps a focused native draft through external prop updates and adopts the prop on blur", async () => {
-    setViewport(430);
+    setViewport(430, true);
     const user = userEvent.setup();
     const view = render(
       <MoneyKeypadInput
@@ -81,7 +71,7 @@ describe("MoneyKeypadInput", () => {
   });
 
   it("preserves native decimal drafts on mobile even with numeric parent state", async () => {
-    setViewport(390);
+    setViewport(390, true);
     const user = userEvent.setup();
     render(<NativeNumericHarness />);
     const input = screen.getByRole("textbox", { name: "原生报价" });
@@ -113,7 +103,7 @@ describe("MoneyKeypadInput", () => {
   });
 
   it("edits money through the app keypad without rendering a native input", async () => {
-    setViewport(768);
+    setViewport(768, true);
     const user = userEvent.setup();
     const { container } = render(<MoneyKeypadHarness />);
 
@@ -140,7 +130,7 @@ describe("MoneyKeypadInput", () => {
   });
 
   it("keeps keypad actions inside the portal while finishing an amount of 100", async () => {
-    setViewport(390);
+    setViewport(390, true);
     const user = userEvent.setup();
     const onQuoteClick = vi.fn();
     const onBackCoverClick = vi.fn();
@@ -176,31 +166,36 @@ describe("MoneyKeypadInput", () => {
     expect(onBackCoverClick).toHaveBeenCalledOnce();
   });
 
-  it("uses a native decimal input on desktop by default", async () => {
-    setViewport(1280);
+  it.each([390, 1024, 1280, 1440])(
+    "uses a native decimal input on a %ipx desktop",
+    async (width) => {
+      setViewport(width);
+      const user = userEvent.setup();
+      const { container } = render(<MoneyKeypadHarness />);
+      const nativeInput = container.querySelector("input") as HTMLInputElement;
+
+      expect(
+        container.querySelector('[data-money-keypad-native-input="true"]'),
+      ).toBeInTheDocument();
+      expect(nativeInput).toHaveAttribute("inputmode", "decimal");
+      await user.type(nativeInput, "12.5x");
+
+      expect(nativeInput).toHaveValue("12.5");
+      expect(screen.getByTestId("value")).toHaveTextContent("12.5");
+      expect(document.querySelector('[data-virtual-keyboard-dock="true"]')).toBeNull();
+    },
+  );
+
+  it("keeps the app keypad available on a wide iPad", async () => {
+    setViewport(1280, true);
     const user = userEvent.setup();
-    const { container } = render(<MoneyKeypadHarness />);
-    const nativeInput = container.querySelector("input") as HTMLInputElement;
-
-    expect(container.querySelector('[data-money-keypad-native-input="true"]')).toBeInTheDocument();
-    expect(nativeInput).toHaveAttribute("inputmode", "decimal");
-    await user.type(nativeInput, "12.5x");
-
-    expect(nativeInput).toHaveValue("12.5");
-    expect(screen.getByTestId("value")).toHaveTextContent("12.5");
-    expect(document.querySelector('[data-virtual-keyboard-dock="true"]')).toBeNull();
-  });
-
-  it("keeps the app keypad available when enabled by a desktop user", async () => {
-    setViewport(1280);
-    const user = userEvent.setup();
-    render(<MoneyKeypadHarness desktopVirtualKeyboardEnabled />);
+    render(<MoneyKeypadHarness />);
 
     await user.click(screen.getByRole("button", { name: "报价金额" }));
     expect(await screen.findByRole("group", { name: "报价金额 虚拟金额键盘" })).toBeVisible();
   });
   it("does not treat browser shortcuts or composition as money input", async () => {
-    setViewport(768);
+    setViewport(768, true);
     const user = userEvent.setup();
     render(<MoneyKeypadHarness />);
     const trigger = screen.getByRole("button", { name: "报价金额" });
@@ -213,9 +208,9 @@ describe("MoneyKeypadInput", () => {
   });
 
   it("accepts physical money keys while the virtual keypad is open", async () => {
-    setViewport(1280);
+    setViewport(1280, true);
     const user = userEvent.setup();
-    render(<MoneyKeypadHarness desktopVirtualKeyboardEnabled />);
+    render(<MoneyKeypadHarness />);
     const trigger = screen.getByRole("button", { name: "报价金额" });
 
     await user.click(trigger);
@@ -232,9 +227,9 @@ describe("MoneyKeypadInput", () => {
   });
 
   it("continues physical input after clicking a virtual key and restores focus on Escape", async () => {
-    setViewport(1280);
+    setViewport(1280, true);
     const user = userEvent.setup();
-    render(<MoneyKeypadHarness desktopVirtualKeyboardEnabled />);
+    render(<MoneyKeypadHarness />);
     const trigger = screen.getByRole("button", { name: "报价金额" });
 
     await user.click(trigger);

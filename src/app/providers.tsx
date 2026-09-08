@@ -7,7 +7,6 @@ import { usePathname } from "next/navigation";
 import { AppBar } from "@/components/app-bar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { DesktopVirtualKeyboardPreferenceProvider } from "@/components/desktop-virtual-keyboard-preference-provider";
 import { useCommandPalette } from "@/components/use-command-palette";
 import { MobileWorkspaceDock } from "@/components/mobile-workspace-dock";
 import { NavigationGuardProvider } from "@/components/navigation-guard-provider";
@@ -85,45 +84,43 @@ export function Providers({
   return (
     <LocaleProvider initialLocale={initialLocale}>
       <QueryClientProvider client={queryClient}>
-        <DesktopVirtualKeyboardPreferenceProvider>
-          <NavigationGuardProvider>
-            <RealtimeAppBridge>
-              <AppPreloadBridge>
-                <AiAssistantWorkspaceProvider>
-                  <OfflineOutboxSyncBridge />
-                  <SidebarProvider>
-                    <AppSidebar onOpenCommand={() => setOpen(true)} />
-                    <SidebarInset className="relative isolate min-h-svh min-w-0 max-w-full overflow-x-clip">
-                      <AppBar
-                        onOpenScanner={() => setScannerOpen(true)}
-                        scannerTriggerRef={scannerTriggerRef}
-                      />
-                      <main className={appShell.content}>{children}</main>
-                      <MobileWorkspaceDock onOpenCommand={() => setOpen(true)} />
-                    </SidebarInset>
-                  </SidebarProvider>
-                  <PwaServiceWorker />
-                  {open ? (
-                    <CommandPalette
-                      open={open}
-                      onOpenChange={setOpen}
-                      onOpenScanner={openScannerFromCommand}
+        <NavigationGuardProvider>
+          <RealtimeAppBridge>
+            <AppPreloadBridge>
+              <AiAssistantWorkspaceProvider>
+                <OfflineOutboxSyncBridge />
+                <SidebarProvider>
+                  <AppSidebar onOpenCommand={() => setOpen(true)} />
+                  <SidebarInset className="relative isolate min-h-svh min-w-0 max-w-full overflow-x-clip">
+                    <AppBar
+                      onOpenScanner={() => setScannerOpen(true)}
+                      scannerTriggerRef={scannerTriggerRef}
                     />
-                  ) : null}
-                  {scannerOpen ? (
-                    <ScanSearchSheet
-                      open
-                      onOpenChange={setScannerOpen}
-                      scope="global"
-                      returnFocusRef={scannerTriggerRef}
-                    />
-                  ) : null}
-                  <Toaster />
-                </AiAssistantWorkspaceProvider>
-              </AppPreloadBridge>
-            </RealtimeAppBridge>
-          </NavigationGuardProvider>
-        </DesktopVirtualKeyboardPreferenceProvider>
+                    <main className={appShell.content}>{children}</main>
+                    <MobileWorkspaceDock onOpenCommand={() => setOpen(true)} />
+                  </SidebarInset>
+                </SidebarProvider>
+                <PwaServiceWorker />
+                {open ? (
+                  <CommandPalette
+                    open={open}
+                    onOpenChange={setOpen}
+                    onOpenScanner={openScannerFromCommand}
+                  />
+                ) : null}
+                {scannerOpen ? (
+                  <ScanSearchSheet
+                    open
+                    onOpenChange={setScannerOpen}
+                    scope="global"
+                    returnFocusRef={scannerTriggerRef}
+                  />
+                ) : null}
+                <Toaster />
+              </AiAssistantWorkspaceProvider>
+            </AppPreloadBridge>
+          </RealtimeAppBridge>
+        </NavigationGuardProvider>
       </QueryClientProvider>
     </LocaleProvider>
   );

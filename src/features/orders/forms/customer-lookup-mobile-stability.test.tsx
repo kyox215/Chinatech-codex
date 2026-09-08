@@ -6,6 +6,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 
 import type { StoreShellContextSnapshot } from "@/features/stores/model/store-shell-context";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { mockTouchKeyboardDevice } from "@/shared/lib/virtual-keyboard-device.test-utils";
 import type {
   Customer,
   CustomerIntakeCandidate,
@@ -40,6 +41,7 @@ beforeAll(() => {
 
 describe("customer identity lookup mobile stability", () => {
   beforeEach(() => {
+    mockTouchKeyboardDevice();
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
     Object.defineProperty(window.navigator, "onLine", { configurable: true, value: true });
     apiMocks.searchCustomerIntakeCandidates.mockReset();

@@ -4,9 +4,14 @@ import { useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { NumericKeypadInput } from "./numeric-keypad-input";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
+});
 function compact() {
   Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+  vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Linux; Android 15)");
 }
 
 it("preserves uncontrolled FormData, required/range/step validation and reset", async () => {
