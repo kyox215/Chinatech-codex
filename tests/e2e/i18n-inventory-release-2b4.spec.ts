@@ -1,4 +1,4 @@
-import { fillNumericInput } from "./input-keypad-helpers";
+import { fillNumericInput, setKeyboardDeviceViewport } from "./input-keypad-helpers";
 import {
   expect,
   test,
@@ -1548,7 +1548,7 @@ for (const width of [390, 430, 768, 1024, 1280, 1440]) {
       pendingAfterSales: [],
     };
     await preparePage(page, "zh-CN", control);
-    await page.setViewportSize({ width, height: width < 768 ? 844 : 1000 });
+    await setKeyboardDeviceViewport(page, { width, height: width < 768 ? 844 : 1000 });
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto("/inventory/new");
@@ -1595,13 +1595,13 @@ for (const width of [390, 430, 768, 1024, 1280, 1440]) {
       });
     }
     if (width === 390) {
-      await page.setViewportSize({ width: 1024, height: 1000 });
+      await setKeyboardDeviceViewport(page, { width: 1024, height: 1000 });
       await expect(page.locator("#product-price")).toHaveAttribute(
         "data-numeric-form-control",
         "native",
       );
       await expect(page.locator("#product-price")).toHaveValue("399.25");
-      await page.setViewportSize({ width: 390, height: 844 });
+      await setKeyboardDeviceViewport(page, { width: 390, height: 844 });
       await expect(page.locator("#product-price")).toHaveAttribute(
         "data-numeric-keypad-trigger",
         "true",
