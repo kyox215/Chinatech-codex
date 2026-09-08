@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { repairServiceCatalogGroups } from "@/entities/order/model/repair-service-catalog";
+import {
+  repairServiceCatalogGroups,
+  repairServiceCatalogItems,
+} from "@/entities/order/model/repair-service-catalog";
 import { translateMessage } from "@/shared/i18n/messages";
 import {
   localizeOrderException,
@@ -21,6 +24,7 @@ import {
   localizeRepairServiceGroupCompactLabel,
   localizeRepairServiceGroupLabel,
   localizeRepairServiceOptionLabel,
+  localizeRepairServiceItemName,
 } from "@/features/orders/model/order-i18n";
 import { simpleOrderFlowStages } from "@/features/orders/model/order-simple-flow";
 import { getOrderTaskGuidance } from "@/features/orders/model/order-task-flow";
@@ -133,6 +137,30 @@ describe("order display adapters", () => {
       customOption.label,
     );
   });
+
+  it.each(["it-IT", "en"] as const)(
+    "localizes selected catalog names in %s without changing stored or custom data",
+    (locale) => {
+      for (const catalog of repairServiceCatalogItems) {
+        const item = Object.freeze({ catalog_key: catalog.catalogKey, name: catalog.name });
+        expect(localizeRepairServiceItemName(item, locale), catalog.catalogKey).not.toMatch(
+          /[\u4e00-\u9fff]/,
+        );
+        expect(localizeRepairServiceItemName(item, "zh-CN")).toBe(catalog.name);
+        expect(item.name).toBe(catalog.name);
+      }
+      expect(
+        localizeRepairServiceItemName({ catalog_key: "display:main", name: "屏幕" }, locale),
+      ).toBe("Display");
+      for (const item of [
+        { name: "屏幕" },
+        { catalog_key: "custom:main", name: "屏幕" },
+        { catalog_key: "display:main", name: "客户自定义屏幕服务" },
+      ]) {
+        expect(localizeRepairServiceItemName(item, locale)).toBe(item.name);
+      }
+    },
+  );
 
   it.each(["it-IT", "en"] as const)(
     "covers every repair catalog group and option without Han fallback in %s",

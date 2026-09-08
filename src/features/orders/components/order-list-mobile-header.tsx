@@ -154,7 +154,10 @@ export function MobileOrdersFloatingHeader({
                 }}
                 placeholder={t("orders.searchPlaceholder")}
                 aria-label={t("orders.searchLabel")}
-                className={cn(repairOs.searchInput, "h-full text-base")}
+                className={cn(
+                  repairOs.searchInput,
+                  "h-full text-base placeholder:text-[13px] md:text-base",
+                )}
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
               />
@@ -182,7 +185,7 @@ export function MobileOrdersFloatingHeader({
         ) : null}
       </section>
       <div
-        className="mx-auto grid w-full min-w-0 max-w-[430px] grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 pt-1 md:max-w-none"
+        className="mx-auto grid w-full min-w-0 max-w-[430px] grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,0.8fr)] items-center gap-1 pt-1 md:max-w-none"
         data-order-mobile-list-controls="true"
       >
         <OrderListQueueMenu
@@ -195,15 +198,17 @@ export function MobileOrdersFloatingHeader({
           onChange={onGroupChange}
         />
         {rangeAction ?? (
-          <span className="min-w-0 truncate text-[10px] text-muted-foreground">{rangeLabel}</span>
+          <span className="min-w-0 break-words text-[11px] leading-4 text-muted-foreground">
+            {rangeLabel}
+          </span>
         )}
         <span
-          className="flex max-w-[86px] items-center gap-1 px-1 text-[9px] leading-3 text-muted-foreground"
+          className="flex min-w-0 items-center gap-1 px-1 text-[10px] leading-3 text-muted-foreground"
           title={t("orders.queueSortHelp")}
           data-order-sort-description="true"
         >
           <ArrowDownWideNarrow className="size-3 shrink-0" aria-hidden="true" />
-          <span>{t("orders.queueSortShort")}</span>
+          <span className="min-w-0 break-words">{t("orders.queueSortShort")}</span>
           <span className="sr-only">{t("orders.queueSortHelp")}</span>
         </span>
       </div>

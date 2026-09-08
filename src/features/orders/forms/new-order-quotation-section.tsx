@@ -25,7 +25,10 @@ import { WarrantyPicker } from "@/features/orders/components/warranty-picker";
 import { FormItem } from "@/features/orders/forms/new-order-fields";
 import type { NewOrderFormState } from "@/features/orders/model/new-order-form";
 import { deviceCustodyAllowsStatus } from "@/features/orders/model/device-custody";
-import { localizeOrderWorkflowStatusLabel } from "@/features/orders/model/order-i18n";
+import {
+  localizeOrderWorkflowStatusLabel,
+  localizeRepairServiceItemName,
+} from "@/features/orders/model/order-i18n";
 import { repairOrderType, type RepairOrderType } from "@/lib/mock/enums";
 import type { FaultPriceItem, OrderWorkflowStatus } from "@/lib/repairdesk/api";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
@@ -64,7 +67,7 @@ export function NewOrderQuotationSection({
   mobileOverview?: boolean;
   expanded?: boolean;
 }) {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const shellClass = mobileOverview
     ? "min-w-0"
@@ -178,7 +181,7 @@ export function NewOrderQuotationSection({
                             )}
                           >
                             <OrderWorkspaceQuoteDisclosure className="w-full text-sm font-semibold leading-5">
-                              {item.name}
+                              {localizeRepairServiceItemName(item, locale)}
                             </OrderWorkspaceQuoteDisclosure>
                           </div>
                         )}

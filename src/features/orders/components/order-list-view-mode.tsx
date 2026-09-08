@@ -49,12 +49,14 @@ export function OrderListViewMode({
           <Button
             variant="ghost"
             disabled={disabled}
-            className="h-11 min-w-0 gap-1 px-1 text-[10px] font-normal text-muted-foreground"
+            className="h-auto min-h-11 min-w-0 gap-1 px-1 py-1 text-[11px] font-normal text-muted-foreground"
             aria-label={`${t("orders.displayRange")}：${t(`orders.range.${value}`)}`}
             data-order-range-trigger="true"
           >
             <Layers className="size-3 shrink-0" />
-            <span className="max-w-[112px] truncate">{t(`orders.range.${value}`)}</span>
+            <span className="min-w-0 whitespace-normal break-words text-left leading-4">
+              {t(`orders.range.${value}`)}
+            </span>
             <ChevronDown className="size-3 shrink-0" />
           </Button>
         </DialogTrigger>
