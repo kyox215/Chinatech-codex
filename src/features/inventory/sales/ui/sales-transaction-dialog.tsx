@@ -56,6 +56,7 @@ export function SalesDialog({
   pending?: boolean;
 }) {
   const content = useRef<HTMLDivElement>(null);
+  const opener = useRef<HTMLElement | null>(null);
   return (
     <Dialog
       open
@@ -67,8 +68,16 @@ export function SalesDialog({
         ref={content}
         className={cn(componentOverlay.formWorkspace, componentOverlay.content, "sm:max-w-2xl")}
         onOpenAutoFocus={(e) => {
+          opener.current =
+            document.activeElement instanceof HTMLElement ? document.activeElement : null;
           e.preventDefault();
           content.current?.focus({ preventScroll: true });
+        }}
+        onCloseAutoFocus={(e) => {
+          if (opener.current?.isConnected) {
+            e.preventDefault();
+            opener.current.focus({ preventScroll: true });
+          }
         }}
         onInteractOutside={(e) => {
           if (pending) e.preventDefault();

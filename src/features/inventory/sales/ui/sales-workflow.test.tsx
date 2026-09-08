@@ -67,6 +67,38 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 describe("real sales command components", () => {
+  it.each(["close", "escape"])("returns focus to the sale opener after %s", async (action) => {
+    function Example() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Open sale
+          </button>
+          {open ? (
+            <SalesTransactionDialog
+              summary={syntheticSalesSummary()}
+              command="sale.create"
+              storeId={syntheticSalesStore}
+              onClose={() => setOpen(false)}
+              onRefresh={async () => undefined}
+            />
+          ) : null}
+        </>
+      );
+    }
+    mount(<Example />);
+    const opener = screen.getByRole("button", { name: "Open sale" });
+    opener.focus();
+    fireEvent.click(opener);
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(document.activeElement).toBe(dialog));
+    if (action === "escape") fireEvent.keyDown(dialog, { key: "Escape" });
+    else fireEvent.click(screen.getByRole("button", { name: "Close", exact: true }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(opener));
+  });
+
   it("keeps the opening CAS snapshot when background balance data changes", async () => {
     function Harness() {
       const [summary, setSummary] = useState(syntheticSalesDetail());
