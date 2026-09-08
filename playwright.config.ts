@@ -11,13 +11,15 @@ const reuseExistingServer = process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER
   ? process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === "1"
   : !process.env.CI;
 const requestedBrowser = process.env.PLAYWRIGHT_BROWSER;
-if (requestedBrowser && requestedBrowser !== "chromium" && requestedBrowser !== "webkit") {
+if (requestedBrowser && !["chromium", "webkit", "firefox"].includes(requestedBrowser)) {
   throw new Error(`Unsupported PLAYWRIGHT_BROWSER: ${requestedBrowser}`);
 }
 const browserProject =
   requestedBrowser === "webkit"
     ? { name: "webkit", use: { ...devices["Desktop Safari"] } }
-    : { name: "chromium", use: { ...devices["Desktop Chrome"] } };
+    : requestedBrowser === "firefox"
+      ? { name: "firefox", use: { ...devices["Desktop Firefox"] } }
+      : { name: "chromium", use: { ...devices["Desktop Chrome"] } };
 
 export default defineConfig({
   testDir: "./tests/e2e",

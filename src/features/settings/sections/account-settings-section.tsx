@@ -5,7 +5,6 @@ import {
   AlertCircle,
   Check,
   CheckCircle2,
-  Keyboard,
   KeyRound,
   Mail,
   ShieldCheck,
@@ -16,10 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
-import { useDesktopVirtualKeyboardPreference } from "@/components/desktop-virtual-keyboard-preference-context";
 import { SettingsField } from "@/features/settings/components/settings-field";
 import type { AccountSettingsSummary } from "@/features/settings/model/account-settings-summary";
 import { brandGradientStyle, repairOs } from "@/lib/ui-patterns";
@@ -51,8 +47,6 @@ export function AccountSettingsSection({
   onSave,
 }: AccountSettingsSectionProps) {
   const { t } = useLocale();
-  const { desktopVirtualKeyboardEnabled, preferenceReady, setDesktopVirtualKeyboardEnabled } =
-    useDesktopVirtualKeyboardPreference();
   const normalizedName = nameDraft.trim();
   const nameError = normalizedName ? undefined : t("settings.accountSection.nameRequired");
   const email = summary?.email ?? "";
@@ -171,40 +165,6 @@ export function AccountSettingsSection({
               />
             </div>
           </div>
-
-          <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <div className="flex min-w-0 items-center gap-2">
-                <Keyboard className="size-4 shrink-0 text-primary" />
-                <Label htmlFor="desktop-virtual-keyboard" className="text-xs font-semibold">
-                  {t("settings.accountSection.desktopKeyboard")}
-                </Label>
-              </div>
-              <p className="mt-1 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-                {t("settings.accountSection.desktopKeyboardHint")}
-              </p>
-              <p
-                role="status"
-                aria-live="polite"
-                className="mt-1 text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4"
-              >
-                {!preferenceReady
-                  ? t("settings.accountSection.preferenceLoading")
-                  : desktopVirtualKeyboardEnabled
-                    ? t("settings.accountSection.preferenceEnabled")
-                    : t("settings.accountSection.preferenceDisabled")}
-              </p>
-            </div>
-            <Switch
-              id="desktop-virtual-keyboard"
-              checked={desktopVirtualKeyboardEnabled}
-              disabled={!preferenceReady}
-              onCheckedChange={setDesktopVirtualKeyboardEnabled}
-            />
-          </div>
-          <p className="text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-            {t("settings.accountSection.preferenceScope")}
-          </p>
 
           <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">

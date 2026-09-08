@@ -1,13 +1,15 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./dialog";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./sheet";
 import { NumericKeypadInput } from "./numeric-keypad-input";
 import { PhoneKeypadInput } from "@/components/orders/phone-keypad-input";
 import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
+import { mockTouchKeyboardDevice } from "@/shared/lib/virtual-keyboard-device.test-utils";
 
+beforeEach(mockTouchKeyboardDevice);
 afterEach(cleanup);
 for (const surface of ["dialog", "sheet"] as const) {
   it(`${surface} opens without text focus and isolates keypad Done/Escape from parent save/close`, async () => {

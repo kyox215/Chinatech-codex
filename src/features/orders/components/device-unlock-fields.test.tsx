@@ -1,48 +1,39 @@
 import { useState } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { DesktopVirtualKeyboardPreferenceContext } from "@/components/desktop-virtual-keyboard-preference-context";
 import type { DeviceUnlockInput } from "@/lib/repairdesk/types";
 
 import { DeviceUnlockEditor } from "./device-unlock-fields";
 
-function setViewport(width: number) {
+function setViewport(width: number, touchDevice = false) {
   Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
+  vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
+    touchDevice ? "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X)" : "Mozilla/5.0 (Windows NT 10.0)",
+  );
 }
 
 afterEach(() => {
   cleanup();
   setViewport(1024);
+  vi.restoreAllMocks();
 });
 
-function DeviceUnlockHarness({
-  desktopVirtualKeyboardEnabled = false,
-}: {
-  desktopVirtualKeyboardEnabled?: boolean;
-}) {
+function DeviceUnlockHarness() {
   const [value, setValue] = useState<DeviceUnlockInput>({ method: "none" });
 
   return (
-    <DesktopVirtualKeyboardPreferenceContext.Provider
-      value={{
-        desktopVirtualKeyboardEnabled,
-        preferenceReady: true,
-        setDesktopVirtualKeyboardEnabled: () => undefined,
-      }}
-    >
-      <div>
-        <DeviceUnlockEditor value={value} onChange={setValue} />
-        <output data-testid="unlock-value">{JSON.stringify(value)}</output>
-      </div>
-    </DesktopVirtualKeyboardPreferenceContext.Provider>
+    <div>
+      <DeviceUnlockEditor value={value} onChange={setValue} />
+      <output data-testid="unlock-value">{JSON.stringify(value)}</output>
+    </div>
   );
 }
 
 describe("DeviceUnlockEditor", () => {
   it("edits PIN through the fixed bottom virtual keypad", async () => {
-    setViewport(768);
+    setViewport(768, true);
     const user = userEvent.setup();
     render(<DeviceUnlockHarness />);
 

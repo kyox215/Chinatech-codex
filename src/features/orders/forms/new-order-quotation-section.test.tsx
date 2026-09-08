@@ -2,6 +2,7 @@ import { useState } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { mockTouchKeyboardDevice } from "@/shared/lib/virtual-keyboard-device.test-utils";
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -53,6 +54,7 @@ describe("NewOrderQuotationSection", () => {
   it.each(["mouse", "touch"] as const)(
     "finishes the screen amount without selecting back cover using %s input",
     async (pointerType) => {
+      mockTouchKeyboardDevice();
       const previousWidth = window.innerWidth;
       Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
       const user = userEvent.setup();

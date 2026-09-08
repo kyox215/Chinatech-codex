@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { mockTouchKeyboardDevice } from "@/shared/lib/virtual-keyboard-device.test-utils";
 
 import {
   AI_ASSISTANT_CONTRACT_VERSION,
@@ -77,6 +78,7 @@ afterEach(() => cleanup());
 
 describe("InventoryIntakeDialog AI review", () => {
   it("keeps the compact legacy numeric keypad scoped and Done/Escape separate from save", async () => {
+    mockTouchKeyboardDevice();
     const width = window.innerWidth;
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
     try {
