@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { devices, expect, test, type Locator, type Page } from "@playwright/test";
 import { resolve } from "node:path";
 import { localeDisplayNames, type AppLocale } from "@/shared/i18n/locales";
 import { translateMessage } from "@/shared/i18n/messages";
@@ -149,166 +149,170 @@ for (const locale of locales) {
   }
 }
 
-for (const locale of locales) {
-  test(`selected quote ${locale} keeps canonical names and custom text`, async ({ page }) => {
-    test.setTimeout(60_000);
-    const evidence = await prepare(page, locale);
-    const saved: Array<{
-      input: {
-        fault_prices: Array<{ name: string; catalog_key?: string; note?: string; price: number }>;
-      };
-    }> = [];
-    await page.route("**/api/repairdesk/order/get", async (route) => {
-      const response = await route.fetch();
-      const payload = await response.json();
-      Object.assign(payload.data.order, {
-        status: "diagnosing",
-        workflow_status: "active",
-        workflow_bucket: "diagnosing",
-        record_state: "active",
-        deleted_at: null,
-        finance_redacted: false,
-        customer_name: "Synthetic UI customer",
-        customer_name_snapshot: "Synthetic UI customer",
-        customer_phone: "+390000000000",
-        contact_phones: [],
-        public_no: "SYNTHETIC-LOCALE-001",
-        issue_description: "Synthetic screen repair",
-        device_snapshot: {
-          brand: "Apple",
-          model: "iPhone 15",
-          serial_or_imei: "",
-          device_notes: "",
-        },
-        updated_at: "2026-09-08T00:00:00.000Z",
-        device_custody_status: "with_shop",
-        quotation_amount: 140,
-        deposit_amount: 10,
-        balance_amount: 130,
-        fault_prices: [
-          {
-            line_id: "00000000-0000-4000-8000-000000000711",
-            catalog_key: "display:main",
-            name: "屏幕",
-            note: "Display",
-            price: 120,
-          },
-          {
-            line_id: "00000000-0000-4000-8000-000000000712",
-            name: "自定义项目 Ω",
-            note: "原始备注 Ω",
-            price: 20,
-          },
-        ],
-      });
-      payload.data.customer = null;
-      payload.data.device = null;
-      payload.data.events = [];
-      payload.data.messages = [];
-      payload.data.attachments = [];
-      payload.data.capabilities = { ...payload.data.capabilities, canAdjustFinance: true };
-      await route.fulfill({ response, json: payload });
-    });
-    await page.route("**/api/repairdesk/order/finance", async (route) => {
-      saved.push(route.request().postDataJSON());
-      await route.fulfill({ json: { data: { updated_at: "2026-09-08T00:01:00.000Z" } } });
-    });
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/orders/ord_1", { waitUntil: "networkidle" });
+test.describe("touch quote editor", () => {
+  test.use({ userAgent: devices["Pixel 7"].userAgent, hasTouch: true });
 
-    const openEditor = async (currentLocale: AppLocale) => {
-      await page
-        .locator("#mobile-order-quote")
-        .getByRole("button", {
+  for (const locale of locales) {
+    test(`selected quote ${locale} keeps canonical names and custom text`, async ({ page }) => {
+      test.setTimeout(60_000);
+      const evidence = await prepare(page, locale);
+      const saved: Array<{
+        input: {
+          fault_prices: Array<{ name: string; catalog_key?: string; note?: string; price: number }>;
+        };
+      }> = [];
+      await page.route("**/api/repairdesk/order/get", async (route) => {
+        const response = await route.fetch();
+        const payload = await response.json();
+        Object.assign(payload.data.order, {
+          status: "diagnosing",
+          workflow_status: "active",
+          workflow_bucket: "diagnosing",
+          record_state: "active",
+          deleted_at: null,
+          finance_redacted: false,
+          customer_name: "Synthetic UI customer",
+          customer_name_snapshot: "Synthetic UI customer",
+          customer_phone: "+390000000000",
+          contact_phones: [],
+          public_no: "SYNTHETIC-LOCALE-001",
+          issue_description: "Synthetic screen repair",
+          device_snapshot: {
+            brand: "Apple",
+            model: "iPhone 15",
+            serial_or_imei: "",
+            device_notes: "",
+          },
+          updated_at: "2026-09-08T00:00:00.000Z",
+          device_custody_status: "with_shop",
+          quotation_amount: 140,
+          deposit_amount: 10,
+          balance_amount: 130,
+          fault_prices: [
+            {
+              line_id: "00000000-0000-4000-8000-000000000711",
+              catalog_key: "display:main",
+              name: "屏幕",
+              note: "Display",
+              price: 120,
+            },
+            {
+              line_id: "00000000-0000-4000-8000-000000000712",
+              name: "自定义项目 Ω",
+              note: "原始备注 Ω",
+              price: 20,
+            },
+          ],
+        });
+        payload.data.customer = null;
+        payload.data.device = null;
+        payload.data.events = [];
+        payload.data.messages = [];
+        payload.data.attachments = [];
+        payload.data.capabilities = { ...payload.data.capabilities, canAdjustFinance: true };
+        await route.fulfill({ response, json: payload });
+      });
+      await page.route("**/api/repairdesk/order/finance", async (route) => {
+        saved.push(route.request().postDataJSON());
+        await route.fulfill({ json: { data: { updated_at: "2026-09-08T00:01:00.000Z" } } });
+      });
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto("/orders/ord_1", { waitUntil: "networkidle" });
+
+      const openEditor = async (currentLocale: AppLocale) => {
+        await page
+          .locator("#mobile-order-quote")
+          .getByRole("button", {
+            name: translateMessage(currentLocale, "orders2b2.overview.quoteItems"),
+            exact: true,
+          })
+          .click();
+        return page.getByRole("dialog", {
           name: translateMessage(currentLocale, "orders2b2.overview.quoteItems"),
+          exact: true,
+        });
+      };
+      let editor = await openEditor(locale);
+      const name = editor.locator("[data-order-quote-text-control] button").first();
+      await expect(name).toHaveText(locale === "zh-CN" ? "屏幕" : "Display");
+      await expect(editor).toContainText("自定义项目 Ω");
+      for (const width of [390, 430, 768]) {
+        await page.setViewportSize({ width, height: width < 768 ? 844 : 960 });
+        await noOverflow(page);
+        await screenshot(page, `quote-${locale}-${width}`);
+      }
+      await page.setViewportSize({ width: 390, height: 844 });
+      await name.click();
+      const popup = page.locator("[data-order-quote-popup]");
+      await expect(popup.getByRole("textbox")).toHaveValue("屏幕");
+      await popup
+        .getByRole("button", { name: translateMessage(locale, "orders2b2.hero.save"), exact: true })
+        .click();
+      await expect(popup).toHaveCount(0);
+      await expect(name).toBeFocused();
+      await editor
+        .getByRole("button", { name: translateMessage(locale, "common.cancel"), exact: true })
+        .last()
+        .click();
+      await expect(editor).toHaveCount(0);
+      expect(saved).toEqual([]);
+
+      if (locale === "it-IT") {
+        for (const nextLocale of ["en", "zh-CN", "it-IT"] as const) {
+          // Detail intentionally hides AppBar; switch via the existing Orders shell.
+          await page.setViewportSize({ width: 1280, height: 960 });
+          await page.goto("/orders", { waitUntil: "networkidle" });
+          await page.locator('[data-language-switcher-trigger="true"]:visible').first().click();
+          await page.getByRole("menuitemradio", { name: localeDisplayNames[nextLocale] }).click();
+          await expect(page.locator("html")).toHaveAttribute("lang", nextLocale);
+          await page.setViewportSize({ width: 390, height: 844 });
+          await page.goto("/orders/ord_1", { waitUntil: "networkidle" });
+          await expect(page.locator("#mobile-order-quote")).toContainText(
+            nextLocale === "zh-CN" ? "屏幕" : "Display",
+          );
+          await expect(page.locator("#mobile-order-quote")).toContainText("自定义项目 Ω");
+        }
+      }
+      editor = await openEditor(locale);
+      await editor
+        .getByRole("button", {
+          name: locale === "zh-CN" ? "电池" : locale === "it-IT" ? "Batteria" : "Battery",
           exact: true,
         })
         .click();
-      return page.getByRole("dialog", {
-        name: translateMessage(currentLocale, "orders2b2.overview.quoteItems"),
-        exact: true,
-      });
-    };
-    let editor = await openEditor(locale);
-    const name = editor.locator("[data-order-quote-text-control] button").first();
-    await expect(name).toHaveText(locale === "zh-CN" ? "屏幕" : "Display");
-    await expect(editor).toContainText("自定义项目 Ω");
-    for (const width of [390, 430, 768]) {
-      await page.setViewportSize({ width, height: width < 768 ? 844 : 960 });
-      await noOverflow(page);
-      await screenshot(page, `quote-${locale}-${width}`);
-    }
-    await page.setViewportSize({ width: 390, height: 844 });
-    await name.click();
-    const popup = page.locator("[data-order-quote-popup]");
-    await expect(popup.getByRole("textbox")).toHaveValue("屏幕");
-    await popup
-      .getByRole("button", { name: translateMessage(locale, "orders2b2.hero.save"), exact: true })
-      .click();
-    await expect(popup).toHaveCount(0);
-    await expect(name).toBeFocused();
-    await editor
-      .getByRole("button", { name: translateMessage(locale, "common.cancel"), exact: true })
-      .last()
-      .click();
-    await expect(editor).toHaveCount(0);
-    expect(saved).toEqual([]);
-
-    if (locale === "it-IT") {
-      for (const nextLocale of ["en", "zh-CN", "it-IT"] as const) {
-        // Detail intentionally hides AppBar; switch via the existing Orders shell.
-        await page.setViewportSize({ width: 1280, height: 960 });
-        await page.goto("/orders", { waitUntil: "networkidle" });
-        await page.locator('[data-language-switcher-trigger="true"]:visible').first().click();
-        await page.getByRole("menuitemradio", { name: localeDisplayNames[nextLocale] }).click();
-        await expect(page.locator("html")).toHaveAttribute("lang", nextLocale);
-        await page.setViewportSize({ width: 390, height: 844 });
-        await page.goto("/orders/ord_1", { waitUntil: "networkidle" });
-        await expect(page.locator("#mobile-order-quote")).toContainText(
-          nextLocale === "zh-CN" ? "屏幕" : "Display",
-        );
-        await expect(page.locator("#mobile-order-quote")).toContainText("自定义项目 Ω");
-      }
-    }
-    editor = await openEditor(locale);
-    await editor
-      .getByRole("button", {
-        name: locale === "zh-CN" ? "电池" : locale === "it-IT" ? "Batteria" : "Battery",
-        exact: true,
-      })
-      .click();
-    const names = editor.locator("[data-order-quote-text-control] button");
-    await expect(names.last()).toHaveText(
-      locale === "zh-CN" ? "电池" : locale === "it-IT" ? "Batteria" : "Battery",
-    );
-    await editor
-      .getByRole("button", {
-        name: translateMessage(locale, "orders2b2.finance.amount"),
-        exact: true,
-      })
-      .last()
-      .click();
-    const keypad = page.locator("[data-money-keypad]");
-    await keypad.getByRole("button", { name: "3", exact: true }).click();
-    await keypad.getByRole("button", { name: "0", exact: true }).click();
-    await page.locator("[data-money-keypad-done]").click();
-    await editor
-      .getByRole("button", { name: translateMessage(locale, "orders2b2.hero.save"), exact: true })
-      .click();
-    await expect.poll(() => saved.length).toBe(1);
-    expect(saved[0]!.input.fault_prices).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          catalog_key: "display:main",
-          name: "屏幕",
-          price: 120,
-          note: "Display",
-        }),
-        expect.objectContaining({ name: "自定义项目 Ω", price: 20, note: "原始备注 Ω" }),
-        expect.objectContaining({ catalog_key: "battery:main", name: "电池", price: 30 }),
-      ]),
-    );
-    expect(evidence.blocked).toEqual([]);
-    expect(evidence.errors).toEqual([]);
-  });
-}
+      const names = editor.locator("[data-order-quote-text-control] button");
+      await expect(names.last()).toHaveText(
+        locale === "zh-CN" ? "电池" : locale === "it-IT" ? "Batteria" : "Battery",
+      );
+      await editor
+        .getByRole("button", {
+          name: translateMessage(locale, "orders2b2.finance.amount"),
+          exact: true,
+        })
+        .last()
+        .click();
+      const keypad = page.locator("[data-money-keypad]");
+      await keypad.getByRole("button", { name: "3", exact: true }).click();
+      await keypad.getByRole("button", { name: "0", exact: true }).click();
+      await page.locator("[data-money-keypad-done]").click();
+      await editor
+        .getByRole("button", { name: translateMessage(locale, "orders2b2.hero.save"), exact: true })
+        .click();
+      await expect.poll(() => saved.length).toBe(1);
+      expect(saved[0]!.input.fault_prices).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            catalog_key: "display:main",
+            name: "屏幕",
+            price: 120,
+            note: "Display",
+          }),
+          expect.objectContaining({ name: "自定义项目 Ω", price: 20, note: "原始备注 Ω" }),
+          expect.objectContaining({ catalog_key: "battery:main", name: "电池", price: 30 }),
+        ]),
+      );
+      expect(evidence.blocked).toEqual([]);
+      expect(evidence.errors).toEqual([]);
+    });
+  }
+});
