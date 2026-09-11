@@ -79,7 +79,10 @@ export function useNewOrderOfflineAutosave({
   const service = useMemo(() => {
     if (!enabled || !scopeStoreId || !scopeUserId || typeof window === "undefined") return null;
     return serviceFactory({ storeId: scopeStoreId, userId: scopeUserId });
-  }, [enabled, scopeStoreId, scopeUserId, serviceFactory]);
+    // The factory initializes a store/user session. Inline callback identity must
+    // not replace its service; a changed scope or enabled session uses the latest factory.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, scopeStoreId, scopeUserId]);
 
   useEffect(() => {
     let active = true;

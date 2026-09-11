@@ -4,10 +4,46 @@ import {
   buildNewOrderWorkspaceHref,
   buildOrderDetailWorkspaceHref,
   clearOrderWorkspaceIntentHref,
+  getOrderWorkspaceIntentKey,
   parseOrderWorkspaceIntent,
 } from "./order-workspace-intent";
 
 describe("order workspace intent", () => {
+  it("keeps the semantic identity across search, source, parameter order and normalized prefill changes", () => {
+    const first = parseOrderWorkspaceIntent(
+      new URLSearchParams(
+        "workspace=new-order&intakeSession=session-1&customerId=customer-1&deviceId=device-1&imei=synthetic-serial&q=first&source=customer",
+      ),
+    );
+    const replay = parseOrderWorkspaceIntent(
+      new URLSearchParams(
+        "source=command&q=second&serial=+synthetic-serial+&deviceId=device-1&customerId=+customer-1+&intakeSession=+session-1+&workspace=new-order",
+      ),
+    );
+    expect(getOrderWorkspaceIntentKey(first)).not.toBeNull();
+    expect(getOrderWorkspaceIntentKey(replay)).toBe(getOrderWorkspaceIntentKey(first));
+  });
+
+  it("distinguishes explicit new sessions, changed prefill and detail intents", () => {
+    const keyFor = (query: string) =>
+      getOrderWorkspaceIntentKey(parseOrderWorkspaceIntent(new URLSearchParams(query)));
+    const key = keyFor("workspace=new-order&intakeSession=session-1&customerId=customer-1");
+    expect(keyFor("workspace=new-order&intakeSession=session-2&customerId=customer-1")).not.toBe(
+      key,
+    );
+    expect(keyFor("workspace=new-order&intakeSession=session-1&customerId=customer-2")).not.toBe(
+      key,
+    );
+    expect(
+      keyFor("workspace=new-order&intakeSession=session-1&customerId=customer-1&deviceId=device-1"),
+    ).not.toBe(key);
+    expect(
+      keyFor("workspace=new-order&intakeSession=session-1&customerId=customer-1&imei=identifier-1"),
+    ).not.toBe(key);
+    expect(keyFor("workspace=order-detail&orderId=customer-1")).not.toBe(key);
+    expect(keyFor("q=only-list-search")).toBeNull();
+  });
+
   it("builds and parses a prefilled new-order workspace URL", () => {
     const href = buildNewOrderWorkspaceHref({
       source: "customer",

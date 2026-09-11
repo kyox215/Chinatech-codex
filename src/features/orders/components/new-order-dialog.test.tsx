@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
 import type { AppLocale } from "@/shared/i18n/locales";
 import { translateMessage } from "@/shared/i18n/messages";
+import type { NewOrderPrefill } from "@/features/orders/model/new-order-intent";
 
 import { NewOrderDialog } from "./new-order-dialog";
 import { useState } from "react";
@@ -28,12 +29,30 @@ vi.mock("@/features/orders/screens/new-order-screen", async () => {
       onCreated: (id: string) => void;
     }) => {
       const [draft, setDraft] = useState("");
+      const [quote, setQuote] = useState("");
+      const [deposit, setDeposit] = useState("");
+      const [note, setNote] = useState("");
       return (
         <div data-testid="new-order-screen-stub">
           <input
             aria-label="synthetic draft"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
+          />
+          <input
+            aria-label="synthetic quote"
+            value={quote}
+            onChange={(event) => setQuote(event.target.value)}
+          />
+          <input
+            aria-label="synthetic deposit"
+            value={deposit}
+            onChange={(event) => setDeposit(event.target.value)}
+          />
+          <input
+            aria-label="synthetic note"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
           />
           <button type="button" onClick={onCancel}>
             stub cancel
@@ -87,7 +106,7 @@ describe("NewOrderDialog i18n", () => {
       expect(onCreated).toHaveBeenCalledWith("order-1");
     },
   );
-  it("keeps the mounted editor and typed draft across parent callback and prefill rerenders", async () => {
+  it("keeps the mounted editor and typed draft across same-session parent and prefill rerenders", async () => {
     const result = render(
       <LocaleProvider initialLocale="zh-CN">
         <NewOrderDialog
@@ -116,5 +135,99 @@ describe("NewOrderDialog i18n", () => {
       expect(screen.getByRole("textbox", { name: "synthetic draft" })).toBe(input);
       expect(input).toHaveValue("Retained synthetic draft");
     }
+  });
+
+  it.each([
+    {
+      key: "session-2:customer-1:device-1:identifier-1",
+      customerId: "customer-1",
+      deviceId: "device-1",
+      identifier: "identifier-1",
+    },
+    {
+      key: "session-1:customer-2:device-1:identifier-1",
+      customerId: "customer-2",
+      deviceId: "device-1",
+      identifier: "identifier-1",
+    },
+    {
+      key: "session-1:customer-1:device-2:identifier-1",
+      customerId: "customer-1",
+      deviceId: "device-2",
+      identifier: "identifier-1",
+    },
+    {
+      key: "session-1:customer-1:device-1:identifier-2",
+      customerId: "customer-1",
+      deviceId: "device-1",
+      identifier: "identifier-2",
+    },
+  ] satisfies NewOrderPrefill[])(
+    "starts exactly one fresh editor for a different semantic intake $key",
+    async (prefill) => {
+      const renderSession = (sessionKey: number, currentPrefill: NewOrderPrefill) => (
+        <LocaleProvider initialLocale="zh-CN">
+          <NewOrderDialog
+            open
+            sessionKey={sessionKey}
+            prefill={currentPrefill}
+            onOpenChange={vi.fn()}
+            onCreated={vi.fn()}
+          />
+        </LocaleProvider>
+      );
+      const result = render(
+        renderSession(1, {
+          key: "session-1:customer-1:device-1:identifier-1",
+          customerId: "customer-1",
+          deviceId: "device-1",
+          identifier: "identifier-1",
+        }),
+      );
+      await screen.findByRole("textbox", { name: "synthetic draft" });
+      const previousInputs = screen.getAllByRole("textbox");
+      previousInputs.forEach((input, index) =>
+        fireEvent.change(input, { target: { value: `Previous form ${index}` } }),
+      );
+      result.rerender(renderSession(2, prefill));
+      const freshInputs = screen.getAllByRole("textbox");
+      freshInputs.forEach((input, index) => {
+        expect(input).not.toBe(previousInputs[index]);
+        expect(input).toHaveValue("");
+        fireEvent.change(input, { target: { value: `Fresh form ${index}` } });
+      });
+      for (let replay = 0; replay < 3; replay++) {
+        result.rerender(renderSession(2, { ...prefill }));
+        screen.getAllByRole("textbox").forEach((input, index) => {
+          expect(input).toBe(freshInputs[index]);
+          expect(input).toHaveValue(`Fresh form ${index}`);
+        });
+      }
+    },
+  );
+
+  it("starts a fresh editor after closing and reopening the same session key", async () => {
+    const props = { sessionKey: 1, onOpenChange: vi.fn(), onCreated: vi.fn() };
+    const result = render(
+      <LocaleProvider initialLocale="zh-CN">
+        <NewOrderDialog {...props} open />
+      </LocaleProvider>,
+    );
+    const input = await screen.findByRole("textbox", { name: "synthetic draft" });
+    fireEvent.change(input, { target: { value: "Previous synthetic session" } });
+    result.rerender(
+      <LocaleProvider initialLocale="zh-CN">
+        <NewOrderDialog {...props} open={false} />
+      </LocaleProvider>,
+    );
+    expect(input).not.toBeInTheDocument();
+    result.rerender(
+      <LocaleProvider initialLocale="zh-CN">
+        <NewOrderDialog {...props} open />
+      </LocaleProvider>,
+    );
+    const reopened = await screen.findByRole("textbox", { name: "synthetic draft" });
+    expect(reopened).not.toBe(input);
+    expect(reopened).toHaveValue("");
   });
 });

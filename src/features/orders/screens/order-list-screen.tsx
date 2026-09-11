@@ -156,6 +156,7 @@ import type { NewOrderPrefill } from "@/features/orders/model/new-order-intent";
 import {
   buildOrderDetailWorkspaceHref,
   clearOrderWorkspaceIntentHref,
+  getOrderWorkspaceIntentKey,
   parseOrderWorkspaceIntent,
 } from "@/features/orders/model/order-workspace-intent";
 import { useLocale } from "@/shared/i18n/locale-provider";
@@ -264,6 +265,7 @@ export function OrderListScreen() {
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const [newOrderPrefill, setNewOrderPrefill] = useState<NewOrderPrefill>();
   const previousNewOrderOpenRef = useRef(false);
+  const consumedWorkspaceIntentRef = useRef<string | null>(null);
   const previousDetailOrderIdRef = useRef<string | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [newOrderSessionKey, setNewOrderSessionKey] = useState(0);
@@ -284,7 +286,8 @@ export function OrderListScreen() {
   );
   const clearWorkspaceIntent = useCallback(() => {
     const href = clearOrderWorkspaceIntentHref({ toString: () => searchParamsKey });
-    window.history.replaceState(window.history.state, "", href);
+    // Next copies its internal history state; passing it back skips router updates.
+    window.history.replaceState(null, "", href);
   }, [searchParamsKey]);
   const aiAssistant = useAiAssistantWorkspace();
   const activeStoreId = shell.activeStore?.id;
@@ -378,7 +381,13 @@ export function OrderListScreen() {
   }, [isOnline, router, searchParams, searchParamsKey]);
 
   useEffect(() => {
-    if (!workspaceIntent) return;
+    const intentKey = getOrderWorkspaceIntentKey(workspaceIntent);
+    if (!workspaceIntent) {
+      consumedWorkspaceIntentRef.current = null;
+      return;
+    }
+    if (consumedWorkspaceIntentRef.current === intentKey) return;
+    consumedWorkspaceIntentRef.current = intentKey;
     if (workspaceIntent.kind === "new-order") {
       setDetailOrderId(null);
       setNewOrderPrefill(workspaceIntent.prefill);
@@ -394,14 +403,15 @@ export function OrderListScreen() {
   useEffect(() => {
     const wasOpen = previousNewOrderOpenRef.current;
     previousNewOrderOpenRef.current = newOrderOpen;
-    if (wasOpen && !newOrderOpen) clearWorkspaceIntent();
-  }, [clearWorkspaceIntent, newOrderOpen]);
+    if (wasOpen && !newOrderOpen && workspaceIntent?.kind === "new-order") clearWorkspaceIntent();
+  }, [clearWorkspaceIntent, newOrderOpen, workspaceIntent?.kind]);
 
   useEffect(() => {
     const previousId = previousDetailOrderIdRef.current;
     previousDetailOrderIdRef.current = detailOrderId;
-    if (previousId && !detailOrderId) clearWorkspaceIntent();
-  }, [clearWorkspaceIntent, detailOrderId]);
+    if (previousId && !detailOrderId && workspaceIntent?.kind === "order-detail")
+      clearWorkspaceIntent();
+  }, [clearWorkspaceIntent, detailOrderId, workspaceIntent?.kind]);
 
   const effectiveFilters = useMemo<OrderListFilters>(() => {
     return {
@@ -1372,23 +1382,38 @@ export function OrderListScreen() {
     />
   );
 
-  if (!isOnline && !listResult) {
-    return (
+  // Keep the editor at the same keyed position under the root div while list
+  // queries or viewport detection reset. A distinct semantic intake still starts
+  // a fresh keyed editor, so its customer/device cannot inherit another form.
+  const newOrderDialog = (
+    <NewOrderDialog
+      key="new-order-dialog"
+      open={newOrderOpen}
+      sessionKey={newOrderSessionKey}
+      prefill={newOrderPrefill}
+      onOpenChange={handleNewOrderOpenChange}
+      onCreated={handleNewOrderCreated}
+    />
+  );
+  const listFallback =
+    !isOnline && !listResult ? (
       <OrdersErrorState message={t("orders.offlineNoCache")} onRetry={() => refreshOrderData()} />
+    ) : !listResult &&
+      !listIsError &&
+      (shell.status === "loading" || (Boolean(activeStoreId) && listIsPending)) ? (
+      <OrderListSkeleton />
+    ) : !activeStoreId ? (
+      <StoreShellUnavailableState shell={shell} onRetry={shell.retry} />
+    ) : viewportMode === "pending" ? (
+      <OrderListViewportPending />
+    ) : null;
+  if (listFallback) {
+    return (
+      <div>
+        {listFallback}
+        {newOrderDialog}
+      </div>
     );
-  }
-  if (
-    !listResult &&
-    !listIsError &&
-    (shell.status === "loading" || (Boolean(activeStoreId) && listIsPending))
-  ) {
-    return <OrderListSkeleton />;
-  }
-  if (!activeStoreId) {
-    return <StoreShellUnavailableState shell={shell} onRetry={shell.retry} />;
-  }
-  if (viewportMode === "pending") {
-    return <OrderListViewportPending />;
   }
 
   return (
@@ -2271,13 +2296,7 @@ export function OrderListScreen() {
         onOpenPdf={openPreparedPdf}
         onDownload={downloadPreparedPdf}
       />
-      <NewOrderDialog
-        open={newOrderOpen}
-        sessionKey={newOrderSessionKey}
-        prefill={newOrderPrefill}
-        onOpenChange={handleNewOrderOpenChange}
-        onCreated={handleNewOrderCreated}
-      />
+      {newOrderDialog}
       <Dialog open={Boolean(detailOrderId)} onOpenChange={handleDetailOpenChange}>
         <DialogContent
           data-order-detail-dialog-shell="true"

@@ -81,6 +81,15 @@ export function parseOrderWorkspaceIntent(
   return orderId ? { kind: "order-detail", orderId } : null;
 }
 
+export function getOrderWorkspaceIntentKey(intent: OrderWorkspaceIntent | null) {
+  if (!intent) return null;
+  if (intent.kind === "order-detail") return JSON.stringify([intent.kind, intent.orderId]);
+  // The parsed key includes intakeSession; the remaining normalized fields avoid
+  // delimiter collisions without letting list search/source become editor identity.
+  const { key, customerId, deviceId, identifier } = intent.prefill;
+  return JSON.stringify([intent.kind, key, customerId, deviceId, identifier]);
+}
+
 export function clearOrderWorkspaceIntentHref(searchParams: Pick<SearchParamsReader, "toString">) {
   const params = new URLSearchParams(searchParams.toString());
   workspaceIntentParams.forEach((name) => params.delete(name));

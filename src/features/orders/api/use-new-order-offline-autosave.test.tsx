@@ -1,4 +1,4 @@
-import { act, render, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -19,6 +19,93 @@ const scope: RepairDeskOfflineScope = { storeId: "store_1", userId: "user_1" };
 type HookValue = ReturnType<typeof useNewOrderOfflineAutosave>;
 
 describe("useNewOrderOfflineAutosave", () => {
+  it("retains the recovery card with one preflight when a parent supplies a new inline factory", async () => {
+    const harness = createServiceHarness();
+    await harness.service.saveDraft(
+      buildNewOrderOfflineDraftInput({ form: makeForm({ model: "Synthetic recovery draft" }) }),
+    );
+    const healthCheck = vi.spyOn(harness.service, "healthCheck");
+    const listLocalDrafts = vi.spyOn(harness.service, "listLocalDrafts");
+    const services = Array.from({ length: 6 }, () => ({ ...harness.service }));
+    const factory = vi.fn((version: number) => services[version]!);
+    let latest: HookValue | undefined;
+    function Parent({ version }: { version: number }) {
+      const value = useNewOrderOfflineAutosave({
+        form: initialNewOrderForm,
+        scope: { ...scope },
+        serviceFactory: () => factory(version),
+      });
+      useLayoutEffect(() => {
+        latest = value;
+      }, [value]);
+      return value.draftPrompt ? <div role="status">Synthetic recovery card</div> : null;
+    }
+    const result = render(<Parent version={0} />);
+    const card = await screen.findByRole("status");
+    const prompt = requireHook(latest).draftPrompt;
+    for (let version = 1; version <= 5; version++) {
+      result.rerender(<Parent version={version} />);
+      expect(requireHook(latest).state).toBe("ready");
+      expect(requireHook(latest).draftPrompt).toBe(prompt);
+      expect(screen.getByRole("status")).toBe(card);
+    }
+    expect(factory).toHaveBeenCalledTimes(1);
+    expect(healthCheck).toHaveBeenCalledTimes(1);
+    expect(listLocalDrafts).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts a new service for a changed store, user or enabled session and keeps retry explicit", async () => {
+    const store = createRepairDeskOfflineMemoryStore();
+    const services = new Map<string, ReturnType<typeof createRepairDeskOfflineOrderService>>();
+    const factory = vi.fn((nextScope: RepairDeskOfflineScope) => {
+      const key = JSON.stringify(nextScope);
+      if (!services.has(key)) {
+        services.set(key, createRepairDeskOfflineOrderService({ store, scope: nextScope }));
+      }
+      return services.get(key)!;
+    });
+    let latest: HookValue | undefined;
+    function Parent({
+      currentScope,
+      enabled = true,
+    }: {
+      currentScope: RepairDeskOfflineScope;
+      enabled?: boolean;
+    }) {
+      const value = useNewOrderOfflineAutosave({
+        form: initialNewOrderForm,
+        scope: currentScope,
+        enabled,
+        serviceFactory: (nextScope) => factory(nextScope),
+      });
+      useLayoutEffect(() => {
+        latest = value;
+      }, [value]);
+      return null;
+    }
+    const result = render(<Parent currentScope={scope} />);
+    await waitFor(() => expect(latest?.state).toBe("ready"));
+    expect(factory).toHaveBeenCalledTimes(1);
+    const otherStore = { ...scope, storeId: "store_2" };
+    result.rerender(<Parent currentScope={otherStore} />);
+    await waitFor(() => expect(latest?.state).toBe("ready"));
+    expect(factory).toHaveBeenLastCalledWith(otherStore);
+    expect(factory).toHaveBeenCalledTimes(2);
+    const otherUser = { ...otherStore, userId: "user_2" };
+    result.rerender(<Parent currentScope={otherUser} />);
+    await waitFor(() => expect(latest?.state).toBe("ready"));
+    expect(factory).toHaveBeenLastCalledWith(otherUser);
+    expect(factory).toHaveBeenCalledTimes(3);
+    act(() => requireHook(latest).retryPreflight());
+    await waitFor(() => expect(latest?.state).toBe("ready"));
+    expect(factory).toHaveBeenCalledTimes(3);
+    result.rerender(<Parent currentScope={otherUser} enabled={false} />);
+    expect(latest?.state).toBe("disabled");
+    result.rerender(<Parent currentScope={otherUser} />);
+    await waitFor(() => expect(latest?.state).toBe("ready"));
+    expect(factory).toHaveBeenCalledTimes(4);
+  });
+
   it("does not restart draft checking when a parent rebuilds the same store/user scope", async () => {
     const harness = createServiceHarness();
     await harness.service.saveDraft(
