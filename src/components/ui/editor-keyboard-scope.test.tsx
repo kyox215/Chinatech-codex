@@ -11,6 +11,70 @@ import { mockTouchKeyboardDevice } from "@/shared/lib/virtual-keyboard-device.te
 
 beforeEach(mockTouchKeyboardDevice);
 afterEach(cleanup);
+
+it.each([390, 820, 1180, 1440])(
+  "honors explicit container focus at %ipx and keeps keyboard navigation and return focus",
+  async (width) => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
+    const user = userEvent.setup();
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button onClick={() => setOpen(true)}>Open workspace</button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent initialFocus="container">
+              <DialogTitle>Workspace</DialogTitle>
+              <DialogDescription>New synthetic order</DialogDescription>
+              <input aria-label="First field" />
+            </DialogContent>
+          </Dialog>
+        </>
+      );
+    }
+    render(<Harness />);
+    const opener = screen.getByRole("button", { name: "Open workspace" });
+    await user.click(opener);
+    expect(screen.getByRole("dialog")).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("textbox", { name: "First field" })).toHaveFocus();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(opener).toHaveFocus();
+  },
+);
+
+it("keeps implicit mobileEditor desktop autofocus and explicit caller focus overrides", () => {
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+  const view = render(
+    <Dialog open>
+      <DialogContent mobileEditor>
+        <DialogTitle>Editor</DialogTitle>
+        <DialogDescription>Draft</DialogDescription>
+        <input aria-label="Desktop field" />
+      </DialogContent>
+    </Dialog>,
+  );
+  expect(screen.getByRole("textbox")).toHaveFocus();
+  view.unmount();
+  render(
+    <Dialog open>
+      <DialogContent
+        initialFocus="container"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          document.querySelector<HTMLInputElement>("#custom-editor-focus")?.focus();
+        }}
+      >
+        <DialogTitle>Editor</DialogTitle>
+        <DialogDescription>Draft</DialogDescription>
+        <input id="custom-editor-focus" aria-label="Caller field" />
+      </DialogContent>
+    </Dialog>,
+  );
+  expect(screen.getByRole("textbox", { name: "Caller field" })).toHaveFocus();
+});
+
 for (const surface of ["dialog", "sheet"] as const) {
   it(`${surface} opens without text focus and isolates keypad Done/Escape from parent save/close`, async () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });

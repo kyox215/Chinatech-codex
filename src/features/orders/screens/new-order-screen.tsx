@@ -920,7 +920,7 @@ export function NewOrderScreen({
         surface === "dialog"
           ? cn(
               detailWorkspace.root,
-              "h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] sm:h-[calc(100svh-32px)] sm:max-h-[calc(100svh-32px)]",
+              "mx-auto flex min-h-0 w-full max-w-[1400px] flex-1 flex-col overflow-clip rounded-none border-0 shadow-none xl:my-4 xl:w-[calc(100%-32px)] xl:rounded-[var(--radius-lg)] xl:border xl:shadow-[var(--shadow-workspace)]",
             )
           : "mx-auto w-full min-w-0 max-w-[430px] overflow-x-hidden px-3.5 sm:max-w-2xl md:max-w-7xl md:px-5 md:pt-3 lg:px-6",
       )}
@@ -973,267 +973,285 @@ export function NewOrderScreen({
         className={cn(
           "min-w-0 scroll-pb-[calc(var(--new-order-submit-offset,7rem)+0.75rem)]",
           surface === "page" && cn(repairOs.mobileFloatingPage, "!pb-0 lg:pt-0"),
-          surface === "dialog" &&
-            "h-full max-h-[calc(100svh-16px)] overflow-y-auto p-2 pt-2 sm:max-h-[calc(100svh-32px)] sm:p-3 sm:pt-3 md:p-4 md:pt-3 lg:flex lg:min-h-0 lg:flex-col lg:pb-3",
+          surface === "dialog" && "flex min-h-0 flex-1 flex-col overflow-clip",
         )}
       >
         <p id="new-order-validation-summary" className="sr-only" role="alert" aria-live="assertive">
           {submitValidationMessage}
         </p>
-        {surface === "dialog" && onCancel ? (
-          <NewOrderDialogMobileHeader
-            valid={Boolean(valid)}
-            offlineStatus={offlineStatus}
-            onClose={onCancel}
-          />
-        ) : null}
-
-        <NewOrderDesktopHeader
-          surface={surface}
-          offlineStatus={offlineStatus}
-          onClose={surface === "dialog" ? onCancel : undefined}
-        />
-
-        {offlineDraft.draftPrompt ? (
-          <NewOrderOfflineRestoreCard
-            prompt={offlineDraft.draftPrompt}
-            onRestore={handleRestoreOfflineDraft}
-            onDiscard={() => setDiscardDraftDialogOpen(true)}
-          />
-        ) : null}
-
-        {offlineDraft.pendingRestoreNotice ? (
-          <NewOrderOfflineInlineNotice tone="success" message={offlineDraft.pendingRestoreNotice} />
-        ) : null}
-
-        {offlineDraft.state === "error" || offlineDraft.state === "unavailable" ? (
-          <div className="mb-2 grid gap-2 rounded-xl bg-status-warn px-2.5 py-2 md:mb-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-            <NewOrderOfflineInlineNotice
-              tone="warning"
-              className="mb-0 bg-transparent p-0"
-              message={t("orders2b1.new.offline.unavailable")}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              className="h-[38px] bg-background text-base"
-              onClick={offlineDraft.retryPreflight}
-            >
-              <RotateCcw className="mr-1.5 size-4" /> {t("common.retry")}
-            </Button>
-          </div>
-        ) : null}
-
-        {createRecovery.state !== "idle" ? (
-          <NewOrderCreateRecoveryCard
-            state={createRecovery}
-            onRetry={() => {
-              void confirmCreateOperation(createRecovery.operationId);
-            }}
-          />
-        ) : null}
-
-        {storeSettingsQuery.isError ? (
-          <div
-            className="mb-3 rounded-xl bg-status-warn px-3 py-2 text-xs text-status-warn-foreground"
-            role="status"
-          >
-            {t("orders2b1.new.modeFallback")}
-            <Button
-              type="button"
-              variant="link"
-              className="ml-1 h-auto p-0 text-xs"
-              onClick={() => void storeSettingsQuery.refetch()}
-            >
-              {t("common.retry")}
-            </Button>
-          </div>
-        ) : null}
-        {sessionStoreChanged ? (
-          <div
-            className="mb-3 rounded-xl bg-status-danger px-3 py-2 text-xs text-status-danger-foreground"
-            role="alert"
-          >
-            {t("orders2b1.new.storeFrozen")}
-          </div>
-        ) : null}
-
-        {createdOrderId ? (
-          <section
-            data-new-order-photo-result="true"
-            role="status"
-            className="mb-3 space-y-2 rounded-xl border border-border bg-status-warn p-3 text-status-warn-foreground"
-          >
-            <p className="font-semibold">{t("orders.newFlow.createdPhotos")}</p>
-            <p className="text-sm">
-              {t(
-                photoDraft.state === "idle" || photoDraft.state === "uploading"
-                  ? "orders.newFlow.photoUploading"
-                  : photoDraft.state === "blocked"
-                    ? "orders.newFlow.photoBlocked"
-                    : photoDraft.photos.some((photo) => photo.uploadState === "uncertain")
-                      ? "orders.newFlow.photoUncertain"
-                      : "orders.newFlow.photoRemaining",
-              )}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {photoDraft.canRetry && photoDraft.state !== "idle" ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={sessionStoreChanged}
-                  onClick={() => void completeOnlineOrderCreated(createdOrderId)}
-                >
-                  {t("orders.newFlow.retryPhotos")}
-                </Button>
-              ) : null}
-              <Button
-                type="button"
-                disabled={
-                  photoDraft.state === "idle" ||
-                  photoDraft.state === "uploading" ||
-                  sessionStoreChanged
-                }
-                onClick={() => {
-                  if (photoDraft.hasUnsaved) setLeavePhotosOpen(true);
-                  else void finishOnlineOrderCreated(createdOrderId);
-                }}
-              >
-                {t("orders.newFlow.viewOrder")}
-              </Button>
-            </div>
-          </section>
-        ) : null}
-        {effectiveEntryMode === null ? (
-          <section
-            data-new-order-mode-loading="true"
-            className={cn(repairOs.mobileInfoCard, "animate-pulse p-4")}
-            aria-busy="true"
-          >
-            <p className="text-sm">{t("orders2b1.new.modeLoading")}</p>
-          </section>
-        ) : (
-          <>
-            <fieldset disabled={createSubmitBlocked || sessionStoreChanged} className="min-w-0">
-              {isMobile ? (
-                <NewOrderMobileWorkspace
-                  form={form}
-                  setForm={setForm}
-                  historyDevices={historyDevices}
-                  onPickCustomer={handlePickCustomer}
-                  onClearCustomerContext={() => {
-                    setHistoryDevices([]);
-                    setIdentityConflict(null);
-                    setCustomerIdentityIntent(null);
-                    setSharedPhoneConfirmOpen(false);
-                    createOperationIdRef.current = null;
-                  }}
-                  onNewCustomerIntentChange={setCustomerIdentityIntent}
-                  disabled={createSubmitBlocked || sessionStoreChanged}
-                  validationRequest={mobileValidation}
-                  quote={
-                    <>
-                      {quotationSectionNode()}
-                      {effectiveEntryMode === "simple" ? (
-                        <Button
-                          type="button"
-                          variant={diagnosisDeferred ? "default" : "outline"}
-                          aria-pressed={diagnosisDeferred}
-                          className="min-h-11 whitespace-normal"
-                          onClick={() => setDiagnosisDeferred((current) => !current)}
-                        >
-                          {t("orders2b1.new.diagnosisDeferred")}
-                        </Button>
-                      ) : null}
-                    </>
-                  }
-                  photos={
-                    <NewOrderSupplements
-                      compact
-                      notes={form.issueDescription}
-                      onNotesChange={(issueDescription) =>
-                        setForm((current) => ({ ...current, issueDescription }))
-                      }
-                      photos={photoDraft.photos}
-                      onAdd={photoDraft.add}
-                      onRemove={photoDraft.remove}
-                      disabled={createSubmitBlocked || sessionStoreChanged}
-                      locked={Boolean(createdOrderId)}
-                    />
-                  }
-                  settings={(draft, setDraft) =>
-                    quotationSectionNode("settings", draft, setDraft, true)
-                  }
-                  settingsSummary={`${t(form.type === "quick_repair" ? "orders2b1.new.quickRepair" : "orders2b1.new.dropoffRepair")} · ${selectedCreateStatus ? localizeOrderWorkflowStatusLabel(selectedCreateStatus, t) : form.status} · ${form.warrantyText}`}
-                />
-              ) : (
-                <div
-                  data-new-order-workspace-grid="true"
-                  data-new-order-single-page="true"
-                  className="grid min-w-0 items-start gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] md:gap-3 @[1040px]/new-order:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)_minmax(0,0.85fr)]"
-                >
-                  <div className="grid min-w-0 content-start gap-2 md:col-start-1 md:row-start-1">
-                    {customerSectionNode}
-                    {deviceSectionNode}
-                  </div>
-                  {quotationSectionNode()}
-                  <div className="grid min-w-0 content-start gap-2 md:col-span-2 md:row-start-2 md:grid-cols-2 @[1040px]/new-order:col-span-1 @[1040px]/new-order:col-start-3 @[1040px]/new-order:row-start-1 @[1040px]/new-order:grid-cols-1">
-                    {quotationSectionNode("settings")}
-                    {effectiveEntryMode === "simple" ? (
-                      <section className={cn(repairOs.mobileInfoCard, "p-2.5")}>
-                        <Button
-                          type="button"
-                          variant={diagnosisDeferred ? "default" : "outline"}
-                          aria-pressed={diagnosisDeferred}
-                          className="min-h-11 w-full whitespace-normal"
-                          onClick={() => setDiagnosisDeferred((current) => !current)}
-                        >
-                          {diagnosisDeferred ? <CheckCircle2 className="size-4" /> : null}
-                          {t("orders2b1.new.diagnosisDeferred")}
-                        </Button>
-                        <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-                          {t("orders2b1.new.validation.diagnosis")}
-                        </p>
-                      </section>
-                    ) : null}
-                    <NewOrderSupplements
-                      notes={form.issueDescription}
-                      onNotesChange={(issueDescription) =>
-                        setForm((current) => ({ ...current, issueDescription }))
-                      }
-                      photos={photoDraft.photos}
-                      onAdd={photoDraft.add}
-                      onRemove={photoDraft.remove}
-                      disabled={createSubmitBlocked || sessionStoreChanged}
-                      locked={Boolean(createdOrderId)}
-                    />
-                  </div>
-                </div>
-              )}
-            </fieldset>
-            <div data-new-order-content-end="true" aria-hidden="true" className="h-px w-full" />
-            <div
-              data-new-order-submit-spacer="true"
-              aria-hidden="true"
-              className="h-[calc(var(--new-order-submit-offset,7rem)+0.75rem)] w-full shrink-0 md:hidden"
-            />
-            {!createdOrderId ? (
-              <NewOrderSubmitBar
+        {surface === "dialog" ? (
+          <div data-new-order-header="true" className="shrink-0 px-2 pt-2 sm:px-3 md:px-4 md:pt-3">
+            {onCancel ? (
+              <NewOrderDialogMobileHeader
                 valid={Boolean(valid)}
-                pending={createSubmitBlocked || sessionStoreChanged}
-                statusMessage={
-                  sessionStoreChanged ? t("orders2b1.new.storeChangedShort") : createSubmitMessage
-                }
-                custodyStatus={form.deviceCustodyStatus}
-                onCancel={onCancel}
-                surface={surface}
-                validationSummaryId="new-order-validation-summary"
-                total={total}
-                missingCount={missingItems.length}
+                offlineStatus={offlineStatus}
+                onClose={onCancel}
               />
             ) : null}
-          </>
+            <NewOrderDesktopHeader
+              surface={surface}
+              offlineStatus={offlineStatus}
+              onClose={onCancel}
+            />
+          </div>
+        ) : (
+          <NewOrderDesktopHeader surface={surface} offlineStatus={offlineStatus} />
         )}
+
+        <div
+          data-new-order-scroll-body={surface === "dialog" ? "true" : undefined}
+          className={
+            surface === "dialog"
+              ? "min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-3 [scrollbar-gutter:stable] sm:px-3 md:px-4"
+              : "contents"
+          }
+        >
+          {offlineDraft.draftPrompt ? (
+            <NewOrderOfflineRestoreCard
+              prompt={offlineDraft.draftPrompt}
+              onRestore={handleRestoreOfflineDraft}
+              onDiscard={() => setDiscardDraftDialogOpen(true)}
+            />
+          ) : null}
+
+          {offlineDraft.pendingRestoreNotice ? (
+            <NewOrderOfflineInlineNotice
+              tone="success"
+              message={offlineDraft.pendingRestoreNotice}
+            />
+          ) : null}
+
+          {offlineDraft.state === "error" || offlineDraft.state === "unavailable" ? (
+            <div className="mb-2 grid gap-2 rounded-xl bg-status-warn px-2.5 py-2 md:mb-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+              <NewOrderOfflineInlineNotice
+                tone="warning"
+                className="mb-0 bg-transparent p-0"
+                message={t("orders2b1.new.offline.unavailable")}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="h-[38px] bg-background text-base"
+                onClick={offlineDraft.retryPreflight}
+              >
+                <RotateCcw className="mr-1.5 size-4" /> {t("common.retry")}
+              </Button>
+            </div>
+          ) : null}
+
+          {createRecovery.state !== "idle" ? (
+            <NewOrderCreateRecoveryCard
+              state={createRecovery}
+              onRetry={() => {
+                void confirmCreateOperation(createRecovery.operationId);
+              }}
+            />
+          ) : null}
+
+          {storeSettingsQuery.isError ? (
+            <div
+              className="mb-3 rounded-xl bg-status-warn px-3 py-2 text-xs text-status-warn-foreground"
+              role="status"
+            >
+              {t("orders2b1.new.modeFallback")}
+              <Button
+                type="button"
+                variant="link"
+                className="ml-1 h-auto p-0 text-xs"
+                onClick={() => void storeSettingsQuery.refetch()}
+              >
+                {t("common.retry")}
+              </Button>
+            </div>
+          ) : null}
+          {sessionStoreChanged ? (
+            <div
+              className="mb-3 rounded-xl bg-status-danger px-3 py-2 text-xs text-status-danger-foreground"
+              role="alert"
+            >
+              {t("orders2b1.new.storeFrozen")}
+            </div>
+          ) : null}
+
+          {createdOrderId ? (
+            <section
+              data-new-order-photo-result="true"
+              role="status"
+              className="mb-3 space-y-2 rounded-xl border border-border bg-status-warn p-3 text-status-warn-foreground"
+            >
+              <p className="font-semibold">{t("orders.newFlow.createdPhotos")}</p>
+              <p className="text-sm">
+                {t(
+                  photoDraft.state === "idle" || photoDraft.state === "uploading"
+                    ? "orders.newFlow.photoUploading"
+                    : photoDraft.state === "blocked"
+                      ? "orders.newFlow.photoBlocked"
+                      : photoDraft.photos.some((photo) => photo.uploadState === "uncertain")
+                        ? "orders.newFlow.photoUncertain"
+                        : "orders.newFlow.photoRemaining",
+                )}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {photoDraft.canRetry && photoDraft.state !== "idle" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={sessionStoreChanged}
+                    onClick={() => void completeOnlineOrderCreated(createdOrderId)}
+                  >
+                    {t("orders.newFlow.retryPhotos")}
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  disabled={
+                    photoDraft.state === "idle" ||
+                    photoDraft.state === "uploading" ||
+                    sessionStoreChanged
+                  }
+                  onClick={() => {
+                    if (photoDraft.hasUnsaved) setLeavePhotosOpen(true);
+                    else void finishOnlineOrderCreated(createdOrderId);
+                  }}
+                >
+                  {t("orders.newFlow.viewOrder")}
+                </Button>
+              </div>
+            </section>
+          ) : null}
+          {effectiveEntryMode === null ? (
+            <section
+              data-new-order-mode-loading="true"
+              className={cn(repairOs.mobileInfoCard, "animate-pulse p-4")}
+              aria-busy="true"
+            >
+              <p className="text-sm">{t("orders2b1.new.modeLoading")}</p>
+            </section>
+          ) : (
+            <>
+              <fieldset disabled={createSubmitBlocked || sessionStoreChanged} className="min-w-0">
+                {isMobile ? (
+                  <NewOrderMobileWorkspace
+                    form={form}
+                    setForm={setForm}
+                    historyDevices={historyDevices}
+                    onPickCustomer={handlePickCustomer}
+                    onClearCustomerContext={() => {
+                      setHistoryDevices([]);
+                      setIdentityConflict(null);
+                      setCustomerIdentityIntent(null);
+                      setSharedPhoneConfirmOpen(false);
+                      createOperationIdRef.current = null;
+                    }}
+                    onNewCustomerIntentChange={setCustomerIdentityIntent}
+                    disabled={createSubmitBlocked || sessionStoreChanged}
+                    validationRequest={mobileValidation}
+                    quote={
+                      <>
+                        {quotationSectionNode()}
+                        {effectiveEntryMode === "simple" ? (
+                          <Button
+                            type="button"
+                            variant={diagnosisDeferred ? "default" : "outline"}
+                            aria-pressed={diagnosisDeferred}
+                            className="min-h-11 whitespace-normal"
+                            onClick={() => setDiagnosisDeferred((current) => !current)}
+                          >
+                            {t("orders2b1.new.diagnosisDeferred")}
+                          </Button>
+                        ) : null}
+                      </>
+                    }
+                    photos={
+                      <NewOrderSupplements
+                        compact
+                        notes={form.issueDescription}
+                        onNotesChange={(issueDescription) =>
+                          setForm((current) => ({ ...current, issueDescription }))
+                        }
+                        photos={photoDraft.photos}
+                        onAdd={photoDraft.add}
+                        onRemove={photoDraft.remove}
+                        disabled={createSubmitBlocked || sessionStoreChanged}
+                        locked={Boolean(createdOrderId)}
+                      />
+                    }
+                    settings={(draft, setDraft) =>
+                      quotationSectionNode("settings", draft, setDraft, true)
+                    }
+                    settingsSummary={`${t(form.type === "quick_repair" ? "orders2b1.new.quickRepair" : "orders2b1.new.dropoffRepair")} · ${selectedCreateStatus ? localizeOrderWorkflowStatusLabel(selectedCreateStatus, t) : form.status} · ${form.warrantyText}`}
+                  />
+                ) : (
+                  <div
+                    data-new-order-workspace-grid="true"
+                    data-new-order-single-page="true"
+                    className="grid min-w-0 items-start gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] md:gap-3 @[1040px]/new-order:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)_minmax(0,0.85fr)]"
+                  >
+                    <div className="grid min-w-0 content-start gap-2 md:col-start-1 md:row-start-1">
+                      {customerSectionNode}
+                      {deviceSectionNode}
+                    </div>
+                    {quotationSectionNode()}
+                    <div className="grid min-w-0 content-start gap-2 md:col-span-2 md:row-start-2 md:grid-cols-2 @[1040px]/new-order:col-span-1 @[1040px]/new-order:col-start-3 @[1040px]/new-order:row-start-1 @[1040px]/new-order:grid-cols-1">
+                      {quotationSectionNode("settings")}
+                      {effectiveEntryMode === "simple" ? (
+                        <section className={cn(repairOs.mobileInfoCard, "p-2.5")}>
+                          <Button
+                            type="button"
+                            variant={diagnosisDeferred ? "default" : "outline"}
+                            aria-pressed={diagnosisDeferred}
+                            className="min-h-11 w-full whitespace-normal"
+                            onClick={() => setDiagnosisDeferred((current) => !current)}
+                          >
+                            {diagnosisDeferred ? <CheckCircle2 className="size-4" /> : null}
+                            {t("orders2b1.new.diagnosisDeferred")}
+                          </Button>
+                          <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                            {t("orders2b1.new.validation.diagnosis")}
+                          </p>
+                        </section>
+                      ) : null}
+                      <NewOrderSupplements
+                        notes={form.issueDescription}
+                        onNotesChange={(issueDescription) =>
+                          setForm((current) => ({ ...current, issueDescription }))
+                        }
+                        photos={photoDraft.photos}
+                        onAdd={photoDraft.add}
+                        onRemove={photoDraft.remove}
+                        disabled={createSubmitBlocked || sessionStoreChanged}
+                        locked={Boolean(createdOrderId)}
+                      />
+                    </div>
+                  </div>
+                )}
+              </fieldset>
+              <div data-new-order-content-end="true" aria-hidden="true" className="h-px w-full" />
+              {surface === "page" ? (
+                <div
+                  data-new-order-submit-spacer="true"
+                  aria-hidden="true"
+                  className="h-[calc(var(--new-order-submit-offset,7rem)+0.75rem)] w-full shrink-0 md:hidden"
+                />
+              ) : null}
+            </>
+          )}
+        </div>
+        {effectiveEntryMode !== null && !createdOrderId ? (
+          <NewOrderSubmitBar
+            valid={Boolean(valid)}
+            pending={createSubmitBlocked || sessionStoreChanged}
+            statusMessage={
+              sessionStoreChanged ? t("orders2b1.new.storeChangedShort") : createSubmitMessage
+            }
+            custodyStatus={form.deviceCustodyStatus}
+            onCancel={onCancel}
+            surface={surface}
+            validationSummaryId="new-order-validation-summary"
+            total={total}
+            missingCount={missingItems.length}
+          />
+        ) : null}
       </form>
 
       <AlertDialog open={leavePhotosOpen} onOpenChange={setLeavePhotosOpen}>

@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
@@ -7,7 +8,6 @@ import { translateMessage } from "@/shared/i18n/messages";
 import type { NewOrderPrefill } from "@/features/orders/model/new-order-intent";
 
 import { NewOrderDialog } from "./new-order-dialog";
-import { useState } from "react";
 
 vi.mock("@/components/navigation-guard-provider", () => ({
   useNavigationGuard: () => ({
@@ -85,6 +85,41 @@ describe("NewOrderDialog i18n", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: translateMessage("en", "common.close") }));
     expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+  });
+
+  it("returns focus to the current list entry when rotation replaced the original opener", async () => {
+    function Harness({ compact }: { compact: boolean }) {
+      const [open, setOpen] = useState(false);
+      return (
+        <LocaleProvider initialLocale="zh-CN">
+          <button
+            key={compact ? "compact" : "desktop"}
+            data-order-list-new-button={compact ? undefined : "true"}
+            aria-label={compact ? "新建工单" : undefined}
+            onClick={() => setOpen(true)}
+          >
+            新建工单
+          </button>
+          <NewOrderDialog open={open} sessionKey={1} onOpenChange={setOpen} onCreated={vi.fn()} />
+        </LocaleProvider>
+      );
+    }
+    const view = render(<Harness compact={false} />);
+    const originalOpener = screen.getByRole("button", { name: "新建工单" });
+    originalOpener.focus();
+    fireEvent.click(originalOpener);
+    await screen.findByRole("button", { name: "stub cancel" });
+    view.rerender(<Harness compact />);
+    const currentOpener = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="新建工单"]',
+    )!;
+    const rects = vi
+      .spyOn(currentOpener, "getClientRects")
+      .mockReturnValue([new DOMRect(0, 0, 44, 44)] as unknown as DOMRectList);
+    expect(originalOpener.isConnected).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "stub cancel" }));
+    await waitFor(() => expect(currentOpener).toHaveFocus());
+    rects.mockRestore();
   });
 
   it.each(["zh-CN", "it-IT", "en"] as const)(

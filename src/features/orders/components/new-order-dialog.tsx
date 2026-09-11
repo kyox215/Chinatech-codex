@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useRef } from "react";
 import { useNavigationGuard } from "@/components/navigation-guard-provider";
 import { LoaderCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { componentOverlay } from "@/lib/component-patterns";
 import type { NewOrderPrefill } from "@/features/orders/model/new-order-intent";
 import { useLocale } from "@/shared/i18n/locale-provider";
 
@@ -37,6 +36,7 @@ export function NewOrderDialog({
 }) {
   const { t } = useLocale();
   const { runGuardedTransition } = useNavigationGuard();
+  const openerRef = useRef<HTMLElement | null>(null);
   const close = () => {
     void runGuardedTransition({
       kind: "route",
@@ -55,9 +55,37 @@ export function NewOrderDialog({
     >
       <DialogContent
         initialFocus="container"
+        editorLayout
         data-new-order-dialog="true"
         showCloseButton={false}
-        className={componentOverlay.formWorkspace}
+        className="inset-0 h-dvh max-h-dvh w-full max-w-none translate-x-0 translate-y-0 gap-0 rounded-none border-0 bg-background p-0 shadow-none transition-none sm:gap-0 sm:p-0"
+        style={{
+          paddingTop: "env(safe-area-inset-top)",
+          paddingLeft: "env(safe-area-inset-left)",
+          paddingRight: "env(safe-area-inset-right)",
+        }}
+        onOpenAutoFocus={() => {
+          openerRef.current =
+            document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        }}
+        onCloseAutoFocus={(event) => {
+          const opener = openerRef.current;
+          if (!opener || opener.isConnected) return;
+          const isListEntry = (element: HTMLElement) =>
+            element.dataset.orderListNewButton === "true" ||
+            element.getAttribute("aria-label") === t("orders.new");
+          if (!isListEntry(opener)) return;
+          // Rotation can replace the compact/desktop toolbar while the editor stays mounted.
+          const currentEntry = Array.from(
+            document.querySelectorAll<HTMLElement>(
+              '[data-order-list-new-button="true"], button[aria-label]',
+            ),
+          ).find((element) => isListEntry(element) && element.getClientRects().length > 0);
+          if (currentEntry) {
+            event.preventDefault();
+            currentEntry.focus({ preventScroll: true });
+          }
+        }}
       >
         <DialogHeader className="sr-only">
           <DialogTitle>{t("orders2b1.new.title")}</DialogTitle>
@@ -68,7 +96,7 @@ export function NewOrderDialog({
             fallback={
               <div
                 data-new-order-loading="true"
-                className="relative flex h-full min-h-[20rem] items-center justify-center gap-2 px-4 text-sm text-muted-foreground"
+                className="relative flex min-h-0 flex-1 items-center justify-center gap-2 px-4 text-sm text-muted-foreground"
               >
                 <Button
                   type="button"

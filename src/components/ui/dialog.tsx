@@ -85,7 +85,10 @@ const DialogContent = React.forwardRef<
               editorOpener.current =
                 document.activeElement instanceof HTMLElement ? document.activeElement : null;
             props.onOpenAutoFocus?.(event);
-            if (editor && !event.defaultPrevented && window.innerWidth < 1024) {
+            if (
+              !event.defaultPrevented &&
+              (initialFocus === "container" || (mobileEditor && window.innerWidth < 1024))
+            ) {
               event.preventDefault();
               contentRef.current?.focus({ preventScroll: true });
             }

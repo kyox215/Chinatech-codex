@@ -15,6 +15,13 @@ for (const viewport of [
     page,
   }, testInfo) => {
     await page.setViewportSize(viewport);
+    await page.context().addCookies([
+      {
+        name: "repairdesk_locale",
+        value: "zh-CN",
+        url: String(testInfo.project.use.baseURL),
+      },
+    ]);
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
 
@@ -22,6 +29,7 @@ for (const viewport of [
 
     const dialog = page.locator('[data-new-order-dialog="true"]');
     const form = dialog.locator('[data-new-order-form="true"]');
+    const scrollBody = dialog.locator('[data-new-order-scroll-body="true"]');
     const settings = dialog.locator('[data-new-order-section="settings"]');
     const submit = dialog.getByRole("button", { name: "创建工单" });
     await expect(form).toBeVisible({ timeout: 20_000 });
@@ -101,18 +109,18 @@ for (const viewport of [
       fullPage: false,
     });
 
-    const before = await form.evaluate((element) => ({
+    const before = await scrollBody.evaluate((element) => ({
       clientHeight: element.clientHeight,
       scrollHeight: element.scrollHeight,
     }));
     expect(before.scrollHeight).toBeGreaterThan(before.clientHeight);
 
-    await form.evaluate((element) => {
+    await scrollBody.evaluate((element) => {
       element.scrollTop = element.scrollHeight;
     });
     await expect
       .poll(() =>
-        form.evaluate((element) =>
+        scrollBody.evaluate((element) =>
           Math.abs(element.scrollHeight - element.clientHeight - element.scrollTop),
         ),
       )
@@ -126,18 +134,16 @@ for (const viewport of [
         .locator('[data-new-order-submit-card="true"]')
         .boundingBox();
       const submitBarBox = await dialog.locator('[data-new-order-submit-bar="true"]').boundingBox();
-      const submitSpacerBox = await dialog
-        .locator('[data-new-order-submit-spacer="true"]')
-        .boundingBox();
+      const submitSpacer = dialog.locator('[data-new-order-submit-spacer="true"]');
       const offset = await form.evaluate((element) =>
         Number.parseFloat(getComputedStyle(element).getPropertyValue("--new-order-submit-offset")),
       );
       expect(contentEndBox).not.toBeNull();
       expect(submitCardBox).not.toBeNull();
       expect(submitBarBox).not.toBeNull();
-      expect(submitSpacerBox).not.toBeNull();
       expect(Math.abs(offset - submitBarBox!.height)).toBeLessThanOrEqual(1);
-      expect(submitSpacerBox!.height).toBeGreaterThanOrEqual(offset + 11);
+      await expect(submitSpacer).toHaveCount(0);
+      expect(submitBarBox!.height).toBeGreaterThanOrEqual(44);
       expect(contentEndBox!.y + contentEndBox!.height).toBeLessThanOrEqual(submitCardBox!.y - 8);
     }
     expect(

@@ -66,8 +66,9 @@ export function NewOrderSubmitBar({
       ref={barRef}
       data-new-order-submit-bar="true"
       className={cn(
-        "pointer-events-none fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card px-3.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 md:pointer-events-auto md:sticky md:bottom-3 md:mt-3 md:px-0 md:pb-0 md:pt-0",
-        isDialog ? "md:mx-0" : "md:mx-0 md:bg-transparent md:backdrop-blur-none",
+        isDialog
+          ? "z-40 shrink-0 border-t border-border bg-card px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 sm:px-3 md:px-4"
+          : "pointer-events-none fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card px-3.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 md:pointer-events-auto md:sticky md:bottom-3 md:mx-0 md:mt-3 md:bg-transparent md:px-0 md:pb-0 md:pt-0 md:backdrop-blur-none",
       )}
     >
       <div

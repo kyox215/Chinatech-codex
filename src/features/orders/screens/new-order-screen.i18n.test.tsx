@@ -276,6 +276,26 @@ describe("NewOrderScreen i18n", () => {
     expect(mocks.createOrder).not.toHaveBeenCalled();
   });
 
+  it("keeps the dialog header and submit action outside its sole scrolling body", () => {
+    const { container } = render(
+      <LocaleProvider initialLocale="en">
+        <NewOrderScreen surface="dialog" onCancel={vi.fn()} />
+      </LocaleProvider>,
+    );
+    const form = container.querySelector('[data-new-order-form="true"]')!;
+    const body = container.querySelector('[data-new-order-scroll-body="true"]');
+    const header = container.querySelector('[data-new-order-header="true"]');
+    const submit = container.querySelector('[data-new-order-submit-bar="true"]');
+    expect(body).not.toBeNull();
+    expect(header).not.toBeNull();
+    expect(body).toContainElement(screen.getByTestId("finance-contract"));
+    expect(body).not.toContainElement(header as HTMLElement);
+    expect(body).not.toContainElement(submit as HTMLElement);
+    expect(form).toContainElement(header as HTMLElement);
+    expect(form).toContainElement(submit as HTMLElement);
+    expect(container.querySelector('[data-new-order-submit-spacer="true"]')).toBeNull();
+  });
+
   it("creates once with the note and retains uncertain photos until explicit leave confirmation", async () => {
     vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:synthetic-photo");
     vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
