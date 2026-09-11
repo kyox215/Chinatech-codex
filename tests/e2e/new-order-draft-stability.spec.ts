@@ -326,10 +326,9 @@ for (const width of [390, 820, 1440]) {
       ),
     ).toBe(true);
     await page.getByRole("button", { name: "丢弃本机草稿", exact: true }).click();
-    await page
-      .getByRole("alertdialog", { name: "丢弃本机草稿", exact: true })
-      .getByRole("button", { name: "确认丢弃", exact: true })
-      .click();
+    const inlineDiscard = page.locator('[data-new-order-offline-discard-confirmation="true"]');
+    await expect(inlineDiscard).toBeVisible();
+    await inlineDiscard.getByRole("button", { name: "确认丢弃", exact: true }).click();
     await expect(page.locator(cardSelector)).toHaveCount(0);
     if (width < 768) await page.locator('[data-mobile-edit="customer"]').click();
     await expect(input).toHaveValue("");
@@ -342,6 +341,30 @@ for (const width of [390, 820, 1440]) {
     expect(blockedExternal).toEqual([]);
   });
 }
+
+test("closes once when discard is chosen while a found local draft is still pending", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const baseURL = String(testInfo.project.use.baseURL);
+  await page.context().addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL }]);
+  await page.goto("/orders", { waitUntil: "domcontentloaded" });
+  await seedSyntheticDraft(page);
+  await replaceIntent(page, "synthetic-discard-session");
+  await expect(page.locator(cardSelector)).toBeVisible();
+
+  await page.getByRole("button", { name: "关闭新建维修工单", exact: true }).click();
+  const guard = page.locator('[data-navigation-guard-dialog="true"]');
+  await expect(guard).toBeVisible();
+  await guard.getByRole("button", { name: "放弃修改", exact: true }).click();
+  await expect(page.locator(rootSelector)).toHaveCount(0);
+  await expect(guard).toHaveCount(0);
+
+  await replaceIntent(page, "synthetic-discard-session-reopened");
+  await expect(page.locator(cardSelector)).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("draft-discard-close-once-mobile.png") });
+});
 
 async function replaceIntent(
   page: Page,

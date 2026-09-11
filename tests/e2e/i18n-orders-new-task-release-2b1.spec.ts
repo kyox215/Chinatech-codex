@@ -186,7 +186,7 @@ test.describe("fixed heavy localized order journeys", () => {
       customer_phone: "3457000201",
       customer_identity_resolution: { mode: "auto" },
       device_brand: "华为",
-      device_model: "Mate 自定义",
+      device_model: "MATE 自定义",
       device_custody_status: "with_shop",
     });
     expect(typeof createBodies[0]?.operation_id).toBe("string");
@@ -251,7 +251,7 @@ test.describe("fixed heavy localized order journeys", () => {
     expect(createBodies[0]).toMatchObject({
       customer_phone: "3457000202",
       device_brand: "华为",
-      device_model: "Mate 自定义",
+      device_model: "MATE 自定义",
       customer_identity_resolution: { mode: "auto" },
     });
     expect(createBodies[1]).toEqual({
@@ -375,7 +375,7 @@ test.describe("fixed heavy localized order journeys", () => {
       customer_phone: heavyCustomer.customer.phone_e164,
       customer_identity_resolution: { mode: "auto" },
       device_brand: "华为",
-      device_model: "Mate 自定义",
+      device_model: "MATE 自定义",
       device_custody_status: "with_shop",
     });
     expect(typeof createBodies[0]?.operation_id).toBe("string");
@@ -603,7 +603,7 @@ async function expectPreservedHeavyDraft(page: Page, locale: AppLocale, expected
     selected.getByRole("button", { name: translateMessage(locale, "orders.newFlow.customerEdit") }),
   ).toBeDisabled();
   await expect(form.locator("#new-order-device-brand")).toHaveValue("华为");
-  await expect(form.locator("#new-order-device-model")).toHaveValue("Mate 自定义");
+  await expect(form.locator("#new-order-device-model")).toHaveValue("MATE 自定义");
   await expect(form).toContainText(heavyCustomer.customer.name);
   await expect
     .poll(() =>

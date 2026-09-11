@@ -60,6 +60,31 @@ describe("DeviceUnlockEditor", () => {
       "0 0 156 156",
     );
   });
+  it("records a continuous swipe and includes points crossed by a fast gesture", () => {
+    render(<DeviceUnlockHarness />);
+    fireEvent.click(screen.getByRole("button", { name: "图案" }));
+    const grid = document.querySelector<HTMLElement>("[data-device-unlock-pattern-grid]");
+    if (!grid) throw new Error("Pattern grid not rendered");
+    vi.spyOn(grid, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      top: 0,
+      right: 156,
+      bottom: 156,
+      width: 156,
+      height: 156,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    fireEvent.pointerDown(grid, { pointerId: 7, clientX: 22, clientY: 22 });
+    fireEvent.pointerMove(grid, { pointerId: 7, clientX: 134, clientY: 22 });
+    fireEvent.pointerUp(grid, { pointerId: 7, clientX: 134, clientY: 22 });
+
+    expect(screen.getByTestId("unlock-value")).toHaveTextContent(
+      JSON.stringify({ method: "pattern", pattern: [1, 2, 3] }),
+    );
+  });
   it("edits PIN through the fixed bottom virtual keypad", async () => {
     setViewport(768, true);
     const user = userEvent.setup();

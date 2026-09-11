@@ -486,6 +486,8 @@ function PatternLockInput({
 }) {
   const { t } = useLocale();
   const drawingRef = useRef(false);
+  const activePointerIdRef = useRef<number | null>(null);
+  const previousPointerRef = useRef<{ x: number; y: number } | null>(null);
   const [ignoredPoint, setIgnoredPoint] = useState<number | null>(null);
   const draftPattern = useMemo(() => sanitizePatternDraft(value), [value]);
   const draftPatternRef = useRef<number[]>(draftPattern);
@@ -505,6 +507,20 @@ function PatternLockInput({
     onChange(draftPattern);
   }, [draftPattern, onChange, value.length]);
 
+  useEffect(() => {
+    const stopDrawing = () => {
+      drawingRef.current = false;
+      activePointerIdRef.current = null;
+      previousPointerRef.current = null;
+    };
+    window.addEventListener("pointerup", stopDrawing);
+    window.addEventListener("pointercancel", stopDrawing);
+    return () => {
+      window.removeEventListener("pointerup", stopDrawing);
+      window.removeEventListener("pointercancel", stopDrawing);
+    };
+  }, []);
+
   const appendPoint = (point: number) => {
     const current = draftPatternRef.current;
     if (current.includes(point)) {
@@ -518,13 +534,47 @@ function PatternLockInput({
     onChange(next);
   };
 
-  const pointFromPointer = (event: PointerEvent<HTMLDivElement>) => {
+  const coordinateFromPointer = (event: PointerEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     const geometry = patternGeometry.input;
     if (!rect.width || !rect.height) return null;
     // Share the SVG coordinate space at every responsive size and scroll position.
-    const x = ((event.clientX - rect.left) / rect.width) * geometry.size;
-    const y = ((event.clientY - rect.top) / rect.height) * geometry.size;
+    return {
+      x: ((event.clientX - rect.left) / rect.width) * geometry.size,
+      y: ((event.clientY - rect.top) / rect.height) * geometry.size,
+    };
+  };
+
+  const pointsAlongSegment = (start: { x: number; y: number }, end: { x: number; y: number }) => {
+    const geometry = patternGeometry.input;
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const lengthSquared = dx * dx + dy * dy;
+
+    return patternPoints
+      .map((point) => {
+        const center = patternPointCenter(point, "input");
+        const rawProgress =
+          lengthSquared === 0
+            ? 0
+            : ((center.x - start.x) * dx + (center.y - start.y) * dy) / lengthSquared;
+        const progress = Math.max(0, Math.min(1, rawProgress));
+        const nearestX = start.x + progress * dx;
+        const nearestY = start.y + progress * dy;
+        return {
+          point,
+          progress,
+          distance: Math.hypot(center.x - nearestX, center.y - nearestY),
+        };
+      })
+      .filter(({ distance }) => distance <= geometry.hitRadius)
+      .sort((left, right) => left.progress - right.progress)
+      .map(({ point }) => point);
+  };
+
+  const pointFromCoordinate = (coordinate: { x: number; y: number }) => {
+    const geometry = patternGeometry.input;
+    const { x, y } = coordinate;
 
     let matchedPoint: number | null = null;
     let matchedDistance = Number.POSITIVE_INFINITY;
@@ -542,28 +592,46 @@ function PatternLockInput({
   };
 
   const startDrawing = (event: PointerEvent<HTMLDivElement>) => {
-    const point = pointFromPointer(event);
+    const coordinate = coordinateFromPointer(event);
+    if (!coordinate) return;
+    const point = pointFromCoordinate(coordinate);
     if (!point) return;
     event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Safari can reject capture during a gesture; the window fallback still ends it.
+    }
     drawingRef.current = true;
+    activePointerIdRef.current = event.pointerId;
+    previousPointerRef.current = coordinate;
     appendPoint(point);
   };
 
   const continueDrawing = (event: PointerEvent<HTMLDivElement>) => {
-    if (!drawingRef.current) return;
-    const point = pointFromPointer(event);
-    if (!point) return;
+    if (!drawingRef.current || activePointerIdRef.current !== event.pointerId) return;
+    const coordinate = coordinateFromPointer(event);
+    const previous = previousPointerRef.current;
+    if (!coordinate || !previous) return;
     event.preventDefault();
-    if (draftPatternRef.current.at(-1) === point) return;
-    appendPoint(point);
+    for (const point of pointsAlongSegment(previous, coordinate)) {
+      if (!draftPatternRef.current.includes(point)) appendPoint(point);
+    }
+    previousPointerRef.current = coordinate;
   };
 
   const stopDrawing = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
+    if (activePointerIdRef.current !== event.pointerId) return;
+    try {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    } catch {
+      // Capture may already have been released by Safari.
     }
     drawingRef.current = false;
+    activePointerIdRef.current = null;
+    previousPointerRef.current = null;
   };
 
   const clearPattern = () => {
@@ -607,7 +675,7 @@ function PatternLockInput({
         onPointerMove={continueDrawing}
         onPointerUp={stopDrawing}
         onPointerCancel={stopDrawing}
-        onPointerLeave={stopDrawing}
+        onLostPointerCapture={stopDrawing}
       >
         <PatternLines pattern={draftPattern} variant="input" />
         {patternPoints.map((point) => {

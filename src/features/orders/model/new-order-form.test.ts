@@ -9,6 +9,7 @@ import {
   deviceModelSuggestionsForBrand,
   initialNewOrderForm,
   isAppleDeviceModelSuggestion,
+  normalizeManualDeviceIdentity,
 } from "./new-order-form";
 
 describe("new order customer name helpers", () => {
@@ -98,5 +99,11 @@ describe("new order device model suggestions", () => {
   it("recognizes selected iPhone suggestions case-insensitively", () => {
     expect(isAppleDeviceModelSuggestion("iphone 17 pro max")).toBe(true);
     expect(isAppleDeviceModelSuggestion("Galaxy S24")).toBe(false);
+  });
+
+  it("normalizes manually entered device brands and models to uppercase", () => {
+    expect(normalizeManualDeviceIdentity("xiaomi")).toBe("XIAOMI");
+    expect(normalizeManualDeviceIdentity("Redmi note 13 pro")).toBe("REDMI NOTE 13 PRO");
+    expect(normalizeManualDeviceIdentity("三星 A54")).toBe("三星 A54");
   });
 });

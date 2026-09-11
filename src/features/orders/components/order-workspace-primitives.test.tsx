@@ -127,7 +127,7 @@ describe("OrderWorkspaceQuoteTextField popup", () => {
     expect(change).toHaveBeenCalledExactlyOnceWith("Custom repair");
   });
 
-  it("keeps the keypad through a popup pointerdown, cancels a gesture, then hands one click to the popup", async () => {
+  it("dismisses the keypad without pointer-through, then opens the popup on a deliberate tap", async () => {
     mockTouchKeyboardDevice();
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
     const user = userEvent.setup();
@@ -149,15 +149,12 @@ describe("OrderWorkspaceQuoteTextField popup", () => {
     fireEvent.click(amount);
     expect(document.querySelector("[data-money-keypad]")).not.toBeNull();
     fireEvent.pointerDown(trigger);
-    expect(document.querySelector("[data-money-keypad]")).not.toBeNull();
-    fireEvent.pointerCancel(trigger);
-    expect(document.querySelector("[data-order-quote-popup]")).toBeNull();
-    expect(document.querySelector("[data-money-keypad]")).not.toBeNull();
-    fireEvent.pointerDown(trigger);
     fireEvent.pointerUp(trigger);
     fireEvent.click(trigger);
-    const popup = document.querySelector("[data-order-quote-popup]");
     await waitFor(() => expect(document.querySelector("[data-money-keypad]")).toBeNull());
+    expect(document.querySelector("[data-order-quote-popup]")).toBeNull();
+    fireEvent.click(trigger);
+    const popup = document.querySelector("[data-order-quote-popup]");
     expect(popup).toHaveFocus();
     expect(screen.getByRole("textbox", { name: "Quote name" })).not.toHaveFocus();
     fireEvent.keyDown(popup!, { key: "Escape" });

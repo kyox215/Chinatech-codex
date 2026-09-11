@@ -675,7 +675,7 @@ describe("OrderDetailScreen i18n", () => {
     );
     await waitFor(() => expect(mocks.patchOrder).toHaveBeenCalledTimes(1));
     expect(mocks.patchOrder.mock.calls[0]?.[1].changes).toMatchObject({
-      device_brand: "Synthetic brand",
+      device_brand: "SYNTHETIC BRAND",
     });
     expect(mocks.patchOrder.mock.calls[0]?.[1].changes).not.toHaveProperty("device_notes");
   });

@@ -92,11 +92,13 @@ for (const viewport of viewports) {
         await expect(keyboard).toBeVisible();
         await keyboard.getByRole("button", { name: "8", exact: true }).click();
         await keyboard.getByRole("button", { name: "5", exact: true }).click();
-        await assertChromeReachable(page);
+        await assertHitTarget(dialog.locator('[data-new-order-dialog-close="true"]:visible'));
+        await assertHitTarget(keyboard.getByRole("button", { name: "完成", exact: true }));
         await capture(page, testInfo, "keypad");
         await page.keyboard.press("Escape");
         await expect(keyboard).toHaveCount(0);
         await expect(quote).toBeFocused();
+        await assertChromeReachable(page);
       } else {
         await quote.fill("85");
       }

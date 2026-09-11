@@ -33,7 +33,7 @@ function AccessoryHarness() {
   const [value, setValue] = useState("");
   return (
     <div>
-      <AccessoryNotesPicker value={value} onChange={setValue} compact />
+      <AccessoryNotesPicker value={value} onChange={setValue} compact quickChoices />
       <output data-testid="accessory-value">{value}</output>
     </div>
   );
@@ -89,6 +89,15 @@ function LocalizedFaultHarness({ locale }: { locale: AppLocale }) {
     <LocaleProvider initialLocale={locale}>
       <FaultDiagnosisPicker selected={selected} onChange={setSelected} />
       <output data-testid="localized-fault-value">{JSON.stringify(selected)}</output>
+    </LocaleProvider>
+  );
+}
+
+function LocalizedAccessoryHarness({ locale }: { locale: AppLocale }) {
+  const [value, setValue] = useState("");
+  return (
+    <LocaleProvider initialLocale={locale}>
+      <AccessoryNotesPicker value={value} onChange={setValue} quickChoices />
     </LocaleProvider>
   );
 }
@@ -260,7 +269,27 @@ describe("order option pickers", () => {
     await user.click(screen.getByRole("button", { name: "无" }));
 
     expect(screen.getByTestId("accessory-value")).toHaveTextContent("无");
+    expect(
+      document.querySelector('[data-accessory-presentation="mobile-checklist"]'),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "无" })).toHaveClass("col-span-2");
   });
+
+  it.each([
+    { locale: "it-IT", none: "Nessuno", caseLabel: "Custodia" },
+    { locale: "en", none: "None", caseLabel: "Case" },
+  ] as const)(
+    "keeps the mobile accessory checklist localized in $locale",
+    ({ locale, none, caseLabel }) => {
+      render(<LocalizedAccessoryHarness locale={locale} />);
+
+      expect(screen.getByRole("button", { name: none })).toBeVisible();
+      expect(screen.getByRole("button", { name: caseLabel })).toBeVisible();
+      expect(
+        document.querySelector('[data-accessory-presentation="mobile-checklist"]'),
+      ).toBeVisible();
+    },
+  );
 
   it("uses a select for warranty and preserves the required non-default reason", async () => {
     const user = userEvent.setup();

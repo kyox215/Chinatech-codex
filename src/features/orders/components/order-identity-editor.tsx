@@ -22,6 +22,7 @@ import { CustomerIdentityReview } from "@/features/orders/forms/customer-intake-
 import {
   brandSuggestions,
   deviceModelSuggestionsForBrand,
+  normalizeManualDeviceIdentity,
 } from "@/features/orders/model/new-order-form";
 import type { UpdateOrderInput } from "@/lib/repairdesk/api";
 import { componentOverlay } from "@/lib/component-patterns";
@@ -186,7 +187,9 @@ export function OrderIdentityEditor({
                         value={draft[key]}
                         disabled={!canEdit || pending}
                         className={`${fieldClass} pr-9`}
-                        onChange={(event) => setField(key, event.target.value)}
+                        onChange={(event) =>
+                          setField(key, normalizeManualDeviceIdentity(event.target.value))
+                        }
                       />
                       <span className="absolute right-1 top-1/2 -translate-y-1/2">
                         <DenseOptionMenu

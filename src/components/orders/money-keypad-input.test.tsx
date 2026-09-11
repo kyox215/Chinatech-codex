@@ -195,6 +195,40 @@ describe("MoneyKeypadInput", () => {
     expect(await screen.findByRole("group", { name: "报价金额 虚拟金额键盘" })).toBeVisible();
   });
 
+  it("overlays a scoped editor without scrolling or moving the controls behind it", async () => {
+    setViewport(768, true);
+    const user = userEvent.setup();
+    const scrollIntoView = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    const onFaultClick = vi.fn();
+    render(
+      <div data-keypad-scope="true">
+        <button type="button" onClick={onFaultClick}>
+          屏幕
+        </button>
+        <MoneyKeypadInput
+          layout="quote-editor"
+          ariaLabel="定金"
+          value="0"
+          onChange={() => undefined}
+        />
+        <div data-virtual-keyboard-host />
+      </div>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "定金" }));
+    const dock = document.querySelector('[data-virtual-keyboard-dock="true"]');
+    expect(dock).toHaveAttribute("data-virtual-keyboard-layout", "overlay");
+    expect(dock).toHaveClass("absolute");
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "屏幕" }));
+    expect(onFaultClick).not.toHaveBeenCalled();
+    expect(document.querySelector('[data-virtual-keyboard-dock="true"]')).toBeNull();
+    await user.click(screen.getByRole("button", { name: "屏幕" }));
+    expect(onFaultClick).toHaveBeenCalledOnce();
+  });
+
   it.each([390, 768])(
     "uses the roomier quote editor keypad layout at %ipx without changing its input flow",
     async (width) => {

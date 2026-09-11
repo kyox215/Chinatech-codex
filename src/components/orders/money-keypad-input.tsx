@@ -40,6 +40,7 @@ export interface MoneyKeypadInputProps {
   contentClassName?: string;
   keyboardMode?: "native";
   layout?: "default" | "quote-editor";
+  dockMode?: "flow" | "overlay";
 }
 
 export function MoneyKeypadInput({
@@ -58,6 +59,7 @@ export function MoneyKeypadInput({
   contentClassName,
   keyboardMode,
   layout = "default",
+  dockMode = "overlay",
 }: MoneyKeypadInputProps) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
@@ -213,6 +215,8 @@ export function MoneyKeypadInput({
         onOpenChange={handleOpenChange}
         label={t("orders2b1.keypad.moneyLabel", { label: ariaLabel })}
         triggerRef={triggerRef}
+        scopeLayout={dockMode}
+        consumeOutsidePointer={dockMode === "overlay"}
         panelClassName={cn(
           quoteEditorLayout &&
             "w-[min(100%,calc(100vw-8px))] max-w-full rounded-2xl p-2.5 sm:w-[min(620px,calc(100vw-32px))] sm:p-3",

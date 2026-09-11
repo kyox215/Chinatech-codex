@@ -118,6 +118,8 @@ for (const surface of ["dialog", "sheet"] as const) {
     expect(trigger).toHaveFocus();
     await user.click(trigger);
     await user.click(screen.getByRole("textbox", { name: "Name" }));
+    expect(screen.getByRole("textbox", { name: "Name" })).not.toHaveFocus();
+    await user.click(screen.getByRole("textbox", { name: "Name" }));
     expect(screen.getByRole("textbox", { name: "Name" })).toHaveFocus();
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Editor" })).toBeNull());

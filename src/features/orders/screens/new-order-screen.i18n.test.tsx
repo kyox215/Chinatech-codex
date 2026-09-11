@@ -52,6 +52,7 @@ const mocks = vi.hoisted(() => ({
   restorePromptDraft: vi.fn(),
   discardPromptDraft: vi.fn(),
   discardCurrentDraft: vi.fn(),
+  discardSessionDrafts: vi.fn(),
   queueCurrentDraftForSync: vi.fn(),
   retryPreflight: vi.fn(),
   saveNow: vi.fn(),
@@ -98,6 +99,7 @@ vi.mock("@/features/orders/api/use-new-order-offline-autosave", () => ({
       restorePromptDraft: mocks.restorePromptDraft,
       discardPromptDraft: mocks.discardPromptDraft,
       discardCurrentDraft: mocks.discardCurrentDraft,
+      discardSessionDrafts: mocks.discardSessionDrafts,
       queueCurrentDraftForSync: mocks.queueCurrentDraftForSync,
       retryPreflight: mocks.retryPreflight,
       saveNow: mocks.saveNow,
@@ -240,6 +242,7 @@ describe("NewOrderScreen i18n", () => {
       mocks.offline.restoredForm ? { form: mocks.offline.restoredForm } : null,
     );
     mocks.discardPromptDraft.mockResolvedValue(true);
+    mocks.discardSessionDrafts.mockResolvedValue(true);
     mocks.queueCurrentDraftForSync.mockResolvedValue("offline-operation-1");
     mocks.isCurrentDraftDirty.mockReturnValue(false);
     mocks.mutationPending = false;
@@ -588,10 +591,10 @@ describe("NewOrderScreen i18n", () => {
           name: translateMessage(locale, "orders2b1.new.offline.discard"),
         }),
       );
-      const dialog = screen.getByRole("alertdialog", {
-        name: translateMessage(locale, "orders2b1.new.discardTitle"),
-      });
-      expect(dialog).toHaveTextContent(translateMessage(locale, "orders2b1.new.discardHelp"));
+      const confirmation = document.querySelector(
+        "[data-new-order-offline-discard-confirmation='true']",
+      );
+      expect(confirmation).toHaveTextContent(translateMessage(locale, "orders2b1.new.discardHelp"));
       fireEvent.click(
         screen.getByRole("button", {
           name: translateMessage(locale, "orders2b1.new.discardConfirm"),
@@ -601,7 +604,11 @@ describe("NewOrderScreen i18n", () => {
       expect(mocks.toastSuccess).toHaveBeenCalledWith(
         translateMessage(locale, "orders2b1.new.toast.discarded"),
       );
-      await waitFor(() => expect(dialog).not.toBeInTheDocument());
+      await waitFor(() =>
+        expect(
+          document.querySelector("[data-new-order-offline-discard-confirmation='true']"),
+        ).toBeNull(),
+      );
     },
   );
 
@@ -881,7 +888,7 @@ describe("NewOrderScreen i18n", () => {
       expect(guard.isDirty()).toBe(false);
     });
     expect(discardResult).toEqual({ status: "resolved" });
-    expect(mocks.discardCurrentDraft).toHaveBeenCalledTimes(1);
+    expect(mocks.discardSessionDrafts).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("customer-state")).toBeEmptyDOMElement();
   });
 

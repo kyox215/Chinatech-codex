@@ -67,6 +67,9 @@ export function useNewOrderOfflineAutosave({
   const lastSavedFingerprintRef = useRef<string | undefined>(undefined);
   const storageAvailableRef = useRef(false);
   const queuedRef = useRef(false);
+  const operationGenerationRef = useRef(0);
+  const discardInProgressRef = useRef(false);
+  const suppressAutosaveUntilCleanRef = useRef(false);
   const scopeStoreId = scope?.storeId;
   const scopeUserId = scope?.userId;
 
@@ -74,6 +77,10 @@ export function useNewOrderOfflineAutosave({
   // Publish the committed form before that read, without waiting for passive effects.
   useLayoutEffect(() => {
     latestFormRef.current = form;
+    if (suppressAutosaveUntilCleanRef.current && !isNewOrderFormWorthOfflineAutosave(form)) {
+      suppressAutosaveUntilCleanRef.current = false;
+      discardInProgressRef.current = false;
+    }
   }, [form]);
 
   const service = useMemo(() => {
@@ -88,6 +95,9 @@ export function useNewOrderOfflineAutosave({
     let active = true;
     storageAvailableRef.current = false;
     queuedRef.current = false;
+    operationGenerationRef.current += 1;
+    discardInProgressRef.current = false;
+    suppressAutosaveUntilCleanRef.current = false;
     currentDraftIdRef.current = undefined;
     lastSavedFingerprintRef.current = undefined;
     setLastSavedAt(null);
@@ -164,6 +174,7 @@ export function useNewOrderOfflineAutosave({
   const saveNow = useCallback(async () => {
     const currentForm = latestFormRef.current;
     if (!isNewOrderFormWorthOfflineAutosave(currentForm)) return true;
+    if (discardInProgressRef.current || suppressAutosaveUntilCleanRef.current) return false;
     if (!service || !storageAvailableRef.current || draftPrompt || queuedRef.current) return false;
 
     const fingerprint = getNewOrderOfflineDraftFingerprint(currentForm);
@@ -171,6 +182,7 @@ export function useNewOrderOfflineAutosave({
 
     setState("saving");
     setErrorMessage(null);
+    const operationGeneration = operationGenerationRef.current;
     const saved = await service.saveDraft(
       buildNewOrderOfflineDraftInput({
         form: currentForm,
@@ -179,8 +191,16 @@ export function useNewOrderOfflineAutosave({
     );
 
     if (!saved.ok) {
+      if (operationGeneration !== operationGenerationRef.current) return false;
       setState("error");
       setErrorMessage(formatOfflineStorageError(saved.error));
+      return false;
+    }
+
+    if (operationGeneration !== operationGenerationRef.current) {
+      // A discard can win while IndexedDB is finishing an earlier save. Remove the
+      // late record as well so closing the editor cannot recreate the same prompt.
+      await service.discardDraft(saved.value.localDraftId);
       return false;
     }
 
@@ -261,8 +281,11 @@ export function useNewOrderOfflineAutosave({
 
   const discardPromptDraft = useCallback(async () => {
     if (!service || !draftPrompt) return false;
+    operationGenerationRef.current += 1;
+    discardInProgressRef.current = true;
     const discarded = await service.discardDraft(draftPrompt.localDraftId);
     if (!discarded.ok) {
+      discardInProgressRef.current = false;
       setState("error");
       setErrorMessage(formatOfflineStorageError(discarded.error));
       return false;
@@ -276,13 +299,26 @@ export function useNewOrderOfflineAutosave({
     setDraftPrompt(null);
     setPendingRestoreNotice(null);
     setState("ready");
+    discardInProgressRef.current = false;
     return true;
   }, [draftPrompt, service]);
 
   const discardCurrentDraft = useCallback(async () => {
-    if (!service || !currentDraftIdRef.current) return false;
-    const discarded = await service.discardDraft(currentDraftIdRef.current);
-    if (!discarded.ok) return false;
+    if (!service) return false;
+    operationGenerationRef.current += 1;
+    suppressAutosaveUntilCleanRef.current = true;
+    discardInProgressRef.current = true;
+    const currentDraftId = currentDraftIdRef.current;
+    if (currentDraftId) {
+      const discarded = await service.discardDraft(currentDraftId);
+      if (!discarded.ok) {
+        suppressAutosaveUntilCleanRef.current = false;
+        discardInProgressRef.current = false;
+        setState("error");
+        setErrorMessage(formatOfflineStorageError(discarded.error));
+        return false;
+      }
+    }
     currentDraftIdRef.current = undefined;
     queuedRef.current = false;
     lastSavedFingerprintRef.current = undefined;
@@ -290,8 +326,55 @@ export function useNewOrderOfflineAutosave({
     setDraftPrompt(null);
     setPendingRestoreNotice(null);
     setState("ready");
+    if (!isNewOrderFormWorthOfflineAutosave(latestFormRef.current)) {
+      suppressAutosaveUntilCleanRef.current = false;
+      discardInProgressRef.current = false;
+    }
     return true;
   }, [service]);
+
+  const discardSessionDrafts = useCallback(async () => {
+    operationGenerationRef.current += 1;
+    suppressAutosaveUntilCleanRef.current = true;
+    discardInProgressRef.current = true;
+    const draftIds = Array.from(
+      new Set(
+        [draftPrompt?.localDraftId, currentDraftIdRef.current].filter(
+          (draftId): draftId is string => Boolean(draftId),
+        ),
+      ),
+    );
+    if (!service && draftIds.length > 0) {
+      suppressAutosaveUntilCleanRef.current = false;
+      discardInProgressRef.current = false;
+      return false;
+    }
+    const results = service
+      ? await Promise.all(draftIds.map((draftId) => service.discardDraft(draftId)))
+      : [];
+    const failure = results.find((result) => !result.ok);
+    if (failure && !failure.ok) {
+      suppressAutosaveUntilCleanRef.current = false;
+      discardInProgressRef.current = false;
+      setState("error");
+      setErrorMessage(formatOfflineStorageError(failure.error));
+      return false;
+    }
+
+    currentDraftIdRef.current = undefined;
+    queuedRef.current = false;
+    lastSavedFingerprintRef.current = undefined;
+    setLastSavedAt(null);
+    setDraftPrompt(null);
+    setPendingRestoreNotice(null);
+    setErrorMessage(null);
+    setState("ready");
+    if (!isNewOrderFormWorthOfflineAutosave(latestFormRef.current)) {
+      suppressAutosaveUntilCleanRef.current = false;
+      discardInProgressRef.current = false;
+    }
+    return true;
+  }, [draftPrompt, service]);
 
   const queueCurrentDraftForSync = useCallback(async () => {
     if (!service || !storageAvailableRef.current) {
@@ -353,6 +436,7 @@ export function useNewOrderOfflineAutosave({
     restorePromptDraft,
     discardPromptDraft,
     discardCurrentDraft,
+    discardSessionDrafts,
     queueCurrentDraftForSync,
     retryPreflight,
   };

@@ -115,6 +115,10 @@ function digitsOnly(value?: string | null) {
 
 export const brandSuggestions = ["Apple", "Samsung", "Huawei", "Xiaomi", "OPPO", "Vivo", "Honor"];
 
+export function normalizeManualDeviceIdentity(value: string) {
+  return value.toUpperCase();
+}
+
 export const appleDeviceModelSuggestions = [
   "iPhone 17e",
   "iPhone 17 Pro Max",

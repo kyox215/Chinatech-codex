@@ -145,6 +145,7 @@ export function NewOrderQuotationSection({
                             triggerClassName={cn(controlClass, "h-auto min-h-9 px-1 font-mono")}
                             valueClassName="overflow-visible whitespace-nowrap text-clip leading-6"
                             placeholder="0"
+                            layout="quote-editor"
                           />
                         }
                         action={
@@ -220,6 +221,7 @@ export function NewOrderQuotationSection({
                     onChange={(value) => setForm({ ...form, deposit: parseMoneyDraft(value) })}
                     triggerClassName={cn(controlClass, "bg-card px-2")}
                     placeholder="0"
+                    layout="quote-editor"
                   />
                 }
               />

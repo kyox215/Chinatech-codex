@@ -70,6 +70,7 @@ import { Separator } from "@/components/ui/separator";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
 import { inferOrderPaidAmount } from "@/features/orders/model/edit-order-form";
+import { normalizeManualDeviceIdentity } from "@/features/orders/model/new-order-form";
 import {
   emptyFinanceFaultDraft,
   mergeFaultPriceSelectionIntoFinanceDraft,
@@ -1701,7 +1702,9 @@ function DeviceIssuePanel({
             required
             tone="hero"
             edit={intakeEdit}
-            onChange={(value) => patchDraft(intakeEdit, { device_brand: value })}
+            onChange={(value) =>
+              patchDraft(intakeEdit, { device_brand: normalizeManualDeviceIdentity(value) })
+            }
           />
           <DraftTextField
             label={t("orders2b2.overview.model")}
@@ -1709,7 +1712,9 @@ function DeviceIssuePanel({
             required
             tone="hero"
             edit={intakeEdit}
-            onChange={(value) => patchDraft(intakeEdit, { device_model: value })}
+            onChange={(value) =>
+              patchDraft(intakeEdit, { device_model: normalizeManualDeviceIdentity(value) })
+            }
           />
         </section>
 

@@ -16,6 +16,7 @@ import {
   brandSuggestions,
   deviceModelSuggestionsForBrand,
   isAppleDeviceModelSuggestion,
+  normalizeManualDeviceIdentity,
   type NewOrderFormState,
 } from "@/features/orders/model/new-order-form";
 import {
@@ -277,7 +278,11 @@ export function NewOrderDeviceInfoSection({
             id="new-order-device-brand"
             value={form.brand}
             onChange={(event) =>
-              setForm({ ...form, brand: event.target.value, deviceId: undefined })
+              setForm({
+                ...form,
+                brand: normalizeManualDeviceIdentity(event.target.value),
+                deviceId: undefined,
+              })
             }
             className={visualInputClass}
             placeholder={t("orders2b1.new.brandPlaceholder")}
@@ -310,7 +315,7 @@ export function NewOrderDeviceInfoSection({
             id="new-order-device-model"
             value={form.model}
             onChange={(event) => {
-              const model = event.target.value;
+              const model = normalizeManualDeviceIdentity(event.target.value);
               setForm({
                 ...form,
                 brand:

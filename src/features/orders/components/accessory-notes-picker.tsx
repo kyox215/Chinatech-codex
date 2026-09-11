@@ -52,7 +52,10 @@ export function AccessoryNotesPicker({
   value,
   onChange,
   compact = false,
+  triggerClassName,
+  contentClassName,
   disabled = false,
+  quickChoices = false,
 }: {
   value?: string | null;
   onChange: (value: string) => void;
@@ -83,12 +86,15 @@ export function AccessoryNotesPicker({
   };
 
   return (
-    <div className={cn("min-w-0 space-y-2", compact && "space-y-1.5")}>
+    <div
+      data-accessory-presentation={quickChoices ? "mobile-checklist" : "pills"}
+      className={cn("min-w-0 space-y-2", compact && "space-y-1.5", contentClassName)}
+    >
       <div
         data-accessory-choices="true"
         role="group"
         aria-label={t("orders2b1.new.accessories")}
-        className="flex min-w-0 flex-wrap gap-1.5"
+        className={cn("min-w-0 gap-1.5", quickChoices ? "grid grid-cols-2" : "flex flex-wrap")}
       >
         {ACCESSORY_NOTE_OPTIONS.map((option) => {
           const selected = selectedOptions.includes(option);
@@ -100,8 +106,13 @@ export function AccessoryNotesPicker({
               data-accessory-choice={option}
               aria-pressed={selected}
               className={cn(
-                "flex min-h-11 min-w-0 max-w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--border-panel)] px-2 py-1.5 text-xs leading-4 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9",
-                selected && "border-primary/25 bg-primary/5 text-primary",
+                "flex min-h-11 min-w-0 max-w-full items-center gap-2 rounded-lg border border-[var(--border-panel)] px-2 py-1.5 text-xs leading-4 outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9",
+                quickChoices &&
+                  "min-h-12 justify-start rounded-xl bg-[var(--surface-panel-muted)]/55 px-3 text-left text-sm",
+                quickChoices && option === "无" && "col-span-2",
+                selected &&
+                  "border-primary/30 bg-primary/[0.08] text-primary ring-1 ring-primary/15",
+                triggerClassName,
               )}
               onClick={() =>
                 updateSelection(
@@ -116,10 +127,11 @@ export function AccessoryNotesPicker({
               <span
                 className={cn(
                   "grid size-3 shrink-0 place-items-center rounded border border-current",
+                  quickChoices && "size-5 rounded-md",
                   selected && "bg-primary text-primary-foreground",
                 )}
               >
-                {selected ? <Check className="size-2.5" /> : null}
+                {selected ? <Check className={cn("size-2.5", quickChoices && "size-3.5")} /> : null}
               </span>
               <span className="min-w-0 break-words">{localizeAccessoryNoteOption(option, t)}</span>
             </button>

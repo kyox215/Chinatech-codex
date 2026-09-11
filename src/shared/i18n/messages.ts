@@ -2409,7 +2409,7 @@ const zhCN = {
   "orders2b1.new.offline.unavailable": "本机草稿暂不可用，请不要刷新页面。",
   "orders2b1.new.offline.disabled": "本机草稿未启用。",
   "orders2b1.new.offline.justNow": "刚刚",
-  "orders2b1.new.offline.found": "发现本机草稿",
+  "orders2b1.new.offline.found": "上次未完成的工单",
   "orders2b1.new.offline.foundHelp":
     "这个草稿只保存在此设备，尚未创建系统工单。上次本机保存：{time}。",
   "orders2b1.new.offline.review": "恢复后请重新确认客户或设备关联，再在线创建工单。",
@@ -6757,7 +6757,7 @@ const itIT: Record<MessageKey, string> = {
   "orders2b1.new.offline.unavailable": "Bozza locale non disponibile; non aggiornare la pagina.",
   "orders2b1.new.offline.disabled": "Bozza locale disattivata.",
   "orders2b1.new.offline.justNow": "adesso",
-  "orders2b1.new.offline.found": "Bozza locale trovata",
+  "orders2b1.new.offline.found": "Ordine non completato su questo dispositivo",
   "orders2b1.new.offline.foundHelp":
     "La bozza esiste solo su questo dispositivo e non ha creato un ordine. Ultimo salvataggio: {time}.",
   "orders2b1.new.offline.review":
@@ -11303,7 +11303,7 @@ const en: Record<MessageKey, string> = {
   "orders2b1.new.offline.unavailable": "Local draft is unavailable; do not refresh the page.",
   "orders2b1.new.offline.disabled": "Local draft disabled.",
   "orders2b1.new.offline.justNow": "just now",
-  "orders2b1.new.offline.found": "Local draft found",
+  "orders2b1.new.offline.found": "Unfinished order on this device",
   "orders2b1.new.offline.foundHelp":
     "This draft exists only on this device and has not created an order. Last saved: {time}.",
   "orders2b1.new.offline.review":

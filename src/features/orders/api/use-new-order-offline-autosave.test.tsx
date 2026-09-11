@@ -171,6 +171,94 @@ describe("useNewOrderOfflineAutosave", () => {
     expect(drafts.ok && drafts.value).toEqual([]);
   });
 
+  it("discards a prompted draft and the current form as one close-session operation", async () => {
+    const harness = createServiceHarness();
+    await harness.service.saveDraft(
+      buildNewOrderOfflineDraftInput({ form: makeForm({ model: "PROMPTED DRAFT" }) }),
+    );
+    let latest: HookValue | undefined;
+    let resetForm: (() => void) | undefined;
+
+    function PromptedDraftHarness() {
+      const [form, setForm] = useState(makeForm({ model: "UNSAVED FORM CHANGE" }));
+      const value = useNewOrderOfflineAutosave({
+        form,
+        scope,
+        debounceMs: 0,
+        serviceFactory: () => harness.service,
+      });
+      resetForm = () => setForm(initialNewOrderForm);
+      useLayoutEffect(() => {
+        latest = value;
+      }, [value]);
+      return null;
+    }
+
+    render(<PromptedDraftHarness />);
+    await waitFor(() => expect(latest?.draftPrompt?.localDraftId).toBe("draft_id_1"));
+
+    await act(async () => {
+      expect(await requireHook(latest).discardSessionDrafts()).toBe(true);
+      flushSync(() => resetForm?.());
+    });
+
+    await waitFor(() => expect(latest?.draftPrompt).toBeNull());
+    expect(requireHook(latest).isCurrentDraftDirty()).toBe(false);
+    const drafts = await harness.store.listOrderDrafts({ ...scope, status: "draft_local" });
+    expect(drafts.ok && drafts.value).toEqual([]);
+  });
+
+  it("removes a save that finishes after the editor session was discarded", async () => {
+    const harness = createServiceHarness();
+    let releaseSave: (() => void) | undefined;
+    let markSaveStarted: (() => void) | undefined;
+    const saveStarted = new Promise<void>((resolve) => {
+      markSaveStarted = resolve;
+    });
+    const saveGate = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
+    const service = {
+      ...harness.service,
+      saveDraft: vi.fn(async (...args: Parameters<typeof harness.service.saveDraft>) => {
+        markSaveStarted?.();
+        await saveGate;
+        return harness.service.saveDraft(...args);
+      }),
+    };
+    let latest: HookValue | undefined;
+    let resetForm: (() => void) | undefined;
+
+    function LateSaveHarness() {
+      const [form, setForm] = useState(makeForm({ model: "LATE SAVE" }));
+      const value = useNewOrderOfflineAutosave({
+        form,
+        scope,
+        debounceMs: 0,
+        serviceFactory: () => service,
+      });
+      resetForm = () => setForm(initialNewOrderForm);
+      useLayoutEffect(() => {
+        latest = value;
+      }, [value]);
+      return null;
+    }
+
+    render(<LateSaveHarness />);
+    await saveStarted;
+    await act(async () => {
+      expect(await requireHook(latest).discardSessionDrafts()).toBe(true);
+      flushSync(() => resetForm?.());
+      releaseSave?.();
+    });
+
+    await waitFor(async () => {
+      const drafts = await harness.store.listOrderDrafts({ ...scope, status: "draft_local" });
+      expect(drafts.ok && drafts.value).toEqual([]);
+    });
+    expect(requireHook(latest).isCurrentDraftDirty()).toBe(false);
+  });
+
   it("autosaves safe fields with only a sensitive re-entry marker", async () => {
     const harness = createServiceHarness();
     let latest: HookValue | undefined;

@@ -14,6 +14,8 @@ export interface VirtualKeyboardDockProps {
   className?: string;
   panelClassName?: string;
   contentClassName?: string;
+  scopeLayout?: "flow" | "overlay";
+  consumeOutsidePointer?: boolean;
   "data-testid"?: string;
 }
 
@@ -28,6 +30,8 @@ export function VirtualKeyboardDock({
   className,
   panelClassName,
   contentClassName,
+  scopeLayout = "flow",
+  consumeOutsidePointer = false,
   "data-testid": testId,
 }: VirtualKeyboardDockProps) {
   const id = useId();
@@ -52,8 +56,10 @@ export function VirtualKeyboardDock({
   }, [open, triggerRef]);
 
   useEffect(() => {
-    if (open && scopeHost) panelRef.current?.scrollIntoView?.({ block: "nearest" });
-  }, [open, scopeHost]);
+    if (open && scopeHost && scopeLayout === "flow") {
+      panelRef.current?.scrollIntoView?.({ block: "nearest" });
+    }
+  }, [open, scopeHost, scopeLayout]);
 
   useEffect(() => {
     setMounted(true);
@@ -66,17 +72,51 @@ export function VirtualKeyboardDock({
       if (!scopeHost && event.key === "Escape") onOpenChange(false);
     };
 
-    const dismissOutside = (event: globalThis.PointerEvent | globalThis.MouseEvent) => {
+    const isOutside = (event: globalThis.PointerEvent | globalThis.MouseEvent) => {
       const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (panelRef.current?.contains(target)) return;
-      if (triggerRef?.current?.contains(target)) return;
+      if (!(target instanceof Node)) return false;
+      if (panelRef.current?.contains(target)) return false;
+      if (triggerRef?.current?.contains(target)) return false;
+      return true;
+    };
+    const dismissOutside = (event: globalThis.PointerEvent | globalThis.MouseEvent) => {
+      if (!isOutside(event)) return;
       restoreFocus.current = false;
       onOpenChange(false);
     };
     const defersDismiss = (target: EventTarget | null) =>
       target instanceof Element && Boolean(target.closest("[data-keypad-defer-dismiss]"));
     const handlePointerDown = (event: globalThis.PointerEvent) => {
+      if (consumeOutsidePointer && isOutside(event)) {
+        const pointerTarget = event.target;
+        let timeoutId = 0;
+        const clearSuppression = () => {
+          window.removeEventListener("click", suppressClick, true);
+          window.removeEventListener("pointercancel", clearSuppression, true);
+          window.clearTimeout(timeoutId);
+        };
+        const suppressClick = (clickEvent: globalThis.MouseEvent) => {
+          clearSuppression();
+          if (
+            clickEvent.target === pointerTarget ||
+            (pointerTarget instanceof Element &&
+              clickEvent.target instanceof Node &&
+              pointerTarget.contains(clickEvent.target))
+          ) {
+            clickEvent.preventDefault();
+            clickEvent.stopPropagation();
+            clickEvent.stopImmediatePropagation();
+          }
+        };
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        window.addEventListener("click", suppressClick, { capture: true });
+        window.addEventListener("pointercancel", clearSuppression, { capture: true, once: true });
+        timeoutId = window.setTimeout(clearSuppression, 750);
+        dismissOutside(event);
+        return;
+      }
       // Removing a scoped dock can move this opt-in popup trigger before pointerup.
       // Keep its geometry until the same click activates the next surface.
       if (!defersDismiss(event.target)) dismissOutside(event);
@@ -88,16 +128,16 @@ export function VirtualKeyboardDock({
     scopeHost?.addEventListener("rd-keypad-dismiss", dismiss);
 
     window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("pointerdown", handlePointerDown, consumeOutsidePointer);
     window.addEventListener("click", handleClick);
 
     return () => {
       scopeHost?.removeEventListener("rd-keypad-dismiss", dismiss);
       window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("pointerdown", handlePointerDown, consumeOutsidePointer);
       window.removeEventListener("click", handleClick);
     };
-  }, [onOpenChange, open, triggerRef, scopeHost]);
+  }, [consumeOutsidePointer, onOpenChange, open, triggerRef, scopeHost]);
 
   useEffect(() => {
     if (!open || scopeHost) {
@@ -140,11 +180,14 @@ export function VirtualKeyboardDock({
   return createPortal(
     <div
       data-virtual-keyboard-dock="true"
+      data-virtual-keyboard-layout={scopeHost ? scopeLayout : "viewport"}
       data-testid={testId}
       className={cn(
         "z-[130] flex justify-center pointer-events-none",
         scopeHost
-          ? "relative w-full py-1"
+          ? scopeLayout === "overlay"
+            ? "absolute inset-x-0 px-3 bottom-[calc(env(safe-area-inset-bottom)+0.5rem)]"
+            : "relative w-full py-1"
           : "fixed inset-x-0 px-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]",
         className,
       )}
@@ -159,7 +202,10 @@ export function VirtualKeyboardDock({
         onClick={(event) => event.stopPropagation()}
         className={cn(
           "pointer-events-auto w-[min(430px,calc(100vw-24px))] rounded-xl border border-[var(--border-panel)] bg-card p-2 shadow-[var(--shadow-overlay)]",
-          scopeHost && "max-h-[55dvh] max-w-full overflow-y-auto overscroll-contain",
+          scopeHost &&
+            (scopeLayout === "overlay"
+              ? "!max-h-[calc(100dvh-1rem)] max-w-full overflow-y-auto overscroll-contain"
+              : "max-h-[55dvh] max-w-full overflow-y-auto overscroll-contain"),
           panelClassName,
         )}
       >

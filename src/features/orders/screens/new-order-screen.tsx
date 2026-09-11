@@ -842,8 +842,9 @@ export function NewOrderScreen({
           ) {
             return { status: "blocked" };
           }
+          const discarded = await snapshot.offlineDraft.discardSessionDrafts();
+          if (!discarded) return { status: "blocked" };
           snapshot.photos.discard();
-          await snapshot.offlineDraft.discardCurrentDraft();
           // The guard reads isDirty again as soon as this promise resolves.
           // Publish the reset before it decides whether the requested close may run.
           flushSync(() => {
@@ -1010,7 +1011,12 @@ export function NewOrderScreen({
             <NewOrderOfflineRestoreCard
               prompt={offlineDraft.draftPrompt}
               onRestore={handleRestoreOfflineDraft}
-              onDiscard={() => setDiscardDraftDialogOpen(true)}
+              confirmDiscard={discardDraftDialogOpen}
+              onRequestDiscard={() => setDiscardDraftDialogOpen(true)}
+              onCancelDiscard={() => setDiscardDraftDialogOpen(false)}
+              onConfirmDiscard={() => {
+                void handleDiscardOfflineDraft();
+              }}
             />
           ) : null}
 
@@ -1272,26 +1278,6 @@ export function NewOrderScreen({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <AlertDialog open={discardDraftDialogOpen} onOpenChange={setDiscardDraftDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("orders2b1.new.discardTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>{t("orders2b1.new.discardHelp")}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="h-11 lg:h-9">{t("common.cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              className="h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90 lg:h-9"
-              onClick={() => {
-                void handleDiscardOfflineDraft();
-              }}
-            >
-              {t("orders2b1.new.discardConfirm")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <AlertDialog
         open={Boolean(identityConflict) && !sharedPhoneConfirmOpen}
         onOpenChange={(open) => {
@@ -1984,11 +1970,17 @@ function NewOrderOfflineStatusLine({
 function NewOrderOfflineRestoreCard({
   prompt,
   onRestore,
-  onDiscard,
+  confirmDiscard,
+  onRequestDiscard,
+  onCancelDiscard,
+  onConfirmDiscard,
 }: {
   prompt: NewOrderOfflineDraftPrompt;
   onRestore: () => void;
-  onDiscard: () => void;
+  confirmDiscard: boolean;
+  onRequestDiscard: () => void;
+  onCancelDiscard: () => void;
+  onConfirmDiscard: () => void;
 }) {
   const { locale, t } = useLocale();
   return (
@@ -2015,27 +2007,47 @@ function NewOrderOfflineRestoreCard({
           </p>
         ) : null}
       </div>
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          size="sm"
-          className="h-9 rounded-lg text-xs lg:h-8"
-          onClick={onRestore}
+      {confirmDiscard ? (
+        <div
+          data-new-order-offline-discard-confirmation="true"
+          className="grid min-w-0 gap-1.5 rounded-xl border border-destructive/20 bg-destructive/5 p-2 lg:min-w-[280px]"
         >
-          <RotateCcw className="mr-1.5 size-3.5" />
-          {t("orders2b1.new.offline.restore")}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-10 rounded-lg text-xs lg:h-8"
-          onClick={onDiscard}
-        >
-          <Trash2 className="mr-1.5 size-3.5" />
-          {t("orders2b1.new.offline.discard")}
-        </Button>
-      </div>
+          <p className="text-xs font-semibold text-foreground">{t("orders2b1.new.discardTitle")}</p>
+          <p className="text-[10px] leading-4 text-muted-foreground lg:text-xs">
+            {t("orders2b1.new.discardHelp")}
+          </p>
+          <div className="grid grid-cols-2 gap-1.5">
+            <Button type="button" variant="outline" size="sm" onClick={onCancelDiscard}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="button" variant="destructive" size="sm" onClick={onConfirmDiscard}>
+              {t("orders2b1.new.discardConfirm")}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 rounded-lg text-xs lg:h-8"
+            onClick={onRestore}
+          >
+            <RotateCcw className="mr-1.5 size-3.5" />
+            {t("orders2b1.new.offline.restore")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-10 rounded-lg text-xs lg:h-8"
+            onClick={onRequestDiscard}
+          >
+            <Trash2 className="mr-1.5 size-3.5" />
+            {t("orders2b1.new.offline.discard")}
+          </Button>
+        </div>
+      )}
     </section>
   );
 }

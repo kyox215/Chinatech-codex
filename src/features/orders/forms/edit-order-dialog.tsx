@@ -28,6 +28,7 @@ import { createOrderLineId } from "@/entities/order/model/order-line-identity";
 import { CustomerPhoneLookup } from "@/features/orders/forms/customer-phone-lookup";
 import { EditField } from "@/features/orders/forms/edit-field";
 import { buildEditForm, inferOrderPaidAmount } from "@/features/orders/model/edit-order-form";
+import { normalizeManualDeviceIdentity } from "@/features/orders/model/new-order-form";
 import { warrantyReasonRequired } from "@/features/orders/model/order-warranty";
 import { componentOverlay } from "@/lib/component-patterns";
 import { formatMoney } from "@/lib/money";
@@ -128,13 +129,23 @@ export function EditOrderDialog({
               <EditField label="品牌" required>
                 <Input
                   value={form.device_brand}
-                  onChange={(event) => setForm({ ...form, device_brand: event.target.value })}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      device_brand: normalizeManualDeviceIdentity(event.target.value),
+                    })
+                  }
                 />
               </EditField>
               <EditField label="型号" required>
                 <Input
                   value={form.device_model}
-                  onChange={(event) => setForm({ ...form, device_model: event.target.value })}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      device_model: normalizeManualDeviceIdentity(event.target.value),
+                    })
+                  }
                 />
               </EditField>
               <EditField label="IMEI / 序列号">
