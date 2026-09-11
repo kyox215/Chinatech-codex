@@ -255,10 +255,7 @@ describe("order option pickers", () => {
     await user.click(screen.getByRole("button", { name: "手机壳" }));
 
     expect(screen.getByTestId("accessory-value")).toHaveTextContent("SIM卡、手机壳");
-    expect(screen.getByRole("button", { name: "SIM卡" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(screen.getByRole("button", { name: "SIM卡" })).toHaveAttribute("aria-pressed", "true");
 
     await user.click(screen.getByRole("button", { name: "无" }));
 
