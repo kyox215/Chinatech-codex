@@ -516,16 +516,19 @@ componentOverlay.responsiveDialog = "w-[min(960px,calc(100vw-24px))] max-h-[90vh
 - `OrderDetailScreen` 支持 `surface="page" | "dialog"` 的响应式 class。
 - `OrderHero` 操作区使用 flex wrap。
 - Tabs 容器增加 `max-w-full overflow-hidden`。
-- 弹窗概览 grid 使用 `detailWorkspace.orderDetailGrid`：移动单列；`768px+` 使用员工优先两列，DOM/视觉顺序为“报价处理 → 客户与设备 → 关键信息与记录”，左侧约 `2fr`、右侧约 `1fr`，每列 `min-w-0`。
+- 弹窗只读概览与独立详情页复用 opt-in 触控工作台。原弹窗编辑态继续使用 `detailWorkspace.orderDetailGrid` 员工优先排列，不改变编辑器、固定外壳与保存状态。
 - 技师 / 录入人只读展示，新建与编辑入口不得提供选择器或 inline edit。
 - 报价金额编辑使用 string draft + shared normalizer，空金额不自动显示为 `0`，总报价、尾款和保存 payload 必须同源计算。
 
 ### Acceptance
 
 - 详情弹窗在 1024 宽度内不横向滚动。
-- 详情弹窗在 768、1024、1280、1440 宽度下报价首屏可见，客户/设备位于同一左列下方，关键信息/记录位于右列且不重叠。
+- 详情弹窗在 768、1024、1280、1440 宽度下报价首屏可见。只读态实际详情容器达到 680px 时，客户/工单、设备、三金额并列摘要，后续横向维修及补充信息；原编辑态排列不变，关键信息/记录不能重叠。
 - 详情弹窗切换到附件库存等短内容 Tab 后，Dialog 外壳宽高不变。
 - 独立详情页在 390 宽度下单列。
+- `TASK-20260910-006-unified-workbench` 工作台沿用 opt-in `orderDetailWorkbenchGrid`：实际 `order-detail` 容器内容宽度达到 680px 时，客户/工单、设备、三金额并列摘要，后续横向维修及补充信息，正常流精简头部与下划线 Tabs，常用动作靠近内容末尾；浅灰画布、蓝色主操作仅限定订单详情 scope。不足时保留原单列，长内容正常滚动完整可达，不固定高度裁剪，不修改全局断点。
+- 业务 renderer 首次打开在 768–1023px 选择 compact、≥1024px 选择 desktop，按订单会话锁定，resize/旋转只做 CSS 重排，不能切换 owner、重新挂载或建立第二套保存状态；导航独立按 ≤900px 抽屉、>900px 侧栏处理。compact 在足够宽的实际容器内使用同一工作台组合；手机仍按客户设备 → 送修说明 → 诊断 → 人员供应商 → 报价顺序及原浮卡头部，仅统一视觉。
+- 客户补充资料/签名、设备备注、关键时间和记录通过现有展开组或对应只读表面完整可达，权限受限仍能读取。桌面联合编辑使用原真实输入，展开/关闭不能卸载输入或丢草稿；报价编辑仍展示原实时总额。宽屏常用动作至少 44px，整行入口复用原编辑器与回焦。报价发布、金额调整、收款保持独立原入口；密码默认隐藏，取消/财务受限分支不得合并。
 - 所有金额保持 `€` 在前。
 
 ## Step 4: 新建/编辑工单
@@ -900,7 +903,6 @@ Fault editing uses an independent bottom Sheet at 390/430/768 and an 860px deskt
 ### Owner-selected A density (2026-09-06)
 
 Follow [GLOBAL_CONTENT_EDITING_STANDARD.md](GLOBAL_CONTENT_EDITING_STANDARD.md). Instruction15 keeps quotation rows single-line at all widths and reveals long names/specifications only in a popup. Reuse the mobile bottom Dialog and desktop centered Dialog; never enlarge the underlying row. The popup has a scrolling body, separate 44px actions, container initial focus and trigger focus return. Each callsite keeps its original editability; the popup does not introduce new catalog-name or specification restrictions. Categories retain 4×3 fixed 36px cells, 4px gaps and the existing 2:1 direct-selection/options split; numeric inputs remain 16px and amounts stay on one line.
-
 
 ### A14 dense editor refinement (2026-09-06)
 

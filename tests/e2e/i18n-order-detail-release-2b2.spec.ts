@@ -27,7 +27,7 @@ const synthetic = {
   model: "Mate 自定义Ω",
   deviceNotes: "动态中文设备备注Ω",
   issue: "动态中文故障描述Ω",
-  diagnosis: "动态中文检测结论Ω",
+  diagnosis: "动态中文检测结论Ω，长诊断内容必须完整可读。".repeat(24),
   accessory: "动态中文配件附件Ω",
   warranty: "动态中文保修Ω",
   technician: "动态中文负责人Ω",
@@ -94,15 +94,34 @@ for (const { locale, width } of directCases) {
     if (locale !== "zh-CN") await expect(root).not.toContainText("not_required");
     await expectDynamicDetail(root);
     if (width < 1024) {
-      const history = root.locator("details").filter({
-        has: page.locator("summary", {
-          hasText: translateMessage(locale, "orders2b2.overview.diagnosis"),
-        }),
-      });
-      await history.locator("summary").click();
-      await expect(history.locator("p")).toHaveText(synthetic.diagnosis);
-      await expect(history.locator("p")).toBeVisible();
-      await history.locator("summary").click();
+      const history = root.locator('[data-mobile-order-diagnosis="true"]');
+      const summary = history.locator(":scope > summary");
+      await expect(summary).toContainText(translateMessage(locale, "orders2b2.overview.diagnosis"));
+      if (!(await history.evaluate((element) => (element as HTMLDetailsElement).open))) {
+        await summary.click();
+      }
+      const preview = history.locator(":scope > p");
+      await expect(preview).toHaveText(synthetic.diagnosis);
+      await expect(preview).toBeVisible();
+      if (width === 768) {
+        const fullText = history.locator(":scope > details");
+        await fullText.locator(":scope > summary").click();
+        await expect(fullText).toHaveAttribute("open", "");
+        await expect(fullText.locator(":scope > p")).toHaveText(synthetic.diagnosis);
+        await expect(fullText.locator(":scope > p")).toBeVisible();
+        expect(
+          await fullText
+            .locator(":scope > p")
+            .evaluate((element) => element.scrollHeight <= element.clientHeight + 1),
+        ).toBe(true);
+        await saveEvidenceScreenshot(page, testInfo, `diagnosis-expanded-${locale}-${width}`);
+        await fullText.locator(":scope > summary").click();
+      } else {
+        expect(
+          await preview.evaluate((element) => element.scrollHeight <= element.clientHeight + 1),
+        ).toBe(true);
+      }
+      await summary.click();
     }
     await expectResponsiveActions(root, width);
     if (width < 1024) {
@@ -182,12 +201,7 @@ for (const { locale, width } of workspaceCases) {
     );
     await expectDynamicDetail(root);
 
-    const historyShortcut = root
-      .locator('[data-order-panel="records-summary"]')
-      .getByRole("button", {
-        name: translateMessage(locale, "orders2b2.overview.records"),
-        exact: true,
-      });
+    const historyShortcut = root.locator("#order-detail-workspace-tab-records");
     await historyShortcut.focus();
     await expect(historyShortcut).toBeFocused();
     await page.keyboard.press("Enter");
@@ -334,7 +348,7 @@ test("heavy it-IT 768px uploads exact front, back and other photos through the r
   );
 });
 
-test("heavy en 1440px preserves finance draft then one pending transition across en-it-en", async ({
+test("heavy en 1440px keeps scoped finance drafts and localized pending transition identity", async ({
   page,
 }, testInfo) => {
   const transitionBodies: Array<Record<string, unknown>> = [];
@@ -345,7 +359,10 @@ test("heavy en 1440px preserves finance draft then one pending transition across
   await page.route(apiUrl("order/transition"), async (route) => {
     transitionBodies.push(route.request().postDataJSON() as Record<string, unknown>);
     await transitionRelease;
-    await route.fulfill({ json: { data: { id: "ord_1", status: "repairing" } } });
+    await route.fulfill({
+      status: 409,
+      json: { error: "Synthetic order conflict", code: "ORDER_WRITE_CONFLICT" },
+    });
   });
   const evidence = await preparePage(page, "en", {
     canUploadPhoto: true,
@@ -361,20 +378,19 @@ test("heavy en 1440px preserves finance draft then one pending transition across
     Object.assign(window, { __release2b2DocumentMarker: "same-order-document" });
   });
 
-  await root
-    .getByRole("button", { name: translateMessage("en", "orders2b2.hero.edit"), exact: true })
-    .click();
-  await root
-    .getByRole("button", {
-      name: translateMessage("en", "orders2b2.overview.addItem"),
-      exact: true,
-    })
-    .click();
-  const quoteNameEn = root.getByRole("button", {
-    name: translateMessage("en", "orders2b2.overview.itemName", { index: 2 }),
+  const quoteTrigger = root.getByRole("button", {
+    name: `${translateMessage("en", "orders2b2.hero.edit")} · ${translateMessage("en", "orders2b2.overview.quoteItems")}`,
     exact: true,
   });
-  const financeDraft = "Employee finance draft Ω";
+  await quoteTrigger.click();
+  const financeEditor = page.locator('[data-order-desktop-finance-editor="true"]');
+  const quoteNameEn = financeEditor.getByRole("button", {
+    name: translateMessage("en", "orders2b2.overview.itemName", { index: 1 }),
+    exact: true,
+  });
+  const financeDraft = "Employee finance draft Ω with complete long readable specifications. "
+    .repeat(12)
+    .trim();
   await quoteNameEn.click();
   const quotePopup = page.locator('[data-order-quote-popup="true"]');
   await expect(quotePopup).toBeFocused();
@@ -384,26 +400,47 @@ test("heavy en 1440px preserves finance draft then one pending transition across
     .click();
   await expect(quotePopup).toHaveCount(0);
   await expect(quoteNameEn).toBeFocused();
+  await page.keyboard.press("Escape");
+  await financeEditor
+    .getByRole("button", { name: translateMessage("en", "orders.faultEditor.keep"), exact: true })
+    .click();
+  await expect(quoteNameEn).toContainText(financeDraft);
+  await expect(quoteNameEn).toBeFocused();
+  await quoteNameEn.click();
+  await expect(quotePopup.getByRole("textbox")).toHaveValue(financeDraft);
+  await page.keyboard.press("Escape");
+  await expect(quoteNameEn).toBeFocused();
+  await saveEvidenceScreenshot(page, testInfo, "heavy-en-1440-finance-retained-draft");
+  await page.keyboard.press("Escape");
+  await financeEditor
+    .getByRole("button", {
+      name: translateMessage("en", "orders.faultEditor.confirmDiscard"),
+      exact: true,
+    })
+    .click();
+  await expect(financeEditor).toHaveCount(0);
+  await expect(quoteTrigger).toBeFocused();
+  await quoteTrigger.click();
+  await quoteNameEn.click();
+  await expect(quotePopup.getByRole("textbox")).toHaveValue(synthetic.quoteName);
+  await page.keyboard.press("Escape");
+  await expect(quotePopup).toHaveCount(0);
+  await expect(quoteNameEn).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(financeEditor).toHaveCount(0);
+  expect(evidence.allowedLocalWrites).toEqual([]);
+  expect(evidence.forbiddenRequests).toEqual([]);
+  // The scoped modal intentionally traps focus. Locale switching is exercised
+  // after closing it, not by forcing a click through its inaccessible backdrop.
   const financeScroll = await setStableScroll(page, 20);
   await switchLocale(page, "it-IT");
-  await expectPreservedIdentity(page, root, initialUrl, financeScroll, {
-    inputLabel: translateMessage("it-IT", "orders2b2.overview.customer"),
-  });
-  await expect(
-    root.getByRole("button", {
-      name: translateMessage("it-IT", "orders2b2.overview.itemName", { index: 2 }),
-      exact: true,
-    }),
-  ).toContainText(financeDraft);
+  await expectPreservedIdentity(page, root, initialUrl, financeScroll);
+  await expect(root).toContainText(synthetic.quoteName);
+  await expect(root).not.toContainText(financeDraft);
   await switchLocale(page, "en");
-  await expectPreservedIdentity(page, root, initialUrl, financeScroll, {
-    inputLabel: translateMessage("en", "orders2b2.overview.customer"),
-  });
-  await expect(quoteNameEn).toContainText(financeDraft);
-  await root
-    .getByRole("button", { name: translateMessage("en", "orders2b2.hero.cancel"), exact: true })
-    .click();
-  await expect(quoteNameEn).toHaveCount(0);
+  await expectPreservedIdentity(page, root, initialUrl, financeScroll);
+  await expect(root).toContainText(synthetic.quoteName);
+  await expect(root).not.toContainText(financeDraft);
 
   const flowButton = root.getByRole("button", {
     name: translateMessage("en", "orders2b2.overview.flowAction"),
@@ -412,11 +449,10 @@ test("heavy en 1440px preserves finance draft then one pending transition across
   await flowButton.click();
   const transitionPanel = root.locator('[data-order-desktop-transition-panel="true"]');
   await expect(transitionPanel).toBeVisible();
-  const targetLabel = translateMessage("en", "orders.workflowRepair");
-  await transitionPanel
-    .getByRole("button", { name: new RegExp(`→\\s*${escapeRegExp(targetLabel)}`) })
-    .filter({ hasNotText: translateMessage("en", "orders2b2.transition.reason") })
-    .click();
+  const selectedTarget = transitionPanel.locator('[data-status-sequence-entry="repairing"]');
+  await selectedTarget.click();
+  expect(transitionBodies).toHaveLength(0);
+  await transitionPanel.locator("[data-status-confirm]").click();
   await expect.poll(() => transitionBodies.length).toBe(1);
   const capturedBody = structuredClone(transitionBodies[0]);
   expect(capturedBody).toMatchObject({
@@ -429,20 +465,20 @@ test("heavy en 1440px preserves finance draft then one pending transition across
   expect(capturedBody?.idempotency_key).toMatch(
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
   );
-  await expect(flowButton).toBeDisabled();
+  await expect(transitionPanel.locator("[data-status-confirm]")).toBeDisabled();
+  await expect(transitionPanel.locator("[data-status-cancel]")).toBeDisabled();
+  await expect(selectedTarget).toHaveAttribute("aria-pressed", "true");
   const pendingScroll = await setStableScroll(page, 20);
   await switchLocale(page, "it-IT");
-  await expectPreservedIdentity(page, root, initialUrl, pendingScroll);
-  await expect(
-    root.getByRole("button", {
-      name: translateMessage("it-IT", "orders2b2.overview.flowAction"),
-      exact: true,
-    }),
-  ).toBeDisabled();
+  await expectPreservedIdentity(page, root, initialUrl, pendingScroll, { contentHidden: true });
+  await expect(transitionPanel.locator("[data-status-confirm]")).toBeDisabled();
+  await expect(transitionPanel.locator("[data-status-cancel]")).toBeDisabled();
+  await expect(selectedTarget).toHaveAttribute("aria-pressed", "true");
   expect(transitionBodies).toEqual([capturedBody]);
   await switchLocale(page, "en");
-  await expectPreservedIdentity(page, root, initialUrl, pendingScroll);
-  await expect(flowButton).toBeDisabled();
+  await expectPreservedIdentity(page, root, initialUrl, pendingScroll, { contentHidden: true });
+  await expect(transitionPanel.locator("[data-status-confirm]")).toBeDisabled();
+  await expect(selectedTarget).toHaveAttribute("aria-pressed", "true");
   expect(transitionBodies).toEqual([capturedBody]);
   await expectNoUnexpectedFixedHan(root, "en");
   await saveEvidenceScreenshot(page, testInfo, "heavy-en-1440-finance-transition-pending");
@@ -452,13 +488,30 @@ test("heavy en 1440px preserves finance draft then one pending transition across
 
   releaseTransition?.();
   await expect.poll(() => transitionBodies.length).toBe(1);
+  await expect(transitionPanel).toContainText(
+    translateMessage("en", "orders2b2.error.conflict", {
+      operation: translateMessage("en", "orders2b2.operation.transition"),
+    }),
+  );
+  await expect(transitionPanel.locator("[data-status-confirm]")).toBeEnabled();
+  await expect(transitionPanel.locator("[data-status-cancel]")).toBeEnabled();
+  await expect(selectedTarget).toHaveAttribute("aria-pressed", "true");
+  await expect(transitionPanel.locator('[data-status-current="true"]')).toHaveAttribute(
+    "data-status-sequence-entry",
+    "diagnosing",
+  );
+  expect(transitionBodies).toEqual([capturedBody]);
+  await saveEvidenceScreenshot(page, testInfo, "heavy-en-1440-transition-conflict-retained");
+  await transitionPanel.locator("[data-status-cancel]").click();
   await expect(flowButton).toBeEnabled();
+  await expect(flowButton).toBeFocused();
   await page.waitForLoadState("networkidle");
   await assertEvidence(
     page,
     evidence,
     [`POST ${apiUrl("order/transition")}`],
     [`POST ${blockedExternalTransition}`],
+    ["Failed to load resource: the server responded with a status of 409 (Conflict)"],
   );
   await page.unrouteAll({ behavior: "wait" });
 });
@@ -662,9 +715,10 @@ async function assertEvidence(
   evidence: Evidence,
   expectedAllowedLocalWrites: string[],
   expectedBlockedExternalWrites: string[] = [],
+  expectedConsoleErrors: string[] = [],
 ) {
   expect(evidence.pageErrors).toEqual([]);
-  expect(evidence.consoleErrors).toEqual([]);
+  expect(evidence.consoleErrors).toEqual(expectedConsoleErrors);
   expect(evidence.forbiddenRequests).toEqual([]);
   expect(evidence.allowedLocalWrites).toEqual(expectedAllowedLocalWrites);
   expect(evidence.forbiddenExternalWrites).toEqual(expectedBlockedExternalWrites);
@@ -728,16 +782,37 @@ async function expectCompleteMobileDeviceTitle(
 }
 
 async function expectSeparatedDetailRows(root: ReturnType<Page["locator"]>, locale: AppLocale) {
-  const rows = root.locator('[data-order-detail-row="true"]:visible');
+  const rows = root.locator(
+    '[data-order-detail-row="true"]:visible, [data-order-field-trigger="warranty"]:visible, [data-order-field-trigger="accessories"]:visible',
+  );
   await expect(rows).toHaveCount(3);
+  for (const [field, label, value] of [
+    ["warranty", "orders2b2.overview.warranty", synthetic.warranty],
+    ["accessories", "orders2b2.overview.accessories", synthetic.accessory],
+  ] as const) {
+    const control = root.locator(`[data-order-field-trigger="${field}"]:visible`);
+    await expect(control).toContainText(translateMessage(locale, label));
+    await expect(control).toContainText(value);
+    expect(
+      await control.evaluate(
+        (element) =>
+          element.scrollWidth <= element.clientWidth + 1 &&
+          element.scrollHeight <= element.clientHeight + 1,
+      ),
+    ).toBe(true);
+  }
   const custody = root.locator('[data-order-device-custody="true"]:visible');
   await expect(custody).toHaveCount(1);
   await expect(custody).toHaveAttribute("data-order-custody-mode", "compact");
-  await expect(custody).toContainText(translateMessage(locale, "orders.custodyShop"));
+  await expect(custody).toContainText(translateMessage(locale, "orders2b2.custody.left"));
   const intersections = await rows.evaluateAll((elements) =>
     elements.map((element) => {
-      const label = element.querySelector<HTMLElement>('[data-order-detail-row-label="true"]');
-      const value = element.querySelector<HTMLElement>('[data-order-detail-row-value="true"]');
+      const label = element.querySelector<HTMLElement>(
+        '[data-order-detail-row-label="true"], :scope > span:nth-child(1)',
+      );
+      const value = element.querySelector<HTMLElement>(
+        '[data-order-detail-row-value="true"], :scope > span:nth-child(2)',
+      );
       if (!label || !value) return true;
       const a = label.getBoundingClientRect();
       const b = value.getBoundingClientRect();
@@ -832,15 +907,15 @@ async function expectPreservedIdentity(
   root: ReturnType<Page["locator"]>,
   url: string,
   scrollY: number,
-  options?: { inputLabel?: string },
+  options?: { contentHidden?: boolean },
 ) {
   expect(page.url()).toBe(url);
   await expect(root).toHaveCount(1);
+  await expect(root).toHaveAttribute("data-order-detail-render-mode", "desktop");
+  await expect(page.locator("[data-order-detail-renderer]")).toHaveCount(1);
   await expect(root).toContainText("R2026");
-  if (options?.inputLabel) {
-    await expect(root.getByRole("textbox", { name: options.inputLabel })).toHaveValue(
-      synthetic.customer,
-    );
+  if (options?.contentHidden) {
+    await expect(root).toContainText(synthetic.customer);
   } else {
     await expectExactVisible(root, synthetic.customer);
   }

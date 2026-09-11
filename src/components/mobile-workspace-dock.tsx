@@ -19,7 +19,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { repairOs } from "@/lib/ui-patterns";
+import { appShell, repairOs } from "@/lib/ui-patterns";
 import { globalMobileQuickActions, getShellPrimaryAction } from "@/shared/config/navigation";
 import { runRepairDeskShellAction } from "@/shared/lib/shell-actions";
 import { cn } from "@/lib/utils";
@@ -205,7 +205,7 @@ function MobileWorkspaceDockContent({
             size="sm"
             variant="outline"
             data-mobile-workspace-trigger="true"
-            className={repairOs.floatingAction}
+            className={cn(repairOs.floatingAction, "workbench-quick-trigger")}
             aria-label={t("shell.openQuickActions")}
           >
             <Command className="size-3.5" />
@@ -213,12 +213,16 @@ function MobileWorkspaceDockContent({
             <RealtimeSyncIndicator compact />
           </Button>
         </SheetTrigger>
-        <SheetContent side="bottom" className={repairOs.quickSheet}>
+        <SheetContent
+          side="bottom"
+          className={cn(repairOs.quickSheet, appShell.quickSheet)}
+          closeLabel={t("common.close")}
+        >
           <SheetHeader className="px-1 text-left">
             <SheetTitle className="text-base">{t("shell.quickActions")}</SheetTitle>
             <SheetDescription>{t("shell.quickActionsDescription")}</SheetDescription>
           </SheetHeader>
-          <div className={repairOs.quickActionList}>
+          <div className={cn(repairOs.quickActionList, "workbench-quick-grid")}>
             {actions.slice(0, 1).map((action) => (
               <button
                 key={action.label}

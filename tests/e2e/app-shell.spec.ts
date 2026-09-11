@@ -6,6 +6,7 @@ async function gotoWithStableStoreShell(page: Page, path: string) {
   );
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await storeContext;
+  await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
 }
 
@@ -31,7 +32,9 @@ test("mobile shell uses drawer navigation and one global quick action", async ({
   await expect(page.getByRole("link", { name: /回收管理/ })).toBeVisible();
 });
 
-test("desktop sidebar lines and collapsed icon size stay stable", async ({ page }) => {
+test("scheme-three desktop uses an independent search and a collapsible flat text rail", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await gotoWithStableStoreShell(page, "/orders");
 
@@ -42,31 +45,32 @@ test("desktop sidebar lines and collapsed icon size stay stable", async ({ page 
   const languageTrigger = topbar.locator('[data-language-switcher-trigger="true"]');
   await expect(languageTrigger).toHaveCSS("width", "44px");
   await expect(languageTrigger).toHaveCSS("height", "44px");
-  const topbarBox = await topbar.boundingBox();
-  const sidebarHeaderBox = await sidebarHeader.boundingBox();
-  expect(topbarBox).not.toBeNull();
-  expect(sidebarHeaderBox).not.toBeNull();
-  expect(Math.abs((topbarBox?.height ?? 0) - (sidebarHeaderBox?.height ?? 0))).toBeLessThanOrEqual(
-    1,
-  );
-  expect(
-    Math.abs(
-      (topbarBox?.y ?? 0) +
-        (topbarBox?.height ?? 0) -
-        ((sidebarHeaderBox?.y ?? 0) + (sidebarHeaderBox?.height ?? 0)),
-    ),
-  ).toBeLessThanOrEqual(1);
-
-  const sidebarTrigger = page.locator('[data-sidebar="trigger"]:visible');
+  await expect(topbar).toHaveCSS("height", "54px");
+  const search = sidebarHeader.locator("[data-workspace-search-trigger]");
+  await expect(search).toHaveCount(1);
+  const searchBox = await search.boundingBox();
+  const brandBox = await sidebarHeader.locator(".scheme-three-sidebar-brand").boundingBox();
+  expect(searchBox!.y).toBeGreaterThanOrEqual(brandBox!.y + brandBox!.height);
+  expect(searchBox!.width).toBeGreaterThan(140);
+  await expect(page.locator("[data-shell-navigation-links] svg")).toHaveCount(0);
+  await expect(page.locator("[data-shell-business-group]")).toHaveCount(0);
+  const sidebarTrigger = page.locator("[data-shell-collapse-trigger]:visible");
   await expect(sidebarTrigger).toHaveCount(1);
   await sidebarTrigger.click();
-  await page.waitForTimeout(250);
-
-  const collapsedSidebarBox = await page.locator('[data-sidebar="sidebar"]').first().boundingBox();
-  const firstIconBox = await page.locator('[data-sidebar="menu-button"] svg').first().boundingBox();
-  expect(collapsedSidebarBox).not.toBeNull();
-  expect(firstIconBox).not.toBeNull();
-  expect(collapsedSidebarBox?.width ?? 0).toBeLessThanOrEqual(56);
-  expect(firstIconBox?.width ?? 0).toBeGreaterThanOrEqual(15);
-  expect(firstIconBox?.height ?? 0).toBeGreaterThanOrEqual(15);
+  await expect
+    .poll(async () =>
+      Math.round((await page.locator('[data-sidebar="sidebar"]').first().boundingBox())!.width),
+    )
+    .toBe(75);
+  await expect(page.locator('[data-shell-navigation-links] a[href="/orders"]')).toBeVisible();
+  await expect(
+    page.locator("[data-shell-navigation-links] .scheme-three-nav-short").first(),
+  ).toBeVisible();
+  await expect(search).toBeVisible();
+  await sidebarTrigger.click();
+  await expect
+    .poll(async () =>
+      Math.round((await page.locator('[data-sidebar="sidebar"]').first().boundingBox())!.width),
+    )
+    .toBe(215);
 });

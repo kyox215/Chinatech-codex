@@ -8,7 +8,7 @@ import {
   type SyntheticEvent,
 } from "react";
 import { motion } from "framer-motion";
-import { AlertTriangle, Clock, MoreHorizontal, PackageSearch, Printer } from "lucide-react";
+import { ChevronRight, Clock, MoreHorizontal, PackageSearch, Printer } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -24,10 +24,10 @@ import {
   MoneyText,
   OrderTypeBadge,
   PhoneText,
-  StatusBadge,
 } from "@/components/orders/badges";
 import { DeviceUnlockListBadge } from "@/features/orders/components/device-unlock-fields";
-import { OrderQueueStageBadge } from "@/features/orders/components/order-queue-stage-badge";
+import { OrderListStatus } from "@/features/orders/components/order-list-status";
+import { getOrderListPresentation } from "@/features/orders/model/order-list-presentation";
 import {
   deriveOrderFinancialState,
   isOrderCancelledForPayment,
@@ -35,14 +35,7 @@ import {
 import { fadeUp } from "@/lib/motion";
 import { brandGradientStyle } from "@/lib/ui-patterns";
 import type { OrderListItem, OrderWorkflow } from "@/lib/repairdesk/api";
-import { getWorkflowNextActions } from "@/features/orders/model/order-workflow";
-import { orderExceptionMeta } from "@/features/orders/model/canonical-order-status";
-import {
-  getOrderTaskGuidance,
-  getOrderWorkflowStatus,
-} from "@/features/orders/model/order-task-flow";
 import { cn } from "@/lib/utils";
-import { OrderMiniProgress } from "@/features/orders/components/order-mini-progress";
 import type { Supplier } from "@/lib/repairdesk/types";
 import { orderQueueDesktopGrid } from "@/features/orders/components/order-list-layout";
 import { ORDER_DETAIL_HOVER_DELAY_MS } from "@/features/preload/model/order-detail-preload";
@@ -51,11 +44,8 @@ import { useLocale } from "@/shared/i18n/locale-provider";
 import {
   localizeDeviceCustody,
   localizeDeviceUnlockMethod,
-  localizeOrderException,
   localizeOrderFinancialLabel,
-  localizeOrderTaskGuidance,
   localizeOrderType,
-  localizeWorkflowStatusLabel,
 } from "@/features/orders/model/order-i18n";
 import type { MessageKey } from "@/shared/i18n/messages";
 
@@ -76,6 +66,7 @@ export function DesktopOrderQueueRow({
   onOpenPrintRecovery,
   onStopInteraction,
   suppliers,
+  layout = "row",
 }: {
   order: OrderListItem;
   workflow?: OrderWorkflow;
@@ -91,17 +82,13 @@ export function DesktopOrderQueueRow({
   onOpenPrintRecovery?: () => void;
   onStopInteraction: (event: SyntheticEvent) => void;
   suppliers: Supplier[];
+  layout?: "row" | "card";
 }) {
   const { locale, t } = useLocale();
   const hoverTimerRef = useRef<number | null>(null);
-  const exceptionStatus = order.exception_status;
   const cancelled = isOrderCancelledForPayment(order);
   const financialState = deriveOrderFinancialState(order);
-  const guidance = localizeOrderTaskGuidance(getOrderTaskGuidance(order), t);
-  const next = cancelled
-    ? { primary: undefined, secondary: [] }
-    : getWorkflowNextActions(workflow, order.status);
-  const hasOverdueException = !cancelled && Boolean(order.approval_overdue || order.pickup_overdue);
+  const presentation = getOrderListPresentation(order, t, workflow);
   const createdDate = formatOrderListDate(order.created_at, locale);
   const relativeCreatedDate = formatOrderRelativeDate(order.created_at, Date.now(), locale);
   const paymentLabel = localizeOrderFinancialLabel(financialState, t);
@@ -115,16 +102,6 @@ export function DesktopOrderQueueRow({
           : "text-muted-foreground";
   const primaryRepair = order.fault_prices[0];
   const extraRepairCount = Math.max(0, order.fault_prices.length - 1);
-  const allNextActions = [next.primary, ...next.secondary].filter(
-    (action): action is NonNullable<typeof next.primary> => Boolean(action),
-  );
-  const nextLabel = allNextActions[0]
-    ? localizeWorkflowStatusLabel(workflow, allNextActions[0].to, t)
-    : t("orders.noNextStep");
-  const nextText = allNextActions.length
-    ? t("orders.nextStepText", { label: nextLabel })
-    : nextLabel;
-  const workflowStatus = getOrderWorkflowStatus(order);
   const partsSupplier = suppliers.find((supplier) => supplier.id === order.parts_supplier_id);
   const customerName = getCustomerDisplayName(order.customer_name, order.customer_phone, t);
 
@@ -164,6 +141,9 @@ export function DesktopOrderQueueRow({
   return (
     <motion.div
       data-order-row="true"
+      data-order-id={order.id}
+      data-order-row-layout={layout}
+      data-selected={checked ? "true" : "false"}
       variants={fadeUp}
       role="button"
       aria-label={t("orders.viewDetails", { id: order.public_no })}
@@ -198,7 +178,7 @@ export function DesktopOrderQueueRow({
         style={brandGradientStyle}
       />
 
-      <div className="px-1.5 py-1.5 pl-2.5" onClick={onStopInteraction}>
+      <div data-order-cell="selection" className="px-1.5 py-1.5 pl-2.5" onClick={onStopInteraction}>
         {selectable ? (
           <Checkbox
             checked={checked}
@@ -208,50 +188,38 @@ export function DesktopOrderQueueRow({
         ) : null}
       </div>
 
-      <div className="min-w-0 px-1.5 py-1.5">
+      <div data-order-cell="identity" className="min-w-0 px-1.5 py-1.5">
         <p
           className="mb-1 truncate font-mono text-xs font-semibold text-primary"
           title={order.public_no}
         >
           {order.public_no}
         </p>
-        <div className="flex min-w-0 flex-wrap items-center gap-1">
-          <OrderQueueStageBadge
-            order={order}
-            className="max-w-full text-[10px] lg:text-[11px] lg:leading-4"
-          />
-          {exceptionStatus ? (
-            <StatusBadge
-              status={order.status}
-              label={localizeOrderException(exceptionStatus, t).shortLabel}
-              tone={orderExceptionMeta[exceptionStatus].tone}
-              className="max-w-full text-[10px] lg:text-[11px] lg:leading-4"
-            />
-          ) : null}
-          {hasOverdueException ? (
-            <span className="inline-flex max-w-full shrink-0 items-center gap-1 truncate whitespace-nowrap rounded bg-status-danger/15 px-1.5 py-0.5 text-[10px] font-medium leading-none text-status-danger-foreground ring-1 ring-inset ring-status-danger-foreground/30 lg:text-xs lg:leading-[18px]">
-              <AlertTriangle className="size-2.5 shrink-0" />
-              {order.approval_overdue ? t("orders.approvalOverdue") : t("orders.pickupOverdue")}
-            </span>
-          ) : null}
+        <div
+          className="flex min-w-0 items-center gap-1 text-[10px] text-muted-foreground"
+          title={relativeCreatedDate}
+        >
+          <Clock className="size-3 shrink-0" />
+          {createdDate}
         </div>
         <p
-          className="mt-1 truncate text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4"
-          title={nextText}
+          className="mt-1 truncate text-[10px] text-muted-foreground"
+          title={order.technician_name}
         >
-          {nextText}
+          {order.technician_name || t("orders.unassigned")}
         </p>
-        <OrderMiniProgress
-          workflowStatus={workflowStatus}
-          currentLabel={guidance.label || guidance.stage.label}
-          nextAction={guidance.nextAction}
-          danger={hasOverdueException || Boolean(exceptionStatus)}
-          isTerminal={workflowStatus === "closed"}
-          className="mt-1.5"
+        <OrderTypeBadge
+          type={order.order_type}
+          label={localizeOrderType(order.order_type, t)}
+          className="mt-1 max-w-full whitespace-normal text-[9px]"
         />
       </div>
 
-      <div className="min-w-0 px-2 py-1.5" data-order-customer-identity="true">
+      <div
+        data-order-cell="customer"
+        className="min-w-0 px-2 py-1.5"
+        data-order-customer-identity="true"
+      >
         <PhoneText
           value={order.customer_phone}
           className="block truncate text-xs font-semibold leading-4 text-primary xl:text-[13px] xl:leading-5"
@@ -281,7 +249,7 @@ export function DesktopOrderQueueRow({
         </div>
       </div>
 
-      <div className="min-w-0 px-2 py-1.5">
+      <div data-order-cell="device" className="min-w-0 px-2 py-1.5">
         <div className="truncate font-medium leading-4" title={order.device_label}>
           {order.device_label || "-"}
         </div>
@@ -326,34 +294,37 @@ export function DesktopOrderQueueRow({
         ) : null}
       </div>
 
-      <div className="min-w-0 px-2 py-1.5 text-right">
+      <div data-order-cell="status" className="min-w-0 px-2 py-2">
+        <OrderListStatus order={order} workflow={workflow} />
+      </div>
+
+      <div
+        data-order-cell="finance"
+        className="min-w-0 px-2 py-1.5 text-right"
+        data-order-financial-summary="true"
+      >
         {order.finance_redacted ? (
-          <span className="whitespace-nowrap text-xs text-muted-foreground">
-            {t("orders.amountRestricted")}
-          </span>
+          <span className="text-xs text-muted-foreground">{t("orders.amountRestricted")}</span>
         ) : (
           <MoneyText
             amount={order.quotation_amount}
-            className="whitespace-nowrap text-sm font-semibold"
+            className="whitespace-nowrap text-xs font-semibold xl:text-sm"
           />
         )}
         <div
-          className={cn(
-            "whitespace-nowrap text-[10px] leading-4 lg:text-xs lg:leading-4",
-            paymentClass,
-          )}
+          className={cn("text-[10px] leading-4 break-words lg:text-xs lg:leading-4", paymentClass)}
         >
           {paymentLabel}
         </div>
         {cancelled && !order.finance_redacted ? (
-          <div className="whitespace-nowrap text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
+          <div className="text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
             {t("orders.excludedFromBalance")}
           </div>
         ) : null}
         {!order.finance_redacted ? (
           <div
             className={cn(
-              "whitespace-nowrap text-[10px] leading-3 lg:text-xs lg:leading-4",
+              "text-[10px] leading-3 lg:text-xs lg:leading-4",
               !cancelled && order.balance_amount > 0
                 ? "text-status-danger-foreground"
                 : "text-muted-foreground",
@@ -361,11 +332,19 @@ export function DesktopOrderQueueRow({
           >
             {cancelled ? (
               <>
-                {t("orders.atCancellation")} <MoneyText amount={order.balance_amount} />
+                {t("orders.atCancellation")}{" "}
+                <MoneyText
+                  amount={order.balance_amount}
+                  className="inline-block whitespace-nowrap"
+                />
               </>
             ) : order.balance_amount > 0 ? (
               <>
-                {t("orders.balanceDue")} <MoneyText amount={order.balance_amount} />
+                {t("orders.balanceDue")}{" "}
+                <MoneyText
+                  amount={order.balance_amount}
+                  className="inline-block whitespace-nowrap"
+                />
               </>
             ) : (
               t("orders.balanceClear")
@@ -374,39 +353,27 @@ export function DesktopOrderQueueRow({
         ) : null}
       </div>
 
-      <div className="min-w-0 px-2 py-1.5 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-        <div
-          className="truncate font-semibold leading-4 text-foreground"
-          title={order.technician_name}
+      <div data-order-cell="next" className="min-w-0 px-2 py-1.5" onClick={onStopInteraction}>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={onOpen}
+          data-order-next-task="true"
+          title={t("orders.viewDetails", { id: order.public_no })}
+          className="min-h-11 h-auto w-full justify-between gap-1 rounded-lg border border-border bg-card px-2 py-2 text-left text-[11px] font-medium text-primary whitespace-normal"
         >
-          {order.technician_name || "-"}
-        </div>
-        <div className="flex min-w-0 items-center gap-1 whitespace-nowrap">
-          <Clock className="size-3 shrink-0" />
-          {createdDate}
-        </div>
-        <div
-          className="truncate text-[10px] leading-3 lg:text-[11px] lg:leading-4"
-          title={relativeCreatedDate}
-        >
-          {relativeCreatedDate}
-        </div>
-        <div className="mt-0.5">
-          <OrderTypeBadge
-            type={order.order_type}
-            label={localizeOrderType(order.order_type, t)}
-            className="max-w-full text-[10px] lg:text-[11px] lg:leading-4"
-          />
-        </div>
+          <span className="min-w-0 break-words">{presentation.nextAction}</span>
+          <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
+        </Button>
       </div>
 
-      <div className="px-1.5 py-1.5" onClick={onStopInteraction}>
+      <div data-order-cell="more" className="px-1.5 py-1.5" onClick={onStopInteraction}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="size-7"
+              className="size-11 rounded-lg"
               aria-label={t("orders.moreActions")}
             >
               <MoreHorizontal className="size-4" />

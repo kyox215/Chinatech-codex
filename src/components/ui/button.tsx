@@ -23,6 +23,7 @@ const buttonVariants = cva(
         dense: "h-8 rounded-md px-2.5 text-xs",
         sm: "h-8 rounded-md px-3 text-xs",
         primary: "h-10 rounded-lg px-4 text-sm",
+        touch: "min-h-11 h-auto rounded-lg px-3 py-2 text-sm whitespace-normal",
         lg: "h-10 rounded-md px-8",
         iconDense: "size-8 rounded-md",
         icon: "h-9 w-9",

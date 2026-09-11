@@ -5,9 +5,14 @@ const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for custody flow checks.");
 
 test.use({
+  locale: "zh-CN",
   viewport: { width: 390, height: 844 },
   isMobile: true,
   hasTouch: true,
+});
+
+test.beforeEach(async ({ context, baseURL }) => {
+  await context.addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL! }]);
 });
 
 test("new order requires an explicit custody choice and customer-held devices keep unlock UI", async ({
@@ -62,8 +67,8 @@ test("mobile detail keeps the receive action below the sticky header", async ({ 
   const card = page.locator('[data-order-device-custody="true"]').filter({ visible: true }).first();
   await expect(header).toBeVisible();
   await expect(card).toBeVisible();
-  await expect(card.getByText("客户持有")).toBeVisible();
-  await expect(card.getByRole("button", { name: "确认收机" })).toBeVisible();
+  await expect(card.getByText("未留设备")).toBeVisible();
+  await expect(card.getByRole("button", { name: "设备保管" })).toBeVisible();
   const unlockButton = page.getByRole("button", { name: "密码", exact: true });
   await expect(unlockButton).toBeVisible();
   await unlockButton.click();
@@ -86,7 +91,7 @@ test("cancelled customer-held orders never request a device return", async ({ pa
 
   await expect(page.getByText("已取消").first()).toBeVisible();
   await expect(
-    page.locator('[data-order-device-custody="true"]:visible').getByText("客户持有"),
+    page.locator('[data-order-device-custody="true"]:visible').getByText("未留设备"),
   ).toBeVisible();
   await expect(page.getByText("设备退还尚未确认")).toHaveCount(0);
   await expectNoHorizontalOverflow(page);

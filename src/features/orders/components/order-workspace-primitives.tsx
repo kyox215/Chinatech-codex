@@ -1,7 +1,15 @@
 "use client";
 
-import { useId, useRef, useState, type ComponentType, type ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
+import {
+  useId,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+  type MouseEventHandler,
+} from "react";
+import { Check, ChevronDown, Pencil } from "lucide-react";
 
 import { MoneyText } from "@/components/orders/badges";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +29,115 @@ import { useLocale } from "@/shared/i18n/locale-provider";
 
 export type OrderWorkspaceMoneyTone = "neutral" | "info" | "success" | "warning" | "danger";
 export type OrderWorkspaceMoneyStripVariant = "status" | "finance";
+
+/** A read-only projection of the existing quote items; editing stays with the caller. */
+export function OrderWorkspaceRepairItems({
+  names,
+  onEdit,
+  onEditClick,
+  className,
+  actions,
+}: {
+  names: string[];
+  onEdit?: (trigger: HTMLButtonElement) => void;
+  onEditClick?: MouseEventHandler<HTMLButtonElement>;
+  className?: string;
+  actions?: ReactNode;
+}) {
+  const { t } = useLocale();
+  const [expanded, setExpanded] = useState(false);
+  const itemsId = useId();
+  return (
+    <section
+      data-order-workbench-repairs="true"
+      data-order-repairs-expanded={expanded || undefined}
+      className={cn("min-w-0", className)}
+    >
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <h3>{t("orders2b2.overview.quoteItems")}</h3>
+        <span className="text-xs text-muted-foreground">{names.length}</span>
+      </div>
+      {names.length ? (
+        <ul id={itemsId} className="grid min-w-0 grid-cols-2 gap-x-5 gap-y-3">
+          {names.map((name, index) => (
+            <li
+              key={index}
+              data-order-repair-overflow={index >= 4 || undefined}
+              className="flex min-w-0 items-start gap-2 text-xs leading-5"
+            >
+              <Check
+                className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <span className="min-w-0 break-words">{name}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-xs text-muted-foreground">{t("orders2b2.overview.noQuoteItems")}</p>
+      )}
+      {names.length > 4 ? (
+        <button
+          type="button"
+          className="order-workbench-items-expand min-h-11 text-xs text-primary focus-visible:ring-2 focus-visible:ring-ring"
+          aria-expanded={expanded}
+          aria-controls={itemsId}
+          onClick={() => setExpanded(!expanded)}
+        >
+          {t(expanded ? "orders2b2.mobile.collapse" : "orders2b2.mobile.historyAll")} ·{" "}
+          {names.length}
+        </button>
+      ) : null}
+      <div className="order-workbench-quote-actions">
+        {onEdit || onEditClick ? (
+          <button
+            type="button"
+            className="flex min-h-11 w-full items-center gap-2 border-t border-[var(--border-panel)] text-left text-xs font-medium text-primary focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={`${t("orders2b2.hero.edit")} · ${t("orders2b2.overview.quoteItems")}`}
+            onClick={(event) => {
+              if (onEditClick) onEditClick(event);
+              else onEdit?.(event.currentTarget);
+            }}
+          >
+            <Pencil className="size-3.5" aria-hidden="true" />
+            {t("orders2b2.hero.edit")} · {t("orders2b2.overview.quoteItems")}
+          </button>
+        ) : null}
+        {actions}
+      </div>
+    </section>
+  );
+}
+
+/** Full text remains readable without permission to open an editor. */
+export function OrderWorkspaceFullText({ text }: { text: string | null | undefined }) {
+  const { t } = useLocale();
+  const disclosureRef = useRef<HTMLDetailsElement>(null);
+  const [hasOverflow, setHasOverflow] = useState(
+    Boolean(text && (text.length > 120 || text.split("\n").length > 3)),
+  );
+  useEffect(() => {
+    const preview = disclosureRef.current?.parentElement?.querySelector("p");
+    if (!preview) return;
+    const measure = () => {
+      if (preview.clientHeight > 0) setHasOverflow(preview.scrollHeight > preview.clientHeight + 1);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(preview);
+    return () => observer.disconnect();
+  }, [text]);
+  if (!text) return null;
+  return (
+    <details ref={disclosureRef} hidden={!hasOverflow} className="order-workbench-full-text">
+      <summary className="min-h-11 cursor-pointer text-xs text-primary focus-visible:ring-2 focus-visible:ring-ring">
+        {t("orders2b2.mobile.expandDetails")}
+      </summary>
+      <p className="whitespace-pre-wrap break-words">{text}</p>
+    </details>
+  );
+}
 
 const moneyToneClass: Record<OrderWorkspaceMoneyTone, string> = {
   neutral: "border-[var(--border-panel)] bg-card text-foreground",
@@ -85,9 +202,35 @@ export function OrderWorkspaceMoneyStrip({
   variant?: OrderWorkspaceMoneyStripVariant;
   cancelled?: boolean;
   depositControl?: ReactNode;
-  appearance?: "default" | "quote-editor";
+  appearance?: "default" | "quote-editor" | "workbench-summary";
 }) {
   const { t } = useLocale();
+  if (appearance === "workbench-summary") {
+    return (
+      <dl
+        data-order-workbench-money-summary="true"
+        className={cn("order-workbench-money-summary", className)}
+      >
+        {[
+          [t("orders2b2.finance.total"), total],
+          [t("orders2b2.finance.depositPaid"), deposit],
+          [t(cancelled ? "orders2b1.money.cancelledBalance" : "orders2b1.task.due"), balance],
+        ].map(([label, amount], index) => (
+          <div
+            key={index}
+            data-order-workbench-amount={
+              index === 0 ? "total" : index === 1 ? "deposit" : "balance"
+            }
+          >
+            <dt>{label}</dt>
+            <dd>
+              <MoneyText amount={Number(amount)} />
+            </dd>
+          </div>
+        ))}
+      </dl>
+    );
+  }
   if (appearance === "quote-editor") {
     return (
       <div

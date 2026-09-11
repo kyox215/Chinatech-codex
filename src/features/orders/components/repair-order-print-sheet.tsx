@@ -243,9 +243,11 @@ export function RepairOrderPrintSheet({
 }
 
 export function canPrintRepairOrderCustomerDocument(
-  _order: Pick<OrderDetail["order"], "record_state" | "deleted_at">,
+  order: Pick<OrderDetail["order"], "record_state" | "deleted_at"> | undefined,
+  canPrintSingleOrders: boolean = false,
 ) {
-  return true;
+  // History remains printable; role/object access is supplied by the existing API projection.
+  return Boolean(order && canPrintSingleOrders);
 }
 
 function PrintSection({ title, children }: { title: string; children: React.ReactNode }) {

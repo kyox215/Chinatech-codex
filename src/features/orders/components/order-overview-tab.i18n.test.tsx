@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { formatOrderDateTime } from "@/features/orders/model/order-date";
@@ -50,6 +50,25 @@ function makeOrder(): OrderDetail["order"] {
 }
 
 describe("OrderOverviewTab localized runtime", () => {
+  it("keeps the existing diagnosis action when finance is redacted", () => {
+    const { container } = render(
+      <LocaleProvider initialLocale="zh-CN">
+        <OrderOverviewTab
+          order={{ ...makeOrder(), finance_redacted: true }}
+          deviceBrand="Samsung"
+          deviceModel="Galaxy A54"
+          deviceImei="490154203237518"
+          canEditRepair
+          quoteAction={<button type="button">Open diagnosis record</button>}
+          surface="dialog"
+        />
+      </LocaleProvider>,
+    );
+    expect(screen.getByRole("button", { name: "Open diagnosis record" })).toBeVisible();
+    expect(container.querySelector("[data-order-workbench-money-summary]")).toBeNull();
+    expect(container.querySelector("[data-order-workbench-repairs]")).toBeNull();
+  });
+
   it.each(locales)(
     "renders real overview fixed chrome while preserving dynamic payload in %s",
     (locale) => {
@@ -85,17 +104,23 @@ describe("OrderOverviewTab localized runtime", () => {
         screen.getByText(translateMessage(locale, "orders2b2.overview.customerInfo")),
       ).toBeVisible();
       expect(
-        screen.getByText(translateMessage(locale, "orders2b2.overview.deviceIssue")),
+        screen.getByRole("button", {
+          name: translateMessage(locale, "orders2b2.overview.deviceIssue"),
+        }),
       ).toBeVisible();
-      expect(
-        screen.getByText(translateMessage(locale, "orders2b2.overview.quotePanel")),
-      ).toBeVisible();
+      expect(screen.getByText(translateMessage(locale, "orders2b2.finance.total"))).toBeVisible();
       expect(screen.getByText(customerSentinel)).toBeVisible();
       expect(screen.getByText(deviceSentinel)).toBeVisible();
-      expect(screen.getByText(eventSentinel, { exact: false })).toBeVisible();
-      expect(screen.getByText("OPERATOR_动态中文", { exact: false })).toBeVisible();
+      const recordsSummary = screen.getByText(
+        translateMessage(locale, "orders2b2.overview.recordsSummary"),
+        { selector: "summary" },
+      );
+      fireEvent.click(recordsSummary);
+      const records = within(recordsSummary.closest("details")!);
+      expect(records.getByText(eventSentinel, { exact: false })).toBeVisible();
+      expect(records.getByText("OPERATOR_动态中文", { exact: false })).toBeVisible();
       expect(
-        screen.getByText(formatOrderDateTime(events[0]!.created_at, locale), { exact: false }),
+        records.getByText(formatOrderDateTime(events[0]!.created_at, locale), { exact: false }),
       ).toBeVisible();
     },
   );

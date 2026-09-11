@@ -10,6 +10,12 @@ test.skip(
 );
 
 test.beforeEach(async ({ context, baseURL }) => {
+  expect(["localhost", "127.0.0.1"]).toContain(new URL(baseURL!).hostname);
+  await context.route("**/*", (route) =>
+    ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname)
+      ? route.continue()
+      : route.abort(),
+  );
   await context.addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL! }]);
 });
 
@@ -112,11 +118,14 @@ test.describe("order detail responsive single renderer", () => {
     await quote.getByRole("button", { name: /维修项目|报价项目/ }).click();
     const editor = page.locator("#mobile-order-finance-editor");
 
-    let projectInput = editor.locator('input[placeholder="项目"]').first();
-    if ((await projectInput.count()) === 0) {
+    let projectTrigger = editor.locator("[data-order-quote-text-control] button").first();
+    if ((await projectTrigger.count()) === 0) {
       await editor.getByRole("button", { name: /添加自定义项目/ }).click();
-      projectInput = editor.locator('input[placeholder="项目"]').first();
+      projectTrigger = editor.locator("[data-order-quote-text-control] button").first();
     }
+    await projectTrigger.click();
+    const projectPopup = page.locator('[data-order-quote-popup="true"]');
+    const projectInput = projectPopup.getByRole("textbox");
     await expect(projectInput).toBeVisible();
     const marker = "compact-resize-draft";
     await projectInput.fill(marker);
@@ -126,8 +135,15 @@ test.describe("order detail responsive single renderer", () => {
     await page.setViewportSize({ width: 1024, height: 768 });
     await expectOrderDetailMode(page, "compact");
     await expect(projectInput).toHaveValue(marker);
-    await expect(editor.getByRole("button", { name: "保存", exact: true })).toBeVisible();
+    await expect(projectPopup.getByRole("button", { name: "保存", exact: true })).toBeVisible();
     await expect(projectInput).toBeFocused();
+    expect(mutationCount()).toBe(0);
+
+    await projectPopup.getByRole("button", { name: "保存", exact: true }).click();
+    await expect(projectPopup).toHaveCount(0);
+    await expect(projectTrigger).toContainText(marker);
+    await expect(editor.getByRole("button", { name: "保存", exact: true })).toBeVisible();
+    await expect(projectTrigger).toBeFocused();
     expect(mutationCount()).toBe(0);
   });
 

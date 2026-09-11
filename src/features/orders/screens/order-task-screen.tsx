@@ -80,6 +80,8 @@ import {
 } from "@/features/orders/model/order-transition-reasons";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
+import { orderOptionsQueryOptions } from "@/features/orders/api/query-options";
+import { getOrderDetailSafeErrorMessage } from "@/features/orders/model/order-detail-i18n";
 import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
 import {
   createKioskSession,
@@ -130,7 +132,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
     },
     (error) => {
       setPrintPreparing(false);
-      toast.error(t("orders2b1.task.actionFailed"));
+      toast.error(getOrderDetailSafeErrorMessage(error, "print", t));
     },
     {
       scopeKey: `${activeStoreId ?? "no-store"}:${id}`,
@@ -161,6 +163,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
     enabled: Boolean(activeStoreId),
   });
   const storeSettings = storeSettingsQuery.data;
+  const { data: printOptions } = useQuery(orderOptionsQueryOptions(activeStoreId));
   const canCreateKioskSession = data?.capabilities?.canCreateKioskSession === true;
   const { data: kioskDevices = [] } = useQuery({
     queryKey: kioskKeys.availableDevices(activeStoreId, id),
@@ -175,7 +178,10 @@ export function OrderTaskScreen({ id }: { id: string }) {
   const cancelled = order ? isOrderCancelledForPayment(order) : false;
   const canTransition = data?.capabilities?.canTransition === true;
   const voided = order?.record_state === "voided" || Boolean(order?.deleted_at);
-  const canPrintCustomerDocument = Boolean(order && canPrintRepairOrderCustomerDocument(order));
+  const canPrintCustomerDocument = canPrintRepairOrderCustomerDocument(
+    order,
+    printOptions?.permissions.canPrintSingleOrders === true,
+  );
   const printCustomerDocument = async (paperMode: PrintPaperMode) => {
     if (!order || !canPrintCustomerDocument) return;
     rememberOrderPrintPaperMode(paperMode);
@@ -188,13 +194,13 @@ export function OrderTaskScreen({ id }: { id: string }) {
         const links = await issueCustomerStatusLinks([order.id], { signal: context.signal });
         if (!context.isCurrent()) return;
         const link = links.find((item) => item.order_id === order.id);
-        if (!link?.url) throw new Error("订单二维码准备失败，请重试");
+        if (!link?.url) throw new Error(t("orders2b2.customerStatus.prepareFailed"));
         setCustomerStatusUrl(link.url);
       } finally {
         setPrintPreparing(false);
       }
     });
-    if (outcome === "busy") toast.info("打印内容正在准备或预览已打开");
+    if (outcome === "busy") toast.info(t("orders2b2.print.busy"));
   };
   const activeKioskDevice = kioskDevices.find((device) => device.status === "active");
   const workflowStatus = order ? getOrderWorkflowStatus(order) : "intake";
@@ -414,6 +420,13 @@ export function OrderTaskScreen({ id }: { id: string }) {
           size="icon"
           className="size-9 rounded-lg lg:size-8"
           aria-label={t("orders2b1.task.printAria")}
+          title={
+            !canPrintCustomerDocument
+              ? t("orders2b2.print.permissionDenied")
+              : generationPending
+                ? t("orders2b2.print.preparing")
+                : undefined
+          }
           disabled={!canPrintCustomerDocument || generationPending}
           aria-busy={generationPending}
           onClick={() => setPrintPaperDialogOpen(true)}

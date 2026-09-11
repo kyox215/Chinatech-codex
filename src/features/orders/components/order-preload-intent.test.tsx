@@ -146,7 +146,7 @@ describe("order detail preload intent", () => {
       </LocaleProvider>,
     );
     const card = document.querySelector('[data-order-mobile-card="true"]');
-    expect(card).toHaveTextContent("Contact customer");
+    expect(card).toHaveTextContent("Review pause reason");
     expect(card).toHaveTextContent("With customer");
     expect(card).toHaveTextContent("Amount restricted");
     expect(card).not.toHaveTextContent("报价超期");
@@ -160,6 +160,50 @@ describe("order detail preload intent", () => {
     expect(payment).not.toHaveTextContent("待收");
     expect(payment).toHaveTextContent("100.00");
   });
+
+  it("does not revive stale overdue or custody tasks on a completed mobile record", () => {
+    render(
+      <OrderMobileCard
+        order={makeOrder({
+          status: "completed",
+          workflow_status: "closed",
+          device_custody_status: "with_customer",
+          pickup_overdue: true,
+          approval_overdue: true,
+        })}
+      />,
+    );
+    const card = document.querySelector('[data-order-mobile-card="true"]');
+    expect(card).toHaveAttribute("data-order-mobile-card-risk", "false");
+    expect(card).toHaveTextContent("完成");
+    expect(card).toHaveTextContent("查看记录");
+    expect(card).not.toHaveTextContent("当前工单超期");
+    expect(card).not.toHaveTextContent("确认收机");
+    expect(screen.getByRole("img")).toHaveAccessibleName(expect.stringContaining("已结束"));
+  });
+
+  it.each(["row", "card"] as const)(
+    "opens the original details once from the %s next-task button",
+    async (layout) => {
+      const onOpen = vi.fn();
+      const onCheckedChange = vi.fn();
+      render(
+        <DesktopOrderQueueRow
+          layout={layout}
+          order={makeOrder()}
+          checked={false}
+          onOpen={onOpen}
+          onCheckedChange={onCheckedChange}
+          onPrint={vi.fn()}
+          onStopInteraction={(event) => event.stopPropagation()}
+          suppliers={[]}
+        />,
+      );
+      await userEvent.click(screen.getByRole("button", { name: "开始检测" }));
+      expect(onOpen).toHaveBeenCalledTimes(1);
+      expect(onCheckedChange).not.toHaveBeenCalled();
+    },
+  );
 
   it.each<{ label: string; order: Partial<OrderListItem> }>([
     { label: "待审批", order: { approval_status: "pending" } },
@@ -203,7 +247,7 @@ describe("order detail preload intent", () => {
     expect(identity).not.toHaveTextContent("+39 000 0000");
   });
 
-  it("renders desktop system and custom workflow labels in Italian", async () => {
+  it("prioritizes a paused order's current Italian label over an unrelated next transition", async () => {
     const workflow: OrderWorkflow = {
       statuses: [
         {
@@ -269,11 +313,12 @@ describe("order detail preload intent", () => {
         />
       </LocaleProvider>,
     );
-    expect(document.body).toHaveTextContent("Pausa");
+    expect(document.body).toHaveTextContent("In pausa");
     expect(document.body).toHaveTextContent("Riparazione rapida");
-    expect(document.body).not.toHaveTextContent("In negozio");
+    expect(document.body).toHaveTextContent("In negozio");
     expect(document.body).toHaveTextContent("PIN");
-    expect(document.body).toHaveTextContent("Stato negozio");
+    expect(document.body).toHaveTextContent("Controlla la pausa");
+    expect(document.body).not.toHaveTextContent("Stato negozio");
   });
 
   it("exposes a native detail link from the desktop row action menu", async () => {

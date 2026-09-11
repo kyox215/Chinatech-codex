@@ -45,7 +45,7 @@ export function OrderPrintPaperDialog({
   const { t } = useLocale();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md" closeLabel={t("common.close")}>
         <DialogHeader>
           <DialogTitle>{t("orders2b2.printPaper.title")}</DialogTitle>
           <DialogDescription>{t("orders2b2.printPaper.help")}</DialogDescription>

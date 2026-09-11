@@ -61,6 +61,14 @@ import {
 } from "./repairdesk-router";
 
 describe("repairdesk router pending-store access", () => {
+  it.each([
+    ["客户审批阶段必须通过审批处理记录同意或拒绝", "APPROVAL_DECISION_REQUIRED"],
+    ["自定义状态尚未绑定主流程阶段，当前不能用于工单流转", "WORKFLOW_GROUP_REQUIRED"],
+  ])("keeps the existing 400 rejection and adds a stable code for %s", async (message, code) => {
+    const response = fail(new Error(message));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: message, code });
+  });
   it("only parses toolkit resource actions with UUID resource ids", () => {
     expect(
       parseToolkitResourceActionPath(

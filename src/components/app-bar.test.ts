@@ -51,7 +51,8 @@ describe("AppBar responsive route contract", () => {
     expect(workspaceBrandSource).toContain('aria-label={t("shell.openSearch")}');
     expect(sidebarSource).toContain("onOpenCommand");
     expect(workspaceBrandSource).toContain("group-data-[collapsible=icon]:hidden");
-    expect(workspaceBrandSource).toContain("ml-auto flex size-11");
+    expect(workspaceBrandSource).toContain("scheme-three-global-search min-h-11");
+    expect(workspaceBrandSource).toContain('data-scheme-three-brand-search="true"');
     expect(workspaceBrandSource).toContain('data-workspace-search-trigger="true"');
     expect(providersSource).toContain("<AppSidebar onOpenCommand={() => setOpen(true)} />");
     expect(providersSource).not.toContain("<AppBar\n                      onOpenCommand");

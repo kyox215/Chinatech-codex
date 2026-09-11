@@ -91,7 +91,10 @@ export function Providers({
                 <OfflineOutboxSyncBridge />
                 <SidebarProvider>
                   <AppSidebar onOpenCommand={() => setOpen(true)} />
-                  <SidebarInset className="relative isolate min-h-svh min-w-0 max-w-full overflow-x-clip">
+                  <SidebarInset
+                    data-workbench-content="true"
+                    className="relative isolate min-h-svh min-w-0 max-w-full overflow-x-clip"
+                  >
                     <AppBar
                       onOpenScanner={() => setScannerOpen(true)}
                       scannerTriggerRef={scannerTriggerRef}

@@ -825,7 +825,7 @@ export interface RepairOsBadgeProps extends HTMLAttributes<HTMLSpanElement> {
 
 export function RepairOsBadge({ children, className, ...props }: RepairOsBadgeProps) {
   return (
-    <span className={cn(repairOs.badge, className)} {...props}>
+    <span data-repair-os-badge="true" className={cn(repairOs.badge, className)} {...props}>
       {children}
     </span>
   );

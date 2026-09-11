@@ -58,6 +58,7 @@ interface SheetContentProps
   editorLayout?: boolean;
   initialFocus?: "container";
   closeLabel?: string;
+  overlayClassName?: string;
 }
 
 const SheetContent = React.forwardRef<
@@ -73,6 +74,7 @@ const SheetContent = React.forwardRef<
       editorLayout = false,
       initialFocus,
       closeLabel = "关闭",
+      overlayClassName,
       ...props
     },
     ref,
@@ -82,7 +84,7 @@ const SheetContent = React.forwardRef<
     const editor = mobileEditor || initialFocus === "container";
     return (
       <SheetPortal>
-        <SheetOverlay />
+        <SheetOverlay className={overlayClassName} />
         <SheetPrimitive.Content
           data-editor-layout={editorLayout || undefined}
           data-mobile-editor={mobileEditor || undefined}
@@ -128,6 +130,7 @@ const SheetContent = React.forwardRef<
           }}
         >
           <SheetPrimitive.Close
+            data-sheet-close="true"
             aria-label={closeLabel}
             className={cn(
               "absolute right-1 top-1 z-30 grid size-9 place-items-center rounded-lg text-muted-foreground opacity-70 ring-offset-background transition-opacity hover:bg-accent hover:text-foreground hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary sm:right-3 sm:top-3 lg:size-8",

@@ -6,6 +6,8 @@ import { motion } from "framer-motion";
 import {
   Calendar,
   Camera,
+  ChevronDown,
+  ChevronRight,
   CheckCircle2,
   Clock3,
   CreditCard,
@@ -38,6 +40,8 @@ import {
   OrderWorkspaceMoneyStrip,
   OrderWorkspaceQuoteDisplayRow,
   OrderWorkspaceQuoteTextField,
+  OrderWorkspaceRepairItems,
+  OrderWorkspaceFullText,
 } from "@/features/orders/components/order-workspace-primitives";
 import { OrderPhotoPreviewDialog } from "@/features/orders/components/order-photo-preview-dialog";
 import {
@@ -47,6 +51,7 @@ import {
 import { CustomerBackupPhonesField } from "@/features/customers/forms/customer-backup-phones-field";
 import { PhoneContactMenu } from "@/features/orders/components/order-contact-menu";
 import { WarrantyPicker, WarrantyTag } from "@/features/orders/components/warranty-picker";
+import type { OrderDetailField } from "@/features/orders/components/order-detail-field-editor";
 import { CustomerPhoneLookup } from "@/features/orders/forms/customer-phone-lookup";
 import {
   DEVICE_CUSTODY_WITH_SHOP,
@@ -90,7 +95,10 @@ import {
   localizeOrderDetailEvent,
   localizeOrderDetailFinancialState,
 } from "@/features/orders/model/order-detail-i18n";
-import { localizeDeviceCustody } from "@/features/orders/model/order-i18n";
+import {
+  localizeDeviceCustody,
+  localizeRepairServiceItemName,
+} from "@/features/orders/model/order-i18n";
 
 type DetailSurface = "page" | "dialog";
 
@@ -101,8 +109,6 @@ type OrderEditContext = {
 
 type InfoTone = "plain" | "hero" | "soft" | "note" | "metric" | "metricStrong";
 
-const overviewPanelClass =
-  "min-w-0 overflow-hidden border-border/70 bg-card/95 p-2.5 shadow-sm sm:p-3";
 const inlineEditInputClass =
   "!h-6 !rounded-none !border-0 !border-b !border-transparent !bg-transparent !px-0 !py-0 !shadow-none focus-visible:!border-primary/45 focus-visible:!ring-0";
 const inlineEditTextareaClass =
@@ -151,6 +157,14 @@ export function OrderOverviewTab({
   kioskSignaturePending = false,
   kioskSignatureAvailable = false,
   custodyControl,
+  responsibilityPanel,
+  onEdit,
+  onEditNotes,
+  onEditCustomer,
+  onEditDevice,
+  onEditFinance,
+  quoteAction,
+  onEditField,
 }: {
   order: OrderDetail["order"];
   customer?: Customer;
@@ -187,7 +201,16 @@ export function OrderOverviewTab({
   kioskSignaturePending?: boolean;
   kioskSignatureAvailable?: boolean;
   custodyControl?: React.ReactNode;
+  responsibilityPanel?: React.ReactNode;
+  onEdit?: () => void;
+  onEditNotes?: (trigger: HTMLButtonElement) => void;
+  onEditCustomer?: React.MouseEventHandler<HTMLButtonElement>;
+  onEditDevice?: React.MouseEventHandler<HTMLButtonElement>;
+  onEditFinance?: React.MouseEventHandler<HTMLButtonElement>;
+  quoteAction?: React.ReactNode;
+  onEditField?: (field: OrderDetailField, trigger: HTMLElement) => void;
 }) {
+  const { t } = useLocale();
   const edit =
     isEditing && editDraft && onEditDraftChange
       ? {
@@ -197,6 +220,7 @@ export function OrderOverviewTab({
       : null;
   const intakeEdit = canEditIntake ? edit : null;
   const repairEdit = canEditRepair ? edit : null;
+  const workbenchView = surface === "page" || !edit;
   const customerPanel = (
     <CustomerPanel
       order={order}
@@ -207,6 +231,7 @@ export function OrderOverviewTab({
       kioskSignaturePending={kioskSignaturePending}
       kioskSignatureAvailable={kioskSignatureAvailable}
       signatureAttachments={signatureAttachments}
+      onEdit={canEditIntake ? (onEditCustomer ?? onEdit) : undefined}
     />
   );
   const devicePanel = (
@@ -223,6 +248,12 @@ export function OrderOverviewTab({
       intakeEdit={intakeEdit}
       repairEdit={repairEdit}
       surface={surface}
+      showDiagnosis={surface === "dialog"}
+      onEdit={canEditIntake || canEditRepair ? (onEditDevice ?? onEdit) : undefined}
+      onEditNotes={onEditNotes}
+      onEditQuote={canAdjustFinance ? (onEditFinance ?? onEdit) : undefined}
+      quoteAction={quoteAction}
+      onEditField={onEditField}
     />
   );
   const financePanel = (
@@ -234,6 +265,7 @@ export function OrderOverviewTab({
       onFinanceDraftChange={onFinanceDraftChange}
       canAdjustFinance={canAdjustFinance}
       surface={surface}
+      onEdit={canAdjustFinance ? (onEditFinance ?? onEdit) : undefined}
     />
   );
 
@@ -246,15 +278,7 @@ export function OrderOverviewTab({
       )}
     >
       <div className="min-w-0 space-y-2">
-        {surface !== "dialog" ? (
-          <OrderOverviewDesktopContextStrip
-            events={events}
-            workflow={workflow}
-            onShowRecords={onShowRecords}
-          />
-        ) : null}
-
-        {surface === "dialog" ? (
+        {!workbenchView ? (
           <div
             data-order-detail-main-grid="true"
             data-order-detail-layout="new-order-aligned"
@@ -295,43 +319,85 @@ export function OrderOverviewTab({
         ) : (
           <div
             data-order-detail-main-grid="true"
-            className="grid min-w-0 items-stretch gap-2 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)] @[1040px]/order-overview:grid-cols-[minmax(0,0.9fr)_minmax(0,1.28fr)_minmax(0,0.92fr)]"
+            data-order-detail-layout="workbench"
+            className={detailWorkspace.orderDetailWorkbenchGrid}
           >
-            {customerPanel}
-            {devicePanel}
-            {financePanel}
+            <div
+              data-order-detail-column="customer"
+              data-order-unified-column="customer"
+              className={detailWorkspace.orderDetailWorkbenchColumn}
+            >
+              {customerPanel}
+              <details className="order-workbench-disclosure order-workbench-records-disclosure">
+                <summary>
+                  {t("orders2b2.overview.recordsSummary")}
+                  <ChevronDown aria-hidden="true" />
+                </summary>
+                <DesktopRecordsSummaryPanel
+                  events={events}
+                  messages={messages}
+                  workflow={workflow}
+                  surface={surface}
+                  onShowRecords={onShowRecords}
+                />
+              </details>
+              <details className="order-workbench-disclosure">
+                <summary>
+                  {t("orders2b2.overview.keyInfo")}
+                  <ChevronDown aria-hidden="true" />
+                </summary>
+                <OrderKeyInfoCard order={order} supplier={supplier} surface={surface} />
+              </details>
+            </div>
+            <div
+              data-order-detail-column="customer-device"
+              data-order-unified-column="device"
+              className={detailWorkspace.orderDetailWorkbenchColumn}
+            >
+              {devicePanel}
+              <div className="order-workbench-responsibility">
+                {custodyControl}
+                {responsibilityPanel}
+              </div>
+            </div>
+            <div
+              data-order-detail-column="quote"
+              data-order-unified-column="money"
+              className={detailWorkspace.orderDetailWorkbenchColumn}
+            >
+              {edit ? (
+                <DetailPanel surface={surface} dataPanel="diagnosis">
+                  <DraftTextField
+                    label={t("orders2b2.overview.diagnosis")}
+                    value={repairEdit?.draft.diagnosis_result ?? order.diagnosis_result ?? ""}
+                    multiline
+                    tone="soft"
+                    emptyText="—"
+                    edit={repairEdit}
+                    onChange={(value) => patchDraft(repairEdit, { diagnosis_result: value })}
+                  />
+                </DetailPanel>
+              ) : null}
+              {financePanel}
+              {showPhotoPanel ? (
+                <DesktopOrderPhotosPanel
+                  attachments={photoAttachments}
+                  uploadPending={photoUploadPending}
+                  onCapture={onPhotoCapture}
+                  surface={surface}
+                />
+              ) : null}
+            </div>
           </div>
         )}
-        {surface !== "dialog" ? (
-          <div
-            data-order-detail-secondary-grid="true"
-            className="grid min-w-0 gap-2 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)] @[1040px]/order-overview:grid-cols-[minmax(0,0.9fr)_minmax(0,1.28fr)_minmax(0,0.92fr)]"
-          >
-            <OrderKeyInfoCard
-              order={order}
-              supplier={supplier}
-              surface={surface}
-              className="h-full"
-              custodyControl={custodyControl}
-            />
-            {showPhotoPanel ? (
-              <DesktopOrderPhotosPanel
-                attachments={photoAttachments}
-                uploadPending={photoUploadPending}
-                onCapture={onPhotoCapture}
-                surface={surface}
-                className="h-full"
-              />
-            ) : null}
-            <DesktopRecordsSummaryPanel
-              events={events}
-              messages={messages}
-              workflow={workflow}
-              surface={surface}
-              onShowRecords={onShowRecords}
-            />
-          </div>
+        {workbenchView ? (
+          <OrderOverviewDesktopContextStrip
+            events={events}
+            workflow={workflow}
+            onShowRecords={onShowRecords}
+          />
         ) : null}
+        {!workbenchView ? responsibilityPanel : null}
       </div>
     </motion.div>
   );
@@ -385,6 +451,7 @@ function OrderOverviewDesktopContextStrip({
 }
 
 export function OrderDetailActionDock({
+  suspended = false,
   order,
   isEditing,
   financeDraft,
@@ -398,7 +465,10 @@ export function OrderDetailActionDock({
   notifyDisabled = false,
   primaryAction = null,
   surface = "page",
+  secondaryActions,
+  secondaryOnly = false,
 }: {
+  suspended?: boolean;
   order: OrderDetail["order"];
   isEditing: boolean;
   financeDraft: FinanceDraftState;
@@ -412,6 +482,8 @@ export function OrderDetailActionDock({
   notifyDisabled?: boolean;
   primaryAction?: OrderDetailPrimaryAction;
   surface?: DetailSurface;
+  secondaryActions?: React.ReactNode;
+  secondaryOnly?: boolean;
 }) {
   const { t } = useLocale();
   const { isMobile, state: sidebarState } = useSidebar();
@@ -463,7 +535,9 @@ export function OrderDetailActionDock({
   return (
     <div
       data-order-action-dock="true"
-      style={pageDockStyle}
+      aria-hidden={suspended || undefined}
+      inert={suspended}
+      style={{ ...pageDockStyle, display: suspended ? "none" : undefined }}
       className={cn(
         surface === "dialog"
           ? "sticky bottom-0 z-20 mt-2 min-w-0"
@@ -479,96 +553,103 @@ export function OrderDetailActionDock({
         )}
       >
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
-          <div
-            data-order-action-settlement="true"
-            className="flex min-h-9 min-w-[180px] max-w-[260px] items-center justify-between gap-2 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/45 px-2 text-[10px] text-muted-foreground lg:text-xs lg:leading-4"
-          >
-            {financeRedacted ? (
-              <span className="truncate font-medium">
-                {t("orders2b2.overview.financeRestricted")}
-              </span>
-            ) : (
-              <>
-                <span className="inline-flex min-w-0 items-center gap-1 font-medium">
-                  {cancelled ? (
-                    t("orders2b2.overview.cancelled")
-                  ) : financialState.settlement === "settled" ||
-                    financialState.settlement === "zero_charge" ? (
-                    <>
-                      <CheckCircle2 className="size-3 text-status-success-foreground" />
-                      {t("orders2b2.overview.settled")}
-                    </>
-                  ) : (
-                    localizeOrderDetailFinancialState(financialState, t)
+          {!secondaryOnly ? (
+            <>
+              <div
+                data-order-action-settlement="true"
+                className="flex min-h-9 min-w-[180px] max-w-[260px] items-center justify-between gap-2 rounded-md border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/45 px-2 text-[10px] text-muted-foreground lg:text-xs lg:leading-4"
+              >
+                {financeRedacted ? (
+                  <span className="truncate font-medium">
+                    {t("orders2b2.overview.financeRestricted")}
+                  </span>
+                ) : (
+                  <>
+                    <span className="inline-flex min-w-0 items-center gap-1 font-medium">
+                      {cancelled ? (
+                        t("orders2b2.overview.cancelled")
+                      ) : financialState.settlement === "settled" ||
+                        financialState.settlement === "zero_charge" ? (
+                        <>
+                          <CheckCircle2 className="size-3 text-status-success-foreground" />
+                          {t("orders2b2.overview.settled")}
+                        </>
+                      ) : (
+                        localizeOrderDetailFinancialState(financialState, t)
+                      )}
+                    </span>
+                    <span className="truncate">
+                      {isEditing
+                        ? t("orders2b2.overview.quoteDraft")
+                        : t("orders2b2.overview.itemsApproval", {
+                            count: order.fault_prices.length,
+                            approval: localizeOrderDetailApproval(order.approval_status, t),
+                          })}
+                    </span>
+                  </>
+                )}
+              </div>
+              <div className="grid min-w-[270px] grid-cols-3 gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={notifyPrimary ? "default" : "outline"}
+                  data-primary-action={notifyPrimary ? "true" : undefined}
+                  className={cn(
+                    "h-11 min-w-11 gap-1.5 px-2 text-xs lg:h-9 lg:min-w-0",
+                    notifyPrimary && "border-0 text-primary-foreground",
                   )}
-                </span>
-                <span className="truncate">
-                  {isEditing
-                    ? t("orders2b2.overview.quoteDraft")
-                    : t("orders2b2.overview.itemsApproval", {
-                        count: order.fault_prices.length,
-                        approval: localizeOrderDetailApproval(order.approval_status, t),
-                      })}
-                </span>
-              </>
-            )}
-          </div>
-          <div className="grid min-w-[270px] grid-cols-3 gap-1.5">
-            <Button
-              type="button"
-              size="sm"
-              variant={notifyPrimary ? "default" : "outline"}
-              data-primary-action={notifyPrimary ? "true" : undefined}
-              className={cn(
-                "h-11 min-w-11 gap-1.5 px-2 text-xs lg:h-9 lg:min-w-0",
-                notifyPrimary && "border-0 text-primary-foreground",
-              )}
-              style={notifyPrimary ? { background: "var(--gradient-brand)" } : undefined}
-              disabled={isEditing || notifyDisabled}
-              onClick={onNotify}
-            >
-              <Send className="size-3.5" />
-              WhatsApp
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={flowPrimary ? "default" : "outline"}
-              data-primary-action={flowPrimary ? "true" : undefined}
-              className={cn(
-                "h-11 min-w-11 gap-1.5 px-2 text-xs lg:h-9 lg:min-w-0",
-                flowPrimary && "border-0 text-primary-foreground",
-              )}
-              style={flowPrimary ? { background: "var(--gradient-brand)" } : undefined}
-              disabled={isEditing || (!approvalDecisionAvailable && flowDisabled)}
-              onClick={approvalDecisionAvailable ? onApprovalDecision : onFlow}
-            >
-              <Clock3 className="size-3.5" />
-              {flowActionLabel}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={paymentPrimary ? "default" : "outline"}
-              data-primary-action={paymentPrimary ? "true" : undefined}
-              className={cn(
-                "h-11 min-w-11 gap-1.5 px-2 text-xs lg:h-9 lg:min-w-0",
-                paymentPrimary && "border-0 text-primary-foreground",
-              )}
-              style={paymentPrimary ? { background: "var(--gradient-brand)" } : undefined}
-              disabled={
-                financeRedacted ||
-                isEditing ||
-                paymentDisabled ||
-                cancelled ||
-                !financialState.collectible
-              }
-              onClick={onPay}
-            >
-              <CreditCard className="size-3.5" />
-              {cancelled ? t("orders2b2.overview.cannotCollect") : t("orders2b2.overview.collect")}
-            </Button>
-          </div>
+                  style={notifyPrimary ? { background: "var(--gradient-brand)" } : undefined}
+                  disabled={isEditing || notifyDisabled}
+                  onClick={onNotify}
+                >
+                  <Send className="size-3.5" />
+                  WhatsApp
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={flowPrimary ? "default" : "outline"}
+                  data-primary-action={flowPrimary ? "true" : undefined}
+                  className={cn(
+                    "h-11 min-w-11 gap-1.5 px-2 text-xs lg:h-9 lg:min-w-0",
+                    flowPrimary && "border-0 text-primary-foreground",
+                  )}
+                  style={flowPrimary ? { background: "var(--gradient-brand)" } : undefined}
+                  disabled={isEditing || (!approvalDecisionAvailable && flowDisabled)}
+                  onClick={approvalDecisionAvailable ? onApprovalDecision : onFlow}
+                >
+                  <Clock3 className="size-3.5" />
+                  {flowActionLabel}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={paymentPrimary ? "default" : "outline"}
+                  data-primary-action={paymentPrimary ? "true" : undefined}
+                  className={cn(
+                    "h-11 min-w-11 gap-1.5 px-2 text-xs lg:h-9 lg:min-w-0",
+                    paymentPrimary && "border-0 text-primary-foreground",
+                  )}
+                  style={paymentPrimary ? { background: "var(--gradient-brand)" } : undefined}
+                  disabled={
+                    financeRedacted ||
+                    isEditing ||
+                    paymentDisabled ||
+                    cancelled ||
+                    !financialState.collectible
+                  }
+                  onClick={onPay}
+                >
+                  <CreditCard className="size-3.5" />
+                  {cancelled
+                    ? t("orders2b2.overview.cannotCollect")
+                    : t("orders2b2.overview.collect")}
+                </Button>
+              </div>
+            </>
+          ) : null}
+          {secondaryActions}
         </div>
       </div>
     </div>
@@ -815,6 +896,7 @@ function OrderOverviewFinancePanel({
   onFinanceDraftChange,
   canAdjustFinance,
   surface,
+  onEdit,
 }: {
   order: OrderDetail["order"];
   isEditing: boolean;
@@ -823,6 +905,7 @@ function OrderOverviewFinancePanel({
   onFinanceDraftChange?: (draft: FinanceDraftState) => void;
   canAdjustFinance: boolean;
   surface: DetailSurface;
+  onEdit?: React.MouseEventHandler<HTMLButtonElement>;
 }) {
   const { t } = useLocale();
   const dense = surface === "dialog";
@@ -867,22 +950,48 @@ function OrderOverviewFinancePanel({
     );
   }
 
-  return (
-    <DetailPanel surface={surface} dataPanel="finance">
-      <PanelHeader title={t("orders2b2.overview.quotePanel")} editing={canEditFinance} />
-      <div className={cn("min-w-0", dense ? "space-y-1.5" : "space-y-2 sm:space-y-3")}>
-        {financeRedacted ? (
-          <div className="grid min-h-16 place-items-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 text-xs font-medium text-muted-foreground">
-            {t("orders2b2.overview.amountRestricted")}
-          </div>
-        ) : dense ? null : (
+  if (!canEditFinance) {
+    return (
+      <DetailPanel surface={surface} dataPanel="finance" className="order-workbench-summary-panel">
+        <button
+          type="button"
+          data-order-finance-summary-trigger="true"
+          onClick={onEdit}
+          disabled={!onEdit}
+          aria-label={t("orders2b2.overview.quotePanel")}
+          className="block w-full min-w-0 rounded-lg text-left focus-visible:ring-2 focus-visible:ring-ring"
+        >
           <OrderWorkspaceMoneyStrip
             total={display.quotation}
             deposit={display.deposit}
             balance={display.balance}
             cancelled={cancelled}
+            appearance="workbench-summary"
           />
-        )}
+        </button>
+      </DetailPanel>
+    );
+  }
+
+  return (
+    <DetailPanel
+      surface={surface}
+      dataPanel="finance"
+      className={canEditFinance ? "order-workbench-finance-editing" : undefined}
+    >
+      <PanelHeader title={t("orders2b2.overview.quotePanel")} editing={canEditFinance} />
+      {!canEditFinance ? (
+        <div className="order-workbench-quote-total">
+          <span>{t("orders2b2.finance.total")}</span>
+          <MoneyText amount={display.quotation} />
+        </div>
+      ) : null}
+      <div className={cn("min-w-0", dense ? "space-y-1.5" : "space-y-2 sm:space-y-3")}>
+        {financeRedacted ? (
+          <div className="grid min-h-16 place-items-center rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 text-xs font-medium text-muted-foreground">
+            {t("orders2b2.overview.amountRestricted")}
+          </div>
+        ) : null}
 
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="inline-flex min-w-0 items-center gap-1 text-[10px] font-medium text-muted-foreground">
@@ -943,6 +1052,15 @@ function OrderOverviewFinancePanel({
         ) : (
           <FinanceDisplay order={order} />
         )}
+        {!financeRedacted && !canEditFinance ? (
+          <OrderWorkspaceMoneyStrip
+            total={display.quotation}
+            deposit={display.deposit}
+            balance={display.balance}
+            cancelled={cancelled}
+            appearance={cancelled ? "default" : "quote-editor"}
+          />
+        ) : null}
       </div>
     </DetailPanel>
   );
@@ -1012,8 +1130,11 @@ function DetailPanel({
   }
 
   return (
-    <DetailDensityContext.Provider value={false}>
-      <Card className={cn(overviewPanelClass, className)} data-order-panel={dataPanel}>
+    <DetailDensityContext.Provider value>
+      <Card
+        className={cn(detailWorkspace.orderDetailWorkbenchPanel, className)}
+        data-order-panel={dataPanel}
+      >
         {children}
       </Card>
     </DetailDensityContext.Provider>
@@ -1029,6 +1150,7 @@ function CustomerPanel({
   kioskSignaturePending,
   kioskSignatureAvailable,
   signatureAttachments,
+  onEdit,
 }: {
   order: OrderDetail["order"];
   customer?: Customer;
@@ -1038,14 +1160,65 @@ function CustomerPanel({
   kioskSignaturePending: boolean;
   kioskSignatureAvailable: boolean;
   signatureAttachments: OrderAttachment[];
+  onEdit?: React.MouseEventHandler<HTMLButtonElement>;
 }) {
-  const { t } = useLocale();
-  const dense = surface === "dialog";
+  const { locale, t } = useLocale();
+  const dense = true;
+  if (!edit) {
+    return (
+      <DetailPanel
+        surface={surface}
+        dataPanel="customer"
+        className="order-workbench-customer-inline"
+      >
+        <div data-order-workbench-order-meta="true" className="order-workbench-order-meta">
+          <span className="font-mono text-xs font-semibold text-muted-foreground">
+            {order.public_no}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {formatDateTime(order.created_at, locale)}
+          </span>
+        </div>
+        <span className="text-[11px] text-muted-foreground">
+          {t("orders2b2.overview.customer")}
+        </span>
+        <button
+          type="button"
+          onClick={onEdit}
+          disabled={!onEdit}
+          aria-label={t("orders2b2.overview.customerInfo")}
+          className="min-h-11 min-w-0 break-words text-left text-sm font-semibold focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {order.customer_name || customer?.name || "—"}
+        </button>
+        <CustomerPhoneField order={order} customer={customer} edit={null} />
+        <details className="order-workbench-customer-details">
+          <summary>
+            {t("orders2b2.overview.customerInfo")}
+            <ChevronDown aria-hidden="true" />
+          </summary>
+          <div>
+            <InfoField label={t("orders2b2.overview.technician")}>
+              <ReadonlyValue value={order.technician_name} />
+            </InfoField>
+            <BackupPhones order={order} edit={null} />
+            <CustomerSignatureSection
+              order={order}
+              onRequestKioskSignature={onRequestKioskSignature}
+              kioskSignaturePending={kioskSignaturePending}
+              kioskSignatureAvailable={kioskSignatureAvailable}
+              signatureAttachments={signatureAttachments}
+            />
+          </div>
+        </details>
+      </DetailPanel>
+    );
+  }
   return (
     <DetailPanel surface={surface} dataPanel="customer">
       <PanelHeader title={t("orders2b2.overview.customerInfo")} editing={Boolean(edit)} />
       <div className={cn("min-w-0", dense ? "space-y-1.5" : "space-y-2 sm:space-y-3")}>
-        <section className="grid min-w-0 gap-1.5">
+        <section className={cn("grid min-w-0 gap-1.5", surface === "page" && "grid-cols-2")}>
           <CustomerNameField order={order} customer={customer} edit={edit} />
           {surface !== "dialog" ? (
             <InfoField label={t("orders2b2.overview.technician")} tone="soft">
@@ -1089,6 +1262,37 @@ function CustomerNameField({
       edit={edit}
       onChange={(value) => patchDraft(edit, { customer_name: value })}
     />
+  );
+}
+
+export function OrderCustomerSupplement({
+  order,
+  onRequestKioskSignature,
+  kioskSignaturePending = false,
+  kioskSignatureAvailable = false,
+  signatureAttachments = [],
+}: {
+  order: OrderDetail["order"];
+  onRequestKioskSignature?: () => void;
+  kioskSignaturePending?: boolean;
+  kioskSignatureAvailable?: boolean;
+  signatureAttachments?: OrderAttachment[];
+}) {
+  const { t } = useLocale();
+  return (
+    <div className="grid min-w-0 gap-3">
+      <InfoField label={t("orders2b2.overview.technician")}>
+        <ReadonlyValue value={order.technician_name} />
+      </InfoField>
+      <BackupPhones order={order} edit={null} />
+      <CustomerSignatureSection
+        order={order}
+        onRequestKioskSignature={onRequestKioskSignature}
+        kioskSignaturePending={kioskSignaturePending}
+        kioskSignatureAvailable={kioskSignatureAvailable}
+        signatureAttachments={signatureAttachments}
+      />
+    </div>
   );
 }
 
@@ -1332,6 +1536,12 @@ function DeviceIssuePanel({
   intakeEdit,
   repairEdit,
   surface,
+  showDiagnosis = true,
+  onEdit,
+  onEditNotes,
+  onEditQuote,
+  quoteAction,
+  onEditField,
 }: {
   order: OrderDetail["order"];
   deviceBrand: string;
@@ -1345,9 +1555,128 @@ function DeviceIssuePanel({
   intakeEdit: OrderEditContext | null;
   repairEdit: OrderEditContext | null;
   surface: DetailSurface;
+  showDiagnosis?: boolean;
+  onEdit?: React.MouseEventHandler<HTMLButtonElement>;
+  onEditNotes?: (trigger: HTMLButtonElement) => void;
+  onEditQuote?: React.MouseEventHandler<HTMLButtonElement>;
+  quoteAction?: React.ReactNode;
+  onEditField?: (field: OrderDetailField, trigger: HTMLElement) => void;
 }) {
-  const { t } = useLocale();
-  const dense = surface === "dialog";
+  const { locale, t } = useLocale();
+  const dense = true;
+  if (!intakeEdit && !repairEdit) {
+    return (
+      <DetailPanel surface={surface} dataPanel="device" className="order-workbench-device-card">
+        <div className="order-workbench-device-heading">
+          <button
+            type="button"
+            onClick={onEdit}
+            disabled={!onEdit}
+            aria-label={t("orders2b2.overview.deviceIssue")}
+            className="flex min-h-11 w-full min-w-0 items-center justify-between gap-3 text-left focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span className="min-w-0">
+              <span className="order-workbench-brand">{deviceBrand || "—"}</span>
+              <span className="order-workbench-model">{deviceModel || "—"}</span>
+            </span>
+            {onEdit ? (
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            ) : null}
+          </button>
+          <ImeiField
+            value={deviceImei}
+            edit={null}
+            onQuickSave={onQuickImeiSave}
+            quickPending={quickImeiPending}
+          />
+        </div>
+        <div className="order-workbench-repair-notes">
+          <div className="order-workbench-section" data-order-panel="issue">
+            <button
+              type="button"
+              onClick={(event) => onEditNotes?.(event.currentTarget)}
+              disabled={!onEditNotes}
+              aria-label={t("orders.faultEditor.title")}
+              className="block min-h-11 w-full text-left focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <h3>
+                <span aria-hidden="true">01</span>
+                {t("orders2b2.overview.issue")}
+              </h3>
+              <p>{order.issue_description || "—"}</p>
+            </button>
+            <OrderWorkspaceFullText text={order.issue_description} />
+          </div>
+          <div className="order-workbench-section" data-order-panel="diagnosis">
+            <h3>
+              <span aria-hidden="true">02</span>
+              {t("orders2b2.overview.diagnosis")}
+            </h3>
+            <p>{order.diagnosis_result || "—"}</p>
+            <OrderWorkspaceFullText text={order.diagnosis_result} />
+          </div>
+        </div>
+        {!order.finance_redacted ? (
+          <OrderWorkspaceRepairItems
+            names={order.fault_prices.map(
+              (item) =>
+                localizeRepairServiceItemName(item, locale) || t("orders2b2.mobile.unnamedItem"),
+            )}
+            onEditClick={onEditQuote}
+            actions={quoteAction}
+          />
+        ) : quoteAction ? (
+          <div className="order-workbench-restricted-quote">{quoteAction}</div>
+        ) : null}
+        <div className="order-workbench-device-supplement">
+          <div className="order-workbench-device-footer">
+            <button
+              type="button"
+              data-order-field-trigger="accessories"
+              onClick={(event) => onEditField?.("accessories", event.currentTarget)}
+              disabled={!onEditField}
+              className="order-detail-direct-field"
+            >
+              <AccessoryNotesField value={accessoryNotes || ""} edit={null} onChange={() => {}} />
+              <ChevronDown className="size-3.5 shrink-0" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              data-order-field-trigger="warranty"
+              onClick={(event) => onEditField?.("warranty", event.currentTarget)}
+              disabled={!onEditField}
+              className="order-detail-direct-field"
+            >
+              <WarrantyField
+                order={order}
+                edit={null}
+                defaultWarrantyMonths={defaultWarrantyMonths}
+              />
+              <ChevronDown className="size-3.5 shrink-0" aria-hidden="true" />
+            </button>
+          </div>
+          <div className="order-workbench-device-support">
+            <DeviceUnlockDetailField order={order} edit={null} dense />
+            <button
+              type="button"
+              data-order-field-trigger="notes"
+              onClick={(event) => onEditField?.("notes", event.currentTarget)}
+              disabled={!onEditField}
+              className="order-detail-direct-field"
+            >
+              <span className="min-w-0">
+                <span className="block text-xs text-muted-foreground">
+                  {t("orders2b2.overview.deviceNotes")}
+                </span>
+                <span className="block max-w-full truncate text-xs">{deviceNotes || "—"}</span>
+              </span>
+              <ChevronDown className="size-3.5 shrink-0" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      </DetailPanel>
+    );
+  }
   return (
     <DetailPanel surface={surface} dataPanel="device">
       <PanelHeader
@@ -1396,7 +1725,7 @@ function DeviceIssuePanel({
             label={t("orders2b2.overview.deviceNotes")}
             value={repairEdit?.draft.device_notes ?? deviceNotes ?? ""}
             tone="note"
-            className={dense ? "line-clamp-2" : undefined}
+            className={surface === "dialog" ? "line-clamp-2" : undefined}
             emptyText="—"
             edit={repairEdit}
             onChange={(value) => patchDraft(repairEdit, { device_notes: value })}
@@ -1414,7 +1743,8 @@ function DeviceIssuePanel({
         <section
           className={cn(
             "grid min-w-0",
-            dense ? "gap-1.5 lg:grid-cols-2" : "gap-2 sm:gap-3 xl:grid-cols-2",
+            dense ? "gap-1.5" : "gap-2 sm:gap-3",
+            showDiagnosis && (dense ? "lg:grid-cols-2" : "xl:grid-cols-2"),
           )}
         >
           <DraftTextField
@@ -1423,21 +1753,23 @@ function DeviceIssuePanel({
             required
             multiline
             tone="note"
-            className={dense ? "line-clamp-2" : undefined}
+            className={surface === "dialog" ? "line-clamp-2" : undefined}
             edit={intakeEdit}
             onChange={(value) => patchDraft(intakeEdit, { issue_description: value })}
           />
-          <DraftTextField
-            label={t("orders2b2.overview.diagnosis")}
-            value={repairEdit?.draft.diagnosis_result ?? order.diagnosis_result ?? ""}
-            multiline
-            tone="soft"
-            className={dense ? "line-clamp-2" : undefined}
-            emptyText="—"
-            edit={repairEdit}
-            onChange={(value) => patchDraft(repairEdit, { diagnosis_result: value })}
-          />
-          <div className={cn(dense ? "lg:col-span-2" : "xl:col-span-2")}>
+          {showDiagnosis ? (
+            <DraftTextField
+              label={t("orders2b2.overview.diagnosis")}
+              value={repairEdit?.draft.diagnosis_result ?? order.diagnosis_result ?? ""}
+              multiline
+              tone="soft"
+              className={surface === "dialog" ? "line-clamp-2" : undefined}
+              emptyText="—"
+              edit={repairEdit}
+              onChange={(value) => patchDraft(repairEdit, { diagnosis_result: value })}
+            />
+          ) : null}
+          <div className={cn(showDiagnosis && (dense ? "lg:col-span-2" : "xl:col-span-2"))}>
             <WarrantyField
               order={order}
               edit={repairEdit}
@@ -1558,7 +1890,7 @@ function WarrantyField({
   );
 }
 
-function FinanceInlineEditor({
+export function FinanceInlineEditor({
   draft,
   normalized,
   error,

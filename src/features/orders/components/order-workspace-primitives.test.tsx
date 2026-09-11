@@ -8,7 +8,83 @@ import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
 import {
   OrderWorkspaceQuoteDisclosure,
   OrderWorkspaceQuoteTextField,
+  OrderWorkspaceMoneyStrip,
+  OrderWorkspaceRepairItems,
+  OrderWorkspaceFullText,
 } from "./order-workspace-primitives";
+
+describe("workbench money summary", () => {
+  it("shows only canonical total, deposit and balance without recomputing paid balance", () => {
+    const { container } = render(
+      <OrderWorkspaceMoneyStrip
+        total={120}
+        deposit={10}
+        balance={35}
+        appearance="workbench-summary"
+      />,
+    );
+    expect(container.querySelectorAll("[data-order-workbench-amount]")).toHaveLength(3);
+    expect(container.querySelector('[data-order-workbench-amount="total"] dd')).toHaveTextContent(
+      "120.00",
+    );
+    expect(container.querySelector('[data-order-workbench-amount="deposit"] dd')).toHaveTextContent(
+      "10.00",
+    );
+    expect(container.querySelector('[data-order-workbench-amount="balance"] dd')).toHaveTextContent(
+      "35.00",
+    );
+  });
+});
+
+describe("repair item edit trigger compatibility", () => {
+  it("keeps repeated business items and exposes the complete list without edit permission", () => {
+    const names = ["Display", "Display", "Battery", "Labour", "Seal", "Diagnostic"];
+    const { container } = render(<OrderWorkspaceRepairItems names={names} />);
+    expect(within(container).getAllByText("Display")).toHaveLength(2);
+    const expand = within(container).getByRole("button", { name: "查看全部 · 6" });
+    expect(expand).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(expand);
+    expect(expand).toHaveAttribute("aria-expanded", "true");
+    expect(container.querySelectorAll("li")).toHaveLength(6);
+    expect(within(container).getByText("Diagnostic")).toBeInTheDocument();
+  });
+
+  it("provides full multiline text without nesting its disclosure inside an edit button", () => {
+    const text = "Read-only complete description. ".repeat(12);
+    const { container } = render(
+      <section>
+        <p>{text}</p>
+        <OrderWorkspaceFullText text={text} />
+      </section>,
+    );
+    const disclosure = container.querySelector("details")!;
+    expect(disclosure).not.toHaveAttribute("hidden");
+    expect(disclosure.closest("button")).toBeNull();
+    fireEvent.click(within(disclosure).getByText("展开完整描述"));
+    expect(disclosure).toHaveAttribute("open");
+    expect(within(disclosure).getByText(text.trim())).toBeVisible();
+  });
+
+  it("passes the real click target exactly once and keeps the legacy element callback", () => {
+    const legacy = vi.fn();
+    let target: HTMLButtonElement | null = null;
+    const click = vi.fn((event) => {
+      target = event.currentTarget;
+    });
+    const view = render(
+      <OrderWorkspaceRepairItems names={["Display"]} onEdit={legacy} onEditClick={click} />,
+    );
+    const button = within(view.container).getByRole("button");
+    fireEvent.click(button);
+    expect(click).toHaveBeenCalledOnce();
+    expect(target).toBe(button);
+    expect(legacy).not.toHaveBeenCalled();
+    view.rerender(<OrderWorkspaceRepairItems names={["Display"]} onEdit={legacy} />);
+    fireEvent.click(button);
+    expect(legacy).toHaveBeenCalledExactlyOnceWith(button);
+    expect(click).toHaveBeenCalledOnce();
+  });
+});
 
 describe("OrderWorkspaceQuoteTextField popup", () => {
   it("localizes the trigger while editing and preserving the original value", async () => {

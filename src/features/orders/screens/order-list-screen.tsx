@@ -50,7 +50,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 
 import { fadeUp, floatingBar, stagger } from "@/lib/motion";
-import { brandGradientStyle, controls, layoutGuards, repairOs } from "@/lib/ui-patterns";
+import { appShell, brandGradientStyle, controls, layoutGuards, repairOs } from "@/lib/ui-patterns";
 import { componentOverlay } from "@/lib/component-patterns";
 import { OrderMobileCard } from "@/features/orders/components/order-list-items";
 import { OrderListPrintSheet } from "@/features/orders/components/order-list-print-sheet";
@@ -68,6 +68,12 @@ import { OrderResultGroupHeader } from "@/features/orders/components/order-resul
 import { OrderSearchFeedback } from "@/features/orders/components/order-search-feedback";
 import { OrderListSkeleton } from "@/features/orders/components/order-list-skeleton";
 import { OrderListViewMode } from "@/features/orders/components/order-list-view-mode";
+import { OrderListPresentationSwitch } from "@/features/orders/components/order-list-presentation-switch";
+import {
+  groupOrderListPresentation,
+  type OrderListPresentationView,
+} from "@/features/orders/model/order-list-presentation";
+import { getOrderTaskStage } from "@/features/orders/model/order-task-flow";
 import {
   OrderBulkTransitionFeedback,
   OrderListTransitionFeedback,
@@ -136,6 +142,7 @@ import {
 import { isRepairDeskPreloadEnabled } from "@/features/preload/model/preload-plan";
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { useFixedOrderPdfPrint } from "@/features/orders/print/use-fixed-order-pdf-print";
+import { getOrderDetailSafeErrorMessage } from "@/features/orders/model/order-detail-i18n";
 import { issueCustomerStatusLinks } from "@/features/customer-status/api/customer-status-client";
 import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
@@ -217,6 +224,7 @@ function orderListRequestHash(input: OrderListPageInput) {
 
 export function OrderListScreen() {
   const { t } = useLocale();
+  const [presentationView, setPresentationView] = useState<OrderListPresentationView>("list");
   const [statusGroup, setStatusGroup] = useState<"all" | OrderQueueGroup>("all");
   const [statusCode, setStatusCode] = useState<string>("all");
   const [filters, setFilters] = useState<OrderListFilters>({});
@@ -460,7 +468,7 @@ export function OrderListScreen() {
     () => {
       setPrintOrders([]);
     },
-    (error) => toast.error(error.message),
+    (error) => toast.error(getOrderDetailSafeErrorMessage(error, "print", t)),
     {
       scopeKey: `${activeStoreId ?? "no-store"}:order-list`,
       onPdfReady: () => {
@@ -483,7 +491,11 @@ export function OrderListScreen() {
   const canBatchPrintOrders = options.permissions.canBatchPrintOrders === true;
   const canBatchTransitionOrders = options.permissions.canBatchTransitionOrders === true;
   const canUseBulkActions = canExportOrders || canBatchTransitionOrders;
-  const singlePrintDisabledReason = generationPending ? t("orders.printPreparing") : undefined;
+  const singlePrintDisabledReason = !canPrintSingleOrders
+    ? t("orders2b2.print.permissionDenied")
+    : generationPending
+      ? t("orders.printPreparing")
+      : undefined;
   useEffect(() => {
     if (!canUseBulkActions) setSelected([]);
   }, [canUseBulkActions]);
@@ -508,6 +520,14 @@ export function OrderListScreen() {
 
   const data = useMemo(() => listResult?.items ?? [], [listResult?.items]);
   const groupedData = useMemo(() => groupOrderListItems(data), [data]);
+  const boardGroups = useMemo(
+    () =>
+      groupOrderListPresentation(
+        groupedData.flatMap((section) => section.items),
+        t,
+      ),
+    [groupedData, t],
+  );
   const totalOrders = listResult?.total ?? 0;
   const pageCount = listResult?.pageCount ?? 1;
   const persistListContext = useCallback(
@@ -1175,10 +1195,18 @@ export function OrderListScreen() {
       toast.error(t("orders.noPrintableOrders"));
       return;
     }
+    if (rows.length === 1 ? !canPrintSingleOrders : !canBatchPrintOrders) {
+      toast.error(t("orders2b2.print.permissionDenied"));
+      return;
+    }
     setPendingPrintOrders(rows);
     setPrintPaperDialogOpen(true);
   };
   const printRows = async (rows: OrderListItem[], paperMode: PrintPaperMode) => {
+    if (!rows.length || (rows.length === 1 ? !canPrintSingleOrders : !canBatchPrintOrders)) {
+      toast.error(t("orders2b2.print.permissionDenied"));
+      return;
+    }
     rememberOrderPrintPaperMode(paperMode);
     setPrintPaperMode(paperMode);
     setPrintPaperDialogOpen(false);
@@ -1304,6 +1332,46 @@ export function OrderListScreen() {
     });
   };
 
+  const renderDesktopOrder = (order: OrderListItem, layout: "row" | "card" = "row") => (
+    <DesktopOrderQueueRow
+      order={order}
+      workflow={workflow}
+      layout={layout}
+      checked={selected.includes(order.id)}
+      selectable={canUseBulkActions}
+      onOpen={() => openDetail(order.id)}
+      onPrefetch={() => scheduleOrderDetailPrefetch(order.id, "intent")}
+      onCancelPrefetch={() => cancelOrderDetailPrefetch(order.id)}
+      onCheckedChange={(value) =>
+        setSelected((previous) =>
+          bulkRequestLockRef.current
+            ? previous
+            : value
+              ? [...new Set([...previous, order.id])]
+              : previous.filter((id) => id !== order.id),
+        )
+      }
+      onPrint={() => requestPrintRows([order])}
+      canPrint={canPrintSingleOrders}
+      printDisabledReason={singlePrintDisabledReason}
+      onOpenPrintRecovery={() => openDetail(order.id)}
+      onStopInteraction={stopRowClick}
+      suppliers={visibleSuppliers}
+    />
+  );
+  const renderCompactOrder = (order: OrderListItem, expanded = false) => (
+    <OrderMobileCard
+      order={order}
+      workflow={workflow}
+      expanded={expanded}
+      detailHref={`/orders/${order.id}?from=orders`}
+      onPrefetch={() => scheduleOrderDetailPrefetch(order.id, "intent")}
+      onCancelPrefetch={() => cancelOrderDetailPrefetch(order.id)}
+      suppliers={visibleSuppliers}
+      onOpenIntent={() => rememberListContext(order.id)}
+    />
+  );
+
   if (!isOnline && !listResult) {
     return (
       <OrdersErrorState message={t("orders.offlineNoCache")} onRetry={() => refreshOrderData()} />
@@ -1325,7 +1393,7 @@ export function OrderListScreen() {
 
   return (
     <div
-      className={cn(repairOs.mobileListFloatingPage, "md:pb-8")}
+      className={cn(repairOs.mobileListFloatingPage, appShell.orderList, "md:pb-8")}
       data-order-list-refreshing={isFetching ? "true" : "false"}
       onClickCapture={rememberListInvoker}
       onKeyDownCapture={rememberListInvoker}
@@ -1713,6 +1781,7 @@ export function OrderListScreen() {
               type="button"
               variant="outline"
               onClick={() => setMobileFiltersOpen(true)}
+              className="h-11 rounded-xl px-3"
               aria-label={t("orders.mobileFilterTitle")}
             >
               <Filter className="size-4" />
@@ -1764,14 +1833,17 @@ export function OrderListScreen() {
               showLabel
               ariaLabel={t("orders.scanOrderQr")}
               label={t("orders.scanOrderQrShort")}
-              className="h-9 gap-1.5 border-border/60 bg-surface/60 backdrop-blur"
+              className="h-11 gap-1.5 rounded-xl border-border/60 bg-card px-3"
               iconClassName="size-3.5"
             />
             <Button
               type="button"
               data-order-list-new-button="true"
               size="sm"
-              className={cn("hidden h-9 gap-1.5 lg:inline-flex", controls.brandButton)}
+              className={cn(
+                "hidden h-11 gap-1.5 rounded-xl px-4 lg:inline-flex",
+                controls.brandButton,
+              )}
               style={brandGradientStyle}
               onClick={openNewOrder}
             >
@@ -1854,7 +1926,25 @@ export function OrderListScreen() {
         </div>
       ) : null}
 
-      {/* List */}
+      <div className="order-presentation-toolbar mb-3 flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0 text-[11px] leading-4 text-muted-foreground">
+          <p data-order-presentation-scope="true">
+            {t("orders.queue.pageScope", { page, count: data.length })}
+          </p>
+          {viewportMode === "desktop" || presentationView === "board" ? (
+            <p className="mt-1">
+              {t(presentationView === "board" ? "orders.queue.boardHint" : "orders.queue.listHint")}
+            </p>
+          ) : null}
+        </div>
+        <OrderListPresentationSwitch
+          value={presentationView}
+          onChange={setPresentationView}
+          disabled={listInteractionBlocked}
+        />
+      </div>
+
+      {/* List: presentation state never changes the query or data scope. */}
       <div
         className={cn(
           "pb-8 transition-opacity",
@@ -1862,6 +1952,7 @@ export function OrderListScreen() {
         )}
         inert={listInteractionBlocked ? true : undefined}
         data-order-list-blocked={listInteractionBlocked ? "true" : "false"}
+        data-order-presentation-view={presentationView}
       >
         {isPageOutOfRange ? (
           <div className="space-y-1.5">
@@ -1880,13 +1971,16 @@ export function OrderListScreen() {
         ) : (
           <>
             {/* Desktop work queue */}
-            {viewportMode === "desktop" ? (
+            {viewportMode === "desktop" && presentationView === "list" ? (
               <div
                 data-order-desktop-list="true"
                 className="min-w-0 max-w-full overflow-x-hidden overflow-y-hidden pb-1"
               >
                 {canUseBulkActions ? (
-                  <div className="mb-2 flex min-w-0 justify-end gap-2 px-1">
+                  <div
+                    data-order-list-selection-summary="true"
+                    className="mb-2 flex min-w-0 justify-end gap-2 px-1"
+                  >
                     <span className="text-xs text-muted-foreground">
                       {t("orders.selectedCount", { count: selected.length })}
                     </span>
@@ -1894,6 +1988,7 @@ export function OrderListScreen() {
                 ) : null}
                 <div className="space-y-1.5">
                   <div
+                    data-order-desktop-column-headings="true"
                     className={cn(
                       orderQueueDesktopGrid,
                       "rounded-lg border border-border/40 bg-surface/45 px-1 text-[11px] font-medium text-muted-foreground lg:text-xs lg:leading-4",
@@ -1909,11 +2004,12 @@ export function OrderListScreen() {
                         />
                       ) : null}
                     </label>
-                    <div className="min-w-0 px-2 py-1.5">{t("orders.headerStage")}</div>
+                    <div className="min-w-0 px-2 py-1.5">{t("orders.queue.headerOrder")}</div>
                     <div className="min-w-0 px-2 py-1.5">{t("orders.headerCustomer")}</div>
                     <div className="min-w-0 px-2 py-1.5">{t("orders.headerDevice")}</div>
-                    <div className="px-2 py-1.5 text-right">{t("orders.headerAmountRisk")}</div>
-                    <div className="px-2 py-1.5">{t("orders.headerAssigneeTime")}</div>
+                    <div className="px-2 py-1.5">{t("orders.queue.headerStatus")}</div>
+                    <div className="px-2 py-1.5 text-right">{t("orders.queue.headerMoney")}</div>
+                    <div className="px-2 py-1.5">{t("orders.queue.headerNext")}</div>
                     <div className="px-2 py-1.5 text-right">{data.length}</div>
                   </div>
                   <div className="space-y-3">
@@ -1923,13 +2019,15 @@ export function OrderListScreen() {
                         className="space-y-1.5"
                         aria-labelledby={`desktop-order-group-${section.group}`}
                       >
-                        <OrderResultGroupHeader
-                          headingId={`desktop-order-group-${section.group}`}
-                          group={section.group}
-                          pageCount={section.items.length}
-                          totalCount={resultGroupCounts[section.group]}
-                          oldestCreatedAt={section.items[0].created_at}
-                        />
+                        <div className="sr-only">
+                          <OrderResultGroupHeader
+                            headingId={`desktop-order-group-${section.group}`}
+                            group={section.group}
+                            pageCount={section.items.length}
+                            totalCount={resultGroupCounts[section.group]}
+                            oldestCreatedAt={section.items[0].created_at}
+                          />
+                        </div>
                         <motion.div
                           role="list"
                           aria-label={t("orders.groupAria", {
@@ -1940,37 +2038,11 @@ export function OrderListScreen() {
                           animate="show"
                           className="space-y-1.5"
                         >
-                          {section.items.map((order) => {
-                            const checked = selected.includes(order.id);
-                            return (
-                              <div key={order.id} role="listitem">
-                                <DesktopOrderQueueRow
-                                  order={order}
-                                  workflow={workflow}
-                                  checked={checked}
-                                  selectable={canUseBulkActions}
-                                  onOpen={() => openDetail(order.id)}
-                                  onPrefetch={() => scheduleOrderDetailPrefetch(order.id, "intent")}
-                                  onCancelPrefetch={() => cancelOrderDetailPrefetch(order.id)}
-                                  onCheckedChange={(value) =>
-                                    setSelected((previous) =>
-                                      bulkRequestLockRef.current
-                                        ? previous
-                                        : value
-                                          ? [...new Set([...previous, order.id])]
-                                          : previous.filter((id) => id !== order.id),
-                                    )
-                                  }
-                                  onPrint={() => requestPrintRows([order])}
-                                  canPrint={canPrintSingleOrders}
-                                  printDisabledReason={singlePrintDisabledReason}
-                                  onOpenPrintRecovery={() => openDetail(order.id)}
-                                  onStopInteraction={stopRowClick}
-                                  suppliers={visibleSuppliers}
-                                />
-                              </div>
-                            );
-                          })}
+                          {section.items.map((order) => (
+                            <div key={order.id} role="listitem">
+                              {renderDesktopOrder(order)}
+                            </div>
+                          ))}
                         </motion.div>
                       </section>
                     ))}
@@ -1980,7 +2052,7 @@ export function OrderListScreen() {
             ) : null}
 
             {/* Mobile and tablet cards */}
-            {viewportMode === "compact" ? (
+            {viewportMode === "compact" && presentationView === "list" ? (
               <div data-order-mobile-list="true" className="space-y-4">
                 {groupedData.map((section) => (
                   <section
@@ -1998,19 +2070,74 @@ export function OrderListScreen() {
                     <div className="grid gap-2 md:grid-cols-2" role="list">
                       {section.items.map((order) => (
                         <div key={order.id} role="listitem" data-order-id={order.id}>
-                          <OrderMobileCard
-                            order={order}
-                            detailHref={`/orders/${order.id}?from=orders`}
-                            onPrefetch={() => scheduleOrderDetailPrefetch(order.id, "intent")}
-                            onCancelPrefetch={() => cancelOrderDetailPrefetch(order.id)}
-                            suppliers={visibleSuppliers}
-                            onOpenIntent={() => rememberListContext(order.id)}
-                          />
+                          {renderCompactOrder(order)}
                         </div>
                       ))}
                     </div>
                   </section>
                 ))}
+              </div>
+            ) : null}
+            {presentationView !== "list" ? (
+              <div data-order-alternate-list="true" className="min-w-0">
+                {viewportMode === "desktop" && canUseBulkActions ? (
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <label className="inline-flex min-h-11 items-center gap-2">
+                      <Checkbox
+                        checked={allSelected}
+                        disabled={bulk.isPending}
+                        onCheckedChange={(v) => setSelected(v ? data.map((order) => order.id) : [])}
+                        aria-label={t("orders.selectPage")}
+                      />
+                      {t("orders.selectPage")}
+                    </label>
+                    <span>{t("orders.selectedCount", { count: selected.length })}</span>
+                  </div>
+                ) : null}
+                {presentationView === "cards" ? (
+                  <div className="order-presentation-cards" role="list">
+                    {groupedData
+                      .flatMap((section) => section.items)
+                      .map((order) => (
+                        <div key={order.id} role="listitem">
+                          {viewportMode === "desktop"
+                            ? renderDesktopOrder(order, "card")
+                            : renderCompactOrder(order, true)}
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="order-presentation-board">
+                    {boardGroups.map((section) => (
+                      <section
+                        key={section.stage}
+                        className="order-presentation-lane min-w-0"
+                        data-order-board-stage={section.stage}
+                        aria-labelledby={`order-board-${section.stage}`}
+                      >
+                        <header className="mb-3 flex min-w-0 items-center justify-between gap-2">
+                          <h2 id={`order-board-${section.stage}`} className="text-xs font-semibold">
+                            {section.stage === "closed"
+                              ? t("orders.viewArchive")
+                              : localizeOrderFlowStage(getOrderTaskStage(section.stage), t).label}
+                          </h2>
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {section.orders.length}
+                          </span>
+                        </header>
+                        <div role="list" className="grid min-w-0 gap-3">
+                          {section.orders.map((order) => (
+                            <div key={order.id} role="listitem">
+                              {viewportMode === "desktop"
+                                ? renderDesktopOrder(order, "card")
+                                : renderCompactOrder(order, true)}
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : null}
             <PaginationBar

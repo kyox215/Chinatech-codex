@@ -6,28 +6,21 @@ import { AlertTriangle, ChevronRight, LockKeyhole, PackageSearch, Wrench } from 
 
 import { DeviceCustodyBadge, MoneyText, PhoneText, StatusBadge } from "@/components/orders/badges";
 import { orderMobileFluidDensity } from "@/features/orders/components/order-list-layout";
-import { OrderQueueStageBadge } from "@/features/orders/components/order-queue-stage-badge";
+import { OrderListStatus } from "@/features/orders/components/order-list-status";
+import { getOrderListPresentation } from "@/features/orders/model/order-list-presentation";
 import {
   deriveOrderFinancialState,
   isOrderCancelledForPayment,
 } from "@/features/orders/model/order-payment-state";
 import { orderExceptionMeta } from "@/features/orders/model/canonical-order-status";
-import {
-  getOrderTaskGuidance,
-  getOrderWorkflowStatus,
-} from "@/features/orders/model/order-task-flow";
 import type { OrderListItem } from "@/lib/repairdesk/api";
-import type { Supplier } from "@/lib/repairdesk/types";
+import type { OrderWorkflow, Supplier } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { ORDER_DETAIL_HOVER_DELAY_MS } from "@/features/preload/model/order-detail-preload";
 import { formatOrderListDate, formatOrderRelativeDate } from "@/features/orders/model/order-date";
 import { useLocale } from "@/shared/i18n/locale-provider";
-import {
-  localizeDeviceCustody,
-  localizeOrderException,
-  localizeOrderTaskGuidance,
-} from "@/features/orders/model/order-i18n";
+import { localizeDeviceCustody, localizeOrderException } from "@/features/orders/model/order-i18n";
 import { localizeOrderFinancialLabel } from "@/features/orders/model/order-i18n";
 import { OrderMiniProgress } from "@/features/orders/components/order-mini-progress";
 
@@ -38,6 +31,8 @@ export interface OrderMobileCardProps {
   onPrefetch?: () => void;
   onCancelPrefetch?: () => void;
   onOpenIntent?: () => void;
+  expanded?: boolean;
+  workflow?: OrderWorkflow;
 }
 
 export function OrderMobileCard({
@@ -47,16 +42,19 @@ export function OrderMobileCard({
   onPrefetch,
   onCancelPrefetch,
   onOpenIntent,
+  expanded = false,
+  workflow,
 }: OrderMobileCardProps) {
   const { locale, t } = useLocale();
   const hoverTimerRef = useRef<number | null>(null);
   const cancelled = isOrderCancelledForPayment(order);
   const financialState = deriveOrderFinancialState(order);
-  const workflowStatus = getOrderWorkflowStatus(order);
-  const exceptionStatus = order.exception_status;
-  const hasOverdueException = !cancelled && Boolean(order.approval_overdue || order.pickup_overdue);
-  const guidance = localizeOrderTaskGuidance(getOrderTaskGuidance(order), t);
-  const currentStageLabel = guidance.label || guidance.stage.label;
+  const presentation = getOrderListPresentation(order, t, workflow);
+  const workflowStatus = presentation.workflowStatus;
+  const exceptionStatus = presentation.terminal ? undefined : order.exception_status;
+  const hasOverdueException =
+    presentation.danger && Boolean(order.approval_overdue || order.pickup_overdue);
+  const currentStageLabel = presentation.label;
   const normalizedCustomerName = normalizeComparable(order.customer_name);
   const normalizedPhone = normalizeComparable(order.customer_phone);
   const customerNameIsPhone =
@@ -137,6 +135,7 @@ export function OrderMobileCard({
     <article
       data-order-id={order.id}
       data-order-mobile-card="true"
+      data-order-card-expanded={expanded ? "true" : "false"}
       data-order-mobile-card-risk={
         hasOverdueException || Boolean(exceptionStatus) ? "true" : "false"
       }
@@ -208,8 +207,16 @@ export function OrderMobileCard({
           className="flex min-w-0 max-w-[130px] flex-col items-end gap-1 text-right"
           data-order-mobile-card-payment="true"
         >
-          <OrderQueueStageBadge
+          <OrderListStatus
             order={order}
+            workflow={workflow}
+            showProgress={false}
+            showDetail={
+              !expanded &&
+              presentation.detail !==
+                localizeDeviceCustody(order.device_custody_status, order.delivered_at, t) &&
+              !presentation.terminal
+            }
             className="max-w-full whitespace-normal px-1.5 py-0.5 text-[9px] leading-3 text-right"
           />
           {order.finance_redacted ? (
@@ -262,12 +269,20 @@ export function OrderMobileCard({
           {supplierControl}
         </div>
       ) : null}
+      {expanded ? (
+        <div
+          className="px-2.5 pb-2 text-[11px] leading-4 text-muted-foreground"
+          data-order-status-context="true"
+        >
+          {presentation.detail}
+        </div>
+      ) : null}
       <OrderMiniProgress
         workflowStatus={workflowStatus}
-        currentLabel={currentStageLabel}
-        nextAction={guidance.nextAction}
-        danger={hasOverdueException || Boolean(exceptionStatus)}
-        isTerminal={workflowStatus === "closed"}
+        currentLabel={`${currentStageLabel} · ${presentation.detail}`}
+        nextAction={presentation.nextAction}
+        danger={presentation.danger}
+        isTerminal={presentation.terminal}
         className="mx-2.5 mb-1.5"
       />
       <div className="flex min-w-0 items-center justify-between gap-2 border-t border-[var(--border-panel)] px-2.5 py-1.5 text-[9px] leading-3">
@@ -276,9 +291,9 @@ export function OrderMobileCard({
             "flex min-w-0 items-center gap-0.5 text-muted-foreground",
             hasOverdueException && "text-status-danger-foreground",
           )}
-          title={`${currentStageLabel} · ${guidance.nextAction}`}
+          title={`${currentStageLabel} · ${presentation.nextAction}`}
         >
-          <span className="truncate">{guidance.nextAction}</span>
+          <span className="truncate">{presentation.nextAction}</span>
           <ChevronRight className="size-3 shrink-0" aria-hidden="true" />
         </span>
         <span

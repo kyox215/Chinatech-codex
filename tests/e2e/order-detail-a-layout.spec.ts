@@ -6,6 +6,14 @@ import { translateMessage as tr } from "@/shared/i18n/messages";
 test.skip(process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP !== "1", "Uses only synthetic local orders.");
 const evidenceDir = process.env.ORDER_DETAIL_A_EVIDENCE_DIR;
 const locales = ["zh-CN", "it-IT", "en"] as const;
+test.beforeEach(async ({ context, baseURL }) => {
+  expect(["localhost", "127.0.0.1"]).toContain(new URL(baseURL!).hostname);
+  await context.route("**/*", (route) =>
+    ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname)
+      ? route.continue()
+      : route.abort(),
+  );
+});
 async function capture(page: Page, name: string, fullPage = false) {
   const path = evidenceDir ? `${evidenceDir}/${name}.png` : test.info().outputPath(`${name}.png`);
   mkdirSync(dirname(path), { recursive: true });
@@ -75,38 +83,97 @@ for (const locale of locales)
         if (width >= 390)
           expect(
             (await identity.locator('[data-order-custody-mode="compact"]').boundingBox())!.height,
-          ).toBeLessThanOrEqual(44);
-        await expect(quote.locator('[data-mobile-payment-summary="true"]')).toBeVisible();
+          ).toBeLessThanOrEqual(48);
+        const workspace = await page
+          .locator('[data-order-detail-layout="workbench"]')
+          .boundingBox();
+        if (workspace!.width < 680)
+          await expect(quote.locator('[data-mobile-payment-summary="true"]')).toBeVisible();
+        else await expect(quote.locator("[data-order-workbench-amount]")).toHaveCount(3);
+        const identitySurface =
+          workspace!.width >= 680 ? identity.locator("[data-order-workbench-customer]") : identity;
         const boxes = await Promise.all(
-          [identity, fault, people, quote].map((x) => x.boundingBox()),
+          [identitySurface, fault, people, quote].map((x) => x.boundingBox()),
         );
-        for (let i = 1; i < boxes.length; i++)
-          expect(boxes[i]!.y).toBeGreaterThanOrEqual(boxes[i - 1]!.y + boxes[i - 1]!.height);
+        if (workspace!.width < 680) {
+          for (let i = 1; i < boxes.length; i++)
+            expect(boxes[i]!.y).toBeGreaterThanOrEqual(boxes[i - 1]!.y + boxes[i - 1]!.height);
+        } else {
+          // The stable compact renderer has three summary regions followed by repair/support rows.
+          const device = await identity
+            .locator(".order-workbench-mobile-device-summary")
+            .boundingBox();
+          expect(device).not.toBeNull();
+          expect(device!.x).toBeGreaterThanOrEqual(boxes[0]!.x + boxes[0]!.width);
+          expect(boxes[3]!.x).toBeGreaterThanOrEqual(device!.x + device!.width);
+          expect(Math.abs(device!.y - boxes[0]!.y)).toBeLessThan(1);
+          expect(boxes[1]!.y).toBeGreaterThanOrEqual(
+            Math.max(
+              boxes[0]!.y + boxes[0]!.height,
+              device!.y + device!.height,
+              boxes[3]!.y + boxes[3]!.height,
+            ),
+          );
+          expect(boxes[2]!.y).toBeGreaterThanOrEqual(boxes[1]!.y + boxes[1]!.height);
+          expect(Math.abs(boxes[3]!.y - boxes[0]!.y)).toBeLessThan(1);
+        }
         const tabs = page.locator('[data-order-detail-tabs="true"] [role="tab"]');
         expect(await tabs.count()).toBe(3);
         const widths = await tabs.evaluateAll((nodes) =>
           nodes.map((node) => node.getBoundingClientRect().width),
         );
-        expect(Math.max(...widths) - Math.min(...widths)).toBeLessThan(2);
+        if (workspace!.width < 680)
+          expect(Math.max(...widths) - Math.min(...widths)).toBeLessThan(2);
+        else
+          expect(
+            await tabs.evaluateAll((nodes) =>
+              nodes.every((node) => node.getBoundingClientRect().height >= 44),
+            ),
+          ).toBe(true);
         const header = await page.locator('[data-mobile-order-header="true"]').boundingBox();
         const dock = await page.locator('[data-mobile-order-action-dock="true"]').boundingBox();
         if (locale === "zh-CN" && width === 390) {
-          expect(header!.height).toBeLessThanOrEqual(168);
-          expect(boxes[3]!.y + boxes[3]!.height).toBeLessThan(dock!.y);
+          // Unified 24px badges occupy two rows; safe-area padding belongs to the
+          // floating shell, not the dense content card. Keep both geometries explicit.
+          const headerDensity = await page
+            .locator('[data-mobile-order-header="true"]')
+            .evaluate((node) => {
+              const card = node.querySelector(":scope > section")!;
+              const style = getComputedStyle(node);
+              return {
+                cardHeight: card.getBoundingClientRect().height,
+                shellPadding: parseFloat(style.paddingTop) + parseFloat(style.paddingBottom),
+              };
+            });
+          expect(headerDensity.cardHeight).toBeLessThanOrEqual(168);
+          expect(header!.height).toBeCloseTo(
+            headerDensity.cardHeight + headerDensity.shellPadding,
+            1,
+          );
           const measurements = {
             viewport: { width, height: 844 },
             header,
+            headerDensity,
             identity: boxes[0],
             fault: boxes[1],
             people: boxes[2],
             quote: boxes[3],
             dock,
           };
-          if (evidenceDir)
+          if (evidenceDir) {
+            mkdirSync(evidenceDir, { recursive: true });
             writeFileSync(
               `${evidenceDir}/layout-measurements.json`,
               JSON.stringify(measurements, null, 2),
             );
+          }
+          await capture(page, `order-layout-initial-${locale}-${width}`);
+          // Direct fields remain readable touch controls. The phone uses ordinary
+          // document scrolling, so verify the complete quote clears the fixed dock.
+          await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+          const quoteEnd = await quote.boundingBox();
+          expect(quoteEnd!.y + quoteEnd!.height).toBeLessThanOrEqual(dock!.y);
+          await noOverflow(page);
         }
         await capture(page, `order-layout-${locale}-${width}`);
         if (width === 320) {
@@ -345,11 +412,24 @@ for (const state of [
     await card.evaluate((node) => node.scrollIntoView({ block: "center", behavior: "instant" }));
     await noOverflow(page);
     const actions = card.getByRole("button");
-    await expect(actions).toHaveCount(state === "readonly" ? 0 : state === "unknown" ? 2 : 1);
+    await expect(actions).toHaveCount(state === "return" ? 2 : 1);
+    const custodyTrigger = card.locator("[data-order-custody-trigger]");
+    await expect(custodyTrigger).toHaveAccessibleName(tr("it-IT", "orders2b2.overview.custody"));
+    if (state === "readonly") {
+      await expect(custodyTrigger).toBeDisabled();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      expect(writes).toBe(0);
+    }
     await capture(page, `status-${state}-it-320`);
 
     if (state !== "readonly") {
-      const action = actions.first();
+      const action =
+        state === "return"
+          ? card.getByRole("button", {
+              name: tr("it-IT", "orders2b2.custody.confirmReturned"),
+              exact: true,
+            })
+          : custodyTrigger;
       await action.focus();
       await expect(action).toBeFocused();
       await capture(page, `status-${state}-focus-it-320`);
@@ -357,6 +437,26 @@ for (const state of [
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();
       expect(writes).toBe(0);
+      if (state !== "return") {
+        await expect(dialog.locator("[data-order-custody-option]")).toHaveCount(2);
+        await expect(
+          dialog.getByRole("button", {
+            name: tr("it-IT", "orders2b2.custody.confirmSave"),
+            exact: true,
+          }),
+        ).toHaveCount(0);
+        if (state === "unknown") {
+          await dialog.locator('[data-order-custody-option="with_shop"]').click();
+          expect(writes).toBe(0);
+          await expect(dialog.getByRole("textbox")).toBeVisible();
+          await expect(
+            dialog.getByRole("button", {
+              name: tr("it-IT", "orders2b2.custody.confirmSave"),
+              exact: true,
+            }),
+          ).toBeDisabled();
+        }
+      }
       const clippedButtons = await dialog
         .locator("button:visible")
         .evaluateAll(
@@ -376,64 +476,106 @@ for (const state of [
   });
 }
 
-test("status action receive keeps pending guard, failure draft and version payload", async ({
-  page,
-}) => {
-  await ready(page, "zh-CN");
-  const card = page.locator('[data-order-device-custody="true"]:visible');
-  const action = card.getByRole("button", {
-    name: tr("zh-CN", "orders2b2.custody.receive"),
-    exact: true,
-  });
-  await action.click();
-  const dialog = page.getByRole("dialog");
-  const reason = dialog.getByRole("textbox");
-  await reason.fill("DEMO custody reason retained");
-  let attempts = 0;
-  let requestBody: { id: string; input: Record<string, unknown> } | undefined;
-  let release: () => void = () => {};
-  const heldResponse = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route("**/api/repairdesk/order/custody", async (route) => {
-    attempts++;
-    requestBody = route.request().postDataJSON();
-    await heldResponse;
-    await route.fulfill({
-      status: 500,
-      json: { error: { code: "INTERNAL_ERROR", message: "Synthetic local custody failure" } },
+for (const needsReason of [false, true])
+  test(`status action receive ${needsReason ? "unknown" : "ordinary"} keeps pending guard, failure draft and version payload`, async ({
+    page,
+  }) => {
+    const expectedVersion = "2026-09-02T08:00:00.000Z";
+    await page.route("**/api/repairdesk/order/get", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      Object.assign(payload.data.order, {
+        device_custody_status: needsReason ? null : "with_customer",
+        updated_at: expectedVersion,
+      });
+      await route.fulfill({ response, json: payload });
     });
+    await ready(page, "zh-CN");
+    const card = page.locator('[data-order-device-custody="true"]:visible');
+    const action = card.getByRole("button", {
+      name: tr("zh-CN", "orders2b2.overview.custody"),
+      exact: true,
+    });
+    await action.click();
+    const dialog = page.getByRole("dialog");
+    const reason = dialog.getByRole("textbox");
+    let attempts = 0;
+    let requestBody: { id: string; input: Record<string, unknown> } | undefined;
+    let release: () => void = () => {};
+    const heldResponse = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route("**/api/repairdesk/order/custody", async (route) => {
+      attempts++;
+      requestBody = route.request().postDataJSON();
+      await heldResponse;
+      await route.fulfill({
+        status: needsReason ? 500 : 409,
+        json: {
+          error: "Synthetic local custody failure",
+          code: needsReason ? "INTERNAL_ERROR" : "ORDER_WRITE_CONFLICT",
+        },
+      });
+    });
+    await expect(dialog.locator("[data-order-custody-option]")).toHaveCount(2);
+    expect(attempts).toBe(0);
+    await dialog.locator('[data-order-custody-option="with_shop"]').click();
+    if (needsReason) {
+      expect(attempts).toBe(0);
+      await reason.fill("DEMO custody reason retained");
+      await dialog
+        .getByRole("button", { name: tr("zh-CN", "orders2b2.custody.confirmSave"), exact: true })
+        .click();
+    } else {
+      await expect(reason).toHaveCount(0);
+      await expect(
+        dialog.getByRole("button", {
+          name: tr("zh-CN", "orders2b2.custody.confirmSave"),
+          exact: true,
+        }),
+      ).toHaveCount(0);
+    }
+    await expect.poll(() => attempts).toBe(1);
+    await expect(dialog).toHaveAttribute("aria-busy", "true");
+    if (needsReason) await expect(reason).toBeDisabled();
+    await expect(card.locator("button")).toBeDisabled();
+    for (const option of await dialog.locator("[data-order-custody-option]").all())
+      await expect(option).toBeDisabled();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeVisible();
+    await capture(page, `status-receive-${needsReason ? "unknown" : "ordinary"}-pending-zh-390`);
+    expect(requestBody).toMatchObject({
+      id: "ord_1",
+      input: { device_custody_status: "with_shop", expected_updated_at: expectedVersion },
+    });
+    if (needsReason) expect(requestBody?.input.reason).toBe("DEMO custody reason retained");
+    else expect(requestBody?.input.reason).toBeUndefined();
+    expect(requestBody?.input.idempotency_key).toMatch(/^[0-9a-f-]{36}$/i);
+    release();
+    await expect(dialog).toHaveAttribute("aria-busy", "false");
+    if (needsReason) await expect(reason).toHaveValue("DEMO custody reason retained");
+    await expect(dialog.locator('[data-order-custody-option="with_shop"]')).toHaveAttribute(
+      "data-custody-target",
+      "true",
+    );
+    await expect(dialog.getByRole("alert")).toContainText(
+      tr("zh-CN", needsReason ? "orders2b2.error.unavailable" : "orders2b2.error.conflict", {
+        operation: tr("zh-CN", "orders2b2.operation.custody"),
+      }),
+    );
+    await capture(page, `status-receive-${needsReason ? "unknown" : "ordinary"}-failure-zh-390`);
+    expect(attempts).toBe(1);
+    await page.keyboard.press("Escape");
+    if (needsReason)
+      await dialog
+        .getByRole("button", {
+          name: tr("zh-CN", "orders.faultEditor.confirmDiscard"),
+          exact: true,
+        })
+        .click();
+    await expect(dialog).toHaveCount(0);
+    await expect(action).toBeFocused();
   });
-  await dialog
-    .getByRole("button", { name: tr("zh-CN", "orders2b2.custody.confirmSave"), exact: true })
-    .click();
-  await expect.poll(() => attempts).toBe(1);
-  await expect(dialog).toHaveAttribute("aria-busy", "true");
-  await expect(reason).toBeDisabled();
-  await expect(card.locator("button")).toBeDisabled();
-  await expect(
-    dialog.getByRole("button", { name: tr("zh-CN", "orders2b2.hero.saving"), exact: true }),
-  ).toBeDisabled();
-  await capture(page, "status-receive-pending-zh-390");
-  expect(requestBody).toMatchObject({
-    id: "ord_1",
-    input: { device_custody_status: "with_shop", reason: "DEMO custody reason retained" },
-  });
-  expect(requestBody?.input.expected_updated_at).toEqual(expect.any(String));
-  expect(requestBody?.input.idempotency_key).toEqual(expect.any(String));
-  release();
-  await expect(dialog).toHaveAttribute("aria-busy", "false");
-  await expect(reason).toHaveValue("DEMO custody reason retained");
-  await expect(page.locator("[data-sonner-toast]")).toContainText(
-    tr("zh-CN", "orders2b2.error.unavailable", {
-      operation: tr("zh-CN", "orders2b2.operation.custody"),
-    }),
-  );
-  await capture(page, "status-receive-failure-zh-390");
-  expect(attempts).toBe(1);
-  await page.keyboard.press("Escape");
-  await expect(action).toBeFocused();
-});
 
 for (const locale of locales) {
   for (const width of [320, 390, 430, 768, 1024, 1440]) {
@@ -442,7 +584,7 @@ for (const locale of locales) {
       const card = page.locator('[data-order-device-custody="true"]:visible');
       await card.scrollIntoViewIfNeeded();
       const action = card.getByRole("button");
-      await expect(action).toHaveAccessibleName(tr(locale, "orders2b2.custody.receive"));
+      await expect(action).toHaveAccessibleName(tr(locale, "orders2b2.overview.custody"));
       const metrics = await action.evaluate((node) => {
         const style = getComputedStyle(node);
         const rect = node.getBoundingClientRect();
@@ -455,14 +597,14 @@ for (const locale of locales) {
           clipped: node.scrollWidth > node.clientWidth + 1,
         };
       });
-      expect(metrics.height).toBeGreaterThanOrEqual(width < 1024 ? 36 : 28);
+      expect(metrics.height).toBeGreaterThanOrEqual(44);
       expect(metrics.border).toBe("0px");
       expect(metrics.wrap).toBe("normal");
       expect(metrics.clipped).toBe(false);
       expect(metrics.shadow === "none" || !metrics.shadow.match(/rgba?\((?!0, 0, 0, 0\))/)).toBe(
         true,
       );
-      if (width < 1024) expect((await card.boundingBox())!.height).toBeLessThanOrEqual(40);
+      if (width < 1024) expect((await card.boundingBox())!.height).toBeLessThanOrEqual(48);
       await noOverflow(page);
       await capture(page, `status-presentation-${locale}-${width}`);
       await action.focus();
@@ -472,12 +614,20 @@ for (const locale of locales) {
       await action.press("Enter");
       const confirmation = page.getByRole("dialog");
       await expect(confirmation).toBeVisible();
+      await expect(confirmation.locator("[data-order-custody-option]")).toHaveCount(2);
+      await expect(confirmation.locator('[data-order-custody-option="with_shop"]')).toBeEnabled();
+      await expect(
+        confirmation.locator('[data-order-custody-option="with_customer"]'),
+      ).toBeDisabled();
+      await expect(
+        confirmation.locator('[data-order-custody-option="with_customer"]'),
+      ).toHaveAttribute("aria-pressed", "true");
       await expect(
         confirmation.getByRole("button", {
           name: tr(locale, "orders2b2.custody.confirmSave"),
           exact: true,
         }),
-      ).toBeEnabled();
+      ).toHaveCount(0);
       await noOverflow(page);
       if (width >= 1024) await capture(page, `status-confirmation-${locale}-${width}`);
       await page.keyboard.press("Escape");
@@ -548,7 +698,7 @@ test("status presentation it-IT 320 keeps wider font metrics inside the compact 
   });
   const card = page.locator('[data-order-device-custody="true"]:visible');
   const action = card.getByRole("button", {
-    name: tr("it-IT", "orders2b2.custody.receive"),
+    name: tr("it-IT", "orders2b2.overview.custody"),
     exact: true,
   });
   const metrics = await card.evaluate((node) => {
@@ -569,8 +719,8 @@ test("status presentation it-IT 320 keeps wider font metrics inside the compact 
     body: JSON.stringify(metrics, null, 2),
     contentType: "application/json",
   });
-  expect(metrics.rowHeight).toBeLessThanOrEqual(40);
-  expect(metrics.actionHeight).toBeGreaterThanOrEqual(36);
+  expect(metrics.rowHeight).toBeLessThanOrEqual(48);
+  expect(metrics.actionHeight).toBeGreaterThanOrEqual(44);
   expect(metrics.clipped).toBe(false);
   await noOverflow(page);
   await capture(page, "status-wider-font-it-320");

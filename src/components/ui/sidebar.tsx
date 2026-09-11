@@ -3,7 +3,6 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
-import { useIsCompactWorkspace } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,10 +21,40 @@ import { useLocale } from "@/shared/i18n/locale-provider";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-const SIDEBAR_WIDTH = "16rem";
-const SIDEBAR_WIDTH_MOBILE = "18rem";
-const SIDEBAR_WIDTH_ICON = "3rem";
+const SIDEBAR_WIDTH = "13.5rem";
+const SIDEBAR_WIDTH_MOBILE = "16rem";
+const SIDEBAR_WIDTH_ICON = "4.75rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
+
+// Scheme-three navigation has its own boundary. Business renderers keep use-mobile unchanged.
+function subscribeToSidebarViewport(listener: () => void) {
+  const media =
+    typeof window.matchMedia === "function" ? window.matchMedia("(max-width: 900px)") : undefined;
+  if (
+    media &&
+    typeof media.addEventListener === "function" &&
+    typeof media.removeEventListener === "function"
+  ) {
+    media.addEventListener("change", listener);
+    return () => media.removeEventListener("change", listener);
+  }
+  if (
+    media &&
+    typeof media.addListener === "function" &&
+    typeof media.removeListener === "function"
+  ) {
+    media.addListener(listener);
+    return () => media.removeListener(listener);
+  }
+  window.addEventListener("resize", listener);
+  return () => window.removeEventListener("resize", listener);
+}
+const getSidebarViewport = () => {
+  const media =
+    typeof window.matchMedia === "function" ? window.matchMedia("(max-width: 900px)") : undefined;
+  return media?.matches ?? window.innerWidth <= 900;
+};
+const getServerSidebarViewport = () => false;
 
 type SidebarContextProps = {
   state: "expanded" | "collapsed";
@@ -33,6 +62,8 @@ type SidebarContextProps = {
   setOpen: (open: boolean) => void;
   openMobile: boolean;
   setOpenMobile: (open: boolean) => void;
+  closeMobileSidebar: (afterClose?: () => void) => void;
+  onMobileClosed: () => void;
   isMobile: boolean;
   toggleSidebar: () => void;
 };
@@ -68,8 +99,22 @@ const SidebarProvider = React.forwardRef<
     },
     ref,
   ) => {
-    const isMobile = useIsCompactWorkspace();
+    const isMobile = React.useSyncExternalStore(
+      subscribeToSidebarViewport,
+      getSidebarViewport,
+      getServerSidebarViewport,
+    );
     const [openMobile, setOpenMobile] = React.useState(false);
+    const mobileCloseActionRef = React.useRef<(() => void) | null>(null);
+    const closeMobileSidebar = React.useCallback((afterClose?: () => void) => {
+      mobileCloseActionRef.current = afterClose ?? null;
+      setOpenMobile(false);
+    }, []);
+    const onMobileClosed = React.useCallback(() => {
+      const action = mobileCloseActionRef.current;
+      mobileCloseActionRef.current = null;
+      if (action) window.requestAnimationFrame(action);
+    }, []);
 
     // This is the internal state of the sidebar.
     // We use openProp and setOpenProp for control from outside the component.
@@ -92,7 +137,7 @@ const SidebarProvider = React.forwardRef<
     );
 
     React.useEffect(() => {
-      if (openProp === undefined && window.innerWidth >= 1024 && window.innerWidth < 1280) {
+      if (openProp === undefined && window.innerWidth > 900 && window.innerWidth <= 1200) {
         _setOpen(false);
       }
       setCompactViewportReady(true);
@@ -128,9 +173,21 @@ const SidebarProvider = React.forwardRef<
         isMobile,
         openMobile,
         setOpenMobile,
+        closeMobileSidebar,
+        onMobileClosed,
         toggleSidebar,
       }),
-      [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar],
+      [
+        state,
+        open,
+        setOpen,
+        isMobile,
+        openMobile,
+        setOpenMobile,
+        closeMobileSidebar,
+        onMobileClosed,
+        toggleSidebar,
+      ],
     );
 
     return (
@@ -150,6 +207,8 @@ const SidebarProvider = React.forwardRef<
             )}
             data-sidebar-controlled={openProp !== undefined}
             data-sidebar-viewport-ready={compactViewportReady}
+            data-workbench-shell="true"
+            data-shell-layout={isMobile ? "drawer" : state}
             ref={ref}
             {...props}
           >
@@ -181,8 +240,10 @@ const Sidebar = React.forwardRef<
     },
     ref,
   ) => {
-    const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+    const { isMobile, state, openMobile, setOpenMobile, onMobileClosed } = useSidebar();
     const { t } = useLocale();
+    const mobileOpenerRef = React.useRef<HTMLElement | null>(null);
+    const mobileContentRef = React.useRef<HTMLDivElement | null>(null);
 
     if (collapsible === "none") {
       return (
@@ -203,9 +264,27 @@ const Sidebar = React.forwardRef<
       return (
         <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
           <SheetContent
+            ref={mobileContentRef}
             data-sidebar="sidebar"
             data-mobile="true"
+            data-workbench-navigation="true"
             className={appShell.mobileSidebar}
+            overlayClassName="scheme-three-navigation-overlay"
+            closeLabel={t("common.close")}
+            onOpenAutoFocus={(event) => {
+              mobileOpenerRef.current =
+                document.activeElement instanceof HTMLElement ? document.activeElement : null;
+              event.preventDefault();
+              const close =
+                mobileContentRef.current?.querySelector<HTMLButtonElement>("[data-sheet-close]");
+              (close ?? mobileContentRef.current)?.focus({ preventScroll: true });
+            }}
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              const opener = mobileOpenerRef.current;
+              if (opener?.isConnected) opener.focus({ preventScroll: true });
+              onMobileClosed();
+            }}
             style={
               {
                 "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -261,6 +340,7 @@ const Sidebar = React.forwardRef<
         >
           <div
             data-sidebar="sidebar"
+            data-workbench-navigation="true"
             className="flex h-full w-full flex-col overflow-hidden bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow"
           >
             {children}
@@ -276,7 +356,7 @@ const SidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
   React.ComponentProps<typeof Button>
 >(({ className, onClick, title, "aria-label": ariaLabel, ...props }, ref) => {
-  const { toggleSidebar, isMobile, state } = useSidebar();
+  const { toggleSidebar, isMobile, state, openMobile } = useSidebar();
   const { t } = useLocale();
   const label = isMobile
     ? t("shell.openNavigation")
@@ -292,8 +372,9 @@ const SidebarTrigger = React.forwardRef<
       variant="ghost"
       size="icon"
       aria-label={ariaLabel ?? label}
+      aria-expanded={isMobile ? openMobile : state === "expanded"}
       title={title ?? label}
-      className={cn("h-7 w-7", className)}
+      className={cn("h-11 w-11", className)}
       onClick={(event) => {
         onClick?.(event);
         toggleSidebar();

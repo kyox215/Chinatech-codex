@@ -4,7 +4,8 @@ import type {
 } from "@/features/customer-status/model/customer-status";
 
 type CustomerStatusApiError = {
-  error?: { message?: string };
+  error?: { message?: string; code?: string };
+  code?: string;
 };
 
 export async function issueCustomerStatusLinks(
@@ -22,7 +23,9 @@ export async function issueCustomerStatusLinks(
     links?: CustomerStatusIssuedLink[];
   };
   if (!response.ok || !Array.isArray(payload.links)) {
-    throw new Error(payload.error?.message || "无法准备客户查询二维码");
+    const error = new Error(payload.error?.message || "无法准备客户查询二维码");
+    Object.assign(error, { status: response.status, code: payload.error?.code ?? payload.code });
+    throw error;
   }
   return payload.links;
 }

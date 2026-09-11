@@ -57,19 +57,21 @@ export const layoutGuards = {
 } as const;
 
 export const appShell = {
-  sidebar: "bg-sidebar",
+  sidebar: "workbench-sidebar bg-sidebar",
   mobileSidebar:
-    "w-[min(18rem,calc(100vw-16px))] border-r border-[var(--border-panel)] bg-sidebar p-0 text-sidebar-foreground shadow-[var(--shadow-overlay)] [&>button]:hidden",
-  sidebarHeader:
-    "h-14 justify-center border-b border-[var(--border-panel)] px-2 py-0 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1.5",
+    "workbench-mobile-sidebar w-[min(16rem,calc(100vw-24px))] border-r border-[var(--border-panel)] bg-sidebar p-0 text-sidebar-foreground sm:p-0 [&>button]:right-2 [&>button]:top-[22px] [&>button]:size-11",
+  sidebarHeader: "workbench-sidebar-header p-0",
   sidebarBrand:
-    "flex h-10 items-center gap-2 rounded-lg px-1.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0",
-  sidebarFooter:
-    "border-t border-[var(--border-panel)] p-2 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1.5",
+    "scheme-three-sidebar-brand flex min-w-0 items-center gap-[9px] px-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0",
+  sidebarFooter: "workbench-sidebar-footer mt-auto gap-0 p-0 pt-[15px]",
+  navItem:
+    "workbench-nav-item relative h-auto min-h-11 rounded-lg px-3.5 py-2.5 text-[13px] transition-colors group-data-[collapsible=icon]:!h-auto group-data-[collapsible=icon]:!w-full group-data-[collapsible=icon]:!p-1 group-data-[collapsible=icon]:justify-center",
   topBar:
-    "sticky top-0 z-30 flex h-12 w-full min-w-0 max-w-full items-center overflow-hidden border-b border-[var(--border-panel)] bg-background/95 transition-colors md:h-14 md:backdrop-blur-xl md:backdrop-saturate-150",
+    "workbench-topbar sticky top-0 z-30 flex h-[54px] w-full min-w-0 max-w-full items-center overflow-hidden border-b border-[var(--border-panel)] bg-card transition-colors",
   content:
     "min-w-0 max-w-full flex-1 overflow-x-clip pb-[calc(env(safe-area-inset-bottom)+4rem)] md:pb-0",
+  quickSheet: "workbench-quick-sheet",
+  orderList: "order-list-workbench",
 } as const;
 
 export const overlayShell = {
@@ -101,6 +103,12 @@ export const detailWorkspace = {
   compactDetailGrid: "grid min-w-0 gap-2 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]",
   orderDetailContent: "mx-auto w-full min-w-0 max-w-[1320px]",
   orderDetailReadable: "mx-auto w-full min-w-0 max-w-[920px]",
+  // Order-detail page opt-in: layout follows the available workspace, not the renderer/device.
+  orderDetailWorkbenchGrid:
+    "grid min-w-0 items-start gap-2 @[680px]/order-detail:grid-cols-[minmax(240px,0.8fr)_minmax(0,1.2fr)] @[680px]/order-detail:gap-3",
+  orderDetailWorkbenchColumn: "grid min-w-0 content-start gap-2",
+  orderDetailWorkbenchPanel:
+    "min-w-0 overflow-hidden rounded-xl border border-[var(--border-panel)] bg-card p-2.5 shadow-[var(--shadow-card)] sm:p-3",
   orderDetailControlGrid:
     "grid min-w-0 items-stretch gap-2 sm:gap-3 md:grid-cols-[repeat(2,minmax(0,1fr))]",
   orderDetailGrid: "items-start md:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]",

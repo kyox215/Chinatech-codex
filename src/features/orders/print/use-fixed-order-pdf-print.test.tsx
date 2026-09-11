@@ -1,5 +1,8 @@
 import { act, renderHook } from "@testing-library/react";
-import { StrictMode } from "react";
+import { StrictMode, type ReactNode } from "react";
+import { toast } from "sonner";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
+import { translateMessage } from "@/shared/i18n/messages";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -77,6 +80,101 @@ beforeEach(() => {
 });
 
 describe("useFixedOrderPdfPrint", () => {
+  it.each(["cancelled", "shared", "rejected"] as const)(
+    "clears delivery pending across order/store scope changes when old sharing is %s",
+    async (outcome) => {
+      let resolveShare!: (value: "cancelled" | "shared") => void;
+      let rejectShare!: (error: Error) => void;
+      mocks.sharePrepared.mockReturnValueOnce(
+        new Promise((resolve, reject) => {
+          resolveShare = resolve;
+          rejectShare = reject;
+        }),
+      );
+      mocks.createPrepared.mockImplementation((_bytes, filename) => ({
+        ...prepared,
+        filename,
+        url: `blob:${filename}`,
+      }));
+      const onComplete = vi.fn();
+      const { result, rerender } = renderHook(
+        ({ scopeKey }) => useFixedOrderPdfPrint(onComplete, undefined, { scopeKey }),
+        { initialProps: { scopeKey: "store-old:order-old" } },
+      );
+      await act(async () => {
+        await result.current.requestPrint("a5-landscape", "old.pdf");
+      });
+      let oldShare!: Promise<void>;
+      act(() => {
+        oldShare = result.current.sharePreparedPdf();
+      });
+      expect(result.current.deliveryPending).toBe(true);
+      rerender({ scopeKey: "store-new:order-new" });
+      expect(result.current.deliveryPending).toBe(false);
+      expect(result.current.preparedPdf).toBeNull();
+      await act(async () => {
+        await result.current.requestPrint("a5-landscape", "new.pdf");
+      });
+      const newPdf = result.current.preparedPdf;
+      await act(async () => {
+        if (outcome === "rejected") rejectShare(new Error("old share failed"));
+        else resolveShare(outcome);
+        await oldShare;
+      });
+      expect(onComplete).not.toHaveBeenCalled();
+      expect(result.current.preparedPdf).toBe(newPdf);
+      expect(result.current.preparedPdf?.filename).toBe("new.pdf");
+      expect(result.current.deliveryPending).toBe(false);
+      expect(result.current.deliveryError).toBeUndefined();
+      await act(async () => {
+        await result.current.sharePreparedPdf();
+      });
+      expect(onComplete).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each(["zh-CN", "it-IT", "en"] as const)(
+    "keeps preparation, ready, cancellation and recovery feedback in %s",
+    async (locale) => {
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <LocaleProvider initialLocale={locale}>{children}</LocaleProvider>
+      );
+      const { result } = renderHook(() => useFixedOrderPdfPrint(), { wrapper });
+      await act(async () => {
+        await result.current.requestPrint("a5-landscape", "locale.pdf");
+      });
+      expect(toast.loading).toHaveBeenCalledWith(
+        translateMessage(locale, "orders2b2.pdf.preparingQr"),
+      );
+      expect(toast.success).toHaveBeenCalledWith(
+        translateMessage(locale, "orders2b2.pdf.readyFeedback"),
+        expect.any(Object),
+      );
+      mocks.sharePrepared.mockResolvedValueOnce("unsupported");
+      await act(async () => {
+        await result.current.sharePreparedPdf();
+      });
+      expect(result.current.deliveryError).toBe(
+        translateMessage(locale, "orders2b2.pdf.shareUnsupported"),
+      );
+      mocks.sharePrepared.mockResolvedValueOnce("cancelled");
+      await act(async () => {
+        await result.current.sharePreparedPdf();
+      });
+      expect(toast.info).toHaveBeenCalledWith(
+        translateMessage(locale, "orders2b2.pdf.shareCancelled"),
+      );
+      mocks.sharePrepared.mockRejectedValueOnce(new Error("do not expose server text"));
+      await act(async () => {
+        await result.current.sharePreparedPdf();
+      });
+      expect(result.current.deliveryError).toBe(
+        translateMessage(locale, "orders2b2.pdf.shareFailed"),
+      );
+      expect(result.current.deliveryPending).toBe(false);
+      expect(result.current.preparedPdf).not.toBeNull();
+    },
+  );
   it("remains usable under React StrictMode effect replay", async () => {
     const { result } = renderHook(() => useFixedOrderPdfPrint(undefined, undefined), {
       wrapper: StrictMode,

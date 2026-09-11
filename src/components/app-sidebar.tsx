@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Check,
+  ChevronLeft,
+  ChevronRight,
   ChevronsUpDown,
   Loader2,
   LogOut,
@@ -28,7 +29,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
@@ -47,8 +47,7 @@ import {
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { clearBrowserAuthPersistenceCookie } from "@/features/auth/model/auth-persistence";
 import { clearRepairDeskOfflineIndexedDb } from "@/features/offline/model/offline-indexeddb";
-import { indicatorSpring } from "@/lib/motion";
-import { appShell, brandGradientStyle } from "@/lib/ui-patterns";
+import { appShell } from "@/lib/ui-patterns";
 import {
   canShowWorkspaceNavItem,
   getSidebarNavItems,
@@ -70,7 +69,7 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
   const { runGuardedTransition } = useNavigationGuard();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const shell = useStoreShellContext();
-  const { isMobile, setOpenMobile } = useSidebar();
+  const { isMobile, state, setOpen, setOpenMobile, closeMobileSidebar } = useSidebar();
   const nav = getSidebarNavItems(shell.isPlatformAdmin)
     .filter((item) => canShowWorkspaceNavItem(item, shell.permissions))
     .map((item) => localizeNavItem(item, t));
@@ -122,66 +121,60 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
     }
   };
 
+  const renderNavItems = () => (
+    <SidebarMenu className="workbench-nav-list" data-shell-navigation-links="true">
+      {nav.map((item) => {
+        const active = isActiveNavItem(pathname, item);
+        return (
+          <SidebarMenuItem key={item.url}>
+            <SidebarMenuButton
+              asChild
+              isActive={active}
+              tooltip={item.title}
+              className={appShell.navItem}
+            >
+              <Link
+                href={item.url}
+                onClick={handleNav}
+                aria-label={item.title}
+                aria-current={active ? "page" : undefined}
+                title={item.title}
+              >
+                <span className="scheme-three-nav-full group-data-[collapsible=icon]:hidden">
+                  {item.title}
+                </span>
+                <span
+                  className="scheme-three-nav-short hidden group-data-[collapsible=icon]:block"
+                  aria-hidden="true"
+                >
+                  {item.shortTitle ?? item.title}
+                </span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        );
+      })}
+    </SidebarMenu>
+  );
+
   return (
     <Sidebar collapsible="icon" className={appShell.sidebar}>
       <SidebarHeader className={appShell.sidebarHeader}>
-        <WorkspaceBrandSearch activeStoreName={activeStoreName} onOpenCommand={onOpenCommand} />
+        <WorkspaceBrandSearch
+          activeStoreName={activeStoreName}
+          onOpenCommand={() => {
+            if (isMobile) closeMobileSidebar(onOpenCommand);
+            else onOpenCommand();
+          }}
+        />
       </SidebarHeader>
 
-      <SidebarContent className="gap-0 px-2 py-2 group-data-[collapsible=icon]:px-1.5">
+      <SidebarContent className="workbench-nav-content">
         <SidebarGroup className="p-0">
-          <SidebarGroupLabel className="h-7 px-2 text-[10px] uppercase tracking-widest text-muted-foreground/70 lg:text-[11px] lg:leading-4 lg:tracking-normal lg:text-muted-foreground">
+          <SidebarGroupLabel className="scheme-three-nav-caption">
             {t("shell.workspace")}
           </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
-              {nav.map((item) => {
-                const active = isActiveNavItem(pathname, item);
-                return (
-                  <SidebarMenuItem key={item.url}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={active}
-                      tooltip={item.title}
-                      className={cn(
-                        "relative h-9 rounded-xl px-2.5 text-[13px] transition-colors group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:!size-9 group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-xl",
-                        active
-                          ? "border border-primary/20 bg-primary/10 text-primary shadow-[var(--shadow-card)] hover:bg-primary/10 hover:text-primary"
-                          : "border border-transparent text-sidebar-foreground/75 hover:border-[var(--border-panel)] hover:bg-card hover:text-foreground",
-                      )}
-                    >
-                      <Link href={item.url} onClick={handleNav}>
-                        {active && (
-                          <motion.span
-                            layoutId="nav-indicator"
-                            className="absolute inset-0 rounded-lg bg-primary/10"
-                            transition={indicatorSpring}
-                          />
-                        )}
-                        {active && (
-                          <motion.span
-                            layoutId="nav-bar"
-                            className="absolute left-1 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-full group-data-[collapsible=icon]:hidden"
-                            style={brandGradientStyle}
-                            transition={indicatorSpring}
-                          />
-                        )}
-                        <item.icon
-                          className={cn(
-                            "relative z-10 size-4 shrink-0",
-                            active ? "text-primary" : "text-muted-foreground",
-                          )}
-                        />
-                        <span className="relative z-10 truncate group-data-[collapsible=icon]:hidden">
-                          {item.title}
-                        </span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
+          <SidebarGroupContent>{renderNavItems()}</SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
 
@@ -194,10 +187,12 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
                 <SidebarMenuButton
                   size="lg"
                   tooltip={activeStoreName}
-                  className="h-[52px] rounded-xl border border-[var(--border-panel)] bg-card px-2 shadow-[var(--shadow-card)] hover:bg-accent/60 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:!size-9 group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:rounded-xl group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:shadow-none"
+                  className="workbench-store-trigger min-h-14 rounded-none border-0 bg-transparent px-1.5 shadow-none group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:!h-14 group-data-[collapsible=icon]:!w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:!p-0"
                 >
-                  <div className="relative flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                    <Store className="size-4" />
+                  <div className="scheme-three-store-avatar relative flex size-8 shrink-0 items-center justify-center rounded-md border border-[var(--shell-line)] bg-card text-muted-foreground">
+                    <span aria-hidden="true">
+                      {activeStoreName.slice(0, 1).toLocaleUpperCase()}
+                    </span>
                     {shell.activeStore ? (
                       <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-status-success-foreground ring-2 ring-background" />
                     ) : null}
@@ -218,7 +213,7 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
                 align={isMobile ? "start" : "end"}
                 sideOffset={isMobile ? 8 : 4}
                 className={cn(
-                  "max-w-[calc(100vw-24px)]",
+                  "workbench-account-menu max-w-[calc(100vw-24px)]",
                   isMobile ? "w-[var(--radix-dropdown-menu-trigger-width)] min-w-[14rem]" : "w-64",
                 )}
               >
@@ -316,8 +311,26 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
             <LanguageSwitcher />
           </SidebarMenuItem>
         </SidebarMenu>
+        {!isMobile ? (
+          <button
+            type="button"
+            data-shell-collapse-trigger="true"
+            className="scheme-three-collapse"
+            aria-label={t(state === "expanded" ? "shell.collapseSidebar" : "shell.expandSidebar")}
+            aria-expanded={state === "expanded"}
+            onClick={() => setOpen(state !== "expanded")}
+          >
+            <span>
+              {t(state === "expanded" ? "shell.collapseMenuLabel" : "shell.expandMenuLabel")}
+            </span>
+            {state === "expanded" ? (
+              <ChevronLeft className="size-3" aria-hidden="true" />
+            ) : (
+              <ChevronRight className="size-3" aria-hidden="true" />
+            )}
+          </button>
+        ) : null}
       </SidebarFooter>
-      <SidebarRail />
     </Sidebar>
   );
 }

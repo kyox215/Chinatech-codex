@@ -68,6 +68,10 @@ const mutationFailureMessageKeys: Record<string, MessageKey> = {
   ORDER_MUTATION_MIGRATION_REQUIRED: "orders2b2.error.mutationUnavailable",
   ORDER_MUTATION_TRANSACTION_FAILED: "orders2b2.error.mutationTransactionFailed",
   idempotency_conflict: "orders2b2.error.idempotencyConflict",
+  USE_PUBLISH_QUOTE: "orders2b2.picker.publishQuoteHint",
+  APPROVAL_DECISION_REQUIRED: "orders2b2.picker.approvalRequired",
+  QUOTE_APPROVAL_REQUIRED: "orders2b2.picker.approvalRequired",
+  WORKFLOW_GROUP_REQUIRED: "orders2b2.picker.configureBucket",
 };
 
 function readStableApiFailure(error: unknown) {

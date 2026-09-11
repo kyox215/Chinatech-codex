@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useLocale } from "@/shared/i18n/locale-provider";
 
 import type { PrintPaperMode } from "@/features/orders/components/print-portal";
 import {
@@ -28,6 +29,7 @@ export function useFixedOrderPdfPrint(
   onError?: (error: Error) => void,
   options?: { scopeKey?: string; onPdfReady?: () => void; onInvalidate?: () => void },
 ) {
+  const { t } = useLocale();
   const scopeKey = options?.scopeKey;
   const onPdfReady = options?.onPdfReady;
   const onInvalidate = options?.onInvalidate;
@@ -75,6 +77,7 @@ export function useFixedOrderPdfPrint(
     activeRef.current = false;
     sharePendingRef.current = false;
     setGenerationPending(false);
+    setDeliveryPending(false);
     replacePreparedPdf(null);
     clearFixedOrderPdfMemoryCache();
     onInvalidate?.();
@@ -98,7 +101,7 @@ export function useFixedOrderPdfPrint(
       const readyStartedAt = performance.now();
       const isCurrent = () => mountedRef.current && generationRef.current === generation;
       replacePreparedPdf(null);
-      const progressToast = toast.loading("正在准备订单二维码…");
+      const progressToast = toast.loading(t("orders2b2.pdf.preparingQr"));
       try {
         const prepareStartedAt = performance.now();
         await prepare?.({ signal: controller.signal, isCurrent });
@@ -107,7 +110,7 @@ export function useFixedOrderPdfPrint(
           toast.dismiss(progressToast);
           return "failed";
         }
-        toast.loading("正在生成固定尺寸 PDF…", { id: progressToast });
+        toast.loading(t("orders2b2.pdf.generating"), { id: progressToast });
         const layoutStartedAt = performance.now();
         await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
         await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
@@ -136,30 +139,30 @@ export function useFixedOrderPdfPrint(
         window.dispatchEvent(new CustomEvent(FIXED_PDF_READY_EVENT, { detail: readyMetrics }));
         if (shouldUseExplicitMobilePdfDelivery()) {
           replacePreparedPdf(createPreparedFixedPdf(bytes, filename, paperMode, readyMetrics));
-          toast.success("PDF 已准备好，请点击“打印或分享”", {
+          toast.success(t("orders2b2.pdf.readyFeedback"), {
             id: progressToast,
             duration: 3_000,
           });
           return "ready";
         }
-        toast.loading("PDF 已生成，正在打开打印预览…", { id: progressToast });
+        toast.loading(t("orders2b2.pdf.openingPreview"), { id: progressToast });
         try {
           await printPdfFromCurrentPage(bytes, filename, { signal: controller.signal });
         } catch {
           if (!isCurrent()) return "failed";
           replacePreparedPdf(createPreparedFixedPdf(bytes, filename, paperMode, readyMetrics));
-          toast.warning("自动打印预览未打开，请手动打开 PDF", {
+          toast.warning(t("orders2b2.pdf.previewFallback"), {
             id: progressToast,
             duration: 4_000,
           });
           return "ready";
         }
-        toast.success("打印预览已打开", { id: progressToast, duration: 2_000 });
+        toast.success(t("orders2b2.pdf.previewOpened"), { id: progressToast, duration: 2_000 });
         if (isCurrent()) onComplete?.();
         return "started";
       } catch (cause) {
         toast.dismiss(progressToast);
-        const error = cause instanceof Error ? cause : new Error("无法生成打印 PDF");
+        const error = cause instanceof Error ? cause : new Error(t("orders2b2.pdf.generateFailed"));
         if (isCurrent()) onError?.(error);
         return "failed";
       } finally {
@@ -170,7 +173,7 @@ export function useFixedOrderPdfPrint(
         }
       }
     },
-    [onComplete, onError, onPdfReady, replacePreparedPdf, scopeKey],
+    [onComplete, onError, onPdfReady, replacePreparedPdf, scopeKey, t],
   );
 
   const dismissPreparedPdf = useCallback(() => {
@@ -194,19 +197,19 @@ export function useFixedOrderPdfPrint(
       const outcome = await sharePreparedFixedPdf(prepared);
       if (!isCurrentShare()) return;
       if (outcome === "unsupported") {
-        setDeliveryError("当前浏览器不支持直接分享 PDF，请使用“查看 PDF”或下载备用文件。");
+        setDeliveryError(t("orders2b2.pdf.shareUnsupported"));
         return;
       }
       if (outcome === "cancelled") {
-        toast.info("已取消系统菜单，可再次打开");
+        toast.info(t("orders2b2.pdf.shareCancelled"));
         return;
       }
-      toast.success("已打开系统打印/分享");
+      toast.success(t("orders2b2.pdf.shareOpened"));
       onComplete?.();
       dismissPreparedPdf();
     } catch {
       if (isCurrentShare()) {
-        setDeliveryError("系统打印/分享没有打开，请重试或改用“查看 PDF”。");
+        setDeliveryError(t("orders2b2.pdf.shareFailed"));
       }
     } finally {
       if (isCurrentShare()) {
@@ -214,7 +217,7 @@ export function useFixedOrderPdfPrint(
         setDeliveryPending(false);
       }
     }
-  }, [dismissPreparedPdf, onComplete]);
+  }, [dismissPreparedPdf, onComplete, t]);
 
   const openPreparedPdf = useCallback(() => {
     const prepared = preparedRef.current;
@@ -226,16 +229,16 @@ export function useFixedOrderPdfPrint(
       onComplete?.();
     } catch {
       handedOffUrlRef.current = null;
-      setDeliveryError("浏览器没有打开 PDF，请重试或使用“下载 PDF”。");
+      setDeliveryError(t("orders2b2.pdf.openFailed"));
     }
-  }, [onComplete]);
+  }, [onComplete, t]);
 
   const downloadPreparedPdf = useCallback(() => {
     const prepared = preparedRef.current;
     if (!prepared) return;
     downloadPreparedFixedPdf(prepared);
-    toast.success("已发起下载，请在浏览器下载项或“文件”中确认");
-  }, []);
+    toast.success(t("orders2b2.pdf.downloadStarted"));
+  }, [t]);
 
   return {
     requestPrint,

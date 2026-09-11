@@ -4,10 +4,13 @@ import {
   OrderWorkspaceQuoteRow,
   OrderWorkspaceMoneyStrip,
   OrderWorkspaceQuoteTextField,
+  OrderWorkspaceRepairItems,
+  OrderWorkspaceFullText,
 } from "@/features/orders/components/order-workspace-primitives";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useId,
   useMemo,
   useRef,
@@ -25,6 +28,7 @@ import {
   Camera,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Clock3,
   CreditCard,
@@ -69,6 +73,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogBody,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -90,6 +95,7 @@ import {
 } from "@/components/ui/select";
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetDescription,
   SheetFooter,
@@ -101,6 +107,7 @@ import { toast } from "sonner";
 import {
   decideOrderApproval,
   confirmCancelledOrderReturn,
+  RepairDeskApiError,
   createKioskSession,
   getRepairDeskOptions,
   getStoreSettings,
@@ -160,10 +167,16 @@ import {
   useCompactEditorSession,
 } from "@/shared/lib/use-compact-editor-session";
 import { OrderIdentityEditor } from "@/features/orders/components/order-identity-editor";
+import {
+  OrderDetailFieldEditor,
+  type OrderDetailField,
+} from "@/features/orders/components/order-detail-field-editor";
+import { OrderSecondaryActions } from "@/features/orders/components/order-secondary-actions";
 import { hasOrderEditRemoteConflict } from "@/features/orders/model/order-edit-conflict";
 import { OrderPhotoPreviewDialog } from "@/features/orders/components/order-photo-preview-dialog";
 import { OrderTerminalActions } from "@/features/orders/components/order-terminal-actions";
-import { OrderTransitionReasonSelector } from "@/features/orders/components/order-transition-reason-selector";
+import { OrderStatusTransitionPicker } from "@/features/orders/components/order-status-transition-picker";
+import { getTransitionPickerRestriction } from "@/features/orders/model/order-transition-picker";
 import {
   useEditOrderOfflineAutosave,
   type EditOrderOfflineAutosaveState,
@@ -173,7 +186,10 @@ import {
   DesktopOrderPhotosPanel,
   OrderDetailActionDock,
   OrderDetailHeaderFinanceSummary,
+  FinanceInlineEditor,
   OrderOverviewTab,
+  OrderCustomerSupplement,
+  OrderKeyInfoCard,
 } from "@/features/orders/components/order-overview-tab";
 import {
   OrderDetailPhotoSlots,
@@ -207,10 +223,6 @@ import {
   resolveOrderDetailPrimaryAction,
   type OrderDetailPrimaryAction,
 } from "@/features/orders/model/order-detail-primary-action";
-import {
-  getDefaultOrderTransitionReason,
-  getOrderTransitionReasonConfig,
-} from "@/features/orders/model/order-transition-reasons";
 import {
   OrderFaultDescriptionEditor,
   type FaultDescriptionSave,
@@ -372,11 +384,15 @@ export function OrderDetailScreen({
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelledReturnOpen, setCancelledReturnOpen] = useState(false);
   const [custodyDialogTarget, setCustodyDialogTarget] = useState<DeviceCustodyStatus | null>(null);
+  const [custodyPickerOpen, setCustodyPickerOpen] = useState(false);
+  const [custodySubmitError, setCustodySubmitError] = useState("");
+  const custodySubmittingRef = useRef(false);
   const [custodyReason, setCustodyReason] = useState("");
   const custodyTriggerRef = useRef<HTMLElement | null>(null);
   const cancelledReturnTriggerRef = useRef<HTMLElement | null>(null);
   const [approvalDecisionOpen, setApprovalDecisionOpen] = useState(false);
   const [desktopTransitionOpen, setDesktopTransitionOpen] = useState(false);
+  const [statusTransitionSubmitting, setStatusTransitionSubmitting] = useState(false);
   const [desktopPhotoCaptureOpen, setDesktopPhotoCaptureOpen] = useState(false);
   const [desktopPhotoCaptureKind, setDesktopPhotoCaptureKind] =
     useState<OrderDetailPhotoCaptureKind>("other");
@@ -416,6 +432,27 @@ export function OrderDetailScreen({
   const [editBaseline, setEditBaseline] = useState<UpdateOrderInput | null>(null);
   const [editDraft, setEditDraft] = useState<UpdateOrderInput | null>(null);
   const [mobileFinanceEditing, setMobileFinanceEditing] = useState(false);
+  const [desktopIdentityGroup, setDesktopIdentityGroup] = useState<"customer" | "device" | null>(
+    null,
+  );
+  const [desktopEditorSurface, setDesktopEditorSurface] = useState<"all" | "finance">("all");
+  const desktopIdentityTriggerRef = useRef<HTMLElement | null>(null);
+  const [detailField, setDetailField] = useState<OrderDetailField | null>(null);
+  const detailFieldTriggerRef = useRef<HTMLElement | null>(null);
+  const openDetailField = (field: OrderDetailField, trigger: HTMLElement) => {
+    detailFieldTriggerRef.current = trigger;
+    setDetailField(field);
+  };
+  const desktopFinanceTriggerRef = useRef<HTMLElement | null>(null);
+  const desktopFinanceInputRef = useRef<HTMLElement | null>(null);
+  const [desktopFinanceDiscard, setDesktopFinanceDiscard] = useState(false);
+  const [desktopFinanceSubmitting, setDesktopFinanceSubmitting] = useState(false);
+  const desktopFinanceSubmittingRef = useRef(false);
+  useEffect(() => {
+    setDesktopIdentityGroup(null);
+    setDetailField(null);
+    setDesktopEditorSurface("all");
+  }, [id]);
   const mobileFinanceVersionRef = useRef<string | null>(null);
   const [mobileFinanceSaveError, setMobileFinanceSaveError] = useState("");
   const [customerStatusUrl, setCustomerStatusUrl] = useState("");
@@ -453,6 +490,8 @@ export function OrderDetailScreen({
   );
 
   const closeCustodyOverlay = useCallback(() => {
+    setCustodyPickerOpen(false);
+    setCustodySubmitError("");
     setCustodyDialogTarget(null);
     setCustodyReason("");
     window.requestAnimationFrame(() => custodyTriggerRef.current?.focus());
@@ -618,6 +657,36 @@ export function OrderDetailScreen({
     onError: (error: unknown) =>
       toast.error(getOrderDetailSafeErrorMessage(error, "transition", t)),
   });
+
+  // Keep the picker, its host and its trigger in one synchronous UI pending
+  // state; the mutation's notification batch can arrive after the click render.
+  const statusTransitionPending = transition.isPending || statusTransitionSubmitting;
+  const submitStatusTransition = async (to: RepairOrderStatus, reason?: string) => {
+    if (!data?.capabilities?.canTransition)
+      throw new RepairDeskApiError("Transition unavailable", 403, "FORBIDDEN");
+    const restriction = getTransitionPickerRestriction(data.order, to, workflow);
+    if (restriction)
+      throw new RepairDeskApiError(
+        "Transition prerequisite required",
+        400,
+        restriction === "orders2b2.picker.approvalRequired"
+          ? "APPROVAL_DECISION_REQUIRED"
+          : "WORKFLOW_GROUP_REQUIRED",
+      );
+    if (to === "quoted") {
+      if (!data.capabilities.canPrepareQuote)
+        throw new RepairDeskApiError("Quote unavailable", 403, "FORBIDDEN");
+      setDesktopTransitionOpen(false);
+      setDiagnosisQuoteOpen(true);
+      return;
+    }
+    setStatusTransitionSubmitting(true);
+    try {
+      return await transition.mutateAsync({ to, reason });
+    } finally {
+      setStatusTransitionSubmitting(false);
+    }
+  };
 
   const cancelledReturn = useMutation({
     mutationFn: () => {
@@ -1332,10 +1401,20 @@ export function OrderDetailScreen({
   const isVoided = order.record_state === "voided" || Boolean(order.deleted_at);
   const cancelled = isOrderCancelledState(order);
   const isTerminalOrder = isOrderTerminalState(order);
-  const canPrintCustomerDocument = canPrintRepairOrderCustomerDocument(order);
-  const printDisabledReason =
-    printPreparing || generationPending ? t("orders2b2.print.preparing") : undefined;
+  const canPrintCustomerDocument = canPrintRepairOrderCustomerDocument(
+    order,
+    repairDeskOptions?.permissions.canPrintSingleOrders === true,
+  );
+  const printDisabledReason = !canPrintCustomerDocument
+    ? t("orders2b2.print.permissionDenied")
+    : printPreparing || generationPending
+      ? t("orders2b2.print.preparing")
+      : undefined;
   const printCustomerDocument = async (paperMode: PrintPaperMode) => {
+    if (!canPrintCustomerDocument) {
+      toast.error(t("orders2b2.print.permissionDenied"));
+      return;
+    }
     rememberOrderPrintPaperMode(paperMode);
     setPrintPaperMode(paperMode);
     setPrintPaperDialogOpen(false);
@@ -1458,6 +1537,52 @@ export function OrderDetailScreen({
       ? order.workflow_bucket === "done"
       : order.workflow_status === "closed");
   const custodyReasonRequired = custodyStatus === null || custodyTerminal;
+  const custodyAllowsTarget = (target: DeviceCustodyStatus) =>
+    !isVoided &&
+    !(
+      cancelled &&
+      custodyStatus === DEVICE_CUSTODY_WITH_SHOP &&
+      target === DEVICE_CUSTODY_WITH_CUSTOMER
+    ) &&
+    deviceCustodyAllowsChange({
+      current: custodyStatus,
+      target,
+      status: order.status,
+      exceptionStatus: order.exception_status,
+      workflowBucket: order.workflow_bucket,
+    });
+  const submitCustodyChoice = async (target: DeviceCustodyStatus) => {
+    if (
+      custodySubmittingRef.current ||
+      custodyUpdate.isPending ||
+      target === custodyStatus ||
+      !canUpdateCustody ||
+      !custodyAllowsTarget(target) ||
+      (custodyTerminal && !canCorrectTerminalCustody) ||
+      !isDeviceCustodyReasonValid(
+        custodyReason,
+        custodyTerminal ? 5 : custodyReasonRequired ? 1 : 0,
+      )
+    )
+      return;
+    custodySubmittingRef.current = true;
+    setCustodySubmitError("");
+    try {
+      await custodyUpdate.mutateAsync({ target, reason: custodyReason.trim() || undefined });
+    } catch (error) {
+      setCustodySubmitError(getOrderDetailSafeErrorMessage(error, "custody", t));
+    } finally {
+      custodySubmittingRef.current = false;
+    }
+  };
+  const openCustodyPicker = () => {
+    custodyTriggerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setCustodyReason("");
+    setCustodyDialogTarget(null);
+    setCustodySubmitError("");
+    setCustodyPickerOpen(true);
+  };
   const signatureAttachments = (data.attachments ?? []).filter(
     (attachment) => attachment.kind === "signature",
   );
@@ -1490,21 +1615,6 @@ export function OrderDetailScreen({
               {t("orders2b2.custody.returnReminder")}
             </p>
           </div>
-          {data.capabilities?.canConfirmCancelledReturn ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className={cn(componentAction.status, componentAction.statusWarning, "ml-auto")}
-              onClick={() => {
-                cancelledReturnTriggerRef.current =
-                  document.activeElement instanceof HTMLElement ? document.activeElement : null;
-                setCancelledReturnOpen(true);
-              }}
-            >
-              {t("orders2b2.custody.confirmReturned")}
-            </Button>
-          ) : null}
         </section>
       ) : null}
       {surface === "dialog" ? (
@@ -1516,18 +1626,14 @@ export function OrderDetailScreen({
         />
       ) : null}
       <OrderDeviceCustodyCard
+        onOpenPicker={openCustodyPicker}
         order={order}
         events={events}
         workflowBucket={getWorkflowStatus(workflow, order.status)?.bucket}
         canUpdate={canUpdateCustody}
         canCorrectTerminal={canCorrectTerminalCustody}
+        canConfirmCancelledReturn={Boolean(data.capabilities?.canConfirmCancelledReturn)}
         pending={custodyUpdate.isPending || cancelledReturn.isPending}
-        onRequestChange={(target) => {
-          custodyTriggerRef.current =
-            document.activeElement instanceof HTMLElement ? document.activeElement : null;
-          setCustodyReason("");
-          setCustodyDialogTarget(target);
-        }}
         onConfirmCancelledReturn={() => {
           cancelledReturnTriggerRef.current =
             document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -1540,18 +1646,14 @@ export function OrderDetailScreen({
   );
   const renderDesktopCustodyControl = () => (
     <OrderDeviceCustodyCard
+      onOpenPicker={openCustodyPicker}
       order={order}
       events={events}
       workflowBucket={getWorkflowStatus(workflow, order.status)?.bucket}
       canUpdate={canUpdateCustody}
       canCorrectTerminal={canCorrectTerminalCustody}
+      canConfirmCancelledReturn={Boolean(data.capabilities?.canConfirmCancelledReturn)}
       pending={custodyUpdate.isPending || cancelledReturn.isPending}
-      onRequestChange={(target) => {
-        custodyTriggerRef.current =
-          document.activeElement instanceof HTMLElement ? document.activeElement : null;
-        setCustodyReason("");
-        setCustodyDialogTarget(target);
-      }}
       onConfirmCancelledReturn={() => {
         cancelledReturnTriggerRef.current =
           document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -1567,10 +1669,11 @@ export function OrderDetailScreen({
       data-order-detail-surface={surface}
       data-order-detail-render-mode={orderDetailRenderMode}
       data-order-detail-renderer={orderDetailRenderMode}
+      data-order-workbench-editing={isEditing || undefined}
       className={cn(
-        "relative min-w-0 max-w-full overflow-x-clip",
+        "@container/order-detail order-touch-workbench order-unified-workbench relative min-w-0 max-w-full overflow-x-clip",
         surface === "page"
-          ? "mx-auto w-full max-w-[430px] px-2 pb-28 pt-0 sm:max-w-[430px] sm:px-2 sm:pb-32 md:max-w-[1100px] md:px-6"
+          ? "mx-auto w-full max-w-[430px] px-2 pb-28 pt-0 sm:max-w-[430px] sm:px-2 sm:pb-32 md:max-w-[1200px] md:px-5"
           : cn(detailWorkspace.root, "flex h-full flex-col"),
       )}
     >
@@ -1578,7 +1681,23 @@ export function OrderDetailScreen({
       {orderDetailRenderMode === "compact" ? (
         <>
           <MobileOrderDetailView
+            canPublishQuote={data.capabilities?.canPrepareQuote === true}
+            onEditField={openDetailField}
             data={data}
+            quoteAction={
+              canOpenDiagnosisQuote ? (
+                <Button
+                  className="order-workbench-formal-quote"
+                  variant="outline"
+                  size="touch"
+                  onClick={() => setDiagnosisQuoteOpen(true)}
+                >
+                  {data.capabilities?.canPrepareQuote
+                    ? t("orders2b1.quote.title")
+                    : t("orders2b2.diagnosis.openRecord")}
+                </Button>
+              ) : undefined
+            }
             deviceLabel={deviceLabel}
             deviceImei={deviceImei}
             accessoryNotes={accessoryNotes}
@@ -1596,8 +1715,8 @@ export function OrderDetailScreen({
                 className="mb-2"
               />
             }
-            transitionPending={transition.isPending || mobileFinanceEditing}
-            onTransition={(to, reason) => transition.mutate({ to, reason })}
+            transitionPending={statusTransitionPending || mobileFinanceEditing}
+            onTransition={submitStatusTransition}
             onImeiSave={async (imei) => {
               await quickImeiUpdate.mutateAsync(imei);
             }}
@@ -1725,7 +1844,15 @@ export function OrderDetailScreen({
               "flex min-h-0 flex-1 flex-col overflow-hidden p-2 sm:p-2.5 md:p-3",
           )}
         >
-          <div className={cn("relative z-20", detailWorkspace.orderDetailContent)}>
+          <div
+            inert={desktopTransitionOpen}
+            aria-hidden={desktopTransitionOpen || undefined}
+            className={cn(
+              "relative z-20",
+              desktopTransitionOpen && "hidden",
+              detailWorkspace.orderDetailContent,
+            )}
+          >
             <OrderHero
               order={order}
               onPrint={() => setPrintPaperDialogOpen(true)}
@@ -1778,7 +1905,7 @@ export function OrderDetailScreen({
               }
               approvalDecisionAvailable={canDecideApproval}
               financeSummary={
-                surface === "dialog" ? (
+                surface === "dialog" && isEditing && desktopEditorSurface === "all" ? (
                   <OrderDetailHeaderFinanceSummary
                     order={order}
                     isEditing={isEditing}
@@ -1801,6 +1928,9 @@ export function OrderDetailScreen({
           {
             <div
               data-order-detail-view-switcher="true"
+              style={{ display: desktopTransitionOpen ? "none" : undefined }}
+              hidden={desktopTransitionOpen}
+              inert={desktopTransitionOpen}
               className="relative z-10 mx-auto mb-2 flex w-full max-w-[1320px] min-w-0 flex-wrap items-center justify-between gap-2"
             >
               <OrderDetailTabs
@@ -1838,7 +1968,7 @@ export function OrderDetailScreen({
                     onClick={() => setDiagnosisQuoteOpen(true)}
                   >
                     {data.capabilities?.canPrepareQuote
-                      ? t("orders2b1.quote.total")
+                      ? t("orders2b1.quote.title")
                       : t("orders2b2.diagnosis.openRecord")}
                   </Button>
                 ) : null}
@@ -1848,6 +1978,10 @@ export function OrderDetailScreen({
 
           <div
             ref={desktopScrollerRef}
+            data-order-detail-scroll-region="true"
+            inert={desktopTransitionOpen}
+            aria-hidden={desktopTransitionOpen || undefined}
+            style={{ display: desktopTransitionOpen ? "none" : undefined }}
             className={cn("min-w-0", surface === "dialog" && "min-h-0 flex-1 overflow-y-auto")}
           >
             <motion.div
@@ -1910,7 +2044,10 @@ export function OrderDetailScreen({
                 </p>
               ) : null}
               {surface !== "dialog" && canOpenDiagnosisQuote ? (
-                <section className="flex min-w-0 items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-primary/20 bg-primary/5 px-3 py-2">
+                <section
+                  data-order-diagnosis-guidance="true"
+                  className="flex min-w-0 items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-primary/20 bg-primary/5 px-3 py-2"
+                >
                   <div className="min-w-0">
                     <div className="text-xs font-semibold">
                       {t("orders2b2.diagnosis.workspaceTitle")}
@@ -1939,7 +2076,48 @@ export function OrderDetailScreen({
                     deviceImei={deviceImei}
                     deviceNotes={deviceNotes}
                     accessoryNotes={accessoryNotes}
-                    isEditing={isEditing}
+                    isEditing={isEditing && desktopEditorSurface !== "finance"}
+                    onEdit={() => {
+                      setDesktopEditorSurface("all");
+                      startEditing();
+                    }}
+                    onEditCustomer={(event) => {
+                      desktopIdentityTriggerRef.current = event.currentTarget;
+                      setDesktopIdentityGroup("customer");
+                    }}
+                    onEditDevice={(event) => {
+                      desktopIdentityTriggerRef.current = event.currentTarget;
+                      setDesktopIdentityGroup("device");
+                    }}
+                    onEditFinance={(event) => {
+                      desktopFinanceTriggerRef.current = event.currentTarget;
+                      setDesktopFinanceDiscard(false);
+                      setDesktopEditorSurface("finance");
+                      startEditing();
+                    }}
+                    quoteAction={
+                      canOpenDiagnosisQuote ? (
+                        <Button
+                          className="order-workbench-formal-quote"
+                          variant="outline"
+                          size="touch"
+                          onClick={() => setDiagnosisQuoteOpen(true)}
+                        >
+                          {data.capabilities?.canPrepareQuote
+                            ? t("orders2b1.quote.title")
+                            : t("orders2b2.diagnosis.openRecord")}
+                        </Button>
+                      ) : undefined
+                    }
+                    onEditNotes={
+                      data.capabilities?.canEditIntake || data.capabilities?.canEditRepair
+                        ? (trigger) => {
+                            desktopFaultTriggerRef.current = trigger;
+                            handleFaultSessionChange(true);
+                            setDesktopFaultEditing(true);
+                          }
+                        : undefined
+                    }
                     editDraft={editDraft}
                     onEditDraftChange={(next) => setEditDraft(next)}
                     financeDraft={financeDraft}
@@ -1949,6 +2127,7 @@ export function OrderDetailScreen({
                     canEditRepair={Boolean(data.capabilities?.canEditRepair)}
                     canAdjustFinance={Boolean(data.capabilities?.canAdjustFinance)}
                     defaultWarrantyMonths={defaultWarrantyMonths}
+                    onEditField={openDetailField}
                     onQuickImeiSave={
                       data.capabilities?.canEditIntake
                         ? async (imei) => {
@@ -1988,42 +2167,48 @@ export function OrderDetailScreen({
                       custodyStatus === DEVICE_CUSTODY_WITH_SHOP
                     }
                     custodyControl={renderDesktopCustodyControl()}
-                  />
-                  {(canAssignOrders && data.capabilities?.canEditIntake) ||
-                  partsSupplier ||
-                  supplierOptions.length ||
-                  (supplierPermissions.canAssignSuppliers && data.capabilities?.canEditRepair) ? (
-                    <div
-                      data-order-responsibility-row="true"
-                      data-order-records-controls="true"
-                      className="mt-2 grid min-w-0 gap-2 sm:grid-cols-2"
-                    >
-                      {canAssignOrders && data.capabilities?.canEditIntake ? (
-                        <OrderAssigneeCard
-                          order={order}
-                          options={assigneeOptions}
-                          pending={assigneeUpdate.isPending}
-                          onChange={(membershipId) => assigneeUpdate.mutate(membershipId)}
-                        />
-                      ) : null}
-                      {partsSupplier ||
+                    responsibilityPanel={
+                      (canAssignOrders && data.capabilities?.canEditIntake) ||
+                      partsSupplier ||
                       supplierOptions.length ||
                       (supplierPermissions.canAssignSuppliers &&
                         data.capabilities?.canEditRepair) ? (
-                        <OrderPartsSupplierCard
-                          supplier={partsSupplier}
-                          suppliers={supplierOptions}
-                          isUpdating={partsSupplierUpdate.isPending}
-                          onChange={
-                            supplierPermissions.canAssignSuppliers &&
-                            data.capabilities?.canEditRepair
-                              ? (supplierId) => partsSupplierUpdate.mutateAsync(supplierId)
-                              : undefined
-                          }
-                        />
-                      ) : null}
-                    </div>
-                  ) : null}
+                        <div
+                          data-order-responsibility-row="true"
+                          data-order-records-controls="true"
+                          className={cn(
+                            "grid min-w-0 gap-2 sm:grid-cols-2",
+                            surface === "dialog" && "mt-2",
+                          )}
+                        >
+                          {canAssignOrders && data.capabilities?.canEditIntake ? (
+                            <OrderAssigneeCard
+                              order={order}
+                              options={assigneeOptions}
+                              pending={assigneeUpdate.isPending}
+                              onChange={(membershipId) => assigneeUpdate.mutate(membershipId)}
+                            />
+                          ) : null}
+                          {partsSupplier ||
+                          supplierOptions.length ||
+                          (supplierPermissions.canAssignSuppliers &&
+                            data.capabilities?.canEditRepair) ? (
+                            <OrderPartsSupplierCard
+                              supplier={partsSupplier}
+                              suppliers={supplierOptions}
+                              isUpdating={partsSupplierUpdate.isPending}
+                              onChange={
+                                supplierPermissions.canAssignSuppliers &&
+                                data.capabilities?.canEditRepair
+                                  ? (supplierId) => partsSupplierUpdate.mutateAsync(supplierId)
+                                  : undefined
+                              }
+                            />
+                          ) : null}
+                        </div>
+                      ) : null
+                    }
+                  />
                 </section>
               }
               <section
@@ -2072,43 +2257,226 @@ export function OrderDetailScreen({
                 initial="hidden"
                 animate="show"
                 exit={{ opacity: 0, y: 4 }}
-                className="mt-2 min-w-0"
+                className="my-2 flex min-h-0 min-w-0 flex-1 flex-col"
               >
                 <DesktopStatusTransitionPanel
+                  canPublishQuote={data.capabilities?.canPrepareQuote === true}
+                  onApprovalDecision={
+                    canDecideApproval ? () => setApprovalDecisionOpen(true) : undefined
+                  }
                   order={order}
                   workflow={workflow}
                   statusLabel={getWorkflowStatusLabel(workflow, order.status)}
                   currentStage={desktopCurrentStage}
                   actions={desktopStatusActions}
-                  pending={transition.isPending}
+                  pending={statusTransitionPending}
                   onOpenChange={setDesktopTransitionOpen}
-                  onTransition={(to, reason) => transition.mutate({ to, reason })}
+                  onTransition={submitStatusTransition}
                 />
               </motion.div>
             ) : null}
           </AnimatePresence>
 
-          {!isVoided ? (
-            <OrderDetailActionDock
-              order={order}
-              isEditing={isEditing}
-              financeDraft={financeDraft}
-              onApprovalDecision={() => setApprovalDecisionOpen(true)}
-              approvalDecisionAvailable={canDecideApproval}
-              onFlow={() => setDesktopTransitionOpen((open) => !open)}
-              flowDisabled={transition.isPending || desktopStatusActions.length === 0}
-              onPay={() => setPayOpen(true)}
-              paymentDisabled={
-                mobileFinanceEditing || financeUpdate.isPending || !canCollectPayment
-              }
-              onNotify={() => setNotifyOpen(true)}
-              notifyDisabled={!canNotify}
-              primaryAction={desktopPrimaryAction}
-              surface={surface}
-            />
-          ) : null}
+          <OrderDetailActionDock
+            suspended={desktopTransitionOpen}
+            secondaryOnly={isVoided}
+            order={order}
+            isEditing={isEditing}
+            financeDraft={financeDraft}
+            onApprovalDecision={() => setApprovalDecisionOpen(true)}
+            approvalDecisionAvailable={canDecideApproval}
+            onFlow={() => setDesktopTransitionOpen((open) => !open)}
+            flowDisabled={statusTransitionPending || desktopStatusActions.length === 0}
+            onPay={() => setPayOpen(true)}
+            paymentDisabled={mobileFinanceEditing || financeUpdate.isPending || !canCollectPayment}
+            onNotify={() => setNotifyOpen(true)}
+            notifyDisabled={!canNotify}
+            primaryAction={desktopPrimaryAction}
+            surface={surface}
+            secondaryActions={
+              <OrderSecondaryActions
+                onPrint={() => setPrintPaperDialogOpen(true)}
+                printDisabled={!canPrintCustomerDocument || generationPending}
+                printDisabledReason={printDisabledReason}
+                printPending={printPreparing || generationPending}
+                onRevokeCustomerStatusLinks={
+                  canRevokeCustomerStatusLinks
+                    ? () => void revokePrintedCustomerStatusLinks()
+                    : undefined
+                }
+                customerStatusRevokePending={customerStatusRevokePending}
+                onCancel={() => setCancelOpen(true)}
+                canCancel={canCancelOrder}
+                onEdit={
+                  !isVoided &&
+                  (data.capabilities?.canEditIntake ||
+                    data.capabilities?.canEditRepair ||
+                    data.capabilities?.canAdjustFinance)
+                    ? () => {
+                        setDesktopEditorSurface("all");
+                        startEditing();
+                      }
+                    : undefined
+                }
+                disabled={isEditing || statusTransitionPending}
+              />
+            }
+          />
         </div>
       )}
+      <OrderIdentityEditor
+        workbench
+        group={desktopIdentityGroup}
+        returnFocusRef={desktopIdentityTriggerRef}
+        scopeKey={`${activeStoreId}:${id}:desktop`}
+        initial={buildEditForm(data, defaultWarrantyMonths)}
+        pending={orderUpdate.isPending}
+        canEdit={data.capabilities?.canEditIntake === true && !isVoided}
+        canEditRepair={data.capabilities?.canEditRepair === true && !isVoided}
+        customerId={data.customer?.id}
+        onClose={() => setDesktopIdentityGroup(null)}
+        onSave={(baseline, draft) =>
+          orderUpdate.mutateAsync({ baseline, draft, capabilities: data.capabilities! })
+        }
+      />
+      <OrderDetailFieldEditor
+        field={detailField}
+        initial={buildEditForm(data, defaultWarrantyMonths)}
+        scopeKey={`${activeStoreId}:${id}:field`}
+        pending={orderUpdate.isPending}
+        canEditIntake={data.capabilities?.canEditIntake === true && !isVoided}
+        canEditRepair={data.capabilities?.canEditRepair === true && !isVoided}
+        defaultWarrantyMonths={defaultWarrantyMonths}
+        returnFocusRef={detailFieldTriggerRef}
+        onClose={() => setDetailField(null)}
+        onSave={(baseline, draft) =>
+          orderUpdate.mutateAsync({ baseline, draft, capabilities: data.capabilities! })
+        }
+      />
+      <Dialog
+        open={isEditing && desktopEditorSurface === "finance"}
+        onOpenChange={(next) => {
+          if (next || desktopFinanceSubmittingRef.current || orderUpdate.isPending) return;
+          if (hasLocalEditChanges) {
+            desktopFinanceInputRef.current =
+              document.activeElement instanceof HTMLElement ? document.activeElement : null;
+            setDesktopFinanceDiscard(true);
+          } else cancelEditing();
+        }}
+      >
+        <DialogContent
+          mobileEditor
+          editorLayout
+          data-order-desktop-finance-editor="true"
+          data-confirm-discard={desktopFinanceDiscard}
+          aria-busy={desktopFinanceSubmitting || orderUpdate.isPending}
+          showCloseButton={false}
+          className={cn(
+            componentOverlay.editorSurface,
+            componentOverlay.denseEditorSurface,
+            "order-unified-editor order-detail-interaction-overlay max-h-[calc(100dvh-2rem)]",
+            editorConfirmationClass,
+          )}
+          onEscapeKeyDown={(event) => {
+            if (desktopFinanceSubmittingRef.current || orderUpdate.isPending)
+              event.preventDefault();
+          }}
+          onPointerDownOutside={(event) => {
+            if (desktopFinanceSubmittingRef.current || orderUpdate.isPending)
+              event.preventDefault();
+          }}
+          onCloseAutoFocus={(event) => {
+            if (desktopFinanceTriggerRef.current?.isConnected) {
+              event.preventDefault();
+              desktopFinanceTriggerRef.current.focus({ preventScroll: true });
+            }
+          }}
+        >
+          <DialogHeader className={componentOverlay.denseEditorHeader}>
+            <DialogTitle>{t("orders2b2.overview.quoteItems")}</DialogTitle>
+            <DialogDescription className="sr-only">{order.public_no}</DialogDescription>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-3 top-3"
+              aria-label={t("common.cancel")}
+              disabled={desktopFinanceSubmitting || orderUpdate.isPending}
+              onClick={() => {
+                if (desktopFinanceSubmittingRef.current || orderUpdate.isPending) return;
+                if (hasLocalEditChanges) setDesktopFinanceDiscard(true);
+                else cancelEditing();
+              }}
+            >
+              <X className="size-4" />
+            </Button>
+          </DialogHeader>
+          {desktopFinanceDiscard ? (
+            <EditorDiscardConfirmation
+              returnFocus={desktopFinanceInputRef}
+              keep={() => setDesktopFinanceDiscard(false)}
+              discard={() => {
+                setDesktopFinanceDiscard(false);
+                cancelEditing();
+              }}
+            />
+          ) : null}
+          <DialogBody className={componentOverlay.denseEditorBody}>
+            {financeDraft && editFinance ? (
+              <fieldset
+                disabled={desktopFinanceSubmitting || orderUpdate.isPending}
+                className="min-w-0"
+              >
+                <FinanceInlineEditor
+                  draft={financeDraft}
+                  normalized={editFinance}
+                  onChange={setFinanceDraft}
+                  error={editValidationError || undefined}
+                  dense={false}
+                />
+              </fieldset>
+            ) : null}
+            {orderUpdate.isError ? (
+              <p role="alert" className="text-sm text-status-danger-foreground">
+                {getOrderDetailSafeErrorMessage(orderUpdate.error, "save", t)}
+              </p>
+            ) : null}
+            {remoteEditConflict ? (
+              <p role="alert" className="text-sm text-status-danger-foreground">
+                {t("orders2b2.conflict.description")}
+              </p>
+            ) : null}
+          </DialogBody>
+          <DialogFooter className={componentOverlay.denseEditorFooter}>
+            <Button
+              variant="outline"
+              disabled={desktopFinanceSubmitting || orderUpdate.isPending}
+              onClick={() => {
+                if (desktopFinanceSubmittingRef.current || orderUpdate.isPending) return;
+                if (hasLocalEditChanges) setDesktopFinanceDiscard(true);
+                else cancelEditing();
+              }}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              disabled={desktopFinanceSubmitting || orderUpdate.isPending || !editCanSave}
+              onClick={async () => {
+                if (desktopFinanceSubmittingRef.current || orderUpdate.isPending) return;
+                desktopFinanceSubmittingRef.current = true;
+                setDesktopFinanceSubmitting(true);
+                try {
+                  await saveEditing();
+                } finally {
+                  desktopFinanceSubmittingRef.current = false;
+                  setDesktopFinanceSubmitting(false);
+                }
+              }}
+            >
+              {t("orders2b2.hero.save")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {canNotify ? (
         <NotifyDialog
           open={notifyOpen}
@@ -2227,7 +2595,7 @@ export function OrderDetailScreen({
         }}
       />
       <OrderCustodyChangeOverlay
-        open={custodyDialogTarget !== null}
+        open={custodyPickerOpen}
         current={custodyStatus}
         target={custodyDialogTarget}
         reason={custodyReason}
@@ -2235,16 +2603,22 @@ export function OrderDetailScreen({
         minimumReasonLength={custodyTerminal ? 5 : custodyReasonRequired ? 1 : 0}
         pending={custodyUpdate.isPending}
         canSubmit={canUpdateCustody && !(custodyTerminal && !canCorrectTerminalCustody)}
+        allowsTarget={custodyAllowsTarget}
+        error={custodySubmitError}
+        onSelect={(target) => {
+          if (custodySubmittingRef.current || custodyUpdate.isPending) return;
+          setCustodyDialogTarget(target);
+          setCustodySubmitError("");
+          if (!custodyReasonRequired) void submitCustodyChoice(target);
+        }}
         onReasonChange={setCustodyReason}
         onOpenChange={(open) => {
-          if (!open) closeCustodyOverlay();
+          if (!open && !custodySubmittingRef.current && !custodyUpdate.isPending)
+            closeCustodyOverlay();
         }}
         onConfirm={() => {
           if (!custodyDialogTarget) return;
-          custodyUpdate.mutate({
-            target: custodyDialogTarget,
-            reason: custodyReason.trim() || undefined,
-          });
+          void submitCustodyChoice(custodyDialogTarget);
         }}
       />
       <CancelledReturnOverlay
@@ -2383,6 +2757,9 @@ function OrderCustodyChangeOverlay({
   minimumReasonLength,
   pending,
   canSubmit,
+  allowsTarget,
+  error,
+  onSelect,
   onReasonChange,
   onOpenChange,
   onConfirm,
@@ -2395,120 +2772,182 @@ function OrderCustodyChangeOverlay({
   minimumReasonLength: number;
   pending: boolean;
   canSubmit: boolean;
+  allowsTarget: (target: DeviceCustodyStatus) => boolean;
+  error: string;
+  onSelect: (target: DeviceCustodyStatus) => void;
   onReasonChange: (value: string) => void;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
 }) {
   const { t } = useLocale();
-  const isDesktop = useDesktopActionSurface();
-  const title =
-    target === DEVICE_CUSTODY_WITH_SHOP
-      ? t("orders2b2.custody.receiveTitle")
-      : t("orders2b2.custody.customerTitle");
-  const description =
-    target === DEVICE_CUSTODY_WITH_SHOP
-      ? t("orders2b2.custody.receiveHelp")
-      : current === DEVICE_CUSTODY_WITH_SHOP
-        ? t("orders2b2.custody.deliverHelp")
-        : t("orders2b2.custody.backfillCustomerHelp");
-  const body = (
-    <div className="grid min-w-0 gap-3 p-4">
-      <label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
-        <span>
-          {t("orders2b2.custody.reason")}
-          {reasonRequired
-            ? t("orders2b2.custody.required", {
-                minimum:
-                  minimumReasonLength > 1
-                    ? t("orders2b2.custody.minimum", { count: minimumReasonLength })
-                    : "",
-              })
-            : t("orders2b2.custody.optional")}
-        </span>
-        <Textarea
-          value={reason}
-          onChange={(event) => onReasonChange(event.target.value)}
-          maxLength={240}
-          disabled={pending}
-          className="min-h-24 resize-none text-sm"
-          placeholder={
-            reasonRequired
-              ? t("orders2b2.custody.reasonRequiredPlaceholder")
-              : t("orders2b2.custody.reasonOptionalPlaceholder")
-          }
-        />
-      </label>
-      <p className="sr-only" role="status" aria-live="polite">
-        {pending ? t("orders2b2.custody.saving") : ""}
-      </p>
-    </div>
-  );
-  const footer = (
-    <>
-      <Button
-        type="button"
-        variant="ghost"
-        className="h-auto min-h-11 min-w-0 whitespace-normal py-2 text-center"
-        disabled={pending}
-        onClick={() => onOpenChange(false)}
-      >
-        {t("common.cancel")}
-      </Button>
-      <Button
-        type="button"
-        className="h-auto min-h-11 min-w-0 whitespace-normal py-2 text-center [overflow-wrap:anywhere]"
-        disabled={
-          pending ||
-          !target ||
-          !isDeviceCustodyReasonValid(reason, minimumReasonLength) ||
-          !canSubmit
-        }
-        onClick={onConfirm}
-      >
-        {pending ? t("orders2b2.hero.saving") : t("orders2b2.custody.confirmSave")}
-      </Button>
-    </>
-  );
-
-  if (isDesktop) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent
-          data-order-custody-dialog="true"
-          aria-busy={pending}
-          className={componentOverlay.modalSm}
-        >
-          <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>{description}</DialogDescription>
-          </DialogHeader>
-          {body}
-          <DialogFooter>{footer}</DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const discardFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!open) setConfirmDiscard(false);
+  }, [open]);
+  const requestClose = (next: boolean) => {
+    if (pending) return;
+    if (!next && reasonRequired && reason.trim()) {
+      discardFocusRef.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setConfirmDiscard(true);
+    } else onOpenChange(next);
+  };
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
+    <Dialog open={open} onOpenChange={requestClose}>
+      <DialogContent
+        mobileEditor
+        editorLayout
+        data-order-custody-dialog="true"
         data-order-custody-sheet="true"
-        side="bottom"
+        data-confirm-discard={confirmDiscard}
         aria-busy={pending}
-        className="max-h-[calc(100svh-16px)] rounded-t-2xl p-0 sm:mx-auto sm:max-w-xl"
+        className={cn(
+          componentOverlay.editorSurface,
+          componentOverlay.denseEditorSurface,
+          editorConfirmationClass,
+          "order-detail-interaction-overlay",
+        )}
+        onEscapeKeyDown={(event) => {
+          if (pending) event.preventDefault();
+        }}
+        onPointerDownOutside={(event) => {
+          if (pending) event.preventDefault();
+        }}
       >
-        <div className="flex max-h-[calc(100svh-16px)] min-w-0 flex-col overflow-hidden">
-          <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
-            <SheetTitle>{title}</SheetTitle>
-            <SheetDescription>{description}</SheetDescription>
-          </SheetHeader>
-          <div className="min-h-0 overflow-y-auto">{body}</div>
-          <SheetFooter className="!grid grid-cols-2 gap-2 border-t border-[var(--border-panel)] p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
-            {footer}
-          </SheetFooter>
-        </div>
-      </SheetContent>
-    </Sheet>
+        <DialogHeader className={componentOverlay.denseEditorHeader}>
+          <DialogTitle>{t("orders2b2.overview.custody")}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {t("orders2b2.custody.chooseHelp")}
+          </DialogDescription>
+        </DialogHeader>
+        {confirmDiscard ? (
+          <EditorDiscardConfirmation
+            returnFocus={discardFocusRef}
+            keep={() => setConfirmDiscard(false)}
+            discard={() => {
+              setConfirmDiscard(false);
+              onOpenChange(false);
+            }}
+          />
+        ) : null}
+        <DialogBody className={componentOverlay.denseEditorBody}>
+          <p className="text-sm text-muted-foreground">{t("orders2b2.custody.chooseHelp")}</p>
+          <div className="grid min-w-0 gap-2 sm:grid-cols-2">
+            {([DEVICE_CUSTODY_WITH_SHOP, DEVICE_CUSTODY_WITH_CUSTOMER] as const).map((option) => {
+              const selected = option === current;
+              const allowed = allowsTarget(option);
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  data-order-custody-option={option}
+                  aria-pressed={selected}
+                  data-custody-target={(target === option && !selected) || undefined}
+                  disabled={pending || !canSubmit || selected || !allowed}
+                  onClick={() => onSelect(option)}
+                  className="grid min-h-24 min-w-0 gap-1 rounded-xl border border-[var(--border-panel)] p-3 text-left hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring aria-pressed:border-primary aria-pressed:bg-primary/5 disabled:cursor-default disabled:opacity-70"
+                >
+                  <span className="flex items-center justify-between gap-2 text-sm font-semibold">
+                    {t(
+                      option === DEVICE_CUSTODY_WITH_SHOP
+                        ? "orders2b2.custody.left"
+                        : "orders2b2.custody.notLeft",
+                    )}
+                    {selected ? <Check className="size-4 text-primary" aria-hidden="true" /> : null}
+                  </span>
+                  <span className="text-xs leading-5 text-muted-foreground">
+                    {t(
+                      option === DEVICE_CUSTODY_WITH_SHOP
+                        ? "orders2b2.custody.heldHelp"
+                        : "orders2b2.custody.customerHelp",
+                    )}
+                  </span>
+                  {selected ? (
+                    <span className="text-xs text-primary">{t("orders2b2.custody.current")}</span>
+                  ) : target === option ? (
+                    <span className="text-xs font-medium text-primary">
+                      {t(pending ? "orders2b2.custody.saving" : "orders2b2.custody.pendingChoice")}
+                    </span>
+                  ) : !allowed || !canSubmit ? (
+                    <span className="text-xs text-status-warn-foreground">
+                      {t("orders2b2.custody.restricted")}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+          {current === DEVICE_CUSTODY_WITH_SHOP ? (
+            <p className="text-xs leading-5 text-muted-foreground">
+              {t("orders2b2.custody.deliverHelp")}
+            </p>
+          ) : null}
+          {reasonRequired ? (
+            <p className="text-xs text-muted-foreground">
+              {t(
+                minimumReasonLength >= 5
+                  ? "orders2b2.custody.correct"
+                  : "orders2b2.custody.unknown",
+              )}
+            </p>
+          ) : null}
+          {reasonRequired && target ? (
+            <label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
+              <span>
+                {t("orders2b2.custody.reason")}
+                {t("orders2b2.custody.required", {
+                  minimum:
+                    minimumReasonLength > 1
+                      ? t("orders2b2.custody.minimum", { count: minimumReasonLength })
+                      : "",
+                })}
+              </span>
+              <Textarea
+                value={reason}
+                onChange={(event) => onReasonChange(event.target.value)}
+                maxLength={240}
+                disabled={pending}
+                className="min-h-24 resize-none text-base"
+                placeholder={t("orders2b2.custody.reasonRequiredPlaceholder")}
+              />
+            </label>
+          ) : null}
+          {error ? (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          ) : null}
+          <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
+            {pending ? t("orders2b2.custody.saving") : ""}
+          </p>
+        </DialogBody>
+        <DialogFooter className={componentOverlay.denseEditorFooter}>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pending}
+            onClick={() => requestClose(false)}
+          >
+            {t("common.close")}
+          </Button>
+          {reasonRequired && target ? (
+            <Button
+              type="button"
+              disabled={
+                pending ||
+                !canSubmit ||
+                !allowsTarget(target) ||
+                !isDeviceCustodyReasonValid(reason, minimumReasonLength)
+              }
+              onClick={onConfirm}
+            >
+              {t(pending ? "orders2b2.hero.saving" : "orders2b2.custody.confirmSave")}
+            </Button>
+          ) : null}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -2518,9 +2957,10 @@ function OrderDeviceCustodyCard({
   workflowBucket,
   canUpdate,
   canCorrectTerminal,
+  canConfirmCancelledReturn,
   pending,
-  onRequestChange,
   onConfirmCancelledReturn,
+  onOpenPicker,
   className,
   variant = "card",
 }: {
@@ -2529,9 +2969,10 @@ function OrderDeviceCustodyCard({
   workflowBucket?: string;
   canUpdate: boolean;
   canCorrectTerminal: boolean;
+  canConfirmCancelledReturn: boolean;
   pending: boolean;
-  onRequestChange: (target: DeviceCustodyStatus) => void;
   onConfirmCancelledReturn: () => void;
+  onOpenPicker: () => void;
   className?: string;
   variant?: "card" | "inline" | "embedded";
 }) {
@@ -2561,39 +3002,12 @@ function OrderDeviceCustodyCard({
         : t("orders2b2.custody.unknown");
 
   const actions: ReactNode[] = [];
-  const allowsTarget = (target: DeviceCustodyStatus) =>
-    deviceCustodyAllowsChange({
-      current: status,
-      target,
-      status: order.status,
-      exceptionStatus: order.exception_status,
-      workflowBucket,
-    });
-  if (status === null && canUpdateResolved && (!isTerminal || canCorrectTerminal)) {
-    actions.push(
-      ...([DEVICE_CUSTODY_WITH_SHOP, DEVICE_CUSTODY_WITH_CUSTOMER] as const)
-        .filter(allowsTarget)
-        .map((target) => (
-          <Button
-            key={`backfill-${target}`}
-            type="button"
-            size="sm"
-            variant="ghost"
-            className={componentAction.status}
-            disabled={pending}
-            onClick={() => onRequestChange(target)}
-          >
-            {target === DEVICE_CUSTODY_WITH_SHOP
-              ? t("orders2b2.custody.backfillShop")
-              : t("orders2b2.custody.backfillCustomer")}
-          </Button>
-        )),
-    );
-  } else if (
+  if (
     cancelled &&
     status === DEVICE_CUSTODY_WITH_SHOP &&
     !order.delivered_at &&
-    canUpdateResolved
+    canConfirmCancelledReturn &&
+    !isVoided
   ) {
     actions.push(
       <Button
@@ -2609,43 +3023,6 @@ function OrderDeviceCustodyCard({
         {t("orders2b2.custody.confirmReturned")}
       </Button>,
     );
-  } else if (!isTerminal && canUpdateResolved && status) {
-    const target =
-      status === DEVICE_CUSTODY_WITH_SHOP ? DEVICE_CUSTODY_WITH_CUSTOMER : DEVICE_CUSTODY_WITH_SHOP;
-    if (allowsTarget(target))
-      actions.push(
-        <Button
-          key="custody-toggle"
-          type="button"
-          size="sm"
-          variant="ghost"
-          className={componentAction.status}
-          disabled={pending}
-          onClick={() => onRequestChange(target)}
-        >
-          {target === DEVICE_CUSTODY_WITH_SHOP
-            ? t("orders2b2.custody.receive")
-            : t("orders2b2.custody.deliver")}
-        </Button>,
-      );
-  } else if (isTerminal && canCorrectTerminal && canUpdateResolved && status) {
-    const target =
-      status === DEVICE_CUSTODY_WITH_SHOP ? DEVICE_CUSTODY_WITH_CUSTOMER : DEVICE_CUSTODY_WITH_SHOP;
-    if (allowsTarget(target)) {
-      actions.push(
-        <Button
-          key="terminal-correction"
-          type="button"
-          size="sm"
-          variant="ghost"
-          className={cn(componentAction.status, componentAction.statusWarning)}
-          disabled={pending}
-          onClick={() => onRequestChange(target)}
-        >
-          {t("orders2b2.custody.correct")}
-        </Button>,
-      );
-    }
   }
 
   const isExceptional =
@@ -2694,12 +3071,28 @@ function OrderDeviceCustodyCard({
             >
               {t("orders2b2.overview.custody")}
             </h2>
-            <DeviceCustodyBadge
-              status={status}
-              deliveredAt={order.delivered_at}
-              label={localizeDeviceCustody(status, order.delivered_at, t)}
-              className="text-[10px] lg:text-[11px] lg:leading-4"
-            />
+            <button
+              type="button"
+              data-order-custody-trigger="true"
+              onClick={onOpenPicker}
+              disabled={pending || !onOpenPicker || !canUpdateResolved}
+              className="inline-flex min-h-11 min-w-0 items-center gap-1.5 rounded-md text-left focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={t("orders2b2.overview.custody")}
+            >
+              <DeviceCustodyBadge
+                status={status}
+                deliveredAt={order.delivered_at}
+                label={t(
+                  status === DEVICE_CUSTODY_WITH_SHOP
+                    ? "orders2b2.custody.left"
+                    : status === DEVICE_CUSTODY_WITH_CUSTOMER
+                      ? "orders2b2.custody.notLeft"
+                      : "orders2b2.custody.toConfirm",
+                )}
+                className="text-xs"
+              />
+              <ChevronDown className="size-3.5" aria-hidden="true" />
+            </button>
           </div>
           {isExceptional ? (
             <p
@@ -3383,7 +3776,9 @@ function OrderEditOfflineDraftNotice({
 }
 
 function MobileOrderDetailView({
+  canPublishQuote,
   data,
+  quoteAction,
   deviceLabel,
   deviceImei,
   accessoryNotes,
@@ -3439,9 +3834,12 @@ function MobileOrderDetailView({
   assigneePending,
   onAssigneeChange,
   custodyPanel,
+  onEditField,
   className,
 }: {
+  canPublishQuote: boolean;
   data: OrderDetail;
+  quoteAction?: ReactNode;
   deviceLabel: string;
   deviceImei: string;
   accessoryNotes?: string;
@@ -3449,7 +3847,7 @@ function MobileOrderDetailView({
   workflow?: OrderWorkflow;
   topNotice?: ReactNode;
   transitionPending: boolean;
-  onTransition: (to: RepairOrderStatus, reason?: string) => void;
+  onTransition: (to: RepairOrderStatus, reason?: string) => Promise<unknown>;
   onImeiSave: (imei: string) => Promise<void>;
   imeiPending: boolean;
   onFaultSave: (input: FaultDescriptionSave) => Promise<void>;
@@ -3497,6 +3895,7 @@ function MobileOrderDetailView({
   assigneePending: boolean;
   onAssigneeChange?: (membershipId: string | null) => void | Promise<unknown>;
   custodyPanel: ReactNode;
+  onEditField: (field: OrderDetailField, trigger: HTMLElement) => void;
   className?: string;
 }) {
   const { locale, t } = useLocale();
@@ -3527,6 +3926,8 @@ function MobileOrderDetailView({
     : (orderTaskStages[Math.min(currentStageIndex, orderTaskStages.length - 1)] ??
       orderTaskStages[0]);
   const customerSummaryId = useId();
+  // Read-only disclosure preference is fixed for this opening, separate from all editor sessions.
+  const initiallyWideDisclosure = useRef(typeof window !== "undefined" && window.innerWidth >= 768);
   const identityTriggerRef = useRef<HTMLButtonElement | null>(null);
   const financeTriggerRef = useRef<HTMLButtonElement | null>(null);
   const assignmentTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -3633,7 +4034,7 @@ function MobileOrderDetailView({
     [
       approvalDecisionAvailable ? "approval" : null,
       !whatsappDisabled ? "notify" : null,
-      statusActions.length > 0 && !transitionPending ? "flow" : null,
+      statusActions.length > 0 ? "flow" : null,
       !paymentDisabled && isOrderPaymentCollectible(order) ? "payment" : null,
     ] as OrderDetailPrimaryAction[]
   ).filter((action): action is Exclude<OrderDetailPrimaryAction, null> => Boolean(action));
@@ -3685,6 +4086,7 @@ function MobileOrderDetailView({
           key={action}
           variant={primary ? "default" : "outline"}
           {...commonProps}
+          disabled={transitionPending}
           onClick={() => setStatusSheetOpen(true)}
         >
           <Clock3 className="mr-1 size-3.5" /> {t("orders2b2.overview.flowAction")}
@@ -3780,457 +4182,613 @@ function MobileOrderDetailView({
           </section>
         ) : null}
 
-        <section data-mobile-order-identity="true" className={mobileDetailCardClass}>
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-            <button
-              type="button"
-              className="flex min-h-11 min-w-0 items-center gap-2 rounded-md text-left focus-visible:ring-2 focus-visible:ring-ring"
-              disabled={!data.capabilities?.canEditIntake || isVoided}
-              onClick={(event) => {
-                identityTriggerRef.current = event.currentTarget;
-                setIdentityGroup("customer");
-              }}
-              aria-label={t("orders2b2.overview.customerInfo")}
-              aria-describedby={customerSummaryId}
-            >
-              <UserRound className="size-4 shrink-0 text-primary" aria-hidden="true" />
-              <span id={customerSummaryId} className="min-w-0 flex-1">
-                <span className="block break-words text-xs font-semibold leading-4">
-                  {customerDisplayName}
-                </span>
-                <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                  <PhoneText value={phone} className="text-[11px] leading-4" />
-                  {customer?.preferred_channel ? (
-                    <span className="text-[9px] leading-3 text-muted-foreground">
-                      {customer.preferred_channel}
-                    </span>
-                  ) : null}
-                </span>
-              </span>
-              <ChevronRight
-                className="size-3.5 shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
-            </button>
-            <div className="flex shrink-0 gap-1">
-              <Button asChild variant="ghost" size="icon" className="size-9 rounded-lg">
-                <a
-                  href={`tel:${phone}`}
-                  aria-label={t("orders2b2.mobile.phoneCall")}
-                  title={t("orders2b2.mobile.phoneCall")}
-                >
-                  <Phone className="size-3.5" />
-                </a>
-              </Button>
-              {onRequestKioskSignature ? (
-                <Button
+        <div
+          data-order-detail-layout="workbench"
+          className={detailWorkspace.orderDetailWorkbenchGrid}
+        >
+          <div
+            data-order-detail-column="customer-device"
+            className={detailWorkspace.orderDetailWorkbenchColumn}
+          >
+            <section data-mobile-order-identity="true" className={mobileDetailCardClass}>
+              <div
+                data-order-workbench-customer="true"
+                className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
+              >
+                <button
                   type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-9 rounded-lg"
-                  disabled={!kioskSignatureAvailable || kioskSignaturePending}
-                  onClick={onRequestKioskSignature}
-                  aria-label={
-                    kioskSignaturePending
-                      ? t("orders2b2.overview.sending")
-                      : kioskSignatureAvailable
-                        ? t("orders2b2.overview.sendKiosk")
-                        : t("orders2b2.overview.noKiosk")
-                  }
-                  title={
-                    kioskSignaturePending
-                      ? t("orders2b2.overview.sending")
-                      : kioskSignatureAvailable
-                        ? t("orders2b2.overview.sendKiosk")
-                        : t("orders2b2.overview.noKiosk")
-                  }
+                  className="flex min-h-11 min-w-0 items-center gap-2 rounded-md text-left focus-visible:ring-2 focus-visible:ring-ring"
+                  disabled={!data.capabilities?.canEditIntake || isVoided}
+                  onClick={(event) => {
+                    identityTriggerRef.current = event.currentTarget;
+                    setIdentityGroup("customer");
+                  }}
+                  aria-label={t("orders2b2.overview.customerInfo")}
+                  aria-describedby={customerSummaryId}
                 >
-                  <TabletSmartphone className="size-3.5" />
-                </Button>
+                  <UserRound className="size-4 shrink-0 text-primary" aria-hidden="true" />
+                  <span id={customerSummaryId} className="min-w-0 flex-1">
+                    <span className="block break-words text-xs font-semibold leading-4">
+                      {customerDisplayName}
+                    </span>
+                    <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                      <PhoneText value={phone} className="text-[11px] leading-4" />
+                      {customer?.preferred_channel ? (
+                        <span className="text-[9px] leading-3 text-muted-foreground">
+                          {customer.preferred_channel}
+                        </span>
+                      ) : null}
+                    </span>
+                  </span>
+                  <ChevronRight
+                    className="size-3.5 shrink-0 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                </button>
+                <div className="flex shrink-0 gap-1">
+                  <Button asChild variant="ghost" size="icon" className="size-9 rounded-lg">
+                    <a
+                      href={`tel:${phone}`}
+                      aria-label={t("orders2b2.mobile.phoneCall")}
+                      title={t("orders2b2.mobile.phoneCall")}
+                    >
+                      <Phone className="size-3.5" />
+                    </a>
+                  </Button>
+                  {onRequestKioskSignature ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-9 rounded-lg"
+                      disabled={!kioskSignatureAvailable || kioskSignaturePending}
+                      onClick={onRequestKioskSignature}
+                      aria-label={
+                        kioskSignaturePending
+                          ? t("orders2b2.overview.sending")
+                          : kioskSignatureAvailable
+                            ? t("orders2b2.overview.sendKiosk")
+                            : t("orders2b2.overview.noKiosk")
+                      }
+                      title={
+                        kioskSignaturePending
+                          ? t("orders2b2.overview.sending")
+                          : kioskSignatureAvailable
+                            ? t("orders2b2.overview.sendKiosk")
+                            : t("orders2b2.overview.noKiosk")
+                      }
+                    >
+                      <TabletSmartphone className="size-3.5" />
+                    </Button>
+                  ) : null}
+                </div>
+                <div
+                  data-order-workbench-order-meta="true"
+                  className="order-workbench-order-meta order-workbench-wide-only"
+                >
+                  <span className="font-mono font-semibold">{order.public_no}</span>
+                  <span>{formatDateTime(order.created_at, locale)}</span>
+                  <span>{storeName}</span>
+                </div>
+              </div>
+              <div
+                data-order-workbench-device="true"
+                className="mt-1 border-t border-[var(--border-panel)] pt-1"
+              >
+                <div className="order-workbench-mobile-device-summary">
+                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={!data.capabilities?.canEditIntake || isVoided}
+                      aria-label={t("orders2b2.overview.deviceIssue")}
+                      onClick={(event) => {
+                        identityTriggerRef.current = event.currentTarget;
+                        setIdentityGroup("device");
+                      }}
+                      className="flex min-h-11 min-w-0 items-center gap-2 rounded-md text-left focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <Smartphone className="size-4 shrink-0 text-primary" aria-hidden="true" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[10px] leading-3 text-muted-foreground">
+                          {t("orders2b1.task.device")}
+                        </span>
+                        <span className="block break-words text-xs font-semibold leading-4">
+                          {deviceLabel}
+                        </span>
+                      </span>
+                      <ChevronRight
+                        className="size-3.5 shrink-0 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                    </button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {data.capabilities?.canEditRepair ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-9 min-w-9 rounded-lg px-1.5 text-[10px]"
+                          onClick={(event) => {
+                            unlockTriggerRef.current = event.currentTarget;
+                            setDeviceUnlockEditing(true);
+                          }}
+                        >
+                          {t("orders2b2.unlock.entry")}
+                        </Button>
+                      ) : null}
+                      {data.capabilities?.canEditIntake ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-9 rounded-lg"
+                          aria-label={t("action.scan.label")}
+                          title={t("action.scan.label")}
+                          onClick={() => {
+                            setImeiDraft(deviceImei);
+                            setImeiEditing(true);
+                          }}
+                        >
+                          <ScanLine className="size-4" />
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                  <DetailRows rows={[["IMEI", deviceImei || "-"]]} />
+                  <div className="order-detail-mobile-fields">
+                    {(
+                      [
+                        ["warranty", t("orders2b2.overview.warranty"), order.warranty_text || "-"],
+                        ["accessories", t("orders2b2.overview.accessories"), accessoryNotes || "-"],
+                      ] as const
+                    ).map(([field, label, value]) => (
+                      <button
+                        key={field}
+                        type="button"
+                        data-order-field-trigger={field}
+                        onClick={(event) => onEditField(field, event.currentTarget)}
+                        className="order-detail-mobile-field"
+                      >
+                        <span className="text-muted-foreground">{label}</span>
+                        <span className="min-w-0 break-words">{value}</span>
+                        <ChevronDown className="size-3 shrink-0" aria-hidden="true" />
+                      </button>
+                    ))}
+                  </div>
+                  <DeviceUnlockViewer order={order} compact className="mt-1 !px-1.5 !py-1" />
+                  <button
+                    type="button"
+                    data-order-field-trigger="notes"
+                    onClick={(event) => onEditField("notes", event.currentTarget)}
+                    className="order-detail-mobile-field order-detail-tablet-field"
+                  >
+                    <span className="text-muted-foreground">
+                      {t("orders2b2.overview.deviceNotes")}
+                    </span>
+                    <span className="min-w-0 truncate">{identityInitial.device_notes || "—"}</span>
+                    <ChevronDown className="size-3 shrink-0" aria-hidden="true" />
+                  </button>
+                </div>
+                <div data-mobile-order-custody-group="true" className="mt-1">
+                  {custodyPanel}
+                </div>
+              </div>
+            </section>
+
+            <div className="order-workbench-mobile-notes">
+              <section data-mobile-order-fault="true" className={mobileDetailCardClass}>
+                <button
+                  type="button"
+                  data-order-detail-issue-summary="true"
+                  className="block w-full min-w-0 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={t("orders.faultEditor.title")}
+                  onClick={(event) => {
+                    mobileFaultTriggerRef.current = event.currentTarget;
+                    setFaultEditing(true);
+                  }}
+                >
+                  <div className="flex min-w-0 items-center justify-between gap-2">
+                    <MobileSectionTitle icon={FileText} title={t("orders.notes.label")} />
+                    <ChevronRight
+                      className="size-3.5 shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <p className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-xs font-medium leading-4 text-foreground">
+                    {order.issue_description || "-"}
+                  </p>
+                </button>
+                <OrderWorkspaceFullText text={order.issue_description} />
+              </section>
+              {order.diagnosis_result ? (
+                <details
+                  className={cn(mobileDetailCardClass, "group")}
+                  data-mobile-order-diagnosis="true"
+                  open={initiallyWideDisclosure.current || undefined}
+                >
+                  <summary className="min-h-8 cursor-pointer text-xs leading-8 text-muted-foreground">
+                    {t("orders2b2.overview.diagnosis")}
+                  </summary>
+                  <p className="order-workbench-diagnosis-preview whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+                    {order.diagnosis_result}
+                  </p>
+                  <OrderWorkspaceFullText text={order.diagnosis_result} />
+                </details>
               ) : null}
             </div>
           </div>
-          <div className="mt-1 border-t border-[var(--border-panel)] pt-1">
-            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
-              <button
-                type="button"
-                disabled={!data.capabilities?.canEditIntake || isVoided}
-                aria-label={t("orders2b2.overview.deviceIssue")}
-                onClick={(event) => {
-                  identityTriggerRef.current = event.currentTarget;
-                  setIdentityGroup("device");
-                }}
-                className="flex min-h-11 min-w-0 items-center gap-2 rounded-md text-left focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Smartphone className="size-4 shrink-0 text-primary" aria-hidden="true" />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[10px] leading-3 text-muted-foreground">
-                    {t("orders2b1.task.device")}
-                  </span>
-                  <span className="block break-words text-xs font-semibold leading-4">
-                    {deviceLabel}
-                  </span>
-                </span>
-                <ChevronRight
-                  className="size-3.5 shrink-0 text-muted-foreground"
-                  aria-hidden="true"
-                />
-              </button>
-              <div className="flex shrink-0 items-center gap-1">
-                {data.capabilities?.canEditRepair ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-9 min-w-9 rounded-lg px-1.5 text-[10px]"
-                    onClick={(event) => {
-                      unlockTriggerRef.current = event.currentTarget;
-                      setDeviceUnlockEditing(true);
-                    }}
-                  >
-                    {t("orders2b2.unlock.entry")}
-                  </Button>
-                ) : null}
-                {data.capabilities?.canEditIntake ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-9 rounded-lg"
-                    aria-label={t("action.scan.label")}
-                    title={t("action.scan.label")}
-                    onClick={() => {
-                      setImeiDraft(deviceImei);
-                      setImeiEditing(true);
-                    }}
-                  >
-                    <ScanLine className="size-4" />
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-            <DetailRows
-              rows={[
-                ["IMEI", deviceImei || "-"],
-                [t("orders2b2.overview.warranty"), order.warranty_text || "-"],
-                [t("orders2b2.overview.accessories"), accessoryNotes || "-"],
-              ]}
-            />
-            <DeviceUnlockViewer order={order} compact className="mt-1 !px-1.5 !py-1" />
-            <div data-mobile-order-custody-group="true" className="mt-1">
-              {custodyPanel}
-            </div>
-          </div>
-        </section>
-
-        <section data-mobile-order-fault="true" className={mobileDetailCardClass}>
-          <button
-            type="button"
-            data-order-detail-issue-summary="true"
-            className="block w-full min-w-0 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label={t("orders.faultEditor.title")}
-            onClick={(event) => {
-              mobileFaultTriggerRef.current = event.currentTarget;
-              setFaultEditing(true);
-            }}
+          <div
+            data-order-detail-column="quote"
+            className={detailWorkspace.orderDetailWorkbenchColumn}
           >
-            <div className="flex min-w-0 items-center justify-between gap-2">
-              <MobileSectionTitle icon={FileText} title={t("orders.notes.label")} />
-              <ChevronRight
-                className="size-3.5 shrink-0 text-muted-foreground"
-                aria-hidden="true"
+            {!order.finance_redacted ? (
+              <OrderWorkspaceRepairItems
+                className="order-workbench-wide-only"
+                actions={quoteAction}
+                names={order.fault_prices.map(
+                  (item) =>
+                    localizeRepairServiceItemName(item, locale) ||
+                    t("orders2b2.mobile.unnamedItem"),
+                )}
+                onEdit={
+                  canAdjustFinance && !financePending && !isVoided
+                    ? (trigger) => {
+                        financeTriggerRef.current = trigger;
+                        setFinanceCategoriesOpen(true);
+                        onFinanceEditingChange(true);
+                      }
+                    : undefined
+                }
               />
-            </div>
-            <p className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-xs font-medium leading-4 text-foreground">
-              {order.issue_description || "-"}
-            </p>
-          </button>
-          {order.diagnosis_result ? (
-            <details className="mt-2 min-w-0 border-t border-[var(--border-panel)] pt-1">
-              <summary className="min-h-8 cursor-pointer text-xs leading-8 text-muted-foreground">
-                {t("orders2b2.overview.diagnosis")}
-              </summary>
-              <p className="whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
-                {order.diagnosis_result}
-              </p>
-            </details>
-          ) : null}
-        </section>
+            ) : quoteAction ? (
+              <div className="order-workbench-restricted-quote order-workbench-wide-only">
+                {quoteAction}
+              </div>
+            ) : null}
 
-        <section data-mobile-order-people="true" className={mobileDetailCardClass}>
-          <MobileSectionTitle icon={UserRound} title={t("orders2b2.mobile.peopleSuppliers")} />
-          <div className="mt-1 grid min-w-0 grid-cols-2 gap-1.5">
-            <button
-              type="button"
-              className="min-h-11 min-w-0 rounded-lg px-1 py-1 text-left text-xs hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
-              disabled={!onAssigneeChange || isVoided}
-              aria-expanded={assignmentEditing}
-              aria-controls={assignmentEditing ? "mobile-order-assignee-editor" : undefined}
-              onClick={(event) => {
-                assignmentTriggerRef.current = event.currentTarget;
-                setAssignmentFailed(false);
-                setAssignmentEditing(true);
+            <section data-mobile-order-people="true" className={mobileDetailCardClass}>
+              <MobileSectionTitle icon={UserRound} title={t("orders2b2.mobile.peopleSuppliers")} />
+              <div className="mt-1 grid min-w-0 grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  className="min-h-11 min-w-0 rounded-lg px-1 py-1 text-left text-xs hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+                  disabled={!onAssigneeChange || isVoided}
+                  aria-expanded={assignmentEditing}
+                  aria-controls={assignmentEditing ? "mobile-order-assignee-editor" : undefined}
+                  onClick={(event) => {
+                    assignmentTriggerRef.current = event.currentTarget;
+                    setAssignmentFailed(false);
+                    setAssignmentEditing(true);
+                  }}
+                >
+                  <span className="block text-[10px] text-muted-foreground">
+                    {t("orders2b2.overview.assignee")}
+                  </span>
+                  <span className="flex min-w-0 items-center justify-between gap-1 font-semibold">
+                    <span className="min-w-0 break-words">
+                      {order.technician_name || t("orders2b2.mobile.unassigned")}
+                    </span>
+                    <ChevronRight
+                      className="size-3.5 shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                  </span>
+                </button>
+                {onPartsSupplierChange && !isVoided ? (
+                  <OrderSupplierPicker
+                    supplier={partsSupplier}
+                    suppliers={supplierOptions}
+                    isUpdating={partsSupplierPending}
+                    onChange={onPartsSupplierChange}
+                    mode="sheet"
+                    size="comfortable"
+                    className="!h-auto min-h-11 border-0 bg-transparent px-1 shadow-none [&>span]:whitespace-normal [&>span]:break-words [&>span]:text-left [&>span]:leading-4"
+                  />
+                ) : (
+                  <p className="min-w-0 self-center break-words text-xs">
+                    {partsSupplier?.name || t("orders2b2.overview.notConfigured")}
+                  </p>
+                )}
+              </div>
+              <Sheet
+                open={assignmentEditing}
+                onOpenChange={(next) => {
+                  if (!assignmentSaving && !assigneePending) setAssignmentEditing(next);
+                }}
+              >
+                <SheetContent
+                  mobileEditor
+                  side="bottom"
+                  className="order-detail-interaction-overlay max-h-[80dvh] rounded-t-xl"
+                  onCloseAutoFocus={(event) => {
+                    event.preventDefault();
+                    assignmentTriggerRef.current?.focus({ preventScroll: true });
+                  }}
+                >
+                  <SheetHeader>
+                    <SheetTitle>{t("orders2b2.overview.assignee")}</SheetTitle>
+                    <SheetDescription>{order.public_no}</SheetDescription>
+                  </SheetHeader>
+                  {assignmentFailed ? (
+                    <p role="alert" className="text-sm text-destructive">
+                      {t("orders.faultEditor.errorState")}
+                    </p>
+                  ) : null}
+                  <div
+                    id="mobile-order-assignee-editor"
+                    className="mt-3 grid max-h-[60dvh] gap-1 overflow-y-auto"
+                  >
+                    {[
+                      { id: "unassigned", display_name: t("orders2b2.mobile.unassigned") },
+                      ...assigneeOptions,
+                    ].map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        disabled={assignmentSaving || assigneePending}
+                        aria-pressed={(order.assignee_membership_id ?? "unassigned") === option.id}
+                        className="min-h-11 rounded-lg px-3 py-2 text-left text-sm hover:bg-accent aria-pressed:bg-primary/10 aria-pressed:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={async () => {
+                          setAssignmentSaving(true);
+                          setAssignmentFailed(false);
+                          try {
+                            await onAssigneeChange?.(option.id === "unassigned" ? null : option.id);
+                            setAssignmentEditing(false);
+                          } catch {
+                            setAssignmentFailed(true);
+                          } finally {
+                            setAssignmentSaving(false);
+                          }
+                        }}
+                      >
+                        {option.display_name}
+                      </button>
+                    ))}
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </section>
+
+            <OrderIdentityEditor
+              workbench
+              group={identityGroup}
+              customerId={data.order.customer_id}
+              returnFocusRef={identityTriggerRef}
+              scopeKey={editorScopeKey}
+              initial={identityInitial}
+              pending={identityPending}
+              canEdit={Boolean(data.capabilities?.canEditIntake) && !isVoided}
+              canEditRepair={Boolean(data.capabilities?.canEditRepair) && !isVoided}
+              onClose={() => setIdentityGroup(null)}
+              onSave={onIdentitySave}
+            />
+            <ImeiCaptureSheet
+              open={imeiEditing}
+              onOpenChange={(open) => {
+                setImeiEditing(open);
+                if (open) setImeiDraft(deviceImei);
               }}
-            >
-              <span className="block text-[10px] text-muted-foreground">
-                {t("orders2b2.overview.assignee")}
-              </span>
-              <span className="flex min-w-0 items-center justify-between gap-1 font-semibold">
-                <span className="min-w-0 break-words">
-                  {order.technician_name || t("orders2b2.mobile.unassigned")}
-                </span>
-                <ChevronRight
-                  className="size-3.5 shrink-0 text-muted-foreground"
-                  aria-hidden="true"
-                />
-              </span>
-            </button>
-            {onPartsSupplierChange && !isVoided ? (
-              <OrderSupplierPicker
-                supplier={partsSupplier}
-                suppliers={supplierOptions}
-                isUpdating={partsSupplierPending}
-                onChange={onPartsSupplierChange}
-                mode="sheet"
-                size="comfortable"
-                className="!h-auto min-h-11 border-0 bg-transparent px-1 shadow-none [&>span]:whitespace-normal [&>span]:break-words [&>span]:text-left [&>span]:leading-4"
-              />
+              value={imeiDraft}
+              savedValue={deviceImei}
+              pending={imeiPending}
+              onChange={setImeiDraft}
+              onSave={async () => {
+                await onImeiSave(imeiDraft);
+                setImeiEditing(false);
+              }}
+            />
+
+            <OrderFaultDescriptionEditor
+              open={faultEditing}
+              returnFocusRef={mobileFaultTriggerRef}
+              order={order}
+              canEditIntake={Boolean(data.capabilities?.canEditIntake)}
+              canEditRepair={Boolean(data.capabilities?.canEditRepair)}
+              pending={faultPending}
+              onOpenChange={setFaultEditing}
+              onSave={onFaultSave}
+              onReload={onReload}
+              getErrorMessage={(error) => getOrderDetailSafeErrorMessage(error, "diagnosis", t)}
+            />
+
+            <DeviceUnlockEditSheet
+              returnFocusRef={unlockTriggerRef}
+              open={deviceUnlockEditing}
+              scopeKey={editorScopeKey}
+              order={order}
+              pending={deviceUnlockPending}
+              onOpenChange={setDeviceUnlockEditing}
+              onSave={onDeviceUnlockSave}
+            />
+
+            {order.finance_redacted ? (
+              <section data-order-workbench-quote="true" className={mobileDetailCardClass}>
+                <MobileSectionTitle icon={WalletCards} title={t("orders2b2.overview.quotePanel")} />
+                <div className="mt-1.5 rounded-lg border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-4 text-center text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
+                  {t("orders2b2.overview.financeRestricted")}
+                </div>
+              </section>
             ) : (
-              <p className="min-w-0 self-center break-words text-xs">
-                {partsSupplier?.name || t("orders2b2.overview.notConfigured")}
-              </p>
+              <section
+                id="mobile-order-quote"
+                data-order-workbench-quote="true"
+                className={mobileDetailCardClass}
+              >
+                <button
+                  type="button"
+                  data-order-finance-summary-trigger="true"
+                  className="order-workbench-summary-trigger order-workbench-wide-only w-full min-w-0 rounded-lg text-left focus-visible:ring-2 focus-visible:ring-ring"
+                  disabled={!canAdjustFinance || financePending || isVoided}
+                  aria-label={t("orders2b2.overview.quotePanel")}
+                  onClick={(event) => {
+                    financeTriggerRef.current = event.currentTarget;
+                    setFinanceCategoriesOpen(true);
+                    onFinanceEditingChange(true);
+                  }}
+                >
+                  <OrderWorkspaceMoneyStrip
+                    total={order.quotation_amount}
+                    deposit={order.deposit_amount}
+                    balance={order.balance_amount}
+                    cancelled={cancelled}
+                    appearance="workbench-summary"
+                  />
+                </button>
+                <div className="order-workbench-quote-heading">
+                  <MobileSectionTitle
+                    icon={ReceiptText}
+                    title={t("orders2b2.overview.quoteItems")}
+                  />
+                </div>
+                <div className="order-workbench-quote-total">
+                  <span>{t("orders2b2.finance.total")}</span>
+                  <MoneyText amount={order.quotation_amount} />
+                </div>
+                <button
+                  type="button"
+                  className="w-full min-w-0 text-left focus-visible:ring-2 focus-visible:ring-ring"
+                  disabled={!canAdjustFinance || financePending || isVoided}
+                  aria-label={t("orders2b2.overview.quoteItems")}
+                  aria-expanded={financeEditing}
+                  aria-controls={financeEditing ? "mobile-order-finance-editor" : undefined}
+                  onClick={(event) => {
+                    financeTriggerRef.current = event.currentTarget;
+                    setFinanceCategoriesOpen(true);
+                    onFinanceEditingChange(true);
+                  }}
+                >
+                  <div
+                    data-order-quote-trigger-heading="true"
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <MobileSectionTitle
+                      icon={ReceiptText}
+                      title={t("orders2b2.overview.quoteItems")}
+                    />
+                    <ChevronRight
+                      className="size-3.5 shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <div className="mt-1.5 space-y-1">
+                    {order.fault_prices.length ? (
+                      order.fault_prices.map((item, index) => (
+                        <div
+                          key={`${item.name}-${index}`}
+                          className="flex min-w-0 items-center gap-1 text-[11px] leading-4 lg:text-xs"
+                        >
+                          <span className="min-w-0 flex-1 truncate text-foreground">
+                            {localizeRepairServiceItemName(item, locale) ||
+                              t("orders2b2.mobile.unnamedItem")}
+                          </span>
+                          <MoneyText amount={item.price} className="shrink-0 font-semibold" />
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-md border border-dashed border-[var(--border-panel)] px-1.5 py-2 text-center text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
+                        {t("orders2b2.overview.noQuoteItems")}
+                      </div>
+                    )}
+                  </div>
+                </button>
+                <Dialog open={financeEditing} onOpenChange={closeFinance}>
+                  <DialogContent
+                    mobileEditor
+                    editorLayout
+                    id="mobile-order-finance-editor"
+                    onCloseAutoFocus={(event) => {
+                      event.preventDefault();
+                      financeTriggerRef.current?.focus({ preventScroll: true });
+                    }}
+                    data-confirm-discard={financeDiscard}
+                    closeLabel={t("common.cancel")}
+                    className={cn(
+                      componentOverlay.editorSurface,
+                      componentOverlay.denseEditorSurface,
+                      editorConfirmationClass,
+                      "order-detail-interaction-overlay max-h-[calc(100dvh-1rem)] overflow-y-auto p-3",
+                    )}
+                  >
+                    <DialogHeader className={componentOverlay.denseEditorHeader}>
+                      <span className={componentOverlay.denseEditorIcon} aria-hidden="true">
+                        <ReceiptText />
+                      </span>
+                      <DialogTitle className="text-base leading-5">
+                        {t("orders2b2.overview.quoteItems")}
+                      </DialogTitle>
+                      <DialogDescription className="min-w-0 truncate text-[10px]">
+                        {order.public_no}
+                      </DialogDescription>
+                    </DialogHeader>
+                    {financeDiscard ? (
+                      <EditorDiscardConfirmation
+                        returnFocus={financeInputFocusRef}
+                        keep={() => setFinanceDiscard(false)}
+                        discard={() => {
+                          onFinanceDraftChange(financeOpeningDraftRef.current);
+                          onFinanceEditingChange(false);
+                        }}
+                      />
+                    ) : null}
+                    <MobileFinanceEditor
+                      categoriesOpen={financeCategoriesOpen}
+                      categoriesId={financeCategoriesId}
+                      draft={financeDraft}
+                      normalized={normalizedFinance}
+                      saveError={financeSaveError}
+                      pending={financePending}
+                      onChange={onFinanceDraftChange}
+                      onCancel={() => closeFinance(false)}
+                      onSave={async () => {
+                        try {
+                          const saved = await onFinanceSave();
+                          if (saved) onFinanceEditingChange(false);
+                          return saved;
+                        } catch {
+                          return false;
+                        }
+                      }}
+                    />
+                  </DialogContent>
+                </Dialog>
+
+                <MobilePaymentSummary
+                  total={order.quotation_amount}
+                  deposit={order.deposit_amount}
+                  balance={order.balance_amount}
+                  cancelled={cancelled}
+                  className="-mx-2 -mb-2 mt-2 border-t border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2"
+                />
+              </section>
             )}
           </div>
-          <Sheet
-            open={assignmentEditing}
-            onOpenChange={(next) => {
-              if (!assignmentSaving && !assigneePending) setAssignmentEditing(next);
-            }}
-          >
-            <SheetContent
-              mobileEditor
-              side="bottom"
-              className="max-h-[80dvh] rounded-t-xl"
-              onCloseAutoFocus={(event) => {
-                event.preventDefault();
-                assignmentTriggerRef.current?.focus({ preventScroll: true });
-              }}
-            >
-              <SheetHeader>
-                <SheetTitle>{t("orders2b2.overview.assignee")}</SheetTitle>
-                <SheetDescription>{order.public_no}</SheetDescription>
-              </SheetHeader>
-              {assignmentFailed ? (
-                <p role="alert" className="text-sm text-destructive">
-                  {t("orders.faultEditor.errorState")}
-                </p>
-              ) : null}
-              <div
-                id="mobile-order-assignee-editor"
-                className="mt-3 grid max-h-[60dvh] gap-1 overflow-y-auto"
-              >
-                {[
-                  { id: "unassigned", display_name: t("orders2b2.mobile.unassigned") },
-                  ...assigneeOptions,
-                ].map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    disabled={assignmentSaving || assigneePending}
-                    aria-pressed={(order.assignee_membership_id ?? "unassigned") === option.id}
-                    className="min-h-11 rounded-lg px-3 py-2 text-left text-sm hover:bg-accent aria-pressed:bg-primary/10 aria-pressed:text-primary focus-visible:ring-2 focus-visible:ring-ring"
-                    onClick={async () => {
-                      setAssignmentSaving(true);
-                      setAssignmentFailed(false);
-                      try {
-                        await onAssigneeChange?.(option.id === "unassigned" ? null : option.id);
-                        setAssignmentEditing(false);
-                      } catch {
-                        setAssignmentFailed(true);
-                      } finally {
-                        setAssignmentSaving(false);
-                      }
-                    }}
-                  >
-                    {option.display_name}
-                  </button>
-                ))}
-              </div>
-            </SheetContent>
-          </Sheet>
-        </section>
-
-        <OrderIdentityEditor
-          group={identityGroup}
-          customerId={data.order.customer_id}
-          returnFocusRef={identityTriggerRef}
-          scopeKey={editorScopeKey}
-          initial={identityInitial}
-          pending={identityPending}
-          canEdit={Boolean(data.capabilities?.canEditIntake) && !isVoided}
-          canEditRepair={Boolean(data.capabilities?.canEditRepair) && !isVoided}
-          onClose={() => setIdentityGroup(null)}
-          onSave={onIdentitySave}
-        />
-        <ImeiCaptureSheet
-          open={imeiEditing}
-          onOpenChange={(open) => {
-            setImeiEditing(open);
-            if (open) setImeiDraft(deviceImei);
-          }}
-          value={imeiDraft}
-          savedValue={deviceImei}
-          pending={imeiPending}
-          onChange={setImeiDraft}
-          onSave={async () => {
-            await onImeiSave(imeiDraft);
-            setImeiEditing(false);
-          }}
-        />
-
-        <OrderFaultDescriptionEditor
-          open={faultEditing}
-          returnFocusRef={mobileFaultTriggerRef}
-          order={order}
-          canEditIntake={Boolean(data.capabilities?.canEditIntake)}
-          canEditRepair={Boolean(data.capabilities?.canEditRepair)}
-          pending={faultPending}
-          onOpenChange={setFaultEditing}
-          onSave={onFaultSave}
-          onReload={onReload}
-          getErrorMessage={(error) => getOrderDetailSafeErrorMessage(error, "diagnosis", t)}
-        />
-
-        <DeviceUnlockEditSheet
-          returnFocusRef={unlockTriggerRef}
-          open={deviceUnlockEditing}
-          scopeKey={editorScopeKey}
-          order={order}
-          pending={deviceUnlockPending}
-          onOpenChange={setDeviceUnlockEditing}
-          onSave={onDeviceUnlockSave}
-        />
-
-        {order.finance_redacted ? (
-          <section className={mobileDetailCardClass}>
-            <MobileSectionTitle icon={WalletCards} title={t("orders2b2.overview.quotePanel")} />
-            <div className="mt-1.5 rounded-lg border border-dashed border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-3 py-4 text-center text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
-              {t("orders2b2.overview.financeRestricted")}
-            </div>
-          </section>
-        ) : (
-          <section id="mobile-order-quote" className={mobileDetailCardClass}>
-            <button
-              type="button"
-              className="w-full min-w-0 text-left focus-visible:ring-2 focus-visible:ring-ring"
-              disabled={!canAdjustFinance || financePending || isVoided}
-              aria-label={t("orders2b2.overview.quoteItems")}
-              aria-expanded={financeEditing}
-              aria-controls={financeEditing ? "mobile-order-finance-editor" : undefined}
-              onClick={(event) => {
-                financeTriggerRef.current = event.currentTarget;
-                setFinanceCategoriesOpen(true);
-                onFinanceEditingChange(true);
-              }}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <MobileSectionTitle icon={ReceiptText} title={t("orders2b2.overview.quoteItems")} />
-                <ChevronRight
-                  className="size-3.5 shrink-0 text-muted-foreground"
-                  aria-hidden="true"
-                />
-              </div>
-              <div className="mt-1.5 space-y-1">
-                {order.fault_prices.length ? (
-                  order.fault_prices.map((item, index) => (
-                    <div
-                      key={`${item.name}-${index}`}
-                      className="flex min-w-0 items-center gap-1 text-[11px] leading-4 lg:text-xs"
-                    >
-                      <span className="min-w-0 flex-1 truncate text-foreground">
-                        {localizeRepairServiceItemName(item, locale) ||
-                          t("orders2b2.mobile.unnamedItem")}
-                      </span>
-                      <MoneyText amount={item.price} className="shrink-0 font-semibold" />
-                    </div>
-                  ))
-                ) : (
-                  <div className="rounded-md border border-dashed border-[var(--border-panel)] px-1.5 py-2 text-center text-[10px] text-muted-foreground lg:text-xs lg:leading-4">
-                    {t("orders2b2.overview.noQuoteItems")}
-                  </div>
-                )}
-              </div>
-            </button>
-            <Dialog open={financeEditing} onOpenChange={closeFinance}>
-              <DialogContent
-                mobileEditor
-                editorLayout
-                id="mobile-order-finance-editor"
-                onCloseAutoFocus={(event) => {
-                  event.preventDefault();
-                  financeTriggerRef.current?.focus({ preventScroll: true });
-                }}
-                data-confirm-discard={financeDiscard}
-                closeLabel={t("common.cancel")}
-                className={cn(
-                  componentOverlay.editorSurface,
-                  componentOverlay.denseEditorSurface,
-                  editorConfirmationClass,
-                  "max-h-[calc(100dvh-1rem)] overflow-y-auto p-3",
-                )}
-              >
-                <DialogHeader className={componentOverlay.denseEditorHeader}>
-                  <span className={componentOverlay.denseEditorIcon} aria-hidden="true">
-                    <ReceiptText />
-                  </span>
-                  <DialogTitle className="text-base leading-5">
-                    {t("orders2b2.overview.quoteItems")}
-                  </DialogTitle>
-                  <DialogDescription className="min-w-0 truncate text-[10px]">
-                    {order.public_no}
-                  </DialogDescription>
-                </DialogHeader>
-                {financeDiscard ? (
-                  <EditorDiscardConfirmation
-                    returnFocus={financeInputFocusRef}
-                    keep={() => setFinanceDiscard(false)}
-                    discard={() => {
-                      onFinanceDraftChange(financeOpeningDraftRef.current);
-                      onFinanceEditingChange(false);
-                    }}
-                  />
-                ) : null}
-                <MobileFinanceEditor
-                  categoriesOpen={financeCategoriesOpen}
-                  categoriesId={financeCategoriesId}
-                  draft={financeDraft}
-                  normalized={normalizedFinance}
-                  saveError={financeSaveError}
-                  pending={financePending}
-                  onChange={onFinanceDraftChange}
-                  onCancel={() => closeFinance(false)}
-                  onSave={async () => {
-                    try {
-                      const saved = await onFinanceSave();
-                      if (saved) onFinanceEditingChange(false);
-                      return saved;
-                    } catch {
-                      return false;
-                    }
-                  }}
-                />
-              </DialogContent>
-            </Dialog>
-
-            <MobilePaymentSummary
-              total={order.quotation_amount}
-              deposit={order.deposit_amount}
-              balance={order.balance_amount}
-              cancelled={cancelled}
-              className="-mx-2 -mb-2 mt-2 border-t border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2"
+        </div>
+        <details className="order-workbench-tablet-details order-workbench-disclosure">
+          <summary>
+            {t("orders2b2.overview.keyInfo")}
+            <ChevronDown aria-hidden="true" />
+          </summary>
+          <div className="grid min-w-0 gap-4 rounded-xl border border-[var(--border-panel)] bg-card p-4">
+            <DetailRows
+              rows={[
+                [
+                  t("orders2b2.overview.deviceNotes"),
+                  order.device_snapshot?.device_notes || data.device?.device_notes || "—",
+                ],
+              ]}
             />
-          </section>
-        )}
+            <OrderCustomerSupplement
+              order={order}
+              onRequestKioskSignature={onRequestKioskSignature}
+              kioskSignaturePending={kioskSignaturePending}
+              kioskSignatureAvailable={kioskSignatureAvailable}
+              signatureAttachments={(data.attachments ?? []).filter(
+                (attachment) => attachment.kind === "signature",
+              )}
+            />
+            <OrderKeyInfoCard order={order} supplier={data.supplier} />
+          </div>
+        </details>
       </section>
       <section
         id="order-detail-mobile-panel-photos"
@@ -4291,20 +4849,35 @@ function MobileOrderDetailView({
         <OrderMessagesLog messages={data.messages ?? []} />
       </section>
 
-      {!isVoided && mobileDockActions.length ? (
-        <div
-          data-mobile-order-action-dock="true"
-          className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-panel)] bg-background/95 px-2.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1.5 shadow-[0_-10px_30px_color-mix(in_oklch,var(--foreground)_10%,transparent)] backdrop-blur-xl lg:!block"
-        >
-          <div className="mx-auto flex max-w-3xl gap-2">
-            {mobileDockActions.map((action) =>
+      <div
+        data-mobile-order-action-dock="true"
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-panel)] bg-background/95 px-2.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1.5 shadow-[0_-10px_30px_color-mix(in_oklch,var(--foreground)_10%,transparent)] backdrop-blur-xl lg:!block",
+          (isVoided || !mobileDockActions.length) && "order-workbench-dock-secondary-only",
+        )}
+      >
+        <div className="mx-auto flex max-w-3xl gap-2">
+          {!isVoided &&
+            mobileDockActions.map((action) =>
               renderMobileDockAction(action, action === mobilePrimaryAction),
             )}
-          </div>
+          <OrderSecondaryActions
+            className="order-workbench-bottom-secondary"
+            onPrint={onPrint}
+            printDisabled={printDisabled}
+            printDisabledReason={printDisabledReason}
+            onRevokeCustomerStatusLinks={onRevokeCustomerStatusLinks}
+            customerStatusRevokePending={customerStatusRevokePending}
+            onCancel={onCancel}
+            canCancel={canCancel}
+            disabled={transitionPending || financeEditing || financePending}
+          />
         </div>
-      ) : null}
+      </div>
 
       <MobileStatusTransitionSheet
+        canPublishQuote={canPublishQuote}
+        onApprovalDecision={approvalDecisionAvailable ? onApprovalDecision : undefined}
         open={statusSheetOpen}
         order={order}
         workflow={workflow}
@@ -4743,7 +5316,7 @@ function DeviceUnlockEditSheet({
         }}
         data-confirm-discard={session.confirmDiscard}
         side="bottom"
-        className={`${componentOverlay.editorSurface} ${editorConfirmationClass} mx-auto h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] rounded-t-xl p-0 md:h-auto md:max-h-[calc(100svh-64px)] md:w-[min(520px,calc(100vw-32px))] md:max-w-[calc(100vw-32px)] md:rounded-xl`}
+        className={`${componentOverlay.editorSurface} ${editorConfirmationClass} order-detail-interaction-overlay mx-auto h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] w-[calc(100vw-16px)] max-w-[calc(100vw-16px)] rounded-t-xl p-0 md:h-auto md:max-h-[calc(100svh-64px)] md:w-[min(520px,calc(100vw-32px))] md:max-w-[calc(100vw-32px)] md:rounded-xl`}
       >
         {session.confirmDiscard ? (
           <EditorDiscardConfirmation
@@ -4804,15 +5377,17 @@ function DeviceUnlockEditSheet({
 }
 
 function DesktopStatusTransitionPanel({
+  canPublishQuote,
+  onApprovalDecision,
   order,
   workflow,
-  statusLabel,
-  currentStage,
   actions,
   pending,
   onOpenChange,
   onTransition,
 }: {
+  canPublishQuote?: boolean;
+  onApprovalDecision?: () => void;
   order: OrderDetail["order"];
   workflow?: OrderWorkflow;
   statusLabel: string;
@@ -4820,40 +5395,76 @@ function DesktopStatusTransitionPanel({
   actions: WorkflowTransitionAction[];
   pending: boolean;
   onOpenChange: (open: boolean) => void;
-  onTransition: (to: RepairOrderStatus, reason?: string) => void;
+  onTransition: (to: RepairOrderStatus, reason?: string) => Promise<unknown>;
 }) {
   const { t } = useLocale();
-  const stageLabel = localizeOrderFlowStage(currentStage, t).label;
+  const panelRef = useRef<HTMLElement | null>(null);
+  const openerRef = useRef<HTMLElement | null>(
+    typeof document !== "undefined" && document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null,
+  );
+  useEffect(() => {
+    panelRef.current?.focus({ preventScroll: true });
+    panelRef.current?.scrollIntoView?.({ block: "nearest" });
+    const opener = openerRef.current;
+    return () => {
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, []);
+  useLayoutEffect(() => {
+    // Radix dialog dismissal runs in document capture. Consume only this panel's
+    // Escape before its host dialog; separately portalled overlays retain theirs.
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || !(event.target instanceof Node)) return;
+      const panel = panelRef.current;
+      const dialogHost = panel?.closest('[role="dialog"]');
+      const host = dialogHost ?? panel;
+      const documentFocus =
+        event.target === document.body || event.target === document.documentElement;
+      if (!host?.contains(event.target) && !documentFocus) return;
+      if (documentFocus) {
+        // Disabling the pressed confirm button can move focus to body. Keep the
+        // pending host protected without consuming another portalled dialog's key.
+        const dialogs = document.querySelectorAll('[role="dialog"][data-state="open"]');
+        const topDialog = dialogs[dialogs.length - 1];
+        if (topDialog && topDialog !== dialogHost) return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      if (!pending) onOpenChange(false);
+    };
+    window.addEventListener("keydown", handleEscape, true);
+    return () => window.removeEventListener("keydown", handleEscape, true);
+  }, [onOpenChange, pending]);
   return (
-    <section className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-card/95 p-2.5 shadow-sm">
-      <header className="flex min-w-0 items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-            <Clock3 className="size-4 shrink-0 text-primary" />
-            <span className="truncate">{t("orders2b2.transition.title")}</span>
-          </h3>
-          <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-            {t("orders2b2.transition.currentHelp", { stage: stageLabel, status: statusLabel })}
-          </p>
-        </div>
+    <section
+      ref={panelRef}
+      tabIndex={-1}
+      aria-label={t("orders2b2.transition.title")}
+      className="flex max-h-[min(620px,calc(100svh-180px))] min-h-0 min-w-0 scroll-mb-20 flex-col overflow-hidden rounded-xl border border-border bg-background outline-none"
+    >
+      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2">
+        <h3 className="text-sm font-semibold">{t("orders2b2.transition.title")}</h3>
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="size-7 shrink-0 rounded-lg"
+          className="size-11 rounded-lg"
           disabled={pending}
           onClick={() => onOpenChange(false)}
           aria-label={t("orders2b2.transition.collapse")}
+          data-status-close="true"
         >
           <X className="size-4" />
         </Button>
       </header>
       <StatusTransitionPanelBody
+        canPublishQuote={canPublishQuote}
+        onApprovalDecision={onApprovalDecision}
         open
         order={order}
         workflow={workflow}
-        statusLabel={statusLabel}
-        currentStage={currentStage}
         actions={actions}
         pending={pending}
         onOpenChange={onOpenChange}
@@ -4864,223 +5475,57 @@ function DesktopStatusTransitionPanel({
 }
 
 function StatusTransitionPanelBody({
+  canPublishQuote,
+  onApprovalDecision,
   open,
   order,
   workflow,
-  statusLabel,
-  currentStage,
   actions,
   pending,
   onOpenChange,
   onTransition,
 }: {
+  canPublishQuote?: boolean;
+  onApprovalDecision?: () => void;
   open: boolean;
   order: OrderDetail["order"];
   workflow?: OrderWorkflow;
-  statusLabel: string;
-  currentStage: OrderTaskStage;
   actions: WorkflowTransitionAction[];
   pending: boolean;
   onOpenChange: (open: boolean) => void;
-  onTransition: (to: RepairOrderStatus, reason?: string) => void;
+  onTransition: (to: RepairOrderStatus, reason?: string) => Promise<unknown>;
 }) {
   const { t } = useLocale();
-  const stageLabel = localizeOrderFlowStage(currentStage, t).label;
-  const hasCommunicationStatus = actions.some((action) => isCommunicationStatus(action.to));
-  const [reasonAction, setReasonAction] = useState<WorkflowTransitionAction | null>(null);
-  const [reasonDraft, setReasonDraft] = useState("");
-  const reasonConfig = reasonAction ? getOrderTransitionReasonConfig(reasonAction.to) : undefined;
-  const canConfirmReason = !reasonConfig?.required || Boolean(reasonDraft.trim());
-
-  useEffect(() => {
-    if (!open) {
-      setReasonAction(null);
-      setReasonDraft("");
-    }
-  }, [open]);
-
-  const chooseAction = (action: WorkflowTransitionAction) => {
-    const config = getOrderTransitionReasonConfig(action.to);
-    if (config || action.to === "completed") {
-      setReasonAction(action);
-      setReasonDraft(getDefaultOrderTransitionReason(action.to));
-      return;
-    }
-    onOpenChange(false);
-    onTransition(action.to);
-  };
-
   return (
-    <div className={cn(componentOverlay.body, "space-y-2 pt-3 lg:px-0 lg:pb-0")}>
-      <div
-        className={cn(
-          "grid min-w-0 gap-2",
-          reasonAction
-            ? "lg:grid-cols-[minmax(220px,0.58fr)_minmax(0,1fr)]"
-            : "lg:grid-cols-[minmax(220px,0.58fr)_minmax(0,1fr)]",
-        )}
-      >
-        <section className={cn(componentOverlay.flatSection, "space-y-1.5 p-2.5")}>
-          <div className="flex min-w-0 items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-                {t("orders2b2.transition.currentOrder")}
-              </p>
-              <p className="truncate font-mono text-xs font-semibold leading-4 text-primary">
-                {order.public_no}
-              </p>
-            </div>
-            <StatusBadge status={order.status} label={statusLabel} />
-          </div>
-          <div className="rounded-lg bg-[var(--surface-panel)] px-2 py-1.5">
-            <p className="text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-              {t("orders2b2.transition.currentStage")}
-            </p>
-            <p className="mt-0.5 truncate text-xs font-semibold">{stageLabel}</p>
-          </div>
-          <p className="text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
-            {reasonAction
-              ? reasonAction.to === "completed" &&
-                deviceCustodyStatusFromOrder(order) === DEVICE_CUSTODY_WITH_CUSTOMER
-                ? order.delivered_at
-                  ? t("orders2b2.transition.adminDelivered")
-                  : t("orders2b2.transition.adminCustomer")
-                : t("orders2b2.transition.preparing", {
-                    status: localizeWorkflowStatusLabel(workflow, reasonAction.to, t),
-                  })
-              : t("orders2b2.transition.help")}
-          </p>
-        </section>
-
-        {reasonAction ? (
-          <section className={cn(componentOverlay.flatSection, "space-y-2 p-2.5")}>
-            <OrderTransitionReasonSelector
-              target={reasonAction.to}
-              value={reasonDraft}
-              onChange={setReasonDraft}
-              disabled={pending}
-              compact
-            />
-            <div className="grid grid-cols-2 gap-1.5">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 rounded-lg text-xs"
-                disabled={pending}
-                onClick={() => {
-                  setReasonAction(null);
-                  setReasonDraft("");
-                }}
-              >
-                {t("orders2b2.custody.back")}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 rounded-lg text-xs"
-                disabled={pending || !canConfirmReason}
-                onClick={() => {
-                  const reason = reasonDraft.trim();
-                  if (reasonConfig?.required && !reason) return;
-                  onOpenChange(false);
-                  onTransition(reasonAction.to, reason || undefined);
-                }}
-              >
-                {t("orders2b2.transition.confirm")}
-              </Button>
-            </div>
-          </section>
-        ) : (
-          <div className="space-y-1.5 lg:grid lg:grid-cols-2 lg:gap-1.5 lg:space-y-0 xl:grid-cols-3">
-            {actions.length ? (
-              actions.map((action, index) => {
-                const hint = getStatusActionHint(action.to, order, t);
-                const destructive = action.to === "cancelled";
-                const needsReason = Boolean(getOrderTransitionReasonConfig(action.to));
-                return (
-                  <button
-                    key={`${action.to}-${index}`}
-                    type="button"
-                    disabled={pending}
-                    className={cn(
-                      "flex w-full min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                      action.isPrimary
-                        ? "border-primary/35 bg-primary/5"
-                        : "border-[var(--border-panel)] bg-[var(--surface-panel)]",
-                      destructive &&
-                        "border-status-danger-foreground/25 bg-status-danger/45 text-status-danger-foreground",
-                      pending && "pointer-events-none opacity-60",
-                    )}
-                    onClick={() => chooseAction(action)}
-                  >
-                    <span
-                      className={cn(
-                        "grid size-7 shrink-0 place-items-center rounded-lg",
-                        action.isPrimary
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-[var(--surface-panel-muted)] text-muted-foreground",
-                        destructive && "bg-status-danger text-status-danger-foreground",
-                      )}
-                    >
-                      {action.isPrimary ? (
-                        <Check className="size-3.5" />
-                      ) : (
-                        <Clock3 className="size-3.5" />
-                      )}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex min-w-0 items-center gap-1.5">
-                        <span className="truncate text-xs font-semibold leading-4">
-                          {statusLabel} → {localizeWorkflowStatusLabel(workflow, action.to, t)}
-                        </span>
-                        {action.isPrimary ? (
-                          <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-primary lg:text-[11px] lg:leading-4">
-                            {t("orders2b2.transition.recommended")}
-                          </span>
-                        ) : null}
-                        {needsReason ? (
-                          <span className="shrink-0 rounded bg-status-warn px-1.5 py-0.5 text-[9px] font-semibold leading-3 text-status-warn-foreground lg:text-[11px] lg:leading-4">
-                            {t("orders2b2.transition.reason")}
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="mt-0.5 block truncate text-[10px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-                        {hint}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })
-            ) : (
-              <div className="rounded-lg border border-dashed border-[var(--border-panel)] px-3 py-4 text-center text-xs text-muted-foreground lg:col-span-2 xl:col-span-3">
-                {t("orders2b2.transition.empty")}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {hasCommunicationStatus && !reasonAction ? (
-        <p className="rounded-lg bg-status-warn px-2.5 py-2 text-[10px] leading-4 text-status-warn-foreground lg:text-xs lg:leading-[18px]">
-          {t("orders2b2.transition.communication")}
-        </p>
-      ) : null}
-    </div>
+    <OrderStatusTransitionPicker
+      canPublishQuote={canPublishQuote}
+      onApprovalDecision={onApprovalDecision}
+      open={open}
+      order={order}
+      workflow={workflow}
+      actions={actions}
+      pending={pending}
+      getActionHint={(to) => getStatusActionHint(to, order, t)}
+      getErrorMessage={(error) => getOrderDetailSafeErrorMessage(error, "transition", t)}
+      onOpenChange={onOpenChange}
+      onTransition={onTransition}
+    />
   );
 }
 
 function MobileStatusTransitionSheet({
+  canPublishQuote,
+  onApprovalDecision,
   open,
   order,
   workflow,
-  statusLabel,
-  currentStage,
   actions,
   pending,
   onOpenChange,
   onTransition,
 }: {
+  canPublishQuote?: boolean;
+  onApprovalDecision?: () => void;
   open: boolean;
   order: OrderDetail["order"];
   workflow?: OrderWorkflow;
@@ -5089,32 +5534,59 @@ function MobileStatusTransitionSheet({
   actions: WorkflowTransitionAction[];
   pending: boolean;
   onOpenChange: (open: boolean) => void;
-  onTransition: (to: RepairOrderStatus, reason?: string) => void;
+  onTransition: (to: RepairOrderStatus, reason?: string) => Promise<unknown>;
 }) {
   const { t } = useLocale();
-  const stageLabel = localizeOrderFlowStage(currentStage, t).label;
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet
+      open={open}
+      onOpenChange={(next) => {
+        if (!pending || next) onOpenChange(next);
+      }}
+    >
       <SheetContent
         side="bottom"
-        className="max-h-[calc(100svh-16px)] rounded-t-xl p-0 sm:mx-auto sm:max-w-xl"
+        initialFocus="container"
+        data-order-transition-sheet="true"
+        onEscapeKeyDown={(event) => {
+          if (pending) event.preventDefault();
+        }}
+        onInteractOutside={(event) => {
+          if (pending) event.preventDefault();
+        }}
+        className={cn(
+          componentOverlay.bottomSheet,
+          "max-h-[calc(100svh-16px)] rounded-t-2xl bg-background p-0 sm:mx-auto sm:max-w-xl sm:p-0 [&>[data-sheet-close]]:hidden",
+        )}
       >
-        <div className="flex max-h-[calc(100svh-16px)] min-w-0 flex-col overflow-hidden">
-          <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
-            <SheetTitle className="flex items-center gap-2 text-base">
-              <Clock3 className="size-4 text-primary" />
-              {t("orders2b2.transition.title")}
-            </SheetTitle>
-            <SheetDescription>
-              {t("orders2b2.transition.currentHelp", { stage: stageLabel, status: statusLabel })}
-            </SheetDescription>
+        <div className="flex max-h-[calc(100svh-16px)] min-h-0 min-w-0 flex-col overflow-hidden">
+          <SheetHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b border-border px-4 py-2 text-left">
+            <div className="min-w-0">
+              <SheetTitle className="text-base">{t("orders2b2.transition.title")}</SheetTitle>
+              <SheetDescription className="sr-only">
+                {t("orders2b2.picker.selectHelp")}
+              </SheetDescription>
+            </div>
+            <SheetClose asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-11 shrink-0 rounded-lg"
+                disabled={pending}
+                aria-label={t("common.close")}
+                data-status-close="true"
+              >
+                <X className="size-4" />
+              </Button>
+            </SheetClose>
           </SheetHeader>
           <StatusTransitionPanelBody
+            canPublishQuote={canPublishQuote}
+            onApprovalDecision={onApprovalDecision}
             open={open}
             order={order}
             workflow={workflow}
-            statusLabel={statusLabel}
-            currentStage={currentStage}
             actions={actions}
             pending={pending}
             onOpenChange={onOpenChange}
@@ -5229,7 +5701,7 @@ function MobileStickyWorkflowHeader({
               {localizedCurrentStage.label} · {nextText}
             </p>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="order-workbench-header-secondary flex items-center gap-1">
             <Button
               type="button"
               variant="ghost"
@@ -5290,7 +5762,7 @@ function MobileStickyWorkflowHeader({
         <div className={cn(repairOs.mobileFloatingHeaderBody, "mt-0 border-0 pt-0")}>
           <div className="flex min-w-0 items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className="break-words font-mono text-[12px] font-semibold leading-4 text-primary">
+              <p className="order-workbench-header-number break-words font-mono text-[12px] font-semibold leading-4 text-primary">
                 {order.public_no}
               </p>
             </div>
@@ -5404,12 +5876,12 @@ function MobileSectionTitle({
 
 function DetailRows({ rows }: { rows: [string, string][] }) {
   return (
-    <dl className="mt-1.5 grid min-w-0 grid-cols-2 gap-1 text-[11px] leading-4 lg:text-xs lg:leading-4">
+    <dl className="@container/device-metadata mt-1.5 grid min-w-0 grid-cols-2 gap-1 text-[11px] leading-4 lg:text-xs lg:leading-4">
       {rows.map(([label, value]) => (
         <div
           key={label}
           data-order-detail-row="true"
-          className="grid min-w-0 grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-1 gap-y-0.5 last:col-span-2 sm:grid-cols-[minmax(96px,0.35fr)_minmax(0,1fr)]"
+          className="col-span-2 grid min-w-0 grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-1 gap-y-0.5 @[340px]/device-metadata:col-span-1 last:col-span-2"
         >
           <dt
             data-order-detail-row-label="true"
@@ -5762,10 +6234,6 @@ async function withImeiOcrTimeout<T>(operation: Promise<T>, timeoutMs: number, m
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
   }
-}
-
-function isCommunicationStatus(status: RepairOrderStatus) {
-  return status === "waiting_approval" || status === "notified";
 }
 
 function isApprovalDecisionAvailable(order: OrderDetail["order"]) {

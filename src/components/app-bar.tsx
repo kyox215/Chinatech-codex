@@ -98,7 +98,7 @@ export function AppBar({
       )}
     >
       <div className="flex h-full w-full min-w-0 items-center gap-2 px-3 md:px-5">
-        <SidebarTrigger className="size-9 shrink-0 rounded-lg border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] lg:rounded-md lg:border-0 lg:bg-transparent lg:shadow-none" />
+        <SidebarTrigger className="size-11 shrink-0 rounded-xl border border-[var(--border-panel)] bg-card shadow-none" />
 
         <div className="min-w-0 flex-1 md:hidden">
           <p
@@ -115,7 +115,7 @@ export function AppBar({
         {entityContextBack ? (
           <EntityContextBackLink
             context={entityContextBack}
-            className="ml-1 hidden lg:inline-flex"
+            className="ml-1 hidden size-11 rounded-xl lg:inline-flex"
           />
         ) : (
           <nav className="ml-1 hidden min-w-0 shrink items-center gap-1.5 text-sm md:flex">
@@ -144,7 +144,7 @@ export function AppBar({
             type="button"
             variant="outline"
             size="sm"
-            className="hidden h-9 shrink-0 gap-1.5 border-primary/30 bg-primary/10 px-2.5 text-primary hover:bg-primary/15 md:inline-flex"
+            className="hidden h-11 shrink-0 gap-1.5 rounded-xl border-primary/30 bg-primary/10 px-3 text-primary hover:bg-primary/15 md:inline-flex"
             aria-label={t("shell.openAi")}
             data-ai-assistant-trigger="desktop"
             onClick={aiAssistant.openAssistant}
@@ -159,7 +159,7 @@ export function AppBar({
           type="button"
           variant="outline"
           size="icon"
-          className="size-10 shrink-0 rounded-xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] md:size-9 md:rounded-md md:bg-surface/60 md:shadow-none"
+          className="size-11 shrink-0 rounded-xl border border-[var(--border-panel)] bg-card shadow-none"
           aria-label={t("shell.scanGlobal")}
           onClick={() => {
             scannerTriggerRef.current?.focus({ preventScroll: true });
@@ -169,15 +169,15 @@ export function AppBar({
           <ScanLine className="size-4" />
         </Button>
 
-        <LanguageSwitcher className="rounded-xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] md:rounded-md md:border-0 md:bg-transparent md:shadow-none" />
+        <LanguageSwitcher className="rounded-xl border-transparent bg-transparent shadow-none" />
 
-        <ThemeToggle className="size-10 rounded-xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)] md:size-9 md:rounded-md md:border-0 md:bg-transparent md:shadow-none" />
+        <ThemeToggle className="size-11 rounded-xl border-transparent bg-transparent shadow-none" />
 
         <RealtimeSyncIndicator className="hidden md:inline-flex" />
 
         <Link
           href="/settings"
-          className="hidden h-9 max-w-44 min-w-0 items-center gap-1.5 rounded-md border border-border/50 bg-surface/60 px-2 text-xs transition-colors hover:bg-accent hover:text-accent-foreground xl:inline-flex"
+          className="hidden h-11 max-w-48 min-w-0 items-center gap-2 rounded-xl border border-border/50 bg-card px-3 text-xs transition-colors hover:bg-accent hover:text-accent-foreground xl:inline-flex"
         >
           <Store className="size-3.5 text-muted-foreground" />
           <span className="min-w-0 truncate font-medium">{activeStoreName}</span>

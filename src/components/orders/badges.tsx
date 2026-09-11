@@ -46,6 +46,8 @@ function Pill({
   const live = livePulse.includes(tone);
   return (
     <span
+      data-order-badge="status"
+      data-order-badge-tone={tone}
       className={cn(
         "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-1.5 py-0.5 text-xs font-medium leading-none ring-1 ring-inset",
         toneClass[tone],
@@ -98,6 +100,7 @@ export function OrderTypeBadge({
 }) {
   return (
     <span
+      data-order-badge="type"
       className={cn(
         "inline-flex shrink-0 items-center whitespace-nowrap rounded-md border border-border/60 bg-surface-muted px-1.5 py-0.5 text-xs leading-none text-muted-foreground",
         className,

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -221,95 +221,116 @@ vi.mock("@/components/orders/diagnosis-quote-dialog", () => ({
 vi.mock("@/features/orders/forms/cancel-dialog", () => ({ CancelDialog: () => null }));
 vi.mock("@/features/orders/forms/notify-dialog", () => ({ NotifyDialog: () => null }));
 vi.mock("@/features/orders/forms/payment-dialog", () => ({ PaymentDialog: () => null }));
-vi.mock("@/features/orders/components/order-overview-tab", () => ({
-  OrderDetailActionDock: ({
-    onFlow,
-    onApprovalDecision,
-  }: {
-    onFlow: () => void;
-    onApprovalDecision: () => void;
-  }) => (
-    <>
-      <button type="button" onClick={onFlow}>
-        Harness flow
-      </button>
-      <button type="button" onClick={onApprovalDecision}>
-        Harness approval
-      </button>
-    </>
-  ),
-  OrderDetailHeaderFinanceSummary: () => null,
-  OrderKeyInfoCard: () => null,
-  DesktopOrderPhotosPanel: ({
-    onCapture,
-  }: {
-    onCapture?: (kind: "other", trigger: HTMLButtonElement) => void;
-  }) =>
-    onCapture ? (
-      <button type="button" onClick={(event) => onCapture("other", event.currentTarget)}>
-        Harness photos panel capture
-      </button>
-    ) : null,
-  OrderOverviewTab: ({
-    order,
-    isEditing,
-    editDraft,
-    onEditDraftChange,
-    onFinanceDraftChange,
-    custodyControl,
-    onPhotoCapture,
-  }: {
-    order: typeof detailOrder;
-    isEditing: boolean;
-    editDraft?: UpdateOrderInput;
-    onEditDraftChange?: (draft: UpdateOrderInput) => void;
-    onFinanceDraftChange?: (draft: FinanceDraftState) => void;
-    custodyControl?: ReactNode;
-    onPhotoCapture?: (kind: "other", trigger: HTMLButtonElement) => void;
-  }) => (
-    <div>
-      <span>{order.customer_name}</span>
-      <span>{order.device_label}</span>
-      <span>{order.issue_description}</span>
-      {custodyControl}
-      {onPhotoCapture ? (
-        <button type="button" onClick={(event) => onPhotoCapture("other", event.currentTarget)}>
-          Harness open photo capture
-        </button>
-      ) : null}
-      {isEditing && editDraft && onEditDraftChange && onFinanceDraftChange ? (
+vi.mock("@/features/orders/components/order-overview-tab", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/features/orders/components/order-overview-tab")>();
+  return {
+    FinanceInlineEditor: actual.FinanceInlineEditor,
+    OrderDetailActionDock: ({
+      onFlow,
+      onApprovalDecision,
+      flowDisabled,
+      secondaryOnly,
+      secondaryActions,
+    }: {
+      onFlow: () => void;
+      onApprovalDecision: () => void;
+      flowDisabled?: boolean;
+      secondaryOnly?: boolean;
+      secondaryActions?: ReactNode;
+    }) =>
+      secondaryOnly ? (
+        secondaryActions
+      ) : (
         <>
-          <button
-            type="button"
-            onClick={() => {
-              onEditDraftChange({ ...editDraft, customer_name: "动态中文客户改" });
-              onFinanceDraftChange({
-                faults: [
-                  {
-                    line_id: "00000000-0000-4000-8000-000000000221",
-                    catalog_key: "display:original",
-                    name: "原装屏幕",
-                    priceText: "160",
-                    note: "客户自定义备注",
-                  },
-                ],
-                depositText: "20",
-              });
-            }}
-          >
-            Harness change canonical draft
+          <button type="button" onClick={onFlow} disabled={flowDisabled}>
+            Harness flow
           </button>
-          <button
-            type="button"
-            onClick={() => onEditDraftChange({ ...editDraft, customer_name: "" })}
-          >
-            Harness invalidate customer
+          <button type="button" onClick={onApprovalDecision}>
+            Harness approval
           </button>
         </>
-      ) : null}
-    </div>
-  ),
-}));
+      ),
+    OrderDetailHeaderFinanceSummary: () => null,
+    OrderKeyInfoCard: () => null,
+    OrderCustomerSupplement: () => null,
+    DesktopOrderPhotosPanel: ({
+      onCapture,
+    }: {
+      onCapture?: (kind: "other", trigger: HTMLButtonElement) => void;
+    }) =>
+      onCapture ? (
+        <button type="button" onClick={(event) => onCapture("other", event.currentTarget)}>
+          Harness photos panel capture
+        </button>
+      ) : null,
+    OrderOverviewTab: ({
+      order,
+      isEditing,
+      editDraft,
+      onEditDraftChange,
+      onFinanceDraftChange,
+      custodyControl,
+      responsibilityPanel,
+      onPhotoCapture,
+      onEditFinance,
+    }: {
+      order: typeof detailOrder;
+      isEditing: boolean;
+      editDraft?: UpdateOrderInput;
+      onEditDraftChange?: (draft: UpdateOrderInput) => void;
+      onFinanceDraftChange?: (draft: FinanceDraftState) => void;
+      custodyControl?: ReactNode;
+      responsibilityPanel?: ReactNode;
+      onPhotoCapture?: (kind: "other", trigger: HTMLButtonElement) => void;
+      onEditFinance?: React.MouseEventHandler<HTMLButtonElement>;
+    }) => (
+      <div>
+        <span>{order.customer_name}</span>
+        <span>{order.device_label}</span>
+        <span>{order.issue_description}</span>
+        {onEditFinance ? <button onClick={onEditFinance}>Harness finance summary</button> : null}
+        {custodyControl}
+        {responsibilityPanel}
+        {onPhotoCapture ? (
+          <button type="button" onClick={(event) => onPhotoCapture("other", event.currentTarget)}>
+            Harness open photo capture
+          </button>
+        ) : null}
+        {isEditing && editDraft && onEditDraftChange && onFinanceDraftChange ? (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                onEditDraftChange({ ...editDraft, customer_name: "动态中文客户改" });
+                onFinanceDraftChange({
+                  faults: [
+                    {
+                      line_id: "00000000-0000-4000-8000-000000000221",
+                      catalog_key: "display:original",
+                      name: "原装屏幕",
+                      priceText: "160",
+                      note: "客户自定义备注",
+                    },
+                  ],
+                  depositText: "20",
+                });
+              }}
+            >
+              Harness change canonical draft
+            </button>
+            <button
+              type="button"
+              onClick={() => onEditDraftChange({ ...editDraft, customer_name: "" })}
+            >
+              Harness invalidate customer
+            </button>
+          </>
+        ) : null}
+      </div>
+    ),
+  };
+});
 vi.mock("@/lib/repairdesk/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/repairdesk/api")>();
   return {
@@ -430,13 +451,18 @@ function makeDetail() {
   };
 }
 
-async function editQuoteName(editor: HTMLElement, locale: (typeof locales)[number], value: string) {
+async function editQuoteName(
+  editor: HTMLElement,
+  locale: (typeof locales)[number],
+  value: string,
+  ariaName = translateMessage(locale, "orders2b2.finance.item"),
+) {
   const item = within(editor).getAllByRole("button", {
-    name: translateMessage(locale, "orders2b2.finance.item"),
+    name: ariaName,
   })[0]!;
   fireEvent.click(item);
   const popup = screen.getByRole("dialog", {
-    name: translateMessage(locale, "orders2b2.finance.item"),
+    name: ariaName,
   });
   expect(popup).toHaveFocus();
   fireEvent.change(within(popup).getByRole("textbox"), { target: { value } });
@@ -508,6 +534,75 @@ describe("OrderDetailScreen i18n", () => {
       updated_at: "2026-09-02T10:06:00.000Z",
     });
     mocks.uploadOrderAttachment.mockResolvedValue({});
+  });
+
+  it("protects desktop finance draft, pending fields and closes only after an explicit discard", async () => {
+    const view = renderDetail("en", "page");
+    const trigger = screen.getByRole("button", { name: "Harness finance summary" });
+    fireEvent.click(trigger);
+    const editor = document.querySelector<HTMLElement>("[data-order-desktop-finance-editor]")!;
+    const item = await editQuoteName(
+      editor,
+      "en",
+      "Synthetic finance retry",
+      translateMessage("en", "orders2b2.overview.itemName", { index: 1 }),
+    );
+    fireEvent.keyDown(editor, { key: "Escape" });
+    expect(editor.querySelector("[data-editor-discard]")).not.toBeNull();
+    fireEvent.click(
+      within(editor).getByRole("button", {
+        name: translateMessage("en", "orders.faultEditor.keep"),
+      }),
+    );
+    let rejectSave!: (reason: unknown) => void;
+    mocks.patchOrderFinance.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rejectSave = reject;
+        }),
+    );
+    const save = within(editor).getByRole("button", {
+      name: translateMessage("en", "orders2b2.hero.save"),
+    });
+    fireEvent.click(save);
+    fireEvent.keyDown(editor, { key: "Escape" });
+    expect(editor).toBeInTheDocument();
+    expect(editor.querySelector("fieldset")).toBeDisabled();
+    expect(save).toBeDisabled();
+    expect(item).toBeDisabled();
+    await waitFor(() => expect(mocks.patchOrderFinance).toHaveBeenCalledOnce());
+    await act(async () => rejectSave({ status: 409 }));
+    await waitFor(() => expect(save).toBeEnabled());
+    expect(item).toHaveTextContent("Synthetic finance retry");
+    expect(editor).toBeInTheDocument();
+    fireEvent.click(
+      within(editor).getAllByRole("button", { name: translateMessage("en", "common.cancel") })[0]!,
+    );
+    fireEvent.click(
+      within(editor).getByRole("button", {
+        name: translateMessage("en", "orders.faultEditor.confirmDiscard"),
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        view.container.ownerDocument.querySelector("[data-order-desktop-finance-editor]"),
+      ).toBeNull(),
+    );
+    expect(trigger).toHaveFocus();
+  });
+
+  it("preserves desktop secondary actions for voided orders without restoring workflow actions", async () => {
+    mocks.detail = { ...makeDetail(), order: { ...detailOrder, record_state: "voided" } };
+    const view = renderDetail("en", "page");
+    expect(view.container.querySelector("[data-order-secondary-actions]")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Harness flow" })).not.toBeInTheDocument();
+    const secondary = within(
+      view.container.querySelector<HTMLElement>("[data-order-secondary-actions]")!,
+    );
+    expect(
+      secondary.getByRole("button", { name: translateMessage("en", "orders2b2.hero.more") }),
+    ).toBeEnabled();
+    expect(mocks.patchOrder).not.toHaveBeenCalled();
   });
 
   it("does not overwrite remote unlock changes from a stable local draft", async () => {
@@ -784,10 +879,97 @@ describe("OrderDetailScreen i18n", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("submits one ordinary custody choice synchronously and never re-submits the current choice", async () => {
+    mocks.detail = {
+      ...makeDetail(),
+      order: {
+        ...detailOrder,
+        status: "created",
+        workflow_status: "intake",
+        workflow_bucket: undefined,
+      },
+    };
+    let finish: (value: unknown) => void = () => {};
+    mocks.updateOrderCustody.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    renderDetail("zh-CN");
+    fireEvent.click(screen.getByRole("button", { name: "设备保管" }));
+    const current = document.querySelector<HTMLButtonElement>(
+      '[data-order-custody-option="with_shop"]',
+    )!;
+    const next = document.querySelector<HTMLButtonElement>(
+      '[data-order-custody-option="with_customer"]',
+    )!;
+    expect(current).toBeDisabled();
+    fireEvent.click(current);
+    expect(mocks.updateOrderCustody).not.toHaveBeenCalled();
+    fireEvent.click(next);
+    fireEvent.click(next);
+    expect(mocks.updateOrderCustody).toHaveBeenCalledTimes(1);
+    expect(current).toHaveAttribute("aria-pressed", "true");
+    expect(next).toHaveAttribute("aria-pressed", "false");
+    await act(async () => finish({ updated_at: "2026-09-02T10:05:00Z" }));
+    await waitFor(() => expect(document.querySelector("[data-order-custody-dialog]")).toBeNull());
+  });
+
+  it("retains current custody and the chooser after a failed ordinary save", async () => {
+    mocks.detail = {
+      ...makeDetail(),
+      order: {
+        ...detailOrder,
+        status: "created",
+        workflow_status: "intake",
+        workflow_bucket: undefined,
+      },
+    };
+    mocks.updateOrderCustody.mockRejectedValue(new Error("409 conflict"));
+    renderDetail("zh-CN");
+    fireEvent.click(screen.getByRole("button", { name: "设备保管" }));
+    fireEvent.click(document.querySelector('[data-order-custody-option="with_customer"]')!);
+    await waitFor(() =>
+      expect(document.querySelector('[data-order-custody-dialog] [role="alert"]')).not.toBeNull(),
+    );
+    expect(document.querySelector('[data-order-custody-option="with_shop"]')).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(document.querySelector('[data-order-custody-option="with_customer"]')).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("requires a historical custody reason and protects it on close", () => {
+    mocks.detail = {
+      ...makeDetail(),
+      order: {
+        ...detailOrder,
+        status: "created",
+        workflow_status: "intake",
+        device_custody_status: null,
+        delivered_at: null,
+        workflow_bucket: undefined,
+      },
+    };
+    renderDetail("zh-CN");
+    fireEvent.click(screen.getByRole("button", { name: "设备保管" }));
+    fireEvent.click(document.querySelector('[data-order-custody-option="with_shop"]')!);
+    expect(mocks.updateOrderCustody).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "确认保存" })).toBeDisabled();
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "历史记录核对" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "关闭" })[0]!);
+    expect(document.querySelector("[data-editor-discard]")).not.toBeNull();
+    expect(mocks.updateOrderCustody).not.toHaveBeenCalled();
+  });
+
   it.each([
-    ["zh-CN", "门店保管"],
-    ["it-IT", "In negozio"],
-    ["en", "With shop"],
+    ["zh-CN", "设备留下"],
+    ["it-IT", "Dispositivo affidato"],
+    ["en", "Device left with shop"],
   ] as const)("localizes the with-shop custody badge in %s", (locale, label) => {
     const view = renderDetail(locale);
     const custody = view.container.querySelector<HTMLElement>('[data-order-device-custody="true"]');
@@ -859,6 +1041,36 @@ describe("OrderDetailScreen i18n", () => {
     );
     unknownView.unmount();
   });
+
+  it.each([true, false])(
+    "uses only dedicated cancelled-return permission (%s) and one entry",
+    (canReturn) => {
+      mocks.viewport = "compact";
+      const detail = makeDetail();
+      mocks.detail = {
+        ...detail,
+        order: {
+          ...detail.order,
+          status: "cancelled",
+          workflow_status: "cancelled",
+          device_custody_status: "with_shop",
+          delivered_at: null,
+        },
+        capabilities: {
+          ...detail.capabilities,
+          canEditIntake: !canReturn,
+          canCorrect: false,
+          canConfirmCancelledReturn: canReturn,
+        },
+      };
+      renderDetail("zh-CN", "page");
+      expect(screen.queryAllByRole("button", { name: "确认已退还" })).toHaveLength(
+        canReturn ? 1 : 0,
+      );
+      expect(mocks.confirmCancelledOrderReturn).not.toHaveBeenCalled();
+      expect(mocks.updateOrderCustody).not.toHaveBeenCalled();
+    },
+  );
 
   it("keeps cancelled-return canonical inputs locale-invariant across all locales", async () => {
     const calls: unknown[][] = [];
@@ -1617,14 +1829,52 @@ describe("OrderDetailScreen i18n", () => {
     expect(calls[2]).toEqual(calls[0]);
   });
 
+  it("locks the picker host and trigger synchronously before mutation notifications arrive", async () => {
+    let resolve!: (value: unknown) => void;
+    mocks.transitionOrder.mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    );
+    const view = renderDetail("zh-CN");
+    const flow = screen.getByRole("button", { name: "Harness flow" });
+    fireEvent.click(flow);
+    fireEvent.click(view.container.querySelector('[data-status-option="repaired"]')!);
+    fireEvent.click(view.container.querySelector("[data-status-confirm]")!);
+    expect(mocks.mutatePending).toBe(false);
+    expect(view.container.querySelector("[data-status-picker]")).toHaveAttribute(
+      "data-status-pending",
+      "true",
+    );
+    expect(view.container.querySelector("[data-status-close]")).toBeDisabled();
+    expect(flow).toBeDisabled();
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(view.container.querySelector("[data-status-picker]")).not.toBeNull();
+    await act(async () => resolve({ ok: true }));
+    await waitFor(() => expect(view.container.querySelector("[data-status-picker]")).toBeNull());
+    expect(flow).toBeEnabled();
+  });
+
   it("keeps transition and custody canonical inputs byte-equivalent in all locales", async () => {
     const calls: Array<{ transition: unknown[]; custody: unknown[] }> = [];
     for (const locale of locales) {
       const transitionView = renderDetail(locale);
       fireEvent.click(screen.getByRole("button", { name: "Harness flow" }));
+      if (!transitionView.container.querySelector('[data-status-option="repaired"]')) {
+        fireEvent.click(transitionView.container.querySelector("[data-status-more]")!);
+      }
       fireEvent.click(
         screen.getByRole("button", {
           name: new RegExp(translateMessage(locale, "orders.repaired")),
+        }),
+      );
+      expect(mocks.transitionOrder).not.toHaveBeenCalled();
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: translateMessage(locale, "orders2b2.picker.confirmTarget", {
+            status: translateMessage(locale, "orders.repaired"),
+          }),
         }),
       );
       await waitFor(() => expect(mocks.transitionOrder).toHaveBeenCalledTimes(1));
@@ -1642,11 +1892,13 @@ describe("OrderDetailScreen i18n", () => {
       };
       const custodyView = renderDetail(locale);
       fireEvent.click(
-        screen.getByRole("button", { name: translateMessage(locale, "orders2b2.custody.deliver") }),
+        screen.getByRole("button", {
+          name: translateMessage(locale, "orders2b2.overview.custody"),
+        }),
       );
       fireEvent.click(
         screen.getByRole("button", {
-          name: translateMessage(locale, "orders2b2.custody.confirmSave"),
+          name: new RegExp(translateMessage(locale, "orders2b2.custody.notLeft")),
         }),
       );
       await waitFor(() => expect(mocks.updateOrderCustody).toHaveBeenCalledTimes(1));

@@ -46,6 +46,7 @@ export function FixedPdfReadyDialog({
         data-fixed-pdf-ready-dialog="true"
         className="max-w-md"
         closeClassName="size-9 sm:size-8"
+        closeLabel={t("common.close")}
         onOpenAutoFocus={(event) => {
           if (!prepared) event.preventDefault();
         }}

@@ -35,7 +35,7 @@ Last reviewed: 2026-07-31 CEST by `TASK-20260731-003-inventory-product-mobile-de
 1. 顶部是一张 fixed 悬浮工作卡，不使用整屏白色顶栏、横向分割线或第二个大标题区。
 2. 正文使用同半径、同边框、同阴影的信息卡，第一张卡与顶部卡保持 6-10px 间距。
 3. 底部固定操作条只放最高频动作，例如 WhatsApp、流转、收款。
-4. 页面宽度以 `max-w-[430px]` 为手机基准；`768px-1023px` 使用放宽后的独立平板详情工作区，但继续保留 Floating Card、抽屉导航与移动任务逻辑；`1024px` 起才进入桌面详情模式。
+4. 页面宽度以 `max-w-[430px]` 为手机基准；业务 renderer 首次打开在 `768px-1023px` 使用 compact 详情工作区，`1024px` 起选择 desktop，按订单会话锁定，旋转/resize 不切换 owner。导航独立按 `≤900px` 抽屉、`>900px` 侧栏处理。`TASK-20260910-006-unified-workbench` 使用命名容器查询：实际详情容器宽度 ≥680px 时，客户/工单、设备、三金额并列摘要，下方为横向维修及补充信息，头部正常流；不足时保留原浮卡与单列。viewport 宽度不是设备类别，不新增第三套 renderer。
 
 必须复用：
 
@@ -119,12 +119,14 @@ min-w-0 overflow-hidden
 1. 客户审批、异常、取消、退回等必要提示保持原行为和前置条件。
 2. 客户与设备合并为一张信息卡：两条可点摘要，IMEI、质保、随附物品和密码查看使用紧凑辅助行。电话、iPad、扫码和密码编辑是摘要旁独立入口，禁止在摘要按钮内嵌套链接或按钮。
 3. 正常保管状态及确认收机等原动作放在设备组的小状态条；未知、冲突、取消及待退回仍完整显示提示、原因和交接信息，不因密度目标隐藏。
-4. 故障与诊断为独立紧凑卡，内容直达现有编辑面板，完整长文在面板读取。
+4. 客户送修说明（`issue_description`）与诊断（`diagnosis_result`）分开：送修说明保留原点击编辑，诊断保留原展开查看和正式报价编辑入口。`TASK-20260910-006-unified-workbench` 宽容器工作台在客户/工单、设备、三金额并列摘要后展示横向维修及补充信息；手机仍保持原操作顺序，不引入 CRM 长期备注或额外编辑步骤。
 5. 人员与供应商并排显示当前值，长名称换行；继续使用原成功关闭、失败留存和权限语义。
 6. 维修报价与金额同卡：报价名称/价格列表，下方总额、已收定金、待付金额三列同排。取消说明和 finance_redacted 保持原分支，不增加重复支付大卡。
 7. 设备照片、历史记录仅在顶部三个等宽分组切换；照片沿用追加上传和独立查看语义。
 
 顶部沿用测量后的浮卡 offset、导航、编号状态、创建/状态时间/门店一行和五段无文字 mini 进度；阶段上下文移入导航标题下方，compact Tabs 为中性底色的平整等宽分段。正常 390px 合成样本头部目标不超过 168px，长文本/异常可自然增长，不设固定高度裁剪。390×844 的两条报价普通样本应在底栏上方完整显示金额；320×568 使用页面正常滚动触达末尾，不增加内嵌正文滚动区。桌面自有工作区不套用此手机排版。
+
+`TASK-20260910-006-unified-workbench` 仅在实际详情容器达到 680px 时将浮卡头部改为正常文档流的精简头部及下划线 Tabs；客户/工单、设备、三金额并列摘要，后续横向维修及补充信息，常用动作靠近内容末尾。低频设备备注、客户补充资料/签名与关键时间通过现有展开组或对应只读表面完整可达，权限受限仍能读取；不以编辑弹窗代替只读全文。报价总额避免重复展示，编辑态保留原实时草稿总额与金额控件。长内容正常滚动完整可达，不固定高度裁剪。窄于 680px 时保留原单列；手机仍使用上述浮卡布局、原三列金额、原点击与编辑/保存/返回规则；宽度变化不切换会话 renderer。
 
 验证证据归属 `TASK-20260906-003-order-detail-a-layout`。页面高度、滚动和回焦在打开编辑器前后保持；所有权限、dirty/error/pending、版本、保存载荷与财务校验以现有实现为准，布局变更不新增业务协议。
 
@@ -295,13 +297,13 @@ min-w-0 overflow-hidden
 
 新增或改动移动详情页时至少检查：
 
-| Viewport     | 验收                                                                                      |
-| ------------ | ----------------------------------------------------------------------------------------- |
-| 390px        | 无横向溢出，顶部卡不遮挡第一张正文卡，底部操作条不盖住主要内容                            |
-| 430px        | 顶部卡和正文卡左右边缘对齐，间距 6-10px                                                   |
-| 640px-767px  | 仍使用移动宽度体系，不出现顶部窄、正文宽的割裂                                            |
-| 768px-1023px | 使用独立平板详情工作区；保留 Floating Card 顶部、抽屉导航与完整业务能力，可把正文扩为双列 |
-| 1024px+      | 按页面声明进入紧凑桌面布局，不保留移动 fixed 顶部                                         |
+| Viewport     | 验收                                                                                              |
+| ------------ | ------------------------------------------------------------------------------------------------- |
+| 390px        | 无横向溢出，顶部卡不遮挡第一张正文卡，底部操作条不盖住主要内容                                    |
+| 430px        | 顶部卡和正文卡左右边缘对齐，间距 6-10px                                                           |
+| 640px-767px  | 仍使用移动宽度体系，不出现顶部窄、正文宽的割裂                                                    |
+| 768px-1023px | 首次选择 compact；详情容器达到 680px 时使用正常流头部及并列摘要、横向维修和补充信息，不足时原单列；导航独立按 ≤900px 抽屉、>900px 侧栏，业务能力完整保留 |
+| 1024px+      | 按页面声明进入紧凑桌面布局，不保留移动 fixed 顶部                                                 |
 
 必须满足：
 
@@ -352,11 +354,9 @@ Inside an existing status strip, custody receive/deliver, unknown backfill, canc
 
 This presentation contract does not change the confirmation Sheet/Dialog, final confirmation button hierarchy, permissions, pending guard, reason validation, version, payload or custody transitions. Dedicated terminal workflow banners and final confirmation footers retain their stronger hierarchy. Read-only custody badges and next-action guidance remain non-interactive. Finite audit and synthetic screenshots belong to TASK-20260906-004.
 
-
 ### A14 compact order editors (2026-09-06)
 
 Name/price/delete share a 36px visual row with separate specification/error tracks; Add custom is 36px. Money summary labels and value baselines align across equal tiles, with one subtle deposit edit boundary. Inputs remain 16px on mobile and final Save/Cancel remain 44px. Identity/finance/unlock editors opt into a non-scrolling header/close and footer with one scrolling body. Brand/model suggestions precede IMEI capture, accessories and device notes. Notes editing preserves legacy diagnosis without merging or clearing it. Customer matches display phone first, preserve the current customer identity and only warn on duplicate numbers; new orders retain explicit selection. Refer to GLOBAL_CONTENT_EDITING_STANDARD.md for the finite consumer and evidence boundary.
-
 
 ### A14 手机新建工单摘要编辑（2026-09-06）
 

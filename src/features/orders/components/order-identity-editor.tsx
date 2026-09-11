@@ -44,6 +44,7 @@ export function OrderIdentityEditor({
   customerId = "",
   onClose,
   onSave,
+  workbench = false,
 }: {
   returnFocusRef?: RefObject<HTMLElement | null>;
   group: "customer" | "device" | null;
@@ -55,6 +56,7 @@ export function OrderIdentityEditor({
   customerId?: string;
   onClose: () => void;
   onSave: (baseline: UpdateOrderInput, draft: UpdateOrderInput) => Promise<unknown>;
+  workbench?: boolean;
 }) {
   const { t } = useLocale();
   const id = useId();
@@ -81,10 +83,21 @@ export function OrderIdentityEditor({
     hasLocalChanges: session.dirty,
     isEditing: Boolean(group),
   });
-  const valid =
+  const identityChanged =
     group === "customer"
-      ? draft.customer_name.trim() && draft.customer_phone.trim()
-      : draft.device_brand.trim() && draft.device_model.trim();
+      ? draft.customer_name !== baseline.customer_name ||
+        draft.customer_phone !== baseline.customer_phone
+      : draft.device_brand !== baseline.device_brand ||
+        draft.device_model !== baseline.device_model ||
+        draft.device_imei !== baseline.device_imei ||
+        draft.accessory_notes !== baseline.accessory_notes;
+  const notesChanged = group === "device" && draft.device_notes !== baseline.device_notes;
+  const permitted = (!identityChanged || canEdit) && (!notesChanged || canEditRepair);
+  const valid =
+    !identityChanged ||
+    (group === "customer"
+      ? Boolean(draft.customer_name.trim() && draft.customer_phone.trim())
+      : Boolean(draft.device_brand.trim() && draft.device_model.trim()));
   const fieldClass = `${componentOverlay.editorField} h-[42px] min-w-0 border-0 bg-transparent px-0 focus-visible:ring-0`;
   return (
     <Dialog open={Boolean(group)} onOpenChange={session.requestClose}>
@@ -100,7 +113,7 @@ export function OrderIdentityEditor({
         }}
         data-confirm-discard={session.confirmDiscard}
         closeLabel={t("common.cancel")}
-        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface} ${componentOverlay.denseEditorSurface} ${editorConfirmationClass}`}
+        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface} ${componentOverlay.denseEditorSurface} ${editorConfirmationClass} ${workbench ? "order-unified-editor order-detail-interaction-overlay" : ""}`}
       >
         <DialogHeader className={componentOverlay.denseEditorHeader}>
           <span className={componentOverlay.denseEditorIcon} aria-hidden="true">
@@ -244,7 +257,7 @@ export function OrderIdentityEditor({
             {t("common.cancel")}
           </Button>
           <Button
-            disabled={pending || !canEdit || !valid || !session.dirty || conflict}
+            disabled={pending || !permitted || !valid || !session.dirty || conflict}
             onClick={() =>
               void session.save(async (value) => {
                 await onSave(baseline, value);

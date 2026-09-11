@@ -128,100 +128,102 @@ export function OrderHero({
     Boolean(order.deleted_at);
   const heroActions = (
     <div className="flex min-w-0 shrink-0 items-center justify-end gap-1">
-      {printDisabled && printRecovery ? (
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              size="icon"
-              variant="outline"
-              className="relative size-11 border-status-warn-foreground/30 text-status-warn-foreground lg:size-7"
-              aria-label={t("orders2b2.hero.printRecovery", {
-                reason: printDisabledReason ?? t("orders2b2.hero.printUnavailable"),
-              })}
-              title={printDisabledReason ?? t("orders2b2.hero.printUnavailable")}
+      <div className="order-workbench-header-secondary flex items-center gap-1">
+        {printDisabled && printRecovery ? (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                size="icon"
+                variant="outline"
+                className="relative size-11 border-status-warn-foreground/30 text-status-warn-foreground lg:size-7"
+                aria-label={t("orders2b2.hero.printRecovery", {
+                  reason: printDisabledReason ?? t("orders2b2.hero.printUnavailable"),
+                })}
+                title={printDisabledReason ?? t("orders2b2.hero.printUnavailable")}
+              >
+                <Printer className="size-4" />
+                <span
+                  className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-status-warn-foreground"
+                  aria-hidden="true"
+                />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="w-[min(380px,calc(100vw-24px))] p-2"
+              aria-label={t("orders2b2.hero.printConfig")}
             >
-              <Printer className="size-4" />
-              <span
-                className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-status-warn-foreground"
-                aria-hidden="true"
-              />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent
-            align="end"
-            className="w-[min(380px,calc(100vw-24px))] p-2"
-            aria-label={t("orders2b2.hero.printConfig")}
-          >
-            {printRecovery}
-          </PopoverContent>
-        </Popover>
-      ) : (
-        <Button
-          size="icon"
-          variant="outline"
-          className="size-11 lg:size-7"
-          disabled={printDisabled}
-          aria-busy={printPending}
-          onClick={onPrint}
-          aria-label={
-            printDisabled
-              ? (printDisabledReason ?? t("orders2b2.hero.printUnavailable"))
-              : t("orders2b2.hero.print")
-          }
-          title={
-            printDisabled
-              ? (printDisabledReason ?? t("orders2b2.hero.printUnavailable"))
-              : t("orders2b2.hero.print")
-          }
-        >
-          <Printer className="size-4" />
-        </Button>
-      )}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+              {printRecovery}
+            </PopoverContent>
+          </Popover>
+        ) : (
           <Button
             size="icon"
             variant="outline"
             className="size-11 lg:size-7"
-            aria-label={t("orders2b2.hero.more")}
+            disabled={printDisabled}
+            aria-busy={printPending}
+            onClick={onPrint}
+            aria-label={
+              printDisabled
+                ? (printDisabledReason ?? t("orders2b2.hero.printUnavailable"))
+                : t("orders2b2.hero.print")
+            }
+            title={
+              printDisabled
+                ? (printDisabledReason ?? t("orders2b2.hero.printUnavailable"))
+                : t("orders2b2.hero.print")
+            }
           >
-            <MoreHorizontal className="size-4" />
+            <Printer className="size-4" />
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            onClick={() => {
-              const copy = navigator.clipboard?.writeText(window.location.href);
-              if (!copy) return;
-              void copy
-                .then(() => toast.success(t("orders2b2.hero.linkCopied")))
-                .catch(() => toast.error(t("orders2b2.hero.copyFailed")));
-            }}
-          >
-            {t("orders2b2.hero.copyLink")}
-          </DropdownMenuItem>
-          {onRevokeCustomerStatusLinks ? (
-            <DropdownMenuItem
-              disabled={customerStatusRevokePending}
-              onClick={onRevokeCustomerStatusLinks}
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="icon"
+              variant="outline"
+              className="size-11 lg:size-7"
+              aria-label={t("orders2b2.hero.more")}
             >
-              <QrCode className="mr-2 size-3.5" />
-              {customerStatusRevokePending
-                ? t("orders2b2.hero.resettingQr")
-                : t("orders2b2.hero.resetQr")}
+              <MoreHorizontal className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => {
+                const copy = navigator.clipboard?.writeText(window.location.href);
+                if (!copy) return;
+                void copy
+                  .then(() => toast.success(t("orders2b2.hero.linkCopied")))
+                  .catch(() => toast.error(t("orders2b2.hero.copyFailed")));
+              }}
+            >
+              {t("orders2b2.hero.copyLink")}
             </DropdownMenuItem>
-          ) : null}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="text-destructive focus:text-destructive"
-            disabled={!canCancel}
-            onClick={onCancel}
-          >
-            <XCircle className="mr-2 size-3.5" />
-            {canCancel ? t("orders2b2.hero.cancelOrder") : t("orders2b2.hero.cancelUnavailable")}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            {onRevokeCustomerStatusLinks ? (
+              <DropdownMenuItem
+                disabled={customerStatusRevokePending}
+                onClick={onRevokeCustomerStatusLinks}
+              >
+                <QrCode className="mr-2 size-3.5" />
+                {customerStatusRevokePending
+                  ? t("orders2b2.hero.resettingQr")
+                  : t("orders2b2.hero.resetQr")}
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              disabled={!canCancel}
+              onClick={onCancel}
+            >
+              <XCircle className="mr-2 size-3.5" />
+              {canCancel ? t("orders2b2.hero.cancelOrder") : t("orders2b2.hero.cancelUnavailable")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       {isEditing ? (
         <>
           <Button
@@ -248,7 +250,7 @@ export function OrderHero({
         <Button
           size="sm"
           variant="outline"
-          className="h-11 min-w-11 gap-1 px-3 text-xs lg:h-7 lg:min-w-0 lg:px-2 lg:text-[11px]"
+          className="order-workbench-legacy-edit h-11 min-w-11 gap-1 px-3 text-xs lg:h-7 lg:min-w-0 lg:px-2 lg:text-[11px]"
           onClick={onEdit}
         >
           <Pencil className="size-3.5" /> {t("orders2b2.hero.edit")}
@@ -302,7 +304,7 @@ export function OrderHero({
                   className="min-w-0 truncate font-display text-base font-semibold leading-tight tracking-tight gradient-text sm:text-lg"
                   title={order.public_no}
                 >
-                  {order.public_no}
+                  {t("orders2b2.title")}
                 </span>
                 <StatusBadge
                   status={order.status}
@@ -326,6 +328,7 @@ export function OrderHero({
                 />
                 {order.original_order_id && (
                   <Link
+                    data-order-return-badge="true"
                     href={`/orders/${order.original_order_id}`}
                     className="inline-flex items-center gap-1 rounded border bg-status-warn px-1.5 py-0.5 text-[10px] leading-none text-status-warn-foreground hover:underline lg:text-xs lg:leading-4"
                   >

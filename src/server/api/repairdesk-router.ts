@@ -1717,6 +1717,14 @@ export function fail(error: unknown) {
   }
 
   const message = error instanceof Error ? error.message : "请求处理失败";
+  const orderPrerequisiteCodes: Record<string, string> = {
+    客户审批阶段必须通过审批处理记录同意或拒绝: "APPROVAL_DECISION_REQUIRED",
+    "自定义状态尚未绑定主流程阶段，当前不能用于工单流转": "WORKFLOW_GROUP_REQUIRED",
+  };
+  const prerequisiteCode = Object.hasOwn(orderPrerequisiteCodes, message)
+    ? orderPrerequisiteCodes[message]
+    : undefined;
+  if (prerequisiteCode) return privateJson({ error: message, code: prerequisiteCode }, 400);
   return privateJson({ error: message }, 400);
 }
 

@@ -32,6 +32,9 @@ describe("order detail stable i18n adapters", () => {
         values?: Record<string, string | number>,
       ) => translateMessage(locale, key, values);
       const cases = [
+        ["USE_PUBLISH_QUOTE", "orders2b2.picker.publishQuoteHint"],
+        ["APPROVAL_DECISION_REQUIRED", "orders2b2.picker.approvalRequired"],
+        ["WORKFLOW_GROUP_REQUIRED", "orders2b2.picker.configureBucket"],
         ["quote_below_received_amount", "orders2b2.error.quoteBelowReceived"],
         ["deposit_correction_required", "orders2b2.error.depositCorrectionRequired"],
         ["ORDER_MUTATION_MIGRATION_REQUIRED", "orders2b2.error.mutationUnavailable"],
