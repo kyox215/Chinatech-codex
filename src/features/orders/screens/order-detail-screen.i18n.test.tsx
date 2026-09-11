@@ -745,6 +745,7 @@ describe("OrderDetailScreen i18n", () => {
         name: translateMessage(locale, "orders2b2.finance.item"),
       });
       expect(nameTrigger).toHaveTextContent(displayedName);
+      expect(editor).not.toHaveTextContent("原始备注");
       fireEvent.click(nameTrigger);
       const popup = screen.getByRole("dialog", {
         name: translateMessage(locale, "orders2b2.finance.item"),

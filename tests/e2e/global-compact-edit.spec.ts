@@ -335,28 +335,11 @@ for (const locale of locales) {
     await quoteEntry.click();
     const outer = page.locator("#mobile-order-finance-editor");
     const row = outer.locator("[data-order-workspace-quote-row]").first();
-    const note = row.locator("[data-order-quote-disclosure]").last().getByRole("button");
     const rowHeight = (await row.boundingBox())!.height;
-    await note.click();
-    const popup = page.locator('[data-order-quote-popup="true"]');
-    await expect(popup).toBeFocused();
-    await expect(popup.getByRole("textbox")).toHaveCount(0);
-    const body = popup.locator("[data-editor-body]");
-    await expect(body).toContainText(longNote);
-    expect(await body.evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true);
-    await body.evaluate((node) => {
-      node.scrollTop = node.scrollHeight;
-    });
-    expect(
-      await body.evaluate((node) => node.scrollHeight - node.scrollTop - node.clientHeight),
-    ).toBeLessThanOrEqual(1);
-    await expect(popup.locator("[data-editor-footer] > button")).toBeInViewport();
+    await expect(row).not.toContainText(longNote);
+    await expect(row.locator("[data-order-quote-disclosure]")).toHaveCount(0);
     await noOverflow(page);
-    await screenshot(page, `popup-readonly-short-${locale}`);
-    await page.keyboard.press("Escape");
-    await expect(popup).toHaveCount(0);
-    await expect(outer).toBeVisible();
-    await expect(note).toBeFocused();
+    await screenshot(page, `quote-single-line-short-${locale}`);
     expect((await row.boundingBox())!.height).toBeCloseTo(rowHeight, 1);
     await outer
       .getByRole("button", { name: tr(locale, "orders2b2.finance.add"), exact: true })
@@ -368,6 +351,7 @@ for (const locale of locales) {
     await page.locator("[data-money-keypad-done]").click();
     const customHeight = (await customRow.boundingBox())!.height;
     await trigger.click();
+    const popup = page.locator('[data-order-quote-popup="true"]');
     await expect(popup).toBeFocused();
     const input = popup.getByRole("textbox");
     await expect(input).not.toBeFocused();
@@ -530,39 +514,20 @@ for (const locale of locales)
           name: tr(locale, "orders2b2.overview.itemName", { index: 1 }),
           exact: true,
         });
-        const note = editor.getByRole("button", {
-          name: tr(locale, "orders2b2.overview.itemNote", { index: 1 }),
-          exact: true,
-        });
         await expect(name).toContainText(longQuote.name);
-        await expect(note).toContainText(longQuote.note);
-        await note.scrollIntoViewIfNeeded();
-        for (const field of [name, note]) {
-          expect(await field.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(
-            true,
-          );
-        }
+        await expect(editor).not.toContainText(longQuote.note);
+        expect(await name.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(
+          true,
+        );
         await screenshot(page, `quote-multilingual-detail-edit-${locale}-${width}`);
         await discloseQuoteContent(page, editor, `quote-detail-edit-expanded-${locale}-${width}`);
-        await note.click();
-        const specification = page.locator('[data-order-quote-popup="true"]');
-        await expect(specification).toBeFocused();
-        await expect(specification.getByRole("textbox")).toHaveValue(longQuote.note);
-        await expect(specification.getByRole("textbox")).not.toBeFocused();
-        await noOverflow(page);
-        await page.keyboard.press("Escape");
-        await expect(specification).toHaveCount(0);
-        await expect(note).toBeFocused();
         await editQuoteName(page, name, "Synthetic retained catalog-name draft", locale);
-        await editQuoteName(page, note, "Synthetic retained specification draft", locale);
         await expect(name).toContainText("Synthetic retained catalog-name draft");
-        await expect(note).toContainText("Synthetic retained specification draft");
         await page.keyboard.press("Escape");
         await editor
           .getByRole("button", { name: tr(locale, "orders.faultEditor.keep"), exact: true })
           .click();
         await expect(name).toContainText("Synthetic retained catalog-name draft");
-        await expect(note).toContainText("Synthetic retained specification draft");
         await page.keyboard.press("Escape");
         await editor
           .getByRole("button", {
@@ -575,7 +540,7 @@ for (const locale of locales)
         await expect(page.getByText(longQuote.name, { exact: true }).first()).toBeVisible();
         await quoteEdit.click();
         await expect(name).toContainText(longQuote.name);
-        await expect(note).toContainText(longQuote.note);
+        await expect(editor).not.toContainText(longQuote.note);
         await page.keyboard.press("Escape");
         await expect(editor).toHaveCount(0);
       }

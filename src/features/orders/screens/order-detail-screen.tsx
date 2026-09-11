@@ -67,7 +67,6 @@ import { DiagnosisQuoteDialog } from "@/components/orders/diagnosis-quote-dialog
 import {
   FaultDiagnosisPicker,
   normalizeFaultPrices,
-  toFaultPriceItems,
 } from "@/components/orders/fault-diagnosis-picker";
 import { Button } from "@/components/ui/button";
 import {
@@ -211,6 +210,7 @@ import {
 import {
   createFinanceDraftState,
   emptyFinanceFaultDraft,
+  mergeFaultPriceSelectionIntoFinanceDraft,
   normalizeFinanceDraft,
   type FinanceDraftState,
 } from "@/features/orders/model/order-finance-draft";
@@ -5938,6 +5938,7 @@ function MobileDenseFinanceInput({
         placeholder={placeholder}
         invalid={invalid}
         align={align}
+        layout="quote-editor"
         triggerClassName={cn(className, "h-auto min-h-9 px-1")}
         valueClassName="overflow-visible whitespace-nowrap text-clip text-base leading-6 lg:text-sm"
       />
@@ -6036,7 +6037,7 @@ function MobileFinanceEditor({
             </p>
             <FaultDiagnosisPicker
               selected={selectedFaults}
-              onChange={(items) => onChange(mergeSelectedFaultsIntoFinanceDraft(draft, items))}
+              onChange={(items) => onChange(mergeFaultPriceSelectionIntoFinanceDraft(draft, items))}
               className="gap-1"
               density="compact"
               appearance="quiet"
@@ -6050,7 +6051,6 @@ function MobileFinanceEditor({
                 <OrderWorkspaceQuoteRow
                   key={item.line_id ?? index}
                   appearance="quote-editor"
-                  note={item.note || undefined}
                   priceMessage={
                     (item.name.trim() || item.note.trim()) && !item.priceText.trim() ? (
                       <p className="px-1 text-[11px] leading-4 text-status-danger-foreground">
@@ -6271,33 +6271,6 @@ function getStatusActionHint(
       : t("orders2b2.transition.hint.completed");
   }
   return t("orders2b2.transition.hint.default");
-}
-
-function mergeSelectedFaultsIntoFinanceDraft(
-  draft: FinanceDraftState,
-  selected: ReturnType<typeof normalizeFaultPrices>,
-): FinanceDraftState {
-  const existingByLineId = new Map(
-    draft.faults.flatMap((item) => (item.line_id ? [[item.line_id, item] as const] : [])),
-  );
-  const existingByName = new Map(draft.faults.map((item) => [item.name, item]));
-  return {
-    ...draft,
-    faults: toFaultPriceItems(selected).map((item) => {
-      const existing =
-        (item.line_id ? existingByLineId.get(item.line_id) : undefined) ??
-        existingByName.get(item.name);
-      const price = Number(item.price);
-      return {
-        ...(item.line_id ? { line_id: item.line_id } : {}),
-        ...(item.catalog_key ? { catalog_key: item.catalog_key } : {}),
-        name: item.name,
-        note: item.note ?? existing?.note ?? "",
-        priceText:
-          existing?.priceText ?? (Number.isFinite(price) && price > 0 ? String(price) : ""),
-      };
-    }),
-  };
 }
 
 function MobilePaymentSummary({

@@ -194,6 +194,29 @@ describe("MoneyKeypadInput", () => {
     await user.click(screen.getByRole("button", { name: "报价金额" }));
     expect(await screen.findByRole("group", { name: "报价金额 虚拟金额键盘" })).toBeVisible();
   });
+
+  it.each([390, 768])(
+    "uses the roomier quote editor keypad layout at %ipx without changing its input flow",
+    async (width) => {
+      setViewport(width, true);
+      const user = userEvent.setup();
+      render(
+        <MoneyKeypadInput
+          layout="quote-editor"
+          ariaLabel="报价金额"
+          value="12"
+          onChange={() => undefined}
+        />,
+      );
+
+      await user.click(screen.getByRole("button", { name: "报价金额" }));
+      const keypad = document.querySelector('[data-money-keypad-layout="quote-editor"]');
+      expect(keypad).toBeVisible();
+      expect(screen.getByRole("button", { name: "1" })).toHaveClass("h-12", "sm:h-14");
+      expect(screen.getByRole("button", { name: "完成" })).toHaveClass("h-12", "sm:h-14");
+    },
+  );
+
   it("does not treat browser shortcuts or composition as money input", async () => {
     setViewport(768, true);
     const user = userEvent.setup();

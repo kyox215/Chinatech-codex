@@ -45,6 +45,34 @@ export function emptyFinanceFaultDraft(): FinanceFaultDraft {
   return { line_id: ensureOrderLineId(undefined), name: "", priceText: "", note: "" };
 }
 
+export function mergeFaultPriceSelectionIntoFinanceDraft(
+  draft: FinanceDraftState,
+  selected: FaultPriceItem[],
+): FinanceDraftState {
+  const existingByLineId = new Map(
+    draft.faults.flatMap((item) => (item.line_id ? [[item.line_id, item] as const] : [])),
+  );
+  const existingByName = new Map(draft.faults.map((item) => [item.name, item]));
+
+  return {
+    ...draft,
+    faults: selected.map((item) => {
+      const lineId = ensureOrderLineId(item.line_id);
+      const existing = existingByLineId.get(lineId) ?? existingByName.get(item.name);
+      const price = Number(item.price);
+
+      return {
+        line_id: lineId,
+        ...(item.catalog_key ? { catalog_key: item.catalog_key } : {}),
+        name: item.name,
+        note: item.note ?? existing?.note ?? "",
+        priceText:
+          existing?.priceText ?? (Number.isFinite(price) && price > 0 ? String(price) : ""),
+      };
+    }),
+  };
+}
+
 export function createFinanceDraftState(
   faultPrices: FaultPriceItem[],
   depositAmount: number,

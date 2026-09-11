@@ -28,6 +28,10 @@ import { ImeiScannerField } from "@/components/imei-scanner-field";
 import { DeviceCustodyBadge, MoneyText, StatusBadge } from "@/components/orders/badges";
 import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
 import {
+  FaultDiagnosisPicker,
+  normalizeFaultPrices,
+} from "@/components/orders/fault-diagnosis-picker";
+import {
   AccessoryNotesPicker,
   AccessoryNotesPills,
 } from "@/features/orders/components/accessory-notes-picker";
@@ -68,6 +72,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { inferOrderPaidAmount } from "@/features/orders/model/edit-order-form";
 import {
   emptyFinanceFaultDraft,
+  mergeFaultPriceSelectionIntoFinanceDraft,
   normalizeFinanceDraft,
   type FinanceDraftState,
 } from "@/features/orders/model/order-finance-draft";
@@ -1903,19 +1908,47 @@ export function FinanceInlineEditor({
   onChange: (draft: FinanceDraftState) => void;
   dense: boolean;
 }) {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
   const patchFault = (index: number, patch: Partial<FinanceDraftState["faults"][number]>) => {
     const faults = [...draft.faults];
     faults[index] = { ...faults[index], ...patch };
     onChange({ ...draft, faults });
   };
   const message = normalized.error ?? error;
+  const selectedFaults = useMemo(
+    () =>
+      normalizeFaultPrices(
+        draft.faults
+          .filter((item) => item.name.trim())
+          .map((item) => ({
+            ...(item.line_id ? { line_id: item.line_id } : {}),
+            ...(item.catalog_key ? { catalog_key: item.catalog_key } : {}),
+            name: item.name,
+            note: item.note,
+            price: Number(item.priceText.trim().replace(",", ".")) || 0,
+          })),
+      ),
+    [draft.faults],
+  );
 
   return (
     <section className={cn("min-w-0", dense ? "space-y-1" : "space-y-1.5")}>
       <h4 className="text-[11px] font-semibold text-muted-foreground sm:text-xs lg:text-xs lg:leading-4">
         {t("orders2b2.overview.quoteItems")}
       </h4>
+      <div className="min-w-0 space-y-1">
+        <p className="text-[11px] font-semibold leading-4 text-muted-foreground lg:text-xs">
+          {t("orders2b2.finance.select")}
+        </p>
+        <FaultDiagnosisPicker
+          selected={selectedFaults}
+          onChange={(items) => onChange(mergeFaultPriceSelectionIntoFinanceDraft(draft, items))}
+          className="gap-1"
+          density="compact"
+          appearance="quiet"
+          compactColumns={4}
+        />
+      </div>
       {draft.faults.length ? (
         <div className={cn("min-w-0", dense ? "space-y-1" : "space-y-1.5")}>
           {draft.faults.map((item, index) => (
@@ -1926,6 +1959,7 @@ export function FinanceInlineEditor({
               <OrderWorkspaceQuoteTextField
                 ariaLabel={t("orders2b2.overview.itemName", { index: index + 1 })}
                 value={item.name}
+                displayValue={localizeRepairServiceItemName(item, locale)}
                 placeholder={t("orders2b2.overview.itemPlaceholder")}
                 className="min-h-6 rounded-none border-0 border-b border-transparent bg-transparent px-0 py-0 text-sm font-medium focus-visible:border-primary/45 focus-visible:ring-0"
                 onValueChange={(name) =>
@@ -1953,14 +1987,6 @@ export function FinanceInlineEditor({
               >
                 <Trash2 className="size-3 text-muted-foreground" />
               </Button>
-              <OrderWorkspaceQuoteTextField
-                ariaLabel={t("orders2b2.overview.itemNote", { index: index + 1 })}
-                value={item.note}
-                placeholder={t("orders2b2.overview.notePlaceholder")}
-                containerClassName="col-span-2"
-                className="min-h-6 rounded-none border-0 border-b border-transparent bg-transparent px-0 py-0 text-sm text-muted-foreground focus-visible:border-primary/45 focus-visible:ring-0"
-                onValueChange={(note) => patchFault(index, { note })}
-              />
             </div>
           ))}
         </div>
@@ -2035,6 +2061,7 @@ function MoneyDraftField({
       value={value}
       onChange={onChange}
       placeholder={placeholder}
+      layout="quote-editor"
       triggerClassName={cn(
         "h-7 rounded-md border-0 bg-card/60 px-1.5 py-0.5 text-xs shadow-none",
         inlineFinanceInputClass,
@@ -2045,7 +2072,7 @@ function MoneyDraftField({
 }
 
 function FinanceDisplay({ order }: { order: OrderDetail["order"] }) {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
   return (
     <section className="min-w-0">
       <h4 className="mb-1.5 text-[11px] font-semibold text-muted-foreground sm:mb-2 sm:text-xs lg:text-xs lg:leading-4">
@@ -2060,8 +2087,7 @@ function FinanceDisplay({ order }: { order: OrderDetail["order"] }) {
           {order.fault_prices.map((item, index) => (
             <OrderWorkspaceQuoteDisplayRow
               key={`${item.name}-${index}`}
-              name={item.name}
-              note={item.note}
+              name={localizeRepairServiceItemName(item, locale)}
               amount={item.price}
               className="bg-surface-muted/35"
             />

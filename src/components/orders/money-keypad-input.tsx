@@ -39,6 +39,7 @@ export interface MoneyKeypadInputProps {
   valueClassName?: string;
   contentClassName?: string;
   keyboardMode?: "native";
+  layout?: "default" | "quote-editor";
 }
 
 export function MoneyKeypadInput({
@@ -56,6 +57,7 @@ export function MoneyKeypadInput({
   valueClassName,
   contentClassName,
   keyboardMode,
+  layout = "default",
 }: MoneyKeypadInputProps) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
@@ -65,6 +67,7 @@ export function MoneyKeypadInput({
   const nativeInputRef = useRef<HTMLInputElement | null>(null);
   const preferredKeyboardSurface = useVirtualKeyboardSurface();
   const keyboardSurface = keyboardMode === "native" ? "native" : preferredKeyboardSurface;
+  const quoteEditorLayout = layout === "quote-editor";
 
   useEffect(() => {
     if (!open && !nativeEditing) setDraft(normalizeMoneyKeypadDraft(value));
@@ -210,38 +213,71 @@ export function MoneyKeypadInput({
         onOpenChange={handleOpenChange}
         label={t("orders2b1.keypad.moneyLabel", { label: ariaLabel })}
         triggerRef={triggerRef}
-        panelClassName={contentClassName}
+        panelClassName={cn(
+          quoteEditorLayout &&
+            "w-[min(100%,calc(100vw-8px))] max-w-full rounded-2xl p-2.5 sm:w-[min(620px,calc(100vw-32px))] sm:p-3",
+          contentClassName,
+        )}
       >
         <div
           data-money-keypad="true"
+          data-money-keypad-layout={layout}
           onKeyDown={handlePhysicalKey}
           onClick={() => triggerRef.current?.focus()}
         >
-          <div className="mb-2 grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-1 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
-            <span className="font-mono text-xs text-muted-foreground">{currencySymbol}</span>
-            <span className="truncate text-right font-mono text-sm font-semibold tabular-nums">
+          <div
+            className={cn(
+              "mb-2 grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-1 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5",
+              quoteEditorLayout && "mb-2.5 min-h-10 rounded-xl px-3 py-2 sm:min-h-11",
+            )}
+          >
+            <span
+              className={cn(
+                "font-mono text-xs text-muted-foreground",
+                quoteEditorLayout && "text-sm",
+              )}
+            >
+              {currencySymbol}
+            </span>
+            <span
+              className={cn(
+                "truncate text-right font-mono text-sm font-semibold tabular-nums",
+                quoteEditorLayout && "text-base sm:text-lg",
+              )}
+            >
               {draft || placeholder}
             </span>
           </div>
           <div
-            className="grid gap-1.5"
+            className={cn("grid gap-1.5", quoteEditorLayout && "gap-2 sm:gap-2.5")}
             role="group"
             aria-label={t("orders2b1.keypad.moneyLabel", { label: ariaLabel })}
           >
             {moneyKeypadRows.map((row, rowIndex) => (
-              <div key={rowIndex} className="grid grid-cols-3 gap-1.5">
+              <div
+                key={rowIndex}
+                className={cn("grid grid-cols-3 gap-1.5", quoteEditorLayout && "gap-2 sm:gap-2.5")}
+              >
                 {row.map((key) => (
-                  <KeypadButton key={key} keypadKey={key} onClick={() => updateDraft(key)} />
+                  <KeypadButton
+                    key={key}
+                    keypadKey={key}
+                    spacious={quoteEditorLayout}
+                    onClick={() => updateDraft(key)}
+                  />
                 ))}
                 {row.length === 2 ? (
                   <Button
                     type="button"
                     size="sm"
-                    className="h-10 rounded-lg text-xs font-semibold"
+                    className={cn(
+                      "h-10 rounded-lg text-xs font-semibold",
+                      quoteEditorLayout && "h-12 rounded-xl text-sm sm:h-14 sm:text-base",
+                    )}
                     onClick={() => handleOpenChange(false)}
                     data-money-keypad-done="true"
                   >
-                    <Check className="mr-1 size-3.5" />
+                    <Check className={cn("mr-1 size-3.5", quoteEditorLayout && "size-4")} />
                     {t("orders2b1.keypad.done")}
                   </Button>
                 ) : null}
@@ -254,7 +290,15 @@ export function MoneyKeypadInput({
   );
 }
 
-function KeypadButton({ keypadKey, onClick }: { keypadKey: MoneyKeypadKey; onClick: () => void }) {
+function KeypadButton({
+  keypadKey,
+  spacious,
+  onClick,
+}: {
+  keypadKey: MoneyKeypadKey;
+  spacious?: boolean;
+  onClick: () => void;
+}) {
   const { t } = useLocale();
   if (keypadKey === "backspace") {
     return (
@@ -262,12 +306,12 @@ function KeypadButton({ keypadKey, onClick }: { keypadKey: MoneyKeypadKey; onCli
         type="button"
         variant="outline"
         size="sm"
-        className="h-10 rounded-lg"
+        className={cn("h-10 rounded-lg", spacious && "h-12 rounded-xl sm:h-14")}
         onClick={onClick}
         aria-label={t("orders2b1.keypad.deleteAmount")}
         data-money-keypad-key={keypadKey}
       >
-        <Delete className="size-4" />
+        <Delete className={cn("size-4", spacious && "sm:size-5")} />
       </Button>
     );
   }
@@ -278,11 +322,14 @@ function KeypadButton({ keypadKey, onClick }: { keypadKey: MoneyKeypadKey; onCli
         type="button"
         variant="outline"
         size="sm"
-        className="h-10 rounded-lg text-xs font-semibold"
+        className={cn(
+          "h-10 rounded-lg text-xs font-semibold",
+          spacious && "h-12 rounded-xl text-sm sm:h-14 sm:text-base",
+        )}
         onClick={onClick}
         data-money-keypad-key={keypadKey}
       >
-        <RotateCcw className="mr-1 size-3.5" />
+        <RotateCcw className={cn("mr-1 size-3.5", spacious && "size-4")} />
         {t("orders2b1.keypad.clear")}
       </Button>
     );
@@ -293,7 +340,10 @@ function KeypadButton({ keypadKey, onClick }: { keypadKey: MoneyKeypadKey; onCli
       type="button"
       variant="outline"
       size="sm"
-      className="h-10 rounded-lg font-mono text-base font-semibold tabular-nums"
+      className={cn(
+        "h-10 rounded-lg font-mono text-base font-semibold tabular-nums",
+        spacious && "h-12 rounded-xl text-lg sm:h-14 sm:text-xl",
+      )}
       onClick={onClick}
       data-money-keypad-key={keypadKey}
     >

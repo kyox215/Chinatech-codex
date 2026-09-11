@@ -8,6 +8,7 @@ import {
 import {
   createFinanceDraftState,
   emptyFinanceFaultDraft,
+  mergeFaultPriceSelectionIntoFinanceDraft,
   normalizeFinanceDraft,
 } from "./order-finance-draft";
 
@@ -49,6 +50,51 @@ describe("order finance draft", () => {
     expect(normalizeFinanceDraft(draft, 0)).toMatchObject({
       canSave: false,
       error: "请补全报价项目名称和金额。",
+    });
+  });
+
+  it("merges picker selections while preserving existing prices and line identity", () => {
+    const draft = createFinanceDraftState(
+      [
+        {
+          line_id: "00000000-0000-4000-8000-000000000121",
+          catalog_key: "display:main",
+          name: "屏幕",
+          price: 80,
+          note: "Existing note",
+        },
+      ],
+      10,
+    );
+    draft.faults[0]!.priceText = "89,50";
+
+    const selected = normalizeFaultPrices([
+      {
+        line_id: draft.faults[0]!.line_id,
+        catalog_key: "display:glass",
+        name: "屏幕 - 外屏碎裂",
+        price: 0,
+        note: "Vetro rotto",
+      },
+      { catalog_key: "battery:main", name: "电池", price: 0 },
+    ]);
+
+    expect(mergeFaultPriceSelectionIntoFinanceDraft(draft, selected)).toMatchObject({
+      depositText: "10",
+      faults: [
+        {
+          line_id: "00000000-0000-4000-8000-000000000121",
+          catalog_key: "display:glass",
+          name: "屏幕 - 外屏碎裂",
+          priceText: "89,50",
+          note: "Vetro rotto",
+        },
+        {
+          catalog_key: "battery:main",
+          name: "电池",
+          priceText: "",
+        },
+      ],
     });
   });
 

@@ -5,10 +5,14 @@ import { formatOrderDateTime } from "@/features/orders/model/order-date";
 import { fallbackOrderWorkflow } from "@/features/orders/model/order-workflow";
 import { orders } from "@/lib/mock/fixtures";
 import type { OrderDetail } from "@/lib/repairdesk/api";
+import {
+  createFinanceDraftState,
+  normalizeFinanceDraft,
+} from "@/features/orders/model/order-finance-draft";
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
 import { translateMessage } from "@/shared/i18n/messages";
 
-import { OrderOverviewTab } from "./order-overview-tab";
+import { FinanceInlineEditor, OrderOverviewTab } from "./order-overview-tab";
 
 vi.mock("@/features/orders/components/device-unlock-fields", () => ({
   DeviceUnlockEditor: () => null,
@@ -50,6 +54,66 @@ function makeOrder(): OrderDetail["order"] {
 }
 
 describe("OrderOverviewTab localized runtime", () => {
+  it("reuses the new-order repair category picker in the finance editor", () => {
+    const onChange = vi.fn();
+    const draft = createFinanceDraftState([], 0);
+
+    render(
+      <LocaleProvider initialLocale="zh-CN">
+        <FinanceInlineEditor
+          draft={draft}
+          normalized={normalizeFinanceDraft(draft, 0)}
+          onChange={onChange}
+          dense={false}
+        />
+      </LocaleProvider>,
+    );
+
+    expect(document.querySelector('[data-fault-diagnosis-picker="true"]')).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: /^屏幕$/ }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        faults: [expect.objectContaining({ catalog_key: "display:main", name: "屏幕" })],
+      }),
+    );
+  });
+
+  it.each([
+    ["zh-CN", "屏幕 - 原装"],
+    ["it-IT", "Display - Ricambio originale"],
+    ["en", "Display - Original part"],
+  ] as const)(
+    "renders one localized quote line in %s and keeps its stored note hidden",
+    (locale, label) => {
+      const draft = createFinanceDraftState(
+        [
+          {
+            catalog_key: "display:original",
+            name: "屏幕 - 原装",
+            note: "CATALOG_NOTE_SENTINEL",
+            price: 80,
+          },
+        ],
+        0,
+      );
+
+      const { container } = render(
+        <LocaleProvider initialLocale={locale}>
+          <FinanceInlineEditor
+            draft={draft}
+            normalized={normalizeFinanceDraft(draft, 0)}
+            onChange={vi.fn()}
+            dense={false}
+          />
+        </LocaleProvider>,
+      );
+
+      const name = container.querySelector("[data-order-quote-text-control] button");
+      expect(name).toHaveTextContent(label);
+      expect(container).not.toHaveTextContent("CATALOG_NOTE_SENTINEL");
+    },
+  );
+
   it("keeps the existing diagnosis action when finance is redacted", () => {
     const { container } = render(
       <LocaleProvider initialLocale="zh-CN">

@@ -236,6 +236,7 @@ test.describe("touch quote editor", () => {
       const name = editor.locator("[data-order-quote-text-control] button").first();
       await expect(name).toHaveText(locale === "zh-CN" ? "屏幕" : "Display");
       await expect(editor).toContainText("自定义项目 Ω");
+      await expect(editor).not.toContainText("原始备注 Ω");
       for (const width of [390, 430, 768]) {
         await page.setViewportSize({ width, height: width < 768 ? 844 : 960 });
         await noOverflow(page);
