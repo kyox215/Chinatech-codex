@@ -482,7 +482,7 @@ export function NewOrderMobileWorkspace({
                   </div>
                 ) : null}
                 {panel === "accessories" ? (
-                  <div className="pt-6">
+                  <div>
                     <AccessoryNotesPicker
                       value={draft.accessoryNotes}
                       onChange={(accessoryNotes) =>

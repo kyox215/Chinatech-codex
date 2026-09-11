@@ -1401,7 +1401,7 @@ export function OrderListScreen() {
       style={
         mobileHeaderHeight > 0
           ? ({
-              "--orders-mobile-header-offset": `${mobileHeaderHeight + 8}px`,
+              "--orders-mobile-header-offset": `${mobileHeaderHeight}px`,
             } as CSSProperties)
           : undefined
       }
@@ -1475,6 +1475,15 @@ export function OrderListScreen() {
             />
           }
           rangeLabel={t(`orders.range.${orderListView}`)}
+          pageScope={t("orders.queue.pageScopeCompact", { page, count: data.length })}
+          presentationControl={
+            <OrderListPresentationSwitch
+              compact
+              value={presentationView}
+              onChange={setPresentationView}
+              disabled={listInteractionBlocked}
+            />
+          }
         />
       ) : null}
 
@@ -1926,23 +1935,27 @@ export function OrderListScreen() {
         </div>
       ) : null}
 
-      <div className="order-presentation-toolbar mb-3 flex min-w-0 flex-wrap items-center justify-between gap-2">
-        <div className="min-w-0 text-[11px] leading-4 text-muted-foreground">
-          <p data-order-presentation-scope="true">
-            {t("orders.queue.pageScope", { page, count: data.length })}
-          </p>
-          {viewportMode === "desktop" || presentationView === "board" ? (
+      {viewportMode === "desktop" ? (
+        <div className="order-presentation-toolbar mb-3 flex min-w-0 flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0 text-[11px] leading-4 text-muted-foreground">
+            <p data-order-presentation-scope="true">
+              {t("orders.queue.pageScope", { page, count: data.length })}
+            </p>
             <p className="mt-1">
               {t(presentationView === "board" ? "orders.queue.boardHint" : "orders.queue.listHint")}
             </p>
-          ) : null}
+          </div>
+          <OrderListPresentationSwitch
+            value={presentationView}
+            onChange={setPresentationView}
+            disabled={listInteractionBlocked}
+          />
         </div>
-        <OrderListPresentationSwitch
-          value={presentationView}
-          onChange={setPresentationView}
-          disabled={listInteractionBlocked}
-        />
-      </div>
+      ) : presentationView === "board" ? (
+        <p className="mb-2 px-1 text-[11px] leading-4 text-muted-foreground">
+          {t("orders.queue.boardHint")}
+        </p>
+      ) : null}
 
       {/* List: presentation state never changes the query or data scope. */}
       <div
@@ -2053,14 +2066,15 @@ export function OrderListScreen() {
 
             {/* Mobile and tablet cards */}
             {viewportMode === "compact" && presentationView === "list" ? (
-              <div data-order-mobile-list="true" className="space-y-4">
+              <div data-order-mobile-list="true" className="space-y-3">
                 {groupedData.map((section) => (
                   <section
                     key={section.group}
-                    className="space-y-2"
+                    className="space-y-1.5"
                     aria-labelledby={`mobile-order-group-${section.group}`}
                   >
                     <OrderResultGroupHeader
+                      compact
                       headingId={`mobile-order-group-${section.group}`}
                       group={section.group}
                       pageCount={section.items.length}

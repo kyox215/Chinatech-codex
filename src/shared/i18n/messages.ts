@@ -768,6 +768,8 @@ const zhCN = {
   "orders.queue.cardsView": "卡片",
   "orders.queue.boardView": "状态板",
   "orders.queue.pageScope": "当前筛选 · 第 {page} 页 · {count} 张工单",
+  "orders.queue.pageScopeCompact": "第 {page} 页 · {count} 单",
+  "orders.queue.groupCounts": "本页 {pageCount} / 共 {totalCount}",
   "orders.queue.boardHint": "仅按主维修阶段分组当前页；配件、客户确认与通知单独显示。",
   "orders.queue.listHint": "主维修阶段与细状态分开显示；点击下一步进入详情处理。",
   "orders.queue.headerOrder": "工单 · 时间",
@@ -2111,12 +2113,13 @@ const zhCN = {
   "orders2b1.unlock.patternStep": "图案点 {point}，第 {step} 步{position}",
   "orders2b1.unlock.patternStart": "，起点",
   "orders2b1.unlock.patternEnd": "，终点",
-  "orders2b1.unlock.patternSummary": "起点 {start} · 终点 {end} · 已连接 {count} / {max} 点。",
+  "orders2b1.unlock.patternSummary": "已连接 {count} / {max} 点。",
   "orders2b1.unlock.patternEmpty": "已连接 0 个点，保存时需要至少 {min} 个点。",
   "orders2b1.unlock.patternMax": " 已到 {max} 步上限。",
   "orders2b1.unlock.patternDuplicate":
     "点 {point} 已在第 {step} 步，不会重复添加；要改顺序请点清除后重画。",
-  "orders2b1.unlock.patternUnique": "每个点只能连接一次，数字 1 是起点，最后一个数字是终点。",
+  "orders2b1.unlock.patternUnique":
+    "数字表示连接顺序：1 为起点，最后一个数字为终点。每点限用一次。",
   "orders2b1.nav.transitionFailed": "导航操作失败，请重试",
   "orders2b1.nav.dialogCloseFailed": "导航确认层未能安全关闭，请重试",
   "orders2b1.nav.sourceBusy": "{source}正在处理中，请稍候再试",
@@ -4964,6 +4967,8 @@ const itIT: Record<MessageKey, string> = {
   "orders.queue.cardsView": "Schede",
   "orders.queue.boardView": "Bacheca",
   "orders.queue.pageScope": "Filtri attuali · Pagina {page} · {count} ordini",
+  "orders.queue.pageScopeCompact": "Pag. {page} · {count} ordini",
+  "orders.queue.groupCounts": "Qui {pageCount} / Tot. {totalCount}",
   "orders.queue.boardHint":
     "Solo questa pagina, raggruppata per fase. Ricambi, conferme e notifiche restano separati.",
   "orders.queue.listHint":
@@ -6428,13 +6433,13 @@ const itIT: Record<MessageKey, string> = {
   "orders2b1.unlock.patternStep": "Punto {point}, passaggio {step}{position}",
   "orders2b1.unlock.patternStart": ", iniziale",
   "orders2b1.unlock.patternEnd": ", finale",
-  "orders2b1.unlock.patternSummary": "Inizio {start} · fine {end} · {count}/{max} punti collegati.",
+  "orders2b1.unlock.patternSummary": "{count}/{max} punti collegati.",
   "orders2b1.unlock.patternEmpty": "0 punti collegati; servono almeno {min} punti per salvare.",
   "orders2b1.unlock.patternMax": " Limite di {max} passaggi raggiunto.",
   "orders2b1.unlock.patternDuplicate":
     "Il punto {point} è già al passaggio {step}; cancella e ridisegna per cambiare l’ordine.",
   "orders2b1.unlock.patternUnique":
-    "Ogni punto può essere usato una volta; 1 è l’inizio e l’ultimo numero è la fine.",
+    "I numeri indicano l’ordine: 1 è l’inizio, l’ultimo è la fine. Ogni punto si usa una volta.",
   "orders2b1.nav.transitionFailed": "Navigazione non riuscita. Riprova.",
   "orders2b1.nav.dialogCloseFailed":
     "La conferma di navigazione non si è chiusa in sicurezza. Riprova.",
@@ -9529,6 +9534,8 @@ const en: Record<MessageKey, string> = {
   "orders.queue.cardsView": "Cards",
   "orders.queue.boardView": "Board",
   "orders.queue.pageScope": "Current filters · Page {page} · {count} orders",
+  "orders.queue.pageScopeCompact": "Page {page} · {count} orders",
+  "orders.queue.groupCounts": "Page {pageCount} / Total {totalCount}",
   "orders.queue.boardHint":
     "This page only, grouped by repair stage. Parts, approval and notifications remain separate.",
   "orders.queue.listHint":
@@ -10976,13 +10983,13 @@ const en: Record<MessageKey, string> = {
   "orders2b1.unlock.patternStep": "Pattern point {point}, step {step}{position}",
   "orders2b1.unlock.patternStart": ", start",
   "orders2b1.unlock.patternEnd": ", end",
-  "orders2b1.unlock.patternSummary": "Start {start} · end {end} · {count}/{max} points connected.",
+  "orders2b1.unlock.patternSummary": "{count}/{max} points connected.",
   "orders2b1.unlock.patternEmpty": "0 points connected; at least {min} are required to save.",
   "orders2b1.unlock.patternMax": " The {max}-step limit has been reached.",
   "orders2b1.unlock.patternDuplicate":
     "Point {point} is already step {step}; clear and redraw to change the order.",
   "orders2b1.unlock.patternUnique":
-    "Each point can be used once; 1 is the start and the last number is the end.",
+    "Numbers show the connection order: 1 is the start, the last is the end. Use each point once.",
   "orders2b1.nav.transitionFailed": "Navigation failed. Try again.",
   "orders2b1.nav.dialogCloseFailed": "The navigation confirmation did not close safely. Try again.",
   "orders2b1.nav.sourceBusy": "{source} is being processed. Wait and try again.",

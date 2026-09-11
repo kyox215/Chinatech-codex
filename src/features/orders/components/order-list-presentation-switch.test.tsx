@@ -11,7 +11,7 @@ describe("OrderListPresentationSwitch", () => {
       const onChange = vi.fn();
       render(
         <LocaleProvider initialLocale={locale}>
-          <OrderListPresentationSwitch value="cards" onChange={onChange} />
+          <OrderListPresentationSwitch value="cards" onChange={onChange} compact />
         </LocaleProvider>,
       );
       const buttons = screen.getAllByRole("button");

@@ -52,6 +52,7 @@ export function OrderResultGroupHeader({
   totalCount,
   oldestCreatedAt,
   className,
+  compact = false,
 }: {
   headingId: string;
   group: OrderResultGroup;
@@ -59,6 +60,7 @@ export function OrderResultGroupHeader({
   totalCount: number;
   oldestCreatedAt: string;
   className?: string;
+  compact?: boolean;
 }) {
   const { t, locale } = useLocale();
   const Icon = groupIcons[group];
@@ -79,6 +81,7 @@ export function OrderResultGroupHeader({
       className={cn(
         "flex min-h-10 min-w-0 items-center gap-[clamp(0.25rem,1.28vw,0.375rem)] rounded-[clamp(0.5rem,2.56vw,0.625rem)] border px-[clamp(0.375rem,2.05vw,0.5625rem)] py-1 lg:min-h-9 lg:gap-2 lg:rounded-md lg:px-2.5 lg:py-1.5",
         toneClass(group),
+        compact && "min-h-8 rounded-none border-0 bg-transparent px-1 py-1 text-foreground",
         className,
       )}
     >
@@ -93,15 +96,24 @@ export function OrderResultGroupHeader({
         >
           {localizedMeta.label}
         </h2>
-        <p className="truncate text-[clamp(0.5625rem,2.56vw,0.625rem)] leading-3 lg:text-[11px] lg:leading-4">
+        <p
+          className={cn(
+            "truncate text-[clamp(0.5625rem,2.56vw,0.625rem)] leading-3 lg:text-[11px] lg:leading-4",
+            compact && "sr-only",
+          )}
+        >
           {localizedMeta.hint}
         </p>
       </div>
       <div className="shrink-0 text-right text-[clamp(0.5625rem,2.56vw,0.625rem)] leading-3 tabular-nums lg:text-[11px] lg:leading-4">
         <p className="font-semibold">
-          {pageCount} / {totalCount}
+          {compact
+            ? t("orders.queue.groupCounts", { pageCount, totalCount })
+            : `${pageCount} / ${totalCount}`}
         </p>
-        <p>{t("orders.resultGroupStart", { date: oldestDate })}</p>
+        <p className={compact ? "sr-only" : undefined}>
+          {t("orders.resultGroupStart", { date: oldestDate })}
+        </p>
       </div>
     </div>
   );

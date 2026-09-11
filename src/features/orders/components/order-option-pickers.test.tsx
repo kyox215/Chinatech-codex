@@ -247,21 +247,22 @@ describe("order option pickers", () => {
     expect(screen.getByTestId("fault-value")).toHaveTextContent("系统 - 屏幕锁解锁");
   });
 
-  it("uses a multi-select dropdown for accessory notes and keeps none exclusive", async () => {
+  it("uses direct accessory choices and keeps none exclusive", async () => {
     const user = userEvent.setup();
     render(<AccessoryHarness />);
 
-    await user.click(screen.getByRole("button", { name: /选择随附物品/ }));
-    await user.click(screen.getByRole("menuitemcheckbox", { name: "SIM卡" }));
-    await user.click(screen.getByRole("menuitemcheckbox", { name: "手机壳" }));
+    await user.click(screen.getByRole("button", { name: "SIM卡" }));
+    await user.click(screen.getByRole("button", { name: "手机壳" }));
 
     expect(screen.getByTestId("accessory-value")).toHaveTextContent("SIM卡、手机壳");
-    expect(screen.getByText("SIM卡等2项")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "SIM卡" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
-    await user.click(screen.getByRole("menuitemcheckbox", { name: "无" }));
+    await user.click(screen.getByRole("button", { name: "无" }));
 
     expect(screen.getByTestId("accessory-value")).toHaveTextContent("无");
-    await user.keyboard("{Escape}");
   });
 
   it("uses a select for warranty and preserves the required non-default reason", async () => {

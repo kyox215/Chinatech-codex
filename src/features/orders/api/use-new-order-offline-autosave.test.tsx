@@ -19,6 +19,37 @@ const scope: RepairDeskOfflineScope = { storeId: "store_1", userId: "user_1" };
 type HookValue = ReturnType<typeof useNewOrderOfflineAutosave>;
 
 describe("useNewOrderOfflineAutosave", () => {
+  it("does not restart draft checking when a parent rebuilds the same store/user scope", async () => {
+    const harness = createServiceHarness();
+    await harness.service.saveDraft(
+      buildNewOrderOfflineDraftInput({ form: makeForm({ model: "Retained synthetic draft" }) }),
+    );
+    const healthCheck = vi.spyOn(harness.service, "healthCheck");
+    const listLocalDrafts = vi.spyOn(harness.service, "listLocalDrafts");
+    const serviceFactory = () => harness.service;
+    let latest: HookValue | undefined;
+    function Parent({ version }: { version: number }) {
+      const value = useNewOrderOfflineAutosave({
+        form: { ...initialNewOrderForm },
+        scope: { ...scope },
+        serviceFactory,
+      });
+      useEffect(() => {
+        latest = value;
+      }, [value]);
+      return <span>{version}</span>;
+    }
+    const result = render(<Parent version={0} />);
+    await waitFor(() => expect(latest?.draftPrompt?.localDraftId).toBe("draft_id_1"));
+    const prompt = requireHook(latest).draftPrompt;
+    for (let version = 1; version <= 5; version++) {
+      result.rerender(<Parent version={version} />);
+      expect(requireHook(latest).state).toBe("ready");
+      expect(requireHook(latest).draftPrompt).toBe(prompt);
+    }
+    expect(healthCheck).toHaveBeenCalledTimes(1);
+    expect(listLocalDrafts).toHaveBeenCalledTimes(1);
+  });
   it("reports the committed reset as clean before passive effects after discarding a saved draft", async () => {
     const harness = createServiceHarness();
     const serviceFactory = () => harness.service;

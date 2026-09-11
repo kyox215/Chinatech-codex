@@ -23,7 +23,7 @@ const patternPoints = Array.from({ length: 9 }, (_, index) => index + 1);
 const pinKeypadDigits = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"] as const;
 
 const patternGeometry = {
-  input: { size: 132, pointSize: 36, gap: 12, hitRadius: 24, strokeWidth: 3 },
+  input: { size: 156, pointSize: 44, gap: 12, hitRadius: 26, strokeWidth: 3 },
   preview: { size: 108, pointSize: 28, gap: 10, hitRadius: 0, strokeWidth: 3 },
   compact: { size: 72, pointSize: 20, gap: 6, hitRadius: 0, strokeWidth: 2 },
 } as const;
@@ -40,6 +40,12 @@ function patternPointCenter(point: number, variant: PatternGeometryVariant) {
     x: offset + column * (geometry.pointSize + geometry.gap) + geometry.pointSize / 2,
     y: offset + row * (geometry.pointSize + geometry.gap) + geometry.pointSize / 2,
   };
+}
+
+function patternPointPosition(point: number, variant: PatternGeometryVariant) {
+  const center = patternPointCenter(point, variant);
+  const size = patternGeometry[variant].size;
+  return { left: `${(center.x / size) * 100}%`, top: `${(center.y / size) * 100}%` };
 }
 
 function sanitizePatternDraft(pattern: readonly number[]) {
@@ -111,7 +117,7 @@ export function DeviceUnlockEditor({
             type="button"
             data-device-unlock-method={item}
             className={cn(
-              "h-8 min-w-0 rounded-lg border border-[var(--border-panel)] px-2 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:text-xs lg:leading-4",
+              "min-h-11 min-w-0 rounded-lg border border-[var(--border-panel)] px-2 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:min-h-8 lg:text-xs lg:leading-4",
               method === item
                 ? "bg-primary text-primary-foreground"
                 : "bg-card text-muted-foreground hover:bg-accent/50 hover:text-foreground",
@@ -483,8 +489,6 @@ function PatternLockInput({
   const [ignoredPoint, setIgnoredPoint] = useState<number | null>(null);
   const draftPattern = useMemo(() => sanitizePatternDraft(value), [value]);
   const draftPatternRef = useRef<number[]>(draftPattern);
-  const startPoint = draftPattern[0] ?? null;
-  const endPoint = draftPattern.at(-1) ?? null;
 
   useEffect(() => {
     draftPatternRef.current = draftPattern;
@@ -516,9 +520,11 @@ function PatternLockInput({
 
   const pointFromPointer = (event: PointerEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
     const geometry = patternGeometry.input;
+    if (!rect.width || !rect.height) return null;
+    // Share the SVG coordinate space at every responsive size and scroll position.
+    const x = ((event.clientX - rect.left) / rect.width) * geometry.size;
+    const y = ((event.clientY - rect.top) / rect.height) * geometry.size;
 
     let matchedPoint: number | null = null;
     let matchedDistance = Number.POSITIVE_INFINITY;
@@ -549,6 +555,7 @@ function PatternLockInput({
     const point = pointFromPointer(event);
     if (!point) return;
     event.preventDefault();
+    if (draftPatternRef.current.at(-1) === point) return;
     appendPoint(point);
   };
 
@@ -584,7 +591,7 @@ function PatternLockInput({
         </div>
         <button
           type="button"
-          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-[10px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground lg:h-6 lg:px-1.5 lg:text-xs lg:leading-4"
+          className="inline-flex h-11 shrink-0 items-center gap-1 rounded-md px-2 text-[10px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground lg:h-6 lg:px-1.5 lg:text-xs lg:leading-4"
           onClick={clearPattern}
         >
           <X className="size-3" />
@@ -592,7 +599,10 @@ function PatternLockInput({
         </button>
       </div>
       <div
-        className="relative mx-auto grid size-[156px] touch-none grid-cols-3 place-content-center gap-3 lg:size-[132px]"
+        data-device-unlock-pattern-grid="true"
+        role="group"
+        aria-label={t("orders2b1.unlock.patternDraw")}
+        className="relative mx-auto size-[156px] touch-none lg:size-[132px]"
         onPointerDown={startDrawing}
         onPointerMove={continueDrawing}
         onPointerUp={stopDrawing}
@@ -611,9 +621,10 @@ function PatternLockInput({
               key={point}
               type="button"
               data-device-unlock-pattern-point={point}
+              aria-pressed={selected}
+              style={patternPointPosition(point, "input")}
               className={cn(
-                "relative z-10 grid size-11 place-items-center rounded-full border font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:size-9",
-                selected && stepNumber >= 100 ? "text-[9px]" : "text-xs",
+                "absolute z-10 grid size-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border text-xs font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:size-9",
                 selected
                   ? "border-primary bg-primary text-primary-foreground"
                   : "border-[var(--border-panel)] bg-[var(--surface-panel-muted)] text-muted-foreground hover:bg-accent",
@@ -631,7 +642,7 @@ function PatternLockInput({
               }
               onKeyDown={(event) => addPointWithKeyboard(event, point)}
             >
-              {selected ? stepNumber : point}
+              {selected ? stepNumber : null}
             </button>
           );
         })}
@@ -639,8 +650,6 @@ function PatternLockInput({
       <p className="mt-2 text-center text-[9px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
         {draftPattern.length > 0
           ? t("orders2b1.unlock.patternSummary", {
-              start: startPoint ?? "",
-              end: endPoint ?? "",
               count: draftPattern.length,
               max: DEVICE_UNLOCK_PATTERN_MAX_STEPS,
             })
@@ -681,10 +690,7 @@ function PatternPreview({ pattern, compact = false }: { pattern: number[]; compa
   return (
     <div
       data-device-unlock-pattern-preview="true"
-      className={cn(
-        "relative grid touch-none grid-cols-3 place-content-center",
-        compact ? "size-[72px] gap-1.5" : "mx-auto size-[108px] gap-2.5",
-      )}
+      className={cn("relative touch-none", compact ? "size-[72px]" : "mx-auto size-[108px]")}
     >
       <PatternLines pattern={normalized} variant={compact ? "compact" : "preview"} />
       {patternPoints.map((point) => {
@@ -694,8 +700,10 @@ function PatternPreview({ pattern, compact = false }: { pattern: number[]; compa
         return (
           <span
             key={point}
+            data-device-unlock-preview-point={point}
+            style={patternPointPosition(point, compact ? "compact" : "preview")}
             className={cn(
-              "relative z-10 grid rounded-full border text-[9px] font-semibold tabular-nums lg:text-[11px] lg:leading-4",
+              "absolute z-10 grid -translate-x-1/2 -translate-y-1/2 rounded-full border text-[9px] font-semibold tabular-nums lg:text-[11px] lg:leading-4",
               compact ? "size-5 place-items-center" : "size-7 place-items-center",
               selected
                 ? "border-primary bg-primary text-primary-foreground"
@@ -725,7 +733,11 @@ function PatternLines({
   if (points.length < 2) return null;
 
   return (
-    <svg className="pointer-events-none absolute inset-0 z-0 h-full w-full" aria-hidden>
+    <svg
+      className="pointer-events-none absolute inset-0 z-0 h-full w-full"
+      viewBox={`0 0 ${geometry.size} ${geometry.size}`}
+      aria-hidden
+    >
       <polyline
         points={points.map((point) => `${point.x},${point.y}`).join(" ")}
         fill="none"

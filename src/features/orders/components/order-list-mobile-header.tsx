@@ -35,6 +35,8 @@ export function MobileOrdersFloatingHeader({
   onSearchClear,
   rangeLabel,
   headerRef,
+  presentationControl,
+  pageScope,
 }: {
   groups: OrderQueueChoice[];
   groupValue: string;
@@ -55,6 +57,8 @@ export function MobileOrdersFloatingHeader({
   onSearchClear: () => void;
   rangeLabel?: string;
   headerRef?: Ref<HTMLDivElement>;
+  presentationControl?: ReactNode;
+  pageScope?: string;
 }) {
   const { t } = useLocale();
   const activeGroup = groups.find((group) => group.key === groupValue);
@@ -185,7 +189,7 @@ export function MobileOrdersFloatingHeader({
         ) : null}
       </section>
       <div
-        className="mx-auto grid w-full min-w-0 max-w-[430px] grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,0.8fr)] items-center gap-1 pt-1 md:max-w-none"
+        className="mx-auto grid w-full min-w-0 max-w-[430px] grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,0.8fr)] items-center gap-1 pt-1 max-[359px]:[&_[data-order-range-trigger]>svg:first-child]:hidden max-[359px]:[&_[data-order-sort-description]>svg]:hidden md:max-w-none"
         data-order-mobile-list-controls="true"
       >
         <OrderListQueueMenu
@@ -212,6 +216,20 @@ export function MobileOrdersFloatingHeader({
           <span className="sr-only">{t("orders.queueSortHelp")}</span>
         </span>
       </div>
+      {presentationControl ? (
+        <div
+          data-order-mobile-presentation-row="true"
+          className="mx-auto flex w-full min-w-0 max-w-[430px] items-center justify-between gap-1 border-t border-border/50 md:max-w-none"
+        >
+          <p
+            data-order-presentation-scope="true"
+            className="min-w-0 px-1 text-[10px] leading-3 text-muted-foreground"
+          >
+            {pageScope}
+          </p>
+          {presentationControl}
+        </div>
+      ) : null}
       <span
         className="sr-only"
         role={searchValue || pendingLabel ? undefined : "status"}

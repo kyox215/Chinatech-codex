@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -32,6 +32,34 @@ function DeviceUnlockHarness() {
 }
 
 describe("DeviceUnlockEditor", () => {
+  it("shows only connection steps while preserving the distinct point identities and encoded order", async () => {
+    render(<DeviceUnlockHarness />);
+    fireEvent.click(screen.getByRole("button", { name: "图案" }));
+    const pattern = [1, 2, 3, 5, 7, 8, 9];
+    for (const point of pattern) {
+      fireEvent.keyDown(document.querySelector(`[data-device-unlock-pattern-point="${point}"]`)!, {
+        key: "Enter",
+      });
+    }
+    expect(screen.getByTestId("unlock-value")).toHaveTextContent(
+      JSON.stringify({ method: "pattern", pattern }),
+    );
+    expect(
+      Array.from(
+        document.querySelectorAll('[data-device-unlock-pattern-point][aria-pressed="true"]'),
+      ).map((point) => point.textContent),
+    ).toEqual(["1", "2", "3", "4", "5", "6", "7"]);
+    expect(screen.getByRole("button", { name: "图案点 4" })).toBeEmptyDOMElement();
+    expect(screen.getByRole("button", { name: "图案点 6" })).toBeEmptyDOMElement();
+    fireEvent.keyDown(screen.getByRole("button", { name: /图案点 5，第 4 步/ }), { key: "Enter" });
+    expect(screen.getByTestId("unlock-value")).toHaveTextContent(
+      JSON.stringify({ method: "pattern", pattern }),
+    );
+    expect(document.querySelector("[data-device-unlock-pattern-grid] svg")).toHaveAttribute(
+      "viewBox",
+      "0 0 156 156",
+    );
+  });
   it("edits PIN through the fixed bottom virtual keypad", async () => {
     setViewport(768, true);
     const user = userEvent.setup();

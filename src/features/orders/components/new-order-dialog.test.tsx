@@ -6,6 +6,7 @@ import type { AppLocale } from "@/shared/i18n/locales";
 import { translateMessage } from "@/shared/i18n/messages";
 
 import { NewOrderDialog } from "./new-order-dialog";
+import { useState } from "react";
 
 vi.mock("@/components/navigation-guard-provider", () => ({
   useNavigationGuard: () => ({
@@ -25,16 +26,24 @@ vi.mock("@/features/orders/screens/new-order-screen", async () => {
     }: {
       onCancel: () => void;
       onCreated: (id: string) => void;
-    }) => (
-      <div data-testid="new-order-screen-stub">
-        <button type="button" onClick={onCancel}>
-          stub cancel
-        </button>
-        <button type="button" onClick={() => onCreated("order-1")}>
-          stub created
-        </button>
-      </div>
-    ),
+    }) => {
+      const [draft, setDraft] = useState("");
+      return (
+        <div data-testid="new-order-screen-stub">
+          <input
+            aria-label="synthetic draft"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          <button type="button" onClick={onCancel}>
+            stub cancel
+          </button>
+          <button type="button" onClick={() => onCreated("order-1")}>
+            stub created
+          </button>
+        </div>
+      );
+    },
   };
 });
 
@@ -78,4 +87,34 @@ describe("NewOrderDialog i18n", () => {
       expect(onCreated).toHaveBeenCalledWith("order-1");
     },
   );
+  it("keeps the mounted editor and typed draft across parent callback and prefill rerenders", async () => {
+    const result = render(
+      <LocaleProvider initialLocale="zh-CN">
+        <NewOrderDialog
+          open
+          sessionKey={1}
+          prefill={{ key: "synthetic" }}
+          onOpenChange={vi.fn()}
+          onCreated={vi.fn()}
+        />
+      </LocaleProvider>,
+    );
+    const input = await screen.findByRole("textbox", { name: "synthetic draft" });
+    fireEvent.change(input, { target: { value: "Retained synthetic draft" } });
+    for (let i = 0; i < 4; i++) {
+      result.rerender(
+        <LocaleProvider initialLocale="zh-CN">
+          <NewOrderDialog
+            open
+            sessionKey={1}
+            prefill={{ key: "synthetic" }}
+            onOpenChange={vi.fn()}
+            onCreated={vi.fn()}
+          />
+        </LocaleProvider>,
+      );
+      expect(screen.getByRole("textbox", { name: "synthetic draft" })).toBe(input);
+      expect(input).toHaveValue("Retained synthetic draft");
+    }
+  });
 });

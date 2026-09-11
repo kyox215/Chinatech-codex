@@ -84,6 +84,8 @@ function renderHeader({
         scanAction={<button aria-label="扫码搜索">扫码</button>}
         filterAction={<button aria-label="筛选订单">筛选</button>}
         rangeLabel="待处理"
+        pageScope="第 2 页 · 20 单"
+        presentationControl={<button aria-label="列表展示">列表</button>}
       />
     </SidebarProvider>,
   );
@@ -123,6 +125,8 @@ describe("MobileOrdersFloatingHeader", () => {
     const user = userEvent.setup();
     expect(screen.getByRole("button", { name: "扫码搜索" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "筛选订单" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "列表展示" })).toBeVisible();
+    expect(screen.getByText("第 2 页 · 20 单")).toBeVisible();
     expect(
       screen.getByRole("textbox", { name: "搜索工单、客户、电话或 IMEI" }).parentElement,
     ).toHaveClass("bg-[var(--surface-panel-muted)]");

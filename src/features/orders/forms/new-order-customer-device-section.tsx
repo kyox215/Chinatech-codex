@@ -353,15 +353,14 @@ export function NewOrderDeviceInfoSection({
         </DenseScannerBlock>
       </div>
       {!editorOnly ? (
-        <div className="flex min-w-0 items-center gap-2 border-t border-border pt-1.5">
-          <span className="w-14 shrink-0 text-[11px] text-muted-foreground">
+        <div className="grid min-w-0 gap-1.5 border-t border-border pt-1.5">
+          <span className="text-[11px] text-muted-foreground">
             {t("orders2b1.new.accessories")}
           </span>
           <AccessoryNotesPicker
             value={form.accessoryNotes}
             onChange={(accessoryNotes) => setForm({ ...form, accessoryNotes })}
             compact
-            triggerClassName="h-9 min-w-0 flex-1 border-0 bg-transparent text-xs shadow-none"
           />
         </div>
       ) : null}

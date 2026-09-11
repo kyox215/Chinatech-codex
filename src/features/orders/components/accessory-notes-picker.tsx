@@ -3,7 +3,6 @@
 import { useRef } from "react";
 import { Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { MultiSelectDropdown } from "@/components/ui/multi-select-dropdown";
 import {
   ACCESSORY_NOTE_OPTIONS,
   formatAccessoryNotes,
@@ -53,10 +52,7 @@ export function AccessoryNotesPicker({
   value,
   onChange,
   compact = false,
-  triggerClassName,
-  contentClassName,
   disabled = false,
-  quickChoices = false,
 }: {
   value?: string | null;
   onChange: (value: string) => void;
@@ -68,7 +64,11 @@ export function AccessoryNotesPicker({
 }) {
   const { t } = useLocale();
   const parsed = parseAccessoryNotes(value);
-  const customSelected = parsed.selected.includes("其他");
+  const selectedOptions =
+    parsed.customText && !parsed.selected.includes("其他")
+      ? [...parsed.selected, "其他" as const]
+      : parsed.selected;
+  const customSelected = selectedOptions.includes("其他");
   const disabledRef = useRef(disabled);
   disabledRef.current = disabled;
 
@@ -83,82 +83,49 @@ export function AccessoryNotesPicker({
   };
 
   return (
-    <div className={cn("relative min-w-0 space-y-1.5", compact && "space-y-1")}>
-      {quickChoices ? (
-        <div
-          data-accessory-quick-choices
-          className="grid grid-cols-2 gap-1 min-[360px]:grid-cols-4"
-        >
-          {(["SIM卡", "手机壳", "充电器", "数据线"] as const).map((option) => {
-            const selected = parsed.selected.includes(option);
-            return (
-              <button
-                key={option}
-                type="button"
-                disabled={disabled}
-                aria-pressed={selected}
+    <div className={cn("min-w-0 space-y-2", compact && "space-y-1.5")}>
+      <div
+        data-accessory-choices="true"
+        role="group"
+        aria-label={t("orders2b1.new.accessories")}
+        className="flex min-w-0 flex-wrap gap-1.5"
+      >
+        {ACCESSORY_NOTE_OPTIONS.map((option) => {
+          const selected = selectedOptions.includes(option);
+          return (
+            <button
+              key={option}
+              type="button"
+              disabled={disabled}
+              data-accessory-choice={option}
+              aria-pressed={selected}
+              className={cn(
+                "flex min-h-11 min-w-0 max-w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--border-panel)] px-2 py-1.5 text-xs leading-4 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 lg:min-h-9",
+                selected && "border-primary/25 bg-primary/5 text-primary",
+              )}
+              onClick={() =>
+                updateSelection(
+                  selected
+                    ? selectedOptions.filter((value) => value !== option)
+                    : option === "无"
+                      ? ["无"]
+                      : [...selectedOptions.filter((value) => value !== "无"), option],
+                )
+              }
+            >
+              <span
                 className={cn(
-                  "flex min-h-8 min-w-0 items-center justify-center gap-1 rounded-md border border-[var(--border-panel)] px-1 py-1 text-[11px] leading-4 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
-                  selected && "border-primary/25 bg-primary/5 text-primary",
+                  "grid size-3 shrink-0 place-items-center rounded border border-current",
+                  selected && "bg-primary text-primary-foreground",
                 )}
-                onClick={() =>
-                  updateSelection(
-                    selected
-                      ? parsed.selected.filter((value) => value !== option)
-                      : [...parsed.selected.filter((value) => value !== "无"), option],
-                  )
-                }
               >
-                <span
-                  className={cn(
-                    "grid size-3 shrink-0 place-items-center rounded border border-current",
-                    selected && "bg-primary text-primary-foreground",
-                  )}
-                >
-                  {selected ? <Check className="size-2.5" /> : null}
-                </span>
-                <span className="min-w-0 break-words">
-                  {localizeAccessoryNoteOption(option, t)}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-      <MultiSelectDropdown<AccessoryNoteOption>
-        options={ACCESSORY_NOTE_OPTIONS.map((option) => ({
-          value: option,
-          label: localizeAccessoryNoteOption(option, t),
-        }))}
-        disabled={disabled}
-        value={parsed.selected}
-        onChange={updateSelection}
-        placeholder={t("orders2b1.accessory.select")}
-        compact={compact}
-        className={cn(
-          quickChoices &&
-            "absolute -top-6 right-0 h-5 max-w-[60%] border-0 bg-transparent px-0 text-[10px] text-primary shadow-none",
-          triggerClassName,
-        )}
-        contentClassName={contentClassName}
-        exclusiveValues={["无"]}
-        renderSummary={(selectedOptions) => {
-          if (quickChoices) return t("orders2b1.accessory.select");
-          if (!selectedOptions.length) return t("orders2b1.accessory.select");
-          if (selectedOptions.length === 1) return selectedOptions[0]?.label;
-          return t("orders2b1.accessory.summary", {
-            first: selectedOptions[0]?.label ?? "",
-            count: selectedOptions.length,
-          });
-        }}
-      />
-      {quickChoices &&
-      (parsed.selected.some(
-        (option) => !["SIM卡", "手机壳", "充电器", "数据线", "其他"].includes(option),
-      ) ||
-        parsed.customText) ? (
-        <AccessoryNotesPills value={value} />
-      ) : null}
+                {selected ? <Check className="size-2.5" /> : null}
+              </span>
+              <span className="min-w-0 break-words">{localizeAccessoryNoteOption(option, t)}</span>
+            </button>
+          );
+        })}
+      </div>
       {customSelected && (
         <Input
           disabled={disabled}
@@ -167,13 +134,14 @@ export function AccessoryNotesPicker({
             !disabledRef.current &&
             onChange(
               formatAccessoryNotes({
-                selected: parsed.selected,
+                selected: selectedOptions,
                 customText: event.target.value,
               }),
             )
           }
           placeholder={t("orders2b1.accessory.customPlaceholder")}
-          className={cn("h-8 text-base", compact && "h-7", quickChoices && "h-9")}
+          aria-label={t("orders2b1.accessory.customPlaceholder")}
+          className="h-11 text-base lg:h-9"
         />
       )}
     </div>
