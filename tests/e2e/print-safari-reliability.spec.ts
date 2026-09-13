@@ -591,11 +591,15 @@ for (const viewport of [
     await page.setViewportSize(viewport);
     await gotoReady(page, "/");
 
-    await page.locator('[data-dashboard-quick-start="new-order"]:visible').click();
+    const intakeEntry = page.locator('[data-dashboard-quick-start="new-order"]:visible');
+    // Safari pointer clicks need not focus links/buttons; exercise focus restoration from keyboard entry.
+    await intakeEntry.focus();
+    await intakeEntry.press("Enter");
     const firstDialog = page.locator('[data-new-order-dialog="true"]');
     await expect(firstDialog).toBeVisible();
     await discardChangedIntake(page, firstDialog, "Safari retry test");
     await expect(firstDialog).toHaveCount(0);
+    await expect(intakeEntry).toBeFocused();
 
     const immediateState = await page.evaluate(() => {
       const intake = Array.from(
@@ -634,11 +638,24 @@ test("order-list intake dialog reopens with a fresh empty session", async ({ pag
   await gotoReady(page, "/orders");
 
   const openButton = page.locator('[data-order-list-new-button="true"]');
-  await openButton.click();
+  await openButton.focus();
+  await openButton.press("Enter");
   const dialog = page.getByRole("dialog", { name: "新建维修工单" });
   await expect(dialog).toBeVisible();
   await discardChangedIntake(page, dialog, "Session should reset");
   await expect(dialog).toHaveCount(0);
+  await expect(page.locator('[data-navigation-guard-dialog="true"]')).toHaveCount(0);
+  await expect(openButton).toBeFocused();
+  const exitState = await openButton.evaluate((button) => {
+    const rect = button.getBoundingClientRect();
+    const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    return {
+      bodyPointerEvents: document.body.style.pointerEvents,
+      hitTarget: hit === button || Boolean(hit && button.contains(hit)),
+    };
+  });
+  expect(exitState.bodyPointerEvents).not.toBe("none");
+  expect(exitState.hitTarget).toBe(true);
 
   await openButton.click();
   await expect(dialog).toBeVisible();

@@ -250,12 +250,16 @@ describe("NewOrderDialog i18n", () => {
     );
     const input = await screen.findByRole("textbox", { name: "synthetic draft" });
     fireEvent.change(input, { target: { value: "Previous synthetic session" } });
+    const dialog = screen.getByRole("dialog");
     result.rerender(
       <LocaleProvider initialLocale="zh-CN">
         <NewOrderDialog {...props} open={false} />
       </LocaleProvider>,
     );
     expect(input).not.toBeInTheDocument();
+    expect(dialog).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(document.body.style.pointerEvents).not.toBe("none");
     result.rerender(
       <LocaleProvider initialLocale="zh-CN">
         <NewOrderDialog {...props} open />
