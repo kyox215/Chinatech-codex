@@ -199,7 +199,7 @@ export function MemberEditorSheet({
           mobileEditor
           editorLayout
           side="right"
-          className={`${componentOverlay.editorSurface} flex h-full w-[calc(100vw-16px)] max-w-[calc(100vw-8px)] flex-col gap-0 p-0 sm:w-[min(40rem,calc(100vw-24px))]`}
+          className={`${componentOverlay.editorSurface} ${componentOverlay.taskWorkspace} flex h-full w-[calc(100vw-16px)] max-w-[calc(100vw-8px)] flex-col gap-0 p-0 sm:w-[min(40rem,calc(100vw-24px))]`}
           aria-busy={isSaving || isSubmitting}
           onCloseAutoFocus={(event) => {
             event.preventDefault();

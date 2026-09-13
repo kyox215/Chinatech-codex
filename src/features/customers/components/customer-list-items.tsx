@@ -204,6 +204,7 @@ export function CustomerRow({
             size="sm"
             className="h-8 gap-1 px-2 text-xs"
             aria-label={t("customers.list.viewCustomer", { name: customer.name })}
+            data-customer-open-id={customer.id}
             onClick={(event) => onOpenDetail(customer.id, event.currentTarget)}
           >
             {t("customers.list.view")} <ArrowUpRight className="size-3" />
@@ -223,7 +224,13 @@ export function CustomerRow({
   );
 }
 
-export function CustomerMobileCard({ customer }: { customer: CustomerListItem }) {
+export function CustomerMobileCard({
+  customer,
+  onOpenDetail,
+}: {
+  customer: CustomerListItem;
+  onOpenDetail?: (customerId: string) => void;
+}) {
   const { t } = useLocale();
   const href = getCustomerDetailHref(customer.id);
   const workSummary = localizeCustomerWorkSummary(getCustomerWorkSummary(customer), t);
@@ -234,6 +241,20 @@ export function CustomerMobileCard({ customer }: { customer: CustomerListItem })
       href={href}
       title={t("customers.list.viewCustomer", { name: customer.name })}
       aria-label={t("customers.list.openCustomer", { name: customer.name })}
+      data-customer-open-id={customer.id}
+      onClick={(event) => {
+        if (
+          !onOpenDetail ||
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        )
+          return;
+        event.preventDefault();
+        onOpenDetail(customer.id);
+      }}
       className="block min-h-11 min-w-0 touch-manipulation rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <RepairOsBusinessCard

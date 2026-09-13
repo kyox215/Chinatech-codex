@@ -183,7 +183,7 @@ async function openCustomerDetail(page: Page, width: number) {
       .getByRole("button", { name: /^查看客户 / })
       .first()
       .click();
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page).toHaveURL(/\/customers\/[^?]+/);
     return;
   }
   await page.locator('a[aria-label^="打开客户详情："]').first().click();

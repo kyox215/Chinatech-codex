@@ -104,6 +104,8 @@ export const componentForm = {
 } as const;
 
 export const componentOverlay = {
+  // Full business tasks opt in individually; pickers, confirmations and capture keep their own shell.
+  taskWorkspace: "task-workspace",
   // Opt-in editor presentation. Existing modal defaults and controller lifecycles stay intact.
   editorSurface:
     "border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] shadow-[var(--shadow-overlay)] [&_input:not([type=checkbox])]:transition-colors [&_textarea]:transition-colors [&_button]:duration-150 motion-reduce:[&_input]:transition-none motion-reduce:[&_textarea]:transition-none motion-reduce:[&_button]:transition-none",

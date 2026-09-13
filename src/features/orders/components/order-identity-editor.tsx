@@ -114,7 +114,7 @@ export function OrderIdentityEditor({
         }}
         data-confirm-discard={session.confirmDiscard}
         closeLabel={t("common.cancel")}
-        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface} ${componentOverlay.denseEditorSurface} ${editorConfirmationClass} ${workbench ? "order-unified-editor order-detail-interaction-overlay" : ""}`}
+        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface} ${componentOverlay.denseEditorSurface} ${componentOverlay.taskWorkspace} ${editorConfirmationClass} ${workbench ? "order-unified-editor order-detail-interaction-overlay" : ""}`}
       >
         <DialogHeader className={componentOverlay.denseEditorHeader}>
           <span className={componentOverlay.denseEditorIcon} aria-hidden="true">

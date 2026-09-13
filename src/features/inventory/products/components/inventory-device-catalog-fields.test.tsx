@@ -272,7 +272,8 @@ describe("InventoryDeviceCatalogFields", () => {
       color: "Custom Pearl",
       approvedAppleColorOverlay: APPROVED_APPLE_COLORS,
     });
-    expect(screen.getByDisplayValue("12 GB manual")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "内存（RAM）：12 GB manual" })).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("12 GB manual")).not.toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "设备颜色：Custom Pearl" })).toBeInTheDocument();
     expect(screen.queryByRole("radio", { name: "1 TB" })).not.toBeInTheDocument();
     const colorTrigger = screen.getByRole("combobox", { name: "设备颜色：Custom Pearl" });

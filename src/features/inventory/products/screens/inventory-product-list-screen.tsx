@@ -30,9 +30,12 @@ import { RepairOsListScaffold } from "@/shared/ui";
 import { useLocale } from "@/shared/i18n/locale-provider";
 import { localizeInventoryProjectionMeta } from "@/features/inventory/lifecycle/model/inventory-lifecycle-i18n";
 import { localizeInventoryProductStatus } from "../model/inventory-product-i18n";
+import {
+  saveInventoryListReturnState,
+  takeInventoryListReturnState,
+} from "./inventory-product-list-return-state";
 
 import { inventoryProductsQueryOptions } from "../api/query-options";
-import { InventoryProductCreateDialog } from "../components/inventory-product-create-dialog";
 import {
   InventoryLifecycleShortcutBar,
   InventoryProductCategoryTabs,
@@ -77,9 +80,10 @@ export function InventoryProductListScreen() {
   >([]);
   const [view, setView] = useState<InventoryProductView>("list");
   const [viewReady, setViewReady] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createSessionKey, setCreateSessionKey] = useState(0);
   const handledCreateIntentRef = useRef<string | undefined>(undefined);
+  const restoredScopeRef = useRef<string | undefined>(undefined);
+  const restoredSalesContextRef = useRef<string | undefined>(undefined);
+  const pendingScrollRef = useRef<number | undefined>(undefined);
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(INVENTORY_PRODUCT_VIEW_STORAGE_KEY);
@@ -105,8 +109,45 @@ export function InventoryProductListScreen() {
   const [salesQueue, setSalesQueue] = useState<InventorySalesListInput["queue"]>("all");
   const [salesOffset, setSalesOffset] = useState(0);
   useEffect(() => {
+    const contextKey = JSON.stringify([
+      { ...filters, search: search.trim() || undefined },
+      salesQueue,
+    ]);
+    if (restoredSalesContextRef.current === contextKey) {
+      restoredSalesContextRef.current = undefined;
+      return;
+    }
+    restoredSalesContextRef.current = undefined;
     setSalesOffset(0);
-  }, [queryFilters, salesQueue]);
+  }, [filters, salesQueue, search]);
+  useEffect(() => {
+    if (shell.isLoading || !storeId || !shell.userId) return;
+    if (restoredScopeRef.current === shell.authorityFingerprint) return;
+    restoredScopeRef.current = shell.authorityFingerprint;
+    const restored = takeInventoryListReturnState({
+      storeId,
+      userId: shell.userId,
+      authorityFingerprint: shell.authorityFingerprint,
+    });
+    if (
+      !restored ||
+      !shell.permissions?.canReadInventory ||
+      !shell.permissions.inventoryProductsUiEnabled
+    )
+      return;
+    restoredSalesContextRef.current = JSON.stringify([
+      { ...restored.filters, search: restored.search.trim() || undefined },
+      restored.salesQueue,
+    ]);
+    setSearch(restored.search);
+    setFilters(restored.filters);
+    setDraft(restored.filters);
+    setLifecycleStatusFilter(restored.lifecycleStatuses);
+    setDraftLifecycleStatusFilter(restored.lifecycleStatuses);
+    setSalesQueue(restored.salesQueue);
+    setSalesOffset(restored.salesOffset);
+    pendingScrollRef.current = restored.scrollY;
+  }, [shell.authorityFingerprint, shell.isLoading, shell.permissions, shell.userId, storeId]);
   const salesQuery = useQuery({
     ...inventorySalesListOptions(
       {
@@ -149,6 +190,15 @@ export function InventoryProductListScreen() {
           : undefined,
       };
   const lifecycleExact = query.data?.lifecycle_projection?.mode === "exact";
+  useEffect(() => {
+    if (!query.data || query.isFetching || pendingScrollRef.current === undefined) return;
+    const scrollY = pendingScrollRef.current;
+    const frame = requestAnimationFrame(() => {
+      window.scrollTo({ top: scrollY, behavior: "instant" });
+      pendingScrollRef.current = undefined;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [query.data, query.isFetching]);
   const lifecycleShortcut: InventoryLifecycleShortcut =
     lifecycleStatusFilter.length === 1 && lifecycleStatusFilter[0] === "in_stock"
       ? "in_stock"
@@ -184,8 +234,10 @@ export function InventoryProductListScreen() {
   );
 
   useEffect(() => {
-    if (!lifecycleExact && lifecycleStatusFilter.length) setLifecycleStatusFilter([]);
-  }, [lifecycleExact, lifecycleStatusFilter.length]);
+    if (query.data && !query.isFetching && !lifecycleExact && lifecycleStatusFilter.length) {
+      setLifecycleStatusFilter([]);
+    }
+  }, [lifecycleExact, lifecycleStatusFilter.length, query.data, query.isFetching]);
 
   const clearCreateIntent = useCallback(() => {
     if (searchParams.get("workspace") !== "new-product") return;
@@ -195,24 +247,36 @@ export function InventoryProductListScreen() {
     router.replace(query ? `/inventory?${query}` : "/inventory", { scroll: false });
   }, [router, searchParams]);
 
+  const rememberListContext = useCallback(() => {
+    if (storeId && shell.userId) {
+      saveInventoryListReturnState(
+        { storeId, userId: shell.userId, authorityFingerprint: shell.authorityFingerprint },
+        {
+          search,
+          filters,
+          lifecycleStatuses: lifecycleStatusFilter,
+          salesQueue,
+          salesOffset,
+          scrollY: window.scrollY,
+        },
+      );
+    }
+  }, [
+    filters,
+    lifecycleStatusFilter,
+    salesOffset,
+    salesQueue,
+    search,
+    shell.authorityFingerprint,
+    shell.userId,
+    storeId,
+  ]);
   const openCreate = useCallback(() => {
     if (!canCreateProduct || shell.isLoading) return;
     setFilterOpen(false);
-    setCreateSessionKey((current) => current + 1);
-    setCreateOpen(true);
-  }, [canCreateProduct, shell.isLoading]);
-
-  const handleCreateOpenChange = useCallback(
-    (nextOpen: boolean) => {
-      if (nextOpen) {
-        openCreate();
-        return;
-      }
-      setCreateOpen(false);
-      clearCreateIntent();
-    },
-    [clearCreateIntent, openCreate],
-  );
+    rememberListContext();
+    router.push("/inventory/new");
+  }, [canCreateProduct, rememberListContext, router, shell.isLoading]);
 
   useEffect(() => {
     if (searchParams.get("workspace") !== "new-product") {
@@ -227,15 +291,18 @@ export function InventoryProductListScreen() {
       clearCreateIntent();
       return;
     }
-    openCreate();
-  }, [canCreateProduct, clearCreateIntent, openCreate, searchParams, shell.isLoading]);
-
-  const handleProductCreated = useCallback(
-    async (id: string) => {
-      await Promise.resolve(router.push(`/inventory/${id}`));
-    },
-    [router],
-  );
+    // Resolve the legacy list intent before a draft is mounted. The destination
+    // retains its own authority and leave guard; no active editor is redirected.
+    rememberListContext();
+    router.replace("/inventory/new");
+  }, [
+    canCreateProduct,
+    clearCreateIntent,
+    rememberListContext,
+    router,
+    searchParams,
+    shell.isLoading,
+  ]);
 
   const createAction = canCreateProduct ? (
     <Button
@@ -478,12 +545,6 @@ export function InventoryProductListScreen() {
           setLifecycleStatusFilter(draftLifecycleStatusFilter);
           setFilterOpen(false);
         }}
-      />
-      <InventoryProductCreateDialog
-        open={createOpen}
-        sessionKey={createSessionKey}
-        onOpenChange={handleCreateOpenChange}
-        onCreated={handleProductCreated}
       />
     </RepairOsListScaffold>
   );

@@ -48,12 +48,14 @@ export function SalesDialog({
   children,
   onClose,
   pending = false,
+  workspace = false,
 }: {
   title: string;
   description: string;
   children: ReactNode;
   onClose: () => void;
   pending?: boolean;
+  workspace?: boolean;
 }) {
   const content = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);
@@ -66,7 +68,12 @@ export function SalesDialog({
     >
       <DialogContent
         ref={content}
-        className={cn(componentOverlay.formWorkspace, componentOverlay.content, "sm:max-w-2xl")}
+        className={cn(
+          componentOverlay.formWorkspace,
+          componentOverlay.content,
+          "flex flex-col sm:max-w-2xl",
+          workspace && componentOverlay.taskWorkspace,
+        )}
         onOpenAutoFocus={(e) => {
           opener.current =
             document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -268,6 +275,7 @@ export function SalesTransactionDialog({
   }
   return (
     <SalesDialog
+      workspace={creating}
       title={c(creating ? "sell" : pickup ? "pickup" : "collect")}
       description={order?.sale_number ?? c("title")}
       onClose={onClose}
@@ -280,7 +288,7 @@ export function SalesTransactionDialog({
           void submit();
         }}
       >
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+        <div data-editor-body className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
           {creating ? (
             <section className="grid min-w-0 gap-2 rounded-xl border border-border p-2">
               <CustomerIdentityLookup
@@ -515,7 +523,10 @@ export function SalesTransactionDialog({
             </div>
           ) : null}
         </div>
-        <footer className="grid shrink-0 grid-cols-2 gap-2 border-t border-border bg-card p-3">
+        <footer
+          data-editor-footer
+          className="grid shrink-0 grid-cols-2 gap-2 border-t border-border bg-card p-3 md:flex md:justify-end"
+        >
           <Button
             type="button"
             variant="outline"

@@ -408,6 +408,16 @@ export function OrderWorkspaceMoneyTile({
   );
 }
 
+export function localizeOrderQuoteValidationError(
+  error: string | undefined,
+  t: ReturnType<typeof useLocale>["t"],
+) {
+  if (!error) return undefined;
+  if (error.startsWith("押金")) return t("orders2b1.quote.missing.deposit");
+  if (error === "请补全报价项目名称和金额。") return t("orders2b2.finance.completeItem");
+  return t("orders2b2.payment.invalid");
+}
+
 export function OrderWorkspaceQuoteRow({
   children,
   price,

@@ -890,7 +890,10 @@ function TransparentQuoteDetail({
         closeLabel={t("buyback2b5.detail.close")}
         onCloseAutoFocus={onCloseAutoFocus}
         style={sheetFloatingStyle}
-        className="bottom-1 left-1/2 right-auto top-1 flex h-auto max-h-none min-h-0 w-[calc(100vw-0.5rem)] -translate-x-1/2 flex-col gap-0 overflow-hidden rounded-2xl p-0 md:bottom-4 md:top-auto md:h-[min(90svh,780px)] md:max-h-[min(90svh,780px)] md:w-[min(980px,calc(100vw-2rem))]"
+        className={cn(
+          componentOverlay.taskWorkspace,
+          "bottom-1 left-1/2 right-auto top-1 flex h-auto max-h-none min-h-0 w-[calc(100vw-0.5rem)] -translate-x-1/2 flex-col gap-0 overflow-hidden rounded-2xl p-0 md:bottom-4 md:top-auto md:h-[min(90svh,780px)] md:max-h-[min(90svh,780px)] md:w-[min(980px,calc(100vw-2rem))]",
+        )}
       >
         <div
           data-buyback-scroll-body="detail"
@@ -1650,6 +1653,7 @@ function TransparentQuoteWorkspace({
         style={sheetFloatingStyle}
         className={cn(
           componentOverlay.editorSurface,
+          componentOverlay.taskWorkspace,
           "bottom-1 left-1/2 right-auto top-1 flex h-auto max-h-none min-h-0 w-[calc(100vw-0.5rem)] -translate-x-1/2 flex-col gap-0 overflow-hidden rounded-[20px] p-0 sm:gap-0 sm:p-0 md:bottom-4 md:top-auto md:h-[min(94svh,900px)] md:max-h-[min(94svh,900px)] md:w-[min(920px,calc(100vw-2rem))] lg:rounded-[22px] [&>button]:right-3 [&>button]:top-4 [&>button]:rounded-full [&>button]:bg-muted lg:[&>button]:right-5 lg:[&>button]:top-5",
         )}
       >
@@ -1675,12 +1679,12 @@ function TransparentQuoteWorkspace({
           data-buyback-scroll-body="workspace"
           className="min-h-0 flex-1 basis-0 overflow-y-auto overscroll-contain bg-[var(--surface-panel-muted)]"
         >
-          <div className="grid min-w-0 items-start gap-3 p-2.5 pb-4 lg:grid-cols-2 lg:gap-4 lg:p-5">
+          <div className="mx-auto grid w-full max-w-[1320px] min-w-0 items-start gap-3 p-2.5 pb-4 md:grid-cols-2 lg:gap-4 lg:p-5">
             {validationCodes.length ? (
               <div
                 role="alert"
                 aria-labelledby="buyback-validation-title"
-                className="rounded-xl border border-status-danger/25 bg-status-danger/10 p-3 lg:col-span-2"
+                className="rounded-xl border border-status-danger/25 bg-status-danger/10 p-3 md:col-span-2"
               >
                 <p id="buyback-validation-title" className="text-xs font-semibold">
                   {t("buyback2b5.validation.summary")}

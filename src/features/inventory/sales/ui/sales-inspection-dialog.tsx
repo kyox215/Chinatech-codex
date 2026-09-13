@@ -70,12 +70,13 @@ export function SalesInspectionDialog({
   }
   return (
     <SalesDialog
+      workspace
       title={c("inspect")}
       description={c("blocked")}
       onClose={onClose}
       pending={mutation.isPending}
     >
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+      <div data-editor-body className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
         <div className="grid grid-cols-2 gap-3">
           {checks.map((field) => {
             const options =
@@ -123,7 +124,10 @@ export function SalesInspectionDialog({
           </p>
         ) : null}
       </div>
-      <footer className="grid grid-cols-2 gap-2 border-t border-border p-3">
+      <footer
+        data-editor-footer
+        className="grid shrink-0 grid-cols-2 gap-2 border-t border-border p-3 md:flex md:justify-end"
+      >
         <Button variant="outline" disabled={mutation.isPending} onClick={onClose}>
           {c("cancel")}
         </Button>

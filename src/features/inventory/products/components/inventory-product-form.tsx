@@ -329,6 +329,7 @@ export type InventoryProductFormDetailsProps = {
   warrantyInvalid?: boolean;
   identifierSection: ReactNode;
   layoutMode?: "compact" | "desktop";
+  preserveDisclosureState?: boolean;
   onConditionChange: (value: string) => void;
   onGtinChange: (value: string) => void;
   onSpecificationChange: (key: string, value: string) => void;
@@ -510,6 +511,7 @@ export function InventoryProductFormDetails({
   warrantyInvalid = false,
   identifierSection,
   layoutMode = "compact",
+  preserveDisclosureState = false,
   onConditionChange,
   onGtinChange,
   onSpecificationChange,
@@ -522,8 +524,8 @@ export function InventoryProductFormDetails({
   const { t } = useLocale();
   const [detailsOpen, setDetailsOpen] = useState(layoutMode === "desktop");
   useEffect(() => {
-    setDetailsOpen(layoutMode === "desktop");
-  }, [layoutMode]);
+    if (!preserveDisclosureState) setDetailsOpen(layoutMode === "desktop");
+  }, [layoutMode, preserveDisclosureState]);
   const specFields = detailsSpecificationFields(draft.category, t);
   const disclosureSpecFields = specFields.filter((field) => specificationPresets[field.key]);
   const secondarySpecFields = specFields.filter((field) => !specificationPresets[field.key]);
@@ -726,23 +728,32 @@ function PresetWithManualField({
   return (
     <fieldset className="min-w-0 space-y-1.5">
       <InventorySelectableField
-        id={`${id}-preset`}
-        label={t("inventory2b4.quick.form.presets", { label })}
-        value={options.some((option) => option.value === value) ? value : ""}
-        placeholder={t("inventory2b4.quick.form.choosePreset")}
-        options={options}
-        mode={mode}
-        onChange={onChange}
-      />
-      <ProductDetailField
         id={id}
         label={label}
         value={value}
-        placeholder={placeholder}
-        inputMode={inputMode}
+        placeholder={placeholder ?? t("inventory2b4.quick.form.choosePreset")}
+        options={options}
+        mode={mode}
         invalid={invalid}
+        ariaDescribedBy={invalid ? `${id}-error` : undefined}
         onChange={onChange}
+        manualEntry={
+          <ProductDetailField
+            id={`${id}-manual`}
+            label={label}
+            value={value}
+            placeholder={placeholder}
+            inputMode={inputMode}
+            invalid={invalid}
+            onChange={onChange}
+          />
+        }
       />
+      {invalid ? (
+        <p id={`${id}-error`} className="text-xs text-status-danger-foreground">
+          {t("inventory2b4.quick.form.checkField")}
+        </p>
+      ) : null}
     </fieldset>
   );
 }
@@ -813,12 +824,11 @@ function ConditionField({
     ...option,
     label: localizeInventoryCondition(option.value, option.label, t),
   }));
-  const isManualValue = Boolean(value) && !options.some((option) => option.value === value);
   const errorId = `${id}-error`;
   return (
     <div className="min-w-0 space-y-1">
       <InventorySelectableField
-        id={`${id}-preset`}
+        id={id}
         label={t("inventory2b4.quick.form.condition")}
         value={value}
         placeholder={t("inventory2b4.quick.form.selectCondition")}
@@ -827,15 +837,18 @@ function ConditionField({
         invalid={invalid}
         ariaDescribedBy={invalid ? errorId : undefined}
         onChange={onChange}
-      />
-      <Input
-        id={id}
-        className="h-11 min-h-11 min-w-0 text-base !text-base lg:h-9 lg:min-h-0 lg:!text-sm"
-        value={isManualValue ? value : ""}
-        placeholder={t("inventory2b4.quick.form.conditionExample")}
-        aria-invalid={invalid}
-        aria-describedby={invalid ? errorId : undefined}
-        onChange={(event) => onChange(event.target.value)}
+        manualEntry={
+          <Input
+            id={`${id}-manual`}
+            className="h-11 min-h-11 min-w-0 text-base !text-base lg:h-9 lg:min-h-0 lg:!text-sm"
+            value={value}
+            aria-label={t("inventory2b4.quick.form.condition")}
+            placeholder={t("inventory2b4.quick.form.conditionExample")}
+            aria-invalid={invalid}
+            aria-describedby={invalid ? errorId : undefined}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        }
       />
       {invalid ? (
         <p id={errorId} className="text-xs text-status-danger-foreground">

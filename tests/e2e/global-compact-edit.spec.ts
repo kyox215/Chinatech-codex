@@ -218,6 +218,8 @@ async function bottomEditor(page: Page, editor: Locator, width: number, height: 
   const centeredOrderEditor =
     width >= 680 &&
     (await editor.evaluate((node) => node.classList.contains("order-detail-interaction-overlay")));
+  const taskWorkspace =
+    width >= 768 && (await editor.evaluate((node) => node.classList.contains("task-workspace")));
   await expect
     .poll(async () => {
       const rect = await editor.boundingBox();
@@ -227,10 +229,15 @@ async function bottomEditor(page: Page, editor: Locator, width: number, height: 
         rect.y >= -1 &&
         rect.x + rect.width <= width + 1 &&
         rect.y + rect.height <= height + 1 &&
-        (centeredOrderEditor
-          ? Math.abs(rect.y + rect.height / 2 - height / 2) <= 2 &&
-            Math.abs(rect.x + rect.width / 2 - width / 2) <= 2
-          : Math.abs(rect.y + rect.height - height) <= 2),
+        (taskWorkspace
+          ? Math.abs(rect.x - 12) <= 2 &&
+            Math.abs(rect.y - 12) <= 2 &&
+            Math.abs(rect.width - (width - 24)) <= 2 &&
+            Math.abs(rect.height - (height - 24)) <= 2
+          : centeredOrderEditor
+            ? Math.abs(rect.y + rect.height / 2 - height / 2) <= 2 &&
+              Math.abs(rect.x + rect.width / 2 - width / 2) <= 2
+            : Math.abs(rect.y + rect.height - height) <= 2),
       );
     })
     .toBe(true);
@@ -868,7 +875,9 @@ for (const [width, height] of [
     await (await orderQuoteTrigger(page, "zh-CN")).click();
     const quote = page.locator("#mobile-order-finance-editor");
     await bottomEditor(page, quote, width, height);
-    expect((await quote.locator("[data-editor-header]").boundingBox())!.height).toBe(52);
+    expect((await quote.locator("[data-editor-header]").boundingBox())!.height).toBe(
+      width >= 768 ? 64 : 52,
+    );
     const categoryGrid = quote.locator('[data-fault-diagnosis-picker="true"]');
     await readableQuoteGrid(categoryGrid);
     const rows = quote.locator('[data-order-workspace-quote-row="true"]');

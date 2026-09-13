@@ -1,6 +1,16 @@
 "use client";
 
-import type { FormEvent, MouseEvent, ReactNode, RefObject } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+  type MouseEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { ArrowLeft, Loader2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -24,6 +34,7 @@ export type InventoryProductPageLeaveGuard = {
 export type InventoryProductPageFrameProps = {
   mode: "intake" | "edit";
   surface?: "page" | "dialog";
+  presentation?: "standard" | "fullscreen";
   title: string;
   mobileTitle?: string;
   subtitle: string;
@@ -63,6 +74,7 @@ export type InventoryProductPageFrameProps = {
 export function InventoryProductPageFrame({
   mode,
   surface = "page",
+  presentation = "standard",
   title,
   mobileTitle = title,
   subtitle,
@@ -96,6 +108,27 @@ export function InventoryProductPageFrame({
   // stories; those stories provide their AppShell main explicitly.
   const IntakeRoot = "div";
   const isIntake = mode === "intake";
+  const isFullscreen = surface === "page" && presentation === "fullscreen";
+  const formId = useId();
+  const headerRef = useRef<HTMLDivElement>(null);
+  const feedbackRef = useRef<HTMLDivElement>(null);
+  const hasConflict = Boolean(conflict);
+  const hasFeedback = Boolean(error || recoveryMessage || hasConflict || syncStatus);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!isFullscreen || !header) return;
+    const updateHeight = () => setHeaderHeight(Math.ceil(header.getBoundingClientRect().height));
+    updateHeight();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, [isFullscreen]);
+  useEffect(() => {
+    if (!isFullscreen || !hasFeedback) return;
+    feedbackRef.current?.scrollIntoView?.({ block: "start", behavior: "instant" });
+  }, [error, recoveryMessage, hasConflict, hasFeedback, syncStatus, isFullscreen]);
   const canSubmit = Boolean(onSubmit || onPrimary);
   const submit = (event: FormEvent<HTMLFormElement>) => {
     if (onSubmit) {
@@ -105,23 +138,157 @@ export function InventoryProductPageFrame({
     event.preventDefault();
     void onPrimary?.();
   };
+  const actions = (
+    <div
+      data-ui="inventory-product-actions"
+      className={cn(
+        surfaces.stickyActions,
+        isFullscreen
+          ? "fixed bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-1/2 z-30 mx-0 grid w-[calc(100%_-_1rem)] max-w-[414px] -translate-x-1/2 grid-cols-2 gap-1.5 rounded-xl border border-border bg-background px-2 py-2 shadow-[var(--shadow-card)] sm:mx-0 sm:grid md:static md:w-auto md:max-w-none md:shrink-0 md:translate-x-0 md:border-0 md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-none"
+          : surface === "page"
+            ? "fixed bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-1/2 z-30 mx-0 grid w-[calc(100%_-_1rem)] max-w-[414px] -translate-x-1/2 grid-cols-2 gap-1.5 rounded-xl border border-border bg-background/95 px-2 py-2 shadow-[var(--shadow-card)] sm:mx-0 lg:sticky lg:bottom-0 lg:left-auto lg:w-auto lg:max-w-none lg:translate-x-0 lg:px-0 lg:pb-0"
+            : "sticky bottom-0 z-20 grid grid-cols-2 gap-1.5 rounded-xl border border-border bg-background/95 px-2 py-2 shadow-[var(--shadow-card)]",
+      )}
+    >
+      {isIntake && onContinue ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="h-auto min-h-11 whitespace-normal text-center leading-tight"
+          disabled={mutationPending || syncBlocked || secondaryDisabled}
+          onClick={() => void onContinue()}
+        >
+          {mutationPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+          {resolvedContinueLabel}
+        </Button>
+      ) : null}
+      {!isIntake ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="h-auto min-h-11 whitespace-normal text-center leading-tight"
+          disabled={mutationPending || syncBlocked || secondaryDisabled}
+          onClick={() => void onSecondary?.()}
+        >
+          {secondaryLabel ?? t("inventory2b4.quick.frame.cancel")}
+        </Button>
+      ) : null}
+      <Button
+        type="submit"
+        form={formId}
+        className="h-auto min-h-11 whitespace-normal text-center leading-tight"
+        disabled={mutationPending || syncBlocked || primaryDisabled}
+      >
+        {mutationPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+        {primaryLabel}
+      </Button>
+      {isIntake && surface === "page" && !isFullscreen ? (
+        <Button
+          type="button"
+          variant="ghost"
+          className="col-span-2 min-h-11 text-muted-foreground"
+          onClick={onBack}
+          disabled={mutationPending}
+        >
+          {t("inventory2b4.quick.frame.cancelAndBack")}
+        </Button>
+      ) : null}
+    </div>
+  );
+  const syncNotice = syncStatus ? (
+    <InventorySyncStatusPanel
+      status={syncStatus}
+      pending={syncStatus === "committed-refreshing"}
+      privacyRedacted={syncPrivacyRedacted}
+      onRetry={syncStatus === "committed-refresh-failed" ? onRetrySync : undefined}
+      onOpenCommitted={syncStatus === "committed-refresh-failed" ? onOpenCommitted : undefined}
+    />
+  ) : null;
+  const feedback = (
+    <>
+      {isFullscreen ? syncNotice : null}
+      {conflict}
+      {recoveryMessage ? (
+        <p
+          role="status"
+          aria-live="polite"
+          className="rounded-xl bg-status-success px-4 py-3 text-sm text-status-success-foreground"
+        >
+          {recoveryMessage}
+        </p>
+      ) : null}
+      {error ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-status-danger-foreground/30 bg-status-danger px-4 py-3 text-sm text-status-danger-foreground"
+        >
+          {error}
+        </div>
+      ) : null}
+    </>
+  );
 
   return (
     <IntakeRoot
       data-inventory-product-page-frame={mode}
       data-testid="inventory-product-page-frame"
       data-inventory-product-intake-surface={isIntake ? surface : undefined}
+      data-inventory-product-presentation={isFullscreen ? "fullscreen" : "standard"}
+      style={
+        isFullscreen && headerHeight > 0
+          ? ({ "--repair-os-mobile-floating-offset": `${headerHeight + 8}px` } as CSSProperties)
+          : undefined
+      }
       className={cn(
         surface === "page" &&
           cn(
             repairOs.mobileFloatingPage,
-            "mx-auto w-full max-w-[430px] px-2 pb-28 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] lg:max-w-4xl lg:px-0 lg:pb-8 lg:pt-0",
+            isFullscreen
+              ? "mx-auto w-full max-w-[430px] px-2 pb-24 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] md:max-w-none md:px-3 md:pb-6 md:pt-0 lg:px-4"
+              : "mx-auto w-full max-w-[430px] px-2 pb-28 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] lg:max-w-4xl lg:px-0 lg:pb-8 lg:pt-0",
           ),
         surface === "dialog" &&
           "flex h-[calc(100svh-16px)] max-h-[calc(100svh-16px)] min-h-0 w-full flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] p-2 shadow-[var(--shadow-overlay)] sm:h-auto sm:max-h-[calc(100svh-32px)] sm:p-3",
       )}
     >
-      {surface === "page" ? (
+      {isFullscreen ? (
+        <div
+          ref={headerRef}
+          data-ui="inventory-product-workspace-header"
+          className={cn(
+            repairOs.mobileFloatingHeaderShell,
+            "bg-background backdrop-blur-none md:sticky md:inset-x-auto md:top-0 md:px-0 md:pt-2 lg:top-[54px] lg:block",
+          )}
+        >
+          <header
+            className={cn(
+              repairOs.mobileFloatingHeaderCard,
+              "flex items-center gap-2 md:gap-3 md:p-2.5",
+            )}
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-11 shrink-0 rounded-lg"
+              aria-label={t(
+                isIntake
+                  ? "inventory2b4.quick.frame.backInventory"
+                  : "inventory2b4.quick.frame.backDetail",
+              )}
+              onClick={onBack}
+              disabled={mutationPending}
+            >
+              <ArrowLeft className="size-5" />
+            </Button>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-sm font-semibold leading-5 md:text-base">{title}</h1>
+              <p className="text-[10px] leading-4 text-muted-foreground md:text-xs">{subtitle}</p>
+            </div>
+            {actions}
+          </header>
+        </div>
+      ) : surface === "page" ? (
         <>
           <div className={cn(repairOs.mobileFloatingHeaderShell, "lg:static lg:mb-4")}>
             <section className={repairOs.mobileFloatingHeaderCard}>
@@ -188,17 +355,10 @@ export function InventoryProductPageFrame({
         </header>
       )}
 
-      {syncStatus ? (
-        <InventorySyncStatusPanel
-          status={syncStatus}
-          pending={syncStatus === "committed-refreshing"}
-          privacyRedacted={syncPrivacyRedacted}
-          onRetry={syncStatus === "committed-refresh-failed" ? onRetrySync : undefined}
-          onOpenCommitted={syncStatus === "committed-refresh-failed" ? onOpenCommitted : undefined}
-        />
-      ) : null}
+      {!isFullscreen ? syncNotice : null}
 
       <form
+        id={formId}
         className={cn(
           "space-y-1.5",
           surface === "dialog" &&
@@ -207,93 +367,21 @@ export function InventoryProductPageFrame({
         aria-busy={mutationPending || syncBlocked}
         onSubmit={canSubmit ? submit : undefined}
       >
+        {isFullscreen && hasFeedback ? (
+          <div
+            ref={feedbackRef}
+            data-ui="inventory-product-feedback"
+            className="scroll-mt-[calc(var(--repair-os-mobile-floating-offset,5.25rem)+0.5rem)] space-y-1.5 lg:scroll-mt-[calc(var(--repair-os-mobile-floating-offset,5.25rem)+4rem)]"
+          >
+            {feedback}
+          </div>
+        ) : null}
         <fieldset disabled={syncBlocked} className="contents">
           {children}
         </fieldset>
+        {!isFullscreen ? feedback : null}
 
-        {conflict}
-        {recoveryMessage ? (
-          <p
-            role="status"
-            aria-live="polite"
-            className="rounded-xl bg-status-success px-4 py-3 text-sm text-status-success-foreground"
-          >
-            {recoveryMessage}
-          </p>
-        ) : null}
-        {error ? (
-          <div
-            role="alert"
-            className="rounded-xl border border-status-danger-foreground/30 bg-status-danger px-4 py-3 text-sm text-status-danger-foreground"
-          >
-            {error}
-          </div>
-        ) : null}
-
-        <div
-          data-ui="inventory-product-actions"
-          className={cn(
-            surfaces.stickyActions,
-            surface === "page" &&
-              "fixed bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-1/2 z-30 mx-0 grid w-[calc(100%_-_1rem)] max-w-[414px] -translate-x-1/2 grid-cols-2 gap-1.5 rounded-xl border border-border bg-background/95 px-2 py-2 shadow-[var(--shadow-card)] sm:mx-0 lg:sticky lg:bottom-0 lg:left-auto lg:w-auto lg:max-w-none lg:translate-x-0 lg:px-0 lg:pb-0",
-            surface === "dialog" &&
-              "sticky bottom-0 z-20 grid grid-cols-2 gap-1.5 rounded-xl border border-border bg-background/95 px-2 py-2 shadow-[var(--shadow-card)]",
-          )}
-        >
-          {isIntake && onContinue ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-auto min-h-11 whitespace-normal text-center leading-tight"
-              disabled={mutationPending || syncBlocked || secondaryDisabled}
-              onClick={() => void onContinue()}
-            >
-              {mutationPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              {resolvedContinueLabel}
-            </Button>
-          ) : null}
-          {isIntake ? (
-            <Button
-              type="submit"
-              className="h-auto min-h-11 whitespace-normal text-center leading-tight"
-              disabled={mutationPending || syncBlocked || primaryDisabled}
-            >
-              {mutationPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              {primaryLabel}
-            </Button>
-          ) : (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-auto min-h-11 whitespace-normal text-center leading-tight"
-                disabled={mutationPending || syncBlocked || secondaryDisabled}
-                onClick={() => void onSecondary?.()}
-              >
-                {secondaryLabel ?? t("inventory2b4.quick.frame.cancel")}
-              </Button>
-              <Button
-                type="submit"
-                className="h-auto min-h-11 whitespace-normal text-center leading-tight"
-                disabled={mutationPending || syncBlocked || primaryDisabled}
-              >
-                {mutationPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                {primaryLabel}
-              </Button>
-            </>
-          )}
-          {isIntake && surface === "page" ? (
-            <Button
-              type="button"
-              variant="ghost"
-              className="col-span-2 min-h-11 text-muted-foreground"
-              onClick={onBack}
-              disabled={mutationPending}
-            >
-              {t("inventory2b4.quick.frame.cancelAndBack")}
-            </Button>
-          ) : null}
-        </div>
+        {!isFullscreen ? actions : null}
       </form>
 
       {leaveGuard ? (

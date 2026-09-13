@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  localizeOrderQuoteValidationError,
   OrderWorkspaceQuoteRow,
   OrderWorkspaceMoneyStrip,
   OrderWorkspaceQuoteTextField,
@@ -2374,6 +2375,7 @@ export function OrderDetailScreen({
           className={cn(
             componentOverlay.editorSurface,
             componentOverlay.denseEditorSurface,
+            componentOverlay.taskWorkspace,
             "order-unified-editor order-detail-interaction-overlay max-h-[calc(100dvh-2rem)]",
             editorConfirmationClass,
           )}
@@ -4705,6 +4707,7 @@ function MobileOrderDetailView({
                     className={cn(
                       componentOverlay.editorSurface,
                       componentOverlay.denseEditorSurface,
+                      componentOverlay.taskWorkspace,
                       editorConfirmationClass,
                       "order-detail-interaction-overlay max-h-[calc(100dvh-1rem)] overflow-y-auto p-3",
                     )}
@@ -5931,6 +5934,7 @@ function MobileDenseFinanceInput({
   if (inputMode === "decimal") {
     return (
       <MoneyKeypadInput
+        dockMode="flow"
         ariaLabel={placeholder}
         value={value}
         onChange={onValueChange}
@@ -6016,13 +6020,7 @@ function MobileFinanceEditor({
     [draft.faults],
   );
 
-  const validationMessage = normalized.error
-    ? normalized.error.startsWith("押金")
-      ? t("orders2b1.quote.missing.deposit")
-      : normalized.error === "请补全报价项目名称和金额。"
-        ? t("orders2b2.finance.completeItem")
-        : t("orders2b2.payment.invalid")
-    : saveError;
+  const validationMessage = localizeOrderQuoteValidationError(normalized.error, t) ?? saveError;
 
   return (
     <fieldset disabled={pending} data-order-finance-editor="true" className="contents">
@@ -6421,5 +6419,5 @@ function getEditValidationError(
   ) {
     return t("orders2b2.validation.warrantyReason");
   }
-  return financeChanged ? financeError : undefined;
+  return financeChanged ? localizeOrderQuoteValidationError(financeError, t) : undefined;
 }

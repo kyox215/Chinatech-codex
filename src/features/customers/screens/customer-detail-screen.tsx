@@ -42,6 +42,7 @@ import {
 } from "@/features/customers/components/customer-detail-panels";
 import { CustomerDetailTabs } from "@/features/customers/components/customer-detail-tabs";
 import { CustomerHero } from "@/features/customers/components/customer-hero";
+import { readCustomerListReturnState } from "@/features/customers/model/customer-list-return-state";
 import { CustomerStatusBadges } from "@/features/customers/components/customer-status-badges";
 import { CustomerTimelineList } from "@/features/customers/components/customer-profile-blocks";
 import { CustomerDeviceDialog } from "@/features/customers/forms/customer-device-dialog";
@@ -250,8 +251,15 @@ export function CustomerDetailScreen({
   });
 
   const goBackToCustomers = () => {
-    if (window.history.length > 1) router.back();
-    else router.push("/customers");
+    const checkpoint = readCustomerListReturnState(
+      {
+        storeId: activeStoreId ?? "",
+        userId: shell.userId ?? "",
+        authorityFingerprint: shell.authorityFingerprint,
+      },
+      id,
+    );
+    router.push(checkpoint?.href ?? "/customers", { scroll: false });
   };
 
   if (!data && !isError && (shell.status === "loading" || (Boolean(activeStoreId) && isPending))) {
@@ -289,13 +297,23 @@ export function CustomerDetailScreen({
 
   if (isError && !data) {
     return (
-      <CustomerDetailLoadError onRetry={() => void refetch()} surface={surface} onClose={onClose} />
+      <CustomerDetailLoadError
+        onRetry={() => void refetch()}
+        surface={surface}
+        onClose={onClose}
+        onBack={goBackToCustomers}
+      />
     );
   }
 
   if (!data) {
     return (
-      <CustomerDetailLoadError onRetry={() => void refetch()} surface={surface} onClose={onClose} />
+      <CustomerDetailLoadError
+        onRetry={() => void refetch()}
+        surface={surface}
+        onClose={onClose}
+        onBack={goBackToCustomers}
+      />
     );
   }
 
@@ -848,10 +866,12 @@ function CustomerDetailLoadError({
   onRetry,
   surface,
   onClose,
+  onBack,
 }: {
   onRetry: () => void;
   surface: CustomerDetailSurface;
   onClose?: () => void;
+  onBack: () => void;
 }) {
   const { t } = useLocale();
   return (
@@ -891,11 +911,9 @@ function CustomerDetailLoadError({
               {t("customers.detail.close")}
             </Button>
           ) : (
-            <Button asChild variant="outline" className="h-11 gap-1.5 text-xs lg:h-9">
-              <Link href="/customers">
-                <ArrowLeft className="size-3.5" />
-                {t("customers.detail.backShort")}
-              </Link>
+            <Button variant="outline" className="h-11 gap-1.5 text-xs lg:h-9" onClick={onBack}>
+              <ArrowLeft className="size-3.5" />
+              {t("customers.detail.backShort")}
             </Button>
           )}
           <Button type="button" className="h-11 gap-1.5 text-xs lg:h-9" onClick={onRetry}>

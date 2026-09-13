@@ -251,6 +251,7 @@ export function MemoEditor({
 
   const body = (
     <form
+      data-editor-body
       className={cn(
         "min-h-0 min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto px-0.5",
         memo ? "space-y-3 pb-[max(0.25rem,env(safe-area-inset-bottom))]" : memoQuickEntry.form,
@@ -367,6 +368,7 @@ export function MemoEditor({
         </p>
       ) : null}
       <div
+        data-editor-footer
         className={
           memo ? "flex flex-wrap items-center justify-between gap-2 pt-1" : memoQuickEntry.footer
         }

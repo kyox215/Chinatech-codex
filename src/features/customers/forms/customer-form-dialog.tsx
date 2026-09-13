@@ -150,6 +150,7 @@ export function CustomerFormDialog({
         closeLabel={t("customers.detail.close")}
         className={cn(
           componentOverlay.formContent,
+          componentOverlay.taskWorkspace,
           "flex max-h-[calc(100svh-16px)] flex-col gap-0 overflow-hidden p-0",
         )}
       >

@@ -3,6 +3,7 @@
 import { useCallback, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { Check, ChevronDown } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -44,6 +45,7 @@ export type InventorySelectableFieldProps = {
   invalid?: boolean;
   ariaDescribedBy?: string;
   className?: string;
+  manualEntry?: ReactNode;
 };
 
 /**
@@ -68,6 +70,7 @@ export function InventorySelectableField({
   invalid = false,
   ariaDescribedBy,
   className,
+  manualEntry,
 }: InventorySelectableFieldProps) {
   const { t } = useLocale();
   const resolvedPlaceholder = placeholder ?? t("inventory2b4.quick.select.placeholder");
@@ -252,6 +255,22 @@ export function InventorySelectableField({
       )}
     </div>
   );
+  const manual = manualEntry ? (
+    <div className="mt-2 space-y-2 border-t border-border pt-3" data-inventory-manual-entry>
+      <p className="text-xs font-medium text-muted-foreground">
+        {t("inventory2b4.quick.catalog.manualGroup")}
+      </p>
+      {manualEntry}
+      <Button
+        type="button"
+        variant="outline"
+        className="min-h-11 w-full"
+        onClick={() => handleOpenChange(false)}
+      >
+        {t("common.close")}
+      </Button>
+    </div>
+  ) : null;
 
   return (
     <div className={cn("min-w-0 space-y-1.5", className)} data-inventory-selectable-field>
@@ -260,6 +279,7 @@ export function InventorySelectableField({
         <Sheet open={open} onOpenChange={handleOpenChange}>
           <div>{trigger}</div>
           <SheetContent
+            initialFocus="container"
             side="bottom"
             className={cn(componentOverlay.bottomSheet, "flex min-h-0 flex-col gap-0")}
             onOpenAutoFocus={(event) => {
@@ -284,6 +304,7 @@ export function InventorySelectableField({
               className="min-h-0 flex-1 overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
             >
               {listbox}
+              {manual}
             </div>
           </SheetContent>
         </Sheet>
@@ -306,7 +327,10 @@ export function InventorySelectableField({
               focusTrigger();
             }}
           >
-            <div data-inventory-selectable-field-surface="desktop">{listbox}</div>
+            <div data-inventory-selectable-field-surface="desktop">
+              {listbox}
+              {manual}
+            </div>
           </PopoverContent>
         </Popover>
       )}

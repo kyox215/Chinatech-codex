@@ -27,6 +27,7 @@ export type InventoryProductFormWorkspaceProps = {
   draft: InventoryProductFormDraft;
   idPrefix?: string;
   surface?: CatalogPickerSurface;
+  presentation?: "standard" | "fullscreen";
   layoutMode?: Exclude<ViewportMode, "pending"> | "auto";
   categoryDisabled?: boolean;
   catalogDisabled?: boolean;
@@ -88,6 +89,7 @@ export function InventoryProductFormWorkspace({
   draft,
   idPrefix = "product",
   surface = "page",
+  presentation = "standard",
   layoutMode = "auto",
   categoryDisabled = false,
   catalogDisabled = false,
@@ -191,7 +193,7 @@ export function InventoryProductFormWorkspace({
       showScanner={showScanner}
       IdentifierField={identifierField}
       allowPrimarySelection={allowPrimarySelection}
-      layoutMode={resolvedLayoutMode}
+      layoutMode={presentation === "fullscreen" ? "desktop" : resolvedLayoutMode}
       invalidKinds={invalidKinds}
       requiredKinds={requiredIdentifierKinds}
       onIdentifierChange={onIdentifierChange}
@@ -204,13 +206,18 @@ export function InventoryProductFormWorkspace({
       draft={draft}
       idPrefix={idPrefix}
       canEnterCost={false}
+      preserveDisclosureState={presentation === "fullscreen"}
       layoutMode={resolvedLayoutMode}
       conditionInvalid={conditionInvalid}
       gtinInvalid={gtinInvalid}
       listPriceInvalid={listPriceInvalid}
       costInvalid={costInvalid}
       warrantyInvalid={warrantyInvalid}
-      identifierSection={resolvedLayoutMode === "desktop" ? undefined : identifierSection}
+      identifierSection={
+        presentation === "fullscreen" || resolvedLayoutMode !== "desktop"
+          ? identifierSection
+          : undefined
+      }
       onConditionChange={onConditionChange}
       onGtinChange={onGtinChange}
       onSpecificationChange={onSpecificationChange}
@@ -221,6 +228,25 @@ export function InventoryProductFormWorkspace({
       onNotesChange={onNotesChange}
     />
   );
+
+  // Intake keeps one form tree while CSS reflows it; rotating a tablet must not
+  // replace the form/details owners or create a second set of field IDs.
+  if (presentation === "fullscreen") {
+    return (
+      <div
+        data-inventory-product-form-layout={resolvedLayoutMode}
+        data-inventory-product-form-shell="fullscreen-workbench"
+        className="grid min-w-0 items-start gap-1.5 md:grid-cols-2 md:gap-3"
+      >
+        <div data-inventory-product-form-primary="true" className="min-w-0">
+          {primaryForm}
+        </div>
+        <div data-inventory-product-form-details-column="true" className="min-w-0">
+          {detailsForm}
+        </div>
+      </div>
+    );
+  }
 
   if (resolvedLayoutMode === "desktop") {
     return (

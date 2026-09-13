@@ -17,7 +17,9 @@ import type { AppLocale } from "../../src/shared/i18n/locales";
 
 if (process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP !== "1")
   throw new Error("Synthetic fixture server required; never run against production");
-const evidence = resolve("artifacts/product-sales-wired-20260907/screenshots");
+const evidence = resolve(
+  "artifacts/TASK-20260912-002-ui-consistency-framework/fullscreen-run3/sales",
+);
 test.describe.configure({ retries: 0 });
 
 async function fixture(page: Page, locale: AppLocale) {
@@ -261,10 +263,10 @@ for (const [index, width] of [390, 430, 768, 1024, 1280, 1440].entries()) {
   const locale: AppLocale = ["zh-CN", "it-IT", "en"][index % 3] as AppLocale;
   test(`sales page and transaction controls ${width}px ${locale}`, async ({ page }) => {
     await mkdir(evidence, { recursive: true });
-    const { summary, errors } = await fixture(page, locale);
+    const { summary, writes, errors } = await fixture(page, locale);
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/inventory");
-    await expect(page.getByText("Synthetic Phone").first()).toBeVisible();
+    await expect(page.getByText("Synthetic Phone").filter({ visible: true }).first()).toBeVisible();
     await expectNoOverflow(page);
     await page.screenshot({ path: resolve(evidence, `sales-list-${width}.png`), fullPage: true });
     await page.goto(`/inventory/${summary.inventory_item_id}`);
@@ -276,10 +278,38 @@ for (const [index, width] of [390, 430, 768, 1024, 1280, 1440].entries()) {
     ).toBeDisabled();
     await expectNoOverflow(page);
     await expect(dialog).toBeVisible();
+    const note = dialog.getByLabel(salesCopy(locale, "note"), { exact: true });
+    await note.fill("SYNTHETIC unsaved sale note");
+    await expect(note).toHaveValue("SYNTHETIC unsaved sale note");
     await page.screenshot({
       path: resolve(evidence, `sales-transaction-${width}.png`),
-      fullPage: true,
+      fullPage: false,
+      animations: "disabled",
+      style: "nextjs-portal { visibility: hidden !important; }",
     });
+    await dialog
+      .locator("[data-editor-footer]")
+      .getByRole("button", { name: salesCopy(locale, "cancel"), exact: true })
+      .click();
+    await expect(dialog).toHaveCount(0);
+    await sales.getByRole("button", { name: salesCopy(locale, "inspect"), exact: true }).click();
+    const inspection = page.getByRole("dialog");
+    const grade = inspection.getByLabel(salesCopy(locale, "cosmetic_grade"), { exact: true });
+    await grade.selectOption("fair");
+    await expect(grade).toHaveValue("fair");
+    await expectNoOverflow(page);
+    await page.screenshot({
+      path: resolve(evidence, `sales-inspection-${width}.png`),
+      fullPage: false,
+      animations: "disabled",
+      style: "nextjs-portal { visibility: hidden !important; }",
+    });
+    await inspection
+      .locator("[data-editor-footer]")
+      .getByRole("button", { name: salesCopy(locale, "cancel"), exact: true })
+      .click();
+    await expect(inspection).toHaveCount(0);
+    expect(writes).toEqual([]);
     expect(errors).toEqual([]);
   });
 }

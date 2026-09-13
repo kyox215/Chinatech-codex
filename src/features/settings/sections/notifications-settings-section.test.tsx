@@ -80,7 +80,8 @@ describe("NotificationsSettingsSection", () => {
     expect(screen.getByText("客户输出当前保持关闭")).toBeVisible();
     expect(screen.getByText(/当前客户输出仍然阻断；保存这份草稿后预计解除阻断/)).toBeVisible();
     expect(screen.getAllByRole("alert")).toHaveLength(1);
-    expect(screen.queryByText("未保存草稿 · 客户消息")).not.toBeInTheDocument();
+    expect(screen.getByText("未保存草稿 · 客户消息")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "预览客户消息" }));
     const previewDialog = screen.getByRole("dialog", { name: "未保存草稿 · 客户消息" });
     expect(previewDialog).toBeVisible();

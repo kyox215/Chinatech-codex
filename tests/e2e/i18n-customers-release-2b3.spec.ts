@@ -343,24 +343,22 @@ test("heavy it-IT 768px preserves tab identity and dialog focus contracts", asyn
   await assertEvidence(page, evidence, []);
 });
 
-test("heavy en 1440px preserves preview URL, keyboard tabs, device child action, and focus", async ({
+test("heavy en 1440px preserves list context through full-page detail, keyboard tabs, device child action, and focus", async ({
   page,
 }, testInfo) => {
   const evidence = await preparePage(page, "en");
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/customers", { waitUntil: "domcontentloaded" });
+  await page.goto("/customers?q=SYNTHETIC", { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle");
   const initialUrl = page.url();
   const previewTrigger = page.getByRole("button", {
     name: translateMessage("en", "customers.list.viewCustomer", { name: synthetic.customer }),
   });
   await previewTrigger.click();
-  const preview = page.getByRole("dialog", {
-    name: translateMessage("en", "customers.list.previewTitle"),
-  });
-  const root = preview.locator('[data-ui="customer-detail-workspace"]');
-  await expect(preview).toBeVisible();
-  await expect(page).toHaveURL(initialUrl);
+  const root = page.locator('[data-ui="customer-detail-page"]');
+  await expect(root).toBeVisible();
+  await expect(page).toHaveURL(/\/customers\/[^?]+$/);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(root).toContainText(synthetic.customer);
 
   const overview = root.getByRole("tab", {
@@ -409,18 +407,57 @@ test("heavy en 1440px preserves preview URL, keyboard tabs, device child action,
   ).toBeHidden();
   await expect(deviceEdit).toBeFocused();
 
-  await root
-    .getByRole("button", { name: translateMessage("en", "customers.detail.close"), exact: true })
-    .click();
-  await expect(preview).toBeHidden();
+  await page.locator('[data-entity-context-back="customers"]:visible').click();
+  await expect(root).toHaveCount(0);
   await expect(page).toHaveURL(initialUrl);
   await expect
     .poll(() => previewTrigger.evaluate((element) => document.activeElement === element))
     .toBe(true);
   await expectNoHorizontalOverflow(page);
-  await saveScreenshot(page, testInfo, "heavy-en-1440-preview-keyboard-device-focus");
+  await saveScreenshot(page, testInfo, "heavy-en-1440-fullpage-keyboard-device-focus");
   await assertEvidence(page, evidence, []);
 });
+
+for (const failure of [false, true]) {
+  test(`820px visible customer return restores list context${failure ? " after load failure" : ""}`, async ({
+    page,
+  }) => {
+    await preparePage(page, "en");
+    await page.setViewportSize({ width: 820, height: 1180 });
+    if (failure)
+      await page.route(apiUrl("customer/get"), (route) =>
+        route.fulfill({
+          status: 403,
+          json: { error: "SYNTHETIC blocked detail", code: "forbidden" },
+        }),
+      );
+    await page.goto("/customers?q=SYNTHETIC&group=active&page=2");
+    const open = page.getByRole("link", {
+      name: translateMessage("en", "customers.list.openCustomer", { name: synthetic.customer }),
+    });
+    await expect(open).toBeVisible();
+    const listUrl = page.url();
+    await open.click();
+    await expect(page).toHaveURL(/\/customers\/[^?]+$/);
+    if (failure) {
+      const error = page.locator('[data-ui="customer-detail-load-error"]');
+      await expect(error).toBeVisible();
+      await error
+        .getByRole("button", {
+          name: translateMessage("en", "customers.detail.backShort"),
+          exact: true,
+        })
+        .click();
+    } else {
+      await page
+        .locator('[data-ui="customer-detail-mobile-header"]')
+        .getByRole("button", { name: translateMessage("en", "customers.detail.back"), exact: true })
+        .click();
+    }
+    await expect(page).toHaveURL(listUrl);
+    await expect(open).toBeFocused();
+  });
+}
 
 async function preparePage(
   page: Page,

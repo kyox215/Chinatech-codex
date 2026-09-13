@@ -17,13 +17,6 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -53,6 +46,11 @@ import {
   type CustomerQuickGroup,
 } from "@/features/customers/model/customer-list";
 import { localizeCustomerQuickGroup } from "@/features/customers/model/customer-i18n";
+import {
+  clearCustomerListReturnState,
+  readCustomerListReturnState,
+  saveCustomerListReturnState,
+} from "@/features/customers/model/customer-list-return-state";
 import { buildNewOrderWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
 import {
   ScanSearchButton,
@@ -62,7 +60,6 @@ import {
 import { useRealtimeSync } from "@/features/realtime";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { StoreShellUnavailableState } from "@/features/stores/components/store-shell-unavailable-state";
-import { componentOverlay } from "@/lib/component-patterns";
 import {
   createCustomer,
   type CustomerCreateInput,
@@ -79,11 +76,6 @@ const MANAGED_LIST_PARAMS = ["q", "group", "work", "tags", "marketing", "followu
 const CustomerFormDialog = lazy(() =>
   import("@/features/customers/forms/customer-form-dialog").then((module) => ({
     default: module.CustomerFormDialog,
-  })),
-);
-const CustomerDetailScreen = lazy(() =>
-  import("@/features/customers/screens/customer-detail-screen").then((module) => ({
-    default: module.CustomerDetailScreen,
   })),
 );
 
@@ -120,8 +112,6 @@ export function CustomerListScreen() {
   const [page, setPage] = useState(initialUrlState.page);
   const [filterSurface, setFilterSurface] = useState<"mobile" | "desktop">();
   const [createOpen, setCreateOpen] = useState(false);
-  const [previewCustomerId, setPreviewCustomerId] = useState<string>();
-  const previewTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const updateSearchDraft = useCallback((value: string) => {
     setSearchDraft(value);
@@ -197,14 +187,38 @@ export function CustomerListScreen() {
     (group: CustomerQuickGroup) => updateFilters(applyCustomerQuickGroup(baseFilters, group)),
     [baseFilters, updateFilters],
   );
-  const openPreview = useCallback((customerId: string, trigger?: HTMLButtonElement) => {
-    previewTriggerRef.current = trigger ?? null;
-    setPreviewCustomerId(customerId);
-  }, []);
-  const closePreview = useCallback(() => {
-    setPreviewCustomerId(undefined);
-    window.requestAnimationFrame(() => previewTriggerRef.current?.focus());
-  }, []);
+  const openCustomerDetail = useCallback(
+    (customerId: string) => {
+      if (activeStoreId && shell.userId)
+        saveCustomerListReturnState({
+          storeId: activeStoreId,
+          userId: shell.userId,
+          authorityFingerprint: shell.authorityFingerprint,
+          customerId,
+          href: window.location.pathname + window.location.search,
+          scrollY: window.scrollY,
+        });
+      router.push(getCustomerDetailHref(customerId));
+    },
+    [activeStoreId, router, shell.userId, shell.authorityFingerprint],
+  );
+  useEffect(() => {
+    if (!data?.items.length) return;
+    const detailReturnFocus = readCustomerListReturnState({
+      storeId: activeStoreId ?? "",
+      userId: shell.userId ?? "",
+      authorityFingerprint: shell.authorityFingerprint,
+    });
+    if (!detailReturnFocus) return;
+    const target = document.querySelector<HTMLElement>(
+      `[data-customer-open-id="${CSS.escape(detailReturnFocus.customerId)}"]`,
+    );
+    if (target) {
+      target.focus({ preventScroll: true });
+      window.scrollTo({ top: detailReturnFocus.scrollY, behavior: "instant" });
+      clearCustomerListReturnState();
+    }
+  }, [activeStoreId, data, shell.userId, shell.authorityFingerprint]);
 
   const create = useMutation({
     mutationFn: ({ input }: { input: CustomerCreateInput; intent: CustomerCreateIntent }) =>
@@ -561,7 +575,11 @@ export function CustomerListScreen() {
                 </thead>
                 <tbody>
                   {customers.map((customer) => (
-                    <CustomerRow key={customer.id} customer={customer} onOpenDetail={openPreview} />
+                    <CustomerRow
+                      key={customer.id}
+                      customer={customer}
+                      onOpenDetail={openCustomerDetail}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -570,7 +588,11 @@ export function CustomerListScreen() {
           {viewportMode === "compact" ? (
             <div data-customer-mobile-list="true" className={repairOs.listCardStack}>
               {customers.map((customer) => (
-                <CustomerMobileCard key={customer.id} customer={customer} />
+                <CustomerMobileCard
+                  key={customer.id}
+                  customer={customer}
+                  onOpenDetail={openCustomerDetail}
+                />
               ))}
             </div>
           ) : null}
@@ -641,32 +663,6 @@ export function CustomerListScreen() {
           />
         </Suspense>
       ) : null}
-      <Dialog open={Boolean(previewCustomerId)} onOpenChange={(open) => !open && closePreview()}>
-        <DialogContent showCloseButton={false} className={componentOverlay.detailWorkspace}>
-          <DialogHeader className="sr-only">
-            <DialogTitle>{t("customers.list.previewTitle")}</DialogTitle>
-            <DialogDescription>{t("customers.list.previewDescription")}</DialogDescription>
-          </DialogHeader>
-          {previewCustomerId ? (
-            <Suspense
-              fallback={
-                <div className="grid min-h-48 place-items-center text-muted-foreground">
-                  <LoaderCircle
-                    className="size-5 animate-spin"
-                    aria-label={t("customers.list.previewLoading")}
-                  />
-                </div>
-              }
-            >
-              <CustomerDetailScreen
-                id={previewCustomerId}
-                surface="dialog"
-                onClose={closePreview}
-              />
-            </Suspense>
-          ) : null}
-        </DialogContent>
-      </Dialog>
     </RepairOsListScaffold>
   );
 }

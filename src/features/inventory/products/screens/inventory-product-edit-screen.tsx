@@ -393,6 +393,7 @@ function InventoryProductEditContent({
   return (
     <InventoryProductPageFrame
       mode="edit"
+      presentation="fullscreen"
       title={t("inventory2b4.quick.edit.title", {
         product: `${draft.brand} ${draft.model}`.trim(),
       })}
@@ -430,6 +431,7 @@ function InventoryProductEditContent({
       onSecondary={closeEdit}
     >
       <InventoryProductFormWorkspace
+        presentation="fullscreen"
         draft={toFormDraft(draft)}
         idPrefix="product"
         learnedCatalogOptions={catalogQuery.data?.items}

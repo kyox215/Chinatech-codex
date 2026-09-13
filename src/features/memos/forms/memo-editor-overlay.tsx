@@ -47,6 +47,7 @@ export function MemoEditorOverlay({
           componentOverlay.editorSurface,
           memoQuickEntry.surface,
           memoQuickEntry.mobile,
+          componentOverlay.taskWorkspace,
           "inset-x-0 flex w-full min-w-0 max-w-full flex-col overflow-x-hidden",
         )}
       >
@@ -69,6 +70,7 @@ export function MemoEditorOverlay({
           componentOverlay.editorSurface,
           memoQuickEntry.surface,
           memoQuickEntry.desktop,
+          componentOverlay.taskWorkspace,
           "flex flex-col overflow-hidden",
         )}
         closeClassName="right-2 top-2 size-9 hover:bg-transparent focus:ring-[var(--memo-quick-entry-focus)] sm:right-2 sm:top-2"

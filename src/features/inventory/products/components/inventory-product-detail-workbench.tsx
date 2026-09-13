@@ -210,7 +210,7 @@ export function InventoryProductDetailWorkbench({
       data-ui="inventory-product-detail-workbench"
       className={cn(
         repairOs.mobileFloatingPage,
-        "mx-auto w-full max-w-[430px] overflow-x-hidden px-2 pb-20 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] md:max-w-[760px] lg:max-w-5xl lg:px-0 lg:pb-8 lg:pt-0",
+        "mx-auto w-full max-w-[430px] overflow-x-hidden px-2 pb-20 pt-[var(--repair-os-mobile-floating-offset,5.25rem)] md:max-w-none md:px-3 lg:px-4 lg:pb-8 lg:pt-0",
       )}
       style={
         mobileHeaderHeight

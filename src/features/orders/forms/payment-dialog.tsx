@@ -80,6 +80,7 @@ export function PaymentDialog({
         data-order-desktop-payment-dialog="true"
         className={cn(
           componentOverlay.modalMd,
+          componentOverlay.taskWorkspace,
           "grid max-h-[calc(100svh-24px)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0",
         )}
       >
@@ -91,7 +92,10 @@ export function PaymentDialog({
           <DialogDescription className="text-xs">{t("orders2b2.payment.help")}</DialogDescription>
         </DialogHeader>
 
-        <div className="grid min-h-0 min-w-0 gap-0 overflow-y-auto md:grid-cols-[minmax(0,1fr)_260px]">
+        <div
+          data-editor-body
+          className="grid min-h-0 min-w-0 gap-0 overflow-y-auto md:grid-cols-[minmax(0,1fr)_260px]"
+        >
           <section className="min-w-0 space-y-2.5 p-3 sm:p-4">
             <div className="grid min-w-0 gap-2.5 sm:grid-cols-[minmax(0,1fr)_minmax(180px,0.72fr)]">
               <div className="min-w-0">

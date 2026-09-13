@@ -4,6 +4,103 @@ import { describe, expect, it, vi } from "vitest";
 import { InventoryProductPageFrame } from "./inventory-product-page-frame";
 
 describe("InventoryProductPageFrame", () => {
+  it.each(["committed-refresh-failed", "committed-context-stale"] as const)(
+    "includes a %s notice in the fullscreen feedback target without a separate error",
+    (syncStatus) => {
+      render(
+        <InventoryProductPageFrame
+          mode="intake"
+          presentation="fullscreen"
+          title="合成页面"
+          subtitle="合成页面"
+          onBack={vi.fn()}
+          primaryLabel="保存"
+          syncStatus={syncStatus}
+          syncBlocked
+        >
+          <label htmlFor="sync-feedback-field">合成字段</label>
+          <input id="sync-feedback-field" />
+        </InventoryProductPageFrame>,
+      );
+      const notice = screen.getByRole("alert");
+      expect(notice.closest('[data-ui="inventory-product-feedback"]')).not.toBeNull();
+      expect(screen.getAllByRole("alert")).toHaveLength(1);
+      expect(screen.getByRole("textbox")).toBeDisabled();
+      expect(
+        Boolean(
+          notice.compareDocumentPosition(screen.getByRole("textbox")) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+        ),
+      ).toBe(true);
+    },
+  );
+
+  it.each([
+    { mode: "intake", surface: "page", presentation: "fullscreen", feedbackFirst: true },
+    { mode: "intake", surface: "page", presentation: "standard", feedbackFirst: false },
+    { mode: "edit", surface: "page", presentation: "fullscreen", feedbackFirst: true },
+    { mode: "intake", surface: "dialog", presentation: "fullscreen", feedbackFirst: false },
+  ] as const)(
+    "keeps feedback single and only moves it before fields for $mode/$surface/$presentation",
+    ({ mode, surface, presentation, feedbackFirst }) => {
+      render(
+        <InventoryProductPageFrame
+          mode={mode}
+          surface={surface}
+          presentation={presentation}
+          title="合成页面"
+          subtitle="合成页面"
+          onBack={vi.fn()}
+          primaryLabel="保存"
+          error="合成失败"
+          recoveryMessage="合成恢复"
+          conflict={<p>合成冲突</p>}
+        >
+          <label htmlFor="feedback-field">合成字段</label>
+          <input id="feedback-field" />
+        </InventoryProductPageFrame>,
+      );
+      const field = screen.getByRole("textbox");
+      for (const text of ["合成失败", "合成恢复", "合成冲突"]) {
+        expect(screen.getAllByText(text)).toHaveLength(1);
+        expect(
+          Boolean(
+            screen.getByText(text).compareDocumentPosition(field) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+          ),
+        ).toBe(feedbackFirst);
+      }
+    },
+  );
+
+  it("associates the single fullscreen header action with the real form and retains disabled state", () => {
+    const onSubmit = vi.fn((event) => event.preventDefault());
+    const view = render(
+      <InventoryProductPageFrame
+        mode="intake"
+        presentation="fullscreen"
+        title="录入"
+        subtitle="合成页面"
+        onBack={vi.fn()}
+        onContinue={vi.fn()}
+        primaryLabel="保存"
+        onSubmit={onSubmit}
+      >
+        <label htmlFor="fullscreen-field">合成字段</label>
+        <input id="fullscreen-field" />
+      </InventoryProductPageFrame>,
+    );
+    const save = screen.getByRole("button", { name: "保存" });
+    expect(save.closest("form")).toBeNull();
+    expect((save as HTMLButtonElement).form).toBe(screen.getByRole("textbox").closest("form"));
+    fireEvent.click(save);
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(view.container.querySelectorAll('[data-ui="inventory-product-actions"]')).toHaveLength(
+      1,
+    );
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
+
   it("keeps the shared page shell and mobile actions at the 44px contract", () => {
     const onBack = vi.fn();
     const onSecondary = vi.fn();

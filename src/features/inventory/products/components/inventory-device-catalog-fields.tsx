@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import {
@@ -295,11 +294,6 @@ export function InventoryDeviceCatalogFields({
           presentation={catalogPresentation}
         />
       </div>
-      <p className="text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
-        <Search className="mr-1 inline size-3" />
-        {t("inventory2b4.quick.catalog.guide")}
-      </p>
-
       <div className="grid min-w-0 grid-cols-2 gap-2">
         {category !== "other" ? (
           <SpecificationField
@@ -385,7 +379,6 @@ function SpecificationField({
 }) {
   const { t } = useLocale();
   const selectableOptions = options.map((option) => ({ value: option, label: option }));
-  const isManualValue = Boolean(value) && !options.includes(value);
   return (
     <fieldset className={cn("min-w-0 space-y-1.5", className)}>
       <InventorySelectableField
@@ -397,19 +390,21 @@ function SpecificationField({
         mode={pickerMode}
         disabled={disabled}
         onChange={onChange}
-      />
-      <Input
-        id={`${id}-manual`}
-        className="h-11 min-h-11 min-w-0 text-base !text-base lg:h-9 lg:min-h-0 lg:!text-sm"
-        value={isManualValue ? value : ""}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={
-          options.length
-            ? t("inventory2b4.quick.catalog.manualPlaceholder", { placeholder })
-            : placeholder
+        manualEntry={
+          <Input
+            id={`${id}-manual`}
+            className="h-11 min-h-11 min-w-0 text-base !text-base lg:h-9 lg:min-h-0 lg:!text-sm"
+            value={value}
+            disabled={disabled}
+            onChange={(event) => onChange(event.target.value)}
+            placeholder={
+              options.length
+                ? t("inventory2b4.quick.catalog.manualPlaceholder", { placeholder })
+                : placeholder
+            }
+            aria-label={t("inventory2b4.quick.catalog.manualAria", { label })}
+          />
         }
-        aria-label={t("inventory2b4.quick.catalog.manualAria", { label })}
       />
     </fieldset>
   );
@@ -444,7 +439,6 @@ function ColorField({
 }) {
   const { t } = useLocale();
   const isPending = policyState === "pending-official-color";
-  const isManualValue = Boolean(value) && !options.some((option) => option.value === value);
   const preservedValue = existingColor?.trim();
   const displayValue = isPending ? (preservedValue ?? "") : value;
   return (
@@ -462,6 +456,19 @@ function ColorField({
         ariaDescribedBy={invalid ? `${id}-error` : undefined}
         disabled={disabled}
         onChange={onChange}
+        manualEntry={
+          policyState === "generic" ? (
+            <Input
+              id={`${id}-manual`}
+              className="h-11 min-h-11 min-w-0 text-base !text-base lg:!text-sm"
+              value={value}
+              disabled={disabled}
+              onChange={(event) => onChange(event.target.value)}
+              placeholder={t("inventory2b4.quick.catalog.colorManualPlaceholder")}
+              aria-label={t("inventory2b4.quick.catalog.colorManualAria")}
+            />
+          ) : undefined
+        }
       />
       {isPending ? (
         preservedValue ? (
@@ -474,16 +481,6 @@ function ColorField({
             aria-label={t("inventory2b4.quick.catalog.colorReadonlyAria")}
           />
         ) : null
-      ) : policyState === "generic" ? (
-        <Input
-          id={`${id}-manual`}
-          className="h-11 min-h-11 min-w-0 text-base !text-base lg:h-9 lg:min-h-0 lg:!text-sm"
-          value={isManualValue ? value : ""}
-          disabled={disabled}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={t("inventory2b4.quick.catalog.colorManualPlaceholder")}
-          aria-label={t("inventory2b4.quick.catalog.colorManualAria")}
-        />
       ) : null}
       {invalid && errorMessage ? (
         <p id={`${id}-error`} className="text-xs text-status-danger-foreground">

@@ -1,8 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveEntityContextBack } from "./entity-context-routes";
+import { isCustomerListHref, resolveEntityContextBack } from "./entity-context-routes";
 
 describe("entity context route resolver", () => {
+  it.each(["/customers", "/customers?q=SYNTHETIC&group=active&page=2"])(
+    "allows scoped customer list destination %s",
+    (href) => expect(isCustomerListHref(href)).toBe(true),
+  );
+  it.each([
+    "/customers/customer-a",
+    "/customers#profile",
+    "//external.test",
+    "https://external.test/customers",
+    "/orders?q=x",
+  ])("rejects unrelated destination %s", (href) => expect(isCustomerListHref(href)).toBe(false));
   it.each([
     ["/inventory/abc", "/inventory", "返回商品库存"],
     ["/inventory/abc/edit", "/inventory", "返回商品库存"],

@@ -17,6 +17,7 @@ import { useAiAssistantWorkspace } from "@/features/ai-assistant";
 import { appShell } from "@/lib/ui-patterns";
 import { getActiveWorkspaceItem } from "@/shared/config/navigation";
 import { resolveEntityContextBack } from "@/shared/config/entity-context-routes";
+import { readCustomerListReturnState } from "@/features/customers/model/customer-list-return-state";
 import { localizeNavItem, localizeRouteLabel } from "@/shared/i18n/navigation";
 import { useLocale } from "@/shared/i18n/locale-provider";
 import type { MessageKey, MessageValues } from "@/shared/i18n/messages";
@@ -80,6 +81,17 @@ export function AppBar({
   const pathname = usePathname() ?? "/";
   const entityContextBack = resolveEntityContextBack(pathname);
   const shell = useStoreShellContext();
+  const customerReturn =
+    entityContextBack?.kind === "customers"
+      ? readCustomerListReturnState(
+          {
+            storeId: shell.activeStore?.id ?? "",
+            userId: shell.userId ?? "",
+            authorityFingerprint: shell.authorityFingerprint,
+          },
+          pathname.split("/")[2] ?? "",
+        )
+      : null;
   const aiAssistant = useAiAssistantWorkspace();
   const activeModule = localizeNavItem(getActiveWorkspaceItem(pathname, shell.isPlatformAdmin), t);
   const appBarVisibilityClass = getAppBarVisibilityClass(pathname);
@@ -114,7 +126,11 @@ export function AppBar({
 
         {entityContextBack ? (
           <EntityContextBackLink
-            context={entityContextBack}
+            context={
+              customerReturn
+                ? { ...entityContextBack, href: customerReturn.href }
+                : entityContextBack
+            }
             className="ml-1 hidden size-11 rounded-xl lg:inline-flex"
           />
         ) : (

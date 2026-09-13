@@ -63,7 +63,7 @@ export function CustomerDeviceDialog({
         editorLayout
         data-confirm-discard={session.confirmDiscard}
         closeLabel={t("customers.detail.close")}
-        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface} ${editorConfirmationClass}`}
+        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface} ${componentOverlay.taskWorkspace} ${editorConfirmationClass}`}
         onPointerDownOutside={() => {
           outsideDismissedRef.current = true;
         }}

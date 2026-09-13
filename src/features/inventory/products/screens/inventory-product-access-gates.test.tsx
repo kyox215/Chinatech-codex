@@ -1,6 +1,7 @@
 import { RepairDeskApiError } from "@/lib/repairdesk/api";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { useState } from "react";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -44,6 +45,16 @@ function fillPhoneImei1(container: HTMLElement = document.body) {
   });
 }
 
+function inventoryManualValue(id: string, nextValue?: string) {
+  fireEvent.click(document.getElementById(id)!);
+  const input = document.getElementById(`${id}-manual`) as HTMLInputElement;
+  expect(input).toBeVisible();
+  if (nextValue !== undefined) fireEvent.change(input, { target: { value: nextValue } });
+  const value = input.value;
+  fireEvent.keyDown(screen.getByRole("listbox"), { key: "Escape" });
+  return value;
+}
+
 vi.mock("next/navigation", () => ({
   useRouter: () => routerMocks,
   useSearchParams: () => routerMocks.searchParams,
@@ -65,6 +76,8 @@ vi.mock("@/features/stores/api/use-store-shell-context", () => ({
 import { InventoryProductEditScreen } from "./inventory-product-edit-screen";
 import { InventoryProductIntakeScreen } from "./inventory-product-intake-screen";
 import { InventoryProductListScreen } from "./inventory-product-list-screen";
+import { InventoryProductCreateDialog } from "../components/inventory-product-create-dialog";
+import { saveInventoryListReturnState } from "./inventory-product-list-return-state";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -92,6 +105,63 @@ afterEach(() => {
 });
 
 describe("inventory product UI access gates", () => {
+  it("restores list search and lifecycle filtering after the exact projection finishes loading", async () => {
+    shellMocks.value = { ...shellContext(), userId: "return-test-user" };
+    saveInventoryListReturnState(
+      { storeId: "store-1", userId: "return-test-user", authorityFingerprint: "store-1:owner" },
+      {
+        search: "Synthetic",
+        filters: { brands: ["Synthetic"] },
+        lifecycleStatuses: ["reserved"],
+        salesQueue: "all",
+        salesOffset: 30,
+        scrollY: 0,
+      },
+    );
+    const pending: ((value: unknown) => void)[] = [];
+    apiMocks.listInventoryProducts.mockImplementation(
+      () => new Promise((resolve) => pending.push(resolve)),
+    );
+    renderWithQuery(<InventoryProductListScreen />);
+    await waitFor(() => expect(apiMocks.listInventoryProducts).toHaveBeenCalled());
+    expect(screen.getAllByPlaceholderText("搜索商品、SKU、型号")[0]).toHaveValue("Synthetic");
+    const result = {
+      items: [
+        product({
+          id: "available",
+          model: "Available",
+          lifecycle: {
+            mode: "exact",
+            status: "in_stock",
+            confidence: "high",
+            needs_review: false,
+            allowed_actions: [],
+          },
+        }),
+        product({
+          id: "reserved",
+          model: "Reserved",
+          lifecycle: {
+            mode: "exact",
+            status: "reserved",
+            confidence: "high",
+            needs_review: false,
+            allowed_actions: [],
+          },
+        }),
+      ],
+      total: 2,
+      facets: { brands: ["Synthetic"], locations: [] },
+      lifecycle_projection: { mode: "exact", counts: { in_stock: 1, reserved: 1 } },
+    };
+    apiMocks.listInventoryProducts.mockResolvedValue(result);
+    await act(async () => pending.forEach((resolve) => resolve(result)));
+    await screen.findByRole("group", { name: "生命周期工作入口" });
+    expect(document.querySelector('a[href="/inventory/reserved"]')).not.toBeNull();
+    expect(document.querySelector('a[href="/inventory/available"]')).toBeNull();
+    expect(apiMocks.createInventoryProduct).not.toHaveBeenCalled();
+  });
+
   it("keeps create and edit mutation inputs canonical across employee locales", async () => {
     const createInputs: unknown[] = [];
     const updateInputs: unknown[] = [];
@@ -128,12 +198,8 @@ describe("inventory product UI access gates", () => {
       fireEvent.change(document.getElementById("product-imei1")!, {
         target: { value: "490154203237518" },
       });
-      fireEvent.change(document.getElementById("product-spec-network_variant")!, {
-        target: { value: "Network-DYNAMIC-网络" },
-      });
-      fireEvent.change(document.getElementById("product-warranty")!, {
-        target: { value: "12" },
-      });
+      inventoryManualValue("product-spec-network_variant", "Network-DYNAMIC-网络");
+      inventoryManualValue("product-warranty", "12");
       fireEvent.change(document.getElementById("product-notes")!, {
         target: { value: "Notes-DYNAMIC-备注" },
       });
@@ -331,11 +397,11 @@ describe("inventory product UI access gates", () => {
     });
     renderWithQuery(
       <SidebarProvider>
-        <InventoryProductListScreen />
+        <LegacyCreateDialogHarness />
       </SidebarProvider>,
     );
 
-    await screen.findByText("SKU SKU-001");
+    await screen.findByRole("button", { name: "快速录入商品" });
     setViewport(390);
     fireEvent.click(screen.getAllByRole("button", { name: "快速录入商品" })[0]);
 
@@ -358,11 +424,11 @@ describe("inventory product UI access gates", () => {
     });
     renderWithQuery(
       <SidebarProvider>
-        <InventoryProductListScreen />
+        <LegacyCreateDialogHarness />
       </SidebarProvider>,
     );
 
-    await screen.findByText("SKU SKU-001");
+    await screen.findByRole("button", { name: "快速录入商品" });
     const trigger = screen.getAllByRole("button", { name: "快速录入商品" })[0];
     vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
       bottom: 44,
@@ -461,9 +527,9 @@ describe("inventory product UI access gates", () => {
       total: 1,
       facets: { brands: ["Apple"], locations: ["A-02"] },
     });
-    renderWithQuery(<InventoryProductListScreen />);
+    renderWithQuery(<LegacyCreateDialogHarness />);
 
-    await screen.findByText("SKU SKU-001");
+    await screen.findByRole("button", { name: "快速录入商品" });
     fireEvent.click(screen.getAllByRole("button", { name: "快速录入商品" })[0]);
 
     const dialog = await screen.findByRole("dialog");
@@ -487,15 +553,24 @@ describe("inventory product UI access gates", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
-  it("opens the same dialog from the route intent and fails closed without create capability", async () => {
+  it("redirects the legacy intent only after authority is ready and fails closed without create capability", async () => {
     apiMocks.listInventoryProducts.mockResolvedValue({
       items: [product()],
       total: 1,
       facets: { brands: [], locations: [] },
     });
     routerMocks.searchParams = new URLSearchParams("workspace=new-product");
+    shellMocks.value = { ...shellContext(), isLoading: true };
     const firstRender = renderWithQuery(<InventoryProductListScreen />);
-    expect(await screen.findByRole("dialog")).toBeVisible();
+    expect(routerMocks.replace).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    shellMocks.value = shellContext();
+    firstRender.rerender(
+      <QueryClientProvider client={firstRender.queryClient}>
+        <InventoryProductListScreen />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(routerMocks.replace).toHaveBeenCalledWith("/inventory/new"));
     firstRender.unmount();
 
     routerMocks.searchParams = new URLSearchParams("workspace=new-product");
@@ -520,8 +595,8 @@ describe("inventory product UI access gates", () => {
         resolveCreate = resolve;
       }),
     );
-    renderWithQuery(<InventoryProductListScreen />);
-    await screen.findByText("SKU SKU-001");
+    renderWithQuery(<LegacyCreateDialogHarness />);
+    await screen.findByRole("button", { name: "快速录入商品" });
     fireEvent.click(screen.getAllByRole("button", { name: "快速录入商品" })[0]);
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText(/品牌/), { target: { value: "Apple" } });
@@ -549,8 +624,8 @@ describe("inventory product UI access gates", () => {
       total: 1,
       facets: { brands: [], locations: [] },
     });
-    const view = renderWithQuery(<InventoryProductListScreen />);
-    await screen.findByText("SKU SKU-001");
+    const view = renderWithQuery(<LegacyCreateDialogHarness />);
+    await screen.findByRole("button", { name: "快速录入商品" });
     fireEvent.click(screen.getAllByRole("button", { name: "快速录入商品" })[0]);
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText(/品牌/), { target: { value: "Apple" } });
@@ -562,7 +637,7 @@ describe("inventory product UI access gates", () => {
     };
     view.rerender(
       <QueryClientProvider client={view.queryClient}>
-        <InventoryProductListScreen />
+        <LegacyCreateDialogHarness />
       </QueryClientProvider>,
     );
 
@@ -584,8 +659,8 @@ describe("inventory product UI access gates", () => {
         resolveCreate = resolve;
       }),
     );
-    const view = renderWithQuery(<InventoryProductListScreen />);
-    await screen.findByText("SKU SKU-001");
+    const view = renderWithQuery(<LegacyCreateDialogHarness />);
+    await screen.findByRole("button", { name: "快速录入商品" });
     fireEvent.click(screen.getAllByRole("button", { name: "快速录入商品" })[0]);
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText(/品牌/), { target: { value: "Apple" } });
@@ -603,7 +678,7 @@ describe("inventory product UI access gates", () => {
     };
     view.rerender(
       <QueryClientProvider client={view.queryClient}>
-        <InventoryProductListScreen />
+        <LegacyCreateDialogHarness />
       </QueryClientProvider>,
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -666,8 +741,7 @@ describe("inventory product UI access gates", () => {
     expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps the real route-intent dialog mounted when post-commit navigation fails", async () => {
-    routerMocks.searchParams = new URLSearchParams("workspace=new-product");
+  it("keeps the fullscreen intake mounted when post-commit navigation fails", async () => {
     apiMocks.listInventoryProducts.mockResolvedValue({
       items: [product()],
       total: 1,
@@ -680,13 +754,13 @@ describe("inventory product UI access gates", () => {
     routerMocks.push
       .mockRejectedValueOnce(new Error("SECRET-ROUTER-SENTINEL"))
       .mockResolvedValueOnce(undefined);
-    const view = renderWithQuery(<InventoryProductListScreen />);
+    const view = renderWithQuery(<InventoryProductIntakeScreen />);
     const invalidatedKeys: unknown[][] = [];
     vi.spyOn(view.queryClient, "invalidateQueries").mockImplementation(async (filters) => {
       invalidatedKeys.push([...(filters?.queryKey ?? [])]);
     });
 
-    const dialog = await screen.findByRole("dialog");
+    const dialog = screen.getByTestId("inventory-product-page-frame");
     fireEvent.change(within(dialog).getByLabelText(/品牌/), {
       target: { value: "Brand-ROUTE-品牌" },
     });
@@ -697,7 +771,7 @@ describe("inventory product UI access gates", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "保存并查看商品" }));
 
     expect(await within(dialog).findByText("写入已完成，但同步最新状态失败")).toBeVisible();
-    expect(screen.getByRole("dialog")).toBe(dialog);
+    expect(screen.getByTestId("inventory-product-page-frame")).toBe(dialog);
     expect(document.body).not.toHaveTextContent("SECRET-ROUTER-SENTINEL");
     expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1);
     expect(routerMocks.push).toHaveBeenCalledTimes(1);
@@ -709,7 +783,7 @@ describe("inventory product UI access gates", () => {
     ).toHaveLength(1);
 
     fireEvent.click(within(dialog).getByRole("button", { name: "重试同步" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(routerMocks.push).toHaveBeenCalledTimes(2));
     expect(apiMocks.createInventoryProduct).toHaveBeenCalledTimes(1);
     expect(routerMocks.push).toHaveBeenNthCalledWith(2, "/inventory/product-route-created");
     expect(
@@ -718,7 +792,7 @@ describe("inventory product UI access gates", () => {
           JSON.stringify(key) === JSON.stringify(inventoryProductKeys.listsForStore("store-1")),
       ),
     ).toHaveLength(2);
-    expect(routerMocks.replace).toHaveBeenCalledWith("/inventory", { scroll: false });
+    expect(routerMocks.replace).not.toHaveBeenCalled();
   });
 
   it("redacts a committed create when store authority changes before completion sync", async () => {
@@ -804,19 +878,13 @@ describe("inventory product UI access gates", () => {
     const model = screen.getByLabelText(/型号 \/ 商品名称/);
     fireEvent.change(brand, { target: { value: "Samsung" } });
     fireEvent.change(model, { target: { value: "Galaxy S24" } });
-    fireEvent.change(screen.getByLabelText("内存（RAM）手动补充"), {
-      target: { value: "8 GB" },
-    });
-    fireEvent.change(screen.getByLabelText("存储容量手动补充"), {
-      target: { value: "256 GB" },
-    });
-    fireEvent.change(screen.getByLabelText("设备颜色手动补充"), {
-      target: { value: "自定义色" },
-    });
+    inventoryManualValue("product-storage", "256 GB");
+    inventoryManualValue("product-ram", "8 GB");
+    inventoryManualValue("product-color", "自定义色");
     fireEvent.change(screen.getByLabelText("IMEI 1"), { target: { value: "356789012345678" } });
     fireEvent.change(screen.getByLabelText("计划售价"), { target: { value: "699" } });
     fireEvent.change(screen.getByLabelText("库位"), { target: { value: "A-02" } });
-    fireEvent.change(screen.getByLabelText("保修（月）"), { target: { value: "12" } });
+    inventoryManualValue("product-warranty", "12");
 
     fireEvent.change(brand, { target: { value: "Xiaomi" } });
     expect(screen.getByRole("status")).toHaveTextContent(/更换品牌会清除/);
@@ -829,13 +897,13 @@ describe("inventory product UI access gates", () => {
     fireEvent.click(screen.getByRole("button", { name: "清理并切换" }));
     expect(brand).toHaveValue("Xiaomi");
     expect(model).toHaveValue("");
-    expect(screen.getByLabelText("内存（RAM）手动补充")).toHaveValue("");
-    expect(screen.getByLabelText("存储容量手动补充")).toHaveValue("");
-    expect(screen.getByLabelText("设备颜色手动补充")).toHaveValue("");
+    expect(inventoryManualValue("product-ram")).toBe("");
+    expect(inventoryManualValue("product-storage")).toBe("");
+    expect(inventoryManualValue("product-color")).toBe("");
     expect(screen.getByLabelText("IMEI 1")).toHaveValue("356789012345678");
     expect(screen.getByLabelText("计划售价")).toHaveValue("699");
     expect(screen.getByLabelText("库位")).toHaveValue("A-02");
-    expect(screen.getByLabelText("保修（月）")).toHaveValue("12");
+    expect(inventoryManualValue("product-warranty")).toBe("12");
   });
 
   it("allows manual model entry without confirmation until derived values exist", () => {
@@ -848,7 +916,7 @@ describe("inventory product UI access gates", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(model).toHaveValue("Workshop Prototype");
 
-    fireEvent.change(screen.getByLabelText("存储容量手动补充"), { target: { value: "825 GB" } });
+    inventoryManualValue("product-storage", "825 GB");
     fireEvent.change(model, { target: { value: "PlayStation 5" } });
     expect(
       document.querySelector('[data-ui="inventory-product-catalog-transition-confirm"]'),
@@ -856,7 +924,7 @@ describe("inventory product UI access gates", () => {
     expect(model).toHaveValue("PlayStation 5");
     fireEvent.click(screen.getByRole("button", { name: "清理并切换" }));
     expect(model).toHaveValue("PlayStation 5");
-    expect(screen.getByLabelText("存储容量手动补充")).toHaveValue("");
+    expect(inventoryManualValue("product-storage")).toBe("");
     expect(screen.getByLabelText(/品牌/)).toHaveValue("Sony / PlayStation");
   });
 
@@ -866,7 +934,7 @@ describe("inventory product UI access gates", () => {
     const model = screen.getByLabelText(/型号 \/ 商品名称/);
     fireEvent.change(brand, { target: { value: "Apple" } });
     fireEvent.change(model, { target: { value: "iPhone 15" } });
-    fireEvent.change(screen.getByLabelText("存储容量手动补充"), { target: { value: "256 GB" } });
+    inventoryManualValue("product-storage", "256 GB");
     fireEvent.change(model, { target: { value: "iPhone 16" } });
 
     const saveButton = screen.getByRole("button", { name: "保存并查看商品" });
@@ -890,10 +958,10 @@ describe("inventory product UI access gates", () => {
     });
     renderWithQuery(
       <SidebarProvider>
-        <InventoryProductListScreen />
+        <LegacyCreateDialogHarness />
       </SidebarProvider>,
     );
-    await screen.findByText("SKU SKU-001");
+    await screen.findByRole("button", { name: "快速录入商品" });
     setViewport(390);
     fireEvent.click(screen.getAllByRole("button", { name: "快速录入商品" })[0]);
     const dialog = await screen.findByRole("dialog");
@@ -1404,7 +1472,7 @@ describe("inventory product UI access gates", () => {
     fireEvent.change(document.getElementById("product-model")!, {
       target: { value: "Model-LOCK-型号" },
     });
-    const form = screen.getByRole("button", { name: "保存修改" }).closest("form")!;
+    const form = (screen.getByRole("button", { name: "保存修改" }) as HTMLButtonElement).form!;
 
     fireEvent.submit(form);
     fireEvent.submit(form);
@@ -1640,16 +1708,18 @@ describe("inventory product UI access gates", () => {
     );
     const brand = document.getElementById("product-brand")!;
     const model = document.getElementById("product-model")!;
-    const network = document.getElementById("product-spec-network_variant")!;
-    const disclosure = document.getElementById("product-spec-network_variant-preset")!;
+    const disclosure = document.getElementById("product-spec-network_variant")!;
     brand.focus();
     expect(brand).toHaveFocus();
     fireEvent.change(brand, { target: { value: "Brand-DYNAMIC-品牌" } });
     fireEvent.change(model, { target: { value: "Model-DYNAMIC-型号" } });
-    fireEvent.change(network, { target: { value: "Network-DYNAMIC-网络" } });
     fireEvent.click(disclosure);
     await waitFor(() => expect(disclosure).toHaveAttribute("aria-expanded", "true"));
     await waitFor(() => expect(screen.getByRole("option", { name: "EU" })).toHaveFocus());
+    fireEvent.change(document.getElementById("product-spec-network_variant-manual")!, {
+      target: { value: "Network-DYNAMIC-网络" },
+    });
+    screen.getByRole("option", { name: "EU" }).focus();
     const readsBeforeSwitch = apiMocks.searchInventoryCatalog.mock.calls.length;
     Object.defineProperty(window, "scrollY", { configurable: true, value: 240 });
 
@@ -1658,15 +1728,13 @@ describe("inventory product UI access gates", () => {
     await waitFor(() => {
       expect(document.getElementById("product-brand")).toHaveValue("Brand-DYNAMIC-品牌");
       expect(document.getElementById("product-model")).toHaveValue("Model-DYNAMIC-型号");
-      expect(document.getElementById("product-spec-network_variant")).toHaveValue(
+      expect(document.getElementById("product-spec-network_variant-manual")).toHaveValue(
         "Network-DYNAMIC-网络",
       );
       expect(disclosure).toHaveAttribute("aria-expanded", "true");
       expect(screen.getByRole("listbox")).toHaveAccessibleName(
         translateMessage("it-IT", "inventory2b4.quick.select.optionsAria", {
-          label: translateMessage("it-IT", "inventory2b4.quick.form.presets", {
-            label: translateMessage("it-IT", "inventory2b4.quick.spec.networkVariant"),
-          }),
+          label: translateMessage("it-IT", "inventory2b4.quick.spec.networkVariant"),
         }),
       );
       expect(screen.getByRole("option", { name: "EU" })).toHaveFocus();
@@ -1676,6 +1744,32 @@ describe("inventory product UI access gates", () => {
     expect(apiMocks.createInventoryProduct).not.toHaveBeenCalled();
   });
 });
+
+// The legacy dialog remains an independently reusable adapter. Keep its focus,
+// dirty/pending and authority tests without asserting it is the list default.
+function LegacyCreateDialogHarness() {
+  const [open, setOpen] = useState(false);
+  const [sessionKey, setSessionKey] = useState(0);
+  return (
+    <>
+      <button
+        data-inventory-product-create-trigger="true"
+        onClick={() => {
+          setSessionKey((key) => key + 1);
+          setOpen(true);
+        }}
+      >
+        快速录入商品
+      </button>
+      <InventoryProductCreateDialog
+        open={open}
+        sessionKey={sessionKey}
+        onOpenChange={setOpen}
+        onCreated={(id) => routerMocks.push(`/inventory/${id}`)}
+      />
+    </>
+  );
+}
 
 function product(overrides: Record<string, unknown> = {}) {
   return {

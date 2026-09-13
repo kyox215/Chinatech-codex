@@ -40,7 +40,7 @@ const customerChannelOptions = [
   { value: "sms", label: "SMS" },
 ] as const;
 
-const compactInputClass = `${componentOverlay.editorField} h-11 lg:h-9 lg:text-sm`;
+const compactInputClass = `${componentOverlay.editorField} h-11 lg:text-sm`;
 const compactTextareaClass = `${componentOverlay.editorField} min-h-20 lg:text-sm`;
 
 export function CustomerEditDialog({
@@ -81,7 +81,7 @@ export function CustomerEditDialog({
         }}
         data-confirm-discard={session.confirmDiscard}
         closeLabel={t("customers.detail.close")}
-        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface} ${editorConfirmationClass}`}
+        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface} ${componentOverlay.taskWorkspace} ${editorConfirmationClass}`}
       >
         {session.confirmDiscard ? (
           <EditorDiscardConfirmation
@@ -172,7 +172,7 @@ function CustomerFields({
           className={`${compactInputClass} font-mono`}
         />
       </CustomerFormField>
-      <div className="sm:col-span-2">
+      <div className="min-w-0">
         <CustomerFormField label={t("customers.form.backupPhones")}>
           <CustomerBackupPhonesField
             primaryPhone={form.phone_e164}
@@ -212,7 +212,7 @@ function CustomerFields({
           </SelectContent>
         </Select>
       </CustomerFormField>
-      <div className="sm:col-span-2">
+      <div className="min-w-0 sm:col-start-1">
         <CustomerFormField label={t("customers.form.customerNotes")} htmlFor="customer-edit-notes">
           <Textarea
             id="customer-edit-notes"
@@ -222,7 +222,7 @@ function CustomerFields({
           />
         </CustomerFormField>
       </div>
-      <div className="sm:col-span-2">
+      <div className="min-w-0">
         <CustomerFormField
           label={t("customers.form.contactNotes")}
           htmlFor="customer-edit-contact-notes"

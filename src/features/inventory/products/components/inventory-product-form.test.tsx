@@ -101,7 +101,14 @@ describe("InventoryProductFormDetails", () => {
             customValue: "18",
             lastOption: "24",
           },
-        ].map((field) => ({ locale, layoutMode, surface, ...field })),
+        ].map((field) => ({
+          locale,
+          layoutMode,
+          surface,
+          ...field,
+          triggerId: field.inputId,
+          inputId: `${field.inputId}-manual`,
+        })),
       ),
     ),
   )(
@@ -130,23 +137,27 @@ describe("InventoryProductFormDetails", () => {
       );
 
       const label = translateMessage(locale, labelKey as MessageKey);
-      const presetLabel = translateMessage(locale, "inventory2b4.quick.form.presets", { label });
+      const presetLabel = label;
       const optionsName = translateMessage(locale, "inventory2b4.quick.select.optionsAria", {
         label: presetLabel,
       });
-      const input = document.getElementById(inputId);
       const trigger = document.getElementById(triggerId);
-      expect(input).toBeVisible();
-      expect(input).toHaveValue(customValue);
-      expect(document.querySelector(`label[for="${inputId}"]`)).toHaveTextContent(label);
+      expect(document.getElementById(inputId)).toBeNull();
       expect(trigger).toHaveAccessibleName(
-        translateMessage(locale, "inventory2b4.quick.form.choosePreset"),
+        translateMessage(locale, "inventory2b4.quick.select.valueAria", {
+          label,
+          value: customValue,
+        }),
       );
       expect(trigger).toHaveAttribute("aria-expanded", "false");
       expect(trigger).not.toHaveAttribute("aria-controls");
 
       fireEvent.click(trigger!);
       await waitFor(() => expect(trigger).toHaveAttribute("aria-expanded", "true"));
+      const input = document.getElementById(inputId);
+      expect(input).toBeVisible();
+      expect(input).toHaveValue(customValue);
+      expect(document.querySelector(`label[for="${inputId}"]`)).toHaveTextContent(label);
       expect(
         screen.getByRole("dialog", { name: surface === "mobile" ? presetLabel : optionsName }),
       ).toBeVisible();
@@ -182,7 +193,7 @@ describe("InventoryProductFormDetails", () => {
       await waitFor(() => expect(trigger).toHaveFocus());
       expect(trigger).toHaveAttribute("aria-expanded", "false");
       expect(trigger).not.toHaveAttribute("aria-controls");
-      expect(input).toHaveValue(customValue);
+      expect(trigger).toHaveTextContent(customValue);
 
       fireEvent.click(trigger!);
       const reopenedListbox = await screen.findByRole("listbox");
@@ -190,7 +201,8 @@ describe("InventoryProductFormDetails", () => {
       fireEvent.click(reopenedLast!);
       await waitFor(() => expect(trigger).toHaveFocus());
       expect(trigger).toHaveAttribute("aria-expanded", "false");
-      expect(input).toHaveValue(lastOption);
+      fireEvent.click(trigger!);
+      expect(document.getElementById(inputId)).toHaveValue(lastOption);
     },
   );
 });

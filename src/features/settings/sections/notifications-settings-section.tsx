@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, MessageSquare, MessagesSquare, Printer } from "lucide-react";
 
@@ -62,32 +62,34 @@ export function NotificationsSettingsSection({
     values?: Parameters<typeof translateSettingsOperations>[2],
   ) => translateSettingsOperations(locale, source, values);
   return (
-    <div data-settings-notifications-section className="min-w-0 space-y-3">
-      <NotificationFieldsCard
-        draft={draft}
-        canUpdateSettings={canUpdateSettings}
-        fieldErrors={fieldErrors}
-        copy={copy}
-        onDraftChange={onDraftChange}
-      />
-      <label className={cn(repairOs.adminSection, "grid min-w-0 gap-2 p-3 text-xs")}>
-        {salesCopy(locale, "printLanguage")}
-        <select
-          aria-label={salesCopy(locale, "printLanguage")}
-          value={draft.inventory_sales_print_language ?? "it"}
-          disabled={!canUpdateSettings}
-          onChange={(event) =>
-            onDraftChange({
-              inventory_sales_print_language: event.target.value as "it" | "en" | "zh",
-            })
-          }
-          className="min-h-11 w-full rounded-lg border border-input bg-background px-2 text-base lg:text-sm"
-        >
-          <option value="it">Italiano</option>
-          <option value="en">English</option>
-          <option value="zh">中文</option>
-        </select>
-      </label>
+    <div data-settings-notifications-section className="grid min-w-0 gap-3 md:grid-cols-2">
+      <div className="min-w-0 space-y-3">
+        <NotificationFieldsCard
+          draft={draft}
+          canUpdateSettings={canUpdateSettings}
+          fieldErrors={fieldErrors}
+          copy={copy}
+          onDraftChange={onDraftChange}
+        />
+        <label className={cn(repairOs.adminSection, "grid min-w-0 gap-2 p-3 text-xs")}>
+          {salesCopy(locale, "printLanguage")}
+          <select
+            aria-label={salesCopy(locale, "printLanguage")}
+            value={draft.inventory_sales_print_language ?? "it"}
+            disabled={!canUpdateSettings}
+            onChange={(event) =>
+              onDraftChange({
+                inventory_sales_print_language: event.target.value as "it" | "en" | "zh",
+              })
+            }
+            className="min-h-11 w-full rounded-lg border border-input bg-background px-2 text-base lg:text-sm"
+          >
+            <option value="it">Italiano</option>
+            <option value="en">English</option>
+            <option value="zh">中文</option>
+          </select>
+        </label>
+      </div>
       <NotificationPreviewCard
         savedOutputIdentity={savedOutputIdentity}
         draftOutputIdentity={draftOutputIdentity}
@@ -125,7 +127,7 @@ function NotificationFieldsCard({
         }
       />
       {canUpdateSettings ? (
-        <div className="grid min-w-0 gap-3 xl:grid-cols-2">
+        <div className="grid min-w-0 gap-3">
           <SettingsField
             label={copy("客户消息签名")}
             htmlFor="message-signature"
@@ -286,7 +288,7 @@ function NotificationPreviewCard({
         <Button
           type="button"
           variant="outline"
-          className="min-h-11 flex-1 sm:w-auto sm:flex-none"
+          className="min-h-11 flex-1 sm:w-auto sm:flex-none md:hidden"
           onClick={() => setPreview("message")}
         >
           <MessageSquare className="size-3.5" />
@@ -295,13 +297,33 @@ function NotificationPreviewCard({
         <Button
           type="button"
           variant="outline"
-          className="min-h-11 flex-1 sm:w-auto sm:flex-none"
+          className="min-h-11 flex-1 sm:w-auto sm:flex-none md:hidden"
           onClick={() => setPreview("print")}
         >
           <Printer className="size-3.5" />
           {copy("预览打印资料")}
         </Button>
         <MessageTemplatesAction canReadMessageTemplates={canReadMessageTemplates} copy={copy} />
+      </div>
+
+      <div data-settings-inline-preview className="hidden min-w-0 space-y-3 md:block">
+        <p className="text-xs text-muted-foreground">
+          {isDraftDirty
+            ? copy("这是当前草稿的预览；保存后才会影响客户输出。")
+            : copy("这是当前已保存店铺资料生成的预览。")}
+        </p>
+        <OutputPreview
+          title={isDraftDirty ? copy("未保存草稿 · 客户消息") : copy("客户消息预览")}
+          kind="message"
+          icon={MessageSquare}
+          value={messagePreview}
+        />
+        <OutputPreview
+          title={isDraftDirty ? copy("未保存草稿 · 打印资料") : copy("打印资料预览")}
+          kind="print"
+          icon={Printer}
+          value={printPreview}
+        />
       </div>
 
       <Dialog open={preview !== null} onOpenChange={(open) => !open && setPreview(null)}>
@@ -354,7 +376,8 @@ function OutputPreview({
   value: string;
   kind: "message" | "print";
 }) {
-  const titleId = `settings-output-preview-${kind}`;
+  const instanceId = useId();
+  const titleId = `settings-output-preview-${kind}-${instanceId}`;
   return (
     <div className="min-w-0 rounded-xl border border-[var(--border-panel)] bg-card p-3">
       <p id={titleId} className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold">

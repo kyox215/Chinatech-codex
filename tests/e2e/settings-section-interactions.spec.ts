@@ -34,6 +34,9 @@ const viewports = [
 ] as const;
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for settings checks.");
+test.beforeEach(async ({ context, baseURL }) => {
+  await context.addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL! }]);
+});
 
 test.describe("settings overview responsive shell", () => {
   for (const viewport of viewports) {
@@ -497,8 +500,8 @@ test.describe("settings notifications and default rules", () => {
     }
     await expectNoPageOverflow(page, "notification settings dirty 390px");
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp03c-notifications-dirty-390x844.png",
-      fullPage: true,
+      path: "artifacts/TASK-20260912-002-ui-consistency-framework/fullscreen-run3/final-previews/390-notifications-saved-vs-draft.png",
+      fullPage: false,
     });
   });
 
@@ -508,26 +511,19 @@ test.describe("settings notifications and default rules", () => {
     await gotoReady(page, "/settings?section=notifications");
 
     const section = page.locator("[data-settings-notifications-section]");
-    await expect(section.getByRole("button", { name: "预览客户消息" })).toBeVisible();
-    await expect(section.getByRole("button", { name: "预览打印资料" })).toBeVisible();
-    await section.getByRole("button", { name: "预览客户消息" }).click();
-    const messageDialog = page.getByRole("dialog", { name: "客户消息预览" });
-    await expect(messageDialog).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(messageDialog).toBeHidden();
-    await section.getByRole("button", { name: "预览打印资料" }).click();
-    const printDialog = page.getByRole("dialog", { name: "打印资料预览" });
-    await expect(printDialog).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(printDialog).toBeHidden();
+    const inline = section.locator("[data-settings-inline-preview]");
+    await expect(inline).toBeVisible();
+    await expect(inline.getByText("客户消息预览", { exact: true })).toBeVisible();
+    await expect(inline.getByText("打印资料预览", { exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(section.getByRole("link", { name: /打开消息模板/ })).toHaveAttribute(
       "href",
       "/messages",
     );
     await expectNoPageOverflow(page, "notification settings 1280px");
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp03c-notifications-1280x800.png",
-      fullPage: true,
+      path: "artifacts/TASK-20260912-002-ui-consistency-framework/fullscreen-run3/final-previews/1280-notifications-saved-output.png",
+      fullPage: false,
     });
   });
 

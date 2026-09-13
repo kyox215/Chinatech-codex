@@ -40,9 +40,11 @@ import {
   DeviceUnlockViewer,
 } from "@/features/orders/components/device-unlock-fields";
 import {
+  localizeOrderQuoteValidationError,
   OrderWorkspaceEmptyBlock,
   OrderWorkspaceMoneyStrip,
   OrderWorkspaceQuoteDisplayRow,
+  OrderWorkspaceQuoteRow,
   OrderWorkspaceQuoteTextField,
   OrderWorkspaceRepairItems,
   OrderWorkspaceFullText,
@@ -119,8 +121,6 @@ const inlineEditInputClass =
   "!h-6 !rounded-none !border-0 !border-b !border-transparent !bg-transparent !px-0 !py-0 !shadow-none focus-visible:!border-primary/45 focus-visible:!ring-0";
 const inlineEditTextareaClass =
   "!rounded-none !border-0 !border-b !border-transparent !bg-transparent !px-0 !py-0 !shadow-none focus-visible:!border-primary/45 focus-visible:!ring-0";
-const inlineFinanceInputClass =
-  "!h-6 !rounded-none !border-0 !border-b !border-transparent !bg-transparent !px-0 !py-0 !shadow-none focus-visible:!border-primary/45 focus-visible:!ring-0";
 const DetailDensityContext = createContext(false);
 
 function useDenseDetail() {
@@ -1919,7 +1919,7 @@ export function FinanceInlineEditor({
     faults[index] = { ...faults[index], ...patch };
     onChange({ ...draft, faults });
   };
-  const message = normalized.error ?? error;
+  const message = localizeOrderQuoteValidationError(normalized.error, t) ?? error;
   const selectedFaults = useMemo(
     () =>
       normalizeFaultPrices(
@@ -1955,18 +1955,50 @@ export function FinanceInlineEditor({
         />
       </div>
       {draft.faults.length ? (
-        <div className={cn("min-w-0", dense ? "space-y-1" : "space-y-1.5")}>
+        <div className="min-w-0 space-y-0">
           {draft.faults.map((item, index) => (
-            <div
-              key={index}
-              className="grid min-w-0 grid-cols-[minmax(0,1fr)_86px_24px] items-start gap-x-1.5 gap-y-0.5 rounded-md border border-border/60 bg-surface-muted/35 px-2 py-1.5 sm:rounded-lg"
+            <OrderWorkspaceQuoteRow
+              key={item.line_id ?? index}
+              appearance="quote-editor"
+              priceMessage={
+                (item.name.trim() || item.note.trim()) && !item.priceText.trim() ? (
+                  <p className="px-1 text-[11px] leading-4 text-status-danger-foreground">
+                    {t("orders2b2.finance.missingAmount")}
+                  </p>
+                ) : undefined
+              }
+              price={
+                <MoneyDraftField
+                  ariaLabel={t("orders2b2.overview.itemAmount", { index: index + 1 })}
+                  value={item.priceText}
+                  placeholder={t("orders2b2.finance.amount")}
+                  invalid={Boolean(
+                    (item.name.trim() || item.note.trim()) && !item.priceText.trim(),
+                  )}
+                  onChange={(value) => patchFault(index, { priceText: value })}
+                />
+              }
+              action={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-lg"
+                  onClick={() =>
+                    onChange({ ...draft, faults: draft.faults.filter((_, i) => i !== index) })
+                  }
+                  aria-label={t("orders2b2.overview.deleteItem")}
+                >
+                  <Trash2 className="size-4 text-muted-foreground" />
+                </Button>
+              }
             >
               <OrderWorkspaceQuoteTextField
                 ariaLabel={t("orders2b2.overview.itemName", { index: index + 1 })}
                 value={item.name}
                 displayValue={localizeRepairServiceItemName(item, locale)}
                 placeholder={t("orders2b2.overview.itemPlaceholder")}
-                className="min-h-6 rounded-none border-0 border-b border-transparent bg-transparent px-0 py-0 text-sm font-medium focus-visible:border-primary/45 focus-visible:ring-0"
+                className="h-9 border-transparent bg-transparent px-0 text-sm font-medium hover:border-[var(--border-panel)] focus-visible:border-ring"
                 onValueChange={(name) =>
                   patchFault(index, {
                     name,
@@ -1974,25 +2006,7 @@ export function FinanceInlineEditor({
                   })
                 }
               />
-              <MoneyDraftField
-                ariaLabel={t("orders2b2.overview.itemAmount", { index: index + 1 })}
-                value={item.priceText}
-                placeholder="0"
-                onChange={(value) => patchFault(index, { priceText: value })}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="-mr-1 -mt-0.5 size-6 rounded-md text-muted-foreground hover:text-destructive"
-                onClick={() =>
-                  onChange({ ...draft, faults: draft.faults.filter((_, i) => i !== index) })
-                }
-                aria-label={t("orders2b2.overview.deleteItem")}
-              >
-                <Trash2 className="size-3 text-muted-foreground" />
-              </Button>
-            </div>
+            </OrderWorkspaceQuoteRow>
           ))}
         </div>
       ) : (
@@ -2001,50 +2015,41 @@ export function FinanceInlineEditor({
         </div>
       )}
 
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_106px] items-end gap-1.5">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-7 rounded-md border-dashed px-2 text-[10px] lg:text-xs"
-          onClick={() =>
-            onChange({ ...draft, faults: [...draft.faults, emptyFinanceFaultDraft()] })
-          }
-        >
-          <Plus className="mr-1 size-3" />
-          {t("orders2b2.overview.addItem")}
-        </Button>
-        <label className="grid min-w-0 gap-0.5 text-[10px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
-          <span>{t("orders2b2.overview.deposit")}</span>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-9 w-full rounded-lg border-dashed text-xs font-semibold text-muted-foreground shadow-none"
+        onClick={() => onChange({ ...draft, faults: [...draft.faults, emptyFinanceFaultDraft()] })}
+      >
+        <Plus className="mr-1 size-3" />
+        {t("orders2b2.overview.addItem")}
+      </Button>
+
+      <OrderWorkspaceMoneyStrip
+        total={normalized.quotation}
+        deposit={normalized.deposit}
+        balance={normalized.balance}
+        appearance="quote-editor"
+        depositControl={
           <MoneyDraftField
             ariaLabel={t("orders2b2.overview.deposit")}
             value={draft.depositText}
             placeholder="0"
+            invalid={Boolean(normalized.error?.startsWith("押金"))}
             onChange={(value) => onChange({ ...draft, depositText: value })}
           />
-        </label>
-      </div>
+        }
+      />
 
       {message ? (
-        <p className="rounded-md bg-status-danger px-2 py-1 text-[10px] leading-3 text-status-danger-foreground lg:text-xs lg:leading-[18px]">
+        <p
+          role="alert"
+          className="rounded-md bg-status-danger px-2 py-1 text-[10px] leading-3 text-status-danger-foreground lg:text-xs lg:leading-[18px]"
+        >
           {message}
         </p>
-      ) : (
-        <div className="grid grid-cols-2 gap-1 text-[10px] lg:text-xs lg:leading-4">
-          <div className="rounded-md bg-[var(--surface-panel-muted)] px-2 py-1">
-            <span className="block text-muted-foreground">
-              {t("orders2b2.overview.editedTotal")}
-            </span>
-            <MoneyText amount={normalized.quotation} className="font-semibold text-primary" />
-          </div>
-          <div className="rounded-md bg-[var(--surface-panel-muted)] px-2 py-1">
-            <span className="block text-muted-foreground">
-              {t("orders2b2.overview.editedBalance")}
-            </span>
-            <MoneyText amount={normalized.balance} className="font-semibold" />
-          </div>
-        </div>
-      )}
+      ) : null}
     </section>
   );
 }
@@ -2053,25 +2058,26 @@ function MoneyDraftField({
   ariaLabel,
   value,
   placeholder,
+  invalid,
   onChange,
 }: {
   ariaLabel: string;
   value: string;
   placeholder?: string;
+  invalid?: boolean;
   onChange: (value: string) => void;
 }) {
   return (
     <MoneyKeypadInput
+      dockMode="flow"
       ariaLabel={ariaLabel}
       value={value}
       onChange={onChange}
       placeholder={placeholder}
+      invalid={invalid}
       layout="quote-editor"
-      triggerClassName={cn(
-        "h-7 rounded-md border-0 bg-card/60 px-1.5 py-0.5 text-xs shadow-none",
-        inlineFinanceInputClass,
-      )}
-      valueClassName="text-xs font-medium"
+      triggerClassName="h-auto min-h-9 rounded-lg border border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/60 px-1 text-base shadow-none focus-visible:ring-1 lg:text-sm"
+      valueClassName="overflow-visible whitespace-nowrap text-clip text-base leading-6 lg:text-sm"
     />
   );
 }

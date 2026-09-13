@@ -44,10 +44,26 @@ function renderWorkspace(
     onInspectionFaceIdStatusChange: vi.fn<(value: InventoryProductFaceIdStatus) => void>(),
     ...overrides,
   };
-  return render(<InventoryProductFormWorkspace {...props} />);
+  return { ...render(<InventoryProductFormWorkspace {...props} />), props };
 }
 
 describe("InventoryProductFormWorkspace", () => {
+  it("opts intake into two columns without replacing identifiers or an expanded details owner", () => {
+    const view = renderWorkspace({ presentation: "fullscreen", layoutMode: "desktop" });
+    const shell = document.querySelector(
+      '[data-inventory-product-form-shell="fullscreen-workbench"]',
+    );
+    const imei2 = screen.getByLabelText("IMEI 2");
+    const notes = screen.getByLabelText("内部备注");
+    expect(shell).toHaveClass("md:grid-cols-2");
+    expect(shell?.children).toHaveLength(2);
+    view.rerender(<InventoryProductFormWorkspace {...view.props} layoutMode="compact" />);
+    expect(screen.getByLabelText("IMEI 2")).toBe(imei2);
+    expect(screen.getByLabelText("内部备注")).toBe(notes);
+    expect(document.querySelectorAll("[data-inventory-product-form-shell]")).toHaveLength(1);
+    expect(screen.queryByLabelText("入库成本")).not.toBeInTheDocument();
+  });
+
   it("keeps the shared form/details/identifier body and redacts cost when unavailable", () => {
     renderWorkspace();
 

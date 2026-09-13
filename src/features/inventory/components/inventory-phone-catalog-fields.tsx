@@ -346,6 +346,7 @@ export function CatalogCombobox({
   const triggerRef = useRef<HTMLInputElement | HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const inlineCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileContentRef = useRef<HTMLDivElement>(null);
   const resolvedListboxIdRef = useRef<string | null>(null);
   const [resolvedListboxId, setResolvedListboxId] = useState<string | null>(null);
   const viewportMetrics = useVisualViewportMetrics(open && useFixedPicker && searchActive);
@@ -661,8 +662,13 @@ export function CatalogCombobox({
         >
           <DrawerTrigger asChild>{trigger}</DrawerTrigger>
           <DrawerContent
+            ref={mobileContentRef}
             data-inventory-catalog-picker="mobile"
             className="h-[min(32rem,calc(100dvh-8px))] max-h-[calc(100dvh-8px)] overscroll-none p-0 md:inset-x-4 md:mx-auto md:max-w-2xl"
+            onOpenAutoFocus={(event) => {
+              event.preventDefault();
+              mobileContentRef.current?.focus({ preventScroll: true });
+            }}
           >
             <DrawerHeader className="relative shrink-0 gap-0.5 border-b border-[var(--border-panel)] px-3 pb-2 pt-1.5 text-left sm:px-4 sm:pb-3 sm:pt-2">
               <DrawerTitle className="pr-12 text-base">{label.replace("*", "").trim()}</DrawerTitle>

@@ -1,5 +1,11 @@
+export type CustomerListHref = "/customers" | `/customers?${string}`;
+
+export function isCustomerListHref(value: string): value is CustomerListHref {
+  return /^\/customers(?:\?[^#]*)?$/.test(value);
+}
+
 export type EntityContextBack = {
-  href: "/inventory" | "/orders" | "/customers";
+  href: "/inventory" | "/orders" | CustomerListHref;
   label: "返回商品库存" | "返回工单列表" | "返回客户列表";
   kind: "inventory" | "orders" | "customers";
 };

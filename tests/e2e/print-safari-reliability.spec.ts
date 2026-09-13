@@ -687,7 +687,7 @@ test("intake close during autosave explains the busy state and preserves the dra
     .toContain("正在保存本机草稿");
   await expect(page.getByText("新建工单正在处理中，请稍候再试", { exact: true })).toBeVisible();
   await expect(dialog).toBeVisible();
-  await expect(model).toHaveValue("Keep this draft while saving");
+  await expect(model).toHaveValue("KEEP THIS DRAFT WHILE SAVING");
   await expect(dialog.locator('[data-new-order-offline-status="true"]:visible')).toContainText(
     "本机草稿已保存",
   );
@@ -739,9 +739,9 @@ async function discardChangedIntake(page: Page, dialog: Locator, model: string) 
   await expect(dialog).toBeVisible();
   await expect(dialog.locator('[data-photo-state="pending"]')).toHaveCount(1);
   if ((page.viewportSize()?.width ?? 1440) < 768) {
-    await expect(dialog.locator('[data-mobile-edit="device"]')).toContainText(model);
+    await expect(dialog.locator('[data-mobile-edit="device"]')).toContainText(model.toUpperCase());
   } else {
-    await expect(dialog.getByPlaceholder("例如 iPhone 13")).toHaveValue(model);
+    await expect(dialog.getByPlaceholder("例如 iPhone 13")).toHaveValue(model.toUpperCase());
   }
   await dialog.getByRole("button", { name: "关闭新建维修工单" }).click();
   await expect(guard).toBeVisible();

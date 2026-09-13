@@ -98,8 +98,9 @@ export function OrderWorkflowStatusSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         mobileEditor
+        editorLayout
         side="right"
-        className={`${componentOverlay.editorSurface} flex h-full w-[min(30rem,calc(100vw-12px))] max-w-none flex-col p-0 sm:w-[min(30rem,calc(100vw-24px))]`}
+        className={`${componentOverlay.editorSurface} ${componentOverlay.taskWorkspace} flex h-full w-[min(30rem,calc(100vw-12px))] max-w-none flex-col p-0 sm:w-[min(30rem,calc(100vw-24px))]`}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           onRestoreFocus();
@@ -120,7 +121,8 @@ export function OrderWorkflowStatusSheet({
         </SheetHeader>
 
         <div
-          className={`${componentOverlay.mobileBody} ${componentOverlay.editorBody} flex-1 sm:px-5`}
+          data-editor-body
+          className={`${componentOverlay.mobileBody} ${componentOverlay.editorBody} min-h-0 flex-1 overflow-y-auto sm:px-5`}
         >
           <OrderWorkflowStatusForm
             value={value}

@@ -634,6 +634,7 @@ export function InventoryProductIntakeScreen({
     <InventoryProductPageFrame
       mode="intake"
       surface={surface}
+      presentation={surface === "page" ? "fullscreen" : "standard"}
       title={t("inventory2b4.quick.dialog.title")}
       subtitle={t("inventory2b4.quick.screen.subtitle")}
       mobileSubtitle={t("inventory2b4.quick.screen.mobileSubtitle")}
@@ -665,6 +666,7 @@ export function InventoryProductIntakeScreen({
       <InventoryProductFormWorkspace
         draft={toFormDraft(draft)}
         surface={surface === "dialog" ? "dialog" : "page"}
+        presentation={surface === "page" ? "fullscreen" : "standard"}
         categoryDisabled={Boolean(pendingCategory || pendingCatalogTransition)}
         catalogDisabled={Boolean(pendingCategory || pendingCatalogTransition)}
         learnedCatalogOptions={catalogQuery.data?.items}

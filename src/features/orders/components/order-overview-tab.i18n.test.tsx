@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { formatOrderDateTime } from "@/features/orders/model/order-date";
@@ -8,6 +9,7 @@ import type { OrderDetail } from "@/lib/repairdesk/api";
 import {
   createFinanceDraftState,
   normalizeFinanceDraft,
+  type FinanceDraftState,
 } from "@/features/orders/model/order-finance-draft";
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
 import { translateMessage } from "@/shared/i18n/messages";
@@ -134,6 +136,79 @@ describe("OrderOverviewTab localized runtime", () => {
   });
 
   it.each(locales)(
+    "keeps missing amounts distinct from zero and localizes validation in %s",
+    (locale) => {
+      const initialDraft = createFinanceDraftState([{ name: "Synthetic repair", price: 80 }], 0);
+      initialDraft.faults[0].priceText = "";
+      render(
+        <LocaleProvider initialLocale={locale}>
+          <FinanceEditorHarness initialDraft={initialDraft} />
+        </LocaleProvider>,
+      );
+      const amount = screen.getByLabelText(
+        translateMessage(locale, "orders2b2.overview.itemAmount", { index: 1 }),
+      );
+      expect(amount).toHaveValue("");
+      expect(amount).toHaveAttribute("aria-invalid", "true");
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        translateMessage(locale, "orders2b2.finance.completeItem"),
+      );
+      expect(document.querySelector("[data-order-quote-secondary]")).toHaveTextContent(
+        translateMessage(locale, "orders2b2.finance.missingAmount"),
+      );
+      const summary = document.querySelector("[data-order-workspace-money-strip]")!;
+      expect(summary.children).toHaveLength(3);
+      for (const key of ["total", "deposit", "balance"] as const) {
+        expect(summary).toHaveTextContent(translateMessage(locale, `orders2b1.money.${key}`));
+      }
+      fireEvent.change(amount, { target: { value: "0" } });
+      expect(amount).toHaveValue("0");
+      expect(amount).not.toHaveAttribute("aria-invalid");
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(document.querySelector("[data-order-quote-secondary]")).toBeNull();
+
+      const deposit = screen.getByLabelText(translateMessage(locale, "orders2b2.overview.deposit"));
+      fireEvent.change(deposit, { target: { value: "1" } });
+      expect(deposit).toHaveAttribute("aria-invalid", "true");
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        translateMessage(locale, "orders2b1.quote.missing.deposit"),
+      );
+      expect(summary).toBeVisible();
+    },
+  );
+
+  it("retains the surviving line control and draft when an earlier quote line is removed", () => {
+    render(
+      <LocaleProvider initialLocale="en">
+        <FinanceEditorHarness
+          initialDraft={createFinanceDraftState(
+            [
+              { name: "First repair", price: 10 },
+              { name: "Second repair", price: 20 },
+            ],
+            0,
+          )}
+        />
+      </LocaleProvider>,
+    );
+    const survivor = screen.getByLabelText(
+      translateMessage("en", "orders2b2.overview.itemAmount", { index: 2 }),
+    );
+    fireEvent.change(survivor, { target: { value: "22.50" } });
+    fireEvent.click(
+      screen.getAllByRole("button", {
+        name: translateMessage("en", "orders2b2.overview.deleteItem"),
+      })[0],
+    );
+    const remaining = screen.getByLabelText(
+      translateMessage("en", "orders2b2.overview.itemAmount", { index: 1 }),
+    );
+    expect(remaining).toBe(survivor);
+    expect(remaining).toHaveValue("22.50");
+    expect(document.querySelectorAll("[data-order-workspace-quote-row]")).toHaveLength(1);
+  });
+
+  it.each(locales)(
     "renders real overview fixed chrome while preserving dynamic payload in %s",
     (locale) => {
       const order = makeOrder();
@@ -189,3 +264,15 @@ describe("OrderOverviewTab localized runtime", () => {
     },
   );
 });
+
+function FinanceEditorHarness({ initialDraft }: { initialDraft: FinanceDraftState }) {
+  const [draft, setDraft] = useState(initialDraft);
+  return (
+    <FinanceInlineEditor
+      draft={draft}
+      normalized={normalizeFinanceDraft(draft, 0)}
+      onChange={setDraft}
+      dense={false}
+    />
+  );
+}

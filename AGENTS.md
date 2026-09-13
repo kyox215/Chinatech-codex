@@ -2,6 +2,8 @@
 
 Use these rules when generating or editing pages in this repository.
 
+- UI consistency planning and review use the existing project skill [ui-ux-review](.agents/skills/ui-ux-review/SKILL.md), alongside the available `ui-design-workflow`. The UI-specific execution sequence and superseded-rule register are in [the optimization roadmap, section 26](docs/PROJECT_EXECUTION_ROADMAP_2026-09-04.md#ui-consistency-20260912). Keep design values in their existing source files; external design skills are references, not alternate project authorities. This planning adoption does not mark product migrations complete or authorize production publication.
+
 - Content editing follows the Owner-selected A contract in [`docs/GLOBAL_CONTENT_EDITING_STANDARD.md`](docs/GLOBAL_CONTENT_EDITING_STANDARD.md): compact mobile bottom editors, independent desktop surfaces, direct value entry and existing business save/permission semantics.
 
 ## Cross-Session Orchestration (Phase 0A)

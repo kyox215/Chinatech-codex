@@ -70,7 +70,7 @@ export function CustomerFollowupDialog({
         editorLayout
         data-confirm-discard={session.confirmDiscard}
         closeLabel={t("customers.detail.close")}
-        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface} ${editorConfirmationClass}`}
+        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface} ${componentOverlay.taskWorkspace} ${editorConfirmationClass}`}
         onCloseAutoFocus={(event) => {
           const intendedOpener = returnFocusRef?.current;
           if (!intendedOpener?.isConnected || intendedOpener.getClientRects().length === 0) return;

@@ -1250,7 +1250,7 @@ async function exerciseRouteInteraction(
   pendingCustomerSearch: Route[],
 ) {
   if ((kind === "new" || kind === "edit") && (width === 390 || width === 1024)) {
-    const trigger = root.locator("#product-spec-network_variant-preset");
+    const trigger = root.locator("#product-spec-network_variant");
     await expect(trigger).toBeVisible();
     await trigger.click();
     await expect(trigger).toHaveAttribute("aria-expanded", "true");

@@ -210,10 +210,14 @@ export function OrderFaultDescriptionEditor({
   );
   const body = (
     <div
+      data-task-workspace-layout
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       data-order-fault-editor="true"
     >
-      <header className={cn(componentOverlay.denseEditorHeader, embedded && "relative")}>
+      <header
+        data-editor-header
+        className={cn(componentOverlay.denseEditorHeader, embedded && "relative")}
+      >
         <Title
           ref={headingRef}
           tabIndex={-1}
@@ -362,6 +366,7 @@ export function OrderFaultDescriptionEditor({
         </div>
       </div>
       <footer
+        data-editor-footer
         hidden={step !== "edit"}
         className={cn(
           "shrink-0 border-t border-[var(--border-panel)] px-3 pt-1.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]",
@@ -421,11 +426,13 @@ export function OrderFaultDescriptionEditor({
         initialFocus="container"
         editorLayout
         {...events}
+        data-confirm-discard={step !== "edit"}
         closeLabel={t("common.cancel")}
         className={cn(
           componentOverlay.modalLg,
           componentOverlay.editorSurface,
           componentOverlay.denseEditorSurface,
+          componentOverlay.taskWorkspace,
           "flex max-h-[calc(100svh-24px)] flex-col gap-0 p-0 sm:p-0",
         )}
       >
@@ -438,12 +445,14 @@ export function OrderFaultDescriptionEditor({
         initialFocus="container"
         editorLayout
         {...events}
+        data-confirm-discard={step !== "edit"}
         side="bottom"
         closeLabel={t("common.cancel")}
         className={cn(
           componentOverlay.bottomSheet,
           componentOverlay.editorSurface,
           componentOverlay.denseEditorSurface,
+          componentOverlay.taskWorkspace,
           "flex flex-col gap-0 p-0 sm:p-0",
         )}
       >
