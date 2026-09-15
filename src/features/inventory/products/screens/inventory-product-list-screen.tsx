@@ -524,11 +524,35 @@ export function InventoryProductListScreen() {
           }
         />
       ) : null}
-      {salesQuery.isSuccess ? (
-        <SalesListResults data={salesQuery.data} view={view} onPage={setSalesOffset} />
-      ) : displayItems.length ? (
-        <InventoryProductResults items={displayItems} view={view} />
-      ) : null}
+      <div
+        data-inventory-product-results
+        onClickCapture={(event) => {
+          if (
+            event.button !== 0 ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey ||
+            event.defaultPrevented ||
+            !(event.target instanceof Element)
+          )
+            return;
+          const link = event.target.closest<HTMLAnchorElement>("a[href]");
+          if (!link || link.target === "_blank" || link.hasAttribute("download")) return;
+          const destination = new URL(link.href, window.location.href);
+          if (
+            destination.origin === window.location.origin &&
+            /^\/inventory\/[^/]+$/.test(destination.pathname)
+          )
+            rememberListContext();
+        }}
+      >
+        {salesQuery.isSuccess ? (
+          <SalesListResults data={salesQuery.data} view={view} onPage={setSalesOffset} />
+        ) : displayItems.length ? (
+          <InventoryProductResults items={displayItems} view={view} />
+        ) : null}
+      </div>
 
       <InventoryProductFilterSheet
         open={filterOpen}

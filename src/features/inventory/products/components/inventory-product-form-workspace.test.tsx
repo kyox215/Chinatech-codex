@@ -55,7 +55,9 @@ describe("InventoryProductFormWorkspace", () => {
     );
     const imei2 = screen.getByLabelText("IMEI 2");
     const notes = screen.getByLabelText("内部备注");
-    expect(shell).toHaveClass("md:grid-cols-2");
+    expect(shell).toHaveClass(
+      "@[900px]/inventory-form:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]",
+    );
     expect(shell?.children).toHaveLength(2);
     view.rerender(<InventoryProductFormWorkspace {...view.props} layoutMode="compact" />);
     expect(screen.getByLabelText("IMEI 2")).toBe(imei2);

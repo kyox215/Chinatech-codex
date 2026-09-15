@@ -293,7 +293,12 @@ describe("InventoryProductDetailWorkbench Storybook composition contract", () =>
     expect(container.querySelector('[data-ui="inventory-lifecycle-summary"] a')).toHaveClass(
       "max-lg:hidden",
     );
-    const desktopEdit = container.querySelector('header[class*="lg:flex"] button');
+    const desktopEdit = container.querySelector(
+      '[data-ui="inventory-product-mobile-header"] button[aria-label="编辑商品"]',
+    );
     expect(desktopEdit).toHaveClass("min-h-11");
+    expect(container.querySelector('[data-ui="inventory-product-mobile-header"]')).toHaveClass(
+      "lg:block",
+    );
   });
 });

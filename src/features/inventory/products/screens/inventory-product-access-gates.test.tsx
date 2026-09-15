@@ -77,7 +77,10 @@ import { InventoryProductEditScreen } from "./inventory-product-edit-screen";
 import { InventoryProductIntakeScreen } from "./inventory-product-intake-screen";
 import { InventoryProductListScreen } from "./inventory-product-list-screen";
 import { InventoryProductCreateDialog } from "../components/inventory-product-create-dialog";
-import { saveInventoryListReturnState } from "./inventory-product-list-return-state";
+import {
+  saveInventoryListReturnState,
+  takeInventoryListReturnState,
+} from "./inventory-product-list-return-state";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -105,6 +108,123 @@ afterEach(() => {
 });
 
 describe("inventory product UI access gates", () => {
+  it("remembers real product-link navigation but not modifier or new-tab clicks", async () => {
+    const scope = {
+      storeId: "store-1",
+      userId: "real-link-return-user",
+      authorityFingerprint: "store-1:owner",
+    };
+    shellMocks.value = { ...shellContext(), userId: scope.userId };
+    apiMocks.listInventoryProducts.mockResolvedValue({
+      items: [product()],
+      total: 1,
+      facets: { brands: ["Apple"], locations: [] },
+    });
+    renderWithQuery(<InventoryProductListScreen />);
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-inventory-product-results] a[href="/inventory/product-1"]'),
+      ).not.toBeNull(),
+    );
+    const search = screen.getAllByPlaceholderText("搜索商品、SKU、型号")[0];
+    fireEvent.change(search, { target: { value: "iPhone" } });
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-inventory-product-results] a[href="/inventory/product-1"]'),
+      ).not.toBeNull(),
+    );
+    const link = document.querySelector<HTMLAnchorElement>(
+      '[data-inventory-product-results] a[href="/inventory/product-1"]',
+    )!;
+    expect(link.isConnected).toBe(true);
+    // Let capture run, then suppress the jsdom navigation itself.
+    link.addEventListener("click", (event) => event.preventDefault());
+    for (const modifier of [
+      { metaKey: true },
+      { ctrlKey: true },
+      { shiftKey: true },
+      { altKey: true },
+    ]) {
+      fireEvent.click(link, modifier);
+      expect(takeInventoryListReturnState(scope)).toBeUndefined();
+    }
+    link.target = "_blank";
+    fireEvent.click(link);
+    expect(takeInventoryListReturnState(scope)).toBeUndefined();
+    link.target = "";
+    fireEvent.click(link);
+    expect(takeInventoryListReturnState(scope)?.search).toBe("iPhone");
+    expect(takeInventoryListReturnState(scope)).toBeUndefined();
+  });
+
+  it("confirms edit category changes once, preserves on cancel, and clears identifiers on confirmation", async () => {
+    apiMocks.getInventoryProductEditData.mockResolvedValue({
+      ...product({
+        id: "category-edit",
+        brand: "Samsung",
+        color: "黑色",
+        gtin: "123456",
+        condition: "A",
+        warranty_months: 12,
+        notes: "Keep synthetic note",
+        inspection: {
+          id: "saved-inspection",
+          battery_health: 91,
+          face_id_status: "normal",
+          inspected_at: "2026-08-07T10:00:00.000Z",
+        },
+        created_at: "2026-08-07T10:00:00.000Z",
+        version: 1,
+      }),
+      identifiers: [{ kind: "imei1", value: "490154203237518", primary: true, source: "scan" }],
+    });
+    renderWithQuery(<InventoryProductEditScreen id="category-edit" />);
+    await waitFor(() =>
+      expect(document.getElementById("product-imei1")).toHaveValue("490154203237518"),
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "手机" }));
+    expect(document.querySelector('[data-ui="inventory-product-category-confirm"]')).toBeNull();
+    fireEvent.click(screen.getByRole("radio", { name: "平板" }));
+    expect(screen.getByRole("button", { name: "保存修改" })).toBeDisabled();
+    expect(screen.getByText("已保存的检测记录仍保留，不会随类别切换删除。")).toBeVisible();
+    expect(document.getElementById("product-imei1")).toHaveValue("490154203237518");
+    fireEvent.submit(document.querySelector("form")!);
+    expect(apiMocks.updateInventoryProduct).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+    expect(document.getElementById("product-brand")).toHaveValue("Samsung");
+    expect(document.getElementById("product-imei1")).toHaveValue("490154203237518");
+    fireEvent.click(screen.getByRole("radio", { name: "平板" }));
+    fireEvent.click(screen.getByRole("button", { name: "清空并切换" }));
+    expect(screen.getByRole("radio", { name: "平板" })).toHaveAttribute("aria-checked", "true");
+    for (const id of [
+      "product-brand",
+      "product-model",
+      "product-imei1",
+      "product-imei2",
+      "product-serial",
+      "product-eid",
+      "product-gtin",
+    ])
+      expect(document.getElementById(id)).toHaveValue("");
+    expect(document.getElementById("product-price")).toHaveValue("420");
+    expect(document.getElementById("product-location")).toHaveValue("A-02");
+    expect(document.getElementById("product-warranty")).toHaveTextContent("12");
+    expect(apiMocks.updateInventoryProduct).not.toHaveBeenCalled();
+    apiMocks.updateInventoryProduct.mockResolvedValue({
+      ok: true,
+      code: "updated",
+      id: "category-edit",
+      version: 2,
+    });
+    fireEvent.change(document.getElementById("product-brand")!, { target: { value: "Samsung" } });
+    fireEvent.change(document.getElementById("product-model")!, {
+      target: { value: "Synthetic tablet" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+    await waitFor(() => expect(apiMocks.updateInventoryProduct).toHaveBeenCalledOnce());
+    expect(apiMocks.updateInventoryProduct.mock.calls[0][1]).not.toHaveProperty("inspection");
+  });
+
   it("restores list search and lifecycle filtering after the exact projection finishes loading", async () => {
     shellMocks.value = { ...shellContext(), userId: "return-test-user" };
     saveInventoryListReturnState(
@@ -861,7 +981,7 @@ describe("inventory product UI access gates", () => {
     fireEvent.click(screen.getByRole("radio", { name: "平板" }));
 
     expect(nativeConfirm).not.toHaveBeenCalled();
-    expect(screen.getByText(/会清除当前品牌、型号、规格和设备标识/)).toBeVisible();
+    expect(screen.getByText(/会清除品牌、型号、规格、颜色、成色、设备标识/)).toBeVisible();
     expect(screen.getByLabelText(/品牌/)).toHaveValue("Apple");
     const saveButton = screen.getByRole("button", { name: "保存并查看商品" });
     expect(saveButton).toBeDisabled();
@@ -870,6 +990,36 @@ describe("inventory product UI access gates", () => {
     fireEvent.click(screen.getByRole("button", { name: "清空并切换" }));
     expect(screen.getByRole("radio", { name: "平板" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByLabelText(/品牌/)).toHaveValue("");
+  });
+
+  it("does not revive the old intake primary identifier after a confirmed category change", async () => {
+    apiMocks.createInventoryProduct.mockResolvedValue({
+      id: "new-category-product",
+      sku: "SYNTHETIC-PRIMARY",
+    });
+    renderWithQuery(<InventoryProductIntakeScreen onCreated={vi.fn()} />);
+    fillPhoneImei1();
+    fireEvent.change(screen.getByLabelText("IMEI 2"), { target: { value: "990000000000010" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "设为主要" })[1]);
+    expect(screen.getByRole("button", { name: "主要标识" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "平板" }));
+    fireEvent.click(screen.getByRole("button", { name: "清空并切换" }));
+    expect(screen.queryByRole("button", { name: "主要标识" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/品牌/), { target: { value: "Samsung" } });
+    fireEvent.change(screen.getByLabelText(/型号 \/ 商品名称/), {
+      target: { value: "Synthetic tablet" },
+    });
+    fillPhoneImei1();
+    fireEvent.change(screen.getByLabelText("IMEI 2"), { target: { value: "990000000000010" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存并查看商品" }));
+    await waitFor(() => expect(apiMocks.createInventoryProduct).toHaveBeenCalledOnce());
+    expect(apiMocks.createInventoryProduct.mock.calls[0][0].identifiers).toEqual([
+      { kind: "imei1", value: "490154203237518", source: "manual", primary: true },
+      { kind: "imei2", value: "990000000000010", source: "manual" },
+    ]);
   });
 
   it("confirms brand changes, clears incompatible specs, and preserves custody and finance fields", () => {
@@ -1386,6 +1536,42 @@ describe("inventory product UI access gates", () => {
     await waitFor(() => expect(apiMocks.updateInventoryProduct).toHaveBeenCalledTimes(1));
     expect(apiMocks.updateInventoryProduct.mock.calls[0][1].color).toBe("红色");
   });
+
+  it.each(["tablet", "phone"] as const)(
+    "does not revive persisted Apple color after category clearing and selecting %s",
+    async (targetCategory) => {
+      apiMocks.getInventoryProductEditData.mockResolvedValue({
+        ...product({
+          id: "category-apple",
+          color: "红色",
+          created_at: "2026-08-07T10:00:00Z",
+          version: 1,
+        }),
+        identifiers: [],
+      });
+      apiMocks.updateInventoryProduct.mockResolvedValue({
+        ok: true,
+        code: "updated",
+        id: "category-apple",
+        version: 2,
+      });
+      renderWithQuery(<InventoryProductEditScreen id="category-apple" />);
+      await waitFor(() => expect(document.getElementById("product-color")).toHaveValue("红色"));
+      fireEvent.click(screen.getByRole("radio", { name: "平板" }));
+      fireEvent.click(screen.getByRole("button", { name: "清空并切换" }));
+      if (targetCategory === "phone") fireEvent.click(screen.getByRole("radio", { name: "手机" }));
+      fireEvent.change(document.getElementById("product-brand")!, { target: { value: "Apple" } });
+      fireEvent.change(document.getElementById("product-model")!, {
+        target: { value: targetCategory === "phone" ? "iPhone 13" : "iPad" },
+      });
+      expect(document.getElementById("product-color")).toHaveValue("");
+      expect(screen.queryByRole("group", { name: "设备颜色" })).not.toBeInTheDocument();
+      fillPhoneImei1();
+      fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+      await waitFor(() => expect(apiMocks.updateInventoryProduct).toHaveBeenCalledOnce());
+      expect(apiMocks.updateInventoryProduct.mock.calls[0][1].color).toBeUndefined();
+    },
+  );
 
   it("invalidates only the active store catalog after a committed edit", async () => {
     apiMocks.getInventoryProductEditData.mockResolvedValue({

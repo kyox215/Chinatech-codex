@@ -29,7 +29,6 @@ import { InventoryDetailActionDock } from "./inventory-detail-action-dock";
 import { resolveInventoryDetailNextAction } from "../model/resolve-inventory-detail-next-action";
 import type { InventoryDetailNextAction } from "@/features/inventory/model/inventory-detail-next-action";
 import {
-  formatInventoryProductMoney,
   localizeInventoryDetailNextAction,
   localizeInventoryProductCategory,
   localizeInventoryProductStatus,
@@ -131,7 +130,7 @@ export function InventoryProductDetailWorkbench({
   renderInspectionEditor?: (summary: InventoryLifecycleListSummary) => ReactNode;
   salesContent?: ReactNode;
 }) {
-  const { locale, t } = useLocale();
+  const { t } = useLocale();
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
   const meta = categories[item.category];
@@ -193,17 +192,9 @@ export function InventoryProductDetailWorkbench({
     : undefined;
   const statusLabel =
     lifecycleMeta?.label ?? localizeInventoryProductStatus(item.status, statuses[item.status], t);
-  summaryFields.push({
-    label: t("inventory2b4.detail.listPrice"),
-    value:
-      item.list_price === undefined
-        ? t("inventory2b4.detail.unpriced")
-        : formatInventoryProductMoney(item.list_price, locale, t),
-  });
-  summaryFields.push({
-    label: t("inventory2b4.detail.location"),
-    value: item.location?.trim() ? item.location : t("inventory2b4.detail.locationUnset"),
-  });
+  const displayedNetworkKey = ["network_variant", "connectivity", "network"].find((key) =>
+    String(item.specifications?.[key] ?? "").trim(),
+  );
 
   return (
     <div
@@ -231,28 +222,47 @@ export function InventoryProductDetailWorkbench({
       />
 
       <div>
-        <DesktopProductHeader
-          item={item}
-          statusLabel={statusLabel}
-          canEdit={canEdit}
-          onEdit={onEdit}
-        />
-        <div className="grid min-w-0 gap-1.5 lg:grid-cols-[minmax(280px,0.82fr)_minmax(0,1.18fr)] lg:items-start lg:gap-3">
-          <div className="grid min-w-0 content-start gap-1.5 lg:gap-3">
-            <ProductHeroCard
-              item={item}
-              icon={meta.icon}
-              statusLabel={statusLabel}
-              statusClassName={
-                exactProjection
-                  ? getInventoryLifecycleProjectionToneClass(lifecycleMeta?.tone ?? "neutral")
-                  : statusStyles[item.status]
-              }
-              summaryFields={summaryFields}
-            />
-            <DeviceWorkbenchSection fields={buildWorkbenchFields(item, t)} />
+        <div className="grid min-w-0 gap-2 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] lg:items-start lg:gap-4">
+          <div className="contents lg:grid lg:min-w-0 lg:content-start lg:gap-4">
+            <div className="order-1 min-w-0">
+              <ProductHeroCard
+                item={item}
+                icon={meta.icon}
+                statusLabel={statusLabel}
+                statusClassName={
+                  exactProjection
+                    ? getInventoryLifecycleProjectionToneClass(lifecycleMeta?.tone ?? "neutral")
+                    : statusStyles[item.status]
+                }
+                summaryFields={summaryFields}
+              />
+            </div>
+            <div className="order-3 grid min-w-0 gap-2 lg:gap-4">
+              <DeviceWorkbenchSection fields={buildWorkbenchFields(item, t)} />
+              <DeviceIdentitySection
+                identifiers={visibleIdentifiers}
+                gtin={item.gtin}
+                specifications={Object.fromEntries(
+                  Object.entries(item.specifications ?? {}).filter(
+                    ([key]) => key !== displayedNetworkKey,
+                  ),
+                )}
+              />
+              <InventoryDeviceHealthCard
+                category={item.category}
+                brand={item.brand}
+                specifications={item.specifications}
+                inspection={healthInspection}
+                showExtendedChecks={Boolean(lifecycleSummary)}
+              />
+              {lifecycleSummary && renderInspectionEditor
+                ? renderInspectionEditor(lifecycleSummaryWithInspection ?? lifecycleSummary)
+                : null}
+              <ProductNotesSection notes={item.notes} />
+            </div>
           </div>
-          <div className="grid min-w-0 content-start gap-1.5 lg:gap-3">
+          <div className="order-2 grid min-w-0 content-start gap-2 lg:gap-4">
+            <ProductBusinessSection item={item} />
             {salesContent}
             {lifecycleSummaryState === "loading" ? <InventoryLifecycleLoadingCard /> : null}
             {lifecycleSummaryState === "unavailable" ? <InventoryLifecycleUnavailableCard /> : null}
@@ -266,23 +276,6 @@ export function InventoryProductDetailWorkbench({
                 onAction={() => handleNextAction(nextAction, onNavigate)}
               />
             ) : null}
-            <InventoryDeviceHealthCard
-              category={item.category}
-              brand={item.brand}
-              specifications={item.specifications}
-              inspection={healthInspection}
-              showExtendedChecks={Boolean(lifecycleSummary)}
-            />
-            <ProductBusinessSection item={item} />
-            {lifecycleSummary && renderInspectionEditor
-              ? renderInspectionEditor(lifecycleSummaryWithInspection ?? lifecycleSummary)
-              : null}
-            <DeviceIdentitySection
-              identifiers={visibleIdentifiers}
-              gtin={item.gtin}
-              specifications={item.specifications}
-            />
-            <ProductNotesSection notes={item.notes} />
             {lifecycleSummary ? (
               <InventoryLifecycleHistoryCard
                 summary={lifecycleSummaryWithInspection ?? lifecycleSummary}
@@ -347,10 +340,18 @@ function MobileProductHeader({
     <div
       ref={headerRef}
       data-ui="inventory-product-mobile-header"
-      className={cn(repairOs.mobileFloatingHeaderShell, "lg:static lg:mb-4")}
+      className={cn(
+        repairOs.mobileFloatingHeaderShell,
+        "lg:static lg:mb-3 lg:block lg:bg-transparent lg:p-0",
+      )}
     >
       <section className={repairOs.mobileFloatingHeaderCard}>
-        <header className={repairOs.mobileFloatingHeaderNav}>
+        <header
+          className={cn(
+            repairOs.mobileFloatingHeaderNav,
+            "lg:grid-cols-[minmax(0,1fr)_auto] lg:px-3 lg:py-2",
+          )}
+        >
           <Button
             type="button"
             variant="ghost"
@@ -361,7 +362,7 @@ function MobileProductHeader({
           >
             <ArrowLeft className="size-5" aria-hidden="true" />
           </Button>
-          <div className="min-w-0 text-center">
+          <div className="min-w-0 text-center lg:text-left">
             <h1 className="truncate text-sm font-semibold">{t("inventory2b4.detail.title")}</h1>
             <p className="truncate text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
               {item.sku} · {categoryLabel} · {statusLabel}
@@ -377,11 +378,12 @@ function MobileProductHeader({
               type="button"
               variant="ghost"
               size="icon"
-              className="size-11 rounded-lg"
+              className="size-11 min-h-11 rounded-lg lg:w-auto lg:px-3"
               aria-label={t("inventory2b4.detail.edit")}
               onClick={onEdit}
             >
               <Pencil className="size-4" aria-hidden="true" />
+              <span className="hidden lg:inline">{t("inventory2b4.detail.edit")}</span>
             </Button>
           ) : (
             <span className="size-11" aria-hidden="true" />
@@ -389,42 +391,5 @@ function MobileProductHeader({
         </header>
       </section>
     </div>
-  );
-}
-
-function DesktopProductHeader({
-  item,
-  statusLabel,
-  canEdit,
-  onEdit,
-}: {
-  item: InventoryProductDetail;
-  statusLabel: string;
-  canEdit: boolean;
-  onEdit: () => void;
-}) {
-  const { t } = useLocale();
-  return (
-    <header className="mb-3 hidden items-center justify-between gap-4 pb-1 lg:flex">
-      <div className="min-w-0">
-        <h1 className="truncate text-xl font-semibold">
-          {item.brand} {item.model}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {item.sku} · {statusLabel}
-        </p>
-        {item.edit_backing === "legacy_read_only" ? (
-          <p className="text-xs text-status-warn-foreground">
-            {t("inventory2b4.detail.legacyDesktop")}
-          </p>
-        ) : null}
-      </div>
-      {canEdit ? (
-        <Button type="button" className="min-h-11" onClick={onEdit}>
-          <Pencil className="mr-2 size-4" aria-hidden="true" />
-          {t("inventory2b4.detail.edit")}
-        </Button>
-      ) : null}
-    </header>
   );
 }

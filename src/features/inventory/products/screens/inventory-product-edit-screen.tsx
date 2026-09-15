@@ -46,7 +46,13 @@ import {
 } from "../model/inventory-product-form";
 import { useInventoryProductLeaveGuard } from "../model/use-inventory-product-leave-guard";
 import {
+  changeInventoryProductCategory,
+  hasInventoryCategoryDependentValues,
+} from "../model/inventory-product-category-transition";
+import { inventoryProductFormCategories } from "../components/inventory-product-form";
+import {
   getInventoryQuickEntryErrorMessage,
+  localizeInventoryProductCategory,
   localizeInventoryValidation,
 } from "../model/inventory-product-i18n";
 
@@ -124,6 +130,7 @@ function InventoryProductEditContent({
     retry: false,
   });
   const [draft, setDraft] = useState<EditDraft>();
+  const [pendingCategory, setPendingCategory] = useState<InventoryProductCategory>();
   const [baseDraft, setBaseDraft] = useState<EditDraft>();
   const [version, setVersion] = useState(1);
   const [error, setError] = useState("");
@@ -274,14 +281,26 @@ function InventoryProductEditContent({
     );
   }
 
+  const eligibleExistingColor =
+    draft.category === query.data?.category && draft.color === query.data?.color
+      ? query.data.color
+      : undefined;
+
   const save = async () => {
     if (submitLockRef.current || syncBlocked) return;
+    if (pendingCategory) {
+      setError(t("inventory2b4.quick.screen.confirmCategoryFirst"));
+      document
+        .querySelector<HTMLElement>('[data-ui="inventory-product-category-confirm"] button')
+        ?.focus();
+      return;
+    }
     setError("");
     setRecoveryMessage("");
     setFieldErrors({});
     const validation = validateInventoryProductFormDraft(toFormDraft(draft), {
       canEnterCost,
-      existingColor: query.data?.color,
+      existingColor: eligibleExistingColor,
     });
     if (validation) {
       const localizedValidation = localizeInventoryValidation(
@@ -311,7 +330,7 @@ function InventoryProductEditContent({
         toFormDraft(draft),
         "00000000-0000-4000-8000-000000000000",
         version,
-        { canEnterCost, existingColor: query.data?.color },
+        { canEnterCost, existingColor: eligibleExistingColor },
       );
       const { idempotency_key: _unusedIdempotencyKey, ...commandWithoutIdempotency } = command;
       const fingerprint = JSON.stringify(commandWithoutIdempotency);
@@ -423,6 +442,7 @@ function InventoryProductEditContent({
       onBack={closeEdit}
       leaveGuard={leaveGuard}
       primaryLabel={t("inventory2b4.quick.edit.save")}
+      primaryDisabled={Boolean(pendingCategory)}
       onSubmit={(event) => {
         event.preventDefault();
         void save();
@@ -434,6 +454,67 @@ function InventoryProductEditContent({
         presentation="fullscreen"
         draft={toFormDraft(draft)}
         idPrefix="product"
+        categoryDisabled={Boolean(pendingCategory)}
+        catalogDisabled={Boolean(pendingCategory)}
+        categoryNotice={
+          pendingCategory ? (
+            <div
+              data-ui="inventory-product-category-confirm"
+              role="status"
+              aria-live="polite"
+              className="mt-2 grid gap-2 rounded-lg border border-status-warn-foreground/20 bg-status-warn p-3 text-status-warn-foreground"
+            >
+              <p className="text-xs leading-5">
+                {t("inventory2b4.quick.screen.categoryChangeWarning", {
+                  category: localizeInventoryProductCategory(
+                    pendingCategory,
+                    inventoryProductFormCategories.find((item) => item.value === pendingCategory)
+                      ?.label ?? pendingCategory,
+                    t,
+                  ),
+                })}
+              </p>
+              <p className="text-xs leading-5">
+                {t("inventory2b4.quick.screen.categorySavedInspectionKept")}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="min-h-11"
+                  onClick={() => {
+                    setPendingCategory(undefined);
+                    requestAnimationFrame(() =>
+                      document.getElementById(`product-category-${draft.category}`)?.focus(),
+                    );
+                  }}
+                >
+                  {t("inventory2b4.quick.frame.continueEdit")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11 bg-background"
+                  onClick={() => {
+                    const category = pendingCategory;
+                    setDraft(
+                      editDraftFromForm(
+                        changeInventoryProductCategory(toFormDraft(draft), category),
+                      ),
+                    );
+                    setPendingCategory(undefined);
+                    setFieldErrors({});
+                    requestAnimationFrame(() =>
+                      document.getElementById(`product-category-${category}`)?.focus(),
+                    );
+                  }}
+                >
+                  {t("inventory2b4.quick.screen.clearAndSwitch")}
+                </Button>
+              </div>
+            </div>
+          ) : undefined
+        }
         learnedCatalogOptions={catalogQuery.data?.items}
         catalogNotice={
           catalogQuery.isError ? (
@@ -445,7 +526,7 @@ function InventoryProductEditContent({
         brandInvalid={Boolean(fieldErrors.brand)}
         modelInvalid={Boolean(fieldErrors.model)}
         colorInvalid={Boolean(fieldErrors.color)}
-        existingColor={query.data?.color}
+        existingColor={eligibleExistingColor}
         inspectionBatteryInvalid={Boolean(fieldErrors.inspection_battery_health)}
         conditionInvalid={Boolean(fieldErrors.condition)}
         gtinInvalid={Boolean(fieldErrors.gtin)}
@@ -458,21 +539,44 @@ function InventoryProductEditContent({
         showScanner
         identifierField={InventoryProductIdentifierField}
         allowPrimarySelection
-        onCategoryChange={(category) =>
-          setDraft({
-            ...draft,
-            category,
-            brand: "",
-            model: "",
-            ram_capacity: "",
-            storage_capacity: "",
-            color: "",
-            specifications: {},
-            inspection_battery_health: "",
-            inspection_face_id_status: "not_tested",
-            inspection_touched: false,
-          })
-        }
+        onCategoryChange={(category) => {
+          if (draft.category === category) return;
+          if (hasInventoryCategoryDependentValues(toFormDraft(draft))) {
+            setPendingCategory(category);
+            requestAnimationFrame(() =>
+              document
+                .querySelector<HTMLButtonElement>(
+                  '[data-ui="inventory-product-category-confirm"] button',
+                )
+                ?.focus(),
+            );
+            return;
+          }
+          setDraft(editDraftFromForm(changeInventoryProductCategory(toFormDraft(draft), category)));
+        }}
+        onCategoryKeyDown={(event, index) => {
+          const delta =
+            event.key === "ArrowRight" || event.key === "ArrowDown"
+              ? 1
+              : event.key === "ArrowLeft" || event.key === "ArrowUp"
+                ? -1
+                : 0;
+          if (!delta && event.key !== "Home" && event.key !== "End") return;
+          event.preventDefault();
+          const target =
+            event.key === "Home"
+              ? 0
+              : event.key === "End"
+                ? inventoryProductFormCategories.length - 1
+                : (index + delta + inventoryProductFormCategories.length) %
+                  inventoryProductFormCategories.length;
+          document
+            .getElementById(`product-category-${inventoryProductFormCategories[target].value}`)
+            ?.click();
+          document
+            .getElementById(`product-category-${inventoryProductFormCategories[target].value}`)
+            ?.focus();
+        }}
         onBrandChange={(brand) => {
           setFieldErrors((current) => ({ ...current, brand: undefined }));
           setDraft((current) => {

@@ -1,8 +1,9 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { InventoryDeviceCatalogFields } from "./inventory-device-catalog-fields";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
 
 const APPROVED_APPLE_COLORS = {
   "iPhone 15 Pro": [
@@ -70,6 +71,94 @@ function renderFields(
 }
 
 describe("InventoryDeviceCatalogFields", () => {
+  it("offers seven dossier colors once and keeps same-color selection a noop", () => {
+    const { props } = renderFields({ presentation: "dossier", brand: "Samsung", color: "黑色" });
+    const palette = screen.getByRole("group", { name: "设备颜色" });
+    expect(
+      within(palette)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["黑色", "灰色", "深蓝色", "绿色", "白色", "银色", "蓝色"]);
+    fireEvent.click(within(palette).getByRole("button", { name: "黑色" }));
+    expect(props.onColorChange).not.toHaveBeenCalled();
+    fireEvent.click(within(palette).getByRole("button", { name: "灰色" }));
+    expect(props.onColorChange).toHaveBeenCalledWith("灰色");
+    fireEvent.click(screen.getByRole("combobox", { name: "设备颜色：更多 / 自定义" }));
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "红色",
+      "紫色",
+      "黄色",
+    ]);
+  });
+  it("shows pending Apple dossier colors once, read-only, without generic choices", () => {
+    renderFields({
+      presentation: "dossier",
+      brand: "Apple",
+      model: "iPhone 15 Pro",
+      existingColor: "原色钛金属",
+      color: "原色钛金属",
+      colorInvalid: true,
+    });
+    expect(screen.getByRole("textbox", { name: "设备颜色当前值（只读）" })).toHaveValue(
+      "原色钛金属",
+    );
+    expect(screen.getByRole("textbox", { name: "设备颜色当前值（只读）" })).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(screen.getByRole("textbox", { name: "设备颜色当前值（只读）" })).toHaveAttribute(
+      "aria-describedby",
+      "product-color-status",
+    );
+    expect(screen.queryByRole("group", { name: "设备颜色" })).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("尚无已审核");
+  });
+  it("does not copy a preset into the English custom input and preserves unknown user text", () => {
+    const props = {
+      category: "phone" as const,
+      brand: "Samsung",
+      model: "Galaxy S23",
+      presentation: "dossier" as const,
+      color: "黑色",
+      onBrandChange: vi.fn(),
+      onModelChange: vi.fn(),
+      onRamChange: vi.fn(),
+      onStorageChange: vi.fn(),
+      onColorChange: vi.fn(),
+    };
+    const view = render(
+      <LocaleProvider initialLocale="en">
+        <InventoryDeviceCatalogFields {...props} />
+      </LocaleProvider>,
+    );
+    fireEvent.click(document.getElementById("product-color")!);
+    expect(document.getElementById("product-color-manual")).toHaveValue("");
+    fireEvent.keyDown(screen.getByRole("listbox"), { key: "Escape" });
+    view.rerender(
+      <LocaleProvider initialLocale="en">
+        <InventoryDeviceCatalogFields {...props} color="Custom 用户原文" />
+      </LocaleProvider>,
+    );
+    fireEvent.click(document.getElementById("product-color")!);
+    expect(document.getElementById("product-color-manual")).toHaveValue("Custom 用户原文");
+  });
+  it("keeps approved short palettes focusable and associates validation without a More control", () => {
+    renderFields({
+      presentation: "dossier",
+      brand: "Apple",
+      model: "iPhone 15 Pro",
+      approvedAppleColorOverlay: APPROVED_APPLE_COLORS,
+      colorInvalid: true,
+      colorRequired: true,
+    });
+    expect(screen.queryByRole("combobox", { name: /设备颜色/ })).not.toBeInTheDocument();
+    const first = document.getElementById("product-color")!;
+    first.focus();
+    expect(first).toHaveFocus();
+    expect(first).toHaveAttribute("aria-invalid", "true");
+    expect(first).toHaveAttribute("aria-describedby", "product-color-error");
+    expect(document.getElementById("product-color-error")).toBeVisible();
+  });
   it("opens the mobile picker with a non-editable trigger and explicit search", async () => {
     setViewportWidth(390);
     renderFields();

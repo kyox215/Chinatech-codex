@@ -5,10 +5,20 @@ import { expect, test, type Page } from "@playwright/test";
 
 const screenshotDir = resolve(
   process.cwd(),
-  "artifacts/screenshots/TASK-20260810-006-inventory-product-detail-redesign",
+  "artifacts/TASK-20260912-002-ui-consistency-framework/figma-run4/detail",
 );
 const productId = "00000000-0000-4000-8000-000000000501";
 const rawImei = "356789012344321";
+
+test.beforeEach(async ({ context, baseURL }) => {
+  expect(["localhost", "127.0.0.1"]).toContain(new URL(baseURL!).hostname);
+  await context.addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL! }]);
+  await context.route("**/*", (route) =>
+    new URL(route.request().url()).origin === new URL(baseURL!).origin
+      ? route.continue()
+      : route.abort(),
+  );
+});
 
 test.beforeAll(async () => {
   await mkdir(screenshotDir, { recursive: true });

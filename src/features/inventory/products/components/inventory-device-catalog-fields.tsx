@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
+import { Check } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import {
@@ -65,6 +66,8 @@ type InventoryDeviceCatalogFieldsProps = {
   colorInvalid?: boolean;
   surface?: CatalogPickerSurface;
   pickerMode?: CatalogPickerMode;
+  presentation?: "standard" | "dossier";
+  conditionField?: ReactNode;
   disabled?: boolean;
   autoFocusBrand?: boolean;
   idPrefix?: string;
@@ -91,6 +94,8 @@ export function InventoryDeviceCatalogFields({
   colorInvalid = false,
   surface = "page",
   pickerMode = "auto",
+  presentation = "standard",
+  conditionField,
   disabled = false,
   autoFocusBrand = false,
   idPrefix = "product",
@@ -243,7 +248,14 @@ export function InventoryDeviceCatalogFields({
 
   return (
     <div className="min-w-0 space-y-2">
-      <div className="grid min-w-0 grid-cols-1 min-[360px]:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-1.5 sm:gap-2 lg:grid-cols-1">
+      <div
+        className={cn(
+          "grid min-w-0 grid-cols-1 min-[360px]:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-1.5 sm:gap-2",
+          presentation === "standard"
+            ? "lg:grid-cols-1"
+            : "sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]",
+        )}
+      >
         <CatalogCombobox
           id={`${idPrefix}-brand`}
           label={t("inventory2b4.quick.catalog.brandLabel")}
@@ -294,7 +306,12 @@ export function InventoryDeviceCatalogFields({
           presentation={catalogPresentation}
         />
       </div>
-      <div className="grid min-w-0 grid-cols-2 gap-2">
+      <div
+        className={cn(
+          "grid min-w-0 grid-cols-2 gap-2",
+          presentation === "dossier" && "border-t border-border pt-3 sm:grid-cols-3",
+        )}
+      >
         {category !== "other" ? (
           <SpecificationField
             id={`${idPrefix}-storage`}
@@ -324,6 +341,7 @@ export function InventoryDeviceCatalogFields({
             onChange={onRamChange}
           />
         ) : null}
+        {conditionField}
         <ColorField
           value={color}
           existingColor={existingColor}
@@ -341,6 +359,7 @@ export function InventoryDeviceCatalogFields({
           disabled={disabled}
           onChange={onColorChange}
           pickerMode={pickerMode}
+          presentation={presentation}
           id={`${idPrefix}-color`}
           className={category === "other" || category === "game_console" ? "col-span-2" : undefined}
         />
@@ -423,6 +442,7 @@ function ColorField({
   onChange,
   pickerMode,
   className,
+  presentation = "standard",
 }: {
   id: string;
   value: string;
@@ -436,11 +456,119 @@ function ColorField({
   onChange: (value: string) => void;
   pickerMode?: CatalogPickerMode;
   className?: string;
+  presentation?: "standard" | "dossier";
 }) {
   const { t } = useLocale();
   const isPending = policyState === "pending-official-color";
   const preservedValue = existingColor?.trim();
   const displayValue = isPending ? (preservedValue ?? "") : value;
+  if (presentation === "dossier" && isPending) {
+    return (
+      <fieldset className="col-span-full min-w-0 space-y-1.5">
+        <label htmlFor={id} className="text-xs font-medium">
+          {t("inventory2b4.quick.catalog.color")}
+        </label>
+        <Input
+          id={id}
+          value={displayValue}
+          readOnly
+          disabled={disabled}
+          aria-label={t("inventory2b4.quick.catalog.colorReadonlyAria")}
+          placeholder={t("inventory2b4.quick.form.notEntered")}
+          className="h-11 min-h-11 text-base"
+          aria-invalid={invalid || undefined}
+          aria-describedby={`${id}-status${invalid && errorMessage ? ` ${id}-error` : ""}`}
+        />
+        <p id={`${id}-status`} role="status" className="text-xs leading-4 text-muted-foreground">
+          {statusMessage}
+        </p>
+        {invalid && errorMessage ? (
+          <p id={`${id}-error`} className="text-xs text-status-danger-foreground">
+            {errorMessage}
+          </p>
+        ) : null}
+      </fieldset>
+    );
+  }
+  if (presentation === "dossier" && !isPending) {
+    const primaryOptions = options.slice(0, 7);
+    const selected = options.find((option) => option.value === value);
+    return (
+      <fieldset className="col-span-full min-w-0 space-y-2" data-inventory-color-palette>
+        <legend className="sr-only">{t("inventory2b4.quick.catalog.color")}</legend>
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <span className="text-xs font-medium">{t("inventory2b4.quick.catalog.color")}</span>
+            <p className="mt-0.5 text-xs text-muted-foreground" aria-live="polite">
+              {selected?.label ?? (value || t("inventory2b4.quick.catalog.selectColor"))}
+            </p>
+          </div>
+          {options.length > 7 || policyState === "generic" ? (
+            <InventorySelectableField
+              id={id}
+              label={t("inventory2b4.quick.catalog.color")}
+              value={displayValue}
+              triggerLabel={t("inventory2b4.quick.catalog.moreColors")}
+              hideLabel
+              placeholder={t("inventory2b4.quick.catalog.selectColor")}
+              options={options.slice(7)}
+              mode={pickerMode}
+              invalid={invalid}
+              ariaDescribedBy={invalid ? `${id}-error` : undefined}
+              disabled={disabled}
+              onChange={(next) => {
+                if (next !== value) onChange(next);
+              }}
+              manualEntry={
+                policyState === "generic" ? (
+                  <Input
+                    id={`${id}-manual`}
+                    className="h-11 min-h-11 min-w-0 text-base lg:text-sm"
+                    value={options.some((option) => option.value === value) ? "" : value}
+                    disabled={disabled}
+                    onChange={(event) => onChange(event.target.value)}
+                    placeholder={t("inventory2b4.quick.catalog.colorManualPlaceholder")}
+                    aria-label={t("inventory2b4.quick.catalog.colorManualAria")}
+                  />
+                ) : undefined
+              }
+            />
+          ) : null}
+        </div>
+        <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 xl:grid-cols-7">
+          {primaryOptions.map((option, index) => (
+            <button
+              key={option.value}
+              id={index === 0 && options.length <= 7 && policyState !== "generic" ? id : undefined}
+              type="button"
+              aria-pressed={value === option.value}
+              aria-invalid={invalid || undefined}
+              aria-describedby={invalid && errorMessage ? `${id}-error` : undefined}
+              disabled={disabled || option.disabled}
+              className={cn(
+                "flex min-h-11 min-w-0 items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1.5 text-left text-xs transition-colors duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
+                value === option.value && "border-primary bg-primary/5",
+              )}
+              onClick={() => {
+                if (value !== option.value) onChange(option.value);
+              }}
+            >
+              {option.leading}
+              <span className="min-w-0 flex-1 break-words">{option.label ?? option.value}</span>
+              {value === option.value ? (
+                <Check className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
+              ) : null}
+            </button>
+          ))}
+        </div>
+        {invalid && errorMessage ? (
+          <p id={`${id}-error`} className="text-xs text-status-danger-foreground">
+            {errorMessage}
+          </p>
+        ) : null}
+      </fieldset>
+    );
+  }
   return (
     <fieldset className={cn("col-span-2 min-w-0 space-y-1.5", className)}>
       <InventorySelectableField

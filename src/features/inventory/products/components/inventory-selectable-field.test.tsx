@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { InventorySelectableField } from "./inventory-selectable-field";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
+import { translateMessage } from "@/shared/i18n/messages";
 
 afterEach(cleanup);
 
@@ -13,6 +15,34 @@ const options = [
 ] as const;
 
 describe("InventorySelectableField", () => {
+  it.each([
+    ["en", "Color", "More / custom"],
+    ["it-IT", "Colore", "Altri / personalizzato"],
+  ] as const)(
+    "uses the localized More label for its %s accessible name when the selected color is outside its options",
+    (locale, label, triggerLabel) => {
+      render(
+        <LocaleProvider initialLocale={locale}>
+          <InventorySelectableField
+            id="more-colors"
+            label={label}
+            value="黑色"
+            triggerLabel={triggerLabel}
+            options={[{ value: "红色", label: "Red" }]}
+            onChange={vi.fn()}
+          />
+        </LocaleProvider>,
+      );
+      const trigger = screen.getByRole("combobox", {
+        name: translateMessage(locale, "inventory2b4.quick.select.valueAria", {
+          label,
+          value: triggerLabel,
+        }),
+      });
+      expect(trigger).toHaveTextContent(triggerLabel);
+      expect(trigger.getAttribute("aria-label")).not.toContain("黑色");
+    },
+  );
   it("keeps the desktop surface disclosure-first and closes on selection", async () => {
     const onChange = vi.fn();
     render(

@@ -65,7 +65,7 @@ export function ProductHeroCard({
   statusClassName: string;
   summaryFields: ProductSummaryField[];
 }) {
-  const { locale, t } = useLocale();
+  const { t } = useLocale();
   const [imageFailed, setImageFailed] = useState(false);
   const [nameOpen, setNameOpen] = useState(false);
   const thumbnailUrl = safeInventoryProductThumbnailUrl(item.thumbnail_url);
@@ -75,8 +75,8 @@ export function ProductHeroCard({
       data-ui="inventory-product-hero"
       className={cn(repairOs.mobileInfoCard, "min-w-0 self-start p-2 sm:p-3")}
     >
-      <div className="flex min-w-0 items-center gap-2 rounded-xl bg-[var(--surface-panel-muted)] p-2">
-        <span className="relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-xl bg-primary/10 text-primary">
+      <div className="flex min-w-0 items-center gap-3 p-1 lg:gap-4 lg:py-3">
+        <span className="relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-xl bg-[var(--surface-panel-muted)] text-muted-foreground lg:size-20">
           {thumbnailUrl && !imageFailed ? (
             <img
               src={thumbnailUrl}
@@ -102,7 +102,7 @@ export function ProductHeroCard({
           >
             <span className="truncate">{statusLabel}</span>
           </span>
-          <h2 className="text-sm font-semibold leading-5 min-[400px]:text-base">
+          <h2 className="text-lg font-semibold leading-6 lg:text-2xl lg:leading-8">
             <button
               type="button"
               className="min-h-11 w-full rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -118,21 +118,18 @@ export function ProductHeroCard({
           </p>
         </div>
       </div>
-      <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-        {summaryFields.map((field) => (
-          <InventoryInfoTile
-            key={field.label}
-            label={field.label}
-            value={field.value}
-            valueClassName="font-semibold"
-          />
-        ))}
-      </div>
-      <p className="mt-1.5 text-[10px] leading-3 text-muted-foreground">
-        {t("inventory2b4.detail.updatedAt", {
-          date: formatInventoryProductDate(item.updated_at, locale, t),
-        })}
-      </p>
+      {summaryFields.length ? (
+        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+          {summaryFields.map((field) => (
+            <InventoryInfoTile
+              key={field.label}
+              label={field.label}
+              value={field.value}
+              valueClassName="font-semibold"
+            />
+          ))}
+        </div>
+      ) : null}
       <Dialog open={nameOpen} onOpenChange={setNameOpen}>
         <DialogContent
           initialFocus="container"
@@ -154,7 +151,6 @@ export function ProductHeroCard({
 
 export function DeviceWorkbenchSection({ fields }: { fields: WorkbenchField[] }) {
   const { t } = useLocale();
-  const [selectedField, setSelectedField] = useState<WorkbenchField | null>(null);
   return (
     <section
       data-ui="inventory-device-workbench"
@@ -167,34 +163,24 @@ export function DeviceWorkbenchSection({ fields }: { fields: WorkbenchField[] })
         title={t("inventory2b4.detail.deviceWorkbench")}
         trailing={t("inventory2b4.detail.coreFacts", { count: fields.length })}
       />
-      <p className="mt-1 text-[10px] leading-3 text-muted-foreground">
-        {t("inventory2b4.detail.deviceWorkbenchHelp")}
-      </p>
-      <div className="mt-1.5 grid min-w-0 grid-cols-3 gap-1.5">
+      <dl className="mt-2 grid min-w-0 gap-x-6 divide-y divide-border/60 sm:grid-cols-2 sm:divide-y-0">
         {fields.map((field) => (
-          <WorkbenchTile key={field.id} {...field} onOpen={() => setSelectedField(field)} />
+          <div
+            key={field.id}
+            className="grid min-w-0 grid-cols-[minmax(5rem,0.8fr)_minmax(0,1.2fr)] items-baseline gap-3 py-2 text-xs lg:text-sm"
+          >
+            <dt className="text-muted-foreground">{field.label}</dt>
+            <dd
+              className={cn(
+                "min-w-0 break-words font-medium",
+                field.isMissing && "font-normal text-muted-foreground",
+              )}
+            >
+              {field.value}
+            </dd>
+          </div>
         ))}
-      </div>
-      <Dialog
-        open={Boolean(selectedField)}
-        onOpenChange={(open) => {
-          if (!open) setSelectedField(null);
-        }}
-      >
-        <DialogContent
-          initialFocus="container"
-          closeLabel={t("inventorySales.close")}
-          className="max-h-[calc(100svh-24px)] overflow-y-auto"
-        >
-          <DialogHeader>
-            <DialogTitle>{selectedField?.label}</DialogTitle>
-            <DialogDescription>{t("inventorySales.fullDetails")}</DialogDescription>
-          </DialogHeader>
-          <p className="whitespace-pre-wrap break-words text-base leading-6">
-            {selectedField?.value}
-          </p>
-        </DialogContent>
-      </Dialog>
+      </dl>
     </section>
   );
 }
@@ -241,16 +227,27 @@ export function ProductBusinessSection({ item }: { item: InventoryProductDetail 
         id="inventory-product-business-title"
         title={t("inventory2b4.detail.business")}
       />
-      <div className="mt-1.5 grid min-w-0 grid-cols-2 gap-1.5 sm:grid-cols-3">
-        {fields.map((field) => (
-          <InventoryInfoTile
+      <dl className="mt-3 grid min-w-0 gap-2">
+        {fields.map((field, index) => (
+          <div
             key={field.label}
-            label={field.label}
-            value={field.value}
-            valueClassName="font-semibold"
-          />
+            className={cn(
+              "grid min-w-0 grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-3 text-xs lg:text-sm",
+              index === 0 && "mb-1 grid-cols-1 gap-1 border-b border-border pb-3",
+            )}
+          >
+            <dt className="text-muted-foreground">{field.label}</dt>
+            <dd
+              className={cn(
+                "min-w-0 break-words",
+                index === 0 && "font-mono text-2xl font-semibold tabular-nums lg:text-3xl",
+              )}
+            >
+              {field.value}
+            </dd>
+          </div>
         ))}
-      </div>
+      </dl>
     </section>
   );
 }
@@ -293,15 +290,15 @@ export function DeviceIdentitySection({
           {t("inventory2b4.detail.collapse")}
         </span>
       </summary>
-      <div className="mt-1.5 grid min-w-0 grid-cols-2 gap-1.5">
+      <dl className="mt-1.5 grid min-w-0 gap-2 border-t border-border pt-2">
         {identifiers.map((identifier) => (
-          <InventoryInfoTile
+          <div
             key={identifier.kind}
-            frame="bordered"
-            label={identifierLabel(identifier.kind, t)}
-            value={identifier.masked_value}
-            valueClassName="break-all font-mono font-semibold"
-          />
+            className="grid min-w-0 grid-cols-[minmax(5rem,0.8fr)_minmax(0,1.2fr)] gap-3 text-xs lg:text-sm"
+          >
+            <dt className="text-muted-foreground">{identifierLabel(identifier.kind, t)}</dt>
+            <dd className="break-all font-mono text-muted-foreground">{identifier.masked_value}</dd>
+          </div>
         ))}
         {gtin ? (
           <InventoryInfoTile
@@ -321,7 +318,7 @@ export function DeviceIdentitySection({
             valueClassName="break-words font-semibold"
           />
         ))}
-      </div>
+      </dl>
     </details>
   );
 }
@@ -408,40 +405,6 @@ function SectionTitle({
         </p>
       ) : null}
     </div>
-  );
-}
-
-function WorkbenchTile({
-  icon: Icon,
-  label,
-  value,
-  isMissing,
-  onOpen,
-}: WorkbenchField & { onOpen: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-label={`${label}: ${value}`}
-      className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring grid min-h-14 min-w-0 grid-cols-[28px_minmax(0,1fr)] items-center gap-1 rounded-lg bg-[var(--surface-panel-muted)] p-1.5"
-    >
-      <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-        <Icon className="size-3.5" aria-hidden="true" />
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-          {label}
-        </span>
-        <strong
-          className={cn(
-            "line-clamp-2 block break-words text-[11px] font-semibold leading-4 lg:text-xs lg:leading-4",
-            isMissing && "font-normal text-muted-foreground",
-          )}
-        >
-          {value}
-        </strong>
-      </span>
-    </button>
   );
 }
 

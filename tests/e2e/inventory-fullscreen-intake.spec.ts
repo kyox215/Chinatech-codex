@@ -9,7 +9,7 @@ test.skip(
 );
 const evidence = resolve(
   process.cwd(),
-  "artifacts/TASK-20260912-002-ui-consistency-framework/fullscreen-run3/intake",
+  "artifacts/TASK-20260912-002-ui-consistency-framework/figma-run4/intake",
 );
 
 test.beforeEach(async ({ context, baseURL }) => {
@@ -156,7 +156,8 @@ for (const viewport of [
         const columns = await workspace.evaluate(
           (node) => getComputedStyle(node).gridTemplateColumns.split(" ").length,
         );
-        expect(columns).toBe(viewport.width < 768 ? 1 : 2);
+        const availableWidth = await workspace.evaluate((node) => node.parentElement!.clientWidth);
+        expect(columns).toBe(availableWidth < 900 ? 1 : 2);
         const actions = page.locator('[data-ui="inventory-product-actions"]');
         await expect(actions).toHaveCount(1);
         await expect(actions.getByRole("button")).toHaveCount(2);

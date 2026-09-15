@@ -37,6 +37,10 @@ import {
 } from "../model/inventory-product-form";
 import { useInventoryProductLeaveGuard } from "../model/use-inventory-product-leave-guard";
 import {
+  changeInventoryProductCategory,
+  hasInventoryCategoryDependentValues,
+} from "../model/inventory-product-category-transition";
+import {
   getInventoryQuickEntryErrorMessage,
   localizeInventoryProductCategory,
   localizeInventoryValidation,
@@ -487,30 +491,21 @@ export function InventoryProductIntakeScreen({
   const applyCategory = (category: InventoryProductCategory) => {
     setPendingCategory(undefined);
     setPendingCatalogTransition(undefined);
-    setDraft((current) => ({
-      ...current,
-      category,
-      ...(current.category === category
-        ? {}
-        : {
-            brand: "",
-            model: "",
-            ram_capacity: "",
-            storage_capacity: "",
-            color: "",
-            condition: "",
-            imei1: "",
-            imei2: "",
-            serial: "",
-            eid: "",
-            primary_identifier_kind: undefined,
-            gtin: "",
-            specifications: {},
-            inspection_battery_health: "",
-            inspection_face_id_status: "not_tested",
-            inspection_touched: false,
-          }),
-    }));
+    setDraft((current) => {
+      if (current.category === category) return current;
+      const {
+        identifiers,
+        identifier_sources: _sources,
+        ...fields
+      } = changeInventoryProductCategory(toFormDraft(current), category);
+      return {
+        ...current,
+        ...fields,
+        ...identifiers,
+        primary_identifier_kind: undefined,
+        identifier_sources: { imei1: "manual", imei2: "manual", serial: "manual", eid: "manual" },
+      };
+    });
   };
 
   const clearCatalogValidationError = (fieldId: "product-brand" | "product-model") => {
@@ -580,26 +575,7 @@ export function InventoryProductIntakeScreen({
   };
 
   const selectCategory = (category: InventoryProductCategory) => {
-    if (
-      draft.category !== category &&
-      [
-        draft.brand,
-        draft.model,
-        draft.ram_capacity,
-        draft.storage_capacity,
-        draft.color,
-        draft.condition,
-        draft.imei1,
-        draft.imei2,
-        draft.serial,
-        draft.eid,
-        draft.gtin,
-        draft.inspection_battery_health,
-        draft.inspection_face_id_status === "not_tested" ? "" : draft.inspection_face_id_status,
-        draft.inspection_touched ? "inspection-touched" : "",
-        ...Object.values(draft.specifications),
-      ].some((value) => value.trim())
-    ) {
+    if (draft.category !== category && hasInventoryCategoryDependentValues(toFormDraft(draft))) {
       setPendingCategory(category);
       return false;
     }

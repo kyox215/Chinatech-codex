@@ -92,6 +92,9 @@ export type InventoryProductFormProps = {
   idPrefix?: string;
   surface?: CatalogPickerSurface;
   pickerMode?: CatalogPickerMode;
+  presentation?: "standard" | "dossier";
+  conditionInvalid?: boolean;
+  onConditionChange?: (value: string) => void;
   categoryDisabled?: boolean;
   catalogDisabled?: boolean;
   autoFocusBrand?: boolean;
@@ -131,6 +134,9 @@ export function InventoryProductForm({
   idPrefix = "product",
   surface = "page",
   pickerMode = "auto",
+  presentation = "standard",
+  conditionInvalid = false,
+  onConditionChange,
   categoryDisabled = false,
   catalogDisabled = false,
   autoFocusBrand = false,
@@ -169,7 +175,18 @@ export function InventoryProductForm({
     inspectionCapabilities?.face_id_status || draft.inspection_face_id_status === "not_applicable",
   );
   return (
-    <section className={cn(repairOs.mobileInfoCard, "space-y-2 p-2.5 lg:p-3")}>
+    <section
+      className={cn(
+        repairOs.mobileInfoCard,
+        "space-y-2 p-2.5 lg:p-3",
+        presentation === "dossier" && "space-y-3 p-3 md:p-4",
+      )}
+    >
+      {presentation === "dossier" ? (
+        <h2 className="text-sm font-semibold md:text-base">
+          {t("inventory2b4.quick.form.identity")}
+        </h2>
+      ) : null}
       <fieldset>
         <legend className="mb-1.5 text-xs font-semibold">
           {t("inventory2b4.quick.form.category")}{" "}
@@ -190,7 +207,7 @@ export function InventoryProductForm({
               tabIndex={draft.category === value ? 0 : -1}
               disabled={categoryDisabled}
               className={cn(
-                "flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:text-xs lg:leading-4",
+                "flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 text-[10px] font-medium transition-colors duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:text-xs lg:leading-4",
                 draft.category === value
                   ? "border-primary bg-primary text-primary-foreground"
                   : "border-border bg-card",
@@ -225,6 +242,18 @@ export function InventoryProductForm({
         modelInvalid={modelInvalid}
         learnedCatalogOptions={learnedCatalogOptions}
         pickerMode={pickerMode}
+        presentation={presentation}
+        conditionField={
+          presentation === "dossier" && onConditionChange ? (
+            <ConditionField
+              id={`${idPrefix}-condition`}
+              value={draft.condition}
+              invalid={conditionInvalid}
+              mode={pickerMode === "desktop" ? "desktop" : "mobile"}
+              onChange={onConditionChange}
+            />
+          ) : undefined
+        }
         onBrandChange={onBrandChange}
         onModelChange={onModelChange}
         onRamChange={onRamChange}
@@ -330,6 +359,7 @@ export type InventoryProductFormDetailsProps = {
   identifierSection: ReactNode;
   layoutMode?: "compact" | "desktop";
   preserveDisclosureState?: boolean;
+  presentation?: "standard" | "dossier";
   onConditionChange: (value: string) => void;
   onGtinChange: (value: string) => void;
   onSpecificationChange: (key: string, value: string) => void;
@@ -353,6 +383,7 @@ export function InventoryProductIdentifierSection({
   onIdentifierChange,
   onIdentifierSource,
   onPrimaryIdentifierChange,
+  children,
 }: {
   draft: Pick<
     InventoryProductFormDraft,
@@ -363,7 +394,8 @@ export function InventoryProductIdentifierSection({
   showScanner?: boolean;
   IdentifierField?: InventoryProductIdentifierFieldComponent;
   allowPrimarySelection?: boolean;
-  layoutMode?: "compact" | "desktop";
+  layoutMode?: "compact" | "desktop" | "dossier";
+  children?: ReactNode;
   invalidKinds?: Partial<Record<InventoryProductIdentifierKind, boolean>>;
   requiredKinds?: Partial<Record<InventoryProductIdentifierKind, boolean>>;
   onIdentifierChange: (kind: InventoryProductIdentifierKind, value: string) => void;
@@ -388,7 +420,11 @@ export function InventoryProductIdentifierSection({
       <div
         className={cn(
           "grid min-w-0 gap-2",
-          layoutMode === "desktop" ? "grid-cols-1" : "min-[390px]:grid-cols-2",
+          layoutMode === "dossier"
+            ? "grid-cols-1 sm:grid-cols-2"
+            : layoutMode === "desktop"
+              ? "grid-cols-1"
+              : "min-[390px]:grid-cols-2",
         )}
       >
         {inventoryProductIdentifierKinds.map((kind) => {
@@ -454,6 +490,7 @@ export function InventoryProductIdentifierSection({
             </div>
           );
         })}
+        {children}
       </div>
     </section>
   );
@@ -512,6 +549,7 @@ export function InventoryProductFormDetails({
   identifierSection,
   layoutMode = "compact",
   preserveDisclosureState = false,
+  presentation = "standard",
   onConditionChange,
   onGtinChange,
   onSpecificationChange,
@@ -530,24 +568,43 @@ export function InventoryProductFormDetails({
   const disclosureSpecFields = specFields.filter((field) => specificationPresets[field.key]);
   const secondarySpecFields = specFields.filter((field) => !specificationPresets[field.key]);
   return (
-    <section data-ui="inventory-product-form-details" className="grid gap-1.5">
+    <section
+      data-ui="inventory-product-form-details"
+      className={cn("grid gap-1.5", presentation === "dossier" && "gap-2.5 md:gap-4")}
+    >
       <section
         data-ui="inventory-product-form-primary-details"
-        className={cn(repairOs.mobileInfoCard, "grid min-w-0 gap-2 p-2.5 lg:p-3")}
+        className={
+          presentation === "dossier"
+            ? "contents"
+            : cn(repairOs.mobileInfoCard, "grid min-w-0 gap-2 p-2.5 lg:p-3")
+        }
       >
-        <ConditionField
-          id={`${idPrefix}-condition`}
-          value={draft.condition}
-          invalid={conditionInvalid}
-          mode={layoutMode === "desktop" ? "desktop" : "mobile"}
-          onChange={onConditionChange}
-        />
+        {presentation === "standard" ? (
+          <ConditionField
+            id={`${idPrefix}-condition`}
+            value={draft.condition}
+            invalid={conditionInvalid}
+            mode={layoutMode === "desktop" ? "desktop" : "mobile"}
+            onChange={onConditionChange}
+          />
+        ) : null}
         {identifierSection}
         <section
           data-ui="inventory-product-form-commercial"
           data-inventory-product-form-primary-commercial="true"
-          className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 lg:p-3")}
+          className={cn(
+            repairOs.mobileInfoCard,
+            "grid min-w-0 grid-cols-2 gap-2 p-2.5 lg:p-3",
+            presentation === "dossier" &&
+              "grid-cols-1 gap-3 p-3 md:grid-cols-3 md:p-4 @[900px]/inventory-form:grid-cols-1",
+          )}
         >
+          {presentation === "dossier" ? (
+            <h2 className="text-sm font-semibold md:col-span-3 md:text-base @[900px]/inventory-form:col-span-1">
+              {t("inventory2b4.quick.form.salesInformation")}
+            </h2>
+          ) : null}
           <ProductDetailField
             id={`${idPrefix}-price`}
             label={t("inventory2b4.quick.form.plannedSale")}
@@ -568,41 +625,73 @@ export function InventoryProductFormDetails({
               onChange={onCostChange}
             />
           ) : null}
+          {presentation === "dossier" ? (
+            <>
+              <PresetWithManualField
+                id={`${idPrefix}-warranty`}
+                label={t("inventory2b4.quick.form.warrantyMonths")}
+                value={draft.warranty_months}
+                placeholder={t("inventory2b4.quick.form.notEntered")}
+                options={warrantyPresets.map((value) => ({
+                  value,
+                  label:
+                    value === "0"
+                      ? t("inventory2b4.quick.form.noWarranty")
+                      : t("inventory2b4.quick.form.warrantyValue", { months: value }),
+                }))}
+                mode={layoutMode === "desktop" ? "desktop" : "mobile"}
+                inputMode="numeric"
+                invalid={warrantyInvalid}
+                onChange={onWarrantyChange}
+              />
+              <ProductDetailField
+                id={`${idPrefix}-location`}
+                label={t("inventory2b4.quick.form.location")}
+                value={draft.location}
+                placeholder={t("inventory2b4.quick.form.locationExample")}
+                onChange={onLocationChange}
+              />
+            </>
+          ) : null}
         </section>
-        <section
-          data-ui="inventory-product-form-disclosure-fields"
-          className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 lg:p-3")}
-        >
-          {disclosureSpecFields.map((field) => (
-            <PresetWithManualField
-              key={field.key}
-              id={`${idPrefix}-spec-${field.key}`}
-              label={localizeInventorySpecificationLabel(field.key, field.label, t)}
-              value={draft.specifications[field.key] ?? ""}
-              placeholder={field.placeholder}
-              options={specificationPresets[field.key] ?? []}
-              mode={layoutMode === "desktop" ? "desktop" : "mobile"}
-              onChange={(value) => onSpecificationChange(field.key, value)}
-            />
-          ))}
-          <PresetWithManualField
-            id={`${idPrefix}-warranty`}
-            label={t("inventory2b4.quick.form.warrantyMonths")}
-            value={draft.warranty_months}
-            placeholder={t("inventory2b4.quick.form.notEntered")}
-            options={warrantyPresets.map((value) => ({
-              value,
-              label:
-                value === "0"
-                  ? t("inventory2b4.quick.form.noWarranty")
-                  : t("inventory2b4.quick.form.warrantyValue", { months: value }),
-            }))}
-            mode={layoutMode === "desktop" ? "desktop" : "mobile"}
-            inputMode="numeric"
-            invalid={warrantyInvalid}
-            onChange={onWarrantyChange}
-          />
-        </section>
+        {presentation === "standard" || disclosureSpecFields.length ? (
+          <section
+            data-ui="inventory-product-form-disclosure-fields"
+            className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 lg:p-3")}
+          >
+            {disclosureSpecFields.map((field) => (
+              <PresetWithManualField
+                key={field.key}
+                id={`${idPrefix}-spec-${field.key}`}
+                label={localizeInventorySpecificationLabel(field.key, field.label, t)}
+                value={draft.specifications[field.key] ?? ""}
+                placeholder={field.placeholder}
+                options={specificationPresets[field.key] ?? []}
+                mode={layoutMode === "desktop" ? "desktop" : "mobile"}
+                onChange={(value) => onSpecificationChange(field.key, value)}
+              />
+            ))}
+            {presentation === "standard" ? (
+              <PresetWithManualField
+                id={`${idPrefix}-warranty`}
+                label={t("inventory2b4.quick.form.warrantyMonths")}
+                value={draft.warranty_months}
+                placeholder={t("inventory2b4.quick.form.notEntered")}
+                options={warrantyPresets.map((value) => ({
+                  value,
+                  label:
+                    value === "0"
+                      ? t("inventory2b4.quick.form.noWarranty")
+                      : t("inventory2b4.quick.form.warrantyValue", { months: value }),
+                }))}
+                mode={layoutMode === "desktop" ? "desktop" : "mobile"}
+                inputMode="numeric"
+                invalid={warrantyInvalid}
+                onChange={onWarrantyChange}
+              />
+            ) : null}
+          </section>
+        ) : null}
       </section>
       <button
         type="button"
@@ -631,42 +720,48 @@ export function InventoryProductFormDetails({
 
       {detailsOpen ? (
         <div id={`${idPrefix}-details-content`} className="grid gap-1.5">
-          <section
-            data-ui="inventory-product-form-specifications"
-            className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 lg:p-3")}
-          >
-            <ProductDetailField
-              id={`${idPrefix}-gtin`}
-              label={t("inventory2b4.quick.form.gtin")}
-              value={draft.gtin}
-              placeholder={t("inventory2b4.quick.form.gtinPlaceholder")}
-              inputMode="numeric"
-              invalid={gtinInvalid}
-              onChange={onGtinChange}
-            />
-            {secondarySpecFields.map((field) => (
-              <ProductDetailField
-                key={field.key}
-                id={`${idPrefix}-spec-${field.key}`}
-                label={localizeInventorySpecificationLabel(field.key, field.label, t)}
-                value={draft.specifications[field.key] ?? ""}
-                placeholder={field.placeholder}
-                onChange={(value) => onSpecificationChange(field.key, value)}
-              />
-            ))}
-          </section>
+          {presentation === "standard" || secondarySpecFields.length ? (
+            <section
+              data-ui="inventory-product-form-specifications"
+              className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 lg:p-3")}
+            >
+              {presentation === "standard" ? (
+                <ProductDetailField
+                  id={`${idPrefix}-gtin`}
+                  label={t("inventory2b4.quick.form.gtin")}
+                  value={draft.gtin}
+                  placeholder={t("inventory2b4.quick.form.gtinPlaceholder")}
+                  inputMode="numeric"
+                  invalid={gtinInvalid}
+                  onChange={onGtinChange}
+                />
+              ) : null}
+              {secondarySpecFields.map((field) => (
+                <ProductDetailField
+                  key={field.key}
+                  id={`${idPrefix}-spec-${field.key}`}
+                  label={localizeInventorySpecificationLabel(field.key, field.label, t)}
+                  value={draft.specifications[field.key] ?? ""}
+                  placeholder={field.placeholder}
+                  onChange={(value) => onSpecificationChange(field.key, value)}
+                />
+              ))}
+            </section>
+          ) : null}
 
           <section
             data-ui="inventory-product-form-commercial"
             className={cn(repairOs.mobileInfoCard, "grid min-w-0 grid-cols-2 gap-2 p-2.5 lg:p-3")}
           >
-            <ProductDetailField
-              id={`${idPrefix}-location`}
-              label={t("inventory2b4.quick.form.location")}
-              value={draft.location}
-              placeholder={t("inventory2b4.quick.form.locationExample")}
-              onChange={onLocationChange}
-            />
+            {presentation === "standard" ? (
+              <ProductDetailField
+                id={`${idPrefix}-location`}
+                label={t("inventory2b4.quick.form.location")}
+                value={draft.location}
+                placeholder={t("inventory2b4.quick.form.locationExample")}
+                onChange={onLocationChange}
+              />
+            ) : null}
             <div className="col-span-2 min-w-0 space-y-1">
               <Label htmlFor={`${idPrefix}-notes`} className="text-xs">
                 {t("inventory2b4.quick.form.internalNotes")}
@@ -758,7 +853,7 @@ function PresetWithManualField({
   );
 }
 
-function ProductDetailField({
+export function ProductDetailField({
   id,
   label,
   value,

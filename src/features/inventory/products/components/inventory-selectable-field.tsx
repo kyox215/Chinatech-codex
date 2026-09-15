@@ -46,6 +46,8 @@ export type InventorySelectableFieldProps = {
   ariaDescribedBy?: string;
   className?: string;
   manualEntry?: ReactNode;
+  triggerLabel?: string;
+  hideLabel?: boolean;
 };
 
 /**
@@ -71,6 +73,8 @@ export function InventorySelectableField({
   ariaDescribedBy,
   className,
   manualEntry,
+  triggerLabel,
+  hideLabel = false,
 }: InventorySelectableFieldProps) {
   const { t } = useLocale();
   const resolvedPlaceholder = placeholder ?? t("inventory2b4.quick.select.placeholder");
@@ -85,6 +89,7 @@ export function InventorySelectableField({
   const isUnavailable = disabled || pending;
   const selectedOption = options.find((option) => option.value === value);
   const summaryValue = selectedOption?.label ?? value;
+  const triggerAriaValue = triggerLabel ?? summaryValue;
 
   const focusTrigger = useCallback(() => {
     queueMicrotask(() => triggerRef.current?.focus({ preventScroll: true }));
@@ -174,8 +179,8 @@ export function InventorySelectableField({
       aria-invalid={invalid || undefined}
       aria-required={required || undefined}
       aria-label={
-        summaryValue
-          ? t("inventory2b4.quick.select.valueAria", { label, value: summaryValue })
+        triggerAriaValue
+          ? t("inventory2b4.quick.select.valueAria", { label, value: triggerAriaValue })
           : resolvedPlaceholder
       }
       aria-describedby={ariaDescribedBy}
@@ -195,7 +200,7 @@ export function InventorySelectableField({
           !value && "text-muted-foreground",
         )}
       >
-        {summaryValue || resolvedPlaceholder}
+        {triggerLabel ?? (summaryValue || resolvedPlaceholder)}
       </span>
       <ChevronDown aria-hidden="true" className="ml-2 size-4 shrink-0 text-muted-foreground" />
     </button>
@@ -274,7 +279,9 @@ export function InventorySelectableField({
 
   return (
     <div className={cn("min-w-0 space-y-1.5", className)} data-inventory-selectable-field>
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id} className={hideLabel ? "sr-only" : undefined}>
+        {label}
+      </Label>
       {resolvedMode === "mobile" ? (
         <Sheet open={open} onOpenChange={handleOpenChange}>
           <div>{trigger}</div>

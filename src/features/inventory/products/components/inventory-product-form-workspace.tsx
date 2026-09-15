@@ -15,6 +15,7 @@ import {
   InventoryProductForm,
   InventoryProductFormDetails,
   InventoryProductIdentifierSection,
+  ProductDetailField,
   type InventoryProductIdentifierFieldComponent,
   inventoryProductFormCategories,
 } from "./inventory-product-form";
@@ -160,6 +161,9 @@ export function InventoryProductFormWorkspace({
       idPrefix={idPrefix}
       surface={surface}
       pickerMode={pickerMode}
+      presentation={presentation === "fullscreen" ? "dossier" : "standard"}
+      conditionInvalid={conditionInvalid}
+      onConditionChange={onConditionChange}
       categoryDisabled={categoryDisabled}
       catalogDisabled={catalogDisabled}
       autoFocusBrand={autoFocusBrand}
@@ -193,13 +197,25 @@ export function InventoryProductFormWorkspace({
       showScanner={showScanner}
       IdentifierField={identifierField}
       allowPrimarySelection={allowPrimarySelection}
-      layoutMode={presentation === "fullscreen" ? "desktop" : resolvedLayoutMode}
+      layoutMode={presentation === "fullscreen" ? "dossier" : resolvedLayoutMode}
       invalidKinds={invalidKinds}
       requiredKinds={requiredIdentifierKinds}
       onIdentifierChange={onIdentifierChange}
       onIdentifierSource={onIdentifierSource}
       onPrimaryIdentifierChange={onPrimaryIdentifierChange}
-    />
+    >
+      {presentation === "fullscreen" ? (
+        <ProductDetailField
+          id={`${idPrefix}-gtin`}
+          label={t("inventory2b4.quick.form.gtin")}
+          value={draft.gtin}
+          placeholder={t("inventory2b4.quick.form.gtinPlaceholder")}
+          inputMode="numeric"
+          invalid={gtinInvalid}
+          onChange={onGtinChange}
+        />
+      ) : null}
+    </InventoryProductIdentifierSection>
   );
   const detailsForm = (
     <InventoryProductFormDetails
@@ -207,6 +223,7 @@ export function InventoryProductFormWorkspace({
       idPrefix={idPrefix}
       canEnterCost={false}
       preserveDisclosureState={presentation === "fullscreen"}
+      presentation={presentation === "fullscreen" ? "dossier" : "standard"}
       layoutMode={resolvedLayoutMode}
       conditionInvalid={conditionInvalid}
       gtinInvalid={gtinInvalid}
@@ -214,7 +231,7 @@ export function InventoryProductFormWorkspace({
       costInvalid={costInvalid}
       warrantyInvalid={warrantyInvalid}
       identifierSection={
-        presentation === "fullscreen" || resolvedLayoutMode !== "desktop"
+        presentation !== "fullscreen" && resolvedLayoutMode !== "desktop"
           ? identifierSection
           : undefined
       }
@@ -233,16 +250,19 @@ export function InventoryProductFormWorkspace({
   // replace the form/details owners or create a second set of field IDs.
   if (presentation === "fullscreen") {
     return (
-      <div
-        data-inventory-product-form-layout={resolvedLayoutMode}
-        data-inventory-product-form-shell="fullscreen-workbench"
-        className="grid min-w-0 items-start gap-1.5 md:grid-cols-2 md:gap-3"
-      >
-        <div data-inventory-product-form-primary="true" className="min-w-0">
-          {primaryForm}
-        </div>
-        <div data-inventory-product-form-details-column="true" className="min-w-0">
-          {detailsForm}
+      <div className="@container/inventory-form min-w-0">
+        <div
+          data-inventory-product-form-layout={resolvedLayoutMode}
+          data-inventory-product-form-shell="fullscreen-workbench"
+          className="grid min-w-0 items-start gap-2.5 md:gap-4 @[900px]/inventory-form:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]"
+        >
+          <div data-inventory-product-form-primary="true" className="grid min-w-0 gap-2.5 md:gap-4">
+            {primaryForm}
+            {identifierSection}
+          </div>
+          <div data-inventory-product-form-details-column="true" className="min-w-0">
+            {detailsForm}
+          </div>
         </div>
       </div>
     );

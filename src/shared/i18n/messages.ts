@@ -3278,6 +3278,9 @@ const zhCN = {
   "inventory2b4.quick.catalog.manualPlaceholder": "{placeholder}（其他/手动）",
   "inventory2b4.quick.catalog.manualAria": "{label}手动补充",
   "inventory2b4.quick.catalog.color": "设备颜色",
+  "inventory2b4.quick.catalog.moreColors": "更多 / 自定义",
+  "inventory2b4.quick.form.identity": "商品身份",
+  "inventory2b4.quick.form.salesInformation": "售卖信息",
   "inventory2b4.quick.catalog.selectColor": "选择设备颜色",
   "inventory2b4.quick.catalog.colorReadonlyAria": "设备颜色当前值（只读）",
   "inventory2b4.quick.catalog.colorManualPlaceholder": "例如 蓝色（其他/手动）",
@@ -3382,7 +3385,9 @@ const zhCN = {
   "inventory2b4.quick.screen.identifierPageHint":
     "可用摄像头扫码、照片识别、粘贴或手工输入；原图仅在本机处理。",
   "inventory2b4.quick.screen.categoryChangeWarning":
-    "切换到“{category}”会清除当前品牌、型号、规格和设备标识。",
+    "切换到“{category}”会清除品牌、型号、规格、颜色、成色、设备标识、条码和未保存的检测资料；价格、保修、库位和备注保留。",
+  "inventory2b4.quick.screen.categorySavedInspectionKept":
+    "已保存的检测记录仍保留，不会随类别切换删除。",
   "inventory2b4.quick.screen.clearAndSwitch": "清空并切换",
   "inventory2b4.quick.screen.catalogUnavailable":
     "店铺目录暂时不可用，仍可使用常用选项或手动填写。",
@@ -7737,6 +7742,9 @@ const itIT: Record<MessageKey, string> = {
   "inventory2b4.quick.catalog.manualPlaceholder": "Inserimento manuale, {placeholder}",
   "inventory2b4.quick.catalog.manualAria": "Inserisci manualmente {label}",
   "inventory2b4.quick.catalog.color": "Colore",
+  "inventory2b4.quick.catalog.moreColors": "Altri / personalizzato",
+  "inventory2b4.quick.form.identity": "Identità prodotto",
+  "inventory2b4.quick.form.salesInformation": "Informazioni di vendita",
   "inventory2b4.quick.catalog.selectColor": "Seleziona il colore",
   "inventory2b4.quick.catalog.colorReadonlyAria": "Colore esistente (sola lettura)",
   "inventory2b4.quick.catalog.colorManualPlaceholder": "Inserisci un colore personalizzato",
@@ -7858,7 +7866,9 @@ const itIT: Record<MessageKey, string> = {
   "inventory2b4.quick.screen.identifierPageHint":
     "Usa fotocamera, foto, incolla o inserimento manuale; l’immagine originale viene elaborata solo sul dispositivo.",
   "inventory2b4.quick.screen.categoryChangeWarning":
-    "Passare a “{category}” cancellerà marca, modello, specifiche e identificativi attuali.",
+    "Passare a “{category}” cancellerà marca, modello, specifiche, colore, condizione, identificativi, codice a barre e controlli non salvati. Prezzi, garanzia, posizione e note restano invariati.",
+  "inventory2b4.quick.screen.categorySavedInspectionKept":
+    "I controlli già salvati restano registrati e non vengono eliminati cambiando categoria.",
   "inventory2b4.quick.screen.clearAndSwitch": "Cancella e cambia",
   "inventory2b4.quick.screen.catalogUnavailable":
     "Il catalogo del negozio non è disponibile; puoi usare le opzioni comuni o inserire manualmente.",
@@ -12264,6 +12274,9 @@ const en: Record<MessageKey, string> = {
   "inventory2b4.quick.catalog.manualPlaceholder": "Manual entry, {placeholder}",
   "inventory2b4.quick.catalog.manualAria": "Enter {label} manually",
   "inventory2b4.quick.catalog.color": "Color",
+  "inventory2b4.quick.catalog.moreColors": "More / custom",
+  "inventory2b4.quick.form.identity": "Product identity",
+  "inventory2b4.quick.form.salesInformation": "Sales information",
   "inventory2b4.quick.catalog.selectColor": "Select color",
   "inventory2b4.quick.catalog.colorReadonlyAria": "Existing color (read only)",
   "inventory2b4.quick.catalog.colorManualPlaceholder": "Enter a custom color",
@@ -12384,7 +12397,9 @@ const en: Record<MessageKey, string> = {
   "inventory2b4.quick.screen.identifierPageHint":
     "Use camera scanning, photo recognition, paste, or manual entry; the original image is processed only on this device.",
   "inventory2b4.quick.screen.categoryChangeWarning":
-    "Switching to “{category}” clears the current brand, model, specifications, and device identifiers.",
+    "Switching to “{category}” clears brand, model, specifications, color, condition, identifiers, barcode, and unsaved inspection data. Prices, warranty, location, and notes are kept.",
+  "inventory2b4.quick.screen.categorySavedInspectionKept":
+    "Saved inspection records are retained and are not deleted when the category changes.",
   "inventory2b4.quick.screen.clearAndSwitch": "Clear and switch",
   "inventory2b4.quick.screen.catalogUnavailable":
     "The store catalog is unavailable; you can still use common options or enter a value manually.",
