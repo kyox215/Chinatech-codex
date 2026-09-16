@@ -2,7 +2,16 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Filter, LoaderCircle, Plus, Printer, Search, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Filter,
+  LoaderCircle,
+  Plus,
+  Printer,
+  RefreshCw,
+  Search,
+  X,
+} from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   lazy,
@@ -1449,25 +1458,6 @@ export function OrderListScreen() {
     >
       <h1 className="sr-only">{t("orders.title")}</h1>
       {viewportMode === "compact" ? (
-        <div className="mb-1 flex justify-end" data-order-pull-refresh="true">
-          <Button
-            type="button"
-            variant="ghost"
-            className="min-h-11 text-xs text-muted-foreground"
-            disabled={!isOnline || isFetching || listInteractionBlocked}
-            onClick={() => void refetchOrders()}
-          >
-            {t(
-              pullDistance >= 72
-                ? "orders.releaseToRefresh"
-                : pullDistance > 0
-                  ? "orders.pullToRefresh"
-                  : "orders.refreshFirstBatch",
-            )}
-          </Button>
-        </div>
-      ) : null}
-      {viewportMode === "compact" ? (
         <MobileOrdersFloatingHeader
           headerRef={setMobileHeaderRef}
           groups={statusGroupItems}
@@ -1527,6 +1517,38 @@ export function OrderListScreen() {
               onChange={setPresentationView}
               disabled={listInteractionBlocked}
             />
+          }
+          refreshAction={
+            <div
+              data-order-pull-refresh="true"
+              className="flex min-w-0 items-center justify-end gap-1"
+            >
+              {pullDistance > 0 ? (
+                <span role="status" className="truncate text-[10px] text-muted-foreground">
+                  {t(pullDistance >= 72 ? "orders.releaseToRefresh" : "orders.pullToRefresh")}
+                </span>
+              ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                className="size-11 shrink-0 rounded-lg p-0 text-muted-foreground"
+                aria-label={t(
+                  pullDistance >= 72
+                    ? "orders.releaseToRefresh"
+                    : pullDistance > 0
+                      ? "orders.pullToRefresh"
+                      : "orders.refreshFirstBatch",
+                )}
+                title={t("orders.refreshFirstBatch")}
+                disabled={!isOnline || isFetching || listInteractionBlocked}
+                onClick={() => void refetchOrders()}
+              >
+                <RefreshCw
+                  className={cn("size-4", isFetching && "animate-spin")}
+                  aria-hidden="true"
+                />
+              </Button>
+            </div>
           }
         />
       ) : null}
@@ -2098,11 +2120,11 @@ export function OrderListScreen() {
 
             {/* Mobile and tablet cards */}
             {viewportMode === "compact" && presentationView === "list" ? (
-              <div data-order-mobile-list="true" className="space-y-3">
+              <div data-order-mobile-list="true" className="space-y-2">
                 {groupedData.map((section) => (
                   <section
                     key={section.group}
-                    className="space-y-1.5"
+                    className="space-y-1"
                     aria-labelledby={`mobile-order-group-${section.group}`}
                   >
                     <OrderResultGroupHeader
@@ -2161,7 +2183,12 @@ export function OrderListScreen() {
                         data-order-board-stage={section.stage}
                         aria-labelledby={`order-board-${section.stage}`}
                       >
-                        <header className="mb-3 flex min-w-0 items-center justify-between gap-2">
+                        <header
+                          className={cn(
+                            "flex min-w-0 items-center justify-between gap-2",
+                            viewportMode === "compact" ? "mb-1.5" : "mb-3",
+                          )}
+                        >
                           <h2 id={`order-board-${section.stage}`} className="text-xs font-semibold">
                             {section.stage === "closed"
                               ? t("orders.viewArchive")
@@ -2171,7 +2198,13 @@ export function OrderListScreen() {
                             {section.orders.length}
                           </span>
                         </header>
-                        <div role="list" className="grid min-w-0 gap-3">
+                        <div
+                          role="list"
+                          className={cn(
+                            "grid min-w-0",
+                            viewportMode === "compact" ? "gap-2" : "gap-3",
+                          )}
+                        >
                           {section.orders.map((order) => (
                             <div key={order.id} role="listitem">
                               {viewportMode === "desktop"

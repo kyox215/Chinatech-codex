@@ -450,8 +450,7 @@ const zhCN = {
   "dashboard.viewFollowUp": "查看跟进",
   "dashboard.confirmIntake": "确认收机",
   "dashboard.arrangePickup": "安排取机",
-  "orders.resultGroupAria":
-    "{label}，已载入 {pageCount} 条，共 {totalCount} 条，{hint}，起 {date}",
+  "orders.resultGroupAria": "{label}，已载入 {pageCount} 条，共 {totalCount} 条，{hint}，起 {date}",
   "orders.resultGroupStart": "起 {date}",
   "orders.searchFound": "{scope}“{query}”找到 {total} 条{counts}{permission}",
   "orders.searchCounts": " · 待办 {active} · 历史 {history}",

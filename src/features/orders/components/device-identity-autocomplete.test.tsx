@@ -2,9 +2,15 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { DeviceIdentityAutocomplete } from "./device-identity-autocomplete";
-import { orderBrandSuggestions } from "../model/device-autocomplete";
+import { orderBrandSuggestions, type DeviceSuggestion } from "../model/device-autocomplete";
 
-function Harness({ onSubmit = () => undefined }: { onSubmit?: () => void }) {
+function Harness({
+  onSubmit = () => undefined,
+  options = orderBrandSuggestions,
+}: {
+  onSubmit?: () => void;
+  options?: readonly DeviceSuggestion[];
+}) {
   const [value, setValue] = useState("");
   return (
     <form
@@ -18,7 +24,7 @@ function Harness({ onSubmit = () => undefined }: { onSubmit?: () => void }) {
         value={value}
         label="Brand"
         placeholder="Brand"
-        options={orderBrandSuggestions}
+        options={options}
         onChange={setValue}
         onSelect={(option) => setValue(option.value)}
       />
@@ -27,6 +33,22 @@ function Harness({ onSubmit = () => undefined }: { onSubmit?: () => void }) {
 }
 
 describe("device identity autocomplete", () => {
+  it("retains mouse input focus without cancelling touch or pen native clicks", () => {
+    render(<Harness />);
+    const input = screen.getByRole("combobox", { name: "Brand" });
+    fireEvent.focus(input);
+    const option = screen.getByRole("option", { name: "Apple" });
+    for (const pointerType of ["mouse", "touch", "pen"]) {
+      const event = new Event("pointerdown", { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "pointerType", { value: pointerType });
+      fireEvent(option, event);
+      expect(event.defaultPrevented).toBe(pointerType === "mouse");
+    }
+    fireEvent.click(option);
+    expect(input).toHaveValue("Apple");
+    expect(input).toHaveFocus();
+    expect(input).toHaveAttribute("aria-expanded", "false");
+  });
   it("offers immediate prefixes and selects with Enter without submitting the form", () => {
     const submit = vi.fn();
     render(<Harness onSubmit={submit} />);
@@ -53,5 +75,58 @@ describe("device identity autocomplete", () => {
     expect(screen.getByRole("status")).toBeVisible();
     fireEvent.keyDown(input, { key: "Enter" });
     expect(input).toHaveValue("Unknown Brand");
+  });
+  it("opens the full brand catalog progressively and reaches its final item", () => {
+    const options = Array.from({ length: 105 }, (_, index) => ({
+      value: `Model ${String(index + 1).padStart(3, "0")}`,
+      aliases: [],
+    }));
+    render(<Harness options={options} />);
+    const input = screen.getByRole("combobox", { name: "Brand" });
+    fireEvent.focus(input);
+    expect(screen.getAllByRole("option")).toHaveLength(40);
+    expect(screen.getAllByRole("option")[0]).toHaveAttribute("aria-setsize", "105");
+    const popup = screen.getByRole("listbox").parentElement!;
+    Object.defineProperties(popup, {
+      scrollTop: { configurable: true, value: 1500 },
+      clientHeight: { configurable: true, value: 300 },
+      scrollHeight: { configurable: true, value: 1800 },
+    });
+    fireEvent.scroll(popup);
+    expect(screen.getAllByRole("option")).toHaveLength(80);
+    fireEvent.scroll(popup);
+    expect(screen.getAllByRole("option")).toHaveLength(105);
+    fireEvent.keyDown(input, { key: "End" });
+    fireEvent.mouseEnter(screen.getByRole("option", { name: "Model 080" }));
+    expect(screen.getByRole("option", { name: "Model 105" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    fireEvent.keyDown(input, { key: "Home" });
+    expect(screen.getByRole("option", { name: "Model 001" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    fireEvent.keyDown(input, { key: "End" });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(input).toHaveValue("Model 105");
+    expect(input).toHaveFocus();
+    expect(input).toHaveAttribute("aria-expanded", "false");
+  });
+  it("searches beyond the rendered batch and clears stale suggestions when the brand changes", () => {
+    const models = Array.from({ length: 81 }, (_, index) => ({
+      value: `Samsung ${index + 1}`,
+      aliases: [],
+    }));
+    const { rerender } = render(<Harness options={models} />);
+    const input = screen.getByRole("combobox", { name: "Brand" });
+    fireEvent.change(input, { target: { value: "Samsung 81" } });
+    expect(screen.getByRole("option", { name: "Samsung 81" })).toBeVisible();
+    rerender(<Harness options={[{ value: "Name-only model", aliases: [] }]} />);
+    expect(screen.queryByRole("option", { name: "Samsung 81" })).not.toBeInTheDocument();
+    expect(input).toHaveValue("Samsung 81");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(input).toHaveValue("Name-only model");
   });
 });

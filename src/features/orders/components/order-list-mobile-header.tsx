@@ -35,6 +35,7 @@ export function MobileOrdersFloatingHeader({
   rangeLabel,
   headerRef,
   presentationControl,
+  refreshAction,
 }: {
   groups: OrderQueueChoice[];
   groupValue: string;
@@ -55,6 +56,7 @@ export function MobileOrdersFloatingHeader({
   rangeLabel?: string;
   headerRef?: Ref<HTMLDivElement>;
   presentationControl?: ReactNode;
+  refreshAction?: ReactNode;
   pageScope?: string;
 }) {
   const { t } = useLocale();
@@ -212,12 +214,13 @@ export function MobileOrdersFloatingHeader({
           <span className="sr-only">{t("orders.queueSortHelp")}</span>
         </span>
       </div>
-      {presentationControl ? (
+      {presentationControl || refreshAction ? (
         <div
           data-order-mobile-presentation-row="true"
-          className="mx-auto flex w-full min-w-0 max-w-[430px] items-center justify-end gap-1 border-t border-border/50 md:max-w-none"
+          className="mx-auto flex w-full min-w-0 max-w-[430px] items-center justify-between gap-1 border-t border-border/50 md:max-w-none"
         >
           {presentationControl}
+          {refreshAction}
         </div>
       ) : null}
       <span

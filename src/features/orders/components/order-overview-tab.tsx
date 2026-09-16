@@ -2189,16 +2189,17 @@ export function ImeiField({
   onQuickSave?: (imei: string) => void | Promise<void>;
   quickPending: boolean;
 }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
 
   if (edit) {
     return (
-      <InfoField label="IMEI / 序列号" tone="soft">
+      <InfoField label={t("orders2b2.overview.imei")} tone="soft">
         <ImeiScannerField
           value={value}
           onChange={(device_imei) => patchDraft(edit, { device_imei })}
-          placeholder="扫描或输入 IMEI / 序列号"
+          placeholder={t("orders2b2.overview.imeiPlaceholder")}
           density="compact"
           appearance="quiet"
         />
@@ -2207,7 +2208,7 @@ export function ImeiField({
   }
 
   return (
-    <InfoField label="IMEI / 序列号" tone="soft">
+    <InfoField label={t("orders2b2.overview.imei")} tone="soft">
       <div className="flex min-w-0 items-center gap-1.5">
         <ReadonlyValue value={value} className="min-w-0 flex-1 font-mono" />
         <Popover
@@ -2223,22 +2224,22 @@ export function ImeiField({
               variant="outline"
               size="icon"
               className="size-11 shrink-0 lg:size-7"
-              aria-label="扫码录入 IMEI / 序列号"
+              aria-label={t("orders2b2.overview.scanImei")}
             >
               <Camera className="size-3.5" />
             </Button>
           </PopoverTrigger>
           <PopoverContent align="end" className="w-[min(22rem,calc(100vw-24px))]">
-            <div className="mb-2 text-xs font-semibold">扫码录入 IMEI / 序列号</div>
+            <div className="mb-2 text-xs font-semibold">{t("orders2b2.overview.scanImei")}</div>
             <ImeiScannerField
               value={draft}
               onChange={setDraft}
-              placeholder="扫描或输入 IMEI / 序列号"
+              placeholder={t("orders2b2.overview.imeiPlaceholder")}
               density="compact"
             />
             <div className="mt-2 flex justify-end gap-2">
               <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
-                取消
+                {t("orders2b2.overview.cancel")}
               </Button>
               <Button
                 type="button"
@@ -2253,7 +2254,7 @@ export function ImeiField({
                   }
                 }}
               >
-                {quickPending ? "保存中…" : "保存 IMEI"}
+                {t(quickPending ? "orders2b2.overview.saving" : "orders2b2.overview.saveImei")}
               </Button>
             </div>
           </PopoverContent>

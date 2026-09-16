@@ -84,6 +84,7 @@ function renderHeader({
         rangeLabel="待处理"
         pageScope="第 2 页 · 20 单"
         presentationControl={<button aria-label="列表展示">列表</button>}
+        refreshAction={<button aria-label="刷新首批">刷新</button>}
       />
     </SidebarProvider>,
   );
@@ -124,6 +125,9 @@ describe("MobileOrdersFloatingHeader", () => {
     expect(screen.getByRole("button", { name: "扫码搜索" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "筛选订单" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "列表展示" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "刷新首批" }).parentElement).toBe(
+      screen.getByRole("button", { name: "列表展示" }).parentElement,
+    );
     expect(screen.queryByText("第 2 页 · 20 单")).not.toBeInTheDocument();
     expect(
       screen.getByRole("textbox", { name: "搜索工单、客户、电话或 IMEI" }).parentElement,

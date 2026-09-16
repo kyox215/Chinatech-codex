@@ -2749,12 +2749,13 @@
   }
 }
 
-/* Order feedback must leave the compact workflow/footer actions reachable. */
-@media (max-width: 1023px) {
-  body:has([data-order-detail-root], [data-order-task-root])
-    [data-sonner-toaster][data-y-position="bottom"] {
-    bottom: calc(96px + env(safe-area-inset-bottom));
-  }
+/* Order feedback must leave workflow/footer actions reachable at every width. */
+body:has([data-order-detail-root], [data-order-task-root], [data-new-order-submit-bar])
+  [data-sonner-toaster][data-y-position="bottom"] {
+  bottom: calc(96px + env(safe-area-inset-bottom));
+}
+body:has([data-order-desktop-transition-panel]) [data-sonner-toaster][data-y-position="bottom"] {
+  bottom: calc(16px + env(safe-area-inset-bottom));
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -8,11 +8,6 @@ import verifiedDeviceModels from "./verified-order-device-models.json";
 
 export type DeviceSuggestion = { value: string; aliases?: readonly string[]; brand?: string };
 
-export const orderBrandSuggestions: DeviceSuggestion[] = EU_PHONE_BRANDS.map((brand) => ({
-  value: brand.name,
-  aliases: brand.aliases,
-}));
-
 // Order suggestions consume only verified identity data; inventory colors/stock stay untouched.
 const verifiedOrderModelAliases: DeviceSuggestion[] = verifiedDeviceModels
   .filter((model) => model.evidence_status === "verified")
@@ -29,13 +24,27 @@ const normalize = (value: string) =>
     .replace(/\+/g, "plus")
     .replace(/[^\p{L}\p{N}]/gu, "");
 
+export const orderBrandSuggestions: DeviceSuggestion[] = [
+  ...EU_PHONE_BRANDS.map((brand) => ({ value: brand.name, aliases: brand.aliases })),
+  ...[...new Set(verifiedOrderModelAliases.map((model) => model.brand!))]
+    .filter((brand) => !findEuPhoneBrand(brand))
+    .map((value) => ({ value })),
+];
+
+function findOrderBrand(value: string) {
+  const known = findEuPhoneBrand(value);
+  if (known) return known.name;
+  if (!value.trim() || value.trim() === "苹果") return "Apple";
+  return orderBrandSuggestions.find((brand) => normalize(brand.value) === normalize(value))?.value;
+}
+
 export function getOrderModelSuggestions(brand: string): DeviceSuggestion[] {
-  const matched = findEuPhoneBrand(brand);
-  const brandId = matched?.id ?? (!brand.trim() || brand.trim() === "苹果" ? "apple" : undefined);
-  if (!brandId) return [];
+  const name = findOrderBrand(brand);
+  if (!name) return [];
+  const brandId = findEuPhoneBrand(name)?.id;
   const all: DeviceSuggestion[] = [
     ...verifiedOrderModelAliases.filter(
-      (model) => findEuPhoneBrand(model.brand ?? "")?.id === brandId,
+      (model) => normalize(model.brand ?? "") === normalize(name),
     ),
     ...(brandId === "apple"
       ? appleDeviceModelSuggestions.map((value) => ({ value, brand: "Apple" }))
@@ -43,7 +52,7 @@ export function getOrderModelSuggestions(brand: string): DeviceSuggestion[] {
     ...EU_PHONE_MODELS.filter((model) => model.brandId === brandId).map((model) => ({
       value: model.name,
       aliases: model.aliases,
-      brand: matched?.name ?? "Apple",
+      brand: name,
     })),
   ];
   const byName = new Map<string, DeviceSuggestion>();
@@ -90,9 +99,10 @@ export function shouldClearModelOnBrandChange(
   nextBrand: string,
   model: string,
 ) {
-  const previous = findEuPhoneBrand(previousBrand);
-  const next = findEuPhoneBrand(nextBrand);
-  if (!previous || previous.id === next?.id || !model.trim()) return false;
+  // Blank or unknown prior brands do not silently discard a manually entered model.
+  const previous = previousBrand.trim() ? findOrderBrand(previousBrand) : undefined;
+  const next = nextBrand.trim() ? findOrderBrand(nextBrand) : undefined;
+  if (!previous || previous === next || !model.trim()) return false;
   return getOrderModelSuggestions(previousBrand).some((option) =>
     [option.value, ...(option.aliases ?? [])].some(
       (value) => normalize(value) === normalize(model),

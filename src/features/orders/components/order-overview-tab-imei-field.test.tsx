@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ImeiField } from "./order-overview-tab";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
 
 const toastMocks = vi.hoisted(() => ({
   error: vi.fn(),
@@ -87,6 +88,41 @@ afterEach(() => {
 });
 
 describe("ImeiField", () => {
+  it.each([
+    ["zh-CN", "扫码录入 IMEI / 序列号", "扫描或输入 IMEI / 序列号", "取消", "保存 IMEI"],
+    [
+      "en",
+      "Scan IMEI / serial number",
+      "Scan or enter IMEI / serial number",
+      "Cancel",
+      "Save IMEI",
+    ],
+    [
+      "it-IT",
+      "Inserisci IMEI / numero di serie con scanner",
+      "Scansiona o inserisci IMEI / numero di serie",
+      "Annulla",
+      "Salva IMEI",
+    ],
+  ] as const)(
+    "localizes the detail popover in %s",
+    async (locale, trigger, placeholder, cancel, save) => {
+      render(
+        <LocaleProvider initialLocale={locale}>
+          <ImeiField
+            value="490154203237518"
+            edit={null}
+            quickPending={false}
+            onQuickSave={vi.fn()}
+          />
+        </LocaleProvider>,
+      );
+      await userEvent.click(screen.getByRole("button", { name: trigger }));
+      expect(screen.getByPlaceholderText(placeholder)).toBeVisible();
+      expect(screen.getByRole("button", { name: cancel })).toBeVisible();
+      expect(screen.getByRole("button", { name: save })).toBeVisible();
+    },
+  );
   it("preserves the legacy scanner entry copy and consumes a rejected quick save", async () => {
     const user = userEvent.setup();
     const onQuickSave = vi.fn().mockRejectedValue(new Error("SERVER_SENTINEL"));

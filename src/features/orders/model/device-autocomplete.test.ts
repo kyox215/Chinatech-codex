@@ -43,4 +43,10 @@ describe("order device autocomplete", () => {
     expect(rankDeviceSuggestions(models, "S24+")[0].value).toBe("Galaxy S24+");
     expect(rankDeviceSuggestions(models, "Galaxy S24")[0].value).toBe("Galaxy S24");
   });
+  it("maps HMD/Nokia and Nothing/CMF aliases to the same brand catalogs", () => {
+    expect(rankDeviceSuggestions(orderBrandSuggestions, "HMD")[0].value).toBe("HMD / Nokia");
+    expect(rankDeviceSuggestions(orderBrandSuggestions, "Nothing")[0].value).toBe("Nothing / CMF");
+    expect(getOrderModelSuggestions("HMD")).toEqual(getOrderModelSuggestions("Nokia"));
+    expect(getOrderModelSuggestions("Nothing")).toEqual(getOrderModelSuggestions("CMF"));
+  });
 });

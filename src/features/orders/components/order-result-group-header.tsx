@@ -81,7 +81,7 @@ export function OrderResultGroupHeader({
       className={cn(
         "flex min-h-10 min-w-0 items-center gap-[clamp(0.25rem,1.28vw,0.375rem)] rounded-[clamp(0.5rem,2.56vw,0.625rem)] border px-[clamp(0.375rem,2.05vw,0.5625rem)] py-1 lg:min-h-9 lg:gap-2 lg:rounded-md lg:px-2.5 lg:py-1.5",
         toneClass(group),
-        compact && "min-h-8 rounded-none border-0 bg-transparent px-1 py-1 text-foreground",
+        compact && "min-h-6 rounded-none border-0 bg-transparent px-1 py-0.5 text-foreground",
         className,
       )}
     >
