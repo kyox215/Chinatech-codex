@@ -1,5 +1,7 @@
 # RepairDesk AI 小助手语音输入合同
 
+> 历史参考（2026-09-16）：老板已要求全面移除产品AI助手，本文的启用/试点步骤已失效，不作为当前操作指令。历史迁移、账本与库存来源兼容仍保留；当前移除及发布前历史预占清算限制见[重构发布说明](REFACTOR_RELEASE_2026-09-16.md)。
+
 Status: verified local candidate; production not released
 Owner: Integration Lead / Frontend / Security / QA
 Task: `TASK-20260719-001-ai-assistant-voice-input`

@@ -351,6 +351,7 @@ export function customerFromRow(row: unknown): Customer | undefined {
     marketing_notes: maybeString(r.marketing_notes),
     last_contacted_at: maybeString(r.last_contacted_at),
     blacklisted_at: maybeString(r.blacklisted_at),
+    updated_at: maybeString(r.updated_at),
   };
 }
 
@@ -364,6 +365,7 @@ export function deviceFromRow(row: unknown): Device | undefined {
     model: requiredString(r.model),
     serial_or_imei: requiredString(r.serial_or_imei),
     device_notes: maybeString(r.device_notes),
+    updated_at: maybeString(r.updated_at),
   };
 }
 

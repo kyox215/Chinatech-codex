@@ -1,26 +1,22 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { BUYBACK_EVIDENCE_HOSTED_REQUEST_MAX_BYTES } from "@/features/buyback/model/buyback-evidence-policy";
+import { isRepairDeskToolkitEnabled } from "@/features/toolkit/model/toolkit-feature";
 import {
   assertRepairDeskPostRequestAllowed,
   resolveRepairDeskRequestOrigin,
 } from "@/server/api/repairdesk-request-guard";
+import {
+  INVENTORY_LIFECYCLE_COMMAND_MAX_BYTES,
+  INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES,
+  MEMO_COMMAND_REQUEST_MAX_BYTES,
+} from "@/server/api/repairdesk-request-limits";
 import {
   getRepairDeskPostActor,
   handleRepairDeskGet,
   handleRepairDeskPost,
 } from "@/server/api/repairdesk-router";
 import { ForbiddenError, UnauthorizedError } from "@/server/auth-context";
-import { BUYBACK_EVIDENCE_HOSTED_REQUEST_MAX_BYTES } from "@/features/buyback/model/buyback-evidence-policy";
-import { AI_INVENTORY_VISION_REQUEST_MAX_BYTES } from "@/features/ai-assistant/model/inventory-image-policy";
-import { getAiAssistantCapabilities } from "@/features/ai-assistant/server/capabilities";
-import { AiServiceError } from "@/features/ai-assistant/server/errors";
-import { consumeAiAssistantRequestRateLimit } from "@/features/ai-assistant/server/request-rate-limit";
-import { isRepairDeskToolkitEnabled } from "@/features/toolkit/model/toolkit-feature";
-import {
-  INVENTORY_LIFECYCLE_COMMAND_MAX_BYTES,
-  INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES,
-  MEMO_COMMAND_REQUEST_MAX_BYTES,
-} from "@/server/api/repairdesk-request-limits";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -31,8 +27,6 @@ type RouteContext = {
 
 const ORDER_DATA_MULTIPART_MAX_BYTES = 4_400_000;
 const TOOLKIT_POST_MAX_BYTES = 64 * 1024;
-const AI_ORDER_TURN_MAX_BYTES = 4_096;
-const AI_ORDER_ACTION_MAX_BYTES = 2_048;
 const PRIVATE_NO_STORE_HEADERS = { "Cache-Control": "private, no-store, max-age=0" };
 
 function isInventoryV2CommandPath(path: string) {
@@ -130,6 +124,7 @@ async function readJsonWithLimit(
 
 export async function GET(request: NextRequest, context: RouteContext) {
   const path = (await context.params).path?.join("/") ?? "";
+  if (path.startsWith("ai/")) return privateError("接口不存在", 404);
   if (path.startsWith("toolkit/") && !isRepairDeskToolkitEnabled()) {
     return privateError("工具集当前未开放", 404);
   }
@@ -138,6 +133,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
 export async function POST(request: NextRequest, context: RouteContext) {
   const path = (await context.params).path?.join("/") ?? "";
+  if (path.startsWith("ai/")) return privateError("接口不存在", 404);
   const isToolkitPost = path.startsWith("toolkit/");
   if (isToolkitPost && !isRepairDeskToolkitEnabled()) {
     return privateError("工具集当前未开放", 404);
@@ -159,27 +155,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     contentLength > BUYBACK_EVIDENCE_HOSTED_REQUEST_MAX_BYTES
   ) {
     return privateError("附件请求过大，请压缩至 2.4MB 后重试", 413);
-  }
-  if (
-    path === "ai/order/turn" &&
-    Number.isFinite(contentLength) &&
-    contentLength > AI_ORDER_TURN_MAX_BYTES
-  ) {
-    return privateError("AI 查询请求过大，请缩短问题后重试", 413);
-  }
-  if (
-    path === "ai/order/action" &&
-    Number.isFinite(contentLength) &&
-    contentLength > AI_ORDER_ACTION_MAX_BYTES
-  ) {
-    return privateError("AI 订单操作请求过大，请刷新后重试", 413);
-  }
-  if (
-    path === "ai/vision/extract" &&
-    Number.isFinite(contentLength) &&
-    contentLength > AI_INVENTORY_VISION_REQUEST_MAX_BYTES
-  ) {
-    return privateError("AI 图片请求过大，请重新裁剪标签后重试", 413);
   }
   if (
     isInventoryV2CommandPath(path) &&
@@ -221,13 +196,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   let preauthenticatedActor;
-  let aiVisionRateLimitConsumed = false;
-  if (
-    path === "orders/data/import/preview" ||
-    path === "ai/order/turn" ||
-    path === "ai/order/action" ||
-    path === "ai/vision/extract"
-  ) {
+  if (path === "orders/data/import/preview") {
     try {
       preauthenticatedActor = await getRepairDeskPostActor(path);
     } catch (error) {
@@ -240,24 +209,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
   }
 
-  if (path === "ai/vision/extract" && preauthenticatedActor) {
-    const capabilities = getAiAssistantCapabilities(preauthenticatedActor);
-    if (!capabilities.canUseVisionIntake) {
-      const permissionDenied = capabilities.reason === "permission_denied";
-      return privateError(
-        permissionDenied ? "当前账号不能使用这项 AI 功能" : "AI 小助手当前未开放",
-        permissionDenied ? 403 : 404,
-      );
-    }
-    try {
-      consumeAiAssistantRequestRateLimit({ actor: preauthenticatedActor });
-      aiVisionRateLimitConsumed = true;
-    } catch (error) {
-      if (error instanceof AiServiceError) return privateError(error.message, error.status);
-      return privateError("AI 请求频率检查暂时不可用", 503);
-    }
-  }
-
   let body: unknown;
   try {
     body =
@@ -265,19 +216,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
         ? await request.formData().catch(() => new FormData())
         : isToolkitPost
           ? await readJsonWithLimit(request, TOOLKIT_POST_MAX_BYTES, true)
-          : path === "ai/vision/extract"
-            ? await readJsonWithLimit(request, AI_INVENTORY_VISION_REQUEST_MAX_BYTES)
-            : path === "ai/order/turn"
-              ? await readJsonWithLimit(request, AI_ORDER_TURN_MAX_BYTES)
-              : path === "ai/order/action"
-                ? await readJsonWithLimit(request, AI_ORDER_ACTION_MAX_BYTES)
-                : isInventoryV2CommandPath(path)
-                  ? await readJsonWithLimit(request, INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES)
-                  : isInventoryLifecycleCommandPath(path)
-                    ? await readJsonWithLimit(request, INVENTORY_LIFECYCLE_COMMAND_MAX_BYTES)
-                    : isMemoPath(path)
-                      ? await readJsonWithLimit(request, MEMO_COMMAND_REQUEST_MAX_BYTES)
-                      : await readJson(request);
+          : isInventoryV2CommandPath(path)
+            ? await readJsonWithLimit(request, INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES)
+            : isInventoryLifecycleCommandPath(path)
+              ? await readJsonWithLimit(request, INVENTORY_LIFECYCLE_COMMAND_MAX_BYTES)
+              : isMemoPath(path)
+                ? await readJsonWithLimit(request, MEMO_COMMAND_REQUEST_MAX_BYTES)
+                : await readJson(request);
   } catch (error) {
     if (error instanceof InvalidJsonPayloadError && isToolkitPost) {
       return privateError("工具集请求格式无效，请重试", 400);
@@ -286,17 +231,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return privateError(
         isToolkitPost
           ? "工具集请求过大，请缩短内容后重试"
-          : path === "ai/vision/extract"
-            ? "AI 图片请求过大，请重新裁剪标签后重试"
-            : path === "ai/order/action"
-              ? "AI 订单操作请求过大，请刷新后重试"
-              : isInventoryV2CommandPath(path)
-                ? "库存 V2 请求过大，请减少备注或标识符后重试"
-                : isInventoryLifecycleCommandPath(path)
-                  ? "商品生命周期请求过大，请缩短备注或检查项后重试"
-                  : isMemoPath(path)
-                    ? "备忘录请求过大，请缩短正文后重试"
-                    : "AI 查询请求过大，请缩短问题后重试",
+          : isInventoryV2CommandPath(path)
+            ? "库存 V2 请求过大，请减少备注或标识符后重试"
+            : isInventoryLifecycleCommandPath(path)
+              ? "商品生命周期请求过大，请缩短备注或检查项后重试"
+              : isMemoPath(path)
+                ? "备忘录请求过大，请缩短正文后重试"
+                : "请求过大，请缩短内容后重试",
         413,
       );
     }
@@ -312,7 +253,5 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return privateError("商品生命周期请求无效，请重试", 400);
     }
   }
-  return handleRepairDeskPost(path, body, preauthenticatedActor, request.signal, {
-    aiVisionRateLimitConsumed,
-  });
+  return handleRepairDeskPost(path, body, preauthenticatedActor, request.signal);
 }

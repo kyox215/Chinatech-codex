@@ -1,10 +1,9 @@
-import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ordersKeys } from "@/features/orders/api/query-keys";
-import { aiAssistantKeys } from "@/features/ai-assistant/api";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { storesKeys } from "@/features/stores/api/query-keys";
 
@@ -142,13 +141,12 @@ describe("useStoreShellContext authority monitoring", () => {
       const { result, unmount } = renderHook(() => useStoreShellContext(), { wrapper });
 
       await waitFor(() => expect(result.current.status).toBe("ready"));
-      expect(fetchMock).toHaveBeenCalledTimes(4);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
       expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual(
         expect.arrayContaining([
           expect.stringContaining("/shell/bootstrap"),
           expect.stringContaining("/onboarding/status"),
           expect.stringContaining("/stores/context"),
-          expect.stringContaining("/ai/capabilities"),
         ]),
       );
 
@@ -167,7 +165,6 @@ describe("useStoreShellContext authority monitoring", () => {
       queryClient.setQueryData(platformKeys.onboardingStatus, {
         activeStore: { id: "store_old" },
       });
-      queryClient.setQueryData(aiAssistantKeys.capabilities("store_old"), { stale: true });
       queryClient.setQueryData(ordersKeys.detail("order_old", "store_old"), { id: "order_old" });
       const fetchMock = vi.fn(
         async () =>
@@ -187,7 +184,6 @@ describe("useStoreShellContext authority monitoring", () => {
       expect(queryClient.getQueryData(storesKeys.bootstrap)).toBeUndefined();
       expect(queryClient.getQueryData(storesKeys.context)).toBeUndefined();
       expect(queryClient.getQueryData(platformKeys.onboardingStatus)).toBeUndefined();
-      expect(queryClient.getQueryData(aiAssistantKeys.capabilities("store_old"))).toBeUndefined();
       expect(queryClient.getQueryData(ordersKeys.detail("order_old", "store_old"))).toBeUndefined();
 
       unmount();

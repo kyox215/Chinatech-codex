@@ -4,7 +4,6 @@ import {
   acceptKioskSession,
   createOrder,
   downloadOrderDataTemplate,
-  getAiAssistantCapabilities,
   getDashboardSummary,
   getInventorySummary,
   getOrderCreateOperationStatus,
@@ -13,16 +12,14 @@ import {
   getShellBootstrap,
   getStoreContext,
   isRepairDeskAuthorizationError,
+  isRepairDeskRequestTimeoutError,
   listAvailableKioskDevices,
   listOrderDataBatchHistory,
-  isRepairDeskRequestTimeoutError,
+  previewOrderDataImport,
   RepairDeskApiError,
   RepairDeskTransportError,
-  runAiInventoryVisionRecognition,
-  runAiOrderAssistantTurn,
-  searchCustomerIntakeCandidates,
   returnKioskSession,
-  previewOrderDataImport,
+  searchCustomerIntakeCandidates,
   updateStoreSettings,
 } from "./api";
 
@@ -98,71 +95,6 @@ describe("repairdesk api client", () => {
     );
   });
 
-  it("uses private AI capability and turn endpoints without caller-controlled scope", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            data: {
-              canUseOrderAssistant: true,
-              canUseOrderInlineActions: false,
-              canUseVisionIntake: false,
-              canApplyInventoryDraft: false,
-            },
-          }),
-          { status: 200 },
-        ),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            data: {
-              request_id: "00000000-0000-4000-8000-000000000001",
-              contract_version: "ai-order-assistant-v4",
-              interpretation_status: "confirmed",
-              kind: "clarification",
-              message: "请补充订单号",
-              applied_filters: [],
-              cards: [],
-              total: 0,
-              result_truncated: false,
-              page: 1,
-              page_size: 8,
-              has_more: false,
-              continuation_token: null,
-              generated_at: "2026-07-18T12:00:00.000Z",
-              source: "repairdesk",
-            },
-          }),
-          { status: 200 },
-        ),
-      );
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(getAiAssistantCapabilities()).resolves.toMatchObject({
-      canUseOrderAssistant: true,
-    });
-    await expect(
-      runAiOrderAssistantTurn({ message: "查询订单", locale: "zh-CN" }),
-    ).resolves.toMatchObject({ kind: "clarification" });
-
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      "/api/repairdesk/ai/capabilities",
-      expect.not.objectContaining({ method: "POST" }),
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      "/api/repairdesk/ai/order/turn",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ message: "查询订单", locale: "zh-CN" }),
-        signal: expect.any(AbortSignal),
-      }),
-    );
-  });
-
   it("loads the atomic shell bootstrap contract from one private endpoint", async () => {
     const fetchMock = vi.fn(
       async () =>
@@ -201,61 +133,6 @@ describe("repairdesk api client", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/repairdesk/shell/bootstrap",
       expect.objectContaining({ headers: { "content-type": "application/json" } }),
-    );
-  });
-
-  it("uses the bounded private AI vision endpoint with caller cancellation support", async () => {
-    const fetchMock = vi.fn(
-      async () =>
-        new Response(
-          JSON.stringify({
-            data: {
-              request_id: "00000000-0000-4000-8000-000000000002",
-              contract_version: "ai-assistant-v1",
-              recognition: {
-                schema_version: "ai-assistant-v1",
-                fields: Object.fromEntries(
-                  ["brand", "model", "color", "ram_capacity", "storage_capacity"].map((name) => [
-                    name,
-                    { value: null, confidence: "unknown", evidence: null, source: "unknown" },
-                  ]),
-                ),
-                identifiers: [],
-                conflicts: [],
-                warnings: ["请手工录入"],
-                label_claim_only: true,
-              },
-              provider: "fake",
-              model_version: "fake-vision-test",
-              generated_at: "2026-07-18T12:00:00.000Z",
-            },
-          }),
-          { status: 200 },
-        ),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-    const controller = new AbortController();
-    const input = {
-      client_request_id: "00000000-0000-4000-8000-000000000201",
-      image_data_url: "data:image/jpeg;base64,/9j/wAA=",
-      mime_type: "image/jpeg" as const,
-      byte_length: 5,
-      width: 1,
-      height: 1,
-      locale: "zh-CN" as const,
-    };
-
-    await expect(
-      runAiInventoryVisionRecognition(input, { signal: controller.signal }),
-    ).resolves.toMatchObject({ provider: "fake" });
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/repairdesk/ai/vision/extract",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify(input),
-        signal: expect.any(AbortSignal),
-      }),
     );
   });
 

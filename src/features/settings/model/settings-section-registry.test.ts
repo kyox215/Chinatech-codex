@@ -5,8 +5,8 @@ import {
   getSettingsSection,
   getSettingsSectionGroups,
   parseSettingsView,
-  sortSettingsCoreSections,
   SETTINGS_SECTION_GROUPS,
+  sortSettingsCoreSections,
 } from "@/features/settings/model/settings-section-registry";
 
 describe("settings section registry", () => {
@@ -28,7 +28,6 @@ describe("settings section registry", () => {
       "rules",
       "workflow",
       "notifications",
-      "ai-usage",
       "order-data",
     ]);
   });
@@ -69,7 +68,7 @@ describe("settings section registry", () => {
       filterSettingsSectionGroups("Token").flatMap((group) =>
         group.sections.map((section) => section.key),
       ),
-    ).toEqual(["ai-usage"]);
+    ).toEqual([]);
   });
 
   it("localizes presentation while preserving canonical keys, order, and hrefs", () => {

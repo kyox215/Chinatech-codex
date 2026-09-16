@@ -11,6 +11,7 @@ import type {
   CustomerFollowupInput,
   CustomerMessageInput,
   CustomerUpdateInput,
+  CustomerTagsUpdateInput,
 } from "@/lib/repairdesk/types";
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
 import { translateMessage } from "@/shared/i18n/messages";
@@ -22,6 +23,7 @@ type MutationOptions = {
 };
 
 const updateInput: CustomerUpdateInput = {
+  expected_updated_at: "2026-09-15T00:00:00.000Z",
   name: "动态客户 Ω",
   phone_e164: "+393330001122",
   contact_phones: ["+393330009999"],
@@ -35,6 +37,7 @@ const updateInput: CustomerUpdateInput = {
   blacklisted: false,
 };
 const deviceInput: CustomerDeviceInput = {
+  expected_updated_at: "2026-09-15T00:00:00.000Z",
   id: "device-dynamic",
   brand: "华为 Dynamic Ω",
   model: "Mate 自定义 Ω",
@@ -220,10 +223,18 @@ vi.mock("@/features/customers/forms/customer-tags-dialog", () => ({
     onSave,
   }: {
     open: boolean;
-    onSave: (ids: string[]) => Promise<unknown>;
+    onSave: (input: CustomerTagsUpdateInput) => Promise<unknown>;
   }) =>
     open ? (
-      <button onClick={() => void onSave(tagIds).catch(() => undefined)}>Harness save tags</button>
+      <button
+        onClick={() =>
+          void onSave({ tagIds, expected_customer_updated_at: "2026-09-15T00:00:00.000Z" }).catch(
+            () => undefined,
+          )
+        }
+      >
+        Harness save tags
+      </button>
     ) : null,
 }));
 
@@ -322,6 +333,7 @@ describe("CustomerDetailScreen i18n", () => {
         ...base.devices,
         {
           id: "device-deletable",
+          updated_at: "2026-09-15T00:00:00.000Z",
           customer_id: base.customer.id,
           brand: "华为 Dynamic Ω",
           model: "自定义型号 Ω",
@@ -537,11 +549,14 @@ describe("CustomerDetailScreen i18n", () => {
     expect(byLocale[0]).toEqual({
       update: [mocks.data!.customer.id, updateInput],
       upsert: [mocks.data!.customer.id, deviceInput],
-      delete: [mocks.data!.customer.id, "device-deletable"],
+      delete: [mocks.data!.customer.id, "device-deletable", "2026-09-15T00:00:00.000Z"],
       followup: [mocks.data!.customer.id, followupInput],
       complete: [mocks.data!.customer.id, "followup-open"],
       message: [mocks.data!.customer.id, messageInput],
-      tags: [mocks.data!.customer.id, tagIds],
+      tags: [
+        mocks.data!.customer.id,
+        { tagIds, expected_customer_updated_at: "2026-09-15T00:00:00.000Z" },
+      ],
     });
   });
 

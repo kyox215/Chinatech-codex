@@ -49,7 +49,7 @@ const order = {
 } as OrderDetail["order"];
 
 describe("OrderHero", () => {
-  it("maps completed legacy status to the final mini segment without danger styling", () => {
+  it("shows completed status without implying every repair step was performed", () => {
     const { container } = render(
       <LocaleProvider initialLocale="en">
         <OrderHero
@@ -66,14 +66,14 @@ describe("OrderHero", () => {
     expect(progress).toBeTruthy();
     expect(progress?.querySelectorAll("[data-order-mini-progress-segment]")).toHaveLength(5);
     expect(progress?.querySelector('[data-order-mini-progress-segment="4"]')).toHaveClass(
-      "bg-primary",
+      "bg-border",
     );
     expect(progress?.querySelector('[data-order-mini-progress-segment="4"]')).not.toHaveClass(
       "bg-status-danger-foreground",
     );
   });
 
-  it("maps cancelled orders to a terminal mini segment with danger styling", () => {
+  it("shows cancelled status without a false completed rail", () => {
     const { container } = render(
       <LocaleProvider initialLocale="en">
         <OrderHero
@@ -88,7 +88,7 @@ describe("OrderHero", () => {
 
     const progress = container.querySelector('[data-order-mini-progress="true"]');
     expect(progress?.querySelector('[data-order-mini-progress-segment="4"]')).toHaveClass(
-      "bg-status-danger-foreground",
+      "bg-border",
     );
   });
 

@@ -16,9 +16,8 @@ export interface OrderMiniProgressProps {
 }
 
 /**
- * The compact order progress primitive intentionally renders only the five
- * segment rail. Callers can keep their own visible labels beside it while the
- * accessible name carries the current and terminal state.
+ * The shared rail shows the actual current stage and next task. Terminal
+ * orders use an unfilled rail rather than implying every repair step happened.
  */
 export function OrderMiniProgress({
   workflowStatus,
@@ -29,6 +28,9 @@ export function OrderMiniProgress({
   className,
 }: OrderMiniProgressProps) {
   const { t } = useLocale();
+  const knownStage = orderTaskStages.some((stage) =>
+    (stage.workflowStatuses as readonly OrderWorkflowStatusCode[]).includes(workflowStatus),
+  );
   const currentIndex = Math.max(
     0,
     Math.min(getWorkflowProgressValue(workflowStatus), orderTaskStages.length - 1),
@@ -48,29 +50,50 @@ export function OrderMiniProgress({
       data-order-mini-progress="true"
       role="img"
       aria-label={accessibleStatus}
-      className={cn("grid min-w-0 grid-cols-5 gap-0.5", className)}
+      className={cn("min-w-0", className)}
     >
-      {orderTaskStages.map((stage, index) => {
-        const active = index <= currentIndex;
-        const current = index === currentIndex;
-        return (
-          <span
-            key={stage.key}
-            data-order-mini-progress-segment={index}
-            aria-hidden="true"
-            className={cn(
-              "h-1 min-w-0 rounded-full",
-              current
-                ? danger
-                  ? "bg-status-danger-foreground"
-                  : "bg-primary"
-                : active
-                  ? "bg-primary/45"
-                  : "bg-border",
-            )}
-          />
-        );
-      })}
+      <div className="grid grid-cols-5 gap-1">
+        {orderTaskStages.map((stage, index) => {
+          const active = knownStage && !isTerminal && index <= currentIndex;
+          const current = knownStage && !isTerminal && index === currentIndex;
+          return (
+            <span
+              key={stage.key}
+              data-order-mini-progress-segment={index}
+              aria-hidden="true"
+              className={cn(
+                "h-1.5 min-w-0 rounded-full",
+                current
+                  ? danger
+                    ? "bg-status-danger-foreground"
+                    : "bg-primary"
+                  : active
+                    ? "bg-primary/45"
+                    : "bg-border",
+              )}
+            />
+          );
+        })}
+      </div>
+      <div
+        aria-hidden="true"
+        className="mt-1 flex min-w-0 flex-wrap items-center justify-between gap-x-2 text-[10px] leading-4"
+      >
+        <span
+          data-order-progress-current="true"
+          className={cn(
+            "font-medium",
+            danger ? "text-status-danger-foreground" : "text-foreground",
+          )}
+        >
+          {label}
+        </span>
+        {!isTerminal && nextAction ? (
+          <span data-order-progress-next="true" className="text-muted-foreground">
+            → {nextAction}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }

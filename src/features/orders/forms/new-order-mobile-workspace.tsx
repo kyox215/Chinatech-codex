@@ -18,6 +18,11 @@ import {
   Smartphone,
   UserRound,
 } from "lucide-react";
+import {
+  NewOrderFieldError,
+  newOrderInvalidClass,
+  useNewOrderFieldError,
+} from "./new-order-validation";
 import { ImeiScannerField } from "@/components/imei-scanner-field";
 import { Button } from "@/components/ui/button";
 import {
@@ -82,8 +87,15 @@ export function NewOrderMobileWorkspace({
   validationRequest: { target: string; generation: number } | null;
 }) {
   const { t } = useLocale();
+  const phoneError = useNewOrderFieldError("customer-phone", Boolean(form.customerPhone.trim()));
+  const brandError = useNewOrderFieldError("device-brand", Boolean(form.brand.trim()));
+  const modelError = useNewOrderFieldError("device-model", Boolean(form.model.trim()));
   const [panel, setPanel] = useState<Panel | null>(null);
   const [draft, setDraft] = useState(form);
+  const draftPhoneError = useNewOrderFieldError(
+    "customer-phone",
+    Boolean(draft.customerPhone.trim()),
+  );
   const [discard, setDiscard] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scannerToken, setScannerToken] = useState(0);
@@ -200,7 +212,7 @@ export function NewOrderMobileWorkspace({
           data-mobile-edit="customer"
           data-new-order-field="customer-phone"
           disabled={disabled}
-          className={summaryClass}
+          className={cn(summaryClass, phoneError && newOrderInvalidClass)}
           onClick={(event) => openPanel("customer", event.currentTarget)}
         >
           <UserRound className="size-4 shrink-0 text-muted-foreground" />
@@ -216,6 +228,7 @@ export function NewOrderMobileWorkspace({
             <span className="block truncate text-xs leading-4 text-muted-foreground">
               {form.customerName || t("orders2b1.new.lookup.unnamed")}
             </span>
+            <NewOrderFieldError target="customer-phone" message={phoneError} />
           </span>
           <ChevronRight className="size-4 shrink-0" />
         </button>
@@ -223,7 +236,11 @@ export function NewOrderMobileWorkspace({
           type="button"
           data-mobile-edit="device"
           disabled={disabled}
-          className={cn(summaryClass, "border-t border-border")}
+          className={cn(
+            summaryClass,
+            "border-t border-border",
+            (brandError || modelError) && newOrderInvalidClass,
+          )}
           onClick={(event) => openPanel("device", event.currentTarget)}
         >
           <Smartphone className="size-4 shrink-0 text-muted-foreground" />
@@ -240,6 +257,10 @@ export function NewOrderMobileWorkspace({
             <span className="block truncate text-xs text-muted-foreground">
               {form.imei ? `IMEI / SN · ${form.imei}` : t("orders2b1.new.imeiPlaceholder")}
             </span>
+            <NewOrderFieldError
+              target="device-summary"
+              message={[brandError, modelError].filter(Boolean).join(" · ")}
+            />
           </span>
           <ChevronRight className="size-4 shrink-0" />
         </button>
@@ -326,9 +347,21 @@ export function NewOrderMobileWorkspace({
           className={cn(componentOverlay.editorSurface, componentOverlay.denseEditorSurface)}
           onOpenAutoFocus={(event) => {
             event.preventDefault();
-            content.current
-              ?.querySelector<HTMLButtonElement>("button[aria-label]")
-              ?.focus({ preventScroll: true });
+            const target =
+              validationRequest &&
+              content.current?.querySelector<HTMLElement>(
+                `[data-new-order-field="${validationRequest.target}"]`,
+              );
+            const focusable = target?.matches("input,textarea,button")
+              ? target
+              : target?.querySelector<HTMLElement>("input,textarea,button");
+            if (focusable) {
+              target?.scrollIntoView({ block: "center" });
+              focusable.focus({ preventScroll: true });
+            } else
+              content.current
+                ?.querySelector<HTMLButtonElement>("button[aria-label]")
+                ?.focus({ preventScroll: true });
           }}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
@@ -366,6 +399,8 @@ export function NewOrderMobileWorkspace({
               <>
                 {panel === "customer" ? (
                   <div
+                    data-new-order-field="customer-phone"
+                    className={cn(draftPhoneError && newOrderInvalidClass)}
                     onPointerDown={(event) => {
                       // Keep the dock geometry stable until an explicit candidate click finishes.
                       if (
@@ -375,6 +410,7 @@ export function NewOrderMobileWorkspace({
                         event.stopPropagation();
                     }}
                   >
+                    <NewOrderFieldError target="customer-phone-editor" message={draftPhoneError} />
                     <CustomerIdentityLookup
                       phone={draft.customerPhone}
                       name={draft.customerName}

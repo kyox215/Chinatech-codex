@@ -3,10 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ImeiScannerField } from "./imei-scanner-field";
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
 import type { AppLocale } from "@/shared/i18n/locales";
 import { translateMessage } from "@/shared/i18n/messages";
+import { ImeiScannerField } from "./imei-scanner-field";
 
 const toastMocks = vi.hoisted(() => ({
   error: vi.fn(),
@@ -29,7 +29,7 @@ const localOcrMocks = vi.hoisted(() => ({
 }));
 
 const imageInspectionMocks = vi.hoisted(() => ({
-  inspectAiInventoryImage: vi.fn(),
+  inspectInventoryImage: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -49,8 +49,8 @@ vi.mock("@/features/capture/model/local-ocr", () => ({
   recognizeTextWithLocalOcr: localOcrMocks.recognizeTextWithLocalOcr,
 }));
 
-vi.mock("@/features/ai-assistant/model/inventory-image", () => ({
-  inspectAiInventoryImage: imageInspectionMocks.inspectAiInventoryImage,
+vi.mock("@/shared/lib/inventory-recognition/inventory-image", () => ({
+  inspectInventoryImage: imageInspectionMocks.inspectInventoryImage,
 }));
 
 beforeAll(() => {
@@ -76,8 +76,8 @@ beforeEach(() => {
   mediaMocks.play.mockResolvedValue(undefined);
   localOcrMocks.recognizeTextWithLocalOcr.mockReset();
   localOcrMocks.recognizeTextWithLocalOcr.mockResolvedValue("");
-  imageInspectionMocks.inspectAiInventoryImage.mockReset();
-  imageInspectionMocks.inspectAiInventoryImage.mockImplementation(async (file: File) => {
+  imageInspectionMocks.inspectInventoryImage.mockReset();
+  imageInspectionMocks.inspectInventoryImage.mockImplementation(async (file: File) => {
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       throw new Error("仅支持 JPG、PNG 或 WebP 图片。");
     }
@@ -401,7 +401,7 @@ describe("ImeiScannerField", () => {
     "sanitizes image inspection failures for %s",
     async (locale, safeMessage, cameraAction) => {
       const user = userEvent.setup();
-      imageInspectionMocks.inspectAiInventoryImage.mockRejectedValueOnce(
+      imageInspectionMocks.inspectInventoryImage.mockRejectedValueOnce(
         new Error("PROVIDER-SECRET-SENTINEL"),
       );
 

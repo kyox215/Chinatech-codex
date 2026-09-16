@@ -1,20 +1,14 @@
 "use client";
 
-import { useLayoutEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLayoutEffect } from "react";
 
-import {
-  getAiAssistantCapabilities,
-  getOnboardingStatus,
-  getShellBootstrap,
-  getStoreContext,
-  isRepairDeskAuthorizationError,
-  RepairDeskApiError,
-} from "@/lib/repairdesk/api";
-import { aiAssistantKeys } from "@/features/ai-assistant/api";
-import type { AiAssistantCapabilities } from "@/features/ai-assistant/model/contracts";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { storesKeys } from "@/features/stores/api/query-keys";
+import {
+  clearAuthorityLostQueryCache,
+  clearAuthoritySensitiveQueryCache,
+} from "@/features/stores/api/tenant-cache";
 import type { ShellBootstrap } from "@/features/stores/model/shell-bootstrap";
 import {
   resolveStoreShellContext,
@@ -22,9 +16,12 @@ import {
 } from "@/features/stores/model/store-shell-context";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import {
-  clearAuthorityLostQueryCache,
-  clearAuthoritySensitiveQueryCache,
-} from "@/features/stores/api/tenant-cache";
+  getOnboardingStatus,
+  getShellBootstrap,
+  getStoreContext,
+  isRepairDeskAuthorizationError,
+  RepairDeskApiError,
+} from "@/lib/repairdesk/api";
 
 const authorityFingerprintByQueryClient = new WeakMap<object, string>();
 
@@ -40,10 +37,6 @@ export function useStoreShellContext({
       const bootstrap = await loadShellBootstrap(signal);
       queryClient.setQueryData(platformKeys.onboardingStatus, bootstrap.onboarding);
       queryClient.setQueryData(storesKeys.context, bootstrap.storeContext);
-      queryClient.setQueryData(
-        aiAssistantKeys.capabilities(bootstrap.storeContext.activeStore?.id),
-        bootstrap.aiCapabilities,
-      );
       return bootstrap;
     },
     retry: false,
@@ -116,23 +109,10 @@ async function loadShellBootstrap(signal?: AbortSignal): Promise<ShellBootstrap>
       getOnboardingStatus({ signal }),
       getStoreContext({ signal }),
     ]);
-    const aiCapabilities = storeContext.activeStore
-      ? await getAiAssistantCapabilities({ signal })
-      : disabledAiCapabilities();
-    return { onboarding, storeContext, aiCapabilities, generatedAt: new Date().toISOString() };
+    return { onboarding, storeContext, generatedAt: new Date().toISOString() };
   }
 }
 
 function isMissingBootstrapEndpoint(error: unknown) {
   return error instanceof RepairDeskApiError && [404, 405, 501].includes(error.status);
-}
-
-function disabledAiCapabilities(): AiAssistantCapabilities {
-  return {
-    canUseOrderAssistant: false,
-    canUseOrderInlineActions: false,
-    canUseVisionIntake: false,
-    canApplyInventoryDraft: false,
-    reason: "feature_off",
-  };
 }

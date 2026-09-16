@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildLocalInventoryRecognition } from "@/features/ai-assistant/model/inventory-recognition";
+import { buildLocalInventoryRecognition } from "@/shared/lib/inventory-recognition/inventory-recognition";
 import {
   applyInventoryRecognitionReview,
   createEmptyInventoryIntakeDraft,

@@ -1,5 +1,7 @@
 # RepairDesk AI 小助手 Phase 0 架构、安全与放行包
 
+> 历史参考（2026-09-16）：老板已要求全面移除产品AI助手，本文的启用/试点步骤已失效，不作为当前操作指令。历史迁移、账本与库存来源兼容仍保留；当前移除及发布前历史预占清算限制见[重构发布说明](REFACTOR_RELEASE_2026-09-16.md)。
+
 - Task: `TASK-20260718-009-ai-assistant-implementation`
 - Date: 2026-07-18
 - Baseline: `origin/main@51d5b3b9648e77b355bb5635edf8df4c431eeb74`

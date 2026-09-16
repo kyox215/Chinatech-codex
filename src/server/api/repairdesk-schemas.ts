@@ -433,13 +433,7 @@ export const orderListFiltersSchema = z
 
 export const orderListPageInputSchema = orderListFiltersSchema.extend({
   page: z.coerce.number().int().positive().optional(),
-  pageSize: z.coerce
-    .number()
-    .int()
-    .positive()
-    .max(100)
-    .transform((pageSize) => Math.min(50, pageSize))
-    .optional(),
+  pageSize: z.coerce.number().int().positive().max(100).optional(),
 });
 
 export const dashboardSummaryInputSchema = z
@@ -1496,15 +1490,22 @@ export const paymentBodySchema = z.object({
   method: z.string().trim().min(1).max(64).optional(),
 });
 
+const notificationIntentShape = {
+  expected_updated_at: z.string().datetime({ offset: true }),
+  idempotency_key: z.string().uuid(),
+};
+
 export const notificationBodySchema = z.object({
+  ...notificationIntentShape,
   id: z.string().min(1, "缺少 id"),
-  body: z.string(),
+  body: z.string().trim().min(1).max(10000),
   channel: z.enum(["whatsapp", "sms"]).default("whatsapp"),
 });
 
 export const whatsappNotificationBodySchema = z.object({
+  ...notificationIntentShape,
   id: z.string().min(1, "缺少 id"),
-  body: z.string(),
+  body: z.string().trim().min(1).max(10000),
   template_kind: orderWhatsappTemplateKindSchema,
   transition_to: repairOrderStatusSchema.optional(),
   recipient_phone: whatsappRecipientPhoneSchema.optional(),
@@ -1520,6 +1521,9 @@ export const approvalDecisionBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
   input: z
     .object({
+      expected_updated_at: z.string().datetime({ offset: true }),
+      quote_event_id: z.string().min(1).nullable(),
+      idempotency_key: z.string().uuid(),
       decision: z.enum(["approved", "rejected"]),
       next_status: repairOrderStatusSchema.optional(),
       reason: optionalText,
@@ -1579,18 +1583,27 @@ export const customerCreateBodySchema = z.object({
 
 export const customerUpdateBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
-  input: customerInputBaseSchema satisfies z.ZodType<CustomerUpdateInput>,
+  input: customerInputBaseSchema.extend({
+    expected_updated_at: z.string().datetime({ offset: true }),
+  }) satisfies z.ZodType<CustomerUpdateInput>,
 });
 
-export const customerDeviceInputSchema = z
-  .object({
-    id: optionalText,
-    brand: z.string(),
-    model: z.string(),
-    serial_or_imei: optionalText,
-    device_notes: optionalText,
-  })
-  .passthrough() satisfies z.ZodType<CustomerDeviceInput>;
+const customerDeviceFieldsSchema = z.object({
+  brand: z.string(),
+  model: z.string(),
+  serial_or_imei: optionalText,
+  device_notes: optionalText,
+});
+export const customerDeviceInputSchema = z.union([
+  customerDeviceFieldsSchema.extend({
+    id: z.undefined().optional(),
+    expected_updated_at: z.undefined().optional(),
+  }),
+  customerDeviceFieldsSchema.extend({
+    id: z.string().min(1),
+    expected_updated_at: z.string().datetime({ offset: true }),
+  }),
+]) satisfies z.ZodType<CustomerDeviceInput>;
 
 export const customerDeviceUpsertBodySchema = z.object({
   customerId: z.string().min(1, "缺少 customerId"),
@@ -1600,11 +1613,13 @@ export const customerDeviceUpsertBodySchema = z.object({
 export const customerDeviceDeleteBodySchema = z.object({
   customerId: z.string().min(1, "缺少 customerId"),
   deviceId: z.string().min(1, "缺少 deviceId"),
+  expected_updated_at: z.string().datetime({ offset: true }),
 });
 
 export const customerTagsUpdateBodySchema = z.object({
   customerId: z.string().min(1, "缺少 customerId"),
-  tagIds: z.array(z.string()),
+  tagIds: z.array(z.string().min(1)).max(64),
+  expected_customer_updated_at: z.string().datetime({ offset: true }),
 });
 
 export const customerFollowupInputSchema = z

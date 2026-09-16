@@ -1,3 +1,9 @@
+import { nextCustomerWriteVersion } from "@/features/customers/model/customer-write-version";
+import {
+  CustomerMutationError,
+  customerVersionConflict,
+  requireCustomerVersion,
+} from "@/features/customers/model/customer-mutation-error";
 import type {
   AuditActor,
   Customer,
@@ -17,6 +23,7 @@ import type {
   CustomerStats,
   CustomerTag,
   CustomerUpdateInput,
+  CustomerTagsUpdateInput,
   Device,
   OrderListItem,
 } from "@/lib/repairdesk/types";
@@ -44,6 +51,19 @@ import {
   phoneRaw,
   tagOverrides,
 } from "@/lib/mock/state";
+
+// Synthetic fixture versions are initialized once, never at submission.
+for (const entity of [...customers, ...devices]) entity.updated_at ??= "2026-09-15T00:00:00.000Z";
+function advanceVersion(entity: { updated_at?: string }) {
+  entity.updated_at = entity.updated_at
+    ? nextCustomerWriteVersion(entity.updated_at)
+    : new Date().toISOString();
+  return entity.updated_at;
+}
+function checkVersion(entity: { updated_at?: string }, expected: string) {
+  requireCustomerVersion(expected);
+  if (entity.updated_at !== expected) throw customerVersionConflict();
+}
 
 type MockOperator = string | AuditActor;
 
@@ -445,8 +465,8 @@ export async function getCustomerDetail(id: string, _actor?: AuditActor): Promis
   );
   const orderStats = customerStatsFromOrders(customerOrders);
   return {
-    customer,
-    devices: devices.filter((device) => device.customer_id === id),
+    customer: { ...customer, contact_phones: [...customer.contact_phones] },
+    devices: devices.filter((device) => device.customer_id === id).map((device) => ({ ...device })),
     orders: customerOrders,
     tags: tagsFor(id),
     interactions: allCustomerInteractions().filter((interaction) => interaction.customer_id === id),
@@ -459,7 +479,7 @@ export async function getCustomerDetail(id: string, _actor?: AuditActor): Promis
   };
 }
 
-function applyCustomerInput(customer: Customer, input: CustomerUpdateInput) {
+function applyCustomerInput(customer: Customer, input: CustomerCreateInput) {
   const phoneBook = normalizePhoneBook(
     input.phone_e164,
     input.contact_phones ?? [],
@@ -495,7 +515,7 @@ export async function createCustomer(
   input: CustomerCreateInput,
   _actor?: AuditActor,
 ): Promise<{ id: string }> {
-  const id = `cus_new_${Date.now()}`;
+  const id = `cus_new_${crypto.randomUUID()}`;
   const customer: Customer = {
     id,
     name: "",
@@ -508,6 +528,7 @@ export async function createCustomer(
     language: "it",
   };
   applyCustomerInput(customer, input);
+  advanceVersion(customer);
   customers.push(customer);
   return { id };
 }
@@ -516,26 +537,32 @@ export async function updateCustomer(
   id: string,
   input: CustomerUpdateInput,
   _actor?: AuditActor,
-): Promise<{ ok: boolean }> {
+): Promise<{ ok: boolean; updated_at: string }> {
   const customer = getCustomer(id);
   if (!customer) throw new Error("客户不存在");
+  checkVersion(customer, input.expected_updated_at);
   applyCustomerInput(customer, input);
-  return { ok: true };
+  return { ok: true, updated_at: advanceVersion(customer) };
 }
 
 export async function upsertCustomerDevice(
   customerId: string,
   input: CustomerDeviceInput,
   _actor?: AuditActor,
-): Promise<{ id: string }> {
+): Promise<{ id: string; updated_at: string }> {
   const customer = getCustomer(customerId);
   if (!customer) throw new Error("客户不存在");
   if (!input.brand.trim() || !input.model.trim()) throw new Error("设备品牌和型号不能为空");
-  const existing = input.id ? devices.find((device) => device.id === input.id) : undefined;
+  const existing = input.id
+    ? devices.find((device) => device.id === input.id && device.customer_id === customerId)
+    : undefined;
+  if (input.id && !existing)
+    throw new CustomerMutationError("设备不存在", 404, "CUSTOMER_ENTITY_NOT_FOUND");
+  if (existing && input.id) checkVersion(existing, input.expected_updated_at);
   const device =
     existing ??
     ({
-      id: `dev_new_${Date.now()}`,
+      id: `dev_new_${crypto.randomUUID()}`,
       customer_id: customerId,
       brand: "",
       model: "",
@@ -546,30 +573,44 @@ export async function upsertCustomerDevice(
   device.model = input.model.trim();
   device.serial_or_imei = input.serial_or_imei?.trim() ?? "";
   device.device_notes = input.device_notes?.trim() || undefined;
+  advanceVersion(device);
   if (!existing) devices.push(device);
-  return { id: device.id };
+  return { id: device.id, updated_at: device.updated_at! };
 }
 
 export async function deleteCustomerDevice(
   customerId: string,
   deviceId: string,
+  expectedUpdatedAt: string,
   _actor?: AuditActor,
 ): Promise<{ ok: boolean }> {
   const index = devices.findIndex(
     (device) => device.id === deviceId && device.customer_id === customerId,
   );
-  if (index < 0) throw new Error("设备不存在");
+  if (index < 0) throw new CustomerMutationError("设备不存在", 404, "CUSTOMER_ENTITY_NOT_FOUND");
+  checkVersion(devices[index], expectedUpdatedAt);
   if (orders.some((order) => order.device_id === deviceId))
-    throw new Error("该设备已有工单记录，不能删除");
+    throw new CustomerMutationError(
+      "该设备已有工单记录，不能删除",
+      409,
+      "CUSTOMER_DEVICE_HAS_ORDERS",
+    );
   devices.splice(index, 1);
   return { ok: true };
 }
 
 export async function setCustomerTags(
   customerId: string,
-  tagIds: string[],
+  input: CustomerTagsUpdateInput,
   _actor?: AuditActor,
-): Promise<{ ok: boolean }> {
+): Promise<{ ok: boolean; updated_at: string }> {
+  const customer = getCustomer(customerId);
+  if (!customer) throw new CustomerMutationError("客户不存在", 404, "CUSTOMER_ENTITY_NOT_FOUND");
+  checkVersion(customer, input.expected_customer_updated_at);
+  const tagIds = input.tagIds;
+  if (tagIds.length > 64 || tagIds.some((id) => !customerTags.some((tag) => tag.id === id))) {
+    throw new CustomerMutationError("客户标签无效", 400, "CUSTOMER_TAGS_INVALID");
+  }
   tagOverrides.add(customerId);
   for (let index = dynamicTagAssignments.length - 1; index >= 0; index--) {
     if (dynamicTagAssignments[index].customer_id === customerId)
@@ -578,7 +619,7 @@ export async function setCustomerTags(
   for (const tagId of Array.from(new Set(tagIds))) {
     dynamicTagAssignments.push({ customer_id: customerId, tag_id: tagId });
   }
-  return { ok: true };
+  return { ok: true, updated_at: advanceVersion(customer) };
 }
 
 export async function createCustomerFollowup(

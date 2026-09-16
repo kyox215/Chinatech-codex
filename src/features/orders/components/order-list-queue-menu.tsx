@@ -92,7 +92,7 @@ export function OrderListQueueMenu({
           aria-label={t("orders.chooseQueue", { queue: active?.label ?? t("orders.allStatuses") })}
         >
           <span className="min-w-0 flex-1 whitespace-normal break-words text-left leading-4">
-            {value === "all" ? t("orders.allQueues") : active?.shortLabel || active?.label}
+            {value === "all" ? t("orders.allQueues") : active?.label}
           </span>
           {pendingValue ? (
             <LoaderCircle className="size-3 shrink-0 animate-spin text-primary" />
@@ -108,12 +108,14 @@ export function OrderListQueueMenu({
         </Button>
       </DialogTrigger>
       <DialogContent
-        mobileEditor
         editorLayout
         initialFocus="container"
         closeLabel={t("common.close")}
         closeClassName="!size-11"
-        className={cn(componentOverlay.content, "gap-0 p-0 sm:p-0 max-lg:!max-w-lg")}
+        className={cn(
+          componentOverlay.content,
+          "!w-[min(28rem,calc(100vw-24px))] !max-w-md max-h-[min(90svh,44rem)] gap-0 p-0 sm:p-0",
+        )}
       >
         <DialogHeader className={cn(componentOverlay.denseEditorHeader, "pr-14")}>
           <span className={componentOverlay.denseEditorIcon}>

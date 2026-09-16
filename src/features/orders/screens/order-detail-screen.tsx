@@ -994,10 +994,15 @@ export function OrderDetailScreen({
   });
 
   const quoteSentConfirmation = useMutation({
-    mutationFn: (input: { body: string; quoteEventId: string; idempotencyKey: string }) => {
+    mutationFn: (input: {
+      body: string;
+      quoteEventId: string;
+      idempotencyKey: string;
+      expectedUpdatedAt: string;
+    }) => {
       if (!data) throw new Error("工单未加载");
       return confirmOrderQuoteSent(id, {
-        expected_updated_at: data.order.updated_at,
+        expected_updated_at: input.expectedUpdatedAt,
         idempotency_key: input.idempotencyKey,
         quote_event_id: input.quoteEventId,
         message_body: input.body,
@@ -1029,19 +1034,15 @@ export function OrderDetailScreen({
   });
 
   const whatsappNotification = useMutation({
-    mutationFn: (input: {
-      body: string;
-      templateKind: Parameters<typeof sendWhatsappNotification>[2];
-      transitionTo?: RepairOrderStatus;
-      recipientPhone?: string;
-    }) =>
-      sendWhatsappNotification(
-        id,
-        input.body,
-        input.templateKind,
-        input.transitionTo,
-        input.recipientPhone,
-      ),
+    mutationFn: (input: import("@/features/orders/forms/notify-dialog").NotifyIntent) =>
+      sendWhatsappNotification(id, {
+        expected_updated_at: input.expectedUpdatedAt,
+        idempotency_key: input.idempotencyKey,
+        body: input.body,
+        template_kind: input.templateKind,
+        transition_to: input.transitionTo,
+        recipient_phone: input.recipientPhone,
+      }),
     onSuccess: (result) => {
       toast.success(
         result.statusChanged && result.to
@@ -2502,18 +2503,21 @@ export function OrderDetailScreen({
                   ? t("orders2b2.notify.blockedStatus")
                   : t("orders2b2.notify.blockedPhone")
           }
+          onReloadLatest={async () => {
+            const latest = await refetchDetail();
+            if (latest.error || !latest.data) throw latest.error ?? new Error("工单未加载");
+            return latest.data;
+          }}
           onConfirm={async (input) => {
-            if (
-              input.templateKind === "approval_request" &&
-              (order.status === "quoted" || order.status === "waiting_approval")
-            ) {
-              if (!latestPublishedQuoteId) {
-                throw new Error(t("orders2b2.notify.latestQuoteRequired"));
-              }
+            if (input.orderId !== id)
+              throw new RepairDeskApiError("工单已切换", 409, "ORDER_WRITE_CONFLICT");
+            if (input.templateKind === "approval_request") {
+              if (!input.quoteEventId) throw new Error(t("orders2b2.notify.latestQuoteRequired"));
               await quoteSentConfirmation.mutateAsync({
                 body: input.body,
-                quoteEventId: latestPublishedQuoteId,
+                quoteEventId: input.quoteEventId,
                 idempotencyKey: input.idempotencyKey,
+                expectedUpdatedAt: input.expectedUpdatedAt,
               });
               return;
             }
@@ -2566,6 +2570,7 @@ export function OrderDetailScreen({
         open={approvalDecisionOpen}
         onOpenChange={setApprovalDecisionOpen}
         order={order}
+        quoteEventId={data.latest_quote_event_id ?? null}
         pending={approvalDecision.isPending}
         onConfirm={async (input) => {
           try {
@@ -3428,18 +3433,28 @@ function useDesktopActionSurface() {
 
 function ApprovalDecisionSheet({
   open,
-  order,
+  order: liveOrder,
+  quoteEventId,
   pending,
   onOpenChange,
   onConfirm,
 }: {
   open: boolean;
   order: OrderDetail["order"];
+  quoteEventId: string | null;
   pending: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (input: OrderApprovalDecisionInput) => Promise<unknown>;
 }) {
   const { t } = useLocale();
+  const [snapshot, setSnapshot] = useState<{
+    order: OrderDetail["order"];
+    quoteEventId: string | null;
+    idempotencyKey: string;
+  } | null>(null);
+  const sessionOrderId = useRef<string | null>(null);
+  const submitLock = useRef(false);
+  const order = snapshot?.order ?? liveOrder;
   const custodyStatus = deviceCustodyStatusFromOrder(order);
   const custodyReady = custodyStatus === DEVICE_CUSTODY_WITH_SHOP;
   const [decision, setDecision] = useState<OrderApprovalDecisionInput["decision"]>("approved");
@@ -3452,19 +3467,32 @@ function ApprovalDecisionSheet({
   const [reason, setReason] = useState("");
   const nextStatus = decision === "approved" ? approvedNext : rejectedNext;
   const canSubmit =
+    Boolean(snapshot?.order.updated_at) &&
     deviceCustodyAllowsStatus(custodyStatus, nextStatus) &&
     (decision === "approved" || Boolean(reason.trim()));
   const isDesktop = useDesktopActionSurface();
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      sessionOrderId.current = null;
+      setSnapshot(null);
+      return;
+    }
+    if (sessionOrderId.current === liveOrder.id) return;
+    sessionOrderId.current = liveOrder.id;
+    setSnapshot({ order: { ...liveOrder }, quoteEventId, idempotencyKey: crypto.randomUUID() });
+    const openingCustody = deviceCustodyStatusFromOrder(liveOrder);
     setDecision("approved");
-    setApprovedNext(custodyReady ? getDefaultApprovedNextStatus(order) : "parts_ordered");
+    setApprovedNext(
+      openingCustody === DEVICE_CUSTODY_WITH_SHOP
+        ? getDefaultApprovedNextStatus(liveOrder)
+        : "parts_ordered",
+    );
     setRejectedNext(
-      custodyStatus === DEVICE_CUSTODY_WITH_CUSTOMER ? "cancelled" : "unfixed_pickup",
+      openingCustody === DEVICE_CUSTODY_WITH_CUSTOMER ? "cancelled" : "unfixed_pickup",
     );
     setReason("");
-  }, [custodyReady, custodyStatus, open, order]);
+  }, [open, liveOrder, quoteEventId]);
 
   const body = (
     <div className={cn(componentOverlay.body, "space-y-2 pt-3 lg:px-0 lg:pb-0")}>
@@ -3612,11 +3640,20 @@ function ApprovalDecisionSheet({
         className="h-8 text-xs"
         disabled={pending || !canSubmit}
         onClick={async () => {
-          await onConfirm({
-            decision,
-            next_status: nextStatus,
-            reason: reason.trim() || undefined,
-          });
+          if (!snapshot || submitLock.current) return;
+          submitLock.current = true;
+          try {
+            await onConfirm({
+              expected_updated_at: snapshot.order.updated_at,
+              quote_event_id: snapshot.quoteEventId,
+              idempotency_key: snapshot.idempotencyKey,
+              decision,
+              next_status: nextStatus,
+              reason: reason.trim() || undefined,
+            });
+          } finally {
+            submitLock.current = false;
+          }
         }}
       >
         {pending ? t("orders2b2.hero.saving") : t("orders2b2.approval.confirm")}
@@ -5445,7 +5482,7 @@ function DesktopStatusTransitionPanel({
       ref={panelRef}
       tabIndex={-1}
       aria-label={t("orders2b2.transition.title")}
-      className="flex max-h-[min(620px,calc(100svh-180px))] min-h-0 min-w-0 scroll-mb-20 flex-col overflow-hidden rounded-xl border border-border bg-background outline-none"
+      className="mx-auto flex max-h-[min(620px,calc(100svh-180px))] min-h-0 w-full min-w-0 max-w-xl scroll-mb-20 flex-col overflow-hidden rounded-xl border border-border bg-background outline-none"
     >
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2">
         <h3 className="text-sm font-semibold">{t("orders2b2.transition.title")}</h3>
@@ -5559,10 +5596,10 @@ function MobileStatusTransitionSheet({
         }}
         className={cn(
           componentOverlay.bottomSheet,
-          "max-h-[calc(100svh-16px)] rounded-t-2xl bg-background p-0 sm:mx-auto sm:max-w-xl sm:p-0 [&>[data-sheet-close]]:hidden",
+          "max-h-[calc(100svh-16px)] rounded-t-2xl bg-background p-0 sm:bottom-auto sm:top-1/2 sm:mx-auto sm:max-h-[min(90svh,44rem)] sm:max-w-xl sm:-translate-y-1/2 sm:rounded-2xl sm:p-0 [&>[data-sheet-close]]:hidden",
         )}
       >
-        <div className="flex max-h-[calc(100svh-16px)] min-h-0 min-w-0 flex-col overflow-hidden">
+        <div className="flex max-h-[calc(100svh-16px)] min-h-0 min-w-0 flex-col overflow-hidden sm:max-h-[min(90svh,44rem)]">
           <SheetHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b border-border px-4 py-2 text-left">
             <div className="min-w-0">
               <SheetTitle className="text-base">{t("orders2b2.transition.title")}</SheetTitle>

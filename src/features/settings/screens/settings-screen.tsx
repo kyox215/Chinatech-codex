@@ -1,65 +1,38 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Archive, ArrowLeft, Settings2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Archive,
-  ArrowLeft,
-  ChevronDown,
-  FileSpreadsheet,
-  MessageSquare,
-  PackageSearch,
-  Phone,
-  RotateCcw,
-  Search,
-  Settings2,
-  ShieldCheck,
-  Store,
-  TabletSmartphone,
-  UserMinus,
-  UserPlus,
-  Users,
-} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  useNavigationGuard,
+  type NavigationGuardResolution,
+} from "@/components/navigation-guard-provider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
+import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
 import { customersKeys } from "@/features/customers/api/query-keys";
-import { aiAssistantUsageQueryOptions } from "@/features/ai-assistant/api/query-options";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
+import { ordersKeys } from "@/features/orders/api/query-keys";
+import { platformKeys } from "@/features/platform/api/query-keys";
+import { getSettingsQueryActivation } from "@/features/settings/api/query-options";
 import { OrderDataSection } from "@/features/settings/components/order-data-section";
 import { SettingsLayout } from "@/features/settings/components/settings-layout";
 import {
   SettingsNavigation,
   type SettingsNavigationGroup,
 } from "@/features/settings/components/settings-navigation";
-import { getSettingsQueryActivation } from "@/features/settings/api/query-options";
-import { ordersKeys } from "@/features/orders/api/query-keys";
-import { platformKeys } from "@/features/platform/api/query-keys";
-import { suppliersKeys } from "@/features/suppliers/api/query-keys";
-import { resolveStoreOutputIdentity } from "@/entities/store/model/store-output-identity";
+import {
+  SettingsSaveBar,
+  type SettingsSaveStatus,
+} from "@/features/settings/components/settings-save-bar";
+import { SettingsStateCard } from "@/features/settings/components/settings-state-card";
+import { UnsavedSettingsGuard } from "@/features/settings/components/unsaved-settings-guard";
 import { buildAccountSettingsSummary } from "@/features/settings/model/account-settings-summary";
-import {
-  getSettingsFieldError as fieldError,
-  getSettingsFieldErrorId as fieldErrorId,
-} from "@/features/settings/model/settings-field-errors";
-import { AccountSettingsSection } from "@/features/settings/sections/account-settings-section";
-import { AiUsageSettingsSection } from "@/features/settings/sections/ai-usage-settings-section";
-import { NotificationsSettingsSection } from "@/features/settings/sections/notifications-settings-section";
-import { OrderWorkflowSettingsSection } from "@/features/settings/sections/order-workflow-settings-section";
-import { RulesSettingsSection } from "@/features/settings/sections/rules-settings-section";
-import { StoreSettingsSectionContent } from "@/features/settings/sections/store-settings-section";
-import { MembersSettingsSection } from "@/features/settings/sections/members-settings-section";
-import { SuppliersSettingsSection } from "@/features/settings/sections/suppliers-settings-section";
-import {
-  KioskSettingsSection,
-  type KioskPairingDisplay,
-} from "@/features/settings/sections/kiosk-settings-section";
 import {
   areKioskReturnDraftsEqual,
   kioskReturnDraftKey,
@@ -67,11 +40,6 @@ import {
   writeKioskReturnDrafts,
 } from "@/features/settings/model/kiosk-return-draft";
 import type { MemberEditorDraft } from "@/features/settings/model/member-settings-editor";
-import {
-  buildStoreMessagePreview,
-  buildStorePrintPreview,
-  getStoreSettingsReadiness,
-} from "@/features/settings/model/store-settings-readiness";
 import {
   resolveSettingsSectionAccess,
   type SettingsSectionKey,
@@ -86,60 +54,6 @@ import {
   valueForActiveStore,
   type StoreBoundTransientValue,
 } from "@/features/settings/model/store-bound-transient-state";
-import { storesKeys } from "@/features/stores/api/query-keys";
-import { RepairOsBusinessCard, RepairOsListScaffold, RepairOsSectionHeader } from "@/shared/ui";
-import { useLocale } from "@/shared/i18n/locale-provider";
-import { translateSettingsOperations, type MessageKey } from "@/shared/i18n/messages";
-import type { OrderDataAccessCode } from "@/lib/repairdesk/types";
-import {
-  acceptKioskSession,
-  createStore,
-  createStoreLifecyclePreflight,
-  approveStoreAccessRequest,
-  archiveSupplier,
-  createSupplier,
-  createStoreInviteLink,
-  disableStoreMember,
-  getOnboardingStatus,
-  getStoreMembers,
-  getStoreContext,
-  getStoreSettings,
-  inviteStoreMember,
-  listKioskDevices,
-  listKioskSessions,
-  listSuppliers,
-  listStoreAccessRequests,
-  listOrderWorkflow,
-  rejectStoreAccessRequest,
-  returnKioskSession,
-  revokeKioskDevice,
-  restoreStoreMember,
-  revokeStoreInviteLink,
-  revokeStoreInvitation,
-  updateSupplier,
-  updateStoreMemberPermissions,
-  updateStoreMemberRole,
-  updateAccountProfile,
-  updateStoreSettings,
-  createKioskDevicePairing,
-  RepairDeskApiError,
-  type KioskDevice,
-  type KioskSession,
-  type OnboardingRequest,
-  type StoreInviteLinkCreateInput,
-  type StoreInviteInput,
-  type StoreMember,
-  type StoreMembersResult,
-  type ApprovedStoreRole,
-  type StoreSettingsSection,
-  type StoreSettingsSectionUpdateRequest,
-  type Supplier,
-  type SupplierInput,
-} from "@/lib/repairdesk/api";
-import { CACHE_TIMES } from "@/lib/query-performance";
-import { cn } from "@/lib/utils";
-import { formLayout, repairOs } from "@/lib/ui-patterns";
-import { SettingsOverviewScreen } from "@/features/settings/screens/settings-overview-screen";
 import {
   acceptStoreSettingsSaveResult,
   buildStoreSettingsSectionUpdateRequest,
@@ -156,17 +70,76 @@ import {
   type StoreSettingsDraftValues,
 } from "@/features/settings/model/store-settings-draft";
 import { SETTINGS_ERROR_CODES } from "@/features/settings/model/store-settings-errors";
+import {
+  buildStoreMessagePreview,
+  buildStorePrintPreview,
+  getStoreSettingsReadiness,
+} from "@/features/settings/model/store-settings-readiness";
 import { validateStoreSettingsSectionUpdateRequest } from "@/features/settings/model/store-settings-update-contract";
+import { SettingsOverviewScreen } from "@/features/settings/screens/settings-overview-screen";
+import { AccountSettingsSection } from "@/features/settings/sections/account-settings-section";
 import {
-  SettingsSaveBar,
-  type SettingsSaveStatus,
-} from "@/features/settings/components/settings-save-bar";
-import { SettingsStateCard } from "@/features/settings/components/settings-state-card";
-import { UnsavedSettingsGuard } from "@/features/settings/components/unsaved-settings-guard";
+  KioskSettingsSection,
+  type KioskPairingDisplay,
+} from "@/features/settings/sections/kiosk-settings-section";
+import { MembersSettingsSection } from "@/features/settings/sections/members-settings-section";
+import { NotificationsSettingsSection } from "@/features/settings/sections/notifications-settings-section";
+import { OrderWorkflowSettingsSection } from "@/features/settings/sections/order-workflow-settings-section";
+import { RulesSettingsSection } from "@/features/settings/sections/rules-settings-section";
+import { StoreSettingsSectionContent } from "@/features/settings/sections/store-settings-section";
+import { SuppliersSettingsSection } from "@/features/settings/sections/suppliers-settings-section";
+import { storesKeys } from "@/features/stores/api/query-keys";
+import { suppliersKeys } from "@/features/suppliers/api/query-keys";
+import { CACHE_TIMES } from "@/lib/query-performance";
 import {
-  useNavigationGuard,
-  type NavigationGuardResolution,
-} from "@/components/navigation-guard-provider";
+  acceptKioskSession,
+  approveStoreAccessRequest,
+  archiveSupplier,
+  createKioskDevicePairing,
+  createStore,
+  createStoreInviteLink,
+  createStoreLifecyclePreflight,
+  createSupplier,
+  disableStoreMember,
+  getOnboardingStatus,
+  getStoreContext,
+  getStoreMembers,
+  getStoreSettings,
+  inviteStoreMember,
+  listKioskDevices,
+  listKioskSessions,
+  listOrderWorkflow,
+  listStoreAccessRequests,
+  listSuppliers,
+  rejectStoreAccessRequest,
+  RepairDeskApiError,
+  restoreStoreMember,
+  returnKioskSession,
+  revokeKioskDevice,
+  revokeStoreInvitation,
+  revokeStoreInviteLink,
+  updateAccountProfile,
+  updateStoreMemberPermissions,
+  updateStoreMemberRole,
+  updateStoreSettings,
+  updateSupplier,
+  type ApprovedStoreRole,
+  type KioskSession,
+  type OnboardingRequest,
+  type StoreInviteInput,
+  type StoreInviteLinkCreateInput,
+  type StoreMember,
+  type StoreMembersResult,
+  type StoreSettingsSection,
+  type StoreSettingsSectionUpdateRequest,
+  type SupplierInput,
+} from "@/lib/repairdesk/api";
+import type { OrderDataAccessCode } from "@/lib/repairdesk/types";
+import { repairOs } from "@/lib/ui-patterns";
+import { cn } from "@/lib/utils";
+import { useLocale } from "@/shared/i18n/locale-provider";
+import { translateSettingsOperations, type MessageKey } from "@/shared/i18n/messages";
+import { RepairOsBusinessCard, RepairOsListScaffold } from "@/shared/ui";
 
 const initialSaveStatus: Record<StoreSettingsSection, SettingsSaveStatus> = {
   store: "clean",
@@ -359,10 +332,6 @@ export function SettingsScreen() {
     queryFn: ({ signal }) => listSuppliers({ signal }),
     staleTime: CACHE_TIMES.settings,
     enabled: Boolean(activeStoreId && queryActivation.suppliers),
-  });
-  const aiUsageQuery = useQuery({
-    ...aiAssistantUsageQueryOptions(activeStoreId),
-    enabled: Boolean(activeStoreId && queryActivation.aiUsage),
   });
   const settingsData = settingsQuery.data;
   const [settingsDrafts, setSettingsDrafts] = useState<StoreSettingsDrafts | null>(null);
@@ -599,7 +568,6 @@ export function SettingsScreen() {
       notifications: false,
       rules: false,
       workflow: workflowSectionDirty,
-      "ai-usage": false,
       "order-data": orderDataSectionDirty,
     };
     return {
@@ -1746,9 +1714,7 @@ export function SettingsScreen() {
               >
                 {selectedSection === "store"
                   ? t("settings.section.readonlyStore")
-                  : selectedSection === "ai-usage"
-                    ? t("settings.section.readonlyAiUsage")
-                    : t("settings.section.readonlyGeneric")}
+                  : t("settings.section.readonlyGeneric")}
               </div>
             ) : null}
 
@@ -2177,14 +2143,6 @@ export function SettingsScreen() {
                     }
                     applyEnabled={canApplyOrderData}
                     onDirtyChange={setOrderDataSectionDirty}
-                  />
-                ) : null}
-                {canRenderSelectedSection && selectedSection === "ai-usage" ? (
-                  <AiUsageSettingsSection
-                    usage={aiUsageQuery.data}
-                    isLoading={aiUsageQuery.isLoading}
-                    isError={aiUsageQuery.isError}
-                    onRetry={() => void aiUsageQuery.refetch()}
                   />
                 ) : null}
               </div>

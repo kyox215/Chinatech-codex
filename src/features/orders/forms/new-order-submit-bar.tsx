@@ -14,7 +14,6 @@ export function NewOrderSubmitBar({
   pending,
   statusMessage,
   total = 0,
-  missingCount = 0,
   surface = "page",
   validationSummaryId,
 }: {
@@ -101,11 +100,7 @@ export function NewOrderSubmitBar({
             className="h-11 min-h-11 w-full shrink-0 gap-1.5 rounded-lg border-0 px-4 whitespace-normal text-xs font-semibold leading-4 text-primary-foreground md:w-auto"
           >
             <Plus className="size-3.5" />
-            {pending
-              ? t("orders2b1.new.processing")
-              : !valid
-                ? t("orders.newFlow.missingAction", { count: missingCount || 1 })
-                : t("orders2b1.new.create")}
+            {pending ? t("orders2b1.new.processing") : t("orders2b1.new.create")}
           </Button>
         </div>
       </div>

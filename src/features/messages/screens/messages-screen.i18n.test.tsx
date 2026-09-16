@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,6 +9,8 @@ import { storesKeys } from "@/features/stores/api/query-keys";
 import { RepairDeskApiError } from "@/lib/repairdesk/api";
 import type { MessageTemplate, StoreContext, StoreSettings } from "@/lib/repairdesk/types";
 import { LocaleProvider, useLocale } from "@/shared/i18n/locale-provider";
+
+import { translateMessage } from "@/shared/i18n/messages";
 
 import { MessagesScreen } from "./messages-screen";
 
@@ -74,6 +76,81 @@ beforeEach(() => {
 });
 
 describe("MessagesScreen i18n and authority boundaries", () => {
+  it.each(["zh-CN", "it-IT", "en"] as const)(
+    "protects an edited template when switching, cancelling or discarding in %s",
+    async (locale) => {
+      const user = userEvent.setup();
+      renderMessages(locale);
+      const body = await screen.findByLabelText(bodyLabelCopy(locale));
+      fireEvent.change(body, { target: { value: "UNSAVED_TEMPLATE_DRAFT" } });
+      await user.click(screen.getByRole("button", { name: /客户通用 RAW_LABEL/ }));
+      const confirmation = await screen.findByRole("alertdialog");
+      expect(confirmation).toHaveTextContent(translateMessage(locale, "orders2b1.nav.title"));
+      expect(body).toHaveValue("UNSAVED_TEMPLATE_DRAFT");
+      await user.click(
+        within(confirmation).getByRole("button", {
+          name: translateMessage(locale, "common.cancel"),
+        }),
+      );
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+      expect(body).toHaveValue("UNSAVED_TEMPLATE_DRAFT");
+      await waitFor(() => expect(body).toHaveFocus());
+      await user.click(screen.getByRole("button", { name: /客户通用 RAW_LABEL/ }));
+      await user.click(
+        within(await screen.findByRole("alertdialog")).getByRole("button", {
+          name: translateMessage(locale, "orders2b1.nav.discard"),
+        }),
+      );
+      await waitFor(() => expect(body).toHaveValue(templateFixtures()[1].body_template));
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+      await user.click(screen.getByRole("button", { name: /报价审批 RAW_LABEL/ }));
+      expect(body).toHaveValue(templateFixtures()[0].body_template);
+      expect(apiMocks.updateMessageTemplate).not.toHaveBeenCalled();
+      expect(apiMocks.resetMessageTemplate).not.toHaveBeenCalled();
+    },
+  );
+
+  it("blocks template switching while a save is pending and keeps the draft after rejection", async () => {
+    const pending = deferred<MessageTemplate>();
+    apiMocks.updateMessageTemplate.mockReturnValueOnce(pending.promise);
+    const user = userEvent.setup();
+    renderMessages("en");
+    const body = await screen.findByLabelText("Template body");
+    fireEvent.change(body, { target: { value: "PENDING_TEMPLATE_DRAFT" } });
+    await user.click(screen.getAllByRole("button", { name: /Save template/ })[0]);
+    const target = screen.getByRole("button", { name: /客户通用 RAW_LABEL/ });
+    await waitFor(() => expect(target).toBeDisabled());
+    fireEvent.click(target);
+    expect(body).toHaveValue("PENDING_TEMPLATE_DRAFT");
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    await act(async () => pending.reject(new Error("SAVE_REJECTED")));
+    await waitFor(() => expect(target).toBeEnabled());
+    expect(body).toHaveValue("PENDING_TEMPLATE_DRAFT");
+    await user.click(target);
+    expect(await screen.findByRole("alertdialog")).toBeVisible();
+    expect(apiMocks.updateMessageTemplate).toHaveBeenCalledTimes(1);
+  });
+
+  it("invalidates a pending discard confirmation when edit authority is revoked", async () => {
+    const { queryClient, rerender } = renderMessages("en");
+    const user = userEvent.setup();
+    const body = await screen.findByLabelText("Template body");
+    fireEvent.change(body, { target: { value: "SENSITIVE_CONFIRM_DRAFT" } });
+    await user.click(screen.getByRole("button", { name: /客户通用 RAW_LABEL/ }));
+    await screen.findByRole("alertdialog");
+    queryClient.setQueryData(
+      storesKeys.context,
+      cachedStoreContext("store-a", { canUpdateMessageTemplates: false }),
+    );
+    shellMocks.value = shellContext({ canUpdateMessageTemplates: false });
+    rerender(messagesTree("en", queryClient));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(body).toHaveValue(templateFixtures()[0].body_template);
+    expect(body).toBeDisabled();
+    expect(document.body.textContent).not.toContain("SENSITIVE_CONFIRM_DRAFT");
+    expect(apiMocks.updateMessageTemplate).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["zh-CN" as const, "工单通知", "后台标签", "变量助手", "实时预览"],
     [

@@ -1,8 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -22,22 +19,24 @@ import {
   Trash2,
   UserRound,
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
 import { ImeiScannerField } from "@/components/imei-scanner-field";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { Label } from "@/components/ui/label";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
-import { useAiAssistantWorkspace } from "@/features/ai-assistant";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
+import { InventoryPhoneCatalogFields } from "@/features/inventory/components/inventory-phone-catalog-fields";
 import {
   InventoryV2VisionDraftCard,
   type InventoryV2VisionDraft,
 } from "@/features/inventory/components/inventory-v2-vision-draft";
-import { InventoryPhoneCatalogFields } from "@/features/inventory/components/inventory-phone-catalog-fields";
 import {
   findEuPhoneBrand,
   findEuPhoneModel,
@@ -121,7 +120,6 @@ export function InventoryIntakeScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
-  const aiAssistant = useAiAssistantWorkspace();
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<Draft>(newDraft);
   const [customerSearch, setCustomerSearch] = useState("");
@@ -533,13 +531,7 @@ export function InventoryIntakeScreen() {
 
           {step === 1 ? (
             <div className="space-y-3">
-              <InventoryV2VisionDraftCard
-                enabled={
-                  aiAssistant.capabilities?.canUseVisionIntake === true &&
-                  aiAssistant.capabilities?.canApplyInventoryDraft === true
-                }
-                onApply={applyVision}
-              />
+              <InventoryV2VisionDraftCard enabled={true} onApply={applyVision} />
               <div className="rounded-xl border border-dashed border-[var(--border-panel)] p-3 text-xs leading-5 text-muted-foreground">
                 <ScanLine className="mr-1 inline size-4 text-primary" /> 也可以跳过
                 AI，在下一步直接扫描或输入 IMEI、序列号、EAN、SKU。
@@ -1072,10 +1064,10 @@ function stepTitle(step: number) {
 function stepDescription(step: number) {
   return [
     "来源决定后续需要关联的业务记录。",
-    "AI 是可选助手，识别候选必须由你确认。",
+    "本地照片识别可选，识别候选必须由你确认。",
     "至少填写品牌、型号和一个主要标识。",
     "只允许关联当前门店已有的供应商或客户。",
-    "金额不会由 AI 自动填写；商品保存后不会自动上架。",
+    "金额需手工填写；商品保存后不会自动上架。",
     "系统会一次性写入商品、标识、入库流水和审计记录。",
   ][step];
 }

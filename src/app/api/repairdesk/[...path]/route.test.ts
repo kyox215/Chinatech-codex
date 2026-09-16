@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BUYBACK_EVIDENCE_HOSTED_REQUEST_MAX_BYTES } from "@/features/buyback/model/buyback-evidence-policy";
-import { AI_INVENTORY_VISION_REQUEST_MAX_BYTES } from "@/features/ai-assistant/model/inventory-image-policy";
-import { AiServiceError } from "@/features/ai-assistant/server/errors";
 
 vi.mock("@/server/api/repairdesk-request-guard", () => ({
   assertRepairDeskPostRequestAllowed: mocks.assertRepairDeskPostRequestAllowed,
@@ -12,20 +10,10 @@ vi.mock("@/server/api/repairdesk-request-guard", () => ({
 
 const mocks = vi.hoisted(() => ({
   assertRepairDeskPostRequestAllowed: vi.fn(),
-  consumeAiAssistantRequestRateLimit: vi.fn(),
-  getAiAssistantCapabilities: vi.fn(),
   getRepairDeskPostActor: vi.fn(),
   handleRepairDeskGet: vi.fn(),
   handleRepairDeskPost: vi.fn(),
   resolveRepairDeskRequestOrigin: vi.fn(() => "http://localhost"),
-}));
-
-vi.mock("@/features/ai-assistant/server/capabilities", () => ({
-  getAiAssistantCapabilities: mocks.getAiAssistantCapabilities,
-}));
-
-vi.mock("@/features/ai-assistant/server/request-rate-limit", () => ({
-  consumeAiAssistantRequestRateLimit: mocks.consumeAiAssistantRequestRateLimit,
 }));
 
 vi.mock("@/server/api/repairdesk-router", () => ({
@@ -34,7 +22,6 @@ vi.mock("@/server/api/repairdesk-router", () => ({
   handleRepairDeskPost: mocks.handleRepairDeskPost,
 }));
 
-import { UnauthorizedError } from "@/server/auth-context";
 import {
   INVENTORY_LIFECYCLE_COMMAND_MAX_BYTES,
   INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES,
@@ -47,12 +34,6 @@ describe("RepairDesk attachment route request envelope", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv("NEXT_PUBLIC_REPAIRDESK_TOOLKIT_ENABLED", "1");
-    mocks.getAiAssistantCapabilities.mockReturnValue({
-      canUseOrderAssistant: false,
-      canUseOrderInlineActions: false,
-      canUseVisionIntake: true,
-      canApplyInventoryDraft: false,
-    });
     mocks.getRepairDeskPostActor.mockResolvedValue({
       id: "staff-1",
       displayName: "Staff",
@@ -163,25 +144,6 @@ describe("RepairDesk attachment route request envelope", () => {
     expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
   });
 
-  it("rejects an oversized AI text envelope before authentication or parsing", async () => {
-    const request = new NextRequest("http://localhost/api/repairdesk/ai/order/turn", {
-      method: "POST",
-      headers: {
-        "content-length": "4097",
-        "content-type": "application/json",
-      },
-      body: "{}",
-    });
-
-    const response = await POST(request, {
-      params: Promise.resolve({ path: ["ai", "order", "turn"] }),
-    });
-
-    expect(response.status).toBe(413);
-    expect(mocks.getRepairDeskPostActor).not.toHaveBeenCalled();
-    expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
-  });
-
   it("rejects oversized Inventory V2 command envelopes with and without content-length", async () => {
     for (const testCase of [
       { path: ["inventory", "v2", "intake", "create"], withContentLength: true },
@@ -256,116 +218,9 @@ describe("RepairDesk attachment route request envelope", () => {
     }
   });
 
-  it("authenticates an AI turn before reading or dispatching its JSON body", async () => {
-    mocks.getRepairDeskPostActor.mockRejectedValueOnce(new UnauthorizedError());
-    const request = new NextRequest("http://localhost/api/repairdesk/ai/order/turn", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: "not-json",
-    });
-
-    const response = await POST(request, {
-      params: Promise.resolve({ path: ["ai", "order", "turn"] }),
-    });
-
-    expect(response.status).toBe(401);
-    expect(mocks.getRepairDeskPostActor).toHaveBeenCalledWith("ai/order/turn");
-    expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
-  });
-
-  it("rejects an oversized AI vision envelope before authentication or parsing", async () => {
-    const request = new NextRequest("http://localhost/api/repairdesk/ai/vision/extract", {
-      method: "POST",
-      headers: {
-        "content-length": String(AI_INVENTORY_VISION_REQUEST_MAX_BYTES + 1),
-        "content-type": "application/json",
-      },
-      body: "{}",
-    });
-
-    const response = await POST(request, {
-      params: Promise.resolve({ path: ["ai", "vision", "extract"] }),
-    });
-
-    expect(response.status).toBe(413);
-    expect(mocks.getRepairDeskPostActor).not.toHaveBeenCalled();
-    expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
-  });
-
-  it("authenticates AI vision before reading an invalid JSON body", async () => {
-    mocks.getRepairDeskPostActor.mockRejectedValueOnce(new UnauthorizedError());
-    const request = new NextRequest("http://localhost/api/repairdesk/ai/vision/extract", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: "not-json",
-    });
-
-    const response = await POST(request, {
-      params: Promise.resolve({ path: ["ai", "vision", "extract"] }),
-    });
-
-    expect(response.status).toBe(401);
-    expect(mocks.getRepairDeskPostActor).toHaveBeenCalledWith("ai/vision/extract");
-    expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
-  });
-
-  it("rejects disabled vision and rate-limited actors before consuming the image body", async () => {
-    const disabledRequest = new NextRequest("http://localhost/api/repairdesk/ai/vision/extract", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: "not-json",
-    });
-    mocks.getAiAssistantCapabilities.mockReturnValueOnce({
-      canUseOrderAssistant: false,
-      canUseOrderInlineActions: false,
-      canUseVisionIntake: false,
-      canApplyInventoryDraft: false,
-      reason: "feature_off",
-    });
-    const disabled = await POST(disabledRequest, {
-      params: Promise.resolve({ path: ["ai", "vision", "extract"] }),
-    });
-    expect(disabled.status).toBe(404);
-    expect(disabledRequest.bodyUsed).toBe(false);
-
-    const limitedRequest = new NextRequest("http://localhost/api/repairdesk/ai/vision/extract", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: "not-json",
-    });
-    mocks.consumeAiAssistantRequestRateLimit.mockImplementationOnce(() => {
-      throw new AiServiceError("AI 查询请求过于频繁", "AI_RATE_LIMITED", 429, {
-        retryable: true,
-      });
-    });
-    const limited = await POST(limitedRequest, {
-      params: Promise.resolve({ path: ["ai", "vision", "extract"] }),
-    });
-    expect(limited.status).toBe(429);
-    expect(limitedRequest.bodyUsed).toBe(false);
-    expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
-  });
-
-  it("enforces the streamed AI vision cap after authentication when content-length is absent", async () => {
-    const request = new NextRequest("http://localhost/api/repairdesk/ai/vision/extract", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: `{"image":"${"A".repeat(AI_INVENTORY_VISION_REQUEST_MAX_BYTES)}"}`,
-    });
-    request.headers.delete("content-length");
-
-    const response = await POST(request, {
-      params: Promise.resolve({ path: ["ai", "vision", "extract"] }),
-    });
-
-    expect(response.status).toBe(413);
-    expect(mocks.getRepairDeskPostActor).toHaveBeenCalledWith("ai/vision/extract");
-    expect(mocks.consumeAiAssistantRequestRateLimit).toHaveBeenCalledOnce();
-    expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
-  });
-
-  it("enforces streamed limits for text turns and inline actions without content-length", async () => {
+  it("returns 404 for retired assistant endpoints before body parsing or actor dispatch", async () => {
     for (const testCase of [
+      { path: ["ai", "vision", "extract"], body: "{}" },
       { path: ["ai", "order", "turn"], body: `{"message":"${"A".repeat(4_200)}"}` },
       { path: ["ai", "order", "action"], body: `{"order_id":"${"A".repeat(2_100)}"}` },
     ]) {
@@ -381,10 +236,20 @@ describe("RepairDesk attachment route request envelope", () => {
 
       const response = await POST(request, { params: Promise.resolve({ path: testCase.path }) });
 
-      expect(response.status).toBe(413);
-      expect(mocks.getRepairDeskPostActor).toHaveBeenCalledWith(testCase.path.join("/"));
+      expect(response.status).toBe(404);
+      expect(request.bodyUsed).toBe(false);
+      expect(mocks.getRepairDeskPostActor).not.toHaveBeenCalled();
       expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
       mocks.getRepairDeskPostActor.mockClear();
+    }
+  });
+  it("returns 404 for retired capability and usage reads without dispatch", async () => {
+    for (const key of ["capabilities", "usage"]) {
+      const request = new NextRequest(`http://localhost/api/repairdesk/ai/${key}`);
+      const response = await GET(request, { params: Promise.resolve({ path: ["ai", key] }) });
+      expect(response.status).toBe(404);
+      expect(request.bodyUsed).toBe(false);
+      expect(mocks.handleRepairDeskGet).not.toHaveBeenCalled();
     }
   });
 });

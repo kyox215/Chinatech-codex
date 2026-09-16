@@ -279,7 +279,7 @@ export function OrderMobileCard({
       ) : null}
       <OrderMiniProgress
         workflowStatus={workflowStatus}
-        currentLabel={`${currentStageLabel} · ${presentation.detail}`}
+        currentLabel={currentStageLabel}
         nextAction={presentation.nextAction}
         danger={presentation.danger}
         isTerminal={presentation.terminal}

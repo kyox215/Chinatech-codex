@@ -2,23 +2,22 @@ import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
 
 import { customersKeys } from "@/features/customers/api/query-keys";
-import { inventorySalesKeys } from "@/features/inventory/sales/api/query-keys";
-import { aiAssistantKeys } from "@/features/ai-assistant/api";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
 import { inventoryLifecycleKeys } from "@/features/inventory/lifecycle/api/query-keys";
 import { inventoryCatalogKeys } from "@/features/inventory/products/api/query-keys";
+import { inventorySalesKeys } from "@/features/inventory/sales/api/query-keys";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
-import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { memosKeys } from "@/features/memos/api/query-keys";
+import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { storesKeys } from "@/features/stores/api/query-keys";
-import { suppliersKeys } from "@/features/suppliers/api/query-keys";
 import {
   applySwitchedStoreContext,
   clearAuthorityLostQueryCache,
   clearAuthoritySensitiveQueryCache,
 } from "@/features/stores/api/tenant-cache";
+import { suppliersKeys } from "@/features/suppliers/api/query-keys";
 import type { StoreContext } from "@/lib/repairdesk/types";
 
 describe("tenant cache helpers", () => {
@@ -107,7 +106,6 @@ describe("tenant cache helpers", () => {
     queryClient.setQueryData(storesKeys.accessRequestsScoped("store_1"), [{ id: "request_a" }]);
     queryClient.setQueryData(platformKeys.onboardingStatus, { activeStore: { id: "store_1" } });
     queryClient.setQueryData(storesKeys.bootstrap, { activeStore: { id: "store_1" } });
-    queryClient.setQueryData(aiAssistantKeys.capabilities("store_1"), { stale: true });
     queryClient.setQueryData(memosKeys.detail("store_1", "memo_a"), { content: "private" });
 
     await applySwitchedStoreContext(queryClient, nextContext);
@@ -141,7 +139,6 @@ describe("tenant cache helpers", () => {
     expect(queryClient.getQueryData(storesKeys.accessRequestsScoped("store_1"))).toBeUndefined();
     expect(queryClient.getQueryData(platformKeys.onboardingStatus)).toBeUndefined();
     expect(queryClient.getQueryData(storesKeys.bootstrap)).toBeUndefined();
-    expect(queryClient.getQueryData(aiAssistantKeys.capabilities("store_1"))).toBeUndefined();
     expect(queryClient.getQueryData(memosKeys.detail("store_1", "memo_a"))).toBeUndefined();
   });
 
@@ -164,7 +161,6 @@ describe("tenant cache helpers", () => {
     queryClient.setQueryData(storesKeys.accessRequestsScoped("store_1"), [{ id: "request_a" }]);
     queryClient.setQueryData(storesKeys.context, { activeStore: { id: "store_1" } });
     queryClient.setQueryData(storesKeys.bootstrap, { activeStore: { id: "store_1" } });
-    queryClient.setQueryData(aiAssistantKeys.capabilities("store_1"), { stale: true });
     queryClient.setQueryData(memosKeys.detail("store_1", "memo_a"), { content: "private" });
 
     await clearAuthoritySensitiveQueryCache(queryClient);
@@ -190,7 +186,6 @@ describe("tenant cache helpers", () => {
     expect(queryClient.getQueryData(storesKeys.bootstrap)).toEqual({
       activeStore: { id: "store_1" },
     });
-    expect(queryClient.getQueryData(aiAssistantKeys.capabilities("store_1"))).toBeUndefined();
     expect(queryClient.getQueryData(memosKeys.detail("store_1", "memo_a"))).toBeUndefined();
   });
 
@@ -212,7 +207,6 @@ describe("tenant cache helpers", () => {
       activeStore: { id: "store_1" },
     });
     queryClient.setQueryData(storesKeys.bootstrap, { activeStore: { id: "store_1" } });
-    queryClient.setQueryData(aiAssistantKeys.capabilities("store_1"), { stale: true });
     queryClient.setQueryData(memosKeys.detail("store_1", "memo_a"), { content: "private" });
 
     clearAuthorityLostQueryCache(queryClient);
@@ -230,7 +224,6 @@ describe("tenant cache helpers", () => {
     expect(queryClient.getQueryData(storesKeys.context)).toBeUndefined();
     expect(queryClient.getQueryData(platformKeys.onboardingStatus)).toBeUndefined();
     expect(queryClient.getQueryData(storesKeys.bootstrap)).toBeUndefined();
-    expect(queryClient.getQueryData(aiAssistantKeys.capabilities("store_1"))).toBeUndefined();
     expect(queryClient.getQueryData(memosKeys.detail("store_1", "memo_a"))).toBeUndefined();
   });
 });

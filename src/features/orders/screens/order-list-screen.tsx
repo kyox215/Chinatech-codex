@@ -1,5 +1,9 @@
 "use client";
 
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "framer-motion";
+import { AlertTriangle, Filter, LoaderCircle, Plus, Printer, Search, X } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   lazy,
   Suspense,
@@ -11,29 +15,15 @@ import {
   type CSSProperties,
   type SyntheticEvent,
 } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AnimatePresence, motion } from "framer-motion";
-import {
-  AlertTriangle,
-  Filter,
-  LoaderCircle,
-  Plus,
-  Printer,
-  Search,
-  Sparkles,
-  X,
-} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogBody,
   DialogContent,
-  DialogFooter,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -45,124 +35,119 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
-import { fadeUp, floatingBar, stagger } from "@/lib/motion";
-import { appShell, brandGradientStyle, controls, layoutGuards, repairOs } from "@/lib/ui-patterns";
-import { componentOverlay } from "@/lib/component-patterns";
+import { issueCustomerStatusLinks } from "@/features/customer-status/api/customer-status-client";
+import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
+import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
+import {
+  ORDER_QUEUE_PAGE_SIZE,
+  orderDetailQueryOptions,
+} from "@/features/orders/api/query-options";
+import { FixedPdfReadyDialog } from "@/features/orders/components/fixed-pdf-ready-dialog";
+import { NewOrderDialog } from "@/features/orders/components/new-order-dialog";
+import { OrderDetailSkeleton } from "@/features/orders/components/order-detail-skeleton";
+import { DesktopOrderQueueRow } from "@/features/orders/components/order-list-desktop-row";
+import { OrderStatusFilterControls } from "@/features/orders/components/order-list-filters";
 import { OrderMobileCard } from "@/features/orders/components/order-list-items";
+import { orderQueueDesktopGrid } from "@/features/orders/components/order-list-layout";
+import { MobileOrdersFloatingHeader } from "@/features/orders/components/order-list-mobile-header";
+import { OrderListPresentationSwitch } from "@/features/orders/components/order-list-presentation-switch";
 import { OrderListPrintSheet } from "@/features/orders/components/order-list-print-sheet";
+import { OrderListLoadMore } from "@/features/orders/components/order-list-load-more";
+import { useOrderQueueFeed } from "@/features/orders/model/use-order-queue-feed";
+import { OrderListSkeleton } from "@/features/orders/components/order-list-skeleton";
+import { EmptyOrdersState, OrdersErrorState } from "@/features/orders/components/order-list-states";
+import {
+  OrderBulkTransitionFeedback,
+  OrderListTransitionFeedback,
+} from "@/features/orders/components/order-list-transition-feedback";
+import { OrderListViewMode } from "@/features/orders/components/order-list-view-mode";
 import {
   OrderPrintPaperDialog,
   readOrderPrintPaperMode,
   rememberOrderPrintPaperMode,
 } from "@/features/orders/components/order-print-paper-dialog";
-import { FixedPdfReadyDialog } from "@/features/orders/components/fixed-pdf-ready-dialog";
-import type { PrintPaperMode } from "@/features/orders/components/print-portal";
-import { NewOrderDialog } from "@/features/orders/components/new-order-dialog";
-import { DesktopOrderQueueRow } from "@/features/orders/components/order-list-desktop-row";
-import { orderQueueDesktopGrid } from "@/features/orders/components/order-list-layout";
+import { OrderQrScannerButton } from "@/features/orders/components/order-qr-scanner";
 import { OrderResultGroupHeader } from "@/features/orders/components/order-result-group-header";
 import { OrderSearchFeedback } from "@/features/orders/components/order-search-feedback";
-import { OrderListSkeleton } from "@/features/orders/components/order-list-skeleton";
-import { OrderListViewMode } from "@/features/orders/components/order-list-view-mode";
-import { OrderListPresentationSwitch } from "@/features/orders/components/order-list-presentation-switch";
-import {
-  groupOrderListPresentation,
-  type OrderListPresentationView,
-} from "@/features/orders/model/order-list-presentation";
-import { getOrderTaskStage } from "@/features/orders/model/order-task-flow";
-import {
-  OrderBulkTransitionFeedback,
-  OrderListTransitionFeedback,
-} from "@/features/orders/components/order-list-transition-feedback";
+import type { PrintPaperMode } from "@/features/orders/components/print-portal";
+import type { NewOrderPrefill } from "@/features/orders/model/new-order-intent";
 import {
   classifyOrderTransitionFailure,
   getFailedOrderTransitionIds,
   type OrderBulkTransitionRecovery,
 } from "@/features/orders/model/order-bulk-transition";
-import { OrderStatusFilterControls } from "@/features/orders/components/order-list-filters";
-import { MobileOrdersFloatingHeader } from "@/features/orders/components/order-list-mobile-header";
-import { OrderQrScannerButton } from "@/features/orders/components/order-qr-scanner";
-import { useRealtimeSync } from "@/features/realtime";
+import { getOrderDetailSafeErrorMessage } from "@/features/orders/model/order-detail-i18n";
 import {
-  EmptyOrdersState,
-  OrdersErrorState,
-  PaginationBar,
-} from "@/features/orders/components/order-list-states";
-import { OrderDetailSkeleton } from "@/features/orders/components/order-detail-skeleton";
-import { batchTransition, type OrderListFilters, type OrderListItem } from "@/lib/repairdesk/api";
-import type { RepairOrderStatus } from "@/lib/mock/enums";
-import type { OrderListPageInput, OrderListView, OrderQueueGroup } from "@/lib/repairdesk/types";
-import {
-  getCommonWorkflowTargets,
-  getWorkflowStatuses,
-  type OrderListStatusTab,
-} from "@/features/orders/model/order-workflow";
-import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
-import {
-  orderQueueGroupMeta,
-  orderQueueGroups,
-} from "@/features/orders/model/order-queue-classification";
-import {
-  localizeOrderResultGroup,
-  localizeOrderException,
   localizeBulkTransitionFeedback,
+  localizeOrderException,
+  localizeOrderFlowStage,
+  localizeOrderQueueGroup,
+  localizeOrderResultGroup,
   localizeWorkflowStatusLabel,
 } from "@/features/orders/model/order-i18n";
 import {
   createOrderResultGroupCounts,
   groupOrderListItems,
-  orderResultGroupMeta,
 } from "@/features/orders/model/order-list-grouping";
-import { useOrderSearchInput } from "@/features/orders/model/use-order-search-input";
+import {
+  groupOrderListPresentation,
+  type OrderListPresentationView,
+} from "@/features/orders/model/order-list-presentation";
+import {
+  readOrderListRouteState,
+  writeOrderListRouteState,
+  type OrderListRouteStateV1,
+} from "@/features/orders/model/order-list-route-state";
+import {
+  orderQueueGroupMeta,
+  orderQueueGroups,
+} from "@/features/orders/model/order-queue-classification";
+import { canRunExactArchiveOrderSearch } from "@/features/orders/model/order-search-query";
 import {
   sanitizeOrderSearchDraft,
   sanitizeOrderSearchInput,
   sanitizeOrderSearchValue,
 } from "@/features/orders/model/order-search-safety";
-import { canRunExactArchiveOrderSearch } from "@/features/orders/model/order-search-query";
+import { simpleOrderFlowStages } from "@/features/orders/model/order-simple-flow";
+import { getOrderTaskStage } from "@/features/orders/model/order-task-flow";
+import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
 import {
-  readOrderListRouteState,
-  type OrderListRouteStateV1,
-  writeOrderListRouteState,
-} from "@/features/orders/model/order-list-route-state";
-import { ordersKeys } from "@/features/orders/api/query-keys";
-import {
-  ORDER_QUEUE_PAGE_SIZE,
-  orderDetailQueryOptions,
-  orderQueueSummaryQueryOptions,
-} from "@/features/orders/api/query-options";
-import {
-  BoundedPreloadScheduler,
-  ORDER_DETAIL_PRELOAD_GC_TIME,
-} from "@/features/preload/model/order-detail-preload";
-import { isRepairDeskPreloadEnabled } from "@/features/preload/model/preload-plan";
-import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
-import { useFixedOrderPdfPrint } from "@/features/orders/print/use-fixed-order-pdf-print";
-import { getOrderDetailSafeErrorMessage } from "@/features/orders/model/order-detail-i18n";
-import { issueCustomerStatusLinks } from "@/features/customer-status/api/customer-status-client";
-import { invalidateOrderReadCaches } from "@/features/orders/api/cache-sync";
-import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
-import { useAiAssistantWorkspace } from "@/features/ai-assistant";
-import { StoreShellUnavailableState } from "@/features/stores/components/store-shell-unavailable-state";
-import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
-import { CACHE_TIMES } from "@/lib/query-performance";
-import { cn } from "@/lib/utils";
-import { useViewportMode } from "@/hooks/use-mobile";
-import type { NewOrderPrefill } from "@/features/orders/model/new-order-intent";
+  getCommonWorkflowTargets,
+  getWorkflowStatuses,
+  type OrderListStatusTab,
+} from "@/features/orders/model/order-workflow";
 import {
   buildOrderDetailWorkspaceHref,
   clearOrderWorkspaceIntentHref,
   getOrderWorkspaceIntentKey,
   parseOrderWorkspaceIntent,
 } from "@/features/orders/model/order-workspace-intent";
+import { useOrderSearchInput } from "@/features/orders/model/use-order-search-input";
+import { useFixedOrderPdfPrint } from "@/features/orders/print/use-fixed-order-pdf-print";
+import {
+  BoundedPreloadScheduler,
+  ORDER_DETAIL_PRELOAD_GC_TIME,
+} from "@/features/preload/model/order-detail-preload";
+import { isRepairDeskPreloadEnabled } from "@/features/preload/model/preload-plan";
+import { useRealtimeSync } from "@/features/realtime";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { StoreShellUnavailableState } from "@/features/stores/components/store-shell-unavailable-state";
+import { useViewportMode } from "@/hooks/use-mobile";
+import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
+import { componentOverlay } from "@/lib/component-patterns";
+import type { RepairOrderStatus } from "@/lib/mock/enums";
+import { floatingBar, stagger } from "@/lib/motion";
+import { CACHE_TIMES } from "@/lib/query-performance";
+import { batchTransition, type OrderListFilters, type OrderListItem } from "@/lib/repairdesk/api";
+import type { OrderListPageInput, OrderListView, OrderQueueGroup } from "@/lib/repairdesk/types";
+import { appShell, brandGradientStyle, controls, layoutGuards, repairOs } from "@/lib/ui-patterns";
+import { cn } from "@/lib/utils";
 import { useLocale } from "@/shared/i18n/locale-provider";
-import { simpleOrderFlowStages } from "@/features/orders/model/order-simple-flow";
-import { localizeOrderFlowStage } from "@/features/orders/model/order-i18n";
-import { localizeOrderQueueGroup } from "@/features/orders/model/order-i18n";
 
 const LazyOrderDetailScreen = lazy(() =>
   import("@/features/orders/screens/order-detail-screen").then((module) => ({
@@ -274,6 +259,8 @@ export function OrderListScreen() {
   const pendingScrollRestoreRef = useRef<{ scrollY: number; anchorOrderId?: string } | null>(null);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
   const [isOnline, setIsOnline] = useState(true);
+  const pullStart = useRef<{ x: number; y: number } | null>(null);
+  const [pullDistance, setPullDistance] = useState(0);
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchParamsKey = searchParams.toString();
@@ -289,7 +276,6 @@ export function OrderListScreen() {
     // Next copies its internal history state; passing it back skips router updates.
     window.history.replaceState(null, "", href);
   }, [searchParamsKey]);
-  const aiAssistant = useAiAssistantWorkspace();
   const activeStoreId = shell.activeStore?.id;
   const canLoadOrderData = Boolean(activeStoreId) && !shell.isRefreshing;
   const { coordinator } = useRealtimeSync();
@@ -444,19 +430,26 @@ export function OrderListScreen() {
 
   const {
     data: queueSummary,
+    metadata: queueMetadata,
     isPending: listIsPending,
     isFetching,
     isPlaceholderData,
     isError: listIsError,
-    refetch: refetchOrders,
-  } = useQuery({
-    ...orderQueueSummaryQueryOptions(queueInput, activeStoreId),
-    enabled: canLoadOrderData,
-    placeholderData: keepPreviousData,
-  });
+    refetch: refetchFirstPage,
+    hasMore,
+    loadingMore,
+    nextPageError,
+    loadMore,
+    retryNextPage,
+  } = useOrderQueueFeed(queueInput, activeStoreId, shell.userId, canLoadOrderData);
+  const refetchOrders = useCallback(() => {
+    setSelected([]);
+    setBulkRecovery(null);
+    return refetchFirstPage();
+  }, [refetchFirstPage]);
   const listResult = queueSummary?.list;
-  const workflow = queueSummary?.workflow;
-  const orderOptions = queueSummary?.options;
+  const workflow = queueMetadata?.workflow;
+  const orderOptions = queueMetadata?.options;
   const workflowIsError = Boolean(queueSummary?.partialErrors?.workflow);
   const optionsIsError = Boolean(queueSummary?.partialErrors?.options);
   const storeSettingsQuery = useQuery({
@@ -583,8 +576,8 @@ export function OrderListScreen() {
     setStatusGroup(restored.statusGroup);
     setStatusCode(restored.statusCode);
     setFilters(restored.filters);
-    setPage(restored.page);
-    setPageSize(restored.pageSize);
+    setPage(1);
+    setPageSize(ORDER_QUEUE_PAGE_SIZE);
     pendingScrollRestoreRef.current = {
       scrollY: restored.scrollY,
       anchorOrderId: restored.anchorOrderId,
@@ -1313,22 +1306,6 @@ export function OrderListScreen() {
       label,
     });
   };
-  const changeOrderListPage = (nextPage: number) => {
-    beginListIntent({
-      requested: { ...currentSelection, page: nextPage },
-      kind: "page",
-      key: String(nextPage),
-      label: t("orders.pageLabel", { page: nextPage }),
-    });
-  };
-  const changeOrderListPageSize = (nextPageSize: number) => {
-    beginListIntent({
-      requested: { ...currentSelection, page: 1, pageSize: nextPageSize },
-      kind: "page",
-      key: `size-${nextPageSize}`,
-      label: t("orders.pageSizeLabel", { size: nextPageSize }),
-    });
-  };
   const retryFailedListIntent = () => {
     if (!failedListIntent) {
       void refetchOrders();
@@ -1399,6 +1376,7 @@ export function OrderListScreen() {
     !isOnline && !listResult ? (
       <OrdersErrorState message={t("orders.offlineNoCache")} onRetry={() => refreshOrderData()} />
     ) : !listResult &&
+      !queueMetadata &&
       !listIsError &&
       (shell.status === "loading" || (Boolean(activeStoreId) && listIsPending)) ? (
       <OrderListSkeleton />
@@ -1420,9 +1398,47 @@ export function OrderListScreen() {
     <div
       className={cn(repairOs.mobileListFloatingPage, appShell.orderList, "md:pb-8")}
       data-order-list-refreshing={isFetching ? "true" : "false"}
+      onTouchStart={(event) => {
+        if (
+          viewportMode !== "compact" ||
+          window.scrollY > 0 ||
+          isFetching ||
+          !isOnline ||
+          event.touches.length !== 1
+        )
+          return;
+        const target = event.target;
+        if (target instanceof Element && target.closest("button,input,textarea,a,[role=dialog]"))
+          return;
+        pullStart.current = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+      }}
+      onTouchMove={(event) => {
+        if (!pullStart.current || event.touches.length !== 1) return;
+        const touch = event.touches[0];
+        const distance = touch.clientY - pullStart.current.y;
+        if (
+          Math.abs(touch.clientX - pullStart.current.x) > 35 ||
+          window.scrollY > 0 ||
+          distance < 0
+        ) {
+          pullStart.current = null;
+          setPullDistance(0);
+          return;
+        }
+        setPullDistance(Math.min(distance, 96));
+      }}
+      onTouchEnd={() => {
+        if (pullStart.current && pullDistance >= 72 && !isFetching) void refetchOrders();
+        pullStart.current = null;
+        setPullDistance(0);
+      }}
+      onTouchCancel={() => {
+        pullStart.current = null;
+        setPullDistance(0);
+      }}
       onClickCapture={rememberListInvoker}
       onKeyDownCapture={rememberListInvoker}
-      aria-busy={listTransitionPending || isFetching}
+      aria-busy={listTransitionPending || isFetching || loadingMore}
       style={
         mobileHeaderHeight > 0
           ? ({
@@ -1432,6 +1448,25 @@ export function OrderListScreen() {
       }
     >
       <h1 className="sr-only">{t("orders.title")}</h1>
+      {viewportMode === "compact" ? (
+        <div className="mb-1 flex justify-end" data-order-pull-refresh="true">
+          <Button
+            type="button"
+            variant="ghost"
+            className="min-h-11 text-xs text-muted-foreground"
+            disabled={!isOnline || isFetching || listInteractionBlocked}
+            onClick={() => void refetchOrders()}
+          >
+            {t(
+              pullDistance >= 72
+                ? "orders.releaseToRefresh"
+                : pullDistance > 0
+                  ? "orders.pullToRefresh"
+                  : "orders.refreshFirstBatch",
+            )}
+          </Button>
+        </div>
+      ) : null}
       {viewportMode === "compact" ? (
         <MobileOrdersFloatingHeader
           headerRef={setMobileHeaderRef}
@@ -1444,21 +1479,6 @@ export function OrderListScreen() {
           totalOrders={totalOrders}
           onGroupChange={handleStatusGroupChange}
           onCreateOrder={openNewOrder}
-          aiAction={
-            aiAssistant.canOpenOrderAssistant ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="iconDense"
-                className="size-11 rounded-lg border-primary/30 bg-primary/10 text-primary"
-                aria-label={t("shell.openAi")}
-                data-ai-assistant-trigger="mobile-orders"
-                onClick={aiAssistant.openAssistant}
-              >
-                <Sparkles className="size-4" aria-hidden="true" />
-              </Button>
-            ) : undefined
-          }
           searchValue={searchInput.draftValue}
           searchBusy={searchBusy}
           interactionDisabled={!isOnline}
@@ -1500,7 +1520,6 @@ export function OrderListScreen() {
             />
           }
           rangeLabel={t(`orders.range.${orderListView}`)}
-          pageScope={t("orders.queue.pageScopeCompact", { page, count: data.length })}
           presentationControl={
             <OrderListPresentationSwitch
               compact
@@ -1961,25 +1980,13 @@ export function OrderListScreen() {
       ) : null}
 
       {viewportMode === "desktop" ? (
-        <div className="order-presentation-toolbar mb-3 flex min-w-0 flex-wrap items-center justify-between gap-2">
-          <div className="min-w-0 text-[11px] leading-4 text-muted-foreground">
-            <p data-order-presentation-scope="true">
-              {t("orders.queue.pageScope", { page, count: data.length })}
-            </p>
-            <p className="mt-1">
-              {t(presentationView === "board" ? "orders.queue.boardHint" : "orders.queue.listHint")}
-            </p>
-          </div>
+        <div className="order-presentation-toolbar mb-3 flex min-w-0 justify-end gap-2">
           <OrderListPresentationSwitch
             value={presentationView}
             onChange={setPresentationView}
             disabled={listInteractionBlocked}
           />
         </div>
-      ) : presentationView === "board" ? (
-        <p className="mb-2 px-1 text-[11px] leading-4 text-muted-foreground">
-          {t("orders.queue.boardHint")}
-        </p>
       ) : null}
 
       {/* List: presentation state never changes the query or data scope. */}
@@ -1992,7 +1999,7 @@ export function OrderListScreen() {
         data-order-list-blocked={listInteractionBlocked ? "true" : "false"}
         data-order-presentation-view={presentationView}
       >
-        {isPageOutOfRange ? (
+        {isPageOutOfRange || (listIsPending && !listResult) ? (
           <div className="space-y-1.5">
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-14 w-full" />
@@ -2179,15 +2186,13 @@ export function OrderListScreen() {
                 )}
               </div>
             ) : null}
-            <PaginationBar
-              page={page}
-              pageCount={pageCount}
-              pageSize={pageSize}
-              pageSizeOptions={[20, 50]}
-              total={totalOrders}
-              visible={data.length}
-              onPageChange={changeOrderListPage}
-              onPageSizeChange={changeOrderListPageSize}
+            <OrderListLoadMore
+              hasMore={hasMore}
+              loading={loadingMore}
+              failed={nextPageError}
+              disabled={!isOnline || listInteractionBlocked || isFetching}
+              onLoad={loadMore}
+              onRetry={() => void retryNextPage()}
             />
           </>
         )}

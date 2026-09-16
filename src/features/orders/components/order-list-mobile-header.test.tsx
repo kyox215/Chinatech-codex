@@ -61,8 +61,7 @@ const groups = [
 function renderHeader({
   pendingGroupValue,
   interactionDisabled,
-  aiAction,
-}: { pendingGroupValue?: string; interactionDisabled?: boolean; aiAction?: React.ReactNode } = {}) {
+}: { pendingGroupValue?: string; interactionDisabled?: boolean } = {}) {
   const onGroupChange = vi.fn();
   const result = render(
     <SidebarProvider>
@@ -74,7 +73,6 @@ function renderHeader({
         totalOrders={174}
         onGroupChange={onGroupChange}
         onCreateOrder={vi.fn()}
-        aiAction={aiAction}
         searchValue=""
         searchBusy={false}
         interactionDisabled={interactionDisabled}
@@ -126,7 +124,7 @@ describe("MobileOrdersFloatingHeader", () => {
     expect(screen.getByRole("button", { name: "扫码搜索" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "筛选订单" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "列表展示" })).toBeVisible();
-    expect(screen.getByText("第 2 页 · 20 单")).toBeVisible();
+    expect(screen.queryByText("第 2 页 · 20 单")).not.toBeInTheDocument();
     expect(
       screen.getByRole("textbox", { name: "搜索工单、客户、电话或 IMEI" }).parentElement,
     ).toHaveClass("bg-[var(--surface-panel-muted)]");
@@ -149,7 +147,10 @@ describe("MobileOrdersFloatingHeader", () => {
   it("shows pending intent while keeping the current queue and scope explicit", async () => {
     renderHeader({ pendingGroupValue: "ordered" });
     expect(screen.getByText("正在加载等待配件…")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /切换工作队列/ }));
+    const trigger = screen.getByRole("button", { name: /切换工作队列/ });
+    expect(trigger).toHaveTextContent("等待配件");
+    expect(trigger).not.toHaveTextContent("等配件");
+    await userEvent.click(trigger);
     expect(screen.getByRole("button", { name: "等待配件，24 条工单" })).toHaveAttribute(
       "aria-busy",
       "true",
@@ -180,10 +181,10 @@ describe("MobileOrdersFloatingHeader", () => {
     expect(screen.getByText("进度优先")).toBeInTheDocument();
   });
 
-  it("renders the contextual AI action without removing the new-order action", () => {
-    renderHeader({ aiAction: <button aria-label="打开 RepairDesk AI 小助手">AI</button> });
-
-    expect(screen.getByRole("button", { name: "打开 RepairDesk AI 小助手" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "新建工单" })).toBeInTheDocument();
+  it("keeps new-order action without a retired assistant entry", () => {
+    renderHeader();
+    expect(
+      screen.queryByRole("button", { name: "打开 RepairDesk AI 小助手" }),
+    ).not.toBeInTheDocument();
   });
 });

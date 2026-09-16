@@ -16,7 +16,7 @@ const zxingMocks = vi.hoisted(() => ({
 }));
 
 const imageInspectionMocks = vi.hoisted(() => ({
-  inspectAiInventoryImage: vi.fn(),
+  inspectInventoryImage: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -32,8 +32,8 @@ vi.mock("@zxing/browser", () => ({
   }),
 }));
 
-vi.mock("@/features/ai-assistant/model/inventory-image", () => ({
-  inspectAiInventoryImage: imageInspectionMocks.inspectAiInventoryImage,
+vi.mock("@/shared/lib/inventory-recognition/inventory-image", () => ({
+  inspectInventoryImage: imageInspectionMocks.inspectInventoryImage,
 }));
 
 beforeAll(() => {
@@ -57,8 +57,8 @@ beforeEach(() => {
   toastMocks.warning.mockReset();
   zxingMocks.decodeFromConstraints.mockReset();
   zxingMocks.decodeFromImageElement.mockReset();
-  imageInspectionMocks.inspectAiInventoryImage.mockReset();
-  imageInspectionMocks.inspectAiInventoryImage.mockResolvedValue({
+  imageInspectionMocks.inspectInventoryImage.mockReset();
+  imageInspectionMocks.inspectInventoryImage.mockResolvedValue({
     mimeType: "image/png",
     width: 100,
     height: 100,

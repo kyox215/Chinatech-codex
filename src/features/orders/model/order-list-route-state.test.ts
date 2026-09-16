@@ -32,6 +32,14 @@ const state: OrderListRouteStateV1 = {
 };
 
 describe("order list route state", () => {
+  it("restores a 100-row batch within its store and user", () => {
+    const storage = memoryStorage();
+    const batchState = { ...state, pageSize: 100 };
+    writeOrderListRouteState(storage, batchState);
+    expect(
+      readOrderListRouteState(storage, { storeId: state.storeId, userId: state.userId }, 1_001),
+    ).toEqual(batchState);
+  });
   it("restores scoped state without putting customer search data in the URL", () => {
     const storage = memoryStorage();
     writeOrderListRouteState(storage, state);

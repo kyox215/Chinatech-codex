@@ -1,5 +1,7 @@
 # Chinatech AI 图片标签识别单店发布手册
 
+> 历史参考（2026-09-16）：老板已要求全面移除产品AI助手，本文的启用/试点步骤已失效，不作为当前操作指令。历史迁移、账本与库存来源兼容仍保留；当前移除及发布前历史预占清算限制见[重构发布说明](REFACTOR_RELEASE_2026-09-16.md)。
+
 Status: ChinaTech Vision live; local one-photo IMEI extension deployed, authenticated Chinatech smoke pending
 Task: `TASK-20260719-001-ai-inventory-live-provider`
 Related extension: `TASK-20260719-008-inventory-imei-one-capture`

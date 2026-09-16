@@ -63,12 +63,14 @@ export function OrderWorkflowProgress({
 }) {
   const { t } = useLocale();
   const currentIndex = getWorkflowProgressValue(workflowStatus);
+  const terminal = workflowStatus === "closed";
   const localizedStages = orderTaskStages.map((stage) => localizeOrderFlowStage(stage, t));
   const activeStage = currentStage ?? localizedStages[currentIndex];
   const toneClass = nodeToneClass[tone];
   const stageCount = localizedStages.length;
   const railOffset = `${100 / Math.max(1, stageCount * 2)}%`;
-  const progressWidth = stageCount <= 1 ? "0%" : `${(currentIndex / (stageCount - 1)) * 100}%`;
+  const progressWidth =
+    terminal || stageCount <= 1 ? "0%" : `${(currentIndex / (stageCount - 1)) * 100}%`;
   const stageGridStyle = { gridTemplateColumns: `repeat(${stageCount}, minmax(0, 1fr))` };
 
   return (
@@ -97,7 +99,7 @@ export function OrderWorkflowProgress({
           />
         </span>
         {localizedStages.map((stage, index) => {
-          const done = index < currentIndex;
+          const done = !terminal && index < currentIndex;
           const current = index === currentIndex;
           const next = index === currentIndex + 1;
           const displayStage = current ? (activeStage ?? stage) : stage;
@@ -119,7 +121,7 @@ export function OrderWorkflowProgress({
                         : "border-border bg-card text-muted-foreground",
                 )}
               >
-                {current && (
+                {current && !terminal && (
                   <motion.span
                     aria-hidden
                     className={cn(
@@ -150,7 +152,7 @@ export function OrderWorkflowProgress({
                 className={cn(
                   "truncate",
                   index === currentIndex && "font-semibold text-foreground",
-                  index < currentIndex && "text-primary",
+                  !terminal && index < currentIndex && "text-primary",
                 )}
               >
                 {displayStage.label}

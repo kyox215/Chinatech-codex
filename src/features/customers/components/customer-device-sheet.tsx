@@ -1,5 +1,7 @@
 "use client";
 
+import { CustomerVersionNotice } from "../forms/use-customer-editor-session";
+
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
@@ -47,9 +49,10 @@ export interface CustomerDeviceSheetProps {
   customerId: string;
   open: boolean;
   deleting: boolean;
+  onRefresh?: () => void;
   onOpenChange: (open: boolean) => void;
   onEdit: (device: Device, control: HTMLButtonElement) => void;
-  onDelete: (deviceId: string) => void;
+  onDelete: (device: Device) => Promise<unknown>;
 }
 
 export function CustomerDeviceSheet({
@@ -57,15 +60,19 @@ export function CustomerDeviceSheet({
   customerId,
   open,
   deleting,
+  onRefresh,
   onOpenChange,
   onEdit,
   onDelete,
 }: CustomerDeviceSheetProps) {
   const { locale, t } = useLocale();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteConflict, setDeleteConflict] = useState(false);
+  const [deleteSnapshot, setDeleteSnapshot] = useState<Device | null>(null);
 
   useEffect(() => {
     setConfirmDelete(false);
+    setDeleteConflict(false);
   }, [item?.device.id, open]);
 
   const activeOrder = useMemo(
@@ -284,6 +291,19 @@ export function CustomerDeviceSheet({
               <Edit3 className="size-3.5" /> {t("customers.detail.editShort")}
             </Button>
           </div>
+          <CustomerVersionNotice
+            deletion
+            blocked={deleteConflict || !device.updated_at}
+            conflict={deleteConflict}
+            busy={deleting}
+            reload={() => {
+              onRefresh?.();
+              if (deleteConflict && device.updated_at === deleteSnapshot?.updated_at) return;
+              setDeleteConflict(false);
+              setConfirmDelete(false);
+              setDeleteSnapshot(null);
+            }}
+          />
           {item.canDelete ? (
             confirmDelete ? (
               <div className="mt-1.5 grid min-w-0 gap-1.5 rounded-xl border border-destructive/30 bg-destructive/5 p-2 sm:w-full">
@@ -308,8 +328,19 @@ export function CustomerDeviceSheet({
                     size="sm"
                     variant="destructive"
                     className="h-11 gap-1.5 text-xs lg:h-8"
-                    disabled={deleting}
-                    onClick={() => onDelete(device.id)}
+                    disabled={deleting || !device.updated_at || deleteConflict}
+                    onClick={() => {
+                      if (deleteSnapshot)
+                        void onDelete(deleteSnapshot).catch((error: unknown) => {
+                          if (
+                            error &&
+                            typeof error === "object" &&
+                            "status" in error &&
+                            error.status === 409
+                          )
+                            setDeleteConflict(true);
+                        });
+                    }}
                   >
                     <Trash2 className="size-3.5" />
                     {deleting
@@ -324,8 +355,11 @@ export function CustomerDeviceSheet({
                 size="sm"
                 variant="ghost"
                 className="mt-1.5 h-11 w-full gap-1.5 text-xs text-destructive hover:text-destructive sm:w-auto lg:h-8"
-                disabled={deleting}
-                onClick={() => setConfirmDelete(true)}
+                disabled={deleting || !device.updated_at || deleteConflict}
+                onClick={() => {
+                  setDeleteSnapshot({ ...device });
+                  setConfirmDelete(true);
+                }}
               >
                 <Trash2 className="size-3.5" /> {t("customers.detail.deleteDevice")}
               </Button>

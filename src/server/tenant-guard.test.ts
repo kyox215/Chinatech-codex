@@ -177,7 +177,19 @@ describe("tenant guardrails", () => {
     expect(source).toContain('.select("id")');
     expect(source).toContain(".maybeSingle()");
     expect(source).toContain('throw new Error("客户不存在")');
-    expect(source).toContain('throw new Error("设备不存在")');
+    const missingMutation = source.slice(
+      source.indexOf("async function missingCustomerMutation("),
+      source.indexOf("export async function updateCustomer("),
+    );
+    expect(missingMutation).toContain('.eq("store_id", storeId).eq("id", id)');
+    expect(missingMutation).toContain('query.eq("customer_id", customerId)');
+    expect(missingMutation).toContain("if (data) throw customerVersionConflict()");
+    expect(missingMutation).toMatch(
+      /new CustomerMutationError\([\s\S]*?404,\s*"CUSTOMER_ENTITY_NOT_FOUND"/,
+    );
+    expect(source).toContain(
+      'if (!data) return missingCustomerMutation("devices", storeId, input.id, customerId)',
+    );
     expect(source).toContain('throw new Error("客户待办不存在")');
   });
 

@@ -1,15 +1,11 @@
 "use client";
 
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Command } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { Command, Sparkles } from "lucide-react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  revokeAttachmentDraft,
-  type AttachmentDraft,
-} from "@/features/capture/model/attachment-rules";
-import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
-import { RealtimeSyncIndicator } from "@/features/realtime";
+import { LazyModalErrorBoundary, LazyModalShell } from "@/components/lazy-modal-shell";
+import { useNavigationGuard } from "@/components/navigation-guard-provider";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -19,17 +15,20 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { appShell, repairOs } from "@/lib/ui-patterns";
-import { globalMobileQuickActions, getShellPrimaryAction } from "@/shared/config/navigation";
-import { runRepairDeskShellAction } from "@/shared/lib/shell-actions";
-import { cn } from "@/lib/utils";
-import { useNavigationGuard } from "@/components/navigation-guard-provider";
-import { useAiAssistantWorkspace } from "@/features/ai-assistant";
+import {
+  revokeAttachmentDraft,
+  type AttachmentDraft,
+} from "@/features/capture/model/attachment-rules";
 import { createNewOrderSessionId } from "@/features/orders/model/new-order-intent";
 import { buildNewOrderWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
-import { LazyModalErrorBoundary, LazyModalShell } from "@/components/lazy-modal-shell";
+import { RealtimeSyncIndicator } from "@/features/realtime";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { appShell, repairOs } from "@/lib/ui-patterns";
+import { cn } from "@/lib/utils";
+import { getShellPrimaryAction, globalMobileQuickActions } from "@/shared/config/navigation";
 import { useLocale } from "@/shared/i18n/locale-provider";
 import { localizeShellAction } from "@/shared/i18n/navigation";
+import { runRepairDeskShellAction } from "@/shared/lib/shell-actions";
 
 function createLazyAttachmentDraftPanel(attempt: number) {
   return lazy(() => {
@@ -90,7 +89,6 @@ function MobileWorkspaceDockContent({
   const router = useRouter();
   const { runGuardedTransition } = useNavigationGuard();
   const shell = useStoreShellContext();
-  const aiAssistant = useAiAssistantWorkspace();
   const LazyAttachmentDraftPanel = useMemo(
     () => createLazyAttachmentDraftPanel(attachmentLoaderVersion),
     [attachmentLoaderVersion],
@@ -242,27 +240,6 @@ function MobileWorkspaceDockContent({
                 </span>
               </button>
             ))}
-            {aiAssistant.canOpenOrderAssistant ? (
-              <button
-                type="button"
-                data-ai-assistant-trigger="mobile-dock"
-                onClick={() => {
-                  setOpen(false);
-                  window.requestAnimationFrame(aiAssistant.openAssistant);
-                }}
-                className={repairOs.quickActionItem}
-              >
-                <span className={repairOs.quickActionIcon}>
-                  <Sparkles className="size-4" aria-hidden="true" />
-                </span>
-                <span className="min-w-0">
-                  <span className={repairOs.quickActionLabel}>{t("shell.aiAssistantMobile")}</span>
-                  <span className={repairOs.quickActionDescription}>
-                    {t("shell.aiAssistantDescription")}
-                  </span>
-                </span>
-              </button>
-            ) : null}
             {actions.slice(1).map((action) => {
               return (
                 <button

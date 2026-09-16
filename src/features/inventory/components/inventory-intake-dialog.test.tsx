@@ -1,37 +1,37 @@
+import { mockTouchKeyboardDevice } from "@/shared/lib/virtual-keyboard-device.test-utils";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { mockTouchKeyboardDevice } from "@/shared/lib/virtual-keyboard-device.test-utils";
 
 import {
-  AI_ASSISTANT_CONTRACT_VERSION,
-  type AiInventoryRecognition,
-} from "@/features/ai-assistant/model/contracts";
+  INVENTORY_RECOGNITION_CONTRACT_VERSION,
+  type InventoryRecognition,
+} from "@/shared/lib/inventory-recognition/contracts";
 
 const apiMocks = vi.hoisted(() => ({
   createInventoryIntake: vi.fn(),
-  runAiInventoryVisionRecognition: vi.fn(),
+  runInventoryVisionRecognition: vi.fn(),
 }));
 const imageMocks = vi.hoisted(() => ({
-  prepareAiInventoryImage: vi.fn(),
-  aiInventoryImageBlobToDataUrl: vi.fn(),
+  prepareInventoryImage: vi.fn(),
+  inventoryImageBlobToDataUrl: vi.fn(),
   dispose: vi.fn(),
 }));
-const recognitionMocks = vi.hoisted(() => ({ recognizeAiInventoryImageLocally: vi.fn() }));
+const recognitionMocks = vi.hoisted(() => ({ recognizeInventoryImageLocally: vi.fn() }));
 const toastMocks = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 
 vi.mock("@/lib/repairdesk/api", () => ({
   createInventoryIntake: apiMocks.createInventoryIntake,
-  runAiInventoryVisionRecognition: apiMocks.runAiInventoryVisionRecognition,
+  runInventoryVisionRecognition: apiMocks.runInventoryVisionRecognition,
 }));
-vi.mock("@/features/ai-assistant/model/inventory-image", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/features/ai-assistant/model/inventory-image")>()),
-  prepareAiInventoryImage: imageMocks.prepareAiInventoryImage,
-  aiInventoryImageBlobToDataUrl: imageMocks.aiInventoryImageBlobToDataUrl,
+vi.mock("@/shared/lib/inventory-recognition/inventory-image", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/shared/lib/inventory-recognition/inventory-image")>()),
+  prepareInventoryImage: imageMocks.prepareInventoryImage,
+  inventoryImageBlobToDataUrl: imageMocks.inventoryImageBlobToDataUrl,
 }));
-vi.mock("@/features/ai-assistant/model/inventory-local-recognition", () => ({
-  recognizeAiInventoryImageLocally: recognitionMocks.recognizeAiInventoryImageLocally,
+vi.mock("@/shared/lib/inventory-recognition/inventory-local-recognition", () => ({
+  recognizeInventoryImageLocally: recognitionMocks.recognizeInventoryImageLocally,
 }));
 vi.mock("sonner", () => ({ toast: toastMocks }));
 
@@ -53,8 +53,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
   apiMocks.createInventoryIntake.mockResolvedValue({ id: "inventory-1" });
-  imageMocks.aiInventoryImageBlobToDataUrl.mockResolvedValue("data:image/jpeg;base64,/9j/wAA=");
-  imageMocks.prepareAiInventoryImage.mockResolvedValue({
+  imageMocks.inventoryImageBlobToDataUrl.mockResolvedValue("data:image/jpeg;base64,/9j/wAA=");
+  imageMocks.prepareInventoryImage.mockResolvedValue({
     blob: new Blob(["synthetic"], { type: "image/jpeg" }),
     mimeType: "image/jpeg",
     byteLength: 9,
@@ -63,10 +63,10 @@ beforeEach(() => {
     previewUrl: "blob:synthetic-label",
     dispose: imageMocks.dispose,
   });
-  recognitionMocks.recognizeAiInventoryImageLocally.mockResolvedValue(emptyRecognition());
-  apiMocks.runAiInventoryVisionRecognition.mockResolvedValue({
+  recognitionMocks.recognizeInventoryImageLocally.mockResolvedValue(sampleRecognition());
+  apiMocks.runInventoryVisionRecognition.mockResolvedValue({
     request_id: "00000000-0000-4000-8000-000000000003",
-    contract_version: AI_ASSISTANT_CONTRACT_VERSION,
+    contract_version: INVENTORY_RECOGNITION_CONTRACT_VERSION,
     recognition: sampleRecognition(),
     provider: "fake",
     model_version: "fake-vision-test",
@@ -84,7 +84,7 @@ describe("InventoryIntakeDialog AI review", () => {
     try {
       const user = userEvent.setup();
       const close = vi.fn();
-      renderDialog({ canUseVisionIntake: false, onOpenChange: close });
+      renderDialog({ canUsePhotoIntake: false, onOpenChange: close });
       const dialog = screen.getByRole("dialog", { name: "新增库存商品" });
       expect(dialog).toHaveFocus();
       const amount = screen.getByRole("button", { name: "入库成本" });
@@ -134,7 +134,7 @@ describe("InventoryIntakeDialog AI review", () => {
     expect(screen.getByLabelText(/型号/)).toHaveValue("A7 Pro");
     expect(screen.getByLabelText("容量")).toHaveValue("64 GB");
     expect(screen.getByLabelText("IMEI/序列号")).toHaveValue("990000000000002");
-    expect(screen.getByText("AI 草稿已回到当前表单，尚未保存")).toBeInTheDocument();
+    expect(screen.getByText("识别草稿已回到当前表单，尚未保存")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "保存商品" }));
     await waitFor(() => expect(apiMocks.createInventoryIntake).toHaveBeenCalledOnce());
@@ -170,7 +170,7 @@ describe("InventoryIntakeDialog AI review", () => {
   });
 
   it("keeps a complete local label on-device and skips the cloud request", async () => {
-    recognitionMocks.recognizeAiInventoryImageLocally.mockResolvedValue(sampleRecognition());
+    recognitionMocks.recognizeInventoryImageLocally.mockResolvedValue(sampleRecognition());
     const user = userEvent.setup();
     renderDialog();
 
@@ -181,9 +181,9 @@ describe("InventoryIntakeDialog AI review", () => {
     );
 
     expect(await screen.findByLabelText("型号识别值")).toHaveValue("A7 Pro");
-    expect(screen.getByText(/本次未上传至云端视觉服务/)).toBeInTheDocument();
-    expect(apiMocks.runAiInventoryVisionRecognition).not.toHaveBeenCalled();
-    expect(imageMocks.aiInventoryImageBlobToDataUrl).not.toHaveBeenCalled();
+    expect(screen.getByText(/图片仅在本机处理/)).toBeInTheDocument();
+    expect(apiMocks.runInventoryVisionRecognition).not.toHaveBeenCalled();
+    expect(imageMocks.inventoryImageBlobToDataUrl).not.toHaveBeenCalled();
     expect(apiMocks.createInventoryIntake).not.toHaveBeenCalled();
   });
 
@@ -261,7 +261,7 @@ describe("InventoryIntakeDialog AI review", () => {
     expect(screen.getByText(/当前离线，不会排队上传敏感照片/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "拍摄标签" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "选择照片" })).toBeDisabled();
-    expect(imageMocks.prepareAiInventoryImage).not.toHaveBeenCalled();
+    expect(imageMocks.prepareInventoryImage).not.toHaveBeenCalled();
   });
 });
 
@@ -274,7 +274,7 @@ function component(overrides: Partial<React.ComponentProps<typeof InventoryIntak
     <InventoryIntakeDialog
       open
       defaultWarrantyMonths={12}
-      canUseVisionIntake
+      canUsePhotoIntake
       canApplyInventoryDraft
       authorityKey="store-1:owner"
       onOpenChange={vi.fn()}
@@ -288,7 +288,7 @@ function wrapper(node: React.ReactNode) {
   return <QueryClientProvider client={new QueryClient()}>{node}</QueryClientProvider>;
 }
 
-function sampleRecognition(): AiInventoryRecognition {
+function sampleRecognition(): InventoryRecognition {
   const field = (value: string) => ({
     value,
     confidence: "review" as const,
@@ -296,7 +296,7 @@ function sampleRecognition(): AiInventoryRecognition {
     source: "vision" as const,
   });
   return {
-    schema_version: AI_ASSISTANT_CONTRACT_VERSION,
+    schema_version: INVENTORY_RECOGNITION_CONTRACT_VERSION,
     fields: {
       brand: field("Redmi"),
       model: field("A7 Pro"),
@@ -320,7 +320,7 @@ function sampleRecognition(): AiInventoryRecognition {
   };
 }
 
-function emptyRecognition(): AiInventoryRecognition {
+function emptyRecognition(): InventoryRecognition {
   const field = {
     value: null,
     confidence: "unknown" as const,
@@ -328,7 +328,7 @@ function emptyRecognition(): AiInventoryRecognition {
     source: "unknown" as const,
   };
   return {
-    schema_version: AI_ASSISTANT_CONTRACT_VERSION,
+    schema_version: INVENTORY_RECOGNITION_CONTRACT_VERSION,
     fields: {
       brand: field,
       model: field,

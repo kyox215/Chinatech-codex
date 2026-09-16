@@ -1,3 +1,9 @@
+import { nextCustomerWriteVersion } from "@/features/customers/model/customer-write-version";
+import {
+  CustomerMutationError,
+  customerVersionConflict,
+  requireCustomerVersion,
+} from "@/features/customers/model/customer-mutation-error";
 import type {
   AuditActor,
   Customer,
@@ -18,6 +24,7 @@ import type {
   CustomerStats,
   CustomerTag,
   CustomerUpdateInput,
+  CustomerTagsUpdateInput,
   Device,
   OrderListItem,
 } from "@/lib/repairdesk/types";
@@ -748,6 +755,16 @@ export async function fetchCustomerDeviceRows(storeId: string): Promise<DbRecord
   return rows;
 }
 
+function groupRowsByCustomer<T extends { customer_id: string }>(rows: T[]) {
+  const groups = new Map<string, T[]>();
+  for (const row of rows) {
+    const group = groups.get(row.customer_id);
+    if (group) group.push(row);
+    else groups.set(row.customer_id, [row]);
+  }
+  return groups;
+}
+
 export async function listCustomers(
   filters: CustomerListFilters = {},
   actor?: AuditActor,
@@ -782,21 +799,27 @@ export async function listCustomers(
   );
   const tags = await fetchCustomerTags(storeId);
   const assignments = await fetchCustomerTagAssignments(storeId);
+  // These inputs have already been scoped to the store. Preserve their order while
+  // indexing once instead of rescanning every relationship for every customer.
+  const devicesByCustomer = groupRowsByCustomer(devices);
+  const ordersByCustomer = groupRowsByCustomer(orders);
+  const followupsByCustomer = groupRowsByCustomer(followups);
+  const assignmentsByCustomer = groupRowsByCustomer(assignments);
+  const tagsById = new Map<string, CustomerTag>();
+  for (const tag of tags) {
+    if (!tagsById.has(tag.id)) tagsById.set(tag.id, tag);
+  }
 
   const items = customers.map((customer) => {
-    const customerDevices = devices.filter((device) => device.customer_id === customer.id);
-    const customerOrders = orders.filter((order) => order.customer_id === customer.id);
-    const customerFollowups = followups.filter((followup) => followup.customer_id === customer.id);
-    const customerTags = assignments
-      .filter((assignment) => assignment.customer_id === customer.id)
-      .map((assignment) => tags.find((tag) => tag.id === assignment.tag_id))
+    const customerTags = (assignmentsByCustomer.get(customer.id) ?? [])
+      .map((assignment) => tagsById.get(assignment.tag_id))
       .filter((tag): tag is CustomerTag => Boolean(tag));
     return buildCustomerListItem(
       customer,
-      customerDevices,
-      customerOrders,
+      devicesByCustomer.get(customer.id) ?? [],
+      ordersByCustomer.get(customer.id) ?? [],
       customerTags,
-      customerFollowups,
+      followupsByCustomer.get(customer.id) ?? [],
     );
   });
 
@@ -1093,6 +1116,9 @@ export async function getCustomerDetail(id: string, actor?: AuditActor): Promise
     fetchCustomerInteractionsForCustomer(supabase, storeId, id),
     fetchFollowupsForCustomer(supabase, storeId, id),
   ]);
+  if (customerError?.code === "PGRST116" || (!customerError && !customerRow)) {
+    throw new CustomerMutationError("客户不存在", 404, "CUSTOMER_ENTITY_NOT_FOUND");
+  }
   fail(customerError, "读取客户详情失败");
   fail(deviceError, "读取客户设备失败");
   fail(orderError, "读取客户工单失败");
@@ -1100,7 +1126,7 @@ export async function getCustomerDetail(id: string, actor?: AuditActor): Promise
   fail(followupError, "读取客户待办失败");
 
   const customer = customerFromRow(customerRow);
-  if (!customer) throw new Error("客户不存在");
+  if (!customer) throw new CustomerMutationError("客户不存在", 404, "CUSTOMER_ENTITY_NOT_FOUND");
   const devices = ((deviceRows ?? []) as DbRecord[])
     .map(deviceFromRow)
     .filter((device): device is Device => Boolean(device));
@@ -1142,7 +1168,7 @@ export async function getCustomerDetail(id: string, actor?: AuditActor): Promise
   };
 }
 
-function customerPayload(input: CustomerUpdateInput, now: string) {
+function customerPayload(input: CustomerCreateInput, now: string) {
   const phoneBook = normalizePhoneBook(
     input.phone_e164,
     input.contact_phones ?? [],
@@ -1219,33 +1245,65 @@ export async function createCustomer(
   return { id };
 }
 
+function confirmedCustomerVersion(value: unknown): string {
+  if (typeof value !== "string" || !value || !Number.isFinite(Date.parse(value))) {
+    throw new CustomerMutationError(
+      "保存结果缺少资料版本，请刷新确认",
+      503,
+      "CUSTOMER_WRITE_RESULT_INVALID",
+    );
+  }
+  return value;
+}
+
+async function missingCustomerMutation(
+  table: "customers" | "devices",
+  storeId: string,
+  id: string,
+  customerId?: string,
+): Promise<never> {
+  let query = getSupabaseAdmin().from(table).select("id").eq("store_id", storeId).eq("id", id);
+  if (customerId) query = query.eq("customer_id", customerId);
+  const { data, error } = await query.maybeSingle();
+  fail(error, "读取资料版本失败");
+  if (data) throw customerVersionConflict();
+  throw new CustomerMutationError(
+    table === "customers" ? "客户不存在" : "设备不存在",
+    404,
+    "CUSTOMER_ENTITY_NOT_FOUND",
+  );
+}
+
 export async function updateCustomer(
   id: string,
   input: CustomerUpdateInput,
   actor?: AuditActor,
-): Promise<{ ok: boolean }> {
+): Promise<{ ok: boolean; updated_at: string }> {
   const storeId = requireStoreIdFromActor(actor);
-  const supabase = getSupabaseAdmin();
-  const now = new Date().toISOString();
-  const payload = customerPayload(input, now);
+  const version = requireCustomerVersion(input.expected_updated_at);
+  const payload = {
+    ...customerPayload(input, new Date().toISOString()),
+    updated_at: nextCustomerWriteVersion(version),
+  };
   await assertCustomerPhoneAvailable(storeId, payload.phone_raw, payload.contact_phones, id);
-  const { data, error } = await supabase
+  const { data, error } = await getSupabaseAdmin()
     .from("customers")
     .update(payload)
     .eq("store_id", storeId)
     .eq("id", id)
-    .select("id")
+    .eq("updated_at", version)
+    .select("id,updated_at")
     .maybeSingle();
   fail(error, "更新客户失败");
-  if (!data) throw new Error("客户不存在");
-  return { ok: true };
+  if (!data) return missingCustomerMutation("customers", storeId, id);
+  return { ok: true, updated_at: confirmedCustomerVersion(data.updated_at) };
 }
 
 export async function upsertCustomerDevice(
   customerId: string,
   input: CustomerDeviceInput,
   actor?: AuditActor,
-): Promise<{ id: string }> {
+): Promise<{ id: string; updated_at: string }> {
   const storeId = requireStoreIdFromActor(actor);
   const brand = input.brand.trim();
   const model = input.model.trim();
@@ -1262,82 +1320,109 @@ export async function upsertCustomerDevice(
     model,
     serial_or_imei: input.serial_or_imei?.trim() ?? "",
     device_notes: input.device_notes?.trim() || null,
-    updated_at: now,
+    updated_at: input.id ? nextCustomerWriteVersion(input.expected_updated_at) : now,
   };
   if (input.id) {
+    const version = requireCustomerVersion(input.expected_updated_at);
     const { data, error } = await supabase
       .from("devices")
       .update(payload)
       .eq("store_id", storeId)
       .eq("id", input.id)
       .eq("customer_id", customerId)
-      .select("id")
+      .eq("updated_at", version)
+      .select("id,updated_at")
       .maybeSingle();
     fail(error, "保存客户设备失败");
-    if (!data) throw new Error("设备不存在");
-  } else {
-    const { error } = await supabase.from("devices").insert({ ...payload, created_at: now });
-    fail(error, "保存客户设备失败");
+    if (!data) return missingCustomerMutation("devices", storeId, input.id, customerId);
+    return { id, updated_at: confirmedCustomerVersion(data.updated_at) };
   }
-  return { id };
+  const { data, error } = await supabase
+    .from("devices")
+    .insert({ ...payload, created_at: now })
+    .select("id,updated_at")
+    .single();
+  fail(error, "保存客户设备失败");
+  return { id, updated_at: confirmedCustomerVersion(data?.updated_at) };
 }
 
 export async function deleteCustomerDevice(
   customerId: string,
   deviceId: string,
+  expectedUpdatedAt: string,
   actor?: AuditActor,
 ): Promise<{ ok: boolean }> {
   const storeId = requireStoreIdFromActor(actor);
-  const supabase = getSupabaseAdmin();
-  const { data: orders, error: readError } = await supabase
-    .from("repair_orders")
-    .select("id")
-    .eq("store_id", storeId)
-    .eq("customer_id", customerId)
-    .eq("device_id", deviceId)
-    .limit(1);
-  fail(readError, "检查设备工单失败");
-  if ((orders ?? []).length) throw new Error("该设备已有工单记录，不能删除");
-  const { data, error } = await supabase
-    .from("devices")
-    .delete()
-    .eq("store_id", storeId)
-    .eq("id", deviceId)
-    .eq("customer_id", customerId)
-    .select("id")
-    .maybeSingle();
-  fail(error, "删除设备失败");
-  if (!data) throw new Error("设备不存在");
+  const version = requireCustomerVersion(expectedUpdatedAt);
+  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_delete_customer_device", {
+    p_store_id: storeId,
+    p_actor_id: actor?.id,
+    p_customer_id: customerId,
+    p_device_id: deviceId,
+    p_expected_updated_at: version,
+  });
+  if (error) {
+    if (error.message.includes("CUSTOMER_STALE_VERSION")) throw customerVersionConflict();
+    if (error.message.includes("CUSTOMER_DEVICE_NOT_FOUND"))
+      throw new CustomerMutationError("设备不存在", 404, "CUSTOMER_ENTITY_NOT_FOUND");
+    if (error.message.includes("CUSTOMER_FORBIDDEN"))
+      throw new CustomerMutationError("没有客户设备编辑权限", 403, "CUSTOMER_FORBIDDEN");
+    if (error.message.includes("CUSTOMER_DEVICE_HAS_ORDERS"))
+      throw new CustomerMutationError(
+        "该设备已有工单记录，不能删除",
+        409,
+        "CUSTOMER_DEVICE_HAS_ORDERS",
+      );
+    if (error.message.includes("CUSTOMER_DELETE_FAILED"))
+      throw new CustomerMutationError(
+        "删除结果不完整，请刷新确认",
+        503,
+        "CUSTOMER_WRITE_RESULT_INVALID",
+      );
+    fail(error, "删除设备失败");
+  }
+  if (!data || (data as DbRecord).ok !== true || (data as DbRecord).id !== deviceId) {
+    throw new CustomerMutationError(
+      "删除结果不完整，请刷新确认",
+      503,
+      "CUSTOMER_WRITE_RESULT_INVALID",
+    );
+  }
   return { ok: true };
 }
 
 export async function setCustomerTags(
   customerId: string,
-  tagIds: string[],
+  input: CustomerTagsUpdateInput,
   actor?: AuditActor,
-): Promise<{ ok: boolean }> {
+): Promise<{ ok: boolean; updated_at: string }> {
   const storeId = requireStoreIdFromActor(actor);
-  const supabase = getSupabaseAdmin();
-  const cleanIds = Array.from(new Set(tagIds.filter(Boolean)));
-  await assertCustomerBelongsToStore(supabase, storeId, customerId);
-  await assertCustomerTagsBelongToStore(supabase, storeId, cleanIds);
-  const deleteResult = await supabase
-    .from("customer_tag_assignments")
-    .delete()
-    .eq("store_id", storeId)
-    .eq("customer_id", customerId);
-  fail(deleteResult.error, "清理客户标签失败");
-  if (cleanIds.length) {
-    const { error } = await supabase.from("customer_tag_assignments").insert(
-      cleanIds.map((tagId) => ({
-        store_id: storeId,
-        customer_id: customerId,
-        tag_id: tagId,
-      })),
-    );
+  const version = requireCustomerVersion(input.expected_customer_updated_at);
+  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_replace_customer_tags", {
+    p_store_id: storeId,
+    p_actor_id: actor?.id,
+    p_customer_id: customerId,
+    p_expected_updated_at: version,
+    p_tag_ids: input.tagIds,
+  });
+  if (error) {
+    if (error.message.includes("CUSTOMER_STALE_VERSION")) throw customerVersionConflict();
+    if (error.message.includes("CUSTOMER_NOT_FOUND"))
+      throw new CustomerMutationError("客户不存在", 404, "CUSTOMER_ENTITY_NOT_FOUND");
+    if (error.message.includes("CUSTOMER_FORBIDDEN"))
+      throw new CustomerMutationError("没有客户标签编辑权限", 403, "CUSTOMER_FORBIDDEN");
+    if (error.message.includes("CUSTOMER_TAGS_INVALID"))
+      throw new CustomerMutationError("客户标签无效", 400, "CUSTOMER_TAGS_INVALID");
     fail(error, "保存客户标签失败");
   }
-  return { ok: true };
+  if (!data || (data as DbRecord).ok !== true) {
+    throw new CustomerMutationError(
+      "保存结果不完整，请刷新确认",
+      503,
+      "CUSTOMER_WRITE_RESULT_INVALID",
+    );
+  }
+  return { ok: true, updated_at: confirmedCustomerVersion((data as DbRecord).updated_at) };
 }
 
 export async function createCustomerFollowup(
@@ -1408,22 +1493,6 @@ async function assertCustomerBelongsToStore(
     .maybeSingle();
   fail(error, "检查客户归属失败");
   if (!data) throw new Error("客户不存在");
-}
-
-async function assertCustomerTagsBelongToStore(
-  supabase: ReturnType<typeof getSupabaseAdmin>,
-  storeId: string,
-  tagIds: string[],
-) {
-  if (!tagIds.length) return;
-  const { data, error } = await supabase
-    .from("customer_tags")
-    .select("id")
-    .eq("store_id", storeId)
-    .in("id", tagIds);
-  fail(error, "检查客户标签失败");
-  const foundIds = new Set(((data ?? []) as DbRecord[]).map((row) => requiredString(row.id)));
-  if (tagIds.some((tagId) => !foundIds.has(tagId))) throw new Error("客户标签不存在");
 }
 
 async function assertOrderBelongsToCustomerInStore(

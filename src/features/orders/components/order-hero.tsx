@@ -391,7 +391,7 @@ export function OrderHero({
             nextAction={primaryActionLabel}
             danger={isDanger}
             isTerminal={isTerminal}
-            className="h-1.5"
+            className="min-w-0"
           />
           {surface === "dialog" && financeSummary ? (
             <div className="min-w-0 border-l border-[var(--border-panel)] pl-1.5">

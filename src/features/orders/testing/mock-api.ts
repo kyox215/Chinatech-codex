@@ -1,3 +1,4 @@
+import { resolveWhatsappPhone } from "@/shared/lib/whatsapp-phone";
 import { CURRENCY_CODE, normalizePositiveCentAmount } from "@/lib/money";
 import type {
   AuditActor,
@@ -37,6 +38,9 @@ import type {
   UpdateOrderInput,
   VoidOrderInput,
   WhatsappNotificationResult,
+  OrderNotificationInput,
+  OrderNotificationResult,
+  OrderWhatsappNotificationInput,
 } from "@/lib/repairdesk/types";
 import { repairOrderStatus, statusMeta, type RepairOrderStatus } from "@/lib/mock/enums";
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
@@ -446,7 +450,7 @@ export async function listOrdersPage(
   actor?: AuditActor,
 ): Promise<OrderListResult> {
   const page = Math.max(1, Math.floor(Number(input.page ?? 1)));
-  const pageSize = Math.min(100, Math.max(10, Math.floor(Number(input.pageSize ?? 50))));
+  const pageSize = Math.min(100, Math.max(10, Math.floor(Number(input.pageSize ?? 100))));
   const all = await listOrders(input, actor);
   const workflowCounts = countWorkflowRows(
     await listOrders(filtersForWorkflowCounts(input), actor),
@@ -1122,6 +1126,52 @@ export async function decideOrderApproval(
 ): Promise<OrderApprovalDecisionResult> {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
+  assertMockOrderInActorScope(o, typeof operator === "string" ? undefined : operator);
+  const conflict = (code: string) =>
+    Object.assign(new Error("审批目标或操作内容已变化，请重新核对后重试"), { code, status: 409 });
+  if (!input.expected_updated_at || !input.idempotency_key || input.quote_event_id === undefined) {
+    throw conflict("missing_expected_version");
+  }
+  const target =
+    input.next_status ?? (input.decision === "approved" ? "repairing" : "unfixed_pickup");
+  const fingerprint = JSON.stringify({
+    actor: typeof operator === "string" ? operator : operator.id,
+    order: id,
+    expected: input.expected_updated_at,
+    quote: input.quote_event_id,
+    decision: input.decision,
+    target,
+    reason: input.reason?.trim() || null,
+  });
+  const replay = extraEvents.find(
+    (event) => event.payload.idempotency_key === input.idempotency_key,
+  );
+  if (replay) {
+    if (
+      replay.order_id !== id ||
+      replay.event_type !== "approval_result" ||
+      replay.payload.approval_request_hash !== fingerprint
+    )
+      throw conflict("idempotency_conflict");
+    return {
+      ok: true,
+      decision: input.decision,
+      from: replay.payload.from as RepairOrderStatus,
+      to: replay.payload.to as RepairOrderStatus,
+      approval_flow_status: input.decision,
+    };
+  }
+  const latestQuote = extraEvents.find(
+    (event) =>
+      event.order_id === id &&
+      event.event_type === "quoted" &&
+      event.payload.action === "quote_published",
+  );
+  if (
+    o.updated_at !== input.expected_updated_at ||
+    (latestQuote?.id ?? null) !== input.quote_event_id
+  )
+    throw conflict("stale_version");
   const from = o.status;
   const currentApprovalFlow =
     o.approval_flow_status ?? approvalFlowStatusFromLegacyStatus(o.status, o.approval_status);
@@ -1133,8 +1183,6 @@ export async function decideOrderApproval(
     throw new Error("当前工单不在客户审批阶段");
   }
 
-  const target =
-    input.next_status ?? (input.decision === "approved" ? "repairing" : "unfixed_pickup");
   const allowedTargets =
     input.decision === "approved" ? APPROVAL_APPROVED_TARGETS : APPROVAL_REJECTED_TARGETS;
   if (!(allowedTargets as readonly string[]).includes(target)) {
@@ -1207,6 +1255,10 @@ export async function decideOrderApproval(
     order_id: id,
     event_type: "approval_result",
     payload: {
+      idempotency_key: input.idempotency_key,
+      approval_request_hash: fingerprint,
+      quote_event_id: input.quote_event_id,
+      expected_updated_at: input.expected_updated_at,
       result: input.decision,
       from,
       to: target,
@@ -1994,39 +2046,177 @@ export async function voidOrder(
   return saveMockTerminalResult(input.idempotency_key, request.fingerprint!, order);
 }
 
-// POST /api/orders/[id]/notify
-export async function sendNotification(
+const notificationOperations = new Map<
+  string,
+  {
+    fingerprint: string;
+    result: OrderNotificationResult & {
+      statusChanged: boolean;
+      template_kind?: OrderWhatsappTemplateKind;
+      recipient_phone?: string;
+      from?: RepairOrderStatus;
+      to?: RepairOrderStatus;
+    };
+  }
+>();
+function notificationError(code: string, message: string, status = 409) {
+  return Object.assign(new Error(message), { code, status });
+}
+function recordMockNotification(
   id: string,
-  body: string,
-  channel: "whatsapp" | "sms" = "whatsapp",
-  operator: MockOperator = "前台",
+  input: OrderNotificationInput & Partial<OrderWhatsappNotificationInput>,
+  operator: MockOperator,
 ) {
-  const message = body.trim();
-  if (!message) throw new Error("通知内容不能为空");
-  const o = orders.find((x) => x.id === id);
-  if (!o) throw new Error("工单不存在");
-  assertMockOrderNotVoided(o);
-  const now = new Date().toISOString();
-  const messageId = `msg_${Date.now()}`;
-  o.updated_at = now;
-  o.notify_status = "sent";
+  const actor = typeof operator === "string" ? null : operator;
+  const storeId = actor?.storeId ?? mockStoreId;
+  if (actor && !["owner", "manager", "sales"].includes(actor.storeRole ?? actor.role ?? ""))
+    throw notificationError("actor_forbidden", "当前员工没有记录客户通知的权限", 403);
+  const message = input.body.trim();
+  const recipient = input.recipient_phone ? resolveWhatsappPhone(input.recipient_phone) : null;
+  if (
+    !message ||
+    message.length > 10000 ||
+    !input.expected_updated_at ||
+    !Number.isFinite(Date.parse(input.expected_updated_at)) ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      input.idempotency_key,
+    ) ||
+    input.template_kind === "approval_request" ||
+    (recipient && !recipient.valid)
+  )
+    throw notificationError("invalid_request", "通知内容、版本或提交标识无效", 400);
+  const phone = recipient?.valid ? recipient.e164 : undefined;
+  const fingerprint = JSON.stringify({
+    storeId,
+    actorId: actor?.id ?? "mock-operator",
+    orderId: id,
+    expected: input.expected_updated_at,
+    body: message,
+    channel: input.channel,
+    template: input.template_kind ?? null,
+    phone: phone ?? null,
+    transition: input.transition_to ?? null,
+  });
+  const key = `${storeId}:${input.idempotency_key}`;
+  const replay = notificationOperations.get(key);
+  if (replay) {
+    if (replay.fingerprint !== fingerprint)
+      throw notificationError("idempotency_conflict", "本次通知标识已用于其他内容");
+    return { ...replay.result, replayed: true };
+  }
+  const order = orders.find(
+    (item) =>
+      item.id === id &&
+      ((item as RepairOrder & { store_id?: string }).store_id ?? mockStoreId) === storeId,
+  );
+  if (!order) throw notificationError("order_not_found", "工单不存在或不属于当前店铺", 404);
+  assertMockOrderNotVoided(order);
+  if (order.updated_at !== input.expected_updated_at)
+    throw notificationError("stale_version", "工单已被更新，请载入最新版本");
+  const target = input.transition_to;
+  const targetStatus = workflowStatuses.find((item) => item.code === target);
+  if (target) {
+    const currentStatus = workflowStatuses.find((item) => item.code === order.status);
+    if (
+      ["quoted", "waiting_approval", "completed", "cancelled"].includes(target) ||
+      ["completed", "cancelled", "waiting_approval"].includes(order.status) ||
+      (order.status === "quoted" && order.approval_status === "pending") ||
+      order.exception_status === "cancelled" ||
+      ["done", "cancelled"].includes(currentStatus?.bucket ?? "") ||
+      !targetStatus?.enabled ||
+      ["quote", "done", "cancelled", "custom"].includes(targetStatus.bucket) ||
+      !workflowTransitions.some(
+        (edge) =>
+          edge.from_status_code === order.status && edge.to_status_code === target && edge.enabled,
+      )
+    )
+      throw notificationError(
+        "invalid_transition",
+        "完成或取消工单以及审批必须使用专用操作；自定义状态尚未绑定主流程阶段或状态流转不合法",
+      );
+  }
+  if (
+    order.device_custody_status !== DEVICE_CUSTODY_WITH_SHOP &&
+    (["pickup_ready", "unfixed_pickup"].includes(input.template_kind ?? "") ||
+      (target && deviceCustodyBlocksStatus(target, targetStatus?.bucket)))
+  )
+    throw notificationError("custody_required", "设备未留店，不能发送取机通知");
+  const from = order.status;
+  const now = new Date(
+    Math.max(Date.now(), Date.parse(input.expected_updated_at) + 1),
+  ).toISOString();
+  const messageId = crypto.randomUUID(),
+    eventId = crypto.randomUUID();
+  // All validation above precedes the first mutation.
+  if (target)
+    Object.assign(order, {
+      status: target,
+      legacy_status: target,
+      workflow_status: workflowStatusFromLegacyStatus(target),
+      exception_status:
+        target === "rework"
+          ? "rework"
+          : target === "unfixed_pickup"
+            ? "returned_unfixed"
+            : undefined,
+      parts_status: partsStatusFromLegacyStatus(target),
+      completed_at: undefined,
+      delivered_at: undefined,
+    });
+  order.updated_at = now;
+  order.notify_status = "sent";
   extraMessages.unshift({
     id: messageId,
     order_id: id,
-    channel,
+    channel: input.channel,
     message_body: message,
     status: "sent",
     sent_at: now,
   });
   extraEvents.unshift({
-    id: `evt_message_${Date.now()}`,
+    id: eventId,
     order_id: id,
     event_type: "message_sent",
-    payload: { channel, message_id: messageId },
     operator_name: operatorName(operator),
     created_at: now,
+    payload: {
+      channel: input.channel,
+      message_id: messageId,
+      template_kind: input.template_kind ?? null,
+      status_changed: Boolean(target),
+      from,
+      to: target ?? from,
+      operation_id: input.idempotency_key,
+      confirmation_kind: "manual_record",
+      delivery_verified: false,
+      ...(phone ? { recipient_phone: phone } : {}),
+    },
   });
-  return { ok: true, id: messageId, channel, body: message };
+  const result = {
+    ok: true as const,
+    id: messageId,
+    event_id: eventId,
+    channel: input.channel,
+    body: message,
+    updated_at: now,
+    replayed: false,
+    delivery_verified: false as const,
+    template_kind: input.template_kind,
+    recipient_phone: phone,
+    statusChanged: Boolean(target),
+    from,
+    to: target,
+  };
+  notificationOperations.set(key, { fingerprint, result });
+  return result;
+}
+
+export async function sendNotification(
+  id: string,
+  input: OrderNotificationInput,
+  operator: MockOperator = "前台",
+) {
+  return recordMockNotification(id, input, operator);
 }
 
 function writeMockWhatsappMessage({
@@ -2161,6 +2351,9 @@ function writeMockWhatsappMessage({
   return {
     ok: true,
     id: messageId,
+    updated_at: now,
+    replayed: false,
+    delivery_verified: false,
     channel: "whatsapp",
     body: message,
     template_kind: templateKind,
@@ -2173,21 +2366,14 @@ function writeMockWhatsappMessage({
 
 export async function sendWhatsappNotification(
   id: string,
-  body: string,
-  templateKind: OrderWhatsappTemplateKind,
-  transitionTo?: RepairOrderStatus,
+  input: OrderWhatsappNotificationInput,
   operator: MockOperator = "前台",
-  recipientPhone?: string,
 ) {
-  return writeMockWhatsappMessage({
+  return recordMockNotification(
     id,
-    body,
-    templateKind,
-    eventType: "message_sent",
-    transitionTo,
+    { ...input, channel: "whatsapp" },
     operator,
-    recipientPhone,
-  });
+  ) as WhatsappNotificationResult;
 }
 
 export async function sendApprovalRequest(

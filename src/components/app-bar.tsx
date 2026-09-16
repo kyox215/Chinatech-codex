@@ -1,27 +1,26 @@
 "use client";
 
+import { motion, useMotionValueEvent, useScroll } from "framer-motion";
+import { ScanLine, Store } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { useRef, useState, type RefObject } from "react";
-import { ScanLine, Sparkles, Store } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { EntityContextBackLink } from "@/components/entity-context-back-link";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
-import { RealtimeSyncIndicator } from "@/features/realtime";
-import { useAiAssistantWorkspace } from "@/features/ai-assistant";
-import { appShell } from "@/lib/ui-patterns";
-import { getActiveWorkspaceItem } from "@/shared/config/navigation";
-import { resolveEntityContextBack } from "@/shared/config/entity-context-routes";
 import { readCustomerListReturnState } from "@/features/customers/model/customer-list-return-state";
-import { localizeNavItem, localizeRouteLabel } from "@/shared/i18n/navigation";
+import { RealtimeSyncIndicator } from "@/features/realtime";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { appShell } from "@/lib/ui-patterns";
+import { cn } from "@/lib/utils";
+import { resolveEntityContextBack } from "@/shared/config/entity-context-routes";
+import { getActiveWorkspaceItem } from "@/shared/config/navigation";
 import { useLocale } from "@/shared/i18n/locale-provider";
 import type { MessageKey, MessageValues } from "@/shared/i18n/messages";
-import { cn } from "@/lib/utils";
+import { localizeNavItem, localizeRouteLabel } from "@/shared/i18n/navigation";
 
 function useCrumbs(t: (key: MessageKey, values?: MessageValues) => string) {
   const pathname = usePathname() ?? "/";
@@ -92,7 +91,6 @@ export function AppBar({
           pathname.split("/")[2] ?? "",
         )
       : null;
-  const aiAssistant = useAiAssistantWorkspace();
   const activeModule = localizeNavItem(getActiveWorkspaceItem(pathname, shell.isPlatformAdmin), t);
   const appBarVisibilityClass = getAppBarVisibilityClass(pathname);
   const mobileContextTitle =
@@ -154,21 +152,6 @@ export function AppBar({
         )}
 
         <div aria-hidden="true" className="min-w-0 flex-1" />
-
-        {aiAssistant.canOpenOrderAssistant ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="hidden h-11 shrink-0 gap-1.5 rounded-xl border-primary/30 bg-primary/10 px-3 text-primary hover:bg-primary/15 md:inline-flex"
-            aria-label={t("shell.openAi")}
-            data-ai-assistant-trigger="desktop"
-            onClick={aiAssistant.openAssistant}
-          >
-            <Sparkles className="size-3.5" aria-hidden="true" />
-            <span className="hidden lg:inline">{t("shell.aiAssistant")}</span>
-          </Button>
-        ) : null}
 
         <Button
           ref={scannerTriggerRef}

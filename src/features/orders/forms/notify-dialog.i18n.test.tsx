@@ -7,7 +7,7 @@ import type { OrderDetail } from "@/lib/repairdesk/types";
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
 import { translateMessage } from "@/shared/i18n/messages";
 
-import { NotifyDialog } from "./notify-dialog";
+import { NotifyDialog, type NotifyIntent } from "./notify-dialog";
 
 const locales = ["zh-CN", "it-IT", "en"] as const;
 const exactBody = "  动态中文正文\n保留尾部空格  ";
@@ -61,7 +61,10 @@ describe("NotifyDialog i18n", () => {
       );
 
       await waitFor(() => expect(onConfirm).toHaveBeenCalledOnce());
-      const input = structuredClone(onConfirm.mock.calls[0]?.[0]) as Record<string, unknown>;
+      const input = structuredClone(onConfirm.mock.calls[0]?.[0]) as unknown as Record<
+        string,
+        unknown
+      >;
       expect(input).toMatchObject({
         body: exactBody.trim(),
         recipientPhone: "+393335719865",
@@ -111,7 +114,7 @@ describe("NotifyDialog i18n", () => {
 
 function renderNotify(
   locale: (typeof locales)[number],
-  onConfirm: (input: Record<string, unknown>) => Promise<unknown>,
+  onConfirm: (input: NotifyIntent) => Promise<unknown>,
 ) {
   const order = {
     ...orders[0]!,

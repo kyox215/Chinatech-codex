@@ -13,6 +13,16 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -101,6 +111,10 @@ export function MessagesScreen() {
   const bodyTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string>();
+  const [pendingSelection, setPendingSelection] = useState<{
+    templateId: string;
+    authorityKey: string;
+  }>();
   const [labelDraft, setLabelDraft] = useState("");
   const [bodyDraft, setBodyDraft] = useState("");
   const [enabledDraft, setEnabledDraft] = useState(true);
@@ -170,6 +184,7 @@ export function MessagesScreen() {
     templates[0];
 
   useEffect(() => {
+    setPendingSelection(undefined);
     if (!selectedTemplate || !activeStoreId) {
       setDraftStoreId(undefined);
       setDraftTemplateId(undefined);
@@ -237,6 +252,40 @@ export function MessagesScreen() {
       activeBodyDraft !== selectedTemplate.body_template ||
       activeEnabledDraft !== selectedTemplate.enabled);
   const canSaveTemplate = Boolean(hasChanges) && templateHealth.canSave;
+  const pendingTemplate =
+    pendingSelection?.authorityKey === authorityKey &&
+    draftMatchesActiveTemplate &&
+    canUpdateMessageTemplates
+      ? templates.find((template) => template.id === pendingSelection.templateId)
+      : undefined;
+
+  function handleSelectTemplate(templateId: string) {
+    if (
+      templateId === selectedTemplate?.id ||
+      saveLockRef.current !== null ||
+      resetLockRef.current !== null
+    ) {
+      return;
+    }
+    if (hasChanges && canUpdateMessageTemplates) {
+      setPendingSelection({ templateId, authorityKey });
+      return;
+    }
+    setSelectedId(templateId);
+  }
+
+  function discardAndSelectTemplate() {
+    if (
+      !pendingTemplate ||
+      pendingSelection?.authorityKey !== authorityRef.current.key ||
+      saveLockRef.current !== null ||
+      resetLockRef.current !== null
+    ) {
+      return;
+    }
+    setSelectedId(pendingTemplate.id);
+    setPendingSelection(undefined);
+  }
 
   function handleInsertVariable(variable: string) {
     if (!canUpdateMessageTemplates) return;
@@ -526,6 +575,35 @@ export function MessagesScreen() {
       ]}
       chipsVariant="underline"
     >
+      <AlertDialog
+        open={Boolean(pendingTemplate)}
+        onOpenChange={(open) => {
+          if (!open) setPendingSelection(undefined);
+        }}
+      >
+        <AlertDialogContent
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            if (canUpdateMessageTemplates) bodyTextareaRef.current?.focus();
+          }}
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("orders2b1.nav.title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("orders2b1.nav.descriptionTo", {
+                source: t("messages.title"),
+                target: pendingTemplate?.label ?? "",
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={discardAndSelectTemplate}>
+              {t("orders2b1.nav.discard")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {!canUpdateMessageTemplates ? (
         <div
           data-ui="messages-template-readonly"
@@ -552,7 +630,8 @@ export function MessagesScreen() {
                 domain={domain}
                 templates={filteredTemplates.filter((template) => template.domain === domain)}
                 selectedId={selectedTemplate?.id}
-                onSelect={setSelectedId}
+                onSelect={handleSelectTemplate}
+                disabled={saveMutation.isPending || resetMutation.isPending}
                 copy={copy}
               />
             ))}
@@ -859,12 +938,14 @@ function TemplateGroup({
   templates,
   selectedId,
   onSelect,
+  disabled,
   copy,
 }: {
   domain: keyof typeof domainMeta;
   templates: MessageTemplate[];
   selectedId?: string;
   onSelect: (id: string) => void;
+  disabled?: boolean;
   copy: MessagesScreenCopy;
 }) {
   const meta = domainMeta[domain];
@@ -883,6 +964,7 @@ function TemplateGroup({
               key={template.id}
               as="button"
               type="button"
+              disabled={disabled}
               onClick={() => onSelect(template.id)}
               className={cn(
                 repairOs.businessCardDense,

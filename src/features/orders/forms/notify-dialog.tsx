@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CountryCode } from "libphonenumber-js/max";
 import { Send } from "lucide-react";
 import { toast } from "sonner";
@@ -54,6 +54,17 @@ const templateLabelKeys: Record<OrderWhatsappTemplateKind, MessageKey> = {
   completed: "orders2b2.notify.template.completed",
 };
 
+export interface NotifyIntent {
+  orderId: string;
+  idempotencyKey: string;
+  expectedUpdatedAt: string;
+  quoteEventId: string | null;
+  body: string;
+  templateKind: OrderWhatsappTemplateKind;
+  recipientPhone?: string;
+  transitionTo?: OrderDetail["order"]["status"];
+}
+
 export function NotifyDialog({
   open,
   onOpenChange,
@@ -65,6 +76,7 @@ export function NotifyDialog({
   canUpdateStoreSettings,
   onRetryStoreSettings,
   onReloadStoreContext,
+  onReloadLatest,
   busy,
   approvalQuoteReady = true,
   approvalQuoteBlockedReason,
@@ -80,25 +92,26 @@ export function NotifyDialog({
   canUpdateStoreSettings: boolean;
   onRetryStoreSettings?: () => void | Promise<unknown>;
   onReloadStoreContext?: () => void | Promise<unknown>;
+  onReloadLatest?: () => Promise<OrderDetail>;
   busy: boolean;
   approvalQuoteReady?: boolean;
   approvalQuoteBlockedReason?: string;
-  onConfirm: (input: {
-    idempotencyKey: string;
-    body: string;
-    templateKind: OrderWhatsappTemplateKind;
-    recipientPhone?: string;
-    transitionTo?: OrderDetail["order"]["status"];
-  }) => Promise<unknown>;
+  onConfirm: (input: NotifyIntent) => Promise<unknown>;
 }) {
   const { t } = useLocale();
-  const cancelled = isOrderCancelledForPayment(data.order);
-  const effectiveStatus = cancelled ? "cancelled" : data.order.status;
+  const [snapshot, setSnapshot] = useState(() => ({
+    data,
+    orderUrl,
+    storeIdentity,
+    approvalQuoteReady,
+  }));
+  const cancelled = isOrderCancelledForPayment(snapshot.data.order);
+  const effectiveStatus = cancelled ? "cancelled" : snapshot.data.order.status;
   const defaultKind = getDefaultOrderWhatsappTemplateKind(effectiveStatus);
   const templateOptions = cancelled
     ? orderWhatsappTemplateOptions.filter((option) => option.kind === "cancelled")
     : orderWhatsappTemplateOptions;
-  const phoneOptions = getOrderContactPhoneOptions(data);
+  const phoneOptions = getOrderContactPhoneOptions(snapshot.data);
   const defaultPhone = phoneOptions[0] ?? "";
   const [templateKind, setTemplateKind] = useState<OrderWhatsappTemplateKind>(defaultKind);
   const [body, setBody] = useState(() =>
@@ -114,33 +127,119 @@ export function NotifyDialog({
   const [whatsappOpened, setWhatsappOpened] = useState(false);
   const [confirmationId, setConfirmationId] = useState(() => crypto.randomUUID());
   const [submitError, setSubmitError] = useState("");
+  const [conflictCode, setConflictCode] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [attempted, setAttempted] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const intentRef = useRef<NotifyIntent | null>(null);
+  const openedRef = useRef(false);
+  const scopeRef = useRef(data.order.id);
   const phoneResolution = resolveWhatsappPhone(phone, phoneCountry);
   const canOpenWhatsApp = phoneResolution.valid;
+  const bodyLimit = templateKind === "approval_request" ? 8000 : 10000;
+  const bodyTooLong = body.trim().length > bodyLimit;
   const transitionTo = getOrderWhatsappTransition(effectiveStatus, templateKind);
-  const approvalQuoteBlocked = templateKind === "approval_request" && !approvalQuoteReady;
+  const approvalQuoteBlocked = templateKind === "approval_request" && !snapshot.approvalQuoteReady;
+  const version = snapshot.data.order.updated_at;
+  const missingVersion = !version || !Number.isFinite(Date.parse(version));
+  const changed =
+    data.order.id !== snapshot.data.order.id ||
+    data.order.updated_at !== version ||
+    (data.latest_quote_event_id ?? null) !== (snapshot.data.latest_quote_event_id ?? null);
+  const identityChanged =
+    snapshot.storeIdentity.storeName !== storeIdentity.storeName ||
+    snapshot.storeIdentity.messageSignature !== storeIdentity.messageSignature ||
+    snapshot.storeIdentity.canOutput !== storeIdentity.canOutput ||
+    snapshot.orderUrl !== orderUrl;
+  const conflict = Boolean(conflictCode) || (changed && !attempted);
+  const pending = busy || submitting || refreshing;
+  const fieldsLocked = pending || whatsappOpened || attempted || !storeIdentity.canOutput;
+
+  const resetSession = useCallback(
+    (next: OrderDetail) => {
+      const kind = getDefaultOrderWhatsappTemplateKind(
+        isOrderCancelledForPayment(next.order) ? "cancelled" : next.order.status,
+      );
+      const nextPhone = getOrderContactPhoneOptions(next)[0] ?? "";
+      setSnapshot({
+        data: next,
+        orderUrl,
+        storeIdentity,
+        approvalQuoteReady: next.capabilities
+          ? Boolean(
+              next.capabilities.canSendQuote &&
+              next.latest_quote_event_id &&
+              next.order.status === "quoted",
+            )
+          : approvalQuoteReady,
+      });
+      setTemplateKind(kind);
+      setBody(
+        buildOrderWhatsappMessage(next, kind, orderUrl, {
+          recipientPhone: nextPhone,
+          storeIdentity,
+        }),
+      );
+      setPhone(nextPhone);
+      setPhoneCountry(inferWhatsappCountry(nextPhone));
+      setWhatsappOpened(false);
+      setConfirmationId(crypto.randomUUID());
+      setSubmitError("");
+      setConflictCode(null);
+      setAttempted(false);
+      setDirty(false);
+      intentRef.current = null;
+    },
+    [orderUrl, storeIdentity, approvalQuoteReady],
+  );
 
   useEffect(() => {
-    if (!open) return;
-    const nextKind = getDefaultOrderWhatsappTemplateKind(effectiveStatus);
-    const nextPhone = getOrderContactPhoneOptions(data)[0] ?? "";
-    setTemplateKind(nextKind);
-    setBody(
-      buildOrderWhatsappMessage(data, nextKind, orderUrl, {
-        recipientPhone: nextPhone,
-        storeIdentity,
-      }),
-    );
-    setPhone(nextPhone);
-    setPhoneCountry(inferWhatsappCountry(nextPhone));
-    setWhatsappOpened(false);
-    setConfirmationId(crypto.randomUUID());
-    setSubmitError("");
-  }, [data, effectiveStatus, open, orderUrl, storeIdentity]);
+    if (!open) {
+      openedRef.current = false;
+      return;
+    }
+    const scope = data.order.id;
+    if (scopeRef.current !== scope) {
+      scopeRef.current = scope;
+      intentRef.current = null;
+      openedRef.current = false;
+    }
+    if (openedRef.current) return;
+    openedRef.current = true;
+    // A closed, uncertain attempt resumes the identical request, never a newer order version.
+    if (intentRef.current) return;
+    resetSession(data);
+  }, [open, data, resetSession]);
+
+  useEffect(() => {
+    if (!open || attempted || (!changed && !identityChanged)) return;
+    if (!dirty && !whatsappOpened) resetSession(data);
+    else setConflictCode((current) => current ?? "remote_changed");
+  }, [open, attempted, changed, identityChanged, dirty, whatsappOpened, resetSession, data]);
+
+  const reloadLatest = async () => {
+    if (pending || (attempted && !conflictCode)) return;
+    setRefreshing(true);
+    try {
+      const next = onReloadLatest ? await onReloadLatest() : data;
+      if (conflictCode === "stale_version" && next.order.updated_at === version) return;
+      resetSession(next);
+    } catch (error) {
+      setSubmitError(getOrderDetailSafeErrorMessage(error, "notification", t));
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const updateTemplate = (kind: OrderWhatsappTemplateKind) => {
+    setDirty(true);
     setTemplateKind(kind);
     setBody(
-      buildOrderWhatsappMessage(data, kind, orderUrl, { recipientPhone: phone, storeIdentity }),
+      buildOrderWhatsappMessage(snapshot.data, kind, snapshot.orderUrl, {
+        recipientPhone: phone,
+        storeIdentity: snapshot.storeIdentity,
+      }),
     );
     setWhatsappOpened(false);
     setConfirmationId(crypto.randomUUID());
@@ -148,6 +247,7 @@ export function NotifyDialog({
   };
 
   const updatePhone = (nextPhone: string) => {
+    setDirty(true);
     setPhone(nextPhone);
     setBody((current) => replaceOrderWhatsappRecipientPhone(current, nextPhone));
     setWhatsappOpened(false);
@@ -161,7 +261,12 @@ export function NotifyDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!pending) onOpenChange(next);
+      }}
+    >
       <DialogContent
         className={`${componentOverlay.modalMd} grid max-h-[calc(100svh-24px)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0`}
       >
@@ -184,7 +289,7 @@ export function NotifyDialog({
               <Label className="text-xs">{t("orders2b2.notify.type")}</Label>
               <Select
                 value={templateKind}
-                disabled={!storeIdentity.canOutput}
+                disabled={fieldsLocked}
                 onValueChange={(value) => updateTemplate(value as OrderWhatsappTemplateKind)}
               >
                 <SelectTrigger className="mt-1 h-8 text-xs">
@@ -202,11 +307,7 @@ export function NotifyDialog({
             <div className="min-w-0">
               <Label className="text-xs">WhatsApp</Label>
               {phoneOptions.length > 1 ? (
-                <Select
-                  value={phone}
-                  disabled={!storeIdentity.canOutput}
-                  onValueChange={selectPhone}
-                >
+                <Select value={phone} disabled={fieldsLocked} onValueChange={selectPhone}>
                   <SelectTrigger className="mt-1 h-8 font-mono text-xs">
                     <SelectValue />
                   </SelectTrigger>
@@ -227,7 +328,7 @@ export function NotifyDialog({
               id="notify-whatsapp-phone"
               phone={phone}
               country={phoneCountry}
-              disabled={!storeIdentity.canOutput}
+              disabled={fieldsLocked}
               onPhoneChange={updatePhone}
               onCountryChange={(country, nextPhone) => {
                 setPhoneCountry(country);
@@ -242,6 +343,34 @@ export function NotifyDialog({
               })}
             </div>
           )}
+          {conflict || missingVersion || whatsappOpened ? (
+            <div
+              className="mt-2 rounded-md border border-[var(--border-panel)] p-2 text-xs"
+              aria-live="polite"
+            >
+              <p>
+                {t(
+                  attempted && !conflictCode
+                    ? "orders2b2.notify.retryIntent"
+                    : missingVersion
+                      ? "orders2b2.notify.versionRequired"
+                      : "orders2b2.notify.frozenIntent",
+                )}
+              </p>
+              {!attempted || conflictCode ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  disabled={pending}
+                  onClick={reloadLatest}
+                >
+                  {t("orders2b2.conflict.reload")}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
           {approvalQuoteBlocked ? (
             <div className="mt-2 rounded-md border border-status-danger-foreground/20 bg-status-danger/10 px-2 py-1.5 text-xs text-status-danger-foreground">
               {approvalQuoteBlockedReason || t("orders2b2.notify.quoteBlocked")}
@@ -260,9 +389,11 @@ export function NotifyDialog({
             <Textarea
               aria-label={t("orders2b2.notify.body")}
               rows={10}
+              maxLength={bodyLimit}
               value={body}
-              disabled={!storeIdentity.canOutput}
+              disabled={fieldsLocked}
               onChange={(e) => {
+                setDirty(true);
                 setBody(e.target.value);
                 setWhatsappOpened(false);
                 setConfirmationId(crypto.randomUUID());
@@ -270,6 +401,11 @@ export function NotifyDialog({
               className="mt-1 min-h-[260px] resize-none font-mono text-xs leading-relaxed"
             />
           </div>
+          {bodyTooLong ? (
+            <p role="alert" className="mt-2 text-xs text-status-danger-foreground">
+              {t("orders2b2.notify.tooLong", { limit: bodyLimit })}
+            </p>
+          ) : null}
           {submitError ? (
             <p role="alert" className="mt-2 text-xs text-status-danger-foreground">
               {submitError}
@@ -277,17 +413,23 @@ export function NotifyDialog({
           ) : null}
         </div>
         <DialogFooter className="border-t border-[var(--border-panel)] px-4 py-3 sm:gap-2">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" disabled={pending} onClick={() => onOpenChange(false)}>
             {t("common.cancel")}
           </Button>
           {whatsappOpened ? (
             <Button
               type="button"
               variant="outline"
-              disabled={busy || approvalQuoteBlocked || !canOpenWhatsApp}
+              disabled={
+                pending || approvalQuoteBlocked || conflict || missingVersion || !canOpenWhatsApp
+              }
               onClick={() => {
                 const url = buildWhatsAppUrl(phone, body.trim());
-                if (url) window.open(url, "_blank", "noopener,noreferrer");
+                try {
+                  if (url) window.open(url, "_blank", "noopener,noreferrer");
+                } catch {
+                  toast.error(t("orders2b2.notify.popupBlocked"));
+                }
               }}
             >
               {t("orders2b2.notify.reopen")}
@@ -295,24 +437,41 @@ export function NotifyDialog({
           ) : null}
           <Button
             disabled={
-              busy ||
+              pending ||
+              conflict ||
+              missingVersion ||
               approvalQuoteBlocked ||
               !storeIdentity.canOutput ||
               !body.trim() ||
+              bodyTooLong ||
               !canOpenWhatsApp
             }
             onClick={async () => {
+              if (pending || conflict || missingVersion || bodyTooLong) return;
               if (!whatsappOpened) {
                 const url = buildWhatsAppUrl(phone, body.trim());
                 if (!url || !canOpenWhatsApp) {
                   toast.error(t("orders2b2.notify.invalidPhone"));
                   return;
                 }
-                const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
-                if (!openedWindow) {
+                try {
+                  // noopener intentionally returns null even when a new tab opens.
+                  // Recording still requires the user's separate confirmation of actual sending.
+                  window.open(url, "_blank", "noopener,noreferrer");
+                } catch {
                   toast.error(t("orders2b2.notify.popupBlocked"));
                   return;
                 }
+                intentRef.current = {
+                  orderId: snapshot.data.order.id,
+                  idempotencyKey: confirmationId,
+                  expectedUpdatedAt: version,
+                  quoteEventId: snapshot.data.latest_quote_event_id ?? null,
+                  body: body.trim(),
+                  templateKind,
+                  recipientPhone: phoneResolution.valid ? phoneResolution.e164 : undefined,
+                  transitionTo,
+                };
                 setWhatsappOpened(true);
                 return;
               }
@@ -321,23 +480,34 @@ export function NotifyDialog({
                 toast.error(t("orders2b2.notify.invalidPhone"));
                 return;
               }
+              const intent = intentRef.current;
+              if (!intent) return;
               setSubmitError("");
+              setSubmitting(true);
+              setAttempted(true);
               try {
-                await onConfirm({
-                  idempotencyKey: confirmationId,
-                  body: body.trim(),
-                  templateKind,
-                  recipientPhone: phoneResolution.valid ? phoneResolution.e164 : undefined,
-                  transitionTo,
-                });
+                await onConfirm(intent);
+                intentRef.current = null;
                 onOpenChange(false);
               } catch (error) {
+                const failure = error as { status?: number; code?: string };
+                if (
+                  failure?.status !== undefined &&
+                  failure.status >= 400 &&
+                  failure.status < 500 &&
+                  ![408, 429].includes(failure.status)
+                ) {
+                  setConflictCode(failure.code ?? "conflict");
+                  void onReloadLatest?.().catch(() => undefined);
+                }
                 setSubmitError(getOrderDetailSafeErrorMessage(error, "notification", t));
+              } finally {
+                setSubmitting(false);
               }
             }}
           >
             <Send className="mr-1.5 size-3.5" />
-            {busy
+            {pending
               ? t("orders2b2.notify.recording")
               : whatsappOpened
                 ? t("orders2b2.notify.confirm")

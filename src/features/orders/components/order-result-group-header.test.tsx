@@ -6,26 +6,31 @@ import { OrderResultGroupHeader } from "./order-result-group-header";
 afterEach(cleanup);
 describe("OrderResultGroupHeader", () => {
   it.each([
-    ["zh-CN", "本页 3 / 共 45"],
-    ["it-IT", "Qui 3 / Tot. 45"],
-    ["en", "Page 3 / Total 45"],
-  ] as const)("keeps page and total counts explicit in compact %s groups", (locale, count) => {
-    const { container } = render(
-      <LocaleProvider initialLocale={locale}>
-        <OrderResultGroupHeader
-          compact
-          headingId="processing-heading"
-          group="processing"
-          pageCount={3}
-          totalCount={45}
-          oldestCreatedAt="2026-09-01T10:00:00Z"
-        />
-      </LocaleProvider>,
-    );
-    expect(screen.getByText(count)).toBeVisible();
-    expect(screen.getByRole("heading")).toHaveAttribute("id", "processing-heading");
-    expect(
-      container.querySelector('[data-order-result-group="processing"]')?.getAttribute("aria-label"),
-    ).toContain("45");
-  });
+    ["zh-CN", "已载入 3 / 共 45", "已载入 3 条"],
+    ["it-IT", "Caricati 3 / Tot. 45", "3 caricati"],
+    ["en", "Loaded 3 / Total 45", "3 loaded"],
+  ] as const)(
+    "keeps loaded and total counts explicit in compact %s groups",
+    (locale, count, ariaCount) => {
+      const { container } = render(
+        <LocaleProvider initialLocale={locale}>
+          <OrderResultGroupHeader
+            compact
+            headingId="processing-heading"
+            group="processing"
+            pageCount={3}
+            totalCount={45}
+            oldestCreatedAt="2026-09-01T10:00:00Z"
+          />
+        </LocaleProvider>,
+      );
+      expect(screen.getByText(count)).toBeVisible();
+      expect(screen.getByRole("heading")).toHaveAttribute("id", "processing-heading");
+      const ariaLabel = container
+        .querySelector('[data-order-result-group="processing"]')
+        ?.getAttribute("aria-label");
+      expect(ariaLabel).toContain(ariaCount);
+      expect(ariaLabel).toContain("45");
+    },
+  );
 });

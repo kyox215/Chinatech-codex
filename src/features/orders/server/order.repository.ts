@@ -1,3 +1,4 @@
+import { recordOrderNotification } from "./order-notification.repository";
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 
@@ -50,9 +51,15 @@ import type {
   VoidOrderInput,
   UpdateOrderCustodyInput,
   WhatsappNotificationResult,
+  OrderNotificationInput,
+  OrderWhatsappNotificationInput,
 } from "@/lib/repairdesk/types";
 import { getSupabaseAdmin } from "@/server/supabase";
-import { mutateOrderAtomic } from "@/features/orders/server/order-mutation";
+import {
+  mutateOrderAtomic,
+  orderMutationIdentity,
+  OrderMutationError,
+} from "@/features/orders/server/order-mutation";
 import { classifyOrderTransitionFailure } from "@/features/orders/model/order-bulk-transition";
 import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unlock";
 import {
@@ -1054,7 +1061,7 @@ async function assertCustomerPhoneAvailable(
 
 function normalizePageInput(input: OrderListPageInput = {}) {
   const page = Math.max(1, Math.floor(Number(input.page ?? 1)));
-  const pageSize = Math.min(50, Math.max(10, Math.floor(Number(input.pageSize ?? 50))));
+  const pageSize = Math.min(100, Math.max(10, Math.floor(Number(input.pageSize ?? 100))));
   return { page, pageSize };
 }
 
@@ -1926,6 +1933,14 @@ export async function decideOrderApproval(
   const storeId = requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
   const supabase = getSupabaseAdmin();
   const actor = typeof operator === "string" ? undefined : operator;
+  if (!actor?.id) throw new ForbiddenError("审批需要已登录员工身份");
+  if (!input.expected_updated_at || !input.idempotency_key || input.quote_event_id === undefined) {
+    throw new OrderMutationError(
+      "缺少审批版本或操作标识，请重新打开审批",
+      "missing_expected_version",
+      409,
+    );
+  }
   const currentRow = await readOrderCustodyRow(
     supabase,
     storeId,
@@ -1933,11 +1948,66 @@ export async function decideOrderApproval(
     actor,
     "读取审批与设备保管状态失败",
   );
+  const cleanReason = input.reason?.trim();
+  const target =
+    input.next_status ?? (input.decision === "approved" ? "repairing" : "unfixed_pickup");
+  const { requestHash } = orderMutationIdentity({
+    storeId,
+    actorId: actor.id,
+    orderId: id,
+    mode: "approval",
+    request: { ...input, next_status: target, reason: cleanReason || null },
+  });
+  const { data: prior, error: priorError } = await supabase
+    .from("order_events")
+    .select("order_id,event_type,payload")
+    .eq("store_id", storeId)
+    .eq("payload->>idempotency_key", input.idempotency_key)
+    .maybeSingle();
+  fail(priorError, "读取审批操作记录失败");
+  if (prior) {
+    const event = prior as DbRecord;
+    const payload = (event.payload ?? {}) as DbRecord;
+    if (
+      event.order_id !== id ||
+      event.event_type !== "approval_result" ||
+      payload.approval_request_hash !== requestHash
+    ) {
+      throw new OrderMutationError(
+        "该操作标识已用于不同审批请求，请重新打开审批",
+        "idempotency_conflict",
+        409,
+      );
+    }
+    return {
+      ok: true,
+      decision: input.decision,
+      from: payload.from as RepairOrderStatus,
+      to: payload.to as RepairOrderStatus,
+      approval_flow_status: input.decision,
+    };
+  }
+  if (requiredString(currentRow.updated_at) !== input.expected_updated_at) {
+    throw new OrderMutationError("工单已被更新，请重新核对报价后审批", "stale_version", 409);
+  }
+  const { data: quote, error: quoteError } = await supabase
+    .from("order_events")
+    .select("id")
+    .eq("store_id", storeId)
+    .eq("order_id", id)
+    .eq("event_type", "quoted")
+    .contains("payload", { action: "quote_published" })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  fail(quoteError, "读取待审批报价失败");
+  if ((quote ? requiredString((quote as DbRecord).id) : null) !== input.quote_event_id) {
+    throw new OrderMutationError("报价已被更新，请重新核对报价后审批", "stale_version", 409);
+  }
   const from = currentRow.status as RepairOrderStatus;
   const currentApprovalFlow =
     maybeString(currentRow.approval_flow_status) ??
     approvalFlowStatusFromLegacyStatus(from, maybeString(currentRow.approval_status));
-  const cleanReason = input.reason?.trim();
 
   if (
     currentApprovalFlow !== "waiting_customer" &&
@@ -1946,8 +2016,6 @@ export async function decideOrderApproval(
     throw new Error("当前工单不在客户审批阶段");
   }
 
-  const defaultTarget = input.decision === "approved" ? "repairing" : "unfixed_pickup";
-  const target = input.next_status ?? defaultTarget;
   const allowedTargets =
     input.decision === "approved" ? APPROVAL_APPROVED_TARGETS : APPROVAL_REJECTED_TARGETS;
   if (!(allowedTargets as readonly string[]).includes(target)) {
@@ -1996,10 +2064,13 @@ export async function decideOrderApproval(
     id,
     storeId,
     actor,
-    expectedUpdatedAt: requiredString(currentRow.updated_at),
+    expectedUpdatedAt: input.expected_updated_at,
     update,
     eventType: "approval_result",
     eventPayload: {
+      approval_request_hash: requestHash,
+      quote_event_id: input.quote_event_id,
+      expected_updated_at: input.expected_updated_at,
       result: input.decision,
       from,
       to: target,
@@ -2016,7 +2087,8 @@ export async function decideOrderApproval(
           }
         : {}),
     },
-    idempotencyKey: crypto.randomUUID(),
+    idempotencyKey: input.idempotency_key,
+    structuredConflicts: true,
     context: "更新客户审批结果失败",
   });
 
@@ -2580,6 +2652,7 @@ async function applyAtomicOrderMutation({
   eventPayload,
   idempotencyKey,
   context,
+  structuredConflicts = false,
 }: {
   supabase: SupabaseAdmin;
   storeId: string;
@@ -2591,6 +2664,7 @@ async function applyAtomicOrderMutation({
   eventPayload: Record<string, unknown>;
   idempotencyKey: string;
   context: string;
+  structuredConflicts?: boolean;
 }) {
   if (!actor?.id) throw new Error(`${context}：缺少已登录员工身份`);
   const safeUpdate = Object.fromEntries(
@@ -2623,6 +2697,9 @@ async function applyAtomicOrderMutation({
   const result = data as Record<string, unknown>;
   if (result.ok !== true) {
     const code = requiredString(result.code);
+    if (structuredConflicts && ["stale_version", "idempotency_conflict"].includes(code)) {
+      throw new OrderMutationError("审批目标或操作内容已变化，请重新核对后重试", code, 409);
+    }
     if (code === "actor_forbidden") throw new ForbiddenError("当前员工无权更新此工单");
     if (code === "order_not_found") throw new Error("工单不存在");
     if (code === "stale_version") throw new Error("工单已被更新，请刷新后再试");
@@ -3365,6 +3442,9 @@ async function writeWhatsappMessage({
   return {
     ok: true,
     id: messageId,
+    updated_at: now,
+    replayed: false,
+    delivery_verified: false,
     channel: "whatsapp",
     body: message,
     template_kind: templateKind,
@@ -3377,82 +3457,22 @@ async function writeWhatsappMessage({
 
 export async function sendNotification(
   id: string,
-  body: string,
-  channel: "whatsapp" | "sms" = "whatsapp",
-  operator: string | AuditActor = "前台",
+  input: OrderNotificationInput,
+  actor: AuditActor,
 ) {
-  const storeId = requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
-  const operatorName = operatorNameFromActor(operator);
-  const message = body.trim();
-  if (!message) throw new Error("通知内容不能为空");
-
-  const supabase = getSupabaseAdmin();
-  const now = new Date().toISOString();
-  const messageId = crypto.randomUUID();
-
-  const accessRow = await readOrderStatusRow(
-    supabase,
-    storeId,
-    id,
-    typeof operator === "string" ? undefined : operator,
-    "读取工单失败",
-  );
-  assertOrderRecordNotVoided(accessRow);
-
-  const { error: messageError } = await supabase.from("message_logs").insert({
-    id: messageId,
-    store_id: storeId,
-    order_id: id,
-    channel,
-    message_body: message,
-    status: "sent",
-    sent_at: now,
-  });
-  fail(messageError, "写入通知历史失败");
-
-  await updateOrderRow({
-    supabase,
-    id,
-    storeId,
-    update: { notify_status: "sent", updated_at: now },
-    context: "更新工单通知时间失败",
-  });
-
-  const { error: eventError } = await supabase.from("order_events").insert({
-    id: crypto.randomUUID(),
-    store_id: storeId,
-    order_id: id,
-    event_type: "message_sent",
-    payload: { channel, message_id: messageId },
-    operator_name: operatorName,
-    created_at: now,
-  });
-  fail(eventError, "写入通知时间线失败");
-
-  return { ok: true, id: messageId, channel, body: message };
+  return recordOrderNotification(id, input, actor);
 }
 
 export async function sendWhatsappNotification(
   id: string,
-  body: string,
-  templateKind: OrderWhatsappTemplateKind,
-  transitionTo?: RepairOrderStatus,
-  operator: string | AuditActor = "前台",
-  recipientPhone?: string,
-) {
-  const actor = typeof operator === "string" ? undefined : operator;
-  const storeId = requireStoreIdFromActor(actor);
-  return writeWhatsappMessage({
+  input: OrderWhatsappNotificationInput,
+  actor: AuditActor,
+): Promise<WhatsappNotificationResult> {
+  return recordOrderNotification(
     id,
-    body,
-    templateKind,
-    eventType: "message_sent",
-    transitionTo,
-    operator: operatorNameFromActor(operator),
-    storeId,
+    { ...input, channel: "whatsapp" },
     actor,
-    recipientPhone,
-  });
+  ) as unknown as Promise<WhatsappNotificationResult>;
 }
 
 export async function sendApprovalRequest(

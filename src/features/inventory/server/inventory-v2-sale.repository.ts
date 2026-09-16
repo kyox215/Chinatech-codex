@@ -59,7 +59,27 @@ export async function completeInventorySaleV2(
     .maybeSingle();
   if (itemProjectionError) throw inventoryV2DependencyError("读取库存销售门禁失败");
   if (!itemProjection) throw new Error("库存商品不存在或不属于当前门店");
-  assertInventoryV2AtomicSaleReadiness(itemProjection as Record<string, unknown>, input);
+  try {
+    assertInventoryV2AtomicSaleReadiness(itemProjection as Record<string, unknown>, input);
+  } catch (readinessError) {
+    // A committed sale changes the item version before a lost response is retried.
+    // Only its completed ledger may defer readiness to the RPC, which rechecks
+    // current actor access and the full request hash before returning a replay.
+    const { data: completedSale, error: completedSaleError } = await runInventoryV2Dependency(
+      () =>
+        supabase
+          .from("inventory_sale_command_ledger")
+          .select("id")
+          .eq("store_id", storeId)
+          .eq("inventory_item_id", id)
+          .eq("idempotency_key", input.idempotency_key)
+          .eq("actor_id", actor.id)
+          .maybeSingle(),
+      "库存销售重试服务暂时不可用",
+    );
+    if (completedSaleError) throw inventoryV2DependencyError("库存销售重试服务暂时不可用");
+    if (!completedSale?.id) throw readinessError;
+  }
 
   const { data, error } = await runInventoryV2Dependency(
     () =>

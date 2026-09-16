@@ -1,9 +1,10 @@
 version: 1
-status: active
+status: compatibility_reference
 owner: Integration Lead
-last_reviewed: "2026-06-18"
+last_reviewed: "2026-09-15"
 
 canonical_rules:
+  # Compatibility references below are loaded only when task-relevant; AGENTS.md is the entry.
   - AGENTS.md
   - .ai-company/REPAIRDESK_ADOPTION.md
   - .ai-company/policies/CODEX_OPERATING_MODEL.md
@@ -25,10 +26,10 @@ execution_model:
   default_autonomy_level: L2
   handoff_policy: disabled_for_final_write
   default_subagent_mode: read_only
-  max_parallel_subagents_default: 3
-  max_parallel_subagents_hard_cap: 5
+  max_parallel_subagents_default: 1
+  max_parallel_subagents_hard_cap: 3
   max_parallel_writers_default: 1
-  max_parallel_writers_hard_cap: 2
+  max_parallel_writers_hard_cap: 1
   writer_overlap_policy: forbidden
   close_completed_agents_before_spawning: true
   nested_agents: forbidden

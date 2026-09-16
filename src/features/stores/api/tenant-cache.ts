@@ -1,21 +1,20 @@
 import type { QueryClient } from "@tanstack/react-query";
 
-import { aiAssistantKeys } from "@/features/ai-assistant/api";
 import { customersKeys } from "@/features/customers/api/query-keys";
 import { inventoryKeys } from "@/features/inventory/api/query-keys";
+import { inventoryLifecycleKeys } from "@/features/inventory/lifecycle/api/query-keys";
 import {
   inventoryCatalogKeys,
   inventoryProductKeys,
 } from "@/features/inventory/products/api/query-keys";
 import { inventorySalesKeys } from "@/features/inventory/sales/api/query-keys";
-import { inventoryLifecycleKeys } from "@/features/inventory/lifecycle/api/query-keys";
 import { kioskKeys } from "@/features/kiosk/api/query-keys";
+import { memosKeys } from "@/features/memos/api/query-keys";
 import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import { ordersKeys } from "@/features/orders/api/query-keys";
 import { platformKeys } from "@/features/platform/api/query-keys";
 import { storesKeys } from "@/features/stores/api/query-keys";
 import { suppliersKeys } from "@/features/suppliers/api/query-keys";
-import { memosKeys } from "@/features/memos/api/query-keys";
 import type { StoreContext } from "@/lib/repairdesk/types";
 
 export async function clearTenantScopedQueryCache(queryClient: QueryClient) {
@@ -74,7 +73,6 @@ const tenantScopedQueryRoots = [
   messageSettingsKeys.store,
   messageSettingsKeys.templates,
   messageSettingsKeys.all,
-  aiAssistantKeys.all,
   storesKeys.bootstrap,
   storesKeys.context,
   storesKeys.members,
@@ -95,7 +93,6 @@ const authoritySensitiveQueryRoots = [
   suppliersKeys.all,
   messageSettingsKeys.store,
   messageSettingsKeys.templates,
-  aiAssistantKeys.all,
   storesKeys.members,
   storesKeys.accessRequests,
   memosKeys.all,

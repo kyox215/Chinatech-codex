@@ -1,0 +1,5328 @@
+[
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 11",
+    "model_codes": ["A2221"],
+    "aliases": ["iPhone 11", "A2221"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-11",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 11 Pro",
+    "model_codes": ["A2215"],
+    "aliases": ["iPhone 11 Pro", "A2215"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-11-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 11 Pro Max",
+    "model_codes": ["A2218"],
+    "aliases": ["iPhone 11 Pro Max", "A2218"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-11-pro-max",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 12",
+    "model_codes": ["A2403"],
+    "aliases": ["iPhone 12", "A2403"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-12",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 12 mini",
+    "model_codes": ["A2399"],
+    "aliases": ["iPhone 12 mini", "A2399"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-12-mini",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 12 Pro",
+    "model_codes": ["A2407"],
+    "aliases": ["iPhone 12 Pro", "A2407"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-12-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 12 Pro Max",
+    "model_codes": ["A2411"],
+    "aliases": ["iPhone 12 Pro Max", "A2411"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-12-pro-max",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 13",
+    "model_codes": ["A2633"],
+    "aliases": ["iPhone 13", "A2633"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-13",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 13 mini",
+    "model_codes": ["A2628"],
+    "aliases": ["iPhone 13 mini", "A2628"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-13-mini",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 13 Pro",
+    "model_codes": ["A2638"],
+    "aliases": ["iPhone 13 Pro", "A2638"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-13-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 13 Pro Max",
+    "model_codes": ["A2643"],
+    "aliases": ["iPhone 13 Pro Max", "A2643"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-13-pro-max",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 14",
+    "model_codes": ["A2882"],
+    "aliases": ["iPhone 14", "A2882"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-14",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 14 Plus",
+    "model_codes": ["A2886"],
+    "aliases": ["iPhone 14 Plus", "A2886"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-14-plus",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 14 Pro",
+    "model_codes": ["A2890"],
+    "aliases": ["iPhone 14 Pro", "A2890"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-14-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 14 Pro Max",
+    "model_codes": ["A2894"],
+    "aliases": ["iPhone 14 Pro Max", "A2894"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-14-pro-max",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 15",
+    "model_codes": ["A3090"],
+    "aliases": ["iPhone 15", "A3090"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-15",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 15 Plus",
+    "model_codes": ["A3094"],
+    "aliases": ["iPhone 15 Plus", "A3094"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-15-plus",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 15 Pro",
+    "model_codes": ["A3102"],
+    "aliases": ["iPhone 15 Pro", "A3102"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-15-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 15 Pro Max",
+    "model_codes": ["A3106"],
+    "aliases": ["iPhone 15 Pro Max", "A3106"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-15-pro-max",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 16",
+    "model_codes": ["A3287"],
+    "aliases": ["iPhone 16", "A3287"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-16",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 16 Plus",
+    "model_codes": ["A3290"],
+    "aliases": ["iPhone 16 Plus", "A3290"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-16-plus",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 16 Pro",
+    "model_codes": ["A3293"],
+    "aliases": ["iPhone 16 Pro", "A3293"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-16-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 16 Pro Max",
+    "model_codes": ["A3296"],
+    "aliases": ["iPhone 16 Pro Max", "A3296"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-16-pro-max",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 16e",
+    "model_codes": ["A3409"],
+    "aliases": ["iPhone 16e", "A3409"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-16e",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 17",
+    "model_codes": ["A3520"],
+    "aliases": ["iPhone 17", "A3520"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-17",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 17 Pro",
+    "model_codes": ["A3523"],
+    "aliases": ["iPhone 17 Pro", "A3523"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-17-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 17 Pro Max",
+    "model_codes": ["A3526"],
+    "aliases": ["iPhone 17 Pro Max", "A3526"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-17-pro-max",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone 17e",
+    "model_codes": ["A3634"],
+    "aliases": ["iPhone 17e", "A3634"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-17e",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone Air",
+    "model_codes": ["A3517"],
+    "aliases": ["iPhone Air", "A3517"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-air",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone SE (2nd generation)",
+    "model_codes": ["A2296"],
+    "aliases": ["iPhone SE (2nd generation)", "A2296"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-se-2nd-generation",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Apple",
+    "marketing_name": "iPhone SE (3rd generation)",
+    "model_codes": ["A2783"],
+    "aliases": ["iPhone SE (3rd generation)", "A2783"],
+    "region": "Europe within Apple other-countries group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.apple.com/en-gb/108044"],
+    "source_catalog_id": "apple-iphone-se-3rd-generation",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A02s",
+    "model_codes": ["SM-A025F"],
+    "aliases": ["Galaxy A02s", "A025F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a02s",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A03",
+    "model_codes": ["SM-A035G"],
+    "aliases": ["Galaxy A03", "A035G"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a03",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A03s",
+    "model_codes": ["SM-A037G"],
+    "aliases": ["Galaxy A03s", "A037G"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a03s",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A04s",
+    "model_codes": ["SM-A047F"],
+    "aliases": ["Galaxy A04s", "A047F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a04s",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A05s",
+    "model_codes": ["SM-A057G"],
+    "aliases": ["Galaxy A05s", "A057G"],
+    "region": "Europe: DE support model table",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a05s",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A12",
+    "model_codes": ["SM-A127F", "SM-A125F"],
+    "aliases": ["Galaxy A12", "A127F", "A125F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smart%20phones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a12",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A13",
+    "model_codes": ["SM-A135F", "SM-A135F/DSN", "SM-A137F"],
+    "aliases": ["Galaxy A13", "A135F", "A135F/DSN", "A137F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://doc.samsungmobile.com/SM-A135F/022791220409/eng.html",
+      "https://www.samsung.com/de/support/model/SM-A135FZKVEUE/",
+      "https://www.samsung.com/uk/support/model/SM-A135FLBVEUB/",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a13",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A13 5G",
+    "model_codes": ["SM-A136B"],
+    "aliases": ["Galaxy A13 5G", "A136B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a13-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A14",
+    "model_codes": ["SM-A145R"],
+    "aliases": ["Galaxy A14", "A145R"],
+    "region": "Europe: DE support model table",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a14",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A14 5G",
+    "model_codes": ["SM-A146P"],
+    "aliases": ["Galaxy A14 5G", "A146P"],
+    "region": "Europe: DE support model table",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a14-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A15",
+    "model_codes": ["SM-A155F", "SM-A155F/DSN"],
+    "aliases": ["Galaxy A15", "A155F", "A155F/DSN"],
+    "region": "Europe: FR official support",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/fr/support/model/SM-A155FZBDEUB/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a15",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A15 5G",
+    "model_codes": ["SM-A156B"],
+    "aliases": ["Galaxy A15 5G", "A156B"],
+    "region": "Europe: DE support model table",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a15-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A16",
+    "model_codes": ["SM-A165F"],
+    "aliases": ["Galaxy A16", "A165F"],
+    "region": "Europe: official LCA country=EU",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-a16",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A16 5G",
+    "model_codes": ["SM-A166B"],
+    "aliases": ["Galaxy A16 5G", "A166B"],
+    "region": "Europe: official LCA country=EU",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-a16-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A17",
+    "model_codes": ["SM-A175F"],
+    "aliases": ["Galaxy A17", "A175F"],
+    "region": "Europe: official LCA country=UK",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-a17",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A17 5G",
+    "model_codes": ["SM-A176B"],
+    "aliases": ["Galaxy A17 5G", "A176B"],
+    "region": "Europe: official LCA country=UK",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-a17-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A20e",
+    "model_codes": ["SM-A202F"],
+    "aliases": ["Galaxy A20e", "A202F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a20e",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A20s",
+    "model_codes": ["SM-A207F"],
+    "aliases": ["Galaxy A20s", "A207F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a20s",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A21s",
+    "model_codes": ["SM-A217F"],
+    "aliases": ["Galaxy A21s", "A217F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a21s",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A22",
+    "model_codes": ["SM-A225F"],
+    "aliases": ["Galaxy A22", "A225F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a22",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A22 5G",
+    "model_codes": ["SM-A226B"],
+    "aliases": ["Galaxy A22 5G", "A226B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a22-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A23",
+    "model_codes": ["SM-A235F"],
+    "aliases": ["Galaxy A23", "A235F"],
+    "region": "Europe: LCA country=EU (official search index)",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smart%20phones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-a23",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A23 5G",
+    "model_codes": ["SM-A236B"],
+    "aliases": ["Galaxy A23 5G", "A236B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a23-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A25 5G",
+    "model_codes": ["SM-A256B"],
+    "aliases": ["Galaxy A25 5G", "A256B"],
+    "region": "Europe: official LCA country=EU",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-a25-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A26 5G",
+    "model_codes": ["SM-A266B"],
+    "aliases": ["Galaxy A26 5G", "A266B"],
+    "region": "Europe: official LCA country=EU",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-a26-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A27 5G",
+    "model_codes": ["SM-A276B"],
+    "aliases": ["Galaxy A27 5G", "A276B"],
+    "region": "Europe: official LCA country=UK",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-a27-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A3 (2016)",
+    "model_codes": ["SM-A310F"],
+    "aliases": ["Galaxy A3 (2016)", "A310F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a3-2016",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A30s",
+    "model_codes": ["SM-A307FN"],
+    "aliases": ["Galaxy A30s", "A307FN"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a30s",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A31",
+    "model_codes": ["SM-A315G"],
+    "aliases": ["Galaxy A31", "A315G"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a31",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A32 5G",
+    "model_codes": ["SM-A326B"],
+    "aliases": ["Galaxy A32 5G", "A326B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a32-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A33 5G",
+    "model_codes": ["SM-A336B"],
+    "aliases": ["Galaxy A33 5G", "A336B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a33-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A34 5G",
+    "model_codes": ["SM-A346B"],
+    "aliases": ["Galaxy A34 5G", "A346B"],
+    "region": "Europe: DE support model table",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a34-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A35 5G",
+    "model_codes": ["SM-A356B"],
+    "aliases": ["Galaxy A35 5G", "A356B"],
+    "region": "Europe: official LCA country=EU",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-a35-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A36 5G",
+    "model_codes": ["SM-A366B"],
+    "aliases": ["Galaxy A36 5G", "A366B"],
+    "region": "Europe: official LCA country=EU",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-a36-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A37 5G",
+    "model_codes": ["SM-A376B"],
+    "aliases": ["Galaxy A37 5G", "A376B"],
+    "region": "Europe: official LCA country=UK",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-a37-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A40",
+    "model_codes": ["SM-A405FN"],
+    "aliases": ["Galaxy A40", "A405FN"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a40",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A41",
+    "model_codes": ["SM-A415F"],
+    "aliases": ["Galaxy A41", "A415F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a41",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A42 5G",
+    "model_codes": ["SM-A426B"],
+    "aliases": ["Galaxy A42 5G", "A426B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a42-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A5 (2016)",
+    "model_codes": ["SM-A510F"],
+    "aliases": ["Galaxy A5 (2016)", "A510F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a5-2016",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A50",
+    "model_codes": ["SM-A505FN"],
+    "aliases": ["Galaxy A50", "A505FN"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a50",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A51",
+    "model_codes": ["SM-A515F"],
+    "aliases": ["Galaxy A51", "A515F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a51",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A52",
+    "model_codes": ["SM-A525F"],
+    "aliases": ["Galaxy A52", "A525F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a52",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A52 5G",
+    "model_codes": ["SM-A526B"],
+    "aliases": ["Galaxy A52 5G", "A526B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a52-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A52s 5G",
+    "model_codes": ["SM-A528B", "SM-A528B/DS"],
+    "aliases": ["Galaxy A52s 5G", "A528B", "A528B/DS"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/es/support/model/SM-A528BZWHEUB/",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a52s-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A53 5G",
+    "model_codes": ["SM-A536B"],
+    "aliases": ["Galaxy A53 5G", "A536B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a53-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A54 5G",
+    "model_codes": ["SM-A546B"],
+    "aliases": ["Galaxy A54 5G", "A546B"],
+    "region": "Europe: DE support model table",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a54-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A55 5G",
+    "model_codes": ["SM-A556B"],
+    "aliases": ["Galaxy A55 5G", "A556B"],
+    "region": "Europe: official LCA country=EU",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-a55-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A56 5G",
+    "model_codes": ["SM-A566B"],
+    "aliases": ["Galaxy A56 5G", "A566B"],
+    "region": "Europe: official LCA country=EU",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-a56-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A57 5G",
+    "model_codes": ["SM-A576B"],
+    "aliases": ["Galaxy A57 5G", "A576B"],
+    "region": "Europe: official LCA country=UK",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-a57-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A6",
+    "model_codes": ["SM-A600FN"],
+    "aliases": ["Galaxy A6", "A600FN"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a6",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A6+",
+    "model_codes": ["SM-A605FN"],
+    "aliases": ["Galaxy A6+", "A605FN"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a6plus",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A7 (2018)",
+    "model_codes": ["SM-A750FN"],
+    "aliases": ["Galaxy A7 (2018)", "A750FN"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a7-2018",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A70",
+    "model_codes": ["SM-A705FN"],
+    "aliases": ["Galaxy A70", "A705FN"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a70",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A71",
+    "model_codes": ["SM-A715F"],
+    "aliases": ["Galaxy A71", "A715F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a71",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A72",
+    "model_codes": ["SM-A725F"],
+    "aliases": ["Galaxy A72", "A725F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a72",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A73 5G",
+    "model_codes": ["SM-A736B"],
+    "aliases": ["Galaxy A73 5G", "A736B"],
+    "region": "Europe: LCA country=EU (official search index)",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smart%20phones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-a73-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A8 (2018)",
+    "model_codes": ["SM-A530F"],
+    "aliases": ["Galaxy A8 (2018)", "A530F", "Galaxy A8 DUOS"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a8-2018",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A80",
+    "model_codes": ["SM-A805F"],
+    "aliases": ["Galaxy A80", "A805F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a80",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A9 (2018)",
+    "model_codes": ["SM-A920F"],
+    "aliases": ["Galaxy A9 (2018)", "A920F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a9-2018",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy A90 5G",
+    "model_codes": ["SM-A908B"],
+    "aliases": ["Galaxy A90 5G", "A908B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-a90-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy J1 (2016)",
+    "model_codes": ["SM-J120F"],
+    "aliases": ["Galaxy J1 (2016)", "J120F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-j1-2016",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy J3 (2016)",
+    "model_codes": ["SM-J320F"],
+    "aliases": ["Galaxy J3 (2016)", "J320F", "Galaxy J3 DUOS (2016)"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-j3-2016",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy J3 DUOS (2017)",
+    "model_codes": ["SM-J330FD"],
+    "aliases": ["Galaxy J3 DUOS (2017)", "J330FD"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-j3-duos-2017",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy J4+",
+    "model_codes": ["SM-J415F"],
+    "aliases": ["Galaxy J4+", "J415F", "Galaxy J4+ DUOS (2018)"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-j4plus",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy J5 (2016)",
+    "model_codes": ["SM-J510FN"],
+    "aliases": ["Galaxy J5 (2016)", "J510FN", "Galaxy J5 DUOS (2016)"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-j5-2016",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy J5 DUOS (2017)",
+    "model_codes": ["SM-J530FD"],
+    "aliases": ["Galaxy J5 DUOS (2017)", "J530FD"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-j5-duos-2017",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy J6 DUOS (2018)",
+    "model_codes": ["SM-J600F"],
+    "aliases": ["Galaxy J6 DUOS (2018)", "J600F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-j6-duos-2018",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy J6+ DUOS (2018)",
+    "model_codes": ["SM-J610F"],
+    "aliases": ["Galaxy J6+ DUOS (2018)", "J610F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-j6plus-duos-2018",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy J7 (2016)",
+    "model_codes": ["SM-J710FN"],
+    "aliases": ["Galaxy J7 (2016)", "J710FN"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-j7-2016",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy J7 (2017)",
+    "model_codes": ["SM-J730F"],
+    "aliases": ["Galaxy J7 (2017)", "J730F", "Galaxy J7 DUOS (2017)"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-j7-2017",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy M11",
+    "model_codes": ["SM-M115F"],
+    "aliases": ["Galaxy M11", "M115F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-m11",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy M12",
+    "model_codes": ["SM-M127F"],
+    "aliases": ["Galaxy M12", "M127F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-m12",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy M13",
+    "model_codes": ["SM-M135F"],
+    "aliases": ["Galaxy M13", "M135F"],
+    "region": "Europe: LCA country=EU (official search index)",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smart%20phones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-m13",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy M20",
+    "model_codes": ["SM-M205FN"],
+    "aliases": ["Galaxy M20", "M205FN"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-m20",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy M21",
+    "model_codes": ["SM-M215F"],
+    "aliases": ["Galaxy M21", "M215F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-m21",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy M22",
+    "model_codes": ["SM-M225F"],
+    "aliases": ["Galaxy M22", "M225F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-m22",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy M23 5G",
+    "model_codes": ["SM-M236B"],
+    "aliases": ["Galaxy M23 5G", "M236B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smart%20phones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-m23-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy M30s",
+    "model_codes": ["SM-M307FN"],
+    "aliases": ["Galaxy M30s", "M307FN"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-m30s",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy M31",
+    "model_codes": ["SM-M315F"],
+    "aliases": ["Galaxy M31", "M315F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-m31",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy M31s",
+    "model_codes": ["SM-M317F"],
+    "aliases": ["Galaxy M31s", "M317F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-m31s",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy M32",
+    "model_codes": ["SM-M325F"],
+    "aliases": ["Galaxy M32", "M325F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-m32",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy M33 5G",
+    "model_codes": ["SM-M336B"],
+    "aliases": ["Galaxy M33 5G", "M336B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smart%20phones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-m33-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy M51",
+    "model_codes": ["SM-M515F"],
+    "aliases": ["Galaxy M51", "M515F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-m51",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy M52 5G",
+    "model_codes": ["SM-M526B"],
+    "aliases": ["Galaxy M52 5G", "M526B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-m52-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy M53 5G",
+    "model_codes": ["SM-M536B"],
+    "aliases": ["Galaxy M53 5G", "M536B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smart%20phones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-m53-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Note10",
+    "model_codes": ["SM-N970F"],
+    "aliases": ["Galaxy Note10", "N970F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-note10",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Note10 Lite",
+    "model_codes": ["SM-N770F"],
+    "aliases": ["Galaxy Note10 Lite", "N770F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-note10-lite",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Note10+",
+    "model_codes": ["SM-N975F"],
+    "aliases": ["Galaxy Note10+", "N975F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-note10plus",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Note10+ 5G",
+    "model_codes": ["SM-N976B"],
+    "aliases": ["Galaxy Note10+ 5G", "N976B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-note10plus-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Note20",
+    "model_codes": ["SM-N980F"],
+    "aliases": ["Galaxy Note20", "N980F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-note20",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Note20 5G",
+    "model_codes": ["SM-N981B"],
+    "aliases": ["Galaxy Note20 5G", "N981B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-note20-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Note20 Ultra 5G",
+    "model_codes": ["SM-N986B"],
+    "aliases": ["Galaxy Note20 Ultra 5G", "N986B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smart%20phones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-note20-ultra-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Note8",
+    "model_codes": ["SM-N950F"],
+    "aliases": ["Galaxy Note8", "N950F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-note8",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Note8 DUOS",
+    "model_codes": ["SM-N950F/DS"],
+    "aliases": ["Galaxy Note8 DUOS", "N950F/DS"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-note8-duos",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Note9 DUOS",
+    "model_codes": ["SM-N960F"],
+    "aliases": ["Galaxy Note9 DUOS", "N960F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-note9-duos",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S10",
+    "model_codes": ["SM-G973F"],
+    "aliases": ["Galaxy S10", "G973F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s10",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S10 5G",
+    "model_codes": ["SM-G977B"],
+    "aliases": ["Galaxy S10 5G", "G977B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s10-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S10 Lite",
+    "model_codes": ["SM-G770F"],
+    "aliases": ["Galaxy S10 Lite", "G770F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s10-lite",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S10+",
+    "model_codes": ["SM-G975F"],
+    "aliases": ["Galaxy S10+", "G975F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s10plus",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S10e",
+    "model_codes": ["SM-G970F"],
+    "aliases": ["Galaxy S10e", "G970F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s10e",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S20",
+    "model_codes": ["SM-G980F"],
+    "aliases": ["Galaxy S20", "G980F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s20",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S20 5G",
+    "model_codes": ["SM-G981B"],
+    "aliases": ["Galaxy S20 5G", "G981B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s20-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S20 FE",
+    "model_codes": ["SM-G780F"],
+    "aliases": ["Galaxy S20 FE", "G780F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s20-fe",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S20 FE 5G",
+    "model_codes": ["SM-G781B"],
+    "aliases": ["Galaxy S20 FE 5G", "G781B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smart%20phones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s20-fe-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S20 Ultra 5G",
+    "model_codes": ["SM-G988B"],
+    "aliases": ["Galaxy S20 Ultra 5G", "G988B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s20-ultra-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S20+",
+    "model_codes": ["SM-G985F"],
+    "aliases": ["Galaxy S20+", "G985F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s20plus",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S20+ 5G",
+    "model_codes": ["SM-G986B"],
+    "aliases": ["Galaxy S20+ 5G", "G986B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s20plus-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S21 5G",
+    "model_codes": ["SM-G991B"],
+    "aliases": ["Galaxy S21 5G", "G991B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s21-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S21 FE",
+    "model_codes": ["SM-G990B"],
+    "aliases": ["Galaxy S21 FE", "G990B", "Galaxy S21 FE 5G"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smart%20phones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s21-fe",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S21 Ultra 5G",
+    "model_codes": ["SM-G998B"],
+    "aliases": ["Galaxy S21 Ultra 5G", "G998B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s21-ultra-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S21+ 5G",
+    "model_codes": ["SM-G996B"],
+    "aliases": ["Galaxy S21+ 5G", "G996B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s21plus-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S22",
+    "model_codes": ["SM-S901B"],
+    "aliases": ["Galaxy S22", "S901B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s22",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S22 Ultra",
+    "model_codes": ["SM-S908B"],
+    "aliases": ["Galaxy S22 Ultra", "S908B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s22-ultra",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S22+",
+    "model_codes": ["SM-S906B"],
+    "aliases": ["Galaxy S22+", "S906B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s22plus",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S23",
+    "model_codes": ["SM-S911B", "SM-S911B/DS"],
+    "aliases": ["Galaxy S23", "S911B", "S911B/DS"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/uk/support/model/SM-S911BZADEUB/",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s23",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S23 FE",
+    "model_codes": ["SM-S711B"],
+    "aliases": ["Galaxy S23 FE", "S711B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s23-fe",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S23 Ultra",
+    "model_codes": ["SM-S918B"],
+    "aliases": ["Galaxy S23 Ultra", "S918B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s23-ultra",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S23+",
+    "model_codes": ["SM-S916B"],
+    "aliases": ["Galaxy S23+", "S916B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s23plus",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S24",
+    "model_codes": ["SM-S921B"],
+    "aliases": ["Galaxy S24", "S921B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s24",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S24 FE",
+    "model_codes": ["SM-S721B"],
+    "aliases": ["Galaxy S24 FE", "S721B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s24-fe",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S24 Ultra",
+    "model_codes": ["SM-S928B"],
+    "aliases": ["Galaxy S24 Ultra", "S928B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s24-ultra",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S24+",
+    "model_codes": ["SM-S926B"],
+    "aliases": ["Galaxy S24+", "S926B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s24plus",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S25",
+    "model_codes": ["SM-S931B"],
+    "aliases": ["Galaxy S25", "S931B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s25",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S25 Edge",
+    "model_codes": ["SM-S937B"],
+    "aliases": ["Galaxy S25 Edge", "S937B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s25-edge",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S25 FE",
+    "model_codes": ["SM-S731B"],
+    "aliases": ["Galaxy S25 FE", "S731B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s25-fe",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S25 Ultra",
+    "model_codes": ["SM-S938B"],
+    "aliases": ["Galaxy S25 Ultra", "S938B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s25-ultra",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S25+",
+    "model_codes": ["SM-S936B"],
+    "aliases": ["Galaxy S25+", "S936B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s25plus",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S26",
+    "model_codes": ["SM-S942B"],
+    "aliases": ["Galaxy S26", "S942B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s26",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S26 FE",
+    "model_codes": ["SM-S741B"],
+    "aliases": ["Galaxy S26 FE", "S741B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s26-fe",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S26 Ultra",
+    "model_codes": ["SM-S948B"],
+    "aliases": ["Galaxy S26 Ultra", "S948B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s26-ultra",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S26+",
+    "model_codes": ["SM-S947B"],
+    "aliases": ["Galaxy S26+", "S947B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s26plus",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S7",
+    "model_codes": ["SM-G930F"],
+    "aliases": ["Galaxy S7", "G930F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s7",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S7 edge",
+    "model_codes": ["SM-G935F"],
+    "aliases": ["Galaxy S7 edge", "G935F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s7-edge",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S8",
+    "model_codes": ["SM-G950F"],
+    "aliases": ["Galaxy S8", "G950F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s8",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S8+",
+    "model_codes": ["SM-G955F"],
+    "aliases": ["Galaxy S8+", "G955F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s8plus",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S8+ DUOS",
+    "model_codes": ["SM-G955FD"],
+    "aliases": ["Galaxy S8+ DUOS", "G955FD"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s8plus-duos",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S9",
+    "model_codes": ["SM-G960F"],
+    "aliases": ["Galaxy S9", "G960F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s9",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S9 DUOS",
+    "model_codes": ["SM-G960F/DS"],
+    "aliases": ["Galaxy S9 DUOS", "G960F/DS"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s9-duos",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S9+",
+    "model_codes": ["SM-G965F"],
+    "aliases": ["Galaxy S9+", "G965F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s9plus",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy S9+ DUOS",
+    "model_codes": ["SM-G965F/DS"],
+    "aliases": ["Galaxy S9+ DUOS", "G965F/DS"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-s9plus-duos",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy XCover 4",
+    "model_codes": ["SM-G390F"],
+    "aliases": ["Galaxy XCover 4", "G390F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-xcover-4",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy XCover 4s EE",
+    "model_codes": ["SM-G398F"],
+    "aliases": ["Galaxy XCover 4s EE", "G398F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-xcover-4s-ee",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy XCover FieldPro",
+    "model_codes": ["SM-G889F"],
+    "aliases": ["Galaxy XCover FieldPro", "G889F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-xcover-fieldpro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy XCover Pro EE",
+    "model_codes": ["SM-G715F"],
+    "aliases": ["Galaxy XCover Pro EE", "G715F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-xcover-pro-ee",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy XCover5",
+    "model_codes": ["SM-G525F"],
+    "aliases": ["Galaxy XCover5", "G525F", "Galaxy XCover 5 EE"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-xcover5",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy XCover6 Pro",
+    "model_codes": ["SM-G736B"],
+    "aliases": ["Galaxy XCover6 Pro", "G736B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-xcover6-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy XCover7",
+    "model_codes": ["SM-G556B"],
+    "aliases": ["Galaxy XCover7", "G556B", "Galaxy XCover7 EE"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-xcover7",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy XCover7 Pro",
+    "model_codes": ["SM-G766B"],
+    "aliases": ["Galaxy XCover7 Pro", "G766B"],
+    "region": "Europe: official LCA country=UK",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-xcover7-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Z Flip",
+    "model_codes": ["SM-F700F"],
+    "aliases": ["Galaxy Z Flip", "F700F"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-z-flip",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Z Flip 5G",
+    "model_codes": ["SM-F707B"],
+    "aliases": ["Galaxy Z Flip 5G", "F707B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-z-flip-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Z Flip3",
+    "model_codes": ["SM-F711B"],
+    "aliases": ["Galaxy Z Flip3", "F711B", "Galaxy Z Flip3 5G"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smart%20phones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-z-flip3",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Z Flip4",
+    "model_codes": ["SM-F721B"],
+    "aliases": ["Galaxy Z Flip4", "F721B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-z-flip4",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Z Flip5",
+    "model_codes": ["SM-F731B"],
+    "aliases": ["Galaxy Z Flip5", "F731B"],
+    "region": "Europe: official LCA country=EU",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-z-flip5",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Z Flip6",
+    "model_codes": ["SM-F741B"],
+    "aliases": ["Galaxy Z Flip6", "F741B"],
+    "region": "Europe: official LCA country=EU",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-z-flip6",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Z Flip7",
+    "model_codes": ["SM-F766B"],
+    "aliases": ["Galaxy Z Flip7", "F766B"],
+    "region": "Europe: official LCA country=UK",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-z-flip7",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Z Flip7 FE",
+    "model_codes": ["SM-F761B"],
+    "aliases": ["Galaxy Z Flip7 FE", "F761B"],
+    "region": "Europe: official LCA country=UK",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-z-flip7-fe",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Z Flip8",
+    "model_codes": ["SM-F776B"],
+    "aliases": ["Galaxy Z Flip8", "F776B"],
+    "region": "Europe: official LCA country=UK",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-z-flip8",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Z Fold 5G",
+    "model_codes": ["SM-F907B"],
+    "aliases": ["Galaxy Z Fold 5G", "F907B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-z-fold-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Z Fold2 5G",
+    "model_codes": ["SM-F916B"],
+    "aliases": ["Galaxy Z Fold2 5G", "F916B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-z-fold2-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Z Fold3",
+    "model_codes": ["SM-F926B"],
+    "aliases": ["Galaxy Z Fold3", "F926B", "Galaxy Z Fold3 5G"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smart%20phones.pdf",
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-z-fold3",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Z Fold4",
+    "model_codes": ["SM-F936B"],
+    "aliases": ["Galaxy Z Fold4", "F936B"],
+    "region": "Europe: DE official support model list",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/de/support/mobile-devices/welche-sperrbildschirmtypen-gibt-es-bei-meinem-galaxy-smartphone/"
+    ],
+    "source_catalog_id": "samsung-galaxy-z-fold4",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Z Fold5",
+    "model_codes": ["SM-F946B"],
+    "aliases": ["Galaxy Z Fold5", "F946B"],
+    "region": "Europe: official LCA country=EU",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-z-fold5",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Z Fold6",
+    "model_codes": ["SM-F956B"],
+    "aliases": ["Galaxy Z Fold6", "F956B"],
+    "region": "Europe: official LCA country=EU",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-z-fold6",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Z Fold7",
+    "model_codes": ["SM-F966B"],
+    "aliases": ["Galaxy Z Fold7", "F966B"],
+    "region": "Europe: official LCA country=UK",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-z-fold7",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Z Fold8",
+    "model_codes": ["SM-F971B"],
+    "aliases": ["Galaxy Z Fold8", "F971B"],
+    "region": "Europe: official LCA country=UK",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-z-fold8",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Samsung",
+    "marketing_name": "Galaxy Z Fold8 Ultra",
+    "model_codes": ["SM-F976B"],
+    "aliases": ["Galaxy Z Fold8 Ultra", "F976B"],
+    "region": "Europe: official LCA country=UK",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+      "https://www.samsung.com/global/sustainability/policy-file/AYVhR1k6BicAIx95/LCA%20Results%20for%20Smartphones.pdf"
+    ],
+    "source_catalog_id": "samsung-galaxy-z-fold8-ultra",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Xiaomi",
+    "marketing_name": "Xiaomi 11T 5G",
+    "model_codes": ["21081111RG"],
+    "aliases": ["Xiaomi 11T 5G", "21081111RG"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/467_operatorx_operatorx_xm/17/05/2024/742524ef6a212f0b378ea7978f00c3db.zip"
+    ],
+    "source_catalog_id": "xiaomi-xiaomi-11t-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Xiaomi",
+    "marketing_name": "Xiaomi 11T Pro",
+    "model_codes": ["2107113SG"],
+    "aliases": ["Xiaomi 11T Pro", "2107113SG"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/169_operatorx_operatorx_xm/27/08/2024/07334648c2c5730f5a7d3a5feef76dba.zip"
+    ],
+    "source_catalog_id": "xiaomi-xiaomi-11t-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Xiaomi",
+    "marketing_name": "Xiaomi 12",
+    "model_codes": ["2201123G"],
+    "aliases": ["Xiaomi 12", "2201123G"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/769_operatorx_operatorx_xm/14/08/2024/65f4b8de1e002ea25dc1df3c110727f7.zip"
+    ],
+    "source_catalog_id": "xiaomi-xiaomi-12",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Xiaomi",
+    "marketing_name": "Xiaomi 12T",
+    "model_codes": ["22071212AG"],
+    "aliases": ["Xiaomi 12T", "22071212AG"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/395_operatorx_operatorx_xm/27/08/2024/9debe724f022f1cc81a9399e26e57f91.zip"
+    ],
+    "source_catalog_id": "xiaomi-xiaomi-12t",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Xiaomi",
+    "marketing_name": "Xiaomi 13",
+    "model_codes": ["2211133G"],
+    "aliases": ["Xiaomi 13", "2211133G"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/220_operatorx_operatorx_xm/14/08/2024/9df861c6ceb725608015c7c0e9d7e196.zip"
+    ],
+    "source_catalog_id": "xiaomi-xiaomi-13",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Xiaomi",
+    "marketing_name": "Xiaomi 14",
+    "model_codes": ["23127PN0CG"],
+    "aliases": ["Xiaomi 14", "23127PN0CG"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/738_operatorx_operatorx_xm/15/08/2024/55d7c2bfb42c8972efb12a24912443d2.zip"
+    ],
+    "source_catalog_id": "xiaomi-xiaomi-14",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Xiaomi",
+    "marketing_name": "Xiaomi Pad 5",
+    "model_codes": ["21051182G"],
+    "aliases": ["Xiaomi Pad 5", "21051182G"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/930_operatorx_operatorx_xm/14/08/2024/2d3f870b7793b36b796ee762748144c4.zip"
+    ],
+    "source_catalog_id": "xiaomi-xiaomi-pad-5",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Xiaomi",
+    "marketing_name": "Xiaomi Pad 6",
+    "model_codes": ["23043RP34G"],
+    "aliases": ["Xiaomi Pad 6", "23043RP34G"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/998_operatorx_operatorx_xm/14/08/2024/f8be03da0234eaaeff40381809d6421a.zip"
+    ],
+    "source_catalog_id": "xiaomi-xiaomi-pad-6",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Redmi",
+    "marketing_name": "Redmi 9A",
+    "model_codes": ["M2006C3LG"],
+    "aliases": ["Redmi 9A", "M2006C3LG"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/622_updatepdf_in/29/03/2022/58ff563932050f4eb895789db80b08f7.zip"
+    ],
+    "source_catalog_id": "redmi-redmi-9a",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Redmi",
+    "marketing_name": "Redmi 9C NFC",
+    "model_codes": ["M2006C3MNG"],
+    "aliases": ["Redmi 9C NFC", "M2006C3MNG"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/250_updatepdf_in/29/03/2022/f67838fb042ce3cfcd34e64419051078.zip"
+    ],
+    "source_catalog_id": "redmi-redmi-9c-nfc",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Redmi",
+    "marketing_name": "Redmi Note 10",
+    "model_codes": ["M2101K7AG"],
+    "aliases": ["Redmi Note 10", "M2101K7AG"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/192_updatepdf_in/23/03/2021/b985fa6b2085c346f9800b6b1935b98c.pdf"
+    ],
+    "source_catalog_id": "redmi-redmi-note-10",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Redmi",
+    "marketing_name": "Redmi Note 10 Pro",
+    "model_codes": ["M2101K6G"],
+    "aliases": ["Redmi Note 10 Pro", "M2101K6G"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/119_updatepdf_in/07/03/2022/7150381e6a75d8717679cf2c047086ce.zip"
+    ],
+    "source_catalog_id": "redmi-redmi-note-10-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Redmi",
+    "marketing_name": "Redmi Note 11 Pro 5G",
+    "model_codes": ["2201116SG"],
+    "aliases": ["Redmi Note 11 Pro 5G", "2201116SG"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/824_operatorx_operatorx_xm/26/08/2024/b00199b4e09d00def7fbba0aa55f6d42.zip"
+    ],
+    "source_catalog_id": "redmi-redmi-note-11-pro-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Redmi",
+    "marketing_name": "Redmi Note 12 5G",
+    "model_codes": ["22111317G"],
+    "aliases": ["Redmi Note 12 5G", "22111317G"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/728_operatorx_operatorx_xm/14/08/2024/0eb1249a96dfb4780fa6c4548e32a316.zip"
+    ],
+    "source_catalog_id": "redmi-redmi-note-12-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Redmi",
+    "marketing_name": "Redmi Note 12 Pro 5G",
+    "model_codes": ["22101316G"],
+    "aliases": ["Redmi Note 12 Pro 5G", "22101316G"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/147_operatorx_operatorx_xm/27/08/2024/9b97afd73ca4262b53367e4d2d0e029a.zip"
+    ],
+    "source_catalog_id": "redmi-redmi-note-12-pro-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Redmi",
+    "marketing_name": "Redmi Note 13 Pro 5G",
+    "model_codes": ["2312DRA50G"],
+    "aliases": ["Redmi Note 13 Pro 5G", "2312DRA50G"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/769_operatorx_operatorx_xm/15/08/2024/717df1222d4ff52f2dac595f01daf982.zip"
+    ],
+    "source_catalog_id": "redmi-redmi-note-13-pro-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Redmi",
+    "marketing_name": "Redmi Note 8T",
+    "model_codes": ["M1908C3XG"],
+    "aliases": ["Redmi Note 8T", "M1908C3XG"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/826_operatorx_operatorx_xm/30/07/2026/68329079812e1c203a9e054221cee125.zip"
+    ],
+    "source_catalog_id": "redmi-redmi-note-8t",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Redmi",
+    "marketing_name": "Redmi Note 9 Pro",
+    "model_codes": ["M2003J6B2G"],
+    "aliases": ["Redmi Note 9 Pro", "M2003J6B2G"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/156_operatorx_operatorx_xm/30/07/2026/ad9410df0e863d6a8aac59c043d901e4.zip"
+    ],
+    "source_catalog_id": "redmi-redmi-note-9-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Redmi",
+    "marketing_name": "Redmi Pad",
+    "model_codes": ["22081283G"],
+    "aliases": ["Redmi Pad", "22081283G"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/906_operatorx_operatorx_xm/17/04/2024/29f0f438592b8d0130d994f1407eb9e1.zip"
+    ],
+    "source_catalog_id": "redmi-redmi-pad",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "POCO",
+    "marketing_name": "POCO F3",
+    "model_codes": ["M2012K11AG"],
+    "aliases": ["POCO F3", "M2012K11AG"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/683_updatepdf_in/30/03/2021/3a9cba39fbea3b8d7dc261a1d9e20d2f.pdf"
+    ],
+    "source_catalog_id": "poco-poco-f3",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "POCO",
+    "marketing_name": "POCO F4",
+    "model_codes": ["22021211RG"],
+    "aliases": ["POCO F4", "22021211RG"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/426_operatorx_operatorx_xm/27/08/2024/3b93efc78a283c0980f16397459c6f2b.zip"
+    ],
+    "source_catalog_id": "poco-poco-f4",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "POCO",
+    "marketing_name": "POCO X3 Pro",
+    "model_codes": ["M2102J20SG"],
+    "aliases": ["POCO X3 Pro", "M2102J20SG"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/822_operatorx_operatorx_xm/30/07/2026/2022f7dd1fa532555bb747eb3b2c5772.zip"
+    ],
+    "source_catalog_id": "poco-poco-x3-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "POCO",
+    "marketing_name": "POCO X5 Pro 5G",
+    "model_codes": ["22101320G"],
+    "aliases": ["POCO X5 Pro 5G", "22101320G"],
+    "region": "EU declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.mi.com/global/certification/compliance/",
+      "https://i02.appmifile.com/805_operatorx_operatorx_xm/14/08/2024/f1da441440a3e2bc7298085f29668dd5.zip"
+    ],
+    "source_catalog_id": "poco-poco-x5-pro-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Google",
+    "marketing_name": "Pixel 10",
+    "model_codes": ["GK2MP"],
+    "aliases": ["Pixel 10", "GK2MP"],
+    "region": "Europe in official ROW / EMEA group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.google.com/pixelphone/answer/7158570?hl=en"],
+    "source_catalog_id": "google-pixel-10",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Google",
+    "marketing_name": "Pixel 10 Pro",
+    "model_codes": ["GEHN3"],
+    "aliases": ["Pixel 10 Pro", "GEHN3"],
+    "region": "Europe in official ROW / EMEA group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.google.com/pixelphone/answer/7158570?hl=en"],
+    "source_catalog_id": "google-pixel-10-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Google",
+    "marketing_name": "Pixel 10 Pro Fold",
+    "model_codes": ["GU0NP"],
+    "aliases": ["Pixel 10 Pro Fold", "GU0NP"],
+    "region": "Europe in official ROW / EMEA group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.google.com/pixelphone/answer/7158570?hl=en"],
+    "source_catalog_id": "google-pixel-10-pro-fold",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Google",
+    "marketing_name": "Pixel 10 Pro XL",
+    "model_codes": ["G45RY"],
+    "aliases": ["Pixel 10 Pro XL", "G45RY"],
+    "region": "Europe in official ROW / EMEA group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.google.com/pixelphone/answer/7158570?hl=en"],
+    "source_catalog_id": "google-pixel-10-pro-xl",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Google",
+    "marketing_name": "Pixel 10a",
+    "model_codes": ["G4H7L"],
+    "aliases": ["Pixel 10a", "G4H7L"],
+    "region": "Europe in official ROW / EMEA group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.google.com/pixelphone/answer/7158570?hl=en"],
+    "source_catalog_id": "google-pixel-10a",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Google",
+    "marketing_name": "Pixel 11",
+    "model_codes": ["GUJ0N"],
+    "aliases": ["Pixel 11", "GUJ0N"],
+    "region": "Europe in official ROW / EMEA group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.google.com/pixelphone/answer/7158570?hl=en"],
+    "source_catalog_id": "google-pixel-11",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Google",
+    "marketing_name": "Pixel 11 Pro",
+    "model_codes": ["GM45K"],
+    "aliases": ["Pixel 11 Pro", "GM45K"],
+    "region": "Europe in official ROW / EMEA group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.google.com/pixelphone/answer/7158570?hl=en"],
+    "source_catalog_id": "google-pixel-11-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Google",
+    "marketing_name": "Pixel 11 Pro Fold",
+    "model_codes": ["GZDQ6"],
+    "aliases": ["Pixel 11 Pro Fold", "GZDQ6"],
+    "region": "Europe in official ROW / EMEA group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.google.com/pixelphone/answer/7158570?hl=en"],
+    "source_catalog_id": "google-pixel-11-pro-fold",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Google",
+    "marketing_name": "Pixel 11 Pro XL",
+    "model_codes": ["G4HCD"],
+    "aliases": ["Pixel 11 Pro XL", "G4HCD"],
+    "region": "Europe in official ROW / EMEA group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.google.com/pixelphone/answer/7158570?hl=en"],
+    "source_catalog_id": "google-pixel-11-pro-xl",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Google",
+    "marketing_name": "Pixel 6a",
+    "model_codes": ["G1AZG"],
+    "aliases": ["Pixel 6a", "G1AZG"],
+    "region": "Europe in official ROW / EMEA group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.google.com/pixelphone/answer/7158570?hl=en"],
+    "source_catalog_id": "google-pixel-6a",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Google",
+    "marketing_name": "Pixel 8",
+    "model_codes": ["GPJ41"],
+    "aliases": ["Pixel 8", "GPJ41"],
+    "region": "Europe in official ROW / EMEA group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.google.com/pixelphone/answer/7158570?hl=en"],
+    "source_catalog_id": "google-pixel-8",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Google",
+    "marketing_name": "Pixel 8a",
+    "model_codes": ["G6GPR"],
+    "aliases": ["Pixel 8a", "G6GPR"],
+    "region": "Europe in official ROW / EMEA group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.google.com/pixelphone/answer/7158570?hl=en"],
+    "source_catalog_id": "google-pixel-8a",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Google",
+    "marketing_name": "Pixel 9",
+    "model_codes": ["GUR25"],
+    "aliases": ["Pixel 9", "GUR25"],
+    "region": "Europe in official ROW / EMEA group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.google.com/pixelphone/answer/7158570?hl=en"],
+    "source_catalog_id": "google-pixel-9",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Google",
+    "marketing_name": "Pixel 9 Pro",
+    "model_codes": ["GEC77"],
+    "aliases": ["Pixel 9 Pro", "GEC77"],
+    "region": "Europe in official ROW / EMEA group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.google.com/pixelphone/answer/7158570?hl=en"],
+    "source_catalog_id": "google-pixel-9-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Google",
+    "marketing_name": "Pixel 9 Pro Fold",
+    "model_codes": ["GGH2X"],
+    "aliases": ["Pixel 9 Pro Fold", "GGH2X"],
+    "region": "Europe in official ROW / EMEA group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.google.com/pixelphone/answer/7158570?hl=en"],
+    "source_catalog_id": "google-pixel-9-pro-fold",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Google",
+    "marketing_name": "Pixel 9 Pro XL",
+    "model_codes": ["GZC4K"],
+    "aliases": ["Pixel 9 Pro XL", "GZC4K"],
+    "region": "Europe in official ROW / EMEA group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.google.com/pixelphone/answer/7158570?hl=en"],
+    "source_catalog_id": "google-pixel-9-pro-xl",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Google",
+    "marketing_name": "Pixel 9a",
+    "model_codes": ["GTF7P"],
+    "aliases": ["Pixel 9a", "GTF7P"],
+    "region": "Europe in official ROW / EMEA group",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.google.com/pixelphone/answer/7158570?hl=en"],
+    "source_catalog_id": "google-pixel-9a",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Motorola",
+    "marketing_name": "Moto g200 5G",
+    "model_codes": ["XT2175-1"],
+    "aliases": ["Moto g200 5G", "XT2175-1"],
+    "region": "Europe: UKCA declaration",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.motorola.com.mx/IFT",
+      "https://en-emea.support.motorola.com/app/answers/detail/a_id/168585/~/xt2175-1-moto-g200-5g-mc3b7-ukca-doc"
+    ],
+    "source_catalog_id": "motorola-moto-g200-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A16s",
+    "model_codes": ["CPH2271"],
+    "aliases": ["OPPO A16s", "CPH2271"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-a16s",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A17",
+    "model_codes": ["CPH2477"],
+    "aliases": ["OPPO A17", "CPH2477"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-a17",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A38",
+    "model_codes": ["CPH2579"],
+    "aliases": ["OPPO A38", "CPH2579"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-a38",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A40",
+    "model_codes": ["CPH2669"],
+    "aliases": ["OPPO A40", "CPH2669"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-a40",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A5",
+    "model_codes": ["CPH2727"],
+    "aliases": ["OPPO A5", "CPH2727"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-a5",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A5 5G",
+    "model_codes": ["CPH2735"],
+    "aliases": ["OPPO A5 5G", "CPH2735"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-a5-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A5 Pro 5G",
+    "model_codes": ["CPH2695"],
+    "aliases": ["OPPO A5 Pro 5G", "CPH2695"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-a5-pro-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A53",
+    "model_codes": ["CPH2127"],
+    "aliases": ["OPPO A53", "CPH2127"],
+    "region": "Europe: UK specifications",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/smartphones/series-a/a53/specs/"],
+    "source_catalog_id": "oppo-oppo-a53",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A54 5G",
+    "model_codes": ["CPH2195"],
+    "aliases": ["OPPO A54 5G", "CPH2195"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-a54-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A57",
+    "model_codes": ["CPH2387"],
+    "aliases": ["OPPO A57", "CPH2387"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-a57",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A6",
+    "model_codes": ["CPH2817"],
+    "aliases": ["OPPO A6", "CPH2817"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-a6",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A6 5G",
+    "model_codes": ["CPH2831"],
+    "aliases": ["OPPO A6 5G", "CPH2831"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-a6-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A6 Pro 5G",
+    "model_codes": ["CPH2781"],
+    "aliases": ["OPPO A6 Pro 5G", "CPH2781"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-a6-pro-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A60 5G",
+    "model_codes": ["CPH2683"],
+    "aliases": ["OPPO A60 5G", "CPH2683"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-a60-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A6k 5G",
+    "model_codes": ["CPH2891"],
+    "aliases": ["OPPO A6k 5G", "CPH2891"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-a6k-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A6x",
+    "model_codes": ["CPH2819"],
+    "aliases": ["OPPO A6x", "CPH2819"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-a6x",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A6x 5G",
+    "model_codes": ["CPH2783"],
+    "aliases": ["OPPO A6x 5G", "CPH2783"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-a6x-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A77 5G",
+    "model_codes": ["CPH2339"],
+    "aliases": ["OPPO A77 5G", "CPH2339"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-a77-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A78 5G",
+    "model_codes": ["CPH2483"],
+    "aliases": ["OPPO A78 5G", "CPH2483"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-a78-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO A80 5G",
+    "model_codes": ["CPH2639"],
+    "aliases": ["OPPO A80 5G", "CPH2639"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-a80-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Find X2 Lite",
+    "model_codes": ["CPH2005"],
+    "aliases": ["OPPO Find X2 Lite", "CPH2005"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-find-x2-lite",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Find X3 Lite",
+    "model_codes": ["CPH2145"],
+    "aliases": ["OPPO Find X3 Lite", "CPH2145"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-find-x3-lite",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Find X3 Neo",
+    "model_codes": ["CPH2207"],
+    "aliases": ["OPPO Find X3 Neo", "CPH2207"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-find-x3-neo",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Find X3 Pro",
+    "model_codes": ["CPH2173"],
+    "aliases": ["OPPO Find X3 Pro", "CPH2173"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-find-x3-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Find X5",
+    "model_codes": ["CPH2307"],
+    "aliases": ["OPPO Find X5", "CPH2307"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-find-x5",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Find X5 Lite",
+    "model_codes": ["CPH2371"],
+    "aliases": ["OPPO Find X5 Lite", "CPH2371"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-find-x5-lite",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Find X5 Pro",
+    "model_codes": ["CPH2305"],
+    "aliases": ["OPPO Find X5 Pro", "CPH2305"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-find-x5-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Find X8 Pro",
+    "model_codes": ["CPH2659"],
+    "aliases": ["OPPO Find X8 Pro", "CPH2659"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-find-x8-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Find X9",
+    "model_codes": ["CPH2797"],
+    "aliases": ["OPPO Find X9", "CPH2797"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-find-x9",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Find X9 Pro",
+    "model_codes": ["CPH2791"],
+    "aliases": ["OPPO Find X9 Pro", "CPH2791"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-find-x9-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Find X9 Ultra",
+    "model_codes": ["CPH2841"],
+    "aliases": ["OPPO Find X9 Ultra", "CPH2841"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-find-x9-ultra",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Pad 5",
+    "model_codes": ["OPD2502"],
+    "aliases": ["OPPO Pad 5", "OPD2502"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-pad-5",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Pad 5 5G",
+    "model_codes": ["OPD2503"],
+    "aliases": ["OPPO Pad 5 5G", "OPD2503"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-pad-5-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Pad Air",
+    "model_codes": ["OPD2102A"],
+    "aliases": ["OPPO Pad Air", "OPD2102A"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-pad-air",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Pad SE",
+    "model_codes": ["OPD2420", "OPD2419"],
+    "aliases": ["OPPO Pad SE", "OPD2420", "OPD2419"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-pad-se",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Reno10",
+    "model_codes": ["CPH2531"],
+    "aliases": ["OPPO Reno10", "CPH2531"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-reno10",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Reno11 F 5G",
+    "model_codes": ["CPH2603"],
+    "aliases": ["OPPO Reno11 F 5G", "CPH2603"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-reno11-f-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Reno12",
+    "model_codes": ["CPH2625"],
+    "aliases": ["OPPO Reno12", "CPH2625"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-reno12",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Reno12 F 5G",
+    "model_codes": ["CPH2637"],
+    "aliases": ["OPPO Reno12 F 5G", "CPH2637"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-reno12-f-5g",
+    "ambiguous_model_codes": ["CPH2637"]
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Reno12 FS 5G",
+    "model_codes": ["CPH2637"],
+    "aliases": ["OPPO Reno12 FS 5G", "CPH2637"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-reno12-fs-5g",
+    "ambiguous_model_codes": ["CPH2637"]
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Reno12 Pro",
+    "model_codes": ["CPH2629"],
+    "aliases": ["OPPO Reno12 Pro", "CPH2629"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-reno12-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Reno13 5G",
+    "model_codes": ["CPH2689"],
+    "aliases": ["OPPO Reno13 5G", "CPH2689"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-reno13-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Reno13 F 5G",
+    "model_codes": ["CPH2699"],
+    "aliases": ["OPPO Reno13 F 5G", "CPH2699"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-reno13-f-5g",
+    "ambiguous_model_codes": ["CPH2699"]
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Reno13 FS 5G",
+    "model_codes": ["CPH2699"],
+    "aliases": ["OPPO Reno13 FS 5G", "CPH2699"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-reno13-fs-5g",
+    "ambiguous_model_codes": ["CPH2699"]
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Reno13 Pro 5G",
+    "model_codes": ["CPH2697"],
+    "aliases": ["OPPO Reno13 Pro 5G", "CPH2697"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-reno13-pro-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Reno15 F 5G",
+    "model_codes": ["CPH2801"],
+    "aliases": ["OPPO Reno15 F 5G", "CPH2801"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-reno15-f-5g",
+    "ambiguous_model_codes": ["CPH2801"]
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Reno15 FS 5G",
+    "model_codes": ["CPH2801"],
+    "aliases": ["OPPO Reno15 FS 5G", "CPH2801"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-reno15-fs-5g",
+    "ambiguous_model_codes": ["CPH2801"]
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Reno16 5G",
+    "model_codes": ["CPH2865"],
+    "aliases": ["OPPO Reno16 5G", "CPH2865"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-reno16-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Reno16 F 5G",
+    "model_codes": ["CPH2859"],
+    "aliases": ["OPPO Reno16 F 5G", "CPH2859"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-reno16-f-5g",
+    "ambiguous_model_codes": ["CPH2859"]
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Reno16 FS 5G",
+    "model_codes": ["CPH2859"],
+    "aliases": ["OPPO Reno16 FS 5G", "CPH2859"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-reno16-fs-5g",
+    "ambiguous_model_codes": ["CPH2859"]
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Reno16 Pro 5G",
+    "model_codes": ["CPH2863"],
+    "aliases": ["OPPO Reno16 Pro 5G", "CPH2863"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-reno16-pro-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Reno4 Pro 5G",
+    "model_codes": ["CPH2089"],
+    "aliases": ["OPPO Reno4 Pro 5G", "CPH2089"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-reno4-pro-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OPPO",
+    "marketing_name": "OPPO Reno8 Pro 5G",
+    "model_codes": ["CPH2357"],
+    "aliases": ["OPPO Reno8 Pro 5G", "CPH2357"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oppo.com/uk/pstisoc/"],
+    "source_catalog_id": "oppo-oppo-reno8-pro-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus 10 Pro",
+    "model_codes": ["NE2213"],
+    "aliases": ["OnePlus 10 Pro", "NE2213"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-10-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus 10T",
+    "model_codes": ["CPH2415"],
+    "aliases": ["OnePlus 10T", "CPH2415"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-10t",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus 11",
+    "model_codes": ["CPH2449"],
+    "aliases": ["OnePlus 11", "CPH2449"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-11",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus 12",
+    "model_codes": ["CPH2581"],
+    "aliases": ["OnePlus 12", "CPH2581"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-12",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus 12R",
+    "model_codes": ["CPH2609"],
+    "aliases": ["OnePlus 12R", "CPH2609"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-12r",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus 13",
+    "model_codes": ["CPH2653"],
+    "aliases": ["OnePlus 13", "CPH2653"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-13",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus 13R",
+    "model_codes": ["CPH2645"],
+    "aliases": ["OnePlus 13R", "CPH2645"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-13r",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus 15",
+    "model_codes": ["CPH2747"],
+    "aliases": ["OnePlus 15", "CPH2747"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-15",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus 15R",
+    "model_codes": ["CPH2769"],
+    "aliases": ["OnePlus 15R", "CPH2769"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-15r",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus 8",
+    "model_codes": ["IN2013"],
+    "aliases": ["OnePlus 8", "IN2013"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-8",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus 8 Pro",
+    "model_codes": ["IN2023"],
+    "aliases": ["OnePlus 8 Pro", "IN2023"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-8-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus 8T",
+    "model_codes": ["KB2003"],
+    "aliases": ["OnePlus 8T", "KB2003"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-8t",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus 9",
+    "model_codes": ["LE2113"],
+    "aliases": ["OnePlus 9", "LE2113"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-9",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus 9 Pro",
+    "model_codes": ["LE2123"],
+    "aliases": ["OnePlus 9 Pro", "LE2123"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-9-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus Nord",
+    "model_codes": ["AC2003"],
+    "aliases": ["OnePlus Nord", "AC2003"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-nord",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus Nord 2",
+    "model_codes": ["DN2103"],
+    "aliases": ["OnePlus Nord 2", "DN2103"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-nord-2",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus Nord 2T",
+    "model_codes": ["CPH2399"],
+    "aliases": ["OnePlus Nord 2T", "CPH2399"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-nord-2t",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus Nord 3",
+    "model_codes": ["CPH2493"],
+    "aliases": ["OnePlus Nord 3", "CPH2493"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-nord-3",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus Nord 4",
+    "model_codes": ["CPH2663"],
+    "aliases": ["OnePlus Nord 4", "CPH2663"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-nord-4",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus Nord 5",
+    "model_codes": ["CPH2709"],
+    "aliases": ["OnePlus Nord 5", "CPH2709"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-nord-5",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus Nord CE",
+    "model_codes": ["EB2103"],
+    "aliases": ["OnePlus Nord CE", "EB2103"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-nord-ce",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus Nord CE 2",
+    "model_codes": ["IV2201"],
+    "aliases": ["OnePlus Nord CE 2", "IV2201"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-nord-ce-2",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus Nord CE 2 Lite",
+    "model_codes": ["CPH2409"],
+    "aliases": ["OnePlus Nord CE 2 Lite", "CPH2409"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-nord-ce-2-lite",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus Nord CE 3 Lite",
+    "model_codes": ["CPH2465"],
+    "aliases": ["OnePlus Nord CE 3 Lite", "CPH2465"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-nord-ce-3-lite",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus Nord CE 4 Lite",
+    "model_codes": ["CPH2621"],
+    "aliases": ["OnePlus Nord CE 4 Lite", "CPH2621"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-nord-ce-4-lite",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus Nord CE5",
+    "model_codes": ["CPH2719"],
+    "aliases": ["OnePlus Nord CE5", "CPH2719"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-nord-ce5",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus Open",
+    "model_codes": ["CPH2551"],
+    "aliases": ["OnePlus Open", "CPH2551"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-open",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus Pad",
+    "model_codes": ["OPD2203"],
+    "aliases": ["OnePlus Pad", "OPD2203"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-pad",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus Pad 3",
+    "model_codes": ["OPD2415"],
+    "aliases": ["OnePlus Pad 3", "OPD2415"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-pad-3",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus Pad Go",
+    "model_codes": ["OPD2304"],
+    "aliases": ["OnePlus Pad Go", "OPD2304"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-pad-go",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus Pad Go 2",
+    "model_codes": ["OPD2504", "OPD2505"],
+    "aliases": ["OnePlus Pad Go 2", "OPD2504", "OPD2505"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-pad-go-2",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "OnePlus",
+    "marketing_name": "OnePlus Pad Lite",
+    "model_codes": ["OPD2480", "OPD2481"],
+    "aliases": ["OnePlus Pad Lite", "OPD2480", "OPD2481"],
+    "region": "Europe: UK compliance statement",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.oneplus.com/uk/pstisoc"],
+    "source_catalog_id": "oneplus-oneplus-pad-lite",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HONOR",
+    "marketing_name": "HONOR 400 Pro",
+    "model_codes": ["DNP-NX9"],
+    "aliases": ["HONOR 400 Pro", "DNP-NX9"],
+    "region": "Europe: EU",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.honor.com/content/dam/honor/common/energy/product-information-sheet/english/HONOR%20400%20Pro_data%20sheet_2327983_en.pdf"
+    ],
+    "source_catalog_id": "honor-honor-400-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HONOR",
+    "marketing_name": "HONOR 90",
+    "model_codes": ["REA-NX9"],
+    "aliases": ["HONOR 90", "REA-NX9"],
+    "region": "Europe: PL",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.honor.com/content/dam/honor/pl/support/product-manual/honor-90-ug.pdf"
+    ],
+    "source_catalog_id": "honor-honor-90",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HONOR",
+    "marketing_name": "HONOR Magic V2",
+    "model_codes": ["VER-N49"],
+    "aliases": ["HONOR Magic V2", "VER-N49"],
+    "region": "Europe: EU",
+    "evidence_status": "verified",
+    "source_urls": ["https://developer.honor.com/en/tg/android15"],
+    "source_catalog_id": "honor-honor-magic-v2",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HONOR",
+    "marketing_name": "HONOR Magic6 Pro",
+    "model_codes": ["BVL-N49"],
+    "aliases": ["HONOR Magic6 Pro", "BVL-N49"],
+    "region": "Europe: EU",
+    "evidence_status": "verified",
+    "source_urls": ["https://developer.honor.com/en/tg/android15"],
+    "source_catalog_id": "honor-honor-magic6-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Huawei",
+    "marketing_name": "HUAWEI P20",
+    "model_codes": ["EML-L09", "EML-L29"],
+    "aliases": ["HUAWEI P20", "EML-L09", "EML-L29"],
+    "region": "Europe: UK",
+    "evidence_status": "verified",
+    "source_urls": ["https://consumer.huawei.com/uk/support/content/en-gb00684803/"],
+    "source_catalog_id": "huawei-huawei-p20",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Huawei",
+    "marketing_name": "HUAWEI P30",
+    "model_codes": ["ELE-L29", "ELE-L09"],
+    "aliases": ["HUAWEI P30", "ELE-L29", "ELE-L09"],
+    "region": "Europe: BE",
+    "evidence_status": "verified",
+    "source_urls": ["https://consumer.huawei.com/be-fr/phones/p301/specs/"],
+    "source_catalog_id": "huawei-huawei-p30",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Huawei",
+    "marketing_name": "HUAWEI P30 Pro",
+    "model_codes": ["VOG-L29", "VOG-L09"],
+    "aliases": ["HUAWEI P30 Pro", "VOG-L29", "VOG-L09"],
+    "region": "Europe: IT",
+    "evidence_status": "verified",
+    "source_urls": ["https://consumer.huawei.com/it/phones/p30-pro1/specs/"],
+    "source_catalog_id": "huawei-huawei-p30-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "NARZO N65 5G",
+    "model_codes": ["RMX3997"],
+    "aliases": ["NARZO N65 5G", "RMX3997"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-narzo-n65-5g",
+    "ambiguous_model_codes": ["RMX3997"]
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 10",
+    "model_codes": ["RMX3630"],
+    "aliases": ["realme 10", "RMX3630"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-10",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 11",
+    "model_codes": ["RMX3636"],
+    "aliases": ["realme 11", "RMX3636"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-11",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 11 5G",
+    "model_codes": ["RMX3780"],
+    "aliases": ["realme 11 5G", "RMX3780"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-11-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 11 Pro 5G",
+    "model_codes": ["RMX3771"],
+    "aliases": ["realme 11 Pro 5G", "RMX3771"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-11-pro-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 11 Pro+ 5G",
+    "model_codes": ["RMX3741"],
+    "aliases": ["realme 11 Pro+ 5G", "RMX3741"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-11-proplus-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 11x 5G",
+    "model_codes": ["RMX3785"],
+    "aliases": ["realme 11x 5G", "RMX3785"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-11x-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 12 5G",
+    "model_codes": ["RMX3999"],
+    "aliases": ["realme 12 5G", "RMX3999"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-12-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 12 Pro 5G",
+    "model_codes": ["RMX3842"],
+    "aliases": ["realme 12 Pro 5G", "RMX3842"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-12-pro-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 12 Pro+ 5G",
+    "model_codes": ["RMX3840"],
+    "aliases": ["realme 12 Pro+ 5G", "RMX3840"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-12-proplus-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 12+ 5G",
+    "model_codes": ["RMX3867"],
+    "aliases": ["realme 12+ 5G", "RMX3867"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-12plus-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 12x 5G",
+    "model_codes": ["RMX3997"],
+    "aliases": ["realme 12x 5G", "RMX3997"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-12x-5g",
+    "ambiguous_model_codes": ["RMX3998", "RMX3997"]
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 13 5G",
+    "model_codes": ["RMX3951"],
+    "aliases": ["realme 13 5G", "RMX3951"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-13-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 13+",
+    "model_codes": ["RMX5000"],
+    "aliases": ["realme 13+", "RMX5000"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-13plus",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 14 5G",
+    "model_codes": ["RMX5070"],
+    "aliases": ["realme 14 5G", "RMX5070"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-14-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 14 Pro 5G",
+    "model_codes": ["RMX5056"],
+    "aliases": ["realme 14 Pro 5G", "RMX5056"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-14-pro-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 14 Pro+ 5G",
+    "model_codes": ["RMX5051"],
+    "aliases": ["realme 14 Pro+ 5G", "RMX5051"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-14-proplus-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 14x 5G",
+    "model_codes": ["RMX3943"],
+    "aliases": ["realme 14x 5G", "RMX3943"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-14x-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 9",
+    "model_codes": ["RMX3521"],
+    "aliases": ["realme 9", "RMX3521"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-9",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 9 5G",
+    "model_codes": ["RMX3474"],
+    "aliases": ["realme 9 5G", "RMX3474"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-9-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 9 Pro 5G",
+    "model_codes": ["RMX3472"],
+    "aliases": ["realme 9 Pro 5G", "RMX3472"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-9-pro-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 9i",
+    "model_codes": ["RMX3491", "RMX3493"],
+    "aliases": ["realme 9i", "RMX3491", "RMX3493"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-9i",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme 9i 5G",
+    "model_codes": ["RMX3572"],
+    "aliases": ["realme 9i 5G", "RMX3572"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-9i-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme C31",
+    "model_codes": ["RMX3501"],
+    "aliases": ["realme C31", "RMX3501"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-c31",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme C33",
+    "model_codes": ["RMX3624"],
+    "aliases": ["realme C33", "RMX3624"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-c33",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme C35",
+    "model_codes": ["RMX3511"],
+    "aliases": ["realme C35", "RMX3511"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-c35",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme C51",
+    "model_codes": ["RMX3830"],
+    "aliases": ["realme C51", "RMX3830"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-c51",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme C53",
+    "model_codes": ["RMX3760"],
+    "aliases": ["realme C53", "RMX3760"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-c53",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme C55",
+    "model_codes": ["RMX3710"],
+    "aliases": ["realme C55", "RMX3710"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-c55",
+    "ambiguous_model_codes": ["RMX3710"]
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme C61",
+    "model_codes": ["RMX3930"],
+    "aliases": ["realme C61", "RMX3930"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-c61",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme C65 4G",
+    "model_codes": ["RMX3910"],
+    "aliases": ["realme C65 4G", "RMX3910"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-c65-4g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme C65 5G",
+    "model_codes": ["RMX3997"],
+    "aliases": ["realme C65 5G", "RMX3997"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-c65-5g",
+    "ambiguous_model_codes": ["RMX3997"]
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme C67 4G",
+    "model_codes": ["RMX3890"],
+    "aliases": ["realme C67 4G", "RMX3890"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-c67-4g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme C75",
+    "model_codes": ["RMX3941"],
+    "aliases": ["realme C75", "RMX3941"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-c75",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme GT",
+    "model_codes": ["RMX2202"],
+    "aliases": ["realme GT", "RMX2202"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-gt",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme GT 6",
+    "model_codes": ["RMX3851"],
+    "aliases": ["realme GT 6", "RMX3851"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-gt-6",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme GT 6T",
+    "model_codes": ["RMX3853"],
+    "aliases": ["realme GT 6T", "RMX3853"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-gt-6t",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme GT NEO 3T",
+    "model_codes": ["RMX3371"],
+    "aliases": ["realme GT NEO 3T", "RMX3371"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-gt-neo-3t",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme GT2",
+    "model_codes": ["RMX3311"],
+    "aliases": ["realme GT2", "RMX3311"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-gt2",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme Narzo 50",
+    "model_codes": ["RMX3286"],
+    "aliases": ["realme Narzo 50", "RMX3286"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-narzo-50",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme Narzo 50 5g",
+    "model_codes": ["RMX3612"],
+    "aliases": ["realme Narzo 50 5g", "RMX3612"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-narzo-50-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme Narzo 50A Prime",
+    "model_codes": ["RMX3516"],
+    "aliases": ["realme Narzo 50A Prime", "RMX3516"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-narzo-50a-prime",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme Narzo N55",
+    "model_codes": ["RMX3710"],
+    "aliases": ["realme Narzo N55", "RMX3710"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-narzo-n55",
+    "ambiguous_model_codes": ["RMX3710"]
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme Note 60x",
+    "model_codes": ["RMX3938"],
+    "aliases": ["realme Note 60x", "RMX3938"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-note-60x",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "realme",
+    "marketing_name": "realme Pad 2",
+    "model_codes": ["RMP2205"],
+    "aliases": ["realme Pad 2", "RMP2205"],
+    "region": "EU declaration index matched by exact code",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.realme.com/global/legal/AndroidSecurityAdvisories",
+      "https://www.realme.com/eu/support/declaration"
+    ],
+    "source_catalog_id": "realme-realme-pad-2",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "HMD Arc",
+    "model_codes": ["TA-1682"],
+    "aliases": ["HMD Arc", "TA-1682"],
+    "region": "Europe: explicit EU / CE / UKCA declaration",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-hmd-arc",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "HMD Asha 305",
+    "model_codes": ["TA-1779"],
+    "aliases": ["HMD Asha 305", "TA-1779"],
+    "region": "Europe: explicit EU / CE / UKCA declaration",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-hmd-asha-305",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "HMD Fusion",
+    "model_codes": ["TA-1640", "TA-1643", "TA-1670"],
+    "aliases": ["HMD Fusion", "TA-1640", "TA-1643", "TA-1670"],
+    "region": "Europe: explicit EU / CE / UKCA declaration",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-hmd-fusion",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "HMD Fusion X1",
+    "model_codes": ["TA-1672", "TA-1677"],
+    "aliases": ["HMD Fusion X1", "TA-1672", "TA-1677"],
+    "region": "Europe: explicit EU / CE / UKCA declaration",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-hmd-fusion-x1",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "HMD Pulse",
+    "model_codes": ["TA-1589"],
+    "aliases": ["HMD Pulse", "TA-1589"],
+    "region": "Europe: explicit EU / CE / UKCA declaration",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-hmd-pulse",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "HMD Pulse Pro",
+    "model_codes": ["TA-1588"],
+    "aliases": ["HMD Pulse Pro", "TA-1588"],
+    "region": "Europe: explicit EU / CE / UKCA declaration",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-hmd-pulse-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "HMD Skyline",
+    "model_codes": ["TA-1600", "TA-1688"],
+    "aliases": ["HMD Skyline", "TA-1600", "TA-1688"],
+    "region": "Europe: explicit EU / CE / UKCA declaration",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-hmd-skyline",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "HMD T21",
+    "model_codes": ["TA-1596", "TA-1597", "TA-1599"],
+    "aliases": ["HMD T21", "TA-1596", "TA-1597", "TA-1599"],
+    "region": "Europe: UKCA declared subset",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-hmd-t21",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "Nokia C02",
+    "model_codes": ["TA-1460"],
+    "aliases": ["Nokia C02", "TA-1460"],
+    "region": "Europe: explicit EU / CE / UKCA declaration",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-nokia-c02",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "Nokia C12",
+    "model_codes": ["TA-1535", "TA-1519"],
+    "aliases": ["Nokia C12", "TA-1535", "TA-1519"],
+    "region": "Europe: explicit EU / CE / UKCA declaration",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-nokia-c12",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "Nokia C21 Plus",
+    "model_codes": ["TA-1424"],
+    "aliases": ["Nokia C21 Plus", "TA-1424"],
+    "region": "Europe: explicit EU / CE / UKCA declaration",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-nokia-c21-plus",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "Nokia C31",
+    "model_codes": ["TA-1497"],
+    "aliases": ["Nokia C31", "TA-1497"],
+    "region": "Europe: explicit EU / CE / UKCA declaration",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-nokia-c31",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "Nokia G11",
+    "model_codes": ["TA-1401", "TA-1418"],
+    "aliases": ["Nokia G11", "TA-1401", "TA-1418"],
+    "region": "Europe: explicit EU / CE / UKCA declaration",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-nokia-g11",
+    "ambiguous_model_codes": ["TA-1401", "TA-1418"]
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "Nokia G21",
+    "model_codes": ["TA-1418", "TA-1401"],
+    "aliases": ["Nokia G21", "TA-1418", "TA-1401"],
+    "region": "Europe: explicit EU / CE / UKCA declaration",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-nokia-g21",
+    "ambiguous_model_codes": ["TA-1418", "TA-1401"]
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "Nokia G22",
+    "model_codes": ["TA-1528"],
+    "aliases": ["Nokia G22", "TA-1528"],
+    "region": "Europe: explicit EU / CE / UKCA declaration",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-nokia-g22",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "Nokia G60 5G",
+    "model_codes": ["TA-1479", "TA-1490"],
+    "aliases": ["Nokia G60 5G", "TA-1479", "TA-1490"],
+    "region": "Europe: explicit EU / CE / UKCA declaration",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-nokia-g60-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "Nokia T10",
+    "model_codes": ["TA-1457", "TA-1472"],
+    "aliases": ["Nokia T10", "TA-1457", "TA-1472"],
+    "region": "Europe: UKCA declared subset",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-nokia-t10",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "Nokia T21",
+    "model_codes": ["TA-1487", "TA-1495"],
+    "aliases": ["Nokia T21", "TA-1487", "TA-1495"],
+    "region": "Europe: UKCA declared subset",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-nokia-t21",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "Nokia X30 5G",
+    "model_codes": ["TA-1450", "TA-1443"],
+    "aliases": ["Nokia X30 5G", "TA-1450", "TA-1443"],
+    "region": "Europe: explicit EU / CE / UKCA declaration",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-nokia-x30-5g",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "HMD / Nokia",
+    "marketing_name": "Nokia XR21",
+    "model_codes": ["TA-1486"],
+    "aliases": ["Nokia XR21", "TA-1486"],
+    "region": "Europe: explicit EU / CE / UKCA declaration",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.hmd.com/en_gb/declaration-of-conformity"],
+    "source_catalog_id": "hmdnokia-nokia-xr21",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 1",
+    "model_codes": ["J8110", "J9110"],
+    "aliases": ["Xperia 1", "J8110", "J9110"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-1",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 1 II",
+    "model_codes": ["XQ-AT51"],
+    "aliases": ["Xperia 1 II", "XQ-AT51"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-1-ii",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 1 III",
+    "model_codes": ["XQ-BC52"],
+    "aliases": ["Xperia 1 III", "XQ-BC52"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-1-iii",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 1 IV",
+    "model_codes": ["XQ-CT54"],
+    "aliases": ["Xperia 1 IV", "XQ-CT54"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-1-iv",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 1 V",
+    "model_codes": ["XQ-DQ54"],
+    "aliases": ["Xperia 1 V", "XQ-DQ54"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-1-v",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 1 VI",
+    "model_codes": ["XQ-EC54"],
+    "aliases": ["Xperia 1 VI", "XQ-EC54"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-1-vi",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 1 VII",
+    "model_codes": ["XQ-FS54"],
+    "aliases": ["Xperia 1 VII", "XQ-FS54"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-1-vii",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 1 VIII",
+    "model_codes": ["XQ-GE54"],
+    "aliases": ["Xperia 1 VIII", "XQ-GE54"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-1-viii",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 10 II",
+    "model_codes": ["XQ-AU51", "XQ-AU52"],
+    "aliases": ["Xperia 10 II", "XQ-AU51", "XQ-AU52"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-10-ii",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 10 III",
+    "model_codes": ["XQ-BT52", "HQ-BT52"],
+    "aliases": ["Xperia 10 III", "XQ-BT52", "HQ-BT52"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-10-iii",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 10 IV",
+    "model_codes": ["XQ-CC54"],
+    "aliases": ["Xperia 10 IV", "XQ-CC54"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-10-iv",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 10 V",
+    "model_codes": ["XQ-DC54"],
+    "aliases": ["Xperia 10 V", "XQ-DC54"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-10-v",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 10 VI",
+    "model_codes": ["XQ-ES54"],
+    "aliases": ["Xperia 10 VI", "XQ-ES54"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-10-vi",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 10 VII",
+    "model_codes": ["XQ-FE54"],
+    "aliases": ["Xperia 10 VII", "XQ-FE54"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-10-vii",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 10 VIII",
+    "model_codes": ["XQ-GH54"],
+    "aliases": ["Xperia 10 VIII", "XQ-GH54"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-10-viii",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 5",
+    "model_codes": ["J8210", "J9210"],
+    "aliases": ["Xperia 5", "J8210", "J9210"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-5",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 5 II",
+    "model_codes": ["XQ-AS52"],
+    "aliases": ["Xperia 5 II", "XQ-AS52"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-5-ii",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 5 III",
+    "model_codes": ["XQ-BQ52"],
+    "aliases": ["Xperia 5 III", "XQ-BQ52"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-5-iii",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 5 IV",
+    "model_codes": ["XQ-CQ54"],
+    "aliases": ["Xperia 5 IV", "XQ-CQ54"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-5-iv",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia 5 V",
+    "model_codes": ["XQ-DE54"],
+    "aliases": ["Xperia 5 V", "XQ-DE54"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-5-v",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia L3",
+    "model_codes": ["I3312", "I4312"],
+    "aliases": ["Xperia L3", "I3312", "I4312"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-l3",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia L4",
+    "model_codes": ["XQ-AD51", "XQ-AD52"],
+    "aliases": ["Xperia L4", "XQ-AD51", "XQ-AD52"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-l4",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia PRO",
+    "model_codes": ["XQ-AQ52"],
+    "aliases": ["Xperia PRO", "XQ-AQ52"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-pro",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Sony",
+    "marketing_name": "Xperia PRO-I",
+    "model_codes": ["XQ-BE52"],
+    "aliases": ["Xperia PRO-I", "XQ-BE52"],
+    "region": "Europe: UK support listing",
+    "evidence_status": "verified",
+    "source_urls": ["https://www.sony.co.uk/electronics/support/articles/00304000"],
+    "source_catalog_id": "sony-xperia-pro-i",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "ASUS",
+    "marketing_name": "Zenfone 9",
+    "model_codes": ["AI2202"],
+    "aliases": ["Zenfone 9", "AI2202"],
+    "region": "Europe: ES product SKU",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.asus.com/jp/support/faq/1014441/",
+      "https://www.asus.com/es/mobile-handhelds/phones/zenfone/zenfone-9/where-to-buy/"
+    ],
+    "source_catalog_id": "asus-zenfone-9",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Fairphone",
+    "marketing_name": "Fairphone 4",
+    "model_codes": ["FP4"],
+    "aliases": ["Fairphone 4", "FP4"],
+    "region": "Europe: EU",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.fairphone.com/hc/en-us/article_attachments/10489707889169"],
+    "source_catalog_id": "fairphone-fairphone-4",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Fairphone",
+    "marketing_name": "Fairphone 5",
+    "model_codes": ["FP5"],
+    "aliases": ["Fairphone 5", "FP5"],
+    "region": "Europe: EU",
+    "evidence_status": "verified",
+    "source_urls": ["https://shop.fairphone.com/theme_fairphone/static/src/pdf/energy/fp5/en.pdf"],
+    "source_catalog_id": "fairphone-fairphone-5",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "Fairphone",
+    "marketing_name": "The Fairphone (Gen. 6)",
+    "model_codes": ["FP6"],
+    "aliases": ["The Fairphone (Gen. 6)", "FP6"],
+    "region": "Europe: EU",
+    "evidence_status": "verified",
+    "source_urls": [
+      "https://www.fairphone.com/wp-content/uploads/2025/06/20250615_FP6_EU-Declaration-of-Conformity-DoC.pdf"
+    ],
+    "source_catalog_id": "fairphone-the-fairphone-gen-6",
+    "ambiguous_model_codes": []
+  },
+  {
+    "brand": "ZTE / nubia",
+    "marketing_name": "ZTE Axon 40 Ultra",
+    "model_codes": ["A2023PG"],
+    "aliases": ["ZTE Axon 40 Ultra", "A2023PG"],
+    "region": "Europe: EEA",
+    "evidence_status": "verified",
+    "source_urls": ["https://support.ztedevices.com/en-uk/select-product/axon-40-ultra/"],
+    "source_catalog_id": "ztenubia-zte-axon-40-ultra",
+    "ambiguous_model_codes": []
+  }
+]

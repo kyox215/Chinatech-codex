@@ -11,6 +11,7 @@ import {
 
 import {
   approvalStatusSchema,
+  approvalDecisionBodySchema,
   batchTransitionBodySchema,
   buybackFinalizeInputSchema,
   buybackQuoteCreateBodySchema,
@@ -874,12 +875,12 @@ describe("repairdesk API schemas", () => {
     expect(dashboardSummaryInputSchema.parse({ pageSize: 6 })).toEqual({ pageSize: 6 });
   });
 
-  it("keeps legacy order page sizes accepted while clamping the detail budget to 50", () => {
+  it("accepts 100-order batches while keeping a bounded detail budget", () => {
     expect(orderListPageInputSchema.parse({ page: "2", pageSize: "50" })).toEqual({
       page: 2,
       pageSize: 50,
     });
-    expect(orderListPageInputSchema.parse({ pageSize: 100 })).toEqual({ pageSize: 50 });
+    expect(orderListPageInputSchema.parse({ pageSize: 100 })).toEqual({ pageSize: 100 });
     expect(() => orderListPageInputSchema.parse({ pageSize: 101 })).toThrow();
   });
 
@@ -1136,9 +1137,31 @@ describe("repairdesk API schemas", () => {
     expect(() => orderListFiltersSchema.parse({ queueGroups: ["review"] })).toThrow();
   });
 
+  it("requires an original notification version and UUID operation key", () => {
+    const input = { id: "order", body: "Notification", template_kind: "repair_status" };
+    expect(() => whatsappNotificationBodySchema.parse(input)).toThrow();
+    expect(() =>
+      whatsappNotificationBodySchema.parse({
+        ...input,
+        expected_updated_at: "2026-09-16T00:00:00.123456Z",
+        idempotency_key: "bad",
+      }),
+    ).toThrow();
+    const expected = "2026-09-16T00:00:00.123456+02:00";
+    expect(
+      whatsappNotificationBodySchema.parse({
+        ...input,
+        expected_updated_at: expected,
+        idempotency_key: "00000000-0000-4000-8000-000000000001",
+      }).expected_updated_at,
+    ).toBe(expected);
+  });
+
   it("accepts WhatsApp notification template metadata", () => {
     expect(
       whatsappNotificationBodySchema.parse({
+        expected_updated_at: "2026-09-16T00:00:00.123456Z",
+        idempotency_key: "00000000-0000-4000-8000-000000000001",
         id: "R1",
         body: "Messaggio",
         template_kind: "pickup_ready",
@@ -1152,6 +1175,8 @@ describe("repairdesk API schemas", () => {
     });
     expect(() =>
       whatsappNotificationBodySchema.parse({
+        expected_updated_at: "2026-09-16T00:00:00.123456Z",
+        idempotency_key: "00000000-0000-4000-8000-000000000001",
         id: "R1",
         body: "Messaggio",
         template_kind: "pickup_ready",
@@ -1731,5 +1756,34 @@ describe("repairdesk API schemas", () => {
         approved_role: "owner",
       }),
     ).toThrow();
+  });
+});
+
+describe("approval intent schema", () => {
+  const input = {
+    decision: "approved",
+    expected_updated_at: "2026-09-15T10:00:00.000Z",
+    quote_event_id: "quote-a",
+    idempotency_key: "00000000-0000-4000-8000-000000000901",
+  };
+  it("requires an explicit version, quote pointer and stable operation ID", () => {
+    expect(approvalDecisionBodySchema.parse({ id: "order-1", input }).input).toEqual(input);
+    expect(
+      approvalDecisionBodySchema.parse({ id: "order-1", input: { ...input, quote_event_id: null } })
+        .input.quote_event_id,
+    ).toBeNull();
+    for (const field of ["expected_updated_at", "quote_event_id", "idempotency_key"]) {
+      const missing = { ...input };
+      Reflect.deleteProperty(missing, field);
+      expect(approvalDecisionBodySchema.safeParse({ id: "order-1", input: missing }).success).toBe(
+        false,
+      );
+    }
+    expect(
+      approvalDecisionBodySchema.safeParse({
+        id: "order-1",
+        input: { ...input, idempotency_key: "invalid" },
+      }).success,
+    ).toBe(false);
   });
 });

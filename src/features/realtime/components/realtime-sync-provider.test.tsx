@@ -205,6 +205,92 @@ describe("RealtimeSyncProvider", () => {
     );
   });
 
+  it("refreshes the visible customer workspace after a missed broadcast only when the 30-second revision changes", async () => {
+    vi.useFakeTimers();
+    const client = createMockRealtimeClient();
+    const { queryClient, invalidateQueries } = createTestQueryClient();
+    const revisionLoader = vi
+      .fn()
+      .mockResolvedValueOnce({ revisions: { customers: "7" } })
+      .mockResolvedValueOnce({ revisions: { customers: "8" } });
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+
+    renderProvider({
+      client,
+      domains: ["customers"],
+      enabled: true,
+      foregroundReconcileDomains: ["customers"],
+      queryClient,
+      revisionCheckEnabled: true,
+      revisionLoader,
+      storeId,
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(revisionLoader).toHaveBeenCalledOnce();
+    expect(invalidateQueries).not.toHaveBeenCalled();
+
+    await act(async () => {
+      vi.advanceTimersByTime(REPAIRDESK_FOREGROUND_RECONCILE_INTERVAL_MS);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+      await Promise.resolve();
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ["customers"], refetchType: "active" }),
+      { cancelRefetch: true },
+    );
+  });
+
+  it("refreshes the visible customer history and totals after a missed order broadcast only when the 30-second revision changes", async () => {
+    vi.useFakeTimers();
+    const client = createMockRealtimeClient();
+    const { queryClient, invalidateQueries } = createTestQueryClient();
+    const revisionLoader = vi
+      .fn()
+      .mockResolvedValueOnce({ revisions: { customers: "7", orders: "10" } })
+      .mockResolvedValueOnce({ revisions: { customers: "7", orders: "11" } });
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+
+    renderProvider({
+      client,
+      domains: ["customers", "orders"],
+      enabled: true,
+      foregroundReconcileDomains: ["customers", "orders"],
+      queryClient,
+      revisionCheckEnabled: true,
+      revisionLoader,
+      storeId,
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(revisionLoader).toHaveBeenCalledOnce();
+    expect(invalidateQueries).not.toHaveBeenCalled();
+
+    await act(async () => {
+      vi.advanceTimersByTime(REPAIRDESK_FOREGROUND_RECONCILE_INTERVAL_MS);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+      await Promise.resolve();
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ["customers"], refetchType: "active" }),
+      { cancelRefetch: true },
+    );
+  });
+
   it("does not refresh business queries when the 30-second revision is unchanged", async () => {
     vi.useFakeTimers();
     const client = createMockRealtimeClient();

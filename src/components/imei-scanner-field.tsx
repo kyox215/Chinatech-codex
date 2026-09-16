@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
 import type { BrowserMultiFormatReader, IScannerControls } from "@zxing/browser";
 import { Camera, ClipboardPaste, ImagePlus, Loader2, RotateCcw, ScanLine, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -15,19 +15,19 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
+  extractValidImeiCandidates,
+  getPreferredValidImeiCandidate,
+} from "@/entities/device/model/imei-candidates";
+import {
   normalizeCaptureIdentifier,
   type ImeiCandidate,
   type ImeiCaptureSource,
 } from "@/features/capture/model/barcode-parser";
-import {
-  extractValidImeiCandidates,
-  getPreferredValidImeiCandidate,
-} from "@/entities/device/model/imei-candidates";
 import { recognizeTextWithLocalOcr } from "@/features/capture/model/local-ocr";
-import { inspectAiInventoryImage } from "@/features/ai-assistant/model/inventory-image";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/shared/i18n/locale-provider";
 import type { MessageKey, MessageValues } from "@/shared/i18n/messages";
+import { inspectInventoryImage } from "@/shared/lib/inventory-recognition/inventory-image";
 import { imeiKeyboardProps } from "@/shared/lib/mobile-input";
 
 type CommitSource = "manual" | "paste" | "scan" | "clear";
@@ -398,7 +398,7 @@ export function ImeiScannerField({
       if (!file) return;
 
       try {
-        await inspectAiInventoryImage(file);
+        await inspectInventoryImage(file);
       } catch {
         const message = t(
           ["image/jpeg", "image/png", "image/webp"].includes(file.type)

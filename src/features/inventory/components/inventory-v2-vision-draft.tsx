@@ -1,71 +1,46 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import {
   Camera,
   CheckCircle2,
-  Crop,
   Eye,
   EyeOff,
   ImagePlus,
   Loader2,
-  ShieldCheck,
   Sparkles,
   Trash2,
   X,
 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 
 import { Button } from "@/components/ui/button";
-import type {
-  AiInventoryFieldName,
-  AiInventoryIdentifierCandidate,
-  AiInventoryRecognition,
-} from "@/features/ai-assistant/model/contracts";
-import {
-  AI_INVENTORY_CLIENT_PIPELINE_TIMEOUT_MS,
-  aiInventoryImageBlobToDataUrl,
-  cropPreparedAiInventoryImage,
-  prepareAiInventoryImage,
-  type AiInventoryNormalizedCrop,
-  type PreparedAiInventoryImage,
-} from "@/features/ai-assistant/model/inventory-image";
-import { recognizeAiInventoryImageLocally } from "@/features/ai-assistant/model/inventory-local-recognition";
-import {
-  isLocalInventoryRecognitionSufficient,
-  mergeInventoryRecognitions,
-} from "@/features/ai-assistant/model/inventory-recognition";
-import { runAiInventoryVisionRecognition } from "@/lib/repairdesk/api";
 import type { InventoryV2IdentifierInput } from "@/lib/repairdesk/types";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import type {
+  InventoryFieldName,
+  InventoryIdentifierCandidate,
+  InventoryRecognition,
+} from "@/shared/lib/inventory-recognition/contracts";
+import {
+  INVENTORY_CLIENT_PIPELINE_TIMEOUT_MS,
+  prepareInventoryImage,
+  type PreparedInventoryImage,
+} from "@/shared/lib/inventory-recognition/inventory-image";
+import { recognizeInventoryImageLocally } from "@/shared/lib/inventory-recognition/inventory-local-recognition";
 
 const acceptedImages = "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp";
 const fields = ["brand", "model", "color", "ram_capacity", "storage_capacity"] as const;
-const fieldLabels: Record<AiInventoryFieldName, string> = {
+const fieldLabels: Record<InventoryFieldName, string> = {
   brand: "品牌",
   model: "型号",
   color: "颜色",
   ram_capacity: "内存",
   storage_capacity: "容量",
 };
-type VisionDraftStatus =
-  | "idle"
-  | "preparing"
-  | "local"
-  | "crop"
-  | "cropping"
-  | "cloud"
-  | "ready"
-  | "error";
+type VisionDraftStatus = "idle" | "preparing" | "local" | "ready" | "error";
 
-const initialSpecCrop: AiInventoryNormalizedCrop = {
-  x: 0.04,
-  y: 0.04,
-  width: 0.92,
-  height: 0.48,
-};
-
-const identifierKindPriority: Record<AiInventoryIdentifierCandidate["type"], number> = {
+const identifierKindPriority: Record<InventoryIdentifierCandidate["type"], number> = {
   imei1: 0,
   imei2: 1,
   serial: 2,
@@ -74,7 +49,7 @@ const identifierKindPriority: Record<AiInventoryIdentifierCandidate["type"], num
   unknown: 5,
 };
 
-function prioritizeIdentifierCandidates(identifiers: AiInventoryIdentifierCandidate[]) {
+function prioritizeIdentifierCandidates(identifiers: InventoryIdentifierCandidate[]) {
   return identifiers
     .map((candidate, index) => ({ candidate, index }))
     .sort(
@@ -84,7 +59,7 @@ function prioritizeIdentifierCandidates(identifiers: AiInventoryIdentifierCandid
     );
 }
 
-export type InventoryV2VisionDraft = Partial<Record<AiInventoryFieldName, string>> & {
+export type InventoryV2VisionDraft = Partial<Record<InventoryFieldName, string>> & {
   identifiers: InventoryV2IdentifierInput[];
 };
 
@@ -95,25 +70,18 @@ export function InventoryV2VisionDraftCard({
   enabled: boolean;
   onApply: (draft: InventoryV2VisionDraft) => void;
 }) {
-  const [prepared, setPrepared] = useState<PreparedAiInventoryImage | null>(null);
-  const [cloudCrop, setCloudCrop] = useState<PreparedAiInventoryImage | null>(null);
-  const [specCrop, setSpecCrop] = useState<AiInventoryNormalizedCrop>(initialSpecCrop);
-  const [cropConfirmed, setCropConfirmed] = useState(false);
-  const [localRecognition, setLocalRecognition] = useState<AiInventoryRecognition | null>(null);
-  const [recognition, setRecognition] = useState<AiInventoryRecognition | null>(null);
-  const [selectedFields, setSelectedFields] = useState<AiInventoryFieldName[]>([]);
+  const [prepared, setPrepared] = useState<PreparedInventoryImage | null>(null);
+  const [recognition, setRecognition] = useState<InventoryRecognition | null>(null);
+  const [selectedFields, setSelectedFields] = useState<InventoryFieldName[]>([]);
   const [selectedIdentifiers, setSelectedIdentifiers] = useState<number[]>([]);
   const [primaryIdentifierIndex, setPrimaryIdentifierIndex] = useState<number | null>(null);
   const [revealedIdentifiers, setRevealedIdentifiers] = useState<number[]>([]);
-  const [online, setOnline] = useState(true);
   const [status, setStatus] = useState<VisionDraftStatus>("idle");
   const [message, setMessage] = useState("");
-  const preparedRef = useRef<PreparedAiInventoryImage | null>(null);
-  const cloudCropRef = useRef<PreparedAiInventoryImage | null>(null);
+  const preparedRef = useRef<PreparedInventoryImage | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const runIdRef = useRef(0);
-  const isWorking =
-    status === "preparing" || status === "local" || status === "cropping" || status === "cloud";
+  const isWorking = status === "preparing" || status === "local";
 
   const stopRecognition = useCallback(() => {
     runIdRef.current += 1;
@@ -121,19 +89,13 @@ export function InventoryV2VisionDraftCard({
     abortRef.current = null;
   }, []);
 
-  const replacePrepared = useCallback((next: PreparedAiInventoryImage | null) => {
+  const replacePrepared = useCallback((next: PreparedInventoryImage | null) => {
     preparedRef.current?.dispose();
     preparedRef.current = next;
     setPrepared(next);
   }, []);
 
-  const replaceCloudCrop = useCallback((next: PreparedAiInventoryImage | null) => {
-    cloudCropRef.current?.dispose();
-    cloudCropRef.current = next;
-    setCloudCrop(next);
-  }, []);
-
-  const setReviewRecognition = useCallback((next: AiInventoryRecognition | null) => {
+  const setReviewRecognition = useCallback((next: InventoryRecognition | null) => {
     setRecognition(next);
     const nextFields = next ? fields.filter((field) => Boolean(next.fields[field].value)) : [];
     const nextIdentifiers = next
@@ -152,36 +114,21 @@ export function InventoryV2VisionDraftCard({
   const resetRecognition = useCallback(() => {
     stopRecognition();
     replacePrepared(null);
-    replaceCloudCrop(null);
-    setLocalRecognition(null);
+
     setReviewRecognition(null);
-    setSpecCrop(initialSpecCrop);
-    setCropConfirmed(false);
+
     setStatus("idle");
     setMessage("");
-  }, [replaceCloudCrop, replacePrepared, setReviewRecognition, stopRecognition]);
+  }, [replacePrepared, setReviewRecognition, stopRecognition]);
 
   useEffect(
     () => () => {
       stopRecognition();
       preparedRef.current?.dispose();
       preparedRef.current = null;
-      cloudCropRef.current?.dispose();
-      cloudCropRef.current = null;
     },
     [stopRecognition],
   );
-
-  useEffect(() => {
-    const updateOnline = () => setOnline(navigator.onLine);
-    updateOnline();
-    window.addEventListener("online", updateOnline);
-    window.addEventListener("offline", updateOnline);
-    return () => {
-      window.removeEventListener("online", updateOnline);
-      window.removeEventListener("offline", updateOnline);
-    };
-  }, []);
 
   useEffect(() => {
     if (!enabled) resetRecognition();
@@ -205,14 +152,13 @@ export function InventoryV2VisionDraftCard({
     if (!file) return;
     stopRecognition();
     replacePrepared(null);
-    replaceCloudCrop(null);
+
     const runId = runIdRef.current;
     const controller = new AbortController();
     abortRef.current = controller;
-    setLocalRecognition(null);
+
     setReviewRecognition(null);
-    setSpecCrop(initialSpecCrop);
-    setCropConfirmed(false);
+
     setStatus("preparing");
     setMessage("第 1/2 步：正在生成仅供本机使用的安全图片…");
     const isCurrent = () =>
@@ -222,9 +168,9 @@ export function InventoryV2VisionDraftCard({
       controller.abort();
       setStatus("error");
       setMessage("图片处理超时，已安全停止。你可以重新选择图片，或直接下一步手工录入。");
-    }, AI_INVENTORY_CLIENT_PIPELINE_TIMEOUT_MS);
+    }, INVENTORY_CLIENT_PIPELINE_TIMEOUT_MS);
     try {
-      const nextPrepared = await prepareAiInventoryImage(file);
+      const nextPrepared = await prepareInventoryImage(file);
       if (!isCurrent()) {
         nextPrepared.dispose();
         return;
@@ -233,133 +179,21 @@ export function InventoryV2VisionDraftCard({
       setStatus("local");
       setMessage("第 2/2 步：正在本机读取规格、IMEI 和条码…");
       const [localResult] = await Promise.allSettled([
-        recognizeAiInventoryImageLocally(nextPrepared, { signal: controller.signal }),
+        recognizeInventoryImageLocally(nextPrepared, { signal: controller.signal }),
       ]);
       if (!isCurrent()) return;
       const local = localResult.status === "fulfilled" ? localResult.value : null;
-      const localOnly = Boolean(local && isLocalInventoryRecognitionSufficient(local));
-      setLocalRecognition(local);
       setReviewRecognition(local);
-      if (localOnly && local) {
-        setStatus("ready");
-        setMessage("本地候选已足够；完整标签未上传，请复核后再应用。");
-      } else {
-        setStatus("crop");
-        setMessage(
-          navigator.onLine
-            ? "本地结果已保留。规格仍不完整，请调整并预览只含规格的裁剪。"
-            : "当前离线：本地结果已保留。可直接应用或下一步手工补充；不会排队上传。",
-        );
-      }
+      setStatus(local ? "ready" : "error");
+      setMessage(
+        local
+          ? "本地结果已保留，请复核候选；缺失信息可手工补充。"
+          : "本地识别未完成，请重试或手工录入。",
+      );
     } catch (error) {
       if (!isCurrent()) return;
       setStatus("error");
       setMessage(error instanceof Error ? error.message : "图片识别失败，请手工录入。");
-    } finally {
-      window.clearTimeout(pipelineTimeoutId);
-      if (abortRef.current === controller) abortRef.current = null;
-    }
-  }
-
-  function updateSpecCrop(next: AiInventoryNormalizedCrop) {
-    setSpecCrop(next);
-    replaceCloudCrop(null);
-    setCropConfirmed(false);
-    if (status === "crop") {
-      setMessage("裁剪范围已变化，请重新生成并检查发送预览。");
-    }
-  }
-
-  async function prepareCloudCropPreview() {
-    const currentPrepared = preparedRef.current;
-    if (!currentPrepared) return;
-    stopRecognition();
-    replaceCloudCrop(null);
-    setCropConfirmed(false);
-    const runId = runIdRef.current;
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setStatus("cropping");
-    setMessage("正在本机生成只含规格的发送预览…");
-    try {
-      const nextCrop = await cropPreparedAiInventoryImage(currentPrepared, specCrop, {
-        signal: controller.signal,
-      });
-      const isCurrent =
-        runId === runIdRef.current && abortRef.current === controller && !controller.signal.aborted;
-      if (!isCurrent) {
-        nextCrop.dispose();
-        return;
-      }
-      replaceCloudCrop(nextCrop);
-      setCropConfirmed(false);
-      setStatus("crop");
-      setMessage("请检查发送预览；确认没有 IMEI、SN、EAN 或其他设备标识后才能发送。");
-    } catch (error) {
-      if (controller.signal.aborted) return;
-      setStatus("crop");
-      setMessage(error instanceof Error ? error.message : "无法生成规格裁剪，请重试。");
-    } finally {
-      if (abortRef.current === controller) abortRef.current = null;
-    }
-  }
-
-  async function runCloudRecognition() {
-    const currentCrop = cloudCropRef.current;
-    if (!currentCrop || !cropConfirmed) return;
-    if (!navigator.onLine) {
-      setStatus("crop");
-      setMessage("当前离线，不会排队上传。请联网后重试，或直接下一步手工补充。");
-      return;
-    }
-    stopRecognition();
-    const runId = runIdRef.current;
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setStatus("cloud");
-    setMessage("正在发送已确认的规格裁剪；本地 IMEI 不会上传…");
-    const isCurrent = () =>
-      runId === runIdRef.current && abortRef.current === controller && !controller.signal.aborted;
-    const pipelineTimeoutId = window.setTimeout(() => {
-      if (!isCurrent()) return;
-      controller.abort();
-      setStatus(localRecognition && hasRecognitionCandidates(localRecognition) ? "ready" : "error");
-      setMessage("云端规格识别超时；已保留本地结果，可继续手工录入。");
-    }, AI_INVENTORY_CLIENT_PIPELINE_TIMEOUT_MS);
-    try {
-      const imageDataUrl = await aiInventoryImageBlobToDataUrl(currentCrop.blob, {
-        signal: controller.signal,
-      });
-      if (!isCurrent()) return;
-      const response = await runAiInventoryVisionRecognition(
-        {
-          client_request_id: crypto.randomUUID(),
-          image_data_url: imageDataUrl,
-          mime_type: currentCrop.mimeType,
-          byte_length: currentCrop.byteLength,
-          width: currentCrop.width,
-          height: currentCrop.height,
-          locale: "zh-CN",
-        },
-        { signal: controller.signal },
-      );
-      if (!isCurrent()) return;
-      const merged = localRecognition
-        ? mergeInventoryRecognitions(response.recognition, localRecognition)
-        : response.recognition;
-      setReviewRecognition(merged);
-      setStatus("ready");
-      setMessage("规格裁剪与本地标识候选已合并；请逐项核对后再应用。");
-    } catch {
-      if (!isCurrent()) return;
-      if (localRecognition && hasRecognitionCandidates(localRecognition)) {
-        setReviewRecognition(localRecognition);
-        setStatus("ready");
-        setMessage("云端规格识别未完成；已保留本地候选，请核对或手工补充。");
-      } else {
-        setStatus("error");
-        setMessage("图片识别未完成，请重新选择图片，或直接下一步手工录入。");
-      }
     } finally {
       window.clearTimeout(pipelineTimeoutId);
       if (abortRef.current === controller) abortRef.current = null;
@@ -386,14 +220,14 @@ export function InventoryV2VisionDraftCard({
         primary: index === primaryIdentifierIndex,
       }));
     onApply(draft);
-    setMessage("已把人工确认的候选带入草稿，尚未入库；价格、成本和来源不会由 AI 填写。");
+    setMessage("已把人工确认的候选带入草稿，尚未入库；价格、成本和来源需手工填写。");
   }
 
   if (!enabled) {
     return (
       <section className={cn(repairOs.mobileInfoCard, "space-y-2 p-3")}>
         <div className="flex items-center gap-2 text-sm font-semibold">
-          <Sparkles className="size-4 text-primary" /> AI 标签识别
+          <Sparkles className="size-4 text-primary" /> 本地标签识别
         </div>
         <p className="text-xs leading-5 text-muted-foreground">
           当前门店尚未开放图片识别。可继续扫描或手工录入，不影响正式入库。
@@ -407,12 +241,11 @@ export function InventoryV2VisionDraftCard({
       <div className="flex items-start justify-between gap-2">
         <div>
           <h2 className="flex items-center gap-2 text-sm font-semibold">
-            <Sparkles className="size-4 text-primary" /> AI 标签识别（可选）
+            <Sparkles className="size-4 text-primary" /> 本地标签识别（可选）
           </h2>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            拍一次完整包装标签：规格、IMEI、SN、EAN 先在本机读取。完整照片和设备标识绝不发送
-            OpenAI；只有你预览并确认的规格裁剪可能发送，安全监控日志最多保留 30
-            天。禁止拍摄人物、证件、客户资料、收据、地址或设备屏幕。候选不会自动入库。
+            拍摄包装标签，在本机读取规格、IMEI
+            和条码；图片不会上传。请复核候选后应用，缺失信息可手工补充。
           </p>
         </div>
         {prepared ? (
@@ -461,25 +294,9 @@ export function InventoryV2VisionDraftCard({
           {status === "ready" ? (
             <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-status-success-foreground" />
           ) : null}
-          {status === "crop" ? <Crop className="mt-0.5 size-4 shrink-0 text-primary" /> : null}
           {status === "error" ? <X className="mt-0.5 size-4 shrink-0 text-destructive" /> : null}
           <span className="min-w-0 break-words">{message}</span>
         </div>
-      ) : null}
-
-      {prepared && ["crop", "cropping", "cloud"].includes(status) ? (
-        <SpecCropReview
-          prepared={prepared}
-          crop={specCrop}
-          cloudCrop={cloudCrop}
-          confirmed={cropConfirmed}
-          online={online}
-          status={status}
-          onCropChange={updateSpecCrop}
-          onPreparePreview={() => void prepareCloudCropPreview()}
-          onConfirmedChange={setCropConfirmed}
-          onSend={() => void runCloudRecognition()}
-        />
       ) : null}
 
       {recognition ? (
@@ -606,189 +423,7 @@ export function InventoryV2VisionDraftCard({
   );
 }
 
-function SpecCropReview({
-  prepared,
-  crop,
-  cloudCrop,
-  confirmed,
-  online,
-  status,
-  onCropChange,
-  onPreparePreview,
-  onConfirmedChange,
-  onSend,
-}: {
-  prepared: PreparedAiInventoryImage;
-  crop: AiInventoryNormalizedCrop;
-  cloudCrop: PreparedAiInventoryImage | null;
-  confirmed: boolean;
-  online: boolean;
-  status: VisionDraftStatus;
-  onCropChange: (crop: AiInventoryNormalizedCrop) => void;
-  onPreparePreview: () => void;
-  onConfirmedChange: (confirmed: boolean) => void;
-  onSend: () => void;
-}) {
-  const widthPercent = Math.round(crop.width * 100);
-  const heightPercent = Math.round(crop.height * 100);
-  const xPercent = Math.round(crop.x * 100);
-  const yPercent = Math.round(crop.y * 100);
-  const controlsDisabled = status === "cropping" || status === "cloud";
-  const update = (patch: Partial<AiInventoryNormalizedCrop>) => {
-    const width = patch.width ?? crop.width;
-    const height = patch.height ?? crop.height;
-    onCropChange({
-      width,
-      height,
-      x: Math.max(0, Math.min(patch.x ?? crop.x, 1 - width)),
-      y: Math.max(0, Math.min(patch.y ?? crop.y, 1 - height)),
-    });
-  };
-
-  return (
-    <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
-      <div className="flex items-start gap-2 text-xs leading-5">
-        <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" />
-        <span>完整标签只在本机。蓝框内的规格裁剪是唯一允许发送的图片。</span>
-      </div>
-      <div className="relative mx-auto w-fit max-w-full overflow-hidden rounded-lg bg-black/5">
-        {/* Full-label preview is local-only and is never serialized into the request. */}
-        <img
-          src={prepared.previewUrl}
-          alt="仅在本机显示的完整包装标签"
-          className="block h-auto max-h-72 max-w-full"
-        />
-        <div
-          className="pointer-events-none absolute border-2 border-primary bg-primary/10 shadow-[0_0_0_9999px_rgba(0,0,0,0.42)]"
-          style={{
-            left: `${xPercent}%`,
-            top: `${yPercent}%`,
-            width: `${widthPercent}%`,
-            height: `${heightPercent}%`,
-          }}
-          aria-hidden="true"
-        />
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <CropRange
-          label="横向位置"
-          value={xPercent}
-          max={Math.max(0, 100 - widthPercent)}
-          disabled={controlsDisabled}
-          onChange={(value) => update({ x: value / 100 })}
-        />
-        <CropRange
-          label="纵向位置"
-          value={yPercent}
-          max={Math.max(0, 100 - heightPercent)}
-          disabled={controlsDisabled}
-          onChange={(value) => update({ y: value / 100 })}
-        />
-        <CropRange
-          label="裁剪宽度"
-          value={widthPercent}
-          min={25}
-          max={96}
-          disabled={controlsDisabled}
-          onChange={(value) => update({ width: value / 100 })}
-        />
-        <CropRange
-          label="裁剪高度"
-          value={heightPercent}
-          min={20}
-          max={80}
-          disabled={controlsDisabled}
-          onChange={(value) => update({ height: value / 100 })}
-        />
-      </div>
-      <Button
-        type="button"
-        variant="outline"
-        className="h-10 w-full gap-2"
-        onClick={onPreparePreview}
-        disabled={status === "cropping" || status === "cloud"}
-      >
-        {status === "cropping" ? (
-          <Loader2 className="size-4 animate-spin" />
-        ) : (
-          <Crop className="size-4" />
-        )}
-        {cloudCrop ? "重新生成发送预览" : "生成发送预览"}
-      </Button>
-      {cloudCrop ? (
-        <div className="space-y-2 rounded-xl bg-background p-2.5">
-          <p className="text-xs font-semibold">将发送给 AI 的图片</p>
-          <img
-            src={cloudCrop.previewUrl}
-            alt="将发送给 AI 的规格裁剪预览"
-            className="mx-auto max-h-48 max-w-full rounded-lg object-contain"
-          />
-          <label className="flex min-h-9 items-start gap-2 rounded-lg border border-[var(--border-panel)] p-2 text-xs leading-5">
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={confirmed}
-              onChange={(event) => onConfirmedChange(event.target.checked)}
-            />
-            我已检查：裁剪内只有包装规格，不含 IMEI、SN、EAN、人物或客户资料。
-          </label>
-          <Button
-            type="button"
-            className="h-9 w-full"
-            onClick={onSend}
-            disabled={!confirmed || !online || controlsDisabled}
-          >
-            {status === "cloud" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-            {status === "cloud" ? "正在识别规格…" : online ? "确认并识别规格" : "离线，暂不上传"}
-          </Button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function CropRange({
-  label,
-  value,
-  min = 0,
-  max,
-  disabled = false,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min?: number;
-  max: number;
-  disabled?: boolean;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="grid grid-cols-[80px_minmax(0,1fr)_36px] items-center gap-2 text-[11px] text-muted-foreground">
-      <span>{label}</span>
-      <input
-        type="range"
-        aria-label={label}
-        min={min}
-        max={max}
-        value={Math.min(max, Math.max(min, value))}
-        disabled={disabled}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
-      <span className="text-right tabular-nums">{value}%</span>
-    </label>
-  );
-}
-
 function maskIdentifier(value: string) {
   if (value.length <= 4) return "••••";
   return `${"•".repeat(Math.min(12, value.length - 4))}${value.slice(-4)}`;
-}
-
-function hasRecognitionCandidates(recognition: AiInventoryRecognition) {
-  return (
-    fields.some((field) => Boolean(recognition.fields[field].value?.trim())) ||
-    recognition.identifiers.some(
-      (candidate) => candidate.type !== "unknown" && candidate.validation !== "invalid",
-    )
-  );
 }

@@ -164,10 +164,22 @@ describe("mock order WhatsApp notification workflow", () => {
     row.record_state = "voided";
     row.deleted_at = "2026-07-16T20:00:00.000Z";
 
-    await expect(sendNotification(id, "Test message")).rejects.toThrow("已作废");
-    await expect(sendWhatsappNotification(id, "Test WhatsApp", "repair_status")).rejects.toThrow(
-      "已作废",
-    );
+    await expect(
+      sendNotification(id, {
+        body: "Test message",
+        channel: "whatsapp",
+        expected_updated_at: row.updated_at,
+        idempotency_key: crypto.randomUUID(),
+      }),
+    ).rejects.toThrow("已作废");
+    await expect(
+      sendWhatsappNotification(id, {
+        body: "Test WhatsApp",
+        template_kind: "repair_status",
+        expected_updated_at: row.updated_at,
+        idempotency_key: crypto.randomUUID(),
+      }),
+    ).rejects.toThrow("已作废");
   });
 
   it("binds workflow snapshots to the requesting active store", async () => {
@@ -466,7 +478,13 @@ describe("mock order WhatsApp notification workflow", () => {
     await expect(transitionOrder(id, code)).rejects.toThrow("尚未绑定主流程阶段");
     await expect(createMockOrder({ status: code })).rejects.toThrow("尚未绑定主流程阶段");
     await expect(
-      sendWhatsappNotification(id, "Stato personalizzato", "pickup_ready", code),
+      sendWhatsappNotification(id, {
+        body: "Stato personalizzato",
+        template_kind: "pickup_ready",
+        transition_to: code,
+        expected_updated_at: (await getOrder(id)).order.updated_at,
+        idempotency_key: crypto.randomUUID(),
+      }),
     ).rejects.toThrow("尚未绑定主流程阶段");
 
     const detail = await getOrder(id);
@@ -547,11 +565,15 @@ describe("mock order WhatsApp notification workflow", () => {
 
     const result = await sendWhatsappNotification(
       id,
-      "Il dispositivo e pronto.",
-      "pickup_ready",
-      "notified",
+      {
+        body: "Il dispositivo e pronto.",
+        template_kind: "pickup_ready",
+        transition_to: "notified",
+        recipient_phone: "+39 333 123 4567",
+        expected_updated_at: (await getOrder(id)).order.updated_at,
+        idempotency_key: crypto.randomUUID(),
+      },
       "Chen",
-      "+39 333 123 4567",
     );
 
     const detail = await getOrder(id);
@@ -568,16 +590,22 @@ describe("mock order WhatsApp notification workflow", () => {
     );
     expect(event?.payload).toMatchObject({
       template_kind: "pickup_ready",
-      recipient_phone: "+39 333 123 4567",
+      delivery_verified: false,
+      recipient_phone: "+393331234567",
       to: "notified",
     });
-    expect(result.recipient_phone).toBe("+39 333 123 4567");
+    expect(result.recipient_phone).toBe("+393331234567");
   });
 
   it("marks mock orders as notified after generic notification", async () => {
     const id = await createMockOrder();
 
-    const result = await sendNotification(id, "Messaggio al cliente.");
+    const result = await sendNotification(id, {
+      body: "Messaggio al cliente.",
+      channel: "whatsapp",
+      expected_updated_at: (await getOrder(id)).order.updated_at,
+      idempotency_key: crypto.randomUUID(),
+    });
 
     const detail = await getOrder(id);
     expect(result.ok).toBe(true);
@@ -591,8 +619,14 @@ describe("mock order WhatsApp notification workflow", () => {
     const id = await createMockOrder();
 
     await expect(
-      sendWhatsappNotification(id, "Messaggio non valido", "pickup_ready", "completed"),
-    ).rejects.toThrow("必须使用专用状态操作");
+      sendWhatsappNotification(id, {
+        body: "Messaggio non valido",
+        template_kind: "pickup_ready",
+        transition_to: "completed",
+        expected_updated_at: (await getOrder(id)).order.updated_at,
+        idempotency_key: crypto.randomUUID(),
+      }),
+    ).rejects.toThrow("必须使用专用操作");
 
     const detail = await getOrder(id);
     expect(detail.order.status).toBe("new");
@@ -757,6 +791,7 @@ describe("mock order WhatsApp notification workflow", () => {
     await sendApprovalRequest(id, "Preventivo da confermare.");
 
     const result = await decideOrderApproval(id, {
+      ...(await approvalSnapshot(id)),
       decision: "approved",
       next_status: "repairing",
       reason: "客户 WhatsApp 确认同意报价。",
@@ -785,6 +820,7 @@ describe("mock order WhatsApp notification workflow", () => {
     await sendApprovalRequest(id, "Preventivo da confermare.");
 
     const result = await decideOrderApproval(id, {
+      ...(await approvalSnapshot(id)),
       decision: "approved",
       next_status: "parts_ordered",
       reason: "客户同意报价，需要等待订件。",
@@ -812,6 +848,7 @@ describe("mock order WhatsApp notification workflow", () => {
     await sendApprovalRequest(id, "Preventivo scheda madre da confermare.");
 
     const result = await decideOrderApproval(id, {
+      ...(await approvalSnapshot(id)),
       decision: "approved",
       next_status: "mail_in_progress",
       reason: "客户同意主板外修报价。",
@@ -834,6 +871,7 @@ describe("mock order WhatsApp notification workflow", () => {
     await transitionOrder(id, "quoted");
 
     const result = await decideOrderApproval(id, {
+      ...(await approvalSnapshot(id)),
       decision: "approved",
       next_status: "parts_ordered",
       reason: "客户在柜台确认同意报价，需要订件。",
@@ -866,6 +904,7 @@ describe("mock order WhatsApp notification workflow", () => {
 
     await expect(
       decideOrderApproval(id, {
+        ...(await approvalSnapshot(id)),
         decision: "approved",
         next_status: "completed" as Parameters<typeof decideOrderApproval>[1]["next_status"],
       }),
@@ -873,6 +912,7 @@ describe("mock order WhatsApp notification workflow", () => {
 
     await expect(
       decideOrderApproval(id, {
+        ...(await approvalSnapshot(id)),
         decision: "rejected",
         next_status: "repairing" as Parameters<typeof decideOrderApproval>[1]["next_status"],
         reason: "客户拒绝报价。",
@@ -890,9 +930,12 @@ describe("mock order WhatsApp notification workflow", () => {
     await transitionOrder(id, "quoted");
     await sendApprovalRequest(id, "Preventivo da confermare.");
 
-    await expect(decideOrderApproval(id, { decision: "rejected" })).rejects.toThrow("需要填写原因");
+    await expect(
+      decideOrderApproval(id, { ...(await approvalSnapshot(id)), decision: "rejected" }),
+    ).rejects.toThrow("需要填写原因");
 
     await decideOrderApproval(id, {
+      ...(await approvalSnapshot(id)),
       decision: "rejected",
       next_status: "unfixed_pickup",
       reason: "维修风险过高，客户确认不继续维修并取回设备。",
@@ -913,6 +956,7 @@ describe("mock order WhatsApp notification workflow", () => {
     await sendApprovalRequest(id, "Preventivo da confermare.");
 
     const result = await decideOrderApproval(id, {
+      ...(await approvalSnapshot(id)),
       decision: "rejected",
       next_status: "cancelled",
       reason: "客户拒绝报价并取消维修。",
@@ -1567,7 +1611,11 @@ describe("mock order inline editing workflow", () => {
     await transitionOrder(id, "diagnosing");
     await transitionOrder(id, "quoted");
     await sendApprovalRequest(id, "Preventivo da confermare.");
-    await decideOrderApproval(id, { decision: "approved", next_status: "repairing" });
+    await decideOrderApproval(id, {
+      ...(await approvalSnapshot(id)),
+      decision: "approved",
+      next_status: "repairing",
+    });
     const approved = await getOrder(id);
     expect(approved.order.status).toBe("repairing");
     expect(approved.order.approval_status).toBe("approved");
@@ -1678,5 +1726,145 @@ describe("mock guarded atomic financial edits", () => {
       deposit_amount: 0,
     });
     expect((await getOrder(id)).order.balance_amount).toBe(70);
+  });
+});
+
+async function approvalSnapshot(id: string) {
+  const detail = await getOrder(id);
+  return {
+    expected_updated_at: detail.order.updated_at,
+    quote_event_id: detail.latest_quote_event_id ?? null,
+    idempotency_key: crypto.randomUUID(),
+  };
+}
+
+describe("approval snapshot mock contract", () => {
+  it("replays the same intent once and rejects changed content on the same key", async () => {
+    const id = await createMockOrder();
+    await transitionOrder(id, "diagnosing");
+    await transitionOrder(id, "quoted");
+    const request = {
+      ...(await approvalSnapshot(id)),
+      decision: "approved" as const,
+      next_status: "repairing" as const,
+      reason: "Original decision",
+    };
+    const first = await decideOrderApproval(id, request);
+    expect(await decideOrderApproval(id, request)).toEqual(first);
+    expect(
+      (await getOrder(id)).events.filter(
+        (e) =>
+          e.event_type === "approval_result" &&
+          e.payload.idempotency_key === request.idempotency_key,
+      ),
+    ).toHaveLength(1);
+    await expect(
+      decideOrderApproval(id, { ...request, reason: "Changed decision" }),
+    ).rejects.toMatchObject({ status: 409, code: "idempotency_conflict" });
+    expect(
+      (await getOrder(id)).events.filter(
+        (e) =>
+          e.event_type === "approval_result" &&
+          e.payload.idempotency_key === request.idempotency_key,
+      ),
+    ).toHaveLength(1);
+  });
+  it("does not approve another operator's newer published quote", async () => {
+    const id = await createMockOrder();
+    await publishOrderQuote(id, {
+      expected_updated_at: (await getOrder(id)).order.updated_at,
+      idempotency_key: crypto.randomUUID(),
+      diagnosis_result: "Quote A",
+      fault_prices: [{ name: "Repair A", price: 100, currency_code: "EUR" }],
+    });
+    const request = {
+      ...(await approvalSnapshot(id)),
+      decision: "approved" as const,
+      next_status: "repairing" as const,
+    };
+    await publishOrderQuote(id, {
+      expected_updated_at: (await getOrder(id)).order.updated_at,
+      idempotency_key: crypto.randomUUID(),
+      diagnosis_result: "Quote B",
+      fault_prices: [{ name: "Repair B", price: 150, currency_code: "EUR" }],
+    });
+    await expect(decideOrderApproval(id, request)).rejects.toMatchObject({
+      status: 409,
+      code: "stale_version",
+    });
+    const after = await getOrder(id);
+    expect(after.order.approval_status).toBe("pending");
+    expect(after.order.quotation_amount).toBe(150);
+    expect(after.events.filter((e) => e.event_type === "approval_result")).toHaveLength(0);
+  });
+});
+
+describe("mock atomic notification intent", () => {
+  it("replays an exact intent once and rejects a changed body without writes", async () => {
+    const id = await createMockOrder();
+    const before = await getOrder(id);
+    const input = {
+      body: "Atomic synthetic",
+      channel: "whatsapp" as const,
+      expected_updated_at: before.order.updated_at,
+      idempotency_key: crypto.randomUUID(),
+    };
+    const first = await sendNotification(id, input);
+    expect(await sendNotification(id, input)).toMatchObject({ id: first.id, replayed: true });
+    const committed = await getOrder(id);
+    await expect(sendNotification(id, { ...input, body: "Different" })).rejects.toMatchObject({
+      code: "idempotency_conflict",
+      status: 409,
+    });
+    expect(await getOrder(id)).toEqual(committed);
+    expect(committed.messages.length).toBe(before.messages.length + 1);
+    expect(committed.events.filter((event) => event.event_type === "message_sent").length).toBe(
+      before.events.filter((event) => event.event_type === "message_sent").length + 1,
+    );
+  });
+  it("allows only one of two independent intents based on the same version", async () => {
+    const id = await createMockOrder();
+    const before = await getOrder(id);
+    const input = {
+      body: "Same version",
+      channel: "sms" as const,
+      expected_updated_at: before.order.updated_at,
+      idempotency_key: crypto.randomUUID(),
+    };
+    const results = await Promise.allSettled([
+      sendNotification(id, input),
+      sendNotification(id, { ...input, idempotency_key: crypto.randomUUID() }),
+    ]);
+    expect(results.map((item) => item.status)).toEqual(["fulfilled", "rejected"]);
+    expect((results[1] as PromiseRejectedResult).reason).toMatchObject({
+      code: "stale_version",
+      status: 409,
+    });
+    expect((await getOrder(id)).messages.length).toBe(before.messages.length + 1);
+  });
+  it("checks actor and store before allowing replay", async () => {
+    const id = await createMockOrder();
+    const input = {
+      body: "Scoped",
+      channel: "whatsapp" as const,
+      expected_updated_at: (await getOrder(id)).order.updated_at,
+      idempotency_key: crypto.randomUUID(),
+    };
+    const actor = {
+      id: "synthetic-actor",
+      displayName: "Synthetic",
+      storeId: "00000000-0000-0000-0000-000000000001",
+      storeRole: "owner" as const,
+    };
+    await sendNotification(id, input, actor);
+    await expect(
+      sendNotification(id, input, { ...actor, storeRole: "technician" }),
+    ).rejects.toMatchObject({ status: 403 });
+    await expect(
+      sendNotification(id, input, { ...actor, id: "other-actor" }),
+    ).rejects.toMatchObject({ code: "idempotency_conflict" });
+    await expect(
+      sendNotification(id, input, { ...actor, storeId: "other-store" }),
+    ).rejects.toMatchObject({ status: 404 });
   });
 });

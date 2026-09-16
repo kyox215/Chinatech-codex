@@ -82,7 +82,7 @@ export function getRepairDeskRealtimeQueryGroupsForDomain(
 ): RepairDeskRealtimeQueryGroup[] {
   switch (domain) {
     case "orders":
-      return ["orders.all"];
+      return ["orders.all", "customers.all"];
     case "customers":
       return ["customers.all"];
     case "inventory":

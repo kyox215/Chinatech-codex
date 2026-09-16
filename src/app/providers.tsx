@@ -1,26 +1,25 @@
 "use client";
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import dynamic from "next/dynamic";
-import { useCallback, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
 import { AppBar } from "@/components/app-bar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { useCommandPalette } from "@/components/use-command-palette";
 import { MobileWorkspaceDock } from "@/components/mobile-workspace-dock";
 import { NavigationGuardProvider } from "@/components/navigation-guard-provider";
 import { PwaServiceWorker } from "@/components/pwa-service-worker";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
-import { AiAssistantWorkspaceProvider } from "@/features/ai-assistant";
+import { useCommandPalette } from "@/components/use-command-palette";
+import { OfflineOutboxSyncBridge } from "@/features/offline/components/offline-outbox-sync-bridge";
 import { AppPreloadBridge } from "@/features/preload";
 import { RealtimeAppBridge } from "@/features/realtime";
-import { OfflineOutboxSyncBridge } from "@/features/offline/components/offline-outbox-sync-bridge";
 import { repairDeskQueryDefaultOptions } from "@/lib/query-performance";
 import { appShell } from "@/lib/ui-patterns";
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
 import type { AppLocale } from "@/shared/i18n/locales";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
+import { useCallback, useRef, useState } from "react";
 
 const CommandPalette = dynamic(
   () => import("@/components/command-palette").then((module) => module.CommandPalette),
@@ -87,7 +86,7 @@ export function Providers({
         <NavigationGuardProvider>
           <RealtimeAppBridge>
             <AppPreloadBridge>
-              <AiAssistantWorkspaceProvider>
+              <>
                 <OfflineOutboxSyncBridge />
                 <SidebarProvider>
                   <AppSidebar onOpenCommand={() => setOpen(true)} />
@@ -120,7 +119,7 @@ export function Providers({
                   />
                 ) : null}
                 <Toaster />
-              </AiAssistantWorkspaceProvider>
+              </>
             </AppPreloadBridge>
           </RealtimeAppBridge>
         </NavigationGuardProvider>

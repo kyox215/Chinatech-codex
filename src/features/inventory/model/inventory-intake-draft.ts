@@ -1,9 +1,9 @@
-import type {
-  AiInventoryFieldName,
-  AiInventoryIdentifierCandidate,
-  AiInventoryRecognition,
-} from "@/features/ai-assistant/model/contracts";
 import type { CreateInventoryIntakeInput, InventoryItemStatus } from "@/lib/repairdesk/types";
+import type {
+  InventoryFieldName,
+  InventoryIdentifierCandidate,
+  InventoryRecognition,
+} from "@/shared/lib/inventory-recognition/contracts";
 
 export type InventoryIntakeFormDraft = {
   source_type: string;
@@ -27,14 +27,14 @@ export type InventoryIntakeFormDraft = {
 export type InventoryFieldReviewDecision = "pending" | "accepted" | "edited" | "rejected";
 
 export type InventoryFieldReview = {
-  field: AiInventoryFieldName;
+  field: InventoryFieldName;
   value: string;
   decision: InventoryFieldReviewDecision;
   overwriteManual: boolean;
 };
 
 export type InventoryIdentifierReview = {
-  candidate: AiInventoryIdentifierCandidate;
+  candidate: InventoryIdentifierCandidate;
   value: string;
   decision: InventoryFieldReviewDecision;
   isPrimary: boolean;
@@ -42,7 +42,7 @@ export type InventoryIdentifierReview = {
 };
 
 export type InventoryRecognitionReview = {
-  fields: Record<AiInventoryFieldName, InventoryFieldReview>;
+  fields: Record<InventoryFieldName, InventoryFieldReview>;
   identifiers: InventoryIdentifierReview[];
 };
 
@@ -78,7 +78,7 @@ export function createEmptyInventoryIntakeDraft(): InventoryIntakeFormDraft {
 }
 
 export function createInventoryRecognitionReview(
-  recognition: AiInventoryRecognition,
+  recognition: InventoryRecognition,
 ): InventoryRecognitionReview {
   return {
     fields: {
@@ -179,8 +179,8 @@ export function inventoryIntakeDraftToInput(
 }
 
 function fieldReview(
-  field: AiInventoryFieldName,
-  recognition: AiInventoryRecognition,
+  field: InventoryFieldName,
+  recognition: InventoryRecognition,
 ): InventoryFieldReview {
   return {
     field,

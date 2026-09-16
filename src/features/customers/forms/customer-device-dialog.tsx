@@ -1,9 +1,10 @@
 "use client";
 
+import { CustomerVersionNotice, useCustomerEditorSession } from "./use-customer-editor-session";
+
 import { useRef, type RefObject } from "react";
 
 import {
-  useCompactEditorSession,
   EditorDiscardConfirmation,
   editorConfirmationClass,
 } from "@/shared/lib/use-compact-editor-session";
@@ -32,7 +33,9 @@ export function CustomerDeviceDialog({
   busy,
   returnFocusRef,
   onSave,
+  onRefresh,
 }: {
+  onRefresh?: () => void;
   open: boolean;
   onOpenChange: (value: boolean) => void;
   device?: Device;
@@ -42,11 +45,14 @@ export function CustomerDeviceDialog({
 }) {
   const { t } = useLocale();
   const outsideDismissedRef = useRef(false);
-  const session = useCompactEditorSession<CustomerDeviceInput>({
+  const session = useCustomerEditorSession<CustomerDeviceInput>({
     open,
     scopeKey: device?.id ?? "new",
+    version: device ? device.updated_at : "new",
     initial: {
-      id: device?.id,
+      ...(device
+        ? { id: device.id, expected_updated_at: device.updated_at ?? "" }
+        : { id: undefined, expected_updated_at: undefined }),
       brand: device?.brand ?? "",
       model: device?.model ?? "",
       serial_or_imei: device?.serial_or_imei ?? "",
@@ -54,6 +60,7 @@ export function CustomerDeviceDialog({
     },
     busy,
     onOpenChange,
+    onRefresh,
   });
   const { draft: form, setDraft: setForm } = session;
   return (
@@ -99,6 +106,12 @@ export function CustomerDeviceDialog({
           </DialogDescription>
         </DialogHeader>
         <DialogBody>
+          <CustomerVersionNotice
+            blocked={session.blocked}
+            conflict={session.conflict}
+            reload={session.reload}
+            busy={busy}
+          />
           <div className="grid min-w-0 gap-2.5 sm:grid-cols-2">
             <CustomerFormField
               label={t("customers.form.brand")}
@@ -154,7 +167,7 @@ export function CustomerDeviceDialog({
             {t("customers.form.cancel")}
           </Button>
           <Button
-            disabled={busy || !form.brand.trim() || !form.model.trim()}
+            disabled={busy || session.blocked || !form.brand.trim() || !form.model.trim()}
             className="min-h-11 whitespace-normal lg:min-h-9"
             onClick={() => void session.save(onSave)}
           >

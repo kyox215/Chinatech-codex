@@ -9,7 +9,6 @@ export type SettingsSectionKey =
   | "notifications"
   | "rules"
   | "workflow"
-  | "ai-usage"
   | "order-data";
 
 export type SettingsSectionAccess = "editable" | "readonly" | "blocked" | "unavailable";
@@ -22,11 +21,6 @@ export function resolveSettingsSectionAccess(
 ): SettingsSectionAccess {
   if (section === "account") return "editable";
   if (!capabilities) return "unavailable";
-
-  if (section === "ai-usage") {
-    if (capabilities.canReadAggregateFinance === undefined) return "unavailable";
-    return capabilities.canReadAggregateFinance ? "readonly" : "blocked";
-  }
 
   if (section === "store" || section === "notifications" || section === "rules") {
     if (capabilities.canReadStoreSettings === undefined) return "unavailable";

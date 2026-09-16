@@ -3,6 +3,11 @@
 import { useState, type Dispatch, type SetStateAction } from "react";
 import { ChevronDown, Plus, ReceiptText, ShieldCheck, Trash2 } from "lucide-react";
 
+import {
+  NewOrderFieldError,
+  newOrderInvalidClass,
+  useNewOrderFieldError,
+} from "./new-order-validation";
 import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
 import { FaultDiagnosisPicker } from "@/components/orders/fault-diagnosis-picker";
 import { Button } from "@/components/ui/button";
@@ -68,6 +73,20 @@ export function NewOrderQuotationSection({
   expanded?: boolean;
 }) {
   const { locale, t } = useLocale();
+  const quoteError = useNewOrderFieldError("quotation", Boolean(form.faults.length));
+  const depositError = useNewOrderFieldError("deposit", form.deposit <= total);
+  const warrantyError = useNewOrderFieldError(
+    "warranty-reason",
+    Boolean(form.warrantyChangeReason.trim()),
+  );
+  const statusError = useNewOrderFieldError(
+    "create-status",
+    deviceCustodyAllowsStatus(
+      form.deviceCustodyStatus,
+      form.status,
+      createStatuses.find((status) => status.code === form.status)?.bucket,
+    ),
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const shellClass = mobileOverview
     ? "min-w-0"
@@ -97,7 +116,11 @@ export function NewOrderQuotationSection({
         <div
           data-new-order-section="quotation"
           data-new-order-field="quotation"
-          className={cn(shellClass, layout === "professional" && "md:col-start-2 md:row-start-1")}
+          className={cn(
+            shellClass,
+            layout === "professional" && "md:col-start-2 md:row-start-1",
+            (quoteError || depositError) && newOrderInvalidClass,
+          )}
         >
           <OrderWorkspaceSectionHeader
             icon={ReceiptText}
@@ -110,6 +133,8 @@ export function NewOrderQuotationSection({
             }
           />
 
+          <NewOrderFieldError target="quotation" message={quoteError} />
+          <NewOrderFieldError target="deposit" message={depositError} />
           <div data-new-order-quote-draft="true" className="min-w-0">
             <fieldset className="min-w-0 space-y-2">
               <div className="min-w-0 space-y-2">
@@ -270,7 +295,11 @@ export function NewOrderQuotationSection({
             hidden={!settingsOpen && !expanded}
             className="space-y-2"
           >
-            <div className="min-w-0" data-new-order-setting="warranty">
+            <div
+              className={cn("min-w-0", warrantyError && newOrderInvalidClass)}
+              data-new-order-setting="warranty"
+            >
+              <NewOrderFieldError target="warranty-reason" message={warrantyError} />
               <FormItem
                 label={t("orders2b1.new.warranty")}
                 className="[&>label]:text-[9.5px] [&>label]:font-medium [&>label]:leading-3 lg:[&>label]:text-xs lg:[&>label]:leading-4"
@@ -352,7 +381,11 @@ export function NewOrderQuotationSection({
                 </Select>
               </div>
 
-              <div className="grid min-w-0 gap-0.5" data-new-order-setting="status">
+              <div
+                className={cn("grid min-w-0 gap-0.5", statusError && newOrderInvalidClass)}
+                data-new-order-setting="status"
+              >
+                <NewOrderFieldError target="create-status" message={statusError} />
                 <div
                   className="text-[9.5px] font-medium leading-3 text-muted-foreground lg:text-xs lg:leading-4"
                   data-new-order-setting-label="true"

@@ -133,8 +133,21 @@ for (const locale of locales)
         const header = await page.locator('[data-mobile-order-header="true"]').boundingBox();
         const dock = await page.locator('[data-mobile-order-action-dock="true"]').boundingBox();
         if (locale === "zh-CN" && width === 390) {
-          // Unified 24px badges occupy two rows; safe-area padding belongs to the
-          // floating shell, not the dense content card. Keep both geometries explicit.
+          // Keep the original 168px card budget and reserve 24px for the newly
+          // visible progress labels: 16px text + 4px gap + 4px measurement allowance.
+          // Safe-area padding still belongs to the floating shell, not the card.
+          const progress = page.locator(
+            '[data-mobile-order-header="true"] [data-order-mini-progress="true"]',
+          );
+          const currentProgress = progress.locator('[data-order-progress-current="true"]');
+          const nextProgress = progress.locator('[data-order-progress-next="true"]');
+          await expect(currentProgress).toBeVisible();
+          await expect(nextProgress).toBeVisible();
+          const progressLabels = await currentProgress.locator("..").boundingBox();
+          const currentProgressBox = await currentProgress.boundingBox();
+          const nextProgressBox = await nextProgress.boundingBox();
+          expect(progressLabels!.height).toBeLessThanOrEqual(20);
+          expect(Math.abs(currentProgressBox!.y - nextProgressBox!.y)).toBeLessThan(1);
           const headerDensity = await page
             .locator('[data-mobile-order-header="true"]')
             .evaluate((node) => {
@@ -145,7 +158,7 @@ for (const locale of locales)
                 shellPadding: parseFloat(style.paddingTop) + parseFloat(style.paddingBottom),
               };
             });
-          expect(headerDensity.cardHeight).toBeLessThanOrEqual(168);
+          expect(headerDensity.cardHeight).toBeLessThanOrEqual(168 + 24);
           expect(header!.height).toBeCloseTo(
             headerDensity.cardHeight + headerDensity.shellPadding,
             1,
@@ -154,6 +167,7 @@ for (const locale of locales)
             viewport: { width, height: 844 },
             header,
             headerDensity,
+            progressLabels,
             identity: boxes[0],
             fault: boxes[1],
             people: boxes[2],

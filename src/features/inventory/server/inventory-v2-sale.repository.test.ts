@@ -5,18 +5,34 @@ import {
   completeInventorySaleV2,
 } from "./inventory-v2-sale.repository";
 
-const mocks = vi.hoisted(() => ({ rpc: vi.fn(), maybeSingle: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  rpc: vi.fn(),
+  maybeSingle: vi.fn(),
+  ledgerMaybeSingle: vi.fn(),
+}));
 
 vi.mock("@/server/supabase", () => ({
   getSupabaseAdmin: () => ({
     rpc: mocks.rpc,
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          eq: () => ({ maybeSingle: mocks.maybeSingle }),
-        }),
-      }),
-    }),
+    from: (table: string) => {
+      let projection = "";
+      const filters: Record<string, unknown> = {};
+      const query = {
+        select: (columns: string) => {
+          projection = columns;
+          return query;
+        },
+        eq: (column: string, value: unknown) => {
+          filters[column] = value;
+          return query;
+        },
+        maybeSingle: () =>
+          table === "inventory_sale_command_ledger"
+            ? mocks.ledgerMaybeSingle({ projection, filters })
+            : mocks.maybeSingle(),
+      };
+      return query;
+    },
   }),
 }));
 
@@ -47,10 +63,29 @@ const input = {
   sold_at: "2026-07-18T17:01:00.000Z",
 };
 
+const replayResponse = {
+  ok: true,
+  code: "idempotent_replay",
+  sale_id: "sale-1",
+  payment_id: "payment-1",
+  item_id: "item-1",
+  updated_at: "2026-07-18T17:01:00.000Z",
+  fiscal_status: "pending",
+};
+
+const soldItem = {
+  id: "item-1",
+  updated_at: replayResponse.updated_at,
+  status: "sold",
+  legacy_payload: { inventory_v2_intake: true },
+};
+
 describe("completeInventorySaleV2", () => {
   beforeEach(() => {
     mocks.rpc.mockReset();
     mocks.maybeSingle.mockReset();
+    mocks.ledgerMaybeSingle.mockReset();
+    mocks.ledgerMaybeSingle.mockResolvedValue({ data: null, error: null });
     mocks.maybeSingle.mockResolvedValue({
       data: {
         id: "item-1",
@@ -88,6 +123,158 @@ describe("completeInventorySaleV2", () => {
         p_item_id: "item-1",
       }),
     );
+    expect(mocks.ledgerMaybeSingle).not.toHaveBeenCalled();
+  });
+
+  it("replays the original sale and payment after a committed response is lost", async () => {
+    mocks.rpc
+      .mockRejectedValueOnce(new Error("response lost after commit"))
+      .mockResolvedValueOnce({ data: replayResponse, error: null });
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: {
+        ...soldItem,
+        updated_at: input.expected_updated_at,
+        status: "listed",
+        serial_or_imei: "356938035643809",
+        imei_check_status: "pass",
+        activation_lock_status: "pass",
+        data_wipe_status: "pass",
+        functional_grade: "passed",
+        cosmetic_grade: "good",
+        list_price: 399,
+      },
+      error: null,
+    });
+    await expect(completeInventorySaleV2("item-1", input, actor)).rejects.toMatchObject({
+      status: 503,
+    });
+    expect(mocks.ledgerMaybeSingle).not.toHaveBeenCalled();
+
+    mocks.maybeSingle.mockResolvedValue({ data: soldItem, error: null });
+    mocks.ledgerMaybeSingle.mockResolvedValue({ data: { id: "sale-1" }, error: null });
+    await expect(completeInventorySaleV2("item-1", input, actor)).resolves.toEqual(replayResponse);
+    expect(mocks.rpc).toHaveBeenCalledTimes(2);
+    expect(mocks.rpc.mock.calls[1]).toEqual(mocks.rpc.mock.calls[0]);
+    expect(mocks.ledgerMaybeSingle).toHaveBeenCalledWith({
+      projection: "id",
+      filters: {
+        store_id: actor.storeId,
+        inventory_item_id: "item-1",
+        idempotency_key: input.idempotency_key,
+        actor_id: actor.id,
+      },
+    });
+  });
+
+  it("keeps a stale version rejected when no completed ledger exists", async () => {
+    mocks.maybeSingle.mockResolvedValue({ data: soldItem, error: null });
+
+    await expect(completeInventorySaleV2("item-1", input, actor)).rejects.toThrow(/其他人更新/);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it.each(["store_id", "actor_id", "inventory_item_id", "idempotency_key"] as const)(
+    "cannot use a completed ledger with a different %s",
+    async (mismatchedField) => {
+      const ledger = {
+        store_id: actor.storeId,
+        actor_id: actor.id,
+        inventory_item_id: "item-1",
+        idempotency_key: input.idempotency_key,
+        [mismatchedField]: "different-ledger-value",
+      };
+      mocks.maybeSingle.mockResolvedValue({ data: soldItem, error: null });
+      mocks.ledgerMaybeSingle.mockImplementation(
+        ({ filters }: { filters: Record<string, unknown> }) => ({
+          data: Object.entries(filters).every(
+            ([key, value]) => ledger[key as keyof typeof ledger] === value,
+          )
+            ? { id: "sale-1" }
+            : null,
+          error: null,
+        }),
+      );
+
+      await expect(completeInventorySaleV2("item-1", input, actor)).rejects.toThrow(/其他人更新/);
+      expect(mocks.rpc).not.toHaveBeenCalled();
+    },
+  );
+
+  it("lets the RPC reject a changed payload under the original completed key", async () => {
+    mocks.maybeSingle.mockResolvedValue({ data: soldItem, error: null });
+    mocks.ledgerMaybeSingle.mockResolvedValue({ data: { id: "sale-1" }, error: null });
+    mocks.rpc.mockResolvedValue({ data: { ok: false, code: "idempotency_conflict" }, error: null });
+
+    await expect(
+      completeInventorySaleV2("item-1", { ...input, sale_price: 400, payment_amount: 400 }, actor),
+    ).rejects.toThrow(/已用于不同请求/);
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "repairdesk_complete_inventory_sale_v2",
+      expect.objectContaining({
+        p_expected_updated_at: input.expected_updated_at,
+        p_idempotency_key: input.idempotency_key,
+        p_sale_price: 400,
+        p_payment_amount: 400,
+      }),
+    );
+  });
+
+  it("still applies the RPC current-actor check before returning a replay", async () => {
+    mocks.maybeSingle.mockResolvedValue({ data: soldItem, error: null });
+    mocks.ledgerMaybeSingle.mockResolvedValue({ data: { id: "sale-1" }, error: null });
+    mocks.rpc.mockResolvedValue({ data: { ok: false, code: "actor_forbidden" }, error: null });
+
+    await expect(completeInventorySaleV2("item-1", input, actor)).rejects.toThrow(
+      /没有确认库存销售/,
+    );
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not treat ledger existence or an incomplete replay response as success", async () => {
+    mocks.maybeSingle.mockResolvedValue({ data: soldItem, error: null });
+    mocks.ledgerMaybeSingle.mockResolvedValue({ data: { id: "sale-1" }, error: null });
+    mocks.rpc.mockResolvedValue({
+      data: { ok: true, code: "idempotent_replay", sale_id: "sale-1" },
+      error: null,
+    });
+
+    await expect(completeInventorySaleV2("item-1", input, actor)).rejects.toThrow(/结果不完整/);
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["response", "rejection"])("sanitizes a ledger dependency %s to 503", async (failure) => {
+    mocks.maybeSingle.mockResolvedValue({ data: soldItem, error: null });
+    if (failure === "response") {
+      mocks.ledgerMaybeSingle.mockResolvedValue({
+        data: null,
+        error: { message: "SECRET ledger schema detail" },
+      });
+    } else {
+      mocks.ledgerMaybeSingle.mockRejectedValue(new Error("SECRET ledger schema detail"));
+    }
+
+    await expect(completeInventorySaleV2("item-1", input, actor)).rejects.toMatchObject({
+      status: 503,
+      code: "INVENTORY_V2_DEPENDENCY_UNAVAILABLE",
+      message: "库存销售重试服务暂时不可用",
+    });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("preserves the first-sale intake inspection gate when there is no completed ledger", async () => {
+    mocks.maybeSingle.mockResolvedValue({
+      data: {
+        ...soldItem,
+        updated_at: input.expected_updated_at,
+        status: "listed",
+        serial_or_imei: "356938035643809",
+        imei_check_status: "unchecked",
+      },
+      error: null,
+    });
+
+    await expect(completeInventorySaleV2("item-1", input, actor)).rejects.toThrow(/IMEI/);
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it("fails closed on an RPC business error or incomplete response", async () => {

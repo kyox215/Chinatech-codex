@@ -107,9 +107,13 @@ for (const [width, locale] of [
     await page
       .getByRole("button", { name: tr(locale, "orders2b1.new.create"), exact: true })
       .click({ force: true });
-    expect(await page.evaluate(() => document.activeElement?.matches("input, textarea"))).toBe(
-      false,
-    );
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Boolean(document.activeElement?.closest('[data-new-order-field="customer-phone"]')),
+        ),
+      )
+      .toBe(true);
     await fillOrder(page, locale, true);
     const price = page.getByLabel(tr(locale, "orders2b1.new.quoteAria", { index: 1 }), {
       exact: true,

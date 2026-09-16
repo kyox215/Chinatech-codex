@@ -222,6 +222,101 @@ describe("customer repository tenant write boundaries", () => {
     expect(firstQuery.order).toHaveBeenNthCalledWith(1, "updated_at", { ascending: false });
     expect(firstQuery.order).toHaveBeenNthCalledWith(2, "id", { ascending: true });
   });
+
+  it("keeps fallback relationships ordered and isolated between customers", async () => {
+    const rows: Record<string, unknown[]> = {
+      customers: [
+        { id: "c1", name: "Anna", phone_raw: "39111" },
+        { id: "c2", name: "Bruno", phone_raw: "39222" },
+        { id: "c3", name: "Carla", phone_raw: "39333" },
+      ],
+      devices: [
+        { id: "d2", customer_id: "c2", brand: "Samsung", model: "S25" },
+        { id: "d1-new", customer_id: "c1", brand: "Apple", model: "iPhone 16" },
+        { id: "d1-old", customer_id: "c1", brand: "Apple", model: "iPhone 8" },
+      ],
+      customer_followups: [
+        { id: "f2", customer_id: "c2", status: "open", due_at: "2027-02-01T10:00:00Z" },
+        { id: "f1-done", customer_id: "c1", status: "done", due_at: "2027-01-01T10:00:00Z" },
+        { id: "f1", customer_id: "c1", status: "open", due_at: "2027-03-01T10:00:00Z" },
+      ],
+      order_workflow_statuses: [{ code: "repairing", bucket: "repair" }],
+      repair_orders: [
+        {
+          id: "o2",
+          customer_id: "c2",
+          status: "repairing",
+          record_state: "active",
+          quotation_amount: 70,
+          balance_amount: 70,
+          created_at: "2026-09-02T10:00:00Z",
+        },
+        {
+          id: "o1",
+          customer_id: "c1",
+          status: "repairing",
+          record_state: "active",
+          quotation_amount: 40,
+          balance_amount: 40,
+          created_at: "2026-09-01T10:00:00Z",
+        },
+      ],
+      customer_tags: [
+        { id: "t1", name: "VIP" },
+        { id: "t2", name: "Business" },
+      ],
+      customer_tag_assignments: [
+        { customer_id: "c2", tag_id: "t2" },
+        { customer_id: "c1", tag_id: "t1" },
+        { customer_id: "c1", tag_id: "missing" },
+      ],
+    };
+    const queries: ReturnType<typeof createSupabaseQuery>[] = [];
+    mocks.supabase.from.mockImplementation((table: string) => {
+      if (!(table in rows)) throw new Error(`Unexpected table: ${table}`);
+      const query = createSupabaseQuery({ data: rows[table], error: null });
+      queries.push(query);
+      return query;
+    });
+
+    const result = await listCustomers({}, { ...storeActor, storeRole: "owner" });
+    const first = result.customers.find((customer) => customer.id === "c1");
+    expect(first).toMatchObject({
+      device_count: 2,
+      latest_device_label: "Apple iPhone 16",
+      order_count: 1,
+      total_spent: 40,
+      unpaid_amount: 40,
+      next_followup_at: "2027-03-01T10:00:00Z",
+      tags: [{ id: "t1", name: "VIP" }],
+    });
+    expect(result.customers.find((customer) => customer.id === "c2")).toMatchObject({
+      device_count: 1,
+      order_count: 1,
+      total_spent: 70,
+      next_followup_at: "2027-02-01T10:00:00Z",
+      tags: [{ id: "t2", name: "Business" }],
+    });
+    expect(result.customers.find((customer) => customer.id === "c3")).toMatchObject({
+      device_count: 0,
+      order_count: 0,
+      tags: [],
+    });
+    expect(
+      queries.every((query) =>
+        query.eq.mock.calls.some(([column, value]) => column === "store_id" && value === "store_1"),
+      ),
+    ).toBe(true);
+
+    const searched = await listCustomers(
+      { search: "iPhone 8" },
+      { ...storeActor, storeRole: "owner" },
+    );
+    expect(searched.customers.map((customer) => customer.id)).toEqual(["c1"]);
+    const redacted = await listCustomers({}, storeActor);
+    expect(redacted.stats.financeRedacted).toBe(true);
+    expect(redacted.customers.every((customer) => customer.total_spent === undefined)).toBe(true);
+  });
 });
 
 describe("customer intake structured search", () => {

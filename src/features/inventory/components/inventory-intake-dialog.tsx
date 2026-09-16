@@ -1,14 +1,5 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type FormEvent,
-} from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -22,6 +13,15 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -34,28 +34,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { Label } from "@/components/ui/label";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  aiInventoryRecognitionSchema,
-  type AiInventoryConflict,
-  type AiInventoryFieldCandidate,
-  type AiInventoryFieldName,
-  type AiInventoryIdentifierCandidate,
-  type AiInventoryRecognition,
-} from "@/features/ai-assistant/model/contracts";
-import {
-  AI_INVENTORY_CLIENT_PIPELINE_TIMEOUT_MS,
-  aiInventoryImageBlobToDataUrl,
-  prepareAiInventoryImage,
-  type PreparedAiInventoryImage,
-} from "@/features/ai-assistant/model/inventory-image";
-import { recognizeAiInventoryImageLocally } from "@/features/ai-assistant/model/inventory-local-recognition";
-import {
-  isLocalInventoryRecognitionSufficient,
-  mergeInventoryRecognitions,
-} from "@/features/ai-assistant/model/inventory-recognition";
 import {
   applyInventoryRecognitionReview,
   createEmptyInventoryIntakeDraft,
@@ -67,10 +48,24 @@ import {
   type InventoryRecognitionReview,
 } from "@/features/inventory/model/inventory-intake-draft";
 import { inventoryStatusMeta } from "@/features/inventory/model/inventory-workflow";
-import { createInventoryIntake, runAiInventoryVisionRecognition } from "@/lib/repairdesk/api";
 import { componentOverlay } from "@/lib/component-patterns";
+import { createInventoryIntake } from "@/lib/repairdesk/api";
 import { brandGradientStyle, controls, formLayout } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
+import {
+  inventoryRecognitionSchema,
+  type InventoryConflict,
+  type InventoryFieldCandidate,
+  type InventoryFieldName,
+  type InventoryIdentifierCandidate,
+  type InventoryRecognition,
+} from "@/shared/lib/inventory-recognition/contracts";
+import {
+  INVENTORY_CLIENT_PIPELINE_TIMEOUT_MS,
+  prepareInventoryImage,
+  type PreparedInventoryImage,
+} from "@/shared/lib/inventory-recognition/inventory-image";
+import { recognizeInventoryImageLocally } from "@/shared/lib/inventory-recognition/inventory-local-recognition";
 
 const imageAccept = "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp";
 const sourceOptions = ["manual_stock", "supplier_purchase", "repair_resale", "buyback"] as const;
@@ -81,7 +76,7 @@ const fieldOrder = [
   "color",
   "ram_capacity",
   "storage_capacity",
-] as const satisfies readonly AiInventoryFieldName[];
+] as const satisfies readonly InventoryFieldName[];
 const mappedIdentifierTypes = new Set(["imei1", "imei2", "serial"]);
 const inputClass = "h-[38px] min-w-0 text-base sm:text-sm lg:h-9";
 const selectClass =
@@ -94,19 +89,12 @@ const dialogFooterClass = cn(
   "shrink-0 border-t border-[var(--border-panel)] bg-[var(--surface-workspace-strong)] px-3 py-3 sm:px-4",
 );
 
-type AiIntakeStatus =
-  | "idle"
-  | "preparing"
-  | "recognizing"
-  | "cloud"
-  | "result"
-  | "cancelled"
-  | "error";
+type AiIntakeStatus = "idle" | "preparing" | "recognizing" | "result" | "cancelled" | "error";
 
 export function InventoryIntakeDialog({
   open,
   defaultWarrantyMonths,
-  canUseVisionIntake,
+  canUsePhotoIntake,
   canApplyInventoryDraft,
   authorityKey,
   onOpenChange,
@@ -114,7 +102,7 @@ export function InventoryIntakeDialog({
 }: {
   open: boolean;
   defaultWarrantyMonths?: number;
-  canUseVisionIntake: boolean;
+  canUsePhotoIntake: boolean;
   canApplyInventoryDraft: boolean;
   authorityKey: string;
   onOpenChange: (open: boolean) => void;
@@ -123,15 +111,15 @@ export function InventoryIntakeDialog({
   const [draft, setDraft] = useState(createEmptyInventoryIntakeDraft);
   const [step, setStep] = useState<"form" | "vision">("form");
   const [status, setStatus] = useState<AiIntakeStatus>("idle");
-  const [prepared, setPrepared] = useState<PreparedAiInventoryImage | null>(null);
-  const [recognition, setRecognition] = useState<AiInventoryRecognition | null>(null);
+  const [prepared, setPrepared] = useState<PreparedInventoryImage | null>(null);
+  const [recognition, setRecognition] = useState<InventoryRecognition | null>(null);
   const [review, setReview] = useState<InventoryRecognitionReview | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [applySummary, setApplySummary] = useState<string[]>([]);
   const [isOnline, setIsOnline] = useState(() =>
     typeof navigator === "undefined" ? true : navigator.onLine,
   );
-  const preparedRef = useRef<PreparedAiInventoryImage | null>(null);
+  const preparedRef = useRef<PreparedInventoryImage | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const runIdRef = useRef(0);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
@@ -147,7 +135,7 @@ export function InventoryIntakeDialog({
     abortRef.current = null;
   }, []);
 
-  const replacePrepared = useCallback((next: PreparedAiInventoryImage | null) => {
+  const replacePrepared = useCallback((next: PreparedInventoryImage | null) => {
     preparedRef.current?.dispose();
     preparedRef.current = next;
     setPrepared(next);
@@ -200,7 +188,7 @@ export function InventoryIntakeDialog({
       if (mutation.isPending) return;
       if (
         hasUnsavedWork &&
-        !window.confirm("放弃未保存的入库草稿？手工输入、照片和 AI 复核结果都会被清除。")
+        !window.confirm("放弃未保存的入库草稿？手工输入、照片和 识别复核结果都会被清除。")
       ) {
         return;
       }
@@ -273,72 +261,25 @@ export function InventoryIntakeDialog({
         controller.abort();
         setStatus("error");
         setErrorMessage("图片处理超时，已安全停止。请重新选择照片，或返回手工表单继续录入。");
-      }, AI_INVENTORY_CLIENT_PIPELINE_TIMEOUT_MS);
+      }, INVENTORY_CLIENT_PIPELINE_TIMEOUT_MS);
 
       try {
-        const nextPrepared = await prepareAiInventoryImage(file);
+        const nextPrepared = await prepareInventoryImage(file);
         if (controller.signal.aborted || runId !== runIdRef.current) {
           nextPrepared.dispose();
           return;
         }
         replacePrepared(nextPrepared);
         setStatus("recognizing");
-        const fixtureKey =
-          process.env.NODE_ENV !== "production" &&
-          file.name.toLowerCase().includes("synthetic-redmi-a7-pro-box")
-            ? ("synthetic-redmi-a7-pro-box" as const)
-            : undefined;
         const localResult = await Promise.allSettled([
-          recognizeAiInventoryImageLocally(nextPrepared, { signal: controller.signal }),
+          recognizeInventoryImageLocally(nextPrepared, { signal: controller.signal }),
         ]);
         if (controller.signal.aborted || runId !== runIdRef.current) return;
 
         const local = localResult[0]?.status === "fulfilled" ? localResult[0].value : null;
-        if (local && isLocalInventoryRecognitionSufficient(local)) {
-          const resolved = withFallbackWarnings(local, {
-            localFailed: false,
-            serverFailed: false,
-            serverSkipped: true,
-          });
-          setRecognition(resolved);
-          setReview(createInventoryRecognitionReview(resolved));
-          setStatus("result");
-          return;
-        }
-
-        setStatus("cloud");
-        const imageDataUrl = await aiInventoryImageBlobToDataUrl(nextPrepared.blob, {
-          signal: controller.signal,
-        });
-        if (controller.signal.aborted || runId !== runIdRef.current) return;
-        const serverResult = await Promise.allSettled([
-          runAiInventoryVisionRecognition(
-            {
-              client_request_id: crypto.randomUUID(),
-              image_data_url: imageDataUrl,
-              mime_type: nextPrepared.mimeType,
-              byte_length: nextPrepared.byteLength,
-              width: nextPrepared.width,
-              height: nextPrepared.height,
-              locale: "zh-CN",
-              ...(fixtureKey ? { fixture_key: fixtureKey } : {}),
-            },
-            { signal: controller.signal },
-          ),
-        ]);
-        if (controller.signal.aborted || runId !== runIdRef.current) return;
-
-        const vision =
-          serverResult[0]?.status === "fulfilled" ? serverResult[0].value.recognition : null;
-        if (!vision && (!local || recognitionCandidateCount(local) === 0)) {
-          throw new Error("recognition unavailable");
-        }
-        const merged = withFallbackWarnings(
-          local && vision ? mergeInventoryRecognitions(vision, local) : (vision ?? local)!,
-          { localFailed: !local, serverFailed: !vision, serverSkipped: false },
-        );
-        setRecognition(merged);
-        setReview(createInventoryRecognitionReview(merged));
+        if (!local) throw new Error("local recognition unavailable");
+        setRecognition(local);
+        setReview(createInventoryRecognitionReview(local));
         setStatus("result");
       } catch (error) {
         if (controller.signal.aborted || runId !== runIdRef.current) return;
@@ -416,17 +357,17 @@ export function InventoryIntakeDialog({
             <DialogHeader className={cn(componentOverlay.header, dialogHeaderClass)}>
               <DialogTitle className={componentOverlay.title}>新增库存商品</DialogTitle>
               <DialogDescription className={componentOverlay.description}>
-                AI 只会填写当前表单草稿；成本、售价与正式保存始终由员工完成。
+                本地识别只会填写当前表单草稿；成本、售价与正式保存始终由员工完成。
               </DialogDescription>
             </DialogHeader>
             <div className={cn(dialogBodyClass, "space-y-3")}>
-              {canUseVisionIntake ? (
+              {canUsePhotoIntake ? (
                 <section className="min-w-0 rounded-xl border border-status-info-foreground/20 bg-status-info/10 p-3">
                   <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
                         <Sparkles className="size-4 text-status-info-foreground" />
-                        AI 拍照识别
+                        本地拍照识别
                       </p>
                       <p className="mt-1 text-xs leading-5 text-muted-foreground">
                         识别包装标签声明，逐字段复核后才可带入表单，不会自动保存。
@@ -456,7 +397,7 @@ export function InventoryIntakeDialog({
                   role="status"
                 >
                   <p className="text-xs font-semibold text-status-success-foreground">
-                    AI 草稿已回到当前表单，尚未保存
+                    识别草稿已回到当前表单，尚未保存
                   </p>
                   <ul className="mt-1 space-y-0.5 text-[11px] leading-4 text-muted-foreground">
                     {applySummary.map((item) => (
@@ -607,7 +548,7 @@ export function InventoryIntakeDialog({
         ) : (
           <div className="flex max-h-[calc(100svh-24px)] min-h-0 flex-col">
             <DialogHeader className={cn(componentOverlay.header, dialogHeaderClass)}>
-              <DialogTitle className={componentOverlay.title}>AI 拍照识别入库资料</DialogTitle>
+              <DialogTitle className={componentOverlay.title}>本地拍照识别入库资料</DialogTitle>
               <DialogDescription className={componentOverlay.description}>
                 拍清楚标签区域并避开客户、证件和无关背景；原图不会保存到库存。
               </DialogDescription>
@@ -619,14 +560,10 @@ export function InventoryIntakeDialog({
                 </Notice>
               ) : null}
               <Notice tone="info" icon={Sparkles}>
-                仅接受 4 MiB 内的静态
-                JPG、PNG、WebP；浏览器和服务端都会完整解码、去除元数据并重编码，原图不写入库存。
+                仅接受 4 MiB 内的静态 JPG、PNG、WebP；浏览器会校验并去除元数据，原图不写入库存。
               </Notice>
               <Notice tone="warning" icon={AlertTriangle}>
-                本地识别不足且门店已批准时，衍生图可能发送至 OpenAI；默认安全监控日志可能保留最多 30
-                天。
-                请只保留品牌、型号、内存/容量规格区域，禁止拍摄人物/人脸、证件、客户资料、收据/地址、设备屏幕内容或设备标识；IMEI/SN
-                只使用本地扫描或手工录入，不发送到云端识别。
+                图片仅在本机处理。请拍摄商品标签并避开客户资料；识别候选须人工核对，缺失信息可手工补充。
               </Notice>
 
               <div className="flex min-w-0 flex-wrap gap-2">
@@ -637,12 +574,7 @@ export function InventoryIntakeDialog({
                   capture="environment"
                   className="sr-only"
                   aria-label="使用相机拍摄设备标签"
-                  disabled={
-                    !isOnline ||
-                    status === "preparing" ||
-                    status === "recognizing" ||
-                    status === "cloud"
-                  }
+                  disabled={!isOnline || status === "preparing" || status === "recognizing"}
                   onChange={handleFileInput}
                 />
                 <input
@@ -651,12 +583,7 @@ export function InventoryIntakeDialog({
                   accept={imageAccept}
                   className="sr-only"
                   aria-label="从相册选择设备标签照片"
-                  disabled={
-                    !isOnline ||
-                    status === "preparing" ||
-                    status === "recognizing" ||
-                    status === "cloud"
-                  }
+                  disabled={!isOnline || status === "preparing" || status === "recognizing"}
                   onChange={handleFileInput}
                 />
                 <Button
@@ -664,12 +591,7 @@ export function InventoryIntakeDialog({
                   type="button"
                   size="sm"
                   className="min-h-9 gap-1.5 lg:min-h-0"
-                  disabled={
-                    !isOnline ||
-                    status === "preparing" ||
-                    status === "recognizing" ||
-                    status === "cloud"
-                  }
+                  disabled={!isOnline || status === "preparing" || status === "recognizing"}
                   onClick={() => cameraInputRef.current?.click()}
                 >
                   <Camera className="size-3.5" />
@@ -680,12 +602,7 @@ export function InventoryIntakeDialog({
                   variant="outline"
                   size="sm"
                   className="min-h-9 gap-1.5 lg:min-h-0"
-                  disabled={
-                    !isOnline ||
-                    status === "preparing" ||
-                    status === "recognizing" ||
-                    status === "cloud"
-                  }
+                  disabled={!isOnline || status === "preparing" || status === "recognizing"}
                   onClick={() => uploadInputRef.current?.click()}
                 >
                   <ImagePlus className="size-3.5" />
@@ -719,7 +636,7 @@ export function InventoryIntakeDialog({
                 </div>
               ) : null}
 
-              {status === "preparing" || status === "recognizing" || status === "cloud" ? (
+              {status === "preparing" || status === "recognizing" ? (
                 <div
                   className="rounded-xl border border-status-info-foreground/20 bg-status-info/10 px-3 py-3"
                   role="status"
@@ -729,10 +646,8 @@ export function InventoryIntakeDialog({
                   <p className="flex items-center gap-2 text-sm font-semibold text-status-info-foreground">
                     <Loader2 className="size-4 animate-spin" />
                     {status === "preparing"
-                      ? "第 1/3 步：正在生成安全图片…"
-                      : status === "recognizing"
-                        ? "第 2/3 步：正在本地检查标签…"
-                        : "第 3/3 步：正在请求云端识别包装规格…"}
+                      ? "第 1/2 步：正在生成安全图片…"
+                      : "第 2/2 步：正在本地检查标签…"}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     关闭或取消后不会在后台排队上传。
@@ -815,13 +730,13 @@ function RecognitionReview({
   draft,
   onReviewChange,
 }: {
-  recognition: AiInventoryRecognition;
+  recognition: InventoryRecognition;
   review: InventoryRecognitionReview;
   draft: InventoryIntakeFormDraft;
   onReviewChange: (review: InventoryRecognitionReview) => void;
 }) {
   return (
-    <section className="min-w-0 space-y-2" aria-label="AI 字段复核">
+    <section className="min-w-0 space-y-2" aria-label="识别字段复核">
       <div className="rounded-xl border border-status-warning-foreground/20 bg-status-warning/10 px-3 py-2">
         <p className="text-xs font-semibold text-status-warning-foreground">仅为包装标签声称值</p>
         <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
@@ -904,8 +819,8 @@ function FieldReviewCard({
   hasConflict,
   onChange,
 }: {
-  field: AiInventoryFieldName;
-  candidate: AiInventoryFieldCandidate;
+  field: InventoryFieldName;
+  candidate: InventoryFieldCandidate;
   review: InventoryFieldReview;
   existingValue: string;
   hasConflict: boolean;
@@ -1210,21 +1125,6 @@ function DecisionBadge({ decision }: { decision: InventoryFieldReview["decision"
   );
 }
 
-function withFallbackWarnings(
-  recognition: AiInventoryRecognition,
-  failures: { localFailed: boolean; serverFailed: boolean; serverSkipped: boolean },
-) {
-  return aiInventoryRecognitionSchema.parse({
-    ...recognition,
-    warnings: [
-      ...recognition.warnings,
-      ...(failures.localFailed ? ["本地 OCR/条码未完成，请加强人工核对。"] : []),
-      ...(failures.serverFailed ? ["云端视觉服务未完成，本次仅采用本地候选。"] : []),
-      ...(failures.serverSkipped ? ["本地 OCR/条码候选已足够，本次未上传至云端视觉服务。"] : []),
-    ].filter((warning, index, values) => values.indexOf(warning) === index),
-  });
-}
-
 function updateDraft(
   setDraft: React.Dispatch<React.SetStateAction<InventoryIntakeFormDraft>>,
   field: keyof InventoryIntakeFormDraft,
@@ -1240,18 +1140,18 @@ function hasManualDraftChanges(draft: InventoryIntakeFormDraft) {
   );
 }
 
-function recognitionCandidateCount(recognition: AiInventoryRecognition) {
+function recognitionCandidateCount(recognition: InventoryRecognition) {
   return (
     Object.values(recognition.fields).filter((candidate) => candidate.value?.trim()).length +
     recognition.identifiers.length
   );
 }
 
-function mappedDraftField(field: AiInventoryFieldName): keyof InventoryIntakeFormDraft {
+function mappedDraftField(field: InventoryFieldName): keyof InventoryIntakeFormDraft {
   return field === "ram_capacity" ? "notes" : field;
 }
 
-function fieldLabel(field: AiInventoryFieldName) {
+function fieldLabel(field: InventoryFieldName) {
   return {
     brand: "品牌",
     model: "型号",
@@ -1261,15 +1161,15 @@ function fieldLabel(field: AiInventoryFieldName) {
   }[field];
 }
 
-function confidenceLabel(value: AiInventoryFieldCandidate["confidence"]) {
+function confidenceLabel(value: InventoryFieldCandidate["confidence"]) {
   return { high: "高（仍需确认）", review: "需复核", unknown: "未知" }[value];
 }
 
-function validationLabel(value: AiInventoryIdentifierCandidate["validation"]) {
+function validationLabel(value: InventoryIdentifierCandidate["validation"]) {
   return { valid: "格式有效", invalid: "无效，不可作主标识", not_applicable: "不适用" }[value];
 }
 
-function identifierLabel(candidate: AiInventoryIdentifierCandidate) {
+function identifierLabel(candidate: InventoryIdentifierCandidate) {
   return {
     imei1: "IMEI 1",
     imei2: "IMEI 2",
@@ -1280,7 +1180,7 @@ function identifierLabel(candidate: AiInventoryIdentifierCandidate) {
   }[candidate.type];
 }
 
-function conflictLabel(conflict: AiInventoryConflict) {
+function conflictLabel(conflict: InventoryConflict) {
   return `${draftFieldLabel(conflict.target)}：${conflict.values.join(" / ")}（请人工选择）`;
 }
 
@@ -1303,8 +1203,8 @@ function draftFieldLabel(field: string) {
   return labels[field] ?? field;
 }
 
-function evidenceSourceLabel(value: AiInventoryFieldCandidate["source"]) {
-  const labels: Record<AiInventoryFieldCandidate["source"], string> = {
+function evidenceSourceLabel(value: InventoryFieldCandidate["source"]) {
+  const labels: Record<InventoryFieldCandidate["source"], string> = {
     vision: "视觉服务",
     ocr: "本地 OCR",
     barcode: "本地条码",

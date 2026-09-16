@@ -2,13 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { APP_LOCALES } from "@/shared/i18n/locales";
 import {
-  aiAssistantPresentationCopy,
-  getAiAssistantPresentationCopy,
-  getMessagesScreenCopy,
   getMemoPresentationCopy,
+  getMessagesScreenCopy,
   getProfitCenterCopy,
-  messagesByLocale,
   memoPresentationCopy,
+  messagesByLocale,
   messagesScreenCopy,
   profitCenterCopy,
   translateMessage,
@@ -92,16 +90,5 @@ describe("internationalized messages", () => {
     expect(getProfitCenterCopy("zh-CN").exportCsv).toBe("导出成本 CSV");
     expect(getProfitCenterCopy("it-IT").exportCsv).toBe("Esporta costi CSV");
     expect(getProfitCenterCopy("en").exportCsv).toBe("Export costs CSV");
-  });
-
-  it("keeps the AI client presentation catalog structurally complete", () => {
-    const expectedKeys = Object.keys(aiAssistantPresentationCopy["zh-CN"]).sort();
-    for (const locale of APP_LOCALES) {
-      expect(Object.keys(aiAssistantPresentationCopy[locale]).sort()).toEqual(expectedKeys);
-      expect(Object.values(aiAssistantPresentationCopy[locale]).every(Boolean)).toBe(true);
-    }
-    expect(getAiAssistantPresentationCopy("zh-CN").send).toBe("发送");
-    expect(getAiAssistantPresentationCopy("it-IT").send).toBe("Invia");
-    expect(getAiAssistantPresentationCopy("en").send).toBe("Send");
   });
 });

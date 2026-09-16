@@ -67,6 +67,7 @@ import {
 } from "@/features/orders/forms/new-order-customer-device-section";
 import { customerIntakePolicyBlocksSubmit } from "@/features/customers/model/customer-intake-search";
 import { NewOrderQuotationSection } from "@/features/orders/forms/new-order-quotation-section";
+import { NewOrderValidationContext } from "@/features/orders/forms/new-order-validation";
 import { NewOrderSubmitBar } from "@/features/orders/forms/new-order-submit-bar";
 import { NewOrderSupplements } from "@/features/orders/forms/new-order-supplements";
 import { useNewOrderPhotos } from "@/features/orders/api/use-new-order-photos";
@@ -689,7 +690,16 @@ export function NewOrderScreen({
 
   useEffect(() => {
     if (!validationAttempted) return;
-    return syncNewOrderValidationAria(missingItems, "new-order-validation-summary");
+    let clear = syncNewOrderValidationAria(missingItems, "new-order-validation-summary");
+    const observer = new MutationObserver(() => {
+      clear();
+      clear = syncNewOrderValidationAria(missingItems, "new-order-validation-summary");
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      clear();
+    };
   }, [missingItems, validationAttempted]);
 
   const patchFault = (index: number, patch: Partial<FaultPriceItem>) => {
@@ -941,324 +951,347 @@ export function NewOrderScreen({
         />
       ) : null}
 
-      <form
-        data-new-order-form="true"
-        onBlurCapture={() => {
-          void offlineDraft.saveNow();
-        }}
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (createSubmitBlocked || createdOrderIdRef.current) return;
-          if (!valid) {
-            const normalizedMissingItems = missingItems.length
-              ? missingItems
-              : [fallbackNewOrderMissingItem(t)];
-            setValidationAttempted(true);
-            setSubmitValidationMessage(
-              t("orders2b1.new.validation.summary", {
-                count: normalizedMissingItems.length,
-                items: normalizedMissingItems.map((item) => item.label).join(" / "),
-              }),
-            );
-            if (isMobile)
-              setMobileValidation((current) => ({
-                target: normalizedMissingItems[0].target,
-                generation: (current?.generation ?? 0) + 1,
-              }));
-            focusNewOrderMissingItem(normalizedMissingItems[0]);
-            return;
-          }
-          setIdentityConflict(null);
-          submitCreate({ mode: "auto" });
-        }}
-        className={cn(
-          "min-w-0 scroll-pb-[calc(var(--new-order-submit-offset,7rem)+0.75rem)]",
-          surface === "page" && cn(repairOs.mobileFloatingPage, "!pb-0 lg:pt-0"),
-          surface === "dialog" && "flex min-h-0 flex-1 flex-col overflow-clip",
-        )}
+      <NewOrderValidationContext.Provider
+        value={
+          validationAttempted
+            ? Object.fromEntries(
+                missingItems.map((item) => [
+                  item.target,
+                  item.code === "required"
+                    ? t("orders2b1.new.validation.completeField", { field: item.label })
+                    : item.label,
+                ]),
+              )
+            : {}
+        }
       >
-        <p id="new-order-validation-summary" className="sr-only" role="alert" aria-live="assertive">
-          {submitValidationMessage}
-        </p>
-        {surface === "dialog" ? (
-          <div data-new-order-header="true" className="shrink-0 px-2 pt-2 sm:px-3 md:px-4 md:pt-3">
-            {onCancel ? (
-              <NewOrderDialogMobileHeader
-                valid={Boolean(valid)}
+        <form
+          data-new-order-form="true"
+          onBlurCapture={() => {
+            void offlineDraft.saveNow();
+          }}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (createSubmitBlocked || createdOrderIdRef.current) return;
+            if (!valid) {
+              const normalizedMissingItems = missingItems.length
+                ? missingItems
+                : [fallbackNewOrderMissingItem(t)];
+              setValidationAttempted(true);
+              setSubmitValidationMessage(
+                t("orders2b1.new.validation.summary", {
+                  count: normalizedMissingItems.length,
+                  items: normalizedMissingItems.map((item) => item.label).join(" / "),
+                }),
+              );
+              if (isMobile)
+                setMobileValidation((current) => ({
+                  target: normalizedMissingItems[0].target,
+                  generation: (current?.generation ?? 0) + 1,
+                }));
+              focusNewOrderMissingItem(normalizedMissingItems[0]);
+              return;
+            }
+            setIdentityConflict(null);
+            submitCreate({ mode: "auto" });
+          }}
+          className={cn(
+            "min-w-0 scroll-pb-[calc(var(--new-order-submit-offset,7rem)+0.75rem)]",
+            surface === "page" && cn(repairOs.mobileFloatingPage, "!pb-0 lg:pt-0"),
+            surface === "dialog" && "flex min-h-0 flex-1 flex-col overflow-clip",
+          )}
+        >
+          <p
+            id="new-order-validation-summary"
+            className="sr-only"
+            role="alert"
+            aria-live="assertive"
+          >
+            {submitValidationMessage}
+          </p>
+          {surface === "dialog" ? (
+            <div
+              data-new-order-header="true"
+              className="shrink-0 px-2 pt-2 sm:px-3 md:px-4 md:pt-3"
+            >
+              {onCancel ? (
+                <NewOrderDialogMobileHeader
+                  valid={Boolean(valid)}
+                  offlineStatus={offlineStatus}
+                  onClose={onCancel}
+                />
+              ) : null}
+              <NewOrderDesktopHeader
+                surface={surface}
                 offlineStatus={offlineStatus}
                 onClose={onCancel}
               />
-            ) : null}
-            <NewOrderDesktopHeader
-              surface={surface}
-              offlineStatus={offlineStatus}
-              onClose={onCancel}
-            />
-          </div>
-        ) : (
-          <NewOrderDesktopHeader surface={surface} offlineStatus={offlineStatus} />
-        )}
+            </div>
+          ) : (
+            <NewOrderDesktopHeader surface={surface} offlineStatus={offlineStatus} />
+          )}
 
-        <div
-          data-new-order-scroll-body={surface === "dialog" ? "true" : undefined}
-          className={
-            surface === "dialog"
-              ? "min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-3 [scrollbar-gutter:stable] sm:px-3 md:px-4"
-              : "contents"
-          }
-        >
-          {offlineDraft.draftPrompt ? (
-            <NewOrderOfflineRestoreCard
-              prompt={offlineDraft.draftPrompt}
-              onRestore={handleRestoreOfflineDraft}
-              confirmDiscard={discardDraftDialogOpen}
-              onRequestDiscard={() => setDiscardDraftDialogOpen(true)}
-              onCancelDiscard={() => setDiscardDraftDialogOpen(false)}
-              onConfirmDiscard={() => {
-                void handleDiscardOfflineDraft();
-              }}
-            />
-          ) : null}
-
-          {offlineDraft.pendingRestoreNotice ? (
-            <NewOrderOfflineInlineNotice
-              tone="success"
-              message={offlineDraft.pendingRestoreNotice}
-            />
-          ) : null}
-
-          {offlineDraft.state === "error" || offlineDraft.state === "unavailable" ? (
-            <div className="mb-2 grid gap-2 rounded-xl bg-status-warn px-2.5 py-2 md:mb-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-              <NewOrderOfflineInlineNotice
-                tone="warning"
-                className="mb-0 bg-transparent p-0"
-                message={t("orders2b1.new.offline.unavailable")}
+          <div
+            data-new-order-scroll-body={surface === "dialog" ? "true" : undefined}
+            className={
+              surface === "dialog"
+                ? "min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-3 [scrollbar-gutter:stable] sm:px-3 md:px-4"
+                : "contents"
+            }
+          >
+            {offlineDraft.draftPrompt ? (
+              <NewOrderOfflineRestoreCard
+                prompt={offlineDraft.draftPrompt}
+                onRestore={handleRestoreOfflineDraft}
+                confirmDiscard={discardDraftDialogOpen}
+                onRequestDiscard={() => setDiscardDraftDialogOpen(true)}
+                onCancelDiscard={() => setDiscardDraftDialogOpen(false)}
+                onConfirmDiscard={() => {
+                  void handleDiscardOfflineDraft();
+                }}
               />
-              <Button
-                type="button"
-                variant="outline"
-                className="h-[38px] bg-background text-base"
-                onClick={offlineDraft.retryPreflight}
-              >
-                <RotateCcw className="mr-1.5 size-4" /> {t("common.retry")}
-              </Button>
-            </div>
-          ) : null}
+            ) : null}
 
-          {createRecovery.state !== "idle" ? (
-            <NewOrderCreateRecoveryCard
-              state={createRecovery}
-              onRetry={() => {
-                void confirmCreateOperation(createRecovery.operationId);
-              }}
-            />
-          ) : null}
+            {offlineDraft.pendingRestoreNotice ? (
+              <NewOrderOfflineInlineNotice
+                tone="success"
+                message={offlineDraft.pendingRestoreNotice}
+              />
+            ) : null}
 
-          {storeSettingsQuery.isError ? (
-            <div
-              className="mb-3 rounded-xl bg-status-warn px-3 py-2 text-xs text-status-warn-foreground"
-              role="status"
-            >
-              {t("orders2b1.new.modeFallback")}
-              <Button
-                type="button"
-                variant="link"
-                className="ml-1 h-auto p-0 text-xs"
-                onClick={() => void storeSettingsQuery.refetch()}
-              >
-                {t("common.retry")}
-              </Button>
-            </div>
-          ) : null}
-          {sessionStoreChanged ? (
-            <div
-              className="mb-3 rounded-xl bg-status-danger px-3 py-2 text-xs text-status-danger-foreground"
-              role="alert"
-            >
-              {t("orders2b1.new.storeFrozen")}
-            </div>
-          ) : null}
-
-          {createdOrderId ? (
-            <section
-              data-new-order-photo-result="true"
-              role="status"
-              className="mb-3 space-y-2 rounded-xl border border-border bg-status-warn p-3 text-status-warn-foreground"
-            >
-              <p className="font-semibold">{t("orders.newFlow.createdPhotos")}</p>
-              <p className="text-sm">
-                {t(
-                  photoDraft.state === "idle" || photoDraft.state === "uploading"
-                    ? "orders.newFlow.photoUploading"
-                    : photoDraft.state === "blocked"
-                      ? "orders.newFlow.photoBlocked"
-                      : photoDraft.photos.some((photo) => photo.uploadState === "uncertain")
-                        ? "orders.newFlow.photoUncertain"
-                        : "orders.newFlow.photoRemaining",
-                )}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {photoDraft.canRetry && photoDraft.state !== "idle" ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={sessionStoreChanged}
-                    onClick={() => void completeOnlineOrderCreated(createdOrderId)}
-                  >
-                    {t("orders.newFlow.retryPhotos")}
-                  </Button>
-                ) : null}
+            {offlineDraft.state === "error" || offlineDraft.state === "unavailable" ? (
+              <div className="mb-2 grid gap-2 rounded-xl bg-status-warn px-2.5 py-2 md:mb-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                <NewOrderOfflineInlineNotice
+                  tone="warning"
+                  className="mb-0 bg-transparent p-0"
+                  message={t("orders2b1.new.offline.unavailable")}
+                />
                 <Button
                   type="button"
-                  disabled={
-                    photoDraft.state === "idle" ||
-                    photoDraft.state === "uploading" ||
-                    sessionStoreChanged
-                  }
-                  onClick={() => {
-                    if (photoDraft.hasUnsaved) setLeavePhotosOpen(true);
-                    else void finishOnlineOrderCreated(createdOrderId);
-                  }}
+                  variant="outline"
+                  className="h-[38px] bg-background text-base"
+                  onClick={offlineDraft.retryPreflight}
                 >
-                  {t("orders.newFlow.viewOrder")}
+                  <RotateCcw className="mr-1.5 size-4" /> {t("common.retry")}
                 </Button>
               </div>
-            </section>
-          ) : null}
-          {effectiveEntryMode === null ? (
-            <section
-              data-new-order-mode-loading="true"
-              className={cn(repairOs.mobileInfoCard, "animate-pulse p-4")}
-              aria-busy="true"
-            >
-              <p className="text-sm">{t("orders2b1.new.modeLoading")}</p>
-            </section>
-          ) : (
-            <>
-              <fieldset disabled={createSubmitBlocked || sessionStoreChanged} className="min-w-0">
-                {isMobile ? (
-                  <NewOrderMobileWorkspace
-                    form={form}
-                    setForm={setForm}
-                    historyDevices={historyDevices}
-                    onPickCustomer={handlePickCustomer}
-                    onClearCustomerContext={() => {
-                      setHistoryDevices([]);
-                      setIdentityConflict(null);
-                      setCustomerIdentityIntent(null);
-                      setSharedPhoneConfirmOpen(false);
-                      createOperationIdRef.current = null;
+            ) : null}
+
+            {createRecovery.state !== "idle" ? (
+              <NewOrderCreateRecoveryCard
+                state={createRecovery}
+                onRetry={() => {
+                  void confirmCreateOperation(createRecovery.operationId);
+                }}
+              />
+            ) : null}
+
+            {storeSettingsQuery.isError ? (
+              <div
+                className="mb-3 rounded-xl bg-status-warn px-3 py-2 text-xs text-status-warn-foreground"
+                role="status"
+              >
+                {t("orders2b1.new.modeFallback")}
+                <Button
+                  type="button"
+                  variant="link"
+                  className="ml-1 h-auto p-0 text-xs"
+                  onClick={() => void storeSettingsQuery.refetch()}
+                >
+                  {t("common.retry")}
+                </Button>
+              </div>
+            ) : null}
+            {sessionStoreChanged ? (
+              <div
+                className="mb-3 rounded-xl bg-status-danger px-3 py-2 text-xs text-status-danger-foreground"
+                role="alert"
+              >
+                {t("orders2b1.new.storeFrozen")}
+              </div>
+            ) : null}
+
+            {createdOrderId ? (
+              <section
+                data-new-order-photo-result="true"
+                role="status"
+                className="mb-3 space-y-2 rounded-xl border border-border bg-status-warn p-3 text-status-warn-foreground"
+              >
+                <p className="font-semibold">{t("orders.newFlow.createdPhotos")}</p>
+                <p className="text-sm">
+                  {t(
+                    photoDraft.state === "idle" || photoDraft.state === "uploading"
+                      ? "orders.newFlow.photoUploading"
+                      : photoDraft.state === "blocked"
+                        ? "orders.newFlow.photoBlocked"
+                        : photoDraft.photos.some((photo) => photo.uploadState === "uncertain")
+                          ? "orders.newFlow.photoUncertain"
+                          : "orders.newFlow.photoRemaining",
+                  )}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {photoDraft.canRetry && photoDraft.state !== "idle" ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={sessionStoreChanged}
+                      onClick={() => void completeOnlineOrderCreated(createdOrderId)}
+                    >
+                      {t("orders.newFlow.retryPhotos")}
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    disabled={
+                      photoDraft.state === "idle" ||
+                      photoDraft.state === "uploading" ||
+                      sessionStoreChanged
+                    }
+                    onClick={() => {
+                      if (photoDraft.hasUnsaved) setLeavePhotosOpen(true);
+                      else void finishOnlineOrderCreated(createdOrderId);
                     }}
-                    onNewCustomerIntentChange={setCustomerIdentityIntent}
-                    disabled={createSubmitBlocked || sessionStoreChanged}
-                    validationRequest={mobileValidation}
-                    quote={
-                      <>
-                        {quotationSectionNode()}
-                        {effectiveEntryMode === "simple" ? (
-                          <Button
-                            type="button"
-                            variant={diagnosisDeferred ? "default" : "outline"}
-                            aria-pressed={diagnosisDeferred}
-                            className="min-h-11 whitespace-normal"
-                            onClick={() => setDiagnosisDeferred((current) => !current)}
-                          >
-                            {t("orders2b1.new.diagnosisDeferred")}
-                          </Button>
-                        ) : null}
-                      </>
-                    }
-                    photos={
-                      <NewOrderSupplements
-                        compact
-                        notes={form.issueDescription}
-                        onNotesChange={(issueDescription) =>
-                          setForm((current) => ({ ...current, issueDescription }))
-                        }
-                        photos={photoDraft.photos}
-                        onAdd={photoDraft.add}
-                        onRemove={photoDraft.remove}
-                        disabled={createSubmitBlocked || sessionStoreChanged}
-                        locked={Boolean(createdOrderId)}
-                      />
-                    }
-                    settings={(draft, setDraft) =>
-                      quotationSectionNode("settings", draft, setDraft, true)
-                    }
-                    settingsSummary={`${t(form.type === "quick_repair" ? "orders2b1.new.quickRepair" : "orders2b1.new.dropoffRepair")} · ${selectedCreateStatus ? localizeOrderWorkflowStatusLabel(selectedCreateStatus, t) : form.status} · ${form.warrantyText}`}
-                  />
-                ) : (
-                  <div
-                    data-new-order-workspace-grid="true"
-                    data-new-order-single-page="true"
-                    className="grid min-w-0 items-start gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] md:gap-3 @[1040px]/new-order:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)_minmax(0,0.85fr)]"
                   >
-                    <div className="grid min-w-0 content-start gap-2 md:col-start-1 md:row-start-1">
-                      {customerSectionNode}
-                      {deviceSectionNode}
+                    {t("orders.newFlow.viewOrder")}
+                  </Button>
+                </div>
+              </section>
+            ) : null}
+            {effectiveEntryMode === null ? (
+              <section
+                data-new-order-mode-loading="true"
+                className={cn(repairOs.mobileInfoCard, "animate-pulse p-4")}
+                aria-busy="true"
+              >
+                <p className="text-sm">{t("orders2b1.new.modeLoading")}</p>
+              </section>
+            ) : (
+              <>
+                <fieldset disabled={createSubmitBlocked || sessionStoreChanged} className="min-w-0">
+                  {isMobile ? (
+                    <NewOrderMobileWorkspace
+                      form={form}
+                      setForm={setForm}
+                      historyDevices={historyDevices}
+                      onPickCustomer={handlePickCustomer}
+                      onClearCustomerContext={() => {
+                        setHistoryDevices([]);
+                        setIdentityConflict(null);
+                        setCustomerIdentityIntent(null);
+                        setSharedPhoneConfirmOpen(false);
+                        createOperationIdRef.current = null;
+                      }}
+                      onNewCustomerIntentChange={setCustomerIdentityIntent}
+                      disabled={createSubmitBlocked || sessionStoreChanged}
+                      validationRequest={mobileValidation}
+                      quote={
+                        <>
+                          {quotationSectionNode()}
+                          {effectiveEntryMode === "simple" ? (
+                            <Button
+                              type="button"
+                              variant={diagnosisDeferred ? "default" : "outline"}
+                              aria-pressed={diagnosisDeferred}
+                              className="min-h-11 whitespace-normal"
+                              onClick={() => setDiagnosisDeferred((current) => !current)}
+                            >
+                              {t("orders2b1.new.diagnosisDeferred")}
+                            </Button>
+                          ) : null}
+                        </>
+                      }
+                      photos={
+                        <NewOrderSupplements
+                          compact
+                          notes={form.issueDescription}
+                          onNotesChange={(issueDescription) =>
+                            setForm((current) => ({ ...current, issueDescription }))
+                          }
+                          photos={photoDraft.photos}
+                          onAdd={photoDraft.add}
+                          onRemove={photoDraft.remove}
+                          disabled={createSubmitBlocked || sessionStoreChanged}
+                          locked={Boolean(createdOrderId)}
+                        />
+                      }
+                      settings={(draft, setDraft) =>
+                        quotationSectionNode("settings", draft, setDraft, true)
+                      }
+                      settingsSummary={`${t(form.type === "quick_repair" ? "orders2b1.new.quickRepair" : "orders2b1.new.dropoffRepair")} · ${selectedCreateStatus ? localizeOrderWorkflowStatusLabel(selectedCreateStatus, t) : form.status} · ${form.warrantyText}`}
+                    />
+                  ) : (
+                    <div
+                      data-new-order-workspace-grid="true"
+                      data-new-order-single-page="true"
+                      className="grid min-w-0 items-start gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] md:gap-3 @[1040px]/new-order:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)_minmax(0,0.85fr)]"
+                    >
+                      <div className="grid min-w-0 content-start gap-2 md:col-start-1 md:row-start-1">
+                        {customerSectionNode}
+                        {deviceSectionNode}
+                      </div>
+                      {quotationSectionNode()}
+                      <div className="grid min-w-0 content-start gap-2 md:col-span-2 md:row-start-2 md:grid-cols-2 @[1040px]/new-order:col-span-1 @[1040px]/new-order:col-start-3 @[1040px]/new-order:row-start-1 @[1040px]/new-order:grid-cols-1">
+                        {quotationSectionNode("settings")}
+                        {effectiveEntryMode === "simple" ? (
+                          <section className={cn(repairOs.mobileInfoCard, "p-2.5")}>
+                            <Button
+                              type="button"
+                              variant={diagnosisDeferred ? "default" : "outline"}
+                              aria-pressed={diagnosisDeferred}
+                              className="min-h-11 w-full whitespace-normal"
+                              onClick={() => setDiagnosisDeferred((current) => !current)}
+                            >
+                              {diagnosisDeferred ? <CheckCircle2 className="size-4" /> : null}
+                              {t("orders2b1.new.diagnosisDeferred")}
+                            </Button>
+                            <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                              {t("orders2b1.new.validation.diagnosis")}
+                            </p>
+                          </section>
+                        ) : null}
+                        <NewOrderSupplements
+                          notes={form.issueDescription}
+                          onNotesChange={(issueDescription) =>
+                            setForm((current) => ({ ...current, issueDescription }))
+                          }
+                          photos={photoDraft.photos}
+                          onAdd={photoDraft.add}
+                          onRemove={photoDraft.remove}
+                          disabled={createSubmitBlocked || sessionStoreChanged}
+                          locked={Boolean(createdOrderId)}
+                        />
+                      </div>
                     </div>
-                    {quotationSectionNode()}
-                    <div className="grid min-w-0 content-start gap-2 md:col-span-2 md:row-start-2 md:grid-cols-2 @[1040px]/new-order:col-span-1 @[1040px]/new-order:col-start-3 @[1040px]/new-order:row-start-1 @[1040px]/new-order:grid-cols-1">
-                      {quotationSectionNode("settings")}
-                      {effectiveEntryMode === "simple" ? (
-                        <section className={cn(repairOs.mobileInfoCard, "p-2.5")}>
-                          <Button
-                            type="button"
-                            variant={diagnosisDeferred ? "default" : "outline"}
-                            aria-pressed={diagnosisDeferred}
-                            className="min-h-11 w-full whitespace-normal"
-                            onClick={() => setDiagnosisDeferred((current) => !current)}
-                          >
-                            {diagnosisDeferred ? <CheckCircle2 className="size-4" /> : null}
-                            {t("orders2b1.new.diagnosisDeferred")}
-                          </Button>
-                          <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-                            {t("orders2b1.new.validation.diagnosis")}
-                          </p>
-                        </section>
-                      ) : null}
-                      <NewOrderSupplements
-                        notes={form.issueDescription}
-                        onNotesChange={(issueDescription) =>
-                          setForm((current) => ({ ...current, issueDescription }))
-                        }
-                        photos={photoDraft.photos}
-                        onAdd={photoDraft.add}
-                        onRemove={photoDraft.remove}
-                        disabled={createSubmitBlocked || sessionStoreChanged}
-                        locked={Boolean(createdOrderId)}
-                      />
-                    </div>
-                  </div>
-                )}
-              </fieldset>
-              <div data-new-order-content-end="true" aria-hidden="true" className="h-px w-full" />
-              {surface === "page" ? (
-                <div
-                  data-new-order-submit-spacer="true"
-                  aria-hidden="true"
-                  className="h-[calc(var(--new-order-submit-offset,7rem)+0.75rem)] w-full shrink-0 md:hidden"
-                />
-              ) : null}
-            </>
-          )}
-        </div>
-        {effectiveEntryMode !== null && !createdOrderId ? (
-          <NewOrderSubmitBar
-            valid={Boolean(valid)}
-            pending={createSubmitBlocked || sessionStoreChanged}
-            statusMessage={
-              sessionStoreChanged ? t("orders2b1.new.storeChangedShort") : createSubmitMessage
-            }
-            custodyStatus={form.deviceCustodyStatus}
-            onCancel={onCancel}
-            surface={surface}
-            validationSummaryId="new-order-validation-summary"
-            total={total}
-            missingCount={missingItems.length}
-          />
-        ) : null}
-      </form>
+                  )}
+                </fieldset>
+                <div data-new-order-content-end="true" aria-hidden="true" className="h-px w-full" />
+                {surface === "page" ? (
+                  <div
+                    data-new-order-submit-spacer="true"
+                    aria-hidden="true"
+                    className="h-[calc(var(--new-order-submit-offset,7rem)+0.75rem)] w-full shrink-0 md:hidden"
+                  />
+                ) : null}
+              </>
+            )}
+          </div>
+          {effectiveEntryMode !== null && !createdOrderId ? (
+            <NewOrderSubmitBar
+              valid={Boolean(valid)}
+              pending={createSubmitBlocked || sessionStoreChanged}
+              statusMessage={
+                sessionStoreChanged ? t("orders2b1.new.storeChangedShort") : createSubmitMessage
+              }
+              custodyStatus={form.deviceCustodyStatus}
+              onCancel={onCancel}
+              surface={surface}
+              validationSummaryId="new-order-validation-summary"
+              total={total}
+              missingCount={missingItems.length}
+            />
+          ) : null}
+        </form>
+      </NewOrderValidationContext.Provider>
 
       <AlertDialog open={leavePhotosOpen} onOpenChange={setLeavePhotosOpen}>
         <AlertDialogContent>
@@ -1535,21 +1568,29 @@ function syncNewOrderValidationAria(items: NewOrderMissingItem[], summaryId: str
 
   clear();
   for (const item of items) {
-    const field = document.querySelector<HTMLElement>(`[data-new-order-field="${item.target}"]`);
-    if (!field) continue;
-    const focusable = field.matches(validationFocusableSelector)
-      ? field
-      : field.querySelector<HTMLElement>(validationFocusableSelector);
-    if (!focusable) continue;
-    if (focusable.dataset.newOrderValidationInvalid === "true") continue;
-    const previous = focusable.getAttribute("aria-describedby") ?? "";
-    focusable.dataset.newOrderValidationInvalid = "true";
-    focusable.dataset.newOrderValidationPreviousDescribedby = previous;
-    focusable.setAttribute("aria-invalid", "true");
-    focusable.setAttribute(
-      "aria-describedby",
-      Array.from(new Set([...previous.split(/\s+/).filter(Boolean), summaryId])).join(" "),
-    );
+    for (const field of document.querySelectorAll<HTMLElement>(
+      `[data-new-order-field="${item.target}"]`,
+    )) {
+      const focusable = field.matches(validationFocusableSelector)
+        ? field
+        : field.querySelector<HTMLElement>(validationFocusableSelector);
+      if (!focusable || focusable.dataset.newOrderValidationInvalid === "true") continue;
+      const previous = focusable.getAttribute("aria-describedby") ?? "";
+      focusable.dataset.newOrderValidationInvalid = "true";
+      focusable.dataset.newOrderValidationPreviousDescribedby = previous;
+      focusable.setAttribute("aria-invalid", "true");
+      const errorId = field.querySelector<HTMLElement>("[data-new-order-error]")?.id;
+      focusable.setAttribute(
+        "aria-describedby",
+        Array.from(
+          new Set([
+            ...previous.split(/\s+/).filter(Boolean),
+            summaryId,
+            ...(errorId ? [errorId] : []),
+          ]),
+        ).join(" "),
+      );
+    }
   }
   return clear;
 }
@@ -1563,9 +1604,15 @@ function focusNewOrderMissingItem(item: NewOrderMissingItem | undefined) {
     document
       .querySelector<HTMLButtonElement>('[aria-controls="new-order-service-fields"]')
       ?.click();
-  target.tabIndex = -1;
   target.scrollIntoView({ behavior: "smooth", block: "center" });
-  target.focus({ preventScroll: true });
+  const focusable = target.matches(validationFocusableSelector)
+    ? target
+    : target.querySelector<HTMLElement>(validationFocusableSelector);
+  if (focusable) focusable.focus({ preventScroll: true });
+  else {
+    target.tabIndex = -1;
+    target.focus({ preventScroll: true });
+  }
 }
 
 function getNewOrderMissingItems({

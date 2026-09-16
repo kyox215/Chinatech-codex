@@ -10,7 +10,6 @@ export interface SettingsQueryActivation {
   workflow: boolean;
   kioskDevices: boolean;
   kioskSessions: boolean;
-  aiUsage: boolean;
   orderData: boolean;
 }
 
@@ -23,7 +22,6 @@ const inactiveQueries: SettingsQueryActivation = {
   workflow: false,
   kioskDevices: false,
   kioskSessions: false,
-  aiUsage: false,
   orderData: false,
 };
 
@@ -71,12 +69,6 @@ export function getSettingsQueryActivation(
     return {
       ...inactiveQueries,
       workflow: capabilities.canConfigureWorkflow !== undefined,
-    };
-  }
-  if (section === "ai-usage") {
-    return {
-      ...inactiveQueries,
-      aiUsage: capabilities.canReadAggregateFinance === true,
     };
   }
   return {

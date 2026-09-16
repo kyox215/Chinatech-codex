@@ -293,7 +293,7 @@ export function CustomerDeviceCard({
             size="sm"
             variant="ghost"
             className="h-11 gap-1.5 text-destructive hover:text-destructive lg:h-8"
-            disabled={deleting}
+            disabled={deleting || !device.updated_at}
             onClick={(event) => {
               event.stopPropagation();
               if (

@@ -1,5 +1,4 @@
 import {
-  Activity,
   FileSpreadsheet,
   GitBranch,
   MessageSquare,
@@ -164,18 +163,6 @@ const sectionDefinitions: readonly SettingsSectionDefinition[] = [
     href: "/settings?section=notifications",
   },
   {
-    key: "ai-usage",
-    group: "output-data",
-    tier: "advanced",
-    showInDefaultNavigation: true,
-    label: "AI 使用量",
-    shortLabel: "AI 用量",
-    description: "大模型请求、Token 与费用估算",
-    keywords: ["OpenAI", "大模型", "Token", "费用", "用量", "额度"],
-    icon: Activity,
-    href: "/settings?section=ai-usage",
-  },
-  {
     key: "order-data",
     group: "output-data",
     tier: "advanced",
@@ -272,12 +259,6 @@ const sectionPresentationKeys: Record<
     shortLabel: "settings.section.notifications.shortLabel",
     description: "settings.section.notifications.description",
     keywords: "settings.section.notifications.keywords",
-  },
-  "ai-usage": {
-    label: "settings.section.aiUsage.label",
-    shortLabel: "settings.section.aiUsage.shortLabel",
-    description: "settings.section.aiUsage.description",
-    keywords: "settings.section.aiUsage.keywords",
   },
   "order-data": {
     label: "settings.section.orderData.label",

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   confirmCancelledOrderReturn,
+  decideOrderApproval,
   correctTerminalOrder,
   isOrderAttachmentStorageScoped,
   isOrderInActorScope,
@@ -17,7 +18,6 @@ import {
   recordPayment,
   reopenOrder,
   sendNotification,
-  sendWhatsappNotification,
   transitionOrder,
   updateOrderCustody,
   uploadOrderAttachment,
@@ -480,7 +480,7 @@ describe("order repository database pagination", () => {
     expect(mocks.supabase.from).not.toHaveBeenCalled();
   });
 
-  it("reads stable chunks before applying status and oldest-created-first page order", async () => {
+  it.each([50, 100])("reads a stable second page for %i-row batches", async (pageSize) => {
     const queries: ReturnType<typeof createSupabaseQuery>[] = [];
     mocks.supabase.from.mockImplementation(() => {
       const query = createSupabaseQuery({
@@ -498,10 +498,10 @@ describe("order repository database pagination", () => {
       return query;
     });
 
-    const result = await listOrdersPage({ page: 2, pageSize: 50 }, actor("owner"));
+    const result = await listOrdersPage({ page: 2, pageSize }, actor("owner"));
 
-    expect(result.items).toHaveLength(50);
-    expect(result.items[0]?.id).toBe("order_50");
+    expect(result.items).toHaveLength(Math.min(pageSize, 101 - pageSize));
+    expect(result.items[0]?.id).toBe(`order_${pageSize}`);
     expect(result.total).toBe(101);
     expect(queries[0]?.order).toHaveBeenNthCalledWith(1, "updated_at", { ascending: false });
     expect(queries[0]?.order).toHaveBeenNthCalledWith(2, "id", { ascending: true });
@@ -517,15 +517,18 @@ describe("order repository database pagination", () => {
     expect(String(indexSelect)).not.toContain("customer:customers(*)");
     expect(queries[2]?.in).toHaveBeenCalledWith(
       "id",
-      Array.from({ length: 50 }, (_, index) => `order_${index + 50}`),
+      Array.from(
+        { length: Math.min(pageSize, 101 - pageSize) },
+        (_, index) => `order_${index + pageSize}`,
+      ),
     );
   });
 
-  it("clamps direct repository callers to at most 50 detail rows", async () => {
+  it.each([100, 500])("bounds a requested %i-row batch to 100 detail rows", async (pageSize) => {
     const queries: ReturnType<typeof createSupabaseQuery>[] = [];
     mocks.supabase.from.mockImplementation(() => {
       const query = createSupabaseQuery({
-        data: Array.from({ length: 80 }, (_, index) =>
+        data: Array.from({ length: 120 }, (_, index) =>
           orderRow({
             id: `order_${index}`,
             created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString(),
@@ -533,18 +536,19 @@ describe("order repository database pagination", () => {
           }),
         ),
         error: null,
-        count: 80,
+        count: 120,
       });
       queries.push(query);
       return query;
     });
 
-    const result = await listOrdersPage({ page: 1, pageSize: 100 }, actor("owner"));
+    const result = await listOrdersPage({ page: 1, pageSize }, actor("owner"));
     const detailInCalls = queries[2]?.in.mock.calls as unknown[][];
 
-    expect(result.pageSize).toBe(50);
-    expect(result.items).toHaveLength(50);
-    expect(detailInCalls[0]?.[1]).toHaveLength(50);
+    expect(result.pageSize).toBe(100);
+    expect(result.items).toHaveLength(100);
+    expect(result.pageCount).toBe(2);
+    expect(detailInCalls[0]?.[1]).toHaveLength(100);
   });
 
   it("filters terminal rows before pending totals, group counts, and pagination", async () => {
@@ -878,19 +882,28 @@ describe("order repository database pagination", () => {
           { ...actor("technician"), displayName: "Technician B" },
         ),
     ],
-    [
-      "message",
-      () =>
-        sendNotification("order_1", "Ready", "whatsapp", {
-          ...actor("technician"),
-          displayName: "Technician B",
-        }),
-    ],
   ])("rejects a renamed technician before a legacy %s write", async (_operation, run) => {
     mockLegacyAssignmentLookup();
 
     await expect(run()).rejects.toThrow("当前工单未分配给你");
     expect(mocks.supabase.from).toHaveBeenCalledTimes(2);
+  });
+
+  it("denies technicians recording customer messages before database dispatch", async () => {
+    await expect(
+      sendNotification(
+        "order_1",
+        {
+          body: "Ready",
+          channel: "whatsapp",
+          expected_updated_at: "2026-09-16T00:00:00Z",
+          idempotency_key: crypto.randomUUID(),
+        },
+        actor("technician"),
+      ),
+    ).rejects.toMatchObject({ status: 403, code: "actor_forbidden" });
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled();
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
   });
 
   it("fails closed for status transitions when the custody migration is unavailable", async () => {
@@ -1504,6 +1517,148 @@ describe("order repository terminal operation RPCs", () => {
         actor("manager"),
       ),
     ).rejects.toMatchObject({ code: "INVALID_RESPONSE", status: 500 });
+  });
+});
+
+describe("order approval snapshot and replay", () => {
+  const request = {
+    expected_updated_at: "2026-07-09T10:00:00.000Z",
+    quote_event_id: "quote-a" as string | null,
+    idempotency_key: "00000000-0000-4000-8000-000000000901",
+    decision: "approved" as const,
+    next_status: "repairing" as const,
+    reason: "Confirmed quote A",
+  };
+  beforeEach(() => {
+    mocks.supabase.from.mockReset();
+    mocks.supabase.rpc.mockReset();
+  });
+  function prepare(
+    overrides: Record<string, unknown> = {},
+    prior: unknown = null,
+    quote: unknown = { id: "quote-a" },
+  ) {
+    const queries = [
+      createSupabaseQuery({
+        data: orderRow({
+          status: "waiting_approval",
+          approval_flow_status: "waiting_customer",
+          ...overrides,
+        }),
+        error: null,
+        count: 1,
+      }),
+      createSupabaseQuery({ data: prior, error: null, count: 0 }),
+      createSupabaseQuery({ data: quote, error: null, count: 1 }),
+      createSupabaseQuery({
+        data: { code: "repairing", bucket: "repair", enabled: true },
+        error: null,
+        count: 1,
+      }),
+      createSupabaseQuery({ data: { enabled: true }, error: null, count: 1 }),
+    ];
+    mocks.supabase.from.mockImplementation(() => queries.shift());
+    return queries;
+  }
+  it("binds the approved quote and exact seen version to one atomic event, then replays before state validation", async () => {
+    prepare();
+    mocks.supabase.rpc.mockResolvedValue({
+      data: { ok: true, updated_at: "2026-07-09T11:00:00.000Z" },
+      error: null,
+    });
+    const first = await decideOrderApproval("order_1", request, actor("owner"));
+    const args = mocks.supabase.rpc.mock.calls[0][1];
+    expect(args).toMatchObject({
+      p_expected_updated_at: request.expected_updated_at,
+      p_idempotency_key: request.idempotency_key,
+      p_event_type: "approval_result",
+      p_event_payload: {
+        quote_event_id: "quote-a",
+        expected_updated_at: request.expected_updated_at,
+      },
+    });
+    const prior = {
+      order_id: "order_1",
+      event_type: "approval_result",
+      payload: args.p_event_payload,
+    };
+    prepare(
+      {
+        status: "repairing",
+        approval_flow_status: "approved",
+        updated_at: "2026-07-09T11:00:00.000Z",
+      },
+      prior,
+    );
+    expect(await decideOrderApproval("order_1", request, actor("owner"))).toEqual(first);
+    expect(mocks.supabase.rpc).toHaveBeenCalledTimes(1);
+    prepare({}, prior);
+    await expect(
+      decideOrderApproval("order_1", { ...request, reason: "Different intent" }, actor("owner")),
+    ).rejects.toMatchObject({ status: 409, code: "idempotency_conflict" });
+    prepare({}, prior);
+    await expect(decideOrderApproval("order_1", request, actor("manager"))).rejects.toMatchObject({
+      status: 409,
+      code: "idempotency_conflict",
+    });
+    expect(mocks.supabase.rpc).toHaveBeenCalledTimes(1);
+  });
+  it.each(["version", "quote"])("rejects a changed %s without any mutation", async (kind) => {
+    prepare(kind === "version" ? { updated_at: "2026-07-09T11:00:00.000Z" } : {}, null, {
+      id: "quote-b",
+    });
+    await expect(decideOrderApproval("order_1", request, actor("owner"))).rejects.toMatchObject({
+      status: 409,
+      code: "stale_version",
+    });
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled();
+  });
+  it("accepts an explicit legacy null only while no published quote exists", async () => {
+    prepare({}, null, null);
+    mocks.supabase.rpc.mockResolvedValue({
+      data: { ok: true, updated_at: "2026-07-09T11:00:00.000Z" },
+      error: null,
+    });
+    await decideOrderApproval("order_1", { ...request, quote_event_id: null }, actor("owner"));
+    expect(mocks.supabase.rpc).toHaveBeenCalledTimes(1);
+    prepare();
+    await expect(
+      decideOrderApproval("order_1", { ...request, quote_event_id: null }, actor("owner")),
+    ).rejects.toMatchObject({ status: 409, code: "stale_version" });
+    expect(mocks.supabase.rpc).toHaveBeenCalledTimes(1);
+  });
+  it.each(["stale_version", "idempotency_conflict"])(
+    "preserves atomic %s as HTTP 409",
+    async (code) => {
+      prepare();
+      mocks.supabase.rpc.mockResolvedValue({ data: { ok: false, code }, error: null });
+      await expect(decideOrderApproval("order_1", request, actor("owner"))).rejects.toMatchObject({
+        status: 409,
+        code,
+      });
+    },
+  );
+  it("checks the current technician assignment before even looking up a replay", async () => {
+    prepare({ assignee_membership_id: "someone_else" });
+    await expect(decideOrderApproval("order_1", request, actor("technician"))).rejects.toThrow(
+      "未分配给你",
+    );
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled();
+  });
+  it("keeps the initial order read constrained to the actor store", async () => {
+    const query = createSupabaseQuery({
+      data: null,
+      error: { message: "Order not found" },
+      count: 0,
+    });
+    mocks.supabase.from.mockReturnValue(query);
+    await expect(
+      decideOrderApproval("order_1", request, { ...actor("owner"), storeId: "other-store" }),
+    ).rejects.toThrow();
+    expect(query.eq).toHaveBeenCalledWith("store_id", "other-store");
+    expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled();
   });
 });
 

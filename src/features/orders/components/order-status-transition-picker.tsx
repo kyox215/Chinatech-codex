@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, LayoutGrid, List, LoaderCircle, LocateFixed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/orders/badges";
+import { getWorkflowStatus } from "../model/order-workflow";
 import { OrderTransitionReasonSelector } from "./order-transition-reason-selector";
 import {
   getDefaultOrderTransitionReason,
@@ -77,6 +78,21 @@ export function OrderStatusTransitionPicker({
       action: restriction || permission ? undefined : entry.action,
     };
   });
+  const currentPosition = entries.findIndex((entry) => entry.current);
+  const terminal =
+    ["done", "cancelled"].includes(getWorkflowStatus(workflow, order.status)?.bucket ?? "") ||
+    order.status === "completed" ||
+    order.status === "cancelled";
+  const nextEntry = terminal
+    ? undefined
+    : entries
+        .slice(currentPosition + 1)
+        .find(
+          (entry) =>
+            entry.action &&
+            getWorkflowStatus(workflow, entry.code)?.bucket !== "cancelled" &&
+            entry.code !== "cancelled",
+        );
   const selectedAction = entries.find((entry) => entry.code === selected && !entry.current)?.action;
   const reasonTarget = selectedAction
     ? getTransitionPickerReasonTarget(selectedAction, workflow)
@@ -281,6 +297,46 @@ export function OrderStatusTransitionPicker({
               className="max-w-full whitespace-normal text-[11px] leading-4"
             />
           </Button>
+        </div>
+        <div
+          data-status-segmented-progress="true"
+          className="min-w-0 space-y-1.5"
+          role="img"
+          aria-label={
+            nextEntry
+              ? t("orders.workflowAria", {
+                  current: currentLabel,
+                  next: getTransitionPickerLabel(workflow, nextEntry.code, t),
+                })
+              : t("orders2b1.workflow.current", { stage: currentLabel })
+          }
+        >
+          <div className="flex min-w-0 gap-1" aria-hidden="true">
+            {entries.map((entry) => (
+              <span
+                key={entry.code}
+                title={getTransitionPickerLabel(workflow, entry.code, t)}
+                data-status-progress-current={entry.current ? "true" : undefined}
+                className={cn(
+                  "h-1.5 min-w-0 flex-1 rounded-full",
+                  entry.current && !terminal
+                    ? "bg-primary"
+                    : entry.code === nextEntry?.code
+                      ? "bg-primary/30"
+                      : "bg-border",
+                )}
+              />
+            ))}
+          </div>
+          {nextEntry ? (
+            <p
+              data-status-next-step="true"
+              aria-hidden="true"
+              className="text-xs text-muted-foreground"
+            >
+              → {getTransitionPickerLabel(workflow, nextEntry.code, t)}
+            </p>
+          ) : null}
         </div>
         <div
           role="group"

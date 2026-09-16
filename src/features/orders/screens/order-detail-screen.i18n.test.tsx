@@ -1645,6 +1645,64 @@ describe("OrderDetailScreen i18n", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("freezes the opened approval target and preserves draft and request ID across refresh and retries", async () => {
+    mocks.detail = {
+      ...makeDetail(),
+      latest_quote_event_id: "quote-a",
+      order: {
+        ...detailOrder,
+        status: "waiting_approval",
+        approval_status: "pending",
+        approval_flow_status: "waiting_customer",
+      },
+    };
+    mocks.decideOrderApproval.mockRejectedValue(
+      Object.assign(new Error("Changed quotation"), { status: 409, code: "stale_version" }),
+    );
+    const view = renderDetail("en");
+    fireEvent.click(screen.getByRole("button", { name: "Harness approval" }));
+    const reason = screen.getByPlaceholderText(
+      translateMessage("en", "orders2b2.approval.notePlaceholder"),
+    );
+    fireEvent.change(reason, { target: { value: "Keep this approval note" } });
+    mocks.detail = {
+      ...mocks.detail,
+      latest_quote_event_id: "quote-b",
+      order: {
+        ...(mocks.detail!.order as typeof detailOrder),
+        updated_at: "2026-09-15T12:00:00.000Z",
+        quotation_amount: 999,
+      },
+    };
+    view.rerender(
+      <LocaleProvider initialLocale="en">
+        <OrderDetailScreen id={detailOrder.id} surface="dialog" onClose={vi.fn()} />
+      </LocaleProvider>,
+    );
+    expect(reason).toHaveValue("Keep this approval note");
+    fireEvent.click(
+      screen.getByRole("button", { name: translateMessage("en", "orders2b2.approval.confirm") }),
+    );
+    await waitFor(() => expect(mocks.decideOrderApproval).toHaveBeenCalledOnce());
+    const first = mocks.decideOrderApproval.mock.calls[0][1];
+    expect(first).toMatchObject({
+      expected_updated_at: detailOrder.updated_at,
+      quote_event_id: "quote-a",
+      reason: "Keep this approval note",
+    });
+    expect(first.idempotency_key).toMatch(/^[0-9a-f-]{36}$/i);
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalled());
+    expect(reason).toHaveValue("Keep this approval note");
+    fireEvent.click(
+      screen.getByRole("button", { name: translateMessage("en", "orders2b2.approval.confirm") }),
+    );
+    await waitFor(() => expect(mocks.decideOrderApproval).toHaveBeenCalledTimes(2));
+    expect(mocks.decideOrderApproval.mock.calls[1][1]).toEqual(first);
+    expect(
+      screen.getByRole("heading", { name: translateMessage("en", "orders2b2.hero.approval") }),
+    ).toBeVisible();
+  });
+
   it.each(locales)(
     "contains a rejected %s approval mutation with safe feedback and preserves the dialog",
     async (locale) => {
@@ -1670,6 +1728,9 @@ describe("OrderDetailScreen i18n", () => {
 
       await waitFor(() => expect(mocks.decideOrderApproval).toHaveBeenCalledOnce());
       expect(mocks.decideOrderApproval).toHaveBeenCalledWith(detailOrder.id, {
+        expected_updated_at: detailOrder.updated_at,
+        quote_event_id: null,
+        idempotency_key: expect.any(String),
         decision: "approved",
         next_status: "repairing",
         reason: undefined,

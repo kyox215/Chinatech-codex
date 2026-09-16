@@ -7,6 +7,7 @@ import type {
   UpdateOrderInput,
 } from "@/lib/repairdesk/types";
 import { BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE } from "@/features/buyback/model/buyback-evidence-policy";
+import { OrderMutationError } from "@/features/orders/server/order-mutation";
 import { ForbiddenError } from "@/server/auth-context";
 
 import {
@@ -1060,3 +1061,12 @@ function actor(
     ...overrides,
   };
 }
+
+it.each(["stale_version", "idempotency_conflict"])(
+  "serializes approval %s conflicts as structured 409",
+  async (code) => {
+    const response = fail(new OrderMutationError("重新核对审批目标", code, 409));
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code, error: "重新核对审批目标" });
+  },
+);

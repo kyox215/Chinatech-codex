@@ -1,253 +1,60 @@
-# RepairDesk Agent Instructions
+# RepairDesk 项目工作规则
 
-Use these rules when generating or editing pages in this repository.
+状态：当前入口。最后精简：2026-09-15。历史入口见 [治理归档](docs/archive/governance-20260915/README.md)。
 
-- UI consistency planning and review use the existing project skill [ui-ux-review](.agents/skills/ui-ux-review/SKILL.md), alongside the available `ui-design-workflow`. The UI-specific execution sequence and superseded-rule register are in [the optimization roadmap, section 26](docs/PROJECT_EXECUTION_ROADMAP_2026-09-04.md#ui-consistency-20260912). Keep design values in their existing source files; external design skills are references, not alternate project authorities. This planning adoption does not mark product migrations complete or authorize production publication.
+## 1. 任务入口与授权
 
-- Content editing follows the Owner-selected A contract in [`docs/GLOBAL_CONTENT_EDITING_STANDARD.md`](docs/GLOBAL_CONTENT_EDITING_STANDARD.md): compact mobile bottom editors, independent desktop surfaces, direct value entry and existing business save/permission semantics.
+- 中文沟通；老板用自然语言给目标即可，不需要填写模板、选择部门或维护内部状态。
+- 先确认本项目 canonical root，保护已有未提交改动；不访问兄弟项目，不混用环境、凭据或业务数据。
+- 规则优先级：最新老板指令 → 适用 AGENTS → 当前业务/安全声明 → 按需技能。历史任务状态和归档不能自动成为新任务授权。
+- 默认 L2：范围明确、可逆的本地代码和文档修改直接推进。生产写入、发布、迁移、不可逆删除、真实支付/权限/隐私变更、秘密处理、付费服务、重大架构或依赖变更仍需明确授权；已有授权不重复询问。
+- 验证事实、推断、方案、mock 与真实后台结果分开；不伪造完成、审批、测试或截图。
 
-## Cross-Session Orchestration (Phase 0A)
+## 2. 并发与连续性
 
-- `.ai-company/orchestration.json` enables the project-scoped cross-session control plane in `shadow` mode. For every new top-level window and every non-micro task that could overlap a non-terminal task, automatically load and follow `$cross-session-orchestration` before repository or formal Task Memory writes. The Owner does not need to name the Skill, window, task ID, run, worker, worktree, or department.
-- A new top-level window starts `UNBOUND`. Resolve and explicitly bind `project_id`, `task_id`, `run_id`, `window_id`, and role in the shared SQLite Registry, then issue and verify the matching immutable Context Packet before scoped work. Never infer task identity from cwd, chat history, a branch name, or `ACTIVE_CONTEXT.md`.
-- Runtime identity authority is: shared SQLite Registry → Registry-selected immutable Context Packet → Git Task Memory audit projection → `ACTIVE_CONTEXT.md` foreground hint. Policy authority remains: latest Owner instruction → this `AGENTS.md` → `docs/CROSS_SESSION_ORCHESTRATION_DECLARATION.md` → RepairDesk One Command/department rules → generic AI Company policies.
-- Multiple top-level chats may each be a logical “main thread”, but only the window holding the active project integration lease may act as final Integration Lead, integrate, close the task, or publish a final completion claim. All other windows remain bounded Intake, Task Controller, Writer, Reviewer, or Observer windows.
-- Binding proves identity only. It never grants Controller, Writer, path ownership, worktree ownership, integration, commit, push, deploy, migration, production, secret, or customer-data authority. Existing approval, single-writer, release, security, and production gates still apply.
-- `new-task --allow-parallel` and an explicit background `checkpoint --task` must preserve `ACTIVE_CONTEXT.md` byte-for-byte unless `--activate` is explicitly supplied. When Registry identity is unavailable, corrupt, stale, or ambiguous, fail closed and remain read-only.
-- Phase 0A is cooperative local coordination, not an OS security sandbox and not arbitrary Codex GUI control. It does not automatically spawn agents, create worktrees, transfer writers, integrate, commit, push, deploy, or migrate. Use the declaration for commands, recovery, No-Go boundaries, and rollback.
+- 跨会话运行控制继续使用 [.ai-company/orchestration.json](.ai-company/orchestration.json) 与 [调度声明](docs/CROSS_SESSION_ORCHESTRATION_DECLARATION.md)。新顶层窗口/可能重叠的非微小任务先加载 `cross-session-orchestration`，核对 Registry、绑定身份并验证不可变 Context Packet。身份失败时保持只读。
+- 身份来源：SQLite Registry → 已核验 Context Packet → 对应 Task Memory；`ACTIVE_CONTEXT.md` 只是前台提示。后台 new-task/checkpoint 保持它不变，除非明确 activate。
+- 仅持有效项目 integration lease 的窗口可作为最终 Integration Lead 集成、关闭自身任务或报告最终完成。绑定/lease 不赋予写路径、Git、发布、迁移或生产权限；不得抢占有效 lease。
+- 同模块单写。委派只传目标、路径、约束、验收和必要上下文；子代理默认只读，写入必须指定互斥所有权。
+- Sub-agents report blockers to the Integration Lead. 子代理不直接向老板索取扩权，不 stage/commit/push/deploy、不处理秘密、不做最终集成。
+- 能独立节省时间或提高质量才委派；不为“部门齐全”启动代理。默认 1 个附属代理，独立工作可并行 2–3 个，活跃子代理硬上限 3，禁止递归派单；长任务按 guard 更严格上限。
+- 主线程与代理使用 `gpt-6-astra`；常规执行按难度选 low/medium/high，复杂跨模块 xhigh，关键风险至少 max。UI设计、样式实施及视觉复核必须实际运行 max；主线程未满足则显式委派 max。
+- 预计超过30分钟、Goal/自动续跑、超过2个子代理或重复等待时，加载 `~/.codex/skills/long-running-task-guard/SKILL.md`；服从时间、等待和停止边界。
+- 恢复先读当前任务的可靠检查点，仅补相关证据。复用 `.ai-company/memory/tasks/` 和现有状态源，不为普通问答另建日志，不存秘密、完整客户PII或隐藏推理。
+- `.ai-company/policies/`、旧“AI部门管理”与部门名册均为按需参考；不再要求每个任务预读整套制度、生成RACI或做能力评级。
 
-- The project has adopted AI Company OS Codex Native v3.0 under `.ai-company/`, `.codex/`, and `.agents/skills/`, plus Codex One Command Mode v3.2 under `.ai-company/ONE_COMMAND_MODE.md`. Treat the user, Hexiang Huang / 鹤祥, as Owner / 老板. Treat the main Codex thread as both CEO Agent and RepairDesk Integration Lead unless a more specific project rule says otherwise.
-- Before non-trivial work, read `.ai-company/REPAIRDESK_ADOPTION.md`, `.ai-company/ONE_COMMAND_MODE.md`, `.ai-company/policies/CODEX_OPERATING_MODEL.md`, `.ai-company/policies/PROJECT_RULES.md`, `.ai-company/policies/TASK_FLOW.md`, `.ai-company/memory/ACTIVE_CONTEXT.md`, and `AI智能部门管理/部门化管理设计.md`. Use `.ai-company/policies/*` as the company operating system, but do not let generic AI Company OS rules override RepairDesk-specific architecture, UI, security, or multi-agent rules.
-- Default autonomy is L2 controlled execution: low-risk, reversible code and documentation changes may proceed; production data changes, destructive commands, payment/permission changes, external customer communication, dependency or architecture shifts, and secret handling require explicit owner approval.
-- For every non-micro task, create or update task memory under `.ai-company/memory/tasks/` when it helps future agents recover context. The old `.ai-company/runtime-memory/` path is legacy v2 reference only. Do not store secrets, full customer PII, hidden reasoning, or production credentials in memory files.
-- Read `AI智能部门管理/部门化管理设计.md` before non-trivial work. Use it to classify the request, decide whether current web research is required, choose single-agent vs multi-agent execution, assign departments, set sub-agent permission mode, and define verification.
-- For multi-agent work, also read `.agents/README.md`, `.agents/repairdesk-multiagent.yaml`, `.agents/department-roster.md`, `.agents/task-package-template.md`, and `.agents/integration-checklist.md`.
-- For T2/T3 or other complex cross-domain work, follow [`docs/COMPLEX_REQUIREMENT_MULTI_AGENT_DECLARATION.md`](docs/COMPLEX_REQUIREMENT_MULTI_AGENT_DECLARATION.md): natural-language intake, 2–4 independent read-only views, one bounded cross-question pass only for disagreement/high risk, frozen measurable contract, a single Luna writer, risk-based independent review, and Integration Lead final integration.
-- Treat the integration-lease holder as the only user-facing final decision owner. The user gives work to a top-level intake window; the bound Task Controller and lease-holding Integration Lead decide whether to spawn departments, write every sub-agent task package, arbitrate disputes, and own the final integration report.
-- Sub-agents report blockers to the Integration Lead. Do not let sub-agents ask the user for broader permissions or redirect the user to another agent; the Integration Lead decides whether to ask the user.
-- Read `docs/UI_PAGE_GENERATION_DECLARATION.md` before adding pages.
-- Read `docs/COMPONENT_GENERATION_DECLARATION.md` before adding reusable components.
-- Read `docs/SCANNER_COMPONENT_BOUNDARY_DECLARATION.md` before changing order lookup scanning or device identifier recognition. Order lookup QR and IMEI recognition are separate business components: order lookup accepts only trusted order QR payloads; automatic device capture accepts only checksum-valid 15-digit IMEI and never SN/EID/EAN/SKU.
-- Import reusable layout/class declarations from `src/lib/ui-patterns.ts` and component declarations from `src/lib/component-patterns.ts`.
-- Keep design tokens in `src/styles.css` as the only color source.
-- Use Next.js App Router files in `src/app/`; keep interactive page bodies in reusable client components when needed.
-- Keep `src/app/*` thin: route files should import `features/*/screens` and avoid business logic.
-- Put new order/customer business UI under `src/features/*`, shared pure helpers under `src/shared/lib`, and cross-feature entity rules under `src/entities/*`.
-- Read `docs/ARCHITECTURE.md` before large feature work or refactors.
-- Read `docs/REALTIME_DATA_CONSISTENCY_DECLARATION.md` before adding or changing business mutations,
-  React Query cache keys, cross-device synchronization, or store-scoped realtime behavior.
-- Read `docs/STARTUP_PERFORMANCE_AND_PRINT_READINESS_DECLARATION.md` before changing app-shell startup,
-  global providers, preload ownership, tenant/authority cache clearing, order print permissions,
-  print readiness, or print recovery behavior.
-- Read `docs/RESPONSIVE_DENSITY_PLAN.md` before changing layouts, tables, dialogs, lists, or mobile behavior.
-- Any code change or new feature that can affect a user-visible page, interaction, or business workflow must be checked and adapted for mobile, iPad, and desktop before completion; do not accept a single-viewport result as complete. The iPad implementation may reuse the desktop page structure and interaction model, but it must receive explicit responsive and touch adaptation for its available width, density, scrolling, overlays, and action placement instead of being treated as an automatically valid scaled desktop page. Verification must cover representative mobile, iPad, and desktop viewports and the complete affected workflow from entry and interaction through validation, save/update, feedback, navigation or reload, permission handling, and relevant error/recovery states. Visual screenshots alone do not satisfy this rule: existing and newly added functions must remain operable end to end on all three device classes.
-- Mobile detail/task/workflow pages must follow RepairOS Floating Card language from `docs/REPAIROS_COMPACT_ARCHITECTURE.md`: use `repairOs.mobileFloatingPage`, `repairOs.mobileFloatingHeader*`, and `repairOs.mobileInfoCard` instead of hand-written fixed top bars or full-width divider headers.
-- Read `docs/REPAIROS_MOBILE_DETAIL_STANDARD.md` before creating or changing mobile detail, task, quote, capture, payment, or workflow pages. The current mobile order detail page is the visual source of truth for typography, card density, color emphasis, finance editing, scan/photo entry, history, and bottom actions.
-- Use `@/lib/repairdesk/api` for app data. Do not import `src/server/*` into client components.
-- Prefer feature query key factories such as `ordersKeys` and `customersKeys` for React Query caches.
-- Reuse `src/components/ui/*` for controls and `src/components/orders/badges.tsx` for order status/type/money/phone rendering.
-- New navigation pages must update `AppSidebar`, `AppBar` breadcrumb labels, and `CommandPalette`.
-- Do not reintroduce TanStack Router/Start or Vite entrypoints.
-- For multi-domain, high-risk, or explicitly delegated work, follow `AI智能部门管理/部门化管理设计.md`: the main thread is the Integration Lead, sub-agents are read-only by default, scoped writes must have disjoint file ownership, and final integration/verification stays in the main thread.
-- Keep active sub-agents bounded: prefer 2-4, hard cap 5, close completed agents before spawning more, and never allow overlapping write ownership. QA/security agents stay read-only unless the user and Integration Lead explicitly allow a scoped write.
-- Do not let sub-agents stage, commit, push, deploy, run destructive SQL, handle secrets, or perform final integration.
-- When the department design file says current external knowledge is required, search the web and prefer official or primary sources. Local repository facts still come from the codebase.
-- Validate new UI with `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run build`.
+## 3. 按改动选择文档
 
-## Owner Simple Mode（最高优先级交互规则）
+| 改动 | 必要来源 |
+|---|---|
+| 跨模块逻辑/重构 | [ARCHITECTURE](docs/ARCHITECTURE.md) |
+| mutation、React Query、跨设备同步 | [数据一致性](docs/REALTIME_DATA_CONSISTENCY_DECLARATION.md) |
+| AppShell、Provider、预加载、租户清理、打印准备 | [启动与打印](docs/STARTUP_PERFORMANCE_AND_PRINT_READINESS_DECLARATION.md) |
+| 页面/布局/控件 | [页面规范](docs/UI_PAGE_GENERATION_DECLARATION.md)、[组件规范](docs/COMPONENT_GENERATION_DECLARATION.md)、[响应式](docs/RESPONSIVE_DENSITY_PLAN.md)中实际相关章节 |
+| UI一致性/编辑交互 | `ui-design-workflow`、[ui-ux-review](.agents/skills/ui-ux-review/SKILL.md)、[路线图§26](docs/PROJECT_EXECUTION_ROADMAP_2026-09-04.md#ui-consistency-20260912)、[编辑标准A](docs/GLOBAL_CONTENT_EDITING_STANDARD.md) |
+| 手机详情/任务/报价/支付 | [RepairOS移动详情](docs/REPAIROS_MOBILE_DETAIL_STANDARD.md)、[浮动卡片](docs/REPAIROS_COMPACT_ARCHITECTURE.md) |
+| 订单扫码/设备识别 | [扫码边界](docs/SCANNER_COMPONENT_BOUNDARY_DECLARATION.md) |
+| 库存设备/Quick Entry | 对应当前业务声明及 [旧合同精确记录](docs/archive/governance-20260915/root-AGENTS.snapshot.md.txt)，核对适用范围后使用 |
 
-本项目采用自然语言单入口模式。
+## 4. 工程与业务底线
 
-对于 T2/T3 或跨域复杂需求，入口与停止条件遵循 [`docs/COMPLEX_REQUIREMENT_MULTI_AGENT_DECLARATION.md`](docs/COMPLEX_REQUIREMENT_MULTI_AGENT_DECLARATION.md)；普通简单任务继续使用本节的轻量策略。
+- 写代码前用 `rg` 查复用；Next.js App Router 的 `src/app/*` 保持薄路由，业务在 `src/features/*`，纯函数在 `src/shared/lib`，跨域实体规则在 `src/entities/*`。
+- 客户端数据走 `@/lib/repairdesk/api` 或现有 feature facade；不得导入 `src/server/*`。缓存键复用 `ordersKeys`/`customersKeys` 等工厂。
+- 认证、权限、租户、金额、状态转移由服务端校验；关键写入保留幂等、并发版本和审计语义。不得用前端隐藏或mock通过替代真实权限验证。数据/权限变更须核对migration、RLS、服务端授权及客户端/服务端/mock契约；高权限密钥仅服务端使用，角色来源不得使用用户可编辑metadata。
+- 查询保持门店隔离、字段最小化、服务端搜索与明确 limit；客户选择不得暗中改变工单 customer_id，金额保留 string draft，空值不自动变0。
+- UI复用 `src/components/ui/*`、`src/components/orders/badges.tsx`、`src/lib/ui-patterns.ts`、`src/lib/component-patterns.ts`；颜色只来自 `src/styles.css`，不新建平行设计体系。
+- 新导航页面同步 AppSidebar、AppBar 和 CommandPalette。实体返回复用 AppBar 确定性 href，不调用 history.back；全局搜索保留一个桌面壳入口及⌘K。
+- 订单QR只识别可信订单payload；设备自动识别仅校验有效的15位IMEI，不混入SN/EID/EAN/SKU。
+- 库存的IMEI必填按设备类别决定，成本受现有权限限制；Apple颜色按批准映射，不批量认可泛色表，不覆盖已存在的待映射颜色。
+- 不重新引入旧路由/构建入口。M16仍保持原暂停状态；归档不重封、不回退旧RC或其他worktree。
+- 不自动发客户消息、不运行不可审查脚本，不把密钥、完整客户PII放入日志、截图、浏览器公开存储或任务文档。
 
-用户的正常任务描述即为正式任务输入。不得要求用户填写内部模板、选择 Agent、安排 Side Thread、指定 Skill、维护任务状态或更新记忆。
+## 5. 验收与交付
 
-主 Agent 必须自动：
-
-1. 恢复相关项目与部门记忆；
-2. 将自然语言规范化为内部任务合同；
-3. 采用保守默认值补全缺失信息；
-4. 根据复杂度选择最少必要 Agent；
-5. 将详细调查、实施与审查交给 Subagents 或隔离工作环境；
-6. 控制单一写入者和文件所有权；
-7. 完成测试、审查、文档和记忆同步；
-8. 仅在不可逆、高成本、生产、凭据、重大安全/隐私/法律或方向性冲突时请求用户决定。
-
-当老板明确要求“子代理”“多代理”“部门执行”“AI 员工”“各部门分工”“复核”或类似表达时，主 Agent 必须真实调用可用的子代理工具生成对应部门 AI 员工，而不是只在任务文件里标注部门名称。至少应生成 2-4 个有独立交付物的只读部门子代理，除非任务本身只有一个不可拆分动作、子代理工具不可用、会造成写入冲突、会暴露秘密/生产数据，或启动成本明显高于收益。
-
-若未真实生成子代理，主 Agent 必须在任务记录和最终汇报里写明 no-spawn reason：工具不可用、任务过小、顺序阻塞、风险/权限限制或其他具体原因，并说明部门工作是模拟、主线程执行还是延期。不得把“已分配部门标签”说成“已派出 AI 员工”。
-
-不得把部门列入“已使用 Agent”，除非真实子代理已经 spawn 并返回可记录的输出；只参与 agenda 分类或任务标签的部门必须标为“considered / not spawned”。
-
-默认模式为 L2 有界自治、最小兼容变更、禁止自动生产发布、禁止不可逆数据删除。
-
-主聊天只保留：任务接收、必要决定、完成汇报和真实阻塞。禁止发送原始日志、完整 Diff、长篇 Agent 过程和重复中间汇报。
-
-除非用户明确说“先分析”“不要改代码”或“先给方案”，否则默认在安全边界内直接执行。
-
-## Owner Visual Evidence Rule（任务结果截图规则）
-
-每次任务完成前，主 Agent 必须检查是否存在相关任务页面、功能页面、预览页面、后台结果页、浏览器可见流程或 UI 状态。
-
-- 如果存在相关页面或可视结果，关闭汇报必须包含截图路径或可展示截图，并说明截图对应的页面/流程。
-- UI、页面、移动端、桌面端、表单、列表、弹窗、订单/客户/库存/设置等可视任务默认必须截图；截图应优先覆盖老板最关心的最终结果，而不是只截空白页或登录页。
-- 如果任务是纯文档、规则、后端、数据、脚本或无可视页面，关闭汇报必须明确写出“无相关任务页面可截图”的原因，并提供替代证据，例如文件路径、命令结果或报告路径。
-- 如果页面需要登录、服务不可启动、浏览器受限或环境阻塞，必须说明阻塞原因和已提供的替代证据；不得假装已经截图。
-- 不得在截图、录屏或报告中暴露 secrets、生产凭据、完整客户 PII 或不必要敏感数据。
-
-## TASK-20260814-001 Inventory Device Form Responsive Contract (Instruction 1)
-
-Status: intake / proposed. This contract is the first project-local declaration for the
-inventory device form work. Before any implementation, read this section and the matching
-section in `docs/RESPONSIVE_DENSITY_PLAN.md`; neither section authorizes source, API, schema,
-Registry, production, or data changes by itself.
-
-- Shared option data is allowed: brand, model, storage, memory, color, condition, and
-  category option values may come from one neutral source. Responsive shells, DOM order,
-  layout rules, and interaction mechanics must remain separate for desktop and mobile.
-- Desktop (`1024 / 1280 / 1440`) is an independent workbench: use the existing multi-column
-  arrangement, mouse-oriented dropdown and wheel scrolling, and desktop dialog/workspace
-  behavior. Do not apply the mobile single-column shell, mobile bottom Sheet, or mobile
-  tap-only interaction to desktop.
-- Mobile/tablet (`390 / 430 / 768`) is an independent compact form: use compact sections,
-  short labels, logical two-column pairs for short fields where they fit, touch selection,
-  keyboard-safe inputs, and mobile sheet behavior only where the mobile contract calls for it.
-  A desktop multi-column grid must not be shrunk into this shell without an explicit proof.
-- The later implementation batch must verify each viewport separately: desktop `1024`,
-  `1280`, `1440`; mobile/tablet `390`, `430`, `768`. It must check complete selector
-  scrolling/search, long-label wrapping, focus/keyboard behavior, and page-level overflow.
-- No real inventory, customer-device, customer, production, external-system, migration,
-  or database write is authorized by this intake contract. Any persistence, schema, API,
-  permission, tenant, or migration need is a stop condition for a new Owner-approved packet.
-- Candidate files for the next bounded implementation batch are the existing inventory form
-  workspace and catalog fields/screens plus their focused tests:
-  `src/features/inventory/products/components/inventory-product-form.tsx`,
-  `src/features/inventory/products/components/inventory-product-form-workspace.tsx`,
-  `src/features/inventory/components/inventory-phone-catalog-fields.tsx`,
-  `src/features/inventory/products/components/inventory-device-catalog-fields.tsx`,
-  `src/features/inventory/products/screens/inventory-product-intake-screen.tsx`,
-  `src/features/inventory/products/screens/inventory-product-edit-screen.tsx`, and the
-  corresponding `*.test.*` files. The actual allowlist must be re-audited before writing.
-- M16 UI component governance remains paused and preserved. Do not rewrite, revert, reseal,
-  or reinterpret M16 files or evidence as part of this task.
-- This instruction-1 batch is documentation/intake only. No commit, push, deploy, migration,
-  CAS, external Figma action, or production action is permitted.
-
-## TASK-20260814-001 Instruction 3 — shared desktop return/search contract
-
-For entity detail/edit surfaces, reuse the shared route resolver and visual-only ArrowLeft
-control in `src/components/app-bar.tsx` rather than creating page-local desktop back buttons.
-The control uses a deterministic `href`, exact destination-specific accessible name, keyboard
-reachability, and visible hover/focus states; it never calls `history.back()`. Inventory entity
-routes resolve to `/inventory` / `返回商品库存`, order routes to `/orders` / `返回工单列表`, and
-customer routes to `/customers` / `返回客户列表`. Normal non-entity breadcrumbs retain their
-hierarchy and UUID/internal IDs do not become AppBar chrome. Existing mobile RepairOS headers
-remain mobile-specific; hide only proven desktop duplicates.
-
-The global search has one desktop-shell trigger in the AppSidebar brand area beside the current
-workspace/store identity. Pass `onOpenCommand` from Providers, preserve `打开全局搜索` and ⌘K,
-and keep the collapsed sidebar state accessible without overflow. Do not retain a second AppBar
-search trigger. Reuse this contract for later pages before adding another top-level control.
-
-This section records reuse/governance after the instruction-3 code gates; it does not authorize
-API, schema, permission, tenant, dependency, production, CAS, commit, push, or deploy changes.
-
-## Release-candidate closure — TASK-20260814-001 (Instructions 2–3)
-
-The clean release candidate contains the reviewed Instruction-2 store-scoped read-only catalog
-facade and the Instruction-3 responsive/navigation source integration. The catalog path derives
-the store only from the actor, keeps the read projection bounded, and does not import production
-data into this candidate. This records candidate scope only: no migration, database write, schema,
-environment, dependency, production-data, CAS, commit, push, or deploy action is authorized here.
-
-## TASK-20260814-001 — Quick Entry disclosure-first design contract (2026-08-15)
-
-Status: terminal release block observed; this section is a design-only Plan Delta for the
-isolated worktree `/private/tmp/repairdesk-quick-entry-ui-20260815` on branch
-`codex/quick-entry-disclosure-ui-20260815`, based on clean commit
-`d33bad91a5e1d7ed5e56a73849536e875f61db76`. It does not authorize source, test, Storybook,
-configuration, package, API, schema, Registry, production-data, commit, push, or deploy changes.
-
-The staged deployment `dpl_CMHAYXQw65hJtxhiGtAyFRqrsaHr` is READY but not promoted. The formal
-`chinatech.in/www` deployment remains `dpl_3LVoLSqBKr9gJJLPYLjJDv6dhtU5`. Source evidence says
-Quick Create requires `device-data-v2`, commands/store rollout, and `inventory:create`; legacy
-mutations do not authorize Quick Create. A protected staged session still exposes two save
-buttons while the expected `device-data-v2=0` shell should not, so no click, POST, real save, or
-production cutover is allowed. The next non-destructive check is control-plane-only confirmation
-of effective `INVENTORY_PRODUCT_DEVICE_DATA_V2` after refresh/re-auth; do not edit env/config/data.
-
-### Quick Entry surface contract
-
-- Desktop `1024/1280/1440`: an independent compact workbench with exactly three top-level
-  desktop columns at every listed width. Keep identity, device options, identifiers, and
-  commercial fields in an efficient mouse order; do not reuse the mobile single-column or
-  bottom-Sheet DOM.
-- Mobile/tablet `390/430/768`: an independent DOM composition with compact sections and mobile
-  Sheet/listbox surfaces. IMEI1 is explicitly required; IMEI2 remains visible beside it and is
-  never hidden. Planned sale and acquisition cost remain exposed, subject to the existing
-  permission boundary.
-- Every enum field uses a shared disclosure-first primitive: desktop anchored Popover/listbox;
-  mobile Sheet/listbox. Selection closes the disclosure, Escape closes it, focus returns to the
-  trigger, and `aria-expanded`/`aria-controls` reflect the mounted surface. Free-text fields are
-  directly visible rather than hidden behind a disclosure.
-- Existing EU catalog searchability is not proof of an Apple color approval. The current
-  `eu-phone-catalog.ts` contains broad shared color arrays for some older Apple models; without a
-  per-model official source and review receipt, an Apple model remains `pending-official-color`.
-  Known Apple models may expose only an exact approved-color overlay, while unknown/manual models
-  retain the draft and have no generic/custom color choice. A bounded local approval manifest and
-  validator may be proposed later, but importing or approving that data is a separate data gate;
-  do not batch-approve the existing Apple arrays. For non-Apple devices, generic colors are ordered
-  black, gray, dark blue, green, then white. No bulk Apple import, schema/migration, or production
-  data write is permitted.
-- `pending-official-color` is a truthful disclosure state, not an automatic save failure: if an
-  existing draft/edit already contains a color, preserve and display it read-only; do not offer a
-  new generic/custom color choice, and omit any newly selected Apple color from the save payload.
-  Quick Entry color is currently optional, so pending official mapping alone does not block save;
-  show an inline pending-mapping explanation. A category/device flow that independently requires
-  a color may block its save with that explicit validation reason.
-- IMEI1 requiredness is category-aware: phone Quick Entry requires IMEI1; non-IMEI categories must
-  not be forced to fabricate an IMEI. Planned acquisition cost is visible only when the existing
-  cost permission allows it; planned sale remains an explicit field.
-- Acceptance spans all six widths and covers default, loading/disabled, empty, invalid, read
-  failure fallback, permission-limited, Apple-known, Apple-unknown/manual, and save-pending/error
-  states. Check overflow, keyboard/focus/Escape, touch and mouse scrolling, last-option reachability,
-  field visibility, and accessible names before any later implementation packet is accepted.
-
-### Reuse and bounded candidate allowlist
-
-The source audit found reusable contracts in `InventoryProductFormWorkspace` (pending viewport
-state and explicit desktop/mobile shells), `InventoryProductForm`,
-`InventoryProductIdentifierSection`, `CatalogCombobox`, the existing specification/color choices,
-`componentDensity.compactSelector`, `componentOverlay`, `src/components/ui/Popover`,
-`src/components/ui/Sheet`, `device-form-options.ts`, and the official-first
-`eu-phone-catalog.ts` color data. Reuse these before creating a component. The unrelated
-`memoQuickEntry` style object is not a device-form contract and must not be copied blindly.
-
-A later packet may audit and allowlist only the existing inventory form/workspace/catalog fields,
-Intake/Edit screens, their paired tests and representative stories, plus a narrowly scoped
-domain disclosure primitive if the existing combobox/specification/color surfaces cannot express
-the contract. Candidate paths include `src/features/inventory/products/components/`,
-`src/features/inventory/components/`, `src/features/inventory/products/model/`, the paired
-`*.test.*` files, and existing inventory stories. `src/components/ui/*`, `src/lib/component-patterns.ts`,
-and `src/styles.css` remain reuse-first; changing them requires proof and a new approval.
-
-Implementation must proceed design → implementation → browser/a11y validation → evidence
-iteration → clean RC/release. A critical defect may stop the sequence, never be waived by a
-threshold or hidden state. Stop and request a new packet for any API/query/payload/permission/
-tenant/dependency/AppShell/schema/migration/production-data coupling, ambiguous dirty ownership,
-or inability to prove rollback. Rollback for this design-only batch is limited to reverting its
-document sections or discarding this isolated uncommitted worktree; do not touch the prior RC or
-other worktrees.
-
-### Implementation preview candidate status (current update, 2026-08-15)
-
-The Owner has authorized the completed 20-path candidate for intentional commit/push and a
-protected Preview. Existing implementation evidence records Node22 full lint/typecheck/test
-`453/453` + `2993/2993`, build `30/30`, and browser `20/20`. Independent UX audit still has two
-P1 gaps: disclosure-first coverage is incomplete for network/version, warranty, and manual
-supplements; and complete save/error/permission/offline/conflict/success Story/evidence coverage
-is not yet complete. Therefore formal production domains remain blocked and must not be cut over.
-No production data, schema/migration, or bulk catalog import is included. The Owner has authorized
-autonomous design → Preview → implementation → validation → follow-up Preview; do not add a
-per-design Owner-approval gate. This status update does not rewrite the historical design-only
-record above.
+- 按实际风险验证：文案/规则做定向与链接检查，局部逻辑做相关测试，公共接口/配置/依赖做必要集成检查；高风险、权限/数据/生产工作保留独立专项审查与正式门禁。高风险变更与发布须明确可执行的回滚/恢复点及停止条件；发布阻断问题未处置时不得宣称可发布。
+- 新UI、可运行里程碑和发布候选执行适用 `npm run lint`、`npm run typecheck`、`npm run test`、`npm run build` 及既有CI，不因规则精简关闭检查。
+- 用户可见变更必须验证手机、iPad、桌面完整受影响流程，包括输入、校验、保存、反馈、重开/刷新、权限与错误恢复。iPad检查触控、宽高、旋转、滚动与操作位置，不能当缩小桌面。
+- 三端检查页面溢出、长文本、zh/en/it、焦点/Escape、键盘、弹层正文滚动和底部按钮可达；截图不能替代功能验证。
+- 成功验证在源码/配置/环境和风险未变时不机械重跑。失败先查根因，不用放松断言掩盖问题。
+- 最终说明结果、证据、实际验证、剩余问题。有相关页面必须给脱敏截图/路径；无相关任务页面可截图时说明原因和替代证据。登录/环境阻塞如实报告。
+- 历史完整规则保存在 `docs/archive/governance-20260915/`。只归档重复流程和任务沿革，未删除历史证据、运行态、CI或安全控制。

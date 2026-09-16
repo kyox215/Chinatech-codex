@@ -14,7 +14,6 @@ export async function updateSession(request: NextRequest) {
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   const pathname = request.nextUrl.pathname;
   const isRepairDeskApi = pathname.startsWith("/api/repairdesk");
-  const isAiUsageMaintenanceCron = pathname === "/api/cron/ai-usage-maintenance";
   const isKioskRoute = pathname === "/kiosk" || pathname.startsWith("/api/kiosk");
   const isCustomerStatusPublicRoute = pathname === "/r" || pathname === "/api/public/order-status";
   const isLoginPage = pathname === "/login";
@@ -44,13 +43,6 @@ export async function updateSession(request: NextRequest) {
 
   if (isRepairDeskE2eAuthBypassEnabled()) {
     return applyPublicPageHeaders(NextResponse.next({ request }), pathname);
-  }
-
-  // This server-to-server route performs its own constant-time CRON_SECRET
-  // check. Let it reach the route handler instead of redirecting an unauthenticated
-  // Vercel Cron request to the login page.
-  if (isAiUsageMaintenanceCron) {
-    return NextResponse.next({ request });
   }
 
   if (!supabaseUrl || !supabaseKey) {

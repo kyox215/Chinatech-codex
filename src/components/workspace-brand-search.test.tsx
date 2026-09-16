@@ -14,6 +14,7 @@ describe("WorkspaceBrandSearch", () => {
 
     const trigger = screen.getByRole("button", { name: "打开全局搜索" });
     expect(screen.getByText("RepairDesk")).toBeVisible();
+    expect(screen.getByRole("link", { name: "概览" })).toHaveAttribute("href", "/");
     expect(screen.getByTitle("合成演示店铺")).toBeVisible();
     expect(screen.getByText("搜索")).toBeVisible();
     expect(trigger).toHaveClass("scheme-three-global-search", "min-h-11");

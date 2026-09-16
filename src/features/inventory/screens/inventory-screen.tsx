@@ -1,8 +1,5 @@
 "use client";
 
-import type * as React from "react";
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
@@ -12,8 +9,8 @@ import {
   BatteryCharging,
   Calculator,
   CheckCircle2,
-  ClipboardCheck,
   CircleDashed,
+  ClipboardCheck,
   DatabaseZap,
   Edit3,
   Eraser,
@@ -39,6 +36,9 @@ import {
   Wallet,
   Wrench,
 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import type * as React from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { MoneyText, PhoneText } from "@/components/orders/badges";
@@ -52,17 +52,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -71,55 +70,50 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { inventoryKeys } from "@/features/inventory/api/query-keys";
-import { inventorySummaryQueryOptions } from "@/features/inventory/api/query-options";
-import { InventoryIntakeDialog } from "@/features/inventory/components/inventory-intake-dialog";
-import { useAiAssistantWorkspace } from "@/features/ai-assistant";
-import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
-import { useRealtimeSync } from "@/features/realtime";
-import {
-  ScanSearchButton,
-  consumeScanSearchIntent,
-  subscribeScanSearchIntent,
-} from "@/features/capture";
-import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { Textarea } from "@/components/ui/textarea";
 import {
   resolveStoreOutputIdentity,
   type StoreOutputIdentity,
 } from "@/entities/store/model/store-output-identity";
 import {
-  RepairOsBusinessCard,
-  RepairOsChipRow,
-  RepairOsHeaderActionButton,
-  RepairOsInfoTile,
-  RepairOsListScaffold,
-  RepairOsSectionHeader,
-} from "@/shared/ui";
-import {
-  buildInventoryListViews,
-  filterInventoryItemsByView,
-  getInventoryPrimaryAction,
-  getInventoryNextStatusesForItem,
-  getInventoryListViewLabel,
-  type InventoryPrimaryActionKind,
-  type InventoryListViewKey,
-  inventoryStatusMeta,
-} from "@/features/inventory/model/inventory-workflow";
+  consumeScanSearchIntent,
+  ScanSearchButton,
+  subscribeScanSearchIntent,
+} from "@/features/capture";
+import { inventoryKeys } from "@/features/inventory/api/query-keys";
+import { inventorySummaryQueryOptions } from "@/features/inventory/api/query-options";
+import { InventoryIntakeDialog } from "@/features/inventory/components/inventory-intake-dialog";
 import {
   buildInventoryBuybackSummary,
   type InventoryBuybackSummary,
 } from "@/features/inventory/model/inventory-buyback-summary";
 import { resolveInventoryIntakeRoute } from "@/features/inventory/model/inventory-intake-route";
-import { parseInventoryV2MoneyDraft } from "@/features/inventory/model/inventory-v2-intake-contract";
-import { resolveInventoryV2UiCapabilities } from "@/features/inventory/model/inventory-v2-ui-capabilities";
 import {
   buildInventorySaleReceiptData,
   getInventoryWarrantyState,
   INVENTORY_SALE_RECEIPT_TERMS,
   type InventorySaleReceiptData,
 } from "@/features/inventory/model/inventory-sale-receipt";
-import { formatEuro, formatItalianDateTime } from "@/features/orders/model/order-italian";
+import { parseInventoryV2MoneyDraft } from "@/features/inventory/model/inventory-v2-intake-contract";
+import { resolveInventoryV2UiCapabilities } from "@/features/inventory/model/inventory-v2-ui-capabilities";
+import {
+  buildInventoryListViews,
+  filterInventoryItemsByView,
+  getInventoryListViewLabel,
+  getInventoryNextStatusesForItem,
+  getInventoryPrimaryAction,
+  inventoryStatusMeta,
+  type InventoryListViewKey,
+  type InventoryPrimaryActionKind,
+} from "@/features/inventory/model/inventory-workflow";
+import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { PrintPortal } from "@/features/orders/components/print-portal";
+import { formatEuro, formatItalianDateTime } from "@/features/orders/model/order-italian";
+import { useRealtimeSync } from "@/features/realtime";
+import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
+import { componentOverlay } from "@/lib/component-patterns";
+import { fadeUp } from "@/lib/motion";
+import { CACHE_TIMES } from "@/lib/query-performance";
 import {
   accessInventoryAttachment,
   applyElectronicsCsvImport,
@@ -128,22 +122,19 @@ import {
   getInventoryItem,
   importElectronicsCsvPreview,
   recordInventoryCheck,
-  sellInventoryItem,
   searchCustomers,
+  sellInventoryItem,
   transitionInventoryItem,
   updateInventoryItem,
+  type ApplyInventoryWorkflowV2Input,
   type InventoryDetail,
   type InventoryItemStatus,
   type InventoryListItem,
   type InventoryQualityCheckInput,
-  type ApplyInventoryWorkflowV2Input,
   type SellInventoryItemInput,
   type UpdateInventoryItemInput,
 } from "@/lib/repairdesk/api";
 import type { CompleteInventorySaleV2Input, Customer } from "@/lib/repairdesk/types";
-import { componentOverlay } from "@/lib/component-patterns";
-import { fadeUp } from "@/lib/motion";
-import { CACHE_TIMES } from "@/lib/query-performance";
 import {
   brandGradientStyle,
   controls,
@@ -155,6 +146,14 @@ import {
 } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/shared/i18n/locale-provider";
+import {
+  RepairOsBusinessCard,
+  RepairOsChipRow,
+  RepairOsHeaderActionButton,
+  RepairOsInfoTile,
+  RepairOsListScaffold,
+  RepairOsSectionHeader,
+} from "@/shared/ui";
 
 const checkOptions = ["unchecked", "pass", "fail", "unknown"] as const;
 const cosmeticOptions = ["unknown", "new", "mint", "good", "fair", "poor", "for_parts"] as const;
@@ -193,7 +192,6 @@ export function InventoryScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
-  const aiAssistant = useAiAssistantWorkspace();
   const activeStoreId = shell.activeStore?.id;
   const intakeAuthorityReady = Boolean(activeStoreId) && !shell.isLoading && !shell.isRefreshing;
   const storeSettingsQuery = useQuery({
@@ -548,8 +546,8 @@ export function InventoryScreen() {
       <InventoryIntakeDialog
         open={intakeOpen}
         defaultWarrantyMonths={storeSettingsQuery.data?.default_inventory_warranty_months}
-        canUseVisionIntake={aiAssistant.capabilities?.canUseVisionIntake === true}
-        canApplyInventoryDraft={aiAssistant.capabilities?.canApplyInventoryDraft === true}
+        canUsePhotoIntake={shell.permissions?.canCreateInventory === true}
+        canApplyInventoryDraft={shell.permissions?.canCreateInventory === true}
         authorityKey={shell.authorityFingerprint}
         onOpenChange={setIntakeOpen}
         onDone={(id) => {

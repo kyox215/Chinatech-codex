@@ -17,6 +17,7 @@ import type {
 
 export interface Customer {
   id: string;
+  updated_at?: string;
   name: string;
   phone_e164: string;
   phone_raw: string;
@@ -34,6 +35,7 @@ export interface Customer {
 
 export interface Device {
   id: string;
+  updated_at?: string;
   customer_id: string;
   brand: string;
   model: string;

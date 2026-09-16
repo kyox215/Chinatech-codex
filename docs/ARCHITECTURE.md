@@ -3,7 +3,7 @@
 Status: active
 Owner: Architecture + Documentation / Integration Lead
 Scope: current module boundaries, import rules, migration phases, and quality gates for RepairDesk.
-Last reviewed: 2026-07-18 CEST by `TASK-20260718-011-ai-assistant-cost-governance`
+Last reviewed: 2026-09-16 CEST by `TASK-20260915-002-experience-refactor-audit` (AI retirement and core-domain priorities)
 
 ## Order cost application boundary (2026-09-05 local candidate)
 
@@ -73,7 +73,7 @@ src/
 - Realtime invalidation always wins over an older preload result; manual refresh and optimistic
   rollback use the same coordinator.
 - Private metadata-only Broadcast is the fast path. A server-owned store/domain revision sentinel is
-  the durable consistency path: visible order routes read only that small version every 30 seconds
+  the durable consistency path: supported visible routes read only that small version every 30 seconds
   and refresh business queries only when it changes.
 - Order writes and order child-table writes bump the revision in the same database transaction.
   Version-locked edits remain fail-closed and show a proactive conflict before saving.
@@ -83,16 +83,76 @@ src/
 - `docs/STARTUP_PERFORMANCE_AND_PRINT_READINESS_DECLARATION.md` is the normative gate for shell
   bootstrap, startup request ownership, tenant cache cleanup, print capability and disabled recovery.
 
-### AI Assistant Cost Governance
+### Manual order notifications (2026-09-16 local candidate)
 
-- `features/ai-assistant/server/order-intent-router.ts` is a conservative pure route before provider selection; it never owns actor/store scope or business reads.
-- Multi-store rollout has two independent planes: `AI_ORDER_ASSISTANT_ALL_STORES_ENABLED` can expose only local/read-only order assistance, while external text processing requires an exact `AI_ORDER_PROVIDER_STORE_ALLOWLIST` match. Vision, draft apply and inline writes continue to use the narrower pilot allowlist.
-- Shared rollout lists use exact store IDs, fail closed on missing IDs, give the denylist precedence, and do not treat `*` as a wildcard.
-- Every AI endpoint uses a short-window abuse guard. Provider quota is separate and is consumed only after direct/local resolution fails.
-- `cost-policy.ts`, `runtime-policy.ts`, `provider-signal.ts`, and `safety-identifier.ts` are server-only policy boundaries; client UI must not choose a model, budget, deadline, price, store, or Safety ID.
-- `provider-budget.ts` is the business-facing durable reservation contract. Business services must not import Supabase RPC types directly.
-- The additive quota migration is expand-only and dormant: database apply must precede any caller that depends on its RPC, while OpenAI activation remains a separate Owner gate.
-- See `docs/AI_ASSISTANT_COST_GOVERNANCE.md` for the canonical request order, exact models/pricing snapshot, data minimization, environment gates, verification, and rollback.
+Both ordinary notification endpoints use `features/orders/server/order-notification.repository.ts`
+and the service-only `repairdesk_record_order_notification` RPC. Requests carry the unchanged
+user-seen version and a stable UUID operation key; the server never supplies a fresh version.
+The database checks current actor, store and lifecycle, hashes the normalized complete intent,
+then resolves exact replay before locking and checking the order version. Order, message,
+timeline, audit and the existing mutation receipt commit together. Missing RPCs fail closed;
+there is no multi-request persistence fallback.
+
+The notification dialog freezes its version, selected quote, recipient and content once edited,
+opened externally or submitted. A clean, unopened session may rebase as server/store identity
+loads. Dirty conflicts require explicit reload; an uncertain response preserves the complete
+original request and key for recovery. Definite validation/permission rejections permit explicit
+reload. Quote confirmation still uses the existing dedicated quote RPC.
+Opening the external chat preserves `noopener,noreferrer`; a null window handle does not
+prove that the popup was blocked. The UI reports an opening attempt and requires a separate
+manual confirmation before any notification mutation.
+
+A manual confirmation records an employee assertion, not external delivery. Ordinary notifications
+cannot perform approval, completed or cancelled transitions. A completed order may receive a
+no-transition confirmation without rewriting terminal facts. The selected recipient is retained
+in the store/order-scoped message event, so later customer edits do not rewrite contact history;
+body remains in the message log. Audit summaries, command receipts and metadata broadcasts do
+not duplicate the phone/body. Deploy both forward notification migrations before matched BFF/UI.
+See the experience audit report for local validation and remaining release constraints.
+
+### Customer write consistency (2026-09-16 local candidate)
+
+Customer and device editors carry the database `updated_at` value unchanged through the API.
+Creation has a separate input contract; edits and device deletion require the version the user
+actually saw. Single-row writes bind store, entity and expected version in the database condition;
+device writes also bind the customer. Missing versions are not replaced with the current time.
+
+`repairdesk_replace_customer_tags` locks the customer, verifies the actor/store/version and every
+tag, then replaces assignments and advances the customer version in one transaction. Its public
+execute surface is service-role only. Customer/device CAS payloads use `nextCustomerWriteVersion`
+to advance beyond the frozen expected timestamp, including future clocks and microsecond tails;
+the original expected string remains unchanged in the database condition. Global timestamp triggers
+are deliberately absent so legacy bulk-import timestamps and rollback checks remain compatible.
+Six customer-related tables advance durable revisions. Customer/device identities also advance the
+orders revision, with a consistent orders-then-customers lock order. Inactive-store cleanup must not
+recreate revision rows. Metadata-only events remain the fast path; customer routes observe both
+customers and orders revisions because their read model includes order history and balances.
+
+`repairdesk_delete_customer_device` verifies the active actor/store, locks the device, checks its
+expected version and rejects any same-store linked repair order before deletion. The row lock
+serializes against concurrent foreign-key references; a separate preflight count is insufficient
+because the legacy foreign key can otherwise clear an order's device link during deletion.
+
+The customer editor wrapper preserves a dirty draft when the remote version changes, pauses save,
+and requires an explicit reload before replacing that draft. This timestamp CAS contract does not
+provide a command replay ledger: an uncertain network retry can return a version conflict and
+requires loading the saved record. Phone uniqueness across concurrent edits to different customers
+is a separate unresolved constraint.
+
+Release order is all four new migrations with writes paused, migration/ACL verification, then the
+matching BFF and clients. The fourth migration removes the first migration's global timestamp
+triggers; do not expose the intermediate schema to legacy imports. Old clients missing
+versions must fail closed rather than fall back to unconditional writes. This local candidate and
+its scoped SQL/UI evidence do not certify the historical migration baseline or production rollout;
+see the [refactor release notes](REFACTOR_RELEASE_2026-09-16.md).
+
+### AI assistant retirement (2026-09-16 local candidate)
+
+The Owner requested full removal of the in-product AI assistant. This local batch removes assistant UI, provider request paths, client/BFF dispatch, usage settings, cloud vision and maintenance cron. Local IMEI/barcode/OCR capture remains a supported inventory/order capability; image validation and local recognition must live outside the retired assistant feature.
+
+Historical SQL migrations, usage tables/records and inventory `ai_confirmed` provenance remain compatible. No database DROP or remote cleanup is part of source removal. Before release, prove that historical `reserved` AI usage requests cannot keep a store lifecycle fence active: the old fence does not ignore expiry, and the retired cron previously settled stale reservations. Verify or drain these using a separately reviewed operational procedure; do not infer production state from local tests.
+
+The historical `AI_ASSISTANT_*` documents below are reference records, not active rollout instructions. Implementation and current verification status: [refactor release notes](REFACTOR_RELEASE_2026-09-16.md).
 
 ## Legacy Route Migration Status
 

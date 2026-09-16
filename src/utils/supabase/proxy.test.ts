@@ -23,17 +23,6 @@ describe("Supabase session proxy", () => {
 
   afterEach(() => vi.unstubAllEnvs());
 
-  it("lets the secret-authenticated AI usage cron reach its route handler", async () => {
-    const response = await updateSession(
-      new NextRequest("https://www.chinatech.in/api/cron/ai-usage-maintenance"),
-    );
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get("x-middleware-next")).toBe("1");
-    expect(response.headers.get("location")).toBeNull();
-    expect(mocks.createServerClient).not.toHaveBeenCalled();
-  });
-
   it.each(["/r", "/api/public/order-status"])(
     "keeps the exact customer-status public route unauthenticated: %s",
     async (path) => {

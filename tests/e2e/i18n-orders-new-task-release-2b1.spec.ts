@@ -154,14 +154,11 @@ test.describe("fixed heavy localized order journeys", () => {
     );
     await expect(phone).toHaveAttribute("aria-invalid", "true");
     await expect(phone).toHaveAttribute("aria-describedby", /new-order-validation-summary/);
-    await expect(
-      page
-        .getByRole("dialog")
-        .getByRole("button", { name: translateMessage("zh-CN", "common.close"), exact: true }),
-    ).toBeFocused();
-    expect(await page.evaluate(() => document.activeElement?.matches("input,textarea"))).toBe(
-      false,
-    );
+    const firstMissingPhoneControl = page
+      .getByRole("dialog")
+      .locator('[data-new-order-field="customer-phone"]')
+      .locator("[data-phone-keypad-native-input]:visible, [data-phone-keypad-trigger]:visible");
+    await expect(firstMissingPhoneControl).toBeFocused();
 
     await setBrowserOnlineState(page, false);
     await enterPhone(page, "zh-CN", "33300");

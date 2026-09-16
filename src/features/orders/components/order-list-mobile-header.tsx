@@ -23,7 +23,6 @@ export function MobileOrdersFloatingHeader({
   totalOrders,
   onGroupChange,
   onCreateOrder,
-  aiAction,
   scanAction,
   filterAction,
   rangeAction,
@@ -36,7 +35,6 @@ export function MobileOrdersFloatingHeader({
   rangeLabel,
   headerRef,
   presentationControl,
-  pageScope,
 }: {
   groups: OrderQueueChoice[];
   groupValue: string;
@@ -45,7 +43,6 @@ export function MobileOrdersFloatingHeader({
   totalOrders: number;
   onGroupChange: (value: string) => void;
   onCreateOrder: () => void;
-  aiAction?: ReactNode;
   scanAction?: ReactNode;
   filterAction?: ReactNode;
   rangeAction?: ReactNode;
@@ -116,7 +113,6 @@ export function MobileOrdersFloatingHeader({
             </p>
           </div>
           <div className="flex items-center gap-1">
-            {aiAction}
             <Button
               type="button"
               size="iconDense"
@@ -219,14 +215,8 @@ export function MobileOrdersFloatingHeader({
       {presentationControl ? (
         <div
           data-order-mobile-presentation-row="true"
-          className="mx-auto flex w-full min-w-0 max-w-[430px] items-center justify-between gap-1 border-t border-border/50 md:max-w-none"
+          className="mx-auto flex w-full min-w-0 max-w-[430px] items-center justify-end gap-1 border-t border-border/50 md:max-w-none"
         >
-          <p
-            data-order-presentation-scope="true"
-            className="min-w-0 px-1 text-[10px] leading-3 text-muted-foreground"
-          >
-            {pageScope}
-          </p>
           {presentationControl}
         </div>
       ) : null}

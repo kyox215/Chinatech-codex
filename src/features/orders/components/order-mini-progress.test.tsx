@@ -8,7 +8,7 @@ import { OrderMiniProgress } from "./order-mini-progress";
 afterEach(cleanup);
 
 describe("OrderMiniProgress", () => {
-  it("renders five unlabeled segments while exposing the current workflow", () => {
+  it("renders five segments with visible current and next labels", () => {
     render(
       <LocaleProvider initialLocale="en">
         <OrderMiniProgress
@@ -23,11 +23,11 @@ describe("OrderMiniProgress", () => {
       screen.getByRole("img", { name: "Current workflow: Repair; next step: Finish repair" }),
     ).toBeInTheDocument();
     expect(document.querySelectorAll("[data-order-mini-progress-segment]").length).toBe(5);
-    expect(screen.queryByText("Repair")).not.toBeInTheDocument();
-    expect(screen.queryByText("Finish repair")).not.toBeInTheDocument();
+    expect(screen.getByText("Repair")).toBeVisible();
+    expect(screen.getByText("→ Finish repair")).toBeVisible();
   });
 
-  it("announces terminal state without adding visible labels or numbers", () => {
+  it("shows the terminal label without implying every repair stage was completed", () => {
     render(
       <LocaleProvider initialLocale="en">
         <OrderMiniProgress workflowStatus="closed" currentLabel="Cancelled" isTerminal />
@@ -38,5 +38,9 @@ describe("OrderMiniProgress", () => {
       screen.getByRole("img", { name: "Current workflow: Cancelled; order is closed" }),
     ).toBeInTheDocument();
     expect(document.querySelectorAll("[data-order-mini-progress-segment]").length).toBe(5);
+    expect(screen.getByText("Cancelled")).toBeVisible();
+    for (const segment of document.querySelectorAll("[data-order-mini-progress-segment]"))
+      expect(segment).toHaveClass("bg-border");
+    expect(document.querySelector("[data-order-progress-next]")).toBeNull();
   });
 });

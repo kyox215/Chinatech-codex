@@ -24,7 +24,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -162,6 +161,7 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
       <SidebarHeader className={appShell.sidebarHeader}>
         <WorkspaceBrandSearch
           activeStoreName={activeStoreName}
+          onNavigateHome={handleNav}
           onOpenCommand={() => {
             if (isMobile) closeMobileSidebar(onOpenCommand);
             else onOpenCommand();
@@ -171,9 +171,6 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
 
       <SidebarContent className="workbench-nav-content">
         <SidebarGroup className="p-0">
-          <SidebarGroupLabel className="scheme-three-nav-caption">
-            {t("shell.workspace")}
-          </SidebarGroupLabel>
           <SidebarGroupContent>{renderNavItems()}</SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

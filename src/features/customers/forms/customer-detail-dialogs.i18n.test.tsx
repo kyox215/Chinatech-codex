@@ -13,7 +13,7 @@ import {
 import { CustomerTagsDialog } from "@/features/customers/forms/customer-tags-dialog";
 import { getCustomerDetail as getMockCustomerDetail } from "@/features/customers/testing/mock-api";
 import { customers } from "@/lib/mock/state";
-import type { CustomerDetail } from "@/lib/repairdesk/types";
+import type { CustomerDetail, CustomerTagsUpdateInput } from "@/lib/repairdesk/types";
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
 import { translateMessage } from "@/shared/i18n/messages";
 
@@ -242,8 +242,8 @@ describe("customer detail dialog runtime i18n", () => {
   it("preserves server tags and selected IDs while localizing only missing stable defaults", async () => {
     const captured: string[][] = [];
     for (const locale of ["zh-CN", "it-IT", "en"] as const) {
-      const onSave = vi.fn((ids: string[]) => {
-        captured.push(ids);
+      const onSave = vi.fn((input: CustomerTagsUpdateInput) => {
+        captured.push(input.tagIds);
         return Promise.reject(new Error("RAW-TAGS-SENTINEL"));
       });
       const view = localized(

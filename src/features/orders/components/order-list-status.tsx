@@ -50,7 +50,7 @@ export function OrderListStatus({
       {showProgress ? (
         <OrderMiniProgress
           workflowStatus={presentation.workflowStatus}
-          currentLabel={`${presentation.label} · ${presentation.detail}`}
+          currentLabel={presentation.label}
           nextAction={presentation.nextAction}
           danger={presentation.danger}
           isTerminal={presentation.terminal}

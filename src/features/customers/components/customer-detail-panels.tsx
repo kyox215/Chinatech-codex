@@ -292,16 +292,18 @@ function formatCurrentItemTime(value: string, locale: "zh-CN" | "it-IT" | "en") 
 
 export function CustomerDevicesPanel({
   data,
+  onRefresh,
   deleting,
   onAdd,
   onEdit,
   onDelete,
 }: {
   data: CustomerDetail;
+  onRefresh?: () => void;
   deleting: boolean;
   onAdd: (control: HTMLButtonElement) => void;
   onEdit: (device: Device, control: HTMLButtonElement) => void;
-  onDelete: (deviceId: string) => void;
+  onDelete: (device: Device) => Promise<unknown>;
 }) {
   const { t } = useLocale();
   const deviceItems = buildCustomerDeviceWorkbenchItems(data);
@@ -336,7 +338,9 @@ export function CustomerDevicesPanel({
               deleting={deleting}
               onOpen={() => setSelectedDeviceItem(item)}
               onEdit={(control) => onEdit(item.device, control)}
-              onDelete={() => onDelete(item.device.id)}
+              onDelete={() => {
+                void onDelete({ ...item.device }).catch(() => undefined);
+              }}
             />
           ))
         ) : (
@@ -346,7 +350,8 @@ export function CustomerDevicesPanel({
         )}
       </div>
       <CustomerDeviceSheet
-        item={selectedDeviceItem}
+        onRefresh={onRefresh}
+        item={deviceItems.find((item) => item.device.id === selectedDeviceItem?.device.id)}
         customerId={data.customer.id}
         open={Boolean(selectedDeviceItem)}
         deleting={deleting}
@@ -357,8 +362,8 @@ export function CustomerDevicesPanel({
           setSelectedDeviceItem(undefined);
           onEdit(device, control);
         }}
-        onDelete={(deviceId) => {
-          onDelete(deviceId);
+        onDelete={async (device) => {
+          await onDelete(device);
           setSelectedDeviceItem(undefined);
         }}
       />

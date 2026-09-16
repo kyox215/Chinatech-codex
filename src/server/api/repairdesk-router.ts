@@ -1,7 +1,7 @@
 import {
-  inventorySalesListBodySchema,
   inventorySalesCommandBodySchema,
   inventorySalesIdBodySchema,
+  inventorySalesListBodySchema,
   inventorySalesReceiptBodySchema,
 } from "@/features/inventory/sales/model/contracts";
 import {
@@ -9,142 +9,32 @@ import {
   assertInventorySalesReadAccess,
 } from "@/features/inventory/sales/server/sales-access";
 import {
-  readInventorySalesList,
-  runInventorySalesCommand,
-  readInventorySalesSummary,
   readInventorySalesDetail,
+  readInventorySalesList,
   readInventorySalesReceipt,
+  readInventorySalesSummary,
+  runInventorySalesCommand,
 } from "@/features/inventory/sales/server/sales.repository";
 import { randomUUID } from "node:crypto";
 
-import { NextResponse } from "next/server";
-import { Buffer } from "node:buffer";
-import { z } from "zod";
-
-import {
-  aiAssistantRequestSchema,
-  aiInventoryVisionRequestSchema,
-  aiOrderInlineActionRequestSchema,
-} from "@/features/ai-assistant/model/contracts";
-import { getAiAssistantCapabilities } from "@/features/ai-assistant/server/capabilities";
-import { runAiOrderAssistantTurn } from "@/features/ai-assistant/server/order-assistant.service";
-import { runAiOrderInlineAction } from "@/features/ai-assistant/server/order-inline-action.service";
-import { getAiAssistantProvider } from "@/features/ai-assistant/server/provider-factory";
-import { getAiProviderBudgetGateway } from "@/features/ai-assistant/server/supabase-provider-budget";
-import { getAiAssistantUsageSummary } from "@/features/ai-assistant/server/usage.repository";
-import { getMockAiAssistantUsageSummary } from "@/features/ai-assistant/testing/mock-usage";
-import { runAiInventoryVisionRecognition } from "@/features/ai-assistant/server/vision-assistant.service";
-import { getDashboardPrioritySummary } from "@/features/dashboard/server/dashboard-summary.service";
-import {
-  archiveMemo,
-  createMemo,
-  readMemo,
-  readMemoAssignees,
-  readMemoList,
-  readMemoSummary,
-  restoreMemo,
-  transitionMemo,
-  updateMemo,
-} from "@/features/memos/server/memo.service";
-import { assertMemosFeature } from "@/features/memos/server/memo-feature";
-import { isCustomerStatusQrEnabled } from "@/features/customer-status/server/customer-status.service";
-import { getProfitCenter } from "@/features/profit/server/profit.repository";
-import { assertCanReadProfitCenter } from "@/features/profit/server/profit-feature";
-import { exportCostReport } from "@/features/profit/server/cost-export.service";
-import { assertCanExportCosts } from "@/features/profit/server/cost-export-feature";
-import {
-  applyCostBackfill,
-  previewCostBackfill,
-  readCostBackfillRuns,
-  revertCostBackfill,
-} from "@/features/profit/server/cost-backfill.service";
-import { assertCostBackfillAccess } from "@/features/profit/server/cost-backfill-feature";
-import {
-  applyMockCostBackfill,
-  previewMockCostBackfill,
-  readMockCostBackfillRuns,
-  revertMockCostBackfill,
-} from "@/features/profit/testing/cost-backfill-mock";
-import {
-  allocateOrderPart,
-  createPartCatalogItem,
-  getPartsProcurement,
-  receivePartLot,
-  releaseOrderPart,
-} from "@/features/procurement/server/procurement.repository";
-import { assertCanAllocatePartsCosts } from "@/features/procurement/server/procurement-feature";
-import {
-  readCostCurrencySettings,
-  replaceCostCurrencySettings,
-} from "@/features/procurement/server/cost-currency.service";
-import { assertCostCurrencyAccess } from "@/features/procurement/server/cost-currency-feature";
-import {
-  allocateMockOrderPart,
-  createMockPartCatalogItem,
-  getMockPartsProcurement,
-  receiveMockPartLot,
-  releaseMockOrderPart,
-} from "@/features/procurement/testing/mock-api";
-import {
-  readMockCostCurrencySettings,
-  replaceMockCostCurrencySettings,
-} from "@/features/procurement/testing/cost-currency-mock";
-import { syncRepairDeskOfflineOrderCreate } from "@/features/offline/server/offline-order-create-sync";
-import { statusGroups } from "@/lib/mock/enums";
-import {
-  batchTransition,
-  confirmCancelledOrderReturn,
-  correctTerminalOrder,
-  createOrderWorkflowStatus,
-  createOrder,
-  decideOrderApproval,
-  getOrder,
-  getOrderCreateOperationStatus,
-  getOrderStats,
-  getRepairDeskOptions,
-  listOrderWorkflow,
-  listOrders,
-  listOrdersPage,
-  patchOrder,
-  patchOrderFinance,
-  publishOrderQuote,
-  confirmOrderQuoteSent,
-  recordPayment,
-  reopenOrder,
-  reorderOrderWorkflowStatuses,
-  sendApprovalRequest,
-  sendNotification,
-  sendWhatsappNotification,
-  setOrderWorkflowStatusEnabled,
-  transitionOrder,
-  updateOrderWorkflowStatus,
-  updateOrderWorkflowTransitions,
-  updateOrder,
-  voidOrder,
-  updateOrderCustody,
-  uploadOrderAttachment,
-} from "@/features/orders/server/order.service";
-import {
-  applyOrderDataImport,
-  downloadOrderDataTemplate,
-  exportCustomerStats,
-  exportOrderData,
-  listOrderDataBatchHistory,
-  previewOrderDataImport,
-} from "@/features/orders/server/order-data.service";
-import { getStorePurgeConfirmationPhrase } from "@/entities/store/model/store-purge-confirmation";
 import {
   isOrderCostGrantAction,
   normalizeStorePermissionGrants,
 } from "@/entities/staff/model/store-permission-policy";
-import { assertOrderDataAccess } from "@/features/orders/server/order-data-access";
+import { getStorePurgeConfirmationPhrase } from "@/entities/store/model/store-purge-confirmation";
+import {
+  BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE,
+  BUYBACK_SENSITIVE_WORKFLOW_ENABLED,
+} from "@/features/buyback/model/buyback-evidence-policy";
+import { assertBuybackTransparentQuoteWriteEnabled } from "@/features/buyback/server/transparent-quote-policy";
+import { isCustomerStatusQrEnabled } from "@/features/customer-status/server/customer-status.service";
 import {
   completeCustomerFollowup,
   createCustomer,
   createCustomerFollowup,
   deleteCustomerDevice,
-  getCustomerDevices,
   getCustomerDetail,
+  getCustomerDevices,
   listCustomers,
   listCustomersPage,
   searchCustomerIntakeCandidates,
@@ -154,15 +44,40 @@ import {
   updateCustomer,
   upsertCustomerDevice,
 } from "@/features/customers/server/customer.service";
+import { getDashboardPrioritySummary } from "@/features/dashboard/server/dashboard-summary.service";
+import { assertInventoryLifecycleCommandEnabled } from "@/features/inventory/lifecycle/server/inventory-lifecycle-feature-flags";
 import {
+  readInventoryLifecycleAfterSalesCase,
+  readInventoryLifecycleAfterSalesQueue,
+  readInventoryLifecycleSale,
+  readInventoryLifecycleSummary,
+  runInventoryLifecycleCommand,
+} from "@/features/inventory/lifecycle/server/inventory-lifecycle.repository";
+import { createInventoryUnitV2BodySchema } from "@/features/inventory/model/inventory-v2-intake-contract";
+import { completeInventorySaleV2BodySchema } from "@/features/inventory/model/inventory-v2-sale-contract";
+import { applyInventoryWorkflowV2BodySchema } from "@/features/inventory/model/inventory-v2-workflow-contract";
+import { assertInventoryProductInspectionEnabled } from "@/features/inventory/products/server/inventory-product-inspection-feature-flags";
+import {
+  assertInventoryV2IntakeAccess,
+  assertInventoryV2SaleAccess,
+  assertInventoryV2WorkflowAccess,
+  canUseInventoryProductsBff,
+} from "@/features/inventory/server/inventory-v2-access";
+import type { InventoryV2FeatureEnvironment } from "@/features/inventory/server/inventory-v2-feature-flags";
+import {
+  assertInventoryProductDeviceDataV2Enabled,
+  assertInventoryV2CommandEnabled,
+  assertInventoryV2ShadowReadEnabled,
+} from "@/features/inventory/server/inventory-v2-feature-flags";
+import {
+  accessInventoryAttachment,
   applyElectronicsCsvImport,
   applyInventoryWorkflowV2,
-  accessInventoryAttachment,
+  completeInventorySaleV2,
   createBuybackQuote,
   createInventoryIntake,
   createInventoryProduct,
   createInventoryUnitV2,
-  completeInventorySaleV2,
   finalizeBuybackPurchase,
   getBuybackQuoteHistory,
   getInventoryItem,
@@ -174,47 +89,43 @@ import {
   listInventoryItems,
   listInventoryItemsPage,
   listInventoryProducts,
-  searchInventoryCatalog,
   reconcileInventoryV2,
-  recordInventoryCheck,
   recordBuybackQuoteResponse,
+  recordInventoryCheck,
   recordInventoryTransaction,
+  reviseBuybackQuote,
+  searchInventoryCatalog,
   sellInventoryItem,
   transitionInventoryItem,
-  reviseBuybackQuote,
   updateInventoryItem,
   updateInventoryProduct,
   uploadInventoryAttachment,
 } from "@/features/inventory/server/inventory.service";
-import { assertBuybackTransparentQuoteWriteEnabled } from "@/features/buyback/server/transparent-quote-policy";
 import {
-  assertInventoryProductDeviceDataV2Enabled,
-  assertInventoryV2CommandEnabled,
-  assertInventoryV2ShadowReadEnabled,
-} from "@/features/inventory/server/inventory-v2-feature-flags";
-import { assertInventoryProductInspectionEnabled } from "@/features/inventory/products/server/inventory-product-inspection-feature-flags";
+  assertKioskEndToEndEnabled,
+  assertKioskReviewWriteEnabled,
+} from "@/features/kiosk/server/kiosk-review-gate";
 import {
-  assertInventoryV2IntakeAccess,
-  assertInventoryV2SaleAccess,
-  assertInventoryV2WorkflowAccess,
-  canUseInventoryProductsBff,
-} from "@/features/inventory/server/inventory-v2-access";
-import type { InventoryV2FeatureEnvironment } from "@/features/inventory/server/inventory-v2-feature-flags";
-import { completeInventorySaleV2BodySchema } from "@/features/inventory/model/inventory-v2-sale-contract";
-import { createInventoryUnitV2BodySchema } from "@/features/inventory/model/inventory-v2-intake-contract";
-import { applyInventoryWorkflowV2BodySchema } from "@/features/inventory/model/inventory-v2-workflow-contract";
+  acceptKioskSession,
+  createKioskDevicePairing,
+  createKioskSession,
+  listKioskDevices,
+  listKioskSessions,
+  returnKioskSession,
+  revokeKioskDevice,
+} from "@/features/kiosk/server/kiosk.service";
+import { assertMemosFeature } from "@/features/memos/server/memo-feature";
 import {
-  readInventoryLifecycleAfterSalesCase,
-  readInventoryLifecycleAfterSalesQueue,
-  readInventoryLifecycleSale,
-  readInventoryLifecycleSummary,
-  runInventoryLifecycleCommand,
-} from "@/features/inventory/lifecycle/server/inventory-lifecycle.repository";
-import { assertInventoryLifecycleCommandEnabled } from "@/features/inventory/lifecycle/server/inventory-lifecycle-feature-flags";
-import {
-  BUYBACK_SENSITIVE_WORKFLOW_DISABLED_MESSAGE,
-  BUYBACK_SENSITIVE_WORKFLOW_ENABLED,
-} from "@/features/buyback/model/buyback-evidence-policy";
+  archiveMemo,
+  createMemo,
+  readMemo,
+  readMemoAssignees,
+  readMemoList,
+  readMemoSummary,
+  restoreMemo,
+  transitionMemo,
+  updateMemo,
+} from "@/features/memos/server/memo.service";
 import {
   getStoreSettings,
   listMessageTemplates,
@@ -223,6 +134,146 @@ import {
   updateMessageTemplate,
   updateStoreSettings,
 } from "@/features/messages/server/message-settings.service";
+import { syncRepairDeskOfflineOrderCreate } from "@/features/offline/server/offline-order-create-sync";
+import { assertOrderDataAccess } from "@/features/orders/server/order-data-access";
+import {
+  applyOrderDataImport,
+  downloadOrderDataTemplate,
+  exportCustomerStats,
+  exportOrderData,
+  listOrderDataBatchHistory,
+  previewOrderDataImport,
+} from "@/features/orders/server/order-data.service";
+import {
+  batchTransition,
+  confirmCancelledOrderReturn,
+  confirmOrderQuoteSent,
+  correctTerminalOrder,
+  createOrder,
+  createOrderWorkflowStatus,
+  decideOrderApproval,
+  getOrder,
+  getOrderCreateOperationStatus,
+  getOrderStats,
+  getRepairDeskOptions,
+  listOrders,
+  listOrdersPage,
+  listOrderWorkflow,
+  patchOrder,
+  patchOrderFinance,
+  publishOrderQuote,
+  recordPayment,
+  reopenOrder,
+  reorderOrderWorkflowStatuses,
+  sendApprovalRequest,
+  sendNotification,
+  sendWhatsappNotification,
+  setOrderWorkflowStatusEnabled,
+  transitionOrder,
+  updateOrder,
+  updateOrderCustody,
+  updateOrderWorkflowStatus,
+  updateOrderWorkflowTransitions,
+  uploadOrderAttachment,
+  voidOrder,
+} from "@/features/orders/server/order.service";
+import {
+  approveOnboardingRequest,
+  cancelOnboardingRequest,
+  getOnboardingStatus,
+  listPlatformOnboardingRequests,
+  rejectOnboardingRequest,
+  submitOnboardingRequest,
+  updateAccountProfile,
+} from "@/features/platform/server/platform.service";
+import { assertCostCurrencyAccess } from "@/features/procurement/server/cost-currency-feature";
+import {
+  readCostCurrencySettings,
+  replaceCostCurrencySettings,
+} from "@/features/procurement/server/cost-currency.service";
+import { assertCanAllocatePartsCosts } from "@/features/procurement/server/procurement-feature";
+import {
+  allocateOrderPart,
+  createPartCatalogItem,
+  getPartsProcurement,
+  receivePartLot,
+  releaseOrderPart,
+} from "@/features/procurement/server/procurement.repository";
+import {
+  readMockCostCurrencySettings,
+  replaceMockCostCurrencySettings,
+} from "@/features/procurement/testing/cost-currency-mock";
+import {
+  allocateMockOrderPart,
+  createMockPartCatalogItem,
+  getMockPartsProcurement,
+  receiveMockPartLot,
+  releaseMockOrderPart,
+} from "@/features/procurement/testing/mock-api";
+import { assertCostBackfillAccess } from "@/features/profit/server/cost-backfill-feature";
+import {
+  applyCostBackfill,
+  previewCostBackfill,
+  readCostBackfillRuns,
+  revertCostBackfill,
+} from "@/features/profit/server/cost-backfill.service";
+import { assertCanExportCosts } from "@/features/profit/server/cost-export-feature";
+import { exportCostReport } from "@/features/profit/server/cost-export.service";
+import { assertCanReadProfitCenter } from "@/features/profit/server/profit-feature";
+import { getProfitCenter } from "@/features/profit/server/profit.repository";
+import {
+  applyMockCostBackfill,
+  previewMockCostBackfill,
+  readMockCostBackfillRuns,
+  revertMockCostBackfill,
+} from "@/features/profit/testing/cost-backfill-mock";
+import {
+  repairDeskRealtimeDomains,
+  type RepairDeskRealtimeDomain,
+} from "@/features/realtime/model/realtime-events";
+import { getRepairDeskDomainRevisions } from "@/features/realtime/server/domain-revision.repository";
+import {
+  queueRepairDeskRealtimeBroadcast,
+  type RepairDeskRealtimeMutationBroadcast,
+} from "@/features/realtime/server/realtime-broadcast";
+import {
+  SETTINGS_ERROR_CODES,
+  SettingsMutationError,
+} from "@/features/settings/model/store-settings-errors";
+import { getStoreSettingsValidationFieldErrors } from "@/features/settings/model/store-settings-update-contract";
+import { assertStoreLifecycleActive } from "@/features/stores/server/store-lifecycle-access";
+import { isStoreLifecycleEnforcementEnabled } from "@/features/stores/server/store-lifecycle-feature-flags";
+import {
+  acceptStoreInvitation,
+  approveStoreAccessRequest,
+  cancelStorePurgeRequest,
+  confirmStorePurgeRequest,
+  createStore,
+  createStoreInviteLink,
+  createStoreLifecyclePreflight,
+  disableStoreMember,
+  getStoreContext,
+  getStoreLifecycleOperationStatus,
+  getStoreLifecycleState,
+  getStorePurgeRequest,
+  inviteStoreMember,
+  issueStoreLifecycleChallenge,
+  listStoreAccessRequests,
+  listStoreMembers,
+  redeemStoreInviteLink,
+  rejectStoreAccessRequest,
+  renameStoreWorkspace,
+  requestStoreClose,
+  requestStorePurge,
+  restoreStoreMember,
+  restoreStoreWorkspace,
+  revokeStoreInvitation,
+  revokeStoreInviteLink,
+  switchActiveStore,
+  updateStoreMemberPermissions,
+  updateStoreMemberRole,
+} from "@/features/stores/server/store.service";
+import { MOCK_PURGE_DEMO_STORE_ID } from "@/features/stores/testing/mock-api";
 import {
   archiveSupplier,
   createSupplier,
@@ -235,87 +286,7 @@ import {
   listMockSuppliers,
   updateMockSupplier,
 } from "@/features/suppliers/testing/mock-api";
-import {
-  acceptKioskSession,
-  createKioskDevicePairing,
-  createKioskSession,
-  listKioskDevices,
-  listKioskSessions,
-  returnKioskSession,
-  revokeKioskDevice,
-} from "@/features/kiosk/server/kiosk.service";
-import {
-  assertKioskEndToEndEnabled,
-  assertKioskReviewWriteEnabled,
-} from "@/features/kiosk/server/kiosk-review-gate";
-import {
-  acceptStoreInvitation,
-  approveStoreAccessRequest,
-  createStoreInviteLink,
-  createStore,
-  createStoreLifecyclePreflight,
-  cancelStorePurgeRequest,
-  confirmStorePurgeRequest,
-  getStorePurgeRequest,
-  getStoreLifecycleState,
-  getStoreLifecycleOperationStatus,
-  issueStoreLifecycleChallenge,
-  renameStoreWorkspace,
-  requestStoreClose,
-  requestStorePurge,
-  restoreStoreWorkspace,
-  getStoreContext,
-  disableStoreMember,
-  inviteStoreMember,
-  listStoreAccessRequests,
-  listStoreMembers,
-  redeemStoreInviteLink,
-  rejectStoreAccessRequest,
-  restoreStoreMember,
-  revokeStoreInviteLink,
-  revokeStoreInvitation,
-  switchActiveStore,
-  updateStoreMemberPermissions,
-  updateStoreMemberRole,
-} from "@/features/stores/server/store.service";
-import { MOCK_PURGE_DEMO_STORE_ID } from "@/features/stores/testing/mock-api";
-import {
-  approveOnboardingRequest,
-  cancelOnboardingRequest,
-  getOnboardingStatus,
-  listPlatformOnboardingRequests,
-  rejectOnboardingRequest,
-  submitOnboardingRequest,
-  updateAccountProfile,
-} from "@/features/platform/server/platform.service";
-import { getRequestActor, UnauthorizedError, ForbiddenError } from "@/server/auth-context";
-import { assertStoreLifecycleActive } from "@/features/stores/server/store-lifecycle-access";
-import { isStoreLifecycleEnforcementEnabled } from "@/features/stores/server/store-lifecycle-feature-flags";
-import {
-  assertPermission,
-  type PermissionAction,
-  type PermissionContext,
-} from "@/server/permissions";
-import { writeAuditLog } from "@/server/audit";
-import { resolveRepairDeskSourceMode } from "@/server/repairdesk-source-mode";
-import {
-  isRepairDeskE2eAuthBypassEnabled,
-  isRepairDeskE2eSystemActor,
-} from "@/shared/lib/e2e-auth-bypass";
-import {
-  queueRepairDeskRealtimeBroadcast,
-  type RepairDeskRealtimeMutationBroadcast,
-} from "@/features/realtime/server/realtime-broadcast";
-import { getRepairDeskDomainRevisions } from "@/features/realtime/server/domain-revision.repository";
-import {
-  repairDeskRealtimeDomains,
-  type RepairDeskRealtimeDomain,
-} from "@/features/realtime/model/realtime-events";
-import { getStoreSettingsValidationFieldErrors } from "@/features/settings/model/store-settings-update-contract";
-import {
-  SETTINGS_ERROR_CODES,
-  SettingsMutationError,
-} from "@/features/settings/model/store-settings-errors";
+import { TOOLKIT_FILE_MAX_BYTES } from "@/features/toolkit/model/policy";
 import {
   accessToolkitResource,
   createToolkitLink,
@@ -334,12 +305,14 @@ import {
   updateMockToolkitResource,
   updateMockToolkitResourceStatus,
 } from "@/features/toolkit/testing/mock-api";
-import { TOOLKIT_FILE_MAX_BYTES } from "@/features/toolkit/model/policy";
+import { statusGroups } from "@/lib/mock/enums";
 import type {
   AuditActor,
-  CustomerIntakeSearchInput,
+  CostExportInput,
+  CostExportRow,
   CreateInventoryIntakeInput,
   CreateOrderInput,
+  CustomerIntakeSearchInput,
   InventoryItemStatus,
   InventoryLifecycleCommand,
   InventoryTransactionInput,
@@ -352,24 +325,50 @@ import type {
   ProfitCenterResult,
   PublishOrderQuoteInput,
   RepairDeskOptions,
-  CostExportInput,
-  CostExportRow,
   StoreMemberPermissionUpdateInput,
   StorePurgeRequest,
   StorePurgeRequestInput,
   SupplierInput,
   UpdateInventoryItemInput,
-  UpdateOrderInput,
   UpdateOrderCustodyInput,
+  UpdateOrderInput,
 } from "@/lib/repairdesk/types";
+import { writeAuditLog } from "@/server/audit";
+import { ForbiddenError, getRequestActor, UnauthorizedError } from "@/server/auth-context";
+import {
+  assertPermission,
+  type PermissionAction,
+  type PermissionContext,
+} from "@/server/permissions";
+import { resolveRepairDeskSourceMode } from "@/server/repairdesk-source-mode";
+import {
+  isRepairDeskE2eAuthBypassEnabled,
+  isRepairDeskE2eSystemActor,
+} from "@/shared/lib/e2e-auth-bypass";
+import { NextResponse } from "next/server";
+import { Buffer } from "node:buffer";
+import { z } from "zod";
 import {
   accountProfileUpdateBodySchema,
   approvalDecisionBodySchema,
   approvalRequestBodySchema,
   batchTransitionBodySchema,
+  buybackFinalizeBodySchema,
+  buybackQuoteCreateBodySchema,
+  buybackQuoteHistoryBodySchema,
+  buybackQuoteResponseBodySchema,
+  buybackQuoteReviseBodySchema,
   confirmCancelledOrderReturnBodySchema,
+  confirmOrderQuoteSentBodySchema,
   correctTerminalOrderBodySchema,
-  orderCreateOperationStatusSchema,
+  costBackfillApplyBodySchema,
+  costBackfillPreviewBodySchema,
+  costBackfillReadBodySchema,
+  costBackfillRevertBodySchema,
+  costCurrencyReadBodySchema,
+  costCurrencyUpdateBodySchema,
+  costExportBodySchema,
+  createInventoryProductBodySchema,
   createOrderSchema,
   customerCreateBodySchema,
   customerDeviceDeleteBodySchema,
@@ -384,101 +383,88 @@ import {
   customerSearchBodySchema,
   customerTagsUpdateBodySchema,
   customerUpdateBodySchema,
-  createInventoryProductBodySchema,
-  dashboardSummaryInputSchema,
   dashboardPrioritySummaryInputSchema,
+  dashboardSummaryInputSchema,
   electronicsCsvImportBodySchema,
   idBodySchema,
-  inventoryProductSensitiveIdBodySchema,
-  inventoryAttachmentUploadBodySchema,
   inventoryAttachmentAccessBodySchema,
-  buybackFinalizeBodySchema,
-  inventoryIntakeCreateBodySchema,
+  inventoryAttachmentUploadBodySchema,
   inventoryCatalogSearchBodySchema,
+  inventoryIntakeCreateBodySchema,
+  inventoryLifecycleCommandBodySchema,
   inventoryListFiltersSchema,
   inventoryProductListFiltersSchema,
-  updateInventoryProductBodySchema,
+  inventoryProductSensitiveIdBodySchema,
   inventoryQualityCheckBodySchema,
   inventorySellBodySchema,
   inventoryTransactionBodySchema,
   inventoryTransitionBodySchema,
   inventoryUpdateBodySchema,
-  inventoryLifecycleCommandBodySchema,
-  buybackQuoteCreateBodySchema,
-  buybackQuoteHistoryBodySchema,
-  buybackQuoteResponseBodySchema,
-  buybackQuoteReviseBodySchema,
-  messageTemplatePreviewBodySchema,
-  messageTemplateResetBodySchema,
-  messageTemplateUpdateBodySchema,
   kioskDevicePairingBodySchema,
   kioskSessionCreateBodySchema,
-  kioskSessionReviewBodySchema,
   kioskSessionReturnBodySchema,
-  notificationBodySchema,
-  onboardingDecisionBodySchema,
-  onboardingRequestBodySchema,
-  orderAttachmentUploadBodySchema,
-  orderListFiltersSchema,
-  orderListPageInputSchema,
-  orderWorkflowStatusCreateBodySchema,
-  orderWorkflowStatusEnabledBodySchema,
-  orderWorkflowStatusReorderBodySchema,
-  orderWorkflowStatusUpdateBodySchema,
-  orderWorkflowTransitionsUpdateBodySchema,
-  patchOrderBodySchema,
-  patchOrderFinanceBodySchema,
-  profitCenterReadBodySchema,
-  costExportBodySchema,
-  costBackfillReadBodySchema,
-  costBackfillPreviewBodySchema,
-  costBackfillApplyBodySchema,
-  costBackfillRevertBodySchema,
-  costCurrencyReadBodySchema,
-  costCurrencyUpdateBodySchema,
-  partsProcurementReadBodySchema,
-  partCatalogCreateBodySchema,
-  partLotReceiveBodySchema,
-  orderPartAllocateBodySchema,
-  orderPartReleaseBodySchema,
-  publishOrderQuoteBodySchema,
-  confirmOrderQuoteSentBodySchema,
-  paymentBodySchema,
-  reopenOrderBodySchema,
-  storeCreateBodySchema,
-  storeLifecyclePreflightBodySchema,
-  storeLifecycleOperationStatusBodySchema,
-  storeLifecycleChallengeBodySchema,
-  storeRenameBodySchema,
-  storeCloseBodySchema,
-  storeRestoreBodySchema,
-  storePurgeCancelBodySchema,
-  storePurgeConfirmBodySchema,
-  storePurgeRequestBodySchema,
-  storeInviteBodySchema,
-  storeInviteLinkCreateBodySchema,
-  storeInviteLinkDecisionBodySchema,
-  storeInviteLinkRedeemBodySchema,
-  storeInvitationDecisionBodySchema,
-  storeMemberDecisionBodySchema,
-  storeMemberPermissionUpdateBodySchema,
-  storeMemberRoleUpdateBodySchema,
-  storeSettingsUpdateBodySchema,
-  supplierArchiveBodySchema,
-  supplierCreateBodySchema,
-  supplierUpdateBodySchema,
-  storeSwitchBodySchema,
-  transitionOrderBodySchema,
-  updateOrderBodySchema,
-  voidOrderBodySchema,
-  updateOrderCustodyBodySchema,
-  whatsappNotificationBodySchema,
+  kioskSessionReviewBodySchema,
   memoArchiveBodySchema,
   memoCreateBodySchema,
   memoIdBodySchema,
   memoListBodySchema,
   memoTransitionBodySchema,
   memoUpdateBodySchema,
+  messageTemplatePreviewBodySchema,
+  messageTemplateResetBodySchema,
+  messageTemplateUpdateBodySchema,
+  notificationBodySchema,
+  onboardingDecisionBodySchema,
+  onboardingRequestBodySchema,
+  orderAttachmentUploadBodySchema,
+  orderCreateOperationStatusSchema,
+  orderListFiltersSchema,
+  orderListPageInputSchema,
+  orderPartAllocateBodySchema,
+  orderPartReleaseBodySchema,
+  orderWorkflowStatusCreateBodySchema,
+  orderWorkflowStatusEnabledBodySchema,
+  orderWorkflowStatusReorderBodySchema,
+  orderWorkflowStatusUpdateBodySchema,
+  orderWorkflowTransitionsUpdateBodySchema,
+  partCatalogCreateBodySchema,
+  partLotReceiveBodySchema,
+  partsProcurementReadBodySchema,
+  patchOrderBodySchema,
+  patchOrderFinanceBodySchema,
+  paymentBodySchema,
+  profitCenterReadBodySchema,
+  publishOrderQuoteBodySchema,
+  reopenOrderBodySchema,
+  storeCloseBodySchema,
+  storeCreateBodySchema,
+  storeInvitationDecisionBodySchema,
+  storeInviteBodySchema,
+  storeInviteLinkCreateBodySchema,
+  storeInviteLinkDecisionBodySchema,
+  storeInviteLinkRedeemBodySchema,
+  storeLifecycleChallengeBodySchema,
+  storeLifecycleOperationStatusBodySchema,
+  storeLifecyclePreflightBodySchema,
+  storeMemberDecisionBodySchema,
+  storeMemberPermissionUpdateBodySchema,
+  storeMemberRoleUpdateBodySchema,
+  storePurgeCancelBodySchema,
+  storePurgeConfirmBodySchema,
+  storePurgeRequestBodySchema,
+  storeRenameBodySchema,
+  storeRestoreBodySchema,
+  storeSettingsUpdateBodySchema,
+  storeSwitchBodySchema,
+  supplierArchiveBodySchema,
+  supplierCreateBodySchema,
+  supplierUpdateBodySchema,
+  transitionOrderBodySchema,
+  updateInventoryProductBodySchema,
+  updateOrderBodySchema,
+  updateOrderCustodyBodySchema,
+  voidOrderBodySchema,
+  whatsappNotificationBodySchema,
 } from "./repairdesk-schemas";
 
 const supabaseSource = {
@@ -569,7 +555,6 @@ const supabaseSource = {
   getRepairDeskDomainRevisions,
   getStoreContext,
   getStoreSettings,
-  getAiAssistantUsageSummary,
   listSuppliers,
   importElectronicsCsvPreview,
   inviteStoreMember,
@@ -746,6 +731,11 @@ const realtimeBroadcasts = {
     domain: "customers",
     mutation: "created",
     queryGroups: ["customers.all"],
+  },
+  customerEntityUpdated: {
+    domain: "customers",
+    mutation: "updated",
+    queryGroups: ["customers.all", "orders.all"],
   },
   customerUpdated: {
     domain: "customers",
@@ -1088,7 +1078,6 @@ async function source() {
     getRepairDeskDomainRevisions: async (domains: readonly RepairDeskRealtimeDomain[]) => ({
       revisions: Object.fromEntries(domains.map((domain) => [domain, "0"])),
     }),
-    getAiAssistantUsageSummary: async () => getMockAiAssistantUsageSummary(),
     exportCostReport: async (input: CostExportInput, actor: AuditActor) =>
       exportCostReport(input, actor, async () => ({
         timezone: "Europe/Rome",
@@ -1802,9 +1791,6 @@ export async function handleRepairDeskGet(path: string, searchParams?: URLSearch
     const actor = await getRequestActor(true, {
       allowPendingStore: allowsPendingStore(path, "GET"),
     });
-    if (path === "ai/capabilities") {
-      return ok(getAiAssistantCapabilities(actor));
-    }
     if (actor.storeId && isStoreLifecycleEnforcementEnabled() && !allowsLifecycleControlGet(path)) {
       await assertStoreLifecycleActive(actor.storeId);
     }
@@ -1821,15 +1807,11 @@ export async function handleRepairDeskGet(path: string, searchParams?: URLSearch
             ...storeContext,
             customerStatusQrEnabled: isCustomerStatusQrEnabled(),
           },
-          aiCapabilities: getAiAssistantCapabilities(actor),
           generatedAt: new Date().toISOString(),
         });
       }
       case "onboarding/status":
         return ok(await api.getOnboardingStatus(actor));
-      case "ai/usage":
-        assertRepairDeskPermission(actor, "finance:aggregate_read");
-        return ok(await api.getAiAssistantUsageSummary(actor));
       case "platform/onboarding/requests":
         return ok(await api.listPlatformOnboardingRequests(actor));
       case "order-stats":
@@ -1909,24 +1891,9 @@ export async function handleRepairDeskPost(
   body: unknown,
   requestActor?: AuditActor,
   requestSignal?: AbortSignal,
-  requestContext: { aiVisionRateLimitConsumed?: boolean } = {},
 ) {
   try {
     const actor = requestActor ?? (await getRepairDeskPostActor(path));
-    if (path === "ai/vision/extract") {
-      return ok(
-        await runAiInventoryVisionRecognition({
-          actor,
-          input: aiInventoryVisionRequestSchema.parse(body),
-          dependencies: {
-            provider: getAiAssistantProvider,
-            budgetGateway: getAiProviderBudgetGateway,
-            requestSignal,
-            requestRateLimitAlreadyConsumed: requestContext.aiVisionRateLimitConsumed,
-          },
-        }),
-      );
-    }
     const api = await source();
     const toolkitAction = parseToolkitResourceActionPath(path);
     if (toolkitAction) {
@@ -1961,41 +1928,6 @@ export async function handleRepairDeskPost(
       return ok(await api.accessToolkitResource(toolkitAction.id, actor));
     }
     switch (path) {
-      case "ai/order/turn":
-        return ok(
-          await runAiOrderAssistantTurn({
-            actor,
-            input: aiAssistantRequestSchema.parse(body),
-            dependencies: {
-              provider: getAiAssistantProvider,
-              budgetGateway: getAiProviderBudgetGateway,
-              listOrdersPage: api.listOrdersPage,
-              getOrder: api.getOrder,
-              requestSignal,
-            },
-          }),
-        );
-      case "ai/order/action": {
-        const input = aiOrderInlineActionRequestSchema.parse(body);
-        const result = await runAiOrderInlineAction({
-          actor,
-          input,
-          dependencies: {
-            getOrder: api.getOrder,
-            transitionOrder: api.transitionOrder,
-          },
-        });
-        await writeAuditLog({
-          actor,
-          action: "ai_inline_action",
-          entityType: "repair_order",
-          entityId: input.order_id,
-          after: { action: result.action },
-          metadata: { source: "ai_assistant", confirmed: true },
-        });
-        queueRealtimeBroadcast(actor, realtimeBroadcasts.orderTransitioned);
-        return ok(result);
-      }
       case "orders/data/template": {
         const { expectedStoreId } = orderDataStoreBodySchema.parse(body);
         return binaryResponse(await downloadOrderDataTemplate({ expectedStoreId, actor }));
@@ -2141,10 +2073,13 @@ export async function handleRepairDeskPost(
           })
           .strict()
           .parse(body);
-        if (domains.some((domain) => !["orders", "memos", "inventory"].includes(domain))) {
+        if (
+          domains.some((domain) => !["orders", "memos", "inventory", "customers"].includes(domain))
+        ) {
           throw new ForbiddenError("当前同步版本接口仅开放可见业务域");
         }
         if (domains.includes("orders")) assertOrderListPermission(actor);
+        if (domains.includes("customers")) assertCustomerListPermission(actor);
         if (domains.includes("inventory")) assertInventoryReadPermission(actor);
         if (domains.includes("memos")) assertMemosFeature(actor);
         return ok(await api.getRepairDeskDomainRevisions(domains, actor));
@@ -2474,7 +2409,7 @@ export async function handleRepairDeskPost(
             id,
             input,
             () => api.updateCustomer(id, input, actor),
-            realtimeBroadcasts.customerUpdated,
+            realtimeBroadcasts.customerEntityUpdated,
           ),
         );
       }
@@ -2485,28 +2420,29 @@ export async function handleRepairDeskPost(
           await runWithRealtime(
             actor,
             () => api.upsertCustomerDevice(customerId, input, actor),
-            realtimeBroadcasts.customerUpdated,
+            realtimeBroadcasts.customerEntityUpdated,
           ),
         );
       }
       case "customer/device/delete": {
-        const { customerId, deviceId } = customerDeviceDeleteBodySchema.parse(body);
+        const { customerId, deviceId, expected_updated_at } =
+          customerDeviceDeleteBodySchema.parse(body);
         assertCustomerUpdatePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
-            () => api.deleteCustomerDevice(customerId, deviceId, actor),
-            realtimeBroadcasts.customerUpdated,
+            () => api.deleteCustomerDevice(customerId, deviceId, expected_updated_at, actor),
+            realtimeBroadcasts.customerEntityUpdated,
           ),
         );
       }
       case "customer/tags/update": {
-        const { customerId, tagIds } = customerTagsUpdateBodySchema.parse(body);
+        const { customerId, ...input } = customerTagsUpdateBodySchema.parse(body);
         assertCustomerTagPermission(actor);
         return ok(
           await runWithRealtime(
             actor,
-            () => api.setCustomerTags(customerId, tagIds, actor),
+            () => api.setCustomerTags(customerId, input, actor),
             realtimeBroadcasts.customerUpdated,
           ),
         );
@@ -2825,24 +2761,19 @@ export async function handleRepairDeskPost(
         );
       }
       case "order/notification": {
-        const { id, body: messageBody, channel } = notificationBodySchema.parse(body);
+        const { id, ...input } = notificationBodySchema.parse(body);
         assertOrderCustomerMessagePermission(actor);
         return ok(
           await runWithRealtime(
             actor,
-            () => api.sendNotification(id, messageBody, channel, actor),
+            () => api.sendNotification(id, input, actor),
             realtimeBroadcasts.orderUpdated,
           ),
         );
       }
       case "order/whatsapp-notification": {
-        const {
-          id,
-          body: messageBody,
-          template_kind,
-          transition_to,
-          recipient_phone,
-        } = whatsappNotificationBodySchema.parse(body);
+        const { id, ...input } = whatsappNotificationBodySchema.parse(body);
+        const { template_kind } = input;
         if (template_kind === "approval_request") {
           throw routeConflict(
             "USE_CONFIRM_QUOTE_SENT",
@@ -2853,15 +2784,7 @@ export async function handleRepairDeskPost(
         return ok(
           await runWithRealtime(
             actor,
-            () =>
-              api.sendWhatsappNotification(
-                id,
-                messageBody,
-                template_kind,
-                transition_to,
-                actor,
-                recipient_phone,
-              ),
+            () => api.sendWhatsappNotification(id, input, actor),
             realtimeBroadcasts.orderUpdated,
           ),
         );

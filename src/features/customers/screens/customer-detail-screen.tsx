@@ -68,6 +68,7 @@ import {
   type CustomerFollowupInput,
   type CustomerMessageInput,
   type CustomerUpdateInput,
+  type CustomerTagsUpdateInput,
   type Device,
   type CustomerDetail,
 } from "@/lib/repairdesk/api";
@@ -98,7 +99,7 @@ export function CustomerDetailScreen({
   surface?: CustomerDetailSurface;
   onClose?: () => void;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const queryClient = useQueryClient();
   const router = useRouter();
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
@@ -203,12 +204,25 @@ export function CustomerDetailScreen({
   });
 
   const deleteDevice = useMutation({
-    mutationFn: (deviceId: string) => deleteCustomerDevice(id, deviceId),
+    mutationFn: (device: Device) => deleteCustomerDevice(id, device.id, device.updated_at ?? ""),
     onSuccess: () => {
       toast.success(t("customers.detail.deviceDeleted"));
       invalidate();
     },
-    onError: () => toast.error(t("customers.detail.deviceDeleteFailed")),
+    onError: (error) => {
+      toast.error(
+        error && "code" in error && error.code === "CUSTOMER_DEVICE_HAS_ORDERS"
+          ? t("customers.device.deleteBlockedHistory")
+          : error && "status" in error && error.status === 409
+            ? locale === "zh-CN"
+              ? "设备资料已更新，请刷新后重新确认删除"
+              : locale === "it-IT"
+                ? "Dispositivo aggiornato. Ricarica e conferma di nuovo."
+                : "Device changed. Reload and confirm deletion again."
+            : t("customers.detail.deviceDeleteFailed"),
+      );
+      invalidate();
+    },
   });
 
   const followup = useMutation({
@@ -241,7 +255,7 @@ export function CustomerDetailScreen({
   });
 
   const tags = useMutation({
-    mutationFn: (tagIds: string[]) => setCustomerTags(id, tagIds),
+    mutationFn: (input: CustomerTagsUpdateInput) => setCustomerTags(id, input),
     onSuccess: () => {
       toast.success(t("customers.detail.tagsUpdated"));
       setTagsOpen(false);
@@ -354,6 +368,7 @@ export function CustomerDetailScreen({
       <CustomerDevicesPanel
         data={data}
         deleting={deleteDevice.isPending}
+        onRefresh={invalidate}
         onAdd={(control) => {
           deviceReturnFocusRef.current = control;
           setEditingDevice(undefined);
@@ -364,7 +379,7 @@ export function CustomerDetailScreen({
           setEditingDevice(device);
           setDeviceOpen(true);
         }}
-        onDelete={(deviceId) => deleteDevice.mutate(deviceId)}
+        onDelete={(device) => deleteDevice.mutateAsync(device)}
       />
     ) : tab === "orders" ? (
       <CustomerOrdersPanel
@@ -534,6 +549,7 @@ export function CustomerDetailScreen({
       ) : null}
 
       <CustomerEditDialog
+        onRefresh={invalidate}
         returnFocusRef={editReturnFocusRef}
         open={editOpen}
         onOpenChange={setEditOpen}
@@ -542,12 +558,13 @@ export function CustomerDetailScreen({
         onSave={(input) => update.mutateAsync(input)}
       />
       <CustomerDeviceDialog
+        onRefresh={invalidate}
         open={deviceOpen}
         onOpenChange={(open) => {
           setDeviceOpen(open);
           if (!open) setEditingDevice(undefined);
         }}
-        device={editingDevice}
+        device={data.devices.find((item) => item.id === editingDevice?.id) ?? editingDevice}
         busy={upsertDevice.isPending}
         returnFocusRef={deviceReturnFocusRef}
         onSave={(input) => upsertDevice.mutateAsync(input)}
@@ -578,6 +595,7 @@ export function CustomerDetailScreen({
         onConfirm={(input) => message.mutateAsync(input)}
       />
       <CustomerTagsDialog
+        onRefresh={invalidate}
         open={tagsOpen}
         onOpenChange={setTagsOpen}
         data={data}

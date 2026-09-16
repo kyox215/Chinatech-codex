@@ -1,9 +1,10 @@
 "use client";
 
+import { CustomerVersionNotice, useCustomerEditorSession } from "./use-customer-editor-session";
+
 import type { RefObject } from "react";
 
 import {
-  useCompactEditorSession,
   EditorDiscardConfirmation,
   editorConfirmationClass,
 } from "@/shared/lib/use-compact-editor-session";
@@ -50,8 +51,10 @@ export function CustomerEditDialog({
   data,
   busy,
   onSave,
+  onRefresh,
 }: {
   returnFocusRef?: RefObject<HTMLElement | null>;
+  onRefresh?: () => void;
   open: boolean;
   onOpenChange: (value: boolean) => void;
   data: CustomerDetail;
@@ -59,12 +62,14 @@ export function CustomerEditDialog({
   onSave: (input: CustomerUpdateInput) => Promise<unknown>;
 }) {
   const { t } = useLocale();
-  const session = useCompactEditorSession({
+  const session = useCustomerEditorSession({
     open,
     scopeKey: data.customer.id,
     initial: buildCustomerForm(data),
+    version: data.customer.updated_at,
     busy,
     onOpenChange,
+    onRefresh,
   });
   const { draft: form, setDraft: setForm } = session;
   const canSave = form.name.trim() && form.phone_e164.trim();
@@ -104,6 +109,12 @@ export function CustomerEditDialog({
           </DialogDescription>
         </DialogHeader>
         <DialogBody>
+          <CustomerVersionNotice
+            blocked={session.blocked}
+            conflict={session.conflict}
+            reload={session.reload}
+            busy={busy}
+          />
           <CustomerFields form={form} setForm={setForm} />
         </DialogBody>
         <DialogFooter className={`${componentOverlay.footer} ${componentOverlay.editorFooter}`}>
@@ -116,7 +127,7 @@ export function CustomerEditDialog({
           </Button>
           <Button
             className="min-h-11 whitespace-normal lg:min-h-9"
-            disabled={busy || !canSave}
+            disabled={busy || session.blocked || !canSave}
             onClick={() => void session.save(onSave)}
           >
             {busy ? t("customers.form.saving") : t("customers.form.save")}
@@ -130,6 +141,7 @@ export function CustomerEditDialog({
 function buildCustomerForm(data: CustomerDetail): CustomerUpdateInput {
   const customer = data.customer;
   return {
+    expected_updated_at: customer.updated_at ?? "",
     name: customer.name,
     phone_e164: customer.phone_e164,
     email: customer.email ?? "",

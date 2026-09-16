@@ -4,18 +4,24 @@ import { type Dispatch, type ReactNode, type SetStateAction, useState } from "re
 import { Check, ChevronDown, Pencil, ScanLine, Smartphone, Store, UserRound } from "lucide-react";
 
 import { ImeiScannerField } from "@/components/imei-scanner-field";
-import { DenseOptionMenu } from "@/features/orders/components/dense-option-menu";
+import { DeviceIdentityAutocomplete } from "@/features/orders/components/device-identity-autocomplete";
+import {
+  getOrderModelSuggestions,
+  orderBrandSuggestions,
+  shouldClearModelOnBrandChange,
+} from "@/features/orders/model/device-autocomplete";
+import {
+  NewOrderFieldError,
+  newOrderInvalidClass,
+  useNewOrderFieldError,
+} from "./new-order-validation";
 import { Button } from "@/components/ui/button";
 import { AccessoryNotesPicker } from "@/features/orders/components/accessory-notes-picker";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DeviceUnlockEditor } from "@/features/orders/components/device-unlock-fields";
 import { OrderWorkspaceSectionHeader } from "@/features/orders/components/order-workspace-primitives";
 import { CustomerIdentityLookup } from "@/features/orders/forms/customer-intake-lookup";
 import {
-  brandSuggestions,
-  deviceModelSuggestionsForBrand,
-  isAppleDeviceModelSuggestion,
   normalizeManualDeviceIdentity,
   type NewOrderFormState,
 } from "@/features/orders/model/new-order-form";
@@ -102,18 +108,20 @@ export function NewOrderCustomerSection({
   const { t } = useLocale();
   const shellClass = getShellClass(surface);
   const [editingSelected, setEditingSelected] = useState(false);
+  const phoneError = useNewOrderFieldError("customer-phone", Boolean(form.customerPhone.trim()));
 
   return (
     <section
       data-new-order-section="customer"
       data-new-order-field="customer-phone"
-      className={cn(shellClass, "space-y-1.5")}
+      className={cn(shellClass, "space-y-1.5", phoneError && newOrderInvalidClass)}
     >
       <OrderWorkspaceSectionHeader
         icon={UserRound}
         title={t("orders2b1.new.customerInfo")}
         className="mb-1.5"
       />
+      <NewOrderFieldError target="customer-phone" message={phoneError} />
       {form.customerId && !editingSelected ? (
         <div className="flex min-w-0 items-center gap-2 rounded-lg bg-primary/5 px-2 py-1">
           <UserRound className="size-5 shrink-0 text-primary" />
@@ -212,7 +220,18 @@ export function NewOrderDeviceInfoSection({
   const { t } = useLocale();
   const shellClass = getShellClass(surface);
   const hasDeviceDraft = Boolean(form.brand.trim() || form.model.trim() || form.imei.trim());
-  const modelSuggestions = deviceModelSuggestionsForBrand(form.brand);
+  const modelSuggestions = getOrderModelSuggestions(form.brand);
+  const brandError = useNewOrderFieldError("device-brand", Boolean(form.brand.trim()));
+  const modelError = useNewOrderFieldError("device-model", Boolean(form.model.trim()));
+  const changeBrand = (brand: string) =>
+    setForm((current) => ({
+      ...current,
+      brand,
+      deviceId: undefined,
+      model: shouldClearModelOnBrandChange(current.brand, brand, current.model)
+        ? ""
+        : current.model,
+    }));
 
   return (
     <section
@@ -264,28 +283,17 @@ export function NewOrderDeviceInfoSection({
           inputId="new-order-device-brand"
           label={t("orders2b1.new.brand")}
           required
-          trailingInteractive
-          trailing={
-            <DenseOptionMenu
-              label={t("orders2b1.new.brand")}
-              value={form.brand}
-              options={brandSuggestions}
-              onSelect={(brand) => setForm({ ...form, brand, deviceId: undefined })}
-            />
-          }
+          error={brandError}
         >
-          <Input
+          <DeviceIdentityAutocomplete
             id="new-order-device-brand"
             value={form.brand}
-            onChange={(event) =>
-              setForm({
-                ...form,
-                brand: normalizeManualDeviceIdentity(event.target.value),
-                deviceId: undefined,
-              })
-            }
+            label={t("orders2b1.new.brand")}
+            options={orderBrandSuggestions}
             className={visualInputClass}
             placeholder={t("orders2b1.new.brandPlaceholder")}
+            onChange={(brand) => changeBrand(normalizeManualDeviceIdentity(brand))}
+            onSelect={(option) => changeBrand(option.value)}
           />
         </DensePillField>
         <DensePillField
@@ -293,41 +301,31 @@ export function NewOrderDeviceInfoSection({
           inputId="new-order-device-model"
           label={t("orders2b1.new.model")}
           required
-          trailingInteractive
-          trailing={
-            <DenseOptionMenu
-              label={t("orders2b1.new.model")}
-              value={form.model}
-              options={modelSuggestions}
-              emptyText={t("orders2b1.new.modelEmpty")}
-              onSelect={(model) =>
-                setForm({
-                  ...form,
-                  brand: isAppleDeviceModelSuggestion(model) ? "Apple" : form.brand,
-                  model,
-                  deviceId: undefined,
-                })
-              }
-            />
-          }
+          error={modelError}
         >
-          <Input
+          <DeviceIdentityAutocomplete
+            key={form.brand.toLowerCase()}
             id="new-order-device-model"
             value={form.model}
-            onChange={(event) => {
-              const model = normalizeManualDeviceIdentity(event.target.value);
-              setForm({
-                ...form,
-                brand:
-                  isAppleDeviceModelSuggestion(model) && modelSuggestions.length > 0
-                    ? "Apple"
-                    : form.brand,
-                model,
-                deviceId: undefined,
-              });
-            }}
+            label={t("orders2b1.new.model")}
+            options={modelSuggestions}
             className={visualInputClass}
             placeholder={t("orders2b1.new.modelPlaceholder")}
+            onChange={(model) =>
+              setForm((current) => ({
+                ...current,
+                model: normalizeManualDeviceIdentity(model),
+                deviceId: undefined,
+              }))
+            }
+            onSelect={(option) =>
+              setForm((current) => ({
+                ...current,
+                brand: option.brand ?? current.brand,
+                model: option.value,
+                deviceId: undefined,
+              }))
+            }
           />
         </DensePillField>
         <DenseScannerBlock label="IMEI">
@@ -407,6 +405,7 @@ export function NewOrderDeviceCustodySelector({
   setForm,
 }: Pick<NewOrderCustomerDeviceBaseProps, "form" | "setForm">) {
   const { t } = useLocale();
+  const custodyError = useNewOrderFieldError("device-custody", form.deviceCustodyStatus !== null);
   const options: Array<{
     value: DeviceCustodyStatus;
     description: string;
@@ -427,7 +426,10 @@ export function NewOrderDeviceCustodySelector({
   return (
     <fieldset
       data-new-order-field="device-custody"
-      className="grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] items-center gap-1.5"
+      className={cn(
+        "grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] items-center gap-1.5",
+        custodyError && newOrderInvalidClass,
+      )}
       aria-required="true"
     >
       <legend className="sr-only text-[10.5px] font-semibold leading-4 text-muted-foreground lg:text-xs lg:leading-4">
@@ -470,6 +472,7 @@ export function NewOrderDeviceCustodySelector({
           );
         })}
       </div>
+      <NewOrderFieldError target="device-custody" message={custodyError} />
     </fieldset>
   );
 }
@@ -489,6 +492,7 @@ function getShellClass(surface: "page" | "dialog") {
 
 function DensePillField({
   fieldTarget,
+  error,
   inputId,
   label,
   required,
@@ -498,6 +502,7 @@ function DensePillField({
   children,
 }: {
   fieldTarget?: string;
+  error?: string;
   inputId?: string;
   label: string;
   required?: boolean;
@@ -509,7 +514,10 @@ function DensePillField({
   return (
     <div
       data-new-order-field={fieldTarget}
-      className="rd-new-order-field grid min-h-[38px] min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-1.5 rounded-lg border border-transparent border-b-border bg-card px-0 py-0 shadow-none focus-within:border-ring focus-within:ring-1 focus-within:ring-ring"
+      className={cn(
+        "rd-new-order-field grid min-h-[38px] min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-1.5 rounded-lg border border-transparent border-b-border bg-card px-0 py-0 shadow-none focus-within:border-ring focus-within:ring-1 focus-within:ring-ring",
+        error && newOrderInvalidClass,
+      )}
     >
       <Label
         htmlFor={inputId}
@@ -541,6 +549,7 @@ function DensePillField({
           {trailing}
         </div>
       ) : null}
+      <NewOrderFieldError target={fieldTarget ?? "device"} message={error} />
     </div>
   );
 }

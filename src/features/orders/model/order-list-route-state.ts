@@ -77,7 +77,7 @@ export function readOrderListRouteState(
       Number.isInteger(value.page) &&
       value.page! >= 1 &&
       value.page! <= 10_000 &&
-      (value.pageSize === 20 || value.pageSize === 50) &&
+      (value.pageSize === 20 || value.pageSize === 50 || value.pageSize === 100) &&
       typeof value.statusGroup === "string" &&
       orderRouteStatusGroups.has(value.statusGroup) &&
       typeof value.statusCode === "string" &&

@@ -240,18 +240,43 @@ test("Orders language switch preserves search URL document and scroll", async ({
   expect(writesByPage.get(page)).toEqual([]);
 });
 
-test("Orders pagination remains on page two after switching language", async ({ page }) => {
+test("Orders keeps both loaded 100-order batches and the tail after switching language", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.context().addCookies([{ name: "repairdesk_locale", value: "it-IT", url: baseURL }]);
+  const queueReads: Array<{ page: number; pageSize: number }> = [];
+  let fixtureItems: Array<Record<string, unknown>> = [];
   await page.route("**/api/repairdesk/orders/queue-summary", async (route) => {
+    const input = route.request().postDataJSON();
+    const batch = Number(input.page) || 1;
+    const pageSize = Number(input.pageSize);
+    expect(pageSize).toBe(100);
+    queueReads.push({ page: batch, pageSize });
     const response = await route.fetch();
     const body = await response.json();
-    if (!body?.data?.list || typeof body.data.list !== "object") {
+    if (!Array.isArray(body?.data?.list?.items)) {
       throw new Error("Unexpected queue-summary response envelope");
     }
-    const pageSize = Number(body.data.list.pageSize) || 20;
-    body.data.list.pageCount = 2;
-    body.data.list.total = Math.max(Number(body.data.list.total) || 0, pageSize * 2);
+    if (!fixtureItems.length) fixtureItems = body.data.list.items;
+    if (!fixtureItems.length) throw new Error("The initial mock queue must contain fixture items");
+    body.data.list = {
+      ...body.data.list,
+      items: Array.from({ length: 100 }, (_, index) => {
+        const position = (batch - 1) * 100 + index + 1;
+        return {
+          ...fixtureItems[index % fixtureItems.length],
+          id: `i18n-loaded-order-${position}`,
+          public_no: `I18N-${position}`,
+          customer_name: "Synthetic language-switch customer",
+          customer_phone: "+390000000000",
+        };
+      }),
+      page: batch,
+      pageSize,
+      pageCount: 2,
+      total: 200,
+    };
     await route.fulfill({ response, json: body });
   });
   await page.goto("/orders", { waitUntil: "domcontentloaded" });
@@ -265,10 +290,21 @@ test("Orders pagination remains on page two after switching language", async ({ 
   await expect(allOrdersView).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("Escape");
   await expect(page.locator('[data-order-row="true"]').first()).toBeVisible();
-  const nextPage = page.getByRole("button", { name: "Pagina successiva", exact: true });
-  await expect(nextPage).toBeEnabled();
-  await nextPage.click();
-  await expect(page.getByText("2 / 2", { exact: true })).toBeVisible();
+  const rows = page.locator('[data-order-row="true"]');
+  await expect(rows).toHaveCount(100);
+  const loadMore = page.getByRole("button", { name: "Carica altri 100", exact: true });
+  await expect(loadMore).toBeEnabled();
+  await loadMore.click();
+  await expect(rows).toHaveCount(200);
+  await expect(page.getByText("Tutti gli ordini caricati", { exact: true })).toBeVisible();
+  const tail = page.locator('[data-order-row="true"][data-order-id="i18n-loaded-order-200"]');
+  await expect(tail).toHaveCount(1);
+  await tail.getByRole("checkbox").check();
+  const loadedIds = await rows.evaluateAll((elements) =>
+    elements.map((element) => element.getAttribute("data-order-id")),
+  );
+  expect(new Set(loadedIds).size).toBe(200);
+  expect(queueReads).toContainEqual({ page: 2, pageSize: 100 });
   const initialUrl = page.url();
   await page.locator('[data-language-switcher-trigger="true"]:visible').click();
   await page.getByRole("menuitemradio", { name: "English" }).click();
@@ -281,7 +317,14 @@ test("Orders pagination remains on page two after switching language", async ({ 
       .getByRole("button", { name: "All", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("Escape");
-  await expect(page.getByText("2 / 2", { exact: true })).toBeVisible();
+  await expect(rows).toHaveCount(200);
+  await expect(page.getByText("All orders loaded", { exact: true })).toBeVisible();
+  await expect(tail.getByRole("checkbox")).toBeChecked();
+  expect(
+    await rows.evaluateAll((elements) =>
+      elements.map((element) => element.getAttribute("data-order-id")),
+    ),
+  ).toEqual(loadedIds);
   expect(page.url()).toBe(initialUrl);
   expect(writesByPage.get(page)).toEqual([]);
 });

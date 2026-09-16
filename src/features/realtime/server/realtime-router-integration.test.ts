@@ -58,6 +58,7 @@ vi.mock("@/features/kiosk/server/kiosk.service", async (importOriginal) => ({
 }));
 
 import { handleRepairDeskPost } from "@/server/api/repairdesk-router";
+import { createCustomer, getCustomerDetail } from "@/features/customers/testing/mock-api";
 import { SettingsMutationError } from "@/features/settings/model/store-settings-errors";
 
 describe("repairdesk router realtime integration", () => {
@@ -126,7 +127,7 @@ describe("repairdesk router realtime integration", () => {
     expect(mocks.queueRepairDeskRealtimeBroadcast).not.toHaveBeenCalled();
   });
 
-  it("serves only the authorized order-domain revision contract", async () => {
+  it("serves authorized order and customer revisions, rejects unauthorized customer readers", async () => {
     const orderRevision = await handleRepairDeskPost("realtime/revisions", {
       domains: ["orders"],
     });
@@ -138,7 +139,45 @@ describe("repairdesk router realtime integration", () => {
     const unsupportedDomain = await handleRepairDeskPost("realtime/revisions", {
       domains: ["customers"],
     });
-    expect(unsupportedDomain.status).toBe(403);
+    expect(unsupportedDomain.status).toBe(200);
+    mocks.getRequestActor.mockResolvedValue({
+      id: "tech",
+      role: "technician",
+      storeId,
+      storeRole: "technician",
+    });
+    const denied = await handleRepairDeskPost("realtime/revisions", { domains: ["customers"] });
+    expect(denied.status).toBe(403);
+  });
+
+  it("serializes stale customer conflicts and emits identity invalidation only after success", async () => {
+    const created = await createCustomer({ name: "Version fixture", phone_e164: "+390000998877" });
+    const before = await getCustomerDetail(created.id);
+    const body = {
+      id: created.id,
+      input: {
+        name: "Saved",
+        phone_e164: before.customer.phone_e164,
+        expected_updated_at: before.customer.updated_at,
+      },
+    };
+    const success = await handleRepairDeskPost("customer/update", body);
+    expect(success.status).toBe(200);
+    expect(mocks.queueRepairDeskRealtimeBroadcast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        domain: "customers",
+        queryGroups: ["customers.all", "orders.all"],
+      }),
+    );
+    mocks.queueRepairDeskRealtimeBroadcast.mockClear();
+    const stale = await handleRepairDeskPost("customer/update", {
+      ...body,
+      input: { ...body.input, name: "Stale" },
+    });
+    expect(stale.status).toBe(409);
+    expect(await stale.json()).toMatchObject({ code: "CUSTOMER_STALE_VERSION" });
+    expect(mocks.queueRepairDeskRealtimeBroadcast).not.toHaveBeenCalled();
+    expect((await getCustomerDetail(created.id)).customer.name).toBe("Saved");
   });
 
   it("does not write duplicate audit or realtime events for an idempotent create replay", async () => {

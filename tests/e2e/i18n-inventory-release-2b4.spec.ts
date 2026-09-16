@@ -312,6 +312,11 @@ test("heavy en 1440px preserves Quick Entry draft through real AppBar locale swi
   });
   await page.waitForURL(`${baseOrigin}/inventory/${synthetic.productId}`);
 
+  // Complete the created-item read before navigating to its editor. URL changes
+  // precede the detail queries; interrupting their response body tests navigation
+  // cancellation instead of the create → review → edit journey covered here.
+  await expect(page.locator('[data-ui="inventory-lifecycle-summary"]')).toBeVisible();
+
   control.routeKind = "edit";
   await page.goto(`/inventory/${synthetic.productId}/edit`, { waitUntil: "domcontentloaded" });
   const editRoot = page.locator('[data-inventory-product-page-frame="edit"]');
@@ -361,6 +366,7 @@ test("heavy en 1440px preserves Quick Entry draft through real AppBar locale swi
     json: { data: { ok: true, code: "updated", id: synthetic.productId, version: 8 } },
   });
   await page.waitForURL(`${baseOrigin}/inventory/${synthetic.productId}`);
+  await expect(page.locator('[data-ui="inventory-lifecycle-summary"]')).toBeVisible();
   expect(createBodies).toHaveLength(1);
   expect(updateBodies).toHaveLength(1);
   await saveEvidenceScreenshot(page, testInfo, "heavy-products-en-1440-create-update-complete");
@@ -683,7 +689,7 @@ async function installInventoryFixtures(page: Page, options: FixtureControl) {
     route.fulfill({
       json: {
         data: {
-          list: { items: [], total: 0, page: 1, pageSize: 20, pageCount: 0 },
+          list: { items: [], total: 0, page: 1, pageSize: 100, pageCount: 0 },
           workflow: { statuses: [], transitions: [] },
           options: {
             suppliers: [],
@@ -1383,6 +1389,17 @@ function isAllowedRead(request: Request) {
     if (url.pathname.startsWith("/_next/")) return true;
     if (url.pathname === "/favicon.ico") return true;
     if (url.pathname === "/manifest.webmanifest") return true;
+    // The existing style-recovery guard reads this same-origin static marker.
+    // Keep its path and cache-busting parameter bounded; it is not a business API.
+    if (url.pathname === "/recovery-probe.txt") {
+      const entries = [...url.searchParams.entries()];
+      return (
+        method === "GET" &&
+        entries.length === 1 &&
+        entries[0][0] === "repairdesk_recovery" &&
+        /^\d+$/.test(entries[0][1])
+      );
+    }
     if (url.pathname === "/__nextjs_font/geist-latin.woff2") return true;
     if (readGets.has(url.pathname)) return true;
   }
@@ -1450,7 +1467,7 @@ function hasExpectedReadBody(pathname: string, body: unknown) {
     return hasExactBody(body, { work: "all", page: 1, pageSize: 30 });
   }
   if (pathname === "/api/repairdesk/orders/queue-summary") {
-    return hasExactBody(body, { page: 1, pageSize: 20 });
+    return hasExactBody(body, { page: 1, pageSize: 100 });
   }
   return false;
 }

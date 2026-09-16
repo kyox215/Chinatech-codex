@@ -129,7 +129,7 @@ export function localizeBuybackNextAction(
   return outcome && keys[outcome] ? t(keys[outcome]) : t("buyback2b5.next.awaiting");
 }
 
-export type BuybackSafeErrorKind = "conflict" | "permission" | "offline" | "generic";
+export type BuybackSafeErrorKind = "conflict" | "paused" | "permission" | "offline" | "generic";
 
 export function classifyBuybackSafeError(error: unknown): BuybackSafeErrorKind {
   const source =
@@ -140,6 +140,15 @@ export function classifyBuybackSafeError(error: unknown): BuybackSafeErrorKind {
   const code = typeof source.code === "string" ? source.code : "";
   const name = typeof source.name === "string" ? source.name : "";
   if (status === 409 || code === "CONFLICT" || code === "STALE_VERSION") return "conflict";
+  // The current BFF uses FORBIDDEN for its write gate. Match only its known public message;
+  // never display arbitrary provider diagnostics or reinterpret other permission failures.
+  if (
+    status === 403 &&
+    code === "FORBIDDEN" &&
+    source.message === "透明报价写入已暂停；历史记录仍可查看，请稍后重试"
+  ) {
+    return "paused";
+  }
   if (status === 401 || status === 403 || code === "FORBIDDEN" || code === "UNAUTHORIZED") {
     return "permission";
   }

@@ -10,7 +10,6 @@ import { messageSettingsKeys } from "@/features/messages/api/query-keys";
 import type { KioskSession, StoreContext, StoreSettings, Supplier } from "@/lib/repairdesk/types";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { NavigationGuardProvider } from "@/components/navigation-guard-provider";
-import { getMockAiAssistantUsageSummary } from "@/features/ai-assistant/testing/mock-usage";
 import { RepairDeskApiError } from "@/lib/repairdesk/api";
 import { LocaleProvider, useLocale } from "@/shared/i18n/locale-provider";
 import type { AppLocale } from "@/shared/i18n/locales";
@@ -28,7 +27,6 @@ const apiMocks = vi.hoisted(() => ({
   createStoreInviteLink: vi.fn(),
   disableStoreMember: vi.fn(),
   getOnboardingStatus: vi.fn(),
-  getAiAssistantUsageSummary: vi.fn(),
   getStoreContext: vi.fn(),
   getStoreMembers: vi.fn(),
   getStoreSettings: vi.fn(),
@@ -124,7 +122,6 @@ describe("SettingsScreen store-bound transient secrets", () => {
     navigationMocks.search = "section=members";
     navigationMocks.push.mockReset();
     apiMocks.getStoreContext.mockResolvedValue(storeContext("store-a", "Ripara Subito"));
-    apiMocks.getAiAssistantUsageSummary.mockResolvedValue(getMockAiAssistantUsageSummary());
     apiMocks.getStoreSettings.mockResolvedValue(storeSettings("store-a", "Ripara Subito"));
     apiMocks.getStoreMembers.mockResolvedValue({
       members: [],
@@ -1502,41 +1499,6 @@ describe("SettingsScreen store-bound transient secrets", () => {
     expect(await screen.findByText("Nessun flusso per il negozio corrente")).toBeVisible();
     expect(apiMocks.listOrderWorkflow).toHaveBeenCalledTimes(1);
     expect(navigationMocks.search).toBe("section=workflow");
-  });
-
-  it("mounts the real AI usage GET once and blocks it without aggregate-finance permission", async () => {
-    navigationMocks.search = "section=ai-usage";
-    apiMocks.getStoreContext.mockResolvedValue(
-      storeContext("store-a", "Ripara Subito", { canReadAggregateFinance: true }),
-    );
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
-    const view = render(settingsTree(queryClient, "en", true));
-
-    expect(await screen.findByRole("heading", { name: "AI usage", level: 1 })).toBeVisible();
-    expect(apiMocks.getAiAssistantUsageSummary).toHaveBeenCalledTimes(1);
-    expect(Object.keys(apiMocks.getAiAssistantUsageSummary.mock.calls[0]?.[0] ?? {})).toEqual([
-      "signal",
-    ]);
-    expect(JSON.stringify(apiMocks.getAiAssistantUsageSummary.mock.calls[0]?.[0])).not.toContain(
-      "locale",
-    );
-    fireEvent.click(screen.getByTestId("switch-it"));
-    expect(await screen.findByRole("heading", { name: "Utilizzo AI", level: 1 })).toBeVisible();
-    expect(apiMocks.getAiAssistantUsageSummary).toHaveBeenCalledTimes(1);
-
-    view.unmount();
-    vi.clearAllMocks();
-    apiMocks.getStoreContext.mockResolvedValue(
-      storeContext("store-a", "Ripara Subito", { canReadAggregateFinance: false }),
-    );
-    const blockedClient = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
-    render(settingsTree(blockedClient));
-    expect(await screen.findByText(/无法打开/)).toBeVisible();
-    expect(apiMocks.getAiAssistantUsageSummary).not.toHaveBeenCalled();
   });
 
   it("guards the real messages link while the notification draft is dirty", async () => {

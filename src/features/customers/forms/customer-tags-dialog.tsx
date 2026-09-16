@@ -1,10 +1,11 @@
 "use client";
 
+import { CustomerVersionNotice, useCustomerEditorSession } from "./use-customer-editor-session";
+
 import { useMemo } from "react";
 import { Check } from "lucide-react";
 
 import {
-  useCompactEditorSession,
   EditorDiscardConfirmation,
   editorConfirmationClass,
 } from "@/shared/lib/use-compact-editor-session";
@@ -22,7 +23,7 @@ import { componentOverlay } from "@/lib/component-patterns";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { RepairOsBusinessCard } from "@/shared/ui";
-import type { CustomerDetail, CustomerTag } from "@/lib/repairdesk/api";
+import type { CustomerDetail, CustomerTag, CustomerTagsUpdateInput } from "@/lib/repairdesk/api";
 import { useLocale } from "@/shared/i18n/locale-provider";
 
 export function CustomerTagsDialog({
@@ -31,22 +32,29 @@ export function CustomerTagsDialog({
   data,
   busy,
   onSave,
+  onRefresh,
 }: {
+  onRefresh?: () => void;
   open: boolean;
   onOpenChange: (value: boolean) => void;
   data: CustomerDetail;
   busy: boolean;
-  onSave: (ids: string[]) => Promise<unknown>;
+  onSave: (input: CustomerTagsUpdateInput) => Promise<unknown>;
 }) {
   const { t } = useLocale();
-  const session = useCompactEditorSession({
+  const session = useCustomerEditorSession({
     open,
     scopeKey: data.customer.id,
-    initial: data.tags.map((tag) => tag.id),
+    initial: {
+      tagIds: data.tags.map((tag) => tag.id),
+      expected_customer_updated_at: data.customer.updated_at ?? "",
+    },
+    version: data.customer.updated_at,
     busy,
     onOpenChange,
+    onRefresh,
   });
-  const { draft: selected, setDraft: setSelected } = session;
+  const selected = session.draft.tagIds;
   const allTags = useMemo(() => {
     const known = new Map<string, CustomerTag>();
     data.tags.forEach((tag) => known.set(tag.id, tag));
@@ -79,9 +87,12 @@ export function CustomerTagsDialog({
     return Array.from(known.values());
   }, [data.tags, t]);
   const toggle = (id: string) => {
-    setSelected((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
-    );
+    session.setDraft((current) => ({
+      ...current,
+      tagIds: current.tagIds.includes(id)
+        ? current.tagIds.filter((item) => item !== id)
+        : [...current.tagIds, id],
+    }));
   };
 
   return (
@@ -114,6 +125,12 @@ export function CustomerTagsDialog({
           </DialogDescription>
         </DialogHeader>
         <DialogBody>
+          <CustomerVersionNotice
+            blocked={session.blocked}
+            conflict={session.conflict}
+            reload={session.reload}
+            busy={busy}
+          />
           <div className="min-w-0 space-y-2">
             {allTags.map((tag) => {
               const isSelected = selected.includes(tag.id);
@@ -166,7 +183,7 @@ export function CustomerTagsDialog({
           </Button>
           <Button
             className="min-h-11 whitespace-normal lg:min-h-9"
-            disabled={busy}
+            disabled={busy || session.blocked}
             onClick={() => void session.save(onSave)}
           >
             {busy ? t("customers.form.saving") : t("customers.form.saveTags")}

@@ -82,4 +82,25 @@ describe("buyback i18n presentation", () => {
       expect(copy.length).toBeGreaterThan(4);
     }
   });
+
+  it.each(locales)(
+    "distinguishes the known write pause from permission failures in %s",
+    (locale) => {
+      const t = translator(locale);
+      const message = "透明报价写入已暂停；历史记录仍可查看，请稍后重试";
+      const paused = Object.assign(new Error(message), { status: 403, code: "FORBIDDEN" });
+      expect(classifyBuybackSafeError(paused)).toBe("paused");
+      expect(localizeBuybackSafeError(paused, t)).toBe(t("buyback2b5.error.paused"));
+      expect(localizeBuybackSafeError(paused, t)).not.toBe(t("buyback2b5.error.permission"));
+      for (const error of [
+        { status: 403, code: "FORBIDDEN", message: "Actual permission denial" },
+        { status: 403, code: "FORBIDDEN", message: message + " PROVIDER_SECRET" },
+        { status: 401, code: "UNAUTHORIZED", message },
+        { status: 403, code: "OTHER", message },
+      ]) {
+        expect(classifyBuybackSafeError(error)).toBe("permission");
+        expect(localizeBuybackSafeError(error, t)).toBe(t("buyback2b5.error.permission"));
+      }
+    },
+  );
 });

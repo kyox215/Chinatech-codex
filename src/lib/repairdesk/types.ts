@@ -8,6 +8,7 @@ import type { CurrencyCode } from "@/lib/money";
 
 export interface Customer {
   id: string;
+  updated_at?: string;
   name: string;
   phone_e164: string;
   phone_raw: string;
@@ -25,6 +26,7 @@ export interface Customer {
 
 export interface Device {
   id: string;
+  updated_at?: string;
   customer_id: string;
   brand: string;
   model: string;
@@ -787,7 +789,37 @@ export type OrderWhatsappTemplateKind =
   | "cancelled"
   | "completed";
 
+export interface OrderNotificationIntent {
+  expected_updated_at: string;
+  idempotency_key: string;
+  body: string;
+}
+
+export interface OrderNotificationInput extends OrderNotificationIntent {
+  channel: "whatsapp" | "sms";
+}
+
+export interface OrderWhatsappNotificationInput extends OrderNotificationIntent {
+  template_kind: OrderWhatsappTemplateKind;
+  transition_to?: RepairOrderStatus;
+  recipient_phone?: string;
+}
+
+export interface OrderNotificationResult {
+  ok: true;
+  id: string;
+  event_id: string;
+  channel: "whatsapp" | "sms";
+  body: string;
+  updated_at: string;
+  replayed: boolean;
+  delivery_verified: false;
+}
+
 export interface WhatsappNotificationResult {
+  updated_at: string;
+  replayed: boolean;
+  delivery_verified: false;
   ok: boolean;
   id: string;
   channel: "whatsapp";
@@ -844,6 +876,9 @@ export interface ConfirmOrderQuoteSentResult {
 }
 
 export interface OrderApprovalDecisionInput {
+  expected_updated_at: string;
+  quote_event_id: string | null;
+  idempotency_key: string;
   decision: "approved" | "rejected";
   next_status?: RepairOrderStatus;
   reason?: string;
@@ -1433,7 +1468,7 @@ export interface UpdateOrderCustodyInput {
   reason?: string;
 }
 
-export interface CustomerUpdateInput {
+export interface CustomerCreateInput {
   name: string;
   phone_e164: string;
   email?: string;
@@ -1448,15 +1483,27 @@ export interface CustomerUpdateInput {
   blacklisted?: boolean;
 }
 
-export type CustomerCreateInput = CustomerUpdateInput;
+export interface CustomerUpdateInput extends CustomerCreateInput {
+  expected_updated_at: string;
+}
 
-export interface CustomerDeviceInput {
-  id?: string;
+export interface CustomerTagsUpdateInput {
+  tagIds: string[];
+  expected_customer_updated_at: string;
+}
+
+export interface CustomerDeviceFields {
   brand: string;
   model: string;
   serial_or_imei?: string;
   device_notes?: string;
 }
+
+export type CustomerDeviceInput = CustomerDeviceFields &
+  (
+    | { id?: undefined; expected_updated_at?: undefined }
+    | { id: string; expected_updated_at: string }
+  );
 
 export interface CustomerFollowupInput {
   order_id?: string;
@@ -3374,16 +3421,16 @@ export interface MessageTemplatePreviewResult {
 }
 
 export type {
-  InventorySalesList,
-  InventorySalesListInput,
   InventorySalesCapabilities,
   InventorySalesCommandBody,
   InventorySalesCommandResult,
-  InventorySalesSummary,
   InventorySalesDetail,
+  InventorySalesLanguage,
+  InventorySalesList,
+  InventorySalesListInput,
   InventorySalesOrder,
   InventorySalesPayment,
   InventorySalesReceipt,
   InventorySalesReceiptInput,
-  InventorySalesLanguage,
+  InventorySalesSummary,
 } from "@/features/inventory/sales/model/contracts";

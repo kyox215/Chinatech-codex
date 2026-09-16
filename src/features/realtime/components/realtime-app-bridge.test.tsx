@@ -141,12 +141,16 @@ describe("RealtimeAppBridge", () => {
     expect(onUnmount).toHaveBeenCalledOnce();
   });
 
-  it("limits the 30-second foreground reconcile to order and memo routes", () => {
+  it("reconciles visible orders, customers, inventory and authorized memos", () => {
     expect(getRepairDeskForegroundReconcileDomains("/orders")).toEqual(["orders"]);
     expect(getRepairDeskForegroundReconcileDomains("/orders/order-id")).toEqual(["orders"]);
     expect(getRepairDeskForegroundReconcileDomains("/memos", true)).toEqual(["memos"]);
     expect(getRepairDeskForegroundReconcileDomains("/memos", false)).toEqual([]);
-    expect(getRepairDeskForegroundReconcileDomains("/customers")).toEqual([]);
+    expect(getRepairDeskForegroundReconcileDomains("/customers")).toEqual(["customers", "orders"]);
+    expect(getRepairDeskForegroundReconcileDomains("/customers/customer-a")).toEqual([
+      "customers",
+      "orders",
+    ]);
     expect(getRepairDeskForegroundReconcileDomains(null)).toEqual([]);
   });
 });

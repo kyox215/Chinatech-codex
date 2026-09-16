@@ -3,9 +3,21 @@ import { describe, expect, it } from "vitest";
 import { CACHE_TIMES } from "@/lib/query-performance";
 
 import { ordersKeys } from "./query-keys";
-import { orderListPageQueryOptions, orderOptionsQueryOptions } from "./query-options";
+import {
+  ORDER_QUEUE_PAGE_SIZE,
+  defaultOrderQueueSummaryInput,
+  orderListPageQueryOptions,
+  orderOptionsQueryOptions,
+} from "./query-options";
 
 describe("order query options", () => {
+  it("defaults to 100-order batches with a store-scoped cache key", () => {
+    expect(ORDER_QUEUE_PAGE_SIZE).toBe(100);
+    expect(defaultOrderQueueSummaryInput).toEqual({ page: 1, pageSize: 100 });
+    expect(orderListPageQueryOptions(undefined, "store_1").queryKey).toEqual(
+      ordersKeys.page({}, 1, 100, "store_1"),
+    );
+  });
   it("keys list pages independently from stable order options", () => {
     const input = { queueGroups: ["ordered" as const], page: 2, pageSize: 50 };
     const page = orderListPageQueryOptions(input, "store_1");
