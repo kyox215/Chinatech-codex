@@ -96,7 +96,7 @@ test("it-IT desktop Orders queue renders localized mock UI without overflow", as
   const queueRail = page.locator('[data-order-desktop-flow-rail="true"]');
   await expect(queueRail.getByRole("button")).toHaveCount(7);
   for (const label of [
-    "Tutte le code",
+    "Coda attuale",
     "In lavorazione",
     "Ricambio ordinato",
     "Ricambio arrivato",
@@ -106,7 +106,7 @@ test("it-IT desktop Orders queue renders localized mock UI without overflow", as
   ]) {
     await expect(queueRail.getByRole("button", { name: new RegExp(label) })).toBeVisible();
   }
-  await expect(queueRail.getByRole("button", { name: /Tutte le code/ })).toHaveAttribute(
+  await expect(queueRail.getByRole("button", { name: /Coda attuale/ })).toHaveAttribute(
     "aria-pressed",
     "true",
   );

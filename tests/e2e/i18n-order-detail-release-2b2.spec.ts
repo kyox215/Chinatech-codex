@@ -580,6 +580,7 @@ async function installSyntheticDetail(page: Page, canUploadPhoto: boolean) {
       diagnosis_result: synthetic.diagnosis,
       accessory_notes: synthetic.accessory,
       warranty_text: synthetic.warranty,
+      warranty_months: 6,
       technician_name: synthetic.technician,
       device_custody_status: "with_shop",
       quotation_amount: 88,
@@ -796,7 +797,13 @@ async function expectSeparatedDetailRows(root: ReturnType<Page["locator"]>, loca
   );
   await expect(rows).toHaveCount(3);
   for (const [field, label, value] of [
-    ["warranty", "orders2b2.overview.warranty", synthetic.warranty],
+    [
+      "warranty",
+      "orders2b2.overview.warranty",
+      locale === "zh-CN"
+        ? synthetic.warranty
+        : translateMessage(locale, "orders2b2.warranty.months", { months: 6 }),
+    ],
     ["accessories", "orders2b2.overview.accessories", synthetic.accessory],
   ] as const) {
     const control = root.locator(`[data-order-field-trigger="${field}"]:visible`);
@@ -880,7 +887,7 @@ async function expectNoUnexpectedFixedHan(root: ReturnType<Page["locator"]>, loc
   });
   const dynamicValues = Object.values(synthetic);
   const fragmentDynamicValues = [...dynamicValues, `${synthetic.brand} ${synthetic.model}`];
-  const exactDynamicValues = [synthetic.customer.slice(0, 1), "6个月"];
+  const exactDynamicValues = [synthetic.customer.slice(0, 1)];
   const scannerBoundary = [
     /^扫码$/,
     /^IMEI \/ 序列号$/,
