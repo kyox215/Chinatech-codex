@@ -736,6 +736,7 @@ const zhCN = {
   "attachment.fileTooLarge": "文件不能超过 {size}MB。",
   "attachment.fileType": "仅支持图片或 PDF。",
   "camera.title": "拍照采集",
+  "camera.scopeChanged": "当前工单或账号已改变。这张照片不会上传到新工单，请关闭或重新选择照片。",
   "camera.descriptionDraft": "拍摄设备外观、故障位置或取件凭证；确认后保存在本地附件草稿中。",
   "camera.descriptionOrder": "拍摄设备外观、故障位置或取件凭证；确认后可添加到当前工单附件。",
   "camera.videoPreview": "摄像头画面预览",
@@ -2050,6 +2051,9 @@ const zhCN = {
   "orders2b1.quote.reasonPlaceholder": "至少 4 个字符",
   "orders2b1.quote.total": "报价",
   "orders2b1.quote.deposit": "现有定金",
+  "orders2b1.quote.received": "累计已收",
+  "orders2b1.quote.receivedDeposit": "其中定金 {amount}",
+  "orders2b1.quote.missing.received": "请核对已收款；新报价不能低于已收款总额。",
   "orders2b1.quote.balance": "预计尾款",
   "orders2b1.quote.ready": "检测与报价已完整，可以发布正式报价。",
   "orders2b1.quote.diagnosisReady": "检测结论可以保存并交接。",
@@ -4954,6 +4958,8 @@ const itIT: Record<MessageKey, string> = {
   "attachment.fileTooLarge": "Il file non può superare {size} MB.",
   "attachment.fileType": "Sono supportati solo immagini o PDF.",
   "camera.title": "Scatta foto",
+  "camera.scopeChanged":
+    "L’ordine o l’account è cambiato. Questa foto non verrà caricata sul nuovo ordine: chiudi o seleziona una nuova foto.",
   "camera.descriptionDraft":
     "Fotografa il dispositivo, il guasto o la ricevuta; dopo la conferma verrà conservata nella bozza allegati locale.",
   "camera.descriptionOrder":
@@ -6393,6 +6399,10 @@ const itIT: Record<MessageKey, string> = {
   "orders2b1.quote.reasonPlaceholder": "Almeno 4 caratteri",
   "orders2b1.quote.total": "Preventivo",
   "orders2b1.quote.deposit": "Acconto esistente",
+  "orders2b1.quote.received": "Già incassato",
+  "orders2b1.quote.receivedDeposit": "Include l’acconto {amount}",
+  "orders2b1.quote.missing.received":
+    "Verifica gli incassi: il nuovo preventivo non può essere inferiore al totale già incassato.",
   "orders2b1.quote.balance": "Saldo previsto",
   "orders2b1.quote.ready": "Diagnosi e preventivo completi; puoi pubblicare.",
   "orders2b1.quote.diagnosisReady": "La diagnosi può essere salvata e consegnata.",
@@ -9555,6 +9565,8 @@ const en: Record<MessageKey, string> = {
   "attachment.fileTooLarge": "The file cannot exceed {size} MB.",
   "attachment.fileType": "Only images or PDF files are supported.",
   "camera.title": "Take photo",
+  "camera.scopeChanged":
+    "The order or account changed. This photo will not be uploaded to the new order. Close or select a new photo.",
   "camera.descriptionDraft":
     "Photograph the device, fault, or pickup receipt; after confirmation it stays in the local attachment draft.",
   "camera.descriptionOrder":
@@ -10975,6 +10987,10 @@ const en: Record<MessageKey, string> = {
   "orders2b1.quote.reasonPlaceholder": "At least 4 characters",
   "orders2b1.quote.total": "Quote",
   "orders2b1.quote.deposit": "Existing deposit",
+  "orders2b1.quote.received": "Total received",
+  "orders2b1.quote.receivedDeposit": "Includes deposit {amount}",
+  "orders2b1.quote.missing.received":
+    "Check the receipts. The new quote cannot be lower than the total already received.",
   "orders2b1.quote.balance": "Expected balance",
   "orders2b1.quote.ready": "Diagnosis and quote are complete and ready to publish.",
   "orders2b1.quote.diagnosisReady": "The diagnosis can be saved and handed off.",

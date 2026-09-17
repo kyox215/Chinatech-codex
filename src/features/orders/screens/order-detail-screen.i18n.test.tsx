@@ -1849,6 +1849,49 @@ describe("OrderDetailScreen i18n", () => {
     },
   );
 
+  it.each(["order", "store"])(
+    "blocks an attachment when %s changes during FileReader",
+    async (changedScope) => {
+      const readers: FileReader[] = [];
+      const read = vi.spyOn(FileReader.prototype, "readAsDataURL").mockImplementation(function (
+        this: FileReader,
+      ) {
+        readers.push(this);
+      });
+      try {
+        const view = renderDetail("en");
+        fireEvent.click(screen.getByRole("button", { name: "Harness open photo capture" }));
+        fireEvent.click(screen.getByRole("button", { name: "Harness capture photo" }));
+        expect(readers).toHaveLength(1);
+        if (changedScope === "store")
+          mocks.activeStore = { id: "store-replacement", name: "Replacement", role: "owner" };
+        view.rerender(
+          <LocaleProvider initialLocale="en">
+            <OrderDetailScreen
+              id={changedScope === "order" ? "replacement-order" : detailOrder.id}
+              surface="dialog"
+              onClose={vi.fn()}
+            />
+          </LocaleProvider>,
+        );
+        Object.defineProperty(readers[0], "result", {
+          configurable: true,
+          value: "data:image/jpeg;base64,eA==",
+        });
+        await act(async () => {
+          readers[0]!.onload?.call(
+            readers[0]!,
+            new ProgressEvent("load") as ProgressEvent<FileReader>,
+          );
+        });
+        await waitFor(() => expect(mocks.toastError).toHaveBeenCalled());
+        expect(mocks.uploadOrderAttachment).not.toHaveBeenCalled();
+      } finally {
+        read.mockRestore();
+      }
+    },
+  );
+
   it.each(locales)(
     "retains a rejected %s attachment upload in the capture session without provider text",
     async (locale) => {
@@ -1862,6 +1905,7 @@ describe("OrderDetailScreen i18n", () => {
 
       await waitFor(() => expect(mocks.uploadOrderAttachment).toHaveBeenCalledOnce());
       expect(mocks.uploadOrderAttachment).toHaveBeenCalledWith(detailOrder.id, {
+        operation_id: expect.any(String),
         kind: "fault_photo",
         file_name: "dynamic-photo.jpg",
         mime_type: "image/jpeg",

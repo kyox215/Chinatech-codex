@@ -7,6 +7,152 @@ import { LocaleProvider } from "@/shared/i18n/locale-provider";
 import { translateMessage } from "@/shared/i18n/messages";
 
 describe("DiagnosisQuoteDialog i18n", () => {
+  it.each(["zh-CN", "it-IT", "en"] as const)(
+    "deducts all opening receipts, blocks underpayment and retains receipt/CAS state on retry in %s",
+    async (locale) => {
+      const order = {
+        id: "receipts-order",
+        updated_at: "2026-09-17T10:00:00.000Z",
+        issue_description: "Synthetic receipt check",
+        diagnosis_result: "Repair confirmed",
+        quotation_amount: 100,
+        deposit_amount: 20,
+        balance_amount: 30,
+        fault_prices: [
+          { line_id: "00000000-0000-4000-8000-000000000311", name: "Repair", price: 100 },
+        ],
+      } as never;
+      const onPublish = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("Synthetic response lost"))
+        .mockResolvedValueOnce({});
+      const props = {
+        open: true,
+        capabilities: { canEditRepair: true, canPrepareQuote: true } as never,
+        onOpenChange: vi.fn(),
+        onSaveDiagnosis: vi.fn(),
+        onPublish,
+      };
+      const renderEditor = (current: typeof order) => (
+        <LocaleProvider initialLocale={locale}>
+          <DiagnosisQuoteDialog {...props} order={current} />
+        </LocaleProvider>
+      );
+      const view = render(renderEditor(order));
+      const amount = screen.getByRole("textbox", {
+        name: translateMessage(locale, "orders2b1.quote.itemAmount", { index: 1 }),
+      });
+      const balance = () =>
+        screen.getByText(translateMessage(locale, "orders2b1.quote.balance"), { exact: true })
+          .parentElement;
+      const received = () =>
+        screen.getByText(translateMessage(locale, "orders2b1.quote.received"), { exact: true })
+          .parentElement;
+      const publish = screen.getByRole("button", {
+        name: translateMessage(locale, "orders2b1.quote.publish"),
+      });
+      expect(balance()).toHaveTextContent("€30.00");
+      expect(received()).toHaveTextContent("€70.00");
+      expect(
+        screen.getByText(
+          translateMessage(locale, "orders2b1.quote.receivedDeposit", { amount: "€20.00" }),
+        ),
+      ).toBeVisible();
+      fireEvent.change(amount, { target: { value: "120" } });
+      expect(balance()).toHaveTextContent("€50.00");
+      expect(publish).toBeEnabled();
+      fireEvent.change(amount, { target: { value: "69.99" } });
+      expect(
+        screen.getByText(translateMessage(locale, "orders2b1.quote.missing.received")),
+      ).toBeVisible();
+      expect(publish).toBeDisabled();
+      fireEvent.click(publish);
+      expect(onPublish).not.toHaveBeenCalled();
+      fireEvent.change(amount, { target: { value: "70" } });
+      expect(balance()).toHaveTextContent("€0.00");
+      expect(publish).toBeEnabled();
+      fireEvent.change(amount, { target: { value: "120" } });
+      fireEvent.click(publish);
+      await screen.findByText(translateMessage(locale, "orders2b1.quote.saveFailed"));
+      const original = onPublish.mock.calls[0][0];
+      expect(original).toMatchObject({
+        expectedUpdatedAt: "2026-09-17T10:00:00.000Z",
+        faultPrices: [{ line_id: "00000000-0000-4000-8000-000000000311", price: 120 }],
+      });
+      expect(Object.keys(original).sort()).toEqual(
+        [
+          "diagnosisResult",
+          "expectedUpdatedAt",
+          "faultPrices",
+          "idempotencyKey",
+          "priceException",
+        ].sort(),
+      );
+      view.rerender(
+        renderEditor({
+          ...(order as object),
+          updated_at: "2026-09-17T10:01:00.000Z",
+          balance_amount: 10,
+          deposit_amount: 30,
+        } as never),
+      );
+      expect(received()).toHaveTextContent("€70.00");
+      expect(balance()).toHaveTextContent("€50.00");
+      expect(amount).toBeDisabled();
+      fireEvent.click(publish);
+      await waitFor(() => expect(onPublish).toHaveBeenCalledTimes(2));
+      expect(onPublish.mock.calls[1][0]).toEqual(original);
+    },
+  );
+
+  it.each([
+    { quotation: 100, deposit: 0, balance: 100, newQuote: 120, received: "€0.00", due: "€120.00" },
+    { quotation: 100, deposit: 20, balance: 80, newQuote: 120, received: "€20.00", due: "€100.00" },
+    { quotation: 100, deposit: 20, balance: 0, newQuote: 120, received: "€100.00", due: "€20.00" },
+    {
+      quotation: 100.3,
+      deposit: 20.1,
+      balance: 30,
+      newQuote: 120.3,
+      received: "€70.30",
+      due: "€50.00",
+    },
+  ])(
+    "previews receipts for zero, deposit-only, fully paid and decimal states: $received",
+    ({ quotation, deposit, balance, newQuote, received, due }) => {
+      render(
+        <LocaleProvider initialLocale="en">
+          <DiagnosisQuoteDialog
+            open
+            order={
+              {
+                id: "receipt-sample",
+                updated_at: "2026-09-17T10:00:00.000Z",
+                diagnosis_result: "Confirmed",
+                quotation_amount: quotation,
+                deposit_amount: deposit,
+                balance_amount: balance,
+                fault_prices: [{ name: "Repair", price: newQuote }],
+              } as never
+            }
+            capabilities={{ canPrepareQuote: true } as never}
+            onOpenChange={vi.fn()}
+            onPublish={vi.fn()}
+            onSaveDiagnosis={vi.fn()}
+          />
+        </LocaleProvider>,
+      );
+      expect(
+        screen.getByText(translateMessage("en", "orders2b1.quote.received"), { exact: true })
+          .parentElement,
+      ).toHaveTextContent(received);
+      expect(
+        screen.getByText(translateMessage("en", "orders2b1.quote.balance"), { exact: true })
+          .parentElement,
+      ).toHaveTextContent(due);
+    },
+  );
+
   it("keeps the opening draft and version across query refreshes and protects dirty dismissal", async () => {
     const order = {
       id: "order-stable",

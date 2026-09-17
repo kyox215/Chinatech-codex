@@ -38,6 +38,7 @@ interface CameraCaptureSheetProps {
   description?: string;
   attachmentKind?: AttachmentDraftKind;
   purpose?: "draft" | "order-attachment";
+  scopeKey?: string;
   onOutsideDismiss?: () => void;
   onCloseAutoFocus?: (event: Event) => void;
   onCapture: (draft: AttachmentDraft) => void | Promise<unknown>;
@@ -52,6 +53,7 @@ export function CameraCaptureSheet({
   description,
   attachmentKind = "fault_photo",
   purpose,
+  scopeKey,
   onOutsideDismiss,
   onCloseAutoFocus,
   onCapture,
@@ -79,6 +81,16 @@ export function CameraCaptureSheet({
   const [cameraErrorKind, setCameraErrorKind] = useState<ScannerErrorKind | null>(null);
   const [uploading, setUploading] = useState(false);
   const uploadInFlight = useRef(false);
+  const uploadDraft = useRef<AttachmentDraft | null>(null);
+  const previousScope = useRef(scopeKey);
+  const scopeGeneration = useRef(0);
+  const uploadDraftGeneration = useRef<number | null>(null);
+  if (previousScope.current !== scopeKey) {
+    previousScope.current = scopeKey;
+    scopeGeneration.current += 1;
+  }
+  const uploadScopeChanged =
+    uploadDraft.current !== null && uploadDraftGeneration.current !== scopeGeneration.current;
   const [uploadFailed, setUploadFailed] = useState(false);
   const captureInputFocusRef = useRef<HTMLElement | null>(null);
   const retryButtonRef = useRef<HTMLButtonElement>(null);
@@ -108,6 +120,9 @@ export function CameraCaptureSheet({
   }, []);
 
   const clearPhoto = useCallback(() => {
+    if (uploadDraft.current) URL.revokeObjectURL(uploadDraft.current.previewUrl);
+    uploadDraft.current = null;
+    uploadDraftGeneration.current = null;
     if (photoUrl) URL.revokeObjectURL(photoUrl);
     setPhotoUrl(null);
     setPhotoBlob(null);
@@ -230,13 +245,18 @@ export function CameraCaptureSheet({
   };
 
   const submitFile = async (file: File) => {
-    if (uploadInFlight.current) return;
+    if (uploadInFlight.current || uploadScopeChanged) return;
     uploadInFlight.current = true;
     setUploading(true);
     setUploadFailed(false);
     try {
-      const result = onCapture(createAttachmentDraft(file, attachmentKind));
+      // A failed/unknown upload retries the exact draft, including its ID and name.
+      const draft = uploadDraft.current ?? createAttachmentDraft(file, attachmentKind);
+      if (!uploadDraft.current) uploadDraftGeneration.current = scopeGeneration.current;
+      uploadDraft.current = draft;
+      const result = onCapture(draft);
       if (result && typeof result.then === "function") await result;
+      uploadDraft.current = null; // The successful receiver owns the draft preview.
       clearPhoto();
       stopCamera();
       onOpenChange(false);
@@ -318,9 +338,9 @@ export function CameraCaptureSheet({
               }}
             />
           ) : null}
-          {uploadFailed ? (
+          {uploadFailed || uploadScopeChanged ? (
             <p role="alert" className="p-3 text-sm text-destructive">
-              {t("orders.faultEditor.errorState")}
+              {t(uploadScopeChanged ? "camera.scopeChanged" : "orders.faultEditor.errorState")}
             </p>
           ) : null}
           <SheetHeader className="border-b border-[var(--border-panel)] px-4 py-3 text-left">
@@ -409,7 +429,7 @@ export function CameraCaptureSheet({
                     size="sm"
                     className="min-h-11"
                     ref={retryButtonRef}
-                    disabled={uploading}
+                    disabled={uploading || uploadScopeChanged}
                     onClick={confirmCapture}
                   >
                     {uploading ? t("orders2b2.overview.uploading") : t("common.usePhoto")}

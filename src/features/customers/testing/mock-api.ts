@@ -487,16 +487,24 @@ function applyCustomerInput(customer: Customer, input: CustomerCreateInput) {
   );
   if (!input.name.trim() || !phoneBook.primary) throw new Error("客户姓名和手机号不能为空");
   if (!phoneBook.primaryRaw) throw new Error("手机号格式不正确");
-  const duplicate = customers.find(
-    (item) => item.id !== customer.id && item.phone_raw === phoneBook.primaryRaw,
-  );
-  if (duplicate) throw new Error("该手机号已存在客户档案");
-  const backupConflict = customers.find(
+  const oldBackups = new Set(customer.contact_phones.map(normalizePhoneRaw));
+  const introduced = new Set([
+    ...(phoneBook.primaryRaw === customer.phone_raw ? [] : [phoneBook.primaryRaw]),
+    ...phoneBook.contacts.map(normalizePhoneRaw).filter((raw) => !oldBackups.has(raw)),
+  ]);
+  const conflict = customers.some(
     (item) =>
       item.id !== customer.id &&
-      phoneBook.contacts.some((phone) => item.phone_raw === normalizePhoneRaw(phone)),
+      [item.phone_raw, ...item.contact_phones.map(normalizePhoneRaw)].some((raw) =>
+        introduced.has(raw),
+      ),
   );
-  if (backupConflict) throw new Error("备用号码已属于其他客户档案，请先确认客户资料");
+  if (conflict)
+    throw new CustomerMutationError(
+      "主号或备用号码已属于其他客户档案，请先确认客户资料",
+      409,
+      "CUSTOMER_PHONE_CONFLICT",
+    );
   customer.name = input.name.trim();
   customer.phone_e164 = phoneBook.primary;
   customer.phone_raw = phoneBook.primaryRaw;

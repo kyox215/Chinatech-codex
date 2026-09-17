@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  createCustomer,
   deleteCustomerDevice,
   setCustomerTags,
   updateCustomer,
@@ -41,56 +42,111 @@ beforeEach(() => {
   mocks.rpc.mockReset();
 });
 describe("customer write CAS repository", () => {
-  it("uses store/id/viewed version and returns the actual microsecond database version", async () => {
-    const write = query({ id: "customer-a", updated_at: nextVersion });
-    mocks.from.mockReturnValueOnce(query([])).mockReturnValueOnce(write);
+  it("sends the viewed version and all numbers to one atomic trusted-actor RPC", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: { ok: true, id: "customer-a", updated_at: nextVersion },
+      error: null,
+    });
     await expect(
       updateCustomer(
         "customer-a",
-        { name: "New", phone_e164: "+393330001234", expected_updated_at: version },
+        {
+          name: "New",
+          phone_e164: "+393330001234",
+          contact_phones: ["+393330001235"],
+          expected_updated_at: version,
+        },
         actor,
       ),
     ).resolves.toEqual({ ok: true, updated_at: nextVersion });
-    expect(write.eq.mock.calls).toEqual([
-      ["store_id", "store-a"],
-      ["id", "customer-a"],
-      ["updated_at", version],
-    ]);
+    expect(mocks.rpc).toHaveBeenCalledWith("repairdesk_update_customer_v1", {
+      p_store_id: "store-a",
+      p_actor_id: "actor-a",
+      p_customer_id: "customer-a",
+      p_expected_updated_at: version,
+      p_profile: expect.objectContaining({
+        phone_raw: "393330001234",
+        contact_phones: ["+393330001235"],
+      }),
+    });
+    expect(mocks.from).not.toHaveBeenCalled();
   });
-  it("writes a greater future-microsecond payload while preserving the exact CAS predicate", async () => {
+  it("preserves a future microsecond CAS and accepts the database's greater version", async () => {
     const future = "2099-01-01T00:00:00.000999Z";
-    const write = query({ id: "customer-a", updated_at: "2099-01-01T00:00:00.001Z" });
-    mocks.from.mockReturnValueOnce(query([])).mockReturnValueOnce(write);
-    await updateCustomer(
-      "customer-a",
-      { name: "New", phone_e164: "+393330001234", expected_updated_at: future },
-      actor,
-    );
-    expect(write.update).toHaveBeenCalledWith(
-      expect.objectContaining({ updated_at: "2099-01-01T00:00:00.001Z" }),
-    );
-    expect(write.eq).toHaveBeenCalledWith("updated_at", future);
-  });
-  it.each([
-    { exists: true, status: 409 },
-    { exists: false, status: 404 },
-  ])("classifies no-row updates without unscoped lookup ($status)", async ({ exists, status }) => {
-    const lookup = query(exists ? { id: "customer-a" } : null);
-    mocks.from
-      .mockReturnValueOnce(query([]))
-      .mockReturnValueOnce(query(null))
-      .mockReturnValueOnce(lookup);
+    mocks.rpc.mockResolvedValue({
+      data: { ok: true, id: "customer-a", updated_at: "2099-01-01T00:00:00.001Z" },
+      error: null,
+    });
     await expect(
       updateCustomer(
         "customer-a",
-        { name: "New", phone_e164: "+393330001234", expected_updated_at: version },
+        {
+          name: "New",
+          phone_e164: "+393330001234",
+          expected_updated_at: future,
+        },
         actor,
       ),
-    ).rejects.toMatchObject({ status });
-    expect(lookup.eq.mock.calls).toEqual([
-      ["store_id", "store-a"],
-      ["id", "customer-a"],
-    ]);
+    ).resolves.toEqual({ ok: true, updated_at: "2099-01-01T00:00:00.001Z" });
+    expect(mocks.rpc.mock.calls[0][1].p_expected_updated_at).toBe(future);
+    expect(mocks.rpc.mock.calls[0][1].p_profile).not.toHaveProperty("updated_at");
+  });
+  it.each([
+    ["customer_stale_version", 409, "CUSTOMER_STALE_VERSION"],
+    ["customer_not_found", 404, "CUSTOMER_ENTITY_NOT_FOUND"],
+    ["customer_phone_conflict", 409, "CUSTOMER_PHONE_CONFLICT"],
+    ["actor_forbidden", 403, "CUSTOMER_FORBIDDEN"],
+  ])("maps atomic %s without any unscoped fallback", async (code, status, publicCode) => {
+    mocks.rpc.mockResolvedValue({ data: { ok: false, code }, error: null });
+    await expect(
+      updateCustomer(
+        "customer-a",
+        {
+          name: "New",
+          phone_e164: "+393330001234",
+          expected_updated_at: version,
+        },
+        actor,
+      ),
+    ).rejects.toMatchObject({ status, code: publicCode });
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+  it("creates through one RPC and validates the returned identity", async () => {
+    mocks.rpc.mockImplementation(async (_name, args) => ({
+      data: { ok: true, id: args.p_customer_id, updated_at: nextVersion },
+      error: null,
+    }));
+    const result = await createCustomer(
+      { name: "Created", phone_e164: "+393330001234", contact_phones: ["+393330001235"] },
+      actor,
+    );
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "repairdesk_create_customer_v1",
+      expect.objectContaining({
+        p_store_id: "store-a",
+        p_actor_id: "actor-a",
+        p_customer_id: result.id,
+        p_profile: expect.objectContaining({
+          phone_raw: "393330001234",
+          contact_phones: ["+393330001235"],
+        }),
+      }),
+    );
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+  it("does not expose database details", async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: "private database detail" } });
+    await expect(
+      updateCustomer(
+        "customer-a",
+        {
+          name: "New",
+          phone_e164: "+393330001234",
+          expected_updated_at: version,
+        },
+        actor,
+      ),
+    ).rejects.toMatchObject({ status: 503, message: "保存客户失败，请稍后重试" });
   });
   it("rejects missing version before any query", async () => {
     await expect(
@@ -174,7 +230,7 @@ describe("customer write CAS repository", () => {
     },
   );
   it("fails closed when an UPDATE returns no actual version", async () => {
-    mocks.from.mockReturnValueOnce(query([])).mockReturnValueOnce(query({ id: "customer-a" }));
+    mocks.rpc.mockResolvedValue({ data: { ok: true, id: "customer-a" }, error: null });
     await expect(
       updateCustomer(
         "customer-a",

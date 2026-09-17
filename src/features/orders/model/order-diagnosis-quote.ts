@@ -5,6 +5,7 @@ export type QuoteReadinessCode =
   | "items"
   | "price_exception"
   | "deposit"
+  | "received"
   | "permission"
   | "phone"
   | "published_quote";
@@ -13,6 +14,8 @@ export interface QuoteDraftReadinessInput {
   diagnosisResult?: string | null;
   faultPrices: FaultPriceItem[];
   depositAmount?: number;
+  /** Payments collected after the initial deposit; excludes the deposit itself. */
+  paidAmount?: number;
   priceException?: QuotePriceException | null;
 }
 
@@ -58,6 +61,15 @@ export function getQuoteDraftReadiness(input: QuoteDraftReadinessInput): QuoteRe
     missing.push("deposit");
   }
 
+  const paidAmount = Number(input.paidAmount ?? 0);
+  if (
+    !Number.isFinite(paidAmount) ||
+    paidAmount < 0 ||
+    (!missing.includes("deposit") && roundMoney(depositAmount + paidAmount) > quotationAmount)
+  ) {
+    missing.push("received");
+  }
+
   return { ready: missing.length === 0, missing, quotationAmount };
 }
 
@@ -95,6 +107,7 @@ export function quoteReadinessLabel(code: QuoteReadinessCode) {
     items: "请至少填写一个完整报价项目",
     price_exception: "零元项目需要选择免费、保修或仅检测，并填写原因",
     deposit: "定金不能为负数或超过报价总额",
+    received: "请核对已收款；新报价不能低于已收款总额",
     permission: "当前账号无权通知客户",
     phone: "客户缺少可用的 WhatsApp 电话",
     published_quote: "请先发布最新报价",

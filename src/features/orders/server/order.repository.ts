@@ -117,7 +117,6 @@ import {
   deviceFromRow,
   eventFromRow,
   fail,
-  failStorageOperation,
   fetchOrderListIndexRows,
   fetchOrderRows,
   fetchOrderRowsByIds,
@@ -1465,70 +1464,147 @@ export async function uploadOrderAttachment(
   actor?: AuditActor,
 ): Promise<OrderAttachmentUploadResult> {
   const storeId = requireStoreIdFromActor(actor);
-  const operatorName = operatorNameFromActor(actor);
   const supabase = getSupabaseAdmin();
-  const accessRow = await readOrderStatusRow(supabase, storeId, id, actor, "读取工单失败");
-  assertOrderRecordNotVoided(accessRow);
-
+  try {
+    await readOrderStatusRow(supabase, storeId, id, actor, "读取工单失败");
+  } catch (error) {
+    if (error instanceof ForbiddenError) throw error;
+    throw new OrderMutationError(
+      "工单不存在或暂时无法读取，请刷新后重试",
+      "order_read_failed",
+      503,
+    );
+  }
+  const operationId = input.operation_id?.trim().toLowerCase();
+  if (
+    !operationId ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(operationId)
+  ) {
+    throw new OrderMutationError(
+      "缺少上传标识，请刷新页面后重新选择附件重试",
+      "attachment_operation_required",
+      400,
+    );
+  }
   const bytes = attachmentPayloadFromInput(input);
-  const attachmentId = crypto.randomUUID();
-  const now = new Date().toISOString();
-  const safeName = sanitizeAttachmentFileName(input.file_name);
-  const extension = extensionFromAttachment(input);
-  const storagePath = `${storeId}/${id}/${attachmentId}.${extension}`;
-  const bucket = ORDER_ATTACHMENT_BUCKET;
-
-  const { error: uploadError } = await supabase.storage.from(bucket).upload(storagePath, bytes, {
-    contentType: input.mime_type,
-    upsert: false,
-  });
-  failStorageOperation(uploadError, "上传工单附件失败", bucket);
-
-  const row = {
-    id: attachmentId,
-    store_id: storeId,
-    order_id: id,
+  const contentHash = createHash("sha256").update(bytes).digest("hex");
+  const storagePath = `${storeId}/${id}/${operationId}-${contentHash}.${extensionFromAttachment(input)}`;
+  const metadata = {
     kind: normalizeAttachmentKind(input.kind),
-    file_name: safeName,
+    file_name: sanitizeAttachmentFileName(input.file_name),
     mime_type: input.mime_type,
     file_size: bytes.byteLength,
-    storage_bucket: bucket,
+    storage_bucket: ORDER_ATTACHMENT_BUCKET,
     storage_path: storagePath,
     note: input.note?.trim() || null,
-    uploaded_by: operatorName,
-    created_at: now,
-    updated_at: now,
+    content_sha256: contentHash,
   };
-
-  const { data, error } = await supabase.from("order_attachments").insert(row).select("*").single();
-  if (error) {
-    await supabase.storage
-      .from(bucket)
-      .remove([storagePath])
-      .catch(() => undefined);
-    fail(error, "保存工单附件失败");
+  const requestHash = createHash("sha256")
+    .update(
+      JSON.stringify({
+        storeId,
+        actorId: actor?.id,
+        orderId: id,
+        operationId,
+        metadata,
+      }),
+    )
+    .digest("hex");
+  const finalize = async (checkOnly: boolean) => {
+    const { data, error } = await supabase.rpc("repairdesk_finalize_order_attachment_v1", {
+      p_store_id: storeId,
+      p_actor_id: actor?.id,
+      p_order_id: id,
+      p_operation_id: operationId,
+      p_request_hash: requestHash,
+      p_attachment: metadata,
+      p_check_only: checkOnly,
+    });
+    if (error)
+      throw new OrderMutationError(
+        "附件保存结果暂时无法确认，请保留照片并重试",
+        "attachment_result_unknown",
+        503,
+      );
+    const result = data as DbRecord | null;
+    if (result?.ok !== true) {
+      const code = String(result?.code ?? "attachment_result_unknown");
+      const messages: Record<string, string> = {
+        actor_forbidden: "当前账号没有此工单的附件上传权限",
+        order_not_found: "工单不存在或不属于当前店铺",
+        order_voided: "此工单已作废，无法上传附件",
+        idempotency_conflict: "本次上传标识已用于其他附件，请重新选择照片",
+        invalid_attachment: "附件格式不正确，请重新选择照片",
+        invalid_request: "附件请求无效，请重新选择照片",
+      };
+      throw new OrderMutationError(
+        messages[code] ?? "附件保存结果暂时无法确认，请保留照片并重试",
+        code,
+        code === "actor_forbidden"
+          ? 403
+          : code === "order_not_found"
+            ? 404
+            : code === "attachment_result_unknown"
+              ? 503
+              : 409,
+      );
+    }
+    return result;
+  };
+  // Current authorization is rechecked for receipt replay, without repeating Storage writes.
+  let result = await finalize(true);
+  if (result.code === "pending") {
+    const storage = supabase.storage.from(ORDER_ATTACHMENT_BUCKET);
+    const { error: uploadError } = await storage.upload(storagePath, bytes, {
+      contentType: input.mime_type,
+      upsert: false,
+    });
+    if (uploadError) {
+      const duplicate =
+        String((uploadError as { statusCode?: string | number }).statusCode) === "409" ||
+        /already exists|duplicate/i.test(uploadError.message);
+      if (!duplicate)
+        throw new OrderMutationError(
+          "附件上传结果暂时无法确认，请保留照片并重试",
+          "attachment_result_unknown",
+          503,
+        );
+      const { data: existing, error: readError } = await storage.download(storagePath);
+      if (readError || !existing)
+        throw new OrderMutationError(
+          "附件上传结果暂时无法确认，请保留照片并重试",
+          "attachment_result_unknown",
+          503,
+        );
+      const existingHash = createHash("sha256")
+        .update(Buffer.from(await existing.arrayBuffer()))
+        .digest("hex");
+      if (existingHash !== contentHash)
+        throw new OrderMutationError(
+          "已上传的附件内容不一致，请重新选择照片",
+          "attachment_content_conflict",
+          409,
+        );
+    }
+    // Never delete on an uncertain response: the metadata/event/audit may have committed.
+    result = await finalize(false);
   }
-
-  const { error: eventError } = await supabase.from("order_events").insert({
-    id: crypto.randomUUID(),
-    store_id: storeId,
-    order_id: id,
-    event_type: "note",
-    payload: {
-      action: "attachment_uploaded",
-      attachment_id: attachmentId,
-      kind: row.kind,
-      file_name: safeName,
-      mime_type: input.mime_type,
-      file_size: bytes.byteLength,
-    },
-    operator_name: operatorName,
-    created_at: now,
-  });
-  fail(eventError, "写入附件操作记录失败");
-
-  const [attachment] = await attachSignedUrls(supabase, [data as DbRecord], storeId, id);
-  return { attachment };
+  const row = result.attachment as DbRecord | undefined;
+  if (
+    !row ||
+    row.id !== operationId ||
+    row.store_id !== storeId ||
+    row.order_id !== id ||
+    row.storage_path !== storagePath
+  ) {
+    throw new OrderMutationError(
+      "附件保存结果暂时无法确认，请保留照片并重试",
+      "attachment_result_unknown",
+      503,
+    );
+  }
+  const [attachment] = await attachSignedUrls(supabase, [row], storeId, id);
+  return { attachment, replayed: result.replayed === true };
 }
 
 export async function transitionOrder(
@@ -2153,6 +2229,7 @@ function orderCustomerIdentityFailure(code: string) {
     actor_forbidden: "当前员工没有创建工单权限",
     idempotency_conflict: "本次创建标识已用于不同请求，请刷新后重试",
     invalid_customer_phone: "客户手机号格式不正确",
+    customer_phone_conflict: "主号或备用号码已属于其他客户档案，请先确认客户资料",
     customer_name_required: "新客户姓名不能为空",
     customer_not_found: "所选客户不存在或已变更",
     identity_challenge_invalid: "客户身份确认已失效，请重新检查",

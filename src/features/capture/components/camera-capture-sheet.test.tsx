@@ -238,7 +238,9 @@ describe("CameraCaptureSheet", () => {
       </LocaleProvider>,
     );
     await waitFor(() => expect(getUserMedia).toHaveBeenCalledTimes(1));
-    fireEvent.click(screen.getByRole("button", { name: "拍照" }));
+    const captureButton = screen.getByRole("button", { name: "拍照" });
+    await waitFor(() => expect(captureButton).toBeEnabled());
+    fireEvent.click(captureButton);
     await screen.findByAltText("已拍照片预览");
 
     fireEvent.click(screen.getByText("switch locale", { exact: true }));
@@ -338,5 +340,48 @@ describe("CameraCaptureSheet", () => {
     fireEvent.click(screen.getByRole("button", { name: "使用照片" }));
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
     expect(onCapture).toHaveBeenCalledTimes(2);
+    expect(onCapture.mock.calls[1][0]).toBe(onCapture.mock.calls[0][0]);
+    expect(onCapture.mock.calls[1][0].id).toMatch(/^[0-9a-f-]{36}$/);
+  });
+  it("never retries a retained draft against a replacement order/account scope", async () => {
+    const first = vi.fn().mockRejectedValue(new Error("response lost"));
+    const replacement = vi.fn();
+    const view = render(
+      <CameraCaptureSheet
+        open
+        scopeKey="store:user:order-a"
+        onOpenChange={vi.fn()}
+        onCapture={first}
+        purpose="order-attachment"
+      />,
+    );
+    fireEvent.change(document.querySelector<HTMLInputElement>('input[type="file"]')!, {
+      target: { files: [new File(["synthetic"], "retain.jpg", { type: "image/jpeg" })] },
+    });
+    await waitFor(() => expect(screen.getByRole("button", { name: "使用照片" })).toBeEnabled());
+    view.rerender(
+      <CameraCaptureSheet
+        open
+        scopeKey="store:user:order-b"
+        onOpenChange={vi.fn()}
+        onCapture={replacement}
+        purpose="order-attachment"
+      />,
+    );
+    expect(screen.getByRole("button", { name: "使用照片" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "使用照片" }));
+    expect(replacement).not.toHaveBeenCalled();
+    expect(screen.getByText(/当前工单或账号已改变/)).toHaveAttribute("role", "alert");
+    view.rerender(
+      <CameraCaptureSheet
+        open
+        scopeKey="store:user:order-a"
+        onOpenChange={vi.fn()}
+        onCapture={replacement}
+        purpose="order-attachment"
+      />,
+    );
+    expect(screen.getByRole("button", { name: "使用照片" })).toBeDisabled();
+    expect(first).toHaveBeenCalledTimes(1);
   });
 });

@@ -310,6 +310,7 @@ const quoteReadinessKeys: Record<QuoteReadinessCode, MessageKey> = {
   items: "orders2b1.quote.missing.items",
   price_exception: "orders2b1.quote.missing.priceException",
   deposit: "orders2b1.quote.missing.deposit",
+  received: "orders2b1.quote.missing.received",
   permission: "orders2b1.quote.missing.permission",
   phone: "orders2b1.quote.missing.phone",
   published_quote: "orders2b1.quote.missing.publishedQuote",

@@ -929,6 +929,7 @@ describe("order repository database pagination", () => {
         uploadOrderAttachment(
           "order_1",
           {
+            operation_id: crypto.randomUUID(),
             kind: "fault_photo",
             file_name: "photo.jpg",
             mime_type: "image/jpeg",

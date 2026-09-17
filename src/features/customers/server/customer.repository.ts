@@ -1193,36 +1193,43 @@ function customerPayload(input: CustomerCreateInput, now: string) {
   };
 }
 
-async function assertCustomerPhoneAvailable(
-  storeId: string,
-  primaryRaw: string,
-  contactPhones: string[],
-  excludeId?: string,
-) {
-  const raws = Array.from(
-    new Set([
-      primaryRaw,
-      ...contactPhones.map((phone) => normalizePhoneRaw(phone)).filter(Boolean),
-    ]),
-  );
-  if (raws.length === 0) return;
-
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("customers")
-    .select("id,name,phone_raw")
-    .eq("store_id", storeId)
-    .in("phone_raw", raws);
-  fail(error, "检查客户手机号失败");
-
-  const conflicts = ((data ?? []) as DbRecord[]).filter(
-    (row) => requiredString(row.id) !== excludeId,
-  );
-  if (conflicts.length === 0) return;
-
-  const primaryConflict = conflicts.find((row) => requiredString(row.phone_raw) === primaryRaw);
-  if (primaryConflict) throw new Error("该手机号已存在客户档案");
-  throw new Error("备用号码已属于其他客户档案，请先确认客户资料");
+function customerProfileWriteResult(data: unknown, error: unknown, id: string) {
+  if (error) {
+    throw new CustomerMutationError("保存客户失败，请稍后重试", 503, "CUSTOMER_WRITE_FAILED");
+  }
+  const result = data as DbRecord | null;
+  if (result?.ok === false) {
+    const code = String(result.code ?? "");
+    if (code === "customer_stale_version") throw customerVersionConflict();
+    if (code === "customer_not_found")
+      throw new CustomerMutationError("客户不存在", 404, "CUSTOMER_ENTITY_NOT_FOUND");
+    if (code === "actor_forbidden")
+      throw new CustomerMutationError("没有客户编辑权限", 403, "CUSTOMER_FORBIDDEN");
+    if (code === "customer_phone_conflict")
+      throw new CustomerMutationError(
+        "主号或备用号码已属于其他客户档案，请先确认客户资料",
+        409,
+        "CUSTOMER_PHONE_CONFLICT",
+      );
+    if (code === "customer_version_required")
+      throw new CustomerMutationError(
+        "缺少资料版本，请刷新后重试",
+        400,
+        "CUSTOMER_VERSION_REQUIRED",
+      );
+    if (code === "invalid_customer_phone" || code === "invalid_request")
+      throw new CustomerMutationError("客户资料或号码格式不正确", 400, "CUSTOMER_INPUT_INVALID");
+    if (code === "customer_exists")
+      throw new CustomerMutationError("客户已存在，请刷新后重试", 409, "CUSTOMER_ALREADY_EXISTS");
+  }
+  if (result?.ok !== true || result.id !== id) {
+    throw new CustomerMutationError(
+      "保存结果不完整，请刷新确认",
+      503,
+      "CUSTOMER_WRITE_RESULT_INVALID",
+    );
+  }
+  return confirmedCustomerVersion(result.updated_at);
 }
 
 export async function createCustomer(
@@ -1230,18 +1237,18 @@ export async function createCustomer(
   actor?: AuditActor,
 ): Promise<{ id: string }> {
   const storeId = requireStoreIdFromActor(actor);
-  const supabase = getSupabaseAdmin();
-  const now = new Date().toISOString();
   const id = crypto.randomUUID();
-  const payload = customerPayload(input, now);
-  await assertCustomerPhoneAvailable(storeId, payload.phone_raw, payload.contact_phones);
-  const { error } = await supabase.from("customers").insert({
-    id,
-    store_id: storeId,
-    ...payload,
-    created_at: now,
+  const { updated_at: _requestedVersion, ...profile } = customerPayload(
+    input,
+    new Date().toISOString(),
+  );
+  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_create_customer_v1", {
+    p_store_id: storeId,
+    p_actor_id: actor?.id,
+    p_customer_id: id,
+    p_profile: profile,
   });
-  fail(error, "创建客户失败");
+  customerProfileWriteResult(data, error, id);
   return { id };
 }
 
@@ -1281,22 +1288,18 @@ export async function updateCustomer(
 ): Promise<{ ok: boolean; updated_at: string }> {
   const storeId = requireStoreIdFromActor(actor);
   const version = requireCustomerVersion(input.expected_updated_at);
-  const payload = {
-    ...customerPayload(input, new Date().toISOString()),
-    updated_at: nextCustomerWriteVersion(version),
-  };
-  await assertCustomerPhoneAvailable(storeId, payload.phone_raw, payload.contact_phones, id);
-  const { data, error } = await getSupabaseAdmin()
-    .from("customers")
-    .update(payload)
-    .eq("store_id", storeId)
-    .eq("id", id)
-    .eq("updated_at", version)
-    .select("id,updated_at")
-    .maybeSingle();
-  fail(error, "更新客户失败");
-  if (!data) return missingCustomerMutation("customers", storeId, id);
-  return { ok: true, updated_at: confirmedCustomerVersion(data.updated_at) };
+  const { updated_at: _requestedVersion, ...profile } = customerPayload(
+    input,
+    new Date().toISOString(),
+  );
+  const { data, error } = await getSupabaseAdmin().rpc("repairdesk_update_customer_v1", {
+    p_store_id: storeId,
+    p_actor_id: actor?.id,
+    p_customer_id: id,
+    p_expected_updated_at: version,
+    p_profile: profile,
+  });
+  return { ok: true, updated_at: customerProfileWriteResult(data, error, id) };
 }
 
 export async function upsertCustomerDevice(

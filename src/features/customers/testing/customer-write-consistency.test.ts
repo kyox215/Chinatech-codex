@@ -93,3 +93,43 @@ describe("customer mock version contract", () => {
     expect((await getCustomerDetail(customer.id)).tags).toHaveLength(0);
   });
 });
+
+describe("customer mock phone ownership", () => {
+  it("checks primary and backup ownership and allows released numbers", async () => {
+    const owner = await createCustomer({
+      name: "Phone owner",
+      phone_e164: "+390000998820",
+      contact_phones: ["+390000998821"],
+    });
+    for (const input of [
+      { name: "Conflict", phone_e164: "+390000998821" },
+      { name: "Conflict", phone_e164: "+390000998822", contact_phones: ["+390000998821"] },
+      { name: "Conflict", phone_e164: "+390000998822", contact_phones: ["+390000998820"] },
+    ])
+      await expect(createCustomer(input)).rejects.toMatchObject({
+        status: 409,
+        code: "CUSTOMER_PHONE_CONFLICT",
+      });
+    const other = await createCustomer({ name: "Other", phone_e164: "+390000998822" });
+    const before = (await getCustomerDetail(other.id)).customer;
+    await expect(
+      updateCustomer(other.id, {
+        name: "Other changed",
+        phone_e164: before.phone_e164,
+        contact_phones: ["+390000998821"],
+        expected_updated_at: before.updated_at!,
+      }),
+    ).rejects.toMatchObject({ status: 409 });
+    expect((await getCustomerDetail(other.id)).customer).toEqual(before);
+    const original = (await getCustomerDetail(owner.id)).customer;
+    await updateCustomer(owner.id, {
+      name: original.name,
+      phone_e164: original.phone_e164,
+      contact_phones: [],
+      expected_updated_at: original.updated_at!,
+    });
+    await expect(
+      createCustomer({ name: "Released", phone_e164: "+390000998821" }),
+    ).resolves.toHaveProperty("id");
+  });
+});

@@ -49,7 +49,7 @@ describe("new-order staged photo upload", () => {
     expect(upload).not.toHaveBeenCalled();
     expect(result.current.state).toBe("blocked");
   });
-  it("never resends successful or uncertain requests and resumes only untouched items for the same created ID", async () => {
+  it("replays uncertain requests with their original IDs and never resends confirmed uploads", async () => {
     const { result } = renderHook(() => useNewOrderPhotos("store:user", true));
     act(() => {
       result.current.add(draft("one"));
@@ -74,9 +74,11 @@ describe("new-order staged photo upload", () => {
     expect(upload.mock.calls.map(([id, input]) => [id, input.file_name])).toEqual([
       ["order-created", "one.png"],
       ["order-created", "two.png"],
+      ["order-created", "two.png"],
       ["order-created", "three.png"],
     ]);
-    expect(result.current.photos[1].uploadState).toBe("uncertain");
+    expect(upload.mock.calls[1][1].operation_id).toBe(upload.mock.calls[2][1].operation_id);
+    expect(result.current.photos[1].uploadState).toBe("uploaded");
     expect(result.current.canRetry).toBe(false);
   });
   it.each(["scope", "active"])(

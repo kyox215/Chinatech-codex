@@ -290,18 +290,6 @@ function nextMockMutationTime(order: { updated_at: string }, customer: { updated
   ).toISOString();
 }
 
-function mergeContactPhones(existing: string[], incoming: string[], primaryRaw: string) {
-  const result: string[] = [];
-  const seen = new Set<string>(primaryRaw ? [primaryRaw] : []);
-  for (const phone of [...existing, ...incoming]) {
-    const raw = normalizePhoneRaw(phone);
-    if (!raw || seen.has(raw)) continue;
-    seen.add(raw);
-    result.push(phone.trim());
-  }
-  return result;
-}
-
 function assertCustomerPhoneAvailable(
   customerId: string,
   primaryRaw: string,
@@ -766,6 +754,11 @@ export async function getOrder(id: string, _actor?: AuditActor) {
   };
 }
 
+const mockAttachmentOperations = new Map<
+  string,
+  { fingerprint: string; result: OrderAttachmentUploadResult }
+>();
+
 export async function uploadOrderAttachment(
   id: string,
   input: OrderAttachmentUploadInput,
@@ -778,9 +771,25 @@ export async function uploadOrderAttachment(
     throw new Error("仅支持图片或 PDF");
   }
 
+  if (!input.operation_id || !/^[0-9a-f-]{36}$/i.test(input.operation_id))
+    throw Object.assign(new Error("缺少上传标识，请刷新页面后重新选择附件重试"), {
+      status: 400,
+      code: "attachment_operation_required",
+    });
+  const operationScope = `${actor?.storeId ?? mockStoreId}:${input.operation_id}`;
+  const fingerprint = JSON.stringify({ id, actor: actor?.id ?? "mock", ...input });
+  const receipt = mockAttachmentOperations.get(operationScope);
+  if (receipt) {
+    if (receipt.fingerprint !== fingerprint)
+      throw Object.assign(new Error("本次上传标识已用于其他附件"), {
+        status: 409,
+        code: "idempotency_conflict",
+      });
+    return { ...receipt.result, replayed: true };
+  }
   const now = new Date().toISOString();
   const attachment: OrderAttachment = {
-    id: mockId("att"),
+    id: input.operation_id,
     store_id: mockStoreId,
     order_id: id,
     kind: input.kind,
@@ -813,7 +822,9 @@ export async function uploadOrderAttachment(
     created_at: now,
   });
 
-  return { attachment };
+  const result = { attachment, replayed: false };
+  mockAttachmentOperations.set(operationScope, { fingerprint, result });
+  return result;
 }
 
 function isApprovalDecisionBypass(
@@ -2839,17 +2850,11 @@ export async function createOrder(
   let customerSnapshotSource: NonNullable<RepairOrder["customer_identity_snapshot_source"]> =
     customer ? "selected" : "created";
   if (input.customer_id && !customer) throw new Error("读取客户失败");
+  const incomingPhoneBook = input.customer_phone?.trim()
+    ? normalizePhoneBook(input.customer_phone)
+    : undefined;
+  let newCustomer = false;
   let customerContactPhones = customer?.contact_phones ?? [];
-  if (customer && input.customer_phone?.trim()) {
-    const phoneBook = normalizePhoneBook(input.customer_phone, customer.contact_phones);
-    const primaryRaw = phoneBook.primaryRaw || customer.phone_raw;
-    customerContactPhones = mergeContactPhones(
-      customer.contact_phones,
-      phoneBook.contacts,
-      primaryRaw,
-    );
-    customer.contact_phones = customerContactPhones;
-  }
   if (!customer) {
     if (!input.customer_phone?.trim()) {
       throw new Error("客户手机号不能为空");
@@ -2901,12 +2906,35 @@ export async function createOrder(
         language: "it",
         updated_at: new Date().toISOString(),
       };
-      customers.push(customer);
+      newCustomer = true;
       customerContactPhones = phoneBook.contacts;
     } else {
-      customerContactPhones = mergeContactPhones(customer.contact_phones, phoneBook.contacts, raw);
-      customer.contact_phones = customerContactPhones;
+      customerContactPhones = [...customer.contact_phones];
     }
+  }
+  if (incomingPhoneBook) {
+    const requestedPrimary = incomingPhoneBook.primaryRaw;
+    const requestedBackups = new Set(incomingPhoneBook.contacts.map(normalizePhoneRaw));
+    normalizeOrderContactChanges({
+      customer_phone: incomingPhoneBook.primary,
+      contact_phones: incomingPhoneBook.contacts,
+    });
+    const conflict = customers.some((other) => {
+      if (other.id === customer.id) return false;
+      const otherBackups = other.contact_phones.map(normalizePhoneRaw);
+      return (
+        otherBackups.includes(requestedPrimary) ||
+        (other.phone_raw === requestedPrimary &&
+          customerSnapshotSource !== "shared_phone" &&
+          !(customerSnapshotSource === "selected" && customer.phone_raw === requestedPrimary)) ||
+        [other.phone_raw, ...otherBackups].some((raw) => requestedBackups.has(raw))
+      );
+    });
+    if (conflict)
+      throw Object.assign(new Error("主号或备用号码已属于其他客户档案，请先确认客户资料"), {
+        status: 409,
+        code: "customer_phone_conflict",
+      });
   }
   let device = input.device_id ? getDevice(input.device_id) : undefined;
   if (input.device_id && !device) throw new Error("读取设备失败");
@@ -2925,6 +2953,7 @@ export async function createOrder(
     };
     devices.push(device);
   }
+  if (newCustomer) customers.push(customer);
   const validFaults = input.fault_prices
     .filter((item) => item.name.trim() && Number(item.price) >= 0)
     .map((item) => ({

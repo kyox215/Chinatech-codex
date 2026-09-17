@@ -875,9 +875,8 @@ for (const [width, height] of [
     await (await orderQuoteTrigger(page, "zh-CN")).click();
     const quote = page.locator("#mobile-order-finance-editor");
     await bottomEditor(page, quote, width, height);
-    expect((await quote.locator("[data-editor-header]").boundingBox())!.height).toBe(
-      width >= 768 ? 64 : 52,
-    );
+    // The bounded quote dialog uses the same 52px dense header on phone and iPad.
+    expect((await quote.locator("[data-editor-header]").boundingBox())!.height).toBe(52);
     const categoryGrid = quote.locator('[data-fault-diagnosis-picker="true"]');
     await readableQuoteGrid(categoryGrid);
     const rows = quote.locator('[data-order-workspace-quote-row="true"]');
@@ -908,9 +907,12 @@ for (const [width, height] of [
     await page.keyboard.press("Escape");
     await expect(quote).toHaveCount(0);
 
-    await page
-      .getByRole("button", { name: tr("zh-CN", "orders2b2.overview.deviceIssue"), exact: true })
-      .click();
+    const deviceTrigger = page.getByRole("button", {
+      name: tr("zh-CN", "orders2b2.overview.deviceIssue"),
+      exact: true,
+    });
+    await revealShortScreenControl(page, deviceTrigger);
+    await deviceTrigger.click();
     const device = page.locator('[data-order-identity-editor="device"]');
     await bottomEditor(page, device, width, height);
     const close = device
@@ -981,9 +983,12 @@ for (const [width, height] of [
     ).toBeCloseTo(104, 1);
     await screenshot(page, width === 390 ? "a14-notes-390" : `dense-notes-${width}x${height}`);
     await page.keyboard.press("Escape");
-    await page
-      .getByRole("button", { name: tr("zh-CN", "orders2b2.overview.customerInfo"), exact: true })
-      .click();
+    const customerTrigger = page.getByRole("button", {
+      name: tr("zh-CN", "orders2b2.overview.customerInfo"),
+      exact: true,
+    });
+    await revealShortScreenControl(page, customerTrigger);
+    await customerTrigger.click();
     const customer = page.locator('[data-order-identity-editor="customer"]');
     await bottomEditor(page, customer, width, height);
     await expect(customer.locator("[data-customer-identity-review]")).toBeVisible();
@@ -993,7 +998,7 @@ for (const [width, height] of [
     await expect(customer.locator("[data-customer-identity-results]")).toBeVisible();
     await expect(customer.getByRole("option")).toHaveCount(0);
     if (width === 390) {
-      const phone = customer.locator("[data-phone-keypad-trigger]");
+      const phone = customer.getByLabel(tr("zh-CN", "customers.form.phone"), { exact: true });
       await phone.click();
       await page.locator('[data-phone-keypad-key="clear"]').click();
       for (const digit of "13800000000")
@@ -1165,14 +1170,14 @@ test("A14 dense inline fields expose the enclosing keyboard focus ring", async (
     .getByRole("button", { name: tr("zh-CN", "orders2b2.overview.deviceIssue"), exact: true })
     .click();
   const device = page.locator('[data-order-identity-editor="device"]');
-  const brand = device.getByRole("textbox", {
+  const brand = device.getByRole("combobox", {
     name: tr("zh-CN", "customers.form.brand"),
     exact: true,
   });
   await brand.focus();
   expect(
     await brand.evaluate((node) => {
-      const field = node.parentElement!.parentElement!;
+      const field = node.closest("fieldset")!.parentElement!;
       const style = getComputedStyle(field);
       return (
         field.matches(":focus-within") &&

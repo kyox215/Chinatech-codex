@@ -375,6 +375,9 @@ export function OrderDetailScreen({
 
   const activeStoreId = shell.activeStore?.id;
   const activeUserId = shell.userId;
+  const attachmentScopeKey = `${activeStoreId}:${activeUserId}:${id}`;
+  const attachmentScopeRef = useRef(attachmentScopeKey);
+  attachmentScopeRef.current = attachmentScopeKey;
   const offlineScope = useMemo(
     () => (activeStoreId && activeUserId ? { storeId: activeStoreId, userId: activeUserId } : null),
     [activeStoreId, activeUserId],
@@ -1046,7 +1049,18 @@ export function OrderDetailScreen({
   });
 
   const attachmentUpload = useMutation({
-    mutationFn: (input: OrderAttachmentUploadInput) => uploadOrderAttachment(id, input),
+    mutationFn: ({
+      targetOrderId,
+      scopeKey,
+      input,
+    }: {
+      targetOrderId: string;
+      scopeKey: string;
+      input: OrderAttachmentUploadInput;
+    }) => {
+      if (scopeKey !== attachmentScopeRef.current) throw new Error(t("camera.scopeChanged"));
+      return uploadOrderAttachment(targetOrderId, input);
+    },
     onSuccess: () => {
       toast.success(t("orders2b2.success.attachment"));
       invalidate();
@@ -1915,10 +1929,15 @@ export function OrderDetailScreen({
             }}
             deviceUnlockPending={deviceUnlockUpdate.isPending}
             onAttachmentUpload={async (input) => {
-              await attachmentUpload.mutateAsync(input);
+              await attachmentUpload.mutateAsync({
+                targetOrderId: id,
+                scopeKey: attachmentScopeKey,
+                input,
+              });
             }}
             attachmentUploadPending={attachmentUpload.isPending}
             editorScopeKey={`${activeStoreId}:${id}`}
+            attachmentScopeKey={attachmentScopeKey}
             identityInitial={buildEditForm(data, defaultWarrantyMonths)}
             identityPending={orderUpdate.isPending}
             onIdentitySave={(baseline, draft) =>
@@ -2810,6 +2829,7 @@ export function OrderDetailScreen({
       {data.capabilities?.canUploadPhoto === true && !isVoided ? (
         <CameraCaptureSheet
           open={desktopPhotoCaptureOpen}
+          scopeKey={attachmentScopeKey}
           onOpenChange={setDesktopPhotoCaptureOpen}
           attachmentKind={desktopPhotoCaptureKind}
           purpose="order-attachment"
@@ -2819,7 +2839,11 @@ export function OrderDetailScreen({
           onCloseAutoFocus={handleDesktopPhotoCloseAutoFocus}
           onCapture={(draft) =>
             uploadAttachmentDraft(draft, async (input) => {
-              await attachmentUpload.mutateAsync(input);
+              await attachmentUpload.mutateAsync({
+                targetOrderId: id,
+                scopeKey: attachmentScopeKey,
+                input,
+              });
             })
           }
         />
@@ -4008,6 +4032,7 @@ function MobileOrderDetailView({
   onAttachmentUpload,
   attachmentUploadPending,
   editorScopeKey,
+  attachmentScopeKey,
   identityInitial,
   identityPending,
   onIdentitySave,
@@ -4070,6 +4095,7 @@ function MobileOrderDetailView({
   attachmentUploadPending: boolean;
   financeDraft: FinanceDraftState;
   editorScopeKey: string;
+  attachmentScopeKey: string;
   identityInitial: UpdateOrderInput;
   identityPending: boolean;
   onIdentitySave: (baseline: UpdateOrderInput, draft: UpdateOrderInput) => Promise<unknown>;
@@ -5083,6 +5109,7 @@ function MobileOrderDetailView({
         {data.capabilities?.canUploadPhoto === true && !isVoided ? (
           <CameraCaptureSheet
             open={photoCaptureOpen}
+            scopeKey={attachmentScopeKey}
             onOpenChange={setPhotoCaptureOpen}
             attachmentKind={mobilePhotoCaptureKind}
             purpose="order-attachment"
@@ -5158,18 +5185,16 @@ async function uploadAttachmentDraft(
   draft: AttachmentDraft,
   onUpload: (input: OrderAttachmentUploadInput) => Promise<void>,
 ) {
-  try {
-    const dataBase64 = await fileToBase64(draft.file);
-    await onUpload({
-      kind: draft.kind,
-      file_name: draft.name,
-      mime_type: draft.mimeType || draft.file.type || "image/jpeg",
-      file_size: draft.size,
-      data_base64: dataBase64,
-    });
-  } finally {
-    revokeAttachmentDraft(draft);
-  }
+  const dataBase64 = await fileToBase64(draft.file);
+  await onUpload({
+    operation_id: draft.id,
+    kind: draft.kind,
+    file_name: draft.name,
+    mime_type: draft.mimeType || draft.file.type || "image/jpeg",
+    file_size: draft.size,
+    data_base64: dataBase64,
+  });
+  revokeAttachmentDraft(draft);
 }
 
 function fileToBase64(file: File) {

@@ -334,6 +334,9 @@ export const orderAttachmentUploadBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
   input: z
     .object({
+      operation_id: z
+        .string({ required_error: "缺少上传标识，请刷新页面后重新选择附件重试" })
+        .uuid("上传标识无效，请刷新页面后重新选择附件重试"),
       kind: orderAttachmentKindSchema,
       file_name: z.string().trim().min(1, "文件名不能为空").max(180, "文件名不能超过 180 个字符"),
       mime_type: orderAttachmentMimeTypeSchema,

@@ -2590,12 +2590,8 @@ export async function handleRepairDeskPost(
         const { id, input } = orderAttachmentUploadBodySchema.parse(body);
         assertOrderAttachmentUploadPermission(actor);
         return ok(
-          await auditGeneric(
+          await runWithRealtime(
             actor,
-            "upload",
-            "order_attachment",
-            id,
-            input,
             () => api.uploadOrderAttachment(id, input, actor),
             realtimeBroadcasts.orderUpdated,
           ),

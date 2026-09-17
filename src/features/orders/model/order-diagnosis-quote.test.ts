@@ -50,6 +50,39 @@ describe("quote readiness", () => {
     });
   });
 
+  it.each([
+    { quotation: 120, deposit: 20, paid: 50, ready: true },
+    { quotation: 70, deposit: 20, paid: 50, ready: true },
+    { quotation: 69.99, deposit: 20, paid: 50, ready: false },
+    { quotation: 70.3, deposit: 20.1, paid: 50.2, ready: true },
+    { quotation: 70.29, deposit: 20.1, paid: 50.2, ready: false },
+    { quotation: 100, deposit: 20, paid: 80, ready: true },
+    { quotation: 99.99, deposit: 20, paid: 80, ready: false },
+    { quotation: 50, deposit: 0, paid: 50, ready: true },
+  ])(
+    "checks cumulative receipts without counting the deposit twice: $quotation/$deposit/$paid",
+    ({ quotation, deposit, paid, ready }) => {
+      expect(
+        getQuoteDraftReadiness({
+          ...readyInput,
+          faultPrices: [{ name: "Repair", price: quotation }],
+          depositAmount: deposit,
+          paidAmount: paid,
+        }),
+      ).toMatchObject({ ready, missing: ready ? [] : ["received"], quotationAmount: quotation });
+    },
+  );
+
+  it.each([-1, Number.NaN, Number.POSITIVE_INFINITY])(
+    "rejects invalid subsequent payments: %s",
+    (paidAmount) => {
+      expect(getQuoteDraftReadiness({ ...readyInput, paidAmount })).toMatchObject({
+        ready: false,
+        missing: ["received"],
+      });
+    },
+  );
+
   it("binds notification readiness to permission, phone and an opaque quote publication id", () => {
     expect(
       getQuoteNotificationReadiness({

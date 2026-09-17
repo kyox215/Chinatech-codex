@@ -95,12 +95,11 @@ for (const { locale, width } of directCases) {
     await expectDynamicDetail(root);
     if (width < 1024) {
       const history = root.locator('[data-mobile-order-diagnosis="true"]');
-      const summary = history.locator(":scope > summary");
-      await expect(summary).toContainText(translateMessage(locale, "orders2b2.overview.diagnosis"));
-      if (!(await history.evaluate((element) => (element as HTMLDetailsElement).open))) {
-        await summary.click();
-      }
-      const preview = history.locator(":scope > p");
+      const diagnosisTrigger = history.locator('[data-order-field-trigger="diagnosis"]');
+      await expect(diagnosisTrigger).toContainText(
+        translateMessage(locale, "orders2b2.overview.diagnosis"),
+      );
+      const preview = diagnosisTrigger.locator(":scope > p");
       await expect(preview).toHaveText(synthetic.diagnosis);
       await expect(preview).toBeVisible();
       if (width === 768) {
@@ -121,7 +120,12 @@ for (const { locale, width } of directCases) {
           await preview.evaluate((element) => element.scrollHeight <= element.clientHeight + 1),
         ).toBe(true);
       }
-      await summary.click();
+      await diagnosisTrigger.click();
+      const diagnosisEditor = page.locator('[data-order-field-editor="diagnosis"]');
+      await expect(diagnosisEditor.getByRole("textbox")).toHaveValue(synthetic.diagnosis);
+      await page.keyboard.press("Escape");
+      await expect(diagnosisEditor).toBeHidden();
+      await expect(diagnosisTrigger).toBeFocused();
     }
     await expectResponsiveActions(root, width);
     if (width < 1024) {

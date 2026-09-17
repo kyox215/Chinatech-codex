@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { calculateBalance, inferPaidAmount } from "@/entities/order/model/order-calculations";
 import { createOrderLineId, ensureOrderLineId } from "@/entities/order/model/order-line-identity";
 import { getQuoteDraftReadiness } from "@/features/orders/model/order-diagnosis-quote";
 import { localizeQuoteReadinessLabel } from "@/features/orders/model/order-i18n";
@@ -159,10 +160,17 @@ export function DiagnosisQuoteDialog({
     hasZeroPrice && exceptionKind
       ? { kind: exceptionKind, reason: exceptionReason.trim() }
       : undefined;
+  const paidAmount = inferPaidAmount(
+    snapshot.order.quotation_amount,
+    snapshot.order.deposit_amount,
+    snapshot.order.balance_amount,
+  );
+  const receivedAmount = snapshot.order.deposit_amount + paidAmount;
   const readiness = getQuoteDraftReadiness({
     diagnosisResult: diagnosis,
     faultPrices,
     depositAmount: snapshot.order.deposit_amount,
+    paidAmount,
     priceException,
   });
 
@@ -434,15 +442,21 @@ export function DiagnosisQuoteDialog({
 
               <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-[var(--surface-panel-muted)] p-2 text-center">
                 <QuoteMetric label={t("orders2b1.quote.total")} value={readiness.quotationAmount} />
-                <QuoteMetric
-                  label={t("orders2b1.quote.deposit")}
-                  value={snapshot.order.deposit_amount}
-                />
+                <QuoteMetric label={t("orders2b1.quote.received")} value={receivedAmount} />
                 <QuoteMetric
                   label={t("orders2b1.quote.balance")}
-                  value={Math.max(0, readiness.quotationAmount - snapshot.order.deposit_amount)}
+                  value={calculateBalance(
+                    readiness.quotationAmount,
+                    snapshot.order.deposit_amount,
+                    paidAmount,
+                  )}
                 />
               </div>
+              <p className="mt-1 text-center text-[10px] text-muted-foreground lg:text-xs">
+                {t("orders2b1.quote.receivedDeposit", {
+                  amount: formatMoney(snapshot.order.deposit_amount),
+                })}
+              </p>
             </section>
           </div>
 

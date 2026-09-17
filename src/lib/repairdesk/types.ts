@@ -768,6 +768,8 @@ export interface OrderAttachment {
 }
 
 export interface OrderAttachmentUploadInput {
+  /** Stable for this draft and every retry, including an unknown response. */
+  operation_id: string;
   kind: OrderAttachmentKind;
   file_name: string;
   mime_type: string;
@@ -778,6 +780,7 @@ export interface OrderAttachmentUploadInput {
 
 export interface OrderAttachmentUploadResult {
   attachment: OrderAttachment;
+  replayed?: boolean;
 }
 
 export type OrderWhatsappTemplateKind =

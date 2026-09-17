@@ -524,6 +524,7 @@ describe("mock order WhatsApp notification workflow", () => {
     const result = await uploadOrderAttachment(
       id,
       {
+        operation_id: crypto.randomUUID(),
         kind: "fault_photo",
         file_name: "fault.jpg",
         mime_type: "image/jpeg",
@@ -1947,5 +1948,37 @@ describe("mock customer CAS across order views", () => {
     ).rejects.toThrow("设备品牌不能为空");
     expect((await getOrder(id)).customer).toEqual(after.customer);
     expect((await getOrder(id)).order.updated_at).toBe(saved.updated_at);
+  });
+});
+
+describe("mock creation phone ownership", () => {
+  it("rejects foreign backup ownership through creation, selection and reuse without profile writes", async () => {
+    const ownerId = await createMockOrder({
+      customer_name: "Ownership A",
+      customer_phone: "+390000998850 / +390000998851",
+    });
+    const owner = await getOrder(ownerId);
+    const otherId = await createMockOrder({
+      customer_name: "Ownership B",
+      customer_phone: "+390000998852",
+    });
+    const other = await getOrder(otherId);
+    for (const input of [
+      { customer_name: "Conflict", customer_phone: "+390000998853 / +390000998851" },
+      { customer_name: "Conflict", customer_phone: "+390000998851" },
+      { customer_id: other.customer!.id, customer_phone: "+390000998852 / +390000998851" },
+      { customer_name: "Ownership B", customer_phone: "+390000998852 / +390000998851" },
+    ])
+      await expect(createMockOrder(input)).rejects.toMatchObject({
+        status: 409,
+        code: "customer_phone_conflict",
+      });
+    expect((await getOrder(ownerId)).customer).toEqual(owner.customer);
+    expect((await getOrder(otherId)).customer).toEqual(other.customer);
+    await createMockOrder({
+      customer_id: other.customer!.id,
+      customer_phone: "+390000998852 / +390000998854",
+    });
+    expect((await getOrder(otherId)).customer).toEqual(other.customer);
   });
 });

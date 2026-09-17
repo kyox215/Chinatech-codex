@@ -215,6 +215,7 @@ describe("AccountCenterScreen password reset", () => {
     const user = userEvent.setup();
     renderAccountCenter("zh-CN", true);
     const input = await screen.findByLabelText("显示名称");
+    await waitFor(() => expect(input).toHaveValue("QA Owner"));
     await user.clear(input);
     await user.type(input, "Mario Focus Draft");
     input.focus();
@@ -235,6 +236,7 @@ describe("AccountCenterScreen password reset", () => {
     apiMocks.updateAccountProfile.mockRejectedValueOnce(new Error("RAW_PROVIDER_SENTINEL"));
     renderAccountCenter("en");
     const input = await screen.findByLabelText("Display name");
+    await waitFor(() => expect(input).toHaveValue("QA Owner"));
     await user.clear(input);
     await user.type(input, "Mario Payload");
 
@@ -258,6 +260,7 @@ describe("AccountCenterScreen password reset", () => {
       apiMocks.updateAccountProfile.mockRejectedValueOnce(new Error("RAW_PROFILE_SENTINEL"));
       renderAccountCenter(locale);
       const input = await screen.findByLabelText(copy.displayName);
+      await waitFor(() => expect(input).toHaveValue("QA Owner"));
       await userEvent.clear(input);
       await userEvent.type(input, "  Mario Profile  ");
       const button = screen.getByRole("button", { name: copy.saveProfile });

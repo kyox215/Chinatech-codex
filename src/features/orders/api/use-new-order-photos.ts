@@ -90,8 +90,8 @@ export function useNewOrderPhotos(scope: string | null, sessionActive: boolean) 
           return false;
         }
         for (const photo of photosRef.current) {
-          // A dispatched request can have committed even when its response is lost. Never retry it automatically.
-          if (photo.uploadState === "uploaded" || photo.uploadState === "uncertain") continue;
+          // Manual retry reuses the original draft ID; the server replays a committed receipt.
+          if (photo.uploadState === "uploaded") continue;
           if (!current()) return false;
           let data: string;
           try {
@@ -104,6 +104,7 @@ export function useNewOrderPhotos(scope: string | null, sessionActive: boolean) 
           patch(photo.id, "uploading");
           try {
             await uploadOrderAttachment(orderId, {
+              operation_id: photo.id,
               kind: photo.kind,
               file_name: photo.name,
               mime_type: photo.mimeType,
@@ -142,7 +143,12 @@ export function useNewOrderPhotos(scope: string | null, sessionActive: boolean) 
     hasUnsaved: photos.some((photo) => photo.uploadState !== "uploaded"),
     canRetry:
       state !== "uploading" &&
-      photos.some((photo) => photo.uploadState === "pending" || photo.uploadState === "failed"),
+      photos.some(
+        (photo) =>
+          photo.uploadState === "pending" ||
+          photo.uploadState === "failed" ||
+          photo.uploadState === "uncertain",
+      ),
   };
 }
 

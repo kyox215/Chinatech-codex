@@ -56,7 +56,7 @@ export function createAttachmentDraft(
   kind: AttachmentDraftKind = "other",
 ): AttachmentDraft {
   return {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    id: crypto.randomUUID(),
     kind,
     file,
     previewUrl: URL.createObjectURL(file),

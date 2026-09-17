@@ -28,6 +28,8 @@ import type {
   KioskSessionSubmitInput,
 } from "@/lib/repairdesk/types";
 
+const signatureOperationIds = new Map<string, string>();
+
 const mockStoreId = "00000000-0000-0000-0000-000000000001";
 
 interface KioskMockState {
@@ -364,9 +366,13 @@ export async function acceptKioskSession(
 
   if (order && typeof submission.signature_data_url === "string" && submission.signature_data_url) {
     const signature = signatureUploadFromDataUrl(submission.signature_data_url);
+    const signatureIntent = `${session.id}:${session.submission_version}`;
+    const signatureOperationId = signatureOperationIds.get(signatureIntent) ?? crypto.randomUUID();
+    signatureOperationIds.set(signatureIntent, signatureOperationId);
     const result = await uploadOrderAttachment(
       order.id,
       {
+        operation_id: signatureOperationId,
         kind: "signature",
         file_name: `kiosk-signature-${session.id}.png`,
         mime_type: signature.mime_type,
