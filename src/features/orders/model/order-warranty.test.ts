@@ -1,13 +1,34 @@
 import { describe, expect, it } from "vitest";
+import { translateMessage } from "@/shared/i18n/messages";
 
 import {
   formatWarrantyText,
+  localizeWarrantyText,
   normalizeWarrantyPayload,
   parseWarrantyMonths,
   warrantyReasonRequired,
 } from "./order-warranty";
 
 describe("order warranty rules", () => {
+  it.each([
+    ["zh-CN", ["无保修", "3个月", "6个月", "12个月", "两年"]],
+    ["it-IT", ["Nessuna garanzia", "3 mesi", "6 mesi", "12 mesi", "Due anni"]],
+    ["en", ["No warranty", "3 months", "6 months", "12 months", "Two years"]],
+  ] as const)(
+    "localizes all supported durations in %s without changing canonical values",
+    (locale, labels) => {
+      const canonical = ["无保修", "3个月", "6个月", "12个月", "两年"];
+      [0, 3, 6, 12, 24].forEach((months, index) => {
+        const label = localizeWarrantyText(months, (key, values) =>
+          translateMessage(locale, key, values),
+        );
+        expect(label).toBe(labels[index]);
+        expect(formatWarrantyText(months)).toBe(canonical[index]);
+        if (locale !== "zh-CN") expect(label).not.toMatch(/个月|两年|无保修/);
+      });
+    },
+  );
+
   it("parses legacy warranty text into supported months", () => {
     expect(parseWarrantyMonths("6个月")).toBe(6);
     expect(parseWarrantyMonths("90天质保")).toBe(3);

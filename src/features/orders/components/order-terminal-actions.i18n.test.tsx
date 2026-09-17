@@ -42,6 +42,65 @@ afterEach(cleanup);
 
 describe("OrderTerminalActions i18n", () => {
   it.each(locales)(
+    "localizes %s correction warranty fields and submits canonical values",
+    async (locale) => {
+      renderTerminal(locale, terminalDetail());
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: translateMessage(locale, "orders2b2.terminal.correctRecord"),
+        }),
+      );
+      const description = screen.getByLabelText(
+        translateMessage(locale, "orders2b2.terminal.field.warrantyText"),
+      );
+      expect(description).toHaveAttribute("readonly");
+      expect(description).toHaveValue(
+        translateMessage(locale, "orders2b2.warranty.months", { months: 6 }),
+      );
+      const select = screen.getByRole("combobox", {
+        name: translateMessage(locale, "orders2b2.terminal.field.warrantyMonths"),
+      });
+      fireEvent.keyDown(select, { key: "ArrowDown" });
+      const labels = [
+        translateMessage(locale, "orders2b2.warranty.none"),
+        ...[3, 6, 12].map((months) =>
+          translateMessage(locale, "orders2b2.warranty.months", { months }),
+        ),
+        translateMessage(locale, "orders2b2.warranty.twoYears"),
+      ];
+      const options = screen.getAllByRole("option");
+      labels.forEach((label, index) => expect(options[index]).toHaveTextContent(label));
+      if (locale !== "zh-CN")
+        options.forEach((option) => expect(option.textContent).not.toMatch(/个月|两年|无保修/));
+      fireEvent.click(
+        screen.getByRole("option", {
+          name: translateMessage(locale, "orders2b2.warranty.twoYears"),
+        }),
+      );
+      expect(description).toHaveValue(translateMessage(locale, "orders2b2.warranty.twoYears"));
+      fireEvent.change(
+        screen.getByLabelText(translateMessage(locale, "orders2b2.terminal.field.warrantyReason")),
+        { target: { value: "Synthetic correction" } },
+      );
+      fireEvent.change(
+        screen.getByLabelText(translateMessage(locale, "orders2b2.terminal.reason")),
+        { target: { value: "Synthetic correction" } },
+      );
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: translateMessage(locale, "orders2b2.terminal.action.correct"),
+        }),
+      );
+      await waitFor(() => expect(apiMocks.correctTerminalOrder).toHaveBeenCalledOnce());
+      expect(apiMocks.correctTerminalOrder.mock.calls[0]?.[1].changes).toMatchObject({
+        warranty_months: 24,
+        warranty_text: "两年",
+        warranty_change_reason: "Synthetic correction",
+      });
+    },
+  );
+
+  it.each(locales)(
     "localizes the %s terminal lock state and preserves a dynamic permission reason",
     (locale) => {
       const dynamicReason = "动态中文权限原因";

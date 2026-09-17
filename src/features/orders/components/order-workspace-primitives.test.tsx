@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { mockTouchKeyboardDevice } from "@/shared/lib/virtual-keyboard-device.test-utils";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
 import {
   OrderWorkspaceQuoteDisclosure,
   OrderWorkspaceQuoteTextField,
@@ -87,6 +88,62 @@ describe("repair item edit trigger compatibility", () => {
 });
 
 describe("OrderWorkspaceQuoteTextField popup", () => {
+  it.each([
+    ["zh-CN", "保存", "120/120 字"],
+    ["it-IT", "Salva", "120/120 caratteri"],
+    ["en", "Save", "120/120 characters"],
+  ] as const)("bounds pasted text and describes the limit in %s", async (locale, save, count) => {
+    const change = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <LocaleProvider initialLocale={locale}>
+        <OrderWorkspaceQuoteTextField
+          value=""
+          onValueChange={change}
+          ariaLabel="Quote name"
+          maxLength={120}
+        />
+      </LocaleProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: "Quote name" }));
+    const input = screen.getByRole("textbox", { name: "Quote name" });
+    expect(input).toHaveAttribute("maxlength", "120");
+    await user.click(input);
+    await user.paste("a".repeat(121));
+    expect(input).toHaveValue("a".repeat(120));
+    expect(input).toHaveAccessibleDescription(count);
+    expect(screen.getByText(count)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: save }));
+    expect(change).toHaveBeenCalledExactlyOnceWith("a".repeat(120));
+  });
+
+  it("bounds programmatic changes and saved initial values without saving during IME composition", () => {
+    const change = vi.fn();
+    render(
+      <OrderWorkspaceQuoteTextField
+        value={"a".repeat(121)}
+        onValueChange={change}
+        ariaLabel="Quote name"
+        maxLength={120}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Quote name" }));
+    const input = screen.getByRole("textbox", { name: "Quote name" });
+    fireEvent.compositionStart(input);
+    fireEvent.change(input, { target: { value: "中".repeat(121) } });
+    fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+    expect(change).not.toHaveBeenCalled();
+    fireEvent.compositionEnd(input);
+    expect(input).toHaveValue("中".repeat(120));
+    fireEvent.change(input, { target: { value: "b".repeat(121) } });
+    expect(input).toHaveValue("b".repeat(120));
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(change).toHaveBeenCalledExactlyOnceWith("b".repeat(120));
+    fireEvent.click(screen.getByRole("button", { name: "Quote name" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    expect(change).toHaveBeenLastCalledWith("a".repeat(120));
+  });
+
   it("localizes the trigger while editing and preserving the original value", async () => {
     const change = vi.fn();
     const view = render(

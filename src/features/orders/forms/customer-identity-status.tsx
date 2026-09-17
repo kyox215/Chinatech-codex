@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowLeft, Check, Search, UserPlus } from "lucide-react"
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { RequiredFieldMarker } from "./new-order-fields";
 
 export function CustomerIdentitySummary({
   tone,
@@ -79,7 +80,7 @@ export function CustomerIntakeFieldShell({
     <div className="rd-new-order-field grid min-h-[38px] min-w-0 grid-cols-[3rem_minmax(0,1fr)_auto] items-start gap-1.5 rounded-lg border border-[var(--border-panel)] bg-card px-2 py-0 shadow-[var(--shadow-card)]">
       <label className="flex h-[38px] items-center text-[10.5px] font-semibold leading-4 text-muted-foreground lg:h-9 lg:text-xs">
         {label}
-        {required ? <span className="text-destructive"> *</span> : null}
+        {required ? <RequiredFieldMarker /> : null}
       </label>
       <div
         className={cn(

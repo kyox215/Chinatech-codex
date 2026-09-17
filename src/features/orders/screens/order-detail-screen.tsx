@@ -240,7 +240,12 @@ import {
   isDeviceCustodyReasonValid,
   isDeviceCustodyStatus,
 } from "@/features/orders/model/device-custody";
-import { warrantyReasonRequired } from "@/features/orders/model/order-warranty";
+import {
+  localizeWarrantyText,
+  normalizeWarrantyMonths,
+  parseWarrantyMonths,
+  warrantyReasonRequired,
+} from "@/features/orders/model/order-warranty";
 import {
   findCurrentOrderStatusChangedAt,
   formatOrderDateTime,
@@ -4612,7 +4617,20 @@ function MobileOrderDetailView({
                   <div className="order-detail-mobile-fields">
                     {(
                       [
-                        ["warranty", t("orders2b2.overview.warranty"), order.warranty_text || "-"],
+                        [
+                          "warranty",
+                          t("orders2b2.overview.warranty"),
+                          locale === "zh-CN"
+                            ? order.warranty_text || "-"
+                            : typeof order.warranty_months === "number"
+                              ? localizeWarrantyText(
+                                  normalizeWarrantyMonths(order.warranty_months),
+                                  t,
+                                )
+                              : order.warranty_text
+                                ? localizeWarrantyText(parseWarrantyMonths(order.warranty_text), t)
+                                : "-",
+                        ],
                         ["accessories", t("orders2b2.overview.accessories"), accessoryNotes || "-"],
                       ] as const
                     ).map(([field, label, value]) => (

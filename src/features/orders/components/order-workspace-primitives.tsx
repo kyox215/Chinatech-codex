@@ -482,6 +482,7 @@ function OrderWorkspaceQuotePopup({
   onValueChange,
   ariaLabel,
   placeholder,
+  maxLength,
   disabled,
   invalid,
   className,
@@ -492,6 +493,7 @@ function OrderWorkspaceQuotePopup({
   onValueChange?: (value: string) => void;
   ariaLabel?: string;
   placeholder?: string;
+  maxLength?: number;
   disabled?: boolean;
   invalid?: boolean;
   className?: string;
@@ -502,14 +504,21 @@ function OrderWorkspaceQuotePopup({
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const openingValue = useRef("");
+  const composing = useRef(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const editable = Boolean(onValueChange);
   const title = ariaLabel || t("orders2b2.overview.quoteItems");
+  const lengthHintId = `${id}-length`;
+  const constrainDraft = (text: string) => {
+    const singleLine = text.replace(/[\r\n]/g, "");
+    if (maxLength === undefined || singleLine.length <= maxLength) return singleLine;
+    return singleLine.slice(0, maxLength).replace(/[\uD800-\uDBFF]$/, "");
+  };
   const close = () => setOpen(false);
   const save = () => {
-    if (disabled || !onValueChange) return;
-    const nextValue = draft.replace(/[\r\n]/g, "");
+    if (disabled || !onValueChange || composing.current) return;
+    const nextValue = constrainDraft(draft);
     if (nextValue !== openingValue.current) onValueChange(nextValue);
     close();
   };
@@ -520,7 +529,8 @@ function OrderWorkspaceQuotePopup({
         if (next && disabled) return;
         if (next) {
           openingValue.current = typeof value === "string" ? value : "";
-          setDraft(openingValue.current);
+          composing.current = false;
+          setDraft(constrainDraft(openingValue.current));
         }
         setOpen(next);
       }}
@@ -587,9 +597,22 @@ function OrderWorkspaceQuotePopup({
               value={draft}
               aria-label={title}
               placeholder={placeholder}
+              maxLength={maxLength}
               disabled={disabled}
               aria-invalid={invalid || undefined}
-              onChange={(event) => setDraft(event.target.value.replace(/[\r\n]/g, ""))}
+              aria-describedby={maxLength === undefined ? undefined : lengthHintId}
+              onChange={(event) =>
+                setDraft(
+                  composing.current ? event.target.value : constrainDraft(event.target.value),
+                )
+              }
+              onCompositionStart={() => {
+                composing.current = true;
+              }}
+              onCompositionEnd={(event) => {
+                composing.current = false;
+                setDraft(constrainDraft(event.currentTarget.value));
+              }}
               onKeyDown={(event) => {
                 if (event.key !== "Enter" || event.nativeEvent.isComposing || event.keyCode === 229)
                   return;
@@ -604,6 +627,11 @@ function OrderWorkspaceQuotePopup({
               {displayValue ?? value}
             </div>
           )}
+          {editable && maxLength !== undefined ? (
+            <p id={lengthHintId} className="text-right text-xs tabular-nums text-muted-foreground">
+              {t("orders.notes.characterCount", { count: `${draft.length}/${maxLength}` })}
+            </p>
+          ) : null}
         </DialogBody>
         <DialogFooter className={componentOverlay.denseEditorFooter}>
           <Button
@@ -634,6 +662,7 @@ export function OrderWorkspaceQuoteTextField({
   onValueChange: (value: string) => void;
   ariaLabel: string;
   placeholder?: string;
+  maxLength?: number;
   disabled?: boolean;
   invalid?: boolean;
   readOnly?: boolean;

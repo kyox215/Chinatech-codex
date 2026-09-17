@@ -11,6 +11,7 @@ import {
 } from "@/features/orders/model/new-order-form";
 import type { OrderWorkflowStatus } from "@/lib/repairdesk/api";
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
+import { translateMessage } from "@/shared/i18n/messages";
 
 import { NewOrderQuotationSection } from "./new-order-quotation-section";
 
@@ -52,6 +53,29 @@ function ScreenQuoteHarness() {
 }
 
 describe("NewOrderQuotationSection", () => {
+  it.each(["zh-CN", "it-IT", "en"] as const)(
+    "localizes the collapsed warranty summary in %s",
+    (locale) => {
+      const { container } = render(
+        <LocaleProvider initialLocale={locale}>
+          <NewOrderQuotationSection
+            form={{ ...initialNewOrderForm, warrantyMonths: 24, warrantyText: "两年" }}
+            setForm={vi.fn()}
+            total={0}
+            operatorName="Synthetic operator"
+            onPatchFault={vi.fn()}
+            onAddCustomFault={vi.fn()}
+            createStatuses={[]}
+            part="settings"
+          />
+        </LocaleProvider>,
+      );
+      const summary = container.querySelector('[data-new-order-section="settings"] > p');
+      expect(summary).toHaveTextContent(translateMessage(locale, "orders2b2.warranty.twoYears"));
+      if (locale !== "zh-CN") expect(summary?.textContent).not.toMatch(/个月|两年|无保修/);
+    },
+  );
+
   it.each(["zh-CN", "it-IT", "en"] as const)(
     "renders a selected catalog name in %s while leaving the form unchanged",
     (locale) => {
@@ -196,6 +220,7 @@ describe("NewOrderQuotationSection", () => {
     expect(screen.queryByDisplayValue("屏幕 - 原装")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "自定义项目" }));
     const custom = screen.getByRole("textbox", { name: "自定义项目" });
+    expect(custom).toHaveAttribute("maxlength", "120");
     fireEvent.change(custom, { target: { value: "保养项目" } });
     expect(onPatchFault).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "保存" }));

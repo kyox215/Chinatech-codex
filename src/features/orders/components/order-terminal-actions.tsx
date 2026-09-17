@@ -55,6 +55,7 @@ import { cn } from "@/lib/utils";
 import { componentAction } from "@/lib/component-patterns";
 import {
   formatWarrantyText,
+  localizeWarrantyText,
   ORDER_WARRANTY_OPTIONS,
   parseWarrantyMonths,
 } from "@/features/orders/model/order-warranty";
@@ -525,7 +526,7 @@ function TerminalActionForm({
               <SelectContent>
                 {ORDER_WARRANTY_OPTIONS.map((option) => (
                   <SelectItem key={option.months} value={String(option.months)}>
-                    {option.label}
+                    {localizeWarrantyText(option.months, t)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -537,7 +538,7 @@ function TerminalActionForm({
           >
             <Input
               id="terminal-correction-warranty-text"
-              value={correction.warranty_text}
+              value={localizeWarrantyText(Number(correction.warranty_months), t)}
               readOnly
             />
           </Field>

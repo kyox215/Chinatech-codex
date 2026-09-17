@@ -1,3 +1,7 @@
+import type { MessageKey, MessageValues } from "@/shared/i18n/messages";
+
+type Translate = (key: MessageKey, values?: MessageValues) => string;
+
 export const DEFAULT_ORDER_WARRANTY_MONTHS = 6;
 
 export const ORDER_WARRANTY_OPTIONS = [
@@ -20,6 +24,12 @@ export function formatWarrantyText(months: number) {
   if (months === 0) return "无保修";
   if (months === 24) return "两年";
   return `${months}个月`;
+}
+
+export function localizeWarrantyText(months: number, t: Translate) {
+  if (months === 0) return t("orders2b2.warranty.none");
+  if (months === 24) return t("orders2b2.warranty.twoYears");
+  return t("orders2b2.warranty.months", { months });
 }
 
 export function parseWarrantyMonths(

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import {
   formatWarrantyText,
+  localizeWarrantyText,
   normalizeWarrantyMonths,
   ORDER_WARRANTY_OPTIONS,
   parseWarrantyMonths,
@@ -35,11 +36,12 @@ export function WarrantyTag({
   text?: string | null;
   className?: string;
 }) {
+  const { t } = useLocale();
   const label =
     typeof months === "number"
-      ? formatWarrantyText(normalizeWarrantyMonths(months))
+      ? localizeWarrantyText(normalizeWarrantyMonths(months), t)
       : text
-        ? formatWarrantyText(parseWarrantyMonths(text))
+        ? localizeWarrantyText(parseWarrantyMonths(text), t)
         : "—";
   return (
     <span
@@ -77,7 +79,7 @@ export function WarrantyPicker({
   contentClassName?: string;
   reasonFieldTarget?: string;
 }) {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
   const quiet = appearance === "quiet";
   const normalizedDefault = normalizeWarrantyMonths(defaultMonths);
   const months =
@@ -127,8 +129,10 @@ export function WarrantyPicker({
                 value={String(option.months)}
                 className={cn(compact && "text-xs")}
               >
-                {option.label}
-                {isDefault ? t("orders2b2.warranty.default") : ""}
+                {localizeWarrantyText(option.months, t)}
+                {isDefault
+                  ? `${locale === "zh-CN" ? "" : " "}${t("orders2b2.warranty.default")}`
+                  : ""}
               </SelectItem>
             );
           })}

@@ -84,7 +84,11 @@ import {
   initialNewOrderForm,
   type NewOrderFormState,
 } from "@/features/orders/model/new-order-form";
-import { formatWarrantyText, warrantyReasonRequired } from "@/features/orders/model/order-warranty";
+import {
+  formatWarrantyText,
+  localizeWarrantyText,
+  warrantyReasonRequired,
+} from "@/features/orders/model/order-warranty";
 import {
   deviceCustodyAllowsStatus,
   normalizeUnlockForCustody,
@@ -1217,7 +1221,7 @@ export function NewOrderScreen({
                       settings={(draft, setDraft) =>
                         quotationSectionNode("settings", draft, setDraft, true)
                       }
-                      settingsSummary={`${t(form.type === "quick_repair" ? "orders2b1.new.quickRepair" : "orders2b1.new.dropoffRepair")} · ${selectedCreateStatus ? localizeOrderWorkflowStatusLabel(selectedCreateStatus, t) : form.status} · ${form.warrantyText}`}
+                      settingsSummary={`${t(form.type === "quick_repair" ? "orders2b1.new.quickRepair" : "orders2b1.new.dropoffRepair")} · ${selectedCreateStatus ? localizeOrderWorkflowStatusLabel(selectedCreateStatus, t) : form.status} · ${localizeWarrantyText(form.warrantyMonths, t)}`}
                     />
                   ) : (
                     <div

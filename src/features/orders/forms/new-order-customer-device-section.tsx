@@ -15,6 +15,7 @@ import {
   newOrderInvalidClass,
   useNewOrderFieldError,
 } from "./new-order-validation";
+import { RequiredFieldMarker } from "./new-order-fields";
 import { Button } from "@/components/ui/button";
 import { AccessoryNotesPicker } from "@/features/orders/components/accessory-notes-picker";
 import { Label } from "@/components/ui/label";
@@ -433,10 +434,11 @@ export function NewOrderDeviceCustodySelector({
       aria-required="true"
     >
       <legend className="sr-only text-[10.5px] font-semibold leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-        {t("orders2b1.new.custodyRequired")} <span className="text-destructive">*</span>
+        {t("orders2b1.new.custodyRequired")}
       </legend>
       <span aria-hidden="true" className="text-[11px] text-muted-foreground">
-        {t("orders2b1.new.custody")} <span className="text-destructive">*</span>
+        {t("orders2b1.new.custody")}
+        <RequiredFieldMarker />
       </span>
       <div className="grid min-w-0 grid-cols-2 gap-1.5">
         {options.map((option) => {
@@ -524,7 +526,7 @@ function DensePillField({
         className="whitespace-normal text-[10.5px] font-semibold leading-4 text-muted-foreground lg:text-xs lg:leading-4"
       >
         {label}
-        {required ? <span className="text-destructive"> *</span> : null}
+        {required ? <RequiredFieldMarker /> : null}
       </Label>
       <div
         className={cn(

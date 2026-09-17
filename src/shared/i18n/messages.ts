@@ -1,5 +1,11 @@
 import type { AppLocale } from "@/shared/i18n/locales";
 
+const warrantyDurationTranslations = {
+  无保修: ["Nessuna garanzia", "No warranty"],
+  两年: ["Due anni", "Two years"],
+  "{months}个月": ["{months} mesi", "{months} months"],
+} as const;
+
 const zhCN = {
   "inventorySales.table.device": "商品",
   "inventorySales.table.specification": "规格",
@@ -2874,6 +2880,9 @@ const zhCN = {
   "orders2b2.pdf.download": "下载 PDF",
   "orders2b2.pdf.backup": "下载备用文件",
   "orders2b2.warranty.default": "（默认）",
+  "orders2b2.warranty.none": "无保修",
+  "orders2b2.warranty.twoYears": "两年",
+  "orders2b2.warranty.months": "{months}个月",
   "orders2b2.warranty.reasonPlaceholder": "请输入非默认质保原因",
   "orders2b2.warranty.help": "非默认质保会记录原因、员工和时间。",
   "orders2b2.parts.title": "配件批次联动",
@@ -7300,6 +7309,9 @@ const itIT: Record<MessageKey, string> = {
   "orders2b2.pdf.download": "Scarica PDF",
   "orders2b2.pdf.backup": "Scarica file di riserva",
   "orders2b2.warranty.default": "(predefinita)",
+  "orders2b2.warranty.none": warrantyDurationTranslations.无保修[0],
+  "orders2b2.warranty.twoYears": warrantyDurationTranslations.两年[0],
+  "orders2b2.warranty.months": warrantyDurationTranslations["{months}个月"][0],
   "orders2b2.warranty.reasonPlaceholder": "Inserisci il motivo della garanzia non standard",
   "orders2b2.warranty.help": "Una garanzia non standard registra motivo, addetto e data.",
   "orders2b2.parts.title": "Collegamento lotti ricambi",
@@ -11874,6 +11886,9 @@ const en: Record<MessageKey, string> = {
   "orders2b2.pdf.download": "Download PDF",
   "orders2b2.pdf.backup": "Download backup file",
   "orders2b2.warranty.default": "(default)",
+  "orders2b2.warranty.none": warrantyDurationTranslations.无保修[1],
+  "orders2b2.warranty.twoYears": warrantyDurationTranslations.两年[1],
+  "orders2b2.warranty.months": warrantyDurationTranslations["{months}个月"][1],
   "orders2b2.warranty.reasonPlaceholder": "Enter a reason for the non-default warranty",
   "orders2b2.warranty.help": "A non-default warranty records the reason, employee, and time.",
   "orders2b2.parts.title": "Parts-lot allocation",
@@ -14401,9 +14416,7 @@ const settingsBusinessTranslations = {
     "Repair costs, currencies, procurement, and historical backfill",
   ],
   "无保修（0 个月）": ["Nessuna garanzia (0 mesi)", "No warranty (0 months)"],
-  无保修: ["Nessuna garanzia", "No warranty"],
-  两年: ["Due anni", "Two years"],
-  "{months}个月": ["{months} mesi", "{months} months"],
+  ...warrantyDurationTranslations,
   "{months} 个月": ["{months} mesi", "{months} months"],
   未填写: ["Non compilato", "Not provided"],
   输出配置: ["Configurazione output", "Output configuration"],

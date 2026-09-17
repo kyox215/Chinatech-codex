@@ -30,6 +30,7 @@ import { WarrantyPicker } from "@/features/orders/components/warranty-picker";
 import { FormItem } from "@/features/orders/forms/new-order-fields";
 import type { NewOrderFormState } from "@/features/orders/model/new-order-form";
 import { deviceCustodyAllowsStatus } from "@/features/orders/model/device-custody";
+import { localizeWarrantyText } from "@/features/orders/model/order-warranty";
 import {
   localizeOrderWorkflowStatusLabel,
   localizeRepairServiceItemName,
@@ -198,6 +199,7 @@ export function NewOrderQuotationSection({
                             className="border-[var(--border-panel)] bg-[var(--surface-panel-muted)]/60 px-2 focus-visible:ring-1"
                             placeholder={t("orders2b1.new.customItem")}
                             ariaLabel={t("orders2b1.new.customItem")}
+                            maxLength={120}
                           />
                         ) : (
                           <div
@@ -271,7 +273,7 @@ export function NewOrderQuotationSection({
                 <ChevronDown className={cn("size-3.5", settingsOpen && "rotate-180")} />
               </Button>
               <p className="text-[11px] leading-4 text-muted-foreground">
-                {form.warrantyText} ·{" "}
+                {localizeWarrantyText(form.warrantyMonths, t)} ·{" "}
                 {t(
                   form.type === "quick_repair"
                     ? "orders2b1.new.quickRepair"

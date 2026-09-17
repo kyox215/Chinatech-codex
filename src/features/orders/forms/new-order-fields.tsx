@@ -3,6 +3,18 @@ import { Label } from "@/components/ui/label";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
+export function RequiredFieldMarker() {
+  return (
+    <span
+      aria-hidden="true"
+      data-required-field-marker="true"
+      className="ml-0.5 inline-block shrink-0 align-middle text-sm font-bold leading-none text-destructive"
+    >
+      *
+    </span>
+  );
+}
+
 export function SectionHeading({
   title,
   icon: Icon,
@@ -55,7 +67,8 @@ export function FormItem({
           mobileLabel === "sr-only" && "sr-only sm:not-sr-only",
         )}
       >
-        {label} {required && <span className="text-destructive">*</span>}
+        {label}
+        {required && <RequiredFieldMarker />}
       </Label>
       {children}
     </div>
