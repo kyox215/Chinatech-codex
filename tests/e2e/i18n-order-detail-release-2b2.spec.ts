@@ -320,6 +320,9 @@ test("heavy it-IT 768px uploads exact front, back and other photos through the r
       return {
         id: "ord_1",
         input: {
+          operation_id: expect.stringMatching(
+            /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+          ),
           kind: photo.kind,
           file_name: photo.fileName,
           mime_type: "image/jpeg",
@@ -329,6 +332,9 @@ test("heavy it-IT 768px uploads exact front, back and other photos through the r
       };
     }),
   );
+  expect(
+    new Set(uploadBodies.map((body) => (body.input as Record<string, unknown>).operation_id)).size,
+  ).toBe(photoCases.length);
   await expect(
     page.getByText(translateMessage("it-IT", "orders2b2.success.attachment")).last(),
   ).toBeVisible();
