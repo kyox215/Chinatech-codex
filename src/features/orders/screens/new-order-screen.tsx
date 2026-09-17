@@ -198,11 +198,6 @@ export function NewOrderScreen({
       committedScope.userId !== onboardingStatus?.userId)
   )
     sessionInvalidatedRef.current = true;
-  const offlineDraft = useNewOrderOfflineAutosave({
-    form,
-    scope: initialScope,
-    enabled: !createdOrderId && !sessionInvalidatedRef.current,
-  });
   const storeSettingsQuery = useQuery({
     ...storeSettingsQueryOptions(activeStoreId),
     enabled: Boolean(activeStoreId),
@@ -223,6 +218,25 @@ export function NewOrderScreen({
   );
   const defaultCreateStatus =
     createStatuses.find((status) => status.is_default_create_status) ?? createStatuses[0];
+  const defaultForm = useMemo(
+    () => ({
+      ...initialNewOrderForm,
+      status: createStatuses.some((status) => status.code === initialNewOrderForm.status)
+        ? initialNewOrderForm.status
+        : (defaultCreateStatus?.code ?? initialNewOrderForm.status),
+      warrantyMonths: defaultWarrantyMonths,
+      warrantyText: storeSettings
+        ? formatWarrantyText(defaultWarrantyMonths)
+        : initialNewOrderForm.warrantyText,
+    }),
+    [createStatuses, defaultCreateStatus, defaultWarrantyMonths, storeSettings],
+  );
+  const offlineDraft = useNewOrderOfflineAutosave({
+    form,
+    defaultForm,
+    scope: initialScope,
+    enabled: !createdOrderId && !sessionInvalidatedRef.current,
+  });
   const selectedCreateStatus = createStatuses.find((status) => status.code === form.status);
   const simpleModeEnabled = isNewOrderSimpleModeEnabled();
   const effectiveEntryMode =
@@ -745,6 +759,7 @@ export function NewOrderScreen({
     lastSavedAt: offlineDraft.lastSavedAt,
     errorMessage: offlineDraft.errorMessage,
     hasSensitiveUnlockDraft: offlineDraft.hasSensitiveUnlockDraft,
+    hasSessionOnlyDraft: offlineDraft.hasSessionOnlyDraft,
     scopeReady: Boolean(offlineScope),
   };
   const createSubmitBlocked =
@@ -765,6 +780,7 @@ export function NewOrderScreen({
   const guardSnapshotRef = useRef({
     surface,
     offlineDraft,
+    defaultForm,
     createPending: create.isPending,
     createRecoveryState: createRecovery.state,
     photos: photoDraft,
@@ -773,6 +789,7 @@ export function NewOrderScreen({
   guardSnapshotRef.current = {
     surface,
     offlineDraft,
+    defaultForm,
     createPending: create.isPending,
     createRecoveryState: createRecovery.state,
     photos: photoDraft,
@@ -789,7 +806,6 @@ export function NewOrderScreen({
           if (snapshot.createdOrderId) return snapshot.photos.hasUnsaved;
           return (
             snapshot.photos.hasUnsaved ||
-            Boolean(snapshot.offlineDraft.draftPrompt) ||
             snapshot.offlineDraft.isCurrentDraftDirty() ||
             snapshot.createPending ||
             snapshot.createRecoveryState !== "idle"
@@ -811,6 +827,7 @@ export function NewOrderScreen({
             !snapshot.photos.hasUnsaved &&
             !snapshot.offlineDraft.draftPrompt &&
             !snapshot.offlineDraft.hasSensitiveUnlockDraft &&
+            !snapshot.offlineDraft.hasSessionOnlyDraft &&
             !snapshot.createPending &&
             snapshot.createRecoveryState === "idle" &&
             snapshot.offlineDraft.state !== "unavailable"
@@ -828,6 +845,9 @@ export function NewOrderScreen({
           if (snapshot.offlineDraft.hasSensitiveUnlockDraft) {
             return t("orders2b1.new.unlockDraftWarning");
           }
+          if (snapshot.offlineDraft.hasSessionOnlyDraft) {
+            return t("orders2b1.new.sessionOnlyDraftWarning");
+          }
           if (snapshot.offlineDraft.state === "unavailable") {
             return t("orders2b1.new.offline.unavailable");
           }
@@ -840,7 +860,8 @@ export function NewOrderScreen({
             snapshot.createPending ||
             snapshot.createRecoveryState !== "idle" ||
             snapshot.offlineDraft.draftPrompt ||
-            snapshot.offlineDraft.hasSensitiveUnlockDraft
+            snapshot.offlineDraft.hasSensitiveUnlockDraft ||
+            snapshot.offlineDraft.hasSessionOnlyDraft
           ) {
             return { status: "blocked" };
           }
@@ -862,7 +883,7 @@ export function NewOrderScreen({
           // The guard reads isDirty again as soon as this promise resolves.
           // Publish the reset before it decides whether the requested close may run.
           flushSync(() => {
-            setForm(initialNewOrderForm);
+            setForm(snapshot.defaultForm);
             setHistoryDevices([]);
           });
           return { status: "resolved" };
@@ -1532,6 +1553,7 @@ type NewOrderOfflineStatusSummary = {
   lastSavedAt: string | null;
   errorMessage: string | null;
   hasSensitiveUnlockDraft: boolean;
+  hasSessionOnlyDraft: boolean;
   scopeReady: boolean;
 };
 
@@ -1982,7 +2004,7 @@ function NewOrderOfflineStatusLine({
     ? t("orders.newFlow.createdPhotos")
     : getNewOrderOfflineStatusCopy(status, locale, t);
   const isError = status.state === "error" || status.state === "unavailable";
-  if (!copy && !status.hasSensitiveUnlockDraft) return null;
+  if (!copy && !status.hasSensitiveUnlockDraft && !status.hasSessionOnlyDraft) return null;
 
   return (
     <div
@@ -2008,9 +2030,13 @@ function NewOrderOfflineStatusLine({
       />
       <span className="min-w-0 flex-1">
         <span className="line-clamp-2">{copy}</span>
-        {status.hasSensitiveUnlockDraft && !status.created ? (
+        {(status.hasSensitiveUnlockDraft || status.hasSessionOnlyDraft) && !status.created ? (
           <span className="mt-0.5 block text-[9px] leading-3 lg:text-xs lg:leading-4">
-            {t("orders2b1.new.unlockDraftWarning")}
+            {t(
+              status.hasSessionOnlyDraft
+                ? "orders2b1.new.sessionOnlyDraftWarning"
+                : "orders2b1.new.unlockDraftWarning",
+            )}
           </span>
         ) : null}
       </span>

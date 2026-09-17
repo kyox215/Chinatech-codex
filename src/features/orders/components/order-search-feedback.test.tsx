@@ -24,6 +24,21 @@ const baseProps = {
 };
 
 describe("OrderSearchFeedback", () => {
+  it.each([
+    ["active", "Current queue"],
+    ["archive", "Archived"],
+    ["all", "All"],
+  ] as const)("names the selected %s scope without changing it", (view, scope) => {
+    const { container } = render(
+      <LocaleProvider initialLocale="en">
+        <OrderSearchFeedback {...baseProps} view={view} />
+      </LocaleProvider>,
+    );
+    expect(container.querySelector('[data-order-search-feedback="true"]')).toHaveTextContent(
+      `${scope}“Xiaomi”`,
+    );
+  });
+
   it("announces debounce and retained-result loading states", () => {
     const { rerender } = render(
       <OrderSearchFeedback {...baseProps} draftValue="Xiaomi 14" isDebouncing />,

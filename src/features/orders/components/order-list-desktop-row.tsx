@@ -7,7 +7,6 @@ import {
   type PointerEvent as ReactPointerEvent,
   type SyntheticEvent,
 } from "react";
-import { motion } from "framer-motion";
 import { ChevronRight, Clock, MoreHorizontal, PackageSearch, Printer } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -32,7 +31,6 @@ import {
   deriveOrderFinancialState,
   isOrderCancelledForPayment,
 } from "@/features/orders/model/order-payment-state";
-import { fadeUp } from "@/lib/motion";
 import { brandGradientStyle } from "@/lib/ui-patterns";
 import type { OrderListItem, OrderWorkflow } from "@/lib/repairdesk/api";
 import { cn } from "@/lib/utils";
@@ -139,12 +137,11 @@ export function DesktopOrderQueueRow({
   useEffect(() => clearHoverTimer, []);
 
   return (
-    <motion.div
+    <div
       data-order-row="true"
       data-order-id={order.id}
       data-order-row-layout={layout}
       data-selected={checked ? "true" : "false"}
-      variants={fadeUp}
       role="button"
       aria-label={t("orders.viewDetails", { id: order.public_no })}
       tabIndex={0}
@@ -166,6 +163,7 @@ export function DesktopOrderQueueRow({
       className={cn(
         orderQueueDesktopGrid,
         "group relative min-h-[58px] cursor-pointer overflow-hidden rounded-md border border-border/45 bg-card/80 text-xs shadow-[0_1px_1px_rgba(15,23,42,0.04)] transition-colors hover:border-primary/25 hover:bg-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+        layout === "row" && "order-queue-render-row",
         checked && "border-primary/35 bg-primary/10",
       )}
     >
@@ -403,7 +401,7 @@ export function DesktopOrderQueueRow({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-    </motion.div>
+    </div>
   );
 }
 

@@ -169,6 +169,7 @@ import {
 import { OrderIdentityEditor } from "@/features/orders/components/order-identity-editor";
 import {
   OrderDetailFieldEditor,
+  getOrderDetailFieldReadOnlyLabel,
   type OrderDetailField,
 } from "@/features/orders/components/order-detail-field-editor";
 import { OrderSecondaryActions } from "@/features/orders/components/order-secondary-actions";
@@ -2149,7 +2150,9 @@ export function OrderDetailScreen({
                       setDesktopFaultEditing(true);
                     }}
                   >
-                    {t("orders.faultEditor.title")}
+                    {data.capabilities?.canEditIntake
+                      ? t("orders.faultEditor.title")
+                      : t("orders2b2.field.viewOnly", { field: t("orders.notes.label") })}
                   </Button>
                 ) : null}
                 {canOpenDiagnosisQuote ? (
@@ -4145,6 +4148,13 @@ function MobileOrderDetailView({
   const isVoided = order.record_state === "voided" || Boolean(order.deleted_at);
   const custodyStatus = deviceCustodyStatusFromOrder(order);
   const events = data.events ?? [];
+  const fieldReadOnlyLabel = (field: OrderDetailField) =>
+    getOrderDetailFieldReadOnlyLabel(
+      field,
+      Boolean(data.capabilities?.canEditIntake) && !isVoided,
+      Boolean(data.capabilities?.canEditRepair) && !isVoided,
+      t,
+    );
   const workflowStatus = cancelled ? "closed" : getOrderWorkflowStatus(order);
   const currentStageIndex = getWorkflowProgressValue(workflowStatus);
   const next = cancelled
@@ -4638,6 +4648,8 @@ function MobileOrderDetailView({
                         key={field}
                         type="button"
                         data-order-field-trigger={field}
+                        aria-label={fieldReadOnlyLabel(field)}
+                        title={fieldReadOnlyLabel(field)}
                         onClick={(event) => onEditField(field, event.currentTarget)}
                         className="order-detail-mobile-field"
                       >
@@ -4651,6 +4663,8 @@ function MobileOrderDetailView({
                   <button
                     type="button"
                     data-order-field-trigger="notes"
+                    aria-label={fieldReadOnlyLabel("notes")}
+                    title={fieldReadOnlyLabel("notes")}
                     onClick={(event) => onEditField("notes", event.currentTarget)}
                     className="order-detail-mobile-field"
                   >
@@ -4664,6 +4678,8 @@ function MobileOrderDetailView({
                 <button
                   type="button"
                   data-order-field-trigger="internal_tag"
+                  aria-label={fieldReadOnlyLabel("internal_tag")}
+                  title={fieldReadOnlyLabel("internal_tag")}
                   onClick={(event) => onEditField("internal_tag", event.currentTarget)}
                   className="order-detail-mobile-field"
                 >
@@ -4683,7 +4699,11 @@ function MobileOrderDetailView({
                   type="button"
                   data-order-detail-issue-summary="true"
                   className="block w-full min-w-0 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  aria-label={t("orders.faultEditor.title")}
+                  aria-label={
+                    data.capabilities?.canEditIntake && !isVoided
+                      ? t("orders.faultEditor.title")
+                      : t("orders2b2.field.viewOnly", { field: t("orders.notes.label") })
+                  }
                   onClick={(event) => {
                     mobileFaultTriggerRef.current = event.currentTarget;
                     setFaultEditing(true);
@@ -4706,6 +4726,8 @@ function MobileOrderDetailView({
                 <button
                   type="button"
                   data-order-field-trigger="diagnosis"
+                  aria-label={fieldReadOnlyLabel("diagnosis")}
+                  title={fieldReadOnlyLabel("diagnosis")}
                   onClick={(event) => onEditField("diagnosis", event.currentTarget)}
                   className="min-h-11 w-full text-left focus-visible:ring-2 focus-visible:ring-ring"
                 >
@@ -4934,6 +4956,7 @@ function MobileOrderDetailView({
                   <OrderWorkspaceMoneyStrip
                     total={order.quotation_amount}
                     deposit={order.deposit_amount}
+                    received={order.deposit_amount + paidAmount}
                     balance={order.balance_amount}
                     cancelled={cancelled}
                     appearance="workbench-summary"
@@ -4982,7 +5005,7 @@ function MobileOrderDetailView({
                           key={`${item.name}-${index}`}
                           className="flex min-w-0 items-center gap-1 text-[11px] leading-4 lg:text-xs"
                         >
-                          <span className="min-w-0 flex-1 truncate text-foreground">
+                          <span className="min-w-0 flex-1 break-words text-foreground">
                             {localizeRepairServiceItemName(item, locale) ||
                               t("orders2b2.mobile.unnamedItem")}
                           </span>
@@ -5061,6 +5084,7 @@ function MobileOrderDetailView({
                 <MobilePaymentSummary
                   total={order.quotation_amount}
                   deposit={order.deposit_amount}
+                  received={order.deposit_amount + paidAmount}
                   balance={order.balance_amount}
                   cancelled={cancelled}
                   className="-mx-2 -mb-2 mt-2 border-t border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2"
@@ -6581,12 +6605,14 @@ function getStatusActionHint(
 function MobilePaymentSummary({
   total,
   deposit,
+  received,
   balance,
   cancelled = false,
   className,
 }: {
   total: number;
   deposit: number;
+  received: number;
   balance: number;
   cancelled?: boolean;
   className?: string;
@@ -6599,9 +6625,9 @@ function MobilePaymentSummary({
       <div className="grid min-w-0 grid-cols-3 gap-2">
         <MobilePaymentTile label={t("orders2b2.finance.total")} amount={total} />
         <MobilePaymentTile
-          label={t("orders2b2.finance.depositPaid")}
-          amount={deposit}
-          valueClassName={deposit > 0 ? "text-status-success-foreground" : undefined}
+          label={t("orders2b1.quote.received")}
+          amount={received}
+          valueClassName={received > 0 ? "text-status-success-foreground" : undefined}
         />
         <MobilePaymentTile
           label={cancelled ? t("orders2b2.finance.cancelBalance") : t("orders2b2.finance.due")}
@@ -6615,6 +6641,9 @@ function MobilePaymentSummary({
           }
         />
       </div>
+      <p className="mt-1 text-[10px] leading-4 text-muted-foreground lg:text-[11px]">
+        {t("orders2b2.finance.depositPaid")} <MoneyText amount={deposit} />
+      </p>
       {cancelled ? (
         <p className="text-[10px] leading-4 text-muted-foreground lg:text-[11px] lg:leading-4">
           {t("orders2b2.finance.cancelledHelp")}

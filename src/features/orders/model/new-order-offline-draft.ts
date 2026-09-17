@@ -165,6 +165,7 @@ export function restoreNewOrderFormFromOfflineDraft(
       brand: readString(payload.deviceBrand) ?? "",
       model: readString(payload.deviceModel) ?? "",
       imei: readString(payload.imei) ?? "",
+      deviceNotes: readString(payload.deviceNotes) ?? "",
       issueDescription: readString(payload.issueDescription) ?? "",
       deviceCustodyStatus: restoredCustody,
       accessoryNotes: readString(payload.accessoryNotes) ?? "",
@@ -185,22 +186,18 @@ export function restoreNewOrderFormFromOfflineDraft(
   };
 }
 
-export function isNewOrderFormWorthOfflineAutosave(form: NewOrderFormState): boolean {
-  return Boolean(
-    form.deviceCustodyStatus !== initialNewOrderForm.deviceCustodyStatus ||
-    form.customerName.trim() ||
-    form.customerPhone.trim() ||
-    form.brand.trim() ||
-    form.model.trim() ||
-    form.imei.trim() ||
-    form.issueDescription.trim() ||
-    form.accessoryNotes.trim() ||
-    form.warrantyChangeReason.trim() ||
-    normalizeMoneyNumber(form.deposit) > 0 ||
-    form.faults.some(
-      (item) => item.name.trim() || normalizeMoneyNumber(item.price) > 0 || item.note?.trim(),
-    ),
+export function isNewOrderFormWorthOfflineAutosave(
+  form: NewOrderFormState,
+  defaultForm: NewOrderFormState = initialNewOrderForm,
+): boolean {
+  return (
+    getNewOrderOfflineDraftFingerprint({ ...form, deviceUnlock: { method: "none" } }) !==
+    getNewOrderOfflineDraftFingerprint({ ...defaultForm, deviceUnlock: { method: "none" } })
   );
+}
+
+export function hasNewOrderSessionOnlyDraft(form: NewOrderFormState): boolean {
+  return form.deviceUnlock.method !== "none" || Boolean(form.internalTag.trim());
 }
 
 export function getNewOrderOfflineDraftFingerprint(form: NewOrderFormState): string {

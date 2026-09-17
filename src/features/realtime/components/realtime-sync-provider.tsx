@@ -143,7 +143,9 @@ export function RealtimeSyncProvider({
     recoveryPendingRef.current = false;
     if (!resolvedEnabled || !storeId) setConnectionState("disabled");
     else setConnectionState("connecting");
-  }, [coordinator, expectedDomainsKey, foregroundReconcileDomainsKey, resolvedEnabled, storeId]);
+    // Page reconciliation scope changes do not replace channel subscriptions.
+    // Clearing their statuses here would leave a healthy connection "connecting" forever.
+  }, [coordinator, expectedDomainsKey, resolvedEnabled, storeId]);
 
   useEffect(() => {
     const handleOffline = () => {

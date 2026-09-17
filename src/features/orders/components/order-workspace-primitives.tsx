@@ -24,6 +24,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { componentOverlay } from "@/lib/component-patterns";
+import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/shared/i18n/locale-provider";
 
@@ -33,12 +34,14 @@ export type OrderWorkspaceMoneyStripVariant = "status" | "finance";
 /** A read-only projection of the existing quote items; editing stays with the caller. */
 export function OrderWorkspaceRepairItems({
   names,
+  amounts,
   onEdit,
   onEditClick,
   className,
   actions,
 }: {
   names: string[];
+  amounts?: number[];
   onEdit?: (trigger: HTMLButtonElement) => void;
   onEditClick?: MouseEventHandler<HTMLButtonElement>;
   className?: string;
@@ -69,7 +72,10 @@ export function OrderWorkspaceRepairItems({
                 className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
                 aria-hidden="true"
               />
-              <span className="min-w-0 break-words">{name}</span>
+              <span className="min-w-0 flex-1 break-words">{name}</span>
+              {amounts?.[index] !== undefined ? (
+                <MoneyText amount={amounts[index]} className="shrink-0 font-semibold" />
+              ) : null}
             </li>
           ))}
         </ul>
@@ -185,6 +191,7 @@ export function OrderWorkspaceSectionHeader({
 export function OrderWorkspaceMoneyStrip({
   total,
   deposit,
+  received,
   balance,
   className,
   itemClassName,
@@ -196,6 +203,7 @@ export function OrderWorkspaceMoneyStrip({
 }: {
   total: number;
   deposit: number;
+  received?: number;
   balance: number;
   className?: string;
   itemClassName?: string;
@@ -214,18 +222,34 @@ export function OrderWorkspaceMoneyStrip({
       >
         {[
           [t("orders2b2.finance.total"), total],
-          [t("orders2b2.finance.depositPaid"), deposit],
+          [
+            t(
+              received === undefined ? "orders2b2.finance.depositPaid" : "orders2b1.quote.received",
+            ),
+            received ?? deposit,
+          ],
           [t(cancelled ? "orders2b1.money.cancelledBalance" : "orders2b1.task.due"), balance],
         ].map(([label, amount], index) => (
           <div
             key={index}
             data-order-workbench-amount={
-              index === 0 ? "total" : index === 1 ? "deposit" : "balance"
+              index === 0
+                ? "total"
+                : index === 1
+                  ? received === undefined
+                    ? "deposit"
+                    : "received"
+                  : "balance"
             }
           >
             <dt>{label}</dt>
             <dd>
               <MoneyText amount={Number(amount)} />
+              {index === 1 && received !== undefined ? (
+                <span className="mt-1 block text-[11px] font-normal leading-4 opacity-75">
+                  {t("orders2b1.quote.receivedDeposit", { amount: formatMoney(deposit) })}
+                </span>
+              ) : null}
             </dd>
           </div>
         ))}

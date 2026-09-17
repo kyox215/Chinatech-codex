@@ -57,7 +57,10 @@ import {
 import { CustomerBackupPhonesField } from "@/features/customers/forms/customer-backup-phones-field";
 import { PhoneContactMenu } from "@/features/orders/components/order-contact-menu";
 import { WarrantyPicker, WarrantyTag } from "@/features/orders/components/warranty-picker";
-import type { OrderDetailField } from "@/features/orders/components/order-detail-field-editor";
+import {
+  getOrderDetailFieldReadOnlyLabel,
+  type OrderDetailField,
+} from "@/features/orders/components/order-detail-field-editor";
 import { CustomerPhoneLookup } from "@/features/orders/forms/customer-phone-lookup";
 import {
   DEVICE_CUSTODY_WITH_SHOP,
@@ -257,6 +260,8 @@ export function OrderOverviewTab({
       quickImeiPending={quickImeiPending}
       intakeEdit={intakeEdit}
       repairEdit={repairEdit}
+      canEditIntake={canEditIntake}
+      canEditRepair={canEditRepair}
       surface={surface}
       showDiagnosis={surface === "dialog"}
       onEdit={canEditIntake || canEditRepair ? (onEditDevice ?? onEdit) : undefined}
@@ -976,6 +981,7 @@ function OrderOverviewFinancePanel({
           <OrderWorkspaceMoneyStrip
             total={display.quotation}
             deposit={display.deposit}
+            received={display.deposit + paidAmount}
             balance={display.balance}
             cancelled={cancelled}
             appearance="workbench-summary"
@@ -1589,6 +1595,8 @@ function DeviceIssuePanel({
   quickImeiPending,
   intakeEdit,
   repairEdit,
+  canEditIntake,
+  canEditRepair,
   surface,
   showDiagnosis = true,
   onEdit,
@@ -1610,6 +1618,8 @@ function DeviceIssuePanel({
   quickImeiPending: boolean;
   intakeEdit: OrderEditContext | null;
   repairEdit: OrderEditContext | null;
+  canEditIntake: boolean;
+  canEditRepair: boolean;
   surface: DetailSurface;
   showDiagnosis?: boolean;
   onEdit?: React.MouseEventHandler<HTMLButtonElement>;
@@ -1622,6 +1632,8 @@ function DeviceIssuePanel({
 }) {
   const { locale, t } = useLocale();
   const dense = true;
+  const fieldReadOnlyLabel = (field: OrderDetailField) =>
+    getOrderDetailFieldReadOnlyLabel(field, canEditIntake, canEditRepair, t);
   if (!intakeEdit && !repairEdit) {
     return (
       <DetailPanel surface={surface} dataPanel="device" className="order-workbench-device-card">
@@ -1655,7 +1667,11 @@ function DeviceIssuePanel({
               type="button"
               onClick={(event) => onEditNotes?.(event.currentTarget)}
               disabled={!onEditNotes}
-              aria-label={t("orders.faultEditor.title")}
+              aria-label={
+                canEditIntake
+                  ? t("orders.faultEditor.title")
+                  : t("orders2b2.field.viewOnly", { field: t("orders.notes.label") })
+              }
               className="block min-h-11 w-full text-left focus-visible:ring-2 focus-visible:ring-ring"
             >
               <h3>
@@ -1670,6 +1686,8 @@ function DeviceIssuePanel({
             <button
               type="button"
               data-order-field-trigger="diagnosis"
+              aria-label={fieldReadOnlyLabel("diagnosis")}
+              title={fieldReadOnlyLabel("diagnosis")}
               onClick={(event) => onEditField?.("diagnosis", event.currentTarget)}
               disabled={!onEditField}
               className="block min-h-11 w-full text-left focus-visible:ring-2 focus-visible:ring-ring"
@@ -1693,6 +1711,7 @@ function DeviceIssuePanel({
               (item) =>
                 localizeRepairServiceItemName(item, locale) || t("orders2b2.mobile.unnamedItem"),
             )}
+            amounts={order.fault_prices.map((item) => item.price)}
             onEditClick={onEditQuote}
             actions={quoteAction}
           />
@@ -1704,6 +1723,8 @@ function DeviceIssuePanel({
             <button
               type="button"
               data-order-field-trigger="accessories"
+              aria-label={fieldReadOnlyLabel("accessories")}
+              title={fieldReadOnlyLabel("accessories")}
               onClick={(event) => onEditField?.("accessories", event.currentTarget)}
               disabled={!onEditField}
               className="order-detail-direct-field"
@@ -1714,6 +1735,8 @@ function DeviceIssuePanel({
             <button
               type="button"
               data-order-field-trigger="warranty"
+              aria-label={fieldReadOnlyLabel("warranty")}
+              title={fieldReadOnlyLabel("warranty")}
               onClick={(event) => onEditField?.("warranty", event.currentTarget)}
               disabled={!onEditField}
               className="order-detail-direct-field"
@@ -1744,6 +1767,8 @@ function DeviceIssuePanel({
             <button
               type="button"
               data-order-field-trigger="notes"
+              aria-label={fieldReadOnlyLabel("notes")}
+              title={fieldReadOnlyLabel("notes")}
               onClick={(event) => onEditField?.("notes", event.currentTarget)}
               disabled={!onEditField}
               className="order-detail-direct-field"
@@ -1759,6 +1784,8 @@ function DeviceIssuePanel({
             <button
               type="button"
               data-order-field-trigger="internal_tag"
+              aria-label={fieldReadOnlyLabel("internal_tag")}
+              title={fieldReadOnlyLabel("internal_tag")}
               onClick={(event) => onEditField?.("internal_tag", event.currentTarget)}
               disabled={!onEditField}
               className="order-detail-direct-field"

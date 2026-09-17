@@ -38,6 +38,16 @@ describe("workbench money summary", () => {
 });
 
 describe("repair item edit trigger compatibility", () => {
+  it("keeps every quoted amount beside its matching item including repeated names", () => {
+    const { container } = render(
+      <OrderWorkspaceRepairItems names={["Display", "Display", "Battery"]} amounts={[70, 30, 0]} />,
+    );
+    const rows = container.querySelectorAll("li");
+    expect(rows[0]).toHaveTextContent("Display€70.00");
+    expect(rows[1]).toHaveTextContent("Display€30.00");
+    expect(rows[2]).toHaveTextContent("Battery€0.00");
+  });
+
   it("keeps repeated business items and exposes the complete list without edit permission", () => {
     const names = ["Display", "Display", "Battery", "Labour", "Seal", "Diagnostic"];
     const { container } = render(<OrderWorkspaceRepairItems names={names} />);

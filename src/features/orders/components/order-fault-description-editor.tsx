@@ -226,7 +226,9 @@ export function OrderFaultDescriptionEditor({
           <span className={componentOverlay.denseEditorIcon} aria-hidden="true">
             <FileText />
           </span>
-          {t("orders.faultEditor.title")}
+          {canEditIntake
+            ? t("orders.faultEditor.title")
+            : t("orders2b2.field.viewOnly", { field: t("orders.notes.label") })}
         </Title>
         <Description className="min-w-0 truncate text-[10px] text-muted-foreground">
           {order.public_no}

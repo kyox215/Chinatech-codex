@@ -109,7 +109,7 @@ import {
 import { storeSettingsQueryOptions } from "@/features/messages/api/query-options";
 import { PrintPortal } from "@/features/orders/components/print-portal";
 import { formatEuro, formatItalianDateTime } from "@/features/orders/model/order-italian";
-import { useRealtimeSync } from "@/features/realtime";
+import { useRealtimeCoordinator } from "@/features/realtime";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { componentOverlay } from "@/lib/component-patterns";
 import { fadeUp } from "@/lib/motion";
@@ -207,7 +207,7 @@ export function InventoryScreen() {
         ? "error"
         : "ready",
   });
-  const { coordinator } = useRealtimeSync();
+  const { coordinator } = useRealtimeCoordinator();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);

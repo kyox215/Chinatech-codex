@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { AlertTriangle, RefreshCw, Search } from "lucide-react";
+import { AlertTriangle, Archive, Plus, RefreshCw, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { brandGradientStyle, repairOs, stateBlocks } from "@/lib/ui-patterns";
@@ -12,10 +12,16 @@ export function EmptyOrdersState({
   hasActiveFilters,
   searchQuery,
   onClearFilters,
+  currentQueue = false,
+  onSearchArchive,
+  onCreateOrder,
 }: {
   hasActiveFilters: boolean;
   searchQuery?: string;
   onClearFilters: () => void;
+  currentQueue?: boolean;
+  onSearchArchive?: () => void;
+  onCreateOrder?: () => void;
 }) {
   const { t } = useLocale();
   const normalizedSearch = searchQuery?.trim();
@@ -35,20 +41,33 @@ export function EmptyOrdersState({
           ? t("orders.noSearchResults", { query: normalizedSearch })
           : hasActiveFilters
             ? t("orders.noFilteredResults")
-            : t("orders.noOrders")}
+            : t(currentQueue ? "orders.noCurrentOrders" : "orders.noOrders")}
       </h3>
       <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
         {normalizedSearch
-          ? t("orders.searchHelp")
+          ? t(currentQueue ? "orders.currentSearchHelp" : "orders.searchHelp")
           : hasActiveFilters
             ? t("orders.filterHelp")
-            : t("orders.emptyHelp")}
+            : t(currentQueue ? "orders.currentEmptyHelp" : "orders.emptyHelp")}
       </p>
-      {hasActiveFilters && (
-        <Button variant="outline" size="sm" className="mt-3 h-8" onClick={onClearFilters}>
-          {normalizedSearch ? t("orders.clearSearchAndFilters") : t("orders.clearAllFilters")}
-        </Button>
-      )}
+      <div className="mt-3 flex flex-wrap justify-center gap-2">
+        {normalizedSearch && onSearchArchive ? (
+          <Button size="sm" className="h-11 gap-1.5" onClick={onSearchArchive}>
+            <Archive className="size-3.5" aria-hidden="true" />
+            {t("orders.searchArchive")}
+          </Button>
+        ) : null}
+        {hasActiveFilters ? (
+          <Button variant="outline" size="sm" className="h-11" onClick={onClearFilters}>
+            {normalizedSearch ? t("orders.clearSearchAndFilters") : t("orders.clearAllFilters")}
+          </Button>
+        ) : onCreateOrder ? (
+          <Button size="sm" className="h-11 gap-1.5" onClick={onCreateOrder}>
+            <Plus className="size-3.5" aria-hidden="true" />
+            {t("orders.new")}
+          </Button>
+        ) : null}
+      </div>
     </motion.div>
   );
 }

@@ -28,7 +28,7 @@ export function assertCustomerStatusPublicRequest(request: NextRequest) {
     throw new CustomerStatusRequestError("Richiesta non consentita.", 403);
   }
   const origin = request.headers.get("origin");
-  if (origin && safeOrigin(origin) !== request.nextUrl.origin) {
+  if (origin && safeOrigin(origin) !== getCustomerStatusRequestOrigin(request)) {
     throw new CustomerStatusRequestError("Richiesta non consentita.", 403);
   }
   const contentType = request.headers.get("content-type")?.split(";", 1)[0]?.trim();
@@ -77,4 +77,28 @@ function safeOrigin(value: string) {
   } catch {
     return "";
   }
+}
+
+/** NextURL canonicalizes loopback IPs to localhost; the browser Origin does not.
+ * Recover only the exact loopback Host on the same protocol/port. Never trust
+ * forwarded hosts or allow localhost and IP origins interchangeably.
+ */
+function getCustomerStatusRequestOrigin(request: NextRequest) {
+  const url = request.nextUrl;
+  if (url.hostname !== "localhost") return url.origin;
+  const host = request.headers.get("host");
+  if (!host) return url.origin;
+  try {
+    const original = new URL(`${url.protocol}//${host}`);
+    if (
+      original.host === host &&
+      ["127.0.0.1", "[::1]"].includes(original.hostname) &&
+      original.port === url.port
+    ) {
+      return original.origin;
+    }
+  } catch {
+    // Malformed Host cannot widen the accepted origin.
+  }
+  return url.origin;
 }

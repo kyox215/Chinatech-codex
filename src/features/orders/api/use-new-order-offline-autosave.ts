@@ -14,12 +14,16 @@ import type {
 import {
   buildNewOrderOfflineDraftInput,
   getNewOrderOfflineDraftFingerprint,
+  hasNewOrderSessionOnlyDraft,
   hasNewOrderSensitiveUnlockDraft,
   isNewOrderFormWorthOfflineAutosave,
   restoreNewOrderFormFromOfflineDraft,
   type NewOrderOfflineDraftRestoreResult,
 } from "@/features/orders/model/new-order-offline-draft";
-import type { NewOrderFormState } from "@/features/orders/model/new-order-form";
+import {
+  initialNewOrderForm,
+  type NewOrderFormState,
+} from "@/features/orders/model/new-order-form";
 
 export type NewOrderOfflineAutosaveState =
   | "disabled"
@@ -39,6 +43,7 @@ export type NewOrderOfflineDraftPrompt = {
 
 export type UseNewOrderOfflineAutosaveOptions = {
   form: NewOrderFormState;
+  defaultForm?: NewOrderFormState;
   scope?: RepairDeskOfflineScope | null;
   enabled?: boolean;
   debounceMs?: number;
@@ -48,6 +53,7 @@ export type UseNewOrderOfflineAutosaveOptions = {
 
 export function useNewOrderOfflineAutosave({
   form,
+  defaultForm = initialNewOrderForm,
   scope,
   enabled = true,
   debounceMs = 1200,
@@ -63,6 +69,7 @@ export function useNewOrderOfflineAutosave({
   const [pendingRestoreNotice, setPendingRestoreNotice] = useState<string | null>(null);
   const [preflightAttempt, setPreflightAttempt] = useState(0);
   const latestFormRef = useRef(form);
+  const defaultFormRef = useRef(defaultForm);
   const currentDraftIdRef = useRef<string | undefined>(undefined);
   const lastSavedFingerprintRef = useRef<string | undefined>(undefined);
   const storageAvailableRef = useRef(false);
@@ -77,11 +84,16 @@ export function useNewOrderOfflineAutosave({
   // Publish the committed form before that read, without waiting for passive effects.
   useLayoutEffect(() => {
     latestFormRef.current = form;
-    if (suppressAutosaveUntilCleanRef.current && !isNewOrderFormWorthOfflineAutosave(form)) {
+    defaultFormRef.current = defaultForm;
+    if (
+      suppressAutosaveUntilCleanRef.current &&
+      !isNewOrderFormWorthOfflineAutosave(form, defaultForm) &&
+      !hasNewOrderSessionOnlyDraft(form)
+    ) {
       suppressAutosaveUntilCleanRef.current = false;
       discardInProgressRef.current = false;
     }
-  }, [form]);
+  }, [defaultForm, form]);
 
   const service = useMemo(() => {
     if (!enabled || !scopeStoreId || !scopeUserId || typeof window === "undefined") return null;
@@ -173,7 +185,12 @@ export function useNewOrderOfflineAutosave({
 
   const saveNow = useCallback(async () => {
     const currentForm = latestFormRef.current;
-    if (!isNewOrderFormWorthOfflineAutosave(currentForm)) return true;
+    if (
+      !currentDraftIdRef.current &&
+      !isNewOrderFormWorthOfflineAutosave(currentForm, defaultFormRef.current)
+    ) {
+      return !hasNewOrderSessionOnlyDraft(currentForm);
+    }
     if (discardInProgressRef.current || suppressAutosaveUntilCleanRef.current) return false;
     if (!service || !storageAvailableRef.current || draftPrompt || queuedRef.current) return false;
 
@@ -214,8 +231,10 @@ export function useNewOrderOfflineAutosave({
   const isCurrentDraftDirty = useCallback(() => {
     const currentForm = latestFormRef.current;
     return (
-      isNewOrderFormWorthOfflineAutosave(currentForm) &&
-      getNewOrderOfflineDraftFingerprint(currentForm) !== lastSavedFingerprintRef.current
+      hasNewOrderSessionOnlyDraft(currentForm) ||
+      getNewOrderOfflineDraftFingerprint(currentForm) !==
+        (lastSavedFingerprintRef.current ??
+          getNewOrderOfflineDraftFingerprint(defaultFormRef.current))
     );
   }, []);
 
@@ -231,13 +250,13 @@ export function useNewOrderOfflineAutosave({
       state === "unavailable"
     )
       return;
-    if (!isNewOrderFormWorthOfflineAutosave(form)) return;
+    if (!isNewOrderFormWorthOfflineAutosave(form, defaultForm)) return;
 
     const timer = window.setTimeout(() => {
       void saveNow();
     }, debounceMs);
     return () => window.clearTimeout(timer);
-  }, [debounceMs, draftPrompt, form, saveNow, service, state]);
+  }, [debounceMs, defaultForm, draftPrompt, form, saveNow, service, state]);
 
   useEffect(() => {
     if (!service) return;
@@ -326,7 +345,10 @@ export function useNewOrderOfflineAutosave({
     setDraftPrompt(null);
     setPendingRestoreNotice(null);
     setState("ready");
-    if (!isNewOrderFormWorthOfflineAutosave(latestFormRef.current)) {
+    if (
+      !isNewOrderFormWorthOfflineAutosave(latestFormRef.current, defaultFormRef.current) &&
+      !hasNewOrderSessionOnlyDraft(latestFormRef.current)
+    ) {
       suppressAutosaveUntilCleanRef.current = false;
       discardInProgressRef.current = false;
     }
@@ -369,7 +391,10 @@ export function useNewOrderOfflineAutosave({
     setPendingRestoreNotice(null);
     setErrorMessage(null);
     setState("ready");
-    if (!isNewOrderFormWorthOfflineAutosave(latestFormRef.current)) {
+    if (
+      !isNewOrderFormWorthOfflineAutosave(latestFormRef.current, defaultFormRef.current) &&
+      !hasNewOrderSessionOnlyDraft(latestFormRef.current)
+    ) {
       suppressAutosaveUntilCleanRef.current = false;
       discardInProgressRef.current = false;
     }
@@ -386,6 +411,9 @@ export function useNewOrderOfflineAutosave({
     const currentForm = latestFormRef.current;
     if (hasNewOrderSensitiveUnlockDraft(currentForm)) {
       throw new Error("离线创建不会保存手机密码、PIN 或图案，请清除后再保存");
+    }
+    if (hasNewOrderSessionOnlyDraft(currentForm)) {
+      throw new Error("解锁方式或内部标签仅保留在当前窗口，请清除后再保存离线草稿");
     }
     if (!currentForm.deviceCustodyStatus) {
       throw new Error("请先确认设备是否留店");
@@ -430,6 +458,7 @@ export function useNewOrderOfflineAutosave({
     draftPrompt,
     pendingRestoreNotice,
     hasSensitiveUnlockDraft: hasNewOrderSensitiveUnlockDraft(form),
+    hasSessionOnlyDraft: hasNewOrderSessionOnlyDraft(form),
     isDraftDirty,
     isCurrentDraftDirty,
     saveNow,

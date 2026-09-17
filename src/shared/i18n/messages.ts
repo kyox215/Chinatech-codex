@@ -482,6 +482,10 @@ const zhCN = {
   "orders.noSearchResults": "未找到“{query}”",
   "orders.noFilteredResults": "暂无符合条件的工单",
   "orders.noOrders": "暂无工单",
+  "orders.noCurrentOrders": "当前队列暂无工单",
+  "orders.currentSearchHelp":
+    "当前待处理范围没有匹配，已完成或取消的工单可用完整工单号、电话或 IMEI 查历史。",
+  "orders.currentEmptyHelp": "这里显示待处理工单，已完成或取消的工单保留在历史范围。",
   "orders.searchHelp": "可以检查订单号、姓名、电话号码或 IMEI，也可以清除条件后重试。",
   "orders.filterHelp": "当前有筛选条件生效，可以清除后再查看。",
   "orders.emptyHelp": "新建第一张维修工单后会显示在这里。",
@@ -780,7 +784,7 @@ const zhCN = {
   "orders.queue.boardView": "状态板",
   "orders.queue.pageScope": "当前筛选 · 第 {page} 页 · {count} 张工单",
   "orders.queue.pageScopeCompact": "第 {page} 页 · {count} 单",
-  "orders.queue.groupCounts": "已载入 {pageCount} / 共 {totalCount}",
+  "orders.queue.groupCounts": "已载入 {pageCount} / 本组 {totalCount}",
   "orders.queue.boardHint": "仅按主维修阶段分组当前页；配件、客户确认与通知单独显示。",
   "orders.queue.listHint": "主维修阶段与细状态分开显示；点击下一步进入详情处理。",
   "orders.queue.headerOrder": "工单 · 时间",
@@ -1731,7 +1735,7 @@ const zhCN = {
   "orders.title": "维修工单",
   "orders.rangeMenuHelp": "选择要查看的工单范围。",
   "orders.workQueues": "工作队列",
-  "orders.allQueues": "全部队列",
+  "orders.allQueues": "当前队列",
   "orders.chooseQueue": "切换工作队列，当前：{queue}",
   "orders.queueOption": "{queue}，{count} 条工单",
   "orders.queueMenuHelp": "选择后返回列表，当前数据范围保持不变。",
@@ -2238,6 +2242,8 @@ const zhCN = {
   "orders2b1.new.collapseMissing": "收起缺失清单",
   "orders2b1.new.itemsCount": "{count} 项",
   "orders2b1.new.unlockDraftWarning": "手机密码、PIN 或图案不会进入本机草稿，刷新后需重新输入。",
+  "orders2b1.new.sessionOnlyDraftWarning":
+    "解锁信息和内部标签仅保留在当前窗口。请先创建工单，或清除这些内容后再保存本机草稿并关闭。",
   "orders2b1.new.customerInfo": "客户信息",
   "orders2b1.new.customerInfoHelp": "电话优先匹配客户档案",
   "orders2b1.new.deviceInfo": "设备信息",
@@ -3092,6 +3098,7 @@ const zhCN = {
   "orders2b2.fault.diagnosisAdded": "已诊断",
   "orders2b2.fault.empty": "暂无可带入项目，可直接手动填写。",
   "orders2b2.fault.readonly": "（只读）",
+  "orders2b2.field.viewOnly": "查看{field}（只读）",
   "orders2b2.fault.issuePlaceholder": "描述客户反馈、故障表现、可复现条件等",
   "orders2b2.fault.diagnosisPlaceholder": "填写检测结果、风险、建议处理方式",
   "orders2b2.fault.noChanges": "没有可保存的修改。",
@@ -4683,6 +4690,11 @@ const itIT: Record<MessageKey, string> = {
   "orders.noSearchResults": "Nessun risultato per “{query}”",
   "orders.noFilteredResults": "Nessun ordine corrisponde ai filtri",
   "orders.noOrders": "Nessun ordine",
+  "orders.noCurrentOrders": "Nessun ordine nella coda attuale",
+  "orders.currentSearchHelp":
+    "Nessuna corrispondenza tra gli ordini in lavorazione. Cerca gli ordini chiusi o annullati nello storico con numero ordine completo, telefono o IMEI.",
+  "orders.currentEmptyHelp":
+    "Qui compaiono gli ordini in lavorazione. Quelli chiusi o annullati restano nello storico.",
   "orders.searchHelp": "Controlla numero ordine, nome, telefono o IMEI, oppure cancella i criteri.",
   "orders.filterHelp": "Sono attivi alcuni filtri; cancellali per vedere altri ordini.",
   "orders.emptyHelp": "Il primo ordine di riparazione apparirà qui.",
@@ -5012,7 +5024,7 @@ const itIT: Record<MessageKey, string> = {
   "orders.queue.boardView": "Bacheca",
   "orders.queue.pageScope": "Filtri attuali · Pagina {page} · {count} ordini",
   "orders.queue.pageScopeCompact": "Pag. {page} · {count} ordini",
-  "orders.queue.groupCounts": "Caricati {pageCount} / Tot. {totalCount}",
+  "orders.queue.groupCounts": "Caricati {pageCount} / Gruppo {totalCount}",
   "orders.queue.boardHint":
     "Solo questa pagina, raggruppata per fase. Ricambi, conferme e notifiche restano separati.",
   "orders.queue.listHint":
@@ -6047,7 +6059,7 @@ const itIT: Record<MessageKey, string> = {
   "orders.title": "Ordini di riparazione",
   "orders.rangeMenuHelp": "Scegli l’intervallo degli ordini da visualizzare.",
   "orders.workQueues": "Code di lavoro",
-  "orders.allQueues": "Tutte le code",
+  "orders.allQueues": "Coda attuale",
   "orders.chooseQueue": "Cambia coda di lavoro, attuale: {queue}",
   "orders.queueOption": "{queue}, {count} ordini",
   "orders.queueMenuHelp": "Scegli una coda: l’intervallo dei dati rimane invariato.",
@@ -6602,6 +6614,8 @@ const itIT: Record<MessageKey, string> = {
   "orders2b1.new.itemsCount": "{count} elementi",
   "orders2b1.new.unlockDraftWarning":
     "Password, PIN e sequenza non vengono salvati nella bozza locale; reinseriscili dopo un aggiornamento.",
+  "orders2b1.new.sessionOnlyDraftWarning":
+    "Sblocco e tag interno restano solo in questa finestra. Crea l’ordine o rimuovili prima di salvare la bozza locale e chiudere.",
   "orders2b1.new.customerInfo": "Dati cliente",
   "orders2b1.new.customerInfoHelp": "Il telefono ha priorità nella ricerca del cliente",
   "orders2b1.new.deviceInfo": "Dati dispositivo",
@@ -7560,6 +7574,7 @@ const itIT: Record<MessageKey, string> = {
   "orders2b2.fault.diagnosisAdded": "In diagnosi",
   "orders2b2.fault.empty": "Nessun intervento da inserire; compila manualmente.",
   "orders2b2.fault.readonly": "(sola lettura)",
+  "orders2b2.field.viewOnly": "Visualizza {field} (sola lettura)",
   "orders2b2.fault.issuePlaceholder": "Descrivi segnalazione, sintomi e condizioni riproducibili",
   "orders2b2.fault.diagnosisPlaceholder": "Inserisci esito, rischi e azione consigliata",
   "orders2b2.fault.noChanges": "Nessuna modifica da salvare.",
@@ -9296,6 +9311,11 @@ const en: Record<MessageKey, string> = {
   "orders.noSearchResults": "No results for “{query}”",
   "orders.noFilteredResults": "No orders match the filters",
   "orders.noOrders": "No orders",
+  "orders.noCurrentOrders": "No orders in the current queue",
+  "orders.currentSearchHelp":
+    "No matches among pending orders. Search history for completed or cancelled orders using the full order number, phone number, or IMEI.",
+  "orders.currentEmptyHelp":
+    "Pending orders appear here. Completed or cancelled orders remain in history.",
   "orders.searchHelp":
     "Check the order number, name, phone number, or IMEI, or clear the criteria.",
   "orders.filterHelp": "Filters are active; clear them to see more orders.",
@@ -9619,7 +9639,7 @@ const en: Record<MessageKey, string> = {
   "orders.queue.boardView": "Board",
   "orders.queue.pageScope": "Current filters · Page {page} · {count} orders",
   "orders.queue.pageScopeCompact": "Page {page} · {count} orders",
-  "orders.queue.groupCounts": "Loaded {pageCount} / Total {totalCount}",
+  "orders.queue.groupCounts": "Loaded {pageCount} / Group {totalCount}",
   "orders.queue.boardHint":
     "This page only, grouped by repair stage. Parts, approval and notifications remain separate.",
   "orders.queue.listHint":
@@ -10637,7 +10657,7 @@ const en: Record<MessageKey, string> = {
   "orders.title": "Repair orders",
   "orders.rangeMenuHelp": "Choose which order records to view.",
   "orders.workQueues": "Work queues",
-  "orders.allQueues": "All queues",
+  "orders.allQueues": "Current queue",
   "orders.chooseQueue": "Change work queue, current: {queue}",
   "orders.queueOption": "{queue}, {count} orders",
   "orders.queueMenuHelp": "Choose a queue; the current data scope stays unchanged.",
@@ -11189,6 +11209,8 @@ const en: Record<MessageKey, string> = {
   "orders2b1.new.itemsCount": "{count} items",
   "orders2b1.new.unlockDraftWarning":
     "Password, PIN, and pattern are not saved in the local draft; enter them again after refresh.",
+  "orders2b1.new.sessionOnlyDraftWarning":
+    "Unlock details and the internal tag stay in this window only. Create the order or clear them before saving a local draft and closing.",
   "orders2b1.new.customerInfo": "Customer details",
   "orders2b1.new.customerInfoHelp": "Phone takes priority when matching customer records",
   "orders2b1.new.deviceInfo": "Device details",
@@ -12132,6 +12154,7 @@ const en: Record<MessageKey, string> = {
   "orders2b2.fault.diagnosisAdded": "In diagnosis",
   "orders2b2.fault.empty": "No repair items to insert; enter details manually.",
   "orders2b2.fault.readonly": "(read-only)",
+  "orders2b2.field.viewOnly": "View {field} (read-only)",
   "orders2b2.fault.issuePlaceholder":
     "Describe customer report, symptoms, and reproducible conditions",
   "orders2b2.fault.diagnosisPlaceholder": "Enter findings, risks, and recommended action",

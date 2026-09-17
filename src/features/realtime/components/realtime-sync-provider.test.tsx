@@ -22,6 +22,34 @@ afterEach(() => {
 });
 
 describe("RealtimeSyncProvider", () => {
+  it("preserves live subscriptions when only the current page reconcile scope changes", () => {
+    const client = createMockRealtimeClient();
+    const { queryClient, invalidateQueries } = createTestQueryClient();
+    const tree = (foregroundReconcileDomains: ("orders" | "customers")[]) => (
+      <QueryClientProvider client={queryClient}>
+        <RealtimeSyncProvider
+          client={client}
+          enabled
+          storeId={storeId}
+          domains={["orders"]}
+          foregroundReconcileDomains={foregroundReconcileDomains}
+        >
+          <SyncStateProbe />
+        </RealtimeSyncProvider>
+      </QueryClientProvider>
+    );
+    const view = render(tree(["orders"]));
+    act(() => client.emitStatus("SUBSCRIBED"));
+    expect(screen.getByTestId("sync-state")).toHaveTextContent("live");
+    view.rerender(tree(["customers", "orders"]));
+    expect(screen.getByTestId("sync-state")).toHaveTextContent("live");
+    view.rerender(tree(["orders"]));
+    expect(screen.getByTestId("sync-state")).toHaveTextContent("live");
+    expect(client.channel).toHaveBeenCalledTimes(1);
+    expect(client.removeChannel).not.toHaveBeenCalled();
+    expect(invalidateQueries).not.toHaveBeenCalled();
+  });
+
   it("does not subscribe or invalidate when disabled", () => {
     const client = createMockRealtimeClient();
     const { queryClient, invalidateQueries } = createTestQueryClient();
